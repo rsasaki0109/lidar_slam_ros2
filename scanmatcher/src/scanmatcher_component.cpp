@@ -144,8 +144,8 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     msg->pose.orientation.y = initial_pose_qy_;
     msg->pose.orientation.z = initial_pose_qz_;
     msg->pose.orientation.w = initial_pose_qw_;
-    corrent_pose_stamped_ = *msg;
-    pose_pub_->publish(corrent_pose_stamped_);
+    current_pose_stamped_ = *msg;
+    pose_pub_->publish(current_pose_stamped_);
     initial_pose_received_ = true;
 
     path_.poses.push_back(*msg);
@@ -167,13 +167,13 @@ void ScanMatcherComponent::initializePubSub()
       }
       RCLCPP_INFO(get_logger(), "initial_pose is received");
 
-      corrent_pose_stamped_ = *msg;
-      previous_position_.x() = corrent_pose_stamped_.pose.position.x;
-      previous_position_.y() = corrent_pose_stamped_.pose.position.y;
-      previous_position_.z() = corrent_pose_stamped_.pose.position.z;
+      current_pose_stamped_ = *msg;
+      previous_position_.x() = current_pose_stamped_.pose.position.x;
+      previous_position_.y() = current_pose_stamped_.pose.position.y;
+      previous_position_.z() = current_pose_stamped_.pose.position.z;
       initial_pose_received_ = true;
 
-      pose_pub_->publish(corrent_pose_stamped_);
+      pose_pub_->publish(current_pose_stamped_);
     };
 
   auto cloud_callback =
@@ -268,7 +268,7 @@ void ScanMatcherComponent::initializeMap(const pcl::PointCloud <pcl::PointXYZI>:
   voxel_grid.setInputCloud(tmp_ptr);
   voxel_grid.filter(*cloud_ptr);
 
-  Eigen::Matrix4f sim_trans = getTransformation(corrent_pose_stamped_.pose);
+  Eigen::Matrix4f sim_trans = getTransformation(current_pose_stamped_.pose);
   pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud_ptr(
     new pcl::PointCloud<pcl::PointXYZI>());
   pcl::transformPointCloud(*cloud_ptr, *transformed_cloud_ptr, sim_trans);
@@ -285,7 +285,7 @@ void ScanMatcherComponent::initializeMap(const pcl::PointCloud <pcl::PointXYZI>:
   lidarslam_msgs::msg::SubMap submap;
   submap.header = header;
   submap.distance = 0;
-  submap.pose = corrent_pose_stamped_.pose;
+  submap.pose = current_pose_stamped_.pose;
   submap.cloud = *cloud_msg_ptr;
   map_array_msg_.header = header;
   map_array_msg_.submaps.push_back(submap);
@@ -328,7 +328,7 @@ void ScanMatcherComponent::receiveCloud(
   voxel_grid.filter(*filtered_cloud_ptr);
   registration_->setInputSource(filtered_cloud_ptr);
 
-  Eigen::Matrix4f sim_trans = getTransformation(corrent_pose_stamped_.pose);
+  Eigen::Matrix4f sim_trans = getTransformation(current_pose_stamped_.pose);
 
   if (use_odom_) {
     geometry_msgs::msg::TransformStamped odom_trans;
@@ -361,7 +361,7 @@ void ScanMatcherComponent::receiveCloud(
 
   tf2::Quaternion quat_tf;
   double roll, pitch, yaw;
-  tf2::fromMsg(corrent_pose_stamped_.pose.orientation, quat_tf);
+  tf2::fromMsg(current_pose_stamped_.pose.orientation, quat_tf);
   tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
 
   std::cout << "---------------------------------------------------------" << std::endl;
@@ -398,37 +398,45 @@ void ScanMatcherComponent::publishMapAndPose(
   geometry_msgs::msg::Quaternion quat_msg = tf2::toMsg(quat_eig);
 
   if(publish_tf_){
-    geometry_msgs::msg::TransformStamped transform_stamped;
-    transform_stamped.header.stamp = stamp;
-    transform_stamped.header.frame_id = global_frame_id_;
-    transform_stamped.child_frame_id = robot_frame_id_;
-    transform_stamped.transform.translation.x = position.x();
-    transform_stamped.transform.translation.y = position.y();
-    transform_stamped.transform.translation.z = position.z();
-    transform_stamped.transform.rotation = quat_msg;
-    broadcaster_.sendTransform(transform_stamped);
+    geometry_msgs::msg::TransformStamped base_to_map_msg;
+    base_to_map_msg.header.stamp = stamp;
+    base_to_map_msg.header.frame_id = global_frame_id_;
+    base_to_map_msg.child_frame_id = robot_frame_id_;
+    base_to_map_msg.transform.translation.x = position.x();
+    base_to_map_msg.transform.translation.y = position.y();
+    base_to_map_msg.transform.translation.z = position.z();
+    base_to_map_msg.transform.rotation = quat_msg;
+
+    if(use_odom_){
+        geometry_msgs::msg::TransformStamped odom_to_map_msg;
+        odom_to_map_msg = calculateMaptoOdomTransform(base_to_map_msg, stamp);
+        broadcaster_.sendTransform(odom_to_map_msg);
+    }
+    else{
+      broadcaster_.sendTransform(base_to_map_msg);
+    }
   }
 
-  corrent_pose_stamped_.header.stamp = stamp;
-  corrent_pose_stamped_.pose.position.x = position.x();
-  corrent_pose_stamped_.pose.position.y = position.y();
-  corrent_pose_stamped_.pose.position.z = position.z();
-  corrent_pose_stamped_.pose.orientation = quat_msg;
-  pose_pub_->publish(corrent_pose_stamped_);
+  current_pose_stamped_.header.stamp = stamp;
+  current_pose_stamped_.pose.position.x = position.x();
+  current_pose_stamped_.pose.position.y = position.y();
+  current_pose_stamped_.pose.position.z = position.z();
+  current_pose_stamped_.pose.orientation = quat_msg;
+  pose_pub_->publish(current_pose_stamped_);
 
-  path_.poses.push_back(corrent_pose_stamped_);
+  path_.poses.push_back(current_pose_stamped_);
   path_pub_->publish(path_);
 
   trans_ = (position - previous_position_).norm();
   if (trans_ >= trans_for_mapupdate_ && !mapping_flag_) {
-    geometry_msgs::msg::PoseStamped corrent_pose_stamped;
-    corrent_pose_stamped = corrent_pose_stamped_;
+    geometry_msgs::msg::PoseStamped current_pose_stamped;
+    current_pose_stamped = current_pose_stamped_;
     previous_position_ = position;
     mapping_task_ =
       std::packaged_task<void()>(
       std::bind(
         &ScanMatcherComponent::updateMap, this, cloud_ptr,
-        final_transformation, corrent_pose_stamped));
+        final_transformation, current_pose_stamped));
     mapping_future_ = mapping_task_.get_future();
     mapping_thread_ = std::thread(std::move(std::ref(mapping_task_)));
     mapping_flag_ = true;
@@ -438,7 +446,7 @@ void ScanMatcherComponent::publishMapAndPose(
 void ScanMatcherComponent::updateMap(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud_ptr,
   const Eigen::Matrix4f final_transformation,
-  const geometry_msgs::msg::PoseStamped corrent_pose_stamped)
+  const geometry_msgs::msg::PoseStamped current_pose_stamped)
 {
   pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
   pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
@@ -470,13 +478,13 @@ void ScanMatcherComponent::updateMap(
 
   lidarslam_msgs::msg::SubMap submap;
   submap.header.frame_id = global_frame_id_;
-  submap.header.stamp = corrent_pose_stamped.header.stamp;
+  submap.header.stamp = current_pose_stamped.header.stamp;
   latest_distance_ += trans_;
   submap.distance = latest_distance_;
-  submap.pose = corrent_pose_stamped.pose;
+  submap.pose = current_pose_stamped.pose;
   submap.cloud = *cloud_msg_ptr;
   submap.cloud.header.frame_id = global_frame_id_;
-  map_array_msg_.header.stamp = corrent_pose_stamped.header.stamp;
+  map_array_msg_.header.stamp = current_pose_stamped.header.stamp;
   map_array_msg_.submaps.push_back(submap);
   map_array_pub_->publish(map_array_msg_);
 
@@ -549,6 +557,35 @@ void ScanMatcherComponent::publishMap(const lidarslam_msgs::msg::MapArray & map_
   pcl::toROSMsg(*map_ptr, *map_msg_ptr);
   map_msg_ptr->header.frame_id = map_frame_id;
   map_pub_->publish(*map_msg_ptr);
+}
+
+geometry_msgs::msg::TransformStamped ScanMatcherComponent::calculateMaptoOdomTransform(
+  const geometry_msgs::msg::TransformStamped &base_to_map_msg,
+  const rclcpp::Time stamp
+)
+{
+  geometry_msgs::msg::TransformStamped odom_to_map_msg;
+  try {
+    geometry_msgs::msg::PoseStamped odom_to_map;
+    geometry_msgs::msg::PoseStamped base_to_map;
+
+    tf2::Transform odom_to_map_tf;
+    tf2::Transform base_to_map_msg_tf;
+    base_to_map.header.frame_id = robot_frame_id_;
+
+    tf2::fromMsg(base_to_map_msg.transform, base_to_map_msg_tf);
+    tf2::toMsg(base_to_map_msg_tf.inverse(), base_to_map.pose);
+    tfbuffer_.transform(base_to_map, odom_to_map, odom_frame_id_);
+    tf2::impl::Converter<true, false>::convert(odom_to_map.pose, odom_to_map_tf);
+    tf2::impl::Converter<false, true>::convert(odom_to_map_tf.inverse(), odom_to_map_msg.transform);
+
+    odom_to_map_msg.header.stamp = stamp;
+    odom_to_map_msg.header.frame_id = global_frame_id_ ;
+    odom_to_map_msg.child_frame_id = odom_frame_id_;
+  } catch (tf2::TransformException & e) {
+    RCLCPP_ERROR(get_logger(), "Transform from base_link to odom failed: %s", e.what());
+  }
+  return odom_to_map_msg;
 }
 
 } // namespace graphslam
