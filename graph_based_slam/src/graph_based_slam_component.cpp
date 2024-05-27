@@ -267,9 +267,9 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   g2o::SparseOptimizer optimizer;
   optimizer.setVerbose(false);
   std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linear_solver =
-    g2o::make_unique<g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>>();
+    std::make_unique<g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>>();
   g2o::OptimizationAlgorithmLevenberg * solver = new g2o::OptimizationAlgorithmLevenberg(
-    g2o::make_unique<g2o::BlockSolver_6_3>(std::move(linear_solver)));
+    std::make_unique<g2o::BlockSolver_6_3>(std::move(linear_solver)));
 
   optimizer.setAlgorithm(solver);
 
