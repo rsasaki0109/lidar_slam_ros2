@@ -1,9 +1,8 @@
-name: humble
+name: ci
 
 on:
   pull_request:
     branches:
-      - humble
       - develop
 
 jobs:
@@ -36,6 +35,41 @@ jobs:
       - name: Build packages
         run: |
             source /opt/ros/humble/setup.bash
+            apt-get install -y python3-colcon-common-extensions
+            cd ~/ros2_ws
+            colcon build
+            source ~/ros2_ws/install/setup.bash
+        shell: bash
+
+  iron:
+    name: Build for Iron
+    runs-on: ubuntu-22.04
+    container: ros:iron-ros-core
+    steps:
+      - name: Install Git
+        run: |
+            apt-get update
+            apt-get install -y git
+        shell: bash
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Copy repository
+        run: |
+            mkdir -p ~/ros2_ws/src/lidarslam_ros2
+            cp -rf . ~/ros2_ws/src/lidarslam_ros2
+        shell: bash
+      - name: Install dependencies
+        run: |
+            apt-get install -y python3-rosdep
+            rosdep init
+            rosdep update
+            cd ~/ros2_ws/src
+            rosdep install -r -y --from-paths . --ignore-src
+        shell: bash
+      - name: Build packages
+        run: |
+            source /opt/ros/iron/setup.bash
             apt-get install -y python3-colcon-common-extensions
             cd ~/ros2_ws
             colcon build
