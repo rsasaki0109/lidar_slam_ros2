@@ -1,6 +1,5 @@
 lidarslam_ros2
-====
-![humble](https://github.com/rsasaki0109/lidarslam_ros2/workflows/humble/badge.svg)  
+==== 
 ros2 slam package of the frontend using OpenMP-boosted gicp/ndt scan matching and the backend using graph-based slam. 
 
 mobile robot mapping  
