@@ -41,10 +41,10 @@ jobs:
             source ~/ros2_ws/install/setup.bash
         shell: bash
 
-  iron:
-    name: Build for Iron
-    runs-on: ubuntu-22.04
-    container: ros:iron-ros-core
+  jazzy:
+    name: Build for Jazzy
+    runs-on: ubuntu-24.04
+    container: ros:jazzy-ros-core
     steps:
       - name: Install Git
         run: |
@@ -69,7 +69,7 @@ jobs:
         shell: bash
       - name: Build packages
         run: |
-            source /opt/ros/iron/setup.bash
+            source /opt/ros/jazzy/setup.bash
             apt-get install -y python3-colcon-common-extensions
             cd ~/ros2_ws
             colcon build
