@@ -88,7 +88,6 @@ ros2 service call /map_save std_srvs/Empty
 |scan_period|double|0.1|scan period of input cloud[sec](If you want to compound imu, you need to change this parameter.)|
 |map_publish_period|double|15.0|period of map publish[sec]|
 |num_targeted_cloud|int|10|number of targeted cloud in registration(The higher this number,  the less distortion.)|
-|debug_flag|bool|false|Whether or not to display the registration information|
 |set_initial_pose|bool|false|whether or not to set the default pose value in the param file|
 |initial_pose_x|double|0.0|x-coordinate of the initial pose value[m]|
 |initial_pose_y|double|0.0|y-coordinate of the initial pose value[m]|
