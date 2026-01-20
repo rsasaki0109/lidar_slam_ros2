@@ -58,13 +58,8 @@ extern "C" {
 
 #include <lidarslam_msgs/msg/map_array.hpp>
 #include "scanmatcher/lidar_undistortion.hpp"
-
-#include <pclomp/ndt_omp.h>
-#include <pclomp/ndt_omp_impl.hpp>
-#include <pclomp/voxel_grid_covariance_omp.h>
-#include <pclomp/voxel_grid_covariance_omp_impl.hpp>
-#include <pclomp/gicp_omp.h>
-#include <pclomp/gicp_omp_impl.hpp>
+#include "scanmatcher/registration_factory.hpp"
+#include "scanmatcher/map_manager.hpp"
 
 #include <mutex>
 #include <thread>
@@ -90,23 +85,20 @@ private:
     std::string robot_frame_id_;
     std::string odom_frame_id_;
 
-    boost::shared_ptr<pcl::Registration < pcl::PointXYZI, pcl::PointXYZI >> registration_;
+    RegistrationFactory::RegistrationPtr registration_;
+    std::unique_ptr<MapManager> map_manager_;
 
     rclcpp::Subscription < geometry_msgs::msg::PoseStamped > ::SharedPtr initial_pose_sub_;
     rclcpp::Subscription < sensor_msgs::msg::Imu > ::SharedPtr imu_sub_;
     rclcpp::Subscription < sensor_msgs::msg::PointCloud2 > ::SharedPtr input_cloud_sub_;
 
-    std::mutex mtx_;
-    pcl::PointCloud < pcl::PointXYZI > targeted_cloud_;
     rclcpp::Time last_map_time_;
     bool mapping_flag_ {false};
-    bool is_map_updated_ {false};
     std::thread mapping_thread_;
     std::packaged_task < void() > mapping_task_;
     std::future < void > mapping_future_;
 
     geometry_msgs::msg::PoseStamped current_pose_stamped_;
-    lidarslam_msgs::msg::MapArray map_array_msg_;
     nav_msgs::msg::Path path_;
     rclcpp::Publisher < geometry_msgs::msg::PoseStamped > ::SharedPtr pose_pub_;
     rclcpp::Publisher < sensor_msgs::msg::PointCloud2 > ::SharedPtr map_pub_;
@@ -143,12 +135,10 @@ private:
     std::string registration_method_;
     double trans_for_mapupdate_;
     double vg_size_for_input_;
-    double vg_size_for_map_;
     bool use_min_max_filter_ {false};
     double scan_min_range_ {0.1};
     double scan_max_range_ {100.0};
     double map_publish_period_;
-    int num_targeted_cloud_;
 
     bool set_initial_pose_ {false};
     bool publish_tf_ {true};
@@ -159,7 +149,6 @@ private:
     // map
     Eigen::Vector3d previous_position_;
     double trans_;
-    double latest_distance_ {0};
 
     // initial_pose
     double initial_pose_x_;

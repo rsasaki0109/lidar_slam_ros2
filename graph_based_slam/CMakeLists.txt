@@ -37,6 +37,7 @@ find_package(tf2_sensor_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(lidarslam_msgs REQUIRED)
 find_package(ndt_omp_ros2 REQUIRED)
+find_package(scanmatcher REQUIRED)
 find_package(PCL REQUIRED)
 find_package(g2o REQUIRED
 COMPONENTS
@@ -63,19 +64,20 @@ src/graph_based_slam_component.cpp
 target_compile_definitions(graph_based_slam_component PRIVATE "GS_GBS_BUILDING_DLL")
 
 ament_target_dependencies(graph_based_slam_component
-  rclcpp 
-  rclcpp_components 
-  tf2_ros 
+  rclcpp
+  rclcpp_components
+  tf2_ros
   tf2_eigen
   tf2_geometry_msgs
   tf2_sensor_msgs
   pcl_conversions
-  geometry_msgs 
+  geometry_msgs
   sensor_msgs
   nav_msgs
   std_srvs
   lidarslam_msgs
   ndt_omp_ros2
+  scanmatcher
 )
 
 target_link_libraries(graph_based_slam_component

@@ -61,16 +61,9 @@ extern "C" {
 #include <pcl_conversions/pcl_conversions.h>
 
 #include <pcl/point_types.h>
-#include <pcl/registration/ndt.h>
-#include <pcl/registration/gicp.h>
 #include <pcl/io/pcd_io.h>
 
-#include <pclomp/ndt_omp.h>
-#include <pclomp/ndt_omp_impl.hpp>
-#include <pclomp/voxel_grid_covariance_omp.h>
-#include <pclomp/voxel_grid_covariance_omp_impl.hpp>
-#include <pclomp/gicp_omp.h>
-#include <pclomp/gicp_omp_impl.hpp>
+#include <scanmatcher/registration_factory.hpp>
 
 #include "g2o/core/sparse_optimizer.h"
 #include "g2o/core/optimization_algorithm_levenberg.h"
@@ -103,7 +96,7 @@ private:
     tf2_ros::TransformListener listener_;
     tf2_ros::TransformBroadcaster broadcaster_;
 
-    boost::shared_ptr<pcl::Registration < pcl::PointXYZI, pcl::PointXYZI >> registration_;
+    RegistrationFactory::RegistrationPtr registration_;
     pcl::VoxelGrid < pcl::PointXYZI > voxelgrid_;
 
     lidarslam_msgs::msg::MapArray map_array_msg_;

@@ -43,46 +43,36 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   declare_parameter("debug_flag", false);
   get_parameter("debug_flag", debug_flag_);
 
-  std::cout << "registration_method:" << registration_method << std::endl;
-  std::cout << "voxel_leaf_size[m]:" << voxel_leaf_size << std::endl;
-  std::cout << "ndt_resolution[m]:" << ndt_resolution << std::endl;
-  std::cout << "ndt_num_threads:" << ndt_num_threads << std::endl;
-  std::cout << "loop_detection_period[Hz]:" << loop_detection_period_ << std::endl;
-  std::cout << "threshold_loop_closure_score:" << threshold_loop_closure_score_ << std::endl;
-  std::cout << "distance_loop_closure[m]:" << distance_loop_closure_ << std::endl;
-  std::cout << "range_of_searching_loop_closure[m]:" << range_of_searching_loop_closure_ <<
-    std::endl;
-  std::cout << "search_submap_num:" << search_submap_num_ << std::endl;
-  std::cout << "num_adjacent_pose_cnstraints:" << num_adjacent_pose_cnstraints_ << std::endl;
-  std::cout << "use_save_map_in_loop:" << std::boolalpha << use_save_map_in_loop_ << std::endl;
-  std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
-  std::cout << "------------------" << std::endl;
+  RCLCPP_INFO(get_logger(), "registration_method: %s", registration_method.c_str());
+  RCLCPP_INFO(get_logger(), "voxel_leaf_size[m]: %f", voxel_leaf_size);
+  RCLCPP_INFO(get_logger(), "ndt_resolution[m]: %f", ndt_resolution);
+  RCLCPP_INFO(get_logger(), "ndt_num_threads: %d", ndt_num_threads);
+  RCLCPP_INFO(get_logger(), "loop_detection_period[ms]: %d", loop_detection_period_);
+  RCLCPP_INFO(get_logger(), "threshold_loop_closure_score: %f", threshold_loop_closure_score_);
+  RCLCPP_INFO(get_logger(), "distance_loop_closure[m]: %f", distance_loop_closure_);
+  RCLCPP_INFO(get_logger(), "range_of_searching_loop_closure[m]: %f", range_of_searching_loop_closure_);
+  RCLCPP_INFO(get_logger(), "search_submap_num: %d", search_submap_num_);
+  RCLCPP_INFO(get_logger(), "num_adjacent_pose_cnstraints: %d", num_adjacent_pose_cnstraints_);
+  RCLCPP_INFO(get_logger(), "use_save_map_in_loop: %s", use_save_map_in_loop_ ? "true" : "false");
+  RCLCPP_INFO(get_logger(), "debug_flag: %s", debug_flag_ ? "true" : "false");
 
   voxelgrid_.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
 
-  if (registration_method == "NDT") {
-	  boost::shared_ptr<pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>
-      ndt(new pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>());
-    ndt->setMaximumIterations(100);
-    ndt->setResolution(ndt_resolution);
-    ndt->setTransformationEpsilon(0.01);
-    // ndt->setTransformationEpsilon(1e-6);
-    ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
-    if (ndt_num_threads > 0) {ndt->setNumThreads(ndt_num_threads);}
-    registration_ = ndt;
-  } else if (registration_method == "GICP") {
-	  boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
-      gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
-    gicp->setMaxCorrespondenceDistance(30);
-    gicp->setMaximumIterations(100);
-    //gicp->setCorrespondenceRandomness(20);
-    gicp->setTransformationEpsilon(1e-8);
-    gicp->setEuclideanFitnessEpsilon(1e-6);
-    gicp->setRANSACIterations(0);
-    registration_ = gicp;
-  } else {
-    RCLCPP_ERROR(get_logger(), "invalid registration_method");
-    exit(1);
+  // Create registration using factory pattern
+  RegistrationParams reg_params;
+  reg_params.method = registration_method;
+  reg_params.ndt_resolution = ndt_resolution;
+  reg_params.ndt_num_threads = ndt_num_threads;
+  reg_params.gicp_corr_dist_threshold = 30.0;  // for loop closure
+  reg_params.max_iterations = 100;
+  reg_params.euclidean_fitness_epsilon = 1e-6;
+  reg_params.ransac_iterations = 0;
+
+  try {
+    registration_ = RegistrationFactory::create(reg_params);
+  } catch (const std::invalid_argument& e) {
+    RCLCPP_ERROR(get_logger(), "%s", e.what());
+    throw;
   }
 
   initializePubSub();
@@ -92,9 +82,12 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       const std::shared_ptr<std_srvs::srv::Empty::Request> request,
       const std::shared_ptr<std_srvs::srv::Empty::Response> response) -> void
     {
-      std::cout << "Received an request to save the map" << std::endl;
+      (void)request_header;
+      (void)request;
+      (void)response;
+      RCLCPP_INFO(get_logger(), "Received a request to save the map");
       if (initial_map_array_received_ == false) {
-        std::cout << "initial map is not received" << std::endl;
+        RCLCPP_WARN(get_logger(), "initial map is not received");
         return;
       }
       doPoseAdjustment(map_array_msg_, true);
@@ -246,16 +239,15 @@ void GraphBasedSlamComponent::searchLoop()
       loop_edge.relative_pose = Eigen::Isometry3d(from.inverse() * to);
       loop_edges_.push_back(loop_edge);
 
-      std::cout << "---" << std::endl;
-      std::cout << "PoseAdjustment distance:" << min_submap.distance << ", score:" << fitness_score << std::endl;
-      std::cout << "id_loop_point 1:" << id_min << " id_loop_point 2:" << num_submaps - 1 << std::endl;
-      std::cout << "final transformation:" << std::endl;
-      std::cout << registration_->getFinalTransformation() << std::endl;
+      RCLCPP_INFO(get_logger(), "---");
+      RCLCPP_INFO(get_logger(), "PoseAdjustment distance: %f, score: %f", min_submap.distance, fitness_score);
+      RCLCPP_INFO(get_logger(), "id_loop_point 1: %d, id_loop_point 2: %d", id_min, num_submaps - 1);
+      RCLCPP_INFO(get_logger(), "Loop closure detected, performing pose adjustment");
       doPoseAdjustment(map_array_msg, use_save_map_in_loop_);
 
       return;
     }
-    std::cout << "min_submap_distance:" << min_submap.distance << " min_fitness_score:" << fitness_score << std::endl;
+    RCLCPP_DEBUG(get_logger(), "min_submap_distance: %f, min_fitness_score: %f", min_submap.distance, fitness_score);
   }
 }
 
@@ -319,7 +311,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   optimizer.save("pose_graph.g2o");
 
   /* modified_map publish */
-  std::cout << "modified_map publish" << std::endl;
+  RCLCPP_INFO(get_logger(), "Publishing modified map");
   lidarslam_msgs::msg::MapArray modified_map_array_msg;
   modified_map_array_msg.header = map_array_msg.header;
   nav_msgs::msg::Path path;
