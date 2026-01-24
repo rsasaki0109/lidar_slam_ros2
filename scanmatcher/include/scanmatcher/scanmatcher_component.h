@@ -59,7 +59,6 @@ extern "C" {
 #include <lidarslam_msgs/msg/map_array.hpp>
 #include "scanmatcher/lidar_undistortion.hpp"
 #include "scanmatcher/registration_factory.hpp"
-#include "scanmatcher/map_manager.hpp"
 
 #include <mutex>
 #include <thread>
@@ -86,7 +85,14 @@ private:
     std::string odom_frame_id_;
 
     RegistrationFactory::RegistrationPtr registration_;
-    std::unique_ptr<MapManager> map_manager_;
+
+    // map data
+    lidarslam_msgs::msg::MapArray map_array_msg_;
+    pcl::PointCloud<pcl::PointXYZI> targeted_cloud_;
+    bool is_map_updated_ {false};
+    double latest_distance_ {0};
+    double vg_size_for_map_;
+    int num_targeted_cloud_;
 
     rclcpp::Subscription < geometry_msgs::msg::PoseStamped > ::SharedPtr initial_pose_sub_;
     rclcpp::Subscription < sensor_msgs::msg::Imu > ::SharedPtr imu_sub_;

@@ -140,13 +140,16 @@ void GraphBasedSlamComponent::searchLoop()
 
   if (initial_map_array_received_ == false) {return;}
   if (is_map_array_updated_ == false) {return;}
-  if (map_array_msg_.cloud_coordinate != map_array_msg_.LOCAL) {
-    RCLCPP_WARN(get_logger(), "cloud_coordinate should be local, but it's not local.");
-  }
-  is_map_array_updated_ = false;
 
-  lidarslam_msgs::msg::MapArray map_array_msg = map_array_msg_;
-  std::lock_guard<std::mutex> lock(mtx_);
+  lidarslam_msgs::msg::MapArray map_array_msg;
+  {
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (map_array_msg_.cloud_coordinate != map_array_msg_.LOCAL) {
+      RCLCPP_WARN(get_logger(), "cloud_coordinate should be local, but it's not local.");
+    }
+    is_map_array_updated_ = false;
+    map_array_msg = map_array_msg_;
+  }
   int num_submaps = map_array_msg.submaps.size();
 
   if(debug_flag_)

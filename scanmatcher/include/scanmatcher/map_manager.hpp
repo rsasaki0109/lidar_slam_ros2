@@ -128,6 +128,11 @@ public:
     return latest_distance_;
   }
 
+  const Config& getConfig() const
+  {
+    return config_;
+  }
+
   PointCloudPtr buildFullMap() const
   {
     std::lock_guard<std::mutex> lock(mtx_);
@@ -174,7 +179,7 @@ private:
       PointCloudPtr transformed_tmp_ptr(new PointCloud());
       Eigen::Affine3d submap_affine;
       tf2::fromMsg(map_array_msg_.submaps[num_submaps - 1 - i].pose, submap_affine);
-      pcl::transformPointCloud(*tmp_ptr, *transformed_tmp_ptr, submap_affine.matrix());
+      pcl::transformPointCloud(*tmp_ptr, *transformed_tmp_ptr, submap_affine.matrix().cast<float>());
 
       targeted_cloud_ += *transformed_tmp_ptr;
     }
