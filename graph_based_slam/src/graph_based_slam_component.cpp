@@ -18,6 +18,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   double ndt_resolution;
   int ndt_num_threads;
 
+  declare_parameter("global_frame_id", "map");
+  get_parameter("global_frame_id", global_frame_id_);
   declare_parameter("registration_method", "NDT");
   get_parameter("registration_method", registration_method);
   declare_parameter("voxel_leaf_size", 0.2);
@@ -36,13 +38,14 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("range_of_searching_loop_closure", range_of_searching_loop_closure_);
   declare_parameter("search_submap_num", 3);
   get_parameter("search_submap_num", search_submap_num_);
-  declare_parameter("num_adjacent_pose_cnstraints", 5);
-  get_parameter("num_adjacent_pose_cnstraints", num_adjacent_pose_cnstraints_);
+  declare_parameter("num_adjacent_pose_constraints", 5);
+  get_parameter("num_adjacent_pose_constraints", num_adjacent_pose_constraints_);
   declare_parameter("use_save_map_in_loop", true);
   get_parameter("use_save_map_in_loop", use_save_map_in_loop_);
   declare_parameter("debug_flag", false);
   get_parameter("debug_flag", debug_flag_);
 
+  RCLCPP_INFO(get_logger(), "global_frame_id: %s", global_frame_id_.c_str());
   RCLCPP_INFO(get_logger(), "registration_method: %s", registration_method.c_str());
   RCLCPP_INFO(get_logger(), "voxel_leaf_size[m]: %f", voxel_leaf_size);
   RCLCPP_INFO(get_logger(), "ndt_resolution[m]: %f", ndt_resolution);
@@ -52,10 +55,13 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   RCLCPP_INFO(get_logger(), "distance_loop_closure[m]: %f", distance_loop_closure_);
   RCLCPP_INFO(get_logger(), "range_of_searching_loop_closure[m]: %f", range_of_searching_loop_closure_);
   RCLCPP_INFO(get_logger(), "search_submap_num: %d", search_submap_num_);
-  RCLCPP_INFO(get_logger(), "num_adjacent_pose_cnstraints: %d", num_adjacent_pose_cnstraints_);
+  RCLCPP_INFO(get_logger(), "num_adjacent_pose_constraints: %d", num_adjacent_pose_constraints_);
   RCLCPP_INFO(get_logger(), "use_save_map_in_loop: %s", use_save_map_in_loop_ ? "true" : "false");
   RCLCPP_INFO(get_logger(), "debug_flag: %s", debug_flag_ ? "true" : "false");
 
+  if (voxel_leaf_size <= 0.0) {
+    throw std::invalid_argument("voxel_leaf_size must be positive");
+  }
   voxelgrid_.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
 
   // Create registration using factory pattern
@@ -63,10 +69,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   reg_params.method = registration_method;
   reg_params.ndt_resolution = ndt_resolution;
   reg_params.ndt_num_threads = ndt_num_threads;
-  reg_params.gicp_corr_dist_threshold = 30.0;  // for loop closure
-  reg_params.max_iterations = 100;
-  reg_params.euclidean_fitness_epsilon = 1e-6;
-  reg_params.ransac_iterations = 0;
+  reg_params.gicp_corr_dist_threshold = loop_closure_defaults::kGicpCorrDistThreshold;
+  reg_params.max_iterations = loop_closure_defaults::kMaxIterations;
+  reg_params.euclidean_fitness_epsilon = loop_closure_defaults::kEuclideanFitnessEpsilon;
+  reg_params.ransac_iterations = loop_closure_defaults::kRansacIterations;
 
   try {
     registration_ = RegistrationFactory::create(reg_params);
@@ -104,7 +110,7 @@ void GraphBasedSlamComponent::initializePubSub()
   auto map_array_callback =
     [this](const typename lidarslam_msgs::msg::MapArray::SharedPtr msg_ptr) -> void
     {
-      std::lock_guard<std::mutex> lock(mtx_);
+      std::scoped_lock lock(mtx_);
       map_array_msg_ = *msg_ptr;
       initial_map_array_received_ = true;
       is_map_array_updated_ = true;
@@ -143,7 +149,7 @@ void GraphBasedSlamComponent::searchLoop()
 
   lidarslam_msgs::msg::MapArray map_array_msg;
   {
-    std::lock_guard<std::mutex> lock(mtx_);
+    std::scoped_lock lock(mtx_);
     if (map_array_msg_.cloud_coordinate != map_array_msg_.LOCAL) {
       RCLCPP_WARN(get_logger(), "cloud_coordinate should be local, but it's not local.");
     }
@@ -281,18 +287,18 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     if (i == 0) {vertex_se3->setFixed(true);}
     optimizer.addVertex(vertex_se3);
 
-    if (i > num_adjacent_pose_cnstraints_) {
-      for (int j = 0; j < num_adjacent_pose_cnstraints_; j++) {
+    if (i > num_adjacent_pose_constraints_) {
+      for (int j = 0; j < num_adjacent_pose_constraints_; j++) {
         Eigen::Affine3d pre_affine;
         Eigen::fromMsg(
-          map_array_msg.submaps[i - num_adjacent_pose_cnstraints_ + j].pose,
+          map_array_msg.submaps[i - num_adjacent_pose_constraints_ + j].pose,
           pre_affine);
         Eigen::Isometry3d pre_pose(pre_affine.matrix());
         Eigen::Isometry3d relative_pose = pre_pose.inverse() * pose;
         g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
         edge_se3->setMeasurement(relative_pose);
         edge_se3->setInformation(info_mat);
-        edge_se3->vertices()[0] = optimizer.vertex(i - num_adjacent_pose_cnstraints_ + j);
+        edge_se3->vertices()[0] = optimizer.vertex(i - num_adjacent_pose_constraints_ + j);
         edge_se3->vertices()[1] = optimizer.vertex(i);
         optimizer.addEdge(edge_se3);
       }
@@ -318,7 +324,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   lidarslam_msgs::msg::MapArray modified_map_array_msg;
   modified_map_array_msg.header = map_array_msg.header;
   nav_msgs::msg::Path path;
-  path.header.frame_id = "map";
+  path.header.frame_id = global_frame_id_;
   pcl::PointCloud<pcl::PointXYZI>::Ptr map_ptr(new pcl::PointCloud<pcl::PointXYZI>());
   for (int i = 0; i < submaps_size; i++) {
     g2o::VertexSE3 * vertex_se3 = static_cast<g2o::VertexSE3 *>(optimizer.vertex(i));
@@ -359,7 +365,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
 
   sensor_msgs::msg::PointCloud2::SharedPtr map_msg_ptr(new sensor_msgs::msg::PointCloud2);
   pcl::toROSMsg(*map_ptr, *map_msg_ptr);
-  map_msg_ptr->header.frame_id = "map";
+  map_msg_ptr->header.frame_id = global_frame_id_;
   modified_map_pub_->publish(*map_msg_ptr);
   if (do_save_map) {pcl::io::savePCDFileASCII("map.pcd", *map_ptr);} // too heavy
 

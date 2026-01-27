@@ -41,12 +41,24 @@ public:
 
   static RegistrationPtr create(const RegistrationParams& params)
   {
+    validateParams(params);
+
     if (params.method == "NDT") {
       return createNDT(params);
     } else if (params.method == "GICP") {
       return createGICP(params);
     } else {
       throw std::invalid_argument("Invalid registration method: " + params.method);
+    }
+  }
+
+  static void validateParams(const RegistrationParams& params)
+  {
+    if (params.ndt_resolution <= 0.0) {
+      throw std::invalid_argument("ndt_resolution must be positive");
+    }
+    if (params.gicp_corr_dist_threshold <= 0.0) {
+      throw std::invalid_argument("gicp_corr_dist_threshold must be positive");
     }
   }
 

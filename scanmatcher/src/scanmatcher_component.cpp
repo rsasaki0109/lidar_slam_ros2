@@ -1,5 +1,6 @@
 #include "scanmatcher/scanmatcher_component.h"
 #include <chrono>
+#include <rcl_interfaces/msg/parameter_descriptor.hpp>
 
 using namespace std::chrono_literals;
 
@@ -25,17 +26,49 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   get_parameter("odom_frame_id", odom_frame_id_);
   declare_parameter("registration_method", "NDT");
   get_parameter("registration_method", registration_method_);
-  declare_parameter("ndt_resolution", 5.0);
+  {
+    rcl_interfaces::msg::ParameterDescriptor desc;
+    desc.description = "NDT grid resolution in meters";
+    rcl_interfaces::msg::FloatingPointRange range;
+    range.from_value = 0.1;
+    range.to_value = 100.0;
+    desc.floating_point_range.push_back(range);
+    declare_parameter("ndt_resolution", 5.0, desc);
+  }
   get_parameter("ndt_resolution", ndt_resolution);
   declare_parameter("ndt_num_threads", 0);
   get_parameter("ndt_num_threads", ndt_num_threads);
-  declare_parameter("gicp_corr_dist_threshold", 5.0);
+  {
+    rcl_interfaces::msg::ParameterDescriptor desc;
+    desc.description = "GICP max correspondence distance in meters";
+    rcl_interfaces::msg::FloatingPointRange range;
+    range.from_value = 0.1;
+    range.to_value = 100.0;
+    desc.floating_point_range.push_back(range);
+    declare_parameter("gicp_corr_dist_threshold", 5.0, desc);
+  }
   get_parameter("gicp_corr_dist_threshold", gicp_corr_dist_threshold);
   declare_parameter("trans_for_mapupdate", 1.5);
   get_parameter("trans_for_mapupdate", trans_for_mapupdate_);
-  declare_parameter("vg_size_for_input", 0.2);
+  {
+    rcl_interfaces::msg::ParameterDescriptor desc;
+    desc.description = "Voxel grid leaf size for input cloud in meters";
+    rcl_interfaces::msg::FloatingPointRange range;
+    range.from_value = 0.01;
+    range.to_value = 10.0;
+    desc.floating_point_range.push_back(range);
+    declare_parameter("vg_size_for_input", 0.2, desc);
+  }
   get_parameter("vg_size_for_input", vg_size_for_input_);
-  declare_parameter("vg_size_for_map", 0.1);
+  {
+    rcl_interfaces::msg::ParameterDescriptor desc;
+    desc.description = "Voxel grid leaf size for map cloud in meters";
+    rcl_interfaces::msg::FloatingPointRange range;
+    range.from_value = 0.01;
+    range.to_value = 10.0;
+    desc.floating_point_range.push_back(range);
+    declare_parameter("vg_size_for_map", 0.1, desc);
+  }
   get_parameter("vg_size_for_map", vg_size_for_map_);
   declare_parameter("use_min_max_filter", false);
   get_parameter("use_min_max_filter", use_min_max_filter_);
@@ -52,6 +85,12 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   if (num_targeted_cloud_ < 1) {
     RCLCPP_WARN(get_logger(), "num_targeted_cloud should be positive, setting to 1");
     num_targeted_cloud_ = 1;
+  }
+  if (vg_size_for_input_ <= 0.0) {
+    throw std::invalid_argument("vg_size_for_input must be positive");
+  }
+  if (vg_size_for_map_ <= 0.0) {
+    throw std::invalid_argument("vg_size_for_map must be positive");
   }
 
   declare_parameter("initial_pose_x", 0.0);

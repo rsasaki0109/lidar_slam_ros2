@@ -82,6 +82,15 @@ extern "C" {
 
 namespace graphslam
 {
+  // Loop closure registration parameters (constants)
+  namespace loop_closure_defaults
+  {
+    inline constexpr double kGicpCorrDistThreshold = 30.0;
+    inline constexpr int kMaxIterations = 100;
+    inline constexpr double kEuclideanFitnessEpsilon = 1e-6;
+    inline constexpr int kRansacIterations = 0;
+  }  // namespace loop_closure_defaults
+
   class GraphBasedSlamComponent: public rclcpp::Node
   {
 public:
@@ -112,6 +121,9 @@ private:
     void doPoseAdjustment(lidarslam_msgs::msg::MapArray map_array_msg, bool do_save_map);
     void publishMapAndPose();
 
+    // frame id
+    std::string global_frame_id_;
+
     // loop search parameter
     int loop_detection_period_;
     double threshold_loop_closure_score_;
@@ -120,7 +132,7 @@ private:
     int search_submap_num_;
 
     // pose graph optimization parameter
-    int num_adjacent_pose_cnstraints_;
+    int num_adjacent_pose_constraints_;
     bool use_save_map_in_loop_ {true};
 
     bool initial_map_array_received_ {false};

@@ -115,7 +115,7 @@ ros2 service call /map_save std_srvs/Empty
 |distance_loop_closure|double|20.0| distance far from revisit candidates for loop clousure[m]|
 |range_of_searching_loop_closure|double|20.0|search radius for candidate points from the present for loop closure[m]|
 |search_submap_num|int|2|the number of submap points before and after the revisit point used for registration|
-|num_adjacent_pose_cnstraints|int|5|the number of constraints between successive nodes in a pose graph over time|
+|num_adjacent_pose_constraints|int|5|the number of constraints between successive nodes in a pose graph over time|
 |use_save_map_in_loop|bool|true|Whether to save the map when loop close(If the map saving process in loop close is too heavy and the self-position estimation fails, set this to `false`.)|
 
 ## demo

@@ -6,14 +6,14 @@ if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
 endif()
 
-# Default to C++14
+# Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  #add_compile_options(-Wall -Wextra -Wpedantic)
-  #add_compile_options(-Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 #SET(CMAKE_BUILD_TYPE "RELEASE")
@@ -59,6 +59,15 @@ endif()
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_registration_factory test/test_registration_factory.cpp)
+  target_include_directories(test_registration_factory PRIVATE
+    include
+    ${PCL_INCLUDE_DIRS}
+  )
+  target_link_libraries(test_registration_factory ${PCL_LIBRARIES})
+  ament_target_dependencies(test_registration_factory ndt_omp_ros2)
 endif()
 
 add_library(scanmatcher_component SHARED
