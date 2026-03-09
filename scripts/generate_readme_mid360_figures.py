@@ -273,25 +273,59 @@ def build_map_png(
     z_lo = float(np.percentile(combined, 2))
     z_hi = float(np.percentile(combined, 98))
 
-    fig, axes = plt.subplots(1, 2, figsize=(13.5, 6.2), dpi=180)
-    fig.patch.set_facecolor("#f6f8fb")
-    fig.suptitle(
+    fig = plt.figure(figsize=(13.8, 7.0), dpi=180, facecolor="#f6f8fb")
+    gs = fig.add_gridspec(
+        2,
+        3,
+        height_ratios=[0.18, 1.0],
+        width_ratios=[1.0, 1.0, 0.055],
+        left=0.055,
+        right=0.96,
+        top=0.94,
+        bottom=0.09,
+        wspace=0.12,
+        hspace=0.16,
+    )
+    ax_header = fig.add_subplot(gs[0, :2])
+    ax_header.axis("off")
+    axes = [fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]
+    cax = fig.add_subplot(gs[1, 2])
+
+    ax_header.text(
+        0.0,
+        0.82,
         "GLIM MID360 sample: top-down point-cloud map",
         fontsize=18,
         fontweight="bold",
-        y=0.98,
-    )
-    fig.text(
-        0.5,
-        0.935,
-        (
-            f"Same bag, same viewpoint. Aligned comparison metrics: "
-            f"RMSE {summary['rmse']:.3f} m, median {summary['median']:.3f} m, max {summary['max']:.3f} m"
-        ),
-        ha="center",
+        ha="left",
         va="center",
-        fontsize=10,
+        color="#13202b",
+    )
+    ax_header.text(
+        0.0,
+        0.42,
+        (
+            "Same bag, same viewpoint. Colors encode height. "
+            "The black trace is the estimated path."
+        ),
+        fontsize=10.5,
+        ha="left",
+        va="center",
         color="#516679",
+    )
+    ax_header.text(
+        1.0,
+        0.82,
+        (
+            f"RMSE {summary['rmse']:.3f} m\n"
+            f"median {summary['median']:.3f} m\n"
+            f"max {summary['max']:.3f} m"
+        ),
+        fontsize=10.5,
+        ha="right",
+        va="top",
+        color="#13202b",
+        bbox={"boxstyle": "round,pad=0.45", "facecolor": "white", "edgecolor": "#d8e3ef"},
     )
 
     bounds = np.vstack([glim_cloud[:, :2], lid_cloud[:, :2]])
@@ -302,6 +336,7 @@ def build_map_png(
     xlim = (min_xy[0] - pad[0], max_xy[0] + pad[0])
     ylim = (min_xy[1] - pad[1], max_xy[1] + pad[1])
 
+    sc = None
     for ax, title, cloud, path in [
         (axes[0], "GLIM reference", glim_cloud, glim_path),
         (axes[1], "lidarslam aligned", lid_cloud, lid_path),
@@ -327,10 +362,10 @@ def build_map_png(
         ax.set_ylabel("Y [m]")
         for spine in ax.spines.values():
             spine.set_edgecolor("#d8e3ef")
-    cbar = fig.colorbar(sc, ax=axes.ravel().tolist(), fraction=0.025, pad=0.02)
+    cbar = fig.colorbar(sc, cax=cax)
     cbar.set_label("height [m]")
-    fig.tight_layout(rect=[0.0, 0.0, 0.97, 0.92])
-    fig.savefig(MAP_OUT, facecolor=fig.get_facecolor(), bbox_inches="tight")
+    cbar.outline.set_edgecolor("#d8e3ef")
+    fig.savefig(MAP_OUT, facecolor=fig.get_facecolor())
     plt.close(fig)
 
 
