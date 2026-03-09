@@ -6,7 +6,11 @@ import math
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+import matplotlib.pyplot as plt
 import numpy as np
+import rosbag2_py
+from rclpy.serialization import deserialize_message
+from rosidl_runtime_py.utilities import get_message
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +19,9 @@ IMAGE_DIR = ROOT / "lidarslam" / "images"
 
 XY_OUT = IMAGE_DIR / "mid360_glim_compare_xy.svg"
 ERR_OUT = IMAGE_DIR / "mid360_glim_compare_error.svg"
+MAP_OUT = IMAGE_DIR / "mid360_glim_map_compare.png"
+BAG_PATH = ROOT / "demo_data" / "glim_mid360" / "rosbag2_2024_04_16-14_17_01"
+POINTS_TOPIC = "/livox/lidar"
 
 
 def find_latest_any(patterns: list[str]) -> Path | None:
@@ -47,6 +54,53 @@ def load_tum(path: Path) -> list[dict[str, float]]:
             }
         )
     return rows
+
+
+def quat_to_mat(qx: float, qy: float, qz: float, qw: float) -> np.ndarray:
+    xx, yy, zz = qx * qx, qy * qy, qz * qz
+    xy, xz, yz = qx * qy, qx * qz, qy * qz
+    wx, wy, wz = qw * qx, qw * qy, qw * qz
+    return np.array(
+        [
+            [1.0 - 2.0 * (yy + zz), 2.0 * (xy - wz), 2.0 * (xz + wy)],
+            [2.0 * (xy + wz), 1.0 - 2.0 * (xx + zz), 2.0 * (yz - wx)],
+            [2.0 * (xz - wy), 2.0 * (yz + wx), 1.0 - 2.0 * (xx + yy)],
+        ],
+        dtype=float,
+    )
+
+
+def mat_to_quat(rot: np.ndarray) -> np.ndarray:
+    trace = np.trace(rot)
+    if trace > 0.0:
+        s = math.sqrt(trace + 1.0) * 2.0
+        qw = 0.25 * s
+        qx = (rot[2, 1] - rot[1, 2]) / s
+        qy = (rot[0, 2] - rot[2, 0]) / s
+        qz = (rot[1, 0] - rot[0, 1]) / s
+    else:
+        i = int(np.argmax(np.diag(rot)))
+        if i == 0:
+            s = math.sqrt(1.0 + rot[0, 0] - rot[1, 1] - rot[2, 2]) * 2.0
+            qw = (rot[2, 1] - rot[1, 2]) / s
+            qx = 0.25 * s
+            qy = (rot[0, 1] + rot[1, 0]) / s
+            qz = (rot[0, 2] + rot[2, 0]) / s
+        elif i == 1:
+            s = math.sqrt(1.0 + rot[1, 1] - rot[0, 0] - rot[2, 2]) * 2.0
+            qw = (rot[0, 2] - rot[2, 0]) / s
+            qx = (rot[0, 1] + rot[1, 0]) / s
+            qy = 0.25 * s
+            qz = (rot[1, 2] + rot[2, 1]) / s
+        else:
+            s = math.sqrt(1.0 + rot[2, 2] - rot[0, 0] - rot[1, 1]) * 2.0
+            qw = (rot[1, 0] - rot[0, 1]) / s
+            qx = (rot[0, 2] + rot[2, 0]) / s
+            qy = (rot[1, 2] + rot[2, 1]) / s
+            qz = 0.25 * s
+    quat = np.array([qx, qy, qz, qw], dtype=float)
+    quat /= np.linalg.norm(quat)
+    return quat
 
 
 def path_length(rows: list[dict[str, float]]) -> float:
@@ -106,15 +160,178 @@ def apply_alignment(
     for row in rows:
         pos = np.array([row["x"], row["y"], row["z"]], dtype=float)
         pos_aligned = rot @ pos + trans
+        pose_rot = quat_to_mat(row["qx"], row["qy"], row["qz"], row["qw"])
+        pose_aligned = rot @ pose_rot
+        quat_aligned = mat_to_quat(pose_aligned)
         aligned.append(
             {
                 **row,
                 "x": float(pos_aligned[0]),
                 "y": float(pos_aligned[1]),
                 "z": float(pos_aligned[2]),
+                "qx": float(quat_aligned[0]),
+                "qy": float(quat_aligned[1]),
+                "qz": float(quat_aligned[2]),
+                "qw": float(quat_aligned[3]),
             }
         )
     return aligned
+
+
+def interp_pose(rows: list[dict[str, float]], ts: list[float], t: float) -> tuple[np.ndarray, np.ndarray] | None:
+    idx = bisect.bisect_left(ts, t)
+    if idx == 0 or idx == len(rows):
+        return None
+    a = rows[idx - 1]
+    b = rows[idx]
+    t0 = a["t"]
+    t1 = b["t"]
+    if t1 <= t0:
+        alpha = 0.0
+    else:
+        alpha = (t - t0) / (t1 - t0)
+    pos0 = np.array([a["x"], a["y"], a["z"]], dtype=float)
+    pos1 = np.array([b["x"], b["y"], b["z"]], dtype=float)
+    pos = pos0 * (1.0 - alpha) + pos1 * alpha
+    quat0 = np.array([a["qx"], a["qy"], a["qz"], a["qw"]], dtype=float)
+    quat1 = np.array([b["qx"], b["qy"], b["qz"], b["qw"]], dtype=float)
+    quat = quat0 * (1.0 - alpha) + quat1 * alpha
+    quat /= np.linalg.norm(quat)
+    return pos, quat
+
+
+def sample_map_points(
+    bag_path: Path,
+    traj_rows: list[dict[str, float]],
+    scan_stride: int = 12,
+    point_stride: int = 32,
+) -> tuple[np.ndarray, np.ndarray]:
+    reader = rosbag2_py.SequentialReader()
+    storage = rosbag2_py.StorageOptions(uri=str(bag_path), storage_id="sqlite3")
+    converter = rosbag2_py.ConverterOptions(
+        input_serialization_format="cdr",
+        output_serialization_format="cdr",
+    )
+    reader.open(storage, converter)
+    topics = {topic.name: topic.type for topic in reader.get_all_topics_and_types()}
+    msg_type = get_message(topics[POINTS_TOPIC])
+    traj_ts = [row["t"] for row in traj_rows]
+
+    cloud_world = []
+    path_xy = []
+    dtype = None
+    msg_count = 0
+    while reader.has_next():
+        topic, data, _ = reader.read_next()
+        if topic != POINTS_TOPIC:
+            continue
+        msg_count += 1
+        if msg_count % scan_stride != 0:
+            continue
+        msg = deserialize_message(data, msg_type)
+        stamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        pose = interp_pose(traj_rows, traj_ts, stamp)
+        if pose is None:
+            continue
+        pos, quat = pose
+        path_xy.append(pos[:2].copy())
+        if dtype is None:
+            dtype = np.dtype(
+                {
+                    "names": ["x", "y", "z"],
+                    "formats": ["<f4", "<f4", "<f4"],
+                    "offsets": [0, 4, 8],
+                    "itemsize": msg.point_step,
+                }
+            )
+        arr = np.frombuffer(msg.data, dtype=dtype, count=msg.width * msg.height)
+        pts = np.stack([arr["x"], arr["y"], arr["z"]], axis=1)
+        pts = pts[::point_stride]
+        pts = pts[np.isfinite(pts).all(axis=1)]
+        if pts.size == 0:
+            continue
+        rot = quat_to_mat(quat[0], quat[1], quat[2], quat[3])
+        world = pts @ rot.T + pos
+        cloud_world.append(world)
+
+    if not cloud_world:
+        return np.empty((0, 3)), np.empty((0, 2))
+    return np.concatenate(cloud_world, axis=0), np.stack(path_xy, axis=0)
+
+
+def build_map_png(
+    glim_rows: list[dict[str, float]],
+    lid_rows: list[dict[str, float]],
+    summary: dict[str, float],
+) -> None:
+    glim_cloud, glim_path = sample_map_points(BAG_PATH, glim_rows)
+    lid_cloud, lid_path = sample_map_points(BAG_PATH, lid_rows)
+    if glim_cloud.size == 0 or lid_cloud.size == 0:
+        raise RuntimeError("failed to build sampled point-cloud map")
+
+    combined = np.concatenate([glim_cloud[:, 2], lid_cloud[:, 2]])
+    z_lo = float(np.percentile(combined, 2))
+    z_hi = float(np.percentile(combined, 98))
+
+    fig, axes = plt.subplots(1, 2, figsize=(13.5, 6.2), dpi=180)
+    fig.patch.set_facecolor("#f6f8fb")
+    fig.suptitle(
+        "GLIM MID360 sample: top-down point-cloud map",
+        fontsize=18,
+        fontweight="bold",
+        y=0.98,
+    )
+    fig.text(
+        0.5,
+        0.935,
+        (
+            f"Same bag, same viewpoint. Aligned comparison metrics: "
+            f"RMSE {summary['rmse']:.3f} m, median {summary['median']:.3f} m, max {summary['max']:.3f} m"
+        ),
+        ha="center",
+        va="center",
+        fontsize=10,
+        color="#516679",
+    )
+
+    bounds = np.vstack([glim_cloud[:, :2], lid_cloud[:, :2]])
+    min_xy = bounds.min(axis=0)
+    max_xy = bounds.max(axis=0)
+    span = np.maximum(max_xy - min_xy, 1.0)
+    pad = span * 0.04
+    xlim = (min_xy[0] - pad[0], max_xy[0] + pad[0])
+    ylim = (min_xy[1] - pad[1], max_xy[1] + pad[1])
+
+    for ax, title, cloud, path in [
+        (axes[0], "GLIM reference", glim_cloud, glim_path),
+        (axes[1], "lidarslam aligned", lid_cloud, lid_path),
+    ]:
+        ax.set_facecolor("white")
+        sc = ax.scatter(
+            cloud[:, 0],
+            cloud[:, 1],
+            c=np.clip(cloud[:, 2], z_lo, z_hi),
+            s=0.22,
+            cmap="viridis",
+            linewidths=0.0,
+            alpha=0.85,
+        )
+        ax.plot(path[:, 0], path[:, 1], color="white", linewidth=1.0, alpha=0.9)
+        ax.plot(path[:, 0], path[:, 1], color="#13202b", linewidth=0.45, alpha=0.85)
+        ax.set_title(title, fontsize=13, fontweight="bold", pad=10)
+        ax.set_xlim(*xlim)
+        ax.set_ylim(*ylim)
+        ax.set_aspect("equal", adjustable="box")
+        ax.grid(True, color="#e9eef4", linewidth=0.8)
+        ax.set_xlabel("X [m]")
+        ax.set_ylabel("Y [m]")
+        for spine in ax.spines.values():
+            spine.set_edgecolor("#d8e3ef")
+    cbar = fig.colorbar(sc, ax=axes.ravel().tolist(), fraction=0.025, pad=0.02)
+    cbar.set_label("height [m]")
+    fig.tight_layout(rect=[0.0, 0.0, 0.97, 0.92])
+    fig.savefig(MAP_OUT, facecolor=fig.get_facecolor(), bbox_inches="tight")
+    plt.close(fig)
 
 
 def ticks(min_v: float, max_v: float, count: int = 6) -> list[float]:
@@ -363,8 +580,10 @@ def main() -> None:
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     XY_OUT.write_text(build_xy_svg(glim_rows, lid_aligned, summary), encoding="utf-8")
     ERR_OUT.write_text(build_error_svg(errors, summary), encoding="utf-8")
+    build_map_png(glim_rows, lid_aligned, summary)
     print(XY_OUT)
     print(ERR_OUT)
+    print(MAP_OUT)
 
 
 if __name__ == "__main__":
