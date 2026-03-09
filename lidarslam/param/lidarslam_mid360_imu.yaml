@@ -1,0 +1,88 @@
+scan_matcher:
+  ros__parameters:
+    global_frame_id: "map"
+    robot_frame_id: "base_link"
+    odom_frame_id: "odom"
+
+    registration_method: "NDT"
+    ndt_resolution: 1.0
+    ndt_num_threads: 0
+    gicp_corr_dist_threshold: 5.0
+
+    trans_for_mapupdate: 1.0
+    vg_size_for_input: 0.25
+    vg_size_for_map: 0.12
+    min_points_for_scan: 100
+
+    use_min_max_filter: true
+    scan_min_range: 1.0
+    scan_max_range: 80.0
+
+    scan_period: 0.1
+    map_publish_period: 3.0
+    num_targeted_cloud: 24
+    num_recovery_targeted_cloud: 36
+
+    set_initial_pose: true
+    initial_pose_x: 0.0
+    initial_pose_y: 0.0
+    initial_pose_z: 0.0
+    initial_pose_qx: 0.0
+    initial_pose_qy: 0.0
+    initial_pose_qz: 0.0
+    initial_pose_qw: 1.0
+
+    publish_tf: true
+    use_odom: false
+    use_imu: true
+    debug_flag: false
+
+    diagnostic_warn_trans_jump: 1.0
+    diagnostic_warn_yaw_jump_deg: 15.0
+    reject_nonconverged_pose_update: true
+    reject_fitness_score: 0.0
+    reject_fitness_ratio: 0.0
+    reject_fitness_only_ratio: 0.0
+    reject_trans_only_ratio: 0.0
+    reject_trans_streak_scans: 0
+    reject_fitness_streak_ratio: 0.0
+    reject_hard_fitness_ratio: 0.0
+    reject_trans_jump: 0.0
+    reject_trans_jump_ratio: 0.0
+    reject_hard_trans_ratio: 0.0
+    reject_ema_alpha: 0.1
+    motion_gate_enable: true
+    motion_gate_max_linear_velocity: 8.0
+    motion_gate_max_yaw_rate_deg: 120.0
+    motion_gate_hard_multiplier: 4.0
+    reject_warmup_scans: 20
+    reject_map_update_cooldown_scans: 1
+    hard_reject_map_update_cooldown_scans: 3
+    reject_fitness_streak_scans: 0
+    reject_recovery_scans: 3
+    async_map_update: true
+    async_map_update_warmup_submaps: 1
+    recovery_clear_consecutive_accepted: 2
+    suspect_clear_consecutive_accepted: 3
+
+graph_based_slam:
+  ros__parameters:
+    global_frame_id: "map"
+
+    registration_method: "NDT"
+    ndt_resolution: 2.0
+    ndt_num_threads: 0
+    voxel_leaf_size: 0.2
+
+    loop_detection_period: 3000
+    threshold_loop_closure_score: 1.0
+    distance_loop_closure: 30.0
+    range_of_searching_loop_closure: 10.0
+    search_submap_num: 2
+    num_adjacent_pose_cnstraints: 5
+
+    use_save_map_in_loop: false
+    save_pose_graph_path: "pose_graph.g2o"
+    save_map_path: "map.pcd"
+    save_map_ascii: false
+    debug_flag: false
