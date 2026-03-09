@@ -20,6 +20,7 @@ IMAGE_DIR = ROOT / "lidarslam" / "images"
 XY_OUT = IMAGE_DIR / "mid360_glim_compare_xy.svg"
 ERR_OUT = IMAGE_DIR / "mid360_glim_compare_error.svg"
 MAP_OUT = IMAGE_DIR / "mid360_glim_map_compare.png"
+ATTITUDE_OUT = IMAGE_DIR / "mid360_glim_attitude_compare.png"
 BAG_PATH = ROOT / "demo_data" / "glim_mid360" / "rosbag2_2024_04_16-14_17_01"
 POINTS_TOPIC = "/livox/lidar"
 
@@ -101,6 +102,23 @@ def mat_to_quat(rot: np.ndarray) -> np.ndarray:
     quat = np.array([qx, qy, qz, qw], dtype=float)
     quat /= np.linalg.norm(quat)
     return quat
+
+
+def quat_to_rpy(qx: float, qy: float, qz: float, qw: float) -> tuple[float, float, float]:
+    sinr_cosp = 2.0 * (qw * qx + qy * qz)
+    cosr_cosp = 1.0 - 2.0 * (qx * qx + qy * qy)
+    roll = math.atan2(sinr_cosp, cosr_cosp)
+
+    sinp = 2.0 * (qw * qy - qz * qx)
+    if abs(sinp) >= 1.0:
+        pitch = math.copysign(math.pi / 2.0, sinp)
+    else:
+        pitch = math.asin(sinp)
+
+    siny_cosp = 2.0 * (qw * qz + qx * qy)
+    cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz)
+    yaw = math.atan2(siny_cosp, cosy_cosp)
+    return roll, pitch, yaw
 
 
 def path_length(rows: list[dict[str, float]]) -> float:
@@ -369,6 +387,66 @@ def build_map_png(
     plt.close(fig)
 
 
+def build_attitude_png(
+    aligned_pairs: list[tuple[dict[str, float], dict[str, float]]],
+    summary: dict[str, float],
+) -> None:
+    times = [ref["t"] - aligned_pairs[0][0]["t"] for ref, _ in aligned_pairs]
+    glim_rpy = np.array(
+        [quat_to_rpy(ref["qx"], ref["qy"], ref["qz"], ref["qw"]) for ref, _ in aligned_pairs],
+        dtype=float,
+    )
+    lid_rpy = np.array(
+        [quat_to_rpy(est["qx"], est["qy"], est["qz"], est["qw"]) for _, est in aligned_pairs],
+        dtype=float,
+    )
+    glim_rpy = np.degrees(glim_rpy)
+    lid_rpy = np.degrees(lid_rpy)
+
+    fig, axes = plt.subplots(
+        3,
+        1,
+        figsize=(12.8, 7.2),
+        dpi=180,
+        sharex=True,
+        facecolor="#f6f8fb",
+    )
+    fig.subplots_adjust(left=0.08, right=0.97, top=0.86, bottom=0.09, hspace=0.20)
+    fig.suptitle(
+        "GLIM MID360 sample: attitude time series",
+        fontsize=18,
+        fontweight="bold",
+        y=0.965,
+    )
+    fig.text(
+        0.08,
+        0.915,
+        (
+            "Rigid alignment applied before comparison. "
+            f"Reference metrics: RMSE {summary['rmse']:.3f} m, median {summary['median']:.3f} m, max {summary['max']:.3f} m"
+        ),
+        ha="left",
+        va="center",
+        fontsize=10.5,
+        color="#516679",
+    )
+
+    labels = [("Roll", 0), ("Pitch", 1), ("Yaw", 2)]
+    for ax, (label, idx) in zip(axes, labels):
+        ax.set_facecolor("white")
+        ax.plot(times, glim_rpy[:, idx], color="#0b6bcb", linewidth=1.8, label="GLIM")
+        ax.plot(times, lid_rpy[:, idx], color="#bc4b2f", linewidth=1.6, label="lidarslam")
+        ax.set_ylabel(f"{label} [deg]")
+        ax.grid(True, color="#e9eef4", linewidth=0.8)
+        for spine in ax.spines.values():
+            spine.set_edgecolor("#d8e3ef")
+        if idx == 0:
+            ax.legend(loc="upper right", frameon=True, facecolor="white", edgecolor="#d8e3ef")
+    axes[-1].set_xlabel("Time [s]")
+    fig.savefig(ATTITUDE_OUT, facecolor=fig.get_facecolor())
+    plt.close(fig)
+
+
 def ticks(min_v: float, max_v: float, count: int = 6) -> list[float]:
     if math.isclose(min_v, max_v):
         return [min_v]
@@ -616,9 +694,11 @@ def main() -> None:
     XY_OUT.write_text(build_xy_svg(glim_rows, lid_aligned, summary), encoding="utf-8")
     ERR_OUT.write_text(build_error_svg(errors, summary), encoding="utf-8")
     build_map_png(glim_rows, lid_aligned, summary)
+    build_attitude_png(aligned_pairs, summary)
     print(XY_OUT)
     print(ERR_OUT)
     print(MAP_OUT)
+    print(ATTITUDE_OUT)
 
 
 if __name__ == "__main__":

@@ -158,6 +158,8 @@ Current sample result:
 
 <img src="./lidarslam/images/mid360_glim_compare_error.svg" width="960px">
 
+<img src="./lidarslam/images/mid360_glim_attitude_compare.png" width="960px">
+
 <img src="./lidarslam/images/mid360_glim_map_compare.png" width="960px">
 
 ## Used Libraries 
