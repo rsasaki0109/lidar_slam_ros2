@@ -119,6 +119,18 @@ ros2 service call /map_save std_srvs/Empty
 |use_save_map_in_loop|bool|true|Whether to save the map when loop close(If the map saving process in loop close is too heavy and the self-position estimation fails, set this to `false`.)|
 
 ## demo
+### GLIM MID360 sample comparison
+
+The official GLIM MID360 sample can be compared against `lidarslam_ros2` with the helper scripts added in this branch.
+
+- GLIM path length: `1077.12 m`
+- lidarslam path length: `1077.58 m`
+- aligned comparison: `APE RMSE = 0.457 m`, `APE median = 0.395 m`, `APE max = 1.078 m`
+
+<img src="./lidarslam/images/mid360_glim_compare_xy.svg" width="960px">
+
+<img src="./lidarslam/images/mid360_glim_compare_error.svg" width="960px">
+
 ### trial environment
 demo data(ROS1) is `hdl_400.bag` in [hdl_graph_slam](https://github.com/koide3/hdl_graph_slam)  
 The Velodyne VLP-32 was used in this data.  
