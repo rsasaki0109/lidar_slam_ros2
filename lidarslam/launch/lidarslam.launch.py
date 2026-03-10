@@ -1,62 +1,158 @@
 import os
 
-import launch
-import launch_ros.actions
-
 from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.actions import Node
+
 
 def generate_launch_description():
+    pkg_share = get_package_share_directory("lidarslam")
 
-    main_param_dir = launch.substitutions.LaunchConfiguration(
-        'main_param_dir',
-        default=os.path.join(
-            get_package_share_directory('lidarslam'),
-            'param',
-            'lidarslam.yaml'))
-    
-    rviz_param_dir = launch.substitutions.LaunchConfiguration(
-        'rviz_param_dir',
-        default=os.path.join(
-            get_package_share_directory('lidarslam'),
-            'rviz',
-            'mapping.rviz'))
+    main_param_dir_default = os.path.join(pkg_share, "param", "lidarslam.yaml")
+    rviz_config_default = os.path.join(pkg_share, "rviz", "mapping.rviz")
 
-    mapping = launch_ros.actions.Node(
-        package='scanmatcher',
-        executable='scanmatcher_node',
-        parameters=[main_param_dir],
-        remappings=[('/input_cloud','/velodyne_points')],
-        output='screen'
-        )
-
-    tf = launch_ros.actions.Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        arguments=['0','0','0','0','0','0','1','base_link','velodyne']
-        )
-
-
-    graphbasedslam = launch_ros.actions.Node(
-        package='graph_based_slam',
-        executable='graph_based_slam_node',
-        parameters=[main_param_dir],
-        output='screen'
-        )
-    
-    rviz = launch_ros.actions.Node(
-        package='rviz2',
-        executable='rviz2',
-        arguments=['-d', rviz_param_dir]
-        )
-
-
-    return launch.LaunchDescription([
-        launch.actions.DeclareLaunchArgument(
-            'main_param_dir',
-            default_value=main_param_dir,
-            description='Full path to main parameter file to load'),
-        mapping,
-        tf,
-        graphbasedslam,
-        rviz,
-            ])
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument(
+                "main_param_dir",
+                default_value=main_param_dir_default,
+                description="Full path to the main parameter YAML file.",
+            ),
+            DeclareLaunchArgument(
+                "use_sim_time",
+                default_value="false",
+                description="Use simulation time (/clock). Recommended for rosbag playback.",
+            ),
+            DeclareLaunchArgument(
+                "global_frame_id",
+                default_value="map",
+                description="Global frame id.",
+            ),
+            DeclareLaunchArgument(
+                "robot_frame_id",
+                default_value="base_link",
+                description="Robot base frame id.",
+            ),
+            DeclareLaunchArgument(
+                "odom_frame_id",
+                default_value="odom",
+                description="Odometry frame id (used when scanmatcher use_odom:=true).",
+            ),
+            DeclareLaunchArgument(
+                "rviz_config",
+                default_value=rviz_config_default,
+                description="Full path to the RViz config file.",
+            ),
+            DeclareLaunchArgument(
+                "use_rviz",
+                default_value="false",
+                description="Start RViz (requires rviz2 installed on the system).",
+            ),
+            DeclareLaunchArgument(
+                "use_graph_based_slam",
+                default_value="true",
+                description="Start the graph_based_slam backend node.",
+            ),
+            DeclareLaunchArgument(
+                "input_cloud",
+                default_value="/points_raw",
+                description="Input point cloud topic (sensor_msgs/PointCloud2).",
+            ),
+            DeclareLaunchArgument(
+                "imu_topic",
+                default_value="/imu",
+                description="IMU topic for scanmatcher (sensor_msgs/Imu).",
+            ),
+            DeclareLaunchArgument(
+                "save_dir",
+                default_value=".",
+                description="Directory for outputs written by the backend (pose_graph.g2o/map.pcd).",
+            ),
+            DeclareLaunchArgument(
+                "base_frame",
+                default_value=LaunchConfiguration("robot_frame_id"),
+                description="Base frame id (parent frame for the LiDAR TF). Defaults to robot_frame_id.",
+            ),
+            DeclareLaunchArgument(
+                "lidar_frame",
+                default_value="lidar",
+                description="LiDAR frame id (child frame for the LiDAR TF).",
+            ),
+            DeclareLaunchArgument(
+                "publish_static_tf",
+                default_value="true",
+                description="Publish an identity static TF from base_frame to lidar_frame.",
+            ),
+            DeclareLaunchArgument("static_tf_x", default_value="0"),
+            DeclareLaunchArgument("static_tf_y", default_value="0"),
+            DeclareLaunchArgument("static_tf_z", default_value="0"),
+            DeclareLaunchArgument("static_tf_qx", default_value="0"),
+            DeclareLaunchArgument("static_tf_qy", default_value="0"),
+            DeclareLaunchArgument("static_tf_qz", default_value="0"),
+            DeclareLaunchArgument("static_tf_qw", default_value="1"),
+            Node(
+                package="scanmatcher",
+                executable="scanmatcher_node",
+                parameters=[
+                    LaunchConfiguration("main_param_dir"),
+                    {
+                        "global_frame_id": LaunchConfiguration("global_frame_id"),
+                        "robot_frame_id": LaunchConfiguration("robot_frame_id"),
+                        "odom_frame_id": LaunchConfiguration("odom_frame_id"),
+                        "use_sim_time": LaunchConfiguration("use_sim_time"),
+                    },
+                ],
+                remappings=[
+                    ("/input_cloud", LaunchConfiguration("input_cloud")),
+                    ("/imu", LaunchConfiguration("imu_topic")),
+                ],
+                output="screen",
+            ),
+            Node(
+                package="graph_based_slam",
+                executable="graph_based_slam_node",
+                parameters=[
+                    LaunchConfiguration("main_param_dir"),
+                    {
+                        "global_frame_id": LaunchConfiguration("global_frame_id"),
+                        "use_sim_time": LaunchConfiguration("use_sim_time"),
+                        "save_pose_graph_path": PathJoinSubstitution(
+                            [LaunchConfiguration("save_dir"), "pose_graph.g2o"]
+                        ),
+                        "save_map_path": PathJoinSubstitution(
+                            [LaunchConfiguration("save_dir"), "map.pcd"]
+                        ),
+                    },
+                ],
+                condition=IfCondition(LaunchConfiguration("use_graph_based_slam")),
+                output="screen",
+            ),
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                arguments=[
+                    LaunchConfiguration("static_tf_x"),
+                    LaunchConfiguration("static_tf_y"),
+                    LaunchConfiguration("static_tf_z"),
+                    LaunchConfiguration("static_tf_qx"),
+                    LaunchConfiguration("static_tf_qy"),
+                    LaunchConfiguration("static_tf_qz"),
+                    LaunchConfiguration("static_tf_qw"),
+                    LaunchConfiguration("base_frame"),
+                    LaunchConfiguration("lidar_frame"),
+                ],
+                condition=IfCondition(LaunchConfiguration("publish_static_tf")),
+            ),
+            Node(
+                package="rviz2",
+                executable="rviz2",
+                parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}],
+                arguments=["-d", LaunchConfiguration("rviz_config")],
+                condition=IfCondition(LaunchConfiguration("use_rviz")),
+                output="screen",
+            ),
+        ]
+    )
