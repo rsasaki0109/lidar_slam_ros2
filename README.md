@@ -119,9 +119,36 @@ ros2 service call /map_save std_srvs/Empty
 |use_save_map_in_loop|bool|true|Whether to save the map when loop close(If the map saving process in loop close is too heavy and the self-position estimation fails, set this to `false`.)|
 
 ## demo
-### GLIM MID360 sample comparison
+### GLIM MID360 sample
 
-The official GLIM MID360 sample can be compared against `lidarslam_ros2` with the helper scripts added in this branch.
+The recommended sample dataset for this branch is the official GLIM MID360 rosbag:
+
+- bag: `demo_data/glim_mid360/rosbag2_2024_04_16-14_17_01`
+- points topic: `/livox/lidar`
+- imu topic: `/livox/imu`
+- default sample path on this branch: MID360 tuned frontend with `use_imu: false` and `graph_based_slam` disabled
+
+Run:
+
+```bash
+bash scripts/run_bag_demo.sh \
+  --bag demo_data/glim_mid360/rosbag2_2024_04_16-14_17_01 \
+  --points-topic /livox/lidar \
+  --imu-topic /livox/imu \
+  --robot-frame-id livox_frame \
+  --points-frame-id livox_frame
+```
+
+Compare against GLIM:
+
+```bash
+bash scripts/compare_with_glim.sh \
+  --bag demo_data/glim_mid360/rosbag2_2024_04_16-14_17_01 \
+  --points-topic /livox/lidar \
+  --imu-topic /livox/imu
+```
+
+Current sample result:
 
 - GLIM path length: `1077.12 m`
 - lidarslam path length: `1077.58 m`
@@ -131,48 +158,7 @@ The official GLIM MID360 sample can be compared against `lidarslam_ros2` with th
 
 <img src="./lidarslam/images/mid360_glim_compare_error.svg" width="960px">
 
-### trial environment
-demo data(ROS1) is `hdl_400.bag` in [hdl_graph_slam](https://github.com/koide3/hdl_graph_slam)  
-The Velodyne VLP-32 was used in this data.  
-To use rosbag in ROS1, use [rosbags](https://pypi.org/project/rosbags/)  
-
-
-```
-ros2 launch lidarslam lidarslam.launch.py
-```
-
-```
-ros2 bag play hdl_400/
-```
-
-<img src="./lidarslam/images/path.png" width="640px">
-
-Green: path with loopclosure, Yellow: path without loopclosure
-
-<img src="./lidarslam/images/map.png" width="640px">
-
-### The larger environment
-(This data is not available at the moment...)
-demo data(ROS1) by Autoware Foundation  
-https://data.tier4.jp/rosbag_details/?id=212  
-The Velodyne VLP-16 was used in this data.
-
-
-```
-ros2 launch lidarslam lidarslam_tukuba.launch.py
-```
-
-```
-ros2 bag play tc_2017-10-15-15-34-02_free_download/ 
-```
-
-<img src="./lidarslam/images/path_tukuba.png" width="640px">  
-
-Green: path  
-
-<img src="./lidarslam/images/map_tukuba.png" width="640px">  
-
-Red and yellow: map
+<img src="./lidarslam/images/mid360_glim_map_compare.png" width="960px">
 
 ## Used Libraries 
 
