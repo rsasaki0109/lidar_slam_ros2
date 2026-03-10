@@ -123,7 +123,9 @@ ros2 service call /map_save std_srvs/Empty
 
 The recommended sample dataset for this branch is the official GLIM MID360 rosbag:
 
-- bag: `demo_data/glim_mid360/rosbag2_2024_04_16-14_17_01`
+- download: `https://doi.org/10.5281/zenodo.14841855`
+- file: `rosbag2_2024_04_16-14_17_01.zip`
+- after extraction, use the extracted rosbag directory as `<bag_dir>`
 - points topic: `/livox/lidar`
 - imu topic: `/livox/imu`
 - default sample path on this branch: MID360 tuned frontend with `use_imu: false` and `graph_based_slam` disabled
@@ -132,7 +134,7 @@ Run:
 
 ```bash
 bash scripts/run_bag_demo.sh \
-  --bag demo_data/glim_mid360/rosbag2_2024_04_16-14_17_01 \
+  --bag <bag_dir> \
   --points-topic /livox/lidar \
   --imu-topic /livox/imu \
   --robot-frame-id livox_frame \
@@ -143,7 +145,7 @@ Compare against GLIM:
 
 ```bash
 bash scripts/compare_with_glim.sh \
-  --bag demo_data/glim_mid360/rosbag2_2024_04_16-14_17_01 \
+  --bag <bag_dir> \
   --points-topic /livox/lidar \
   --imu-topic /livox/imu
 ```
