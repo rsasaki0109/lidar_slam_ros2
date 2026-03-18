@@ -6,9 +6,9 @@ if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
 endif()
 
-# Default to C++14
+# Default to C++17 (required by small_gicp)
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -33,6 +33,8 @@ find_package(tf2_eigen REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(lidarslam_msgs REQUIRED)
 find_package(ndt_omp_ros2 REQUIRED)
+find_package(fast_gicp REQUIRED)
+find_package(small_gicp REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenMP)
 
@@ -49,6 +51,8 @@ set(dependencies
   nav_msgs
   lidarslam_msgs
   ndt_omp_ros2
+  fast_gicp
+  small_gicp
 )
 
 if (OPENMP_FOUND)
@@ -59,6 +63,21 @@ endif()
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(test_lidar_undistortion test/test_lidar_undistortion.cpp)
+  target_include_directories(test_lidar_undistortion PRIVATE include ${PCL_INCLUDE_DIRS})
+  target_link_libraries(test_lidar_undistortion ${PCL_LIBRARIES})
+
+  ament_add_gtest(test_math_utils test/test_math_utils.cpp)
+  target_include_directories(test_math_utils PRIVATE include ${PCL_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
+  ament_target_dependencies(test_math_utils
+    tf2_geometry_msgs
+    tf2_eigen
+    geometry_msgs
+  )
+  target_link_libraries(test_math_utils ${PCL_LIBRARIES})
 endif()
 
 add_library(scanmatcher_component SHARED
@@ -78,6 +97,15 @@ scanmatcher_component ${PCL_LIBRARIES})
 
 ament_target_dependencies(scanmatcher_node
   rclcpp)
+
+add_executable(small_gicp_odom_node
+src/small_gicp_odom_node.cpp
+)
+
+ament_target_dependencies(small_gicp_odom_node
+  rclcpp sensor_msgs nav_msgs tf2_ros pcl_conversions small_gicp)
+
+target_link_libraries(small_gicp_odom_node ${PCL_LIBRARIES})
 
 include_directories(
     include
@@ -110,8 +138,9 @@ install(TARGETS
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS 
+install(TARGETS
   scanmatcher_node
+  small_gicp_odom_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
