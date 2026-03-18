@@ -61,9 +61,16 @@ die() {
   exit 1
 }
 
+is_ntu_viral_tnp01_bag() {
+  local bag_path="${1:-}"
+  [[ -n "${bag_path}" ]] || return 1
+  [[ "${bag_path}" == *"/tnp_01"* || "${bag_path}" == *"tnp_01_rosbag2"* || "${bag_path}" == *"tnp_01_points_restamped_vn100_rosbag2"* ]]
+}
+
 BAG_PATH=""
 POINTS_TOPIC=""
 IMU_TOPIC=""
+IMU_TOPIC_USER_SPECIFIED="false"
 NO_IMU="false"
 PARAM_FILE=""
 SAVE_DIR=""
@@ -106,7 +113,7 @@ while [[ $# -gt 0 ]]; do
     --points-topic)
       POINTS_TOPIC="${2:-}"; shift 2 ;;
     --imu-topic)
-      IMU_TOPIC="${2:-}"; shift 2 ;;
+      IMU_TOPIC="${2:-}"; IMU_TOPIC_USER_SPECIFIED="true"; shift 2 ;;
     --no-imu)
       NO_IMU="true"; shift ;;
     --param)
@@ -312,7 +319,13 @@ if [[ -z "${IMU_TOPIC}" ]]; then
 fi
 
 if [[ -z "${PARAM_FILE}" ]]; then
-  if [[ "${HAS_IMU}" == "true" ]]; then
+  if is_ntu_viral_tnp01_bag "${BAG_PATH}"; then
+    PARAM_FILE="${REPO_ROOT}/lidarslam/param/lidarslam_ouster_aggressive_noimu.yaml"
+    USE_GRAPH_BASED_SLAM="false"
+    if [[ "${IMU_TOPIC_USER_SPECIFIED}" != "true" ]]; then
+      NO_IMU="true"
+    fi
+  elif [[ "${HAS_IMU}" == "true" ]]; then
     if [[ "${BAG_PATH}" == *"/glim_mid360/"* || "${BAG_PATH}" == *"rosbag2_2024_04_16-14_17_01"* ]]; then
       PARAM_FILE="${REPO_ROOT}/lidarslam/param/lidarslam_mid360_noimu.yaml"
       USE_GRAPH_BASED_SLAM="false"
@@ -356,11 +369,15 @@ if [[ "${AUTO_STATIC_TF}" == "true" && "${PUBLISH_STATIC_TF}" != "true" && "${ba
     else
       detected_frame_id="$(sanitize_frame_id "$(detect_topic_frame_id "${POINTS_TOPIC}" "${AUTO_STATIC_TF_TIMEOUT}")")"
     fi
-    detected_imu_frame_id="$(detect_topic_frame_id "${IMU_TOPIC}" "${AUTO_STATIC_TF_TIMEOUT}")"
-    detected_imu_frame_id="$(sanitize_frame_id "${detected_imu_frame_id}")"
+	    detected_imu_frame_id="$(detect_topic_frame_id "${IMU_TOPIC}" "${AUTO_STATIC_TF_TIMEOUT}")"
+	    detected_imu_frame_id="$(sanitize_frame_id "${detected_imu_frame_id}")"
 
-    kill "${play_pid}" 2>/dev/null || true
-    wait "${play_pid}" 2>/dev/null || true
+	    if [[ -z "${detected_frame_id}" ]] && is_ntu_viral_tnp01_bag "${BAG_PATH}"; then
+	      detected_frame_id="sensor1/os_sensor"
+	    fi
+
+	    kill "${play_pid}" 2>/dev/null || true
+	    wait "${play_pid}" 2>/dev/null || true
 
     if [[ -n "${detected_frame_id}" && "${LIDAR_FRAME_USER_SPECIFIED}" != "true" ]]; then
       LIDAR_FRAME="${detected_frame_id}"
@@ -388,7 +405,9 @@ if [[ -n "${POINTS_FRAME_ID}" ]]; then
 fi
 if [[ -z "${POINTS_FRAME_ID}" ]]; then
   POINTS_FRAME_ID="$(sanitize_frame_id "${LIDAR_FRAME}")"
-  if [[ -z "${POINTS_FRAME_ID}" && "${POINTS_TOPIC}" == *"livox"* ]]; then
+  if [[ -z "${POINTS_FRAME_ID}" ]] && is_ntu_viral_tnp01_bag "${BAG_PATH}"; then
+    POINTS_FRAME_ID="sensor1/os_sensor"
+  elif [[ -z "${POINTS_FRAME_ID}" && "${POINTS_TOPIC}" == *"livox"* ]]; then
     POINTS_FRAME_ID="livox_frame"
   fi
 fi
@@ -525,3 +544,7 @@ fi
 
 echo "playing bag..."
 ros2 bag play "${BAG_PATH}" "${play_args[@]}"
+
+# Wait for scanmatcher to drain its queue after bag playback finishes
+echo "bag playback finished, waiting for scan processing to drain..."
+sleep 30

@@ -58,8 +58,17 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   get_parameter("registration_method", registration_method_);
   declare_parameter("ndt_resolution", 5.0);
   get_parameter("ndt_resolution", ndt_resolution);
+  double ndt_step_size;
+  declare_parameter("ndt_step_size", 0.1);
+  get_parameter("ndt_step_size", ndt_step_size);
   declare_parameter("ndt_num_threads", 0);
   get_parameter("ndt_num_threads", ndt_num_threads);
+  declare_parameter("ndt_transformation_epsilon", 0.01);
+  get_parameter("ndt_transformation_epsilon", ndt_transformation_epsilon_);
+  declare_parameter("ndt_max_iterations", 35);
+  get_parameter("ndt_max_iterations", ndt_max_iterations_);
+  declare_parameter("ndt_outlier_ratio", 0.55);
+  get_parameter("ndt_outlier_ratio", ndt_outlier_ratio_);
   declare_parameter("gicp_corr_dist_threshold", 5.0);
   get_parameter("gicp_corr_dist_threshold", gicp_corr_dist_threshold);
   declare_parameter("trans_for_mapupdate", 1.5);
@@ -92,6 +101,27 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     std::cout << "num_recovery_targeted_cloud should be positive" << std::endl;
     num_recovery_targeted_cloud_ = 1;
   }
+  declare_parameter("use_spatial_local_map", false);
+  get_parameter("use_spatial_local_map", use_spatial_local_map_);
+  declare_parameter("spatial_local_map_radius", 30.0);
+  get_parameter("spatial_local_map_radius", spatial_local_map_radius_);
+  declare_parameter("use_voxel_hash_map", false);
+  get_parameter("use_voxel_hash_map", use_voxel_hash_map_);
+  declare_parameter("voxel_hash_map_voxel_size", 1.0);
+  get_parameter("voxel_hash_map_voxel_size", voxel_hash_map_voxel_size_);
+  declare_parameter("voxel_hash_map_max_distance", 100.0);
+  get_parameter("voxel_hash_map_max_distance", voxel_hash_map_max_distance_);
+  declare_parameter("voxel_hash_map_max_points_per_voxel", 20);
+  get_parameter("voxel_hash_map_max_points_per_voxel", voxel_hash_map_max_points_per_voxel_);
+  if (use_voxel_hash_map_) {
+    voxel_hash_map_ = std::make_unique<VoxelHashMapPCL>(
+      voxel_hash_map_voxel_size_, voxel_hash_map_max_distance_,
+      voxel_hash_map_max_points_per_voxel_);
+  }
+  declare_parameter("adaptive_correspondence_threshold", false);
+  get_parameter("adaptive_correspondence_threshold", adaptive_correspondence_threshold_);
+  declare_parameter("adaptive_corr_dist_multiplier", 3.0);
+  get_parameter("adaptive_corr_dist_multiplier", adaptive_corr_dist_multiplier_);
   declare_parameter("async_map_update", true);
   get_parameter("async_map_update", async_map_update_);
   declare_parameter("async_map_update_warmup_submaps", 1);
@@ -130,6 +160,38 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   get_parameter("use_odom", use_odom_);
   declare_parameter("use_imu", false);
   get_parameter("use_imu", use_imu_);
+  declare_parameter("imu_translation_deskew", true);
+  get_parameter("imu_translation_deskew", imu_translation_deskew_);
+  declare_parameter("imu_pose_prediction_enable", true);
+  get_parameter("imu_pose_prediction_enable", imu_pose_prediction_enable_);
+  declare_parameter("imu_pose_prediction_max_age", 0.2);
+  get_parameter("imu_pose_prediction_max_age", imu_pose_prediction_max_age_);
+  declare_parameter("imu_pose_prediction_max_roll_pitch_deg", 12.0);
+  get_parameter("imu_pose_prediction_max_roll_pitch_deg", imu_pose_prediction_max_roll_pitch_deg_);
+  declare_parameter("imu_pose_prediction_max_yaw_deg", 20.0);
+  get_parameter("imu_pose_prediction_max_yaw_deg", imu_pose_prediction_max_yaw_deg_);
+  declare_parameter("imu_pose_prediction_weight", 0.0);
+  get_parameter("imu_pose_prediction_weight", imu_pose_prediction_weight_);
+  if (imu_pose_prediction_weight_ < 0.0) {imu_pose_prediction_weight_ = 0.0;}
+  if (imu_pose_prediction_weight_ > 1.0) {imu_pose_prediction_weight_ = 1.0;}
+  declare_parameter("imu_complementary_enable", false);
+  get_parameter("imu_complementary_enable", imu_complementary_enable_);
+  declare_parameter("imu_complementary_alpha", 0.0);
+  get_parameter("imu_complementary_alpha", imu_complementary_alpha_);
+  if (imu_complementary_alpha_ < 0.0) {imu_complementary_alpha_ = 0.0;}
+  if (imu_complementary_alpha_ > 1.0) {imu_complementary_alpha_ = 1.0;}
+  declare_parameter("imu_ndt_prior_enable", false);
+  get_parameter("imu_ndt_prior_enable", imu_ndt_prior_enable_);
+  declare_parameter("imu_ndt_prior_weight", 0.0);
+  get_parameter("imu_ndt_prior_weight", imu_ndt_prior_weight_);
+  declare_parameter("imu_ndt_prior_roll_pitch_only", true);
+  get_parameter("imu_ndt_prior_roll_pitch_only", imu_ndt_prior_roll_pitch_only_);
+  declare_parameter("imu_z_prior_enable", false);
+  get_parameter("imu_z_prior_enable", imu_z_prior_enable_);
+  declare_parameter("imu_z_prior_weight", 0.0);
+  get_parameter("imu_z_prior_weight", imu_z_prior_weight_);
+  declare_parameter("cloud_queue_depth", 5);
+  get_parameter("cloud_queue_depth", cloud_queue_depth_);
   declare_parameter("debug_flag", false);
   get_parameter("debug_flag", debug_flag_);
   declare_parameter("diagnostic_warn_trans_jump", 0.75);
@@ -178,9 +240,12 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   get_parameter("reject_fitness_streak_scans", reject_fitness_streak_scans_);
   declare_parameter("reject_recovery_scans", 0);
   get_parameter("reject_recovery_scans", reject_recovery_scans_);
+  declare_parameter("use_constant_velocity_model", false);
+  get_parameter("use_constant_velocity_model", use_constant_velocity_model_);
 
   std::cout << "registration_method:" << registration_method_ << std::endl;
   std::cout << "ndt_resolution[m]:" << ndt_resolution << std::endl;
+  std::cout << "ndt_step_size:" << ndt_step_size << std::endl;
   std::cout << "ndt_num_threads:" << ndt_num_threads << std::endl;
   std::cout << "gicp_corr_dist_threshold[m]:" << gicp_corr_dist_threshold << std::endl;
   std::cout << "trans_for_mapupdate[m]:" << trans_for_mapupdate_ << std::endl;
@@ -194,6 +259,25 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   std::cout << "publish_tf:" << std::boolalpha << publish_tf_ << std::endl;
   std::cout << "use_odom:" << std::boolalpha << use_odom_ << std::endl;
   std::cout << "use_imu:" << std::boolalpha << use_imu_ << std::endl;
+  std::cout << "imu_translation_deskew:" << std::boolalpha << imu_translation_deskew_ <<
+    std::endl;
+  std::cout << "imu_pose_prediction_enable:" << std::boolalpha << imu_pose_prediction_enable_ <<
+    std::endl;
+  std::cout << "imu_pose_prediction_max_age[sec]:" << imu_pose_prediction_max_age_ << std::endl;
+  std::cout << "imu_pose_prediction_max_roll_pitch_deg[deg]:" <<
+    imu_pose_prediction_max_roll_pitch_deg_ << std::endl;
+  std::cout << "imu_pose_prediction_max_yaw_deg[deg]:" <<
+    imu_pose_prediction_max_yaw_deg_ << std::endl;
+  std::cout << "imu_pose_prediction_weight:" << imu_pose_prediction_weight_ << std::endl;
+  std::cout << "imu_complementary_enable:" << std::boolalpha << imu_complementary_enable_ <<
+    std::endl;
+  std::cout << "imu_complementary_alpha:" << imu_complementary_alpha_ << std::endl;
+  std::cout << "imu_ndt_prior_enable:" << std::boolalpha << imu_ndt_prior_enable_ << std::endl;
+  std::cout << "imu_ndt_prior_weight:" << imu_ndt_prior_weight_ << std::endl;
+  std::cout << "imu_ndt_prior_roll_pitch_only:" << std::boolalpha <<
+    imu_ndt_prior_roll_pitch_only_ << std::endl;
+  std::cout << "use_constant_velocity_model:" << std::boolalpha <<
+    use_constant_velocity_model_ << std::endl;
   std::cout << "diagnostic_warn_trans_jump[m]:" << diagnostic_warn_trans_jump_ << std::endl;
   std::cout << "diagnostic_warn_yaw_jump_deg[deg]:" << diagnostic_warn_yaw_jump_deg_ << std::endl;
   std::cout << "reject_nonconverged_pose_update:" << std::boolalpha <<
@@ -226,6 +310,16 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   std::cout << "map_publish_period[sec]:" << map_publish_period_ << std::endl;
   std::cout << "num_targeted_cloud:" << num_targeted_cloud_ << std::endl;
   std::cout << "num_recovery_targeted_cloud:" << num_recovery_targeted_cloud_ << std::endl;
+  std::cout << "use_spatial_local_map:" << std::boolalpha << use_spatial_local_map_ << std::endl;
+  std::cout << "spatial_local_map_radius[m]:" << spatial_local_map_radius_ << std::endl;
+  std::cout << "use_voxel_hash_map:" << std::boolalpha << use_voxel_hash_map_ << std::endl;
+  if (use_voxel_hash_map_) {
+    std::cout << "voxel_hash_map_voxel_size[m]:" << voxel_hash_map_voxel_size_ << std::endl;
+    std::cout << "voxel_hash_map_max_distance[m]:" << voxel_hash_map_max_distance_ << std::endl;
+    std::cout << "voxel_hash_map_max_points_per_voxel:" << voxel_hash_map_max_points_per_voxel_ << std::endl;
+  }
+  std::cout << "adaptive_correspondence_threshold:" << std::boolalpha << adaptive_correspondence_threshold_ << std::endl;
+  std::cout << "adaptive_corr_dist_multiplier:" << adaptive_corr_dist_multiplier_ << std::endl;
   std::cout << "async_map_update:" << std::boolalpha << async_map_update_ << std::endl;
   std::cout << "async_map_update_warmup_submaps:" << async_map_update_warmup_submaps_ << std::endl;
   std::cout << "recovery_clear_consecutive_accepted:" << recovery_clear_consecutive_accepted_ <<
@@ -239,7 +333,10 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>::Ptr
       ndt(new pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>());
     ndt->setResolution(ndt_resolution);
-    ndt->setTransformationEpsilon(0.01);
+    ndt->setTransformationEpsilon(ndt_transformation_epsilon_);
+    ndt->setMaximumIterations(ndt_max_iterations_);
+    ndt->setStepSize(ndt_step_size);
+    ndt->setOulierRatio(ndt_outlier_ratio_);
     // ndt_omp
     ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
     if (ndt_num_threads > 0) {ndt->setNumThreads(ndt_num_threads);}
@@ -247,13 +344,51 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     registration_ = ndt;
 
   } else if (registration_method_ == "GICP") {
-	  boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
+    boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
       gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
     gicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
     gicp->setTransformationEpsilon(1e-8);
     registration_ = gicp;
+
+  } else if (registration_method_ == "FAST_GICP") {
+    // Fast GICP (Koide et al., BSD license)
+    using FG = fast_gicp::FastGICP<pcl::PointXYZI, pcl::PointXYZI>;
+    boost::shared_ptr<FG> fgicp(new FG());
+    fgicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
+    fgicp->setTransformationEpsilon(1e-6);
+    fgicp->setMaximumIterations(ndt_max_iterations_);
+    if (ndt_num_threads > 0) { fgicp->setNumThreads(ndt_num_threads); }
+    registration_ = fgicp;
+
+  } else if (registration_method_ == "FAST_VGICP") {
+    // Fast Voxelized GICP (Koide et al., BSD license)
+    using FVG = fast_gicp::FastVGICP<pcl::PointXYZI, pcl::PointXYZI>;
+    boost::shared_ptr<FVG> fvgicp(new FVG());
+    fvgicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
+    fvgicp->setTransformationEpsilon(1e-6);
+    fvgicp->setMaximumIterations(ndt_max_iterations_);
+    fvgicp->setResolution(ndt_resolution);
+    if (ndt_num_threads > 0) { fvgicp->setNumThreads(ndt_num_threads); }
+    registration_ = fvgicp;
+
+  } else if (registration_method_ == "SMALL_GICP" || registration_method_ == "SMALL_VGICP") {
+    // small_gicp (Koide, MIT license)
+    using SG = small_gicp::RegistrationPCL<pcl::PointXYZI, pcl::PointXYZI>;
+    boost::shared_ptr<SG> sg(new SG());
+    if (registration_method_ == "SMALL_VGICP") {
+      sg->setRegistrationType("VGICP");
+      sg->setVoxelResolution(ndt_resolution);
+    } else {
+      sg->setRegistrationType("GICP");
+    }
+    sg->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
+    sg->setTransformationEpsilon(1e-6);
+    sg->setMaximumIterations(ndt_max_iterations_);
+    if (ndt_num_threads > 0) { sg->setNumThreads(ndt_num_threads); }
+    registration_ = sg;
+
   } else {
-    RCLCPP_ERROR(get_logger(), "invalid registration method");
+    RCLCPP_ERROR(get_logger(), "invalid registration method: %s", registration_method_.c_str());
     exit(1);
   }
 
@@ -263,6 +398,7 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   path_.header.frame_id = global_frame_id_;
 
   lidar_undistortion_.setScanPeriod(scan_period_);
+  lidar_undistortion_.setUseTranslationDeskew(imu_translation_deskew_);
 
   initializePubSub();
 
@@ -379,6 +515,23 @@ void ScanMatcherComponent::initializePubSub()
         tmp_ptr = tmp_ptr2;
       }
 
+      // Skip non-monotonic timestamps (e.g. corrupted bags with interleaved data)
+      {
+        rclcpp::Time cloud_stamp(msg->header.stamp);
+        if (last_cloud_stamp_valid_) {
+          double dt = (cloud_stamp - last_cloud_stamp_).seconds();
+          if (dt < -0.5) {
+            RCLCPP_WARN_THROTTLE(
+              get_logger(), *get_clock(), 5000,
+              "CLOUD_SKIP_NONMONOTONIC stamp=%.9f prev=%.9f dt=%.3f",
+              cloud_stamp.seconds(), last_cloud_stamp_.seconds(), dt);
+            return;
+          }
+        }
+        last_cloud_stamp_ = cloud_stamp;
+        last_cloud_stamp_valid_ = true;
+      }
+
       if (!initial_cloud_received_) {
         RCLCPP_INFO(get_logger(), "initial_cloud is received");
         if (initializeMap(tmp_ptr, msg->header)) {
@@ -408,9 +561,11 @@ void ScanMatcherComponent::initializePubSub()
     create_subscription<sensor_msgs::msg::Imu>(
     "imu", rclcpp::SensorDataQoS(), imu_callback);
 
+  auto cloud_qos = rclcpp::SensorDataQoS();
+  cloud_qos.keep_last(cloud_queue_depth_);
   input_cloud_sub_ =
     create_subscription<sensor_msgs::msg::PointCloud2>(
-    "input_cloud", rclcpp::SensorDataQoS(), cloud_callback);
+    "input_cloud", cloud_qos, cloud_callback);
 
   // pub
   pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
@@ -449,6 +604,15 @@ bool ScanMatcherComponent::initializeMap(const pcl::PointCloud <pcl::PointXYZI>:
   if (transformed_cloud_ptr->empty()) {
     return false;
   }
+  // Initialize voxel hash map if enabled
+  if (use_voxel_hash_map_ && voxel_hash_map_) {
+    Eigen::Vector3d init_pos(
+      current_pose_stamped_.pose.position.x,
+      current_pose_stamped_.pose.position.y,
+      current_pose_stamped_.pose.position.z);
+    voxel_hash_map_->update(transformed_cloud_ptr, init_pos);
+  }
+
   registration_->setInputTarget(transformed_cloud_ptr);
 
   // map (global)
@@ -533,6 +697,75 @@ void ScanMatcherComponent::receiveCloud(
 
   Eigen::Matrix4f sim_trans = getTransformation(current_pose_stamped_.pose);
 
+  // Constant velocity motion model: predict next pose from last frame-to-frame delta
+  // Translation only — rotation prediction tends to amplify NDT oscillation
+  if (use_constant_velocity_model_ && last_accepted_delta_valid_ &&
+      tracking_state_ == TrackingState::Tracking) {
+    sim_trans.block<3, 1>(0, 3) += last_accepted_delta_position_.cast<float>();
+  }
+
+  // IMU initial guess modification (only when complementary filter is disabled)
+  if (!imu_complementary_enable_) {
+    // Always-on IMU roll/pitch correction (gravity-constrained axes only, no yaw)
+    if (
+      use_imu_ && imu_pose_prediction_enable_ && latest_imu_orientation_valid_ &&
+      cloud_imu_reference_valid_ && imu_pose_prediction_weight_ > 0.0)
+    {
+      const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
+      if (imu_age <= imu_pose_prediction_max_age_) {
+        tf2::Quaternion imu_delta = cloud_imu_reference_quat_.inverse() * latest_imu_robot_quat_;
+        imu_delta.normalize();
+        double imu_dr, imu_dp, imu_dy;
+        tf2::Matrix3x3(imu_delta).getRPY(imu_dr, imu_dp, imu_dy);
+        const double max_rp = imu_pose_prediction_weight_ * M_PI / 180.0;
+        imu_dr = std::clamp(imu_dr, -max_rp, max_rp);
+        imu_dp = std::clamp(imu_dp, -max_rp, max_rp);
+        tf2::Quaternion rp_delta;
+        rp_delta.setRPY(imu_dr, imu_dp, 0.0);
+        rp_delta.normalize();
+        tf2::Quaternion pose_quat;
+        tf2::fromMsg(current_pose_stamped_.pose.orientation, pose_quat);
+        tf2::Quaternion corrected = pose_quat * rp_delta;
+        corrected.normalize();
+        Eigen::Quaterniond corrected_eig(corrected.w(), corrected.x(), corrected.y(), corrected.z());
+        sim_trans.block<3, 3>(0, 0) = corrected_eig.toRotationMatrix().cast<float>();
+      }
+    }
+    // State-gated full IMU prediction (Suspect/Recovery only)
+    if (
+      use_imu_ && imu_pose_prediction_enable_ && latest_imu_orientation_valid_ &&
+      cloud_imu_reference_valid_ &&
+      (tracking_state_ != TrackingState::Tracking || recovery_target_active_))
+    {
+      const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
+      if (imu_age <= imu_pose_prediction_max_age_) {
+        tf2::Quaternion imu_delta = cloud_imu_reference_quat_.inverse() * latest_imu_robot_quat_;
+        imu_delta.normalize();
+        double imu_delta_roll = 0.0;
+        double imu_delta_pitch = 0.0;
+        double imu_delta_yaw = 0.0;
+        tf2::Matrix3x3(imu_delta).getRPY(imu_delta_roll, imu_delta_pitch, imu_delta_yaw);
+        const double max_roll_pitch = imu_pose_prediction_max_roll_pitch_deg_ * M_PI / 180.0;
+        const double max_yaw = imu_pose_prediction_max_yaw_deg_ * M_PI / 180.0;
+        imu_delta_roll = std::clamp(imu_delta_roll, -max_roll_pitch, max_roll_pitch);
+        imu_delta_pitch = std::clamp(imu_delta_pitch, -max_roll_pitch, max_roll_pitch);
+        imu_delta_yaw = std::clamp(imu_delta_yaw, -max_yaw, max_yaw);
+        tf2::Quaternion imu_delta_clamped;
+        imu_delta_clamped.setRPY(imu_delta_roll, imu_delta_pitch, imu_delta_yaw);
+        imu_delta_clamped.normalize();
+
+        tf2::Quaternion pose_quat;
+        tf2::fromMsg(current_pose_stamped_.pose.orientation, pose_quat);
+        tf2::Quaternion predicted_quat = pose_quat * imu_delta_clamped;
+        predicted_quat.normalize();
+        Eigen::Quaterniond predicted_quat_eig(
+          predicted_quat.w(), predicted_quat.x(), predicted_quat.y(), predicted_quat.z());
+        sim_trans.block<3, 3>(0, 0) =
+          predicted_quat_eig.normalized().toRotationMatrix().cast<float>();
+      }
+    }
+  }
+
   if (use_odom_) {
     geometry_msgs::msg::TransformStamped odom_trans;
     try {
@@ -550,15 +783,119 @@ void ScanMatcherComponent::receiveCloud(
     previous_odom_mat_ = odom_mat;
   }
 
+  // Set IMU rotation prior for NDT cost function
+  if (
+    imu_ndt_prior_enable_ && imu_ndt_prior_weight_ > 0.0 &&
+    use_imu_ && latest_imu_orientation_valid_ && cloud_imu_reference_valid_ &&
+    registration_method_ == "NDT")
+  {
+    const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
+    if (imu_age <= imu_pose_prediction_max_age_) {
+      // Compute IMU-predicted rotation: previous pose + IMU delta
+      tf2::Quaternion imu_delta = cloud_imu_reference_quat_.inverse() * latest_imu_robot_quat_;
+      imu_delta.normalize();
+      tf2::Quaternion pose_quat;
+      tf2::fromMsg(current_pose_stamped_.pose.orientation, pose_quat);
+      tf2::Quaternion predicted_quat = pose_quat * imu_delta;
+      predicted_quat.normalize();
+      // Convert to Euler angles matching NDT's internal convention (XYZ intrinsic)
+      Eigen::Quaterniond pred_eig(predicted_quat.w(), predicted_quat.x(),
+        predicted_quat.y(), predicted_quat.z());
+      Eigen::Vector3d prior_rpy = pred_eig.toRotationMatrix().eulerAngles(0, 1, 2);
+      auto ndt_ptr = boost::dynamic_pointer_cast<
+        pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
+      if (ndt_ptr) {
+        ndt_ptr->setRotationPrior(prior_rpy, imu_ndt_prior_weight_,
+          imu_ndt_prior_roll_pitch_only_);
+      }
+    }
+  }
+
+  // Set IMU Z-translation prior: constrain z-drift using gravity direction
+  if (imu_z_prior_enable_ && imu_z_prior_weight_ > 0.0 && registration_method_ == "NDT") {
+    auto ndt_ptr = boost::dynamic_pointer_cast<
+      pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
+    if (ndt_ptr) {
+      // Use current z as prior (resist z changes between consecutive frames)
+      Eigen::Vector3d z_prior(
+        sim_trans(0, 3), sim_trans(1, 3), sim_trans(2, 3));
+      Eigen::Vector3d weights(0.0, 0.0, imu_z_prior_weight_);  // z-only
+      ndt_ptr->setTranslationPrior(z_prior, weights);
+    }
+  }
+
+  // Set adaptive correspondence distance before alignment (all methods)
+  if (adaptive_correspondence_threshold_ && adaptive_corr_dist_ema_ > 0.0) {
+    double max_dist = adaptive_corr_dist_multiplier_ * adaptive_corr_dist_ema_;
+    if (registration_method_ == "NDT") {
+      auto ndt_ptr = boost::dynamic_pointer_cast<
+        pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
+      if (ndt_ptr) {
+        ndt_ptr->setMaxCorrespondenceDistance(max_dist);
+      }
+    } else {
+      registration_->setMaxCorrespondenceDistance(max_dist);
+    }
+  }
+
   pcl::PointCloud<pcl::PointXYZI>::Ptr output_cloud(new pcl::PointCloud<pcl::PointXYZI>);
   rclcpp::Clock system_clock;
   rclcpp::Time time_align_start = system_clock.now();
   registration_->align(*output_cloud, sim_trans);
   rclcpp::Time time_align_end = system_clock.now();
 
+  // Clear rotation prior after alignment (NDT only)
+  if (registration_method_ == "NDT") {
+    auto ndt_ptr = boost::dynamic_pointer_cast<
+      pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
+    if (ndt_ptr) {
+      if (imu_ndt_prior_enable_) {
+        ndt_ptr->clearRotationPrior();
+      }
+      if (imu_z_prior_enable_) {
+        ndt_ptr->clearTranslationPrior();
+      }
+    }
+  }
+
+  // Update adaptive correspondence distance EMA after alignment (all methods)
+  if (adaptive_correspondence_threshold_) {
+    double mean_corr = 0.0;
+    if (registration_method_ == "NDT") {
+      auto ndt_ptr = boost::dynamic_pointer_cast<
+        pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
+      if (ndt_ptr) {
+        mean_corr = ndt_ptr->getLastMeanCorrespondenceDistance();
+        ndt_ptr->setMaxCorrespondenceDistance(0.0);  // Reset for next frame
+      }
+    } else {
+      // For GICP/VGICP methods: use sqrt(fitness) as proxy for mean correspondence distance
+      double fitness = registration_->getFitnessScore();
+      if (fitness > 0.0) {
+        mean_corr = std::sqrt(fitness);
+      }
+      registration_->setMaxCorrespondenceDistance(
+        std::numeric_limits<double>::max());  // Reset for next frame
+    }
+    if (mean_corr > 0.0) {
+      if (adaptive_corr_dist_ema_ <= 0.0) {
+        adaptive_corr_dist_ema_ = mean_corr;  // Initialize
+      } else {
+        adaptive_corr_dist_ema_ = adaptive_corr_dist_ema_alpha_ * mean_corr +
+          (1.0 - adaptive_corr_dist_ema_alpha_) * adaptive_corr_dist_ema_;
+      }
+    }
+  }
+
   Eigen::Matrix4f final_transformation = registration_->getFinalTransformation();
 
+
   publishMapAndPose(cloud_ptr, final_transformation, stamp);
+  if (use_imu_ && latest_imu_orientation_valid_) {
+    cloud_imu_reference_quat_ = latest_imu_robot_quat_;
+    cloud_imu_reference_stamp_ = latest_imu_stamp_;
+    cloud_imu_reference_valid_ = true;
+  }
 
   if (!debug_flag_) {return;}
 
@@ -989,6 +1326,58 @@ void ScanMatcherComponent::publishMapAndPose(
     reject_map_update_cooldown_remaining_ -= 1;
   }
 
+  // Post-NDT complementary filter: blend roll/pitch with IMU for output only
+  // current_pose_stamped_ keeps raw NDT result for next-frame initial guess
+  // published_quat_msg is the blended version for TF/path output
+  geometry_msgs::msg::Quaternion published_quat_msg = accepted_quat_msg;
+  if (
+    imu_complementary_enable_ && imu_complementary_alpha_ > 0.0 &&
+    use_imu_ && latest_imu_orientation_valid_ && cloud_imu_reference_valid_ &&
+    previous_pose_diagnostic_valid_)
+  {
+    const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
+    if (imu_age <= imu_pose_prediction_max_age_) {
+      tf2::Quaternion imu_delta = cloud_imu_reference_quat_.inverse() * latest_imu_robot_quat_;
+      imu_delta.normalize();
+      double imu_dr, imu_dp, imu_dy;
+      tf2::Matrix3x3(imu_delta).getRPY(imu_dr, imu_dp, imu_dy);
+
+      tf2::Quaternion ndt_quat;
+      tf2::fromMsg(accepted_quat_msg, ndt_quat);
+      double ndt_roll, ndt_pitch, ndt_yaw;
+      tf2::Matrix3x3(ndt_quat).getRPY(ndt_roll, ndt_pitch, ndt_yaw);
+
+      // Previous published rotation (ndt_pose_ stores last published RPY)
+      Eigen::Matrix3f prev_rot = ndt_pose_.block<3, 3>(0, 0);
+      Eigen::Quaternionf prev_q_eig(prev_rot);
+      tf2::Quaternion prev_pub_quat(prev_q_eig.x(), prev_q_eig.y(), prev_q_eig.z(), prev_q_eig.w());
+      double prev_roll, prev_pitch, prev_yaw;
+      tf2::Matrix3x3(prev_pub_quat).getRPY(prev_roll, prev_pitch, prev_yaw);
+
+      double imu_pred_roll = prev_roll + imu_dr;
+      double imu_pred_pitch = prev_pitch + imu_dp;
+
+      const double a = imu_complementary_alpha_;
+      double blended_roll = (1.0 - a) * ndt_roll + a * imu_pred_roll;
+      double blended_pitch = (1.0 - a) * ndt_pitch + a * imu_pred_pitch;
+
+      tf2::Quaternion blended_quat;
+      blended_quat.setRPY(blended_roll, blended_pitch, ndt_yaw);
+      blended_quat.normalize();
+      published_quat_msg = tf2::toMsg(blended_quat);
+    }
+  }
+  // Store published rotation for next frame's complementary filter
+  if (imu_complementary_enable_) {
+    tf2::Quaternion pub_q;
+    tf2::fromMsg(published_quat_msg, pub_q);
+    Eigen::Quaterniond pub_q_eig(pub_q.w(), pub_q.x(), pub_q.y(), pub_q.z());
+    ndt_pose_ = Eigen::Matrix4f::Identity();
+    ndt_pose_.block<3, 3>(0, 0) = pub_q_eig.toRotationMatrix().cast<float>();
+    ndt_pose_.block<3, 1>(0, 3) = accepted_position.cast<float>();
+    ndt_pose_valid_ = true;
+  }
+
   if(publish_tf_){
     geometry_msgs::msg::TransformStamped base_to_map_msg;
     base_to_map_msg.header.stamp = stamp;
@@ -997,7 +1386,7 @@ void ScanMatcherComponent::publishMapAndPose(
     base_to_map_msg.transform.translation.x = accepted_position.x();
     base_to_map_msg.transform.translation.y = accepted_position.y();
     base_to_map_msg.transform.translation.z = accepted_position.z();
-    base_to_map_msg.transform.rotation = accepted_quat_msg;
+    base_to_map_msg.transform.rotation = published_quat_msg;
 
     if(use_odom_){
         geometry_msgs::msg::TransformStamped odom_to_map_msg;
@@ -1009,14 +1398,18 @@ void ScanMatcherComponent::publishMapAndPose(
     }
   }
 
+  // current_pose_stamped_ stores raw NDT result (not filtered) for next-frame initial guess
   current_pose_stamped_.header.stamp = stamp;
   current_pose_stamped_.pose.position.x = accepted_position.x();
   current_pose_stamped_.pose.position.y = accepted_position.y();
   current_pose_stamped_.pose.position.z = accepted_position.z();
   current_pose_stamped_.pose.orientation = accepted_quat_msg;
-  pose_pub_->publish(current_pose_stamped_);
+  // Publish with complementary-filtered rotation (or raw NDT if filter disabled)
+  geometry_msgs::msg::PoseStamped publish_pose = current_pose_stamped_;
+  publish_pose.pose.orientation = published_quat_msg;
+  pose_pub_->publish(publish_pose);
 
-  path_.poses.push_back(current_pose_stamped_);
+  path_.poses.push_back(publish_pose);
   path_pub_->publish(path_);
 
   trans_ = (accepted_position - previous_position_).norm();
@@ -1074,18 +1467,61 @@ void ScanMatcherComponent::updateMap(
   lidarslam_msgs::msg::MapArray map_array_snapshot;
   {
     std::lock_guard<std::mutex> lock(mtx_);
-    targeted_cloud_.clear();
-    targeted_cloud_ += *transformed_cloud_ptr;
-    int num_submaps = map_array_msg_.submaps.size();
-    for (int i = 0; i < num_targeted_cloud_ - 1; i++) {
-      if (num_submaps - 1 - i < 0) {continue;}
-      pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-      pcl::fromROSMsg(map_array_msg_.submaps[num_submaps - 1 - i].cloud, *tmp_ptr);
-      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-      Eigen::Affine3d submap_affine;
-      tf2::fromMsg(map_array_msg_.submaps[num_submaps - 1 - i].pose, submap_affine);
-      pcl::transformPointCloud(*tmp_ptr, *transformed_tmp_ptr, submap_affine.matrix());
-      targeted_cloud_ += *transformed_tmp_ptr;
+
+    if (use_voxel_hash_map_ && voxel_hash_map_) {
+      // VoxelHashMap mode: add points and build target from nearby voxels
+      Eigen::Vector3d current_pos(
+        current_pose_stamped.pose.position.x,
+        current_pose_stamped.pose.position.y,
+        current_pose_stamped.pose.position.z);
+      voxel_hash_map_->update(transformed_cloud_ptr, current_pos);
+      // Use local points within spatial radius for registration target
+      double local_radius = std::min(voxel_hash_map_max_distance_, 50.0);
+      auto voxel_cloud = voxel_hash_map_->getLocalPoints(current_pos, local_radius);
+      targeted_cloud_.clear();
+      targeted_cloud_ += *voxel_cloud;
+    } else if (use_spatial_local_map_) {
+      // Spatial local map: select submaps within radius of current position
+      targeted_cloud_.clear();
+      targeted_cloud_ += *transformed_cloud_ptr;
+      int num_submaps = map_array_msg_.submaps.size();
+      Eigen::Vector3d current_pos(
+        current_pose_stamped.pose.position.x,
+        current_pose_stamped.pose.position.y,
+        current_pose_stamped.pose.position.z);
+      int added = 0;
+      for (int i = num_submaps - 1; i >= 0 && added < num_targeted_cloud_ - 1; i--) {
+        Eigen::Vector3d submap_pos(
+          map_array_msg_.submaps[i].pose.position.x,
+          map_array_msg_.submaps[i].pose.position.y,
+          map_array_msg_.submaps[i].pose.position.z);
+        double dist = (submap_pos - current_pos).norm();
+        if (dist <= spatial_local_map_radius_) {
+          pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+          pcl::fromROSMsg(map_array_msg_.submaps[i].cloud, *tmp_ptr);
+          pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+          Eigen::Affine3d submap_affine;
+          tf2::fromMsg(map_array_msg_.submaps[i].pose, submap_affine);
+          pcl::transformPointCloud(*tmp_ptr, *transformed_tmp_ptr, submap_affine.matrix());
+          targeted_cloud_ += *transformed_tmp_ptr;
+          added++;
+        }
+      }
+    } else {
+      // Temporal local map: use N most recent submaps (original behavior)
+      targeted_cloud_.clear();
+      targeted_cloud_ += *transformed_cloud_ptr;
+      int num_submaps = map_array_msg_.submaps.size();
+      for (int i = 0; i < num_targeted_cloud_ - 1; i++) {
+        if (num_submaps - 1 - i < 0) {continue;}
+        pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+        pcl::fromROSMsg(map_array_msg_.submaps[num_submaps - 1 - i].cloud, *tmp_ptr);
+        pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+        Eigen::Affine3d submap_affine;
+        tf2::fromMsg(map_array_msg_.submaps[num_submaps - 1 - i].pose, submap_affine);
+        pcl::transformPointCloud(*tmp_ptr, *transformed_tmp_ptr, submap_affine.matrix());
+        targeted_cloud_ += *transformed_tmp_ptr;
+      }
     }
 
     map_array_msg_.header.stamp = current_pose_stamped.header.stamp;
@@ -1111,15 +1547,43 @@ bool ScanMatcherComponent::refreshRegistrationTargetFromTargetedCloud()
     std::lock_guard<std::mutex> lock(mtx_);
     targeted_cloud_ptr.reset(new pcl::PointCloud<pcl::PointXYZI>());
     int num_submaps = map_array_msg_.submaps.size();
-    for (int i = 0; i < num_recovery_targeted_cloud_; i++) {
-      if (num_submaps - 1 - i < 0) {continue;}
-      pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-      pcl::fromROSMsg(map_array_msg_.submaps[num_submaps - 1 - i].cloud, *tmp_ptr);
-      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-      Eigen::Affine3d submap_affine;
-      tf2::fromMsg(map_array_msg_.submaps[num_submaps - 1 - i].pose, submap_affine);
-      pcl::transformPointCloud(*tmp_ptr, *transformed_tmp_ptr, submap_affine.matrix());
-      *targeted_cloud_ptr += *transformed_tmp_ptr;
+
+    if (use_spatial_local_map_) {
+      // Spatial recovery map: select submaps within larger radius
+      Eigen::Vector3d current_pos(
+        current_pose_stamped_.pose.position.x,
+        current_pose_stamped_.pose.position.y,
+        current_pose_stamped_.pose.position.z);
+      int added = 0;
+      double recovery_radius = spatial_local_map_radius_ * 2.0;
+      for (int i = num_submaps - 1; i >= 0 && added < num_recovery_targeted_cloud_; i--) {
+        Eigen::Vector3d submap_pos(
+          map_array_msg_.submaps[i].pose.position.x,
+          map_array_msg_.submaps[i].pose.position.y,
+          map_array_msg_.submaps[i].pose.position.z);
+        double dist = (submap_pos - current_pos).norm();
+        if (dist <= recovery_radius) {
+          pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+          pcl::fromROSMsg(map_array_msg_.submaps[i].cloud, *tmp_ptr);
+          pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+          Eigen::Affine3d submap_affine;
+          tf2::fromMsg(map_array_msg_.submaps[i].pose, submap_affine);
+          pcl::transformPointCloud(*tmp_ptr, *transformed_tmp_ptr, submap_affine.matrix());
+          *targeted_cloud_ptr += *transformed_tmp_ptr;
+          added++;
+        }
+      }
+    } else {
+      for (int i = 0; i < num_recovery_targeted_cloud_; i++) {
+        if (num_submaps - 1 - i < 0) {continue;}
+        pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+        pcl::fromROSMsg(map_array_msg_.submaps[num_submaps - 1 - i].cloud, *tmp_ptr);
+        pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+        Eigen::Affine3d submap_affine;
+        tf2::fromMsg(map_array_msg_.submaps[num_submaps - 1 - i].pose, submap_affine);
+        pcl::transformPointCloud(*tmp_ptr, *transformed_tmp_ptr, submap_affine.matrix());
+        *targeted_cloud_ptr += *transformed_tmp_ptr;
+      }
     }
     if (targeted_cloud_ptr->empty() && !targeted_cloud_.empty()) {
       targeted_cloud_ptr.reset(new pcl::PointCloud<pcl::PointXYZI>(targeted_cloud_));
@@ -1218,12 +1682,44 @@ void ScanMatcherComponent::receiveImu(const sensor_msgs::msg::Imu msg)
 
       have_imu_tf = true;
     } catch (tf2::TransformException & e) {
-      RCLCPP_WARN(
-        get_logger(),
-        "IMU transform (%s -> %s) unavailable: %s. Assuming IMU data is already in %s.",
-        imu_frame_id.c_str(), robot_frame_id_.c_str(), e.what(), robot_frame_id_.c_str());
-      q_robot_imu = tf2::Quaternion(0.0, 0.0, 0.0, 1.0);
-      have_imu_tf = false;
+      try {
+        const geometry_msgs::msg::TransformStamped tf = tfbuffer_.lookupTransform(
+          robot_frame_id_, imu_frame_id, tf2::TimePointZero);
+        tf2::fromMsg(tf.transform.rotation, q_robot_imu);
+
+        tf2::Vector3 w_imu(
+          imu_msg.angular_velocity.x,
+          imu_msg.angular_velocity.y,
+          imu_msg.angular_velocity.z);
+        tf2::Vector3 a_imu(
+          imu_msg.linear_acceleration.x,
+          imu_msg.linear_acceleration.y,
+          imu_msg.linear_acceleration.z);
+
+        tf2::Vector3 w_robot = tf2::quatRotate(q_robot_imu, w_imu);
+        tf2::Vector3 a_robot = tf2::quatRotate(q_robot_imu, a_imu);
+
+        imu_msg.angular_velocity.x = w_robot.x();
+        imu_msg.angular_velocity.y = w_robot.y();
+        imu_msg.angular_velocity.z = w_robot.z();
+        imu_msg.linear_acceleration.x = a_robot.x();
+        imu_msg.linear_acceleration.y = a_robot.y();
+        imu_msg.linear_acceleration.z = a_robot.z();
+
+        have_imu_tf = true;
+        RCLCPP_WARN_ONCE(
+          get_logger(),
+          "IMU transform (%s -> %s) unavailable at stamp: %s. Falling back to latest available static TF.",
+          imu_frame_id.c_str(), robot_frame_id_.c_str(), e.what());
+      } catch (tf2::TransformException & latest_e) {
+        RCLCPP_WARN_ONCE(
+          get_logger(),
+          "IMU transform (%s -> %s) unavailable: %s. Static fallback also failed: %s. Assuming IMU data is already in %s.",
+          imu_frame_id.c_str(), robot_frame_id_.c_str(), e.what(), latest_e.what(),
+          robot_frame_id_.c_str());
+        q_robot_imu = tf2::Quaternion(0.0, 0.0, 0.0, 1.0);
+        have_imu_tf = false;
+      }
     }
   }
 
@@ -1239,6 +1735,7 @@ void ScanMatcherComponent::receiveImu(const sensor_msgs::msg::Imu msg)
     orientation_valid = false;
   }
 
+  const double imu_time = imu_msg.header.stamp.sec + imu_msg.header.stamp.nanosec * 1e-9;
   double roll = 0.0;
   double pitch = 0.0;
   double yaw = 0.0;
@@ -1253,15 +1750,29 @@ void ScanMatcherComponent::receiveImu(const sensor_msgs::msg::Imu msg)
       q_world_robot = q_world_imu;
     }
     tf2::Matrix3x3(q_world_robot).getRPY(roll, pitch, yaw);
+    imu_integrated_yaw_ = yaw;
+    imu_integrated_yaw_valid_ = true;
   } else {
     const double ax = imu_msg.linear_acceleration.x;
     const double ay = imu_msg.linear_acceleration.y;
     const double az = imu_msg.linear_acceleration.z;
     roll = std::atan2(ay, az);
     pitch = std::atan2(-ax, std::sqrt(ay * ay + az * az));
-    yaw = 0.0;
+    const double dt = imu_time - last_imu_time_;
+    if (imu_integrated_yaw_valid_ && dt > 0.0 && dt < 1.0) {
+      imu_integrated_yaw_ = wrapAngleRad(
+        imu_integrated_yaw_ + static_cast<double>(imu_msg.angular_velocity.z) * dt);
+    } else if (!imu_integrated_yaw_valid_) {
+      imu_integrated_yaw_ = 0.0;
+      imu_integrated_yaw_valid_ = true;
+    }
+    yaw = imu_integrated_yaw_;
     q_world_robot.setRPY(roll, pitch, yaw);
   }
+  last_imu_time_ = imu_time;
+  latest_imu_robot_quat_ = q_world_robot;
+  latest_imu_stamp_ = imu_msg.header.stamp;
+  latest_imu_orientation_valid_ = true;
 
   float acc_x = static_cast<float>(imu_msg.linear_acceleration.x) + sin(pitch) * 9.81;
   float acc_y = static_cast<float>(imu_msg.linear_acceleration.y) - cos(pitch) * sin(roll) * 9.81;
@@ -1277,7 +1788,6 @@ void ScanMatcherComponent::receiveImu(const sensor_msgs::msg::Imu msg)
     static_cast<float>(q_world_robot.x()),
     static_cast<float>(q_world_robot.y()),
     static_cast<float>(q_world_robot.z())};
-  double imu_time = imu_msg.header.stamp.sec + imu_msg.header.stamp.nanosec * 1e-9;
 
   lidar_undistortion_.getImu(angular_velo, acc, quat, imu_time);
 

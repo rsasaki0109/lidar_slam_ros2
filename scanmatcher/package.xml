@@ -23,8 +23,12 @@
   <depend>pcl_conversions</depend>
   <depend>lidarslam_msgs</depend>
   <depend>ndt_omp_ros2</depend>
+  <depend>fast_gicp</depend>
+  <depend>small_gicp</depend>
   <depend>libg2o</depend>
   <depend>libpcl-all-dev</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
