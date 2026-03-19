@@ -49,6 +49,7 @@ extern "C" {
 #include <tf2_eigen/tf2_eigen.hpp>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform.hpp>
@@ -56,6 +57,7 @@ extern "C" {
 #include <nav_msgs/msg/path.hpp>
 #include <std_srvs/srv/empty.hpp>
 
+#include <nav_msgs/msg/odometry.hpp>
 #include <lidarslam_msgs/msg/map_array.hpp>
 
 #include <pcl_conversions/pcl_conversions.h>
@@ -142,6 +144,40 @@ private:
     std::vector < LoopEdge > loop_edges_;
 
     bool debug_flag_ {false};
+
+    // Direct odometry + cloud input mode (for LIO frontends)
+    bool use_odom_input_ {false};
+    double submap_distance_threshold_ {1.5};
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
+    sensor_msgs::msg::PointCloud2::SharedPtr latest_cloud_;
+    Eigen::Vector3d last_submap_position_ {0, 0, 0};
+    bool last_submap_position_valid_ {false};
+    double accumulated_distance_ {0.0};
+    void receiveOdometry(const nav_msgs::msg::Odometry & msg);
+    void receiveCloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    void tryCreateSubmap();
+    nav_msgs::msg::Odometry latest_odom_;
+    bool latest_odom_valid_ {false};
+    rclcpp::Time latest_cloud_stamp_ {0, 0, RCL_ROS_TIME};
+
+    // IMU preintegration
+    bool use_imu_preintegration_ {false};
+    double imu_rotation_info_roll_pitch_ {100.0};
+    double imu_rotation_info_yaw_ {10.0};
+    rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
+    struct StampedImu
+    {
+      double stamp;
+      double ax, ay, az;
+      double gx, gy, gz;
+      double qx, qy, qz, qw;
+    };
+    std::vector<StampedImu> imu_buffer_;
+    std::mutex imu_mtx_;
+    static constexpr size_t kMaxImuBufferSize = 50000;
+    void receiveImu(const sensor_msgs::msg::Imu & msg);
+    Eigen::Quaterniond integrateImuRotation(double t0, double t1) const;
 
   };
 }

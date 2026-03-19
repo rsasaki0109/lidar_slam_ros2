@@ -42,6 +42,12 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("use_save_map_in_loop", use_save_map_in_loop_);
   declare_parameter("debug_flag", false);
   get_parameter("debug_flag", debug_flag_);
+  declare_parameter("use_imu_preintegration", false);
+  get_parameter("use_imu_preintegration", use_imu_preintegration_);
+  declare_parameter("imu_rotation_info_roll_pitch", 100.0);
+  get_parameter("imu_rotation_info_roll_pitch", imu_rotation_info_roll_pitch_);
+  declare_parameter("imu_rotation_info_yaw", 10.0);
+  get_parameter("imu_rotation_info_yaw", imu_rotation_info_yaw_);
 
   std::cout << "registration_method:" << registration_method << std::endl;
   std::cout << "voxel_leaf_size[m]:" << voxel_leaf_size << std::endl;
@@ -56,6 +62,19 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "num_adjacent_pose_cnstraints:" << num_adjacent_pose_cnstraints_ << std::endl;
   std::cout << "use_save_map_in_loop:" << std::boolalpha << use_save_map_in_loop_ << std::endl;
   std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
+  declare_parameter("use_odom_input", false);
+  get_parameter("use_odom_input", use_odom_input_);
+  declare_parameter("submap_distance_threshold", 1.5);
+  get_parameter("submap_distance_threshold", submap_distance_threshold_);
+  std::cout << "use_odom_input:" << std::boolalpha << use_odom_input_ << std::endl;
+  if (use_odom_input_) {
+    std::cout << "submap_distance_threshold[m]:" << submap_distance_threshold_ << std::endl;
+  }
+  std::cout << "use_imu_preintegration:" << std::boolalpha << use_imu_preintegration_ << std::endl;
+  if (use_imu_preintegration_) {
+    std::cout << "imu_rotation_info_roll_pitch:" << imu_rotation_info_roll_pitch_ << std::endl;
+    std::cout << "imu_rotation_info_yaw:" << imu_rotation_info_yaw_ << std::endl;
+  }
   std::cout << "------------------" << std::endl;
 
   voxelgrid_.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
@@ -121,6 +140,16 @@ void GraphBasedSlamComponent::initializePubSub()
     create_subscription<lidarslam_msgs::msg::MapArray>(
     "map_array", rclcpp::QoS(rclcpp::KeepLast(1)).reliable(), map_array_callback);
 
+  if (use_odom_input_) {
+    odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
+      "odom_input", 10,
+      std::bind(&GraphBasedSlamComponent::receiveOdometry, this, std::placeholders::_1));
+    cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
+      "cloud_input", rclcpp::SensorDataQoS(),
+      std::bind(&GraphBasedSlamComponent::receiveCloud, this, std::placeholders::_1));
+    RCLCPP_INFO(get_logger(), "Direct odom+cloud input mode enabled");
+  }
+
   std::chrono::milliseconds period(loop_detection_period_);
   loop_detect_timer_ = create_wall_timer(
     std::chrono::duration_cast<std::chrono::nanoseconds>(period),
@@ -137,6 +166,17 @@ void GraphBasedSlamComponent::initializePubSub()
   modified_path_pub_ = create_publisher<nav_msgs::msg::Path>(
     "modified_path",
     rclcpp::QoS(10));
+
+  if (use_imu_preintegration_) {
+    auto imu_callback =
+      [this](const sensor_msgs::msg::Imu::SharedPtr msg) -> void
+      {
+        receiveImu(*msg);
+      };
+    imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
+      "/imu", rclcpp::SensorDataQoS(), imu_callback);
+    RCLCPP_INFO(get_logger(), "IMU preintegration enabled, subscribed to /imu");
+  }
 
   RCLCPP_INFO(get_logger(), "initialization end");
 
@@ -167,18 +207,25 @@ void GraphBasedSlamComponent::searchLoop()
 
   lidarslam_msgs::msg::SubMap latest_submap;
   latest_submap = map_array_msg.submaps[num_submaps - 1];
-  Eigen::Affine3d latest_submap_affine;
-  tf2::fromMsg(latest_submap.pose, latest_submap_affine);
-  pcl::PointCloud<pcl::PointXYZI>::Ptr latest_submap_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>);
-  pcl::fromROSMsg(latest_submap.cloud, *latest_submap_cloud_ptr);
+
+  // Aggregate latest N submaps as source (improves matching quality)
   pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_latest_submap_cloud_ptr(
     new pcl::PointCloud<pcl::PointXYZI>);
-  Eigen::Affine3d latest_affine;
-  tf2::fromMsg(latest_submap.pose, latest_affine);
-  pcl::transformPointCloud(
-    *latest_submap_cloud_ptr, *transformed_latest_submap_cloud_ptr,
-    latest_affine.matrix().cast<float>());
-  registration_->setInputSource(transformed_latest_submap_cloud_ptr);
+  for (int k = 0; k < search_submap_num_ && (num_submaps - 1 - k) >= 0; k++) {
+    auto& src_submap = map_array_msg.submaps[num_submaps - 1 - k];
+    pcl::PointCloud<pcl::PointXYZI>::Ptr src_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::fromROSMsg(src_submap.cloud, *src_cloud);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_src(new pcl::PointCloud<pcl::PointXYZI>);
+    Eigen::Affine3d src_affine;
+    tf2::fromMsg(src_submap.pose, src_affine);
+    pcl::transformPointCloud(*src_cloud, *transformed_src, src_affine.matrix().cast<float>());
+    *transformed_latest_submap_cloud_ptr += *transformed_src;
+  }
+  // Downsample source
+  pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source(new pcl::PointCloud<pcl::PointXYZI>);
+  voxelgrid_.setInputCloud(transformed_latest_submap_cloud_ptr);
+  voxelgrid_.filter(*filtered_source);
+  registration_->setInputSource(filtered_source);
   double latest_moving_distance = latest_submap.distance;
   Eigen::Vector3d latest_submap_pos{
     latest_submap.pose.position.x,
@@ -304,6 +351,53 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     }
 
   }
+  /* IMU rotation constraint edges */
+  if (use_imu_preintegration_ && submaps_size > 1) {
+    std::lock_guard<std::mutex> imu_lock(imu_mtx_);
+    int imu_edges_added = 0;
+    for (int i = 1; i < submaps_size; i++) {
+      double t0 = rclcpp::Time(map_array_msg.submaps[i - 1].header.stamp).seconds();
+      double t1 = rclcpp::Time(map_array_msg.submaps[i].header.stamp).seconds();
+      if (t1 <= t0 || t1 - t0 > 30.0) { continue; }
+
+      Eigen::Quaterniond imu_delta_q = integrateImuRotation(t0, t1);
+      if (imu_delta_q.isApprox(Eigen::Quaterniond::Identity(), 1e-8)) { continue; }
+
+      // Build relative pose measurement: translation from odometry, rotation from IMU
+      Eigen::Affine3d affine_prev, affine_curr;
+      Eigen::fromMsg(map_array_msg.submaps[i - 1].pose, affine_prev);
+      Eigen::fromMsg(map_array_msg.submaps[i].pose, affine_curr);
+      Eigen::Isometry3d odom_prev(affine_prev.matrix());
+      Eigen::Isometry3d odom_curr(affine_curr.matrix());
+      Eigen::Isometry3d odom_relative = odom_prev.inverse() * odom_curr;
+
+      // Replace rotation with IMU-integrated rotation
+      Eigen::Isometry3d imu_relative = Eigen::Isometry3d::Identity();
+      imu_relative.linear() = imu_delta_q.toRotationMatrix();
+      imu_relative.translation() = odom_relative.translation();
+
+      g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
+      edge_se3->setMeasurement(imu_relative);
+
+      // Information matrix: high for roll/pitch rotation, moderate for yaw, zero for translation
+      Eigen::Matrix<double, 6, 6> imu_info = Eigen::Matrix<double, 6, 6>::Zero();
+      // g2o EdgeSE3 information: [rot(3) | trans(3)] order
+      imu_info(0, 0) = imu_rotation_info_roll_pitch_;  // roll
+      imu_info(1, 1) = imu_rotation_info_roll_pitch_;  // pitch
+      imu_info(2, 2) = imu_rotation_info_yaw_;         // yaw
+      // translation: zero weight (don't trust IMU double integration)
+      edge_se3->setInformation(imu_info);
+
+      edge_se3->vertices()[0] = optimizer.vertex(i - 1);
+      edge_se3->vertices()[1] = optimizer.vertex(i);
+      optimizer.addEdge(edge_se3);
+      imu_edges_added++;
+    }
+    if (debug_flag_) {
+      RCLCPP_INFO(get_logger(), "Added %d IMU rotation constraint edges", imu_edges_added);
+    }
+  }
+
   /* loop edge */
   for (auto loop_edge : loop_edges_) {
     g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
@@ -368,6 +462,123 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   modified_map_pub_->publish(*map_msg_ptr);
   if (do_save_map) {pcl::io::savePCDFileASCII("map.pcd", *map_ptr);} // too heavy
 
+}
+
+void GraphBasedSlamComponent::receiveImu(const sensor_msgs::msg::Imu & msg)
+{
+  std::lock_guard<std::mutex> lock(imu_mtx_);
+  StampedImu imu;
+  imu.stamp = rclcpp::Time(msg.header.stamp).seconds();
+  imu.gx = msg.angular_velocity.x;
+  imu.gy = msg.angular_velocity.y;
+  imu.gz = msg.angular_velocity.z;
+  imu.ax = msg.linear_acceleration.x;
+  imu.ay = msg.linear_acceleration.y;
+  imu.az = msg.linear_acceleration.z;
+  imu.qx = msg.orientation.x;
+  imu.qy = msg.orientation.y;
+  imu.qz = msg.orientation.z;
+  imu.qw = msg.orientation.w;
+  imu_buffer_.push_back(imu);
+  if (imu_buffer_.size() > kMaxImuBufferSize) {
+    imu_buffer_.erase(imu_buffer_.begin(), imu_buffer_.begin() + kMaxImuBufferSize / 4);
+  }
+}
+
+Eigen::Quaterniond GraphBasedSlamComponent::integrateImuRotation(double t0, double t1) const
+{
+  // Integrate gyroscope measurements between t0 and t1
+  Eigen::Quaterniond delta_q = Eigen::Quaterniond::Identity();
+
+  // Find first IMU sample >= t0
+  auto it = std::lower_bound(imu_buffer_.begin(), imu_buffer_.end(), t0,
+    [](const StampedImu & imu, double t) { return imu.stamp < t; });
+
+  if (it == imu_buffer_.end()) {
+    return delta_q;  // no data
+  }
+
+  double prev_t = t0;
+  for (; it != imu_buffer_.end() && it->stamp <= t1; ++it) {
+    double dt = it->stamp - prev_t;
+    if (dt <= 0.0 || dt > 0.5) {
+      prev_t = it->stamp;
+      continue;
+    }
+    // Small angle quaternion integration
+    Eigen::Vector3d omega(it->gx, it->gy, it->gz);
+    double angle = omega.norm() * dt;
+    if (angle > 1e-10) {
+      Eigen::Quaterniond dq(Eigen::AngleAxisd(angle, omega.normalized()));
+      delta_q = delta_q * dq;
+      delta_q.normalize();
+    }
+    prev_t = it->stamp;
+  }
+
+  return delta_q;
+}
+
+void GraphBasedSlamComponent::receiveCloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
+  latest_cloud_ = msg;
+  latest_cloud_stamp_ = rclcpp::Time(msg->header.stamp);
+  // When cloud arrives, try to create submap with latest odom
+  tryCreateSubmap();
+}
+
+void GraphBasedSlamComponent::receiveOdometry(const nav_msgs::msg::Odometry & msg)
+{
+  // Buffer latest odom
+  Eigen::Vector3d pos(msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z);
+  if (!std::isfinite(pos.x()) || !std::isfinite(pos.y()) || !std::isfinite(pos.z())) {
+    return;
+  }
+  latest_odom_ = msg;
+  latest_odom_valid_ = true;
+}
+
+void GraphBasedSlamComponent::tryCreateSubmap()
+{
+  if (!latest_odom_valid_ || !latest_cloud_) return;
+
+  Eigen::Vector3d pos(
+    latest_odom_.pose.pose.position.x,
+    latest_odom_.pose.pose.position.y,
+    latest_odom_.pose.pose.position.z);
+
+  // Check distance threshold
+  if (last_submap_position_valid_) {
+    double dist = (pos - last_submap_position_).norm();
+    if (dist < submap_distance_threshold_) return;
+    if (dist > 100.0) return;
+    accumulated_distance_ += dist;
+  }
+  last_submap_position_ = pos;
+  last_submap_position_valid_ = true;
+
+  // Create SubMap
+  lidarslam_msgs::msg::SubMap submap;
+  submap.header.stamp = latest_odom_.header.stamp;
+  submap.header.frame_id = latest_odom_.header.frame_id;
+  submap.distance = accumulated_distance_;
+  submap.pose = latest_odom_.pose.pose;
+  submap.cloud = *latest_cloud_;
+  submap.cloud.header.frame_id = latest_odom_.child_frame_id;
+
+  {
+    std::lock_guard<std::mutex> lock(mtx_);
+    map_array_msg_.header.stamp = latest_odom_.header.stamp;
+    map_array_msg_.header.frame_id = latest_odom_.header.frame_id;
+    map_array_msg_.submaps.push_back(submap);
+    initial_map_array_received_ = true;
+    is_map_array_updated_ = true;
+  }
+
+  int n = map_array_msg_.submaps.size();
+  if (n % 50 == 0) {
+    RCLCPP_INFO(get_logger(), "Odom input: %d submaps, distance: %.1fm", n, accumulated_distance_);
+  }
 }
 
 }
