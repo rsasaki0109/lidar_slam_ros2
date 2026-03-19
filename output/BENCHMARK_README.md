@@ -39,6 +39,7 @@ Comprehensive benchmark of LiDAR odometry and SLAM systems on the **Newer Colleg
 |---------|--------|-------|--------|
 | MID-360 | KISS-ICP | 2760 | Normal operation |
 | MID-360 | GenZ-ICP | 2566 | Normal operation |
+| MID-360 | RKO-LIO | 2020 | Normal operation |
 | NTU-VIRAL tnp_01 | KISS-ICP | 936 | Normal operation |
 
 ## Key Findings
