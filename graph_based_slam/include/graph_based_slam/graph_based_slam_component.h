@@ -151,6 +151,12 @@ private:
     double scan_context_threshold_ {0.3};
     ScanContext::Database scan_context_db_;
 
+    // PCD disk cache for memory-efficient submap storage
+    std::string pcd_cache_dir_;
+    bool use_pcd_cache_ {false};
+    void saveSubmapToPCD(int idx, const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr loadSubmapFromPCD(int idx);
+
     // Direct odometry + cloud input mode (for LIO frontends)
     bool use_odom_input_ {false};
     double submap_distance_threshold_ {1.5};
