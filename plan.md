@@ -178,22 +178,23 @@ lidarslam では PCL ラッパー (`RegistrationPCL`) のみ使用。実は完�
 
 ### D. 別データセットでのクロス検証 [部分完了]
 - **MID-360**: KISS-ICP 2760 ポーズ、GenZ-ICP 2566 ポーズで正常動作確認 (GT なし)
-- NTU-VIRAL 未テスト
+- **NTU-VIRAL tnp_01**: KISS-ICP 936 ポーズ正常動作
+- **MID-360**: RKO-LIO 2020 ポーズ正常動作
 
 ### 残課題
-1. **small_gicp odom 処理速度**: 共分散計算が律速。`ICPFactor` への切替 or バックグラウンド共分散計算が必要
-2. **DLIO + graph_based_slam**: DLIO 内部の TF タイミング問題。DLIO が CPU 速度で全フレーム処理し odom を一気に publish するため graph_based_slam との同期が困難
-3. **graph_based_slam ループ検出**: NDT fitness ベースでは math-hard でループ検出困難 (fitness 1.91 > 閾値)。記述子ベース (Scan Context 等) への移行が必要
-4. **GT 付きクロス検証**: MID-360 に GT がなく定量評価不可
-3. **graph_based_slam ループ検出**: NDT fitness ではなく記述子ベース (Scan Context 等) への移行
-4. **GT 付きデータセットでのクロス検証**: MID-360 に GT がないため定量評価不可
+1. **small_gicp odom 処理速度**: IncrementalVoxelMap の NN 探索が律速。ICPFactor でも改善不十分
+2. **DLIO 不安定性**: use_sim_time で Computation Time 膨張 + LiDAR 受信レート低下 → IMU 暴走。根本原因は DLIO が ROS2 bag play のメッセージ配送速度に依存
+3. **graph_based_slam OOM**: PCD キャッシュで改善したが、長時間走行で map_array_msg_ のメタデータが蓄積。完全解消には submap 数の上限管理が必要
+4. **GT 付きクロス検証**: MID-360/NTU-VIRAL に GT がなく定量評価不可
 
 ### E. graph_based_slam の改善 (将来)
 
 現在の graph_based_slam はシンプルなポーズグラフ最適化 + NDT ベースのループ検出。改善余地が大きい。
 
-#### E-1. ループ検出の改善
-- **現状**: NDT スコアベースの scan-to-scan マッチングのみ。閾値 (`threshold_loop_closure_score`) の設定が難しく、Newer College では検出ゼロ
+#### E-1. ループ検出の改善 [部分完了]
+- **現状**: NDT スコアベース + Scan Context (フルスクラッチ実装済み、GPL フリー)
+- **実績**: 閾値 3.0 で Newer College math-hard で 5-6 回のループ検出に成功
+- **Scan Context**: `scan_context.hpp` に実装。Ring Key KNN + column-shifted cosine distance
 - **改善案**:
   - **Scan Context**: 記述子ベースのループ検出。**ライセンス注意: 既存実装 (irapkaist/scancontext) は GPL のため、フルスクラッチで再実装する必要がある**。アルゴリズム自体は論文公開されているので概念の利用は問題ない
   - **MapClosures** (KISS-SLAM 方式): 占有グリッドマップの局所的な overlap を計算。MIT ライセンスで pip install 可能
