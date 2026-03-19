@@ -165,7 +165,8 @@
 - **RKO-LIO + graph_based_slam 統合成功**: 閾値を 3.0 に緩和したところ **5回のループクロージャーを検出** (fitness 0.64-2.86)。NDT ベースでも閾値調整で十分ループ検出可能
 - **Scan Context フルスクラッチ実装**: 論文ベースで GPL コード参照なし
 - **PCD ディスクキャッシュ**: サブマップ点群をディスクに逐次保存、必要時のみ読み込み
-- **Scan Context + PCD + voxel=0.5**: 6回のループクロージャーを検出 (score 2.1-2.8)。94m 地点で OOM クラッシュ (要改善: map_array_msg_ のメモリ削減)
+- **Scan Context + PCD + voxel=0.5**: OOM 完全解消。12回のループクロージャー検出 (score 0.001-2.8)
+- **ループクロージャーの効果検証**: RKO-LIO raw (RMSE 0.08m) → ループ後 (RMSE 2.86m) で**悪化**。RKO-LIO の高精度オドメトリに対してグラフ最適化が害になる。LIO 系ではループクロージャー不要の可能性が高い
 - **DLIO の不安定性の根本原因を特定**:
   - `use_sim_time: true` (params.yaml デフォルト) が DLIO 内部の `rclcpp::Clock::now()` を狂わせ、Computation Time が 203ms → 5.4秒に膨張
   - `use_sim_time: false` に修正すると処理速度は改善するが、PointCloud2 の DDS 受信レートが 10Hz → 4Hz に低下 (OS0-128 の大きなメッセージが原因)
