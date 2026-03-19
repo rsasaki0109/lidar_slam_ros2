@@ -1,5 +1,6 @@
 #include "graph_based_slam/graph_based_slam_component.h"
 #include <chrono>
+#include <filesystem>
 
 using namespace std::chrono_literals;
 
@@ -44,6 +45,14 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("debug_flag", debug_flag_);
   declare_parameter("use_scan_context", false);
   get_parameter("use_scan_context", use_scan_context_);
+  declare_parameter("use_pcd_cache", false);
+  get_parameter("use_pcd_cache", use_pcd_cache_);
+  declare_parameter("pcd_cache_dir", std::string("/tmp/graph_slam_pcd_cache"));
+  get_parameter("pcd_cache_dir", pcd_cache_dir_);
+  if (use_pcd_cache_) {
+    std::filesystem::create_directories(pcd_cache_dir_);
+    std::cout << "pcd_cache_dir:" << pcd_cache_dir_ << std::endl;
+  }
   declare_parameter("scan_context_threshold", 0.3);
   get_parameter("scan_context_threshold", scan_context_threshold_);
   declare_parameter("use_imu_preintegration", false);
@@ -211,12 +220,15 @@ void GraphBasedSlamComponent::searchLoop()
 
   // Update Scan Context database for new submaps (one at a time)
   if (use_scan_context_ && scan_context_db_.size() < num_submaps) {
-    // Only add the latest submap (avoid bulk computation)
     int idx = num_submaps - 1;
     if (scan_context_db_.size() <= idx) {
-      pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
-      pcl::fromROSMsg(map_array_msg.submaps[idx].cloud, *cloud);
-      // Use LOCAL coordinates (egocentric) - Scan Context is designed for this
+      pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
+      if (use_pcd_cache_) {
+        cloud = loadSubmapFromPCD(idx);
+      } else {
+        cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
+        pcl::fromROSMsg(map_array_msg.submaps[idx].cloud, *cloud);
+      }
       scan_context_db_.add(ScanContext::computeDescriptor(cloud));
     }
   }
@@ -232,9 +244,15 @@ void GraphBasedSlamComponent::searchLoop()
   pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_latest_submap_cloud_ptr(
     new pcl::PointCloud<pcl::PointXYZI>);
   for (int k = 0; k < search_submap_num_ && (num_submaps - 1 - k) >= 0; k++) {
-    auto& src_submap = map_array_msg.submaps[num_submaps - 1 - k];
-    pcl::PointCloud<pcl::PointXYZI>::Ptr src_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::fromROSMsg(src_submap.cloud, *src_cloud);
+    int src_idx = num_submaps - 1 - k;
+    auto& src_submap = map_array_msg.submaps[src_idx];
+    pcl::PointCloud<pcl::PointXYZI>::Ptr src_cloud;
+    if (use_pcd_cache_) {
+      src_cloud = loadSubmapFromPCD(src_idx);
+    } else {
+      src_cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
+      pcl::fromROSMsg(src_submap.cloud, *src_cloud);
+    }
     pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_src(new pcl::PointCloud<pcl::PointXYZI>);
     Eigen::Affine3d src_affine;
     tf2::fromMsg(src_submap.pose, src_affine);
@@ -296,9 +314,15 @@ void GraphBasedSlamComponent::searchLoop()
     pcl::PointCloud<pcl::PointXYZI>::Ptr submap_clouds_ptr(new pcl::PointCloud<pcl::PointXYZI>);
     for (int j = 0; j <= 2 * search_submap_num_; ++j) {
       if (id_min + j - search_submap_num_ < 0) {continue;}
-      auto near_submap = map_array_msg.submaps[id_min + j - search_submap_num_];
-      pcl::PointCloud<pcl::PointXYZI>::Ptr submap_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>);
-      pcl::fromROSMsg(near_submap.cloud, *submap_cloud_ptr);
+      int near_idx = id_min + j - search_submap_num_;
+      auto near_submap = map_array_msg.submaps[near_idx];
+      pcl::PointCloud<pcl::PointXYZI>::Ptr submap_cloud_ptr;
+      if (use_pcd_cache_) {
+        submap_cloud_ptr = loadSubmapFromPCD(near_idx);
+      } else {
+        submap_cloud_ptr.reset(new pcl::PointCloud<pcl::PointXYZI>);
+        pcl::fromROSMsg(near_submap.cloud, *submap_cloud_ptr);
+      }
       pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_submap_cloud_ptr(
         new pcl::PointCloud<pcl::PointXYZI>);
       Eigen::Affine3d affine;
@@ -607,19 +631,46 @@ void GraphBasedSlamComponent::tryCreateSubmap()
   submap.cloud = *latest_cloud_;
   submap.cloud.header.frame_id = latest_odom_.child_frame_id;
 
+  int n;
   {
     std::lock_guard<std::mutex> lock(mtx_);
     map_array_msg_.header.stamp = latest_odom_.header.stamp;
     map_array_msg_.header.frame_id = latest_odom_.header.frame_id;
     map_array_msg_.submaps.push_back(submap);
+    n = map_array_msg_.submaps.size();
+
+    // Save to PCD and clear cloud from memory
+    if (use_pcd_cache_) {
+      pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
+      pcl::fromROSMsg(submap.cloud, *cloud);
+      saveSubmapToPCD(n - 1, cloud);
+      // Clear cloud data from memory (keep pose and metadata)
+      map_array_msg_.submaps.back().cloud = sensor_msgs::msg::PointCloud2();
+    }
+
     initial_map_array_received_ = true;
     is_map_array_updated_ = true;
   }
 
-  int n = map_array_msg_.submaps.size();
   if (n % 50 == 0) {
     RCLCPP_INFO(get_logger(), "Odom input: %d submaps, distance: %.1fm", n, accumulated_distance_);
   }
+}
+
+void GraphBasedSlamComponent::saveSubmapToPCD(int idx, const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud)
+{
+  std::string path = pcd_cache_dir_ + "/submap_" + std::to_string(idx) + ".pcd";
+  pcl::io::savePCDFileBinaryCompressed(path, *cloud);
+}
+
+pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::loadSubmapFromPCD(int idx)
+{
+  auto cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+  std::string path = pcd_cache_dir_ + "/submap_" + std::to_string(idx) + ".pcd";
+  if (pcl::io::loadPCDFile(path, *cloud) == -1) {
+    RCLCPP_WARN(get_logger(), "Failed to load PCD: %s", path.c_str());
+  }
+  return cloud;
 }
 
 }
