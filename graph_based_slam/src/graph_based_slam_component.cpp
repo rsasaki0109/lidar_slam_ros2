@@ -149,6 +149,20 @@ void GraphBasedSlamComponent::initializePubSub()
     {
       std::lock_guard<std::mutex> lock(mtx_);
       map_array_msg_ = *msg_ptr;
+      // Save new submaps to PCD and clear cloud from memory
+      if (use_pcd_cache_) {
+        for (int i = 0; i < static_cast<int>(map_array_msg_.submaps.size()); i++) {
+          auto& sub = map_array_msg_.submaps[i];
+          if (sub.cloud.data.size() > 0) {
+            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
+            pcl::fromROSMsg(sub.cloud, *cloud);
+            if (cloud->size() > 0) {
+              saveSubmapToPCD(i, cloud);
+              sub.cloud = sensor_msgs::msg::PointCloud2();  // Free memory
+            }
+          }
+        }
+      }
       initial_map_array_received_ = true;
       is_map_array_updated_ = true;
     };
@@ -493,10 +507,15 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     Eigen::Affine3d previous_affine;
     tf2::fromMsg(map_array_msg.submaps[i].pose, previous_affine);
 
-    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr;
+    if (use_pcd_cache_) {
+      cloud_ptr = loadSubmapFromPCD(i);
+    } else {
+      cloud_ptr.reset(new pcl::PointCloud<pcl::PointXYZI>);
+      pcl::fromROSMsg(map_array_msg.submaps[i].cloud, *cloud_ptr);
+    }
     pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud_ptr(
       new pcl::PointCloud<pcl::PointXYZI>());
-    pcl::fromROSMsg(map_array_msg.submaps[i].cloud, *cloud_ptr);
 
     pcl::transformPointCloud(*cloud_ptr, *transformed_cloud_ptr, se3.matrix().cast<float>());
     sensor_msgs::msg::PointCloud2::SharedPtr cloud_msg_ptr(new sensor_msgs::msg::PointCloud2);
