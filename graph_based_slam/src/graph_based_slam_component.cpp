@@ -42,6 +42,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("use_save_map_in_loop", use_save_map_in_loop_);
   declare_parameter("debug_flag", false);
   get_parameter("debug_flag", debug_flag_);
+  declare_parameter("use_scan_context", false);
+  get_parameter("use_scan_context", use_scan_context_);
+  declare_parameter("scan_context_threshold", 0.3);
+  get_parameter("scan_context_threshold", scan_context_threshold_);
   declare_parameter("use_imu_preintegration", false);
   get_parameter("use_imu_preintegration", use_imu_preintegration_);
   declare_parameter("imu_rotation_info_roll_pitch", 100.0);
@@ -62,6 +66,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "num_adjacent_pose_cnstraints:" << num_adjacent_pose_cnstraints_ << std::endl;
   std::cout << "use_save_map_in_loop:" << std::boolalpha << use_save_map_in_loop_ << std::endl;
   std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
+  std::cout << "use_scan_context:" << std::boolalpha << use_scan_context_ << std::endl;
+  if (use_scan_context_) {
+    std::cout << "scan_context_threshold:" << scan_context_threshold_ << std::endl;
+  }
   declare_parameter("use_odom_input", false);
   get_parameter("use_odom_input", use_odom_input_);
   declare_parameter("submap_distance_threshold", 1.5);
@@ -201,6 +209,18 @@ void GraphBasedSlamComponent::searchLoop()
     RCLCPP_INFO(get_logger(), "searching Loop, num_submaps:%d", num_submaps);
   }
 
+  // Update Scan Context database for new submaps (one at a time)
+  if (use_scan_context_ && scan_context_db_.size() < num_submaps) {
+    // Only add the latest submap (avoid bulk computation)
+    int idx = num_submaps - 1;
+    if (scan_context_db_.size() <= idx) {
+      pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
+      pcl::fromROSMsg(map_array_msg.submaps[idx].cloud, *cloud);
+      // Use LOCAL coordinates (egocentric) - Scan Context is designed for this
+      scan_context_db_.add(ScanContext::computeDescriptor(cloud));
+    }
+  }
+
   double min_fitness_score = std::numeric_limits<double>::max();
   double distance_min_fitness_score = 0;
   bool is_candidate = false;
@@ -234,22 +254,43 @@ void GraphBasedSlamComponent::searchLoop()
   int id_min = 0;
   double min_dist = std::numeric_limits<double>::max();
   lidarslam_msgs::msg::SubMap min_submap;
-  for (int i = 0; i < num_submaps; i++) {
-    auto submap = map_array_msg.submaps[i];
-    Eigen::Vector3d submap_pos{submap.pose.position.x, submap.pose.position.y,
-      submap.pose.position.z};
-    double dist = (latest_submap_pos - submap_pos).norm();
-    if (latest_moving_distance - submap.distance > distance_loop_closure_ &&
-      dist < range_of_searching_loop_closure_)
-    {
+
+  // Scan Context-based candidate selection (if enabled)
+  if (use_scan_context_ && scan_context_db_.size() > ScanContext::EXCLUDE_RECENT) {
+    auto [sc_idx, sc_dist] = scan_context_db_.query(
+      scan_context_db_.descriptors.back(),
+      ScanContext::NUM_CANDIDATES,
+      ScanContext::EXCLUDE_RECENT,
+      scan_context_threshold_);
+
+    if (sc_idx >= 0 && sc_idx < num_submaps) {
       is_candidate = true;
-      if (dist < min_dist) {
+      id_min = sc_idx;
+      min_submap = map_array_msg.submaps[sc_idx];
+      std::cout << "ScanContext loop candidate: id=" << sc_idx
+                << " sc_dist=" << sc_dist << std::endl;
+    }
+  }
+
+  // Distance-based candidate selection (fallback or when Scan Context disabled)
+  if (!is_candidate) {
+    for (int i = 0; i < num_submaps; i++) {
+      auto submap = map_array_msg.submaps[i];
+      Eigen::Vector3d submap_pos{submap.pose.position.x, submap.pose.position.y,
+        submap.pose.position.z};
+      double dist = (latest_submap_pos - submap_pos).norm();
+      if (latest_moving_distance - submap.distance > distance_loop_closure_ &&
+        dist < range_of_searching_loop_closure_)
+      {
+        is_candidate = true;
+        if (dist < min_dist) {
         id_min = i;
         min_dist = dist;
         min_submap = submap;
+        }
       }
     }
-  }
+  }  // end distance-based fallback
 
   if (is_candidate) {
     pcl::PointCloud<pcl::PointXYZI>::Ptr submap_clouds_ptr(new pcl::PointCloud<pcl::PointXYZI>);

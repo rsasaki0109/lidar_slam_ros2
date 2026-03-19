@@ -59,6 +59,7 @@ extern "C" {
 
 #include <nav_msgs/msg/odometry.hpp>
 #include <lidarslam_msgs/msg/map_array.hpp>
+#include "graph_based_slam/scan_context.hpp"
 
 #include <pcl_conversions/pcl_conversions.h>
 
@@ -144,6 +145,11 @@ private:
     std::vector < LoopEdge > loop_edges_;
 
     bool debug_flag_ {false};
+
+    // Scan Context loop detection
+    bool use_scan_context_ {false};
+    double scan_context_threshold_ {0.3};
+    ScanContext::Database scan_context_db_;
 
     // Direct odometry + cloud input mode (for LIO frontends)
     bool use_odom_input_ {false};

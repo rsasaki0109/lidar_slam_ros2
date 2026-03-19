@@ -162,7 +162,8 @@
 
 - **RKO-LIO offline_node regression** (解決済み): static TF (`os_sensor` → `os_imu`) が必要。以前は別プロセスの static TF publisher が偶然残っていて動いていた
 - **RKO-LIO に `publish_odom_tf` パラメータ追加**: TF broadcast の on/off を制御可能に。graph_based_slam との同一ドメイン共存が可能に
-- **RKO-LIO + graph_based_slam 統合**: 同一ドメインで動作確認。50 サブマップ受信成功。ループ検出は fitness 1.91 > 閾値 1.5 で不採用 (math-hard ではループが弱い)
+- **RKO-LIO + graph_based_slam 統合成功**: 閾値を 3.0 に緩和したところ **5回のループクロージャーを検出** (fitness 0.64-2.86)。NDT ベースでも閾値調整で十分ループ検出可能
+- **Scan Context フルスクラッチ実装**: 論文ベースで GPL コード参照なし。ただし同時実行時の OOM 問題あり (要修正)
 - **DLIO の不安定性の根本原因を特定**:
   - `use_sim_time: true` (params.yaml デフォルト) が DLIO 内部の `rclcpp::Clock::now()` を狂わせ、Computation Time が 203ms → 5.4秒に膨張
   - `use_sim_time: false` に修正すると処理速度は改善するが、PointCloud2 の DDS 受信レートが 10Hz → 4Hz に低下 (OS0-128 の大きなメッセージが原因)
