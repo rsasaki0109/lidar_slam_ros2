@@ -93,6 +93,8 @@ Comprehensive benchmark of LiDAR odometry and SLAM systems on the **Newer Colleg
 - Direct Odometry + PointCloud2 input mode (`use_odom_input` parameter)
 - Cloud-driven submap generation for LIO frontend sync
 - Multi-submap source aggregation for loop detection
+- Scan Context loop detection (`use_scan_context` parameter, GPL-free implementation)
+- PCD disk cache for memory-efficient submap storage (`use_pcd_cache` parameter)
 
 ### Third-party modifications
 - GenZ-ICP: Library name collision fix (`libodometry_component.so` → `libgenz_odometry_component.so`)
@@ -134,6 +136,28 @@ ros2 launch direct_lidar_inertial_odometry dlio.launch.py \
 # WARNING: DLIO MUST run standalone. Even TF publishers + bag recorder cause CPU competition,
 # reducing LiDAR reception from 10Hz to ~2Hz, which causes IMU drift and trajectory explosion.
 # graph_based_slam integration is not possible with DLIO.
+```
+
+### graph_based_slam with LIO frontend
+```bash
+# RKO-LIO + graph_based_slam with Scan Context loop detection
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 os_sensor os_imu &
+
+ros2 run graph_based_slam graph_based_slam_node --ros-args \
+  -p use_odom_input:=true \
+  -p submap_distance_threshold:=1.5 \
+  -r odom_input:=/rko_lio/odometry \
+  -r cloud_input:=/os_cloud_node/points \
+  -p use_scan_context:=true \
+  -p scan_context_threshold:=0.4 \
+  -p use_pcd_cache:=true \
+  -p threshold_loop_closure_score:=3.0 \
+  -p voxel_leaf_size:=0.5
+
+ros2 run rko_lio offline_node --ros-args \
+  -p bag_path:=/path/to/bag \
+  -p base_frame:=os_sensor \
+  -p publish_odom_tf:=false
 ```
 
 ### Evaluation
