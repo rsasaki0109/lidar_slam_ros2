@@ -33,27 +33,41 @@ find_package(tf2_eigen REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(lidarslam_msgs REQUIRED)
 find_package(ndt_omp_ros2 REQUIRED)
-find_package(fast_gicp REQUIRED)
-find_package(small_gicp REQUIRED)
+find_package(fast_gicp QUIET)
+find_package(small_gicp QUIET)
 find_package(PCL REQUIRED)
 find_package(OpenMP)
 
 set(dependencies
-  rclcpp 
-  rclcpp_components 
-  tf2_ros 
-  tf2_geometry_msgs 
-  tf2_sensor_msgs 
-  tf2_eigen 
+  rclcpp
+  rclcpp_components
+  tf2_ros
+  tf2_geometry_msgs
+  tf2_sensor_msgs
+  tf2_eigen
   pcl_conversions
-  geometry_msgs 
+  geometry_msgs
   sensor_msgs
   nav_msgs
   lidarslam_msgs
   ndt_omp_ros2
-  fast_gicp
-  small_gicp
 )
+
+if(fast_gicp_FOUND)
+  list(APPEND dependencies fast_gicp)
+  add_definitions(-DHAS_FAST_GICP)
+  message(STATUS "fast_gicp found")
+else()
+  message(STATUS "fast_gicp not found, FAST_GICP/FAST_VGICP disabled")
+endif()
+
+if(small_gicp_FOUND)
+  list(APPEND dependencies small_gicp)
+  add_definitions(-DHAS_SMALL_GICP)
+  message(STATUS "small_gicp found")
+else()
+  message(STATUS "small_gicp not found, SMALL_GICP/SMALL_VGICP disabled")
+endif()
 
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -98,14 +112,14 @@ scanmatcher_component ${PCL_LIBRARIES})
 ament_target_dependencies(scanmatcher_node
   rclcpp)
 
-add_executable(small_gicp_odom_node
-src/small_gicp_odom_node.cpp
-)
-
-ament_target_dependencies(small_gicp_odom_node
-  rclcpp sensor_msgs nav_msgs tf2_ros pcl_conversions small_gicp)
-
-target_link_libraries(small_gicp_odom_node ${PCL_LIBRARIES})
+if(small_gicp_FOUND)
+  add_executable(small_gicp_odom_node
+  src/small_gicp_odom_node.cpp
+  )
+  ament_target_dependencies(small_gicp_odom_node
+    rclcpp sensor_msgs nav_msgs tf2_ros pcl_conversions small_gicp)
+  target_link_libraries(small_gicp_odom_node ${PCL_LIBRARIES})
+endif()
 
 include_directories(
     include
@@ -138,9 +152,11 @@ install(TARGETS
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS
-  scanmatcher_node
-  small_gicp_odom_node
+set(INSTALL_TARGETS scanmatcher_node)
+if(small_gicp_FOUND)
+  list(APPEND INSTALL_TARGETS small_gicp_odom_node)
+endif()
+install(TARGETS ${INSTALL_TARGETS}
   DESTINATION lib/${PROJECT_NAME}
 )
 
