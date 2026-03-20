@@ -350,8 +350,9 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     gicp->setTransformationEpsilon(1e-8);
     registration_ = gicp;
 
-  } else if (registration_method_ == "FAST_GICP") {
-    // Fast GICP (Koide et al., BSD license)
+  }
+#ifdef HAS_FAST_GICP
+  else if (registration_method_ == "FAST_GICP") {
     using FG = fast_gicp::FastGICP<pcl::PointXYZI, pcl::PointXYZI>;
     boost::shared_ptr<FG> fgicp(new FG());
     fgicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
@@ -359,9 +360,7 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     fgicp->setMaximumIterations(ndt_max_iterations_);
     if (ndt_num_threads > 0) { fgicp->setNumThreads(ndt_num_threads); }
     registration_ = fgicp;
-
   } else if (registration_method_ == "FAST_VGICP") {
-    // Fast Voxelized GICP (Koide et al., BSD license)
     using FVG = fast_gicp::FastVGICP<pcl::PointXYZI, pcl::PointXYZI>;
     boost::shared_ptr<FVG> fvgicp(new FVG());
     fvgicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
@@ -370,9 +369,10 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     fvgicp->setResolution(ndt_resolution);
     if (ndt_num_threads > 0) { fvgicp->setNumThreads(ndt_num_threads); }
     registration_ = fvgicp;
-
-  } else if (registration_method_ == "SMALL_GICP" || registration_method_ == "SMALL_VGICP") {
-    // small_gicp (Koide, MIT license)
+  }
+#endif
+#ifdef HAS_SMALL_GICP
+  else if (registration_method_ == "SMALL_GICP" || registration_method_ == "SMALL_VGICP") {
     using SG = small_gicp::RegistrationPCL<pcl::PointXYZI, pcl::PointXYZI>;
     boost::shared_ptr<SG> sg(new SG());
     if (registration_method_ == "SMALL_VGICP") {
@@ -386,8 +386,9 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     sg->setMaximumIterations(ndt_max_iterations_);
     if (ndt_num_threads > 0) { sg->setNumThreads(ndt_num_threads); }
     registration_ = sg;
-
-  } else {
+  }
+#endif
+  else {
     RCLCPP_ERROR(get_logger(), "invalid registration method: %s", registration_method_.c_str());
     exit(1);
   }
