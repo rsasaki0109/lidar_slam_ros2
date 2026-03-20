@@ -66,9 +66,13 @@ extern "C" {
 #include <pclomp/voxel_grid_covariance_omp_impl.hpp>
 #include <pclomp/gicp_omp.h>
 #include <pclomp/gicp_omp_impl.hpp>
+#ifdef HAS_FAST_GICP
 #include <fast_gicp/gicp/fast_gicp.hpp>
 #include <fast_gicp/gicp/fast_vgicp.hpp>
+#endif
+#ifdef HAS_SMALL_GICP
 #include <small_gicp/pcl/pcl_registration.hpp>
+#endif
 
 #include <mutex>
 #include <thread>
