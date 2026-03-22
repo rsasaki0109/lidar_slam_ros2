@@ -43,6 +43,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("use_save_map_in_loop", use_save_map_in_loop_);
   declare_parameter("debug_flag", false);
   get_parameter("debug_flag", debug_flag_);
+  declare_parameter("adjacent_edge_info_weight", 1000.0);
+  get_parameter("adjacent_edge_info_weight", adjacent_edge_info_weight_);
   declare_parameter("use_scan_context", false);
   get_parameter("use_scan_context", use_scan_context_);
   declare_parameter("use_pcd_cache", false);
@@ -400,7 +402,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   optimizer.setAlgorithm(solver);
 
   int submaps_size = map_array_msg.submaps.size();
-  Eigen::Matrix<double, 6, 6> info_mat = Eigen::Matrix<double, 6, 6>::Identity();
+  Eigen::Matrix<double, 6, 6> info_mat = Eigen::Matrix<double, 6, 6>::Identity() * adjacent_edge_info_weight_;
   for (int i = 0; i < submaps_size; i++) {
     Eigen::Affine3d affine;
     Eigen::fromMsg(map_array_msg.submaps[i].pose, affine);
@@ -478,10 +480,11 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   }
 
   /* loop edge */
+  Eigen::Matrix<double, 6, 6> loop_info_mat = Eigen::Matrix<double, 6, 6>::Identity();
   for (auto loop_edge : loop_edges_) {
     g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
     edge_se3->setMeasurement(loop_edge.relative_pose);
-    edge_se3->setInformation(info_mat);
+    edge_se3->setInformation(loop_info_mat);
     edge_se3->vertices()[0] = optimizer.vertex(loop_edge.pair_id.first);
     edge_se3->vertices()[1] = optimizer.vertex(loop_edge.pair_id.second);
     optimizer.addEdge(edge_se3);
@@ -605,6 +608,9 @@ Eigen::Quaterniond GraphBasedSlamComponent::integrateImuRotation(double t0, doub
 
 void GraphBasedSlamComponent::receiveCloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
+  if (debug_flag_ && !latest_cloud_) {
+    RCLCPP_INFO(get_logger(), "First cloud received, %zu bytes", msg->data.size());
+  }
   latest_cloud_ = msg;
   latest_cloud_stamp_ = rclcpp::Time(msg->header.stamp);
   // When cloud arrives, try to create submap with latest odom
@@ -617,6 +623,9 @@ void GraphBasedSlamComponent::receiveOdometry(const nav_msgs::msg::Odometry & ms
   Eigen::Vector3d pos(msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z);
   if (!std::isfinite(pos.x()) || !std::isfinite(pos.y()) || !std::isfinite(pos.z())) {
     return;
+  }
+  if (debug_flag_ && !latest_odom_valid_) {
+    RCLCPP_INFO(get_logger(), "First odom received: (%.2f, %.2f, %.2f)", pos.x(), pos.y(), pos.z());
   }
   latest_odom_ = msg;
   latest_odom_valid_ = true;
