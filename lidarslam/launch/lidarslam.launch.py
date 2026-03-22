@@ -82,6 +82,11 @@ def generate_launch_description():
                 description="LiDAR frame id (child frame for the LiDAR TF).",
             ),
             DeclareLaunchArgument(
+                "use_odom_input",
+                default_value="false",
+                description="Use odometry input mode for graph_based_slam (for external LIO frontends like RKO-LIO).",
+            ),
+            DeclareLaunchArgument(
                 "publish_static_tf",
                 default_value="true",
                 description="Publish an identity static TF from base_frame to lidar_frame.",
@@ -119,6 +124,7 @@ def generate_launch_description():
                     {
                         "global_frame_id": LaunchConfiguration("global_frame_id"),
                         "use_sim_time": LaunchConfiguration("use_sim_time"),
+                        "use_odom_input": LaunchConfiguration("use_odom_input"),
                         "save_pose_graph_path": PathJoinSubstitution(
                             [LaunchConfiguration("save_dir"), "pose_graph.g2o"]
                         ),
@@ -126,6 +132,9 @@ def generate_launch_description():
                             [LaunchConfiguration("save_dir"), "map.pcd"]
                         ),
                     },
+                ],
+                remappings=[
+                    ("/imu", LaunchConfiguration("imu_topic")),
                 ],
                 condition=IfCondition(LaunchConfiguration("use_graph_based_slam")),
                 output="screen",

@@ -132,6 +132,7 @@ private:
     // pose graph optimization parameter
     int num_adjacent_pose_cnstraints_;
     bool use_save_map_in_loop_ {true};
+    double adjacent_edge_info_weight_ {1000.0};
 
     bool initial_map_array_received_ {false};
     bool is_map_array_updated_ {false};

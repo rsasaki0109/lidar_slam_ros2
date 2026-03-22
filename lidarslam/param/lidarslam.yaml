@@ -40,5 +40,6 @@ graph_based_slam:
       search_submap_num: 2
       num_adjacent_pose_cnstraints: 5
       use_save_map_in_loop: true
+      adjacent_edge_info_weight: 1000.0
       debug_flag: true
 

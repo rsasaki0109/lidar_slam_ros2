@@ -1,22 +1,45 @@
 lidarslam_ros2
-==== 
-ros2 slam package of the frontend using OpenMP-boosted gicp/ndt scan matching and the backend using graph-based slam. 
+====
+ROS 2 SLAM package with a scan-matching frontend and a graph-based SLAM backend with loop closure.
 
-mobile robot mapping  
-<img src="./lidarslam/images/path_tukuba.png" width="640px">
+## Features
 
-Green: path with loopclosure  
-(the 25x25 grids in size of 10m × 10m)
+- **Multiple registration methods**: NDT, GICP, FAST_GICP, SMALL_GICP
+- **LIO frontend support**: RKO-LIO and DLIO odometry can feed into graph_based_slam for loop closure
+- **GPL-free Scan Context loop detection**: built-in Scan Context descriptor for place recognition without GPL dependencies
+- **PCD disk cache**: memory-efficient submap storage that pages point clouds to disk
+- **Adaptive correspondence threshold**: automatically adjusts the registration correspondence distance based on an exponential moving average of fitness scores
 
-<img src="./lidarslam/images/map_tukuba.png" width="640px"> 
+## Benchmark Results
 
-Red and yellow: map
+Newer College math-hard dataset (APE RMSE, meters):
 
-## summary
+| Method | RMSE |
+|---|---|
+| RKO-LIO + graph_based_slam loop closure (info=1000) | **0.078 m** |
+| RKO-LIO raw | 0.082 m |
+| KISS-ICP | 0.440 m |
+| lidarslam NDT baseline | 24.286 m |
 
-`lidarslam_ros2` is a ROS2 package  of the frontend using  OpenMP-boosted gicp/ndt scan matching and the backend using graph-based slam.  
-I found that even a four-core laptop with 16GB of memory could work in outdoor environments for several kilometers with only 16 line LiDAR.  
-(WIP)
+## RKO-LIO Frontend with Loop Closure
+
+RKO-LIO can be used as a LIO frontend, with `graph_based_slam` providing loop closure on its odometry output.
+
+```bash
+ros2 launch lidarslam rko_lio_slam.launch.py \
+  bag_path:=/path/to/rosbag2 \
+  lidar_topic:=/os_cloud_node/points \
+  imu_topic:=/os_cloud_node/imu
+```
+
+Key `graph_based_slam` parameters for this workflow:
+
+| Name | Type | Default | Description |
+|---|---|---|---|
+| adjacent_edge_info_weight | double | 1000.0 | Information weight for adjacent edges in the pose graph. Higher values trust the LIO odometry more. |
+| threshold_loop_closure_score | double | 1.0 | NDT fitness score threshold for accepting a loop closure |
+| use_scan_context | bool | false | Enable Scan Context descriptors for loop detection (GPL-free) |
+| use_pcd_cache | bool | false | Cache submaps to PCD files on disk to reduce memory usage |
 
 ## requirement to build
 You need  [ndt_omp_ros2](https://github.com/rsasaki0109/ndt_omp_ros2) for scan-matcher
@@ -75,10 +98,11 @@ ros2 service call /map_save std_srvs/Empty
 
 |Name|Type|Default value|Description|
 |---|---|---|---|
-|registration_method|string|"NDT"|"NDT" or "GICP"|
+|registration_method|string|"NDT"|"NDT", "GICP", "FAST_GICP", or "SMALL_GICP"|
 |ndt_resolution|double|5.0|resolution size of voxel[m]|
 |ndt_num_threads|int|0|threads using ndt(if `0` is set, maximum alloawble threads are used.)(The higher the number, the better, but reduce it if the CPU processing is too large to estimate its own position.)|
 |gicp_corr_dist_threshold|double|5.0|the distance threshold between the two corresponding points of the source and target[m]|
+|adaptive_correspondence_threshold|bool|false|automatically adjust correspondence distance using an EMA of fitness scores|
 |trans_for_mapupdate|double|1.5|moving distance of map update[m]|
 |vg_size_for_input|double|0.2|down sample size of input cloud[m]|
 |vg_size_for_map|double|0.05|down sample size of map cloud[m]|
@@ -106,16 +130,19 @@ ros2 service call /map_save std_srvs/Empty
 
 |Name|Type|Default value|Description|
 |---|---|---|---|
-|registration_method|string|"NDT"|"NDT" or "GICP"|
+|registration_method|string|"NDT"|"NDT", "GICP", "FAST_GICP", or "SMALL_GICP"|
 |ndt_resolution|double|5.0|resolution size of voxel[m]|
 |ndt_num_threads|int|0|threads using ndt(if `0` is set, maximum alloawble threads are used.)|
 |voxel_leaf_size|double|0.2|down sample size of input cloud[m]|
 |loop_detection_period|int|1000|period of searching loop detection[ms]|
-|threshold_loop_closure_score|double|1.0| fitness score of ndt for loop clousure|
-|distance_loop_closure|double|20.0| distance far from revisit candidates for loop clousure[m]|
+|threshold_loop_closure_score|double|1.0| fitness score of ndt for loop closure|
+|distance_loop_closure|double|20.0| distance far from revisit candidates for loop closure[m]|
 |range_of_searching_loop_closure|double|20.0|search radius for candidate points from the present for loop closure[m]|
 |search_submap_num|int|2|the number of submap points before and after the revisit point used for registration|
 |num_adjacent_pose_cnstraints|int|5|the number of constraints between successive nodes in a pose graph over time|
+|adjacent_edge_info_weight|double|1000.0|information matrix weight for adjacent edges (higher = trust odometry more)|
+|use_scan_context|bool|false|enable Scan Context loop detection (GPL-free)|
+|use_pcd_cache|bool|false|cache submaps to PCD files on disk to reduce memory|
 |use_save_map_in_loop|bool|true|Whether to save the map when loop close(If the map saving process in loop close is too heavy and the self-position estimation fails, set this to `false`.)|
 
 ## demo
