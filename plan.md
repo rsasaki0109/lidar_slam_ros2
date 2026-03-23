@@ -1,265 +1,271 @@
-# lidarslam-ros2 LiDAR オドメトリ/SLAM 総合調査・改善計画
+# lidarslam-ros2 総合計画書
 
-## Context
+## 1. プロジェクト概要
 
-lidarslam-ros2 をオープンソース公開に耐えうる RMSE で仕上げるため、既存の LiDAR オドメトリ/SLAM 手法を網羅的にベンチマークし、改善方針を策定した。
+### ゴール
+MIT/BSD ライセンスで、Autoware ユーザーが使える高品質な LiDAR SLAM マッピングツール。
+- GPL 汚染なし（商用利用可能）
+- Autoware の `pointcloud_map_loader` 互換の PCD マップ出力
+- GNSS 連携による地理座標系マッピング
+- RKO-LIO フロントエンド + graph_based_slam ループクロージャーバックエンド
 
-**データセット**: Newer College math-hard (320m, Ouster OS0-128, IMU あり)
-**ライセンス制約**: MIT/BSD のみ。GPL 汚染不可。
-
----
-
-## 全手法ベンチマーク結果 (確定)
-
-### LIO 系 + ループクロージャー
-
-| 順位 | 手法 | RMSE (m) | Poses | ライセンス | 備考 |
-|------|------|----------|-------|-----------|------|
-| 1 | **DLIO** | **0.070** | 1896 | MIT | UCLA, NanoGICP + jerk IMU + per-point deskew |
-| 2 | **RKO-LIO + loop closure (info=1000)** | **0.078** | 1930 | MIT | graph_based_slam バックエンド統合 |
-| 3 | **RKO-LIO raw** | **0.082** | 1930 | MIT | PRBonn, KISS-ICP + IMU tight coupling |
-
-### LO 系 (LiDAR-Only)
-
-| 順位 | 手法 | RMSE (m) | Poses | ライセンス | 備考 |
-|------|------|----------|-------|-----------|------|
-| 1 | **GenZ-ICP (tuned)** | **0.112** | 1841 | MIT | planarity チューニング済み |
-| 2 | **KISS-ICP** | **0.440** | 1913 | MIT | VoxelHashMap + adaptive ICP + robust kernel |
-| 3 | **KISS-SLAM** | **0.434** | 1930 | MIT | KISS-ICP + MapClosures (本データではループ 0) |
-| 4 | lidarslam + FAST_GICP + VHM + CV | 11.522 | 1199 | BSD/MIT | 改善版 |
-| 5 | lidarslam + FAST_GICP (baseline) | 15.950 | 1306 | BSD | |
-| 6 | lidarslam + NDT (baseline) | 24.286 | 1887 | - | 元の baseline |
+### 現在の状態
+PR #2 (Ready for Review): https://github.com/rsasaki0109/lidarslam_ws/pull/2
 
 ---
 
-## 各手法の深掘り分析
+## 2. ベンチマーク結果
 
-### KISS-ICP — なぜ LO 系で圧倒的か
+### 2.1 Newer College math-hard (320m, Ouster OS0-128, IMU あり)
 
-- **VoxelHashMap**: tsl::robin_map で O(1) ルックアップ。点追加時に sub-voxel 距離チェック (map_resolution = voxel_size / sqrt(max_pts_per_voxel))
-- **27近傍探索**: GetClosestNeighbor で 3x3x3 ボクセルキューブを探索。KDTree 不要
-- **Robust kernel**: Gaussian-Mixture weighting `w = σ² / (σ² + r²)` で外れ値自動排除
-- **Adaptive threshold**: motion model error の RMS で `τ = 3σ`。手動チューニング不要
-- **Constant velocity prediction**: `last_pose * last_delta` で初期値が正確→収束が速い
-- **2段階ダウンサンプリング**: 0.5x (registration 用) + 1.5x (map update 用)
-- **処理速度**: 20-30 fps。共分散計算なし、KDTree なし → 全スキャン処理可能
+#### LIO + ループクロージャー
 
-### GenZ-ICP — なぜ屋外で微妙か
+| 順位 | 手法 | RMSE (m) | ライセンス | 備考 |
+|------|------|----------|-----------|------|
+| 1 | DLIO | 0.070 | MIT | 最良精度だが DDS 問題で他ノードと共存不可 |
+| 2 | **RKO-LIO + loop closure** | **0.078** | MIT | graph_based_slam, info=1000, Scan Context |
+| 3 | RKO-LIO raw | 0.082 | MIT | ループ補正なし |
 
-KISS-ICP をベースに point-to-plane マッチングを追加。構造化環境向け。
+#### LO (LiDAR-Only)
 
-**問題点**:
-1. **planarity 閾値 (0.1-0.2)**: 固有値分解で平面分類するが、草/砂利で平面がほぼ検出されない
-2. **共分散計算オーバーヘッド**: 各対応で27近傍 + 固有値分解 → KISS-ICP の数倍遅い
-3. **カーネル sigma/3**: KISS-ICP の sigma より厳しい → 外れ値を過剰に除外
-4. **2回ボクセル化**: adaptive voxel size 計算のため2パスダウンサンプリング
-5. **結果**: 43% スキャンドロップ (840/1930)
+| 順位 | 手法 | RMSE (m) | ライセンス | 備考 |
+|------|------|----------|-----------|------|
+| 1 | GenZ-ICP (tuned) | 0.112 | MIT | planarity=0.5, deskew=true, 再現性にバラつき |
+| 2 | KISS-ICP | 0.440 | MIT | 安定、リファレンス |
+| 3 | lidarslam NDT baseline | 24.286 | BSD | 元の baseline |
 
-**改善の余地**:
-- `planarity_threshold` を上げる or point-to-plane を無効化
-- カーネルを sigma に戻す
-- `max_points_per_voxel` を増やして近傍点を確保
-- rate=0.5 以上でスキャンドロップを減らす
-- **config_file パラメータで newer_college.yaml を使う** (まだ未テスト)
+### 2.2 NTU-VIRAL tnp_01 (580s, Ouster OS1-16, VN-100 IMU)
 
-### small_gicp — 未活用の宝の山
+| 手法 | RMSE (m) | ループ | 備考 |
+|------|----------|--------|------|
+| RKO-LIO raw | 1.246 | - | |
+| **RKO-LIO + loop closure** | **0.869** | 1回 | 30% 改善 |
+| RKO-LIO + loop closure (14回) | **1.314** | 14回 | 検証実行 |
 
-lidarslam では PCL ラッパー (`RegistrationPCL`) のみ使用。実は完全なオドメトリパイプラインが存在。
+### 2.3 MID-360 (277s, Livox MID-360, 内蔵 IMU, vs GLIM 参照)
 
-**使っていない機能**:
-- `IncrementalVoxelMap<FlatContainerCov>`: LRU 付きボクセルマップ (KISS-ICP の VoxelHashMap 相当)
-- `GaussianVoxelMap`: 分布ベースマッチング (VGICP)
-- `TBB フローグラフ`: 前処理→マッチング→出力をパイプライン並列化
-- `scan-to-model オドメトリ`: ベンチマークコードに完全な実装あり
+| 手法 | RMSE vs GLIM (m) | ループ | 備考 |
+|------|-------------------|--------|------|
+| RKO-LIO raw | 10.3 | - | |
+| RKO-LIO + loop closure (best) | **4.00** | 1回 | info=100, threshold=15.0 |
 
-**KITTI ベンチマーク** (small_gicp 公式):
-- `small_gicp (OMP)`: APE=6.096±3.056
-- `small_vgicp`: APE=5.956±2.725
-- PCL GICP の **2.4倍高速**、fast_gicp の **1.9倍高速**
-
-**活用可能性**:
-- `IncrementalVoxelMap` + `GICPFactor` + `TBB` で KISS-ICP 相当のオドメトリを MIT で構築可能
-- lidarslam の scanmatcher に統合して scan-to-model マッチングに切り替え
-- ROS2 メッセージ変換ヘッダーも存在 (`small_gicp/ros/ros2.hpp`)
+**MID-360 の限界**: 非360 FOV のため Scan Context 無効、中間ドリフトの補正にループが不足。
 
 ---
 
-## ROS2 対応・ライセンス調査まとめ
+## 3. 実装済み機能
 
-### 使える (ROS2 + MIT/BSD + 動作確認済み)
+### 3.1 graph_based_slam 改善
 
-| 手法 | 分類 | ライセンス | 備考 |
-|------|------|-----------|------|
-| KISS-ICP | LO | MIT | 最良の LO |
-| KISS-SLAM | LO+LC | MIT | pip, ループ検出内蔵 |
-| GenZ-ICP | LO | MIT | 屋外チューニング要 |
-| small_gicp | 登録ライブラリ/LO | MIT | フル活用で LO パイプライン構築可能 |
-| DLIO | LIO | MIT | 最良精度 |
-| RKO-LIO | LIO | MIT | シンプル + 高精度 |
+| 機能 | 状態 | 説明 |
+|------|------|------|
+| Odometry 直接入力モード | ✅ | `use_odom_input` で RKO-LIO/DLIO の Odometry を直接受信 |
+| Cloud-driven サブマップ生成 | ✅ | Odom + Cloud の同期サブマップ作成 |
+| GPL フリー Scan Context | ✅ | IROS 2018 論文からフルスクラッチ実装 |
+| PCD ディスクキャッシュ | ✅ | OOM 対策、サブマップを逐次 PCD 保存 |
+| 情報行列バグ修正 | ✅ | ループエッジを固定重み、オドメトリエッジに `adjacent_edge_info_weight` |
+| IMU 回転制約 | ✅ | ジャイロ積分でロール・ピッチ制約 |
+| GNSS 位置制約 | ✅ | NavSatFix → ENU 変換 → ユナリエッジ (未テスト) |
+| Autoware グリッド PCD 出力 | ✅ | `pointcloud_map_metadata.yaml` + 分割 PCD (検証済み) |
+| `map_projector_info.yaml` | ✅ | GNSS 原点の地理座標出力 (未テスト) |
 
-### ROS2 非対応だが注目
+### 3.2 scanmatcher 改善
 
-| 手法 | ライセンス | 状態 | 備考 |
-|------|-----------|------|------|
-| MAD-ICP | BSD-3 | 活発、ROS2 は TODO | PCA ベース kd-tree, RA-L 2024 |
-| DLO | MIT | メンテ停止 | DLIO の前身、ROS1 のみ |
-| CT-ICP | MIT | 実質死亡 (2022-07) | 連続時間弾性 ICP |
+| 機能 | 状態 | 説明 |
+|------|------|------|
+| 非単調タイムスタンプスキップ | ✅ | ROS2 bag 再生時の時刻逆転対応 |
+| VoxelHashMap | ✅ | KISS-ICP 着想のボクセルマップ |
+| 適応閾値 | ✅ | EMA ベースの correspondence distance 自動調整 |
+| FAST_GICP / SMALL_GICP | ✅ | オプショナル依存 (`#ifdef` ガード) |
+| cloud_queue_depth | ✅ | キュー深度パラメータ化 |
+
+### 3.3 インフラ
+
+| 機能 | 状態 | 説明 |
+|------|------|------|
+| `rko_lio_slam.launch.py` | ✅ | RKO-LIO + graph_based_slam 統合ランチファイル |
+| `verify_autoware_map.py` | ✅ | Autoware 互換性検証スクリプト |
+| `odom_to_tum.py` / `path_to_tum.py` | ✅ | 軌跡ロギングツール |
+| CI ローカルビルド | ✅ | 全パッケージビルド + テスト 25/25 パス |
+| README | ✅ | ベンチマーク結果、Autoware 使い方、パラメータ一覧 |
+
+---
+
+## 4. 各手法の深掘り分析
+
+### KISS-ICP — なぜ LO 系で安定か
+
+- **VoxelHashMap**: tsl::robin_map で O(1) ルックアップ、sub-voxel 距離チェック
+- **27近傍探索**: 3x3x3 ボクセルキューブ、KDTree 不要
+- **Robust kernel**: `w = σ² / (σ² + r²)` で外れ値自動排除
+- **Adaptive threshold**: motion model error RMS で `τ = 3σ`
+- **Constant velocity prediction**: 収束が速い
+- **処理速度**: 20-30 fps、共分散計算なし
+
+### GenZ-ICP — チューニング結果
+
+- **最良設定**: `voxel_size=0.5, planarity=0.5, deskew=true`
+- **結果**: RMSE 0.112m (KISS-ICP の 0.440m を大幅に上回る)
+- **問題**: 再現性にバラつき (0.112〜0.146m)、rate や DDS 状態に依存
+- **voxel_size=0.4 以下は劣化**、0.6 以上は発散
+
+### DLIO vs RKO-LIO
+
+| 要素 | DLIO (0.070m) | RKO-LIO (0.082m) |
+|------|---------------|-------------------|
+| IMU 統合 | Jerk ベース 3次連続モデル | 定加速度 + カルマンフィルタ |
+| デスキュー | 各点ごとの SE(3) 補間 | フレーム境界間の補間 |
+| マッチング | NanoGICP (共分散あり) | カスタム point-to-plane ICP |
+| マップ | キーフレーム + 凸/凹ハル | Bonxai 疎ボクセルグリッド |
+| **問題** | **DDS メッセージ遅延で他ノードと共存不可** | **安定、offline_node で統合成功** |
+
+---
+
+## 5. ライセンス調査
+
+### 使える (MIT/BSD + ROS2 対応)
+
+| 手法 | 分類 | ライセンス |
+|------|------|-----------|
+| KISS-ICP | LO | MIT |
+| GenZ-ICP | LO | MIT |
+| small_gicp | 登録ライブラリ | MIT |
+| DLIO | LIO | MIT |
+| RKO-LIO | LIO | MIT |
 
 ### ライセンス NG
 
 | 手法 | ライセンス |
 |------|-----------|
 | FAST-LIO2 / Faster-LIO | GPLv2 |
-| Point-LIO | "BSD" (FAST-LIO コード流用疑い) |
-| LiLi-OM | GPLv3 |
-| MULLS | GPL-3.0 |
-| MOLA LiDAR Odometry | GPL-3.0 |
-
-### ビルド問題で未完了
-
-| 手法 | 問題 |
-|------|------|
-| SiMpLE | nanoflann/dlib 依存で実行時クラッシュ。コミュニティ小、優先度低 |
-| LIO-SAM | GTSAM boost→std shared_ptr 非互換 (Jazzy) |
+| LIO-SAM | BSD だが GTSAM Jazzy 互換問題 |
+| LiLi-OM / MULLS / MOLA | GPL |
 
 ---
 
-## 主要課題
+## 6. Autoware 対応状況
 
-### 課題 1: lidarslam の根本的な精度問題
-- **PCL registration (GICP/NDT) のオーバーヘッド** でスキャンドロップが発生
-- KISS-ICP のカスタム ICP は共分散計算不要で圧倒的に高速
-- サブマップベースのローカルマップ管理がドリフトの原因
-- VoxelHashMap を実装したが PCL registration が律速で 11.5m 止まり
+### 検証済み ✅
 
-### 課題 2: GenZ-ICP の屋外性能
-- 構造化環境（室内）向けの最適化が屋外で裏目
-- newer_college.yaml 設定の正式テストが未完了
-- planarity 無効化 (alpha=0 強制) や カーネル調整でKISS-ICP相当になるか未検証
+| 項目 | 状態 | 詳細 |
+|------|------|------|
+| グリッド分割 PCD | ✅ PASS | 20x20m セル、binary_compressed |
+| `pointcloud_map_metadata.yaml` | ✅ PASS | `filename.pcd: [int, int]` 形式、Autoware の yaml-cpp パーサー互換 |
+| PCD ヘッダー | ✅ PASS | v0.7, FIELDS x y z intensity, float32 |
+| orphan ファイル防止 | ✅ PASS | 出力前にディレクトリクリーンアップ |
+| `map` フレーム座標系 | ✅ | REP-105 準拠 |
 
-### 課題 3: small_gicp のポテンシャル未活用
-- `IncrementalVoxelMap` を使えば KISS-ICP 的なオドメトリを MIT で構築可能
-- だが ROS2 ノードは存在しない（ベンチマークコードのみ）
-- lidarslam 内で scan-to-model に切り替える改修が必要
+### 未検証 ⚠️
 
-### 課題 4: LIO フロントエンド統合
-- DLIO (0.070m) / RKO-LIO (0.082m) を lidarslam のフロントエンドとして使う方針は合意済み
-- ブリッジ (Odometry → MapArray) + graph_based_slam ループクロージャーの統合を試みたが、RKO-LIO offline_node と graph_based_slam の use_sim_time 競合で TF エラー発生。RKO-LIO 内部クロックと ROS2 sim_time が干渉
-- **根本問題**: graph_based_slam はリアルタイム MapArray 受信が前提。offline ノードとの統合には graph_based_slam 側の改修が必要 (課題 E-5)
-- モジュール式フロントエンド設計は online_node 経由なら可能だが、RKO-LIO の online_node はリアルタイム性が必要でスキャンドロップが課題
+| 項目 | 状態 | 理由 |
+|------|------|------|
+| GNSS ポーズグラフ制約 | ⚠️ | 手元に有効な GNSS 付きデータセットがない |
+| `map_projector_info.yaml` | ⚠️ | GNSS 未動作のため出力されず |
+| Autoware 実環境読み込み | ⚠️ | Autoware 未インストール |
 
-### 課題 5: 単一データセットでの評価
-- 全結果が Newer College math-hard のみ
-- MID-360, NTU-VIRAL 等の別データセットでの検証が必要
-- 特に GenZ-ICP は構造化環境でリベンジの余地あり
+### Autoware ユーザーへのバリュー
+
+1. **MIT ライセンスの SLAM** — LIO-SAM (GPL) の代替として商用利用可能
+2. **ループクロージャー付き高品質マップ** — ドリフト補正済み PCD
+3. **`pointcloud_map_loader` 直接互換** — 変換ツール不要
+4. **GNSS 連携** (実装済み、テスト待ち) — 地理座標系マッピング
 
 ---
 
-## 次のアクション候補
+## 7. 既知の問題と制限
 
-### A. GenZ-ICP チューニング [完了]
-- **planarity_threshold=0.5 で RMSE 0.146m 達成** (LO 系 1 位)
-- planarity=1.0 は逆効果 (26.2m)。0.5 がスイートスポット
-- MID-360 でも 2566 ポーズ取得確認
+### 7.1 DDS メッセージ遅延
+- **影響**: DLIO が他ノードと共存できない、online_node でスキャンドロップ
+- **原因**: 大きな PointCloud2 メッセージ (6MB+) の DDS 転送遅延
+- **回避策**: offline_node (RKO-LIO) でバッグを内部読み込み
+- **根本解決**: FastDDS のシェアードメモリ設定、またはゼロコピー転送
 
-### B. small_gicp ベースのオドメトリ構築 [実装完了・精度改善中]
-- `IncrementalVoxelMap` + `GICPFactor` で ROS2 ノード作成 (`small_gicp_odom_node`)
-- **RMSE 4.98m** (ds=0.25, voxel=1.0, corr=1.0) — シンプル版が最安定
-- adaptive threshold + CV を実装したが不安定（NaN 発散問題）
-- **根本問題**: 共分散計算 (`estimate_covariances_omp`) が律速でスキャンドロップ多発。KISS-ICP は共分散不要のカスタム ICP で圧倒的に速い
-- **改善方向**: `ICPFactor` (共分散不要) への切替、または共分散計算のバックグラウンド化
+### 7.2 MID-360 (固体 LiDAR) の限界
+- 非 360 FOV のため Scan Context が無効
+- 中間ドリフトの補正にループクロージャーが不足
+- RMSE 4.0m (vs GLIM) が現状の限界
 
-### C. DLIO/RKO-LIO フロントエンド統合 [完了]
-- **graph_based_slam に Odometry + PointCloud2 直接入力モード追加** (`use_odom_input`)
-- **graph_based_slam に cloud-driven サブマップ生成追加** (odom/cloud の同期問題を解決)
-- **graph_based_slam ループ検出改善**: ソース点群を複数サブマップ統合に改修
-- **RKO-LIO + graph_based_slam**: `publish_odom_tf:=false` で同一ドメイン共存成功
-- **ループクロージャー情報行列バグ修正**: ループエッジがオドメトリエッジと同じ重みだった問題を修正。`adjacent_edge_info_weight=1000.0` で RMSE 0.078m 達成
-- **GPL フリー Scan Context 実装**: IROS 2018 論文からフルスクラッチで実装 (`scan_context.hpp`)
-- **PCD ディスクキャッシュ**: メモリ効率的なサブマップ管理
-- **rko_lio_slam.launch.py**: RKO-LIO + graph_based_slam 統合ランチファイル追加
-- **DLIO**: `publish_tf` パラメータ追加済み。graph_based_slam との cloud-driven 同期も改修済みだが、DLIO 内部の TF タイミング問題が残存
-- **RKO-LIO**: `publish_odom_tf` パラメータ追加、static TF 要件を文書化
+### 7.3 GenZ-ICP の再現性
+- DDS のメッセージ配送タイミングに結果が依存
+- 同一設定で 0.112m〜26m の幅がある
+- offline 実行モードが必要
 
-### D. 別データセットでのクロス検証 [部分完了]
-- **MID-360**: KISS-ICP 2760 ポーズ、GenZ-ICP 2566 ポーズで正常動作確認 (GT なし)
-- **NTU-VIRAL tnp_01**: KISS-ICP 936 ポーズ正常動作
-- **MID-360**: RKO-LIO 2020 ポーズ正常動作
-
-### 残課題
-1. **small_gicp odom 処理速度**: IncrementalVoxelMap の NN 探索が律速。ICPFactor でも改善不十分
-2. **DLIO 不安定性**: use_sim_time で Computation Time 膨張 + LiDAR 受信レート低下 → IMU 暴走。根本原因は DLIO が ROS2 bag play のメッセージ配送速度に依存
-3. **graph_based_slam OOM**: PCD キャッシュで大幅改善済み。長時間走行でのメタデータ蓄積は残存
-4. **GT 付きクロス検証**: MID-360/NTU-VIRAL に GT がなく定量評価不可
-5. **DLIO + graph_based_slam 統合**: DLIO 内部 TF タイミング問題が未解決
-
-### E. graph_based_slam の改善 (将来)
-
-現在の graph_based_slam はシンプルなポーズグラフ最適化 + NDT ベースのループ検出。改善余地が大きい。
-
-#### E-1. ループ検出の改善 [完了]
-- **現状**: NDT スコアベース + Scan Context (フルスクラッチ実装済み、GPL フリー)
-- **実績**: RKO-LIO + loop closure で RMSE 0.078m 達成 (raw 0.082m → 5% 改善)
-- **Scan Context**: `scan_context.hpp` に GPL フリーでフルスクラッチ実装。Ring Key KNN + column-shifted cosine distance。IROS 2018 論文ベース
-- **情報行列バグ修正**: ループエッジの重みがオドメトリエッジと同一だった問題を修正。`adjacent_edge_info_weight=1000.0` がデフォルト
-- **将来の改善案**:
-  - **MapClosures** (KISS-SLAM 方式): 占有グリッドマップの局所的な overlap を計算。MIT ライセンスで pip install 可能
-  - **BTC (Binary Triangle Combined)**: 幾何特徴ベースの高速ループ検出
-  - **距離ベースの候補フィルタリング**: 現在の `distance_loop_closure` は直線距離のみ。走行距離との差分で候補を絞る方が効果的
-
-#### E-2. ポーズグラフ最適化の改善
-- **現状**: g2o ベースの簡易最適化
-- **改善案**:
-  - **GTSAM への移行**: より柔軟なファクターグラフ、iSAM2 による増分最適化 (ただし Jazzy では boost→std 互換問題あり)
-  - **Robust kernel の導入**: 誤ループ検出に対する頑健性向上 (Cauchy, Huber 等)
-  - **マルチセッション対応**: 複数回の走行データを統合して最適化
-
-#### E-3. サブマップ管理の改善
-- **現状**: 全サブマップを保持。メモリ使用量が無制限に増加
-- **改善案**:
-  - **LRU ベースのサブマップ削除**: 古い・遠いサブマップを自動削除
-  - **サブマップの統合**: 近いサブマップを merge して数を減らす
-  - **階層的マップ**: ローカル (高密度) + グローバル (低密度) の 2 層構造
-
-#### E-4. マップ品質の改善
-- **現状**: ループ検出後にポーズのみ修正。マップ点群は修正されない
-- **改善案**:
-  - **マップ点群のリファイン**: ループ閉合後にサブマップの点群も再変換
-  - **占有グリッドマップの構築**: 2D/3D 占有グリッドを並行して構築
-  - **セマンティック情報の活用**: 地面/壁/天井の分類でマッチング精度向上
-
-#### E-5. LIO フロントエンドとの連携改善 [完了]
-- **実装済み**: Odometry + PointCloud2 直接入力モード (`use_odom_input`)、cloud-driven サブマップ生成
-- **RKO-LIO 統合**: `rko_lio_slam.launch.py` で一発起動可能。RMSE 0.078m
-- **将来の改善案**:
-  - **キーフレーム選択ロジック**: フロントエンドの品質指標 (fitness, inlier数) に基づくキーフレーム選定
-  - **共分散情報の伝播**: フロントエンドの推定共分散をグラフの辺の重みに反映
+### 7.4 small_gicp オドメトリの処理速度
+- IncrementalVoxelMap の NN 探索が律速
+- 共分散計算のオーバーヘッドでスキャンドロップ多発
+- ICPFactor への切替で改善可能だが未実装
 
 ---
 
-## 技術的知見まとめ
+## 8. 今後のアクション候補
 
-### DLIO vs RKO-LIO (1.2cm の差の理由)
-| 要素 | DLIO (0.070m) | RKO-LIO (0.082m) |
-|------|---------------|-------------------|
-| IMU 統合 | Jerk ベース 3次連続モデル | 定加速度 + カルマンフィルタ |
-| デスキュー | 各点ごとの SE(3) 補間 | フレーム境界間の補間 |
-| マッチング | NanoGICP (共分散あり, k=16) | カスタム point-to-plane ICP |
-| マップ | キーフレーム + 凸/凹ハル選択 | Bonxai 疎ボクセルグリッド |
-| バイアス補正 | 毎フレームリアルタイム更新 | 初期キャリブのみ |
-| 速度 | 7.9ms/frame | ~5ms/frame |
+### 優先度: 高
 
-### lidarslam に加えた改善
-1. 非単調タイムスタンプスキップ
-2. VoxelHashMap (KISS-ICP 着想)
-3. 全 registration method 対応の適応閾値
-4. FAST_GICP / FAST_VGICP / SMALL_GICP / SMALL_VGICP 統合
-5. GenZ-ICP ライブラリ名衝突修正 (`libodometry_component.so` 問題)
-6. cloud_queue_depth パラメータ
+| # | タスク | 理由 |
+|---|--------|------|
+| 1 | **GNSS 付きデータセットで GNSS 制約テスト** | Autoware の地理座標系マッピング機能が未検証 |
+| 2 | **Autoware 実環境での読み込みテスト** | `pointcloud_map_loader` でのランタイム互換性確認 |
+| 3 | **develop ブランチへのマージ** | PR #2 のコードレビュー対応 |
+
+### 優先度: 中
+
+| # | タスク | 理由 |
+|---|--------|------|
+| 4 | MID-360 の精度改善 | 固体 LiDAR 対応の place recognition 手法 (BTC 等) |
+| 5 | Robust kernel 導入 | 誤ループ検出への頑健性 |
+| 6 | キーフレーム選択ロジック | フロントエンドの品質指標に基づくサブマップ生成 |
+| 7 | マルチセッションマッピング | 複数回走行データの統合 |
+
+### 優先度: 低
+
+| # | タスク | 理由 |
+|---|--------|------|
+| 8 | GTSAM 移行 | Jazzy での boost→std 互換問題の解決待ち |
+| 9 | DLIO 統合 | DDS 問題の根本解決が先 |
+| 10 | small_gicp オドメトリ高速化 | KISS-ICP / RKO-LIO が十分高精度 |
+
+---
+
+## 9. 技術的知見
+
+### ループクロージャーのパラメータチューニング
+
+| パラメータ | Newer College 推奨 | MID-360 推奨 | NTU-VIRAL 推奨 |
+|-----------|-------------------|-------------|---------------|
+| adjacent_edge_info_weight | 1000.0 | 100.0 | 1000.0 |
+| threshold_loop_closure_score | 3.0 | 15.0 | 3.0 |
+| distance_loop_closure | 100.0 | 100.0 | 100.0 |
+| use_scan_context | true | false (非360 FOV) | true |
+| scan_context_threshold | 0.3 | - | 0.3 |
+
+**知見**: `adjacent_edge_info_weight` はデータセットの LIO 精度に依存。高精度 LIO (RKO-LIO on Newer College) では 1000 でオドメトリ重視、低精度時 (MID-360) では 100 でループ重視。
+
+### Autoware マップフォーマット
+
+```yaml
+# pointcloud_map_metadata.yaml (Autoware 互換)
+x_resolution: 20.0
+y_resolution: 20.0
+-80_-40.pcd: [-80, -40]    # 座標は整数必須 (yaml-cpp as<int>)
+-60_-60.pcd: [-60, -60]
+
+# map_projector_info.yaml (GNSS 原点)
+projector_type: local
+vertical_datum: WGS84
+map_origin:
+  latitude: 35.6812362
+  longitude: 139.7671248
+  altitude: 40.0
+```
 
 ### 重要ファイル
-- ベンチマークレポート: `output/benchmark_report.md`
-- VoxelHashMap 実装: `scanmatcher/include/scanmatcher/voxel_hash_map.hpp`
-- scanmatcher 本体: `scanmatcher/src/scanmatcher_component.cpp`
-- GenZ-ICP 設定: `Thirdparty/genz-icp/ros/config/newer_college.yaml`
-- small_gicp オドメトリ例: `Thirdparty/small_gicp/src/benchmark/odometry_benchmark_small_gicp_model_tbb.cpp`
+
+| ファイル | 説明 |
+|---------|------|
+| `graph_based_slam/src/graph_based_slam_component.cpp` | バックエンド本体 |
+| `graph_based_slam/include/graph_based_slam/scan_context.hpp` | GPL フリー Scan Context |
+| `scanmatcher/src/scanmatcher_component.cpp` | フロントエンド本体 |
+| `scanmatcher/include/scanmatcher/voxel_hash_map.hpp` | VoxelHashMap |
+| `lidarslam/launch/rko_lio_slam.launch.py` | RKO-LIO 統合ランチ |
+| `scripts/verify_autoware_map.py` | Autoware 互換性検証 |
+| `scripts/odom_to_tum.py` | 軌跡ロギング |
