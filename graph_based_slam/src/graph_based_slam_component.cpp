@@ -629,6 +629,10 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
   if (msg.status.status < sensor_msgs::msg::NavSatStatus::STATUS_FIX) {
     return;  // No valid fix
   }
+  // Reject obviously invalid coordinates
+  if (std::abs(msg.latitude) < 1e-6 && std::abs(msg.longitude) < 1e-6) {
+    return;
+  }
 
   std::lock_guard<std::mutex> lock(gnss_mtx_);
 
@@ -887,10 +891,14 @@ void GraphBasedSlamComponent::saveGridDividedMap(
   }
 
   // Save each grid cell as PCD and build metadata
+  // Format: Autoware pointcloud_map_loader expects:
+  //   x_resolution: 20.0
+  //   y_resolution: 20.0
+  //   filename.pcd: [x, y]   (lower-left corner of grid cell)
   std::ofstream meta(out_dir + "/pointcloud_map_metadata.yaml");
-  meta << "x_resolution: " << map_grid_size_x_ << std::endl;
-  meta << "y_resolution: " << map_grid_size_y_ << std::endl;
-  meta << "A:" << std::endl;
+  meta << std::fixed;
+  meta << "x_resolution: " << std::setprecision(1) << map_grid_size_x_ << std::endl;
+  meta << "y_resolution: " << std::setprecision(1) << map_grid_size_y_ << std::endl;
 
   int saved = 0;
   for (auto& [key, cloud] : grid_cells) {
@@ -904,8 +912,7 @@ void GraphBasedSlamComponent::saveGridDividedMap(
     std::string filepath = out_dir + "/" + filename.str();
     pcl::io::savePCDFileBinaryCompressed(filepath, *cloud);
 
-    meta << "  - [" << filename.str() << ", "
-         << std::fixed << std::setprecision(1)
+    meta << filename.str() << ": [" << std::setprecision(1)
          << cell_x << ", " << cell_y << "]" << std::endl;
     saved++;
   }
@@ -926,8 +933,8 @@ void GraphBasedSlamComponent::saveGridDividedMap(
     std::string proj_file = map_save_dir_ + "/map_projector_info.yaml";
     std::ofstream proj(proj_file);
     proj << std::fixed << std::setprecision(10);
-    proj << "# Map projection info for Autoware map_projection_loader" << std::endl;
     proj << "projector_type: local" << std::endl;
+    proj << "vertical_datum: WGS84" << std::endl;
     proj << "map_origin:" << std::endl;
     proj << "  latitude: " << gnss_origin_lat_ << std::endl;
     proj << "  longitude: " << gnss_origin_lon_ << std::endl;
