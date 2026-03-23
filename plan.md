@@ -11,20 +11,21 @@ lidarslam-ros2 をオープンソース公開に耐えうる RMSE で仕上げ�
 
 ## 全手法ベンチマーク結果 (確定)
 
-### LIO 系 (LiDAR-Inertial Odometry)
+### LIO 系 + ループクロージャー
 
 | 順位 | 手法 | RMSE (m) | Poses | ライセンス | 備考 |
 |------|------|----------|-------|-----------|------|
 | 1 | **DLIO** | **0.070** | 1896 | MIT | UCLA, NanoGICP + jerk IMU + per-point deskew |
-| 2 | **RKO-LIO** | **0.082** | 1930 | MIT | PRBonn, KISS-ICP + IMU tight coupling |
+| 2 | **RKO-LIO + loop closure (info=1000)** | **0.078** | 1930 | MIT | graph_based_slam バックエンド統合 |
+| 3 | **RKO-LIO raw** | **0.082** | 1930 | MIT | PRBonn, KISS-ICP + IMU tight coupling |
 
 ### LO 系 (LiDAR-Only)
 
 | 順位 | 手法 | RMSE (m) | Poses | ライセンス | 備考 |
 |------|------|----------|-------|-----------|------|
-| 1 | **KISS-ICP** | **0.440** | 1913 | MIT | VoxelHashMap + adaptive ICP + robust kernel |
-| 2 | **KISS-SLAM** | **0.434** | 1930 | MIT | KISS-ICP + MapClosures (本データではループ 0) |
-| 1 | **GenZ-ICP (pt=0.5)** | **0.146** | 1841 | MIT | **planarity=0.5 で KISS-ICP の 3 倍高精度** |
+| 1 | **GenZ-ICP (tuned)** | **0.112** | 1841 | MIT | planarity チューニング済み |
+| 2 | **KISS-ICP** | **0.440** | 1913 | MIT | VoxelHashMap + adaptive ICP + robust kernel |
+| 3 | **KISS-SLAM** | **0.434** | 1930 | MIT | KISS-ICP + MapClosures (本データではループ 0) |
 | 4 | lidarslam + FAST_GICP + VHM + CV | 11.522 | 1199 | BSD/MIT | 改善版 |
 | 5 | lidarslam + FAST_GICP (baseline) | 15.950 | 1306 | BSD | |
 | 6 | lidarslam + NDT (baseline) | 24.286 | 1887 | - | 元の baseline |
@@ -168,11 +169,15 @@ lidarslam では PCL ラッパー (`RegistrationPCL`) のみ使用。実は完�
 - **根本問題**: 共分散計算 (`estimate_covariances_omp`) が律速でスキャンドロップ多発。KISS-ICP は共分散不要のカスタム ICP で圧倒的に速い
 - **改善方向**: `ICPFactor` (共分散不要) への切替、または共分散計算のバックグラウンド化
 
-### C. DLIO/RKO-LIO フロントエンド統合 [部分完了]
+### C. DLIO/RKO-LIO フロントエンド統合 [完了]
 - **graph_based_slam に Odometry + PointCloud2 直接入力モード追加** (`use_odom_input`)
 - **graph_based_slam に cloud-driven サブマップ生成追加** (odom/cloud の同期問題を解決)
 - **graph_based_slam ループ検出改善**: ソース点群を複数サブマップ統合に改修
-- **RKO-LIO + graph_based_slam**: `publish_odom_tf:=false` で同一ドメイン共存成功。50 サブマップ受信。ループ検出は fitness 1.91 > 閾値で不採用
+- **RKO-LIO + graph_based_slam**: `publish_odom_tf:=false` で同一ドメイン共存成功
+- **ループクロージャー情報行列バグ修正**: ループエッジがオドメトリエッジと同じ重みだった問題を修正。`adjacent_edge_info_weight=1000.0` で RMSE 0.078m 達成
+- **GPL フリー Scan Context 実装**: IROS 2018 論文からフルスクラッチで実装 (`scan_context.hpp`)
+- **PCD ディスクキャッシュ**: メモリ効率的なサブマップ管理
+- **rko_lio_slam.launch.py**: RKO-LIO + graph_based_slam 統合ランチファイル追加
 - **DLIO**: `publish_tf` パラメータ追加済み。graph_based_slam との cloud-driven 同期も改修済みだが、DLIO 内部の TF タイミング問題が残存
 - **RKO-LIO**: `publish_odom_tf` パラメータ追加、static TF 要件を文書化
 
@@ -184,19 +189,20 @@ lidarslam では PCL ラッパー (`RegistrationPCL`) のみ使用。実は完�
 ### 残課題
 1. **small_gicp odom 処理速度**: IncrementalVoxelMap の NN 探索が律速。ICPFactor でも改善不十分
 2. **DLIO 不安定性**: use_sim_time で Computation Time 膨張 + LiDAR 受信レート低下 → IMU 暴走。根本原因は DLIO が ROS2 bag play のメッセージ配送速度に依存
-3. **graph_based_slam OOM**: PCD キャッシュで改善したが、長時間走行で map_array_msg_ のメタデータが蓄積。完全解消には submap 数の上限管理が必要
+3. **graph_based_slam OOM**: PCD キャッシュで大幅改善済み。長時間走行でのメタデータ蓄積は残存
 4. **GT 付きクロス検証**: MID-360/NTU-VIRAL に GT がなく定量評価不可
+5. **DLIO + graph_based_slam 統合**: DLIO 内部 TF タイミング問題が未解決
 
 ### E. graph_based_slam の改善 (将来)
 
 現在の graph_based_slam はシンプルなポーズグラフ最適化 + NDT ベースのループ検出。改善余地が大きい。
 
-#### E-1. ループ検出の改善 [部分完了]
+#### E-1. ループ検出の改善 [完了]
 - **現状**: NDT スコアベース + Scan Context (フルスクラッチ実装済み、GPL フリー)
-- **実績**: 閾値 3.0 で Newer College math-hard で 5-6 回のループ検出に成功
-- **Scan Context**: `scan_context.hpp` に実装。Ring Key KNN + column-shifted cosine distance
-- **改善案**:
-  - **Scan Context**: 記述子ベースのループ検出。**ライセンス注意: 既存実装 (irapkaist/scancontext) は GPL のため、フルスクラッチで再実装する必要がある**。アルゴリズム自体は論文公開されているので概念の利用は問題ない
+- **実績**: RKO-LIO + loop closure で RMSE 0.078m 達成 (raw 0.082m → 5% 改善)
+- **Scan Context**: `scan_context.hpp` に GPL フリーでフルスクラッチ実装。Ring Key KNN + column-shifted cosine distance。IROS 2018 論文ベース
+- **情報行列バグ修正**: ループエッジの重みがオドメトリエッジと同一だった問題を修正。`adjacent_edge_info_weight=1000.0` がデフォルト
+- **将来の改善案**:
   - **MapClosures** (KISS-SLAM 方式): 占有グリッドマップの局所的な overlap を計算。MIT ライセンスで pip install 可能
   - **BTC (Binary Triangle Combined)**: 幾何特徴ベースの高速ループ検出
   - **距離ベースの候補フィルタリング**: 現在の `distance_loop_closure` は直線距離のみ。走行距離との差分で候補を絞る方が効果的
@@ -222,10 +228,10 @@ lidarslam では PCL ラッパー (`RegistrationPCL`) のみ使用。実は完�
   - **占有グリッドマップの構築**: 2D/3D 占有グリッドを並行して構築
   - **セマンティック情報の活用**: 地面/壁/天井の分類でマッチング精度向上
 
-#### E-5. LIO フロントエンドとの連携改善
-- **現状**: MapArray 経由の疎結合。ブリッジノードが必要
-- **改善案**:
-  - **ネイティブ Odometry 入力対応**: MapArray だけでなく Odometry + PointCloud2 を直接受け取る
+#### E-5. LIO フロントエンドとの連携改善 [完了]
+- **実装済み**: Odometry + PointCloud2 直接入力モード (`use_odom_input`)、cloud-driven サブマップ生成
+- **RKO-LIO 統合**: `rko_lio_slam.launch.py` で一発起動可能。RMSE 0.078m
+- **将来の改善案**:
   - **キーフレーム選択ロジック**: フロントエンドの品質指標 (fitness, inlier数) に基づくキーフレーム選定
   - **共分散情報の伝播**: フロントエンドの推定共分散をグラフの辺の重みに反映
 
