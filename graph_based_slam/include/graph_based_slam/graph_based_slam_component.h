@@ -50,6 +50,7 @@ extern "C" {
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform.hpp>
@@ -180,6 +181,24 @@ private:
     nav_msgs::msg::Odometry latest_odom_;
     bool latest_odom_valid_ {false};
     rclcpp::Time latest_cloud_stamp_ {0, 0, RCL_ROS_TIME};
+
+    // GNSS constraints for georeferenced mapping
+    bool use_gnss_ {false};
+    double gnss_info_weight_ {1.0};
+    rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gnss_sub_;
+    struct GnssEnu
+    {
+      double stamp;
+      double x, y, z;  // ENU coordinates relative to origin
+    };
+    std::vector<GnssEnu> gnss_buffer_;
+    std::mutex gnss_mtx_;
+    bool gnss_origin_set_ {false};
+    double gnss_origin_lat_ {0.0};
+    double gnss_origin_lon_ {0.0};
+    double gnss_origin_alt_ {0.0};
+    void receiveNavSatFix(const sensor_msgs::msg::NavSatFix & msg);
+    Eigen::Vector3d geodeticToEnu(double lat, double lon, double alt) const;
 
     // IMU preintegration
     bool use_imu_preintegration_ {false};
