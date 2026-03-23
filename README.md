@@ -9,6 +9,8 @@ ROS 2 SLAM package with a scan-matching frontend and a graph-based SLAM backend 
 - **GPL-free Scan Context loop detection**: built-in Scan Context descriptor for place recognition without GPL dependencies
 - **PCD disk cache**: memory-efficient submap storage that pages point clouds to disk
 - **Adaptive correspondence threshold**: automatically adjusts the registration correspondence distance based on an exponential moving average of fitness scores
+- **GNSS constraints**: optional NavSatFix integration for georeferenced mapping with pose graph optimization
+- **Autoware-compatible map output**: grid-divided PCD maps with metadata for `pointcloud_map_loader`, plus `map_projector_info.yaml` for georeferencing
 
 ## Benchmark Results
 
@@ -67,7 +69,9 @@ Key parameters for map output:
 | map_grid_size_y | double | 20.0 | Grid cell height [m] |
 | map_leaf_size | double | 0.2 | Voxel downsampling resolution [m] |
 
-To use the map in Autoware, copy the `pointcloud_map/` directory to your Autoware map directory and set `pointcloud_map_path` in your Autoware launch configuration.
+When `use_gnss:=true`, GNSS position constraints are added to the pose graph and the map origin is saved as `map_projector_info.yaml` for Autoware's `map_projection_loader`.
+
+To use the map in Autoware, copy the `pointcloud_map/` directory and `map_projector_info.yaml` to your Autoware map directory.
 
 ## requirement to build
 You need  [ndt_omp_ros2](https://github.com/rsasaki0109/ndt_omp_ros2) for scan-matcher
@@ -176,6 +180,8 @@ ros2 service call /map_save std_srvs/Empty
 |map_grid_size_x|double|20.0|grid cell width for Autoware-compatible map division [m]|
 |map_grid_size_y|double|20.0|grid cell height for Autoware-compatible map division [m]|
 |map_leaf_size|double|0.2|voxel downsampling resolution for saved map [m]|
+|use_gnss|bool|false|enable GNSS position constraints in pose graph (subscribes to /gnss/fix)|
+|gnss_info_weight|double|1.0|information weight for GNSS position constraints|
 
 ## demo
 ### GLIM MID360 sample
