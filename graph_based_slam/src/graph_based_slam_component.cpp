@@ -848,8 +848,15 @@ void GraphBasedSlamComponent::saveGridDividedMap(
     return;
   }
 
-  // Create output directory
+  // Create output directory (clean existing PCD files to prevent orphans)
   std::string out_dir = map_save_dir_ + "/pointcloud_map";
+  if (std::filesystem::exists(out_dir)) {
+    for (auto& entry : std::filesystem::directory_iterator(out_dir)) {
+      if (entry.path().extension() == ".pcd" || entry.path().extension() == ".yaml") {
+        std::filesystem::remove(entry.path());
+      }
+    }
+  }
   std::filesystem::create_directories(out_dir);
 
   // Downsample the map
@@ -907,13 +914,14 @@ void GraphBasedSlamComponent::saveGridDividedMap(
     double cell_y = y_min + key.second * map_grid_size_y_;
 
     std::ostringstream filename;
-    filename << std::fixed << std::setprecision(0)
-             << cell_x << "_" << cell_y << ".pcd";
+    filename << static_cast<int>(cell_x) << "_"
+             << static_cast<int>(cell_y) << ".pcd";
     std::string filepath = out_dir + "/" + filename.str();
     pcl::io::savePCDFileBinaryCompressed(filepath, *cloud);
 
-    meta << filename.str() << ": [" << std::setprecision(1)
-         << cell_x << ", " << cell_y << "]" << std::endl;
+    meta << filename.str() << ": ["
+         << static_cast<int>(cell_x) << ", "
+         << static_cast<int>(cell_y) << "]" << std::endl;
     saved++;
   }
 
