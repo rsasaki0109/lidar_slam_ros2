@@ -158,6 +158,13 @@ private:
     void saveSubmapToPCD(int idx, const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud);
     pcl::PointCloud<pcl::PointXYZI>::Ptr loadSubmapFromPCD(int idx);
 
+    // Autoware-compatible grid-divided PCD map output
+    std::string map_save_dir_ {"."};
+    double map_grid_size_x_ {20.0};
+    double map_grid_size_y_ {20.0};
+    double map_leaf_size_ {0.2};
+    void saveGridDividedMap(const pcl::PointCloud<pcl::PointXYZI>::Ptr& map);
+
     // Direct odometry + cloud input mode (for LIO frontends)
     bool use_odom_input_ {false};
     double submap_distance_threshold_ {1.5};
