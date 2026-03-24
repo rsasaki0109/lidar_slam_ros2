@@ -113,7 +113,9 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'inspect_navsatfix_covariance.py',
         REPO_ROOT / 'scripts' / 'inspect_applanix_gsof50_quality.py',
         REPO_ROOT / 'scripts' / 'convert_applanix_gsof_to_navsatfix_bag.py',
+        REPO_ROOT / 'scripts' / 'prepare_velodyne_pointcloud_overlay.sh',
         REPO_ROOT / 'scripts' / 'run_open_data_gnss_smoke.sh',
+        REPO_ROOT / 'scripts' / 'run_open_data_applanix_velodyne_gnss_smoke.sh',
         REPO_ROOT / 'scripts' / 'verify_autoware_map.py',
     ]
     for path in scripts:
@@ -196,7 +198,10 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'inspect_navsatfix_covariance.py' in workflows_doc
     assert 'inspect_applanix_gsof50_quality.py' in workflows_doc
     assert 'convert_applanix_gsof_to_navsatfix_bag.py' in workflows_doc
+    assert 'prepare_velodyne_pointcloud_overlay.sh' in workflows_doc
     assert 'run_open_data_gnss_smoke.sh' in workflows_doc
+    assert 'run_open_data_applanix_velodyne_gnss_smoke.sh' in workflows_doc
+    assert 'velodyne_msgs/msg/VelodyneScan' in workflows_doc
 
     assert 'download_ntu_viral_tnp01.sh' in benchmarking_doc
     assert 'run_rko_lio_graph_benchmark.sh' in benchmarking_doc
