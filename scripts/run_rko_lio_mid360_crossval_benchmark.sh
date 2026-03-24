@@ -608,7 +608,6 @@ if command -v setsid >/dev/null 2>&1; then
     ${MAX_RANGE:+"max_range:=${MAX_RANGE}"} \
     ${MIN_RANGE:+"min_range:=${MIN_RANGE}"} \
     ${INITIALIZATION_PHASE:+"initialization_phase:=${INITIALIZATION_PHASE}"} \
-    "publish_odom_tf:=false" \
     "publish_static_tf:=false" \
     "threshold_loop_closure_score:=${THRESHOLD_LOOP_CLOSURE_SCORE}" \
     "distance_loop_closure:=${DISTANCE_LOOP_CLOSURE}" \
@@ -639,7 +638,6 @@ else
     ${MAX_RANGE:+"max_range:=${MAX_RANGE}"} \
     ${MIN_RANGE:+"min_range:=${MIN_RANGE}"} \
     ${INITIALIZATION_PHASE:+"initialization_phase:=${INITIALIZATION_PHASE}"} \
-    "publish_odom_tf:=false" \
     "publish_static_tf:=false" \
     "threshold_loop_closure_score:=${THRESHOLD_LOOP_CLOSURE_SCORE}" \
     "distance_loop_closure:=${DISTANCE_LOOP_CLOSURE}" \

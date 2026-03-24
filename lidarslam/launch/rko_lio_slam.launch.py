@@ -66,7 +66,6 @@ def create_rko_offline_node(context, *args, **kwargs):
         'odom_frame': LaunchConfiguration('odom_frame'),
         'lidar_frame': LaunchConfiguration('lidar_frame'),
         'imu_frame': LaunchConfiguration('imu_frame'),
-        'publish_odom_tf': LaunchConfiguration('publish_odom_tf'),
         'deskew': LaunchConfiguration('deskew'),
         'voxel_size': LaunchConfiguration('voxel_size'),
         'max_range': LaunchConfiguration('max_range'),
@@ -225,11 +224,6 @@ def generate_launch_description():
             'imu_frame',
             default_value='',
             description='IMU frame id (empty = read from message header).',
-        ),
-        DeclareLaunchArgument(
-            'publish_odom_tf',
-            default_value='true',
-            description='Let RKO-LIO broadcast odom->base_frame TF.',
         ),
         DeclareLaunchArgument(
             'deskew',
