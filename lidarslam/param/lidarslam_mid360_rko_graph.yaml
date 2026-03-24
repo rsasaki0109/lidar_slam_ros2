@@ -1,0 +1,27 @@
+graph_based_slam:
+  ros__parameters:
+    registration_method: "NDT"
+    ndt_resolution: 5.0
+    ndt_num_threads: 0
+    voxel_leaf_size: 0.2
+
+    loop_detection_period: 1000
+    threshold_loop_closure_score: 15.0
+    distance_loop_closure: 100.0
+    range_of_searching_loop_closure: 50.0
+    search_submap_num: 5
+    submap_distance_threshold: 1.5
+    num_adjacent_pose_cnstraints: 5
+
+    max_loop_candidate_count: 3
+    loop_edge_dedup_index_window: 20
+    loop_max_translation_delta: 15.0
+    loop_max_rotation_delta_deg: 45.0
+    adjacent_edge_info_weight: 1000.0
+    loop_edge_info_weight: 200.0
+    loop_edge_robust_kernel_delta: 1.0
+
+    use_scan_context: false
+    use_pcd_cache: true
+    use_save_map_in_loop: true
+    debug_flag: true
