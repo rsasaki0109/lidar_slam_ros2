@@ -106,6 +106,45 @@ This MID360 wrapper defaults to a tuned `RKO-LIO + graph_based_slam` profile
 with `voxel_size=0.5`, `max_range=80.0`, `search_submap_num=5`,
 `loop_edge_dedup_index_window=20`, and `loop_edge_info_weight=200`.
 
+To benchmark the real open-data Leo Drive `driving_30_kmh` bag with mixed
+RTK/non-RTK GNSS quality:
+
+```bash
+git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
+bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh \
+  --bag demo_data/autoware_leo_drive_isuzu/driving_30_kmh_2022_06_10-15_47_42_compressed \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg \
+  --verify-map
+```
+
+That wrapper writes a local `Applanix_GSOF49` reference trajectory,
+`traj_raw.tum`, `traj_corrected.tum`, and `metrics.json` so the run appears in
+`benchmark_summary.md` and `latest_report.html`.
+
+To compare place-recognition behavior on MID360, rerun the same benchmark with
+and without Scan Context and then render the short report:
+
+```bash
+bash scripts/run_rko_lio_mid360_crossval_benchmark.sh \
+  --output-dir output/bench_rko_lio_mid360_pr_distance \
+  --use-scan-context false
+bash scripts/run_rko_lio_mid360_crossval_benchmark.sh \
+  --output-dir output/bench_rko_lio_mid360_pr_scan_context \
+  --use-scan-context true
+python3 scripts/generate_place_recognition_report.py \
+  --baseline-metrics output/bench_rko_lio_mid360_pr_distance/metrics.json \
+  --candidate-metrics output/bench_rko_lio_mid360_pr_scan_context/metrics.json \
+  --out output/place_recognition_report_$(date +%Y%m%d).md
+```
+
+The report shows:
+
+- runtime `use_scan_context`
+- accepted/attempted loop counts
+- accepted loop source counts
+- observed `ScanContext loop candidate` count
+- `APE RMSE` delta between the two runs
+
 ## Release/Readiness Gate
 
 To run the local readiness gate in one command:

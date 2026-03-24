@@ -32,6 +32,7 @@ bash scripts/run_default_ci_checks.sh
 | Standard NTU VIRAL benchmark | `bash scripts/run_rko_lio_graph_benchmark.sh` |
 | MID360 cross-validation benchmark | `bash scripts/run_rko_lio_mid360_crossval_benchmark.sh` |
 | Mixed-quality open-data GNSS smoke | `bash scripts/run_open_data_applanix_velodyne_gnss_smoke.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
+| Mixed-quality open-data GNSS benchmark | `bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
 | Release/readiness gate | `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10` |
 
 ## Required Input Topics
@@ -196,10 +197,22 @@ bash scripts/run_open_data_applanix_velodyne_gnss_smoke.sh \
 That wrapper will:
 
 - generate a `NavSatFix` sidecar bag from `GSOF49/50`
+- extract a local `TUM` reference from `GSOF49` with `extract_applanix_gsof49_reference.py`
 - build a minimal `velodyne_pointcloud` overlay on demand with
   `bash scripts/prepare_velodyne_pointcloud_overlay.sh`
 - convert `VelodyneScan` packets into `sensor_msgs/msg/PointCloud2`
 - run `lidarslam.launch.py`, call `/map_save`, and optionally verify the output
+
+To turn the same real open-data path into a benchmark artifact with
+`traj_raw.tum`, `traj_corrected.tum`, and `metrics.json`, use:
+
+```bash
+git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
+bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh \
+  --bag demo_data/autoware_leo_drive_isuzu/driving_30_kmh_2022_06_10-15_47_42_compressed \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg \
+  --verify-map
+```
 
 ## Run `RKO-LIO + graph_based_slam`
 

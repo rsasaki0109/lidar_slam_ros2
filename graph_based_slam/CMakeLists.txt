@@ -110,6 +110,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_applanix_gsof49_reference_extractor
+    test/test_applanix_gsof49_reference_extractor.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_benchmark_reporting_tools
     test/test_benchmark_reporting_tools.py
     TIMEOUT 120
@@ -137,6 +142,11 @@ if(BUILD_TESTING)
   ament_add_pytest_test(
     test_stress_validation_report
     test/test_stress_validation_report.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_place_recognition_report
+    test/test_place_recognition_report.py
     TIMEOUT 120
   )
 endif()

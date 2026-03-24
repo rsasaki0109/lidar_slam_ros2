@@ -113,6 +113,11 @@ if(BUILD_TESTING)
     test/test_open_data_applanix_velodyne_gnss_smoke_script.py
     TIMEOUT 120
   )
+  ament_add_pytest_test(
+    test_open_data_applanix_velodyne_gnss_benchmark_script
+    test/test_open_data_applanix_velodyne_gnss_benchmark_script.py
+    TIMEOUT 120
+  )
 endif()
 
 add_executable(lidarslam
