@@ -41,7 +41,10 @@
 #include <pcl/common/eigen.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <algorithm>
+#include <cmath>
 #include <iostream>
+#include <vector>
 
 class LidarUndistortion
 {
@@ -118,20 +121,37 @@ public:
   // https://github.com/RobustFieldAutonomyLab/LeGO-LOAM/blob/master/LeGO-LOAM/src/featureAssociation.cpp#L491-L619
   void adjustDistortion(
     pcl::PointCloud<pcl::PointXYZI>::Ptr & cloud,
-    const double scan_time /*[sec]*/)
+    const double scan_time /*[sec]*/,
+    const std::vector<float> * point_times = nullptr)
   {
     if (cloud->empty()) { return; }
     bool half_passed = false;
     int cloud_size = cloud->points.size();
+    bool use_point_times =
+      point_times != nullptr &&
+      point_times->size() == static_cast<size_t>(cloud_size);
 
-    float start_ori = -std::atan2(cloud->points[0].y, cloud->points[0].x);
-    float end_ori = -std::atan2(cloud->points[cloud_size - 1].y, cloud->points[cloud_size - 1].x);
-    if (end_ori - start_ori > 3 * M_PI) {
-      end_ori -= 2 * M_PI;
-    } else if (end_ori - start_ori < M_PI) {
-      end_ori += 2 * M_PI;
+    if (use_point_times) {
+      for (const float rel_time : *point_times) {
+        if (!std::isfinite(rel_time) || rel_time < 0.0f) {
+          use_point_times = false;
+          break;
+        }
+      }
     }
-    float ori_diff = end_ori - start_ori;
+
+    float start_ori = 0.0f;
+    float ori_diff = 0.0f;
+    if (!use_point_times) {
+      start_ori = -std::atan2(cloud->points[0].y, cloud->points[0].x);
+      float end_ori = -std::atan2(cloud->points[cloud_size - 1].y, cloud->points[cloud_size - 1].x);
+      if (end_ori - start_ori > 3 * M_PI) {
+        end_ori -= 2 * M_PI;
+      } else if (end_ori - start_ori < M_PI) {
+        end_ori += 2 * M_PI;
+      }
+      ori_diff = end_ori - start_ori;
+    }
 
     Eigen::Vector3f rpy_start, shift_start, velo_start, rpy_cur, shift_cur, velo_cur;
     Eigen::Vector3f shift_from_start;
@@ -140,27 +160,31 @@ public:
     float ori_h;
     for (int i = 0; i < cloud_size; ++i) {
       pcl::PointXYZI & p = cloud->points[i];
-      ori_h = -std::atan2(p.y, p.x);
-      if (!half_passed) {
-        if (ori_h < start_ori - M_PI * 0.5) {
-          ori_h += 2 * M_PI;
-        } else if (ori_h > start_ori + M_PI * 1.5) {
-          ori_h -= 2 * M_PI;
-        }
-
-        if (ori_h - start_ori > M_PI) {
-          half_passed = true;
-        }
+      float rel_time = 0.0f;
+      if (use_point_times) {
+        rel_time = std::clamp((*point_times)[i], 0.0f, static_cast<float>(scan_period_));
       } else {
-        ori_h += 2 * M_PI;
-        if (ori_h < end_ori - 1.5 * M_PI) {
-          ori_h += 2 * M_PI;
-        } else if (ori_h > end_ori + 0.5 * M_PI) {
-          ori_h -= 2 * M_PI;
-        }
-      }
+        ori_h = -std::atan2(p.y, p.x);
+        if (!half_passed) {
+          if (ori_h < start_ori - M_PI * 0.5) {
+            ori_h += 2 * M_PI;
+          } else if (ori_h > start_ori + M_PI * 1.5) {
+            ori_h -= 2 * M_PI;
+          }
 
-      float rel_time = (ori_h - start_ori) / ori_diff * scan_period_;
+          if (ori_h - start_ori > M_PI) {
+            half_passed = true;
+          }
+        } else {
+          ori_h += 2 * M_PI;
+          if (ori_h < start_ori + ori_diff - 1.5 * M_PI) {
+            ori_h += 2 * M_PI;
+          } else if (ori_h > start_ori + ori_diff + 0.5 * M_PI) {
+            ori_h -= 2 * M_PI;
+          }
+        }
+        rel_time = (ori_h - start_ori) / ori_diff * scan_period_;
+      }
 
       if (imu_ptr_last_ > 0) {
         imu_ptr_front_ = imu_ptr_last_iter_;
