@@ -82,19 +82,28 @@ public:
     int imu_ptr_back = (imu_ptr_last_ - 1 + imu_que_length_) % imu_que_length_;
     double time_diff = imu_time_[imu_ptr_last_] - imu_time_[imu_ptr_back];
     if (time_diff < scan_period_) {
-      imu_shift_x_[imu_ptr_last_] =
-        imu_shift_x_[imu_ptr_back] + imu_velo_x_[imu_ptr_back] * time_diff + acc(0) * time_diff *
-        time_diff * 0.5;
-      imu_shift_y_[imu_ptr_last_] =
-        imu_shift_y_[imu_ptr_back] + imu_velo_y_[imu_ptr_back] * time_diff + acc(1) * time_diff *
-        time_diff * 0.5;
-      imu_shift_z_[imu_ptr_last_] =
-        imu_shift_z_[imu_ptr_back] + imu_velo_z_[imu_ptr_back] * time_diff + acc(2) * time_diff *
-        time_diff * 0.5;
+      if (use_translation_deskew_) {
+        imu_shift_x_[imu_ptr_last_] =
+          imu_shift_x_[imu_ptr_back] + imu_velo_x_[imu_ptr_back] * time_diff + acc(0) * time_diff *
+          time_diff * 0.5;
+        imu_shift_y_[imu_ptr_last_] =
+          imu_shift_y_[imu_ptr_back] + imu_velo_y_[imu_ptr_back] * time_diff + acc(1) * time_diff *
+          time_diff * 0.5;
+        imu_shift_z_[imu_ptr_last_] =
+          imu_shift_z_[imu_ptr_back] + imu_velo_z_[imu_ptr_back] * time_diff + acc(2) * time_diff *
+          time_diff * 0.5;
 
-      imu_velo_x_[imu_ptr_last_] = imu_velo_x_[imu_ptr_back] + acc(0) * time_diff;
-      imu_velo_y_[imu_ptr_last_] = imu_velo_y_[imu_ptr_back] + acc(1) * time_diff;
-      imu_velo_z_[imu_ptr_last_] = imu_velo_z_[imu_ptr_back] + acc(2) * time_diff;
+        imu_velo_x_[imu_ptr_last_] = imu_velo_x_[imu_ptr_back] + acc(0) * time_diff;
+        imu_velo_y_[imu_ptr_last_] = imu_velo_y_[imu_ptr_back] + acc(1) * time_diff;
+        imu_velo_z_[imu_ptr_last_] = imu_velo_z_[imu_ptr_back] + acc(2) * time_diff;
+      } else {
+        imu_shift_x_[imu_ptr_last_] = imu_shift_x_[imu_ptr_back];
+        imu_shift_y_[imu_ptr_last_] = imu_shift_y_[imu_ptr_back];
+        imu_shift_z_[imu_ptr_last_] = imu_shift_z_[imu_ptr_back];
+        imu_velo_x_[imu_ptr_last_] = 0.0f;
+        imu_velo_y_[imu_ptr_last_] = 0.0f;
+        imu_velo_z_[imu_ptr_last_] = 0.0f;
+      }
 
       imu_angular_rot_x_[imu_ptr_last_] = imu_angular_rot_x_[imu_ptr_back] + angular_velo(0) *
         time_diff;
@@ -111,6 +120,7 @@ public:
     pcl::PointCloud<pcl::PointXYZI>::Ptr & cloud,
     const double scan_time /*[sec]*/)
   {
+    if (cloud->empty()) { return; }
     bool half_passed = false;
     int cloud_size = cloud->points.size();
 
@@ -231,6 +241,11 @@ public:
     scan_period_ = scan_period;
   }
 
+  void setUseTranslationDeskew(const bool use_translation_deskew)
+  {
+    use_translation_deskew_ = use_translation_deskew;
+  }
+
 private:
   double scan_period_{0.1};
   static const int imu_que_length_{200};
@@ -257,6 +272,7 @@ private:
   std::array<float, imu_que_length_> imu_angular_rot_x_;
   std::array<float, imu_que_length_> imu_angular_rot_y_;
   std::array<float, imu_que_length_> imu_angular_rot_z_;
+  bool use_translation_deskew_ {true};
 };
 
 #endif  // LIDAR_UNDISTORTION_HPP_

@@ -1,0 +1,113 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Existing git tag to publish, for example v0.2.0
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag_name || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish release
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag_name || github.ref }}
+
+      - name: Install Python test dependency
+        shell: bash
+        run: |
+          python3 -m pip install --upgrade pytest
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          VERSION="$(tr -d '\n' < VERSION)"
+          TAG_NAME="${{ github.event.inputs.tag_name || github.ref_name }}"
+
+          if [[ -z "${TAG_NAME}" ]]; then
+            echo "failed to resolve release tag name" >&2
+            exit 1
+          fi
+          if [[ "${TAG_NAME}" != "v${VERSION}" ]]; then
+            echo "tag ${TAG_NAME} does not match VERSION ${VERSION}" >&2
+            exit 1
+          fi
+
+          git fetch --force --tags
+          if ! git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
+            echo "git tag ${TAG_NAME} does not exist" >&2
+            exit 1
+          fi
+
+          RELEASE_NOTES="docs/releases/${TAG_NAME}.md"
+          if [[ ! -f "${RELEASE_NOTES}" ]]; then
+            echo "release notes not found: ${RELEASE_NOTES}" >&2
+            exit 1
+          fi
+
+          BUNDLE_NAME="lidarslam_ros2_${TAG_NAME}_release_bundle.tar.gz"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "tag_name=${TAG_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "release_notes=${RELEASE_NOTES}" >> "${GITHUB_OUTPUT}"
+          echo "bundle_name=${BUNDLE_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Validate release docs
+        shell: bash
+        run: |
+          python3 -m pytest graph_based_slam/test/test_docs_entrypoints.py -q
+          bash -n scripts/run_autoware_quickstart.sh
+          bash -n scripts/download_ntu_viral_tnp01.sh
+
+      - name: Build release bundle
+        shell: bash
+        run: |
+          rm -rf release_bundle
+          mkdir -p release_bundle/docs/releases release_bundle/output
+          cp README.md CHANGELOG.md CONTRIBUTING.md RELEASING.md VERSION release_bundle/
+          cp docs/autoware-quickstart.md docs/benchmarking.md docs/comparison.md release_bundle/docs/
+          cp "${{ steps.meta.outputs.release_notes }}" release_bundle/docs/releases/
+          for artifact in \
+            output/benchmark_summary.md \
+            output/benchmark_summary.csv \
+            output/latest_report.html \
+            output/stress_validation_report_20260325.md \
+            output/v2_beta_readiness_20260324.md
+          do
+            if [[ -f "${artifact}" ]]; then
+              cp "${artifact}" release_bundle/output/
+            fi
+          done
+          tar -czf "${{ steps.meta.outputs.bundle_name }}" release_bundle
+
+      - name: Upload release bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.tag_name }}-release-bundle
+          path: ${{ steps.meta.outputs.bundle_name }}
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: lidarslam_ros2 v2 beta (${{ steps.meta.outputs.version }})
+          body_path: ${{ steps.meta.outputs.release_notes }}
+          prerelease: true
+          files: ${{ steps.meta.outputs.bundle_name }}

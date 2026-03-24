@@ -16,7 +16,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   #add_compile_options(-Wextra -Wpedantic)
 endif()
 
-SET(CMAKE_CXX_FLAGS "-O2 -g ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-O2 -g ${CMAKE_CXX_FLAGS}")
 add_compile_definitions(G2O_USE_VENDORED_CERES)
 
 # Find missing symbols during link time
@@ -38,39 +38,100 @@ find_package(pcl_conversions REQUIRED)
 find_package(lidarslam_msgs REQUIRED)
 find_package(ndt_omp_ros2 REQUIRED)
 find_package(PCL REQUIRED)
-find_package(g2o REQUIRED
-COMPONENTS
-g2o::core
-g2o::types_slam3d
-g2o::solver_eigen
+find_package(g2o QUIET
+  COMPONENTS
+    g2o::core
+    g2o::types_slam3d
+    g2o::solver_eigen
 )
+if(NOT g2o_FOUND)
+  # Fallback: find g2o libraries directly (Ubuntu/Debian packages without cmake config)
+  find_path(G2O_INCLUDE_DIR g2o/core/sparse_optimizer.h PATHS /usr/include /usr/local/include)
+  find_library(G2O_CORE_LIB g2o_core)
+  find_library(G2O_TYPES_SLAM3D_LIB g2o_types_slam3d)
+  find_library(G2O_SOLVER_EIGEN_LIB g2o_solver_eigen)
+  find_library(G2O_STUFF_LIB g2o_stuff)
+  if(G2O_INCLUDE_DIR AND G2O_CORE_LIB AND G2O_TYPES_SLAM3D_LIB AND G2O_SOLVER_EIGEN_LIB)
+    message(STATUS "Found g2o via fallback: ${G2O_CORE_LIB}")
+    # Create imported targets to match CMake config mode
+    foreach(_tgt core types_slam3d solver_eigen stuff)
+      string(TOUPPER "${_tgt}" _TGT_UPPER)
+      if(NOT TARGET g2o::${_tgt})
+        add_library(g2o::${_tgt} SHARED IMPORTED)
+        set_target_properties(g2o::${_tgt} PROPERTIES
+          IMPORTED_LOCATION "${G2O_${_TGT_UPPER}_LIB}"
+          INTERFACE_INCLUDE_DIRECTORIES "${G2O_INCLUDE_DIR}"
+        )
+      endif()
+    endforeach()
+    set(g2o_FOUND TRUE)
+  else()
+    message(FATAL_ERROR "Could not find g2o libraries")
+  endif()
+endif()
 find_package(OpenMP)
 
-if (OPENMP_FOUND)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+if(OPENMP_FOUND)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+  find_package(ament_cmake_pytest REQUIRED)
   ament_lint_auto_find_test_dependencies()
+  ament_add_pytest_test(
+    test_autoware_map_tools
+    test/test_autoware_map_tools.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_benchmark_reporting_tools
+    test/test_benchmark_reporting_tools.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_rko_lio_benchmark_tools
+    test/test_rko_lio_benchmark_tools.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_docs_entrypoints
+    test/test_docs_entrypoints.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_aligned_trajectory_metrics
+    test/test_aligned_trajectory_metrics.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_v2_beta_readiness_report
+    test/test_v2_beta_readiness_report.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_stress_validation_report
+    test/test_stress_validation_report.py
+    TIMEOUT 120
+  )
 endif()
 
 add_library(graph_based_slam_component SHARED
-src/graph_based_slam_component.cpp
+  src/graph_based_slam_component.cpp
 )
 
 target_compile_definitions(graph_based_slam_component PRIVATE "GS_GBS_BUILDING_DLL")
 
 ament_target_dependencies(graph_based_slam_component
-  rclcpp 
-  rclcpp_components 
-  tf2_ros 
+  rclcpp
+  rclcpp_components
+  tf2_ros
   tf2_eigen
   tf2_geometry_msgs
   tf2_sensor_msgs
   pcl_conversions
-  geometry_msgs 
+  geometry_msgs
   sensor_msgs
   nav_msgs
   std_srvs
@@ -82,10 +143,11 @@ target_link_libraries(graph_based_slam_component
   g2o::core
   g2o::types_slam3d
   g2o::solver_eigen
+  g2o::stuff
 )
 
 add_executable(graph_based_slam_node
-src/graph_based_slam_node.cpp
+  src/graph_based_slam_node.cpp
 )
 
 target_link_libraries(graph_based_slam_node
@@ -96,15 +158,15 @@ ament_target_dependencies(graph_based_slam_node
   rclcpp)
 
 include_directories(
-    include
-    ${PCL_INCLUDE_DIRS}
+  include
+  ${PCL_INCLUDE_DIRS}
 )
 link_directories(
   ${PCL_LIBRARY_DIRS}
 )
 add_definitions(${PCL_DEFINITIONS})
 
-rclcpp_components_register_nodes(graph_based_slam_component 
+rclcpp_components_register_nodes(graph_based_slam_component
   "graphslam::GraphBasedSlamComponent")
 
 ament_export_libraries(graph_based_slam_component)
@@ -126,7 +188,7 @@ install(TARGETS
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS 
+install(TARGETS
   graph_based_slam_node
   DESTINATION lib/${PROJECT_NAME}
 )

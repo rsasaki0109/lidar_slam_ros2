@@ -1,0 +1,29 @@
+{
+  "reference": {
+    "path_length_m": 320.56390965638275,
+    "poses": 2438,
+    "duration_s": 243.69777488708496
+  },
+  "lidarslam": {
+    "path_length_m": 309.1226826325481,
+    "poses": 1205,
+    "pairs": 1204,
+    "rmse": 12.163925767534396,
+    "median": 5.475209525612477,
+    "max": 46.24229509101633
+  },
+  "glim": {
+    "path_length_m": 249.19939402770422,
+    "poses": 1919,
+    "pairs": 1919,
+    "rmse": 0.04425858615461272,
+    "median": 0.03840465241438356,
+    "max": 0.09163892708627133
+  },
+  "paths": {
+    "reference": "demo_data/newer_college/math_hard/gt_math_hard.csv",
+    "lidarslam": "output/lidarslam_newer_mathhard_20260311/traj_lidarslam.tum",
+    "glim": "output/glim_newer_mathhard_20260311/traj_lidar.txt",
+    "map_png": "output/newer_college_mathhard_report_map.png"
+  }
+}

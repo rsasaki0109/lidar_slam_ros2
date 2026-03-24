@@ -6,9 +6,9 @@ if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
 endif()
 
-# Default to C++14
+# Default to C++17 (required by small_gicp)
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -33,23 +33,41 @@ find_package(tf2_eigen REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(lidarslam_msgs REQUIRED)
 find_package(ndt_omp_ros2 REQUIRED)
+find_package(fast_gicp QUIET)
+find_package(small_gicp QUIET)
 find_package(PCL REQUIRED)
 find_package(OpenMP)
 
 set(dependencies
-  rclcpp 
-  rclcpp_components 
-  tf2_ros 
-  tf2_geometry_msgs 
-  tf2_sensor_msgs 
-  tf2_eigen 
+  rclcpp
+  rclcpp_components
+  tf2_ros
+  tf2_geometry_msgs
+  tf2_sensor_msgs
+  tf2_eigen
   pcl_conversions
-  geometry_msgs 
+  geometry_msgs
   sensor_msgs
   nav_msgs
   lidarslam_msgs
   ndt_omp_ros2
 )
+
+if(fast_gicp_FOUND)
+  list(APPEND dependencies fast_gicp)
+  add_definitions(-DHAS_FAST_GICP)
+  message(STATUS "fast_gicp found")
+else()
+  message(STATUS "fast_gicp not found, FAST_GICP/FAST_VGICP disabled")
+endif()
+
+if(small_gicp_FOUND)
+  list(APPEND dependencies small_gicp)
+  add_definitions(-DHAS_SMALL_GICP)
+  message(STATUS "small_gicp found")
+else()
+  message(STATUS "small_gicp not found, SMALL_GICP/SMALL_VGICP disabled")
+endif()
 
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -59,6 +77,21 @@ endif()
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(test_lidar_undistortion test/test_lidar_undistortion.cpp)
+  target_include_directories(test_lidar_undistortion PRIVATE include ${PCL_INCLUDE_DIRS})
+  target_link_libraries(test_lidar_undistortion ${PCL_LIBRARIES})
+
+  ament_add_gtest(test_math_utils test/test_math_utils.cpp)
+  target_include_directories(test_math_utils PRIVATE include ${PCL_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
+  ament_target_dependencies(test_math_utils
+    tf2_geometry_msgs
+    tf2_eigen
+    geometry_msgs
+  )
+  target_link_libraries(test_math_utils ${PCL_LIBRARIES})
 endif()
 
 add_library(scanmatcher_component SHARED
@@ -78,6 +111,15 @@ scanmatcher_component ${PCL_LIBRARIES})
 
 ament_target_dependencies(scanmatcher_node
   rclcpp)
+
+if(small_gicp_FOUND)
+  add_executable(small_gicp_odom_node
+  src/small_gicp_odom_node.cpp
+  )
+  ament_target_dependencies(small_gicp_odom_node
+    rclcpp sensor_msgs nav_msgs tf2_ros pcl_conversions small_gicp)
+  target_link_libraries(small_gicp_odom_node ${PCL_LIBRARIES})
+endif()
 
 include_directories(
     include
@@ -110,8 +152,11 @@ install(TARGETS
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS 
-  scanmatcher_node
+set(INSTALL_TARGETS scanmatcher_node)
+if(small_gicp_FOUND)
+  list(APPEND INSTALL_TARGETS small_gicp_odom_node)
+endif()
+install(TARGETS ${INSTALL_TARGETS}
   DESTINATION lib/${PROJECT_NAME}
 )
 
