@@ -80,9 +80,10 @@ jobs:
         shell: bash
         run: |
           rm -rf release_bundle
-          mkdir -p release_bundle/docs/releases release_bundle/output
+          mkdir -p release_bundle/docs/releases release_bundle/output release_bundle/lidarslam/images
           cp README.md CHANGELOG.md CONTRIBUTING.md RELEASING.md VERSION release_bundle/
           cp docs/autoware-quickstart.md docs/workflows.md docs/benchmarking.md docs/comparison.md release_bundle/docs/
+          cp lidarslam/images/mid360_glim_map_compare.png release_bundle/lidarslam/images/
           cp "${{ steps.meta.outputs.release_notes }}" release_bundle/docs/releases/
           for artifact in \
             output/benchmark_summary.md \
