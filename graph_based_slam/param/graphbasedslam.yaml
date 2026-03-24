@@ -12,4 +12,12 @@ graph_based_slam:
       loop_edge_dedup_index_window: 8
       loop_max_translation_delta: 15.0
       loop_max_rotation_delta_deg: 45.0
+      use_gnss: false
+      gnss_info_weight: 1.0
+      gnss_use_covariance_weighting: true
+      gnss_covariance_min_variance_m2: 0.01
+      gnss_covariance_max_variance_m2: 25.0
+      gnss_rtk_fix_max_horizontal_stddev_m: 0.3
+      gnss_rtk_fix_weight_scale: 3.0
+      gnss_non_rtk_weight_scale: 1.0
       debug_flag: false

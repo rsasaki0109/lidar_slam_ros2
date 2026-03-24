@@ -117,6 +117,20 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("use_gnss", use_gnss_);
   declare_parameter("gnss_info_weight", 1.0);
   get_parameter("gnss_info_weight", gnss_info_weight_);
+  declare_parameter("gnss_use_covariance_weighting", true);
+  get_parameter("gnss_use_covariance_weighting", gnss_use_covariance_weighting_);
+  declare_parameter("gnss_covariance_min_variance_m2", 0.01);
+  get_parameter("gnss_covariance_min_variance_m2", gnss_covariance_min_variance_m2_);
+  declare_parameter("gnss_covariance_max_variance_m2", 25.0);
+  get_parameter("gnss_covariance_max_variance_m2", gnss_covariance_max_variance_m2_);
+  declare_parameter("gnss_rtk_fix_max_horizontal_stddev_m", 0.3);
+  get_parameter(
+    "gnss_rtk_fix_max_horizontal_stddev_m",
+    gnss_rtk_fix_max_horizontal_stddev_m_);
+  declare_parameter("gnss_rtk_fix_weight_scale", 3.0);
+  get_parameter("gnss_rtk_fix_weight_scale", gnss_rtk_fix_weight_scale_);
+  declare_parameter("gnss_non_rtk_weight_scale", 1.0);
+  get_parameter("gnss_non_rtk_weight_scale", gnss_non_rtk_weight_scale_);
   declare_parameter("gnss_origin_min_samples", 3);
   get_parameter("gnss_origin_min_samples", gnss_origin_min_samples_);
   declare_parameter("gnss_origin_consistency_threshold_m", 20.0);
@@ -143,6 +157,41 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       "gnss_origin_consistency_threshold_m must be positive, resetting %.3f to 20.0",
       gnss_origin_consistency_threshold_m_);
     gnss_origin_consistency_threshold_m_ = 20.0;
+  }
+  if (gnss_covariance_min_variance_m2_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "gnss_covariance_min_variance_m2 must be positive, resetting %.6f to 0.01",
+      gnss_covariance_min_variance_m2_);
+    gnss_covariance_min_variance_m2_ = 0.01;
+  }
+  if (gnss_covariance_max_variance_m2_ < gnss_covariance_min_variance_m2_) {
+    RCLCPP_WARN(
+      get_logger(),
+      "gnss_covariance_max_variance_m2 must be >= min variance, resetting %.6f to %.6f",
+      gnss_covariance_max_variance_m2_, gnss_covariance_min_variance_m2_);
+    gnss_covariance_max_variance_m2_ = gnss_covariance_min_variance_m2_;
+  }
+  if (gnss_rtk_fix_max_horizontal_stddev_m_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "gnss_rtk_fix_max_horizontal_stddev_m must be positive, resetting %.3f to 0.3",
+      gnss_rtk_fix_max_horizontal_stddev_m_);
+    gnss_rtk_fix_max_horizontal_stddev_m_ = 0.3;
+  }
+  if (gnss_rtk_fix_weight_scale_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "gnss_rtk_fix_weight_scale must be positive, resetting %.3f to 3.0",
+      gnss_rtk_fix_weight_scale_);
+    gnss_rtk_fix_weight_scale_ = 3.0;
+  }
+  if (gnss_non_rtk_weight_scale_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "gnss_non_rtk_weight_scale must be positive, resetting %.3f to 1.0",
+      gnss_non_rtk_weight_scale_);
+    gnss_non_rtk_weight_scale_ = 1.0;
   }
   if (search_submap_num_ < 1) {
     RCLCPP_WARN(
@@ -247,6 +296,16 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   }
   if (use_gnss_) {
     std::cout << "gnss_info_weight:" << gnss_info_weight_ << std::endl;
+    std::cout << "gnss_use_covariance_weighting:" << std::boolalpha <<
+      gnss_use_covariance_weighting_ << std::endl;
+    std::cout << "gnss_covariance_min_variance_m2:" << gnss_covariance_min_variance_m2_ <<
+      std::endl;
+    std::cout << "gnss_covariance_max_variance_m2:" << gnss_covariance_max_variance_m2_ <<
+      std::endl;
+    std::cout << "gnss_rtk_fix_max_horizontal_stddev_m:" <<
+      gnss_rtk_fix_max_horizontal_stddev_m_ << std::endl;
+    std::cout << "gnss_rtk_fix_weight_scale:" << gnss_rtk_fix_weight_scale_ << std::endl;
+    std::cout << "gnss_non_rtk_weight_scale:" << gnss_non_rtk_weight_scale_ << std::endl;
     std::cout << "gnss_origin_min_samples:" << gnss_origin_min_samples_ << std::endl;
     std::cout << "gnss_origin_consistency_threshold_m:"
               << gnss_origin_consistency_threshold_m_ << std::endl;
@@ -909,11 +968,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   if (use_gnss_ && gnss_origin_set_) {
     std::lock_guard<std::mutex> gnss_lock(gnss_mtx_);
     int gnss_edges_added = 0;
-    // GNSS info: position only (translation), no rotation constraint
-    Eigen::Matrix<double, 6, 6> gnss_info = Eigen::Matrix<double, 6, 6>::Zero();
-    gnss_info(3, 3) = gnss_info_weight_;  // x
-    gnss_info(4, 4) = gnss_info_weight_;  // y
-    gnss_info(5, 5) = gnss_info_weight_ * 0.1;  // z (less reliable for GNSS)
+    int gnss_rtk_like_edges_added = 0;
 
     for (int i = 0; i < submaps_size; i++) {
       double submap_time = rclcpp::Time(map_array_msg.submaps[i].header.stamp).seconds();
@@ -944,14 +999,24 @@ void GraphBasedSlamComponent::doPoseAdjustment(
 
       g2o::EdgeSE3 * edge = new g2o::EdgeSE3();
       edge->setMeasurement(Eigen::Isometry3d::Identity());
+      Eigen::Matrix<double, 6, 6> gnss_info = Eigen::Matrix<double, 6, 6>::Zero();
+      gnss_info(3, 3) = best_gnss.info_x;
+      gnss_info(4, 4) = best_gnss.info_y;
+      gnss_info(5, 5) = best_gnss.info_z;
       edge->setInformation(gnss_info);
       edge->vertices()[0] = gnss_vertex;
       edge->vertices()[1] = optimizer.vertex(i);
       optimizer.addEdge(edge);
+      if (best_gnss.rtk_like) {
+        gnss_rtk_like_edges_added++;
+      }
       gnss_edges_added++;
     }
     if (debug_flag_) {
-      RCLCPP_INFO(get_logger(), "Added %d GNSS position constraint edges", gnss_edges_added);
+      RCLCPP_INFO(
+        get_logger(),
+        "Added %d GNSS position constraint edges (%d RTK-like by covariance)",
+        gnss_edges_added, gnss_rtk_like_edges_added);
     }
   }
 
@@ -1035,12 +1100,38 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
   }
 
   Eigen::Vector3d enu = geodeticToEnu(msg.latitude, msg.longitude, msg.altitude);
+  detail::GnssWeightingConfig weighting_config;
+  weighting_config.base_info_weight = gnss_info_weight_;
+  weighting_config.vertical_weight_scale = 0.1;
+  weighting_config.use_covariance_weighting = gnss_use_covariance_weighting_;
+  weighting_config.covariance_min_variance_m2 = gnss_covariance_min_variance_m2_;
+  weighting_config.covariance_max_variance_m2 = gnss_covariance_max_variance_m2_;
+  weighting_config.rtk_fix_max_horizontal_stddev_m = gnss_rtk_fix_max_horizontal_stddev_m_;
+  weighting_config.rtk_fix_weight_scale = gnss_rtk_fix_weight_scale_;
+  weighting_config.non_rtk_weight_scale = gnss_non_rtk_weight_scale_;
+  const detail::GnssConstraintWeights gnss_weights =
+    detail::computeGnssConstraintWeights(msg, weighting_config);
   GnssEnu g;
   g.stamp = rclcpp::Time(msg.header.stamp).seconds();
   g.x = enu.x();
   g.y = enu.y();
   g.z = enu.z();
+  g.info_x = gnss_weights.info_x;
+  g.info_y = gnss_weights.info_y;
+  g.info_z = gnss_weights.info_z;
+  g.covariance_valid = gnss_weights.covariance_valid;
+  g.rtk_like = gnss_weights.rtk_like;
+  g.horizontal_stddev_m = gnss_weights.horizontal_stddev_m;
   gnss_buffer_.push_back(g);
+
+  if (debug_flag_ && gnss_weights.covariance_valid) {
+    RCLCPP_INFO(
+      get_logger(),
+      "GNSS covariance weighting: horizontal_stddev=%.3f m, class=%s, info=(%.3f, %.3f, %.3f)",
+      gnss_weights.horizontal_stddev_m,
+      gnss_weights.rtk_like ? "rtk_like" : "non_rtk",
+      gnss_weights.info_x, gnss_weights.info_y, gnss_weights.info_z);
+  }
 
   // Limit buffer size
   if (gnss_buffer_.size() > 100000) {

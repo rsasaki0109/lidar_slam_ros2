@@ -116,6 +116,7 @@ extern "C" {
 #include "g2o/types/slam3d/se3quat.h"
 #include "g2o/types/slam3d/vertex_pointxyz.h"
 #include "g2o/types/slam3d/vertex_se3.h"
+#include "graph_based_slam/gnss_weighting.hpp"
 #include "graph_based_slam/scan_context.hpp"
 
 namespace graphslam
@@ -240,6 +241,12 @@ private:
     // GNSS constraints for georeferenced mapping
     bool use_gnss_ {false};
     double gnss_info_weight_ {1.0};
+    bool gnss_use_covariance_weighting_ {true};
+    double gnss_covariance_min_variance_m2_ {0.01};
+    double gnss_covariance_max_variance_m2_ {25.0};
+    double gnss_rtk_fix_max_horizontal_stddev_m_ {0.3};
+    double gnss_rtk_fix_weight_scale_ {3.0};
+    double gnss_non_rtk_weight_scale_ {1.0};
     int gnss_origin_min_samples_ {3};
     double gnss_origin_consistency_threshold_m_ {20.0};
     rclcpp::Subscription < sensor_msgs::msg::NavSatFix > ::SharedPtr gnss_sub_;
@@ -249,6 +256,12 @@ private:
       double x;
       double y;
       double z;  // ENU coordinates relative to origin
+      double info_x;
+      double info_y;
+      double info_z;
+      bool covariance_valid;
+      bool rtk_like;
+      double horizontal_stddev_m;
     };
     struct GnssOriginSample
     {
