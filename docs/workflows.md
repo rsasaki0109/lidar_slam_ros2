@@ -31,6 +31,7 @@ bash scripts/run_default_ci_checks.sh
 | Full dogfood flow | `bash scripts/run_rko_lio_graph_autoware_dogfood.sh --auto-exit-secs 20` |
 | Standard NTU VIRAL benchmark | `bash scripts/run_rko_lio_graph_benchmark.sh` |
 | MID360 cross-validation benchmark | `bash scripts/run_rko_lio_mid360_crossval_benchmark.sh` |
+| Mixed-quality open-data GNSS smoke | `bash scripts/run_open_data_applanix_velodyne_gnss_smoke.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
 | Release/readiness gate | `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10` |
 
 ## Required Input Topics
@@ -179,6 +180,26 @@ bash scripts/run_open_data_gnss_smoke.sh \
 
 `run_open_data_gnss_smoke.sh` auto-detects the `NavSatFix` topic from
 `--gnss-bag` when provided, otherwise from `--bag`.
+
+For Leo Drive driving bags that expose LiDAR as
+`velodyne_msgs/msg/VelodyneScan` and GNSS quality as Applanix `GSOF49/50`,
+use the packet-to-PointCloud2 wrapper instead:
+
+```bash
+git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
+bash scripts/run_open_data_applanix_velodyne_gnss_smoke.sh \
+  --bag demo_data/autoware_leo_drive_isuzu/driving_30_kmh_2022_06_10-15_47_42_compressed \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg \
+  --verify-map
+```
+
+That wrapper will:
+
+- generate a `NavSatFix` sidecar bag from `GSOF49/50`
+- build a minimal `velodyne_pointcloud` overlay on demand with
+  `bash scripts/prepare_velodyne_pointcloud_overlay.sh`
+- convert `VelodyneScan` packets into `sensor_msgs/msg/PointCloud2`
+- run `lidarslam.launch.py`, call `/map_save`, and optionally verify the output
 
 ## Run `RKO-LIO + graph_based_slam`
 
