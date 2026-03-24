@@ -164,6 +164,7 @@ def generate_launch_description():
                     'global_frame_id': LaunchConfiguration('global_frame_id'),
                     'use_sim_time': LaunchConfiguration('use_sim_time'),
                     'use_odom_input': LaunchConfiguration('use_odom_input'),
+                    'map_save_dir': LaunchConfiguration('save_dir'),
                     'save_pose_graph_path': PathJoinSubstitution([
                         LaunchConfiguration('save_dir'),
                         'pose_graph.g2o',

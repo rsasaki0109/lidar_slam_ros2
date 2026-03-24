@@ -168,6 +168,12 @@ ros2 bag play /path/to/rosbag2 --clock
 ros2 bag play /tmp/applanix_navsatfix_bag --clock
 ```
 
+For an end-to-end open-data GNSS smoke with automatic `/map_save`, use:
+
+```bash
+bash scripts/run_open_data_gnss_smoke.sh --bag /path/to/rosbag2 --verify-map
+```
+
 ## Run `RKO-LIO + graph_based_slam`
 
 The main launch entrypoint is:
