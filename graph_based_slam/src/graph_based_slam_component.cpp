@@ -675,7 +675,8 @@ void GraphBasedSlamComponent::searchLoop()
     candidate_result.selection_metric = candidate.selection_metric;
     candidate_result.fitness_score = fitness_score;
     candidate_result.travel_distance = candidate_submap.distance;
-    candidate_result.euclidean_distance = (latest_submap_pos - Eigen::Vector3d(
+    candidate_result.euclidean_distance =
+      (latest_submap_pos - Eigen::Vector3d(
       candidate_submap.pose.position.x,
       candidate_submap.pose.position.y,
       candidate_submap.pose.position.z)).norm();
@@ -742,8 +743,9 @@ void GraphBasedSlamComponent::searchLoop()
                 << " correction_rotation_deg:" << best_attempt.rotation_delta_deg
                 << std::endl;
     } else if (attempted_registration && debug_flag_) {
-      RCLCPP_INFO(get_logger(), "No converged loop candidate remained for latest submap %d",
-          latest_idx);
+      RCLCPP_INFO(
+        get_logger(), "No converged loop candidate remained for latest submap %d",
+        latest_idx);
     }
     return;
   }
@@ -1203,8 +1205,9 @@ Eigen::Quaterniond GraphBasedSlamComponent::integrateImuRotation(double t0, doub
   Eigen::Quaterniond delta_q = Eigen::Quaterniond::Identity();
 
   // Find first IMU sample >= t0
-  auto it = std::lower_bound(imu_buffer_.begin(), imu_buffer_.end(), t0,
-      [](const StampedImu & imu, double t) {return imu.stamp < t;});
+  auto it = std::lower_bound(
+    imu_buffer_.begin(), imu_buffer_.end(), t0,
+    [](const StampedImu & imu, double t) {return imu.stamp < t;});
 
   if (it == imu_buffer_.end()) {
     return delta_q;  // no data
