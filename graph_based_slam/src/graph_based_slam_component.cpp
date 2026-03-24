@@ -1,6 +1,8 @@
 #include "graph_based_slam/graph_based_slam_component.h"
 #include <chrono>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
 
 using namespace std::chrono_literals;
 
@@ -57,6 +59,14 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   }
   declare_parameter("scan_context_threshold", 0.3);
   get_parameter("scan_context_threshold", scan_context_threshold_);
+  declare_parameter("map_save_dir", std::string("."));
+  get_parameter("map_save_dir", map_save_dir_);
+  declare_parameter("map_grid_size_x", 20.0);
+  get_parameter("map_grid_size_x", map_grid_size_x_);
+  declare_parameter("map_grid_size_y", 20.0);
+  get_parameter("map_grid_size_y", map_grid_size_y_);
+  declare_parameter("map_leaf_size", 0.2);
+  get_parameter("map_leaf_size", map_leaf_size_);
   declare_parameter("use_imu_preintegration", false);
   get_parameter("use_imu_preintegration", use_imu_preintegration_);
   declare_parameter("imu_rotation_info_roll_pitch", 100.0);
@@ -547,7 +557,9 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   pcl::toROSMsg(*map_ptr, *map_msg_ptr);
   map_msg_ptr->header.frame_id = "map";
   modified_map_pub_->publish(*map_msg_ptr);
-  if (do_save_map) {pcl::io::savePCDFileASCII("map.pcd", *map_ptr);} // too heavy
+  if (do_save_map) {
+    saveGridDividedMap(map_ptr);
+  }
 
 }
 
@@ -699,6 +711,92 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::loadSubmapFromPCD(
     RCLCPP_WARN(get_logger(), "Failed to load PCD: %s", path.c_str());
   }
   return cloud;
+}
+
+void GraphBasedSlamComponent::saveGridDividedMap(
+  const pcl::PointCloud<pcl::PointXYZI>::Ptr& map)
+{
+  if (map->empty()) {
+    std::cout << "Map is empty, skipping save." << std::endl;
+    return;
+  }
+
+  // Create output directory
+  std::string out_dir = map_save_dir_ + "/pointcloud_map";
+  std::filesystem::create_directories(out_dir);
+
+  // Downsample the map
+  pcl::PointCloud<pcl::PointXYZI>::Ptr downsampled(new pcl::PointCloud<pcl::PointXYZI>);
+  pcl::VoxelGrid<pcl::PointXYZI> vg;
+  vg.setInputCloud(map);
+  vg.setLeafSize(map_leaf_size_, map_leaf_size_, map_leaf_size_);
+  vg.filter(*downsampled);
+
+  std::cout << "Map points: " << map->size() << " -> " << downsampled->size()
+            << " (leaf=" << map_leaf_size_ << "m)" << std::endl;
+
+  // Compute bounding box
+  pcl::PointXYZI min_pt, max_pt;
+  pcl::getMinMax3D(*downsampled, min_pt, max_pt);
+
+  // Compute grid bounds (align to grid)
+  double x_min = std::floor(min_pt.x / map_grid_size_x_) * map_grid_size_x_;
+  double y_min = std::floor(min_pt.y / map_grid_size_y_) * map_grid_size_y_;
+  double x_max = std::ceil(max_pt.x / map_grid_size_x_) * map_grid_size_x_;
+  double y_max = std::ceil(max_pt.y / map_grid_size_y_) * map_grid_size_y_;
+
+  int nx = static_cast<int>((x_max - x_min) / map_grid_size_x_);
+  int ny = static_cast<int>((y_max - y_min) / map_grid_size_y_);
+  if (nx <= 0) nx = 1;
+  if (ny <= 0) ny = 1;
+
+  // Assign points to grid cells
+  std::map<std::pair<int, int>, pcl::PointCloud<pcl::PointXYZI>::Ptr> grid_cells;
+  for (const auto& pt : downsampled->points) {
+    int gx = static_cast<int>(std::floor((pt.x - x_min) / map_grid_size_x_));
+    int gy = static_cast<int>(std::floor((pt.y - y_min) / map_grid_size_y_));
+    auto key = std::make_pair(gx, gy);
+    if (grid_cells.find(key) == grid_cells.end()) {
+      grid_cells[key] = pcl::PointCloud<pcl::PointXYZI>::Ptr(
+        new pcl::PointCloud<pcl::PointXYZI>);
+    }
+    grid_cells[key]->push_back(pt);
+  }
+
+  // Save each grid cell as PCD and build metadata
+  std::ofstream meta(out_dir + "/pointcloud_map_metadata.yaml");
+  meta << "x_resolution: " << map_grid_size_x_ << std::endl;
+  meta << "y_resolution: " << map_grid_size_y_ << std::endl;
+  meta << "A:" << std::endl;
+
+  int saved = 0;
+  for (auto& [key, cloud] : grid_cells) {
+    if (cloud->empty()) continue;
+    double cell_x = x_min + key.first * map_grid_size_x_;
+    double cell_y = y_min + key.second * map_grid_size_y_;
+
+    std::ostringstream filename;
+    filename << std::fixed << std::setprecision(0)
+             << cell_x << "_" << cell_y << ".pcd";
+    std::string filepath = out_dir + "/" + filename.str();
+    pcl::io::savePCDFileBinaryCompressed(filepath, *cloud);
+
+    meta << "  - [" << filename.str() << ", "
+         << std::fixed << std::setprecision(1)
+         << cell_x << ", " << cell_y << "]" << std::endl;
+    saved++;
+  }
+
+  meta.close();
+
+  // Also save the full map as a single PCD for convenience
+  pcl::io::savePCDFileBinaryCompressed(map_save_dir_ + "/map.pcd", *downsampled);
+
+  std::cout << "Saved grid-divided map: " << saved << " cells ("
+            << map_grid_size_x_ << "x" << map_grid_size_y_ << "m) to " << out_dir
+            << std::endl;
+  std::cout << "Total points: " << downsampled->size() << std::endl;
+  std::cout << "Metadata: " << out_dir << "/pointcloud_map_metadata.yaml" << std::endl;
 }
 
 }

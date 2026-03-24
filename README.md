@@ -41,6 +41,34 @@ Key `graph_based_slam` parameters for this workflow:
 | use_scan_context | bool | false | Enable Scan Context descriptors for loop detection (GPL-free) |
 | use_pcd_cache | bool | false | Cache submaps to PCD files on disk to reduce memory usage |
 
+## Creating Maps for Autoware
+
+lidarslam_ros2 can generate point cloud maps compatible with Autoware's `pointcloud_map_loader`.
+
+When map saving is triggered (via loop closure or `ros2 service call /map_save std_srvs/Empty`), the map is automatically divided into grid cells and saved with metadata.
+
+Output structure:
+```
+pointcloud_map/
+  pointcloud_map_metadata.yaml   # Grid cell metadata for Autoware
+  0_0.pcd                        # Grid cell PCD files (binary compressed)
+  0_20.pcd
+  20_0.pcd
+  ...
+map.pcd                          # Full map (single file, for visualization)
+```
+
+Key parameters for map output:
+
+| Name | Type | Default | Description |
+|---|---|---|---|
+| map_save_dir | string | "." | Output directory for map files |
+| map_grid_size_x | double | 20.0 | Grid cell width [m] |
+| map_grid_size_y | double | 20.0 | Grid cell height [m] |
+| map_leaf_size | double | 0.2 | Voxel downsampling resolution [m] |
+
+To use the map in Autoware, copy the `pointcloud_map/` directory to your Autoware map directory and set `pointcloud_map_path` in your Autoware launch configuration.
+
 ## requirement to build
 You need  [ndt_omp_ros2](https://github.com/rsasaki0109/ndt_omp_ros2) for scan-matcher
 
@@ -144,6 +172,10 @@ ros2 service call /map_save std_srvs/Empty
 |use_scan_context|bool|false|enable Scan Context loop detection (GPL-free)|
 |use_pcd_cache|bool|false|cache submaps to PCD files on disk to reduce memory|
 |use_save_map_in_loop|bool|true|Whether to save the map when loop close(If the map saving process in loop close is too heavy and the self-position estimation fails, set this to `false`.)|
+|map_save_dir|string|"."|output directory for map files|
+|map_grid_size_x|double|20.0|grid cell width for Autoware-compatible map division [m]|
+|map_grid_size_y|double|20.0|grid cell height for Autoware-compatible map division [m]|
+|map_leaf_size|double|0.2|voxel downsampling resolution for saved map [m]|
 
 ## demo
 ### GLIM MID360 sample
