@@ -1,7 +1,7 @@
 lidarslam_ros2
 ====
 
-ROS 2 LiDAR SLAM focused on permissive-license pointcloud-map generation and
+ROS 2 LiDAR SLAM focused on non-GPL pointcloud-map generation and
 Autoware integration.
 
 > Status: `develop` tracks the current `v2 alpha` line.
@@ -25,17 +25,17 @@ This repository is for people who want:
 
 - ROS 2 LiDAR SLAM with loop closure
 - pointcloud maps that Autoware can load
-- a permissive-license default workflow
+- a non-GPL default workflow
 
 Out of scope for the public path:
 
 - `lanelet2_map.osm` generation
 - Autoware planning/localization bringup
-- GPL-only frontends in the default workflow
+- GPL-only frontend or backend components in the default workflow
 
 ## Why This Repo
 
-- permissive default path: `graph_based_slam` (BSD-2-Clause), `scanmatcher`
+- non-GPL default path: `graph_based_slam` (BSD-2-Clause), `scanmatcher`
   (project-local), `RKO-LIO` (MIT), `DLIO` (MIT), `FAST_GICP` (BSD-3-Clause)
 - Autoware pointcloud-map flow is exercised end-to-end
 - default benchmark path is tracked on `NTU VIRAL`
@@ -187,7 +187,7 @@ bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10
 
 ## License Policy
 
-The default public workflow is restricted to permissive-license components.
+The default public workflow excludes GPL-only frontend/backend components.
 
 - `graph_based_slam`: BSD-2-Clause
 - `scanmatcher`: project-local frontend/backend code in this repository
