@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Python test dependency
         shell: bash
@@ -73,7 +73,7 @@ jobs:
           apt-get install -y git python3-rosdep python3-colcon-common-extensions
 
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -126,7 +126,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Generate synthetic benchmark fixture
         shell: bash
@@ -146,7 +146,7 @@ jobs:
 
       - name: Upload release-readiness artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-readiness
           path: |
@@ -178,7 +178,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Generate failing synthetic benchmark fixture
         shell: bash
@@ -205,7 +205,7 @@ jobs:
 
       - name: Upload threshold-guard artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-readiness-threshold-guard
           path: |
