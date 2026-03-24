@@ -83,6 +83,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(lidarslam/images/mid360_loop_closure_zoom.png)' in readme
     assert 'git clone --recursive https://github.com/rsasaki0109/lidarslam_ros2.git' in readme
     assert 'rosdep install --from-paths src --ignore-src -r -y' in readme
+    assert 'Required input topics for the main public path' in readme
+    assert '/gnss/fix' in readme
     assert f'(docs/releases/v{version}.md)' in readme
     assert len(readme.splitlines()) <= 220
 
@@ -107,6 +109,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'generate_readme_loop_zoom_figure.py',
         REPO_ROOT / 'scripts' / 'write_aligned_trajectory_metrics.py',
         REPO_ROOT / 'scripts' / 'generate_sample_benchmark_metrics.py',
+        REPO_ROOT / 'scripts' / 'inspect_navsatfix_covariance.py',
         REPO_ROOT / 'scripts' / 'verify_autoware_map.py',
     ]
     for path in scripts:
@@ -176,6 +179,16 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'run_rko_lio_graph_autoware_dogfood.sh' in autoware_doc
     assert 'run_graph_slam_pointcloud_map_in_autoware.sh' in autoware_doc
     assert 'projector_type: Local' in autoware_doc
+
+    workflows_doc = WORKFLOWS_DOC.read_text(encoding='utf-8')
+    assert 'Required Input Topics' in workflows_doc
+    assert 'sensor_msgs/msg/PointCloud2' in workflows_doc
+    assert 'sensor_msgs/msg/Imu' in workflows_doc
+    assert 'lidarslam_msgs/msg/MapArray' in workflows_doc
+    assert 'wheel odometry / vehicle speed topic fusion' in workflows_doc
+    assert 'gnss_use_covariance_weighting' in workflows_doc
+    assert 'RTK-like' in workflows_doc
+    assert 'inspect_navsatfix_covariance.py' in workflows_doc
 
     assert 'download_ntu_viral_tnp01.sh' in benchmarking_doc
     assert 'run_rko_lio_graph_benchmark.sh' in benchmarking_doc

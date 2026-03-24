@@ -78,11 +78,25 @@ endif()
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_cmake_pytest REQUIRED)
   ament_lint_auto_find_test_dependencies()
+  ament_add_gtest(
+    test_gnss_weighting
+    test/test_gnss_weighting.cpp
+  )
+  if(TARGET test_gnss_weighting)
+    target_include_directories(test_gnss_weighting PRIVATE include)
+    ament_target_dependencies(test_gnss_weighting sensor_msgs)
+  endif()
   ament_add_pytest_test(
     test_autoware_map_tools
     test/test_autoware_map_tools.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_navsatfix_covariance_inspector
+    test/test_navsatfix_covariance_inspector.py
     TIMEOUT 120
   )
   ament_add_pytest_test(

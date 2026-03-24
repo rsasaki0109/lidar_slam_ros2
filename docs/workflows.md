@@ -33,6 +33,110 @@ bash scripts/run_default_ci_checks.sh
 | MID360 cross-validation benchmark | `bash scripts/run_rko_lio_mid360_crossval_benchmark.sh` |
 | Release/readiness gate | `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10` |
 
+## Required Input Topics
+
+### Public default path: `RKO-LIO + graph_based_slam`
+
+Launch:
+
+```bash
+ros2 launch lidarslam rko_lio_slam.launch.py \
+  bag_path:=/path/to/rosbag2 \
+  lidar_topic:=/os_cloud_node/points \
+  imu_topic:=/os_cloud_node/imu
+```
+
+Required inputs:
+
+- `lidar_topic`: `sensor_msgs/msg/PointCloud2`
+- `imu_topic`: `sensor_msgs/msg/Imu`
+
+Optional inputs:
+
+- `/gnss/fix`: `sensor_msgs/msg/NavSatFix` when `graph_based_slam use_gnss:=true`
+
+Internal wiring in this launch:
+
+- `RKO-LIO` publishes odometry on `/rko_lio/odometry`
+- `RKO-LIO` publishes submap source clouds on `/rko_lio/frame`
+- `graph_based_slam` consumes those via `odom_input` and `cloud_input`
+
+Not currently supported in the public path:
+
+- wheel odometry / vehicle speed topic fusion
+
+GNSS note:
+
+- GNSS is added as translation-only pose-graph constraints in the backend
+- when covariance is present, edge weight is scaled from `position_covariance`
+- `NavSatFix` does not standardize RTK fix status, so `graph_based_slam`
+  treats low horizontal covariance as `RTK-like`
+- default threshold: `gnss_rtk_fix_max_horizontal_stddev_m = 0.3`
+
+### Classic path: `scanmatcher + graph_based_slam`
+
+Launch:
+
+```bash
+ros2 launch lidarslam lidarslam.launch.py \
+  input_cloud:=/points_raw \
+  imu_topic:=/imu
+```
+
+Required inputs:
+
+- `input_cloud`: `sensor_msgs/msg/PointCloud2`
+- TF from `robot_frame_id` to the LiDAR frame
+
+Optional inputs:
+
+- `imu_topic`: `sensor_msgs/msg/Imu` when `scanmatcher use_imu:=true`
+- odom TF into `odom_frame_id` when `scanmatcher use_odom:=true`
+- `/gnss/fix`: `sensor_msgs/msg/NavSatFix` when backend `use_gnss:=true`
+
+Internal wiring in this launch:
+
+- `scanmatcher` publishes `lidarslam_msgs/msg/MapArray` on `map_array`
+- `graph_based_slam` subscribes to `map_array`
+
+### Backend only: `graph_based_slam`
+
+Launch:
+
+```bash
+ros2 launch graph_based_slam graphbasedslam.launch.py
+```
+
+Default required input:
+
+- `map_array`: `lidarslam_msgs/msg/MapArray`
+
+Optional backend aids:
+
+- `/imu`: `sensor_msgs/msg/Imu` when `use_imu_preintegration:=true`
+- `/gnss/fix`: `sensor_msgs/msg/NavSatFix` when `use_gnss:=true`
+
+Alternative direct-input mode used by the RKO-LIO launch:
+
+- `odom_input`: `nav_msgs/msg/Odometry`
+- `cloud_input`: `sensor_msgs/msg/PointCloud2`
+
+Useful GNSS weighting parameters:
+
+- `gnss_info_weight`
+- `gnss_use_covariance_weighting`
+- `gnss_covariance_min_variance_m2`
+- `gnss_covariance_max_variance_m2`
+- `gnss_rtk_fix_max_horizontal_stddev_m`
+- `gnss_rtk_fix_weight_scale`
+- `gnss_non_rtk_weight_scale`
+
+Inspect a bag before enabling GNSS weighting:
+
+```bash
+python3 scripts/inspect_navsatfix_covariance.py /path/to/rosbag2 --topic /gnss/fix
+```
+
 ## Run `RKO-LIO + graph_based_slam`
 
 The main launch entrypoint is:
