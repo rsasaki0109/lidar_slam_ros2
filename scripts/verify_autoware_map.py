@@ -332,12 +332,16 @@ class MapVerifier:
                     proj = yaml.safe_load(f)
                 ptype = proj.get("projector_type", "UNKNOWN")
                 self.ok(f"map_projector_info.yaml: projector_type={ptype}")
-                if ptype == "local":
+                if ptype in ("local", "Local"):
+                    self.ok("  local projector selected")
+                if ptype in ("LocalCartesian", "LocalCartesianUTM", "TransverseMercator"):
                     # local maps should have map_origin
                     origin = proj.get("map_origin", {})
                     if origin:
                         self.ok(f"  map_origin: lat={origin.get('latitude')}, "
-                                f"lon={origin.get('longitude')}, alt={origin.get('altitude')}")
+                                f"lon={origin.get('longitude')}")
+                    else:
+                        self.fail("map_projector_info.yaml is missing map_origin")
             except Exception as e:
                 self.warn(f"map_projector_info.yaml parse error: {e}")
         else:

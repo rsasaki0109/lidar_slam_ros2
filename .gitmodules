@@ -2,3 +2,6 @@
 	path = Thirdparty/ndt_omp_ros2
 	url = https://github.com/rsasaki0109/ndt_omp_ros2
 	branch = humble
+[submodule "Thirdparty/rko_lio"]
+	path = Thirdparty/rko_lio
+	url = https://github.com/PRBonn/rko_lio.git

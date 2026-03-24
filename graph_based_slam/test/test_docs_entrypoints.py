@@ -1,0 +1,174 @@
+# Copyright 2026 Sasaki
+# All rights reserved.
+#
+# Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above
+#    copyright notice, this list of conditions and the following
+#    disclaimer in the documentation and/or other materials provided
+#    with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+"""Smoke tests for top-level docs entry points."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+README_PATH = REPO_ROOT / 'README.md'
+CONTRIBUTING_PATH = REPO_ROOT / 'CONTRIBUTING.md'
+VERSION_PATH = REPO_ROOT / 'VERSION'
+CHANGELOG_PATH = REPO_ROOT / 'CHANGELOG.md'
+RELEASING_PATH = REPO_ROOT / 'RELEASING.md'
+AUTOWARE_QUICKSTART = REPO_ROOT / 'docs' / 'autoware-quickstart.md'
+BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
+COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
+ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
+PUBLIC_AUTOWARE_ENTRYPOINT = REPO_ROOT / 'scripts' / 'run_autoware_quickstart.sh'
+RELEASE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'release.yml'
+BENCHMARK_SUMMARY_PATH = REPO_ROOT / 'output' / 'benchmark_summary.md'
+BENCHMARK_REPORT_PATH = REPO_ROOT / 'output' / 'latest_report.html'
+STRESS_REPORT_PATH = REPO_ROOT / 'output' / 'stress_validation_report_20260325.md'
+V2_READINESS_PATH = REPO_ROOT / 'output' / 'v2_beta_readiness_20260324.md'
+
+
+def test_docs_exist_and_are_linked_from_readme():
+    """README should link to the main adoption-oriented docs."""
+    readme = README_PATH.read_text(encoding='utf-8')
+    version = VERSION_PATH.read_text(encoding='utf-8').strip()
+    release_notes_path = REPO_ROOT / 'docs' / 'releases' / f'v{version}.md'
+
+    assert CONTRIBUTING_PATH.is_file()
+    assert VERSION_PATH.is_file()
+    assert CHANGELOG_PATH.is_file()
+    assert RELEASING_PATH.is_file()
+    assert AUTOWARE_QUICKSTART.is_file()
+    assert BENCHMARKING_DOC.is_file()
+    assert COMPARISON_DOC.is_file()
+    assert release_notes_path.is_file()
+    assert '(CONTRIBUTING.md)' in readme
+    assert '(CHANGELOG.md)' in readme
+    assert '(RELEASING.md)' in readme
+    assert '(docs/autoware-quickstart.md)' in readme
+    assert '(docs/comparison.md)' in readme
+    assert '(docs/benchmarking.md)' in readme
+    assert f'(docs/releases/v{version}.md)' in readme
+
+
+def test_docs_reference_existing_entrypoint_scripts():
+    """Every documented entrypoint script should exist in the repo."""
+    scripts = [
+        PUBLIC_AUTOWARE_ENTRYPOINT,
+        REPO_ROOT / 'scripts' / 'download_ntu_viral_tnp01.sh',
+        REPO_ROOT / 'scripts' / 'run_default_ci_checks.sh',
+        REPO_ROOT / 'scripts' / 'run_rko_lio_graph_autoware_dogfood.sh',
+        REPO_ROOT / 'scripts' / 'run_graph_slam_pointcloud_map_in_autoware.sh',
+        REPO_ROOT / 'scripts' / 'prepare_autoware_map_from_graph_slam.sh',
+        REPO_ROOT / 'scripts' / 'run_autoware_pointcloud_map_viewer_docker.sh',
+        REPO_ROOT / 'scripts' / 'run_rko_lio_graph_benchmark.sh',
+        REPO_ROOT / 'scripts' / 'run_rko_lio_mid360_crossval_benchmark.sh',
+        REPO_ROOT / 'scripts' / 'run_release_readiness_checks.sh',
+        REPO_ROOT / 'scripts' / 'benchmark_summary.py',
+        REPO_ROOT / 'scripts' / 'generate_html_report.py',
+        REPO_ROOT / 'scripts' / 'generate_v2_beta_readiness_report.py',
+        REPO_ROOT / 'scripts' / 'generate_stress_validation_report.py',
+        REPO_ROOT / 'scripts' / 'write_aligned_trajectory_metrics.py',
+        REPO_ROOT / 'scripts' / 'generate_sample_benchmark_metrics.py',
+        REPO_ROOT / 'scripts' / 'verify_autoware_map.py',
+    ]
+    for path in scripts:
+        assert path.is_file(), path
+
+
+def test_contributing_and_issue_templates_exist():
+    """Community entry points should exist for benchmark and Autoware reports."""
+    contributing = CONTRIBUTING_PATH.read_text(encoding='utf-8')
+
+    assert ISSUE_TEMPLATE_DIR.is_dir()
+    assert (ISSUE_TEMPLATE_DIR / 'config.yml').is_file()
+    assert (ISSUE_TEMPLATE_DIR / 'benchmark-report.yml').is_file()
+    assert (ISSUE_TEMPLATE_DIR / 'autoware-pointcloud-map.yml').is_file()
+    assert 'Benchmark Result Submissions' in contributing
+    assert 'run_release_readiness_checks.sh' in contributing
+    assert 'run_autoware_quickstart.sh' in contributing
+
+
+def test_public_report_snapshots_exist():
+    """Public release docs should have tracked benchmark/report snapshots."""
+    assert BENCHMARK_SUMMARY_PATH.is_file()
+    assert BENCHMARK_REPORT_PATH.is_file()
+    assert STRESS_REPORT_PATH.is_file()
+    assert V2_READINESS_PATH.is_file()
+
+
+def test_release_metadata_and_core_package_versions_match():
+    """Release metadata should stay aligned with core package versions."""
+    version = VERSION_PATH.read_text(encoding='utf-8').strip()
+    changelog = CHANGELOG_PATH.read_text(encoding='utf-8')
+    releasing = RELEASING_PATH.read_text(encoding='utf-8')
+    release_notes = (REPO_ROOT / 'docs' / 'releases' / f'v{version}.md').read_text(
+        encoding='utf-8'
+    )
+    release_workflow = RELEASE_WORKFLOW.read_text(encoding='utf-8')
+
+    assert version == '0.2.0'
+    assert version in changelog
+    assert version in releasing
+    assert 'v2 beta' in release_notes
+    assert 'action-gh-release@v2' in release_workflow
+    assert 'docs/releases/' in release_workflow
+
+    package_paths = [
+        REPO_ROOT / 'lidarslam' / 'package.xml',
+        REPO_ROOT / 'graph_based_slam' / 'package.xml',
+        REPO_ROOT / 'lidarslam_msgs' / 'package.xml',
+        REPO_ROOT / 'scanmatcher' / 'package.xml',
+    ]
+    for path in package_paths:
+        package_xml = path.read_text(encoding='utf-8')
+        assert f'<version>{version}</version>' in package_xml
+
+
+def test_docs_cover_autoware_and_release_gate_keywords():
+    """The adoption docs should mention the supported operator workflows."""
+    autoware_doc = AUTOWARE_QUICKSTART.read_text(encoding='utf-8')
+    benchmarking_doc = BENCHMARKING_DOC.read_text(encoding='utf-8')
+    comparison_doc = COMPARISON_DOC.read_text(encoding='utf-8')
+
+    assert 'run_autoware_quickstart.sh' in autoware_doc
+    assert 'download_ntu_viral_tnp01.sh' in autoware_doc
+    assert 'run_rko_lio_graph_autoware_dogfood.sh' in autoware_doc
+    assert 'run_graph_slam_pointcloud_map_in_autoware.sh' in autoware_doc
+    assert 'projector_type: Local' in autoware_doc
+
+    assert 'download_ntu_viral_tnp01.sh' in benchmarking_doc
+    assert 'run_rko_lio_graph_benchmark.sh' in benchmarking_doc
+    assert 'run_rko_lio_mid360_crossval_benchmark.sh' in benchmarking_doc
+    assert 'run_release_readiness_checks.sh' in benchmarking_doc
+    assert 'docs/comparison.md' in benchmarking_doc
+    assert 'generate_v2_beta_readiness_report.py' in benchmarking_doc
+    assert 'generate_stress_validation_report.py' in benchmarking_doc
+    assert 'write_aligned_trajectory_metrics.py' in benchmarking_doc
+    assert '--profile failing' in benchmarking_doc
+    assert 'Capability Comparison' in comparison_doc
+    assert 'Current Default Position' in comparison_doc

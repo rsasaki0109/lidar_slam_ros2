@@ -38,8 +38,11 @@ graph_based_slam:
       distance_loop_closure: 100.0
       range_of_searching_loop_closure: 20.0
       search_submap_num: 2
+      max_loop_candidate_count: 3
+      loop_edge_dedup_index_window: 8
+      loop_max_translation_delta: 15.0
+      loop_max_rotation_delta_deg: 45.0
       num_adjacent_pose_cnstraints: 5
       use_save_map_in_loop: true
       adjacent_edge_info_weight: 1000.0
       debug_flag: true
-

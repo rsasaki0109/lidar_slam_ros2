@@ -1,0 +1,92 @@
+name: Benchmark Report
+description: Submit a reproducible benchmark run with metrics and artifacts.
+title: "[Benchmark] "
+labels:
+  - benchmark
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for reproducible benchmark reports.
+        Please attach or link `metrics.json` whenever possible.
+
+  - type: input
+    id: dataset
+    attributes:
+      label: Dataset or rosbag
+      description: Name and source of the benchmark input.
+      placeholder: NTU VIRAL tnp_01, Newer College math-hard, custom rosbag2
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: ROS 2 / Ubuntu / hardware
+      description: Include distro, Ubuntu version, CPU/GPU, and sensor model if relevant.
+      placeholder: Jazzy / Ubuntu 24.04 / i7-12700 / Ouster OS1-32
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command
+      description: Paste the exact command used to run the benchmark.
+      render: bash
+    validations:
+      required: true
+
+  - type: input
+    id: params
+    attributes:
+      label: Parameter file path
+      description: Exact YAML or launch arguments used.
+      placeholder: lidarslam/param/rko_lio_ntu_viral.yaml
+    validations:
+      required: true
+
+  - type: textarea
+    id: outputs
+    attributes:
+      label: Output artifacts
+      description: Link or paste paths for metrics.json, APE logs, and report artifacts.
+      placeholder: |
+        output/.../metrics.json
+        output/.../ape_corrected_vs_gt.txt
+        output/latest_report.html
+    validations:
+      required: true
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Key metrics
+      description: Summarize the important numbers from metrics.json.
+      placeholder: |
+        corrected APE RMSE: 0.078
+        raw APE RMSE: 0.082
+        lidarslam success: true
+        map verify: PASS
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: autoware
+    attributes:
+      label: Autoware map verification
+      description: Did the generated map pass the local Autoware verifier?
+      options:
+        - PASS
+        - FAIL
+        - Not tested
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Regression or comparison notes
+      description: Mention whether this improves, regresses, or matches prior runs.
+      placeholder: Better than backend_clean on the same bag by 0.04 m RMSE.
