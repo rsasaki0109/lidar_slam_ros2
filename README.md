@@ -4,6 +4,10 @@ lidarslam_ros2
 ROS 2 LiDAR SLAM focused on permissive-license pointcloud-map generation and
 Autoware integration.
 
+> Status: `develop` tracks the current `v2 alpha` line.
+> For the latest tagged public beta, see
+> [v0.2.0 Release Notes](docs/releases/v0.2.0.md).
+
 ## Recommended Public Workflow
 
 The recommended public path in this repository is:
