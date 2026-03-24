@@ -85,6 +85,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert 'rosdep install --from-paths src --ignore-src -r -y' in readme
     assert 'Required input topics for the main public path' in readme
     assert '/gnss/fix' in readme
+    assert 'gnss_topic' in readme
     assert f'(docs/releases/v{version}.md)' in readme
     assert len(readme.splitlines()) <= 220
 
@@ -189,6 +190,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'sensor_msgs/msg/Imu' in workflows_doc
     assert 'lidarslam_msgs/msg/MapArray' in workflows_doc
     assert 'wheel odometry / vehicle speed topic fusion' in workflows_doc
+    assert 'gnss_topic' in workflows_doc
     assert 'gnss_use_covariance_weighting' in workflows_doc
     assert 'RTK-like' in workflows_doc
     assert 'inspect_navsatfix_covariance.py' in workflows_doc

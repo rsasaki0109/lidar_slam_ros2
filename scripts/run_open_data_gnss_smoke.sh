@@ -20,7 +20,7 @@ Options:
   --gnss-bag PATH             Optional rosbag2 directory that publishes /gnss/fix.
   --points-topic TOPIC        PointCloud2 topic in the main bag (auto-detects if omitted).
   --imu-topic TOPIC           Imu topic in the main bag (auto-detects if omitted).
-  --gnss-topic TOPIC          NavSatFix topic (default: /gnss/fix).
+  --gnss-topic TOPIC          NavSatFix topic (auto-detects if omitted).
   --param FILE                Base lidarslam parameter YAML (default: lidarslam/param/lidarslam.yaml).
   --save-dir DIR              Output directory (default: output/open_data_gnss_smoke_<timestamp>).
   --rate FLOAT                ros2 bag play rate (default: 1.0).
@@ -46,19 +46,30 @@ timestamp() {
 detect_topic_by_type() {
   local bag_path="$1"
   local msg_type="$2"
-  ros2 bag info "${bag_path}" 2>/dev/null | awk -v type="${msg_type}" -F'[|]' '
-    $0 ~ ("Type: " type) && $0 ~ /Topic:/ && $0 ~ /Count:/ {
-      topic=""; count=0;
-      for (i=1; i<=NF; i++) {
-        seg=$i;
-        gsub(/^[ \t]+|[ \t]+$/, "", seg);
-        if (seg ~ /^Topic:/) { sub(/^Topic:[ \t]*/, "", seg); topic=seg; }
-        if (seg ~ /^Count:/) { sub(/^Count:[ \t]*/, "", seg); count=seg+0; }
-      }
-      if (topic != "" && count > best_count) { best_count=count; best_topic=topic; }
-    }
-    END { if (best_topic != "") print best_topic; }
-  '
+  python3 - "${bag_path}" "${msg_type}" <<'PY'
+from pathlib import Path
+import sys
+
+from rosbags.highlevel import AnyReader
+from rosbags.typesys import Stores, get_typestore
+
+bag_path = Path(sys.argv[1])
+msg_type = sys.argv[2]
+best_topic = ''
+best_count = -1
+
+with AnyReader([bag_path], default_typestore=get_typestore(Stores.LATEST)) as reader:
+    for connection in reader.connections:
+        if connection.msgtype != msg_type:
+            continue
+        message_count = getattr(connection, 'msgcount', 0)
+        if message_count > best_count:
+            best_count = message_count
+            best_topic = connection.topic
+
+if best_topic:
+    print(best_topic)
+PY
 }
 
 detect_first_header_frame() {
@@ -121,7 +132,7 @@ BAG_PATH=""
 GNSS_BAG=""
 POINTS_TOPIC=""
 IMU_TOPIC=""
-GNSS_TOPIC="/gnss/fix"
+GNSS_TOPIC=""
 PARAM_FILE="${REPO_ROOT}/lidarslam/param/lidarslam.yaml"
 SAVE_DIR=""
 RATE="1.0"
@@ -198,6 +209,15 @@ if [[ -z "${IMU_TOPIC}" ]]; then
   IMU_TOPIC="/imu"
 fi
 
+if [[ -z "${GNSS_TOPIC}" ]]; then
+  GNSS_TOPIC_SOURCE="${BAG_PATH}"
+  if [[ -n "${GNSS_BAG}" ]]; then
+    GNSS_TOPIC_SOURCE="${GNSS_BAG}"
+  fi
+  GNSS_TOPIC="$(detect_topic_by_type "${GNSS_TOPIC_SOURCE}" "sensor_msgs/msg/NavSatFix")"
+fi
+[[ -n "${GNSS_TOPIC}" ]] || die "failed to detect NavSatFix topic"
+
 ROBOT_FRAME_ID="$(detect_first_header_frame "${BAG_PATH}" "${POINTS_TOPIC}")"
 [[ -n "${ROBOT_FRAME_ID}" ]] || die "failed to detect frame_id for ${POINTS_TOPIC}"
 
@@ -237,6 +257,7 @@ ros2 launch lidarslam lidarslam.launch.py \
   "main_param_dir:=${TMP_PARAM}" \
   "input_cloud:=${POINTS_TOPIC}" \
   "imu_topic:=${IMU_TOPIC}" \
+  "gnss_topic:=${GNSS_TOPIC}" \
   "robot_frame_id:=${ROBOT_FRAME_ID}" \
   "global_frame_id:=map" \
   "use_graph_based_slam:=true" \

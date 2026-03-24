@@ -115,6 +115,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("map_leaf_size", map_leaf_size_);
   declare_parameter("use_gnss", false);
   get_parameter("use_gnss", use_gnss_);
+  declare_parameter("gnss_topic", std::string("/gnss/fix"));
+  get_parameter("gnss_topic", gnss_topic_);
   declare_parameter("gnss_info_weight", 1.0);
   get_parameter("gnss_info_weight", gnss_info_weight_);
   declare_parameter("gnss_use_covariance_weighting", true);
@@ -295,6 +297,7 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
     std::cout << "imu_rotation_info_yaw:" << imu_rotation_info_yaw_ << std::endl;
   }
   if (use_gnss_) {
+    std::cout << "gnss_topic:" << gnss_topic_ << std::endl;
     std::cout << "gnss_info_weight:" << gnss_info_weight_ << std::endl;
     std::cout << "gnss_use_covariance_weighting:" << std::boolalpha <<
       gnss_use_covariance_weighting_ << std::endl;
@@ -422,9 +425,12 @@ void GraphBasedSlamComponent::initializePubSub()
 
   if (use_gnss_) {
     gnss_sub_ = create_subscription<sensor_msgs::msg::NavSatFix>(
-      "/gnss/fix", rclcpp::SensorDataQoS(),
+      gnss_topic_, rclcpp::SensorDataQoS(),
       [this](const sensor_msgs::msg::NavSatFix::SharedPtr msg) {receiveNavSatFix(*msg);});
-    RCLCPP_INFO(get_logger(), "GNSS constraints enabled, subscribed to /gnss/fix");
+    RCLCPP_INFO(
+      get_logger(),
+      "GNSS constraints enabled, subscribed to %s",
+      gnss_topic_.c_str());
   }
 
   RCLCPP_INFO(get_logger(), "initialization end");
@@ -1125,8 +1131,10 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
   gnss_buffer_.push_back(g);
 
   if (debug_flag_ && gnss_weights.covariance_valid) {
-    RCLCPP_INFO(
+    RCLCPP_INFO_THROTTLE(
       get_logger(),
+      *get_clock(),
+      5000,
       "GNSS covariance weighting: horizontal_stddev=%.3f m, class=%s, info=(%.3f, %.3f, %.3f)",
       gnss_weights.horizontal_stddev_m,
       gnss_weights.rtk_like ? "rtk_like" : "non_rtk",
