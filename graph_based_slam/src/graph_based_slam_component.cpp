@@ -282,22 +282,14 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
 
   initializePubSub();
 
-  auto map_save_callback =
-    [this](const std::shared_ptr<rmw_request_id_t> request_header,
-    const std::shared_ptr<std_srvs::srv::Empty::Request> request,
-    const std::shared_ptr<std_srvs::srv::Empty::Response> response) -> void
-    {
-      std::cout << "Received an request to save the map" << std::endl;
-      lidarslam_msgs::msg::MapArray map_array_msg;
-      std::vector<LoopEdge> loop_edges;
-      if (!snapshotGraphState(map_array_msg, loop_edges, false)) {
-        std::cout << "initial map is not received" << std::endl;
-        return;
-      }
-      doPoseAdjustment(map_array_msg, loop_edges, true);
-    };
-
-  map_save_srv_ = create_service<std_srvs::srv::Empty>("map_save", map_save_callback);
+  map_save_srv_ = create_service<std_srvs::srv::Empty>(
+    "map_save",
+    std::bind(
+      &GraphBasedSlamComponent::handleMapSaveRequest,
+      this,
+      std::placeholders::_1,
+      std::placeholders::_2,
+      std::placeholders::_3));
 }
 
 void GraphBasedSlamComponent::initializePubSub()
@@ -379,9 +371,28 @@ void GraphBasedSlamComponent::initializePubSub()
   RCLCPP_INFO(get_logger(), "initialization end");
 }
 
+void GraphBasedSlamComponent::handleMapSaveRequest(
+  const MapSaveRequestHeader request_header,
+  const MapSaveRequest request,
+  const MapSaveResponse response)
+{
+  static_cast<void>(request_header);
+  static_cast<void>(request);
+  static_cast<void>(response);
+
+  std::cout << "Received an request to save the map" << std::endl;
+  lidarslam_msgs::msg::MapArray map_array_msg;
+  LoopEdges loop_edges;
+  if (!snapshotGraphState(map_array_msg, loop_edges, false)) {
+    std::cout << "initial map is not received" << std::endl;
+    return;
+  }
+  doPoseAdjustment(map_array_msg, loop_edges, true);
+}
+
 bool GraphBasedSlamComponent::snapshotGraphState(
   lidarslam_msgs::msg::MapArray & map_array_msg,
-  std::vector<LoopEdge> & loop_edges,
+  LoopEdges & loop_edges,
   bool consume_map_update)
 {
   std::lock_guard<std::mutex> lock(mtx_);
@@ -400,7 +411,7 @@ bool GraphBasedSlamComponent::snapshotGraphState(
   return true;
 }
 
-void GraphBasedSlamComponent::snapshotLoopEdges(std::vector<LoopEdge> & loop_edges)
+void GraphBasedSlamComponent::snapshotLoopEdges(LoopEdges & loop_edges)
 {
   std::lock_guard<std::mutex> lock(mtx_);
   loop_edges = loop_edges_;
@@ -446,7 +457,7 @@ bool GraphBasedSlamComponent::upsertLoopEdge(const LoopEdge & loop_edge)
 void GraphBasedSlamComponent::searchLoop()
 {
   lidarslam_msgs::msg::MapArray map_array_msg;
-  std::vector<LoopEdge> loop_edges;
+  LoopEdges loop_edges;
   if (!snapshotGraphState(map_array_msg, loop_edges, true)) {return;}
   if (map_array_msg.submaps.size() < 2) {return;}
   if (map_array_msg.cloud_coordinate != map_array_msg.LOCAL) {
@@ -675,11 +686,11 @@ void GraphBasedSlamComponent::searchLoop()
     candidate_result.selection_metric = candidate.selection_metric;
     candidate_result.fitness_score = fitness_score;
     candidate_result.travel_distance = candidate_submap.distance;
-    candidate_result.euclidean_distance =
-      (latest_submap_pos - Eigen::Vector3d(
+    const Eigen::Vector3d candidate_submap_pos(
       candidate_submap.pose.position.x,
       candidate_submap.pose.position.y,
-      candidate_submap.pose.position.z)).norm();
+      candidate_submap.pose.position.z);
+    candidate_result.euclidean_distance = (latest_submap_pos - candidate_submap_pos).norm();
     candidate_result.translation_delta_m = translation_delta_m;
     candidate_result.rotation_delta_deg = rotation_delta_deg;
     candidate_result.from_scan_context = candidate.from_scan_context;
@@ -786,7 +797,7 @@ void GraphBasedSlamComponent::searchLoop()
 
 void GraphBasedSlamComponent::doPoseAdjustment(
   lidarslam_msgs::msg::MapArray map_array_msg,
-  const std::vector<LoopEdge> & loop_edges,
+  const LoopEdges & loop_edges,
   bool do_save_map)
 {
   g2o::SparseOptimizer optimizer;

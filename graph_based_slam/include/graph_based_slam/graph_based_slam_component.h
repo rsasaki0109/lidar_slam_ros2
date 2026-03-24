@@ -150,18 +150,26 @@ private:
       Eigen::Isometry3d relative_pose;
       double fitness_score {0.0};
     };
+    using LoopEdges = std::vector < LoopEdge >;
+    using MapSaveRequestHeader = std::shared_ptr < rmw_request_id_t >;
+    using MapSaveRequest = std::shared_ptr < std_srvs::srv::Empty::Request >;
+    using MapSaveResponse = std::shared_ptr < std_srvs::srv::Empty::Response >;
 
     void initializePubSub();
+    void handleMapSaveRequest(
+      const MapSaveRequestHeader request_header,
+      const MapSaveRequest request,
+      const MapSaveResponse response);
     void searchLoop();
     bool snapshotGraphState(
       lidarslam_msgs::msg::MapArray & map_array_msg,
-      std::vector < LoopEdge > &loop_edges,
+      LoopEdges & loop_edges,
       bool consume_map_update);
-    void snapshotLoopEdges(std::vector < LoopEdge > &loop_edges);
+    void snapshotLoopEdges(LoopEdges & loop_edges);
     bool upsertLoopEdge(const LoopEdge & loop_edge);
     void doPoseAdjustment(
       lidarslam_msgs::msg::MapArray map_array_msg,
-      const std::vector < LoopEdge > &loop_edges,
+      const LoopEdges & loop_edges,
       bool do_save_map);
     void publishMapAndPose();
 
@@ -187,7 +195,7 @@ private:
     bool is_map_array_updated_ {false};
     int previous_submaps_num_ {0};
 
-    std::vector < LoopEdge > loop_edges_;
+    LoopEdges loop_edges_;
 
     bool debug_flag_ {false};
 
