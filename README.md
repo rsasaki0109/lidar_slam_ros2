@@ -6,7 +6,7 @@ Autoware integration.
 
 ## Recommended Public Workflow
 
-The recommended and dogfooded path in this repository is:
+The recommended public path in this repository is:
 
 - frontend: `RKO-LIO`
 - backend: `graph_based_slam`
@@ -15,23 +15,59 @@ The recommended and dogfooded path in this repository is:
 This is the path exercised in the public quickstart, benchmark flow, and
 release/readiness gate.
 
+## Scope
+
+This repository is for people who want:
+
+- ROS 2 LiDAR SLAM with loop closure
+- pointcloud maps that Autoware can load
+- a permissive-license default workflow
+
+Out of scope for the public path:
+
+- `lanelet2_map.osm` generation
+- Autoware planning/localization bringup
+- GPL-only frontends in the default workflow
+
 ## Why This Repo
 
 - permissive default path: `graph_based_slam` (BSD-2-Clause), `scanmatcher`
   (project-local), `RKO-LIO` (MIT), `DLIO` (MIT), `FAST_GICP` (BSD-3-Clause)
-- Autoware pointcloud-map flow is dogfooded end-to-end
+- Autoware pointcloud-map flow is exercised end-to-end
 - default benchmark path is tracked on `NTU VIRAL`
 - current long-loop evidence is tracked on `MID360`
 - optional GNSS georeferencing writes `map_projector_info.yaml`
 - GPL-free Scan Context place recognition is available in
   `graph_based_slam`
 
-## Quickstart
+## Install
 
-Build and run the default local checks:
+Clone with submodules and install dependencies:
+
+```bash
+cd ~/ros2_ws/src
+git clone --recursive https://github.com/rsasaki0109/lidarslam_ros2.git
+cd ..
+rosdep install --from-paths src --ignore-src -r -y
+```
+
+If you already cloned without submodules:
+
+```bash
+git -C src/lidarslam_ros2 submodule update --init --recursive
+```
+
+Build the workspace:
 
 ```bash
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+```
+
+## Quickstart
+
+Run the default local checks:
+
+```bash
 bash scripts/run_default_ci_checks.sh
 ```
 
@@ -48,6 +84,11 @@ Representative top-down point-cloud map view from the MID360 sample. Colors
 encode height.
 
 ![Representative top-down point-cloud map](lidarslam/images/mid360_glim_map_compare.png)
+
+Loop-area zoom from the current MID360 default run. This view is meant to make
+closing-segment duplication easier to judge visually.
+
+![MID360 loop-closure zoom](lidarslam/images/mid360_loop_closure_zoom.png)
 
 ## Docs
 

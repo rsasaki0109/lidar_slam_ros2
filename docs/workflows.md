@@ -105,6 +105,13 @@ For the short supported path, use
 The backend validates candidates geometrically before adding a loop edge and
 keeps only the best local edge inside the configured dedup window.
 
+To regenerate the README loop-area zoom figure used for visual inspection of
+closing-segment duplication:
+
+```bash
+python3 scripts/generate_readme_loop_zoom_figure.py
+```
+
 ## Benchmark And Dataset Pointers
 
 Recommended public benchmark:
