@@ -662,10 +662,10 @@ void GraphBasedSlamComponent::tryCreateSubmap()
   last_submap_position_ = pos;
   last_submap_position_valid_ = true;
 
-  // Create SubMap
+  // Create SubMap (use "map" frame for SLAM output regardless of odom frame)
   lidarslam_msgs::msg::SubMap submap;
   submap.header.stamp = latest_odom_.header.stamp;
-  submap.header.frame_id = latest_odom_.header.frame_id;
+  submap.header.frame_id = "map";
   submap.distance = accumulated_distance_;
   submap.pose = latest_odom_.pose.pose;
   submap.cloud = *latest_cloud_;
@@ -675,7 +675,7 @@ void GraphBasedSlamComponent::tryCreateSubmap()
   {
     std::lock_guard<std::mutex> lock(mtx_);
     map_array_msg_.header.stamp = latest_odom_.header.stamp;
-    map_array_msg_.header.frame_id = latest_odom_.header.frame_id;
+    map_array_msg_.header.frame_id = "map";
     map_array_msg_.submaps.push_back(submap);
     n = map_array_msg_.submaps.size();
 
