@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <vector>
 #include "scanmatcher/lidar_undistortion.hpp"
 
 class LidarUndistortionTest : public ::testing::Test
@@ -165,4 +166,38 @@ TEST_F(LidarUndistortionTest, ImuBufferWraparound)
     cloud->push_back(p);
   }
   undistortion_.adjustDistortion(cloud, 2.0);
+}
+
+TEST_F(LidarUndistortionTest, AdjustDistortionUsesExplicitPointTimes)
+{
+  undistortion_.setScanPeriod(0.1);
+
+  Eigen::Vector3f angular_velo(0.0f, 0.0f, 1.0f);
+  Eigen::Vector3f acc(0.0f, 0.0f, 0.0f);
+
+  Eigen::Quaternionf quat0 = Eigen::Quaternionf::Identity();
+  Eigen::Quaternionf quat1(Eigen::AngleAxisf(0.05f, Eigen::Vector3f::UnitZ()));
+  Eigen::Quaternionf quat2(Eigen::AngleAxisf(0.10f, Eigen::Vector3f::UnitZ()));
+
+  undistortion_.getImu(angular_velo, acc, quat0, 1.00);
+  undistortion_.getImu(angular_velo, acc, quat1, 1.05);
+  undistortion_.getImu(angular_velo, acc, quat2, 1.10);
+
+  pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>());
+  pcl::PointXYZI p0;
+  p0.x = 5.0f;
+  p0.y = 0.0f;
+  p0.z = 0.0f;
+  p0.intensity = 100.0f;
+  cloud->push_back(p0);
+  cloud->push_back(p0);
+
+  const auto original = *cloud;
+  const std::vector<float> point_times {0.0f, 0.05f};
+  undistortion_.adjustDistortion(cloud, 1.0, &point_times);
+
+  EXPECT_FLOAT_EQ(cloud->points[0].x, original.points[0].x);
+  EXPECT_FLOAT_EQ(cloud->points[0].y, original.points[0].y);
+  EXPECT_NEAR(cloud->points[1].x, 4.9937515f, 1e-3f);
+  EXPECT_NEAR(cloud->points[1].y, 0.24989584f, 1e-3f);
 }

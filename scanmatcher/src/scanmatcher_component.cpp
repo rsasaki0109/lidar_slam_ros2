@@ -1,16 +1,108 @@
 #include "scanmatcher/scanmatcher_component.h"
 #include <chrono>
 #include <cmath>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <vector>
 
 using namespace std::chrono_literals;
 
 namespace
 {
+struct PointCloudExtractionResult
+{
+  pcl::PointCloud<pcl::PointXYZI>::Ptr cloud {
+    new pcl::PointCloud<pcl::PointXYZI>()
+  };
+  std::vector<float> point_times {};
+};
+
 double wrapAngleRad(double angle)
 {
   while (angle > M_PI) {angle -= 2.0 * M_PI;}
   while (angle < -M_PI) {angle += 2.0 * M_PI;}
   return angle;
+}
+
+bool pointCloudHasField(const sensor_msgs::msg::PointCloud2 & msg, const std::string & name)
+{
+  for (const auto & field : msg.fields) {
+    if (field.name == name) {
+      return true;
+    }
+  }
+  return false;
+}
+
+PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg::PointCloud2 & msg)
+{
+  PointCloudExtractionResult result;
+  const bool has_intensity_field = pointCloudHasField(msg, "intensity");
+  const bool has_time_field = pointCloudHasField(msg, "time");
+  const auto point_count = static_cast<size_t>(msg.width) * static_cast<size_t>(msg.height);
+  result.cloud->points.reserve(point_count);
+  if (has_time_field) {
+    result.point_times.reserve(point_count);
+  }
+
+  sensor_msgs::PointCloud2ConstIterator<float> iter_x(msg, "x");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_y(msg, "y");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_z(msg, "z");
+
+  if (has_intensity_field) {
+    sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(msg, "intensity");
+    if (has_time_field) {
+      sensor_msgs::PointCloud2ConstIterator<float> iter_time(msg, "time");
+      for (; iter_x != iter_x.end();
+        ++iter_x, ++iter_y, ++iter_z, ++iter_intensity, ++iter_time)
+      {
+        pcl::PointXYZI point;
+        point.x = *iter_x;
+        point.y = *iter_y;
+        point.z = *iter_z;
+        point.intensity = *iter_intensity;
+        result.cloud->points.push_back(point);
+        result.point_times.push_back(*iter_time);
+      }
+    } else {
+      for (; iter_x != iter_x.end();
+        ++iter_x, ++iter_y, ++iter_z, ++iter_intensity)
+      {
+        pcl::PointXYZI point;
+        point.x = *iter_x;
+        point.y = *iter_y;
+        point.z = *iter_z;
+        point.intensity = *iter_intensity;
+        result.cloud->points.push_back(point);
+      }
+    }
+  } else {
+    if (has_time_field) {
+      sensor_msgs::PointCloud2ConstIterator<float> iter_time(msg, "time");
+      for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_time) {
+        pcl::PointXYZI point;
+        point.x = *iter_x;
+        point.y = *iter_y;
+        point.z = *iter_z;
+        point.intensity = 0.0f;
+        result.cloud->points.push_back(point);
+        result.point_times.push_back(*iter_time);
+      }
+    } else {
+      for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
+        pcl::PointXYZI point;
+        point.x = *iter_x;
+        point.y = *iter_y;
+        point.z = *iter_z;
+        point.intensity = 0.0f;
+        result.cloud->points.push_back(point);
+      }
+    }
+  }
+
+  result.cloud->width = static_cast<uint32_t>(result.cloud->points.size());
+  result.cloud->height = 1;
+  result.cloud->is_dense = msg.is_dense;
+  return result;
 }
 
 Eigen::Vector3d clampVectorNorm(const Eigen::Vector3d & v, double max_norm)
@@ -469,51 +561,50 @@ void ScanMatcherComponent::initializePubSub()
         return;
       }
 
-      pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-      bool has_intensity_field = false;
-      for (const auto & f : transformed_msg.fields) {
-        if (f.name == "intensity") {
-          has_intensity_field = true;
-          break;
-        }
-      }
-
-      if (has_intensity_field) {
-        pcl::fromROSMsg(transformed_msg, *tmp_ptr);
-      } else {
-        // Accept PointCloud2 without intensity (only x/y/z is required).
-        // We internally use PointXYZI for ndt_omp, so set intensity to 0 if missing/ignored.
-        pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_xyz_ptr(new pcl::PointCloud<pcl::PointXYZ>());
-        pcl::fromROSMsg(transformed_msg, *tmp_xyz_ptr);
-
-        tmp_ptr->points.reserve(tmp_xyz_ptr->points.size());
-        for (const auto & p : tmp_xyz_ptr->points) {
-          pcl::PointXYZI q;
-          q.x = p.x;
-          q.y = p.y;
-          q.z = p.z;
-          q.intensity = 0.0f;
-          tmp_ptr->points.push_back(q);
-        }
-        tmp_ptr->width = static_cast<uint32_t>(tmp_ptr->points.size());
-        tmp_ptr->height = 1;
-        tmp_ptr->is_dense = tmp_xyz_ptr->is_dense;
-      }
+      PointCloudExtractionResult extracted = extractPointCloudXYZIAndTimes(transformed_msg);
+      pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr = extracted.cloud;
+      std::vector<float> point_times = std::move(extracted.point_times);
 
       if (use_imu_) {
         double scan_time = msg->header.stamp.sec +
           msg->header.stamp.nanosec * 1e-9;
-        lidar_undistortion_.adjustDistortion(tmp_ptr, scan_time);
+        if (!point_times.empty()) {
+          RCLCPP_INFO_ONCE(
+            get_logger(),
+            "deskew uses PointCloud2 time field when available"
+          );
+          lidar_undistortion_.adjustDistortion(tmp_ptr, scan_time, &point_times);
+        } else {
+          RCLCPP_INFO_ONCE(
+            get_logger(),
+            "PointCloud2 has no time field; falling back to azimuth-based deskew"
+          );
+          lidar_undistortion_.adjustDistortion(tmp_ptr, scan_time);
+        }
       }
 
       if (use_min_max_filter_) {
         double r;
         pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr2(new pcl::PointCloud<pcl::PointXYZI>());
+        std::vector<float> filtered_point_times;
+        if (!point_times.empty()) {
+          filtered_point_times.reserve(point_times.size());
+        }
+        size_t index = 0;
         for (const auto & p : tmp_ptr->points) {
           r = sqrt(pow(p.x, 2.0) + pow(p.y, 2.0));
-          if (scan_min_range_ < r && r < scan_max_range_) {tmp_ptr2->points.push_back(p);}
+          if (scan_min_range_ < r && r < scan_max_range_) {
+            tmp_ptr2->points.push_back(p);
+            if (!point_times.empty() && index < point_times.size()) {
+              filtered_point_times.push_back(point_times[index]);
+            }
+          }
+          ++index;
         }
         tmp_ptr = tmp_ptr2;
+        if (!point_times.empty()) {
+          point_times = std::move(filtered_point_times);
+        }
       }
 
       // Skip non-monotonic timestamps (e.g. corrupted bags with interleaved data)
