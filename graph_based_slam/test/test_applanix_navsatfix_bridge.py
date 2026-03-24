@@ -42,7 +42,10 @@ SCRIPT_PATH = REPO_ROOT / 'scripts' / 'convert_applanix_gsof_to_navsatfix_bag.py
 
 
 def _load_module():
-    spec = importlib.util.spec_from_file_location('convert_applanix_gsof_to_navsatfix_bag', SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        'convert_applanix_gsof_to_navsatfix_bag',
+        SCRIPT_PATH,
+    )
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -58,7 +61,11 @@ def test_applanix_gnss_status_to_navsat_status_maps_fix_classes():
     assert module.applanix_gnss_status_to_navsat_status(module.APPLANIX_DIFFERENTIAL_GPS_SPS) == 1
     assert module.applanix_gnss_status_to_navsat_status(module.APPLANIX_FIXED_RTK_MODE) == 2
     assert module.applanix_gnss_status_to_navsat_status(module.APPLANIX_FLOAT_RTK) == 2
-    assert module.applanix_gnss_status_to_navsat_status(module.APPLANIX_DIRECT_GEOREFERENCING_MODE) == 2
+    assert (
+        module.applanix_gnss_status_to_navsat_status(
+            module.APPLANIX_DIRECT_GEOREFERENCING_MODE,
+        ) == 2
+    )
 
 
 def test_covariance_from_applanix_rms_builds_enu_diagonal():
@@ -68,5 +75,7 @@ def test_covariance_from_applanix_rms_builds_enu_diagonal():
         north_rms_m=0.3,
         down_rms_m=1.2,
     )
-    assert covariance.tolist() == pytest.approx([0.16, 0.0, 0.0, 0.0, 0.09, 0.0, 0.0, 0.0, 1.44])
+    assert covariance.tolist() == pytest.approx(
+        [0.16, 0.0, 0.0, 0.0, 0.09, 0.0, 0.0, 0.0, 1.44],
+    )
     assert covariance_type == 2
