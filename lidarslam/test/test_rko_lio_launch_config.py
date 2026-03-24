@@ -163,7 +163,10 @@ def test_rko_graph_backend_receives_gnss_topic_override():
     parameters_assign = next(
         node for node in create_graph_node.body
         if isinstance(node, ast.Assign)
-        and any(isinstance(target, ast.Name) and target.id == 'parameters' for target in node.targets)
+        and any(
+            isinstance(target, ast.Name) and target.id == 'parameters'
+            for target in node.targets
+        )
     )
     assert isinstance(parameters_assign.value, ast.List)
     dict_nodes = [elt for elt in parameters_assign.value.elts if isinstance(elt, ast.Dict)]

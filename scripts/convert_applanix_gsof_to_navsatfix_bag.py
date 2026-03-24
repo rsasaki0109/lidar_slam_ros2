@@ -37,16 +37,6 @@ import shutil
 from pathlib import Path
 
 import numpy as np
-from rosbags.highlevel import AnyReader
-from rosbags.rosbag2 import Writer
-from rosbags.typesys import Stores, get_typestore, get_types_from_msg
-
-ROS_TYPESTORE = get_typestore(Stores.LATEST)
-NAVSAT_FIX = ROS_TYPESTORE.types['sensor_msgs/msg/NavSatFix']
-NAVSAT_STATUS = ROS_TYPESTORE.types['sensor_msgs/msg/NavSatStatus']
-HEADER_CLS = ROS_TYPESTORE.types['std_msgs/msg/Header']
-TIME_CLS = ROS_TYPESTORE.types['builtin_interfaces/msg/Time']
-
 
 APPLANIX_FIX_NOT_AVAILABLE = 0
 APPLANIX_GNSS_SPS_MODE = 1
@@ -57,27 +47,49 @@ APPLANIX_FLOAT_RTK = 5
 APPLANIX_DIRECT_GEOREFERENCING_MODE = 6
 APPLANIX_GNSS_UNKNOWN = 7
 
+NAVSAT_STATUS_NO_FIX = -1
+NAVSAT_STATUS_FIX = 0
+NAVSAT_STATUS_SBAS_FIX = 1
+NAVSAT_STATUS_GBAS_FIX = 2
+NAVSAT_STATUS_UNKNOWN = -2
+
+NAVSAT_FIX_COVARIANCE_TYPE_UNKNOWN = 0
+NAVSAT_FIX_COVARIANCE_TYPE_DIAGONAL_KNOWN = 2
+
 
 def sec_nsec_from_ns(stamp_ns: int) -> tuple[int, int]:
     """Split a nanosecond stamp into ROS Time fields."""
     return stamp_ns // 1_000_000_000, stamp_ns % 1_000_000_000
 
 
+def import_rosbags_modules():
+    """Import rosbags lazily so pure helper tests do not require the package."""
+    try:
+        from rosbags.highlevel import AnyReader
+        from rosbags.rosbag2 import Writer
+        from rosbags.typesys import Stores, get_typestore, get_types_from_msg
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            'rosbags is required to convert Applanix bags into NavSatFix bags',
+        ) from exc
+    return AnyReader, Writer, Stores, get_typestore, get_types_from_msg
+
+
 def applanix_gnss_status_to_navsat_status(gnss_status: int) -> int:
     """Map Applanix GNSS quality to the nearest NavSatStatus bucket."""
     if gnss_status in (APPLANIX_FIX_NOT_AVAILABLE,):
-        return NAVSAT_STATUS.STATUS_NO_FIX
+        return NAVSAT_STATUS_NO_FIX
     if gnss_status in (APPLANIX_GNSS_UNKNOWN,):
-        return NAVSAT_STATUS.STATUS_UNKNOWN
+        return NAVSAT_STATUS_UNKNOWN
     if gnss_status in (
         APPLANIX_FIXED_RTK_MODE,
         APPLANIX_FLOAT_RTK,
         APPLANIX_DIRECT_GEOREFERENCING_MODE,
     ):
-        return NAVSAT_STATUS.STATUS_GBAS_FIX
+        return NAVSAT_STATUS_GBAS_FIX
     if gnss_status in (APPLANIX_DIFFERENTIAL_GPS_SPS,):
-        return NAVSAT_STATUS.STATUS_SBAS_FIX
-    return NAVSAT_STATUS.STATUS_FIX
+        return NAVSAT_STATUS_SBAS_FIX
+    return NAVSAT_STATUS_FIX
 
 
 def covariance_from_applanix_rms(
@@ -90,7 +102,7 @@ def covariance_from_applanix_rms(
     covariance[0] = east_rms_m * east_rms_m
     covariance[4] = north_rms_m * north_rms_m
     covariance[8] = down_rms_m * down_rms_m
-    return covariance, NAVSAT_FIX.COVARIANCE_TYPE_DIAGONAL_KNOWN
+    return covariance, NAVSAT_FIX_COVARIANCE_TYPE_DIAGONAL_KNOWN
 
 
 def _default_applanix_msg_dirs(repo_root: Path) -> list[Path]:
@@ -115,6 +127,7 @@ def resolve_applanix_msg_dir(requested: Path | None, repo_root: Path) -> Path:
 
 def load_typestore_with_applanix(msg_dir: Path):
     """Build a typestore that knows both standard ROS 2 and applanix_msgs."""
+    _, _, Stores, get_typestore, get_types_from_msg = import_rosbags_modules()
     typestore = get_typestore(Stores.LATEST)
     for path in sorted(msg_dir.glob('*.msg')):
         text = path.read_text(encoding='utf-8')
@@ -186,7 +199,12 @@ def main() -> int:
 
     repo_root = Path(__file__).resolve().parents[1]
     msg_dir = resolve_applanix_msg_dir(args.applanix_msg_dir, repo_root)
+    AnyReader, Writer, _, _, _ = import_rosbags_modules()
     typestore = load_typestore_with_applanix(msg_dir)
+    navsat_fix_cls = typestore.types['sensor_msgs/msg/NavSatFix']
+    navsat_status_cls = typestore.types['sensor_msgs/msg/NavSatStatus']
+    header_cls = typestore.types['std_msgs/msg/Header']
+    time_cls = typestore.types['builtin_interfaces/msg/Time']
 
     latest_rms_msg = None
     latest_rms_stamp_ns = None
@@ -228,7 +246,7 @@ def main() -> int:
                 continue
 
             covariance = np.zeros(9, dtype=np.float64)
-            covariance_type = NAVSAT_FIX.COVARIANCE_TYPE_UNKNOWN
+            covariance_type = NAVSAT_FIX_COVARIANCE_TYPE_UNKNOWN
             if latest_rms_msg is not None and latest_rms_stamp_ns is not None:
                 age_sec = max(0.0, (stamp_ns - latest_rms_stamp_ns) * 1e-9)
                 if age_sec <= args.max_rms_age_sec:
@@ -238,7 +256,7 @@ def main() -> int:
                         down_rms_m=float(latest_rms_msg.pos_rms_error.down),
                     )
 
-            if covariance_type == NAVSAT_FIX.COVARIANCE_TYPE_UNKNOWN:
+            if covariance_type == NAVSAT_FIX_COVARIANCE_TYPE_UNKNOWN:
                 covariance_unknown += 1
             else:
                 covariance_known += 1
@@ -248,14 +266,14 @@ def main() -> int:
                 + int(msg.header.stamp.nanosec)
             )
             header_sec, header_nanosec = sec_nsec_from_ns(header_stamp_ns)
-            navsat_msg = NAVSAT_FIX(
-                header=HEADER_CLS(
-                    stamp=TIME_CLS(sec=header_sec, nanosec=header_nanosec),
+            navsat_msg = navsat_fix_cls(
+                header=header_cls(
+                    stamp=time_cls(sec=header_sec, nanosec=header_nanosec),
                     frame_id=args.frame_id,
                 ),
-                status=NAVSAT_STATUS(
+                status=navsat_status_cls(
                     status=applanix_gnss_status_to_navsat_status(gnss_status),
-                    service=NAVSAT_STATUS.SERVICE_GPS,
+                    service=navsat_status_cls.SERVICE_GPS,
                 ),
                 latitude=float(msg.lla.latitude),
                 longitude=float(msg.lla.longitude),
