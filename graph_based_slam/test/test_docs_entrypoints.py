@@ -41,6 +41,7 @@ VERSION_PATH = REPO_ROOT / 'VERSION'
 CHANGELOG_PATH = REPO_ROOT / 'CHANGELOG.md'
 RELEASING_PATH = REPO_ROOT / 'RELEASING.md'
 AUTOWARE_QUICKSTART = REPO_ROOT / 'docs' / 'autoware-quickstart.md'
+WORKFLOWS_DOC = REPO_ROOT / 'docs' / 'workflows.md'
 BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
 COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
@@ -63,6 +64,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert CHANGELOG_PATH.is_file()
     assert RELEASING_PATH.is_file()
     assert AUTOWARE_QUICKSTART.is_file()
+    assert WORKFLOWS_DOC.is_file()
     assert BENCHMARKING_DOC.is_file()
     assert COMPARISON_DOC.is_file()
     assert release_notes_path.is_file()
@@ -70,9 +72,11 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(CHANGELOG.md)' in readme
     assert '(RELEASING.md)' in readme
     assert '(docs/autoware-quickstart.md)' in readme
+    assert '(docs/workflows.md)' in readme
     assert '(docs/comparison.md)' in readme
     assert '(docs/benchmarking.md)' in readme
     assert f'(docs/releases/v{version}.md)' in readme
+    assert len(readme.splitlines()) <= 220
 
 
 def test_docs_reference_existing_entrypoint_scripts():
@@ -137,6 +141,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'v2 beta' in release_notes
     assert 'action-gh-release@v2' in release_workflow
     assert 'docs/releases/' in release_workflow
+    assert 'docs/workflows.md' in release_workflow
 
     package_paths = [
         REPO_ROOT / 'lidarslam' / 'package.xml',
