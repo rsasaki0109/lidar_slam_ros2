@@ -261,11 +261,11 @@ def main() -> int:
             else:
                 covariance_known += 1
 
-            header_stamp_ns = (
-                int(msg.header.stamp.sec) * 1_000_000_000
-                + int(msg.header.stamp.nanosec)
-            )
-            header_sec, header_nanosec = sec_nsec_from_ns(header_stamp_ns)
+            # Use the rosbag timestamp for the published NavSatFix header so the
+            # converted sidecar stays aligned with the bag's PointCloud2/IMU
+            # timestamps. Some Applanix raw messages carry a different internal
+            # time base in msg.header.stamp.
+            header_sec, header_nanosec = sec_nsec_from_ns(stamp_ns)
             navsat_msg = navsat_fix_cls(
                 header=header_cls(
                     stamp=time_cls(sec=header_sec, nanosec=header_nanosec),

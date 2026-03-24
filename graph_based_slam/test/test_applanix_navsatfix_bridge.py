@@ -79,3 +79,11 @@ def test_covariance_from_applanix_rms_builds_enu_diagonal():
         [0.16, 0.0, 0.0, 0.0, 0.09, 0.0, 0.0, 0.0, 1.44],
     )
     assert covariance_type == 2
+
+
+def test_sec_nsec_from_ns_preserves_bag_epoch_time():
+    module = _load_module()
+    sec, nanosec = module.sec_nsec_from_ns(1_654_865_262_868_823_520)
+
+    assert sec == 1_654_865_262
+    assert nanosec == 868_823_520
