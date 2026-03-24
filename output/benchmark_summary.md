@@ -1,12 +1,12 @@
 # Benchmark summary (primary=ape)
 
-- runs: 24
-- lidarslam success: 24/24 (100.0%)
-- lidarslam median RTF (success-only): 0.434
-- GLIM success: 21/24 (87.5%)
-- GLIM median RTF (success-only):
+- runs: 26
+- lidarslam success: 26/26 (100.0%)
+- lidarslam median RTF (success-only): 0.282
+- GLIM success: 23/26 (88.5%)
+- GLIM median RTF (success-only): 
 - APE-primary best: bench_rko_lio_ntu_viral_loopgate_20260324 (0.870m)
-- APE RMSE median vs selected reference (m): 4.271 (n=24)
+- APE RMSE median vs selected reference (m): 4.327 (n=26)
 
 | run | primary_rank | bag | bag_s | points_topic | points_frame | lid_ok | lid_rtf | lid_wall_s | glim_avail | glim_ok | ape_ref_kind | ape_ref_src | glim_rtf | glim_wall_s | ape_rmse_m | ape_ok |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -34,3 +34,5 @@
 | bench_rko_lio_mid360_20260325_092339 | 22 | rosbag2_2024_04_16-14_17_01 | 277.2 | /livox/lidar | livox_frame | true | 0.244 | 67.57 | true | true | cross_validation | glim_mid360_reference |  |  | 5.310 |  |
 | bench_rko_lio_mid360_loopw10_20260325 | 23 | rosbag2_2024_04_16-14_17_01 | 277.2 | /livox/lidar | livox_frame | true | 0.230 | 63.77 | true | true | cross_validation | glim_mid360_reference |  |  | 5.499 |  |
 | bench_rko_lio_mid360_score8_20260325 | 24 | rosbag2_2024_04_16-14_17_01 | 277.2 | /livox/lidar | livox_frame | true | 0.282 | 78.19 | true | true | cross_validation | glim_mid360_reference |  |  | 5.878 |  |
+| open_data_applanix_velodyne_gnss_benchmark_driving30_20260325b | 25 | driving_30_kmh_2022_06_10-15_47_42_compressed | 774.4 | /open_data/velodyne_points | velodyne_front | true | 0.265 | 205.08 | true | true | cross_validation | applanix_gsof49_reference |  |  | 195.285 |  |
+| open_data_applanix_velodyne_benchmark_driving30_no_gnss_20260325 | 26 | driving_30_kmh_2022_06_10-15_47_42_compressed | 774.4 | /open_data/velodyne_points | velodyne_front | true | 0.264 | 204.64 | true | true | cross_validation | applanix_gsof49_reference |  |  | 313.695 |  |
