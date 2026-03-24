@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Autoware Quickstart
+    url: https://github.com/rsasaki0109/lidarslam_ros2/blob/develop/docs/autoware-quickstart.md
+    about: Start here if your main goal is to generate and view an Autoware pointcloud map.
+  - name: Benchmarking And Release Gate
+    url: https://github.com/rsasaki0109/lidarslam_ros2/blob/develop/docs/benchmarking.md
+    about: Start here if your report is about APE, metrics.json, or the release/readiness gate.

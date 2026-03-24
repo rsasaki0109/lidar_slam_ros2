@@ -1,0 +1,24 @@
+{
+  "reference_tum_path": "/workspace/ai_coding_ws/ros2/output/ntu_viral_tnp01_gt_leica.tum",
+  "source": "leica_prism_gt",
+  "source_bag": "/workspace/ai_coding_ws/ros2/demo_data/ntu_viral/tnp_01_rosbag2",
+  "topic": "/leica/pose/relative",
+  "pose_count": 9284,
+  "body_to_imu_translation_m": {
+    "x": -0.293656,
+    "y": -0.012288,
+    "z": -0.273095
+  },
+  "lidar_to_base_translation_m": {
+    "x": 0.05,
+    "y": 0.0,
+    "z": -0.055
+  },
+  "lidar_to_prism_translation_m": {
+    "x": -0.24365599999999998,
+    "y": -0.012288,
+    "z": -0.32809499999999997
+  },
+  "rko_param_path": "/workspace/ai_coding_ws/ros2/lidarslam/param/rko_lio_ntu_viral.yaml",
+  "prism_yaml_path": "/workspace/ai_coding_ws/ros2/demo_data/ntu_viral/tnp_01/tnp_01/leica_prism.yaml"
+}

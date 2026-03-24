@@ -1,0 +1,78 @@
+name: Autoware Pointcloud Map Issue
+description: Report a problem in the pointcloud-map path used by Autoware.
+title: "[Autoware Map] "
+labels:
+  - autoware
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for issues in the pointcloud-only Autoware flow.
+        Include the verifier output and the exact staging/viewer command.
+
+  - type: input
+    id: environment
+    attributes:
+      label: ROS 2 / Ubuntu / Autoware environment
+      description: Include distro, Ubuntu version, and how Autoware was provided.
+      placeholder: Jazzy / Ubuntu 24.04 / autoware_core checkout
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command
+      description: Paste the exact staging, smoke, or viewer command.
+      render: bash
+    validations:
+      required: true
+
+  - type: textarea
+    id: verifier
+    attributes:
+      label: verify_autoware_map output
+      description: Paste the result of the local verifier.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: gnss
+    attributes:
+      label: GNSS usage
+      options:
+        - GNSS disabled
+        - GNSS enabled
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: projector
+    attributes:
+      label: map_projector_info.yaml
+      description: Paste the relevant contents of map_projector_info.yaml.
+      render: yaml
+    validations:
+      required: true
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+      description: Describe what failed or regressed.
+      placeholder: RViz opened but /map/pointcloud_map never appeared.
+    validations:
+      required: true
+
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Relevant artifacts
+      description: Include paths or links to the map bundle, logs, and screenshots.
+      placeholder: |
+        /tmp/autoware_maps/...
+        output/.../slam.launch.log
+        docker logs ...

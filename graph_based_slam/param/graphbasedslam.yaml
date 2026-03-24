@@ -6,4 +6,10 @@ graph_based_slam:
       loop_detection_period: 3000
       threshold_loop_closure_score: 1.5
       distance_loop_closure: 30.0
+      range_of_searching_loop_closure: 20.0
+      search_submap_num: 3
+      max_loop_candidate_count: 3
+      loop_edge_dedup_index_window: 8
+      loop_max_translation_delta: 15.0
+      loop_max_rotation_delta_deg: 45.0
       debug_flag: false
