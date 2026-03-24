@@ -67,6 +67,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("map_grid_size_y", map_grid_size_y_);
   declare_parameter("map_leaf_size", 0.2);
   get_parameter("map_leaf_size", map_leaf_size_);
+  declare_parameter("use_gnss", false);
+  get_parameter("use_gnss", use_gnss_);
+  declare_parameter("gnss_info_weight", 1.0);
+  get_parameter("gnss_info_weight", gnss_info_weight_);
   declare_parameter("use_imu_preintegration", false);
   get_parameter("use_imu_preintegration", use_imu_preintegration_);
   declare_parameter("imu_rotation_info_roll_pitch", 100.0);
@@ -219,6 +223,13 @@ void GraphBasedSlamComponent::initializePubSub()
     imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
       "/imu", rclcpp::SensorDataQoS(), imu_callback);
     RCLCPP_INFO(get_logger(), "IMU preintegration enabled, subscribed to /imu");
+  }
+
+  if (use_gnss_) {
+    gnss_sub_ = create_subscription<sensor_msgs::msg::NavSatFix>(
+      "/gnss/fix", rclcpp::SensorDataQoS(),
+      [this](const sensor_msgs::msg::NavSatFix::SharedPtr msg) { receiveNavSatFix(*msg); });
+    RCLCPP_INFO(get_logger(), "GNSS constraints enabled, subscribed to /gnss/fix");
   }
 
   RCLCPP_INFO(get_logger(), "initialization end");
@@ -500,6 +511,56 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     optimizer.addEdge(edge_se3);
   }
 
+  /* GNSS position constraints */
+  if (use_gnss_ && gnss_origin_set_) {
+    std::lock_guard<std::mutex> gnss_lock(gnss_mtx_);
+    int gnss_edges_added = 0;
+    // GNSS info: position only (translation), no rotation constraint
+    Eigen::Matrix<double, 6, 6> gnss_info = Eigen::Matrix<double, 6, 6>::Zero();
+    gnss_info(3, 3) = gnss_info_weight_;  // x
+    gnss_info(4, 4) = gnss_info_weight_;  // y
+    gnss_info(5, 5) = gnss_info_weight_ * 0.1;  // z (less reliable for GNSS)
+
+    for (int i = 0; i < submaps_size; i++) {
+      double submap_time = rclcpp::Time(map_array_msg.submaps[i].header.stamp).seconds();
+      // Find nearest GNSS measurement
+      double best_dt = std::numeric_limits<double>::max();
+      GnssEnu best_gnss;
+      bool found = false;
+      for (const auto& g : gnss_buffer_) {
+        double dt = std::abs(g.stamp - submap_time);
+        if (dt < best_dt) {
+          best_dt = dt;
+          best_gnss = g;
+          found = true;
+        }
+      }
+      if (!found || best_dt > 1.0) continue;  // Skip if no GNSS within 1 second
+
+      // Create unary-like constraint: edge from vertex i to a fixed GNSS position
+      // Use EdgeSE3 with vertex 0 = fixed GNSS pose, vertex 1 = submap
+      int gnss_vertex_id = submaps_size + gnss_edges_added;
+      g2o::VertexSE3 * gnss_vertex = new g2o::VertexSE3();
+      gnss_vertex->setId(gnss_vertex_id);
+      Eigen::Isometry3d gnss_pose = Eigen::Isometry3d::Identity();
+      gnss_pose.translation() = Eigen::Vector3d(best_gnss.x, best_gnss.y, best_gnss.z);
+      gnss_vertex->setEstimate(gnss_pose);
+      gnss_vertex->setFixed(true);
+      optimizer.addVertex(gnss_vertex);
+
+      g2o::EdgeSE3 * edge = new g2o::EdgeSE3();
+      edge->setMeasurement(Eigen::Isometry3d::Identity());
+      edge->setInformation(gnss_info);
+      edge->vertices()[0] = gnss_vertex;
+      edge->vertices()[1] = optimizer.vertex(i);
+      optimizer.addEdge(edge);
+      gnss_edges_added++;
+    }
+    if (debug_flag_) {
+      RCLCPP_INFO(get_logger(), "Added %d GNSS position constraint edges", gnss_edges_added);
+    }
+  }
+
   optimizer.initializeOptimization();
   optimizer.optimize(10);
   optimizer.save("pose_graph.g2o");
@@ -561,6 +622,68 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     saveGridDividedMap(map_ptr);
   }
 
+}
+
+void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix & msg)
+{
+  if (msg.status.status < sensor_msgs::msg::NavSatStatus::STATUS_FIX) {
+    return;  // No valid fix
+  }
+
+  std::lock_guard<std::mutex> lock(gnss_mtx_);
+
+  if (!gnss_origin_set_) {
+    gnss_origin_lat_ = msg.latitude;
+    gnss_origin_lon_ = msg.longitude;
+    gnss_origin_alt_ = msg.altitude;
+    gnss_origin_set_ = true;
+    RCLCPP_INFO(get_logger(), "GNSS origin set: lat=%.8f, lon=%.8f, alt=%.2f",
+      gnss_origin_lat_, gnss_origin_lon_, gnss_origin_alt_);
+  }
+
+  Eigen::Vector3d enu = geodeticToEnu(msg.latitude, msg.longitude, msg.altitude);
+  GnssEnu g;
+  g.stamp = rclcpp::Time(msg.header.stamp).seconds();
+  g.x = enu.x();
+  g.y = enu.y();
+  g.z = enu.z();
+  gnss_buffer_.push_back(g);
+
+  // Limit buffer size
+  if (gnss_buffer_.size() > 100000) {
+    gnss_buffer_.erase(gnss_buffer_.begin(), gnss_buffer_.begin() + 25000);
+  }
+}
+
+Eigen::Vector3d GraphBasedSlamComponent::geodeticToEnu(
+  double lat, double lon, double alt) const
+{
+  // WGS84 parameters
+  constexpr double a = 6378137.0;              // semi-major axis [m]
+  constexpr double f = 1.0 / 298.257223563;    // flattening
+  constexpr double e2 = 2 * f - f * f;         // eccentricity squared
+
+  auto toRad = [](double deg) { return deg * M_PI / 180.0; };
+
+  double lat0 = toRad(gnss_origin_lat_);
+  double lon0 = toRad(gnss_origin_lon_);
+  double lat1 = toRad(lat);
+  double lon1 = toRad(lon);
+
+  double dlat = lat1 - lat0;
+  double dlon = lon1 - lon0;
+  double dalt = alt - gnss_origin_alt_;
+
+  double sin_lat0 = std::sin(lat0);
+  double N = a / std::sqrt(1.0 - e2 * sin_lat0 * sin_lat0);
+  double M = a * (1.0 - e2) / std::pow(1.0 - e2 * sin_lat0 * sin_lat0, 1.5);
+
+  // ENU: East = dlon * N * cos(lat), North = dlat * M, Up = dalt
+  double east = dlon * N * std::cos(lat0);
+  double north = dlat * M;
+  double up = dalt;
+
+  return Eigen::Vector3d(east, north, up);
 }
 
 void GraphBasedSlamComponent::receiveImu(const sensor_msgs::msg::Imu & msg)
@@ -797,6 +920,21 @@ void GraphBasedSlamComponent::saveGridDividedMap(
             << std::endl;
   std::cout << "Total points: " << downsampled->size() << std::endl;
   std::cout << "Metadata: " << out_dir << "/pointcloud_map_metadata.yaml" << std::endl;
+
+  // Save GNSS origin for Autoware's map_projection_loader
+  if (gnss_origin_set_) {
+    std::string proj_file = map_save_dir_ + "/map_projector_info.yaml";
+    std::ofstream proj(proj_file);
+    proj << std::fixed << std::setprecision(10);
+    proj << "# Map projection info for Autoware map_projection_loader" << std::endl;
+    proj << "projector_type: local" << std::endl;
+    proj << "map_origin:" << std::endl;
+    proj << "  latitude: " << gnss_origin_lat_ << std::endl;
+    proj << "  longitude: " << gnss_origin_lon_ << std::endl;
+    proj << "  altitude: " << std::setprecision(3) << gnss_origin_alt_ << std::endl;
+    proj.close();
+    std::cout << "GNSS origin saved: " << proj_file << std::endl;
+  }
 }
 
 }
