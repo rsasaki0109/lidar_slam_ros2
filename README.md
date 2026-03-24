@@ -162,6 +162,12 @@ bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
 
+For official open-data GNSS validation, start with:
+
+```bash
+bash scripts/download_autoware_leo_drive_isuzu.sh --list
+```
+
 Run the local readiness gate:
 
 ```bash

@@ -93,6 +93,7 @@ def test_docs_reference_existing_entrypoint_scripts():
     """Every documented entrypoint script should exist in the repo."""
     scripts = [
         PUBLIC_AUTOWARE_ENTRYPOINT,
+        REPO_ROOT / 'scripts' / 'download_autoware_leo_drive_isuzu.sh',
         REPO_ROOT / 'scripts' / 'download_ntu_viral_tnp01.sh',
         REPO_ROOT / 'scripts' / 'run_default_ci_checks.sh',
         REPO_ROOT / 'scripts' / 'run_rko_lio_graph_autoware_dogfood.sh',
@@ -189,8 +190,10 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'gnss_use_covariance_weighting' in workflows_doc
     assert 'RTK-like' in workflows_doc
     assert 'inspect_navsatfix_covariance.py' in workflows_doc
+    assert 'download_autoware_leo_drive_isuzu.sh' in workflows_doc
 
     assert 'download_ntu_viral_tnp01.sh' in benchmarking_doc
+    assert 'download_autoware_leo_drive_isuzu.sh' in benchmarking_doc
     assert 'run_rko_lio_graph_benchmark.sh' in benchmarking_doc
     assert 'run_rko_lio_mid360_crossval_benchmark.sh' in benchmarking_doc
     assert 'run_release_readiness_checks.sh' in benchmarking_doc

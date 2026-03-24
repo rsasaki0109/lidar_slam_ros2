@@ -43,6 +43,7 @@ jobs:
         shell: bash
         run: |
           bash -n scripts/run_autoware_quickstart.sh
+          bash -n scripts/download_autoware_leo_drive_isuzu.sh
           bash -n scripts/download_ntu_viral_tnp01.sh
           bash -n scripts/run_default_ci_checks.sh
           bash -n scripts/run_release_readiness_checks.sh

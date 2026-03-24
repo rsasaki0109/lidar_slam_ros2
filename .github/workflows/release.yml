@@ -74,6 +74,7 @@ jobs:
         run: |
           python3 -m pytest graph_based_slam/test/test_docs_entrypoints.py -q
           bash -n scripts/run_autoware_quickstart.sh
+          bash -n scripts/download_autoware_leo_drive_isuzu.sh
           bash -n scripts/download_ntu_viral_tnp01.sh
 
       - name: Build release bundle

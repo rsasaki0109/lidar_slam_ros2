@@ -29,6 +29,35 @@ Typical outputs are written under:
 - `output/bench_rko_lio_ntu_viral_<name>/ape_corrected_vs_gt.txt`
 - `output/bench_rko_lio_ntu_viral_<name>/metrics.json`
 
+## Open-Data GNSS Validation
+
+If you want a public bag with real GNSS topics instead of the bundled NTU VIRAL
+demo data, the recommended first candidate is the Autoware Leo Drive ISUZU
+dataset. It includes `sensor_msgs/msg/NavSatFix`, `sensor_msgs/msg/Imu`,
+LiDAR, and vehicle-status data in an official open-data distribution.
+
+List and download a bag with:
+
+```bash
+bash scripts/download_autoware_leo_drive_isuzu.sh --list
+bash scripts/download_autoware_leo_drive_isuzu.sh --bag all-sensors-bag1_compressed
+```
+
+After download, inspect GNSS covariance quality with:
+
+```bash
+python3 scripts/inspect_navsatfix_covariance.py \
+  demo_data/autoware_leo_drive_isuzu/all-sensors-bag1_compressed \
+  --topic /applanix/lvx_client/gnss/fix
+```
+
+That lets you confirm whether the bag actually contains:
+
+- usable fixes
+- known covariance
+- `RTK-like` fixes under the current `0.3 m` threshold
+- only high-variance or unknown-covariance fixes
+
 ## Summaries And HTML Report
 
 To summarize all collected runs:

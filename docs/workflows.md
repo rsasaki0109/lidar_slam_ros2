@@ -137,6 +137,13 @@ Inspect a bag before enabling GNSS weighting:
 python3 scripts/inspect_navsatfix_covariance.py /path/to/rosbag2 --topic /gnss/fix
 ```
 
+Official open-data candidate with `NavSatFix + IMU + LiDAR + vehicle status`:
+
+```bash
+bash scripts/download_autoware_leo_drive_isuzu.sh --list
+bash scripts/download_autoware_leo_drive_isuzu.sh --bag all-sensors-bag1_compressed
+```
+
 ## Run `RKO-LIO + graph_based_slam`
 
 The main launch entrypoint is:
