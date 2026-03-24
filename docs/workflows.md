@@ -147,6 +147,27 @@ python3 scripts/inspect_applanix_gsof50_quality.py /path/to/rosbag2 \
   --applanix-msg-dir /tmp/applanix/applanix_msgs/msg
 ```
 
+If the bag has `GSOF49/50` but no `/gnss/fix`, generate a sidecar rosbag2 that
+publishes only `sensor_msgs/msg/NavSatFix`:
+
+```bash
+git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
+python3 scripts/convert_applanix_gsof_to_navsatfix_bag.py \
+  --input /path/to/rosbag2 \
+  --output /tmp/applanix_navsatfix_bag \
+  --gsof49-topic /lvx_client/gsof/ins_solution_49 \
+  --gsof50-topic /lvx_client/gsof/ins_solution_rms_50 \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg \
+  --force
+```
+
+Then play the original bag together with the generated sidecar bag:
+
+```bash
+ros2 bag play /path/to/rosbag2 --clock
+ros2 bag play /tmp/applanix_navsatfix_bag --clock
+```
+
 ## Run `RKO-LIO + graph_based_slam`
 
 The main launch entrypoint is:

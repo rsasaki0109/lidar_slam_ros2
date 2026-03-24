@@ -148,6 +148,9 @@ python3 scripts/inspect_applanix_gsof50_quality.py /path/to/rosbag2 \
   --applanix-msg-dir /tmp/applanix/applanix_msgs/msg
 ```
 
+To use those bags with the current public `NavSatFix` path, generate a small sidecar rosbag2 with `scripts/convert_applanix_gsof_to_navsatfix_bag.py`. The
+full command is in [docs/workflows.md](docs/workflows.md).
+
 Run the public Autoware quickstart:
 
 ```bash

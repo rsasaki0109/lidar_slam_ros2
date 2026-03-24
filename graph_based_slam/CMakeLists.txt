@@ -105,6 +105,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_applanix_navsatfix_bridge
+    test/test_applanix_navsatfix_bridge.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_benchmark_reporting_tools
     test/test_benchmark_reporting_tools.py
     TIMEOUT 120
