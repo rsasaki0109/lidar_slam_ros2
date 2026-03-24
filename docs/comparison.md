@@ -10,8 +10,8 @@ system.
 
 | Workflow | Role in this repo | License stance in the public path | Frontend / backend shape | Loop closure in the documented path | Autoware pointcloud-map path |
 | --- | --- | --- | --- | --- | --- |
-| `lidarslam_ros2` default | recommended public workflow | permissive-only | `RKO-LIO` frontend + `graph_based_slam` backend | yes | yes |
-| `RKO-LIO` raw | odometry baseline | permissive-only | LIO frontend only | no | no |
+| `lidarslam_ros2` default | recommended public workflow | non-GPL default | `RKO-LIO` frontend + `graph_based_slam` backend | yes | yes |
+| `RKO-LIO` raw | odometry baseline | non-GPL default | LIO frontend only | no | no |
 | `KISS-ICP` baseline | comparison baseline | external comparison only | LiDAR odometry only | no | no |
 | `LIO-SAM` | research reference | excluded from the default release path | tightly coupled factor-graph SLAM | yes | no supported path in this repo |
 
@@ -63,7 +63,7 @@ Unsafe claims:
 `v0.2.0` is a public `v2 beta` release for:
 
 - ROS 2 pointcloud-map generation
-- permissive-license default workflow
+- non-GPL default workflow
 - Autoware pointcloud-map loading
 
 It is not yet claiming full production maturity.
