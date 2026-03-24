@@ -110,6 +110,8 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'write_aligned_trajectory_metrics.py',
         REPO_ROOT / 'scripts' / 'generate_sample_benchmark_metrics.py',
         REPO_ROOT / 'scripts' / 'inspect_navsatfix_covariance.py',
+        REPO_ROOT / 'scripts' / 'inspect_applanix_gsof50_quality.py',
+        REPO_ROOT / 'scripts' / 'convert_applanix_gsof_to_navsatfix_bag.py',
         REPO_ROOT / 'scripts' / 'verify_autoware_map.py',
     ]
     for path in scripts:
@@ -189,6 +191,8 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'gnss_use_covariance_weighting' in workflows_doc
     assert 'RTK-like' in workflows_doc
     assert 'inspect_navsatfix_covariance.py' in workflows_doc
+    assert 'inspect_applanix_gsof50_quality.py' in workflows_doc
+    assert 'convert_applanix_gsof_to_navsatfix_bag.py' in workflows_doc
 
     assert 'download_ntu_viral_tnp01.sh' in benchmarking_doc
     assert 'run_rko_lio_graph_benchmark.sh' in benchmarking_doc
