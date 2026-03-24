@@ -42,6 +42,13 @@ bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_autoware_quickstart.sh
 ```
 
+## Point-Cloud Map Example
+
+Representative top-down point-cloud map view from the MID360 sample. Colors
+encode height.
+
+![Representative top-down point-cloud map](lidarslam/images/mid360_glim_map_compare.png)
+
 ## Docs
 
 - [Autoware Quickstart](docs/autoware-quickstart.md)
