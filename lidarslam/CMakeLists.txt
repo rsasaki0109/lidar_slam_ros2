@@ -103,6 +103,11 @@ if(BUILD_TESTING)
     test/test_lidarslam_launch_config.py
     TIMEOUT 120
   )
+  ament_add_pytest_test(
+    test_open_data_gnss_smoke_script
+    test/test_open_data_gnss_smoke_script.py
+    TIMEOUT 120
+  )
 endif()
 
 add_executable(lidarslam

@@ -82,3 +82,67 @@ def test_graph_backend_receives_map_save_dir_override():
             break
 
     assert found
+
+
+def test_graph_backend_receives_gnss_topic_override():
+    """Classic launch should route gnss_topic into graph_based_slam."""
+    module = _parse_launch_ast()
+
+    node_calls = [node for node in ast.walk(module) if isinstance(node, ast.Call)]
+    graph_node = None
+    for call in node_calls:
+        if not isinstance(call.func, ast.Name) or call.func.id != 'Node':
+            continue
+        package_kw = next((kw for kw in call.keywords if kw.arg == 'package'), None)
+        if package_kw is None:
+            continue
+        if not isinstance(package_kw.value, ast.Constant):
+            continue
+        if package_kw.value.value == 'graph_based_slam':
+            graph_node = call
+            break
+
+    assert graph_node is not None
+    parameters_kw = next(kw for kw in graph_node.keywords if kw.arg == 'parameters')
+    dict_nodes = [value for value in parameters_kw.value.elts if isinstance(value, ast.Dict)]
+    assert dict_nodes
+    launch_dict = dict_nodes[0]
+
+    found = False
+    for key, value in zip(launch_dict.keys, launch_dict.values):
+        if not isinstance(key, ast.Constant) or key.value != 'gnss_topic':
+            continue
+        if not isinstance(value, ast.Call):
+            continue
+        if not isinstance(value.func, ast.Name) or value.func.id != 'LaunchConfiguration':
+            continue
+        if not value.args or not isinstance(value.args[0], ast.Constant):
+            continue
+        if value.args[0].value == 'gnss_topic':
+            found = True
+            break
+
+    assert found
+
+
+def test_launch_declares_gnss_topic_argument():
+    """Classic launch should expose a gnss_topic argument."""
+    module = _parse_launch_ast()
+
+    node_calls = [node for node in ast.walk(module) if isinstance(node, ast.Call)]
+    found = False
+    for call in node_calls:
+        if not isinstance(call.func, ast.Name) or call.func.id != 'DeclareLaunchArgument':
+            continue
+        if not call.args or not isinstance(call.args[0], ast.Constant):
+            continue
+        if call.args[0].value != 'gnss_topic':
+            continue
+        default_kw = next((kw for kw in call.keywords if kw.arg == 'default_value'), None)
+        assert default_kw is not None
+        assert isinstance(default_kw.value, ast.Constant)
+        assert default_kw.value.value == '/gnss/fix'
+        found = True
+        break
+
+    assert found

@@ -97,6 +97,11 @@ def generate_launch_description():
             description='IMU topic for scanmatcher (sensor_msgs/Imu).',
         ),
         DeclareLaunchArgument(
+            'gnss_topic',
+            default_value='/gnss/fix',
+            description='NavSatFix topic for graph_based_slam when use_gnss:=true.',
+        ),
+        DeclareLaunchArgument(
             'save_dir',
             default_value='.',
             description=(
@@ -164,6 +169,7 @@ def generate_launch_description():
                     'global_frame_id': LaunchConfiguration('global_frame_id'),
                     'use_sim_time': LaunchConfiguration('use_sim_time'),
                     'use_odom_input': LaunchConfiguration('use_odom_input'),
+                    'gnss_topic': LaunchConfiguration('gnss_topic'),
                     'map_save_dir': LaunchConfiguration('save_dir'),
                     'save_pose_graph_path': PathJoinSubstitution([
                         LaunchConfiguration('save_dir'),

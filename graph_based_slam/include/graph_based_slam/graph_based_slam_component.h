@@ -240,6 +240,7 @@ private:
 
     // GNSS constraints for georeferenced mapping
     bool use_gnss_ {false};
+    std::string gnss_topic_ {"/gnss/fix"};
     double gnss_info_weight_ {1.0};
     bool gnss_use_covariance_weighting_ {true};
     double gnss_covariance_min_variance_m2_ {0.01};

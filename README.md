@@ -126,20 +126,20 @@ Required input topics for the main public path:
 
 | Launch path | Required topics | Optional topics |
 | --- | --- | --- |
-| `ros2 launch lidarslam rko_lio_slam.launch.py` | LiDAR `sensor_msgs/PointCloud2` on `lidar_topic`, IMU `sensor_msgs/Imu` on `imu_topic` | `sensor_msgs/NavSatFix` on `/gnss/fix` when `use_gnss:=true` |
-| `ros2 launch lidarslam lidarslam.launch.py` | Point cloud `sensor_msgs/PointCloud2` on `input_cloud`, TF from `robot_frame_id` to the LiDAR frame | IMU on `imu_topic` when `scanmatcher use_imu:=true`, odom TF when `scanmatcher use_odom:=true`, GNSS on `/gnss/fix` when backend `use_gnss:=true` |
-| `ros2 launch graph_based_slam graphbasedslam.launch.py` | `lidarslam_msgs/MapArray` on `map_array` | IMU on `/imu` when `use_imu_preintegration:=true`, GNSS on `/gnss/fix` when `use_gnss:=true` |
+| `ros2 launch lidarslam rko_lio_slam.launch.py` | LiDAR `sensor_msgs/PointCloud2` on `lidar_topic`, IMU `sensor_msgs/Imu` on `imu_topic` | `sensor_msgs/NavSatFix` on `gnss_topic` (default: `/gnss/fix`) when `use_gnss:=true` |
+| `ros2 launch lidarslam lidarslam.launch.py` | Point cloud `sensor_msgs/PointCloud2` on `input_cloud`, TF from `robot_frame_id` to the LiDAR frame | IMU on `imu_topic` when `scanmatcher use_imu:=true`, odom TF when `scanmatcher use_odom:=true`, GNSS on `gnss_topic` (default: `/gnss/fix`) when backend `use_gnss:=true` |
+| `ros2 launch graph_based_slam graphbasedslam.launch.py` | `lidarslam_msgs/MapArray` on `map_array` | IMU on `/imu` when `use_imu_preintegration:=true`, GNSS on `gnss_topic` (default: `/gnss/fix`) when `use_gnss:=true` |
 
 There is no wheel-speed / vehicle-speed input in the current public path yet.
-
 Inspect GNSS covariance quality before enabling backend GNSS weighting:
 
 ```bash
 python3 scripts/inspect_navsatfix_covariance.py /path/to/rosbag2 --topic /gnss/fix
 ```
+The backend GNSS subscription topic is configurable with `gnss_topic` (default: `/gnss/fix`).
+`scripts/run_open_data_gnss_smoke.sh` auto-detects the NavSatFix topic if you do not pass `--gnss-topic`.
 
-Some open-data bags expose GNSS quality only through Applanix raw messages. For
-those, inspect `GSOF50` first:
+Some open-data bags expose GNSS quality only through Applanix raw messages. For those, inspect `GSOF50` first:
 
 ```bash
 git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix

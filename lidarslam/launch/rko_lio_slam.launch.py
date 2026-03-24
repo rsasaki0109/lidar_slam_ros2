@@ -107,6 +107,7 @@ def create_graph_based_slam_node(context, *args, **kwargs):
             'global_frame_id': LaunchConfiguration('global_frame_id'),
             'use_sim_time': LaunchConfiguration('use_sim_time'),
             'use_odom_input': True,
+            'gnss_topic': LaunchConfiguration('gnss_topic'),
             'map_save_dir': LaunchConfiguration('save_dir'),
             'save_pose_graph_path': PathJoinSubstitution([
                 LaunchConfiguration('save_dir'),
@@ -204,6 +205,11 @@ def generate_launch_description():
             'imu_topic',
             default_value='/os_cloud_node/imu',
             description='IMU topic.',
+        ),
+        DeclareLaunchArgument(
+            'gnss_topic',
+            default_value='/gnss/fix',
+            description='NavSatFix topic for graph_based_slam when use_gnss:=true.',
         ),
         DeclareLaunchArgument(
             'base_frame',

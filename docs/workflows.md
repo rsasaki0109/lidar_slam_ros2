@@ -123,6 +123,7 @@ Alternative direct-input mode used by the RKO-LIO launch:
 
 Useful GNSS weighting parameters:
 
+- `gnss_topic`
 - `gnss_info_weight`
 - `gnss_use_covariance_weighting`
 - `gnss_covariance_min_variance_m2`
@@ -165,14 +166,19 @@ Then play the original bag together with the generated sidecar bag:
 
 ```bash
 ros2 bag play /path/to/rosbag2 --clock
-ros2 bag play /tmp/applanix_navsatfix_bag --clock
+ros2 bag play /tmp/applanix_navsatfix_bag
 ```
 
 For an end-to-end open-data GNSS smoke with automatic `/map_save`, use:
 
 ```bash
-bash scripts/run_open_data_gnss_smoke.sh --bag /path/to/rosbag2 --verify-map
+bash scripts/run_open_data_gnss_smoke.sh \
+  --bag /path/to/rosbag2 \
+  --verify-map
 ```
+
+`run_open_data_gnss_smoke.sh` auto-detects the `NavSatFix` topic from
+`--gnss-bag` when provided, otherwise from `--bag`.
 
 ## Run `RKO-LIO + graph_based_slam`
 

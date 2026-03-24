@@ -153,3 +153,57 @@ def test_graph_param_overrides_are_optional():
             kw for kw in arg_call.keywords if kw.arg == 'default_value'
         )
         assert _constant_string(default_kw.value) == ''
+
+
+def test_rko_graph_backend_receives_gnss_topic_override():
+    """RKO-LIO launch should pass gnss_topic through to graph_based_slam."""
+    module = _parse_launch_ast()
+    create_graph_node = _find_function(module, 'create_graph_based_slam_node')
+
+    parameters_assign = next(
+        node for node in create_graph_node.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == 'parameters' for target in node.targets)
+    )
+    assert isinstance(parameters_assign.value, ast.List)
+    dict_nodes = [elt for elt in parameters_assign.value.elts if isinstance(elt, ast.Dict)]
+    assert dict_nodes
+    launch_dict = dict_nodes[0]
+
+    found = False
+    for key, value in zip(launch_dict.keys, launch_dict.values):
+        if not isinstance(key, ast.Constant) or key.value != 'gnss_topic':
+            continue
+        if not isinstance(value, ast.Call):
+            continue
+        if not isinstance(value.func, ast.Name) or value.func.id != 'LaunchConfiguration':
+            continue
+        if not value.args or not isinstance(value.args[0], ast.Constant):
+            continue
+        if value.args[0].value == 'gnss_topic':
+            found = True
+            break
+
+    assert found
+
+
+def test_rko_launch_declares_gnss_topic_argument():
+    """RKO-LIO launch should expose a gnss_topic argument."""
+    module = _parse_launch_ast()
+    generate_launch_description = _find_function(
+        module,
+        'generate_launch_description',
+    )
+    return_stmt = next(
+        node for node in generate_launch_description.body
+        if isinstance(node, ast.Return)
+    )
+    assert isinstance(return_stmt.value, ast.Call)
+    gnss_topic_call = _find_declare_launch_argument_call(
+        return_stmt.value,
+        'gnss_topic',
+    )
+    default_kw = next(
+        kw for kw in gnss_topic_call.keywords if kw.arg == 'default_value'
+    )
+    assert _constant_string(default_kw.value) == '/gnss/fix'
