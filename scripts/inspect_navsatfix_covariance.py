@@ -42,8 +42,11 @@ from typing import Iterable
 
 try:
     from rosbags.highlevel import AnyReader
+    from rosbags.typesys import Stores, get_typestore
 except ImportError:  # pragma: no cover
     AnyReader = None
+    Stores = None
+    get_typestore = None
 
 
 COVARIANCE_TYPE_UNKNOWN = 0
@@ -209,10 +212,13 @@ def summarize_navsatfix_records(
 
 
 def _iter_bag_records(bag_path: Path, topic: str) -> Iterable[NavSatFixRecord]:
-    if AnyReader is None:
+    if AnyReader is None or Stores is None or get_typestore is None:
         raise RuntimeError('rosbags is not installed')
 
-    with AnyReader([bag_path]) as reader:
+    with AnyReader(
+        [bag_path],
+        default_typestore=get_typestore(Stores.LATEST),
+    ) as reader:
         connections = [conn for conn in reader.connections if conn.topic == topic]
         if not connections:
             raise RuntimeError(f'topic not found in bag: {topic}')

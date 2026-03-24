@@ -137,6 +137,16 @@ Inspect a bag before enabling GNSS weighting:
 python3 scripts/inspect_navsatfix_covariance.py /path/to/rosbag2 --topic /gnss/fix
 ```
 
+For Autoware Leo Drive driving bags that only expose Applanix raw GNSS status,
+inspect `GSOF50` instead:
+
+```bash
+git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
+python3 scripts/inspect_applanix_gsof50_quality.py /path/to/rosbag2 \
+  --topic /lvx_client/gsof/ins_solution_rms_50 \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg
+```
+
 ## Run `RKO-LIO + graph_based_slam`
 
 The main launch entrypoint is:
