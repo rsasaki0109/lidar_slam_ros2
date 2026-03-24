@@ -138,6 +138,16 @@ Inspect GNSS covariance quality before enabling backend GNSS weighting:
 python3 scripts/inspect_navsatfix_covariance.py /path/to/rosbag2 --topic /gnss/fix
 ```
 
+Some open-data bags expose GNSS quality only through Applanix raw messages. For
+those, inspect `GSOF50` first:
+
+```bash
+git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
+python3 scripts/inspect_applanix_gsof50_quality.py /path/to/rosbag2 \
+  --topic /lvx_client/gsof/ins_solution_rms_50 \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg
+```
+
 Run the public Autoware quickstart:
 
 ```bash
