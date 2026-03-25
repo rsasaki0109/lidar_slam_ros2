@@ -159,6 +159,11 @@ if(BUILD_TESTING)
     test/test_place_recognition_report.py
     TIMEOUT 120
   )
+  ament_add_pytest_test(
+    test_packet_imu_deskew_validation_report
+    test/test_packet_imu_deskew_validation_report.py
+    TIMEOUT 120
+  )
 endif()
 
 add_library(graph_based_slam_component SHARED

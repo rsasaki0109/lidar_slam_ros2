@@ -56,6 +56,10 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert '--use-imu BOOL' in script
     assert '--imu-rotation-use-orientation BOOL' in script
     assert '--imu-pose-prediction BOOL' in script
+    assert '--cloud-queue-depth N' in script
+    assert '--debug-cloud-dump-max-frames N' in script
+    assert '--debug-cloud-dump-dir DIR' in script
+    assert '--ros-domain-id ID' in script
     assert 'create_main_param' in script
     assert 'terminate_pid()' in script
     assert 'velodyne_transform_node' in script
@@ -82,6 +86,18 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert 'IMU_TRANSLATION_DESKEW="false"' in script
     assert 'IMU_ROTATION_USE_ORIENTATION="true"' in script
     assert 'IMU_POSE_PREDICTION="false"' in script
+    assert 'CLOUD_QUEUE_DEPTH=""' in script
+    assert 'cloud_queue_depth' in script
+    assert 'RATE_EXPLICIT="false"' in script
+    assert 'if [[ "${RATE_EXPLICIT}" != "true" && "${USE_IMU,,}" == "true" ]]; then' in script
+    assert 'RATE="1.0"' in script
+    assert 'ROS_DOMAIN_ID_OVERRIDE=""' in script
+    assert 'export ROS_DOMAIN_ID="${ROS_DOMAIN_ID_OVERRIDE}"' in script
+    assert 'DEBUG_CLOUD_DUMP_MAX_FRAMES="0"' in script
+    assert 'DEBUG_CLOUD_DUMP_DIR=""' in script
+    assert 'debug_cloud_dump_dir' in script
+    assert 'debug_cloud_dump_max_frames' in script
+    assert 'scanmatcher_debug_clouds' in script
     assert 'imu_static_tf.log' in script
     assert 'TF_BAG=""' in script
     assert '--tf-bag PATH' in script

@@ -34,6 +34,11 @@ Options:
                               Use absolute IMU orientation for rotation deskew. If false, use
                               gyro-integrated rotation only (default: true).
   --imu-pose-prediction BOOL  Enable IMU-based pose prior in scanmatcher (default: false).
+  --cloud-queue-depth N       scanmatcher input cloud queue depth (default: keep base YAML).
+  --debug-cloud-dump-max-frames N
+                              Dump scanmatcher clouds for the first N frames (default: 0).
+  --debug-cloud-dump-dir DIR  Output directory for scanmatcher debug clouds
+                              (default: OUTPUT_DIR/scanmatcher_debug_clouds when enabled).
   --tf-bag PATH               Optional rosbag2 with /tf_static used to extract robot->lidar static TF.
   --tf-static-topic TOPIC     Static TF topic inside --tf-bag (default: /tf_static).
   --gsof49-topic TOPIC        Applanix GSOF49 topic.
@@ -44,11 +49,13 @@ Options:
   --velodyne-calibration FILE Explicit calibration YAML. If omitted, derived from the model.
   --param FILE                Base lidarslam parameter YAML.
   --output-dir DIR            Output directory (default: output/open_data_applanix_velodyne_gnss_benchmark_<timestamp>).
-  --rate FLOAT                ros2 bag play rate (default: 5.0).
+  --rate FLOAT                ros2 bag play rate (default: 5.0, or 1.0 when --use-imu=true
+                              and --rate is omitted).
   --play-wall-sec SEC         Playback timeout. If omitted, derived from bag duration and rate.
   --drain-sec SEC             Extra wait before /map_save (default: 8).
   --use-gnss BOOL             Enable backend GNSS constraints (default: true).
   --verify-map                Run verify_autoware_map.py after /map_save.
+  --ros-domain-id ID          Export ROS_DOMAIN_ID for this benchmark run.
   --ros-distro DISTRO         ROS 2 distro used for sourcing and overlay build (default: $ROS_DISTRO or jazzy).
   --skip-prepare-overlay      Do not auto-build the velodyne overlay when missing.
 
@@ -246,9 +253,13 @@ create_main_param() {
   local imu_translation_deskew="$5"
   local imu_rotation_use_orientation="$6"
   local imu_pose_prediction_enable="$7"
+  local cloud_queue_depth="${8}"
+  local debug_cloud_dump_dir="${9}"
+  local debug_cloud_dump_max_frames="${10}"
   cp "${base_param}" "${out_param}"
-  python3 - "${out_param}" "${use_gnss}" "${use_imu}" "${imu_translation_deskew}" "${imu_rotation_use_orientation}" "${imu_pose_prediction_enable}" <<'PY'
+  python3 - "${out_param}" "${use_gnss}" "${use_imu}" "${imu_translation_deskew}" "${imu_rotation_use_orientation}" "${imu_pose_prediction_enable}" "${cloud_queue_depth}" "${debug_cloud_dump_dir}" "${debug_cloud_dump_max_frames}" <<'PY'
 from pathlib import Path
+import json
 import sys
 
 path = Path(sys.argv[1])
@@ -257,6 +268,9 @@ use_imu = sys.argv[3].strip().lower() in {'1', 'true', 'yes', 'on'}
 imu_translation_deskew = sys.argv[4].strip().lower() in {'1', 'true', 'yes', 'on'}
 imu_rotation_use_orientation = sys.argv[5].strip().lower() in {'1', 'true', 'yes', 'on'}
 imu_pose_prediction_enable = sys.argv[6].strip().lower() in {'1', 'true', 'yes', 'on'}
+cloud_queue_depth = sys.argv[7].strip()
+debug_cloud_dump_dir = sys.argv[8]
+debug_cloud_dump_max_frames = max(0, int(sys.argv[9]))
 text = path.read_text(encoding='utf-8')
 if '      use_gnss: true' in text or '      use_gnss: false' in text:
     text = text.replace(
@@ -352,6 +366,44 @@ else:
         imu_rotation_line + '\n' + imu_pose_prediction_line,
         1,
     )
+debug_dir_line = f'    debug_cloud_dump_dir: {json.dumps(debug_cloud_dump_dir)}'
+debug_max_frames_line = f'    debug_cloud_dump_max_frames: {debug_cloud_dump_max_frames}'
+lines = [
+    line for line in text.splitlines()
+    if 'debug_cloud_dump_dir:' not in line and 'debug_cloud_dump_max_frames:' not in line
+]
+inserted = False
+for index, line in enumerate(lines):
+    if line in ('    debug_flag: true', '    debug_flag: false'):
+        lines[index:index + 1] = [line, debug_dir_line, debug_max_frames_line]
+        inserted = True
+        break
+if not inserted:
+    for index, line in enumerate(lines):
+        if line == imu_pose_prediction_line:
+            lines[index:index + 1] = [line, debug_dir_line, debug_max_frames_line]
+            inserted = True
+            break
+if not inserted:
+    raise SystemExit('could not find scan_matcher insertion point for debug cloud dump parameters')
+if cloud_queue_depth:
+    cloud_queue_line = f'    cloud_queue_depth: {int(cloud_queue_depth)}'
+    replaced = False
+    for index, line in enumerate(lines):
+        if line.startswith('    cloud_queue_depth:'):
+            lines[index] = cloud_queue_line
+            replaced = True
+            break
+    if not replaced:
+        inserted_queue = False
+        for index, line in enumerate(lines):
+            if line.startswith('    debug_cloud_dump_max_frames:'):
+                lines[index:index + 1] = [line, cloud_queue_line]
+                inserted_queue = True
+                break
+        if not inserted_queue:
+            raise SystemExit('could not find scan_matcher insertion point for cloud_queue_depth')
+text = '\n'.join(lines) + '\n'
 path.write_text(text, encoding='utf-8')
 PY
 }
@@ -457,6 +509,9 @@ IMU_FRAME_ID="base_link"
 IMU_TRANSLATION_DESKEW="false"
 IMU_ROTATION_USE_ORIENTATION="true"
 IMU_POSE_PREDICTION="false"
+CLOUD_QUEUE_DEPTH=""
+DEBUG_CLOUD_DUMP_MAX_FRAMES="0"
+DEBUG_CLOUD_DUMP_DIR=""
 TF_BAG=""
 TF_STATIC_TOPIC="/tf_static"
 GSOF49_TOPIC="/lvx_client/gsof/ins_solution_49"
@@ -468,10 +523,12 @@ VELODYNE_CALIBRATION=""
 PARAM_FILE="${REPO_ROOT}/lidarslam/param/lidarslam.yaml"
 OUTPUT_DIR=""
 RATE="5.0"
+RATE_EXPLICIT="false"
 PLAY_WALL_SEC=""
 DRAIN_SEC="8"
 USE_GNSS="true"
 VERIFY_MAP="false"
+ROS_DOMAIN_ID_OVERRIDE=""
 ROS_DISTRO_NAME="${ROS_DISTRO:-jazzy}"
 PREPARE_OVERLAY="true"
 
@@ -507,6 +564,12 @@ while [[ $# -gt 0 ]]; do
       IMU_ROTATION_USE_ORIENTATION="${2:-}"; shift 2 ;;
     --imu-pose-prediction)
       IMU_POSE_PREDICTION="${2:-}"; shift 2 ;;
+    --cloud-queue-depth)
+      CLOUD_QUEUE_DEPTH="${2:-}"; shift 2 ;;
+    --debug-cloud-dump-max-frames)
+      DEBUG_CLOUD_DUMP_MAX_FRAMES="${2:-}"; shift 2 ;;
+    --debug-cloud-dump-dir)
+      DEBUG_CLOUD_DUMP_DIR="$(realpath -m "${2:-}")"; shift 2 ;;
     --tf-bag)
       TF_BAG="$(realpath "${2:-}")"; shift 2 ;;
     --tf-static-topic)
@@ -528,7 +591,7 @@ while [[ $# -gt 0 ]]; do
     --output-dir)
       OUTPUT_DIR="$(realpath -m "${2:-}")"; shift 2 ;;
     --rate)
-      RATE="${2:-}"; shift 2 ;;
+      RATE="${2:-}"; RATE_EXPLICIT="true"; shift 2 ;;
     --play-wall-sec)
       PLAY_WALL_SEC="${2:-}"; shift 2 ;;
     --drain-sec)
@@ -537,6 +600,8 @@ while [[ $# -gt 0 ]]; do
       USE_GNSS="${2:-}"; shift 2 ;;
     --verify-map)
       VERIFY_MAP="true"; shift ;;
+    --ros-domain-id)
+      ROS_DOMAIN_ID_OVERRIDE="${2:-}"; shift 2 ;;
     --ros-distro)
       ROS_DISTRO_NAME="${2:-}"; shift 2 ;;
     --skip-prepare-overlay)
@@ -557,9 +622,21 @@ if [[ -z "${OUTPUT_DIR}" ]]; then
 fi
 mkdir -p "${OUTPUT_DIR}"
 
+if [[ "${RATE_EXPLICIT}" != "true" && "${USE_IMU,,}" == "true" ]]; then
+  RATE="1.0"
+fi
+
+if (( DEBUG_CLOUD_DUMP_MAX_FRAMES > 0 )) && [[ -z "${DEBUG_CLOUD_DUMP_DIR}" ]]; then
+  DEBUG_CLOUD_DUMP_DIR="${OUTPUT_DIR}/scanmatcher_debug_clouds"
+fi
+
 [[ -f "/opt/ros/${ROS_DISTRO_NAME}/setup.bash" ]] || {
   die "ROS setup not found: /opt/ros/${ROS_DISTRO_NAME}/setup.bash"
 }
+
+if [[ -n "${ROS_DOMAIN_ID_OVERRIDE}" ]]; then
+  export ROS_DOMAIN_ID="${ROS_DOMAIN_ID_OVERRIDE}"
+fi
 
 if [[ "${PREPARE_OVERLAY}" == "true" ]]; then
   ensure_velodyne_overlay "${VELODYNE_OVERLAY}" "${ROS_DISTRO_NAME}"
@@ -760,7 +837,10 @@ create_main_param \
   "${USE_IMU}" \
   "${IMU_TRANSLATION_DESKEW}" \
   "${IMU_ROTATION_USE_ORIENTATION}" \
-  "${IMU_POSE_PREDICTION}"
+  "${IMU_POSE_PREDICTION}" \
+  "${CLOUD_QUEUE_DEPTH}" \
+  "${DEBUG_CLOUD_DUMP_DIR}" \
+  "${DEBUG_CLOUD_DUMP_MAX_FRAMES}"
 
 cat >"${VELODYNE_PARAM}" <<EOF
 velodyne_transform_node:
@@ -857,8 +937,18 @@ if [[ "${USE_IMU,,}" == "true" ]]; then
   echo "  imu_rotation_use_orientation:${IMU_ROTATION_USE_ORIENTATION}"
   echo "  imu_pose_prediction: ${IMU_POSE_PREDICTION}"
 fi
+if [[ -n "${CLOUD_QUEUE_DEPTH}" ]]; then
+  echo "  cloud_queue_depth:   ${CLOUD_QUEUE_DEPTH}"
+fi
+echo "  debug_cloud_dump_max_frames:${DEBUG_CLOUD_DUMP_MAX_FRAMES}"
+if (( DEBUG_CLOUD_DUMP_MAX_FRAMES > 0 )); then
+  echo "  debug_cloud_dump_dir:${DEBUG_CLOUD_DUMP_DIR}"
+fi
 echo "  rate:                ${RATE}"
 echo "  play_wall_sec:       ${PLAY_WALL_SEC}"
+if [[ -n "${ROS_DOMAIN_ID_OVERRIDE}" ]]; then
+  echo "  ros_domain_id:       ${ROS_DOMAIN_ID_OVERRIDE}"
+fi
 echo "  velodyne_model:      ${VELODYNE_MODEL}"
 echo "  velodyne_calibration:${VELODYNE_CALIBRATION}"
 echo "  robot_frame:         ${ROBOT_FRAME_ID}"
