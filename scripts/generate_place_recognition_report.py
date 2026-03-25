@@ -43,7 +43,7 @@ DEFAULT_BASELINE_METRICS = Path(
     'output/bench_rko_lio_mid360_current_default_rerun_20260326/metrics.json',
 )
 DEFAULT_CANDIDATE_METRICS = Path(
-    'output/bench_rko_lio_mid360_sc045_topk_20260326/metrics.json',
+    'output/bench_rko_lio_mid360_sc055_yawguess_scagg_screg_20260326/metrics.json',
 )
 
 
@@ -164,6 +164,11 @@ def parse_args() -> argparse.Namespace:
         default='',
         help='Output markdown path (default: output/place_recognition_report_<YYYYMMDD>.md).',
     )
+    parser.add_argument(
+        '--write-json',
+        default='',
+        help='Optional JSON summary path.',
+    )
     return parser.parse_args()
 
 
@@ -202,6 +207,25 @@ def main() -> int:
             / f'place_recognition_report_{datetime.now().strftime("%Y%m%d")}.md'
         ).resolve()
     )
+    json_path = Path(args.write_json).expanduser().resolve() if args.write_json else None
+    payload = {
+        'baseline_metrics': str(baseline_metrics_path),
+        'baseline_log': str(baseline_log),
+        'candidate_metrics': str(candidate_metrics_path),
+        'candidate_log': str(candidate_log),
+        'baseline': {
+            'ape_rmse_m': baseline_rmse,
+            'loop_count': _loop_count(baseline, 'loop_count'),
+            'loop_count_attempted': _loop_count(baseline, 'loop_count_attempted'),
+            'log_summary': baseline_log_summary,
+        },
+        'candidate': {
+            'ape_rmse_m': candidate_rmse,
+            'loop_count': _loop_count(candidate, 'loop_count'),
+            'loop_count_attempted': _loop_count(candidate, 'loop_count_attempted'),
+            'log_summary': candidate_log_summary,
+        },
+    }
 
     report = f"""# Place Recognition Report
 
@@ -228,7 +252,12 @@ Context candidate run.
 """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(report, encoding='utf-8')
+    if json_path is not None:
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        json_path.write_text(json.dumps(payload, indent=2), encoding='utf-8')
     print(out_path)
+    if json_path is not None:
+        print(json_path)
     return 0
 
 

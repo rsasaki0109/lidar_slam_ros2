@@ -129,6 +129,16 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_open_data_classic_path_benchmark_suite_script
+    test/test_open_data_classic_path_benchmark_suite_script.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_place_recognition_benchmark_script
+    test/test_place_recognition_benchmark_script.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_rko_lio_mid360_crossval_benchmark_script
     test/test_rko_lio_mid360_crossval_benchmark_script.py
     TIMEOUT 120

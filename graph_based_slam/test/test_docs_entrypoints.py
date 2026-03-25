@@ -120,8 +120,11 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'run_open_data_gnss_smoke.sh',
         REPO_ROOT / 'scripts' / 'run_open_data_applanix_velodyne_gnss_smoke.sh',
         REPO_ROOT / 'scripts' / 'run_open_data_applanix_velodyne_gnss_benchmark.sh',
+        REPO_ROOT / 'scripts' / 'run_open_data_classic_path_benchmark_suite.sh',
         REPO_ROOT / 'scripts' / 'run_open_data_packet_imu_deskew_validation_matrix.sh',
         REPO_ROOT / 'scripts' / 'run_dynamic_object_filter_benchmark.sh',
+        REPO_ROOT / 'scripts' / 'run_place_recognition_benchmark.sh',
+        REPO_ROOT / 'scripts' / 'generate_classic_path_report.py',
         REPO_ROOT / 'scripts' / 'generate_place_recognition_report.py',
         REPO_ROOT / 'scripts' / 'generate_packet_imu_deskew_validation_report.py',
         REPO_ROOT / 'scripts' / 'generate_dynamic_object_filter_report.py',
@@ -140,6 +143,10 @@ def test_contributing_and_issue_templates_exist():
     assert (ISSUE_TEMPLATE_DIR / 'benchmark-report.yml').is_file()
     assert (ISSUE_TEMPLATE_DIR / 'autoware-pointcloud-map.yml').is_file()
     assert 'Benchmark Result Submissions' in contributing
+    assert 'Autoware Naming And Trademark Guidance' in contributing
+    assert 'Autoware-compatible pointcloud map' in contributing
+    assert 'official Autoware' in contributing
+    assert 'endorsed by the Autoware Foundation' in contributing
     assert 'run_release_readiness_checks.sh' in contributing
     assert 'run_autoware_quickstart.sh' in contributing
 
@@ -215,6 +222,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'run_open_data_gnss_smoke.sh' in workflows_doc
     assert 'run_open_data_applanix_velodyne_gnss_smoke.sh' in workflows_doc
     assert 'run_open_data_applanix_velodyne_gnss_benchmark.sh' in workflows_doc
+    assert 'run_open_data_classic_path_benchmark_suite.sh' in workflows_doc
     assert 'run_open_data_packet_imu_deskew_validation_matrix.sh' in workflows_doc
     assert 'run_dynamic_object_filter_benchmark.sh' in workflows_doc
     assert 'velodyne_msgs/msg/VelodyneScan' in workflows_doc
@@ -223,9 +231,13 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'run_rko_lio_graph_benchmark.sh' in benchmarking_doc
     assert 'run_rko_lio_mid360_crossval_benchmark.sh' in benchmarking_doc
     assert 'run_open_data_applanix_velodyne_gnss_benchmark.sh' in benchmarking_doc
+    assert 'run_open_data_classic_path_benchmark_suite.sh' in benchmarking_doc
     assert 'run_open_data_packet_imu_deskew_validation_matrix.sh' in benchmarking_doc
     assert 'run_dynamic_object_filter_benchmark.sh' in benchmarking_doc
     assert 'all-sensors-bag6' in benchmarking_doc
+    assert 'classic_path_report.md' in benchmarking_doc
+    assert 'generate_classic_path_report.py' in benchmarking_doc
+    assert 'run_place_recognition_benchmark.sh' in benchmarking_doc
     assert 'generate_place_recognition_report.py' in benchmarking_doc
     assert 'generate_packet_imu_deskew_validation_report.py' in benchmarking_doc
     assert 'generate_dynamic_object_filter_report.py' in benchmarking_doc

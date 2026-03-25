@@ -64,6 +64,7 @@ def test_place_recognition_report_marks_scan_context_regression(tmp_path):
     baseline_log = tmp_path / 'baseline' / 'slam.launch.log'
     candidate_log = tmp_path / 'candidate' / 'slam.launch.log'
     out_path = tmp_path / 'place_report.md'
+    out_json = tmp_path / 'place_report.json'
 
     _write_metrics(baseline_metrics, rmse=3.64, loop_count=1, attempted=1)
     _write_metrics(candidate_metrics, rmse=4.48, loop_count=2, attempted=2)
@@ -102,6 +103,8 @@ def test_place_recognition_report_marks_scan_context_regression(tmp_path):
             str(candidate_log),
             '--out',
             str(out_path),
+            '--write-json',
+            str(out_json),
         ],
         capture_output=True,
         text=True,
@@ -116,6 +119,8 @@ def test_place_recognition_report_marks_scan_context_regression(tmp_path):
     assert '`True`' in report
     assert 'Observed Scan Context candidates' in report
     assert 'regressed APE RMSE' in report
+    payload = json.loads(out_json.read_text(encoding='utf-8'))
+    assert payload['candidate']['log_summary']['scan_context_candidate_count'] == 1
 
 
 def test_place_recognition_report_marks_scan_context_improvement(tmp_path):
@@ -125,6 +130,7 @@ def test_place_recognition_report_marks_scan_context_improvement(tmp_path):
     baseline_log = tmp_path / 'baseline' / 'slam.launch.log'
     candidate_log = tmp_path / 'candidate' / 'slam.launch.log'
     out_path = tmp_path / 'place_report.md'
+    out_json = tmp_path / 'place_report.json'
 
     _write_metrics(baseline_metrics, rmse=4.10, loop_count=1, attempted=2)
     _write_metrics(candidate_metrics, rmse=3.82, loop_count=1, attempted=2)
@@ -163,6 +169,8 @@ def test_place_recognition_report_marks_scan_context_improvement(tmp_path):
             str(candidate_log),
             '--out',
             str(out_path),
+            '--write-json',
+            str(out_json),
         ],
         capture_output=True,
         text=True,
@@ -174,3 +182,5 @@ def test_place_recognition_report_marks_scan_context_improvement(tmp_path):
     report = out_path.read_text(encoding='utf-8')
     assert 'improved APE RMSE' in report
     assert '`2`' in report
+    payload = json.loads(out_json.read_text(encoding='utf-8'))
+    assert payload['baseline']['ape_rmse_m'] == 4.10

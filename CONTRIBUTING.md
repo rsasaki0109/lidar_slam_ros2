@@ -30,6 +30,30 @@ Current default path:
 Research frontends with other licenses can still be discussed, but they should
 not silently become the default path.
 
+## Autoware Naming And Trademark Guidance
+
+Keep Autoware references descriptive.
+
+Preferred wording:
+
+- `Autoware-compatible pointcloud map`
+- `pointcloud-map workflow for Autoware`
+- `works with Autoware`
+- `built on Autoware`
+
+Avoid branding this repository or a derived product as if it were an official
+Autoware product or a Foundation-approved distribution.
+
+Avoid wording such as:
+
+- `Autoware-ready` as a product tag line
+- `official Autoware`
+- `Autoware <product-name>`
+- `certified by Autoware`
+- `endorsed by the Autoware Foundation`
+
+If in doubt, prefer compatibility language over product-name language.
+
 ## Before Opening An Issue
 
 Please collect the smallest reproducible case you can.
