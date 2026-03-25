@@ -248,6 +248,7 @@ private:
     double gnss_rtk_fix_max_horizontal_stddev_m_ {0.3};
     double gnss_rtk_fix_weight_scale_ {3.0};
     double gnss_non_rtk_weight_scale_ {1.0};
+    double gnss_header_stamp_max_skew_sec_ {30.0};
     int gnss_origin_min_samples_ {3};
     double gnss_origin_consistency_threshold_m_ {20.0};
     rclcpp::Subscription < sensor_msgs::msg::NavSatFix > ::SharedPtr gnss_sub_;

@@ -78,12 +78,35 @@ public:
     imu_angular_velo_y_[imu_ptr_last_] = angular_velo.y();
     imu_angular_velo_z_[imu_ptr_last_] = angular_velo.z();
 
+    if (!imu_has_history_) {
+      imu_shift_x_[imu_ptr_last_] = 0.0f;
+      imu_shift_y_[imu_ptr_last_] = 0.0f;
+      imu_shift_z_[imu_ptr_last_] = 0.0f;
+      imu_velo_x_[imu_ptr_last_] = 0.0f;
+      imu_velo_y_[imu_ptr_last_] = 0.0f;
+      imu_velo_z_[imu_ptr_last_] = 0.0f;
+      imu_angular_rot_x_[imu_ptr_last_] = 0.0f;
+      imu_angular_rot_y_[imu_ptr_last_] = 0.0f;
+      imu_angular_rot_z_[imu_ptr_last_] = 0.0f;
+      imu_has_history_ = true;
+      return;
+    }
+
     Eigen::Matrix3f rot = quat.toRotationMatrix();
     acc = rot * acc;
     // angular_velo = rot * angular_velo;
 
     int imu_ptr_back = (imu_ptr_last_ - 1 + imu_que_length_) % imu_que_length_;
     double time_diff = imu_time_[imu_ptr_last_] - imu_time_[imu_ptr_back];
+    imu_shift_x_[imu_ptr_last_] = imu_shift_x_[imu_ptr_back];
+    imu_shift_y_[imu_ptr_last_] = imu_shift_y_[imu_ptr_back];
+    imu_shift_z_[imu_ptr_last_] = imu_shift_z_[imu_ptr_back];
+    imu_velo_x_[imu_ptr_last_] = imu_velo_x_[imu_ptr_back];
+    imu_velo_y_[imu_ptr_last_] = imu_velo_y_[imu_ptr_back];
+    imu_velo_z_[imu_ptr_last_] = imu_velo_z_[imu_ptr_back];
+    imu_angular_rot_x_[imu_ptr_last_] = imu_angular_rot_x_[imu_ptr_back];
+    imu_angular_rot_y_[imu_ptr_last_] = imu_angular_rot_y_[imu_ptr_back];
+    imu_angular_rot_z_[imu_ptr_last_] = imu_angular_rot_z_[imu_ptr_back];
     if (time_diff < scan_period_) {
       if (use_translation_deskew_) {
         imu_shift_x_[imu_ptr_last_] =
@@ -154,6 +177,7 @@ public:
     }
 
     Eigen::Vector3f rpy_start, shift_start, velo_start, rpy_cur, shift_cur, velo_cur;
+    Eigen::Vector3f angular_rot_cur;
     Eigen::Vector3f shift_from_start;
     Eigen::Matrix3f r_s_i, r_c;
     Eigen::Vector3f adjusted_p;
@@ -203,6 +227,9 @@ public:
           rpy_cur(0) = imu_roll_[imu_ptr_front_];
           rpy_cur(1) = imu_pitch_[imu_ptr_front_];
           rpy_cur(2) = imu_yaw_[imu_ptr_front_];
+          angular_rot_cur(0) = imu_angular_rot_x_[imu_ptr_front_];
+          angular_rot_cur(1) = imu_angular_rot_y_[imu_ptr_front_];
+          angular_rot_cur(2) = imu_angular_rot_z_[imu_ptr_front_];
           shift_cur(0) = imu_shift_x_[imu_ptr_front_];
           shift_cur(1) = imu_shift_y_[imu_ptr_front_];
           shift_cur(2) = imu_shift_z_[imu_ptr_front_];
@@ -219,6 +246,12 @@ public:
           rpy_cur(1) = imu_pitch_[imu_ptr_front_] * ratio_front + imu_pitch_[imu_ptr_back] *
             ratio_back;
           rpy_cur(2) = imu_yaw_[imu_ptr_front_] * ratio_front + imu_yaw_[imu_ptr_back] * ratio_back;
+          angular_rot_cur(0) = imu_angular_rot_x_[imu_ptr_front_] * ratio_front +
+            imu_angular_rot_x_[imu_ptr_back] * ratio_back;
+          angular_rot_cur(1) = imu_angular_rot_y_[imu_ptr_front_] * ratio_front +
+            imu_angular_rot_y_[imu_ptr_back] * ratio_back;
+          angular_rot_cur(2) = imu_angular_rot_z_[imu_ptr_front_] * ratio_front +
+            imu_angular_rot_z_[imu_ptr_back] * ratio_back;
           shift_cur(0) = imu_shift_x_[imu_ptr_front_] * ratio_front + imu_shift_x_[imu_ptr_back] *
             ratio_back;
           shift_cur(1) = imu_shift_y_[imu_ptr_front_] * ratio_front + imu_shift_y_[imu_ptr_back] *
@@ -233,14 +266,27 @@ public:
             ratio_back;
         }
 
-        r_c =
-          (Eigen::AngleAxisf(
-            rpy_cur(2),
-            Eigen::Vector3f::UnitZ()) *
-          Eigen::AngleAxisf(
-            rpy_cur(1),
-            Eigen::Vector3f::UnitY()) *
-          Eigen::AngleAxisf(rpy_cur(0), Eigen::Vector3f::UnitX())).toRotationMatrix();
+        if (use_orientation_for_rotation_deskew_) {
+          r_c =
+            (Eigen::AngleAxisf(
+              rpy_cur(2),
+              Eigen::Vector3f::UnitZ()) *
+            Eigen::AngleAxisf(
+              rpy_cur(1),
+              Eigen::Vector3f::UnitY()) *
+            Eigen::AngleAxisf(rpy_cur(0), Eigen::Vector3f::UnitX())).toRotationMatrix();
+        } else {
+          r_c =
+            (Eigen::AngleAxisf(
+              angular_rot_cur(2),
+              Eigen::Vector3f::UnitZ()) *
+            Eigen::AngleAxisf(
+              angular_rot_cur(1),
+              Eigen::Vector3f::UnitY()) *
+            Eigen::AngleAxisf(
+              angular_rot_cur(0),
+              Eigen::Vector3f::UnitX())).toRotationMatrix();
+        }
 
         if (i == 0) {
           rpy_start = rpy_cur;
@@ -270,6 +316,11 @@ public:
     use_translation_deskew_ = use_translation_deskew;
   }
 
+  void setUseOrientationForRotationDeskew(const bool use_orientation_for_rotation_deskew)
+  {
+    use_orientation_for_rotation_deskew_ = use_orientation_for_rotation_deskew;
+  }
+
 private:
   double scan_period_{0.1};
   static const int imu_que_length_{200};
@@ -296,7 +347,9 @@ private:
   std::array<float, imu_que_length_> imu_angular_rot_x_;
   std::array<float, imu_que_length_> imu_angular_rot_y_;
   std::array<float, imu_que_length_> imu_angular_rot_z_;
+  bool imu_has_history_ {false};
   bool use_translation_deskew_ {true};
+  bool use_orientation_for_rotation_deskew_ {true};
 };
 
 #endif  // LIDAR_UNDISTORTION_HPP_

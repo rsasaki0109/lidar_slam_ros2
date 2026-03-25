@@ -110,6 +110,16 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_applanix_imu_bridge
+    test/test_applanix_imu_bridge.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_static_transform_extractor
+    test/test_static_transform_extractor.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_applanix_gsof49_reference_extractor
     test/test_applanix_gsof49_reference_extractor.py
     TIMEOUT 120

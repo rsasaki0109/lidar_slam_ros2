@@ -63,6 +63,12 @@ struct GnssConstraintWeights
   double horizontal_stddev_m {std::numeric_limits<double>::quiet_NaN()};
 };
 
+struct GnssTimestampResolution
+{
+  double stamp_sec {0.0};
+  bool used_fallback {false};
+};
+
 inline double clampVariance(double value, double min_value, double max_value)
 {
   return std::max(min_value, std::min(max_value, value));
@@ -117,6 +123,29 @@ inline GnssConstraintWeights computeGnssConstraintWeights(
   weights.info_y = config.base_info_weight * class_scale / var_y;
   weights.info_z = config.base_info_weight * config.vertical_weight_scale * class_scale / var_z;
   return weights;
+}
+
+inline GnssTimestampResolution resolveGnssMeasurementStamp(
+  double header_stamp_sec,
+  double fallback_stamp_sec,
+  double max_skew_sec)
+{
+  GnssTimestampResolution resolved;
+  resolved.stamp_sec = header_stamp_sec;
+  if (!std::isfinite(header_stamp_sec) || header_stamp_sec <= 0.0) {
+    resolved.stamp_sec = fallback_stamp_sec;
+    resolved.used_fallback = true;
+    return resolved;
+  }
+  if (
+    std::isfinite(fallback_stamp_sec) &&
+    max_skew_sec > 0.0 &&
+    std::abs(header_stamp_sec - fallback_stamp_sec) > max_skew_sec)
+  {
+    resolved.stamp_sec = fallback_stamp_sec;
+    resolved.used_fallback = true;
+  }
+  return resolved;
 }
 
 }  // namespace detail

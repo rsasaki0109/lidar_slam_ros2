@@ -121,6 +121,83 @@ That wrapper writes a local `Applanix_GSOF49` reference trajectory,
 `traj_raw.tum`, `traj_corrected.tum`, and `metrics.json` so the run appears in
 `benchmark_summary.md` and `latest_report.html`.
 
+When the main bag already contains native `sensor_msgs/msg/NavSatFix` or
+`sensor_msgs/msg/Imu`, the same wrapper now prefers those real topics before it
+falls back to Applanix sidecar generation.
+
+Current Leo Drive packet-path evidence is:
+
+- GNSS-only baseline: `APE RMSE 195.285 m`
+- `GSOF49 -> sensor_msgs/msg/Imu` bridge with real `base_link -> velodyne_front`
+  static TF from `all-sensors-bag6`: `APE RMSE 271.144 m`
+- `all-sensors-bag6` packet path with `--use-gnss false --use-imu false`:
+  `APE RMSE 0.407 m`
+- `all-sensors-bag6` packet path with `--use-gnss false --use-imu true` and
+  native `/sensing/imu/imu_data`: `APE RMSE 23.529 m`
+- `all-sensors-bag6` packet path with native IMU rotated into the lidar frame
+  using an extracted static TF still does not recover:
+  - `velodyne_front`, orientation-based rotation deskew: `APE RMSE 28.459 m`
+  - `velodyne_left`, orientation-based rotation deskew: `APE RMSE 33.521 m`
+  - `velodyne_left`, gyro-only rotation deskew: `APE RMSE 34.089 m`
+
+So the packet-based Applanix IMU bridge remains supported but stays off by
+default, and the `all-sensors-bag6` A/B shows the current instability is not
+specific to the Applanix bridge. Switching from absolute-orientation rotation
+deskew to gyro-only rotation deskew also does not fix the packet path. To
+reproduce the current experimental IMU result on the driving bag:
+
+```bash
+git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
+bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh \
+  --bag demo_data/autoware_leo_drive_isuzu/driving_30_kmh_2022_06_10-15_47_42_compressed \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg \
+  --use-imu true \
+  --tf-bag demo_data/autoware_leo_drive_isuzu/all-sensors-bag6_compressed \
+  --robot-frame-id base_link \
+  --imu-frame-id base_link \
+  --verify-map
+```
+
+To compare the same packet path on `all-sensors-bag6` while isolating IMU
+deskew from GNSS:
+
+```bash
+git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
+bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh \
+  --bag demo_data/autoware_leo_drive_isuzu/all-sensors-bag6_compressed \
+  --packet-topic /sensing/lidar/front/velodyne_packets \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg \
+  --use-gnss false \
+  --verify-map
+
+bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh \
+  --bag demo_data/autoware_leo_drive_isuzu/all-sensors-bag6_compressed \
+  --packet-topic /sensing/lidar/front/velodyne_packets \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg \
+  --tf-bag demo_data/autoware_leo_drive_isuzu/all-sensors-bag6_compressed \
+  --use-gnss false \
+  --use-imu true \
+  --verify-map
+
+bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh \
+  --bag demo_data/autoware_leo_drive_isuzu/all-sensors-bag6_compressed \
+  --packet-topic /sensing/lidar/left/velodyne_packets \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg \
+  --tf-bag demo_data/autoware_leo_drive_isuzu/all-sensors-bag6_compressed \
+  --use-gnss false \
+  --use-imu true \
+  --imu-rotation-use-orientation false \
+  --verify-map
+```
+
+The same bag also exposes native `/gnss/fix`. The backend now falls back to
+receive time when the NavSatFix header stamp is far from ROS time
+(`gnss_header_stamp_max_skew_sec`, default `30 s`), which lets the graph attach
+GNSS edges on `all-sensors-bag6`. In practice that native `/gnss/fix` still
+disagrees with the `GSOF49` reference enough to degrade the cross-validation
+APE, so `all-sensors-bag6` is useful for georeferenced smoke tests but not a
+clean GNSS benchmark source.
+
 To compare place-recognition behavior on MID360, rerun the same benchmark with
 and without Scan Context and then render the short report:
 

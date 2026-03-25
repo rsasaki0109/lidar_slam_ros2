@@ -20,6 +20,12 @@ Options:
   --packet-topic TOPIC        VelodyneScan topic in the main bag (auto-detect if omitted).
   --gnss-bag PATH             Optional NavSatFix sidecar rosbag2. If omitted, one is generated from GSOF49/50.
   --gnss-topic TOPIC          NavSatFix topic (default: /gnss/fix).
+  --use-imu BOOL              Enable IMU sidecar for deskew (default: false).
+  --imu-bag PATH              Optional Imu sidecar rosbag2. If omitted and --use-imu=true, one is generated.
+  --imu-topic TOPIC           Imu topic for scanmatcher/graph_based_slam (default: /imu).
+  --imu-translation-deskew BOOL
+                              Enable translational deskew from IMU acceleration (default: false).
+  --imu-pose-prediction BOOL  Enable IMU-based pose prior in scanmatcher (default: false).
   --gsof49-topic TOPIC        Applanix GSOF49 topic.
   --gsof50-topic TOPIC        Applanix GSOF50 topic.
   --applanix-msg-dir PATH     Path to applanix_msgs/msg (default: /tmp/applanix/applanix_msgs/msg).
@@ -39,7 +45,10 @@ Notes:
   - This workflow is meant for real open-data bags that expose:
       * LiDAR as velodyne_msgs/msg/VelodyneScan
       * GNSS quality as Applanix GSOF49/50
+      * INS orientation/rates as Applanix GSOF49
   - The script converts raw packets to PointCloud2 with velodyne_pointcloud.
+  - Applanix acceleration appears gravity-compensated on Leo Drive, so
+    translational deskew stays off by default and only rotational deskew is enabled.
   - The generated/selected GNSS sidecar is played without --clock to avoid conflicting clock publishers.
 EOF
 }
@@ -127,21 +136,65 @@ with AnyReader([bag_path], default_typestore=typestore) as reader:
 PY
 }
 
-create_gnss_enabled_param() {
+create_main_param() {
   local base_param="$1"
   local out_param="$2"
+  local use_imu="$3"
+  local imu_translation_deskew="$4"
+  local imu_pose_prediction_enable="$5"
   cp "${base_param}" "${out_param}"
-  python3 - "${out_param}" <<'PY'
+  python3 - "${out_param}" "${use_imu}" "${imu_translation_deskew}" "${imu_pose_prediction_enable}" <<'PY'
 from pathlib import Path
 import sys
 
 path = Path(sys.argv[1])
+use_imu = sys.argv[2].strip().lower() in {'1', 'true', 'yes', 'on'}
+imu_translation_deskew = sys.argv[3].strip().lower() in {'1', 'true', 'yes', 'on'}
+imu_pose_prediction_enable = sys.argv[4].strip().lower() in {'1', 'true', 'yes', 'on'}
 text = path.read_text(encoding='utf-8')
-needle = '      use_gnss: false'
-if needle in text:
-    text = text.replace(needle, '      use_gnss: true', 1)
-elif '      use_gnss: true' not in text:
-    raise SystemExit('could not find graph_based_slam use_gnss parameter in base YAML')
+if '      use_gnss: false' in text or '      use_gnss: true' in text:
+    text = text.replace('      use_gnss: false', '      use_gnss: true', 1)
+    text = text.replace('      use_gnss: true', '      use_gnss: true', 1)
+else:
+    raise SystemExit('failed to update base YAML parameters: use_gnss')
+use_imu_line = f'    use_imu: {"true" if use_imu else "false"}'
+if '    use_imu: true' in text or '    use_imu: false' in text:
+    text = text.replace('    use_imu: true', use_imu_line, 1)
+    text = text.replace('    use_imu: false', use_imu_line, 1)
+else:
+    raise SystemExit('failed to update base YAML parameters: use_imu')
+imu_translation_line = (
+    f'    imu_translation_deskew: {"true" if imu_translation_deskew else "false"}'
+)
+if '    imu_translation_deskew: true' in text or '    imu_translation_deskew: false' in text:
+    text = text.replace('    imu_translation_deskew: true', imu_translation_line, 1)
+    text = text.replace('    imu_translation_deskew: false', imu_translation_line, 1)
+else:
+    text = text.replace(use_imu_line, use_imu_line + '\n' + imu_translation_line, 1)
+imu_pose_prediction_line = (
+    '    imu_pose_prediction_enable: '
+    f'{"true" if imu_pose_prediction_enable else "false"}'
+)
+if (
+    '    imu_pose_prediction_enable: true' in text or
+    '    imu_pose_prediction_enable: false' in text
+):
+    text = text.replace(
+        '    imu_pose_prediction_enable: true',
+        imu_pose_prediction_line,
+        1,
+    )
+    text = text.replace(
+        '    imu_pose_prediction_enable: false',
+        imu_pose_prediction_line,
+        1,
+    )
+else:
+    text = text.replace(
+        imu_translation_line,
+        imu_translation_line + '\n' + imu_pose_prediction_line,
+        1,
+    )
 path.write_text(text, encoding='utf-8')
 PY
 }
@@ -207,6 +260,11 @@ BAG_PATH=""
 PACKET_TOPIC=""
 GNSS_BAG=""
 GNSS_TOPIC="/gnss/fix"
+USE_IMU="false"
+IMU_BAG=""
+IMU_TOPIC="/imu"
+IMU_TRANSLATION_DESKEW="false"
+IMU_POSE_PREDICTION="false"
 GSOF49_TOPIC="/lvx_client/gsof/ins_solution_49"
 GSOF50_TOPIC="/lvx_client/gsof/ins_solution_rms_50"
 APPLANIX_MSG_DIR="/tmp/applanix/applanix_msgs/msg"
@@ -236,6 +294,16 @@ while [[ $# -gt 0 ]]; do
       GNSS_BAG="$(realpath "${2:-}")"; shift 2 ;;
     --gnss-topic)
       GNSS_TOPIC="${2:-}"; shift 2 ;;
+    --use-imu)
+      USE_IMU="${2:-}"; shift 2 ;;
+    --imu-bag)
+      IMU_BAG="$(realpath "${2:-}")"; shift 2 ;;
+    --imu-topic)
+      IMU_TOPIC="${2:-}"; shift 2 ;;
+    --imu-translation-deskew)
+      IMU_TRANSLATION_DESKEW="${2:-}"; shift 2 ;;
+    --imu-pose-prediction)
+      IMU_POSE_PREDICTION="${2:-}"; shift 2 ;;
     --gsof49-topic)
       GSOF49_TOPIC="${2:-}"; shift 2 ;;
     --gsof50-topic)
@@ -331,6 +399,7 @@ fi
 [[ -f "${VELODYNE_CALIBRATION}" ]] || die "velodyne calibration not found: ${VELODYNE_CALIBRATION}"
 
 CONVERT_LOG="${SAVE_DIR}/convert_applanix.log"
+IMU_CONVERT_LOG="${SAVE_DIR}/convert_applanix_imu.log"
 if [[ -z "${GNSS_BAG}" ]]; then
   [[ -d "${APPLANIX_MSG_DIR}" ]] || {
     die "applanix_msgs dir not found: ${APPLANIX_MSG_DIR}"
@@ -349,10 +418,36 @@ fi
 [[ -d "${GNSS_BAG}" ]] || die "gnss bag not found: ${GNSS_BAG}"
 [[ -f "${GNSS_BAG}/metadata.yaml" ]] || die "metadata.yaml not found under ${GNSS_BAG}"
 
+if [[ "${USE_IMU,,}" == "true" ]]; then
+  if [[ -z "${IMU_BAG}" ]]; then
+    [[ -d "${APPLANIX_MSG_DIR}" ]] || {
+      die "applanix_msgs dir not found: ${APPLANIX_MSG_DIR}"
+    }
+    IMU_BAG="${SAVE_DIR}/applanix_imu_sidecar"
+    python3 "${SCRIPT_DIR}/convert_applanix_gsof_to_imu_bag.py" \
+      --input "${BAG_PATH}" \
+      --output "${IMU_BAG}" \
+      --gsof49-topic "${GSOF49_TOPIC}" \
+      --gsof50-topic "${GSOF50_TOPIC}" \
+      --output-topic "${IMU_TOPIC}" \
+      --frame-id "${ROBOT_FRAME_ID}" \
+      --applanix-msg-dir "${APPLANIX_MSG_DIR}" \
+      --force \
+      >"${IMU_CONVERT_LOG}" 2>&1
+  fi
+  [[ -d "${IMU_BAG}" ]] || die "imu bag not found: ${IMU_BAG}"
+  [[ -f "${IMU_BAG}/metadata.yaml" ]] || die "metadata.yaml not found under ${IMU_BAG}"
+fi
+
 TMP_PARAM="$(mktemp --suffix=.yaml)"
 VELODYNE_PARAM="$(mktemp --suffix=.yaml)"
 QOS_FILE="$(mktemp --suffix=.yaml)"
-create_gnss_enabled_param "${PARAM_FILE}" "${TMP_PARAM}"
+create_main_param \
+  "${PARAM_FILE}" \
+  "${TMP_PARAM}" \
+  "${USE_IMU}" \
+  "${IMU_TRANSLATION_DESKEW}" \
+  "${IMU_POSE_PREDICTION}"
 
 cat >"${VELODYNE_PARAM}" <<EOF
 velodyne_transform_node:
@@ -379,6 +474,7 @@ LAUNCH_LOG="${SAVE_DIR}/lidarslam.launch.log"
 MAP_SAVE_LOG="${SAVE_DIR}/map_save.log"
 MAIN_PLAY_LOG="${SAVE_DIR}/main_bag_play.log"
 GNSS_PLAY_LOG="${SAVE_DIR}/gnss_bag_play.log"
+IMU_PLAY_LOG="${SAVE_DIR}/imu_bag_play.log"
 VELODYNE_LOG="${SAVE_DIR}/velodyne_transform.log"
 VERIFY_LOG="${SAVE_DIR}/verify_autoware_map.log"
 POINTS_TOPIC="/open_data/velodyne_points"
@@ -386,9 +482,10 @@ POINTS_TOPIC="/open_data/velodyne_points"
 LAUNCH_PID=""
 MAIN_PLAY_PID=""
 GNSS_PLAY_PID=""
+IMU_PLAY_PID=""
 VELODYNE_PID=""
 cleanup() {
-  for pid in "${GNSS_PLAY_PID}" "${MAIN_PLAY_PID}" "${VELODYNE_PID}" "${LAUNCH_PID}"; do
+  for pid in "${IMU_PLAY_PID}" "${GNSS_PLAY_PID}" "${MAIN_PLAY_PID}" "${VELODYNE_PID}" "${LAUNCH_PID}"; do
     if [[ -n "${pid}" ]]; then
       kill "${pid}" 2>/dev/null || true
       wait "${pid}" 2>/dev/null || true
@@ -403,6 +500,13 @@ echo "  bag:                 ${BAG_PATH}"
 echo "  packet_topic:        ${PACKET_TOPIC}"
 echo "  gnss_bag:            ${GNSS_BAG}"
 echo "  gnss_topic:          ${GNSS_TOPIC}"
+echo "  use_imu:             ${USE_IMU}"
+if [[ "${USE_IMU,,}" == "true" ]]; then
+  echo "  imu_bag:             ${IMU_BAG}"
+  echo "  imu_topic:           ${IMU_TOPIC}"
+  echo "  imu_translation_deskew:${IMU_TRANSLATION_DESKEW}"
+  echo "  imu_pose_prediction: ${IMU_POSE_PREDICTION}"
+fi
 echo "  velodyne_model:      ${VELODYNE_MODEL}"
 echo "  velodyne_calibration:${VELODYNE_CALIBRATION}"
 echo "  robot_frame:         ${ROBOT_FRAME_ID}"
@@ -419,6 +523,7 @@ VELODYNE_PID="$!"
 ros2 launch lidarslam lidarslam.launch.py \
   "main_param_dir:=${TMP_PARAM}" \
   "input_cloud:=${POINTS_TOPIC}" \
+  "imu_topic:=${IMU_TOPIC}" \
   "gnss_topic:=${GNSS_TOPIC}" \
   "robot_frame_id:=${ROBOT_FRAME_ID}" \
   "base_frame:=${ROBOT_FRAME_ID}" \
@@ -446,10 +551,21 @@ timeout "${PLAY_WALL_SEC}" ros2 bag play "${GNSS_BAG}" \
   >"${GNSS_PLAY_LOG}" 2>&1 &
 GNSS_PLAY_PID="$!"
 
+if [[ "${USE_IMU,,}" == "true" ]]; then
+  timeout "${PLAY_WALL_SEC}" ros2 bag play "${IMU_BAG}" \
+    --rate "${RATE}" \
+    >"${IMU_PLAY_LOG}" 2>&1 &
+  IMU_PLAY_PID="$!"
+fi
+
 wait "${MAIN_PLAY_PID}" || true
 MAIN_PLAY_PID=""
 wait "${GNSS_PLAY_PID}" || true
 GNSS_PLAY_PID=""
+if [[ -n "${IMU_PLAY_PID}" ]]; then
+  wait "${IMU_PLAY_PID}" || true
+  IMU_PLAY_PID=""
+fi
 
 sleep "${DRAIN_SEC}"
 

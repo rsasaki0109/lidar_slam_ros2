@@ -42,19 +42,28 @@ OVERLAY_SCRIPT = (
 
 
 def test_applanix_velodyne_smoke_script_uses_packet_conversion_and_gnss_sidecar():
-    """The wrapper should convert packets and generate a NavSatFix sidecar."""
+    """The wrapper should convert packets and generate GNSS/IMU sidecars."""
     script = SMOKE_SCRIPT.read_text(encoding='utf-8')
 
     assert 'convert_applanix_gsof_to_navsatfix_bag.py' in script
+    assert 'convert_applanix_gsof_to_imu_bag.py' in script
     assert 'velodyne_transform_node' in script
     assert '--gsof49-topic "${GSOF49_TOPIC}"' in script
     assert '--gsof50-topic "${GSOF50_TOPIC}"' in script
     assert '--output-topic "${GNSS_TOPIC}"' in script
+    assert '--output-topic "${IMU_TOPIC}"' in script
+    assert '--frame-id "${ROBOT_FRAME_ID}"' in script
     assert '--qos-profile-overrides-path "${QOS_FILE}"' in script
     assert '"gnss_topic:=${GNSS_TOPIC}" \\' in script
+    assert '"imu_topic:=${IMU_TOPIC}" \\' in script
     assert '"input_cloud:=${POINTS_TOPIC}" \\' in script
     assert '"publish_static_tf:=false" \\' in script
     assert 'POINTS_TOPIC="/open_data/velodyne_points"' in script
+    assert '--use-imu BOOL' in script
+    assert '--imu-pose-prediction BOOL' in script
+    assert 'IMU_TRANSLATION_DESKEW="false"' in script
+    assert 'IMU_POSE_PREDICTION="false"' in script
+    assert 'if [[ "${USE_IMU,,}" == "true" ]]; then' in script
 
 
 def test_applanix_velodyne_smoke_script_supports_overlay_bootstrap():
