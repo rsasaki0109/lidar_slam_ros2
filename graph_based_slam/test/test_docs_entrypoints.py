@@ -106,6 +106,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'benchmark_summary.py',
         REPO_ROOT / 'scripts' / 'generate_html_report.py',
         REPO_ROOT / 'scripts' / 'generate_v2_beta_readiness_report.py',
+        REPO_ROOT / 'scripts' / 'generate_map_authoring_report.py',
         REPO_ROOT / 'scripts' / 'generate_stress_validation_report.py',
         REPO_ROOT / 'scripts' / 'generate_readme_loop_zoom_figure.py',
         REPO_ROOT / 'scripts' / 'write_aligned_trajectory_metrics.py',
@@ -244,6 +245,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'run_release_readiness_checks.sh' in benchmarking_doc
     assert 'docs/comparison.md' in benchmarking_doc
     assert 'generate_v2_beta_readiness_report.py' in benchmarking_doc
+    assert 'generate_map_authoring_report.py' in benchmarking_doc
     assert 'generate_stress_validation_report.py' in benchmarking_doc
     assert 'write_aligned_trajectory_metrics.py' in benchmarking_doc
     assert '--profile failing' in benchmarking_doc

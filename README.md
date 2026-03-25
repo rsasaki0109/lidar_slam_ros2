@@ -44,6 +44,7 @@ Out of scope for the public path:
 - packet-based Applanix IMU deskew support exists for real open data, but it remains experimental and off by default in the Leo Drive packet path
 - the Leo Drive classic path now has a dedicated benchmark-suite entrypoint and report
 - place-recognition and dynamic-filter comparisons both have report generators with tracked artifacts
+- a focused map-authoring report can summarize benchmark, GNSS, cleanup, and classic-path evidence in one place
 
 ## Install
 
