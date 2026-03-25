@@ -21,10 +21,10 @@ import generate_readme_mid360_figures as mid360_fig
 ROOT = Path(__file__).resolve().parents[1]
 IMAGE_DIR = ROOT / "lidarslam" / "images"
 DEFAULT_OUT = IMAGE_DIR / "mid360_glim_map_compare.png"
-DEFAULT_METRICS = (
+DEFAULT_MID360_METRICS = (
     ROOT / "output" / "bench_rko_lio_mid360_current_default_20260325" / "metrics.json"
 )
-DEFAULT_TRAJ = (
+DEFAULT_MID360_TRAJ = (
     ROOT / "output" / "bench_rko_lio_mid360_current_default_20260325" / "traj_corrected.tum"
 )
 
@@ -201,8 +201,8 @@ def parse_args() -> argparse.Namespace:
         description="Generate the README large-loop overview image for the MID360 default run.",
     )
     parser.add_argument("--bag", default=str(mid360_fig.BAG_PATH))
-    parser.add_argument("--traj", default=str(DEFAULT_TRAJ))
-    parser.add_argument("--metrics", default=str(DEFAULT_METRICS))
+    parser.add_argument("--traj", default=str(DEFAULT_MID360_TRAJ))
+    parser.add_argument("--metrics", default=str(DEFAULT_MID360_METRICS))
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--scan-stride", type=int, default=10)
     parser.add_argument("--point-stride", type=int, default=24)

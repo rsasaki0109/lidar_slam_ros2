@@ -12,13 +12,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import generate_readme_mid360_figures as mid360_fig
+from generate_readme_large_loop_map_figure import DEFAULT_MID360_METRICS
+from generate_readme_large_loop_map_figure import DEFAULT_MID360_TRAJ
 
 
 ROOT = Path(__file__).resolve().parents[1]
 IMAGE_DIR = ROOT / "lidarslam" / "images"
 DEFAULT_OUT = IMAGE_DIR / "mid360_loop_closure_zoom.png"
-DEFAULT_METRICS = ROOT / "output" / "bench_rko_lio_mid360_current_default_20260325" / "metrics.json"
-DEFAULT_TRAJ = ROOT / "output" / "bench_rko_lio_mid360_current_default_20260325" / "traj_corrected.tum"
 
 
 def _load_metrics(path: Path) -> dict:
@@ -121,7 +121,7 @@ def build_loop_zoom_png(
         0.0,
         0.40,
         (
-            f"Current default run, accepted loop {from_index} -> {to_index}. "
+            f"Same current default run as the overview above, accepted loop {from_index} -> {to_index}. "
             "The right panel zooms into the closing segment so duplicated structure is easier to spot."
         ),
         fontsize=10.5,
@@ -235,8 +235,8 @@ def parse_args() -> argparse.Namespace:
         description="Generate the README loop-closure zoom image for the MID360 default run.",
     )
     parser.add_argument("--bag", default=str(mid360_fig.BAG_PATH), help="ROS 2 bag used to reconstruct sampled map points")
-    parser.add_argument("--traj", default=str(DEFAULT_TRAJ), help="Corrected TUM trajectory for the published run")
-    parser.add_argument("--metrics", default=str(DEFAULT_METRICS), help="metrics.json containing the accepted loop edge")
+    parser.add_argument("--traj", default=str(DEFAULT_MID360_TRAJ), help="Corrected TUM trajectory for the published run")
+    parser.add_argument("--metrics", default=str(DEFAULT_MID360_METRICS), help="metrics.json containing the accepted loop edge")
     parser.add_argument("--out", default=str(DEFAULT_OUT), help="Output PNG path")
     parser.add_argument("--scan-stride", type=int, default=10, help="Use every Nth point-cloud message")
     parser.add_argument("--point-stride", type=int, default=24, help="Use every Nth point in each sampled cloud")
