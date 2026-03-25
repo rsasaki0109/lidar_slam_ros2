@@ -1,7 +1,7 @@
 lidarslam_ros2
 ====
 
-ROS 2 LiDAR SLAM focused on non-GPL pointcloud-map generation and Autoware integration.
+ROS 2 LiDAR SLAM focused on non-GPL pointcloud-map authoring, benchmarking, and compatibility with Autoware pointcloud-map workflows.
 
 > Status: `develop` tracks the current `v2 alpha` line.
 > For the latest tagged public beta, see [v0.2.0 Release Notes](docs/releases/v0.2.0.md).
@@ -33,6 +33,7 @@ Out of scope for the public path:
 ## Why This Repo
 
 - non-GPL default path: `graph_based_slam` (BSD-2-Clause), `scanmatcher` (project-local), `RKO-LIO` (MIT), `DLIO` (MIT), `FAST_GICP` (BSD-3-Clause)
+- pointcloud-map authoring is treated as a first-class workflow, not just a side-effect of odometry
 - Autoware pointcloud-map flow is exercised end-to-end
 - default benchmark path is tracked on `NTU VIRAL`
 - current long-loop evidence is tracked on `MID360`
@@ -113,7 +114,7 @@ Loop-area zoom from the current MID360 default run. This view is meant to make c
 | `MID360` | best observed | `cross_validation` | `3.590` | `PASS` |
 
 More detail lives in [docs/comparison.md](docs/comparison.md), [docs/benchmarking.md](docs/benchmarking.md), `output/benchmark_summary.md`, and `output/latest_report.html`.
-The focused dynamic-filter, classic-path, and place-recognition report artifacts are also tracked under `output/`.
+The focused dynamic-filter, classic-path, and place-recognition report artifacts are also tracked under `output/`. The product positioning is summarized in [docs/comparison.md](docs/comparison.md).
 
 ## Main Entrypoints
 
