@@ -189,6 +189,7 @@ private:
     bool use_odom_ {false};
     bool use_imu_ {false};
     bool imu_translation_deskew_ {true};
+    bool imu_rotation_deskew_use_orientation_ {true};
     bool imu_pose_prediction_enable_ {true};
     double imu_pose_prediction_max_age_ {0.2};
     double imu_pose_prediction_max_roll_pitch_deg_ {12.0};

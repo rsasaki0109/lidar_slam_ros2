@@ -21,6 +21,12 @@ TEST_F(LidarUndistortionTest, SetUseTranslationDeskew)
   undistortion_.setUseTranslationDeskew(true);
 }
 
+TEST_F(LidarUndistortionTest, SetUseOrientationForRotationDeskew)
+{
+  undistortion_.setUseOrientationForRotationDeskew(false);
+  undistortion_.setUseOrientationForRotationDeskew(true);
+}
+
 TEST_F(LidarUndistortionTest, GetImuBuffersSingleSample)
 {
   Eigen::Vector3f angular_velo(0.0f, 0.0f, 0.1f);
@@ -200,4 +206,49 @@ TEST_F(LidarUndistortionTest, AdjustDistortionUsesExplicitPointTimes)
   EXPECT_FLOAT_EQ(cloud->points[0].y, original.points[0].y);
   EXPECT_NEAR(cloud->points[1].x, 4.9937515f, 1e-3f);
   EXPECT_NEAR(cloud->points[1].y, 0.24989584f, 1e-3f);
+}
+
+TEST_F(LidarUndistortionTest, GyroOnlyRotationDeskewMatchesOrientationPath)
+{
+  LidarUndistortion gyro_only;
+  gyro_only.setScanPeriod(0.1);
+  gyro_only.setUseOrientationForRotationDeskew(false);
+
+  undistortion_.setScanPeriod(0.1);
+
+  Eigen::Vector3f angular_velo(0.0f, 0.0f, 1.0f);
+  Eigen::Vector3f acc(0.0f, 0.0f, 0.0f);
+
+  Eigen::Quaternionf quat0 = Eigen::Quaternionf::Identity();
+  Eigen::Quaternionf quat1(Eigen::AngleAxisf(0.05f, Eigen::Vector3f::UnitZ()));
+  Eigen::Quaternionf quat2(Eigen::AngleAxisf(0.10f, Eigen::Vector3f::UnitZ()));
+
+  undistortion_.getImu(angular_velo, acc, quat0, 1.00);
+  undistortion_.getImu(angular_velo, acc, quat1, 1.05);
+  undistortion_.getImu(angular_velo, acc, quat2, 1.10);
+
+  gyro_only.getImu(angular_velo, acc, quat0, 1.00);
+  gyro_only.getImu(angular_velo, acc, quat1, 1.05);
+  gyro_only.getImu(angular_velo, acc, quat2, 1.10);
+
+  pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_orientation(
+    new pcl::PointCloud<pcl::PointXYZI>());
+  pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_gyro(
+    new pcl::PointCloud<pcl::PointXYZI>());
+  pcl::PointXYZI p0;
+  p0.x = 5.0f;
+  p0.y = 0.0f;
+  p0.z = 0.0f;
+  p0.intensity = 100.0f;
+  cloud_orientation->push_back(p0);
+  cloud_orientation->push_back(p0);
+  *cloud_gyro = *cloud_orientation;
+
+  const std::vector<float> point_times {0.0f, 0.05f};
+  undistortion_.adjustDistortion(cloud_orientation, 1.0, &point_times);
+  gyro_only.adjustDistortion(cloud_gyro, 1.0, &point_times);
+
+  EXPECT_NEAR(cloud_orientation->points[1].x, cloud_gyro->points[1].x, 1e-4f);
+  EXPECT_NEAR(cloud_orientation->points[1].y, cloud_gyro->points[1].y, 1e-4f);
+  EXPECT_NEAR(cloud_orientation->points[1].z, cloud_gyro->points[1].z, 1e-4f);
 }

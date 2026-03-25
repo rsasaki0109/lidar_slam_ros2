@@ -254,6 +254,10 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   get_parameter("use_imu", use_imu_);
   declare_parameter("imu_translation_deskew", true);
   get_parameter("imu_translation_deskew", imu_translation_deskew_);
+  declare_parameter("imu_rotation_deskew_use_orientation", true);
+  get_parameter(
+    "imu_rotation_deskew_use_orientation",
+    imu_rotation_deskew_use_orientation_);
   declare_parameter("imu_pose_prediction_enable", true);
   get_parameter("imu_pose_prediction_enable", imu_pose_prediction_enable_);
   declare_parameter("imu_pose_prediction_max_age", 0.2);
@@ -353,6 +357,8 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   std::cout << "use_imu:" << std::boolalpha << use_imu_ << std::endl;
   std::cout << "imu_translation_deskew:" << std::boolalpha << imu_translation_deskew_ <<
     std::endl;
+  std::cout << "imu_rotation_deskew_use_orientation:" << std::boolalpha <<
+    imu_rotation_deskew_use_orientation_ << std::endl;
   std::cout << "imu_pose_prediction_enable:" << std::boolalpha << imu_pose_prediction_enable_ <<
     std::endl;
   std::cout << "imu_pose_prediction_max_age[sec]:" << imu_pose_prediction_max_age_ << std::endl;
@@ -492,6 +498,8 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
 
   lidar_undistortion_.setScanPeriod(scan_period_);
   lidar_undistortion_.setUseTranslationDeskew(imu_translation_deskew_);
+  lidar_undistortion_.setUseOrientationForRotationDeskew(
+    imu_rotation_deskew_use_orientation_);
 
   initializePubSub();
 

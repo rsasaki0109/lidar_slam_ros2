@@ -41,10 +41,9 @@ Out of scope for the public path:
 - default benchmark path is tracked on `NTU VIRAL`
 - current long-loop evidence is tracked on `MID360`
 - optional GNSS georeferencing writes `map_projector_info.yaml`
-- GNSS edges can use covariance-based weighting, with RTK-like fixes inferred
-  from low horizontal covariance
-- GPL-free Scan Context place recognition is available in
-  `graph_based_slam`
+- GNSS edges can use covariance-based weighting, with RTK-like fixes inferred from low horizontal covariance
+- GPL-free Scan Context place recognition is available in `graph_based_slam`
+- packet-based Applanix IMU deskew support exists for real open data, but it remains experimental and off by default in the Leo Drive packet path
 
 ## Install
 

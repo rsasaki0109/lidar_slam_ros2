@@ -49,13 +49,39 @@ def test_open_data_benchmark_script_writes_reference_and_metrics():
 
 
 def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion():
-    """The benchmark wrapper should be able to run with or without GNSS."""
+    """The benchmark wrapper should support native-topic fallback and sidecars."""
     script = SCRIPT_PATH.read_text(encoding='utf-8')
 
     assert '--use-gnss BOOL' in script
+    assert '--use-imu BOOL' in script
+    assert '--imu-rotation-use-orientation BOOL' in script
+    assert '--imu-pose-prediction BOOL' in script
     assert 'create_main_param' in script
     assert 'terminate_pid()' in script
     assert 'velodyne_transform_node' in script
+    assert 'convert_applanix_gsof_to_imu_bag.py' in script
+    assert 'extract_static_transform_from_bag.py' in script
+    assert 'topic_exists_by_name_and_type()' in script
+    assert 'detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/NavSatFix"' in script
+    assert 'detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/Imu"' in script
+    assert 'GNSS_FROM_MAIN="false"' in script
+    assert 'IMU_FROM_MAIN="false"' in script
+    assert 'TF_IN_MAIN="false"' in script
+    assert 'PUBLISH_IMU_STATIC_TF="false"' in script
+    assert 'gnss_source:         main bag' in script
+    assert 'imu_source:          main bag' in script
     assert '--qos-profile-overrides-path "${QOS_FILE}"' in script
     assert 'POINTS_TOPIC="/open_data/velodyne_points"' in script
     assert 'if [[ "${USE_GNSS,,}" == "true" ]]; then' in script
+    assert 'if [[ "${USE_IMU,,}" == "true" ]]; then' in script
+    assert 'MAIN_PLAY_TOPICS=("${PACKET_TOPIC}")' in script
+    assert 'MAIN_PLAY_TOPICS+=("${TF_STATIC_TOPIC}")' in script
+    assert 'MAIN_PLAY_TOPICS+=("${GNSS_TOPIC}")' in script
+    assert 'MAIN_PLAY_TOPICS+=("${IMU_TOPIC}")' in script
+    assert '"imu_topic:=${IMU_TOPIC}" \\' in script
+    assert 'IMU_TRANSLATION_DESKEW="false"' in script
+    assert 'IMU_ROTATION_USE_ORIENTATION="true"' in script
+    assert 'IMU_POSE_PREDICTION="false"' in script
+    assert 'imu_static_tf.log' in script
+    assert 'TF_BAG=""' in script
+    assert '--tf-bag PATH' in script

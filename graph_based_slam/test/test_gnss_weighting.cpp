@@ -133,6 +133,30 @@ TEST(GnssWeighting, ClampsVerySmallVarianceBeforeWeighting)
   EXPECT_DOUBLE_EQ(weights.info_z, 5.0);
 }
 
+TEST(GnssWeighting, KeepsReasonableHeaderTimestamp)
+{
+  const auto resolved = resolveGnssMeasurementStamp(101.25, 100.0, 5.0);
+
+  EXPECT_FALSE(resolved.used_fallback);
+  EXPECT_DOUBLE_EQ(resolved.stamp_sec, 101.25);
+}
+
+TEST(GnssWeighting, FallsBackWhenHeaderTimestampIsZero)
+{
+  const auto resolved = resolveGnssMeasurementStamp(0.0, 100.0, 5.0);
+
+  EXPECT_TRUE(resolved.used_fallback);
+  EXPECT_DOUBLE_EQ(resolved.stamp_sec, 100.0);
+}
+
+TEST(GnssWeighting, FallsBackWhenHeaderTimestampSkewIsTooLarge)
+{
+  const auto resolved = resolveGnssMeasurementStamp(478404.12, 1656075186.17, 30.0);
+
+  EXPECT_TRUE(resolved.used_fallback);
+  EXPECT_DOUBLE_EQ(resolved.stamp_sec, 1656075186.17);
+}
+
 }  // namespace
 }  // namespace detail
 }  // namespace graphslam

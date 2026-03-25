@@ -133,6 +133,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("gnss_rtk_fix_weight_scale", gnss_rtk_fix_weight_scale_);
   declare_parameter("gnss_non_rtk_weight_scale", 1.0);
   get_parameter("gnss_non_rtk_weight_scale", gnss_non_rtk_weight_scale_);
+  declare_parameter("gnss_header_stamp_max_skew_sec", 30.0);
+  get_parameter("gnss_header_stamp_max_skew_sec", gnss_header_stamp_max_skew_sec_);
   declare_parameter("gnss_origin_min_samples", 3);
   get_parameter("gnss_origin_min_samples", gnss_origin_min_samples_);
   declare_parameter("gnss_origin_consistency_threshold_m", 20.0);
@@ -194,6 +196,13 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       "gnss_non_rtk_weight_scale must be positive, resetting %.3f to 1.0",
       gnss_non_rtk_weight_scale_);
     gnss_non_rtk_weight_scale_ = 1.0;
+  }
+  if (gnss_header_stamp_max_skew_sec_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "gnss_header_stamp_max_skew_sec must be positive, resetting %.3f to 30.0",
+      gnss_header_stamp_max_skew_sec_);
+    gnss_header_stamp_max_skew_sec_ = 30.0;
   }
   if (search_submap_num_ < 1) {
     RCLCPP_WARN(
@@ -1117,8 +1126,15 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
   weighting_config.non_rtk_weight_scale = gnss_non_rtk_weight_scale_;
   const detail::GnssConstraintWeights gnss_weights =
     detail::computeGnssConstraintWeights(msg, weighting_config);
+  const double receive_time_sec = get_clock()->now().seconds();
+  const double header_time_sec = rclcpp::Time(msg.header.stamp).seconds();
+  const detail::GnssTimestampResolution stamp_resolution =
+    detail::resolveGnssMeasurementStamp(
+      header_time_sec,
+      receive_time_sec,
+      gnss_header_stamp_max_skew_sec_);
   GnssEnu g;
-  g.stamp = rclcpp::Time(msg.header.stamp).seconds();
+  g.stamp = stamp_resolution.stamp_sec;
   g.x = enu.x();
   g.y = enu.y();
   g.z = enu.z();
@@ -1129,6 +1145,17 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
   g.rtk_like = gnss_weights.rtk_like;
   g.horizontal_stddev_m = gnss_weights.horizontal_stddev_m;
   gnss_buffer_.push_back(g);
+
+  if (debug_flag_ && stamp_resolution.used_fallback) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(),
+      *get_clock(),
+      5000,
+      "GNSS header stamp %.3f s differs from receive time %.3f s by more than %.3f s; using receive time",
+      header_time_sec,
+      receive_time_sec,
+      gnss_header_stamp_max_skew_sec_);
+  }
 
   if (debug_flag_ && gnss_weights.covariance_valid) {
     RCLCPP_INFO_THROTTLE(

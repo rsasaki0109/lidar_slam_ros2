@@ -164,6 +164,22 @@ python3 scripts/convert_applanix_gsof_to_navsatfix_bag.py \
   --force
 ```
 
+If you want to test the same Applanix raw messages as `sensor_msgs/msg/Imu`,
+generate an IMU sidecar too:
+
+```bash
+git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
+python3 scripts/convert_applanix_gsof_to_imu_bag.py \
+  --input /path/to/rosbag2 \
+  --output /tmp/applanix_imu_bag \
+  --gsof49-topic /lvx_client/gsof/ins_solution_49 \
+  --gsof50-topic /lvx_client/gsof/ins_solution_rms_50 \
+  --output-topic /imu \
+  --frame-id base_link \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg \
+  --force
+```
+
 Then play the original bag together with the generated sidecar bag:
 
 ```bash
@@ -196,12 +212,60 @@ bash scripts/run_open_data_applanix_velodyne_gnss_smoke.sh \
 
 That wrapper will:
 
-- generate a `NavSatFix` sidecar bag from `GSOF49/50`
+- prefer same-bag native `sensor_msgs/msg/NavSatFix` / `sensor_msgs/msg/Imu`
+  topics when they exist
+- otherwise generate a `NavSatFix` sidecar bag from `GSOF49/50`
+- optionally generate an `Imu` sidecar bag from `GSOF49/50`
 - extract a local `TUM` reference from `GSOF49` with `extract_applanix_gsof49_reference.py`
 - build a minimal `velodyne_pointcloud` overlay on demand with
   `bash scripts/prepare_velodyne_pointcloud_overlay.sh`
 - convert `VelodyneScan` packets into `sensor_msgs/msg/PointCloud2`
 - run `lidarslam.launch.py`, call `/map_save`, and optionally verify the output
+
+The packet-based wrapper keeps `--use-imu false` by default. Current Leo Drive
+`driving_30_kmh` evidence shows that the `GSOF49 -> sensor_msgs/msg/Imu`
+bridge does not yet beat the GNSS-only baseline, even when the front-LiDAR
+static TF is extracted from `all-sensors-bag6`.
+
+The cleaner control is `all-sensors-bag6`, because the same bag already carries
+native packets, native `/gnss/fix`, native `/sensing/imu/imu_data`, and
+`GSOF49/50`. On that bag, the clean deskew A/B is to disable GNSS and compare
+native IMU on/off. The packet path is strong without IMU (`APE RMSE 0.407 m`)
+and currently degrades badly when native IMU deskew is enabled
+(`APE RMSE 23.529 m`). Keeping the cloud in the lidar frame and publishing an
+explicit static TF for native IMU conversion still does not recover the path:
+`velodyne_front` with orientation-based rotation deskew is `28.459 m`, and the
+`velodyne_left` experiments are `33.521 m` with orientation-based rotation
+deskew and `34.089 m` with `--imu-rotation-use-orientation false`. That is why
+the public packet path still keeps `--use-imu false` by default.
+
+If a bag carries NavSatFix messages whose header stamps do not track ROS time,
+the backend now falls back to receive time when the skew exceeds
+`gnss_header_stamp_max_skew_sec` (default `30 s`). That makes `all-sensors-bag6`
+attach GNSS edges again, but its native `/gnss/fix` still disagrees with the
+`GSOF49` reference enough that it is better suited to georeferenced smoke tests
+than to clean GNSS cross-validation.
+
+If you still want to test packet-based IMU deskew with a real static TF, use:
+
+```bash
+git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
+bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh \
+  --bag demo_data/autoware_leo_drive_isuzu/driving_30_kmh_2022_06_10-15_47_42_compressed \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg \
+  --use-imu true \
+  --tf-bag demo_data/autoware_leo_drive_isuzu/all-sensors-bag6_compressed \
+  --robot-frame-id base_link \
+  --imu-frame-id base_link \
+  --verify-map
+```
+
+That path uses:
+
+- `convert_applanix_gsof_to_imu_bag.py`
+- `extract_static_transform_from_bag.py`
+- `PointCloud2.time`-based deskew in `scanmatcher`
+- `--imu-rotation-use-orientation false` for the gyro-only rotation variant
 
 To turn the same real open-data path into a benchmark artifact with
 `traj_raw.tum`, `traj_corrected.tum`, and `metrics.json`, use:
