@@ -106,6 +106,10 @@ Save-time dynamic-object filtering on Leo Drive `bag6` cuts saved points by abou
 
 ## Current Snapshot
 
+- long-loop map authoring: the current documented `MID360` path closes a large loop and keeps `PASS` map verification
+- georeferenced output: open-data GNSS runs emit `LocalCartesian` `map_projector_info.yaml` with `map_origin`
+- save-time cleanup: the dynamic-object filter removes about `50%` of saved points on `Leo Drive bag6` while keeping verification `PASS`
+
 | Dataset | Published configuration | Reference kind | APE RMSE (m) | Autoware map verify |
 | --- | --- | --- | --- | --- |
 | `NTU VIRAL tnp_01` | current default | `ground_truth` | `0.952` | `PASS` |
@@ -114,7 +118,6 @@ Save-time dynamic-object filtering on Leo Drive `bag6` cuts saved points by abou
 | `MID360` | best observed | `cross_validation` | `3.590` | `PASS` |
 
 More detail lives in [docs/comparison.md](docs/comparison.md), [docs/benchmarking.md](docs/benchmarking.md), `output/benchmark_summary.md`, and `output/latest_report.html`.
-The focused dynamic-filter, classic-path, and place-recognition report artifacts are also tracked under `output/`. The product positioning is summarized in [docs/comparison.md](docs/comparison.md).
 
 ## Main Entrypoints
 
