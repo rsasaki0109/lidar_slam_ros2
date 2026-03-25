@@ -97,3 +97,22 @@ TEST(ScanContextDatabase, QueryTopMatchesReturnsSortedSubmapIds)
   EXPECT_TRUE(matches[1].first == 10 || matches[1].first == 20);
   EXPECT_NE(matches[0].first, matches[1].first);
 }
+
+TEST(ScanContextDatabase, QueryTopMatchesWithYawReturnsShift)
+{
+  graphslam::ScanContext::Database db;
+  db.add(10, makeDescriptor(7));
+  db.add(20, makeDescriptor(11));
+
+  const auto matches = db.queryTopMatchesWithYaw(
+    makeDescriptor(0),
+    /*num_matches=*/1,
+    /*num_candidates=*/2,
+    /*exclude_recent=*/0,
+    /*threshold=*/0.5);
+
+  ASSERT_EQ(matches.size(), 1u);
+  EXPECT_EQ(matches[0].submap_id, 10);
+  EXPECT_NEAR(matches[0].distance, 0.0, 1e-9);
+  EXPECT_EQ(matches[0].yaw_shift, 7);
+}

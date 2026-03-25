@@ -41,6 +41,12 @@ def test_mid360_benchmark_script_supports_scan_context_threshold_override():
     script = SCRIPT_PATH.read_text(encoding='utf-8')
 
     assert '--scan-context-threshold <f>' in script
+    assert '--use-3d-bbs-for-scan-context <bool>' in script
     assert 'SCAN_CONTEXT_THRESHOLD=""' in script
+    assert 'USE_3D_BBS_FOR_SCAN_CONTEXT=""' in script
     assert 'params[\'scan_context_threshold\'] = maybe_float(scan_context_threshold)' in script
+    assert (
+        'params[\'use_3d_bbs_for_scan_context\'] = '
+        'use_3d_bbs_for_scan_context.lower() == \'true\''
+    ) in script
     assert 'scan_context_threshold:' in script

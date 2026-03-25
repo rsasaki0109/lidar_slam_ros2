@@ -59,6 +59,19 @@ public:
   using Descriptor = Eigen::MatrixXd;  // NUM_RINGS x NUM_SECTORS.
   using RingKey = Eigen::VectorXd;  // NUM_RINGS.
 
+  struct DistanceAlignment
+  {
+    double distance {1.0};
+    int shift {0};
+  };
+
+  struct Match
+  {
+    int submap_id {-1};
+    double distance {1.0};
+    int yaw_shift {0};
+  };
+
   template<typename T>
   static T clampValue(const T & value, const T & low, const T & high)
   {
@@ -146,9 +159,12 @@ public:
   }
 
   // Distance with column shifting for rotation invariance (Eq. 6).
-  static double distance(const Descriptor & query, const Descriptor & candidate)
+  static DistanceAlignment distanceWithAlignment(
+    const Descriptor & query,
+    const Descriptor & candidate)
   {
     double min_dist = std::numeric_limits<double>::max();
+    int best_shift = 0;
 
     for (int shift = 0; shift < NUM_SECTORS; shift++) {
       // Circularly shift columns of candidate.
@@ -157,9 +173,17 @@ public:
         shifted.col(j) = candidate.col((j + shift) % NUM_SECTORS);
       }
       double dist = columnCosineDistance(query, shifted);
-      min_dist = std::min(min_dist, dist);
+      if (dist < min_dist) {
+        min_dist = dist;
+        best_shift = shift;
+      }
     }
-    return min_dist;
+    return {min_dist, best_shift};
+  }
+
+  static double distance(const Descriptor & query, const Descriptor & candidate)
+  {
+    return distanceWithAlignment(query, candidate).distance;
   }
 
   // Ring key L2 distance used for KNN search.
@@ -228,6 +252,57 @@ public:
           continue;
         }
         matches.emplace_back(candidate.second, candidate.first);
+        if (static_cast<int>(matches.size()) >= num_matches) {
+          break;
+        }
+      }
+
+      return matches;
+    }
+
+    std::vector<Match> queryTopMatchesWithYaw(
+      const Descriptor & query_desc,
+      int num_matches,
+      int num_candidates = NUM_CANDIDATES,
+      int exclude_recent = EXCLUDE_RECENT,
+      double threshold = DISTANCE_THRESHOLD) const
+    {
+      std::vector<Match> matches;
+
+      int n = static_cast<int>(ring_keys.size());
+      int search_end = n - exclude_recent;
+      if (search_end <= 0 || num_matches <= 0) {
+        return matches;
+      }
+
+      RingKey query_key = computeRingKey(query_desc);
+
+      std::vector<std::pair<double, int>> candidates;
+      candidates.reserve(search_end);
+      for (int i = 0; i < search_end; i++) {
+        double d = ringKeyDistance(query_key, ring_keys[i]);
+        candidates.emplace_back(d, i);
+      }
+
+      int k = std::min(num_candidates, static_cast<int>(candidates.size()));
+      std::partial_sort(candidates.begin(), candidates.begin() + k, candidates.end());
+
+      std::vector<Match> verified;
+      verified.reserve(k);
+      for (int c = 0; c < k; c++) {
+        int idx = candidates[c].second;
+        const auto alignment = distanceWithAlignment(query_desc, descriptors[idx]);
+        verified.push_back({submap_ids[idx], alignment.distance, alignment.shift});
+      }
+
+      std::sort(
+        verified.begin(), verified.end(),
+        [](const Match & lhs, const Match & rhs) {return lhs.distance < rhs.distance;});
+      for (const auto & candidate : verified) {
+        if (candidate.distance >= threshold) {
+          continue;
+        }
+        matches.push_back(candidate);
         if (static_cast<int>(matches.size()) >= num_matches) {
           break;
         }

@@ -24,6 +24,7 @@ add_link_options(-Wl,--no-undefined)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -71,6 +72,39 @@ if(NOT g2o_FOUND)
 endif()
 find_package(OpenMP)
 
+option(
+  GRAPH_BASED_SLAM_ENABLE_3D_BBS
+  "Build optional 3D-BBS loop-closure verifier support"
+  ON
+)
+set(
+  GRAPH_BASED_SLAM_3D_BBS_ROOT
+  "${CMAKE_CURRENT_SOURCE_DIR}/../Thirdparty/3d_bbs"
+  CACHE PATH
+  "Path to the vendored 3D-BBS source tree"
+)
+
+set(GRAPH_BASED_SLAM_HAVE_3D_BBS FALSE)
+if(GRAPH_BASED_SLAM_ENABLE_3D_BBS AND
+  EXISTS "${GRAPH_BASED_SLAM_3D_BBS_ROOT}/bbs3d/include/cpu_bbs3d/bbs3d.hpp")
+  add_library(graph_based_slam_3d_bbs_vendor STATIC
+    ${GRAPH_BASED_SLAM_3D_BBS_ROOT}/bbs3d/src/cpu_bbs3d/bbs3d.cpp
+    ${GRAPH_BASED_SLAM_3D_BBS_ROOT}/bbs3d/src/cpu_bbs3d/voxelmaps.cpp
+    ${GRAPH_BASED_SLAM_3D_BBS_ROOT}/bbs3d/src/cpu_bbs3d/voxelmaps_io.cpp
+  )
+  target_include_directories(graph_based_slam_3d_bbs_vendor PUBLIC
+    ${GRAPH_BASED_SLAM_3D_BBS_ROOT}/bbs3d/include
+    ${EIGEN3_INCLUDE_DIR}
+  )
+  if(OPENMP_FOUND)
+    target_link_libraries(graph_based_slam_3d_bbs_vendor PUBLIC OpenMP::OpenMP_CXX)
+  endif()
+  set(GRAPH_BASED_SLAM_HAVE_3D_BBS TRUE)
+  message(STATUS "Building graph_based_slam with optional 3D-BBS support")
+else()
+  message(STATUS "Building graph_based_slam without optional 3D-BBS support")
+endif()
+
 if(OPENMP_FOUND)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
@@ -95,6 +129,13 @@ if(BUILD_TESTING)
   )
   if(TARGET test_scan_context)
     target_include_directories(test_scan_context PRIVATE include)
+  endif()
+  ament_add_gtest(
+    test_dynamic_object_filter
+    test/test_dynamic_object_filter.cpp
+  )
+  if(TARGET test_dynamic_object_filter)
+    target_include_directories(test_dynamic_object_filter PRIVATE include)
   endif()
   ament_add_pytest_test(
     test_autoware_map_tools
@@ -175,9 +216,14 @@ endif()
 
 add_library(graph_based_slam_component SHARED
   src/graph_based_slam_component.cpp
+  src/three_d_bbs_loop_verifier.cpp
 )
 
 target_compile_definitions(graph_based_slam_component PRIVATE "GS_GBS_BUILDING_DLL")
+if(GRAPH_BASED_SLAM_HAVE_3D_BBS)
+  target_compile_definitions(graph_based_slam_component PRIVATE GRAPH_BASED_SLAM_HAVE_3D_BBS)
+  target_link_libraries(graph_based_slam_component graph_based_slam_3d_bbs_vendor)
+endif()
 
 ament_target_dependencies(graph_based_slam_component
   rclcpp

@@ -118,6 +118,7 @@ extern "C" {
 #include "g2o/types/slam3d/vertex_se3.h"
 #include "graph_based_slam/gnss_weighting.hpp"
 #include "graph_based_slam/scan_context.hpp"
+#include "graph_based_slam/three_d_bbs_loop_verifier.hpp"
 
 namespace graphslam
 {
@@ -178,6 +179,7 @@ private:
     // loop search parameter
     int loop_detection_period_;
     double threshold_loop_closure_score_;
+    double scan_context_loop_closure_score_threshold_ {-1.0};
     double distance_loop_closure_;
     double range_of_searching_loop_closure_;
     int search_submap_num_;
@@ -204,7 +206,27 @@ private:
     // Scan Context loop detection
     bool use_scan_context_ {false};
     double scan_context_threshold_ {0.3};
+    bool prefer_scan_context_candidates_ {false};
     ScanContext::Database scan_context_db_;
+    bool use_3d_bbs_for_scan_context_ {false};
+    double three_d_bbs_min_level_res_ {1.0};
+    int three_d_bbs_max_level_ {3};
+    double three_d_bbs_score_threshold_percentage_ {0.25};
+    int three_d_bbs_timeout_msec_ {50};
+    int three_d_bbs_num_threads_ {0};
+    double three_d_bbs_voxel_leaf_size_ {1.0};
+    int three_d_bbs_source_submap_num_ {2};
+    int three_d_bbs_target_submap_radius_ {1};
+    double three_d_bbs_translation_search_margin_m_ {15.0};
+    double three_d_bbs_roll_pitch_search_deg_ {10.0};
+    double three_d_bbs_yaw_search_deg_ {180.0};
+    ThreeDBBSLoopVerifier three_d_bbs_loop_verifier_;
+
+    bool use_dynamic_object_filter_ {false};
+    double dynamic_object_filter_voxel_size_ {0.3};
+    int dynamic_object_filter_min_observations_ {2};
+    int dynamic_object_filter_temporal_window_ {5};
+    double dynamic_object_filter_max_range_from_sensor_m_ {30.0};
 
     // PCD disk cache for memory-efficient submap storage
     std::string pcd_cache_dir_;

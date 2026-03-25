@@ -36,6 +36,7 @@
 #include <fstream>
 #include <iomanip>
 
+#include "graph_based_slam/dynamic_object_filter.hpp"
 #include "g2o/core/robust_kernel_impl.h"
 
 using namespace std::chrono_literals;
@@ -67,6 +68,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("loop_detection_period", loop_detection_period_);
   declare_parameter("threshold_loop_closure_score", 1.0);
   get_parameter("threshold_loop_closure_score", threshold_loop_closure_score_);
+  declare_parameter("scan_context_loop_closure_score_threshold", -1.0);
+  get_parameter(
+    "scan_context_loop_closure_score_threshold",
+    scan_context_loop_closure_score_threshold_);
   declare_parameter("distance_loop_closure", 20.0);
   get_parameter("distance_loop_closure", distance_loop_closure_);
   declare_parameter("range_of_searching_loop_closure", 20.0);
@@ -105,6 +110,54 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   }
   declare_parameter("scan_context_threshold", 0.3);
   get_parameter("scan_context_threshold", scan_context_threshold_);
+  declare_parameter("prefer_scan_context_candidates", false);
+  get_parameter("prefer_scan_context_candidates", prefer_scan_context_candidates_);
+  declare_parameter("use_3d_bbs_for_scan_context", false);
+  get_parameter("use_3d_bbs_for_scan_context", use_3d_bbs_for_scan_context_);
+  declare_parameter("three_d_bbs_min_level_res", 1.0);
+  get_parameter("three_d_bbs_min_level_res", three_d_bbs_min_level_res_);
+  declare_parameter("three_d_bbs_max_level", 3);
+  get_parameter("three_d_bbs_max_level", three_d_bbs_max_level_);
+  declare_parameter("three_d_bbs_score_threshold_percentage", 0.25);
+  get_parameter(
+    "three_d_bbs_score_threshold_percentage",
+    three_d_bbs_score_threshold_percentage_);
+  declare_parameter("three_d_bbs_timeout_msec", 50);
+  get_parameter("three_d_bbs_timeout_msec", three_d_bbs_timeout_msec_);
+  declare_parameter("three_d_bbs_num_threads", 0);
+  get_parameter("three_d_bbs_num_threads", three_d_bbs_num_threads_);
+  declare_parameter("three_d_bbs_voxel_leaf_size", 1.0);
+  get_parameter("three_d_bbs_voxel_leaf_size", three_d_bbs_voxel_leaf_size_);
+  declare_parameter("three_d_bbs_source_submap_num", 2);
+  get_parameter("three_d_bbs_source_submap_num", three_d_bbs_source_submap_num_);
+  declare_parameter("three_d_bbs_target_submap_radius", 1);
+  get_parameter("three_d_bbs_target_submap_radius", three_d_bbs_target_submap_radius_);
+  declare_parameter("three_d_bbs_translation_search_margin_m", 15.0);
+  get_parameter(
+    "three_d_bbs_translation_search_margin_m",
+    three_d_bbs_translation_search_margin_m_);
+  declare_parameter("three_d_bbs_roll_pitch_search_deg", 10.0);
+  get_parameter(
+    "three_d_bbs_roll_pitch_search_deg",
+    three_d_bbs_roll_pitch_search_deg_);
+  declare_parameter("three_d_bbs_yaw_search_deg", 180.0);
+  get_parameter("three_d_bbs_yaw_search_deg", three_d_bbs_yaw_search_deg_);
+  declare_parameter("use_dynamic_object_filter", false);
+  get_parameter("use_dynamic_object_filter", use_dynamic_object_filter_);
+  declare_parameter("dynamic_object_filter_voxel_size", 0.3);
+  get_parameter("dynamic_object_filter_voxel_size", dynamic_object_filter_voxel_size_);
+  declare_parameter("dynamic_object_filter_min_observations", 2);
+  get_parameter(
+    "dynamic_object_filter_min_observations",
+    dynamic_object_filter_min_observations_);
+  declare_parameter("dynamic_object_filter_temporal_window", 5);
+  get_parameter(
+    "dynamic_object_filter_temporal_window",
+    dynamic_object_filter_temporal_window_);
+  declare_parameter("dynamic_object_filter_max_range_from_sensor_m", 30.0);
+  get_parameter(
+    "dynamic_object_filter_max_range_from_sensor_m",
+    dynamic_object_filter_max_range_from_sensor_m_);
   declare_parameter("map_save_dir", std::string("."));
   get_parameter("map_save_dir", map_save_dir_);
   declare_parameter("map_grid_size_x", 20.0);
@@ -267,13 +320,105 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       loop_edge_robust_kernel_delta_);
     loop_edge_robust_kernel_delta_ = 1.0;
   }
-
+  if (three_d_bbs_min_level_res_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "three_d_bbs_min_level_res must be positive, resetting %.3f to 1.0",
+      three_d_bbs_min_level_res_);
+    three_d_bbs_min_level_res_ = 1.0;
+  }
+  if (three_d_bbs_max_level_ < 1) {
+    RCLCPP_WARN(
+      get_logger(),
+      "three_d_bbs_max_level must be >= 1, clamping %d to 1",
+      three_d_bbs_max_level_);
+    three_d_bbs_max_level_ = 1;
+  }
+  if (three_d_bbs_score_threshold_percentage_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "three_d_bbs_score_threshold_percentage must be positive, resetting %.3f to 0.25",
+      three_d_bbs_score_threshold_percentage_);
+    three_d_bbs_score_threshold_percentage_ = 0.25;
+  }
+  if (three_d_bbs_voxel_leaf_size_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "three_d_bbs_voxel_leaf_size must be positive, resetting %.3f to 1.0",
+      three_d_bbs_voxel_leaf_size_);
+    three_d_bbs_voxel_leaf_size_ = 1.0;
+  }
+  if (three_d_bbs_source_submap_num_ < 1) {
+    RCLCPP_WARN(
+      get_logger(),
+      "three_d_bbs_source_submap_num must be >= 1, clamping %d to 1",
+      three_d_bbs_source_submap_num_);
+    three_d_bbs_source_submap_num_ = 1;
+  }
+  if (three_d_bbs_target_submap_radius_ < 0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "three_d_bbs_target_submap_radius must be >= 0, clamping %d to 0",
+      three_d_bbs_target_submap_radius_);
+    three_d_bbs_target_submap_radius_ = 0;
+  }
+  if (three_d_bbs_translation_search_margin_m_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "three_d_bbs_translation_search_margin_m must be positive, resetting %.3f to 15.0",
+      three_d_bbs_translation_search_margin_m_);
+    three_d_bbs_translation_search_margin_m_ = 15.0;
+  }
+  if (three_d_bbs_roll_pitch_search_deg_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "three_d_bbs_roll_pitch_search_deg must be positive, resetting %.3f to 10.0",
+      three_d_bbs_roll_pitch_search_deg_);
+    three_d_bbs_roll_pitch_search_deg_ = 10.0;
+  }
+  if (three_d_bbs_yaw_search_deg_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "three_d_bbs_yaw_search_deg must be positive, resetting %.3f to 180.0",
+      three_d_bbs_yaw_search_deg_);
+    three_d_bbs_yaw_search_deg_ = 180.0;
+  }
+  if (dynamic_object_filter_voxel_size_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "dynamic_object_filter_voxel_size must be positive, resetting %.3f to 0.3",
+      dynamic_object_filter_voxel_size_);
+    dynamic_object_filter_voxel_size_ = 0.3;
+  }
+  if (dynamic_object_filter_min_observations_ < 1) {
+    RCLCPP_WARN(
+      get_logger(),
+      "dynamic_object_filter_min_observations must be >= 1, clamping %d to 1",
+      dynamic_object_filter_min_observations_);
+    dynamic_object_filter_min_observations_ = 1;
+  }
+  if (dynamic_object_filter_temporal_window_ < 0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "dynamic_object_filter_temporal_window must be >= 0, clamping %d to 0",
+      dynamic_object_filter_temporal_window_);
+    dynamic_object_filter_temporal_window_ = 0;
+  }
+  if (dynamic_object_filter_max_range_from_sensor_m_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "dynamic_object_filter_max_range_from_sensor_m must be positive, resetting %.3f to 30.0",
+      dynamic_object_filter_max_range_from_sensor_m_);
+    dynamic_object_filter_max_range_from_sensor_m_ = 30.0;
+  }
   std::cout << "registration_method:" << registration_method << std::endl;
   std::cout << "voxel_leaf_size[m]:" << voxel_leaf_size << std::endl;
   std::cout << "ndt_resolution[m]:" << ndt_resolution << std::endl;
   std::cout << "ndt_num_threads:" << ndt_num_threads << std::endl;
   std::cout << "loop_detection_period[Hz]:" << loop_detection_period_ << std::endl;
   std::cout << "threshold_loop_closure_score:" << threshold_loop_closure_score_ << std::endl;
+  std::cout << "scan_context_loop_closure_score_threshold:" <<
+    scan_context_loop_closure_score_threshold_ << std::endl;
   std::cout << "distance_loop_closure[m]:" << distance_loop_closure_ << std::endl;
   std::cout << "range_of_searching_loop_closure[m]:" << range_of_searching_loop_closure_ <<
     std::endl;
@@ -291,6 +436,40 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "use_scan_context:" << std::boolalpha << use_scan_context_ << std::endl;
   if (use_scan_context_) {
     std::cout << "scan_context_threshold:" << scan_context_threshold_ << std::endl;
+    std::cout << "prefer_scan_context_candidates:" << std::boolalpha <<
+      prefer_scan_context_candidates_ << std::endl;
+    std::cout << "use_3d_bbs_for_scan_context:" << std::boolalpha <<
+      use_3d_bbs_for_scan_context_ << std::endl;
+    if (use_3d_bbs_for_scan_context_) {
+      std::cout << "three_d_bbs_min_level_res:" << three_d_bbs_min_level_res_ << std::endl;
+      std::cout << "three_d_bbs_max_level:" << three_d_bbs_max_level_ << std::endl;
+      std::cout << "three_d_bbs_score_threshold_percentage:" <<
+        three_d_bbs_score_threshold_percentage_ << std::endl;
+      std::cout << "three_d_bbs_timeout_msec:" << three_d_bbs_timeout_msec_ << std::endl;
+      std::cout << "three_d_bbs_num_threads:" << three_d_bbs_num_threads_ << std::endl;
+      std::cout << "three_d_bbs_voxel_leaf_size:" << three_d_bbs_voxel_leaf_size_ << std::endl;
+      std::cout << "three_d_bbs_source_submap_num:" << three_d_bbs_source_submap_num_ <<
+        std::endl;
+      std::cout << "three_d_bbs_target_submap_radius:" << three_d_bbs_target_submap_radius_ <<
+        std::endl;
+      std::cout << "three_d_bbs_translation_search_margin_m:" <<
+        three_d_bbs_translation_search_margin_m_ << std::endl;
+      std::cout << "three_d_bbs_roll_pitch_search_deg:" <<
+        three_d_bbs_roll_pitch_search_deg_ << std::endl;
+      std::cout << "three_d_bbs_yaw_search_deg:" << three_d_bbs_yaw_search_deg_ << std::endl;
+    }
+  }
+  std::cout << "use_dynamic_object_filter:" << std::boolalpha << use_dynamic_object_filter_ <<
+    std::endl;
+  if (use_dynamic_object_filter_) {
+    std::cout << "dynamic_object_filter_voxel_size:" << dynamic_object_filter_voxel_size_ <<
+      std::endl;
+    std::cout << "dynamic_object_filter_min_observations:" <<
+      dynamic_object_filter_min_observations_ << std::endl;
+    std::cout << "dynamic_object_filter_temporal_window:" <<
+      dynamic_object_filter_temporal_window_ << std::endl;
+    std::cout << "dynamic_object_filter_max_range_from_sensor_m:" <<
+      dynamic_object_filter_max_range_from_sensor_m_ << std::endl;
   }
   declare_parameter("use_odom_input", false);
   get_parameter("use_odom_input", use_odom_input_);
@@ -548,6 +727,7 @@ void GraphBasedSlamComponent::searchLoop()
     int index {-1};
     double selection_metric {std::numeric_limits<double>::max()};
     bool from_scan_context {false};
+    double scan_context_yaw_rad {0.0};
   };
 
   struct LoopCandidateResult
@@ -561,28 +741,67 @@ void GraphBasedSlamComponent::searchLoop()
     double translation_delta_m {0.0};
     double rotation_delta_deg {0.0};
     bool from_scan_context {false};
+    bool used_3d_bbs {false};
+    double three_d_bbs_score_percentage {0.0};
+    double three_d_bbs_elapsed_msec {0.0};
     Eigen::Matrix4f final_transformation {Eigen::Matrix4f::Identity()};
   };
 
   // Keep Scan Context database aligned 1:1 with submap indices.
   if (use_scan_context_ && scan_context_db_.nextSubmapIndex() < num_submaps) {
     for (int idx = scan_context_db_.nextSubmapIndex(); idx < num_submaps; ++idx) {
-      pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
-      if (use_pcd_cache_) {
-        cloud = loadSubmapFromPCD(idx);
-      } else {
-        cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
-        pcl::fromROSMsg(map_array_msg.submaps[idx].cloud, *cloud);
+      Eigen::Affine3d reference_affine;
+      tf2::fromMsg(map_array_msg.submaps[idx].pose, reference_affine);
+      pcl::PointCloud<pcl::PointXYZI>::Ptr aggregated_cloud(
+        new pcl::PointCloud<pcl::PointXYZI>);
+      for (int k = 0; k < search_submap_num_ && (idx - k) >= 0; ++k) {
+        const int src_idx = idx - k;
+        pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
+        if (use_pcd_cache_) {
+          cloud = loadSubmapFromPCD(src_idx);
+        } else {
+          cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
+          pcl::fromROSMsg(map_array_msg.submaps[src_idx].cloud, *cloud);
+        }
+        if (!cloud || cloud->empty()) {
+          continue;
+        }
+        Eigen::Affine3d src_affine;
+        tf2::fromMsg(map_array_msg.submaps[src_idx].pose, src_affine);
+        pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud(
+          new pcl::PointCloud<pcl::PointXYZI>);
+        const Eigen::Matrix4f local_transform =
+          (reference_affine.inverse() * src_affine).matrix().cast<float>();
+        pcl::transformPointCloud(*cloud, *transformed_cloud, local_transform);
+        *aggregated_cloud += *transformed_cloud;
       }
-      scan_context_db_.add(idx, ScanContext::computeDescriptor(cloud));
+      if (aggregated_cloud->empty()) {
+        continue;
+      }
+      pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_aggregated_cloud(
+        new pcl::PointCloud<pcl::PointXYZI>);
+      voxelgrid_.setInputCloud(aggregated_cloud);
+      voxelgrid_.filter(*filtered_aggregated_cloud);
+      if (filtered_aggregated_cloud->empty()) {
+        continue;
+      }
+      scan_context_db_.add(idx, ScanContext::computeDescriptor(filtered_aggregated_cloud));
     }
   }
 
   const int latest_idx = num_submaps - 1;
   const auto & latest_submap = map_array_msg.submaps[latest_idx];
+  Eigen::Affine3d latest_affine;
+  tf2::fromMsg(latest_submap.pose, latest_affine);
 
   // Aggregate latest N submaps as source (improves matching quality)
   pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_latest_submap_cloud_ptr(
+    new pcl::PointCloud<pcl::PointXYZI>);
+  pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_latest_submap_cloud_sc_ptr(
+    new pcl::PointCloud<pcl::PointXYZI>);
+  pcl::PointCloud<pcl::PointXYZI>::Ptr latest_submap_cloud_local_ptr(
+    new pcl::PointCloud<pcl::PointXYZI>);
+  pcl::PointCloud<pcl::PointXYZI>::Ptr latest_submap_cloud_local_bbs_ptr(
     new pcl::PointCloud<pcl::PointXYZI>);
   for (int k = 0; k < search_submap_num_ && (latest_idx - k) >= 0; k++) {
     int src_idx = latest_idx - k;
@@ -602,8 +821,25 @@ void GraphBasedSlamComponent::searchLoop()
     tf2::fromMsg(src_submap.pose, src_affine);
     pcl::transformPointCloud(*src_cloud, *transformed_src, src_affine.matrix().cast<float>());
     *transformed_latest_submap_cloud_ptr += *transformed_src;
+    if (k < three_d_bbs_source_submap_num_) {
+      *transformed_latest_submap_cloud_sc_ptr += *transformed_src;
+    }
+
+    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_src_local(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    const Eigen::Matrix4f latest_frame_transform =
+      (latest_affine.inverse() * src_affine).matrix().cast<float>();
+    pcl::transformPointCloud(*src_cloud, *transformed_src_local, latest_frame_transform);
+    *latest_submap_cloud_local_ptr += *transformed_src_local;
+    if (k < three_d_bbs_source_submap_num_) {
+      *latest_submap_cloud_local_bbs_ptr += *transformed_src_local;
+    }
   }
-  if (transformed_latest_submap_cloud_ptr->empty()) {
+  if (
+    transformed_latest_submap_cloud_ptr->empty() || transformed_latest_submap_cloud_sc_ptr->empty() ||
+    latest_submap_cloud_local_ptr->empty() ||
+    latest_submap_cloud_local_bbs_ptr->empty())
+  {
     return;
   }
 
@@ -611,6 +847,25 @@ void GraphBasedSlamComponent::searchLoop()
   voxelgrid_.setInputCloud(transformed_latest_submap_cloud_ptr);
   voxelgrid_.filter(*filtered_source);
   if (filtered_source->empty()) {
+    return;
+  }
+  pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source_sc(new pcl::PointCloud<pcl::PointXYZI>);
+  voxelgrid_.setInputCloud(transformed_latest_submap_cloud_sc_ptr);
+  voxelgrid_.filter(*filtered_source_sc);
+  if (filtered_source_sc->empty()) {
+    return;
+  }
+  pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source_local(new pcl::PointCloud<pcl::PointXYZI>);
+  voxelgrid_.setInputCloud(latest_submap_cloud_local_ptr);
+  voxelgrid_.filter(*filtered_source_local);
+  if (filtered_source_local->empty()) {
+    return;
+  }
+  pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source_local_bbs(
+    new pcl::PointCloud<pcl::PointXYZI>);
+  voxelgrid_.setInputCloud(latest_submap_cloud_local_bbs_ptr);
+  voxelgrid_.filter(*filtered_source_local_bbs);
+  if (filtered_source_local_bbs->empty()) {
     return;
   }
   registration_->setInputSource(filtered_source);
@@ -622,7 +877,8 @@ void GraphBasedSlamComponent::searchLoop()
     latest_submap.pose.position.z};
 
   std::vector<LoopCandidate> candidates;
-  auto add_candidate = [&candidates](int index, double selection_metric, bool from_scan_context) {
+  auto add_candidate =
+    [&candidates](int index, double selection_metric, bool from_scan_context, double yaw_rad = 0.0) {
       if (index < 0) {
         return;
       }
@@ -632,6 +888,9 @@ void GraphBasedSlamComponent::searchLoop()
         }
         candidate.selection_metric = std::min(candidate.selection_metric, selection_metric);
         candidate.from_scan_context = candidate.from_scan_context || from_scan_context;
+        if (from_scan_context) {
+          candidate.scan_context_yaw_rad = yaw_rad;
+        }
         return;
       }
 
@@ -639,11 +898,12 @@ void GraphBasedSlamComponent::searchLoop()
       candidate.index = index;
       candidate.selection_metric = selection_metric;
       candidate.from_scan_context = from_scan_context;
+      candidate.scan_context_yaw_rad = yaw_rad;
       candidates.push_back(candidate);
     };
 
   if (use_scan_context_ && scan_context_db_.size() > ScanContext::EXCLUDE_RECENT) {
-    const auto sc_matches = scan_context_db_.queryTopMatches(
+    const auto sc_matches = scan_context_db_.queryTopMatchesWithYaw(
       scan_context_db_.descriptors.back(),
       max_loop_candidate_count_,
       ScanContext::NUM_CANDIDATES,
@@ -651,15 +911,44 @@ void GraphBasedSlamComponent::searchLoop()
       scan_context_threshold_);
 
     if (!sc_matches.empty()) {
+      bool added_scan_context_candidate = false;
       for (const auto & sc_match : sc_matches) {
-        const int sc_idx = sc_match.first;
-        const double sc_dist = sc_match.second;
+        const int sc_idx = sc_match.submap_id;
+        const double sc_dist = sc_match.distance;
         if (sc_idx < 0 || sc_idx >= latest_idx) {
           continue;
         }
-        add_candidate(sc_idx, sc_dist, true);
+        const double sc_travel_distance =
+          latest_moving_distance - map_array_msg.submaps[sc_idx].distance;
+        if (sc_travel_distance <= distance_loop_closure_) {
+          if (debug_flag_) {
+            RCLCPP_INFO(
+              get_logger(),
+              "Skip ScanContext candidate %d because travel distance %.3f m is below %.3f m",
+              sc_idx,
+              sc_travel_distance,
+              distance_loop_closure_);
+          }
+          continue;
+        }
+        double sc_yaw_rad =
+          -static_cast<double>(sc_match.yaw_shift) * 2.0 * M_PI / ScanContext::NUM_SECTORS;
+        while (sc_yaw_rad > M_PI) {
+          sc_yaw_rad -= 2.0 * M_PI;
+        }
+        while (sc_yaw_rad < -M_PI) {
+          sc_yaw_rad += 2.0 * M_PI;
+        }
+        add_candidate(sc_idx, sc_dist, true, sc_yaw_rad);
         std::cout << "ScanContext loop candidate: id=" << sc_idx
-                  << " sc_dist=" << sc_dist << std::endl;
+                  << " sc_dist=" << sc_dist
+                  << " yaw_deg=" << sc_yaw_rad * 180.0 / M_PI << std::endl;
+        added_scan_context_candidate = true;
+        break;
+      }
+      if (!added_scan_context_candidate && debug_flag_) {
+        std::cout << "ScanContext matches exist but none satisfied travel-distance gating"
+                  << std::endl;
       }
     } else if (debug_flag_) {
       auto [sc_idx, sc_dist] = scan_context_db_.query(
@@ -701,6 +990,7 @@ void GraphBasedSlamComponent::searchLoop()
   }
 
   LoopCandidateResult best_candidate;
+  LoopCandidateResult best_scan_context_candidate;
   LoopCandidateResult best_attempt;
   bool attempted_registration = false;
 
@@ -710,7 +1000,11 @@ void GraphBasedSlamComponent::searchLoop()
     }
 
     const auto & candidate_submap = map_array_msg.submaps[candidate.index];
+    Eigen::Affine3d candidate_affine;
+    tf2::fromMsg(candidate_submap.pose, candidate_affine);
     pcl::PointCloud<pcl::PointXYZI>::Ptr submap_clouds_ptr(new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr submap_clouds_bbs_ptr(
+      new pcl::PointCloud<pcl::PointXYZI>);
     for (int offset = -search_submap_num_; offset <= search_submap_num_; ++offset) {
       const int near_idx = candidate.index + offset;
       if (near_idx < 0 || near_idx >= num_submaps) {
@@ -735,8 +1029,11 @@ void GraphBasedSlamComponent::searchLoop()
         *submap_cloud_ptr, *transformed_submap_cloud_ptr,
         affine.matrix().cast<float>());
       *submap_clouds_ptr += *transformed_submap_cloud_ptr;
+      if (std::abs(offset) <= three_d_bbs_target_submap_radius_) {
+        *submap_clouds_bbs_ptr += *transformed_submap_cloud_ptr;
+      }
     }
-    if (submap_clouds_ptr->empty()) {
+    if (submap_clouds_ptr->empty() || submap_clouds_bbs_ptr->empty()) {
       continue;
     }
 
@@ -746,10 +1043,91 @@ void GraphBasedSlamComponent::searchLoop()
     if (filtered_clouds_ptr->empty()) {
       continue;
     }
-    registration_->setInputTarget(filtered_clouds_ptr);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_clouds_sc_ptr(
+      new pcl::PointCloud<pcl::PointXYZI>());
+    voxelgrid_.setInputCloud(submap_clouds_bbs_ptr);
+    voxelgrid_.filter(*filtered_clouds_sc_ptr);
+    if (filtered_clouds_sc_ptr->empty()) {
+      continue;
+    }
 
     pcl::PointCloud<pcl::PointXYZI>::Ptr output_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>);
-    registration_->align(*output_cloud_ptr);
+    bool used_3d_bbs = false;
+    double three_d_bbs_score_percentage = 0.0;
+    double three_d_bbs_elapsed_msec = 0.0;
+    Eigen::Matrix4f initial_guess =
+      (candidate_affine.matrix() * latest_affine.inverse().matrix()).cast<float>();
+    if (candidate.from_scan_context) {
+      Eigen::Affine3d yaw_correction = Eigen::Affine3d::Identity();
+      yaw_correction.rotate(Eigen::AngleAxisd(candidate.scan_context_yaw_rad, Eigen::Vector3d::UnitZ()));
+      initial_guess =
+        (candidate_affine.matrix() * yaw_correction.matrix() * latest_affine.inverse().matrix()).
+        cast<float>();
+    }
+    if (candidate.from_scan_context) {
+      registration_->setInputSource(filtered_source_sc);
+      registration_->setInputTarget(filtered_clouds_sc_ptr);
+    } else {
+      registration_->setInputSource(filtered_source);
+      registration_->setInputTarget(filtered_clouds_ptr);
+    }
+    if (candidate.from_scan_context && use_3d_bbs_for_scan_context_) {
+      pcl::VoxelGrid<pcl::PointXYZI> three_d_bbs_voxelgrid;
+      three_d_bbs_voxelgrid.setLeafSize(
+        three_d_bbs_voxel_leaf_size_,
+        three_d_bbs_voxel_leaf_size_,
+        three_d_bbs_voxel_leaf_size_);
+      pcl::PointCloud<pcl::PointXYZI>::Ptr three_d_bbs_source(
+        new pcl::PointCloud<pcl::PointXYZI>);
+      pcl::PointCloud<pcl::PointXYZI>::Ptr three_d_bbs_target(
+        new pcl::PointCloud<pcl::PointXYZI>);
+      three_d_bbs_voxelgrid.setInputCloud(filtered_source_local_bbs);
+      three_d_bbs_voxelgrid.filter(*three_d_bbs_source);
+      three_d_bbs_voxelgrid.setInputCloud(submap_clouds_bbs_ptr);
+      three_d_bbs_voxelgrid.filter(*three_d_bbs_target);
+
+      ThreeDBBSLoopVerifierConfig bbs_config;
+      bbs_config.min_level_res = three_d_bbs_min_level_res_;
+      bbs_config.max_level = three_d_bbs_max_level_;
+      bbs_config.score_threshold_percentage = three_d_bbs_score_threshold_percentage_;
+      bbs_config.timeout_msec = three_d_bbs_timeout_msec_;
+      bbs_config.num_threads = three_d_bbs_num_threads_;
+      bbs_config.translation_search_margin_m = three_d_bbs_translation_search_margin_m_;
+      bbs_config.roll_pitch_search_deg = three_d_bbs_roll_pitch_search_deg_;
+      bbs_config.yaw_search_deg = three_d_bbs_yaw_search_deg_;
+      const auto bbs_result = three_d_bbs_loop_verifier_.localize(
+        three_d_bbs_source,
+        three_d_bbs_target,
+        Eigen::Isometry3d(latest_affine.matrix()),
+        Eigen::Isometry3d(candidate_affine.matrix()),
+        bbs_config);
+      if (bbs_result.available) {
+        three_d_bbs_score_percentage = bbs_result.score_percentage;
+        three_d_bbs_elapsed_msec = bbs_result.elapsed_msec;
+        used_3d_bbs = bbs_result.localized;
+        if (bbs_result.localized) {
+          initial_guess = bbs_result.correction_guess;
+        }
+        if (debug_flag_) {
+          RCLCPP_INFO(
+            get_logger(),
+            "3D-BBS %s for loop candidate %d -> %d (score=%.3f elapsed=%.2f ms timed_out=%s src=%zu tar=%zu)",
+            bbs_result.localized ? "localized" : "missed",
+            candidate.index,
+            latest_idx,
+            bbs_result.score_percentage,
+            bbs_result.elapsed_msec,
+            bbs_result.timed_out ? "true" : "false",
+            three_d_bbs_source->size(),
+            three_d_bbs_target->size());
+        }
+      }
+    }
+    if (candidate.from_scan_context || used_3d_bbs) {
+      registration_->align(*output_cloud_ptr, initial_guess);
+    } else {
+      registration_->align(*output_cloud_ptr);
+    }
     attempted_registration = true;
     if (!registration_->hasConverged()) {
       if (debug_flag_) {
@@ -775,7 +1153,7 @@ void GraphBasedSlamComponent::searchLoop()
     candidate_result.index = candidate.index;
     candidate_result.selection_metric = candidate.selection_metric;
     candidate_result.fitness_score = fitness_score;
-    candidate_result.travel_distance = candidate_submap.distance;
+    candidate_result.travel_distance = latest_moving_distance - candidate_submap.distance;
     const Eigen::Vector3d candidate_submap_pos(
       candidate_submap.pose.position.x,
       candidate_submap.pose.position.y,
@@ -784,13 +1162,20 @@ void GraphBasedSlamComponent::searchLoop()
     candidate_result.translation_delta_m = translation_delta_m;
     candidate_result.rotation_delta_deg = rotation_delta_deg;
     candidate_result.from_scan_context = candidate.from_scan_context;
+    candidate_result.used_3d_bbs = used_3d_bbs;
+    candidate_result.three_d_bbs_score_percentage = three_d_bbs_score_percentage;
+    candidate_result.three_d_bbs_elapsed_msec = three_d_bbs_elapsed_msec;
     candidate_result.final_transformation = final_transformation;
 
     if (best_attempt.index < 0 || fitness_score < best_attempt.fitness_score) {
       best_attempt = candidate_result;
     }
 
-    if (fitness_score >= threshold_loop_closure_score_) {
+    const double loop_score_threshold =
+      (candidate.from_scan_context && scan_context_loop_closure_score_threshold_ > 0.0) ?
+      scan_context_loop_closure_score_threshold_ : threshold_loop_closure_score_;
+
+    if (fitness_score >= loop_score_threshold) {
       if (debug_flag_) {
         RCLCPP_INFO(
           get_logger(),
@@ -798,7 +1183,7 @@ void GraphBasedSlamComponent::searchLoop()
           candidate.index,
           latest_idx,
           fitness_score,
-          threshold_loop_closure_score_);
+          loop_score_threshold);
       }
       continue;
     }
@@ -831,6 +1216,26 @@ void GraphBasedSlamComponent::searchLoop()
     if (!best_candidate.valid || fitness_score < best_candidate.fitness_score) {
       best_candidate = candidate_result;
     }
+    if (
+      candidate.from_scan_context &&
+      (!best_scan_context_candidate.valid || fitness_score < best_scan_context_candidate.fitness_score))
+    {
+      best_scan_context_candidate = candidate_result;
+    }
+  }
+
+  if (prefer_scan_context_candidates_ && best_scan_context_candidate.valid) {
+    if (
+      !best_candidate.valid ||
+      best_candidate.index != best_scan_context_candidate.index ||
+      !best_candidate.from_scan_context)
+    {
+      std::cout << "Preferring valid ScanContext candidate id:" <<
+        best_scan_context_candidate.index << " over best candidate id:" <<
+        (best_candidate.valid ? std::to_string(best_candidate.index) : std::string("none"))
+                << std::endl;
+    }
+    best_candidate = best_scan_context_candidate;
   }
 
   if (!best_candidate.valid) {
@@ -842,6 +1247,8 @@ void GraphBasedSlamComponent::searchLoop()
                 << " fitness:" << best_attempt.fitness_score
                 << " correction_translation:" << best_attempt.translation_delta_m
                 << " correction_rotation_deg:" << best_attempt.rotation_delta_deg
+                << " used_3d_bbs:" << best_attempt.used_3d_bbs
+                << " 3d_bbs_score:" << best_attempt.three_d_bbs_score_percentage
                 << std::endl;
     } else if (attempted_registration && debug_flag_) {
       RCLCPP_INFO(
@@ -873,6 +1280,10 @@ void GraphBasedSlamComponent::searchLoop()
             << " id_loop_point 2:" << latest_idx << std::endl;
   std::cout << "loop_candidate_source:"
             << (best_candidate.from_scan_context ? "scan_context" : "distance") << std::endl;
+  if (best_candidate.used_3d_bbs) {
+    std::cout << "3d_bbs_score_percentage:" << best_candidate.three_d_bbs_score_percentage
+              << " elapsed_msec:" << best_candidate.three_d_bbs_elapsed_msec << std::endl;
+  }
   std::cout << "correction translation[m]:" << best_candidate.translation_delta_m
             << " rotation[deg]:" << best_candidate.rotation_delta_deg << std::endl;
   std::cout << "final transformation:" << std::endl;
@@ -1062,6 +1473,10 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   nav_msgs::msg::Path path;
   path.header.frame_id = "map";
   pcl::PointCloud<pcl::PointXYZI>::Ptr map_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+  std::vector<TimedSubmapCloud> dynamic_filter_submaps;
+  if (do_save_map && use_dynamic_object_filter_) {
+    dynamic_filter_submaps.reserve(submaps_size);
+  }
   for (int i = 0; i < submaps_size; i++) {
     g2o::VertexSE3 * vertex_se3 = static_cast<g2o::VertexSE3 *>(optimizer.vertex(i));
     Eigen::Affine3d se3 = vertex_se3->estimate();
@@ -1085,6 +1500,13 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     sensor_msgs::msg::PointCloud2::SharedPtr cloud_msg_ptr(new sensor_msgs::msg::PointCloud2);
     pcl::toROSMsg(*transformed_cloud_ptr, *cloud_msg_ptr);
     *map_ptr += *transformed_cloud_ptr;
+    if (do_save_map && use_dynamic_object_filter_) {
+      dynamic_filter_submaps.push_back(
+        TimedSubmapCloud{
+          i,
+          Eigen::Vector3d(se3.translation().x(), se3.translation().y(), se3.translation().z()),
+          transformed_cloud_ptr});
+    }
 
     /* submap */
     lidarslam_msgs::msg::SubMap submap;
@@ -1108,7 +1530,29 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   map_msg_ptr->header.frame_id = "map";
   modified_map_pub_->publish(*map_msg_ptr);
   if (do_save_map) {
-    saveGridDividedMap(map_ptr);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr map_to_save = map_ptr;
+    if (use_dynamic_object_filter_) {
+      DynamicObjectFilterConfig filter_config;
+      filter_config.voxel_size = dynamic_object_filter_voxel_size_;
+      filter_config.min_observations = dynamic_object_filter_min_observations_;
+      filter_config.temporal_window = dynamic_object_filter_temporal_window_;
+      filter_config.max_range_from_sensor_m = dynamic_object_filter_max_range_from_sensor_m_;
+      const auto filter_result =
+        buildDynamicObjectFilteredMap(dynamic_filter_submaps, filter_config);
+      if (!filter_result.cloud->empty()) {
+        map_to_save = filter_result.cloud;
+      }
+      RCLCPP_INFO(
+        get_logger(),
+        "Dynamic object filter: input_points %zu, kept %zu/%zu candidate voxels, removed %zu, always_keep %zu, output_points %zu",
+        filter_result.stats.input_points,
+        filter_result.stats.kept_candidate_voxels,
+        filter_result.stats.candidate_voxels,
+        filter_result.stats.removed_candidate_voxels,
+        filter_result.stats.always_keep_voxels,
+        filter_result.stats.output_points);
+    }
+    saveGridDividedMap(map_to_save);
   }
 }
 

@@ -1,12 +1,10 @@
 lidarslam_ros2
 ====
 
-ROS 2 LiDAR SLAM focused on non-GPL pointcloud-map generation and
-Autoware integration.
+ROS 2 LiDAR SLAM focused on non-GPL pointcloud-map generation and Autoware integration.
 
 > Status: `develop` tracks the current `v2 alpha` line.
-> For the latest tagged public beta, see
-> [v0.2.0 Release Notes](docs/releases/v0.2.0.md).
+> For the latest tagged public beta, see [v0.2.0 Release Notes](docs/releases/v0.2.0.md).
 
 ## Recommended Public Workflow
 
@@ -16,8 +14,7 @@ The recommended public path in this repository is:
 - backend: `graph_based_slam`
 - output: Autoware-compatible `pointcloud_map/` and `map_projector_info.yaml`
 
-This is the path exercised in the public quickstart, benchmark flow, and
-release/readiness gate.
+This is the path exercised in the public quickstart, benchmark flow, and release/readiness gate.
 
 ## Scope
 
@@ -35,14 +32,14 @@ Out of scope for the public path:
 
 ## Why This Repo
 
-- non-GPL default path: `graph_based_slam` (BSD-2-Clause), `scanmatcher`
-  (project-local), `RKO-LIO` (MIT), `DLIO` (MIT), `FAST_GICP` (BSD-3-Clause)
+- non-GPL default path: `graph_based_slam` (BSD-2-Clause), `scanmatcher` (project-local), `RKO-LIO` (MIT), `DLIO` (MIT), `FAST_GICP` (BSD-3-Clause)
 - Autoware pointcloud-map flow is exercised end-to-end
 - default benchmark path is tracked on `NTU VIRAL`
 - current long-loop evidence is tracked on `MID360`
 - optional GNSS georeferencing writes `map_projector_info.yaml`
 - GNSS edges can use covariance-based weighting, with RTK-like fixes inferred from low horizontal covariance
 - GPL-free Scan Context place recognition is available in `graph_based_slam`
+- optional dynamic-object filtering can clean the saved `pointcloud_map/` at `/map_save` time without changing live odometry
 - packet-based Applanix IMU deskew support exists for real open data, but it remains experimental and off by default in the Leo Drive packet path
 
 ## Install
@@ -85,13 +82,11 @@ bash scripts/run_autoware_quickstart.sh
 
 ## Point-Cloud Map Example
 
-Representative top-down point-cloud map view from the MID360 sample. Colors
-encode height.
+Representative top-down point-cloud map view from the MID360 sample. Colors encode height.
 
 ![Representative top-down point-cloud map](lidarslam/images/mid360_glim_map_compare.png)
 
-Loop-area zoom from the current MID360 default run. This view is meant to make
-closing-segment duplication easier to judge visually.
+Loop-area zoom from the current MID360 default run. This view is meant to make closing-segment duplication easier to judge visually.
 
 ![MID360 loop-closure zoom](lidarslam/images/mid360_loop_closure_zoom.png)
 
@@ -115,9 +110,7 @@ closing-segment duplication easier to judge visually.
 | `MID360` | current default | `cross_validation` | `3.641` | `PASS` |
 | `MID360` | best observed | `cross_validation` | `3.590` | `PASS` |
 
-More detail lives in [docs/comparison.md](docs/comparison.md),
-[docs/benchmarking.md](docs/benchmarking.md), `output/benchmark_summary.md`,
-and `output/latest_report.html`.
+More detail lives in [docs/comparison.md](docs/comparison.md), [docs/benchmarking.md](docs/benchmarking.md), `output/benchmark_summary.md`, and `output/latest_report.html`.
 
 ## Main Entrypoints
 
@@ -147,8 +140,7 @@ python3 scripts/inspect_applanix_gsof50_quality.py /path/to/rosbag2 \
   --applanix-msg-dir /tmp/applanix/applanix_msgs/msg
 ```
 
-To use those bags with the current public `NavSatFix` path, generate a small sidecar rosbag2 with `scripts/convert_applanix_gsof_to_navsatfix_bag.py`. The
-full command is in [docs/workflows.md](docs/workflows.md).
+To use those bags with the current public `NavSatFix` path, generate a small sidecar rosbag2 with `scripts/convert_applanix_gsof_to_navsatfix_bag.py`. The full command is in [docs/workflows.md](docs/workflows.md).
 
 Run the public Autoware quickstart:
 
@@ -170,6 +162,8 @@ Save the current map:
 ```bash
 ros2 service call /map_save std_srvs/srv/Empty
 ```
+
+To filter likely dynamic objects only in the saved map output, enable `use_dynamic_object_filter: true` and tune `dynamic_object_filter_voxel_size`, `dynamic_object_filter_min_observations`, `dynamic_object_filter_temporal_window`, and `dynamic_object_filter_max_range_from_sensor_m` before calling `/map_save`.
 
 Run the standard benchmark path:
 
@@ -195,8 +189,7 @@ The default public workflow excludes GPL-only frontend/backend components.
 - `FAST_GICP`: BSD-3-Clause
 - built-in `Scan Context`: implemented locally to avoid GPL dependencies
 
-`Thirdparty/lio-sam` is excluded from default `colcon` package discovery via
-`COLCON_IGNORE`.
+`Thirdparty/lio-sam` is excluded from default `colcon` package discovery via `COLCON_IGNORE`.
 
 ## Support Matrix
 
@@ -215,5 +208,4 @@ The main checks for the public path are:
 - `bash scripts/run_rko_lio_graph_autoware_dogfood.sh --auto-exit-secs 20`
 - `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10`
 
-For the command-level details, parameter-file pointers, and Autoware map output
-notes, see [docs/workflows.md](docs/workflows.md).
+For the command-level details, parameter-file pointers, and Autoware map output notes, see [docs/workflows.md](docs/workflows.md).
