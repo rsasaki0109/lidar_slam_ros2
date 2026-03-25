@@ -1,8 +1,42 @@
+// Copyright 2026 Sasaki
+// All rights reserved.
+//
+// Software License Agreement (BSD 2-Clause Simplified License)
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+//
+//  * Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//  * Redistributions in binary form must reproduce the above
+//    copyright notice, this list of conditions and the following
+//    disclaimer in the documentation and/or other materials provided
+//    with the distribution.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+// FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+// COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+// ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+
 #include "graph_based_slam/graph_based_slam_component.h"
+
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+
+#include "g2o/core/robust_kernel_impl.h"
 
 using namespace std::chrono_literals;
 
@@ -39,6 +73,14 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("range_of_searching_loop_closure", range_of_searching_loop_closure_);
   declare_parameter("search_submap_num", 3);
   get_parameter("search_submap_num", search_submap_num_);
+  declare_parameter("max_loop_candidate_count", 3);
+  get_parameter("max_loop_candidate_count", max_loop_candidate_count_);
+  declare_parameter("loop_edge_dedup_index_window", 8);
+  get_parameter("loop_edge_dedup_index_window", loop_edge_dedup_index_window_);
+  declare_parameter("loop_max_translation_delta", 15.0);
+  get_parameter("loop_max_translation_delta", loop_max_translation_delta_);
+  declare_parameter("loop_max_rotation_delta_deg", 45.0);
+  get_parameter("loop_max_rotation_delta_deg", loop_max_rotation_delta_deg_);
   declare_parameter("num_adjacent_pose_cnstraints", 5);
   get_parameter("num_adjacent_pose_cnstraints", num_adjacent_pose_cnstraints_);
   declare_parameter("use_save_map_in_loop", true);
@@ -47,6 +89,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("debug_flag", debug_flag_);
   declare_parameter("adjacent_edge_info_weight", 1000.0);
   get_parameter("adjacent_edge_info_weight", adjacent_edge_info_weight_);
+  declare_parameter("loop_edge_info_weight", 100.0);
+  get_parameter("loop_edge_info_weight", loop_edge_info_weight_);
+  declare_parameter("loop_edge_robust_kernel_delta", 1.0);
+  get_parameter("loop_edge_robust_kernel_delta", loop_edge_robust_kernel_delta_);
   declare_parameter("use_scan_context", false);
   get_parameter("use_scan_context", use_scan_context_);
   declare_parameter("use_pcd_cache", false);
@@ -71,12 +117,96 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("use_gnss", use_gnss_);
   declare_parameter("gnss_info_weight", 1.0);
   get_parameter("gnss_info_weight", gnss_info_weight_);
+  declare_parameter("gnss_origin_min_samples", 3);
+  get_parameter("gnss_origin_min_samples", gnss_origin_min_samples_);
+  declare_parameter("gnss_origin_consistency_threshold_m", 20.0);
+  get_parameter(
+    "gnss_origin_consistency_threshold_m",
+    gnss_origin_consistency_threshold_m_);
   declare_parameter("use_imu_preintegration", false);
   get_parameter("use_imu_preintegration", use_imu_preintegration_);
   declare_parameter("imu_rotation_info_roll_pitch", 100.0);
   get_parameter("imu_rotation_info_roll_pitch", imu_rotation_info_roll_pitch_);
   declare_parameter("imu_rotation_info_yaw", 10.0);
   get_parameter("imu_rotation_info_yaw", imu_rotation_info_yaw_);
+
+  if (gnss_origin_min_samples_ < 1) {
+    RCLCPP_WARN(
+      get_logger(),
+      "gnss_origin_min_samples must be >= 1, clamping %d to 1",
+      gnss_origin_min_samples_);
+    gnss_origin_min_samples_ = 1;
+  }
+  if (gnss_origin_consistency_threshold_m_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "gnss_origin_consistency_threshold_m must be positive, resetting %.3f to 20.0",
+      gnss_origin_consistency_threshold_m_);
+    gnss_origin_consistency_threshold_m_ = 20.0;
+  }
+  if (search_submap_num_ < 1) {
+    RCLCPP_WARN(
+      get_logger(),
+      "search_submap_num must be >= 1, clamping %d to 1",
+      search_submap_num_);
+    search_submap_num_ = 1;
+  }
+  if (max_loop_candidate_count_ < 1) {
+    RCLCPP_WARN(
+      get_logger(),
+      "max_loop_candidate_count must be >= 1, clamping %d to 1",
+      max_loop_candidate_count_);
+    max_loop_candidate_count_ = 1;
+  }
+  if (loop_edge_dedup_index_window_ < 0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_edge_dedup_index_window must be >= 0, clamping %d to 0",
+      loop_edge_dedup_index_window_);
+    loop_edge_dedup_index_window_ = 0;
+  }
+  if (loop_max_translation_delta_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_max_translation_delta must be positive, resetting %.3f to 15.0",
+      loop_max_translation_delta_);
+    loop_max_translation_delta_ = 15.0;
+  }
+  if (loop_max_rotation_delta_deg_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_max_rotation_delta_deg must be positive, resetting %.3f to 45.0",
+      loop_max_rotation_delta_deg_);
+    loop_max_rotation_delta_deg_ = 45.0;
+  }
+  if (num_adjacent_pose_cnstraints_ < 1) {
+    RCLCPP_WARN(
+      get_logger(),
+      "num_adjacent_pose_cnstraints must be >= 1, clamping %d to 1",
+      num_adjacent_pose_cnstraints_);
+    num_adjacent_pose_cnstraints_ = 1;
+  }
+  if (adjacent_edge_info_weight_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "adjacent_edge_info_weight must be positive, resetting %.3f to 1000.0",
+      adjacent_edge_info_weight_);
+    adjacent_edge_info_weight_ = 1000.0;
+  }
+  if (loop_edge_info_weight_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_edge_info_weight must be positive, resetting %.3f to 100.0",
+      loop_edge_info_weight_);
+    loop_edge_info_weight_ = 100.0;
+  }
+  if (loop_edge_robust_kernel_delta_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_edge_robust_kernel_delta must be positive, resetting %.3f to 1.0",
+      loop_edge_robust_kernel_delta_);
+    loop_edge_robust_kernel_delta_ = 1.0;
+  }
 
   std::cout << "registration_method:" << registration_method << std::endl;
   std::cout << "voxel_leaf_size[m]:" << voxel_leaf_size << std::endl;
@@ -88,7 +218,14 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "range_of_searching_loop_closure[m]:" << range_of_searching_loop_closure_ <<
     std::endl;
   std::cout << "search_submap_num:" << search_submap_num_ << std::endl;
+  std::cout << "max_loop_candidate_count:" << max_loop_candidate_count_ << std::endl;
+  std::cout << "loop_edge_dedup_index_window:" << loop_edge_dedup_index_window_ << std::endl;
+  std::cout << "loop_max_translation_delta[m]:" << loop_max_translation_delta_ << std::endl;
+  std::cout << "loop_max_rotation_delta[deg]:" << loop_max_rotation_delta_deg_ << std::endl;
   std::cout << "num_adjacent_pose_cnstraints:" << num_adjacent_pose_cnstraints_ << std::endl;
+  std::cout << "adjacent_edge_info_weight:" << adjacent_edge_info_weight_ << std::endl;
+  std::cout << "loop_edge_info_weight:" << loop_edge_info_weight_ << std::endl;
+  std::cout << "loop_edge_robust_kernel_delta:" << loop_edge_robust_kernel_delta_ << std::endl;
   std::cout << "use_save_map_in_loop:" << std::boolalpha << use_save_map_in_loop_ << std::endl;
   std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
   std::cout << "use_scan_context:" << std::boolalpha << use_scan_context_ << std::endl;
@@ -108,13 +245,19 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
     std::cout << "imu_rotation_info_roll_pitch:" << imu_rotation_info_roll_pitch_ << std::endl;
     std::cout << "imu_rotation_info_yaw:" << imu_rotation_info_yaw_ << std::endl;
   }
+  if (use_gnss_) {
+    std::cout << "gnss_info_weight:" << gnss_info_weight_ << std::endl;
+    std::cout << "gnss_origin_min_samples:" << gnss_origin_min_samples_ << std::endl;
+    std::cout << "gnss_origin_consistency_threshold_m:"
+              << gnss_origin_consistency_threshold_m_ << std::endl;
+  }
   std::cout << "------------------" << std::endl;
 
   voxelgrid_.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
 
   if (registration_method == "NDT") {
-	  boost::shared_ptr<pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>
-      ndt(new pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>());
+    boost::shared_ptr<pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>
+    ndt(new pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>());
     ndt->setMaximumIterations(100);
     ndt->setResolution(ndt_resolution);
     ndt->setTransformationEpsilon(0.01);
@@ -123,11 +266,11 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
     if (ndt_num_threads > 0) {ndt->setNumThreads(ndt_num_threads);}
     registration_ = ndt;
   } else if (registration_method == "GICP") {
-	  boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
-      gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
+    boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
+    gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
     gicp->setMaxCorrespondenceDistance(30);
     gicp->setMaximumIterations(100);
-    //gicp->setCorrespondenceRandomness(20);
+    // gicp->setCorrespondenceRandomness(20);
     gicp->setTransformationEpsilon(1e-8);
     gicp->setEuclideanFitnessEpsilon(1e-6);
     gicp->setRANSACIterations(0);
@@ -141,19 +284,20 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
 
   auto map_save_callback =
     [this](const std::shared_ptr<rmw_request_id_t> request_header,
-      const std::shared_ptr<std_srvs::srv::Empty::Request> request,
-      const std::shared_ptr<std_srvs::srv::Empty::Response> response) -> void
+    const std::shared_ptr<std_srvs::srv::Empty::Request> request,
+    const std::shared_ptr<std_srvs::srv::Empty::Response> response) -> void
     {
       std::cout << "Received an request to save the map" << std::endl;
-      if (initial_map_array_received_ == false) {
+      lidarslam_msgs::msg::MapArray map_array_msg;
+      std::vector<LoopEdge> loop_edges;
+      if (!snapshotGraphState(map_array_msg, loop_edges, false)) {
         std::cout << "initial map is not received" << std::endl;
         return;
       }
-      doPoseAdjustment(map_array_msg_, true);
+      doPoseAdjustment(map_array_msg, loop_edges, true);
     };
 
   map_save_srv_ = create_service<std_srvs::srv::Empty>("map_save", map_save_callback);
-
 }
 
 void GraphBasedSlamComponent::initializePubSub()
@@ -168,7 +312,7 @@ void GraphBasedSlamComponent::initializePubSub()
       // Save new submaps to PCD and clear cloud from memory
       if (use_pcd_cache_) {
         for (int i = 0; i < static_cast<int>(map_array_msg_.submaps.size()); i++) {
-          auto& sub = map_array_msg_.submaps[i];
+          auto & sub = map_array_msg_.submaps[i];
           if (sub.cloud.data.size() > 0) {
             pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
             pcl::fromROSMsg(sub.cloud, *cloud);
@@ -228,32 +372,112 @@ void GraphBasedSlamComponent::initializePubSub()
   if (use_gnss_) {
     gnss_sub_ = create_subscription<sensor_msgs::msg::NavSatFix>(
       "/gnss/fix", rclcpp::SensorDataQoS(),
-      [this](const sensor_msgs::msg::NavSatFix::SharedPtr msg) { receiveNavSatFix(*msg); });
+      [this](const sensor_msgs::msg::NavSatFix::SharedPtr msg) {receiveNavSatFix(*msg);});
     RCLCPP_INFO(get_logger(), "GNSS constraints enabled, subscribed to /gnss/fix");
   }
 
   RCLCPP_INFO(get_logger(), "initialization end");
+}
 
+bool GraphBasedSlamComponent::snapshotGraphState(
+  lidarslam_msgs::msg::MapArray & map_array_msg,
+  std::vector<LoopEdge> & loop_edges,
+  bool consume_map_update)
+{
+  std::lock_guard<std::mutex> lock(mtx_);
+  if (!initial_map_array_received_) {
+    return false;
+  }
+  if (consume_map_update && !is_map_array_updated_) {
+    return false;
+  }
+
+  map_array_msg = map_array_msg_;
+  loop_edges = loop_edges_;
+  if (consume_map_update) {
+    is_map_array_updated_ = false;
+  }
+  return true;
+}
+
+void GraphBasedSlamComponent::snapshotLoopEdges(std::vector<LoopEdge> & loop_edges)
+{
+  std::lock_guard<std::mutex> lock(mtx_);
+  loop_edges = loop_edges_;
+}
+
+bool GraphBasedSlamComponent::upsertLoopEdge(const LoopEdge & loop_edge)
+{
+  if (loop_edge.pair_id.first < 0 || loop_edge.pair_id.second < 0) {
+    return false;
+  }
+
+  LoopEdge normalized = loop_edge;
+  if (normalized.pair_id.first > normalized.pair_id.second) {
+    std::swap(normalized.pair_id.first, normalized.pair_id.second);
+    normalized.relative_pose = normalized.relative_pose.inverse();
+  }
+  if (normalized.pair_id.first == normalized.pair_id.second) {
+    return false;
+  }
+
+  std::lock_guard<std::mutex> lock(mtx_);
+  auto is_nearby_pair = [this](const LoopEdge & lhs, const LoopEdge & rhs) {
+      return std::abs(lhs.pair_id.first - rhs.pair_id.first) <= loop_edge_dedup_index_window_ &&
+             std::abs(lhs.pair_id.second - rhs.pair_id.second) <= loop_edge_dedup_index_window_;
+    };
+  for (auto & existing : loop_edges_) {
+    if (!is_nearby_pair(existing, normalized)) {
+      continue;
+    }
+    if (existing.fitness_score > 0.0 &&
+      normalized.fitness_score >= existing.fitness_score)
+    {
+      return false;
+    }
+    existing = normalized;
+    return true;
+  }
+
+  loop_edges_.push_back(normalized);
+  return true;
 }
 
 void GraphBasedSlamComponent::searchLoop()
 {
-
-  if (initial_map_array_received_ == false) {return;}
-  if (is_map_array_updated_ == false) {return;}
-  if (map_array_msg_.cloud_coordinate != map_array_msg_.LOCAL) {
+  lidarslam_msgs::msg::MapArray map_array_msg;
+  std::vector<LoopEdge> loop_edges;
+  if (!snapshotGraphState(map_array_msg, loop_edges, true)) {return;}
+  if (map_array_msg.submaps.size() < 2) {return;}
+  if (map_array_msg.cloud_coordinate != map_array_msg.LOCAL) {
     RCLCPP_WARN(get_logger(), "cloud_coordinate should be local, but it's not local.");
   }
-  is_map_array_updated_ = false;
-
-  lidarslam_msgs::msg::MapArray map_array_msg = map_array_msg_;
-  std::lock_guard<std::mutex> lock(mtx_);
   int num_submaps = map_array_msg.submaps.size();
 
-  if(debug_flag_)
-  {
+  if (debug_flag_) {
     RCLCPP_INFO(get_logger(), "searching Loop, num_submaps:%d", num_submaps);
   }
+
+  struct LoopCandidate
+  {
+    int index {-1};
+    double selection_metric {std::numeric_limits<double>::max()};
+    bool from_scan_context {false};
+  };
+
+  struct LoopCandidateResult
+  {
+    bool valid {false};
+    int index {-1};
+    double selection_metric {std::numeric_limits<double>::max()};
+    double fitness_score {std::numeric_limits<double>::max()};
+    double travel_distance {0.0};
+    double euclidean_distance {0.0};
+    double translation_delta_m {0.0};
+    double rotation_delta_deg {0.0};
+    bool from_scan_context {false};
+    Eigen::Matrix4f final_transformation {Eigen::Matrix4f::Identity()};
+  };
 
   // Update Scan Context database for new submaps (one at a time)
   if (use_scan_context_ && scan_context_db_.size() < num_submaps) {
@@ -270,19 +494,15 @@ void GraphBasedSlamComponent::searchLoop()
     }
   }
 
-  double min_fitness_score = std::numeric_limits<double>::max();
-  double distance_min_fitness_score = 0;
-  bool is_candidate = false;
-
-  lidarslam_msgs::msg::SubMap latest_submap;
-  latest_submap = map_array_msg.submaps[num_submaps - 1];
+  const int latest_idx = num_submaps - 1;
+  const auto & latest_submap = map_array_msg.submaps[latest_idx];
 
   // Aggregate latest N submaps as source (improves matching quality)
   pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_latest_submap_cloud_ptr(
     new pcl::PointCloud<pcl::PointXYZI>);
-  for (int k = 0; k < search_submap_num_ && (num_submaps - 1 - k) >= 0; k++) {
-    int src_idx = num_submaps - 1 - k;
-    auto& src_submap = map_array_msg.submaps[src_idx];
+  for (int k = 0; k < search_submap_num_ && (latest_idx - k) >= 0; k++) {
+    int src_idx = latest_idx - k;
+    const auto & src_submap = map_array_msg.submaps[src_idx];
     pcl::PointCloud<pcl::PointXYZI>::Ptr src_cloud;
     if (use_pcd_cache_) {
       src_cloud = loadSubmapFromPCD(src_idx);
@@ -290,27 +510,54 @@ void GraphBasedSlamComponent::searchLoop()
       src_cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
       pcl::fromROSMsg(src_submap.cloud, *src_cloud);
     }
+    if (src_cloud->empty()) {
+      continue;
+    }
     pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_src(new pcl::PointCloud<pcl::PointXYZI>);
     Eigen::Affine3d src_affine;
     tf2::fromMsg(src_submap.pose, src_affine);
     pcl::transformPointCloud(*src_cloud, *transformed_src, src_affine.matrix().cast<float>());
     *transformed_latest_submap_cloud_ptr += *transformed_src;
   }
-  // Downsample source
+  if (transformed_latest_submap_cloud_ptr->empty()) {
+    return;
+  }
+
   pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source(new pcl::PointCloud<pcl::PointXYZI>);
   voxelgrid_.setInputCloud(transformed_latest_submap_cloud_ptr);
   voxelgrid_.filter(*filtered_source);
+  if (filtered_source->empty()) {
+    return;
+  }
   registration_->setInputSource(filtered_source);
-  double latest_moving_distance = latest_submap.distance;
-  Eigen::Vector3d latest_submap_pos{
+
+  const double latest_moving_distance = latest_submap.distance;
+  const Eigen::Vector3d latest_submap_pos{
     latest_submap.pose.position.x,
     latest_submap.pose.position.y,
     latest_submap.pose.position.z};
-  int id_min = 0;
-  double min_dist = std::numeric_limits<double>::max();
-  lidarslam_msgs::msg::SubMap min_submap;
 
-  // Scan Context-based candidate selection (if enabled)
+  std::vector<LoopCandidate> candidates;
+  auto add_candidate = [&candidates](int index, double selection_metric, bool from_scan_context) {
+      if (index < 0) {
+        return;
+      }
+      for (auto & candidate : candidates) {
+        if (candidate.index != index) {
+          continue;
+        }
+        candidate.selection_metric = std::min(candidate.selection_metric, selection_metric);
+        candidate.from_scan_context = candidate.from_scan_context || from_scan_context;
+        return;
+      }
+
+      LoopCandidate candidate;
+      candidate.index = index;
+      candidate.selection_metric = selection_metric;
+      candidate.from_scan_context = from_scan_context;
+      candidates.push_back(candidate);
+    };
+
   if (use_scan_context_ && scan_context_db_.size() > ScanContext::EXCLUDE_RECENT) {
     auto [sc_idx, sc_dist] = scan_context_db_.query(
       scan_context_db_.descriptors.back(),
@@ -318,47 +565,66 @@ void GraphBasedSlamComponent::searchLoop()
       ScanContext::EXCLUDE_RECENT,
       scan_context_threshold_);
 
-    if (sc_idx >= 0 && sc_idx < num_submaps) {
-      is_candidate = true;
-      id_min = sc_idx;
-      min_submap = map_array_msg.submaps[sc_idx];
+    if (sc_idx >= 0 && sc_idx < latest_idx) {
+      add_candidate(sc_idx, sc_dist, true);
       std::cout << "ScanContext loop candidate: id=" << sc_idx
                 << " sc_dist=" << sc_dist << std::endl;
     }
   }
 
-  // Distance-based candidate selection (fallback or when Scan Context disabled)
-  if (!is_candidate) {
-    for (int i = 0; i < num_submaps; i++) {
-      auto submap = map_array_msg.submaps[i];
-      Eigen::Vector3d submap_pos{submap.pose.position.x, submap.pose.position.y,
-        submap.pose.position.z};
-      double dist = (latest_submap_pos - submap_pos).norm();
-      if (latest_moving_distance - submap.distance > distance_loop_closure_ &&
-        dist < range_of_searching_loop_closure_)
-      {
-        is_candidate = true;
-        if (dist < min_dist) {
-        id_min = i;
-        min_dist = dist;
-        min_submap = submap;
-        }
-      }
+  std::vector<std::pair<double, int>> distance_candidates;
+  distance_candidates.reserve(num_submaps);
+  for (int i = 0; i < latest_idx; i++) {
+    const auto & submap = map_array_msg.submaps[i];
+    const Eigen::Vector3d submap_pos{
+      submap.pose.position.x,
+      submap.pose.position.y,
+      submap.pose.position.z};
+    const double dist = (latest_submap_pos - submap_pos).norm();
+    if (latest_moving_distance - submap.distance <= distance_loop_closure_) {
+      continue;
     }
-  }  // end distance-based fallback
+    if (dist >= range_of_searching_loop_closure_) {
+      continue;
+    }
+    distance_candidates.emplace_back(dist, i);
+  }
+  std::sort(distance_candidates.begin(), distance_candidates.end());
+  const int num_distance_candidates =
+    std::min(max_loop_candidate_count_, static_cast<int>(distance_candidates.size()));
+  for (int i = 0; i < num_distance_candidates; i++) {
+    add_candidate(distance_candidates[i].second, distance_candidates[i].first, false);
+  }
+  if (candidates.empty()) {
+    return;
+  }
 
-  if (is_candidate) {
+  LoopCandidateResult best_candidate;
+  LoopCandidateResult best_attempt;
+  bool attempted_registration = false;
+
+  for (const auto & candidate : candidates) {
+    if (candidate.index < 0 || candidate.index >= latest_idx) {
+      continue;
+    }
+
+    const auto & candidate_submap = map_array_msg.submaps[candidate.index];
     pcl::PointCloud<pcl::PointXYZI>::Ptr submap_clouds_ptr(new pcl::PointCloud<pcl::PointXYZI>);
-    for (int j = 0; j <= 2 * search_submap_num_; ++j) {
-      if (id_min + j - search_submap_num_ < 0) {continue;}
-      int near_idx = id_min + j - search_submap_num_;
-      auto near_submap = map_array_msg.submaps[near_idx];
+    for (int offset = -search_submap_num_; offset <= search_submap_num_; ++offset) {
+      const int near_idx = candidate.index + offset;
+      if (near_idx < 0 || near_idx >= num_submaps) {
+        continue;
+      }
+      const auto & near_submap = map_array_msg.submaps[near_idx];
       pcl::PointCloud<pcl::PointXYZI>::Ptr submap_cloud_ptr;
       if (use_pcd_cache_) {
         submap_cloud_ptr = loadSubmapFromPCD(near_idx);
       } else {
         submap_cloud_ptr.reset(new pcl::PointCloud<pcl::PointXYZI>);
         pcl::fromROSMsg(near_submap.cloud, *submap_cloud_ptr);
+      }
+      if (submap_cloud_ptr->empty()) {
+        continue;
       }
       pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_submap_cloud_ptr(
         new pcl::PointCloud<pcl::PointXYZI>);
@@ -369,50 +635,158 @@ void GraphBasedSlamComponent::searchLoop()
         affine.matrix().cast<float>());
       *submap_clouds_ptr += *transformed_submap_cloud_ptr;
     }
+    if (submap_clouds_ptr->empty()) {
+      continue;
+    }
 
     pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_clouds_ptr(new pcl::PointCloud<pcl::PointXYZI>());
     voxelgrid_.setInputCloud(submap_clouds_ptr);
     voxelgrid_.filter(*filtered_clouds_ptr);
+    if (filtered_clouds_ptr->empty()) {
+      continue;
+    }
     registration_->setInputTarget(filtered_clouds_ptr);
 
     pcl::PointCloud<pcl::PointXYZI>::Ptr output_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>);
     registration_->align(*output_cloud_ptr);
-    double fitness_score = registration_->getFitnessScore();
-
-    if (fitness_score < threshold_loop_closure_score_) {
-
-      Eigen::Affine3d init_affine;
-      tf2::fromMsg(latest_submap.pose, init_affine);
-      Eigen::Affine3d submap_affine;
-      tf2::fromMsg(min_submap.pose, submap_affine);
-
-      LoopEdge loop_edge;
-      loop_edge.pair_id = std::pair<int, int>(id_min, num_submaps - 1);
-      Eigen::Isometry3d from = Eigen::Isometry3d(submap_affine.matrix());
-      Eigen::Isometry3d to = Eigen::Isometry3d(
-        registration_->getFinalTransformation().cast<double>() * init_affine.matrix());
-
-      loop_edge.relative_pose = Eigen::Isometry3d(from.inverse() * to);
-      loop_edges_.push_back(loop_edge);
-
-      std::cout << "---" << std::endl;
-      std::cout << "PoseAdjustment distance:" << min_submap.distance << ", score:" << fitness_score << std::endl;
-      std::cout << "id_loop_point 1:" << id_min << " id_loop_point 2:" << num_submaps - 1 << std::endl;
-      std::cout << "final transformation:" << std::endl;
-      std::cout << registration_->getFinalTransformation() << std::endl;
-      doPoseAdjustment(map_array_msg, use_save_map_in_loop_);
-
-      return;
+    attempted_registration = true;
+    if (!registration_->hasConverged()) {
+      if (debug_flag_) {
+        RCLCPP_INFO(
+          get_logger(),
+          "Rejected loop candidate %d -> %d because registration did not converge",
+          candidate.index,
+          latest_idx);
+      }
+      continue;
     }
-    std::cout << "min_submap_distance:" << min_submap.distance << " min_fitness_score:" << fitness_score << std::endl;
+
+    const double fitness_score = registration_->getFitnessScore();
+    const Eigen::Matrix4f final_transformation = registration_->getFinalTransformation();
+    const Eigen::Vector3f translation = final_transformation.block<3, 1>(0, 3);
+    const double translation_delta_m = translation.cast<double>().norm();
+    const Eigen::Matrix3f rotation = final_transformation.block<3, 3>(0, 0);
+    const double trace = static_cast<double>(rotation.trace());
+    const double cos_theta = std::max(-1.0, std::min(1.0, 0.5 * (trace - 1.0)));
+    const double rotation_delta_deg = std::acos(cos_theta) * 180.0 / M_PI;
+
+    LoopCandidateResult candidate_result;
+    candidate_result.index = candidate.index;
+    candidate_result.selection_metric = candidate.selection_metric;
+    candidate_result.fitness_score = fitness_score;
+    candidate_result.travel_distance = candidate_submap.distance;
+    candidate_result.euclidean_distance = (latest_submap_pos - Eigen::Vector3d(
+      candidate_submap.pose.position.x,
+      candidate_submap.pose.position.y,
+      candidate_submap.pose.position.z)).norm();
+    candidate_result.translation_delta_m = translation_delta_m;
+    candidate_result.rotation_delta_deg = rotation_delta_deg;
+    candidate_result.from_scan_context = candidate.from_scan_context;
+    candidate_result.final_transformation = final_transformation;
+
+    if (best_attempt.index < 0 || fitness_score < best_attempt.fitness_score) {
+      best_attempt = candidate_result;
+    }
+
+    if (fitness_score >= threshold_loop_closure_score_) {
+      if (debug_flag_) {
+        RCLCPP_INFO(
+          get_logger(),
+          "Rejected loop candidate %d -> %d because fitness %.6f exceeds threshold %.6f",
+          candidate.index,
+          latest_idx,
+          fitness_score,
+          threshold_loop_closure_score_);
+      }
+      continue;
+    }
+    if (translation_delta_m > loop_max_translation_delta_) {
+      if (debug_flag_) {
+        RCLCPP_INFO(
+          get_logger(),
+          "Rejected loop candidate %d -> %d because translation correction %.3f m exceeds %.3f m",
+          candidate.index,
+          latest_idx,
+          translation_delta_m,
+          loop_max_translation_delta_);
+      }
+      continue;
+    }
+    if (rotation_delta_deg > loop_max_rotation_delta_deg_) {
+      if (debug_flag_) {
+        RCLCPP_INFO(
+          get_logger(),
+          "Rejected loop candidate %d -> %d because rotation correction %.3f deg exceeds %.3f deg",
+          candidate.index,
+          latest_idx,
+          rotation_delta_deg,
+          loop_max_rotation_delta_deg_);
+      }
+      continue;
+    }
+
+    candidate_result.valid = true;
+    if (!best_candidate.valid || fitness_score < best_candidate.fitness_score) {
+      best_candidate = candidate_result;
+    }
   }
+
+  if (!best_candidate.valid) {
+    if (best_attempt.index >= 0) {
+      std::cout << "best_loop_candidate id:" << best_attempt.index
+                << " latest_id:" << latest_idx
+                << " travel_distance:" << best_attempt.travel_distance
+                << " euclidean_distance:" << best_attempt.euclidean_distance
+                << " fitness:" << best_attempt.fitness_score
+                << " correction_translation:" << best_attempt.translation_delta_m
+                << " correction_rotation_deg:" << best_attempt.rotation_delta_deg
+                << std::endl;
+    } else if (attempted_registration && debug_flag_) {
+      RCLCPP_INFO(get_logger(), "No converged loop candidate remained for latest submap %d",
+          latest_idx);
+    }
+    return;
+  }
+
+  Eigen::Affine3d init_affine;
+  tf2::fromMsg(latest_submap.pose, init_affine);
+  Eigen::Affine3d submap_affine;
+  tf2::fromMsg(map_array_msg.submaps[best_candidate.index].pose, submap_affine);
+
+  LoopEdge loop_edge;
+  loop_edge.pair_id = std::pair<int, int>(best_candidate.index, latest_idx);
+  Eigen::Isometry3d from = Eigen::Isometry3d(submap_affine.matrix());
+  Eigen::Isometry3d to = Eigen::Isometry3d(
+    best_candidate.final_transformation.cast<double>() * init_affine.matrix());
+
+  loop_edge.relative_pose = Eigen::Isometry3d(from.inverse() * to);
+  loop_edge.fitness_score = best_candidate.fitness_score;
+  const bool graph_changed = upsertLoopEdge(loop_edge);
+
+  std::cout << "---" << std::endl;
+  std::cout << "PoseAdjustment distance:" << best_candidate.travel_distance
+            << ", score:" << best_candidate.fitness_score << std::endl;
+  std::cout << "id_loop_point 1:" << best_candidate.index
+            << " id_loop_point 2:" << latest_idx << std::endl;
+  std::cout << "loop_candidate_source:"
+            << (best_candidate.from_scan_context ? "scan_context" : "distance") << std::endl;
+  std::cout << "correction translation[m]:" << best_candidate.translation_delta_m
+            << " rotation[deg]:" << best_candidate.rotation_delta_deg << std::endl;
+  std::cout << "final transformation:" << std::endl;
+  std::cout << best_candidate.final_transformation << std::endl;
+  if (!graph_changed) {
+    std::cout << "loop edge skipped as redundant or lower quality" << std::endl;
+    return;
+  }
+  snapshotLoopEdges(loop_edges);
+  doPoseAdjustment(map_array_msg, loop_edges, use_save_map_in_loop_);
 }
 
 void GraphBasedSlamComponent::doPoseAdjustment(
   lidarslam_msgs::msg::MapArray map_array_msg,
+  const std::vector<LoopEdge> & loop_edges,
   bool do_save_map)
 {
-
   g2o::SparseOptimizer optimizer;
   optimizer.setVerbose(false);
   std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linear_solver =
@@ -423,7 +797,6 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   optimizer.setAlgorithm(solver);
 
   int submaps_size = map_array_msg.submaps.size();
-  Eigen::Matrix<double, 6, 6> info_mat = Eigen::Matrix<double, 6, 6>::Identity() * adjacent_edge_info_weight_;
   for (int i = 0; i < submaps_size; i++) {
     Eigen::Affine3d affine;
     Eigen::fromMsg(map_array_msg.submaps[i].pose, affine);
@@ -435,23 +808,26 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     if (i == 0) {vertex_se3->setFixed(true);}
     optimizer.addVertex(vertex_se3);
 
-    if (i > num_adjacent_pose_cnstraints_) {
-      for (int j = 0; j < num_adjacent_pose_cnstraints_; j++) {
+    if (i > 0) {
+      const int start_idx = std::max(0, i - num_adjacent_pose_cnstraints_);
+      for (int pre_idx = start_idx; pre_idx < i; pre_idx++) {
         Eigen::Affine3d pre_affine;
-        Eigen::fromMsg(
-          map_array_msg.submaps[i - num_adjacent_pose_cnstraints_ + j].pose,
-          pre_affine);
+        Eigen::fromMsg(map_array_msg.submaps[pre_idx].pose, pre_affine);
         Eigen::Isometry3d pre_pose(pre_affine.matrix());
         Eigen::Isometry3d relative_pose = pre_pose.inverse() * pose;
+
+        const int separation = i - pre_idx;
+        const double edge_weight = adjacent_edge_info_weight_ / static_cast<double>(separation);
+        Eigen::Matrix<double, 6, 6> info_mat =
+          Eigen::Matrix<double, 6, 6>::Identity() * edge_weight;
         g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
         edge_se3->setMeasurement(relative_pose);
         edge_se3->setInformation(info_mat);
-        edge_se3->vertices()[0] = optimizer.vertex(i - num_adjacent_pose_cnstraints_ + j);
+        edge_se3->vertices()[0] = optimizer.vertex(pre_idx);
         edge_se3->vertices()[1] = optimizer.vertex(i);
         optimizer.addEdge(edge_se3);
       }
     }
-
   }
   /* IMU rotation constraint edges */
   if (use_imu_preintegration_ && submaps_size > 1) {
@@ -460,10 +836,10 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     for (int i = 1; i < submaps_size; i++) {
       double t0 = rclcpp::Time(map_array_msg.submaps[i - 1].header.stamp).seconds();
       double t1 = rclcpp::Time(map_array_msg.submaps[i].header.stamp).seconds();
-      if (t1 <= t0 || t1 - t0 > 30.0) { continue; }
+      if (t1 <= t0 || t1 - t0 > 30.0) {continue;}
 
       Eigen::Quaterniond imu_delta_q = integrateImuRotation(t0, t1);
-      if (imu_delta_q.isApprox(Eigen::Quaterniond::Identity(), 1e-8)) { continue; }
+      if (imu_delta_q.isApprox(Eigen::Quaterniond::Identity(), 1e-8)) {continue;}
 
       // Build relative pose measurement: translation from odometry, rotation from IMU
       Eigen::Affine3d affine_prev, affine_curr;
@@ -501,11 +877,16 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   }
 
   /* loop edge */
-  Eigen::Matrix<double, 6, 6> loop_info_mat = Eigen::Matrix<double, 6, 6>::Identity();
-  for (auto loop_edge : loop_edges_) {
+  for (const auto & loop_edge : loop_edges) {
     g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
     edge_se3->setMeasurement(loop_edge.relative_pose);
+    const double fitness = std::max(loop_edge.fitness_score, 1e-3);
+    Eigen::Matrix<double, 6, 6> loop_info_mat =
+      Eigen::Matrix<double, 6, 6>::Identity() * (loop_edge_info_weight_ / fitness);
     edge_se3->setInformation(loop_info_mat);
+    auto * robust_kernel = new g2o::RobustKernelHuber();
+    robust_kernel->setDelta(loop_edge_robust_kernel_delta_);
+    edge_se3->setRobustKernel(robust_kernel);
     edge_se3->vertices()[0] = optimizer.vertex(loop_edge.pair_id.first);
     edge_se3->vertices()[1] = optimizer.vertex(loop_edge.pair_id.second);
     optimizer.addEdge(edge_se3);
@@ -527,7 +908,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
       double best_dt = std::numeric_limits<double>::max();
       GnssEnu best_gnss;
       bool found = false;
-      for (const auto& g : gnss_buffer_) {
+      for (const auto & g : gnss_buffer_) {
         double dt = std::abs(g.stamp - submap_time);
         if (dt < best_dt) {
           best_dt = dt;
@@ -535,7 +916,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
           found = true;
         }
       }
-      if (!found || best_dt > 1.0) continue;  // Skip if no GNSS within 1 second
+      if (!found || best_dt > 1.0) {continue;}  // Skip if no GNSS within 1 second
 
       // Create unary-like constraint: edge from vertex i to a fixed GNSS position
       // Use EdgeSE3 with vertex 0 = fixed GNSS pose, vertex 1 = submap
@@ -608,7 +989,6 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     pose_stamped.header = submap.header;
     pose_stamped.pose = submap.pose;
     path.poses.push_back(pose_stamped);
-
   }
 
   modified_map_array_pub_->publish(modified_map_array_msg);
@@ -621,7 +1001,6 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   if (do_save_map) {
     saveGridDividedMap(map_ptr);
   }
-
 }
 
 void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix & msg)
@@ -629,20 +1008,17 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
   if (msg.status.status < sensor_msgs::msg::NavSatStatus::STATUS_FIX) {
     return;  // No valid fix
   }
-  // Reject obviously invalid coordinates
-  if (std::abs(msg.latitude) < 1e-6 && std::abs(msg.longitude) < 1e-6) {
+  if (!isUsableGnssFix(msg)) {
     return;
   }
 
   std::lock_guard<std::mutex> lock(gnss_mtx_);
 
   if (!gnss_origin_set_) {
-    gnss_origin_lat_ = msg.latitude;
-    gnss_origin_lon_ = msg.longitude;
-    gnss_origin_alt_ = msg.altitude;
-    gnss_origin_set_ = true;
-    RCLCPP_INFO(get_logger(), "GNSS origin set: lat=%.8f, lon=%.8f, alt=%.2f",
-      gnss_origin_lat_, gnss_origin_lon_, gnss_origin_alt_);
+    tryInitializeGnssOrigin(msg.latitude, msg.longitude, msg.altitude);
+    if (!gnss_origin_set_) {
+      return;
+    }
   }
 
   Eigen::Vector3d enu = geodeticToEnu(msg.latitude, msg.longitude, msg.altitude);
@@ -659,6 +1035,116 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
   }
 }
 
+bool GraphBasedSlamComponent::isUsableGnssFix(const sensor_msgs::msg::NavSatFix & msg) const
+{
+  if (!std::isfinite(msg.latitude) || !std::isfinite(msg.longitude) ||
+    !std::isfinite(msg.altitude))
+  {
+    return false;
+  }
+  if (msg.latitude < -90.0 || msg.latitude > 90.0) {
+    return false;
+  }
+  if (msg.longitude < -180.0 || msg.longitude > 180.0) {
+    return false;
+  }
+  if (std::abs(msg.latitude) < 1e-6 && std::abs(msg.longitude) < 1e-6) {
+    return false;
+  }
+  return true;
+}
+
+void GraphBasedSlamComponent::tryInitializeGnssOrigin(double lat, double lon, double alt)
+{
+  GnssOriginSample sample {lat, lon, alt};
+
+  if (!gnss_origin_candidates_.empty()) {
+    double mean_lat = 0.0;
+    double mean_lon = 0.0;
+    double mean_alt = 0.0;
+    for (const auto & candidate : gnss_origin_candidates_) {
+      mean_lat += candidate.lat;
+      mean_lon += candidate.lon;
+      mean_alt += candidate.alt;
+    }
+    mean_lat /= gnss_origin_candidates_.size();
+    mean_lon /= gnss_origin_candidates_.size();
+    mean_alt /= gnss_origin_candidates_.size();
+
+    const double jump_m = approximateGeodeticDistanceMeters(mean_lat, mean_lon, lat, lon);
+    if (jump_m > gnss_origin_consistency_threshold_m_) {
+      RCLCPP_WARN(
+        get_logger(),
+        "Resetting GNSS origin initialization after %.1f m jump in candidate fixes",
+        jump_m);
+      gnss_origin_candidates_.clear();
+    }
+  }
+
+  gnss_origin_candidates_.push_back(sample);
+
+  if (static_cast<int>(gnss_origin_candidates_.size()) < gnss_origin_min_samples_) {
+    return;
+  }
+
+  double mean_lat = 0.0;
+  double mean_lon = 0.0;
+  double mean_alt = 0.0;
+  for (const auto & candidate : gnss_origin_candidates_) {
+    mean_lat += candidate.lat;
+    mean_lon += candidate.lon;
+    mean_alt += candidate.alt;
+  }
+  mean_lat /= gnss_origin_candidates_.size();
+  mean_lon /= gnss_origin_candidates_.size();
+  mean_alt /= gnss_origin_candidates_.size();
+
+  double max_deviation_m = 0.0;
+  for (const auto & candidate : gnss_origin_candidates_) {
+    const double deviation_m = approximateGeodeticDistanceMeters(
+      mean_lat, mean_lon, candidate.lat, candidate.lon);
+    if (deviation_m > max_deviation_m) {
+      max_deviation_m = deviation_m;
+    }
+  }
+
+  if (max_deviation_m > gnss_origin_consistency_threshold_m_) {
+    const GnssOriginSample latest = gnss_origin_candidates_.back();
+    gnss_origin_candidates_.clear();
+    gnss_origin_candidates_.push_back(latest);
+    RCLCPP_WARN(
+      get_logger(),
+      "GNSS origin candidates were inconsistent (max deviation %.1f m), restarting accumulation",
+      max_deviation_m);
+    return;
+  }
+
+  gnss_origin_lat_ = mean_lat;
+  gnss_origin_lon_ = mean_lon;
+  gnss_origin_alt_ = mean_alt;
+  gnss_origin_set_ = true;
+  gnss_origin_candidates_.clear();
+  RCLCPP_INFO(
+    get_logger(),
+    "GNSS origin set from %d consistent fixes: lat=%.8f, lon=%.8f, alt=%.2f",
+    gnss_origin_min_samples_, gnss_origin_lat_, gnss_origin_lon_, gnss_origin_alt_);
+}
+
+double GraphBasedSlamComponent::approximateGeodeticDistanceMeters(
+  double lat0, double lon0, double lat1, double lon1) const
+{
+  constexpr double kEarthRadiusM = 6378137.0;
+  auto toRad = [](double deg) {return deg * M_PI / 180.0;};
+
+  const double lat0_rad = toRad(lat0);
+  const double lat1_rad = toRad(lat1);
+  const double dlat = lat1_rad - lat0_rad;
+  const double dlon = toRad(lon1 - lon0);
+  const double x = dlon * std::cos((lat0_rad + lat1_rad) * 0.5);
+  const double y = dlat;
+  return std::sqrt(x * x + y * y) * kEarthRadiusM;
+}
+
 Eigen::Vector3d GraphBasedSlamComponent::geodeticToEnu(
   double lat, double lon, double alt) const
 {
@@ -667,7 +1153,7 @@ Eigen::Vector3d GraphBasedSlamComponent::geodeticToEnu(
   constexpr double f = 1.0 / 298.257223563;    // flattening
   constexpr double e2 = 2 * f - f * f;         // eccentricity squared
 
-  auto toRad = [](double deg) { return deg * M_PI / 180.0; };
+  auto toRad = [](double deg) {return deg * M_PI / 180.0;};
 
   double lat0 = toRad(gnss_origin_lat_);
   double lon0 = toRad(gnss_origin_lon_);
@@ -718,7 +1204,7 @@ Eigen::Quaterniond GraphBasedSlamComponent::integrateImuRotation(double t0, doub
 
   // Find first IMU sample >= t0
   auto it = std::lower_bound(imu_buffer_.begin(), imu_buffer_.end(), t0,
-    [](const StampedImu & imu, double t) { return imu.stamp < t; });
+      [](const StampedImu & imu, double t) {return imu.stamp < t;});
 
   if (it == imu_buffer_.end()) {
     return delta_q;  // no data
@@ -772,7 +1258,7 @@ void GraphBasedSlamComponent::receiveOdometry(const nav_msgs::msg::Odometry & ms
 
 void GraphBasedSlamComponent::tryCreateSubmap()
 {
-  if (!latest_odom_valid_ || !latest_cloud_) return;
+  if (!latest_odom_valid_ || !latest_cloud_) {return;}
 
   Eigen::Vector3d pos(
     latest_odom_.pose.pose.position.x,
@@ -782,8 +1268,8 @@ void GraphBasedSlamComponent::tryCreateSubmap()
   // Check distance threshold
   if (last_submap_position_valid_) {
     double dist = (pos - last_submap_position_).norm();
-    if (dist < submap_distance_threshold_) return;
-    if (dist > 100.0) return;
+    if (dist < submap_distance_threshold_) {return;}
+    if (dist > 100.0) {return;}
     accumulated_distance_ += dist;
   }
   last_submap_position_ = pos;
@@ -824,7 +1310,9 @@ void GraphBasedSlamComponent::tryCreateSubmap()
   }
 }
 
-void GraphBasedSlamComponent::saveSubmapToPCD(int idx, const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud)
+void GraphBasedSlamComponent::saveSubmapToPCD(
+  int idx,
+  const pcl::PointCloud<pcl::PointXYZI>::Ptr & cloud)
 {
   std::string path = pcd_cache_dir_ + "/submap_" + std::to_string(idx) + ".pcd";
   pcl::io::savePCDFileBinaryCompressed(path, *cloud);
@@ -841,7 +1329,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::loadSubmapFromPCD(
 }
 
 void GraphBasedSlamComponent::saveGridDividedMap(
-  const pcl::PointCloud<pcl::PointXYZI>::Ptr& map)
+  const pcl::PointCloud<pcl::PointXYZI>::Ptr & map)
 {
   if (map->empty()) {
     std::cout << "Map is empty, skipping save." << std::endl;
@@ -851,7 +1339,7 @@ void GraphBasedSlamComponent::saveGridDividedMap(
   // Create output directory (clean existing PCD files to prevent orphans)
   std::string out_dir = map_save_dir_ + "/pointcloud_map";
   if (std::filesystem::exists(out_dir)) {
-    for (auto& entry : std::filesystem::directory_iterator(out_dir)) {
+    for (auto & entry : std::filesystem::directory_iterator(out_dir)) {
       if (entry.path().extension() == ".pcd" || entry.path().extension() == ".yaml") {
         std::filesystem::remove(entry.path());
       }
@@ -881,12 +1369,12 @@ void GraphBasedSlamComponent::saveGridDividedMap(
 
   int nx = static_cast<int>((x_max - x_min) / map_grid_size_x_);
   int ny = static_cast<int>((y_max - y_min) / map_grid_size_y_);
-  if (nx <= 0) nx = 1;
-  if (ny <= 0) ny = 1;
+  if (nx <= 0) {nx = 1;}
+  if (ny <= 0) {ny = 1;}
 
   // Assign points to grid cells
   std::map<std::pair<int, int>, pcl::PointCloud<pcl::PointXYZI>::Ptr> grid_cells;
-  for (const auto& pt : downsampled->points) {
+  for (const auto & pt : downsampled->points) {
     int gx = static_cast<int>(std::floor((pt.x - x_min) / map_grid_size_x_));
     int gy = static_cast<int>(std::floor((pt.y - y_min) / map_grid_size_y_));
     auto key = std::make_pair(gx, gy);
@@ -908,8 +1396,8 @@ void GraphBasedSlamComponent::saveGridDividedMap(
   meta << "y_resolution: " << std::setprecision(1) << map_grid_size_y_ << std::endl;
 
   int saved = 0;
-  for (auto& [key, cloud] : grid_cells) {
-    if (cloud->empty()) continue;
+  for (auto & [key, cloud] : grid_cells) {
+    if (cloud->empty()) {continue;}
     double cell_x = x_min + key.first * map_grid_size_x_;
     double cell_y = y_min + key.second * map_grid_size_y_;
 
@@ -936,23 +1424,25 @@ void GraphBasedSlamComponent::saveGridDividedMap(
   std::cout << "Total points: " << downsampled->size() << std::endl;
   std::cout << "Metadata: " << out_dir << "/pointcloud_map_metadata.yaml" << std::endl;
 
-  // Save GNSS origin for Autoware's map_projection_loader
+  // Always emit map_projector_info.yaml so Autoware can load pointcloud-only maps.
+  std::string proj_file = map_save_dir_ + "/map_projector_info.yaml";
+  std::ofstream proj(proj_file);
+  proj << std::fixed << std::setprecision(10);
   if (gnss_origin_set_) {
-    std::string proj_file = map_save_dir_ + "/map_projector_info.yaml";
-    std::ofstream proj(proj_file);
-    proj << std::fixed << std::setprecision(10);
-    proj << "projector_type: local" << std::endl;
+    proj << "projector_type: LocalCartesian" << std::endl;
     proj << "vertical_datum: WGS84" << std::endl;
     proj << "map_origin:" << std::endl;
     proj << "  latitude: " << gnss_origin_lat_ << std::endl;
     proj << "  longitude: " << gnss_origin_lon_ << std::endl;
-    proj << "  altitude: " << std::setprecision(3) << gnss_origin_alt_ << std::endl;
-    proj.close();
-    std::cout << "GNSS origin saved: " << proj_file << std::endl;
+    std::cout << "Saved Autoware map projector info (LocalCartesian): " << proj_file
+              << std::endl;
+  } else {
+    proj << "projector_type: Local" << std::endl;
+    std::cout << "Saved Autoware map projector info (Local): " << proj_file << std::endl;
   }
+  proj.close();
 }
-
-}
+}  // namespace graphslam
 
 #include <rclcpp_components/register_node_macro.hpp>
 RCLCPP_COMPONENTS_REGISTER_NODE(graphslam::GraphBasedSlamComponent)

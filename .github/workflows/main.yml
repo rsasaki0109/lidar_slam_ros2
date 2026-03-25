@@ -1,77 +1,233 @@
 name: ci
 
 on:
+  push:
+    branches:
+      - develop
+      - main
   pull_request:
     branches:
       - develop
+      - main
+  schedule:
+    - cron: '0 18 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  job1:
-    name: Build
-    runs-on: ubuntu-22.04
-    container: ros:humble-ros-core
-    steps:
-      - name: Install Git
-        run: |
-            apt-get update
-            apt-get install -y git
-        shell: bash
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-      - name: Copy repository
-        run: |
-            mkdir -p ~/ros2_ws/src/lidarslam_ros2
-            cp -rf . ~/ros2_ws/src/lidarslam_ros2
-        shell: bash
-      - name: Install dependencies
-        run: |
-            apt-get install -y python3-rosdep
-            rosdep init
-            rosdep update
-            cd ~/ros2_ws/src
-            rosdep install -r -y --from-paths . --ignore-src
-        shell: bash
-      - name: Build packages
-        run: |
-            source /opt/ros/humble/setup.bash
-            apt-get install -y python3-colcon-common-extensions
-            cd ~/ros2_ws
-            colcon build
-            source ~/ros2_ws/install/setup.bash
-        shell: bash
-
-  jazzy:
-    name: Build for Jazzy
+  docs-and-release-metadata:
+    name: docs and release metadata
     runs-on: ubuntu-24.04
-    container: ros:jazzy-ros-core
+
     steps:
-      - name: Install Git
-        run: |
-            apt-get update
-            apt-get install -y git
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Python test dependency
         shell: bash
-      - uses: actions/checkout@v2
+        run: |
+          python3 -m pip install --upgrade pytest
+
+      - name: Validate docs entrypoints
+        shell: bash
+        run: |
+          python3 -m pytest graph_based_slam/test/test_docs_entrypoints.py -q
+
+      - name: Validate public shell entrypoints
+        shell: bash
+        run: |
+          bash -n scripts/run_autoware_quickstart.sh
+          bash -n scripts/download_ntu_viral_tnp01.sh
+          bash -n scripts/run_default_ci_checks.sh
+          bash -n scripts/run_release_readiness_checks.sh
+          bash -n scripts/run_rko_lio_graph_autoware_dogfood.sh
+          bash -n scripts/run_graph_slam_pointcloud_map_in_autoware.sh
+
+  default-workflow:
+    name: ${{ matrix.ros_distro }} default workflow
+    needs: docs-and-release-metadata
+    runs-on: ${{ matrix.runs_on }}
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ros_distro: humble
+            runs_on: ubuntu-22.04
+            container: ros:humble-ros-core
+          - ros_distro: jazzy
+            runs_on: ubuntu-24.04
+            container: ros:jazzy-ros-core
+
+    steps:
+      - name: Install system dependencies
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y git python3-rosdep python3-colcon-common-extensions
+
+      - name: Check out repository
+        uses: actions/checkout@v4
         with:
-          submodules: true
-      - name: Copy repository
-        run: |
-            mkdir -p ~/ros2_ws/src/lidarslam_ros2
-            cp -rf . ~/ros2_ws/src/lidarslam_ros2
+          submodules: recursive
+
+      - name: Initialize rosdep
         shell: bash
-      - name: Install dependencies
         run: |
-            apt-get install -y python3-rosdep
+          if [[ ! -e /etc/ros/rosdep/sources.list.d/20-default.list ]]; then
             rosdep init
-            rosdep update
-            cd ~/ros2_ws/src
-            rosdep install -r -y --from-paths . --ignore-src
+          fi
+          rosdep update --rosdistro "${{ matrix.ros_distro }}"
+
+      - name: Install default workflow dependencies
         shell: bash
-      - name: Build packages
         run: |
-            source /opt/ros/jazzy/setup.bash
-            apt-get install -y python3-colcon-common-extensions
-            cd ~/ros2_ws
-            colcon build
-            source ~/ros2_ws/install/setup.bash
+          source "/opt/ros/${{ matrix.ros_distro }}/setup.bash"
+          rosdep install -r -y \
+            --from-paths \
+              lidarslam \
+              lidarslam_msgs \
+              scanmatcher \
+              graph_based_slam \
+              Thirdparty/ndt_omp_ros2 \
+              Thirdparty/rko_lio \
+            --ignore-src \
+            --rosdistro "${{ matrix.ros_distro }}"
+
+      - name: Build and test default workflow
         shell: bash
+        run: |
+          source "/opt/ros/${{ matrix.ros_distro }}/setup.bash"
+          bash scripts/run_default_ci_checks.sh
+
+      - name: Publish test results
+        if: always()
+        shell: bash
+        run: |
+          source "/opt/ros/${{ matrix.ros_distro }}/setup.bash"
+          if [[ -f install/setup.bash ]]; then
+            # shellcheck source=/dev/null
+            source install/setup.bash
+          fi
+          colcon test-result --verbose
+
+  release-readiness:
+    name: release readiness
+    needs:
+      - docs-and-release-metadata
+      - default-workflow
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Generate synthetic benchmark fixture
+        shell: bash
+        run: |
+          python3 scripts/generate_sample_benchmark_metrics.py \
+            --root ci_benchmark_fixture \
+            --profile passing
+
+      - name: Run release-readiness gate
+        shell: bash
+        run: |
+          bash scripts/run_release_readiness_checks.sh \
+            --skip-default-ci \
+            --benchmark-root ci_benchmark_fixture \
+            --out-dir output/ci_release_readiness \
+            --ape-threshold 0.10
+
+      - name: Upload release-readiness artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-readiness
+          path: |
+            output/ci_release_readiness/benchmark_summary.md
+            output/ci_release_readiness/benchmark_summary.csv
+            output/ci_release_readiness/benchmark_report.html
+            ci_benchmark_fixture
+
+      - name: Publish release-readiness summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f output/ci_release_readiness/benchmark_summary.md ]]; then
+            {
+              echo "## Release readiness"
+              echo
+              echo '```md'
+              sed -n '1,80p' output/ci_release_readiness/benchmark_summary.md
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  release-readiness-threshold-guard:
+    name: release readiness threshold guard
+    needs:
+      - docs-and-release-metadata
+      - default-workflow
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Generate failing synthetic benchmark fixture
+        shell: bash
+        run: |
+          python3 scripts/generate_sample_benchmark_metrics.py \
+            --root ci_benchmark_fixture_fail \
+            --profile failing
+
+      - name: Assert release-readiness gate rejects bad benchmarks
+        shell: bash
+        run: |
+          set +e
+          bash scripts/run_release_readiness_checks.sh \
+            --skip-default-ci \
+            --benchmark-root ci_benchmark_fixture_fail \
+            --out-dir output/ci_release_readiness_fail \
+            --ape-threshold 0.10
+          rc=$?
+          set -e
+          if [[ "${rc}" -ne 2 ]]; then
+            echo "expected release gate to exit 2, got ${rc}" >&2
+            exit 1
+          fi
+
+      - name: Upload threshold-guard artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-readiness-threshold-guard
+          path: |
+            output/ci_release_readiness_fail/benchmark_summary.md
+            output/ci_release_readiness_fail/benchmark_summary.csv
+            ci_benchmark_fixture_fail
+
+      - name: Publish threshold-guard summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Release readiness threshold guard"
+            echo
+            echo "- expected exit code: \`2\`"
+            echo "- gate behavior: threshold violation must fail the workflow step"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f output/ci_release_readiness_fail/benchmark_summary.md ]]; then
+            {
+              echo
+              echo '```md'
+              sed -n '1,80p' output/ci_release_readiness_fail/benchmark_summary.md
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

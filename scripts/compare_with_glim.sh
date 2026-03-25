@@ -74,6 +74,12 @@ die() {
   exit 1
 }
 
+is_ntu_viral_tnp01_bag() {
+  local bag_path="${1:-}"
+  [[ -n "${bag_path}" ]] || return 1
+  [[ "${bag_path}" == *"/tnp_01"* || "${bag_path}" == *"tnp_01_rosbag2"* || "${bag_path}" == *"tnp_01_points_restamped_vn100_rosbag2"* ]]
+}
+
 detect_frame_id() {
   local topic="$1"
   local timeout_sec="${2:-5}"
@@ -462,6 +468,8 @@ patch_glim_config() {
 
   GLIM_CONFIG_DIR="${cfg_dir}" \
   GLIM_MODE="${mode}" \
+  GLIM_PRESET_NAME="${GLIM_PRESET}" \
+  GLIM_BAG_PATH="${BAG_PATH}" \
   POINTS_TOPIC="${points_topic}" \
   IMU_TOPIC="${imu_topic}" \
   GLIM_VIEWER_ENABLED="${viewer_enabled}" \
@@ -473,9 +481,12 @@ from pathlib import Path
 
 cfg_dir = Path(os.environ["GLIM_CONFIG_DIR"])
 mode = os.environ.get("GLIM_MODE", "lidar-only").strip().lower()
+preset = os.environ.get("GLIM_PRESET_NAME", "cpu").strip().lower()
+bag_path = os.environ.get("GLIM_BAG_PATH", "")
 points_topic = os.environ.get("POINTS_TOPIC", "/points_raw").strip() or "/points_raw"
 imu_topic = os.environ.get("IMU_TOPIC", "/imu").strip() or "/imu"
 glim_viewer = os.environ.get("GLIM_VIEWER_ENABLED", "0").strip() == "1"
+is_tnp01 = "tnp_01" in bag_path
 
 
 def _strip_json_comments(text: str) -> str:
@@ -529,6 +540,10 @@ if isinstance(global_cfg, dict):
         global_cfg["config_odometry"] = "config_odometry_ct.json"
         global_cfg["config_sub_mapping"] = "config_sub_mapping_cpu.json"
         global_cfg["config_global_mapping"] = "config_global_mapping_cpu.json"
+    elif preset == "cpu":
+        global_cfg["config_odometry"] = "config_odometry_cpu.json"
+        global_cfg["config_sub_mapping"] = "config_sub_mapping_cpu.json"
+        global_cfg["config_global_mapping"] = "config_global_mapping_cpu.json"
     if not glim_viewer:
         global_cfg.pop("config_viewer", None)
     cfg["global"] = global_cfg
@@ -543,6 +558,9 @@ if ros_cfg_json.is_file():
         ros["imu_topic"] = imu_topic
         ros["points_topics"] = [points_topic]
         ros["imu_topics"] = [imu_topic]
+        if is_tnp01:
+            ros["imu_time_offset"] = 0.12
+            ros["acc_scale"] = 0.0
         if not glim_viewer:
             ext = ros.get("extension_modules")
             if isinstance(ext, list):
@@ -555,6 +573,35 @@ if ros_cfg_json.is_file():
                 ]
         ros_cfg["glim_ros"] = ros
         save_json(ros_cfg_json, ros_cfg)
+
+sensors_cfg_json = cfg_dir / "config_sensors.json"
+if sensors_cfg_json.is_file() and is_tnp01:
+    sensors_cfg = load_json(sensors_cfg_json)
+    sensors = sensors_cfg.get("sensors", {})
+    if isinstance(sensors, dict):
+        sensors["T_lidar_imu"] = [-0.07, 0.0, 0.035, 0.0, 0.0, 0.0, 1.0]
+        sensors["ring_field"] = "ring"
+        sensors["autoconf_perpoint_times"] = True
+        sensors["autoconf_prefer_frame_time"] = False
+        sensors["perpoint_relative_time"] = True
+        sensors["perpoint_time_scale"] = 1e-9
+        sensors_cfg["sensors"] = sensors
+        save_json(sensors_cfg_json, sensors_cfg)
+
+for fname, section in (
+    ("config_preprocess.json", "preprocess"),
+    ("config_odometry_gpu.json", "odometry_estimation"),
+    ("config_odometry_cpu.json", "odometry_estimation"),
+):
+    p = cfg_dir / fname
+    if not (is_tnp01 and p.is_file()):
+        continue
+    data = load_json(p)
+    cfg_section = data.get(section)
+    if isinstance(cfg_section, dict):
+        cfg_section["num_threads"] = 1
+        data[section] = cfg_section
+        save_json(p, data)
 
 if not glim_viewer:
     def strip_viewers(obj):
@@ -623,6 +670,7 @@ OFFICIAL_BAG_DIR=""
 BAG_PATH=""
 OUT_DIR=""
 PARAM_FILE=""
+LIDARSLAM_FORCE_NO_IMU="false"
 
 POINTS_TOPIC=""
 IMU_TOPIC=""
@@ -633,6 +681,7 @@ USE_RVIZ="false"
 GLOBAL_FRAME_ID="map"
 ODOM_FRAME_ID="odom"
 ROBOT_FRAME_ID="base_link"
+ROBOT_FRAME_ID_USER_SPECIFIED="false"
 BASE_FRAME=""
 LIDAR_FRAME=""
 POINTS_FRAME_ID=""
@@ -651,6 +700,8 @@ GLIM_TIMEOUT_SEC="180"
 GLIM_CACHE_DIR="${REPO_ROOT}/output/glim_reference_cache"
 GLIM_VIEWER="false"
 USE_GRAPH_BASED_SLAM="true"
+GLIM_OMP_NUM_THREADS=""
+GLIM_DOCKER_IMAGE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -691,7 +742,7 @@ while [[ $# -gt 0 ]]; do
     --odom-frame-id)
       ODOM_FRAME_ID="${2:-}"; shift 2 ;;
     --robot-frame-id)
-      ROBOT_FRAME_ID="${2:-}"; shift 2 ;;
+      ROBOT_FRAME_ID="${2:-}"; ROBOT_FRAME_ID_USER_SPECIFIED="true"; shift 2 ;;
     --base-frame)
       BASE_FRAME="${2:-}"; BASE_FRAME_USER_SPECIFIED="true"; shift 2 ;;
     --lidar-frame)
@@ -888,7 +939,24 @@ if [[ -z "${IMU_TOPIC}" ]]; then
 fi
 
 if [[ -z "${PARAM_FILE}" && "${NO_IMU}" != "true" ]]; then
-  if [[ "${BAG_PATH}" == *"/glim_mid360/"* || "${BAG_PATH}" == *"rosbag2_2024_04_16-14_17_01"* ]]; then
+  if is_ntu_viral_tnp01_bag "${BAG_PATH}"; then
+    tuned_param="${REPO_ROOT}/lidarslam/param/lidarslam_ouster_aggressive_noimu.yaml"
+    if [[ -f "${tuned_param}" ]]; then
+      PARAM_FILE="${tuned_param}"
+      LIDARSLAM_FORCE_NO_IMU="true"
+      USE_GRAPH_BASED_SLAM="false"
+      if [[ "${GLIM_MODE}" == "lidar-only" ]]; then
+        GLIM_MODE="lidar-imu"
+      fi
+      if [[ "${GLIM_PRESET}" == "cpu" ]]; then
+        GLIM_PRESET="gpu"
+      fi
+      GLIM_OMP_NUM_THREADS="1"
+      GLIM_DOCKER_IMAGE="koide3/glim_ros2:jazzy_cuda12.5"
+      echo "note: using NTU VIRAL tnp_01 lidarslam no-IMU params: ${PARAM_FILE}"
+      echo "note: forcing lidarslam no-IMU + no-graph, and GLIM lidar-imu threads=1 via ${GLIM_DOCKER_IMAGE}"
+    fi
+  elif [[ "${BAG_PATH}" == *"/glim_mid360/"* || "${BAG_PATH}" == *"rosbag2_2024_04_16-14_17_01"* ]]; then
     tuned_param="${REPO_ROOT}/lidarslam/param/lidarslam_mid360_noimu.yaml"
     if [[ -f "${tuned_param}" ]]; then
       PARAM_FILE="${tuned_param}"
@@ -923,6 +991,9 @@ GLIM_CMD_PREFIX=()
 if [[ "${USE_PHASE_DOMAINS}" == "true" ]]; then
   LIDARSLAM_CMD_PREFIX=(env "ROS_DOMAIN_ID=${LIDARSLAM_DOMAIN_ID}")
   GLIM_CMD_PREFIX=(env "ROS_DOMAIN_ID=${GLIM_DOMAIN_ID}")
+fi
+if [[ -n "${GLIM_OMP_NUM_THREADS}" ]]; then
+  GLIM_CMD_PREFIX+=("OMP_NUM_THREADS=${GLIM_OMP_NUM_THREADS}")
 fi
 
 echo "bag:          ${BAG_PATH}"
@@ -963,7 +1034,10 @@ if [[ "${USE_PHASE_DOMAINS}" == "true" ]]; then
 fi
 
 if [[ -z "${POINTS_FRAME_ID}" ]]; then
-  if [[ "${POINTS_TOPIC}" == *"livox"* ]]; then
+  if is_ntu_viral_tnp01_bag "${BAG_PATH}"; then
+    POINTS_FRAME_ID="sensor1/os_sensor"
+    echo "warn: frame detection failed; using sensor1/os_sensor fallback for tnp_01" >&2
+  elif [[ "${POINTS_TOPIC}" == *"livox"* ]]; then
     POINTS_FRAME_ID="livox_frame"
     echo "warn: frame detection failed; using livox_frame fallback for topic ${POINTS_TOPIC}" >&2
   else
@@ -978,6 +1052,9 @@ if [[ -z "${BASE_FRAME}" ]]; then
 fi
 if [[ -z "${LIDAR_FRAME}" ]]; then
   LIDAR_FRAME="${POINTS_FRAME_ID}"
+fi
+if [[ "${ROBOT_FRAME_ID_USER_SPECIFIED}" != "true" ]] && is_ntu_viral_tnp01_bag "${BAG_PATH}"; then
+  ROBOT_FRAME_ID="${POINTS_FRAME_ID}"
 fi
 echo "points frame: ${POINTS_FRAME_ID}"
 echo "base frame:   ${BASE_FRAME}"
@@ -1013,7 +1090,7 @@ lidarslam_args=(
 if [[ -n "${PARAM_FILE}" ]]; then
   lidarslam_args+=(--param "${PARAM_FILE}")
 fi
-if [[ "${NO_IMU}" == "true" ]]; then
+if [[ "${NO_IMU}" == "true" || "${LIDARSLAM_FORCE_NO_IMU}" == "true" ]]; then
   lidarslam_args+=(--no-imu)
 else
   lidarslam_args+=(--imu-topic "${IMU_TOPIC}")
@@ -1074,8 +1151,10 @@ fi
 GLIM_OUT="${OUT_DIR}/glim"
 mkdir -p "${GLIM_OUT}"
 GLIM_LOG="${GLIM_OUT}/glim_rosbag.log"
+GLIM_DUMP_DIR="${GLIM_OUT}/dump"
+mkdir -p "${GLIM_DUMP_DIR}"
 
-if ! ros2 pkg prefix glim_ros >/dev/null 2>&1; then
+if [[ -z "${GLIM_DOCKER_IMAGE}" ]] && ! ros2 pkg prefix glim_ros >/dev/null 2>&1; then
   echo
   echo "warn: glim_ros not found. Install GLIM (ROS 2) to run the comparison step." >&2
   GLIM_FAILURE_REASON="glim_ros_missing"
@@ -1128,28 +1207,51 @@ if [[ "${RUN_FRESH_GLIM}" == "true" ]]; then
   pre_dump="$(find /tmp -maxdepth 4 -type d \( -name 'dump*' -o -name 'dump' \) -print 2>/dev/null | sort -u || true)"
   glim_t0="$(now_monotonic)"
   set +e
-  if [[ "${GLIM_TIMEOUT_SEC}" != "0" ]] && command -v timeout >/dev/null 2>&1; then
+  if [[ -n "${GLIM_DOCKER_IMAGE}" ]]; then
+    GLIM_CONFIG_MOUNT="$(realpath "${glim_config_dir}")"
+    GLIM_BAG_MOUNT="$(realpath "${BAG_PATH}")"
+    GLIM_DUMP_MOUNT="$(realpath "${GLIM_DUMP_DIR}")"
+    if [[ "${GLIM_TIMEOUT_SEC}" != "0" ]] && command -v timeout >/dev/null 2>&1; then
+      timeout "${GLIM_TIMEOUT_SEC}" docker run --rm --gpus all \
+        ${GLIM_OMP_NUM_THREADS:+-e OMP_NUM_THREADS=${GLIM_OMP_NUM_THREADS}} \
+        -v "${GLIM_CONFIG_MOUNT}:/config:ro" \
+        -v "${GLIM_BAG_MOUNT}:/bag:ro" \
+        -v "${GLIM_DUMP_MOUNT}:/dump" \
+        "${GLIM_DOCKER_IMAGE}" \
+        bash -lc "source /opt/ros/jazzy/setup.bash && source /root/ros2_ws/install/setup.bash && ros2 run glim_ros glim_rosbag /bag --ros-args -p config_path:=/config -p auto_quit:=true -p dump_path:=/dump" \
+        >"${GLIM_LOG}" 2>&1
+    else
+      docker run --rm --gpus all \
+        ${GLIM_OMP_NUM_THREADS:+-e OMP_NUM_THREADS=${GLIM_OMP_NUM_THREADS}} \
+        -v "${GLIM_CONFIG_MOUNT}:/config:ro" \
+        -v "${GLIM_BAG_MOUNT}:/bag:ro" \
+        -v "${GLIM_DUMP_MOUNT}:/dump" \
+        "${GLIM_DOCKER_IMAGE}" \
+        bash -lc "source /opt/ros/jazzy/setup.bash && source /root/ros2_ws/install/setup.bash && ros2 run glim_ros glim_rosbag /bag --ros-args -p config_path:=/config -p auto_quit:=true -p dump_path:=/dump" \
+        >"${GLIM_LOG}" 2>&1
+    GLIM_RC="$?"
+  elif [[ "${GLIM_TIMEOUT_SEC}" != "0" ]] && command -v timeout >/dev/null 2>&1; then
     if [[ "${GLIM_VIEWER}" == "true" ]]; then
       "${GLIM_CMD_PREFIX[@]}" timeout "${GLIM_TIMEOUT_SEC}" \
         ros2 run glim_ros glim_rosbag "${BAG_PATH}" \
-        --ros-args -p config_path:="${GLIM_CONFIG_REAL}" \
+        --ros-args -p config_path:="${GLIM_CONFIG_REAL}" -p auto_quit:=true -p dump_path:="${GLIM_DUMP_DIR}" \
         >"${GLIM_LOG}" 2>&1
     else
       "${GLIM_CMD_PREFIX[@]}" env DISPLAY= QT_QPA_PLATFORM=offscreen timeout "${GLIM_TIMEOUT_SEC}" \
         ros2 run glim_ros glim_rosbag "${BAG_PATH}" \
-        --ros-args -p config_path:="${GLIM_CONFIG_REAL}" \
+        --ros-args -p config_path:="${GLIM_CONFIG_REAL}" -p auto_quit:=true -p dump_path:="${GLIM_DUMP_DIR}" \
         >"${GLIM_LOG}" 2>&1
     fi
     GLIM_RC="$?"
   else
     if [[ "${GLIM_VIEWER}" == "true" ]]; then
       "${GLIM_CMD_PREFIX[@]}" ros2 run glim_ros glim_rosbag "${BAG_PATH}" \
-        --ros-args -p config_path:="${GLIM_CONFIG_REAL}" \
+        --ros-args -p config_path:="${GLIM_CONFIG_REAL}" -p auto_quit:=true -p dump_path:="${GLIM_DUMP_DIR}" \
         >"${GLIM_LOG}" 2>&1
     else
       "${GLIM_CMD_PREFIX[@]}" env DISPLAY= QT_QPA_PLATFORM=offscreen \
         ros2 run glim_ros glim_rosbag "${BAG_PATH}" \
-        --ros-args -p config_path:="${GLIM_CONFIG_REAL}" \
+        --ros-args -p config_path:="${GLIM_CONFIG_REAL}" -p auto_quit:=true -p dump_path:="${GLIM_DUMP_DIR}" \
         >"${GLIM_LOG}" 2>&1
     fi
     GLIM_RC="$?"
@@ -1175,6 +1277,9 @@ PY
   fi
   post_dump="$(find /tmp -maxdepth 4 -type d \( -name 'dump*' -o -name 'dump' \) -print 2>/dev/null | sort -u || true)"
   recent_traj="$(find_recent_glim_traj "${GLIM_RUN_START_SEC}")"
+  if [[ -f "${GLIM_DUMP_DIR}/traj_lidar.txt" ]]; then
+    recent_traj="${GLIM_DUMP_DIR}/traj_lidar.txt"
+  fi
 
   new_dumps="${post_dump}"
   if [[ -n "${pre_dump}" ]]; then

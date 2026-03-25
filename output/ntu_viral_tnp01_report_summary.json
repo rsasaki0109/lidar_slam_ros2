@@ -1,0 +1,28 @@
+{
+  "reference": {
+    "path_length_m": 252.37098104456035,
+    "poses": 9284,
+    "duration_s": 577.3171558380127
+  },
+  "lidarslam": {
+    "path_length_m": 295.40790686951635,
+    "poses": 5688,
+    "pairs": 9035,
+    "rmse": 0.21556197866083732,
+    "median": 0.19378598172029413,
+    "max": 0.44561278195995746
+  },
+  "glim": {
+    "path_length_m": 278.2598945846761,
+    "poses": 5783,
+    "pairs": 9180,
+    "rmse": 1.705882556887301,
+    "median": 1.0992902872020403,
+    "max": 3.9042727217559188
+  },
+  "paths": {
+    "reference": "output/ntu_viral_tnp01_gt_leica.tum",
+    "lidarslam": "output/ntu_viral_tnp01_ouster_noimu_rt1_20260310/traj_lidarslam.tum",
+    "glim": "output/glim_ntu_tnp01_gpu_os1imu_dump/traj_lidar.txt"
+  }
+}

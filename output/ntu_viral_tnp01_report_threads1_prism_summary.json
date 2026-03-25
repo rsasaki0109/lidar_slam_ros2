@@ -1,0 +1,28 @@
+{
+  "reference": {
+    "path_length_m": 252.37098104456035,
+    "poses": 9284,
+    "duration_s": 577.3171558380127
+  },
+  "lidarslam": {
+    "path_length_m": 290.8644209041746,
+    "poses": 5688,
+    "pairs": 9035,
+    "rmse": 0.11725772676521329,
+    "median": 0.08974926670325344,
+    "max": 0.39952850976644194
+  },
+  "glim": {
+    "path_length_m": 265.0680211202122,
+    "poses": 5783,
+    "pairs": 9180,
+    "rmse": 1.2379221194097476,
+    "median": 0.6392714193529748,
+    "max": 3.5608721464951127
+  },
+  "paths": {
+    "reference": "/media/sasaki/aiueo/ai_coding_ws/ros2/output/ntu_viral_tnp01_gt_leica.tum",
+    "lidarslam": "output/ntu_viral_tnp01_ouster_noimu_rt1_20260310/traj_lidarslam_prism.tum",
+    "glim": "output/glim_tnp01_vn100_repeat_toff125_threads1_20260311/run2/traj_lidar_prism.tum"
+  }
+}

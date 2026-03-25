@@ -1,0 +1,11 @@
+{
+  "glim_run": "output/glim_mid360_sample_20260310_125459",
+  "lidarslam_run": "output/lidarslam_mid360_auto_20260310",
+  "matched_poses": 2752,
+  "glim_path_length_m": 1077.1239391104389,
+  "lidarslam_path_length_m": 1077.578492209529,
+  "lidarslam_aligned_path_length_m": 1077.578492209529,
+  "ape_rmse_m": 0.4570873505558762,
+  "ape_median_m": 0.3949243913614532,
+  "ape_max_m": 1.078467345682345
+}
