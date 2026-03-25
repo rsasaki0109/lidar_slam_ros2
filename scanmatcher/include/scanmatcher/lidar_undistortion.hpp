@@ -153,6 +153,7 @@ public:
     bool use_point_times =
       point_times != nullptr &&
       point_times->size() == static_cast<size_t>(cloud_size);
+    float point_time_max = 0.0f;
 
     if (use_point_times) {
       for (const float rel_time : *point_times) {
@@ -160,8 +161,14 @@ public:
           use_point_times = false;
           break;
         }
+        point_time_max = std::max(point_time_max, rel_time);
       }
     }
+
+    const float effective_scan_duration =
+      use_point_times ? point_time_max : static_cast<float>(scan_period_);
+    const double imu_lookup_tolerance =
+      std::max(scan_period_, static_cast<double>(effective_scan_duration));
 
     float start_ori = 0.0f;
     float ori_diff = 0.0f;
@@ -186,7 +193,7 @@ public:
       pcl::PointXYZI & p = cloud->points[i];
       float rel_time = 0.0f;
       if (use_point_times) {
-        rel_time = std::clamp((*point_times)[i], 0.0f, static_cast<float>(scan_period_));
+        rel_time = std::clamp((*point_times)[i], 0.0f, effective_scan_duration);
       } else {
         ori_h = -std::atan2(p.y, p.x);
         if (!half_passed) {
@@ -207,7 +214,7 @@ public:
             ori_h -= 2 * M_PI;
           }
         }
-        rel_time = (ori_h - start_ori) / ori_diff * scan_period_;
+        rel_time = (ori_h - start_ori) / ori_diff * static_cast<float>(scan_period_);
       }
 
       if (imu_ptr_last_ > 0) {
@@ -219,7 +226,7 @@ public:
           imu_ptr_front_ = (imu_ptr_front_ + 1) % imu_que_length_;
         }
 
-        if (std::abs(scan_time + rel_time - imu_time_[imu_ptr_front_]) > scan_period_) {
+        if (std::abs(scan_time + rel_time - imu_time_[imu_ptr_front_]) > imu_lookup_tolerance) {
           continue;
         }
 
