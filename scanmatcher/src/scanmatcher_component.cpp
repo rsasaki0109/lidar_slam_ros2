@@ -1,8 +1,16 @@
 #include "scanmatcher/scanmatcher_component.h"
 #include <chrono>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <limits>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <sstream>
 #include <vector>
+
+#include <pcl/common/common.h>
+#include <pcl/io/pcd_io.h>
 
 using namespace std::chrono_literals;
 
@@ -290,6 +298,13 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   get_parameter("cloud_queue_depth", cloud_queue_depth_);
   declare_parameter("debug_flag", false);
   get_parameter("debug_flag", debug_flag_);
+  declare_parameter("debug_cloud_dump_dir", "");
+  get_parameter("debug_cloud_dump_dir", debug_cloud_dump_dir_);
+  declare_parameter("debug_cloud_dump_max_frames", 0);
+  get_parameter("debug_cloud_dump_max_frames", debug_cloud_dump_max_frames_);
+  if (debug_cloud_dump_max_frames_ < 0) {
+    debug_cloud_dump_max_frames_ = 0;
+  }
   declare_parameter("diagnostic_warn_trans_jump", 0.75);
   get_parameter("diagnostic_warn_trans_jump", diagnostic_warn_trans_jump_);
   declare_parameter("diagnostic_warn_yaw_jump_deg", 12.0);
@@ -405,6 +420,8 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   std::cout << "reject_recovery_scans:" << reject_recovery_scans_ << std::endl;
   std::cout << "scan_period[sec]:" << scan_period_ << std::endl;
   std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
+  std::cout << "debug_cloud_dump_dir:" << debug_cloud_dump_dir_ << std::endl;
+  std::cout << "debug_cloud_dump_max_frames:" << debug_cloud_dump_max_frames_ << std::endl;
   std::cout << "map_publish_period[sec]:" << map_publish_period_ << std::endl;
   std::cout << "num_targeted_cloud:" << num_targeted_cloud_ << std::endl;
   std::cout << "num_recovery_targeted_cloud:" << num_recovery_targeted_cloud_ << std::endl;
@@ -572,6 +589,16 @@ void ScanMatcherComponent::initializePubSub()
       PointCloudExtractionResult extracted = extractPointCloudXYZIAndTimes(transformed_msg);
       pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr = extracted.cloud;
       std::vector<float> point_times = std::move(extracted.point_times);
+      int debug_cloud_frame_index = -1;
+      reserveDebugCloudDumpFrame(&debug_cloud_frame_index);
+      const rclcpp::Time cloud_stamp(msg->header.stamp);
+      auto point_times_ptr =
+        [&point_times]() -> const std::vector<float> * {
+          return point_times.empty() ? nullptr : &point_times;
+        };
+
+      dumpDebugCloudStage(
+        tmp_ptr, point_times_ptr(), cloud_stamp, debug_cloud_frame_index, "pre_deskew");
 
       if (use_imu_) {
         double scan_time = msg->header.stamp.sec +
@@ -590,6 +617,8 @@ void ScanMatcherComponent::initializePubSub()
           lidar_undistortion_.adjustDistortion(tmp_ptr, scan_time);
         }
       }
+      dumpDebugCloudStage(
+        tmp_ptr, point_times_ptr(), cloud_stamp, debug_cloud_frame_index, "post_deskew");
 
       if (use_min_max_filter_) {
         double r;
@@ -610,14 +639,18 @@ void ScanMatcherComponent::initializePubSub()
           ++index;
         }
         tmp_ptr = tmp_ptr2;
+        tmp_ptr->width = static_cast<uint32_t>(tmp_ptr->points.size());
+        tmp_ptr->height = 1;
+        tmp_ptr->is_dense = false;
         if (!point_times.empty()) {
           point_times = std::move(filtered_point_times);
         }
       }
+      dumpDebugCloudStage(
+        tmp_ptr, point_times_ptr(), cloud_stamp, debug_cloud_frame_index, "post_filter");
 
       // Skip non-monotonic timestamps (e.g. corrupted bags with interleaved data)
       {
-        rclcpp::Time cloud_stamp(msg->header.stamp);
         if (last_cloud_stamp_valid_) {
           double dt = (cloud_stamp - last_cloud_stamp_).seconds();
           if (dt < -0.5) {
@@ -678,6 +711,126 @@ void ScanMatcherComponent::initializePubSub()
       rclcpp::KeepLast(
         1)).reliable());
   path_pub_ = create_publisher<nav_msgs::msg::Path>("path", rclcpp::QoS(10));
+}
+
+bool ScanMatcherComponent::reserveDebugCloudDumpFrame(int * frame_index)
+{
+  if (debug_cloud_dump_max_frames_ <= 0 || debug_cloud_dump_dir_.empty()) {
+    return false;
+  }
+  if (debug_cloud_dump_frame_count_ >= debug_cloud_dump_max_frames_) {
+    return false;
+  }
+  *frame_index = debug_cloud_dump_frame_count_;
+  ++debug_cloud_dump_frame_count_;
+  return true;
+}
+
+void ScanMatcherComponent::dumpDebugCloudStage(
+  const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & cloud_ptr,
+  const std::vector<float> * point_times,
+  const rclcpp::Time stamp,
+  int frame_index,
+  const std::string & stage)
+{
+  if (frame_index < 0 || cloud_ptr == nullptr || debug_cloud_dump_dir_.empty()) {
+    return;
+  }
+
+  namespace fs = std::filesystem;
+  fs::path dump_dir(debug_cloud_dump_dir_);
+  std::error_code mkdir_error;
+  fs::create_directories(dump_dir, mkdir_error);
+  if (mkdir_error) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 5000,
+      "failed to create debug cloud dump dir %s: %s",
+      dump_dir.string().c_str(), mkdir_error.message().c_str());
+    return;
+  }
+
+  std::ostringstream base_name;
+  base_name << std::setfill('0') << std::setw(4) << frame_index
+            << "_" << std::fixed << std::setprecision(9)
+            << stamp.seconds() << "_" << stage;
+  const fs::path pcd_path = dump_dir / (base_name.str() + ".pcd");
+  const fs::path json_path = dump_dir / (base_name.str() + ".json");
+
+  pcl::PointCloud<pcl::PointXYZI> serializable_cloud = *cloud_ptr;
+  if (
+    serializable_cloud.width * serializable_cloud.height !=
+    serializable_cloud.points.size())
+  {
+    serializable_cloud.width = static_cast<uint32_t>(serializable_cloud.points.size());
+    serializable_cloud.height = 1;
+  }
+
+  if (pcl::io::savePCDFileASCII(pcd_path.string(), serializable_cloud) != 0) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 5000,
+      "failed to save debug cloud %s",
+      pcd_path.string().c_str());
+    return;
+  }
+
+  double time_min = std::numeric_limits<double>::quiet_NaN();
+  double time_max = std::numeric_limits<double>::quiet_NaN();
+  size_t negative_time_count = 0;
+  size_t finite_time_count = 0;
+  if (point_times != nullptr) {
+    for (float rel_time : *point_times) {
+      if (!std::isfinite(rel_time)) {
+        continue;
+      }
+      if (finite_time_count == 0) {
+        time_min = rel_time;
+        time_max = rel_time;
+      } else {
+        time_min = std::min(time_min, static_cast<double>(rel_time));
+        time_max = std::max(time_max, static_cast<double>(rel_time));
+      }
+      if (rel_time < 0.0f) {
+        ++negative_time_count;
+      }
+      ++finite_time_count;
+    }
+  }
+
+  Eigen::Vector4f min_point;
+  Eigen::Vector4f max_point;
+  if (!cloud_ptr->empty()) {
+    pcl::getMinMax3D(*cloud_ptr, min_point, max_point);
+  } else {
+    min_point = Eigen::Vector4f::Zero();
+    max_point = Eigen::Vector4f::Zero();
+  }
+
+  std::ofstream json_stream(json_path);
+  if (!json_stream.is_open()) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 5000,
+      "failed to write debug cloud metadata %s",
+      json_path.string().c_str());
+    return;
+  }
+  json_stream << "{\n"
+              << "  \"frame_index\": " << frame_index << ",\n"
+              << "  \"stage\": \"" << stage << "\",\n"
+              << "  \"stamp_sec\": " << std::fixed << std::setprecision(9)
+              << stamp.seconds() << ",\n"
+              << "  \"point_count\": " << cloud_ptr->size() << ",\n"
+              << "  \"point_times_present\": "
+              << ((point_times != nullptr) ? "true" : "false") << ",\n"
+              << "  \"finite_point_time_count\": " << finite_time_count << ",\n"
+              << "  \"negative_point_time_count\": " << negative_time_count << ",\n"
+              << "  \"point_time_min_sec\": " << time_min << ",\n"
+              << "  \"point_time_max_sec\": " << time_max << ",\n"
+              << "  \"min_xyz\": [" << min_point.x() << ", " << min_point.y()
+              << ", " << min_point.z() << "],\n"
+              << "  \"max_xyz\": [" << max_point.x() << ", " << max_point.y()
+              << ", " << max_point.z() << "],\n"
+              << "  \"pcd_path\": \"" << pcd_path.string() << "\"\n"
+              << "}\n";
 }
 
 bool ScanMatcherComponent::initializeMap(const pcl::PointCloud <pcl::PointXYZI>::Ptr & tmp_ptr, const std_msgs::msg::Header & header)

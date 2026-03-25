@@ -139,6 +139,13 @@ private:
       const Eigen::Matrix4f final_transformation,
       const rclcpp::Time stamp
     );
+    bool reserveDebugCloudDumpFrame(int * frame_index);
+    void dumpDebugCloudStage(
+      const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & cloud_ptr,
+      const std::vector<float> * point_times,
+      const rclcpp::Time stamp,
+      int frame_index,
+      const std::string & stage);
     Eigen::Matrix4f getTransformation(const geometry_msgs::msg::Pose pose);
     void publishMap(const lidarslam_msgs::msg::MapArray & map_array_msg, const std::string & map_frame_id);
     void updateMap(
@@ -206,6 +213,9 @@ private:
     double imu_z_prior_weight_ {0.0};
     bool use_constant_velocity_model_ {false};
     bool debug_flag_ {false};
+    std::string debug_cloud_dump_dir_;
+    int debug_cloud_dump_max_frames_ {0};
+    int debug_cloud_dump_frame_count_ {0};
     int cloud_queue_depth_ {5};
     double ndt_transformation_epsilon_ {0.01};
     int ndt_max_iterations_ {35};

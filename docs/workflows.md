@@ -33,6 +33,7 @@ bash scripts/run_default_ci_checks.sh
 | MID360 cross-validation benchmark | `bash scripts/run_rko_lio_mid360_crossval_benchmark.sh` |
 | Mixed-quality open-data GNSS smoke | `bash scripts/run_open_data_applanix_velodyne_gnss_smoke.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
 | Mixed-quality open-data GNSS benchmark | `bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
+| Packet IMU deskew validation matrix | `bash scripts/run_open_data_packet_imu_deskew_validation_matrix.sh --applanix-msg-dir /tmp/applanix/applanix_msgs/msg` |
 | Release/readiness gate | `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10` |
 
 ## Required Input Topics
@@ -222,20 +223,38 @@ That wrapper will:
 - convert `VelodyneScan` packets into `sensor_msgs/msg/PointCloud2`
 - run `lidarslam.launch.py`, call `/map_save`, and optionally verify the output
 
-The packet-based wrapper keeps `--use-imu false` by default. Current Leo Drive
-`driving_30_kmh` evidence shows that the `GSOF49 -> sensor_msgs/msg/Imu`
-bridge does not yet beat the GNSS-only baseline, even when the front-LiDAR
-static TF is extracted from `all-sensors-bag6`.
+For packet IMU deskew, the important caveat is runtime sensitivity. On the real
+Leo Drive `all-sensors-bag1` and `all-sensors-bag6` front-lidar cases, native
+`/sensing/imu/imu_data` works when the packet benchmark runs at `rate=1.0`.
+Current reference numbers are:
 
-The cleaner control is `all-sensors-bag6`, because the same bag already carries
-native packets, native `/gnss/fix`, native `/sensing/imu/imu_data`, and
-`GSOF49/50`. On that bag, the clean deskew A/B is to disable GNSS and compare
-native IMU on/off. The packet path is strong without IMU (`APE RMSE 0.407 m`)
-and currently degrades badly when native IMU deskew is enabled
-(`APE RMSE 23.529 m`). Keeping the cloud in the lidar frame and publishing an
-explicit static TF for native IMU conversion still does not recover the path:
-`velodyne_front` with orientation-based rotation deskew is `28.459 m`, and the
-`velodyne_left` experiments are `33.521 m` with orientation-based rotation
+- `bag1_front`, `no_imu`: `APE RMSE 0.248 m`
+- `bag1_front`, `imu`: `APE RMSE 0.251 m`
+- `bag6_front`, `no_imu`: `APE RMSE 0.422 m`
+- `bag6_front`, `imu`: `APE RMSE 0.365 m`
+
+The benchmark wrapper therefore auto-selects `rate=1.0` when `--use-imu=true`
+and `--rate` is omitted. To validate the same A/B automatically on the default
+front-lidar cases, run:
+
+```bash
+git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
+bash scripts/run_open_data_packet_imu_deskew_validation_matrix.sh \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg
+```
+
+That matrix runs both `no_imu` and `imu` at `rate=1.0` for determinism and
+writes per-case outputs plus:
+
+- `packet_imu_deskew_validation.md`
+- `packet_imu_deskew_validation.json`
+
+The default acceptance criteria are:
+
+- `no_imu` path coverage >= `0.95`
+- `imu` path coverage >= `0.95`
+- `imu_rmse / no_imu_rmse <= 1.10`
+- `imu_matched_poses / no_imu_matched_poses >= 0.80`
 deskew and `34.089 m` with `--imu-rotation-use-orientation false`. That is why
 the public packet path still keeps `--use-imu false` by default.
 
