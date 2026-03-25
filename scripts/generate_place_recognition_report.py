@@ -102,6 +102,37 @@ def _fmt(value: float | None) -> str:
     return f'{value:.3f}'
 
 
+def _write_rmse_svg(
+    out_path: Path,
+    baseline_rmse: float | None,
+    candidate_rmse: float | None,
+) -> None:
+    baseline_value = baseline_rmse or 0.0
+    candidate_value = candidate_rmse or 0.0
+    max_value = max(baseline_value, candidate_value, 1.0)
+    bar_max_width = 420
+    baseline_width = int(round((baseline_value / max_value) * bar_max_width))
+    candidate_width = int(round((candidate_value / max_value) * bar_max_width))
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="760" height="180" viewBox="0 0 760 180">
+  <style>
+    .title {{ font: 600 18px sans-serif; fill: #111827; }}
+    .label {{ font: 14px sans-serif; fill: #374151; }}
+    .value {{ font: 600 14px sans-serif; fill: #111827; }}
+  </style>
+  <rect x="0" y="0" width="760" height="180" fill="#ffffff"/>
+  <text x="24" y="32" class="title">Place recognition APE RMSE comparison</text>
+  <text x="24" y="74" class="label">Baseline</text>
+  <rect x="180" y="54" width="{baseline_width}" height="24" rx="4" fill="#9ca3af"/>
+  <text x="{190 + baseline_width}" y="72" class="value">{baseline_value:.3f} m</text>
+  <text x="24" y="124" class="label">Scan Context candidate</text>
+  <rect x="180" y="104" width="{candidate_width}" height="24" rx="4" fill="#2563eb"/>
+  <text x="{190 + candidate_width}" y="122" class="value">{candidate_value:.3f} m</text>
+</svg>
+"""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(svg, encoding='utf-8')
+
+
 def _conclusion(
     baseline_rmse: float | None,
     candidate_rmse: float | None,
@@ -169,6 +200,11 @@ def parse_args() -> argparse.Namespace:
         default='',
         help='Optional JSON summary path.',
     )
+    parser.add_argument(
+        '--write-svg',
+        default='',
+        help='Optional SVG summary path.',
+    )
     return parser.parse_args()
 
 
@@ -208,6 +244,7 @@ def main() -> int:
         ).resolve()
     )
     json_path = Path(args.write_json).expanduser().resolve() if args.write_json else None
+    svg_path = Path(args.write_svg).expanduser().resolve() if args.write_svg else None
     payload = {
         'baseline_metrics': str(baseline_metrics_path),
         'baseline_log': str(baseline_log),
@@ -255,9 +292,13 @@ Context candidate run.
     if json_path is not None:
         json_path.parent.mkdir(parents=True, exist_ok=True)
         json_path.write_text(json.dumps(payload, indent=2), encoding='utf-8')
+    if svg_path is not None:
+        _write_rmse_svg(svg_path, baseline_rmse, candidate_rmse)
     print(out_path)
     if json_path is not None:
         print(json_path)
+    if svg_path is not None:
+        print(svg_path)
     return 0
 
 

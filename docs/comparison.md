@@ -52,7 +52,8 @@ The public differentiators currently exercised in this repository are:
 - a focused `map_authoring_report` that summarizes benchmark, georeference,
   cleanup, and fallback-path evidence in one place
 - a standard submission-bundle helper that collects `pointcloud_map/`,
-  `map_projector_info.yaml`, `metrics.json`, trajectories, logs, and focused reports
+  `map_projector_info.yaml`, `metrics.json`, trajectories, logs, focused reports,
+  and a generated `map_qa_summary.md`
 
 Those are stronger differentiators for map authoring and evaluation than for
 pure odometry novelty.
