@@ -116,3 +116,61 @@ def test_place_recognition_report_marks_scan_context_regression(tmp_path):
     assert '`True`' in report
     assert 'Observed Scan Context candidates' in report
     assert 'regressed APE RMSE' in report
+
+
+def test_place_recognition_report_marks_scan_context_improvement(tmp_path):
+    """The report should describe a fair rerun improvement as improvement."""
+    baseline_metrics = tmp_path / 'baseline' / 'metrics.json'
+    candidate_metrics = tmp_path / 'candidate' / 'metrics.json'
+    baseline_log = tmp_path / 'baseline' / 'slam.launch.log'
+    candidate_log = tmp_path / 'candidate' / 'slam.launch.log'
+    out_path = tmp_path / 'place_report.md'
+
+    _write_metrics(baseline_metrics, rmse=4.10, loop_count=1, attempted=2)
+    _write_metrics(candidate_metrics, rmse=3.82, loop_count=1, attempted=2)
+    baseline_log.write_text(
+        '\n'.join(
+            [
+                'use_scan_context:false',
+                'loop_candidate_source:distance',
+            ],
+        ) + '\n',
+        encoding='utf-8',
+    )
+    candidate_log.write_text(
+        '\n'.join(
+            [
+                'use_scan_context:true',
+                'ScanContext loop candidate: id=121 sc_dist=0.4319',
+                'ScanContext loop candidate: id=132 sc_dist=0.4339',
+                'loop_candidate_source:distance',
+            ],
+        ) + '\n',
+        encoding='utf-8',
+    )
+
+    result = subprocess.run(
+        [
+            'python3',
+            str(SCRIPT),
+            '--baseline-metrics',
+            str(baseline_metrics),
+            '--baseline-log',
+            str(baseline_log),
+            '--candidate-metrics',
+            str(candidate_metrics),
+            '--candidate-log',
+            str(candidate_log),
+            '--out',
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+
+    assert result.returncode == 0, result.stderr
+    report = out_path.read_text(encoding='utf-8')
+    assert 'improved APE RMSE' in report
+    assert '`2`' in report

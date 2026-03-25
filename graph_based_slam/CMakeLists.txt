@@ -89,6 +89,13 @@ if(BUILD_TESTING)
     target_include_directories(test_gnss_weighting PRIVATE include)
     ament_target_dependencies(test_gnss_weighting sensor_msgs)
   endif()
+  ament_add_gtest(
+    test_scan_context
+    test/test_scan_context.cpp
+  )
+  if(TARGET test_scan_context)
+    target_include_directories(test_scan_context PRIVATE include)
+  endif()
   ament_add_pytest_test(
     test_autoware_map_tools
     test/test_autoware_map_tools.py

@@ -59,6 +59,12 @@ public:
   using Descriptor = Eigen::MatrixXd;  // NUM_RINGS x NUM_SECTORS.
   using RingKey = Eigen::VectorXd;  // NUM_RINGS.
 
+  template<typename T>
+  static T clampValue(const T & value, const T & low, const T & high)
+  {
+    return std::max(low, std::min(value, high));
+  }
+
   // Compute a Scan Context descriptor from a point cloud.
   static Descriptor computeDescriptor(
     const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & cloud,
@@ -88,8 +94,8 @@ public:
       int ring_idx = static_cast<int>(r / ring_gap);
       int sector_idx = static_cast<int>(theta / sector_gap);
 
-      ring_idx = std::clamp(ring_idx, 0, NUM_RINGS - 1);
-      sector_idx = std::clamp(sector_idx, 0, NUM_SECTORS - 1);
+      ring_idx = clampValue(ring_idx, 0, NUM_RINGS - 1);
+      sector_idx = clampValue(sector_idx, 0, NUM_SECTORS - 1);
 
       // Max height encoding (Eq. 2, 3).
       desc(ring_idx, sector_idx) = std::max(desc(ring_idx, sector_idx), static_cast<double>(p.z));
@@ -131,7 +137,7 @@ public:
       }
 
       double cosine = col_a.dot(col_b) / (norm_a * norm_b);
-      cosine = std::clamp(cosine, -1.0, 1.0);
+      cosine = clampValue(cosine, -1.0, 1.0);
       total += 1.0 - cosine;
       valid_cols++;
     }
@@ -165,13 +171,69 @@ public:
   // Database for loop detection.
   struct Database
   {
+    std::vector<int> submap_ids;
     std::vector<Descriptor> descriptors;
     std::vector<RingKey> ring_keys;
 
-    void add(const Descriptor & desc)
+    void add(int submap_id, const Descriptor & desc)
     {
+      submap_ids.push_back(submap_id);
       descriptors.push_back(desc);
       ring_keys.push_back(computeRingKey(desc));
+    }
+
+    int nextSubmapIndex() const
+    {
+      return submap_ids.empty() ? 0 : (submap_ids.back() + 1);
+    }
+
+    std::vector<std::pair<int, double>> queryTopMatches(
+      const Descriptor & query_desc,
+      int num_matches,
+      int num_candidates = NUM_CANDIDATES,
+      int exclude_recent = EXCLUDE_RECENT,
+      double threshold = DISTANCE_THRESHOLD) const
+    {
+      std::vector<std::pair<int, double>> matches;
+
+      int n = static_cast<int>(ring_keys.size());
+      int search_end = n - exclude_recent;
+      if (search_end <= 0 || num_matches <= 0) {
+        return matches;
+      }
+
+      RingKey query_key = computeRingKey(query_desc);
+
+      std::vector<std::pair<double, int>> candidates;
+      candidates.reserve(search_end);
+      for (int i = 0; i < search_end; i++) {
+        double d = ringKeyDistance(query_key, ring_keys[i]);
+        candidates.emplace_back(d, i);
+      }
+
+      int k = std::min(num_candidates, static_cast<int>(candidates.size()));
+      std::partial_sort(candidates.begin(), candidates.begin() + k, candidates.end());
+
+      std::vector<std::pair<double, int>> verified;
+      verified.reserve(k);
+      for (int c = 0; c < k; c++) {
+        int idx = candidates[c].second;
+        double dist = distance(query_desc, descriptors[idx]);
+        verified.emplace_back(dist, submap_ids[idx]);
+      }
+
+      std::sort(verified.begin(), verified.end());
+      for (const auto & candidate : verified) {
+        if (candidate.first >= threshold) {
+          continue;
+        }
+        matches.emplace_back(candidate.second, candidate.first);
+        if (static_cast<int>(matches.size()) >= num_matches) {
+          break;
+        }
+      }
+
+      return matches;
     }
 
     // Return (best_index, best_distance) or (-1, inf) if no match.
@@ -181,43 +243,12 @@ public:
       int exclude_recent = EXCLUDE_RECENT,
       double threshold = DISTANCE_THRESHOLD) const
     {
-      int n = static_cast<int>(ring_keys.size());
-      int search_end = n - exclude_recent;
-      if (search_end <= 0) {
+      const auto matches = queryTopMatches(
+        query_desc, 1, num_candidates, exclude_recent, threshold);
+      if (matches.empty()) {
         return {-1, std::numeric_limits<double>::max()};
       }
-
-      RingKey query_key = computeRingKey(query_desc);
-
-      // Phase 1: find top-K candidates by ring key L2 distance.
-      std::vector<std::pair<double, int>> candidates;
-      candidates.reserve(search_end);
-      for (int i = 0; i < search_end; i++) {
-        double d = ringKeyDistance(query_key, ring_keys[i]);
-        candidates.emplace_back(d, i);
-      }
-
-      // Partial sort to get the top K.
-      int k = std::min(num_candidates, static_cast<int>(candidates.size()));
-      std::partial_sort(candidates.begin(), candidates.begin() + k, candidates.end());
-
-      // Phase 2: verify with full Scan Context distance.
-      int best_idx = -1;
-      double best_dist = std::numeric_limits<double>::max();
-
-      for (int c = 0; c < k; c++) {
-        int idx = candidates[c].second;
-        double dist = distance(query_desc, descriptors[idx]);
-        if (dist < best_dist) {
-          best_dist = dist;
-          best_idx = idx;
-        }
-      }
-
-      if (best_dist < threshold) {
-        return {best_idx, best_dist};
-      }
-      return {-1, best_dist};
+      return matches.front();
     }
 
     int size() const

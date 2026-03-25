@@ -25,6 +25,7 @@ These numbers come from local artifacts currently checked under `output/`.
 | `NTU VIRAL tnp_01` | best observed | `ground_truth` | `0.870` | `PASS` | loop-gated backend run |
 | `MID360` | current default | `cross_validation` | `3.641` | `PASS` | current documented tuned path |
 | `MID360` | best observed | `cross_validation` | `3.590` | `PASS` | rerun with the same tuned backend family |
+| `MID360` | Scan Context candidate | `cross_validation` | `3.816` | `PASS` | fair current-code comparison; still opt-in |
 
 Source artifacts:
 
@@ -50,6 +51,9 @@ Safe claims:
 - the default path is benchmarked on `NTU VIRAL`
 - the pointcloud-map flow is dogfooded into Autoware
 - the backend has current long-loop evidence on `MID360`
+- the built-in GPL-free `Scan Context` path is now benchmarked and improves the
+  fair current-code `MID360` rerun baseline, but it is still documented as
+  opt-in
 
 Unsafe claims:
 
