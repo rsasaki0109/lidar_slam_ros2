@@ -68,6 +68,25 @@ python3 scripts/generate_map_authoring_report.py \
   --write-json output/map_authoring_report_$(date +%Y%m%d).json
 ```
 
+To stage a reusable submission-style bundle from an existing run directory:
+
+```bash
+bash scripts/create_map_authoring_submission_bundle.sh \
+  output/bench_rko_lio_ntu_viral_fresh_20260324 \
+  output/submission_bundle_ntu_viral_fresh \
+  --report output/map_authoring_report_$(date +%Y%m%d).md \
+  --verify-map
+```
+
+That bundle standardizes:
+
+- `pointcloud_map/`
+- `map_projector_info.yaml`
+- `metrics.json` when present
+- trajectories and key logs when present
+- focused reports under `reports/`
+- `manifest.json`
+
 To generate a separate stress-validation report that distinguishes the current
 default path from older long-loop and hard-dataset evidence:
 

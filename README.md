@@ -45,6 +45,7 @@ Out of scope for the public path:
 - the Leo Drive classic path now has a dedicated benchmark-suite entrypoint and report
 - place-recognition and dynamic-filter comparisons both have report generators with tracked artifacts
 - a focused map-authoring report can summarize benchmark, GNSS, cleanup, and classic-path evidence in one place
+- a submission-bundle helper can package maps, metrics, trajectories, logs, and reports in a repeatable layout
 
 ## Install
 

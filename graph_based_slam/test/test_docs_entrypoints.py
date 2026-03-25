@@ -99,6 +99,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'run_rko_lio_graph_autoware_dogfood.sh',
         REPO_ROOT / 'scripts' / 'run_graph_slam_pointcloud_map_in_autoware.sh',
         REPO_ROOT / 'scripts' / 'prepare_autoware_map_from_graph_slam.sh',
+        REPO_ROOT / 'scripts' / 'create_map_authoring_submission_bundle.sh',
         REPO_ROOT / 'scripts' / 'run_autoware_pointcloud_map_viewer_docker.sh',
         REPO_ROOT / 'scripts' / 'run_rko_lio_graph_benchmark.sh',
         REPO_ROOT / 'scripts' / 'run_rko_lio_mid360_crossval_benchmark.sh',
@@ -246,6 +247,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'docs/comparison.md' in benchmarking_doc
     assert 'generate_v2_beta_readiness_report.py' in benchmarking_doc
     assert 'generate_map_authoring_report.py' in benchmarking_doc
+    assert 'create_map_authoring_submission_bundle.sh' in benchmarking_doc
     assert 'generate_stress_validation_report.py' in benchmarking_doc
     assert 'write_aligned_trajectory_metrics.py' in benchmarking_doc
     assert '--profile failing' in benchmarking_doc
