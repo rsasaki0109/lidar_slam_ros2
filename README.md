@@ -86,14 +86,12 @@ bash scripts/run_autoware_quickstart.sh
 ```
 
 ## Point-Cloud Map Example
-
 Representative large-loop point-cloud map from the current MID360 default run. Colors encode height, and the accepted loop edge is highlighted.
-
 ![Representative top-down point-cloud map](lidarslam/images/mid360_glim_map_compare.png)
-
 Loop-area zoom from the same current MID360 default run. This view is meant to make closing-segment duplication easier to judge visually.
-
 ![MID360 loop-closure zoom](lidarslam/images/mid360_loop_closure_zoom.png)
+Save-time dynamic-object filtering on Leo Drive `bag6` cuts saved points by about `50%` while keeping verification `PASS`.
+![Dynamic-object filter summary](lidarslam/images/dynamic_object_filter_bag6_summary.svg)
 
 ## Docs
 
