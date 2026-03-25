@@ -59,6 +59,15 @@ By default this writes:
 
 - `output/v2_beta_readiness_<YYYYMMDD>.md`
 
+To generate a short public-facing map-authoring positioning report from the
+tracked benchmark, GNSS, dynamic-filter, and classic-path artifacts:
+
+```bash
+python3 scripts/generate_map_authoring_report.py \
+  --out output/map_authoring_report_$(date +%Y%m%d).md \
+  --write-json output/map_authoring_report_$(date +%Y%m%d).json
+```
+
 To generate a separate stress-validation report that distinguishes the current
 default path from older long-loop and hard-dataset evidence:
 

@@ -218,6 +218,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_map_authoring_report
+    test/test_map_authoring_report.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_classic_path_report
     test/test_classic_path_report.py
     TIMEOUT 120

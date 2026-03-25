@@ -26,6 +26,7 @@ The intended differentiation is operational:
 - keep map metadata and georeference outputs usable
 - verify saved bundles
 - compare runs with tracked metrics and reports
+- standardize submission artifacts for repeatable evaluation
 
 That is the product layer this repository is trying to own.
 
@@ -48,6 +49,8 @@ The public differentiators currently exercised in this repository are:
 - save-time dynamic-object cleanup
 - tracked benchmark/report artifacts
 - real open-data packet-path evidence
+- a focused `map_authoring_report` that summarizes benchmark, georeference,
+  cleanup, and fallback-path evidence in one place
 
 Those are stronger differentiators for map authoring and evaluation than for
 pure odometry novelty.
