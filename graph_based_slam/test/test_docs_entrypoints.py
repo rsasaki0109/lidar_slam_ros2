@@ -248,8 +248,10 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'generate_v2_beta_readiness_report.py' in benchmarking_doc
     assert 'generate_map_authoring_report.py' in benchmarking_doc
     assert 'create_map_authoring_submission_bundle.sh' in benchmarking_doc
+    assert 'map_qa_summary.md' in benchmarking_doc
     assert 'generate_stress_validation_report.py' in benchmarking_doc
     assert 'write_aligned_trajectory_metrics.py' in benchmarking_doc
+    assert '--write-svg' in benchmarking_doc
     assert '--profile failing' in benchmarking_doc
     assert 'Capability Comparison' in comparison_doc
     assert 'Current Default Position' in comparison_doc

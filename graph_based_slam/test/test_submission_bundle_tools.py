@@ -32,6 +32,8 @@ def test_submission_bundle_script_collects_map_metrics_reports_and_manifest(tmp_
     )
     report_path = tmp_path / 'focused_report.md'
     report_path.write_text('# Report\n', encoding='utf-8')
+    report_path.with_suffix('.json').write_text('{"ok": true}\n', encoding='utf-8')
+    report_path.with_suffix('.svg').write_text('<svg/>\n', encoding='utf-8')
     target_root = tmp_path / 'submission_bundle'
 
     result = subprocess.run(
@@ -60,6 +62,9 @@ def test_submission_bundle_script_collects_map_metrics_reports_and_manifest(tmp_
     assert (target_root / 'traj_raw.tum').is_file()
     assert (target_root / 'traj_corrected.tum').is_file()
     assert (target_root / 'reports' / 'focused_report.md').is_file()
+    assert (target_root / 'reports' / 'focused_report.json').is_file()
+    assert (target_root / 'reports' / 'focused_report.svg').is_file()
+    assert (target_root / 'map_qa_summary.md').is_file()
     assert (target_root / 'verify_autoware_map.log').is_file()
 
     manifest = json.loads((target_root / 'manifest.json').read_text(encoding='utf-8'))
@@ -67,3 +72,9 @@ def test_submission_bundle_script_collects_map_metrics_reports_and_manifest(tmp_
     assert manifest['verify_map_ran'] is True
     assert 'metrics.json' in manifest['files']
     assert 'reports/focused_report.md' in manifest['files']
+    assert 'reports/focused_report.json' in manifest['files']
+    assert 'reports/focused_report.svg' in manifest['files']
+
+    qa_summary = (target_root / 'map_qa_summary.md').read_text(encoding='utf-8')
+    assert 'Included QA Reports' in qa_summary
+    assert 'reports/focused_report.svg' in qa_summary

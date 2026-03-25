@@ -65,6 +65,7 @@ def test_place_recognition_report_marks_scan_context_regression(tmp_path):
     candidate_log = tmp_path / 'candidate' / 'slam.launch.log'
     out_path = tmp_path / 'place_report.md'
     out_json = tmp_path / 'place_report.json'
+    out_svg = tmp_path / 'place_report.svg'
 
     _write_metrics(baseline_metrics, rmse=3.64, loop_count=1, attempted=1)
     _write_metrics(candidate_metrics, rmse=4.48, loop_count=2, attempted=2)
@@ -105,6 +106,8 @@ def test_place_recognition_report_marks_scan_context_regression(tmp_path):
             str(out_path),
             '--write-json',
             str(out_json),
+            '--write-svg',
+            str(out_svg),
         ],
         capture_output=True,
         text=True,
@@ -119,6 +122,8 @@ def test_place_recognition_report_marks_scan_context_regression(tmp_path):
     assert '`True`' in report
     assert 'Observed Scan Context candidates' in report
     assert 'regressed APE RMSE' in report
+    assert out_svg.is_file()
+    assert 'Place recognition APE RMSE comparison' in out_svg.read_text(encoding='utf-8')
     payload = json.loads(out_json.read_text(encoding='utf-8'))
     assert payload['candidate']['log_summary']['scan_context_candidate_count'] == 1
 
