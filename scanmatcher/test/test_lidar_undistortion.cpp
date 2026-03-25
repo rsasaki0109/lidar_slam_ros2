@@ -208,6 +208,39 @@ TEST_F(LidarUndistortionTest, AdjustDistortionUsesExplicitPointTimes)
   EXPECT_NEAR(cloud->points[1].y, 0.24989584f, 1e-3f);
 }
 
+TEST_F(LidarUndistortionTest, ExplicitPointTimesOverrideConfiguredScanPeriod)
+{
+  undistortion_.setScanPeriod(0.1);
+
+  Eigen::Vector3f angular_velo(0.0f, 0.0f, 1.0f);
+  Eigen::Vector3f acc(0.0f, 0.0f, 0.0f);
+
+  Eigen::Quaternionf quat0 = Eigen::Quaternionf::Identity();
+  Eigen::Quaternionf quat1(Eigen::AngleAxisf(0.15f, Eigen::Vector3f::UnitZ()));
+  Eigen::Quaternionf quat2(Eigen::AngleAxisf(0.20f, Eigen::Vector3f::UnitZ()));
+
+  undistortion_.getImu(angular_velo, acc, quat0, 1.00);
+  undistortion_.getImu(angular_velo, acc, quat1, 1.15);
+  undistortion_.getImu(angular_velo, acc, quat2, 1.20);
+
+  pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>());
+  pcl::PointXYZI p0;
+  p0.x = 5.0f;
+  p0.y = 0.0f;
+  p0.z = 0.0f;
+  p0.intensity = 100.0f;
+  cloud->push_back(p0);
+  cloud->push_back(p0);
+
+  const std::vector<float> point_times {0.0f, 0.15f};
+  undistortion_.adjustDistortion(cloud, 1.0, &point_times);
+
+  EXPECT_FLOAT_EQ(cloud->points[0].x, 5.0f);
+  EXPECT_FLOAT_EQ(cloud->points[0].y, 0.0f);
+  EXPECT_NEAR(cloud->points[1].x, 4.9438553f, 1e-3f);
+  EXPECT_NEAR(cloud->points[1].y, 0.7471907f, 1e-3f);
+}
+
 TEST_F(LidarUndistortionTest, GyroOnlyRotationDeskewMatchesOrientationPath)
 {
   LidarUndistortion gyro_only;
