@@ -87,7 +87,7 @@ bash scripts/run_autoware_quickstart.sh
 
 ## Point-Cloud Map Example
 
-Representative top-down point-cloud map view from the MID360 sample. Colors encode height.
+Representative large-loop point-cloud map from the current MID360 default run. Colors encode height, and the accepted loop edge is highlighted.
 
 ![Representative top-down point-cloud map](lidarslam/images/mid360_glim_map_compare.png)
 
