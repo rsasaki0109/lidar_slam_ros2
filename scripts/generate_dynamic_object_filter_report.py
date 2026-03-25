@@ -39,6 +39,35 @@ from pathlib import Path
 import re
 
 
+def _write_points_svg(
+    out_path: Path,
+    baseline_points: int,
+    filtered_points: int,
+) -> None:
+    max_points = max(baseline_points, filtered_points, 1)
+    bar_max_width = 420
+    baseline_width = int(round((baseline_points / max_points) * bar_max_width))
+    filtered_width = int(round((filtered_points / max_points) * bar_max_width))
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="720" height="180" viewBox="0 0 720 180">
+  <style>
+    .title {{ font: 600 18px sans-serif; fill: #111827; }}
+    .label {{ font: 14px sans-serif; fill: #374151; }}
+    .value {{ font: 600 14px sans-serif; fill: #111827; }}
+  </style>
+  <rect x="0" y="0" width="720" height="180" fill="#ffffff"/>
+  <text x="24" y="32" class="title">Saved point count comparison</text>
+  <text x="24" y="74" class="label">No filter</text>
+  <rect x="150" y="54" width="{baseline_width}" height="24" rx="4" fill="#9ca3af"/>
+  <text x="{160 + max(baseline_width, 0)}" y="72" class="value">{baseline_points}</text>
+  <text x="24" y="124" class="label">Dynamic filter</text>
+  <rect x="150" y="104" width="{filtered_width}" height="24" rx="4" fill="#2563eb"/>
+  <text x="{160 + max(filtered_width, 0)}" y="122" class="value">{filtered_points}</text>
+</svg>
+"""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(svg, encoding='utf-8')
+
+
 def _parse_filter_stats(log_path: Path) -> dict[str, int] | None:
     if not log_path.is_file():
         return None
@@ -151,6 +180,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--filtered-dir', required=True, help='Run directory with filtering enabled.')
     parser.add_argument('--out', default='', help='Output markdown path.')
     parser.add_argument('--write-json', default='', help='Optional JSON summary path.')
+    parser.add_argument('--write-svg', default='', help='Optional SVG summary path.')
     return parser.parse_args()
 
 
@@ -173,16 +203,21 @@ def main() -> int:
 
     filter_stats = filtered.get('dynamic_filter_stats') or {}
     kept_ratio = None
+    removed_ratio = None
     candidate_voxels = filter_stats.get('candidate_voxels')
     kept_candidate_voxels = filter_stats.get('kept_candidate_voxels')
     if isinstance(candidate_voxels, int) and candidate_voxels > 0:
         kept_ratio = float(kept_candidate_voxels) / float(candidate_voxels)
+        removed_ratio = float(filter_stats.get('removed_candidate_voxels', 0)) / float(
+            candidate_voxels,
+        )
 
     payload = {
         'baseline': baseline,
         'filtered': filtered,
         'point_reduction_ratio': point_reduction_ratio,
         'kept_candidate_voxel_ratio': kept_ratio,
+        'removed_candidate_voxel_ratio': removed_ratio,
     }
 
     out_path = (
@@ -193,6 +228,7 @@ def main() -> int:
         ).resolve()
     )
     json_path = Path(args.write_json).expanduser().resolve() if args.write_json else None
+    svg_path = Path(args.write_svg).expanduser().resolve() if args.write_svg else None
 
     report = f"""# Dynamic Object Filter Report
 
@@ -215,6 +251,7 @@ disabled and enabled.
 
 - point reduction ratio: `{_fmt_ratio(point_reduction_ratio)}`
 - kept candidate voxel ratio: `{_fmt_ratio(kept_ratio)}`
+- removed candidate voxel ratio: `{_fmt_ratio(removed_ratio)}`
 - filter input points: `{_fmt_int(filter_stats.get("input_points"))}`
 - candidate voxels: `{_fmt_int(filter_stats.get("candidate_voxels"))}`
 - kept candidate voxels: `{_fmt_int(filter_stats.get("kept_candidate_voxels"))}`
@@ -226,16 +263,21 @@ disabled and enabled.
 
 - The dynamic filter is save-time only. Live odometry and loop closure are unchanged.
 - In this comparison, saved point count changed from `{baseline_points}` to `{filtered_points}`.
+- That corresponds to a saved-point reduction ratio of `{_fmt_ratio(point_reduction_ratio)}`.
 """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(report, encoding='utf-8')
     if json_path is not None:
         json_path.parent.mkdir(parents=True, exist_ok=True)
         json_path.write_text(json.dumps(payload, indent=2), encoding='utf-8')
+    if svg_path is not None:
+        _write_points_svg(svg_path, baseline_points, filtered_points)
 
     print(out_path)
     if json_path is not None:
         print(json_path)
+    if svg_path is not None:
+        print(svg_path)
     return 0
 
 

@@ -172,6 +172,7 @@ python3 "${SCRIPT_DIR}/generate_dynamic_object_filter_report.py" \
   --baseline-dir "${BASELINE_DIR}" \
   --filtered-dir "${FILTERED_DIR}" \
   --out "${SAVE_ROOT}/dynamic_object_filter_report.md" \
-  --write-json "${SAVE_ROOT}/dynamic_object_filter_report.json"
+  --write-json "${SAVE_ROOT}/dynamic_object_filter_report.json" \
+  --write-svg "${SAVE_ROOT}/dynamic_object_filter_report.svg"
 
 echo "done: ${SAVE_ROOT}"

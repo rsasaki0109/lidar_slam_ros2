@@ -106,6 +106,7 @@ def test_dynamic_object_filter_report_summarizes_point_reduction(tmp_path):
     filtered = tmp_path / 'filtered'
     out_md = tmp_path / 'dynamic_filter.md'
     out_json = tmp_path / 'dynamic_filter.json'
+    out_svg = tmp_path / 'dynamic_filter.svg'
 
     _write_run_dir(
         baseline,
@@ -138,6 +139,8 @@ def test_dynamic_object_filter_report_summarizes_point_reduction(tmp_path):
             str(out_md),
             '--write-json',
             str(out_json),
+            '--write-svg',
+            str(out_svg),
         ],
         capture_output=True,
         text=True,
@@ -150,5 +153,8 @@ def test_dynamic_object_filter_report_summarizes_point_reduction(tmp_path):
     payload = json.loads(out_json.read_text(encoding='utf-8'))
     assert 'point reduction ratio' in report
     assert '`0.500`' in report
+    assert 'removed candidate voxel ratio' in report
     assert 'kept candidate voxels' in report
     assert payload['filtered']['dynamic_filter_stats']['removed_candidate_voxels'] == 20
+    assert out_svg.is_file()
+    assert 'Saved point count comparison' in out_svg.read_text(encoding='utf-8')

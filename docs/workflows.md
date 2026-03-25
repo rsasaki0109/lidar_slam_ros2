@@ -33,8 +33,10 @@ bash scripts/run_default_ci_checks.sh
 | MID360 cross-validation benchmark | `bash scripts/run_rko_lio_mid360_crossval_benchmark.sh` |
 | Mixed-quality open-data GNSS smoke | `bash scripts/run_open_data_applanix_velodyne_gnss_smoke.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
 | Mixed-quality open-data GNSS benchmark | `bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
+| Leo Drive classic-path suite | `bash scripts/run_open_data_classic_path_benchmark_suite.sh --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
 | Packet IMU deskew validation matrix | `bash scripts/run_open_data_packet_imu_deskew_validation_matrix.sh --applanix-msg-dir /tmp/applanix/applanix_msgs/msg` |
 | Dynamic-object-filter save-map benchmark | `bash scripts/run_dynamic_object_filter_benchmark.sh` |
+| MID360 place-recognition comparison | `bash scripts/run_place_recognition_benchmark.sh` |
 | Release/readiness gate | `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10` |
 
 ## Required Input Topics
@@ -157,7 +159,7 @@ Inspect a bag before enabling GNSS weighting:
 python3 scripts/inspect_navsatfix_covariance.py /path/to/rosbag2 --topic /gnss/fix
 ```
 
-For Autoware Leo Drive driving bags that only expose Applanix raw GNSS status,
+For Leo Drive open-data driving bags that only expose Applanix raw GNSS status,
 inspect `GSOF50` instead:
 
 ```bash
@@ -238,6 +240,34 @@ That wrapper will:
   `bash scripts/prepare_velodyne_pointcloud_overlay.sh`
 - convert `VelodyneScan` packets into `sensor_msgs/msg/PointCloud2`
 - run `lidarslam.launch.py`, call `/map_save`, and optionally verify the output
+
+To benchmark the same `driving_30_kmh` bag as a three-way classic-path
+comparison, use:
+
+```bash
+git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
+bash scripts/run_open_data_classic_path_benchmark_suite.sh \
+  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg \
+  --verify-map
+```
+
+That suite writes:
+
+- `classic_path_report.md`
+- `classic_path_report.json`
+- `classic_path_report.svg`
+
+To rerun the current MID360 place-recognition comparison entrypoint, use:
+
+```bash
+bash scripts/run_place_recognition_benchmark.sh
+```
+
+That wrapper reruns the distance-only baseline and a `Scan Context` candidate,
+then emits:
+
+- `place_recognition_report.md`
+- `place_recognition_report.json`
 
 For packet IMU deskew, the important caveat is runtime sensitivity. On the real
 Leo Drive `all-sensors-bag1` and `all-sensors-bag6` front-lidar cases, native

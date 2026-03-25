@@ -41,6 +41,8 @@ Out of scope for the public path:
 - GPL-free Scan Context place recognition is available in `graph_based_slam`
 - optional dynamic-object filtering can clean the saved `pointcloud_map/` at `/map_save` time without changing live odometry
 - packet-based Applanix IMU deskew support exists for real open data, but it remains experimental and off by default in the Leo Drive packet path
+- the Leo Drive classic path now has a dedicated benchmark-suite entrypoint and report
+- place-recognition and dynamic-filter comparisons both have report generators with tracked artifacts
 
 ## Install
 
@@ -111,6 +113,7 @@ Loop-area zoom from the current MID360 default run. This view is meant to make c
 | `MID360` | best observed | `cross_validation` | `3.590` | `PASS` |
 
 More detail lives in [docs/comparison.md](docs/comparison.md), [docs/benchmarking.md](docs/benchmarking.md), `output/benchmark_summary.md`, and `output/latest_report.html`.
+The focused dynamic-filter, classic-path, and place-recognition report artifacts are also tracked under `output/`.
 
 ## Main Entrypoints
 
@@ -171,6 +174,8 @@ Run the standard benchmark path:
 bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
+
+For the Leo Drive classic-path suite, dynamic-filter benchmark, and MID360 place-recognition comparison, use the entrypoints documented in [docs/benchmarking.md](docs/benchmarking.md).
 
 Run the local readiness gate:
 
