@@ -564,10 +564,9 @@ void GraphBasedSlamComponent::searchLoop()
     Eigen::Matrix4f final_transformation {Eigen::Matrix4f::Identity()};
   };
 
-  // Update Scan Context database for new submaps (one at a time)
-  if (use_scan_context_ && scan_context_db_.size() < num_submaps) {
-    int idx = num_submaps - 1;
-    if (scan_context_db_.size() <= idx) {
+  // Keep Scan Context database aligned 1:1 with submap indices.
+  if (use_scan_context_ && scan_context_db_.nextSubmapIndex() < num_submaps) {
+    for (int idx = scan_context_db_.nextSubmapIndex(); idx < num_submaps; ++idx) {
       pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
       if (use_pcd_cache_) {
         cloud = loadSubmapFromPCD(idx);
@@ -575,7 +574,7 @@ void GraphBasedSlamComponent::searchLoop()
         cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
         pcl::fromROSMsg(map_array_msg.submaps[idx].cloud, *cloud);
       }
-      scan_context_db_.add(ScanContext::computeDescriptor(cloud));
+      scan_context_db_.add(idx, ScanContext::computeDescriptor(cloud));
     }
   }
 
@@ -644,16 +643,33 @@ void GraphBasedSlamComponent::searchLoop()
     };
 
   if (use_scan_context_ && scan_context_db_.size() > ScanContext::EXCLUDE_RECENT) {
-    auto [sc_idx, sc_dist] = scan_context_db_.query(
+    const auto sc_matches = scan_context_db_.queryTopMatches(
       scan_context_db_.descriptors.back(),
+      max_loop_candidate_count_,
       ScanContext::NUM_CANDIDATES,
       ScanContext::EXCLUDE_RECENT,
       scan_context_threshold_);
 
-    if (sc_idx >= 0 && sc_idx < latest_idx) {
-      add_candidate(sc_idx, sc_dist, true);
-      std::cout << "ScanContext loop candidate: id=" << sc_idx
-                << " sc_dist=" << sc_dist << std::endl;
+    if (!sc_matches.empty()) {
+      for (const auto & sc_match : sc_matches) {
+        const int sc_idx = sc_match.first;
+        const double sc_dist = sc_match.second;
+        if (sc_idx < 0 || sc_idx >= latest_idx) {
+          continue;
+        }
+        add_candidate(sc_idx, sc_dist, true);
+        std::cout << "ScanContext loop candidate: id=" << sc_idx
+                  << " sc_dist=" << sc_dist << std::endl;
+      }
+    } else if (debug_flag_) {
+      auto [sc_idx, sc_dist] = scan_context_db_.query(
+        scan_context_db_.descriptors.back(),
+        ScanContext::NUM_CANDIDATES,
+        ScanContext::EXCLUDE_RECENT,
+        std::numeric_limits<double>::max());
+      static_cast<void>(sc_idx);
+      std::cout << "ScanContext no match: best_sc_dist=" << sc_dist
+                << " threshold=" << scan_context_threshold_ << std::endl;
     }
   }
 

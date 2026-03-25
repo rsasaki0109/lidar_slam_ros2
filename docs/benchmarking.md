@@ -219,7 +219,8 @@ bash scripts/run_rko_lio_mid360_crossval_benchmark.sh \
   --use-scan-context false
 bash scripts/run_rko_lio_mid360_crossval_benchmark.sh \
   --output-dir output/bench_rko_lio_mid360_pr_scan_context \
-  --use-scan-context true
+  --use-scan-context true \
+  --scan-context-threshold 0.45
 python3 scripts/generate_place_recognition_report.py \
   --baseline-metrics output/bench_rko_lio_mid360_pr_distance/metrics.json \
   --candidate-metrics output/bench_rko_lio_mid360_pr_scan_context/metrics.json \
@@ -233,6 +234,22 @@ The report shows:
 - accepted loop source counts
 - observed `ScanContext loop candidate` count
 - `APE RMSE` delta between the two runs
+
+Current checked-in evidence is:
+
+- fair current-code baseline rerun:
+  `output/bench_rko_lio_mid360_current_default_rerun_20260326/metrics.json`
+  (`APE RMSE 4.096 m`)
+- Scan Context candidate with DB/index fix, `top-K` candidate expansion, and
+  `scan_context_threshold=0.45`:
+  `output/bench_rko_lio_mid360_sc045_topk_20260326/metrics.json`
+  (`APE RMSE 3.816 m`)
+- short comparison report:
+  `output/place_recognition_report_20260326.md`
+
+That candidate currently beats the fair rerun baseline, but the accepted loop
+still comes from the distance-based path. Treat `use_scan_context=true` as an
+opt-in tuning path rather than the repository default.
 
 ## Release/Readiness Gate
 

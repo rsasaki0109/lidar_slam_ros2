@@ -40,10 +40,10 @@ import re
 
 
 DEFAULT_BASELINE_METRICS = Path(
-    'output/bench_rko_lio_mid360_current_default_20260325/metrics.json',
+    'output/bench_rko_lio_mid360_current_default_rerun_20260326/metrics.json',
 )
 DEFAULT_CANDIDATE_METRICS = Path(
-    'output/bench_rko_lio_mid360_sc_20260325/metrics.json',
+    'output/bench_rko_lio_mid360_sc045_topk_20260326/metrics.json',
 )
 
 
@@ -205,7 +205,8 @@ def main() -> int:
 
     report = f"""# Place Recognition Report
 
-This report compares the current MID360 baseline against a Scan Context enabled run.
+This report compares a fair current-code MID360 baseline rerun against a Scan
+Context candidate run.
 
 ## Inputs
 

@@ -28,6 +28,7 @@ Options:
                                Override threshold_loop_closure_score
   --distance-loop-closure <f>  Override distance_loop_closure
   --use-scan-context <bool>    Override use_scan_context
+  --scan-context-threshold <f> Override scan_context_threshold
   --use-pcd-cache <bool>       Override use_pcd_cache
   --loop-max-translation-delta <f>
                                Override loop_max_translation_delta in YAML
@@ -99,6 +100,7 @@ RKO_PARAM="$DEFAULT_RKO_PARAM"
 THRESHOLD_LOOP_CLOSURE_SCORE="15.0"
 DISTANCE_LOOP_CLOSURE="100.0"
 USE_SCAN_CONTEXT="false"
+SCAN_CONTEXT_THRESHOLD=""
 USE_PCD_CACHE="true"
 LOOP_MAX_TRANSLATION_DELTA=""
 LOOP_MAX_ROTATION_DELTA_DEG=""
@@ -209,6 +211,11 @@ while [[ $# -gt 0 ]]; do
     --use-scan-context)
       [[ $# -ge 2 ]] || usage
       USE_SCAN_CONTEXT="$2"
+      shift 2
+      ;;
+    --scan-context-threshold)
+      [[ $# -ge 2 ]] || usage
+      SCAN_CONTEXT_THRESHOLD="$2"
       shift 2
       ;;
     --use-pcd-cache)
@@ -530,7 +537,7 @@ python3 - "$LIDARSLAM_PARAM" "$GRAPH_PARAM_FILE" \
   "$LOOP_MAX_TRANSLATION_DELTA" "$LOOP_MAX_ROTATION_DELTA_DEG" \
   "$LOOP_EDGE_INFO_WEIGHT" "$LOOP_EDGE_DEDUP_INDEX_WINDOW" \
   "$MAX_LOOP_CANDIDATE_COUNT" "$SEARCH_SUBMAP_NUM" \
-  "$RANGE_OF_SEARCHING_LOOP_CLOSURE" <<'PY'
+  "$RANGE_OF_SEARCHING_LOOP_CLOSURE" "$SCAN_CONTEXT_THRESHOLD" <<'PY'
 import sys
 from pathlib import Path
 
@@ -545,6 +552,7 @@ loop_edge_dedup_index_window = sys.argv[6]
 max_loop_candidate_count = sys.argv[7]
 search_submap_num = sys.argv[8]
 range_of_searching_loop_closure = sys.argv[9]
+scan_context_threshold = sys.argv[10]
 
 data = yaml.safe_load(src_path.read_text()) or {}
 params = data.setdefault('graph_based_slam', {}).setdefault('ros__parameters', {})
@@ -569,6 +577,8 @@ if search_submap_num != '':
     params['search_submap_num'] = maybe_int(search_submap_num)
 if range_of_searching_loop_closure != '':
     params['range_of_searching_loop_closure'] = maybe_float(range_of_searching_loop_closure)
+if scan_context_threshold != '':
+    params['scan_context_threshold'] = maybe_float(scan_context_threshold)
 
 dst_path.write_text(yaml.safe_dump(data, sort_keys=False))
 PY
@@ -587,6 +597,7 @@ echo "  skip_to_time:   $SKIP_TO_TIME"
 [[ -n "$MIN_RANGE" ]] && echo "  min_range:      $MIN_RANGE"
 [[ -n "$INITIALIZATION_PHASE" ]] && echo "  init_phase:     $INITIALIZATION_PHASE"
 echo "  lidarslam_yaml: $GRAPH_PARAM_FILE"
+[[ -n "$SCAN_CONTEXT_THRESHOLD" ]] && echo "  scan_context_threshold: $SCAN_CONTEXT_THRESHOLD"
 echo "  rko_yaml:       $RKO_PARAM"
 echo "  output_dir:     $OUTPUT_DIR"
 echo "  run_name:       $RUN_NAME"
