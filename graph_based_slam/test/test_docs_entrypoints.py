@@ -49,6 +49,9 @@ PUBLIC_AUTOWARE_ENTRYPOINT = REPO_ROOT / 'scripts' / 'run_autoware_quickstart.sh
 RELEASE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'release.yml'
 README_IMAGE_PATH = REPO_ROOT / 'lidarslam' / 'images' / 'mid360_glim_map_compare.png'
 README_LOOP_IMAGE_PATH = REPO_ROOT / 'lidarslam' / 'images' / 'mid360_loop_closure_zoom.png'
+README_DYNAMIC_FILTER_IMAGE_PATH = (
+    REPO_ROOT / 'lidarslam' / 'images' / 'dynamic_object_filter_bag6_summary.svg'
+)
 BENCHMARK_SUMMARY_PATH = REPO_ROOT / 'output' / 'benchmark_summary.md'
 BENCHMARK_REPORT_PATH = REPO_ROOT / 'output' / 'latest_report.html'
 STRESS_REPORT_PATH = REPO_ROOT / 'output' / 'stress_validation_report_20260325.md'
@@ -71,6 +74,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert COMPARISON_DOC.is_file()
     assert README_IMAGE_PATH.is_file()
     assert README_LOOP_IMAGE_PATH.is_file()
+    assert README_DYNAMIC_FILTER_IMAGE_PATH.is_file()
     assert release_notes_path.is_file()
     assert '(CONTRIBUTING.md)' in readme
     assert '(CHANGELOG.md)' in readme
@@ -81,6 +85,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(docs/benchmarking.md)' in readme
     assert '(lidarslam/images/mid360_glim_map_compare.png)' in readme
     assert '(lidarslam/images/mid360_loop_closure_zoom.png)' in readme
+    assert '(lidarslam/images/dynamic_object_filter_bag6_summary.svg)' in readme
     assert 'git clone --recursive https://github.com/rsasaki0109/lidarslam_ros2.git' in readme
     assert 'rosdep install --from-paths src --ignore-src -r -y' in readme
     assert 'Required input topics for the main public path' in readme
@@ -109,6 +114,8 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'generate_v2_beta_readiness_report.py',
         REPO_ROOT / 'scripts' / 'generate_map_authoring_report.py',
         REPO_ROOT / 'scripts' / 'generate_stress_validation_report.py',
+        REPO_ROOT / 'scripts' / 'generate_readme_dynamic_filter_figure.py',
+        REPO_ROOT / 'scripts' / 'generate_readme_large_loop_map_figure.py',
         REPO_ROOT / 'scripts' / 'generate_readme_loop_zoom_figure.py',
         REPO_ROOT / 'scripts' / 'write_aligned_trajectory_metrics.py',
         REPO_ROOT / 'scripts' / 'generate_sample_benchmark_metrics.py',
@@ -180,6 +187,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'docs/workflows.md' in release_workflow
     assert 'lidarslam/images/mid360_glim_map_compare.png' in release_workflow
     assert 'lidarslam/images/mid360_loop_closure_zoom.png' in release_workflow
+    assert 'lidarslam/images/dynamic_object_filter_bag6_summary.svg' in release_workflow
 
     package_paths = [
         REPO_ROOT / 'lidarslam' / 'package.xml',
