@@ -124,6 +124,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_dynamic_object_filter_benchmark_script
+    test/test_dynamic_object_filter_benchmark_script.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_rko_lio_mid360_crossval_benchmark_script
     test/test_rko_lio_mid360_crossval_benchmark_script.py
     TIMEOUT 120

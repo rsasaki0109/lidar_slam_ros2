@@ -121,8 +121,10 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'run_open_data_applanix_velodyne_gnss_smoke.sh',
         REPO_ROOT / 'scripts' / 'run_open_data_applanix_velodyne_gnss_benchmark.sh',
         REPO_ROOT / 'scripts' / 'run_open_data_packet_imu_deskew_validation_matrix.sh',
+        REPO_ROOT / 'scripts' / 'run_dynamic_object_filter_benchmark.sh',
         REPO_ROOT / 'scripts' / 'generate_place_recognition_report.py',
         REPO_ROOT / 'scripts' / 'generate_packet_imu_deskew_validation_report.py',
+        REPO_ROOT / 'scripts' / 'generate_dynamic_object_filter_report.py',
         REPO_ROOT / 'scripts' / 'verify_autoware_map.py',
     ]
     for path in scripts:
@@ -214,6 +216,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'run_open_data_applanix_velodyne_gnss_smoke.sh' in workflows_doc
     assert 'run_open_data_applanix_velodyne_gnss_benchmark.sh' in workflows_doc
     assert 'run_open_data_packet_imu_deskew_validation_matrix.sh' in workflows_doc
+    assert 'run_dynamic_object_filter_benchmark.sh' in workflows_doc
     assert 'velodyne_msgs/msg/VelodyneScan' in workflows_doc
 
     assert 'download_ntu_viral_tnp01.sh' in benchmarking_doc
@@ -221,9 +224,11 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'run_rko_lio_mid360_crossval_benchmark.sh' in benchmarking_doc
     assert 'run_open_data_applanix_velodyne_gnss_benchmark.sh' in benchmarking_doc
     assert 'run_open_data_packet_imu_deskew_validation_matrix.sh' in benchmarking_doc
+    assert 'run_dynamic_object_filter_benchmark.sh' in benchmarking_doc
     assert 'all-sensors-bag6' in benchmarking_doc
     assert 'generate_place_recognition_report.py' in benchmarking_doc
     assert 'generate_packet_imu_deskew_validation_report.py' in benchmarking_doc
+    assert 'generate_dynamic_object_filter_report.py' in benchmarking_doc
     assert 'run_release_readiness_checks.sh' in benchmarking_doc
     assert 'docs/comparison.md' in benchmarking_doc
     assert 'generate_v2_beta_readiness_report.py' in benchmarking_doc

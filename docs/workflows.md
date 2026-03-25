@@ -34,6 +34,7 @@ bash scripts/run_default_ci_checks.sh
 | Mixed-quality open-data GNSS smoke | `bash scripts/run_open_data_applanix_velodyne_gnss_smoke.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
 | Mixed-quality open-data GNSS benchmark | `bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
 | Packet IMU deskew validation matrix | `bash scripts/run_open_data_packet_imu_deskew_validation_matrix.sh --applanix-msg-dir /tmp/applanix/applanix_msgs/msg` |
+| Dynamic-object-filter save-map benchmark | `bash scripts/run_dynamic_object_filter_benchmark.sh` |
 | Release/readiness gate | `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10` |
 
 ## Required Input Topics
