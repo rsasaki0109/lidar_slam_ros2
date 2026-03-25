@@ -91,7 +91,7 @@ Representative large-loop point-cloud map from the current MID360 default run. C
 
 ![Representative top-down point-cloud map](lidarslam/images/mid360_glim_map_compare.png)
 
-Loop-area zoom from the current MID360 default run. This view is meant to make closing-segment duplication easier to judge visually.
+Loop-area zoom from the same current MID360 default run. This view is meant to make closing-segment duplication easier to judge visually.
 
 ![MID360 loop-closure zoom](lidarslam/images/mid360_loop_closure_zoom.png)
 
