@@ -135,6 +135,21 @@ Useful GNSS weighting parameters:
 - `gnss_rtk_fix_weight_scale`
 - `gnss_non_rtk_weight_scale`
 
+Optional save-time dynamic-object filter:
+
+- affects only the map written by `/map_save`
+- does not change live odometry, loop closure, or the published working map
+- useful when repeated passes observe parked/static structure consistently but
+  transient objects appear only once
+
+Parameters:
+
+- `use_dynamic_object_filter`
+- `dynamic_object_filter_voxel_size`
+- `dynamic_object_filter_min_observations`
+- `dynamic_object_filter_temporal_window`
+- `dynamic_object_filter_max_range_from_sensor_m`
+
 Inspect a bag before enabling GNSS weighting:
 
 ```bash

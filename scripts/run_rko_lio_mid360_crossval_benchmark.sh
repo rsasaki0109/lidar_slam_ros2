@@ -26,9 +26,15 @@ Options:
   --rko-param <file>           RKO-LIO YAML (default: lidarslam/param/rko_lio_mid360.yaml)
   --threshold-loop-closure-score <f>
                                Override threshold_loop_closure_score
+  --scan-context-loop-closure-score-threshold <f>
+                               Override scan_context_loop_closure_score_threshold
   --distance-loop-closure <f>  Override distance_loop_closure
   --use-scan-context <bool>    Override use_scan_context
   --scan-context-threshold <f> Override scan_context_threshold
+  --prefer-scan-context-candidates <bool>
+                               Override prefer_scan_context_candidates
+  --use-3d-bbs-for-scan-context <bool>
+                               Override use_3d_bbs_for_scan_context
   --use-pcd-cache <bool>       Override use_pcd_cache
   --loop-max-translation-delta <f>
                                Override loop_max_translation_delta in YAML
@@ -98,9 +104,12 @@ INITIALIZATION_PHASE="$DEFAULT_INITIALIZATION_PHASE"
 LIDARSLAM_PARAM="$DEFAULT_LIDARSLAM_PARAM"
 RKO_PARAM="$DEFAULT_RKO_PARAM"
 THRESHOLD_LOOP_CLOSURE_SCORE="15.0"
+SCAN_CONTEXT_LOOP_CLOSURE_SCORE_THRESHOLD=""
 DISTANCE_LOOP_CLOSURE="100.0"
 USE_SCAN_CONTEXT="false"
 SCAN_CONTEXT_THRESHOLD=""
+PREFER_SCAN_CONTEXT_CANDIDATES=""
+USE_3D_BBS_FOR_SCAN_CONTEXT=""
 USE_PCD_CACHE="true"
 LOOP_MAX_TRANSLATION_DELTA=""
 LOOP_MAX_ROTATION_DELTA_DEG=""
@@ -203,6 +212,11 @@ while [[ $# -gt 0 ]]; do
       THRESHOLD_LOOP_CLOSURE_SCORE="$2"
       shift 2
       ;;
+    --scan-context-loop-closure-score-threshold)
+      [[ $# -ge 2 ]] || usage
+      SCAN_CONTEXT_LOOP_CLOSURE_SCORE_THRESHOLD="$2"
+      shift 2
+      ;;
     --distance-loop-closure)
       [[ $# -ge 2 ]] || usage
       DISTANCE_LOOP_CLOSURE="$2"
@@ -216,6 +230,16 @@ while [[ $# -gt 0 ]]; do
     --scan-context-threshold)
       [[ $# -ge 2 ]] || usage
       SCAN_CONTEXT_THRESHOLD="$2"
+      shift 2
+      ;;
+    --prefer-scan-context-candidates)
+      [[ $# -ge 2 ]] || usage
+      PREFER_SCAN_CONTEXT_CANDIDATES="$2"
+      shift 2
+      ;;
+    --use-3d-bbs-for-scan-context)
+      [[ $# -ge 2 ]] || usage
+      USE_3D_BBS_FOR_SCAN_CONTEXT="$2"
       shift 2
       ;;
     --use-pcd-cache)
@@ -297,6 +321,10 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "${USE_3D_BBS_FOR_SCAN_CONTEXT}" == "true" ]] && (( QUIESCENCE_SECS < 120 )); then
+  QUIESCENCE_SECS=120
+fi
 
 if [[ -z "$OUTPUT_DIR" ]]; then
   OUTPUT_DIR="${REPO_ROOT}/output/bench_rko_lio_mid360_$(date +%Y%m%d_%H%M%S)"
@@ -537,7 +565,10 @@ python3 - "$LIDARSLAM_PARAM" "$GRAPH_PARAM_FILE" \
   "$LOOP_MAX_TRANSLATION_DELTA" "$LOOP_MAX_ROTATION_DELTA_DEG" \
   "$LOOP_EDGE_INFO_WEIGHT" "$LOOP_EDGE_DEDUP_INDEX_WINDOW" \
   "$MAX_LOOP_CANDIDATE_COUNT" "$SEARCH_SUBMAP_NUM" \
-  "$RANGE_OF_SEARCHING_LOOP_CLOSURE" "$SCAN_CONTEXT_THRESHOLD" <<'PY'
+  "$RANGE_OF_SEARCHING_LOOP_CLOSURE" "$SCAN_CONTEXT_THRESHOLD" \
+  "$PREFER_SCAN_CONTEXT_CANDIDATES" \
+  "$SCAN_CONTEXT_LOOP_CLOSURE_SCORE_THRESHOLD" \
+  "$USE_3D_BBS_FOR_SCAN_CONTEXT" <<'PY'
 import sys
 from pathlib import Path
 
@@ -553,6 +584,9 @@ max_loop_candidate_count = sys.argv[7]
 search_submap_num = sys.argv[8]
 range_of_searching_loop_closure = sys.argv[9]
 scan_context_threshold = sys.argv[10]
+prefer_scan_context_candidates = sys.argv[11]
+scan_context_loop_closure_score_threshold = sys.argv[12]
+use_3d_bbs_for_scan_context = sys.argv[13]
 
 data = yaml.safe_load(src_path.read_text()) or {}
 params = data.setdefault('graph_based_slam', {}).setdefault('ros__parameters', {})
@@ -579,6 +613,13 @@ if range_of_searching_loop_closure != '':
     params['range_of_searching_loop_closure'] = maybe_float(range_of_searching_loop_closure)
 if scan_context_threshold != '':
     params['scan_context_threshold'] = maybe_float(scan_context_threshold)
+if prefer_scan_context_candidates != '':
+    params['prefer_scan_context_candidates'] = prefer_scan_context_candidates.lower() == 'true'
+if scan_context_loop_closure_score_threshold != '':
+    params['scan_context_loop_closure_score_threshold'] = maybe_float(
+        scan_context_loop_closure_score_threshold)
+if use_3d_bbs_for_scan_context != '':
+    params['use_3d_bbs_for_scan_context'] = use_3d_bbs_for_scan_context.lower() == 'true'
 
 dst_path.write_text(yaml.safe_dump(data, sort_keys=False))
 PY
@@ -598,6 +639,9 @@ echo "  skip_to_time:   $SKIP_TO_TIME"
 [[ -n "$INITIALIZATION_PHASE" ]] && echo "  init_phase:     $INITIALIZATION_PHASE"
 echo "  lidarslam_yaml: $GRAPH_PARAM_FILE"
 [[ -n "$SCAN_CONTEXT_THRESHOLD" ]] && echo "  scan_context_threshold: $SCAN_CONTEXT_THRESHOLD"
+[[ -n "$PREFER_SCAN_CONTEXT_CANDIDATES" ]] && echo "  prefer_scan_context_candidates: $PREFER_SCAN_CONTEXT_CANDIDATES"
+[[ -n "$SCAN_CONTEXT_LOOP_CLOSURE_SCORE_THRESHOLD" ]] && echo "  scan_context_loop_closure_score_threshold: $SCAN_CONTEXT_LOOP_CLOSURE_SCORE_THRESHOLD"
+[[ -n "$USE_3D_BBS_FOR_SCAN_CONTEXT" ]] && echo "  use_3d_bbs_for_scan_context: $USE_3D_BBS_FOR_SCAN_CONTEXT"
 echo "  rko_yaml:       $RKO_PARAM"
 echo "  output_dir:     $OUTPUT_DIR"
 echo "  run_name:       $RUN_NAME"

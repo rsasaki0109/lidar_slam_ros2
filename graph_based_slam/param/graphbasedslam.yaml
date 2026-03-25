@@ -5,6 +5,7 @@ graph_based_slam:
       voxel_leaf_size: 0.2
       loop_detection_period: 3000
       threshold_loop_closure_score: 1.5
+      scan_context_loop_closure_score_threshold: -1.0
       distance_loop_closure: 30.0
       range_of_searching_loop_closure: 20.0
       search_submap_num: 3
@@ -21,4 +22,24 @@ graph_based_slam:
       gnss_rtk_fix_max_horizontal_stddev_m: 0.3
       gnss_rtk_fix_weight_scale: 3.0
       gnss_non_rtk_weight_scale: 1.0
+      use_scan_context: false
+      scan_context_threshold: 0.3
+      prefer_scan_context_candidates: false
+      use_3d_bbs_for_scan_context: false
+      three_d_bbs_min_level_res: 1.0
+      three_d_bbs_max_level: 2
+      three_d_bbs_score_threshold_percentage: 0.25
+      three_d_bbs_timeout_msec: 250
+      three_d_bbs_num_threads: 1
+      three_d_bbs_voxel_leaf_size: 2.0
+      three_d_bbs_source_submap_num: 2
+      three_d_bbs_target_submap_radius: 1
+      three_d_bbs_translation_search_margin_m: 7.5
+      three_d_bbs_roll_pitch_search_deg: 5.0
+      three_d_bbs_yaw_search_deg: 90.0
+      use_dynamic_object_filter: false
+      dynamic_object_filter_voxel_size: 0.3
+      dynamic_object_filter_min_observations: 2
+      dynamic_object_filter_temporal_window: 5
+      dynamic_object_filter_max_range_from_sensor_m: 30.0
       debug_flag: false

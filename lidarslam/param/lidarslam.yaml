@@ -54,4 +54,9 @@ graph_based_slam:
       gnss_rtk_fix_max_horizontal_stddev_m: 0.3
       gnss_rtk_fix_weight_scale: 3.0
       gnss_non_rtk_weight_scale: 1.0
+      use_dynamic_object_filter: false
+      dynamic_object_filter_voxel_size: 0.3
+      dynamic_object_filter_min_observations: 2
+      dynamic_object_filter_temporal_window: 5
+      dynamic_object_filter_max_range_from_sensor_m: 30.0
       debug_flag: true
