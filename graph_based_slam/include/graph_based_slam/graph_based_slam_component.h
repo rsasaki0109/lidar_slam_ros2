@@ -80,6 +80,7 @@ extern "C" {
 #include <tf2_ros/transform_broadcaster.h>  // NOLINT(build/include_order)
 #include <tf2_ros/transform_listener.h>  // NOLINT(build/include_order)
 
+#include <memory>
 #include <mutex>
 #include <string>
 #include <utility>
