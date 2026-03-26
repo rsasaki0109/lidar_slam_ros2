@@ -130,6 +130,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'run_open_data_applanix_velodyne_gnss_smoke.sh',
         REPO_ROOT / 'scripts' / 'run_open_data_applanix_velodyne_gnss_benchmark.sh',
         REPO_ROOT / 'scripts' / 'run_open_data_classic_path_benchmark_suite.sh',
+        REPO_ROOT / 'scripts' / 'generate_odom_prior_validation_report.py',
         REPO_ROOT / 'scripts' / 'run_open_data_packet_imu_deskew_validation_matrix.sh',
         REPO_ROOT / 'scripts' / 'run_dynamic_object_filter_benchmark.sh',
         REPO_ROOT / 'scripts' / 'run_place_recognition_benchmark.sh',
