@@ -194,6 +194,9 @@ private:
     bool set_initial_pose_ {false};
     bool publish_tf_ {true};
     bool use_odom_ {false};
+    bool odom_prior_planar_ {false};
+    bool odom_prior_translation_only_ {false};
+    double odom_prior_weight_ {1.0};
     bool use_imu_ {false};
     bool imu_translation_deskew_ {true};
     bool imu_rotation_deskew_use_orientation_ {true};
@@ -280,6 +283,7 @@ private:
 
     // odom
     Eigen::Matrix4f previous_odom_mat_ {Eigen::Matrix4f::Identity()};
+    bool previous_odom_valid_ {false};
 
     // imu
     double scan_period_ {0.1};

@@ -29,6 +29,13 @@ Options:
   --odom-topic TOPIC          TF topic for odom prior playback (default: /tf).
   --odom-frame-id FRAME       Odom frame for scanmatcher (default: odom).
   --odom-prior-planar BOOL    Generate planar odom prior (zero z/roll/pitch) (default: false).
+  --odom-prior-velocity-planar BOOL
+                              Generate odom prior by integrating GSOF49 planar velocity
+                              instead of absolute LLA poses (default: false).
+  --odom-prior-translation-only BOOL
+                              Use translation-only odom prior inside scanmatcher (default: false).
+  --odom-prior-weight FLOAT   Blend weight applied to the odom delta inside scanmatcher
+                              (default: 1.0).
   --use-imu BOOL              Enable IMU input for deskew (default: false).
   --imu-bag PATH              Optional Imu rosbag2. If omitted and --use-imu=true, the wrapper first
                               prefers a native Imu topic in the main bag, then generates a sidecar if needed.
@@ -263,8 +270,11 @@ create_main_param() {
   local cloud_queue_depth="${9}"
   local debug_cloud_dump_dir="${10}"
   local debug_cloud_dump_max_frames="${11}"
+  local odom_prior_planar="${12}"
+  local odom_prior_translation_only="${13}"
+  local odom_prior_weight="${14}"
   cp "${base_param}" "${out_param}"
-  python3 - "${out_param}" "${use_gnss}" "${use_imu}" "${use_odom}" "${imu_translation_deskew}" "${imu_rotation_use_orientation}" "${imu_pose_prediction_enable}" "${cloud_queue_depth}" "${debug_cloud_dump_dir}" "${debug_cloud_dump_max_frames}" <<'PY'
+  python3 - "${out_param}" "${use_gnss}" "${use_imu}" "${use_odom}" "${imu_translation_deskew}" "${imu_rotation_use_orientation}" "${imu_pose_prediction_enable}" "${cloud_queue_depth}" "${debug_cloud_dump_dir}" "${debug_cloud_dump_max_frames}" "${odom_prior_planar}" "${odom_prior_translation_only}" "${odom_prior_weight}" <<'PY'
 from pathlib import Path
 import json
 import sys
@@ -279,6 +289,9 @@ imu_pose_prediction_enable = sys.argv[7].strip().lower() in {'1', 'true', 'yes',
 cloud_queue_depth = sys.argv[8].strip()
 debug_cloud_dump_dir = sys.argv[9]
 debug_cloud_dump_max_frames = max(0, int(sys.argv[10]))
+odom_prior_planar = sys.argv[11].strip().lower() in {'1', 'true', 'yes', 'on'}
+odom_prior_translation_only = sys.argv[12].strip().lower() in {'1', 'true', 'yes', 'on'}
+odom_prior_weight = float(sys.argv[13])
 text = path.read_text(encoding='utf-8')
 if '      use_gnss: true' in text or '      use_gnss: false' in text:
     text = text.replace(
@@ -321,6 +334,38 @@ if '    use_odom: true' in text or '    use_odom: false' in text:
     )
 else:
     raise SystemExit('could not find scan_matcher use_odom parameter in base YAML')
+odom_prior_planar_line = f'    odom_prior_planar: {"true" if odom_prior_planar else "false"}'
+odom_prior_translation_only_line = (
+    '    odom_prior_translation_only: '
+    f'{"true" if odom_prior_translation_only else "false"}'
+)
+odom_prior_weight_line = f'    odom_prior_weight: {odom_prior_weight:.6f}'
+for key, replacement in (
+    ('    odom_prior_planar:', odom_prior_planar_line),
+    ('    odom_prior_translation_only:', odom_prior_translation_only_line),
+    ('    odom_prior_weight:', odom_prior_weight_line),
+):
+    lines = text.splitlines()
+    replaced = False
+    for index, line in enumerate(lines):
+        if line.startswith(key):
+            lines[index] = replacement
+            replaced = True
+            break
+    if not replaced:
+        for index, line in enumerate(lines):
+            if line == use_odom_line:
+                lines[index:index + 1] = [
+                    line,
+                    odom_prior_planar_line,
+                    odom_prior_translation_only_line,
+                    odom_prior_weight_line,
+                ]
+                replaced = True
+                break
+    if not replaced:
+        raise SystemExit(f'could not find scan_matcher insertion point for {key}')
+    text = '\n'.join(lines) + '\n'
 imu_translation_line = (
     f'    imu_translation_deskew: {"true" if imu_translation_deskew else "false"}'
 )
@@ -529,6 +574,9 @@ ODOM_BAG=""
 ODOM_TOPIC="/tf"
 ODOM_FRAME_ID="odom"
 ODOM_PRIOR_PLANAR="false"
+ODOM_PRIOR_VELOCITY_PLANAR="false"
+ODOM_PRIOR_TRANSLATION_ONLY="false"
+ODOM_PRIOR_WEIGHT="1.0"
 USE_IMU="false"
 IMU_BAG=""
 IMU_TOPIC="/imu"
@@ -587,6 +635,12 @@ while [[ $# -gt 0 ]]; do
       ODOM_FRAME_ID="${2:-}"; shift 2 ;;
     --odom-prior-planar)
       ODOM_PRIOR_PLANAR="${2:-}"; shift 2 ;;
+    --odom-prior-velocity-planar)
+      ODOM_PRIOR_VELOCITY_PLANAR="${2:-}"; shift 2 ;;
+    --odom-prior-translation-only)
+      ODOM_PRIOR_TRANSLATION_ONLY="${2:-}"; shift 2 ;;
+    --odom-prior-weight)
+      ODOM_PRIOR_WEIGHT="${2:-}"; shift 2 ;;
     --use-imu)
       USE_IMU="${2:-}"; shift 2 ;;
     --imu-bag)
@@ -864,6 +918,7 @@ if [[ "${USE_ODOM_PRIOR,,}" == "true" ]]; then
       --child-frame-id "${ROBOT_FRAME_ID}" \
       --applanix-msg-dir "${APPLANIX_MSG_DIR}" \
       $([[ "${ODOM_PRIOR_PLANAR,,}" == "true" ]] && printf '%s' '--planar') \
+      $([[ "${ODOM_PRIOR_VELOCITY_PLANAR,,}" == "true" ]] && printf '%s' '--integrate-velocity-planar') \
       --force \
       >"${ODOM_CONVERT_LOG}" 2>&1
   fi
@@ -902,7 +957,10 @@ create_main_param \
   "${IMU_POSE_PREDICTION}" \
   "${CLOUD_QUEUE_DEPTH}" \
   "${DEBUG_CLOUD_DUMP_DIR}" \
-  "${DEBUG_CLOUD_DUMP_MAX_FRAMES}"
+  "${DEBUG_CLOUD_DUMP_MAX_FRAMES}" \
+  "${ODOM_PRIOR_PLANAR}" \
+  "${ODOM_PRIOR_TRANSLATION_ONLY}" \
+  "${ODOM_PRIOR_WEIGHT}"
 
 cat >"${VELODYNE_PARAM}" <<EOF
 velodyne_transform_node:
@@ -995,6 +1053,9 @@ if [[ "${USE_ODOM_PRIOR,,}" == "true" ]]; then
   echo "  odom_topic:          ${ODOM_TOPIC}"
   echo "  odom_frame_id:       ${ODOM_FRAME_ID}"
   echo "  odom_prior_planar:   ${ODOM_PRIOR_PLANAR}"
+  echo "  odom_prior_velocity_planar: ${ODOM_PRIOR_VELOCITY_PLANAR}"
+  echo "  odom_prior_translation_only: ${ODOM_PRIOR_TRANSLATION_ONLY}"
+  echo "  odom_prior_weight:   ${ODOM_PRIOR_WEIGHT}"
 fi
 echo "  use_imu:             ${USE_IMU}"
 if [[ "${USE_IMU,,}" == "true" ]]; then

@@ -165,6 +165,24 @@ def rpy_deg_to_quaternion(
     return qx, qy, qz, qw
 
 
+def integrate_planar_velocity(
+    east_m: float,
+    north_m: float,
+    velocity_east_mps: float,
+    velocity_north_mps: float,
+    previous_stamp_ns: int | None,
+    current_stamp_ns: int,
+) -> tuple[float, float]:
+    """Integrate planar velocity between usable GSOF49 samples."""
+    if previous_stamp_ns is None:
+        return east_m, north_m
+    dt = max(0.0, (current_stamp_ns - previous_stamp_ns) * 1e-9)
+    return (
+        east_m + velocity_east_mps * dt,
+        north_m + velocity_north_mps * dt,
+    )
+
+
 def is_usable_fix(
     *,
     latitude_deg: float,
@@ -225,6 +243,11 @@ def parse_args() -> argparse.Namespace:
         help='Publish planar odom only (zero z, roll, and pitch).',
     )
     parser.add_argument(
+        '--integrate-velocity-planar',
+        action='store_true',
+        help='Integrate planar NED velocity into a smoother odom trajectory instead of using absolute LLA.',
+    )
+    parser.add_argument(
         '--applanix-msg-dir',
         type=Path,
         default=None,
@@ -263,6 +286,9 @@ def main() -> int:
     time_cls = typestore.types['builtin_interfaces/msg/Time']
 
     origin = None
+    integrated_east = 0.0
+    integrated_north = 0.0
+    previous_stamp_ns = None
     written = 0
     skipped = 0
 
@@ -298,21 +324,35 @@ def main() -> int:
                 skipped += 1
                 continue
 
-            if origin is None:
-                origin = (
-                    float(lla.latitude),
-                    float(lla.longitude),
-                    float(lla.altitude),
+            if args.integrate_velocity_planar:
+                velocity = msg.velocity
+                integrated_east, integrated_north = integrate_planar_velocity(
+                    east_m=integrated_east,
+                    north_m=integrated_north,
+                    velocity_east_mps=float(velocity.east),
+                    velocity_north_mps=float(velocity.north),
+                    previous_stamp_ns=previous_stamp_ns,
+                    current_stamp_ns=stamp_ns,
                 )
+                east = integrated_east
+                north = integrated_north
+                up = 0.0
+            else:
+                if origin is None:
+                    origin = (
+                        float(lla.latitude),
+                        float(lla.longitude),
+                        float(lla.altitude),
+                    )
 
-            east, north, up = lla_to_enu(
-                latitude_deg=float(lla.latitude),
-                longitude_deg=float(lla.longitude),
-                altitude_m=float(lla.altitude),
-                origin_latitude_deg=origin[0],
-                origin_longitude_deg=origin[1],
-                origin_altitude_m=origin[2],
-            )
+                east, north, up = lla_to_enu(
+                    latitude_deg=float(lla.latitude),
+                    longitude_deg=float(lla.longitude),
+                    altitude_m=float(lla.altitude),
+                    origin_latitude_deg=origin[0],
+                    origin_longitude_deg=origin[1],
+                    origin_altitude_m=origin[2],
+                )
             roll_deg = float(msg.roll)
             pitch_deg = float(msg.pitch)
             yaw_deg = heading_deg_to_enu_yaw_deg(float(msg.heading))
@@ -346,6 +386,7 @@ def main() -> int:
                 stamp_ns,
                 typestore.serialize_cdr(tf_msg, 'tf2_msgs/msg/TFMessage'),
             )
+            previous_stamp_ns = stamp_ns
             written += 1
 
     print(f'wrote {output_path}')

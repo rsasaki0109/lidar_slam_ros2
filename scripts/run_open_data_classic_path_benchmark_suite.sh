@@ -90,6 +90,9 @@ bash "${SCRIPT_DIR}/run_open_data_applanix_velodyne_gnss_benchmark.sh" \
   --use-odom-prior true \
   --odom-frame-id odom \
   --odom-prior-planar true \
+  --odom-prior-velocity-planar true \
+  --odom-prior-translation-only true \
+  --odom-prior-weight 1.0 \
   --robot-frame-id velodyne_front \
   --output-dir "${OUTPUT_DIR}/gnss_odom_prior"
 
