@@ -134,6 +134,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'run_open_data_packet_imu_deskew_validation_matrix.sh',
         REPO_ROOT / 'scripts' / 'run_dynamic_object_filter_benchmark.sh',
         REPO_ROOT / 'scripts' / 'generate_dynamic_object_filter_validation_report.py',
+        REPO_ROOT / 'scripts' / 'generate_exploration_closeout_report.py',
         REPO_ROOT / 'scripts' / 'run_place_recognition_benchmark.sh',
         REPO_ROOT / 'scripts' / 'generate_classic_path_report.py',
         REPO_ROOT / 'scripts' / 'generate_place_recognition_report.py',
@@ -246,8 +247,10 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'run_open_data_classic_path_benchmark_suite.sh' in benchmarking_doc
     assert 'run_open_data_packet_imu_deskew_validation_matrix.sh' in benchmarking_doc
     assert 'run_dynamic_object_filter_benchmark.sh' in benchmarking_doc
+    assert 'generate_exploration_closeout_report.py' in benchmarking_doc
     assert 'all-sensors-bag6' in benchmarking_doc
     assert 'classic_path_report.md' in benchmarking_doc
+    assert 'exploration_closeout_report_20260327.md' in benchmarking_doc
     assert 'generate_classic_path_report.py' in benchmarking_doc
     assert 'run_place_recognition_benchmark.sh' in benchmarking_doc
     assert 'generate_place_recognition_report.py' in benchmarking_doc
