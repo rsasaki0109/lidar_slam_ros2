@@ -47,7 +47,6 @@ COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
 PUBLIC_AUTOWARE_ENTRYPOINT = REPO_ROOT / 'scripts' / 'run_autoware_quickstart.sh'
 RELEASE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'release.yml'
-README_IMAGE_PATH = REPO_ROOT / 'lidarslam' / 'images' / 'mid360_glim_map_compare.png'
 README_LOOP_IMAGE_PATH = REPO_ROOT / 'lidarslam' / 'images' / 'mid360_loop_closure_zoom.png'
 README_DYNAMIC_FILTER_IMAGE_PATH = (
     REPO_ROOT / 'lidarslam' / 'images' / 'dynamic_object_filter_bag6_summary.svg'
@@ -72,7 +71,6 @@ def test_docs_exist_and_are_linked_from_readme():
     assert WORKFLOWS_DOC.is_file()
     assert BENCHMARKING_DOC.is_file()
     assert COMPARISON_DOC.is_file()
-    assert README_IMAGE_PATH.is_file()
     assert README_LOOP_IMAGE_PATH.is_file()
     assert README_DYNAMIC_FILTER_IMAGE_PATH.is_file()
     assert release_notes_path.is_file()
@@ -83,7 +81,6 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(docs/workflows.md)' in readme
     assert '(docs/comparison.md)' in readme
     assert '(docs/benchmarking.md)' in readme
-    assert '(lidarslam/images/mid360_glim_map_compare.png)' in readme
     assert '(lidarslam/images/mid360_loop_closure_zoom.png)' in readme
     assert '(lidarslam/images/dynamic_object_filter_bag6_summary.svg)' in readme
     assert 'git clone --recursive https://github.com/rsasaki0109/lidarslam_ros2.git' in readme
@@ -188,7 +185,6 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'action-gh-release@v2' in release_workflow
     assert 'docs/releases/' in release_workflow
     assert 'docs/workflows.md' in release_workflow
-    assert 'lidarslam/images/mid360_glim_map_compare.png' in release_workflow
     assert 'lidarslam/images/mid360_loop_closure_zoom.png' in release_workflow
     assert 'lidarslam/images/dynamic_object_filter_bag6_summary.svg' in release_workflow
 
