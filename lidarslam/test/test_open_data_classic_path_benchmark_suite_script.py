@@ -20,7 +20,8 @@ def test_classic_path_suite_wrapper_runs_four_cases_and_renders_report():
     assert '--use-gnss false' in script
     assert '--use-odom-prior true' in script
     assert '--odom-frame-id odom' in script
-    assert '--tf-bag "${TF_BAG}"' in script
+    assert '--odom-prior-planar true' in script
+    assert '--robot-frame-id velodyne_front' in script
     assert '--use-imu true' in script
     assert '--robot-frame-id base_link' in script
     assert '--imu-frame-id base_link' in script

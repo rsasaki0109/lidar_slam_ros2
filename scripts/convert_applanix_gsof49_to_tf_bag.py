@@ -220,6 +220,11 @@ def parse_args() -> argparse.Namespace:
         help='Child frame_id for the generated TF (default: base_link).',
     )
     parser.add_argument(
+        '--planar',
+        action='store_true',
+        help='Publish planar odom only (zero z, roll, and pitch).',
+    )
+    parser.add_argument(
         '--applanix-msg-dir',
         type=Path,
         default=None,
@@ -308,10 +313,16 @@ def main() -> int:
                 origin_longitude_deg=origin[1],
                 origin_altitude_m=origin[2],
             )
+            roll_deg = float(msg.roll)
+            pitch_deg = float(msg.pitch)
             yaw_deg = heading_deg_to_enu_yaw_deg(float(msg.heading))
+            if args.planar:
+                up = 0.0
+                roll_deg = 0.0
+                pitch_deg = 0.0
             qx, qy, qz, qw = rpy_deg_to_quaternion(
-                roll_deg=float(msg.roll),
-                pitch_deg=float(msg.pitch),
+                roll_deg=roll_deg,
+                pitch_deg=pitch_deg,
                 yaw_deg=yaw_deg,
             )
             sec, nanosec = sec_nsec_from_ns(stamp_ns)

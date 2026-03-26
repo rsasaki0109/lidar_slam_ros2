@@ -89,8 +89,8 @@ bash "${SCRIPT_DIR}/run_open_data_applanix_velodyne_gnss_benchmark.sh" \
   "${COMMON_ARGS[@]}" \
   --use-odom-prior true \
   --odom-frame-id odom \
-  --tf-bag "${TF_BAG}" \
-  --robot-frame-id base_link \
+  --odom-prior-planar true \
+  --robot-frame-id velodyne_front \
   --output-dir "${OUTPUT_DIR}/gnss_odom_prior"
 
 bash "${SCRIPT_DIR}/run_open_data_applanix_velodyne_gnss_benchmark.sh" \
