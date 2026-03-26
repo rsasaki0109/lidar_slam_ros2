@@ -213,6 +213,20 @@ bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh \
   --verify-map
 ```
 
+To summarize the current cross-dataset odom-prior validation evidence after the
+classic-path runs have been recorded:
+
+```bash
+python3 scripts/generate_odom_prior_validation_report.py \
+  --out output/odom_prior_validation_report_$(date +%Y%m%d).md \
+  --write-json output/odom_prior_validation_report_$(date +%Y%m%d).json \
+  --write-svg output/odom_prior_validation_report_$(date +%Y%m%d).svg
+```
+
+This report intentionally compares `driving_30_kmh` and `bag6_front` side by
+side, because the current velocity-based prior helps the fallback classic path
+on one dataset and hurts or helps differently on another.
+
 To validate packet IMU deskew as a repeatable matrix on real open data, use:
 
 ```bash
