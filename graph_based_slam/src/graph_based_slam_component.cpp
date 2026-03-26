@@ -135,6 +135,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter(
     "bev_descriptor_max_euclidean_distance_m",
     bev_descriptor_max_euclidean_distance_m_);
+  declare_parameter("bev_descriptor_rerank_weight_m", 100.0);
+  get_parameter("bev_descriptor_rerank_weight_m", bev_descriptor_rerank_weight_m_);
   declare_parameter("solid_descriptor_min_similarity", 0.70);
   get_parameter("solid_descriptor_min_similarity", solid_descriptor_min_similarity_);
   declare_parameter("solid_descriptor_sequence_window", 0);
@@ -399,6 +401,13 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   if (bev_descriptor_sequence_threshold_ <= 0.0) {
     bev_descriptor_sequence_threshold_ = bev_descriptor_threshold_;
   }
+  if (bev_descriptor_rerank_weight_m_ < 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "bev_descriptor_rerank_weight_m must be >= 0.0, clamping %.3f to 0.0",
+      bev_descriptor_rerank_weight_m_);
+    bev_descriptor_rerank_weight_m_ = 0.0;
+  }
   if (bev_descriptor_pose_consistency_threshold_m_ == 0.0) {
     RCLCPP_WARN(
       get_logger(),
@@ -589,6 +598,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       bev_descriptor_pose_consistency_threshold_m_ << std::endl;
     std::cout << "bev_descriptor_max_euclidean_distance_m:" <<
       bev_descriptor_max_euclidean_distance_m_ << std::endl;
+    std::cout << "bev_descriptor_rerank_weight_m:" << bev_descriptor_rerank_weight_m_ <<
+      std::endl;
   }
   std::cout << "use_solid_descriptor:" << std::boolalpha << use_solid_descriptor_ << std::endl;
   if (use_solid_descriptor_) {
@@ -1354,19 +1365,25 @@ void GraphBasedSlamComponent::searchLoop()
                 << " threshold=" << bev_descriptor_threshold_ << std::endl;
     }
 
+    auto bev_adjusted_distance =
+      [this, &bev_rerank_hints](const std::pair<double, int> & candidate) {
+        const auto bev_hint = bev_rerank_hints.find(candidate.second);
+        if (bev_hint == bev_rerank_hints.end()) {
+          return candidate.first;
+        }
+        return candidate.first +
+               bev_descriptor_rerank_weight_m_ *
+               (bev_hint->second.score - bev_descriptor_threshold_);
+      };
+
     std::stable_sort(
       distance_candidates.begin(),
       distance_candidates.end(),
-      [&bev_rerank_hints](const auto & lhs, const auto & rhs) {
-        const auto lhs_hint = bev_rerank_hints.find(lhs.second);
-        const auto rhs_hint = bev_rerank_hints.find(rhs.second);
-        const bool lhs_has_hint = lhs_hint != bev_rerank_hints.end();
-        const bool rhs_has_hint = rhs_hint != bev_rerank_hints.end();
-        if (lhs_has_hint != rhs_has_hint) {
-          return lhs_has_hint;
-        }
-        if (lhs_has_hint && rhs_has_hint && lhs_hint->second.score != rhs_hint->second.score) {
-          return lhs_hint->second.score < rhs_hint->second.score;
+      [&bev_adjusted_distance](const auto & lhs, const auto & rhs) {
+        const double lhs_adjusted = bev_adjusted_distance(lhs);
+        const double rhs_adjusted = bev_adjusted_distance(rhs);
+        if (lhs_adjusted != rhs_adjusted) {
+          return lhs_adjusted < rhs_adjusted;
         }
         return lhs.first < rhs.first;
       });
@@ -1376,20 +1393,22 @@ void GraphBasedSlamComponent::searchLoop()
     for (int i = 0; i < num_distance_candidates; ++i) {
       const int candidate_idx = distance_candidates[i].second;
       const auto bev_hint = bev_rerank_hints.find(candidate_idx);
+      const double adjusted_distance = bev_adjusted_distance(distance_candidates[i]);
       if (bev_hint != bev_rerank_hints.end()) {
         add_candidate(
           candidate_idx,
-          bev_hint->second.score,
+          adjusted_distance,
           LoopCandidate::Source::DISTANCE,
           bev_hint->second.yaw_rad);
         std::cout << "Distance candidate reranked by BEV: id=" << candidate_idx
                   << " dist_m=" << distance_candidates[i].first
                   << " bev_score=" << bev_hint->second.score
+                  << " adjusted_dist_m=" << adjusted_distance
                   << " yaw_deg=" << bev_hint->second.yaw_rad * 180.0 / M_PI << std::endl;
       } else {
         add_candidate(
           candidate_idx,
-          distance_candidates[i].first,
+          adjusted_distance,
           LoopCandidate::Source::DISTANCE);
       }
     }
