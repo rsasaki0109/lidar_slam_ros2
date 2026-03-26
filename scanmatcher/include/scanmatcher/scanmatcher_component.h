@@ -196,6 +196,7 @@ private:
     bool use_odom_ {false};
     bool odom_prior_planar_ {false};
     bool odom_prior_translation_only_ {false};
+    bool odom_prior_suspect_recovery_only_ {false};
     double odom_prior_weight_ {1.0};
     bool use_imu_ {false};
     bool imu_translation_deskew_ {true};

@@ -34,6 +34,9 @@ Options:
                               instead of absolute LLA poses (default: false).
   --odom-prior-translation-only BOOL
                               Use translation-only odom prior inside scanmatcher (default: false).
+  --odom-prior-suspect-recovery-only BOOL
+                              Apply odom prior only while scanmatcher is in Suspect/Recovery
+                              (default: false).
   --odom-prior-weight FLOAT   Blend weight applied to the odom delta inside scanmatcher
                               (default: 1.0).
   --use-imu BOOL              Enable IMU input for deskew (default: false).
@@ -273,8 +276,9 @@ create_main_param() {
   local odom_prior_planar="${12}"
   local odom_prior_translation_only="${13}"
   local odom_prior_weight="${14}"
+  local odom_prior_suspect_recovery_only="${15}"
   cp "${base_param}" "${out_param}"
-  python3 - "${out_param}" "${use_gnss}" "${use_imu}" "${use_odom}" "${imu_translation_deskew}" "${imu_rotation_use_orientation}" "${imu_pose_prediction_enable}" "${cloud_queue_depth}" "${debug_cloud_dump_dir}" "${debug_cloud_dump_max_frames}" "${odom_prior_planar}" "${odom_prior_translation_only}" "${odom_prior_weight}" <<'PY'
+  python3 - "${out_param}" "${use_gnss}" "${use_imu}" "${use_odom}" "${imu_translation_deskew}" "${imu_rotation_use_orientation}" "${imu_pose_prediction_enable}" "${cloud_queue_depth}" "${debug_cloud_dump_dir}" "${debug_cloud_dump_max_frames}" "${odom_prior_planar}" "${odom_prior_translation_only}" "${odom_prior_weight}" "${odom_prior_suspect_recovery_only}" <<'PY'
 from pathlib import Path
 import json
 import sys
@@ -292,6 +296,7 @@ debug_cloud_dump_max_frames = max(0, int(sys.argv[10]))
 odom_prior_planar = sys.argv[11].strip().lower() in {'1', 'true', 'yes', 'on'}
 odom_prior_translation_only = sys.argv[12].strip().lower() in {'1', 'true', 'yes', 'on'}
 odom_prior_weight = float(sys.argv[13])
+odom_prior_suspect_recovery_only = sys.argv[14].strip().lower() in {'1', 'true', 'yes', 'on'}
 text = path.read_text(encoding='utf-8')
 if '      use_gnss: true' in text or '      use_gnss: false' in text:
     text = text.replace(
@@ -340,10 +345,15 @@ odom_prior_translation_only_line = (
     f'{"true" if odom_prior_translation_only else "false"}'
 )
 odom_prior_weight_line = f'    odom_prior_weight: {odom_prior_weight:.6f}'
+odom_prior_suspect_recovery_only_line = (
+    '    odom_prior_suspect_recovery_only: '
+    f'{"true" if odom_prior_suspect_recovery_only else "false"}'
+)
 for key, replacement in (
     ('    odom_prior_planar:', odom_prior_planar_line),
     ('    odom_prior_translation_only:', odom_prior_translation_only_line),
     ('    odom_prior_weight:', odom_prior_weight_line),
+    ('    odom_prior_suspect_recovery_only:', odom_prior_suspect_recovery_only_line),
 ):
     lines = text.splitlines()
     replaced = False
@@ -360,6 +370,7 @@ for key, replacement in (
                     odom_prior_planar_line,
                     odom_prior_translation_only_line,
                     odom_prior_weight_line,
+                    odom_prior_suspect_recovery_only_line,
                 ]
                 replaced = True
                 break
@@ -577,6 +588,7 @@ ODOM_PRIOR_PLANAR="false"
 ODOM_PRIOR_VELOCITY_PLANAR="false"
 ODOM_PRIOR_TRANSLATION_ONLY="false"
 ODOM_PRIOR_WEIGHT="1.0"
+ODOM_PRIOR_SUSPECT_RECOVERY_ONLY="false"
 USE_IMU="false"
 IMU_BAG=""
 IMU_TOPIC="/imu"
@@ -639,6 +651,8 @@ while [[ $# -gt 0 ]]; do
       ODOM_PRIOR_VELOCITY_PLANAR="${2:-}"; shift 2 ;;
     --odom-prior-translation-only)
       ODOM_PRIOR_TRANSLATION_ONLY="${2:-}"; shift 2 ;;
+    --odom-prior-suspect-recovery-only)
+      ODOM_PRIOR_SUSPECT_RECOVERY_ONLY="${2:-}"; shift 2 ;;
     --odom-prior-weight)
       ODOM_PRIOR_WEIGHT="${2:-}"; shift 2 ;;
     --use-imu)
@@ -960,7 +974,8 @@ create_main_param \
   "${DEBUG_CLOUD_DUMP_MAX_FRAMES}" \
   "${ODOM_PRIOR_PLANAR}" \
   "${ODOM_PRIOR_TRANSLATION_ONLY}" \
-  "${ODOM_PRIOR_WEIGHT}"
+  "${ODOM_PRIOR_WEIGHT}" \
+  "${ODOM_PRIOR_SUSPECT_RECOVERY_ONLY}"
 
 cat >"${VELODYNE_PARAM}" <<EOF
 velodyne_transform_node:
@@ -1056,6 +1071,7 @@ if [[ "${USE_ODOM_PRIOR,,}" == "true" ]]; then
   echo "  odom_prior_velocity_planar: ${ODOM_PRIOR_VELOCITY_PLANAR}"
   echo "  odom_prior_translation_only: ${ODOM_PRIOR_TRANSLATION_ONLY}"
   echo "  odom_prior_weight:   ${ODOM_PRIOR_WEIGHT}"
+  echo "  odom_prior_suspect_recovery_only: ${ODOM_PRIOR_SUSPECT_RECOVERY_ONLY}"
 fi
 echo "  use_imu:             ${USE_IMU}"
 if [[ "${USE_IMU,,}" == "true" ]]; then

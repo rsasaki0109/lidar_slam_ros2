@@ -27,6 +27,7 @@ scan_matcher:
     use_odom: false
     odom_prior_planar: false
     odom_prior_translation_only: false
+    odom_prior_suspect_recovery_only: false
     odom_prior_weight: 1.0
     debug_flag: false
 
