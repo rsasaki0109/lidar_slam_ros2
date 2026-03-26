@@ -28,6 +28,7 @@ Options:
                               If omitted, a sidecar is generated from GSOF49.
   --odom-topic TOPIC          TF topic for odom prior playback (default: /tf).
   --odom-frame-id FRAME       Odom frame for scanmatcher (default: odom).
+  --odom-prior-planar BOOL    Generate planar odom prior (zero z/roll/pitch) (default: false).
   --use-imu BOOL              Enable IMU input for deskew (default: false).
   --imu-bag PATH              Optional Imu rosbag2. If omitted and --use-imu=true, the wrapper first
                               prefers a native Imu topic in the main bag, then generates a sidecar if needed.
@@ -527,6 +528,7 @@ USE_ODOM_PRIOR="false"
 ODOM_BAG=""
 ODOM_TOPIC="/tf"
 ODOM_FRAME_ID="odom"
+ODOM_PRIOR_PLANAR="false"
 USE_IMU="false"
 IMU_BAG=""
 IMU_TOPIC="/imu"
@@ -583,6 +585,8 @@ while [[ $# -gt 0 ]]; do
       ODOM_TOPIC="${2:-}"; shift 2 ;;
     --odom-frame-id)
       ODOM_FRAME_ID="${2:-}"; shift 2 ;;
+    --odom-prior-planar)
+      ODOM_PRIOR_PLANAR="${2:-}"; shift 2 ;;
     --use-imu)
       USE_IMU="${2:-}"; shift 2 ;;
     --imu-bag)
@@ -859,6 +863,7 @@ if [[ "${USE_ODOM_PRIOR,,}" == "true" ]]; then
       --odom-frame-id "${ODOM_FRAME_ID}" \
       --child-frame-id "${ROBOT_FRAME_ID}" \
       --applanix-msg-dir "${APPLANIX_MSG_DIR}" \
+      $([[ "${ODOM_PRIOR_PLANAR,,}" == "true" ]] && printf '%s' '--planar') \
       --force \
       >"${ODOM_CONVERT_LOG}" 2>&1
   fi
@@ -989,6 +994,7 @@ if [[ "${USE_ODOM_PRIOR,,}" == "true" ]]; then
   echo "  odom_bag:            ${ODOM_BAG}"
   echo "  odom_topic:          ${ODOM_TOPIC}"
   echo "  odom_frame_id:       ${ODOM_FRAME_ID}"
+  echo "  odom_prior_planar:   ${ODOM_PRIOR_PLANAR}"
 fi
 echo "  use_imu:             ${USE_IMU}"
 if [[ "${USE_IMU,,}" == "true" ]]; then

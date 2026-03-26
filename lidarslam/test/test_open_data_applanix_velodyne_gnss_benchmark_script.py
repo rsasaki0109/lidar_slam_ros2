@@ -57,6 +57,7 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert '--odom-bag PATH' in script
     assert '--odom-topic TOPIC' in script
     assert '--odom-frame-id FRAME' in script
+    assert '--odom-prior-planar BOOL' in script
     assert '--use-imu BOOL' in script
     assert '--imu-rotation-use-orientation BOOL' in script
     assert '--imu-pose-prediction BOOL' in script
@@ -78,11 +79,13 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert 'ODOM_BAG=""' in script
     assert 'ODOM_TOPIC="/tf"' in script
     assert 'ODOM_FRAME_ID="odom"' in script
+    assert 'ODOM_PRIOR_PLANAR="false"' in script
     assert 'IMU_FROM_MAIN="false"' in script
     assert 'TF_IN_MAIN="false"' in script
     assert 'PUBLISH_IMU_STATIC_TF="false"' in script
     assert 'gnss_source:         main bag' in script
     assert 'odom_source:         sidecar bag' in script
+    assert 'odom_prior_planar:' in script
     assert 'imu_source:          main bag' in script
     assert '--qos-profile-overrides-path "${QOS_FILE}"' in script
     assert 'POINTS_TOPIC="/open_data/velodyne_points"' in script

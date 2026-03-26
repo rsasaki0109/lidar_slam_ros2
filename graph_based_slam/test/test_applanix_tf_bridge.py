@@ -60,3 +60,17 @@ def test_sec_nsec_from_ns_preserves_bag_epoch_time():
 
     assert sec == 1_654_865_262
     assert nanosec == 868_823_520
+
+
+def test_rpy_deg_to_quaternion_supports_planar_use_case():
+    module = _load_module()
+    qx, qy, qz, qw = module.rpy_deg_to_quaternion(
+        roll_deg=0.0,
+        pitch_deg=0.0,
+        yaw_deg=90.0,
+    )
+
+    assert qx == pytest.approx(0.0)
+    assert qy == pytest.approx(0.0)
+    assert qz == pytest.approx(0.70710678, rel=1e-6)
+    assert qw == pytest.approx(0.70710678, rel=1e-6)
