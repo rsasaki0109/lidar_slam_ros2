@@ -33,6 +33,7 @@ graph_based_slam:
       bev_descriptor_sequence_threshold: -1.0
       bev_descriptor_pose_consistency_threshold_m: -1.0
       bev_descriptor_max_euclidean_distance_m: -1.0
+      bev_descriptor_rerank_weight_m: 100.0
       use_solid_descriptor: false
       solid_descriptor_min_similarity: 0.70
       solid_descriptor_sequence_window: 0

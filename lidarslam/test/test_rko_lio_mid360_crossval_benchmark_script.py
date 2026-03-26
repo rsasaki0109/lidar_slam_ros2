@@ -47,6 +47,7 @@ def test_mid360_benchmark_script_supports_scan_context_threshold_override():
     assert '--bev-descriptor-sequence-threshold <f>' in script
     assert '--bev-descriptor-pose-consistency-threshold-m <f>' in script
     assert '--bev-descriptor-max-euclidean-distance-m <f>' in script
+    assert '--bev-descriptor-rerank-weight-m <f>' in script
     assert '--use-solid-descriptor <bool>' in script
     assert '--solid-descriptor-min-similarity <f>' in script
     assert '--solid-descriptor-sequence-window <n>' in script
@@ -61,6 +62,7 @@ def test_mid360_benchmark_script_supports_scan_context_threshold_override():
     assert 'BEV_DESCRIPTOR_SEQUENCE_THRESHOLD=""' in script
     assert 'BEV_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M=""' in script
     assert 'BEV_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M=""' in script
+    assert 'BEV_DESCRIPTOR_RERANK_WEIGHT_M=""' in script
     assert 'USE_SOLID_DESCRIPTOR=""' in script
     assert 'SOLID_DESCRIPTOR_MIN_SIMILARITY=""' in script
     assert 'SOLID_DESCRIPTOR_SEQUENCE_WINDOW=""' in script
@@ -85,6 +87,10 @@ def test_mid360_benchmark_script_supports_scan_context_threshold_override():
     )
     assert (
         'params[\'bev_descriptor_max_euclidean_distance_m\'] = maybe_float('
+        in script
+    )
+    assert (
+        'params[\'bev_descriptor_rerank_weight_m\'] = maybe_float('
         in script
     )
     assert (
@@ -120,6 +126,7 @@ def test_mid360_benchmark_script_supports_scan_context_threshold_override():
     assert 'bev_descriptor_sequence_window:' in script
     assert 'bev_descriptor_pose_consistency_threshold_m:' in script
     assert 'bev_descriptor_max_euclidean_distance_m:' in script
+    assert 'bev_descriptor_rerank_weight_m:' in script
     assert 'use_solid_descriptor:' in script
     assert 'solid_descriptor_sequence_window:' in script
     assert 'solid_descriptor_pose_consistency_threshold_m:' in script

@@ -219,6 +219,7 @@ private:
     double bev_descriptor_sequence_threshold_ {-1.0};
     double bev_descriptor_pose_consistency_threshold_m_ {-1.0};
     double bev_descriptor_max_euclidean_distance_m_ {-1.0};
+    double bev_descriptor_rerank_weight_m_ {100.0};
     SubmapBEVDescriptor::Database bev_descriptor_db_;
     bool use_solid_descriptor_ {false};
     double solid_descriptor_min_similarity_ {0.70};

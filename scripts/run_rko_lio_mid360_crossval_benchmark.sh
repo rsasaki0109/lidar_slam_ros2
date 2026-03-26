@@ -42,6 +42,8 @@ Options:
                                Override bev_descriptor_pose_consistency_threshold_m
   --bev-descriptor-max-euclidean-distance-m <f>
                                Override bev_descriptor_max_euclidean_distance_m
+  --bev-descriptor-rerank-weight-m <f>
+                               Override bev_descriptor_rerank_weight_m
   --use-solid-descriptor <bool> Override use_solid_descriptor
   --solid-descriptor-min-similarity <f>
                                Override solid_descriptor_min_similarity
@@ -136,6 +138,7 @@ BEV_DESCRIPTOR_SEQUENCE_WINDOW=""
 BEV_DESCRIPTOR_SEQUENCE_THRESHOLD=""
 BEV_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M=""
 BEV_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M=""
+BEV_DESCRIPTOR_RERANK_WEIGHT_M=""
 USE_SOLID_DESCRIPTOR=""
 SOLID_DESCRIPTOR_MIN_SIMILARITY=""
 SOLID_DESCRIPTOR_SEQUENCE_WINDOW=""
@@ -294,6 +297,11 @@ while [[ $# -gt 0 ]]; do
     --bev-descriptor-max-euclidean-distance-m)
       [[ $# -ge 2 ]] || usage
       BEV_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M="$2"
+      shift 2
+      ;;
+    --bev-descriptor-rerank-weight-m)
+      [[ $# -ge 2 ]] || usage
+      BEV_DESCRIPTOR_RERANK_WEIGHT_M="$2"
       shift 2
       ;;
     --use-solid-descriptor)
@@ -664,6 +672,7 @@ python3 - "$LIDARSLAM_PARAM" "$GRAPH_PARAM_FILE" \
   "$BEV_DESCRIPTOR_SEQUENCE_WINDOW" "$BEV_DESCRIPTOR_SEQUENCE_THRESHOLD" \
   "$BEV_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M" \
   "$BEV_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M" \
+  "$BEV_DESCRIPTOR_RERANK_WEIGHT_M" \
   "$USE_SOLID_DESCRIPTOR" "$SOLID_DESCRIPTOR_MIN_SIMILARITY" \
   "$SOLID_DESCRIPTOR_SEQUENCE_WINDOW" "$SOLID_DESCRIPTOR_SEQUENCE_MIN_SIMILARITY" \
   "$SOLID_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M" \
@@ -692,15 +701,16 @@ bev_descriptor_sequence_window = sys.argv[13]
 bev_descriptor_sequence_threshold = sys.argv[14]
 bev_descriptor_pose_consistency_threshold_m = sys.argv[15]
 bev_descriptor_max_euclidean_distance_m = sys.argv[16]
-use_solid_descriptor = sys.argv[17]
-solid_descriptor_min_similarity = sys.argv[18]
-solid_descriptor_sequence_window = sys.argv[19]
-solid_descriptor_sequence_min_similarity = sys.argv[20]
-solid_descriptor_pose_consistency_threshold_m = sys.argv[21]
-solid_descriptor_max_euclidean_distance_m = sys.argv[22]
-prefer_scan_context_candidates = sys.argv[23]
-scan_context_loop_closure_score_threshold = sys.argv[24]
-use_3d_bbs_for_scan_context = sys.argv[25]
+bev_descriptor_rerank_weight_m = sys.argv[17]
+use_solid_descriptor = sys.argv[18]
+solid_descriptor_min_similarity = sys.argv[19]
+solid_descriptor_sequence_window = sys.argv[20]
+solid_descriptor_sequence_min_similarity = sys.argv[21]
+solid_descriptor_pose_consistency_threshold_m = sys.argv[22]
+solid_descriptor_max_euclidean_distance_m = sys.argv[23]
+prefer_scan_context_candidates = sys.argv[24]
+scan_context_loop_closure_score_threshold = sys.argv[25]
+use_3d_bbs_for_scan_context = sys.argv[26]
 
 data = yaml.safe_load(src_path.read_text()) or {}
 params = data.setdefault('graph_based_slam', {}).setdefault('ros__parameters', {})
@@ -741,6 +751,9 @@ if bev_descriptor_pose_consistency_threshold_m != '':
 if bev_descriptor_max_euclidean_distance_m != '':
     params['bev_descriptor_max_euclidean_distance_m'] = maybe_float(
         bev_descriptor_max_euclidean_distance_m)
+if bev_descriptor_rerank_weight_m != '':
+    params['bev_descriptor_rerank_weight_m'] = maybe_float(
+        bev_descriptor_rerank_weight_m)
 if use_solid_descriptor != '':
     params['use_solid_descriptor'] = use_solid_descriptor.lower() == 'true'
 if solid_descriptor_min_similarity != '':
@@ -788,6 +801,7 @@ echo "  lidarslam_yaml: $GRAPH_PARAM_FILE"
 [[ -n "$BEV_DESCRIPTOR_SEQUENCE_THRESHOLD" ]] && echo "  bev_descriptor_sequence_threshold: $BEV_DESCRIPTOR_SEQUENCE_THRESHOLD"
 [[ -n "$BEV_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M" ]] && echo "  bev_descriptor_pose_consistency_threshold_m: $BEV_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M"
 [[ -n "$BEV_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M" ]] && echo "  bev_descriptor_max_euclidean_distance_m: $BEV_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M"
+[[ -n "$BEV_DESCRIPTOR_RERANK_WEIGHT_M" ]] && echo "  bev_descriptor_rerank_weight_m: $BEV_DESCRIPTOR_RERANK_WEIGHT_M"
 [[ -n "$USE_SOLID_DESCRIPTOR" ]] && echo "  use_solid_descriptor: $USE_SOLID_DESCRIPTOR"
 [[ -n "$SOLID_DESCRIPTOR_MIN_SIMILARITY" ]] && echo "  solid_descriptor_min_similarity: $SOLID_DESCRIPTOR_MIN_SIMILARITY"
 [[ -n "$SOLID_DESCRIPTOR_SEQUENCE_WINDOW" ]] && echo "  solid_descriptor_sequence_window: $SOLID_DESCRIPTOR_SEQUENCE_WINDOW"
