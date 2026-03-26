@@ -118,6 +118,8 @@ extern "C" {
 #include "g2o/types/slam3d/vertex_se3.h"
 #include "graph_based_slam/gnss_weighting.hpp"
 #include "graph_based_slam/scan_context.hpp"
+#include "graph_based_slam/solid_descriptor.hpp"
+#include "graph_based_slam/submap_bev_descriptor.hpp"
 #include "graph_based_slam/three_d_bbs_loop_verifier.hpp"
 
 namespace graphslam
@@ -208,6 +210,23 @@ private:
     double scan_context_threshold_ {0.3};
     bool prefer_scan_context_candidates_ {false};
     ScanContext::Database scan_context_db_;
+    bool use_bev_descriptor_ {false};
+    double bev_descriptor_threshold_ {0.20};
+    double bev_descriptor_grid_size_m_ {80.0};
+    int bev_descriptor_grid_cells_ {40};
+    int bev_descriptor_yaw_bins_ {24};
+    int bev_descriptor_sequence_window_ {0};
+    double bev_descriptor_sequence_threshold_ {-1.0};
+    double bev_descriptor_pose_consistency_threshold_m_ {-1.0};
+    double bev_descriptor_max_euclidean_distance_m_ {-1.0};
+    SubmapBEVDescriptor::Database bev_descriptor_db_;
+    bool use_solid_descriptor_ {false};
+    double solid_descriptor_min_similarity_ {0.70};
+    int solid_descriptor_sequence_window_ {0};
+    double solid_descriptor_sequence_min_similarity_ {-1.0};
+    double solid_descriptor_pose_consistency_threshold_m_ {-1.0};
+    double solid_descriptor_max_euclidean_distance_m_ {-1.0};
+    SolidDescriptor::Database solid_descriptor_db_;
     bool use_3d_bbs_for_scan_context_ {false};
     double three_d_bbs_min_level_res_ {1.0};
     int three_d_bbs_max_level_ {3};
