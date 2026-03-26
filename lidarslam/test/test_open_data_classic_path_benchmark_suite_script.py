@@ -21,6 +21,9 @@ def test_classic_path_suite_wrapper_runs_four_cases_and_renders_report():
     assert '--use-odom-prior true' in script
     assert '--odom-frame-id odom' in script
     assert '--odom-prior-planar true' in script
+    assert '--odom-prior-velocity-planar true' in script
+    assert '--odom-prior-translation-only true' in script
+    assert '--odom-prior-weight 1.0' in script
     assert '--robot-frame-id velodyne_front' in script
     assert '--use-imu true' in script
     assert '--robot-frame-id base_link' in script

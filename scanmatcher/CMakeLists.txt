@@ -92,6 +92,9 @@ if(BUILD_TESTING)
     geometry_msgs
   )
   target_link_libraries(test_math_utils ${PCL_LIBRARIES})
+
+  ament_add_gtest(test_odom_prior_utils test/test_odom_prior_utils.cpp)
+  target_include_directories(test_odom_prior_utils PRIVATE include ${EIGEN3_INCLUDE_DIR})
 endif()
 
 add_library(scanmatcher_component SHARED

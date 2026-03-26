@@ -25,6 +25,9 @@ scan_matcher:
     initial_pose_qw: 1.0
     use_imu: false
     use_odom: false
+    odom_prior_planar: false
+    odom_prior_translation_only: false
+    odom_prior_weight: 1.0
     debug_flag: false
 
 graph_based_slam:

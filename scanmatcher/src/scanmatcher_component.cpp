@@ -1,4 +1,5 @@
 #include "scanmatcher/scanmatcher_component.h"
+#include "scanmatcher/odom_prior_utils.hpp"
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -258,6 +259,13 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   get_parameter("publish_tf", publish_tf_);
   declare_parameter("use_odom", false);
   get_parameter("use_odom", use_odom_);
+  declare_parameter("odom_prior_planar", false);
+  get_parameter("odom_prior_planar", odom_prior_planar_);
+  declare_parameter("odom_prior_translation_only", false);
+  get_parameter("odom_prior_translation_only", odom_prior_translation_only_);
+  declare_parameter("odom_prior_weight", 1.0);
+  get_parameter("odom_prior_weight", odom_prior_weight_);
+  odom_prior_weight_ = std::clamp(odom_prior_weight_, 0.0, 1.0);
   declare_parameter("use_imu", false);
   get_parameter("use_imu", use_imu_);
   declare_parameter("imu_translation_deskew", true);
@@ -369,6 +377,10 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   std::cout << "set_initial_pose:" << std::boolalpha << set_initial_pose_ << std::endl;
   std::cout << "publish_tf:" << std::boolalpha << publish_tf_ << std::endl;
   std::cout << "use_odom:" << std::boolalpha << use_odom_ << std::endl;
+  std::cout << "odom_prior_planar:" << std::boolalpha << odom_prior_planar_ << std::endl;
+  std::cout << "odom_prior_translation_only:" << std::boolalpha <<
+    odom_prior_translation_only_ << std::endl;
+  std::cout << "odom_prior_weight:" << odom_prior_weight_ << std::endl;
   std::cout << "use_imu:" << std::boolalpha << use_imu_ << std::endl;
   std::cout << "imu_translation_deskew:" << std::boolalpha << imu_translation_deskew_ <<
     std::endl;
@@ -1021,19 +1033,30 @@ void ScanMatcherComponent::receiveCloud(
 
   if (use_odom_) {
     geometry_msgs::msg::TransformStamped odom_trans;
+    bool odom_lookup_ok = true;
     try {
       odom_trans = tfbuffer_.lookupTransform(
         odom_frame_id_, robot_frame_id_, tf2_ros::fromMsg(
           stamp));
     } catch (tf2::TransformException & e) {
+      odom_lookup_ok = false;
       RCLCPP_ERROR(this->get_logger(), "%s", e.what());
     }
-    Eigen::Affine3d odom_affine = tf2::transformToEigen(odom_trans);
-    Eigen::Matrix4f odom_mat = odom_affine.matrix().cast<float>();
-    if (previous_odom_mat_ != Eigen::Matrix4f::Identity()) {
-      sim_trans = sim_trans * previous_odom_mat_.inverse() * odom_mat;
+    if (odom_lookup_ok) {
+      Eigen::Affine3d odom_affine = tf2::transformToEigen(odom_trans);
+      Eigen::Matrix4f odom_mat = odom_affine.matrix().cast<float>();
+      if (previous_odom_valid_) {
+        const Eigen::Matrix4f odom_delta = previous_odom_mat_.inverse() * odom_mat;
+        const Eigen::Matrix4f filtered_odom_delta = odom_prior::filterAndBlendDelta(
+          odom_delta,
+          odom_prior_planar_,
+          odom_prior_translation_only_,
+          odom_prior_weight_);
+        sim_trans = sim_trans * filtered_odom_delta;
+      }
+      previous_odom_mat_ = odom_mat;
+      previous_odom_valid_ = true;
     }
-    previous_odom_mat_ = odom_mat;
   }
 
   // Set IMU rotation prior for NDT cost function

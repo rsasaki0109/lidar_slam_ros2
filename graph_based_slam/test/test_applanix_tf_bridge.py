@@ -74,3 +74,18 @@ def test_rpy_deg_to_quaternion_supports_planar_use_case():
     assert qy == pytest.approx(0.0)
     assert qz == pytest.approx(0.70710678, rel=1e-6)
     assert qw == pytest.approx(0.70710678, rel=1e-6)
+
+
+def test_integrate_planar_velocity_uses_elapsed_time():
+    module = _load_module()
+    east, north = module.integrate_planar_velocity(
+        east_m=10.0,
+        north_m=20.0,
+        velocity_east_mps=3.0,
+        velocity_north_mps=-2.0,
+        previous_stamp_ns=1_000_000_000,
+        current_stamp_ns=1_500_000_000,
+    )
+
+    assert east == pytest.approx(11.5)
+    assert north == pytest.approx(19.0)
