@@ -131,6 +131,21 @@ if(BUILD_TESTING)
     target_include_directories(test_scan_context PRIVATE include)
   endif()
   ament_add_gtest(
+    test_solid_descriptor
+    test/test_solid_descriptor.cpp
+  )
+  if(TARGET test_solid_descriptor)
+    target_include_directories(test_solid_descriptor PRIVATE include)
+    target_link_libraries(test_solid_descriptor ${PCL_LIBRARIES})
+  endif()
+  ament_add_gtest(
+    test_submap_bev_descriptor
+    test/test_submap_bev_descriptor.cpp
+  )
+  if(TARGET test_submap_bev_descriptor)
+    target_include_directories(test_submap_bev_descriptor PRIVATE include)
+  endif()
+  ament_add_gtest(
     test_dynamic_object_filter
     test/test_dynamic_object_filter.cpp
   )

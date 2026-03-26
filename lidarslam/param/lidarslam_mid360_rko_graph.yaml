@@ -24,6 +24,21 @@ graph_based_slam:
 
     use_scan_context: false
     scan_context_threshold: 0.45
+    use_bev_descriptor: false
+    bev_descriptor_threshold: 0.20
+    bev_descriptor_grid_size_m: 80.0
+    bev_descriptor_grid_cells: 40
+    bev_descriptor_yaw_bins: 24
+    bev_descriptor_sequence_window: 0
+    bev_descriptor_sequence_threshold: -1.0
+    bev_descriptor_pose_consistency_threshold_m: -1.0
+    bev_descriptor_max_euclidean_distance_m: -1.0
+    use_solid_descriptor: false
+    solid_descriptor_min_similarity: 0.70
+    solid_descriptor_sequence_window: 0
+    solid_descriptor_sequence_min_similarity: -1.0
+    solid_descriptor_pose_consistency_threshold_m: -1.0
+    solid_descriptor_max_euclidean_distance_m: -1.0
     prefer_scan_context_candidates: false
     use_3d_bbs_for_scan_context: false
     three_d_bbs_min_level_res: 1.0

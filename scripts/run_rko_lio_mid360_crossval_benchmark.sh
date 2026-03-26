@@ -31,6 +31,28 @@ Options:
   --distance-loop-closure <f>  Override distance_loop_closure
   --use-scan-context <bool>    Override use_scan_context
   --scan-context-threshold <f> Override scan_context_threshold
+  --use-bev-descriptor <bool>  Override use_bev_descriptor
+  --bev-descriptor-threshold <f>
+                               Override bev_descriptor_threshold
+  --bev-descriptor-sequence-window <n>
+                               Override bev_descriptor_sequence_window
+  --bev-descriptor-sequence-threshold <f>
+                               Override bev_descriptor_sequence_threshold
+  --bev-descriptor-pose-consistency-threshold-m <f>
+                               Override bev_descriptor_pose_consistency_threshold_m
+  --bev-descriptor-max-euclidean-distance-m <f>
+                               Override bev_descriptor_max_euclidean_distance_m
+  --use-solid-descriptor <bool> Override use_solid_descriptor
+  --solid-descriptor-min-similarity <f>
+                               Override solid_descriptor_min_similarity
+  --solid-descriptor-sequence-window <n>
+                               Override solid_descriptor_sequence_window
+  --solid-descriptor-sequence-min-similarity <f>
+                               Override solid_descriptor_sequence_min_similarity
+  --solid-descriptor-pose-consistency-threshold-m <f>
+                               Override solid_descriptor_pose_consistency_threshold_m
+  --solid-descriptor-max-euclidean-distance-m <f>
+                               Override solid_descriptor_max_euclidean_distance_m
   --prefer-scan-context-candidates <bool>
                                Override prefer_scan_context_candidates
   --use-3d-bbs-for-scan-context <bool>
@@ -108,6 +130,18 @@ SCAN_CONTEXT_LOOP_CLOSURE_SCORE_THRESHOLD=""
 DISTANCE_LOOP_CLOSURE="100.0"
 USE_SCAN_CONTEXT="false"
 SCAN_CONTEXT_THRESHOLD=""
+USE_BEV_DESCRIPTOR=""
+BEV_DESCRIPTOR_THRESHOLD=""
+BEV_DESCRIPTOR_SEQUENCE_WINDOW=""
+BEV_DESCRIPTOR_SEQUENCE_THRESHOLD=""
+BEV_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M=""
+BEV_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M=""
+USE_SOLID_DESCRIPTOR=""
+SOLID_DESCRIPTOR_MIN_SIMILARITY=""
+SOLID_DESCRIPTOR_SEQUENCE_WINDOW=""
+SOLID_DESCRIPTOR_SEQUENCE_MIN_SIMILARITY=""
+SOLID_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M=""
+SOLID_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M=""
 PREFER_SCAN_CONTEXT_CANDIDATES=""
 USE_3D_BBS_FOR_SCAN_CONTEXT=""
 USE_PCD_CACHE="true"
@@ -230,6 +264,66 @@ while [[ $# -gt 0 ]]; do
     --scan-context-threshold)
       [[ $# -ge 2 ]] || usage
       SCAN_CONTEXT_THRESHOLD="$2"
+      shift 2
+      ;;
+    --use-bev-descriptor)
+      [[ $# -ge 2 ]] || usage
+      USE_BEV_DESCRIPTOR="$2"
+      shift 2
+      ;;
+    --bev-descriptor-threshold)
+      [[ $# -ge 2 ]] || usage
+      BEV_DESCRIPTOR_THRESHOLD="$2"
+      shift 2
+      ;;
+    --bev-descriptor-sequence-window)
+      [[ $# -ge 2 ]] || usage
+      BEV_DESCRIPTOR_SEQUENCE_WINDOW="$2"
+      shift 2
+      ;;
+    --bev-descriptor-sequence-threshold)
+      [[ $# -ge 2 ]] || usage
+      BEV_DESCRIPTOR_SEQUENCE_THRESHOLD="$2"
+      shift 2
+      ;;
+    --bev-descriptor-pose-consistency-threshold-m)
+      [[ $# -ge 2 ]] || usage
+      BEV_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M="$2"
+      shift 2
+      ;;
+    --bev-descriptor-max-euclidean-distance-m)
+      [[ $# -ge 2 ]] || usage
+      BEV_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M="$2"
+      shift 2
+      ;;
+    --use-solid-descriptor)
+      [[ $# -ge 2 ]] || usage
+      USE_SOLID_DESCRIPTOR="$2"
+      shift 2
+      ;;
+    --solid-descriptor-min-similarity)
+      [[ $# -ge 2 ]] || usage
+      SOLID_DESCRIPTOR_MIN_SIMILARITY="$2"
+      shift 2
+      ;;
+    --solid-descriptor-sequence-window)
+      [[ $# -ge 2 ]] || usage
+      SOLID_DESCRIPTOR_SEQUENCE_WINDOW="$2"
+      shift 2
+      ;;
+    --solid-descriptor-sequence-min-similarity)
+      [[ $# -ge 2 ]] || usage
+      SOLID_DESCRIPTOR_SEQUENCE_MIN_SIMILARITY="$2"
+      shift 2
+      ;;
+    --solid-descriptor-pose-consistency-threshold-m)
+      [[ $# -ge 2 ]] || usage
+      SOLID_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M="$2"
+      shift 2
+      ;;
+    --solid-descriptor-max-euclidean-distance-m)
+      [[ $# -ge 2 ]] || usage
+      SOLID_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M="$2"
       shift 2
       ;;
     --prefer-scan-context-candidates)
@@ -566,6 +660,14 @@ python3 - "$LIDARSLAM_PARAM" "$GRAPH_PARAM_FILE" \
   "$LOOP_EDGE_INFO_WEIGHT" "$LOOP_EDGE_DEDUP_INDEX_WINDOW" \
   "$MAX_LOOP_CANDIDATE_COUNT" "$SEARCH_SUBMAP_NUM" \
   "$RANGE_OF_SEARCHING_LOOP_CLOSURE" "$SCAN_CONTEXT_THRESHOLD" \
+  "$USE_BEV_DESCRIPTOR" "$BEV_DESCRIPTOR_THRESHOLD" \
+  "$BEV_DESCRIPTOR_SEQUENCE_WINDOW" "$BEV_DESCRIPTOR_SEQUENCE_THRESHOLD" \
+  "$BEV_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M" \
+  "$BEV_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M" \
+  "$USE_SOLID_DESCRIPTOR" "$SOLID_DESCRIPTOR_MIN_SIMILARITY" \
+  "$SOLID_DESCRIPTOR_SEQUENCE_WINDOW" "$SOLID_DESCRIPTOR_SEQUENCE_MIN_SIMILARITY" \
+  "$SOLID_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M" \
+  "$SOLID_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M" \
   "$PREFER_SCAN_CONTEXT_CANDIDATES" \
   "$SCAN_CONTEXT_LOOP_CLOSURE_SCORE_THRESHOLD" \
   "$USE_3D_BBS_FOR_SCAN_CONTEXT" <<'PY'
@@ -584,9 +686,21 @@ max_loop_candidate_count = sys.argv[7]
 search_submap_num = sys.argv[8]
 range_of_searching_loop_closure = sys.argv[9]
 scan_context_threshold = sys.argv[10]
-prefer_scan_context_candidates = sys.argv[11]
-scan_context_loop_closure_score_threshold = sys.argv[12]
-use_3d_bbs_for_scan_context = sys.argv[13]
+use_bev_descriptor = sys.argv[11]
+bev_descriptor_threshold = sys.argv[12]
+bev_descriptor_sequence_window = sys.argv[13]
+bev_descriptor_sequence_threshold = sys.argv[14]
+bev_descriptor_pose_consistency_threshold_m = sys.argv[15]
+bev_descriptor_max_euclidean_distance_m = sys.argv[16]
+use_solid_descriptor = sys.argv[17]
+solid_descriptor_min_similarity = sys.argv[18]
+solid_descriptor_sequence_window = sys.argv[19]
+solid_descriptor_sequence_min_similarity = sys.argv[20]
+solid_descriptor_pose_consistency_threshold_m = sys.argv[21]
+solid_descriptor_max_euclidean_distance_m = sys.argv[22]
+prefer_scan_context_candidates = sys.argv[23]
+scan_context_loop_closure_score_threshold = sys.argv[24]
+use_3d_bbs_for_scan_context = sys.argv[25]
 
 data = yaml.safe_load(src_path.read_text()) or {}
 params = data.setdefault('graph_based_slam', {}).setdefault('ros__parameters', {})
@@ -613,6 +727,35 @@ if range_of_searching_loop_closure != '':
     params['range_of_searching_loop_closure'] = maybe_float(range_of_searching_loop_closure)
 if scan_context_threshold != '':
     params['scan_context_threshold'] = maybe_float(scan_context_threshold)
+if use_bev_descriptor != '':
+    params['use_bev_descriptor'] = use_bev_descriptor.lower() == 'true'
+if bev_descriptor_threshold != '':
+    params['bev_descriptor_threshold'] = maybe_float(bev_descriptor_threshold)
+if bev_descriptor_sequence_window != '':
+    params['bev_descriptor_sequence_window'] = maybe_int(bev_descriptor_sequence_window)
+if bev_descriptor_sequence_threshold != '':
+    params['bev_descriptor_sequence_threshold'] = maybe_float(bev_descriptor_sequence_threshold)
+if bev_descriptor_pose_consistency_threshold_m != '':
+    params['bev_descriptor_pose_consistency_threshold_m'] = maybe_float(
+        bev_descriptor_pose_consistency_threshold_m)
+if bev_descriptor_max_euclidean_distance_m != '':
+    params['bev_descriptor_max_euclidean_distance_m'] = maybe_float(
+        bev_descriptor_max_euclidean_distance_m)
+if use_solid_descriptor != '':
+    params['use_solid_descriptor'] = use_solid_descriptor.lower() == 'true'
+if solid_descriptor_min_similarity != '':
+    params['solid_descriptor_min_similarity'] = maybe_float(solid_descriptor_min_similarity)
+if solid_descriptor_sequence_window != '':
+    params['solid_descriptor_sequence_window'] = maybe_int(solid_descriptor_sequence_window)
+if solid_descriptor_sequence_min_similarity != '':
+    params['solid_descriptor_sequence_min_similarity'] = maybe_float(
+        solid_descriptor_sequence_min_similarity)
+if solid_descriptor_pose_consistency_threshold_m != '':
+    params['solid_descriptor_pose_consistency_threshold_m'] = maybe_float(
+        solid_descriptor_pose_consistency_threshold_m)
+if solid_descriptor_max_euclidean_distance_m != '':
+    params['solid_descriptor_max_euclidean_distance_m'] = maybe_float(
+        solid_descriptor_max_euclidean_distance_m)
 if prefer_scan_context_candidates != '':
     params['prefer_scan_context_candidates'] = prefer_scan_context_candidates.lower() == 'true'
 if scan_context_loop_closure_score_threshold != '':
@@ -639,6 +782,18 @@ echo "  skip_to_time:   $SKIP_TO_TIME"
 [[ -n "$INITIALIZATION_PHASE" ]] && echo "  init_phase:     $INITIALIZATION_PHASE"
 echo "  lidarslam_yaml: $GRAPH_PARAM_FILE"
 [[ -n "$SCAN_CONTEXT_THRESHOLD" ]] && echo "  scan_context_threshold: $SCAN_CONTEXT_THRESHOLD"
+[[ -n "$USE_BEV_DESCRIPTOR" ]] && echo "  use_bev_descriptor: $USE_BEV_DESCRIPTOR"
+[[ -n "$BEV_DESCRIPTOR_THRESHOLD" ]] && echo "  bev_descriptor_threshold: $BEV_DESCRIPTOR_THRESHOLD"
+[[ -n "$BEV_DESCRIPTOR_SEQUENCE_WINDOW" ]] && echo "  bev_descriptor_sequence_window: $BEV_DESCRIPTOR_SEQUENCE_WINDOW"
+[[ -n "$BEV_DESCRIPTOR_SEQUENCE_THRESHOLD" ]] && echo "  bev_descriptor_sequence_threshold: $BEV_DESCRIPTOR_SEQUENCE_THRESHOLD"
+[[ -n "$BEV_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M" ]] && echo "  bev_descriptor_pose_consistency_threshold_m: $BEV_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M"
+[[ -n "$BEV_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M" ]] && echo "  bev_descriptor_max_euclidean_distance_m: $BEV_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M"
+[[ -n "$USE_SOLID_DESCRIPTOR" ]] && echo "  use_solid_descriptor: $USE_SOLID_DESCRIPTOR"
+[[ -n "$SOLID_DESCRIPTOR_MIN_SIMILARITY" ]] && echo "  solid_descriptor_min_similarity: $SOLID_DESCRIPTOR_MIN_SIMILARITY"
+[[ -n "$SOLID_DESCRIPTOR_SEQUENCE_WINDOW" ]] && echo "  solid_descriptor_sequence_window: $SOLID_DESCRIPTOR_SEQUENCE_WINDOW"
+[[ -n "$SOLID_DESCRIPTOR_SEQUENCE_MIN_SIMILARITY" ]] && echo "  solid_descriptor_sequence_min_similarity: $SOLID_DESCRIPTOR_SEQUENCE_MIN_SIMILARITY"
+[[ -n "$SOLID_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M" ]] && echo "  solid_descriptor_pose_consistency_threshold_m: $SOLID_DESCRIPTOR_POSE_CONSISTENCY_THRESHOLD_M"
+[[ -n "$SOLID_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M" ]] && echo "  solid_descriptor_max_euclidean_distance_m: $SOLID_DESCRIPTOR_MAX_EUCLIDEAN_DISTANCE_M"
 [[ -n "$PREFER_SCAN_CONTEXT_CANDIDATES" ]] && echo "  prefer_scan_context_candidates: $PREFER_SCAN_CONTEXT_CANDIDATES"
 [[ -n "$SCAN_CONTEXT_LOOP_CLOSURE_SCORE_THRESHOLD" ]] && echo "  scan_context_loop_closure_score_threshold: $SCAN_CONTEXT_LOOP_CLOSURE_SCORE_THRESHOLD"
 [[ -n "$USE_3D_BBS_FOR_SCAN_CONTEXT" ]] && echo "  use_3d_bbs_for_scan_context: $USE_3D_BBS_FOR_SCAN_CONTEXT"
