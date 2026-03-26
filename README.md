@@ -5,7 +5,6 @@ ROS 2 LiDAR SLAM focused on non-GPL pointcloud-map authoring, benchmarking, and 
 
 > Status: `develop` tracks the current `v2 alpha` line.
 > For the latest tagged public beta, see [v0.2.0 Release Notes](docs/releases/v0.2.0.md).
-
 ## Recommended Public Workflow
 
 The recommended public path in this repository is:
@@ -40,6 +39,7 @@ Out of scope for the public path:
 - optional GNSS georeferencing writes `map_projector_info.yaml`
 - GNSS edges can use covariance-based weighting, with RTK-like fixes inferred from low horizontal covariance
 - GPL-free Scan Context place recognition is available in `graph_based_slam`
+- experimental submap-BEV and SOLiD descriptors can be benchmarked without adding GPL dependencies
 - optional dynamic-object filtering can clean the saved `pointcloud_map/` at `/map_save` time without changing live odometry
 - packet-based Applanix IMU deskew support exists for real open data, but it remains experimental and off by default in the Leo Drive packet path
 - the Leo Drive classic path now has a dedicated benchmark-suite entrypoint and report

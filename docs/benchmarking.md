@@ -240,10 +240,16 @@ APE, so `all-sensors-bag6` is useful for georeferenced smoke tests but not a
 clean GNSS benchmark source.
 
 To compare place-recognition behavior on MID360, rerun the same benchmark with
-and without Scan Context and then render the short report:
+and without an optional descriptor family and then render the short report:
 
 ```bash
 bash scripts/run_place_recognition_benchmark.sh
+```
+
+To compare the current experimental BEV-assisted distance rerank instead:
+
+```bash
+bash scripts/run_place_recognition_benchmark.sh --candidate-mode bev_rerank
 ```
 
 The report shows:
@@ -252,6 +258,8 @@ The report shows:
 - accepted/attempted loop counts
 - accepted loop source counts
 - observed `ScanContext loop candidate` count
+- observed `BEV rerank hint` count
+- observed `SOLiD rerank candidate` count
 - `APE RMSE` delta between the two runs
 - optional JSON summary via `--write-json`
 - optional SVG summary via `--write-svg`
@@ -267,6 +275,12 @@ Current checked-in evidence is:
   aggregated descriptor/registration cloud, and `scan_context_threshold=0.55`:
   `output/bench_rko_lio_mid360_sc055_yawguess_scagg_screg_20260326/metrics.json`
   (`APE RMSE 3.568 m`)
+- current experimental BEV-assisted distance rerank:
+  `output/bench_rko_lio_mid360_20260326_202840/metrics.json`
+  (`APE RMSE 3.607 m`)
+- best observed BEV-assisted distance rerank:
+  `output/bench_rko_lio_mid360_20260326_202119/metrics.json`
+  (`APE RMSE 3.533 m`)
 - short comparison report:
   `output/place_recognition_report_20260326.md`
 
@@ -274,6 +288,10 @@ That candidate currently beats both the fair rerun baseline and the published
 `3.641 m` default artifact, but the accepted loop still comes from the
 distance-based path. Treat `use_scan_context=true` as an opt-in tuning path
 rather than the repository default.
+
+The BEV path is now more useful as a sensor-agnostic distance-candidate rerank
+than as a standalone loop source. It has shown better-than-baseline runs, but
+its rerun variance is still too large for a default-on setting.
 
 ## Dynamic Object Filter Benchmark
 

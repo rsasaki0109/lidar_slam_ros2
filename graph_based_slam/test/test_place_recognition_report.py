@@ -189,3 +189,81 @@ def test_place_recognition_report_marks_scan_context_improvement(tmp_path):
     assert '`2`' in report
     payload = json.loads(out_json.read_text(encoding='utf-8'))
     assert payload['baseline']['ape_rmse_m'] == 4.10
+
+
+def test_place_recognition_report_supports_bev_rerank_label(tmp_path):
+    """The report should support BEV-assisted reranking as a first-class candidate."""
+    baseline_metrics = tmp_path / 'baseline' / 'metrics.json'
+    candidate_metrics = tmp_path / 'candidate' / 'metrics.json'
+    baseline_log = tmp_path / 'baseline' / 'slam.launch.log'
+    candidate_log = tmp_path / 'candidate' / 'slam.launch.log'
+    out_path = tmp_path / 'bev_report.md'
+    out_json = tmp_path / 'bev_report.json'
+    out_svg = tmp_path / 'bev_report.svg'
+
+    _write_metrics(baseline_metrics, rmse=3.80, loop_count=1, attempted=2)
+    _write_metrics(candidate_metrics, rmse=3.61, loop_count=1, attempted=2)
+    baseline_log.write_text(
+        '\n'.join(
+            [
+                'use_scan_context:false',
+                'loop_candidate_source:distance',
+            ],
+        ) + '\n',
+        encoding='utf-8',
+    )
+    candidate_log.write_text(
+        '\n'.join(
+            [
+                'use_scan_context:false',
+                'BEV rerank hint: id=7 bev_dist=0.378 seq_dist=0.408 pose_seq_m=4.23 yaw_deg=-135',
+                'Distance candidate reranked by BEV: id=7 dist_m=45.658 bev_score=0.408 yaw_deg=-135',
+                'loop_candidate_source:distance',
+            ],
+        ) + '\n',
+        encoding='utf-8',
+    )
+
+    result = subprocess.run(
+        [
+            'python3',
+            str(SCRIPT),
+            '--baseline-metrics',
+            str(baseline_metrics),
+            '--baseline-log',
+            str(baseline_log),
+            '--candidate-metrics',
+            str(candidate_metrics),
+            '--candidate-log',
+            str(candidate_log),
+            '--baseline-label',
+            'distance baseline',
+            '--candidate-label',
+            'BEV-assisted rerank',
+            '--candidate-kind',
+            'bev_rerank',
+            '--out',
+            str(out_path),
+            '--write-json',
+            str(out_json),
+            '--write-svg',
+            str(out_svg),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+
+    assert result.returncode == 0, result.stderr
+    report = out_path.read_text(encoding='utf-8')
+    assert 'BEV-assisted rerank' in report
+    assert 'Observed BEV rerank hints' in report
+    assert 'reprioritized distance candidates with BEV hints' in report
+    assert 'improved APE RMSE' in report
+    svg = out_svg.read_text(encoding='utf-8')
+    assert 'distance baseline' in svg
+    assert 'BEV-assisted rerank' in svg
+    payload = json.loads(out_json.read_text(encoding='utf-8'))
+    assert payload['candidate']['kind'] == 'bev_rerank'
+    assert payload['candidate']['log_summary']['bev_rerank_hint_count'] == 1
