@@ -233,6 +233,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_dynamic_object_filter_validation_report
+    test/test_dynamic_object_filter_validation_report.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_submission_bundle_tools
     test/test_submission_bundle_tools.py
     TIMEOUT 120

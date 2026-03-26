@@ -99,6 +99,20 @@ By default this writes:
 
 - `output/stress_validation_report_<YYYYMMDD>.md`
 
+To summarize dynamic-object-filter behavior across the tracked Leo Drive
+save-time benchmarks:
+
+```bash
+python3 scripts/generate_dynamic_object_filter_validation_report.py \
+  --out output/dynamic_object_filter_validation_report_$(date +%Y%m%d).md \
+  --write-json output/dynamic_object_filter_validation_report_$(date +%Y%m%d).json \
+  --write-svg output/dynamic_object_filter_validation_report_$(date +%Y%m%d).svg
+```
+
+The default report compares the tracked `bag1` and `bag6` dynamic-filter
+benchmarks, so point reduction and voxel-removal behavior can be discussed as
+cross-dataset evidence rather than a single-case anecdote.
+
 To promote an already-recorded aligned cross-validation run such as the MID360
 long-loop check into `metrics.json` so it appears in `benchmark_summary.md` and
 `latest_report.html`:
