@@ -321,6 +321,27 @@ The BEV path is now more useful as a sensor-agnostic distance-candidate rerank
 than as a standalone loop source. It has shown better-than-baseline runs, but
 its rerun variance is still too large for a default-on setting.
 
+To summarize the current stop/go decisions for place recognition and the
+classic fallback path in one short report:
+
+```bash
+python3 scripts/generate_exploration_closeout_report.py \
+  --out output/exploration_closeout_report_$(date +%Y%m%d).md \
+  --write-json output/exploration_closeout_report_$(date +%Y%m%d).json
+```
+
+A local snapshot can be written to:
+
+- `output/exploration_closeout_report_20260327.md`
+
+That report fixes the current repository position in one place:
+
+- public default place recognition remains the distance-based path
+- `Scan Context` stays opt-in
+- `BEV-assisted rerank` stays experimental
+- `SOLiD` stays experimental/off by default
+- the classic path remains a fallback workflow rather than the main public path
+
 ## Dynamic Object Filter Benchmark
 
 The dynamic-object filter is save-time only. It does not change live odometry
