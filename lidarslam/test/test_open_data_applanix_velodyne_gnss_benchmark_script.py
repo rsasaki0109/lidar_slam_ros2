@@ -60,6 +60,7 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert '--odom-prior-planar BOOL' in script
     assert '--odom-prior-velocity-planar BOOL' in script
     assert '--odom-prior-translation-only BOOL' in script
+    assert '--odom-prior-suspect-recovery-only BOOL' in script
     assert '--odom-prior-weight FLOAT' in script
     assert '--use-imu BOOL' in script
     assert '--imu-rotation-use-orientation BOOL' in script
@@ -85,6 +86,7 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert 'ODOM_PRIOR_PLANAR="false"' in script
     assert 'ODOM_PRIOR_VELOCITY_PLANAR="false"' in script
     assert 'ODOM_PRIOR_TRANSLATION_ONLY="false"' in script
+    assert 'ODOM_PRIOR_SUSPECT_RECOVERY_ONLY="false"' in script
     assert 'ODOM_PRIOR_WEIGHT="1.0"' in script
     assert 'IMU_FROM_MAIN="false"' in script
     assert 'TF_IN_MAIN="false"' in script
@@ -94,6 +96,7 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert 'odom_prior_planar:' in script
     assert 'odom_prior_velocity_planar:' in script
     assert 'odom_prior_translation_only:' in script
+    assert 'odom_prior_suspect_recovery_only:' in script
     assert 'odom_prior_weight:' in script
     assert 'imu_source:          main bag' in script
     assert '--qos-profile-overrides-path "${QOS_FILE}"' in script

@@ -263,6 +263,8 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   get_parameter("odom_prior_planar", odom_prior_planar_);
   declare_parameter("odom_prior_translation_only", false);
   get_parameter("odom_prior_translation_only", odom_prior_translation_only_);
+  declare_parameter("odom_prior_suspect_recovery_only", false);
+  get_parameter("odom_prior_suspect_recovery_only", odom_prior_suspect_recovery_only_);
   declare_parameter("odom_prior_weight", 1.0);
   get_parameter("odom_prior_weight", odom_prior_weight_);
   odom_prior_weight_ = std::clamp(odom_prior_weight_, 0.0, 1.0);
@@ -380,6 +382,8 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   std::cout << "odom_prior_planar:" << std::boolalpha << odom_prior_planar_ << std::endl;
   std::cout << "odom_prior_translation_only:" << std::boolalpha <<
     odom_prior_translation_only_ << std::endl;
+  std::cout << "odom_prior_suspect_recovery_only:" << std::boolalpha <<
+    odom_prior_suspect_recovery_only_ << std::endl;
   std::cout << "odom_prior_weight:" << odom_prior_weight_ << std::endl;
   std::cout << "use_imu:" << std::boolalpha << use_imu_ << std::endl;
   std::cout << "imu_translation_deskew:" << std::boolalpha << imu_translation_deskew_ <<
@@ -1046,13 +1050,19 @@ void ScanMatcherComponent::receiveCloud(
       Eigen::Affine3d odom_affine = tf2::transformToEigen(odom_trans);
       Eigen::Matrix4f odom_mat = odom_affine.matrix().cast<float>();
       if (previous_odom_valid_) {
-        const Eigen::Matrix4f odom_delta = previous_odom_mat_.inverse() * odom_mat;
-        const Eigen::Matrix4f filtered_odom_delta = odom_prior::filterAndBlendDelta(
-          odom_delta,
-          odom_prior_planar_,
-          odom_prior_translation_only_,
-          odom_prior_weight_);
-        sim_trans = sim_trans * filtered_odom_delta;
+        const bool odom_prior_active =
+          !odom_prior_suspect_recovery_only_ ||
+          tracking_state_ != TrackingState::Tracking ||
+          recovery_target_active_;
+        if (odom_prior_active) {
+          const Eigen::Matrix4f odom_delta = previous_odom_mat_.inverse() * odom_mat;
+          const Eigen::Matrix4f filtered_odom_delta = odom_prior::filterAndBlendDelta(
+            odom_delta,
+            odom_prior_planar_,
+            odom_prior_translation_only_,
+            odom_prior_weight_);
+          sim_trans = sim_trans * filtered_odom_delta;
+        }
       }
       previous_odom_mat_ = odom_mat;
       previous_odom_valid_ = true;
