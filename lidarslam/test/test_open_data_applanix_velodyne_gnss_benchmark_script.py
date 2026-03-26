@@ -53,6 +53,10 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     script = SCRIPT_PATH.read_text(encoding='utf-8')
 
     assert '--use-gnss BOOL' in script
+    assert '--use-odom-prior BOOL' in script
+    assert '--odom-bag PATH' in script
+    assert '--odom-topic TOPIC' in script
+    assert '--odom-frame-id FRAME' in script
     assert '--use-imu BOOL' in script
     assert '--imu-rotation-use-orientation BOOL' in script
     assert '--imu-pose-prediction BOOL' in script
@@ -63,16 +67,22 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert 'create_main_param' in script
     assert 'terminate_pid()' in script
     assert 'velodyne_transform_node' in script
+    assert 'convert_applanix_gsof49_to_tf_bag.py' in script
     assert 'convert_applanix_gsof_to_imu_bag.py' in script
     assert 'extract_static_transform_from_bag.py' in script
     assert 'topic_exists_by_name_and_type()' in script
     assert 'detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/NavSatFix"' in script
     assert 'detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/Imu"' in script
     assert 'GNSS_FROM_MAIN="false"' in script
+    assert 'USE_ODOM_PRIOR="false"' in script
+    assert 'ODOM_BAG=""' in script
+    assert 'ODOM_TOPIC="/tf"' in script
+    assert 'ODOM_FRAME_ID="odom"' in script
     assert 'IMU_FROM_MAIN="false"' in script
     assert 'TF_IN_MAIN="false"' in script
     assert 'PUBLISH_IMU_STATIC_TF="false"' in script
     assert 'gnss_source:         main bag' in script
+    assert 'odom_source:         sidecar bag' in script
     assert 'imu_source:          main bag' in script
     assert '--qos-profile-overrides-path "${QOS_FILE}"' in script
     assert 'POINTS_TOPIC="/open_data/velodyne_points"' in script
@@ -83,6 +93,7 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert 'MAIN_PLAY_TOPICS+=("${GNSS_TOPIC}")' in script
     assert 'MAIN_PLAY_TOPICS+=("${IMU_TOPIC}")' in script
     assert '"imu_topic:=${IMU_TOPIC}" \\' in script
+    assert '"odom_frame_id:=${ODOM_FRAME_ID}" \\' in script
     assert 'IMU_TRANSLATION_DESKEW="false"' in script
     assert 'IMU_ROTATION_USE_ORIENTATION="true"' in script
     assert 'IMU_POSE_PREDICTION="false"' in script
