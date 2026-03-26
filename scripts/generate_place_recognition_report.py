@@ -28,7 +28,7 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""Generate a short Scan Context on/off comparison report."""
+"""Generate a short place-recognition comparison report."""
 
 from __future__ import annotations
 
@@ -76,8 +76,15 @@ def parse_log_summary(log_path: Path) -> dict[str, object]:
     """Extract place-recognition related counters from a launch log."""
     summary = {
         'use_scan_context': None,
-        'accepted_source_counts': {'distance': 0, 'scan_context': 0},
+        'accepted_source_counts': {
+            'distance': 0,
+            'scan_context': 0,
+            'bev_descriptor': 0,
+            'solid_descriptor': 0,
+        },
         'scan_context_candidate_count': 0,
+        'bev_rerank_hint_count': 0,
+        'solid_rerank_candidate_count': 0,
     }
     if not log_path.is_file():
         return summary
@@ -89,6 +96,12 @@ def parse_log_summary(log_path: Path) -> dict[str, object]:
 
     summary['scan_context_candidate_count'] = len(
         re.findall(r'ScanContext loop candidate:', text),
+    )
+    summary['bev_rerank_hint_count'] = len(
+        re.findall(r'BEV rerank hint:', text),
+    )
+    summary['solid_rerank_candidate_count'] = len(
+        re.findall(r'SOLiD rerank candidate:', text),
     )
     for source in re.findall(r'loop_candidate_source:([a-z_]+)', text):
         counts = summary['accepted_source_counts']
@@ -106,6 +119,8 @@ def _write_rmse_svg(
     out_path: Path,
     baseline_rmse: float | None,
     candidate_rmse: float | None,
+    baseline_label: str,
+    candidate_label: str,
 ) -> None:
     baseline_value = baseline_rmse or 0.0
     candidate_value = candidate_rmse or 0.0
@@ -121,10 +136,10 @@ def _write_rmse_svg(
   </style>
   <rect x="0" y="0" width="760" height="180" fill="#ffffff"/>
   <text x="24" y="32" class="title">Place recognition APE RMSE comparison</text>
-  <text x="24" y="74" class="label">Baseline</text>
+  <text x="24" y="74" class="label">{baseline_label}</text>
   <rect x="180" y="54" width="{baseline_width}" height="24" rx="4" fill="#9ca3af"/>
   <text x="{190 + baseline_width}" y="72" class="value">{baseline_value:.3f} m</text>
-  <text x="24" y="124" class="label">Scan Context candidate</text>
+  <text x="24" y="124" class="label">{candidate_label}</text>
   <rect x="180" y="104" width="{candidate_width}" height="24" rx="4" fill="#2563eb"/>
   <text x="{190 + candidate_width}" y="122" class="value">{candidate_value:.3f} m</text>
 </svg>
@@ -137,17 +152,40 @@ def _conclusion(
     baseline_rmse: float | None,
     candidate_rmse: float | None,
     candidate_log: dict[str, object],
+    candidate_kind: str,
+    candidate_label: str,
 ) -> str:
-    scan_context_loops = (
-        candidate_log.get('accepted_source_counts', {}).get('scan_context', 0)
-    )
-    scan_context_candidates = int(candidate_log.get('scan_context_candidate_count', 0))
-    if scan_context_loops > 0:
-        source_text = 'accepted loop closures from Scan Context'
-    elif scan_context_candidates > 0:
-        source_text = 'Scan Context produced candidates, but none survived geometric validation'
+    accepted_counts = candidate_log.get('accepted_source_counts', {})
+    if candidate_kind == 'scan_context':
+        accepted = int(accepted_counts.get('scan_context', 0))
+        observed = int(candidate_log.get('scan_context_candidate_count', 0))
+        if accepted > 0:
+            source_text = 'accepted loop closures from Scan Context'
+        elif observed > 0:
+            source_text = (
+                'Scan Context produced candidates, but none survived geometric validation'
+            )
+        else:
+            source_text = 'no Scan Context candidate made it into the accepted loop set'
+    elif candidate_kind == 'bev_rerank':
+        observed = int(candidate_log.get('bev_rerank_hint_count', 0))
+        if observed > 0:
+            source_text = (
+                f'{candidate_label} reprioritized distance candidates with BEV hints'
+            )
+        else:
+            source_text = f'{candidate_label} produced no usable BEV rerank hint'
+    elif candidate_kind == 'solid_descriptor':
+        accepted = int(accepted_counts.get('solid_descriptor', 0))
+        observed = int(candidate_log.get('solid_rerank_candidate_count', 0))
+        if accepted > 0:
+            source_text = 'accepted loop closures from SOLiD-based reranking'
+        elif observed > 0:
+            source_text = 'SOLiD produced rerank candidates, but none survived geometric validation'
+        else:
+            source_text = 'no SOLiD rerank candidate made it into the accepted loop set'
     else:
-        source_text = 'no Scan Context candidate made it into the accepted loop set'
+        source_text = f'{candidate_label} completed'
 
     if baseline_rmse is None or candidate_rmse is None:
         return source_text
@@ -183,12 +221,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--candidate-metrics',
         default=str(DEFAULT_CANDIDATE_METRICS),
-        help='metrics.json for the Scan Context enabled run.',
+        help='metrics.json for the candidate run.',
     )
     parser.add_argument(
         '--candidate-log',
         default='',
-        help='Optional launch log for the Scan Context enabled run.',
+        help='Optional launch log for the candidate run.',
+    )
+    parser.add_argument(
+        '--baseline-label',
+        default='baseline',
+        help='Human-readable baseline label for the report.',
+    )
+    parser.add_argument(
+        '--candidate-label',
+        default='candidate',
+        help='Human-readable candidate label for the report.',
+    )
+    parser.add_argument(
+        '--candidate-kind',
+        default='scan_context',
+        choices=['scan_context', 'bev_rerank', 'solid_descriptor', 'generic'],
+        help='Descriptor family used by the candidate run.',
     )
     parser.add_argument(
         '--out',
@@ -251,12 +305,15 @@ def main() -> int:
         'candidate_metrics': str(candidate_metrics_path),
         'candidate_log': str(candidate_log),
         'baseline': {
+            'label': args.baseline_label,
             'ape_rmse_m': baseline_rmse,
             'loop_count': _loop_count(baseline, 'loop_count'),
             'loop_count_attempted': _loop_count(baseline, 'loop_count_attempted'),
             'log_summary': baseline_log_summary,
         },
         'candidate': {
+            'label': args.candidate_label,
+            'kind': args.candidate_kind,
             'ape_rmse_m': candidate_rmse,
             'loop_count': _loop_count(candidate, 'loop_count'),
             'loop_count_attempted': _loop_count(candidate, 'loop_count_attempted'),
@@ -266,8 +323,8 @@ def main() -> int:
 
     report = f"""# Place Recognition Report
 
-This report compares a fair current-code MID360 baseline rerun against a Scan
-Context candidate run.
+This report compares a fair current-code MID360 baseline rerun against an
+experimental place-recognition candidate run.
 
 ## Inputs
 
@@ -278,14 +335,14 @@ Context candidate run.
 
 ## Summary
 
-| Run | Runtime `use_scan_context` | APE RMSE (m) | Accepted loops | Attempted loops | Accepted distance loops | Accepted Scan Context loops | Observed Scan Context candidates |
+| Run | Runtime `use_scan_context` | APE RMSE (m) | Accepted loops | Attempted loops | Accepted distance loops | Accepted Scan Context loops | Accepted BEV loops | Accepted SOLiD loops | Observed Scan Context candidates | Observed BEV rerank hints | Observed SOLiD rerank candidates |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| baseline | `{baseline_log_summary.get("use_scan_context")}` | `{_fmt(baseline_rmse)}` | `{_loop_count(baseline, "loop_count")}` | `{_loop_count(baseline, "loop_count_attempted")}` | `{baseline_log_summary["accepted_source_counts"].get("distance", 0)}` | `{baseline_log_summary["accepted_source_counts"].get("scan_context", 0)}` | `{baseline_log_summary.get("scan_context_candidate_count", 0)}` |
-| candidate | `{candidate_log_summary.get("use_scan_context")}` | `{_fmt(candidate_rmse)}` | `{_loop_count(candidate, "loop_count")}` | `{_loop_count(candidate, "loop_count_attempted")}` | `{candidate_log_summary["accepted_source_counts"].get("distance", 0)}` | `{candidate_log_summary["accepted_source_counts"].get("scan_context", 0)}` | `{candidate_log_summary.get("scan_context_candidate_count", 0)}` |
+| {args.baseline_label} | `{baseline_log_summary.get("use_scan_context")}` | `{_fmt(baseline_rmse)}` | `{_loop_count(baseline, "loop_count")}` | `{_loop_count(baseline, "loop_count_attempted")}` | `{baseline_log_summary["accepted_source_counts"].get("distance", 0)}` | `{baseline_log_summary["accepted_source_counts"].get("scan_context", 0)}` | `{baseline_log_summary["accepted_source_counts"].get("bev_descriptor", 0)}` | `{baseline_log_summary["accepted_source_counts"].get("solid_descriptor", 0)}` | `{baseline_log_summary.get("scan_context_candidate_count", 0)}` | `{baseline_log_summary.get("bev_rerank_hint_count", 0)}` | `{baseline_log_summary.get("solid_rerank_candidate_count", 0)}` |
+| {args.candidate_label} | `{candidate_log_summary.get("use_scan_context")}` | `{_fmt(candidate_rmse)}` | `{_loop_count(candidate, "loop_count")}` | `{_loop_count(candidate, "loop_count_attempted")}` | `{candidate_log_summary["accepted_source_counts"].get("distance", 0)}` | `{candidate_log_summary["accepted_source_counts"].get("scan_context", 0)}` | `{candidate_log_summary["accepted_source_counts"].get("bev_descriptor", 0)}` | `{candidate_log_summary["accepted_source_counts"].get("solid_descriptor", 0)}` | `{candidate_log_summary.get("scan_context_candidate_count", 0)}` | `{candidate_log_summary.get("bev_rerank_hint_count", 0)}` | `{candidate_log_summary.get("solid_rerank_candidate_count", 0)}` |
 
 ## Conclusion
 
-- {_conclusion(baseline_rmse, candidate_rmse, candidate_log_summary)}
+- {_conclusion(baseline_rmse, candidate_rmse, candidate_log_summary, args.candidate_kind, args.candidate_label)}
 """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(report, encoding='utf-8')
@@ -293,7 +350,13 @@ Context candidate run.
         json_path.parent.mkdir(parents=True, exist_ok=True)
         json_path.write_text(json.dumps(payload, indent=2), encoding='utf-8')
     if svg_path is not None:
-        _write_rmse_svg(svg_path, baseline_rmse, candidate_rmse)
+        _write_rmse_svg(
+            svg_path,
+            baseline_rmse,
+            candidate_rmse,
+            args.baseline_label,
+            args.candidate_label,
+        )
     print(out_path)
     if json_path is not None:
         print(json_path)
