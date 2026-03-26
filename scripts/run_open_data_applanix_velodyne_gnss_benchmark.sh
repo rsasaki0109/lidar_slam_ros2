@@ -23,6 +23,11 @@ Options:
   --gnss-bag PATH             Optional NavSatFix rosbag2. If omitted and --use-gnss=true, the wrapper first
                               prefers a native NavSatFix topic in the main bag, then generates a sidecar if needed.
   --gnss-topic TOPIC          NavSatFix topic (default: /gnss/fix).
+  --use-odom-prior BOOL       Enable scanmatcher odom prior from a /tf sidecar (default: false).
+  --odom-bag PATH             Optional /tf rosbag2 used when --use-odom-prior=true.
+                              If omitted, a sidecar is generated from GSOF49.
+  --odom-topic TOPIC          TF topic for odom prior playback (default: /tf).
+  --odom-frame-id FRAME       Odom frame for scanmatcher (default: odom).
   --use-imu BOOL              Enable IMU input for deskew (default: false).
   --imu-bag PATH              Optional Imu rosbag2. If omitted and --use-imu=true, the wrapper first
                               prefers a native Imu topic in the main bag, then generates a sidecar if needed.
@@ -250,14 +255,15 @@ create_main_param() {
   local out_param="$2"
   local use_gnss="$3"
   local use_imu="$4"
-  local imu_translation_deskew="$5"
-  local imu_rotation_use_orientation="$6"
-  local imu_pose_prediction_enable="$7"
-  local cloud_queue_depth="${8}"
-  local debug_cloud_dump_dir="${9}"
-  local debug_cloud_dump_max_frames="${10}"
+  local use_odom="$5"
+  local imu_translation_deskew="$6"
+  local imu_rotation_use_orientation="$7"
+  local imu_pose_prediction_enable="$8"
+  local cloud_queue_depth="${9}"
+  local debug_cloud_dump_dir="${10}"
+  local debug_cloud_dump_max_frames="${11}"
   cp "${base_param}" "${out_param}"
-  python3 - "${out_param}" "${use_gnss}" "${use_imu}" "${imu_translation_deskew}" "${imu_rotation_use_orientation}" "${imu_pose_prediction_enable}" "${cloud_queue_depth}" "${debug_cloud_dump_dir}" "${debug_cloud_dump_max_frames}" <<'PY'
+  python3 - "${out_param}" "${use_gnss}" "${use_imu}" "${use_odom}" "${imu_translation_deskew}" "${imu_rotation_use_orientation}" "${imu_pose_prediction_enable}" "${cloud_queue_depth}" "${debug_cloud_dump_dir}" "${debug_cloud_dump_max_frames}" <<'PY'
 from pathlib import Path
 import json
 import sys
@@ -265,12 +271,13 @@ import sys
 path = Path(sys.argv[1])
 use_gnss = sys.argv[2].strip().lower() in {'1', 'true', 'yes', 'on'}
 use_imu = sys.argv[3].strip().lower() in {'1', 'true', 'yes', 'on'}
-imu_translation_deskew = sys.argv[4].strip().lower() in {'1', 'true', 'yes', 'on'}
-imu_rotation_use_orientation = sys.argv[5].strip().lower() in {'1', 'true', 'yes', 'on'}
-imu_pose_prediction_enable = sys.argv[6].strip().lower() in {'1', 'true', 'yes', 'on'}
-cloud_queue_depth = sys.argv[7].strip()
-debug_cloud_dump_dir = sys.argv[8]
-debug_cloud_dump_max_frames = max(0, int(sys.argv[9]))
+use_odom = sys.argv[4].strip().lower() in {'1', 'true', 'yes', 'on'}
+imu_translation_deskew = sys.argv[5].strip().lower() in {'1', 'true', 'yes', 'on'}
+imu_rotation_use_orientation = sys.argv[6].strip().lower() in {'1', 'true', 'yes', 'on'}
+imu_pose_prediction_enable = sys.argv[7].strip().lower() in {'1', 'true', 'yes', 'on'}
+cloud_queue_depth = sys.argv[8].strip()
+debug_cloud_dump_dir = sys.argv[9]
+debug_cloud_dump_max_frames = max(0, int(sys.argv[10]))
 text = path.read_text(encoding='utf-8')
 if '      use_gnss: true' in text or '      use_gnss: false' in text:
     text = text.replace(
@@ -299,6 +306,20 @@ if '    use_imu: true' in text or '    use_imu: false' in text:
     )
 else:
     raise SystemExit('could not find scan_matcher use_imu parameter in base YAML')
+if '    use_odom: true' in text or '    use_odom: false' in text:
+    use_odom_line = f'    use_odom: {"true" if use_odom else "false"}'
+    text = text.replace(
+        '    use_odom: true',
+        use_odom_line,
+        1,
+    )
+    text = text.replace(
+        '    use_odom: false',
+        use_odom_line,
+        1,
+    )
+else:
+    raise SystemExit('could not find scan_matcher use_odom parameter in base YAML')
 imu_translation_line = (
     f'    imu_translation_deskew: {"true" if imu_translation_deskew else "false"}'
 )
@@ -317,7 +338,7 @@ if (
         1,
     )
 else:
-    text = text.replace(use_imu_line, use_imu_line + '\n' + imu_translation_line, 1)
+    text = text.replace(use_odom_line, use_odom_line + '\n' + imu_translation_line, 1)
 imu_rotation_line = (
     '    imu_rotation_deskew_use_orientation: '
     f'{"true" if imu_rotation_use_orientation else "false"}'
@@ -502,6 +523,10 @@ REFERENCE_TUM=""
 ROBOT_FRAME_ID_OVERRIDE=""
 GNSS_BAG=""
 GNSS_TOPIC="/gnss/fix"
+USE_ODOM_PRIOR="false"
+ODOM_BAG=""
+ODOM_TOPIC="/tf"
+ODOM_FRAME_ID="odom"
 USE_IMU="false"
 IMU_BAG=""
 IMU_TOPIC="/imu"
@@ -550,6 +575,14 @@ while [[ $# -gt 0 ]]; do
       GNSS_BAG="$(realpath "${2:-}")"; shift 2 ;;
     --gnss-topic)
       GNSS_TOPIC="${2:-}"; shift 2 ;;
+    --use-odom-prior)
+      USE_ODOM_PRIOR="${2:-}"; shift 2 ;;
+    --odom-bag)
+      ODOM_BAG="$(realpath "${2:-}")"; shift 2 ;;
+    --odom-topic)
+      ODOM_TOPIC="${2:-}"; shift 2 ;;
+    --odom-frame-id)
+      ODOM_FRAME_ID="${2:-}"; shift 2 ;;
     --use-imu)
       USE_IMU="${2:-}"; shift 2 ;;
     --imu-bag)
@@ -738,6 +771,7 @@ fi
 [[ -f "${REFERENCE_TUM}" ]] || die "reference TUM not found: ${REFERENCE_TUM}"
 
 CONVERT_LOG="${OUTPUT_DIR}/convert_applanix.log"
+ODOM_CONVERT_LOG="${OUTPUT_DIR}/convert_applanix_tf.log"
 IMU_CONVERT_LOG="${OUTPUT_DIR}/convert_applanix_imu.log"
 GNSS_FROM_MAIN="false"
 IMU_FROM_MAIN="false"
@@ -808,6 +842,28 @@ if [[ "${USE_IMU,,}" == "true" ]]; then
   fi
 fi
 
+if [[ "${USE_ODOM_PRIOR,,}" == "true" ]]; then
+  if [[ -n "${ODOM_BAG}" ]]; then
+    [[ -d "${ODOM_BAG}" ]] || die "odom bag not found: ${ODOM_BAG}"
+    [[ -f "${ODOM_BAG}/metadata.yaml" ]] || die "metadata.yaml not found under ${ODOM_BAG}"
+  else
+    [[ -d "${APPLANIX_MSG_DIR}" ]] || {
+      die "applanix_msgs dir not found: ${APPLANIX_MSG_DIR}"
+    }
+    ODOM_BAG="${OUTPUT_DIR}/applanix_tf_sidecar"
+    python3 "${SCRIPT_DIR}/convert_applanix_gsof49_to_tf_bag.py" \
+      --input "${BAG_PATH}" \
+      --output "${ODOM_BAG}" \
+      --topic "${GSOF49_TOPIC}" \
+      --output-topic "${ODOM_TOPIC}" \
+      --odom-frame-id "${ODOM_FRAME_ID}" \
+      --child-frame-id "${ROBOT_FRAME_ID}" \
+      --applanix-msg-dir "${APPLANIX_MSG_DIR}" \
+      --force \
+      >"${ODOM_CONVERT_LOG}" 2>&1
+  fi
+fi
+
 if [[ "${USE_IMU,,}" == "true" && "${IMU_FRAME_ID}" != "${ROBOT_FRAME_ID}" ]]; then
   if [[ -z "${TF_BAG}" ]]; then
     TF_BAG="${BAG_PATH}"
@@ -835,6 +891,7 @@ create_main_param \
   "${TMP_PARAM}" \
   "${USE_GNSS}" \
   "${USE_IMU}" \
+  "${USE_ODOM_PRIOR}" \
   "${IMU_TRANSLATION_DESKEW}" \
   "${IMU_ROTATION_USE_ORIENTATION}" \
   "${IMU_POSE_PREDICTION}" \
@@ -867,6 +924,7 @@ LAUNCH_LOG="${OUTPUT_DIR}/lidarslam.launch.log"
 MAP_SAVE_LOG="${OUTPUT_DIR}/map_save.log"
 MAIN_PLAY_LOG="${OUTPUT_DIR}/main_bag_play.log"
 GNSS_PLAY_LOG="${OUTPUT_DIR}/gnss_bag_play.log"
+ODOM_PLAY_LOG="${OUTPUT_DIR}/odom_bag_play.log"
 IMU_PLAY_LOG="${OUTPUT_DIR}/imu_bag_play.log"
 VELODYNE_LOG="${OUTPUT_DIR}/velodyne_transform.log"
 VERIFY_LOG="${OUTPUT_DIR}/verify_autoware_map.log"
@@ -879,6 +937,7 @@ POINTS_TOPIC="/open_data/velodyne_points"
 LAUNCH_PID=""
 MAIN_PLAY_PID=""
 GNSS_PLAY_PID=""
+ODOM_PLAY_PID=""
 IMU_PLAY_PID=""
 VELODYNE_PID=""
 IMU_STATIC_TF_PID=""
@@ -887,6 +946,7 @@ CORRECTED_LOGGER_PID=""
 cleanup() {
   for pid in \
     "${GNSS_PLAY_PID}" \
+    "${ODOM_PLAY_PID}" \
     "${IMU_PLAY_PID}" \
     "${MAIN_PLAY_PID}" \
     "${RAW_LOGGER_PID}" \
@@ -922,6 +982,13 @@ if [[ "${USE_GNSS,,}" == "true" ]]; then
     echo "  gnss_bag:            ${GNSS_BAG}"
   fi
   echo "  gnss_topic:          ${GNSS_TOPIC}"
+fi
+echo "  use_odom_prior:      ${USE_ODOM_PRIOR}"
+if [[ "${USE_ODOM_PRIOR,,}" == "true" ]]; then
+  echo "  odom_source:         sidecar bag"
+  echo "  odom_bag:            ${ODOM_BAG}"
+  echo "  odom_topic:          ${ODOM_TOPIC}"
+  echo "  odom_frame_id:       ${ODOM_FRAME_ID}"
 fi
 echo "  use_imu:             ${USE_IMU}"
 if [[ "${USE_IMU,,}" == "true" ]]; then
@@ -992,6 +1059,7 @@ ros2 launch lidarslam lidarslam.launch.py \
   "imu_topic:=${IMU_TOPIC}" \
   "gnss_topic:=${GNSS_TOPIC}" \
   "robot_frame_id:=${ROBOT_FRAME_ID}" \
+  "odom_frame_id:=${ODOM_FRAME_ID}" \
   "base_frame:=${ROBOT_FRAME_ID}" \
   "lidar_frame:=${LIDAR_FRAME_ID}" \
   "global_frame_id:=map" \
@@ -1050,6 +1118,12 @@ if [[ "${USE_GNSS,,}" == "true" && "${GNSS_FROM_MAIN}" != "true" ]]; then
     >"${GNSS_PLAY_LOG}" 2>&1 &
   GNSS_PLAY_PID="$!"
 fi
+if [[ "${USE_ODOM_PRIOR,,}" == "true" ]]; then
+  timeout "${PLAY_WALL_SEC}" ros2 bag play "${ODOM_BAG}" \
+    --rate "${RATE}" \
+    >"${ODOM_PLAY_LOG}" 2>&1 &
+  ODOM_PLAY_PID="$!"
+fi
 if [[ "${USE_IMU,,}" == "true" && "${IMU_FROM_MAIN}" != "true" ]]; then
   timeout "${PLAY_WALL_SEC}" ros2 bag play "${IMU_BAG}" \
     --rate "${RATE}" \
@@ -1062,6 +1136,10 @@ MAIN_PLAY_PID=""
 if [[ -n "${GNSS_PLAY_PID}" ]]; then
   wait "${GNSS_PLAY_PID}" || true
   GNSS_PLAY_PID=""
+fi
+if [[ -n "${ODOM_PLAY_PID}" ]]; then
+  wait "${ODOM_PLAY_PID}" || true
+  ODOM_PLAY_PID=""
 fi
 if [[ -n "${IMU_PLAY_PID}" ]]; then
   wait "${IMU_PLAY_PID}" || true

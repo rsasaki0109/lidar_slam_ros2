@@ -87,6 +87,14 @@ bash "${SCRIPT_DIR}/run_open_data_applanix_velodyne_gnss_benchmark.sh" \
 
 bash "${SCRIPT_DIR}/run_open_data_applanix_velodyne_gnss_benchmark.sh" \
   "${COMMON_ARGS[@]}" \
+  --use-odom-prior true \
+  --odom-frame-id odom \
+  --tf-bag "${TF_BAG}" \
+  --robot-frame-id base_link \
+  --output-dir "${OUTPUT_DIR}/gnss_odom_prior"
+
+bash "${SCRIPT_DIR}/run_open_data_applanix_velodyne_gnss_benchmark.sh" \
+  "${COMMON_ARGS[@]}" \
   --use-imu true \
   --tf-bag "${TF_BAG}" \
   --robot-frame-id base_link \
@@ -96,6 +104,7 @@ bash "${SCRIPT_DIR}/run_open_data_applanix_velodyne_gnss_benchmark.sh" \
 python3 "${SCRIPT_DIR}/generate_classic_path_report.py" \
   --no-gnss-dir "${OUTPUT_DIR}/no_gnss" \
   --gnss-only-dir "${OUTPUT_DIR}/gnss_only" \
+  --gnss-odom-dir "${OUTPUT_DIR}/gnss_odom_prior" \
   --gnss-imu-dir "${OUTPUT_DIR}/gnss_imu" \
   --out "${OUTPUT_DIR}/classic_path_report.md" \
   --write-json "${OUTPUT_DIR}/classic_path_report.json" \

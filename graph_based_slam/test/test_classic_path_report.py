@@ -60,9 +60,10 @@ def _write_run_dir(
 
 
 def test_classic_path_report_summarizes_gnss_gain_and_imu_delta(tmp_path):
-    """The classic-path report should compare no-GNSS, GNSS-only, and GNSS+IMU."""
+    """The classic-path report should compare GNSS, odom-prior, and IMU variants."""
     no_gnss_dir = tmp_path / 'no_gnss'
     gnss_only_dir = tmp_path / 'gnss_only'
+    gnss_odom_dir = tmp_path / 'gnss_odom'
     gnss_imu_dir = tmp_path / 'gnss_imu'
     out_md = tmp_path / 'classic.md'
     out_json = tmp_path / 'classic.json'
@@ -91,6 +92,17 @@ def test_classic_path_report_summarizes_gnss_gain_and_imu_delta(tmp_path):
         projector_type='LocalCartesian',
     )
     _write_run_dir(
+        gnss_odom_dir,
+        rmse=184.10,
+        mean=160.10,
+        max_value=555.55,
+        pairs=8200,
+        loop_count=0,
+        attempted=0,
+        verify='PASS',
+        projector_type='LocalCartesian',
+    )
+    _write_run_dir(
         gnss_imu_dir,
         rmse=271.14,
         mean=234.55,
@@ -110,6 +122,8 @@ def test_classic_path_report_summarizes_gnss_gain_and_imu_delta(tmp_path):
             str(no_gnss_dir),
             '--gnss-only-dir',
             str(gnss_only_dir),
+            '--gnss-odom-dir',
+            str(gnss_odom_dir),
             '--gnss-imu-dir',
             str(gnss_imu_dir),
             '--out',
@@ -129,8 +143,10 @@ def test_classic_path_report_summarizes_gnss_gain_and_imu_delta(tmp_path):
     report = out_md.read_text(encoding='utf-8')
     payload = json.loads(out_json.read_text(encoding='utf-8'))
     assert 'Backend GNSS improves APE RMSE' in report
+    assert 'GNSS + odom prior' in report
     assert 'GNSS + IMU' in report
     assert payload['gnss_gain_m'] > 100.0
+    assert payload['odom_delta_vs_gnss_only_m'] < 0.0
     assert payload['imu_delta_vs_gnss_only_m'] > 0.0
     assert out_svg.is_file()
     assert 'Classic path APE RMSE comparison' in out_svg.read_text(encoding='utf-8')
