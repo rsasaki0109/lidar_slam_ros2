@@ -241,7 +241,7 @@ That wrapper will:
 - convert `VelodyneScan` packets into `sensor_msgs/msg/PointCloud2`
 - run `lidarslam.launch.py`, call `/map_save`, and optionally verify the output
 
-To benchmark the same `driving_30_kmh` bag as a three-way classic-path
+To benchmark the same `driving_30_kmh` bag as a four-way classic-path
 comparison, use:
 
 ```bash
