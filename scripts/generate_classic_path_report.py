@@ -21,7 +21,7 @@ DEFAULT_GNSS_ONLY_DIR = Path(
     'output/open_data_applanix_velodyne_gnss_benchmark_driving30_20260325b',
 )
 DEFAULT_GNSS_ODOM_DIR = Path(
-    'output/open_data_applanix_velodyne_gnss_benchmark_driving30_with_odom_20260327',
+    'output/open_data_applanix_velodyne_gnss_benchmark_driving30_with_odom_velocity_planar_translation_20260327',
 )
 DEFAULT_GNSS_IMU_DIR = Path(
     'output/open_data_applanix_velodyne_gnss_benchmark_driving30_with_imu_tf_20260325',
