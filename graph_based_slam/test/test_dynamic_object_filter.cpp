@@ -83,7 +83,8 @@ TEST(DynamicObjectFilter, RemovesSingleObservationCandidateVoxel)
   config.max_range_from_sensor_m = 20.0;
 
   std::vector<graphslam::TimedSubmapCloud> submaps;
-  submaps.push_back(graphslam::TimedSubmapCloud{
+  submaps.push_back(
+    graphslam::TimedSubmapCloud{
     0, Eigen::Vector3d::Zero(), makeCloud({Eigen::Vector3d(1.0, 0.0, 0.0)})});
 
   const auto result = graphslam::buildDynamicObjectFilteredMap(submaps, config);
@@ -101,9 +102,11 @@ TEST(DynamicObjectFilter, KeepsRepeatedStaticVoxel)
   config.max_range_from_sensor_m = 20.0;
 
   std::vector<graphslam::TimedSubmapCloud> submaps;
-  submaps.push_back(graphslam::TimedSubmapCloud{
+  submaps.push_back(
+    graphslam::TimedSubmapCloud{
     0, Eigen::Vector3d::Zero(), makeCloud({Eigen::Vector3d(5.0, 0.0, 0.0)})});
-  submaps.push_back(graphslam::TimedSubmapCloud{
+  submaps.push_back(
+    graphslam::TimedSubmapCloud{
     1, Eigen::Vector3d(1.0, 0.0, 0.0), makeCloud({Eigen::Vector3d(5.1, 0.0, 0.0)})});
 
   const auto result = graphslam::buildDynamicObjectFilteredMap(submaps, config);
@@ -120,7 +123,8 @@ TEST(DynamicObjectFilter, KeepsFarSingleObservationOutsideFilterRange)
   config.max_range_from_sensor_m = 10.0;
 
   std::vector<graphslam::TimedSubmapCloud> submaps;
-  submaps.push_back(graphslam::TimedSubmapCloud{
+  submaps.push_back(
+    graphslam::TimedSubmapCloud{
     0, Eigen::Vector3d::Zero(), makeCloud({Eigen::Vector3d(15.0, 0.0, 0.0)})});
 
   const auto result = graphslam::buildDynamicObjectFilteredMap(submaps, config);

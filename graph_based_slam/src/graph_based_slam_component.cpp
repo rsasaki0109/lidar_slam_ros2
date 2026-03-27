@@ -972,7 +972,8 @@ void GraphBasedSlamComponent::searchLoop()
     for (int idx = scan_context_db_.nextSubmapIndex(); idx < num_submaps; ++idx) {
       const auto filtered_aggregated_cloud = build_filtered_local_submap(idx);
       if (filtered_aggregated_cloud->empty()) {
-        scan_context_db_.add(idx, ScanContext::Descriptor::Zero(
+        scan_context_db_.add(
+          idx, ScanContext::Descriptor::Zero(
             ScanContext::NUM_RINGS,
             ScanContext::NUM_SECTORS));
         continue;
@@ -2224,9 +2225,9 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
       5000,
       "GNSS header stamp %.3f s differs from receive time %.3f s by more than "
       "%.3f s; using receive time",
-      header_time_sec,
-      receive_time_sec,
-      gnss_header_stamp_max_skew_sec_);
+    header_time_sec,
+    receive_time_sec,
+    gnss_header_stamp_max_skew_sec_);
   }
 
   if (debug_flag_ && gnss_weights.covariance_valid) {

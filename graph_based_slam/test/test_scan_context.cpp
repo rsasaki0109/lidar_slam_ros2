@@ -55,9 +55,9 @@ TEST(ScanContextDatabase, QueryReturnsSubmapIdInsteadOfDescriptorIndex)
 
   const auto match = db.query(
     makeDescriptor(0),
-    /*num_candidates=*/2,
-    /*exclude_recent=*/1,
-    /*threshold=*/0.5);
+    /*num_candidates=*/ 2,
+    /*exclude_recent=*/ 1,
+    /*threshold=*/ 0.5);
 
   EXPECT_EQ(match.first, 10);
   EXPECT_NEAR(match.second, 0.0, 1e-9);
@@ -85,10 +85,10 @@ TEST(ScanContextDatabase, QueryTopMatchesReturnsSortedSubmapIds)
 
   const auto matches = db.queryTopMatches(
     makeDescriptor(1),
-    /*num_matches=*/2,
-    /*num_candidates=*/4,
-    /*exclude_recent=*/1,
-    /*threshold=*/0.5);
+    /*num_matches=*/ 2,
+    /*num_candidates=*/ 4,
+    /*exclude_recent=*/ 1,
+    /*threshold=*/ 0.5);
 
   ASSERT_EQ(matches.size(), 2u);
   EXPECT_NEAR(matches[0].second, 0.0, 1e-9);
@@ -106,10 +106,10 @@ TEST(ScanContextDatabase, QueryTopMatchesWithYawReturnsShift)
 
   const auto matches = db.queryTopMatchesWithYaw(
     makeDescriptor(0),
-    /*num_matches=*/1,
-    /*num_candidates=*/2,
-    /*exclude_recent=*/0,
-    /*threshold=*/0.5);
+    /*num_matches=*/ 1,
+    /*num_candidates=*/ 2,
+    /*exclude_recent=*/ 0,
+    /*threshold=*/ 0.5);
 
   ASSERT_EQ(matches.size(), 1u);
   EXPECT_EQ(matches[0].submap_id, 10);
