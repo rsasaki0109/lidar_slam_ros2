@@ -150,7 +150,9 @@ if(BUILD_TESTING)
     test/test_dynamic_object_filter.cpp
   )
   if(TARGET test_dynamic_object_filter)
-    target_include_directories(test_dynamic_object_filter PRIVATE include)
+    target_include_directories(
+      test_dynamic_object_filter PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
   endif()
   ament_add_pytest_test(
     test_autoware_map_tools
