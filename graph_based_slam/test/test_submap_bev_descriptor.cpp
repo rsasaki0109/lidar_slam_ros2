@@ -108,7 +108,7 @@ TEST(SubmapBEVDescriptor, AlignmentDetectsNonZeroYawForRotatedCloud)
   const auto base_descriptor = graphslam::SubmapBEVDescriptor::computeDescriptor(base_cloud);
   const auto rotated_descriptor = graphslam::SubmapBEVDescriptor::computeDescriptor(rotated_cloud);
   const auto match = graphslam::SubmapBEVDescriptor::distanceWithAlignment(
-    base_descriptor, rotated_descriptor, /*submap_id=*/42);
+    base_descriptor, rotated_descriptor, /*submap_id=*/ 42);
 
   EXPECT_EQ(match.submap_id, 42);
   EXPECT_LT(match.distance, 0.35);
@@ -127,9 +127,9 @@ TEST(SubmapBEVDescriptor, DatabaseReturnsMatchingSubmapId)
 
   const auto match = db.query(
     graphslam::SubmapBEVDescriptor::computeDescriptor(makeAsymmetricCloud()),
-    /*num_candidates=*/3,
-    /*exclude_recent=*/1,
-    /*threshold=*/0.35);
+    /*num_candidates=*/ 3,
+    /*exclude_recent=*/ 1,
+    /*threshold=*/ 0.35);
 
   EXPECT_EQ(match.first, 10);
   EXPECT_LT(match.second, 0.35);

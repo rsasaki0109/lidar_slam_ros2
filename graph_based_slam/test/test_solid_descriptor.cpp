@@ -121,9 +121,9 @@ TEST(SolidDescriptor, DatabaseReturnsMatchingSubmapId)
 
   const auto match = db.query(
     graphslam::SolidDescriptor::computeDescriptor(makeForwardFacingCloud()),
-    /*num_candidates=*/3,
-    /*exclude_recent=*/1,
-    /*min_similarity=*/0.5);
+    /*num_candidates=*/ 3,
+    /*exclude_recent=*/ 1,
+    /*min_similarity=*/ 0.5);
 
   EXPECT_EQ(match.first, 7);
   EXPECT_GT(match.second, 0.5);
