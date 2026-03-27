@@ -2202,7 +2202,7 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
   const double header_time_sec = rclcpp::Time(msg.header.stamp).seconds();
   const detail::GnssTimestampResolution stamp_resolution =
     detail::resolveGnssMeasurementStamp(
-      header_time_sec, receive_time_sec, gnss_header_stamp_max_skew_sec_);
+    header_time_sec, receive_time_sec, gnss_header_stamp_max_skew_sec_);
   GnssEnu g;
   g.stamp = stamp_resolution.stamp_sec;
   g.x = enu.x();
