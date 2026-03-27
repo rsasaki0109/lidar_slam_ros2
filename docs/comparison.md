@@ -1,6 +1,6 @@
 # Comparison
 
-This page is the public comparison snapshot for `lidarslam_ros2 v0.2.1`.
+This page is the public comparison snapshot for `lidarslam_ros2 v0.2.2`.
 
 It is intentionally scoped to workflows that are actually exercised in this
 repository. It is not trying to be a universal ranking of every LiDAR SLAM
@@ -79,7 +79,7 @@ Source artifacts:
 
 ## Current Default Position
 
-The public `v0.2.1` position is:
+The public `v0.2.2` position is:
 
 - default workflow: `RKO-LIO + graph_based_slam`
 - public Autoware entrypoint: `bash scripts/run_autoware_quickstart.sh`
@@ -116,7 +116,7 @@ Unsafe claims:
 
 ## Release Scope Reminder
 
-`v0.2.1` is a public `v2 beta` release for:
+`v0.2.2` is a public `v2 beta` release for:
 
 - ROS 2 pointcloud-map generation
 - non-GPL default workflow

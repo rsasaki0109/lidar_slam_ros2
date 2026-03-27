@@ -133,5 +133,5 @@ Useful references:
 - Autoware quickstart: [docs/autoware-quickstart.md](docs/autoware-quickstart.md)
 - comparison page: [docs/comparison.md](docs/comparison.md)
 - benchmarking and release gate: [docs/benchmarking.md](docs/benchmarking.md)
-- current release notes: [docs/releases/v0.2.1.md](docs/releases/v0.2.1.md)
+- current release notes: [docs/releases/v0.2.2.md](docs/releases/v0.2.2.md)
 - benchmark fixture generator: `scripts/generate_sample_benchmark_metrics.py`

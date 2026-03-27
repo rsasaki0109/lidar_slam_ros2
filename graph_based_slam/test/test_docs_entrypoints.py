@@ -178,7 +178,7 @@ def test_release_metadata_and_core_package_versions_match():
     )
     release_workflow = RELEASE_WORKFLOW.read_text(encoding='utf-8')
 
-    assert version == '0.2.1'
+    assert version == '0.2.2'
     assert version in changelog
     assert version in releasing
     assert 'v2 beta' in release_notes
