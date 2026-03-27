@@ -2202,9 +2202,7 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
   const double header_time_sec = rclcpp::Time(msg.header.stamp).seconds();
   const detail::GnssTimestampResolution stamp_resolution =
     detail::resolveGnssMeasurementStamp(
-      header_time_sec,
-      receive_time_sec,
-      gnss_header_stamp_max_skew_sec_);
+      header_time_sec, receive_time_sec, gnss_header_stamp_max_skew_sec_);
   GnssEnu g;
   g.stamp = stamp_resolution.stamp_sec;
   g.x = enu.x();
@@ -2225,9 +2223,7 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
       5000,
       "GNSS header stamp %.3f s differs from receive time %.3f s by more than "
       "%.3f s; using receive time",
-    header_time_sec,
-    receive_time_sec,
-    gnss_header_stamp_max_skew_sec_);
+      header_time_sec, receive_time_sec, gnss_header_stamp_max_skew_sec_);
   }
 
   if (debug_flag_ && gnss_weights.covariance_valid) {
