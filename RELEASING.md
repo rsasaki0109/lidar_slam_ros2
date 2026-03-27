@@ -1,6 +1,6 @@
 # Releasing
 
-This repository is currently prepared for a public beta release at `0.2.0`.
+This repository is currently prepared for a public beta release at `0.2.1`.
 
 ## Release Scope
 
@@ -24,7 +24,7 @@ bash scripts/run_autoware_quickstart.sh
 
 3. Push the branch and verify GitHub Actions are green.
 4. Confirm `VERSION`, `CHANGELOG.md`, `docs/comparison.md`,
-   `docs/releases/v0.2.0.md`, and the core package versions match.
+   `docs/releases/v0.2.1.md`, and the core package versions match.
 5. Review README, `docs/autoware-quickstart.md`, `docs/benchmarking.md`,
    `docs/comparison.md`, and `CONTRIBUTING.md` for operator-facing accuracy.
 
@@ -39,19 +39,19 @@ Two GitHub Actions workflows now matter for release:
 
 ## Suggested Tagging
 
-Package versions are currently `0.2.0`.
+Package versions are currently `0.2.1`.
 
 Suggested Git tag:
 
 ```bash
-git tag v0.2.0
-git push <remote> v0.2.0
+git tag v0.2.1
+git push <remote> v0.2.1
 ```
 
 If you want to market this as the `v2` public beta, keep the GitHub release
 title explicit, for example:
 
-- `lidarslam_ros2 v2 beta (package version 0.2.0)`
+- `lidarslam_ros2 v2 beta (package version 0.2.1)`
 
 ## Suggested Release Notes
 
