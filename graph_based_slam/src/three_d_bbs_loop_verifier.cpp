@@ -29,12 +29,12 @@
 
 #include "graph_based_slam/three_d_bbs_loop_verifier.hpp"
 
+#include <pcl/common/point_tests.h>
+
 #include <algorithm>
 #include <cmath>
 #include <thread>
 #include <vector>
-
-#include <pcl/common/point_tests.h>
 
 #ifdef GRAPH_BASED_SLAM_HAVE_3D_BBS
 #include "cpu_bbs3d/bbs3d.hpp"
