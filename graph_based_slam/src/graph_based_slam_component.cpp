@@ -700,7 +700,7 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       std::placeholders::_1,
       std::placeholders::_2,
       std::placeholders::_3));
-}
+}  // NOLINT(readability/fn_size)
 
 void GraphBasedSlamComponent::initializePubSub()
 {
@@ -866,7 +866,6 @@ bool GraphBasedSlamComponent::upsertLoopEdge(const LoopEdge & loop_edge)
   loop_edges_.push_back(normalized);
   return true;
 }
-
 void GraphBasedSlamComponent::searchLoop()
 {
   lidarslam_msgs::msg::MapArray map_array_msg;
@@ -1049,7 +1048,8 @@ void GraphBasedSlamComponent::searchLoop()
     }
   }
   if (
-    transformed_latest_submap_cloud_ptr->empty() || transformed_latest_submap_cloud_sc_ptr->empty() ||
+    transformed_latest_submap_cloud_ptr->empty() ||
+    transformed_latest_submap_cloud_sc_ptr->empty() ||
     latest_submap_cloud_local_ptr->empty() ||
     latest_submap_cloud_local_bbs_ptr->empty())
   {
@@ -1092,10 +1092,10 @@ void GraphBasedSlamComponent::searchLoop()
   std::vector<LoopCandidate> candidates;
   auto add_candidate =
     [&candidates](
-      int index,
-      double selection_metric,
-      LoopCandidate::Source source,
-      double yaw_rad = 0.0)
+    int index,
+    double selection_metric,
+    LoopCandidate::Source source,
+    double yaw_rad = 0.0)
     {
       if (index < 0) {
         return;
@@ -1716,7 +1716,9 @@ void GraphBasedSlamComponent::searchLoop()
         if (debug_flag_) {
           RCLCPP_INFO(
             get_logger(),
-            "3D-BBS %s for loop candidate %d -> %d (score=%.3f elapsed=%.2f ms timed_out=%s src=%zu tar=%zu)",
+            "3D-BBS %s for loop candidate %d -> %d "
+            "(score=%.3f elapsed=%.2f ms timed_out=%s "
+            "src=%zu tar=%zu)",
             bbs_result.localized ? "localized" : "missed",
             candidate.index,
             latest_idx,
@@ -1824,7 +1826,8 @@ void GraphBasedSlamComponent::searchLoop()
     }
     if (
       candidate.source == LoopCandidate::Source::SCAN_CONTEXT &&
-      (!best_scan_context_candidate.valid || fitness_score < best_scan_context_candidate.fitness_score))
+      (!best_scan_context_candidate.valid ||
+      fitness_score < best_scan_context_candidate.fitness_score))
     {
       best_scan_context_candidate = candidate_result;
     }
@@ -1901,7 +1904,7 @@ void GraphBasedSlamComponent::searchLoop()
   }
   snapshotLoopEdges(loop_edges);
   doPoseAdjustment(map_array_msg, loop_edges, use_save_map_in_loop_);
-}
+}  // NOLINT(readability/fn_size)
 
 void GraphBasedSlamComponent::doPoseAdjustment(
   lidarslam_msgs::msg::MapArray map_array_msg,
@@ -2151,7 +2154,8 @@ void GraphBasedSlamComponent::doPoseAdjustment(
       }
       RCLCPP_INFO(
         get_logger(),
-        "Dynamic object filter: input_points %zu, kept %zu/%zu candidate voxels, removed %zu, always_keep %zu, output_points %zu",
+        "Dynamic object filter: input_points %zu, kept %zu/%zu candidate voxels, "
+        "removed %zu, always_keep %zu, output_points %zu",
         filter_result.stats.input_points,
         filter_result.stats.kept_candidate_voxels,
         filter_result.stats.candidate_voxels,
@@ -2218,7 +2222,8 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
       get_logger(),
       *get_clock(),
       5000,
-      "GNSS header stamp %.3f s differs from receive time %.3f s by more than %.3f s; using receive time",
+      "GNSS header stamp %.3f s differs from receive time %.3f s by more than "
+      "%.3f s; using receive time",
       header_time_sec,
       receive_time_sec,
       gnss_header_stamp_max_skew_sec_);

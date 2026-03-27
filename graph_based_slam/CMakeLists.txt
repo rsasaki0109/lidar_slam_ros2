@@ -128,14 +128,14 @@ if(BUILD_TESTING)
     test/test_scan_context.cpp
   )
   if(TARGET test_scan_context)
-    target_include_directories(test_scan_context PRIVATE include)
+    target_include_directories(test_scan_context PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
     test_solid_descriptor
     test/test_solid_descriptor.cpp
   )
   if(TARGET test_solid_descriptor)
-    target_include_directories(test_solid_descriptor PRIVATE include)
+    target_include_directories(test_solid_descriptor PRIVATE include ${EIGEN3_INCLUDE_DIR})
     target_link_libraries(test_solid_descriptor ${PCL_LIBRARIES})
   endif()
   ament_add_gtest(
@@ -143,7 +143,7 @@ if(BUILD_TESTING)
     test/test_submap_bev_descriptor.cpp
   )
   if(TARGET test_submap_bev_descriptor)
-    target_include_directories(test_submap_bev_descriptor PRIVATE include)
+    target_include_directories(test_submap_bev_descriptor PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
     test_dynamic_object_filter

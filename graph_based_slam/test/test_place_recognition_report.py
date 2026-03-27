@@ -217,7 +217,8 @@ def test_place_recognition_report_supports_bev_rerank_label(tmp_path):
             [
                 'use_scan_context:false',
                 'BEV rerank hint: id=7 bev_dist=0.378 seq_dist=0.408 pose_seq_m=4.23 yaw_deg=-135',
-                'Distance candidate reranked by BEV: id=7 dist_m=45.658 bev_score=0.408 yaw_deg=-135',
+                'Distance candidate reranked by BEV: id=7 '
+                'dist_m=45.658 bev_score=0.408 yaw_deg=-135',
                 'loop_candidate_source:distance',
             ],
         ) + '\n',

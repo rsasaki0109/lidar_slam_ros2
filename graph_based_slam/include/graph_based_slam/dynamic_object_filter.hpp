@@ -30,6 +30,9 @@
 #ifndef GRAPH_BASED_SLAM__DYNAMIC_OBJECT_FILTER_HPP_
 #define GRAPH_BASED_SLAM__DYNAMIC_OBJECT_FILTER_HPP_
 
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+
 #include <Eigen/Core>
 
 #include <cmath>
@@ -40,9 +43,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
 
 namespace graphslam
 {
@@ -227,8 +227,14 @@ inline DynamicObjectFilterResult buildDynamicObjectFilteredMap(
     }
     result.stats.input_points += submap.cloud->size();
 
-    std::unordered_map<VoxelKey, detail::LocalVoxelAccumulator, VoxelKeyHash> local_candidate_voxels;
-    std::unordered_map<VoxelKey, detail::LocalVoxelAccumulator, VoxelKeyHash> local_keep_voxels;
+    std::unordered_map<
+      VoxelKey,
+      detail::LocalVoxelAccumulator,
+      VoxelKeyHash> local_candidate_voxels;
+    std::unordered_map<
+      VoxelKey,
+      detail::LocalVoxelAccumulator,
+      VoxelKeyHash> local_keep_voxels;
 
     for (const auto & point : submap.cloud->points) {
       const Eigen::Vector3d point_vec(point.x, point.y, point.z);
