@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.2 - 2026-03-28
+
+Public `v2 beta` patch release focused on release stability and cross-distro CI
+consistency.
+
+### Highlights
+
+- fixed Humble/Jazzy style and include-path mismatches that appeared after the
+  `0.2.1` release-prep refresh
+- kept the public `RKO-LIO + graph_based_slam` workflow, reports, and release
+  metadata aligned on `develop`
+- validated the patched release scope with green `docs`, `humble`, `jazzy`,
+  `release readiness`, and threshold-guard workflows
+
+### Notes
+
+- this is a patch release over `0.2.1`, not a scope expansion
+- public defaults and known limits remain unchanged from `0.2.1`
+
 ## 0.2.1 - 2026-03-28
 
 Public `v2 beta` refresh focused on map-authoring workflow hardening and

@@ -137,7 +137,7 @@ The summary/report pipeline now exposes the reference kind, so `ground_truth`
 and `cross_validation` runs do not appear as if they were the same type of APE.
 
 For a public-facing snapshot built on top of these artifacts, see
-`docs/comparison.md` and `docs/releases/v0.2.1.md`.
+`docs/comparison.md` and `docs/releases/v0.2.2.md`.
 
 To rerun the current MID360 cross-validation benchmark end-to-end:
 
@@ -471,7 +471,7 @@ If you want benchmark results to be easy to consume, publish:
 - `latest_report.html`
 - the exact param file used for the run
 - `docs/comparison.md` when publishing the current positioning of the repo
-- `docs/releases/v0.2.1.md` when publishing the current public beta scope
+- `docs/releases/v0.2.2.md` when publishing the current public beta scope
 - `v2_beta_readiness_<YYYYMMDD>.md` when preparing a public beta snapshot
 - `stress_validation_report_<YYYYMMDD>.md` when discussing long-loop or
   aggressive-motion evidence
