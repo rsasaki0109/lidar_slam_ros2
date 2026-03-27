@@ -4,7 +4,7 @@ lidarslam_ros2
 ROS 2 LiDAR SLAM focused on non-GPL pointcloud-map authoring, benchmarking, and compatibility with Autoware pointcloud-map workflows.
 
 > Status: `develop` tracks the current `v2 alpha` line.
-> For the latest tagged public beta, see [v0.2.0 Release Notes](docs/releases/v0.2.0.md).
+> For the latest tagged public beta, see [v0.2.1 Release Notes](docs/releases/v0.2.1.md).
 ## Recommended Public Workflow
 
 The recommended public path in this repository is:
@@ -97,7 +97,7 @@ Save-time dynamic-object filtering on Leo Drive `bag6` cuts saved points by abou
 - [Operator Workflows](docs/workflows.md)
 - [Benchmarking And Release Gate](docs/benchmarking.md)
 - [Comparison](docs/comparison.md)
-- [v0.2.0 Release Notes](docs/releases/v0.2.0.md)
+- [v0.2.1 Release Notes](docs/releases/v0.2.1.md)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
 - [Releasing](RELEASING.md)
