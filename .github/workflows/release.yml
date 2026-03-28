@@ -84,11 +84,13 @@ jobs:
         shell: bash
         run: |
           rm -rf release_bundle
-          mkdir -p release_bundle/docs/releases release_bundle/output release_bundle/lidarslam/images
+          mkdir -p release_bundle/docs/releases release_bundle/docs/social release_bundle/output release_bundle/lidarslam/images
           cp README.md CHANGELOG.md CONTRIBUTING.md RELEASING.md VERSION release_bundle/
-          cp docs/autoware-quickstart.md docs/workflows.md docs/benchmarking.md docs/comparison.md release_bundle/docs/
+          cp docs/autoware-map-authoring.md docs/autoware-quickstart.md docs/workflows.md docs/benchmarking.md docs/comparison.md release_bundle/docs/
+          cp docs/social/autoware_map_authoring_post_v0.2.2.md release_bundle/docs/social/
           cp lidarslam/images/mid360_loop_closure_zoom.png release_bundle/lidarslam/images/
           cp lidarslam/images/dynamic_object_filter_bag6_summary.svg release_bundle/lidarslam/images/
+          cp lidarslam/images/social_autoware_map_authoring.png release_bundle/lidarslam/images/
           cp "${{ steps.meta.outputs.release_notes }}" release_bundle/docs/releases/
           for artifact in \
             output/benchmark_summary.md \

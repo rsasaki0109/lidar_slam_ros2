@@ -94,7 +94,7 @@ Save-time dynamic-object filtering on Leo Drive `bag6` cuts saved points by abou
 
 ## Docs
 
-- [Autoware Quickstart](docs/autoware-quickstart.md)
+- [Autoware-Compatible Map Authoring](docs/autoware-map-authoring.md) / [Autoware Quickstart](docs/autoware-quickstart.md)
 - [Operator Workflows](docs/workflows.md)
 - [Benchmarking And Release Gate](docs/benchmarking.md)
 - [Comparison](docs/comparison.md)
