@@ -41,15 +41,20 @@ VERSION_PATH = REPO_ROOT / 'VERSION'
 CHANGELOG_PATH = REPO_ROOT / 'CHANGELOG.md'
 RELEASING_PATH = REPO_ROOT / 'RELEASING.md'
 AUTOWARE_QUICKSTART = REPO_ROOT / 'docs' / 'autoware-quickstart.md'
+AUTOWARE_MAP_AUTHORING = REPO_ROOT / 'docs' / 'autoware-map-authoring.md'
 WORKFLOWS_DOC = REPO_ROOT / 'docs' / 'workflows.md'
 BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
 COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
+SOCIAL_POST_DOC = REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.2.2.md'
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
 PUBLIC_AUTOWARE_ENTRYPOINT = REPO_ROOT / 'scripts' / 'run_autoware_quickstart.sh'
 RELEASE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'release.yml'
 README_LOOP_IMAGE_PATH = REPO_ROOT / 'lidarslam' / 'images' / 'mid360_loop_closure_zoom.png'
 README_DYNAMIC_FILTER_IMAGE_PATH = (
     REPO_ROOT / 'lidarslam' / 'images' / 'dynamic_object_filter_bag6_summary.svg'
+)
+SOCIAL_CARD_PATH = (
+    REPO_ROOT / 'lidarslam' / 'images' / 'social_autoware_map_authoring.png'
 )
 BENCHMARK_SUMMARY_PATH = REPO_ROOT / 'output' / 'benchmark_summary.md'
 BENCHMARK_REPORT_PATH = REPO_ROOT / 'output' / 'latest_report.html'
@@ -68,15 +73,19 @@ def test_docs_exist_and_are_linked_from_readme():
     assert CHANGELOG_PATH.is_file()
     assert RELEASING_PATH.is_file()
     assert AUTOWARE_QUICKSTART.is_file()
+    assert AUTOWARE_MAP_AUTHORING.is_file()
     assert WORKFLOWS_DOC.is_file()
     assert BENCHMARKING_DOC.is_file()
     assert COMPARISON_DOC.is_file()
+    assert SOCIAL_POST_DOC.is_file()
     assert README_LOOP_IMAGE_PATH.is_file()
     assert README_DYNAMIC_FILTER_IMAGE_PATH.is_file()
+    assert SOCIAL_CARD_PATH.is_file()
     assert release_notes_path.is_file()
     assert '(CONTRIBUTING.md)' in readme
     assert '(CHANGELOG.md)' in readme
     assert '(RELEASING.md)' in readme
+    assert '(docs/autoware-map-authoring.md)' in readme
     assert '(docs/autoware-quickstart.md)' in readme
     assert '(docs/workflows.md)' in readme
     assert '(docs/comparison.md)' in readme
@@ -114,6 +123,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'generate_readme_dynamic_filter_figure.py',
         REPO_ROOT / 'scripts' / 'generate_readme_large_loop_map_figure.py',
         REPO_ROOT / 'scripts' / 'generate_readme_loop_zoom_figure.py',
+        REPO_ROOT / 'scripts' / 'generate_social_autoware_map_authoring_card.py',
         REPO_ROOT / 'scripts' / 'write_aligned_trajectory_metrics.py',
         REPO_ROOT / 'scripts' / 'generate_sample_benchmark_metrics.py',
         REPO_ROOT / 'scripts' / 'inspect_navsatfix_covariance.py',
@@ -184,9 +194,12 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'v2 beta' in release_notes
     assert 'action-gh-release@v2' in release_workflow
     assert 'docs/releases/' in release_workflow
+    assert 'docs/autoware-map-authoring.md' in release_workflow
+    assert 'docs/social/autoware_map_authoring_post_v0.2.2.md' in release_workflow
     assert 'docs/workflows.md' in release_workflow
     assert 'lidarslam/images/mid360_loop_closure_zoom.png' in release_workflow
     assert 'lidarslam/images/dynamic_object_filter_bag6_summary.svg' in release_workflow
+    assert 'lidarslam/images/social_autoware_map_authoring.png' in release_workflow
 
     package_paths = [
         REPO_ROOT / 'lidarslam' / 'package.xml',
@@ -202,14 +215,20 @@ def test_release_metadata_and_core_package_versions_match():
 def test_docs_cover_autoware_and_release_gate_keywords():
     """The adoption docs should mention the supported operator workflows."""
     autoware_doc = AUTOWARE_QUICKSTART.read_text(encoding='utf-8')
+    autoware_map_doc = AUTOWARE_MAP_AUTHORING.read_text(encoding='utf-8')
     benchmarking_doc = BENCHMARKING_DOC.read_text(encoding='utf-8')
     comparison_doc = COMPARISON_DOC.read_text(encoding='utf-8')
 
     assert 'run_autoware_quickstart.sh' in autoware_doc
+    assert 'Autoware-Compatible Map Authoring' in autoware_doc
     assert 'download_ntu_viral_tnp01.sh' in autoware_doc
     assert 'run_rko_lio_graph_autoware_dogfood.sh' in autoware_doc
     assert 'run_graph_slam_pointcloud_map_in_autoware.sh' in autoware_doc
     assert 'projector_type: Local' in autoware_doc
+    assert 'pointcloud_map/' in autoware_map_doc
+    assert 'map_projector_info.yaml' in autoware_map_doc
+    assert 'run_autoware_quickstart.sh' in autoware_map_doc
+    assert 'verify_autoware_map.py' in autoware_map_doc
 
     workflows_doc = WORKFLOWS_DOC.read_text(encoding='utf-8')
     assert 'Required Input Topics' in workflows_doc

@@ -3,6 +3,9 @@
 This is the shortest supported path from `lidarslam_ros2` to an Autoware
 pointcloud map shown in `rviz2`.
 
+If you want the product-level overview first, see
+[Autoware-Compatible Map Authoring](autoware-map-authoring.md).
+
 The fixed public entrypoint for this flow is:
 
 ```bash
