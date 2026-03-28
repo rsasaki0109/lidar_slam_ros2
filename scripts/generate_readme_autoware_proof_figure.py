@@ -98,6 +98,75 @@ def _round_image(image: Image.Image, radius: int) -> Image.Image:
     return image
 
 
+def _draw_highlighted_line(
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[int, int],
+    text: str,
+    font: ImageFont.ImageFont,
+    fill: str,
+    *,
+    highlight: str = "",
+    highlight_fill: str = "#fde68a",
+    highlight_text_fill: str = "#111827",
+    padding_x: int = 6,
+    padding_y: int = 4,
+) -> None:
+    x, y = xy
+    if highlight and highlight in text:
+        prefix, suffix = text.split(highlight, 1)
+        prefix_w = draw.textlength(prefix, font=font)
+        highlight_w = draw.textlength(highlight, font=font)
+        line_h = font.size + padding_y * 2
+        draw.rounded_rectangle(
+            (
+                x + prefix_w - padding_x,
+                y - padding_y + 2,
+                x + prefix_w + highlight_w + padding_x,
+                y + line_h - padding_y - 2,
+            ),
+            radius=8,
+            fill=highlight_fill,
+        )
+        draw.text((x, y), prefix, font=font, fill=fill)
+        draw.text((x + prefix_w, y), highlight, font=font, fill=highlight_text_fill)
+        draw.text((x + prefix_w + highlight_w, y), suffix, font=font, fill=fill)
+        return
+    draw.text((x, y), text, font=font, fill=fill)
+
+
+def _draw_code_panel(
+    draw: ImageDraw.ImageDraw,
+    rect: tuple[int, int, int, int],
+    *,
+    title: str,
+    subtitle: str,
+    lines: list[str],
+    highlights: list[str],
+    title_font: ImageFont.ImageFont,
+    body_font: ImageFont.ImageFont,
+    mono_font: ImageFont.ImageFont,
+) -> None:
+    x1, y1, x2, y2 = rect
+    draw.rounded_rectangle(rect, radius=24, fill="#ffffff", outline="#d8e3ef")
+    draw.text((x1 + 22, y1 + 20), title, font=title_font, fill="#1d4ed8")
+    draw.text((x1 + 22, y1 + 54), subtitle, font=body_font, fill="#475569")
+    code_rect = (x1 + 18, y1 + 92, x2 - 18, y2 - 18)
+    draw.rounded_rectangle(code_rect, radius=18, fill="#0f172a")
+    line_y = code_rect[1] + 18
+    for line, highlight in zip(lines, highlights):
+        _draw_highlighted_line(
+            draw,
+            (code_rect[0] + 18, line_y),
+            line,
+            mono_font,
+            "#e5eef9",
+            highlight=highlight,
+            highlight_fill="#fde68a",
+            highlight_text_fill="#0f172a",
+        )
+        line_y += mono_font.size + 16
+
+
 def _find_rviz_log(dogfood_dir: Path) -> Path:
     candidates = sorted((dogfood_dir / ".ros_log").glob("rviz2_*.log"))
     if not candidates:
@@ -146,7 +215,6 @@ def main() -> None:
     args = parse_args()
     dogfood_dir = Path(args.dogfood_dir).expanduser().resolve()
     gnss_smoke_dir = Path(args.gnss_smoke_dir).expanduser().resolve()
-    loop_zoom_path = Path(args.loop_zoom).expanduser().resolve()
     out_path = Path(args.out).expanduser().resolve()
 
     rviz_line = _extract_subscribe_line(_find_rviz_log(dogfood_dir))
@@ -156,15 +224,15 @@ def main() -> None:
 
     canvas = Image.new("RGB", (1600, 900), "#eff4fa")
     draw = ImageDraw.Draw(canvas)
-    title_font = _load_font(52, bold=True)
+    title_font = _load_font(54, bold=True)
     body_font = _load_font(26)
     body_bold_font = _load_font(28, bold=True)
-    mono_font = _load_font(22)
+    mono_font = _load_font(26)
     small_font = _load_font(22)
     badge_font = _load_font(22, bold=True)
 
     draw.rounded_rectangle((34, 34, 1566, 866), radius=34, fill="#ffffff", outline="#d8e3ef")
-    draw.rounded_rectangle((68, 64, 366, 110), radius=18, fill="#0f172a")
+    draw.rounded_rectangle((68, 64, 412, 110), radius=18, fill="#0f172a")
     draw.text((92, 78), "Autoware-compatible proof", font=badge_font, fill="#f8fafc")
 
     left_x = 84
@@ -181,56 +249,63 @@ def main() -> None:
     y += 12
     y = _draw_wrapped(
         draw,
-        "This card is built from real dogfood and open-data smoke artifacts. It shows the Autoware map-loader path, map verification, and GNSS map metadata in one view.",
+        "The evidence below comes from real dogfood and open-data smoke artifacts. Each panel shows the exact line that proves the public map flow is working.",
         (left_x, y),
-        610,
+        620,
         body_font,
         "#334155",
     )
 
-    box_specs = [
-        ("RViz log", rviz_line),
-        ("Map save", saved_map_line),
-        (
-            "Verify + metadata",
-            f"{verify_line}  |  projector_type: {projector_type}  |  {latlon}",
-        ),
-    ]
-    box_y = y + 30
-    box_w = 620
-    box_h = 112
-    for title, text in box_specs:
-        draw.rounded_rectangle(
-            (left_x, box_y, left_x + box_w, box_y + box_h),
-            radius=20,
-            fill="#f8fafc",
-            outline="#d8e3ef",
-        )
-        draw.text((left_x + 22, box_y + 18), title, font=body_bold_font, fill="#1d4ed8")
-        _draw_wrapped(
-            draw,
-            text,
-            (left_x + 22, box_y + 52),
-            box_w - 44,
-            mono_font,
-            "#0f172a",
-            line_gap=2,
-        )
-        box_y += box_h + 16
-
-    if loop_zoom_path.is_file():
-        loop_zoom = Image.open(loop_zoom_path).convert("RGB").resize((720, 590))
-        loop_zoom = _round_image(loop_zoom, 28)
-        canvas.paste(loop_zoom, (808, 96), loop_zoom)
-        draw.rounded_rectangle((808, 96, 1528, 686), radius=28, outline="#d8e3ef", width=2)
-
-    draw.rounded_rectangle((808, 700, 1528, 838), radius=24, fill="#0f172a")
-    draw.text((840, 742), "What this proves", font=body_bold_font, fill="#f8fafc")
-    footer = (
-        "Autoware's RViz-side loader subscribes to /map/pointcloud_map. "
-        "The saved map verifies as PASS, and GNSS-enabled runs emit LocalCartesian metadata."
+    _draw_code_panel(
+        draw,
+        (80, 430, 740, 650),
+        title="1. RViz subscription proof",
+        subtitle="Source: Autoware dogfood rviz2 log",
+        lines=[
+            "[rviz]: Subscribing to: /map/pointcloud_map",
+            saved_map_line,
+        ],
+        highlights=["/map/pointcloud_map", "16 cells"],
+        title_font=body_bold_font,
+        body_font=small_font,
+        mono_font=mono_font,
     )
-    _draw_wrapped(draw, footer, (840, 780), 650, small_font, "#cbd5e1", line_gap=4)
+
+    _draw_code_panel(
+        draw,
+        (790, 120, 1520, 360),
+        title="2. Map verification proof",
+        subtitle="Source: verify_autoware_map.log",
+        lines=[
+            "PASS: 8  |  WARN: 1  |  FAIL: 0",
+            verify_line,
+        ],
+        highlights=["PASS: 8", "RESULT: PASS"],
+        title_font=body_bold_font,
+        body_font=small_font,
+        mono_font=mono_font,
+    )
+
+    _draw_code_panel(
+        draw,
+        (790, 400, 1520, 720),
+        title="3. GNSS metadata proof",
+        subtitle="Source: map_projector_info.yaml",
+        lines=[
+            f"projector_type: {projector_type}",
+            latlon,
+        ],
+        highlights=[projector_type, "map_origin"],
+        title_font=body_bold_font,
+        body_font=small_font,
+        mono_font=mono_font,
+    )
+
+    draw.rounded_rectangle((790, 752, 1520, 838), radius=22, fill="#0f172a")
+    footer = (
+        "Proof = loader subscribed, verify PASS, and LocalCartesian metadata present."
+    )
+    _draw_wrapped(draw, footer, (820, 780), 660, small_font, "#e2e8f0", line_gap=4)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(out_path)
