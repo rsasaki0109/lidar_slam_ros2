@@ -111,7 +111,9 @@ python3 scripts/generate_dynamic_object_filter_validation_report.py \
 
 The default report compares the tracked `bag1` and `bag6` dynamic-filter
 benchmarks, so point reduction and voxel-removal behavior can be discussed as
-cross-dataset evidence rather than a single-case anecdote.
+cross-dataset evidence rather than a single-case anecdote. It also reports
+coarse tile-footprint preservation via shared metadata tiles, tile jaccard,
+and filtered-tile overlap ratio.
 
 To promote an already-recorded aligned cross-validation run such as the MID360
 long-loop check into `metrics.json` so it appears in `benchmark_summary.md` and

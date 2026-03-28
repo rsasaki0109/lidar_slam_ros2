@@ -67,6 +67,10 @@ def _write_benchmark(
         'point_reduction_ratio': reduction,
         'kept_candidate_voxel_ratio': kept,
         'removed_candidate_voxel_ratio': removed,
+        'shared_metadata_tiles': 120,
+        'tile_jaccard': 0.95,
+        'filtered_tile_overlap_ratio': 0.98,
+        'baseline_tile_overlap_ratio': 0.94,
     }
     (root / 'dynamic_object_filter_report.json').write_text(
         json.dumps(payload, indent=2) + '\n',
@@ -128,7 +132,9 @@ def test_dynamic_object_filter_validation_report_summarizes_multiple_benchmarks(
     assert 'Leo Drive bag1' in report
     assert 'Leo Drive bag6' in report
     assert 'Best point reduction' in report
+    assert 'Tile jaccard' in report
     assert payload['best_point_reduction_label'] == 'Leo Drive bag1'
     assert payload['most_conservative_removed_ratio_label'] == 'Leo Drive bag1'
+    assert payload['benchmarks'][0]['tile_jaccard'] == 0.95
     assert out_svg.is_file()
     assert 'Dynamic-filter point reduction ratio' in out_svg.read_text(encoding='utf-8')
