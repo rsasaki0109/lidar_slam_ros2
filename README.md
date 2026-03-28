@@ -87,8 +87,8 @@ bash scripts/run_autoware_quickstart.sh
 ```
 
 ## Point-Cloud Map Example
-Loop-area zoom from the same current MID360 default run. This view is meant to make closing-segment duplication easier to judge visually.
-![MID360 loop-closure zoom](lidarslam/images/mid360_loop_closure_zoom.png)
+Autoware-compatible proof card built from real artifacts: `rviz2` subscribes to `/map/pointcloud_map`, map verify is `PASS`, and GNSS runs emit `LocalCartesian`.
+![Autoware-compatible proof](lidarslam/images/autoware_map_loader_proof.png)
 Save-time dynamic-object filtering on Leo Drive `bag6` cuts saved points by about `50%` while keeping verification `PASS`.
 ![Dynamic-object filter summary](lidarslam/images/dynamic_object_filter_bag6_summary.svg)
 
