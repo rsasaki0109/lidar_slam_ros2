@@ -42,6 +42,12 @@ CHANGELOG_PATH = REPO_ROOT / 'CHANGELOG.md'
 RELEASING_PATH = REPO_ROOT / 'RELEASING.md'
 MKDOCS_CONFIG_PATH = REPO_ROOT / 'mkdocs.yml'
 DOCS_INDEX_PATH = REPO_ROOT / 'docs' / 'index.md'
+DOCS_ASSETS_DIR = REPO_ROOT / 'docs' / 'assets'
+DOCS_EXTRA_CSS_PATH = DOCS_ASSETS_DIR / 'stylesheets' / 'extra.css'
+DOCS_AUTOWARE_PROOF_SITE_IMAGE_PATH = DOCS_ASSETS_DIR / 'images' / 'autoware_map_loader_proof.png'
+DOCS_DYNAMIC_FILTER_SITE_IMAGE_PATH = (
+    DOCS_ASSETS_DIR / 'images' / 'dynamic_object_filter_bag6_summary.svg'
+)
 AUTOWARE_QUICKSTART = REPO_ROOT / 'docs' / 'autoware-quickstart.md'
 AUTOWARE_MAP_AUTHORING = REPO_ROOT / 'docs' / 'autoware-map-authoring.md'
 AUTOWARE_FOXGLOVE = REPO_ROOT / 'docs' / 'autoware-foxglove.md'
@@ -80,6 +86,10 @@ def test_docs_exist_and_are_linked_from_readme():
     assert RELEASING_PATH.is_file()
     assert MKDOCS_CONFIG_PATH.is_file()
     assert DOCS_INDEX_PATH.is_file()
+    assert DOCS_ASSETS_DIR.is_dir()
+    assert DOCS_EXTRA_CSS_PATH.is_file()
+    assert DOCS_AUTOWARE_PROOF_SITE_IMAGE_PATH.is_file()
+    assert DOCS_DYNAMIC_FILTER_SITE_IMAGE_PATH.is_file()
     assert AUTOWARE_QUICKSTART.is_file()
     assert AUTOWARE_MAP_AUTHORING.is_file()
     assert AUTOWARE_FOXGLOVE.is_file()
@@ -212,6 +222,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'action-gh-release@v2' in release_workflow
     assert 'mkdocs.yml' in release_workflow
     assert 'docs/index.md' in release_workflow
+    assert 'docs/assets/' in release_workflow
     assert 'docs/releases/' in release_workflow
     assert 'docs/autoware-map-authoring.md' in release_workflow
     assert 'docs/autoware-foxglove.md' in release_workflow
@@ -232,10 +243,13 @@ def test_release_metadata_and_core_package_versions_match():
         assert f'<version>{version}</version>' in package_xml
 
     assert 'site_name: lidarslam_ros2 Docs' in mkdocs_config
+    assert 'name: material' in mkdocs_config
+    assert 'assets/stylesheets/extra.css' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
     assert 'Autoware Foxglove: autoware-foxglove.md' in mkdocs_config
     assert 'Benchmarking And Release Gate: benchmarking.md' in mkdocs_config
     assert 'v0.2.2: releases/v0.2.2.md' in mkdocs_config
+    assert 'v0.2.2 Post Kit: social/autoware_map_authoring_post_v0.2.2.md' in mkdocs_config
 
 
 def test_docs_cover_autoware_and_release_gate_keywords():

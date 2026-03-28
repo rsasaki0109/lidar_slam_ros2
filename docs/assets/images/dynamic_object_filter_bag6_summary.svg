@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="220" viewBox="0 0 880 220">
+  <style>
+    .title { font: 600 19px sans-serif; fill: #111827; }
+    .body { font: 14px sans-serif; fill: #374151; }
+    .value { font: 600 14px sans-serif; fill: #111827; }
+    .card { fill: #ffffff; stroke: #d8e3ef; }
+  </style>
+  <rect x="0" y="0" width="880" height="220" fill="#f6f8fb"/>
+  <rect x="18" y="18" width="844" height="184" rx="10" class="card"/>
+  <text x="40" y="48" class="title">Save-time dynamic-object filtering summary</text>
+  <text x="40" y="74" class="body">Leo Drive bag6 benchmark. Map verification stays PASS while saved points drop by 50.0%.</text>
+  <text x="40" y="110" class="body">No filter</text>
+  <rect x="170" y="94" width="350" height="22" rx="4" fill="#9ca3af"/>
+  <text x="532" y="110" class="value">344922</text>
+  <text x="40" y="150" class="body">Dynamic filter</text>
+  <rect x="170" y="134" width="175" height="22" rx="4" fill="#2563eb"/>
+  <text x="357" y="150" class="value">172332</text>
+  <text x="590" y="100" class="body">Candidate voxels kept</text>
+  <text x="810" y="100" class="value">44.8%</text>
+  <text x="590" y="132" class="body">Candidate voxels removed</text>
+  <text x="810" y="132" class="value">55.2%</text>
+  <text x="590" y="164" class="body">Projector / verify</text>
+  <text x="810" y="164" class="value">LocalCartesian / PASS</text>
+</svg>
