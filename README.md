@@ -93,7 +93,6 @@ Save-time dynamic-object filtering on Leo Drive `bag6` cuts saved points by abou
 ![Dynamic-object filter summary](lidarslam/images/dynamic_object_filter_bag6_summary.svg)
 
 ## Docs
-
 - [Autoware-Compatible Map Authoring](docs/autoware-map-authoring.md) / [Autoware Quickstart](docs/autoware-quickstart.md) / [Autoware Foxglove](docs/autoware-foxglove.md)
 - [Operator Workflows](docs/workflows.md)
 - [Benchmarking And Release Gate](docs/benchmarking.md)
@@ -102,6 +101,8 @@ Save-time dynamic-object filtering on Leo Drive `bag6` cuts saved points by abou
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
 - [Releasing](RELEASING.md)
+
+Preview the doc site locally with `python3 -m mkdocs serve`.
 
 ## Current Snapshot
 

@@ -85,8 +85,8 @@ jobs:
         run: |
           rm -rf release_bundle
           mkdir -p release_bundle/docs/releases release_bundle/docs/social release_bundle/output release_bundle/lidarslam/images
-          cp README.md CHANGELOG.md CONTRIBUTING.md RELEASING.md VERSION release_bundle/
-          cp docs/autoware-map-authoring.md docs/autoware-foxglove.md docs/autoware-quickstart.md docs/workflows.md docs/benchmarking.md docs/comparison.md release_bundle/docs/
+          cp README.md CHANGELOG.md CONTRIBUTING.md RELEASING.md VERSION mkdocs.yml release_bundle/
+          cp docs/index.md docs/autoware-map-authoring.md docs/autoware-foxglove.md docs/autoware-quickstart.md docs/workflows.md docs/benchmarking.md docs/comparison.md release_bundle/docs/
           cp docs/social/autoware_map_authoring_post_v0.2.2.md release_bundle/docs/social/
           cp lidarslam/images/autoware_map_loader_proof.png release_bundle/lidarslam/images/
           cp lidarslam/images/dynamic_object_filter_bag6_summary.svg release_bundle/lidarslam/images/
