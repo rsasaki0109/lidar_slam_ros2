@@ -87,7 +87,7 @@ bash scripts/run_autoware_quickstart.sh
 ```
 
 ## Point-Cloud Map Example
-Autoware-compatible proof card built from real artifacts: `rviz2` subscribes to `/map/pointcloud_map`, map verify is `PASS`, and GNSS runs emit `LocalCartesian`.
+Autoware-compatible browser proof built from a live `/map/pointcloud_map`: the rendered map comes from Autoware map loaders, map verify is `PASS`, and GNSS runs emit `LocalCartesian`.
 ![Autoware-compatible proof](lidarslam/images/autoware_map_loader_proof.png)
 Save-time dynamic-object filtering on Leo Drive `bag6` cuts saved points by about `50%` while keeping verification `PASS`.
 ![Dynamic-object filter summary](lidarslam/images/dynamic_object_filter_bag6_summary.svg)
