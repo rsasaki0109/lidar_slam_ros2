@@ -52,6 +52,10 @@ def _load_benchmark(label: str, root: Path) -> dict[str, object]:
         'baseline_verify': baseline.get('verify_result', 'unknown'),
         'filtered_verify': filtered.get('verify_result', 'unknown'),
         'projector_type': filtered.get('projector_type', 'unknown'),
+        'shared_metadata_tiles': int(payload.get('shared_metadata_tiles', 0)),
+        'tile_jaccard': float(payload.get('tile_jaccard', 0.0)),
+        'filtered_tile_overlap_ratio': float(payload.get('filtered_tile_overlap_ratio', 0.0)),
+        'baseline_tile_overlap_ratio': float(payload.get('baseline_tile_overlap_ratio', 0.0)),
     }
 
 
@@ -140,6 +144,7 @@ def main() -> int:
         summary_rows.append(
             '| {label} | `{baseline_points}` | `{filtered_points}` | `{point_reduction_ratio}` | '
             '`{kept_candidate_voxel_ratio}` | `{removed_candidate_voxel_ratio}` | '
+            '`{shared_metadata_tiles}` | `{tile_jaccard}` | `{filtered_tile_overlap_ratio}` | '
             '`{baseline_cells}` -> `{filtered_cells}` | `{verify}` | `{projector_type}` |'.format(
                 label=row['label'],
                 baseline_points=row['baseline_points'],
@@ -147,6 +152,9 @@ def main() -> int:
                 point_reduction_ratio=_fmt_float(row['point_reduction_ratio']),
                 kept_candidate_voxel_ratio=_fmt_float(row['kept_candidate_voxel_ratio']),
                 removed_candidate_voxel_ratio=_fmt_float(row['removed_candidate_voxel_ratio']),
+                shared_metadata_tiles=_fmt_int(row['shared_metadata_tiles']),
+                tile_jaccard=_fmt_float(row['tile_jaccard']),
+                filtered_tile_overlap_ratio=_fmt_float(row['filtered_tile_overlap_ratio']),
                 baseline_cells=_fmt_int(row['baseline_cells']),
                 filtered_cells=_fmt_int(row['filtered_cells']),
                 verify=row['filtered_verify'],
@@ -158,14 +166,16 @@ def main() -> int:
         '# Dynamic Object Filter Validation Report\n\n'
         'This report summarizes saved-map cleanup performance across multiple real open-data runs.\n\n'
         '## Summary\n\n'
-        '| Benchmark | Baseline points | Filtered points | Point reduction ratio | Kept voxel ratio | Removed voxel ratio | Saved cells | Verify | Projector |\n'
-        '| --- | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |\n'
+        '| Benchmark | Baseline points | Filtered points | Point reduction ratio | Kept voxel ratio | Removed voxel ratio | Shared tiles | Tile jaccard | Filtered tile overlap | Saved cells | Verify | Projector |\n'
+        '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |\n'
         + '\n'.join(summary_rows) + '\n\n'
         '## Conclusion\n\n'
         f'- Best point reduction in the tracked validation set is `{best["label"]}` with '
         f'`{_fmt_float(best["point_reduction_ratio"])}`.\n'
         f'- Most conservative voxel removal in the tracked validation set is `{most_conservative["label"]}` with '
         f'`removed_candidate_voxel_ratio={_fmt_float(most_conservative["removed_candidate_voxel_ratio"])}`.\n'
+        f'- Best tile-footprint preservation in the tracked validation set is `{max(rows, key=lambda row: row["tile_jaccard"])["label"]}` '
+        f'with `tile_jaccard={_fmt_float(max(row["tile_jaccard"] for row in rows))}`.\n'
         '- All tracked runs keep `verify=PASS` and `projector_type=LocalCartesian`, so the save-time cleanup remains compatible with the map workflow.\n'
     )
 

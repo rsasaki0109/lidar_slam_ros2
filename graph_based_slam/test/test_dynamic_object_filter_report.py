@@ -154,7 +154,11 @@ def test_dynamic_object_filter_report_summarizes_point_reduction(tmp_path):
     assert 'point reduction ratio' in report
     assert '`0.500`' in report
     assert 'removed candidate voxel ratio' in report
+    assert 'tile jaccard' in report
     assert 'kept candidate voxels' in report
     assert payload['filtered']['dynamic_filter_stats']['removed_candidate_voxels'] == 20
+    assert payload['shared_metadata_tiles'] == 3
+    assert payload['tile_jaccard'] == 1.0
+    assert payload['filtered_tile_overlap_ratio'] == 1.0
     assert out_svg.is_file()
     assert 'Saved point count comparison' in out_svg.read_text(encoding='utf-8')

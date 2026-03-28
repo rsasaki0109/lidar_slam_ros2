@@ -125,6 +125,19 @@ def _count_metadata_tiles(run_dir: Path) -> int:
     return tile_count
 
 
+def _load_metadata_tile_keys(run_dir: Path) -> set[str]:
+    metadata_path = run_dir / 'pointcloud_map' / 'pointcloud_map_metadata.yaml'
+    if not metadata_path.is_file():
+        return set()
+    keys: set[str] = set()
+    for line in metadata_path.read_text(encoding='utf-8').splitlines():
+        stripped = line.strip()
+        if '.pcd:' not in stripped:
+            continue
+        keys.add(stripped.split(':', 1)[0])
+    return keys
+
+
 def _parse_projector_type(run_dir: Path) -> str:
     proj_path = run_dir / 'map_projector_info.yaml'
     if not proj_path.is_file():
@@ -155,6 +168,7 @@ def _load_run(run_dir: Path) -> dict[str, object]:
         'verify_result': _verify_result(run_dir),
         'total_pcd_points': _count_total_pcd_points(run_dir),
         'metadata_tiles': _count_metadata_tiles(run_dir),
+        'metadata_tile_keys': sorted(_load_metadata_tile_keys(run_dir)),
         'saved_cell_count': _parse_saved_cell_count(launch_log),
         'dynamic_filter_stats': _parse_filter_stats(launch_log),
     }
@@ -212,12 +226,29 @@ def main() -> int:
             candidate_voxels,
         )
 
+    baseline_tiles = set(baseline.get('metadata_tile_keys', []))
+    filtered_tiles = set(filtered.get('metadata_tile_keys', []))
+    shared_tiles = baseline_tiles & filtered_tiles
+    tile_jaccard = None
+    filtered_tile_overlap_ratio = None
+    baseline_tile_overlap_ratio = None
+    if baseline_tiles or filtered_tiles:
+        tile_jaccard = len(shared_tiles) / len(baseline_tiles | filtered_tiles)
+    if filtered_tiles:
+        filtered_tile_overlap_ratio = len(shared_tiles) / len(filtered_tiles)
+    if baseline_tiles:
+        baseline_tile_overlap_ratio = len(shared_tiles) / len(baseline_tiles)
+
     payload = {
         'baseline': baseline,
         'filtered': filtered,
         'point_reduction_ratio': point_reduction_ratio,
         'kept_candidate_voxel_ratio': kept_ratio,
         'removed_candidate_voxel_ratio': removed_ratio,
+        'shared_metadata_tiles': len(shared_tiles),
+        'tile_jaccard': tile_jaccard,
+        'filtered_tile_overlap_ratio': filtered_tile_overlap_ratio,
+        'baseline_tile_overlap_ratio': baseline_tile_overlap_ratio,
     }
 
     out_path = (
@@ -252,6 +283,10 @@ disabled and enabled.
 - point reduction ratio: `{_fmt_ratio(point_reduction_ratio)}`
 - kept candidate voxel ratio: `{_fmt_ratio(kept_ratio)}`
 - removed candidate voxel ratio: `{_fmt_ratio(removed_ratio)}`
+- shared metadata tiles: `{len(shared_tiles)}`
+- tile jaccard: `{_fmt_ratio(tile_jaccard)}`
+- filtered tile overlap ratio: `{_fmt_ratio(filtered_tile_overlap_ratio)}`
+- baseline tile overlap ratio: `{_fmt_ratio(baseline_tile_overlap_ratio)}`
 - filter input points: `{_fmt_int(filter_stats.get("input_points"))}`
 - candidate voxels: `{_fmt_int(filter_stats.get("candidate_voxels"))}`
 - kept candidate voxels: `{_fmt_int(filter_stats.get("kept_candidate_voxels"))}`
