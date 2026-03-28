@@ -4,9 +4,31 @@ repo_url: https://github.com/rsasaki0109/lidarslam_ros2
 repo_name: rsasaki0109/lidarslam_ros2
 docs_dir: docs
 use_directory_urls: false
+extra_css:
+  - assets/stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
 
 theme:
-  name: readthedocs
+  name: material
+  language: en
+  font:
+    text: IBM Plex Sans
+    code: IBM Plex Mono
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: teal
+      accent: amber
+  icon:
+    repo: fontawesome/brands/github
 
 nav:
   - Home: index.md
