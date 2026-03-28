@@ -5,6 +5,8 @@ pointcloud map shown in `rviz2`.
 
 If you want the product-level overview first, see
 [Autoware-Compatible Map Authoring](autoware-map-authoring.md).
+For the optional browser-based viewer path, see
+[Autoware Foxglove](autoware-foxglove.md).
 
 The fixed public entrypoint for this flow is:
 

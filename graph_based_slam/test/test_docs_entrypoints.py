@@ -42,6 +42,7 @@ CHANGELOG_PATH = REPO_ROOT / 'CHANGELOG.md'
 RELEASING_PATH = REPO_ROOT / 'RELEASING.md'
 AUTOWARE_QUICKSTART = REPO_ROOT / 'docs' / 'autoware-quickstart.md'
 AUTOWARE_MAP_AUTHORING = REPO_ROOT / 'docs' / 'autoware-map-authoring.md'
+AUTOWARE_FOXGLOVE = REPO_ROOT / 'docs' / 'autoware-foxglove.md'
 WORKFLOWS_DOC = REPO_ROOT / 'docs' / 'workflows.md'
 BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
 COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
@@ -77,6 +78,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert RELEASING_PATH.is_file()
     assert AUTOWARE_QUICKSTART.is_file()
     assert AUTOWARE_MAP_AUTHORING.is_file()
+    assert AUTOWARE_FOXGLOVE.is_file()
     assert WORKFLOWS_DOC.is_file()
     assert BENCHMARKING_DOC.is_file()
     assert COMPARISON_DOC.is_file()
@@ -91,6 +93,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(RELEASING.md)' in readme
     assert '(docs/autoware-map-authoring.md)' in readme
     assert '(docs/autoware-quickstart.md)' in readme
+    assert '(docs/autoware-foxglove.md)' in readme
     assert '(docs/workflows.md)' in readme
     assert '(docs/comparison.md)' in readme
     assert '(docs/benchmarking.md)' in readme
@@ -116,6 +119,9 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'prepare_autoware_map_from_graph_slam.sh',
         REPO_ROOT / 'scripts' / 'create_map_authoring_submission_bundle.sh',
         REPO_ROOT / 'scripts' / 'run_autoware_pointcloud_map_viewer_docker.sh',
+        REPO_ROOT / 'scripts' / 'prepare_foxglove_bridge_prefix.sh',
+        REPO_ROOT / 'scripts' / 'run_autoware_pointcloud_map_foxglove.sh',
+        REPO_ROOT / 'scripts' / 'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh',
         REPO_ROOT / 'scripts' / 'run_rko_lio_graph_benchmark.sh',
         REPO_ROOT / 'scripts' / 'run_rko_lio_mid360_crossval_benchmark.sh',
         REPO_ROOT / 'scripts' / 'run_release_readiness_checks.sh',
@@ -200,6 +206,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'action-gh-release@v2' in release_workflow
     assert 'docs/releases/' in release_workflow
     assert 'docs/autoware-map-authoring.md' in release_workflow
+    assert 'docs/autoware-foxglove.md' in release_workflow
     assert 'docs/social/autoware_map_authoring_post_v0.2.2.md' in release_workflow
     assert 'docs/workflows.md' in release_workflow
     assert 'lidarslam/images/autoware_map_loader_proof.png' in release_workflow
@@ -221,6 +228,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     """The adoption docs should mention the supported operator workflows."""
     autoware_doc = AUTOWARE_QUICKSTART.read_text(encoding='utf-8')
     autoware_map_doc = AUTOWARE_MAP_AUTHORING.read_text(encoding='utf-8')
+    autoware_foxglove_doc = AUTOWARE_FOXGLOVE.read_text(encoding='utf-8')
     benchmarking_doc = BENCHMARKING_DOC.read_text(encoding='utf-8')
     comparison_doc = COMPARISON_DOC.read_text(encoding='utf-8')
 
@@ -230,10 +238,15 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'run_rko_lio_graph_autoware_dogfood.sh' in autoware_doc
     assert 'run_graph_slam_pointcloud_map_in_autoware.sh' in autoware_doc
     assert 'projector_type: Local' in autoware_doc
+    assert 'Autoware Foxglove' in autoware_doc
     assert 'pointcloud_map/' in autoware_map_doc
     assert 'map_projector_info.yaml' in autoware_map_doc
     assert 'run_autoware_quickstart.sh' in autoware_map_doc
     assert 'verify_autoware_map.py' in autoware_map_doc
+    assert 'foxglove_bridge' in autoware_foxglove_doc
+    assert 'prepare_foxglove_bridge_prefix.sh' in autoware_foxglove_doc
+    assert 'run_autoware_pointcloud_map_foxglove.sh' in autoware_foxglove_doc
+    assert 'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh' in autoware_foxglove_doc
 
     workflows_doc = WORKFLOWS_DOC.read_text(encoding='utf-8')
     assert 'Required Input Topics' in workflows_doc
