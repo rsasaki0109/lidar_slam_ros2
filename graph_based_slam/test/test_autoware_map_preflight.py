@@ -144,3 +144,48 @@ def test_cli_json_output_matches_machine_readable_payload(tmp_path: Path):
     assert payload['summary']['capabilities']['has_pointcloud2'] is True
     assert payload['summary']['capabilities']['has_imu'] is False
     assert any('No Imu topic was found' in item for item in payload['missing_requirements'])
+
+
+def test_livox_mid360_bag_emits_tuned_preset_hint(tmp_path: Path):
+    module = _load_module()
+    bag_dir = tmp_path / 'mid360_demo_bag'
+    bag_dir.mkdir()
+    metadata = {
+        'rosbag2_bagfile_information': {
+            'duration': {'nanoseconds': 2_000_000_000},
+            'message_count': 200,
+            'topics_with_message_count': [
+                {
+                    'topic_metadata': {
+                        'name': '/livox/lidar',
+                        'type': 'sensor_msgs/msg/PointCloud2',
+                        'serialization_format': 'cdr',
+                        'offered_qos_profiles': '',
+                    },
+                    'message_count': 20,
+                },
+                {
+                    'topic_metadata': {
+                        'name': '/livox/imu',
+                        'type': 'sensor_msgs/msg/Imu',
+                        'serialization_format': 'cdr',
+                        'offered_qos_profiles': '',
+                    },
+                    'message_count': 180,
+                },
+            ],
+        },
+    }
+    (bag_dir / 'metadata.yaml').write_text(yaml.safe_dump(metadata), encoding='utf-8')
+
+    payload = module.build_preflight_payload(bag_dir)
+    recommendation_ids = [item['id'] for item in payload['recommendations']]
+
+    assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
+    assert 'rko_lio_graph_mid360_preset' in recommendation_ids
+    tuned = next(
+        item for item in payload['recommendations']
+        if item['id'] == 'rko_lio_graph_mid360_preset'
+    )
+    assert 'lidarslam_mid360_rko_graph.yaml' in tuned['command']
+    assert 'rko_lio_mid360.yaml' in tuned['command']

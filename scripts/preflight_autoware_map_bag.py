@@ -131,6 +131,13 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
     best_packet = summary['topics']['velodyne_scan'][0] if summary['topics']['velodyne_scan'] else None
     best_gsof49 = summary['topics']['applanix_gsof49'][0] if summary['topics']['applanix_gsof49'] else None
     best_gsof50 = summary['topics']['applanix_gsof50'][0] if summary['topics']['applanix_gsof50'] else None
+    bag_path_lower = bag_path.lower()
+
+    def looks_like_livox_mid360() -> bool:
+        topic_names = []
+        for key in ('pointcloud2', 'imu'):
+            topic_names.extend(item['name'].lower() for item in summary['topics'][key])
+        return 'mid360' in bag_path_lower or any('livox' in name for name in topic_names)
 
     if capabilities['has_pointcloud2'] and capabilities['has_imu']:
         command = textwrap.dedent(
@@ -158,6 +165,30 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
             'command': command,
             'notes': notes,
         })
+
+        if looks_like_livox_mid360():
+            tuned_command = textwrap.dedent(
+                f"""\
+                ros2 launch lidarslam rko_lio_slam.launch.py \\
+                  main_param_dir:=lidarslam/param/lidarslam_mid360_rko_graph.yaml \\
+                  rko_param_file:=lidarslam/param/rko_lio_mid360.yaml \\
+                  bag_path:={bag_q} \\
+                  lidar_topic:={_safe_quote(best_pointcloud['name'])} \\
+                  imu_topic:={_safe_quote(best_imu['name'])}"""
+            )
+            recommendations.append({
+                'id': 'rko_lio_graph_mid360_preset',
+                'priority': 95,
+                'label': 'RKO-LIO + graph_based_slam MID360/Livox preset',
+                'why': [
+                    f"PointCloud2 topic {best_pointcloud['name']} looks like a Livox/MID360 source",
+                    'The repository tracks a tuned MID360 graph/backend YAML for this sensor family.',
+                ],
+                'command': tuned_command,
+                'notes': [
+                    'Use this when the bag is a Livox/MID360-style dataset and you want the tracked tuned preset instead of the generic default.',
+                ],
+            })
 
     if capabilities['has_pointcloud2'] and capabilities['has_navsatfix']:
         command = (
