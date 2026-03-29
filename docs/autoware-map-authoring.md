@@ -50,6 +50,12 @@ python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2
 The preflight reads `metadata.yaml`, lists the key sensor topics, and prints the
 shortest supported next command for the bag.
 
+It also prints a beginner-friendly copy-paste command that uses:
+
+```bash
+bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
+```
+
 If you want the repo to pick and execute the shortest supported path for you,
 use the one-shot runner:
 

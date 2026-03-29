@@ -242,6 +242,7 @@ def build_preflight_payload(bag_path: Path) -> dict[str, Any]:
     """Create the machine-readable preflight result."""
     summary = summarize_bag(bag_path)
     recommendations = build_recommendations(summary)
+    bag_q = _safe_quote(summary['bag_path'])
     advisory = []
     if summary['capabilities']['has_navsatfix']:
         navsat_topic = summary['topics']['navsatfix'][0]['name']
@@ -273,10 +274,28 @@ def build_preflight_payload(bag_path: Path) -> dict[str, Any]:
         if not summary['capabilities']['has_applanix_gsof49']:
             missing.append('No Applanix GSOF49 topic was found for the packet + Applanix path.')
 
+    beginner_commands = []
+    if recommendations:
+        beginner_commands = [
+            {
+                'label': 'Beginner one-command path',
+                'command': f'bash scripts/run_autoware_map_beginner.sh {bag_q}',
+            },
+            {
+                'label': 'Beginner path with Foxglove viewer',
+                'command': f'bash scripts/run_autoware_map_beginner.sh {bag_q} --foxglove',
+            },
+            {
+                'label': 'Beginner dry-run to inspect the chosen public path',
+                'command': f'bash scripts/run_autoware_map_beginner.sh {bag_q} --dry-run',
+            },
+        ]
+
     return {
         'summary': summary,
         'recommendations': recommendations,
         'recommended_profile_id': recommendations[0]['id'] if recommendations else None,
+        'beginner_commands': beginner_commands,
         'advisory': advisory,
         'missing_requirements': missing,
     }
@@ -326,6 +345,10 @@ def render_text_report(payload: dict[str, Any]) -> str:
         for reason in primary['why']:
             lines.append(f'  - {reason}')
         lines.extend([
+            'Beginner command:',
+            textwrap.indent(payload['beginner_commands'][0]['command'], '  '),
+            'Beginner command with browser viewer:',
+            textwrap.indent(payload['beginner_commands'][1]['command'], '  '),
             'Next command:',
             textwrap.indent(primary['command'], '  '),
         ])
