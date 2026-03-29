@@ -30,6 +30,7 @@ Options:
   --autoware-core-dir <dir>      autoware_core checkout for the viewer
   --work-dir <dir>               Runtime workspace directory for the viewer
   --keep-launch                  Keep the SLAM launch alive after map save
+  --skip-viewer                  Stop after verified map output without opening a viewer
   --help                         Show this help
 
 Defaults target the NTU VIRAL tnp_01 restamped VN100 rosbag2 currently stored in this repository.
@@ -63,6 +64,7 @@ AUTOWARE_CORE_DIR="$DEFAULT_AUTOWARE_CORE"
 WORK_DIR="$DEFAULT_WORK_DIR"
 KEEP_LAUNCH=false
 WAIT_FOR_OFFLINE_COMPLETION=false
+SKIP_VIEWER=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -143,6 +145,10 @@ while [[ $# -gt 0 ]]; do
       KEEP_LAUNCH=true
       shift
       ;;
+    --skip-viewer)
+      SKIP_VIEWER=true
+      shift
+      ;;
     --help|-h)
       usage
       ;;
@@ -180,7 +186,9 @@ fi
 [[ -f "$BAG_PATH/metadata.yaml" ]] || { echo "metadata.yaml not found under $BAG_PATH" >&2; exit 1; }
 [[ -f "$LIDARSLAM_PARAM" ]] || { echo "lidarslam param file not found: $LIDARSLAM_PARAM" >&2; exit 1; }
 [[ -f "$RKO_PARAM" ]] || { echo "RKO-LIO param file not found: $RKO_PARAM" >&2; exit 1; }
-[[ -d "$AUTOWARE_CORE_DIR" ]] || { echo "autoware_core directory not found: $AUTOWARE_CORE_DIR" >&2; exit 1; }
+if [[ "$SKIP_VIEWER" == "false" ]]; then
+  [[ -d "$AUTOWARE_CORE_DIR" ]] || { echo "autoware_core directory not found: $AUTOWARE_CORE_DIR" >&2; exit 1; }
+fi
 
 set +u
 if [[ -f "${WS_ROOT}/install/setup.bash" ]]; then
@@ -283,6 +291,47 @@ wait_for_map_outputs() {
   return 1
 }
 
+map_output_snapshot() {
+  if [[ ! -f "$OUTPUT_DIR/map_projector_info.yaml" || ! -f "$OUTPUT_DIR/pointcloud_map/pointcloud_map_metadata.yaml" ]]; then
+    return 1
+  fi
+
+  {
+    stat -c 'projector %Y %s' "$OUTPUT_DIR/map_projector_info.yaml"
+    stat -c 'metadata %Y %s' "$OUTPUT_DIR/pointcloud_map/pointcloud_map_metadata.yaml"
+    find "$OUTPUT_DIR/pointcloud_map" -maxdepth 1 -type f -name '*.pcd' -printf 'pcd %f %T@ %s\n' | sort
+  }
+}
+
+wait_for_offline_completion() {
+  local timeout_secs="$1"
+  local quiet_secs="$2"
+  local deadline=$((SECONDS + timeout_secs))
+  local last_snapshot=""
+  local last_change_secs=$SECONDS
+
+  while (( SECONDS < deadline )); do
+    if grep -Fq "RKO LIO Offline Node took" "$LAUNCH_LOG" 2>/dev/null; then
+      return 0
+    fi
+
+    if snapshot=$(map_output_snapshot 2>/dev/null); then
+      if [[ "$snapshot" != "$last_snapshot" ]]; then
+        last_snapshot="$snapshot"
+        last_change_secs=$SECONDS
+      elif (( SECONDS - last_change_secs >= quiet_secs )); then
+        return 0
+      fi
+    fi
+
+    if [[ -n "$LAUNCH_PID" ]] && ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
+      return 1
+    fi
+    sleep 2
+  done
+  return 1
+}
+
 echo "Running end-to-end dogfood pipeline"
 echo "  bag:            $BAG_PATH"
 echo "  lidar_topic:    $LIDAR_TOPIC"
@@ -342,8 +391,8 @@ echo "SLAM launch is up"
 
 if [[ "$WAIT_FOR_OFFLINE_COMPLETION" == "true" ]]; then
   echo "Waiting for offline bag playback to finish ..."
-  if ! wait_for_log_pattern "RKO LIO Offline Node took" 900; then
-    echo "Launch terminated before offline node completed. Recent launch log:" >&2
+  if ! wait_for_offline_completion 900 15; then
+    echo "Timed out waiting for offline completion or quiescent map outputs. Recent launch log:" >&2
     tail -n 120 "$LAUNCH_LOG" >&2 || true
     exit 1
   fi
@@ -389,6 +438,10 @@ if [[ "$KEEP_LAUNCH" == "false" ]]; then
   LAUNCH_PGID=""
 else
   KEEP_RUNNING=1
+fi
+
+if [[ "$SKIP_VIEWER" == "true" ]]; then
+  exit 0
 fi
 
 VIEWER_CMD=(
