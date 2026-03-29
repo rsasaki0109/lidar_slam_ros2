@@ -92,6 +92,7 @@ jobs:
           cp lidarslam/images/autoware_map_loader_proof.png release_bundle/lidarslam/images/
           cp lidarslam/images/dynamic_object_filter_bag6_summary.svg release_bundle/lidarslam/images/
           cp lidarslam/images/social_autoware_map_authoring.png release_bundle/lidarslam/images/
+          cp lidarslam/images/social_autoware_map_authoring_demo.mp4 release_bundle/lidarslam/images/
           cp "${{ steps.meta.outputs.release_notes }}" release_bundle/docs/releases/
           for artifact in \
             output/benchmark_summary.md \
