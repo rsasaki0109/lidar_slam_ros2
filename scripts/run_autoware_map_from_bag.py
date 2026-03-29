@@ -191,6 +191,30 @@ def maybe_verify_map(output_dir: Path, enabled: bool) -> None:
         print(f'Warning: verify_autoware_map.py failed. See {verify_log_path}')
 
 
+def print_next_steps(args: argparse.Namespace, output_dir: Path) -> None:
+    print('Next steps:')
+    print(
+        '  Diagnosis: '
+        f'python3 scripts/diagnose_autoware_map_run.py {shlex.quote(str(output_dir))} --write'
+    )
+    verify_log = output_dir / 'verify_autoware_map.log'
+    if verify_log.is_file():
+        print(f'  Verify log: {verify_log}')
+    print(f'  Saved map:  {output_dir / "pointcloud_map"}')
+
+    if args.viewer == 'none':
+        print(
+            '  Open in Foxglove: '
+            'bash scripts/run_graph_slam_pointcloud_map_in_autoware_foxglove.sh '
+            f'{shlex.quote(str(output_dir))}'
+        )
+        print(
+            '  Open in Autoware viewer: '
+            'bash scripts/run_graph_slam_pointcloud_map_in_autoware.sh '
+            f'{shlex.quote(str(output_dir))}'
+        )
+
+
 def write_diagnostics(output_dir: Path, bag_path: Path) -> None:
     diagnose = _load_script_module('diagnose_autoware_map_run.py', 'diagnose_autoware_map_run')
     summary = diagnose.summarize_run(output_dir, bag_path)
@@ -267,6 +291,7 @@ def main() -> int:
             maybe_verify_map(output_dir, enabled=not args.no_verify_map)
             write_diagnostics(output_dir, bag_path)
 
+    print_next_steps(args, output_dir)
     maybe_open_viewer(args, output_dir)
     print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
     return 0

@@ -73,17 +73,16 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 ## Quickstart
 
-Run the default local checks:
-
 ```bash
+# local checks
 bash scripts/run_default_ci_checks.sh
-```
 
-Run the fixed public Autoware pointcloud-map quickstart:
-
-```bash
+# fixed public quickstart
 bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_autoware_quickstart.sh
+
+# arbitrary rosbag2
+bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
 ```
 
 ## Point-Cloud Map Example
