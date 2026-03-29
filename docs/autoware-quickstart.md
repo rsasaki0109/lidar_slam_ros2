@@ -8,6 +8,12 @@ If you want the product-level overview first, see
 For the optional browser-based viewer path, see
 [Autoware Foxglove](autoware-foxglove.md).
 
+Before choosing a workflow for an arbitrary bag, run:
+
+```bash
+python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2
+```
+
 The fixed public entrypoint for this flow is:
 
 ```bash
@@ -145,6 +151,7 @@ projector_type: Local
 
 ## Related Commands
 
+- bag preflight: `python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2`
 - public Autoware entrypoint: `bash scripts/run_autoware_quickstart.sh`
 - benchmark path: `bash scripts/run_rko_lio_graph_benchmark.sh`
 - release gate: `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10`

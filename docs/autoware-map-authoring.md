@@ -28,6 +28,17 @@ bash scripts/run_autoware_quickstart.sh
 This is the shortest maintained path from `lidarslam_ros2` to a verified map
 bundle opened through Autoware's map loaders.
 
+## Preflight An Arbitrary Bag
+
+Before picking a launch path, inspect the bag once:
+
+```bash
+python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2
+```
+
+The preflight reads `metadata.yaml`, lists the key sensor topics, and prints the
+shortest supported next command for the bag.
+
 ## What You Get
 
 - `pointcloud_map/` tiles
@@ -53,6 +64,7 @@ map_origin:
 
 ## Recommended Entrypoints
 
+- bag preflight: `python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2`
 - quickstart: `bash scripts/run_autoware_quickstart.sh`
 - benchmark path: `bash scripts/run_rko_lio_graph_benchmark.sh`
 - release gate: `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10`
