@@ -3,6 +3,7 @@
 Suggested attachment:
 
 - `lidarslam/images/social_autoware_map_authoring.png`
+- `lidarslam/images/social_autoware_map_authoring_demo.mp4`
 
 ## Japanese
 

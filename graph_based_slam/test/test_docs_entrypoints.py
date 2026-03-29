@@ -69,6 +69,9 @@ README_DYNAMIC_FILTER_IMAGE_PATH = (
 SOCIAL_CARD_PATH = (
     REPO_ROOT / 'lidarslam' / 'images' / 'social_autoware_map_authoring.png'
 )
+SOCIAL_DEMO_VIDEO_PATH = (
+    REPO_ROOT / 'lidarslam' / 'images' / 'social_autoware_map_authoring_demo.mp4'
+)
 BENCHMARK_SUMMARY_PATH = REPO_ROOT / 'output' / 'benchmark_summary.md'
 BENCHMARK_REPORT_PATH = REPO_ROOT / 'output' / 'latest_report.html'
 STRESS_REPORT_PATH = REPO_ROOT / 'output' / 'stress_validation_report_20260325.md'
@@ -103,6 +106,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert README_AUTOWARE_PROOF_IMAGE_PATH.is_file()
     assert README_DYNAMIC_FILTER_IMAGE_PATH.is_file()
     assert SOCIAL_CARD_PATH.is_file()
+    assert SOCIAL_DEMO_VIDEO_PATH.is_file()
     assert release_notes_path.is_file()
     assert '(CONTRIBUTING.md)' in readme
     assert '(CHANGELOG.md)' in readme
@@ -153,6 +157,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'generate_readme_large_loop_map_figure.py',
         REPO_ROOT / 'scripts' / 'generate_readme_loop_zoom_figure.py',
         REPO_ROOT / 'scripts' / 'generate_social_autoware_map_authoring_card.py',
+        REPO_ROOT / 'scripts' / 'generate_social_autoware_demo_video.py',
         REPO_ROOT / 'scripts' / 'write_aligned_trajectory_metrics.py',
         REPO_ROOT / 'scripts' / 'generate_sample_benchmark_metrics.py',
         REPO_ROOT / 'scripts' / 'inspect_navsatfix_covariance.py',
@@ -239,6 +244,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'lidarslam/images/autoware_map_loader_proof.png' in release_workflow
     assert 'lidarslam/images/dynamic_object_filter_bag6_summary.svg' in release_workflow
     assert 'lidarslam/images/social_autoware_map_authoring.png' in release_workflow
+    assert 'lidarslam/images/social_autoware_map_authoring_demo.mp4' in release_workflow
     assert 'actions/configure-pages@v5' in docs_site_workflow
     assert 'actions/upload-pages-artifact@v4' in docs_site_workflow
     assert 'actions/deploy-pages@v4' in docs_site_workflow
