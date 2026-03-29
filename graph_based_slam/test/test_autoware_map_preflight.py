@@ -92,12 +92,18 @@ def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path)
     payload = module.build_preflight_payload(bag_dir)
 
     assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
+    assert payload['beginner_commands'][0]['command'].startswith(
+        'bash scripts/run_autoware_map_beginner.sh'
+    )
     assert payload['recommendations'][0]['command'].startswith(
         'ros2 launch lidarslam rko_lio_slam.launch.py'
     )
     assert any(item['id'] == 'pointcloud_gnss_smoke' for item in payload['recommendations'])
     report = module.render_text_report(payload)
     assert 'Recommended path: RKO-LIO + graph_based_slam public path' in report
+    assert 'Beginner command:' in report
+    assert 'Beginner command with browser viewer:' in report
+    assert 'run_autoware_map_beginner.sh' in report
     assert 'inspect_navsatfix_covariance.py' in report
 
 
@@ -141,6 +147,7 @@ def test_cli_json_output_matches_machine_readable_payload(tmp_path: Path):
     payload = json.loads(result.stdout)
 
     assert payload['recommended_profile_id'] is None
+    assert payload['beginner_commands'] == []
     assert payload['summary']['capabilities']['has_pointcloud2'] is True
     assert payload['summary']['capabilities']['has_imu'] is False
     assert any('No Imu topic was found' in item for item in payload['missing_requirements'])

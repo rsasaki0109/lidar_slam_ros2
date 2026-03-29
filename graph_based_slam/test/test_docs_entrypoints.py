@@ -287,6 +287,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'Autoware Foxglove' in autoware_doc
     assert 'pointcloud_map/' in autoware_map_doc
     assert 'map_projector_info.yaml' in autoware_map_doc
+    assert 'Beginner One-Command Path' in autoware_map_doc
     assert 'preflight_autoware_map_bag.py' in autoware_map_doc
     assert 'run_autoware_map_beginner.sh' in autoware_map_doc
     assert 'run_autoware_map_from_bag.py' in autoware_map_doc
