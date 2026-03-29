@@ -114,6 +114,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(docs/comparison.md)' in readme
     assert '(docs/benchmarking.md)' in readme
     assert 'python3 -m mkdocs serve' in readme
+    assert 'run_autoware_map_beginner.sh' in readme
     assert '(lidarslam/images/autoware_map_loader_proof.png)' in readme
     assert '(lidarslam/images/dynamic_object_filter_bag6_summary.svg)' in readme
     assert 'git clone --recursive https://github.com/rsasaki0109/lidarslam_ros2.git' in readme
@@ -176,6 +177,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'generate_packet_imu_deskew_validation_report.py',
         REPO_ROOT / 'scripts' / 'generate_dynamic_object_filter_report.py',
         REPO_ROOT / 'scripts' / 'preflight_autoware_map_bag.py',
+        REPO_ROOT / 'scripts' / 'run_autoware_map_beginner.sh',
         REPO_ROOT / 'scripts' / 'run_autoware_map_from_bag.py',
         REPO_ROOT / 'scripts' / 'diagnose_autoware_map_run.py',
         REPO_ROOT / 'scripts' / 'verify_autoware_map.py',
@@ -274,6 +276,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
 
     assert 'run_autoware_quickstart.sh' in autoware_doc
     assert 'preflight_autoware_map_bag.py' in autoware_doc
+    assert 'run_autoware_map_beginner.sh' in autoware_doc
     assert 'run_autoware_map_from_bag.py' in autoware_doc
     assert 'diagnose_autoware_map_run.py' in autoware_doc
     assert 'Autoware-Compatible Map Authoring' in autoware_doc
@@ -285,6 +288,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'pointcloud_map/' in autoware_map_doc
     assert 'map_projector_info.yaml' in autoware_map_doc
     assert 'preflight_autoware_map_bag.py' in autoware_map_doc
+    assert 'run_autoware_map_beginner.sh' in autoware_map_doc
     assert 'run_autoware_map_from_bag.py' in autoware_map_doc
     assert 'run_autoware_quickstart.sh' in autoware_map_doc
     assert 'verify_autoware_map.py' in autoware_map_doc

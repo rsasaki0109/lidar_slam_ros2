@@ -14,6 +14,12 @@ Before choosing a workflow for an arbitrary bag, run:
 python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2
 ```
 
+If you want the shortest beginner-facing entrypoint, run:
+
+```bash
+bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
+```
+
 If you want the repository to pick and run the shortest supported path from the
 same preflight result, use:
 
@@ -174,6 +180,7 @@ failure hints such as TF issues or missing GNSS edges.
 ## Related Commands
 
 - bag preflight: `python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2`
+- beginner wrapper: `bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2`
 - one-shot runner: `python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2`
 - public Autoware entrypoint: `bash scripts/run_autoware_quickstart.sh`
 - benchmark path: `bash scripts/run_rko_lio_graph_benchmark.sh`

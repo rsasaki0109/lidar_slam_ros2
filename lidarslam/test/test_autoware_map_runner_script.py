@@ -39,6 +39,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / 'scripts' / 'run_autoware_map_from_bag.py'
+BEGINNER_SCRIPT_PATH = REPO_ROOT / 'scripts' / 'run_autoware_map_beginner.sh'
 
 
 def _load_module():
@@ -86,6 +87,7 @@ def test_runner_script_supports_profiles_and_viewers():
     assert 'packet_applanix_smoke' in script
     assert '--viewer' in script
     assert 'verify_autoware_map.py' in script
+    assert 'Next steps:' in script
     assert 'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh' in script
     assert 'run_graph_slam_pointcloud_map_in_autoware.sh' in script
     assert '--dry-run' in script
@@ -98,6 +100,16 @@ def test_dogfood_script_can_skip_viewer():
 
     assert '--skip-viewer' in script
     assert 'if [[ "$SKIP_VIEWER" == "false" ]]; then' in script
+
+
+def test_beginner_wrapper_exposes_simple_viewer_flags():
+    script = BEGINNER_SCRIPT_PATH.read_text(encoding='utf-8')
+
+    assert 'run_autoware_map_from_bag.py' in script
+    assert '--foxglove' in script
+    assert '--autoware' in script
+    assert '--no-viewer' in script
+    assert '--dry-run' in script
 
 
 def test_runner_prefers_mid360_preset_for_livox_bag(tmp_path: Path):

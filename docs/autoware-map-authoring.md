@@ -28,6 +28,17 @@ bash scripts/run_autoware_quickstart.sh
 This is the shortest maintained path from `lidarslam_ros2` to a verified map
 bundle opened through Autoware's map loaders.
 
+## Beginner One-Command Path
+
+If you already have a rosbag2 directory and just want the repo to choose the
+path for you:
+
+```bash
+bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
+```
+
+Use `--foxglove` to open the saved map in the browser path after the run.
+
 ## Preflight An Arbitrary Bag
 
 Before picking a launch path, inspect the bag once:
@@ -79,6 +90,7 @@ map_origin:
 ## Recommended Entrypoints
 
 - bag preflight: `python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2`
+- beginner one-command path: `bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2`
 - one-shot runner: `python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2`
 - quickstart: `bash scripts/run_autoware_quickstart.sh`
 - benchmark path: `bash scripts/run_rko_lio_graph_benchmark.sh`

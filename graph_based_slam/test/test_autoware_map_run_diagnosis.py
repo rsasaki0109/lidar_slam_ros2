@@ -74,6 +74,10 @@ def test_summary_marks_success_when_map_and_verify_pass_exist(tmp_path: Path):
     assert summary['status'] == 'success'
     assert summary['verify']['result'] == 'PASS'
     assert summary['projector_type'] == 'LocalCartesian'
+    assert any(
+        'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh' in step
+        for step in summary['suggested_next_steps']
+    )
 
 
 def test_summary_reports_tf_issue_hints(tmp_path: Path):
@@ -98,3 +102,4 @@ def test_summary_reports_tf_issue_hints(tmp_path: Path):
     assert 'TF tree connectivity was missing' in hints
     assert 'The /map_save service call failed' in hints
     assert 'A ROS node died during the run' in hints
+    assert any('tail -n 120' in step for step in summary['suggested_next_steps'])

@@ -99,6 +99,41 @@ def _extract_problem_hints(launch_log: str, map_save_log: str, verify_summary: d
     return hints
 
 
+def _suggest_next_steps(summary: dict[str, Any]) -> list[str]:
+    run_dir = summary['run_dir']
+    pointcloud_map_dir = f'{run_dir}/pointcloud_map'
+    steps: list[str] = []
+
+    if summary['status'] == 'success':
+        steps.extend([
+            f'bash scripts/run_graph_slam_pointcloud_map_in_autoware_foxglove.sh {run_dir}',
+            f'bash scripts/run_graph_slam_pointcloud_map_in_autoware.sh {run_dir}',
+        ])
+    elif summary['status'] == 'map_saved':
+        steps.append(f'python3 scripts/verify_autoware_map.py {pointcloud_map_dir}')
+    elif summary['status'] == 'verify_failed':
+        steps.extend([
+            f'python3 scripts/verify_autoware_map.py {pointcloud_map_dir}',
+            f'python3 scripts/diagnose_autoware_map_run.py {run_dir} --write',
+        ])
+    else:
+        launch_log = summary['files']['launch_log']
+        if launch_log:
+            steps.append(f'tail -n 120 {launch_log}')
+        if 'bag_preflight' in summary:
+            steps.append(
+                'python3 scripts/preflight_autoware_map_bag.py '
+                f"{summary['bag_preflight']['summary']['bag_path']}"
+            )
+
+    if summary['files']['verify_log']:
+        steps.append(f"less {summary['files']['verify_log']}")
+    elif summary['files']['pointcloud_map_metadata']:
+        steps.append(f'python3 scripts/verify_autoware_map.py {pointcloud_map_dir}')
+
+    return steps[:5]
+
+
 def summarize_run(run_dir: Path, bag_path: Path | None = None) -> dict[str, Any]:
     run_dir = run_dir.expanduser().resolve()
     launch_log_path = _find_first(run_dir, ['lidarslam.launch.log', 'slam.launch.log'])
@@ -152,6 +187,7 @@ def summarize_run(run_dir: Path, bag_path: Path | None = None) -> dict[str, Any]
     if bag_path is not None:
         module = _load_preflight_module()
         summary['bag_preflight'] = module.build_preflight_payload(bag_path)
+    summary['suggested_next_steps'] = _suggest_next_steps(summary)
     return summary
 
 
@@ -188,6 +224,11 @@ def render_markdown(summary: dict[str, Any]) -> str:
         lines.extend(['', '## Verify Details'])
         for detail in summary['verify']['details']:
             lines.append(f'- {detail}')
+
+    if summary['suggested_next_steps']:
+        lines.extend(['', '## Suggested Next Commands'])
+        for step in summary['suggested_next_steps']:
+            lines.append(f'- `{step}`')
 
     if 'bag_preflight' in summary:
         bag_preflight = summary['bag_preflight']
