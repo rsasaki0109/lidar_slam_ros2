@@ -173,6 +173,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'generate_place_recognition_report.py',
         REPO_ROOT / 'scripts' / 'generate_packet_imu_deskew_validation_report.py',
         REPO_ROOT / 'scripts' / 'generate_dynamic_object_filter_report.py',
+        REPO_ROOT / 'scripts' / 'preflight_autoware_map_bag.py',
         REPO_ROOT / 'scripts' / 'verify_autoware_map.py',
     ]
     for path in scripts:
@@ -261,6 +262,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     comparison_doc = COMPARISON_DOC.read_text(encoding='utf-8')
 
     assert 'run_autoware_quickstart.sh' in autoware_doc
+    assert 'preflight_autoware_map_bag.py' in autoware_doc
     assert 'Autoware-Compatible Map Authoring' in autoware_doc
     assert 'download_ntu_viral_tnp01.sh' in autoware_doc
     assert 'run_rko_lio_graph_autoware_dogfood.sh' in autoware_doc
@@ -269,6 +271,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'Autoware Foxglove' in autoware_doc
     assert 'pointcloud_map/' in autoware_map_doc
     assert 'map_projector_info.yaml' in autoware_map_doc
+    assert 'preflight_autoware_map_bag.py' in autoware_map_doc
     assert 'run_autoware_quickstart.sh' in autoware_map_doc
     assert 'verify_autoware_map.py' in autoware_map_doc
     assert 'foxglove_bridge' in autoware_foxglove_doc
