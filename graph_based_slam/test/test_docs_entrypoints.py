@@ -58,6 +58,7 @@ SOCIAL_POST_DOC = REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
 PUBLIC_AUTOWARE_ENTRYPOINT = REPO_ROOT / 'scripts' / 'run_autoware_quickstart.sh'
 RELEASE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'release.yml'
+DOCS_SITE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'docs-site.yml'
 README_LOOP_IMAGE_PATH = REPO_ROOT / 'lidarslam' / 'images' / 'mid360_loop_closure_zoom.png'
 README_AUTOWARE_PROOF_IMAGE_PATH = (
     REPO_ROOT / 'lidarslam' / 'images' / 'autoware_map_loader_proof.png'
@@ -97,6 +98,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert BENCHMARKING_DOC.is_file()
     assert COMPARISON_DOC.is_file()
     assert SOCIAL_POST_DOC.is_file()
+    assert DOCS_SITE_WORKFLOW.is_file()
     assert README_LOOP_IMAGE_PATH.is_file()
     assert README_AUTOWARE_PROOF_IMAGE_PATH.is_file()
     assert README_DYNAMIC_FILTER_IMAGE_PATH.is_file()
@@ -174,6 +176,8 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'generate_packet_imu_deskew_validation_report.py',
         REPO_ROOT / 'scripts' / 'generate_dynamic_object_filter_report.py',
         REPO_ROOT / 'scripts' / 'preflight_autoware_map_bag.py',
+        REPO_ROOT / 'scripts' / 'run_autoware_map_from_bag.py',
+        REPO_ROOT / 'scripts' / 'diagnose_autoware_map_run.py',
         REPO_ROOT / 'scripts' / 'verify_autoware_map.py',
     ]
     for path in scripts:
@@ -214,6 +218,7 @@ def test_release_metadata_and_core_package_versions_match():
         encoding='utf-8'
     )
     release_workflow = RELEASE_WORKFLOW.read_text(encoding='utf-8')
+    docs_site_workflow = DOCS_SITE_WORKFLOW.read_text(encoding='utf-8')
     mkdocs_config = MKDOCS_CONFIG_PATH.read_text(encoding='utf-8')
 
     assert version == '0.2.2'
@@ -232,6 +237,11 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'lidarslam/images/autoware_map_loader_proof.png' in release_workflow
     assert 'lidarslam/images/dynamic_object_filter_bag6_summary.svg' in release_workflow
     assert 'lidarslam/images/social_autoware_map_authoring.png' in release_workflow
+    assert 'actions/configure-pages@v5' in docs_site_workflow
+    assert 'actions/upload-pages-artifact@v4' in docs_site_workflow
+    assert 'actions/deploy-pages@v4' in docs_site_workflow
+    assert "python3 -m mkdocs build --strict" in docs_site_workflow
+    assert 'README.md' in docs_site_workflow
 
     package_paths = [
         REPO_ROOT / 'lidarslam' / 'package.xml',
@@ -244,6 +254,7 @@ def test_release_metadata_and_core_package_versions_match():
         assert f'<version>{version}</version>' in package_xml
 
     assert 'site_name: lidarslam_ros2 Docs' in mkdocs_config
+    assert 'site_url: https://rsasaki0109.github.io/lidarslam_ros2/' in mkdocs_config
     assert 'name: material' in mkdocs_config
     assert 'assets/stylesheets/extra.css' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
@@ -263,6 +274,8 @@ def test_docs_cover_autoware_and_release_gate_keywords():
 
     assert 'run_autoware_quickstart.sh' in autoware_doc
     assert 'preflight_autoware_map_bag.py' in autoware_doc
+    assert 'run_autoware_map_from_bag.py' in autoware_doc
+    assert 'diagnose_autoware_map_run.py' in autoware_doc
     assert 'Autoware-Compatible Map Authoring' in autoware_doc
     assert 'download_ntu_viral_tnp01.sh' in autoware_doc
     assert 'run_rko_lio_graph_autoware_dogfood.sh' in autoware_doc
@@ -272,8 +285,10 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'pointcloud_map/' in autoware_map_doc
     assert 'map_projector_info.yaml' in autoware_map_doc
     assert 'preflight_autoware_map_bag.py' in autoware_map_doc
+    assert 'run_autoware_map_from_bag.py' in autoware_map_doc
     assert 'run_autoware_quickstart.sh' in autoware_map_doc
     assert 'verify_autoware_map.py' in autoware_map_doc
+    assert 'diagnose_autoware_map_run.py' in autoware_map_doc
     assert 'foxglove_bridge' in autoware_foxglove_doc
     assert 'prepare_foxglove_bridge_prefix.sh' in autoware_foxglove_doc
     assert 'run_autoware_pointcloud_map_foxglove.sh' in autoware_foxglove_doc

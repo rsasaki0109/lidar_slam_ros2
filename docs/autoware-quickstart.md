@@ -14,6 +14,17 @@ Before choosing a workflow for an arbitrary bag, run:
 python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2
 ```
 
+If you want the repository to pick and run the shortest supported path from the
+same preflight result, use:
+
+```bash
+python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2
+```
+
+For Livox/MID360-style bags, this runner automatically switches to the tracked
+MID360 preset and writes `verify_autoware_map.log` plus a diagnosis report into
+the output directory.
+
 The fixed public entrypoint for this flow is:
 
 ```bash
@@ -149,10 +160,23 @@ This is expected when GNSS is disabled. The map stays valid for Autoware with:
 projector_type: Local
 ```
 
+### A run finished but the result still looks suspicious
+
+Write a short diagnosis report from the saved output directory:
+
+```bash
+python3 scripts/diagnose_autoware_map_run.py output/<run_dir> --write
+```
+
+This summarizes launch status, verify results, projector metadata, and common
+failure hints such as TF issues or missing GNSS edges.
+
 ## Related Commands
 
 - bag preflight: `python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2`
+- one-shot runner: `python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2`
 - public Autoware entrypoint: `bash scripts/run_autoware_quickstart.sh`
 - benchmark path: `bash scripts/run_rko_lio_graph_benchmark.sh`
 - release gate: `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10`
 - map-only verify: `python3 scripts/verify_autoware_map.py <pointcloud_map_dir>`
+- run diagnosis: `python3 scripts/diagnose_autoware_map_run.py <output_dir>`

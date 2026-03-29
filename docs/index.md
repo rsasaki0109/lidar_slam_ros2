@@ -54,7 +54,7 @@
   </a>
   <a class="link-card" href="autoware-quickstart.html">
     <h3>Autoware Quickstart</h3>
-    <p>Go from data download to verified pointcloud-map output.</p>
+    <p>Go from bag preflight to verified pointcloud-map output.</p>
   </a>
   <a class="link-card" href="autoware-foxglove.html">
     <h3>Autoware Foxglove</h3>

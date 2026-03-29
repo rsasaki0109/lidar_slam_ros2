@@ -39,6 +39,20 @@ python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2
 The preflight reads `metadata.yaml`, lists the key sensor topics, and prints the
 shortest supported next command for the bag.
 
+If you want the repo to pick and execute the shortest supported path for you,
+use the one-shot runner:
+
+```bash
+python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2
+```
+
+It uses the same preflight decision, runs the recommended public workflow,
+verifies the saved `pointcloud_map/`, and writes a diagnosis report next to the
+saved map outputs.
+
+For Livox/MID360-style bags, the runner automatically prefers the tracked
+MID360 preset instead of the generic public YAMLs.
+
 ## What You Get
 
 - `pointcloud_map/` tiles
@@ -65,11 +79,13 @@ map_origin:
 ## Recommended Entrypoints
 
 - bag preflight: `python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2`
+- one-shot runner: `python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2`
 - quickstart: `bash scripts/run_autoware_quickstart.sh`
 - benchmark path: `bash scripts/run_rko_lio_graph_benchmark.sh`
 - release gate: `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10`
 - map cleanup benchmark: `bash scripts/run_dynamic_object_filter_benchmark.sh`
 - pointcloud-map verify: `python3 scripts/verify_autoware_map.py <pointcloud_map_dir>`
+- map-run diagnosis: `python3 scripts/diagnose_autoware_map_run.py <output_dir>`
 
 ## Current Public Position
 
