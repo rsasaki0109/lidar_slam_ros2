@@ -113,6 +113,7 @@ python3 scripts/simple_lanelet2_generator.py \
 | `run_awsim_selfmade_map_demo.sh` | 自作マップ自動運転デモ |
 | `download_autoware_artifacts.sh` | Autoware ML モデルダウンロード |
 | `simple_lanelet2_generator.py` | TUM 軌跡 → lanelet2 OSM |
+| `build_autoware_map_from_slam.sh` | SLAM 出力 → Autoware マップ（PCD変換+lanelet2+projector）|
 | `record_screen.sh` | 画面録画 |
 
 ## PR ガイドライン
