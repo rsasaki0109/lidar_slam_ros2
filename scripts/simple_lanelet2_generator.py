@@ -157,28 +157,19 @@ def build_osm(
     origin_lat: float,
     origin_lon: float,
     speed_limit: float,
-) -> ET.Element:
-    """Build an OSM ElementTree from left/right boundary arrays (local coords)."""
+    segment_length: int = 25,
+) -> tuple[ET.Element, int]:
+    """Build an OSM ElementTree from left/right boundary arrays (local coords).
+
+    The trajectory is split into multiple lanelets of *segment_length* points
+    each. Adjacent lanelets share boundary nodes so that Autoware's routing
+    graph recognises them as connected.
+
+    Returns (osm_element, number_of_lanelets).
+    """
+    n_pts = len(left)
     osm = ET.Element('osm', version='0.6', generator='simple_lanelet2_generator')
-
-    node_id = 0
-    way_id_counter = 0
-    rel_id_counter = 0
-
-    def _next_node_id() -> int:
-        nonlocal node_id
-        node_id += 1
-        return node_id
-
-    def _next_way_id() -> int:
-        nonlocal way_id_counter
-        way_id_counter += 1
-        return 10000 + way_id_counter
-
-    def _next_rel_id() -> int:
-        nonlocal rel_id_counter
-        rel_id_counter += 1
-        return 20000 + rel_id_counter
+    ET.SubElement(osm, 'MetaInfo', format_version='1', map_version='1')
 
     def _add_tag(parent: ET.Element, k: str, v: str) -> None:
         ET.SubElement(parent, 'tag', k=k, v=v)
@@ -191,61 +182,66 @@ def build_osm(
         right[:, 0], right[:, 1], right[:, 2], origin_lat, origin_lon
     )
 
-    # --- Create nodes ---
-    left_node_ids = []
-    for i in range(len(left)):
-        nid = _next_node_id()
-        left_node_ids.append(nid)
-        node = ET.SubElement(
-            osm, 'node',
-            id=str(nid),
-            visible='true',
-            lat=f'{left_lat[i]:.10f}',
-            lon=f'{left_lon[i]:.10f}',
-        )
-        _add_tag(node, 'ele', f'{left_ele[i]:.4f}')
+    # --- Create all nodes up-front (shared at segment boundaries) ---
+    nid = 0
+    left_node_ids: list[int] = []
+    right_node_ids: list[int] = []
 
-    right_node_ids = []
-    for i in range(len(right)):
-        nid = _next_node_id()
-        right_node_ids.append(nid)
-        node = ET.SubElement(
-            osm, 'node',
-            id=str(nid),
-            visible='true',
-            lat=f'{right_lat[i]:.10f}',
-            lon=f'{right_lon[i]:.10f}',
-        )
-        _add_tag(node, 'ele', f'{right_ele[i]:.4f}')
+    for i in range(n_pts):
+        for lat_arr, lon_arr, ele_arr, node_list in [
+            (left_lat, left_lon, left_ele, left_node_ids),
+            (right_lat, right_lon, right_ele, right_node_ids),
+        ]:
+            nid += 1
+            node = ET.SubElement(
+                osm, 'node', id=str(nid), visible='true',
+                lat=f'{lat_arr[i]:.10f}', lon=f'{lon_arr[i]:.10f}',
+            )
+            _add_tag(node, 'ele', f'{ele_arr[i]:.4f}')
+            node_list.append(nid)
 
-    # --- Create ways ---
-    left_way_id = _next_way_id()
-    left_way = ET.SubElement(osm, 'way', id=str(left_way_id), visible='true')
-    for nid in left_node_ids:
-        ET.SubElement(left_way, 'nd', ref=str(nid))
-    _add_tag(left_way, 'type', 'line_thin')
-    _add_tag(left_way, 'subtype', 'solid')
+    # --- Split into lanelet segments ---
+    n_segs = max(1, (n_pts - 1) // segment_length)
+    way_id = 10000
+    rel_id = 20000
 
-    right_way_id = _next_way_id()
-    right_way = ET.SubElement(osm, 'way', id=str(right_way_id), visible='true')
-    for nid in right_node_ids:
-        ET.SubElement(right_way, 'nd', ref=str(nid))
-    _add_tag(right_way, 'type', 'line_thin')
-    _add_tag(right_way, 'subtype', 'solid')
+    for seg in range(n_segs):
+        start = seg * segment_length
+        end = min(start + segment_length, n_pts - 1)
+        if seg == n_segs - 1:
+            end = n_pts - 1
 
-    # --- Create lanelet relation ---
-    rel_id = _next_rel_id()
-    rel = ET.SubElement(osm, 'relation', id=str(rel_id), visible='true')
-    ET.SubElement(rel, 'member', type='way', ref=str(left_way_id), role='left')
-    ET.SubElement(rel, 'member', type='way', ref=str(right_way_id), role='right')
-    _add_tag(rel, 'type', 'lanelet')
-    _add_tag(rel, 'subtype', 'road')
-    _add_tag(rel, 'speed_limit', str(speed_limit))
-    _add_tag(rel, 'location', 'urban')
-    _add_tag(rel, 'one_way', 'yes')
-    _add_tag(rel, 'participant:vehicle', 'yes')
+        # Left boundary way
+        way_id += 1
+        left_way_id = way_id
+        left_way = ET.SubElement(osm, 'way', id=str(left_way_id), visible='true')
+        for i in range(start, end + 1):
+            ET.SubElement(left_way, 'nd', ref=str(left_node_ids[i]))
+        _add_tag(left_way, 'type', 'line_thin')
+        _add_tag(left_way, 'subtype', 'solid')
 
-    return osm
+        # Right boundary way
+        way_id += 1
+        right_way_id = way_id
+        right_way = ET.SubElement(osm, 'way', id=str(right_way_id), visible='true')
+        for i in range(start, end + 1):
+            ET.SubElement(right_way, 'nd', ref=str(right_node_ids[i]))
+        _add_tag(right_way, 'type', 'line_thin')
+        _add_tag(right_way, 'subtype', 'solid')
+
+        # Lanelet relation
+        rel_id += 1
+        rel = ET.SubElement(osm, 'relation', id=str(rel_id), visible='true')
+        ET.SubElement(rel, 'member', type='way', ref=str(left_way_id), role='left')
+        ET.SubElement(rel, 'member', type='way', ref=str(right_way_id), role='right')
+        _add_tag(rel, 'type', 'lanelet')
+        _add_tag(rel, 'subtype', 'road')
+        _add_tag(rel, 'speed_limit', str(speed_limit))
+        _add_tag(rel, 'location', 'urban')
+        _add_tag(rel, 'one_way', 'yes')
+        _add_tag(rel, 'participant:vehicle', 'yes')
+
+    return osm, n_segs
 
 
 def write_osm(osm: ET.Element, path: Path) -> None:
@@ -277,6 +273,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument('--resolution', type=float, default=1.0, help='Resample spacing [m]')
     p.add_argument('--smooth-factor', type=float, default=0.0, help='Spline smoothing (0=interpolate)')
     p.add_argument('--speed-limit', type=float, default=10.0, help='Speed limit [km/h]')
+    p.add_argument('--segment-length', type=int, default=25,
+                   help='Points per lanelet segment (Autoware needs multiple connected lanelets)')
     return p.parse_args(argv)
 
 
@@ -292,11 +290,14 @@ def main(argv: list[str] | None = None) -> None:
 
     left, right = offset_boundaries(xyz_smooth, args.lane_width / 2.0)
 
-    osm = build_osm(left, right, args.origin_lat, args.origin_lon, args.speed_limit)
+    osm, n_lanelets = build_osm(
+        left, right, args.origin_lat, args.origin_lon,
+        args.speed_limit, args.segment_length,
+    )
     write_osm(osm, args.output)
 
     n_nodes = len(left) + len(right)
-    print(f'Wrote {args.output}  ({n_nodes} nodes, 2 ways, 1 lanelet)')
+    print(f'Wrote {args.output}  ({n_nodes} nodes, {n_lanelets * 2} ways, {n_lanelets} lanelets)')
 
 
 if __name__ == '__main__':
