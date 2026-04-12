@@ -50,6 +50,66 @@ jobs:
           bash -n scripts/run_graph_slam_pointcloud_map_in_autoware.sh
           bash -n scripts/prepare_velodyne_pointcloud_overlay.sh
           bash -n scripts/run_open_data_applanix_velodyne_gnss_smoke.sh
+          bash -n scripts/run_awsim_autoware_demo.sh
+          bash -n scripts/run_awsim_selfmade_map_demo.sh
+          bash -n scripts/test_awsim_setup.sh
+          bash -n scripts/download_autoware_artifacts.sh
+          bash -n scripts/prepare_autoware_map_from_graph_slam.sh
+          bash -n scripts/record_screen.sh
+
+      - name: Test simple_lanelet2_generator
+        shell: bash
+        run: |
+          python3 -m pip install --upgrade numpy scipy
+          python3 -c "
+          import tempfile, os, sys
+          sys.path.insert(0, 'scripts')
+          from simple_lanelet2_generator import read_tum, smooth_and_resample, offset_boundaries, build_osm, write_osm
+          import numpy as np
+          from pathlib import Path
+
+          # Generate synthetic TUM trajectory (circle)
+          t = np.linspace(0, 2*np.pi, 50)
+          r = 50.0
+          tum = np.column_stack([t, r*np.cos(t), r*np.sin(t), np.zeros(50), np.zeros(50), np.zeros(50), np.zeros(50), np.ones(50)])
+          tum_path = Path(tempfile.mktemp(suffix='.tum'))
+          np.savetxt(str(tum_path), tum)
+
+          data = read_tum(tum_path)
+          assert data.shape == (50, 8), f'Expected (50,8), got {data.shape}'
+
+          xyz = smooth_and_resample(data[:, 1:4], 2.0, 0.0)
+          assert len(xyz) > 10, f'Expected >10 points, got {len(xyz)}'
+
+          left, right = offset_boundaries(xyz, 1.75)
+          assert left.shape == right.shape == xyz.shape
+
+          osm, n_lanelets = build_osm(left, right, 35.0, 139.0, 10.0, segment_length=25)
+          assert n_lanelets >= 1
+
+          out = Path(tempfile.mktemp(suffix='.osm'))
+          write_osm(osm, out)
+          assert out.exists()
+
+          import xml.etree.ElementTree as ET
+          tree = ET.parse(str(out))
+          nodes = tree.getroot().findall('node')
+          ways = tree.getroot().findall('way')
+          rels = tree.getroot().findall('relation')
+          assert len(nodes) > 0, 'No nodes'
+          assert len(ways) == n_lanelets * 2, f'Expected {n_lanelets*2} ways, got {len(ways)}'
+          assert len(rels) == n_lanelets, f'Expected {n_lanelets} relations, got {len(rels)}'
+
+          # Verify boundary node sharing between segments
+          if n_lanelets > 1:
+              w0_nds = [nd.get('ref') for nd in ways[0].findall('nd')]
+              w2_nds = [nd.get('ref') for nd in ways[2].findall('nd')]
+              assert w0_nds[-1] == w2_nds[0], 'Boundary nodes not shared'
+
+          os.unlink(str(tum_path))
+          os.unlink(str(out))
+          print('All lanelet2 generator tests passed')
+          "
 
   default-workflow:
     name: ${{ matrix.ros_distro }} default workflow
