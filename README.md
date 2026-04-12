@@ -21,12 +21,13 @@ This repository is for people who want:
 
 - ROS 2 LiDAR SLAM with loop closure
 - pointcloud maps that Autoware can load
+- lanelet2 maps auto-generated from SLAM trajectories
+- end-to-end autonomous driving on self-made maps (AWSIM + Autoware)
 - a non-GPL default workflow
 
 Out of scope for the public path:
 
-- `lanelet2_map.osm` generation
-- Autoware planning/localization bringup
+- Autoware planning/localization bringup beyond the provided demo scripts
 - GPL-only frontend or backend components in the default workflow
 
 ## Why This Repo
@@ -34,6 +35,8 @@ Out of scope for the public path:
 - non-GPL default path: `graph_based_slam` (BSD-2-Clause), `scanmatcher` (project-local), `RKO-LIO` (MIT), `DLIO` (MIT), `FAST_GICP` (BSD-3-Clause)
 - pointcloud-map authoring is treated as a first-class workflow, not just a side-effect of odometry
 - Autoware pointcloud-map flow is exercised end-to-end
+- **AWSIM → lidarslam → Autoware autonomous driving** pipeline with one-command demo
+- **lanelet2 auto-generation** from SLAM trajectories (multi-segment with shared boundary nodes)
 - default benchmark path is tracked on `NTU VIRAL`
 - current long-loop evidence is tracked on `MID360`
 - optional GNSS georeferencing writes `map_projector_info.yaml`
@@ -85,6 +88,44 @@ bash scripts/run_autoware_quickstart.sh
 bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
 ```
 
+## AWSIM Autonomous Driving Pipeline
+
+Build a pointcloud map from AWSIM simulator data, auto-generate a lanelet2 map from the SLAM trajectory, and run autonomous driving with Autoware — all from self-made maps.
+
+```
+AWSIM (LiDAR + IMU) → rosbag2 → lidarslam → pointcloud_map + lanelet2 → Autoware → Driving
+```
+
+```bash
+# 1. Setup verification
+bash scripts/test_awsim_setup.sh
+
+# 2. One-command Autoware map from SLAM output
+bash scripts/build_autoware_map_from_slam.sh \
+  --pcd-dir ./pointcloud_map \
+  --g2o ./pose_graph.g2o \
+  --awsim-config /path/to/config.json \
+  --output ./autoware_map
+
+# 3. Autonomous driving demo with self-made map
+bash scripts/run_awsim_selfmade_map_demo.sh
+
+# 4. Or step-by-step with sample map
+bash scripts/run_awsim_autoware_demo.sh awsim      # Terminal 1
+bash scripts/run_awsim_autoware_demo.sh autoware    # Terminal 2
+bash scripts/run_awsim_autoware_demo.sh engage      # Terminal 3
+```
+
+Generate a lanelet2 map from any TUM trajectory:
+
+```bash
+python3 scripts/simple_lanelet2_generator.py \
+  --input traj.tum --output lanelet2_map.osm \
+  --lane-width 7.0 --origin-lat 35.68 --origin-lon 139.69
+```
+
+See [AWSIM Autonomous Driving Tutorial](docs/awsim-autonomous-driving-tutorial.md) for the full walkthrough.
+
 ## Point-Cloud Map Example
 Autoware-compatible browser proof built from a live `/map/pointcloud_map`: the rendered map comes from Autoware map loaders, map verify is `PASS`, and GNSS runs emit `LocalCartesian`.
 ![Autoware-compatible proof](lidarslam/images/autoware_map_loader_proof.png)
@@ -92,6 +133,7 @@ Save-time dynamic-object filtering on Leo Drive `bag6` cuts saved points by abou
 ![Dynamic-object filter summary](lidarslam/images/dynamic_object_filter_bag6_summary.svg)
 
 ## Docs
+- [AWSIM Autonomous Driving Tutorial](docs/awsim-autonomous-driving-tutorial.md)
 - [Autoware-Compatible Map Authoring](docs/autoware-map-authoring.md) / [Autoware Quickstart](docs/autoware-quickstart.md) / [Autoware Foxglove](docs/autoware-foxglove.md)
 - [Operator Workflows](docs/workflows.md)
 - [Benchmarking And Release Gate](docs/benchmarking.md)
