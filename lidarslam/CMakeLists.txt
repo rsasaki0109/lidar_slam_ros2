@@ -104,6 +104,16 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_lo_slam_launch_config
+    test/test_lo_slam_launch_config.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_small_gicp_lo_slam_launch_config
+    test/test_small_gicp_lo_slam_launch_config.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_open_data_gnss_smoke_script
     test/test_open_data_gnss_smoke_script.py
     TIMEOUT 120
