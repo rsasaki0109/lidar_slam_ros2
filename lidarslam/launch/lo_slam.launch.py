@@ -1,14 +1,4 @@
-"""Launch scanmatcher + graph_based_slam in LiDAR-only (LO) configuration.
-
-This is the classic lidarslam pipeline (no RKO-LIO). IMU-assisted scanmatcher
-and graph IMU preintegration are disabled via lidarslam_lo.yaml.
-
-Typical use:
-  ros2 bag play <bag> --clock --rate 2
-  ros2 launch lidarslam lo_slam.launch.py use_sim_time:=true input_cloud:=/points
-
-Copyright and license: same as lidarslam.launch.py in this package.
-"""
+"""Launch scanmatcher + graph_based_slam in LiDAR-only (LO) configuration."""
 
 import os
 
@@ -30,7 +20,10 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'main_param_dir',
             default_value=main_param_dir_default,
-            description='Parameter YAML (scan_matcher + graph_based_slam); default is lidarslam_lo.yaml.',
+            description=(
+                'Parameter YAML (scan_matcher + graph_based_slam); '
+                'default is lidarslam_lo.yaml.'
+            ),
         ),
         DeclareLaunchArgument(
             'use_sim_time',

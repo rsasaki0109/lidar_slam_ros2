@@ -1,9 +1,4 @@
-"""Launch small_gicp ICP/GICP odometry + graph_based_slam backend.
-
-This launch is intended for LiDAR-only datasets (e.g. KITTI Odometry). It uses
-`scanmatcher`'s optional `small_gicp_odom_node` (ICP/GICP scan-to-model) as the
-frontend and feeds its odometry into graph_based_slam `use_odom_input:=true`.
-"""
+"""Launch small_gicp ICP/GICP odometry + graph_based_slam backend."""
 
 import os
 
@@ -16,12 +11,12 @@ from launch_ros.actions import Node
 
 
 def _parse_bool_arg(value: str) -> bool:
-    return value.strip().lower() in ("true", "1", "yes", "on")
+    return value.strip().lower() in ('true', '1', 'yes', 'on')
 
 
 def _add_optional_param_override(overrides, context, arg_name, parser):
     value = LaunchConfiguration(arg_name).perform(context)
-    if value == "":
+    if value == '':
         return
     overrides[arg_name] = parser(value)
 
@@ -33,190 +28,201 @@ def create_small_gicp_node(context, *args, **kwargs):
     parameters = []
     parameters.append(
         {
-            "odom_frame": LaunchConfiguration("odom_frame_id"),
-            "lidar_frame": LaunchConfiguration("robot_frame_id"),
-            "publish_tf": LaunchConfiguration("publish_tf"),
+            'odom_frame': LaunchConfiguration('odom_frame_id'),
+            'lidar_frame': LaunchConfiguration('robot_frame_id'),
+            'publish_tf': LaunchConfiguration('publish_tf'),
         }
     )
 
-    param_file = LaunchConfiguration("small_gicp_param_file").perform(context)
+    param_file = LaunchConfiguration('small_gicp_param_file').perform(context)
     if param_file:
         parameters.append(param_file)
 
     overrides = {}
-    _add_optional_param_override(overrides, context, "downsampling_resolution", float)
-    _add_optional_param_override(overrides, context, "voxel_resolution", float)
-    _add_optional_param_override(overrides, context, "max_correspondence_distance", float)
-    _add_optional_param_override(overrides, context, "num_neighbors", int)
-    _add_optional_param_override(overrides, context, "num_threads", int)
-    _add_optional_param_override(overrides, context, "max_range", float)
-    _add_optional_param_override(overrides, context, "min_range", float)
-    _add_optional_param_override(overrides, context, "min_motion_threshold", float)
-    _add_optional_param_override(overrides, context, "use_gicp", _parse_bool_arg)
+    _add_optional_param_override(overrides, context, 'downsampling_resolution', float)
+    _add_optional_param_override(overrides, context, 'voxel_resolution', float)
+    _add_optional_param_override(
+        overrides, context, 'max_correspondence_distance', float
+    )
+    _add_optional_param_override(overrides, context, 'num_neighbors', int)
+    _add_optional_param_override(overrides, context, 'num_threads', int)
+    _add_optional_param_override(overrides, context, 'max_range', float)
+    _add_optional_param_override(overrides, context, 'min_range', float)
+    _add_optional_param_override(overrides, context, 'min_motion_threshold', float)
+    _add_optional_param_override(overrides, context, 'use_gicp', _parse_bool_arg)
     if overrides:
         parameters.append(overrides)
 
     return [
         Node(
-            package="scanmatcher",
-            executable="small_gicp_odom_node",
-            namespace="small_gicp",
+            package='scanmatcher',
+            executable='small_gicp_odom_node',
+            namespace='small_gicp',
             parameters=parameters,
             remappings=[
-                ("pointcloud", LaunchConfiguration("input_cloud")),
+                ('pointcloud', LaunchConfiguration('input_cloud')),
             ],
-            output="screen",
+            output='screen',
         )
     ]
 
 
 def generate_launch_description():
-    pkg_share = get_package_share_directory("lidarslam")
-    main_param_dir_default = os.path.join(pkg_share, "param", "lidarslam_lo.yaml")
-    rviz_config_default = os.path.join(pkg_share, "rviz", "mapping.rviz")
+    pkg_share = get_package_share_directory('lidarslam')
+    main_param_dir_default = os.path.join(pkg_share, 'param', 'lidarslam_lo.yaml')
+    rviz_config_default = os.path.join(pkg_share, 'rviz', 'mapping.rviz')
 
     return LaunchDescription(
         [
             DeclareLaunchArgument(
-                "main_param_dir",
+                'main_param_dir',
                 default_value=main_param_dir_default,
-                description="Parameter YAML for graph_based_slam (and optional scan_matcher block).",
+                description=(
+                    'Parameter YAML for graph_based_slam '
+                    '(and optional scan_matcher block).'
+                ),
             ),
             DeclareLaunchArgument(
-                "use_sim_time",
-                default_value="false",
-                description="Use simulation time (/clock). Required for rosbag playback.",
+                'use_sim_time',
+                default_value='false',
+                description='Use simulation time (/clock). Required for rosbag playback.',
             ),
             DeclareLaunchArgument(
-                "global_frame_id",
-                default_value="map",
-                description="Global frame id.",
+                'global_frame_id',
+                default_value='map',
+                description='Global frame id.',
             ),
             DeclareLaunchArgument(
-                "robot_frame_id",
-                default_value="base_link",
-                description="Robot/LiDAR frame id (child of odom TF).",
+                'robot_frame_id',
+                default_value='base_link',
+                description='Robot/LiDAR frame id (child of odom TF).',
             ),
             DeclareLaunchArgument(
-                "odom_frame_id",
-                default_value="odom",
-                description="Odometry frame id.",
+                'odom_frame_id',
+                default_value='odom',
+                description='Odometry frame id.',
             ),
             DeclareLaunchArgument(
-                "input_cloud",
-                default_value="/points_raw",
-                description="Input point cloud topic (sensor_msgs/PointCloud2).",
+                'input_cloud',
+                default_value='/points_raw',
+                description='Input point cloud topic (sensor_msgs/PointCloud2).',
             ),
             DeclareLaunchArgument(
-                "gnss_topic",
-                default_value="/gnss/fix",
-                description="NavSatFix topic for graph_based_slam when use_gnss:=true.",
+                'gnss_topic',
+                default_value='/gnss/fix',
+                description='NavSatFix topic for graph_based_slam when use_gnss:=true.',
             ),
             DeclareLaunchArgument(
-                "save_dir",
-                default_value=".",
-                description="Directory for backend outputs (pose_graph.g2o/map.pcd).",
+                'save_dir',
+                default_value='.',
+                description='Directory for backend outputs (pose_graph.g2o/map.pcd).',
             ),
             DeclareLaunchArgument(
-                "rviz_config",
+                'rviz_config',
                 default_value=rviz_config_default,
-                description="RViz config path.",
+                description='RViz config path.',
             ),
             DeclareLaunchArgument(
-                "use_rviz",
-                default_value="false",
-                description="Start RViz.",
+                'use_rviz',
+                default_value='false',
+                description='Start RViz.',
             ),
             DeclareLaunchArgument(
-                "use_graph_based_slam",
-                default_value="true",
-                description="Start the graph_based_slam backend node.",
+                'use_graph_based_slam',
+                default_value='true',
+                description='Start the graph_based_slam backend node.',
             ),
             DeclareLaunchArgument(
-                "publish_tf",
-                default_value="true",
-                description="Publish odom->robot TF from the frontend.",
+                'publish_tf',
+                default_value='true',
+                description='Publish odom->robot TF from the frontend.',
             ),
             DeclareLaunchArgument(
-                "small_gicp_param_file",
-                default_value="",
-                description="Optional YAML file for small_gicp_odom_node parameters.",
+                'small_gicp_param_file',
+                default_value='',
+                description='Optional YAML file for small_gicp_odom_node parameters.',
             ),
             # Optional overrides (empty = keep defaults)
-            DeclareLaunchArgument("downsampling_resolution", default_value=""),
-            DeclareLaunchArgument("voxel_resolution", default_value=""),
-            DeclareLaunchArgument("max_correspondence_distance", default_value=""),
-            DeclareLaunchArgument("num_neighbors", default_value=""),
-            DeclareLaunchArgument("num_threads", default_value=""),
-            DeclareLaunchArgument("max_range", default_value=""),
-            DeclareLaunchArgument("min_range", default_value=""),
-            DeclareLaunchArgument("min_motion_threshold", default_value=""),
-            DeclareLaunchArgument("use_gicp", default_value=""),
+            DeclareLaunchArgument('downsampling_resolution', default_value=''),
+            DeclareLaunchArgument('voxel_resolution', default_value=''),
+            DeclareLaunchArgument('max_correspondence_distance', default_value=''),
+            DeclareLaunchArgument('num_neighbors', default_value=''),
+            DeclareLaunchArgument('num_threads', default_value=''),
+            DeclareLaunchArgument('max_range', default_value=''),
+            DeclareLaunchArgument('min_range', default_value=''),
+            DeclareLaunchArgument('min_motion_threshold', default_value=''),
+            DeclareLaunchArgument('use_gicp', default_value=''),
             DeclareLaunchArgument(
-                "publish_static_tf",
-                default_value="false",
-                description="Publish an identity static TF from base_frame to lidar_frame (rarely needed here).",
+                'publish_static_tf',
+                default_value='false',
+                description=(
+                    'Publish an identity static TF from base_frame to lidar_frame '
+                    '(rarely needed here).'
+                ),
             ),
-            DeclareLaunchArgument("base_frame", default_value=LaunchConfiguration("robot_frame_id")),
-            DeclareLaunchArgument("lidar_frame", default_value=LaunchConfiguration("robot_frame_id")),
-            DeclareLaunchArgument("static_tf_x", default_value="0"),
-            DeclareLaunchArgument("static_tf_y", default_value="0"),
-            DeclareLaunchArgument("static_tf_z", default_value="0"),
-            DeclareLaunchArgument("static_tf_qx", default_value="0"),
-            DeclareLaunchArgument("static_tf_qy", default_value="0"),
-            DeclareLaunchArgument("static_tf_qz", default_value="0"),
-            DeclareLaunchArgument("static_tf_qw", default_value="1"),
+            DeclareLaunchArgument(
+                'base_frame', default_value=LaunchConfiguration('robot_frame_id')
+            ),
+            DeclareLaunchArgument(
+                'lidar_frame', default_value=LaunchConfiguration('robot_frame_id')
+            ),
+            DeclareLaunchArgument('static_tf_x', default_value='0'),
+            DeclareLaunchArgument('static_tf_y', default_value='0'),
+            DeclareLaunchArgument('static_tf_z', default_value='0'),
+            DeclareLaunchArgument('static_tf_qx', default_value='0'),
+            DeclareLaunchArgument('static_tf_qy', default_value='0'),
+            DeclareLaunchArgument('static_tf_qz', default_value='0'),
+            DeclareLaunchArgument('static_tf_qw', default_value='1'),
             OpaqueFunction(function=create_small_gicp_node),
             Node(
-                package="graph_based_slam",
-                executable="graph_based_slam_node",
+                package='graph_based_slam',
+                executable='graph_based_slam_node',
                 parameters=[
-                    LaunchConfiguration("main_param_dir"),
+                    LaunchConfiguration('main_param_dir'),
                     {
-                        "global_frame_id": LaunchConfiguration("global_frame_id"),
-                        "use_sim_time": LaunchConfiguration("use_sim_time"),
-                        "use_odom_input": True,
-                        "gnss_topic": LaunchConfiguration("gnss_topic"),
-                        "map_save_dir": LaunchConfiguration("save_dir"),
-                        "save_pose_graph_path": PathJoinSubstitution(
-                            [LaunchConfiguration("save_dir"), "pose_graph.g2o"]
+                        'global_frame_id': LaunchConfiguration('global_frame_id'),
+                        'use_sim_time': LaunchConfiguration('use_sim_time'),
+                        'use_odom_input': True,
+                        'gnss_topic': LaunchConfiguration('gnss_topic'),
+                        'map_save_dir': LaunchConfiguration('save_dir'),
+                        'save_pose_graph_path': PathJoinSubstitution(
+                            [LaunchConfiguration('save_dir'), 'pose_graph.g2o']
                         ),
-                        "save_map_path": PathJoinSubstitution(
-                            [LaunchConfiguration("save_dir"), "map.pcd"]
+                        'save_map_path': PathJoinSubstitution(
+                            [LaunchConfiguration('save_dir'), 'map.pcd']
                         ),
                     },
                 ],
                 remappings=[
-                    ("odom_input", "/small_gicp/odom"),
-                    ("cloud_input", LaunchConfiguration("input_cloud")),
+                    ('odom_input', '/small_gicp/odom'),
+                    ('cloud_input', LaunchConfiguration('input_cloud')),
                 ],
-                condition=IfCondition(LaunchConfiguration("use_graph_based_slam")),
-                output="screen",
+                condition=IfCondition(LaunchConfiguration('use_graph_based_slam')),
+                output='screen',
             ),
             Node(
-                package="tf2_ros",
-                executable="static_transform_publisher",
+                package='tf2_ros',
+                executable='static_transform_publisher',
                 arguments=[
-                    LaunchConfiguration("static_tf_x"),
-                    LaunchConfiguration("static_tf_y"),
-                    LaunchConfiguration("static_tf_z"),
-                    LaunchConfiguration("static_tf_qx"),
-                    LaunchConfiguration("static_tf_qy"),
-                    LaunchConfiguration("static_tf_qz"),
-                    LaunchConfiguration("static_tf_qw"),
-                    LaunchConfiguration("base_frame"),
-                    LaunchConfiguration("lidar_frame"),
+                    LaunchConfiguration('static_tf_x'),
+                    LaunchConfiguration('static_tf_y'),
+                    LaunchConfiguration('static_tf_z'),
+                    LaunchConfiguration('static_tf_qx'),
+                    LaunchConfiguration('static_tf_qy'),
+                    LaunchConfiguration('static_tf_qz'),
+                    LaunchConfiguration('static_tf_qw'),
+                    LaunchConfiguration('base_frame'),
+                    LaunchConfiguration('lidar_frame'),
                 ],
-                condition=IfCondition(LaunchConfiguration("publish_static_tf")),
+                condition=IfCondition(LaunchConfiguration('publish_static_tf')),
             ),
             Node(
-                package="rviz2",
-                executable="rviz2",
-                parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}],
-                arguments=["-d", LaunchConfiguration("rviz_config")],
-                condition=IfCondition(LaunchConfiguration("use_rviz")),
-                output="screen",
+                package='rviz2',
+                executable='rviz2',
+                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+                arguments=['-d', LaunchConfiguration('rviz_config')],
+                condition=IfCondition(LaunchConfiguration('use_rviz')),
+                output='screen',
             ),
         ]
     )
-
