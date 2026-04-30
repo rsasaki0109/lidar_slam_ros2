@@ -248,7 +248,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'actions/configure-pages@v5' in docs_site_workflow
     assert 'actions/upload-pages-artifact@v4' in docs_site_workflow
     assert 'actions/deploy-pages@v4' in docs_site_workflow
-    assert "python3 -m mkdocs build --strict" in docs_site_workflow
+    assert 'python3 -m mkdocs build --strict' in docs_site_workflow
     assert 'README.md' in docs_site_workflow
 
     package_paths = [

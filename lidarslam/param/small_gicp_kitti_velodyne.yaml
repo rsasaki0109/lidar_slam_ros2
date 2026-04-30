@@ -1,0 +1,19 @@
+# small_gicp ICP/GICP odometry defaults tuned for KITTI Velodyne HDL-64.
+#
+# This YAML is optional; `small_gicp_lo_slam.launch.py` also accepts direct launch overrides.
+# It is loaded into `scanmatcher/small_gicp_odom_node`.
+/**:
+  ros__parameters:
+    downsampling_resolution: 0.5
+    voxel_resolution: 1.0
+    max_correspondence_distance: 2.0
+    num_neighbors: 20
+    num_threads: 4
+    max_range: 120.0
+    min_range: 3.0
+    publish_tf: true
+    odom_frame: odom
+    lidar_frame: velodyne
+    min_motion_threshold: 0.05
+    use_gicp: false
+

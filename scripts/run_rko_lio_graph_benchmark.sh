@@ -23,6 +23,8 @@ Options:
   --quiescence-secs <sec>        Treat the run as done after this many stable seconds (default: 20)
   --skip-map-save                Do not call /map_save or verify the map bundle
   --skip-reference-gen           Reuse an existing reference TUM/meta without regenerating it
+  --publish-static-tf BOOL       static_transform_publisher (default: true)
+  --reference-source LABEL       Label stored in metrics.json (default: leica_prism_gt)
   --help                         Show this help
 
 This runs the recommended benchmark path:
@@ -64,6 +66,8 @@ SAVE_TIMEOUT_SECS=60
 QUIESCENCE_SECS=20
 SKIP_MAP_SAVE=false
 SKIP_REFERENCE_GEN=false
+PUBLISH_STATIC_TF=true
+REFERENCE_SOURCE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -144,6 +148,16 @@ while [[ $# -gt 0 ]]; do
     --skip-reference-gen)
       SKIP_REFERENCE_GEN=true
       shift
+      ;;
+    --publish-static-tf)
+      [[ $# -ge 2 ]] || usage
+      PUBLISH_STATIC_TF="$2"
+      shift 2
+      ;;
+    --reference-source)
+      [[ $# -ge 2 ]] || usage
+      REFERENCE_SOURCE="$2"
+      shift 2
       ;;
     --help|-h)
       usage
@@ -434,6 +448,7 @@ if command -v setsid >/dev/null 2>&1; then
     "lidar_topic:=${LIDAR_TOPIC}" \
     "imu_topic:=${IMU_TOPIC}" \
     "base_frame:=${BASE_FRAME}" \
+    "publish_static_tf:=${PUBLISH_STATIC_TF}" \
     "save_dir:=${OUTPUT_DIR}" \
     "results_dir:=${OUTPUT_DIR}" \
     "run_name:=${RUN_NAME}" \
@@ -450,6 +465,7 @@ else
     "lidar_topic:=${LIDAR_TOPIC}" \
     "imu_topic:=${IMU_TOPIC}" \
     "base_frame:=${BASE_FRAME}" \
+    "publish_static_tf:=${PUBLISH_STATIC_TF}" \
     "save_dir:=${OUTPUT_DIR}" \
     "results_dir:=${OUTPUT_DIR}" \
     "run_name:=${RUN_NAME}" \
@@ -569,24 +585,29 @@ print(t1 - t0)
 PY
 )"
 
-python3 "${SCRIPT_DIR}/write_rko_lio_benchmark_metrics.py" \
-  --out-dir "$OUTPUT_DIR" \
-  --bag "$BAG_PATH" \
-  --reference-tum "$REFERENCE_TUM" \
-  --reference-meta "$REFERENCE_META" \
-  --points-topic "$LIDAR_TOPIC" \
-  --imu-topic "$IMU_TOPIC" \
-  --lidarslam-param "$LIDARSLAM_PARAM" \
-  --rko-param "$RKO_PARAM" \
-  --run-name "$RUN_NAME" \
-  --raw-tum "$RAW_TUM_PRISM" \
-  --corrected-tum "$CORRECTED_TUM_PRISM" \
-  --raw-ape "$RAW_APE" \
-  --corrected-ape "$CORRECTED_APE" \
-  --launch-log "$LAUNCH_LOG" \
-  --started-at "$STARTED_AT" \
-  --started-at-unix "$STARTED_AT_UNIX" \
+METRICS_ARGS=(
+  --out-dir "$OUTPUT_DIR"
+  --bag "$BAG_PATH"
+  --reference-tum "$REFERENCE_TUM"
+  --reference-meta "$REFERENCE_META"
+  --points-topic "$LIDAR_TOPIC"
+  --imu-topic "$IMU_TOPIC"
+  --lidarslam-param "$LIDARSLAM_PARAM"
+  --rko-param "$RKO_PARAM"
+  --run-name "$RUN_NAME"
+  --raw-tum "$RAW_TUM_PRISM"
+  --corrected-tum "$CORRECTED_TUM_PRISM"
+  --raw-ape "$RAW_APE"
+  --corrected-ape "$CORRECTED_APE"
+  --launch-log "$LAUNCH_LOG"
+  --started-at "$STARTED_AT"
+  --started-at-unix "$STARTED_AT_UNIX"
   --wall-sec "$BENCH_WALL_SEC"
+)
+if [[ -n "$REFERENCE_SOURCE" ]]; then
+  METRICS_ARGS+=(--reference-source "$REFERENCE_SOURCE")
+fi
+python3 "${SCRIPT_DIR}/write_rko_lio_benchmark_metrics.py" "${METRICS_ARGS[@]}"
 
 echo "Benchmark completed"
 echo "  output_dir:     $OUTPUT_DIR"

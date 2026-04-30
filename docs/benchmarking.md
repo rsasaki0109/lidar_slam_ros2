@@ -21,6 +21,50 @@ That wrapper:
 - verifies the Autoware map bundle when present
 - writes `metrics.json` for the reporting pipeline
 
+## KITTI / LiDAR-Only Evaluation
+
+The public default benchmark remains `RKO-LIO + graph_based_slam`. For KITTI
+Odometry, use the separate LiDAR-only path because the Velodyne dataset does
+not provide IMU messages.
+
+```bash
+bash scripts/download_kitti_odometry.sh --velodyne
+export KITTI_ODOMETRY_ROOT="$PWD/datasets/KITTI_odometry"
+bash scripts/run_kitti_odometry_benchmark.sh --sequence 00 --small-gicp --force-prepare
+```
+
+For frontend tuning, run the sweep wrapper:
+
+```bash
+bash scripts/sweep_kitti_small_gicp.sh \
+  --dataset "$KITTI_ODOMETRY_ROOT" \
+  --sequences "00 05 07"
+```
+
+The LO and `small_gicp` wrappers generate a rosbag2 QoS override so PointCloud2
+playback uses `best_effort`, matching the frontend sensor-data subscriptions.
+
+## Optional 3D-BBS Verification
+
+`graph_based_slam` can build MIT-licensed 3D-BBS support from
+`Thirdparty/3d_bbs`. This is an optional verifier for Scan Context loop
+candidates, not part of the default public benchmark path.
+
+Build behavior:
+
+- enabled at build time when `GRAPH_BASED_SLAM_ENABLE_3D_BBS=ON` and the vendor
+  headers are present
+- disabled at runtime unless `use_3d_bbs_for_scan_context: true` is set
+- force-disabled with
+  `colcon build --symlink-install --cmake-args -DGRAPH_BASED_SLAM_ENABLE_3D_BBS=OFF`
+
+MID360 wrapper example:
+
+```bash
+bash scripts/run_rko_lio_mid360_crossval_benchmark.sh \
+  --use-3d-bbs-for-scan-context true
+```
+
 Typical outputs are written under:
 
 - `output/bench_rko_lio_ntu_viral_<name>/traj_raw_prism.tum`

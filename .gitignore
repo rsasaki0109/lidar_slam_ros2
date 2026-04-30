@@ -6,9 +6,13 @@ build/
 install/
 log/
 demo_data/
+datasets/
 output/*
 !output/BENCHMARK_README.md
 !output/benchmark_report.md
+map.pcd
+map_projector_info.yaml
+pointcloud_map/
 Thirdparty/dlio/
 Thirdparty/fast_gicp/
 Thirdparty/genz-icp/

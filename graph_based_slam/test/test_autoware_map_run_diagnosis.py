@@ -55,7 +55,8 @@ def test_summary_marks_success_when_map_and_verify_pass_exist(tmp_path: Path):
     run_dir = tmp_path / 'run'
     pointcloud_dir = run_dir / 'pointcloud_map'
     pointcloud_dir.mkdir(parents=True)
-    (pointcloud_dir / 'pointcloud_map_metadata.yaml').write_text('tile_size: 20\n', encoding='utf-8')
+    meta = pointcloud_dir / 'pointcloud_map_metadata.yaml'
+    meta.write_text('tile_size: 20\n', encoding='utf-8')
     (run_dir / 'map_projector_info.yaml').write_text(
         yaml.safe_dump({'projector_type': 'LocalCartesian'}),
         encoding='utf-8',
