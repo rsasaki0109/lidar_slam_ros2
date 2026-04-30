@@ -104,7 +104,7 @@ docker ps --filter name=awsim_demo --format "  AWSIM: {{.Status}}"
 # Move AWSIM window to right display
 echo "  Moving AWSIM window to right display..."
 sleep 5
-for wid in $(xdotool search --name "AWSIM" 2>/dev/null); do
+for wid in $(xdotool search --name "AWSIM Labs" 2>/dev/null); do
     xdotool windowmove "${wid}" 1920 0 || true
     xdotool windowsize "${wid}" 1920 1080 || true
     xdotool windowactivate "${wid}" || true
@@ -139,7 +139,7 @@ docker ps --filter name=autoware_demo --format "  Autoware: {{.Status}}"
 # Move RViz window to right display (overlay on AWSIM or side-by-side)
 echo "  Moving RViz to right display..."
 sleep 5
-for wid in $(xdotool search --name "RViz" 2>/dev/null); do
+for wid in $(xdotool search --name "rviz2" 2>/dev/null); do
     xdotool windowmove "${wid}" 1920 0 || true
     xdotool windowsize "${wid}" 1920 1080 || true
     xdotool windowactivate "${wid}" || true
