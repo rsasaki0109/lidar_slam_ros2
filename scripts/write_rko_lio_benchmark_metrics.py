@@ -203,6 +203,31 @@ def main() -> int:
         default='',
         help='Output metrics path (default: <out-dir>/metrics.json)',
     )
+    parser.add_argument(
+        '--pipeline',
+        default='rko_lio',
+        choices=('rko_lio', 'lo', 'small_gicp'),
+        help=(
+            'rko_lio: RKO-LIO frontend; '
+            'lo: scanmatcher LiDAR-only frontend; '
+            'small_gicp: small_gicp ICP/GICP odometry frontend.'
+        ),
+    )
+    parser.add_argument(
+        '--robot-frame-id',
+        default='base_link',
+        help='Robot frame label stored in metrics (LO / visualization).',
+    )
+    parser.add_argument(
+        '--raw-path-topic',
+        default='/path',
+        help='Scanmatcher Path topic (LO pipeline).',
+    )
+    parser.add_argument(
+        '--corrected-path-topic',
+        default='/modified_path',
+        help='Graph Path topic (LO pipeline).',
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir).expanduser().resolve()
@@ -258,20 +283,31 @@ def main() -> int:
     if wall_sec is not None and bag_duration_sec and bag_duration_sec > 0.0:
         rtf = wall_sec / bag_duration_sec
 
+    if args.pipeline in ('lo', 'small_gicp'):
+        frames: dict[str, str] = {
+            'global_frame_id': 'map',
+            'odom_frame_id': 'odom',
+            'robot_frame_id': args.robot_frame_id,
+            'points_frame_id': args.robot_frame_id,
+        }
+    else:
+        frames = {
+            'global_frame_id': 'map',
+            'odom_frame_id': 'odom',
+            'robot_frame_id': 'os_sensor',
+            'points_frame_id': 'os_sensor',
+        }
+
     metrics: dict[str, Any] = {
         'started_at': args.started_at or None,
         'started_at_unix': args.started_at_unix,
+        'pipeline': args.pipeline,
         'out_dir': str(out_dir),
         'bag_path': str(bag_path),
         'bag_duration_sec': bag_duration_sec,
         'points_topic': args.points_topic,
         'imu_topic': args.imu_topic,
-        'frames': {
-            'global_frame_id': 'map',
-            'odom_frame_id': 'odom',
-            'robot_frame_id': 'os_sensor',
-            'points_frame_id': 'os_sensor',
-        },
+        'frames': frames,
         'reference': {
             'source': reference_meta_data.get('source', args.reference_source),
             'tum_path': str(reference_tum),
@@ -294,18 +330,64 @@ def main() -> int:
             'success': False,
             'reference_source': reference_meta_data.get('source', args.reference_source),
         },
-        'rko_lio': {
-            'run_name': args.run_name or out_dir.name,
-            'param_path': str(rko_param),
-            'raw_tum_path': str(raw_tum) if raw_tum.is_file() else '',
-            'raw_tum_lines': _read_pose_count(raw_tum),
-            'raw_ape': raw_ape,
-            'corrected_tum_path': str(corrected_tum) if corrected_tum.is_file() else '',
-            'corrected_tum_lines': _read_pose_count(corrected_tum),
-            'corrected_ape': corrected_ape,
-            'reference_meta_path': _fmt_path(reference_meta),
-            'prism_offset_m': reference_meta_data.get('lidar_to_prism_translation_m'),
-        },
+        'rko_lio': (
+            {
+                'available': False,
+                'note': f'{args.pipeline} pipeline does not use RKO-LIO.',
+            }
+            if args.pipeline != 'rko_lio'
+            else {
+                'available': True,
+                'run_name': args.run_name or out_dir.name,
+                'param_path': str(rko_param),
+                'raw_tum_path': str(raw_tum) if raw_tum.is_file() else '',
+                'raw_tum_lines': _read_pose_count(raw_tum),
+                'raw_ape': raw_ape,
+                'corrected_tum_path': str(corrected_tum) if corrected_tum.is_file() else '',
+                'corrected_tum_lines': _read_pose_count(corrected_tum),
+                'corrected_ape': corrected_ape,
+                'reference_meta_path': _fmt_path(reference_meta),
+                'prism_offset_m': reference_meta_data.get('lidar_to_prism_translation_m'),
+            }
+        ),
+        'scanmatcher_lo': (
+            {
+                'lidarslam_param_path': str(lidarslam_param),
+                'raw_path_topic': args.raw_path_topic,
+                'corrected_path_topic': args.corrected_path_topic,
+                'raw_tum_path': str(raw_tum) if raw_tum.is_file() else '',
+                'raw_tum_lines': _read_pose_count(raw_tum),
+                'raw_ape': raw_ape,
+                'corrected_tum_path': str(corrected_tum) if corrected_tum.is_file() else '',
+                'corrected_tum_lines': _read_pose_count(corrected_tum),
+                'corrected_ape': corrected_ape,
+                'reference_meta_path': _fmt_path(reference_meta),
+                'prism_offset_m': reference_meta_data.get('lidar_to_prism_translation_m'),
+            }
+            if args.pipeline == 'lo'
+            else {
+                'available': False,
+            }
+        ),
+        'small_gicp_lo': (
+            {
+                'available': True,
+                'frontend_param_path': str(rko_param),
+                'raw_odom_topic': '/odom',
+                'raw_tum_path': str(raw_tum) if raw_tum.is_file() else '',
+                'raw_tum_lines': _read_pose_count(raw_tum),
+                'raw_ape': raw_ape,
+                'corrected_tum_path': str(corrected_tum) if corrected_tum.is_file() else '',
+                'corrected_tum_lines': _read_pose_count(corrected_tum),
+                'corrected_ape': corrected_ape,
+                'reference_meta_path': _fmt_path(reference_meta),
+                'prism_offset_m': reference_meta_data.get('lidar_to_prism_translation_m'),
+            }
+            if args.pipeline == 'small_gicp'
+            else {
+                'available': False,
+            }
+        ),
         'graph_based_slam': {
             'corrected_path_available': corrected_tum.is_file(),
             'map_projector_info_path': str(out_dir / 'map_projector_info.yaml')

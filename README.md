@@ -221,6 +221,22 @@ bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
 
+For KITTI Odometry / Velodyne-only evaluation, use the LiDAR-only benchmark path:
+
+```bash
+bash scripts/download_kitti_odometry.sh --velodyne
+export KITTI_ODOMETRY_ROOT="$PWD/datasets/KITTI_odometry"
+bash scripts/run_kitti_odometry_benchmark.sh --sequence 00 --small-gicp --force-prepare
+```
+
+For parameter sweeps:
+
+```bash
+bash scripts/sweep_kitti_small_gicp.sh \
+  --dataset "$KITTI_ODOMETRY_ROOT" \
+  --sequences "00 05 07"
+```
+
 For the Leo Drive classic-path suite, dynamic-filter benchmark, and MID360 place-recognition comparison, use the entrypoints documented in [docs/benchmarking.md](docs/benchmarking.md).
 
 Run the local readiness gate:

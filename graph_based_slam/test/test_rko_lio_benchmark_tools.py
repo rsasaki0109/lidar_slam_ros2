@@ -257,4 +257,87 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
     assert metrics['evo']['ape']['rmse'] == 0.1
     assert metrics['evo']['raw_ape']['rmse'] == 0.2
     assert metrics['graph_based_slam']['map_verify']['ok'] is True
+    assert metrics.get('pipeline') == 'rko_lio'
+    assert metrics['rko_lio']['available'] is True
     assert metrics['rko_lio']['prism_offset_m']['x'] == -0.243656
+
+
+def test_write_lo_metrics_sets_scanmatcher_payload(tmp_path):
+    """LO pipeline metrics should tag scanmatcher_lo and disable rko_lio."""
+    bag_dir = tmp_path / 'bag'
+    bag_dir.mkdir()
+    (bag_dir / 'metadata.yaml').write_text(
+        '\n'.join([
+            'rosbag2_bagfile_information:',
+            '  duration:',
+            '    nanoseconds: 1000000000',
+        ]),
+        encoding='utf-8',
+    )
+    out_dir = tmp_path / 'lo_bench'
+    out_dir.mkdir()
+    _create_map_bundle(out_dir)
+
+    raw_tum = out_dir / 'traj_raw_prism.tum'
+    corrected_tum = out_dir / 'traj_corrected_prism.tum'
+    reference_tum = tmp_path / 'reference.tum'
+    reference_tum.write_text('1.0 0 0 0 0 0 0 1\n', encoding='utf-8')
+    raw_tum.write_text(reference_tum.read_text(encoding='utf-8'), encoding='utf-8')
+    corrected_tum.write_text(reference_tum.read_text(encoding='utf-8'), encoding='utf-8')
+
+    raw_ape = out_dir / 'ape_raw_vs_gt.txt'
+    corrected_ape = out_dir / 'ape_corrected_vs_gt.txt'
+    for target in (raw_ape, corrected_ape):
+        target.write_text(
+            '\n'.join([
+                'APE translation (m)',
+                'pairs: 1',
+                'alignment: se3_umeyama',
+                'rmse: 0.42',
+            ]) + '\n',
+            encoding='utf-8',
+        )
+
+    lidarslam_yaml = tmp_path / 'lidarslam_lo.yaml'
+    lidarslam_yaml.write_text('scan_matcher:\n  ros__parameters: {}\n', encoding='utf-8')
+    reference_meta = tmp_path / 'ref_lo.json'
+    reference_meta.write_text(
+        json.dumps({'lidar_to_prism_translation_m': {'x': 0.0, 'y': 0.0, 'z': 0.0}}) + '\n',
+        encoding='utf-8',
+    )
+
+    result = subprocess.run(
+        [
+            'python3',
+            str(WRITE_METRICS_SCRIPT),
+            '--pipeline',
+            'lo',
+            '--out-dir',
+            str(out_dir),
+            '--bag',
+            str(bag_dir),
+            '--reference-tum',
+            str(reference_tum),
+            '--reference-meta',
+            str(reference_meta),
+            '--lidarslam-param',
+            str(lidarslam_yaml),
+            '--rko-param',
+            str(lidarslam_yaml),
+            '--robot-frame-id',
+            'velodyne',
+            '--reference-source',
+            'test_lo',
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+
+    assert result.returncode == 0, result.stderr
+    metrics = json.loads((out_dir / 'metrics.json').read_text(encoding='utf-8'))
+    assert metrics['pipeline'] == 'lo'
+    assert metrics['rko_lio']['available'] is False
+    assert metrics['scanmatcher_lo']['raw_ape']['rmse'] == 0.42
+    assert metrics['frames']['robot_frame_id'] == 'velodyne'

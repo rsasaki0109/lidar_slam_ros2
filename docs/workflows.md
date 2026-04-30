@@ -41,6 +41,8 @@ Optional 3D-BBS support:
 | Autoware pointcloud-map quickstart | `bash scripts/run_autoware_quickstart.sh` |
 | Full dogfood flow | `bash scripts/run_rko_lio_graph_autoware_dogfood.sh --auto-exit-secs 20` |
 | Standard NTU VIRAL benchmark | `bash scripts/run_rko_lio_graph_benchmark.sh` |
+| KITTI Odometry small_gicp evaluation | `bash scripts/run_kitti_odometry_benchmark.sh --sequence 00 --small-gicp --force-prepare` |
+| KITTI Odometry small_gicp sweep | `bash scripts/sweep_kitti_small_gicp.sh --dataset "$KITTI_ODOMETRY_ROOT" --sequences "00 05 07"` |
 | MID360 cross-validation benchmark | `bash scripts/run_rko_lio_mid360_crossval_benchmark.sh` |
 | Mixed-quality open-data GNSS smoke | `bash scripts/run_open_data_applanix_velodyne_gnss_smoke.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
 | Mixed-quality open-data GNSS benchmark | `bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
@@ -115,6 +117,31 @@ Internal wiring in this launch:
 
 - `scanmatcher` publishes `lidarslam_msgs/msg/MapArray` on `map_array`
 - `graph_based_slam` subscribes to `map_array`
+
+### KITTI / LiDAR-only evaluation path
+
+KITTI Odometry Velodyne sequences do not include IMU. Use this path for
+LiDAR-only evaluation and frontend tuning, not as the public default workflow.
+
+Download and run one sequence:
+
+```bash
+bash scripts/download_kitti_odometry.sh --velodyne
+export KITTI_ODOMETRY_ROOT="$PWD/datasets/KITTI_odometry"
+bash scripts/run_kitti_odometry_benchmark.sh --sequence 00 --small-gicp --force-prepare
+```
+
+Sweep several `small_gicp` parameter sets:
+
+```bash
+bash scripts/sweep_kitti_small_gicp.sh \
+  --dataset "$KITTI_ODOMETRY_ROOT" \
+  --sequences "00 05 07"
+```
+
+The KITTI wrappers write prepared rosbag2 data and benchmark artifacts under
+`output/` by default. The raw KITTI dataset belongs under `datasets/`, which is
+local-only and ignored by Git.
 
 ### Backend only: `graph_based_slam`
 

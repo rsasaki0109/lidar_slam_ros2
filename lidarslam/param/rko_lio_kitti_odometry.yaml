@@ -1,0 +1,6 @@
+# Baseline RKO-LIO settings for KITTI Odometry Velodyne HDL-64.
+# IMU extrinsics are overwritten by kitti_odometry_prepare.py from calib Tr_imu_to_velo.
+extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+deskew: false
+initialization_phase: false
