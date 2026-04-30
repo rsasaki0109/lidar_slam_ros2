@@ -42,6 +42,7 @@ Out of scope for the public path:
 - optional GNSS georeferencing writes `map_projector_info.yaml`
 - GNSS edges can use covariance-based weighting, with RTK-like fixes inferred from low horizontal covariance
 - GPL-free Scan Context place recognition is available in `graph_based_slam`
+- optional MIT-licensed 3D-BBS loop-candidate verification can be built from the vendored `Thirdparty/3d_bbs` source and remains disabled at runtime by default
 - experimental submap-BEV and SOLiD descriptors can be benchmarked without adding GPL dependencies
 - optional dynamic-object filtering can clean the saved `pointcloud_map/` at `/map_save` time without changing live odometry
 - dynamic-filter reports now track both point reduction and coarse tile-footprint preservation
@@ -237,9 +238,11 @@ The default public workflow excludes GPL-only frontend/backend components.
 - `RKO-LIO`: MIT
 - `DLIO`: MIT
 - `FAST_GICP`: BSD-3-Clause
+- `3D-BBS`: MIT, vendored under `Thirdparty/3d_bbs` for optional loop-candidate verification
 - built-in `Scan Context`: implemented locally to avoid GPL dependencies
 
 `Thirdparty/lio-sam` is excluded from default `colcon` package discovery via `COLCON_IGNORE`.
+`Thirdparty/3d_bbs` is also excluded from direct `colcon` package discovery; when present, `graph_based_slam` builds the required CPU sources as an optional static vendor target.
 
 ## Support Matrix
 

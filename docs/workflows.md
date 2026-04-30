@@ -23,6 +23,17 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 bash scripts/run_default_ci_checks.sh
 ```
 
+Optional 3D-BBS support:
+
+- `Thirdparty/3d_bbs` is a small MIT-licensed vendor tree with `COLCON_IGNORE`.
+- `graph_based_slam` builds its CPU 3D-BBS sources automatically when
+  `GRAPH_BASED_SLAM_ENABLE_3D_BBS=ON` and the vendor headers are present.
+- Runtime use is still off by default; enable it with
+  `use_3d_bbs_for_scan_context: true` in the graph parameter YAML or with the
+  MID360 benchmark wrapper option shown in the benchmarking docs.
+- To force-disable the optional build, pass
+  `--cmake-args -DGRAPH_BASED_SLAM_ENABLE_3D_BBS=OFF`.
+
 ## Main Entry Points
 
 | Goal | Entrypoint |

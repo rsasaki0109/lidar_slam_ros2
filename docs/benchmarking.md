@@ -21,6 +21,27 @@ That wrapper:
 - verifies the Autoware map bundle when present
 - writes `metrics.json` for the reporting pipeline
 
+## Optional 3D-BBS Verification
+
+`graph_based_slam` can build MIT-licensed 3D-BBS support from
+`Thirdparty/3d_bbs`. This is an optional verifier for Scan Context loop
+candidates, not part of the default public benchmark path.
+
+Build behavior:
+
+- enabled at build time when `GRAPH_BASED_SLAM_ENABLE_3D_BBS=ON` and the vendor
+  headers are present
+- disabled at runtime unless `use_3d_bbs_for_scan_context: true` is set
+- force-disabled with
+  `colcon build --symlink-install --cmake-args -DGRAPH_BASED_SLAM_ENABLE_3D_BBS=OFF`
+
+MID360 wrapper example:
+
+```bash
+bash scripts/run_rko_lio_mid360_crossval_benchmark.sh \
+  --use-3d-bbs-for-scan-context true
+```
+
 Typical outputs are written under:
 
 - `output/bench_rko_lio_ntu_viral_<name>/traj_raw_prism.tum`
