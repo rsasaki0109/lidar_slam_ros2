@@ -32,25 +32,17 @@ Out of scope for the public path:
 
 ## Why This Repo
 
-- non-GPL default path: `graph_based_slam` (BSD-2-Clause), `scanmatcher` (project-local), `RKO-LIO` (MIT), `DLIO` (MIT), `FAST_GICP` (BSD-3-Clause)
+- non-GPL default path: `graph_based_slam`, `scanmatcher`, `RKO-LIO`, `DLIO`, and optional `FAST_GICP`
 - pointcloud-map authoring is treated as a first-class workflow, not just a side-effect of odometry
 - Autoware pointcloud-map flow is exercised end-to-end
 - **AWSIM → lidarslam → Autoware autonomous driving** pipeline with one-command demo
 - **lanelet2 auto-generation** from SLAM trajectories (multi-segment with shared boundary nodes)
 - default benchmark path is tracked on `NTU VIRAL`
 - current long-loop evidence is tracked on `MID360`
-- optional GNSS georeferencing writes `map_projector_info.yaml`
-- GNSS edges can use covariance-based weighting, with RTK-like fixes inferred from low horizontal covariance
+- optional GNSS georeferencing writes `map_projector_info.yaml`; GNSS edges can use covariance-based weighting
 - GPL-free Scan Context place recognition is available in `graph_based_slam`
 - optional MIT-licensed 3D-BBS loop-candidate verification can be built from the vendored `Thirdparty/3d_bbs` source and remains disabled at runtime by default
-- experimental submap-BEV and SOLiD descriptors can be benchmarked without adding GPL dependencies
-- optional dynamic-object filtering can clean the saved `pointcloud_map/` at `/map_save` time without changing live odometry
-- dynamic-filter reports now track both point reduction and coarse tile-footprint preservation
-- packet-based Applanix IMU deskew support exists for real open data, but it remains experimental and off by default in the Leo Drive packet path
-- the Leo Drive classic path now has a dedicated benchmark-suite entrypoint and report
-- place-recognition and dynamic-filter comparisons both have report generators with tracked artifacts
-- a focused map-authoring report can summarize benchmark, GNSS, cleanup, and classic-path evidence in one place
-- a submission-bundle helper can package maps, metrics, trajectories, logs, and reports in a repeatable layout
+- report helpers cover benchmarks, GNSS, cleanup, dynamic filtering, place recognition, and submission bundles
 
 ## Install
 
@@ -91,41 +83,14 @@ bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
 
 ## AWSIM Autonomous Driving Pipeline
 
-Build a pointcloud map from AWSIM simulator data, auto-generate a lanelet2 map from the SLAM trajectory, and run autonomous driving with Autoware — all from self-made maps.
-
-```
-AWSIM (LiDAR + IMU) → rosbag2 → lidarslam → pointcloud_map + lanelet2 → Autoware → Driving
-```
+AWSIM simulator data can flow through lidarslam into `pointcloud_map`, generated lanelet2, and Autoware driving demos. Start with:
 
 ```bash
-# 1. Setup verification
 bash scripts/test_awsim_setup.sh
-
-# 2. One-command Autoware map from SLAM output
-bash scripts/build_autoware_map_from_slam.sh \
-  --pcd-dir ./pointcloud_map \
-  --g2o ./pose_graph.g2o \
-  --awsim-config /path/to/config.json \
-  --output ./autoware_map
-
-# 3. Autonomous driving demo with self-made map
 bash scripts/run_awsim_selfmade_map_demo.sh
-
-# 4. Or step-by-step with sample map
-bash scripts/run_awsim_autoware_demo.sh awsim      # Terminal 1
-bash scripts/run_awsim_autoware_demo.sh autoware    # Terminal 2
-bash scripts/run_awsim_autoware_demo.sh engage      # Terminal 3
 ```
 
-Generate a lanelet2 map from any TUM trajectory:
-
-```bash
-python3 scripts/simple_lanelet2_generator.py \
-  --input traj.tum --output lanelet2_map.osm \
-  --lane-width 7.0 --origin-lat 35.68 --origin-lon 139.69
-```
-
-See [AWSIM Autonomous Driving Tutorial](docs/awsim-autonomous-driving-tutorial.md) for the full walkthrough.
+For map packaging, lanelet2 generation, and terminal-by-terminal bringup, see [AWSIM Autonomous Driving Tutorial](docs/awsim-autonomous-driving-tutorial.md).
 
 ## Point-Cloud Map Example
 Autoware-compatible browser proof built from a live `/map/pointcloud_map`: the rendered map comes from Autoware map loaders, map verify is `PASS`, and GNSS runs emit `LocalCartesian`.
@@ -148,18 +113,7 @@ Preview the doc site locally with `python3 -m mkdocs serve`.
 
 ## Current Snapshot
 
-- long-loop map authoring: the current documented `MID360` path closes a large loop and keeps `PASS` map verification
-- georeferenced output: open-data GNSS runs emit `LocalCartesian` `map_projector_info.yaml` with `map_origin`
-- save-time cleanup: the dynamic-object filter removes about `50%` of saved points on `Leo Drive bag6` while keeping verification `PASS`
-
-| Dataset | Published configuration | Reference kind | APE RMSE (m) | Autoware map verify |
-| --- | --- | --- | --- | --- |
-| `NTU VIRAL tnp_01` | current default | `ground_truth` | `0.952` | `PASS` |
-| `NTU VIRAL tnp_01` | best observed | `ground_truth` | `0.870` | `PASS` |
-| `MID360` | current default | `cross_validation` | `3.641` | `PASS` |
-| `MID360` | best observed | `cross_validation` | `3.590` | `PASS` |
-
-More detail lives in [docs/comparison.md](docs/comparison.md), [docs/benchmarking.md](docs/benchmarking.md), `output/benchmark_summary.md`, and `output/latest_report.html`.
+The current public evidence covers `NTU VIRAL`, `MID360`, GNSS map metadata, and dynamic-filter save-time cleanup. More detail lives in [docs/comparison.md](docs/comparison.md), [docs/benchmarking.md](docs/benchmarking.md), `output/benchmark_summary.md`, and `output/latest_report.html`.
 
 ## Main Entrypoints
 
@@ -172,24 +126,7 @@ Required input topics for the main public path:
 | `ros2 launch graph_based_slam graphbasedslam.launch.py` | `lidarslam_msgs/MapArray` on `map_array` | IMU on `/imu` when `use_imu_preintegration:=true`, GNSS on `gnss_topic` (default: `/gnss/fix`) when `use_gnss:=true` |
 
 There is no wheel-speed / vehicle-speed input in the current public path yet.
-Inspect GNSS covariance quality before enabling backend GNSS weighting:
-
-```bash
-python3 scripts/inspect_navsatfix_covariance.py /path/to/rosbag2 --topic /gnss/fix
-```
-The backend GNSS subscription topic is configurable with `gnss_topic` (default: `/gnss/fix`).
-`scripts/run_open_data_gnss_smoke.sh` auto-detects the NavSatFix topic if you do not pass `--gnss-topic`.
-
-Some open-data bags expose GNSS quality only through Applanix raw messages. For those, inspect `GSOF50` first:
-
-```bash
-git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
-python3 scripts/inspect_applanix_gsof50_quality.py /path/to/rosbag2 \
-  --topic /lvx_client/gsof/ins_solution_rms_50 \
-  --applanix-msg-dir /tmp/applanix/applanix_msgs/msg
-```
-
-To use those bags with the current public `NavSatFix` path, generate a small sidecar rosbag2 with `scripts/convert_applanix_gsof_to_navsatfix_bag.py`. The full command is in [docs/workflows.md](docs/workflows.md).
+The backend GNSS subscription topic is configurable with `gnss_topic` (default: `/gnss/fix`). Inspect covariance with `scripts/inspect_navsatfix_covariance.py`; Applanix conversion details live in [docs/workflows.md](docs/workflows.md).
 
 Run the public Autoware quickstart:
 
@@ -221,23 +158,7 @@ bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
 
-For KITTI Odometry / Velodyne-only evaluation, use the LiDAR-only benchmark path:
-
-```bash
-bash scripts/download_kitti_odometry.sh --velodyne
-export KITTI_ODOMETRY_ROOT="$PWD/datasets/KITTI_odometry"
-bash scripts/run_kitti_odometry_benchmark.sh --sequence 00 --small-gicp --force-prepare
-```
-
-For parameter sweeps:
-
-```bash
-bash scripts/sweep_kitti_small_gicp.sh \
-  --dataset "$KITTI_ODOMETRY_ROOT" \
-  --sequences "00 05 07"
-```
-
-For the Leo Drive classic-path suite, dynamic-filter benchmark, and MID360 place-recognition comparison, use the entrypoints documented in [docs/benchmarking.md](docs/benchmarking.md).
+For KITTI Odometry / Velodyne-only evaluation, Leo Drive classic-path suites, dynamic-filter benchmarks, and MID360 place-recognition comparisons, use the entrypoints documented in [docs/benchmarking.md](docs/benchmarking.md).
 
 Run the local readiness gate:
 
@@ -247,18 +168,7 @@ bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10
 
 ## License Policy
 
-The default public workflow excludes GPL-only frontend/backend components.
-
-- `graph_based_slam`: BSD-2-Clause
-- `scanmatcher`: project-local frontend/backend code in this repository
-- `RKO-LIO`: MIT
-- `DLIO`: MIT
-- `FAST_GICP`: BSD-3-Clause
-- `3D-BBS`: MIT, vendored under `Thirdparty/3d_bbs` for optional loop-candidate verification
-- built-in `Scan Context`: implemented locally to avoid GPL dependencies
-
-`Thirdparty/lio-sam` is excluded from default `colcon` package discovery via `COLCON_IGNORE`.
-`Thirdparty/3d_bbs` is also excluded from direct `colcon` package discovery; when present, `graph_based_slam` builds the required CPU sources as an optional static vendor target.
+The default public workflow excludes GPL-only frontend/backend components. `graph_based_slam` is BSD-2-Clause; `RKO-LIO`, `DLIO`, and optional vendored `3D-BBS` are MIT; `FAST_GICP` is BSD-3-Clause; built-in `Scan Context` is implemented locally. `Thirdparty/lio-sam` and `Thirdparty/3d_bbs` are excluded from direct `colcon` package discovery via `COLCON_IGNORE`.
 
 ## Support Matrix
 
@@ -269,12 +179,6 @@ The default public workflow excludes GPL-only frontend/backend components.
 
 ## Quality Gates
 
-The main checks for the public path are:
-
-- `bash scripts/run_default_ci_checks.sh`
-- `python3 scripts/verify_autoware_map.py <pointcloud_map_dir>`
-- `bash scripts/run_autoware_quickstart.sh`
-- `bash scripts/run_rko_lio_graph_autoware_dogfood.sh --auto-exit-secs 20`
-- `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10`
+The main checks for the public path are `bash scripts/run_default_ci_checks.sh`, `python3 scripts/verify_autoware_map.py <pointcloud_map_dir>`, `bash scripts/run_autoware_quickstart.sh`, `bash scripts/run_rko_lio_graph_autoware_dogfood.sh --auto-exit-secs 20`, and `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10`.
 
 For the command-level details, parameter-file pointers, and Autoware map output notes, see [docs/workflows.md](docs/workflows.md).
