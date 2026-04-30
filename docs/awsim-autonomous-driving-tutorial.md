@@ -48,6 +48,14 @@ unzip awsim_labs_v1.6.1.zip
 chmod +x awsim_labs_v1.6.1/awsim_labs.x86_64
 ```
 
+付属スクリプトのデフォルトは `/workspace/ai_coding_ws/awsim` です。別の場所に展開した場合は環境変数で指定します:
+
+```bash
+export AWSIM_DIR=/path/to/awsim
+export AWSIM_MAP_PATH=/path/to/sample_map/nishishinjuku_autoware_map
+export AUTOWARE_IMAGE=ghcr.io/autowarefoundation/autoware:universe-cuda
+```
+
 ### 4. CycloneDDS 設定
 
 ```bash
@@ -219,9 +227,18 @@ score_estimation:
   converged_param_nearest_voxel_transformation_likelihood: 1.5  # default: 2.3
 ```
 
+`scripts/run_awsim_selfmade_map_demo.sh` は `NDT_OVERRIDE` を Autoware コンテナへ mount します。デフォルト以外の場所に置く場合は指定してください:
+
+```bash
+export NDT_OVERRIDE=/path/to/ndt_scan_matcher.param.yaml
+```
+
 ### ワンコマンドデモ
 
 ```bash
+export AWSIM_DIR=/path/to/awsim
+export MY_MAP=/path/to/autoware_map
+export NDT_OVERRIDE=/path/to/ndt_scan_matcher.param.yaml
 bash scripts/run_awsim_selfmade_map_demo.sh        # デモ実行
 bash scripts/run_awsim_selfmade_map_demo.sh true    # 動画付き
 ```

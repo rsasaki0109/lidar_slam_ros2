@@ -16,9 +16,10 @@ set -euo pipefail
 #   bash run_awsim_autoware_demo.sh engage
 # ============================================================
 
-AWSIM_DIR="/workspace/ai_coding_ws/awsim"
-AWSIM_BIN="${AWSIM_DIR}/awsim_labs_v1.6.1/awsim_labs.x86_64"
-MAP_PATH="${AWSIM_DIR}/sample_map/nishishinjuku_autoware_map"
+AWSIM_DIR="${AWSIM_DIR:-/workspace/ai_coding_ws/awsim}"
+AWSIM_BIN="${AWSIM_BIN:-${AWSIM_DIR}/awsim_labs_v1.6.1/awsim_labs.x86_64}"
+MAP_PATH="${AWSIM_MAP_PATH:-${AWSIM_DIR}/sample_map/nishishinjuku_autoware_map}"
+AUTOWARE_IMAGE="${AUTOWARE_IMAGE:-ghcr.io/autowarefoundation/autoware:universe-cuda}"
 
 # CycloneDDS configuration for AWSIM <-> Autoware communication
 setup_dds() {
@@ -62,7 +63,7 @@ case "${1:-help}" in
       -v "${HOME}/cyclonedds.xml:/cyclonedds.xml:ro" \
       -v "${MAP_PATH}:/autoware_map:ro" \
       -v "${HOME}/autoware_data:/root/autoware_data:rw" \
-      ghcr.io/autowarefoundation/autoware:universe-cuda \
+      "${AUTOWARE_IMAGE}" \
       bash -c "source /opt/ros/humble/setup.bash && source /opt/autoware/setup.bash && \
         ros2 launch autoware_launch e2e_simulator.launch.xml \
           vehicle_model:=awsim_labs_vehicle \
@@ -77,7 +78,7 @@ case "${1:-help}" in
       -e RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
       -e CYCLONEDDS_URI=/cyclonedds.xml \
       -v "${HOME}/cyclonedds.xml:/cyclonedds.xml:ro" \
-      ghcr.io/autowarefoundation/autoware:universe-cuda \
+      "${AUTOWARE_IMAGE}" \
       bash -c "source /opt/ros/humble/setup.bash && source /opt/autoware/setup.bash && \
         ros2 topic pub /autoware/engage autoware_vehicle_msgs/msg/Engage '{engage: True}' --once"
     ;;

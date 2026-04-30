@@ -19,29 +19,33 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-AWSIM_DIR="/workspace/ai_coding_ws/awsim"
-AWSIM_BIN="${AWSIM_DIR}/awsim_labs_v1.6.1/awsim_labs.x86_64"
-AWSIM_CONFIG="${AWSIM_DIR}/awsim_labs_v1.6.1/awsim_labs_Data/StreamingAssets/config.json"
-MY_MAP="${REPO_ROOT}/output/awsim_shinjuku_slam/autoware_map"
-NDT_OVERRIDE="/tmp/autoware_config_override/ndt_scan_matcher.param.yaml"
-AUTOWARE_IMAGE="ghcr.io/autowarefoundation/autoware:universe-cuda"
+AWSIM_DIR="${AWSIM_DIR:-/workspace/ai_coding_ws/awsim}"
+AWSIM_BIN="${AWSIM_BIN:-${AWSIM_DIR}/awsim_labs_v1.6.1/awsim_labs.x86_64}"
+AWSIM_CONFIG="${AWSIM_CONFIG:-${AWSIM_DIR}/awsim_labs_v1.6.1/awsim_labs_Data/StreamingAssets/config.json}"
+MY_MAP="${MY_MAP:-${REPO_ROOT}/output/awsim_shinjuku_slam/autoware_map}"
+NDT_OVERRIDE="${NDT_OVERRIDE:-/tmp/autoware_config_override/ndt_scan_matcher.param.yaml}"
+AUTOWARE_IMAGE="${AUTOWARE_IMAGE:-ghcr.io/autowarefoundation/autoware:universe-cuda}"
 
 RECORD_VIDEO="${1:-false}"
-VIDEO_OUT="${REPO_ROOT}/output/awsim_shinjuku_slam/demo.mp4"
-RECORD_DURATION=180
+VIDEO_OUT="${VIDEO_OUT:-${REPO_ROOT}/output/awsim_shinjuku_slam/demo.mp4}"
+RECORD_DURATION="${RECORD_DURATION:-180}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 # --- Pre-flight checks ---
 [ -x "${AWSIM_BIN}" ] || die "AWSIM not found: ${AWSIM_BIN}"
+[ -f "${AWSIM_CONFIG}" ] || die "AWSIM config not found: ${AWSIM_CONFIG}"
 [ -d "${MY_MAP}" ] || die "Map not found: ${MY_MAP}"
 [ -f "${MY_MAP}/pointcloud_map.pcd" ] || die "PCD not found"
 [ -f "${MY_MAP}/lanelet2_map.osm" ] || die "Lanelet2 not found"
 [ -f "${HOME}/cyclonedds.xml" ] || die "CycloneDDS config not found"
+[ -f "${NDT_OVERRIDE}" ] || die "NDT override not found: ${NDT_OVERRIDE}"
 docker image inspect "${AUTOWARE_IMAGE}" >/dev/null 2>&1 || die "Autoware image not pulled"
 
 echo "=== Self-Made Map Autonomous Driving Demo ==="
+echo "AWSIM: ${AWSIM_DIR}"
 echo "Map: ${MY_MAP}"
+echo "NDT override: ${NDT_OVERRIDE}"
 echo ""
 
 # --- Prevent screen lock ---
