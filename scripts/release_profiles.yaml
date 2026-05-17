@@ -6,6 +6,14 @@
 # against the best matching run under ``--root`` and emits PASS / FAIL / WARN /
 # NO_DATA per profile.
 #
+# Track convention (also documented in docs/comparison.md):
+#   - Release track:  no ``report_only_until`` (currently only
+#                     ``newer_college_math_hard``). A FAIL here blocks release.
+#   - Research track: ``report_only_until: v0.4`` (``ntu_viral_tnp_01``,
+#                     ``mid360_vs_glim``, ``leo_drive_applanix_velodyne_cross``).
+#                     A FAIL here is downgraded to WARN, so the gate reports
+#                     the regression without blocking the release cut.
+#
 # Fields:
 #   name: short identifier (snake_case)
 #   description: human-readable context (sensor / route / GT type)

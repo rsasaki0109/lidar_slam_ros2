@@ -36,11 +36,13 @@ Out of scope for the public path:
 - pointcloud-map authoring is treated as a first-class workflow, not just a side-effect of odometry
 - Autoware pointcloud-map flow is exercised end-to-end
 - **AWSIM → lidarslam → Autoware autonomous driving** pipeline with one-command demo
-- **lanelet2 auto-generation** from SLAM trajectories (multi-segment with shared boundary nodes)
-- default benchmark path is tracked on `NTU VIRAL`
-- current long-loop evidence is tracked on `MID360`
+- **lanelet2 auto-generation** from SLAM trajectories (multi-segment with shared boundary nodes), structurally validated before Autoware loads it
+- release-track benchmarks: `NTU VIRAL` (outdoor GT) and KITTI Odometry 00/05/07 (LO baseline non-regression)
+- research-track benchmarks (`report_only_until: v0.4`): `MID-360` solid-state LiDAR vs GLIM, Leo Drive open-data Velodyne cross-validation
+- per-dataset pass / target thresholds in `scripts/release_profiles.yaml`; `bash scripts/run_release_readiness_checks.sh --fail-on-profiles` gates release without forcing one global APE threshold
 - optional GNSS georeferencing writes `map_projector_info.yaml`; GNSS edges can use covariance-based weighting
 - GPL-free Scan Context place recognition is available in `graph_based_slam`
+- opt-in NIS-driven auto-scale for the adjacent-edge information weight so the backend self-tunes between strong and weak LIO datasets
 - optional MIT-licensed 3D-BBS loop-candidate verification can be built from the vendored `Thirdparty/3d_bbs` source and remains disabled at runtime by default
 - report helpers cover benchmarks, GNSS, cleanup, dynamic filtering, place recognition, and submission bundles
 
@@ -113,7 +115,16 @@ Preview the doc site locally with `python3 -m mkdocs serve`.
 
 ## Current Snapshot
 
-The current public evidence covers `NTU VIRAL`, `MID360`, GNSS map metadata, and dynamic-filter save-time cleanup. More detail lives in [docs/comparison.md](docs/comparison.md), [docs/benchmarking.md](docs/benchmarking.md), `output/benchmark_summary.md`, and `output/latest_report.html`.
+Release track:
+- `NTU VIRAL tnp_01` outdoor GT (current default 0.952 m, best 0.870 m; gate `WARN`, `report_only_until: v0.4`)
+- KITTI Odometry 00 / 05 / 07 LO baseline (non-regression report; `bash scripts/run_kitti_00_05_07_report.sh`)
+- Autoware-compatible pointcloud_map + lanelet2 + AWSIM → Autoware E2E demo
+
+Research track (`report_only_until: v0.4`, does not block release):
+- `MID-360` vs GLIM cross-validation (current default 3.641 m, best 3.590 m; solid-state LiDAR research dataset)
+- Leo Drive applanix/velodyne open-data cross-validation
+
+More detail lives in [docs/comparison.md](docs/comparison.md), [docs/benchmarking.md](docs/benchmarking.md), `scripts/release_profiles.yaml`, `output/benchmark_summary.md`, and `output/latest_report.html`.
 
 ## Main Entrypoints
 
@@ -158,9 +169,18 @@ bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
 
-For KITTI Odometry / Velodyne-only evaluation, Leo Drive classic-path suites, dynamic-filter benchmarks, and MID360 place-recognition comparisons, use the entrypoints documented in [docs/benchmarking.md](docs/benchmarking.md).
+For KITTI Odometry / Velodyne-only evaluation, Leo Drive classic-path suites, dynamic-filter benchmarks, and `MID-360` place-recognition comparisons, use the entrypoints documented in [docs/benchmarking.md](docs/benchmarking.md). The KITTI Odometry 00/05/07 LO baseline aggregator lives at `scripts/run_kitti_00_05_07_report.sh` (uses frozen params and writes `kitti_dev_report.md` with `t_rel` / `r_rel` per sequence).
 
-Run the local readiness gate:
+Run the local readiness gate. The default uses the per-dataset profiles in
+`scripts/release_profiles.yaml`, so `WARN` is emitted for research-track
+datasets (`MID-360`, `NTU VIRAL`, Leo Drive) and only release-track profiles
+without `report_only_until` (Newer College) can block release:
+
+```bash
+bash scripts/run_release_readiness_checks.sh --fail-on-profiles
+```
+
+The legacy single-threshold mode is still supported for compatibility:
 
 ```bash
 bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10
