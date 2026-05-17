@@ -308,6 +308,11 @@ if(BUILD_TESTING)
     test/test_triangle_descriptor_yaml_defaults.py
     TIMEOUT 60
   )
+  ament_add_pytest_test(
+    test_triangle_ablation_runner
+    test/test_triangle_ablation_runner.py
+    TIMEOUT 60
+  )
 endif()
 
 add_library(graph_based_slam_component SHARED
