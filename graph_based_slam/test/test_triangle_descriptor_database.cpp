@@ -446,3 +446,60 @@ TEST(TriangleLoopCandidate, MaxPairsLimitsEvaluatedSet)
   EXPECT_LE(candidate.inliers, 3);
   EXPECT_GE(candidate.inliers, 0);
 }
+
+TEST(TriangleLoopCandidate, FourthPointConsensusAcceptsIdentity)
+{
+  // Identity recovery: every projected query keypoint matches a db keypoint
+  // exactly, so a high min_4th_point_agreements threshold still passes.
+  const auto kps = makeKeypointGrid(4, 4, 3.0f);
+  const auto tris = buildTriangles(kps, TriangleBuildConfig{});
+
+  TriangleDatabase db;
+  HashConfig cfg;
+  db.addSubmap(19, kps, tris, cfg);
+
+  VoteConfig vote_cfg;
+  VerificationConfig verify_cfg;
+  verify_cfg.min_4th_point_agreements = 8;
+  verify_cfg.fourth_point_max_distance_m = 0.5f;
+  const auto candidate = findLoopCandidate(db, kps, tris, cfg, vote_cfg, verify_cfg);
+  EXPECT_TRUE(candidate.accepted);
+}
+
+TEST(TriangleLoopCandidate, FourthPointConsensusRejectsHighThreshold)
+{
+  // 4-point gate with an impossible threshold (more agreements than there
+  // are query keypoints) must reject even a perfect identity match.
+  const auto kps = makeKeypointGrid(4, 4, 3.0f);
+  const auto tris = buildTriangles(kps, TriangleBuildConfig{});
+
+  TriangleDatabase db;
+  HashConfig cfg;
+  db.addSubmap(23, kps, tris, cfg);
+
+  VoteConfig vote_cfg;
+  VerificationConfig verify_cfg;
+  verify_cfg.min_4th_point_agreements = 1000;  // impossible
+  verify_cfg.fourth_point_max_distance_m = 0.5f;
+  const auto candidate = findLoopCandidate(db, kps, tris, cfg, vote_cfg, verify_cfg);
+  EXPECT_FALSE(candidate.accepted);
+  EXPECT_GT(candidate.inliers, 0);
+}
+
+TEST(TriangleDatabase, KeypointsAccessorReturnsStoredVector)
+{
+  const auto kps = makeKeypointGrid(3, 3, 2.0f);
+  TriangleDescriptor t = makeTriangle(kps, 0, 1, 3);
+
+  TriangleDatabase db;
+  HashConfig cfg;
+  db.addSubmap(99, kps, {t}, cfg);
+
+  const auto & stored = db.keypoints(99);
+  ASSERT_EQ(stored.size(), kps.size());
+  EXPECT_NEAR(stored[0].position.x(), kps[0].position.x(), 1e-6);
+
+  // Unknown submap returns an empty vector instead of crashing.
+  const auto & missing = db.keypoints(7777);
+  EXPECT_TRUE(missing.empty());
+}
