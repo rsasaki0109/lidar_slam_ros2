@@ -303,6 +303,11 @@ if(BUILD_TESTING)
     test/test_exploration_closeout_report.py
     TIMEOUT 120
   )
+  ament_add_pytest_test(
+    test_triangle_descriptor_yaml_defaults
+    test/test_triangle_descriptor_yaml_defaults.py
+    TIMEOUT 60
+  )
 endif()
 
 add_library(graph_based_slam_component SHARED
