@@ -1,0 +1,69 @@
+# lidarslam-ros2 release readiness profiles
+#
+# Each profile pins one dataset / reference combination to its own pass / target
+# threshold so the release gate does not collapse all datasets onto one APE
+# number. ``benchmark_summary.py --release-profile`` evaluates each profile
+# against the best matching run under ``--root`` and emits PASS / FAIL / WARN /
+# NO_DATA per profile.
+#
+# Fields:
+#   name: short identifier (snake_case)
+#   description: human-readable context (sensor / route / GT type)
+#   match: predicates that select which metrics.json runs feed this profile.
+#     - bag_name_contains: substring of basename(bag_path)
+#     - points_topic: exact match on /...
+#     - reference_kind: ground_truth | cross_validation | unknown
+#     - reference_source_contains: substring of reference.source
+#     - min_ape_pairs: minimum evo.ape.pairs to filter out partial/incomplete runs
+#   metric:
+#     ape_rmse_gt_m            -> evo.ape.rmse, only when reference.kind == ground_truth
+#     ape_rmse_vs_reference_m  -> evo.ape.rmse against any reference (typically cross_validation)
+#   pass: hard threshold (release gate fails if best matching run exceeds this)
+#   target: roadmap target shown alongside (no enforcement; bonus TARGET_MET tag)
+#   report_only_until: optional release tag; while set, FAIL is downgraded to WARN
+#                       so the profile reports but does not block release
+
+release_profiles:
+  - name: newer_college_math_hard
+    description: Newer College math-hard (~320m loop, Ouster OS0-128 + IMU, prism GT)
+    match:
+      bag_name_contains: math_hard
+      reference_kind: ground_truth
+    metric: ape_rmse_gt_m
+    pass: 0.10
+    target: 0.08
+
+  - name: ntu_viral_tnp_01
+    description: NTU VIRAL tnp_01 (~580s outdoor, Ouster OS1-16 + VN-100, Leica prism GT)
+    match:
+      bag_name_contains: tnp_01
+      reference_kind: ground_truth
+      min_ape_pairs: 200
+    metric: ape_rmse_gt_m
+    pass: 1.00
+    target: 0.30
+    report_only_until: v0.4
+
+  - name: mid360_vs_glim
+    description: Livox MID-360 vs GLIM cross-validation (~277s indoor loop)
+    match:
+      points_topic: /livox/lidar
+      reference_kind: cross_validation
+      reference_source_contains: glim_mid360
+      min_ape_pairs: 400
+    metric: ape_rmse_vs_reference_m
+    pass: 4.00
+    target: 1.00
+    report_only_until: v0.4
+
+  - name: leo_drive_applanix_velodyne_cross
+    description: Leo Drive applanix/velodyne open data vs Applanix GSOF49 cross-validation
+    match:
+      points_topic: /open_data/velodyne_points
+      reference_kind: cross_validation
+      reference_source_contains: applanix_gsof49
+      min_ape_pairs: 200
+    metric: ape_rmse_vs_reference_m
+    pass: 1.50
+    target: 0.50
+    report_only_until: v0.4
