@@ -176,8 +176,19 @@ run_one "candidate (use_triangle_descriptor:=true)" \
 
 BASELINE_METRICS="${BASELINE_DIR}/metrics.json"
 CANDIDATE_METRICS="${CANDIDATE_DIR}/metrics.json"
-BASELINE_LOG=$(find "$BASELINE_DIR" -maxdepth 2 -name "*.log" | head -n 1)
-CANDIDATE_LOG=$(find "$CANDIDATE_DIR" -maxdepth 2 -name "*.log" | head -n 1)
+# Prefer slam.launch.log because that's where the graph_based_slam component
+# emits the candidate / loop_candidate_source counters the report parses.
+# Fall back to any *.log only when the canonical launch log is missing.
+pick_launch_log() {
+  local dir="$1"
+  if [[ -f "${dir}/slam.launch.log" ]]; then
+    echo "${dir}/slam.launch.log"
+  else
+    find "$dir" -maxdepth 2 -name "*.log" | head -n 1
+  fi
+}
+BASELINE_LOG="$(pick_launch_log "$BASELINE_DIR")"
+CANDIDATE_LOG="$(pick_launch_log "$CANDIDATE_DIR")"
 
 if [[ -z "$REPORT_OUT" ]]; then
   REPORT_OUT="${OUTPUT_DIR}/triangle_ablation_report.md"
