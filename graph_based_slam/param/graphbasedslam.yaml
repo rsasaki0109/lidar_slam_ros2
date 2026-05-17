@@ -52,8 +52,8 @@ graph_based_slam:
       triangle_descriptor_max_edge_m: 50.0
       triangle_descriptor_max_triangles: 5000
       triangle_descriptor_edge_bin_m: 1.0
-      triangle_descriptor_min_votes: 6
-      triangle_descriptor_min_inliers: 3
+      triangle_descriptor_min_votes: 10
+      triangle_descriptor_min_inliers: 5
       triangle_descriptor_inlier_translation_m: 2.0
       triangle_descriptor_inlier_rotation_deg: 5.0
       triangle_descriptor_exclude_recent: 4

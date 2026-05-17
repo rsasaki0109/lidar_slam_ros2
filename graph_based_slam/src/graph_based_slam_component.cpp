@@ -143,9 +143,9 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("triangle_descriptor_max_triangles", triangle_descriptor_max_triangles_);
   declare_parameter("triangle_descriptor_edge_bin_m", 1.0);
   get_parameter("triangle_descriptor_edge_bin_m", triangle_descriptor_edge_bin_m_);
-  declare_parameter("triangle_descriptor_min_votes", 6);
+  declare_parameter("triangle_descriptor_min_votes", 10);
   get_parameter("triangle_descriptor_min_votes", triangle_descriptor_min_votes_);
-  declare_parameter("triangle_descriptor_min_inliers", 3);
+  declare_parameter("triangle_descriptor_min_inliers", 5);
   get_parameter("triangle_descriptor_min_inliers", triangle_descriptor_min_inliers_);
   declare_parameter("triangle_descriptor_inlier_translation_m", 2.0);
   get_parameter(
@@ -1059,6 +1059,11 @@ void GraphBasedSlamComponent::searchLoop()
     double selection_metric {std::numeric_limits<double>::max()};
     Source source {Source::DISTANCE};
     double yaw_rad {0.0};
+    // Recovered SE(3) from the descriptor that proposed this candidate
+    // (currently only triangle). Identity unless populated. Used as the NDT
+    // initial guess instead of the pose-derived guess when source matches.
+    Eigen::Matrix4f relative_transform {Eigen::Matrix4f::Identity()};
+    bool has_relative_transform {false};
   };
 
   struct LoopCandidateResult
@@ -1290,7 +1295,8 @@ void GraphBasedSlamComponent::searchLoop()
     int index,
     double selection_metric,
     LoopCandidate::Source source,
-    double yaw_rad = 0.0)
+    double yaw_rad = 0.0,
+    const Eigen::Matrix4f * relative_transform = nullptr)
     {
       if (index < 0) {
         return;
@@ -1301,6 +1307,10 @@ void GraphBasedSlamComponent::searchLoop()
         }
         candidate.selection_metric = std::min(candidate.selection_metric, selection_metric);
         candidate.yaw_rad = yaw_rad;
+        if (relative_transform != nullptr) {
+          candidate.relative_transform = *relative_transform;
+          candidate.has_relative_transform = true;
+        }
         return;
       }
 
@@ -1309,6 +1319,10 @@ void GraphBasedSlamComponent::searchLoop()
       candidate.selection_metric = selection_metric;
       candidate.source = source;
       candidate.yaw_rad = yaw_rad;
+      if (relative_transform != nullptr) {
+        candidate.relative_transform = *relative_transform;
+        candidate.has_relative_transform = true;
+      }
       candidates.push_back(candidate);
     };
 
@@ -1907,7 +1921,8 @@ void GraphBasedSlamComponent::searchLoop()
               chosen_submap_id,
               tri_metric,
               LoopCandidate::Source::TRIANGLE_DESCRIPTOR,
-              tri_yaw_rad);
+              tri_yaw_rad,
+              &cand.transform);
             std::cout << "Triangle loop candidate: id=" << chosen_submap_id
                       << " votes=" << chosen_votes
                       << " inliers=" << cand.inliers
@@ -2016,7 +2031,18 @@ void GraphBasedSlamComponent::searchLoop()
     double three_d_bbs_elapsed_msec = 0.0;
     Eigen::Matrix4f initial_guess =
       (candidate_affine.matrix() * latest_affine.inverse().matrix()).cast<float>();
-    if (std::abs(candidate.yaw_rad) > 1e-6) {
+    if (
+      candidate.source == LoopCandidate::Source::TRIANGLE_DESCRIPTOR &&
+      candidate.has_relative_transform)
+    {
+      // Triangle proposes a SE(3) that maps latest-submap-local points to
+      // chosen-submap-local points. NDT works in world frame, so chain in
+      // the two submap poses to recover the source -> target world guess.
+      initial_guess =
+        (candidate_affine.matrix() *
+        candidate.relative_transform.cast<double>() *
+        latest_affine.inverse().matrix()).cast<float>();
+    } else if (std::abs(candidate.yaw_rad) > 1e-6) {
       Eigen::Affine3d yaw_correction = Eigen::Affine3d::Identity();
       yaw_correction.rotate(Eigen::AngleAxisd(candidate.yaw_rad, Eigen::Vector3d::UnitZ()));
       initial_guess =
