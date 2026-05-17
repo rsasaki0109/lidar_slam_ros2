@@ -38,6 +38,7 @@
 #include <unordered_map>
 
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
+#include "graph_based_slam/bev_mutual_visibility.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "g2o/core/robust_kernel_impl.h"
 #define GRAPH_BASED_SLAM_WITH_G2O 1
@@ -156,6 +157,16 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
     bev_descriptor_max_euclidean_distance_m_);
   declare_parameter("bev_descriptor_rerank_weight_m", 100.0);
   get_parameter("bev_descriptor_rerank_weight_m", bev_descriptor_rerank_weight_m_);
+  declare_parameter("bev_use_mutual_visibility", false);
+  get_parameter("bev_use_mutual_visibility", bev_use_mutual_visibility_);
+  declare_parameter("bev_mutual_visibility_min_overlap_ratio", 0.05);
+  get_parameter(
+    "bev_mutual_visibility_min_overlap_ratio",
+    bev_mutual_visibility_min_overlap_ratio_);
+  declare_parameter("bev_mutual_visibility_occupancy_eps", 0.5);
+  get_parameter(
+    "bev_mutual_visibility_occupancy_eps",
+    bev_mutual_visibility_occupancy_eps_);
   declare_parameter("solid_descriptor_min_similarity", 0.70);
   get_parameter("solid_descriptor_min_similarity", solid_descriptor_min_similarity_);
   declare_parameter("solid_descriptor_sequence_window", 0);
@@ -623,6 +634,14 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       bev_descriptor_max_euclidean_distance_m_ << std::endl;
     std::cout << "bev_descriptor_rerank_weight_m:" << bev_descriptor_rerank_weight_m_ <<
       std::endl;
+    std::cout << "bev_use_mutual_visibility:" << std::boolalpha <<
+      bev_use_mutual_visibility_ << std::endl;
+    if (bev_use_mutual_visibility_) {
+      std::cout << "bev_mutual_visibility_min_overlap_ratio:" <<
+        bev_mutual_visibility_min_overlap_ratio_ << std::endl;
+      std::cout << "bev_mutual_visibility_occupancy_eps:" <<
+        bev_mutual_visibility_occupancy_eps_ << std::endl;
+    }
   }
   std::cout << "use_solid_descriptor:" << std::boolalpha << use_solid_descriptor_ << std::endl;
   if (use_solid_descriptor_) {
@@ -1262,11 +1281,29 @@ void GraphBasedSlamComponent::searchLoop()
         continue;
       }
 
-      const auto bev_match = SubmapBEVDescriptor::distanceWithAlignment(
-        bev_descriptor_db_.descriptors.back(),
-        bev_descriptor_db_.descriptors[bev_idx],
-        bev_idx,
-        bev_descriptor_yaw_bins_);
+      SubmapBEVDescriptor::Match bev_match;
+      if (bev_use_mutual_visibility_) {
+        graphslam::bev::MutualVisibilityConfig mv_cfg;
+        mv_cfg.min_overlap_ratio = bev_mutual_visibility_min_overlap_ratio_;
+        mv_cfg.occupancy_eps =
+          static_cast<float>(bev_mutual_visibility_occupancy_eps_);
+        const auto fov = graphslam::bev::mutualVisibilityWithYawSearch(
+          bev_descriptor_db_.descriptors.back(),
+          bev_descriptor_db_.descriptors[bev_idx],
+          bev_idx,
+          bev_descriptor_yaw_bins_,
+          mv_cfg);
+        bev_match.submap_id = fov.submap_id;
+        bev_match.distance = fov.valid ? fov.distance : 1.0;
+        bev_match.yaw_bin = fov.yaw_bin;
+        bev_match.yaw_rad = fov.yaw_rad;
+      } else {
+        bev_match = SubmapBEVDescriptor::distanceWithAlignment(
+          bev_descriptor_db_.descriptors.back(),
+          bev_descriptor_db_.descriptors[bev_idx],
+          bev_idx,
+          bev_descriptor_yaw_bins_);
+      }
       if (bev_match.distance < best_bev_dist) {
         best_bev_dist = bev_match.distance;
         best_bev_idx = bev_idx;
@@ -1307,9 +1344,23 @@ void GraphBasedSlamComponent::searchLoop()
           const auto rotated_candidate_descriptor = SubmapBEVDescriptor::rotateDescriptor(
             bev_descriptor_db_.descriptors[candidate_sequence_idx],
             bev_yaw_rad);
-          bev_sequence_distance_sum += SubmapBEVDescriptor::descriptorDistance(
-            bev_descriptor_db_.descriptors[query_idx],
-            rotated_candidate_descriptor);
+          double sequence_distance;
+          if (bev_use_mutual_visibility_) {
+            graphslam::bev::MutualVisibilityConfig mv_cfg;
+            mv_cfg.min_overlap_ratio = bev_mutual_visibility_min_overlap_ratio_;
+            mv_cfg.occupancy_eps =
+              static_cast<float>(bev_mutual_visibility_occupancy_eps_);
+            const auto fov = graphslam::bev::mutualVisibilityDistance(
+              bev_descriptor_db_.descriptors[query_idx],
+              rotated_candidate_descriptor,
+              mv_cfg);
+            sequence_distance = fov.valid ? fov.distance : 1.0;
+          } else {
+            sequence_distance = SubmapBEVDescriptor::descriptorDistance(
+              bev_descriptor_db_.descriptors[query_idx],
+              rotated_candidate_descriptor);
+          }
+          bev_sequence_distance_sum += sequence_distance;
           ++bev_sequence_count;
         }
         bev_sequence_metric = bev_sequence_distance_sum / static_cast<double>(bev_sequence_count);

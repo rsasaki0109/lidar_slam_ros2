@@ -231,6 +231,11 @@ private:
     double bev_descriptor_pose_consistency_threshold_m_ {-1.0};
     double bev_descriptor_max_euclidean_distance_m_ {-1.0};
     double bev_descriptor_rerank_weight_m_ {100.0};
+    // FOV-aware (mutual-visibility) distance for the BEV descriptor. Default
+    // off so the cosine-distance baseline stays unchanged on 360° LiDAR.
+    bool bev_use_mutual_visibility_ {false};
+    double bev_mutual_visibility_min_overlap_ratio_ {0.05};
+    double bev_mutual_visibility_occupancy_eps_ {0.5};
     SubmapBEVDescriptor::Database bev_descriptor_db_;
     bool use_solid_descriptor_ {false};
     double solid_descriptor_min_similarity_ {0.70};
