@@ -150,6 +150,9 @@ public:
       ++triangle_count_;
     }
     submap_ids_.insert(submap_id);
+    // Hold on to the full keypoint list so the 4-point consensus check has
+    // off-triangle keypoints to project under the candidate SE(3).
+    submap_keypoints_[submap_id] = keypoints;
   }
 
   // Returns the bucket for a hash key (empty vector if none).
@@ -161,6 +164,15 @@ public:
     return it->second;
   }
 
+  // Returns the full keypoint vector for a submap (empty when unknown).
+  const std::vector<Keypoint> & keypoints(int submap_id) const
+  {
+    static const std::vector<Keypoint> empty;
+    auto it = submap_keypoints_.find(submap_id);
+    if (it == submap_keypoints_.end()) {return empty;}
+    return it->second;
+  }
+
   std::size_t triangleCount() const {return triangle_count_;}
   std::size_t submapCount() const {return submap_ids_.size();}
   bool empty() const {return triangle_count_ == 0;}
@@ -169,6 +181,7 @@ private:
   std::unordered_map<uint64_t, std::vector<DatabaseEntry>> buckets_;
   std::size_t triangle_count_ {0};
   std::unordered_set<int> submap_ids_;
+  std::unordered_map<int, std::vector<Keypoint>> submap_keypoints_;
 };
 
 // One submap's vote count after hash-lookup.
@@ -236,6 +249,15 @@ struct VerificationConfig
   float min_inlier_ratio {0.0f};
   // Cap on triangle pairs evaluated (top N by edge length descending).
   int max_pairs {64};
+  // 4-point consensus: after picking the best SE(3) from 3-point RANSAC,
+  // transform each non-triangle query keypoint by it and require at least
+  // this many to fall within `fourth_point_max_distance_m` of any database
+  // keypoint in the chosen submap. Three points uniquely determine SE(3),
+  // so the 3-point inlier count alone can be fooled by repeated geometry;
+  // a 4-point check brings in an independent constraint. Set to 0 to
+  // disable (default keeps the previous behaviour).
+  int min_4th_point_agreements {0};
+  float fourth_point_max_distance_m {2.0f};
 };
 
 struct LoopCandidate
@@ -363,7 +385,27 @@ inline LoopCandidate findLoopCandidate(
     const float ratio = static_cast<float>(best_inliers) / static_cast<float>(eval_n);
     ratio_ok = ratio >= verify_cfg.min_inlier_ratio;
   }
-  result.accepted = count_ok && ratio_ok;
+  bool fourth_ok = true;
+  if (count_ok && ratio_ok && verify_cfg.min_4th_point_agreements > 0) {
+    // Cross-check non-triangle keypoints: project each query keypoint by the
+    // winning SE(3) and look for a database keypoint within tolerance.
+    const auto & db_kps = db.keypoints(result.submap_id);
+    int agreements = 0;
+    const float thresh = verify_cfg.fourth_point_max_distance_m;
+    for (const auto & q_kp : query_keypoints) {
+      const Eigen::Vector4f qh(q_kp.position.x(), q_kp.position.y(), q_kp.position.z(), 1.0f);
+      const Eigen::Vector4f q_trans = best_T * qh;
+      const Eigen::Vector3f q3 = q_trans.head<3>();
+      float min_dist = std::numeric_limits<float>::infinity();
+      for (const auto & d_kp : db_kps) {
+        const float dist = (d_kp.position - q3).norm();
+        if (dist < min_dist) {min_dist = dist;}
+      }
+      if (min_dist <= thresh) {++agreements;}
+    }
+    fourth_ok = agreements >= verify_cfg.min_4th_point_agreements;
+  }
+  result.accepted = count_ok && ratio_ok && fourth_ok;
   return result;
 }
 
