@@ -260,5 +260,85 @@ inline YawAlignedMatch mutualVisibilityWithYawSearch(
   return best;
 }
 
+// FOV-aware database query against an existing SubmapBEVDescriptor::Database.
+//
+// Pipeline:
+//   1. Coarse pre-filter via cosine distance on each descriptor's coarse_key
+//      (existing cheap pass), keeping the top ``num_candidates``.
+//   2. For each surviving candidate, run mutualVisibilityWithYawSearch over
+//      the configured yaw bins and FOV-aware NCC.
+//   3. Sort candidates by FOV-aware distance and return up to ``num_matches``
+//      entries whose distance is strictly below ``threshold``.
+//
+// The function does not modify the database. Recent descriptors (within
+// ``exclude_recent`` of the most recent insertion) are skipped, matching the
+// existing Database::queryTopMatchesWithYaw convention.
+inline std::vector<YawAlignedMatch> queryDatabaseWithMutualVisibility(
+  const SubmapBEVDescriptor::Database & db,
+  const SubmapBEVDescriptor::Descriptor & query,
+  int num_matches,
+  int num_candidates = SubmapBEVDescriptor::DEFAULT_NUM_CANDIDATES,
+  int exclude_recent = SubmapBEVDescriptor::DEFAULT_EXCLUDE_RECENT,
+  double threshold = SubmapBEVDescriptor::DEFAULT_DISTANCE_THRESHOLD,
+  const MutualVisibilityConfig & cfg = MutualVisibilityConfig())
+{
+  std::vector<YawAlignedMatch> matches;
+  const int total = static_cast<int>(db.descriptors.size());
+  const int search_end = total - exclude_recent;
+  if (search_end <= 0 || num_matches <= 0) {
+    return matches;
+  }
+
+  // Coarse pre-filter via cosine distance on coarse keys (cheap and unchanged
+  // from the default path). We re-implement the lookup here so this header
+  // stays self-contained.
+  std::vector<std::pair<double, int>> coarse_candidates;
+  coarse_candidates.reserve(search_end);
+  for (int idx = 0; idx < search_end; ++idx) {
+    const Eigen::VectorXf & a = query.coarse_key;
+    const Eigen::VectorXf & b = db.descriptors[idx].coarse_key;
+    double coarse_distance = 1.0;
+    if (a.size() != 0 && a.size() == b.size()) {
+      const float a_norm = a.norm();
+      const float b_norm = b.norm();
+      if (a_norm > 1e-6f && b_norm > 1e-6f) {
+        const float cosine =
+          std::max(-1.0f, std::min(1.0f, a.dot(b) / (a_norm * b_norm)));
+        coarse_distance = 1.0 - static_cast<double>(cosine);
+      }
+    }
+    coarse_candidates.emplace_back(coarse_distance, idx);
+  }
+  const int k = std::min(num_candidates, static_cast<int>(coarse_candidates.size()));
+  std::partial_sort(
+    coarse_candidates.begin(),
+    coarse_candidates.begin() + k,
+    coarse_candidates.end());
+
+  // Verify each coarse candidate with FOV-aware yaw search.
+  std::vector<YawAlignedMatch> verified;
+  verified.reserve(k);
+  for (int idx = 0; idx < k; ++idx) {
+    const int descriptor_idx = coarse_candidates[idx].second;
+    const YawAlignedMatch result = mutualVisibilityWithYawSearch(
+      query, db.descriptors[descriptor_idx], db.submap_ids[descriptor_idx],
+      db.yaw_bins, cfg);
+    if (!result.valid) {continue;}
+    verified.push_back(result);
+  }
+
+  std::sort(
+    verified.begin(), verified.end(),
+    [](const YawAlignedMatch & lhs, const YawAlignedMatch & rhs) {
+      return lhs.distance < rhs.distance;
+    });
+  for (const auto & match : verified) {
+    if (match.distance >= threshold) {continue;}
+    matches.push_back(match);
+    if (static_cast<int>(matches.size()) >= num_matches) {break;}
+  }
+  return matches;
+}
+
 }  // namespace bev
 }  // namespace graphslam

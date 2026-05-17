@@ -194,6 +194,119 @@ TEST(BevMutualVisibility, YawSearchInvalidWhenNoOverlap)
   EXPECT_NEAR(1.0, match.distance, 1e-9);
 }
 
+// ------------------------- Database query tests -------------------------
+
+// Build a Descriptor "by hand" so the cell layout is fully controlled and
+// computeCoarseKey runs once at construction. The Database routes its
+// coarse pre-filter through this key.
+SubmapBEVDescriptor::Descriptor finaliseDescriptor(SubmapBEVDescriptor::Descriptor d)
+{
+  // computeCoarseKey is private; rebuild via flatten + average-pool is also
+  // private. Easiest: round-trip through computeDescriptor with an empty
+  // cloud so the public API repopulates coarse_key. Instead reuse the
+  // helper exposed via rotateDescriptor with yaw=0 (regenerates coarse_key).
+  return SubmapBEVDescriptor::rotateDescriptor(d, 0.0);
+}
+
+SubmapBEVDescriptor::Descriptor descriptorWithBlock(
+  int row_begin, int row_end, int col_begin, int col_end,
+  float density_value, float height_value)
+{
+  auto d = makeBlankDescriptor();
+  writeBlock(d, row_begin, row_end, col_begin, col_end, density_value, height_value);
+  return finaliseDescriptor(d);
+}
+
+TEST(BevMutualVisibilityDatabase, FindsMatchingSubmapAndIgnoresUnrelated)
+{
+  SubmapBEVDescriptor::Database db(
+    /*grid_size_m=*/16.0,
+    /*grid_cells=*/kGrid,
+    /*yaw_bins=*/4);
+  // Two unrelated submaps + one that overlaps the query.
+  db.add(/*submap_id=*/100, descriptorWithBlock(0, 4, 0, 4, 0.6f, 0.5f));
+  db.add(/*submap_id=*/101, descriptorWithBlock(12, 16, 12, 16, 0.4f, 0.7f));
+  db.add(/*submap_id=*/102, descriptorWithBlock(3, 9, 9, 15, 0.5f, 0.4f));
+
+  // Query roughly matches submap 102.
+  const auto query = descriptorWithBlock(3, 9, 9, 15, 0.5f, 0.4f);
+  const auto matches = queryDatabaseWithMutualVisibility(
+    db, query,
+    /*num_matches=*/1,
+    /*num_candidates=*/3,
+    /*exclude_recent=*/0,
+    /*threshold=*/0.5);
+  ASSERT_EQ(1u, matches.size());
+  EXPECT_EQ(102, matches.front().submap_id);
+  EXPECT_LT(matches.front().distance, 0.2);
+  EXPECT_TRUE(matches.front().valid);
+}
+
+TEST(BevMutualVisibilityDatabase, RespectsExcludeRecent)
+{
+  SubmapBEVDescriptor::Database db(16.0, kGrid, 4);
+  db.add(50, descriptorWithBlock(3, 9, 9, 15, 0.5f, 0.4f));
+  db.add(51, descriptorWithBlock(3, 9, 9, 15, 0.5f, 0.4f));  // recent match
+
+  const auto query = descriptorWithBlock(3, 9, 9, 15, 0.5f, 0.4f);
+  const auto matches = queryDatabaseWithMutualVisibility(
+    db, query,
+    /*num_matches=*/1,
+    /*num_candidates=*/2,
+    /*exclude_recent=*/1,  // skip submap 51
+    /*threshold=*/0.5);
+  ASSERT_EQ(1u, matches.size());
+  EXPECT_EQ(50, matches.front().submap_id);
+}
+
+TEST(BevMutualVisibilityDatabase, ReturnsEmptyWhenNoCandidateMeetsThreshold)
+{
+  SubmapBEVDescriptor::Database db(16.0, kGrid, 4);
+  // Candidates overlap with the query under some yaw rotation but their
+  // density/height values disagree, so the mutual-visibility distance is far
+  // above the threshold.
+  db.add(10, descriptorWithBlock(0, 4, 0, 4, 0.95f, 0.05f));
+  db.add(11, descriptorWithBlock(0, 4, 12, 16, 0.05f, 0.95f));
+
+  const auto query = descriptorWithBlock(12, 16, 0, 4, 0.50f, 0.50f);
+  const auto matches = queryDatabaseWithMutualVisibility(
+    db, query,
+    /*num_matches=*/2,
+    /*num_candidates=*/2,
+    /*exclude_recent=*/0,
+    /*threshold=*/0.2);
+  EXPECT_TRUE(matches.empty());
+}
+
+TEST(BevMutualVisibilityDatabase, EmptyDatabaseReturnsNoMatches)
+{
+  SubmapBEVDescriptor::Database db(16.0, kGrid, 4);
+  const auto query = descriptorWithBlock(3, 9, 9, 15, 0.5f, 0.4f);
+  const auto matches = queryDatabaseWithMutualVisibility(
+    db, query, /*num_matches=*/3);
+  EXPECT_TRUE(matches.empty());
+}
+
+TEST(BevMutualVisibilityDatabase, ReturnsUpToNumMatchesSortedByDistance)
+{
+  SubmapBEVDescriptor::Database db(16.0, kGrid, 4);
+  // Three submaps all overlap with the query but with different content.
+  db.add(1, descriptorWithBlock(3, 9, 9, 15, 0.50f, 0.40f));  // best
+  db.add(2, descriptorWithBlock(3, 9, 9, 15, 0.45f, 0.55f));  // mid
+  db.add(3, descriptorWithBlock(3, 9, 9, 15, 0.10f, 0.95f));  // worst
+
+  const auto query = descriptorWithBlock(3, 9, 9, 15, 0.50f, 0.40f);
+  const auto matches = queryDatabaseWithMutualVisibility(
+    db, query,
+    /*num_matches=*/2,
+    /*num_candidates=*/3,
+    /*exclude_recent=*/0,
+    /*threshold=*/1.5);
+  ASSERT_EQ(2u, matches.size());
+  EXPECT_LE(matches[0].distance, matches[1].distance);
+  EXPECT_EQ(1, matches[0].submap_id);
+}
+
 }  // namespace
 }  // namespace bev
 }  // namespace graphslam
