@@ -229,6 +229,11 @@ struct VerificationConfig
   float inlier_rotation_deg {5.0f};
   // Minimum inliers required to accept the candidate.
   int min_inliers {3};
+  // Minimum inlier ratio (inliers / eval_n) required when > 0. Useful to
+  // attach a relative-density floor to a low absolute count: with max_pairs
+  // 64 a count of 4 is only 6%, but at max_pairs 20 the same 4 is 20%. Set
+  // to 0.0 to disable.
+  float min_inlier_ratio {0.0f};
   // Cap on triangle pairs evaluated (top N by edge length descending).
   int max_pairs {64};
 };
@@ -352,7 +357,13 @@ inline LoopCandidate findLoopCandidate(
 
   result.inliers = best_inliers;
   result.transform = best_T;
-  result.accepted = best_inliers >= verify_cfg.min_inliers;
+  bool count_ok = best_inliers >= verify_cfg.min_inliers;
+  bool ratio_ok = true;
+  if (verify_cfg.min_inlier_ratio > 0.0f && eval_n > 0) {
+    const float ratio = static_cast<float>(best_inliers) / static_cast<float>(eval_n);
+    ratio_ok = ratio >= verify_cfg.min_inlier_ratio;
+  }
+  result.accepted = count_ok && ratio_ok;
   return result;
 }
 

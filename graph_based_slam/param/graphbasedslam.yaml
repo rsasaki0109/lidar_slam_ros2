@@ -54,6 +54,11 @@ graph_based_slam:
       triangle_descriptor_edge_bin_m: 0.5
       triangle_descriptor_min_votes: 6
       triangle_descriptor_min_inliers: 4
+      # 0.0 disables the relative-density floor. Set to e.g. 0.15 in combination
+      # with triangle_descriptor_max_pairs: 20 if you want to insist on >=15%
+      # of evaluated triangle pairs agreeing on SE(3).
+      triangle_descriptor_min_inlier_ratio: 0.0
+      triangle_descriptor_max_pairs: 64
       triangle_descriptor_inlier_translation_m: 2.0
       triangle_descriptor_inlier_rotation_deg: 5.0
       triangle_descriptor_exclude_recent: 4

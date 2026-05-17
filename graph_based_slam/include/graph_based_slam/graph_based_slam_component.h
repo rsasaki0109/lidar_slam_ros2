@@ -264,6 +264,15 @@ private:
     // / hash params suppress most false buckets on their own.
     int triangle_descriptor_min_votes_ {6};
     int triangle_descriptor_min_inliers_ {4};
+    // Companion to min_inliers expressed as inliers / eval_n. Zero disables.
+    // Lets the operator combine a low absolute count with a meaningful
+    // relative-density floor (e.g. 4 inliers / max_pairs 64 = 6% vs the
+    // same 4 inliers / max_pairs 20 = 20%).
+    double triangle_descriptor_min_inlier_ratio_ {0.0};
+    // Cap on triangle pairs evaluated inside the RANSAC consensus check.
+    // Lower numbers make min_inlier_ratio more informative; default 64 keeps
+    // the previous behaviour.
+    int triangle_descriptor_max_pairs_ {64};
     double triangle_descriptor_inlier_translation_m_ {2.0};
     double triangle_descriptor_inlier_rotation_deg_ {5.0};
     int triangle_descriptor_exclude_recent_ {4};
