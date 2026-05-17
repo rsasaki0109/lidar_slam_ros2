@@ -124,6 +124,13 @@ if(BUILD_TESTING)
     ament_target_dependencies(test_gnss_weighting sensor_msgs)
   endif()
   ament_add_gtest(
+    test_adjacent_edge_auto_scale
+    test/test_adjacent_edge_auto_scale.cpp
+  )
+  if(TARGET test_adjacent_edge_auto_scale)
+    target_include_directories(test_adjacent_edge_auto_scale PRIVATE include)
+  endif()
+  ament_add_gtest(
     test_scan_context
     test/test_scan_context.cpp
   )
@@ -144,6 +151,20 @@ if(BUILD_TESTING)
   )
   if(TARGET test_submap_bev_descriptor)
     target_include_directories(test_submap_bev_descriptor PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  endif()
+  ament_add_gtest(
+    test_bev_mutual_visibility
+    test/test_bev_mutual_visibility.cpp
+  )
+  if(TARGET test_bev_mutual_visibility)
+    target_include_directories(test_bev_mutual_visibility PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  endif()
+  ament_add_gtest(
+    test_loop_edge_robustifier
+    test/test_loop_edge_robustifier.cpp
+  )
+  if(TARGET test_loop_edge_robustifier)
+    target_include_directories(test_loop_edge_robustifier PRIVATE include)
   endif()
   ament_add_gtest(
     test_dynamic_object_filter
