@@ -121,6 +121,7 @@ extern "C" {
 #include "graph_based_slam/solid_descriptor.hpp"
 #include "graph_based_slam/submap_bev_descriptor.hpp"
 #include "graph_based_slam/three_d_bbs_loop_verifier.hpp"
+#include "graph_based_slam/triangle_descriptor_database.hpp"
 
 namespace graphslam
 {
@@ -237,6 +238,31 @@ private:
     double bev_mutual_visibility_min_overlap_ratio_ {0.05};
     double bev_mutual_visibility_occupancy_eps_ {0.5};
     SubmapBEVDescriptor::Database bev_descriptor_db_;
+    // Triangle (STD/BTC-style) descriptor place-recognition path. Built on the
+    // BSD-2 primitives in graph_based_slam/triangle_descriptor*. Default off
+    // so the existing default workflow stays unchanged.
+    bool use_triangle_descriptor_ {false};
+    double triangle_descriptor_grid_size_m_ {60.0};
+    int triangle_descriptor_grid_cells_ {60};
+    int triangle_descriptor_max_keypoints_ {80};
+    double triangle_descriptor_min_salience_m_ {0.3};
+    double triangle_descriptor_min_edge_m_ {2.0};
+    double triangle_descriptor_max_edge_m_ {50.0};
+    int triangle_descriptor_max_triangles_ {5000};
+    double triangle_descriptor_edge_bin_m_ {1.0};
+    int triangle_descriptor_min_votes_ {6};
+    int triangle_descriptor_min_inliers_ {3};
+    double triangle_descriptor_inlier_translation_m_ {2.0};
+    double triangle_descriptor_inlier_rotation_deg_ {5.0};
+    int triangle_descriptor_exclude_recent_ {4};
+    graphslam::triangle::TriangleDatabase triangle_descriptor_db_;
+    struct TrianglePerSubmap
+    {
+      std::vector < graphslam::triangle::Keypoint > keypoints;
+      std::vector < graphslam::triangle::TriangleDescriptor > triangles;
+    };
+    std::vector < TrianglePerSubmap > triangle_descriptor_per_submap_;
+    int triangle_descriptor_next_submap_idx_ {0};
     bool use_solid_descriptor_ {false};
     double solid_descriptor_min_similarity_ {0.70};
     int solid_descriptor_sequence_window_ {0};
