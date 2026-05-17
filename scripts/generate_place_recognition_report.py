@@ -342,8 +342,9 @@ def main() -> int:
 
     report = f"""# Place Recognition Report
 
-This report compares a fair current-code MID360 baseline rerun against an
-experimental place-recognition candidate run.
+This report compares a current-code baseline run against an experimental
+place-recognition candidate run (same bag, same params except the candidate
+descriptor toggle).
 
 ## Inputs
 
