@@ -160,6 +160,13 @@ if(BUILD_TESTING)
     target_include_directories(test_bev_mutual_visibility PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
+    test_loop_edge_robustifier
+    test/test_loop_edge_robustifier.cpp
+  )
+  if(TARGET test_loop_edge_robustifier)
+    target_include_directories(test_loop_edge_robustifier PRIVATE include)
+  endif()
+  ament_add_gtest(
     test_dynamic_object_filter
     test/test_dynamic_object_filter.cpp
   )

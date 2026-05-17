@@ -40,6 +40,8 @@
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "g2o/core/robust_kernel_impl.h"
+#define GRAPH_BASED_SLAM_WITH_G2O 1
+#include "graph_based_slam/loop_edge_robustifier.hpp"
 
 using namespace std::chrono_literals;
 
@@ -114,6 +116,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("loop_edge_info_weight", loop_edge_info_weight_);
   declare_parameter("loop_edge_robust_kernel_delta", 1.0);
   get_parameter("loop_edge_robust_kernel_delta", loop_edge_robust_kernel_delta_);
+  declare_parameter("loop_edge_robust_kernel_type", std::string("huber"));
+  get_parameter("loop_edge_robust_kernel_type", loop_edge_robust_kernel_type_);
   declare_parameter("use_scan_context", false);
   get_parameter("use_scan_context", use_scan_context_);
   declare_parameter("use_bev_descriptor", false);
@@ -571,6 +575,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "adjacent_edge_info_weight:" << adjacent_edge_info_weight_ << std::endl;
   std::cout << "loop_edge_info_weight:" << loop_edge_info_weight_ << std::endl;
   std::cout << "loop_edge_robust_kernel_delta:" << loop_edge_robust_kernel_delta_ << std::endl;
+  std::cout << "loop_edge_robust_kernel_type:"
+            << graphslam::robust::loopEdgeKernelTypeName(
+    graphslam::robust::parseLoopEdgeKernelType(loop_edge_robust_kernel_type_))
+            << std::endl;
   std::cout << "use_save_map_in_loop:" << std::boolalpha << use_save_map_in_loop_ << std::endl;
   std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
   std::cout << "use_scan_context:" << std::boolalpha << use_scan_context_ << std::endl;
@@ -2019,6 +2027,8 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   }
 
   /* loop edge */
+  const auto loop_kernel_type =
+    graphslam::robust::parseLoopEdgeKernelType(loop_edge_robust_kernel_type_);
   for (const auto & loop_edge : loop_edges) {
     g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
     edge_se3->setMeasurement(loop_edge.relative_pose);
@@ -2026,9 +2036,9 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     Eigen::Matrix<double, 6, 6> loop_info_mat =
       Eigen::Matrix<double, 6, 6>::Identity() * (loop_edge_info_weight_ / fitness);
     edge_se3->setInformation(loop_info_mat);
-    auto * robust_kernel = new g2o::RobustKernelHuber();
-    robust_kernel->setDelta(loop_edge_robust_kernel_delta_);
-    edge_se3->setRobustKernel(robust_kernel);
+    edge_se3->setRobustKernel(
+      graphslam::robust::makeLoopEdgeKernel(
+        loop_kernel_type, loop_edge_robust_kernel_delta_));
     edge_se3->vertices()[0] = optimizer.vertex(loop_edge.pair_id.first);
     edge_se3->vertices()[1] = optimizer.vertex(loop_edge.pair_id.second);
     optimizer.addEdge(edge_se3);

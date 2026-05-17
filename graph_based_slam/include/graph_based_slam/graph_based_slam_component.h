@@ -196,6 +196,7 @@ private:
     double adjacent_edge_info_weight_ {1000.0};
     double loop_edge_info_weight_ {100.0};
     double loop_edge_robust_kernel_delta_ {1.0};
+    std::string loop_edge_robust_kernel_type_ {"huber"};
 
     // Auto-scaling for adjacent_edge_info_weight (Level 1: NIS median tracking).
     // When enabled, the post-optimisation chi-squared of adjacent edges is
