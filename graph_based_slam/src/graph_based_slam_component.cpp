@@ -37,8 +37,12 @@
 #include <iomanip>
 #include <unordered_map>
 
+#include "graph_based_slam/adjacent_edge_auto_scale.hpp"
+#include "graph_based_slam/bev_mutual_visibility.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "g2o/core/robust_kernel_impl.h"
+#define GRAPH_BASED_SLAM_WITH_G2O 1
+#include "graph_based_slam/loop_edge_robustifier.hpp"
 
 using namespace std::chrono_literals;
 
@@ -95,10 +99,26 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("debug_flag", debug_flag_);
   declare_parameter("adjacent_edge_info_weight", 1000.0);
   get_parameter("adjacent_edge_info_weight", adjacent_edge_info_weight_);
+  declare_parameter("adjacent_edge_info_auto_scale", false);
+  get_parameter("adjacent_edge_info_auto_scale", adjacent_edge_info_auto_scale_);
+  declare_parameter("adjacent_edge_info_auto_scale_target_nis", 6.0);
+  get_parameter(
+    "adjacent_edge_info_auto_scale_target_nis",
+    adjacent_edge_info_auto_scale_target_nis_);
+  declare_parameter("adjacent_edge_info_auto_scale_ema_alpha", 0.3);
+  get_parameter(
+    "adjacent_edge_info_auto_scale_ema_alpha",
+    adjacent_edge_info_auto_scale_ema_alpha_);
+  declare_parameter("adjacent_edge_info_auto_scale_min", 1.0);
+  get_parameter("adjacent_edge_info_auto_scale_min", adjacent_edge_info_auto_scale_min_);
+  declare_parameter("adjacent_edge_info_auto_scale_max", 1.0e6);
+  get_parameter("adjacent_edge_info_auto_scale_max", adjacent_edge_info_auto_scale_max_);
   declare_parameter("loop_edge_info_weight", 100.0);
   get_parameter("loop_edge_info_weight", loop_edge_info_weight_);
   declare_parameter("loop_edge_robust_kernel_delta", 1.0);
   get_parameter("loop_edge_robust_kernel_delta", loop_edge_robust_kernel_delta_);
+  declare_parameter("loop_edge_robust_kernel_type", std::string("huber"));
+  get_parameter("loop_edge_robust_kernel_type", loop_edge_robust_kernel_type_);
   declare_parameter("use_scan_context", false);
   get_parameter("use_scan_context", use_scan_context_);
   declare_parameter("use_bev_descriptor", false);
@@ -137,6 +157,16 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
     bev_descriptor_max_euclidean_distance_m_);
   declare_parameter("bev_descriptor_rerank_weight_m", 100.0);
   get_parameter("bev_descriptor_rerank_weight_m", bev_descriptor_rerank_weight_m_);
+  declare_parameter("bev_use_mutual_visibility", false);
+  get_parameter("bev_use_mutual_visibility", bev_use_mutual_visibility_);
+  declare_parameter("bev_mutual_visibility_min_overlap_ratio", 0.05);
+  get_parameter(
+    "bev_mutual_visibility_min_overlap_ratio",
+    bev_mutual_visibility_min_overlap_ratio_);
+  declare_parameter("bev_mutual_visibility_occupancy_eps", 0.5);
+  get_parameter(
+    "bev_mutual_visibility_occupancy_eps",
+    bev_mutual_visibility_occupancy_eps_);
   declare_parameter("solid_descriptor_min_similarity", 0.70);
   get_parameter("solid_descriptor_min_similarity", solid_descriptor_min_similarity_);
   declare_parameter("solid_descriptor_sequence_window", 0);
@@ -556,6 +586,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "adjacent_edge_info_weight:" << adjacent_edge_info_weight_ << std::endl;
   std::cout << "loop_edge_info_weight:" << loop_edge_info_weight_ << std::endl;
   std::cout << "loop_edge_robust_kernel_delta:" << loop_edge_robust_kernel_delta_ << std::endl;
+  std::cout << "loop_edge_robust_kernel_type:"
+            << graphslam::robust::loopEdgeKernelTypeName(
+    graphslam::robust::parseLoopEdgeKernelType(loop_edge_robust_kernel_type_))
+            << std::endl;
   std::cout << "use_save_map_in_loop:" << std::boolalpha << use_save_map_in_loop_ << std::endl;
   std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
   std::cout << "use_scan_context:" << std::boolalpha << use_scan_context_ << std::endl;
@@ -600,6 +634,14 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       bev_descriptor_max_euclidean_distance_m_ << std::endl;
     std::cout << "bev_descriptor_rerank_weight_m:" << bev_descriptor_rerank_weight_m_ <<
       std::endl;
+    std::cout << "bev_use_mutual_visibility:" << std::boolalpha <<
+      bev_use_mutual_visibility_ << std::endl;
+    if (bev_use_mutual_visibility_) {
+      std::cout << "bev_mutual_visibility_min_overlap_ratio:" <<
+        bev_mutual_visibility_min_overlap_ratio_ << std::endl;
+      std::cout << "bev_mutual_visibility_occupancy_eps:" <<
+        bev_mutual_visibility_occupancy_eps_ << std::endl;
+    }
   }
   std::cout << "use_solid_descriptor:" << std::boolalpha << use_solid_descriptor_ << std::endl;
   if (use_solid_descriptor_) {
@@ -1239,11 +1281,29 @@ void GraphBasedSlamComponent::searchLoop()
         continue;
       }
 
-      const auto bev_match = SubmapBEVDescriptor::distanceWithAlignment(
-        bev_descriptor_db_.descriptors.back(),
-        bev_descriptor_db_.descriptors[bev_idx],
-        bev_idx,
-        bev_descriptor_yaw_bins_);
+      SubmapBEVDescriptor::Match bev_match;
+      if (bev_use_mutual_visibility_) {
+        graphslam::bev::MutualVisibilityConfig mv_cfg;
+        mv_cfg.min_overlap_ratio = bev_mutual_visibility_min_overlap_ratio_;
+        mv_cfg.occupancy_eps =
+          static_cast<float>(bev_mutual_visibility_occupancy_eps_);
+        const auto fov = graphslam::bev::mutualVisibilityWithYawSearch(
+          bev_descriptor_db_.descriptors.back(),
+          bev_descriptor_db_.descriptors[bev_idx],
+          bev_idx,
+          bev_descriptor_yaw_bins_,
+          mv_cfg);
+        bev_match.submap_id = fov.submap_id;
+        bev_match.distance = fov.valid ? fov.distance : 1.0;
+        bev_match.yaw_bin = fov.yaw_bin;
+        bev_match.yaw_rad = fov.yaw_rad;
+      } else {
+        bev_match = SubmapBEVDescriptor::distanceWithAlignment(
+          bev_descriptor_db_.descriptors.back(),
+          bev_descriptor_db_.descriptors[bev_idx],
+          bev_idx,
+          bev_descriptor_yaw_bins_);
+      }
       if (bev_match.distance < best_bev_dist) {
         best_bev_dist = bev_match.distance;
         best_bev_idx = bev_idx;
@@ -1284,9 +1344,23 @@ void GraphBasedSlamComponent::searchLoop()
           const auto rotated_candidate_descriptor = SubmapBEVDescriptor::rotateDescriptor(
             bev_descriptor_db_.descriptors[candidate_sequence_idx],
             bev_yaw_rad);
-          bev_sequence_distance_sum += SubmapBEVDescriptor::descriptorDistance(
-            bev_descriptor_db_.descriptors[query_idx],
-            rotated_candidate_descriptor);
+          double sequence_distance;
+          if (bev_use_mutual_visibility_) {
+            graphslam::bev::MutualVisibilityConfig mv_cfg;
+            mv_cfg.min_overlap_ratio = bev_mutual_visibility_min_overlap_ratio_;
+            mv_cfg.occupancy_eps =
+              static_cast<float>(bev_mutual_visibility_occupancy_eps_);
+            const auto fov = graphslam::bev::mutualVisibilityDistance(
+              bev_descriptor_db_.descriptors[query_idx],
+              rotated_candidate_descriptor,
+              mv_cfg);
+            sequence_distance = fov.valid ? fov.distance : 1.0;
+          } else {
+            sequence_distance = SubmapBEVDescriptor::descriptorDistance(
+              bev_descriptor_db_.descriptors[query_idx],
+              rotated_candidate_descriptor);
+          }
+          bev_sequence_distance_sum += sequence_distance;
           ++bev_sequence_count;
         }
         bev_sequence_metric = bev_sequence_distance_sum / static_cast<double>(bev_sequence_count);
@@ -1922,6 +1996,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   optimizer.setAlgorithm(solver);
 
   int submaps_size = map_array_msg.submaps.size();
+  std::vector<g2o::EdgeSE3 *> adjacent_edges;
   for (int i = 0; i < submaps_size; i++) {
     Eigen::Affine3d affine;
     Eigen::fromMsg(map_array_msg.submaps[i].pose, affine);
@@ -1951,6 +2026,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
         edge_se3->vertices()[0] = optimizer.vertex(pre_idx);
         edge_se3->vertices()[1] = optimizer.vertex(i);
         optimizer.addEdge(edge_se3);
+        adjacent_edges.push_back(edge_se3);
       }
     }
   }
@@ -2002,6 +2078,8 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   }
 
   /* loop edge */
+  const auto loop_kernel_type =
+    graphslam::robust::parseLoopEdgeKernelType(loop_edge_robust_kernel_type_);
   for (const auto & loop_edge : loop_edges) {
     g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
     edge_se3->setMeasurement(loop_edge.relative_pose);
@@ -2009,9 +2087,9 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     Eigen::Matrix<double, 6, 6> loop_info_mat =
       Eigen::Matrix<double, 6, 6>::Identity() * (loop_edge_info_weight_ / fitness);
     edge_se3->setInformation(loop_info_mat);
-    auto * robust_kernel = new g2o::RobustKernelHuber();
-    robust_kernel->setDelta(loop_edge_robust_kernel_delta_);
-    edge_se3->setRobustKernel(robust_kernel);
+    edge_se3->setRobustKernel(
+      graphslam::robust::makeLoopEdgeKernel(
+        loop_kernel_type, loop_edge_robust_kernel_delta_));
     edge_se3->vertices()[0] = optimizer.vertex(loop_edge.pair_id.first);
     edge_se3->vertices()[1] = optimizer.vertex(loop_edge.pair_id.second);
     optimizer.addEdge(edge_se3);
@@ -2076,6 +2154,35 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   optimizer.initializeOptimization();
   optimizer.optimize(10);
   optimizer.save("pose_graph.g2o");
+
+  if (adjacent_edge_info_auto_scale_ && !adjacent_edges.empty()) {
+    std::vector<double> chi2_values;
+    chi2_values.reserve(adjacent_edges.size());
+    for (auto * e : adjacent_edges) {
+      e->computeError();
+      const double v = e->chi2();
+      if (std::isfinite(v)) {
+        chi2_values.push_back(v);
+      }
+    }
+    const double median_chi2 = graphslam::detail::medianChi2(chi2_values);
+
+    graphslam::detail::AutoScaleConfig cfg;
+    cfg.target_nis = adjacent_edge_info_auto_scale_target_nis_;
+    cfg.ema_alpha = adjacent_edge_info_auto_scale_ema_alpha_;
+    cfg.min_scale = adjacent_edge_info_auto_scale_min_;
+    cfg.max_scale = adjacent_edge_info_auto_scale_max_;
+
+    const double prev_weight = adjacent_edge_info_weight_;
+    adjacent_edge_info_weight_ =
+      graphslam::detail::nextScale(prev_weight, median_chi2, cfg);
+
+    RCLCPP_INFO(
+      get_logger(),
+      "[auto_scale] median_chi2=%.3f (n=%zu) target=%.3f weight=%.3f -> %.3f",
+      median_chi2, chi2_values.size(), cfg.target_nis, prev_weight,
+      adjacent_edge_info_weight_);
+  }
 
   /* modified_map publish */
   std::cout << "modified_map publish" << std::endl;

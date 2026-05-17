@@ -12,6 +12,10 @@ Options:
   --ape-threshold <m>           Optional APE threshold passed to benchmark_summary.py
   --ape-threshold-reference-kind <kind>
                                 Reference kind to gate on (default: ground_truth)
+  --release-profile <path>      Release-profile YAML (per-dataset pass/target)
+                                Default: scripts/release_profiles.yaml when omitted
+  --no-release-profile          Disable the release-profile gate
+  --fail-on-profiles            Exit non-zero if any release-profile FAILs
   --skip-default-ci             Skip scripts/run_default_ci_checks.sh
   --skip-benchmark-summary      Skip benchmark summary generation
   --dogfood                     Run the Autoware pointcloud-map dogfood flow
@@ -32,6 +36,11 @@ When --ape-threshold is provided, the benchmark summary becomes a hard gate and
 the script exits non-zero if any selected run is missing APE or exceeds the
 threshold. By default this gate is scoped to `ground_truth` runs so
 cross-validation artifacts can appear in reports without blocking release.
+
+The release-profile gate runs in addition to (or instead of) --ape-threshold:
+each profile in the YAML scores its own pass/target threshold against the best
+matching run, with optional report_only_until semantics so hard datasets
+(MID-360, NTU) can be reported without blocking release.
 EOF
   exit 1
 }
@@ -43,6 +52,8 @@ OUT_DIR="${REPO_ROOT}/output/release_readiness_$(date +%Y%m%d_%H%M%S)"
 BENCHMARK_ROOT="${REPO_ROOT}/output"
 APE_THRESHOLD=""
 APE_THRESHOLD_REFERENCE_KIND="ground_truth"
+RELEASE_PROFILE="${REPO_ROOT}/scripts/release_profiles.yaml"
+FAIL_ON_PROFILES=false
 RUN_DEFAULT_CI=true
 RUN_BENCHMARK_SUMMARY=true
 RUN_DOGFOOD=false
@@ -74,6 +85,19 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || usage
       APE_THRESHOLD_REFERENCE_KIND="$2"
       shift 2
+      ;;
+    --release-profile)
+      [[ $# -ge 2 ]] || usage
+      RELEASE_PROFILE=$(realpath -m "$2")
+      shift 2
+      ;;
+    --no-release-profile)
+      RELEASE_PROFILE=""
+      shift
+      ;;
+    --fail-on-profiles)
+      FAIL_ON_PROFILES=true
+      shift
       ;;
     --skip-default-ci)
       RUN_DEFAULT_CI=false
@@ -148,6 +172,14 @@ if [[ "${RUN_BENCHMARK_SUMMARY}" == "true" ]]; then
         --ape-threshold-reference-kind "${APE_THRESHOLD_REFERENCE_KIND}"
         --fail-on-ape-threshold
       )
+    fi
+    if [[ -n "${RELEASE_PROFILE}" && -f "${RELEASE_PROFILE}" ]]; then
+      SUMMARY_CMD+=(--release-profile "${RELEASE_PROFILE}")
+      if [[ "${FAIL_ON_PROFILES}" == "true" ]]; then
+        SUMMARY_CMD+=(--fail-on-profiles)
+      fi
+    elif [[ -n "${RELEASE_PROFILE}" ]]; then
+      echo "warning: release profile not found at ${RELEASE_PROFILE}; continuing without profile gate" >&2
     fi
     "${SUMMARY_CMD[@]}" 2>&1 | tee "${OUT_DIR}/benchmark_summary.log"
     echo "==> Generating benchmark HTML report from ${BENCHMARK_ROOT}"

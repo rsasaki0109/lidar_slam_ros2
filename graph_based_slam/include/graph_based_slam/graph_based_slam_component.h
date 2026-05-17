@@ -196,6 +196,17 @@ private:
     double adjacent_edge_info_weight_ {1000.0};
     double loop_edge_info_weight_ {100.0};
     double loop_edge_robust_kernel_delta_ {1.0};
+    std::string loop_edge_robust_kernel_type_ {"huber"};
+
+    // Auto-scaling for adjacent_edge_info_weight (Level 1: NIS median tracking).
+    // When enabled, the post-optimisation chi-squared of adjacent edges is
+    // monitored and adjacent_edge_info_weight_ is mixed toward
+    // current * target_nis / median_chi2 via EMA, clamped to [min, max].
+    bool adjacent_edge_info_auto_scale_ {false};
+    double adjacent_edge_info_auto_scale_target_nis_ {6.0};
+    double adjacent_edge_info_auto_scale_ema_alpha_ {0.3};
+    double adjacent_edge_info_auto_scale_min_ {1.0};
+    double adjacent_edge_info_auto_scale_max_ {1.0e6};
 
     bool initial_map_array_received_ {false};
     bool is_map_array_updated_ {false};
@@ -220,6 +231,11 @@ private:
     double bev_descriptor_pose_consistency_threshold_m_ {-1.0};
     double bev_descriptor_max_euclidean_distance_m_ {-1.0};
     double bev_descriptor_rerank_weight_m_ {100.0};
+    // FOV-aware (mutual-visibility) distance for the BEV descriptor. Default
+    // off so the cosine-distance baseline stays unchanged on 360° LiDAR.
+    bool bev_use_mutual_visibility_ {false};
+    double bev_mutual_visibility_min_overlap_ratio_ {0.05};
+    double bev_mutual_visibility_occupancy_eps_ {0.5};
     SubmapBEVDescriptor::Database bev_descriptor_db_;
     bool use_solid_descriptor_ {false};
     double solid_descriptor_min_similarity_ {0.70};
