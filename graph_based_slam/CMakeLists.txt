@@ -167,6 +167,14 @@ if(BUILD_TESTING)
     target_include_directories(test_loop_edge_robustifier PRIVATE include)
   endif()
   ament_add_gtest(
+    test_triangle_descriptor
+    test/test_triangle_descriptor.cpp
+  )
+  if(TARGET test_triangle_descriptor)
+    target_include_directories(test_triangle_descriptor PRIVATE include ${EIGEN3_INCLUDE_DIR})
+    target_link_libraries(test_triangle_descriptor ${PCL_LIBRARIES})
+  endif()
+  ament_add_gtest(
     test_dynamic_object_filter
     test/test_dynamic_object_filter.cpp
   )
