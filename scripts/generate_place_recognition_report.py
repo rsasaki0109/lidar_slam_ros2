@@ -205,15 +205,21 @@ def _conclusion(
 
     if baseline_rmse is None or candidate_rmse is None:
         return source_text
+    descriptor_name = {
+        'scan_context': 'Scan Context',
+        'bev_rerank': 'BEV rerank',
+        'solid_descriptor': 'SOLiD',
+        'triangle_descriptor': 'Triangle descriptor',
+    }.get(candidate_kind, candidate_label)
     delta = candidate_rmse - baseline_rmse
     if delta < -0.01:
         return (
-            f'{source_text}; enabling Scan Context improved APE RMSE by '
+            f'{source_text}; enabling {descriptor_name} improved APE RMSE by '
             f'{abs(delta):.3f} m'
         )
     if delta > 0.01:
         return (
-            f'{source_text}; enabling Scan Context regressed APE RMSE by '
+            f'{source_text}; enabling {descriptor_name} regressed APE RMSE by '
             f'{delta:.3f} m'
         )
     return f'{source_text}; APE RMSE stayed effectively unchanged'
