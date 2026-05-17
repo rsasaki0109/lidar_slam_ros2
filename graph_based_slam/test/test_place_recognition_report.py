@@ -268,3 +268,77 @@ def test_place_recognition_report_supports_bev_rerank_label(tmp_path):
     payload = json.loads(out_json.read_text(encoding='utf-8'))
     assert payload['candidate']['kind'] == 'bev_rerank'
     assert payload['candidate']['log_summary']['bev_rerank_hint_count'] == 1
+
+
+def test_place_recognition_report_counts_triangle_candidates(tmp_path):
+    """Triangle candidate logs + accepted source must surface in the report."""
+    baseline_metrics = tmp_path / 'baseline' / 'metrics.json'
+    candidate_metrics = tmp_path / 'candidate' / 'metrics.json'
+    baseline_log = tmp_path / 'baseline' / 'run.log'
+    candidate_log = tmp_path / 'candidate' / 'run.log'
+    out_path = tmp_path / 'triangle_report.md'
+    out_json = tmp_path / 'triangle_report.json'
+
+    _write_metrics(baseline_metrics, rmse=2.50, loop_count=0, attempted=0)
+    _write_metrics(candidate_metrics, rmse=2.10, loop_count=2, attempted=3)
+    baseline_log.write_text(
+        '\n'.join(
+            [
+                'use_scan_context:false',
+            ],
+        ) + '\n',
+        encoding='utf-8',
+    )
+    candidate_log.write_text(
+        '\n'.join(
+            [
+                'use_scan_context:false',
+                'Triangle loop candidate: id=12 votes=10 inliers=5 yaw_deg=12.0',
+                'Triangle loop candidate: id=20 votes=8 inliers=4 yaw_deg=-5.0',
+                'loop_candidate_source:triangle_descriptor',
+                'loop_candidate_source:triangle_descriptor',
+            ],
+        ) + '\n',
+        encoding='utf-8',
+    )
+
+    result = subprocess.run(
+        [
+            'python3',
+            str(SCRIPT),
+            '--baseline-metrics',
+            str(baseline_metrics),
+            '--baseline-log',
+            str(baseline_log),
+            '--candidate-metrics',
+            str(candidate_metrics),
+            '--candidate-log',
+            str(candidate_log),
+            '--baseline-label',
+            'distance baseline',
+            '--candidate-label',
+            'triangle descriptor',
+            '--candidate-kind',
+            'triangle_descriptor',
+            '--out',
+            str(out_path),
+            '--write-json',
+            str(out_json),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+
+    assert result.returncode == 0, result.stderr
+    report = out_path.read_text(encoding='utf-8')
+    assert 'triangle descriptor' in report
+    assert 'Accepted Triangle loops' in report
+    assert 'Observed Triangle candidates' in report
+    assert 'accepted loop closures from triangle descriptor hashing' in report
+    payload = json.loads(out_json.read_text(encoding='utf-8'))
+    assert payload['candidate']['kind'] == 'triangle_descriptor'
+    counts = payload['candidate']['log_summary']['accepted_source_counts']
+    assert counts['triangle_descriptor'] == 2
+    assert payload['candidate']['log_summary']['triangle_candidate_count'] == 2
