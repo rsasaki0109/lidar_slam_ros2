@@ -113,6 +113,32 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("adjacent_edge_info_auto_scale_min", adjacent_edge_info_auto_scale_min_);
   declare_parameter("adjacent_edge_info_auto_scale_max", 1.0e6);
   get_parameter("adjacent_edge_info_auto_scale_max", adjacent_edge_info_auto_scale_max_);
+  declare_parameter("adjacent_edge_info_auto_scale_split_trans_rot", false);
+  get_parameter(
+    "adjacent_edge_info_auto_scale_split_trans_rot",
+    adjacent_edge_info_auto_scale_split_trans_rot_);
+  declare_parameter("adjacent_edge_info_weight_trans", -1.0);
+  get_parameter("adjacent_edge_info_weight_trans", adjacent_edge_info_weight_trans_);
+  declare_parameter("adjacent_edge_info_weight_rot", -1.0);
+  get_parameter("adjacent_edge_info_weight_rot", adjacent_edge_info_weight_rot_);
+  declare_parameter("adjacent_edge_info_auto_scale_target_nis_trans", 3.0);
+  get_parameter(
+    "adjacent_edge_info_auto_scale_target_nis_trans",
+    adjacent_edge_info_auto_scale_target_nis_trans_);
+  declare_parameter("adjacent_edge_info_auto_scale_target_nis_rot", 3.0);
+  get_parameter(
+    "adjacent_edge_info_auto_scale_target_nis_rot",
+    adjacent_edge_info_auto_scale_target_nis_rot_);
+  // Trans/rot weights default to the unified weight when negative (i.e., user
+  // has not provided an explicit per-block override). This keeps the split
+  // mode safe to enable on existing YAMLs that only set
+  // adjacent_edge_info_weight.
+  if (adjacent_edge_info_weight_trans_ <= 0.0) {
+    adjacent_edge_info_weight_trans_ = adjacent_edge_info_weight_;
+  }
+  if (adjacent_edge_info_weight_rot_ <= 0.0) {
+    adjacent_edge_info_weight_rot_ = adjacent_edge_info_weight_;
+  }
   declare_parameter("loop_edge_info_weight", 100.0);
   get_parameter("loop_edge_info_weight", loop_edge_info_weight_);
   declare_parameter("loop_edge_robust_kernel_delta", 1.0);
@@ -429,6 +455,18 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       adjacent_edge_info_weight_);
     adjacent_edge_info_weight_ = 1000.0;
   }
+  if (adjacent_edge_info_weight_trans_ <= 0.0) {
+    adjacent_edge_info_weight_trans_ = adjacent_edge_info_weight_;
+  }
+  if (adjacent_edge_info_weight_rot_ <= 0.0) {
+    adjacent_edge_info_weight_rot_ = adjacent_edge_info_weight_;
+  }
+  if (adjacent_edge_info_auto_scale_target_nis_trans_ <= 0.0) {
+    adjacent_edge_info_auto_scale_target_nis_trans_ = 3.0;
+  }
+  if (adjacent_edge_info_auto_scale_target_nis_rot_ <= 0.0) {
+    adjacent_edge_info_auto_scale_target_nis_rot_ = 3.0;
+  }
   if (loop_edge_info_weight_ <= 0.0) {
     RCLCPP_WARN(
       get_logger(),
@@ -711,6 +749,25 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "loop_max_rotation_delta[deg]:" << loop_max_rotation_delta_deg_ << std::endl;
   std::cout << "num_adjacent_pose_cnstraints:" << num_adjacent_pose_cnstraints_ << std::endl;
   std::cout << "adjacent_edge_info_weight:" << adjacent_edge_info_weight_ << std::endl;
+  std::cout << "adjacent_edge_info_auto_scale:" << std::boolalpha
+            << adjacent_edge_info_auto_scale_ << std::endl;
+  if (adjacent_edge_info_auto_scale_) {
+    std::cout << "adjacent_edge_info_auto_scale_split_trans_rot:" << std::boolalpha
+              << adjacent_edge_info_auto_scale_split_trans_rot_ << std::endl;
+    if (adjacent_edge_info_auto_scale_split_trans_rot_) {
+      std::cout << "adjacent_edge_info_weight_trans:"
+                << adjacent_edge_info_weight_trans_ << std::endl;
+      std::cout << "adjacent_edge_info_weight_rot:"
+                << adjacent_edge_info_weight_rot_ << std::endl;
+      std::cout << "adjacent_edge_info_auto_scale_target_nis_trans:"
+                << adjacent_edge_info_auto_scale_target_nis_trans_ << std::endl;
+      std::cout << "adjacent_edge_info_auto_scale_target_nis_rot:"
+                << adjacent_edge_info_auto_scale_target_nis_rot_ << std::endl;
+    } else {
+      std::cout << "adjacent_edge_info_auto_scale_target_nis:"
+                << adjacent_edge_info_auto_scale_target_nis_ << std::endl;
+    }
+  }
   std::cout << "loop_edge_info_weight:" << loop_edge_info_weight_ << std::endl;
   std::cout << "loop_edge_robust_kernel_delta:" << loop_edge_robust_kernel_delta_ << std::endl;
   std::cout << "loop_edge_robust_kernel_type:"
@@ -2373,9 +2430,19 @@ void GraphBasedSlamComponent::doPoseAdjustment(
         Eigen::Isometry3d relative_pose = pre_pose.inverse() * pose;
 
         const int separation = i - pre_idx;
-        const double edge_weight = adjacent_edge_info_weight_ / static_cast<double>(separation);
-        Eigen::Matrix<double, 6, 6> info_mat =
-          Eigen::Matrix<double, 6, 6>::Identity() * edge_weight;
+        const double sep_d = static_cast<double>(separation);
+        Eigen::Matrix<double, 6, 6> info_mat = Eigen::Matrix<double, 6, 6>::Zero();
+        if (adjacent_edge_info_auto_scale_split_trans_rot_) {
+          // Block-diag with independent translation / rotation weights, each
+          // attenuated by edge separation just like the unified scalar path.
+          const double w_trans = adjacent_edge_info_weight_trans_ / sep_d;
+          const double w_rot = adjacent_edge_info_weight_rot_ / sep_d;
+          info_mat.topLeftCorner<3, 3>().diagonal().setConstant(w_trans);
+          info_mat.bottomRightCorner<3, 3>().diagonal().setConstant(w_rot);
+        } else {
+          const double edge_weight = adjacent_edge_info_weight_ / sep_d;
+          info_mat = Eigen::Matrix<double, 6, 6>::Identity() * edge_weight;
+        }
         g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
         edge_se3->setMeasurement(relative_pose);
         edge_se3->setInformation(info_mat);
@@ -2512,32 +2579,84 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   optimizer.save("pose_graph.g2o");
 
   if (adjacent_edge_info_auto_scale_ && !adjacent_edges.empty()) {
-    std::vector<double> chi2_values;
-    chi2_values.reserve(adjacent_edges.size());
-    for (auto * e : adjacent_edges) {
-      e->computeError();
-      const double v = e->chi2();
-      if (std::isfinite(v)) {
-        chi2_values.push_back(v);
-      }
-    }
-    const double median_chi2 = graphslam::detail::medianChi2(chi2_values);
-
     graphslam::detail::AutoScaleConfig cfg;
-    cfg.target_nis = adjacent_edge_info_auto_scale_target_nis_;
     cfg.ema_alpha = adjacent_edge_info_auto_scale_ema_alpha_;
     cfg.min_scale = adjacent_edge_info_auto_scale_min_;
     cfg.max_scale = adjacent_edge_info_auto_scale_max_;
 
-    const double prev_weight = adjacent_edge_info_weight_;
-    adjacent_edge_info_weight_ =
-      graphslam::detail::nextScale(prev_weight, median_chi2, cfg);
+    if (adjacent_edge_info_auto_scale_split_trans_rot_) {
+      // Level 2: split the post-opt residuals into translation / rotation
+      // blocks and rescale w_trans and w_rot independently. For diagonal
+      // block-diag Information matrices, trans_chi2 = w_trans *
+      // ||e.head<3>()||^2 and rot_chi2 = w_rot * ||e.tail<3>()||^2.
+      std::vector<double> trans_chi2_values;
+      std::vector<double> rot_chi2_values;
+      trans_chi2_values.reserve(adjacent_edges.size());
+      rot_chi2_values.reserve(adjacent_edges.size());
+      for (auto * e : adjacent_edges) {
+        e->computeError();
+        const auto err = e->error();
+        const Eigen::Matrix<double, 6, 6> info = e->information();
+        // For the block-diag construction above, the diagonals encode the
+        // per-block scale of I_3 already attenuated by separation, so
+        // multiplying ||delta||^2 by the leading diagonal of each block
+        // reproduces the standard chi^2 contribution of that block.
+        const double w_t = info(0, 0);
+        const double w_r = info(3, 3);
+        const double trans = w_t * err.template head<3>().squaredNorm();
+        const double rot = w_r * err.template tail<3>().squaredNorm();
+        if (std::isfinite(trans)) {
+          trans_chi2_values.push_back(trans);
+        }
+        if (std::isfinite(rot)) {
+          rot_chi2_values.push_back(rot);
+        }
+      }
+      const double median_chi2_trans = graphslam::detail::medianChi2(trans_chi2_values);
+      const double median_chi2_rot = graphslam::detail::medianChi2(rot_chi2_values);
 
-    RCLCPP_INFO(
-      get_logger(),
-      "[auto_scale] median_chi2=%.3f (n=%zu) target=%.3f weight=%.3f -> %.3f",
-      median_chi2, chi2_values.size(), cfg.target_nis, prev_weight,
-      adjacent_edge_info_weight_);
+      cfg.target_nis = adjacent_edge_info_auto_scale_target_nis_trans_;
+      const double prev_w_trans = adjacent_edge_info_weight_trans_;
+      adjacent_edge_info_weight_trans_ =
+        graphslam::detail::nextScale(prev_w_trans, median_chi2_trans, cfg);
+
+      cfg.target_nis = adjacent_edge_info_auto_scale_target_nis_rot_;
+      const double prev_w_rot = adjacent_edge_info_weight_rot_;
+      adjacent_edge_info_weight_rot_ =
+        graphslam::detail::nextScale(prev_w_rot, median_chi2_rot, cfg);
+
+      RCLCPP_INFO(
+        get_logger(),
+        "[auto_scale_split] trans median_chi2=%.3f target=%.3f w_trans=%.3f -> %.3f | "
+        "rot median_chi2=%.3f target=%.3f w_rot=%.3f -> %.3f (n=%zu)",
+        median_chi2_trans, adjacent_edge_info_auto_scale_target_nis_trans_,
+        prev_w_trans, adjacent_edge_info_weight_trans_,
+        median_chi2_rot, adjacent_edge_info_auto_scale_target_nis_rot_,
+        prev_w_rot, adjacent_edge_info_weight_rot_,
+        trans_chi2_values.size());
+    } else {
+      std::vector<double> chi2_values;
+      chi2_values.reserve(adjacent_edges.size());
+      for (auto * e : adjacent_edges) {
+        e->computeError();
+        const double v = e->chi2();
+        if (std::isfinite(v)) {
+          chi2_values.push_back(v);
+        }
+      }
+      const double median_chi2 = graphslam::detail::medianChi2(chi2_values);
+
+      cfg.target_nis = adjacent_edge_info_auto_scale_target_nis_;
+      const double prev_weight = adjacent_edge_info_weight_;
+      adjacent_edge_info_weight_ =
+        graphslam::detail::nextScale(prev_weight, median_chi2, cfg);
+
+      RCLCPP_INFO(
+        get_logger(),
+        "[auto_scale] median_chi2=%.3f (n=%zu) target=%.3f weight=%.3f -> %.3f",
+        median_chi2, chi2_values.size(), cfg.target_nis, prev_weight,
+        adjacent_edge_info_weight_);
+    }
   }
 
   /* modified_map publish */

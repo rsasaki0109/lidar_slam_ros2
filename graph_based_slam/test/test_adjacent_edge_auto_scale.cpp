@@ -29,6 +29,8 @@
 
 #include <gtest/gtest.h>
 
+#include <Eigen/Core>
+
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
 
 namespace graphslam
@@ -177,6 +179,75 @@ TEST(AdjacentEdgeAutoScale, RepeatedApplicationConvergesToTarget)
     scale = nextScale(scale, observed_chi2, cfg);
   }
   EXPECT_NEAR(500.0, scale, 1e-2);
+}
+
+// Level 2: the same scalar helper can be driven independently for the trans
+// block and the rot block of the SE(3) Information matrix. These tests model
+// the runtime call pattern used in graph_based_slam_component.cpp when
+// adjacent_edge_info_auto_scale_split_trans_rot_ is on.
+
+TEST(AdjacentEdgeAutoScaleSplit, IndependentTransAndRotMoveSeparately)
+{
+  // Equilibrium target per block: SE(3) split with 3 DoF each → target_nis=3.
+  AutoScaleConfig cfg_trans;
+  cfg_trans.target_nis = 3.0;
+  cfg_trans.ema_alpha = 1.0;
+
+  AutoScaleConfig cfg_rot;
+  cfg_rot.target_nis = 3.0;
+  cfg_rot.ema_alpha = 1.0;
+
+  // Trans residuals are noisier than rot residuals (median_chi2 6 vs 1.5),
+  // so the trans weight should halve while the rot weight doubles in one step.
+  EXPECT_DOUBLE_EQ(500.0, nextScale(1000.0, 6.0, cfg_trans));
+  EXPECT_DOUBLE_EQ(2000.0, nextScale(1000.0, 1.5, cfg_rot));
+}
+
+TEST(AdjacentEdgeAutoScaleSplit, RepeatedApplicationConvergesIndependently)
+{
+  AutoScaleConfig cfg_trans;
+  cfg_trans.target_nis = 3.0;
+  cfg_trans.ema_alpha = 0.5;
+  cfg_trans.min_scale = 1.0;
+  cfg_trans.max_scale = 1.0e6;
+
+  AutoScaleConfig cfg_rot;
+  cfg_rot.target_nis = 3.0;
+  cfg_rot.ema_alpha = 0.5;
+  cfg_rot.min_scale = 1.0;
+  cfg_rot.max_scale = 1.0e6;
+
+  // Independent chi2-per-unit-scale for translation vs rotation. Equilibrium:
+  // w_trans* = 3 / 0.01 = 300, w_rot* = 3 / 0.003 = 1000.
+  const double trans_unit = 0.01;
+  const double rot_unit = 0.003;
+  double w_trans = 800.0;
+  double w_rot = 200.0;
+  for (int i = 0; i < 80; ++i) {
+    w_trans = nextScale(w_trans, trans_unit * w_trans, cfg_trans);
+    w_rot = nextScale(w_rot, rot_unit * w_rot, cfg_rot);
+  }
+  EXPECT_NEAR(300.0, w_trans, 1e-2);
+  EXPECT_NEAR(1000.0, w_rot, 1e-2);
+}
+
+TEST(AdjacentEdgeAutoScaleSplit, ChiSquaredDecompositionMatchesBlockShape)
+{
+  // For a diagonal block-diag Information matrix
+  //   I = block_diag(w_t * I_3, w_r * I_3)
+  // the full chi^2 of e = [t; r] equals w_t ||t||^2 + w_r ||r||^2. Verify the
+  // accounting the component uses against the full e^T I e expression.
+  const Eigen::Matrix<double, 6, 1> err =
+    (Eigen::Matrix<double, 6, 1>() << 0.2, -0.1, 0.05, 0.01, 0.0, -0.03).finished();
+  const double w_t = 250.0;
+  const double w_r = 800.0;
+  Eigen::Matrix<double, 6, 6> info = Eigen::Matrix<double, 6, 6>::Zero();
+  info.topLeftCorner<3, 3>().diagonal().setConstant(w_t);
+  info.bottomRightCorner<3, 3>().diagonal().setConstant(w_r);
+  const double full = err.transpose() * info * err;
+  const double trans_part = w_t * err.head<3>().squaredNorm();
+  const double rot_part = w_r * err.tail<3>().squaredNorm();
+  EXPECT_NEAR(full, trans_part + rot_part, 1e-12);
 }
 
 }  // namespace
