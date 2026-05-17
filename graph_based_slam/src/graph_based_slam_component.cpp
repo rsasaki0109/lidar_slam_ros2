@@ -157,6 +157,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
     triangle_descriptor_inlier_rotation_deg_);
   declare_parameter("triangle_descriptor_exclude_recent", 4);
   get_parameter("triangle_descriptor_exclude_recent", triangle_descriptor_exclude_recent_);
+  declare_parameter("triangle_verify_with_bev", false);
+  get_parameter("triangle_verify_with_bev", triangle_verify_with_bev_);
+  declare_parameter("triangle_verify_bev_max_distance", 0.30);
+  get_parameter("triangle_verify_bev_max_distance", triangle_verify_bev_max_distance_);
   declare_parameter("use_pcd_cache", false);
   get_parameter("use_pcd_cache", use_pcd_cache_);
   declare_parameter("pcd_cache_dir", std::string("/tmp/graph_slam_pcd_cache"));
@@ -528,6 +532,9 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   }
   if (triangle_descriptor_exclude_recent_ < 0) {
     triangle_descriptor_exclude_recent_ = 0;
+  }
+  if (triangle_verify_bev_max_distance_ <= 0.0) {
+    triangle_verify_bev_max_distance_ = 0.30;
   }
   if (
     solid_descriptor_min_similarity_ <= -1.0 ||
@@ -1865,7 +1872,30 @@ void GraphBasedSlamComponent::searchLoop()
         if (cand.accepted) {
           const double travel_distance =
             latest_moving_distance - map_array_msg.submaps[chosen_submap_id].distance;
-          if (travel_distance > distance_loop_closure_) {
+          bool bev_cross_verify_ok = true;
+          double bev_cross_verify_distance = std::numeric_limits<double>::infinity();
+          if (
+            triangle_verify_with_bev_ &&
+            use_bev_descriptor_ &&
+            chosen_submap_id < bev_descriptor_db_.size() &&
+            !bev_descriptor_db_.descriptors.empty())
+          {
+            graphslam::bev::MutualVisibilityConfig mv_cfg;
+            mv_cfg.min_overlap_ratio = bev_mutual_visibility_min_overlap_ratio_;
+            mv_cfg.occupancy_eps =
+              static_cast<float>(bev_mutual_visibility_occupancy_eps_);
+            const auto fov = graphslam::bev::mutualVisibilityWithYawSearch(
+              bev_descriptor_db_.descriptors.back(),
+              bev_descriptor_db_.descriptors[chosen_submap_id],
+              chosen_submap_id,
+              bev_descriptor_yaw_bins_,
+              mv_cfg);
+            bev_cross_verify_distance = fov.valid ?
+              fov.distance : std::numeric_limits<double>::infinity();
+            bev_cross_verify_ok =
+              fov.valid && fov.distance <= triangle_verify_bev_max_distance_;
+          }
+          if (travel_distance > distance_loop_closure_ && bev_cross_verify_ok) {
             const Eigen::Matrix3f R = cand.transform.block<3, 3>(0, 0);
             const Eigen::Vector3f euler = R.eulerAngles(2, 1, 0);
             double tri_yaw_rad = static_cast<double>(euler[0]);
@@ -1881,7 +1911,17 @@ void GraphBasedSlamComponent::searchLoop()
             std::cout << "Triangle loop candidate: id=" << chosen_submap_id
                       << " votes=" << chosen_votes
                       << " inliers=" << cand.inliers
-                      << " yaw_deg=" << tri_yaw_rad * 180.0 / M_PI << std::endl;
+                      << " yaw_deg=" << tri_yaw_rad * 180.0 / M_PI;
+            if (triangle_verify_with_bev_) {
+              std::cout << " bev_xv_dist=" << bev_cross_verify_distance;
+            }
+            std::cout << std::endl;
+          } else if (!bev_cross_verify_ok && debug_flag_) {
+            RCLCPP_INFO(
+              get_logger(),
+              "Skip Triangle candidate %d: BEV cross-verify distance %.3f > %.3f",
+              chosen_submap_id, bev_cross_verify_distance,
+              triangle_verify_bev_max_distance_);
           } else if (debug_flag_) {
             RCLCPP_INFO(
               get_logger(),
