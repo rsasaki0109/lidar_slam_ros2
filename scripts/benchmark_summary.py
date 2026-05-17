@@ -7,6 +7,19 @@ import statistics
 from pathlib import Path
 from typing import Any
 
+try:
+    import yaml  # type: ignore
+except ImportError:  # pragma: no cover - PyYAML missing only on minimal builds
+    yaml = None  # type: ignore
+
+
+# Metric kinds supported by release profiles (extend cautiously - each value
+# must be derivable from a per-run record built below in main()).
+_PROFILE_METRICS = (
+    "ape_rmse_gt_m",
+    "ape_rmse_vs_reference_m",
+)
+
 
 def _fmt_float(v: Any, digits: int = 3) -> str:
     if v is None:
@@ -95,6 +108,160 @@ def _primary_value_text(primary: str, rec: dict[str, Any]) -> str:
     return rec.get("ape_rmse_m", "")
 
 
+def load_release_profiles(path: Path) -> list[dict[str, Any]]:
+    """Load and minimally validate a release-profile YAML file."""
+    if yaml is None:
+        raise RuntimeError(
+            "PyYAML is required to load release profiles; install python3-yaml"
+        )
+    with path.open("r", encoding="utf-8") as f:
+        doc = yaml.safe_load(f) or {}
+    profiles = doc.get("release_profiles")
+    if not isinstance(profiles, list):
+        raise ValueError(
+            f"{path}: expected top-level key 'release_profiles' to be a list"
+        )
+    validated: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for i, prof in enumerate(profiles):
+        if not isinstance(prof, dict):
+            raise ValueError(f"{path}: profile index {i} is not a mapping")
+        name = prof.get("name")
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"{path}: profile index {i} missing 'name'")
+        if name in seen:
+            raise ValueError(f"{path}: duplicate profile name '{name}'")
+        seen.add(name)
+        metric = prof.get("metric")
+        if metric not in _PROFILE_METRICS:
+            raise ValueError(
+                f"{path}: profile '{name}' metric must be one of {_PROFILE_METRICS}, "
+                f"got {metric!r}"
+            )
+        if not isinstance(prof.get("pass"), (int, float)):
+            raise ValueError(f"{path}: profile '{name}' missing numeric 'pass'")
+        match = prof.get("match") or {}
+        if not isinstance(match, dict):
+            raise ValueError(f"{path}: profile '{name}' 'match' must be a mapping")
+        validated.append(prof)
+    return validated
+
+
+def _profile_match(profile: dict[str, Any], rec: dict[str, Any]) -> bool:
+    match = profile.get("match") or {}
+    bag_substr = match.get("bag_name_contains")
+    if bag_substr and bag_substr not in (rec.get("bag") or ""):
+        return False
+    points_topic = match.get("points_topic")
+    if points_topic and points_topic != (rec.get("points_topic") or ""):
+        return False
+    ref_kind = match.get("reference_kind")
+    if ref_kind and ref_kind != (rec.get("ape_ref_kind") or ""):
+        return False
+    ref_substr = match.get("reference_source_contains")
+    if ref_substr and ref_substr not in (rec.get("ape_ref_src") or ""):
+        return False
+    min_pairs = match.get("min_ape_pairs")
+    if min_pairs is not None:
+        pairs = _as_float(rec.get("ape_pairs"))
+        if pairs is None or pairs < float(min_pairs):
+            return False
+    return True
+
+
+def _profile_metric_value(profile: dict[str, Any], rec: dict[str, Any]) -> float | None:
+    metric = profile.get("metric")
+    if metric == "ape_rmse_gt_m":
+        if (rec.get("ape_ref_kind") or "") != "ground_truth":
+            return None
+        return _as_float(rec.get("ape_rmse_m"))
+    if metric == "ape_rmse_vs_reference_m":
+        return _as_float(rec.get("ape_rmse_m"))
+    return None
+
+
+def evaluate_release_profiles(
+    profiles: list[dict[str, Any]],
+    records: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """For each profile, find the best matching run and assign a status.
+
+    Status values:
+      PASS        - best matching metric <= pass threshold
+      FAIL        - best matching metric > pass threshold (gate active)
+      WARN        - same as FAIL but profile has report_only_until set
+      NO_DATA     - no matching runs found
+      TARGET_MET  - PASS and metric <= target (display-only bonus)
+    """
+    results: list[dict[str, Any]] = []
+    for prof in profiles:
+        matched = [
+            rec for rec in records
+            if _profile_match(prof, rec)
+            and _profile_metric_value(prof, rec) is not None
+        ]
+        result: dict[str, Any] = {
+            "name": prof["name"],
+            "description": prof.get("description", ""),
+            "metric": prof["metric"],
+            "pass": float(prof["pass"]),
+            "target": _as_float(prof.get("target")),
+            "report_only_until": prof.get("report_only_until"),
+            "matched_runs": len(matched),
+        }
+        if not matched:
+            result["status"] = "NO_DATA"
+            result["best_run"] = None
+            result["best_value"] = None
+            results.append(result)
+            continue
+        scored = [
+            (rec, _profile_metric_value(prof, rec))
+            for rec in matched
+        ]
+        scored.sort(key=lambda item: item[1] if item[1] is not None else float("inf"))
+        best_rec, best_value = scored[0]
+        result["best_run"] = best_rec.get("run")
+        result["best_value"] = best_value
+        if best_value <= result["pass"]:
+            if result["target"] is not None and best_value <= result["target"]:
+                result["status"] = "TARGET_MET"
+            else:
+                result["status"] = "PASS"
+        else:
+            result["status"] = "WARN" if result["report_only_until"] else "FAIL"
+        results.append(result)
+    return results
+
+
+def render_release_profile_section(results: list[dict[str, Any]]) -> list[str]:
+    """Format the release-profile evaluation as markdown lines."""
+    if not results:
+        return []
+    lines = ["", "## Release profile gate", ""]
+    header = ["profile", "status", "metric", "best_run", "best_value", "pass", "target", "report_only_until"]
+    lines.append("| " + " | ".join(header) + " |")
+    lines.append("| " + " | ".join(["---"] * len(header)) + " |")
+    for r in results:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(r["name"]),
+                    str(r["status"]),
+                    str(r["metric"]),
+                    str(r.get("best_run") or ""),
+                    _fmt_float(r.get("best_value")),
+                    _fmt_float(r.get("pass")),
+                    _fmt_float(r.get("target")),
+                    str(r.get("report_only_until") or ""),
+                ]
+            )
+            + " |"
+        )
+    return lines
+
+
 def main() -> int:
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
@@ -134,6 +301,23 @@ def main() -> int:
         help=(
             "Limit threshold pass/fail checks to runs whose reference kind matches "
             "this value (default: all)"
+        ),
+    )
+    ap.add_argument(
+        "--release-profile",
+        default="",
+        help=(
+            "Path to a release-profiles YAML (see scripts/release_profiles.yaml). "
+            "Each profile evaluates one dataset/reference combination against its "
+            "own pass/target thresholds and is reported as a separate section."
+        ),
+    )
+    ap.add_argument(
+        "--fail-on-profiles",
+        action="store_true",
+        help=(
+            "Return a non-zero exit code when any release profile is FAIL "
+            "(report_only_until profiles only emit WARN and never block)."
         ),
     )
     args = ap.parse_args()
@@ -200,6 +384,7 @@ def main() -> int:
         evo = r.get("evo") or {}
         ape = evo.get("ape") if isinstance(evo, dict) else None
         ape_rmse = (ape.get("rmse") if isinstance(ape, dict) else None) if ape is not None else None
+        ape_pairs = (ape.get("pairs") if isinstance(ape, dict) else None) if ape is not None else None
 
         if lid_success is True:
             lid_ok += 1
@@ -265,6 +450,7 @@ def main() -> int:
                 "glim_wall_s": _fmt_float(glim_wall, 2),
                 "ape_rmse_m": _fmt_float(ape_raw),
                 "ape_ok": ape_ok,
+                "ape_pairs": ape_pairs,
                 "primary_raw": primary_raw,
                 "primary_missing": primary_missing,
             }
@@ -374,6 +560,14 @@ def main() -> int:
             rec["ape_ok"],
         ]
         md_lines.append("| " + " | ".join(row) + " |")
+
+    profile_results: list[dict[str, Any]] = []
+    if args.release_profile:
+        profile_path = Path(args.release_profile).expanduser().resolve()
+        profiles = load_release_profiles(profile_path)
+        profile_results = evaluate_release_profiles(profiles, records_sorted)
+        md_lines.extend(render_release_profile_section(profile_results))
+
     md = "\n".join(md_lines) + "\n"
 
     print(md, end="")
@@ -428,6 +622,16 @@ def main() -> int:
                 "error: APE threshold failed for runs: "
                 + ", ".join(failing_runs),
             )
+            return 2
+
+    if args.fail_on_profiles:
+        if not args.release_profile:
+            print("error: --fail-on-profiles requires --release-profile")
+            return 1
+        failing = [r for r in profile_results if r["status"] == "FAIL"]
+        if failing:
+            names = ", ".join(r["name"] for r in failing)
+            print(f"error: release profile gate FAILED for: {names}")
             return 2
 
     return 0

@@ -158,12 +158,18 @@ def build_osm(
     origin_lon: float,
     speed_limit: float,
     segment_length: int = 25,
+    add_local_coords: bool = True,
 ) -> tuple[ET.Element, int]:
     """Build an OSM ElementTree from left/right boundary arrays (local coords).
 
     The trajectory is split into multiple lanelets of *segment_length* points
     each. Adjacent lanelets share boundary nodes so that Autoware's routing
     graph recognises them as connected.
+
+    When *add_local_coords* is True, every node also carries ``local_x``/
+    ``local_y`` tags holding the source frame x/y. Autoware's lanelet2
+    extension uses these when ``projector_type: local`` is set in
+    ``map_projector_info.yaml``.
 
     Returns (osm_element, number_of_lanelets).
     """
@@ -188,9 +194,9 @@ def build_osm(
     right_node_ids: list[int] = []
 
     for i in range(n_pts):
-        for lat_arr, lon_arr, ele_arr, node_list in [
-            (left_lat, left_lon, left_ele, left_node_ids),
-            (right_lat, right_lon, right_ele, right_node_ids),
+        for lat_arr, lon_arr, ele_arr, xy_src, node_list in [
+            (left_lat, left_lon, left_ele, left, left_node_ids),
+            (right_lat, right_lon, right_ele, right, right_node_ids),
         ]:
             nid += 1
             node = ET.SubElement(
@@ -198,6 +204,9 @@ def build_osm(
                 lat=f'{lat_arr[i]:.10f}', lon=f'{lon_arr[i]:.10f}',
             )
             _add_tag(node, 'ele', f'{ele_arr[i]:.4f}')
+            if add_local_coords:
+                _add_tag(node, 'local_x', f'{xy_src[i, 0]:.4f}')
+                _add_tag(node, 'local_y', f'{xy_src[i, 1]:.4f}')
             node_list.append(nid)
 
     # --- Split into lanelet segments ---
@@ -256,6 +265,160 @@ def write_osm(osm: ET.Element, path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Validation helpers (pure Python structural + optional lanelet2 routing)
+# ---------------------------------------------------------------------------
+
+
+REQUIRED_LANELET_TAGS = (
+    'subtype',
+    'location',
+    'one_way',
+    'participant:vehicle',
+    'speed_limit',
+)
+
+
+def validate_structure(osm: ET.Element) -> tuple[bool, list[str]]:
+    """Pure-Python structural validation. Returns (ok, messages).
+
+    Checks that:
+      - every node carries an ``ele`` tag (Autoware lanelet2 extension requires)
+      - every lanelet relation carries the tags Autoware needs to treat it as
+        a drivable road for vehicles
+      - every lanelet has both ``left`` and ``right`` boundary ways
+      - adjacent lanelets share boundary node IDs (not just coordinates), which
+        is what Lanelet2's default routing graph uses to infer succession.
+
+    The check is intentionally cheap so it can run in CI without ROS.
+    """
+    msgs: list[str] = []
+    ok = True
+
+    nodes = {n.get('id'): n for n in osm.findall('node')}
+    ways = {w.get('id'): w for w in osm.findall('way')}
+    lanelets = [
+        r
+        for r in osm.findall('relation')
+        if any(t.get('k') == 'type' and t.get('v') == 'lanelet' for t in r.findall('tag'))
+    ]
+    msgs.append(f'structure: {len(nodes)} nodes, {len(ways)} ways, {len(lanelets)} lanelets')
+
+    if not lanelets:
+        return False, msgs + ['FAIL: no lanelet relations found']
+
+    no_ele = [
+        nid for nid, n in nodes.items()
+        if not any(t.get('k') == 'ele' for t in n.findall('tag'))
+    ]
+    if no_ele:
+        ok = False
+        msgs.append(f'FAIL: {len(no_ele)} nodes missing "ele" tag (first: {no_ele[:3]})')
+
+    for rel in lanelets:
+        rid = rel.get('id')
+        tag_keys = {t.get('k') for t in rel.findall('tag')}
+        missing = [k for k in REQUIRED_LANELET_TAGS if k not in tag_keys]
+        if missing:
+            ok = False
+            msgs.append(f'FAIL: lanelet {rid} missing tags {missing}')
+        roles = {m.get('role') for m in rel.findall('member')}
+        if 'left' not in roles or 'right' not in roles:
+            ok = False
+            msgs.append(f'FAIL: lanelet {rid} missing left/right member')
+
+    def way_node_refs(way_id: str | None) -> list[str]:
+        w = ways.get(way_id) if way_id else None
+        return [nd.get('ref') for nd in w.findall('nd')] if w is not None else []
+
+    sorted_lanelets = sorted(lanelets, key=lambda r: int(r.get('id') or '0'))
+    shared_pairs = 0
+    total_pairs = max(0, len(sorted_lanelets) - 1)
+    for i in range(total_pairs):
+        a, b = sorted_lanelets[i], sorted_lanelets[i + 1]
+        a_left = next((m.get('ref') for m in a.findall('member') if m.get('role') == 'left'), None)
+        a_right = next((m.get('ref') for m in a.findall('member') if m.get('role') == 'right'), None)
+        b_left = next((m.get('ref') for m in b.findall('member') if m.get('role') == 'left'), None)
+        b_right = next((m.get('ref') for m in b.findall('member') if m.get('role') == 'right'), None)
+
+        a_l, a_r = way_node_refs(a_left), way_node_refs(a_right)
+        b_l, b_r = way_node_refs(b_left), way_node_refs(b_right)
+
+        if a_l and b_l and a_r and b_r and a_l[-1] == b_l[0] and a_r[-1] == b_r[0]:
+            shared_pairs += 1
+        else:
+            ok = False
+            msgs.append(
+                f'FAIL: lanelet pair ({a.get("id")}, {b.get("id")}) does not share '
+                f'boundary node IDs (left last/first={a_l[-1] if a_l else None}/'
+                f'{b_l[0] if b_l else None}, right={a_r[-1] if a_r else None}/'
+                f'{b_r[0] if b_r else None})'
+            )
+    if total_pairs:
+        msgs.append(f'structure: {shared_pairs}/{total_pairs} adjacent lanelets share boundary nodes')
+
+    return ok, msgs
+
+
+def validate_routing(
+    osm_path: Path, origin_lat: float, origin_lon: float
+) -> tuple[bool | None, list[str]]:
+    """Optional routing-graph validation using lanelet2 Python bindings.
+
+    Returns ``(True, msgs)`` on PASS, ``(False, msgs)`` on FAIL, or
+    ``(None, msgs)`` when the lanelet2 bindings are unavailable.
+    """
+    try:
+        import lanelet2  # type: ignore
+        from lanelet2.projection import UtmProjector  # type: ignore
+    except ImportError:
+        return None, [
+            'routing: lanelet2 Python bindings not importable; '
+            'install via `apt install ros-${ROS_DISTRO}-lanelet2-python` and '
+            'source the ROS overlay (skipping routing check)'
+        ]
+
+    msgs: list[str] = []
+    projector = UtmProjector(lanelet2.io.Origin(origin_lat, origin_lon))
+    try:
+        laneletmap = lanelet2.io.load(str(osm_path), projector)
+    except Exception as exc:  # pragma: no cover - depends on lanelet2 build
+        return False, [f'routing: lanelet2.io.load failed: {exc}']
+
+    lanelets = sorted(laneletmap.laneletLayer, key=lambda ll: ll.id)
+    if not lanelets:
+        return False, ['routing: no lanelets parsed from map']
+
+    msgs.append(f'routing: loaded {len(lanelets)} lanelets')
+
+    traffic_rules = lanelet2.traffic_rules.create(
+        lanelet2.traffic_rules.Locations.Germany,
+        lanelet2.traffic_rules.Participants.Vehicle,
+    )
+    routing_graph = lanelet2.routing.RoutingGraph(laneletmap, traffic_rules)
+
+    connected = 0
+    total = max(0, len(lanelets) - 1)
+    for i in range(total):
+        following_ids = {f.id for f in routing_graph.following(lanelets[i])}
+        if lanelets[i + 1].id in following_ids:
+            connected += 1
+    msgs.append(f'routing: {connected}/{total} adjacent pairs connected in routing graph')
+
+    path = routing_graph.shortestPath(lanelets[0], lanelets[-1])
+    if path is None or len(path) == 0:
+        msgs.append(
+            f'routing: FAIL shortestPath({lanelets[0].id} → {lanelets[-1].id}) is empty'
+        )
+        return False, msgs
+
+    msgs.append(
+        f'routing: PASS shortestPath({lanelets[0].id} → {lanelets[-1].id}) '
+        f'covers {len(path)} lanelets'
+    )
+    return True, msgs
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -275,6 +438,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument('--speed-limit', type=float, default=10.0, help='Speed limit [km/h]')
     p.add_argument('--segment-length', type=int, default=25,
                    help='Points per lanelet segment (Autoware needs multiple connected lanelets)')
+    p.add_argument('--no-local-coords', dest='add_local_coords', action='store_false',
+                   help='Skip emitting local_x/local_y tags on every node '
+                        '(default: emit, required by Autoware projector_type=local)')
+    p.set_defaults(add_local_coords=True)
+    p.add_argument('--no-validate-structure', dest='validate_structure',
+                   action='store_false',
+                   help='Skip the post-write structural validation')
+    p.set_defaults(validate_structure=True)
+    p.add_argument('--validate-routing', action='store_true',
+                   help='Also build a Lanelet2 routing graph and verify '
+                        'shortestPath(first → last). Requires lanelet2 Python bindings.')
     return p.parse_args(argv)
 
 
@@ -293,11 +467,32 @@ def main(argv: list[str] | None = None) -> None:
     osm, n_lanelets = build_osm(
         left, right, args.origin_lat, args.origin_lon,
         args.speed_limit, args.segment_length,
+        add_local_coords=args.add_local_coords,
     )
     write_osm(osm, args.output)
 
     n_nodes = len(left) + len(right)
     print(f'Wrote {args.output}  ({n_nodes} nodes, {n_lanelets * 2} ways, {n_lanelets} lanelets)')
+
+    exit_code = 0
+    if args.validate_structure:
+        ok, msgs = validate_structure(osm)
+        for line in msgs:
+            print(line)
+        if not ok:
+            print('Structural validation FAILED', file=sys.stderr)
+            exit_code = 1
+
+    if args.validate_routing:
+        result, msgs = validate_routing(args.output, args.origin_lat, args.origin_lon)
+        for line in msgs:
+            print(line)
+        if result is False:
+            print('Routing validation FAILED', file=sys.stderr)
+            exit_code = 1
+
+    if exit_code:
+        sys.exit(exit_code)
 
 
 if __name__ == '__main__':

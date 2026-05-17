@@ -58,7 +58,8 @@ Build behavior:
 - force-disabled with
   `colcon build --symlink-install --cmake-args -DGRAPH_BASED_SLAM_ENABLE_3D_BBS=OFF`
 
-MID360 wrapper example:
+MID-360 wrapper example (research track, `report_only_until: v0.4` in
+`scripts/release_profiles.yaml`):
 
 ```bash
 bash scripts/run_rko_lio_mid360_crossval_benchmark.sh \
