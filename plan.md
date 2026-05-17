@@ -100,7 +100,7 @@ bash scripts/sweep_kitti_small_gicp.sh --dataset /path/to/KITTI_odometry --seque
 - STD (Stable Triangle Descriptor) / BTC (Binary Triangle Code) の原理だけ拾い、GPLv2 / ライセンス不明な公式実装には触れずに書く（[[project_place_recognition_license]] 参照）。
 - 既存の BEV / Scan Context / SOLiD と並列に「もう 1 段重ねる」選択肢として置く。default workflow には影響を与えない opt-in 機能として落とす。
 
-### 投入した 9 PR（develop マージ済 / 2026-05-18 時点）
+### 投入した 13 PR（develop マージ済 / 2026-05-18 時点）
 
 | PR | コミット | 内容 |
 |----|---------|------|
@@ -113,6 +113,9 @@ bash scripts/sweep_kitti_small_gicp.sh --dataset /path/to/KITTI_odometry --seque
 | #141 | `9abeef8` | 1 コマンド ablation runner `scripts/run_triangle_ablation.sh` |
 | #142 | `571783e` | runner のログ拾いバグ修正 + report ヘッダ汎用化 |
 | #143 | `e89f322` | triangle SE(3) を NDT 初期値として配線 + デフォルト閾値引き上げ |
+| #145 | `b6b95de` | v4 ablation knobs を default 化: grid_cells 60→100, salience 0.3→0.8, max_keypoints 80→40, edge_bin 1.0→0.5, max_triangles 5000→3000, votes 10→6, inliers 5→4 |
+| #146 | `cdaa22f` | `min_inlier_ratio` / `max_pairs` ROS パラメータ追加: 絶対 inlier 数だけでなく相対密度フロアでもゲートできる |
+| #147 | `73ecf19` | 4-point consensus gate: 3-point RANSAC で選ばれた SE(3) に対し triangle 頂点以外の query keypoint を写して db 側 keypoint と一致するかをチェック。TriangleDatabase に submap-level keypoint 全保持を追加 |
 
 ### Pipeline 全体図
 1. **keypoint 抽出**: BEV 投影 max-height local-maximum をキーポイント候補（`extractKeypointsBEV`）。
@@ -124,19 +127,21 @@ bash scripts/sweep_kitti_small_gicp.sh --dataset /path/to/KITTI_odometry --seque
 7. **NDT 初期値**: triangle 由来の SE(3) を NDT/GICP の initial guess として使う（PR #143）。
 8. **オプション**: BEV mutual-visibility distance と AND ゲート（PR #140）。
 
-### NTU VIRAL tnp_01 ablation（3 ラウンド）
+### NTU VIRAL tnp_01 ablation（5 ラウンド）
 
 `scripts/run_triangle_ablation.sh` で同一バッグを `use_triangle_descriptor` のみ切替えて 2 回回し、`generate_place_recognition_report.py --candidate-kind triangle_descriptor` で diff。
 
-| ラウンド | 設定 | baseline APE | candidate APE | Triangle 候補 emit | Triangle 採用 | 解釈 |
-|---------|------|-------------|---------------|-------------------|--------------|------|
-| v1 | min_inliers=3, min_votes=6, NDT初期値=pose+yaw | 1.440 m | 1.602 m | 4 | 0 | distance loop が dedup で 26→21 に減って悪化 |
-| v2 | min_inliers=5, min_votes=10, NDT初期値=triangle SE(3) | 1.509 m | 1.418 m | 0 | 0 | 全部閾値で弾かれ。改善は run-to-run variance |
-| v3 | min_inliers=3, min_votes=6, NDT初期値=triangle SE(3) | 1.444 m | 1.497 m | 10 | 0 | SE(3) 初期値投入しても NDT 通らず |
+| ラウンド | 設定 | baseline APE | candidate APE | Triangle 候補 emit | Triangle 採用 | distance loop (cand/base) | 解釈 |
+|---------|------|-------------|---------------|-------------------|--------------|--------------------------|------|
+| v1 | min_inliers=3, min_votes=6, NDT初期値=pose+yaw | 1.440 m | 1.602 m | 4 | 0 | 21 / 26 | distance loop が dedup で押し出されて悪化 |
+| v2 | min_inliers=5, min_votes=10, NDT初期値=triangle SE(3) | 1.509 m | 1.418 m | 0 | 0 | — | 全部閾値で弾かれ、変化なし |
+| v3 | min_inliers=3, min_votes=6, NDT初期値=triangle SE(3) | 1.444 m | 1.497 m | 10 | 0 | — | SE(3) 初期値投入しても NDT 通らず |
+| v4 | **keypoint tightening** (grid_cells 100, salience 0.8, max_kp 40, edge_bin 0.5) | 1.271 m | 1.312 m | 4 | **1** ✨ | 11 / 17 | 初の triangle 採用 (id=32 ↔ 95, 補正 0.49 m/1.06°)。ただし distance loop は依然減 |
+| v5 | v4 + `min_inlier_ratio=0.15` + `max_pairs=24` + `min_4th_point_agreements=3` | 1.500 m | 1.478 m | **2** (半減) | 1 | **19** / 17 | 偽陽性 emit を半減しつつ legit 採用は維持、distance loop の押し出しも解消 (cand > baseline) |
 
-**run-to-run variance** は ~0.1 m あり、`use_triangle_descriptor` の on/off 単独で確実な APE 改善とは結論できない。
+**run-to-run variance** は ~0.1 m あり、APE 単独で確信は持てない。ただし **v5 で「triangle on にしても distance loop が減らず、triangle 由来 loop が 1 件追加で APE は variance 内で baseline 以下」** という形が初めて再現。これは「triangle stack が非破壊的に追加情報を提供する」状態に到達したことを意味する。
 
-### 決定的な観察
+### 決定的な観察 (v1〜v3 時点)
 
 `Triangle loop candidate:` ログを candidate run から並べると、**同じ submap_id=5 ペアで連続呼び出しの yaw 推定値が 51° → 100° → 123° → 130° → 145° と乱高下**していた。同一サブマップ間の真の相対 yaw は本来一つに収束すべきところ、毎回違う SE(3) が出ている。
 
@@ -145,47 +150,49 @@ bash scripts/sweep_kitti_small_gicp.sh --dataset /path/to/KITTI_odometry --seque
 - 3 点対応付け段階で **keypoint extraction のノイズ**が支配的になり、RANSAC が偶然合意する 3〜4 inliers でランダムな SE(3) を出力している
 - そのランダム SE(3) を NDT 初期値に入れても NDT が収束しない
 
-### 根本原因の分解
+### v4 / v5 で解消された段
 
-| 段 | 状態 | 評価 |
-|----|------|------|
-| Hash bucket matching (edge length) | OK — 高 vote 多数 | ✅ |
-| 3 点対応付け（誰がどの頂点か） | keypoint 抽出のノイズで破綻 | ❌ |
-| SE(3) 復元（Umeyama） | 入力が noisy なので結果も noisy | ⚠️ |
-| NDT 検証 | noisy 初期値からは収束しない | ⚠️ |
+v4 の keypoint tightening と v5 の inlier_ratio + 4-point gate を経て、根本原因の段別評価は次のように更新:
 
-### 学び
+| 段 | v1〜v3 評価 | v5 評価 |
+|----|------------|---------|
+| Hash bucket matching (edge length) | ✅ OK | ✅ OK |
+| 3 点対応付け（誰がどの頂点か） | ❌ keypoint ノイズで破綻 | ⚠️ tightening で id=5 false-bucket は解消、ただし依然 noisy |
+| SE(3) 復元（Umeyama） | ⚠️ ノイズ入力でノイズ出力 | ⚠️ 改善はしたが完全ではない |
+| 3-point inlier consensus | （単独で機能不全） | ✅ `min_inlier_ratio` で相対密度ゲートできる |
+| 4-point consensus | （未実装） | ✅ triangle 頂点外の keypoint で SE(3) を独立検証 |
+| NDT 検証 | ⚠️ noisy 初期値で発散 | ✅ tightening + 4-point gate を通った SE(3) は NDT 収束する (v4/v5 で 1 件 / 2 件 emit 中 1 件 accept) |
+
+### 学び（v1〜v5 通算）
 
 - **Hash voting と RANSAC SE(3) recovery は別レベルの難しさ**を持つ。「票が集まる」と「同じ submap を見ている」とは言えるが、「ある三角形 A が三角形 B にどう対応するか」までは情報が足りない。
 - **デフォルト閾値を厳しくしただけでは救えない**。v2 のように閾値を上げると 1 つも emit しなくなり、検証データが取れなくなる。
 - **SE(3) を NDT 初期値に入れただけでは救えない**。v3 のように noisy SE(3) を渡しても NDT 収束半径外。
+- **keypoint 抽出の質が支配的だった**。v4 で salience filter + edge_bin 縮小だけで「同じ submap に全部寄る」failure mode が解消、初の採用が出た。
+- **3-point RANSAC は最小自由度ゆえ偶然合意しやすい**。v5 の 4-point consensus + inlier_ratio で偽陽性 emit を半減できることを実証した。
 - **run-to-run variance ~0.1 m を見落とすと改善誤判定する**。1 回比較で「APE 改善した」と判定するのは早計。
 
-### 次の打ち手（優先度順）
+### 残った次の打ち手（優先度順）
 
-1. **keypoint 抽出の質を底上げ**
-   - `min_salience_m` 0.3 → 0.5〜1.0 に引き上げて低塞性キーポイントを排除
-   - `grid_cells` 60 → 120 に増やして空間分解能を上げる
-   - 同じ keypoint が複数 submap で安定して再検出されるかをまず単独テストでチェックする
-2. **edge_bin_m を狭める**
-   - 1.0 → 0.5 にして hash collision を減らす
-   - 票は減るが「同じ場所を見ている」精度が上がる
-3. **RANSAC を 3 点 → 4 点以上 consensus に**
-   - 現状の 3 点合意 RANSAC は最小自由度で偶然成立しやすい
-   - 4 点目を独立に検証する形にすれば noisy 合意を排除できる
-4. **`inlier_ratio` パラメータの追加**
-   - `min_inliers` の絶対値ではなく `inliers / eval_n` の比率で閾値化
-   - max_pairs を縮めるとセマンティクスが効きやすい
-5. **別データセットでの再検証**
+1. **別データセットでの再検証**（最優先）
    - NTU VIRAL tnp_01 は走行軌跡が一直線往復に近く、triangle の強みが出にくい可能性
    - Newer College math-hard / Leo Drive driving / MID-360 demo で同じ ablation を回したい
    - ただし Leo Drive は velodyne_packets のままで PointCloud2 化が必要、demo bag の整備が先
+2. **MID-360 demo bag の整備**
+   - reference 軌跡 + 短距離ループありの bag を準備すれば triangle stack の本領テストができる
+   - 現状 demo_data/ には MID-360 の loop closure 向け bag が無い
+3. **4-point gate を default on に倒すか検討**
+   - v5 で機能確認済。default `min_4th_point_agreements: 3` まで上げる選択肢
+   - 別データセット 1-2 個で検証してから判断
+4. **`use_triangle_descriptor` を default on にするか検討**
+   - v5 で「triangle on で APE が baseline 以下、distance loop も減らない」状態に到達
+   - ただし 1 データセット 1 回の観測。複数データで再現性が確認できれば default on を提案できる
 
 ### ステータスと運用方針
 
-- triangle descriptor stack は「**実装完了・性能未達**」として default off のまま develop に残す（`use_triangle_descriptor: false`）。
-- v0.4 リリースでは「STD/BTC 風 place recognition の opt-in 実装あり」と書ける一方、「精度クレームは Newer College / NTU の従来パスのみ」とする。
-- 上記「次の打ち手 1〜5」は v0.4 以降の研究 track。MID-360 demo の整備（reference 軌跡 + 短距離ループありバッグ）が先回りで必要。
+- triangle descriptor stack は「**実装完了・1 データセットで効果確認（PoC）**」段階。v0.4 リリースでは引き続き default off (`use_triangle_descriptor: false`) で opt-in 機能として提供。
+- v0.4 release notes には「STD/BTC 風 place recognition の opt-in 実装あり、NTU VIRAL tnp_01 で 1 採用ループ確認、複数データセットでの再現性は roadmap」と書ける状態。
+- 上記「残った次の打ち手 1〜4」のうち #1 #2 が外部データ準備に依存。#3 #4 は社内データだけでも先に着手可能。
 
 詳細メモは [[project_triangle_descriptor_stack]] に保存済。
 
@@ -365,7 +372,7 @@ bash scripts/sweep_kitti_small_gicp.sh --dataset /path/to/KITTI_odometry --seque
 - 非 360 FOV のため Scan Context が無効
 - 中間ドリフトの補正にループクロージャーが不足
 - RMSE 4.0m (vs GLIM) が現状の限界
-- BSD-2 自前実装の STD/BTC 風 triangle descriptor を 2026-05 に投入したが、NTU VIRAL ablation 3 ラウンドで APE 改善は確認できず。詳細は §1.2。triangle stack 自体は default off の opt-in として develop に残してあり、keypoint 抽出の質を底上げしてからの再検証が次の研究 track。
+- BSD-2 自前実装の STD/BTC 風 triangle descriptor を 2026-05 に投入。NTU VIRAL ablation v4 で初の triangle 採用 (id=32↔95, 補正 0.49m/1.06°)、v5 で 4-point gate + inlier_ratio による偽陽性 emit 半減 (4→2) と distance loop 押し出し解消を確認。詳細は §1.2。default off の opt-in 機能として develop に landing 済。次の段は MID-360 demo bag 整備 → 同じ ablation を MID-360 でも回すこと。
 
 ### 7.3 GenZ-ICP の再現性
 - DDS のメッセージ配送タイミングに結果が依存
@@ -393,9 +400,10 @@ bash scripts/sweep_kitti_small_gicp.sh --dataset /path/to/KITTI_odometry --seque
 
 | # | タスク | 理由 |
 |---|--------|------|
-| 4 | Triangle descriptor の keypoint 抽出質改善 | §1.2 の NTU 検証で SE(3) yaw が乱高下。keypoint salience filter 強化 + grid_cells 増 + edge_bin_m 縮小から着手 |
-| 4b | 4 点以上 consensus への拡張 | 3 点 RANSAC の偶然合意を排除し、SE(3) を NDT 初期値として実用化 |
-| 4c | MID-360 demo bag の整備 | reference 軌跡 + 短距離ループありの bag が無いと #4 の検証ができない |
+| 4 | ~~Triangle keypoint 抽出質改善~~ | ✅ PR #145 v4 default に landing 済、初の採用ループ確認 |
+| 4b | ~~4 点以上 consensus への拡張~~ | ✅ PR #147 で実装、v5 で偽陽性半減確認 |
+| 4c | MID-360 demo bag の整備 | reference 軌跡 + 短距離ループありの bag が無いと triangle ablation を MID-360 で回せない |
+| 4d | 別データセットで triangle stack 再現性検証 | NTU 単独では PoC 段階。Newer College / Leo Drive / MID-360 demo で同じ ablation を回したい |
 | 5 | Robust kernel 導入 | 誤ループ検出への頑健性（既に DCS/Cauchy/Huber 切替は実装済） |
 | 6 | キーフレーム選択ロジック | フロントエンドの品質指標に基づくサブマップ生成 |
 | 7 | マルチセッションマッピング | 複数回走行データの統合 |
