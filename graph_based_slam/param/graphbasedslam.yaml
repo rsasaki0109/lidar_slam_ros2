@@ -40,6 +40,23 @@ graph_based_slam:
       solid_descriptor_sequence_min_similarity: -1.0
       solid_descriptor_pose_consistency_threshold_m: -1.0
       solid_descriptor_max_euclidean_distance_m: -1.0
+      # STD/BTC-style triangle descriptor place recognition. Defaults sized
+      # for a 360° LiDAR; tighten the edge and grid bounds for short-range
+      # sensors like the Livox MID-360.
+      use_triangle_descriptor: false
+      triangle_descriptor_grid_size_m: 60.0
+      triangle_descriptor_grid_cells: 60
+      triangle_descriptor_max_keypoints: 80
+      triangle_descriptor_min_salience_m: 0.3
+      triangle_descriptor_min_edge_m: 2.0
+      triangle_descriptor_max_edge_m: 50.0
+      triangle_descriptor_max_triangles: 5000
+      triangle_descriptor_edge_bin_m: 1.0
+      triangle_descriptor_min_votes: 6
+      triangle_descriptor_min_inliers: 3
+      triangle_descriptor_inlier_translation_m: 2.0
+      triangle_descriptor_inlier_rotation_deg: 5.0
+      triangle_descriptor_exclude_recent: 4
       prefer_scan_context_candidates: false
       use_3d_bbs_for_scan_context: false
       three_d_bbs_min_level_res: 1.0
