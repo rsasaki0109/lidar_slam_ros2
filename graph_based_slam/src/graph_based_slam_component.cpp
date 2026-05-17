@@ -37,6 +37,7 @@
 #include <iomanip>
 #include <unordered_map>
 
+#include "graph_based_slam/adjacent_edge_auto_scale.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "g2o/core/robust_kernel_impl.h"
 
@@ -95,6 +96,20 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("debug_flag", debug_flag_);
   declare_parameter("adjacent_edge_info_weight", 1000.0);
   get_parameter("adjacent_edge_info_weight", adjacent_edge_info_weight_);
+  declare_parameter("adjacent_edge_info_auto_scale", false);
+  get_parameter("adjacent_edge_info_auto_scale", adjacent_edge_info_auto_scale_);
+  declare_parameter("adjacent_edge_info_auto_scale_target_nis", 6.0);
+  get_parameter(
+    "adjacent_edge_info_auto_scale_target_nis",
+    adjacent_edge_info_auto_scale_target_nis_);
+  declare_parameter("adjacent_edge_info_auto_scale_ema_alpha", 0.3);
+  get_parameter(
+    "adjacent_edge_info_auto_scale_ema_alpha",
+    adjacent_edge_info_auto_scale_ema_alpha_);
+  declare_parameter("adjacent_edge_info_auto_scale_min", 1.0);
+  get_parameter("adjacent_edge_info_auto_scale_min", adjacent_edge_info_auto_scale_min_);
+  declare_parameter("adjacent_edge_info_auto_scale_max", 1.0e6);
+  get_parameter("adjacent_edge_info_auto_scale_max", adjacent_edge_info_auto_scale_max_);
   declare_parameter("loop_edge_info_weight", 100.0);
   get_parameter("loop_edge_info_weight", loop_edge_info_weight_);
   declare_parameter("loop_edge_robust_kernel_delta", 1.0);
@@ -1922,6 +1937,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   optimizer.setAlgorithm(solver);
 
   int submaps_size = map_array_msg.submaps.size();
+  std::vector<g2o::EdgeSE3 *> adjacent_edges;
   for (int i = 0; i < submaps_size; i++) {
     Eigen::Affine3d affine;
     Eigen::fromMsg(map_array_msg.submaps[i].pose, affine);
@@ -1951,6 +1967,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
         edge_se3->vertices()[0] = optimizer.vertex(pre_idx);
         edge_se3->vertices()[1] = optimizer.vertex(i);
         optimizer.addEdge(edge_se3);
+        adjacent_edges.push_back(edge_se3);
       }
     }
   }
@@ -2076,6 +2093,35 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   optimizer.initializeOptimization();
   optimizer.optimize(10);
   optimizer.save("pose_graph.g2o");
+
+  if (adjacent_edge_info_auto_scale_ && !adjacent_edges.empty()) {
+    std::vector<double> chi2_values;
+    chi2_values.reserve(adjacent_edges.size());
+    for (auto * e : adjacent_edges) {
+      e->computeError();
+      const double v = e->chi2();
+      if (std::isfinite(v)) {
+        chi2_values.push_back(v);
+      }
+    }
+    const double median_chi2 = graphslam::detail::medianChi2(chi2_values);
+
+    graphslam::detail::AutoScaleConfig cfg;
+    cfg.target_nis = adjacent_edge_info_auto_scale_target_nis_;
+    cfg.ema_alpha = adjacent_edge_info_auto_scale_ema_alpha_;
+    cfg.min_scale = adjacent_edge_info_auto_scale_min_;
+    cfg.max_scale = adjacent_edge_info_auto_scale_max_;
+
+    const double prev_weight = adjacent_edge_info_weight_;
+    adjacent_edge_info_weight_ =
+      graphslam::detail::nextScale(prev_weight, median_chi2, cfg);
+
+    RCLCPP_INFO(
+      get_logger(),
+      "[auto_scale] median_chi2=%.3f (n=%zu) target=%.3f weight=%.3f -> %.3f",
+      median_chi2, chi2_values.size(), cfg.target_nis, prev_weight,
+      adjacent_edge_info_weight_);
+  }
 
   /* modified_map publish */
   std::cout << "modified_map publish" << std::endl;

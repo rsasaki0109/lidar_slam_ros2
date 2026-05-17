@@ -197,6 +197,16 @@ private:
     double loop_edge_info_weight_ {100.0};
     double loop_edge_robust_kernel_delta_ {1.0};
 
+    // Auto-scaling for adjacent_edge_info_weight (Level 1: NIS median tracking).
+    // When enabled, the post-optimisation chi-squared of adjacent edges is
+    // monitored and adjacent_edge_info_weight_ is mixed toward
+    // current * target_nis / median_chi2 via EMA, clamped to [min, max].
+    bool adjacent_edge_info_auto_scale_ {false};
+    double adjacent_edge_info_auto_scale_target_nis_ {6.0};
+    double adjacent_edge_info_auto_scale_ema_alpha_ {0.3};
+    double adjacent_edge_info_auto_scale_min_ {1.0};
+    double adjacent_edge_info_auto_scale_max_ {1.0e6};
+
     bool initial_map_array_received_ {false};
     bool is_map_array_updated_ {false};
     int previous_submaps_num_ {0};

@@ -124,6 +124,13 @@ if(BUILD_TESTING)
     ament_target_dependencies(test_gnss_weighting sensor_msgs)
   endif()
   ament_add_gtest(
+    test_adjacent_edge_auto_scale
+    test/test_adjacent_edge_auto_scale.cpp
+  )
+  if(TARGET test_adjacent_edge_auto_scale)
+    target_include_directories(test_adjacent_edge_auto_scale PRIVATE include)
+  endif()
+  ament_add_gtest(
     test_scan_context
     test/test_scan_context.cpp
   )
