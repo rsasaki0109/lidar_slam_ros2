@@ -153,6 +153,13 @@ if(BUILD_TESTING)
     target_include_directories(test_submap_bev_descriptor PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
+    test_bev_mutual_visibility
+    test/test_bev_mutual_visibility.cpp
+  )
+  if(TARGET test_bev_mutual_visibility)
+    target_include_directories(test_bev_mutual_visibility PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  endif()
+  ament_add_gtest(
     test_dynamic_object_filter
     test/test_dynamic_object_filter.cpp
   )
