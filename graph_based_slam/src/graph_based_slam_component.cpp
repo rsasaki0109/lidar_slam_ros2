@@ -125,6 +125,38 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("use_bev_descriptor", use_bev_descriptor_);
   declare_parameter("use_solid_descriptor", false);
   get_parameter("use_solid_descriptor", use_solid_descriptor_);
+  declare_parameter("use_triangle_descriptor", false);
+  get_parameter("use_triangle_descriptor", use_triangle_descriptor_);
+  declare_parameter("triangle_descriptor_grid_size_m", 60.0);
+  get_parameter("triangle_descriptor_grid_size_m", triangle_descriptor_grid_size_m_);
+  declare_parameter("triangle_descriptor_grid_cells", 60);
+  get_parameter("triangle_descriptor_grid_cells", triangle_descriptor_grid_cells_);
+  declare_parameter("triangle_descriptor_max_keypoints", 80);
+  get_parameter("triangle_descriptor_max_keypoints", triangle_descriptor_max_keypoints_);
+  declare_parameter("triangle_descriptor_min_salience_m", 0.3);
+  get_parameter("triangle_descriptor_min_salience_m", triangle_descriptor_min_salience_m_);
+  declare_parameter("triangle_descriptor_min_edge_m", 2.0);
+  get_parameter("triangle_descriptor_min_edge_m", triangle_descriptor_min_edge_m_);
+  declare_parameter("triangle_descriptor_max_edge_m", 50.0);
+  get_parameter("triangle_descriptor_max_edge_m", triangle_descriptor_max_edge_m_);
+  declare_parameter("triangle_descriptor_max_triangles", 5000);
+  get_parameter("triangle_descriptor_max_triangles", triangle_descriptor_max_triangles_);
+  declare_parameter("triangle_descriptor_edge_bin_m", 1.0);
+  get_parameter("triangle_descriptor_edge_bin_m", triangle_descriptor_edge_bin_m_);
+  declare_parameter("triangle_descriptor_min_votes", 6);
+  get_parameter("triangle_descriptor_min_votes", triangle_descriptor_min_votes_);
+  declare_parameter("triangle_descriptor_min_inliers", 3);
+  get_parameter("triangle_descriptor_min_inliers", triangle_descriptor_min_inliers_);
+  declare_parameter("triangle_descriptor_inlier_translation_m", 2.0);
+  get_parameter(
+    "triangle_descriptor_inlier_translation_m",
+    triangle_descriptor_inlier_translation_m_);
+  declare_parameter("triangle_descriptor_inlier_rotation_deg", 5.0);
+  get_parameter(
+    "triangle_descriptor_inlier_rotation_deg",
+    triangle_descriptor_inlier_rotation_deg_);
+  declare_parameter("triangle_descriptor_exclude_recent", 4);
+  get_parameter("triangle_descriptor_exclude_recent", triangle_descriptor_exclude_recent_);
   declare_parameter("use_pcd_cache", false);
   get_parameter("use_pcd_cache", use_pcd_cache_);
   declare_parameter("pcd_cache_dir", std::string("/tmp/graph_slam_pcd_cache"));
@@ -445,6 +477,58 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       "resetting 0.0 to disabled");
     bev_descriptor_pose_consistency_threshold_m_ = -1.0;
   }
+  if (triangle_descriptor_grid_size_m_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "triangle_descriptor_grid_size_m must be positive, resetting %.3f to 60.0",
+      triangle_descriptor_grid_size_m_);
+    triangle_descriptor_grid_size_m_ = 60.0;
+  }
+  if (triangle_descriptor_grid_cells_ < 8) {
+    RCLCPP_WARN(
+      get_logger(),
+      "triangle_descriptor_grid_cells must be >= 8, clamping %d to 8",
+      triangle_descriptor_grid_cells_);
+    triangle_descriptor_grid_cells_ = 8;
+  }
+  if (triangle_descriptor_max_keypoints_ < 4) {
+    RCLCPP_WARN(
+      get_logger(),
+      "triangle_descriptor_max_keypoints must be >= 4, clamping %d to 4",
+      triangle_descriptor_max_keypoints_);
+    triangle_descriptor_max_keypoints_ = 4;
+  }
+  if (triangle_descriptor_min_edge_m_ <= 0.0) {
+    triangle_descriptor_min_edge_m_ = 2.0;
+  }
+  if (triangle_descriptor_max_edge_m_ <= triangle_descriptor_min_edge_m_) {
+    RCLCPP_WARN(
+      get_logger(),
+      "triangle_descriptor_max_edge_m (%.3f) must exceed min_edge_m (%.3f); using min*5",
+      triangle_descriptor_max_edge_m_, triangle_descriptor_min_edge_m_);
+    triangle_descriptor_max_edge_m_ = triangle_descriptor_min_edge_m_ * 5.0;
+  }
+  if (triangle_descriptor_max_triangles_ < 100) {
+    triangle_descriptor_max_triangles_ = 100;
+  }
+  if (triangle_descriptor_edge_bin_m_ <= 0.0) {
+    triangle_descriptor_edge_bin_m_ = 1.0;
+  }
+  if (triangle_descriptor_min_votes_ < 1) {
+    triangle_descriptor_min_votes_ = 1;
+  }
+  if (triangle_descriptor_min_inliers_ < 1) {
+    triangle_descriptor_min_inliers_ = 1;
+  }
+  if (triangle_descriptor_inlier_translation_m_ <= 0.0) {
+    triangle_descriptor_inlier_translation_m_ = 2.0;
+  }
+  if (triangle_descriptor_inlier_rotation_deg_ <= 0.0) {
+    triangle_descriptor_inlier_rotation_deg_ = 5.0;
+  }
+  if (triangle_descriptor_exclude_recent_ < 0) {
+    triangle_descriptor_exclude_recent_ = 0;
+  }
   if (
     solid_descriptor_min_similarity_ <= -1.0 ||
     solid_descriptor_min_similarity_ > 1.0)
@@ -655,6 +739,36 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       solid_descriptor_pose_consistency_threshold_m_ << std::endl;
     std::cout << "solid_descriptor_max_euclidean_distance_m:" <<
       solid_descriptor_max_euclidean_distance_m_ << std::endl;
+  }
+  std::cout << "use_triangle_descriptor:" << std::boolalpha <<
+    use_triangle_descriptor_ << std::endl;
+  if (use_triangle_descriptor_) {
+    std::cout << "triangle_descriptor_grid_size_m:" <<
+      triangle_descriptor_grid_size_m_ << std::endl;
+    std::cout << "triangle_descriptor_grid_cells:" <<
+      triangle_descriptor_grid_cells_ << std::endl;
+    std::cout << "triangle_descriptor_max_keypoints:" <<
+      triangle_descriptor_max_keypoints_ << std::endl;
+    std::cout << "triangle_descriptor_min_salience_m:" <<
+      triangle_descriptor_min_salience_m_ << std::endl;
+    std::cout << "triangle_descriptor_min_edge_m:" <<
+      triangle_descriptor_min_edge_m_ << std::endl;
+    std::cout << "triangle_descriptor_max_edge_m:" <<
+      triangle_descriptor_max_edge_m_ << std::endl;
+    std::cout << "triangle_descriptor_max_triangles:" <<
+      triangle_descriptor_max_triangles_ << std::endl;
+    std::cout << "triangle_descriptor_edge_bin_m:" <<
+      triangle_descriptor_edge_bin_m_ << std::endl;
+    std::cout << "triangle_descriptor_min_votes:" <<
+      triangle_descriptor_min_votes_ << std::endl;
+    std::cout << "triangle_descriptor_min_inliers:" <<
+      triangle_descriptor_min_inliers_ << std::endl;
+    std::cout << "triangle_descriptor_inlier_translation_m:" <<
+      triangle_descriptor_inlier_translation_m_ << std::endl;
+    std::cout << "triangle_descriptor_inlier_rotation_deg:" <<
+      triangle_descriptor_inlier_rotation_deg_ << std::endl;
+    std::cout << "triangle_descriptor_exclude_recent:" <<
+      triangle_descriptor_exclude_recent_ << std::endl;
   }
   std::cout << "use_dynamic_object_filter:" << std::boolalpha << use_dynamic_object_filter_ <<
     std::endl;
@@ -930,7 +1044,8 @@ void GraphBasedSlamComponent::searchLoop()
       DISTANCE,
       SCAN_CONTEXT,
       BEV_DESCRIPTOR,
-      SOLID_DESCRIPTOR
+      SOLID_DESCRIPTOR,
+      TRIANGLE_DESCRIPTOR
     };
 
     int index {-1};
@@ -965,6 +1080,8 @@ void GraphBasedSlamComponent::searchLoop()
           return "bev_descriptor";
         case LoopCandidate::Source::SOLID_DESCRIPTOR:
           return "solid_descriptor";
+        case LoopCandidate::Source::TRIANGLE_DESCRIPTOR:
+          return "triangle_descriptor";
         case LoopCandidate::Source::DISTANCE:
         default:
           return "distance";
@@ -1042,6 +1159,34 @@ void GraphBasedSlamComponent::searchLoop()
         idx,
         SolidDescriptor::computeDescriptor(filtered_aggregated_cloud));
     }
+  }
+  if (use_triangle_descriptor_ && triangle_descriptor_next_submap_idx_ < num_submaps) {
+    graphslam::triangle::KeypointExtractionConfig kp_cfg;
+    kp_cfg.grid_size_m = triangle_descriptor_grid_size_m_;
+    kp_cfg.grid_cells = triangle_descriptor_grid_cells_;
+    kp_cfg.min_salience_m = static_cast<float>(triangle_descriptor_min_salience_m_);
+    kp_cfg.max_keypoints = triangle_descriptor_max_keypoints_;
+    graphslam::triangle::TriangleBuildConfig build_cfg;
+    build_cfg.min_edge_m = static_cast<float>(triangle_descriptor_min_edge_m_);
+    build_cfg.max_edge_m = static_cast<float>(triangle_descriptor_max_edge_m_);
+    build_cfg.max_triangles = triangle_descriptor_max_triangles_;
+    graphslam::triangle::HashConfig hash_cfg;
+    hash_cfg.edge_bin_m = static_cast<float>(triangle_descriptor_edge_bin_m_);
+    for (int idx = triangle_descriptor_next_submap_idx_; idx < num_submaps; ++idx) {
+      const auto filtered_aggregated_cloud = build_filtered_local_submap(idx);
+      std::vector<graphslam::triangle::Keypoint> kps;
+      std::vector<graphslam::triangle::TriangleDescriptor> tris;
+      if (filtered_aggregated_cloud && !filtered_aggregated_cloud->empty()) {
+        kps = graphslam::triangle::extractKeypointsBEV(*filtered_aggregated_cloud, kp_cfg);
+        tris = graphslam::triangle::buildTriangles(kps, build_cfg);
+      }
+      TrianglePerSubmap entry;
+      entry.keypoints = kps;
+      entry.triangles = tris;
+      triangle_descriptor_per_submap_.push_back(entry);
+      triangle_descriptor_db_.addSubmap(idx, kps, tris, hash_cfg);
+    }
+    triangle_descriptor_next_submap_idx_ = num_submaps;
   }
 
   const int latest_idx = num_submaps - 1;
@@ -1663,6 +1808,100 @@ void GraphBasedSlamComponent::searchLoop()
       std::cout << "SOLiD rerank no candidate: best_idx=" << best_solid_idx
                 << " best_similarity=" << best_solid_similarity
                 << " threshold=" << solid_descriptor_min_similarity_ << std::endl;
+    }
+  }
+
+  if (
+    use_triangle_descriptor_ &&
+    static_cast<int>(triangle_descriptor_per_submap_.size()) > latest_idx &&
+    triangle_descriptor_db_.submapCount() >
+    static_cast<std::size_t>(triangle_descriptor_exclude_recent_))
+  {
+    const auto & query_kps = triangle_descriptor_per_submap_[latest_idx].keypoints;
+    const auto & query_tris = triangle_descriptor_per_submap_[latest_idx].triangles;
+    if (!query_tris.empty()) {
+      graphslam::triangle::HashConfig hash_cfg;
+      hash_cfg.edge_bin_m = static_cast<float>(triangle_descriptor_edge_bin_m_);
+      graphslam::triangle::VoteConfig vote_cfg;
+      vote_cfg.exclude_submap_id = -1;
+      graphslam::triangle::VerificationConfig verify_cfg;
+      verify_cfg.inlier_translation_m =
+        static_cast<float>(triangle_descriptor_inlier_translation_m_);
+      verify_cfg.inlier_rotation_deg =
+        static_cast<float>(triangle_descriptor_inlier_rotation_deg_);
+      verify_cfg.min_inliers = triangle_descriptor_min_inliers_;
+
+      // Mask out the latest_idx and any recent submaps so we don't loop on
+      // ourselves. We do this by running the vote step first and dropping any
+      // candidate whose submap_id is too close to latest_idx.
+      const auto votes = graphslam::triangle::accumulateVotes(
+        triangle_descriptor_db_, query_tris, hash_cfg, vote_cfg);
+      int chosen_submap_id = -1;
+      int chosen_votes = 0;
+      for (const auto & v : votes) {
+        if (v.submap_id < 0) {continue;}
+        if (latest_idx - v.submap_id < triangle_descriptor_exclude_recent_) {continue;}
+        chosen_submap_id = v.submap_id;
+        chosen_votes = v.votes;
+        break;
+      }
+      if (
+        chosen_submap_id >= 0 &&
+        chosen_votes >= triangle_descriptor_min_votes_)
+      {
+        // Re-run verification scoped to the chosen submap to recover SE(3).
+        vote_cfg.exclude_submap_id = -1;
+        graphslam::triangle::TriangleDatabase scoped_db;
+        const auto db_kps_idx = static_cast<std::size_t>(chosen_submap_id);
+        if (db_kps_idx < triangle_descriptor_per_submap_.size()) {
+          scoped_db.addSubmap(
+            chosen_submap_id,
+            triangle_descriptor_per_submap_[db_kps_idx].keypoints,
+            triangle_descriptor_per_submap_[db_kps_idx].triangles,
+            hash_cfg);
+        }
+        const auto cand = graphslam::triangle::findLoopCandidate(
+          scoped_db, query_kps, query_tris, hash_cfg, vote_cfg, verify_cfg);
+        if (cand.accepted) {
+          const double travel_distance =
+            latest_moving_distance - map_array_msg.submaps[chosen_submap_id].distance;
+          if (travel_distance > distance_loop_closure_) {
+            const Eigen::Matrix3f R = cand.transform.block<3, 3>(0, 0);
+            const Eigen::Vector3f euler = R.eulerAngles(2, 1, 0);
+            double tri_yaw_rad = static_cast<double>(euler[0]);
+            while (tri_yaw_rad > M_PI) {tri_yaw_rad -= 2.0 * M_PI;}
+            while (tri_yaw_rad < -M_PI) {tri_yaw_rad += 2.0 * M_PI;}
+            const double tri_metric =
+              1.0 / (1.0 + static_cast<double>(cand.inliers));
+            add_candidate(
+              chosen_submap_id,
+              tri_metric,
+              LoopCandidate::Source::TRIANGLE_DESCRIPTOR,
+              tri_yaw_rad);
+            std::cout << "Triangle loop candidate: id=" << chosen_submap_id
+                      << " votes=" << chosen_votes
+                      << " inliers=" << cand.inliers
+                      << " yaw_deg=" << tri_yaw_rad * 180.0 / M_PI << std::endl;
+          } else if (debug_flag_) {
+            RCLCPP_INFO(
+              get_logger(),
+              "Skip Triangle candidate %d (travel %.3f m <= %.3f m)",
+              chosen_submap_id, travel_distance, distance_loop_closure_);
+          }
+        } else if (debug_flag_) {
+          RCLCPP_INFO(
+            get_logger(),
+            "Triangle votes for %d (%d votes) rejected: inliers %d below %d",
+            chosen_submap_id, chosen_votes, cand.inliers,
+            triangle_descriptor_min_inliers_);
+        }
+      } else if (debug_flag_ && !votes.empty()) {
+        RCLCPP_INFO(
+          get_logger(),
+          "Triangle top vote %d only %d votes (need %d) or excluded",
+          votes.front().submap_id, votes.front().votes,
+          triangle_descriptor_min_votes_);
+      }
     }
   }
   if (candidates.empty()) {
