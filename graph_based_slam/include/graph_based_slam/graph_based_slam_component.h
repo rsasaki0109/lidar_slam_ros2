@@ -250,8 +250,12 @@ private:
     double triangle_descriptor_max_edge_m_ {50.0};
     int triangle_descriptor_max_triangles_ {5000};
     double triangle_descriptor_edge_bin_m_ {1.0};
-    int triangle_descriptor_min_votes_ {6};
-    int triangle_descriptor_min_inliers_ {3};
+    // NTU VIRAL ablation showed min_inliers 3 / min_votes 6 let through too
+    // many weak triangle candidates that NDT then rejected. Tighten the
+    // defaults so the few candidates the descriptor does emit are more
+    // likely to survive geometric verification.
+    int triangle_descriptor_min_votes_ {10};
+    int triangle_descriptor_min_inliers_ {5};
     double triangle_descriptor_inlier_translation_m_ {2.0};
     double triangle_descriptor_inlier_rotation_deg_ {5.0};
     int triangle_descriptor_exclude_recent_ {4};
