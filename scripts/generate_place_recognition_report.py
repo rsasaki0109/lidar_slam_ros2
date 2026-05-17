@@ -81,10 +81,12 @@ def parse_log_summary(log_path: Path) -> dict[str, object]:
             'scan_context': 0,
             'bev_descriptor': 0,
             'solid_descriptor': 0,
+            'triangle_descriptor': 0,
         },
         'scan_context_candidate_count': 0,
         'bev_rerank_hint_count': 0,
         'solid_rerank_candidate_count': 0,
+        'triangle_candidate_count': 0,
     }
     if not log_path.is_file():
         return summary
@@ -102,6 +104,9 @@ def parse_log_summary(log_path: Path) -> dict[str, object]:
     )
     summary['solid_rerank_candidate_count'] = len(
         re.findall(r'SOLiD rerank candidate:', text),
+    )
+    summary['triangle_candidate_count'] = len(
+        re.findall(r'Triangle loop candidate:', text),
     )
     for source in re.findall(r'loop_candidate_source:([a-z_]+)', text):
         counts = summary['accepted_source_counts']
@@ -184,6 +189,17 @@ def _conclusion(
             source_text = 'SOLiD produced rerank candidates, but none survived geometric validation'
         else:
             source_text = 'no SOLiD rerank candidate made it into the accepted loop set'
+    elif candidate_kind == 'triangle_descriptor':
+        accepted = int(accepted_counts.get('triangle_descriptor', 0))
+        observed = int(candidate_log.get('triangle_candidate_count', 0))
+        if accepted > 0:
+            source_text = 'accepted loop closures from triangle descriptor hashing'
+        elif observed > 0:
+            source_text = (
+                'triangle descriptor emitted candidates, but none survived NDT/GICP validation'
+            )
+        else:
+            source_text = 'no triangle descriptor candidate made it into the accepted loop set'
     else:
         source_text = f'{candidate_label} completed'
 
@@ -241,7 +257,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--candidate-kind',
         default='scan_context',
-        choices=['scan_context', 'bev_rerank', 'solid_descriptor', 'generic'],
+        choices=[
+            'scan_context', 'bev_rerank', 'solid_descriptor',
+            'triangle_descriptor', 'generic',
+        ],
         help='Descriptor family used by the candidate run.',
     )
     parser.add_argument(
@@ -335,10 +354,10 @@ experimental place-recognition candidate run.
 
 ## Summary
 
-| Run | Runtime `use_scan_context` | APE RMSE (m) | Accepted loops | Attempted loops | Accepted distance loops | Accepted Scan Context loops | Accepted BEV loops | Accepted SOLiD loops | Observed Scan Context candidates | Observed BEV rerank hints | Observed SOLiD rerank candidates |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| {args.baseline_label} | `{baseline_log_summary.get("use_scan_context")}` | `{_fmt(baseline_rmse)}` | `{_loop_count(baseline, "loop_count")}` | `{_loop_count(baseline, "loop_count_attempted")}` | `{baseline_log_summary["accepted_source_counts"].get("distance", 0)}` | `{baseline_log_summary["accepted_source_counts"].get("scan_context", 0)}` | `{baseline_log_summary["accepted_source_counts"].get("bev_descriptor", 0)}` | `{baseline_log_summary["accepted_source_counts"].get("solid_descriptor", 0)}` | `{baseline_log_summary.get("scan_context_candidate_count", 0)}` | `{baseline_log_summary.get("bev_rerank_hint_count", 0)}` | `{baseline_log_summary.get("solid_rerank_candidate_count", 0)}` |
-| {args.candidate_label} | `{candidate_log_summary.get("use_scan_context")}` | `{_fmt(candidate_rmse)}` | `{_loop_count(candidate, "loop_count")}` | `{_loop_count(candidate, "loop_count_attempted")}` | `{candidate_log_summary["accepted_source_counts"].get("distance", 0)}` | `{candidate_log_summary["accepted_source_counts"].get("scan_context", 0)}` | `{candidate_log_summary["accepted_source_counts"].get("bev_descriptor", 0)}` | `{candidate_log_summary["accepted_source_counts"].get("solid_descriptor", 0)}` | `{candidate_log_summary.get("scan_context_candidate_count", 0)}` | `{candidate_log_summary.get("bev_rerank_hint_count", 0)}` | `{candidate_log_summary.get("solid_rerank_candidate_count", 0)}` |
+| Run | Runtime `use_scan_context` | APE RMSE (m) | Accepted loops | Attempted loops | Accepted distance loops | Accepted Scan Context loops | Accepted BEV loops | Accepted SOLiD loops | Accepted Triangle loops | Observed Scan Context candidates | Observed BEV rerank hints | Observed SOLiD rerank candidates | Observed Triangle candidates |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| {args.baseline_label} | `{baseline_log_summary.get("use_scan_context")}` | `{_fmt(baseline_rmse)}` | `{_loop_count(baseline, "loop_count")}` | `{_loop_count(baseline, "loop_count_attempted")}` | `{baseline_log_summary["accepted_source_counts"].get("distance", 0)}` | `{baseline_log_summary["accepted_source_counts"].get("scan_context", 0)}` | `{baseline_log_summary["accepted_source_counts"].get("bev_descriptor", 0)}` | `{baseline_log_summary["accepted_source_counts"].get("solid_descriptor", 0)}` | `{baseline_log_summary["accepted_source_counts"].get("triangle_descriptor", 0)}` | `{baseline_log_summary.get("scan_context_candidate_count", 0)}` | `{baseline_log_summary.get("bev_rerank_hint_count", 0)}` | `{baseline_log_summary.get("solid_rerank_candidate_count", 0)}` | `{baseline_log_summary.get("triangle_candidate_count", 0)}` |
+| {args.candidate_label} | `{candidate_log_summary.get("use_scan_context")}` | `{_fmt(candidate_rmse)}` | `{_loop_count(candidate, "loop_count")}` | `{_loop_count(candidate, "loop_count_attempted")}` | `{candidate_log_summary["accepted_source_counts"].get("distance", 0)}` | `{candidate_log_summary["accepted_source_counts"].get("scan_context", 0)}` | `{candidate_log_summary["accepted_source_counts"].get("bev_descriptor", 0)}` | `{candidate_log_summary["accepted_source_counts"].get("solid_descriptor", 0)}` | `{candidate_log_summary["accepted_source_counts"].get("triangle_descriptor", 0)}` | `{candidate_log_summary.get("scan_context_candidate_count", 0)}` | `{candidate_log_summary.get("bev_rerank_hint_count", 0)}` | `{candidate_log_summary.get("solid_rerank_candidate_count", 0)}` | `{candidate_log_summary.get("triangle_candidate_count", 0)}` |
 
 ## Conclusion
 
