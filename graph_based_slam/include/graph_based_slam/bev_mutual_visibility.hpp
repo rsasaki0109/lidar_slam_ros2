@@ -91,7 +91,9 @@ namespace detail
 inline Eigen::Array<bool, Eigen::Dynamic, Eigen::Dynamic> visibilityMask(
   const Eigen::MatrixXf & occupancy, float occupancy_eps)
 {
-  return  occupancy.array() > occupancy_eps;
+  const Eigen::Array<bool, Eigen::Dynamic, Eigen::Dynamic> mask =
+    occupancy.array() > occupancy_eps;
+  return mask;
 }
 
 // Compute zero-mean normalized cross-correlation of two grids, restricted to

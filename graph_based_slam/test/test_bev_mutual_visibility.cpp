@@ -174,7 +174,8 @@ TEST(BevMutualVisibility, YawSearchPicksAlignmentBin)
   // Rotate the candidate by 90° about the centre.
   const SubmapBEVDescriptor::Descriptor rotated =
     SubmapBEVDescriptor::rotateDescriptor(base, M_PI / 2.0);
-  const auto match = mutualVisibilityWithYawSearch(base, rotated, /*submap_id=*/7, /*yaw_bins=*/4);
+  const auto match =
+    mutualVisibilityWithYawSearch(base, rotated, /*submap_id=*/ 7, /*yaw_bins=*/ 4);
   EXPECT_TRUE(match.valid);
   EXPECT_EQ(7, match.submap_id);
   EXPECT_LT(match.distance, 0.2);
@@ -189,7 +190,7 @@ TEST(BevMutualVisibility, YawSearchInvalidWhenNoOverlap)
   auto c = makeBlankDescriptor();
   writeBlock(q, 0, 1, 0, 1, 0.5f, 0.5f);
   writeBlock(c, 15, 16, 15, 16, 0.5f, 0.5f);
-  const auto match = mutualVisibilityWithYawSearch(q, c, /*submap_id=*/3, /*yaw_bins=*/8);
+  const auto match = mutualVisibilityWithYawSearch(q, c, /*submap_id=*/ 3, /*yaw_bins=*/ 8);
   EXPECT_FALSE(match.valid);
   EXPECT_NEAR(1.0, match.distance, 1e-9);
 }
@@ -220,22 +221,22 @@ SubmapBEVDescriptor::Descriptor descriptorWithBlock(
 TEST(BevMutualVisibilityDatabase, FindsMatchingSubmapAndIgnoresUnrelated)
 {
   SubmapBEVDescriptor::Database db(
-    /*grid_size_m=*/16.0,
-    /*grid_cells=*/kGrid,
-    /*yaw_bins=*/4);
+    /*grid_size_m=*/ 16.0,
+    /*grid_cells=*/ kGrid,
+    /*yaw_bins=*/ 4);
   // Two unrelated submaps + one that overlaps the query.
-  db.add(/*submap_id=*/100, descriptorWithBlock(0, 4, 0, 4, 0.6f, 0.5f));
-  db.add(/*submap_id=*/101, descriptorWithBlock(12, 16, 12, 16, 0.4f, 0.7f));
-  db.add(/*submap_id=*/102, descriptorWithBlock(3, 9, 9, 15, 0.5f, 0.4f));
+  db.add(/*submap_id=*/ 100, descriptorWithBlock(0, 4, 0, 4, 0.6f, 0.5f));
+  db.add(/*submap_id=*/ 101, descriptorWithBlock(12, 16, 12, 16, 0.4f, 0.7f));
+  db.add(/*submap_id=*/ 102, descriptorWithBlock(3, 9, 9, 15, 0.5f, 0.4f));
 
   // Query roughly matches submap 102.
   const auto query = descriptorWithBlock(3, 9, 9, 15, 0.5f, 0.4f);
   const auto matches = queryDatabaseWithMutualVisibility(
     db, query,
-    /*num_matches=*/1,
-    /*num_candidates=*/3,
-    /*exclude_recent=*/0,
-    /*threshold=*/0.5);
+    /*num_matches=*/ 1,
+    /*num_candidates=*/ 3,
+    /*exclude_recent=*/ 0,
+    /*threshold=*/ 0.5);
   ASSERT_EQ(1u, matches.size());
   EXPECT_EQ(102, matches.front().submap_id);
   EXPECT_LT(matches.front().distance, 0.2);
@@ -251,10 +252,10 @@ TEST(BevMutualVisibilityDatabase, RespectsExcludeRecent)
   const auto query = descriptorWithBlock(3, 9, 9, 15, 0.5f, 0.4f);
   const auto matches = queryDatabaseWithMutualVisibility(
     db, query,
-    /*num_matches=*/1,
-    /*num_candidates=*/2,
-    /*exclude_recent=*/1,  // skip submap 51
-    /*threshold=*/0.5);
+    /*num_matches=*/ 1,
+    /*num_candidates=*/ 2,
+    /*exclude_recent=*/ 1,  // skip submap 51
+    /*threshold=*/ 0.5);
   ASSERT_EQ(1u, matches.size());
   EXPECT_EQ(50, matches.front().submap_id);
 }
@@ -271,10 +272,10 @@ TEST(BevMutualVisibilityDatabase, ReturnsEmptyWhenNoCandidateMeetsThreshold)
   const auto query = descriptorWithBlock(12, 16, 0, 4, 0.50f, 0.50f);
   const auto matches = queryDatabaseWithMutualVisibility(
     db, query,
-    /*num_matches=*/2,
-    /*num_candidates=*/2,
-    /*exclude_recent=*/0,
-    /*threshold=*/0.2);
+    /*num_matches=*/ 2,
+    /*num_candidates=*/ 2,
+    /*exclude_recent=*/ 0,
+    /*threshold=*/ 0.2);
   EXPECT_TRUE(matches.empty());
 }
 
@@ -283,7 +284,7 @@ TEST(BevMutualVisibilityDatabase, EmptyDatabaseReturnsNoMatches)
   SubmapBEVDescriptor::Database db(16.0, kGrid, 4);
   const auto query = descriptorWithBlock(3, 9, 9, 15, 0.5f, 0.4f);
   const auto matches = queryDatabaseWithMutualVisibility(
-    db, query, /*num_matches=*/3);
+    db, query, /*num_matches=*/ 3);
   EXPECT_TRUE(matches.empty());
 }
 
@@ -298,10 +299,10 @@ TEST(BevMutualVisibilityDatabase, ReturnsUpToNumMatchesSortedByDistance)
   const auto query = descriptorWithBlock(3, 9, 9, 15, 0.50f, 0.40f);
   const auto matches = queryDatabaseWithMutualVisibility(
     db, query,
-    /*num_matches=*/2,
-    /*num_candidates=*/3,
-    /*exclude_recent=*/0,
-    /*threshold=*/1.5);
+    /*num_matches=*/ 2,
+    /*num_candidates=*/ 3,
+    /*exclude_recent=*/ 0,
+    /*threshold=*/ 1.5);
   ASSERT_EQ(2u, matches.size());
   EXPECT_LE(matches[0].distance, matches[1].distance);
   EXPECT_EQ(1, matches[0].submap_id);
