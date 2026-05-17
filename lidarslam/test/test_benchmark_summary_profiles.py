@@ -32,8 +32,8 @@
 from __future__ import annotations
 
 import importlib.util
-import textwrap
 from pathlib import Path
+import textwrap
 
 import pytest
 

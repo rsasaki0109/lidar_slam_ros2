@@ -69,10 +69,7 @@ def _straight_line_tum(length_m: float = 1000.0, step_m: float = 1.0) -> np.ndar
 
 def _curved_path_tum(radius_m: float = 200.0, total_arc_m: float = 1000.0,
                      step_m: float = 1.0) -> np.ndarray:
-    """Build a TUM array along an arc on a circle of given radius (xy plane).
-
-    Yaw rotates so that +x always points along the tangent.
-    """
+    """Build an arc on a circle (xy plane); yaw stays aligned with +x tangent."""
     n = int(total_arc_m / step_m) + 1
     ts = np.arange(n) * 0.1
     rows = []
