@@ -275,6 +275,12 @@ private:
     double triangle_descriptor_max_edge_m_ {50.0};
     int triangle_descriptor_max_triangles_ {3000};
     double triangle_descriptor_edge_bin_m_ {0.5};
+    // Quad-hash 4th-point feature bin (m). 0 = disabled (legacy 3-edge hash).
+    // When > 0, the bucket key also includes the quantized distance from the
+    // triangle centroid to the nearest non-vertex keypoint, which makes the
+    // hash 4-dim and rejects wrong-but-agreeing triangle pairs in repeated
+    // geometry (corridor / parking-row / parallel column rows).
+    double triangle_descriptor_quad_feature_bin_m_ {0.0};
     // Keypoint extractor mode. "bev_max_height" is the original outdoor-only
     // extractor; "edge_3d" enables PCA-edgeness keypoints that survive in
     // narrow-FOV / indoor scenes (MID-360, Newer College math_hard) where

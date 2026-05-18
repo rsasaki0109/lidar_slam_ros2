@@ -173,6 +173,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("triangle_descriptor_max_triangles", triangle_descriptor_max_triangles_);
   declare_parameter("triangle_descriptor_edge_bin_m", 0.5);
   get_parameter("triangle_descriptor_edge_bin_m", triangle_descriptor_edge_bin_m_);
+  declare_parameter("triangle_descriptor_quad_feature_bin_m", 0.0);
+  get_parameter(
+    "triangle_descriptor_quad_feature_bin_m",
+    triangle_descriptor_quad_feature_bin_m_);
   declare_parameter<std::string>(
     "triangle_descriptor_keypoint_mode", triangle_descriptor_keypoint_mode_);
   get_parameter("triangle_descriptor_keypoint_mode", triangle_descriptor_keypoint_mode_);
@@ -648,6 +652,14 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   if (triangle_descriptor_edge_bin_m_ <= 0.0) {
     triangle_descriptor_edge_bin_m_ = 1.0;
   }
+  if (triangle_descriptor_quad_feature_bin_m_ < 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "triangle_descriptor_quad_feature_bin_m must be >= 0 (0 = disabled); "
+      "resetting %.3f to 0",
+      triangle_descriptor_quad_feature_bin_m_);
+    triangle_descriptor_quad_feature_bin_m_ = 0.0;
+  }
   if (triangle_descriptor_min_votes_ < 1) {
     triangle_descriptor_min_votes_ = 1;
   }
@@ -953,6 +965,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       triangle_descriptor_max_triangles_ << std::endl;
     std::cout << "triangle_descriptor_edge_bin_m:" <<
       triangle_descriptor_edge_bin_m_ << std::endl;
+    std::cout << "triangle_descriptor_quad_feature_bin_m:" <<
+      triangle_descriptor_quad_feature_bin_m_ << std::endl;
     std::cout << "triangle_descriptor_min_votes:" <<
       triangle_descriptor_min_votes_ << std::endl;
     std::cout << "triangle_descriptor_min_inliers:" <<
@@ -1392,6 +1406,8 @@ void GraphBasedSlamComponent::searchLoop()
     build_cfg.max_triangles = triangle_descriptor_max_triangles_;
     graphslam::triangle::HashConfig hash_cfg;
     hash_cfg.edge_bin_m = static_cast<float>(triangle_descriptor_edge_bin_m_);
+    hash_cfg.quad_feature_bin_m =
+      static_cast<float>(triangle_descriptor_quad_feature_bin_m_);
     for (int idx = triangle_descriptor_next_submap_idx_; idx < num_submaps; ++idx) {
       const auto filtered_aggregated_cloud = build_filtered_local_submap(idx);
       std::vector<graphslam::triangle::Keypoint> kps;
@@ -2051,6 +2067,8 @@ void GraphBasedSlamComponent::searchLoop()
     if (!query_tris.empty()) {
       graphslam::triangle::HashConfig hash_cfg;
       hash_cfg.edge_bin_m = static_cast<float>(triangle_descriptor_edge_bin_m_);
+      hash_cfg.quad_feature_bin_m =
+        static_cast<float>(triangle_descriptor_quad_feature_bin_m_);
       graphslam::triangle::VoteConfig vote_cfg;
       vote_cfg.exclude_submap_id = -1;
       graphslam::triangle::VerificationConfig verify_cfg;
@@ -2073,7 +2091,7 @@ void GraphBasedSlamComponent::searchLoop()
       // ourselves. We do this by running the vote step first and dropping any
       // candidate whose submap_id is too close to latest_idx.
       const auto votes = graphslam::triangle::accumulateVotes(
-        triangle_descriptor_db_, query_tris, hash_cfg, vote_cfg);
+        triangle_descriptor_db_, query_kps, query_tris, hash_cfg, vote_cfg);
       int chosen_submap_id = -1;
       int chosen_votes = 0;
       for (const auto & v : votes) {
