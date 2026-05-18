@@ -31,9 +31,13 @@
 // under BSD-2 so the default workflow can include them.
 //
 // The pipeline (in this header):
-//   1. extractKeypointsBEV: take a submap point cloud, project to BEV, pick
-//      the local-maximum cells in max_height as stable keypoints. This is the
-//      cheap MID-360 alternative to STD's plane-intersection keypoints.
+//   1. extractKeypoints: dispatcher that picks one of the modes below.
+//      - extractKeypointsBEV: take a submap point cloud, project to BEV, pick
+//        the local-maximum cells in max_height as stable keypoints. Works on
+//        spinning 360° LiDAR with wide vertical FOV (e.g. OS1 outdoors).
+//      - extractKeypointsEdge3D: PCA eigenvalue ratio on radius-r neighborhoods
+//        picks edge-like supports (column edges, wall corners). Survives in
+//        narrow-FOV (MID-360) and indoor scenes where BEV max-height collapses.
 //   2. buildTriangles: enumerate all 3-tuples of keypoints, drop those whose
 //      edge lengths fall outside [min_edge_m, max_edge_m] or that are
 //      near-collinear, and store the edges sorted ascending so the triangle
@@ -52,6 +56,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
@@ -61,6 +67,7 @@
 #include <cstddef>
 #include <limits>
 #include <queue>
+#include <utility>
 #include <vector>
 
 namespace graphslam
@@ -71,12 +78,24 @@ namespace triangle
 struct Keypoint
 {
   Eigen::Vector3f position {Eigen::Vector3f::Zero()};
-  // BEV max-height minus the neighborhood floor; higher = more salient.
+  // BEV max-height minus the neighborhood floor (BEV mode),
+  // or PCA edgeness (λ2 - λ1) / λ2 (EDGE_3D mode); higher = more salient.
   float salience {0.0f};
+};
+
+// Keypoint extraction strategy. BEV_MAX_HEIGHT was the original outdoor-only
+// extractor; EDGE_3D adds PCA-based edge keypoints that survive in narrow-FOV
+// LiDARs (MID-360) and indoor scenes where BEV max-height collapses.
+enum class KeypointMode
+{
+  BEV_MAX_HEIGHT,
+  EDGE_3D,
 };
 
 struct KeypointExtractionConfig
 {
+  KeypointMode mode {KeypointMode::BEV_MAX_HEIGHT};
+  // ----- BEV_MAX_HEIGHT params -----
   // Side length of the BEV window centred on the submap origin.
   double grid_size_m {60.0};
   // Cells per side; cell_size = grid_size_m / grid_cells.
@@ -85,6 +104,18 @@ struct KeypointExtractionConfig
   int neighborhood_radius_cells {2};
   // Minimum salience (m) to keep a keypoint.
   float min_salience_m {0.3f};
+  // ----- EDGE_3D params -----
+  // Voxel downsample size before PCA; trades repeatability for cost.
+  float edge_voxel_size_m {0.4f};
+  // Radius (m) for the PCA neighborhood used to compute eigenvalues.
+  float edge_neighbor_radius_m {1.0f};
+  // Minimum neighbor count; points with sparser support are skipped.
+  int edge_min_neighbors {6};
+  // Minimum PCA edgeness (λ2 - λ1) / λ2 to accept a candidate.
+  float edge_min_edgeness {0.5f};
+  // Suppression radius (m) for non-maximum suppression of edgeness.
+  float edge_nms_radius_m {2.0f};
+  // ----- common -----
   // Cap on returned keypoints; we keep the highest-salience ones.
   int max_keypoints {80};
 };
@@ -216,6 +247,140 @@ inline std::vector<Keypoint> extractKeypointsBEV(
   const int keep = std::min<int>(cfg.max_keypoints, static_cast<int>(candidates.size()));
   result.assign(candidates.begin(), candidates.begin() + keep);
   return result;
+}
+
+// --------------------------- edge-3D keypoint extraction ---------------------------
+
+// PCA-based edge keypoint extractor. For each voxel-downsampled point, compute
+// the covariance of its radius-r neighbors and pick points where the largest
+// eigenvalue dominates the middle one — geometrically these are linear /
+// edge-like supports (column edges, wall corners, door frames) that survive in
+// narrow-FOV LiDAR and indoor scenes where BEV max-height collapses.
+inline std::vector<Keypoint> extractKeypointsEdge3D(
+  const pcl::PointCloud<pcl::PointXYZI> & cloud,
+  const KeypointExtractionConfig & cfg)
+{
+  std::vector<Keypoint> result;
+  if (cloud.empty()) {return result;}
+
+  // Voxel downsample so the PCA cost is bounded regardless of submap density.
+  pcl::PointCloud<pcl::PointXYZI>::Ptr downsampled(new pcl::PointCloud<pcl::PointXYZI>);
+  pcl::PointCloud<pcl::PointXYZI>::Ptr src(new pcl::PointCloud<pcl::PointXYZI>(cloud));
+  if (cfg.edge_voxel_size_m > 0.0f) {
+    pcl::VoxelGrid<pcl::PointXYZI> vg;
+    vg.setInputCloud(src);
+    vg.setLeafSize(cfg.edge_voxel_size_m, cfg.edge_voxel_size_m, cfg.edge_voxel_size_m);
+    vg.filter(*downsampled);
+  } else {
+    downsampled = src;
+  }
+  if (downsampled->size() < static_cast<std::size_t>(std::max(3, cfg.edge_min_neighbors))) {
+    return result;
+  }
+
+  pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;
+  kdtree.setInputCloud(downsampled);
+
+  struct Candidate
+  {
+    int idx;
+    float edgeness;
+    Eigen::Vector3f position;
+  };
+  std::vector<Candidate> candidates;
+  candidates.reserve(downsampled->size());
+
+  const float radius = std::max(0.05f, cfg.edge_neighbor_radius_m);
+  std::vector<int> nn_idx;
+  std::vector<float> nn_sq;
+
+  for (std::size_t i = 0; i < downsampled->size(); ++i) {
+    const auto & p = downsampled->points[i];
+    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {continue;}
+    nn_idx.clear();
+    nn_sq.clear();
+    const int found = kdtree.radiusSearch(static_cast<int>(i), radius, nn_idx, nn_sq);
+    if (found < cfg.edge_min_neighbors) {continue;}
+
+    Eigen::Vector3f centroid = Eigen::Vector3f::Zero();
+    for (int idx : nn_idx) {
+      const auto & q = downsampled->points[idx];
+      centroid += Eigen::Vector3f(q.x, q.y, q.z);
+    }
+    centroid /= static_cast<float>(nn_idx.size());
+
+    Eigen::Matrix3f cov = Eigen::Matrix3f::Zero();
+    for (int idx : nn_idx) {
+      const auto & q = downsampled->points[idx];
+      Eigen::Vector3f d(q.x - centroid.x(), q.y - centroid.y(), q.z - centroid.z());
+      cov += d * d.transpose();
+    }
+    cov /= static_cast<float>(nn_idx.size());
+
+    // SelfAdjointEigenSolver returns eigenvalues in ascending order.
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es(cov, Eigen::EigenvaluesOnly);
+    if (es.info() != Eigen::Success) {continue;}
+    const Eigen::Vector3f ev = es.eigenvalues();
+    const float lam0 = std::max(0.0f, ev(0));
+    const float lam1 = std::max(0.0f, ev(1));
+    const float lam2 = std::max(0.0f, ev(2));
+    if (lam2 <= 1e-9f) {continue;}
+    const float edgeness = (lam2 - lam1) / lam2;
+    if (edgeness < cfg.edge_min_edgeness) {continue;}
+
+    Candidate c;
+    c.idx = static_cast<int>(i);
+    c.edgeness = edgeness;
+    c.position = Eigen::Vector3f(p.x, p.y, p.z);
+    candidates.push_back(c);
+  }
+
+  std::sort(
+    candidates.begin(), candidates.end(),
+    [](const Candidate & a, const Candidate & b) {return a.edgeness > b.edgeness;});
+
+  // Non-maximum suppression in 3D: drop candidates that fall within
+  // edge_nms_radius_m of an already-accepted higher-edgeness keypoint.
+  const float nms_r = std::max(0.0f, cfg.edge_nms_radius_m);
+  const float nms_r2 = nms_r * nms_r;
+  std::vector<Keypoint> kept;
+  kept.reserve(candidates.size());
+  for (const auto & c : candidates) {
+    bool suppressed = false;
+    if (nms_r > 0.0f) {
+      for (const auto & k : kept) {
+        if ((k.position - c.position).squaredNorm() < nms_r2) {
+          suppressed = true;
+          break;
+        }
+      }
+    }
+    if (suppressed) {continue;}
+    Keypoint kp;
+    kp.position = c.position;
+    kp.salience = c.edgeness;
+    kept.push_back(kp);
+    if (cfg.max_keypoints > 0 && static_cast<int>(kept.size()) >= cfg.max_keypoints) {break;}
+  }
+
+  result = std::move(kept);
+  return result;
+}
+
+// Dispatcher: pick the keypoint extractor based on ``cfg.mode``. New code
+// should call this rather than the mode-specific entry points; the BEV and
+// EDGE_3D functions stay public for tests and ablation tooling.
+inline std::vector<Keypoint> extractKeypoints(
+  const pcl::PointCloud<pcl::PointXYZI> & cloud,
+  const KeypointExtractionConfig & cfg)
+{
+  switch (cfg.mode) {
+    case KeypointMode::EDGE_3D:
+      return extractKeypointsEdge3D(cloud, cfg);
+    case KeypointMode::BEV_MAX_HEIGHT:
+    default:
+      return extractKeypointsBEV(cloud, cfg);
+  }
 }
 
 // --------------------------- triangle enumeration ---------------------------
