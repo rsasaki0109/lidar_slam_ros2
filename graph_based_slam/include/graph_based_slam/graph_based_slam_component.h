@@ -242,20 +242,28 @@ private:
     // BSD-2 primitives in graph_based_slam/triangle_descriptor*. Default off
     // so the existing default workflow stays unchanged.
     bool use_triangle_descriptor_ {false};
+    // Tuned 2026-05-18 on NTU VIRAL tnp_01 ablation v4. The earlier loose
+    // defaults (60 cells, 0.3 m salience, 80 keypoints, 1.0 m edge bin)
+    // produced false-positive vote buckets where one stale submap collected
+    // every triangle match; this triggered randomly-rotating SE(3) outputs
+    // that NDT could not refine. The tighter values below caused triangle
+    // to vote across distinct submap ids (32 / 40 / 17 / 9) and produced
+    // the first triangle-sourced accepted loop closure (32 <-> 95, 0.49 m
+    // / 1.06 deg correction).
     double triangle_descriptor_grid_size_m_ {60.0};
-    int triangle_descriptor_grid_cells_ {60};
-    int triangle_descriptor_max_keypoints_ {80};
-    double triangle_descriptor_min_salience_m_ {0.3};
+    int triangle_descriptor_grid_cells_ {100};
+    int triangle_descriptor_max_keypoints_ {40};
+    double triangle_descriptor_min_salience_m_ {0.8};
     double triangle_descriptor_min_edge_m_ {2.0};
     double triangle_descriptor_max_edge_m_ {50.0};
-    int triangle_descriptor_max_triangles_ {5000};
-    double triangle_descriptor_edge_bin_m_ {1.0};
-    // NTU VIRAL ablation showed min_inliers 3 / min_votes 6 let through too
-    // many weak triangle candidates that NDT then rejected. Tighten the
-    // defaults so the few candidates the descriptor does emit are more
-    // likely to survive geometric verification.
-    int triangle_descriptor_min_votes_ {10};
-    int triangle_descriptor_min_inliers_ {5};
+    int triangle_descriptor_max_triangles_ {3000};
+    double triangle_descriptor_edge_bin_m_ {0.5};
+    // 5-inlier floor would have killed the only accepted loop in v4 (id=32
+    // emitted with 4 inliers), so settle on 4 as the compromise between
+    // recall and noise. Votes can stay loose because the tighter keypoint
+    // / hash params suppress most false buckets on their own.
+    int triangle_descriptor_min_votes_ {6};
+    int triangle_descriptor_min_inliers_ {4};
     double triangle_descriptor_inlier_translation_m_ {2.0};
     double triangle_descriptor_inlier_rotation_deg_ {5.0};
     int triangle_descriptor_exclude_recent_ {4};
