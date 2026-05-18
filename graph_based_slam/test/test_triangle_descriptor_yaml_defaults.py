@@ -53,6 +53,8 @@ EXPECTED_PARAM_KEYS = {
     'triangle_descriptor_inlier_translation_m',
     'triangle_descriptor_inlier_rotation_deg',
     'triangle_descriptor_exclude_recent',
+    'triangle_descriptor_min_inlier_ratio',
+    'triangle_descriptor_max_pairs',
     'triangle_verify_with_bev',
     'triangle_verify_bev_max_distance',
 }

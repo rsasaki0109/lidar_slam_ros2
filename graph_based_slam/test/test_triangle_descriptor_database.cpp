@@ -391,3 +391,58 @@ TEST(TriangleLoopCandidate, RejectsUnrelatedQueries)
   const auto candidate = findLoopCandidate(db, kps_q, tris_q, cfg, vote_cfg, verify_cfg);
   EXPECT_FALSE(candidate.accepted);
 }
+
+TEST(TriangleLoopCandidate, InlierRatioGateRejectsLowRatio)
+{
+  // Reuse the identity-recovery setup: every triangle pair will produce the
+  // same SE(3), so inliers / eval_n approaches 1.0. A ratio threshold above
+  // 1.0 cannot be met, so the candidate must be rejected.
+  const auto kps = makeKeypointGrid(4, 4, 3.0f);
+  const auto tris = buildTriangles(kps, TriangleBuildConfig{});
+
+  TriangleDatabase db;
+  HashConfig cfg;
+  db.addSubmap(11, kps, tris, cfg);
+
+  VoteConfig vote_cfg;
+  VerificationConfig verify_cfg;
+  verify_cfg.min_inlier_ratio = 1.5f;  // impossible: ratio is bounded by 1.0
+  const auto candidate = findLoopCandidate(db, kps, tris, cfg, vote_cfg, verify_cfg);
+  EXPECT_FALSE(candidate.accepted);
+  EXPECT_GT(candidate.inliers, 0);  // RANSAC still found inliers, just not enough
+}
+
+TEST(TriangleLoopCandidate, InlierRatioGateAcceptsAtZeroDisabled)
+{
+  const auto kps = makeKeypointGrid(4, 4, 3.0f);
+  const auto tris = buildTriangles(kps, TriangleBuildConfig{});
+
+  TriangleDatabase db;
+  HashConfig cfg;
+  db.addSubmap(13, kps, tris, cfg);
+
+  VoteConfig vote_cfg;
+  VerificationConfig verify_cfg;
+  verify_cfg.min_inlier_ratio = 0.0f;  // default; disabled
+  const auto candidate = findLoopCandidate(db, kps, tris, cfg, vote_cfg, verify_cfg);
+  EXPECT_TRUE(candidate.accepted);
+}
+
+TEST(TriangleLoopCandidate, MaxPairsLimitsEvaluatedSet)
+{
+  // Cap max_pairs to 3 -- best-case inliers must not exceed that cap.
+  const auto kps = makeKeypointGrid(4, 4, 3.0f);
+  const auto tris = buildTriangles(kps, TriangleBuildConfig{});
+
+  TriangleDatabase db;
+  HashConfig cfg;
+  db.addSubmap(17, kps, tris, cfg);
+
+  VoteConfig vote_cfg;
+  VerificationConfig verify_cfg;
+  verify_cfg.max_pairs = 3;
+  verify_cfg.min_inliers = 1;
+  const auto candidate = findLoopCandidate(db, kps, tris, cfg, vote_cfg, verify_cfg);
+  EXPECT_LE(candidate.inliers, 3);
+  EXPECT_GE(candidate.inliers, 0);
+}
