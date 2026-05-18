@@ -44,10 +44,24 @@ graph_based_slam:
       # for a 360° LiDAR; tighten the edge and grid bounds for short-range
       # sensors like the Livox MID-360.
       use_triangle_descriptor: false
+      # Keypoint mode. "bev_max_height" picks BEV local-max cells (works on
+      # spinning 360° LiDAR outdoors). "edge_3d" runs PCA on radius-r
+      # neighborhoods and keeps high-edgeness (column edge / wall corner)
+      # supports - prefer this for narrow-FOV LiDAR (Livox MID-360) and
+      # indoor scenes where BEV max-height repeatability collapses.
+      triangle_descriptor_keypoint_mode: "bev_max_height"
       triangle_descriptor_grid_size_m: 60.0
       triangle_descriptor_grid_cells: 100
       triangle_descriptor_max_keypoints: 40
       triangle_descriptor_min_salience_m: 0.8
+      # edge_3d-mode tuning. Smaller voxel + smaller neighbor radius =
+      # finer keypoints but more compute. The default 0.4 / 1.0 m pair
+      # is the starting point used in 2026-05-19 MID-360 ablation.
+      triangle_descriptor_edge_voxel_size_m: 0.4
+      triangle_descriptor_edge_neighbor_radius_m: 1.0
+      triangle_descriptor_edge_min_neighbors: 6
+      triangle_descriptor_edge_min_edgeness: 0.5
+      triangle_descriptor_edge_nms_radius_m: 2.0
       triangle_descriptor_min_edge_m: 2.0
       triangle_descriptor_max_edge_m: 50.0
       triangle_descriptor_max_triangles: 3000

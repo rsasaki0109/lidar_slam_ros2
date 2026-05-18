@@ -40,10 +40,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 EXPECTED_PARAM_KEYS = {
     'use_triangle_descriptor',
+    'triangle_descriptor_keypoint_mode',
     'triangle_descriptor_grid_size_m',
     'triangle_descriptor_grid_cells',
     'triangle_descriptor_max_keypoints',
     'triangle_descriptor_min_salience_m',
+    'triangle_descriptor_edge_voxel_size_m',
+    'triangle_descriptor_edge_neighbor_radius_m',
+    'triangle_descriptor_edge_min_neighbors',
+    'triangle_descriptor_edge_min_edgeness',
+    'triangle_descriptor_edge_nms_radius_m',
     'triangle_descriptor_min_edge_m',
     'triangle_descriptor_max_edge_m',
     'triangle_descriptor_max_triangles',
@@ -60,6 +66,8 @@ EXPECTED_PARAM_KEYS = {
     'triangle_verify_with_bev',
     'triangle_verify_bev_max_distance',
 }
+
+VALID_KEYPOINT_MODES = {'bev_max_height', 'edge_3d'}
 
 PARAM_FILES = [
     REPO_ROOT / 'graph_based_slam' / 'param' / 'graphbasedslam.yaml',
@@ -122,3 +130,41 @@ def test_bev_cross_verify_defaults_off(path):
     params = _load_graph_params(path)
     assert params['triangle_verify_with_bev'] is False
     assert params['triangle_verify_bev_max_distance'] > 0.0
+
+
+@pytest.mark.parametrize('path', PARAM_FILES, ids=lambda p: p.name)
+def test_keypoint_mode_is_valid(path):
+    params = _load_graph_params(path)
+    mode = params['triangle_descriptor_keypoint_mode']
+    assert mode in VALID_KEYPOINT_MODES, (
+        f'{path.name}: unknown keypoint mode {mode!r}; '
+        f'must be one of {sorted(VALID_KEYPOINT_MODES)}'
+    )
+
+
+@pytest.mark.parametrize('path', PARAM_FILES, ids=lambda p: p.name)
+def test_edge_keypoint_params_sane(path):
+    params = _load_graph_params(path)
+    assert params['triangle_descriptor_edge_voxel_size_m'] >= 0.0
+    assert params['triangle_descriptor_edge_neighbor_radius_m'] > 0.0
+    assert params['triangle_descriptor_edge_min_neighbors'] >= 4
+    edgeness = params['triangle_descriptor_edge_min_edgeness']
+    assert 0.0 <= edgeness <= 1.0, (
+        f'{path.name}: edgeness threshold {edgeness} out of [0, 1]'
+    )
+    assert params['triangle_descriptor_edge_nms_radius_m'] >= 0.0
+
+
+def test_mid360_preset_prefers_edge_keypoints():
+    """
+    MID-360 preset must default to edge_3d keypoints.
+
+    MID-360 narrow-FOV ablation showed BEV max-height fails (votes accumulate
+    but 3-point RANSAC inliers stay at 1-2). edge_3d is the cross-dataset
+    answer (see project_triangle_descriptor_stack memory).
+    """
+    mid360 = _load_graph_params(PARAM_FILES[1])
+    assert mid360['triangle_descriptor_keypoint_mode'] == 'edge_3d', (
+        'MID-360 preset must default to edge_3d so the opt-in triangle path '
+        'has a working keypoint extractor on narrow-FOV LiDAR'
+    )

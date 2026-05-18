@@ -45,10 +45,24 @@ graph_based_slam:
     # MID-360 pipeline keeps the same loop-closure behaviour; flip
     # use_triangle_descriptor to true to opt in.
     use_triangle_descriptor: false
+    # MID-360 ablation (2026-05-18 / 19) showed BEV max-height keypoints
+    # fail in narrow-FOV LiDAR (votes accumulate but 3-point RANSAC inliers
+    # stay at 1-2). edge_3d is the alternative extractor that runs PCA on
+    # radius-r neighborhoods and keeps high-edgeness supports - geometrically
+    # equivalent to LOAM edge points but view-direction agnostic. This is
+    # the recommended mode if you flip use_triangle_descriptor to true on
+    # MID-360. The tighter edge_neighbor_radius / nms_radius below match
+    # the shorter usable range of the sensor.
+    triangle_descriptor_keypoint_mode: "edge_3d"
     triangle_descriptor_grid_size_m: 60.0
     triangle_descriptor_grid_cells: 100
     triangle_descriptor_max_keypoints: 30
     triangle_descriptor_min_salience_m: 1.0
+    triangle_descriptor_edge_voxel_size_m: 0.3
+    triangle_descriptor_edge_neighbor_radius_m: 0.8
+    triangle_descriptor_edge_min_neighbors: 6
+    triangle_descriptor_edge_min_edgeness: 0.5
+    triangle_descriptor_edge_nms_radius_m: 1.5
     triangle_descriptor_min_edge_m: 2.0
     triangle_descriptor_max_edge_m: 30.0
     triangle_descriptor_max_triangles: 2000
