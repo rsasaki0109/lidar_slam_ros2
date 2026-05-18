@@ -172,27 +172,38 @@ v4 の keypoint tightening と v5 の inlier_ratio + 4-point gate を経て、�
 - **3-point RANSAC は最小自由度ゆえ偶然合意しやすい**。v5 の 4-point consensus + inlier_ratio で偽陽性 emit を半減できることを実証した。
 - **run-to-run variance ~0.1 m を見落とすと改善誤判定する**。1 回比較で「APE 改善した」と判定するのは早計。
 
+### 3-Dataset 検証結果と Default 判断 (2026-05-18 更新)
+
+| Dataset | LiDAR | 環境 | Votes/submap | Inliers | Triangle 採用 |
+|---------|-------|------|--------------|---------|--------------|
+| NTU VIRAL tnp_01 | Ouster OS1 (360° wide vertical) | outdoor open | 200-2800 | 3-5 | 1 (v5, variance 内 APE 改善) |
+| MID-360 glim | Livox MID-360 (narrow FOV) | outdoor mixed | 97-1037 | 1-2 | 0 (2 周試行, ともに 0 emit) |
+| Newer College math_hard | Ouster OS0-32 (360° narrow vertical) | indoor | 100-200 | 1-2 | 0 (1 周試行, 76 votes 全件 reject) |
+
+**結論:** Triangle descriptor (BEV max-height keypoint + 3-point RANSAC) は **spinning 360° + wide vertical FOV + outdoor** に限定して機能する。narrow FOV (MID-360) または indoor 構造化シーン (Newer College math_hard) では keypoint repeatability が破綻し、Hash votes は集まるものの 3-point RANSAC inliers が 1-2 で頭打ちになる。
+
+**Default 設計判断:**
+- `use_triangle_descriptor: false` を **全 preset で維持** — NTU 単独の 1 採用は variance 範囲内、複数 dataset で価値示せず default on の根拠なし
+- `min_4th_point_agreements: 0` を **維持** — 4-point gate は NTU 以外では発火前に inlier gate で死ぬため検証不能、デフォルトを上げる根拠なし
+- これらは「opt-in 研究機能」として develop に landing 済。production default に上げるには別の keypoint 抽出方式が必要
+
 ### 残った次の打ち手（優先度順）
 
-1. **別データセットでの再検証**（最優先）
-   - NTU VIRAL tnp_01 は走行軌跡が一直線往復に近く、triangle の強みが出にくい可能性
-   - Newer College math-hard / Leo Drive driving / MID-360 demo で同じ ablation を回したい
-   - ただし Leo Drive は velodyne_packets のままで PointCloud2 化が必要、demo bag の整備が先
-2. **MID-360 demo bag の整備**
-   - reference 軌跡 + 短距離ループありの bag を準備すれば triangle stack の本領テストができる
-   - 現状 demo_data/ には MID-360 の loop closure 向け bag が無い
-3. **4-point gate を default on に倒すか検討**
-   - v5 で機能確認済。default `min_4th_point_agreements: 3` まで上げる選択肢
-   - 別データセット 1-2 個で検証してから判断
-4. **`use_triangle_descriptor` を default on にするか検討**
-   - v5 で「triangle on で APE が baseline 以下、distance loop も減らない」状態に到達
-   - ただし 1 データセット 1 回の観測。複数データで再現性が確認できれば default on を提案できる
+1. **MID-360 / indoor 向け keypoint 抽出の再設計**
+   - 現実装の BEV max-height では narrow FOV / indoor の repeatability 不足が 3 dataset で確定
+   - 候補: corner/edge keypoint (FPFH 風), density 変化点 (PointNet++ 系), planar/non-planar 分類
+   - もしくは triangle stack を「OS1/OS0 wide vertical FOV 専用」として明示し、MID-360 / indoor 用には Scan Context / SOLiD など別系統に委ねる
+2. **NTU v5 reproducibility — 2-3 周回して variance 内に APE 改善が安定するか確認**
+   - 現状 1 採用は 1 回観測 (v5)。v5 を 3 周回して採用ペアが (a) 毎回出るか (b) 毎回同じ submap_id か検証
+   - 安定すれば NTU プリセット限定で `use_triangle_descriptor: true` も検討余地あり
+3. **Leo Drive driving bag への展開** (要 PointCloud2 化と reference 整備)
+4. **コンポーネント単体テスト** (searchLoop に triangle path をモック注入する gtest)
 
 ### ステータスと運用方針
 
-- triangle descriptor stack は「**実装完了・1 データセットで効果確認（PoC）**」段階。v0.4 リリースでは引き続き default off (`use_triangle_descriptor: false`) で opt-in 機能として提供。
-- v0.4 release notes には「STD/BTC 風 place recognition の opt-in 実装あり、NTU VIRAL tnp_01 で 1 採用ループ確認、複数データセットでの再現性は roadmap」と書ける状態。
-- 上記「残った次の打ち手 1〜4」のうち #1 #2 が外部データ準備に依存。#3 #4 は社内データだけでも先に着手可能。
+- triangle descriptor stack は「**実装完了・1 データセットで PoC 効果・2 データセットで非効果**」段階。v0.4 リリースでは引き続き default off (`use_triangle_descriptor: false`) で opt-in 機能として提供。
+- v0.4 release notes には「STD/BTC 風 place recognition の opt-in 実装あり、NTU VIRAL tnp_01 で 1 採用ループ確認 (variance 範囲)、MID-360 / Newer College では発火せず — wide-FOV spinning 360° outdoor 限定の研究機能」と書く。
+- 4-point gate と `use_triangle_descriptor` の default 判断は 3-dataset 検証によりクローズ済。次は keypoint 抽出の根本見直しか、対応 LiDAR/環境を明示しつつ機能領域を狭く維持。
 
 詳細メモは [[project_triangle_descriptor_stack]] に保存済。
 
