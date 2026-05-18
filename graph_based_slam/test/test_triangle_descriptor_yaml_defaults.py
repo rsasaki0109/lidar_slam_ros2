@@ -219,3 +219,33 @@ def test_indoor_preset_voxel_tighter_than_mid360():
         < mid360['triangle_descriptor_edge_voxel_size_m'], (
         'Indoor preset must use a tighter voxel than the MID-360 outdoor preset'
     )
+
+
+@pytest.mark.parametrize('path', PARAM_FILES, ids=lambda p: p.name)
+def test_loop_max_delta_descriptor_override_present_and_safe(path):
+    """
+    Descriptor-only loop_max_delta override must be present and safe by default.
+
+    Defaults to -1 (disabled) so opting in is explicit per dataset.
+    DISTANCE candidates keep the strict generic cap; descriptor sources can
+    accept a larger NDT correction when the operator sets a positive value.
+    The default-disabled stance keeps backward compatibility — every yaml
+    that shipped before the override was added used a single cap.
+    """
+    params = _load_graph_params(path)
+    assert 'loop_max_translation_delta_descriptor' in params, (
+        f'{path.name}: missing loop_max_translation_delta_descriptor — the '
+        'override is the documented escape hatch for long-baseline triangle '
+        'loops; ship it (even at -1) so users know it exists'
+    )
+    assert 'loop_max_rotation_delta_deg_descriptor' in params
+    t_override = params['loop_max_translation_delta_descriptor']
+    r_override = params['loop_max_rotation_delta_deg_descriptor']
+    assert t_override == -1.0 or t_override > 0.0, (
+        f'{path.name}: loop_max_translation_delta_descriptor must be -1 '
+        f'(disabled) or > 0; got {t_override}'
+    )
+    assert r_override == -1.0 or r_override > 0.0, (
+        f'{path.name}: loop_max_rotation_delta_deg_descriptor must be -1 '
+        f'(disabled) or > 0; got {r_override}'
+    )

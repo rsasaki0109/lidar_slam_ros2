@@ -13,6 +13,14 @@ graph_based_slam:
       loop_edge_dedup_index_window: 8
       loop_max_translation_delta: 15.0
       loop_max_rotation_delta_deg: 45.0
+      # Per-source caps for descriptor-based candidates (TRIANGLE,
+      # SCAN_CONTEXT, BEV, SOLID). -1 = disabled, fall back to the
+      # generic caps above. Set to a larger value when the descriptor
+      # has been validated as precise on the target dataset and large
+      # NDT corrections are expected (e.g. long-baseline loops on a
+      # drifting trajectory).
+      loop_max_translation_delta_descriptor: -1.0
+      loop_max_rotation_delta_deg_descriptor: -1.0
       use_gnss: false
       gnss_topic: "/gnss/fix"
       gnss_info_weight: 1.0
