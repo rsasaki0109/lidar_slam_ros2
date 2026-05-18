@@ -347,6 +347,15 @@ struct LoopCandidate
   int submap_id {-1};
   int votes {0};
   int inliers {0};
+  // Triangle pairs actually evaluated by RANSAC (= min(verify_cfg.max_pairs,
+  // total bucket hits)). Useful for the operator to compute / verify the
+  // inlier ratio that gated this emit; populated even when the candidate
+  // is rejected so post-mortem tuning can see the ratio that came up
+  // short.
+  int eval_n {0};
+  // ``inliers / eval_n`` when eval_n > 0, else 0. Precomputed so operators
+  // can log the ratio without re-computing it from int fields.
+  float inlier_ratio {0.0f};
   Eigen::Matrix4f transform {Eigen::Matrix4f::Identity()};
   bool accepted {false};
 };
@@ -488,12 +497,14 @@ inline LoopCandidate findLoopCandidate(
   }
 
   result.inliers = best_inliers;
+  result.eval_n = eval_n;
+  result.inlier_ratio = (eval_n > 0) ?
+    static_cast<float>(best_inliers) / static_cast<float>(eval_n) : 0.0f;
   result.transform = best_T;
   bool count_ok = best_inliers >= verify_cfg.min_inliers;
   bool ratio_ok = true;
   if (verify_cfg.min_inlier_ratio > 0.0f && eval_n > 0) {
-    const float ratio = static_cast<float>(best_inliers) / static_cast<float>(eval_n);
-    ratio_ok = ratio >= verify_cfg.min_inlier_ratio;
+    ratio_ok = result.inlier_ratio >= verify_cfg.min_inlier_ratio;
   }
   bool fourth_ok = true;
   if (count_ok && ratio_ok && verify_cfg.min_4th_point_agreements > 0) {

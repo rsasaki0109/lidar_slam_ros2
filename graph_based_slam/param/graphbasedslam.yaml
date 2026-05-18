@@ -83,9 +83,15 @@ graph_based_slam:
       triangle_descriptor_quad_feature_bin_m: 0.0
       triangle_descriptor_min_votes: 6
       triangle_descriptor_min_inliers: 4
-      # 0.0 disables the relative-density floor. Set to e.g. 0.15 in combination
-      # with triangle_descriptor_max_pairs: 20 if you want to insist on >=15%
-      # of evaluated triangle pairs agreeing on SE(3).
+      # Precision floor recipe: combine triangle_descriptor_min_inliers
+      # (absolute) AND triangle_descriptor_min_inlier_ratio (relative).
+      # Both must pass for an emit -> stricter when max_pairs is high.
+      # 0.0 disables the relative gate. Useful values:
+      #   max_pairs=64, min_inlier_ratio=0.10  -> at least 7 inliers
+      #   max_pairs=32, min_inlier_ratio=0.15  -> at least 5 inliers
+      # The component logs "inliers=N eval_n=M inlier_ratio=R" on every
+      # emit AND on every rejection (when debug_flag is on) so tuning is
+      # observable without re-running.
       triangle_descriptor_min_inlier_ratio: 0.0
       triangle_descriptor_max_pairs: 64
       # 4-point consensus: project non-triangle query keypoints by the
