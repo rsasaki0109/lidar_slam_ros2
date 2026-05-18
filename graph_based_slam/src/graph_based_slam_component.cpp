@@ -153,6 +153,14 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
     triangle_descriptor_min_inlier_ratio_);
   declare_parameter("triangle_descriptor_max_pairs", 64);
   get_parameter("triangle_descriptor_max_pairs", triangle_descriptor_max_pairs_);
+  declare_parameter("triangle_descriptor_min_4th_point_agreements", 0);
+  get_parameter(
+    "triangle_descriptor_min_4th_point_agreements",
+    triangle_descriptor_min_4th_point_agreements_);
+  declare_parameter("triangle_descriptor_fourth_point_max_distance_m", 2.0);
+  get_parameter(
+    "triangle_descriptor_fourth_point_max_distance_m",
+    triangle_descriptor_fourth_point_max_distance_m_);
   declare_parameter("triangle_descriptor_inlier_translation_m", 2.0);
   get_parameter(
     "triangle_descriptor_inlier_translation_m",
@@ -546,6 +554,12 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       triangle_descriptor_max_pairs_);
     triangle_descriptor_max_pairs_ = 3;
   }
+  if (triangle_descriptor_min_4th_point_agreements_ < 0) {
+    triangle_descriptor_min_4th_point_agreements_ = 0;
+  }
+  if (triangle_descriptor_fourth_point_max_distance_m_ <= 0.0) {
+    triangle_descriptor_fourth_point_max_distance_m_ = 2.0;
+  }
   if (triangle_descriptor_inlier_translation_m_ <= 0.0) {
     triangle_descriptor_inlier_translation_m_ = 2.0;
   }
@@ -796,6 +810,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       triangle_descriptor_min_inlier_ratio_ << std::endl;
     std::cout << "triangle_descriptor_max_pairs:" <<
       triangle_descriptor_max_pairs_ << std::endl;
+    std::cout << "triangle_descriptor_min_4th_point_agreements:" <<
+      triangle_descriptor_min_4th_point_agreements_ << std::endl;
+    std::cout << "triangle_descriptor_fourth_point_max_distance_m:" <<
+      triangle_descriptor_fourth_point_max_distance_m_ << std::endl;
     std::cout << "triangle_descriptor_inlier_translation_m:" <<
       triangle_descriptor_inlier_translation_m_ << std::endl;
     std::cout << "triangle_descriptor_inlier_rotation_deg:" <<
@@ -1880,6 +1898,10 @@ void GraphBasedSlamComponent::searchLoop()
       verify_cfg.min_inlier_ratio =
         static_cast<float>(triangle_descriptor_min_inlier_ratio_);
       verify_cfg.max_pairs = triangle_descriptor_max_pairs_;
+      verify_cfg.min_4th_point_agreements =
+        triangle_descriptor_min_4th_point_agreements_;
+      verify_cfg.fourth_point_max_distance_m =
+        static_cast<float>(triangle_descriptor_fourth_point_max_distance_m_);
 
       // Mask out the latest_idx and any recent submaps so we don't loop on
       // ourselves. We do this by running the vote step first and dropping any

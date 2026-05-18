@@ -273,6 +273,15 @@ private:
     // Lower numbers make min_inlier_ratio more informative; default 64 keeps
     // the previous behaviour.
     int triangle_descriptor_max_pairs_ {64};
+    // 4-point consensus: after the 3-point RANSAC picks a winning SE(3),
+    // optionally project every query keypoint by that transform and require
+    // this many to fall within `fourth_point_max_distance_m` of some
+    // database keypoint in the chosen submap. Three points uniquely
+    // determine SE(3), so even a strong 3-point consensus can be fooled by
+    // repeated structure; the 4-point gate adds an independent constraint.
+    // Default 0 disables the gate.
+    int triangle_descriptor_min_4th_point_agreements_ {0};
+    double triangle_descriptor_fourth_point_max_distance_m_ {2.0};
     double triangle_descriptor_inlier_translation_m_ {2.0};
     double triangle_descriptor_inlier_rotation_deg_ {5.0};
     int triangle_descriptor_exclude_recent_ {4};
