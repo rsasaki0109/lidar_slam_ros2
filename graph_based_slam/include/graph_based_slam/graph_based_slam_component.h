@@ -208,6 +208,17 @@ private:
     double adjacent_edge_info_auto_scale_ema_alpha_ {0.3};
     double adjacent_edge_info_auto_scale_min_ {1.0};
     double adjacent_edge_info_auto_scale_max_ {1.0e6};
+    // Level 2: split the adjacent edge Information matrix into translation /
+    // rotation blocks (block-diag with weights w_trans, w_rot on I_3 each) so
+    // the auto-scaler can balance translation residuals and rotation residuals
+    // independently. When split mode is off the legacy single-scalar shape is
+    // used. Targets default to 3.0 (3 DoF per block, vs 6 for the unified
+    // mode); the EMA / min / max defaults are shared with Level 1.
+    bool adjacent_edge_info_auto_scale_split_trans_rot_ {false};
+    double adjacent_edge_info_weight_trans_ {-1.0};
+    double adjacent_edge_info_weight_rot_ {-1.0};
+    double adjacent_edge_info_auto_scale_target_nis_trans_ {3.0};
+    double adjacent_edge_info_auto_scale_target_nis_rot_ {3.0};
 
     bool initial_map_array_received_ {false};
     bool is_map_array_updated_ {false};
