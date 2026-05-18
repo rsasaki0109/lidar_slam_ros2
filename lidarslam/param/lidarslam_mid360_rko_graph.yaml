@@ -78,6 +78,7 @@ graph_based_slam:
     # keypoint set means a sensible target is around 2-3 agreements.
     triangle_descriptor_min_4th_point_agreements: 0
     triangle_descriptor_fourth_point_max_distance_m: 1.5
+    triangle_descriptor_refine_se3_with_all_inliers: false
     triangle_descriptor_inlier_translation_m: 2.0
     triangle_descriptor_inlier_rotation_deg: 5.0
     triangle_descriptor_exclude_recent: 6

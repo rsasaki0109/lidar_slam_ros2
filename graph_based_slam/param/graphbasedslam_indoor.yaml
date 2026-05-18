@@ -80,6 +80,14 @@ graph_based_slam:
       # legit emit を保持)。
       triangle_descriptor_min_4th_point_agreements: 2
       triangle_descriptor_fourth_point_max_distance_m: 1.5
+      # SE(3) refinement: opt-in feature that re-estimates the winning
+      # 3-point RANSAC SE(3) using every inlier triangle's correspondences
+      # via N-point Umeyama. Synthetic gtest shows the refined translation
+      # has √N less error than the 3-point estimate. Real-world n=1
+      # Newer College ablation was inconclusive (refinement reduced the
+      # emit count from 3 to 1 by tripping the 4-point gate on the moved
+      # SE(3)). Kept off by default until cross-dataset evidence emerges.
+      triangle_descriptor_refine_se3_with_all_inliers: false
       triangle_descriptor_inlier_translation_m: 2.0
       triangle_descriptor_inlier_rotation_deg: 5.0
       triangle_descriptor_exclude_recent: 4
