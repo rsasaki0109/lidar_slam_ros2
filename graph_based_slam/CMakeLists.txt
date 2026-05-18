@@ -128,7 +128,7 @@ if(BUILD_TESTING)
     test/test_adjacent_edge_auto_scale.cpp
   )
   if(TARGET test_adjacent_edge_auto_scale)
-    target_include_directories(test_adjacent_edge_auto_scale PRIVATE include)
+    target_include_directories(test_adjacent_edge_auto_scale PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
     test_scan_context
