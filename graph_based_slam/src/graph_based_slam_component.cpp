@@ -206,6 +206,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter(
     "triangle_descriptor_fourth_point_max_distance_m",
     triangle_descriptor_fourth_point_max_distance_m_);
+  declare_parameter("triangle_descriptor_refine_se3_with_all_inliers", false);
+  get_parameter(
+    "triangle_descriptor_refine_se3_with_all_inliers",
+    triangle_descriptor_refine_se3_with_all_inliers_);
   declare_parameter("triangle_descriptor_inlier_translation_m", 2.0);
   get_parameter(
     "triangle_descriptor_inlier_translation_m",
@@ -929,6 +933,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       triangle_descriptor_min_4th_point_agreements_ << std::endl;
     std::cout << "triangle_descriptor_fourth_point_max_distance_m:" <<
       triangle_descriptor_fourth_point_max_distance_m_ << std::endl;
+    std::cout << "triangle_descriptor_refine_se3_with_all_inliers:" <<
+      std::boolalpha << triangle_descriptor_refine_se3_with_all_inliers_ << std::endl;
     std::cout << "triangle_descriptor_inlier_translation_m:" <<
       triangle_descriptor_inlier_translation_m_ << std::endl;
     std::cout << "triangle_descriptor_inlier_rotation_deg:" <<
@@ -2028,6 +2034,8 @@ void GraphBasedSlamComponent::searchLoop()
         triangle_descriptor_min_4th_point_agreements_;
       verify_cfg.fourth_point_max_distance_m =
         static_cast<float>(triangle_descriptor_fourth_point_max_distance_m_);
+      verify_cfg.refine_se3_with_all_inliers =
+        triangle_descriptor_refine_se3_with_all_inliers_;
 
       // Mask out the latest_idx and any recent submaps so we don't loop on
       // ourselves. We do this by running the vote step first and dropping any

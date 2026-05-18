@@ -258,6 +258,15 @@ struct VerificationConfig
   // disable (default keeps the previous behaviour).
   int min_4th_point_agreements {0};
   float fourth_point_max_distance_m {2.0f};
+  // After the 3-point RANSAC picks the winning SE(3), optionally pool the
+  // 3 * N_inliers point correspondences and re-estimate SE(3) by a single
+  // N-point Umeyama (least squares). The translation of one 3-point estimate
+  // is noisy because each vertex is a noisy keypoint; pooling reduces that
+  // noise by √N and consistently produces a tighter SE(3) that NDT can refine
+  // without walking to a wrong basin. Default off so the 3-dataset baselines
+  // stay reproducible; flip on for indoor / narrow-FOV scenes where the
+  // initial-pose accuracy is the gating factor.
+  bool refine_se3_with_all_inliers {false};
 };
 
 struct LoopCandidate
@@ -374,6 +383,34 @@ inline LoopCandidate findLoopCandidate(
     if (inliers > best_inliers) {
       best_inliers = inliers;
       best_T = T_i;
+    }
+  }
+
+  // Optional refinement: pool every inlier triangle's 3 point correspondences
+  // and re-estimate SE(3) by a single N-point Umeyama. Reduces translation
+  // noise compared to keeping the single winning 3-point hypothesis.
+  if (verify_cfg.refine_se3_with_all_inliers && best_inliers >= 2) {
+    std::vector<Eigen::Vector3f> all_src;
+    std::vector<Eigen::Vector3f> all_dst;
+    all_src.reserve(static_cast<std::size_t>(best_inliers) * 3);
+    all_dst.reserve(static_cast<std::size_t>(best_inliers) * 3);
+    for (int j = 0; j < eval_n; ++j) {
+      std::array<Eigen::Vector3f, 3> sj;
+      std::array<Eigen::Vector3f, 3> dj;
+      detail::packTrianglePair(
+        *pairs[j].query_tri, query_keypoints, *pairs[j].db_entry, sj, dj);
+      const Eigen::Matrix4f T_j = estimateRigidFromTriangle(sj, dj);
+      if (detail::transformAgrees(
+          best_T, T_j, verify_cfg.inlier_translation_m, verify_cfg.inlier_rotation_deg))
+      {
+        for (int k = 0; k < 3; ++k) {
+          all_src.push_back(sj[k]);
+          all_dst.push_back(dj[k]);
+        }
+      }
+    }
+    if (all_src.size() >= 3) {
+      best_T = estimateRigidFromCorrespondences(all_src, all_dst);
     }
   }
 
