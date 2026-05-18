@@ -269,6 +269,16 @@ private:
     double triangle_descriptor_max_edge_m_ {50.0};
     int triangle_descriptor_max_triangles_ {3000};
     double triangle_descriptor_edge_bin_m_ {0.5};
+    // Keypoint extractor mode. "bev_max_height" is the original outdoor-only
+    // extractor; "edge_3d" enables PCA-edgeness keypoints that survive in
+    // narrow-FOV / indoor scenes (MID-360, Newer College math_hard) where
+    // BEV max-height keypoint repeatability collapses.
+    std::string triangle_descriptor_keypoint_mode_ {"bev_max_height"};
+    double triangle_descriptor_edge_voxel_size_m_ {0.4};
+    double triangle_descriptor_edge_neighbor_radius_m_ {1.0};
+    int triangle_descriptor_edge_min_neighbors_ {6};
+    double triangle_descriptor_edge_min_edgeness_ {0.5};
+    double triangle_descriptor_edge_nms_radius_m_ {2.0};
     // 5-inlier floor would have killed the only accepted loop in v4 (id=32
     // emitted with 4 inliers), so settle on 4 as the compromise between
     // recall and noise. Votes can stay loose because the tighter keypoint

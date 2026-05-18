@@ -139,6 +139,192 @@ TEST(TriangleDescriptorKeypoint, FiltersLowSaliencePillars)
   EXPECT_TRUE(kps.empty());
 }
 
+// ----- EDGE_3D keypoint extraction -----
+
+void addLinearStructure(
+  pcl::PointCloud<pcl::PointXYZI> & cloud,
+  float x, float y,
+  float top_z = 4.0f, float bottom_z = 0.0f, float step = 0.1f)
+{
+  // Vertical line of points - PCA covariance is dominated by the z direction
+  // so eigenvalues split as (~0, ~0, large) → edgeness near 1.
+  for (float z = bottom_z; z <= top_z; z += step) {
+    pcl::PointXYZI p;
+    p.x = x;
+    p.y = y;
+    p.z = z;
+    p.intensity = 1.0f;
+    cloud.push_back(p);
+  }
+}
+
+void addPlanarPatch(
+  pcl::PointCloud<pcl::PointXYZI> & cloud,
+  float x_min, float x_max, float y_min, float y_max,
+  float z = 0.0f, float step = 0.1f)
+{
+  for (float x = x_min; x <= x_max; x += step) {
+    for (float y = y_min; y <= y_max; y += step) {
+      pcl::PointXYZI p;
+      p.x = x;
+      p.y = y;
+      p.z = z;
+      p.intensity = 0.5f;
+      cloud.push_back(p);
+    }
+  }
+}
+
+TEST(TriangleDescriptorEdge3DKeypoint, EmptyCloudYieldsNoKeypoints)
+{
+  pcl::PointCloud<pcl::PointXYZI> cloud;
+  KeypointExtractionConfig cfg;
+  cfg.mode = KeypointMode::EDGE_3D;
+  const auto kps = extractKeypointsEdge3D(cloud, cfg);
+  EXPECT_TRUE(kps.empty());
+}
+
+TEST(TriangleDescriptorEdge3DKeypoint, PicksLinearStructures)
+{
+  // Three thin vertical lines well-separated in xy → each gives a
+  // high-edgeness PCA neighborhood (λ2 ≫ λ1 ≈ 0). With NMS radius set to
+  // cover the line height, each line collapses to a single keypoint.
+  pcl::PointCloud<pcl::PointXYZI> cloud;
+  addLinearStructure(cloud, 5.0f, 5.0f, 4.0f);
+  addLinearStructure(cloud, -5.0f, 5.0f, 4.0f);
+  addLinearStructure(cloud, 0.0f, -5.0f, 4.0f);
+
+  KeypointExtractionConfig cfg;
+  cfg.mode = KeypointMode::EDGE_3D;
+  cfg.edge_voxel_size_m = 0.2f;
+  cfg.edge_neighbor_radius_m = 0.6f;
+  cfg.edge_min_neighbors = 4;
+  cfg.edge_min_edgeness = 0.6f;
+  cfg.edge_nms_radius_m = 5.0f;
+  cfg.max_keypoints = 50;
+  const auto kps = extractKeypointsEdge3D(cloud, cfg);
+  EXPECT_EQ(3u, kps.size());
+  for (const auto & kp : kps) {
+    const float dx1 = std::abs(kp.position.x() - 5.0f);
+    const float dx2 = std::abs(kp.position.x() - (-5.0f));
+    const float dx3 = std::abs(kp.position.x() - 0.0f);
+    const float dy1 = std::abs(kp.position.y() - 5.0f);
+    const float dy3 = std::abs(kp.position.y() - (-5.0f));
+    const bool on_a_line =
+      (dx1 < 0.5f && dy1 < 0.5f) ||
+      (dx2 < 0.5f && dy1 < 0.5f) ||
+      (dx3 < 0.5f && dy3 < 0.5f);
+    EXPECT_TRUE(on_a_line) <<
+      "keypoint at (" << kp.position.x() << ", " << kp.position.y() <<
+      ", " << kp.position.z() << ") is not on any expected line";
+    EXPECT_GE(kp.salience, 0.6f);
+  }
+}
+
+TEST(TriangleDescriptorEdge3DKeypoint, RejectsPlanarInterior)
+{
+  // Planar patch interior should NOT produce edge keypoints; the eigenvalue
+  // ratio λ2 / λ1 is close to 1 because two horizontal dimensions are filled
+  // equally. The patch boundary will produce edges (a planar slab edge IS an
+  // edge — that is intentional, real-world wall ends behave the same way),
+  // so we only check the interior here by clipping the candidate locations
+  // away from the patch boundary.
+  pcl::PointCloud<pcl::PointXYZI> cloud;
+  addPlanarPatch(cloud, -8.0f, 8.0f, -8.0f, 8.0f, 0.0f, 0.15f);
+
+  KeypointExtractionConfig cfg;
+  cfg.mode = KeypointMode::EDGE_3D;
+  cfg.edge_voxel_size_m = 0.2f;
+  cfg.edge_neighbor_radius_m = 0.6f;
+  cfg.edge_min_neighbors = 4;
+  cfg.edge_min_edgeness = 0.6f;
+  cfg.edge_nms_radius_m = 1.5f;
+  cfg.max_keypoints = 200;
+  const auto kps = extractKeypointsEdge3D(cloud, cfg);
+  // Any keypoint must be within neighbor-radius of the patch boundary
+  // (boundary edges are legitimate). Interior of the patch (|x|, |y| < 5)
+  // must be empty.
+  for (const auto & kp : kps) {
+    const bool near_boundary =
+      std::abs(kp.position.x()) > 6.0f || std::abs(kp.position.y()) > 6.0f;
+    EXPECT_TRUE(near_boundary) <<
+      "interior planar keypoint at (" << kp.position.x() << ", " <<
+      kp.position.y() << ", " << kp.position.z() << ") - planar interior "
+      "must yield low edgeness";
+  }
+}
+
+TEST(TriangleDescriptorEdge3DKeypoint, NMSPreventsClusters)
+{
+  pcl::PointCloud<pcl::PointXYZI> cloud;
+  // Three lines extremely close together; NMS should collapse to one.
+  // Keep line height shorter than nms_radius so the endpoints fall within
+  // the suppression sphere of the centre point.
+  addLinearStructure(cloud, 0.0f, 0.0f, 1.0f);
+  addLinearStructure(cloud, 0.3f, 0.0f, 1.0f);
+  addLinearStructure(cloud, 0.0f, 0.3f, 1.0f);
+  KeypointExtractionConfig cfg;
+  cfg.mode = KeypointMode::EDGE_3D;
+  cfg.edge_voxel_size_m = 0.2f;
+  cfg.edge_neighbor_radius_m = 0.4f;
+  cfg.edge_min_neighbors = 4;
+  cfg.edge_min_edgeness = 0.5f;
+  cfg.edge_nms_radius_m = 3.0f;
+  cfg.max_keypoints = 50;
+  const auto kps = extractKeypointsEdge3D(cloud, cfg);
+  EXPECT_EQ(1u, kps.size());
+}
+
+TEST(TriangleDescriptorEdge3DKeypoint, RespectsMaxKeypoints)
+{
+  pcl::PointCloud<pcl::PointXYZI> cloud;
+  for (int i = 0; i < 8; ++i) {
+    const float x = -14.0f + 4.0f * static_cast<float>(i);
+    addLinearStructure(cloud, x, 0.0f, 4.0f);
+  }
+  KeypointExtractionConfig cfg;
+  cfg.mode = KeypointMode::EDGE_3D;
+  cfg.edge_voxel_size_m = 0.2f;
+  cfg.edge_neighbor_radius_m = 0.6f;
+  cfg.edge_min_neighbors = 4;
+  cfg.edge_min_edgeness = 0.5f;
+  cfg.edge_nms_radius_m = 1.5f;
+  cfg.max_keypoints = 3;
+  const auto kps = extractKeypointsEdge3D(cloud, cfg);
+  EXPECT_EQ(3u, kps.size());
+  // Saliences descend.
+  EXPECT_GE(kps[0].salience, kps[1].salience);
+  EXPECT_GE(kps[1].salience, kps[2].salience);
+}
+
+TEST(TriangleDescriptorEdge3DKeypoint, DispatcherSelectsCorrectMode)
+{
+  // BEV mode skips structures whose top is at ground height. EDGE_3D mode
+  // accepts vertical lines regardless of height range. Use that distinction
+  // to verify the dispatcher routes by `mode`.
+  pcl::PointCloud<pcl::PointXYZI> cloud;
+  addLinearStructure(cloud, 5.0f, 5.0f, 0.5f);
+  addLinearStructure(cloud, -5.0f, 5.0f, 0.5f);
+  addLinearStructure(cloud, 0.0f, -5.0f, 0.5f);
+
+  KeypointExtractionConfig bev_cfg;
+  bev_cfg.mode = KeypointMode::BEV_MAX_HEIGHT;
+  bev_cfg.min_salience_m = 5.0f;  // way above the 0.5 m lines → all rejected
+  const auto bev_kps = extractKeypoints(cloud, bev_cfg);
+  EXPECT_TRUE(bev_kps.empty());
+
+  KeypointExtractionConfig edge_cfg;
+  edge_cfg.mode = KeypointMode::EDGE_3D;
+  edge_cfg.edge_voxel_size_m = 0.1f;
+  edge_cfg.edge_neighbor_radius_m = 0.6f;
+  edge_cfg.edge_min_neighbors = 3;
+  edge_cfg.edge_min_edgeness = 0.5f;
+  edge_cfg.edge_nms_radius_m = 1.0f;
+  edge_cfg.max_keypoints = 10;
+  const auto edge_kps = extractKeypoints(cloud, edge_cfg);
+  EXPECT_GE(edge_kps.size(), 3u);
+}
+
 // ----- triangle enumeration -----
 
 std::vector<Keypoint> threePoints(

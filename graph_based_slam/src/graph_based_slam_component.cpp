@@ -169,6 +169,25 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("triangle_descriptor_max_triangles", triangle_descriptor_max_triangles_);
   declare_parameter("triangle_descriptor_edge_bin_m", 0.5);
   get_parameter("triangle_descriptor_edge_bin_m", triangle_descriptor_edge_bin_m_);
+  declare_parameter<std::string>(
+    "triangle_descriptor_keypoint_mode", triangle_descriptor_keypoint_mode_);
+  get_parameter("triangle_descriptor_keypoint_mode", triangle_descriptor_keypoint_mode_);
+  declare_parameter("triangle_descriptor_edge_voxel_size_m", 0.4);
+  get_parameter(
+    "triangle_descriptor_edge_voxel_size_m", triangle_descriptor_edge_voxel_size_m_);
+  declare_parameter("triangle_descriptor_edge_neighbor_radius_m", 1.0);
+  get_parameter(
+    "triangle_descriptor_edge_neighbor_radius_m",
+    triangle_descriptor_edge_neighbor_radius_m_);
+  declare_parameter("triangle_descriptor_edge_min_neighbors", 6);
+  get_parameter(
+    "triangle_descriptor_edge_min_neighbors", triangle_descriptor_edge_min_neighbors_);
+  declare_parameter("triangle_descriptor_edge_min_edgeness", 0.5);
+  get_parameter(
+    "triangle_descriptor_edge_min_edgeness", triangle_descriptor_edge_min_edgeness_);
+  declare_parameter("triangle_descriptor_edge_nms_radius_m", 2.0);
+  get_parameter(
+    "triangle_descriptor_edge_nms_radius_m", triangle_descriptor_edge_nms_radius_m_);
   declare_parameter("triangle_descriptor_min_votes", 6);
   get_parameter("triangle_descriptor_min_votes", triangle_descriptor_min_votes_);
   declare_parameter("triangle_descriptor_min_inliers", 4);
@@ -533,6 +552,33 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       "resetting 0.0 to disabled");
     bev_descriptor_pose_consistency_threshold_m_ = -1.0;
   }
+  if (triangle_descriptor_keypoint_mode_ != "bev_max_height" &&
+    triangle_descriptor_keypoint_mode_ != "edge_3d")
+  {
+    RCLCPP_WARN(
+      get_logger(),
+      "triangle_descriptor_keypoint_mode must be 'bev_max_height' or 'edge_3d', "
+      "got '%s'; falling back to 'bev_max_height'",
+      triangle_descriptor_keypoint_mode_.c_str());
+    triangle_descriptor_keypoint_mode_ = "bev_max_height";
+  }
+  if (triangle_descriptor_edge_voxel_size_m_ < 0.0) {
+    triangle_descriptor_edge_voxel_size_m_ = 0.0;
+  }
+  if (triangle_descriptor_edge_neighbor_radius_m_ <= 0.05) {
+    triangle_descriptor_edge_neighbor_radius_m_ = 0.05;
+  }
+  if (triangle_descriptor_edge_min_neighbors_ < 4) {
+    triangle_descriptor_edge_min_neighbors_ = 4;
+  }
+  if (triangle_descriptor_edge_min_edgeness_ < 0.0) {
+    triangle_descriptor_edge_min_edgeness_ = 0.0;
+  } else if (triangle_descriptor_edge_min_edgeness_ > 1.0) {
+    triangle_descriptor_edge_min_edgeness_ = 1.0;
+  }
+  if (triangle_descriptor_edge_nms_radius_m_ < 0.0) {
+    triangle_descriptor_edge_nms_radius_m_ = 0.0;
+  }
   if (triangle_descriptor_grid_size_m_ <= 0.0) {
     RCLCPP_WARN(
       get_logger(),
@@ -843,6 +889,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "use_triangle_descriptor:" << std::boolalpha <<
     use_triangle_descriptor_ << std::endl;
   if (use_triangle_descriptor_) {
+    std::cout << "triangle_descriptor_keypoint_mode:" <<
+      triangle_descriptor_keypoint_mode_ << std::endl;
     std::cout << "triangle_descriptor_grid_size_m:" <<
       triangle_descriptor_grid_size_m_ << std::endl;
     std::cout << "triangle_descriptor_grid_cells:" <<
@@ -851,6 +899,16 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       triangle_descriptor_max_keypoints_ << std::endl;
     std::cout << "triangle_descriptor_min_salience_m:" <<
       triangle_descriptor_min_salience_m_ << std::endl;
+    std::cout << "triangle_descriptor_edge_voxel_size_m:" <<
+      triangle_descriptor_edge_voxel_size_m_ << std::endl;
+    std::cout << "triangle_descriptor_edge_neighbor_radius_m:" <<
+      triangle_descriptor_edge_neighbor_radius_m_ << std::endl;
+    std::cout << "triangle_descriptor_edge_min_neighbors:" <<
+      triangle_descriptor_edge_min_neighbors_ << std::endl;
+    std::cout << "triangle_descriptor_edge_min_edgeness:" <<
+      triangle_descriptor_edge_min_edgeness_ << std::endl;
+    std::cout << "triangle_descriptor_edge_nms_radius_m:" <<
+      triangle_descriptor_edge_nms_radius_m_ << std::endl;
     std::cout << "triangle_descriptor_min_edge_m:" <<
       triangle_descriptor_min_edge_m_ << std::endl;
     std::cout << "triangle_descriptor_max_edge_m:" <<
@@ -1275,10 +1333,21 @@ void GraphBasedSlamComponent::searchLoop()
   }
   if (use_triangle_descriptor_ && triangle_descriptor_next_submap_idx_ < num_submaps) {
     graphslam::triangle::KeypointExtractionConfig kp_cfg;
+    if (triangle_descriptor_keypoint_mode_ == "edge_3d") {
+      kp_cfg.mode = graphslam::triangle::KeypointMode::EDGE_3D;
+    } else {
+      kp_cfg.mode = graphslam::triangle::KeypointMode::BEV_MAX_HEIGHT;
+    }
     kp_cfg.grid_size_m = triangle_descriptor_grid_size_m_;
     kp_cfg.grid_cells = triangle_descriptor_grid_cells_;
     kp_cfg.min_salience_m = static_cast<float>(triangle_descriptor_min_salience_m_);
     kp_cfg.max_keypoints = triangle_descriptor_max_keypoints_;
+    kp_cfg.edge_voxel_size_m = static_cast<float>(triangle_descriptor_edge_voxel_size_m_);
+    kp_cfg.edge_neighbor_radius_m =
+      static_cast<float>(triangle_descriptor_edge_neighbor_radius_m_);
+    kp_cfg.edge_min_neighbors = triangle_descriptor_edge_min_neighbors_;
+    kp_cfg.edge_min_edgeness = static_cast<float>(triangle_descriptor_edge_min_edgeness_);
+    kp_cfg.edge_nms_radius_m = static_cast<float>(triangle_descriptor_edge_nms_radius_m_);
     graphslam::triangle::TriangleBuildConfig build_cfg;
     build_cfg.min_edge_m = static_cast<float>(triangle_descriptor_min_edge_m_);
     build_cfg.max_edge_m = static_cast<float>(triangle_descriptor_max_edge_m_);
@@ -1290,7 +1359,7 @@ void GraphBasedSlamComponent::searchLoop()
       std::vector<graphslam::triangle::Keypoint> kps;
       std::vector<graphslam::triangle::TriangleDescriptor> tris;
       if (filtered_aggregated_cloud && !filtered_aggregated_cloud->empty()) {
-        kps = graphslam::triangle::extractKeypointsBEV(*filtered_aggregated_cloud, kp_cfg);
+        kps = graphslam::triangle::extractKeypoints(*filtered_aggregated_cloud, kp_cfg);
         tris = graphslam::triangle::buildTriangles(kps, build_cfg);
       }
       TrianglePerSubmap entry;
