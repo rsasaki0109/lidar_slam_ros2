@@ -93,6 +93,104 @@ bash scripts/sweep_kitti_small_gicp.sh --dataset /path/to/KITTI_odometry --seque
 
 ---
 
+## 1.2 追加トラック（2026-05）：STD/BTC 風 Triangle Descriptor 自前実装
+
+### 目的
+- **MID-360 のような narrow-FOV / 短距離 LiDAR** で Scan Context が縮退するケースに備え、edge-length 不変な三角形ハッシュ系の place recognition を **BSD-2 自前実装** で導入する。
+- STD (Stable Triangle Descriptor) / BTC (Binary Triangle Code) の原理だけ拾い、GPLv2 / ライセンス不明な公式実装には触れずに書く（[[project_place_recognition_license]] 参照）。
+- 既存の BEV / Scan Context / SOLiD と並列に「もう 1 段重ねる」選択肢として置く。default workflow には影響を与えない opt-in 機能として落とす。
+
+### 投入した 9 PR（develop マージ済 / 2026-05-18 時点）
+
+| PR | コミット | 内容 |
+|----|---------|------|
+| #135 | `f4b54ba` | BEV keypoint 抽出 / 三角形列挙 / Umeyama SVD 3点 SE(3)（gtest 15） |
+| #136 | `9b9e19d` | quantizeEdges hash / TriangleDatabase / accumulateVotes / RANSAC findLoopCandidate（gtest 15） |
+| #137 | `146002f` | `use_triangle_descriptor` + 関連 14 ROS パラメータ / `searchLoop` 配線 |
+| #138 | `013ed10` | YAML preset（generic 360° + MID-360 短距離向け） |
+| #139 | `4e775aa` | `generate_place_recognition_report.py` に triangle 統計を追加 |
+| #140 | `ccd8b03` | 任意の BEV mutual-visibility cross-verify ゲート |
+| #141 | `9abeef8` | 1 コマンド ablation runner `scripts/run_triangle_ablation.sh` |
+| #142 | `571783e` | runner のログ拾いバグ修正 + report ヘッダ汎用化 |
+| #143 | `e89f322` | triangle SE(3) を NDT 初期値として配線 + デフォルト閾値引き上げ |
+
+### Pipeline 全体図
+1. **keypoint 抽出**: BEV 投影 max-height local-maximum をキーポイント候補（`extractKeypointsBEV`）。
+2. **三角形列挙**: 全 3-tuple から edge length が `[min_edge_m, max_edge_m]` に収まるものを抽出、edge sort 後に descriptor 化（`buildTriangles`）。
+3. **ハッシュ**: 3 edge を `edge_bin_m` で量子化、`packHash` で uint64 化（`quantizeEdges` → `packHash`）。
+4. **DB**: submap_id ごとに `(hash → DatabaseEntry[])` を保持。Entry は 3 頂点座標も含む（後段の幾何検証用）。
+5. **投票**: query submap の三角形を hash ルックアップ、submap_id ごとに票を加算（`accumulateVotes`）。
+6. **RANSAC 検証**: 最高得票の submap に対し、マッチした三角形ペアそれぞれから Umeyama で SE(3) を出し、他のペアと consensus を取る（`findLoopCandidate`）。
+7. **NDT 初期値**: triangle 由来の SE(3) を NDT/GICP の initial guess として使う（PR #143）。
+8. **オプション**: BEV mutual-visibility distance と AND ゲート（PR #140）。
+
+### NTU VIRAL tnp_01 ablation（3 ラウンド）
+
+`scripts/run_triangle_ablation.sh` で同一バッグを `use_triangle_descriptor` のみ切替えて 2 回回し、`generate_place_recognition_report.py --candidate-kind triangle_descriptor` で diff。
+
+| ラウンド | 設定 | baseline APE | candidate APE | Triangle 候補 emit | Triangle 採用 | 解釈 |
+|---------|------|-------------|---------------|-------------------|--------------|------|
+| v1 | min_inliers=3, min_votes=6, NDT初期値=pose+yaw | 1.440 m | 1.602 m | 4 | 0 | distance loop が dedup で 26→21 に減って悪化 |
+| v2 | min_inliers=5, min_votes=10, NDT初期値=triangle SE(3) | 1.509 m | 1.418 m | 0 | 0 | 全部閾値で弾かれ。改善は run-to-run variance |
+| v3 | min_inliers=3, min_votes=6, NDT初期値=triangle SE(3) | 1.444 m | 1.497 m | 10 | 0 | SE(3) 初期値投入しても NDT 通らず |
+
+**run-to-run variance** は ~0.1 m あり、`use_triangle_descriptor` の on/off 単独で確実な APE 改善とは結論できない。
+
+### 決定的な観察
+
+`Triangle loop candidate:` ログを candidate run から並べると、**同じ submap_id=5 ペアで連続呼び出しの yaw 推定値が 51° → 100° → 123° → 130° → 145° と乱高下**していた。同一サブマップ間の真の相対 yaw は本来一つに収束すべきところ、毎回違う SE(3) が出ている。
+
+つまり:
+- Hash bucket（edge length match）の vote 自体は強い（id=5 が 200〜2300 票）
+- 3 点対応付け段階で **keypoint extraction のノイズ**が支配的になり、RANSAC が偶然合意する 3〜4 inliers でランダムな SE(3) を出力している
+- そのランダム SE(3) を NDT 初期値に入れても NDT が収束しない
+
+### 根本原因の分解
+
+| 段 | 状態 | 評価 |
+|----|------|------|
+| Hash bucket matching (edge length) | OK — 高 vote 多数 | ✅ |
+| 3 点対応付け（誰がどの頂点か） | keypoint 抽出のノイズで破綻 | ❌ |
+| SE(3) 復元（Umeyama） | 入力が noisy なので結果も noisy | ⚠️ |
+| NDT 検証 | noisy 初期値からは収束しない | ⚠️ |
+
+### 学び
+
+- **Hash voting と RANSAC SE(3) recovery は別レベルの難しさ**を持つ。「票が集まる」と「同じ submap を見ている」とは言えるが、「ある三角形 A が三角形 B にどう対応するか」までは情報が足りない。
+- **デフォルト閾値を厳しくしただけでは救えない**。v2 のように閾値を上げると 1 つも emit しなくなり、検証データが取れなくなる。
+- **SE(3) を NDT 初期値に入れただけでは救えない**。v3 のように noisy SE(3) を渡しても NDT 収束半径外。
+- **run-to-run variance ~0.1 m を見落とすと改善誤判定する**。1 回比較で「APE 改善した」と判定するのは早計。
+
+### 次の打ち手（優先度順）
+
+1. **keypoint 抽出の質を底上げ**
+   - `min_salience_m` 0.3 → 0.5〜1.0 に引き上げて低塞性キーポイントを排除
+   - `grid_cells` 60 → 120 に増やして空間分解能を上げる
+   - 同じ keypoint が複数 submap で安定して再検出されるかをまず単独テストでチェックする
+2. **edge_bin_m を狭める**
+   - 1.0 → 0.5 にして hash collision を減らす
+   - 票は減るが「同じ場所を見ている」精度が上がる
+3. **RANSAC を 3 点 → 4 点以上 consensus に**
+   - 現状の 3 点合意 RANSAC は最小自由度で偶然成立しやすい
+   - 4 点目を独立に検証する形にすれば noisy 合意を排除できる
+4. **`inlier_ratio` パラメータの追加**
+   - `min_inliers` の絶対値ではなく `inliers / eval_n` の比率で閾値化
+   - max_pairs を縮めるとセマンティクスが効きやすい
+5. **別データセットでの再検証**
+   - NTU VIRAL tnp_01 は走行軌跡が一直線往復に近く、triangle の強みが出にくい可能性
+   - Newer College math-hard / Leo Drive driving / MID-360 demo で同じ ablation を回したい
+   - ただし Leo Drive は velodyne_packets のままで PointCloud2 化が必要、demo bag の整備が先
+
+### ステータスと運用方針
+
+- triangle descriptor stack は「**実装完了・性能未達**」として default off のまま develop に残す（`use_triangle_descriptor: false`）。
+- v0.4 リリースでは「STD/BTC 風 place recognition の opt-in 実装あり」と書ける一方、「精度クレームは Newer College / NTU の従来パスのみ」とする。
+- 上記「次の打ち手 1〜5」は v0.4 以降の研究 track。MID-360 demo の整備（reference 軌跡 + 短距離ループありバッグ）が先回りで必要。
+
+詳細メモは [[project_triangle_descriptor_stack]] に保存済。
+
+---
+
 ## 2. ベンチマーク結果
 
 ### 2.1 Newer College math-hard (320m, Ouster OS0-128, IMU あり)
@@ -141,8 +239,12 @@ bash scripts/sweep_kitti_small_gicp.sh --dataset /path/to/KITTI_odometry --seque
 | Odometry 直接入力モード | ✅ | `use_odom_input` で RKO-LIO/DLIO の Odometry を直接受信 |
 | Cloud-driven サブマップ生成 | ✅ | Odom + Cloud の同期サブマップ作成 |
 | GPL フリー Scan Context | ✅ | IROS 2018 論文からフルスクラッチ実装 |
+| BSD-2 Triangle Descriptor stack | ✅ (opt-in) | STD/BTC 風 keypoint+hash+RANSAC+SE(3) initial guess を自前実装。default off。詳細は §1.2 |
+| BEV mutual-visibility cross-verify | ✅ (opt-in) | triangle 候補を BEV mutual visibility distance で AND ゲート |
+| Robust kernel 切替 | ✅ | Huber / DCS / Cauchy をパラメータで切替（`loop_edge_robust_kernel_type`） |
 | PCD ディスクキャッシュ | ✅ | OOM 対策、サブマップを逐次 PCD 保存 |
 | 情報行列バグ修正 | ✅ | ループエッジを固定重み、オドメトリエッジに `adjacent_edge_info_weight` |
+| 隣接エッジ情報重み auto-scale (Level 1) | ✅ (opt-in) | NIS median トラッキングで `adjacent_edge_info_weight` を EMA 自動調整 |
 | IMU 回転制約 | ✅ | ジャイロ積分でロール・ピッチ制約 |
 | GNSS 位置制約 | ✅ | NavSatFix → ENU 変換 → ユナリエッジ (未テスト) |
 | Autoware グリッド PCD 出力 | ✅ | `pointcloud_map_metadata.yaml` + 分割 PCD (検証済み) |
@@ -263,6 +365,7 @@ bash scripts/sweep_kitti_small_gicp.sh --dataset /path/to/KITTI_odometry --seque
 - 非 360 FOV のため Scan Context が無効
 - 中間ドリフトの補正にループクロージャーが不足
 - RMSE 4.0m (vs GLIM) が現状の限界
+- BSD-2 自前実装の STD/BTC 風 triangle descriptor を 2026-05 に投入したが、NTU VIRAL ablation 3 ラウンドで APE 改善は確認できず。詳細は §1.2。triangle stack 自体は default off の opt-in として develop に残してあり、keypoint 抽出の質を底上げしてからの再検証が次の研究 track。
 
 ### 7.3 GenZ-ICP の再現性
 - DDS のメッセージ配送タイミングに結果が依存
@@ -290,8 +393,10 @@ bash scripts/sweep_kitti_small_gicp.sh --dataset /path/to/KITTI_odometry --seque
 
 | # | タスク | 理由 |
 |---|--------|------|
-| 4 | MID-360 の精度改善 | 固体 LiDAR 対応の place recognition 手法 (BTC 等) |
-| 5 | Robust kernel 導入 | 誤ループ検出への頑健性 |
+| 4 | Triangle descriptor の keypoint 抽出質改善 | §1.2 の NTU 検証で SE(3) yaw が乱高下。keypoint salience filter 強化 + grid_cells 増 + edge_bin_m 縮小から着手 |
+| 4b | 4 点以上 consensus への拡張 | 3 点 RANSAC の偶然合意を排除し、SE(3) を NDT 初期値として実用化 |
+| 4c | MID-360 demo bag の整備 | reference 軌跡 + 短距離ループありの bag が無いと #4 の検証ができない |
+| 5 | Robust kernel 導入 | 誤ループ検出への頑健性（既に DCS/Cauchy/Huber 切替は実装済） |
 | 6 | キーフレーム選択ロジック | フロントエンドの品質指標に基づくサブマップ生成 |
 | 7 | マルチセッションマッピング | 複数回走行データの統合 |
 
@@ -343,8 +448,15 @@ map_origin:
 |---------|------|
 | `graph_based_slam/src/graph_based_slam_component.cpp` | バックエンド本体 |
 | `graph_based_slam/include/graph_based_slam/scan_context.hpp` | GPL フリー Scan Context |
+| `graph_based_slam/include/graph_based_slam/triangle_descriptor.hpp` | BSD-2 三角形 descriptor primitives（§1.2） |
+| `graph_based_slam/include/graph_based_slam/triangle_descriptor_database.hpp` | hash DB + RANSAC findLoopCandidate（§1.2） |
+| `graph_based_slam/include/graph_based_slam/bev_mutual_visibility.hpp` | FOV-aware BEV mutual visibility（triangle cross-verify でも利用） |
+| `graph_based_slam/include/graph_based_slam/loop_edge_robustifier.hpp` | Huber / DCS / Cauchy 切替ヘルパ |
+| `graph_based_slam/include/graph_based_slam/adjacent_edge_auto_scale.hpp` | NIS median ベースの adjacent edge info weight auto-scale |
 | `scanmatcher/src/scanmatcher_component.cpp` | フロントエンド本体 |
 | `scanmatcher/include/scanmatcher/voxel_hash_map.hpp` | VoxelHashMap |
 | `lidarslam/launch/rko_lio_slam.launch.py` | RKO-LIO 統合ランチ |
 | `scripts/verify_autoware_map.py` | Autoware 互換性検証 |
 | `scripts/odom_to_tum.py` | 軌跡ロギング |
+| `scripts/run_triangle_ablation.sh` | triangle on/off ablation を 1 コマンドで（§1.2） |
+| `scripts/generate_place_recognition_report.py` | scan_context / BEV / SOLiD / triangle の loop 採用統計を md/JSON/SVG 化 |
