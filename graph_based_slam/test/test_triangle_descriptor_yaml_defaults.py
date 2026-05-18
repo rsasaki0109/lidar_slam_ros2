@@ -71,8 +71,13 @@ VALID_KEYPOINT_MODES = {'bev_max_height', 'edge_3d'}
 
 PARAM_FILES = [
     REPO_ROOT / 'graph_based_slam' / 'param' / 'graphbasedslam.yaml',
+    REPO_ROOT / 'graph_based_slam' / 'param' / 'graphbasedslam_indoor.yaml',
     REPO_ROOT / 'lidarslam' / 'param' / 'lidarslam_mid360_rko_graph.yaml',
 ]
+
+INDOOR_PARAM_FILE = REPO_ROOT / 'graph_based_slam' / 'param' / 'graphbasedslam_indoor.yaml'
+MID360_PARAM_FILE = REPO_ROOT / 'lidarslam' / 'param' / 'lidarslam_mid360_rko_graph.yaml'
+GENERIC_PARAM_FILE = REPO_ROOT / 'graph_based_slam' / 'param' / 'graphbasedslam.yaml'
 
 
 def _load_graph_params(path: Path) -> dict:
@@ -114,13 +119,43 @@ def test_triangle_descriptor_edge_bounds_sane(path):
 
 def test_mid360_preset_tightens_for_short_range_sensor():
     """MID-360 has shorter range than spinning 360° LiDAR; preset must reflect."""
-    default = _load_graph_params(PARAM_FILES[0])
-    mid360 = _load_graph_params(PARAM_FILES[1])
+    default = _load_graph_params(GENERIC_PARAM_FILE)
+    mid360 = _load_graph_params(MID360_PARAM_FILE)
     assert mid360['triangle_descriptor_max_edge_m'] <= default['triangle_descriptor_max_edge_m'], (
         'MID-360 preset must not exceed the generic LiDAR max edge (shorter range sensor)'
     )
     assert mid360['triangle_descriptor_min_votes'] >= default['triangle_descriptor_min_votes'], (
         'MID-360 preset should be stricter on vote count to suppress FOV ambiguity'
+    )
+
+
+def test_indoor_preset_uses_tighter_edge3d():
+    """
+    Indoor preset must encode the tighter edge_3d + 4-point gate recipe.
+
+    Newer College math_hard ablation (2026-05-19) showed that tighter voxel /
+    smaller neighbor radius / higher edgeness produces the first inliers=4 emit
+    and APE -0.039m (past max). See plan.md §1.2 and
+    project_triangle_descriptor_stack memory.
+    """
+    indoor = _load_graph_params(INDOOR_PARAM_FILE)
+    assert indoor['triangle_descriptor_keypoint_mode'] == 'edge_3d', (
+        'Indoor preset must default to edge_3d; BEV max-height fails in indoor scenes'
+    )
+    assert indoor['triangle_descriptor_edge_voxel_size_m'] <= 0.25, (
+        'Indoor preset must use tighter voxel (<=0.25 m); 0.4 m default is too coarse'
+    )
+    assert indoor['triangle_descriptor_edge_neighbor_radius_m'] <= 0.7, (
+        'Indoor preset must use tighter neighbor radius (<=0.7 m)'
+    )
+    assert indoor['triangle_descriptor_edge_min_edgeness'] >= 0.55, (
+        'Indoor preset must use stricter edgeness floor (>=0.55) to suppress weak PCA cases'
+    )
+    assert indoor['triangle_descriptor_min_4th_point_agreements'] >= 2, (
+        'Indoor preset must enable 4-point gate (>=2) to filter yaw-flip false positives'
+    )
+    assert indoor['triangle_descriptor_min_inliers'] <= 3, (
+        'Indoor preset must keep min_inliers <= 3 so the edge_3d inlier shift can reach emit'
     )
 
 
@@ -163,8 +198,23 @@ def test_mid360_preset_prefers_edge_keypoints():
     but 3-point RANSAC inliers stay at 1-2). edge_3d is the cross-dataset
     answer (see project_triangle_descriptor_stack memory).
     """
-    mid360 = _load_graph_params(PARAM_FILES[1])
+    mid360 = _load_graph_params(MID360_PARAM_FILE)
     assert mid360['triangle_descriptor_keypoint_mode'] == 'edge_3d', (
         'MID-360 preset must default to edge_3d so the opt-in triangle path '
         'has a working keypoint extractor on narrow-FOV LiDAR'
+    )
+
+
+def test_indoor_preset_voxel_tighter_than_mid360():
+    """
+    Indoor preset must use a tighter edge_3d voxel than the MID-360 preset.
+
+    Newer College ablation (2026-05-19) showed indoor scenes benefit from a
+    tighter voxel than the MID-360 outdoor preset (0.2 m vs 0.3 m).
+    """
+    indoor = _load_graph_params(INDOOR_PARAM_FILE)
+    mid360 = _load_graph_params(MID360_PARAM_FILE)
+    assert indoor['triangle_descriptor_edge_voxel_size_m'] \
+        < mid360['triangle_descriptor_edge_voxel_size_m'], (
+        'Indoor preset must use a tighter voxel than the MID-360 outdoor preset'
     )
