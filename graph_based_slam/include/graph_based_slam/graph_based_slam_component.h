@@ -255,6 +255,13 @@ private:
     double triangle_descriptor_inlier_translation_m_ {2.0};
     double triangle_descriptor_inlier_rotation_deg_ {5.0};
     int triangle_descriptor_exclude_recent_ {4};
+    // Cross-verification: when both use_triangle_descriptor and
+    // use_bev_descriptor are true, gate the triangle candidate by also
+    // requiring the BEV mutual-visibility distance to clear an upper bound.
+    // Helps filter false positives caused by repeated geometry (corridors,
+    // facades) at the cost of triangle-only recall.
+    bool triangle_verify_with_bev_ {false};
+    double triangle_verify_bev_max_distance_ {0.30};
     graphslam::triangle::TriangleDatabase triangle_descriptor_db_;
     struct TrianglePerSubmap
     {

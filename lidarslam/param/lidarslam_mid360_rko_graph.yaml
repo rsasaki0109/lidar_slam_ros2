@@ -58,6 +58,11 @@ graph_based_slam:
     triangle_descriptor_inlier_translation_m: 2.0
     triangle_descriptor_inlier_rotation_deg: 5.0
     triangle_descriptor_exclude_recent: 6
+    # Optional: gate triangle candidates by BEV mutual-visibility distance to
+    # suppress false positives in repeated MID-360 geometry. Requires
+    # use_bev_descriptor: true to have any effect.
+    triangle_verify_with_bev: false
+    triangle_verify_bev_max_distance: 0.30
     prefer_scan_context_candidates: false
     use_3d_bbs_for_scan_context: false
     three_d_bbs_min_level_res: 1.0

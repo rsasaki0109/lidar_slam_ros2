@@ -53,6 +53,8 @@ EXPECTED_PARAM_KEYS = {
     'triangle_descriptor_inlier_translation_m',
     'triangle_descriptor_inlier_rotation_deg',
     'triangle_descriptor_exclude_recent',
+    'triangle_verify_with_bev',
+    'triangle_verify_bev_max_distance',
 }
 
 PARAM_FILES = [
@@ -108,3 +110,11 @@ def test_mid360_preset_tightens_for_short_range_sensor():
     assert mid360['triangle_descriptor_min_votes'] >= default['triangle_descriptor_min_votes'], (
         'MID-360 preset should be stricter on vote count to suppress FOV ambiguity'
     )
+
+
+@pytest.mark.parametrize('path', PARAM_FILES, ids=lambda p: p.name)
+def test_bev_cross_verify_defaults_off(path):
+    """Cross-verification must be opt-in so default workflows stay unchanged."""
+    params = _load_graph_params(path)
+    assert params['triangle_verify_with_bev'] is False
+    assert params['triangle_verify_bev_max_distance'] > 0.0
