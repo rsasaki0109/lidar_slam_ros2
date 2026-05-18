@@ -171,22 +171,28 @@ v4 の keypoint tightening と v5 の inlier_ratio + 4-point gate を経て、�
 - **keypoint 抽出の質が支配的だった**。v4 で salience filter + edge_bin 縮小だけで「同じ submap に全部寄る」failure mode が解消、初の採用が出た。
 - **3-point RANSAC は最小自由度ゆえ偶然合意しやすい**。v5 の 4-point consensus + inlier_ratio で偽陽性 emit を半減できることを実証した。
 - **run-to-run variance ~0.1 m を見落とすと改善誤判定する**。1 回比較で「APE 改善した」と判定するのは早計。
+- **MID-360 では現実装の triangle descriptor は機能しない (2026-05-18 ablation 2 周)**。
+  - v5 defaults (votes=8, inliers=5, max_keypoints=30, salience=1.0): vote 数は十分稼げる (97-427/submap) が、3 点 RANSAC の inliers が 1-2 で min=5 に届かず triangle 採用 0 件。baseline 3.492m vs candidate 3.784m (variance 範囲).
+  - v6 loose (salience 0.5, max_keypoints 50, min_inliers 3, min_4th_point_agreements 2): vote 数は更に増加 (300-1037/submap) するが inliers は依然 1-2 で min=3 にも届かず triangle emit 0 件。baseline 3.690m vs candidate 3.626m (variance 範囲).
+  - 観察: ペア分布は良好 (id 0/8/14/21/66/73/84/116/156/184/248... — NTU で起きた "id=5 集中" failure mode 無し)。問題は keypoint repeatability — narrow FOV + BEV max-height では submap 間で同じ keypoint が再現しない。
+  - 結論: MID-360 narrow FOV 向けには **異なる keypoint 抽出** (corner/edge/density 変化点) または **視点変化に強い descriptor** (Scan Context / SOLiD 系) が必要。triangle descriptor as-is は spinning 360° LiDAR 専用。
 
 ### 残った次の打ち手（優先度順）
 
-1. **別データセットでの再検証**（最優先）
-   - NTU VIRAL tnp_01 は走行軌跡が一直線往復に近く、triangle の強みが出にくい可能性
-   - Newer College math-hard / Leo Drive driving / MID-360 demo で同じ ablation を回したい
-   - ただし Leo Drive は velodyne_packets のままで PointCloud2 化が必要、demo bag の整備が先
-2. **MID-360 demo bag の整備**
-   - reference 軌跡 + 短距離ループありの bag を準備すれば triangle stack の本領テストができる
-   - 現状 demo_data/ には MID-360 の loop closure 向け bag が無い
+1. **Newer College math-hard で OS0-32 ablation**（2026-05-18 進行中）
+   - Ouster OS0-32 は 360° FOV (vertical 22.5°)、MID-360 より広いが OS1 より狭い
+   - 結果次第で「spinning 360° なら triangle 効く / 何でも narrow FOV では効かない」を切り分けられる
+2. **MID-360 keypoint 抽出の再設計**
+   - 現実装の BEV max-height では narrow FOV の repeatability 不足が 2 回の ablation で確定
+   - corner/edge keypoint や density 変化点 (PointNet 系特徴量) の検討
+   - max_edge を 15m まで縮めてもっとローカルに集中する選択肢もあり (要再実験)
 3. **4-point gate を default on に倒すか検討**
-   - v5 で機能確認済。default `min_4th_point_agreements: 3` まで上げる選択肢
-   - 別データセット 1-2 個で検証してから判断
+   - NTU v5 で機能確認済、MID-360 では gate 到達前に死ぬため検証不能
+   - Newer College 結果と合わせて n>=2 になったら判断
 4. **`use_triangle_descriptor` を default on にするか検討**
-   - v5 で「triangle on で APE が baseline 以下、distance loop も減らない」状態に到達
-   - ただし 1 データセット 1 回の観測。複数データで再現性が確認できれば default on を提案できる
+   - NTU v5 で「triangle on で APE が baseline 以下、distance loop も減らない」状態に到達
+   - MID-360 では distance loop 押し出しのリスクがあり、narrow FOV 系では default on は危険
+   - 結論: dataset preset 単位で個別に判断すべき (`lidarslam_mid360_*.yaml` では off、generic では NTU v5 確認後に検討)
 
 ### ステータスと運用方針
 
