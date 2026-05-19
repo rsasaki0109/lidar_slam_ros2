@@ -54,6 +54,7 @@ EXPECTED_PARAM_KEYS = {
     'triangle_descriptor_max_edge_m',
     'triangle_descriptor_max_triangles',
     'triangle_descriptor_edge_bin_m',
+    'triangle_descriptor_quad_feature_bin_m',
     'triangle_descriptor_min_votes',
     'triangle_descriptor_min_inliers',
     'triangle_descriptor_inlier_translation_m',
@@ -115,6 +116,23 @@ def test_triangle_descriptor_edge_bounds_sane(path):
     assert min_edge > 0.0, f'{path.name}: min_edge_m must be positive'
     assert max_edge > min_edge, (
         f'{path.name}: max_edge_m ({max_edge}) must exceed min_edge_m ({min_edge})'
+    )
+
+
+@pytest.mark.parametrize('path', PARAM_FILES, ids=lambda p: p.name)
+def test_triangle_descriptor_quad_hash_default_disabled(path):
+    """
+    Quad-hash extension must default to 0 so the legacy 3-edge hash holds.
+
+    The packed hash key is bit-for-bit identical when quad_feature_bin_m == 0,
+    so opting in is the only way to change bucket assignments. Negative is
+    rejected at runtime; here we just guard the yaml against accidental
+    negative defaults.
+    """
+    params = _load_graph_params(path)
+    bin_m = params['triangle_descriptor_quad_feature_bin_m']
+    assert bin_m >= 0.0, (
+        f'{path.name}: quad_feature_bin_m must be >= 0 (0 = disabled); got {bin_m}'
     )
 
 

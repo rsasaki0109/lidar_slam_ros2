@@ -66,6 +66,13 @@ graph_based_slam:
       triangle_descriptor_max_edge_m: 50.0
       triangle_descriptor_max_triangles: 3000
       triangle_descriptor_edge_bin_m: 0.5
+      # Quad-hash extension: when > 0, the bucket key gains a 4th dim:
+      # quantized distance from the triangle centroid to the nearest
+      # non-vertex keypoint (rotation-invariant local context). Defaults
+      # to 0 so the legacy 3-edge hash is preserved bit-for-bit; flip per
+      # dataset when repeated geometry produces too many wrong-but-agreeing
+      # triangle pairs.
+      triangle_descriptor_quad_feature_bin_m: 0.0
       triangle_descriptor_min_votes: 6
       triangle_descriptor_min_inliers: 4
       # 0.0 disables the relative-density floor. Set to e.g. 0.15 in combination

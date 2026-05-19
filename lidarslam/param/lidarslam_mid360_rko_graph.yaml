@@ -67,6 +67,10 @@ graph_based_slam:
     triangle_descriptor_max_edge_m: 30.0
     triangle_descriptor_max_triangles: 2000
     triangle_descriptor_edge_bin_m: 0.5
+    # Quad-hash 4th-point context. 0 = disabled (legacy 3-edge hash).
+    # MID-360 narrow FOV already has low keypoint density per submap; the
+    # 4th-point context may be unstable. Default off; tune per bag.
+    triangle_descriptor_quad_feature_bin_m: 0.0
     triangle_descriptor_min_votes: 8
     triangle_descriptor_min_inliers: 5
     # MID-360 narrower FOV / fewer keypoints means evaluated pair counts are
