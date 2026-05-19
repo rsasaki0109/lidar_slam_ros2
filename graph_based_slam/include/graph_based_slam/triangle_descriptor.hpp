@@ -473,6 +473,45 @@ inline Eigen::Matrix4f estimateRigidFromTriangle(
   return T;
 }
 
+// N-point variant of estimateRigidFromTriangle. Used to refine the winning
+// 3-point RANSAC hypothesis after we know which triangle pairs agree on the
+// SE(3): pooling the 3*N inlier point correspondences and running one final
+// Umeyama least-squares reduces translation noise by √N relative to the
+// single-triangle estimate. Returns identity if N < 3 or sizes mismatch.
+inline Eigen::Matrix4f estimateRigidFromCorrespondences(
+  const std::vector<Eigen::Vector3f> & src,
+  const std::vector<Eigen::Vector3f> & dst)
+{
+  if (src.size() != dst.size() || src.size() < 3) {
+    return Eigen::Matrix4f::Identity();
+  }
+  const std::size_t n = src.size();
+  Eigen::Vector3f src_centroid = Eigen::Vector3f::Zero();
+  Eigen::Vector3f dst_centroid = Eigen::Vector3f::Zero();
+  for (std::size_t i = 0; i < n; ++i) {
+    src_centroid += src[i];
+    dst_centroid += dst[i];
+  }
+  src_centroid /= static_cast<float>(n);
+  dst_centroid /= static_cast<float>(n);
+  Eigen::Matrix3f H = Eigen::Matrix3f::Zero();
+  for (std::size_t i = 0; i < n; ++i) {
+    H += (src[i] - src_centroid) * (dst[i] - dst_centroid).transpose();
+  }
+  Eigen::JacobiSVD<Eigen::Matrix3f> svd(H, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  Eigen::Matrix3f R = svd.matrixV() * svd.matrixU().transpose();
+  if (R.determinant() < 0.0f) {
+    Eigen::Matrix3f V = svd.matrixV();
+    V.col(2) *= -1.0f;
+    R = V * svd.matrixU().transpose();
+  }
+  const Eigen::Vector3f t = dst_centroid - R * src_centroid;
+  Eigen::Matrix4f T = Eigen::Matrix4f::Identity();
+  T.block<3, 3>(0, 0) = R;
+  T.block<3, 1>(0, 3) = t;
+  return T;
+}
+
 }  // namespace triangle
 }  // namespace graphslam
 

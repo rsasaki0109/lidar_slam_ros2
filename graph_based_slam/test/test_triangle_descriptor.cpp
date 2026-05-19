@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <random>
 #include <vector>
 
 #include "graph_based_slam/triangle_descriptor.hpp"
@@ -508,6 +509,81 @@ TEST(TriangleDescriptorRigid, RecoversRotationPlusTranslation)
   const Eigen::Vector3f t_recovered = T.block<3, 1>(0, 3);
   EXPECT_TRUE(R_recovered.isApprox(R, 1e-4f));
   EXPECT_TRUE(t_recovered.isApprox(shift, 1e-4f));
+}
+
+// ----- N-point SE(3) refinement -----
+
+TEST(TriangleDescriptorRigidN, RecoversExactTransformWithThreePoints)
+{
+  const float yaw = static_cast<float>(M_PI / 4.0);
+  const Eigen::Matrix3f R =
+    Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()).toRotationMatrix();
+  const Eigen::Vector3f shift(2.0f, -1.0f, 0.0f);
+  std::vector<Eigen::Vector3f> src = {{0, 0, 0}, {5, 0, 0}, {0, 4, 0}};
+  std::vector<Eigen::Vector3f> dst;
+  for (const auto & p : src) {
+    dst.push_back(R * p + shift);
+  }
+  const Eigen::Matrix4f T = estimateRigidFromCorrespondences(src, dst);
+  const Eigen::Matrix3f R_recovered = T.block<3, 3>(0, 0);
+  const Eigen::Vector3f t_recovered = T.block<3, 1>(0, 3);
+  EXPECT_TRUE(R_recovered.isApprox(R, 1e-4f));
+  EXPECT_TRUE(t_recovered.isApprox(shift, 1e-4f));
+}
+
+TEST(TriangleDescriptorRigidN, NoisyMultiPointBeatsThreePoint)
+{
+  // Build the true SE(3): a yaw rotation + translation.
+  const float yaw = static_cast<float>(M_PI / 6.0);
+  const Eigen::Matrix3f R_true =
+    Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()).toRotationMatrix();
+  const Eigen::Vector3f t_true(3.0f, -2.0f, 0.5f);
+
+  // Generate 30 noisy correspondences with Gaussian-ish per-axis noise
+  // (deterministic seed). The 3-point fit uses just the first 3 src/dst
+  // pairs; the N-point fit uses all 30. Translation noise of the N-point
+  // estimate must be tighter than the 3-point one by roughly √(N/3) = √10.
+  std::vector<Eigen::Vector3f> src;
+  std::vector<Eigen::Vector3f> dst;
+  std::mt19937 rng(12345);
+  std::uniform_real_distribution<float> noise(-0.5f, 0.5f);
+  for (int i = 0; i < 30; ++i) {
+    const float a = 2.0f * static_cast<float>(M_PI) * i / 30.0f;
+    Eigen::Vector3f p(10.0f * std::cos(a), 10.0f * std::sin(a), 0.0f);
+    src.push_back(p);
+    Eigen::Vector3f noisy = R_true * p + t_true +
+      Eigen::Vector3f(noise(rng), noise(rng), noise(rng));
+    dst.push_back(noisy);
+  }
+  std::vector<Eigen::Vector3f> src3 = {src[0], src[1], src[2]};
+  std::vector<Eigen::Vector3f> dst3 = {dst[0], dst[1], dst[2]};
+
+  const Eigen::Matrix4f T3 = estimateRigidFromCorrespondences(src3, dst3);
+  const Eigen::Matrix4f TN = estimateRigidFromCorrespondences(src, dst);
+
+  const float err3 = (T3.block<3, 1>(0, 3) - t_true).norm();
+  const float errN = (TN.block<3, 1>(0, 3) - t_true).norm();
+  EXPECT_LT(errN, err3) <<
+    "N-point refinement (err=" << errN << ") must beat 3-point (err=" <<
+    err3 << ")";
+  // Sanity floor: errN should be << 0.5 (noise scale) on 30 points.
+  EXPECT_LT(errN, 0.3f);
+}
+
+TEST(TriangleDescriptorRigidN, FewerThanThreePointsReturnsIdentity)
+{
+  std::vector<Eigen::Vector3f> src = {{0, 0, 0}, {1, 0, 0}};
+  std::vector<Eigen::Vector3f> dst = {{5, 5, 5}, {6, 5, 5}};
+  const Eigen::Matrix4f T = estimateRigidFromCorrespondences(src, dst);
+  EXPECT_TRUE(T.isApprox(Eigen::Matrix4f::Identity(), 1e-6f));
+}
+
+TEST(TriangleDescriptorRigidN, MismatchedSizesReturnsIdentity)
+{
+  std::vector<Eigen::Vector3f> src = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};
+  std::vector<Eigen::Vector3f> dst = {{0, 0, 0}, {1, 0, 0}};
+  const Eigen::Matrix4f T = estimateRigidFromCorrespondences(src, dst);
+  EXPECT_TRUE(T.isApprox(Eigen::Matrix4f::Identity(), 1e-6f));
 }
 
 TEST(TriangleDescriptorRigid, ResultIsProperRotation)
