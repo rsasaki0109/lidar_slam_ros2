@@ -523,7 +523,7 @@ TEST(TriangleDescriptorRigidN, RecoversExactTransformWithThreePoints)
   std::vector<Eigen::Vector3f> dst;
   for (const auto & p : src) {
     dst.push_back(R * p + shift);
-                                                           }
+  }
   const Eigen::Matrix4f T = estimateRigidFromCorrespondences(src, dst);
   const Eigen::Matrix3f R_recovered = T.block<3, 3>(0, 0);
   const Eigen::Vector3f t_recovered = T.block<3, 1>(0, 3);
