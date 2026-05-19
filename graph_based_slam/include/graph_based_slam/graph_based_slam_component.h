@@ -303,6 +303,11 @@ private:
     // Default 0 disables the gate.
     int triangle_descriptor_min_4th_point_agreements_ {0};
     double triangle_descriptor_fourth_point_max_distance_m_ {2.0};
+    // After the 3-point RANSAC picks the winning SE(3), re-estimate it by
+    // pooling the 3 * N_inliers point correspondences and running a single
+    // N-point Umeyama least-squares. Reduces translation noise by √N versus
+    // keeping the single 3-point hypothesis.
+    bool triangle_descriptor_refine_se3_with_all_inliers_ {false};
     double triangle_descriptor_inlier_translation_m_ {2.0};
     double triangle_descriptor_inlier_rotation_deg_ {5.0};
     int triangle_descriptor_exclude_recent_ {4};

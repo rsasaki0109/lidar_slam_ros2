@@ -78,6 +78,12 @@ graph_based_slam:
       # of any database keypoint in the chosen submap. 0 disables.
       triangle_descriptor_min_4th_point_agreements: 0
       triangle_descriptor_fourth_point_max_distance_m: 2.0
+      # After 3-point RANSAC picks the winning SE(3), optionally pool every
+      # inlier triangle's 3 point correspondences and refine the SE(3) via a
+      # single N-point Umeyama. Reduces translation noise by √N versus keeping
+      # the single 3-point hypothesis - important indoor / narrow-FOV where
+      # the initial-pose accuracy gates NDT refinement.
+      triangle_descriptor_refine_se3_with_all_inliers: false
       triangle_descriptor_inlier_translation_m: 2.0
       triangle_descriptor_inlier_rotation_deg: 5.0
       triangle_descriptor_exclude_recent: 4

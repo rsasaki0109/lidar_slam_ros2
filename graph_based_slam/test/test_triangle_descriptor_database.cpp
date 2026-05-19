@@ -392,6 +392,92 @@ TEST(TriangleLoopCandidate, RejectsUnrelatedQueries)
   EXPECT_FALSE(candidate.accepted);
 }
 
+TEST(TriangleLoopCandidate, RefinementImprovesTranslationOnNoisyQueries)
+{
+  // Build a clean DB and a noisy version of the same scene. Without refinement
+  // the winning 3-point hypothesis carries the noise of one triangle's
+  // vertices; with refinement the SE(3) is pooled across all inlier triangles
+  // and the translation should be measurably closer to the ground-truth shift.
+  const auto kps_db = makeAsymmetricKeypointSet();
+  const auto tris_db = buildTriangles(kps_db, TriangleBuildConfig{});
+
+  Eigen::Matrix4f T_gt = Eigen::Matrix4f::Identity();
+  const float yaw = static_cast<float>(M_PI) * 0.13f;
+  T_gt.block<3, 3>(0, 0) =
+    Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()).toRotationMatrix();
+  T_gt.block<3, 1>(0, 3) = Eigen::Vector3f(6.0f, -2.5f, 0.0f);
+
+  // Apply T_gt and add per-vertex Gaussian-ish noise so the 3-point fit is
+  // noticeably noisier than the pooled fit.
+  auto kps_query = transformKeypoints(kps_db, T_gt);
+  std::mt19937 rng(42);
+  std::uniform_real_distribution<float> noise(-0.5f, 0.5f);
+  for (auto & k : kps_query) {
+    k.position += Eigen::Vector3f(noise(rng), noise(rng), 0.0f);
+  }
+  const auto tris_query = buildTriangles(kps_query, TriangleBuildConfig{});
+
+  TriangleDatabase db;
+  HashConfig cfg;
+  db.addSubmap(11, kps_db, tris_db, cfg);
+
+  VoteConfig vote_cfg;
+  VerificationConfig verify_no;
+  // Note: query goes through hash, so set a generous edge_bin so noisy edges
+  // still bucket together with the clean DB.
+  cfg.edge_bin_m = 1.0f;
+  // Need to redo the DB add since cfg.edge_bin_m changed
+  TriangleDatabase db2;
+  db2.addSubmap(11, kps_db, tris_db, cfg);
+
+  const auto cand_no = findLoopCandidate(db2, kps_query, tris_query, cfg, vote_cfg, verify_no);
+  ASSERT_TRUE(cand_no.accepted);
+
+  VerificationConfig verify_yes;
+  verify_yes.refine_se3_with_all_inliers = true;
+  const auto cand_yes = findLoopCandidate(db2, kps_query, tris_query, cfg, vote_cfg, verify_yes);
+  ASSERT_TRUE(cand_yes.accepted);
+
+  const Eigen::Vector3f t_no = cand_no.transform.block<3, 1>(0, 3);
+  const Eigen::Vector3f t_yes = cand_yes.transform.block<3, 1>(0, 3);
+  const Eigen::Vector3f t_gt = T_gt.block<3, 1>(0, 3);
+  const float err_no = (t_no - t_gt).norm();
+  const float err_yes = (t_yes - t_gt).norm();
+  EXPECT_LT(err_yes, err_no) <<
+    "refined translation err=" << err_yes <<
+    " must beat 3-point translation err=" << err_no;
+}
+
+TEST(TriangleLoopCandidate, RefinementDefaultOffPreservesPrevBehavior)
+{
+  // With refinement off the SE(3) must be exactly equal to the winning
+  // 3-point hypothesis - a regression guard so flipping the flag is the
+  // only code path that changes the output.
+  const auto kps_a = makeAsymmetricKeypointSet();
+  const auto tris_a = buildTriangles(kps_a, TriangleBuildConfig{});
+  Eigen::Matrix4f T_gt = Eigen::Matrix4f::Identity();
+  const float yaw = static_cast<float>(M_PI) * 0.1f;
+  T_gt.block<3, 3>(0, 0) =
+    Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()).toRotationMatrix();
+  T_gt.block<3, 1>(0, 3) = Eigen::Vector3f(4.0f, 1.0f, 0.0f);
+  const auto kps_b = transformKeypoints(kps_a, T_gt);
+  const auto tris_b = buildTriangles(kps_b, TriangleBuildConfig{});
+
+  TriangleDatabase db;
+  HashConfig cfg;
+  db.addSubmap(7, kps_b, tris_b, cfg);
+
+  VoteConfig vote_cfg;
+  VerificationConfig verify_cfg;
+  verify_cfg.refine_se3_with_all_inliers = false;
+  const auto cand = findLoopCandidate(db, kps_a, tris_a, cfg, vote_cfg, verify_cfg);
+  ASSERT_TRUE(cand.accepted);
+  // On a noise-free pair the result must be near-exact.
+  const Eigen::Matrix4f delta = T_gt.inverse() * cand.transform;
+  const Eigen::Vector3f delta_t = delta.block<3, 1>(0, 3);
+  EXPECT_LT(delta_t.norm(), 0.05f);
+}
+
 TEST(TriangleLoopCandidate, InlierRatioGateRejectsLowRatio)
 {
   // Reuse the identity-recovery setup: every triangle pair will produce the
