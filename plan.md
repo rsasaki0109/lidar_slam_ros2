@@ -189,21 +189,21 @@ v4 の keypoint tightening と v5 の inlier_ratio + 4-point gate を経て、�
 
 ### 残った次の打ち手（優先度順）
 
-1. **MID-360 / indoor 向け keypoint 抽出の再設計**
-   - 現実装の BEV max-height では narrow FOV / indoor の repeatability 不足が 3 dataset で確定
-   - 候補: corner/edge keypoint (FPFH 風), density 変化点 (PointNet++ 系), planar/non-planar 分類
-   - もしくは triangle stack を「OS1/OS0 wide vertical FOV 専用」として明示し、MID-360 / indoor 用には Scan Context / SOLiD など別系統に委ねる
-2. **NTU v5 reproducibility — 2-3 周回して variance 内に APE 改善が安定するか確認**
+1. **edge_3d keypoint extractor を 2026-05-19 に投入 (PR #153)** — PCA edgeness ベース、view-direction agnostic、KeypointMode enum で dispatch、MID-360 yaml は default を edge_3d に切り替え。
+   - **MID-360 実走 ablation (同日)**: BEV 時代は inliers 100% が 1-2 で完全 0 emit だったが、edge_3d では稀に inliers 3, 4 が出現し、tuning (min_inliers 5→3, min_votes 8→6) で **初の emit 1 件** (id=22, inliers=4, yaw 178°) を確認。NDT が yaw 反転の偽陽性を弾いて採用 0 件、APE は variance 内 (-0.56m)。
+   - **次のチューニング**: edge_voxel_size 0.3 → 0.2 / edge_min_edgeness 0.5 → 0.6 / edge_neighbor_radius 0.8 → 0.6、3 回 run の平均で inliers 分布を測る
+2. **edge_3d を Newer College math_hard でも検証** — indoor (OS0-32) で BEV は 76 件全 reject だった。edge_3d で corner / 柱の edge を拾えるか確認
+3. **NTU v5 reproducibility — 2-3 周回して variance 内に APE 改善が安定するか確認** (BEV のまま、edge_3d は narrow-FOV 向けなので NTU は別議題)
    - 現状 1 採用は 1 回観測 (v5)。v5 を 3 周回して採用ペアが (a) 毎回出るか (b) 毎回同じ submap_id か検証
    - 安定すれば NTU プリセット限定で `use_triangle_descriptor: true` も検討余地あり
-3. **Leo Drive driving bag への展開** (要 PointCloud2 化と reference 整備)
-4. **コンポーネント単体テスト** (searchLoop に triangle path をモック注入する gtest)
+4. **Leo Drive driving bag への展開** (要 PointCloud2 化と reference 整備)
+5. **コンポーネント単体テスト** (searchLoop に triangle path をモック注入する gtest)
 
 ### ステータスと運用方針
 
-- triangle descriptor stack は「**実装完了・1 データセットで PoC 効果・2 データセットで非効果**」段階。v0.4 リリースでは引き続き default off (`use_triangle_descriptor: false`) で opt-in 機能として提供。
-- v0.4 release notes には「STD/BTC 風 place recognition の opt-in 実装あり、NTU VIRAL tnp_01 で 1 採用ループ確認 (variance 範囲)、MID-360 / Newer College では発火せず — wide-FOV spinning 360° outdoor 限定の研究機能」と書く。
-- 4-point gate と `use_triangle_descriptor` の default 判断は 3-dataset 検証によりクローズ済。次は keypoint 抽出の根本見直しか、対応 LiDAR/環境を明示しつつ機能領域を狭く維持。
+- triangle descriptor stack は「**実装完了・NTU で 1 PoC 採用 (BEV)・MID-360 で edge_3d により emit が 0→1 に改善 (採用は 0、NDT 安全網で拒否)・Newer College は未検証**」段階。v0.4 リリースでは引き続き default off (`use_triangle_descriptor: false`) で opt-in 機能として提供。
+- v0.4 release notes には「STD/BTC 風 place recognition の opt-in 実装あり、NTU VIRAL tnp_01 で 1 採用ループ確認 (BEV、variance 範囲)、MID-360 / Newer College は edge_3d keypoint mode で対応 — narrow-FOV / indoor では emit に至るも geometric consensus がまだ脆く、production gate は通っていない研究機能」と書く。
+- 4-point gate と `use_triangle_descriptor` の default 判断は 3-dataset 検証によりクローズ済。edge_3d 追加で keypoint 抽出の根本見直しは部分的に進捗。次は edge_3d パラメータチューニングと Newer College 検証。
 
 詳細メモは [[project_triangle_descriptor_stack]] に保存済。
 
