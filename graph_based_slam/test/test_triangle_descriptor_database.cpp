@@ -320,11 +320,47 @@ TEST(TriangleLoopCandidate, RecoversIdentity)
   ASSERT_TRUE(candidate.accepted);
   EXPECT_EQ(candidate.submap_id, 11);
   EXPECT_GT(candidate.inliers, verify_cfg.min_inliers);
+  EXPECT_GT(candidate.eval_n, 0) << "eval_n must reflect the RANSAC pool size";
+  EXPECT_GE(candidate.inlier_ratio, 0.0f);
+  EXPECT_LE(candidate.inlier_ratio, 1.0f);
+  EXPECT_NEAR(
+    candidate.inlier_ratio,
+    static_cast<float>(candidate.inliers) / static_cast<float>(candidate.eval_n),
+    1e-6f) <<
+    "inlier_ratio must equal inliers / eval_n so the operator can verify "
+    "the precision floor against either field independently";
   const Eigen::Matrix4f T = candidate.transform;
   const Eigen::Matrix3f R = T.block<3, 3>(0, 0);
   const Eigen::Vector3f t = T.block<3, 1>(0, 3);
   EXPECT_LT((R - Eigen::Matrix3f::Identity()).norm(), 1e-3f);
   EXPECT_LT(t.norm(), 1e-3f);
+}
+
+TEST(TriangleLoopCandidate, PopulatesRatioFieldsOnRejection)
+{
+  // Even when min_inliers can't be met, the candidate must report
+  // (inliers, eval_n, inlier_ratio) so operators can post-mortem the
+  // precision floor without re-running.
+  const auto kps_a = makeAsymmetricKeypointSet();
+  const auto tris_a = buildTriangles(kps_a, TriangleBuildConfig{});
+
+  // Build the database from a completely unrelated keypoint set so that
+  // hash matches happen but RANSAC inliers stay low.
+  auto kps_b = makeKeypointGrid(5, 5, 4.0f);
+  const auto tris_b = buildTriangles(kps_b, TriangleBuildConfig{});
+
+  TriangleDatabase db;
+  HashConfig cfg;
+  db.addSubmap(99, kps_b, tris_b, cfg);
+
+  VoteConfig vote_cfg;
+  VerificationConfig verify_cfg;
+  verify_cfg.min_inliers = 1000;  // unreachable -> guaranteed rejection
+  const auto candidate = findLoopCandidate(db, kps_a, tris_a, cfg, vote_cfg, verify_cfg);
+  EXPECT_FALSE(candidate.accepted);
+  EXPECT_GE(candidate.eval_n, 0);
+  EXPECT_GE(candidate.inlier_ratio, 0.0f);
+  EXPECT_LE(candidate.inlier_ratio, 1.0f);
 }
 
 TEST(TriangleLoopCandidate, RecoversYawAndTranslation)

@@ -2111,6 +2111,10 @@ void GraphBasedSlamComponent::searchLoop()
             std::cout << "Triangle loop candidate: id=" << chosen_submap_id
                       << " votes=" << chosen_votes
                       << " inliers=" << cand.inliers
+                      << " eval_n=" << cand.eval_n
+                      << " inlier_ratio="
+                      << std::fixed << std::setprecision(3) << cand.inlier_ratio
+                      << std::defaultfloat
                       << " yaw_deg=" << tri_yaw_rad * 180.0 / M_PI;
             if (triangle_verify_with_bev_) {
               std::cout << " bev_xv_dist=" << bev_cross_verify_distance;
@@ -2129,11 +2133,17 @@ void GraphBasedSlamComponent::searchLoop()
               chosen_submap_id, travel_distance, distance_loop_closure_);
           }
         } else if (debug_flag_) {
+          // Surface the ratio gate too: an inlier count that beats the
+          // absolute min can still fail when min_inlier_ratio is set and
+          // eval_n is high. Knowing the ratio is the only way operators
+          // can tune precision_floor without re-running.
           RCLCPP_INFO(
             get_logger(),
-            "Triangle votes for %d (%d votes) rejected: inliers %d below %d",
-            chosen_submap_id, chosen_votes, cand.inliers,
-            triangle_descriptor_min_inliers_);
+            "Triangle votes for %d (%d votes) rejected: inliers %d/%d "
+            "(ratio %.3f) below min_inliers=%d min_inlier_ratio=%.3f",
+            chosen_submap_id, chosen_votes, cand.inliers, cand.eval_n,
+            cand.inlier_ratio, triangle_descriptor_min_inliers_,
+            triangle_descriptor_min_inlier_ratio_);
         }
       } else if (debug_flag_ && !votes.empty()) {
         RCLCPP_INFO(
