@@ -91,6 +91,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("loop_max_translation_delta", loop_max_translation_delta_);
   declare_parameter("loop_max_rotation_delta_deg", 45.0);
   get_parameter("loop_max_rotation_delta_deg", loop_max_rotation_delta_deg_);
+  declare_parameter("loop_max_translation_delta_descriptor", -1.0);
+  get_parameter("loop_max_translation_delta_descriptor", loop_max_translation_delta_descriptor_);
+  declare_parameter("loop_max_rotation_delta_deg_descriptor", -1.0);
+  get_parameter("loop_max_rotation_delta_deg_descriptor", loop_max_rotation_delta_deg_descriptor_);
   declare_parameter("num_adjacent_pose_cnstraints", 5);
   get_parameter("num_adjacent_pose_cnstraints", num_adjacent_pose_cnstraints_);
   declare_parameter("use_save_map_in_loop", true);
@@ -464,6 +468,30 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       loop_max_rotation_delta_deg_);
     loop_max_rotation_delta_deg_ = 45.0;
   }
+  // Descriptor overrides: -1.0 = disabled (fall back to generic cap).
+  // Any other non-positive value is treated as invalid and clamped to -1.0
+  // so that operators see clear feedback instead of silently disabling the
+  // generic cap for descriptor sources.
+  if (loop_max_translation_delta_descriptor_ <= 0.0 &&
+    loop_max_translation_delta_descriptor_ != -1.0)
+  {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_max_translation_delta_descriptor must be > 0 (override) or -1 "
+      "(disabled); resetting %.3f to -1",
+      loop_max_translation_delta_descriptor_);
+    loop_max_translation_delta_descriptor_ = -1.0;
+  }
+  if (loop_max_rotation_delta_deg_descriptor_ <= 0.0 &&
+    loop_max_rotation_delta_deg_descriptor_ != -1.0)
+  {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_max_rotation_delta_deg_descriptor must be > 0 (override) or -1 "
+      "(disabled); resetting %.3f to -1",
+      loop_max_rotation_delta_deg_descriptor_);
+    loop_max_rotation_delta_deg_descriptor_ = -1.0;
+  }
   if (num_adjacent_pose_cnstraints_ < 1) {
     RCLCPP_WARN(
       get_logger(),
@@ -797,6 +825,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "loop_edge_dedup_index_window:" << loop_edge_dedup_index_window_ << std::endl;
   std::cout << "loop_max_translation_delta[m]:" << loop_max_translation_delta_ << std::endl;
   std::cout << "loop_max_rotation_delta[deg]:" << loop_max_rotation_delta_deg_ << std::endl;
+  std::cout << "loop_max_translation_delta_descriptor[m]:" <<
+    loop_max_translation_delta_descriptor_ << std::endl;
+  std::cout << "loop_max_rotation_delta_deg_descriptor[deg]:" <<
+    loop_max_rotation_delta_deg_descriptor_ << std::endl;
   std::cout << "num_adjacent_pose_cnstraints:" << num_adjacent_pose_cnstraints_ << std::endl;
   std::cout << "adjacent_edge_info_weight:" << adjacent_edge_info_weight_ << std::endl;
   std::cout << "adjacent_edge_info_auto_scale:" << std::boolalpha
@@ -2360,7 +2392,19 @@ void GraphBasedSlamComponent::searchLoop()
       }
       continue;
     }
-    if (translation_delta_m > loop_max_translation_delta_) {
+    // Descriptor-sourced candidates (TRIANGLE / SCAN_CONTEXT / BEV / SOLID)
+    // already passed a place-recognition gate, so they can accept a larger
+    // NDT correction when the operator opts in. DISTANCE candidates (close
+    // in stored pose) keep the strict generic cap.
+    const bool is_descriptor_source =
+      candidate.source != LoopCandidate::Source::DISTANCE;
+    const double effective_translation_cap =
+      (is_descriptor_source && loop_max_translation_delta_descriptor_ > 0.0) ?
+      loop_max_translation_delta_descriptor_ : loop_max_translation_delta_;
+    const double effective_rotation_cap_deg =
+      (is_descriptor_source && loop_max_rotation_delta_deg_descriptor_ > 0.0) ?
+      loop_max_rotation_delta_deg_descriptor_ : loop_max_rotation_delta_deg_;
+    if (translation_delta_m > effective_translation_cap) {
       if (debug_flag_) {
         RCLCPP_INFO(
           get_logger(),
@@ -2368,11 +2412,11 @@ void GraphBasedSlamComponent::searchLoop()
           candidate.index,
           latest_idx,
           translation_delta_m,
-          loop_max_translation_delta_);
+          effective_translation_cap);
       }
       continue;
     }
-    if (rotation_delta_deg > loop_max_rotation_delta_deg_) {
+    if (rotation_delta_deg > effective_rotation_cap_deg) {
       if (debug_flag_) {
         RCLCPP_INFO(
           get_logger(),
@@ -2380,7 +2424,7 @@ void GraphBasedSlamComponent::searchLoop()
           candidate.index,
           latest_idx,
           rotation_delta_deg,
-          loop_max_rotation_delta_deg_);
+          effective_rotation_cap_deg);
       }
       continue;
     }

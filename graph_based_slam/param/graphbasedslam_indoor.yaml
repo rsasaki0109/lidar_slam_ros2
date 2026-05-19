@@ -13,6 +13,15 @@ graph_based_slam:
       loop_edge_dedup_index_window: 8
       loop_max_translation_delta: 15.0
       loop_max_rotation_delta_deg: 45.0
+      # Descriptor-only override (opt-in). Indoor structured scenes can
+      # accumulate >15 m drift over long traversals; when triangle / scan
+      # context propose a revisit with confident inliers, NDT often
+      # converges to the drift correction (53.7 m observed in Newer
+      # College math_hard, fitness 11.9). Default left at -1 (disabled)
+      # since cross-dataset evidence for a safe relaxation is not in yet;
+      # bump per dataset after verifying the descriptor's precision.
+      loop_max_translation_delta_descriptor: -1.0
+      loop_max_rotation_delta_deg_descriptor: -1.0
       use_gnss: false
       gnss_topic: "/gnss/fix"
       gnss_info_weight: 1.0
@@ -48,9 +57,11 @@ graph_based_slam:
       #
       # NDT gate との関係: Newer College では NDT fitness は通る (11.9 < 15)
       # ものの loop_max_translation_delta=15m を翻訳補正が超えて reject される
-      # ケースがある。これは triangle SE(3) の翻訳が 3-point SVD で振れる別問題
-      # で、loop_max_translation_delta を緩めると trajectory に有害な loop が
-      # 入る恐れがあるためここでは default 値を維持する。
+      # ケースがある。generic な loop_max_translation_delta を緩めると DISTANCE
+      # 候補にも影響して有害な loop が入る恐れがあるため、descriptor 専用の
+      # override (loop_max_translation_delta_descriptor) を opt-in で用意し、
+      # こちらは -1 (無効) のままにしておく。長距離 drift を伴うシーンで
+      # triangle/scan-context 候補だけ救済したい場合は明示的に値を入れる。
       use_triangle_descriptor: false
       triangle_descriptor_keypoint_mode: "edge_3d"
       triangle_descriptor_grid_size_m: 60.0
