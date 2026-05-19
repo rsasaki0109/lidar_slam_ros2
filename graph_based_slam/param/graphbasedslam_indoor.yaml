@@ -82,6 +82,11 @@ graph_based_slam:
       triangle_descriptor_max_edge_m: 40.0
       triangle_descriptor_max_triangles: 3000
       triangle_descriptor_edge_bin_m: 0.5
+      # Quad-hash 4th-point context. 0 = disabled (legacy 3-edge hash).
+      # Indoor corridor / column-row scenes generate many wrong-but-agreeing
+      # triangle pairs through 3-edge similarity alone; flip this on (e.g.
+      # 0.5 m bin) after running an ablation on the target bag.
+      triangle_descriptor_quad_feature_bin_m: 0.0
       triangle_descriptor_min_votes: 6
       triangle_descriptor_min_inliers: 3
       triangle_descriptor_min_inlier_ratio: 0.0

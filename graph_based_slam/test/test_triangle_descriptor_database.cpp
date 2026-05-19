@@ -52,6 +52,7 @@ using graphslam::triangle::estimateRigidFromTriangle;
 using graphslam::triangle::findLoopCandidate;
 using graphslam::triangle::packHash;
 using graphslam::triangle::quantizeEdges;
+using graphslam::triangle::quantizeKey;
 
 namespace
 {
@@ -171,6 +172,126 @@ TEST(TriangleHash, ClipsAtMaxBin)
   EXPECT_EQ(h.le, 255);
   EXPECT_EQ(h.me, 255);
   EXPECT_EQ(h.ge, 255);
+}
+
+TEST(TriangleQuadHash, FallsBackTo3EdgeWhenDisabled)
+{
+  // With quad_feature_bin_m == 0, quantizeKey must return a hash that's
+  // bit-for-bit identical to quantizeEdges (legacy 3-edge behaviour).
+  const auto kps = makeKeypointGrid(4, 4, 3.0f);
+  TriangleDescriptor t = makeTriangle(kps, 0, 1, 5);
+  HashConfig cfg;
+  cfg.edge_bin_m = 1.0f;
+  cfg.quad_feature_bin_m = 0.0f;
+  const auto legacy = quantizeEdges(t, cfg);
+  const auto quad = quantizeKey(t, kps, cfg);
+  EXPECT_EQ(legacy.le, quad.le);
+  EXPECT_EQ(legacy.me, quad.me);
+  EXPECT_EQ(legacy.ge, quad.ge);
+  EXPECT_EQ(quad.quad, 0);
+  EXPECT_EQ(packHash(legacy), packHash(quad));
+}
+
+TEST(TriangleQuadHash, EmptyKeypointsActsLikeLegacy)
+{
+  // Even with the quad bin set, an empty keypoints vector means we can't
+  // compute the 4th-point context; the hash falls back to 3-edge.
+  TriangleDescriptor t;
+  t.edges = {{3.0f, 5.0f, 7.0f}};
+  t.keypoint_ids = {{0, 1, 2}};
+  HashConfig cfg;
+  cfg.edge_bin_m = 1.0f;
+  cfg.quad_feature_bin_m = 0.5f;
+  const std::vector<Keypoint> empty;
+  const auto h = quantizeKey(t, empty, cfg);
+  EXPECT_EQ(h.quad, 0);
+  EXPECT_EQ(packHash(h), packHash(quantizeEdges(t, cfg)));
+}
+
+TEST(TriangleQuadHash, EncodesNearestNonVertexDistance)
+{
+  // Two triangles with the same 3-edge geometry but different nearest
+  // non-vertex keypoints land in different buckets when quad hashing is on.
+  // Construct scenario explicitly so the nearest non-vertex is unambiguous.
+  std::vector<Keypoint> kps_a;
+  std::vector<Keypoint> kps_b;
+  auto push = [](std::vector<Keypoint> & dst, float x, float y) {
+      Keypoint k;
+      k.position = Eigen::Vector3f(x, y, 0.0f);
+      k.salience = 1.0f;
+      dst.push_back(k);
+    };
+  // Triangle vertices: A=(0,0), B=(6,0), C=(3,4) -> centroid (3, 4/3).
+  push(kps_a, 0.0f, 0.0f);
+  push(kps_a, 6.0f, 0.0f);
+  push(kps_a, 3.0f, 4.0f);
+  // 4th keypoint near centroid in set A: only 0.5 m offset.
+  push(kps_a, 3.0f, 1.333f + 0.5f);
+  // Same first 3 keypoints in set B.
+  push(kps_b, 0.0f, 0.0f);
+  push(kps_b, 6.0f, 0.0f);
+  push(kps_b, 3.0f, 4.0f);
+  // 4th keypoint in set B: 4 m away from centroid, well past 0.5 m bin.
+  push(kps_b, 3.0f, 1.333f + 4.0f);
+  TriangleDescriptor t = makeTriangle(kps_a, 0, 1, 2);
+
+  HashConfig cfg;
+  cfg.edge_bin_m = 1.0f;
+  cfg.quad_feature_bin_m = 0.5f;
+  const auto ha = quantizeKey(t, kps_a, cfg);
+  const auto hb = quantizeKey(t, kps_b, cfg);
+  EXPECT_EQ(ha.le, hb.le);
+  EXPECT_EQ(ha.me, hb.me);
+  EXPECT_EQ(ha.ge, hb.ge);
+  EXPECT_NE(ha.quad, hb.quad) <<
+    "Same triangle with very different 4th-point distances must land in "
+    "different quad bins (a=" << ha.quad << ", b=" << hb.quad << ")";
+  EXPECT_NE(packHash(ha), packHash(hb));
+}
+
+TEST(TriangleQuadHash, DatabaseQuadLookupRequiresMatchingContext)
+{
+  // End-to-end: build a database with quad hashing on, then verify that a
+  // query triangle with a different nearest-non-vertex distance produces
+  // zero votes (different quad bin -> different bucket).
+  HashConfig cfg;
+  cfg.edge_bin_m = 1.0f;
+  cfg.quad_feature_bin_m = 0.5f;
+  VoteConfig vote_cfg;
+
+  // Database: triangle (0,1,2) plus a 4th point close to centroid.
+  std::vector<Keypoint> kps_db;
+  auto push = [](std::vector<Keypoint> & dst, float x, float y) {
+      Keypoint k;
+      k.position = Eigen::Vector3f(x, y, 0.0f);
+      k.salience = 1.0f;
+      dst.push_back(k);
+    };
+  push(kps_db, 0.0f, 0.0f);
+  push(kps_db, 6.0f, 0.0f);
+  push(kps_db, 3.0f, 4.0f);
+  push(kps_db, 3.0f, 1.333f + 0.5f);
+  TriangleDescriptor t_db = makeTriangle(kps_db, 0, 1, 2);
+  TriangleDatabase db;
+  db.addSubmap(7, kps_db, {t_db}, cfg);
+
+  // Query: same triangle, but 4th point is far from centroid.
+  std::vector<Keypoint> kps_q = kps_db;
+  kps_q[3].position = Eigen::Vector3f(3.0f, 1.333f + 4.0f, 0.0f);
+  TriangleDescriptor t_q = makeTriangle(kps_q, 0, 1, 2);
+  const auto votes = accumulateVotes(db, kps_q, {t_q}, cfg, vote_cfg);
+  EXPECT_TRUE(votes.empty()) <<
+    "Query with mismatching 4th-point context must miss the bucket; "
+    "instead got " << votes.size() << " vote(s)";
+
+  // Sanity: when quad hashing is off, the same query DOES vote.
+  HashConfig cfg_legacy = cfg;
+  cfg_legacy.quad_feature_bin_m = 0.0f;
+  TriangleDatabase db_legacy;
+  db_legacy.addSubmap(7, kps_db, {t_db}, cfg_legacy);
+  const auto votes_legacy = accumulateVotes(db_legacy, kps_q, {t_q}, cfg_legacy, vote_cfg);
+  ASSERT_EQ(votes_legacy.size(), 1u);
+  EXPECT_EQ(votes_legacy.front().submap_id, 7);
 }
 
 TEST(TriangleDatabase, AddSubmapStoresAllValidTriangles)

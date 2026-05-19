@@ -73,18 +73,31 @@ struct HashConfig
   // Hard upper bound on the quantized bin index (clipped at this value).
   // Default keeps the packed key small (uint64) for triangles up to ~80 m.
   int max_bin {255};
+  // Quad-key extension (STD/BTC-style 4-point context). When > 0, the
+  // hash key gains a 4th rotation-invariant dim: the quantized distance
+  // from the triangle centroid to the nearest non-vertex keypoint in the
+  // same submap. Two triangles must then agree on all 4 bins to collide,
+  // which suppresses the wrong-but-agreeing matches that the 3-edge hash
+  // alone admits in repeated geometry (corridor, parking lot rows). The
+  // 4th-point lookup needs the keypoint list available at hash time; the
+  // legacy 3-edge entry point is preserved as a backward-compat overload
+  // and is what every test and yaml hits today. 0 = disabled (3-edge).
+  float quad_feature_bin_m {0.0f};
 };
 
-// (le, me, ge) integer bin tuple, le <= me <= ge.
+// (le, me, ge) integer bin tuple, le <= me <= ge. ``quad`` is the optional
+// 4th-point dim (zero when quad hashing is disabled — matches the legacy
+// 3-edge packed key bit-for-bit).
 struct TriangleHash
 {
   uint16_t le {0};
   uint16_t me {0};
   uint16_t ge {0};
+  uint16_t quad {0};
 
   bool operator==(const TriangleHash & other) const
   {
-    return le == other.le && me == other.me && ge == other.ge;
+    return le == other.le && me == other.me && ge == other.ge && quad == other.quad;
   }
 };
 
@@ -103,9 +116,47 @@ inline TriangleHash quantizeEdges(const TriangleDescriptor & t, const HashConfig
   return h;
 }
 
+// Quad-aware quantize. When cfg.quad_feature_bin_m <= 0 or keypoints is
+// empty, behaves identically to quantizeEdges so the legacy hash key
+// stays bit-for-bit identical.
+inline TriangleHash quantizeKey(
+  const TriangleDescriptor & t,
+  const std::vector<Keypoint> & keypoints,
+  const HashConfig & cfg)
+{
+  TriangleHash h = quantizeEdges(t, cfg);
+  if (cfg.quad_feature_bin_m <= 0.0f || keypoints.empty()) {
+    return h;
+  }
+  Eigen::Vector3f centroid = Eigen::Vector3f::Zero();
+  for (int k = 0; k < 3; ++k) {
+    const int idx = t.keypoint_ids[k];
+    if (idx < 0 || idx >= static_cast<int>(keypoints.size())) {
+      return h;
+    }
+    centroid += keypoints[idx].position;
+  }
+  centroid /= 3.0f;
+  float best = std::numeric_limits<float>::infinity();
+  for (int i = 0; i < static_cast<int>(keypoints.size()); ++i) {
+    if (i == t.keypoint_ids[0] || i == t.keypoint_ids[1] || i == t.keypoint_ids[2]) {
+      continue;
+    }
+    const float d = (keypoints[i].position - centroid).norm();
+    if (d < best) {best = d;}
+  }
+  if (std::isfinite(best)) {
+    const float qbin = std::max(1e-3f, cfg.quad_feature_bin_m);
+    const int qidx = static_cast<int>(std::floor(best / qbin));
+    h.quad = static_cast<uint16_t>(std::max(0, std::min(cfg.max_bin, qidx)));
+  }
+  return h;
+}
+
 inline uint64_t packHash(const TriangleHash & h)
 {
-  return (static_cast<uint64_t>(h.le) << 32) |
+  return (static_cast<uint64_t>(h.quad) << 48) |
+         (static_cast<uint64_t>(h.le) << 32) |
          (static_cast<uint64_t>(h.me) << 16) |
          static_cast<uint64_t>(h.ge);
 }
@@ -145,7 +196,10 @@ public:
         e.vertices[k] = keypoints[idx].position;
       }
       if (!ok) {continue;}
-      const uint64_t key = packHash(quantizeEdges(t, cfg));
+      // Use the quad-aware key: when cfg.quad_feature_bin_m <= 0 this is
+      // bit-for-bit identical to the legacy 3-edge key, so every call site
+      // that hasn't enabled quad hashing is unchanged.
+      const uint64_t key = packHash(quantizeKey(t, keypoints, cfg));
       buckets_[key].push_back(e);
       ++triangle_count_;
     }
@@ -200,15 +254,21 @@ struct VoteConfig
   int exclude_submap_id {-1};
 };
 
+// Quad-aware overload: pass the query keypoint list so the hash lookup
+// agrees with the database when cfg.quad_feature_bin_m > 0. The legacy
+// 4-arg overload below forwards an empty vector, which keeps the hash
+// equivalent to the original 3-edge key (matching the database that
+// addSubmap built under the same cfg).
 inline std::vector<SubmapVote> accumulateVotes(
   const TriangleDatabase & db,
+  const std::vector<Keypoint> & query_keypoints,
   const std::vector<TriangleDescriptor> & query_triangles,
   const HashConfig & cfg,
   const VoteConfig & vote_cfg)
 {
   std::unordered_map<int, int> counts;
   for (const auto & t : query_triangles) {
-    const auto & bucket = db.lookup(quantizeEdges(t, cfg));
+    const auto & bucket = db.lookup(quantizeKey(t, query_keypoints, cfg));
     if (bucket.empty()) {continue;}
     // Per-query cap: dedupe by submap id and cap the contribution count.
     std::unordered_map<int, int> per_query;
@@ -231,6 +291,19 @@ inline std::vector<SubmapVote> accumulateVotes(
     result.begin(), result.end(),
     [](const SubmapVote & a, const SubmapVote & b) {return a.votes > b.votes;});
   return result;
+}
+
+// Backward-compatible overload: no keypoints -> quad bin always 0 ->
+// hash matches the legacy 3-edge key. Existing tests and call sites
+// that haven't been updated to pass query_keypoints land here.
+inline std::vector<SubmapVote> accumulateVotes(
+  const TriangleDatabase & db,
+  const std::vector<TriangleDescriptor> & query_triangles,
+  const HashConfig & cfg,
+  const VoteConfig & vote_cfg)
+{
+  static const std::vector<Keypoint> empty;
+  return accumulateVotes(db, empty, query_triangles, cfg, vote_cfg);
 }
 
 struct VerificationConfig
@@ -330,7 +403,7 @@ inline LoopCandidate findLoopCandidate(
   const VerificationConfig & verify_cfg)
 {
   LoopCandidate result;
-  const auto votes = accumulateVotes(db, query_triangles, cfg, vote_cfg);
+  const auto votes = accumulateVotes(db, query_keypoints, query_triangles, cfg, vote_cfg);
   if (votes.empty()) {return result;}
 
   result.submap_id = votes.front().submap_id;
@@ -348,7 +421,7 @@ inline LoopCandidate findLoopCandidate(
   std::vector<Pair> pairs;
   pairs.reserve(query_triangles.size());
   for (const auto & qt : query_triangles) {
-    const auto & bucket = db.lookup(quantizeEdges(qt, cfg));
+    const auto & bucket = db.lookup(quantizeKey(qt, query_keypoints, cfg));
     for (const auto & e : bucket) {
       if (e.submap_id != result.submap_id) {continue;}
       pairs.push_back({&qt, &e, qt.edges[2]});
