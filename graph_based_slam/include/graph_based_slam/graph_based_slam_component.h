@@ -190,6 +190,12 @@ private:
     int loop_edge_dedup_index_window_ {8};
     double loop_max_translation_delta_ {15.0};
     double loop_max_rotation_delta_deg_ {45.0};
+    // Per-source overrides for descriptor-based candidates (TRIANGLE,
+    // SCAN_CONTEXT, BEV, SOLID). When positive, replace the generic caps
+    // above for those sources only — DISTANCE keeps the strict default.
+    // -1.0 = disabled / fall back to the generic cap.
+    double loop_max_translation_delta_descriptor_ {-1.0};
+    double loop_max_rotation_delta_deg_descriptor_ {-1.0};
 
     // pose graph optimization parameter
     int num_adjacent_pose_cnstraints_;

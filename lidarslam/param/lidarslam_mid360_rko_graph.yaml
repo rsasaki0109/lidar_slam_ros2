@@ -18,6 +18,13 @@ graph_based_slam:
     loop_edge_dedup_index_window: 20
     loop_max_translation_delta: 15.0
     loop_max_rotation_delta_deg: 45.0
+    # Descriptor-only override (opt-in). MID-360 narrow-FOV outdoor
+    # rarely produces large NDT corrections from triangle candidates
+    # today (3-pt RANSAC SE(3) tends to be ~identity when wrong, or
+    # close-correct when right). Default disabled; flip per-bag if a
+    # long-baseline revisit is rejected purely by the cap.
+    loop_max_translation_delta_descriptor: -1.0
+    loop_max_rotation_delta_deg_descriptor: -1.0
     adjacent_edge_info_weight: 1000.0
     loop_edge_info_weight: 200.0
     loop_edge_robust_kernel_delta: 1.0
