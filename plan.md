@@ -194,7 +194,8 @@ v4 の keypoint tightening と v5 の inlier_ratio + 4-point gate を経て、�
 1. **edge_3d keypoint extractor を 2026-05-19 に投入 (PR #153)** — PCA edgeness ベース、view-direction agnostic、KeypointMode enum で dispatch、MID-360 yaml は default を edge_3d に切り替え。3-dataset 横断検証で **inliers 分布を 1 ステップ上にシフト** することを確認。
    - **MID-360 ablation**: BEV 時代は inliers 100% が 1-2 で完全 0 emit だったが、edge_3d では稀に inliers 3, 4 が出現し、tuning (min_inliers 5→3, min_votes 8→6) で **初の emit 1 件** (id=22, inliers=4, yaw 178°) を確認。NDT が yaw 反転の偽陽性を弾いて採用 0 件、APE は variance 内 (-0.56m)。
    - **Newer College math_hard ablation**: BEV では 76 votes 全件 reject (inliers 1-2)、edge_3d で 1-3 まで上昇 (inliers=3 が 6 件)、tuned min=3 で **emit 2 件** (id=26 yaw 131°、id=0 yaw 158°)、NDT が両方弾いて採用 0 件、APE 0.087 vs baseline 0.107 で **初めて candidate < baseline** (variance 内、+方向)。
-   - **次のチューニング (採用 1 件を狙う)**: (a) 4-point gate を有効化、(b) min_inlier_ratio で inliers / max_pairs 比を追加、(c) edge_voxel_size 0.3 → 0.2 / edge_min_edgeness 0.5 → 0.6、3 回 run の平均で安定性を確認
+   - **edge_3d tighter + 4-point gate チューニング (同日)**: `edge_voxel_size=0.2, edge_neighbor_radius=0.6, edge_min_edgeness=0.6, min_4th_point_agreements=2` で再走。Newer College では **初の inliers=4 + legit yaw 13° emit** に到達し APE **-0.039m (過去最大)**、NDT fitness=11.9 を一度 passing したが correction が loop_max_delta を超え reject。MID-360 では同条件で **emit 0 (regression)** — tighter voxel が narrow FOV outdoor では逆効果と判明。→ environment 別チューニングが必要 (Newer College: tighter / MID-360: default)。
+   - **次の打ち手 (採用 1 件を狙う)**: (a) Newer College の loop_max_translation_delta を緩めて NDT 採用余地を見る、(b) min_inlier_ratio で inliers / max_pairs 比を追加、(c) MID-360 と Newer College で separate edge_3d tuning yaml
 2. **NTU v5 reproducibility — 2-3 周回して variance 内に APE 改善が安定するか確認** (BEV のまま、edge_3d は narrow-FOV 向けなので NTU は別議題)
    - 現状 1 採用は 1 回観測 (v5)。v5 を 3 周回して採用ペアが (a) 毎回出るか (b) 毎回同じ submap_id か検証
    - 安定すれば NTU プリセット限定で `use_triangle_descriptor: true` も検討余地あり
