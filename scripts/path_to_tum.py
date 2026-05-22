@@ -2,11 +2,11 @@
 """Subscribe to nav_msgs/Path and save the latest path as TUM format."""
 
 import argparse
-import signal
 import sys
 import rclpy
 from rclpy.node import Node
 from rclpy.parameter import Parameter
+from rclpy.executors import ExternalShutdownException
 from nav_msgs.msg import Path
 
 
@@ -21,7 +21,6 @@ class PathToTum(Node):
 
     def cb(self, msg):
         self.get_logger().info(f'Received path with {len(msg.poses)} poses')
-        # Write immediately on each path received (overwrites previous)
         with open(self.output, 'w') as f:
             for ps in msg.poses:
                 t = ps.header.stamp.sec + ps.header.stamp.nanosec * 1e-9
@@ -37,24 +36,23 @@ def main():
     ap.add_argument('--use-sim-time', default='true')
     args = ap.parse_args()
 
-    rclpy.init()
+    # Let rclpy install its own SIGINT/SIGTERM handlers (signal_handler_options
+    # defaults to ALL). Custom signal.signal() handlers do not interrupt
+    # rclpy.spin() because rcl_wait blocks in C and never yields to Python
+    # signal processing — we discovered this when the dogfood wrapper hung
+    # forever on `kill -INT`.
+    rclpy.init(args=sys.argv)
     node = PathToTum(args.topic, args.output,
                      args.use_sim_time.lower() in ('true', '1', 'yes'))
-
-    def signal_handler(sig, frame):
-        node.destroy_node()
-        rclpy.shutdown()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
     try:
         rclpy.spin(node)
-    except Exception:
+    except KeyboardInterrupt:
         pass
-    node.destroy_node()
-    rclpy.shutdown()
+    except ExternalShutdownException:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.try_shutdown()
 
 
 if __name__ == '__main__':
