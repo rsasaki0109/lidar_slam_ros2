@@ -484,3 +484,102 @@ map_origin:
 | `scripts/odom_to_tum.py` | 軌跡ロギング |
 | `scripts/run_triangle_ablation.sh` | triangle on/off ablation を 1 コマンドで（§1.2） |
 | `scripts/generate_place_recognition_report.py` | scan_context / BEV / SOLiD / triangle の loop 採用統計を md/JSON/SVG 化 |
+
+---
+
+## 10. MID-360 robot toolkit chain — 操作員向け session pipeline (2026-05)
+
+### 10.1 何を作ったか
+
+Jetson + Livox MID-360 を載せた robot で、現場の操作員が
+
+  1. **bag を撮る → 録音を check → SLAM map を作る → public RKO ベースラインで設定の妥当性を gate → production-readiness を判定 → operator-facing dashboard + 配布可能 bundle を出す**
+
+までを 1 コマンド (`run_mid360_robot_production_candidate_session.py --run …`) で通せる operator pipeline を、**10 PR (#168〜#177)** に inside-out で分割して develop に入れた。
+
+ここでの「inside-out」は、**依存ツリーの leaf (foundation) → root (orchestrator) の順に narrow PR を積む**戦略のこと。9 PR 全部が `mid360_robot_tools` (PR #168) という self-contained foundation の上に乗っていて、各 PR は前段の PR でランドしたモジュールだけに依存する。
+
+### 10.2 全 PR table
+
+| Phase | PR | scripts/test 新規 | 役割 |
+|-------|----|------|------|
+| 1 | #168 | `mid360_robot_tools.py` (1423 行) + test | Foundation: RobotProfile / preflight builder / map-run planner / run-manifest writer / payload_to_json |
+| 1 | #169 | `mid360_robot_loop_alignment_analyzer.py` (760 行) + `analyze_*.py` + test | PCD 由来の loop closure 候補に largest_component_ratio + local_cloud_checks |
+| 1 | #170 | `mid360_robot_dashboard.py` (903 行) + `mid360_robot_production_candidate_bundle.py` (330 行) + CLI x2 + test x2 | Operator-facing HTML dashboard + tar.gz bundle (loop_alignment artifact が dashboard + bundle に統合され E2E 動作確認済) |
+| 2 | #171 | `mid360_robot_record_tools.py` (220 行) + test | RobotProfile から `ros2 bag record` コマンドを構築 + 再現可能な manifest writer (json + md + profile snapshot) |
+| 2 | #172 | `mid360_robot_production_readiness.py` (407 行) + `check_*.py` + test | 操作員向け production-readiness gate (bag_path / duration / topic rate / map verify / public RKO adoption gate を集約 PASS/FAIL + next_actions) |
+| 2 | #173 | `mid360_robot_public_rko_quality_report.py` (838 行) + `mid360_robot_rko_config_adoption.py` (293 行) + CLI x2 + test x2 | sweep manifest → quality score + gate を計算、tracked config が gate-passing case と一致するか確認 |
+| 2 | #174 | `mid360_robot_public_rko_sweep.py` (965 行) + `run_*.py` + test + configs/mid360_robot/rko_lio_mid360_*.yaml x2 | public MID-360 bag に対する RKO-LIO parameter sweep (per-case yaml override + timeout 付き subprocess 駆動 + runtime signature 解析) |
+| 2 | #175 | `mid360_robot_public_rko_adoption_gate.py` (310 行) + `run_*.py` + test | sweep → quality → adoption を 1 entry に orchestrate (run / plan / from-existing mode) |
+| 2 | #176 | `mid360_robot_production_candidate_session.py` (741 行) + `mid360_robot_production_candidate_bundle_import.py` (401 行) + CLI x3 (py + shell) + test x2 | **chain closing piece**: session orchestrator (recording → readiness → mapping → public gate → production gate → dashboard) + bundle import (tar.gz extract + verify + 再 gate) |
+| 2 | #177 | `mid360_robot_recording_check_tools.py` (393 行) + `check_mid360_robot_recording.{sh,py}` + `record_mid360_robot_bag.sh` + `plan_mid360_robot_record.py` + `configs/mid360_robot/livox_mid360_default.yaml` + test | 録音後 check cascade (bag が record plan / robot profile に合っているか、topic 周波数 / frame id を確認)。PR #176 で skipif した record_only test がこれで自動 enable |
+
+**Phase 1 (#168〜#170)**: 前セッションで先に landed (dashboard + bundle の loop_alignment 統合まで)。  
+**Phase 2 (#171〜#177)**: 本セッションで連続 land。**7 PR / ~7400 行 / 全 5/5 CI green**。
+
+### 10.3 依存ツリー
+
+```
+mid360_robot_tools (foundation, PR #168)
+ ├── mid360_robot_record_tools (PR #171)
+ │    └── mid360_robot_recording_check_tools (PR #177)
+ ├── mid360_robot_loop_alignment_analyzer (PR #169)
+ ├── mid360_robot_dashboard (PR #170)
+ ├── mid360_robot_production_candidate_bundle (PR #170)
+ ├── mid360_robot_production_readiness (PR #172)
+ ├── mid360_robot_rko_config_adoption (PR #173)
+ ├── mid360_robot_public_rko_quality_report (PR #173)
+ ├── mid360_robot_public_rko_sweep (PR #174)
+ │    └── mid360_robot_public_rko_adoption_gate (PR #175) — also depends on #173
+ │         └── mid360_robot_production_candidate_session (PR #176) — depends on #170/171/172/175
+ │              └── mid360_robot_production_candidate_bundle_import (PR #176)
+ └── plan_mid360_robot_record (PR #177, uses #171)
+```
+
+各 PR は前段の PR の output (script + module API) だけに依存。CMakeLists.txt への `ament_add_pytest_test` の追加が PR 間で衝突 → develop merge ごとに rebase (10+ 回) して force-push-with-lease で揃えた。
+
+### 10.4 ament lint の罠 (memory にも記録)
+
+7 PR の連続 land 中に **3 種類の CI fail パターン**を踏んだ：
+
+1. **`ament_copyright`**: `# Copyright 2026 Sasaki / # Software License Agreement (BSD 2-Clause Simplified License)` の 4 行 header だけだと `license=<unknown>` で fail。 `Redistribution and use ...` で始まる **BSD-2-Clause license body 全文 (約 23 行)** を入れる必要あり。テンプレは `test_aligned_trajectory_metrics.py` 先頭 29 行。
+2. **`ament_flake8 I101` (Jazzy のみ)**: `from module import (A, B, C)` の中身は **case-insensitive アルファベット順**。`render_rko_quality_markdown` は `RKO_QUALITY_HTML` より前 (`r_e` < `r_k`)。lowercase が大文字より先に来る。
+3. **`ament_flake8 I100`**: `from local_module import ...` を `import yaml` (third-party) より後に置くと "should be before 'import yaml'" で fail。**対策は `importlib.import_module('mid360_robot_*')` で lazy load する pattern**。test_mid360_robot_tools.py が既に使っている既存パターンを踏襲。
+
+加えて **untracked dep**:
+
+- `configs/mid360_robot/*.yaml` を PR に同梱しないと CI で `FileNotFoundError`。
+- `scripts/run_*.sh` shell wrapper も untracked だと `subprocess.CalledProcessError: returncode 127`。
+
+合計で **3 回の force-push rework + 1 個のテストを skipif で deferred** したが、最終的に 7 PR とも 5/5 green で landed。
+
+### 10.5 残課題 (untracked)
+
+- `check_jetson_mid360_host_readiness.py` + `jetson_mid360_host_tools.py` (Jetson 上の CPU / disk / cuda preflight) — 次の natural な PR
+- `preflight_mid360_robot_bag.py`, `validate_mid360_robot_profile.py`, `rewrite_mid360_robot_bag_stamps.py` などの preflight 系
+- `public_dataset` / `public_loop` / `sample_session` / `field_session` 系 (~15 scripts)
+- 関連 docs: `docs/jetson-mid360-robot-runbook.md`, `docs/jetson-mid360-robot-scope.md`, `docs/jetson-mid360-static-tf-worksheet.md`
+- 実機 Jetson + MID-360 robot での dogfood 実走 (cloud distribution の dogfood-vs-bench discrepancy 調査込み)
+
+### 10.6 重要ファイル (chain)
+
+| ファイル | 説明 |
+|---------|------|
+| `scripts/mid360_robot_tools.py` | Foundation: RobotProfile / preflight / planner / payload_to_json |
+| `scripts/mid360_robot_dashboard.py` | Operator HTML dashboard (loop_alignment 統合) |
+| `scripts/mid360_robot_production_candidate_bundle.py` | tar.gz bundle 出力 |
+| `scripts/mid360_robot_production_candidate_bundle_import.py` | tar.gz 受信 + verify + 再 gate |
+| `scripts/mid360_robot_production_candidate_session.py` | Session orchestrator (chain closing piece) |
+| `scripts/mid360_robot_production_readiness.py` | Production-readiness gate |
+| `scripts/mid360_robot_recording_check_tools.py` | 録音後 check (bag ↔ record_plan ↔ profile) |
+| `scripts/mid360_robot_public_rko_sweep.py` | public bag に対する RKO-LIO parameter sweep |
+| `scripts/mid360_robot_public_rko_quality_report.py` | sweep manifest から quality gate report |
+| `scripts/mid360_robot_public_rko_adoption_gate.py` | sweep → quality → adoption orchestrator |
+| `scripts/mid360_robot_rko_config_adoption.py` | tracked RKO config と sweep best case の照合 |
+| `scripts/mid360_robot_loop_alignment_analyzer.py` | PCD 由来 loop closure 候補の largest_component / local cloud check |
+| `scripts/mid360_robot_record_tools.py` | `ros2 bag record` コマンド + 再現可能 manifest |
+| `scripts/run_mid360_robot_production_candidate_session.sh` | 操作員向け 1-コマンド エントリ |
+| `scripts/import_mid360_robot_production_candidate_bundle.py` | 別マシンで bundle を受け取って recheck |
+| `configs/mid360_robot/livox_mid360_default.yaml` | デフォルト robot profile (frames + expected topics) |
+| `configs/mid360_robot/rko_lio_mid360_*.yaml` | sweep の base config (deskew off / low_voxel) |
+
