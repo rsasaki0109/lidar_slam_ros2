@@ -326,11 +326,18 @@ PR #185 で発見した「RANSAC compute cost が +1m drift の dominant source�
 - tuned config では vote threshold を超える tick が頻発 → 毎回 1024 比較が wall-clock dominate
 - 256 比較なら ROS executor scheduling が perturb されず、distance loop verification timing 維持 → APE 安定
 
-**Open questions**:
-- `graphbasedslam_indoor.yaml` (Newer College) でも同じ fix が効くか? 未検証
-- generic `graphbasedslam.yaml` (NTU 系 outdoor 360°) は drift が観測されてないので変更しない
+**Generalization to other datasets (確認済)**:
+- ✅ `graphbasedslam_indoor.yaml` (Newer College math_hard) は max_pairs=64 でも 2026-05-19 3-run で **Δ APE +0.004 ± 0.022 m (variance 内)** = drift 観測されない (variance_summary.json)。post-#186 でも Newer 経路に C++ 変更なし → 結果有効。**同 fix 不要**
+- ✅ generic `graphbasedslam.yaml` (NTU 系 outdoor 360°) も PR #183 で variance 内 = **変更不要**
 
-詳細: [`output/triangle_ablation_mid360_maxpairs16_20260524_175503/SUMMARY.md`](../output/triangle_ablation_mid360_maxpairs16_20260524_175503/SUMMARY.md)
+**Generalization finding**: `+1m APE drift` は **MID-360 narrow-FOV 特有**で、indoor (Newer College) / outdoor 360° (NTU) には generalize しない。仮説:
+- APE スケールが違う: MID-360 base ~3-5m vs Newer ~0.1m vs NTU ~1.4m
+- submap topology: MID-360 narrow-FOV は keypoint repeatability が低く triangle vote threshold を頻繁に clear → RANSAC 呼び出し頻度が高い → wall-clock cost が distance loop verification timing を perturb
+- 他データセットでは triangle pipeline の発火頻度が低く、cost が dominate しない
+
+**運用判断**: `max_pairs` 縮小 fix は MID-360 yaml に限定 (PR #186 で完了)。他の preset は触らない。
+
+詳細: [`output/triangle_ablation_mid360_maxpairs16_20260524_175503/SUMMARY.md`](../output/triangle_ablation_mid360_maxpairs16_20260524_175503/SUMMARY.md) + [`output/triangle_ablation_newer_college_edge3d_3runs/variance_summary.json`](../output/triangle_ablation_newer_college_edge3d_3runs/variance_summary.json)
 
 ---
 
