@@ -120,12 +120,11 @@ def test_docs_exist_and_are_linked_from_readme():
     assert 'python3 -m mkdocs serve' in readme
     assert 'run_autoware_map_beginner.sh' in readme
     assert '(lidarslam/images/autoware_map_loader_proof.png)' in readme
-    assert '(lidarslam/images/dynamic_object_filter_bag6_summary.svg)' in readme
     assert 'git clone --recursive https://github.com/rsasaki0109/lidarslam_ros2.git' in readme
     assert 'rosdep install --from-paths src --ignore-src -r -y' in readme
-    assert 'Required input topics for the main public path' in readme
-    assert '/gnss/fix' in readme
-    assert 'gnss_topic' in readme
+    # The required-topics table and the dynamic-object-filter figure moved to
+    # docs/workflows.md so the README stays narrow; keep the assets on disk
+    # (asserted above) and verify the README still routes readers to those docs.
     assert f'(docs/releases/v{version}.md)' in readme
     assert len(readme.splitlines()) <= 220
 
