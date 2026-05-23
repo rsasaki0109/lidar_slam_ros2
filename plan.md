@@ -225,6 +225,34 @@ v4 の keypoint tightening と v5 の inlier_ratio + 4-point gate を経て、�
 
 **位置付け**: いずれも default off (behavioral no-op) で、§1.2 の運用方針 (default `use_triangle_descriptor: false`、研究 opt-in) を変えずに「採用 1 件のフロアを下げる knob を 3 種類用意した」ということ。次は dataset を増やして 4-point quad-hash + N-point refinement + precision floor の組み合わせで何件 emit / accept できるか測定する段階。
 
+### Triangle v5 reproducibility 3-run variance (2026-05-24)
+
+§1.2 の「NTU v5 で 1 採用」「APE Δ -0.022 m 改善」は単発 (N=1) 観測だったので、現 develop HEAD (post PR #159-#162, 全 default off) で **同一 yaml・同一 bag を 3 回回して variance を測定**：
+
+| run | baseline APE [m] | candidate APE [m] | Δ [m] | Triangle observed | Triangle accept | distance loops base/cand |
+|-----|-----------------|-------------------|-------|-------------------|-----------------|--------------------------|
+| 1   | 1.470           | 1.385             | -0.085 | 0                | 0               | 14 / 11                  |
+| 2   | 1.436           | 1.338             | -0.098 | 0                | 0               | 11 / 11                  |
+| 3   | 1.344           | 1.469             | +0.125 | 0                | 0               | 14 / 11                  |
+| 平均 | 1.417 ± 0.064  | 1.397 ± 0.066    | **-0.019 ± 0.125** | 0/3            | 0/3             | 13 / 11                  |
+
+**結論**:
+1. **APE Δ -0.019 ± 0.125 m は variance 内** — v5 設定が NTU で APE を改善するという主張は N=1 ノイズだった。2026-05-18 の「Δ -0.022 m 改善」は今回の variance σ=0.125 m に十分含まれる
+2. **Triangle observed=0/3 runs** — 2026-05-18 単発で「emit=2/accept=1」だった結果は **再現せず**
+3. **コード regression ではない**：
+   - 同一 submap id=16 の query を比較すると **votes 369→392 (UP), inliers 4→3 (DOWN)** — bucket 構造は変化なし (votes 増えてる)、verification が stochastic にずれた
+   - 05-24 の 3 runs 間でも id=16 の inliers は {2, 3, 3} とばらつく → RANSAC + map_array timing の **run-to-run variance** で同じバイナリでも non-deterministic
+   - PR #159-#162 の C++ 変更は全 default off, 該当 code path は #158 と bit-for-bit 同一 (diff 検証済)
+4. **per-query inlier distribution**: 05-18 n=36 で P(≥4)=5.6% (1+1 tail), 05-24 n=66 で P(≥4)=0% — base rate ~5% per query × 20-30 queries/run なら 0/run は普通に起きる
+
+**運用への含意**:
+- v0.4 release notes から「NTU で 1 採用ループ」「APE 改善」の文言を削除すべき (再現性なし)
+- 今後の ablation は **必ず ≥3 runs** で variance 込みで判断、単発で APE Δ を主張しない
+- triangle on NTU は base rate が低すぎて NTU を primary 評価軸にしない方が良い — indoor / MID-360 (edge_3d 系) の方が emit reach が高い
+- 検出率を底上げする方向: (a) `min_inliers: 4 → 3` + ratio gate で precision floor 維持, (b) `max_pairs: 24 → 48` で sample budget 増, (c) RANSAC 自体を deterministic 化 (seed 固定 + 並列度抑制)
+
+詳細: [`output/triangle_ablation_ntu_v5_3run_20260524_083127/SUMMARY.md`](../output/triangle_ablation_ntu_v5_3run_20260524_083127/SUMMARY.md) (root cause analysis 含む)
+
 ---
 
 ## 1.3 追加トラック（2026-05）：Dogfood wrapper measurement plumbing (PR #166)
