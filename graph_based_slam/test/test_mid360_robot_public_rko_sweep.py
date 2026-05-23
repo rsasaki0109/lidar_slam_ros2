@@ -49,15 +49,15 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from mid360_robot_public_rko_sweep import (  # noqa: E402
     CASE_CONFIG_NAME,
+    diagnose_rko_sweep_case,
+    parse_rko_sweep_case,
+    render_rko_sweep_markdown,
     RKO_SWEEP_JSON,
     RKO_SWEEP_MARKDOWN,
     RkoSweepBuilder,
     RkoSweepCase,
     RkoSweepOptions,
     VERIFY_LOG_NAME,
-    diagnose_rko_sweep_case,
-    parse_rko_sweep_case,
-    render_rko_sweep_markdown,
     write_rko_case_config,
 )
 
