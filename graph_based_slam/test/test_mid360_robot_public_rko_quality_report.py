@@ -46,12 +46,12 @@ QUALITY_SCRIPT = SCRIPT_DIR / 'generate_mid360_robot_public_rko_quality_report.p
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from mid360_robot_public_rko_quality_report import (  # noqa: E402
+    render_rko_quality_markdown,
     RKO_QUALITY_HTML,
     RKO_QUALITY_JSON,
     RKO_QUALITY_MARKDOWN,
     RkoQualityGateThresholds,
     RkoQualityReportBuilder,
-    render_rko_quality_markdown,
     write_rko_quality_report,
 )
 

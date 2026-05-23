@@ -45,10 +45,10 @@ ADOPTION_SCRIPT = SCRIPT_DIR / 'check_mid360_robot_rko_config_adoption.py'
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from mid360_robot_rko_config_adoption import (  # noqa: E402
+    render_rko_config_adoption_markdown,
     RKO_CONFIG_ADOPTION_JSON,
     RKO_CONFIG_ADOPTION_MARKDOWN,
     RkoConfigAdoptionChecker,
-    render_rko_config_adoption_markdown,
     write_rko_config_adoption_report,
 )
 
