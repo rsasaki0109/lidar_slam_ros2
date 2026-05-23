@@ -31,12 +31,12 @@
 
 from __future__ import annotations
 
+import importlib
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
 import sys
-
-import importlib.util
 
 import pytest
 
@@ -49,20 +49,24 @@ pytestmark = pytest.mark.skipif(
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIR = REPO_ROOT / 'scripts'
 CLI_PATH = SCRIPT_DIR / 'rewrite_mid360_robot_bag_stamps.py'
-sys.path.insert(0, str(SCRIPT_DIR))
 
-from mid360_robot_bag_stamp_rewriter import (  # noqa: E402
-    BAG_STAMP_REWRITER_JSON,
-    BAG_STAMP_REWRITER_MARKDOWN,
-    BagStampRewriter,
-    BagStampRewriterOptions,
-)
-from mid360_robot_sample_bag import Mid360SampleBagWriter, SampleBagConfig  # noqa: E402
+
+def _rewriter_module():
+    if str(SCRIPT_DIR) not in sys.path:
+        sys.path.insert(0, str(SCRIPT_DIR))
+    return importlib.import_module('mid360_robot_bag_stamp_rewriter')
+
+
+def _sample_bag_module():
+    if str(SCRIPT_DIR) not in sys.path:
+        sys.path.insert(0, str(SCRIPT_DIR))
+    return importlib.import_module('mid360_robot_sample_bag')
 
 
 def _write_sample_bag(path: Path) -> None:
-    Mid360SampleBagWriter(
-        SampleBagConfig(
+    sample = _sample_bag_module()
+    sample.Mid360SampleBagWriter(
+        sample.SampleBagConfig(
             output_path=path,
             duration_sec=1.0,
             pointcloud_rate_hz=10.0,
@@ -161,8 +165,9 @@ def test_rewriter_resets_pointcloud_stamps_to_receive_time(tmp_path: Path):
     _write_sample_bag(source_bag)
     _corrupt_pointcloud_stamps(source_bag, jump_sec=500.0)
 
-    summary = BagStampRewriter().rewrite(
-        BagStampRewriterOptions(
+    rewriter = _rewriter_module()
+    summary = rewriter.BagStampRewriter().rewrite(
+        rewriter.BagStampRewriterOptions(
             input_bag=source_bag,
             output_bag=output_bag,
             force=True,
@@ -182,8 +187,8 @@ def test_rewriter_resets_pointcloud_stamps_to_receive_time(tmp_path: Path):
     rewritten_stamps = _read_pointcloud_header_stamps(output_bag)
     assert receive_times == rewritten_stamps
 
-    json_path = output_bag.parent / BAG_STAMP_REWRITER_JSON
-    md_path = output_bag.parent / BAG_STAMP_REWRITER_MARKDOWN
+    json_path = output_bag.parent / rewriter.BAG_STAMP_REWRITER_JSON
+    md_path = output_bag.parent / rewriter.BAG_STAMP_REWRITER_MARKDOWN
     assert json_path.is_file()
     assert md_path.is_file()
 
@@ -194,8 +199,9 @@ def test_rewriter_passthrough_when_unaffected(tmp_path: Path):
 
     _write_sample_bag(source_bag)
 
-    summary = BagStampRewriter().rewrite(
-        BagStampRewriterOptions(
+    rewriter = _rewriter_module()
+    summary = rewriter.BagStampRewriter().rewrite(
+        rewriter.BagStampRewriterOptions(
             input_bag=source_bag,
             output_bag=output_bag,
             force=True,
@@ -215,8 +221,9 @@ def test_rewriter_respects_explicit_msgtype_list(tmp_path: Path):
     _write_sample_bag(source_bag)
     _corrupt_pointcloud_stamps(source_bag, jump_sec=200.0)
 
-    summary = BagStampRewriter().rewrite(
-        BagStampRewriterOptions(
+    rewriter = _rewriter_module()
+    summary = rewriter.BagStampRewriter().rewrite(
+        rewriter.BagStampRewriterOptions(
             input_bag=source_bag,
             output_bag=output_bag,
             rewrite_msgtypes=('sensor_msgs/msg/Imu',),
