@@ -1,0 +1,10 @@
+robot_name: livox_mid360_default
+base_frame: base_link
+lidar_frame: livox_frame
+imu_frame: livox_frame
+expected_pointcloud_topic: /livox/lidar
+expected_imu_topic: /livox/imu
+mount:
+  xyz: [0.0, 0.0, 0.0]
+  q_xyzw: [0.0, 0.0, 0.0, 1.0]
+  note: Replace identity with measured base_link to livox_frame transform.
