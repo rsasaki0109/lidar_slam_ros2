@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 import struct
@@ -43,17 +44,12 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIR = REPO_ROOT / 'scripts'
 QUALITY_SCRIPT = SCRIPT_DIR / 'generate_mid360_robot_public_rko_quality_report.py'
-sys.path.insert(0, str(SCRIPT_DIR))
 
-from mid360_robot_public_rko_quality_report import (  # noqa: E402
-    render_rko_quality_markdown,
-    RKO_QUALITY_HTML,
-    RKO_QUALITY_JSON,
-    RKO_QUALITY_MARKDOWN,
-    RkoQualityGateThresholds,
-    RkoQualityReportBuilder,
-    write_rko_quality_report,
-)
+
+def _quality_module():
+    if str(SCRIPT_DIR) not in sys.path:
+        sys.path.insert(0, str(SCRIPT_DIR))
+    return importlib.import_module('mid360_robot_public_rko_quality_report')
 
 
 def _write_binary_xyz_pcd(path: Path, points: list[tuple[float, float, float]]) -> None:
@@ -149,11 +145,12 @@ def _write_sweep(tmp_path: Path) -> Path:
 
 
 def test_quality_report_summarizes_map_and_trajectory(tmp_path: Path):
+    module = _quality_module()
     sweep_path = _write_sweep(tmp_path)
 
-    report = RkoQualityReportBuilder(
+    report = module.RkoQualityReportBuilder(
         sweep_path,
-        thresholds=RkoQualityGateThresholds(
+        thresholds=module.RkoQualityGateThresholds(
             min_trajectory_poses=5,
             min_path_length_m=3.0,
             max_step_m=2.0,
@@ -179,17 +176,18 @@ def test_quality_report_summarizes_map_and_trajectory(tmp_path: Path):
 
 
 def test_quality_report_writes_json_markdown_and_html(tmp_path: Path):
+    module = _quality_module()
     sweep_path = _write_sweep(tmp_path)
-    report = RkoQualityReportBuilder(sweep_path).build_report()
+    report = module.RkoQualityReportBuilder(sweep_path).build_report()
     output_dir = tmp_path / 'report'
 
-    paths = write_rko_quality_report(report, output_dir)
-    markdown = render_rko_quality_markdown(report)
+    paths = module.write_rko_quality_report(report, output_dir)
+    markdown = module.render_rko_quality_markdown(report)
     html = paths['html'].read_text(encoding='utf-8')
 
-    assert paths['json'] == output_dir / RKO_QUALITY_JSON
-    assert paths['markdown'] == output_dir / RKO_QUALITY_MARKDOWN
-    assert paths['html'] == output_dir / RKO_QUALITY_HTML
+    assert paths['json'] == output_dir / module.RKO_QUALITY_JSON
+    assert paths['markdown'] == output_dir / module.RKO_QUALITY_MARKDOWN
+    assert paths['html'] == output_dir / module.RKO_QUALITY_HTML
     assert 'Quality Report' in markdown
     assert 'Gate' in markdown
     assert 'Map Points' in html
@@ -197,6 +195,7 @@ def test_quality_report_writes_json_markdown_and_html(tmp_path: Path):
 
 
 def test_quality_report_cli_outputs_json(tmp_path: Path):
+    module = _quality_module()
     sweep_path = _write_sweep(tmp_path)
     output_dir = tmp_path / 'quality'
 
@@ -227,6 +226,6 @@ def test_quality_report_cli_outputs_json(tmp_path: Path):
 
     assert report['best_case']['case_id'] == 'voxel_0p50_min_1p00_dd_on'
     assert report['counts']['gate_pass'] == 1
-    assert (output_dir / RKO_QUALITY_JSON).is_file()
-    assert (output_dir / RKO_QUALITY_MARKDOWN).is_file()
-    assert (output_dir / RKO_QUALITY_HTML).is_file()
+    assert (output_dir / module.RKO_QUALITY_JSON).is_file()
+    assert (output_dir / module.RKO_QUALITY_MARKDOWN).is_file()
+    assert (output_dir / module.RKO_QUALITY_HTML).is_file()

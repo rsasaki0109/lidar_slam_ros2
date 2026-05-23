@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 import subprocess
@@ -42,15 +43,12 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIR = REPO_ROOT / 'scripts'
 ADOPTION_SCRIPT = SCRIPT_DIR / 'check_mid360_robot_rko_config_adoption.py'
-sys.path.insert(0, str(SCRIPT_DIR))
 
-from mid360_robot_rko_config_adoption import (  # noqa: E402
-    render_rko_config_adoption_markdown,
-    RKO_CONFIG_ADOPTION_JSON,
-    RKO_CONFIG_ADOPTION_MARKDOWN,
-    RkoConfigAdoptionChecker,
-    write_rko_config_adoption_report,
-)
+
+def _adoption_module():
+    if str(SCRIPT_DIR) not in sys.path:
+        sys.path.insert(0, str(SCRIPT_DIR))
+    return importlib.import_module('mid360_robot_rko_config_adoption')
 
 
 BEST_PARAMETERS = {
@@ -99,10 +97,11 @@ def _write_config(tmp_path: Path, parameters: dict) -> Path:
 
 
 def test_adoption_checker_passes_for_best_gate_config(tmp_path: Path):
+    module = _adoption_module()
     quality_path = _write_quality_report(tmp_path)
     config_path = _write_config(tmp_path, BEST_PARAMETERS)
 
-    report = RkoConfigAdoptionChecker(
+    report = module.RkoConfigAdoptionChecker(
         quality_report_path=quality_path,
         config_path=config_path,
         require_best=True,
@@ -116,10 +115,11 @@ def test_adoption_checker_passes_for_best_gate_config(tmp_path: Path):
 
 
 def test_adoption_checker_fails_when_config_is_not_best(tmp_path: Path):
+    module = _adoption_module()
     quality_path = _write_quality_report(tmp_path)
     config_path = _write_config(tmp_path, {**BEST_PARAMETERS, 'voxel_size': 0.3})
 
-    report = RkoConfigAdoptionChecker(
+    report = module.RkoConfigAdoptionChecker(
         quality_report_path=quality_path,
         config_path=config_path,
         require_best=True,
@@ -133,21 +133,25 @@ def test_adoption_checker_fails_when_config_is_not_best(tmp_path: Path):
 
 
 def test_adoption_report_writes_json_and_markdown(tmp_path: Path):
+    module = _adoption_module()
     quality_path = _write_quality_report(tmp_path)
     config_path = _write_config(tmp_path, BEST_PARAMETERS)
-    report = RkoConfigAdoptionChecker(quality_path, config_path, require_best=True).build_report()
+    report = module.RkoConfigAdoptionChecker(
+        quality_path, config_path, require_best=True,
+    ).build_report()
     output_dir = tmp_path / 'out'
 
-    paths = write_rko_config_adoption_report(report, output_dir)
-    markdown = render_rko_config_adoption_markdown(report)
+    paths = module.write_rko_config_adoption_report(report, output_dir)
+    markdown = module.render_rko_config_adoption_markdown(report)
 
-    assert paths['json'] == output_dir / RKO_CONFIG_ADOPTION_JSON
-    assert paths['markdown'] == output_dir / RKO_CONFIG_ADOPTION_MARKDOWN
+    assert paths['json'] == output_dir / module.RKO_CONFIG_ADOPTION_JSON
+    assert paths['markdown'] == output_dir / module.RKO_CONFIG_ADOPTION_MARKDOWN
     assert 'matched_case' in markdown
     assert json.loads(paths['json'].read_text(encoding='utf-8'))['status'] == 'PASS'
 
 
 def test_adoption_cli_returns_nonzero_for_non_best_config(tmp_path: Path):
+    module = _adoption_module()
     quality_path = _write_quality_report(tmp_path)
     config_path = _write_config(tmp_path, {**BEST_PARAMETERS, 'voxel_size': 0.3})
     output_dir = tmp_path / 'adoption'
@@ -173,5 +177,5 @@ def test_adoption_cli_returns_nonzero_for_non_best_config(tmp_path: Path):
 
     assert result.returncode == 1
     assert report['status'] == 'FAIL'
-    assert (output_dir / RKO_CONFIG_ADOPTION_JSON).is_file()
-    assert (output_dir / RKO_CONFIG_ADOPTION_MARKDOWN).is_file()
+    assert (output_dir / module.RKO_CONFIG_ADOPTION_JSON).is_file()
+    assert (output_dir / module.RKO_CONFIG_ADOPTION_MARKDOWN).is_file()
