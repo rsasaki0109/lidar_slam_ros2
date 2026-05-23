@@ -212,6 +212,58 @@ v4 の keypoint tightening と v5 の inlier_ratio + 4-point gate を経て、�
 
 詳細メモは [[project_triangle_descriptor_stack]] に保存済。
 
+### Triangle descriptor 後続 PR (#159-#162, 2026-05-21)
+
+§1.2 までの 3-dataset 検証の延長で、**「wrong-but-agreeing 3-point RANSAC」のフロアを下げる**目的で 4 つの後続 PR を develop に投入：
+
+| PR | コミット | 内容 |
+|----|---------|------|
+| #159 | `79a6b5f` | **Umeyama N-point SE(3) refinement** — winning RANSAC T を全 inlier 三角形の 3×N 点対応で再推定する opt-in flag `refine_se3_with_all_inliers`。3-point SVD だと 1σ ノイズが translation にそのまま乗り NDT correction が 50-70m もズレるという #158 の知見への対策 |
+| #160 | `e905673` | **descriptor-source-only `loop_max_delta` override** — DISTANCE candidate は strict cap を維持しつつ、TRIANGLE / SCAN_CONTEXT / BEV / SOLID には大きめの NDT correction を許可するパスを追加。Newer College で legit yaw 3.6° emit が NDT fitness 11.9 < 15 を通っても world-frame correction が generic cap に弾かれていた問題への対策。default `-1.0` (disabled) で既存挙動は bit-for-bit 同一 |
+| #161 | `5864503` | **STD/BTC-style quad-hash extension** — 三角形 hash bucket key に 4 次元目 (centroid → 最近傍 non-vertex keypoint の量子化距離、回転不変な local context) を opt-in で追加。corridor / parking row / parallel column geometry に対する false positive 削減狙い。`triangle_descriptor_quad_feature_bin_m` ROS param、default `0.0` (disabled) で legacy 3-edge path は bit-for-bit 同一 |
+| #162 | `5e52f3b` | **inlier_ratio + eval_n surfacing** — `LoopCandidate::eval_n` と `LoopCandidate::inlier_ratio` を populate し、emit log + debug reject log に `inliers=N eval_n=M inlier_ratio=R` を出す。`min_inlier_ratio` ゲートは PR #146 で実装済だが eval_n が unobservable で blind tuning だったため、precision-floor recipe (`min_inliers` AND `min_inlier_ratio`) を tuning 可能にする (no behavior change) |
+
+**位置付け**: いずれも default off (behavioral no-op) で、§1.2 の運用方針 (default `use_triangle_descriptor: false`、研究 opt-in) を変えずに「採用 1 件のフロアを下げる knob を 3 種類用意した」ということ。次は dataset を増やして 4-point quad-hash + N-point refinement + precision floor の組み合わせで何件 emit / accept できるか測定する段階。
+
+---
+
+## 1.3 追加トラック（2026-05）：Dogfood wrapper measurement plumbing (PR #166)
+
+### 目的
+- `scripts/run_rko_lio_graph_autoware_dogfood.sh` は「ロボットが撮った bag を SLAM → corrected trajectory → Autoware map verify まで 1 コマンドで通す」操作員向け wrapper。これを **実環境の bag (frame name が launch default と違う / 長尺で /map_save 後も graph_based_slam が submap を処理し続ける) で安定動作させる**ために、計測系の plumbing を拡充した。
+
+### 投入した PR
+- **PR #165 (`129eb58`)** — `path_to_tum.py` / `odom_to_tum.py` の custom signal handler を削除。`rclpy.spin()` 中は Python signal handler が走らず、`kill -INT` で hang していた。rclpy の default SIGINT handler に委譲 + `KeyboardInterrupt` / `ExternalShutdownException` を catch して finally で `rclpy.try_shutdown()`。dogfood pipeline で観測された「`path_to_tum.py` subscriber が `Map outputs saved` 後も 40 分以上生き残る」問題を解決。
+- **PR #166 (`5929728`)** — dogfood wrapper measurement plumbing 本体：
+  - **frame override flags**: `--base-frame`, `--lidar-frame`, `--imu-frame` を追加。robot の frame name が launch default と異なるケース対応。
+  - **quiescence-based offline completion**: `--offline-quiet-log-secs` を追加。RKO-LIO offline node の stdout に N 秒間ログが出なければ完了と判定。
+  - **graph-drain wait**: `--graph-drain-secs` で、`/map_save` 前に graph_based_slam が buffered submap を消費し終えるまで待つ。長尺 bag で submap 残り処理中に `/map_save` が走って map が incomplete になる問題への対策。
+  - **/modified_path → traj_corrected.tum 取込み**: `--capture-corrected-path`, `--corrected-path-topic` を追加し、ループクロージャ補正後の trajectory を録る。
+  - **APE vs reference**: `--reference-tum FILE` で reference TUM 軌跡を渡せば evo APE を計算して `traj_corrected_ape.txt` を吐く。
+  - **path_to_tum subprocess reap**: cleanup() で structured kill (SIGINT 先行 → 10s 後 SIGKILL guard)。
+
+### Why
+- dogfood wrapper が **production candidate session (PR #176)** の上流レイヤとして使われるため、frame 不一致 / offline 完了判定 / graph-drain / corrected path capture の 4 系列をすべて wrapper の責務に閉じ込めた。これにより `run_mid360_robot_production_candidate_session.sh --run` が wrapper を呼ぶときに、bag → corrected trajectory → APE まで一気通貫で取れる。
+- PR #166 の measurement plumbing がなければ MID-360 chain (PR #168-#177) は意味のある "production-readiness" を gate できない。
+
+---
+
+## 1.4 追加トラック（2026-05）：README 操作員向け書き直し (PR #163/#164/#167)
+
+### 目的
+- README が status / scope の jargon-dense な metadata block で始まり、showcase 画像が line 97 まで埋まっていた。新規訪問者が「このリポジトリで何ができるか」を 1 スクロールで掴めない状態。
+- 3 段階のリライトを経て **plain technical README @ ~110 行 / 5 分 quickstart / docs/ への deeper link table** に着地した。
+
+### 投入した PR
+- **PR #163 (`2926e92`)** — initial rewrite: badges + hero showcase 画像 + **'5 Minutes' quickstart** (clone → build → quickstart → `map_verify: PASS` 確認) + themed grouping (🗺️ Mapping, 🚗 Autonomous Driving, 🔁 Loop Closure, 📊 Benchmarks, 🧰 Operator Tooling) + docs category table。
+- **PR #164 (`a5498bd`)** — tone-down: emoji / horizontal rules / "5 Minutes" framing / hero block を削除し plain technical README に。157 行（220 行 cap 内）。 `test_docs_entrypoints.py` の全 assertion を維持。
+- **PR #167 (`dfeb2ab`)** — final simplify: 必須トピック table / dynamic-object-filter figure / 4 つの benchmark CLI 例を `docs/workflows.md` + `docs/benchmarking.md` に逃がす。README order を Install → Quickstart → "Use your own bag" → Features に。docs link を **Getting started / Pipelines / Benchmarking / Project** で grouping。最終的に ~110 行。
+
+### 結果
+- README は 1 スクロールで主要情報が読める長さに到達。
+- `test_docs_entrypoints.py` で記載項目が継続的に gate されており、deeper detail が docs/ に逃げても link 健全性は保たれる。
+- Phase 2 chain (#171-#177) を land する直前に README が片付いていたので、操作員向け entrypoint table (`scripts/run_mid360_robot_production_candidate_session.sh`, `scripts/import_mid360_robot_production_candidate_bundle.py`) を後で追加するときに整理しやすい状態を確保した。
+
 ---
 
 ## 2. ベンチマーク結果
@@ -410,7 +462,9 @@ v4 の keypoint tightening と v5 の inlier_ratio + 4-point gate を経て、�
 |---|--------|------|
 | 1 | **GNSS 付きデータセットで GNSS 制約テスト** | Autoware の地理座標系マッピング機能が未検証 |
 | 2 | **Autoware 実環境での読み込みテスト** | `pointcloud_map_loader` でのランタイム互換性確認 |
-| 3 | **develop ブランチへのマージ** | PR #2 のコードレビュー対応 |
+| 3a | ~~MID-360 robot toolkit chain (操作員 pipeline)~~ | ✅ PR #168-#177 で 10 PR inside-out で landing 完了 (§10) |
+| 3b | **実機 Jetson + MID-360 robot での dogfood 実走** | chain (§10) を組んだものの実機 bag での E2E 検証はまだ。dogfood-vs-bench の cloud distribution 不一致も併せて調査 |
+| 3c | Jetson host readiness preflight PR | §10.5 残課題の自然な次。`check_jetson_mid360_host_readiness.py` + `jetson_mid360_host_tools.py` を 1 PR で land |
 
 ### 優先度: 中
 
@@ -420,6 +474,9 @@ v4 の keypoint tightening と v5 の inlier_ratio + 4-point gate を経て、�
 | 4b | ~~4 点以上 consensus への拡張~~ | ✅ PR #147 で実装、v5 で偽陽性半減確認 |
 | 4c | MID-360 demo bag の整備 | reference 軌跡 + 短距離ループありの bag が無いと triangle ablation を MID-360 で回せない |
 | 4d | 別データセットで triangle stack 再現性検証 | NTU 単独では PoC 段階。Newer College / Leo Drive / MID-360 demo で同じ ablation を回したい |
+| 4e | 4-point quad-hash (#161) + N-point refinement (#159) + precision floor (#162) 組合せ ablation | §1.2 の延長線。3 つの knob を組み合わせた最適 emit/accept 比率を測る |
+| 4f | preflight 系 (`preflight_mid360_robot_bag.py`, `validate_mid360_robot_profile.py`, `rewrite_mid360_robot_bag_stamps.py`) を land | §10.5 残課題。Jetson host readiness の次の順序 |
+| 4g | public_dataset 系 (~15 scripts: download / segments / loop_candidates / dataset_report) を land | §10.5 残課題。public bag の準備を独立 PR で済ませる |
 | 5 | Robust kernel 導入 | 誤ループ検出への頑健性（既に DCS/Cauchy/Huber 切替は実装済） |
 | 6 | キーフレーム選択ロジック | フロントエンドの品質指標に基づくサブマップ生成 |
 | 7 | マルチセッションマッピング | 複数回走行データの統合 |
@@ -431,6 +488,7 @@ v4 の keypoint tightening と v5 の inlier_ratio + 4-point gate を経て、�
 | 8 | GTSAM 移行 | Jazzy での boost→std 互換問題の解決待ち |
 | 9 | DLIO 統合 | DDS 問題の根本解決が先 |
 | 10 | small_gicp オドメトリ高速化 | KISS-ICP / RKO-LIO が十分高精度 |
+| 11 | docs/jetson-mid360-robot-{runbook,scope,static-tf-worksheet}.md を mkdocs に組込み | §10.5 残課題。実機セットアップ手順をまとめる時に必要だが、§10.4 の codebase 側 land が先 |
 
 ---
 
