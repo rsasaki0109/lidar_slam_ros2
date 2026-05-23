@@ -218,6 +218,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter(
     "triangle_descriptor_refine_se3_with_all_inliers",
     triangle_descriptor_refine_se3_with_all_inliers_);
+  declare_parameter("triangle_descriptor_skip_ransac", false);
+  get_parameter(
+    "triangle_descriptor_skip_ransac",
+    triangle_descriptor_skip_ransac_);
   declare_parameter("triangle_descriptor_inlier_translation_m", 2.0);
   get_parameter(
     "triangle_descriptor_inlier_translation_m",
@@ -981,6 +985,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       triangle_descriptor_fourth_point_max_distance_m_ << std::endl;
     std::cout << "triangle_descriptor_refine_se3_with_all_inliers:" <<
       std::boolalpha << triangle_descriptor_refine_se3_with_all_inliers_ << std::endl;
+    std::cout << "triangle_descriptor_skip_ransac:" <<
+      std::boolalpha << triangle_descriptor_skip_ransac_ << std::endl;
     std::cout << "triangle_descriptor_inlier_translation_m:" <<
       triangle_descriptor_inlier_translation_m_ << std::endl;
     std::cout << "triangle_descriptor_inlier_rotation_deg:" <<
@@ -2103,7 +2109,8 @@ void GraphBasedSlamComponent::searchLoop()
       }
       if (
         chosen_submap_id >= 0 &&
-        chosen_votes >= triangle_descriptor_min_votes_)
+        chosen_votes >= triangle_descriptor_min_votes_ &&
+        !triangle_descriptor_skip_ransac_)
       {
         // Re-run verification scoped to the chosen submap to recover SE(3).
         vote_cfg.exclude_submap_id = -1;
