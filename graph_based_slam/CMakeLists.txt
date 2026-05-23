@@ -199,6 +199,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_mid360_robot_tools
+    test/test_mid360_robot_tools.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_navsatfix_covariance_inspector
     test/test_navsatfix_covariance_inspector.py
     TIMEOUT 120
