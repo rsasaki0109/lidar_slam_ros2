@@ -36,10 +36,15 @@ from pathlib import Path
 import subprocess
 import sys
 
+import importlib.util
+
 import pytest
 
 
-pytest.importorskip('rosbags')
+pytestmark = pytest.mark.skipif(
+    importlib.util.find_spec('rosbags') is None,
+    reason='rosbags python module not available (pip install rosbags)',
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SAMPLE_SCRIPT = REPO_ROOT / 'scripts' / 'generate_mid360_robot_sample_bag.py'

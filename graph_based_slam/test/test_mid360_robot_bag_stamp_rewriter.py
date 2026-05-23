@@ -36,10 +36,15 @@ from pathlib import Path
 import subprocess
 import sys
 
+import importlib.util
+
 import pytest
 
 
-pytest.importorskip('rosbags')
+pytestmark = pytest.mark.skipif(
+    importlib.util.find_spec('rosbags') is None,
+    reason='rosbags python module not available (pip install rosbags)',
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIR = REPO_ROOT / 'scripts'
@@ -68,7 +73,8 @@ def _write_sample_bag(path: Path) -> None:
 
 
 def _corrupt_pointcloud_stamps(bag: Path, jump_sec: float) -> None:
-    """Rewrite header.stamp of each PointCloud2 message to add a large jump.
+    """
+    Rewrite header.stamp of each PointCloud2 message to add a large jump.
 
     Mimics the upstream behaviour seen in some public MID-360 datasets where
     LiDAR header.stamp drifts away from rosbag2 receive time by hundreds of
