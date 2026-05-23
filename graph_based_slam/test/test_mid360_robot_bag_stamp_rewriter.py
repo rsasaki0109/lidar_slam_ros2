@@ -36,6 +36,10 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
+
+pytest.importorskip('rosbags')
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIR = REPO_ROOT / 'scripts'
