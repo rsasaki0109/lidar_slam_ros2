@@ -292,10 +292,10 @@ PR #184 で発見した「triangle pipeline 有効化だけで +1m drift」の�
 - 残った +0.6m は run-to-run noise (std 1.258m に拡大)
 - accumulateVotes (hash lookup, O(N)) は変動内、findLoopCandidate (RANSAC, O(N²) over max_pairs=32) が問題
 
-**改善候補** (未実装):
-- `triangle_descriptor_max_pairs` を narrow-FOV で 32 → 16 に縮小 (RANSAC O(N²) を 4 分の 1 に)
-- RANSAC を `std::async` で非同期化 (searchLoop hot path から外す)
-- MID-360 で "vote-only mode" — RANSAC skip して candidate submap_id を NDT に渡し、NDT に SE(3) 推定させる
+**改善候補** (PR #186 で実装・確認済):
+- ✅ MID-360 yaml で `triangle_descriptor_max_pairs: 32 → 16` 縮小 (RANSAC O(N²) を 1/4)
+- RANSAC を `std::async` で非同期化 (searchLoop hot path から外す) — 未実装
+- MID-360 で "vote-only mode" — RANSAC skip して candidate submap_id を NDT に渡す
 - `triangle_descriptor_skip_ransac` flag は diagnostic として default false で残す
 
 **運用判断は変わらず**:
@@ -303,6 +303,34 @@ PR #184 で発見した「triangle pipeline 有効化だけで +1m drift」の�
 - 改善 PR を出すなら max_pairs 縮小 + 別 dataset での再検証セット
 
 詳細: [`output/triangle_ablation_mid360_skipransac_20260524_101218/SUMMARY.md`](../output/triangle_ablation_mid360_skipransac_20260524_101218/SUMMARY.md)
+
+### max_pairs=16 fix 検証 (2026-05-24)
+
+PR #185 で発見した「RANSAC compute cost が +1m drift の dominant source」を受けて、最も actionable な改善 (`max_pairs: 32 → 16`) を実装・3-run で検証。同じ MID-360 tuned config:
+
+| condition | mean Δ APE [m] | std [m] | \|Δ\|/σ | emit/3 |
+|-----------|----------------|---------|---------|--------|
+| `max_pairs=32` (PR #184) | **+1.083** | 0.128 | **8.5** (有意悪化) | 2 |
+| RANSAC OFF (PR #185) | +0.604 | 1.258 | 0.48 (variance 内) | 0 |
+| **`max_pairs=16`** | **-0.292** | 0.607 | **0.48** (variance 内、僅か良化方向) | 0 |
+
+**結果**: `max_pairs=16` で mean Δ APE が +1.083 → -0.292 m に swing (1.4m 改善方向)、|Δ|/σ が 8.5 → 0.48 に落ち **systematic regression が消えて variance 内に収まる**。
+
+**Production trade-off**:
+- emit reach は 2 → 0 に減るが、MID-360 narrow-FOV では NDT が triangle emit を 100% reject していたので **production accept rate は元々 0 で変化なし**
+- `use_triangle_descriptor: false` (default) のユーザーには無影響
+- opt-in したユーザーは APE regression に当たらなくなる = strict 改善
+
+**Why max_pairs=16 が直接効くか**:
+- findLoopCandidate は N² の `transformAgrees` (32² = 1024 vs 16² = 256, 4x 削減)
+- tuned config では vote threshold を超える tick が頻発 → 毎回 1024 比較が wall-clock dominate
+- 256 比較なら ROS executor scheduling が perturb されず、distance loop verification timing 維持 → APE 安定
+
+**Open questions**:
+- `graphbasedslam_indoor.yaml` (Newer College) でも同じ fix が効くか? 未検証
+- generic `graphbasedslam.yaml` (NTU 系 outdoor 360°) は drift が観測されてないので変更しない
+
+詳細: [`output/triangle_ablation_mid360_maxpairs16_20260524_175503/SUMMARY.md`](../output/triangle_ablation_mid360_maxpairs16_20260524_175503/SUMMARY.md)
 
 ---
 
