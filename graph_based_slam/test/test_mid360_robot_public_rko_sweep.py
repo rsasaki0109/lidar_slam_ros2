@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 import subprocess
@@ -45,21 +46,12 @@ SWEEP_SCRIPT = SCRIPT_DIR / 'run_mid360_robot_public_rko_sweep.py'
 LOW_VOXEL_CONFIG = (
     REPO_ROOT / 'configs' / 'mid360_robot' / 'rko_lio_mid360_low_voxel_no_deskew.yaml'
 )
-sys.path.insert(0, str(SCRIPT_DIR))
 
-from mid360_robot_public_rko_sweep import (  # noqa: E402
-    CASE_CONFIG_NAME,
-    diagnose_rko_sweep_case,
-    parse_rko_sweep_case,
-    render_rko_sweep_markdown,
-    RKO_SWEEP_JSON,
-    RKO_SWEEP_MARKDOWN,
-    RkoSweepBuilder,
-    RkoSweepCase,
-    RkoSweepOptions,
-    VERIFY_LOG_NAME,
-    write_rko_case_config,
-)
+
+def _sweep_module():
+    if str(SCRIPT_DIR) not in sys.path:
+        sys.path.insert(0, str(SCRIPT_DIR))
+    return importlib.import_module('mid360_robot_public_rko_sweep')
 
 
 def _write_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
@@ -88,18 +80,19 @@ def _write_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
 
 
 def test_case_parser_and_config_writer_apply_overrides(tmp_path: Path):
+    module = _sweep_module()
     base_rko = tmp_path / 'base.yaml'
-    output_config = tmp_path / 'case' / CASE_CONFIG_NAME
+    output_config = tmp_path / 'case' / module.CASE_CONFIG_NAME
     base_rko.write_text(
         'extrinsic_imu2base_quat_xyzw_xyz: [0, 0, 0, 1, 0, 0, 0]\n'
         'deskew: true\n',
         encoding='utf-8',
     )
-    case = parse_rko_sweep_case(
+    case = module.parse_rko_sweep_case(
         'half:voxel=0.5,min=0.75,max=80,dd=false,deskew=false,init=false'
     )
 
-    write_rko_case_config(base_rko, output_config, case)
+    module.write_rko_case_config(base_rko, output_config, case)
     data = yaml.safe_load(output_config.read_text(encoding='utf-8'))
 
     assert case.case_id == 'half'
@@ -111,8 +104,9 @@ def test_case_parser_and_config_writer_apply_overrides(tmp_path: Path):
 
 
 def test_builder_writes_plan_manifest_and_case_configs(tmp_path: Path):
+    module = _sweep_module()
     bag, base_rko, lidarslam_param, output_dir = _write_inputs(tmp_path)
-    options = RkoSweepOptions(
+    options = module.RkoSweepOptions(
         repo_root=REPO_ROOT,
         bag_path=bag,
         output_dir=output_dir,
@@ -120,14 +114,14 @@ def test_builder_writes_plan_manifest_and_case_configs(tmp_path: Path):
         lidarslam_param=lidarslam_param,
         limit=1,
     )
-    builder = RkoSweepBuilder(
+    builder = module.RkoSweepBuilder(
         options=options,
-        cases=(RkoSweepCase(label='half', voxel_size=0.5, min_range=1.0),),
+        cases=(module.RkoSweepCase(label='half', voxel_size=0.5, min_range=1.0),),
     )
 
     manifest = builder.build(run=False)
     paths = builder.write(manifest)
-    markdown = render_rko_sweep_markdown(manifest)
+    markdown = module.render_rko_sweep_markdown(manifest)
 
     assert manifest['status'] == 'READY'
     assert manifest['counts']['cases'] == 1
@@ -136,13 +130,14 @@ def test_builder_writes_plan_manifest_and_case_configs(tmp_path: Path):
     assert '--wait-for-offline-completion' in manifest['cases'][0]['command']
     assert '--offline-quiet-log-secs' in manifest['cases'][0]['command']
     assert manifest['run_options']['offline_quiet_log_secs'] == 0
-    assert (output_dir / 'half' / CASE_CONFIG_NAME).is_file()
-    assert paths['json'] == output_dir / RKO_SWEEP_JSON
-    assert paths['markdown'] == output_dir / RKO_SWEEP_MARKDOWN
+    assert (output_dir / 'half' / module.CASE_CONFIG_NAME).is_file()
+    assert paths['json'] == output_dir / module.RKO_SWEEP_JSON
+    assert paths['markdown'] == output_dir / module.RKO_SWEEP_MARKDOWN
     assert 'MID-360 Public RKO-LIO Sweep' in markdown
 
 
 def test_diagnosis_extracts_keypoint_and_delta_signatures(tmp_path: Path):
+    module = _sweep_module()
     output_dir = tmp_path / 'sweep' / 'half'
     output_dir.mkdir(parents=True)
     (output_dir / 'slam.launch.log').write_text(
@@ -170,7 +165,7 @@ def test_diagnosis_extracts_keypoint_and_delta_signatures(tmp_path: Path):
         'stderr': '',
     }
 
-    diagnosis = diagnose_rko_sweep_case(case_row, run_result)
+    diagnosis = module.diagnose_rko_sweep_case(case_row, run_result)
 
     assert diagnosis['status'] == 'FAIL'
     assert diagnosis['runtime']['rko_started'] is True
@@ -183,6 +178,7 @@ def test_diagnosis_extracts_keypoint_and_delta_signatures(tmp_path: Path):
 
 
 def test_diagnosis_verifies_saved_autoware_map(tmp_path: Path):
+    module = _sweep_module()
     output_dir = tmp_path / 'sweep' / 'half'
     pointcloud_map = output_dir / 'pointcloud_map'
     pointcloud_map.mkdir(parents=True)
@@ -225,16 +221,17 @@ def test_diagnosis_verifies_saved_autoware_map(tmp_path: Path):
         'output_dir': str(output_dir),
     }
 
-    diagnosis = diagnose_rko_sweep_case(case_row, {'returncode': 0})
+    diagnosis = module.diagnose_rko_sweep_case(case_row, {'returncode': 0})
 
     assert diagnosis['status'] == 'MAP_VERIFIED'
     assert diagnosis['outputs']['map_saved'] is True
     assert diagnosis['verification']['result'] == 'PASS'
-    assert diagnosis['files']['verify_log'] == str(output_dir / VERIFY_LOG_NAME)
-    assert 'RESULT: PASS' in (output_dir / VERIFY_LOG_NAME).read_text(encoding='utf-8')
+    assert diagnosis['files']['verify_log'] == str(output_dir / module.VERIFY_LOG_NAME)
+    assert 'RESULT: PASS' in (output_dir / module.VERIFY_LOG_NAME).read_text(encoding='utf-8')
 
 
 def test_cli_outputs_json_and_writes_artifacts(tmp_path: Path):
+    module = _sweep_module()
     bag, base_rko, lidarslam_param, output_dir = _write_inputs(tmp_path)
 
     result = subprocess.run(
@@ -262,8 +259,8 @@ def test_cli_outputs_json_and_writes_artifacts(tmp_path: Path):
 
     assert manifest['status'] == 'READY'
     assert manifest['counts']['cases'] == 1
-    assert (output_dir / RKO_SWEEP_JSON).is_file()
-    assert (output_dir / RKO_SWEEP_MARKDOWN).is_file()
+    assert (output_dir / module.RKO_SWEEP_JSON).is_file()
+    assert (output_dir / module.RKO_SWEEP_MARKDOWN).is_file()
 
 
 def test_tracked_low_voxel_config_matches_successful_public_case():
