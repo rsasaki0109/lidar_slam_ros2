@@ -253,6 +253,30 @@ v4 の keypoint tightening と v5 の inlier_ratio + 4-point gate を経て、�
 
 詳細: [`output/triangle_ablation_ntu_v5_3run_20260524_083127/SUMMARY.md`](../output/triangle_ablation_ntu_v5_3run_20260524_083127/SUMMARY.md) (root cause analysis 含む)
 
+### MID-360 3-run variance + 2026-05-19 emit reproducibility (2026-05-24)
+
+NTU v5 で確立した「単発結果は信用しない」を 2nd dataset (MID-360) で検証。2026-05-19 単発「emit 1 件 (id=22 inliers=4 yaw=178°)」が再現するか、default config と tuned config (= 2026-05-19 設定) で各 3 runs:
+
+| config | base APE [m] | cand APE [m] | Δ APE [m] | obs/3 | accept/3 |
+|--------|-------------|--------------|-----------|-------|----------|
+| default (`min_inliers=5, min_votes=8`) | 3.800 ± 0.270 | 4.498 ± 0.962 | +0.699 ± 1.231 | 0/3 | 0/3 |
+| **tuned** (`min_inliers=3, min_votes=6`) | 3.793 ± 0.349 | 4.876 ± 0.456 | **+1.083 ± 0.128** | **2/3** | 0/3 |
+
+**結論**:
+1. **2026-05-19 「emit 1 件」は部分的再現** — tuned 2/3 runs で obs=1、specific submap_id/yaw は run ごとに stochastic。「emit ~1/run」は real、「id=22 yaw=178° specific」は noise
+2. **Tuned config は robust APE regression** — Δ +1.083m, std 0.128m, **|Δ|/σ=8.5** (variance を超えた有意な悪化)。default config では variance 内 (+0.699 ± 1.231m) だが run2 outlier (+2.1m) が dominate
+3. **新 meta-finding**: triangle pipeline 有効化だけで APE が +1m 悪化 (accept=0 にも関わらず)。仮説: triangle 計算 CPU cost → ROS executor scheduling shift → distance loop verification の message timing 変化。**wall-clock timing 依存が APE level で visible**
+4. **NDT precision floor は機能している** — 全 emit が yaw 178° corridor flip → NDT fitness reject。MID-360 narrow-FOV では triangle 3-point RANSAC が本質的に corridor 偽陽性 prone、NDT が safety net
+
+**運用判断**:
+- MID-360 yaml default は `min_inliers=5` 維持 (`min_inliers=3` への tuning は dangerous)
+- `use_triangle_descriptor: false` 維持
+- v0.4 release notes: MID-360 で triangle を promote しない (default-off は正解)
+
+**次の deep dive 候補**: Triangle pipeline を no-op compute load (votes 計算するが RANSAC スキップ) に減らして APE regression が消えるか → "executor scheduling cost" vs "RANSAC compute cost" を切り分け
+
+詳細: [`output/triangle_ablation_mid360_3run_tuned_20260524_093504/SUMMARY.md`](../output/triangle_ablation_mid360_3run_tuned_20260524_093504/SUMMARY.md)
+
 ---
 
 ## 1.3 追加トラック（2026-05）：Dogfood wrapper measurement plumbing (PR #166)
