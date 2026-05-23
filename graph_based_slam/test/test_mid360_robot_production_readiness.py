@@ -43,9 +43,9 @@ PRODUCTION_SCRIPT = SCRIPT_DIR / 'check_mid360_robot_production_readiness.py'
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from mid360_robot_production_readiness import (  # noqa: E402
+    Mid360ProductionReadinessGate,
     PRODUCTION_READINESS_JSON,
     PRODUCTION_READINESS_MARKDOWN,
-    Mid360ProductionReadinessGate,
     ProductionReadinessInputs,
     ProductionReadinessThresholds,
     render_production_readiness_markdown,
