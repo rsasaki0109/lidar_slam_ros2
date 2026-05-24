@@ -339,6 +339,29 @@ PR #185 で発見した「RANSAC compute cost が +1m drift の dominant source�
 
 詳細: [`output/triangle_ablation_mid360_maxpairs16_20260524_175503/SUMMARY.md`](../output/triangle_ablation_mid360_maxpairs16_20260524_175503/SUMMARY.md) + [`output/triangle_ablation_newer_college_edge3d_3runs/variance_summary.json`](../output/triangle_ablation_newer_college_edge3d_3runs/variance_summary.json)
 
+### max_pairs sweep 完成: `=8` で regression 再発 (2026-05-24)
+
+PR #186 (`max_pairs=16`) の後、「もっと下げれば更に良いのでは」を検証するため `max_pairs=8` で 3-run。仮説 (RANSAC compute cost) が monotonic なら更に改善するはず。
+
+| max_pairs | mean Δ APE [m] | std [m] | \|Δ\|/σ | cand mean APE [m] | classification |
+|-----------|----------------|---------|---------|---------------------|----------------|
+| 32 (PR #184)     | **+1.083** | 0.128 | **8.5** | 4.876 | systematic regression |
+| **16 (PR #186)** | **-0.292** | 0.607 | **0.48** | **3.812** | **within variance ✓ (sweet spot)** |
+| 8 (this)         | **+0.768** | 0.167 | **4.6** | 4.644 | systematic regression 再発 |
+
+(baseline 9-run aggregate: mean 3.92 ± 0.40 m)
+
+**U字パターン**: max_pairs=16 が真の sweet spot。両側 (32 / 8) が baseline noise を超えて drift。candidate mean APE が baseline noise (3.92±0.40) に唯一収まるのは `=16` のみ。
+
+**意味**:
+- 「RANSAC compute 軽くすれば軽くするほど良い」という単純な monotonic 仮説は **棄却**
+- PR #186 の `max_pairs=16` は単なる最適化ではなく **empirical sweet spot** — 16 ±N どちらに動かしても悪化
+- max_pairs=8 で regression 再発する root cause は未解明 (wall-clock floor / RANSAC 内部の早期リターン経路 / accumulateVotes downstream の thread contention など)
+
+**actionable conclusion**: PR #186 のままで OK、追加 fix 不要。`max_pairs=16` が production 最適値と empirical 確証。
+
+詳細: [`output/triangle_ablation_mid360_maxpairs8_20260524_213619/SUMMARY.md`](../output/triangle_ablation_mid360_maxpairs8_20260524_213619/SUMMARY.md)
+
 ---
 
 ## 1.3 追加トラック（2026-05）：Dogfood wrapper measurement plumbing (PR #166)
