@@ -284,6 +284,36 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_mid360_robot_public_split_bag_merge
+    test/test_mid360_robot_public_split_bag_merge.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_mid360_robot_public_loop_cloud_analyzer
+    test/test_mid360_robot_public_loop_cloud_analyzer.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_mid360_robot_public_loop_segment_reset
+    test/test_mid360_robot_public_loop_segment_reset.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_mid360_robot_public_segment_map_cloud_alignment
+    test/test_mid360_robot_public_segment_map_cloud_alignment.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_mid360_robot_public_completion_gate
+    test/test_mid360_robot_public_completion_gate.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_mid360_robot_public_continuous_relocalization_gate
+    test/test_mid360_robot_public_continuous_relocalization_gate.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_navsatfix_covariance_inspector
     test/test_navsatfix_covariance_inspector.py
     TIMEOUT 120
@@ -322,6 +352,11 @@ if(BUILD_TESTING)
     test_rko_lio_benchmark_tools
     test/test_rko_lio_benchmark_tools.py
     TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_rko_lio_offline_completion_source
+    test/test_rko_lio_offline_completion_source.py
+    TIMEOUT 60
   )
   ament_add_pytest_test(
     test_docs_entrypoints
@@ -397,6 +432,11 @@ if(BUILD_TESTING)
     test_triangle_ablation_runner
     test/test_triangle_ablation_runner.py
     TIMEOUT 60
+  )
+  ament_add_pytest_test(
+    test_mid360_robot_3d_map_preview
+    test/test_mid360_robot_3d_map_preview.py
+    TIMEOUT 120
   )
 endif()
 

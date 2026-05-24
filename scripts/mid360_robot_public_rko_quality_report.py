@@ -26,6 +26,7 @@ class RkoQualityGateThresholds:
     """Minimum acceptance thresholds for a real-data MID-360 RKO-LIO case."""
 
     min_trajectory_poses: int = 200
+    min_trajectory_duration_sec: float = 60.0
     min_path_length_m: float = 10.0
     max_step_m: float = 5.0
     min_map_points: int = 100000
@@ -111,11 +112,11 @@ def render_rko_quality_markdown(report: dict[str, Any]) -> str:
     lines.extend([
         (
             '| Rank | Case | Status | Verify | Voxel | Min Range | Runtime s | '
-            'Trajectory Poses | Path m | Max Step m | Map Points | Tiles | '
+            'Trajectory Poses | Duration s | Path m | Max Step m | Map Points | Tiles | '
             'Point Density | Gate | Score |'
         ),
         (
-            '| ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | '
+            '| ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | '
             '---: | ---: | ---: | --- | ---: |'
         ),
     ])
@@ -137,6 +138,7 @@ def render_rko_quality_markdown(report: dict[str, Any]) -> str:
                 _fmt_float(params.get('min_range')),
                 _fmt_float(runtime.get('duration_sec')),
                 _fmt_int(trajectory.get('poses')),
+                _fmt_float(trajectory.get('duration_sec')),
                 _fmt_float(trajectory.get('path_length_m')),
                 _fmt_float(trajectory.get('max_step_m')),
                 _fmt_int(map_quality.get('point_count')),
@@ -472,6 +474,15 @@ def _quality_gate(
             f"poses={trajectory.get('poses', 0)} min={thresholds.min_trajectory_poses}",
         ),
         _gate_check(
+            'trajectory_duration',
+            float(trajectory.get('duration_sec') or 0.0)
+            >= thresholds.min_trajectory_duration_sec,
+            (
+                f"duration_sec={_fmt_float(trajectory.get('duration_sec'))} "
+                f"min={thresholds.min_trajectory_duration_sec}"
+            ),
+        ),
+        _gate_check(
             'trajectory_path_length',
             float(trajectory.get('path_length_m') or 0.0) >= thresholds.min_path_length_m,
             (
@@ -760,6 +771,7 @@ def _case_table(rows: list[dict[str, Any]]) -> str:
             f'<td>{_h(_fmt_float(params.get("min_range")))}</td>'
             f'<td>{_h(_fmt_float(runtime.get("duration_sec")))}</td>'
             f'<td>{_h(_fmt_int(trajectory.get("poses")))}</td>'
+            f'<td>{_h(_fmt_float(trajectory.get("duration_sec")))}</td>'
             f'<td>{_h(_fmt_float(trajectory.get("path_length_m")))}</td>'
             f'<td>{_h(_fmt_int(map_quality.get("point_count")))}</td>'
             f'<td>{_h(_fmt_int(map_quality.get("tile_count")))}</td>'
@@ -775,7 +787,7 @@ def _case_table(rows: list[dict[str, Any]]) -> str:
         '<thead><tr>'
         '<th>Rank</th><th>Case</th><th>Status</th><th>Verify</th>'
         '<th>Voxel</th><th>Min Range</th><th>Runtime s</th><th>Poses</th>'
-        '<th>Path m</th><th>Map Points</th><th>Tiles</th><th>Density</th>'
+        '<th>Trajectory s</th><th>Path m</th><th>Map Points</th><th>Tiles</th><th>Density</th>'
         '<th>Gate</th><th>Score</th>'
         '</tr></thead><tbody>'
         + ''.join(body)

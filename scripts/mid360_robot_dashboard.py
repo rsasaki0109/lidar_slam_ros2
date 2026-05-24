@@ -11,6 +11,7 @@ from typing import Any
 
 
 DASHBOARD_HTML = 'mid360_robot_session_dashboard.html'
+SEGMENT_MAP_ALIGNMENT_PLY = 'mid360_robot_public_segment_map_cloud_alignment.ply'
 
 ARTIFACTS = (
     ('production_candidate_session', 'mid360_robot_production_candidate_session.json'),
@@ -23,6 +24,9 @@ ARTIFACTS = (
     ('public_rko_adoption_gate', 'public_rko_adoption_gate/mid360_robot_public_rko_adoption_gate.json'),
     ('production_readiness', 'mid360_robot_production_readiness.json'),
     ('loop_alignment', 'mid360_robot_loop_alignment.json'),
+    ('continuous_relocalization_gate', 'mid360_robot_public_continuous_relocalization_gate.json'),
+    ('segment_map_alignment', 'mid360_robot_public_segment_map_cloud_alignment.json'),
+    ('map_preview', 'mid360_robot_3d_map_preview.json'),
 )
 
 
@@ -67,6 +71,11 @@ def build_dashboard_payload(output_dir: Path) -> dict[str, Any]:
         'commands': _commands(by_key),
         'next_action': _next_action(artifacts, session_artifact),
         'loop_alignment': _loop_alignment_summary(by_key['loop_alignment']),
+        'continuous_relocalization_gate': _continuous_relocalization_summary(
+            by_key['continuous_relocalization_gate']
+        ),
+        'segment_map_alignment': _segment_map_alignment_summary(by_key['segment_map_alignment']),
+        'map_preview': _map_preview_summary(by_key['map_preview'], output_dir),
     }
 
 
@@ -128,8 +137,20 @@ def render_dashboard(payload: dict[str, Any]) -> str:
         '</div>',
         '</section>',
         '<section>',
+        '<h2>3D Map Preview</h2>',
+        _map_preview_panel(payload.get('map_preview', {})),
+        '</section>',
+        '<section>',
         '<h2>Loop Alignment</h2>',
         _loop_alignment_panel(payload.get('loop_alignment', {})),
+        '</section>',
+        '<section>',
+        '<h2>Continuous Relocalization Gate</h2>',
+        _continuous_relocalization_panel(payload.get('continuous_relocalization_gate', {})),
+        '</section>',
+        '<section>',
+        '<h2>Segment Map Cloud Alignment</h2>',
+        _segment_map_alignment_panel(payload.get('segment_map_alignment', {})),
         '</section>',
         '<section>',
         '<h2>Checks</h2>',
@@ -183,6 +204,7 @@ def _load_dynamic_session_artifacts(
         'diagnosis': artifact_paths.get('map_diagnosis_json'),
         'public_rko_adoption_gate': artifact_paths.get('public_rko_adoption_gate_json'),
         'production_readiness': artifact_paths.get('production_readiness_json'),
+        'segment_map_alignment': artifact_paths.get('segment_map_alignment_json'),
     }
     replacements = {}
     for key, path_text in dynamic_paths.items():
@@ -200,6 +222,8 @@ def _load_dynamic_session_artifacts(
 def _overall_status(artifacts: list[DashboardArtifact]) -> str:
     statuses = []
     for artifact in artifacts:
+        if artifact.key in ('map_preview', 'segment_map_alignment'):
+            continue
         if artifact.error:
             statuses.append('FAIL')
         if artifact.data.get('status'):
@@ -222,6 +246,8 @@ def _collect_checks(by_key: dict[str, DashboardArtifact]) -> list[dict[str, str]
         'public_rko_adoption_gate',
         'production_readiness',
         'loop_alignment',
+        'continuous_relocalization_gate',
+        'segment_map_alignment',
     ):
         artifact = by_key[artifact_key]
         for check in artifact.data.get('checks', []):
@@ -270,6 +296,104 @@ def _loop_alignment_summary(artifact: DashboardArtifact) -> dict[str, Any]:
         'thresholds': data.get('thresholds') or {},
         'next_actions': data.get('next_actions') or [],
     }
+
+
+def _continuous_relocalization_summary(artifact: DashboardArtifact) -> dict[str, Any]:
+    if not artifact.exists or not artifact.data:
+        return {'present': False}
+    data = artifact.data
+    evidence = data.get('evidence') or {}
+    trajectory = evidence.get('trajectory') or {}
+    recovery = evidence.get('recovery') or {}
+    loop = evidence.get('loop_alignment') or {}
+    verify = evidence.get('autoware_map_verify') or {}
+    config = evidence.get('config') or {}
+    return {
+        'present': True,
+        'status': str(data.get('status', '')).upper(),
+        'completion_ready': data.get('completion_ready'),
+        'scope': data.get('scope'),
+        'poses': trajectory.get('poses'),
+        'duration_sec': trajectory.get('duration_sec'),
+        'relocalization_events': recovery.get('relocalization_events'),
+        'recovery_accept_events': recovery.get('recovery_accept_events'),
+        'dropped_scan_events': recovery.get('dropped_scan_events'),
+        'loop_candidates': loop.get('loop_candidates'),
+        'nearest_revisit_m': loop.get('nearest_revisit_distance_m'),
+        'max_loop_distance_m': loop.get('max_loop_distance_m'),
+        'autoware_status': verify.get('status'),
+        'config_matches': config.get('matches_tracked_config'),
+        'next_actions': data.get('next_actions') or [],
+    }
+
+
+def _segment_map_alignment_summary(artifact: DashboardArtifact) -> dict[str, Any]:
+    if not artifact.exists or not artifact.data:
+        return {'present': False}
+    data = artifact.data
+    clouds = data.get('clouds') or {}
+    start_cloud = clouds.get('start') or {}
+    end_cloud = clouds.get('end') or {}
+    aligned = data.get('aligned_overlap') or {}
+    transform = data.get('transform_start_to_end') or {}
+    crop = data.get('crop') or {}
+    artifacts = data.get('artifacts') or {}
+    local_ply = artifact.path.with_name(SEGMENT_MAP_ALIGNMENT_PLY)
+    return {
+        'present': True,
+        'status': str(data.get('status', '')).upper(),
+        'start_points': start_cloud.get('analysis_points'),
+        'end_points': end_cloud.get('analysis_points'),
+        'crop_radius_m': crop.get('crop_radius_m'),
+        'median_nn_m': aligned.get('symmetric_median_nn_m'),
+        'p90_nn_m': aligned.get('symmetric_p90_nn_m'),
+        'coverage_within_1m': aligned.get('coverage_within_1m'),
+        'translation_norm_m': transform.get('translation_norm_m'),
+        'yaw_deg': transform.get('yaw_deg'),
+        'ply_path': str(local_ply if local_ply.is_file() else artifacts.get('ply') or ''),
+        'next_actions': data.get('next_actions') or [],
+    }
+
+
+def _map_preview_summary(artifact: DashboardArtifact, output_dir: Path) -> dict[str, Any]:
+    if not artifact.exists or not artifact.data:
+        html_path = output_dir / 'mid360_robot_3d_map_preview.html'
+        if html_path.is_file():
+            return {
+                'present': True,
+                'status': 'FOUND',
+                'html_href': html_path.name,
+                'html_path': str(html_path),
+            }
+        return {'present': False}
+    data = artifact.data
+    artifacts = data.get('artifacts') or {}
+    html_path = Path(str(artifacts.get('html') or output_dir / 'mid360_robot_3d_map_preview.html'))
+    counts = data.get('counts') or {}
+    return {
+        'present': True,
+        'status': str(data.get('status') or 'FOUND').upper(),
+        'html_href': _relative_artifact_href(output_dir, html_path),
+        'html_path': str(html_path),
+        'ply_path': str(artifacts.get('ply') or ''),
+        'overlay_json': str(artifacts.get('overlay_json') or ''),
+        'cloud_points': counts.get('cloud_points'),
+        'html_points': counts.get('html_points'),
+        'trajectory_poses': counts.get('trajectory_poses'),
+        'loop_candidates': counts.get('loop_candidates'),
+        'pointcloud_map_dir': data.get('pointcloud_map_dir', ''),
+        'next_actions': data.get('next_actions') or [],
+    }
+
+
+def _relative_artifact_href(output_dir: Path, path: Path) -> str:
+    path = path.expanduser()
+    if not path.is_absolute():
+        return str(path)
+    try:
+        return str(path.resolve().relative_to(output_dir.resolve()))
+    except ValueError:
+        return str(path)
 
 
 def _topic_rates(readiness: dict[str, Any]) -> dict[str, Any]:
@@ -657,6 +781,144 @@ def _loop_alignment_panel(summary: dict[str, Any]) -> str:
     return ''.join(parts)
 
 
+def _continuous_relocalization_panel(summary: dict[str, Any]) -> str:
+    if not summary or not summary.get('present'):
+        return '<p class="empty">No continuous relocalization gate artifact found.</p>'
+
+    status = str(summary.get('status') or 'MISSING').upper()
+
+    def _fmt_num(value: Any, suffix: str = '', digits: int = 2) -> str:
+        if isinstance(value, (int, float)):
+            return f'{float(value):.{digits}f}{suffix}'
+        return 'n/a'
+
+    def _fmt_int(value: Any) -> str:
+        if isinstance(value, (int, float)):
+            return f'{int(value)}'
+        return 'n/a'
+
+    kvs = ''.join([
+        _kv('Status', status),
+        _kv('Completion ready', str(summary.get('completion_ready'))),
+        _kv('Scope', summary.get('scope')),
+        _kv('RKO poses', _fmt_int(summary.get('poses'))),
+        _kv('Trajectory duration', _fmt_num(summary.get('duration_sec'), ' s', digits=1)),
+        _kv('Relocalization events', _fmt_int(summary.get('relocalization_events'))),
+        _kv('Accepted recovery scans', _fmt_int(summary.get('recovery_accept_events'))),
+        _kv('Dropped invalid scans', _fmt_int(summary.get('dropped_scan_events'))),
+        _kv('Loop candidates', _fmt_int(summary.get('loop_candidates'))),
+        _kv('Nearest revisit', _fmt_num(summary.get('nearest_revisit_m'), ' m', digits=3)),
+        _kv('Max loop distance', _fmt_num(summary.get('max_loop_distance_m'), ' m', digits=3)),
+        _kv('Autoware verify', summary.get('autoware_status')),
+        _kv('Tracked config match', str(summary.get('config_matches'))),
+    ])
+    parts = [
+        f'<div class="loop-alignment-status status {status.lower()}">{_h(status)}</div>',
+        '<div class="panel-list">',
+        kvs,
+        '</div>',
+    ]
+    next_actions = summary.get('next_actions') or []
+    if next_actions:
+        parts.append('<h3>Next Actions</h3>')
+        parts.append('<ul class="next-actions">')
+        for action in next_actions[:3]:
+            parts.append(f'<li>{_h(action)}</li>')
+        parts.append('</ul>')
+    return ''.join(parts)
+
+
+def _segment_map_alignment_panel(summary: dict[str, Any]) -> str:
+    if not summary or not summary.get('present'):
+        return '<p class="empty">No segment map cloud alignment artifact found.</p>'
+
+    status = str(summary.get('status') or 'MISSING').upper()
+
+    def _fmt_num(value: Any, suffix: str = '', digits: int = 2) -> str:
+        if isinstance(value, (int, float)):
+            return f'{float(value):.{digits}f}{suffix}'
+        return 'n/a'
+
+    def _fmt_int(value: Any) -> str:
+        if isinstance(value, (int, float)):
+            return f'{int(value)}'
+        return 'n/a'
+
+    kvs = ''.join([
+        _kv('Status', status),
+        _kv('Start analysis points', _fmt_int(summary.get('start_points'))),
+        _kv('End analysis points', _fmt_int(summary.get('end_points'))),
+        _kv('Crop radius', _fmt_num(summary.get('crop_radius_m'), ' m')),
+        _kv('Aligned median NN', _fmt_num(summary.get('median_nn_m'), ' m', digits=3)),
+        _kv('Aligned p90 NN', _fmt_num(summary.get('p90_nn_m'), ' m', digits=3)),
+        _kv('Coverage within 1m', _fmt_num(summary.get('coverage_within_1m'), '', digits=3)),
+        _kv('Start→end translation', _fmt_num(summary.get('translation_norm_m'), ' m')),
+        _kv('Start→end yaw', _fmt_num(summary.get('yaw_deg'), ' deg')),
+        _kv('Aligned PLY', summary.get('ply_path')),
+    ])
+    parts = [
+        f'<div class="loop-alignment-status status {status.lower()}">{_h(status)}</div>',
+        '<div class="panel-list">',
+        kvs,
+        '</div>',
+    ]
+    next_actions = summary.get('next_actions') or []
+    if next_actions:
+        parts.append('<h3>Next Actions</h3>')
+        parts.append('<ul class="next-actions">')
+        for action in next_actions[:3]:
+            parts.append(f'<li>{_h(action)}</li>')
+        parts.append('</ul>')
+    return ''.join(parts)
+
+
+def _map_preview_panel(summary: dict[str, Any]) -> str:
+    if not summary or not summary.get('present'):
+        return '<p class="empty">No 3D map preview artifact found.</p>'
+
+    status = str(summary.get('status') or 'FOUND').upper()
+
+    def _fmt_int(value: Any) -> str:
+        if isinstance(value, (int, float)):
+            return f'{int(value)}'
+        return 'n/a'
+
+    href = str(summary.get('html_href') or '')
+    open_link = ''
+    if href:
+        open_link = (
+            '<p class="preview-link">'
+            f'<a href="{_h(href)}">Open 3D map preview</a>'
+            '</p>'
+        )
+
+    kvs = ''.join([
+        _kv('Status', status),
+        _kv('Cloud points', _fmt_int(summary.get('cloud_points'))),
+        _kv('Browser preview points', _fmt_int(summary.get('html_points'))),
+        _kv('Trajectory poses', _fmt_int(summary.get('trajectory_poses'))),
+        _kv('Loop candidates', _fmt_int(summary.get('loop_candidates'))),
+        _kv('Pointcloud map', summary.get('pointcloud_map_dir')),
+        _kv('PLY', summary.get('ply_path')),
+        _kv('Overlay JSON', summary.get('overlay_json')),
+    ])
+    parts = [
+        f'<div class="loop-alignment-status status {status.lower()}">{_h(status)}</div>',
+        open_link,
+        '<div class="panel-list">',
+        kvs,
+        '</div>',
+    ]
+    next_actions = summary.get('next_actions') or []
+    if next_actions:
+        parts.append('<h3>Next Actions</h3>')
+        parts.append('<ul class="next-actions">')
+        for action in next_actions[:3]:
+            parts.append(f'<li>{_h(action)}</li>')
+        parts.append('</ul>')
+    return ''.join(parts)
+
+
 def _commands_panel(commands: list[dict[str, str]]) -> str:
     if not commands:
         return '<p class="empty">No commands found.</p>'
@@ -892,6 +1154,15 @@ pre {
   border-radius: 8px;
   color: var(--muted);
   background: #fff;
+}
+.preview-link a {
+  display: inline-block;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
 }
 @media (max-width: 760px) {
   main { width: min(100vw - 20px, 720px); margin-top: 10px; }

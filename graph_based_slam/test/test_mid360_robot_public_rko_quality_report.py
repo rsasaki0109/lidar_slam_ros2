@@ -152,6 +152,7 @@ def test_quality_report_summarizes_map_and_trajectory(tmp_path: Path):
         sweep_path,
         thresholds=module.RkoQualityGateThresholds(
             min_trajectory_poses=5,
+            min_trajectory_duration_sec=4.0,
             min_path_length_m=3.0,
             max_step_m=2.0,
             min_map_points=4,
@@ -170,6 +171,7 @@ def test_quality_report_summarizes_map_and_trajectory(tmp_path: Path):
     assert report['cases'][0]['rank'] == 1
     assert report['cases'][0]['quality_gate']['status'] == 'PASS'
     assert report['cases'][0]['trajectory']['poses'] == 5
+    assert report['cases'][0]['trajectory']['duration_sec'] == 4.0
     assert report['cases'][0]['trajectory']['path_length_m'] == 4.0
     assert report['cases'][0]['map_quality']['tile_count'] == 1
     assert report['cases'][0]['map_quality']['point_density_per_m2'] == 0.01
@@ -209,6 +211,8 @@ def test_quality_report_cli_outputs_json(tmp_path: Path):
             str(output_dir),
             '--min-trajectory-poses',
             '5',
+            '--min-trajectory-duration-sec',
+            '4',
             '--min-path-length-m',
             '3',
             '--min-map-points',
@@ -229,3 +233,30 @@ def test_quality_report_cli_outputs_json(tmp_path: Path):
     assert (output_dir / module.RKO_QUALITY_JSON).is_file()
     assert (output_dir / module.RKO_QUALITY_MARKDOWN).is_file()
     assert (output_dir / module.RKO_QUALITY_HTML).is_file()
+
+
+def test_quality_gate_fails_short_trajectory_duration(tmp_path: Path):
+    module = _quality_module()
+    sweep_path = _write_sweep(tmp_path)
+
+    report = module.RkoQualityReportBuilder(
+        sweep_path,
+        thresholds=module.RkoQualityGateThresholds(
+            min_trajectory_poses=5,
+            min_trajectory_duration_sec=10.0,
+            min_path_length_m=3.0,
+            max_step_m=2.0,
+            min_map_points=4,
+            min_map_tiles=1,
+            max_runtime_sec=20.0,
+        ),
+    ).build_report()
+
+    best = report['cases'][0]
+    checks = {
+        check['id']: check['status']
+        for check in best['quality_gate']['checks']
+    }
+    assert report['status'] == 'WARN'
+    assert best['quality_gate']['status'] == 'FAIL'
+    assert checks['trajectory_duration'] == 'FAIL'
