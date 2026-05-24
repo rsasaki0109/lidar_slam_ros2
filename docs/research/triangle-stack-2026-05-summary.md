@@ -95,8 +95,13 @@ This is left open for future instrumentation work.
 ## The fix is MID-360-specific (PRs #187, #189)
 
 - **Newer College math_hard** (`graphbasedslam_indoor.yaml`, `max_pairs=64`):
-  2026-05-19 3-run had Δ APE +0.004 ± 0.022 m (variance-bounded). Newer
-  code path was unchanged across the 7 PRs, so the data is still valid.
+  2026-05-19 3-run had Δ APE +0.004 ± 0.022 m (variance-bounded). A
+  **post-v0.3.0 3-run at HEAD (2026-05-25)** using the same base param
+  (via the PR #192 `--skip-reference-gen` plumbing) gave
+  Δ APE −0.0094 ± 0.0108 m, |Δ|/σ = 0.87 — still variance-bounded, but
+  the mean now favors triangle and the candidate std roughly halved
+  (0.025 → 0.010 m). See
+  `output/triangle_ablation_newer_3run_at_v030_20260525_090437/SUMMARY.md`.
 - **NTU VIRAL tnp_01** (`graphbasedslam.yaml`, `max_pairs=24`, PR #183
   5-run aggregate): Δ APE -0.039 ± 0.093 m (variance-bounded).
 - **NTU skip_ransac 3-run direct test (PR #189)**: Δ APE -0.013 ± 0.047 m
@@ -146,10 +151,11 @@ datasets / configs. It is not for production use.
    std::async or searchLoop ticked on map_array messages instead of
    wall-clock, both APE and variance should tighten on every preset
    (NTU side observation supports this).
-3. **Newer College APE at current develop HEAD** — the 3-run baseline
-   from 2026-05-19 is still trusted because Newer code path didn't
-   change, but a confirmation run at the post-#189 HEAD would close the
-   "did 7 PRs touch anything we missed?" question definitively.
+3. ~~**Newer College APE at current develop HEAD**~~ — **answered 2026-05-25**
+   via PR #192 (`--skip-reference-gen` plumbing). Post-v0.3.0 3-run gave
+   Δ APE −0.0094 ± 0.0108 m (|Δ|/σ = 0.87), still variance-bounded but
+   no regression introduced by the #183–#191 series; candidate variance
+   ~halved vs the 2026-05-19 baseline.
 
 ## Files
 
