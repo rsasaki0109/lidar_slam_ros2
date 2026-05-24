@@ -45,6 +45,12 @@ RELEASE_READINESS_SCRIPT = (
 )
 
 
+def _write_json(path: Path, payload: dict) -> None:
+    """Write a JSON fixture."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding='utf-8')
+
+
 def _write_metrics(
     run_dir: Path,
     *,
@@ -96,6 +102,100 @@ def _write_metrics(
         json.dumps(metrics, indent=2),
         encoding='utf-8',
     )
+
+
+def _write_minimal_autoware_map(run_dir: Path, *, tum_poses: int) -> None:
+    """Write a minimal map directory accepted by the Autoware map verifier."""
+    pointcloud_map = run_dir / 'pointcloud_map'
+    pointcloud_map.mkdir(parents=True, exist_ok=True)
+    (run_dir / 'map_projector_info.yaml').write_text(
+        'projector_type: local\n',
+        encoding='utf-8',
+    )
+    (pointcloud_map / 'pointcloud_map_metadata.yaml').write_text(
+        'x_resolution: 20\n'
+        'y_resolution: 20\n'
+        '0_0.pcd: [0, 0]\n',
+        encoding='utf-8',
+    )
+    (pointcloud_map / '0_0.pcd').write_text(
+        '# .PCD v0.7\n'
+        'VERSION 0.7\n'
+        'FIELDS x y z\n'
+        'SIZE 4 4 4\n'
+        'TYPE F F F\n'
+        'COUNT 1 1 1\n'
+        'WIDTH 1\n'
+        'HEIGHT 1\n'
+        'POINTS 1\n'
+        'DATA ascii\n'
+        '1.0 2.0 0.0\n',
+        encoding='ascii',
+    )
+    (run_dir / 'fake_tum_0.txt').write_text(
+        ''.join(f'{float(index):.1f} {index} 0 0 0 0 0 1\n' for index in range(tum_poses)),
+        encoding='ascii',
+    )
+
+
+def _write_public_mid360_completion_fixture(
+    root: Path,
+    *,
+    matched_case: str = 'case_a',
+    recommended_case: str = 'case_a',
+) -> dict[str, Path]:
+    """Write artifacts consumed by the public MID-360 completion gate."""
+    start_run = root / 'segment_000'
+    end_run = root / 'segment_012'
+    _write_minimal_autoware_map(start_run, tum_poses=60)
+    _write_minimal_autoware_map(end_run, tum_poses=70)
+    dashboard = root / 'dashboard.html'
+    dashboard.write_text('<html>dashboard</html>\n', encoding='utf-8')
+    loop_cloud = root / 'loop_cloud.json'
+    segment_plan = root / 'segment_plan.json'
+    alignment = root / 'alignment.json'
+    adoption = root / 'adoption.json'
+    _write_json(loop_cloud, {'status': 'PASS', 'overlap': {'symmetric_median_nn_m': 0.2}})
+    _write_json(
+        segment_plan,
+        {
+            'status': 'PASS',
+            'reset_pair': {
+                'start': {'status': 'PASS', 'segment': {'segment_id': 'segment_000'}},
+                'end': {'status': 'PASS', 'segment': {'segment_id': 'segment_012'}},
+            },
+        },
+    )
+    _write_json(
+        alignment,
+        {
+            'status': 'PASS',
+            'aligned_overlap': {
+                'symmetric_median_nn_m': 0.6,
+                'symmetric_p90_nn_m': 2.1,
+            },
+        },
+    )
+    _write_json(
+        adoption,
+        {
+            'status': 'PASS',
+            'decision': {
+                'matched_case': matched_case,
+                'recommended_case': recommended_case,
+                'gate_pass_cases': 2,
+            },
+        },
+    )
+    return {
+        'loop_cloud': loop_cloud,
+        'segment_plan': segment_plan,
+        'start_run': start_run,
+        'end_run': end_run,
+        'alignment': alignment,
+        'adoption': adoption,
+        'dashboard': dashboard,
+    }
 
 
 def test_benchmark_summary_ranks_runs_and_writes_artifacts(tmp_path):
@@ -444,3 +544,105 @@ def test_release_readiness_fails_on_threshold_violation(tmp_path):
     assert (out_dir / 'benchmark_summary.md').is_file()
     assert not (out_dir / 'benchmark_report.html').exists()
     assert 'error: APE threshold failed for runs: run_bad' in result.stdout
+
+
+def test_release_readiness_can_run_public_mid360_completion_gate(tmp_path):
+    """Release-readiness should optionally hard-gate public MID-360 completion."""
+    fixture = _write_public_mid360_completion_fixture(tmp_path / 'public_mid360_fixture')
+    out_dir = tmp_path / 'release_readiness'
+    gate_dir = out_dir / 'public_mid360_gate'
+
+    result = subprocess.run(
+        [
+            'bash',
+            str(RELEASE_READINESS_SCRIPT),
+            '--skip-default-ci',
+            '--skip-benchmark-summary',
+            '--out-dir',
+            str(out_dir),
+            '--public-mid360-completion',
+            '--public-mid360-completion-output-dir',
+            str(gate_dir),
+            '--public-mid360-loop-cloud',
+            str(fixture['loop_cloud']),
+            '--public-mid360-segment-reset-plan',
+            str(fixture['segment_plan']),
+            '--public-mid360-start-run-dir',
+            str(fixture['start_run']),
+            '--public-mid360-end-run-dir',
+            str(fixture['end_run']),
+            '--public-mid360-segment-map-alignment',
+            str(fixture['alignment']),
+            '--public-mid360-adoption-gate',
+            str(fixture['adoption']),
+            '--public-mid360-dashboard-html',
+            str(fixture['dashboard']),
+            '--public-mid360-min-segment-rko-poses',
+            '50',
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+
+    assert result.returncode == 0, result.stderr
+    report_path = gate_dir / 'mid360_robot_public_completion_gate.json'
+    assert report_path.is_file()
+    report = json.loads(report_path.read_text(encoding='utf-8'))
+    assert report['status'] == 'PASS'
+    assert report['counts']['pass'] == 11
+    assert 'public_mid360_completion_gate_json:' in result.stdout
+
+
+def test_release_readiness_fails_when_public_mid360_completion_gate_fails(tmp_path):
+    """The public MID-360 completion hook should be a hard gate when enabled."""
+    fixture = _write_public_mid360_completion_fixture(
+        tmp_path / 'public_mid360_fixture',
+        matched_case='case_b',
+        recommended_case='case_a',
+    )
+    out_dir = tmp_path / 'release_readiness'
+    gate_dir = out_dir / 'public_mid360_gate'
+
+    result = subprocess.run(
+        [
+            'bash',
+            str(RELEASE_READINESS_SCRIPT),
+            '--skip-default-ci',
+            '--skip-benchmark-summary',
+            '--out-dir',
+            str(out_dir),
+            '--public-mid360-completion',
+            '--public-mid360-completion-output-dir',
+            str(gate_dir),
+            '--public-mid360-loop-cloud',
+            str(fixture['loop_cloud']),
+            '--public-mid360-segment-reset-plan',
+            str(fixture['segment_plan']),
+            '--public-mid360-start-run-dir',
+            str(fixture['start_run']),
+            '--public-mid360-end-run-dir',
+            str(fixture['end_run']),
+            '--public-mid360-segment-map-alignment',
+            str(fixture['alignment']),
+            '--public-mid360-adoption-gate',
+            str(fixture['adoption']),
+            '--public-mid360-dashboard-html',
+            str(fixture['dashboard']),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+
+    assert result.returncode == 1
+    report = json.loads(
+        (gate_dir / 'mid360_robot_public_completion_gate.json').read_text(encoding='utf-8')
+    )
+    assert report['status'] == 'FAIL'
+    assert any(
+        check['id'] == 'tracked_config_matches_top_gate' and check['status'] == 'FAIL'
+        for check in report['checks']
+    )

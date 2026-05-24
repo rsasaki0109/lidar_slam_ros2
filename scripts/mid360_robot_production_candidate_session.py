@@ -37,6 +37,9 @@ DEFAULT_PUBLIC_RKO_CONFIG = (
     / 'mid360_robot'
     / 'rko_lio_mid360_low_voxel_no_deskew.yaml'
 )
+SEGMENT_MAP_ALIGNMENT_JSON = 'mid360_robot_public_segment_map_cloud_alignment.json'
+SEGMENT_MAP_ALIGNMENT_MARKDOWN = 'mid360_robot_public_segment_map_cloud_alignment.md'
+SEGMENT_MAP_ALIGNMENT_PLY = 'mid360_robot_public_segment_map_cloud_alignment.ply'
 
 
 @dataclass(frozen=True)
@@ -67,6 +70,7 @@ class ProductionCandidateSessionOptions:
     public_rko_config: Path = DEFAULT_PUBLIC_RKO_CONFIG
     public_rko_output_dir: Path | None = None
     adoption_gate: Path | None = None
+    segment_map_alignment: Path | None = None
     allow_non_best: bool = False
     map_run_name: str = ''
     map_save_timeout_secs: str = ''
@@ -504,6 +508,19 @@ class Mid360ProductionCandidateSessionRunner:
         steps: list[ProductionCandidateStep],
     ) -> dict[str, Any]:
         public_output_dir = self._public_rko_output_dir(options, output_dir)
+        segment_map_alignment_json = _optional_artifact_path(
+            output_dir,
+            options.segment_map_alignment,
+            SEGMENT_MAP_ALIGNMENT_JSON,
+        )
+        segment_map_alignment_markdown = _sibling_optional_artifact_path(
+            segment_map_alignment_json,
+            SEGMENT_MAP_ALIGNMENT_MARKDOWN,
+        )
+        segment_map_alignment_ply = _sibling_optional_artifact_path(
+            segment_map_alignment_json,
+            SEGMENT_MAP_ALIGNMENT_PLY,
+        )
         artifacts = {
             'profile_snapshot': str(plan.profile_snapshot_path),
             'record_plan_json': str(plan.manifest_json_path),
@@ -517,6 +534,9 @@ class Mid360ProductionCandidateSessionRunner:
             'public_rko_adoption_gate_markdown': str(public_output_dir / 'mid360_robot_public_rko_adoption_gate.md'),
             'production_readiness_json': str(output_dir / PRODUCTION_READINESS_JSON),
             'production_readiness_markdown': str(output_dir / PRODUCTION_READINESS_MARKDOWN),
+            'segment_map_alignment_json': str(segment_map_alignment_json),
+            'segment_map_alignment_markdown': str(segment_map_alignment_markdown),
+            'segment_map_alignment_ply': str(segment_map_alignment_ply),
             'dashboard_html': str(output_dir / DASHBOARD_HTML),
             'production_candidate_session_json': str(output_dir / PRODUCTION_CANDIDATE_SESSION_JSON),
             'production_candidate_session_markdown': str(output_dir / PRODUCTION_CANDIDATE_SESSION_MARKDOWN),
@@ -602,6 +622,7 @@ def render_production_candidate_session_markdown(report: dict[str, Any]) -> str:
         'map_diagnosis_json',
         'public_rko_adoption_gate_json',
         'production_readiness_json',
+        'segment_map_alignment_json',
         'dashboard_html',
         'production_candidate_session_json',
     ):
@@ -702,6 +723,16 @@ def _status_from_steps(steps: list[ProductionCandidateStep]) -> str:
     if any(step.status == 'warn' for step in steps):
         return 'WARN'
     return 'PASS'
+
+
+def _optional_artifact_path(output_dir: Path, explicit_path: Path | None, default_name: str) -> Path:
+    if explicit_path is not None:
+        return explicit_path.expanduser().resolve()
+    return output_dir / default_name
+
+
+def _sibling_optional_artifact_path(json_path: Path, sibling_name: str) -> Path:
+    return json_path.parent / sibling_name
 
 
 def _count_steps(steps: list[ProductionCandidateStep]) -> dict[str, int]:

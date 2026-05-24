@@ -18,6 +18,26 @@ Options:
   --fail-on-profiles            Exit non-zero if any release-profile FAILs
   --skip-default-ci             Skip scripts/run_default_ci_checks.sh
   --skip-benchmark-summary      Skip benchmark summary generation
+  --public-mid360-completion    Run the public MID-360 segment-reset completion gate
+  --public-mid360-completion-output-dir <dir>
+                                Output directory for the public MID-360 gate
+                                (default: <out-dir>/mid360_public_completion_gate)
+  --public-mid360-loop-cloud <json>
+                                Override public loop-cloud analysis JSON
+  --public-mid360-segment-reset-plan <json>
+                                Override segment-reset plan JSON
+  --public-mid360-start-run-dir <dir>
+                                Override start segment RKO run directory
+  --public-mid360-end-run-dir <dir>
+                                Override end segment RKO run directory
+  --public-mid360-segment-map-alignment <json>
+                                Override segment map alignment JSON
+  --public-mid360-adoption-gate <json>
+                                Override public RKO adoption-gate JSON
+  --public-mid360-dashboard-html <html>
+                                Override segment-reset dashboard HTML
+  --public-mid360-min-segment-rko-poses <n>
+                                Minimum TUM poses for each reset segment
   --dogfood                     Run the Autoware pointcloud-map dogfood flow
   --autoware-core-dir <dir>     autoware_core checkout for dogfood
   --work-dir <dir>              Runtime workspace directory for dogfood
@@ -30,7 +50,8 @@ This script is intended as a release/readiness gate for the default workflow.
 It can run:
   1. local build/test verification
   2. benchmark summary and HTML report generation from existing metrics.json runs
-  3. optional Autoware map dogfood
+  3. optional public MID-360 segment-reset completion gate
+  4. optional Autoware map dogfood
 
 When --ape-threshold is provided, the benchmark summary becomes a hard gate and
 the script exits non-zero if any selected run is missing APE or exceeds the
@@ -56,7 +77,18 @@ RELEASE_PROFILE="${REPO_ROOT}/scripts/release_profiles.yaml"
 FAIL_ON_PROFILES=false
 RUN_DEFAULT_CI=true
 RUN_BENCHMARK_SUMMARY=true
+RUN_PUBLIC_MID360_COMPLETION=false
 RUN_DOGFOOD=false
+
+PUBLIC_MID360_COMPLETION_OUTPUT_DIR=""
+PUBLIC_MID360_LOOP_CLOUD=""
+PUBLIC_MID360_SEGMENT_RESET_PLAN=""
+PUBLIC_MID360_START_RUN_DIR=""
+PUBLIC_MID360_END_RUN_DIR=""
+PUBLIC_MID360_SEGMENT_MAP_ALIGNMENT=""
+PUBLIC_MID360_ADOPTION_GATE=""
+PUBLIC_MID360_DASHBOARD_HTML=""
+PUBLIC_MID360_MIN_SEGMENT_RKO_POSES=""
 
 AUTOWARE_CORE_DIR=""
 WORK_DIR=""
@@ -106,6 +138,55 @@ while [[ $# -gt 0 ]]; do
     --skip-benchmark-summary)
       RUN_BENCHMARK_SUMMARY=false
       shift
+      ;;
+    --public-mid360-completion)
+      RUN_PUBLIC_MID360_COMPLETION=true
+      shift
+      ;;
+    --public-mid360-completion-output-dir)
+      [[ $# -ge 2 ]] || usage
+      PUBLIC_MID360_COMPLETION_OUTPUT_DIR=$(realpath -m "$2")
+      shift 2
+      ;;
+    --public-mid360-loop-cloud)
+      [[ $# -ge 2 ]] || usage
+      PUBLIC_MID360_LOOP_CLOUD=$(realpath -m "$2")
+      shift 2
+      ;;
+    --public-mid360-segment-reset-plan)
+      [[ $# -ge 2 ]] || usage
+      PUBLIC_MID360_SEGMENT_RESET_PLAN=$(realpath -m "$2")
+      shift 2
+      ;;
+    --public-mid360-start-run-dir)
+      [[ $# -ge 2 ]] || usage
+      PUBLIC_MID360_START_RUN_DIR=$(realpath -m "$2")
+      shift 2
+      ;;
+    --public-mid360-end-run-dir)
+      [[ $# -ge 2 ]] || usage
+      PUBLIC_MID360_END_RUN_DIR=$(realpath -m "$2")
+      shift 2
+      ;;
+    --public-mid360-segment-map-alignment)
+      [[ $# -ge 2 ]] || usage
+      PUBLIC_MID360_SEGMENT_MAP_ALIGNMENT=$(realpath -m "$2")
+      shift 2
+      ;;
+    --public-mid360-adoption-gate)
+      [[ $# -ge 2 ]] || usage
+      PUBLIC_MID360_ADOPTION_GATE=$(realpath -m "$2")
+      shift 2
+      ;;
+    --public-mid360-dashboard-html)
+      [[ $# -ge 2 ]] || usage
+      PUBLIC_MID360_DASHBOARD_HTML=$(realpath -m "$2")
+      shift 2
+      ;;
+    --public-mid360-min-segment-rko-poses)
+      [[ $# -ge 2 ]] || usage
+      PUBLIC_MID360_MIN_SEGMENT_RKO_POSES="$2"
+      shift 2
       ;;
     --dogfood)
       RUN_DOGFOOD=true
@@ -195,6 +276,44 @@ if [[ "${RUN_BENCHMARK_SUMMARY}" == "true" ]]; then
   fi
 fi
 
+if [[ "${RUN_PUBLIC_MID360_COMPLETION}" == "true" ]]; then
+  if [[ -z "${PUBLIC_MID360_COMPLETION_OUTPUT_DIR}" ]]; then
+    PUBLIC_MID360_COMPLETION_OUTPUT_DIR="${OUT_DIR}/mid360_public_completion_gate"
+  fi
+  echo "==> Running public MID-360 completion gate"
+  PUBLIC_MID360_CMD=(
+    python3
+    "${REPO_ROOT}/scripts/run_mid360_robot_public_completion_gate.py"
+    --json
+    --output-dir "${PUBLIC_MID360_COMPLETION_OUTPUT_DIR}"
+  )
+  if [[ -n "${PUBLIC_MID360_LOOP_CLOUD}" ]]; then
+    PUBLIC_MID360_CMD+=(--loop-cloud "${PUBLIC_MID360_LOOP_CLOUD}")
+  fi
+  if [[ -n "${PUBLIC_MID360_SEGMENT_RESET_PLAN}" ]]; then
+    PUBLIC_MID360_CMD+=(--segment-reset-plan "${PUBLIC_MID360_SEGMENT_RESET_PLAN}")
+  fi
+  if [[ -n "${PUBLIC_MID360_START_RUN_DIR}" ]]; then
+    PUBLIC_MID360_CMD+=(--start-run-dir "${PUBLIC_MID360_START_RUN_DIR}")
+  fi
+  if [[ -n "${PUBLIC_MID360_END_RUN_DIR}" ]]; then
+    PUBLIC_MID360_CMD+=(--end-run-dir "${PUBLIC_MID360_END_RUN_DIR}")
+  fi
+  if [[ -n "${PUBLIC_MID360_SEGMENT_MAP_ALIGNMENT}" ]]; then
+    PUBLIC_MID360_CMD+=(--segment-map-alignment "${PUBLIC_MID360_SEGMENT_MAP_ALIGNMENT}")
+  fi
+  if [[ -n "${PUBLIC_MID360_ADOPTION_GATE}" ]]; then
+    PUBLIC_MID360_CMD+=(--adoption-gate "${PUBLIC_MID360_ADOPTION_GATE}")
+  fi
+  if [[ -n "${PUBLIC_MID360_DASHBOARD_HTML}" ]]; then
+    PUBLIC_MID360_CMD+=(--dashboard-html "${PUBLIC_MID360_DASHBOARD_HTML}")
+  fi
+  if [[ -n "${PUBLIC_MID360_MIN_SEGMENT_RKO_POSES}" ]]; then
+    PUBLIC_MID360_CMD+=(--min-segment-rko-poses "${PUBLIC_MID360_MIN_SEGMENT_RKO_POSES}")
+  fi
+  "${PUBLIC_MID360_CMD[@]}" 2>&1 | tee "${OUT_DIR}/public_mid360_completion_gate.log"
+fi
+
 if [[ "${RUN_DOGFOOD}" == "true" ]]; then
   echo "==> Running Autoware pointcloud-map dogfood"
   DOGFOOD_CMD=(
@@ -229,4 +348,12 @@ if [[ -f "${OUT_DIR}/benchmark_summary.csv" ]]; then
 fi
 if [[ -f "${OUT_DIR}/benchmark_report.html" ]]; then
   echo "  benchmark_report_html: ${OUT_DIR}/benchmark_report.html"
+fi
+if [[ -n "${PUBLIC_MID360_COMPLETION_OUTPUT_DIR}" \
+  && -f "${PUBLIC_MID360_COMPLETION_OUTPUT_DIR}/mid360_robot_public_completion_gate.json" ]]; then
+  echo "  public_mid360_completion_gate_json: ${PUBLIC_MID360_COMPLETION_OUTPUT_DIR}/mid360_robot_public_completion_gate.json"
+fi
+if [[ -n "${PUBLIC_MID360_COMPLETION_OUTPUT_DIR}" \
+  && -f "${PUBLIC_MID360_COMPLETION_OUTPUT_DIR}/mid360_robot_public_completion_gate.md" ]]; then
+  echo "  public_mid360_completion_gate_md: ${PUBLIC_MID360_COMPLETION_OUTPUT_DIR}/mid360_robot_public_completion_gate.md"
 fi

@@ -159,6 +159,7 @@ def _thresholds():
     quality = _quality_module()
     return quality.RkoQualityGateThresholds(
         min_trajectory_poses=5,
+        min_trajectory_duration_sec=4.0,
         min_path_length_m=3.0,
         max_step_m=2.0,
         min_map_points=4,
@@ -210,6 +211,8 @@ def test_adoption_gate_cli_fails_for_non_matching_config(tmp_path: Path):
             str(config_path),
             '--min-trajectory-poses',
             '5',
+            '--min-trajectory-duration-sec',
+            '4',
             '--min-path-length-m',
             '3',
             '--max-step-m',

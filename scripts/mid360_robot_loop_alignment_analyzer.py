@@ -89,6 +89,30 @@ def find_nearest_revisit(
     return _find_nearest_revisit(poses, thresholds)
 
 
+def resolve_pointcloud_map_dir(run_dir: Path, pointcloud_map_dir: Path | None = None) -> Path:
+    """Resolve a run directory to its Autoware pointcloud_map directory."""
+    return _resolve_map_dir(run_dir.expanduser().resolve(), pointcloud_map_dir)
+
+
+def resolve_trajectory_path(run_dir: Path, trajectory_path: Path | None = None) -> Path | None:
+    """Resolve a run directory to a likely TUM trajectory path."""
+    return _resolve_trajectory_path(run_dir.expanduser().resolve(), trajectory_path)
+
+
+def load_pointcloud_map_points(
+    map_dir: Path,
+    *,
+    max_points_per_tile: int,
+    max_total_points: int,
+) -> dict[str, Any]:
+    """Load sampled XYZ points from an Autoware pointcloud_map directory."""
+    return _load_cloud_points(
+        map_dir.expanduser().resolve(),
+        max_points_per_tile=max_points_per_tile,
+        max_total_points=max_total_points,
+    )
+
+
 class Mid360LoopAlignmentAnalyzer:
     """Analyze trajectory loop candidates and local cloud split risk."""
 
