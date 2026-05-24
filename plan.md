@@ -329,6 +329,7 @@ PR #185 で発見した「RANSAC compute cost が +1m drift の dominant source�
 **Generalization to other datasets (確認済)**:
 - ✅ `graphbasedslam_indoor.yaml` (Newer College math_hard) は max_pairs=64 でも 2026-05-19 3-run で **Δ APE +0.004 ± 0.022 m (variance 内)** = drift 観測されない (variance_summary.json)。post-#186 でも Newer 経路に C++ 変更なし → 結果有効。**同 fix 不要**
 - ✅ generic `graphbasedslam.yaml` (NTU 系 outdoor 360°) も PR #183 で variance 内 = **変更不要**
+- ✅ **NTU skip_ransac 3-run (2026-05-24)** で **RANSAC compute が NTU APE に影響しないことを直接実験で裏付け**: RANSAC ON Δ -0.019 ± 0.125m vs RANSAC OFF Δ -0.013 ± 0.047m (両方 variance 内、mean 同等)。PR #187 の「MID-360 specific」結論を independent experiment で確証 (skip_ransac で std が 3x tighter = wall-clock variability 減少示唆)
 
 **Generalization finding**: `+1m APE drift` は **MID-360 narrow-FOV 特有**で、indoor (Newer College) / outdoor 360° (NTU) には generalize しない。仮説:
 - APE スケールが違う: MID-360 base ~3-5m vs Newer ~0.1m vs NTU ~1.4m
