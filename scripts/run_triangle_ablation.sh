@@ -53,7 +53,16 @@ Required:
 
 Optional:
   --rko-param <file>         RKO-LIO parameter YAML (forwarded)
-  --reference-bag <dir>      reference bag (forwarded)
+  --reference-bag <dir>      reference bag (forwarded; only required when the
+                             NTU VIRAL reference generator is invoked, i.e.
+                             when --skip-reference-gen is NOT passed)
+  --skip-reference-gen       Reuse the provided --reference-tum / --reference-meta
+                             without invoking the NTU-VIRAL-specific reference
+                             generator. Required when running on non-NTU bags
+                             (Newer College, MID-360, custom).
+  --reference-source <label> Label stored in metrics.json (forwarded; e.g.
+                             "newer_college_gt", default in benchmark script:
+                             "leica_prism_gt")
   --report-out <file>        markdown report path
                              (default: <output-dir>/triangle_ablation_report.md)
   --keep-yaml                keep the derived baseline / candidate YAMLs
@@ -76,6 +85,8 @@ RKO_PARAM=""
 OUTPUT_DIR=""
 REPORT_OUT=""
 KEEP_YAML=false
+SKIP_REFERENCE_GEN=false
+REFERENCE_SOURCE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -90,6 +101,8 @@ while [[ $# -gt 0 ]]; do
     --output-dir)     OUTPUT_DIR="$2"; shift 2;;
     --report-out)     REPORT_OUT="$2"; shift 2;;
     --keep-yaml)      KEEP_YAML=true; shift;;
+    --skip-reference-gen) SKIP_REFERENCE_GEN=true; shift;;
+    --reference-source)   REFERENCE_SOURCE="$2"; shift 2;;
     --help|-h)        usage;;
     *) echo "Unknown argument: $1" >&2; usage;;
   esac
@@ -164,6 +177,12 @@ run_one() {
   fi
   if [[ -n "$RKO_PARAM" ]]; then
     args+=(--rko-param "$RKO_PARAM")
+  fi
+  if [[ "$SKIP_REFERENCE_GEN" == "true" ]]; then
+    args+=(--skip-reference-gen)
+  fi
+  if [[ -n "$REFERENCE_SOURCE" ]]; then
+    args+=(--reference-source "$REFERENCE_SOURCE")
   fi
   echo "=== Running ${label} ==="
   bash "${SCRIPT_DIR}/run_rko_lio_graph_benchmark.sh" "${args[@]}"
