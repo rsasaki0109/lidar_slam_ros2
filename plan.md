@@ -95,6 +95,8 @@ bash scripts/sweep_kitti_small_gicp.sh --dataset /path/to/KITTI_odometry --seque
 
 ## 1.2 追加トラック（2026-05）：STD/BTC 風 Triangle Descriptor 自前実装
 
+> 🧭 **2026-05-24/25 research arc closeout**: PR #183-#189 の variance / RANSAC-cost / max_pairs sweep の operator 向け narrative は [`docs/research/triangle-stack-2026-05-summary.md`](../docs/research/triangle-stack-2026-05-summary.md) を参照。本セクションは時系列の詳細記録 (実装 PR + 各 ablation 結果) を保持。
+
 ### 目的
 - **MID-360 のような narrow-FOV / 短距離 LiDAR** で Scan Context が縮退するケースに備え、edge-length 不変な三角形ハッシュ系の place recognition を **BSD-2 自前実装** で導入する。
 - STD (Stable Triangle Descriptor) / BTC (Binary Triangle Code) の原理だけ拾い、GPLv2 / ライセンス不明な公式実装には触れずに書く（[[project_place_recognition_license]] 参照）。
