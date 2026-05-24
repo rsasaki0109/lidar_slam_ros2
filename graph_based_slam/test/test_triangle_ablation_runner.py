@@ -64,7 +64,8 @@ def test_script_help_exits_with_usage():
 
 
 def test_script_help_documents_skip_reference_gen():
-    """Help banner documents the non-NTU forwarding flags.
+    """
+    Help banner documents the non-NTU forwarding flags.
 
     --skip-reference-gen / --reference-source must surface in the help banner so
     operators running on non-NTU bags (Newer College, MID-360, custom) can
@@ -84,7 +85,8 @@ def test_script_help_documents_skip_reference_gen():
 
 
 def test_script_accepts_and_forwards_skip_reference_gen(tmp_path: Path):
-    """Forwarded flags reach the inner benchmark script.
+    """
+    Forwarded flags reach the inner benchmark script.
 
     --skip-reference-gen / --reference-source must reach the inner
     run_rko_lio_graph_benchmark.sh invocation. We stub the inner script with a
