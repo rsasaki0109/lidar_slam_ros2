@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.3.0 - 2026-05-25
+
+Public `v3` release. Carries forward the non-GPL default workflow from
+`v0.2.x` and adds end-to-end AWSIM × Autoware, the Livox MID-360 operator
+toolkit, an opt-in STD/BTC-style triangle descriptor research stack with
+variance-validated defaults, dogfood wrapper measurement plumbing, and a
+user-friendly README.
+
+### Highlights
+
+- **AWSIM × Autoware end-to-end pipeline** — sample-map and self-made-map
+  demos, one-command wrappers, lanelet2 generation from TUM trajectory; see
+  `docs/awsim-autonomous-driving-tutorial.md`
+- **Livox MID-360 operator toolkit** — Jetson-class robot-side recording →
+  SLAM → Autoware map workflow with host preflight, bag stamp rewriter,
+  recording / production-candidate sessions, public-dataset map runner, and
+  dashboards
+- **Opt-in STD/BTC-style triangle descriptor stack** — BSD-2 implementation
+  with `edge_3d` keypoint extractor for narrow-FOV / indoor, fine-grained ROS
+  params, a diagnostic `triangle_descriptor_skip_ransac` flag, and an
+  empirically validated MID-360 default of `max_pairs: 16`; default
+  `use_triangle_descriptor: false` on every preset
+- **Dogfood wrapper measurement plumbing** — frame overrides,
+  quiescence-based offline completion, graph-drain wait, corrected-path
+  capture, and reference-TUM APE evaluation
+- **User-friendly README** — 5-minute "try the public default" path, badges,
+  grouped feature lists, progressive disclosure of research tracks
+
+### Research closeout
+
+- 3-dataset variance evidence (NTU / MID-360 / Newer College) shows the
+  triangle stack does not yet provide a reproducible APE win — it is opt-in
+  research only
+- single-run APE claims on MID-360 triangle ablations are unreliable
+  (variance can exceed observed |Δ| by 8x); all reports in this release ran
+  ≥3 runs with mean ± std + `|Δ|/σ`
+- MID-360-specific `+1 m` APE drift was traced to RANSAC compute cost, not
+  the act of enabling the pipeline; `max_pairs: 32 → 16` on the MID-360 yaml
+  eliminates it (U-shaped sweep; `=16` is the empirical sweet spot)
+- full narrative: `docs/research/triangle-stack-2026-05-summary.md`
+
+### Notes
+
+- the recommended public workflow remains `RKO-LIO + graph_based_slam` with
+  distance-based loop closure
+- the default release path remains non-GPL and focused on pointcloud-map
+  generation for Autoware-compatible workflows
+- AWSIM and the triangle stack are additive — they do not change the default
+  public path
+
 ## 0.2.2 - 2026-03-28
 
 Public `v2 beta` patch release focused on release stability and cross-distro CI
