@@ -277,6 +277,33 @@ NTU v5 で確立した「単発結果は信用しない」を 2nd dataset (MID-3
 
 詳細: [`output/triangle_ablation_mid360_3run_tuned_20260524_093504/SUMMARY.md`](../output/triangle_ablation_mid360_3run_tuned_20260524_093504/SUMMARY.md)
 
+### MID-360 RANSAC cost isolation (2026-05-24, follow-up to MID-360 3-run)
+
+PR #184 で発見した「triangle pipeline 有効化だけで +1m drift」の根本原因を切り分け。diagnostic flag `triangle_descriptor_skip_ransac` (default false) を追加し、`accumulateVotes` (hash lookup) は実行するが `findLoopCandidate` (RANSAC) を skip するモードを実装。同じ MID-360 tuned config で 3-run:
+
+| condition | mean Δ APE [m] | std [m] | \|Δ\|/σ |
+|-----------|----------------|---------|---------|
+| RANSAC ON (PR #184 tuned)    | **+1.083** | **0.128** | **8.5** (有意) |
+| RANSAC OFF (skip_ransac=true) | +0.604 | 1.258 | 0.48 (variance 内) |
+
+**結論**: **RANSAC compute cost が systematic +1m drift の dominant source**。
+- RANSAC OFF にすると |Δ|/σ が 8.5 → 0.48 に落ち、baseline と区別不能 (variance 支配的)
+- mean Δ も 1.083 → 0.604 m に半減
+- 残った +0.6m は run-to-run noise (std 1.258m に拡大)
+- accumulateVotes (hash lookup, O(N)) は変動内、findLoopCandidate (RANSAC, O(N²) over max_pairs=32) が問題
+
+**改善候補** (未実装):
+- `triangle_descriptor_max_pairs` を narrow-FOV で 32 → 16 に縮小 (RANSAC O(N²) を 4 分の 1 に)
+- RANSAC を `std::async` で非同期化 (searchLoop hot path から外す)
+- MID-360 で "vote-only mode" — RANSAC skip して candidate submap_id を NDT に渡し、NDT に SE(3) 推定させる
+- `triangle_descriptor_skip_ransac` flag は diagnostic として default false で残す
+
+**運用判断は変わらず**:
+- MID-360 default は `use_triangle_descriptor: false` 維持
+- 改善 PR を出すなら max_pairs 縮小 + 別 dataset での再検証セット
+
+詳細: [`output/triangle_ablation_mid360_skipransac_20260524_101218/SUMMARY.md`](../output/triangle_ablation_mid360_skipransac_20260524_101218/SUMMARY.md)
+
 ---
 
 ## 1.3 追加トラック（2026-05）：Dogfood wrapper measurement plumbing (PR #166)
