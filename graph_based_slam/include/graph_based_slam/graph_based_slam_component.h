@@ -320,6 +320,12 @@ private:
     // N-point Umeyama least-squares. Reduces translation noise by √N versus
     // keeping the single 3-point hypothesis.
     bool triangle_descriptor_refine_se3_with_all_inliers_ {false};
+    // Diagnostic-only: when true, run accumulateVotes (and submap_id selection)
+    // but skip the RANSAC findLoopCandidate inner loop. Used to isolate
+    // "executor scheduling cost of enabling triangle pipeline" from
+    // "RANSAC compute cost" when investigating APE drift on tuned configs.
+    // Default false (production).
+    bool triangle_descriptor_skip_ransac_ {false};
     double triangle_descriptor_inlier_translation_m_ {2.0};
     double triangle_descriptor_inlier_rotation_deg_ {5.0};
     int triangle_descriptor_exclude_recent_ {4};
