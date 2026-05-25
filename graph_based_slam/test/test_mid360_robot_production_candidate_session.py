@@ -197,6 +197,45 @@ def _write_existing_candidate_artifacts(
     )
 
 
+def _write_segment_map_alignment_artifacts(root: Path) -> Path:
+    json_path = root / 'mid360_robot_public_segment_map_cloud_alignment.json'
+    _write_json(
+        json_path,
+        {
+            'status': 'PASS',
+            'clouds': {
+                'start': {'analysis_points': 4525},
+                'end': {'analysis_points': 7291},
+            },
+            'crop': {'crop_radius_m': 20.0},
+            'aligned_overlap': {
+                'symmetric_median_nn_m': 0.632,
+                'symmetric_p90_nn_m': 2.107,
+                'coverage_within_1m': 0.690,
+            },
+            'transform_start_to_end': {
+                'translation_norm_m': 8.54,
+                'yaw_deg': 73.12,
+            },
+            'artifacts': {
+                'ply': str(root / 'mid360_robot_public_segment_map_cloud_alignment.ply'),
+            },
+            'checks': [
+                {'id': 'median_overlap', 'status': 'PASS', 'message': 'median=0.632m'},
+            ],
+        },
+    )
+    (root / 'mid360_robot_public_segment_map_cloud_alignment.md').write_text(
+        '# Alignment\n',
+        encoding='utf-8',
+    )
+    (root / 'mid360_robot_public_segment_map_cloud_alignment.ply').write_text(
+        'ply\n',
+        encoding='utf-8',
+    )
+    return json_path
+
+
 def test_production_candidate_dry_run_writes_session_plan(tmp_path: Path):
     profile_path = _write_profile(tmp_path)
     bag_root = tmp_path / 'bags'
@@ -252,6 +291,9 @@ def test_production_candidate_dry_run_writes_session_plan(tmp_path: Path):
         'mid360_robot_production_readiness.json',
     )
     assert report['dashboard_html_path'].endswith('mid360_robot_session_dashboard.html')
+    assert report['artifact_paths']['segment_map_alignment_json'].endswith(
+        'mid360_robot_public_segment_map_cloud_alignment.json',
+    )
 
 
 @pytest.mark.skipif(
@@ -310,6 +352,7 @@ def test_production_candidate_existing_artifacts_pass_production_gate(tmp_path: 
     output_dir = tmp_path / 'out'
     run_id = 'existing_pass_01'
     _write_existing_candidate_artifacts(output_dir, bag_root / run_id)
+    alignment_json = _write_segment_map_alignment_artifacts(tmp_path / 'alignment')
 
     result = subprocess.run(
         [
@@ -327,6 +370,8 @@ def test_production_candidate_existing_artifacts_pass_production_gate(tmp_path: 
             '600',
             '--output-dir',
             str(output_dir),
+            '--segment-map-alignment',
+            str(alignment_json),
             '--json',
         ],
         check=True,
@@ -350,8 +395,18 @@ def test_production_candidate_existing_artifacts_pass_production_gate(tmp_path: 
     assert readiness['status'] == 'PASS'
     assert readiness['production_ready'] is True
     assert readiness['evidence']['adoption_matched_case'] == 'voxel_0p50_min_1p00_dd_on'
+    assert report['artifact_paths']['segment_map_alignment_json'] == str(alignment_json)
+    assert report['artifact_paths']['segment_map_alignment_markdown'].endswith(
+        'mid360_robot_public_segment_map_cloud_alignment.md',
+    )
+    assert report['artifact_paths']['segment_map_alignment_ply'].endswith(
+        'mid360_robot_public_segment_map_cloud_alignment.ply',
+    )
     assert 'MID-360 Robot Production Candidate' in dashboard
     assert 'Prod Gate' in dashboard
+    assert 'Segment Map Cloud Alignment' in dashboard
+    assert 'Aligned median NN' in dashboard
+    assert 'median_overlap' in dashboard
     assert 'route-node ok' in dashboard
     assert 'voxel_0p50_min_1p00_dd_on' in json.dumps(readiness)
 

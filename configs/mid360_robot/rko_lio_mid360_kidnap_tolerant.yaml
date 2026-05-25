@@ -1,0 +1,28 @@
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+initialization_phase: false
+deskew: false
+# Effectively disable the inter-scan timestamp delta check. The Hard Point
+# Cloud Localization Dataset (outdoor_kidnap) has kidnap-style gaps; once
+# RKO-LIO drops a few frames in a row, lidar_state.time stays stale and the
+# computed delta to "previous scan" grows past 500s. The upstream default
+# is 1.0 s. Raise to 10000 s so RKO-LIO never throws on the cumulative
+# delta and can still process the post-kidnap section toward loop closure.
+max_scan_delta_sec: 10000.0
+
+# Continuous kidnap recovery for public Hard Point Cloud outdoor_kidnap bags.
+# Invalid scans are dropped while advancing time; the next usable scan first
+# tries coarse yaw+ICP relocalization against the unpruned RKO global map, then
+# falls back to a fresh local-map reset so the offline session can continue.
+enable_kidnap_relocalization: true
+reset_on_registration_failure: true
+recovery_min_failures: 1
+relocalize_after_scan_gap: false
+relocalization_min_correspondences: 20
+relocalization_min_inlier_ratio: 0.08
+relocalization_max_mean_error: 2.5
+relocalization_max_correspondance_distance: 10.0
+relocalization_yaw_samples: 36
+relocalization_pose_stride: 1
+relocalization_min_pose_separation: 2600
+relocalization_max_iterations: 20

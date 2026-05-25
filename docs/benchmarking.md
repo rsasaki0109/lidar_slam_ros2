@@ -480,6 +480,8 @@ That wrapper can run:
 - default build and package tests
 - benchmark summary generation
 - HTML report generation
+- optional public MID-360 segment-reset completion gate
+- standalone public MID-360 continuous kidnap-relocalization gate
 - optional Autoware dogfood
 
 With `--ape-threshold`, the gate is hard:
@@ -489,6 +491,31 @@ With `--ape-threshold`, the gate is hard:
 - by default `run_release_readiness_checks.sh` applies that hard gate only to
   `ground_truth` runs; `cross_validation` runs stay visible in reports without
   blocking release
+
+For the public MID-360 segment-reset completion evidence, add:
+
+```bash
+bash scripts/run_release_readiness_checks.sh \
+  --skip-default-ci \
+  --skip-benchmark-summary \
+  --public-mid360-completion
+```
+
+That hook runs `scripts/run_mid360_robot_public_completion_gate.py` as a hard
+gate and writes its JSON/Markdown under the release-readiness output directory.
+
+For the continuous RKO-LIO kidnap-relocalization evidence, run:
+
+```bash
+python3 scripts/run_mid360_robot_public_continuous_relocalization_gate.py
+```
+
+That gate checks the merged public `outdoor_kidnap_a+b` run for full-duration
+RKO output, at least one global relocalization event, loop-alignment PASS,
+public loop endpoint closure at the GT start/end stamps, Autoware map verify
+PASS, offline completion, and tracked kidnap recovery config matching the run
+config. The endpoint closure check prevents a local revisit from being counted
+as continuous kidnap relocalization.
 
 ## CI Coverage
 

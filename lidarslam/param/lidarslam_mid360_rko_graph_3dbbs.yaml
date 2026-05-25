@@ -1,0 +1,112 @@
+graph_based_slam:
+  ros__parameters:
+    registration_method: "NDT"
+    ndt_resolution: 5.0
+    ndt_num_threads: 0
+    voxel_leaf_size: 0.2
+
+    loop_detection_period: 1000
+    threshold_loop_closure_score: 50.0
+    # 3D-BBS variant: SCAN_CONTEXT candidates get a separate (looser)
+    # NDT fitness gate. 3D-BBS already searched yaw+xyz exhaustively
+    # so the NDT initial guess should be tight; allow fitness up to
+    # 100 to let MID-360 narrow-FOV revisits register.
+    scan_context_loop_closure_score_threshold: 100.0
+    distance_loop_closure: 100.0
+    range_of_searching_loop_closure: 50.0
+    search_submap_num: 5
+    submap_distance_threshold: 1.5
+    num_adjacent_pose_cnstraints: 5
+
+    max_loop_candidate_count: 3
+    loop_edge_dedup_index_window: 20
+    loop_max_translation_delta: 15.0
+    loop_max_rotation_delta_deg: 45.0
+    loop_max_translation_delta_descriptor: -1.0
+    loop_max_rotation_delta_deg_descriptor: -1.0
+    adjacent_edge_info_weight: 100.0
+    loop_edge_info_weight: 200.0
+    loop_edge_robust_kernel_delta: 1.0
+
+    # Scan Context ON. yaw-invariant ring descriptor that returns a
+    # yaw correction; combined with 3D-BBS below it gives NDT a full
+    # SE(3) initial guess. MID-360 narrow FOV leaves many sectors
+    # empty so threshold relaxed 0.30 (default) -> 0.55 to actually
+    # produce candidates.
+    use_scan_context: true
+    scan_context_threshold: 0.55
+    use_bev_descriptor: false
+    bev_descriptor_threshold: 0.20
+    bev_descriptor_grid_size_m: 80.0
+    bev_descriptor_grid_cells: 40
+    bev_descriptor_yaw_bins: 24
+    bev_descriptor_sequence_window: 0
+    bev_descriptor_sequence_threshold: -1.0
+    bev_descriptor_pose_consistency_threshold_m: -1.0
+    bev_descriptor_max_euclidean_distance_m: -1.0
+    bev_descriptor_rerank_weight_m: 100.0
+    use_solid_descriptor: false
+    solid_descriptor_min_similarity: 0.70
+    solid_descriptor_sequence_window: 0
+    solid_descriptor_sequence_min_similarity: -1.0
+    solid_descriptor_pose_consistency_threshold_m: -1.0
+    solid_descriptor_max_euclidean_distance_m: -1.0
+    use_triangle_descriptor: false
+    triangle_descriptor_keypoint_mode: "edge_3d"
+    triangle_descriptor_grid_size_m: 60.0
+    triangle_descriptor_grid_cells: 100
+    triangle_descriptor_max_keypoints: 30
+    triangle_descriptor_min_salience_m: 1.0
+    triangle_descriptor_edge_voxel_size_m: 0.3
+    triangle_descriptor_edge_neighbor_radius_m: 0.8
+    triangle_descriptor_edge_min_neighbors: 6
+    triangle_descriptor_edge_min_edgeness: 0.5
+    triangle_descriptor_edge_nms_radius_m: 1.5
+    triangle_descriptor_min_edge_m: 2.0
+    triangle_descriptor_max_edge_m: 30.0
+    triangle_descriptor_max_triangles: 2000
+    triangle_descriptor_edge_bin_m: 0.5
+    triangle_descriptor_quad_feature_bin_m: 0.0
+    triangle_descriptor_min_votes: 8
+    triangle_descriptor_min_inliers: 5
+    triangle_descriptor_min_inlier_ratio: 0.0
+    triangle_descriptor_max_pairs: 32
+    triangle_descriptor_min_4th_point_agreements: 0
+    triangle_descriptor_fourth_point_max_distance_m: 1.5
+    triangle_descriptor_refine_se3_with_all_inliers: false
+    triangle_descriptor_inlier_translation_m: 2.0
+    triangle_descriptor_inlier_rotation_deg: 5.0
+    triangle_descriptor_exclude_recent: 6
+    triangle_verify_with_bev: false
+    triangle_verify_bev_max_distance: 0.30
+    # Prefer SCAN_CONTEXT candidates so 3D-BBS gets first chance at
+    # each revisit before pure-distance candidates short-circuit
+    # (graph_based_slam_component.cpp:2473).
+    prefer_scan_context_candidates: true
+
+    # 3D-BBS ON. Branch-and-bound search over yaw+xyz to give NDT a
+    # tight SE(3) initial guess for SCAN_CONTEXT loop candidates.
+    # max_level=3 -> tree resolution 1m * 2^3 = 8m at coarsest level;
+    # margin=10m covers GLIM-vs-RKO drift on this dataset. yaw=180 deg
+    # because scan_context already supplies a yaw hint that BBS only
+    # refines, but we leave headroom for noisy descriptors.
+    use_3d_bbs_for_scan_context: true
+    three_d_bbs_min_level_res: 1.0
+    three_d_bbs_max_level: 3
+    three_d_bbs_score_threshold_percentage: 0.20
+    three_d_bbs_timeout_msec: 500
+    three_d_bbs_num_threads: 4
+    three_d_bbs_voxel_leaf_size: 1.5
+    three_d_bbs_source_submap_num: 2
+    three_d_bbs_target_submap_radius: 1
+    three_d_bbs_translation_search_margin_m: 10.0
+    three_d_bbs_roll_pitch_search_deg: 5.0
+    three_d_bbs_yaw_search_deg: 180.0
+    use_dynamic_object_filter: false
+    dynamic_object_filter_voxel_size: 0.3
+    dynamic_object_filter_min_observations: 2
+    dynamic_object_filter_temporal_window: 5
+    dynamic_object_filter_max_range_from_sensor_m: 30.0
+    use_pcd_cache: true
+    use_save_map_in_loop: true
+    debug_flag: true

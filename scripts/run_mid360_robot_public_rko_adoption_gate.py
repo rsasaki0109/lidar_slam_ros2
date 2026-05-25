@@ -94,6 +94,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--startup-timeout-secs', type=int, default=30)
     parser.add_argument('--offline-quiet-log-secs', type=int, default=0)
     parser.add_argument('--min-trajectory-poses', type=int, default=200)
+    parser.add_argument('--min-trajectory-duration-sec', type=float, default=60.0)
     parser.add_argument('--min-path-length-m', type=float, default=10.0)
     parser.add_argument('--max-step-m', type=float, default=5.0)
     parser.add_argument('--min-map-points', type=int, default=100000)
@@ -114,6 +115,7 @@ def main() -> int:
             cases = default_rko_sweep_cases()
         thresholds = RkoQualityGateThresholds(
             min_trajectory_poses=max(0, int(args.min_trajectory_poses)),
+            min_trajectory_duration_sec=max(0.0, float(args.min_trajectory_duration_sec)),
             min_path_length_m=max(0.0, float(args.min_path_length_m)),
             max_step_m=max(0.0, float(args.max_step_m)),
             min_map_points=max(0, int(args.min_map_points)),

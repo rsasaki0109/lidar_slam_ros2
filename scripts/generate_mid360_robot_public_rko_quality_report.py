@@ -51,6 +51,12 @@ def parse_args() -> argparse.Namespace:
         help='Minimum valid TUM trajectory poses for the quality gate.',
     )
     parser.add_argument(
+        '--min-trajectory-duration-sec',
+        type=float,
+        default=60.0,
+        help='Minimum trajectory duration covered by the output TUM trajectory.',
+    )
+    parser.add_argument(
         '--min-path-length-m',
         type=float,
         default=10.0,
@@ -95,6 +101,7 @@ def main() -> int:
     try:
         thresholds = RkoQualityGateThresholds(
             min_trajectory_poses=max(0, int(args.min_trajectory_poses)),
+            min_trajectory_duration_sec=max(0.0, float(args.min_trajectory_duration_sec)),
             min_path_length_m=max(0.0, float(args.min_path_length_m)),
             max_step_m=max(0.0, float(args.max_step_m)),
             min_map_points=max(0, int(args.min_map_points)),

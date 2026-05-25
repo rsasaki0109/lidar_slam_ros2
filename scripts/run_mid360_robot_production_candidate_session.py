@@ -109,6 +109,11 @@ def parse_args() -> argparse.Namespace:
         help='Existing public RKO adoption-gate JSON for production readiness.',
     )
     parser.add_argument(
+        '--segment-map-alignment',
+        default='',
+        help='Optional segment-map cloud-alignment JSON to surface in dashboard and bundle.',
+    )
+    parser.add_argument(
         '--allow-non-best',
         action='store_true',
         help='Accept any matching public gate-pass case instead of requiring the top-ranked case.',
@@ -157,6 +162,10 @@ def _options_from_args(args: argparse.Namespace) -> ProductionCandidateSessionOp
             if args.public_rko_output_dir else None
         ),
         adoption_gate=Path(args.adoption_gate).expanduser().resolve() if args.adoption_gate else None,
+        segment_map_alignment=(
+            Path(args.segment_map_alignment).expanduser().resolve()
+            if args.segment_map_alignment else None
+        ),
         allow_non_best=args.allow_non_best,
         map_run_name=args.map_run_name,
         map_save_timeout_secs=args.map_save_timeout_secs,

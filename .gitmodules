@@ -4,4 +4,4 @@
 	branch = humble
 [submodule "Thirdparty/rko_lio"]
 	path = Thirdparty/rko_lio
-	url = https://github.com/PRBonn/rko_lio.git
+	url = https://github.com/rsasaki0109/rko_lio.git

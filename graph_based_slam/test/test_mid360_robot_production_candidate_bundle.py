@@ -178,6 +178,37 @@ def test_export_bundle_includes_optional_loop_alignment_when_present(tmp_path: P
         },
     )
     _write_text(artifact_dir / 'mid360_robot_loop_alignment.md', '# Loop\n')
+    _write_json(
+        artifact_dir / 'mid360_robot_3d_map_preview.json',
+        {
+            'status': 'PASS',
+            'artifacts': {
+                'html': str(artifact_dir / 'mid360_robot_3d_map_preview.html'),
+                'ply': str(artifact_dir / 'mid360_robot_3d_map_preview.ply'),
+                'overlay_json': str(
+                    artifact_dir / 'mid360_robot_3d_map_preview_overlay.json',
+                ),
+            },
+            'counts': {'cloud_points': 1000, 'html_points': 500},
+        },
+    )
+    _write_text(artifact_dir / 'mid360_robot_3d_map_preview.html', '<html>preview</html>\n')
+    _write_text(artifact_dir / 'mid360_robot_3d_map_preview.ply', 'ply\n')
+    _write_json(artifact_dir / 'mid360_robot_3d_map_preview_overlay.json', {'trajectory': []})
+    _write_json(
+        artifact_dir / 'mid360_robot_public_segment_map_cloud_alignment.json',
+        {
+            'status': 'PASS',
+            'aligned_overlap': {
+                'symmetric_median_nn_m': 0.632,
+                'symmetric_p90_nn_m': 2.107,
+                'coverage_within_1m': 0.690,
+            },
+            'checks': [],
+        },
+    )
+    _write_text(artifact_dir / 'mid360_robot_public_segment_map_cloud_alignment.md', '# Alignment\n')
+    _write_text(artifact_dir / 'mid360_robot_public_segment_map_cloud_alignment.ply', 'ply\n')
 
     tarball = tmp_path / 'production_candidate_01.tar.gz'
     result = subprocess.run(
@@ -203,15 +234,29 @@ def test_export_bundle_includes_optional_loop_alignment_when_present(tmp_path: P
     included_dests = {item['destination'] for item in manifest['included']}
     assert 'artifacts/mid360_robot_loop_alignment.json' in included_dests
     assert 'artifacts/mid360_robot_loop_alignment.md' in included_dests
+    assert 'artifacts/mid360_robot_3d_map_preview.json' in included_dests
+    assert 'artifacts/mid360_robot_3d_map_preview.html' in included_dests
+    assert 'artifacts/mid360_robot_3d_map_preview.ply' in included_dests
+    assert 'artifacts/mid360_robot_3d_map_preview_overlay.json' in included_dests
+    assert 'artifacts/mid360_robot_public_segment_map_cloud_alignment.json' in included_dests
+    assert 'artifacts/mid360_robot_public_segment_map_cloud_alignment.md' in included_dests
+    assert 'artifacts/mid360_robot_public_segment_map_cloud_alignment.ply' in included_dests
     # Optional artifacts must NOT appear in required_files so a missing analyzer
     # cannot fail verify on its own.
     assert 'artifacts/mid360_robot_loop_alignment.json' not in manifest['required_files']
+    assert 'artifacts/mid360_robot_3d_map_preview.json' not in manifest['required_files']
+    assert (
+        'artifacts/mid360_robot_public_segment_map_cloud_alignment.json'
+        not in manifest['required_files']
+    )
 
     with tarfile.open(tarball, 'r:gz') as archive:
         names = set(archive.getnames())
     root = 'production_candidate_01'
     assert f'{root}/artifacts/mid360_robot_loop_alignment.json' in names
     assert f'{root}/artifacts/mid360_robot_loop_alignment.md' in names
+    assert f'{root}/artifacts/mid360_robot_3d_map_preview.html' in names
+    assert f'{root}/artifacts/mid360_robot_public_segment_map_cloud_alignment.json' in names
 
 
 def test_export_bundle_skips_loop_alignment_when_absent(tmp_path: Path):
@@ -242,9 +287,13 @@ def test_export_bundle_skips_loop_alignment_when_absent(tmp_path: Path):
     assert manifest['tarball_verified'] is True
     included_dests = {item['destination'] for item in manifest['included']}
     assert 'artifacts/mid360_robot_loop_alignment.json' not in included_dests
+    assert 'artifacts/mid360_robot_3d_map_preview.json' not in included_dests
+    assert 'artifacts/mid360_robot_public_segment_map_cloud_alignment.json' not in included_dests
     # Not in missing_required either (because it's not required)
     missing_dests = {item['destination'] for item in manifest['missing_required']}
     assert 'artifacts/mid360_robot_loop_alignment.json' not in missing_dests
+    assert 'artifacts/mid360_robot_3d_map_preview.json' not in missing_dests
+    assert 'artifacts/mid360_robot_public_segment_map_cloud_alignment.json' not in missing_dests
 
 
 def test_export_bundle_verify_fails_when_required_artifact_missing(tmp_path: Path):
