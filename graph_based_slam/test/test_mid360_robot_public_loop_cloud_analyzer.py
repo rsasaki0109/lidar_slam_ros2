@@ -2,6 +2,30 @@
 # All rights reserved.
 #
 # Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above
+#    copyright notice, this list of conditions and the following
+#    disclaimer in the documentation and/or other materials provided
+#    with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
 """Tests for public MID-360 loop cloud-overlap analysis."""
 
@@ -12,22 +36,21 @@ from pathlib import Path
 import sys
 from zipfile import ZipFile
 
-import numpy as np
-
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIR = REPO_ROOT / 'scripts'
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from mid360_robot_public_loop_cloud_analyzer import (  # noqa: E402
+    cloud_overlap_metrics,
+    LoopCloudAnalysisOptions,
     PUBLIC_LOOP_CLOUD_ANALYSIS_JSON,
     PUBLIC_LOOP_CLOUD_ANALYSIS_MARKDOWN,
-    LoopCloudAnalysisOptions,
     PublicLoopCloudAnalyzer,
     ScanPoints,
-    cloud_overlap_metrics,
     voxel_downsample,
 )
+
+import numpy as np  # noqa: E402
 
 
 class FakeWindowReader:
@@ -51,7 +74,13 @@ class FakeWindowReader:
         del bag_path, topic, end_stamp, max_scans, max_points_per_scan
         del min_range_m, max_range_m
         if start_stamp < 15.0:
-            return [ScanPoints(stamp=10.0, receive_time_ns=10_000_000_000, points=self.base_points)]
+            return [
+                ScanPoints(
+                    stamp=10.0,
+                    receive_time_ns=10_000_000_000,
+                    points=self.base_points,
+                )
+            ]
         shifted = self.base_points + np.array([0.05, 0.0, 0.0])
         return [ScanPoints(stamp=20.0, receive_time_ns=20_000_000_000, points=shifted)]
 

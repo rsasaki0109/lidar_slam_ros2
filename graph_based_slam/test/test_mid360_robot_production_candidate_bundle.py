@@ -207,7 +207,10 @@ def test_export_bundle_includes_optional_loop_alignment_when_present(tmp_path: P
             'checks': [],
         },
     )
-    _write_text(artifact_dir / 'mid360_robot_public_segment_map_cloud_alignment.md', '# Alignment\n')
+    _write_text(
+        artifact_dir / 'mid360_robot_public_segment_map_cloud_alignment.md',
+        '# Alignment\n',
+    )
     _write_text(artifact_dir / 'mid360_robot_public_segment_map_cloud_alignment.ply', 'ply\n')
 
     tarball = tmp_path / 'production_candidate_01.tar.gz'

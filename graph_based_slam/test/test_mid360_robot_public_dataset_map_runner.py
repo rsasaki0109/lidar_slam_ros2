@@ -2,6 +2,30 @@
 # All rights reserved.
 #
 # Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above
+#    copyright notice, this list of conditions and the following
+#    disclaimer in the documentation and/or other materials provided
+#    with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
 """Tests for public MID-360 dataset map candidate selection."""
 
@@ -21,9 +45,9 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from mid360_robot_public_dataset_map_runner import (  # noqa: E402
     PUBLIC_DATASET_MAP_CANDIDATES_JSON,
     PUBLIC_DATASET_MAP_CANDIDATES_MARKDOWN,
-    PublicDatasetMapRunOptions,
     PublicDatasetMapCandidateSelector,
     PublicDatasetMapRunner,
+    PublicDatasetMapRunOptions,
     PublicDatasetMapSafetyOptions,
     PublicDatasetMapSelectionOptions,
     render_map_candidates_markdown,
@@ -69,7 +93,9 @@ def _report(root: Path, command: str | None = None) -> dict:
                 'rates_hz': {'pointcloud': 10.0, 'imu': 200.0},
                 'sampled_frames': {'pointcloud': ['livox_frame'], 'imu': ['livox_frame']},
                 'warnings': [{'id': 'tf_metadata', 'status': 'warn'}],
-                'artifact_paths': {'run_plan_json': str(driving_out / 'mid360_robot_run_plan.json')},
+                'artifact_paths': {
+                    'run_plan_json': str(driving_out / 'mid360_robot_run_plan.json')
+                },
                 'map_command_shell': driving_command,
             },
             {
@@ -152,7 +178,10 @@ def test_runner_writes_plan_manifest(tmp_path: Path):
 
 def test_runner_executes_candidates_when_run_is_requested(tmp_path: Path):
     marker = tmp_path / 'marker.txt'
-    command = f'{sys.executable} -c "from pathlib import Path; Path({str(marker)!r}).write_text({chr(39)}ok{chr(39)})"'
+    command = (
+        f'{sys.executable} -c "from pathlib import Path; '
+        f'Path({str(marker)!r}).write_text({chr(39)}ok{chr(39)})"'
+    )
     report_path = tmp_path / 'report.json'
     output_dir = tmp_path / 'out'
     report_path.write_text(json.dumps(_report(tmp_path, command)), encoding='utf-8')

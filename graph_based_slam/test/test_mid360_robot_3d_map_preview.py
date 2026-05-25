@@ -37,9 +37,6 @@ import struct
 import subprocess
 import sys
 
-import yaml
-
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIR = REPO_ROOT / 'scripts'
 SCRIPT_PATH = SCRIPT_DIR / 'export_mid360_robot_3d_map_preview.py'
@@ -53,6 +50,8 @@ from mid360_robot_3d_map_preview import (  # noqa: E402
     MapPreviewOptions,
     Mid360MapPreviewExporter,
 )
+
+import yaml  # noqa: E402
 
 
 def _lzf_literal_payload(data: bytes) -> bytes:

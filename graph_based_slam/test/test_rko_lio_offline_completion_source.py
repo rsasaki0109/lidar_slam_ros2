@@ -2,6 +2,30 @@
 # All rights reserved.
 #
 # Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above
+#    copyright notice, this list of conditions and the following
+#    disclaimer in the documentation and/or other materials provided
+#    with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
 """Source-level regression checks for RKO-LIO offline completion."""
 
@@ -28,16 +52,16 @@ def test_offline_completion_does_not_wait_for_trailing_imu_buffer():
 
 
 def test_rko_lio_has_kidnap_relocalization_recovery_path():
-    core_header = (REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'core' / 'lio.hpp').read_text(
-        encoding='utf-8'
+    rko_core_dir = REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'core'
+    config_path = (
+        REPO_ROOT / 'configs' / 'mid360_robot' / 'rko_lio_mid360_kidnap_tolerant.yaml'
     )
+    core_header = (rko_core_dir / 'lio.hpp').read_text(encoding='utf-8')
     core_cpp = (REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'core' / 'lio.cpp').read_text(
         encoding='utf-8'
     )
     node_cpp = (RKO_ROS_DIR / 'node.cpp').read_text(encoding='utf-8')
-    config = (REPO_ROOT / 'configs' / 'mid360_robot' / 'rko_lio_mid360_kidnap_tolerant.yaml').read_text(
-        encoding='utf-8'
-    )
+    config = config_path.read_text(encoding='utf-8')
 
     assert 'enable_kidnap_relocalization' in core_header
     assert 'reset_on_registration_failure' in core_header

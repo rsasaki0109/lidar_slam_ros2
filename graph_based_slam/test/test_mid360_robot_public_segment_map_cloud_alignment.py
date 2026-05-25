@@ -2,6 +2,30 @@
 # All rights reserved.
 #
 # Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above
+#    copyright notice, this list of conditions and the following
+#    disclaimer in the documentation and/or other materials provided
+#    with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
 """Tests for public MID-360 reset segment map cloud alignment."""
 
@@ -10,22 +34,21 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
-import numpy as np
-
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIR = REPO_ROOT / 'scripts'
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from mid360_robot_public_segment_map_cloud_alignment import (  # noqa: E402
+    estimate_rigid_alignment,
     PUBLIC_SEGMENT_MAP_CLOUD_ALIGNMENT_JSON,
     PUBLIC_SEGMENT_MAP_CLOUD_ALIGNMENT_MARKDOWN,
     PUBLIC_SEGMENT_MAP_CLOUD_ALIGNMENT_PLY,
-    SegmentMapCloudAlignmentOptions,
     PublicSegmentMapCloudAlignmentAnalyzer,
-    estimate_rigid_alignment,
+    SegmentMapCloudAlignmentOptions,
     transform_points,
 )
+
+import numpy as np  # noqa: E402
 
 
 def _asymmetric_points() -> np.ndarray:
