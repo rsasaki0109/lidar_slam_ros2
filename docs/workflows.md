@@ -44,6 +44,7 @@ Optional 3D-BBS support:
 | KITTI Odometry small_gicp evaluation | `bash scripts/run_kitti_odometry_benchmark.sh --sequence 00 --small-gicp --force-prepare` |
 | KITTI Odometry small_gicp sweep | `bash scripts/sweep_kitti_small_gicp.sh --dataset "$KITTI_ODOMETRY_ROOT" --sequences "00 05 07"` |
 | MID360 cross-validation benchmark | `bash scripts/run_rko_lio_mid360_crossval_benchmark.sh` |
+| MID-360 browser 3D map preview | `python3 scripts/export_mid360_robot_3d_map_preview.py output/mid360_public/rko_sweep_no_quiet_all/voxel_0p50_min_1p00_dd_on` writes `mid360_robot_3d_map_preview.html`, `mid360_robot_3d_map_preview.ply`, and overlay JSON from an existing `pointcloud_map/` |
 | Mixed-quality open-data GNSS smoke | `bash scripts/run_open_data_applanix_velodyne_gnss_smoke.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
 | Mixed-quality open-data GNSS benchmark | `bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
 | Leo Drive classic-path suite | `bash scripts/run_open_data_classic_path_benchmark_suite.sh --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |

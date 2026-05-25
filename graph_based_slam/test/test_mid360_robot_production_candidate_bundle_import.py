@@ -177,6 +177,34 @@ def _write_candidate_artifacts(
     )
     _write_json(root / 'mid360_robot_production_readiness.json', {'status': 'PASS'})
     _write_text(root / 'mid360_robot_session_dashboard.html', '<html>dashboard</html>\n')
+    _write_json(
+        root / 'mid360_robot_public_segment_map_cloud_alignment.json',
+        {
+            'status': 'PASS',
+            'clouds': {
+                'start': {'analysis_points': 4525},
+                'end': {'analysis_points': 7291},
+            },
+            'crop': {'crop_radius_m': 20.0},
+            'aligned_overlap': {
+                'symmetric_median_nn_m': 0.632,
+                'symmetric_p90_nn_m': 2.107,
+                'coverage_within_1m': 0.690,
+            },
+            'transform_start_to_end': {
+                'translation_norm_m': 8.54,
+                'yaw_deg': 73.12,
+            },
+            'artifacts': {
+                'ply': str(root / 'mid360_robot_public_segment_map_cloud_alignment.ply'),
+            },
+            'checks': [
+                {'id': 'median_overlap', 'status': 'PASS', 'message': 'median=0.632m'},
+            ],
+        },
+    )
+    _write_text(root / 'mid360_robot_public_segment_map_cloud_alignment.md', '# Alignment\n')
+    _write_text(root / 'mid360_robot_public_segment_map_cloud_alignment.ply', 'ply\n')
 
 
 def _export_bundle(artifact_dir: Path, tarball: Path) -> None:
@@ -230,6 +258,9 @@ def test_import_bundle_recheck_passes_from_tarball(tmp_path: Path):
         import_dir / 'artifacts' / 'mid360_robot_production_readiness.json'
     )
     production = json.loads(production_path.read_text(encoding='utf-8'))
+    dashboard = (import_dir / 'artifacts' / 'mid360_robot_session_dashboard.html').read_text(
+        encoding='utf-8',
+    )
 
     assert report['status'] == 'PASS'
     assert report['verification']['status'] == 'PASS'
@@ -237,6 +268,13 @@ def test_import_bundle_recheck_passes_from_tarball(tmp_path: Path):
     assert production['status'] == 'PASS'
     assert production['production_ready'] is True
     assert (import_dir / 'artifacts' / 'mid360_robot_session_dashboard.html').is_file()
+    assert (
+        import_dir
+        / 'artifacts'
+        / 'mid360_robot_public_segment_map_cloud_alignment.json'
+    ).is_file()
+    assert 'Segment Map Cloud Alignment' in dashboard
+    assert 'Aligned median NN' in dashboard
     assert (import_dir / 'mid360_robot_production_candidate_bundle_import.json').is_file()
     assert bundle_manifest['last_import']['status'] == 'PASS'
     assert bundle_manifest['last_import']['recheck_status'] == 'PASS'
