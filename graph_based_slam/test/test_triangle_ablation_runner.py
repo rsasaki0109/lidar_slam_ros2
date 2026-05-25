@@ -63,6 +63,109 @@ def test_script_help_exits_with_usage():
     assert 'candidate' in combined
 
 
+def test_script_help_documents_skip_reference_gen():
+    """
+    Help banner documents the non-NTU forwarding flags.
+
+    --skip-reference-gen / --reference-source must surface in the help banner so
+    operators running on non-NTU bags (Newer College, MID-360, custom) can
+    discover the forwarding path without grepping the script body.
+    """
+    result = subprocess.run(
+        ['bash', str(SCRIPT), '--help'],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    combined = result.stdout + result.stderr
+    assert '--skip-reference-gen' in combined
+    assert '--reference-source' in combined
+    # Operators must understand the wiring without reading the script body.
+    assert 'NTU' in combined or 'Newer' in combined
+
+
+def test_script_accepts_and_forwards_skip_reference_gen(tmp_path: Path):
+    """
+    Forwarded flags reach the inner benchmark script.
+
+    --skip-reference-gen / --reference-source must reach the inner
+    run_rko_lio_graph_benchmark.sh invocation. We stub the inner script with a
+    shim that records argv so the test stays hermetic (no ros2 / no bag).
+    """
+    stub_dir = tmp_path / 'scripts'
+    stub_dir.mkdir()
+    # Copy the runner so we can swap the inner benchmark script via PATH.
+    runner = stub_dir / SCRIPT.name
+    runner.write_bytes(SCRIPT.read_bytes())
+    runner.chmod(0o755)
+
+    inner_log = tmp_path / 'inner_args.log'
+    inner_stub = stub_dir / 'run_rko_lio_graph_benchmark.sh'
+    inner_stub.write_text(
+        '#!/usr/bin/env bash\n'
+        f'printf "%s\\n" "$@" > {inner_log}\n'
+        'metrics_dir=""\n'
+        'while [[ $# -gt 0 ]]; do\n'
+        '  if [[ "$1" == "--output-dir" ]]; then metrics_dir="$2"; fi\n'
+        '  shift\n'
+        'done\n'
+        '[[ -n "$metrics_dir" ]] && mkdir -p "$metrics_dir" \\\n'
+        '  && echo "{}" > "$metrics_dir/metrics.json"\n',
+        encoding='utf-8',
+    )
+    inner_stub.chmod(0o755)
+    # Stub the report generator too — it parses metrics.json and would fail.
+    report_stub = stub_dir / 'generate_place_recognition_report.py'
+    report_stub.write_text('#!/usr/bin/env python3\nimport sys; sys.exit(0)\n', encoding='utf-8')
+    report_stub.chmod(0o755)
+
+    base_yaml = tmp_path / 'base.yaml'
+    base_yaml.write_text(
+        yaml.safe_dump(
+            {'graph_based_slam': {'ros__parameters': {'use_triangle_descriptor': False}}},
+            sort_keys=False,
+        ),
+        encoding='utf-8',
+    )
+    ref_tum = tmp_path / 'ref.tum'
+    ref_tum.write_text('# timestamp tx ty tz qx qy qz qw\n', encoding='utf-8')
+    ref_meta = tmp_path / 'ref.json'
+    ref_meta.write_text('{}\n', encoding='utf-8')
+    bag_dir = tmp_path / 'bag'
+    bag_dir.mkdir()
+    (bag_dir / 'metadata.yaml').write_text('version: 5\n', encoding='utf-8')
+    out_dir = tmp_path / 'out'
+
+    result = subprocess.run(
+        [
+            'bash', str(runner),
+            '--bag', str(bag_dir),
+            '--reference-tum', str(ref_tum),
+            '--reference-meta', str(ref_meta),
+            '--lidar-topic', '/os_cloud_node/points',
+            '--imu-topic', '/os_cloud_node/imu',
+            '--base-param', str(base_yaml),
+            '--output-dir', str(out_dir),
+            '--skip-reference-gen',
+            '--reference-source', 'newer_college_gt',
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ},
+    )
+    # The runner may exit non-zero if downstream steps it does NOT stub fail,
+    # but the inner benchmark script must have been invoked with the new flags.
+    assert inner_log.exists(), (
+        f'inner stub never ran. stdout={result.stdout!r} stderr={result.stderr!r}'
+    )
+    forwarded = inner_log.read_text(encoding='utf-8').splitlines()
+    assert '--skip-reference-gen' in forwarded
+    assert '--reference-source' in forwarded
+    src_idx = forwarded.index('--reference-source')
+    assert forwarded[src_idx + 1] == 'newer_college_gt'
+
+
 def test_script_rejects_missing_args():
     """Missing required arguments must exit non-zero with the usage banner."""
     result = subprocess.run(
