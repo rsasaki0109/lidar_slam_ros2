@@ -18,9 +18,10 @@ cd "${REPO_ROOT}"
 BAG="${BAG:-demo_data/koide_lidar_camera_calib/livox/rosbag2_2023_03_09-13_42_46}"
 OUT_DIR="${OUT_DIR:-output/koide_3dgs_firstlight}"
 EXTRINSIC="${EXTRINSIC:-configs/gaussian_splatting/koide_lidar_camera_extrinsic_approx.yaml}"
-ITERS="${ITERS:-1500}"
+ITERS="${ITERS:-3000}"
 NUM_INIT="${NUM_INIT:-60000}"
 LIDAR_PRIMED="${LIDAR_PRIMED:-1}"   # 1 = seed Gaussians from the LiDAR cloud
+DENSIFY="${DENSIFY:-1}"             # 1 = gsplat adaptive density control
 TUM="${OUT_DIR}/lidarslam/traj_map_livox_frame.tum"
 
 # shellcheck disable=SC1091
@@ -57,10 +58,13 @@ if [[ "${LIDAR_PRIMED}" == "1" ]]; then
   INIT_ARGS=(--init-ply "${OUT_DIR}/gsplat/lidar_init.ply")
 fi
 
+DENSIFY_ARGS=()
+[[ "${DENSIFY}" == "1" ]] && DENSIFY_ARGS=(--densify)
+
 echo "== [4/4] train gsplat -> .ply =="
 python3 tools/gaussian_splatting/train_gsplat.py \
   --transforms "${OUT_DIR}/gsplat/transforms.json" \
   --out "${OUT_DIR}/gsplat/point_cloud.ply" \
-  "${INIT_ARGS[@]}" --iters "${ITERS}"
+  "${INIT_ARGS[@]}" "${DENSIFY_ARGS[@]}" --iters "${ITERS}"
 
 echo "done: ${OUT_DIR}/gsplat/point_cloud.ply"

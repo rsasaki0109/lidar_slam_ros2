@@ -214,6 +214,112 @@ def train(dataset: dict, *, init_points: Optional[np.ndarray] = None,
     }
 
 
+def _seed_params(dataset: dict, init_points, init_colors, num_init, device):
+    """Build the initial raw Gaussian parameters + scene extent (shared init)."""
+    import torch
+    import numpy as _np
+
+    cam_centers = _np.stack([_np.linalg.inv(v)[:3, 3] for v in dataset['viewmats']])
+    center = cam_centers.mean(axis=0)
+    extent = float(_np.linalg.norm(cam_centers - center, axis=1).max()) + 1e-3
+    if init_points is not None and len(init_points) > 0:
+        means0 = _np.asarray(init_points, dtype=_np.float32)
+    else:
+        rng = _np.random.default_rng(0)
+        means0 = (center + rng.normal(scale=extent * 0.5, size=(num_init, 3))).astype(_np.float32)
+    n = means0.shape[0]
+    scale_log = float(_np.log(extent / max(n, 1) ** (1 / 3) * 0.5))
+    if init_colors is not None and len(init_colors) == n:
+        c0 = _np.clip(_np.asarray(init_colors, dtype=_np.float32), 1e-4, 1 - 1e-4)
+        colors0 = torch.logit(torch.tensor(c0))
+    else:
+        colors0 = torch.zeros((n, 3))
+    return {
+        'means': torch.tensor(means0),
+        'scales': torch.full((n, 3), scale_log),
+        'quats': torch.tensor([[1.0, 0.0, 0.0, 0.0]]).repeat(n, 1),
+        'opacities': torch.full((n,), 0.1),
+        'colors': colors0,
+    }, extent
+
+
+def train_densify(dataset: dict, *, init_points=None, init_colors=None,
+                  num_init: int = 20000, iters: int = 3000, lr: float = 1e-2,
+                  device: str = 'cuda', log_every: int = 200) -> dict:
+    """Train with gsplat DefaultStrategy adaptive density control (densify/prune).
+
+    Same I/O contract as ``train`` but the Gaussian count grows/shrinks via the
+    strategy, which sharpens detail beyond the fixed-count ``train``.
+    """
+    import torch
+    import torch.nn.functional as F
+    import imageio.v3 as iio
+    from gsplat import rasterization, DefaultStrategy
+
+    dev = torch.device(device)
+    seed, extent = _seed_params(dataset, init_points, init_colors, num_init, dev)
+    params = torch.nn.ParameterDict(
+        {k: torch.nn.Parameter(v.to(dev)) for k, v in seed.items()}
+    )
+    lrs = {'means': lr * extent, 'scales': lr, 'quats': lr,
+           'opacities': lr * 3, 'colors': lr * 3}
+    optimizers = {
+        k: torch.optim.Adam([{'params': [params[k]], 'lr': lrs[k]}])
+        for k in params
+    }
+
+    K = torch.tensor(dataset['K'], dtype=torch.float32, device=dev)[None]
+    W, H = dataset['width'], dataset['height']
+    viewmats = torch.tensor(np.stack(dataset['viewmats']), dtype=torch.float32, device=dev)
+    gts = []
+    for p in dataset['image_paths']:
+        img = np.asarray(iio.imread(p), dtype=np.float32) / 255.0
+        if img.ndim == 2:
+            img = np.stack([img] * 3, axis=-1)
+        gts.append(torch.tensor(img[..., :3], device=dev))
+    gts = torch.stack(gts)
+
+    strategy = DefaultStrategy(
+        refine_start_iter=max(100, iters // 10),
+        refine_stop_iter=int(iters * 0.85),
+        # Opacity reset helps long (30k-iter) runs prune floaters but
+        # destabilises short runs; disable by pushing it past the horizon.
+        refine_every=100, reset_every=iters + 1, verbose=False,
+    )
+    strategy.check_sanity(params, optimizers)
+    state = strategy.initialize_state(scene_scale=extent)
+
+    loss_history: list[float] = []
+    for it in range(iters):
+        idx = it % viewmats.shape[0]
+        renders, _, info = rasterization(
+            params['means'], F.normalize(params['quats'], dim=-1),
+            torch.exp(params['scales']), torch.sigmoid(params['opacities']),
+            torch.sigmoid(params['colors']), viewmats[idx:idx + 1], K, W, H,
+            packed=False,
+        )
+        strategy.step_pre_backward(params, optimizers, state, it, info)
+        loss = F.mse_loss(renders[0], gts[idx])
+        loss.backward()
+        loss_history.append(float(loss.detach().cpu()))
+        strategy.step_post_backward(params, optimizers, state, it, info, packed=False)
+        for opt in optimizers.values():
+            opt.step()
+            opt.zero_grad(set_to_none=True)
+        if log_every and (it % log_every == 0 or it == iters - 1):
+            print(f'iter {it:5d}  mse {loss_history[-1]:.6f}  '
+                  f'gaussians {params["means"].shape[0]}', flush=True)
+
+    return {
+        'means': params['means'].detach().cpu().numpy(),
+        'scales_log': params['scales'].detach().cpu().numpy(),
+        'quats': F.normalize(params['quats'], dim=-1).detach().cpu().numpy(),
+        'opacities_logit': params['opacities'].detach().cpu().numpy(),
+        'colors_rgb': torch.sigmoid(params['colors']).detach().cpu().numpy(),
+        'loss_history': loss_history,
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Construct the CLI argument parser."""
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -225,6 +331,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--num-init', type=int, default=20000)
     p.add_argument('--lr', type=float, default=1e-2)
     p.add_argument('--device', default='cuda')
+    p.add_argument('--densify', action='store_true',
+                   help='use gsplat DefaultStrategy adaptive density control')
     return p
 
 
@@ -240,9 +348,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         init_points, rgb = pcio.read_ply_xyz(args.init_ply)
         init_colors = None if rgb is None else rgb.astype(np.float32) / 255.0
         print(f'LiDAR-primed init: {len(init_points)} points from {args.init_ply}')
-    params = train(dataset, init_points=init_points, init_colors=init_colors,
-                   num_init=args.num_init, iters=args.iters,
-                   lr=args.lr, device=args.device)
+    trainer = train_densify if args.densify else train
+    params = trainer(dataset, init_points=init_points, init_colors=init_colors,
+                     num_init=args.num_init, iters=args.iters,
+                     lr=args.lr, device=args.device)
     out = export_ply(args.out, params['means'], params['scales_log'],
                      params['quats'], params['opacities_logit'], params['colors_rgb'])
     print(f'final mse {params["loss_history"][-1]:.6f} -> {out}')
