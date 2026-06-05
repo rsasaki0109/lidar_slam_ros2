@@ -87,6 +87,17 @@ def looks_at_poses(radius: float, count: int, *, height: float = 0.0) -> list[np
 # --------------------------------------------------------------------------- #
 # Gaussian parameter container + INRIA .ply export (numpy only)
 # --------------------------------------------------------------------------- #
+def axis_angle_to_matrix(omega: np.ndarray) -> np.ndarray:
+    """Rodrigues: a 3-vector axis-angle (rad) to a 3x3 rotation matrix."""
+    omega = np.asarray(omega, dtype=float)
+    theta = float(np.linalg.norm(omega))
+    if theta < 1e-12:
+        return np.eye(3)
+    k = omega / theta
+    kx = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+    return np.eye(3) + np.sin(theta) * kx + (1 - np.cos(theta)) * (kx @ kx)
+
+
 def export_ply(path: str | Path, means: np.ndarray, scales_log: np.ndarray,
                quats: np.ndarray, opacities_logit: np.ndarray,
                colors_rgb: np.ndarray) -> Path:
@@ -243,13 +254,48 @@ def _seed_params(dataset: dict, init_points, init_colors, num_init, device):
     }, extent
 
 
+def _se3_exp_torch(tau):
+    """Differentiable SO(3)+t exp: tau=[omega(3), t(3)] -> 4x4 (torch).
+
+    Uses the unnormalised hat(omega) so the coefficients ``sin(theta)/theta``
+    and ``(1-cos)/theta^2`` carry the angle -- this stays differentiable in
+    omega at theta=0 (an eps-guarded sqrt), unlike a normalise-by-theta path
+    which would zero the rotation gradient at the origin.
+    """
+    import torch
+
+    omega, t = tau[:3], tau[3:]
+    z = torch.zeros((), device=tau.device, dtype=tau.dtype)
+    w = torch.stack([
+        torch.stack([z, -omega[2], omega[1]]),
+        torch.stack([omega[2], z, -omega[0]]),
+        torch.stack([-omega[1], omega[0], z]),
+    ])
+    theta2 = torch.dot(omega, omega)
+    theta = torch.sqrt(theta2 + 1e-12)
+    a = torch.sin(theta) / theta
+    b = (1 - torch.cos(theta)) / (theta2 + 1e-12)
+    eye = torch.eye(3, device=tau.device, dtype=tau.dtype)
+    R = eye + a * w + b * (w @ w)
+    M = torch.eye(4, device=tau.device, dtype=tau.dtype)
+    M[:3, :3] = R
+    M[:3, 3] = t
+    return M
+
+
 def train_densify(dataset: dict, *, init_points=None, init_colors=None,
                   num_init: int = 20000, iters: int = 3000, lr: float = 1e-2,
-                  device: str = 'cuda', log_every: int = 200) -> dict:
+                  device: str = 'cuda', log_every: int = 200,
+                  optimize_extrinsic: bool = False) -> dict:
     """Train with gsplat DefaultStrategy adaptive density control (densify/prune).
 
     Same I/O contract as ``train`` but the Gaussian count grows/shrinks via the
-    strategy, which sharpens detail beyond the fixed-count ``train``.
+    strategy, which sharpens detail beyond the fixed-count ``train``. When
+    ``optimize_extrinsic`` is set, a single shared 6-DoF SE(3) correction is
+    co-optimised photometrically and returned as ``extrinsic_delta`` -- this
+    recovers the camera<-LiDAR lever arm/rotation that a frame-convention
+    approximation omits (all frames share the same extrinsic error, so one
+    left-multiplied SE(3) on every view matrix corrects it).
     """
     import torch
     import torch.nn.functional as F
@@ -289,13 +335,20 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     strategy.check_sanity(params, optimizers)
     state = strategy.initialize_state(scene_scale=extent)
 
+    tau = torch.zeros(6, device=dev, requires_grad=optimize_extrinsic)
+    ext_opt = (torch.optim.Adam([tau], lr=lr * 0.1)
+               if optimize_extrinsic else None)
+
     loss_history: list[float] = []
     for it in range(iters):
         idx = it % viewmats.shape[0]
+        vm = viewmats[idx:idx + 1]
+        if optimize_extrinsic:
+            vm = (_se3_exp_torch(tau) @ vm[0])[None]
         renders, _, info = rasterization(
             params['means'], F.normalize(params['quats'], dim=-1),
             torch.exp(params['scales']), torch.sigmoid(params['opacities']),
-            torch.sigmoid(params['colors']), viewmats[idx:idx + 1], K, W, H,
+            torch.sigmoid(params['colors']), vm, K, W, H,
             packed=False,
         )
         strategy.step_pre_backward(params, optimizers, state, it, info)
@@ -306,11 +359,14 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         for opt in optimizers.values():
             opt.step()
             opt.zero_grad(set_to_none=True)
+        if ext_opt is not None:
+            ext_opt.step()
+            ext_opt.zero_grad(set_to_none=True)
         if log_every and (it % log_every == 0 or it == iters - 1):
             print(f'iter {it:5d}  mse {loss_history[-1]:.6f}  '
                   f'gaussians {params["means"].shape[0]}', flush=True)
 
-    return {
+    out = {
         'means': params['means'].detach().cpu().numpy(),
         'scales_log': params['scales'].detach().cpu().numpy(),
         'quats': F.normalize(params['quats'], dim=-1).detach().cpu().numpy(),
@@ -318,6 +374,13 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         'colors_rgb': torch.sigmoid(params['colors']).detach().cpu().numpy(),
         'loss_history': loss_history,
     }
+    if optimize_extrinsic:
+        # viewmat_refined = M @ viewmat with M = exp(tau); equivalently the
+        # camera<-body correction is delta = inv(M), so body<-cam gains inv(M).
+        m = _se3_exp_torch(tau.detach()).cpu().numpy()
+        out['extrinsic_delta'] = np.linalg.inv(m)  # right-multiply onto body_T_cam
+        out['tau'] = tau.detach().cpu().numpy()
+    return out
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -333,6 +396,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--device', default='cuda')
     p.add_argument('--densify', action='store_true',
                    help='use gsplat DefaultStrategy adaptive density control')
+    p.add_argument('--optimize-extrinsic', action='store_true',
+                   help='co-optimise a shared 6-DoF camera extrinsic correction '
+                        '(implies --densify); writes <out>.extrinsic.yaml')
+    p.add_argument('--extrinsic', default=None,
+                   help='base body<-camera extrinsic YAML to compose the '
+                        'recovered correction onto (for --optimize-extrinsic)')
     return p
 
 
@@ -348,13 +417,30 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         init_points, rgb = pcio.read_ply_xyz(args.init_ply)
         init_colors = None if rgb is None else rgb.astype(np.float32) / 255.0
         print(f'LiDAR-primed init: {len(init_points)} points from {args.init_ply}')
-    trainer = train_densify if args.densify else train
-    params = trainer(dataset, init_points=init_points, init_colors=init_colors,
-                     num_init=args.num_init, iters=args.iters,
-                     lr=args.lr, device=args.device)
+    if args.densify or args.optimize_extrinsic:
+        params = train_densify(
+            dataset, init_points=init_points, init_colors=init_colors,
+            num_init=args.num_init, iters=args.iters, lr=args.lr,
+            device=args.device, optimize_extrinsic=args.optimize_extrinsic)
+    else:
+        params = train(dataset, init_points=init_points, init_colors=init_colors,
+                       num_init=args.num_init, iters=args.iters,
+                       lr=args.lr, device=args.device)
     out = export_ply(args.out, params['means'], params['scales_log'],
                      params['quats'], params['opacities_logit'], params['colors_rgb'])
     print(f'final mse {params["loss_history"][-1]:.6f} -> {out}')
+    if 'extrinsic_delta' in params:
+        import yaml
+        base = np.eye(4)
+        if args.extrinsic:
+            base = np.asarray(yaml.safe_load(Path(args.extrinsic).read_text())['matrix'])
+        refined = base @ params['extrinsic_delta']
+        ext_path = Path(str(out) + '.extrinsic.yaml')
+        ext_path.write_text(yaml.safe_dump(
+            {'matrix': refined.tolist(),
+             'note': 'photometrically self-calibrated body<-camera extrinsic'}))
+        print(f'recovered extrinsic tau={np.round(params["tau"], 4).tolist()} '
+              f'-> {ext_path}')
     return 0
 
 

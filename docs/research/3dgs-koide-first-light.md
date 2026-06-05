@@ -43,17 +43,29 @@ demo_data/koide_lidar_camera_calib/livox/rosbag2_2023_03_09-13_42_46  (15.6s)
 `random → LiDAR-primed → densify` で **PSNR 15 → 20.5 → 24.8dB**、設計の方向性が
 実データで裏付けられた。
 
-## さらなる改善レバー（効果順）
+## extrinsic 自己校正の検証（負の結果）
 
-1. **カメラ外部標定が近似** — `configs/gaussian_splatting/koide_lidar_camera_extrinsic_approx.yaml`
-   は livox→camera の**フレーム規約のみ**（並進ゼロ・回転のみ）。koide は本来
-   `direct_visual_lidar_calibration` 用データなので、その calib 結果を入れれば
-   multi-view 整合がさらに上がる（残ブラーの主因と推定）。
-2. **frontend-only odometry のドリフト** — graph backend OFF。15s なので軽微だが
-   backend ON or ループ補正で pose 品質向上。
-3. **LiDAR init の色付け** — 現状は位置のみ seed（色は学習）。画像投影で色を付ければ
-   さらに収束が速い。
-4. iteration/視点が少ない（3000 iter, 30 views）。長 run + SSIM/LPIPS 損失で更に向上。
+「近似 extrinsic が残ブラーの主因」という仮説を検証するため、`train_gsplat.py
+--optimize-extrinsic` を実装した。extrinsic 誤差は**全カメラ共通の単一 6-DoF rigid
+補正**（`c2w_true = c2w_approx @ Δ`）なので、学習可能な SE(3) 補正を gaussian と同時に
+photometric 最適化すれば lever-arm/回転を復元できる（photometric BA）。
+
+結果: 復元された補正は**回転 ~0.24°・並進 z ~10cm と微小**で、refined-pose 評価の
+PSNR は ~24dB と densify-only と**同等（向上なし）**。
+→ **koide のフレーム規約 extrinsic は既にほぼ最適**で、残ブラーの主因ではなかった。
+self-cal 機能自体は extrinsic が未知/不良な bag で有用なので残すが、koide では
+デフォルト無効。
+
+## さらなる改善レバー（効果順、更新）
+
+1. **視点数・系列長** — 30 views / 15s 単一セグメントが実質の上限要因。複数 koide
+   セグメント結合や長い軌跡で view を増やすのが最も効くと推定。
+2. **frontend-only odometry のドリフト** — graph backend OFF。backend ON / ループ補正。
+3. **損失関数** — 現状 MSE のみ。SSIM/LPIPS を足すと知覚品質が上がる。
+4. **LiDAR init の色付け** — 現状は位置のみ seed（色は学習）。画像投影で色付け。
+5. 長 run（iter 増）。
+
+（extrinsic は §上記のとおり koide では頭打ち。他データセットでは効く可能性あり。）
 
 ## わかったこと（実運用の知見）
 

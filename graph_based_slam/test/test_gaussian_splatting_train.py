@@ -124,6 +124,21 @@ def test_export_ply_header_and_roundtrip(tmp_path):
     np.testing.assert_allclose(row0[6:9], [0.0, 0.0, 0.0], atol=1e-6)
 
 
+def test_axis_angle_identity():
+    np.testing.assert_allclose(tg.axis_angle_to_matrix([0, 0, 0]), np.eye(3), atol=1e-12)
+
+
+def test_axis_angle_90deg_about_z():
+    R = tg.axis_angle_to_matrix([0, 0, np.pi / 2])
+    np.testing.assert_allclose(R @ [1, 0, 0], [0, 1, 0], atol=1e-9)
+
+
+def test_axis_angle_is_orthonormal():
+    R = tg.axis_angle_to_matrix([0.3, -0.7, 1.1])
+    np.testing.assert_allclose(R.T @ R, np.eye(3), atol=1e-9)
+    assert abs(np.linalg.det(R) - 1.0) < 1e-9
+
+
 def test_export_ply_vertex_count(tmp_path):
     n = 5
     out = tg.export_ply(
