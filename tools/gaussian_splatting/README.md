@@ -37,11 +37,14 @@ GPU 不要の純粋部は ament pytest harness（`run_default_ci_checks.sh`）�
 
 ```bash
 # 1) bag から posed 画像 + transforms.json を抽出（ROS 環境）
+#    --time-offset auto: カメラと LiDAR がセンサ内蔵クロックの別基準でも
+#    bag 受信時刻から skew を相殺（Livox+cam bag で頻出）
 python3 tools/gaussian_splatting/extract_posed_images.py \
   --bag demo_data/koide_lidar_camera_calib/livox/rosbag2_2023_03_09-13_42_46 \
   --traj output/<run>/traj_corrected.tum \
   --camera-topic /image --camera-info-topic /camera_info \
-  --extrinsic configs/<lidar_camera_extrinsic>.yaml \
+  --extrinsic configs/gaussian_splatting/<lidar_camera_extrinsic>.yaml \
+  --time-offset auto --clock-reference-topic /livox/points \
   --out output/<run>/gsplat
 
 # 2) gsplat 学習 → .ply（GPU）
@@ -51,7 +54,13 @@ python3 tools/gaussian_splatting/train_gsplat.py \
 
 # GPU 動作確認（合成データ、bag 不要）
 python3 tools/gaussian_splatting/selftest_gpu.py --out /tmp/gsplat_selftest
+
+# 実データ first light をワンコマンド再現（SLAM→extract→train）
+bash scripts/run_koide_3dgs_firstlight.sh
 ```
+
+実データ first light の結果・品質要因・次レバーは
+[`docs/research/3dgs-koide-first-light.md`](../../docs/research/3dgs-koide-first-light.md)。
 
 ## 動作確認済み環境
 

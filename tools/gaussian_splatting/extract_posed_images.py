@@ -68,6 +68,21 @@ def decode_image(encoding: str, height: int, width: int, step: int,
     return np.ascontiguousarray(img)
 
 
+def compute_clock_offset(cam_header: float, cam_bagtime: float,
+                         ref_header: float, ref_bagtime: float) -> float:
+    """Offset to add to camera header stamps to reach the reference clock.
+
+    Some bags carry sensors on independent uptime clocks (e.g. a Livox LiDAR
+    and a camera whose ``header.stamp`` bases differ by tens of seconds). Each
+    sensor's ``header - bag_receive_time`` is a near-constant skew; the offset
+    that maps camera stamps onto the trajectory/reference clock is the
+    difference of those skews.
+    """
+    skew_cam = cam_header - cam_bagtime
+    skew_ref = ref_header - ref_bagtime
+    return skew_ref - skew_cam
+
+
 def parse_extrinsic_dict(data: dict) -> np.ndarray:
     """Build a 4x4 ``body <- camera_optical`` matrix from a config dict.
 
@@ -152,6 +167,39 @@ def read_camera_intrinsics(bag_path: str | Path, topic: str) -> pi.CameraIntrins
     raise RuntimeError(f'no CameraInfo found on topic {topic!r}')
 
 
+def _first_header_and_bagtime(bag_path: str | Path, topic: str,
+                              msg_type) -> tuple[float, float]:
+    """Return the (header_stamp_s, bag_receive_s) of the first ``topic`` msg."""
+    from rclpy.serialization import deserialize_message
+
+    reader = _open_reader(bag_path)
+    while reader.has_next():
+        tname, raw, bagt = reader.read_next()
+        if tname != topic:
+            continue
+        msg = deserialize_message(raw, msg_type)
+        header = ros_stamp_to_seconds(msg.header.stamp.sec, msg.header.stamp.nanosec)
+        return header, bagt * 1e-9
+    raise RuntimeError(f'no message found on topic {topic!r}')
+
+
+def resolve_time_offset(args: argparse.Namespace) -> float:
+    """Resolve ``--time-offset`` (a float, or ``auto`` via clock alignment)."""
+    if str(args.time_offset).lower() != 'auto':
+        return float(args.time_offset)
+    if not args.clock_reference_topic:
+        raise ValueError('--time-offset auto requires --clock-reference-topic')
+    from sensor_msgs.msg import Image, PointCloud2
+
+    cam_h, cam_b = _first_header_and_bagtime(args.bag, args.camera_topic, Image)
+    ref_h, ref_b = _first_header_and_bagtime(
+        args.bag, args.clock_reference_topic, PointCloud2
+    )
+    off = compute_clock_offset(cam_h, cam_b, ref_h, ref_b)
+    print(f'auto time-offset: {off:.4f}s (camera -> {args.clock_reference_topic} clock)')
+    return off
+
+
 def extract(args: argparse.Namespace) -> dict:
     """Run the full extraction and return a small summary dict."""
     import imageio.v3 as iio
@@ -161,6 +209,7 @@ def extract(args: argparse.Namespace) -> dict:
     samples = pi.read_tum_trajectory(args.traj)
     body_T_cam = load_extrinsic(args.extrinsic)
     intrinsics = read_camera_intrinsics(args.bag, args.camera_info_topic)
+    time_offset = resolve_time_offset(args)
 
     out_dir = Path(args.out)
     images_dir = out_dir / 'images'
@@ -181,7 +230,7 @@ def extract(args: argparse.Namespace) -> dict:
         stamp = ros_stamp_to_seconds(msg.header.stamp.sec, msg.header.stamp.nanosec)
         world_T_cam = resolve_world_T_camera(
             stamp, samples, body_T_cam,
-            max_extrapolation=args.max_extrapolation, time_offset=args.time_offset,
+            max_extrapolation=args.max_extrapolation, time_offset=time_offset,
         )
         if world_T_cam is None:
             dropped += 1
@@ -210,8 +259,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--out', required=True, help='output directory')
     p.add_argument('--max-extrapolation', type=float, default=0.05,
                    help='seconds an image stamp may fall outside the trajectory')
-    p.add_argument('--time-offset', type=float, default=0.0,
-                   help='seconds added to image stamps (camera/LiDAR clock skew)')
+    p.add_argument('--time-offset', default='0.0',
+                   help='seconds added to image stamps, or "auto" to align the '
+                        'camera clock to --clock-reference-topic via bag receive time')
+    p.add_argument('--clock-reference-topic', default=None,
+                   help='PointCloud2 topic whose clock the trajectory uses '
+                        '(required for --time-offset auto)')
     p.add_argument('--stride', type=int, default=1, help='keep every Nth image')
     return p
 

@@ -61,6 +61,20 @@ def test_ros_stamp_to_seconds():
     assert ex.ros_stamp_to_seconds(0, 0) == 0.0
 
 
+def test_compute_clock_offset_aligns_sensor_clocks():
+    # Camera and LiDAR on independent uptime clocks (~21.9s skew, koide case).
+    off = ex.compute_clock_offset(545.614, 1678336967.407,
+                                  566.800, 1678336966.714)
+    assert off == pytest.approx(21.879, abs=1e-3)
+    # Adding the offset maps the camera stamp onto the reference clock.
+    assert 545.614 + off == pytest.approx(566.800 + (1678336967.407 - 1678336966.714),
+                                          abs=1e-3)
+
+
+def test_compute_clock_offset_zero_when_synced():
+    assert ex.compute_clock_offset(10.0, 100.0, 10.0, 100.0) == pytest.approx(0.0)
+
+
 # --------------------------------------------------------------------------- #
 # Raw image decoding (cv_bridge-free)
 # --------------------------------------------------------------------------- #
