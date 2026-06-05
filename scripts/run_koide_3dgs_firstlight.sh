@@ -20,6 +20,7 @@ OUT_DIR="${OUT_DIR:-output/koide_3dgs_firstlight}"
 EXTRINSIC="${EXTRINSIC:-configs/gaussian_splatting/koide_lidar_camera_extrinsic_approx.yaml}"
 ITERS="${ITERS:-1500}"
 NUM_INIT="${NUM_INIT:-60000}"
+LIDAR_PRIMED="${LIDAR_PRIMED:-1}"   # 1 = seed Gaussians from the LiDAR cloud
 TUM="${OUT_DIR}/lidarslam/traj_map_livox_frame.tum"
 
 # shellcheck disable=SC1091
@@ -46,10 +47,20 @@ python3 tools/gaussian_splatting/extract_posed_images.py \
   --max-extrapolation 0.4 \
   --out "${OUT_DIR}/gsplat"
 
-echo "== [3/3] train gsplat -> .ply =="
+INIT_ARGS=(--num-init "${NUM_INIT}")
+if [[ "${LIDAR_PRIMED}" == "1" ]]; then
+  echo "== [3/4] build LiDAR-primed init cloud =="
+  python3 tools/gaussian_splatting/build_lidar_init.py \
+    --bag "${BAG}" --traj "${TUM}" --points-topic /livox/points \
+    --voxel 0.05 --max-points 200000 \
+    --out "${OUT_DIR}/gsplat/lidar_init.ply"
+  INIT_ARGS=(--init-ply "${OUT_DIR}/gsplat/lidar_init.ply")
+fi
+
+echo "== [4/4] train gsplat -> .ply =="
 python3 tools/gaussian_splatting/train_gsplat.py \
   --transforms "${OUT_DIR}/gsplat/transforms.json" \
   --out "${OUT_DIR}/gsplat/point_cloud.ply" \
-  --num-init "${NUM_INIT}" --iters "${ITERS}"
+  "${INIT_ARGS[@]}" --iters "${ITERS}"
 
 echo "done: ${OUT_DIR}/gsplat/point_cloud.ply"

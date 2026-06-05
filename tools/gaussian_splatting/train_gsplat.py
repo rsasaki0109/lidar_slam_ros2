@@ -126,14 +126,16 @@ def export_ply(path: str | Path, means: np.ndarray, scales_log: np.ndarray,
 # Training (torch + gsplat; imported lazily)
 # --------------------------------------------------------------------------- #
 def train(dataset: dict, *, init_points: Optional[np.ndarray] = None,
+          init_colors: Optional[np.ndarray] = None,
           num_init: int = 20000, iters: int = 2000, lr: float = 1e-2,
           device: str = 'cuda', log_every: int = 200) -> dict:
     """Optimise Gaussians to reconstruct the dataset images. Returns numpy params.
 
     ``init_points`` (N,3, e.g. a LiDAR map) seeds the means; otherwise points
-    are sampled in the cameras' bounding sphere. The result dict holds
-    ``means``, ``scales_log``, ``quats``, ``opacities_logit``, ``colors_rgb``,
-    and the ``loss_history``.
+    are sampled in the cameras' bounding sphere. ``init_colors`` (N,3 in 0..1)
+    optionally seeds the per-Gaussian colour. The result dict holds ``means``,
+    ``scales_log``, ``quats``, ``opacities_logit``, ``colors_rgb``, and the
+    ``loss_history``.
     """
     import torch
     import torch.nn.functional as F
@@ -172,7 +174,11 @@ def train(dataset: dict, *, init_points: Optional[np.ndarray] = None,
         torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=dev).repeat(n, 1)
     )
     opacities = torch.nn.Parameter(torch.full((n,), 0.1, device=dev))
-    colors = torch.nn.Parameter(torch.full((n, 3), 0.5, device=dev))
+    if init_colors is not None and len(init_colors) == n:
+        c0 = np.clip(np.asarray(init_colors, dtype=np.float32), 1e-4, 1 - 1e-4)
+        colors = torch.nn.Parameter(torch.logit(torch.tensor(c0, device=dev)))
+    else:
+        colors = torch.nn.Parameter(torch.full((n, 3), 0.0, device=dev))
 
     opt = torch.optim.Adam([
         {'params': [means], 'lr': lr * extent},
@@ -213,6 +219,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument('--transforms', required=True, help='transforms.json path')
     p.add_argument('--out', required=True, help='output .ply path')
+    p.add_argument('--init-ply', default=None,
+                   help='LiDAR-primed init cloud (xyz[+rgb]); random init if omitted')
     p.add_argument('--iters', type=int, default=2000)
     p.add_argument('--num-init', type=int, default=20000)
     p.add_argument('--lr', type=float, default=1e-2)
@@ -225,7 +233,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     dataset = load_transforms(args.transforms)
     print(f'loaded {len(dataset["image_paths"])} views @ {dataset["width"]}x{dataset["height"]}')
-    params = train(dataset, num_init=args.num_init, iters=args.iters,
+    init_points = None
+    init_colors = None
+    if args.init_ply:
+        import pointcloud_io as pcio
+        init_points, rgb = pcio.read_ply_xyz(args.init_ply)
+        init_colors = None if rgb is None else rgb.astype(np.float32) / 255.0
+        print(f'LiDAR-primed init: {len(init_points)} points from {args.init_ply}')
+    params = train(dataset, init_points=init_points, init_colors=init_colors,
+                   num_init=args.num_init, iters=args.iters,
                    lr=args.lr, device=args.device)
     out = export_ply(args.out, params['means'], params['scales_log'],
                      params['quats'], params['opacities_logit'], params['colors_rgb'])

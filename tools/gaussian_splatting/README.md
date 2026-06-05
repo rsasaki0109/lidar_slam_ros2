@@ -27,7 +27,9 @@ photorealistic map / novel-view 成果物を後処理で再構成するための
 |---|---|---|---|
 | `posed_images.py` | GPU/ROS 非依存コア。TUM 軌跡パース、SLERP ポーズ補間、外部標定合成、Nerfstudio `transforms.json` 出力。 | numpy のみ | `test_gaussian_splatting_posed_images.py`（19）|
 | `extract_posed_images.py` | rosbag2 から画像 + `camera_info` を取り出し、各画像の `world<-camera` を解決して `transforms.json` + 画像を書き出す CLI。`sensor_msgs/Image` は **numpy で生復号**（cv_bridge 非依存）、`rosbag2_py` は遅延 import。 | rosbag2_py（実行時のみ）| `test_gaussian_splatting_extract.py`（17、ポーズ/外部標定/復号ロジックは ROS 非依存）|
-| `train_gsplat.py` | `transforms.json` + 画像で gsplat 学習 → INRIA 標準 `.ply` 出力。OpenGL c2w を OpenCV w2c に戻して gsplat へ。 | torch, gsplat (CUDA) | `test_gaussian_splatting_train.py`（6、`load_transforms`/`looks_at_poses`/`export_ply` の純粋部）|
+| `pointcloud_io.py` | 最小 PLY 入出力（xyz[+rgb]）＋ voxel 間引き。 | numpy のみ | `test_gaussian_splatting_pointcloud.py`（8）|
+| `build_lidar_init.py` | bag のスキャンを SLAM 軌跡で world 系に蓄積 → **LiDAR-primed init 点群** PLY。 | rosbag2_py（実行時のみ）| 同上（`transform_points` 等の純粋部）|
+| `train_gsplat.py` | `transforms.json` + 画像で gsplat 学習 → INRIA 標準 `.ply` 出力。OpenGL c2w を OpenCV w2c に変換。`--init-ply` で **LiDAR-primed init**（位置＋色 seed）。 | torch, gsplat (CUDA) | `test_gaussian_splatting_train.py`（6、純粋部）|
 | `selftest_gpu.py` | opt-in GPU セルフテスト。合成シーンを描画→`transforms.json`→学習→`.ply` の全鎖を検証。 | torch, gsplat (CUDA) | 手動実行（CI 非対象）|
 
 GPU 不要の純粋部は ament pytest harness（`run_default_ci_checks.sh`）で **計 42 ケース**
@@ -47,9 +49,16 @@ python3 tools/gaussian_splatting/extract_posed_images.py \
   --time-offset auto --clock-reference-topic /livox/points \
   --out output/<run>/gsplat
 
-# 2) gsplat 学習 → .ply（GPU）
+# 2a) LiDAR-primed init 点群を構築（COLMAP 不要の幾何事前）
+python3 tools/gaussian_splatting/build_lidar_init.py \
+  --bag <bag> --traj output/<run>/traj_corrected.tum \
+  --points-topic /livox/points --voxel 0.05 \
+  --out output/<run>/gsplat/lidar_init.ply
+
+# 2b) gsplat 学習 → .ply（GPU）。--init-ply で LiDAR-primed init
 python3 tools/gaussian_splatting/train_gsplat.py \
   --transforms output/<run>/gsplat/transforms.json \
+  --init-ply output/<run>/gsplat/lidar_init.ply \
   --out output/<run>/gsplat/point_cloud.ply --iters 5000
 
 # GPU 動作確認（合成データ、bag 不要）
@@ -68,6 +77,9 @@ bash scripts/run_koide_3dgs_firstlight.sh
 gsplat 1.5.3** で PASS（合成 12 視点、photometric MSE 0.298 → 0.009、`.ply` 出力）。
 gsplat はネイティブ install 済みのため Docker は必須ではない（再現性のため別途
 Dockerfile を将来追加予定）。
+
+実データ koide first light では **LiDAR-primed init で PSNR 15 → 20.5dB（+5.5dB）**。
+詳細: [`docs/research/3dgs-koide-first-light.md`](../../docs/research/3dgs-koide-first-light.md)。
 
 ## 座標系の約束
 
