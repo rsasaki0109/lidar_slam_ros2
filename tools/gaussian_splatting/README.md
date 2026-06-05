@@ -25,12 +25,40 @@ photorealistic map / novel-view 成果物を後処理で再構成するための
 
 | ファイル | 役割 | 依存 | テスト |
 |---|---|---|---|
-| `posed_images.py` | GPU/ROS 非依存コア。TUM 軌跡パース、SLERP ポーズ補間、外部標定合成、Nerfstudio `transforms.json` 出力。 | numpy のみ | `graph_based_slam/test/test_gaussian_splatting_posed_images.py`（ament pytest 登録済み） |
-| _(予定)_ `extract_posed_images.py` | rosbag2 から画像 + `camera_info` を取り出し、`posed_images` で各画像の `world<-camera` を解決して `transforms.json` + 画像を書き出す CLI。 | rosbag2_py, cv_bridge | bag fixture |
-| _(予定)_ `train_gsplat.py` | `transforms.json` + LiDAR 点群初期化で gsplat 学習 → `.ply` + viewer。 | torch, gsplat (CUDA) | GPU 環境のみ |
+| `posed_images.py` | GPU/ROS 非依存コア。TUM 軌跡パース、SLERP ポーズ補間、外部標定合成、Nerfstudio `transforms.json` 出力。 | numpy のみ | `test_gaussian_splatting_posed_images.py`（19）|
+| `extract_posed_images.py` | rosbag2 から画像 + `camera_info` を取り出し、各画像の `world<-camera` を解決して `transforms.json` + 画像を書き出す CLI。`sensor_msgs/Image` は **numpy で生復号**（cv_bridge 非依存）、`rosbag2_py` は遅延 import。 | rosbag2_py（実行時のみ）| `test_gaussian_splatting_extract.py`（17、ポーズ/外部標定/復号ロジックは ROS 非依存）|
+| `train_gsplat.py` | `transforms.json` + 画像で gsplat 学習 → INRIA 標準 `.ply` 出力。OpenGL c2w を OpenCV w2c に戻して gsplat へ。 | torch, gsplat (CUDA) | `test_gaussian_splatting_train.py`（6、`load_transforms`/`looks_at_poses`/`export_ply` の純粋部）|
+| `selftest_gpu.py` | opt-in GPU セルフテスト。合成シーンを描画→`transforms.json`→学習→`.ply` の全鎖を検証。 | torch, gsplat (CUDA) | 手動実行（CI 非対象）|
 
-現状は **コア (`posed_images.py`) のみ実装済み**。これは GPU/ROS 不要で、既存の
-ament pytest harness（`run_default_ci_checks.sh`）でそのまま検証される。
+GPU 不要の純粋部は ament pytest harness（`run_default_ci_checks.sh`）で **計 42 ケース**
+検証される。CUDA を要する学習部はテストを skip せず CI 面から分離（opt-in）。
+
+## 使い方
+
+```bash
+# 1) bag から posed 画像 + transforms.json を抽出（ROS 環境）
+python3 tools/gaussian_splatting/extract_posed_images.py \
+  --bag demo_data/koide_lidar_camera_calib/livox/rosbag2_2023_03_09-13_42_46 \
+  --traj output/<run>/traj_corrected.tum \
+  --camera-topic /image --camera-info-topic /camera_info \
+  --extrinsic configs/<lidar_camera_extrinsic>.yaml \
+  --out output/<run>/gsplat
+
+# 2) gsplat 学習 → .ply（GPU）
+python3 tools/gaussian_splatting/train_gsplat.py \
+  --transforms output/<run>/gsplat/transforms.json \
+  --out output/<run>/gsplat/point_cloud.ply --iters 5000
+
+# GPU 動作確認（合成データ、bag 不要）
+python3 tools/gaussian_splatting/selftest_gpu.py --out /tmp/gsplat_selftest
+```
+
+## 動作確認済み環境
+
+`selftest_gpu.py` は **NVIDIA RTX 4070 Ti SUPER (16GB) / CUDA 12.0 / torch 2.10 /
+gsplat 1.5.3** で PASS（合成 12 視点、photometric MSE 0.298 → 0.009、`.ply` 出力）。
+gsplat はネイティブ install 済みのため Docker は必須ではない（再現性のため別途
+Dockerfile を将来追加予定）。
 
 ## 座標系の約束
 

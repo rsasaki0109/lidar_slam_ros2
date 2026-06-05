@@ -62,6 +62,46 @@ def test_ros_stamp_to_seconds():
 
 
 # --------------------------------------------------------------------------- #
+# Raw image decoding (cv_bridge-free)
+# --------------------------------------------------------------------------- #
+def test_decode_bgr8_to_rgb():
+    # one pixel, BGR bytes (10, 20, 30) -> RGB (30, 20, 10)
+    out = ex.decode_image('bgr8', 1, 1, 3, bytes([10, 20, 30]))
+    assert out.shape == (1, 1, 3)
+    np.testing.assert_array_equal(out[0, 0], [30, 20, 10])
+
+
+def test_decode_rgb8_passthrough():
+    out = ex.decode_image('rgb8', 1, 2, 6, bytes([1, 2, 3, 4, 5, 6]))
+    assert out.shape == (1, 2, 3)
+    np.testing.assert_array_equal(out[0, 0], [1, 2, 3])
+    np.testing.assert_array_equal(out[0, 1], [4, 5, 6])
+
+
+def test_decode_handles_row_padding_via_step():
+    # 1x2 rgb8 with step 8 (2 padding bytes per row)
+    data = bytes([1, 2, 3, 4, 5, 6, 0, 0])
+    out = ex.decode_image('rgb8', 1, 2, 8, data)
+    np.testing.assert_array_equal(out[0, 1], [4, 5, 6])
+
+
+def test_decode_mono8_is_2d():
+    out = ex.decode_image('mono8', 2, 2, 2, bytes([1, 2, 3, 4]))
+    assert out.shape == (2, 2)
+    np.testing.assert_array_equal(out, [[1, 2], [3, 4]])
+
+
+def test_decode_rejects_unknown_encoding():
+    with pytest.raises(ValueError):
+        ex.decode_image('yuv422', 1, 1, 2, bytes([0, 0]))
+
+
+def test_decode_rejects_short_payload():
+    with pytest.raises(ValueError):
+        ex.decode_image('rgb8', 2, 2, 6, bytes([1, 2, 3]))
+
+
+# --------------------------------------------------------------------------- #
 # Extrinsic parsing
 # --------------------------------------------------------------------------- #
 def test_parse_extrinsic_translation_rotation():

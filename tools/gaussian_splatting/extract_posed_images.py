@@ -35,6 +35,39 @@ def ros_stamp_to_seconds(sec: int, nanosec: int) -> float:
     return float(sec) + float(nanosec) * 1e-9
 
 
+# Channel count per supported sensor_msgs/Image encoding.
+_ENCODING_CHANNELS = {'mono8': 1, 'rgb8': 3, 'bgr8': 3, 'rgba8': 4, 'bgra8': 4}
+
+
+def decode_image(encoding: str, height: int, width: int, step: int,
+                 data: bytes) -> np.ndarray:
+    """Decode a raw ``sensor_msgs/Image`` payload to a canonical RGB uint8 array.
+
+    Returns ``(H, W, 3)`` for colour encodings and ``(H, W)`` for ``mono8``.
+    Avoids cv_bridge entirely (which is not numpy-2 compatible here). Handles
+    row padding via ``step`` and converts BGR(A) to RGB. Raises ``ValueError``
+    on an unsupported encoding or a payload shorter than ``step * height``.
+    """
+    enc = encoding.lower()
+    if enc not in _ENCODING_CHANNELS:
+        raise ValueError(f'unsupported image encoding {encoding!r}')
+    channels = _ENCODING_CHANNELS[enc]
+    buf = np.frombuffer(bytes(data), dtype=np.uint8)
+    if buf.size < step * height:
+        raise ValueError(
+            f'image payload {buf.size} < step*height {step * height}'
+        )
+    rows = buf[: step * height].reshape(height, step)
+    img = rows[:, : width * channels].reshape(height, width, channels)
+    if enc in ('bgr8', 'bgra8'):
+        img = img[:, :, [2, 1, 0]]  # BGR(A) -> RGB, drop alpha
+    elif enc == 'rgba8':
+        img = img[:, :, :3]
+    elif enc == 'mono8':
+        return img[:, :, 0]
+    return np.ascontiguousarray(img)
+
+
 def parse_extrinsic_dict(data: dict) -> np.ndarray:
     """Build a 4x4 ``body <- camera_optical`` matrix from a config dict.
 
@@ -121,10 +154,9 @@ def read_camera_intrinsics(bag_path: str | Path, topic: str) -> pi.CameraIntrins
 
 def extract(args: argparse.Namespace) -> dict:
     """Run the full extraction and return a small summary dict."""
-    from cv_bridge import CvBridge
+    import imageio.v3 as iio
     from rclpy.serialization import deserialize_message
     from sensor_msgs.msg import Image
-    import cv2
 
     samples = pi.read_tum_trajectory(args.traj)
     body_T_cam = load_extrinsic(args.extrinsic)
@@ -134,7 +166,6 @@ def extract(args: argparse.Namespace) -> dict:
     images_dir = out_dir / 'images'
     images_dir.mkdir(parents=True, exist_ok=True)
 
-    bridge = CvBridge()
     reader = _open_reader(args.bag)
     frames: list[pi.PosedImage] = []
     seen = 0
@@ -157,7 +188,8 @@ def extract(args: argparse.Namespace) -> dict:
             seen += 1
             continue
         rel = f'images/{len(frames):05d}.png'
-        cv2.imwrite(str(out_dir / rel), bridge.imgmsg_to_cv2(msg, 'bgr8'))
+        rgb = decode_image(msg.encoding, msg.height, msg.width, msg.step, msg.data)
+        iio.imwrite(str(out_dir / rel), rgb)
         frames.append(pi.PosedImage(rel, world_T_cam, stamp))
         seen += 1
 
