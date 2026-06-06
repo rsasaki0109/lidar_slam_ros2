@@ -36,6 +36,7 @@ import struct
 import sys
 
 import numpy as np
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOL_DIR = REPO_ROOT / 'tools' / 'gaussian_splatting'
@@ -146,3 +147,67 @@ def test_export_ply_vertex_count(tmp_path):
         np.tile([1.0, 0, 0, 0], (n, 1)), np.zeros(n), np.full((n, 3), 0.5),
     )
     assert f'element vertex {n}'.encode() in Path(out).read_bytes()
+
+
+# --------------------------------------------------------------------------- #
+# knn_scale_log (pure numpy/scipy; no torch)
+# --------------------------------------------------------------------------- #
+def test_knn_scale_log_shape_and_isotropic():
+    pts = np.random.default_rng(0).normal(size=(50, 3))
+    scales = tg.knn_scale_log(pts)
+    assert scales.shape == (50, 3)
+    # isotropic: the three columns are identical per point.
+    np.testing.assert_allclose(scales[:, 0], scales[:, 1])
+    np.testing.assert_allclose(scales[:, 0], scales[:, 2])
+
+
+def test_knn_scale_log_matches_uniform_spacing():
+    # Needs the real k-NN path; without scipy the helper falls back to a
+    # global-spacing estimate (CI has no scipy), so skip there.
+    pytest.importorskip('scipy.spatial')
+    # Points spaced 1.0 apart on a line -> nearest-neighbour distance ~1.0.
+    pts = np.stack([np.arange(20.0), np.zeros(20), np.zeros(20)], axis=1)
+    scales = tg.knn_scale_log(pts, k=1)
+    np.testing.assert_allclose(np.exp(scales[:, 0]).mean(), 1.0, atol=1e-6)
+
+
+def test_knn_scale_log_dense_smaller_than_sparse():
+    dense = np.random.default_rng(1).normal(scale=0.05, size=(100, 3))
+    sparse = np.random.default_rng(2).normal(scale=5.0, size=(100, 3))
+    assert tg.knn_scale_log(dense).mean() < tg.knn_scale_log(sparse).mean()
+
+
+# --------------------------------------------------------------------------- #
+# make_ssim / _photometric_loss (torch needed; skipped where unavailable)
+# --------------------------------------------------------------------------- #
+def test_make_ssim_identical_is_one():
+    torch = pytest.importorskip('torch')
+    img = torch.rand(32, 40, 3)
+    ssim = tg.make_ssim(img.device)
+    assert float(ssim(img, img)) == pytest.approx(1.0, abs=1e-4)
+
+
+def test_make_ssim_noise_below_one():
+    torch = pytest.importorskip('torch')
+    a = torch.rand(32, 40, 3)
+    b = torch.rand(32, 40, 3)
+    ssim = tg.make_ssim(a.device)
+    assert float(ssim(a, b)) < 0.5
+
+
+def test_photometric_loss_mse_when_lambda_zero():
+    torch = pytest.importorskip('torch')
+    a, b = torch.rand(8, 8, 3), torch.rand(8, 8, 3)
+    loss, mse = tg._photometric_loss(a, b, None, 0.0)
+    assert float(loss) == pytest.approx(float(mse))
+    assert float(mse) == pytest.approx(float(((a - b) ** 2).mean()))
+
+
+def test_photometric_loss_blends_when_lambda_positive():
+    torch = pytest.importorskip('torch')
+    a, b = torch.rand(16, 16, 3), torch.rand(16, 16, 3)
+    ssim = tg.make_ssim(a.device)
+    loss, mse = tg._photometric_loss(a, b, ssim, 0.2)
+    # mse is still the true MSE (reported for PSNR), loss is the blended term.
+    assert float(mse) == pytest.approx(float(((a - b) ** 2).mean()))
+    assert float(loss) != pytest.approx(float(mse))
