@@ -39,6 +39,7 @@ nav:
   - Operator Workflows: workflows.md
   - 3DGS Photoreal Map: 3dgs-map-tutorial.md
   - Benchmarking And Release Gate: benchmarking.md
+  - DDS / Large-Message Tuning: dds-tuning.md
   - Comparison: comparison.md
   - Social:
       - v0.2.2 Post Kit: social/autoware_map_authoring_post_v0.2.2.md
