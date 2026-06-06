@@ -48,10 +48,9 @@ def build(args: argparse.Namespace) -> dict:
     samples = pi.read_tum_trajectory(args.traj)
 
     import rosbag2_py
-    so = rosbag2_py.StorageOptions(uri=str(args.bag), storage_id='')
-    co = rosbag2_py.ConverterOptions('cdr', 'cdr')
-    reader = rosbag2_py.SequentialReader()
-    reader.open(so, co)
+    # Reuse the extractor's reader factory so FILE-compressed (zstd) bags work.
+    from extract_posed_images import _open_reader
+    reader = _open_reader(args.bag)
     reader.set_filter(rosbag2_py.StorageFilter(topics=[args.points_topic]))
 
     chunks: list[np.ndarray] = []
