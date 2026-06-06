@@ -18,10 +18,11 @@ cd "${REPO_ROOT}"
 BAG="${BAG:-demo_data/koide_lidar_camera_calib/livox/rosbag2_2023_03_09-13_42_46}"
 OUT_DIR="${OUT_DIR:-output/koide_3dgs_firstlight}"
 EXTRINSIC="${EXTRINSIC:-configs/gaussian_splatting/koide_lidar_camera_extrinsic_approx.yaml}"
-ITERS="${ITERS:-3000}"
+ITERS="${ITERS:-9000}"              # convergence sweet spot (~25.2dB; see notes)
 NUM_INIT="${NUM_INIT:-60000}"
 LIDAR_PRIMED="${LIDAR_PRIMED:-1}"   # 1 = seed Gaussians from the LiDAR cloud
 DENSIFY="${DENSIFY:-1}"             # 1 = gsplat adaptive density control
+SH_DEGREE="${SH_DEGREE:-1}"         # view-dependent colour (1 best for koide)
 TUM="${OUT_DIR}/lidarslam/traj_map_livox_frame.tum"
 
 # shellcheck disable=SC1091
@@ -60,6 +61,7 @@ fi
 
 DENSIFY_ARGS=()
 [[ "${DENSIFY}" == "1" ]] && DENSIFY_ARGS=(--densify)
+[[ -n "${SH_DEGREE}" ]] && DENSIFY_ARGS+=(--sh-degree "${SH_DEGREE}")
 
 echo "== [4/4] train gsplat -> .ply =="
 python3 tools/gaussian_splatting/train_gsplat.py \
