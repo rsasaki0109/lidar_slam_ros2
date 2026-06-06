@@ -269,6 +269,26 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_gaussian_splatting_posed_images
+    test/test_gaussian_splatting_posed_images.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_gaussian_splatting_extract
+    test/test_gaussian_splatting_extract.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_gaussian_splatting_train
+    test/test_gaussian_splatting_train.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_gaussian_splatting_pointcloud
+    test/test_gaussian_splatting_pointcloud.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_mid360_robot_preflight
     test/test_mid360_robot_preflight.py
     TIMEOUT 120

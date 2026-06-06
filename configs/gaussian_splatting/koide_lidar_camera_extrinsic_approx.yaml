@@ -1,0 +1,15 @@
+# Approximate body<-camera_optical extrinsic for the koide_lidar_camera_calib
+# (Livox) bag. NOTE: this is a *frame-convention* approximation only -- it maps
+# livox_frame (x-forward, y-left, z-up) to the camera optical frame
+# (x-right, y-down, z-forward) with ZERO lever-arm translation. It is good
+# enough for a first-light 3DGS reconstruction but is NOT a calibrated result.
+# Replace with a direct_visual_lidar_calibration output for quality work.
+#
+#   optical_x (right)   = -livox_y
+#   optical_y (down)    = -livox_z
+#   optical_z (forward) =  livox_x
+matrix:
+  - [0.0, 0.0, 1.0, 0.0]
+  - [-1.0, 0.0, 0.0, 0.0]
+  - [0.0, -1.0, 0.0, 0.0]
+  - [0.0, 0.0, 0.0, 1.0]

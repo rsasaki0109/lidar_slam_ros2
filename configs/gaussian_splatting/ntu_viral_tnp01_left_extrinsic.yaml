@@ -1,0 +1,20 @@
+# base_link <- camera_optical for NTU VIRAL tnp_01 (left cam).
+# Derived: base_link == NTU Body (base_T_lidar . T_Body2Lidar == I),
+# so body_T_cam = inv(T_Body2Cam) from camera_left.yaml (Kalibr).
+matrix:
+- - 0.02183084
+  - 0.99975965
+  - -0.00201407
+  - 0.12419495
+- - -0.01312053
+  - 0.00230088
+  - 0.99991128
+  - -0.01578685
+- - 0.99967558
+  - -0.02180248
+  - 0.01316761
+  - -0.00845058
+- - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
