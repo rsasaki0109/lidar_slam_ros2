@@ -114,21 +114,37 @@ def _apply_alignment(
     return out
 
 
-def _ape_metrics(
+def _match_with_tolerance(
     ref_rows: list[dict[str, float]],
     est_rows: list[dict[str, float]],
-) -> dict[str, Any]:
+    match_tolerance: float | None,
+) -> list[tuple[dict[str, float], dict[str, float]]]:
+    # Default (match_tolerance is None): the historical 0.05 -> 0.15 s cascade,
+    # right for a dense estimate sampled near the reference. A single explicit
+    # tolerance is for sparse references (e.g. RTK-SLAM total-station
+    # checkpoints) scored against a downsampled trajectory, and to reproduce the
+    # dataset's own max_dt; it suppresses the silent dropping of checkpoints
+    # that have no estimate pose within 0.15 s.
+    if match_tolerance is not None:
+        return _match_rows(ref_rows, est_rows, tolerance=match_tolerance)
     pairs = _match_rows(ref_rows, est_rows, tolerance=0.05)
     if len(pairs) < 10:
         pairs = _match_rows(ref_rows, est_rows, tolerance=0.15)
+    return pairs
+
+
+def _ape_metrics(
+    ref_rows: list[dict[str, float]],
+    est_rows: list[dict[str, float]],
+    match_tolerance: float | None = None,
+) -> dict[str, Any]:
+    pairs = _match_with_tolerance(ref_rows, est_rows, match_tolerance)
     if len(pairs) < 3:
         raise RuntimeError('not enough matched poses for alignment')
 
     rot, trans = _rigid_align(pairs)
     est_aligned = _apply_alignment(est_rows, rot, trans)
-    aligned_pairs = _match_rows(ref_rows, est_aligned, tolerance=0.05)
-    if len(aligned_pairs) < 10:
-        aligned_pairs = _match_rows(ref_rows, est_aligned, tolerance=0.15)
+    aligned_pairs = _match_with_tolerance(ref_rows, est_aligned, match_tolerance)
     if len(aligned_pairs) < 3:
         raise RuntimeError('not enough matched poses after alignment')
 
@@ -302,6 +318,15 @@ def main() -> int:
         help='Reference kind label, for example ground_truth or cross_validation',
     )
     parser.add_argument(
+        '--match-tolerance',
+        type=float,
+        default=-1.0,
+        help='Single timestamp-match tolerance in seconds for reference/estimate '
+             'pairing. <= 0 keeps the default 0.05 -> 0.15 s cascade. Set a larger '
+             'value (e.g. 2.0) for sparse references such as RTK-SLAM total-station '
+             'checkpoints scored against a downsampled trajectory.',
+    )
+    parser.add_argument(
         '--reference-label',
         default='reference',
         help='Human-readable reference label stored in metrics.json',
@@ -358,12 +383,13 @@ def main() -> int:
     if not corrected_rows:
         raise SystemExit(f'corrected trajectory not found or empty: {corrected_tum}')
 
-    corrected_ape = _ape_metrics(ref_rows, corrected_rows)
+    match_tolerance = args.match_tolerance if args.match_tolerance > 0 else None
+    corrected_ape = _ape_metrics(ref_rows, corrected_rows, match_tolerance)
     raw_ape = None
     if raw_tum and raw_tum.is_file():
         raw_rows = _load_tum(raw_tum)
         if raw_rows:
-            raw_ape = _ape_metrics(ref_rows, raw_rows)
+            raw_ape = _ape_metrics(ref_rows, raw_rows, match_tolerance)
 
     bag_duration_sec = _bag_duration_seconds(bag_path / 'metadata.yaml')
     wall_sec = args.wall_sec
