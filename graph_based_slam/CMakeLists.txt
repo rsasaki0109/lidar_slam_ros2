@@ -372,6 +372,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_rtk_slam_reference
+    test/test_rtk_slam_reference.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_benchmark_reporting_tools
     test/test_benchmark_reporting_tools.py
     TIMEOUT 120
