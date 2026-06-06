@@ -100,11 +100,13 @@ def axis_angle_to_matrix(omega: np.ndarray) -> np.ndarray:
 
 def export_ply(path: str | Path, means: np.ndarray, scales_log: np.ndarray,
                quats: np.ndarray, opacities_logit: np.ndarray,
-               colors_rgb: np.ndarray) -> Path:
-    """Write a standard INRIA 3DGS binary ``.ply`` (SH degree 0).
+               colors_rgb: np.ndarray, sh_rest: Optional[np.ndarray] = None) -> Path:
+    """Write a standard INRIA 3DGS binary ``.ply``.
 
     ``scales_log`` and ``opacities_logit`` are stored raw (log / logit), as the
     3DGS format expects; ``colors_rgb`` (0..1) become ``f_dc`` via SH band 0.
+    ``sh_rest`` (N, K-1, 3), if given, writes the higher SH bands as ``f_rest_*``
+    in INRIA channel-major order (all coeffs of R, then G, then B).
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -114,6 +116,13 @@ def export_ply(path: str | Path, means: np.ndarray, scales_log: np.ndarray,
         ('x', means[:, 0]), ('y', means[:, 1]), ('z', means[:, 2]),
         ('nx', np.zeros(n)), ('ny', np.zeros(n)), ('nz', np.zeros(n)),
         ('f_dc_0', f_dc[:, 0]), ('f_dc_1', f_dc[:, 1]), ('f_dc_2', f_dc[:, 2]),
+    ]
+    if sh_rest is not None and sh_rest.shape[1] > 0:
+        k_rest = sh_rest.shape[1]
+        for c in range(3):
+            for k in range(k_rest):
+                fields.append((f'f_rest_{c * k_rest + k}', sh_rest[:, k, c]))
+    fields += [
         ('opacity', opacities_logit),
         ('scale_0', scales_log[:, 0]), ('scale_1', scales_log[:, 1]),
         ('scale_2', scales_log[:, 2]),
@@ -391,7 +400,9 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
                   num_init: int = 20000, iters: int = 3000, lr: float = 1e-2,
                   device: str = 'cuda', log_every: int = 200,
                   optimize_extrinsic: bool = False,
-                  ssim_lambda: float = 0.0, knn_scale: bool = False) -> dict:
+                  ssim_lambda: float = 0.0, knn_scale: bool = False,
+                  sh_degree: Optional[int] = None,
+                  antialiased: bool = False) -> dict:
     """Train with gsplat DefaultStrategy adaptive density control (densify/prune).
 
     Same I/O contract as ``train`` but the Gaussian count grows/shrinks via the
@@ -410,11 +421,24 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     dev = torch.device(device)
     seed, extent = _seed_params(dataset, init_points, init_colors, num_init, dev,
                                 knn_scale=knn_scale)
+    lrs = {'means': lr * extent, 'scales': lr, 'quats': lr,
+           'opacities': lr * 3, 'colors': lr * 3}
+    if sh_degree is not None:
+        # Split the flat colour into SH coefficients: a band-0 DC term (seeded
+        # from the init colour) plus higher bands (zero, lower LR), matching the
+        # INRIA convention so the rasteriser models view-dependent appearance.
+        n = seed['colors'].shape[0]
+        dc_rgb = torch.sigmoid(seed.pop('colors'))
+        seed['sh0'] = (dc_rgb - 0.5) / SH_C0
+        k_rest = (sh_degree + 1) ** 2 - 1
+        if k_rest > 0:
+            seed['shN'] = torch.zeros((n, k_rest, 3))
+        lrs.pop('colors')
+        lrs['sh0'] = lr * 3
+        lrs['shN'] = lr * 3 / 20.0
     params = torch.nn.ParameterDict(
         {k: torch.nn.Parameter(v.to(dev)) for k, v in seed.items()}
     )
-    lrs = {'means': lr * extent, 'scales': lr, 'quats': lr,
-           'opacities': lr * 3, 'colors': lr * 3}
     optimizers = {
         k: torch.optim.Adam([{'params': [params[k]], 'lr': lrs[k]}])
         for k in params
@@ -447,13 +471,23 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
 
     ssim_fn = make_ssim(dev)
 
+    def _colors_arg():
+        if sh_degree is None:
+            return torch.sigmoid(params['colors'])
+        sh = params['sh0'][:, None, :]
+        if 'shN' in params:
+            sh = torch.cat([sh, params['shN']], dim=1)
+        return sh
+
+    rasterize_mode = 'antialiased' if antialiased else 'classic'
+
     def render_view(i, vm=None):
         out, _, info = rasterization(
             params['means'], F.normalize(params['quats'], dim=-1),
             torch.exp(params['scales']), torch.sigmoid(params['opacities']),
-            torch.sigmoid(params['colors']),
+            _colors_arg(),
             viewmats[i:i + 1] if vm is None else vm, K, W, H,
-            packed=False,
+            sh_degree=sh_degree, rasterize_mode=rasterize_mode, packed=False,
         )
         return out[0], info
 
@@ -484,12 +518,22 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     metrics = _eval_views(
         lambda i: render_view(i, None if eval_vm is None else eval_vm[i:i + 1])[0],
         gts, ssim_fn)
+    if sh_degree is None:
+        colors_rgb = torch.sigmoid(params['colors']).detach().cpu().numpy()
+        sh_rest = None
+    else:
+        # f_dc round-trips sh0 through export_ply's (rgb-0.5)/C0; higher bands go
+        # out verbatim as f_rest.
+        colors_rgb = (params['sh0'] * SH_C0 + 0.5).detach().cpu().numpy()
+        sh_rest = (params['shN'].detach().cpu().numpy()
+                   if 'shN' in params else None)
     out = {
         'means': params['means'].detach().cpu().numpy(),
         'scales_log': params['scales'].detach().cpu().numpy(),
         'quats': F.normalize(params['quats'], dim=-1).detach().cpu().numpy(),
         'opacities_logit': params['opacities'].detach().cpu().numpy(),
-        'colors_rgb': torch.sigmoid(params['colors']).detach().cpu().numpy(),
+        'colors_rgb': colors_rgb,
+        'sh_rest': sh_rest,
         'loss_history': loss_history,
         'psnr': metrics['psnr'], 'ssim': metrics['ssim'],
     }
@@ -519,6 +563,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--knn-scale-init', action='store_true',
                    help='seed per-Gaussian scale from k-NN spacing of the init '
                         'cloud (INRIA-style) instead of one scene-wide scale')
+    p.add_argument('--sh-degree', type=int, default=None,
+                   help='spherical-harmonics degree for view-dependent colour '
+                        '(e.g. 3); omitted = flat band-0 colour (implies --densify)')
+    p.add_argument('--antialiased', action='store_true',
+                   help="gsplat 'antialiased' rasterize mode (opacity-compensated "
+                        'screen-space filter; reduces aliasing, implies --densify)')
     p.add_argument('--densify', action='store_true',
                    help='use gsplat DefaultStrategy adaptive density control')
     p.add_argument('--optimize-extrinsic', action='store_true',
@@ -542,18 +592,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         init_points, rgb = pcio.read_ply_xyz(args.init_ply)
         init_colors = None if rgb is None else rgb.astype(np.float32) / 255.0
         print(f'LiDAR-primed init: {len(init_points)} points from {args.init_ply}')
-    if args.densify or args.optimize_extrinsic:
+    if (args.densify or args.optimize_extrinsic or args.sh_degree is not None
+            or args.antialiased):
         params = train_densify(
             dataset, init_points=init_points, init_colors=init_colors,
             num_init=args.num_init, iters=args.iters, lr=args.lr,
             device=args.device, optimize_extrinsic=args.optimize_extrinsic,
-            ssim_lambda=args.ssim_lambda, knn_scale=args.knn_scale_init)
+            ssim_lambda=args.ssim_lambda, knn_scale=args.knn_scale_init,
+            sh_degree=args.sh_degree, antialiased=args.antialiased)
     else:
         params = train(dataset, init_points=init_points, init_colors=init_colors,
                        num_init=args.num_init, iters=args.iters,
                        lr=args.lr, device=args.device, ssim_lambda=args.ssim_lambda)
     out = export_ply(args.out, params['means'], params['scales_log'],
-                     params['quats'], params['opacities_logit'], params['colors_rgb'])
+                     params['quats'], params['opacities_logit'],
+                     params['colors_rgb'], params.get('sh_rest'))
     print(f'final mse {params["loss_history"][-1]:.6f}  '
           f'PSNR {params.get("psnr", float("nan")):.2f} dB  '
           f'SSIM {params.get("ssim", float("nan")):.4f} -> {out}')
