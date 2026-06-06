@@ -9,23 +9,27 @@ system.
 
 ## Release Track vs Research Track
 
-`v0.3` separates evaluation into two tiers so the release gate stops squashing
-heterogeneous datasets onto a single APE threshold:
+`v0.3` introduced per-dataset release profiles so the gate stops squashing
+heterogeneous datasets onto a single APE threshold. `v0.4` then **graduated the
+former research-track profiles to blocking** (decision 2026-06-07,
+`docs/roadmap/v0.4.md`):
 
-- **Release track** — datasets where the release-profile gate enforces a
-  pass threshold. The current release-track datasets are `Newer College
-  math-hard` (hard gate) and the KITTI Odometry 00/05/07 LO baseline
-  comparison (non-regression).
-- **Research track** — datasets that are reported but do not block release
-  (`report_only_until: v0.4` in `scripts/release_profiles.yaml`). The current
-  research-track datasets are `NTU VIRAL tnp_01`, `MID-360` vs GLIM, the
-  Leo Drive applanix/velodyne open-data cross-validation, and the experimental
-  loop descriptor / NIS auto-scale paths.
+- **Release track (blocking)** — a FAIL blocks the release. As of v0.4 this is
+  every shipped profile: `Newer College math-hard` (ground truth),
+  `NTU VIRAL tnp_01` (ground truth), `MID-360` vs GLIM (cross-validation), the
+  Leo Drive applanix/velodyne open-data cross-validation, and the KITTI
+  Odometry 00/05/07 LO baseline comparison (non-regression).
+- **Interim caveat** — `MID-360` vs GLIM and the Leo Drive profile block on a
+  *cross-validation* reference rather than ground truth, an interim weakness
+  accepted knowingly. `MID-360` vs GLIM is slated to be replaced by a real
+  ground-truth `ape_rmse_gt_m` profile in v0.5.
+- **Research track (mechanism retained)** — `report_only_until` still downgrades
+  a FAIL to WARN, but **no shipped profile uses it as of v0.4**. It remains
+  available for any future dataset introduced mid-cycle.
 
 The distinction is exercised by `scripts/run_release_readiness_checks.sh`,
 which evaluates each profile in `scripts/release_profiles.yaml` and emits
-`PASS` / `FAIL` / `WARN` / `TARGET_MET` / `NO_DATA` per dataset. Profiles with
-`report_only_until` emit `WARN` instead of `FAIL` until the named release.
+`PASS` / `FAIL` / `WARN` / `TARGET_MET` / `NO_DATA` per dataset.
 
 ## Strategic Position
 
@@ -85,30 +89,30 @@ These numbers come from local artifacts currently checked under `output/`.
 
 ### Release-track datasets
 
+As of v0.4 every profile below is a blocking release-track profile. The current
+numbers all sit under their `pass` thresholds, so graduation flips their status
+from `WARN` to `PASS` without breaking the gate.
+
 | Dataset | Configuration | Reference kind | APE RMSE (m) | Profile gate | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `NTU VIRAL tnp_01` | current default | `ground_truth` | `0.952` | `WARN` (pass ≤ 1.00, target 0.30, `report_only_until: v0.4`) | outdoor long-loop GT |
-| `NTU VIRAL tnp_01` | best observed   | `ground_truth` | `0.870` | `WARN` (same)                                                | loop-gated backend run |
+| `NTU VIRAL tnp_01` | current default | `ground_truth` | `0.952` | `PASS` (pass ≤ 1.00, target 0.30) | outdoor long-loop GT |
+| `NTU VIRAL tnp_01` | best observed   | `ground_truth` | `0.870` | `PASS` (same)                     | loop-gated backend run |
+| `MID-360` | current default                  | `cross_validation` vs GLIM | `3.641` | `PASS` (pass ≤ 4.00, target 1.00) | solid-state LiDAR, non-360° FOV |
+| `MID-360` | best observed                    | `cross_validation` vs GLIM | `3.590` | `PASS` (same)                     | rerun with same tuned backend family |
+| `MID-360` | Scan Context candidate           | `cross_validation` vs GLIM | `3.816` | `PASS`                            | fair current-code comparison; still opt-in |
+| `MID-360` | experimental BEV-assisted rerank | `cross_validation` vs GLIM | `3.607` | `PASS`                            | sensor-agnostic rerank of distance candidates; still opt-in |
+| Leo Drive (applanix/velodyne) | current default | `cross_validation` vs Applanix GSOF49 | varies per bag | `PASS` (pass ≤ 1.50, target 0.50) | open-data Velodyne packet path |
 
-The Newer College `math-hard` profile is the only hard gate; numbers are not
-checked in to this repo and are reported separately on the long-form benchmark
-notes. The KITTI Odometry 00/05/07 LO baseline comparison is wired through
-`scripts/run_kitti_00_05_07_report.sh` and emits a non-regression report under
+The Newer College `math-hard` profile (ground truth) is the tightest gate
+(pass ≤ 0.10); its numbers are not checked in to this repo and are reported
+separately on the long-form benchmark notes. The KITTI Odometry 00/05/07 LO
+baseline comparison is wired through `scripts/run_kitti_00_05_07_report.sh` and
+emits a non-regression report under
 `output/kitti_dev_<timestamp>/kitti_dev_report.md`.
 
-### Research-track datasets (report-only until v0.4)
-
-| Dataset | Configuration | Reference kind | APE RMSE (m) | Profile gate | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `MID-360` | current default                  | `cross_validation` vs GLIM | `3.641` | `WARN` (pass ≤ 4.00, target 1.00) | solid-state LiDAR, non-360° FOV |
-| `MID-360` | best observed                    | `cross_validation` vs GLIM | `3.590` | `WARN` (same)                     | rerun with same tuned backend family |
-| `MID-360` | Scan Context candidate           | `cross_validation` vs GLIM | `3.816` | `WARN`                            | fair current-code comparison; still opt-in |
-| `MID-360` | experimental BEV-assisted rerank | `cross_validation` vs GLIM | `3.607` | `WARN`                            | sensor-agnostic rerank of distance candidates; still opt-in |
-| Leo Drive (applanix/velodyne) | current default | `cross_validation` vs Applanix GSOF49 | varies per bag | `WARN` (pass ≤ 1.50, target 0.50) | open-data Velodyne packet path |
-
-`MID-360` and Leo Drive remain instructive evidence but no longer feed the
-release gate; the v0.3 default release path is judged on Autoware-compatible
-map authoring + Newer College + KITTI Odometry LO baseline.
+`MID-360` and Leo Drive now **do** feed the release gate (graduated in v0.4),
+blocking on their cross-validation thresholds; `MID-360` vs GLIM is slated to be
+replaced by a real ground-truth profile in v0.5.
 
 Source artifacts:
 
