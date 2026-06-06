@@ -85,12 +85,18 @@ def build(args: argparse.Namespace) -> dict:
         if args.max_range > 0:
             rng = np.linalg.norm(pts, axis=1)
             pts = pts[rng <= args.max_range]
-        chunks.append(transform_points(pts, world_T_body).astype(np.float32))
+        world_pts = transform_points(pts, world_T_body).astype(np.float32)
+        # Downsample each scan before accumulating so peak memory is bounded by
+        # the downsampled cloud, not the sum of every raw scan (a long bag is
+        # tens of millions of points before any reduction).
+        world_pts, _ = pcio.voxel_downsample(world_pts, args.voxel)
+        chunks.append(world_pts)
         used += 1
 
     if not chunks:
         raise RuntimeError('no scans accumulated; check --points-topic / trajectory')
     world = np.concatenate(chunks, axis=0)
+    # Final pass dedups points that fell in the same voxel across scan boundaries.
     world, _ = pcio.voxel_downsample(world, args.voxel)
     if args.max_points > 0 and world.shape[0] > args.max_points:
         rng = np.random.default_rng(0)

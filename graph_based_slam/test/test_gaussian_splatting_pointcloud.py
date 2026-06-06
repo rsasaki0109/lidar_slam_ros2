@@ -99,10 +99,17 @@ def test_voxel_downsample_noop_when_zero():
 
 
 def test_voxel_downsample_keeps_rgb_alignment():
-    xyz = np.array([[0.0, 0.0, 0.0], [5.0, 5.0, 5.0]])
-    rgb = np.array([[10, 20, 30], [40, 50, 60]], dtype=np.uint8)
+    # Two points in distinct voxels plus a duplicate of the first; the kept rgb
+    # must stay paired with its own xyz (first occurrence wins). Asserting the
+    # actual values -- not just the row count -- is what pins the pairing.
+    xyz = np.array([[0.0, 0.0, 0.0], [5.0, 5.0, 5.0], [0.02, 0.0, 0.0]])
+    rgb = np.array([[10, 20, 30], [40, 50, 60], [70, 80, 90]], dtype=np.uint8)
     out, out_rgb = pcio.voxel_downsample(xyz, 0.1, rgb)
-    assert out.shape[0] == 2 and out_rgb.shape[0] == 2
+    assert out.shape[0] == 2
+    order = np.lexsort(out.T[::-1])  # stable order for comparison
+    np.testing.assert_allclose(out[order], [[0.0, 0.0, 0.0], [5.0, 5.0, 5.0]],
+                               atol=1e-6)
+    np.testing.assert_array_equal(out_rgb[order], [[10, 20, 30], [40, 50, 60]])
 
 
 # --------------------------------------------------------------------------- #
