@@ -401,7 +401,8 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
                   device: str = 'cuda', log_every: int = 200,
                   optimize_extrinsic: bool = False,
                   ssim_lambda: float = 0.0, knn_scale: bool = False,
-                  sh_degree: Optional[int] = None) -> dict:
+                  sh_degree: Optional[int] = None,
+                  antialiased: bool = False) -> dict:
     """Train with gsplat DefaultStrategy adaptive density control (densify/prune).
 
     Same I/O contract as ``train`` but the Gaussian count grows/shrinks via the
@@ -478,13 +479,15 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
             sh = torch.cat([sh, params['shN']], dim=1)
         return sh
 
+    rasterize_mode = 'antialiased' if antialiased else 'classic'
+
     def render_view(i, vm=None):
         out, _, info = rasterization(
             params['means'], F.normalize(params['quats'], dim=-1),
             torch.exp(params['scales']), torch.sigmoid(params['opacities']),
             _colors_arg(),
             viewmats[i:i + 1] if vm is None else vm, K, W, H,
-            sh_degree=sh_degree, packed=False,
+            sh_degree=sh_degree, rasterize_mode=rasterize_mode, packed=False,
         )
         return out[0], info
 
@@ -563,6 +566,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--sh-degree', type=int, default=None,
                    help='spherical-harmonics degree for view-dependent colour '
                         '(e.g. 3); omitted = flat band-0 colour (implies --densify)')
+    p.add_argument('--antialiased', action='store_true',
+                   help="gsplat 'antialiased' rasterize mode (opacity-compensated "
+                        'screen-space filter; reduces aliasing, implies --densify)')
     p.add_argument('--densify', action='store_true',
                    help='use gsplat DefaultStrategy adaptive density control')
     p.add_argument('--optimize-extrinsic', action='store_true',
@@ -586,13 +592,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         init_points, rgb = pcio.read_ply_xyz(args.init_ply)
         init_colors = None if rgb is None else rgb.astype(np.float32) / 255.0
         print(f'LiDAR-primed init: {len(init_points)} points from {args.init_ply}')
-    if args.densify or args.optimize_extrinsic or args.sh_degree is not None:
+    if (args.densify or args.optimize_extrinsic or args.sh_degree is not None
+            or args.antialiased):
         params = train_densify(
             dataset, init_points=init_points, init_colors=init_colors,
             num_init=args.num_init, iters=args.iters, lr=args.lr,
             device=args.device, optimize_extrinsic=args.optimize_extrinsic,
             ssim_lambda=args.ssim_lambda, knn_scale=args.knn_scale_init,
-            sh_degree=args.sh_degree)
+            sh_degree=args.sh_degree, antialiased=args.antialiased)
     else:
         params = train(dataset, init_points=init_points, init_colors=init_colors,
                        num_init=args.num_init, iters=args.iters,

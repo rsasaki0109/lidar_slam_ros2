@@ -28,9 +28,31 @@
   情報不足で overfit/ノイズ**になりやすい。これは視点数の知見（`3dgs-isuzu-viewcount-notes.md`）
   と整合: 高次 SH は多数の一貫した視点があって初めて効く。
 
-## 推奨
+## antialiased rasterization と学習 iter の追検証（2026-06-07）
 
-- koide 型（少視点・近接密）では **`--sh-degree 1`** が無難な品質上乗せ。
+`--antialiased`（gsplat `rasterize_mode='antialiased'`、opacity 補正付き screen-space
+filter）と **学習 iter 数**を同時に振った。
+
+| 構成 | iter | PSNR | SSIM |
+|------|------|------|------|
+| SH deg1 classic | 3000 | 24.06 dB | 0.8424 |
+| SH deg1 **antialiased** | 3000 | 23.44 dB | 0.8283 |
+| SH deg1 antialiased | 9000 | 24.60 dB | 0.8489 |
+| **SH deg1 classic** | **9000** | **25.18 dB** | **0.8569** |
+
+- **antialiased は koide で一貫して -0.6dB と逆効果**（3000: 24.06→23.44、9000:
+  25.18→24.60）。短 run + densify 設定では opacity 補正が裏目に出る。フラグは他シーン用に
+  残すが既定 OFF。
+- **学習 iter を 3000→9000 にすると +1.12dB（24.06→25.18dB）と最大の利得**。
+  **これまで ~24dB を「data-bound の上限」と見ていたが、一部は単に under-training だった**
+  ── 3000 iter は未収束で、9000 iter で 25.18dB に到達し「上限」を超えた（per-view では
+  既に 25.4dB を観測していたのとも整合）。
+
+## 推奨（更新）
+
+- koide 型（少視点・近接密）では **`--sh-degree 1` + classic + iter は長め（>=9000）** が
+  実用上のベスト（25.2dB）。`--antialiased` は koide では使わない。
 - 多視点・pose 一貫データが用意できれば degree 3 が活きる余地（未検証）。
-- いずれにせよ PSNR ~24dB 帯は崩れず、上限は依然 capture/pose 一貫性が支配的という
-  position は不変。SH は「効く向きの正のレバー」だが小幅。
+- **重要な更新**: 「~24dB は data-bound」という以前の結論は **一部 under-training の誤読**
+  だった。iter を伸ばせば 25dB 超まで動く（ただし 3倍の compute で +1dB の逓減）。残る
+  上限突破レバーは依然 capture/pose 一貫性だが、まず十分な iter を回すことが先決。
