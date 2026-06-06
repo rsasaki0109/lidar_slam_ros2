@@ -457,6 +457,11 @@ if(BUILD_TESTING)
     TIMEOUT 60
   )
   ament_add_pytest_test(
+    test_deterministic_loop_scheduling_defaults
+    test/test_deterministic_loop_scheduling_defaults.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
     test_triangle_ablation_runner
     test/test_triangle_ablation_runner.py
     TIMEOUT 60

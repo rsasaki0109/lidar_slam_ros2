@@ -71,6 +71,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("ndt_num_threads", ndt_num_threads);
   declare_parameter("loop_detection_period", 1000);
   get_parameter("loop_detection_period", loop_detection_period_);
+  declare_parameter("deterministic_loop_scheduling", false);
+  get_parameter("deterministic_loop_scheduling", deterministic_loop_scheduling_);
   declare_parameter("threshold_loop_closure_score", 1.0);
   get_parameter("threshold_loop_closure_score", threshold_loop_closure_score_);
   declare_parameter("scan_context_loop_closure_score_threshold", -1.0);
@@ -1246,6 +1248,65 @@ bool GraphBasedSlamComponent::upsertLoopEdge(const LoopEdge & loop_edge)
   loop_edges_.push_back(normalized);
   return true;
 }
+namespace
+{
+struct LoopCandidate
+{
+  enum class Source
+  {
+    DISTANCE,
+    SCAN_CONTEXT,
+    BEV_DESCRIPTOR,
+    SOLID_DESCRIPTOR,
+    TRIANGLE_DESCRIPTOR
+  };
+
+  int index {-1};
+  double selection_metric {std::numeric_limits<double>::max()};
+  Source source {Source::DISTANCE};
+  double yaw_rad {0.0};
+  // Recovered SE(3) from the descriptor that proposed this candidate
+  // (currently only triangle). Identity unless populated. Used as the NDT
+  // initial guess instead of the pose-derived guess when source matches.
+  Eigen::Matrix4f relative_transform {Eigen::Matrix4f::Identity()};
+  bool has_relative_transform {false};
+};
+
+struct LoopCandidateResult
+{
+  bool valid {false};
+  int index {-1};
+  double selection_metric {std::numeric_limits<double>::max()};
+  double fitness_score {std::numeric_limits<double>::max()};
+  double travel_distance {0.0};
+  double euclidean_distance {0.0};
+  double translation_delta_m {0.0};
+  double rotation_delta_deg {0.0};
+  LoopCandidate::Source source {LoopCandidate::Source::DISTANCE};
+  bool used_3d_bbs {false};
+  double three_d_bbs_score_percentage {0.0};
+  double three_d_bbs_elapsed_msec {0.0};
+  Eigen::Matrix4f final_transformation {Eigen::Matrix4f::Identity()};
+};
+
+const char * candidate_source_name(LoopCandidate::Source source)
+{
+  switch (source) {
+    case LoopCandidate::Source::SCAN_CONTEXT:
+      return "scan_context";
+    case LoopCandidate::Source::BEV_DESCRIPTOR:
+      return "bev_descriptor";
+    case LoopCandidate::Source::SOLID_DESCRIPTOR:
+      return "solid_descriptor";
+    case LoopCandidate::Source::TRIANGLE_DESCRIPTOR:
+      return "triangle_descriptor";
+    case LoopCandidate::Source::DISTANCE:
+    default:
+      return "distance";
+  }
+}
+}  // namespace
+
 void GraphBasedSlamComponent::searchLoop()
 {
   lidarslam_msgs::msg::MapArray map_array_msg;
@@ -1260,62 +1321,6 @@ void GraphBasedSlamComponent::searchLoop()
   if (debug_flag_) {
     RCLCPP_INFO(get_logger(), "searching Loop, num_submaps:%d", num_submaps);
   }
-
-  struct LoopCandidate
-  {
-    enum class Source
-    {
-      DISTANCE,
-      SCAN_CONTEXT,
-      BEV_DESCRIPTOR,
-      SOLID_DESCRIPTOR,
-      TRIANGLE_DESCRIPTOR
-    };
-
-    int index {-1};
-    double selection_metric {std::numeric_limits<double>::max()};
-    Source source {Source::DISTANCE};
-    double yaw_rad {0.0};
-    // Recovered SE(3) from the descriptor that proposed this candidate
-    // (currently only triangle). Identity unless populated. Used as the NDT
-    // initial guess instead of the pose-derived guess when source matches.
-    Eigen::Matrix4f relative_transform {Eigen::Matrix4f::Identity()};
-    bool has_relative_transform {false};
-  };
-
-  struct LoopCandidateResult
-  {
-    bool valid {false};
-    int index {-1};
-    double selection_metric {std::numeric_limits<double>::max()};
-    double fitness_score {std::numeric_limits<double>::max()};
-    double travel_distance {0.0};
-    double euclidean_distance {0.0};
-    double translation_delta_m {0.0};
-    double rotation_delta_deg {0.0};
-    LoopCandidate::Source source {LoopCandidate::Source::DISTANCE};
-    bool used_3d_bbs {false};
-    double three_d_bbs_score_percentage {0.0};
-    double three_d_bbs_elapsed_msec {0.0};
-    Eigen::Matrix4f final_transformation {Eigen::Matrix4f::Identity()};
-  };
-
-  const auto candidate_source_name =
-    [](LoopCandidate::Source source) -> const char * {
-      switch (source) {
-        case LoopCandidate::Source::SCAN_CONTEXT:
-          return "scan_context";
-        case LoopCandidate::Source::BEV_DESCRIPTOR:
-          return "bev_descriptor";
-        case LoopCandidate::Source::SOLID_DESCRIPTOR:
-          return "solid_descriptor";
-        case LoopCandidate::Source::TRIANGLE_DESCRIPTOR:
-          return "triangle_descriptor";
-        case LoopCandidate::Source::DISTANCE:
-        default:
-          return "distance";
-      }
-    };
 
   const auto build_filtered_local_submap =
     [this, &map_array_msg](int ref_idx) -> pcl::PointCloud<pcl::PointXYZI>::Ptr {
@@ -1431,7 +1436,28 @@ void GraphBasedSlamComponent::searchLoop()
     triangle_descriptor_next_submap_idx_ = num_submaps;
   }
 
-  const int latest_idx = num_submaps - 1;
+  if (deterministic_loop_scheduling_) {
+    // Catch up over every submap not yet used as a loop-search query so the
+    // query set is a deterministic function of the map, independent of how the
+    // wall-clock timer batched submap arrivals (v0.4 D1 reproducibility fix).
+    int query_start = last_searched_submap_idx_ + 1;
+    if (query_start < 1) {query_start = 1;}
+    for (int q = query_start; q < num_submaps; ++q) {
+      searchLoopForLatest(map_array_msg, loop_edges, num_submaps, q);
+    }
+    last_searched_submap_idx_ = num_submaps - 1;
+  } else {
+    // Default (historical) behaviour: query only the single latest submap.
+    searchLoopForLatest(map_array_msg, loop_edges, num_submaps, num_submaps - 1);
+  }
+}
+
+void GraphBasedSlamComponent::searchLoopForLatest(
+  const lidarslam_msgs::msg::MapArray & map_array_msg,
+  LoopEdges & loop_edges,
+  int num_submaps,
+  int latest_idx)
+{
   const auto & latest_submap = map_array_msg.submaps[latest_idx];
   Eigen::Affine3d latest_affine;
   tf2::fromMsg(latest_submap.pose, latest_affine);
