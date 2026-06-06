@@ -52,14 +52,23 @@ def build(args: argparse.Namespace) -> dict:
     co = rosbag2_py.ConverterOptions('cdr', 'cdr')
     reader = rosbag2_py.SequentialReader()
     reader.open(so, co)
+    reader.set_filter(rosbag2_py.StorageFilter(topics=[args.points_topic]))
 
     chunks: list[np.ndarray] = []
     used = 0
     skipped = 0
     seen = 0
+    t0 = None
     while reader.has_next():
-        tname, raw, _ = reader.read_next()
+        tname, raw, bagt = reader.read_next()
         if tname != args.points_topic:
+            continue
+        rel_t = 0.0 if t0 is None else (bagt * 1e-9 - t0)
+        if t0 is None:
+            t0 = bagt * 1e-9
+        if args.end_time >= 0 and rel_t > args.end_time:
+            break
+        if rel_t < args.start_time:
             continue
         if args.stride > 1 and seen % args.stride != 0:
             seen += 1
@@ -104,6 +113,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--max-points', type=int, default=300000, help='cap final point count')
     p.add_argument('--max-extrapolation', type=float, default=0.1)
     p.add_argument('--stride', type=int, default=1, help='use every Nth scan')
+    p.add_argument('--start-time', type=float, default=0.0,
+                   help='use scans at/after this many seconds from bag start')
+    p.add_argument('--end-time', type=float, default=-1.0,
+                   help='use scans up to this many seconds from bag start (-1 = all)')
     return p
 
 

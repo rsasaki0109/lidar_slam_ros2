@@ -148,6 +148,37 @@ def test_load_extrinsic_identity_when_none():
 
 
 # --------------------------------------------------------------------------- #
+# Intrinsics YAML (NTU VIRAL / Kalibr style)
+# --------------------------------------------------------------------------- #
+def test_load_intrinsics_yaml_ntu_style(tmp_path):
+    text = (
+        '%YAML:1.0\n'
+        'model_type:   PINHOLE\n'
+        'image_width:  752\n'
+        'image_height: 480\n'
+        'distortion_parameters:\n'
+        '   k1: -0.288105\n   k2: 0.074578\n   p1: 0.000778\n   p2: -0.000228\n'
+        'projection_parameters:\n'
+        '   fx: 425.0258\n   fy: 426.7976\n   cx: 386.0151\n   cy: 241.9130\n'
+    )
+    p = tmp_path / 'camera_left.yaml'
+    p.write_text(text)
+    intr = ex.load_intrinsics_yaml(p)
+    assert intr.width == 752 and intr.height == 480
+    assert intr.fx == pytest.approx(425.0258)
+    assert intr.cy == pytest.approx(241.9130)
+    assert intr.distortion[0] == pytest.approx(-0.288105)
+    assert intr.distortion[2] == pytest.approx(0.000778)
+
+
+def test_load_intrinsics_yaml_missing_field(tmp_path):
+    p = tmp_path / 'bad.yaml'
+    p.write_text('image_width: 100\nimage_height: 50\n')  # no projection params
+    with pytest.raises(ValueError):
+        ex.load_intrinsics_yaml(p)
+
+
+# --------------------------------------------------------------------------- #
 # Pose resolution with extrinsic + time offset + drop
 # --------------------------------------------------------------------------- #
 def _traj():

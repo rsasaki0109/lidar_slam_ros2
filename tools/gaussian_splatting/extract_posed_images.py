@@ -101,6 +101,35 @@ def parse_extrinsic_dict(data: dict) -> np.ndarray:
     )
 
 
+def load_intrinsics_yaml(path: str | Path) -> pi.CameraIntrinsics:
+    """Parse a camera intrinsics YAML (NTU VIRAL / Kalibr-style PINHOLE).
+
+    Reads ``image_width/height``, ``projection_parameters`` (fx,fy,cx,cy) and
+    ``distortion_parameters`` (k1,k2,p1,p2). Tolerant of the OpenCV ``%YAML:1.0``
+    header and ``!!opencv-matrix`` tags (we only need the scalar fields, pulled
+    by regex), so ``yaml.safe_load`` is not required.
+    """
+    import re
+
+    text = Path(path).read_text()
+
+    def grab(key: str, default: Optional[float] = None) -> float:
+        m = re.search(rf'\b{key}\s*:\s*([-+0-9.eE]+)', text)
+        if m is None:
+            if default is None:
+                raise ValueError(f'{path}: missing intrinsics field {key!r}')
+            return default
+        return float(m.group(1))
+
+    return pi.CameraIntrinsics(
+        width=int(grab('image_width')),
+        height=int(grab('image_height')),
+        fx=grab('fx'), fy=grab('fy'), cx=grab('cx'), cy=grab('cy'),
+        distortion=(grab('k1', 0.0), grab('k2', 0.0),
+                    grab('p1', 0.0), grab('p2', 0.0), 0.0),
+    )
+
+
 def load_extrinsic(path: Optional[str | Path]) -> np.ndarray:
     """Load ``body <- camera_optical`` from a YAML file, or identity if None."""
     if path is None:
@@ -208,20 +237,48 @@ def extract(args: argparse.Namespace) -> dict:
 
     samples = pi.read_tum_trajectory(args.traj)
     body_T_cam = load_extrinsic(args.extrinsic)
-    intrinsics = read_camera_intrinsics(args.bag, args.camera_info_topic)
+    if args.intrinsics_yaml:
+        intrinsics = load_intrinsics_yaml(args.intrinsics_yaml)
+    else:
+        intrinsics = read_camera_intrinsics(args.bag, args.camera_info_topic)
     time_offset = resolve_time_offset(args)
+
+    undistort_map = None
+    out_intrinsics = intrinsics
+    if args.undistort:
+        import cv2
+        k = np.array([[intrinsics.fx, 0, intrinsics.cx],
+                      [0, intrinsics.fy, intrinsics.cy], [0, 0, 1.0]])
+        d = np.array((list(intrinsics.distortion) + [0] * 5)[:5], dtype=float)
+        size = (intrinsics.width, intrinsics.height)
+        new_k, _ = cv2.getOptimalNewCameraMatrix(k, d, size, 0, size)
+        undistort_map = cv2.initUndistortRectifyMap(k, d, None, new_k, size, cv2.CV_16SC2)
+        out_intrinsics = pi.CameraIntrinsics(
+            intrinsics.width, intrinsics.height,
+            float(new_k[0, 0]), float(new_k[1, 1]),
+            float(new_k[0, 2]), float(new_k[1, 2]))
 
     out_dir = Path(args.out)
     images_dir = out_dir / 'images'
     images_dir.mkdir(parents=True, exist_ok=True)
 
+    import rosbag2_py
     reader = _open_reader(args.bag)
+    reader.set_filter(rosbag2_py.StorageFilter(topics=[args.camera_topic]))
     frames: list[pi.PosedImage] = []
     seen = 0
     dropped = 0
+    t0 = None
     while reader.has_next():
-        tname, raw, _ = reader.read_next()
+        tname, raw, bagt = reader.read_next()
         if tname != args.camera_topic:
+            continue
+        rel_t = 0.0 if t0 is None else (bagt * 1e-9 - t0)
+        if t0 is None:
+            t0 = bagt * 1e-9
+        if args.end_time >= 0 and rel_t > args.end_time:
+            break  # camera stamps are monotonic, no later frame qualifies
+        if rel_t < args.start_time:
             continue
         if args.stride > 1 and seen % args.stride != 0:
             seen += 1
@@ -238,11 +295,14 @@ def extract(args: argparse.Namespace) -> dict:
             continue
         rel = f'images/{len(frames):05d}.png'
         rgb = decode_image(msg.encoding, msg.height, msg.width, msg.step, msg.data)
+        if undistort_map is not None:
+            import cv2
+            rgb = cv2.remap(rgb, undistort_map[0], undistort_map[1], cv2.INTER_LINEAR)
         iio.imwrite(str(out_dir / rel), rgb)
         frames.append(pi.PosedImage(rel, world_T_cam, stamp))
         seen += 1
 
-    pi.write_transforms(out_dir / 'transforms.json', intrinsics, frames)
+    pi.write_transforms(out_dir / 'transforms.json', out_intrinsics, frames)
     return {'kept': len(frames), 'dropped': dropped, 'out': str(out_dir)}
 
 
@@ -253,6 +313,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--traj', required=True, help='SLAM trajectory (TUM, world<-body)')
     p.add_argument('--camera-topic', default='/image')
     p.add_argument('--camera-info-topic', default='/camera_info')
+    p.add_argument('--intrinsics-yaml', default=None,
+                   help='camera intrinsics YAML (NTU/Kalibr); overrides bag camera_info')
+    p.add_argument('--undistort', action='store_true',
+                   help='undistort images to a pinhole model (gsplat is pinhole)')
+    p.add_argument('--start-time', type=float, default=0.0,
+                   help='keep images at/after this many seconds from bag start')
+    p.add_argument('--end-time', type=float, default=-1.0,
+                   help='keep images up to this many seconds from bag start (-1 = all)')
     p.add_argument('--extrinsic', default=None,
                    help='YAML with body<-camera_optical (matrix or translation+rotation_xyzw); '
                         'identity if omitted')
