@@ -227,3 +227,27 @@ def test_parser_requires_bag_traj_out():
 def test_parser_missing_required_exits():
     with pytest.raises(SystemExit):
         ex.build_parser().parse_args(['--bag', 'b'])
+
+
+# --------------------------------------------------------------------------- #
+# FILE-compressed bag detection (metadata-only; ROS-free)
+# --------------------------------------------------------------------------- #
+def test_bag_file_compression_detected(tmp_path):
+    (tmp_path / 'metadata.yaml').write_text(
+        'rosbag2_bagfile_information:\n'
+        '  storage_identifier: sqlite3\n'
+        '  compression_format: zstd\n'
+        '  compression_mode: FILE\n'
+    )
+    assert ex._bag_is_file_compressed(tmp_path) is True
+
+
+def test_bag_uncompressed_when_mode_none(tmp_path):
+    (tmp_path / 'metadata.yaml').write_text(
+        '  compression_format: ""\n  compression_mode: ""\n'
+    )
+    assert ex._bag_is_file_compressed(tmp_path) is False
+
+
+def test_bag_uncompressed_when_no_metadata(tmp_path):
+    assert ex._bag_is_file_compressed(tmp_path) is False

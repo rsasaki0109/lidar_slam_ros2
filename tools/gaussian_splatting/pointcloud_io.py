@@ -96,6 +96,51 @@ def read_ply_xyz(path: str | Path) -> tuple[np.ndarray, Optional[np.ndarray]]:
     return xyz, rgb
 
 
+def colorize_by_projection(points: np.ndarray, viewmats: np.ndarray,
+                           K: np.ndarray, images, width: int, height: int,
+                           default_rgb=(128, 128, 128)
+                           ) -> tuple[np.ndarray, np.ndarray]:
+    """Colour points by projecting them into posed camera images and averaging.
+
+    For each point, project into every camera (``viewmats`` are OpenCV
+    world->camera, as ``train_gsplat.load_transforms`` returns), sample the pixel
+    where it lands in front of and inside the image, and average the colours over
+    all such views. This seeds Gaussian colour from the real images instead of a
+    flat grey, so training starts far closer to the target. No occlusion test --
+    averaging over many views is enough for an init (training refines it).
+
+    Returns ``(rgb uint8 (N,3), seen bool (N,))``; unseen points get
+    ``default_rgb``.
+    """
+    pts = np.asarray(points, dtype=np.float64)
+    n = pts.shape[0]
+    fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
+    sum_rgb = np.zeros((n, 3), dtype=np.float64)
+    cnt = np.zeros(n, dtype=np.int64)
+    for vm, img in zip(viewmats, images):
+        vm = np.asarray(vm, dtype=np.float64)
+        cam = pts @ vm[:3, :3].T + vm[:3, 3]
+        z = cam[:, 2]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            u = fx * cam[:, 0] / z + cx
+            v = fy * cam[:, 1] / z + cy
+        ui = np.round(u).astype(np.int64)
+        vi = np.round(v).astype(np.int64)
+        inb = (z > 1e-6) & (ui >= 0) & (ui < width) & (vi >= 0) & (vi < height)
+        idx = np.nonzero(inb)[0]
+        if idx.size == 0:
+            continue
+        cols = np.asarray(img)[vi[idx], ui[idx]]
+        if cols.ndim == 1:
+            cols = np.repeat(cols[:, None], 3, axis=1)
+        sum_rgb[idx] += cols[:, :3]
+        cnt[idx] += 1
+    seen = cnt > 0
+    rgb = np.tile(np.asarray(default_rgb, dtype=np.uint8), (n, 1))
+    rgb[seen] = np.round(sum_rgb[seen] / cnt[seen, None]).astype(np.uint8)
+    return rgb, seen
+
+
 def voxel_downsample(xyz: np.ndarray, voxel_size: float,
                      rgb: Optional[np.ndarray] = None
                      ) -> tuple[np.ndarray, Optional[np.ndarray]]:
