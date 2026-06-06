@@ -402,7 +402,8 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
                   optimize_extrinsic: bool = False,
                   ssim_lambda: float = 0.0, knn_scale: bool = False,
                   sh_degree: Optional[int] = None,
-                  antialiased: bool = False) -> dict:
+                  antialiased: bool = False, mcmc: bool = False,
+                  mcmc_cap: int = 500000) -> dict:
     """Train with gsplat DefaultStrategy adaptive density control (densify/prune).
 
     Same I/O contract as ``train`` but the Gaussian count grows/shrinks via the
@@ -416,7 +417,7 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     import torch
     import torch.nn.functional as F
     import imageio.v3 as iio
-    from gsplat import rasterization, DefaultStrategy
+    from gsplat import rasterization, DefaultStrategy, MCMCStrategy
 
     dev = torch.device(device)
     seed, extent = _seed_params(dataset, init_points, init_colors, num_init, dev,
@@ -455,15 +456,27 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         gts.append(torch.tensor(img[..., :3], device=dev))
     gts = torch.stack(gts)
 
-    strategy = DefaultStrategy(
-        refine_start_iter=max(100, iters // 10),
-        refine_stop_iter=int(iters * 0.85),
-        # Opacity reset helps long (30k-iter) runs prune floaters but
-        # destabilises short runs; disable by pushing it past the horizon.
-        refine_every=100, reset_every=iters + 1, verbose=False,
-    )
-    strategy.check_sanity(params, optimizers)
-    state = strategy.initialize_state(scene_scale=extent)
+    if mcmc:
+        # MCMC keeps a fixed Gaussian budget (cap_max) and relocates dead/low-
+        # opacity splats by a Metropolis-Hastings move instead of clone/split.
+        # Needs L1 opacity+scale regularisation in the loss and the means LR in
+        # step_post_backward. Often beats clone/split densification per budget.
+        strategy = MCMCStrategy(
+            cap_max=mcmc_cap, refine_start_iter=max(100, iters // 10),
+            refine_stop_iter=int(iters * 0.85), refine_every=100, verbose=False,
+        )
+        strategy.check_sanity(params, optimizers)
+        state = strategy.initialize_state()
+    else:
+        strategy = DefaultStrategy(
+            refine_start_iter=max(100, iters // 10),
+            refine_stop_iter=int(iters * 0.85),
+            # Opacity reset helps long (30k-iter) runs prune floaters but
+            # destabilises short runs; disable by pushing it past the horizon.
+            refine_every=100, reset_every=iters + 1, verbose=False,
+        )
+        strategy.check_sanity(params, optimizers)
+        state = strategy.initialize_state(scene_scale=extent)
 
     tau = torch.zeros(6, device=dev, requires_grad=optimize_extrinsic)
     ext_opt = (torch.optim.Adam([tau], lr=lr * 0.1)
@@ -498,17 +511,28 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         if optimize_extrinsic:
             vm = (_se3_exp_torch(tau) @ vm[0])[None]
         render, info = render_view(idx, vm)
-        strategy.step_pre_backward(params, optimizers, state, it, info)
+        if not mcmc:
+            strategy.step_pre_backward(params, optimizers, state, it, info)
         loss, mse = _photometric_loss(render, gts[idx], ssim_fn, ssim_lambda)
+        if mcmc:
+            # MCMC paper regularisers (gsplat defaults): keep opacities/scales small.
+            loss = (loss + 0.01 * torch.sigmoid(params['opacities']).abs().mean()
+                    + 0.01 * torch.exp(params['scales']).abs().mean())
         loss.backward()
         loss_history.append(float(mse.detach().cpu()))
-        strategy.step_post_backward(params, optimizers, state, it, info, packed=False)
+        if not mcmc:
+            strategy.step_post_backward(params, optimizers, state, it, info,
+                                        packed=False)
         for opt in optimizers.values():
             opt.step()
             opt.zero_grad(set_to_none=True)
         if ext_opt is not None:
             ext_opt.step()
             ext_opt.zero_grad(set_to_none=True)
+        if mcmc:
+            # MCMC relocates after the optimiser step and needs the means LR.
+            strategy.step_post_backward(params, optimizers, state, it, info,
+                                        lr=lrs['means'])
         if log_every and (it % log_every == 0 or it == iters - 1):
             print(f'iter {it:5d}  mse {loss_history[-1]:.6f}  '
                   f'gaussians {params["means"].shape[0]}', flush=True)
@@ -569,6 +593,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--antialiased', action='store_true',
                    help="gsplat 'antialiased' rasterize mode (opacity-compensated "
                         'screen-space filter; reduces aliasing, implies --densify)')
+    p.add_argument('--mcmc', action='store_true',
+                   help='use gsplat MCMCStrategy (fixed budget + relocation) '
+                        'instead of clone/split DefaultStrategy (implies --densify)')
+    p.add_argument('--mcmc-cap', type=int, default=500000,
+                   help='max Gaussian budget for --mcmc (default 500000)')
     p.add_argument('--densify', action='store_true',
                    help='use gsplat DefaultStrategy adaptive density control')
     p.add_argument('--optimize-extrinsic', action='store_true',
@@ -593,13 +622,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         init_colors = None if rgb is None else rgb.astype(np.float32) / 255.0
         print(f'LiDAR-primed init: {len(init_points)} points from {args.init_ply}')
     if (args.densify or args.optimize_extrinsic or args.sh_degree is not None
-            or args.antialiased):
+            or args.antialiased or args.mcmc):
         params = train_densify(
             dataset, init_points=init_points, init_colors=init_colors,
             num_init=args.num_init, iters=args.iters, lr=args.lr,
             device=args.device, optimize_extrinsic=args.optimize_extrinsic,
             ssim_lambda=args.ssim_lambda, knn_scale=args.knn_scale_init,
-            sh_degree=args.sh_degree, antialiased=args.antialiased)
+            sh_degree=args.sh_degree, antialiased=args.antialiased,
+            mcmc=args.mcmc, mcmc_cap=args.mcmc_cap)
     else:
         params = train(dataset, init_points=init_points, init_colors=init_colors,
                        num_init=args.num_init, iters=args.iters,
