@@ -149,6 +149,40 @@ def test_export_ply_vertex_count(tmp_path):
     assert f'element vertex {n}'.encode() in Path(out).read_bytes()
 
 
+def test_export_ply_sh_rest_fields_and_order(tmp_path):
+    n, k_rest = 4, 15  # SH degree 3 -> (3+1)^2 - 1 = 15 higher coeffs
+    sh_rest = np.arange(n * k_rest * 3, dtype=np.float32).reshape(n, k_rest, 3)
+    out = tg.export_ply(
+        tmp_path / 'g.ply', np.zeros((n, 3)), np.zeros((n, 3)),
+        np.tile([1.0, 0, 0, 0], (n, 1)), np.zeros(n), np.full((n, 3), 0.5),
+        sh_rest,
+    )
+    raw = Path(out).read_bytes()
+    header = raw[:raw.index(b'end_header\n')].decode('ascii')
+    names = [ln.split()[-1] for ln in header.splitlines()
+             if ln.startswith('property float')]
+    # 3 f_dc + 45 f_rest, channel-major (all R coeffs, then G, then B).
+    assert names.count('f_dc_0') == 1
+    assert sum(nm.startswith('f_rest_') for nm in names) == k_rest * 3
+    body = np.frombuffer(raw[raw.index(b'end_header\n') + 11:],
+                         dtype=np.float32).reshape(n, len(names))
+    i0 = names.index('f_rest_0')
+    # f_rest_0 = channel 0, coeff 0 ; f_rest_{k_rest} = channel 1, coeff 0
+    np.testing.assert_allclose(body[:, i0], sh_rest[:, 0, 0])
+    np.testing.assert_allclose(body[:, i0 + k_rest], sh_rest[:, 0, 1])
+
+
+def test_export_ply_no_sh_rest_is_band0(tmp_path):
+    n = 3
+    out = tg.export_ply(
+        tmp_path / 'g.ply', np.zeros((n, 3)), np.zeros((n, 3)),
+        np.tile([1.0, 0, 0, 0], (n, 1)), np.zeros(n), np.full((n, 3), 0.5),
+    )
+    header = Path(out).read_bytes()
+    header = header[:header.index(b'end_header')].decode('ascii')
+    assert 'f_rest_' not in header
+
+
 # --------------------------------------------------------------------------- #
 # knn_scale_log (pure numpy/scipy; no torch)
 # --------------------------------------------------------------------------- #
