@@ -136,10 +136,79 @@ def export_ply(path: str | Path, means: np.ndarray, scales_log: np.ndarray,
 # --------------------------------------------------------------------------- #
 # Training (torch + gsplat; imported lazily)
 # --------------------------------------------------------------------------- #
+def make_ssim(device, *, channels: int = 3, window_size: int = 11,
+              sigma: float = 1.5):
+    """Build a differentiable SSIM(a, b) for ``(H,W,C)`` tensors in ``0..1``.
+
+    Returns a closure computing the mean SSIM with a Gaussian window, matching
+    the INRIA 3DGS structural term. Used both as the ``1 - SSIM`` training loss
+    (``ssim_lambda``) and for end-of-run evaluation. torch is imported lazily so
+    importing this module stays GPU-free.
+    """
+    import torch
+    import torch.nn.functional as F
+
+    coords = torch.arange(window_size, dtype=torch.float32, device=device)
+    coords = coords - (window_size - 1) / 2.0
+    g = torch.exp(-(coords ** 2) / (2.0 * sigma ** 2))
+    g = g / g.sum()
+    win = (g[:, None] * g[None, :])[None, None]
+    win = win.expand(channels, 1, window_size, window_size).contiguous()
+    pad = window_size // 2
+    c1, c2 = 0.01 ** 2, 0.03 ** 2
+
+    def ssim(a, b):
+        x = a.permute(2, 0, 1)[None]
+        y = b.permute(2, 0, 1)[None]
+        mu_x = F.conv2d(x, win, padding=pad, groups=channels)
+        mu_y = F.conv2d(y, win, padding=pad, groups=channels)
+        mu_x2, mu_y2, mu_xy = mu_x * mu_x, mu_y * mu_y, mu_x * mu_y
+        sig_x2 = F.conv2d(x * x, win, padding=pad, groups=channels) - mu_x2
+        sig_y2 = F.conv2d(y * y, win, padding=pad, groups=channels) - mu_y2
+        sig_xy = F.conv2d(x * y, win, padding=pad, groups=channels) - mu_xy
+        ssim_map = ((2 * mu_xy + c1) * (2 * sig_xy + c2)) / (
+            (mu_x2 + mu_y2 + c1) * (sig_x2 + sig_y2 + c2))
+        return ssim_map.mean()
+
+    return ssim
+
+
+def _photometric_loss(render, gt, ssim_fn, ssim_lambda):
+    """INRIA-style data term: pure MSE when ``ssim_lambda<=0``, else L1+D-SSIM.
+
+    Returns ``(loss, mse)`` -- ``mse`` is always reported for PSNR continuity
+    with earlier runs, regardless of which term is optimised.
+    """
+    import torch.nn.functional as F
+
+    mse = F.mse_loss(render, gt)
+    if ssim_fn is None or ssim_lambda <= 0.0:
+        return mse, mse
+    l1 = F.l1_loss(render, gt)
+    loss = (1.0 - ssim_lambda) * l1 + ssim_lambda * (1.0 - ssim_fn(render, gt))
+    return loss, mse
+
+
+def _eval_views(render_fn, gts, ssim_fn) -> dict:
+    """Mean PSNR (dB) and SSIM over all views, computed under no_grad."""
+    import torch
+
+    mses, ssims = [], []
+    with torch.no_grad():
+        for i in range(gts.shape[0]):
+            r = render_fn(i)
+            mses.append(float(torch.mean((r - gts[i]) ** 2)))
+            ssims.append(float(ssim_fn(r, gts[i])))
+    mse = sum(mses) / max(len(mses), 1)
+    psnr = float('inf') if mse <= 0 else -10.0 * float(np.log10(mse))
+    return {'psnr': psnr, 'ssim': sum(ssims) / max(len(ssims), 1), 'mse': mse}
+
+
 def train(dataset: dict, *, init_points: Optional[np.ndarray] = None,
           init_colors: Optional[np.ndarray] = None,
           num_init: int = 20000, iters: int = 2000, lr: float = 1e-2,
-          device: str = 'cuda', log_every: int = 200) -> dict:
+          device: str = 'cuda', log_every: int = 200,
+          ssim_lambda: float = 0.0) -> dict:
     """Optimise Gaussians to reconstruct the dataset images. Returns numpy params.
 
     ``init_points`` (N,3, e.g. a LiDAR map) seeds the means; otherwise points
@@ -199,22 +268,28 @@ def train(dataset: dict, *, init_points: Optional[np.ndarray] = None,
         {'params': [colors], 'lr': lr * 3},
     ])
 
+    ssim_fn = make_ssim(dev)
+
+    def render_view(i):
+        out, _, _ = rasterization(
+            means, F.normalize(quats, dim=-1), torch.exp(scales),
+            torch.sigmoid(opacities), torch.sigmoid(colors),
+            viewmats[i:i + 1], K, W, H,
+        )
+        return out[0]
+
     loss_history: list[float] = []
     for it in range(iters):
         idx = it % viewmats.shape[0]
-        renders, _, _ = rasterization(
-            means, F.normalize(quats, dim=-1), torch.exp(scales),
-            torch.sigmoid(opacities), torch.sigmoid(colors),
-            viewmats[idx:idx + 1], K, W, H,
-        )
-        loss = F.mse_loss(renders[0], gts[idx])
+        loss, mse = _photometric_loss(render_view(idx), gts[idx], ssim_fn, ssim_lambda)
         opt.zero_grad()
         loss.backward()
         opt.step()
-        loss_history.append(float(loss.detach().cpu()))
+        loss_history.append(float(mse.detach().cpu()))
         if log_every and (it % log_every == 0 or it == iters - 1):
             print(f'iter {it:5d}  mse {loss_history[-1]:.6f}', flush=True)
 
+    metrics = _eval_views(render_view, gts, ssim_fn)
     return {
         'means': means.detach().cpu().numpy(),
         'scales_log': scales.detach().cpu().numpy(),
@@ -222,10 +297,35 @@ def train(dataset: dict, *, init_points: Optional[np.ndarray] = None,
         'opacities_logit': opacities.detach().cpu().numpy(),
         'colors_rgb': torch.sigmoid(colors).detach().cpu().numpy(),
         'loss_history': loss_history,
+        'psnr': metrics['psnr'], 'ssim': metrics['ssim'],
     }
 
 
-def _seed_params(dataset: dict, init_points, init_colors, num_init, device):
+def knn_scale_log(points: np.ndarray, k: int = 3) -> np.ndarray:
+    """Per-point isotropic log-scale from mean distance to ``k`` nearest neighbours.
+
+    The INRIA 3DGS scale init: a Gaussian's initial size should match the local
+    point spacing, so dense regions get small splats and sparse regions large
+    ones -- far better than a single scene-wide scale when seeding from a LiDAR
+    cloud of non-uniform density. Returns ``(N,3)`` log-scales (isotropic).
+    Falls back to the global-spacing estimate if scipy/KDTree is unavailable.
+    """
+    pts = np.asarray(points, dtype=np.float64)
+    n = pts.shape[0]
+    try:
+        from scipy.spatial import cKDTree
+        tree = cKDTree(pts)
+        d, _ = tree.query(pts, k=min(k + 1, n))  # col 0 is self (dist 0)
+        mean_d = d[:, 1:].mean(axis=1) if d.ndim == 2 and d.shape[1] > 1 else d.ravel()
+    except Exception:
+        extent = float(np.linalg.norm(pts - pts.mean(axis=0), axis=1).max()) + 1e-3
+        mean_d = np.full(n, extent / max(n, 1) ** (1 / 3) * 0.5)
+    mean_d = np.clip(mean_d, 1e-4, None)
+    return np.log(mean_d).astype(np.float32)[:, None].repeat(3, axis=1)
+
+
+def _seed_params(dataset: dict, init_points, init_colors, num_init, device,
+                 knn_scale: bool = False):
     """Build the initial raw Gaussian parameters + scene extent (shared init)."""
     import torch
     import numpy as _np
@@ -245,9 +345,13 @@ def _seed_params(dataset: dict, init_points, init_colors, num_init, device):
         colors0 = torch.logit(torch.tensor(c0))
     else:
         colors0 = torch.zeros((n, 3))
+    if knn_scale and init_points is not None and len(init_points) > 0:
+        scales0 = torch.tensor(knn_scale_log(means0))
+    else:
+        scales0 = torch.full((n, 3), scale_log)
     return {
         'means': torch.tensor(means0),
-        'scales': torch.full((n, 3), scale_log),
+        'scales': scales0,
         'quats': torch.tensor([[1.0, 0.0, 0.0, 0.0]]).repeat(n, 1),
         'opacities': torch.full((n,), 0.1),
         'colors': colors0,
@@ -286,7 +390,8 @@ def _se3_exp_torch(tau):
 def train_densify(dataset: dict, *, init_points=None, init_colors=None,
                   num_init: int = 20000, iters: int = 3000, lr: float = 1e-2,
                   device: str = 'cuda', log_every: int = 200,
-                  optimize_extrinsic: bool = False) -> dict:
+                  optimize_extrinsic: bool = False,
+                  ssim_lambda: float = 0.0, knn_scale: bool = False) -> dict:
     """Train with gsplat DefaultStrategy adaptive density control (densify/prune).
 
     Same I/O contract as ``train`` but the Gaussian count grows/shrinks via the
@@ -303,7 +408,8 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     from gsplat import rasterization, DefaultStrategy
 
     dev = torch.device(device)
-    seed, extent = _seed_params(dataset, init_points, init_colors, num_init, dev)
+    seed, extent = _seed_params(dataset, init_points, init_colors, num_init, dev,
+                                knn_scale=knn_scale)
     params = torch.nn.ParameterDict(
         {k: torch.nn.Parameter(v.to(dev)) for k, v in seed.items()}
     )
@@ -339,22 +445,29 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     ext_opt = (torch.optim.Adam([tau], lr=lr * 0.1)
                if optimize_extrinsic else None)
 
+    ssim_fn = make_ssim(dev)
+
+    def render_view(i, vm=None):
+        out, _, info = rasterization(
+            params['means'], F.normalize(params['quats'], dim=-1),
+            torch.exp(params['scales']), torch.sigmoid(params['opacities']),
+            torch.sigmoid(params['colors']),
+            viewmats[i:i + 1] if vm is None else vm, K, W, H,
+            packed=False,
+        )
+        return out[0], info
+
     loss_history: list[float] = []
     for it in range(iters):
         idx = it % viewmats.shape[0]
         vm = viewmats[idx:idx + 1]
         if optimize_extrinsic:
             vm = (_se3_exp_torch(tau) @ vm[0])[None]
-        renders, _, info = rasterization(
-            params['means'], F.normalize(params['quats'], dim=-1),
-            torch.exp(params['scales']), torch.sigmoid(params['opacities']),
-            torch.sigmoid(params['colors']), vm, K, W, H,
-            packed=False,
-        )
+        render, info = render_view(idx, vm)
         strategy.step_pre_backward(params, optimizers, state, it, info)
-        loss = F.mse_loss(renders[0], gts[idx])
+        loss, mse = _photometric_loss(render, gts[idx], ssim_fn, ssim_lambda)
         loss.backward()
-        loss_history.append(float(loss.detach().cpu()))
+        loss_history.append(float(mse.detach().cpu()))
         strategy.step_post_backward(params, optimizers, state, it, info, packed=False)
         for opt in optimizers.values():
             opt.step()
@@ -366,6 +479,11 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
             print(f'iter {it:5d}  mse {loss_history[-1]:.6f}  '
                   f'gaussians {params["means"].shape[0]}', flush=True)
 
+    eval_vm = ((_se3_exp_torch(tau.detach()) @ viewmats[..., :, :])
+               if optimize_extrinsic else None)
+    metrics = _eval_views(
+        lambda i: render_view(i, None if eval_vm is None else eval_vm[i:i + 1])[0],
+        gts, ssim_fn)
     out = {
         'means': params['means'].detach().cpu().numpy(),
         'scales_log': params['scales'].detach().cpu().numpy(),
@@ -373,6 +491,7 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         'opacities_logit': params['opacities'].detach().cpu().numpy(),
         'colors_rgb': torch.sigmoid(params['colors']).detach().cpu().numpy(),
         'loss_history': loss_history,
+        'psnr': metrics['psnr'], 'ssim': metrics['ssim'],
     }
     if optimize_extrinsic:
         # viewmat_refined = M @ viewmat with M = exp(tau); equivalently the
@@ -394,6 +513,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--num-init', type=int, default=20000)
     p.add_argument('--lr', type=float, default=1e-2)
     p.add_argument('--device', default='cuda')
+    p.add_argument('--ssim-lambda', type=float, default=0.2,
+                   help='weight of the D-SSIM term (INRIA loss = (1-l)*L1 + '
+                        'l*(1-SSIM)); 0 = pure MSE (legacy behaviour)')
+    p.add_argument('--knn-scale-init', action='store_true',
+                   help='seed per-Gaussian scale from k-NN spacing of the init '
+                        'cloud (INRIA-style) instead of one scene-wide scale')
     p.add_argument('--densify', action='store_true',
                    help='use gsplat DefaultStrategy adaptive density control')
     p.add_argument('--optimize-extrinsic', action='store_true',
@@ -421,14 +546,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         params = train_densify(
             dataset, init_points=init_points, init_colors=init_colors,
             num_init=args.num_init, iters=args.iters, lr=args.lr,
-            device=args.device, optimize_extrinsic=args.optimize_extrinsic)
+            device=args.device, optimize_extrinsic=args.optimize_extrinsic,
+            ssim_lambda=args.ssim_lambda, knn_scale=args.knn_scale_init)
     else:
         params = train(dataset, init_points=init_points, init_colors=init_colors,
                        num_init=args.num_init, iters=args.iters,
-                       lr=args.lr, device=args.device)
+                       lr=args.lr, device=args.device, ssim_lambda=args.ssim_lambda)
     out = export_ply(args.out, params['means'], params['scales_log'],
                      params['quats'], params['opacities_logit'], params['colors_rgb'])
-    print(f'final mse {params["loss_history"][-1]:.6f} -> {out}')
+    print(f'final mse {params["loss_history"][-1]:.6f}  '
+          f'PSNR {params.get("psnr", float("nan")):.2f} dB  '
+          f'SSIM {params.get("ssim", float("nan")):.4f} -> {out}')
     if 'extrinsic_delta' in params:
         import yaml
         base = np.eye(4)
