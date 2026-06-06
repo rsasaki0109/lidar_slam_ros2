@@ -61,11 +61,32 @@ self-cal 機能自体は extrinsic が未知/不良な bag で有用なので残
 1. **視点数・系列長** — 30 views / 15s 単一セグメントが実質の上限要因。複数 koide
    セグメント結合や長い軌跡で view を増やすのが最も効くと推定。
 2. **frontend-only odometry のドリフト** — graph backend OFF。backend ON / ループ補正。
-3. **損失関数** — 現状 MSE のみ。SSIM/LPIPS を足すと知覚品質が上がる。
-4. **LiDAR init の色付け** — 現状は位置のみ seed（色は学習）。画像投影で色付け。
-5. 長 run（iter 増）。
+3. **損失関数** — ~~現状 MSE のみ~~ → **実装済み**（下記 §知覚レバー）。INRIA 標準
+   L1+D-SSIM を `--ssim-lambda`（既定 0.2）で追加。
+4. **scale init** — ~~一様スケール~~ → **実装済み**。`--knn-scale-init` で点群の局所
+   密度（k-NN 間隔）から per-Gaussian スケールを seed。
+5. **LiDAR init の色付け** — 現状は位置のみ seed（色は学習）。画像投影で色付け。
+6. 長 run（iter 増）。
 
 （extrinsic は §上記のとおり koide では頭打ち。他データセットでは効く可能性あり。）
+
+## 知覚レバー（SSIM 損失 + k-NN scale init）の A/B（2026-06-06）
+
+同条件（densify 3000 iter、LiDAR-primed init、学習ビュー評価）で損失と init を変えて計測。
+PSNR/SSIM は `train_gsplat.py` が学習終了時に全ビューで算出。
+
+| 条件 | 損失 | scale init | PSNR | SSIM | gaussians |
+|------|------|-----------|------|------|-----------|
+| A | MSE のみ（旧既定） | 一様 | **24.29 dB** | 0.8123 | 220k |
+| B | L1+D-SSIM (λ=0.2) | 一様 | 23.79 dB | 0.8412 | 370k |
+| C | L1+D-SSIM (λ=0.2) | k-NN | 23.77 dB | **0.8435** | 360k |
+
+- **SSIM 損失で構造類似度 +0.029**（k-NN init で更に +0.0023、計 +0.031）。エッジ・
+  パネル列のシャープネスが上がる（`assets/3dgs_koide_ssim_compare.png`、列は GT | MSE | SSIM）。
+- 代償は **PSNR -0.5dB**。MSE は PSNR を直接最適化するため当然で、SSIM はそれと
+  トレードオフ。**PSNR の ~25dB 上限は破れない＝ data-bound**（30 視点・単一短セグメント）。
+- 結論: SSIM 損失は**標準 INRIA loss なので既定採用**（知覚品質が上がる）。k-NN init は
+  原理的に正しいが効果は限界的なので **opt-in**。上限突破には依然「視点数・系列長」が本丸。
 
 ## わかったこと（実運用の知見）
 
