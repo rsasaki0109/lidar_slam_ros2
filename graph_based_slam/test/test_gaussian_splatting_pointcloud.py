@@ -121,3 +121,53 @@ def test_transform_points_rotation_90z():
     T[:3, :3] = [[0, -1, 0], [1, 0, 0], [0, 0, 1]]  # +90 deg about z
     out = bli.transform_points(np.array([[1.0, 0.0, 0.0]]), T)
     np.testing.assert_allclose(out, [[0, 1, 0]], atol=1e-9)
+
+
+# --------------------------------------------------------------------------- #
+# colorize_by_projection
+# --------------------------------------------------------------------------- #
+def _cam():
+    # identity w2c (camera at origin, +z forward), 100x100, principal point centre
+    K = np.array([[100.0, 0, 50.0], [0, 100.0, 50.0], [0, 0, 1.0]])
+    return np.eye(4)[None], K, 100, 100
+
+
+def test_colorize_samples_centre_pixel():
+    vms, K, W, H = _cam()
+    img = np.zeros((H, W, 3), dtype=np.uint8)
+    img[50, 50] = [255, 0, 0]              # the pixel the on-axis point lands on
+    pts = np.array([[0.0, 0.0, 5.0]])      # projects to (cx, cy) = (50, 50)
+    rgb, seen = pcio.colorize_by_projection(pts, vms, K, [img], W, H)
+    assert seen[0]
+    np.testing.assert_array_equal(rgb[0], [255, 0, 0])
+
+
+def test_colorize_behind_camera_is_unseen():
+    vms, K, W, H = _cam()
+    img = np.full((H, W, 3), 200, dtype=np.uint8)
+    pts = np.array([[0.0, 0.0, -5.0]])     # behind the camera (z < 0)
+    rgb, seen = pcio.colorize_by_projection(pts, vms, K, [img], W, H,
+                                            default_rgb=(7, 7, 7))
+    assert not seen[0]
+    np.testing.assert_array_equal(rgb[0], [7, 7, 7])
+
+
+def test_colorize_out_of_frame_is_unseen():
+    vms, K, W, H = _cam()
+    img = np.full((H, W, 3), 200, dtype=np.uint8)
+    pts = np.array([[10.0, 0.0, 5.0]])     # u = 100*10/5 + 50 = 250 -> off image
+    _, seen = pcio.colorize_by_projection(pts, vms, K, [img], W, H)
+    assert not seen[0]
+
+
+def test_colorize_averages_over_views():
+    vms1, K, W, H = _cam()
+    red = np.zeros((H, W, 3), dtype=np.uint8)
+    red[50, 50] = [200, 0, 0]
+    blue = np.zeros((H, W, 3), dtype=np.uint8)
+    blue[50, 50] = [0, 0, 100]
+    vms = np.concatenate([vms1, vms1], axis=0)  # same pose twice
+    pts = np.array([[0.0, 0.0, 5.0]])
+    rgb, seen = pcio.colorize_by_projection(pts, vms, K, [red, blue], W, H)
+    assert seen[0]
+    np.testing.assert_array_equal(rgb[0], [100, 0, 50])  # mean of the two
