@@ -95,9 +95,25 @@ def build(args: argparse.Namespace) -> dict:
     if args.max_points > 0 and world.shape[0] > args.max_points:
         rng = np.random.default_rng(0)
         world = world[rng.choice(world.shape[0], args.max_points, replace=False)]
-    out = pcio.write_ply(args.out, world)
+    rgb = None
+    colored = 0
+    if args.color_transforms:
+        rgb, seen = _colorize(world, args.color_transforms)
+        colored = int(seen.sum())
+    out = pcio.write_ply(args.out, world, rgb)
     return {'scans_used': used, 'scans_skipped': skipped,
-            'points': int(world.shape[0]), 'out': str(out)}
+            'points': int(world.shape[0]), 'colored': colored, 'out': str(out)}
+
+
+def _colorize(world: np.ndarray, transforms_path: str):
+    """Project ``world`` points into the posed images of a transforms.json."""
+    import imageio.v3 as iio
+    import train_gsplat as tg
+
+    ds = tg.load_transforms(transforms_path)
+    images = [np.asarray(iio.imread(p)) for p in ds['image_paths']]
+    return pcio.colorize_by_projection(
+        world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'])
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -116,6 +132,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help='use scans at/after this many seconds from bag start')
     p.add_argument('--end-time', type=float, default=-1.0,
                    help='use scans up to this many seconds from bag start (-1 = all)')
+    p.add_argument('--color-transforms', default=None,
+                   help='transforms.json (+ images) to colour the init cloud by '
+                        'projection; seeds Gaussian colour instead of flat grey')
     return p
 
 
@@ -125,7 +144,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     summary = build(args)
     print(f"accumulated {summary['scans_used']} scans "
           f"({summary['scans_skipped']} skipped) -> "
-          f"{summary['points']} points -> {summary['out']}")
+          f"{summary['points']} points "
+          f"({summary['colored']} coloured) -> {summary['out']}")
     return 0
 
 
