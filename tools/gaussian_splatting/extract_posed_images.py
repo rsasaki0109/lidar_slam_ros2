@@ -167,6 +167,19 @@ def resolve_world_T_camera(
 # --------------------------------------------------------------------------- #
 # ROS I/O (lazy imports; only exercised with a real bag)
 # --------------------------------------------------------------------------- #
+def _bag_is_file_compressed(bag_path: str | Path) -> bool:
+    """Return True if the bag's metadata declares FILE-level compression (zstd)."""
+    meta = Path(bag_path) / 'metadata.yaml'
+    if not meta.is_file():
+        return False
+    text = meta.read_text(errors='replace')
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith('compression_mode:'):
+            return s.split(':', 1)[1].strip().strip('"').upper() == 'FILE'
+    return False
+
+
 def _open_reader(bag_path: str | Path):
     import rosbag2_py
 
@@ -174,7 +187,12 @@ def _open_reader(bag_path: str | Path):
     converter = rosbag2_py.ConverterOptions(
         input_serialization_format='cdr', output_serialization_format='cdr'
     )
-    reader = rosbag2_py.SequentialReader()
+    # FILE-compressed bags (Autoware Leo Drive, etc.) need the compression
+    # reader; the plain SequentialReader would try to open the .zstd as sqlite.
+    if _bag_is_file_compressed(bag_path):
+        reader = rosbag2_py.SequentialCompressionReader()
+    else:
+        reader = rosbag2_py.SequentialReader()
     reader.open(storage, converter)
     return reader
 

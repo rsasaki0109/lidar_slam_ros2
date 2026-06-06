@@ -59,13 +59,18 @@ self-cal 機能自体は extrinsic が未知/不良な bag で有用なので残
 ## さらなる改善レバー（効果順、更新）
 
 1. **視点数・系列長** — 30 views / 15s 単一セグメントが実質の上限要因。複数 koide
-   セグメント結合や長い軌跡で view を増やすのが最も効くと推定。
+   セグメント結合や長い軌跡で view を増やすのが最も効くと推定。→ 別データ(isuzu 640views)で
+   **検証したが視点増では破れず**（`3dgs-isuzu-viewcount-notes.md`）。pose 一貫性が本丸。
 2. **frontend-only odometry のドリフト** — graph backend OFF。backend ON / ループ補正。
 3. **損失関数** — ~~現状 MSE のみ~~ → **実装済み**（下記 §知覚レバー）。INRIA 標準
    L1+D-SSIM を `--ssim-lambda`（既定 0.2）で追加。
 4. **scale init** — ~~一様スケール~~ → **実装済み**。`--knn-scale-init` で点群の局所
    密度（k-NN 間隔）から per-Gaussian スケールを seed。
-5. **LiDAR init の色付け** — 現状は位置のみ seed（色は学習）。画像投影で色付け。
+5. **LiDAR init の色付け** — ~~位置のみ seed~~ → **実装済み**（`build_lidar_init.py
+   --color-transforms`、画像投影で点群を着色）。**ただし品質は中立**: koide で 3000iter
+   23.6dB（位置のみ 23.8dB と同等）、500iter でも差なし。色は LR が高く <100iter で学習
+   され、早期は densification が律速のため init 色は冗長。機能は検査用/非 densify/下流
+   用途に残すが、PSNR レバーとしては効かない。
 6. 長 run（iter 増）。
 
 （extrinsic は §上記のとおり koide では頭打ち。他データセットでは効く可能性あり。）
