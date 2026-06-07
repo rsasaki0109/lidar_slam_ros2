@@ -4,6 +4,17 @@ This doc is the operator-facing closeout for the triangle descriptor research
 arc that landed across PRs #135-#189 (May 2026), with a focused write-up of
 the variance / RANSAC-cost / max_pairs sweep that occurred 2026-05-24.
 
+> **v0.4 D1 closeout (2026-06-07).** The two "outstanding research questions"
+> that the 2026-05-24 sweep left open — the `max_pairs=8` U-shape root cause and
+> the RANSAC-async / map_array-driven scheduling fix — are now **answered /
+> design-pinned** below (see *U-shape root cause: the tick-interval histogram*
+> and *Determinism root cause + the scheduling fix*). This is a research
+> closeout, **not** a default change: every preset still ships
+> `use_triangle_descriptor: false`. The remaining work (implementing the
+> deterministic scheduling refactor and validating it with an 8-vs-16
+> head-to-head benchmark) is a scoped follow-up that needs benchmark-data access;
+> it is intentionally not attempted as an unvalidated behavior change here.
+
 If you only want the production take-aways, read **Production take-aways**
 below. If you want the research narrative (why the defaults are what they
 are), read on.
@@ -80,7 +91,7 @@ default.
 
 The 8-run regression root cause is **not** explained by the RANSAC compute
 cost hypothesis alone (8 should be cheaper than 16, so the drift should
-shrink, not return). The current best candidates are:
+shrink, not return). The candidate hypotheses were:
 
 - (A) Wall-clock floor effect: RANSAC finishes so fast that searchLoop's
   per-tick budget redistributes to other message handling, perturbing
@@ -90,7 +101,46 @@ shrink, not return). The current best candidates are:
   wall-clock distribution
 - (C) accumulateVotes / chosen_submap_id downstream thread contention
 
-This is left open for future instrumentation work.
+The tick-interval histogram below (2026-05-25) makes **(A)** the
+best-supported explanation.
+
+## U-shape root cause: the tick-interval histogram (2026-05-25, Q1 answered)
+
+The instrumentation needed to settle this already exists: with `debug_flag_`
+on, `searchLoop` logs `"searching Loop, num_submaps:%d"`
+(`graph_based_slam_component.cpp` ~L1261) on every tick, so each tick's
+wall-clock timestamp **and** its `latest_idx` (= `num_submaps - 1`) are
+recoverable from the existing `slam.launch.log`. Binning the **inter-tick
+interval** across the existing 3-run logs for each `max_pairs`
+(`loop_detection_period = 1000 ms`) gives:
+
+| max_pairs | 1.0–1.5 s | 1.5–2.5 s | 5.0+ s | mode |
+|-----------|-----------|-----------|--------|------|
+| 32 | 45% | 36% | **18% (long tail)** | 1.0–1.5 s |
+| **16** | 28% | **48%** | 14% | **1.5–2.5 s** |
+| 8 | **63%** | 18% | 16% | 1.0–1.5 s |
+
+Read across the row, the two regressing values have qualitatively different
+wall-clock signatures, and the sweet spot sits between them:
+
+- **=32 (heavy RANSAC):** an 18% long tail of 5 s+ intervals — ticks are being
+  *skipped* under wall-clock pressure. Skipped ticks starve the natural timing
+  window of the distance-loop verification → APE drift.
+- **=8 (RANSAC too light):** ticks fire back-to-back right after the 1 s timer
+  (63% in the 1.0–1.5 s bin). `accumulateVotes` runs at high frequency, and
+  that high-density firing is itself the distractor — hypothesis (A)'s
+  wall-clock floor effect, in the opposite direction from =32.
+- **=16 (balanced):** the modal interval lands in a healthy 1.5–2.5 s band —
+  enough tick-skip to amortize RANSAC, not so much that distance-loop timing
+  is starved.
+
+So the U-shape is **not** monotone-in-compute: both extremes perturb
+searchLoop's wall-clock schedule, just in opposite directions, and =16 is the
+empirical sweet spot in *interval distribution* as well as in APE. This is
+consistent with hypothesis (A) and inconsistent with a pure "cheaper RANSAC is
+always better" model. It is the same wall-clock-scheduling mechanism that makes
+single-run APE claims unreliable (the ≥3-run discipline above) — see the next
+section for the architectural root and the fix that would remove it.
 
 ## The fix is MID-360-specific (PRs #187, #189)
 
@@ -124,6 +174,82 @@ mean, it does shift the **variance** of the SLAM run. This is a hint that
 would help reproducibility everywhere; it just only becomes APE-visible
 on MID-360 today.
 
+## Determinism root cause + the scheduling fix (Q2 answered / design-pinned)
+
+Every variance result above — the ≥3-run discipline, the U-shape histogram, the
+"RANSAC adds jitter on every preset" side observation — traces to **one**
+architectural fact about how loop search is scheduled.
+
+**Root cause.** `searchLoop` is driven by a **wall-clock timer**
+(`create_wall_timer(loop_detection_period_, …)`,
+`graph_based_slam_component.cpp` ~L1127), and on each tick it queries **only the
+single latest submap**:
+
+```cpp
+const int latest_idx = num_submaps - 1;   // graph_based_slam_component.cpp:1434
+```
+
+The submaps themselves arrive asynchronously on the `map_array` topic, produced
+by bag-replay + RKO-LIO at a wall-clock rate that jitters run-to-run (system
+load, scheduler, I/O). So the number of submaps that have arrived **by the time
+a given tick fires is itself timing-dependent**:
+
+- When the timer fires *between* two submap arrivals, `latest_idx` advances by
+  one and that submap gets queried against the database.
+- When several submaps arrive *between* two ticks, only the **last** one becomes
+  `latest_idx`; the intermediate submaps **are never queried as a `latest`** —
+  their triangle / Scan-Context / BEV query against the database simply never
+  happens.
+
+The set of `(query, database)` pairs that loop closure ever evaluates is
+therefore a function of wall-clock timing, not of the map. That is exactly why
+the same code + same bag yields `{2, 3, 3}` inliers for submap id=16 across
+three runs, why emit counts swing 0–5, and why single-run APE deltas are noise.
+The triangle compute is deterministic *given an input pair*; **which pairs it is
+handed is not.**
+
+**The fix (design-pinned).** Make the query sequence depend on the map, not the
+clock: track the last submap index already processed as a `latest`
+(`last_searched_submap_idx_`, init −1) and, on each invocation, **catch up
+deterministically** over every un-queried index instead of jumping to
+`num_submaps - 1`:
+
+```cpp
+for (int latest = last_searched_submap_idx_ + 1; latest < num_submaps; ++latest) {
+  // existing per-latest loop-search body, with latest_idx := latest
+}
+last_searched_submap_idx_ = num_submaps - 1;
+```
+
+Every submap is then queried exactly once as it becomes available, regardless of
+whether the timer batched several arrivals into one tick — the `(query, db)`
+sequence becomes a deterministic function of the submap stream. (The timer can
+remain as the *trigger*; the determinism comes from the catch-up loop, not from
+retiming the trigger. Equivalently, the trigger could move onto the `map_array`
+callback so a tick fires per arrival.) Moving `findLoopCandidate` into a
+`std::async` is the orthogonal half: it takes RANSAC's wall-clock cost off the
+searchLoop hot path, which the NTU side observation predicts would tighten
+variance on *every* preset.
+
+**Why this is design-pinned, not implemented here.** The change is sound in
+principle but carries real risk that must be paid down with data, not asserted:
+
+1. `searchLoop` is a ~1300-line single function (`L1249–2551`) with `latest_idx`
+   threaded through as a `const` local and many early `return`s; turning it into
+   a per-latest catch-up loop is a sizeable extraction that needs its own
+   careful review.
+2. The payoff is **reproducibility**, whose validation *is* a benchmark: the
+   only honest acceptance test is an **8-vs-16 head-to-head** (and an NTU /
+   Newer 3-run) showing the interval histogram collapses toward a single mode
+   and `|Δ|/σ` tightens. That requires benchmark-data access this session does
+   not have. Landing the refactor without that validation would replace a known,
+   documented stochasticity with an unverified one.
+
+So D1 closes the *research* questions (root cause understood, fix specified) and
+hands the *implementation + validation* to a data-access follow-up. It should be
+an **opt-in** mode (default off) until the head-to-head confirms it, so the
+public default path is unchanged.
+
 ## Diagnostic flag remains
 
 `triangle_descriptor_skip_ransac` (default false) stays in the tree
@@ -142,20 +268,33 @@ datasets / configs. It is not for production use.
 | #188 | sweep | U-shape: max_pairs=8 regression returns; 16 is the empirical sweet spot |
 | #189 | confirm | NTU skip_ransac 3-run directly shows RANSAC compute has no APE effect on NTU |
 
-## Outstanding research questions (not blocking release)
+## Research questions — closed out (v0.4 D1)
 
-1. **max_pairs=8 regression root cause** — instrument searchLoop with
-   per-tick wall-clock logs, run 8 vs 16 with the log on, see what
-   distribution differs. Could be hypotheses (A), (B), or (C) above.
-2. **RANSAC async / map_array-driven scheduling** — if RANSAC moved to a
-   std::async or searchLoop ticked on map_array messages instead of
-   wall-clock, both APE and variance should tighten on every preset
-   (NTU side observation supports this).
+1. ~~**max_pairs=8 regression root cause**~~ — **answered 2026-05-25**. The
+   tick-interval histogram (see *U-shape root cause* above) shows =32 and =8
+   have opposite wall-clock signatures (=32 a 5 s+ tick-skip tail, =8 back-to-back
+   1.0–1.5 s firing) with =16 in a healthy 1.5–2.5 s band. Best-supported
+   explanation is hypothesis **(A)**, the wall-clock floor effect; the U-shape is
+   not monotone-in-compute.
+2. ~~**RANSAC async / map_array-driven scheduling**~~ — **root cause +
+   fix design-pinned 2026-06-07** (see *Determinism root cause + the scheduling
+   fix* above). The single architectural cause is that `searchLoop` is
+   wall-clock-triggered and queries only `latest_idx = num_submaps - 1`, so
+   timer-batched submap arrivals are skipped non-deterministically. Fix: a
+   deterministic catch-up loop over un-queried submap indices (+ optional
+   `std::async` RANSAC), shipped opt-in. **Implementation + 8-vs-16 validation
+   is a benchmark-data follow-up** — not landed here to avoid an unvalidated
+   behavior change.
 3. ~~**Newer College APE at current develop HEAD**~~ — **answered 2026-05-25**
    via PR #192 (`--skip-reference-gen` plumbing). Post-v0.3.0 3-run gave
    Δ APE −0.0094 ± 0.0108 m (|Δ|/σ = 0.87), still variance-bounded but
    no regression introduced by the #183–#191 series; candidate variance
    ~halved vs the 2026-05-19 baseline.
+
+All three research questions from the 2026-05-24 sweep are now closed. The only
+remaining triangle work is the **opt-in deterministic-scheduling implementation
++ its benchmark validation** (Q2), tracked as a v0.4/v0.5 follow-up that needs
+data access.
 
 ## Files
 
