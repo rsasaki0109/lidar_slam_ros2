@@ -41,7 +41,9 @@ demo_data/koide_lidar_camera_calib/livox/rosbag2_2023_03_09-13_42_46  (15.6s)
   ※短い run では opacity reset が逆効果なので `reset_every` を無効化している。
 
 `random → LiDAR-primed → densify` で **PSNR 15 → 20.5 → 24.8dB**、設計の方向性が
-実データで裏付けられた。
+実データで裏付けられた。**さらに SH deg1 + 学習 iter を 9000〜15000 に伸ばすと 25.2〜25.5dB**
+まで到達する（当初 ~24dB を上限と見ていたが一部は under-training だった、
+`3dgs-sh-degree-notes.md`）。再現スクリプトの既定もこのベスト構成（SH deg1 / iter 9000）。
 
 ## extrinsic 自己校正の検証（負の結果）
 
