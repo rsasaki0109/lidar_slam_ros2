@@ -10,10 +10,12 @@ the variance / RANSAC-cost / max_pairs sweep that occurred 2026-05-24.
 > design-pinned** below (see *U-shape root cause: the tick-interval histogram*
 > and *Determinism root cause + the scheduling fix*). This is a research
 > closeout, **not** a default change: every preset still ships
-> `use_triangle_descriptor: false`. The remaining work (implementing the
-> deterministic scheduling refactor and validating it with an 8-vs-16
-> head-to-head benchmark) is a scoped follow-up that needs benchmark-data access;
-> it is intentionally not attempted as an unvalidated behavior change here.
+> `use_triangle_descriptor: false`. The deterministic scheduling refactor has
+> since **landed as an opt-in** (`deterministic_loop_scheduling`, default
+> **false** — behaviour-identical when off); the one remaining piece is the
+> 8-vs-16 head-to-head benchmark that would clear the flag to become a default.
+> That validation needs benchmark-data access and is intentionally not attempted
+> as an unvalidated behavior change here.
 
 If you only want the production take-aways, read **Production take-aways**
 below. If you want the research narrative (why the defaults are what they
@@ -242,13 +244,16 @@ principle but carries real risk that must be paid down with data, not asserted:
    only honest acceptance test is an **8-vs-16 head-to-head** (and an NTU /
    Newer 3-run) showing the interval histogram collapses toward a single mode
    and `|Δ|/σ` tightens. That requires benchmark-data access this session does
-   not have. Landing the refactor without that validation would replace a known,
-   documented stochasticity with an unverified one.
+   not have. Landing the refactor *as a default* without that validation would
+   replace a known, documented stochasticity with an unverified one.
 
 So D1 closes the *research* questions (root cause understood, fix specified) and
-hands the *implementation + validation* to a data-access follow-up. It should be
-an **opt-in** mode (default off) until the head-to-head confirms it, so the
-public default path is unchanged.
+the fix has **landed as an opt-in** (`deterministic_loop_scheduling`, default
+off): `searchLoop` is split into a scheduler + a per-query `searchLoopForLatest`,
+and the scheduler catches up over every un-queried submap index when the flag is
+on. With the flag off the path is byte-for-byte the historical single-latest
+query, so the public default is unchanged. Only the 8-vs-16 head-to-head — which
+would clear the flag to become a default — is handed to a data-access follow-up.
 
 ## Diagnostic flag remains
 
@@ -282,19 +287,21 @@ datasets / configs. It is not for production use.
    wall-clock-triggered and queries only `latest_idx = num_submaps - 1`, so
    timer-batched submap arrivals are skipped non-deterministically. Fix: a
    deterministic catch-up loop over un-queried submap indices (+ optional
-   `std::async` RANSAC), shipped opt-in. **Implementation + 8-vs-16 validation
-   is a benchmark-data follow-up** — not landed here to avoid an unvalidated
-   behavior change.
+   `std::async` RANSAC), shipped opt-in. **The catch-up scheduler has landed**
+   (`deterministic_loop_scheduling`, default off); the **8-vs-16 validation** (and
+   the optional `std::async` RANSAC half) is the benchmark-data follow-up before
+   the flag could become a default.
 3. ~~**Newer College APE at current develop HEAD**~~ — **answered 2026-05-25**
    via PR #192 (`--skip-reference-gen` plumbing). Post-v0.3.0 3-run gave
    Δ APE −0.0094 ± 0.0108 m (|Δ|/σ = 0.87), still variance-bounded but
    no regression introduced by the #183–#191 series; candidate variance
    ~halved vs the 2026-05-19 baseline.
 
-All three research questions from the 2026-05-24 sweep are now closed. The only
-remaining triangle work is the **opt-in deterministic-scheduling implementation
-+ its benchmark validation** (Q2), tracked as a v0.4/v0.5 follow-up that needs
-data access.
+All three research questions from the 2026-05-24 sweep are now closed, and the
+Q2 opt-in deterministic-scheduling implementation has landed (default off). The
+only remaining triangle work is the **8-vs-16 benchmark validation** that would
+clear `deterministic_loop_scheduling` to become a default, tracked as a v0.4/v0.5
+follow-up that needs data access.
 
 ## Files
 
