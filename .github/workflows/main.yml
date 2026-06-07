@@ -111,6 +111,12 @@ jobs:
           print('All lanelet2 generator tests passed')
           "
 
+      - name: Smoke-test MID-360 robot runbook
+        shell: bash
+        run: |
+          python3 -m pip install --upgrade pyyaml
+          bash scripts/smoke_mid360_robot_runbook.sh
+
   default-workflow:
     name: ${{ matrix.ros_distro }} default workflow
     needs: docs-and-release-metadata
