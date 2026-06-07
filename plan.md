@@ -247,8 +247,10 @@ cause / RANSAC async scheduling）は v0.4 §D1 reproducibility closeout の対�
 ### 7.1 DDS メッセージ遅延
 - **影響**: DLIO が他ノードと共存できない、online_node でスキャンドロップ
 - **原因**: 大きな PointCloud2 メッセージ (6MB+) の DDS 転送遅延
-- **回避策**: offline_node (RKO-LIO) でバッグを内部読み込み
+- **回避策**: offline_node (RKO-LIO) でバッグを内部読み込み（既定パスはこれ）
 - **根本解決**: FastDDS のシェアードメモリ設定、またはゼロコピー転送
+- ユーザー向けの失敗モード解説・CycloneDDS + kernel チューニング・intra-process
+  composition の状況は [`docs/dds-tuning.md`](docs/dds-tuning.md) に集約（v0.4 §F）。
 
 ### 7.2 MID-360 (固体 LiDAR) の限界
 - 非 360 FOV のため Scan Context が無効

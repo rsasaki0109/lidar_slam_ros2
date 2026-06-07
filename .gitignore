@@ -29,3 +29,6 @@ Thirdparty/small_gicp/
 imgui.ini
 pose_graph.g2o
 slam_output/
+
+# mkdocs build output (docs-site.yml builds this in CI; never commit it)
+site/
