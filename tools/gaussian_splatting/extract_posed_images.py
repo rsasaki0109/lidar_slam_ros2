@@ -113,8 +113,18 @@ def load_intrinsics_yaml(path: str | Path) -> pi.CameraIntrinsics:
 
     text = Path(path).read_text()
 
-    def grab(key: str, default: Optional[float] = None) -> float:
-        m = re.search(rf'\b{key}\s*:\s*([-+0-9.eE]+)', text)
+    def grab(key: str, default: Optional[float] = None,
+             after: Optional[str] = None) -> float:
+        # Scope the search to the text after ``after`` (e.g. the
+        # ``projection_parameters`` section header) so a stereo YAML's second
+        # camera, or a rectification block reusing the same field names, cannot
+        # win by appearing earlier in document order.
+        scope = text
+        if after is not None:
+            anchor = re.search(rf'\b{after}\b', text)
+            if anchor is not None:
+                scope = text[anchor.end():]
+        m = re.search(rf'\b{key}\s*:\s*([-+0-9.eE]+)', scope)
         if m is None:
             if default is None:
                 raise ValueError(f'{path}: missing intrinsics field {key!r}')
@@ -124,9 +134,14 @@ def load_intrinsics_yaml(path: str | Path) -> pi.CameraIntrinsics:
     return pi.CameraIntrinsics(
         width=int(grab('image_width')),
         height=int(grab('image_height')),
-        fx=grab('fx'), fy=grab('fy'), cx=grab('cx'), cy=grab('cy'),
-        distortion=(grab('k1', 0.0), grab('k2', 0.0),
-                    grab('p1', 0.0), grab('p2', 0.0), 0.0),
+        fx=grab('fx', after='projection_parameters'),
+        fy=grab('fy', after='projection_parameters'),
+        cx=grab('cx', after='projection_parameters'),
+        cy=grab('cy', after='projection_parameters'),
+        distortion=(grab('k1', 0.0, after='distortion_parameters'),
+                    grab('k2', 0.0, after='distortion_parameters'),
+                    grab('p1', 0.0, after='distortion_parameters'),
+                    grab('p2', 0.0, after='distortion_parameters'), 0.0),
     )
 
 
@@ -320,6 +335,14 @@ def extract(args: argparse.Namespace) -> dict:
         frames.append(pi.PosedImage(rel, world_T_cam, stamp))
         seen += 1
 
+    if not frames:
+        # Fail loudly here rather than writing an empty transforms.json that
+        # only blows up later as an opaque torch.stack([]) in train_gsplat.
+        raise RuntimeError(
+            f'no image resolved a pose ({dropped} dropped): the camera stamps '
+            'do not overlap the trajectory. Check --time-offset / '
+            '--clock-reference-topic, --extrinsic, and that the bag and TUM '
+            'trajectory cover the same interval.')
     pi.write_transforms(out_dir / 'transforms.json', out_intrinsics, frames)
     return {'kept': len(frames), 'dropped': dropped, 'out': str(out_dir)}
 

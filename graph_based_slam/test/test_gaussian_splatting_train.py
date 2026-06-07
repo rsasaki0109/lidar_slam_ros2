@@ -211,6 +211,19 @@ def test_knn_scale_log_dense_smaller_than_sparse():
     assert tg.knn_scale_log(dense).mean() < tg.knn_scale_log(sparse).mean()
 
 
+def test_knn_scale_log_fallback_is_uniform_isotropic(monkeypatch):
+    # Force the scipy-absent branch (the path CI actually runs) and pin its
+    # contract: a single global spacing applied to every point, isotropic, and
+    # a warning so a silent degrade is visible. Real failures inside the k-NN
+    # query are no longer swallowed -- only ImportError reaches this fallback.
+    monkeypatch.setitem(sys.modules, 'scipy.spatial', None)
+    pts = np.random.default_rng(0).normal(size=(40, 3))
+    with pytest.warns(UserWarning, match='scipy.spatial unavailable'):
+        scales = tg.knn_scale_log(pts)
+    assert scales.shape == (40, 3)
+    assert np.all(scales == scales[0])  # one global spacing, every point/axis
+
+
 # --------------------------------------------------------------------------- #
 # make_ssim / _photometric_loss (torch needed; skipped where unavailable)
 # --------------------------------------------------------------------------- #

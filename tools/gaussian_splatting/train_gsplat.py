@@ -243,31 +243,14 @@ def train(dataset: dict, *, init_points: Optional[np.ndarray] = None,
         gts.append(torch.tensor(img[..., :3], device=dev))
     gts = torch.stack(gts)  # (C, H, W, 3)
 
-    # Seed means.
-    cam_centers = np.stack([np.linalg.inv(v)[:3, 3] for v in dataset['viewmats']])
-    center = cam_centers.mean(axis=0)
-    extent = float(np.linalg.norm(cam_centers - center, axis=1).max()) + 1e-3
-    if init_points is not None and len(init_points) > 0:
-        means0 = np.asarray(init_points, dtype=np.float32)
-    else:
-        rng = np.random.default_rng(0)
-        means0 = center + rng.normal(scale=extent * 0.5, size=(num_init, 3))
-    means0 = means0.astype(np.float32)
-
-    n = means0.shape[0]
-    means = torch.nn.Parameter(torch.tensor(means0, device=dev))
-    scales = torch.nn.Parameter(
-        torch.full((n, 3), float(np.log(extent / max(n, 1) ** (1 / 3) * 0.5)), device=dev)
-    )
-    quats = torch.nn.Parameter(
-        torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=dev).repeat(n, 1)
-    )
-    opacities = torch.nn.Parameter(torch.full((n,), 0.1, device=dev))
-    if init_colors is not None and len(init_colors) == n:
-        c0 = np.clip(np.asarray(init_colors, dtype=np.float32), 1e-4, 1 - 1e-4)
-        colors = torch.nn.Parameter(torch.logit(torch.tensor(c0, device=dev)))
-    else:
-        colors = torch.nn.Parameter(torch.full((n, 3), 0.0, device=dev))
+    # Seed Gaussians via the shared initialiser (same logic as train_densify),
+    # so the fixed-count and densify paths can never drift apart.
+    seed, extent = _seed_params(dataset, init_points, init_colors, num_init, dev)
+    means = torch.nn.Parameter(seed['means'].to(dev))
+    scales = torch.nn.Parameter(seed['scales'].to(dev))
+    quats = torch.nn.Parameter(seed['quats'].to(dev))
+    opacities = torch.nn.Parameter(seed['opacities'].to(dev))
+    colors = torch.nn.Parameter(seed['colors'].to(dev))
 
     opt = torch.optim.Adam([
         {'params': [means], 'lr': lr * extent},
@@ -294,9 +277,13 @@ def train(dataset: dict, *, init_points: Optional[np.ndarray] = None,
         opt.zero_grad()
         loss.backward()
         opt.step()
-        loss_history.append(float(mse.detach().cpu()))
-        if log_every and (it % log_every == 0 or it == iters - 1):
-            print(f'iter {it:5d}  mse {loss_history[-1]:.6f}', flush=True)
+        # Only sync the loss to the host when we actually record/print it; a
+        # per-iter .cpu() would force a GPU->CPU stall every step. The final
+        # iter is always recorded so loss_history[-1] is the converged mse.
+        if it == iters - 1 or (log_every and it % log_every == 0):
+            loss_history.append(float(mse.detach().cpu()))
+            if log_every:
+                print(f'iter {it:5d}  mse {loss_history[-1]:.6f}', flush=True)
 
     metrics = _eval_views(render_view, gts, ssim_fn)
     return {
@@ -323,12 +310,20 @@ def knn_scale_log(points: np.ndarray, k: int = 3) -> np.ndarray:
     n = pts.shape[0]
     try:
         from scipy.spatial import cKDTree
+    except ImportError:
+        # scipy genuinely absent (e.g. CI): fall back to a global-spacing
+        # estimate. Only ImportError is swallowed -- a real failure inside the
+        # query below (OOM, bad shapes) must surface, not silently degrade to a
+        # uniform scale that defeats the point of --knn-scale-init.
+        import warnings
+        warnings.warn('scipy.spatial unavailable; knn_scale_log falls back to '
+                      'a single global spacing (per-point k-NN scale disabled)')
+        extent = float(np.linalg.norm(pts - pts.mean(axis=0), axis=1).max()) + 1e-3
+        mean_d = np.full(n, extent / max(n, 1) ** (1 / 3) * 0.5)
+    else:
         tree = cKDTree(pts)
         d, _ = tree.query(pts, k=min(k + 1, n))  # col 0 is self (dist 0)
         mean_d = d[:, 1:].mean(axis=1) if d.ndim == 2 and d.shape[1] > 1 else d.ravel()
-    except Exception:
-        extent = float(np.linalg.norm(pts - pts.mean(axis=0), axis=1).max()) + 1e-3
-        mean_d = np.full(n, extent / max(n, 1) ** (1 / 3) * 0.5)
     mean_d = np.clip(mean_d, 1e-4, None)
     return np.log(mean_d).astype(np.float32)[:, None].repeat(3, axis=1)
 
@@ -519,7 +514,6 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
             loss = (loss + 0.01 * torch.sigmoid(params['opacities']).abs().mean()
                     + 0.01 * torch.exp(params['scales']).abs().mean())
         loss.backward()
-        loss_history.append(float(mse.detach().cpu()))
         if not mcmc:
             strategy.step_post_backward(params, optimizers, state, it, info,
                                         packed=False)
@@ -533,9 +527,13 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
             # MCMC relocates after the optimiser step and needs the means LR.
             strategy.step_post_backward(params, optimizers, state, it, info,
                                         lr=lrs['means'])
-        if log_every and (it % log_every == 0 or it == iters - 1):
-            print(f'iter {it:5d}  mse {loss_history[-1]:.6f}  '
-                  f'gaussians {params["means"].shape[0]}', flush=True)
+        # Sync mse to the host only when recorded/printed (avoid a per-iter
+        # GPU->CPU stall); the final iter is always recorded.
+        if it == iters - 1 or (log_every and it % log_every == 0):
+            loss_history.append(float(mse.detach().cpu()))
+            if log_every:
+                print(f'iter {it:5d}  mse {loss_history[-1]:.6f}  '
+                      f'gaussians {params["means"].shape[0]}', flush=True)
 
     eval_vm = ((_se3_exp_torch(tau.detach()) @ viewmats[..., :, :])
                if optimize_extrinsic else None)
@@ -642,9 +640,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
           f'SSIM {params.get("ssim", float("nan")):.4f} -> {out}')
     if 'extrinsic_delta' in params:
         import yaml
+        from extract_posed_images import parse_extrinsic_dict
         base = np.eye(4)
         if args.extrinsic:
-            base = np.asarray(yaml.safe_load(Path(args.extrinsic).read_text())['matrix'])
+            # Reuse the extractor's parser so both 'matrix' and
+            # 'translation'+'rotation_xyzw' forms compose (the extractor accepts
+            # either, so reading only ['matrix'] here would KeyError at the very
+            # end of training on the translation/quaternion form).
+            base = parse_extrinsic_dict(
+                yaml.safe_load(Path(args.extrinsic).read_text()))
         refined = base @ params['extrinsic_delta']
         ext_path = Path(str(out) + '.extrinsic.yaml')
         ext_path.write_text(yaml.safe_dump(
