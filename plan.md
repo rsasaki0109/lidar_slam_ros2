@@ -10,7 +10,10 @@ MIT/BSD ライセンスで、Autoware ユーザーが使える高品質な LiDAR
 - RKO-LIO フロントエンド + graph_based_slam ループクロージャーバックエンド
 
 ### 現在の状態
-PR #2 (Ready for Review): https://github.com/rsasaki0109/lidarslam_ws/pull/2
+v0.3.0 タグ済（AWSIM×Autoware + MID-360 toolkit + triangle stack）。develop は
+v0.4 完了（release gate YAML / B AWSIM verify / C MID-360 toolkit / D1 deterministic
+loop scheduling opt-in / F plan.md surgery）。**v0.5 進行中**: RTK-SLAM 公開データで
+MID-360 を真の total-station GT 化（§11）— indoor 2 seq の GT profile が PASS（report_only）。
 
 ---
 
@@ -116,6 +119,20 @@ cause / RANSAC async scheduling）は v0.4 §D1 reproducibility closeout の対�
 | RKO-LIO + loop closure (best) | **4.00** | 1回 | info=100, threshold=15.0 |
 
 **MID-360 の限界**: 非360 FOV のため Scan Context 無効、中間ドリフトの補正にループが不足。
+
+#### 2.3b MID-360 実 GT（RTK-SLAM dataset, total-station checkpoints, 2026-06）
+
+GLIM agreement に代わる**真の total-station GT**（§11）。自前 RKO-LIO の dense odometry を
+SE(3)-aligned checkpoint RMSE で採点：
+
+| sequence | 環境 | RMSE (m) | median | 公開 (fast_lio / okvis) |
+|---|---|---|---|---|
+| construction_seq2 | indoor hall | **0.154** | 0.061 | 0.086 / 0.075 |
+| construction_seq1 | indoor hall (最難) | **0.403** | 0.263 | 0.221 / 0.227 |
+| stadtgarten_seq2 | outdoor park | **3.903** | 1.366 | 0.070 / 0.083 |
+
+indoor で 0.15–0.40m（真 GT, agreement でなく accuracy）、outdoor park で大ドリフト。
+詳細・経緯・profile は §11。
 
 ---
 
@@ -256,6 +273,11 @@ cause / RANSAC async scheduling）は v0.4 §D1 reproducibility closeout の対�
 - 非 360 FOV のため Scan Context が無効
 - 中間ドリフトの補正にループクロージャーが不足
 - RMSE 4.0m (vs GLIM) が現状の限界
+- **2026-06 実 GT で定量化（§11）**: indoor 構造化環境は良好（construction hall
+  0.15–0.40m, 真 total-station GT）だが、**open-outdoor（Stadtgarten park）で 3.9m に
+  大ドリフト** — 短距離（~40m）× 疎・遠方特徴で odometry が starve（誤差が 11.7m まで
+  単調増加）。indoor-tuned config が outdoor 不適合。outdoor は range/deskew/downsample
+  の調整が要（§11.8 A）
 - BSD-2 自前実装の STD/BTC 風 triangle descriptor を 2026-05 に投入。NTU VIRAL ablation v4 で初の triangle 採用 (id=32↔95, 補正 0.49m/1.06°)、v5 で 4-point gate + inlier_ratio による偽陽性 emit 半減 (4→2) と distance loop 押し出し解消を確認。詳細は §1.2。default off の opt-in 機能として develop に landing 済。次の段は MID-360 demo bag 整備 → 同じ ablation を MID-360 でも回すこと。
 
 ### 7.3 GenZ-ICP の再現性
@@ -276,7 +298,9 @@ cause / RANSAC async scheduling）は v0.4 §D1 reproducibility closeout の対�
 
 | # | タスク | 理由 |
 |---|--------|------|
-| 1 | **GNSS 付きデータセットで GNSS 制約テスト** | Autoware の地理座標系マッピング機能が未検証 |
+| 0a | **v0.5 outdoor config 調整 → stadtgarten 再 run** | §11.8 A。indoor 0.15–0.40m に対し outdoor park 3.9m。range/deskew/downsample で改善できれば MID-360 適用範囲拡大 |
+| 0b | **v0.5 indoor pair を blocking 昇格 + mid360_vs_glim 降格** | §11.8 C。真 GT profile 2 本 PASS（report_only）。stadtgarten_seq1（4本目）+ outdoor 解決後に report_only_until 撤去、comparison.md / roadmap done |
+| 1 | **GNSS 付きデータセットで GNSS 制約テスト** | Autoware の地理座標系マッピング機能が未検証。RTK-SLAM bag は `/gnss/fix` を持つので流用候補 |
 | 2 | **Autoware 実環境での読み込みテスト** | `pointcloud_map_loader` でのランタイム互換性確認 |
 | 3a | ~~MID-360 robot toolkit chain (操作員 pipeline)~~ | ✅ PR #168-#177 で 10 PR inside-out で landing 完了 (§10) |
 | 3b | **実機 Jetson + MID-360 robot での dogfood 実走** | chain (§10) を組んだものの実機 bag での E2E 検証はまだ。dogfood-vs-bench の cloud distribution 不一致も併せて調査 |
@@ -372,4 +396,108 @@ bundle layer）+ ament lint の罠 + 重要ファイル + 3DGS QA candidate の�
 
 **現状（live）**: develop に landed（81 mid360 scripts + runbook smoke test +
 continuous kidnap-relocalization gate #194）。残りは実 GT データセット
-（v0.4 roadmap §C → v0.5）。
+（v0.4 roadmap §C → v0.5、§11 で実現）。
+
+---
+
+## 11. 追加トラック（2026-06）：RTK-SLAM 公開データで MID-360 実 GT
+
+v0.4 の locked 決定 #1「MID-360 evidence は実 GT を狙う」を v0.5 で具体化したトラック。
+これまで MID-360 の唯一の release gate は `mid360_vs_glim`（GLIM SLAM 推定との
+cross-validation, `ape_rmse_vs_reference_m`, pass 4.00）で、これは accuracy ではなく
+*agreement* しか測れない（両系統が共有する系統誤差は不可視）。これを**独立 GT 付き
+データセット + `ape_rmse_gt_m`**（NTU VIRAL / Newer College と同じ土俵）に置換するのが
+v0.5 の背骨。詳細な live ドキュメントは [`docs/roadmap/v0.5.md`](docs/roadmap/v0.5.md)。
+
+### 11.1 経緯と再 scope
+- 当初 D-GT-1 を「robotic total station の自前撮影」に決定（屋内 loop を保つ最強 GT）。
+- 「公開データから探す」方針に転換 → **RTK-SLAM Dataset（Univ. Stuttgart ifp,
+  arXiv:2604.07151, 2026, CC-BY 4.0）**を発見・検証。**Livox MID-360 + geodetic
+  total station GT（onboard RTK は system input、GT は独立）**、ROS1+ROS2 bag、
+  IMU `/livox/imu` 200Hz、182GB、4 seq。→ D-GT-1 を「この公開データで取得」に再 scope、
+  **自前 total station / 撮影は不要化**（自前屋内 loop は optional な後続 complement に降格）。
+
+### 11.2 重要発見：GT は 182GB の中に無い
+- survey checkpoint は **eval repo（github.com/Willyzw/rtk-slam-eval）の
+  `ground_truth/<seq>.csv`（~1-2KB）**に同梱。公開 SLAM の例 trajectory
+  （fast_lio_sam / okvis の TUM）も同梱。→ **数MB の git clone だけで reference
+  pipeline 全体を実データ検証可能**、多GB bag は自前 RKO-LIO 実行時のみ必要。
+- topic 確定: **`/livox/points`（sensor_msgs/PointCloud2）** が SLAM 入力。
+  `/livox/lidar` は Livox CustomMsg。checkpoint CSV `timestamp` は Unix-epoch
+  sensor clock（bag / GT / 例 trajectory が共通 clock）。bag に `/tf_static` は無く、
+  base-center extrinsic は eval の `transform_imu_to_base.py` 側にあるが、
+  **SE(3)-aligned metric では alignment が定数オフセットを吸収するため moot**
+  （identity extrinsic で可）。
+
+### 11.3 パイプライン（インフラはほぼ再利用）
+- **`scripts/generate_rtk_slam_reference.py`（新）**: checkpoint CSV
+  （`point_id,easting,northing,height,env,timestamp`）を header 名でマップ（列順
+  非依存）→ 最古 checkpoint を local origin に減算（UTM 大座標対策）→ identity quat の
+  sparse TUM。source slug に `gt` を含むので `_infer_reference_kind` が ground_truth
+  判定（explicit kind 不要）。
+- **採点は既存 `write_aligned_trajectory_metrics.py` を無改修で再利用**:
+  `_rigid_align` は SVD 前 centroid 減算（UTM 安全）、timestamp tolerance match、
+  出力 `alignment: se3_umeyama` の `ape.rmse` = dataset の "SE3" checkpoint metric。
+- **`--match-tolerance` フラグを追加**（後方互換: default は現行 0.05→0.15s cascade、
+  単一値 2.0 で dataset の max_dt 再現）。疎 checkpoint × downsampled trajectory で
+  checkpoint が silent-drop されるのを防ぐ。実データで bias 確認（fast_lio offline は
+  default で 7/16・13/36 しかマッチ、tol=2.0 で全 checkpoint）。
+- **メトリクス方針**: 我々は **SE(3)-aligned checkpoint RMSE** を gate に採用
+  （NTU / Newer College の `ape_rmse_gt_m` 定義と一致）。dataset の zero-align 絶対
+  RMSE / gap% は GNSS-anchor 必要（RKO-LIO は LiDAR-inertial only）なので context 扱い。
+- **疎 checkpoint GT は dense trajectory で採点するのが正**: 最適化済み
+  `/modified_path` は submap-node 単位で疎（最大 24.5s gap）で、gap が survey 滞在点
+  （checkpoint）に集中して採点不可。dense な RKO-LIO odometry（~10Hz）が全 checkpoint
+  にマッチし、公開ベースラインと同じ dense 形なので fair。loop-closure の恩恵は疎
+  checkpoint では観測不可（GT の性質であって optimizer の問題ではない）。
+
+### 11.4 自前 RKO-LIO 実機結果（3 sequences, dense odometry vs total-station GT）
+
+config `configs/mid360_robot/rko_lio_rtk_slam_mid360.yaml`（identity extrinsic,
+deskew off, voxel 0.5）、`--match-tolerance 2.0`：
+
+| sequence | 環境 | paired | 我々の RMSE (m) | median | 公開 (fast_lio / okvis) |
+|---|---|---|---|---|---|
+| construction_seq2 | indoor hall | 16/16 | **0.154** | 0.061 | 0.086 / 0.075 |
+| construction_seq1 | indoor hall (最難) | 16/16 | **0.403** | 0.263 | 0.221 / 0.227 |
+| stadtgarten_seq2 | **outdoor park** | 19/19 | **3.903** | 1.366 | 0.070 / 0.083 |
+
+**確立した知見：indoor 強い / open-outdoor 弱い**。indoor-tuned config では構造化された
+construction hall で 0.15–0.40m（raw odometry, loop closure なし）を保つが、開けた
+Stadtgarten park で 3.9m に大ドリフト — MID-360 の短距離（~40m）× 疎・遠方特徴で
+odometry が starve。real capability boundary（19/19 paired で誤差が 11.7m まで単調増加、
+metric artifact ではない）。これは §7.2 の MID-360 限界を実 GT で定量化したもの。
+
+### 11.5 release profile（per-sequence, report_only_until v0.6）
+NTU（1.0m）と Newer College（0.10m）が難易度で閾値を変えるのと同様、per-sequence 閾値：
+- `mid360_gt_rtkslam_construction_seq2`: pass 0.30 / target 0.15（PASS）
+- `mid360_gt_rtkslam_construction_seq1`: pass 0.55 / target 0.30（PASS）
+- **stadtgarten は gate に入れない**: 4m+ の緩い閾値は `mid360_vs_glim` と同じ
+  loose-threshold の誤魔化しなので回避。outdoor config 修正後に追加。
+- 両 indoor profile とも report_only_until v0.6（疎 16-checkpoint は high-variance、
+  他 seq で確証後に blocking 昇格）。
+
+### 11.6 benchmark の `--offline-timeout-secs`
+`run_rko_lio_graph_benchmark.sh` の `wait_for_offline_completion` が 1800s
+（30分）ハードコードで、~600s の重シーケンス（graph loop closure が ~0.2x realtime）を
+62% で打ち切っていた。CLI flag 化（default 1800 維持）し、5400s 等で full 完走。
+打ち切りは **SLAM 発散ではなく compute cutoff**（raw odometry は綺麗な 10Hz で完走、
+エラーなし）と判明。
+
+### 11.7 投入した PR
+- #209 docs: v0.5 scoping（self-capture）→ #211 docs: 公開 RTK-SLAM dataset へ再 scope
+- #210 ci: MID-360 robot runbook smoke test を CI 接続
+- #212 feat: `generate_rtk_slam_reference.py` + test（合成 CSV で end-to-end 契約実証）
+- #213 feat: download tooling + `--match-tolerance` + 実 GT 例 trajectory baseline 検証
+- #214 feat: 自前 RKO-LIO 実走 → construction_seq2 GT profile（PASS）+ config + offline-timeout flag
+- #215 feat: construction_seq1 profile + 3-seq indoor/outdoor 結果
+
+### 11.8 残タスク
+- **A. outdoor config 調整**: stadtgarten のドリフト改善（range / deskew / downsample）→ 再 run
+- **B. stadtgarten_seq1**（26分/1.04km, ~3-4h）: 4 本目のデータ点
+- **C. indoor pair を blocking 昇格**: report_only_until 撤去 → `mid360_vs_glim` 降格
+  （D-GT-2: 削除せず non-blocking agreement sanity check として残す）→ `comparison.md`
+  の MID-360 行を `ape_rmse_gt_m` に更新 → v0.5 roadmap を done に
+- 採点の再現: dense raw trajectory を `--points-topic /livox/points --match-tolerance 2.0`
+  で採点 → `benchmark_summary.py --release-profile` で PASS 確認
+  （`_profile_match` が points_topic 一致を要求するので `--points-topic` 必須）
