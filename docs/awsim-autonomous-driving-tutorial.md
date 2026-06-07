@@ -197,14 +197,41 @@ python3 scripts/simple_lanelet2_generator.py \
   --output output/awsim_shinjuku_slam/autoware_map/lanelet2_map.osm \
   --lane-width 7.0 \
   --origin-lat 35.686 --origin-lon 139.689 \
-  --resolution 2.0
+  --resolution 2.0 \
+  --validate-routing
 ```
 
 ### Autoware 互換のポイント
 
-- **lanelet を複数に分割**: Autoware のルートプランナーは lanelet 間の接続グラフを使用。~50m 間隔で分割し、境界ノードを共有。
+- **lanelet を複数に分割**: Autoware のルートプランナーは lanelet 間の接続グラフを使用。`--segment-length`（既定 25 点）ごとに分割し、隣接 lanelet で**境界ノード ID を共有**（座標一致では不十分 — ルーティンググラフは共有ノードで後続関係を推論する）。
 - **projector_type**: `local`（lat=local_y, lon=local_x として直接マッピング）
 - **車両方向**: ゴールの orientation をレーン方向に合わせないと `Goal's footprint exceeds lane` エラー。
+
+### 生成マップを Autoware 起動前に検証する
+
+かつての `Failed to find a proper route` ブロッカーは、generator が lanelet 分割
+＋境界ノード共有＋必須タグ（`subtype`/`location`/`one_way`/`participant:vehicle`/
+`speed_limit`、全ノードに `ele`）を出すようになって解消済み。出力は書き込み後に
+自動で**構造検証**され、`--validate-routing` を付けると **Lanelet2 ルーティング
+グラフ**まで構築して `shortestPath(最初 → 最後)` が通ることを確認する:
+
+```text
+structure: 2148 nodes, 84 ways, 42 lanelets
+structure: 41/41 adjacent lanelets share boundary nodes      # ← 接続性の根拠
+routing:   loaded 42 lanelets
+routing:   41/41 adjacent pairs connected in routing graph
+routing:   PASS shortestPath(<first> → <last>) covers 42 lanelets
+```
+
+- **構造検証**（既定 ON、`--no-validate-structure` で無効化）は ROS 不要・CI 可。
+  `ele` 欠落 / 必須タグ欠落 / left-right メンバ欠落 / **境界ノード非共有**を検出し、
+  FAIL なら exit 1。`41/41 ... share boundary nodes` が出れば Autoware の
+  ルートプランナーが lanelet 列を辿れる前提が満たされている。
+- **ルーティング検証**（`--validate-routing`）は `lanelet2` Python バインディングが
+  必要（`apt install ros-${ROS_DISTRO}-lanelet2-python` + ROS overlay を source）。
+  バインディング不在なら警告して skip（FAIL にはしない）。Autoware を起動する前に
+  ここで `shortestPath` の PASS を確認しておけば、シミュレータ側で初めて
+  ルート失敗に気づく往復を避けられる。
 
 ## Step 5: Autoware で自動運転
 
@@ -253,7 +280,7 @@ bash scripts/run_awsim_selfmade_map_demo.sh true    # 動画付き
 | NDT `Score is below threshold` | マップ品質/解像度 | 閾値を 1.5 に下げる |
 | `vector map is not ready` | MGRS 投影でロード失敗 | `projector_type: local` を使用 |
 | `Goal's footprint exceeds lane` | 車両方向がレーンと不一致 | ゴールの orientation をレーン方向に合わせる |
-| `Failed to plan route` | lanelet 未接続 or 1つだけ | 複数 lanelet に分割し境界ノード共有 |
+| `Failed to plan route` / `Failed to find a proper route` | lanelet 未接続 or 1つだけ | generator が分割＋境界ノード共有で対処済み。`--validate-routing` で起動前に `shortestPath` PASS を確認 |
 
 ## 関連スクリプト
 
