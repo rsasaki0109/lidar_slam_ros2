@@ -7,12 +7,18 @@
 # NO_DATA per profile.
 #
 # Track convention (also documented in docs/comparison.md):
-#   - Release track:  no ``report_only_until`` (currently only
-#                     ``newer_college_math_hard``). A FAIL here blocks release.
-#   - Research track: ``report_only_until: v0.4`` (``ntu_viral_tnp_01``,
-#                     ``mid360_vs_glim``, ``leo_drive_applanix_velodyne_cross``).
-#                     A FAIL here is downgraded to WARN, so the gate reports
-#                     the regression without blocking the release cut.
+#   - As of v0.4 (decision 2026-06-07, docs/roadmap/v0.4.md), ALL profiles are
+#     release-track: a FAIL blocks the release. The three former research-track
+#     profiles (``ntu_viral_tnp_01``, ``mid360_vs_glim``,
+#     ``leo_drive_applanix_velodyne_cross``) graduated from ``report_only_until:
+#     v0.4`` to blocking at their current ``pass`` thresholds.
+#   - Caveat: ``mid360_vs_glim`` and ``leo_drive_applanix_velodyne_cross`` block
+#     on a *cross-validation* reference, not ground truth -- an interim weakness
+#     accepted knowingly. ``mid360_vs_glim`` is slated to be replaced by a real
+#     ground-truth ``ape_rmse_gt_m`` profile in v0.5.
+#   - ``report_only_until`` is retained as a mechanism (FAIL -> WARN while set)
+#     for any future profile introduced mid-cycle, but no shipped profile uses
+#     it as of v0.4.
 #
 # Fields:
 #   name: short identifier (snake_case)
@@ -50,7 +56,6 @@ release_profiles:
     metric: ape_rmse_gt_m
     pass: 1.00
     target: 0.30
-    report_only_until: v0.4
 
   - name: mid360_vs_glim
     description: Livox MID-360 vs GLIM cross-validation (~277s indoor loop)
@@ -62,7 +67,6 @@ release_profiles:
     metric: ape_rmse_vs_reference_m
     pass: 4.00
     target: 1.00
-    report_only_until: v0.4
 
   - name: leo_drive_applanix_velodyne_cross
     description: Leo Drive applanix/velodyne open data vs Applanix GSOF49 cross-validation
@@ -74,4 +78,3 @@ release_profiles:
     metric: ape_rmse_vs_reference_m
     pass: 1.50
     target: 0.50
-    report_only_until: v0.4

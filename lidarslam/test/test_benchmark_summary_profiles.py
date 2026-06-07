@@ -74,6 +74,43 @@ def test_default_release_profiles_yaml_loads():
     assert 'mid360_vs_glim' in names
 
 
+def test_research_track_profiles_graduated_to_blocking():
+    """v0.4 decision (2026-06-07): the three former research-track profiles
+    graduated from report_only_until (WARN) to blocking (FAIL). Pin that no
+    shipped profile downgrades a regression anymore.
+    """
+    module = _load_module()
+    profiles = module.load_release_profiles(DEFAULT_PROFILE_YAML)
+    by_name = {p['name']: p for p in profiles}
+    graduated = (
+        'ntu_viral_tnp_01',
+        'mid360_vs_glim',
+        'leo_drive_applanix_velodyne_cross',
+    )
+    for name in graduated:
+        assert name in by_name, name
+        assert by_name[name].get('report_only_until') is None, (
+            f'{name} must block (no report_only_until) as of v0.4')
+    # No shipped profile may carry report_only_until at the v0.4 cut.
+    assert all(p.get('report_only_until') is None for p in profiles)
+
+
+def test_graduated_profile_fails_gate_on_regression():
+    """A mid360_vs_glim regression past its 4.0 m cross-val pass must now FAIL
+    (blocking), not WARN -- the observable effect of the graduation.
+    """
+    module = _load_module()
+    profiles = module.load_release_profiles(DEFAULT_PROFILE_YAML)
+    mid360 = next(p for p in profiles if p['name'] == 'mid360_vs_glim')
+    records = [
+        _rec(run='regressed', points_topic='/livox/lidar',
+             ape_ref_kind='cross_validation', ape_ref_src='glim_mid360_reference',
+             ape_rmse_m='5.00', ape_pairs=600),
+    ]
+    [result] = module.evaluate_release_profiles([mid360], records)
+    assert result['status'] == 'FAIL'
+
+
 def test_load_release_profiles_rejects_unknown_metric(tmp_path: Path):
     module = _load_module()
     bad = tmp_path / 'bad.yaml'
