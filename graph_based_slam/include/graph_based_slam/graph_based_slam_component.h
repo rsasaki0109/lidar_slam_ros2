@@ -167,6 +167,13 @@ private:
       const MapSaveRequest request,
       const MapSaveResponse response);
     void searchLoop();
+    // Per-query loop search body, factored out of searchLoop() so the scheduler
+    // can run it for one (default) or many (deterministic mode) query submaps.
+    void searchLoopForLatest(
+      const lidarslam_msgs::msg::MapArray & map_array_msg,
+      LoopEdges & loop_edges,
+      int num_submaps,
+      int latest_idx);
     bool snapshotGraphState(
       lidarslam_msgs::msg::MapArray & map_array_msg,
       LoopEdges & loop_edges,
@@ -196,6 +203,14 @@ private:
     // -1.0 = disabled / fall back to the generic cap.
     double loop_max_translation_delta_descriptor_ {-1.0};
     double loop_max_rotation_delta_deg_descriptor_ {-1.0};
+    // Deterministic loop scheduling (opt-in, v0.4 D1). When false (default),
+    // searchLoop queries only the single latest submap per timer tick — the
+    // historical wall-clock-driven behaviour, whose (query, db) pair set depends
+    // on timer batching rather than the map. When true, searchLoop catches up
+    // over every submap index not yet used as a query, so the set of loop-search
+    // queries is a pure function of the map regardless of tick timing.
+    bool deterministic_loop_scheduling_ {false};
+    int last_searched_submap_idx_ {-1};
 
     // pose graph optimization parameter
     int num_adjacent_pose_cnstraints_;
