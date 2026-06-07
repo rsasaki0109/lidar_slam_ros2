@@ -237,3 +237,64 @@ def test_generated_reference_scores_as_ground_truth(tmp_path):
     assert metrics['evo']['ape']['alignment'] == 'se3_umeyama'
     assert metrics['evo']['ape']['pairs'] == 12
     assert metrics['evo']['ape']['rmse'] < 1e-6
+
+
+def test_match_tolerance_recovers_offset_sparse_checkpoints(tmp_path):
+    """A wide --match-tolerance pairs checkpoints to a downsampled estimate."""
+    csv_path = tmp_path / 'checkpoints.csv'
+    csv_path.write_text(_synthetic_csv(12), encoding='utf-8')
+    ref_tum = tmp_path / 'gt.tum'
+    subprocess.run(
+        [
+            'python3', str(GENERATOR_PATH),
+            '--checkpoints', str(csv_path),
+            '--sequence', 'test',
+            '--out', str(ref_tum),
+            '--write-meta', str(tmp_path / 'ref.json'),
+        ],
+        capture_output=True, text=True, check=True, cwd=REPO_ROOT,
+    )
+
+    # Estimate timestamps sit 0.5 s off every checkpoint: beyond the default
+    # 0.15 s cascade, inside a 2.0 s tolerance. Positions are unchanged, so the
+    # wide-tolerance match recovers all 12 checkpoints.
+    ref_poses = _parse_tum_positions(ref_tum.read_text(encoding='utf-8'))
+    est_tum = tmp_path / 'est.tum'
+    est_tum.write_text(
+        '\n'.join(
+            f'{t + 0.5:.9f} {x:.9f} {y:.9f} {z:.9f} 0 0 0 1'
+            for t, x, y, z in ref_poses
+        ) + '\n',
+        encoding='utf-8',
+    )
+
+    bag_dir = tmp_path / 'bag'
+    bag_dir.mkdir(parents=True, exist_ok=True)
+    (bag_dir / 'metadata.yaml').write_text(
+        'rosbag2_bagfile_information:\n  duration:\n    nanoseconds: 1000000000\n',
+        encoding='utf-8',
+    )
+
+    def _score(out_dir, extra):
+        return subprocess.run(
+            [
+                'python3', str(SCORER_PATH),
+                '--out-dir', str(out_dir),
+                '--bag', str(bag_dir),
+                '--reference-tum', str(ref_tum),
+                '--corrected-tum', str(est_tum),
+                '--reference-source', 'rtk_slam_test_gt',
+            ] + extra,
+            capture_output=True, text=True, check=False, cwd=REPO_ROOT,
+        )
+
+    # The default cascade cannot pair anything 0.5 s away, so it fails.
+    default = _score(tmp_path / 'out_default', [])
+    assert default.returncode != 0
+
+    wide = _score(tmp_path / 'out_wide', ['--match-tolerance', '2.0'])
+    assert wide.returncode == 0, wide.stderr
+    metrics = json.loads(
+        (tmp_path / 'out_wide' / 'metrics.json').read_text(encoding='utf-8'),
+    )
+    assert metrics['evo']['ape']['pairs'] == 12
