@@ -221,6 +221,27 @@ def test_make_ssim_identical_is_one():
     assert float(ssim(img, img)) == pytest.approx(1.0, abs=1e-4)
 
 
+# --------------------------------------------------------------------------- #
+# CLI parser (no torch)
+# --------------------------------------------------------------------------- #
+def test_parser_quality_flags_default_off():
+    args = tg.build_parser().parse_args(['--transforms', 't', '--out', 'o'])
+    assert args.sh_degree is None
+    assert args.antialiased is False
+    assert args.mcmc is False
+    assert args.mcmc_cap == 500000
+
+
+def test_parser_quality_flags_set():
+    args = tg.build_parser().parse_args(
+        ['--transforms', 't', '--out', 'o', '--sh-degree', '1',
+         '--antialiased', '--mcmc', '--mcmc-cap', '300000']
+    )
+    assert args.sh_degree == 1
+    assert args.antialiased is True
+    assert args.mcmc is True and args.mcmc_cap == 300000
+
+
 def test_make_ssim_noise_below_one():
     torch = pytest.importorskip('torch')
     a = torch.rand(32, 40, 3)
