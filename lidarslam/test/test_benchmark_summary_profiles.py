@@ -75,10 +75,7 @@ def test_default_release_profiles_yaml_loads():
 
 
 def test_research_track_profiles_graduated_to_blocking():
-    """v0.4 decision (2026-06-07): the three former research-track profiles
-    graduated from report_only_until (WARN) to blocking (FAIL). Pin that no
-    shipped profile downgrades a regression anymore.
-    """
+    """Verify v0.4 graduated research-track profiles block regressions, not WARN."""
     module = _load_module()
     profiles = module.load_release_profiles(DEFAULT_PROFILE_YAML)
     by_name = {p['name']: p for p in profiles}
@@ -96,9 +93,7 @@ def test_research_track_profiles_graduated_to_blocking():
 
 
 def test_graduated_profile_fails_gate_on_regression():
-    """A mid360_vs_glim regression past its 4.0 m cross-val pass must now FAIL
-    (blocking), not WARN -- the observable effect of the graduation.
-    """
+    """Verify mid360_vs_glim regression past 4.0 m cross-val pass fails, not WARN."""
     module = _load_module()
     profiles = module.load_release_profiles(DEFAULT_PROFILE_YAML)
     mid360 = next(p for p in profiles if p['name'] == 'mid360_vs_glim')
