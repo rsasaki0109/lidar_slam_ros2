@@ -20,6 +20,7 @@ Options:
   --run-name <name>              RKO-LIO run name
   --startup-timeout-secs <sec>   Timeout waiting for startup (default: 30)
   --save-timeout-secs <sec>      Timeout waiting for map outputs (default: 60)
+  --offline-timeout-secs <sec>   Max wall-clock for the offline node to finish the bag (default: 1800)
   --quiescence-secs <sec>        Treat the run as done after this many stable seconds (default: 20)
   --skip-map-save                Do not call /map_save or verify the map bundle
   --skip-reference-gen           Reuse an existing reference TUM/meta without regenerating it
@@ -64,6 +65,10 @@ RUN_NAME=""
 STARTUP_TIMEOUT_SECS=30
 SAVE_TIMEOUT_SECS=60
 QUIESCENCE_SECS=20
+# Max wall-clock to wait for the offline node to finish replaying the bag.
+# Long / compute-heavy sequences (e.g. dense indoor MID-360) can process well
+# below real time; raise this so the run is not cut off mid-bag.
+OFFLINE_TIMEOUT_SECS=1800
 SKIP_MAP_SAVE=false
 SKIP_REFERENCE_GEN=false
 PUBLISH_STATIC_TF=true
@@ -134,6 +139,11 @@ while [[ $# -gt 0 ]]; do
     --save-timeout-secs)
       [[ $# -ge 2 ]] || usage
       SAVE_TIMEOUT_SECS="$2"
+      shift 2
+      ;;
+    --offline-timeout-secs)
+      [[ $# -ge 2 ]] || usage
+      OFFLINE_TIMEOUT_SECS="$2"
       shift 2
       ;;
     --quiescence-secs)
@@ -501,7 +511,7 @@ if ! wait_for_log_pattern "[graph_based_slam]: initialization end" "$STARTUP_TIM
 fi
 
 echo "SLAM launch is up"
-if ! wait_for_offline_completion 1800; then
+if ! wait_for_offline_completion "$OFFLINE_TIMEOUT_SECS"; then
   echo "Launch terminated before offline node completed. Recent launch log:" >&2
   tail -n 120 "$LAUNCH_LOG" >&2 || true
   exit 1

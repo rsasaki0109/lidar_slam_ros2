@@ -68,6 +68,28 @@ release_profiles:
     pass: 4.00
     target: 1.00
 
+  # v0.5: the real total-station GT profile that supersedes mid360_vs_glim's
+  # cross-validation. Scored against the public RTK-SLAM dataset's surveyed
+  # checkpoints (arXiv:2604.07151, CC-BY 4.0). The checkpoints are sparse and
+  # land at survey-dwell points where the optimized submap graph is sparse, so
+  # the gate scores the *dense* trajectory (RKO-LIO odometry) -- the same dense
+  # form the dataset's own published baselines are scored in. Run with
+  # --match-tolerance 2.0 (the dataset's max_dt). report_only_until is kept while
+  # only construction_seq2 is measured; graduate to blocking once the other
+  # three sequences confirm the threshold. Observed construction_seq2 raw RMSE
+  # 0.154 m (median 0.061), vs published fast_lio_sam 0.086 / okvis 0.075.
+  - name: mid360_gt_rtkslam_construction_seq2
+    description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Construction Hall 2 (~600s, 16 chkpt, dense odometry)
+    match:
+      points_topic: /livox/points
+      reference_kind: ground_truth
+      reference_source_contains: rtk_slam_construction_seq2_gt
+      min_ape_pairs: 12
+    metric: ape_rmse_gt_m
+    pass: 0.30
+    target: 0.15
+    report_only_until: v0.6
+
   - name: leo_drive_applanix_velodyne_cross
     description: Leo Drive applanix/velodyne open data vs Applanix GSOF49 cross-validation
     match:
