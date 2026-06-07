@@ -268,6 +268,14 @@ if(BUILD_TESTING)
     test/test_jetson_mid360_host_readiness.py
     TIMEOUT 120
   )
+  # NOTE: the test_gaussian_splatting_* suites below cover tools/gaussian_splatting/
+  # (the opt-in 3DGS post-process toolkit), NOT this package. They live here only
+  # to borrow graph_based_slam's ament pytest harness, and reach the code under
+  # test via Path(__file__).parents[2] + sys.path. Consequences a maintainer
+  # should know: (1) `colcon test --packages-select graph_based_slam` runs these
+  # gsplat tests, and (2) moving/renaming tools/gaussian_splatting/ silently
+  # breaks the parents[2] path here. Relocating them to a dedicated test target
+  # next to the tool is tracked as a v0.4 structural cleanup.
   ament_add_pytest_test(
     test_gaussian_splatting_posed_images
     test/test_gaussian_splatting_posed_images.py

@@ -151,7 +151,12 @@ def voxel_downsample(xyz: np.ndarray, voxel_size: float,
     xyz = np.asarray(xyz, dtype=np.float32)
     if voxel_size <= 0 or xyz.shape[0] == 0:
         return xyz, rgb
-    keys = np.floor(xyz / voxel_size).astype(np.int64)
-    _, first_idx = np.unique(keys, axis=0, return_index=True)
+    keys = np.ascontiguousarray(np.floor(xyz / voxel_size).astype(np.int64))
+    # Uniquify the (N,3) voxel keys via a 1D structured (void) view rather than
+    # np.unique(axis=0): the latter lexicographically sorts a 2D array
+    # row-by-row, which is far slower and more memory-hungry on the multi-
+    # million-point clouds build_lidar_init accumulates.
+    key_view = keys.view([('k', keys.dtype, 3)]).ravel()
+    _, first_idx = np.unique(key_view, return_index=True)
     first_idx.sort()
     return xyz[first_idx], (None if rgb is None else np.asarray(rgb)[first_idx])
