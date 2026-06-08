@@ -90,6 +90,25 @@ release_profiles:
     target: 0.15
     report_only_until: v0.6
 
+  # Companion indoor sequence (Construction Hall 1) -- the hardest of the two
+  # halls (published baselines ~0.22 m, the highest). Our dense odometry pairs
+  # 16/16 at RMSE 0.403 m (median 0.263), so the threshold is looser than
+  # construction_seq2 by design: per-sequence difficulty, like NTU vs Newer
+  # College. report_only_until while the indoor pair is the only validated set
+  # (the outdoor Stadtgarten sequences drift badly with this indoor-tuned
+  # config -- 3.9 m on stadtgarten_seq2 -- and need config work before gating).
+  - name: mid360_gt_rtkslam_construction_seq1
+    description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Construction Hall 1 (~741s, 16 chkpt, dense odometry)
+    match:
+      points_topic: /livox/points
+      reference_kind: ground_truth
+      reference_source_contains: rtk_slam_construction_seq1_gt
+      min_ape_pairs: 12
+    metric: ape_rmse_gt_m
+    pass: 0.55
+    target: 0.30
+    report_only_until: v0.6
+
   - name: leo_drive_applanix_velodyne_cross
     description: Leo Drive applanix/velodyne open data vs Applanix GSOF49 cross-validation
     match:
