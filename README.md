@@ -118,6 +118,20 @@ bash scripts/run_release_readiness_checks.sh --fail-on-profiles
 
 Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](docs/benchmarking.md).
 
+## Photoreal 3DGS map (optional)
+
+Turn the same SLAM output plus synced camera images into a 3D Gaussian Splatting
+scene — LiDAR-primed (no COLMAP), trained with gsplat (Apache-2.0), rendered here
+as a flythrough of the reconstructed map:
+
+![3DGS flythrough rendered from a LiDAR-primed gsplat reconstruction](lidarslam/images/3dgs_koide_flythrough.gif)
+
+```bash
+bash scripts/run_koide_3dgs_flythrough.sh
+```
+
+Pipeline, quality levers, and data-suitability notes: [docs/3dgs-map-tutorial.md](docs/3dgs-map-tutorial.md).
+
 ## Docs
 
 - **Getting started**: [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
