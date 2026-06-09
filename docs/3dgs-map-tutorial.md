@@ -145,6 +145,38 @@ under-training だった。十分回せば 25.5dB に届く。MCMC / antialiased
 [SuperSplat](https://playcanvas.com/supersplat/editor) などの web ビューアにドラッグ
 &ドロップで開ける。
 
+## フライスルー動画の書き出し
+
+学習済み `.ply` から、学習視点を通るスムーズなカメラパスで mp4 / GIF を描画する
+（デモ・README・SNS 共有用の成果物）。koide はワンコマンド:
+
+```bash
+bash scripts/run_koide_3dgs_flythrough.sh
+# 出力: output/koide_3dgs_firstlight/gsplat/flythrough.{mp4,gif}
+# checkpoint が無ければ run_koide_3dgs_firstlight.sh を先に実行する
+```
+
+任意のシーンは renderer を直接叩く:
+
+```bash
+python3 tools/gaussian_splatting/render_path.py \
+  --ply <run>/gsplat/point_cloud.ply \
+  --transforms <run>/gsplat/transforms.json \
+  --frames 240 --fps 30 --ping-pong \
+  --scale 0.25 --rotate 90 \
+  --mp4 <run>/gsplat/flythrough.mp4 \
+  --gif <run>/gsplat/flythrough.gif --gif-scale 0.6 --gif-fps 8
+```
+
+- カメラパス = 学習視点(transforms.json)の SLERP + 並進 box-smooth
+  (`--smooth-window`、手持ちブレ除去)。学習視点近傍を飛ぶので描画品質が保たれる。
+- `--ping-pong`: 往復再生でシームレスループ（再レンダリング無しで往路を逆順追加）。
+- `--scale`: 学習解像度に対する描画スケール（intrinsics ごと縮小。koide 2448x2048 は
+  0.25 で 612x512、mp4 ~8MB）。
+- `--rotate {0,90,180,270}`: カメラが横倒しマウントの bag 用（koide は 90）。
+- GIF は README 埋め込み用に `--gif-fps` / `--gif-scale` で間引き縮小される。
+- リポジトリ内の成果物例: `lidarslam/images/3dgs_koide_flythrough.gif` / `.mp4`。
+
 ## トラブルシュート
 
 - 全フレーム drop → カメラと LiDAR のクロック別基準。`--time-offset auto`
@@ -159,4 +191,5 @@ under-training だった。十分回せば 25.5dB に届く。MCMC / antialiased
 - 設計・スコープ・ライセンス:
   [`research/3dgs-postprocess-map-design.md`](research/3dgs-postprocess-map-design.md)
 - ツール詳細: `tools/gaussian_splatting/README.md`
-- 再現スクリプト: `scripts/run_koide_3dgs_firstlight.sh`
+- 再現スクリプト: `scripts/run_koide_3dgs_firstlight.sh` /
+  `scripts/run_koide_3dgs_flythrough.sh`
