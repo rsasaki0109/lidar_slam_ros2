@@ -268,7 +268,7 @@ def test_release_metadata_and_core_package_versions_match():
         assert f'<version>{version}</version>' in package_xml
 
     assert 'site_name: lidarslam_ros2 Docs' in mkdocs_config
-    assert 'site_url: https://rsasaki0109.github.io/lidarslam_ros2/' in mkdocs_config
+    assert 'site_url: https://rsasaki0109.github.io/lidar_slam_ros2/' in mkdocs_config
     assert 'name: material' in mkdocs_config
     assert 'assets/stylesheets/extra.css' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config

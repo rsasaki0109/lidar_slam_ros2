@@ -12,9 +12,11 @@ ROS 2 LiDAR SLAM that outputs an Autoware-ready map bundle — `pointcloud_map/`
 autonomously on that map in AWSIM. Frontend is `RKO-LIO` (MIT), backend is
 `graph_based_slam` (BSD-2). No GPL components on the default workflow.
 
-[![Autoware-compatible pointcloud-map authoring — click for the demo video](lidarslam/images/social_autoware_map_authoring.png)](lidarslam/images/social_autoware_map_authoring_demo.mp4)
+![Photoreal 3DGS flythrough rendered from this stack's SLAM output](lidarslam/images/3dgs_koide_flythrough.gif)
 
-*Click the card for the demo video. `develop` tracks the current v2 alpha line; latest tagged public beta: [v0.2.2 Release Notes](docs/releases/v0.2.2.md).*
+*Rendered from a LiDAR-primed 3D Gaussian Splatting reconstruction of this stack's
+SLAM output — [how it's made](#photoreal-3dgs-map-optional). `develop` tracks the
+current v2 alpha line; latest tagged public beta: [v0.2.2 Release Notes](docs/releases/v0.2.2.md).*
 
 ## Why lidarslam_ros2
 
@@ -35,6 +37,15 @@ artifacts you need downstream:
   BEV / SOLiD / STD/BTC-style Triangle descriptors and 3D-BBS verification.
 - **GNSS georeferencing** — optional GNSS constraints and projector metadata for
   real-world coordinates.
+
+```mermaid
+flowchart LR
+    bag(["rosbag2"]) --> rko["RKO-LIO<br/>LiDAR-inertial odometry"]
+    rko --> gbs["graph_based_slam<br/>loop closure + graph optimization"]
+    gbs --> bundle["Autoware map bundle<br/>pointcloud_map · lanelet2 · projector info"]
+    bundle --> drive["AWSIM × Autoware<br/>autonomous driving"]
+    bundle -.-> gs3d["3DGS photoreal map<br/>(optional)"]
+```
 
 ## Quickstart
 
@@ -80,6 +91,10 @@ filter parameters are documented in [docs/workflows.md](docs/workflows.md).
 
 ## Drive on your map (AWSIM × Autoware)
 
+[![Autoware-compatible pointcloud-map authoring — click for the demo video](lidarslam/images/social_autoware_map_authoring.png)](lidarslam/images/social_autoware_map_authoring_demo.mp4)
+
+*Click the card for the demo video.*
+
 ```bash
 bash scripts/test_awsim_setup.sh
 bash scripts/run_awsim_selfmade_map_demo.sh
@@ -121,10 +136,8 @@ Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](d
 ## Photoreal 3DGS map (optional)
 
 Turn the same SLAM output plus synced camera images into a 3D Gaussian Splatting
-scene — LiDAR-primed (no COLMAP), trained with gsplat (Apache-2.0), rendered here
-as a flythrough of the reconstructed map:
-
-![3DGS flythrough rendered from a LiDAR-primed gsplat reconstruction](lidarslam/images/3dgs_koide_flythrough.gif)
+scene — LiDAR-primed (no COLMAP), trained with gsplat (Apache-2.0). The flythrough
+at the top of this README is rendered straight from the reconstructed map:
 
 ```bash
 bash scripts/run_koide_3dgs_flythrough.sh
