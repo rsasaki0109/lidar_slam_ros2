@@ -31,8 +31,9 @@ photorealistic map / novel-view 成果物を後処理で再構成するための
 | `build_lidar_init.py` | bag のスキャンを SLAM 軌跡で world 系に蓄積 → **LiDAR-primed init 点群** PLY。FILE-compressed(zstd) bag 対応。`--color-transforms` で transforms.json の posed 画像を投影して着色（品質中立だが検査用に有用）。 | rosbag2_py（実行時のみ）| 同上（`transform_points` 等の純粋部）|
 | `train_gsplat.py` | `transforms.json` + 画像で gsplat 学習 → INRIA 標準 `.ply` 出力。OpenGL c2w を OpenCV w2c に変換。`--init-ply` で **LiDAR-primed init**（位置＋色 seed）、`--densify` で gsplat `DefaultStrategy` の adaptive density control、`--ssim-lambda`（既定 0.2）で INRIA 標準 **L1+D-SSIM 損失**、`--knn-scale-init` で点群の局所密度から per-Gaussian スケール seed、`--sh-degree D` で **視点依存カラー（SH 次数 D、INRIA 標準 f_dc+f_rest 出力）**、`--antialiased` で gsplat の antialiased rasterize mode、`--mcmc`（+`--mcmc-cap`）で MCMCStrategy（LiDAR-primed init では DefaultStrategy 優位＝既定）、`--optimize-extrinsic` で共有 6-DoF extrinsic の photometric 自己校正。学習終了時に全ビューの PSNR/SSIM を出力。 | torch, gsplat (CUDA) | `test_gaussian_splatting_train.py`（20、純粋部）|
 | `selftest_gpu.py` | opt-in GPU セルフテスト。合成シーンを描画→`transforms.json`→学習→`.ply` の全鎖を検証。 | torch, gsplat (CUDA) | 手動実行（CI 非対象）|
+| `render_path.py` | 学習済み `.ply` + `transforms.json` から**フライスルー動画（mp4/GIF）**を描画する CLI。INRIA `.ply` の読み戻し、学習視点を通る SLERP+box-smooth カメラパス、`--ping-pong` ループ、`--scale` 縮小描画、`--rotate` 横倒しカメラ補正。 | torch, gsplat (CUDA)（純粋部は numpy のみ）| `test_gaussian_splatting_render.py`（13、ply 読み戻し/パス/回転/intrinsics の純粋部）|
 
-GPU 不要の純粋部は ament pytest harness（`run_default_ci_checks.sh`）で **計 42 ケース**
+GPU 不要の純粋部は ament pytest harness（`run_default_ci_checks.sh`）で **計 89 ケース**
 検証される。CUDA を要する学習部はテストを skip せず CI 面から分離（opt-in）。
 
 ## 使い方
@@ -67,6 +68,15 @@ python3 tools/gaussian_splatting/selftest_gpu.py --out /tmp/gsplat_selftest
 
 # 実データ first light をワンコマンド再現（SLAM→extract→train）
 bash scripts/run_koide_3dgs_firstlight.sh
+
+# 3) 学習済み .ply からフライスルー動画（mp4 + README 用 GIF）
+bash scripts/run_koide_3dgs_flythrough.sh
+# 任意シーンは renderer を直接:
+python3 tools/gaussian_splatting/render_path.py \
+  --ply output/<run>/gsplat/point_cloud.ply \
+  --transforms output/<run>/gsplat/transforms.json \
+  --frames 240 --ping-pong --scale 0.25 \
+  --mp4 output/<run>/gsplat/flythrough.mp4
 ```
 
 実データ first light の結果・品質要因・次レバーは
