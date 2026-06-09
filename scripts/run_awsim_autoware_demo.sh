@@ -68,10 +68,15 @@ case "${1:-help}" in
         ros2 launch autoware_launch e2e_simulator.launch.xml \
           vehicle_model:=awsim_labs_vehicle \
           sensor_model:=awsim_labs_sensor_kit \
-          map_path:=/autoware_map"
+          map_path:=/autoware_map \
+          launch_vehicle_interface:=true"
     ;;
 
   engage)
+    # launch_vehicle_interface:=true が無いと raw_vehicle_cmd_converter が起動せず
+    # /control/command/actuation_cmd の publisher が不在のまま車両は永遠に動かない。
+    # また vehicle_cmd_gate は発進時 pause 状態のため、engage に加えて
+    # set_pause(false) + accept_start の解除が必要(検証: 2026-06-10)。
     echo "=== Engaging autonomous driving ==="
     setup_dds
     docker run --rm --net=host \
@@ -80,7 +85,13 @@ case "${1:-help}" in
       -v "${HOME}/cyclonedds.xml:/cyclonedds.xml:ro" \
       "${AUTOWARE_IMAGE}" \
       bash -c "source /opt/ros/humble/setup.bash && source /opt/autoware/setup.bash && \
-        ros2 topic pub /autoware/engage autoware_vehicle_msgs/msg/Engage '{engage: True}' --once"
+        ros2 service call /api/operation_mode/change_to_autonomous autoware_adapi_v1_msgs/srv/ChangeOperationMode {} && \
+        ros2 topic pub /autoware/engage autoware_vehicle_msgs/msg/Engage '{engage: True}' --once && \
+        for i in \$(seq 1 30); do \
+          ros2 service call /control/vehicle_cmd_gate/set_pause tier4_control_msgs/srv/SetPause '{pause: false}' >/dev/null 2>&1; \
+          ros2 service call /api/motion/accept_start autoware_adapi_v1_msgs/srv/AcceptStart {} >/dev/null 2>&1; \
+          sleep 2; \
+        done"
     ;;
 
   help|*)

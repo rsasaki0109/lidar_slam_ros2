@@ -63,6 +63,7 @@ KEEPAWAKE_PID=$!
 cleanup() {
     echo "Cleaning up..."
     kill ${KEEPAWAKE_PID} 2>/dev/null || true
+    kill ${UNPAUSE_PID:-} 2>/dev/null || true
     docker rm -f awsim_demo autoware_demo 2>/dev/null || true
     [ "${RECORD_VIDEO}" = "true" ] && kill %ffmpeg 2>/dev/null || true
 }
@@ -134,7 +135,8 @@ docker run -d --name autoware_demo \
         ros2 launch autoware_launch e2e_simulator.launch.xml \
             vehicle_model:=awsim_labs_vehicle \
             sensor_model:=awsim_labs_sensor_kit \
-            map_path:=/autoware_map"
+            map_path:=/autoware_map \
+            launch_vehicle_interface:=true"
 
 echo "  Waiting for Autoware to initialize (90s)..."
 sleep 90
@@ -173,9 +175,19 @@ echo "  Goal set"
 sleep 10
 
 # --- Engage ---
+# vehicle_cmd_gate は発進時 pause 状態のため、engage に加えて set_pause(false) +
+# accept_start の解除ループが必要(検証: 2026-06-10)。
 echo "[6/6] Engaging autonomous driving..."
 docker exec autoware_demo bash -c "source /opt/ros/humble/setup.bash && source /opt/autoware/setup.bash && \
+    ros2 service call /api/operation_mode/change_to_autonomous autoware_adapi_v1_msgs/srv/ChangeOperationMode {} >/dev/null 2>&1; \
     ros2 topic pub /autoware/engage autoware_vehicle_msgs/msg/Engage '{engage: True}' --once" >/dev/null 2>&1
+for i in $(seq 1 30); do
+    docker exec autoware_demo bash -c "source /opt/ros/humble/setup.bash && source /opt/autoware/setup.bash && \
+        ros2 service call /control/vehicle_cmd_gate/set_pause tier4_control_msgs/srv/SetPause '{pause: false}' >/dev/null 2>&1; \
+        ros2 service call /api/motion/accept_start autoware_adapi_v1_msgs/srv/AcceptStart {} >/dev/null 2>&1"
+    sleep 2
+done &
+UNPAUSE_PID=$!
 
 # Check state
 sleep 5
