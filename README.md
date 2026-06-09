@@ -89,6 +89,8 @@ Builds the Autoware map bundle from your SLAM output, generates lanelet2 from th
 trajectory, and brings up AWSIM + Autoware to drive on it. Multi-terminal bringup
 and lanelet2 notes: [docs/awsim-autonomous-driving-tutorial.md](docs/awsim-autonomous-driving-tutorial.md).
 
+![Autoware map loaders rendering a pointcloud_map authored by this stack](lidarslam/images/autoware_map_loader_proof.png)
+
 ## Accuracy
 
 Current numbers from the release-gate profiles (`scripts/release_profiles.yaml`).
