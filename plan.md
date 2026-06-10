@@ -10,10 +10,20 @@ MIT/BSD ライセンスで、Autoware ユーザーが使える高品質な LiDAR
 - RKO-LIO フロントエンド + graph_based_slam ループクロージャーバックエンド
 
 ### 現在の状態
-v0.3.0 タグ済（AWSIM×Autoware + MID-360 toolkit + triangle stack）。develop は
-v0.4 完了（release gate YAML / B AWSIM verify / C MID-360 toolkit / D1 deterministic
-loop scheduling opt-in / F plan.md surgery）。**v0.5 進行中**: RTK-SLAM 公開データで
-MID-360 を真の total-station GT 化（§11）— indoor 2 seq の GT profile が PASS（report_only）。
+**v0.5 完了（2026-06-11, PR #228）**: RTK-SLAM 公開データで MID-360 を真の
+total-station GT 化（§11）— 4/4 sequence 計測済み、indoor 2 profile は **blocking**
+昇格、outdoor pair は専用 preset（`double_downsample: false`）付きで report-only soak、
+`mid360_vs_glim` は report-only canary に降格。
+
+配布面も 2026-06-11 に大きく前進（§13）: ghcr Docker イメージ初公開（README の
+ワンコマンドが実際に動く）、Autoware マップバンドルの lanelet2 自動生成完成
+（bag 1 コマンド → pointcloud_map + projector_info + lanelet2、PR #233）、
+バージョン 0.5.0 整列 + rosdistro (bloom) バイナリリリース prep。README の見せ物は
+実カメラ色のマップフライスルー GIF（§12、PR #229/#230/#231）。
+
+次の主要アクション: bloom リリース実行（ndt_omp_ros2 fork 先行、
+`docs/rosdistro-release.md` のランブック）、発信（P2-8、ユーザー本人）、
+D1 8-vs-16 再現性ベンチ（`deterministic_loop_scheduling` default 判断）。
 
 ---
 
@@ -123,16 +133,19 @@ cause / RANSAC async scheduling）は v0.4 §D1 reproducibility closeout の対�
 #### 2.3b MID-360 実 GT（RTK-SLAM dataset, total-station checkpoints, 2026-06）
 
 GLIM agreement に代わる**真の total-station GT**（§11）。自前 RKO-LIO の dense odometry を
-SE(3)-aligned checkpoint RMSE で採点：
+SE(3)-aligned checkpoint RMSE で採点（4/4 sequence 計測済み、2026-06-11 完了）：
 
-| sequence | 環境 | RMSE (m) | median | 公開 (fast_lio / okvis) |
-|---|---|---|---|---|
-| construction_seq2 | indoor hall | **0.154** | 0.061 | 0.086 / 0.075 |
-| construction_seq1 | indoor hall (最難) | **0.403** | 0.263 | 0.221 / 0.227 |
-| stadtgarten_seq2 | outdoor park | **3.903** | 1.366 | 0.070 / 0.083 |
+| sequence | 環境 | RMSE (m) | median | gate | 公開 (fast_lio / okvis) |
+|---|---|---|---|---|---|
+| construction_seq2 | indoor hall | **0.154** | 0.061 | blocking, pass 0.30 | 0.086 / 0.075 |
+| construction_seq1 | indoor hall (最難) | **0.403** | 0.263 | blocking, pass 0.55 | 0.221 / 0.227 |
+| stadtgarten_seq2 | outdoor park | **0.835**（outdoor preset） | 0.327 | report-only | 0.070 / 0.083 |
+| stadtgarten_seq1 | outdoor park, 1.04 km | **1.666** | 1.511 | report-only | 0.071 / 0.054 |
 
-indoor で 0.15–0.40m（真 GT, agreement でなく accuracy）、outdoor park で大ドリフト。
-詳細・経緯・profile は §11。
+indoor で 0.15–0.40m（真 GT, agreement でなく accuracy）。outdoor の当初 3.903m は
+**correspondence starvation** で、`double_downsample: false` のみで 0.835m に改善
+（粗 voxel 1.0m 案は 2.348m で却下）。outdoor preset:
+`configs/mid360_robot/rko_lio_rtk_slam_mid360_outdoor.yaml`。詳細・経緯・profile は §11。
 
 ---
 
@@ -246,9 +259,9 @@ indoor で 0.15–0.40m（真 GT, agreement でなく accuracy）、outdoor park
 
 | 項目 | 状態 | 理由 |
 |------|------|------|
-| GNSS ポーズグラフ制約 | ⚠️ | 手元に有効な GNSS 付きデータセットがない |
-| `map_projector_info.yaml` | ⚠️ | GNSS 未動作のため出力されず |
-| Autoware 実環境読み込み | ⚠️ | Autoware 未インストール |
+| GNSS ポーズグラフ制約 | ⚠️ | 手元に有効な GNSS 付きデータセットがない（RTK-SLAM bag の `/gnss/fix` が流用候補、§8 #1） |
+| `map_projector_info.yaml`（LocalCartesian） | ⚠️ | GNSS 未動作のため地理座標版は未検証（`local` 版は検証済み） |
+| ~~Autoware 実環境読み込み~~ | ✅ | map loaders 読込 + AWSIM×Autoware E2E 自動運転まで dogfood 済み |
 
 ### Autoware ユーザーへのバリュー
 
@@ -276,8 +289,10 @@ indoor で 0.15–0.40m（真 GT, agreement でなく accuracy）、outdoor park
 - **2026-06 実 GT で定量化（§11）**: indoor 構造化環境は良好（construction hall
   0.15–0.40m, 真 total-station GT）だが、**open-outdoor（Stadtgarten park）で 3.9m に
   大ドリフト** — 短距離（~40m）× 疎・遠方特徴で odometry が starve（誤差が 11.7m まで
-  単調増加）。indoor-tuned config が outdoor 不適合。outdoor は range/deskew/downsample
-  の調整が要（§11.8 A）
+  単調増加）。**→ 解決済み（2026-06-11）**: 原因は correspondence starvation で、
+  `double_downsample: false` のみで 0.835m（outdoor preset
+  `rko_lio_rtk_slam_mid360_outdoor.yaml`）。sweep 記録は
+  `docs/research/rtkslam-total-station-gt-methodology.md`
 - BSD-2 自前実装の STD/BTC 風 triangle descriptor を 2026-05 に投入。NTU VIRAL ablation v4 で初の triangle 採用 (id=32↔95, 補正 0.49m/1.06°)、v5 で 4-point gate + inlier_ratio による偽陽性 emit 半減 (4→2) と distance loop 押し出し解消を確認。詳細は §1.2。default off の opt-in 機能として develop に landing 済。次の段は MID-360 demo bag 整備 → 同じ ablation を MID-360 でも回すこと。
 
 ### 7.3 GenZ-ICP の再現性
@@ -298,10 +313,13 @@ indoor で 0.15–0.40m（真 GT, agreement でなく accuracy）、outdoor park
 
 | # | タスク | 理由 |
 |---|--------|------|
-| 0a | **v0.5 outdoor config 調整 → stadtgarten 再 run** | §11.8 A。indoor 0.15–0.40m に対し outdoor park 3.9m。range/deskew/downsample で改善できれば MID-360 適用範囲拡大 |
-| 0b | **v0.5 indoor pair を blocking 昇格 + mid360_vs_glim 降格** | §11.8 C。真 GT profile 2 本 PASS（report_only）。stadtgarten_seq1（4本目）+ outdoor 解決後に report_only_until 撤去、comparison.md / roadmap done |
+| 0a | ~~v0.5 outdoor config 調整 → stadtgarten 再 run~~ | ✅ 2026-06-11 解決。`double_downsample: false` で 3.903→0.835m、outdoor preset 化（§11.8 A） |
+| 0b | ~~v0.5 indoor pair を blocking 昇格 + mid360_vs_glim 降格~~ | ✅ PR #228。4/4 seq 計測、indoor blocking、glim は report-only canary（§11.8 C） |
+| 0c | **bloom リリース実行（P2-7 後半）** | repo 側 prep 完了（0.5.0 整列 + ランブック `docs/rosdistro-release.md`）。残り = ndt_omp_ros2 fork の package.xml 整備 → 先行 bloom → 本体 bloom → ros/rosdistro PR（maintainer の GitHub 操作が必要、§13） |
+| 0d | **D1 8-vs-16 再現性ベンチ** | `deterministic_loop_scheduling`（#208, opt-in）を default-on にするか判定。RTK-SLAM bag が手元にありデータブロッカー解消済み |
+| 0e | **発信（P2-8）** | ghcr ワンコマンド + lanelet2 完全バンドル + 実 GT 数値が揃い、発信material は完成状態。ROS Discourse / Reddit / X はユーザー本人が実施。事前に B2 social preview 設定（Web UI 1 分） |
 | 1 | **GNSS 付きデータセットで GNSS 制約テスト** | Autoware の地理座標系マッピング機能が未検証。RTK-SLAM bag は `/gnss/fix` を持つので流用候補 |
-| 2 | **Autoware 実環境での読み込みテスト** | `pointcloud_map_loader` でのランタイム互換性確認 |
+| 2 | ~~Autoware 実環境での読み込みテスト~~ | ✅ map loaders 読込は検証済み（README の loader proof + AWSIM×Autoware E2E 自動運転まで dogfood 済み、§6） |
 | 3a | ~~MID-360 robot toolkit chain (操作員 pipeline)~~ | ✅ PR #168-#177 で 10 PR inside-out で landing 完了 (§10) |
 | 3b | **実機 Jetson + MID-360 robot での dogfood 実走** | chain (§10) を組んだものの実機 bag での E2E 検証はまだ。dogfood-vs-bench の cloud distribution 不一致も併せて調査 |
 | 3c | Jetson host readiness preflight PR | §10.5 残課題の自然な次。`check_jetson_mid360_host_readiness.py` + `jetson_mid360_host_tools.py` を 1 PR で land |
@@ -402,6 +420,8 @@ continuous kidnap-relocalization gate #194）。残りは実 GT データセッ�
 
 ## 11. 追加トラック（2026-06）：RTK-SLAM 公開データで MID-360 実 GT
 
+**status: 完了（2026-06-11, PR #228 で v0.5 roadmap done）**
+
 v0.4 の locked 決定 #1「MID-360 evidence は実 GT を狙う」を v0.5 で具体化したトラック。
 これまで MID-360 の唯一の release gate は `mid360_vs_glim`（GLIM SLAM 推定との
 cross-validation, `ape_rmse_vs_reference_m`, pass 4.00）で、これは accuracy ではなく
@@ -492,12 +512,122 @@ NTU（1.0m）と Newer College（0.10m）が難易度で閾値を変えるのと
 - #214 feat: 自前 RKO-LIO 実走 → construction_seq2 GT profile（PASS）+ config + offline-timeout flag
 - #215 feat: construction_seq1 profile + 3-seq indoor/outdoor 結果
 
-### 11.8 残タスク
-- **A. outdoor config 調整**: stadtgarten のドリフト改善（range / deskew / downsample）→ 再 run
-- **B. stadtgarten_seq1**（26分/1.04km, ~3-4h）: 4 本目のデータ点
-- **C. indoor pair を blocking 昇格**: report_only_until 撤去 → `mid360_vs_glim` 降格
-  （D-GT-2: 削除せず non-blocking agreement sanity check として残す）→ `comparison.md`
-  の MID-360 行を `ape_rmse_gt_m` に更新 → v0.5 roadmap を done に
+### 11.8 残タスク → 全消化（2026-06-11, PR #228）
+- **A. outdoor config 調整**: ✅ 解決。3.903m の正体は **correspondence starvation** で、
+  `double_downsample: false` 単独で **0.835m**（median 0.327, max 3.05, 19/19 paired）。
+  粗 voxel 案（1.0m + 1.0m correspondence distance）は 2.348m で却下。outdoor preset
+  `configs/mid360_robot/rko_lio_rtk_slam_mid360_outdoor.yaml`、sweep 記録は
+  `docs/research/rtkslam-total-station-gt-methodology.md`。副産物 fix: benchmark の
+  offline 完了判定を log quiescence から「raw trajectory が bag 末尾到達」へ変更
+  （TF warning spam が log を busy にし timeout budget を食い潰していた）。
+- **B. stadtgarten_seq1**: ✅ 計測済み。**1.666m**（median 1.511, 35/36 paired）、
+  report-only profile 追加。
+- **C. indoor pair blocking 昇格**: ✅ report_only_until 撤去（construction_seq1/2 が
+  release-blocking）、`mid360_vs_glim` は D-GT-2 どおり report-only canary に降格、
+  `comparison.md` / README accuracy 表 / v0.5 roadmap done 更新済み。
 - 採点の再現: dense raw trajectory を `--points-topic /livox/points --match-tolerance 2.0`
   で採点 → `benchmark_summary.py --release-profile` で PASS 確認
   （`_profile_match` が points_topic 一致を要求するので `--points-topic` 必須）
+
+---
+
+## 12. 追加トラック（2026-06）：3DGS photoreal map + マップフライスルー GIF
+
+### 目的と着地点
+SLAM 成果物の「映え」を README 先頭で見せる。最終着地は **実カメラ色の点群マップを
+サードパーソン追従カメラで 60m 周回するフライスルー GIF**
+（`lidarslam/images/map_flythrough_rtkslam.gif`、PR #229 → #230 → #231）。
+3DGS 学習マップそのものを飛び回る案は**実測で不成立と確定**させた上での pivot。
+
+### 主要な実測知見（負け筋の確定が資産）
+- **gsplat (Apache-2.0) + LiDAR-primed init** が品質の核: koide 近接シーンで
+  25.2–25.5dB（LiDAR init +5.5dB、詳細 `docs/research/3dgs-koide-first-light.md`）。
+  isuzu（~14dB, motion blur + 視点重複小）/ NTU（~10dB, mono 広域疎）は適性外
+  （データ特性支配、視点数 21 倍でも届かない）。
+- **学習済み 3DGS の「マップ内移動」は崩壊半径 ~0.4m で不成立**: dolly テスト
+  （学習視点の回転固定・並進のみ）で、立ち止まり学習クラスタから ~0.4m 離れると
+  confetti 状に崩壊。フィルタ全組合せ（LiDAR 距離 voxel-hash / opacity / size / SH 無効化）
+  でも俯瞰・サードパーソンは不可。gaussian の色は地上の学習方向からしか意味を持たない。
+  記録: `docs/research/3dgs-trajectory-flythrough-notes.md` 追補 2。
+- **pivot: カメラ投影色の点群がフォトリアル代替**: 同期カメラ画像を LiDAR 点群へ投影
+  （`build_lidar_init.py --color-transforms`）し、同じ gsplat rasterizer で
+  等方 splat 描画 → 任意視点で破綻しない。
+- **ロバスト着色（PR #231）**: 点群自身から作る粗 z-buffer でオクルージョン棄却 +
+  画像ごと輝度中央値で露出正規化 + 点ごと per-channel median 集約（spec/blur 外れ値除去）
+  + 3×3×3 voxel 近傍密度で孤立点除去。視点依存の透け汚れ・濁り・ダストを解消。
+  強い色補正は robust 色と相性が悪い（白飛び）→ 控えめ default
+  （saturation 1.25 / percentile 0.5–99.8 / gamma 1.0）。
+- **カメラワーク**: 一人称（dot soup）と固定ピッチ drone（天井ノイズ壁）は失敗。
+  正解は ride point − 水平接線·5.5m + 上方 5.5m の**サードパーソン追従** + 等弧長
+  リサンプル（立ち止まり潰し）+ 天井カット（ride z + 2.3m、最近傍 XY 追従）。
+  OpenCV 規約の右手系は `right = cross(forward, world_up)`（逆順は 180° roll）、
+  up は world-z 必須（学習視点 up はマウント傾き ~20°）。
+
+### ツール（リポジトリ投入済み、テスト付き）
+- `tools/gaussian_splatting/render_map_flythrough.py` — 等弧長サードパーソン
+  フライスルー renderer（--color-mode {height,rgb}、ミニマップ、loop fade、19 tests）
+- `tools/gaussian_splatting/pointcloud_io.py` — `colorize_by_projection_robust()` +
+  `drop_sparse_points()`（19 tests、grid 境界 searchsorted 回帰テスト含む）
+- 再現: `build_lidar_init.py --color-transforms --color-robust --min-neighbors 4` →
+  `render_map_flythrough.py --color-mode rgb`（`docs/3dgs-map-tutorial.md` 成果物例）
+
+### 開発プロセス備考
+codex CLI（gpt-5.5 xhigh）をサブエージェント運用（ユーザー指示）: ツールなし・
+コンテキスト全貼りでコード生成/レビューを依頼し、Claude 側で保存・検証・GPU 描画。
+レビューで実バグ 4 件（empty-mask crash / 近一様色の過増幅 / searchsorted IndexError /
+stale tmp）を事前捕捉。一方で**ネット無し実行のため「引用」は捏造があり得る**
+（§13 の libg2o 誤指摘で実証）— 事実主張は必ず実地検証する。
+
+---
+
+## 13. 追加トラック（2026-06-11）：配布整備 — ghcr / 完全バンドル / rosdistro prep
+
+1000 スターキャンペーン（820→1000）の「いま選ぶ理由を 1 コマンドで体験させる」配布
+トラック。本日 1 セッションで PR #229-#233 + prep ブランチまで投入。
+
+### 13.1 ghcr Docker イメージ初公開
+- `docker.yml` の publish トリガーが存在しない `main` ブランチを指す死にトリガーで、
+  README のワンコマンドが 404 のままだった（**このリポジトリに main は無い、
+  default = develop**）。
+- workflow_dispatch で初公開 → 匿名 pull 200 確認 → **PR #232** でトリガーを
+  `develop` push に修正、merge push 自体で自動再公開も実証。以後 develop に push する
+  たびに `ghcr.io/rsasaki0109/lidar_slam_ros2:{humble,latest}` が更新される。
+
+### 13.2 Autoware マップバンドルの lanelet2 完成（P1-4、PR #233）
+- beginner 連鎖（`run_autoware_map_beginner.sh` → `run_autoware_map_from_bag.py` →
+  dogfood script）は pointcloud_map + projector_info しか出さず、README の
+  「complete bundle」claim に lanelet2 が欠けていた（generator は orphaned script
+  からのみ到達可能だった）。
+- dogfood script の `/map_save` 後に `traj_corrected.tum` → `lanelet2_map.osm` 生成を
+  組込み（`--generate-lanelet2` default true / `--origin-lat/lon` default 0.0 =
+  local origin / `--lane-width` 3.5）。quickstart / beginner / **ghcr demo image**
+  の全入口が完全バンドルを出すようになった（Dockerfile に python3-scipy 追加が必要
+  だった — generator の scipy は rosdep で入らない）。
+- 設計判断: 生成は **best-effort**（script 終盤は corrected-path / APE / map_save
+  fallback すべて best-effort 設計で一貫。10 分の SLAM 実行を付加成果物で fail させ
+  ない）。可視性は**末尾のバンドルサマリ**（OK/MISSING）で担保。stale 対策は
+  事前削除 + `.tmp` 書き → 成功時のみ `mv`（generator は構造検証失敗でも書き込み済み
+  ファイルを残すため必須）。
+
+### 13.3 バージョン 0.5.0 整列 + rosdistro (bloom) prep
+- ドリフト解消: VERSION / 4× package.xml が 0.2.2 のまま CHANGELOG.md と git tag は
+  0.3.0 に進んでいた → 全部 **0.5.0**（公開 v0.5 マイルストーンと一致）に整列。
+  license タグも SPDX `BSD-2-Clause` 化。整合性テスト
+  （`test_release_metadata_and_core_package_versions_match`）が per-package
+  CHANGELOG.rst の名前+先頭バージョンまで検証するよう拡張。
+- **依存分析の結論**（`docs/rosdistro-release.md` ランブック）:
+  - コア 4 パッケージの未リリース依存は **`ndt_omp_ros2` のみ**（自分の fork、BSD、
+    rosdistro で名前空き）→ fork の package.xml 整備（0.0.0→0.1.0、maintainer、SPDX）
+    後に**先行 bloom リリース**すれば解決。
+  - **rko_lio は package.xml 非依存**（flagship launch の実行時のみ）→ バイナリ
+    リリースのブロッカーではない。apt ユーザーは classic `lidarslam.launch.py`、
+    RKO-LIO はソース/Docker（upstream のリリース判断は我々の管轄外）。
+  - `libg2o` は両ディストロでリリース済み（**実地検証**: rosdep resolve →
+    jammy `ros-humble-libg2o` / noble `ros-jazzy-libg2o`。codex レビューが
+    「未リリース BLOCKER」と誤指摘 — ネット無し環境での記憶ベース引用だった）。
+  - submodule は `git archive` に入らないので bloom の upstream import から
+    Thirdparty が自然に除外される（意図どおり）。
+- **残り（maintainer の GitHub 操作が必要）**: v0.5.0 tag push → ndt_omp_ros2 fork
+  整備+bloom → 本体 `bloom-release --rosdistro {humble,jazzy} lidarslam_ros2` →
+  ros/rosdistro PR。release tag は `v:{version}`（v-prefix、release.yml の `v*`
+  trigger と一致）。初回 sync 後に README へ apt インストール手順を追記。

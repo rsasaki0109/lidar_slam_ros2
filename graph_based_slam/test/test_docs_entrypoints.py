@@ -234,10 +234,10 @@ def test_release_metadata_and_core_package_versions_match():
     docs_site_workflow = DOCS_SITE_WORKFLOW.read_text(encoding='utf-8')
     mkdocs_config = MKDOCS_CONFIG_PATH.read_text(encoding='utf-8')
 
-    assert version == '0.2.2'
+    assert version == '0.5.0'
     assert version in changelog
     assert version in releasing
-    assert 'v2 beta' in release_notes
+    assert 'RTK-SLAM' in release_notes
     assert 'action-gh-release@v2' in release_workflow
     assert 'mkdocs.yml' in release_workflow
     assert 'docs/index.md' in release_workflow
@@ -266,6 +266,9 @@ def test_release_metadata_and_core_package_versions_match():
     for path in package_paths:
         package_xml = path.read_text(encoding='utf-8')
         assert f'<version>{version}</version>' in package_xml
+        changelog_rst = (path.parent / 'CHANGELOG.rst').read_text(encoding='utf-8')
+        assert f'Changelog for package {path.parent.name}' in changelog_rst
+        assert f'{version} (' in changelog_rst
 
     assert 'site_name: lidarslam_ros2 Docs' in mkdocs_config
     assert 'site_url: https://rsasaki0109.github.io/lidar_slam_ros2/' in mkdocs_config
@@ -274,8 +277,10 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
     assert 'Autoware Foxglove: autoware-foxglove.md' in mkdocs_config
     assert 'Benchmarking And Release Gate: benchmarking.md' in mkdocs_config
+    assert f'v{version}: releases/v{version}.md' in mkdocs_config
     assert 'v0.2.2: releases/v0.2.2.md' in mkdocs_config
     assert 'v0.2.2 Post Kit: social/autoware_map_authoring_post_v0.2.2.md' in mkdocs_config
+    assert 'rosdistro Binary Release: rosdistro-release.md' in mkdocs_config
 
 
 def test_docs_cover_autoware_and_release_gate_keywords():

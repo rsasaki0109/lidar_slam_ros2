@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.5.0 - 2026-06-11
+
+First version aligned across `VERSION`, the four core `package.xml` files and
+the release docs, prepared for the first rosdistro (bloom) binary release.
+Covers the v0.4 and v0.5 roadmap milestones on top of 0.3.0.
+
+### Highlights
+
+- **Real ground truth on Livox MID-360 (v0.5 milestone)** — all four RTK-SLAM
+  sequences measured against total-station checkpoints; the two indoor
+  Construction Hall profiles now block releases (pass 0.30 m / 0.55 m), the
+  outdoor Stadtgarten pair soaks as report-only with a dedicated outdoor
+  preset (`double_downsample: false`: 3.9 m → 0.835 m), and the
+  `mid360_vs_glim` cross-validation gate is demoted to a report-only canary.
+- **Deterministic loop scheduling (v0.4 milestone)** — opt-in
+  `deterministic_loop_scheduling` parameter (default off) that deterministically
+  catches up unqueried submaps instead of latest-only wall-clock scheduling;
+  the research-track release profiles graduated to blocking gates.
+- **One-command everything** — ghcr Docker demo image
+  (`docker run ... ghcr.io/rsasaki0109/lidar_slam_ros2:humble` downloads a
+  public MID-360 bag and produces the map headless), the beginner bag-to-map
+  runner, and the Autoware bundle now emits `lanelet2_map.osm` alongside
+  `pointcloud_map/` + `map_projector_info.yaml`.
+- **Photoreal map deliverables** — camera-colored point-cloud map flythrough
+  (README hero GIF) with occlusion-aware robust colorization, plus the
+  documented optional 3DGS pipeline (gsplat, Apache-2.0).
+- **rosdistro release prep** — per-package `CHANGELOG.rst`, SPDX
+  `BSD-2-Clause` license tags, versions aligned at 0.5.0, and a bloom runbook
+  (`docs/rosdistro-release.md`).
+
 ## 0.3.0 - 2026-05-25
 
 Public `v3` release. Carries forward the non-GPL default workflow from
