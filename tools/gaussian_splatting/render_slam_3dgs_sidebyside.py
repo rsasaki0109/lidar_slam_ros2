@@ -115,6 +115,50 @@ def merge_gaussians(a: dict, b: dict) -> dict:
     return out
 
 
+def nearest_polyline_index(line: np.ndarray, pos: np.ndarray) -> int:
+    """Index of the polyline point nearest to ``pos`` (walk progress lookup).
+
+    The walking window never revisits itself, so nearest-point is a robust
+    "how far along the trajectory is the camera" measure.
+    """
+    line = np.asarray(line, dtype=np.float64)
+    return int(np.argmin(np.linalg.norm(
+        line - np.asarray(pos, dtype=np.float64), axis=1)))
+
+
+def fade_weights(count: int, fade: int) -> np.ndarray:
+    """Per-frame brightness weights for a fade-out/in loop seam.
+
+    The first and last ``fade`` frames ramp from/to near-black so a one-way
+    ride loops with a brief dip instead of a hard jump cut. ``fade`` 0 returns
+    all ones.
+    """
+    w = np.ones(count)
+    if fade > 0:
+        if 2 * fade > count:
+            raise ValueError('fade longer than half the sequence')
+        ramp = np.linspace(0.0, 1.0, fade + 1)[1:]
+        w[:fade] = ramp
+        w[count - fade:] = ramp[::-1]
+    return w
+
+
+def minimap_points(xy: np.ndarray, size: int, margin: int) -> np.ndarray:
+    """Map world XY points into a ``size`` x ``size`` pixel box (top-down).
+
+    Aspect ratio is preserved (the shorter axis is centred) and the world Y
+    axis points up on the map (image rows grow downward).
+    """
+    xy = np.asarray(xy, dtype=np.float64)
+    mn = xy.min(axis=0)
+    span = xy.max(axis=0) - mn
+    scale = (size - 2.0 * margin) / max(float(span.max()), 1e-9)
+    offset = margin + (size - 2.0 * margin - span * scale) / 2.0
+    px = offset + (xy - mn) * scale
+    px[:, 1] = size - px[:, 1]
+    return px
+
+
 def mask_far_from(points: np.ndarray, centre: np.ndarray,
                   radius: float) -> np.ndarray:
     """Boolean mask of ``points`` farther than ``radius`` from ``centre``.
@@ -143,11 +187,20 @@ def hstack_panes(left: np.ndarray, right: np.ndarray, divider: int = 2,
 
 
 # --------------------------------------------------------------------------- #
-# Labels (PIL; cosmetic only)
+# Annotations (PIL; cosmetic only)
 # --------------------------------------------------------------------------- #
-def draw_labels(frames: np.ndarray, labels: Sequence[tuple[int, str]], *,
-                pad: int = 8, font_size: int = 17) -> np.ndarray:
-    """Stamp pane labels ((x, text) pairs) onto every frame, in place."""
+def annotate_frames(frames: np.ndarray, labels: Sequence[tuple[int, str]], *,
+                    minimap: Optional[dict] = None, pad: int = 8,
+                    font_size: int = 17) -> np.ndarray:
+    """Stamp pane labels and an optional top-down minimap onto every frame.
+
+    ``minimap`` (all keys required): ``px`` (N,2 pixel polyline from
+    ``minimap_points``), ``progress`` (per-frame index into the polyline of
+    the camera position), ``start`` (polyline index where the ride begins;
+    the bright travelled segment grows from there), ``origin`` (x, y of the
+    map box), ``size``, ``past_rgb``, ``ahead_rgb``. Edits ``frames`` in
+    place.
+    """
     from PIL import Image, ImageDraw, ImageFont
 
     try:
@@ -156,12 +209,28 @@ def draw_labels(frames: np.ndarray, labels: Sequence[tuple[int, str]], *,
     except OSError:
         font = ImageFont.load_default()
     for i in range(frames.shape[0]):
-        img = Image.fromarray(frames[i])
+        img = Image.fromarray(frames[i]).convert('RGBA')
+        if minimap is not None:
+            box = Image.new('RGBA', (minimap['size'], minimap['size']),
+                            (0, 0, 0, 150))
+            mdraw = ImageDraw.Draw(box)
+            pts = [tuple(p) for p in minimap['px']]
+            k = int(minimap['progress'][i])
+            start = int(minimap['start'])
+            if len(pts) > 1:
+                mdraw.line(pts, fill=tuple(minimap['ahead_rgb']), width=2)
+            if k > start:
+                mdraw.line(pts[start:k + 1], fill=tuple(minimap['past_rgb']),
+                           width=3)
+            cx, cy = pts[min(k, len(pts) - 1)]
+            mdraw.ellipse([cx - 4, cy - 4, cx + 4, cy + 4],
+                          fill=(255, 255, 255), outline=tuple(minimap['past_rgb']))
+            img.alpha_composite(box, dest=tuple(minimap['origin']))
         draw = ImageDraw.Draw(img)
         for x, text in labels:
             draw.text((x + pad, pad), text, font=font, fill=(255, 255, 255),
                       stroke_width=2, stroke_fill=(0, 0, 0))
-        frames[i] = np.asarray(img)
+        frames[i] = np.asarray(img.convert('RGB'))
     return frames
 
 
@@ -209,6 +278,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--traj-color', default='255,40,220',
                    help='trajectory RGB as r,g,b in 0..255 (magenta by default: '
                         'the only hue not used by the height ramp)')
+    p.add_argument('--loop-fade', type=int, default=0,
+                   help='fade the first/last N frames from/to black so a '
+                        'one-way ride loops without a hard jump cut')
+    p.add_argument('--no-minimap', action='store_true',
+                   help='disable the top-down trajectory minimap inset')
+    p.add_argument('--minimap-size', type=int, default=132)
     p.add_argument('--label-left', default='LiDAR SLAM map + trajectory')
     p.add_argument('--label-right', default='3DGS render')
     p.add_argument('--no-labels', action='store_true')
@@ -241,6 +316,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     rgb = np.array([float(c) / 255.0 for c in args.traj_color.split(',')])
     traj_rgb = np.tile(rgb, (line.shape[0], 1))
     print(f'left pane: {xyz.shape[0]} map points + {line.shape[0]} trajectory points')
+    # Walk progress per frame, for the minimap's travelled/ahead split. The
+    # first-person pane keeps a single bright line: the camera only ever sees
+    # the part of the trajectory ahead of it, so a progress split there would
+    # just dim the whole visible line.
+    progress = np.array([nearest_polyline_index(line, p[:3, 3]) for p in path])
     # Render the left pane frame by frame: the trajectory near the current
     # camera must be culled per frame (see mask_far_from).
     left = np.empty((len(viewmats), height, width, 3), dtype=np.uint8)
@@ -256,12 +336,30 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                           device=args.device)
 
     frames = hstack_panes(left, right)
-    if not args.no_labels:
-        draw_labels(frames, [(0, args.label_left),
-                             (width + 2, args.label_right)])
+    labels = ([] if args.no_labels
+              else [(0, args.label_left), (width + 2, args.label_right)])
+    minimap = None
+    if not args.no_minimap:
+        size = args.minimap_size
+        minimap = {
+            'px': minimap_points(line[:, :2], size, 12),
+            'progress': progress,
+            'start': int(progress[0]),
+            'origin': (frames.shape[2] - size - 10,
+                       frames.shape[1] - size - 10),
+            'size': size,
+            'past_rgb': tuple(int(c) for c in args.traj_color.split(',')),
+            'ahead_rgb': (165, 165, 165),
+        }
+    if labels or minimap is not None:
+        annotate_frames(frames, labels, minimap=minimap)
     order = (ping_pong_indices(args.frames) if args.ping_pong
              else list(range(args.frames)))
-    write_videos(frames, order, fps=args.fps,
+    seq = frames[np.asarray(order)]
+    if args.loop_fade > 0:
+        w = fade_weights(len(seq), args.loop_fade)
+        seq = (seq.astype(np.float32) * w[:, None, None, None]).astype(np.uint8)
+    write_videos(seq, list(range(len(seq))), fps=args.fps,
                  mp4=Path(args.mp4) if args.mp4 else None,
                  gif=Path(args.gif) if args.gif else None,
                  gif_fps=args.gif_fps, gif_scale=args.gif_scale)
