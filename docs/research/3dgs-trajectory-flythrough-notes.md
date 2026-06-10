@@ -136,10 +136,17 @@ net 4-6m/窓)は s5 モデルで 12-15dB の霧。以下すべて失敗:
 (ガウシアンの色が地上の訓練視点方向でしか意味を持たない)。
 
 よって「地図の中を移動する」絵は点群側で作るのが正解。実色が欲しい場合は
-カメラ画像を LiDAR 点群へ投影する(`build_lidar_init.py --color-transforms`、
-2.5M 点中 2.08M 着色)。README 掲載 GIF はこの実色点群を
-`tools/gaussian_splatting/render_map_flythrough.py --color-mode rgb`
-(彩度 1.45x + percentile コントラスト補正、未着色グレー点は除外)で描画:
+カメラ画像を LiDAR 点群へ投影する(`build_lidar_init.py --color-transforms`)。
+初版は全ビュー単純平均で、(a) 壁・機械の裏の点が手前の色で塗られる透け汚れ、
+(b) ビュー間露出差・鏡面反射による濁り、が出た。改良版
+`--color-robust`(`pointcloud_io.colorize_by_projection_robust`)は
+①点群自身から作る粗 z バッファ(4px ビン、tol 0.15m+2%)でオクルージョン棄却
+②画像ごとの輝度中央値を全体中央値へ正規化 ③点ごとに最大 12 サンプルの
+チャネル別中央値、で透け・濁り・外れ色を除去する。`--min-neighbors 4`
+(3x3x3 ボクセル近傍点数)でダスト状の孤立点も落とす。補正は控えめが正解
+(彩度 1.25、percentile 0.5-99.8、ガンマなし — 強補正は白飛びする)。
+README 掲載 GIF はこの実色点群(voxel 0.015、4M 点中 ~1.9M 着色)を
+`tools/gaussian_splatting/render_map_flythrough.py --color-mode rgb` で描画:
 
 - **等速化**: 訓練視点列の位置を平滑化 → 弧長一様再サンプル。立ち止まり区間
   (~90 views が正味 0.3m)は弧長を生まないので自然に消える。

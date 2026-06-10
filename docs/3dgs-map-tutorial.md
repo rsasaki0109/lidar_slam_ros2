@@ -178,7 +178,8 @@ python3 tools/gaussian_splatting/render_path.py \
 - リポジトリ内の成果物例: `lidarslam/images/map_flythrough_rtkslam.gif` / `.mp4`
   （RTK-SLAM construction_seq1。カメラ画像を投影した実色の SLAM 点群地図+推定軌跡を、
   60m 周回全体を等速で進むサードパーソン追従カメラで描画。
-  `build_lidar_init.py --color-transforms` で色付き点群を作り、
+  `build_lidar_init.py --color-transforms --color-robust --min-neighbors 4` で
+  オクルージョン考慮・露出正規化・中央値ロバストの色付き点群(孤立ノイズ点除去込み)を作り、
   `tools/gaussian_splatting/render_map_flythrough.py --color-mode rgb` で再現。
   3DGS は学習視点クラスタから ~0.4m 離れると崩壊し俯瞰ではコンフェッティ状になるため
   「地図の中を移動する」絵は点群側で作る — 経緯と知見は
