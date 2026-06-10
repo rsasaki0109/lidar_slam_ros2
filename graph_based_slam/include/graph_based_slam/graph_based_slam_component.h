@@ -93,6 +93,9 @@ extern "C" {
 #include <geometry_msgs/msg/transform.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <lidarslam_msgs/msg/map_array.hpp>
+#include <message_filters/subscriber.h>  // NOLINT(build/include_order)
+#include <message_filters/sync_policies/approximate_time.h>  // NOLINT(build/include_order)
+#include <message_filters/synchronizer.h>  // NOLINT(build/include_order)
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <pclomp/gicp_omp_impl.hpp>
@@ -402,21 +405,29 @@ private:
     void saveGridDividedMap(
       const pcl::PointCloud < pcl::PointXYZI > ::Ptr & map);
 
-    // Direct odometry + cloud input mode (for LIO frontends)
+    // Direct odometry + cloud input mode (for LIO frontends). The two
+    // streams are stamp-synchronized (message_filters ApproximateTime) so
+    // the submap pose/cloud pairing no longer depends on executor timing
+    // (v0.6 Phase 1; see docs/research/determinism-variance-attribution.md).
     bool use_odom_input_ {false};
     double submap_distance_threshold_ {1.5};
-    rclcpp::Subscription < nav_msgs::msg::Odometry > ::SharedPtr odom_sub_;
-    rclcpp::Subscription < sensor_msgs::msg::PointCloud2 > ::SharedPtr cloud_sub_;
-    sensor_msgs::msg::PointCloud2::SharedPtr latest_cloud_;
+    int odom_cloud_sync_queue_size_ {100};
+    std::shared_ptr < message_filters::Subscriber < nav_msgs::msg::Odometry >> odom_sync_sub_;
+    std::shared_ptr < message_filters::Subscriber <
+    sensor_msgs::msg::PointCloud2 >> cloud_sync_sub_;
+    using OdomCloudSyncPolicy = message_filters::sync_policies::ApproximateTime <
+      nav_msgs::msg::Odometry, sensor_msgs::msg::PointCloud2 >;
+    std::shared_ptr < message_filters::Synchronizer < OdomCloudSyncPolicy >> odom_cloud_sync_;
     Eigen::Vector3d last_submap_position_ {0, 0, 0};
     bool last_submap_position_valid_ {false};
     double accumulated_distance_ {0.0};
-    void receiveOdometry(const nav_msgs::msg::Odometry & msg);
-    void receiveCloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-    void tryCreateSubmap();
-    nav_msgs::msg::Odometry latest_odom_;
-    bool latest_odom_valid_ {false};
-    rclcpp::Time latest_cloud_stamp_ {0, 0, RCL_ROS_TIME};
+    bool first_synced_input_logged_ {false};
+    void receiveSyncedOdomCloud(
+      const nav_msgs::msg::Odometry::ConstSharedPtr & odom_msg,
+      const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg);
+    void tryCreateSubmap(
+      const nav_msgs::msg::Odometry & odom_msg,
+      const sensor_msgs::msg::PointCloud2 & cloud_msg);
 
     // GNSS constraints for georeferenced mapping
     bool use_gnss_ {false};
