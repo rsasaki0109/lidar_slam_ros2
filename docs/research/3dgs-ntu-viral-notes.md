@@ -41,3 +41,11 @@ end-to-end で通るが、3DGS 品質は低い（~10–11 dB）**。koide（~25d
 
 → 当面は **近接・密・カラーのシーン**（koide 型）が 3DGS 成果物に向く、という
 position を支持する結果。
+
+## 追補 (2026-06-11): means LR 修正後の再評価 — 結論は変わらず
+
+PR #223 の means LR 修正が本ノートの ~10–11dB に効いていたか、保存済み
+transforms/lidar_init で再学習（`--densify --sh-degree 1 --iters 12000`）し、
+新旧 ply を同一評価器（全 300 view の per-view PSNR）で比較した:
+旧 mean 11.4 / median 11.2 dB → 修正後 mean 10.9 / median 10.5 dB。**変化なし**。
+NTU の低品質は LR ではなく シーン性質（mono・75m 級広域・対応点疎）で確定。
