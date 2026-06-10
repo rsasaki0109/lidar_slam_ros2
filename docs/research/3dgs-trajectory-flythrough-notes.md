@@ -78,7 +78,15 @@ python3 scripts/download_rtk_slam_dataset.py --sequence construction_seq1
 BAG=... TRAJ=... bash scripts/run_rtkslam_3dgs_flythrough.sh
 ```
 
-成果物: `lidarslam/images/3dgs_rtkslam_walk_flythrough.gif` / `.mp4`（README 掲載）。
+成果物: `lidarslam/images/3dgs_rtkslam_walk_sidebyside.gif` / `.mp4`（README 掲載）。
+README の GIF は「LiDAR SLAM × 3DGS」が一目で伝わるよう、左 = SLAM 点群地図
+（高さカラー）+ 推定軌跡（マゼンタ線、床側に -0.4m オフセット）、右 = 3DGS を
+同一カメラパスで同期描画する左右 2 分割
+（`tools/gaussian_splatting/render_slam_3dgs_sidebyside.py`）。点群・軌跡も極小等方
+ガウシアンとして同じ gsplat ラスタライザで描く（追加依存なし）。カメラは軌跡上を
+飛ぶため、軌跡線はフレーム毎にカメラ近傍 1m をカリングしないと巨大ブロブが画面を
+覆う。GIF は imageio 直書きだと 15MB 級になるので ffmpeg の palettegen/paletteuse
+（96 色、bayer dither）で 8.5MB に圧縮。
 データ出典: RTK-SLAM Dataset（Zhang, Ress, Skuddis, Soergel, Haala, Univ. Stuttgart、
 arXiv:2604.07151、CC-BY 4.0）。
 
