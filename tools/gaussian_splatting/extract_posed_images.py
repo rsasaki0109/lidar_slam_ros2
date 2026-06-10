@@ -195,6 +195,37 @@ def _bag_is_file_compressed(bag_path: str | Path) -> bool:
     return False
 
 
+def _topic_type(bag_path: str | Path, topic: str) -> str:
+    """Topic message type from the bag metadata (empty string if unknown)."""
+    meta = Path(bag_path) / 'metadata.yaml'
+    if not meta.exists():
+        return ''
+    import yaml
+
+    info = yaml.safe_load(meta.read_text())['rosbag2_bagfile_information']
+    for entry in info.get('topics_with_message_count', []):
+        tm = entry['topic_metadata']
+        if tm['name'] == topic:
+            return tm['type']
+    return ''
+
+
+def decode_compressed_image(fmt: str, data: bytes) -> np.ndarray:
+    """Decode a ``sensor_msgs/CompressedImage`` payload to RGB uint8.
+
+    cv_bridge-produced jpegs encode the pre-compression channel order in
+    ``format`` (e.g. ``"bgr8; jpeg compressed bgr8"``); decoding such a payload
+    yields swapped channels, so honour a leading ``bgr`` tag.
+    """
+    import imageio.v3 as iio
+
+    img = iio.imread(bytes(data))
+    if img.ndim == 3 and img.shape[2] >= 3 and \
+            fmt.lower().split(';')[0].strip().startswith('bgr'):
+        img = img[:, :, [2, 1, 0]]
+    return np.ascontiguousarray(img[:, :, :3] if img.ndim == 3 else img)
+
+
 def _open_reader(bag_path: str | Path):
     import rosbag2_py
 
@@ -251,9 +282,12 @@ def resolve_time_offset(args: argparse.Namespace) -> float:
         return float(args.time_offset)
     if not args.clock_reference_topic:
         raise ValueError('--time-offset auto requires --clock-reference-topic')
-    from sensor_msgs.msg import Image, PointCloud2
+    from sensor_msgs.msg import CompressedImage, Image, PointCloud2
 
-    cam_h, cam_b = _first_header_and_bagtime(args.bag, args.camera_topic, Image)
+    cam_type = (CompressedImage
+                if _topic_type(args.bag, args.camera_topic).endswith('CompressedImage')
+                else Image)
+    cam_h, cam_b = _first_header_and_bagtime(args.bag, args.camera_topic, cam_type)
     ref_h, ref_b = _first_header_and_bagtime(
         args.bag, args.clock_reference_topic, PointCloud2
     )
@@ -266,8 +300,10 @@ def extract(args: argparse.Namespace) -> dict:
     """Run the full extraction and return a small summary dict."""
     import imageio.v3 as iio
     from rclpy.serialization import deserialize_message
-    from sensor_msgs.msg import Image
+    from sensor_msgs.msg import CompressedImage, Image
 
+    compressed = _topic_type(args.bag, args.camera_topic).endswith('CompressedImage')
+    msg_cls = CompressedImage if compressed else Image
     samples = pi.read_tum_trajectory(args.traj)
     body_T_cam = load_extrinsic(args.extrinsic)
     if args.intrinsics_yaml:
@@ -316,7 +352,7 @@ def extract(args: argparse.Namespace) -> dict:
         if args.stride > 1 and seen % args.stride != 0:
             seen += 1
             continue
-        msg = deserialize_message(raw, Image)
+        msg = deserialize_message(raw, msg_cls)
         stamp = ros_stamp_to_seconds(msg.header.stamp.sec, msg.header.stamp.nanosec)
         world_T_cam = resolve_world_T_camera(
             stamp, samples, body_T_cam,
@@ -327,7 +363,10 @@ def extract(args: argparse.Namespace) -> dict:
             seen += 1
             continue
         rel = f'images/{len(frames):05d}.png'
-        rgb = decode_image(msg.encoding, msg.height, msg.width, msg.step, msg.data)
+        if compressed:
+            rgb = decode_compressed_image(msg.format, msg.data)
+        else:
+            rgb = decode_image(msg.encoding, msg.height, msg.width, msg.step, msg.data)
         if undistort_map is not None:
             import cv2
             rgb = cv2.remap(rgb, undistort_map[0], undistort_map[1], cv2.INTER_LINEAR)

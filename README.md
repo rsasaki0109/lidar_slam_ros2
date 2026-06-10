@@ -138,12 +138,14 @@ Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](d
 
 Turn the same SLAM output plus synced camera images into a 3D Gaussian Splatting
 scene — LiDAR-primed (no COLMAP), trained with gsplat (Apache-2.0). The flythrough
-below is rendered straight from the reconstructed map:
+below replays the handheld walking trajectory estimated by this stack on the same
+RTK-SLAM Construction Hall sequence (CC-BY 4.0) the [release gate](#accuracy)
+scores against:
 
-![Photoreal 3DGS flythrough rendered from this stack's SLAM output](lidarslam/images/3dgs_koide_flythrough.gif)
+![3DGS flythrough along the SLAM walking trajectory (RTK-SLAM Construction Hall 1)](lidarslam/images/3dgs_rtkslam_walk_flythrough.gif)
 
 ```bash
-bash scripts/run_koide_3dgs_flythrough.sh
+bash scripts/run_rtkslam_3dgs_flythrough.sh   # or run_koide_3dgs_flythrough.sh
 ```
 
 Pipeline, quality levers, and data-suitability notes: [docs/3dgs-map-tutorial.md](docs/3dgs-map-tutorial.md).

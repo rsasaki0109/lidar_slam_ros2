@@ -34,9 +34,12 @@ def load_transforms(path: str | Path) -> dict:
     """Load a transforms.json into intrinsics + per-frame OpenCV w2c poses.
 
     Returns a dict with ``K`` (3x3), ``width``, ``height``, ``image_paths``
-    (resolved), and ``viewmats`` (list of 4x4 world->camera, OpenCV/gsplat
-    convention). The stored ``transform_matrix`` is OpenGL c2w, so we undo the
-    ``ROS_OPTICAL_TO_OPENGL`` flip and invert to get the OpenCV w2c gsplat wants.
+    (resolved), ``viewmats`` (list of 4x4 world->camera, OpenCV/gsplat
+    convention), and ``groups`` (per-frame int index from the optional ``bag``
+    frame key; all zeros when absent — used by per-group pose refinement when
+    merging multi-session captures). The stored ``transform_matrix`` is OpenGL
+    c2w, so we undo the ``ROS_OPTICAL_TO_OPENGL`` flip and invert to get the
+    OpenCV w2c gsplat wants.
     """
     path = Path(path)
     doc = json.loads(path.read_text())
@@ -45,17 +48,21 @@ def load_transforms(path: str | Path) -> dict:
     K = np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]])
     image_paths: list[Path] = []
     viewmats: list[np.ndarray] = []
+    groups: list[int] = []
+    group_ids: dict = {}
     for fr in doc['frames']:
         c2w_gl = np.asarray(fr['transform_matrix'], dtype=float)
         c2w_cv = c2w_gl @ pi.ROS_OPTICAL_TO_OPENGL  # OpenGL -> OpenCV camera
         viewmats.append(np.linalg.inv(c2w_cv))
         image_paths.append((path.parent / fr['file_path']).resolve())
+        groups.append(group_ids.setdefault(fr.get('bag', ''), len(group_ids)))
     return {
         'K': K,
         'width': int(doc['w']),
         'height': int(doc['h']),
         'image_paths': image_paths,
         'viewmats': viewmats,
+        'groups': groups,
     }
 
 
@@ -395,6 +402,8 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
                   num_init: int = 20000, iters: int = 3000, lr: float = 1e-2,
                   device: str = 'cuda', log_every: int = 200,
                   optimize_extrinsic: bool = False,
+                  optimize_pose_groups: bool = False,
+                  optimize_exposure: bool = False,
                   ssim_lambda: float = 0.0, knn_scale: bool = False,
                   sh_degree: Optional[int] = None,
                   antialiased: bool = False, mcmc: bool = False,
@@ -408,6 +417,18 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     recovers the camera<-LiDAR lever arm/rotation that a frame-convention
     approximation omits (all frames share the same extrinsic error, so one
     left-multiplied SE(3) on every view matrix corrects it).
+
+    When ``optimize_pose_groups`` is set, one world-side SE(3) correction per
+    ``dataset['groups']`` value (e.g. per merged capture session) is
+    co-optimised instead: registration error between sessions sits on the world
+    side, so each group's correction right-multiplies its view matrices. Group
+    0 is held fixed as the gauge; the refined per-group matrices are returned
+    as ``pose_group_mats``.
+
+    ``optimize_exposure`` adds a per-group affine colour compensation
+    (per-channel gain + bias applied to the render inside the loss only),
+    absorbing auto-exposure/white-balance differences between merged sessions.
+    Group 0 is the reference, so the exported Gaussians keep its exposure.
     """
     import torch
     import torch.nn.functional as F
@@ -417,7 +438,10 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     dev = torch.device(device)
     seed, extent = _seed_params(dataset, init_points, init_colors, num_init, dev,
                                 knn_scale=knn_scale)
-    lrs = {'means': lr * extent, 'scales': lr, 'quats': lr,
+    # INRIA-style position LR: 1.6e-4 * scene_extent at the default lr=1e-2,
+    # decayed exponentially to 1% over the run (constant lr*extent is ~60x too
+    # hot and visibly churns large scenes -- walking captures never sharpen).
+    lrs = {'means': lr * 0.016 * extent, 'scales': lr, 'quats': lr,
            'opacities': lr * 3, 'colors': lr * 3}
     if sh_degree is not None:
         # Split the flat colour into SH coefficients: a band-0 DC term (seeded
@@ -439,6 +463,8 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         k: torch.optim.Adam([{'params': [params[k]], 'lr': lrs[k]}])
         for k in params
     }
+    means_sched = torch.optim.lr_scheduler.ExponentialLR(
+        optimizers['means'], gamma=0.01 ** (1.0 / max(iters, 1)))
 
     K = torch.tensor(dataset['K'], dtype=torch.float32, device=dev)[None]
     W, H = dataset['width'], dataset['height']
@@ -477,6 +503,24 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     ext_opt = (torch.optim.Adam([tau], lr=lr * 0.1)
                if optimize_extrinsic else None)
 
+    groups = list(dataset.get('groups') or [0] * viewmats.shape[0])
+    n_groups = max(groups) + 1
+    # One world-side SE(3) correction per capture session; group 0 is the
+    # gauge and stays identity (its tau row simply never receives gradient).
+    taus_g = [torch.zeros(6, device=dev,
+                          requires_grad=optimize_pose_groups and g > 0)
+              for g in range(n_groups)]
+    grp_opt = (torch.optim.Adam(taus_g[1:], lr=lr * 0.1)
+               if optimize_pose_groups and n_groups > 1 else None)
+
+    # Per-group affine colour compensation: render' = render*(1+g) + b inside
+    # the loss only. Group 0 is the exposure reference (parameters frozen).
+    expo = [torch.zeros(6, device=dev,
+                        requires_grad=optimize_exposure and g > 0)
+            for g in range(n_groups)]
+    exp_opt = (torch.optim.Adam(expo[1:], lr=lr)
+               if optimize_exposure and n_groups > 1 else None)
+
     ssim_fn = make_ssim(dev)
 
     def _colors_arg():
@@ -503,12 +547,21 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     for it in range(iters):
         idx = it % viewmats.shape[0]
         vm = viewmats[idx:idx + 1]
+        if optimize_pose_groups:
+            vm = (vm[0] @ _se3_exp_torch(taus_g[groups[idx]]))[None]
         if optimize_extrinsic:
             vm = (_se3_exp_torch(tau) @ vm[0])[None]
         render, info = render_view(idx, vm)
         if not mcmc:
             strategy.step_pre_backward(params, optimizers, state, it, info)
+        if optimize_exposure:
+            e = expo[groups[idx]]
+            render = render * (1.0 + e[:3]) + e[3:]
         loss, mse = _photometric_loss(render, gts[idx], ssim_fn, ssim_lambda)
+        if optimize_exposure:
+            # keep the affine compensation near identity: it should absorb
+            # auto-exposure drift, not repaint inconsistent geometry
+            loss = loss + 0.1 * (expo[groups[idx]] ** 2).sum()
         if mcmc:
             # MCMC paper regularisers (gsplat defaults): keep opacities/scales small.
             loss = (loss + 0.01 * torch.sigmoid(params['opacities']).abs().mean()
@@ -520,13 +573,20 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         for opt in optimizers.values():
             opt.step()
             opt.zero_grad(set_to_none=True)
+        means_sched.step()
         if ext_opt is not None:
             ext_opt.step()
             ext_opt.zero_grad(set_to_none=True)
+        if grp_opt is not None:
+            grp_opt.step()
+            grp_opt.zero_grad(set_to_none=True)
+        if exp_opt is not None:
+            exp_opt.step()
+            exp_opt.zero_grad(set_to_none=True)
         if mcmc:
             # MCMC relocates after the optimiser step and needs the means LR.
             strategy.step_post_backward(params, optimizers, state, it, info,
-                                        lr=lrs['means'])
+                                        lr=optimizers['means'].param_groups[0]['lr'])
         # Sync mse to the host only when recorded/printed (avoid a per-iter
         # GPU->CPU stall); the final iter is always recorded.
         if it == iters - 1 or (log_every and it % log_every == 0):
@@ -535,11 +595,24 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
                 print(f'iter {it:5d}  mse {loss_history[-1]:.6f}  '
                       f'gaussians {params["means"].shape[0]}', flush=True)
 
-    eval_vm = ((_se3_exp_torch(tau.detach()) @ viewmats[..., :, :])
-               if optimize_extrinsic else None)
-    metrics = _eval_views(
-        lambda i: render_view(i, None if eval_vm is None else eval_vm[i:i + 1])[0],
-        gts, ssim_fn)
+    eval_vm = None
+    if optimize_extrinsic or optimize_pose_groups:
+        eval_vm = viewmats
+        if optimize_pose_groups:
+            eval_vm = torch.stack([
+                eval_vm[i] @ _se3_exp_torch(taus_g[groups[i]].detach())
+                for i in range(eval_vm.shape[0])])
+        if optimize_extrinsic:
+            eval_vm = _se3_exp_torch(tau.detach()) @ eval_vm[..., :, :]
+
+    def _eval_render(i):
+        out = render_view(i, None if eval_vm is None else eval_vm[i:i + 1])[0]
+        if optimize_exposure:
+            e = expo[groups[i]].detach()
+            out = out * (1.0 + e[:3]) + e[3:]
+        return out
+
+    metrics = _eval_views(_eval_render, gts, ssim_fn)
     if sh_degree is None:
         colors_rgb = torch.sigmoid(params['colors']).detach().cpu().numpy()
         sh_rest = None
@@ -565,6 +638,16 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         m = _se3_exp_torch(tau.detach()).cpu().numpy()
         out['extrinsic_delta'] = np.linalg.inv(m)  # right-multiply onto body_T_cam
         out['tau'] = tau.detach().cpu().numpy()
+    if optimize_pose_groups:
+        # viewmat_refined = viewmat @ N_g with N_g = exp(tau_g): a world-side
+        # registration correction for every view of group g.
+        out['pose_group_mats'] = np.stack(
+            [_se3_exp_torch(t.detach()).cpu().numpy() for t in taus_g])
+        out['pose_group_taus'] = np.stack(
+            [t.detach().cpu().numpy() for t in taus_g])
+    if optimize_exposure:
+        out['exposure_groups'] = np.stack(
+            [e.detach().cpu().numpy() for e in expo])
     return out
 
 
@@ -601,6 +684,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--optimize-extrinsic', action='store_true',
                    help='co-optimise a shared 6-DoF camera extrinsic correction '
                         '(implies --densify); writes <out>.extrinsic.yaml')
+    p.add_argument('--optimize-pose-groups', action='store_true',
+                   help='co-optimise one world-side SE(3) per "bag" group in '
+                        'transforms.json (multi-session registration refine, '
+                        'implies --densify); writes <transforms>_refined.json')
+    p.add_argument('--optimize-exposure', action='store_true',
+                   help='co-optimise per-"bag"-group affine colour gain/bias '
+                        '(auto-exposure/WB compensation for multi-session '
+                        'merges; group 0 is the reference, implies --densify)')
     p.add_argument('--extrinsic', default=None,
                    help='base body<-camera extrinsic YAML to compose the '
                         'recovered correction onto (for --optimize-extrinsic)')
@@ -619,12 +710,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         init_points, rgb = pcio.read_ply_xyz(args.init_ply)
         init_colors = None if rgb is None else rgb.astype(np.float32) / 255.0
         print(f'LiDAR-primed init: {len(init_points)} points from {args.init_ply}')
-    if (args.densify or args.optimize_extrinsic or args.sh_degree is not None
+    if (args.densify or args.optimize_extrinsic or args.optimize_pose_groups
+            or args.optimize_exposure or args.sh_degree is not None
             or args.antialiased or args.mcmc):
         params = train_densify(
             dataset, init_points=init_points, init_colors=init_colors,
             num_init=args.num_init, iters=args.iters, lr=args.lr,
             device=args.device, optimize_extrinsic=args.optimize_extrinsic,
+            optimize_pose_groups=args.optimize_pose_groups,
+            optimize_exposure=args.optimize_exposure,
             ssim_lambda=args.ssim_lambda, knn_scale=args.knn_scale_init,
             sh_degree=args.sh_degree, antialiased=args.antialiased,
             mcmc=args.mcmc, mcmc_cap=args.mcmc_cap)
@@ -656,6 +750,27 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
              'note': 'photometrically self-calibrated body<-camera extrinsic'}))
         print(f'recovered extrinsic tau={np.round(params["tau"], 4).tolist()} '
               f'-> {ext_path}')
+    if 'pose_group_mats' in params:
+        # Bake the refined per-group world registration back into a
+        # transforms.json so downstream renderers see the corrected poses:
+        # w2c' = w2c @ N_g, and the stored matrix is OpenGL c2w.
+        doc = json.loads(Path(args.transforms).read_text())
+        flip = pi.ROS_OPTICAL_TO_OPENGL
+        group_ids: dict = {}
+        for fr in doc['frames']:
+            g = group_ids.setdefault(fr.get('bag', ''), len(group_ids))
+            w2c = np.linalg.inv(np.asarray(fr['transform_matrix']) @ flip)
+            c2w_cv = np.linalg.inv(w2c @ params['pose_group_mats'][g])
+            fr['transform_matrix'] = (c2w_cv @ flip).tolist()
+        ref_path = Path(args.transforms).with_name(
+            Path(args.transforms).stem + '_refined.json')
+        ref_path.write_text(json.dumps(doc))
+        norms = np.linalg.norm(params['pose_group_taus'][:, 3:], axis=1)
+        print(f'pose-group |t| corrections: {np.round(norms, 3).tolist()} m '
+              f'-> {ref_path}')
+    if 'exposure_groups' in params:
+        gains = 1.0 + params['exposure_groups'][:, :3].mean(axis=1)
+        print(f'exposure gains per group: {np.round(gains, 3).tolist()}')
     return 0
 
 

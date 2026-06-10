@@ -1,0 +1,17 @@
+# RTK-SLAM dataset (Willyzw/rtk-slam-dataset, CC-BY 4.0) cam0 intrinsics.
+# Source: https://github.com/Willyzw/rtk-slam-eval calib/calib.yaml
+# (pinhole + radtan, 2 MP global shutter @ 20 Hz, /camera/image_raw/compressed)
+image_width: 1600
+image_height: 1200
+
+projection_parameters:
+   fx: 890.6048325304455
+   fy: 890.6189647772335
+   cx: 780.9722805357044
+   cy: 589.7898852172461
+
+distortion_parameters:
+   k1: -0.14707811196570506
+   k2: 0.08102897302832712
+   p1: -0.00039435857931765405
+   p2: 0.0006560130981826822
