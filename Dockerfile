@@ -50,6 +50,7 @@ RUN apt-get update \
       "ros-${ROS_DISTRO}-rosbag2-storage-default-plugins"; } \
   && apt-get install -y --no-install-recommends \
     "ros-${ROS_DISTRO}-rosbag2-storage-mcap" \
+    python3-scipy \
   && rm -rf /var/lib/apt/lists/*
 
 # Same package selection as scripts/run_default_ci_checks.sh (the Thirdparty

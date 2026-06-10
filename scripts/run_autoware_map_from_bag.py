@@ -201,6 +201,9 @@ def print_next_steps(args: argparse.Namespace, output_dir: Path) -> None:
     if verify_log.is_file():
         print(f'  Verify log: {verify_log}')
     print(f'  Saved map:  {output_dir / "pointcloud_map"}')
+    lanelet2_map = output_dir / 'lanelet2_map.osm'
+    if lanelet2_map.is_file():
+        print(f'  Lanelet2:   {lanelet2_map}')
 
     if args.viewer == 'none':
         print(

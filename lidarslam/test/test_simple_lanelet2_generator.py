@@ -51,6 +51,15 @@ def _load_module():
     return module
 
 
+def test_parse_args_defaults_origin_to_local_zero():
+    module = _load_module()
+
+    args = module.parse_args(['--input', 'a.tum', '--output', 'b.osm'])
+
+    assert args.origin_lat == 0.0
+    assert args.origin_lon == 0.0
+
+
 def _straight_trajectory(n_pts: int = 80, dx: float = 1.0) -> np.ndarray:
     """Build a synthetic centreline along +x at 1 m spacing."""
     xs = np.arange(n_pts) * dx
