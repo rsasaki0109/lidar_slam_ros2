@@ -15,8 +15,8 @@ autonomously on that map in AWSIM. Frontend is `RKO-LIO` (MIT), backend is
 ![Point cloud map built by this stack (Shinjuku demo bag)](lidarslam/images/map.png)
 
 *Shinjuku point cloud map built from a demo rosbag with this stack — start at the
-[Quickstart](#quickstart). For the photoreal flythrough rendered from the same SLAM
-output, jump to [Photoreal 3DGS map](#photoreal-3dgs-map-optional). `develop` tracks the
+[Quickstart](#quickstart). For the animated map flythrough and the optional photoreal
+render, jump to [Photoreal 3DGS map](#photoreal-3dgs-map-optional). `develop` tracks the
 current v2 alpha line; latest tagged public beta: [v0.2.2 Release Notes](docs/releases/v0.2.2.md).*
 
 ## Why lidarslam_ros2
@@ -157,17 +157,20 @@ Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](d
 
 ## Photoreal 3DGS map (optional)
 
-Turn the same SLAM output plus synced camera images into a 3D Gaussian Splatting
-scene — LiDAR-primed (no COLMAP), trained with gsplat (Apache-2.0). Below, the
-LiDAR SLAM result (point-cloud map + estimated walking trajectory, left) and the
-3DGS scene built from it (right) fly along that same estimated trajectory, on the
-RTK-SLAM Construction Hall sequence (CC-BY 4.0) the [release gate](#accuracy)
-scores against:
+Below, the SLAM deliverable itself — the point-cloud map and the estimated
+walking trajectory — as a follow-camera flythrough riding the full 60 m loop of
+the RTK-SLAM Construction Hall sequence (CC-BY 4.0), the same sequence the
+[release gate](#accuracy) scores against:
 
-![LiDAR SLAM map and trajectory next to the 3DGS render, flying along the estimated walking trajectory (RTK-SLAM Construction Hall 1)](lidarslam/images/3dgs_rtkslam_walk_sidebyside.gif)
+![Follow-camera flythrough of the SLAM point-cloud map along the full estimated walking loop (RTK-SLAM Construction Hall 1)](lidarslam/images/map_flythrough_rtkslam.gif)
+
+The same SLAM output plus synced camera images can also be rendered as a
+photoreal 3D Gaussian Splatting scene — LiDAR-primed (no COLMAP), trained with
+gsplat (Apache-2.0):
 
 ```bash
-bash scripts/run_rtkslam_3dgs_flythrough.sh   # or run_koide_3dgs_flythrough.sh
+python3 tools/gaussian_splatting/render_map_flythrough.py --help  # the map flythrough above
+bash scripts/run_rtkslam_3dgs_flythrough.sh   # photoreal 3DGS (or run_koide_3dgs_flythrough.sh)
 ```
 
 Pipeline, quality levers, and data-suitability notes: [docs/3dgs-map-tutorial.md](docs/3dgs-map-tutorial.md).
