@@ -281,6 +281,12 @@ bash scripts/run_awsim_selfmade_map_demo.sh true    # 動画付き
 | `vector map is not ready` | MGRS 投影でロード失敗 | `projector_type: local` を使用 |
 | `Goal's footprint exceeds lane` | 車両方向がレーンと不一致 | ゴールの orientation をレーン方向に合わせる |
 | `Failed to plan route` / `Failed to find a proper route` | lanelet 未接続 or 1つだけ | generator が分割＋境界ノード共有で対処済み。`--validate-routing` で起動前に `shortestPath` PASS を確認 |
+| engage しても車が動かない(actuation_cmd の publisher が 0) | `launch_vehicle_interface:=true` 欠落で raw_vehicle_cmd_converter 不在 | e2e_simulator.launch.xml に `launch_vehicle_interface:=true` を必ず付ける |
+| trajectory は GO なのに gate 出力が brake -1.5 | vehicle_cmd_gate が発進 pause 状態 | `/control/vehicle_cmd_gate/set_pause {pause: false}` + `/api/motion/accept_start` を発進まで繰り返す |
+| `velocity_factors: traffic-signal` で永久停止 | マップ上の信号がカメラ認識と紐づかない | preset で `launch_traffic_light_module: "false"`(シミュレータ検証時) |
+| 自己位置の yaw が 30° 以上ずれて舵が全切りになる | AWSIM 再起動で sim クロック巻き戻り → EKF 破壊 | AWSIM を再起動したら Autoware も必ず再起動する |
+| ルート上に存在しない歩行者で停止 | LiDAR 誤検出(幻オブジェクト) | デモ検証時は preset で obstacle stop 系モジュールを無効化 |
+| gear が P のまま / 外部 control_cmd・actuation_cmd を一切受け付けない | AWSIM Labs 側の ROS 購読バインドが起動ごとに不安定 | AWSIM を再起動し `gear_cmd`(DRIVE)連投 → 短いスロットルで動作確認してから本番を流す |
 
 ## 関連スクリプト
 
