@@ -14,18 +14,19 @@ heterogeneous datasets onto a single APE threshold. `v0.4` then **graduated the
 former research-track profiles to blocking** (decision 2026-06-07,
 `docs/roadmap/v0.4.md`):
 
-- **Release track (blocking)** — a FAIL blocks the release. As of v0.4 this is
-  every shipped profile: `Newer College math-hard` (ground truth),
-  `NTU VIRAL tnp_01` (ground truth), `MID-360` vs GLIM (cross-validation), the
-  Leo Drive applanix/velodyne open-data cross-validation, and the KITTI
-  Odometry 00/05/07 LO baseline comparison (non-regression).
-- **Interim caveat** — `MID-360` vs GLIM and the Leo Drive profile block on a
-  *cross-validation* reference rather than ground truth, an interim weakness
-  accepted knowingly. `MID-360` vs GLIM is slated to be replaced by a real
-  ground-truth `ape_rmse_gt_m` profile in v0.5.
-- **Research track (mechanism retained)** — `report_only_until` still downgrades
-  a FAIL to WARN, but **no shipped profile uses it as of v0.4**. It remains
-  available for any future dataset introduced mid-cycle.
+- **Release track (blocking)** — a FAIL blocks the release. As of v0.5 this is:
+  `Newer College math-hard` (ground truth), `NTU VIRAL tnp_01` (ground truth),
+  the two `mid360_gt_rtkslam_construction_*` profiles (**total-station ground
+  truth**, graduated in v0.5), the Leo Drive applanix/velodyne open-data
+  cross-validation, and the KITTI Odometry 00/05/07 LO baseline comparison
+  (non-regression).
+- **Report-only** — `MID-360` vs GLIM was demoted in v0.5 (decision D-GT-2,
+  `docs/roadmap/v0.5.md`): cross-validation against another SLAM estimate
+  measures agreement, not accuracy, and the same sensor is now gated on real
+  total-station checkpoints. It stays as a regression canary. The Leo Drive
+  profile keeps its cross-validation caveat (separate track). New profiles
+  introduced mid-cycle (e.g. the outdoor Stadtgarten pair) soak as report-only
+  before graduating.
 
 The distinction is exercised by `scripts/run_release_readiness_checks.sh`,
 which evaluates each profile in `scripts/release_profiles.yaml` and emits
@@ -97,10 +98,14 @@ from `WARN` to `PASS` without breaking the gate.
 | --- | --- | --- | --- | --- | --- |
 | `NTU VIRAL tnp_01` | current default | `ground_truth` | `0.952` | `PASS` (pass ≤ 1.00, target 0.30) | outdoor long-loop GT |
 | `NTU VIRAL tnp_01` | best observed   | `ground_truth` | `0.870` | `PASS` (same)                     | loop-gated backend run |
-| `MID-360` | current default                  | `cross_validation` vs GLIM | `3.641` | `PASS` (pass ≤ 4.00, target 1.00) | solid-state LiDAR, non-360° FOV |
-| `MID-360` | best observed                    | `cross_validation` vs GLIM | `3.590` | `PASS` (same)                     | rerun with same tuned backend family |
-| `MID-360` | Scan Context candidate           | `cross_validation` vs GLIM | `3.816` | `PASS`                            | fair current-code comparison; still opt-in |
-| `MID-360` | experimental BEV-assisted rerank | `cross_validation` vs GLIM | `3.607` | `PASS`                            | sensor-agnostic rerank of distance candidates; still opt-in |
+| `MID-360` RTK-SLAM Construction Hall 2 | indoor default | `ground_truth` (total station, 16 chkpt) | `0.154` (median 0.061) | `PASS` (pass ≤ 0.30, target 0.15) | dense odometry scored, `--match-tolerance 2.0` |
+| `MID-360` RTK-SLAM Construction Hall 1 | indoor default | `ground_truth` (total station, 16 chkpt) | `0.403` (median 0.263) | `PASS` (pass ≤ 0.55, target 0.30) | hardest indoor hall (published baselines ~0.22) |
+| `MID-360` RTK-SLAM Stadtgarten 2 | outdoor config | `ground_truth` (total station, 19 chkpt) | `0.835` (median 0.327) | report-only soak (pass ≤ 1.20) | outdoor park; `double_downsample: false` (see methodology note) |
+| `MID-360` RTK-SLAM Stadtgarten 1 | outdoor config | `ground_truth` (total station, 36 chkpt) | `1.666` (median 1.511) | report-only soak (pass ≤ 2.20) | 26 min / ~1 km park loop; raw odometry drift, no GNSS / loop closure |
+| `MID-360` | current default                  | `cross_validation` vs GLIM | `3.641` | report-only since v0.5 (D-GT-2)   | solid-state LiDAR, non-360° FOV |
+| `MID-360` | best observed                    | `cross_validation` vs GLIM | `3.590` | report-only (same)                | rerun with same tuned backend family |
+| `MID-360` | Scan Context candidate           | `cross_validation` vs GLIM | `3.816` | report-only                       | fair current-code comparison; still opt-in |
+| `MID-360` | experimental BEV-assisted rerank | `cross_validation` vs GLIM | `3.607` | report-only                       | sensor-agnostic rerank of distance candidates; still opt-in |
 | Leo Drive (applanix/velodyne) | current default | `cross_validation` vs Applanix GSOF49 | varies per bag | `PASS` (pass ≤ 1.50, target 0.50) | open-data Velodyne packet path |
 
 The Newer College `math-hard` profile (ground truth) is the tightest gate
@@ -110,9 +115,13 @@ baseline comparison is wired through `scripts/run_kitti_00_05_07_report.sh` and
 emits a non-regression report under
 `output/kitti_dev_<timestamp>/kitti_dev_report.md`.
 
-`MID-360` and Leo Drive now **do** feed the release gate (graduated in v0.4),
-blocking on their cross-validation thresholds; `MID-360` vs GLIM is slated to be
-replaced by a real ground-truth profile in v0.5.
+As of v0.5 the MID-360 release evidence is **real ground truth**: the two
+RTK-SLAM Construction Hall profiles block on SE(3)-aligned total-station
+checkpoint RMSE (`ape_rmse_gt_m`), the same metric family as NTU VIRAL and
+Newer College. `MID-360` vs GLIM is report-only (regression canary, D-GT-2);
+Leo Drive still blocks on its cross-validation threshold. Dataset, metric
+definition and attribution:
+`docs/research/rtkslam-total-station-gt-methodology.md`.
 
 Source artifacts:
 
