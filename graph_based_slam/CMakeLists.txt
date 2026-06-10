@@ -302,6 +302,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_gaussian_splatting_sidebyside
+    test/test_gaussian_splatting_sidebyside.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_mid360_robot_preflight
     test/test_mid360_robot_preflight.py
     TIMEOUT 120
