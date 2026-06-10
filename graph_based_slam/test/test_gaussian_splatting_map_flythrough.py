@@ -185,6 +185,42 @@ def test_build_viewmats_recovers_eye_position():
 
 
 # --------------------------------------------------------------------------- #
+# enhance_colors + uncolored_mask
+# --------------------------------------------------------------------------- #
+def test_enhance_colors_stays_in_range_and_boosts_saturation():
+    rng = np.random.default_rng(2)
+    rgb = rng.uniform(0.2, 0.8, size=(1000, 3))
+    out = mf.enhance_colors(rgb)
+    assert out.shape == rgb.shape
+    assert out.min() >= 0.0 and out.max() <= 1.0
+    spread_in = (rgb - rgb.mean(axis=1, keepdims=True)).std()
+    spread_out = (out - out.mean(axis=1, keepdims=True)).std()
+    assert spread_out > spread_in
+
+
+def test_enhance_colors_saturation_one_keeps_grey_grey():
+    grey = np.full((10, 3), 0.5)
+    out = mf.enhance_colors(grey, saturation=1.0)
+    # Grey stays channel-balanced whatever the contrast stretch does.
+    assert np.allclose(out, out[:, :1])
+
+
+def test_enhance_colors_near_uniform_input_is_not_overamplified():
+    rng = np.random.default_rng(3)
+    rgb = 0.5 + rng.uniform(-2e-4, 2e-4, size=(500, 3))
+    out = mf.enhance_colors(rgb, saturation=1.0)
+    # The percentile stretch must skip a sub-epsilon range instead of blowing
+    # quantisation noise up to full black/white.
+    assert out.max() - out.min() < 0.01
+
+
+def test_uncolored_mask_matches_default_grey_only():
+    rgb = np.array([[128, 128, 128], [128, 128, 129], [0, 0, 0], [128, 0, 128]],
+                   dtype=np.uint8)
+    assert mf.uncolored_mask(rgb).tolist() == [True, False, False, False]
+
+
+# --------------------------------------------------------------------------- #
 # ceiling_cut_mask
 # --------------------------------------------------------------------------- #
 def test_ceiling_cut_follows_local_walking_height():
