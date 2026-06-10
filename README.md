@@ -50,6 +50,25 @@ flowchart LR
 
 ## Quickstart
 
+### Try it with Docker (one command, no build)
+
+```bash
+docker run --rm -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
+  ghcr.io/rsasaki0109/lidar_slam_ros2:humble
+```
+
+This pulls the prebuilt image, downloads a public Livox MID-360 driving bag
+(517 MB, [Zenodo](https://zenodo.org/records/14841855), CC-BY 4.0) and runs the
+full RKO-LIO + graph_based_slam pipeline headless — a few minutes later
+`./lidarslam_output/mid360_demo/` holds the Autoware-ready map
+(`map.pcd`, `pointcloud_map/` tiles, `map_projector_info.yaml`) and the
+loop-closed trajectory (`traj_corrected.tum`). Add
+`-v lidarslam_demo_data:/lidarslam_ws/datasets` to cache the bag between runs.
+Any other command works too, e.g.
+`docker run --rm -it ghcr.io/rsasaki0109/lidar_slam_ros2:humble bash`.
+
+### Build from source
+
 ```bash
 cd ~/ros2_ws/src
 git clone --recursive https://github.com/rsasaki0109/lidarslam_ros2.git

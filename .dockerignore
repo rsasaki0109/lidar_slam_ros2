@@ -1,0 +1,16 @@
+# Keep the Docker build context to sources only: exclude VCS metadata,
+# colcon artifacts, datasets, and run outputs (regenerated inside the image).
+.git
+.github
+build/
+install/
+log/
+output/
+slam_output/
+datasets/
+demo_data/
+pointcloud_map/
+site/
+map/
+*.log
+gpt_pro_context.md
