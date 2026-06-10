@@ -37,6 +37,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_sensor_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(lidarslam_msgs REQUIRED)
+find_package(message_filters REQUIRED)
 find_package(ndt_omp_ros2 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(g2o QUIET
@@ -183,6 +184,13 @@ if(BUILD_TESTING)
       test_triangle_descriptor_database PRIVATE include ${EIGEN3_INCLUDE_DIR}
     )
     target_link_libraries(test_triangle_descriptor_database ${PCL_LIBRARIES})
+  endif()
+  ament_add_gtest(
+    test_submap_creation
+    test/test_submap_creation.cpp
+  )
+  if(TARGET test_submap_creation)
+    target_include_directories(test_submap_creation PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
     test_registration_determinism
@@ -528,6 +536,7 @@ ament_target_dependencies(graph_based_slam_component
   nav_msgs
   std_srvs
   lidarslam_msgs
+  message_filters
   ndt_omp_ros2
 )
 

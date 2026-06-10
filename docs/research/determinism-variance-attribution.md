@@ -74,6 +74,31 @@ variance, not replay-vs-benchmark equality.)
     `--adjacent-window`, default 5). The offline runner should emit loop
     edges explicitly instead.
 
+## Addendum: after the Phase 1 input-sync fix (same day)
+
+Re-running layer 2 with the stamp-synchronized odom+cloud path
+(message_filters ApproximateTime + deep queues) on the **same recorded
+input bag**:
+
+| metric | before | after |
+|---|---|---|
+| submaps per run | 603 / 598 / 599 | **639 / 640 / 639** |
+| APE σ | 0.050 | **0.032** |
+| loop-edge sets | differ per run | still differ per run |
+
+The old path was silently dropping ~6% of input frames (best-effort
+depth-5 cloud queue overflowing while `searchLoop` blocked the
+single-threaded executor) — the recovered frames are the 600 → 639 jump.
+Loop-edge selection still varies because it lives in the wall-clock loop
+scheduler, exactly as attributed above; that is Phase 2's target.
+
+An A/B on the live pipeline (3× new vs 3× old, shipped MID-360 preset,
+GLIM crossval): baseline APE 5.10 ± 1.16 (new) vs 3.96 ± 0.68 (old) —
+overlapping spreads, not distinguishable at n=3 on this deliberately
+noisy agreement substrate. The blocking GT gates score the dense raw
+odometry (frontend output) and are unaffected by backend input pairing
+by construction.
+
 ## Reproduce
 
 ```bash
