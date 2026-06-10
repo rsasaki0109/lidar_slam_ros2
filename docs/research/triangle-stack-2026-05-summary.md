@@ -12,10 +12,13 @@ the variance / RANSAC-cost / max_pairs sweep that occurred 2026-05-24.
 > closeout, **not** a default change: every preset still ships
 > `use_triangle_descriptor: false`. The deterministic scheduling refactor has
 > since **landed as an opt-in** (`deterministic_loop_scheduling`, default
-> **false** — behaviour-identical when off); the one remaining piece is the
+> **false** — behaviour-identical when off); the one remaining piece was the
 > 8-vs-16 head-to-head benchmark that would clear the flag to become a default.
-> That validation needs benchmark-data access and is intentionally not attempted
-> as an unvalidated behavior change here.
+> **That benchmark ran 2026-06-11** (see *8-vs-16 head-to-head under
+> deterministic scheduling* below): the flag works as designed mechanically but
+> does **not** improve accuracy or reproducibility on the MID-360 substrate, so
+> it **stays opt-in / default off** and `max_pairs: 16` stays the preset value.
+> D1 is fully closed.
 
 If you only want the production take-aways, read **Production take-aways**
 below. If you want the research narrative (why the defaults are what they
@@ -255,6 +258,67 @@ on. With the flag off the path is byte-for-byte the historical single-latest
 query, so the public default is unchanged. Only the 8-vs-16 head-to-head — which
 would clear the flag to become a default — is handed to a data-access follow-up.
 
+## 8-vs-16 head-to-head under deterministic scheduling (2026-06-11) — flag stays opt-in
+
+The validation that was handed off as a data-access follow-up. Setup: same
+GLIM MID-360 bag (277 s) and the same tuned effective config as the 2026-05-24
+sweep (`min_votes=6, min_inliers=3`, reproduced from the archived
+`graph_params.effective.yaml`, **not** the current shipped preset), 3 runs per
+arm via `run_triangle_ablation_mid360.sh`, APE vs the GLIM cross-validation
+reference. Arms: a freshness control (`off/16`), the flag at the preset
+`max_pairs` (`on/16`), and the U-shape probe (`on/8`). Raw data:
+`output/d1_sched_bench_20260611/`.
+
+| arm | cand APE m ± σ | Δ APE m ± σ | tri candidates/run | baseline accepted loops/run |
+|---|---|---|---|---|
+| off/16 (control) | 4.343 ± **0.066** | +0.096 ± 0.481 | 2, 2, 2 | 2, 2, 2 |
+| on/16 | 4.402 ± 0.259 | +0.187 ± 0.511 | 6, 7, 6 | 1, 1, 1 |
+| on/8 | 5.318 ± 1.154 | +0.698 ± **2.139** | 4, 0, 1 | 2, 4, **0** |
+| off/8 (2026-05-24) | 4.643 ± 0.254 | +0.768 ± 0.167 | — | — |
+
+The freshness control behaves like the May `off/16` arm on the
+delta-vs-own-baseline metric (−0.292 ± 0.607 then, +0.096 ± 0.481 now — the
+means sit well inside each other's spread), so the same-day comparison is not
+confounded by an obvious pipeline shift since May. This is a delta-level
+sanity check, not an absolute-APE no-drift proof.
+
+**Three verdicts:**
+
+1. **No material APE regression from the flag at `max_pairs=16`** — candidate
+   mean 4.402 (on) vs 4.343 (off): the on-arm is nominally 0.06 m worse, but
+   the difference is small relative to the 0.40 m noise envelope. Turning the
+   flag on is APE-safe at the preset config.
+2. **No reproducibility win — the flag's payoff thesis fails on this
+   substrate.** Candidate σ *grows* (0.066 → 0.259). Mechanically the
+   catch-up scheduler does exactly what it promises — triangle candidate
+   queries jump from 2 to 6–7 per run because every submap is now queried —
+   but more querying changes *which* candidate pairs reach verification and
+   when. Deterministic *scheduling* did not translate into deterministic
+   *outcomes*: baseline distance-loop acceptance drops from a stable 2 per run
+   to 1, and two flag-on executions — both in the `on/8` arm (run2 candidate,
+   run3 baseline) — attempted **zero** loops end-to-end. The
+   natural-timing-window sensitivity documented for the wall-clock path is
+   still present under catch-up scheduling, just relocated.
+3. **The mp8 systematic-regression signature does not survive deterministic
+   scheduling — but mp8 is not rescued, and the root cause is not proven.**
+   The May `off/8` result was a tight, systematic +0.768 ± 0.167; under the
+   flag the mean is similar (+0.698) but the spread explodes to ± 2.139, with
+   one run beating its own baseline by 1.7 m. So what deterministic scheduling
+   removes is the *low-variance systematic* signature, replacing it with
+   instability — consistent with scheduling being a major contributor to the
+   May mp8 behaviour (hypothesis A), but not proof that it was the root cause.
+   Operationally mp8 under the flag is erratic (σ 2.1 m, zero-loop runs), so
+   `max_pairs: 16` remains the only stable choice either way.
+
+**Decision: `deterministic_loop_scheduling` stays default off; `max_pairs: 16`
+stays the MID-360 preset.** The flag remains available for research use (it is
+the only way to get full submap query coverage), but it is not an accuracy or
+reproducibility improvement on this substrate, and an honest default flip
+would require it to win on at least one. The optional `std::async` RANSAC half
+of the original design is unimplemented and now low-priority: with the
+catch-up scheduler showing no variance win, there is no evidence the async
+half would change the conclusion.
+
 ## Diagnostic flag remains
 
 `triangle_descriptor_skip_ransac` (default false) stays in the tree
@@ -288,20 +352,22 @@ datasets / configs. It is not for production use.
    timer-batched submap arrivals are skipped non-deterministically. Fix: a
    deterministic catch-up loop over un-queried submap indices (+ optional
    `std::async` RANSAC), shipped opt-in. **The catch-up scheduler has landed**
-   (`deterministic_loop_scheduling`, default off); the **8-vs-16 validation** (and
-   the optional `std::async` RANSAC half) is the benchmark-data follow-up before
-   the flag could become a default.
+   (`deterministic_loop_scheduling`, default off), and the **8-vs-16 validation
+   ran 2026-06-11** (see the head-to-head section above): mechanically correct,
+   no accuracy/reproducibility win → the flag stays default off.
 3. ~~**Newer College APE at current develop HEAD**~~ — **answered 2026-05-25**
    via PR #192 (`--skip-reference-gen` plumbing). Post-v0.3.0 3-run gave
    Δ APE −0.0094 ± 0.0108 m (|Δ|/σ = 0.87), still variance-bounded but
    no regression introduced by the #183–#191 series; candidate variance
    ~halved vs the 2026-05-19 baseline.
 
-All three research questions from the 2026-05-24 sweep are now closed, and the
-Q2 opt-in deterministic-scheduling implementation has landed (default off). The
-only remaining triangle work is the **8-vs-16 benchmark validation** that would
-clear `deterministic_loop_scheduling` to become a default, tracked as a v0.4/v0.5
-follow-up that needs data access.
+All three research questions from the 2026-05-24 sweep are closed, the Q2
+opt-in deterministic-scheduling implementation has landed (default off), and
+the 8-vs-16 head-to-head validation ran 2026-06-11 with a clear negative
+result for a default flip. **There is no remaining triangle-stack work item**:
+the public default (`use_triangle_descriptor: false`,
+`deterministic_loop_scheduling: false`, `max_pairs: 16` when opted in) is the
+empirically supported configuration.
 
 ## Files
 
@@ -317,4 +383,6 @@ follow-up that needs data access.
   - `output/triangle_ablation_mid360_skipransac_20260524_101218/SUMMARY.md`
   - `output/triangle_ablation_mid360_maxpairs16_20260524_175503/SUMMARY.md`
   - `output/triangle_ablation_mid360_maxpairs8_20260524_213619/SUMMARY.md`
+  - `output/d1_sched_bench_20260611/` (8-vs-16 head-to-head under
+    deterministic scheduling; `aggregate.py --verdict` reproduces the tables)
   - `output/triangle_ablation_ntu_v5_skipransac_20260524_222141/`
