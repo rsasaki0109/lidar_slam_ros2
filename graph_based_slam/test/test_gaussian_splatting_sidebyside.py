@@ -143,6 +143,39 @@ def test_mask_far_from():
 
 
 # --------------------------------------------------------------------------- #
+# nearest_polyline_index / fade_weights / minimap_points
+# --------------------------------------------------------------------------- #
+def test_nearest_polyline_index():
+    line = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]])
+    assert sbs.nearest_polyline_index(line, np.array([1.1, 0.2, 0.0])) == 1
+    assert sbs.nearest_polyline_index(line, np.array([9.0, 0.0, 0.0])) == 2
+
+
+def test_fade_weights_ramps_both_ends():
+    w = sbs.fade_weights(10, 3)
+    assert w[4] == 1.0 and w[5] == 1.0
+    np.testing.assert_allclose(w[:3], [1 / 3, 2 / 3, 1.0])
+    np.testing.assert_allclose(w[-3:], [1.0, 2 / 3, 1 / 3])
+
+
+def test_fade_weights_zero_and_too_long():
+    np.testing.assert_allclose(sbs.fade_weights(5, 0), 1.0)
+    with pytest.raises(ValueError):
+        sbs.fade_weights(5, 3)
+
+
+def test_minimap_points_fit_box_preserve_aspect():
+    xy = np.array([[0.0, 0.0], [10.0, 5.0], [10.0, 0.0]])
+    px = sbs.minimap_points(xy, size=100, margin=10)
+    assert px.min() >= 10.0 - 1e-9 and px.max() <= 90.0 + 1e-9
+    # x スパン 10m が長軸 → 80px、y スパン 5m → 40px (アスペクト維持)
+    assert px[:, 0].max() - px[:, 0].min() == pytest.approx(80.0)
+    assert px[:, 1].max() - px[:, 1].min() == pytest.approx(40.0)
+    # world Y+ が画面上方向 (行番号は小さく)
+    assert px[1, 1] < px[0, 1]
+
+
+# --------------------------------------------------------------------------- #
 # hstack_panes
 # --------------------------------------------------------------------------- #
 def test_hstack_panes_inserts_divider():
@@ -176,3 +209,6 @@ def test_parser_defaults():
     assert args.traj_z_offset == pytest.approx(-0.4)
     assert args.label_left == 'LiDAR SLAM map + trajectory'
     assert args.label_right == '3DGS render'
+    assert args.loop_fade == 0
+    assert not args.no_minimap
+    assert args.minimap_size == 132
