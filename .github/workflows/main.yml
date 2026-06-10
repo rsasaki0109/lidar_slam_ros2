@@ -47,6 +47,8 @@ jobs:
           bash -n scripts/run_default_ci_checks.sh
           bash -n scripts/run_release_readiness_checks.sh
           bash -n scripts/run_rko_lio_graph_autoware_dogfood.sh
+          bash -n scripts/run_docker_demo.sh
+          bash -n docker/entrypoint.sh
           bash -n scripts/run_graph_slam_pointcloud_map_in_autoware.sh
           bash -n scripts/prepare_velodyne_pointcloud_overlay.sh
           bash -n scripts/run_open_data_applanix_velodyne_gnss_smoke.sh
