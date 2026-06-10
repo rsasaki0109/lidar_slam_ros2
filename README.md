@@ -134,15 +134,17 @@ Every release is blocked in CI by these per-dataset thresholds.
 | Dataset | Sensor | Reference | APE RMSE | Gate (pass) |
 | --- | --- | --- | --- | --- |
 | NTU VIRAL `tnp_01` (outdoor, ~580 s) | Ouster OS1-16 + VN-100 | Leica prism ground truth | **0.95 m** (best 0.87) | ≤ 1.00 m |
-| RTK-SLAM Construction Hall 2 (indoor, ~600 s) | Livox MID-360 | total-station checkpoints¹ | **0.154 m** (median 0.061) | ≤ 0.30 m² |
-| RTK-SLAM Construction Hall 1 (indoor, ~741 s) | Livox MID-360 | total-station checkpoints¹ | **0.403 m** (median 0.263) | ≤ 0.55 m² |
-| MID-360 indoor loop (~277 s) | Livox MID-360 | cross-validation vs GLIM | 3.64 m | ≤ 4.00 m |
+| RTK-SLAM Construction Hall 2 (indoor, ~600 s) | Livox MID-360 | total-station checkpoints¹ | **0.154 m** (median 0.061) | ≤ 0.30 m |
+| RTK-SLAM Construction Hall 1 (indoor, ~741 s) | Livox MID-360 | total-station checkpoints¹ | **0.403 m** (median 0.263) | ≤ 0.55 m |
+| RTK-SLAM Stadtgarten 2 (outdoor park, ~876 s) | Livox MID-360 | total-station checkpoints¹ | **0.835 m** (median 0.327) | report-only² |
+| RTK-SLAM Stadtgarten 1 (outdoor park, ~1 km loop) | Livox MID-360 | total-station checkpoints¹ | **1.666 m** (median 1.511) | report-only² |
 | Newer College `math-hard` (~320 m loop) | Ouster OS0-128 | prism ground truth | reported separately | ≤ 0.10 m |
 
 ¹ Surveyed checkpoints from the public RTK-SLAM dataset (CC-BY 4.0); scored on the
 dense odometry trajectory, the same form as the dataset's published baselines.
-² Report-only until the remaining sequences validate (v0.6); see
-[docs/comparison.md](docs/comparison.md) for the full methodology and caveats.
+² Outdoor profiles soak as report-only before graduating; the former
+cross-validation gate vs GLIM (3.64 m) is also report-only since v0.5. Full
+methodology and caveats: [docs/comparison.md](docs/comparison.md).
 
 Reproduce locally:
 

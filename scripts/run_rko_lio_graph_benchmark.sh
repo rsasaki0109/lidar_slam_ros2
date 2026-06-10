@@ -333,8 +333,45 @@ wait_for_map_outputs() {
   return 1
 }
 
+bag_end_stamp() {
+  # Unix-epoch end time of the bag (start + duration), from metadata.yaml.
+  python3 - "$BAG_PATH" <<'PY'
+import sys
+from pathlib import Path
+
+import yaml
+
+meta = yaml.safe_load((Path(sys.argv[1]) / 'metadata.yaml').read_text())
+info = meta['rosbag2_bagfile_information']
+start_ns = info['starting_time']['nanoseconds_since_epoch']
+dur_ns = info['duration']['nanoseconds']
+print((start_ns + dur_ns) / 1e9)
+PY
+}
+
+raw_tum_reached() {
+  # True once the last raw-trajectory stamp is within margin of the bag end.
+  local end_stamp="$1"
+  local margin="$2"
+  python3 - "$RAW_TUM" "$end_stamp" "$margin" <<'PY'
+import sys
+
+try:
+    with open(sys.argv[1], 'rb') as fh:
+        fh.seek(-256, 2)
+        last = fh.read().decode(errors='replace').strip().splitlines()[-1]
+    reached = float(last.split()[0]) >= float(sys.argv[2]) - float(sys.argv[3])
+except (OSError, IndexError, ValueError):
+    reached = False
+sys.exit(0 if reached else 1)
+PY
+}
+
 run_state_signature() {
-  python3 - "$RAW_TUM" "$CORRECTED_TUM" "$LAUNCH_LOG" <<'PY'
+  # Trajectory files only: the launch log keeps growing with TF warnings on
+  # some bags, which would starve a log-based quiescence check forever and
+  # burn the whole --offline-timeout-secs budget after the bag is processed.
+  python3 - "$RAW_TUM" "$CORRECTED_TUM" <<'PY'
 import os
 import sys
 
@@ -364,6 +401,13 @@ wait_for_offline_completion() {
   local last_signature=""
   local stable_since=0
   local deadline=$((SECONDS + timeout_secs))
+  # Primary completion signal: the raw trajectory has reached the bag end and
+  # gone quiet. Quiescence alone is NOT enough — buffered TUM writes can stall
+  # for tens of seconds mid-run and fake completion. A long stall (10x the
+  # quiescence window) is still accepted as a crash/abort fallback.
+  local end_stamp=""
+  end_stamp="$(bag_end_stamp 2>/dev/null)" || end_stamp=""
+  local stall_secs=$((QUIESCENCE_SECS * 10))
 
   while (( SECONDS < deadline )); do
     if [[ -s "$RKO_RESULT_TUM" ]]; then
@@ -384,8 +428,16 @@ wait_for_offline_completion() {
         stable_since=$SECONDS
       fi
       if (( SECONDS - stable_since >= QUIESCENCE_SECS )); then
-        echo "No new trajectory/log updates for ${QUIESCENCE_SECS}s; treating benchmark run as complete"
-        return 0
+        # 120 s margin: the lidar stream can end well before the bag's global
+        # end stamp (other topics keep recording; 62 s on stadtgarten_seq2).
+        if [[ -z "$end_stamp" ]] || raw_tum_reached "$end_stamp" 120.0; then
+          echo "Trajectory reached the bag end and stayed quiet for ${QUIESCENCE_SECS}s; treating benchmark run as complete"
+          return 0
+        fi
+        if (( SECONDS - stable_since >= stall_secs )); then
+          echo "Warning: trajectory stalled for ${stall_secs}s before the bag end; treating benchmark run as aborted-but-scoreable" >&2
+          return 0
+        fi
       fi
     else
       stable_since=0
