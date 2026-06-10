@@ -117,7 +117,10 @@ net 4-6m/窓)は s5 モデルで 12-15dB の霧。以下すべて失敗:
 
 ## 今後
 
-- isuzu / NTU VIRAL を LR 修正後の trainer で再評価（過去ノートの数字は旧 LR のもの）。
+- ~~isuzu / NTU VIRAL を LR 修正後の trainer で再評価~~ → 実施済み (2026-06-11)、
+  結論は不変: NTU は変化なし、isuzu は first150 の median こそ +3.2dB 改善するが
+  キャプチャ品質の壁は越えない。詳細は各ノートの追補
+  （`3dgs-isuzu-viewcount-notes.md` / `3dgs-ntu-viral-notes.md`）。
 - 歩行 photoreal の再挑戦はデータ側から: グローバルシャッター or 高速シャッターの
   カメラ + 高レート姿勢（IMU 統合）で自前撮影するか、静止スタンドポイントが
   歩行路に沿って密に並ぶデータを選ぶ。
