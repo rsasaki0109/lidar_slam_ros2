@@ -96,12 +96,14 @@ EOF
 
 # Left pane = the SLAM point-cloud map (height-coloured) + estimated
 # trajectory, right pane = the 3DGS scene, both along the same camera path.
+# One-way playback with a fade loop seam plus the top-down minimap (current
+# position dot on the full trajectory) reads as travel; ping-pong does not.
 python3 tools/gaussian_splatting/render_slam_3dgs_sidebyside.py \
   --ply "${OUT_DIR}/gsplat/point_cloud.ply" \
   --pointcloud "${OUT_DIR}/gsplat/lidar_init.ply" \
   --transforms "${OUT_DIR}/gsplat/transforms_walk.json" \
   --traj-transforms "${OUT_DIR}/gsplat/transforms_crop.json" \
-  --frames 280 --fps 30 --ping-pong --smooth-window 5 --scale 1.0 \
+  --frames 240 --fps 30 --smooth-window 5 --scale 1.0 --loop-fade 12 \
   --mp4 "${OUT_DIR}/gsplat/flythrough_sidebyside_master.mp4"
 
 # The dot field in the map pane defeats naive GIF/x264 compression; re-encode
