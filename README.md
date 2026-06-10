@@ -12,10 +12,11 @@ ROS 2 LiDAR SLAM that outputs an Autoware-ready map bundle — `pointcloud_map/`
 autonomously on that map in AWSIM. Frontend is `RKO-LIO` (MIT), backend is
 `graph_based_slam` (BSD-2). No GPL components on the default workflow.
 
-![Photoreal 3DGS flythrough rendered from this stack's SLAM output](lidarslam/images/3dgs_koide_flythrough.gif)
+![Point cloud map built by this stack (Shinjuku demo bag)](lidarslam/images/map.png)
 
-*Rendered from a LiDAR-primed 3D Gaussian Splatting reconstruction of this stack's
-SLAM output — [how it's made](#photoreal-3dgs-map-optional). `develop` tracks the
+*Shinjuku point cloud map built from a demo rosbag with this stack — start at the
+[Quickstart](#quickstart). For the photoreal flythrough rendered from the same SLAM
+output, jump to [Photoreal 3DGS map](#photoreal-3dgs-map-optional). `develop` tracks the
 current v2 alpha line; latest tagged public beta: [v0.2.2 Release Notes](docs/releases/v0.2.2.md).*
 
 ## Why lidarslam_ros2
@@ -137,7 +138,9 @@ Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](d
 
 Turn the same SLAM output plus synced camera images into a 3D Gaussian Splatting
 scene — LiDAR-primed (no COLMAP), trained with gsplat (Apache-2.0). The flythrough
-at the top of this README is rendered straight from the reconstructed map:
+below is rendered straight from the reconstructed map:
+
+![Photoreal 3DGS flythrough rendered from this stack's SLAM output](lidarslam/images/3dgs_koide_flythrough.gif)
 
 ```bash
 bash scripts/run_koide_3dgs_flythrough.sh
