@@ -251,3 +251,47 @@ def test_bag_uncompressed_when_mode_none(tmp_path):
 
 def test_bag_uncompressed_when_no_metadata(tmp_path):
     assert ex._bag_is_file_compressed(tmp_path) is False
+
+
+# --------------------------------------------------------------------------- #
+# CompressedImage decoding + topic type detection
+# --------------------------------------------------------------------------- #
+def _jpeg_bytes(rgb):
+    import io
+
+    PILImage = pytest.importorskip('PIL.Image')
+    buf = io.BytesIO()
+    PILImage.fromarray(rgb).save(buf, format='JPEG', quality=95)
+    return buf.getvalue()
+
+
+def test_decode_compressed_image_jpeg_rgb():
+    rgb = np.zeros((16, 16, 3), dtype=np.uint8)
+    rgb[:, :, 0] = 200  # red
+    out = ex.decode_compressed_image('jpeg', _jpeg_bytes(rgb))
+    assert out.shape == (16, 16, 3)
+    assert out[:, :, 0].mean() > 150 and out[:, :, 2].mean() < 60
+
+
+def test_decode_compressed_image_bgr_tag_swaps_channels():
+    rgb = np.zeros((16, 16, 3), dtype=np.uint8)
+    rgb[:, :, 0] = 200  # stored channel 0 dominant
+    out = ex.decode_compressed_image('bgr8; jpeg compressed bgr8',
+                                     _jpeg_bytes(rgb))
+    # with a bgr-tagged payload, channel 0 is blue -> red plane ends up last
+    assert out[:, :, 2].mean() > 150 and out[:, :, 0].mean() < 60
+
+
+def test_topic_type_from_metadata(tmp_path):
+    (tmp_path / 'metadata.yaml').write_text(
+        'rosbag2_bagfile_information:\n'
+        '  topics_with_message_count:\n'
+        '    - topic_metadata:\n'
+        '        name: /camera/image_raw/compressed\n'
+        '        type: sensor_msgs/msg/CompressedImage\n'
+        '      message_count: 1\n'
+    )
+    t = ex._topic_type(tmp_path, '/camera/image_raw/compressed')
+    assert t == 'sensor_msgs/msg/CompressedImage'
+    assert ex._topic_type(tmp_path, '/missing') == ''
+    assert ex._topic_type(tmp_path / 'nope', '/x') == ''

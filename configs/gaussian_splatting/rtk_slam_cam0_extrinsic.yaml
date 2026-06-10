@@ -1,0 +1,11 @@
+# body <- camera_optical for the RTK-SLAM dataset handheld rig.
+# body = RKO-LIO trajectory frame (IMU; lidar/imu extrinsics are identity in
+# scripts/run_rtkslam benchmarks, MID-360 imu<->lidar offsets are <5 cm).
+# Matrix = inv(T_cam_imu) from https://github.com/Willyzw/rtk-slam-eval
+# calib/calib.yaml (Kalibr). Camera timeshift: t_imu = t_cam - 0.0206 s, pass
+# --time-offset -0.020638 to extract_posed_images.py.
+matrix:
+- [0.0010868707375664, -0.3836505154202838, -0.9234777207544047, -0.0721970068097962]
+- [0.9999988715203714, -0.0005408029950234, 0.0014016026913775, -0.0220280927202193]
+- [-0.0010371451121828, -0.9234782019895602, 0.3836494946955427, -0.0219648682830437]
+- [0.0, 0.0, 0.0, 1.0]

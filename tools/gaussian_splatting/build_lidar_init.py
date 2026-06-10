@@ -82,9 +82,12 @@ def build(args: argparse.Namespace) -> dict:
             skipped += 1
             continue
         pts = _read_pointcloud_xyz(msg)
-        if args.max_range > 0:
+        if args.max_range > 0 or args.min_range > 0:
             rng = np.linalg.norm(pts, axis=1)
-            pts = pts[rng <= args.max_range]
+            keep = rng >= args.min_range
+            if args.max_range > 0:
+                keep &= rng <= args.max_range
+            pts = pts[keep]
         world_pts = transform_points(pts, world_T_body).astype(np.float32)
         # Downsample each scan before accumulating so peak memory is bounded by
         # the downsampled cloud, not the sum of every raw scan (a long bag is
@@ -131,6 +134,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--out', required=True, help='output init .ply')
     p.add_argument('--voxel', type=float, default=0.1, help='voxel size (m)')
     p.add_argument('--max-range', type=float, default=80.0, help='drop points beyond (m)')
+    p.add_argument('--min-range', type=float, default=0.0,
+                   help='drop points closer than this (m); cuts the operator/'
+                        'rig ghost that a handheld scanner sweeps along the '
+                        'whole trajectory (unseen by the camera, it survives '
+                        'training as a fog tube on the camera path)')
     p.add_argument('--max-points', type=int, default=300000, help='cap final point count')
     p.add_argument('--max-extrapolation', type=float, default=0.1)
     p.add_argument('--stride', type=int, default=1, help='use every Nth scan')
