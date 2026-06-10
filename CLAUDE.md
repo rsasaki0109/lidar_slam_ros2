@@ -104,6 +104,7 @@ python3 scripts/simple_lanelet2_generator.py \
 | `run_rko_lio_graph_benchmark.sh` | ベンチマークパイプライン |
 | `run_autoware_quickstart.sh` | NTU VIRAL → Autoware マップ E2E |
 | `download_ntu_viral_tnp01.sh` | NTU VIRAL データダウンロード |
+| `run_docker_demo.sh` | Docker ワンコマンドデモ（MID-360 bag DL → headless SLAM）|
 
 ### AWSIM・Autoware
 | スクリプト | 用途 |
