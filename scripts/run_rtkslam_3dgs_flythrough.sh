@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Render the RTK-SLAM walking-trajectory 3DGS flythrough (mp4 + README GIF):
+# Render the RTK-SLAM walking-trajectory flythrough (mp4 + README GIF):
 #   construction_seq1 rosbag2 + RKO-LIO trajectory -> posed images ->
-#   LiDAR-primed gsplat -> flythrough along the estimated walking path.
+#   LiDAR-primed gsplat -> side-by-side "SLAM map + trajectory | 3DGS"
+#   flythrough along the estimated walking path.
 #
 # Requires: a CUDA GPU with torch + gsplat, the RTK-SLAM construction_seq1
 # rosbag2 (scripts/download_rtk_slam_dataset.py, CC-BY 4.0) and a SLAM
@@ -79,7 +80,7 @@ python3 tools/gaussian_splatting/train_gsplat.py \
   --init-ply "${OUT_DIR}/gsplat/lidar_init.ply" \
   --densify --sh-degree 1 --iters "${ITERS}"
 
-echo "== [4/4] flythrough along the walking trajectory =="
+echo "== [4/4] side-by-side flythrough (SLAM map + trajectory | 3DGS) =="
 python3 - "$OUT_DIR" "$FLY_FIRST" "$FLY_LAST" <<'EOF'
 import json
 import sys
@@ -93,12 +94,23 @@ json.dump(doc, open(out / 'transforms_walk.json', 'w'))
 print(f'flythrough path: views {first}-{last}')
 EOF
 
-python3 tools/gaussian_splatting/render_path.py \
+# Left pane = the SLAM point-cloud map (height-coloured) + estimated
+# trajectory, right pane = the 3DGS scene, both along the same camera path.
+python3 tools/gaussian_splatting/render_slam_3dgs_sidebyside.py \
   --ply "${OUT_DIR}/gsplat/point_cloud.ply" \
+  --pointcloud "${OUT_DIR}/gsplat/lidar_init.ply" \
   --transforms "${OUT_DIR}/gsplat/transforms_walk.json" \
+  --traj-transforms "${OUT_DIR}/gsplat/transforms_crop.json" \
   --frames 280 --fps 30 --ping-pong --smooth-window 5 --scale 1.0 \
-  --mp4 "${OUT_DIR}/gsplat/flythrough_walk.mp4" \
-  --gif "${OUT_DIR}/gsplat/flythrough_walk.gif" \
-  --gif-scale 0.6 --gif-fps 8
+  --mp4 "${OUT_DIR}/gsplat/flythrough_sidebyside_master.mp4"
 
-echo "done: ${OUT_DIR}/gsplat/flythrough_walk.mp4 / flythrough_walk.gif"
+# The dot field in the map pane defeats naive GIF/x264 compression; re-encode
+# the master with ffmpeg (palette GIF + crf mp4) for README-sized artifacts.
+ffmpeg -y -loglevel error -i "${OUT_DIR}/gsplat/flythrough_sidebyside_master.mp4" \
+  -c:v libx264 -crf 28 -preset slow -pix_fmt yuv420p \
+  "${OUT_DIR}/gsplat/flythrough_sidebyside.mp4"
+ffmpeg -y -loglevel error -i "${OUT_DIR}/gsplat/flythrough_sidebyside_master.mp4" \
+  -vf "fps=8,scale=600:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5" \
+  "${OUT_DIR}/gsplat/flythrough_sidebyside.gif"
+
+echo "done: ${OUT_DIR}/gsplat/flythrough_sidebyside.mp4 / flythrough_sidebyside.gif"
