@@ -63,3 +63,25 @@ Autoware Leo Drive isuzu（`demo_data/autoware_leo_drive_isuzu/all-sensors-bag1_
 - `extract_posed_images.py` / `build_lidar_init.py`: FILE-compressed(zstd) bag 対応
   （Autoware 系 bag で再利用可能）。
 - `configs/gaussian_splatting/isuzu_camera_top_extrinsic.yaml`: TF 由来 extrinsic の例。
+
+## 追補 (2026-06-11): means LR 修正後の再評価 — 結論は変わらず
+
+PR #223 で見つかった means LR バグ（旧 `lr*extent`、INRIA の ~60 倍・減衰なし）が
+本ノートの数字にも効いていた可能性があったため、保存済みの transforms/lidar_init を
+そのまま使い、修正後 trainer（`--densify --sh-degree 1`）で再学習した。比較は
+**新旧 ply を同一評価器**（全 training view を再レンダして per-view PSNR）で実施。
+
+| 構成 | 旧 trainer | LR 修正後 |
+|------|-----------|----------|
+| first150 (12k iters) | mean 17.1 / median 16.4 dB | mean 17.1 / **median 19.6** dB |
+| 全区間 640v (12k) | mean 15.0 / median 14.5 dB | mean 12.0 / median 11.4 dB |
+| 全区間 640v (30k) | — | mean 11.9 / median 11.5 dB |
+
+- **first150**: LR 修正で typical view は +3.2dB 改善するが、mean は横ばいで
+  上限（max はむしろ 25.3→20.6 に低下）はキャプチャ品質の壁のまま。
+- **全区間**: LR 修正 + 2.5 倍学習でも旧値に届かない。ドリフト・ブラー入りの
+  長尺キャプチャでは、旧 LR の churn が偶然ノイズ正則化として働いていた可能性が
+  ある（フィットすべき教師信号自体が不整合なため）。
+- → 「視点数よりキャプチャ特性が支配的」という本ノートの結論は **LR 修正後も成立**。
+  rtkslam の歩行 photoreal 5 戦略全敗
+  （[[3dgs-trajectory-flythrough-notes]] 追補）とも整合する。
