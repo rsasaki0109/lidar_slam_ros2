@@ -279,3 +279,51 @@ def test_photometric_loss_blends_when_lambda_positive():
     # mse is still the true MSE (reported for PSNR), loss is the blended term.
     assert float(mse) == pytest.approx(float(((a - b) ** 2).mean()))
     assert float(loss) != pytest.approx(float(mse))
+
+
+# --------------------------------------------------------------------------- #
+# load_transforms group indices (multi-session 'bag' key)
+# --------------------------------------------------------------------------- #
+def test_load_transforms_groups_from_bag_key(tmp_path):
+    import json
+
+    (tmp_path / 'images').mkdir()
+    frames = []
+    for i, bag in enumerate(['a', 'a', 'b', 'a', 'c']):
+        (tmp_path / 'images' / f'{i}.png').write_bytes(b'stub')
+        frames.append({'file_path': f'images/{i}.png',
+                       'transform_matrix': np.eye(4).tolist(),
+                       'bag': bag})
+    doc = {'camera_model': 'OPENCV', 'w': 8, 'h': 6, 'fl_x': 5.0, 'fl_y': 5.0,
+           'cx': 4.0, 'cy': 3.0, 'frames': frames}
+    (tmp_path / 'transforms.json').write_text(json.dumps(doc))
+
+    ds = tg.load_transforms(tmp_path / 'transforms.json')
+    # group ids follow first appearance order of the 'bag' values
+    assert ds['groups'] == [0, 0, 1, 0, 2]
+
+
+def test_load_transforms_groups_default_zero(tmp_path):
+    import json
+
+    (tmp_path / 'images').mkdir()
+    (tmp_path / 'images' / '0.png').write_bytes(b'stub')
+    doc = {'camera_model': 'OPENCV', 'w': 8, 'h': 6, 'fl_x': 5.0, 'fl_y': 5.0,
+           'cx': 4.0, 'cy': 3.0,
+           'frames': [{'file_path': 'images/0.png',
+                       'transform_matrix': np.eye(4).tolist()}]}
+    (tmp_path / 'transforms.json').write_text(json.dumps(doc))
+
+    ds = tg.load_transforms(tmp_path / 'transforms.json')
+    assert ds['groups'] == [0]
+
+
+def test_parser_pose_group_and_exposure_flags():
+    args = tg.build_parser().parse_args(['--transforms', 't', '--out', 'o'])
+    assert args.optimize_pose_groups is False
+    assert args.optimize_exposure is False
+    args = tg.build_parser().parse_args(
+        ['--transforms', 't', '--out', 'o',
+         '--optimize-pose-groups', '--optimize-exposure'])
+    assert args.optimize_pose_groups is True
+    assert args.optimize_exposure is True

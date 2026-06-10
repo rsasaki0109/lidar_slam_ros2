@@ -175,7 +175,10 @@ python3 tools/gaussian_splatting/render_path.py \
   0.25 で 612x512、mp4 ~8MB）。
 - `--rotate {0,90,180,270}`: カメラが横倒しマウントの bag 用（koide は 90）。
 - GIF は README 埋め込み用に `--gif-fps` / `--gif-scale` で間引き縮小される。
-- リポジトリ内の成果物例: `lidarslam/images/3dgs_koide_flythrough.gif` / `.mp4`。
+- リポジトリ内の成果物例: `lidarslam/images/3dgs_rtkslam_walk_flythrough.gif` / `.mp4`
+  （RTK-SLAM construction_seq1 の歩行軌跡、`scripts/run_rtkslam_3dgs_flythrough.sh` で再現。
+  経緯と知見は `docs/research/3dgs-trajectory-flythrough-notes.md`）、
+  `lidarslam/images/3dgs_koide_flythrough.gif` / `.mp4`（koide 近接シーン）。
 
 ## トラブルシュート
 
