@@ -36,6 +36,10 @@ Options:
   --capture-corrected-path BOOL  Subscribe to /modified_path during the run and write
                                  traj_corrected.tum next to the map outputs (default: true).
   --corrected-path-topic TOPIC   nav_msgs/Path topic to capture (default: /modified_path).
+  --generate-lanelet2 BOOL       Generate lanelet2_map.osm from traj_corrected.tum (default: true).
+  --origin-lat <deg>             Origin latitude for lanelet2 local coordinates (default: 0.0).
+  --origin-lon <deg>             Origin longitude for lanelet2 local coordinates (default: 0.0).
+  --lane-width <m>               Lane width for generated lanelet2 map (default: 3.5).
   --reference-tum <file>         Reference TUM. When provided, ape_from_tum.py runs after
                                  /map_save and traj_corrected_ape.txt is written under the
                                  output directory.
@@ -90,6 +94,10 @@ WAIT_FOR_OFFLINE_COMPLETION=false
 SKIP_VIEWER=false
 CAPTURE_CORRECTED_PATH=true
 CORRECTED_PATH_TOPIC="/modified_path"
+GENERATE_LANELET2=true
+ORIGIN_LAT="0.0"
+ORIGIN_LON="0.0"
+LANE_WIDTH="3.5"
 REFERENCE_TUM=""
 
 while [[ $# -gt 0 ]]; do
@@ -214,6 +222,30 @@ while [[ $# -gt 0 ]]; do
       CORRECTED_PATH_TOPIC="$2"
       shift 2
       ;;
+    --generate-lanelet2)
+      [[ $# -ge 2 ]] || usage
+      case "${2,,}" in
+        true|1|yes) GENERATE_LANELET2=true ;;
+        false|0|no) GENERATE_LANELET2=false ;;
+        *) echo "--generate-lanelet2 expects true/false" >&2; usage ;;
+      esac
+      shift 2
+      ;;
+    --origin-lat)
+      [[ $# -ge 2 ]] || usage
+      ORIGIN_LAT="$2"
+      shift 2
+      ;;
+    --origin-lon)
+      [[ $# -ge 2 ]] || usage
+      ORIGIN_LON="$2"
+      shift 2
+      ;;
+    --lane-width)
+      [[ $# -ge 2 ]] || usage
+      LANE_WIDTH="$2"
+      shift 2
+      ;;
     --reference-tum)
       [[ $# -ge 2 ]] || usage
       REFERENCE_TUM=$(realpath -m "$2")
@@ -284,6 +316,7 @@ RKO_ROS_PARAM_FILE="${OUTPUT_DIR}/rko_params.ros.yaml"
 CORRECTED_TUM="${OUTPUT_DIR}/traj_corrected.tum"
 CORRECTED_LOG="${OUTPUT_DIR}/path_corrected_logger.log"
 CORRECTED_APE_REPORT="${OUTPUT_DIR}/traj_corrected_ape.txt"
+LANELET2_OSM="${OUTPUT_DIR}/lanelet2_map.osm"
 PATH_TO_TUM_SCRIPT="${REPO_ROOT}/scripts/path_to_tum.py"
 APE_FROM_TUM_SCRIPT="${REPO_ROOT}/scripts/ape_from_tum.py"
 LAUNCH_PID=""
@@ -604,6 +637,40 @@ if [[ -n "$CORRECTED_LOGGER_PID" ]]; then
   else
     echo "Warning: $CORRECTED_TUM was not produced (no /modified_path messages?)." >&2
   fi
+fi
+
+if [[ "$GENERATE_LANELET2" == true ]]; then
+  # A stale lanelet2_map.osm from an earlier run into the same output dir would
+  # pair a mismatched lanelet2 with this run's pointcloud map, and the generator
+  # writes its output before structural validation, so generate into a temp file
+  # and only move it in place on success.
+  rm -f "$LANELET2_OSM" "${LANELET2_OSM}.tmp"
+  if [[ -f "$CORRECTED_TUM" ]]; then
+    echo "Generating Lanelet2 map from corrected trajectory ..."
+    if python3 "$REPO_ROOT/scripts/simple_lanelet2_generator.py" \
+      --input "$CORRECTED_TUM" \
+      --output "${LANELET2_OSM}.tmp" \
+      --lane-width "$LANE_WIDTH" \
+      --origin-lat "$ORIGIN_LAT" \
+      --origin-lon "$ORIGIN_LON"; then
+      mv "${LANELET2_OSM}.tmp" "$LANELET2_OSM"
+      echo "Lanelet2 map written: $LANELET2_OSM"
+    else
+      rm -f "${LANELET2_OSM}.tmp"
+      echo "Warning: Lanelet2 map generation failed; continuing without lanelet2_map.osm." >&2
+    fi
+  else
+    echo "Warning: Lanelet2 generation skipped because $CORRECTED_TUM does not exist (--capture-corrected-path true is required)." >&2
+  fi
+fi
+
+echo "Autoware map bundle under $OUTPUT_DIR:"
+echo "  pointcloud_map/          $([[ -f "$OUTPUT_DIR/pointcloud_map/pointcloud_map_metadata.yaml" ]] && echo "OK" || echo "MISSING")"
+echo "  map_projector_info.yaml  $([[ -f "$OUTPUT_DIR/map_projector_info.yaml" ]] && echo "OK" || echo "MISSING")"
+if [[ "$GENERATE_LANELET2" == true ]]; then
+  echo "  lanelet2_map.osm         $([[ -f "$LANELET2_OSM" ]] && echo "OK" || echo "MISSING (see warnings above)")"
+else
+  echo "  lanelet2_map.osm         skipped (--generate-lanelet2 false)"
 fi
 
 if [[ -n "$REFERENCE_TUM" && -f "$CORRECTED_TUM" ]]; then
