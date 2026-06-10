@@ -178,3 +178,86 @@ def test_colorize_averages_over_views():
     rgb, seen = pcio.colorize_by_projection(pts, vms, K, [red, blue], W, H)
     assert seen[0]
     np.testing.assert_array_equal(rgb[0], [100, 0, 50])  # mean of the two
+
+
+# --------------------------------------------------------------------------- #
+# colorize_by_projection_robust
+# --------------------------------------------------------------------------- #
+def test_colorize_robust_occluded_point_is_unseen():
+    vms, K, W, H = _cam()
+    img = np.full((H, W, 3), 200, dtype=np.uint8)
+    # Two points on the same camera ray: the far one is hidden by the near one.
+    pts = np.array([[0.0, 0.0, 2.0], [0.0, 0.0, 8.0]])
+    rgb, seen = pcio.colorize_by_projection_robust(
+        pts, vms, K, [img], W, H, default_rgb=(7, 7, 7),
+        normalize_exposure=False)
+    assert seen[0] and not seen[1]
+    np.testing.assert_array_equal(rgb[0], [200, 200, 200])
+    np.testing.assert_array_equal(rgb[1], [7, 7, 7])
+
+
+def test_colorize_robust_median_rejects_outlier_view():
+    vms1, K, W, H = _cam()
+    imgs = []
+    for val in ((10, 10, 10), (10, 10, 10), (250, 0, 0)):  # one specular flash
+        img = np.zeros((H, W, 3), dtype=np.uint8)
+        img[50, 50] = val
+        imgs.append(img)
+    vms = np.concatenate([vms1] * 3, axis=0)
+    pts = np.array([[0.0, 0.0, 5.0]])
+    rgb, seen = pcio.colorize_by_projection_robust(
+        pts, vms, K, imgs, W, H, normalize_exposure=False)
+    assert seen[0]
+    np.testing.assert_array_equal(rgb[0], [10, 10, 10])
+
+
+def test_colorize_robust_exposure_normalization_rescales_bright_view():
+    vms1, K, W, H = _cam()
+    dark = np.full((H, W, 3), 60, dtype=np.uint8)
+    bright = np.full((H, W, 3), 180, dtype=np.uint8)
+    # The point is only visible in the bright view (the dark views look away).
+    away = np.eye(4)
+    away[:3, 3] = [1000.0, 0.0, 0.0]
+    vms = np.stack([away, away, np.eye(4)])
+    pts = np.array([[0.0, 0.0, 5.0]])
+    rgb, seen = pcio.colorize_by_projection_robust(
+        pts, vms, K, [dark, dark, bright], W, H, normalize_exposure=True)
+    assert seen[0]
+    # Global median luminance is the dark 60; the bright view is scaled by 1/3.
+    assert abs(int(rgb[0][0]) - 60) <= 1
+
+
+def test_colorize_robust_rejects_bad_zbuf_bin():
+    vms, K, W, H = _cam()
+    img = np.zeros((H, W, 3), dtype=np.uint8)
+    with np.testing.assert_raises(ValueError):
+        pcio.colorize_by_projection_robust(np.zeros((1, 3)), vms, K, [img], W, H,
+                                           zbuf_bin=0)
+
+
+# --------------------------------------------------------------------------- #
+# drop_sparse_points
+# --------------------------------------------------------------------------- #
+def test_drop_sparse_points_keeps_cluster_drops_isolated():
+    rng = np.random.default_rng(4)
+    cluster = rng.uniform(0.0, 0.05, size=(8, 3))
+    isolated = np.array([[5.0, 5.0, 5.0]])
+    keep = pcio.drop_sparse_points(np.vstack([cluster, isolated]),
+                                   min_neighbors=3, voxel=0.1)
+    assert keep[:8].all()
+    assert not keep[8]
+
+
+def test_drop_sparse_points_grid_boundary_is_safe():
+    # The max-corner point's +1 neighbour keys fall past the last occupied
+    # voxel; searchsorted must not index out of bounds (regression).
+    pts = np.array([[0.0, 0.0, 0.0], [9.0, 9.0, 9.0]])
+    keep = pcio.drop_sparse_points(pts, min_neighbors=1, voxel=0.1)
+    assert keep.tolist() == [True, True]
+
+
+def test_drop_sparse_points_neighbouring_voxels_count_together():
+    # Two points in adjacent voxels see each other through the 26-neighbourhood.
+    pts = np.array([[0.0, 0.0, 0.0], [0.11, 0.0, 0.0]])
+    keep = pcio.drop_sparse_points(pts, min_neighbors=2, voxel=0.1)
+    assert keep.tolist() == [True, True]

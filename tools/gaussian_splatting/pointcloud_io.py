@@ -141,6 +141,126 @@ def colorize_by_projection(points: np.ndarray, viewmats: np.ndarray,
     return rgb, seen
 
 
+def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
+                                  K: np.ndarray, images, width: int, height: int,
+                                  default_rgb=(128, 128, 128), *,
+                                  zbuf_bin: int = 4, depth_tol: float = 0.15,
+                                  max_samples: int = 12,
+                                  normalize_exposure: bool = True
+                                  ) -> tuple[np.ndarray, np.ndarray]:
+    """Occlusion-aware, exposure-normalised, median-robust point colorization.
+
+    ``colorize_by_projection`` averages every view a point lands in, so points
+    behind walls or machines pick up the colour of whatever occludes them and
+    auto-exposure differences wash the average out. This variant first builds a
+    coarse per-view z-buffer from the point cloud itself (``zbuf_bin`` pixel
+    bins) and only samples views where the point sits within ``depth_tol`` (plus
+    2 % of range) of the nearest depth in its bin; each image is scaled so its
+    median luminance matches the global median (``normalize_exposure``); and the
+    final colour is the per-channel median over the first ``max_samples`` valid
+    samples, which rejects residual specular / motion-blur outliers.
+
+    Returns ``(rgb uint8 (N,3), seen bool (N,))``; unseen points get
+    ``default_rgb``.
+    """
+    points = np.asarray(points, dtype=np.float64)
+    n = points.shape[0]
+    rgb = np.tile(np.asarray(default_rgb, dtype=np.uint8), (n, 1))
+    if n == 0 or max_samples <= 0:
+        return rgb, np.zeros(n, dtype=bool)
+    if zbuf_bin < 1:
+        raise ValueError('zbuf_bin must be >= 1')
+
+    fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
+    zb_w = (int(width) + zbuf_bin - 1) // zbuf_bin
+    zb_h = (int(height) + zbuf_bin - 1) // zbuf_bin
+    samples = np.empty((n, int(max_samples), 3), dtype=np.uint8)
+    counts = np.zeros(n, dtype=np.uint16)
+
+    scales = np.ones(len(images), dtype=np.float32)
+    if normalize_exposure:
+        coeff = np.asarray([0.299, 0.587, 0.114], dtype=np.float32)
+        meds = np.asarray([float(np.median(np.tensordot(
+            np.asarray(img).astype(np.float32), coeff, axes=([-1], [0]))))
+            for img in images], dtype=np.float32)
+        valid = meds > 1.0e-6
+        if valid.any():
+            scales[valid] = float(np.median(meds[valid])) / meds[valid]
+
+    ids = np.arange(n)
+    for vi, (vm, img) in enumerate(zip(viewmats, images)):
+        vm = np.asarray(vm, dtype=np.float64)
+        cam = points @ vm[:3, :3].T + vm[:3, 3]
+        z = cam[:, 2]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            u = np.nan_to_num(fx * cam[:, 0] / z + cx, nan=-1.0,
+                              posinf=-1.0, neginf=-1.0).astype(np.int64)
+            v = np.nan_to_num(fy * cam[:, 1] / z + cy, nan=-1.0,
+                              posinf=-1.0, neginf=-1.0).astype(np.int64)
+        inb = (z > 1e-6) & (u >= 0) & (u < width) & (v >= 0) & (v < height)
+        if not inb.any():
+            continue
+        zbin = (v[inb] // zbuf_bin) * zb_w + (u[inb] // zbuf_bin)
+        zbuf = np.full(zb_w * zb_h, np.inf, dtype=np.float32)
+        np.minimum.at(zbuf, zbin, z[inb].astype(np.float32))
+        visible = z[inb] <= zbuf[zbin] + depth_tol + 0.02 * z[inb]
+        idx = ids[inb][visible]
+        idx = idx[counts[idx] < max_samples]
+        if idx.size == 0:
+            continue
+        cols = np.asarray(img)[v[idx], u[idx]]
+        if cols.ndim == 1:
+            cols = np.repeat(cols[:, None], 3, axis=1)
+        cols = np.clip(cols[:, :3].astype(np.float32) * scales[vi],
+                       0.0, 255.0).astype(np.uint8)
+        samples[idx, counts[idx].astype(np.intp), :] = cols
+        counts[idx] += 1
+
+    seen = counts > 0
+    seen_idx = np.flatnonzero(seen)
+    for c in np.unique(counts[seen_idx]):
+        group = seen_idx[counts[seen_idx] == c]
+        rgb[group] = np.median(samples[group, :int(c), :], axis=1).astype(np.uint8)
+    return rgb, seen
+
+
+def drop_sparse_points(xyz: np.ndarray, min_neighbors: int = 3,
+                       voxel: float = 0.1) -> np.ndarray:
+    """Keep-mask of points whose 3x3x3 voxel neighbourhood holds enough points.
+
+    Isolated stray returns render as dust in the map flythrough; counting the
+    points in each voxel plus its 26 neighbours (integer 3D keys, ``np.unique``
+    histogram) and dropping points below ``min_neighbors`` removes them without
+    touching dense surfaces.
+    """
+    xyz = np.asarray(xyz, dtype=np.float64)
+    n = xyz.shape[0]
+    if n == 0:
+        return np.zeros(0, dtype=bool)
+    if voxel <= 0.0:
+        raise ValueError('voxel must be > 0')
+
+    # Shift all voxel coords to >= 1 and pad the grid by one cell on each side
+    # so every 26-neighbour key stays a distinct in-range cell (no wrap-around
+    # false matches at the grid boundary).
+    ijk = np.floor(xyz / voxel).astype(np.int64)
+    ijk -= ijk.min(axis=0) - 1
+    dims = ijk.max(axis=0) + 2
+    keys = (ijk[:, 0] * dims[1] + ijk[:, 1]) * dims[2] + ijk[:, 2]
+    uniq, counts = np.unique(keys, return_counts=True)
+
+    total = np.zeros(n, dtype=np.int64)
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            for dz in (-1, 0, 1):
+                nk = keys + (dx * dims[1] + dy) * dims[2] + dz
+                pos = np.searchsorted(uniq, nk)
+                pos_c = np.minimum(pos, uniq.size - 1)
+                hit = (pos < uniq.size) & (uniq[pos_c] == nk)
+                total[hit] += counts[pos_c[hit]]
+    return total >= int(min_neighbors)
+
+
 def voxel_downsample(xyz: np.ndarray, voxel_size: float,
                      rgb: Optional[np.ndarray] = None
                      ) -> tuple[np.ndarray, Optional[np.ndarray]]:

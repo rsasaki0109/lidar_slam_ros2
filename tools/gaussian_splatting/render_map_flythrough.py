@@ -162,9 +162,9 @@ def build_viewmats(eyes: np.ndarray, forwards: np.ndarray) -> np.ndarray:
     return viewmats
 
 
-def enhance_colors(rgb01: np.ndarray, *, saturation: float = 1.45,
-                   percentiles: tuple[float, float] = (2.0, 99.5),
-                   gamma: float = 0.92) -> np.ndarray:
+def enhance_colors(rgb01: np.ndarray, *, saturation: float = 1.25,
+                   percentiles: tuple[float, float] = (0.5, 99.8),
+                   gamma: float = 1.0) -> np.ndarray:
     """Mild saturation/contrast/gamma boost for camera-projected point colours.
 
     Multi-view averaging plus indoor auto-exposure washes the projected
@@ -327,7 +327,7 @@ def build_parser() -> argparse.ArgumentParser:
                         'camera-projected colours (photoreal-coloured map; needs '
                         'build_lidar_init.py --color-transforms), enhanced via '
                         '--saturation and with unseen grey points dropped')
-    p.add_argument('--saturation', type=float, default=1.45,
+    p.add_argument('--saturation', type=float, default=1.25,
                    help='saturation boost for --color-mode rgb (1.0 = off)')
     p.add_argument('--cam-lift', type=float, default=5.5,
                    help='camera height above the ride point in metres')

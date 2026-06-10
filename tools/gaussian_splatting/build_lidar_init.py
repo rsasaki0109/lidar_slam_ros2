@@ -104,25 +104,29 @@ def build(args: argparse.Namespace) -> dict:
     if args.max_points > 0 and world.shape[0] > args.max_points:
         rng = np.random.default_rng(0)
         world = world[rng.choice(world.shape[0], args.max_points, replace=False)]
+    if args.min_neighbors > 0:
+        keep = pcio.drop_sparse_points(world, args.min_neighbors, args.sparse_voxel)
+        world = world[keep]
     rgb = None
     colored = 0
     if args.color_transforms:
-        rgb, seen = _colorize(world, args.color_transforms)
+        rgb, seen = _colorize(world, args.color_transforms, robust=args.color_robust)
         colored = int(seen.sum())
     out = pcio.write_ply(args.out, world, rgb)
     return {'scans_used': used, 'scans_skipped': skipped,
             'points': int(world.shape[0]), 'colored': colored, 'out': str(out)}
 
 
-def _colorize(world: np.ndarray, transforms_path: str):
+def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False):
     """Project ``world`` points into the posed images of a transforms.json."""
     import imageio.v3 as iio
     import train_gsplat as tg
 
     ds = tg.load_transforms(transforms_path)
     images = [np.asarray(iio.imread(p)) for p in ds['image_paths']]
-    return pcio.colorize_by_projection(
-        world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'])
+    fn = (pcio.colorize_by_projection_robust if robust
+          else pcio.colorize_by_projection)
+    return fn(world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'])
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -149,6 +153,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--color-transforms', default=None,
                    help='transforms.json (+ images) to colour the init cloud by '
                         'projection; seeds Gaussian colour instead of flat grey')
+    p.add_argument('--color-robust', action='store_true',
+                   help='use the occlusion-aware / exposure-normalised / median '
+                        'colorizer instead of the plain all-view average (slower; '
+                        'much cleaner colours for map flythroughs)')
+    p.add_argument('--min-neighbors', type=int, default=0,
+                   help='drop points whose 3x3x3 voxel neighbourhood (see '
+                        '--sparse-voxel) holds fewer points; 0 disables. Removes '
+                        'isolated stray returns that render as dust')
+    p.add_argument('--sparse-voxel', type=float, default=0.08,
+                   help='voxel size (m) for the --min-neighbors density filter')
     return p
 
 
