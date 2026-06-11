@@ -28,13 +28,16 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 """
-Regression tests for the deterministic_loop_scheduling default (v0.4 D1).
+Regression tests for the event_driven_loop_search default (v0.6 Phase 3).
 
-deterministic_loop_scheduling is the opt-in flag that switches searchLoop from
-the historical wall-clock-driven single-latest query to a deterministic
-catch-up over every un-queried submap. It MUST default off so the published
-benchmark behaviour stays the validated single-latest path; flipping it on is a
-behaviour change that needs the 8-vs-16 reproducibility validation first.
+event_driven_loop_search runs loop search once per submap arrival in arrival
+order, making the (query, db) pair set a pure function of the input stream
+instead of wall-clock timer batching (the v0.4 D1 nondeterminism root cause).
+It defaults ON since the v0.6 Phase 3 flip; the shipped parameter files must
+document the flag and keep it on so the published behaviour matches the
+determinism evidence (offline 3-run byte-identical loop edges on the MID-360
+and NTU substrates). The retired deterministic_loop_scheduling parameter must
+not reappear.
 """
 
 from __future__ import annotations
@@ -61,19 +64,28 @@ def _load_graph_params(path: Path) -> dict:
 
 
 @pytest.mark.parametrize('path', PARAM_FILES, ids=lambda p: p.name)
-def test_deterministic_loop_scheduling_present(path):
+def test_event_driven_loop_search_present(path):
     params = _load_graph_params(path)
-    assert 'deterministic_loop_scheduling' in params, (
-        f'{path.name}: deterministic_loop_scheduling must be documented so '
-        'operators can discover the opt-in flag'
+    assert 'event_driven_loop_search' in params, (
+        f'{path.name}: event_driven_loop_search must be documented so '
+        'operators can discover the legacy-timer escape hatch'
     )
 
 
 @pytest.mark.parametrize('path', PARAM_FILES, ids=lambda p: p.name)
-def test_deterministic_loop_scheduling_defaults_off(path):
+def test_event_driven_loop_search_defaults_on(path):
     params = _load_graph_params(path)
-    assert params['deterministic_loop_scheduling'] is False, (
-        f'{path.name}: deterministic_loop_scheduling must default off so the '
-        'published single-latest benchmark behaviour stays unchanged until the '
-        '8-vs-16 reproducibility validation lands'
+    assert params['event_driven_loop_search'] is True, (
+        f'{path.name}: event_driven_loop_search must stay on so the shipped '
+        'behaviour matches the v0.6 determinism evidence (3-run byte-identical '
+        'loop edges); the legacy timer path is an opt-out, not the default'
+    )
+
+
+@pytest.mark.parametrize('path', PARAM_FILES, ids=lambda p: p.name)
+def test_deterministic_loop_scheduling_is_retired(path):
+    params = _load_graph_params(path)
+    assert 'deterministic_loop_scheduling' not in params, (
+        f'{path.name}: deterministic_loop_scheduling was retired in v0.6 '
+        'Phase 3 (subsumed by event_driven_loop_search) and must not reappear'
     )
