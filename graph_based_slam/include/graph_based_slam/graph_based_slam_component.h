@@ -157,7 +157,6 @@ private:
     rclcpp::Publisher < lidarslam_msgs::msg::MapArray > ::SharedPtr modified_map_array_pub_;
     rclcpp::Publisher < nav_msgs::msg::Path > ::SharedPtr modified_path_pub_;
     rclcpp::Publisher < sensor_msgs::msg::PointCloud2 > ::SharedPtr modified_map_pub_;
-    rclcpp::TimerBase::SharedPtr loop_detect_timer_;
     rclcpp::Service < std_srvs::srv::Empty > ::SharedPtr map_save_srv_;
 
     using LoopEdge = backend_core::LoopEdgeSet::Edge;
@@ -171,14 +170,12 @@ private:
       const MapSaveRequestHeader request_header,
       const MapSaveRequest request,
       const MapSaveResponse response);
-    void searchLoop();
     // Event-driven scheduling (docs/roadmap/v0.6.md, Phase 2): drain every
     // submap not yet used as a loop-search query, in arrival order, each
     // against exactly the map state [0..q] so the result is a function of
     // the data, not of how the executor batched arrivals.
     void runEventDrivenLoopSearch();
-    // Per-query loop search body, factored out of searchLoop() so the scheduler
-    // can run it for one (default) or many (deterministic mode) query submaps.
+    // Per-query loop search body shared by the event-driven drain.
     void searchLoopForLatest(
       const lidarslam_msgs::msg::MapArray & map_array_msg,
       LoopEdges & loop_edges,
@@ -190,8 +187,7 @@ private:
       const lidarslam_msgs::msg::MapArray & map_array_msg);
     bool snapshotGraphState(
       lidarslam_msgs::msg::MapArray & map_array_msg,
-      LoopEdges & loop_edges,
-      bool consume_map_update);
+      LoopEdges & loop_edges);
     void snapshotLoopEdges(LoopEdges & loop_edges);
     bool upsertLoopEdge(const LoopEdge & loop_edge);
     void doPoseAdjustment(
@@ -201,7 +197,6 @@ private:
     void publishMapAndPose();
 
     // loop search parameter
-    int loop_detection_period_;
     double threshold_loop_closure_score_;
     double scan_context_loop_closure_score_threshold_ {-1.0};
     double distance_loop_closure_;
@@ -218,14 +213,11 @@ private:
     double loop_max_translation_delta_descriptor_ {-1.0};
     double loop_max_rotation_delta_deg_descriptor_ {-1.0};
     int last_searched_submap_idx_ {-1};
-    // Event-driven loop search (default on since v0.6 Phase 3). When true,
-    // loop search runs once per submap arrival in arrival order (each query
-    // sees exactly the map state up to itself) and the wall timer becomes a
-    // no-op. When false, the legacy wall-clock timer path queries only the
-    // single latest submap per tick (scheduled for removal one release after
-    // the default flip). Subsumes the retired deterministic_loop_scheduling
-    // parameter (v0.4 D1).
-    bool event_driven_loop_search_ {true};
+    // Event-driven loop search (the only scheduling semantics since v0.7
+    // Phase 0): loop search runs once per submap arrival in arrival order,
+    // each query seeing exactly the map state up to itself. The legacy
+    // wall-clock timer path and the retired deterministic_loop_scheduling
+    // parameter (v0.4 D1) are gone.
 
     // pose graph optimization parameter
     int num_adjacent_pose_cnstraints_;
@@ -257,7 +249,6 @@ private:
     double adjacent_edge_info_auto_scale_target_nis_rot_ {3.0};
 
     bool initial_map_array_received_ {false};
-    bool is_map_array_updated_ {false};
     int previous_submaps_num_ {0};
 
     backend_core::LoopEdgeSet loop_edge_set_;
