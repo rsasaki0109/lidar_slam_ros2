@@ -16,6 +16,7 @@ INPUT_BAG=""
 RUNS=3
 PLAY_RATE="1.0"
 DRAIN_SECS="10"
+ADJACENT_WINDOW=5
 LIDARSLAM_PARAM="lidarslam/param/lidarslam_mid360_rko_graph.yaml"
 LIDARSLAM_PARAM_GIVEN=false
 REFERENCE_TUM="output/glim_mid360_reference.tum"
@@ -54,6 +55,10 @@ Options:
 
   --drain-secs SECS
       Seconds to wait after bag playback before /map_save. Default: 10
+
+  --adjacent-window N
+      g2o edges with |i-j| <= N are treated as odometry adjacency constraints,
+      not loop closures (match num_adjacent_pose_cnstraints). Default: 5
 
   --lidarslam-param FILE
       graph_based_slam parameter file.
@@ -299,7 +304,9 @@ extract_loop_edges() {
     return 1
   fi
 
-  awk '
+  # Edges within num_adjacent_pose_cnstraints (default 5) of each other are
+  # odometry adjacency constraints, not loop closures.
+  awk -v window="${ADJACENT_WINDOW}" '
     $1 == "EDGE_SE3:QUAT" {
       i = $2
       j = $3
@@ -307,7 +314,7 @@ extract_loop_edges() {
       if (d < 0) {
         d = -d
       }
-      if (d > 1) {
+      if (d > window) {
         if (i <= j) {
           print i, j
         } else {
@@ -345,16 +352,19 @@ run_one_replay() {
 
   echo "Replay run ${idx}: ${run_dir}"
 
-  setsid ros2 run graph_based_slam graph_based_slam_node --ros-args \
-    --params-file "${LIDARSLAM_PARAM}" \
-    -r odom_input:=/rko_lio/odometry \
-    -r cloud_input:=/rko_lio/frame \
-    -p use_odom_input:=true \
-    -p use_sim_time:=true \
-    -p map_save_dir:="${run_dir}" \
-    -p save_map_path:="${run_dir}/map.pcd" \
-    -p save_pose_graph_path:="${run_dir}/pose_graph.g2o" \
-    > "${run_dir}/backend.log" 2>&1 &
+  # The backend writes pose_graph.g2o into its CWD (hardcoded relative path
+  # in doPoseAdjustment), so give every run its own working directory.
+  (
+    cd "${run_dir}" && exec setsid ros2 run graph_based_slam graph_based_slam_node --ros-args \
+      --params-file "${LIDARSLAM_PARAM}" \
+      -r odom_input:=/rko_lio/odometry \
+      -r cloud_input:=/rko_lio/frame \
+      -p use_odom_input:=true \
+      -p use_sim_time:=true \
+      -p map_save_dir:="${run_dir}" \
+      -p save_map_path:="${run_dir}/map.pcd" \
+      -p save_pose_graph_path:="${run_dir}/pose_graph.g2o"
+  ) > "${run_dir}/backend.log" 2>&1 &
   BACKEND_PID=$!
   BACKEND_PGID="${BACKEND_PID}"
 
@@ -479,6 +489,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --drain-secs)
       DRAIN_SECS="$2"
+      shift 2
+      ;;
+    --adjacent-window)
+      ADJACENT_WINDOW="$2"
       shift 2
       ;;
     --lidarslam-param)
