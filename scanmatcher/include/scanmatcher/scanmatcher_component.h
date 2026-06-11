@@ -58,6 +58,7 @@ extern "C" {
 
 #include <lidarslam_msgs/msg/map_array.hpp>
 #include "scanmatcher/lidar_undistortion.hpp"
+#include "scanmatcher/pose_acceptance.hpp"
 #include "scanmatcher/pose_prediction.hpp"
 #include "scanmatcher/voxel_hash_map.hpp"
 
@@ -90,12 +91,7 @@ public:
     explicit ScanMatcherComponent(const rclcpp::NodeOptions & options);
 
 private:
-    enum class TrackingState
-    {
-      Tracking,
-      Suspect,
-      Recovery
-    };
+    using TrackingState = pose_acceptance::TrackingState;
 
     rclcpp::Clock clock_;
     tf2_ros::Buffer tfbuffer_;
@@ -149,6 +145,7 @@ private:
       const std::string & stage);
     Eigen::Matrix4f getTransformation(const geometry_msgs::msg::Pose pose);
     pose_prediction::ImuPredictionConfig makeImuPredictionConfig() const;
+    pose_acceptance::Config makePoseAcceptanceConfig() const;
     void publishMap(const lidarslam_msgs::msg::MapArray & map_array_msg, const std::string & map_frame_id);
     void updateMap(
       const pcl::PointCloud < pcl::PointXYZI > ::ConstPtr cloud_ptr,
@@ -247,28 +244,14 @@ private:
     int reject_warmup_scans_ {20};
     int reject_map_update_cooldown_scans_ {2};
     int hard_reject_map_update_cooldown_scans_ {4};
-    int reject_map_update_cooldown_remaining_ {0};
     int reject_fitness_streak_scans_ {0};
-    int elevated_fitness_streak_ {0};
-    int elevated_trans_streak_ {0};
     int reject_recovery_scans_ {0};
-    int consecutive_reject_count_ {0};
-    double accepted_fitness_ema_ {0.0};
-    double accepted_trans_ema_ {0.0};
-    int accepted_pose_count_ {0};
-    bool reject_stats_initialized_ {false};
     rclcpp::Time previous_pose_stamp_ {0, 0, RCL_ROS_TIME};
     rclcpp::Time last_cloud_stamp_ {0, 0, RCL_ROS_TIME};
     bool last_cloud_stamp_valid_ {false};
-    Eigen::Vector3d previous_pose_diagnostic_position_ {Eigen::Vector3d::Zero()};
-    double previous_pose_diagnostic_yaw_ {0.0};
-    bool previous_pose_diagnostic_valid_ {false};
-    Eigen::Vector3d last_accepted_delta_position_ {Eigen::Vector3d::Zero()};
-    tf2::Quaternion last_accepted_delta_quat_ {0.0, 0.0, 0.0, 1.0};
-    bool last_accepted_delta_valid_ {false};
-    TrackingState tracking_state_ {TrackingState::Tracking};
-    int state_clean_consecutive_accepted_ {0};
-    bool recovery_target_active_ {false};
+    // Pose-acceptance core state (diagnostics, adaptive gates, tracking
+    // state machine, map-update cooldown) — see pose_acceptance.hpp.
+    pose_acceptance::State pose_acceptance_state_;
 
     // map
     Eigen::Vector3d previous_position_;
