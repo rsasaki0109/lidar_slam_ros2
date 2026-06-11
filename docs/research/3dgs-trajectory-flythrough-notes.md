@@ -78,7 +78,12 @@ python3 scripts/download_rtk_slam_dataset.py --sequence construction_seq1
 BAG=... TRAJ=... bash scripts/run_rtkslam_3dgs_flythrough.sh
 ```
 
-成果物: `lidarslam/images/3dgs_rtkslam_walk_sidebyside.gif` / `.mp4`（README 掲載）。
+成果物（当時）: `lidarslam/images/3dgs_rtkslam_walk_sidebyside.gif` / `.mp4`。
+その後、photoreal 区間が立ち止まり撮影クラスタ（崩壊半径 ~0.4m、後述）に限られ
+「移動感」が出せないため、README 掲載は点群マップのフル軌跡フライスルー
+`lidarslam/images/map_flythrough_rtkslam.gif`（`tools/gaussian_splatting/
+render_map_flythrough.py`、等速サードパーソン追従 + 天井カット）に置き換えた。
+左右並べは下記コマンドでいつでも再生成できる。
 README の GIF は「LiDAR SLAM × 3DGS」が一目で伝わるよう、左 = SLAM 点群地図
 （高さカラー）+ 推定軌跡（マゼンタ線、床側に -0.4m オフセット）、右 = 3DGS を
 同一カメラパスで同期描画する左右 2 分割
@@ -114,6 +119,30 @@ net 4-6m/窓)は s5 モデルで 12-15dB の霧。以下すべて失敗:
 **ループフェード**(`--loop-fade`)+ **俯瞰ミニマップ**(全軌跡 + 現在地ドット +
 ライド開始点からの進捗線)。軌跡線の進捗 2 色塗りは一人称では逆効果
 (見えるのは常に「未来」側なので線が暗くなるだけ)でミニマップ側のみに採用。
+
+## 追補 2 (2026-06-11): 崩壊半径の実測と README GIF の置き換え
+
+「軌跡に沿って視点を移動できないか」を 2 テストで決着させた:
+
+1. **look-at パス**: 歩行区間の軌跡上を移動しつつ良再構成領域(ホール中心)を
+   注視 — 全フレーム霧/空白。
+2. **dolly テスト**: photoreal に映る訓練視点の回転を固定し、位置だけ軌跡に沿って
+   後退 — 訓練視点ぴったりは photoreal、**0.4m 横にずれただけで崩壊**。3.5m 以降は
+   完全にゴミ。視点依存過学習 + 歩行ウィングのゴミガウシアンの複合で、カメラパスの
+   工夫では救えない。
+
+よって「地図の中を移動する」絵は点群側で作るのが正解。
+`tools/gaussian_splatting/render_map_flythrough.py` が README 掲載の
+`lidarslam/images/map_flythrough_rtkslam.gif` を生成する:
+
+- **等速化**: 訓練視点列の位置を平滑化 → 弧長一様再サンプル。立ち止まり区間
+  (~90 views が正味 0.3m)は弧長を生まないので自然に消える。
+- **サードパーソン追従**: 現在のライド点を注視し、進行方向の後方 5.5m・上方 5.5m
+  から追従。被写体が常に画面中心なので「地図の外の暗闇を向く」ことが構造的にない。
+  一人称(ドットスープ化)・固定俯角ドローン(天井/足場ノイズ壁)は試して負け。
+- **天井カット**: 最寄り軌跡点の高さ +2.3m より上の点を除去(ランプ追従の cutaway)。
+- 訓練視点の平均 up はセンサ取り付け傾き ~20° を含むため up は world z を使う。
+  OpenCV c2w の right は `cross(forward, up)`(逆順だと 180° ロール)。
 
 ## 今後
 
