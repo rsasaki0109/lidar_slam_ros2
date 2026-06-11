@@ -10,10 +10,13 @@ centred in frame. Points above the local walking height are cut away so the
 indoor scene reads as a cutaway bird's-eye view instead of a ceiling wall.
 
 Unlike the photoreal 3DGS pane (which only holds up next to its training
-views), the point-cloud map renders from any viewpoint, so this is the
-"actually travel through the map" companion to
+views; from a third-person viewpoint the trained gaussians render as
+confetti noise), the point-cloud map renders from any viewpoint, so this is
+the "actually travel through the map" companion to
 ``render_slam_3dgs_sidebyside.py`` and reuses its height-colouring,
-trajectory-line, minimap and fade helpers. The pure path helpers
+trajectory-line, minimap and fade helpers. With ``--color-mode rgb`` and an
+init cloud colorized by ``build_lidar_init.py --color-transforms`` the map
+is drawn in the real camera-projected colours instead of the height ramp. The pure path helpers
 (``moving_average_edge``, ``resample_equal_arclength``, ``smooth_tangents``,
 ``third_person_path``, ``build_viewmats``, ``ceiling_cut_mask``) are
 numpy-only and unit tested on CPU; rendering needs CUDA + torch + gsplat.
@@ -159,6 +162,34 @@ def build_viewmats(eyes: np.ndarray, forwards: np.ndarray) -> np.ndarray:
     return viewmats
 
 
+def enhance_colors(rgb01: np.ndarray, *, saturation: float = 1.45,
+                   percentiles: tuple[float, float] = (2.0, 99.5),
+                   gamma: float = 0.92) -> np.ndarray:
+    """Mild saturation/contrast/gamma boost for camera-projected point colours.
+
+    Multi-view averaging plus indoor auto-exposure washes the projected
+    colours out; this stretches them back without clipping more than the
+    given percentiles. Input and output are float RGB in [0, 1].
+    """
+    rgb01 = np.asarray(rgb01, dtype=np.float64)
+    lum = rgb01.mean(axis=1, keepdims=True)
+    out = np.clip(lum + (rgb01 - lum) * float(saturation), 0.0, 1.0)
+    lo, hi = np.percentile(out, list(percentiles))
+    if not (np.isfinite(lo) and np.isfinite(hi)) or hi - lo < 1.0e-3:
+        return out  # near-uniform colours: stretching would amplify noise
+    return np.clip((out - lo) / (hi - lo), 0.0, 1.0) ** float(gamma)
+
+
+def uncolored_mask(rgb_u8: np.ndarray, default_rgb=(128, 128, 128)) -> np.ndarray:
+    """True for points still carrying the colorizer's default (unseen) colour.
+
+    ``build_lidar_init.py --color-transforms`` paints points no camera ever
+    saw with ``default_rgb``; those grey points smear the cutaway view and are
+    dropped in rgb colour mode.
+    """
+    return np.all(np.asarray(rgb_u8) == np.asarray(default_rgb), axis=1)
+
+
 def ceiling_cut_mask(xyz: np.ndarray, ride_positions: np.ndarray, height: float,
                      chunk: int = 50000) -> np.ndarray:
     """Keep-mask of points at most ``height`` above the *local* walking height.
@@ -209,13 +240,26 @@ def build_scene(args: argparse.Namespace) -> dict:
 def render_flythrough(scene: dict, args: argparse.Namespace,
                       frame_indices: np.ndarray) -> np.ndarray:
     """Render the selected frames (map + per-frame culled trajectory line)."""
-    xyz, _ = pcio.read_ply_xyz(args.pointcloud)
+    xyz, rgb = pcio.read_ply_xyz(args.pointcloud)
+    keep = np.ones(len(xyz), dtype=bool)
     if args.ceiling_cut > 0.0:
-        keep = ceiling_cut_mask(xyz, scene['raw_positions'], args.ceiling_cut)
-        print(f'ceiling cut: {len(xyz)} -> {int(keep.sum())} points')
-        xyz = xyz[keep]
-    cloud = points_to_gaussians(xyz, height_colormap(xyz[:, 2]),
-                                args.point_size, 0.95)
+        keep &= ceiling_cut_mask(xyz, scene['raw_positions'], args.ceiling_cut)
+    if args.color_mode == 'rgb':
+        if rgb is None:
+            raise SystemExit('--color-mode rgb needs a coloured ply (rebuild the '
+                             'init cloud with build_lidar_init.py --color-transforms)')
+        keep &= ~uncolored_mask(rgb)
+    print(f'ceiling cut / colour filter: {len(xyz)} -> {int(keep.sum())} points')
+    if not keep.any():
+        raise SystemExit('no map points survive the ceiling cut / colour filter '
+                         '(is the ply colorized and does it overlap the trajectory?)')
+    xyz = xyz[keep]
+    if args.color_mode == 'rgb':
+        colors = enhance_colors(rgb[keep].astype(np.float64) / 255.0,
+                                saturation=args.saturation)
+    else:
+        colors = height_colormap(xyz[:, 2])
+    cloud = points_to_gaussians(xyz, colors, args.point_size, 0.95)
     line = scene['line']
     line_rgb = np.tile(np.array([1.0, 40.0 / 255.0, 220.0 / 255.0]),
                        (len(line), 1))
@@ -276,7 +320,15 @@ def build_parser() -> argparse.ArgumentParser:
                    help='render-resolution scale relative to the training images')
     p.add_argument('--point-size', type=float, default=0.03,
                    help='map point Gaussian sigma in metres (bigger than the '
-                        'side-by-side default: the camera travels close to the cloud)')
+                        'side-by-side default: the camera travels close to the cloud; '
+                        'use ~0.018 for a dense camera-coloured cloud)')
+    p.add_argument('--color-mode', choices=('height', 'rgb'), default='height',
+                   help='height = cold-to-warm height ramp; rgb = the ply\'s own '
+                        'camera-projected colours (photoreal-coloured map; needs '
+                        'build_lidar_init.py --color-transforms), enhanced via '
+                        '--saturation and with unseen grey points dropped')
+    p.add_argument('--saturation', type=float, default=1.45,
+                   help='saturation boost for --color-mode rgb (1.0 = off)')
     p.add_argument('--cam-lift', type=float, default=5.5,
                    help='camera height above the ride point in metres')
     p.add_argument('--follow-back', type=float, default=5.5,

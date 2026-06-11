@@ -131,9 +131,15 @@ net 4-6m/窓)は s5 モデルで 12-15dB の霧。以下すべて失敗:
    完全にゴミ。視点依存過学習 + 歩行ウィングのゴミガウシアンの複合で、カメラパスの
    工夫では救えない。
 
-よって「地図の中を移動する」絵は点群側で作るのが正解。
-`tools/gaussian_splatting/render_map_flythrough.py` が README 掲載の
-`lidarslam/images/map_flythrough_rtkslam.gif` を生成する:
+サードパーソン俯瞰での学習済み 3DGS も不成立: LiDAR 距離フィルタ(0.1m)+
+不透明度 >0.6 + サイズ <0.1m + SH 有無の全組み合わせでコンフェッティ状ノイズ
+(ガウシアンの色が地上の訓練視点方向でしか意味を持たない)。
+
+よって「地図の中を移動する」絵は点群側で作るのが正解。実色が欲しい場合は
+カメラ画像を LiDAR 点群へ投影する(`build_lidar_init.py --color-transforms`、
+2.5M 点中 2.08M 着色)。README 掲載 GIF はこの実色点群を
+`tools/gaussian_splatting/render_map_flythrough.py --color-mode rgb`
+(彩度 1.45x + percentile コントラスト補正、未着色グレー点は除外)で描画:
 
 - **等速化**: 訓練視点列の位置を平滑化 → 弧長一様再サンプル。立ち止まり区間
   (~90 views が正味 0.3m)は弧長を生まないので自然に消える。
