@@ -38,6 +38,19 @@ Options:
                                 Override segment-reset dashboard HTML
   --public-mid360-min-segment-rko-poses <n>
                                 Minimum TUM poses for each reset segment
+  --offline-determinism-bag <dir>
+                                Run the offline backend determinism hard gate
+                                (Phase 2, docs/roadmap/v0.6.md) on this
+                                recorded backend-input bag; any byte-level
+                                mismatch across runs fails the gate
+  --offline-determinism-runs <n>
+                                Run count for the determinism gate (default: 3)
+  --offline-determinism-params <yaml>
+                                Parameter file for the determinism gate
+                                (default: lidarslam/param/lidarslam_mid360_rko_graph.yaml)
+  --offline-determinism-reference-tum <tum>
+                                Optional reference trajectory; adds per-run APE
+                                to the determinism report (report only)
   --dogfood                     Run the Autoware pointcloud-map dogfood flow
   --autoware-core-dir <dir>     autoware_core checkout for dogfood
   --work-dir <dir>              Runtime workspace directory for dogfood
@@ -51,7 +64,9 @@ It can run:
   1. local build/test verification
   2. benchmark summary and HTML report generation from existing metrics.json runs
   3. optional public MID-360 segment-reset completion gate
-  4. optional Autoware map dogfood
+  4. optional offline backend determinism hard gate (byte-identical loop edges
+     and optimized trajectory across N runs on a recorded backend-input bag)
+  5. optional Autoware map dogfood
 
 When --ape-threshold is provided, the benchmark summary becomes a hard gate and
 the script exits non-zero if any selected run is missing APE or exceeds the
@@ -89,6 +104,11 @@ PUBLIC_MID360_SEGMENT_MAP_ALIGNMENT=""
 PUBLIC_MID360_ADOPTION_GATE=""
 PUBLIC_MID360_DASHBOARD_HTML=""
 PUBLIC_MID360_MIN_SEGMENT_RKO_POSES=""
+
+OFFLINE_DETERMINISM_BAG=""
+OFFLINE_DETERMINISM_RUNS=""
+OFFLINE_DETERMINISM_PARAMS=""
+OFFLINE_DETERMINISM_REFERENCE_TUM=""
 
 AUTOWARE_CORE_DIR=""
 WORK_DIR=""
@@ -186,6 +206,26 @@ while [[ $# -gt 0 ]]; do
     --public-mid360-min-segment-rko-poses)
       [[ $# -ge 2 ]] || usage
       PUBLIC_MID360_MIN_SEGMENT_RKO_POSES="$2"
+      shift 2
+      ;;
+    --offline-determinism-bag)
+      [[ $# -ge 2 ]] || usage
+      OFFLINE_DETERMINISM_BAG=$(realpath -m "$2")
+      shift 2
+      ;;
+    --offline-determinism-runs)
+      [[ $# -ge 2 ]] || usage
+      OFFLINE_DETERMINISM_RUNS="$2"
+      shift 2
+      ;;
+    --offline-determinism-params)
+      [[ $# -ge 2 ]] || usage
+      OFFLINE_DETERMINISM_PARAMS=$(realpath -m "$2")
+      shift 2
+      ;;
+    --offline-determinism-reference-tum)
+      [[ $# -ge 2 ]] || usage
+      OFFLINE_DETERMINISM_REFERENCE_TUM=$(realpath -m "$2")
       shift 2
       ;;
     --dogfood)
@@ -314,6 +354,26 @@ if [[ "${RUN_PUBLIC_MID360_COMPLETION}" == "true" ]]; then
   "${PUBLIC_MID360_CMD[@]}" 2>&1 | tee "${OUT_DIR}/public_mid360_completion_gate.log"
 fi
 
+if [[ -n "${OFFLINE_DETERMINISM_BAG}" ]]; then
+  echo "==> Running offline backend determinism hard gate"
+  OFFLINE_DETERMINISM_CMD=(
+    bash
+    "${REPO_ROOT}/scripts/run_offline_determinism_check.sh"
+    --bag "${OFFLINE_DETERMINISM_BAG}"
+    --output-dir "${OUT_DIR}/offline_determinism"
+  )
+  if [[ -n "${OFFLINE_DETERMINISM_RUNS}" ]]; then
+    OFFLINE_DETERMINISM_CMD+=(--runs "${OFFLINE_DETERMINISM_RUNS}")
+  fi
+  if [[ -n "${OFFLINE_DETERMINISM_PARAMS}" ]]; then
+    OFFLINE_DETERMINISM_CMD+=(--params "${OFFLINE_DETERMINISM_PARAMS}")
+  fi
+  if [[ -n "${OFFLINE_DETERMINISM_REFERENCE_TUM}" ]]; then
+    OFFLINE_DETERMINISM_CMD+=(--reference-tum "${OFFLINE_DETERMINISM_REFERENCE_TUM}")
+  fi
+  "${OFFLINE_DETERMINISM_CMD[@]}" 2>&1 | tee "${OUT_DIR}/offline_determinism.log"
+fi
+
 if [[ "${RUN_DOGFOOD}" == "true" ]]; then
   echo "==> Running Autoware pointcloud-map dogfood"
   DOGFOOD_CMD=(
@@ -356,4 +416,7 @@ fi
 if [[ -n "${PUBLIC_MID360_COMPLETION_OUTPUT_DIR}" \
   && -f "${PUBLIC_MID360_COMPLETION_OUTPUT_DIR}/mid360_robot_public_completion_gate.md" ]]; then
   echo "  public_mid360_completion_gate_md: ${PUBLIC_MID360_COMPLETION_OUTPUT_DIR}/mid360_robot_public_completion_gate.md"
+fi
+if [[ -f "${OUT_DIR}/offline_determinism/offline_determinism_summary.md" ]]; then
+  echo "  offline_determinism_summary_md: ${OUT_DIR}/offline_determinism/offline_determinism_summary.md"
 fi
