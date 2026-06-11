@@ -159,12 +159,7 @@ private:
     rclcpp::TimerBase::SharedPtr loop_detect_timer_;
     rclcpp::Service < std_srvs::srv::Empty > ::SharedPtr map_save_srv_;
 
-    struct LoopEdge
-    {
-      std::pair < int, int > pair_id;
-      Eigen::Isometry3d relative_pose;
-      double fitness_score {0.0};
-    };
+    using LoopEdge = backend_core::LoopEdgeSet::Edge;
     using LoopEdges = std::vector < LoopEdge >;
     using MapSaveRequestHeader = std::shared_ptr < rmw_request_id_t >;
     using MapSaveRequest = std::shared_ptr < std_srvs::srv::Empty::Request >;
@@ -269,7 +264,7 @@ private:
     bool is_map_array_updated_ {false};
     int previous_submaps_num_ {0};
 
-    LoopEdges loop_edges_;
+    backend_core::LoopEdgeSet loop_edge_set_;
 
     bool debug_flag_ {false};
 
