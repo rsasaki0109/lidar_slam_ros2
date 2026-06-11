@@ -173,6 +173,48 @@ TEST(PoseGraphOptimization, GnssAnchorPullsVertexTowardAnchor)
     << "a strong GNSS anchor must substantially reduce the anchored vertex error";
 }
 
+TEST(PoseGraphOptimization, FreeGaugeLetsAnchorsGovernTheGlobalPose)
+{
+  // A straight 11-node chain along +x, anchored by GNSS constraints that
+  // live in a frame translated by (100, 50): with the vertex-0 gauge
+  // released the whole graph must settle onto the anchors; with the gauge
+  // fixed it cannot.
+  std::vector<SubmapNode> submaps;
+  for (int i = 0; i <= 10; ++i) {
+    SubmapNode node;
+    node.pose = Eigen::Isometry3d::Identity();
+    node.pose.translation() = Eigen::Vector3d(static_cast<double>(i), 0.0, 0.0);
+    submaps.push_back(node);
+  }
+  std::vector<GnssConstraint> anchors;
+  for (int i = 0; i <= 10; i += 2) {
+    GnssConstraint g;
+    g.submap_index = i;
+    g.position = Eigen::Vector3d(static_cast<double>(i) + 100.0, 50.0, 0.0);
+    g.info_diag = Eigen::Vector3d(1000.0, 1000.0, 1000.0);
+    anchors.push_back(g);
+  }
+
+  const auto fixed_gauge = optimizePoseGraph(
+    submaps, {}, {}, anchors,
+    AdjacentEdgeConfig{}, LoopEdgeConfig{}, ImuEdgeConfig{}, Chi2Collection::NONE,
+    /*fix_first_vertex=*/ true);
+  const auto free_gauge = optimizePoseGraph(
+    submaps, {}, {}, anchors,
+    AdjacentEdgeConfig{}, LoopEdgeConfig{}, ImuEdgeConfig{}, Chi2Collection::NONE,
+    /*fix_first_vertex=*/ false, /*iterations=*/ 50);
+
+  const Eigen::Vector3d anchor0(100.0, 50.0, 0.0);
+  const double err_fixed = (fixed_gauge.poses[0].translation() - anchor0).norm();
+  const double err_free = (free_gauge.poses[0].translation() - anchor0).norm();
+  EXPECT_GT(err_fixed, 50.0) << "the pinned vertex cannot reach the anchor frame";
+  EXPECT_LT(err_free, 1.0) << "with the gauge released the graph must settle on the anchors";
+  // Chain shape is preserved while moving.
+  const double length_free =
+    (free_gauge.poses[10].translation() - free_gauge.poses[0].translation()).norm();
+  EXPECT_NEAR(length_free, 10.0, 0.5);
+}
+
 TEST(PoseGraphOptimization, Chi2CollectionModesPopulateExpectedVectors)
 {
   const auto submaps = makeDriftedChain();

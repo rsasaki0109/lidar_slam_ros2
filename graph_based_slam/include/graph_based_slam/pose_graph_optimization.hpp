@@ -146,6 +146,9 @@ inline OptimizationResult optimizePoseGraph(
   const LoopEdgeConfig & loop_cfg,
   const ImuEdgeConfig & imu_cfg,
   Chi2Collection chi2_collection,
+  // When GNSS anchors provide the gauge, release vertex 0 so the graph can
+  // settle into the anchor (ENU) frame; the historical default pins it.
+  bool fix_first_vertex = true,
   int iterations = 10,
   const std::string & save_path = std::string())
 {
@@ -165,7 +168,7 @@ inline OptimizationResult optimizePoseGraph(
     g2o::VertexSE3 * vertex_se3 = new g2o::VertexSE3();
     vertex_se3->setId(i);
     vertex_se3->setEstimate(pose);
-    if (i == 0) {vertex_se3->setFixed(true);}
+    if (i == 0 && fix_first_vertex) {vertex_se3->setFixed(true);}
     optimizer.addVertex(vertex_se3);
 
     if (i > 0) {

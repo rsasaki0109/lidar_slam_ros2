@@ -40,6 +40,7 @@
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
 #include "graph_based_slam/bev_mutual_visibility.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
+#include "graph_based_slam/gnss_alignment.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/submap_creation.hpp"
 #include "g2o/core/robust_kernel_impl.h"
@@ -381,6 +382,12 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("gnss_non_rtk_weight_scale", gnss_non_rtk_weight_scale_);
   declare_parameter("gnss_header_stamp_max_skew_sec", 30.0);
   get_parameter("gnss_header_stamp_max_skew_sec", gnss_header_stamp_max_skew_sec_);
+  declare_parameter("gnss_align_yaw", true);
+  get_parameter("gnss_align_yaw", gnss_align_yaw_);
+  declare_parameter("gnss_yaw_alignment_min_anchors", 10);
+  get_parameter("gnss_yaw_alignment_min_anchors", gnss_yaw_alignment_min_anchors_);
+  declare_parameter("gnss_yaw_alignment_min_baseline_m", 5.0);
+  get_parameter("gnss_yaw_alignment_min_baseline_m", gnss_yaw_alignment_min_baseline_m_);
   declare_parameter("gnss_origin_min_samples", 3);
   get_parameter("gnss_origin_min_samples", gnss_origin_min_samples_);
   declare_parameter("gnss_origin_consistency_threshold_m", 20.0);
@@ -2700,6 +2707,48 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     }
   }
 
+  // GNSS yaw alignment: the odometry frame's x axis is the initial heading,
+  // the anchors' x axis is east. Estimate the planar odom->ENU transform,
+  // move the whole graph into the ENU frame, and release the vertex-0 gauge
+  // so the anchors govern the global pose — without this the anchors shear
+  // the map (docs/research/gnss-constraint-first-validation.md).
+  bool fix_first_vertex = true;
+  if (gnss_align_yaw_ && !gnss_constraints.empty()) {
+    std::vector<Eigen::Vector2d> odom_xy;
+    std::vector<Eigen::Vector2d> enu_xy;
+    odom_xy.reserve(gnss_constraints.size());
+    enu_xy.reserve(gnss_constraints.size());
+    for (const auto & gnss_constraint : gnss_constraints) {
+      const Eigen::Vector3d p = submap_nodes[gnss_constraint.submap_index].pose.translation();
+      odom_xy.emplace_back(p.x(), p.y());
+      enu_xy.emplace_back(gnss_constraint.position.x(), gnss_constraint.position.y());
+    }
+    const auto alignment = gnss_alignment::estimatePlanarAlignment(
+      odom_xy, enu_xy, gnss_yaw_alignment_min_anchors_, gnss_yaw_alignment_min_baseline_m_);
+    if (alignment.valid) {
+      Eigen::Isometry3d enu_from_odom = Eigen::Isometry3d::Identity();
+      enu_from_odom.linear() =
+        Eigen::AngleAxisd(alignment.yaw_rad, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+      enu_from_odom.translation() =
+        Eigen::Vector3d(alignment.translation.x(), alignment.translation.y(), 0.0);
+      for (auto & node : submap_nodes) {
+        node.pose = enu_from_odom * node.pose;
+      }
+      fix_first_vertex = false;
+      RCLCPP_INFO(
+        get_logger(),
+        "GNSS yaw alignment applied: yaw=%.2f deg, baseline=%.1f m, rms=%.2f m; "
+        "vertex-0 gauge released, graph moves to the ENU frame",
+        alignment.yaw_rad * 180.0 / M_PI, alignment.baseline_m, alignment.rms_residual_m);
+    } else if (debug_flag_) {
+      RCLCPP_INFO(
+        get_logger(),
+        "GNSS yaw alignment not applied (pairs=%zu, baseline=%.1f m); keeping the "
+        "vertex-0 gauge",
+        odom_xy.size(), alignment.baseline_m);
+    }
+  }
+
   pose_graph::AdjacentEdgeConfig adjacent_cfg;
   adjacent_cfg.num_adjacent_pose_constraints = num_adjacent_pose_cnstraints_;
   adjacent_cfg.split_trans_rot = adjacent_edge_info_auto_scale_split_trans_rot_;
@@ -2725,7 +2774,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   const pose_graph::OptimizationResult opt_result = pose_graph::optimizePoseGraph(
     submap_nodes, loop_constraints, imu_constraints, gnss_constraints,
     adjacent_cfg, loop_cfg, imu_cfg, chi2_collection,
-    /*iterations=*/ 10, save_pose_graph_path_);
+    fix_first_vertex, /*iterations=*/ 10, save_pose_graph_path_);
 
   if (adjacent_edge_info_auto_scale_ && submaps_size > 1) {
     graphslam::detail::AutoScaleConfig cfg;
