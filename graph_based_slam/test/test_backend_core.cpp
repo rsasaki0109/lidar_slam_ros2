@@ -37,8 +37,16 @@
 
 #include <gtest/gtest.h>
 
+#include <random>
+#include <string>
 #include <utility>
 #include <vector>
+
+#include <pclomp/ndt_omp.h>  // NOLINT(build/include_order)
+// The prebuilt ndt_omp library only instantiates PointXYZ; pull in the
+// template implementations for the PointXYZI instantiation used here.
+#include <pclomp/ndt_omp_impl.hpp>  // NOLINT(build/include_order)
+#include <pclomp/voxel_grid_covariance_omp_impl.hpp>  // NOLINT(build/include_order)
 
 #include "graph_based_slam/backend_core.hpp"
 
@@ -213,6 +221,177 @@ TEST(BackendCoreIngestion, SameOrderedInputProducesBitwiseIdenticalState)
     EXPECT_DOUBLE_EQ((solid_a.angle - solid_b.angle).cwiseAbs().maxCoeff(), 0.0);
     EXPECT_DOUBLE_EQ((solid_a.solid - solid_b.solid).cwiseAbs().maxCoeff(), 0.0);
   }
+}
+
+// --- searchLoopForSubmap characterization -------------------------------
+//
+// A revisit scenario driven by the DISTANCE source only: submap 0 and the
+// query submap share the same structured cloud near the origin, the
+// in-between submaps sit far away (and return empty clouds), so the only
+// loop candidate is 0 and real NDT verifies it.
+
+pcl::PointCloud<pcl::PointXYZI>::Ptr makeStructuredCloud()
+{
+  pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
+  std::mt19937 rng(42);
+  std::uniform_real_distribution<float> jitter(-0.05f, 0.05f);
+  for (int i = 0; i < 20; ++i) {
+    for (int j = 0; j < 20; ++j) {
+      pcl::PointXYZI pt;
+      pt.x = static_cast<float>(i) - 10.0f + jitter(rng);
+      pt.y = static_cast<float>(j) - 10.0f + jitter(rng);
+      pt.z = static_cast<float>((i * 7 + j * 3) % 5) * 0.4f + jitter(rng);
+      pt.intensity = 1.0f;
+      cloud->push_back(pt);
+    }
+  }
+  return cloud;
+}
+
+std::vector<backend_core::SubmapMeta> makeRevisitTrajectory()
+{
+  std::vector<backend_core::SubmapMeta> submaps(11);
+  for (int i = 0; i < 11; ++i) {
+    submaps[i].travel_distance = 10.0 * i;
+    if (i == 0) {
+      submaps[i].pose = Eigen::Affine3d::Identity();
+    } else if (i == 10) {
+      submaps[i].pose = Eigen::Affine3d(Eigen::Translation3d(0.3, 0.0, 0.0));
+    } else {
+      submaps[i].pose = Eigen::Affine3d(Eigen::Translation3d(0.0, 1000.0 + i, 0.0));
+    }
+  }
+  return submaps;
+}
+
+BackendCore::LocalSubmapProvider makeRevisitProvider()
+{
+  return [](int idx) -> CloudPtr {
+           if (idx == 0 || idx == 10) {
+             return makeStructuredCloud();
+           }
+           return CloudPtr(new pcl::PointCloud<pcl::PointXYZI>);
+         };
+}
+
+backend_core::LoopSearchConfig makeRevisitSearchConfig()
+{
+  backend_core::LoopSearchConfig config;
+  config.search_submap_num = 1;
+  config.aggregator.max_loop_candidate_count = 3;
+  config.aggregator.distance_loop_closure = 20.0;
+  config.aggregator.range_of_searching_loop_closure = 10.0;
+  config.gates.generic_score_threshold = 10.0;
+  config.gates.max_translation_m = 10.0;
+  config.gates.max_rotation_deg = 180.0;
+  return config;
+}
+
+struct SearchHarness
+{
+  BackendCore core;
+  pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI> ndt;
+  pcl::VoxelGrid<pcl::PointXYZI> voxelgrid;
+  ThreeDBBSLoopVerifier bbs_verifier;
+
+  SearchHarness()
+  {
+    DescriptorConfig descriptor_config;
+    core.configure(descriptor_config);
+    ndt.setNumThreads(1);
+    ndt.setNeighborhoodSearchMethod(pclomp::DIRECT7);
+    ndt.setResolution(2.0F);
+    ndt.setMaximumIterations(35);
+    ndt.setTransformationEpsilon(0.01);
+    voxelgrid.setLeafSize(0.2f, 0.2f, 0.2f);
+  }
+
+  backend_core::LoopSearchOutput run(const backend_core::LoopSearchConfig & config)
+  {
+    return core.searchLoopForSubmap(
+      makeRevisitTrajectory(), 10, config, makeRevisitProvider(), ndt, voxelgrid,
+      bbs_verifier);
+  }
+};
+
+TEST(BackendCoreSearch, FindsTheDistanceRevisitLoop)
+{
+  SearchHarness harness;
+  const auto output = harness.run(makeRevisitSearchConfig());
+
+  ASSERT_TRUE(output.proposal.found);
+  EXPECT_EQ(output.proposal.pair_id, (std::pair<int, int>(0, 10)));
+  EXPECT_LT(output.proposal.fitness_score, 10.0);
+  ASSERT_FALSE(output.logs.empty());
+  EXPECT_EQ(output.logs[0].text, "---");
+  EXPECT_FALSE(output.logs[0].via_logger);
+  bool has_id_line = false;
+  for (const auto & line : output.logs) {
+    if (line.text == "id_loop_point 1:0 id_loop_point 2:10") {
+      has_id_line = true;
+    }
+  }
+  EXPECT_TRUE(has_id_line);
+}
+
+TEST(BackendCoreSearch, SameInputProducesBitwiseIdenticalProposalAndLogs)
+{
+  SearchHarness harness_a;
+  SearchHarness harness_b;
+  const auto output_a = harness_a.run(makeRevisitSearchConfig());
+  const auto output_b = harness_b.run(makeRevisitSearchConfig());
+
+  ASSERT_TRUE(output_a.proposal.found);
+  ASSERT_TRUE(output_b.proposal.found);
+  EXPECT_DOUBLE_EQ(
+    (output_a.proposal.relative_pose.matrix() -
+    output_b.proposal.relative_pose.matrix()).cwiseAbs().maxCoeff(),
+    0.0);
+  EXPECT_DOUBLE_EQ(output_a.proposal.fitness_score, output_b.proposal.fitness_score);
+  ASSERT_EQ(output_a.logs.size(), output_b.logs.size());
+  for (std::size_t i = 0; i < output_a.logs.size(); ++i) {
+    EXPECT_EQ(output_a.logs[i].via_logger, output_b.logs[i].via_logger);
+    EXPECT_EQ(output_a.logs[i].text, output_b.logs[i].text);
+  }
+}
+
+TEST(BackendCoreSearch, TranslationCapRejectionKeepsBestAttemptLine)
+{
+  SearchHarness harness;
+  backend_core::LoopSearchConfig config = makeRevisitSearchConfig();
+  config.aggregator.debug = true;
+  config.gates.max_translation_m = 1e-9;
+  const auto output = harness.run(config);
+
+  EXPECT_FALSE(output.proposal.found);
+  bool has_rejection = false;
+  bool has_best_attempt = false;
+  for (const auto & line : output.logs) {
+    if (line.via_logger &&
+      line.text.rfind("Rejected loop candidate 0 -> 10 because translation correction", 0) == 0)
+    {
+      has_rejection = true;
+    }
+    if (!line.via_logger && line.text.rfind("best_loop_candidate id:0", 0) == 0) {
+      has_best_attempt = true;
+    }
+  }
+  EXPECT_TRUE(has_rejection);
+  EXPECT_TRUE(has_best_attempt);
+}
+
+TEST(BackendCoreSearch, EmptyCloudsReturnNoProposalAndNoLogs)
+{
+  SearchHarness harness;
+  const auto provider = [](int) -> CloudPtr {
+      return CloudPtr(new pcl::PointCloud<pcl::PointXYZI>);
+    };
+  const auto output = harness.core.searchLoopForSubmap(
+    makeRevisitTrajectory(), 10, makeRevisitSearchConfig(), provider, harness.ndt,
+    harness.voxelgrid, harness.bbs_verifier);
+
+  EXPECT_FALSE(output.proposal.found);
+  EXPECT_TRUE(output.logs.empty());
 }
 
 }  // namespace
