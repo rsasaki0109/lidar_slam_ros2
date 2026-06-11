@@ -51,6 +51,26 @@ Options:
   --offline-determinism-reference-tum <tum>
                                 Optional reference trajectory; adds per-run APE
                                 to the determinism report (report only)
+  --frontend-determinism-bag <dir>
+                                Run the offline frontend determinism hard gate
+                                (Phase 4, docs/roadmap/v0.6.md) on this raw
+                                sensor bag via the lockstep scanmatcher
+                                runner; any byte-level mismatch fails the gate
+  --frontend-determinism-cloud-topic <topic>
+                                Cloud topic in the raw bag (required with
+                                --frontend-determinism-bag)
+  --frontend-determinism-imu-topic <topic>
+                                Optional IMU topic in the raw bag
+  --frontend-determinism-runs <n>
+                                Run count for the frontend gate (default: 3)
+  --frontend-determinism-params <yaml>
+                                Parameter file for the frontend gate
+                                (default: lidarslam/param/lidarslam.yaml)
+  --frontend-determinism-max-clouds <n>
+                                Cap processed clouds (0 = whole bag)
+  --frontend-determinism-reference-tum <tum>
+                                Optional reference trajectory; adds per-run APE
+                                to the frontend report (report only)
   --dogfood                     Run the Autoware pointcloud-map dogfood flow
   --autoware-core-dir <dir>     autoware_core checkout for dogfood
   --work-dir <dir>              Runtime workspace directory for dogfood
@@ -109,6 +129,13 @@ OFFLINE_DETERMINISM_BAG=""
 OFFLINE_DETERMINISM_RUNS=""
 OFFLINE_DETERMINISM_PARAMS=""
 OFFLINE_DETERMINISM_REFERENCE_TUM=""
+FRONTEND_DETERMINISM_BAG=""
+FRONTEND_DETERMINISM_CLOUD_TOPIC=""
+FRONTEND_DETERMINISM_IMU_TOPIC=""
+FRONTEND_DETERMINISM_RUNS=""
+FRONTEND_DETERMINISM_PARAMS=""
+FRONTEND_DETERMINISM_MAX_CLOUDS=""
+FRONTEND_DETERMINISM_REFERENCE_TUM=""
 
 AUTOWARE_CORE_DIR=""
 WORK_DIR=""
@@ -226,6 +253,41 @@ while [[ $# -gt 0 ]]; do
     --offline-determinism-reference-tum)
       [[ $# -ge 2 ]] || usage
       OFFLINE_DETERMINISM_REFERENCE_TUM=$(realpath -m "$2")
+      shift 2
+      ;;
+    --frontend-determinism-bag)
+      [[ $# -ge 2 ]] || usage
+      FRONTEND_DETERMINISM_BAG=$(realpath -m "$2")
+      shift 2
+      ;;
+    --frontend-determinism-cloud-topic)
+      [[ $# -ge 2 ]] || usage
+      FRONTEND_DETERMINISM_CLOUD_TOPIC="$2"
+      shift 2
+      ;;
+    --frontend-determinism-imu-topic)
+      [[ $# -ge 2 ]] || usage
+      FRONTEND_DETERMINISM_IMU_TOPIC="$2"
+      shift 2
+      ;;
+    --frontend-determinism-runs)
+      [[ $# -ge 2 ]] || usage
+      FRONTEND_DETERMINISM_RUNS="$2"
+      shift 2
+      ;;
+    --frontend-determinism-params)
+      [[ $# -ge 2 ]] || usage
+      FRONTEND_DETERMINISM_PARAMS=$(realpath -m "$2")
+      shift 2
+      ;;
+    --frontend-determinism-max-clouds)
+      [[ $# -ge 2 ]] || usage
+      FRONTEND_DETERMINISM_MAX_CLOUDS="$2"
+      shift 2
+      ;;
+    --frontend-determinism-reference-tum)
+      [[ $# -ge 2 ]] || usage
+      FRONTEND_DETERMINISM_REFERENCE_TUM=$(realpath -m "$2")
       shift 2
       ;;
     --dogfood)
@@ -372,6 +434,37 @@ if [[ -n "${OFFLINE_DETERMINISM_BAG}" ]]; then
     OFFLINE_DETERMINISM_CMD+=(--reference-tum "${OFFLINE_DETERMINISM_REFERENCE_TUM}")
   fi
   "${OFFLINE_DETERMINISM_CMD[@]}" 2>&1 | tee "${OUT_DIR}/offline_determinism.log"
+fi
+
+if [[ -n "${FRONTEND_DETERMINISM_BAG}" ]]; then
+  echo "==> Running offline frontend determinism hard gate"
+  if [[ -z "${FRONTEND_DETERMINISM_CLOUD_TOPIC}" ]]; then
+    echo "--frontend-determinism-cloud-topic is required with --frontend-determinism-bag" >&2
+    exit 2
+  fi
+  FRONTEND_DETERMINISM_CMD=(
+    bash
+    "${REPO_ROOT}/scripts/run_frontend_determinism_check.sh"
+    --bag "${FRONTEND_DETERMINISM_BAG}"
+    --cloud-topic "${FRONTEND_DETERMINISM_CLOUD_TOPIC}"
+    --output-dir "${OUT_DIR}/frontend_determinism"
+  )
+  if [[ -n "${FRONTEND_DETERMINISM_IMU_TOPIC}" ]]; then
+    FRONTEND_DETERMINISM_CMD+=(--imu-topic "${FRONTEND_DETERMINISM_IMU_TOPIC}")
+  fi
+  if [[ -n "${FRONTEND_DETERMINISM_RUNS}" ]]; then
+    FRONTEND_DETERMINISM_CMD+=(--runs "${FRONTEND_DETERMINISM_RUNS}")
+  fi
+  if [[ -n "${FRONTEND_DETERMINISM_PARAMS}" ]]; then
+    FRONTEND_DETERMINISM_CMD+=(--params "${FRONTEND_DETERMINISM_PARAMS}")
+  fi
+  if [[ -n "${FRONTEND_DETERMINISM_MAX_CLOUDS}" ]]; then
+    FRONTEND_DETERMINISM_CMD+=(--max-clouds "${FRONTEND_DETERMINISM_MAX_CLOUDS}")
+  fi
+  if [[ -n "${FRONTEND_DETERMINISM_REFERENCE_TUM}" ]]; then
+    FRONTEND_DETERMINISM_CMD+=(--reference-tum "${FRONTEND_DETERMINISM_REFERENCE_TUM}")
+  fi
+  "${FRONTEND_DETERMINISM_CMD[@]}" 2>&1 | tee "${OUT_DIR}/frontend_determinism.log"
 fi
 
 if [[ "${RUN_DOGFOOD}" == "true" ]]; then
