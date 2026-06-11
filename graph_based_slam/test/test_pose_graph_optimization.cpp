@@ -148,15 +148,11 @@ TEST(PoseGraphOptimization, SameInputsGiveBitwiseIdenticalPoses)
   }
 }
 
-TEST(PoseGraphOptimization, GnssAnchorAsBuiltDoesNotPullTranslation)
+TEST(PoseGraphOptimization, GnssAnchorPullsVertexTowardAnchor)
 {
-  // CHARACTERIZATION OF A KNOWN MISPLACEMENT (preserved by the extraction):
-  // the GNSS edge writes its weights into indices (3,3)..(5,5), which in
-  // g2o's EdgeSE3 error order (x, y, z, qx, qy, qz) is the ROTATION block.
-  // As built, the anchor exerts no translation pull at all — consistent
-  // with the GNSS constraint having always been documented as untested.
-  // The behavioural fix (moving the weights to the translation block) is a
-  // separate follow-up PR, which must flip this test to EXPECT_LT.
+  // The intended GNSS semantics, enabled by the block-order fix: position
+  // weights sit on the translation block of g2o's (x, y, z, qx, qy, qz)
+  // error, so a strong anchor reduces the anchored vertex position error.
   const auto submaps = makeDriftedChain();
   GnssConstraint gnss;
   gnss.submap_index = 10;
@@ -173,9 +169,8 @@ TEST(PoseGraphOptimization, GnssAnchorAsBuiltDoesNotPullTranslation)
   const double err_without =
     (without.poses[10].translation() - gnss.position).norm();
   const double err_with = (with.poses[10].translation() - gnss.position).norm();
-  EXPECT_NEAR(err_with, err_without, 1e-9)
-    << "as built, the GNSS anchor must not change translation; if this fails "
-    << "because err_with shrank, the block-order fix landed — update this test";
+  EXPECT_LT(err_with, err_without * 0.5)
+    << "a strong GNSS anchor must substantially reduce the anchored vertex error";
 }
 
 TEST(PoseGraphOptimization, Chi2CollectionModesPopulateExpectedVectors)
@@ -203,14 +198,11 @@ TEST(PoseGraphOptimization, Chi2CollectionModesPopulateExpectedVectors)
   EXPECT_EQ(split.adjacent_trans_chi2.size(), split.adjacent_rot_chi2.size());
 }
 
-TEST(PoseGraphOptimization, ImuRotationConstraintAsBuiltDoesNotRotate)
+TEST(PoseGraphOptimization, ImuRotationConstraintInfluencesOrientation)
 {
-  // CHARACTERIZATION OF A KNOWN MISPLACEMENT (preserved by the extraction):
-  // the IMU edge writes roll/pitch/yaw weights into indices (0,0)..(2,2),
-  // which in g2o's EdgeSE3 error order (x, y, z, qx, qy, qz) is the
-  // TRANSLATION block; the rotation block stays zero, so as built the "IMU
-  // rotation constraint" never constrained rotation. The behavioural fix is
-  // a separate follow-up PR, which must flip this test to EXPECT_GT.
+  // The intended IMU semantics, enabled by the block-order fix: rotation
+  // weights sit on the rotation block of g2o's (x, y, z, qx, qy, qz) error,
+  // so a dominant IMU yaw measurement rotates the relative orientation.
   std::vector<SubmapNode> submaps(2);
   submaps[0].pose = Eigen::Isometry3d::Identity();
   submaps[1].pose = Eigen::Isometry3d::Identity();
@@ -236,9 +228,8 @@ TEST(PoseGraphOptimization, ImuRotationConstraintAsBuiltDoesNotRotate)
 
   const Eigen::AngleAxisd delta(
     result.poses[0].linear().transpose() * result.poses[1].linear());
-  EXPECT_LT(delta.angle() * 180.0 / M_PI, 1e-6)
-    << "as built, the IMU edge must not rotate anything; if this fails "
-    << "because rotation appeared, the block-order fix landed — update this test";
+  EXPECT_GT(delta.angle() * 180.0 / M_PI, 5.0)
+    << "a dominant IMU yaw constraint must rotate the relative orientation";
 }
 
 }  // namespace

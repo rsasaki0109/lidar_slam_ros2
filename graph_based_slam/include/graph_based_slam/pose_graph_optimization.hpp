@@ -203,16 +203,13 @@ inline OptimizationResult optimizePoseGraph(
     edge_se3->setMeasurement(imu_constraint.measurement);
 
     Eigen::Matrix<double, 6, 6> imu_info = Eigen::Matrix<double, 6, 6>::Zero();
-    // KNOWN MISPLACEMENT, preserved bit-for-bit by this extraction:
     // g2o EdgeSE3 error order is (x, y, z, qx, qy, qz) — translation first
-    // (toVectorMQT, isometry3d_mappings.h) — so these weights land on the
-    // TRANSLATION block and the rotation block stays zero; as built, this
-    // edge never constrained rotation. Characterized in
-    // test_pose_graph_optimization.cpp; the behavioural fix is a separate
-    // follow-up PR.
-    imu_info(0, 0) = imu_cfg.info_roll_pitch;
-    imu_info(1, 1) = imu_cfg.info_roll_pitch;
-    imu_info(2, 2) = imu_cfg.info_yaw;
+    // (toVectorMQT, isometry3d_mappings.h). Rotation weights go on the
+    // rotation block (3..5); translation stays zero on purpose (no trust in
+    // IMU double integration).
+    imu_info(3, 3) = imu_cfg.info_roll_pitch;  // qx ~ roll
+    imu_info(4, 4) = imu_cfg.info_roll_pitch;  // qy ~ pitch
+    imu_info(5, 5) = imu_cfg.info_yaw;         // qz ~ yaw
     edge_se3->setInformation(imu_info);
 
     edge_se3->vertices()[0] = optimizer.vertex(imu_constraint.from);
@@ -253,14 +250,12 @@ inline OptimizationResult optimizePoseGraph(
     g2o::EdgeSE3 * edge = new g2o::EdgeSE3();
     edge->setMeasurement(Eigen::Isometry3d::Identity());
     Eigen::Matrix<double, 6, 6> gnss_info = Eigen::Matrix<double, 6, 6>::Zero();
-    // KNOWN MISPLACEMENT, preserved bit-for-bit by this extraction: with the
-    // g2o (x, y, z, qx, qy, qz) error order these weights land on the
-    // ROTATION block, so as built the GNSS anchor never pulled translation
-    // (consistent with the feature being documented as untested). See
-    // test_pose_graph_optimization.cpp; fix in a follow-up PR.
-    gnss_info(3, 3) = gnss_constraint.info_diag.x();
-    gnss_info(4, 4) = gnss_constraint.info_diag.y();
-    gnss_info(5, 5) = gnss_constraint.info_diag.z();
+    // g2o EdgeSE3 error order is (x, y, z, qx, qy, qz) — translation first —
+    // so the position weights go on the translation block (0..2); rotation
+    // stays unconstrained (GNSS carries no orientation).
+    gnss_info(0, 0) = gnss_constraint.info_diag.x();
+    gnss_info(1, 1) = gnss_constraint.info_diag.y();
+    gnss_info(2, 2) = gnss_constraint.info_diag.z();
     edge->setInformation(gnss_info);
     edge->vertices()[0] = gnss_vertex;
     edge->vertices()[1] = optimizer.vertex(gnss_constraint.submap_index);
