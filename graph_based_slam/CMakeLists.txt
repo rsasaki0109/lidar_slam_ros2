@@ -200,6 +200,13 @@ if(BUILD_TESTING)
     target_include_directories(test_gnss_alignment PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
+    test_loop_verifier
+    test/test_loop_verifier.cpp
+  )
+  if(TARGET test_loop_verifier)
+    target_include_directories(test_loop_verifier PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  endif()
+  ament_add_gtest(
     test_pose_graph_optimization
     test/test_pose_graph_optimization.cpp
   )
