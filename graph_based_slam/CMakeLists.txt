@@ -193,6 +193,22 @@ if(BUILD_TESTING)
     target_include_directories(test_submap_creation PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
+    test_pose_graph_optimization
+    test/test_pose_graph_optimization.cpp
+  )
+  if(TARGET test_pose_graph_optimization)
+    target_include_directories(
+      test_pose_graph_optimization PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+    target_link_libraries(
+      test_pose_graph_optimization
+      g2o::core
+      g2o::types_slam3d
+      g2o::solver_eigen
+      g2o::stuff
+    )
+  endif()
+  ament_add_gtest(
     test_registration_determinism
     test/test_registration_determinism.cpp
   )
