@@ -39,11 +39,13 @@ nav:
   - Operator Workflows: workflows.md
   - 3DGS Photoreal Map: 3dgs-map-tutorial.md
   - Benchmarking And Release Gate: benchmarking.md
+  - rosdistro Binary Release: rosdistro-release.md
   - DDS / Large-Message Tuning: dds-tuning.md
   - Comparison: comparison.md
   - Social:
       - v0.2.2 Post Kit: social/autoware_map_authoring_post_v0.2.2.md
   - Releases:
+      - v0.5.0: releases/v0.5.0.md
       - v0.3.0: releases/v0.3.0.md
       - v0.2.2: releases/v0.2.2.md
       - v0.2.1: releases/v0.2.1.md

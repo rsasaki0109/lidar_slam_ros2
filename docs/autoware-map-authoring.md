@@ -130,4 +130,4 @@ The current public position of this repository is:
 - [Operator Workflows](workflows.md)
 - [Benchmarking And Release Gate](benchmarking.md)
 - [Comparison](comparison.md)
-- [v0.2.2 Release Notes](releases/v0.2.2.md)
+- [v0.5.0 Release Notes](releases/v0.5.0.md)
