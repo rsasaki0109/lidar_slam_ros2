@@ -1575,7 +1575,7 @@ void GraphBasedSlamComponent::searchLoopForLatest(
 
   std::vector<std::pair<double, int>> distance_candidates =
     candidate_aggregator::collectDistanceCandidates(
-      submap_positions, submap_travel_distances, latest_idx, aggregator_config);
+    submap_positions, submap_travel_distances, latest_idx, aggregator_config);
 
   if (use_scan_context_) {
     std::vector<candidate_aggregator::LogLine> aggregator_logs;
