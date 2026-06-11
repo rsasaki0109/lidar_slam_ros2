@@ -16,8 +16,8 @@ autonomously on that map in AWSIM. Frontend is `RKO-LIO` (MIT), backend is
 
 *Shinjuku point cloud map built from a demo rosbag with this stack — start at the
 [Quickstart](#quickstart). For the animated map flythrough and the optional photoreal
-render, jump to [Photoreal 3DGS map](#photoreal-3dgs-map-optional). `develop` tracks the
-current v2 alpha line; latest tagged public beta: [v0.2.2 Release Notes](docs/releases/v0.2.2.md).*
+render, jump to [Photoreal 3DGS map](#photoreal-3dgs-map-optional). `develop` is the
+default branch; latest release notes: [v0.5.0](docs/releases/v0.5.0.md).*
 
 ## Why lidarslam_ros2
 
