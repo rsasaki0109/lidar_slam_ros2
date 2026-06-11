@@ -269,8 +269,9 @@ public:
         scored_candidates.begin(),
         scored_candidates.begin() + k,
         scored_candidates.end(),
-        [](const auto & lhs, const auto & rhs) {
-          return lhs.first > rhs.first;
+        [this](const auto & lhs, const auto & rhs) {
+          if (lhs.first != rhs.first) {return lhs.first > rhs.first;}
+          return submap_ids[lhs.second] < submap_ids[rhs.second];
         });
 
       for (int idx = 0; idx < k; ++idx) {
