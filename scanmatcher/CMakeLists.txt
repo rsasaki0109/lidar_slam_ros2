@@ -130,6 +130,15 @@ scanmatcher_component ${PCL_LIBRARIES})
 ament_target_dependencies(scanmatcher_node
   rclcpp)
 
+find_package(rosbag2_cpp REQUIRED)
+add_executable(scan_matcher_offline_runner
+  src/scan_matcher_offline_runner.cpp
+)
+target_link_libraries(scan_matcher_offline_runner
+  scanmatcher_component ${PCL_LIBRARIES})
+ament_target_dependencies(scan_matcher_offline_runner
+  rclcpp rosbag2_cpp sensor_msgs geometry_msgs lidarslam_msgs pcl_conversions)
+
 if(small_gicp_FOUND)
   add_executable(small_gicp_odom_node
   src/small_gicp_odom_node.cpp
@@ -170,7 +179,7 @@ install(TARGETS
   RUNTIME DESTINATION bin
 )
 
-set(INSTALL_TARGETS scanmatcher_node)
+set(INSTALL_TARGETS scanmatcher_node scan_matcher_offline_runner)
 if(small_gicp_FOUND)
   list(APPEND INSTALL_TARGETS small_gicp_odom_node)
 endif()
