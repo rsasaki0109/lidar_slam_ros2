@@ -157,19 +157,20 @@ Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](d
 
 ## Photoreal 3DGS map (optional)
 
-Below, the SLAM deliverable itself — the point-cloud map and the estimated
+Below, the SLAM deliverable itself — the point-cloud map in real camera
+colours (the synced images projected onto the LiDAR points) with the estimated
 walking trajectory — as a follow-camera flythrough riding the full 60 m loop of
 the RTK-SLAM Construction Hall sequence (CC-BY 4.0), the same sequence the
 [release gate](#accuracy) scores against:
 
-![Follow-camera flythrough of the SLAM point-cloud map along the full estimated walking loop (RTK-SLAM Construction Hall 1)](lidarslam/images/map_flythrough_rtkslam.gif)
+![Follow-camera flythrough of the camera-coloured SLAM point-cloud map along the full estimated walking loop (RTK-SLAM Construction Hall 1)](lidarslam/images/map_flythrough_rtkslam.gif)
 
-The same SLAM output plus synced camera images can also be rendered as a
+The same SLAM output plus synced camera images can also be trained into a
 photoreal 3D Gaussian Splatting scene — LiDAR-primed (no COLMAP), trained with
 gsplat (Apache-2.0):
 
 ```bash
-python3 tools/gaussian_splatting/render_map_flythrough.py --help  # the map flythrough above
+python3 tools/gaussian_splatting/render_map_flythrough.py --help  # the flythrough above (--color-mode rgb)
 bash scripts/run_rtkslam_3dgs_flythrough.sh   # photoreal 3DGS (or run_koide_3dgs_flythrough.sh)
 ```
 

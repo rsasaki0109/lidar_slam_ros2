@@ -176,10 +176,13 @@ python3 tools/gaussian_splatting/render_path.py \
 - `--rotate {0,90,180,270}`: カメラが横倒しマウントの bag 用（koide は 90）。
 - GIF は README 埋め込み用に `--gif-fps` / `--gif-scale` で間引き縮小される。
 - リポジトリ内の成果物例: `lidarslam/images/map_flythrough_rtkslam.gif` / `.mp4`
-  （RTK-SLAM construction_seq1。SLAM 点群地図+推定軌跡を、60m 周回全体を等速で進む
-  サードパーソン追従カメラで描画。`tools/gaussian_splatting/render_map_flythrough.py`
-  で再現。3DGS は学習視点クラスタから ~0.4m 離れると崩壊するため「地図の中を移動する」
-  絵は点群側で作る — 経緯と知見は `docs/research/3dgs-trajectory-flythrough-notes.md`）、
+  （RTK-SLAM construction_seq1。カメラ画像を投影した実色の SLAM 点群地図+推定軌跡を、
+  60m 周回全体を等速で進むサードパーソン追従カメラで描画。
+  `build_lidar_init.py --color-transforms` で色付き点群を作り、
+  `tools/gaussian_splatting/render_map_flythrough.py --color-mode rgb` で再現。
+  3DGS は学習視点クラスタから ~0.4m 離れると崩壊し俯瞰ではコンフェッティ状になるため
+  「地図の中を移動する」絵は点群側で作る — 経緯と知見は
+  `docs/research/3dgs-trajectory-flythrough-notes.md`）、
   `lidarslam/images/3dgs_koide_flythrough.gif` / `.mp4`（koide 近接シーン）。
   左右並べの photoreal 比較は `tools/gaussian_splatting/render_slam_3dgs_sidebyside.py` +
   `scripts/run_rtkslam_3dgs_flythrough.sh` で生成できる（README からは置き換え済み）。
