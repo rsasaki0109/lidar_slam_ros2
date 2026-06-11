@@ -102,7 +102,8 @@ TEST(PoseGraphOptimization, LoopClosurePullsDriftedEndpointHome)
   EXPECT_LT(drift_after, drift_before * 0.5)
     << "loop closure should pull the drifted endpoint toward node 0";
   // Vertex 0 is fixed.
-  EXPECT_LT((result.poses.front().translation() -
+  EXPECT_LT(
+    (result.poses.front().translation() -
     submaps.front().pose.translation()).norm(), 1e-12);
 }
 
