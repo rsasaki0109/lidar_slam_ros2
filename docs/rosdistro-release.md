@@ -5,17 +5,17 @@ installs the four core packages from the ROS buildfarm.
 
 This page records the dependency analysis and the exact release procedure.
 The repository-side prep (versions, SPDX license tags, per-package
-`CHANGELOG.rst`) landed with v0.5.0; what remains is the bloom/rosdistro
+`CHANGELOG.rst`) landed with v0.5.0 and are maintained through v0.6.0; what remains is the bloom/rosdistro
 procedure itself, which requires the maintainer's GitHub account.
 
 ## Released package set
 
 | Package | Version | Notes |
 |---|---|---|
-| `lidarslam_msgs` | 0.5.0 | messages only |
-| `scanmatcher` | 0.5.0 | NDT frontend (FastGICP / SmallGICP optional, off on the farm) |
-| `graph_based_slam` | 0.5.0 | backend + `/map_save` Autoware bundle |
-| `lidarslam` | 0.5.0 | launch + param presets |
+| `lidarslam_msgs` | 0.6.0 | messages only |
+| `scanmatcher` | 0.6.0 | NDT frontend (FastGICP / SmallGICP optional, off on the farm) |
+| `graph_based_slam` | 0.6.0 | backend + `/map_save` Autoware bundle |
+| `lidarslam` | 0.6.0 | launch + param presets |
 
 These are the only `package.xml` files in the repository outside
 `Thirdparty/`, so bloom's package discovery picks up exactly this set.

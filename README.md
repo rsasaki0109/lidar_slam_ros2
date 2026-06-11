@@ -17,7 +17,7 @@ autonomously on that map in AWSIM. Frontend is `RKO-LIO` (MIT), backend is
 *Shinjuku point cloud map built from a demo rosbag with this stack — start at the
 [Quickstart](#quickstart). For the animated map flythrough and the optional photoreal
 render, jump to [Photoreal 3DGS map](#photoreal-3dgs-map-optional). `develop` is the
-default branch; latest release notes: [v0.5.0](docs/releases/v0.5.0.md).*
+default branch; latest release notes: [v0.6.0](docs/releases/v0.6.0.md).*
 
 ## Why lidarslam_ros2
 
@@ -36,11 +36,11 @@ artifacts you need downstream:
   ([accuracy](#accuracy)).
 - **Loop closure, GPL-free** — built-in Scan Context by default, plus opt-in
   BEV / SOLiD / STD/BTC-style Triangle descriptors and 3D-BBS verification.
-- **Deterministic offline mapping** — `graph_slam_offline_runner` replays a
-  recorded odometry bag through the backend and produces *byte-identical* loop
-  edges and optimized trajectory on every run (verified 3-run on MID-360 and
-  NTU VIRAL); the release gate enforces it
-  (`run_release_readiness_checks.sh --offline-determinism-bag`).
+- **Deterministic offline mapping** — `graph_slam_offline_runner` (backend,
+  recorded odometry bag) and `scan_matcher_offline_runner` (frontend, raw bag)
+  produce *byte-identical* trajectories, loop edges and submaps on every run
+  (verified 3-run on MID-360 and NTU VIRAL); the release gate enforces both
+  (`--offline-determinism-bag` / `--frontend-determinism-bag`).
 - **GNSS georeferencing** — optional GNSS constraints and projector metadata for
   real-world coordinates.
 

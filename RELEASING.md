@@ -1,6 +1,6 @@
 # Releasing
 
-This repository is currently prepared for a public release at `0.5.0`.
+This repository is currently prepared for a public release at `0.6.0`.
 
 ## Release Scope
 
@@ -25,7 +25,7 @@ bash scripts/run_autoware_quickstart.sh
 
 3. Push the branch and verify GitHub Actions are green.
 4. Confirm `VERSION`, `CHANGELOG.md`, the per-package `CHANGELOG.rst` files,
-   `docs/comparison.md`, `docs/releases/v0.5.0.md`, and the core package
+   `docs/comparison.md`, `docs/releases/v0.6.0.md`, and the core package
    versions match (`test_release_metadata_and_core_package_versions_match`
    enforces most of this).
 5. Review README, `docs/autoware-quickstart.md`, `docs/benchmarking.md`,
@@ -42,11 +42,11 @@ Two GitHub Actions workflows matter for release:
 
 ## Tagging
 
-Package versions are currently `0.5.0`.
+Package versions are currently `0.6.0`.
 
 ```bash
-git tag v0.5.0
-git push <remote> v0.5.0
+git tag v0.6.0
+git push <remote> v0.6.0
 ```
 
 ## Binary release to rosdistro (bloom)

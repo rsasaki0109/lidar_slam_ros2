@@ -234,7 +234,7 @@ def test_release_metadata_and_core_package_versions_match():
     docs_site_workflow = DOCS_SITE_WORKFLOW.read_text(encoding='utf-8')
     mkdocs_config = MKDOCS_CONFIG_PATH.read_text(encoding='utf-8')
 
-    assert version == '0.5.0'
+    assert version == '0.6.0'
     assert version in changelog
     assert version in releasing
     assert 'RTK-SLAM' in release_notes
