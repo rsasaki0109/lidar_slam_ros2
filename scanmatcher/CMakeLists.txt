@@ -95,6 +95,10 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_odom_prior_utils test/test_odom_prior_utils.cpp)
   target_include_directories(test_odom_prior_utils PRIVATE include ${EIGEN3_INCLUDE_DIR})
+
+  ament_add_gtest(test_pose_prediction test/test_pose_prediction.cpp)
+  target_include_directories(test_pose_prediction PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  ament_target_dependencies(test_pose_prediction tf2)
 endif()
 
 add_library(scanmatcher_component SHARED

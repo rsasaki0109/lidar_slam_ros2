@@ -966,73 +966,37 @@ void ScanMatcherComponent::receiveCloud(
 
   Eigen::Matrix4f sim_trans = getTransformation(current_pose_stamped_.pose);
 
-  // Constant velocity motion model: predict next pose from last frame-to-frame delta
-  // Translation only — rotation prediction tends to amplify NDT oscillation
-  if (use_constant_velocity_model_ && last_accepted_delta_valid_ &&
-      tracking_state_ == TrackingState::Tracking) {
-    sim_trans.block<3, 1>(0, 3) += last_accepted_delta_position_.cast<float>();
-  }
+  const pose_prediction::ImuPredictionConfig imu_prediction_config = makeImuPredictionConfig();
+  pose_prediction::ImuObservation imu_observation;
+  imu_observation.latest_imu_orientation_valid = latest_imu_orientation_valid_;
+  imu_observation.cloud_imu_reference_valid = cloud_imu_reference_valid_;
+  imu_observation.cloud_imu_reference_quat = cloud_imu_reference_quat_;
+  imu_observation.latest_imu_robot_quat = latest_imu_robot_quat_;
+  imu_observation.imu_age_sec = latest_imu_orientation_valid_ ?
+    std::abs((stamp - latest_imu_stamp_).seconds()) : 0.0;
+  tf2::Quaternion current_orientation_quat;
+  tf2::fromMsg(current_pose_stamped_.pose.orientation, current_orientation_quat);
+
+  sim_trans = pose_prediction::applyConstantVelocityPrediction(
+    sim_trans,
+    use_constant_velocity_model_,
+    last_accepted_delta_valid_,
+    tracking_state_ == TrackingState::Tracking,
+    last_accepted_delta_position_);
 
   // IMU initial guess modification (only when complementary filter is disabled)
   if (!imu_complementary_enable_) {
-    // Always-on IMU roll/pitch correction (gravity-constrained axes only, no yaw)
-    if (
-      use_imu_ && imu_pose_prediction_enable_ && latest_imu_orientation_valid_ &&
-      cloud_imu_reference_valid_ && imu_pose_prediction_weight_ > 0.0)
-    {
-      const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
-      if (imu_age <= imu_pose_prediction_max_age_) {
-        tf2::Quaternion imu_delta = cloud_imu_reference_quat_.inverse() * latest_imu_robot_quat_;
-        imu_delta.normalize();
-        double imu_dr, imu_dp, imu_dy;
-        tf2::Matrix3x3(imu_delta).getRPY(imu_dr, imu_dp, imu_dy);
-        const double max_rp = imu_pose_prediction_weight_ * M_PI / 180.0;
-        imu_dr = std::clamp(imu_dr, -max_rp, max_rp);
-        imu_dp = std::clamp(imu_dp, -max_rp, max_rp);
-        tf2::Quaternion rp_delta;
-        rp_delta.setRPY(imu_dr, imu_dp, 0.0);
-        rp_delta.normalize();
-        tf2::Quaternion pose_quat;
-        tf2::fromMsg(current_pose_stamped_.pose.orientation, pose_quat);
-        tf2::Quaternion corrected = pose_quat * rp_delta;
-        corrected.normalize();
-        Eigen::Quaterniond corrected_eig(corrected.w(), corrected.x(), corrected.y(), corrected.z());
-        sim_trans.block<3, 3>(0, 0) = corrected_eig.toRotationMatrix().cast<float>();
-      }
-    }
-    // State-gated full IMU prediction (Suspect/Recovery only)
-    if (
-      use_imu_ && imu_pose_prediction_enable_ && latest_imu_orientation_valid_ &&
-      cloud_imu_reference_valid_ &&
-      (tracking_state_ != TrackingState::Tracking || recovery_target_active_))
-    {
-      const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
-      if (imu_age <= imu_pose_prediction_max_age_) {
-        tf2::Quaternion imu_delta = cloud_imu_reference_quat_.inverse() * latest_imu_robot_quat_;
-        imu_delta.normalize();
-        double imu_delta_roll = 0.0;
-        double imu_delta_pitch = 0.0;
-        double imu_delta_yaw = 0.0;
-        tf2::Matrix3x3(imu_delta).getRPY(imu_delta_roll, imu_delta_pitch, imu_delta_yaw);
-        const double max_roll_pitch = imu_pose_prediction_max_roll_pitch_deg_ * M_PI / 180.0;
-        const double max_yaw = imu_pose_prediction_max_yaw_deg_ * M_PI / 180.0;
-        imu_delta_roll = std::clamp(imu_delta_roll, -max_roll_pitch, max_roll_pitch);
-        imu_delta_pitch = std::clamp(imu_delta_pitch, -max_roll_pitch, max_roll_pitch);
-        imu_delta_yaw = std::clamp(imu_delta_yaw, -max_yaw, max_yaw);
-        tf2::Quaternion imu_delta_clamped;
-        imu_delta_clamped.setRPY(imu_delta_roll, imu_delta_pitch, imu_delta_yaw);
-        imu_delta_clamped.normalize();
-
-        tf2::Quaternion pose_quat;
-        tf2::fromMsg(current_pose_stamped_.pose.orientation, pose_quat);
-        tf2::Quaternion predicted_quat = pose_quat * imu_delta_clamped;
-        predicted_quat.normalize();
-        Eigen::Quaterniond predicted_quat_eig(
-          predicted_quat.w(), predicted_quat.x(), predicted_quat.y(), predicted_quat.z());
-        sim_trans.block<3, 3>(0, 0) =
-          predicted_quat_eig.normalized().toRotationMatrix().cast<float>();
-      }
-    }
+    sim_trans = pose_prediction::applyImuRollPitchCorrection(
+      sim_trans,
+      imu_prediction_config,
+      imu_observation,
+      current_orientation_quat);
+    sim_trans = pose_prediction::applyStateGatedImuPrediction(
+      sim_trans,
+      imu_prediction_config,
+      imu_observation,
+      current_orientation_quat,
+      tracking_state_ != TrackingState::Tracking || recovery_target_active_);
   }
 
   if (use_odom_) {
@@ -1077,17 +1041,11 @@ void ScanMatcherComponent::receiveCloud(
   {
     const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
     if (imu_age <= imu_pose_prediction_max_age_) {
-      // Compute IMU-predicted rotation: previous pose + IMU delta
-      tf2::Quaternion imu_delta = cloud_imu_reference_quat_.inverse() * latest_imu_robot_quat_;
-      imu_delta.normalize();
-      tf2::Quaternion pose_quat;
-      tf2::fromMsg(current_pose_stamped_.pose.orientation, pose_quat);
-      tf2::Quaternion predicted_quat = pose_quat * imu_delta;
-      predicted_quat.normalize();
-      // Convert to Euler angles matching NDT's internal convention (XYZ intrinsic)
-      Eigen::Quaterniond pred_eig(predicted_quat.w(), predicted_quat.x(),
-        predicted_quat.y(), predicted_quat.z());
-      Eigen::Vector3d prior_rpy = pred_eig.toRotationMatrix().eulerAngles(0, 1, 2);
+      // IMU-predicted rotation (previous pose + IMU delta) as Euler angles
+      // matching NDT's internal convention (XYZ intrinsic)
+      const Eigen::Vector3d prior_rpy = pose_prediction::imuPredictedRotationRpy(
+        imu_observation,
+        current_orientation_quat);
       auto ndt_ptr = boost::dynamic_pointer_cast<
         pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
       if (ndt_ptr) {
@@ -1918,6 +1876,18 @@ Eigen::Matrix4f ScanMatcherComponent::getTransformation(const geometry_msgs::msg
   tf2::fromMsg(pose, affine);
   Eigen::Matrix4f sim_trans = affine.matrix().cast<float>();
   return sim_trans;
+}
+
+pose_prediction::ImuPredictionConfig ScanMatcherComponent::makeImuPredictionConfig() const
+{
+  pose_prediction::ImuPredictionConfig config;
+  config.use_imu = use_imu_;
+  config.imu_pose_prediction_enable = imu_pose_prediction_enable_;
+  config.imu_pose_prediction_weight = imu_pose_prediction_weight_;
+  config.imu_pose_prediction_max_age = imu_pose_prediction_max_age_;
+  config.imu_pose_prediction_max_roll_pitch_deg = imu_pose_prediction_max_roll_pitch_deg_;
+  config.imu_pose_prediction_max_yaw_deg = imu_pose_prediction_max_yaw_deg_;
+  return config;
 }
 
 void ScanMatcherComponent::receiveImu(const sensor_msgs::msg::Imu msg)
