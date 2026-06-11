@@ -117,7 +117,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag_name }}
-          name: lidarslam_ros2 v2 beta (${{ steps.meta.outputs.version }})
+          name: lidarslam_ros2 v${{ steps.meta.outputs.version }}
           body_path: ${{ steps.meta.outputs.release_notes }}
           prerelease: true
           files: ${{ steps.meta.outputs.bundle_name }}
