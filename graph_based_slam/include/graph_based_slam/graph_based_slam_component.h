@@ -399,6 +399,7 @@ private:
 
     // Autoware-compatible grid-divided PCD map output
     std::string map_save_dir_ {"."};
+    std::string save_pose_graph_path_ {"pose_graph.g2o"};
     double map_grid_size_x_ {20.0};
     double map_grid_size_y_ {20.0};
     double map_leaf_size_ {0.2};

@@ -40,6 +40,7 @@
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
 #include "graph_based_slam/bev_mutual_visibility.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
+#include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/submap_creation.hpp"
 #include "g2o/core/robust_kernel_impl.h"
 #define GRAPH_BASED_SLAM_WITH_G2O 1
@@ -347,6 +348,11 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
     dynamic_object_filter_max_range_from_sensor_m_);
   declare_parameter("map_save_dir", std::string("."));
   get_parameter("map_save_dir", map_save_dir_);
+  // The launch files have always passed this; until v0.6 Phase 1 it was
+  // silently ignored and the graph went to the CWD. The default keeps the
+  // historical CWD behaviour.
+  declare_parameter("save_pose_graph_path", std::string("pose_graph.g2o"));
+  get_parameter("save_pose_graph_path", save_pose_graph_path_);
   declare_parameter("map_grid_size_x", 20.0);
   get_parameter("map_grid_size_x", map_grid_size_x_);
   declare_parameter("map_grid_size_y", 20.0);
@@ -2599,64 +2605,24 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   const LoopEdges & loop_edges,
   bool do_save_map)
 {
-  g2o::SparseOptimizer optimizer;
-  optimizer.setVerbose(false);
-  std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linear_solver =
-    std::make_unique<g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>>();
-  g2o::OptimizationAlgorithmLevenberg * solver = new g2o::OptimizationAlgorithmLevenberg(
-    std::make_unique<g2o::BlockSolver_6_3>(std::move(linear_solver)));
-
-  optimizer.setAlgorithm(solver);
-
+  /* Plain-data inputs for the extracted pose-graph optimization
+     (graph_based_slam/pose_graph_optimization.hpp); the IMU/GNSS buffers
+     and their matching stay in the node, the g2o assembly does not. */
   int submaps_size = map_array_msg.submaps.size();
-  std::vector<g2o::EdgeSE3 *> adjacent_edges;
+  std::vector<pose_graph::SubmapNode> submap_nodes;
+  submap_nodes.reserve(submaps_size);
   for (int i = 0; i < submaps_size; i++) {
     Eigen::Affine3d affine;
     Eigen::fromMsg(map_array_msg.submaps[i].pose, affine);
-    Eigen::Isometry3d pose(affine.matrix());
-
-    g2o::VertexSE3 * vertex_se3 = new g2o::VertexSE3();
-    vertex_se3->setId(i);
-    vertex_se3->setEstimate(pose);
-    if (i == 0) {vertex_se3->setFixed(true);}
-    optimizer.addVertex(vertex_se3);
-
-    if (i > 0) {
-      const int start_idx = std::max(0, i - num_adjacent_pose_cnstraints_);
-      for (int pre_idx = start_idx; pre_idx < i; pre_idx++) {
-        Eigen::Affine3d pre_affine;
-        Eigen::fromMsg(map_array_msg.submaps[pre_idx].pose, pre_affine);
-        Eigen::Isometry3d pre_pose(pre_affine.matrix());
-        Eigen::Isometry3d relative_pose = pre_pose.inverse() * pose;
-
-        const int separation = i - pre_idx;
-        const double sep_d = static_cast<double>(separation);
-        Eigen::Matrix<double, 6, 6> info_mat = Eigen::Matrix<double, 6, 6>::Zero();
-        if (adjacent_edge_info_auto_scale_split_trans_rot_) {
-          // Block-diag with independent translation / rotation weights, each
-          // attenuated by edge separation just like the unified scalar path.
-          const double w_trans = adjacent_edge_info_weight_trans_ / sep_d;
-          const double w_rot = adjacent_edge_info_weight_rot_ / sep_d;
-          info_mat.topLeftCorner<3, 3>().diagonal().setConstant(w_trans);
-          info_mat.bottomRightCorner<3, 3>().diagonal().setConstant(w_rot);
-        } else {
-          const double edge_weight = adjacent_edge_info_weight_ / sep_d;
-          info_mat = Eigen::Matrix<double, 6, 6>::Identity() * edge_weight;
-        }
-        g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
-        edge_se3->setMeasurement(relative_pose);
-        edge_se3->setInformation(info_mat);
-        edge_se3->vertices()[0] = optimizer.vertex(pre_idx);
-        edge_se3->vertices()[1] = optimizer.vertex(i);
-        optimizer.addEdge(edge_se3);
-        adjacent_edges.push_back(edge_se3);
-      }
-    }
+    pose_graph::SubmapNode node;
+    node.pose = Eigen::Isometry3d(affine.matrix());
+    submap_nodes.push_back(node);
   }
-  /* IMU rotation constraint edges */
+
+  /* IMU rotation constraints (pre-pass over the IMU buffer) */
+  std::vector<pose_graph::ImuRotationConstraint> imu_constraints;
   if (use_imu_preintegration_ && submaps_size > 1) {
     std::lock_guard<std::mutex> imu_lock(imu_mtx_);
-    int imu_edges_added = 0;
     for (int i = 1; i < submaps_size; i++) {
       double t0 = rclcpp::Time(map_array_msg.submaps[i - 1].header.stamp).seconds();
       double t1 = rclcpp::Time(map_array_msg.submaps[i].header.stamp).seconds();
@@ -2665,63 +2631,39 @@ void GraphBasedSlamComponent::doPoseAdjustment(
       Eigen::Quaterniond imu_delta_q = integrateImuRotation(t0, t1);
       if (imu_delta_q.isApprox(Eigen::Quaterniond::Identity(), 1e-8)) {continue;}
 
-      // Build relative pose measurement: translation from odometry, rotation from IMU
-      Eigen::Affine3d affine_prev, affine_curr;
-      Eigen::fromMsg(map_array_msg.submaps[i - 1].pose, affine_prev);
-      Eigen::fromMsg(map_array_msg.submaps[i].pose, affine_curr);
-      Eigen::Isometry3d odom_prev(affine_prev.matrix());
-      Eigen::Isometry3d odom_curr(affine_curr.matrix());
-      Eigen::Isometry3d odom_relative = odom_prev.inverse() * odom_curr;
-
-      // Replace rotation with IMU-integrated rotation
-      Eigen::Isometry3d imu_relative = Eigen::Isometry3d::Identity();
-      imu_relative.linear() = imu_delta_q.toRotationMatrix();
-      imu_relative.translation() = odom_relative.translation();
-
-      g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
-      edge_se3->setMeasurement(imu_relative);
-
-      // Information matrix: high for roll/pitch rotation, moderate for yaw, zero for translation
-      Eigen::Matrix<double, 6, 6> imu_info = Eigen::Matrix<double, 6, 6>::Zero();
-      // g2o EdgeSE3 information: [rot(3) | trans(3)] order
-      imu_info(0, 0) = imu_rotation_info_roll_pitch_;  // roll
-      imu_info(1, 1) = imu_rotation_info_roll_pitch_;  // pitch
-      imu_info(2, 2) = imu_rotation_info_yaw_;         // yaw
-      // translation: zero weight (don't trust IMU double integration)
-      edge_se3->setInformation(imu_info);
-
-      edge_se3->vertices()[0] = optimizer.vertex(i - 1);
-      edge_se3->vertices()[1] = optimizer.vertex(i);
-      optimizer.addEdge(edge_se3);
-      imu_edges_added++;
+      // Relative measurement: translation from odometry, rotation from IMU
+      Eigen::Isometry3d odom_relative =
+        submap_nodes[i - 1].pose.inverse() * submap_nodes[i].pose;
+      pose_graph::ImuRotationConstraint imu_constraint;
+      imu_constraint.from = i - 1;
+      imu_constraint.to = i;
+      imu_constraint.measurement = Eigen::Isometry3d::Identity();
+      imu_constraint.measurement.linear() = imu_delta_q.toRotationMatrix();
+      imu_constraint.measurement.translation() = odom_relative.translation();
+      imu_constraints.push_back(imu_constraint);
     }
     if (debug_flag_) {
-      RCLCPP_INFO(get_logger(), "Added %d IMU rotation constraint edges", imu_edges_added);
+      RCLCPP_INFO(
+        get_logger(), "Added %zu IMU rotation constraint edges", imu_constraints.size());
     }
   }
 
-  /* loop edge */
-  const auto loop_kernel_type =
-    graphslam::robust::parseLoopEdgeKernelType(loop_edge_robust_kernel_type_);
+  /* loop edges -> plain constraints */
+  std::vector<pose_graph::LoopConstraint> loop_constraints;
+  loop_constraints.reserve(loop_edges.size());
   for (const auto & loop_edge : loop_edges) {
-    g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
-    edge_se3->setMeasurement(loop_edge.relative_pose);
-    const double fitness = std::max(loop_edge.fitness_score, 1e-3);
-    Eigen::Matrix<double, 6, 6> loop_info_mat =
-      Eigen::Matrix<double, 6, 6>::Identity() * (loop_edge_info_weight_ / fitness);
-    edge_se3->setInformation(loop_info_mat);
-    edge_se3->setRobustKernel(
-      graphslam::robust::makeLoopEdgeKernel(
-        loop_kernel_type, loop_edge_robust_kernel_delta_));
-    edge_se3->vertices()[0] = optimizer.vertex(loop_edge.pair_id.first);
-    edge_se3->vertices()[1] = optimizer.vertex(loop_edge.pair_id.second);
-    optimizer.addEdge(edge_se3);
+    pose_graph::LoopConstraint loop_constraint;
+    loop_constraint.from = loop_edge.pair_id.first;
+    loop_constraint.to = loop_edge.pair_id.second;
+    loop_constraint.relative_pose = loop_edge.relative_pose;
+    loop_constraint.fitness_score = loop_edge.fitness_score;
+    loop_constraints.push_back(loop_constraint);
   }
 
-  /* GNSS position constraints */
+  /* GNSS anchors (pre-pass: nearest-measurement match over the buffer) */
+  std::vector<pose_graph::GnssConstraint> gnss_constraints;
   if (use_gnss_ && gnss_origin_set_) {
     std::lock_guard<std::mutex> gnss_lock(gnss_mtx_);
-    int gnss_edges_added = 0;
     int gnss_rtk_like_edges_added = 0;
 
     for (int i = 0; i < submaps_size; i++) {
@@ -2740,45 +2682,52 @@ void GraphBasedSlamComponent::doPoseAdjustment(
       }
       if (!found || best_dt > 1.0) {continue;}  // Skip if no GNSS within 1 second
 
-      // Create unary-like constraint: edge from vertex i to a fixed GNSS position
-      // Use EdgeSE3 with vertex 0 = fixed GNSS pose, vertex 1 = submap
-      int gnss_vertex_id = submaps_size + gnss_edges_added;
-      g2o::VertexSE3 * gnss_vertex = new g2o::VertexSE3();
-      gnss_vertex->setId(gnss_vertex_id);
-      Eigen::Isometry3d gnss_pose = Eigen::Isometry3d::Identity();
-      gnss_pose.translation() = Eigen::Vector3d(best_gnss.x, best_gnss.y, best_gnss.z);
-      gnss_vertex->setEstimate(gnss_pose);
-      gnss_vertex->setFixed(true);
-      optimizer.addVertex(gnss_vertex);
-
-      g2o::EdgeSE3 * edge = new g2o::EdgeSE3();
-      edge->setMeasurement(Eigen::Isometry3d::Identity());
-      Eigen::Matrix<double, 6, 6> gnss_info = Eigen::Matrix<double, 6, 6>::Zero();
-      gnss_info(3, 3) = best_gnss.info_x;
-      gnss_info(4, 4) = best_gnss.info_y;
-      gnss_info(5, 5) = best_gnss.info_z;
-      edge->setInformation(gnss_info);
-      edge->vertices()[0] = gnss_vertex;
-      edge->vertices()[1] = optimizer.vertex(i);
-      optimizer.addEdge(edge);
+      pose_graph::GnssConstraint gnss_constraint;
+      gnss_constraint.submap_index = i;
+      gnss_constraint.position = Eigen::Vector3d(best_gnss.x, best_gnss.y, best_gnss.z);
+      gnss_constraint.info_diag =
+        Eigen::Vector3d(best_gnss.info_x, best_gnss.info_y, best_gnss.info_z);
+      gnss_constraints.push_back(gnss_constraint);
       if (best_gnss.rtk_like) {
         gnss_rtk_like_edges_added++;
       }
-      gnss_edges_added++;
     }
     if (debug_flag_) {
       RCLCPP_INFO(
         get_logger(),
-        "Added %d GNSS position constraint edges (%d RTK-like by covariance)",
-        gnss_edges_added, gnss_rtk_like_edges_added);
+        "Added %zu GNSS position constraint edges (%d RTK-like by covariance)",
+        gnss_constraints.size(), gnss_rtk_like_edges_added);
     }
   }
 
-  optimizer.initializeOptimization();
-  optimizer.optimize(10);
-  optimizer.save("pose_graph.g2o");
+  pose_graph::AdjacentEdgeConfig adjacent_cfg;
+  adjacent_cfg.num_adjacent_pose_constraints = num_adjacent_pose_cnstraints_;
+  adjacent_cfg.split_trans_rot = adjacent_edge_info_auto_scale_split_trans_rot_;
+  adjacent_cfg.info_weight = adjacent_edge_info_weight_;
+  adjacent_cfg.info_weight_trans = adjacent_edge_info_weight_trans_;
+  adjacent_cfg.info_weight_rot = adjacent_edge_info_weight_rot_;
 
-  if (adjacent_edge_info_auto_scale_ && !adjacent_edges.empty()) {
+  pose_graph::LoopEdgeConfig loop_cfg;
+  loop_cfg.info_weight = loop_edge_info_weight_;
+  loop_cfg.robust_kernel_type = loop_edge_robust_kernel_type_;
+  loop_cfg.robust_kernel_delta = loop_edge_robust_kernel_delta_;
+
+  pose_graph::ImuEdgeConfig imu_cfg;
+  imu_cfg.info_roll_pitch = imu_rotation_info_roll_pitch_;
+  imu_cfg.info_yaw = imu_rotation_info_yaw_;
+
+  pose_graph::Chi2Collection chi2_collection = pose_graph::Chi2Collection::NONE;
+  if (adjacent_edge_info_auto_scale_) {
+    chi2_collection = adjacent_edge_info_auto_scale_split_trans_rot_ ?
+      pose_graph::Chi2Collection::SPLIT : pose_graph::Chi2Collection::UNIFIED;
+  }
+
+  const pose_graph::OptimizationResult opt_result = pose_graph::optimizePoseGraph(
+    submap_nodes, loop_constraints, imu_constraints, gnss_constraints,
+    adjacent_cfg, loop_cfg, imu_cfg, chi2_collection,
+    /*iterations=*/ 10, save_pose_graph_path_);
+
+  if (adjacent_edge_info_auto_scale_ && submaps_size > 1) {
     graphslam::detail::AutoScaleConfig cfg;
     cfg.ema_alpha = adjacent_edge_info_auto_scale_ema_alpha_;
     cfg.min_scale = adjacent_edge_info_auto_scale_min_;
@@ -2786,34 +2735,12 @@ void GraphBasedSlamComponent::doPoseAdjustment(
 
     if (adjacent_edge_info_auto_scale_split_trans_rot_) {
       // Level 2: split the post-opt residuals into translation / rotation
-      // blocks and rescale w_trans and w_rot independently. For diagonal
-      // block-diag Information matrices, trans_chi2 = w_trans *
-      // ||e.head<3>()||^2 and rot_chi2 = w_rot * ||e.tail<3>()||^2.
-      std::vector<double> trans_chi2_values;
-      std::vector<double> rot_chi2_values;
-      trans_chi2_values.reserve(adjacent_edges.size());
-      rot_chi2_values.reserve(adjacent_edges.size());
-      for (auto * e : adjacent_edges) {
-        e->computeError();
-        const auto err = e->error();
-        const Eigen::Matrix<double, 6, 6> info = e->information();
-        // For the block-diag construction above, the diagonals encode the
-        // per-block scale of I_3 already attenuated by separation, so
-        // multiplying ||delta||^2 by the leading diagonal of each block
-        // reproduces the standard chi^2 contribution of that block.
-        const double w_t = info(0, 0);
-        const double w_r = info(3, 3);
-        const double trans = w_t * err.template head<3>().squaredNorm();
-        const double rot = w_r * err.template tail<3>().squaredNorm();
-        if (std::isfinite(trans)) {
-          trans_chi2_values.push_back(trans);
-        }
-        if (std::isfinite(rot)) {
-          rot_chi2_values.push_back(rot);
-        }
-      }
-      const double median_chi2_trans = graphslam::detail::medianChi2(trans_chi2_values);
-      const double median_chi2_rot = graphslam::detail::medianChi2(rot_chi2_values);
+      // blocks and rescale w_trans and w_rot independently (the chi2
+      // vectors come back from optimizePoseGraph in edge order).
+      const double median_chi2_trans =
+        graphslam::detail::medianChi2(opt_result.adjacent_trans_chi2);
+      const double median_chi2_rot =
+        graphslam::detail::medianChi2(opt_result.adjacent_rot_chi2);
 
       cfg.target_nis = adjacent_edge_info_auto_scale_target_nis_trans_;
       const double prev_w_trans = adjacent_edge_info_weight_trans_;
@@ -2833,18 +2760,9 @@ void GraphBasedSlamComponent::doPoseAdjustment(
         prev_w_trans, adjacent_edge_info_weight_trans_,
         median_chi2_rot, adjacent_edge_info_auto_scale_target_nis_rot_,
         prev_w_rot, adjacent_edge_info_weight_rot_,
-        trans_chi2_values.size());
+        opt_result.adjacent_trans_chi2.size());
     } else {
-      std::vector<double> chi2_values;
-      chi2_values.reserve(adjacent_edges.size());
-      for (auto * e : adjacent_edges) {
-        e->computeError();
-        const double v = e->chi2();
-        if (std::isfinite(v)) {
-          chi2_values.push_back(v);
-        }
-      }
-      const double median_chi2 = graphslam::detail::medianChi2(chi2_values);
+      const double median_chi2 = graphslam::detail::medianChi2(opt_result.adjacent_chi2);
 
       cfg.target_nis = adjacent_edge_info_auto_scale_target_nis_;
       const double prev_weight = adjacent_edge_info_weight_;
@@ -2854,7 +2772,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
       RCLCPP_INFO(
         get_logger(),
         "[auto_scale] median_chi2=%.3f (n=%zu) target=%.3f weight=%.3f -> %.3f",
-        median_chi2, chi2_values.size(), cfg.target_nis, prev_weight,
+        median_chi2, opt_result.adjacent_chi2.size(), cfg.target_nis, prev_weight,
         adjacent_edge_info_weight_);
     }
   }
@@ -2871,8 +2789,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
     dynamic_filter_submaps.reserve(submaps_size);
   }
   for (int i = 0; i < submaps_size; i++) {
-    g2o::VertexSE3 * vertex_se3 = static_cast<g2o::VertexSE3 *>(optimizer.vertex(i));
-    Eigen::Affine3d se3 = vertex_se3->estimate();
+    Eigen::Affine3d se3(opt_result.poses[i].matrix());
     geometry_msgs::msg::Pose pose = tf2::toMsg(se3);
 
     /* map */
