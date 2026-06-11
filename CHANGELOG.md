@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.6.0 - 2026-06-12
+
+The deterministic core / ROS shell refactor (roadmap `docs/roadmap/v0.6.md`,
+PRs #237–#262). Same bag + same config now provably produces the same map:
+the offline runners replay recorded inputs through the same cores the live
+nodes use and the release gate enforces byte-identical results across runs.
+
+### Highlights
+
+- **Deterministic offline mapping (backend)** — `graph_slam_offline_runner`
+  replays a recorded odometry bag through submap creation, event-driven
+  BackendCore loop search and pose-graph optimization with no executor and
+  no wall clock; 3 runs are *byte-identical* (loop edges + optimized
+  trajectory) on both gate substrates (MID-360: APE 7.262851264566504 to the
+  last digit; NTU VIRAL: 9 loop edges, Leica-GT APE 0.8460511516520233).
+  Before the refactor the same input produced different loop edges every run.
+- **Deterministic offline mapping (frontend)** — `scan_matcher_offline_runner`
+  drives the real `ScanMatcherComponent` in lockstep over a raw sensor bag
+  (intra-process, drained executor, synchronous map update); 3 runs over the
+  full NTU tnp_01 bag are byte-identical (5795 poses, 133 submaps) — the
+  first determinism coverage for the scanmatcher (NDT) frontend.
+- **Event-driven loop search by default** — the backend now searches loops on
+  submap arrival instead of a wall-clock timer; the v0.4
+  `deterministic_loop_scheduling` experiment is retired (its negative result
+  motivated this architecture). The legacy timer path stays available behind
+  `event_driven_loop_search: false` for one release.
+- **Release gate hard-enforces determinism** — opt-in
+  `--offline-determinism-bag` / `--frontend-determinism-bag` stages in
+  `run_release_readiness_checks.sh` fail the gate on any byte-level mismatch.
+- **Real bug fixes surfaced by the refactor** — silent ~6% input drop under
+  load (QoS KeepLast(1) + best-effort), IMU/GNSS pose-graph edges weighting
+  the wrong error blocks (GNSS georeferencing never actually pulled), missing
+  tie-breaks in candidate ranking, GNSS yaw alignment with gauge release
+  (first georeferenced maps).
+- **God objects decomposed with characterization tests** —
+  `graph_based_slam_component.cpp` 3421 → 2265 lines behind 19 tested pure
+  headers; `scanmatcher_component.cpp` 2140 → 1694 lines with 4 new tested
+  pure headers (pose prediction, pose acceptance incl. the tracking state
+  machine, IMU processing, map-update policy). Package test count grew to
+  1100+.
+
 ## 0.5.0 - 2026-06-11
 
 First version aligned across `VERSION`, the four core `package.xml` files and
