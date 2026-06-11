@@ -121,6 +121,7 @@ extern "C" {
 #include "g2o/types/slam3d/vertex_se3.h"
 #include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/candidate_aggregator.hpp"
+#include "graph_based_slam/registration_factory.hpp"
 #include "graph_based_slam/gnss_weighting.hpp"
 #include "graph_based_slam/scan_context.hpp"
 #include "graph_based_slam/solid_descriptor.hpp"
