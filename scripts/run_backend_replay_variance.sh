@@ -127,6 +127,7 @@ wait_for_pgid_exit() {
 stop_pid_with_guard() {
   local pid="$1"
   local label="$2"
+  local grace_secs="${3:-10}"
 
   if [[ -z "${pid}" ]]; then
     return 0
@@ -135,7 +136,7 @@ stop_pid_with_guard() {
   if kill -0 "${pid}" 2>/dev/null; then
     echo "Stopping ${label} pid=${pid}"
     kill -INT "${pid}" 2>/dev/null || true
-    if ! wait_for_pid_exit "${pid}" 10; then
+    if ! wait_for_pid_exit "${pid}" "${grace_secs}"; then
       echo "WARN: ${label} did not exit after SIGINT; sending SIGKILL"
       kill -KILL "${pid}" 2>/dev/null || true
     fi
@@ -251,8 +252,15 @@ record_mode() {
   benchmark_status=$?
   set -e
 
-  stop_pid_with_guard "${RECORDER_PID}" "rosbag recorder"
+  # A pointcloud-heavy mcap can take well over 10 s to flush on SIGINT;
+  # killing the recorder early loses metadata.yaml.
+  stop_pid_with_guard "${RECORDER_PID}" "rosbag recorder" 60
   RECORDER_PID=""
+
+  if [[ ! -f "${bag_dir}/metadata.yaml" ]]; then
+    echo "WARN: recorder left no metadata.yaml; reindexing ${bag_dir}" >&2
+    ros2 bag reindex "${bag_dir}" -s mcap
+  fi
 
   local info_file="${OUTPUT_DIR}/backend_input_info.txt"
   echo "Inspecting recorded bag"
