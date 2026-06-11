@@ -269,8 +269,8 @@ indoor で 0.15–0.40m（真 GT, agreement でなく accuracy）。outdoor の�
 
 | 項目 | 状態 | 理由 |
 |------|------|------|
-| GNSS ポーズグラフ制約 | ⚠️ | 手元に有効な GNSS 付きデータセットがない（RTK-SLAM bag の `/gnss/fix` が流用候補、§8 #1） |
-| `map_projector_info.yaml`（LocalCartesian） | ⚠️ | GNSS 未動作のため地理座標版は未検証（`local` 版は検証済み） |
+| GNSS ポーズグラフ制約 | 🟡 部分実証 | 2026-06-12 RTK-SLAM stadtgarten_seq2 で初検証: #242 修正後にエッジ 163 本形成・RTK 判定・ENU 変換まで動作 ✅。ただし **odom→ENU の初期 yaw 整合が未実装**でアンカーがマップを剪断（pose0 で 0m → 遠方 337m の回転不整合パターン）→ 精度用途はまだ不可。詳細: `docs/research/gnss-constraint-first-validation.md` |
+| ~~`map_projector_info.yaml`（LocalCartesian）~~ | ✅ | 同検証で初実証: LocalCartesian + WGS84 + 実origin（Stadtgarten 48.78199/9.17295）が出力された |
 | ~~Autoware 実環境読み込み~~ | ✅ | map loaders 読込 + AWSIM×Autoware E2E 自動運転まで dogfood 済み |
 
 ### Autoware ユーザーへのバリュー
@@ -329,7 +329,7 @@ indoor で 0.15–0.40m（真 GT, agreement でなく accuracy）。outdoor の�
 | 0f | **v0.6 決定論 core/shell リファクタリング** | スコープ確定（2026-06-11、backend + scanmatcher）。Phase 0 変動帰属測定 → Phase 1 競合除去+分割 → Phase 2 BackendCore+オフライン決定論ランナー（ループエッジ集合 3-run 完全一致がハードゲート）→ Phase 3 default 切替 → Phase 4 scanmatcher。テスト 4 層（characterization / unit / 決定論契約 / リプレイ回帰）を各フェーズのゲートに。詳細 [`docs/roadmap/v0.6.md`](docs/roadmap/v0.6.md) |
 | 0d | ~~D1 8-vs-16 再現性ベンチ~~ | ✅ 2026-06-11 実施（GLIM MID-360 bag、3 run × {off/16, on/16, on/8}）。on/16 は APE 実質無回帰（差 0.06m ≪ noise 0.40m）だが分散縮小なし（σ 0.066→0.259）、on/8 arm の 2 実行で loop 試行ゼロ。mp8 の系統的 regression 署名は消滅し乱高下に置換（スケジューリング主要因子と整合、根本原因の証明ではない）。**default off 維持で D1 完全クローズ**（§1.2、research summary） |
 | 0e | **発信（P2-8）** | ghcr ワンコマンド + lanelet2 完全バンドル + 実 GT 数値が揃い、発信material は完成状態。ROS Discourse / Reddit / X はユーザー本人が実施。事前に B2 social preview 設定（Web UI 1 分） |
-| 1 | **GNSS 付きデータセットで GNSS 制約テスト** | Autoware の地理座標系マッピング機能が未検証。RTK-SLAM bag は `/gnss/fix` を持つので流用候補 |
+| 1 | **GNSS odom→ENU yaw 整合の実装** | 初検証（2026-06-12）で制約形成 ✅・LocalCartesian projector ✅ まで実証済み。残るは yaw 整合（ENU トラックとの 2D 最小二乗 → アンカー回転 or vertex-0 gauge 解放）。これが入ると GNSS georeferencing が実用になる。`docs/research/gnss-constraint-first-validation.md` |
 | 2 | ~~Autoware 実環境での読み込みテスト~~ | ✅ map loaders 読込は検証済み（README の loader proof + AWSIM×Autoware E2E 自動運転まで dogfood 済み、§6） |
 | 3a | ~~MID-360 robot toolkit chain (操作員 pipeline)~~ | ✅ PR #168-#177 で 10 PR inside-out で landing 完了 (§10) |
 | 3b | **実機 Jetson + MID-360 robot での dogfood 実走** | chain (§10) を組んだものの実機 bag での E2E 検証はまだ。dogfood-vs-bench の cloud distribution 不一致も併せて調査 |
