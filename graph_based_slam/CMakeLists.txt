@@ -224,10 +224,14 @@ if(BUILD_TESTING)
   ament_add_gtest(
     test_backend_core
     test/test_backend_core.cpp
+    src/three_d_bbs_loop_verifier.cpp
   )
   if(TARGET test_backend_core)
     target_include_directories(test_backend_core PRIVATE include ${EIGEN3_INCLUDE_DIR})
-    target_link_libraries(test_backend_core ${PCL_LIBRARIES})
+    ament_target_dependencies(test_backend_core ndt_omp_ros2)
+    target_link_libraries(
+      test_backend_core ${PCL_LIBRARIES} graph_based_slam_3d_bbs_vendor
+    )
   endif()
   ament_add_gtest(
     test_pose_graph_optimization
