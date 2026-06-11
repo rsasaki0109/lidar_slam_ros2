@@ -39,6 +39,7 @@
 
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
 #include "graph_based_slam/bev_mutual_visibility.hpp"
+#include "graph_based_slam/candidate_aggregator.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "graph_based_slam/gnss_alignment.hpp"
 #include "graph_based_slam/loop_verifier.hpp"
@@ -1542,32 +1543,8 @@ void GraphBasedSlamComponent::searchLoopForLatest(
     double yaw_rad = 0.0,
     const Eigen::Matrix4f * relative_transform = nullptr)
     {
-      if (index < 0) {
-        return;
-      }
-      for (auto & candidate : candidates) {
-        if (candidate.index != index || candidate.source != source) {
-          continue;
-        }
-        candidate.selection_metric = std::min(candidate.selection_metric, selection_metric);
-        candidate.yaw_rad = yaw_rad;
-        if (relative_transform != nullptr) {
-          candidate.relative_transform = *relative_transform;
-          candidate.has_relative_transform = true;
-        }
-        return;
-      }
-
-      LoopCandidate candidate;
-      candidate.index = index;
-      candidate.selection_metric = selection_metric;
-      candidate.source = source;
-      candidate.yaw_rad = yaw_rad;
-      if (relative_transform != nullptr) {
-        candidate.relative_transform = *relative_transform;
-        candidate.has_relative_transform = true;
-      }
-      candidates.push_back(candidate);
+      candidate_aggregator::upsertCandidate(
+        candidates, index, selection_metric, source, yaw_rad, relative_transform);
     };
 
   struct DescriptorRerankHint
@@ -1576,82 +1553,45 @@ void GraphBasedSlamComponent::searchLoopForLatest(
     double yaw_rad = 0.0;
   };
 
-  std::vector<std::pair<double, int>> distance_candidates;
-  distance_candidates.reserve(num_submaps);
-  for (int i = 0; i < latest_idx; i++) {
+  candidate_aggregator::Config aggregator_config;
+  aggregator_config.debug = debug_flag_;
+  aggregator_config.max_loop_candidate_count = max_loop_candidate_count_;
+  aggregator_config.distance_loop_closure = distance_loop_closure_;
+  aggregator_config.range_of_searching_loop_closure = range_of_searching_loop_closure_;
+  aggregator_config.scan_context_threshold = scan_context_threshold_;
+
+  std::vector<Eigen::Vector3d> submap_positions;
+  std::vector<double> submap_travel_distances;
+  submap_positions.reserve(latest_idx + 1);
+  submap_travel_distances.reserve(latest_idx + 1);
+  for (int i = 0; i <= latest_idx; i++) {
     const auto & submap = map_array_msg.submaps[i];
-    const Eigen::Vector3d submap_pos{
+    submap_positions.emplace_back(
       submap.pose.position.x,
       submap.pose.position.y,
-      submap.pose.position.z};
-    const double dist = (latest_submap_pos - submap_pos).norm();
-    if (latest_moving_distance - submap.distance <= distance_loop_closure_) {
-      continue;
-    }
-    if (dist >= range_of_searching_loop_closure_) {
-      continue;
-    }
-    distance_candidates.emplace_back(dist, i);
+      submap.pose.position.z);
+    submap_travel_distances.push_back(submap.distance);
   }
-  std::sort(distance_candidates.begin(), distance_candidates.end());
 
-  if (use_scan_context_ && scan_context_db_.size() > ScanContext::EXCLUDE_RECENT) {
-    const auto sc_matches = scan_context_db_.queryTopMatchesWithYaw(
-      scan_context_db_.descriptors.back(),
-      max_loop_candidate_count_,
-      ScanContext::NUM_CANDIDATES,
-      ScanContext::EXCLUDE_RECENT,
-      scan_context_threshold_);
+  std::vector<std::pair<double, int>> distance_candidates =
+    candidate_aggregator::collectDistanceCandidates(
+    submap_positions, submap_travel_distances, latest_idx, aggregator_config);
 
-    if (!sc_matches.empty()) {
-      bool added_scan_context_candidate = false;
-      for (const auto & sc_match : sc_matches) {
-        const int sc_idx = sc_match.submap_id;
-        const double sc_dist = sc_match.distance;
-        if (sc_idx < 0 || sc_idx >= latest_idx) {
-          continue;
-        }
-        const double sc_travel_distance =
-          latest_moving_distance - map_array_msg.submaps[sc_idx].distance;
-        if (sc_travel_distance <= distance_loop_closure_) {
-          if (debug_flag_) {
-            RCLCPP_INFO(
-              get_logger(),
-              "Skip ScanContext candidate %d because travel distance %.3f m is below %.3f m",
-              sc_idx,
-              sc_travel_distance,
-              distance_loop_closure_);
-          }
-          continue;
-        }
-        double sc_yaw_rad =
-          -static_cast<double>(sc_match.yaw_shift) * 2.0 * M_PI / ScanContext::NUM_SECTORS;
-        while (sc_yaw_rad > M_PI) {
-          sc_yaw_rad -= 2.0 * M_PI;
-        }
-        while (sc_yaw_rad < -M_PI) {
-          sc_yaw_rad += 2.0 * M_PI;
-        }
-        add_candidate(sc_idx, sc_dist, LoopCandidate::Source::SCAN_CONTEXT, sc_yaw_rad);
-        std::cout << "ScanContext loop candidate: id=" << sc_idx
-                  << " sc_dist=" << sc_dist
-                  << " yaw_deg=" << sc_yaw_rad * 180.0 / M_PI << std::endl;
-        added_scan_context_candidate = true;
-        break;
+  if (use_scan_context_) {
+    std::vector<candidate_aggregator::LogLine> aggregator_logs;
+    candidate_aggregator::collectScanContextCandidate(
+      scan_context_db_,
+      submap_travel_distances,
+      latest_idx,
+      aggregator_config,
+      candidates,
+      aggregator_logs);
+    for (const auto & line : aggregator_logs) {
+      if (line.via_logger) {
+        RCLCPP_INFO(get_logger(), "%s", line.text.c_str());
+      } else {
+        std::cout << line.text << std::endl;
       }
-      if (!added_scan_context_candidate && debug_flag_) {
-        std::cout << "ScanContext matches exist but none satisfied travel-distance gating"
-                  << std::endl;
-      }
-    } else if (debug_flag_) {
-      auto [sc_idx, sc_dist] = scan_context_db_.query(
-        scan_context_db_.descriptors.back(),
-        ScanContext::NUM_CANDIDATES,
-        ScanContext::EXCLUDE_RECENT,
-        std::numeric_limits<double>::max());
-      static_cast<void>(sc_idx);
-      std::cout << "ScanContext no match: best_sc_dist=" << sc_dist
-                << " threshold=" << scan_context_threshold_ << std::endl;
     }
   }
 
@@ -1898,14 +1838,8 @@ void GraphBasedSlamComponent::searchLoopForLatest(
       }
     }
   } else {
-    const int num_distance_candidates =
-      std::min(max_loop_candidate_count_, static_cast<int>(distance_candidates.size()));
-    for (int i = 0; i < num_distance_candidates; i++) {
-      add_candidate(
-        distance_candidates[i].second,
-        distance_candidates[i].first,
-        LoopCandidate::Source::DISTANCE);
-    }
+    candidate_aggregator::appendTopDistanceCandidates(
+      distance_candidates, aggregator_config, candidates);
   }
   if (
     use_solid_descriptor_ &&
