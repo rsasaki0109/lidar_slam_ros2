@@ -3,7 +3,7 @@ name: docker image
 on:
   push:
     branches:
-      - main
+      - develop
   pull_request:
     paths:
       - Dockerfile
@@ -42,7 +42,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Pull requests only validate that the image builds; pushes to main
+      # Pull requests only validate that the image builds; pushes to develop
       # (and manual dispatches) publish ghcr.io/<repo>:humble + :latest.
       - name: Build (and push) image
         uses: docker/build-push-action@v6
