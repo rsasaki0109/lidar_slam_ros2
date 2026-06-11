@@ -12,13 +12,15 @@
 #     profiles (``ntu_viral_tnp_01``, ``mid360_vs_glim``,
 #     ``leo_drive_applanix_velodyne_cross``) graduated from ``report_only_until:
 #     v0.4`` to blocking at their current ``pass`` thresholds.
-#   - Caveat: ``mid360_vs_glim`` and ``leo_drive_applanix_velodyne_cross`` block
-#     on a *cross-validation* reference, not ground truth -- an interim weakness
-#     accepted knowingly. ``mid360_vs_glim`` is slated to be replaced by a real
-#     ground-truth ``ape_rmse_gt_m`` profile in v0.5.
-#   - ``report_only_until`` is retained as a mechanism (FAIL -> WARN while set)
-#     for any future profile introduced mid-cycle, but no shipped profile uses
-#     it as of v0.4.
+#   - As of v0.5 (docs/roadmap/v0.5.md), the MID-360 evidence is real ground
+#     truth: the ``mid360_gt_rtkslam_construction_*`` total-station profiles
+#     graduated to blocking (all four RTK-SLAM sequences measured), and
+#     ``mid360_vs_glim`` was demoted to report-only per decision D-GT-2
+#     (cross-validation only measures agreement, not accuracy; it stays as a
+#     regression canary). ``leo_drive_applanix_velodyne_cross`` keeps the
+#     cross-val caveat (separate track).
+#   - ``report_only_until`` is the demotion/soak mechanism (FAIL -> WARN while
+#     set); new profiles introduced mid-cycle soak as report-only first.
 #
 # Fields:
 #   name: short identifier (snake_case)
@@ -57,8 +59,12 @@ release_profiles:
     pass: 1.00
     target: 0.30
 
+  # Demoted to report-only in v0.5 (D-GT-2): superseded by the
+  # mid360_gt_rtkslam_* total-station profiles below. Cross-validation against
+  # another SLAM estimate measures agreement, not accuracy; kept as a
+  # regression canary on the same sensor.
   - name: mid360_vs_glim
-    description: Livox MID-360 vs GLIM cross-validation (~277s indoor loop)
+    description: Livox MID-360 vs GLIM cross-validation (~277s indoor loop; report-only since v0.5)
     match:
       points_topic: /livox/lidar
       reference_kind: cross_validation
@@ -67,6 +73,7 @@ release_profiles:
     metric: ape_rmse_vs_reference_m
     pass: 4.00
     target: 1.00
+    report_only_until: superseded-by-mid360-gt (D-GT-2)
 
   # v0.5: the real total-station GT profile that supersedes mid360_vs_glim's
   # cross-validation. Scored against the public RTK-SLAM dataset's surveyed
@@ -74,10 +81,9 @@ release_profiles:
   # land at survey-dwell points where the optimized submap graph is sparse, so
   # the gate scores the *dense* trajectory (RKO-LIO odometry) -- the same dense
   # form the dataset's own published baselines are scored in. Run with
-  # --match-tolerance 2.0 (the dataset's max_dt). report_only_until is kept while
-  # only construction_seq2 is measured; graduate to blocking once the other
-  # three sequences confirm the threshold. Observed construction_seq2 raw RMSE
-  # 0.154 m (median 0.061), vs published fast_lio_sam 0.086 / okvis 0.075.
+  # --match-tolerance 2.0 (the dataset's max_dt). Graduated to blocking in v0.5
+  # with all four RTK-SLAM sequences measured. Observed construction_seq2 raw
+  # RMSE 0.154 m (median 0.061), vs published fast_lio_sam 0.086 / okvis 0.075.
   - name: mid360_gt_rtkslam_construction_seq2
     description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Construction Hall 2 (~600s, 16 chkpt, dense odometry)
     match:
@@ -88,15 +94,12 @@ release_profiles:
     metric: ape_rmse_gt_m
     pass: 0.30
     target: 0.15
-    report_only_until: v0.6
 
   # Companion indoor sequence (Construction Hall 1) -- the hardest of the two
   # halls (published baselines ~0.22 m, the highest). Our dense odometry pairs
   # 16/16 at RMSE 0.403 m (median 0.263), so the threshold is looser than
   # construction_seq2 by design: per-sequence difficulty, like NTU vs Newer
-  # College. report_only_until while the indoor pair is the only validated set
-  # (the outdoor Stadtgarten sequences drift badly with this indoor-tuned
-  # config -- 3.9 m on stadtgarten_seq2 -- and need config work before gating).
+  # College. Graduated to blocking in v0.5 together with construction_seq2.
   - name: mid360_gt_rtkslam_construction_seq1
     description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Construction Hall 1 (~741s, 16 chkpt, dense odometry)
     match:
@@ -107,6 +110,37 @@ release_profiles:
     metric: ape_rmse_gt_m
     pass: 0.55
     target: 0.30
+
+  # Outdoor pair (Stadtgarten park) -- measured with the outdoor preset
+  # (configs/mid360_robot/rko_lio_rtk_slam_mid360_outdoor.yaml,
+  # double_downsample off; the indoor preset drifts to 3.9 m here). These are
+  # honest capability-boundary numbers for LiDAR-inertial raw odometry without
+  # GNSS or loop closure (published GNSS-anchored baselines sit at ~0.07 m):
+  # stadtgarten_seq2 0.835 m (median 0.327, 19 chkpt), stadtgarten_seq1
+  # 1.666 m (median 1.511, 36 chkpt, 26 min / ~1 km loop). Soak as
+  # report-only with indoor-like headroom before graduating.
+  - name: mid360_gt_rtkslam_stadtgarten_seq2
+    description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Stadtgarten 2 (~876s outdoor park, 19 chkpt, dense odometry)
+    match:
+      points_topic: /livox/points
+      reference_kind: ground_truth
+      reference_source_contains: rtk_slam_stadtgarten_seq2_gt
+      min_ape_pairs: 12
+    metric: ape_rmse_gt_m
+    pass: 1.20
+    target: 0.90
+    report_only_until: v0.6
+
+  - name: mid360_gt_rtkslam_stadtgarten_seq1
+    description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Stadtgarten 1 (~1603s outdoor park, 36 chkpt, dense odometry)
+    match:
+      points_topic: /livox/points
+      reference_kind: ground_truth
+      reference_source_contains: rtk_slam_stadtgarten_seq1_gt
+      min_ape_pairs: 24
+    metric: ape_rmse_gt_m
+    pass: 2.20
+    target: 1.70
     report_only_until: v0.6
 
   - name: leo_drive_applanix_velodyne_cross
