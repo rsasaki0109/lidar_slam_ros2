@@ -119,6 +119,7 @@ extern "C" {
 #include "g2o/types/slam3d/se3quat.h"
 #include "g2o/types/slam3d/vertex_pointxyz.h"
 #include "g2o/types/slam3d/vertex_se3.h"
+#include "graph_based_slam/candidate_aggregator.hpp"
 #include "graph_based_slam/gnss_weighting.hpp"
 #include "graph_based_slam/scan_context.hpp"
 #include "graph_based_slam/solid_descriptor.hpp"
@@ -355,11 +356,7 @@ private:
     bool triangle_verify_with_bev_ {false};
     double triangle_verify_bev_max_distance_ {0.30};
     graphslam::triangle::TriangleDatabase triangle_descriptor_db_;
-    struct TrianglePerSubmap
-    {
-      std::vector < graphslam::triangle::Keypoint > keypoints;
-      std::vector < graphslam::triangle::TriangleDescriptor > triangles;
-    };
+    using TrianglePerSubmap = candidate_aggregator::TriangleSubmapFeatures;
     std::vector < TrianglePerSubmap > triangle_descriptor_per_submap_;
     int triangle_descriptor_next_submap_idx_ {0};
     bool use_solid_descriptor_ {false};

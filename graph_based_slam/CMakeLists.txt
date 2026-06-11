@@ -205,6 +205,7 @@ if(BUILD_TESTING)
   )
   if(TARGET test_candidate_aggregator)
     target_include_directories(test_candidate_aggregator PRIVATE include ${EIGEN3_INCLUDE_DIR})
+    target_link_libraries(test_candidate_aggregator ${PCL_LIBRARIES})
   endif()
   ament_add_gtest(
     test_loop_verifier

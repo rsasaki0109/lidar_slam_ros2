@@ -559,5 +559,156 @@ TEST_F(CandidateAggregatorSolid, DatabaseWithinExcludeRecentWindowIsSkipped)
   EXPECT_TRUE(logs_.empty());
 }
 
+// A 4x4 grid plus an off-axis marker: distinct pairwise distances give
+// unambiguous triangles and a unique SE(3) (same shape as the
+// triangle-database tests). `spacing` changes the shape entirely, so two
+// different spacings never share hash votes.
+std::vector<graphslam::triangle::Keypoint> makeTriangleKeypoints(float spacing)
+{
+  std::vector<graphslam::triangle::Keypoint> kps;
+  for (int iy = 0; iy < 4; ++iy) {
+    for (int ix = 0; ix < 4; ++ix) {
+      graphslam::triangle::Keypoint k;
+      k.position = Eigen::Vector3f(
+        static_cast<float>(ix) * spacing,
+        static_cast<float>(iy) * spacing,
+        0.0F);
+      k.salience = 1.0F;
+      kps.push_back(k);
+    }
+  }
+  graphslam::triangle::Keypoint marker;
+  marker.position = Eigen::Vector3f(4.5F * spacing, 2.0F * spacing, 0.0F);
+  marker.salience = 1.0F;
+  kps.push_back(marker);
+  return kps;
+}
+
+class CandidateAggregatorTriangle : public ::testing::Test
+{
+protected:
+  using Features = candidate_aggregator::TriangleSubmapFeatures;
+
+  void SetUp() override
+  {
+    config_ = makeConfig();
+    config_.triangle_descriptor_exclude_recent = 1;
+    config_.triangle_descriptor_edge_bin_m = 0.2;
+    config_.triangle_descriptor_quad_feature_bin_m = 0.2;
+    config_.triangle_descriptor_inlier_translation_m = 0.3;
+    config_.triangle_descriptor_inlier_rotation_deg = 5.0;
+    config_.triangle_descriptor_min_inliers = 4;
+    config_.triangle_descriptor_max_pairs = 300;
+    config_.triangle_descriptor_fourth_point_max_distance_m = 1.0;
+    config_.triangle_descriptor_min_votes = 1;
+
+    hash_cfg_.edge_bin_m = 0.2F;
+    hash_cfg_.quad_feature_bin_m = 0.2F;
+
+    pattern_.keypoints = makeTriangleKeypoints(3.0F);
+    pattern_.triangles = graphslam::triangle::buildTriangles(
+      pattern_.keypoints, graphslam::triangle::TriangleBuildConfig{});
+    filler_.keypoints = makeTriangleKeypoints(2.3F);
+    filler_.triangles = graphslam::triangle::buildTriangles(
+      filler_.keypoints, graphslam::triangle::TriangleBuildConfig{});
+
+    travels_ = {0.0, 50.0, 100.0};
+  }
+
+  // db submaps 0 and 1, query = per_submap[2].
+  void buildDatabase(const Features & id0, const Features & id1, const Features & query)
+  {
+    per_submap_ = {id0, id1, query};
+    db_.addSubmap(0, id0.keypoints, id0.triangles, hash_cfg_);
+    db_.addSubmap(1, id1.keypoints, id1.triangles, hash_cfg_);
+  }
+
+  Config config_;
+  graphslam::triangle::HashConfig hash_cfg_;
+  Features pattern_;
+  Features filler_;
+  graphslam::triangle::TriangleDatabase db_;
+  std::vector<Features> per_submap_;
+  SubmapBEVDescriptor::Database bev_db_;
+  std::vector<double> travels_;
+  std::vector<LoopCandidate> candidates_;
+  std::vector<LogLine> logs_;
+};
+
+TEST_F(CandidateAggregatorTriangle, AcceptedCandidateCarriesRecoveredSe3)
+{
+  buildDatabase(pattern_, filler_, pattern_);
+
+  candidate_aggregator::collectTriangleCandidate(
+    db_, per_submap_, bev_db_, false, travels_, 2, config_, candidates_, logs_);
+
+  ASSERT_EQ(candidates_.size(), 1U);
+  EXPECT_EQ(candidates_[0].index, 0);
+  EXPECT_EQ(candidates_[0].source, Source::TRIANGLE_DESCRIPTOR);
+  ASSERT_TRUE(candidates_[0].has_relative_transform);
+  // Identical keypoint sets: the recovered SE(3) is the identity.
+  EXPECT_TRUE(candidates_[0].relative_transform.isApprox(Eigen::Matrix4f::Identity(), 1e-3F));
+  EXPECT_LT(candidates_[0].selection_metric, 1.0);
+  ASSERT_EQ(logs_.size(), 1U);
+  EXPECT_FALSE(logs_[0].via_logger);
+  EXPECT_EQ(logs_[0].text.rfind("Triangle loop candidate: id=0", 0), 0U);
+}
+
+TEST_F(CandidateAggregatorTriangle, TravelGateRejectsAndLogsWhenDebug)
+{
+  buildDatabase(pattern_, filler_, pattern_);
+  travels_[0] = 98.0;  // 2 m of travel separation <= 5 m gate
+  config_.debug = true;
+
+  candidate_aggregator::collectTriangleCandidate(
+    db_, per_submap_, bev_db_, false, travels_, 2, config_, candidates_, logs_);
+
+  EXPECT_TRUE(candidates_.empty());
+  ASSERT_EQ(logs_.size(), 1U);
+  EXPECT_TRUE(logs_[0].via_logger);
+  EXPECT_EQ(logs_[0].text, "Skip Triangle candidate 0 (travel 2.000 m <= 5.000 m)");
+}
+
+TEST_F(CandidateAggregatorTriangle, MinVotesGateReportsTopVoteWhenDebug)
+{
+  buildDatabase(pattern_, filler_, pattern_);
+  config_.triangle_descriptor_min_votes = 999999;
+  config_.debug = true;
+
+  candidate_aggregator::collectTriangleCandidate(
+    db_, per_submap_, bev_db_, false, travels_, 2, config_, candidates_, logs_);
+
+  EXPECT_TRUE(candidates_.empty());
+  ASSERT_EQ(logs_.size(), 1U);
+  EXPECT_TRUE(logs_[0].via_logger);
+  EXPECT_EQ(logs_[0].text.rfind("Triangle top vote 0 only ", 0), 0U);
+}
+
+TEST_F(CandidateAggregatorTriangle, ExcludeRecentMasksTheMatchingNeighbor)
+{
+  // The pattern sits at id 2, inside the widened exclusion window
+  // (latest 3 - id 2 < 2): its votes are masked and the non-matching
+  // fillers got none, so the debug diagnostic reports the excluded top
+  // vote and nothing is added.
+  Features filler2;
+  filler2.keypoints = makeTriangleKeypoints(1.7F);
+  filler2.triangles = graphslam::triangle::buildTriangles(
+    filler2.keypoints, graphslam::triangle::TriangleBuildConfig{});
+  per_submap_ = {filler_, filler2, pattern_, pattern_};
+  db_.addSubmap(0, filler_.keypoints, filler_.triangles, hash_cfg_);
+  db_.addSubmap(1, filler2.keypoints, filler2.triangles, hash_cfg_);
+  db_.addSubmap(2, pattern_.keypoints, pattern_.triangles, hash_cfg_);
+  travels_ = {0.0, 30.0, 60.0, 100.0};
+  config_.triangle_descriptor_exclude_recent = 2;
+  config_.debug = true;
+
+  candidate_aggregator::collectTriangleCandidate(
+    db_, per_submap_, bev_db_, false, travels_, 3, config_, candidates_, logs_);
+
+  EXPECT_TRUE(candidates_.empty());
+  ASSERT_EQ(logs_.size(), 1U);
+  EXPECT_EQ(logs_[0].text.rfind("Triangle top vote 2 only ", 0), 0U);
+}
+
 }  // namespace
 }  // namespace graphslam
