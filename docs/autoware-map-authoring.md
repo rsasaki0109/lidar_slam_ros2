@@ -75,6 +75,15 @@ MID360 preset instead of the generic public YAMLs.
 - `pointcloud_map/` tiles
 - `pointcloud_map_metadata.yaml`
 - `map_projector_info.yaml`
+- `lanelet2_map.osm` — generated from the loop-closed trajectory
+  (`traj_corrected.tum`) by default. The origin defaults to a local `(0, 0)`
+  lat/lon (valid with `projector_type: local` through the `local_x`/`local_y`
+  node tags); pass `--origin-lat` / `--origin-lon` to
+  `run_rko_lio_graph_autoware_dogfood.sh` for a georeferenced map, or
+  `--generate-lanelet2 false` to skip it. Generation is best-effort: when the
+  corrected trajectory is missing or the generator fails, the run keeps the
+  pointcloud bundle and reports `lanelet2_map.osm MISSING` in the end-of-run
+  bundle summary instead of failing.
 - `PASS` / `FAIL` map verification via `scripts/verify_autoware_map.py`
 - benchmark/report artifacts for the same workflow family
 

@@ -431,8 +431,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument('--input', required=True, type=Path, help='TUM trajectory file')
     p.add_argument('--output', required=True, type=Path, help='Output OSM file path')
     p.add_argument('--lane-width', type=float, default=3.5, help='Lane width [m]')
-    p.add_argument('--origin-lat', type=float, required=True, help='Origin latitude [deg]')
-    p.add_argument('--origin-lon', type=float, required=True, help='Origin longitude [deg]')
+    p.add_argument('--origin-lat', type=float, default=0.0,
+                   help='Origin latitude [deg] for local map coordinates')
+    p.add_argument('--origin-lon', type=float, default=0.0,
+                   help='Origin longitude [deg] for local map coordinates')
     p.add_argument('--resolution', type=float, default=1.0, help='Resample spacing [m]')
     p.add_argument('--smooth-factor', type=float, default=0.0, help='Spline smoothing (0=interpolate)')
     p.add_argument('--speed-limit', type=float, default=10.0, help='Speed limit [km/h]')
