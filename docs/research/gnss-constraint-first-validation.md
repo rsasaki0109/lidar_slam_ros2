@@ -77,3 +77,23 @@ until a yaw alignment lands.** Design sketch for the follow-up:
 # off arm = v0.5 outdoor preset; on arm adds use_gnss + the skew override
 bash output/gnss_ab/run_ab.sh   # see the file for the exact invocations
 ```
+
+## Addendum: the yaw alignment landed (same day)
+
+With the planar odom→ENU alignment (closed-form 2-D Kabsch over the matched
+anchor pairs, `gnss_align_yaw`, min 10 anchors / 5 m baseline) and the
+vertex-0 gauge released when it succeeds:
+
+- the run estimates **yaw = −111.83°** (baseline 201.9 m, fit RMS 1.90 m) and
+  reports 165 anchors;
+- the corrected trajectory becomes a **rigid** −112.1° rotation of the
+  GNSS-off solution (independent best-fit), with post-alignment residuals of
+  mean 2.03 m / max 8.73 m — the anchors' actual drift corrections — instead
+  of the 180 m mean / 337 m max shear before;
+- raw stays 0.835 m, bit-for-bit.
+
+The map is georeferenced for the first time: poses live in the ENU frame of
+the `LocalCartesian` origin, which is what the projector metadata promises
+consumers. Quantifying the absolute-accuracy gain against the total-station
+checkpoints still needs the denser corrected export (the dwell-gap pairing
+limitation above).
