@@ -193,6 +193,13 @@ if(BUILD_TESTING)
     target_include_directories(test_submap_creation PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
+    test_gnss_alignment
+    test/test_gnss_alignment.cpp
+  )
+  if(TARGET test_gnss_alignment)
+    target_include_directories(test_gnss_alignment PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  endif()
+  ament_add_gtest(
     test_pose_graph_optimization
     test/test_pose_graph_optimization.cpp
   )

@@ -432,6 +432,9 @@ private:
 
     // GNSS constraints for georeferenced mapping
     bool use_gnss_ {false};
+    bool gnss_align_yaw_ {true};
+    int gnss_yaw_alignment_min_anchors_ {10};
+    double gnss_yaw_alignment_min_baseline_m_ {5.0};
     std::string gnss_topic_ {"/gnss/fix"};
     double gnss_info_weight_ {1.0};
     bool gnss_use_covariance_weighting_ {true};
