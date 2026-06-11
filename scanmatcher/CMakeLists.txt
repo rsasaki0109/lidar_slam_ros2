@@ -103,6 +103,10 @@ if(BUILD_TESTING)
   ament_add_gtest(test_pose_acceptance test/test_pose_acceptance.cpp)
   target_include_directories(test_pose_acceptance PRIVATE include ${EIGEN3_INCLUDE_DIR})
   ament_target_dependencies(test_pose_acceptance tf2 tf2_geometry_msgs geometry_msgs)
+
+  ament_add_gtest(test_imu_processing test/test_imu_processing.cpp)
+  target_include_directories(test_imu_processing PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  ament_target_dependencies(test_imu_processing tf2 tf2_geometry_msgs geometry_msgs)
 endif()
 
 add_library(scanmatcher_component SHARED

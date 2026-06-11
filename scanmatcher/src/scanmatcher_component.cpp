@@ -25,13 +25,6 @@ struct PointCloudExtractionResult
   std::vector<float> point_times {};
 };
 
-double wrapAngleRad(double angle)
-{
-  while (angle > M_PI) {angle -= 2.0 * M_PI;}
-  while (angle < -M_PI) {angle += 2.0 * M_PI;}
-  return angle;
-}
-
 bool pointCloudHasField(const sensor_msgs::msg::PointCloud2 & msg, const std::string & name)
 {
   for (const auto & field : msg.fields) {
@@ -112,26 +105,6 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg:
   result.cloud->height = 1;
   result.cloud->is_dense = msg.is_dense;
   return result;
-}
-
-Eigen::Vector3d clampVectorNorm(const Eigen::Vector3d & v, double max_norm)
-{
-  if (max_norm <= 0.0) {
-    return v;
-  }
-  const double norm = v.norm();
-  if (norm <= max_norm || norm < 1e-9) {
-    return v;
-  }
-  return v * (max_norm / norm);
-}
-
-geometry_msgs::msg::Quaternion quaternionFromRPY(double roll, double pitch, double yaw)
-{
-  tf2::Quaternion q;
-  q.setRPY(roll, pitch, yaw);
-  q.normalize();
-  return tf2::toMsg(q);
 }
 }
 
@@ -1223,34 +1196,13 @@ void ScanMatcherComponent::publishMapAndPose(
   {
     const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
     if (imu_age <= imu_pose_prediction_max_age_) {
-      tf2::Quaternion imu_delta = cloud_imu_reference_quat_.inverse() * latest_imu_robot_quat_;
-      imu_delta.normalize();
-      double imu_dr, imu_dp, imu_dy;
-      tf2::Matrix3x3(imu_delta).getRPY(imu_dr, imu_dp, imu_dy);
-
-      tf2::Quaternion ndt_quat;
-      tf2::fromMsg(accepted_quat_msg, ndt_quat);
-      double ndt_roll, ndt_pitch, ndt_yaw;
-      tf2::Matrix3x3(ndt_quat).getRPY(ndt_roll, ndt_pitch, ndt_yaw);
-
-      // Previous published rotation (ndt_pose_ stores last published RPY)
-      Eigen::Matrix3f prev_rot = ndt_pose_.block<3, 3>(0, 0);
-      Eigen::Quaternionf prev_q_eig(prev_rot);
-      tf2::Quaternion prev_pub_quat(prev_q_eig.x(), prev_q_eig.y(), prev_q_eig.z(), prev_q_eig.w());
-      double prev_roll, prev_pitch, prev_yaw;
-      tf2::Matrix3x3(prev_pub_quat).getRPY(prev_roll, prev_pitch, prev_yaw);
-
-      double imu_pred_roll = prev_roll + imu_dr;
-      double imu_pred_pitch = prev_pitch + imu_dp;
-
-      const double a = imu_complementary_alpha_;
-      double blended_roll = (1.0 - a) * ndt_roll + a * imu_pred_roll;
-      double blended_pitch = (1.0 - a) * ndt_pitch + a * imu_pred_pitch;
-
-      tf2::Quaternion blended_quat;
-      blended_quat.setRPY(blended_roll, blended_pitch, ndt_yaw);
-      blended_quat.normalize();
-      published_quat_msg = tf2::toMsg(blended_quat);
+      imu_processing::ComplementaryBlendInput blend_input;
+      blend_input.imu_reference_quat = cloud_imu_reference_quat_;
+      blend_input.latest_imu_robot_quat = latest_imu_robot_quat_;
+      blend_input.accepted_quat_msg = accepted_quat_msg;
+      blend_input.previous_published_rotation = ndt_pose_.block<3, 3>(0, 0);
+      blend_input.alpha = imu_complementary_alpha_;
+      published_quat_msg = imu_processing::blendComplementaryRollPitch(blend_input);
     }
   }
   // Store published rotation for next frame's complementary filter
@@ -1579,6 +1531,9 @@ void ScanMatcherComponent::receiveImu(const sensor_msgs::msg::Imu msg)
   bool have_imu_tf = (imu_frame_id == robot_frame_id_);
 
   if (!have_imu_tf) {
+    // The TF lookup (with its stamped -> latest-static -> identity fallback
+    // ladder) is a shell concern; the vector rotation itself is pure.
+    bool rotate_into_robot_frame = false;
     try {
       tf2::TimePoint time_point;
       if (imu_msg.header.stamp.sec == 0 && imu_msg.header.stamp.nanosec == 0) {
@@ -1591,52 +1546,14 @@ void ScanMatcherComponent::receiveImu(const sensor_msgs::msg::Imu msg)
       const geometry_msgs::msg::TransformStamped tf = tfbuffer_.lookupTransform(
         robot_frame_id_, imu_frame_id, time_point);
       tf2::fromMsg(tf.transform.rotation, q_robot_imu);
-
-      tf2::Vector3 w_imu(
-        imu_msg.angular_velocity.x,
-        imu_msg.angular_velocity.y,
-        imu_msg.angular_velocity.z);
-      tf2::Vector3 a_imu(
-        imu_msg.linear_acceleration.x,
-        imu_msg.linear_acceleration.y,
-        imu_msg.linear_acceleration.z);
-
-      tf2::Vector3 w_robot = tf2::quatRotate(q_robot_imu, w_imu);
-      tf2::Vector3 a_robot = tf2::quatRotate(q_robot_imu, a_imu);
-
-      imu_msg.angular_velocity.x = w_robot.x();
-      imu_msg.angular_velocity.y = w_robot.y();
-      imu_msg.angular_velocity.z = w_robot.z();
-      imu_msg.linear_acceleration.x = a_robot.x();
-      imu_msg.linear_acceleration.y = a_robot.y();
-      imu_msg.linear_acceleration.z = a_robot.z();
-
+      rotate_into_robot_frame = true;
       have_imu_tf = true;
     } catch (tf2::TransformException & e) {
       try {
         const geometry_msgs::msg::TransformStamped tf = tfbuffer_.lookupTransform(
           robot_frame_id_, imu_frame_id, tf2::TimePointZero);
         tf2::fromMsg(tf.transform.rotation, q_robot_imu);
-
-        tf2::Vector3 w_imu(
-          imu_msg.angular_velocity.x,
-          imu_msg.angular_velocity.y,
-          imu_msg.angular_velocity.z);
-        tf2::Vector3 a_imu(
-          imu_msg.linear_acceleration.x,
-          imu_msg.linear_acceleration.y,
-          imu_msg.linear_acceleration.z);
-
-        tf2::Vector3 w_robot = tf2::quatRotate(q_robot_imu, w_imu);
-        tf2::Vector3 a_robot = tf2::quatRotate(q_robot_imu, a_imu);
-
-        imu_msg.angular_velocity.x = w_robot.x();
-        imu_msg.angular_velocity.y = w_robot.y();
-        imu_msg.angular_velocity.z = w_robot.z();
-        imu_msg.linear_acceleration.x = a_robot.x();
-        imu_msg.linear_acceleration.y = a_robot.y();
-        imu_msg.linear_acceleration.z = a_robot.z();
-
+        rotate_into_robot_frame = true;
         have_imu_tf = true;
         RCLCPP_WARN_ONCE(
           get_logger(),
@@ -1652,76 +1569,69 @@ void ScanMatcherComponent::receiveImu(const sensor_msgs::msg::Imu msg)
         have_imu_tf = false;
       }
     }
+    if (rotate_into_robot_frame) {
+      imu_processing::ImuVectors imu_vectors;
+      imu_vectors.angular_velocity = tf2::Vector3(
+        imu_msg.angular_velocity.x,
+        imu_msg.angular_velocity.y,
+        imu_msg.angular_velocity.z);
+      imu_vectors.linear_acceleration = tf2::Vector3(
+        imu_msg.linear_acceleration.x,
+        imu_msg.linear_acceleration.y,
+        imu_msg.linear_acceleration.z);
+      const imu_processing::ImuVectors robot_vectors =
+        imu_processing::rotateImuVectorsIntoRobotFrame(imu_vectors, q_robot_imu);
+      imu_msg.angular_velocity.x = robot_vectors.angular_velocity.x();
+      imu_msg.angular_velocity.y = robot_vectors.angular_velocity.y();
+      imu_msg.angular_velocity.z = robot_vectors.angular_velocity.z();
+      imu_msg.linear_acceleration.x = robot_vectors.linear_acceleration.x();
+      imu_msg.linear_acceleration.y = robot_vectors.linear_acceleration.y();
+      imu_msg.linear_acceleration.z = robot_vectors.linear_acceleration.z();
+    }
   }
 
   // Determine orientation (roll/pitch) in robot_frame_id_. If orientation is missing, estimate it from acceleration.
   tf2::Quaternion q_world_imu;
   tf2::fromMsg(imu_msg.orientation, q_world_imu);
 
-  bool orientation_valid = true;
-  if (!imu_msg.orientation_covariance.empty() && imu_msg.orientation_covariance[0] < 0.0) {
-    orientation_valid = false;
-  }
-  if (q_world_imu.length2() < 1e-12) {
-    orientation_valid = false;
-  }
-
   const double imu_time = imu_msg.header.stamp.sec + imu_msg.header.stamp.nanosec * 1e-9;
-  double roll = 0.0;
-  double pitch = 0.0;
-  double yaw = 0.0;
-  tf2::Quaternion q_world_robot(0.0, 0.0, 0.0, 1.0);
 
-  if (orientation_valid) {
-    if (have_imu_tf && imu_frame_id != robot_frame_id_) {
-      // q_world_robot = q_world_imu * q_imu_robot
-      const tf2::Quaternion q_imu_robot = q_robot_imu.inverse();
-      q_world_robot = q_world_imu * q_imu_robot;
-    } else {
-      q_world_robot = q_world_imu;
-    }
-    tf2::Matrix3x3(q_world_robot).getRPY(roll, pitch, yaw);
-    imu_integrated_yaw_ = yaw;
-    imu_integrated_yaw_valid_ = true;
-  } else {
-    const double ax = imu_msg.linear_acceleration.x;
-    const double ay = imu_msg.linear_acceleration.y;
-    const double az = imu_msg.linear_acceleration.z;
-    roll = std::atan2(ay, az);
-    pitch = std::atan2(-ax, std::sqrt(ay * ay + az * az));
-    const double dt = imu_time - last_imu_time_;
-    if (imu_integrated_yaw_valid_ && dt > 0.0 && dt < 1.0) {
-      imu_integrated_yaw_ = wrapAngleRad(
-        imu_integrated_yaw_ + static_cast<double>(imu_msg.angular_velocity.z) * dt);
-    } else if (!imu_integrated_yaw_valid_) {
-      imu_integrated_yaw_ = 0.0;
-      imu_integrated_yaw_valid_ = true;
-    }
-    yaw = imu_integrated_yaw_;
-    q_world_robot.setRPY(roll, pitch, yaw);
-  }
-  last_imu_time_ = imu_time;
-  latest_imu_robot_quat_ = q_world_robot;
+  imu_processing::OrientationInput orientation_input;
+  orientation_input.q_world_imu = q_world_imu;
+  orientation_input.orientation_covariance0 = imu_msg.orientation_covariance[0];
+  orientation_input.linear_acceleration_x = imu_msg.linear_acceleration.x;
+  orientation_input.linear_acceleration_y = imu_msg.linear_acceleration.y;
+  orientation_input.linear_acceleration_z = imu_msg.linear_acceleration.z;
+  orientation_input.angular_velocity_z = imu_msg.angular_velocity.z;
+  orientation_input.imu_time = imu_time;
+  orientation_input.have_imu_tf = have_imu_tf;
+  orientation_input.frame_differs = imu_frame_id != robot_frame_id_;
+  orientation_input.q_robot_imu = q_robot_imu;
+
+  const imu_processing::OrientationResult orientation =
+    imu_processing::resolveOrientation(orientation_input, imu_orientation_state_);
+
+  latest_imu_robot_quat_ = orientation.q_world_robot;
   latest_imu_stamp_ = imu_msg.header.stamp;
   latest_imu_orientation_valid_ = true;
-
-  float acc_x = static_cast<float>(imu_msg.linear_acceleration.x) + sin(pitch) * 9.81;
-  float acc_y = static_cast<float>(imu_msg.linear_acceleration.y) - cos(pitch) * sin(roll) * 9.81;
-  float acc_z = static_cast<float>(imu_msg.linear_acceleration.z) - cos(pitch) * cos(roll) * 9.81;
 
   Eigen::Vector3f angular_velo{
     static_cast<float>(imu_msg.angular_velocity.x),
     static_cast<float>(imu_msg.angular_velocity.y),
     static_cast<float>(imu_msg.angular_velocity.z)};
-  Eigen::Vector3f acc{acc_x, acc_y, acc_z};
+  Eigen::Vector3f acc = imu_processing::gravityCompensatedAcceleration(
+    imu_msg.linear_acceleration.x,
+    imu_msg.linear_acceleration.y,
+    imu_msg.linear_acceleration.z,
+    orientation.roll,
+    orientation.pitch);
   Eigen::Quaternionf quat{
-    static_cast<float>(q_world_robot.w()),
-    static_cast<float>(q_world_robot.x()),
-    static_cast<float>(q_world_robot.y()),
-    static_cast<float>(q_world_robot.z())};
+    static_cast<float>(orientation.q_world_robot.w()),
+    static_cast<float>(orientation.q_world_robot.x()),
+    static_cast<float>(orientation.q_world_robot.y()),
+    static_cast<float>(orientation.q_world_robot.z())};
 
   lidar_undistortion_.getImu(angular_velo, acc, quat, imu_time);
-
 }
 
 void ScanMatcherComponent::publishMap(const lidarslam_msgs::msg::MapArray & map_array_msg , const std::string & map_frame_id)
