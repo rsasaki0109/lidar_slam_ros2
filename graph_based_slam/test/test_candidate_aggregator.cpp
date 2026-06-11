@@ -40,6 +40,7 @@
 #include <vector>
 
 #include <Eigen/Core>  // NOLINT(build/include_order)
+#include <Eigen/Geometry>  // NOLINT(build/include_order)
 
 #include "graph_based_slam/candidate_aggregator.hpp"
 
@@ -305,6 +306,255 @@ TEST_F(CandidateAggregatorScanContext, DatabaseWithinExcludeRecentWindowIsSkippe
 
   candidate_aggregator::collectScanContextCandidate(
     db_, travels_, ScanContext::EXCLUDE_RECENT - 1, config, candidates_, logs_);
+  EXPECT_TRUE(candidates_.empty());
+  EXPECT_TRUE(logs_.empty());
+}
+
+Eigen::Affine3d makeTestPose(double x, double y)
+{
+  Eigen::Affine3d pose = Eigen::Affine3d::Identity();
+  pose.translate(Eigen::Vector3d(x, y, 0.0));
+  return pose;
+}
+
+// A BEV descriptor whose flattened cosine distance is 0 against the same
+// spike cell and 1 against a different one.
+SubmapBEVDescriptor::Descriptor makeBevDescriptor(int spike_cell)
+{
+  SubmapBEVDescriptor::Descriptor desc;
+  desc.occupancy = Eigen::MatrixXf::Zero(4, 4);
+  desc.density = Eigen::MatrixXf::Zero(4, 4);
+  desc.max_height = Eigen::MatrixXf::Zero(4, 4);
+  desc.occupancy(spike_cell / 4, spike_cell % 4) = 1.0F;
+  desc.coarse_key = Eigen::VectorXf::Zero(1);
+  return desc;
+}
+
+Config makeBevConfig()
+{
+  Config config;
+  config.max_loop_candidate_count = 2;
+  config.bev_descriptor_yaw_bins = 1;  // evaluate yaw 0 only: distances stay exact
+  config.bev_descriptor_threshold = 0.5;
+  config.bev_descriptor_sequence_threshold = 0.5;
+  config.bev_descriptor_rerank_weight_m = 100.0;
+  return config;
+}
+
+TEST(CandidateAggregatorBev, MatchingDescriptorBoostsFartherCandidateAheadOfNearer)
+{
+  // Submap 0 (5 m away) matches the latest descriptor, submap 1 (3 m away)
+  // does not: the hint shifts 0 ahead of 1 in the reranked order and both
+  // end up as DISTANCE candidates, the boosted one carrying the hint yaw.
+  SubmapBEVDescriptor::Database db;
+  db.add(0, makeBevDescriptor(0));
+  db.add(1, makeBevDescriptor(5));
+  db.add(2, makeBevDescriptor(0));
+  const std::vector<Eigen::Affine3d> poses = {
+    makeTestPose(5.0, 0.0), makeTestPose(3.0, 0.0), makeTestPose(0.0, 0.0)};
+  std::vector<std::pair<double, int>> distance_candidates = {{3.0, 1}, {5.0, 0}};
+  std::vector<LoopCandidate> candidates;
+  std::vector<LogLine> logs;
+
+  candidate_aggregator::rerankDistanceCandidatesWithBev(
+    db, poses, 2, makeBevConfig(), distance_candidates, candidates, logs);
+
+  ASSERT_EQ(distance_candidates.size(), 2U);
+  EXPECT_EQ(distance_candidates[0].second, 0);
+  EXPECT_EQ(distance_candidates[1].second, 1);
+
+  ASSERT_EQ(candidates.size(), 2U);
+  EXPECT_EQ(candidates[0].index, 0);
+  EXPECT_EQ(candidates[0].source, Source::DISTANCE);
+  // adjusted = 5.0 + 100 * (0 - 0.5)
+  EXPECT_NEAR(candidates[0].selection_metric, -45.0, 1e-9);
+  EXPECT_EQ(candidates[1].index, 1);
+  EXPECT_DOUBLE_EQ(candidates[1].selection_metric, 3.0);
+
+  ASSERT_EQ(logs.size(), 2U);
+  EXPECT_EQ(logs[0].text.rfind("BEV rerank hint: id=0", 0), 0U);
+  EXPECT_EQ(logs[1].text.rfind("Distance candidate reranked by BEV: id=0", 0), 0U);
+}
+
+TEST(CandidateAggregatorBev, EuclideanGateSkipsAndReportsNoCandidateWhenDebug)
+{
+  SubmapBEVDescriptor::Database db;
+  db.add(0, makeBevDescriptor(0));
+  db.add(1, makeBevDescriptor(0));
+  const std::vector<Eigen::Affine3d> poses = {
+    makeTestPose(5.0, 0.0), makeTestPose(0.0, 0.0)};
+  std::vector<std::pair<double, int>> distance_candidates = {{5.0, 0}};
+  std::vector<LoopCandidate> candidates;
+  std::vector<LogLine> logs;
+  auto config = makeBevConfig();
+  config.debug = true;
+  config.bev_descriptor_max_euclidean_distance_m = 4.0;
+
+  candidate_aggregator::rerankDistanceCandidatesWithBev(
+    db, poses, 1, config, distance_candidates, candidates, logs);
+
+  // No hint: the candidate still appears via the plain top-N add.
+  ASSERT_EQ(candidates.size(), 1U);
+  EXPECT_DOUBLE_EQ(candidates[0].selection_metric, 5.0);
+  EXPECT_DOUBLE_EQ(candidates[0].yaw_rad, 0.0);
+
+  ASSERT_EQ(logs.size(), 2U);
+  EXPECT_TRUE(logs[0].via_logger);
+  EXPECT_EQ(
+    logs[0].text,
+    "Skip BEV candidate 0 because euclidean distance 5.000 m exceeds 4.000 m");
+  EXPECT_FALSE(logs[1].via_logger);
+  EXPECT_EQ(logs[1].text.rfind("BEV rerank no candidate: best_idx=-1", 0), 0U);
+}
+
+TEST(CandidateAggregatorBev, SequenceWindowAveragesAndGatesAtThreshold)
+{
+  // Candidate 2 matches at the head (distance 0) but its window-1
+  // predecessor mismatches (distance 1): the averaged metric 0.5 hits the
+  // >= 0.5 gate exactly and the hint is rejected.
+  SubmapBEVDescriptor::Database db;
+  db.add(0, makeBevDescriptor(0));
+  db.add(1, makeBevDescriptor(5));
+  db.add(2, makeBevDescriptor(0));
+  db.add(3, makeBevDescriptor(0));
+  const std::vector<Eigen::Affine3d> poses = {
+    makeTestPose(9.0, 0.0), makeTestPose(10.0, 0.0),
+    makeTestPose(10.0, 1.0), makeTestPose(0.0, 0.0)};
+  std::vector<std::pair<double, int>> distance_candidates = {{10.0, 2}};
+  std::vector<LoopCandidate> candidates;
+  std::vector<LogLine> logs;
+  auto config = makeBevConfig();
+  config.debug = true;
+  config.bev_descriptor_sequence_window = 1;
+
+  candidate_aggregator::rerankDistanceCandidatesWithBev(
+    db, poses, 3, config, distance_candidates, candidates, logs);
+
+  ASSERT_GE(logs.size(), 1U);
+  EXPECT_EQ(
+    logs[0].text,
+    "Skip BEV candidate 2 because sequence metric 0.500 exceeds 0.500");
+}
+
+TEST(CandidateAggregatorBev, PoseConsistencyGateComparesTrajectoryDeltas)
+{
+  // Descriptors match through the window, but the relative motion to the
+  // window-1 predecessor differs between the query and candidate tracks,
+  // so the pose-consistency gate rejects the hint.
+  SubmapBEVDescriptor::Database db;
+  for (int i = 0; i < 4; ++i) {
+    db.add(i, makeBevDescriptor(0));
+  }
+  const std::vector<Eigen::Affine3d> poses = {
+    makeTestPose(9.0, 0.0), makeTestPose(9.0, 0.0),
+    makeTestPose(10.0, 0.0), makeTestPose(0.0, 0.0)};
+  std::vector<std::pair<double, int>> distance_candidates = {{10.0, 2}};
+  std::vector<LoopCandidate> candidates;
+  std::vector<LogLine> logs;
+  auto config = makeBevConfig();
+  config.debug = true;
+  config.bev_descriptor_sequence_window = 1;
+  config.bev_descriptor_pose_consistency_threshold_m = 1.0;
+
+  candidate_aggregator::rerankDistanceCandidatesWithBev(
+    db, poses, 3, config, distance_candidates, candidates, logs);
+
+  // query delta (latest -> poses[2]) is (10, 0); candidate delta
+  // (candidate 2 -> poses[1]) is (-1, 0): 2-D mismatch 11 m >= 1 m.
+  ASSERT_GE(logs.size(), 1U);
+  EXPECT_EQ(
+    logs[0].text,
+    "Skip BEV candidate 2 because pose consistency 11.000 m exceeds 1.000 m");
+}
+
+SolidDescriptor::Descriptor makeSolidDescriptor(double range0, double range1)
+{
+  SolidDescriptor::Descriptor desc;
+  desc.range = Eigen::VectorXd::Zero(4);
+  desc.range(0) = range0;
+  desc.range(1) = range1;
+  desc.angle = Eigen::VectorXd::Zero(4);
+  desc.angle(0) = 1.0;
+  desc.solid = Eigen::VectorXd::Zero(8);
+  return desc;
+}
+
+class CandidateAggregatorSolid : public ::testing::Test
+{
+protected:
+  // 52 entries: ids 0 and 1 hold the given patterns, fillers are
+  // orthogonal to the query, the query (id 51) is (1, 0).
+  void buildDatabase(double id0_range0, double id0_range1)
+  {
+    db_.add(0, makeSolidDescriptor(id0_range0, id0_range1));
+    db_.add(1, makeSolidDescriptor(0.0, 1.0));
+    for (int id = 2; id < 51; ++id) {
+      db_.add(id, makeSolidDescriptor(0.0, 1.0));
+    }
+    db_.add(51, makeSolidDescriptor(1.0, 0.0));
+    poses_.assign(52, Eigen::Affine3d::Identity());
+  }
+
+  SolidDescriptor::Database db_;
+  std::vector<Eigen::Affine3d> poses_;
+  std::vector<LoopCandidate> candidates_;
+  std::vector<LogLine> logs_;
+};
+
+TEST_F(CandidateAggregatorSolid, HighSimilarityCandidateIsAddedWithSequenceMetric)
+{
+  buildDatabase(1.0, 0.0);  // identical to the query: similarity 1
+  auto config = makeConfig();
+  config.solid_descriptor_min_similarity = 0.7;
+  const std::vector<std::pair<double, int>> distance_candidates = {{1.0, 0}};
+
+  candidate_aggregator::collectSolidCandidates(
+    db_, poses_, distance_candidates, 51, config, candidates_, logs_);
+
+  ASSERT_EQ(candidates_.size(), 1U);
+  EXPECT_EQ(candidates_[0].index, 0);
+  EXPECT_EQ(candidates_[0].source, Source::SOLID_DESCRIPTOR);
+  // selection metric is 1 - sequence similarity (window 0 -> plain
+  // similarity 1).
+  EXPECT_NEAR(candidates_[0].selection_metric, 0.0, 1e-12);
+  ASSERT_EQ(logs_.size(), 1U);
+  EXPECT_EQ(logs_[0].text.rfind("SOLiD rerank candidate: id=0", 0), 0U);
+}
+
+TEST_F(CandidateAggregatorSolid, LowSimilarityIsGatedAndReportedWhenDebug)
+{
+  buildDatabase(0.0, 1.0);  // orthogonal to the query: similarity 0
+  auto config = makeConfig();
+  config.debug = true;
+  config.solid_descriptor_min_similarity = 0.7;
+  const std::vector<std::pair<double, int>> distance_candidates = {{1.0, 0}};
+
+  candidate_aggregator::collectSolidCandidates(
+    db_, poses_, distance_candidates, 51, config, candidates_, logs_);
+
+  EXPECT_TRUE(candidates_.empty());
+  ASSERT_EQ(logs_.size(), 2U);
+  EXPECT_TRUE(logs_[0].via_logger);
+  EXPECT_EQ(
+    logs_[0].text,
+    "Skip SOLiD candidate 0 because similarity 0.000 is below 0.700");
+  EXPECT_FALSE(logs_[1].via_logger);
+  EXPECT_EQ(logs_[1].text.rfind("SOLiD rerank no candidate: best_idx=0", 0), 0U);
+}
+
+TEST_F(CandidateAggregatorSolid, DatabaseWithinExcludeRecentWindowIsSkipped)
+{
+  for (int id = 0; id < SolidDescriptor::DEFAULT_EXCLUDE_RECENT; ++id) {
+    db_.add(id, makeSolidDescriptor(1.0, 0.0));
+  }
+  poses_.assign(SolidDescriptor::DEFAULT_EXCLUDE_RECENT, Eigen::Affine3d::Identity());
+  auto config = makeConfig();
+  config.debug = true;
+  const std::vector<std::pair<double, int>> distance_candidates = {{1.0, 0}};
+
+  candidate_aggregator::collectSolidCandidates(
+    db_, poses_, distance_candidates,
+    SolidDescriptor::DEFAULT_EXCLUDE_RECENT - 1, config, candidates_, logs_);
   EXPECT_TRUE(candidates_.empty());
   EXPECT_TRUE(logs_.empty());
 }
