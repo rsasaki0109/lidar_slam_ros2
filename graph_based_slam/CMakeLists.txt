@@ -215,6 +215,13 @@ if(BUILD_TESTING)
     target_include_directories(test_loop_verifier PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
+    test_map_saver
+    test/test_map_saver.cpp
+  )
+  if(TARGET test_map_saver)
+    target_include_directories(test_map_saver PRIVATE include)
+  endif()
+  ament_add_gtest(
     test_pose_graph_optimization
     test/test_pose_graph_optimization.cpp
   )

@@ -34,7 +34,6 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
-#include <iomanip>
 #include <unordered_map>
 
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
@@ -43,6 +42,7 @@
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "graph_based_slam/gnss_alignment.hpp"
 #include "graph_based_slam/loop_verifier.hpp"
+#include "graph_based_slam/map_saver.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/submap_creation.hpp"
 #include "g2o/core/robust_kernel_impl.h"
@@ -2639,14 +2639,14 @@ void GraphBasedSlamComponent::saveSubmapToPCD(
   int idx,
   const pcl::PointCloud<pcl::PointXYZI>::Ptr & cloud)
 {
-  std::string path = pcd_cache_dir_ + "/submap_" + std::to_string(idx) + ".pcd";
+  std::string path = map_saver::submapCachePath(pcd_cache_dir_, idx);
   pcl::io::savePCDFileBinaryCompressed(path, *cloud);
 }
 
 pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::loadSubmapFromPCD(int idx)
 {
   auto cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
-  std::string path = pcd_cache_dir_ + "/submap_" + std::to_string(idx) + ".pcd";
+  std::string path = map_saver::submapCachePath(pcd_cache_dir_, idx);
   if (pcl::io::loadPCDFile(path, *cloud) == -1) {
     RCLCPP_WARN(get_logger(), "Failed to load PCD: %s", path.c_str());
   }
@@ -2679,30 +2679,24 @@ void GraphBasedSlamComponent::saveGridDividedMap(
   vg.setLeafSize(map_leaf_size_, map_leaf_size_, map_leaf_size_);
   vg.filter(*downsampled);
 
-  std::cout << "Map points: " << map->size() << " -> " << downsampled->size()
-            << " (leaf=" << map_leaf_size_ << "m)" << std::endl;
+  std::cout << map_saver::downsampleLogLine(map->size(), downsampled->size(), map_leaf_size_)
+            << std::endl;
 
-  // Compute bounding box
+  // Compute bounding box and grid-aligned bounds (semantics pinned by
+  // test_map_saver.cpp)
   pcl::PointXYZI min_pt, max_pt;
   pcl::getMinMax3D(*downsampled, min_pt, max_pt);
 
-  // Compute grid bounds (align to grid)
-  double x_min = std::floor(min_pt.x / map_grid_size_x_) * map_grid_size_x_;
-  double y_min = std::floor(min_pt.y / map_grid_size_y_) * map_grid_size_y_;
-  double x_max = std::ceil(max_pt.x / map_grid_size_x_) * map_grid_size_x_;
-  double y_max = std::ceil(max_pt.y / map_grid_size_y_) * map_grid_size_y_;
-
-  int nx = static_cast<int>((x_max - x_min) / map_grid_size_x_);
-  int ny = static_cast<int>((y_max - y_min) / map_grid_size_y_);
-  if (nx <= 0) {nx = 1;}
-  if (ny <= 0) {ny = 1;}
+  map_saver::GridConfig grid_config;
+  grid_config.grid_size_x = map_grid_size_x_;
+  grid_config.grid_size_y = map_grid_size_y_;
+  const map_saver::GridBounds grid_bounds =
+    map_saver::computeGridBounds(min_pt.x, min_pt.y, max_pt.x, max_pt.y, grid_config);
 
   // Assign points to grid cells
   std::map<std::pair<int, int>, pcl::PointCloud<pcl::PointXYZI>::Ptr> grid_cells;
   for (const auto & pt : downsampled->points) {
-    int gx = static_cast<int>(std::floor((pt.x - x_min) / map_grid_size_x_));
-    int gy = static_cast<int>(std::floor((pt.y - y_min) / map_grid_size_y_));
-    auto key = std::make_pair(gx, gy);
+    auto key = map_saver::cellIndexFor(pt.x, pt.y, grid_bounds, grid_config);
     if (grid_cells.find(key) == grid_cells.end()) {
       grid_cells[key] = pcl::PointCloud<pcl::PointXYZI>::Ptr(
         new pcl::PointCloud<pcl::PointXYZI>);
@@ -2710,31 +2704,17 @@ void GraphBasedSlamComponent::saveGridDividedMap(
     grid_cells[key]->push_back(pt);
   }
 
-  // Save each grid cell as PCD and build metadata
-  // Format: Autoware pointcloud_map_loader expects:
-  //   x_resolution: 20.0
-  //   y_resolution: 20.0
-  //   filename.pcd: [x, y]   (lower-left corner of grid cell)
+  // Save each grid cell as PCD and build the Autoware pointcloud_map_loader
+  // metadata (content produced in map_saver.hpp)
   std::ofstream meta(out_dir + "/pointcloud_map_metadata.yaml");
-  meta << std::fixed;
-  meta << "x_resolution: " << std::setprecision(1) << map_grid_size_x_ << std::endl;
-  meta << "y_resolution: " << std::setprecision(1) << map_grid_size_y_ << std::endl;
+  meta << map_saver::metadataHeader(grid_config);
 
   int saved = 0;
   for (auto & [key, cloud] : grid_cells) {
     if (cloud->empty()) {continue;}
-    double cell_x = x_min + key.first * map_grid_size_x_;
-    double cell_y = y_min + key.second * map_grid_size_y_;
-
-    std::ostringstream filename;
-    filename << static_cast<int>(cell_x) << "_"
-             << static_cast<int>(cell_y) << ".pcd";
-    std::string filepath = out_dir + "/" + filename.str();
-    pcl::io::savePCDFileBinaryCompressed(filepath, *cloud);
-
-    meta << filename.str() << ": ["
-         << static_cast<int>(cell_x) << ", "
-         << static_cast<int>(cell_y) << "]" << std::endl;
+    const map_saver::CellFile cell = map_saver::makeCellFile(key, grid_bounds, grid_config);
+    pcl::io::savePCDFileBinaryCompressed(out_dir + "/" + cell.filename, *cloud);
+    meta << map_saver::metadataEntry(cell);
     saved++;
   }
 
@@ -2743,28 +2723,15 @@ void GraphBasedSlamComponent::saveGridDividedMap(
   // Also save the full map as a single PCD for convenience
   pcl::io::savePCDFileBinaryCompressed(map_save_dir_ + "/map.pcd", *downsampled);
 
-  std::cout << "Saved grid-divided map: " << saved << " cells ("
-            << map_grid_size_x_ << "x" << map_grid_size_y_ << "m) to " << out_dir
-            << std::endl;
+  std::cout << map_saver::savedMapLogLine(saved, grid_config, out_dir) << std::endl;
   std::cout << "Total points: " << downsampled->size() << std::endl;
   std::cout << "Metadata: " << out_dir << "/pointcloud_map_metadata.yaml" << std::endl;
 
   // Always emit map_projector_info.yaml so Autoware can load pointcloud-only maps.
   std::string proj_file = map_save_dir_ + "/map_projector_info.yaml";
   std::ofstream proj(proj_file);
-  proj << std::fixed << std::setprecision(10);
-  if (gnss_origin_set_) {
-    proj << "projector_type: LocalCartesian" << std::endl;
-    proj << "vertical_datum: WGS84" << std::endl;
-    proj << "map_origin:" << std::endl;
-    proj << "  latitude: " << gnss_origin_lat_ << std::endl;
-    proj << "  longitude: " << gnss_origin_lon_ << std::endl;
-    std::cout << "Saved Autoware map projector info (LocalCartesian): " << proj_file
-              << std::endl;
-  } else {
-    proj << "projector_type: Local" << std::endl;
-    std::cout << "Saved Autoware map projector info (Local): " << proj_file << std::endl;
-  }
+  proj << map_saver::projectorInfoYaml(gnss_origin_set_, gnss_origin_lat_, gnss_origin_lon_);
+  std::cout << map_saver::projectorInfoLogLine(gnss_origin_set_, proj_file) << std::endl;
   proj.close();
 }
 }  // namespace graphslam
