@@ -146,3 +146,25 @@ TEST(SubmapBEVDescriptor, NextSubmapIndexTracksSequentialInsertion)
   db.add(1, graphslam::SubmapBEVDescriptor::computeDescriptor(makeDifferentCloud()));
   EXPECT_EQ(db.nextSubmapIndex(), 2);
 }
+
+TEST(SubmapBEVDescriptor, EqualDistanceTiesResolveToLowerSubmapId)
+{
+  // Identical descriptors tie exactly; the defined order is by submap id,
+  // not insertion order (the higher id is inserted first on purpose).
+  const auto descriptor =
+    graphslam::SubmapBEVDescriptor::computeDescriptor(makeAsymmetricCloud());
+  graphslam::SubmapBEVDescriptor::Database db;
+  db.add(20, descriptor);
+  db.add(10, descriptor);
+
+  const auto matches = db.queryTopMatchesWithYaw(
+    descriptor,
+    /*num_matches=*/ 2,
+    /*num_candidates=*/ 2,
+    /*exclude_recent=*/ 0,
+    /*threshold=*/ 0.5);
+
+  ASSERT_EQ(matches.size(), 2u);
+  EXPECT_EQ(matches[0].submap_id, 10);
+  EXPECT_EQ(matches[1].submap_id, 20);
+}
