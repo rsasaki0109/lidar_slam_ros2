@@ -21,10 +21,15 @@ total-station GT 化（§11）— 4/4 sequence 計測済み、indoor 2 profile �
 バージョン 0.5.0 整列 + rosdistro (bloom) バイナリリリース prep。README の見せ物は
 実カメラ色のマップフライスルー GIF（§12、PR #229/#230/#231）。
 
-次の主要アクション: bloom リリース実行（ndt_omp_ros2 fork 先行、
-`docs/rosdistro-release.md` のランブック、maintainer の GitHub 操作）と
+次の主要アクション: **v0.6 決定論 core/shell リファクタリング**
+（[`docs/roadmap/v0.6.md`](docs/roadmap/v0.6.md)、スコープ確定: backend +
+scanmatcher、テスト充実を一級要件化）、bloom リリース実行（ndt_omp_ros2 fork
+先行、`docs/rosdistro-release.md` のランブック、maintainer の GitHub 操作）、
 発信（P2-8、ユーザー本人）。D1 8-vs-16 ベンチは 2026-06-11 実施済み —
 `deterministic_loop_scheduling` は default off 維持で D1 完全クローズ（§1.2）。
+D1 の負の結果が v0.6 の直接の動機: スケジュールの決定論化ではアウトカムは
+決定論にならない = 問題はアーキテクチャ（wall-clock 結合 + データ競合 +
+順序未定義マージ）。
 
 ---
 
@@ -320,7 +325,8 @@ indoor で 0.15–0.40m（真 GT, agreement でなく accuracy）。outdoor の�
 |---|--------|------|
 | 0a | ~~v0.5 outdoor config 調整 → stadtgarten 再 run~~ | ✅ 2026-06-11 解決。`double_downsample: false` で 3.903→0.835m、outdoor preset 化（§11.8 A） |
 | 0b | ~~v0.5 indoor pair を blocking 昇格 + mid360_vs_glim 降格~~ | ✅ PR #228。4/4 seq 計測、indoor blocking、glim は report-only canary（§11.8 C） |
-| 0c | **bloom リリース実行（P2-7 後半）** | repo 側 prep 完了（0.5.0 整列 + ランブック `docs/rosdistro-release.md`）。残り = ndt_omp_ros2 fork の package.xml 整備 → 先行 bloom → 本体 bloom → ros/rosdistro PR（maintainer の GitHub 操作が必要、§13） |
+| 0c | **bloom リリース実行（P2-7 後半）** | repo 側 prep 完了（0.5.0 整列 + ランブック `docs/rosdistro-release.md`）。残り = ndt_omp_ros2 fork PR #11 マージ（整備 PR 作成済み）→ 先行 bloom → 本体 bloom → ros/rosdistro PR（maintainer の GitHub 操作が必要、§13） |
+| 0f | **v0.6 決定論 core/shell リファクタリング** | スコープ確定（2026-06-11、backend + scanmatcher）。Phase 0 変動帰属測定 → Phase 1 競合除去+分割 → Phase 2 BackendCore+オフライン決定論ランナー（ループエッジ集合 3-run 完全一致がハードゲート）→ Phase 3 default 切替 → Phase 4 scanmatcher。テスト 4 層（characterization / unit / 決定論契約 / リプレイ回帰）を各フェーズのゲートに。詳細 [`docs/roadmap/v0.6.md`](docs/roadmap/v0.6.md) |
 | 0d | ~~D1 8-vs-16 再現性ベンチ~~ | ✅ 2026-06-11 実施（GLIM MID-360 bag、3 run × {off/16, on/16, on/8}）。on/16 は APE 実質無回帰（差 0.06m ≪ noise 0.40m）だが分散縮小なし（σ 0.066→0.259）、on/8 arm の 2 実行で loop 試行ゼロ。mp8 の系統的 regression 署名は消滅し乱高下に置換（スケジューリング主要因子と整合、根本原因の証明ではない）。**default off 維持で D1 完全クローズ**（§1.2、research summary） |
 | 0e | **発信（P2-8）** | ghcr ワンコマンド + lanelet2 完全バンドル + 実 GT 数値が揃い、発信material は完成状態。ROS Discourse / Reddit / X はユーザー本人が実施。事前に B2 social preview 設定（Web UI 1 分） |
 | 1 | **GNSS 付きデータセットで GNSS 制約テスト** | Autoware の地理座標系マッピング機能が未検証。RTK-SLAM bag は `/gnss/fix` を持つので流用候補 |
