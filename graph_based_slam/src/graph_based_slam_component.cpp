@@ -1547,23 +1547,51 @@ void GraphBasedSlamComponent::searchLoopForLatest(
         candidates, index, selection_metric, source, yaw_rad, relative_transform);
     };
 
-  struct DescriptorRerankHint
-  {
-    double score = std::numeric_limits<double>::max();
-    double yaw_rad = 0.0;
-  };
-
   candidate_aggregator::Config aggregator_config;
   aggregator_config.debug = debug_flag_;
   aggregator_config.max_loop_candidate_count = max_loop_candidate_count_;
   aggregator_config.distance_loop_closure = distance_loop_closure_;
   aggregator_config.range_of_searching_loop_closure = range_of_searching_loop_closure_;
   aggregator_config.scan_context_threshold = scan_context_threshold_;
+  aggregator_config.bev_use_mutual_visibility = bev_use_mutual_visibility_;
+  aggregator_config.bev_mutual_visibility_min_overlap_ratio =
+    bev_mutual_visibility_min_overlap_ratio_;
+  aggregator_config.bev_mutual_visibility_occupancy_eps = bev_mutual_visibility_occupancy_eps_;
+  aggregator_config.bev_descriptor_yaw_bins = bev_descriptor_yaw_bins_;
+  aggregator_config.bev_descriptor_max_euclidean_distance_m =
+    bev_descriptor_max_euclidean_distance_m_;
+  aggregator_config.bev_descriptor_threshold = bev_descriptor_threshold_;
+  aggregator_config.bev_descriptor_sequence_window = bev_descriptor_sequence_window_;
+  aggregator_config.bev_descriptor_sequence_threshold = bev_descriptor_sequence_threshold_;
+  aggregator_config.bev_descriptor_pose_consistency_threshold_m =
+    bev_descriptor_pose_consistency_threshold_m_;
+  aggregator_config.bev_descriptor_rerank_weight_m = bev_descriptor_rerank_weight_m_;
+  aggregator_config.solid_descriptor_max_euclidean_distance_m =
+    solid_descriptor_max_euclidean_distance_m_;
+  aggregator_config.solid_descriptor_min_similarity = solid_descriptor_min_similarity_;
+  aggregator_config.solid_descriptor_sequence_window = solid_descriptor_sequence_window_;
+  aggregator_config.solid_descriptor_sequence_min_similarity =
+    solid_descriptor_sequence_min_similarity_;
+  aggregator_config.solid_descriptor_pose_consistency_threshold_m =
+    solid_descriptor_pose_consistency_threshold_m_;
+
+  auto emit_aggregator_logs =
+    [this](const std::vector<candidate_aggregator::LogLine> & logs) {
+      for (const auto & line : logs) {
+        if (line.via_logger) {
+          RCLCPP_INFO(get_logger(), "%s", line.text.c_str());
+        } else {
+          std::cout << line.text << std::endl;
+        }
+      }
+    };
 
   std::vector<Eigen::Vector3d> submap_positions;
   std::vector<double> submap_travel_distances;
+  std::vector<Eigen::Affine3d> submap_affines;
   submap_positions.reserve(latest_idx + 1);
   submap_travel_distances.reserve(latest_idx + 1);
+  submap_affines.reserve(latest_idx + 1);
   for (int i = 0; i <= latest_idx; i++) {
     const auto & submap = map_array_msg.submaps[i];
     submap_positions.emplace_back(
@@ -1571,6 +1599,9 @@ void GraphBasedSlamComponent::searchLoopForLatest(
       submap.pose.position.y,
       submap.pose.position.z);
     submap_travel_distances.push_back(submap.distance);
+    Eigen::Affine3d submap_affine;
+    tf2::fromMsg(submap.pose, submap_affine);
+    submap_affines.push_back(submap_affine);
   }
 
   std::vector<std::pair<double, int>> distance_candidates =
@@ -1586,428 +1617,37 @@ void GraphBasedSlamComponent::searchLoopForLatest(
       aggregator_config,
       candidates,
       aggregator_logs);
-    for (const auto & line : aggregator_logs) {
-      if (line.via_logger) {
-        RCLCPP_INFO(get_logger(), "%s", line.text.c_str());
-      } else {
-        std::cout << line.text << std::endl;
-      }
-    }
+    emit_aggregator_logs(aggregator_logs);
   }
 
   if (use_bev_descriptor_ &&
     bev_descriptor_db_.size() > SubmapBEVDescriptor::DEFAULT_EXCLUDE_RECENT)
   {
-    std::unordered_map<int, DescriptorRerankHint> bev_rerank_hints;
-    const int bev_rerank_candidates = std::min(
-      std::max(max_loop_candidate_count_ * 4, max_loop_candidate_count_),
-      static_cast<int>(distance_candidates.size()));
-    bool added_bev_candidate = false;
-    double best_bev_dist = std::numeric_limits<double>::max();
-    int best_bev_idx = -1;
-    for (int i = 0; i < bev_rerank_candidates; ++i) {
-      const int bev_idx = distance_candidates[i].second;
-      if (bev_idx < 0 || bev_idx >= latest_idx || bev_idx >= bev_descriptor_db_.size()) {
-        continue;
-      }
-      const auto & bev_submap = map_array_msg.submaps[bev_idx];
-      const Eigen::Vector3d bev_submap_pos(
-        bev_submap.pose.position.x,
-        bev_submap.pose.position.y,
-        bev_submap.pose.position.z);
-      const double bev_euclidean_distance = (latest_submap_pos - bev_submap_pos).norm();
-      if (
-        bev_descriptor_max_euclidean_distance_m_ > 0.0 &&
-        bev_euclidean_distance > bev_descriptor_max_euclidean_distance_m_)
-      {
-        if (debug_flag_) {
-          RCLCPP_INFO(
-            get_logger(),
-            "Skip BEV candidate %d because euclidean distance %.3f m exceeds %.3f m",
-            bev_idx,
-            bev_euclidean_distance,
-            bev_descriptor_max_euclidean_distance_m_);
-        }
-        continue;
-      }
-
-      SubmapBEVDescriptor::Match bev_match;
-      if (bev_use_mutual_visibility_) {
-        graphslam::bev::MutualVisibilityConfig mv_cfg;
-        mv_cfg.min_overlap_ratio = bev_mutual_visibility_min_overlap_ratio_;
-        mv_cfg.occupancy_eps =
-          static_cast<float>(bev_mutual_visibility_occupancy_eps_);
-        const auto fov = graphslam::bev::mutualVisibilityWithYawSearch(
-          bev_descriptor_db_.descriptors.back(),
-          bev_descriptor_db_.descriptors[bev_idx],
-          bev_idx,
-          bev_descriptor_yaw_bins_,
-          mv_cfg);
-        bev_match.submap_id = fov.submap_id;
-        bev_match.distance = fov.valid ? fov.distance : 1.0;
-        bev_match.yaw_bin = fov.yaw_bin;
-        bev_match.yaw_rad = fov.yaw_rad;
-      } else {
-        bev_match = SubmapBEVDescriptor::distanceWithAlignment(
-          bev_descriptor_db_.descriptors.back(),
-          bev_descriptor_db_.descriptors[bev_idx],
-          bev_idx,
-          bev_descriptor_yaw_bins_);
-      }
-      if (bev_match.distance < best_bev_dist) {
-        best_bev_dist = bev_match.distance;
-        best_bev_idx = bev_idx;
-      }
-      if (bev_match.distance >= bev_descriptor_threshold_) {
-        if (debug_flag_) {
-          RCLCPP_INFO(
-            get_logger(),
-            "Skip BEV candidate %d because descriptor distance %.3f exceeds %.3f",
-            bev_idx,
-            bev_match.distance,
-            bev_descriptor_threshold_);
-        }
-        continue;
-      }
-
-      double bev_yaw_rad = bev_match.yaw_rad;
-      while (bev_yaw_rad > M_PI) {
-        bev_yaw_rad -= 2.0 * M_PI;
-      }
-      while (bev_yaw_rad < -M_PI) {
-        bev_yaw_rad += 2.0 * M_PI;
-      }
-      double bev_sequence_metric = bev_match.distance;
-      if (bev_descriptor_sequence_window_ > 0) {
-        double bev_sequence_distance_sum = bev_match.distance;
-        int bev_sequence_count = 1;
-        for (int offset = 1; offset <= bev_descriptor_sequence_window_; ++offset) {
-          const int query_idx = latest_idx - offset;
-          const int candidate_sequence_idx = bev_idx - offset;
-          if (
-            query_idx < 0 || candidate_sequence_idx < 0 ||
-            query_idx >= bev_descriptor_db_.size() ||
-            candidate_sequence_idx >= bev_descriptor_db_.size())
-          {
-            break;
-          }
-          const auto rotated_candidate_descriptor = SubmapBEVDescriptor::rotateDescriptor(
-            bev_descriptor_db_.descriptors[candidate_sequence_idx],
-            bev_yaw_rad);
-          double sequence_distance;
-          if (bev_use_mutual_visibility_) {
-            graphslam::bev::MutualVisibilityConfig mv_cfg;
-            mv_cfg.min_overlap_ratio = bev_mutual_visibility_min_overlap_ratio_;
-            mv_cfg.occupancy_eps =
-              static_cast<float>(bev_mutual_visibility_occupancy_eps_);
-            const auto fov = graphslam::bev::mutualVisibilityDistance(
-              bev_descriptor_db_.descriptors[query_idx],
-              rotated_candidate_descriptor,
-              mv_cfg);
-            sequence_distance = fov.valid ? fov.distance : 1.0;
-          } else {
-            sequence_distance = SubmapBEVDescriptor::descriptorDistance(
-              bev_descriptor_db_.descriptors[query_idx],
-              rotated_candidate_descriptor);
-          }
-          bev_sequence_distance_sum += sequence_distance;
-          ++bev_sequence_count;
-        }
-        bev_sequence_metric = bev_sequence_distance_sum / static_cast<double>(bev_sequence_count);
-      }
-      if (bev_sequence_metric >= bev_descriptor_sequence_threshold_) {
-        if (debug_flag_) {
-          RCLCPP_INFO(
-            get_logger(),
-            "Skip BEV candidate %d because sequence metric %.3f exceeds %.3f",
-            bev_idx,
-            bev_sequence_metric,
-            bev_descriptor_sequence_threshold_);
-        }
-        continue;
-      }
-      double bev_pose_consistency_metric = -1.0;
-      if (
-        bev_descriptor_pose_consistency_threshold_m_ > 0.0 &&
-        bev_descriptor_sequence_window_ > 0)
-      {
-        Eigen::Affine3d bev_candidate_affine;
-        tf2::fromMsg(map_array_msg.submaps[bev_idx].pose, bev_candidate_affine);
-        const Eigen::AngleAxisd yaw_correction(bev_yaw_rad, Eigen::Vector3d::UnitZ());
-        double bev_pose_consistency_sum = 0.0;
-        int bev_pose_consistency_count = 0;
-        for (int offset = 1; offset <= bev_descriptor_sequence_window_; ++offset) {
-          const int query_idx = latest_idx - offset;
-          const int candidate_sequence_idx = bev_idx - offset;
-          if (query_idx < 0 || candidate_sequence_idx < 0) {
-            break;
-          }
-
-          Eigen::Affine3d query_prev_affine;
-          Eigen::Affine3d candidate_prev_affine;
-          tf2::fromMsg(map_array_msg.submaps[query_idx].pose, query_prev_affine);
-          tf2::fromMsg(map_array_msg.submaps[candidate_sequence_idx].pose, candidate_prev_affine);
-
-          const Eigen::Vector3d query_delta =
-            (latest_affine.inverse() * query_prev_affine).translation();
-          const Eigen::Vector3d candidate_delta =
-            yaw_correction * (bev_candidate_affine.inverse() * candidate_prev_affine).translation();
-          bev_pose_consistency_sum +=
-            (query_delta.head<2>() - candidate_delta.head<2>()).norm();
-          ++bev_pose_consistency_count;
-        }
-        if (bev_pose_consistency_count > 0) {
-          bev_pose_consistency_metric =
-            bev_pose_consistency_sum / static_cast<double>(bev_pose_consistency_count);
-          if (bev_pose_consistency_metric >= bev_descriptor_pose_consistency_threshold_m_) {
-            if (debug_flag_) {
-              RCLCPP_INFO(
-                get_logger(),
-                "Skip BEV candidate %d because pose consistency %.3f m exceeds %.3f m",
-                bev_idx,
-                bev_pose_consistency_metric,
-                bev_descriptor_pose_consistency_threshold_m_);
-            }
-            continue;
-          }
-        }
-      }
-      auto & bev_hint = bev_rerank_hints[bev_idx];
-      if (bev_sequence_metric < bev_hint.score) {
-        bev_hint.score = bev_sequence_metric;
-        bev_hint.yaw_rad = bev_yaw_rad;
-      }
-      std::cout << "BEV rerank hint: id=" << bev_idx
-                << " bev_dist=" << bev_match.distance
-                << " seq_dist=" << bev_sequence_metric
-                << " pose_seq_m=" << bev_pose_consistency_metric
-                << " yaw_deg=" << bev_yaw_rad * 180.0 / M_PI << std::endl;
-      added_bev_candidate = true;
-    }
-    if (!added_bev_candidate && debug_flag_) {
-      std::cout << "BEV rerank no candidate: best_idx=" << best_bev_idx
-                << " best_bev_dist=" << best_bev_dist
-                << " threshold=" << bev_descriptor_threshold_ << std::endl;
-    }
-
-    auto bev_adjusted_distance =
-      [this, &bev_rerank_hints](const std::pair<double, int> & candidate) {
-        const auto bev_hint = bev_rerank_hints.find(candidate.second);
-        if (bev_hint == bev_rerank_hints.end()) {
-          return candidate.first;
-        }
-        return candidate.first +
-               bev_descriptor_rerank_weight_m_ *
-               (bev_hint->second.score - bev_descriptor_threshold_);
-      };
-
-    std::stable_sort(
-      distance_candidates.begin(),
-      distance_candidates.end(),
-      [&bev_adjusted_distance](const auto & lhs, const auto & rhs) {
-        const double lhs_adjusted = bev_adjusted_distance(lhs);
-        const double rhs_adjusted = bev_adjusted_distance(rhs);
-        if (lhs_adjusted != rhs_adjusted) {
-          return lhs_adjusted < rhs_adjusted;
-        }
-        return lhs.first < rhs.first;
-      });
-
-    const int num_distance_candidates =
-      std::min(max_loop_candidate_count_, static_cast<int>(distance_candidates.size()));
-    for (int i = 0; i < num_distance_candidates; ++i) {
-      const int candidate_idx = distance_candidates[i].second;
-      const auto bev_hint = bev_rerank_hints.find(candidate_idx);
-      const double adjusted_distance = bev_adjusted_distance(distance_candidates[i]);
-      if (bev_hint != bev_rerank_hints.end()) {
-        add_candidate(
-          candidate_idx,
-          adjusted_distance,
-          LoopCandidate::Source::DISTANCE,
-          bev_hint->second.yaw_rad);
-        std::cout << "Distance candidate reranked by BEV: id=" << candidate_idx
-                  << " dist_m=" << distance_candidates[i].first
-                  << " bev_score=" << bev_hint->second.score
-                  << " adjusted_dist_m=" << adjusted_distance
-                  << " yaw_deg=" << bev_hint->second.yaw_rad * 180.0 / M_PI << std::endl;
-      } else {
-        add_candidate(
-          candidate_idx,
-          adjusted_distance,
-          LoopCandidate::Source::DISTANCE);
-      }
-    }
+    std::vector<candidate_aggregator::LogLine> aggregator_logs;
+    candidate_aggregator::rerankDistanceCandidatesWithBev(
+      bev_descriptor_db_,
+      submap_affines,
+      latest_idx,
+      aggregator_config,
+      distance_candidates,
+      candidates,
+      aggregator_logs);
+    emit_aggregator_logs(aggregator_logs);
   } else {
     candidate_aggregator::appendTopDistanceCandidates(
       distance_candidates, aggregator_config, candidates);
   }
-  if (
-    use_solid_descriptor_ &&
-    solid_descriptor_db_.size() > SolidDescriptor::DEFAULT_EXCLUDE_RECENT)
-  {
-    const int solid_rerank_candidates = std::min(
-      std::max(max_loop_candidate_count_ * 4, max_loop_candidate_count_),
-      static_cast<int>(distance_candidates.size()));
-    bool added_solid_candidate = false;
-    double best_solid_similarity = -1.0;
-    int best_solid_idx = -1;
-    for (int i = 0; i < solid_rerank_candidates; ++i) {
-      const int solid_idx = distance_candidates[i].second;
-      if (solid_idx < 0 || solid_idx >= latest_idx || solid_idx >= solid_descriptor_db_.size()) {
-        continue;
-      }
-      const auto & solid_submap = map_array_msg.submaps[solid_idx];
-      const Eigen::Vector3d solid_submap_pos(
-        solid_submap.pose.position.x,
-        solid_submap.pose.position.y,
-        solid_submap.pose.position.z);
-      const double solid_euclidean_distance = (latest_submap_pos - solid_submap_pos).norm();
-      if (
-        solid_descriptor_max_euclidean_distance_m_ > 0.0 &&
-        solid_euclidean_distance > solid_descriptor_max_euclidean_distance_m_)
-      {
-        if (debug_flag_) {
-          RCLCPP_INFO(
-            get_logger(),
-            "Skip SOLiD candidate %d because euclidean distance %.3f m exceeds %.3f m",
-            solid_idx,
-            solid_euclidean_distance,
-            solid_descriptor_max_euclidean_distance_m_);
-        }
-        continue;
-      }
-
-      const double solid_similarity = SolidDescriptor::loopSimilarity(
-        solid_descriptor_db_.descriptors.back(),
-        solid_descriptor_db_.descriptors[solid_idx]);
-      if (solid_similarity > best_solid_similarity) {
-        best_solid_similarity = solid_similarity;
-        best_solid_idx = solid_idx;
-      }
-      if (solid_similarity < solid_descriptor_min_similarity_) {
-        if (debug_flag_) {
-          RCLCPP_INFO(
-            get_logger(),
-            "Skip SOLiD candidate %d because similarity %.3f is below %.3f",
-            solid_idx,
-            solid_similarity,
-            solid_descriptor_min_similarity_);
-        }
-        continue;
-      }
-
-      double solid_yaw_rad = SolidDescriptor::poseYawRad(
-        solid_descriptor_db_.descriptors.back(),
-        solid_descriptor_db_.descriptors[solid_idx]);
-      while (solid_yaw_rad > M_PI) {
-        solid_yaw_rad -= 2.0 * M_PI;
-      }
-      while (solid_yaw_rad < -M_PI) {
-        solid_yaw_rad += 2.0 * M_PI;
-      }
-
-      double solid_sequence_similarity = solid_similarity;
-      if (solid_descriptor_sequence_window_ > 0) {
-        double solid_sequence_similarity_sum = solid_similarity;
-        int solid_sequence_count = 1;
-        for (int offset = 1; offset <= solid_descriptor_sequence_window_; ++offset) {
-          const int query_idx = latest_idx - offset;
-          const int candidate_sequence_idx = solid_idx - offset;
-          if (
-            query_idx < 0 || candidate_sequence_idx < 0 ||
-            query_idx >= solid_descriptor_db_.size() ||
-            candidate_sequence_idx >= solid_descriptor_db_.size())
-          {
-            break;
-          }
-          solid_sequence_similarity_sum += SolidDescriptor::loopSimilarity(
-            solid_descriptor_db_.descriptors[query_idx],
-            solid_descriptor_db_.descriptors[candidate_sequence_idx]);
-          ++solid_sequence_count;
-        }
-        solid_sequence_similarity =
-          solid_sequence_similarity_sum / static_cast<double>(solid_sequence_count);
-      }
-      if (solid_sequence_similarity < solid_descriptor_sequence_min_similarity_) {
-        if (debug_flag_) {
-          RCLCPP_INFO(
-            get_logger(),
-            "Skip SOLiD candidate %d because sequence similarity %.3f is below %.3f",
-            solid_idx,
-            solid_sequence_similarity,
-            solid_descriptor_sequence_min_similarity_);
-        }
-        continue;
-      }
-
-      double solid_pose_consistency_metric = -1.0;
-      if (
-        solid_descriptor_pose_consistency_threshold_m_ > 0.0 &&
-        solid_descriptor_sequence_window_ > 0)
-      {
-        Eigen::Affine3d solid_candidate_affine;
-        tf2::fromMsg(map_array_msg.submaps[solid_idx].pose, solid_candidate_affine);
-        const Eigen::AngleAxisd yaw_correction(solid_yaw_rad, Eigen::Vector3d::UnitZ());
-        double solid_pose_consistency_sum = 0.0;
-        int solid_pose_consistency_count = 0;
-        for (int offset = 1; offset <= solid_descriptor_sequence_window_; ++offset) {
-          const int query_idx = latest_idx - offset;
-          const int candidate_sequence_idx = solid_idx - offset;
-          if (query_idx < 0 || candidate_sequence_idx < 0) {
-            break;
-          }
-
-          Eigen::Affine3d query_prev_affine;
-          Eigen::Affine3d candidate_prev_affine;
-          tf2::fromMsg(map_array_msg.submaps[query_idx].pose, query_prev_affine);
-          tf2::fromMsg(map_array_msg.submaps[candidate_sequence_idx].pose, candidate_prev_affine);
-
-          const Eigen::Vector3d query_delta =
-            (latest_affine.inverse() * query_prev_affine).translation();
-          const Eigen::Vector3d candidate_delta =
-            yaw_correction *
-            (solid_candidate_affine.inverse() * candidate_prev_affine).translation();
-          solid_pose_consistency_sum +=
-            (query_delta.head<2>() - candidate_delta.head<2>()).norm();
-          ++solid_pose_consistency_count;
-        }
-        if (solid_pose_consistency_count > 0) {
-          solid_pose_consistency_metric =
-            solid_pose_consistency_sum / static_cast<double>(solid_pose_consistency_count);
-          if (
-            solid_pose_consistency_metric >=
-            solid_descriptor_pose_consistency_threshold_m_)
-          {
-            if (debug_flag_) {
-              RCLCPP_INFO(
-                get_logger(),
-                "Skip SOLiD candidate %d because pose consistency %.3f m exceeds %.3f m",
-                solid_idx,
-                solid_pose_consistency_metric,
-                solid_descriptor_pose_consistency_threshold_m_);
-            }
-            continue;
-          }
-        }
-      }
-
-      add_candidate(
-        solid_idx,
-        1.0 - solid_sequence_similarity,
-        LoopCandidate::Source::SOLID_DESCRIPTOR,
-        solid_yaw_rad);
-      std::cout << "SOLiD rerank candidate: id=" << solid_idx
-                << " solid_sim=" << solid_similarity
-                << " seq_sim=" << solid_sequence_similarity
-                << " pose_seq_m=" << solid_pose_consistency_metric
-                << " yaw_deg=" << solid_yaw_rad * 180.0 / M_PI << std::endl;
-      added_solid_candidate = true;
-    }
-    if (!added_solid_candidate && debug_flag_) {
-      std::cout << "SOLiD rerank no candidate: best_idx=" << best_solid_idx
-                << " best_similarity=" << best_solid_similarity
-                << " threshold=" << solid_descriptor_min_similarity_ << std::endl;
-    }
+  if (use_solid_descriptor_) {
+    std::vector<candidate_aggregator::LogLine> aggregator_logs;
+    candidate_aggregator::collectSolidCandidates(
+      solid_descriptor_db_,
+      submap_affines,
+      distance_candidates,
+      latest_idx,
+      aggregator_config,
+      candidates,
+      aggregator_logs);
+    emit_aggregator_logs(aggregator_logs);
   }
 
   if (
