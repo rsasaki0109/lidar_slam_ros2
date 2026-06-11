@@ -84,8 +84,9 @@ CloudT::Ptr makeStructuredCloud()
   for (float z = 0.0F; z <= 3.0F; z += 0.1F) {
     for (float a = 0.0F; a < 6.28F; a += 0.5F) {
       cloud->push_back(
-        pcl::PointXYZ(3.0F + 0.3F * std::cos(a) + jitter(rng),
-                      4.0F + 0.3F * std::sin(a) + jitter(rng), z + jitter(rng)));
+        pcl::PointXYZ(
+          3.0F + 0.3F * std::cos(a) + jitter(rng),
+          4.0F + 0.3F * std::sin(a) + jitter(rng), z + jitter(rng)));
     }
   }
   return cloud;
