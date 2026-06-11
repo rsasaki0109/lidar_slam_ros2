@@ -96,6 +96,10 @@ python3 scripts/verify_autoware_map.py output/.../pointcloud_map
 bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
 ```
 
+One command turns the bag into a complete Autoware map bundle:
+`pointcloud_map/` tiles, `map_projector_info.yaml`, and a `lanelet2_map.osm`
+generated from the loop-closed trajectory.
+
 Or invoke the launch files directly:
 
 ```bash
