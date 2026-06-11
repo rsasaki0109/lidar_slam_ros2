@@ -40,6 +40,7 @@
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
 #include "graph_based_slam/bev_mutual_visibility.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
+#include "graph_based_slam/submap_creation.hpp"
 #include "g2o/core/robust_kernel_impl.h"
 #define GRAPH_BASED_SLAM_WITH_G2O 1
 #include "graph_based_slam/loop_edge_robustifier.hpp"
@@ -1012,6 +1013,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("use_odom_input", use_odom_input_);
   declare_parameter("submap_distance_threshold", 1.5);
   get_parameter("submap_distance_threshold", submap_distance_threshold_);
+  declare_parameter("odom_cloud_sync_queue_size", 100);
+  get_parameter("odom_cloud_sync_queue_size", odom_cloud_sync_queue_size_);
   std::cout << "use_odom_input:" << std::boolalpha << use_odom_input_ << std::endl;
   if (use_odom_input_) {
     std::cout << "submap_distance_threshold[m]:" << submap_distance_threshold_ << std::endl;
@@ -1116,13 +1119,28 @@ void GraphBasedSlamComponent::initializePubSub()
     "map_array", rclcpp::QoS(rclcpp::KeepLast(1)).reliable(), map_array_callback);
 
   if (use_odom_input_) {
-    odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
-      "odom_input", 10,
-      std::bind(&GraphBasedSlamComponent::receiveOdometry, this, std::placeholders::_1));
-    cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-      "cloud_input", rclcpp::SensorDataQoS(),
-      std::bind(&GraphBasedSlamComponent::receiveCloud, this, std::placeholders::_1));
-    RCLCPP_INFO(get_logger(), "Direct odom+cloud input mode enabled");
+    // Deep queues so a long loop-search callback cannot overflow the
+    // subscription histories and drop frames, plus stamp-based pairing so
+    // the submap pose/cloud match is a function of the data, not of the
+    // executor schedule. Reliability is kept as before (odom reliable,
+    // cloud sensor-data/best-effort) for publisher compatibility.
+    const size_t sync_depth = static_cast<size_t>(std::max(odom_cloud_sync_queue_size_, 1));
+    rmw_qos_profile_t odom_qos = rmw_qos_profile_default;
+    odom_qos.depth = sync_depth;
+    rmw_qos_profile_t cloud_qos = rmw_qos_profile_sensor_data;
+    cloud_qos.depth = sync_depth;
+    odom_sync_sub_ = std::make_shared<message_filters::Subscriber<nav_msgs::msg::Odometry>>(
+      this, "odom_input", odom_qos);
+    cloud_sync_sub_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>>(
+      this, "cloud_input", cloud_qos);
+    odom_cloud_sync_ = std::make_shared<message_filters::Synchronizer<OdomCloudSyncPolicy>>(
+      OdomCloudSyncPolicy(static_cast<uint32_t>(sync_depth)), *odom_sync_sub_, *cloud_sync_sub_);
+    odom_cloud_sync_->registerCallback(
+      std::bind(
+        &GraphBasedSlamComponent::receiveSyncedOdomCloud, this, std::placeholders::_1,
+        std::placeholders::_2));
+    RCLCPP_INFO(
+      get_logger(), "Direct odom+cloud input mode enabled (stamp-synced, queue %zu)", sync_depth);
   }
 
   std::chrono::milliseconds period(loop_detection_period_);
@@ -3204,63 +3222,55 @@ Eigen::Quaterniond GraphBasedSlamComponent::integrateImuRotation(double t0, doub
   return delta_q;
 }
 
-void GraphBasedSlamComponent::receiveCloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+void GraphBasedSlamComponent::receiveSyncedOdomCloud(
+  const nav_msgs::msg::Odometry::ConstSharedPtr & odom_msg,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg)
 {
-  if (debug_flag_ && !latest_cloud_) {
-    RCLCPP_INFO(get_logger(), "First cloud received, %zu bytes", msg->data.size());
-  }
-  latest_cloud_ = msg;
-  latest_cloud_stamp_ = rclcpp::Time(msg->header.stamp);
-  // When cloud arrives, try to create submap with latest odom
-  tryCreateSubmap();
-}
-
-void GraphBasedSlamComponent::receiveOdometry(const nav_msgs::msg::Odometry & msg)
-{
-  // Buffer latest odom
-  Eigen::Vector3d pos(msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z);
+  Eigen::Vector3d pos(
+    odom_msg->pose.pose.position.x, odom_msg->pose.pose.position.y,
+    odom_msg->pose.pose.position.z);
   if (!std::isfinite(pos.x()) || !std::isfinite(pos.y()) || !std::isfinite(pos.z())) {
     return;
   }
-  if (debug_flag_ && !latest_odom_valid_) {
-    RCLCPP_INFO(get_logger(), "First odom received: (%.2f, %.2f, %.2f)", pos.x(), pos.y(), pos.z());
+  if (debug_flag_ && !first_synced_input_logged_) {
+    first_synced_input_logged_ = true;
+    RCLCPP_INFO(
+      get_logger(), "First synced odom+cloud pair: (%.2f, %.2f, %.2f), %zu bytes", pos.x(),
+      pos.y(), pos.z(), cloud_msg->data.size());
   }
-  latest_odom_ = msg;
-  latest_odom_valid_ = true;
+  tryCreateSubmap(*odom_msg, *cloud_msg);
 }
 
-void GraphBasedSlamComponent::tryCreateSubmap()
+void GraphBasedSlamComponent::tryCreateSubmap(
+  const nav_msgs::msg::Odometry & odom_msg,
+  const sensor_msgs::msg::PointCloud2 & cloud_msg)
 {
-  if (!latest_odom_valid_ || !latest_cloud_) {return;}
-
   Eigen::Vector3d pos(
-    latest_odom_.pose.pose.position.x,
-    latest_odom_.pose.pose.position.y,
-    latest_odom_.pose.pose.position.z);
+    odom_msg.pose.pose.position.x,
+    odom_msg.pose.pose.position.y,
+    odom_msg.pose.pose.position.z);
 
-  // Check distance threshold
-  if (last_submap_position_valid_) {
-    double dist = (pos - last_submap_position_).norm();
-    if (dist < submap_distance_threshold_) {return;}
-    if (dist > 100.0) {return;}
-    accumulated_distance_ += dist;
-  }
+  // Check distance threshold (semantics pinned by test_submap_creation.cpp)
+  const submap_creation::Decision decision = submap_creation::evaluate(
+    pos, last_submap_position_valid_, last_submap_position_, submap_distance_threshold_);
+  if (!decision.create) {return;}
+  accumulated_distance_ += decision.distance;
   last_submap_position_ = pos;
   last_submap_position_valid_ = true;
 
   // Create SubMap (use "map" frame for SLAM output regardless of odom frame)
   lidarslam_msgs::msg::SubMap submap;
-  submap.header.stamp = latest_odom_.header.stamp;
+  submap.header.stamp = odom_msg.header.stamp;
   submap.header.frame_id = "map";
   submap.distance = accumulated_distance_;
-  submap.pose = latest_odom_.pose.pose;
-  submap.cloud = *latest_cloud_;
-  submap.cloud.header.frame_id = latest_odom_.child_frame_id;
+  submap.pose = odom_msg.pose.pose;
+  submap.cloud = cloud_msg;
+  submap.cloud.header.frame_id = odom_msg.child_frame_id;
 
   int n;
   {
     std::lock_guard<std::mutex> lock(mtx_);
-    map_array_msg_.header.stamp = latest_odom_.header.stamp;
+    map_array_msg_.header.stamp = odom_msg.header.stamp;
     map_array_msg_.header.frame_id = "map";
     map_array_msg_.submaps.push_back(submap);
     n = map_array_msg_.submaps.size();
