@@ -185,6 +185,17 @@ if(BUILD_TESTING)
     target_link_libraries(test_triangle_descriptor_database ${PCL_LIBRARIES})
   endif()
   ament_add_gtest(
+    test_registration_determinism
+    test/test_registration_determinism.cpp
+  )
+  if(TARGET test_registration_determinism)
+    target_include_directories(
+      test_registration_determinism PRIVATE ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS}
+    )
+    ament_target_dependencies(test_registration_determinism ndt_omp_ros2)
+    target_link_libraries(test_registration_determinism ${PCL_LIBRARIES})
+  endif()
+  ament_add_gtest(
     test_dynamic_object_filter
     test/test_dynamic_object_filter.cpp
   )
