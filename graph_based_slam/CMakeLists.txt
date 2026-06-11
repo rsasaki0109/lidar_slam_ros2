@@ -554,8 +554,8 @@ if(BUILD_TESTING)
     TIMEOUT 60
   )
   ament_add_pytest_test(
-    test_deterministic_loop_scheduling_defaults
-    test/test_deterministic_loop_scheduling_defaults.py
+    test_event_driven_loop_search_defaults
+    test/test_event_driven_loop_search_defaults.py
     TIMEOUT 60
   )
   ament_add_pytest_test(

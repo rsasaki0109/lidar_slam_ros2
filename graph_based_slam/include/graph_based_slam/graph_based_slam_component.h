@@ -217,20 +217,15 @@ private:
     // -1.0 = disabled / fall back to the generic cap.
     double loop_max_translation_delta_descriptor_ {-1.0};
     double loop_max_rotation_delta_deg_descriptor_ {-1.0};
-    // Deterministic loop scheduling (opt-in, v0.4 D1). When false (default),
-    // searchLoop queries only the single latest submap per timer tick — the
-    // historical wall-clock-driven behaviour, whose (query, db) pair set depends
-    // on timer batching rather than the map. When true, searchLoop catches up
-    // over every submap index not yet used as a query, so the set of loop-search
-    // queries is a pure function of the map regardless of tick timing.
-    bool deterministic_loop_scheduling_ {false};
     int last_searched_submap_idx_ {-1};
-    // Event-driven loop search (opt-in, v0.6 Phase 2). When true, loop search
-    // runs once per submap arrival in arrival order (each query sees exactly
-    // the map state up to itself) and the wall timer becomes a no-op; the
-    // legacy timer-driven path above stays the default. Subsumes
-    // deterministic_loop_scheduling, which is retired in Phase 3.
-    bool event_driven_loop_search_ {false};
+    // Event-driven loop search (default on since v0.6 Phase 3). When true,
+    // loop search runs once per submap arrival in arrival order (each query
+    // sees exactly the map state up to itself) and the wall timer becomes a
+    // no-op. When false, the legacy wall-clock timer path queries only the
+    // single latest submap per tick (scheduled for removal one release after
+    // the default flip). Subsumes the retired deterministic_loop_scheduling
+    // parameter (v0.4 D1).
+    bool event_driven_loop_search_ {true};
 
     // pose graph optimization parameter
     int num_adjacent_pose_cnstraints_;
