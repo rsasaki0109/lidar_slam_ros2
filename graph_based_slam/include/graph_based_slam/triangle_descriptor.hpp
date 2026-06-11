@@ -240,9 +240,16 @@ inline std::vector<Keypoint> extractKeypointsBEV(
     }
   }
 
+  // Salience ties resolve by position so the max_keypoints cutoff is a pure
+  // function of the keypoint set (v0.6 determinism contract).
   std::sort(
     candidates.begin(), candidates.end(),
-    [](const Keypoint & a, const Keypoint & b) {return a.salience > b.salience;});
+    [](const Keypoint & a, const Keypoint & b) {
+      if (a.salience != b.salience) {return a.salience > b.salience;}
+      if (a.position.x() != b.position.x()) {return a.position.x() < b.position.x();}
+      if (a.position.y() != b.position.y()) {return a.position.y() < b.position.y();}
+      return a.position.z() < b.position.z();
+    });
 
   const int keep = std::min<int>(cfg.max_keypoints, static_cast<int>(candidates.size()));
   result.assign(candidates.begin(), candidates.begin() + keep);

@@ -287,9 +287,14 @@ inline std::vector<SubmapVote> accumulateVotes(
   for (const auto & kv : counts) {
     result.push_back({kv.first, kv.second});
   }
+  // Defined total order: vote ties resolve to the lower submap id instead of
+  // the unordered_map iteration order (v0.6 determinism contract).
   std::sort(
     result.begin(), result.end(),
-    [](const SubmapVote & a, const SubmapVote & b) {return a.votes > b.votes;});
+    [](const SubmapVote & a, const SubmapVote & b) {
+      if (a.votes != b.votes) {return a.votes > b.votes;}
+      return a.submap_id < b.submap_id;
+    });
   return result;
 }
 

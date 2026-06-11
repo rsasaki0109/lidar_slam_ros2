@@ -267,7 +267,10 @@ public:
 
       std::sort(
         verified.begin(), verified.end(),
-        [](const Match & lhs, const Match & rhs) {return lhs.distance < rhs.distance;});
+        [](const Match & lhs, const Match & rhs) {
+          if (lhs.distance != rhs.distance) {return lhs.distance < rhs.distance;}
+          return lhs.submap_id < rhs.submap_id;
+        });
       for (const auto & match : verified) {
         if (match.distance >= threshold) {
           continue;

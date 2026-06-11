@@ -746,3 +746,35 @@ TEST(TriangleDatabase, KeypointsAccessorReturnsStoredVector)
   const auto & missing = db.keypoints(7777);
   EXPECT_TRUE(missing.empty());
 }
+
+TEST(TriangleVotes, VoteTiesResolveToLowerSubmapId)
+{
+  // Two submaps with identical keypoints/triangles collect identical votes;
+  // the defined order is by submap id, independent of unordered_map iteration
+  // and of insertion order (the higher id is inserted first on purpose).
+  HashConfig cfg;
+  cfg.edge_bin_m = 1.0f;
+  VoteConfig vote_cfg;
+
+  std::vector<Keypoint> kps;
+  auto push = [&kps](float x, float y) {
+      Keypoint k;
+      k.position = Eigen::Vector3f(x, y, 0.0f);
+      k.salience = 1.0f;
+      kps.push_back(k);
+    };
+  push(0.0f, 0.0f);
+  push(6.0f, 0.0f);
+  push(3.0f, 4.0f);
+  TriangleDescriptor t = makeTriangle(kps, 0, 1, 2);
+
+  TriangleDatabase db;
+  db.addSubmap(20, kps, {t}, cfg);
+  db.addSubmap(10, kps, {t}, cfg);
+
+  const auto votes = accumulateVotes(db, kps, {t}, cfg, vote_cfg);
+  ASSERT_EQ(votes.size(), 2u);
+  EXPECT_EQ(votes[0].votes, votes[1].votes);
+  EXPECT_EQ(votes[0].submap_id, 10);
+  EXPECT_EQ(votes[1].submap_id, 20);
+}

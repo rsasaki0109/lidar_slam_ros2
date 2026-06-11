@@ -128,3 +128,25 @@ TEST(SolidDescriptor, DatabaseReturnsMatchingSubmapId)
   EXPECT_EQ(match.first, 7);
   EXPECT_GT(match.second, 0.5);
 }
+
+TEST(SolidDescriptor, EqualSimilarityTiesResolveToLowerSubmapId)
+{
+  // Identical descriptors tie exactly; the defined order is by submap id,
+  // not insertion order (the higher id is inserted first on purpose).
+  const auto descriptor =
+    graphslam::SolidDescriptor::computeDescriptor(makeForwardFacingCloud());
+  graphslam::SolidDescriptor::Database db;
+  db.add(20, descriptor);
+  db.add(10, descriptor);
+
+  const auto matches = db.queryTopMatchesWithYaw(
+    descriptor,
+    /*num_matches=*/ 2,
+    /*num_candidates=*/ 2,
+    /*exclude_recent=*/ 0,
+    /*min_similarity=*/ 0.0);
+
+  ASSERT_EQ(matches.size(), 2u);
+  EXPECT_EQ(matches[0].submap_id, 10);
+  EXPECT_EQ(matches[1].submap_id, 20);
+}

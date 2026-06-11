@@ -116,3 +116,23 @@ TEST(ScanContextDatabase, QueryTopMatchesWithYawReturnsShift)
   EXPECT_NEAR(matches[0].distance, 0.0, 1e-9);
   EXPECT_EQ(matches[0].yaw_shift, 7);
 }
+
+TEST(ScanContextDatabase, EqualDistanceTiesResolveToLowerSubmapId)
+{
+  // Two identical descriptors tie exactly; the defined order is by submap id,
+  // not insertion order (the higher id is inserted first on purpose).
+  graphslam::ScanContext::Database db;
+  db.add(20, makeDescriptor(0));
+  db.add(10, makeDescriptor(0));
+
+  const auto matches = db.queryTopMatchesWithYaw(
+    makeDescriptor(0),
+    /*num_matches=*/ 2,
+    /*num_candidates=*/ 2,
+    /*exclude_recent=*/ 0,
+    /*threshold=*/ 0.5);
+
+  ASSERT_EQ(matches.size(), 2u);
+  EXPECT_EQ(matches[0].submap_id, 10);
+  EXPECT_EQ(matches[1].submap_id, 20);
+}
