@@ -41,6 +41,7 @@
 #include "graph_based_slam/bev_mutual_visibility.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "graph_based_slam/gnss_alignment.hpp"
+#include "graph_based_slam/loop_verifier.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/submap_creation.hpp"
 #include "g2o/core/robust_kernel_impl.h"
@@ -1281,60 +1282,16 @@ bool GraphBasedSlamComponent::upsertLoopEdge(const LoopEdge & loop_edge)
 }
 namespace
 {
-struct LoopCandidate
-{
-  enum class Source
-  {
-    DISTANCE,
-    SCAN_CONTEXT,
-    BEV_DESCRIPTOR,
-    SOLID_DESCRIPTOR,
-    TRIANGLE_DESCRIPTOR
-  };
-
-  int index {-1};
-  double selection_metric {std::numeric_limits<double>::max()};
-  Source source {Source::DISTANCE};
-  double yaw_rad {0.0};
-  // Recovered SE(3) from the descriptor that proposed this candidate
-  // (currently only triangle). Identity unless populated. Used as the NDT
-  // initial guess instead of the pose-derived guess when source matches.
-  Eigen::Matrix4f relative_transform {Eigen::Matrix4f::Identity()};
-  bool has_relative_transform {false};
-};
-
-struct LoopCandidateResult
-{
-  bool valid {false};
-  int index {-1};
-  double selection_metric {std::numeric_limits<double>::max()};
-  double fitness_score {std::numeric_limits<double>::max()};
-  double travel_distance {0.0};
-  double euclidean_distance {0.0};
-  double translation_delta_m {0.0};
-  double rotation_delta_deg {0.0};
-  LoopCandidate::Source source {LoopCandidate::Source::DISTANCE};
-  bool used_3d_bbs {false};
-  double three_d_bbs_score_percentage {0.0};
-  double three_d_bbs_elapsed_msec {0.0};
-  Eigen::Matrix4f final_transformation {Eigen::Matrix4f::Identity()};
-};
+// The candidate/result types and every verification decision (initial
+// guess, gates, best-candidate selection) live in loop_verifier.hpp so the
+// offline BackendCore can reuse them; this file only does the I/O around
+// them (cloud aggregation, registration, logging).
+using LoopCandidate = loop_verifier::LoopCandidate;
+using LoopCandidateResult = loop_verifier::LoopCandidateResult;
 
 const char * candidate_source_name(LoopCandidate::Source source)
 {
-  switch (source) {
-    case LoopCandidate::Source::SCAN_CONTEXT:
-      return "scan_context";
-    case LoopCandidate::Source::BEV_DESCRIPTOR:
-      return "bev_descriptor";
-    case LoopCandidate::Source::SOLID_DESCRIPTOR:
-      return "solid_descriptor";
-    case LoopCandidate::Source::TRIANGLE_DESCRIPTOR:
-      return "triangle_descriptor";
-    case LoopCandidate::Source::DISTANCE:
-    default:
-      return "distance";
-  }
+  return loop_verifier::sourceName(source);
 }
 }  // namespace
 
@@ -2272,9 +2229,15 @@ void GraphBasedSlamComponent::searchLoopForLatest(
     return;
   }
 
-  LoopCandidateResult best_candidate;
-  LoopCandidateResult best_scan_context_candidate;
-  LoopCandidateResult best_attempt;
+  loop_verifier::GateConfig gate_config;
+  gate_config.generic_score_threshold = threshold_loop_closure_score_;
+  gate_config.scan_context_score_threshold = scan_context_loop_closure_score_threshold_;
+  gate_config.max_translation_m = loop_max_translation_delta_;
+  gate_config.max_rotation_deg = loop_max_rotation_delta_deg_;
+  gate_config.max_translation_descriptor_m = loop_max_translation_delta_descriptor_;
+  gate_config.max_rotation_descriptor_deg = loop_max_rotation_delta_deg_descriptor_;
+
+  loop_verifier::SelectionState selection;
   bool attempted_registration = false;
 
   for (const auto & candidate : candidates) {
@@ -2339,25 +2302,7 @@ void GraphBasedSlamComponent::searchLoopForLatest(
     double three_d_bbs_score_percentage = 0.0;
     double three_d_bbs_elapsed_msec = 0.0;
     Eigen::Matrix4f initial_guess =
-      (candidate_affine.matrix() * latest_affine.inverse().matrix()).cast<float>();
-    if (
-      candidate.source == LoopCandidate::Source::TRIANGLE_DESCRIPTOR &&
-      candidate.has_relative_transform)
-    {
-      // Triangle proposes a SE(3) that maps latest-submap-local points to
-      // chosen-submap-local points. NDT works in world frame, so chain in
-      // the two submap poses to recover the source -> target world guess.
-      initial_guess =
-        (candidate_affine.matrix() *
-        candidate.relative_transform.cast<double>() *
-        latest_affine.inverse().matrix()).cast<float>();
-    } else if (std::abs(candidate.yaw_rad) > 1e-6) {
-      Eigen::Affine3d yaw_correction = Eigen::Affine3d::Identity();
-      yaw_correction.rotate(Eigen::AngleAxisd(candidate.yaw_rad, Eigen::Vector3d::UnitZ()));
-      initial_guess =
-        (candidate_affine.matrix() * yaw_correction.matrix() * latest_affine.inverse().matrix()).
-        cast<float>();
-    }
+      loop_verifier::computeInitialGuess(candidate_affine, latest_affine, candidate);
     if (candidate.source == LoopCandidate::Source::SCAN_CONTEXT) {
       registration_->setInputSource(filtered_source_sc);
       registration_->setInputTarget(filtered_clouds_sc_ptr);
@@ -2419,7 +2364,7 @@ void GraphBasedSlamComponent::searchLoopForLatest(
         }
       }
     }
-    if (candidate.source != LoopCandidate::Source::DISTANCE || used_3d_bbs) {
+    if (loop_verifier::shouldUseInitialGuess(candidate.source, used_3d_bbs)) {
       registration_->align(*output_cloud_ptr, initial_guess);
     } else {
       registration_->align(*output_cloud_ptr);
@@ -2438,12 +2383,8 @@ void GraphBasedSlamComponent::searchLoopForLatest(
 
     const double fitness_score = registration_->getFitnessScore();
     const Eigen::Matrix4f final_transformation = registration_->getFinalTransformation();
-    const Eigen::Vector3f translation = final_transformation.block<3, 1>(0, 3);
-    const double translation_delta_m = translation.cast<double>().norm();
-    const Eigen::Matrix3f rotation = final_transformation.block<3, 3>(0, 0);
-    const double trace = static_cast<double>(rotation.trace());
-    const double cos_theta = std::max(-1.0, std::min(1.0, 0.5 * (trace - 1.0)));
-    const double rotation_delta_deg = std::acos(cos_theta) * 180.0 / M_PI;
+    const loop_verifier::RegistrationDelta registration_delta =
+      loop_verifier::computeRegistrationDelta(final_transformation);
 
     LoopCandidateResult candidate_result;
     candidate_result.index = candidate.index;
@@ -2455,100 +2396,78 @@ void GraphBasedSlamComponent::searchLoopForLatest(
       candidate_submap.pose.position.y,
       candidate_submap.pose.position.z);
     candidate_result.euclidean_distance = (latest_submap_pos - candidate_submap_pos).norm();
-    candidate_result.translation_delta_m = translation_delta_m;
-    candidate_result.rotation_delta_deg = rotation_delta_deg;
+    candidate_result.translation_delta_m = registration_delta.translation_m;
+    candidate_result.rotation_delta_deg = registration_delta.rotation_deg;
     candidate_result.source = candidate.source;
     candidate_result.used_3d_bbs = used_3d_bbs;
     candidate_result.three_d_bbs_score_percentage = three_d_bbs_score_percentage;
     candidate_result.three_d_bbs_elapsed_msec = three_d_bbs_elapsed_msec;
     candidate_result.final_transformation = final_transformation;
 
-    if (best_attempt.index < 0 || fitness_score < best_attempt.fitness_score) {
-      best_attempt = candidate_result;
-    }
+    selection.considerConverged(candidate_result);
 
-    const double loop_score_threshold =
-      (candidate.source == LoopCandidate::Source::SCAN_CONTEXT &&
-      scan_context_loop_closure_score_threshold_ > 0.0) ?
-      scan_context_loop_closure_score_threshold_ : threshold_loop_closure_score_;
-
-    if (fitness_score >= loop_score_threshold) {
+    const loop_verifier::GateResult gate = loop_verifier::evaluateGates(
+      candidate.source, fitness_score, registration_delta, gate_config);
+    if (gate.rejection != loop_verifier::GateRejection::NONE) {
       if (debug_flag_) {
-        RCLCPP_INFO(
-          get_logger(),
-          "Rejected loop candidate %d -> %d because fitness %.6f exceeds threshold %.6f",
-          candidate.index,
-          latest_idx,
-          fitness_score,
-          loop_score_threshold);
-      }
-      continue;
-    }
-    // Descriptor-sourced candidates (TRIANGLE / SCAN_CONTEXT / BEV / SOLID)
-    // already passed a place-recognition gate, so they can accept a larger
-    // NDT correction when the operator opts in. DISTANCE candidates (close
-    // in stored pose) keep the strict generic cap.
-    const bool is_descriptor_source =
-      candidate.source != LoopCandidate::Source::DISTANCE;
-    const double effective_translation_cap =
-      (is_descriptor_source && loop_max_translation_delta_descriptor_ > 0.0) ?
-      loop_max_translation_delta_descriptor_ : loop_max_translation_delta_;
-    const double effective_rotation_cap_deg =
-      (is_descriptor_source && loop_max_rotation_delta_deg_descriptor_ > 0.0) ?
-      loop_max_rotation_delta_deg_descriptor_ : loop_max_rotation_delta_deg_;
-    if (translation_delta_m > effective_translation_cap) {
-      if (debug_flag_) {
-        RCLCPP_INFO(
-          get_logger(),
-          "Rejected loop candidate %d -> %d because translation correction %.3f m exceeds %.3f m",
-          candidate.index,
-          latest_idx,
-          translation_delta_m,
-          effective_translation_cap);
-      }
-      continue;
-    }
-    if (rotation_delta_deg > effective_rotation_cap_deg) {
-      if (debug_flag_) {
-        RCLCPP_INFO(
-          get_logger(),
-          "Rejected loop candidate %d -> %d because rotation correction %.3f deg exceeds %.3f deg",
-          candidate.index,
-          latest_idx,
-          rotation_delta_deg,
-          effective_rotation_cap_deg);
+        switch (gate.rejection) {
+          case loop_verifier::GateRejection::FITNESS:
+            RCLCPP_INFO(
+              get_logger(),
+              "Rejected loop candidate %d -> %d because fitness %.6f exceeds threshold %.6f",
+              candidate.index,
+              latest_idx,
+              fitness_score,
+              gate.score_threshold);
+            break;
+          case loop_verifier::GateRejection::TRANSLATION:
+            RCLCPP_INFO(
+              get_logger(),
+              "Rejected loop candidate %d -> %d because translation correction %.3f m "
+              "exceeds %.3f m",
+              candidate.index,
+              latest_idx,
+              registration_delta.translation_m,
+              gate.translation_cap_m);
+            break;
+          case loop_verifier::GateRejection::ROTATION:
+            RCLCPP_INFO(
+              get_logger(),
+              "Rejected loop candidate %d -> %d because rotation correction %.3f deg "
+              "exceeds %.3f deg",
+              candidate.index,
+              latest_idx,
+              registration_delta.rotation_deg,
+              gate.rotation_cap_deg);
+            break;
+          default:
+            break;
+        }
       }
       continue;
     }
 
     candidate_result.valid = true;
-    if (!best_candidate.valid || fitness_score < best_candidate.fitness_score) {
-      best_candidate = candidate_result;
-    }
-    if (
-      candidate.source == LoopCandidate::Source::SCAN_CONTEXT &&
-      (!best_scan_context_candidate.valid ||
-      fitness_score < best_scan_context_candidate.fitness_score))
-    {
-      best_scan_context_candidate = candidate_result;
-    }
+    selection.considerValid(candidate_result);
   }
 
-  if (prefer_scan_context_candidates_ && best_scan_context_candidate.valid) {
+  if (prefer_scan_context_candidates_ && selection.best_scan_context.valid) {
     if (
-      !best_candidate.valid ||
-      best_candidate.index != best_scan_context_candidate.index ||
-      best_candidate.source != LoopCandidate::Source::SCAN_CONTEXT)
+      !selection.best_valid.valid ||
+      selection.best_valid.index != selection.best_scan_context.index ||
+      selection.best_valid.source != LoopCandidate::Source::SCAN_CONTEXT)
     {
       std::cout << "Preferring valid ScanContext candidate id:" <<
-        best_scan_context_candidate.index << " over best candidate id:" <<
-        (best_candidate.valid ? std::to_string(best_candidate.index) : std::string("none"))
+        selection.best_scan_context.index << " over best candidate id:" <<
+        (selection.best_valid.valid ?
+      std::to_string(selection.best_valid.index) : std::string("none"))
                 << std::endl;
     }
-    best_candidate = best_scan_context_candidate;
   }
+  const LoopCandidateResult best_candidate = selection.select(prefer_scan_context_candidates_);
 
   if (!best_candidate.valid) {
+    const LoopCandidateResult & best_attempt = selection.best_attempt;
     if (best_attempt.index >= 0) {
       std::cout << "best_loop_candidate id:" << best_attempt.index
                 << " source:" << candidate_source_name(best_attempt.source)
@@ -2576,11 +2495,8 @@ void GraphBasedSlamComponent::searchLoopForLatest(
 
   LoopEdge loop_edge;
   loop_edge.pair_id = std::pair<int, int>(best_candidate.index, latest_idx);
-  Eigen::Isometry3d from = Eigen::Isometry3d(submap_affine.matrix());
-  Eigen::Isometry3d to = Eigen::Isometry3d(
-    best_candidate.final_transformation.cast<double>() * init_affine.matrix());
-
-  loop_edge.relative_pose = Eigen::Isometry3d(from.inverse() * to);
+  loop_edge.relative_pose = loop_verifier::composeLoopRelativePose(
+    submap_affine, init_affine, best_candidate.final_transformation);
   loop_edge.fitness_score = best_candidate.fitness_score;
   const bool graph_changed = upsertLoopEdge(loop_edge);
 
