@@ -100,7 +100,8 @@ python3 scripts/simple_lanelet2_generator.py \
 | スクリプト | 用途 |
 |-----------|------|
 | `run_default_ci_checks.sh` | ローカル CI（ビルド＋テスト）|
-| `run_release_readiness_checks.sh` | リリースゲート（APE 閾値）|
+| `run_release_readiness_checks.sh` | リリースゲート（APE 閾値、`--offline-determinism-bag` で決定論ハードゲート）|
+| `run_offline_determinism_check.sh` | オフラインバックエンド決定論ゲート（N-run バイト一致 + 任意 APE レポート）|
 | `run_rko_lio_graph_benchmark.sh` | ベンチマークパイプライン |
 | `run_autoware_quickstart.sh` | NTU VIRAL → Autoware マップ E2E |
 | `download_ntu_viral_tnp01.sh` | NTU VIRAL データダウンロード |
