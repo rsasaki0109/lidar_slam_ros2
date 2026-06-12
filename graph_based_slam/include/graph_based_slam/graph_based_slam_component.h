@@ -176,6 +176,11 @@ private:
       const MapSaveRequest request,
       const MapSaveResponse response);
     void searchLoop();
+    // Event-driven scheduling (docs/roadmap/v0.6.md, Phase 2): drain every
+    // submap not yet used as a loop-search query, in arrival order, each
+    // against exactly the map state [0..q] so the result is a function of
+    // the data, not of how the executor batched arrivals.
+    void runEventDrivenLoopSearch();
     // Per-query loop search body, factored out of searchLoop() so the scheduler
     // can run it for one (default) or many (deterministic mode) query submaps.
     void searchLoopForLatest(
@@ -183,6 +188,10 @@ private:
       LoopEdges & loop_edges,
       int num_submaps,
       int latest_idx);
+    // Voxel-filtered local aggregate of a submap and its recent neighbors;
+    // the returned provider borrows map_array_msg and must not outlive it.
+    backend_core::BackendCore::LocalSubmapProvider makeFilteredLocalSubmapProvider(
+      const lidarslam_msgs::msg::MapArray & map_array_msg);
     bool snapshotGraphState(
       lidarslam_msgs::msg::MapArray & map_array_msg,
       LoopEdges & loop_edges,
@@ -220,6 +229,12 @@ private:
     // queries is a pure function of the map regardless of tick timing.
     bool deterministic_loop_scheduling_ {false};
     int last_searched_submap_idx_ {-1};
+    // Event-driven loop search (opt-in, v0.6 Phase 2). When true, loop search
+    // runs once per submap arrival in arrival order (each query sees exactly
+    // the map state up to itself) and the wall timer becomes a no-op; the
+    // legacy timer-driven path above stays the default. Subsumes
+    // deterministic_loop_scheduling, which is retired in Phase 3.
+    bool event_driven_loop_search_ {false};
 
     // pose graph optimization parameter
     int num_adjacent_pose_cnstraints_;

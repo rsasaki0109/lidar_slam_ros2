@@ -78,6 +78,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("loop_detection_period", loop_detection_period_);
   declare_parameter("deterministic_loop_scheduling", false);
   get_parameter("deterministic_loop_scheduling", deterministic_loop_scheduling_);
+  declare_parameter("event_driven_loop_search", false);
+  get_parameter("event_driven_loop_search", event_driven_loop_search_);
   declare_parameter("threshold_loop_closure_score", 1.0);
   get_parameter("threshold_loop_closure_score", threshold_loop_closure_score_);
   declare_parameter("scan_context_loop_closure_score_threshold", -1.0);
@@ -1135,24 +1137,29 @@ void GraphBasedSlamComponent::initializePubSub()
   auto map_array_callback =
     [this](const typename lidarslam_msgs::msg::MapArray::SharedPtr msg_ptr) -> void
     {
-      std::lock_guard<std::mutex> lock(mtx_);
-      map_array_msg_ = *msg_ptr;
-      // Save new submaps to PCD and clear cloud from memory
-      if (use_pcd_cache_) {
-        for (int i = 0; i < static_cast<int>(map_array_msg_.submaps.size()); i++) {
-          auto & sub = map_array_msg_.submaps[i];
-          if (sub.cloud.data.size() > 0) {
-            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
-            pcl::fromROSMsg(sub.cloud, *cloud);
-            if (cloud->size() > 0) {
-              saveSubmapToPCD(i, cloud);
-              sub.cloud = sensor_msgs::msg::PointCloud2();  // Free memory
+      {
+        std::lock_guard<std::mutex> lock(mtx_);
+        map_array_msg_ = *msg_ptr;
+        // Save new submaps to PCD and clear cloud from memory
+        if (use_pcd_cache_) {
+          for (int i = 0; i < static_cast<int>(map_array_msg_.submaps.size()); i++) {
+            auto & sub = map_array_msg_.submaps[i];
+            if (sub.cloud.data.size() > 0) {
+              pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
+              pcl::fromROSMsg(sub.cloud, *cloud);
+              if (cloud->size() > 0) {
+                saveSubmapToPCD(i, cloud);
+                sub.cloud = sensor_msgs::msg::PointCloud2();  // Free memory
+              }
             }
           }
         }
+        initial_map_array_received_ = true;
+        is_map_array_updated_ = true;
       }
-      initial_map_array_received_ = true;
-      is_map_array_updated_ = true;
+      if (event_driven_loop_search_) {
+        runEventDrivenLoopSearch();
+      }
     };
 
   map_array_sub_ =
@@ -1307,8 +1314,55 @@ bool GraphBasedSlamComponent::upsertLoopEdge(const LoopEdge & loop_edge)
   loop_edges_.push_back(normalized);
   return true;
 }
+backend_core::BackendCore::LocalSubmapProvider
+GraphBasedSlamComponent::makeFilteredLocalSubmapProvider(
+  const lidarslam_msgs::msg::MapArray & map_array_msg)
+{
+  return [this, &map_array_msg](int ref_idx) -> pcl::PointCloud<pcl::PointXYZI>::Ptr {
+           pcl::PointCloud<pcl::PointXYZI>::Ptr aggregated_cloud(
+             new pcl::PointCloud<pcl::PointXYZI>);
+           Eigen::Affine3d reference_affine;
+           tf2::fromMsg(map_array_msg.submaps[ref_idx].pose, reference_affine);
+           for (int k = 0; k < search_submap_num_ && (ref_idx - k) >= 0; ++k) {
+             const int src_idx = ref_idx - k;
+             pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
+             if (use_pcd_cache_) {
+               cloud = loadSubmapFromPCD(src_idx);
+             } else {
+               cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
+               pcl::fromROSMsg(map_array_msg.submaps[src_idx].cloud, *cloud);
+             }
+             if (!cloud || cloud->empty()) {
+               continue;
+             }
+             Eigen::Affine3d src_affine;
+             tf2::fromMsg(map_array_msg.submaps[src_idx].pose, src_affine);
+             pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud(
+               new pcl::PointCloud<pcl::PointXYZI>);
+             const Eigen::Matrix4f local_transform =
+               (reference_affine.inverse() * src_affine).matrix().cast<float>();
+             pcl::transformPointCloud(*cloud, *transformed_cloud, local_transform);
+             *aggregated_cloud += *transformed_cloud;
+           }
+
+           pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud(
+             new pcl::PointCloud<pcl::PointXYZI>);
+           if (aggregated_cloud->empty()) {
+             return filtered_cloud;
+           }
+           voxelgrid_.setInputCloud(aggregated_cloud);
+           voxelgrid_.filter(*filtered_cloud);
+           return filtered_cloud;
+         };
+}
+
 void GraphBasedSlamComponent::searchLoop()
 {
+  if (event_driven_loop_search_) {
+    // Loop search runs on submap arrival (runEventDrivenLoopSearch); the
+    // wall timer stays registered only as unchanged online pacing.
+    return;
+  }
   lidarslam_msgs::msg::MapArray map_array_msg;
   LoopEdges loop_edges;
   if (!snapshotGraphState(map_array_msg, loop_edges, true)) {return;}
@@ -1322,43 +1376,7 @@ void GraphBasedSlamComponent::searchLoop()
     RCLCPP_INFO(get_logger(), "searching Loop, num_submaps:%d", num_submaps);
   }
 
-  const auto build_filtered_local_submap =
-    [this, &map_array_msg](int ref_idx) -> pcl::PointCloud<pcl::PointXYZI>::Ptr {
-      pcl::PointCloud<pcl::PointXYZI>::Ptr aggregated_cloud(
-        new pcl::PointCloud<pcl::PointXYZI>);
-      Eigen::Affine3d reference_affine;
-      tf2::fromMsg(map_array_msg.submaps[ref_idx].pose, reference_affine);
-      for (int k = 0; k < search_submap_num_ && (ref_idx - k) >= 0; ++k) {
-        const int src_idx = ref_idx - k;
-        pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
-        if (use_pcd_cache_) {
-          cloud = loadSubmapFromPCD(src_idx);
-        } else {
-          cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
-          pcl::fromROSMsg(map_array_msg.submaps[src_idx].cloud, *cloud);
-        }
-        if (!cloud || cloud->empty()) {
-          continue;
-        }
-        Eigen::Affine3d src_affine;
-        tf2::fromMsg(map_array_msg.submaps[src_idx].pose, src_affine);
-        pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud(
-          new pcl::PointCloud<pcl::PointXYZI>);
-        const Eigen::Matrix4f local_transform =
-          (reference_affine.inverse() * src_affine).matrix().cast<float>();
-        pcl::transformPointCloud(*cloud, *transformed_cloud, local_transform);
-        *aggregated_cloud += *transformed_cloud;
-      }
-
-      pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud(
-        new pcl::PointCloud<pcl::PointXYZI>);
-      if (aggregated_cloud->empty()) {
-        return filtered_cloud;
-      }
-      voxelgrid_.setInputCloud(aggregated_cloud);
-      voxelgrid_.filter(*filtered_cloud);
-      return filtered_cloud;
-    };
+  const auto build_filtered_local_submap = makeFilteredLocalSubmapProvider(map_array_msg);
 
   // Keep every enabled descriptor database aligned 1:1 with submap indices.
   backend_core_.ingestDescriptors(num_submaps, build_filtered_local_submap);
@@ -1376,6 +1394,37 @@ void GraphBasedSlamComponent::searchLoop()
   } else {
     // Default (historical) behaviour: query only the single latest submap.
     searchLoopForLatest(map_array_msg, loop_edges, num_submaps, num_submaps - 1);
+  }
+}
+
+void GraphBasedSlamComponent::runEventDrivenLoopSearch()
+{
+  while (rclcpp::ok()) {
+    lidarslam_msgs::msg::MapArray map_array_msg;
+    LoopEdges loop_edges;
+    if (!snapshotGraphState(map_array_msg, loop_edges, false)) {return;}
+    const int num_submaps = static_cast<int>(map_array_msg.submaps.size());
+    if (num_submaps < 2) {return;}
+    int query_idx = last_searched_submap_idx_ + 1;
+    if (query_idx < 1) {query_idx = 1;}
+    if (query_idx >= num_submaps) {return;}
+    if (map_array_msg.cloud_coordinate != map_array_msg.LOCAL) {
+      RCLCPP_WARN(get_logger(), "cloud_coordinate should be local, but it's not local.");
+    }
+    if (debug_flag_) {
+      RCLCPP_INFO(
+        get_logger(), "event-driven loop search, query submap %d of %d", query_idx,
+        num_submaps);
+    }
+    // The query for submap q runs against exactly the map state [0..q]:
+    // descriptor ingestion, candidate generation and the accepted-edge pose
+    // adjustment are functions of the data up to q, independent of how the
+    // executor batched arrivals (the v0.4 D1 nondeterminism root cause).
+    map_array_msg.submaps.resize(query_idx + 1);
+    const auto build_filtered_local_submap = makeFilteredLocalSubmapProvider(map_array_msg);
+    backend_core_.ingestDescriptors(query_idx + 1, build_filtered_local_submap);
+    searchLoopForLatest(map_array_msg, loop_edges, query_idx + 1, query_idx);
+    last_searched_submap_idx_ = query_idx;
   }
 }
 
@@ -2163,6 +2212,10 @@ void GraphBasedSlamComponent::tryCreateSubmap(
 
   if (n % 50 == 0) {
     RCLCPP_INFO(get_logger(), "Odom input: %d submaps, distance: %.1fm", n, accumulated_distance_);
+  }
+
+  if (event_driven_loop_search_) {
+    runEventDrivenLoopSearch();
   }
 }
 

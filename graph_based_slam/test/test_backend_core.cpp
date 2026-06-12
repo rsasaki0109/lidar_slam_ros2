@@ -380,6 +380,69 @@ TEST(BackendCoreSearch, TranslationCapRejectionKeepsBestAttemptLine)
   EXPECT_TRUE(has_best_attempt);
 }
 
+// Event-driven drain helper: ingest [0..q], then search q against the
+// truncated map state, for every query not yet processed.
+void drainArrivals(
+  SearchHarness & harness,
+  int & next_query,
+  int available,
+  std::vector<backend_core::LoopSearchOutput> & outputs)
+{
+  const auto trajectory = makeRevisitTrajectory();
+  const auto provider = makeRevisitProvider();
+  const auto config = makeRevisitSearchConfig();
+  while (next_query < available) {
+    harness.core.ingestDescriptors(next_query + 1, provider);
+    const std::vector<backend_core::SubmapMeta> visible(
+      trajectory.begin(), trajectory.begin() + next_query + 1);
+    outputs.push_back(
+      harness.core.searchLoopForSubmap(
+        visible, next_query, config, provider, harness.ndt, harness.voxelgrid,
+        harness.bbs_verifier));
+    ++next_query;
+  }
+}
+
+TEST(BackendCoreSearch, ArrivalBatchingDoesNotChangeTheResultStream)
+{
+  // Simulate the event-driven drain under two arrival patterns of the same
+  // 11-submap revisit stream: one-at-a-time vs two large batches. The
+  // proposal and log streams must be identical — the v0.4 D1 failure mode
+  // (results coupled to arrival batching) pinned as a core-level test.
+  SearchHarness one_by_one;
+  int next_a = 1;
+  std::vector<backend_core::LoopSearchOutput> outputs_a;
+  for (int available = 2; available <= 11; ++available) {
+    drainArrivals(one_by_one, next_a, available, outputs_a);
+  }
+
+  SearchHarness batched;
+  int next_b = 1;
+  std::vector<backend_core::LoopSearchOutput> outputs_b;
+  drainArrivals(batched, next_b, 6, outputs_b);
+  drainArrivals(batched, next_b, 11, outputs_b);
+
+  ASSERT_EQ(outputs_a.size(), outputs_b.size());
+  ASSERT_EQ(outputs_a.size(), 10u);
+  bool any_found = false;
+  for (std::size_t i = 0; i < outputs_a.size(); ++i) {
+    EXPECT_EQ(outputs_a[i].proposal.found, outputs_b[i].proposal.found);
+    EXPECT_EQ(outputs_a[i].proposal.pair_id, outputs_b[i].proposal.pair_id);
+    EXPECT_DOUBLE_EQ(
+      outputs_a[i].proposal.fitness_score, outputs_b[i].proposal.fitness_score);
+    EXPECT_DOUBLE_EQ(
+      (outputs_a[i].proposal.relative_pose.matrix() -
+      outputs_b[i].proposal.relative_pose.matrix()).cwiseAbs().maxCoeff(),
+      0.0);
+    ASSERT_EQ(outputs_a[i].logs.size(), outputs_b[i].logs.size());
+    for (std::size_t j = 0; j < outputs_a[i].logs.size(); ++j) {
+      EXPECT_EQ(outputs_a[i].logs[j].text, outputs_b[i].logs[j].text);
+    }
+    any_found = any_found || outputs_a[i].proposal.found;
+  }
+  EXPECT_TRUE(any_found);
+}
+
 TEST(BackendCoreSearch, EmptyCloudsReturnNoProposalAndNoLogs)
 {
   SearchHarness harness;
