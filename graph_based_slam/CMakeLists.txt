@@ -251,6 +251,20 @@ if(BUILD_TESTING)
     )
   endif()
   ament_add_gtest(
+    test_se3_lie
+    test/test_se3_lie.cpp
+  )
+  if(TARGET test_se3_lie)
+    target_include_directories(test_se3_lie PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  endif()
+  ament_add_gtest(
+    test_point_cluster
+    test/test_point_cluster.cpp
+  )
+  if(TARGET test_point_cluster)
+    target_include_directories(test_point_cluster PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  endif()
+  ament_add_gtest(
     test_adaptive_voxel_plane_extractor
     test/test_adaptive_voxel_plane_extractor.cpp
   )
