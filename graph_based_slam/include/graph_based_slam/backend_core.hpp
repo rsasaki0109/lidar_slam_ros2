@@ -38,17 +38,25 @@
 // state, independent of wall-clock timing. The shell supplies clouds via
 // a provider callback, so message-vs-PCD-cache stays its concern.
 
+#include <cstdio>
 #include <functional>
+#include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include <pcl/common/transforms.h>  // NOLINT(build/include_order)
+#include <pcl/filters/voxel_grid.h>  // NOLINT(build/include_order)
 #include <pcl/point_cloud.h>  // NOLINT(build/include_order)
 #include <pcl/point_types.h>  // NOLINT(build/include_order)
+#include <pcl/registration/registration.h>  // NOLINT(build/include_order)
 
 #include "graph_based_slam/candidate_aggregator.hpp"
+#include "graph_based_slam/loop_verifier.hpp"
 #include "graph_based_slam/scan_context.hpp"
 #include "graph_based_slam/solid_descriptor.hpp"
 #include "graph_based_slam/submap_bev_descriptor.hpp"
+#include "graph_based_slam/three_d_bbs_loop_verifier.hpp"
 #include "graph_based_slam/triangle_descriptor.hpp"
 #include "graph_based_slam/triangle_descriptor_database.hpp"
 
@@ -81,6 +89,49 @@ struct DescriptorConfig
   int triangle_descriptor_max_triangles{3000};
   double triangle_descriptor_edge_bin_m{0.5};
   double triangle_descriptor_quad_feature_bin_m{0.0};
+};
+
+// Pose and travel distance of one submap, pre-converted by the shell
+// (tf2::fromMsg once per submap; translation() is bit-identical to the
+// message position doubles).
+struct SubmapMeta
+{
+  Eigen::Affine3d pose{Eigen::Affine3d::Identity()};
+  double travel_distance{0.0};
+};
+
+struct LoopEdgeProposal
+{
+  bool found{false};
+  std::pair<int, int> pair_id{-1, -1};
+  Eigen::Isometry3d relative_pose{Eigen::Isometry3d::Identity()};
+  double fitness_score{0.0};
+};
+
+struct LoopSearchOutput
+{
+  LoopEdgeProposal proposal;
+  std::vector<candidate_aggregator::LogLine> logs;
+};
+
+struct LoopSearchConfig
+{
+  int search_submap_num{3};
+  bool prefer_scan_context_candidates{false};
+  bool use_3d_bbs_for_scan_context{false};
+  int three_d_bbs_source_submap_num{2};
+  int three_d_bbs_target_submap_radius{1};
+  double three_d_bbs_voxel_leaf_size{1.0};
+  double three_d_bbs_min_level_res{1.0};
+  int three_d_bbs_max_level{3};
+  double three_d_bbs_score_threshold_percentage{0.25};
+  int three_d_bbs_timeout_msec{50};
+  int three_d_bbs_num_threads{0};
+  double three_d_bbs_translation_search_margin_m{15.0};
+  double three_d_bbs_roll_pitch_search_deg{10.0};
+  double three_d_bbs_yaw_search_deg{180.0};
+  candidate_aggregator::Config aggregator;
+  loop_verifier::GateConfig gates;
 };
 
 // Backend-owned loop-closure state. Single-threaded by contract: the
@@ -187,6 +238,471 @@ public:
       }
       triangle_next_submap_idx_ = num_submaps;
     }
+  }
+
+  // The complete loop search for one query submap: candidate generation
+  // (pure aggregator calls over the descriptor databases), registration
+  // verification and best-candidate selection. Raw submap clouds come
+  // from the provider (message vs PCD cache stays the shell's concern);
+  // the registration / voxel filter / 3D-BBS compute objects are injected
+  // so the shell and the offline runner can own their own instances.
+  // Every operator-visible line is returned as a LogLine so the shell
+  // emits byte-identical output.
+  LoopSearchOutput searchLoopForSubmap(
+    const std::vector<SubmapMeta> & submaps,
+    int latest_idx,
+    const LoopSearchConfig & search_config,
+    const LocalSubmapProvider & raw_cloud_provider,
+    pcl::Registration<pcl::PointXYZI, pcl::PointXYZI> & registration,
+    pcl::VoxelGrid<pcl::PointXYZI> & voxelgrid,
+    ThreeDBBSLoopVerifier & three_d_bbs_verifier)
+  {
+    using LoopCandidate = loop_verifier::LoopCandidate;
+    using LoopCandidateResult = loop_verifier::LoopCandidateResult;
+
+    LoopSearchOutput output;
+    const int num_submaps = static_cast<int>(submaps.size());
+    const Eigen::Affine3d & latest_affine = submaps[latest_idx].pose;
+
+    // Aggregate latest N submaps as source (improves matching quality)
+    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_latest_submap_cloud_ptr(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_latest_submap_cloud_sc_ptr(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr latest_submap_cloud_local_ptr(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr latest_submap_cloud_local_bbs_ptr(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    for (int k = 0; k < search_config.search_submap_num && (latest_idx - k) >= 0; k++) {
+      int src_idx = latest_idx - k;
+      pcl::PointCloud<pcl::PointXYZI>::Ptr src_cloud = raw_cloud_provider(src_idx);
+      if (src_cloud->empty()) {
+        continue;
+      }
+      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_src(new pcl::PointCloud<pcl::PointXYZI>);
+      const Eigen::Affine3d & src_affine = submaps[src_idx].pose;
+      pcl::transformPointCloud(*src_cloud, *transformed_src, src_affine.matrix().cast<float>());
+      *transformed_latest_submap_cloud_ptr += *transformed_src;
+      if (k < search_config.three_d_bbs_source_submap_num) {
+        *transformed_latest_submap_cloud_sc_ptr += *transformed_src;
+      }
+
+      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_src_local(
+        new pcl::PointCloud<pcl::PointXYZI>);
+      const Eigen::Matrix4f latest_frame_transform =
+        (latest_affine.inverse() * src_affine).matrix().cast<float>();
+      pcl::transformPointCloud(*src_cloud, *transformed_src_local, latest_frame_transform);
+      *latest_submap_cloud_local_ptr += *transformed_src_local;
+      if (k < search_config.three_d_bbs_source_submap_num) {
+        *latest_submap_cloud_local_bbs_ptr += *transformed_src_local;
+      }
+    }
+    if (
+      transformed_latest_submap_cloud_ptr->empty() ||
+      transformed_latest_submap_cloud_sc_ptr->empty() ||
+      latest_submap_cloud_local_ptr->empty() ||
+      latest_submap_cloud_local_bbs_ptr->empty())
+    {
+      return output;
+    }
+
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source(new pcl::PointCloud<pcl::PointXYZI>);
+    voxelgrid.setInputCloud(transformed_latest_submap_cloud_ptr);
+    voxelgrid.filter(*filtered_source);
+    if (filtered_source->empty()) {
+      return output;
+    }
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source_sc(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    voxelgrid.setInputCloud(transformed_latest_submap_cloud_sc_ptr);
+    voxelgrid.filter(*filtered_source_sc);
+    if (filtered_source_sc->empty()) {
+      return output;
+    }
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source_local(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    voxelgrid.setInputCloud(latest_submap_cloud_local_ptr);
+    voxelgrid.filter(*filtered_source_local);
+    if (filtered_source_local->empty()) {
+      return output;
+    }
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source_local_bbs(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    voxelgrid.setInputCloud(latest_submap_cloud_local_bbs_ptr);
+    voxelgrid.filter(*filtered_source_local_bbs);
+    if (filtered_source_local_bbs->empty()) {
+      return output;
+    }
+    registration.setInputSource(filtered_source);
+
+    const double latest_moving_distance = submaps[latest_idx].travel_distance;
+    const Eigen::Vector3d latest_submap_pos = latest_affine.translation();
+
+    std::vector<LoopCandidate> candidates;
+
+    std::vector<Eigen::Vector3d> submap_positions;
+    std::vector<double> submap_travel_distances;
+    std::vector<Eigen::Affine3d> submap_affines;
+    submap_positions.reserve(latest_idx + 1);
+    submap_travel_distances.reserve(latest_idx + 1);
+    submap_affines.reserve(latest_idx + 1);
+    for (int i = 0; i <= latest_idx; i++) {
+      submap_positions.emplace_back(submaps[i].pose.translation());
+      submap_travel_distances.push_back(submaps[i].travel_distance);
+      submap_affines.push_back(submaps[i].pose);
+    }
+
+    std::vector<std::pair<double, int>> distance_candidates =
+      candidate_aggregator::collectDistanceCandidates(
+      submap_positions, submap_travel_distances, latest_idx, search_config.aggregator);
+
+    if (config_.use_scan_context) {
+      candidate_aggregator::collectScanContextCandidate(
+        scan_context_db_,
+        submap_travel_distances,
+        latest_idx,
+        search_config.aggregator,
+        candidates,
+        output.logs);
+    }
+
+    if (config_.use_bev_descriptor &&
+      bev_descriptor_db_.size() > SubmapBEVDescriptor::DEFAULT_EXCLUDE_RECENT)
+    {
+      candidate_aggregator::rerankDistanceCandidatesWithBev(
+        bev_descriptor_db_,
+        submap_affines,
+        latest_idx,
+        search_config.aggregator,
+        distance_candidates,
+        candidates,
+        output.logs);
+    } else {
+      candidate_aggregator::appendTopDistanceCandidates(
+        distance_candidates, search_config.aggregator, candidates);
+    }
+    if (config_.use_solid_descriptor) {
+      candidate_aggregator::collectSolidCandidates(
+        solid_descriptor_db_,
+        submap_affines,
+        distance_candidates,
+        latest_idx,
+        search_config.aggregator,
+        candidates,
+        output.logs);
+    }
+
+    if (config_.use_triangle_descriptor) {
+      candidate_aggregator::collectTriangleCandidate(
+        triangle_db_,
+        triangle_per_submap_,
+        bev_descriptor_db_,
+        config_.use_bev_descriptor,
+        submap_travel_distances,
+        latest_idx,
+        search_config.aggregator,
+        candidates,
+        output.logs);
+    }
+    if (candidates.empty()) {
+      return output;
+    }
+
+    const bool debug = search_config.aggregator.debug;
+    char log_buffer[512];
+
+    loop_verifier::SelectionState selection;
+    bool attempted_registration = false;
+
+    for (const auto & candidate : candidates) {
+      if (candidate.index < 0 || candidate.index >= latest_idx) {
+        continue;
+      }
+
+      const Eigen::Affine3d & candidate_affine = submaps[candidate.index].pose;
+      pcl::PointCloud<pcl::PointXYZI>::Ptr submap_clouds_ptr(
+        new pcl::PointCloud<pcl::PointXYZI>);
+      pcl::PointCloud<pcl::PointXYZI>::Ptr submap_clouds_bbs_ptr(
+        new pcl::PointCloud<pcl::PointXYZI>);
+      for (int offset = -search_config.search_submap_num;
+        offset <= search_config.search_submap_num; ++offset)
+      {
+        const int near_idx = candidate.index + offset;
+        if (near_idx < 0 || near_idx >= num_submaps) {
+          continue;
+        }
+        pcl::PointCloud<pcl::PointXYZI>::Ptr submap_cloud_ptr = raw_cloud_provider(near_idx);
+        if (submap_cloud_ptr->empty()) {
+          continue;
+        }
+        pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_submap_cloud_ptr(
+          new pcl::PointCloud<pcl::PointXYZI>);
+        const Eigen::Affine3d & affine = submaps[near_idx].pose;
+        pcl::transformPointCloud(
+          *submap_cloud_ptr, *transformed_submap_cloud_ptr,
+          affine.matrix().cast<float>());
+        *submap_clouds_ptr += *transformed_submap_cloud_ptr;
+        if (std::abs(offset) <= search_config.three_d_bbs_target_submap_radius) {
+          *submap_clouds_bbs_ptr += *transformed_submap_cloud_ptr;
+        }
+      }
+      if (submap_clouds_ptr->empty() || submap_clouds_bbs_ptr->empty()) {
+        continue;
+      }
+
+      pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_clouds_ptr(
+        new pcl::PointCloud<pcl::PointXYZI>());
+      voxelgrid.setInputCloud(submap_clouds_ptr);
+      voxelgrid.filter(*filtered_clouds_ptr);
+      if (filtered_clouds_ptr->empty()) {
+        continue;
+      }
+      pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_clouds_sc_ptr(
+        new pcl::PointCloud<pcl::PointXYZI>());
+      voxelgrid.setInputCloud(submap_clouds_bbs_ptr);
+      voxelgrid.filter(*filtered_clouds_sc_ptr);
+      if (filtered_clouds_sc_ptr->empty()) {
+        continue;
+      }
+
+      pcl::PointCloud<pcl::PointXYZI>::Ptr output_cloud_ptr(
+        new pcl::PointCloud<pcl::PointXYZI>);
+      bool used_3d_bbs = false;
+      double three_d_bbs_score_percentage = 0.0;
+      double three_d_bbs_elapsed_msec = 0.0;
+      Eigen::Matrix4f initial_guess =
+        loop_verifier::computeInitialGuess(candidate_affine, latest_affine, candidate);
+      if (candidate.source == LoopCandidate::Source::SCAN_CONTEXT) {
+        registration.setInputSource(filtered_source_sc);
+        registration.setInputTarget(filtered_clouds_sc_ptr);
+      } else {
+        registration.setInputSource(filtered_source);
+        registration.setInputTarget(filtered_clouds_ptr);
+      }
+      if (candidate.source == LoopCandidate::Source::SCAN_CONTEXT &&
+        search_config.use_3d_bbs_for_scan_context)
+      {
+        pcl::VoxelGrid<pcl::PointXYZI> three_d_bbs_voxelgrid;
+        three_d_bbs_voxelgrid.setLeafSize(
+          search_config.three_d_bbs_voxel_leaf_size,
+          search_config.three_d_bbs_voxel_leaf_size,
+          search_config.three_d_bbs_voxel_leaf_size);
+        pcl::PointCloud<pcl::PointXYZI>::Ptr three_d_bbs_source(
+          new pcl::PointCloud<pcl::PointXYZI>);
+        pcl::PointCloud<pcl::PointXYZI>::Ptr three_d_bbs_target(
+          new pcl::PointCloud<pcl::PointXYZI>);
+        three_d_bbs_voxelgrid.setInputCloud(filtered_source_local_bbs);
+        three_d_bbs_voxelgrid.filter(*three_d_bbs_source);
+        three_d_bbs_voxelgrid.setInputCloud(submap_clouds_bbs_ptr);
+        three_d_bbs_voxelgrid.filter(*three_d_bbs_target);
+
+        ThreeDBBSLoopVerifierConfig bbs_config;
+        bbs_config.min_level_res = search_config.three_d_bbs_min_level_res;
+        bbs_config.max_level = search_config.three_d_bbs_max_level;
+        bbs_config.score_threshold_percentage =
+          search_config.three_d_bbs_score_threshold_percentage;
+        bbs_config.timeout_msec = search_config.three_d_bbs_timeout_msec;
+        bbs_config.num_threads = search_config.three_d_bbs_num_threads;
+        bbs_config.translation_search_margin_m =
+          search_config.three_d_bbs_translation_search_margin_m;
+        bbs_config.roll_pitch_search_deg = search_config.three_d_bbs_roll_pitch_search_deg;
+        bbs_config.yaw_search_deg = search_config.three_d_bbs_yaw_search_deg;
+        const auto bbs_result = three_d_bbs_verifier.localize(
+          three_d_bbs_source,
+          three_d_bbs_target,
+          Eigen::Isometry3d(latest_affine.matrix()),
+          Eigen::Isometry3d(candidate_affine.matrix()),
+          bbs_config);
+        if (bbs_result.available) {
+          three_d_bbs_score_percentage = bbs_result.score_percentage;
+          three_d_bbs_elapsed_msec = bbs_result.elapsed_msec;
+          used_3d_bbs = bbs_result.localized;
+          if (bbs_result.localized) {
+            initial_guess = bbs_result.correction_guess;
+          }
+          if (debug) {
+            std::snprintf(
+              log_buffer, sizeof(log_buffer),
+              "3D-BBS %s for loop candidate %d -> %d "
+              "(score=%.3f elapsed=%.2f ms timed_out=%s "
+              "src=%zu tar=%zu)",
+              bbs_result.localized ? "localized" : "missed",
+              candidate.index,
+              latest_idx,
+              bbs_result.score_percentage,
+              bbs_result.elapsed_msec,
+              bbs_result.timed_out ? "true" : "false",
+              three_d_bbs_source->size(),
+              three_d_bbs_target->size());
+            output.logs.push_back({true, std::string(log_buffer)});
+          }
+        }
+      }
+      if (loop_verifier::shouldUseInitialGuess(candidate.source, used_3d_bbs)) {
+        registration.align(*output_cloud_ptr, initial_guess);
+      } else {
+        registration.align(*output_cloud_ptr);
+      }
+      attempted_registration = true;
+      if (!registration.hasConverged()) {
+        if (debug) {
+          std::snprintf(
+            log_buffer, sizeof(log_buffer),
+            "Rejected loop candidate %d -> %d because registration did not converge",
+            candidate.index,
+            latest_idx);
+          output.logs.push_back({true, std::string(log_buffer)});
+        }
+        continue;
+      }
+
+      const double fitness_score = registration.getFitnessScore();
+      const Eigen::Matrix4f final_transformation = registration.getFinalTransformation();
+      const loop_verifier::RegistrationDelta registration_delta =
+        loop_verifier::computeRegistrationDelta(final_transformation);
+
+      LoopCandidateResult candidate_result;
+      candidate_result.index = candidate.index;
+      candidate_result.selection_metric = candidate.selection_metric;
+      candidate_result.fitness_score = fitness_score;
+      candidate_result.travel_distance =
+        latest_moving_distance - submaps[candidate.index].travel_distance;
+      const Eigen::Vector3d candidate_submap_pos = candidate_affine.translation();
+      candidate_result.euclidean_distance = (latest_submap_pos - candidate_submap_pos).norm();
+      candidate_result.translation_delta_m = registration_delta.translation_m;
+      candidate_result.rotation_delta_deg = registration_delta.rotation_deg;
+      candidate_result.source = candidate.source;
+      candidate_result.used_3d_bbs = used_3d_bbs;
+      candidate_result.three_d_bbs_score_percentage = three_d_bbs_score_percentage;
+      candidate_result.three_d_bbs_elapsed_msec = three_d_bbs_elapsed_msec;
+      candidate_result.final_transformation = final_transformation;
+
+      selection.considerConverged(candidate_result);
+
+      const loop_verifier::GateResult gate = loop_verifier::evaluateGates(
+        candidate.source, fitness_score, registration_delta, search_config.gates);
+      if (gate.rejection != loop_verifier::GateRejection::NONE) {
+        if (debug) {
+          switch (gate.rejection) {
+            case loop_verifier::GateRejection::FITNESS:
+              std::snprintf(
+                log_buffer, sizeof(log_buffer),
+                "Rejected loop candidate %d -> %d because fitness %.6f exceeds threshold %.6f",
+                candidate.index,
+                latest_idx,
+                fitness_score,
+                gate.score_threshold);
+              output.logs.push_back({true, std::string(log_buffer)});
+              break;
+            case loop_verifier::GateRejection::TRANSLATION:
+              std::snprintf(
+                log_buffer, sizeof(log_buffer),
+                "Rejected loop candidate %d -> %d because translation correction %.3f m "
+                "exceeds %.3f m",
+                candidate.index,
+                latest_idx,
+                registration_delta.translation_m,
+                gate.translation_cap_m);
+              output.logs.push_back({true, std::string(log_buffer)});
+              break;
+            case loop_verifier::GateRejection::ROTATION:
+              std::snprintf(
+                log_buffer, sizeof(log_buffer),
+                "Rejected loop candidate %d -> %d because rotation correction %.3f deg "
+                "exceeds %.3f deg",
+                candidate.index,
+                latest_idx,
+                registration_delta.rotation_deg,
+                gate.rotation_cap_deg);
+              output.logs.push_back({true, std::string(log_buffer)});
+              break;
+            default:
+              break;
+          }
+        }
+        continue;
+      }
+
+      candidate_result.valid = true;
+      selection.considerValid(candidate_result);
+    }
+
+    if (search_config.prefer_scan_context_candidates && selection.best_scan_context.valid) {
+      if (
+        !selection.best_valid.valid ||
+        selection.best_valid.index != selection.best_scan_context.index ||
+        selection.best_valid.source != LoopCandidate::Source::SCAN_CONTEXT)
+      {
+        std::ostringstream prefer_line;
+        prefer_line << "Preferring valid ScanContext candidate id:" <<
+          selection.best_scan_context.index << " over best candidate id:" <<
+          (selection.best_valid.valid ?
+        std::to_string(selection.best_valid.index) : std::string("none"));
+        output.logs.push_back({false, prefer_line.str()});
+      }
+    }
+    const LoopCandidateResult best_candidate =
+      selection.select(search_config.prefer_scan_context_candidates);
+
+    if (!best_candidate.valid) {
+      const LoopCandidateResult & best_attempt = selection.best_attempt;
+      if (best_attempt.index >= 0) {
+        std::ostringstream attempt_line;
+        attempt_line << "best_loop_candidate id:" << best_attempt.index
+                     << " source:" << loop_verifier::sourceName(best_attempt.source)
+                     << " latest_id:" << latest_idx
+                     << " travel_distance:" << best_attempt.travel_distance
+                     << " euclidean_distance:" << best_attempt.euclidean_distance
+                     << " fitness:" << best_attempt.fitness_score
+                     << " correction_translation:" << best_attempt.translation_delta_m
+                     << " correction_rotation_deg:" << best_attempt.rotation_delta_deg
+                     << " used_3d_bbs:" << best_attempt.used_3d_bbs
+                     << " 3d_bbs_score:" << best_attempt.three_d_bbs_score_percentage;
+        output.logs.push_back({false, attempt_line.str()});
+      } else if (attempted_registration && debug) {
+        std::snprintf(
+          log_buffer, sizeof(log_buffer),
+          "No converged loop candidate remained for latest submap %d",
+          latest_idx);
+        output.logs.push_back({true, std::string(log_buffer)});
+      }
+      return output;
+    }
+
+    output.proposal.found = true;
+    output.proposal.pair_id = std::pair<int, int>(best_candidate.index, latest_idx);
+    output.proposal.relative_pose = loop_verifier::composeLoopRelativePose(
+      submaps[best_candidate.index].pose, latest_affine, best_candidate.final_transformation);
+    output.proposal.fitness_score = best_candidate.fitness_score;
+
+    output.logs.push_back({false, "---"});
+    std::ostringstream adjustment_line;
+    adjustment_line << "PoseAdjustment distance:" << best_candidate.travel_distance
+                    << ", score:" << best_candidate.fitness_score;
+    output.logs.push_back({false, adjustment_line.str()});
+    std::ostringstream id_line;
+    id_line << "id_loop_point 1:" << best_candidate.index
+            << " id_loop_point 2:" << latest_idx;
+    output.logs.push_back({false, id_line.str()});
+    std::ostringstream source_line;
+    source_line << "loop_candidate_source:" << loop_verifier::sourceName(best_candidate.source);
+    output.logs.push_back({false, source_line.str()});
+    if (best_candidate.used_3d_bbs) {
+      std::ostringstream bbs_line;
+      bbs_line << "3d_bbs_score_percentage:" << best_candidate.three_d_bbs_score_percentage
+               << " elapsed_msec:" << best_candidate.three_d_bbs_elapsed_msec;
+      output.logs.push_back({false, bbs_line.str()});
+    }
+    std::ostringstream correction_line;
+    correction_line << "correction translation[m]:" << best_candidate.translation_delta_m
+                    << " rotation[deg]:" << best_candidate.rotation_delta_deg;
+    output.logs.push_back({false, correction_line.str()});
+    output.logs.push_back({false, "final transformation:"});
+    std::ostringstream transformation_line;
+    transformation_line << best_candidate.final_transformation;
+    output.logs.push_back({false, transformation_line.str()});
+
+    return output;
   }
 
   const DescriptorConfig & config() const {return config_;}
