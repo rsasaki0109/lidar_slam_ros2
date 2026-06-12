@@ -139,14 +139,17 @@ int main(int argc, char ** argv)
   node->get_parameter_or("submap_distance_threshold", submap_distance_threshold, 1.5);
   node->get_parameter_or("debug_flag", debug_flag, false);
 
-  // v0.7 Phase 2 (docs/roadmap/v0.7.md): optional offline plane-BA
-  // refinement of the optimized submap poses. Off by default; when it
-  // does not improve anything the pose-graph solution is kept unchanged.
-  bool refine = false;
+  // v0.7 (docs/roadmap/v0.7.md): offline plane-BA refinement of the
+  // optimized submap poses. On by default since Phase 3 (holdout-validated
+  // evidence in docs/research/map-quality-baseline.md); when it does not
+  // improve anything the pose-graph solution is kept unchanged, and the
+  // pose-graph artifacts (loop_edges.csv, trajectory_optimized.tum) are
+  // byte-identical either way.
+  bool refine = true;
   double refine_cloud_downsample = 0.10;
   int refine_window_size = 16;
   int refine_window_stride = 8;
-  node->get_parameter_or("refine", refine, false);
+  node->get_parameter_or("refine", refine, true);
   node->get_parameter_or("refine_cloud_downsample", refine_cloud_downsample, 0.10);
   node->get_parameter_or("refine_window_size", refine_window_size, 16);
   node->get_parameter_or("refine_window_stride", refine_window_stride, 8);
