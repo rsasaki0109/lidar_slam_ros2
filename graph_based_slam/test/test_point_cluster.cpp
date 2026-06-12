@@ -156,7 +156,8 @@ TEST(PointClusterTest, MinEigenvalueOfCoplanarScatterIsNearZero)
   std::vector<Eigen::Vector3d> points;
   for (int x = -3; x <= 3; ++x) {
     for (int y = -2; y <= 2; ++y) {
-      points.push_back(Eigen::Vector3d(
+      points.push_back(
+        Eigen::Vector3d(
           static_cast<double>(x),
           static_cast<double>(y),
           0.0));
@@ -176,7 +177,8 @@ TEST(PointClusterTest, MinEigenvalueOfNoisyPlaneMatchesExpectedScatter)
   std::vector<Eigen::Vector3d> points;
   for (int x = 0; x < 25; ++x) {
     for (int y = 0; y < 25; ++y) {
-      points.push_back(Eigen::Vector3d(
+      points.push_back(
+        Eigen::Vector3d(
           0.2 * static_cast<double>(x - 12),
           0.15 * static_cast<double>(y - 12),
           noise(rng)));
