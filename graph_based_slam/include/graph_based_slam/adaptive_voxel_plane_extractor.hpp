@@ -56,6 +56,7 @@ struct PlaneExtractionConfig
   double min_planarity_ratio {6.0};
   bool enable_quarter_test {true};
   double quarter_test_tolerance {2.0};
+  bool collect_point_indices {false};
 };
 
 struct PlanarPatch
@@ -73,6 +74,8 @@ struct PlanarPatch
 struct PlaneExtractionResult
 {
   std::vector<PlanarPatch> patches;
+  // parallel to patches when collect_point_indices
+  std::vector<std::vector<int>> patch_point_indices;
   std::int64_t total_points {0};
   std::int64_t planar_points {0};
   double planar_coverage {0.0};
@@ -274,7 +277,8 @@ inline bool passesQuarterTest(
   }
 
   std::vector<int> octant_indices[8];
-  const Eigen::Vector3d center = bounds.min_corner + Eigen::Vector3d::Constant(bounds.size * 0.5);
+  const Eigen::Vector3d center =
+    bounds.min_corner + Eigen::Vector3d::Constant(bounds.size * 0.5);
 
   for (std::size_t i = 0; i < indices.size(); ++i) {
     const int octant = octantForPoint(points[indices[i]], center);
@@ -285,7 +289,9 @@ inline bool passesQuarterTest(
   int populated_octants = 0;
 
   for (int octant = 0; octant < 8; ++octant) {
-    if (octant_indices[octant].size() >= static_cast<std::size_t>(min_quarter_points)) {
+    if (octant_indices[octant].size() >=
+      static_cast<std::size_t>(min_quarter_points))
+    {
       ++populated_octants;
     }
   }
@@ -296,7 +302,9 @@ inline bool passesQuarterTest(
 
   const double lambda_limit = config.quarter_test_tolerance * stats.eigenvalues.x() + 1.0e-12;
   for (int octant = 0; octant < 8; ++octant) {
-    if (octant_indices[octant].size() < static_cast<std::size_t>(min_quarter_points)) {
+    if (octant_indices[octant].size() <
+      static_cast<std::size_t>(min_quarter_points))
+    {
       continue;
     }
 
@@ -331,7 +339,8 @@ inline void extractRecursive(
   const NodeBounds & bounds,
   const int depth,
   const PlaneExtractionConfig & config,
-  std::vector<PlanarPatch> * patches)
+  std::vector<PlanarPatch> * patches,
+  std::vector<std::vector<int>> * patch_point_indices)
 {
   if (indices.empty()) {
     return;
@@ -344,6 +353,9 @@ inline void extractRecursive(
 
   if (accepted) {
     patches->push_back(makePatch(stats, indices.size(), depth));
+    if (patch_point_indices != nullptr) {
+      patch_point_indices->push_back(indices);
+    }
     return;
   }
 
@@ -355,7 +367,8 @@ inline void extractRecursive(
   }
 
   std::vector<int> child_indices[8];
-  const Eigen::Vector3d center = bounds.min_corner + Eigen::Vector3d::Constant(bounds.size * 0.5);
+  const Eigen::Vector3d center =
+    bounds.min_corner + Eigen::Vector3d::Constant(bounds.size * 0.5);
 
   for (std::size_t i = 0; i < indices.size(); ++i) {
     const int octant = octantForPoint(points[indices[i]], center);
@@ -368,7 +381,14 @@ inline void extractRecursive(
     }
 
     const NodeBounds child = childBounds(bounds, octant);
-    extractRecursive(points, child_indices[octant], child, depth + 1, config, patches);
+    extractRecursive(
+      points,
+      child_indices[octant],
+      child,
+      depth + 1,
+      config,
+      patches,
+      patch_point_indices);
   }
 }
 
@@ -410,14 +430,20 @@ inline PlaneExtractionResult extractPlanarPatches(
   }
 
   const PlaneExtractionConfig sanitized = detail::sanitizeConfig(config);
-  std::map<detail::VoxelKey, std::vector<int>> voxel_indices;
+  typedef std::map<detail::VoxelKey, std::vector<int>> VoxelIndexMap;
+  VoxelIndexMap voxel_indices;
 
   for (std::size_t i = 0; i < points.size(); ++i) {
     const detail::VoxelKey key = detail::makeRootKey(points[i], sanitized.root_voxel_size);
     voxel_indices[key].push_back(static_cast<int>(i));
   }
 
-  for (std::map<detail::VoxelKey, std::vector<int>>::const_iterator iter = voxel_indices.begin();
+  std::vector<std::vector<int>> * patch_point_indices = nullptr;
+  if (sanitized.collect_point_indices) {
+    patch_point_indices = &result.patch_point_indices;
+  }
+
+  for (VoxelIndexMap::const_iterator iter = voxel_indices.begin();
     iter != voxel_indices.end(); ++iter)
   {
     detail::NodeBounds bounds;
@@ -430,7 +456,8 @@ inline PlaneExtractionResult extractPlanarPatches(
       bounds,
       0,
       sanitized,
-      &result.patches);
+      &result.patches,
+      patch_point_indices);
   }
 
   for (std::size_t i = 0; i < result.patches.size(); ++i) {
