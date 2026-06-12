@@ -1,0 +1,19 @@
+# RKO-LIO config for the HILTI 2022 challenge handheld (Phasma) platform:
+# Hesai PandarXT-32 + Alphasense IMU (/alphasense/imu), base frame = IMU.
+#
+# Extrinsics from the official 2022 calibration release
+# (2022322_calibration_files.zip, lidar_calibration.yaml). The calibration
+# quaternion [0.7071068, -0.7071068, 0, 0] is read literally as [x, y, z, w]
+# — verified empirically on exp01: this reading yields a flat handheld
+# trajectory (z span 1.8 m, 151 m walk) and sub-meter APE against the
+# millimeter control points, while the [w, x, y, z] reading diverges
+# (z plunges to -229 m).
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055]
+initialization_phase: true
+# PandarXT-32 clouds carry per-point float64 absolute 'timestamp' fields.
+deskew: true
+voxel_size: 0.25
+min_range: 0.7
+max_range: 100.0
+double_downsample: true
