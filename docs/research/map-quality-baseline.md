@@ -62,6 +62,43 @@ stage re-checks 3-run byte identity on every invocation.
   `map_quality_report --input <map.pcd> --output-dir <dir> --downsample 0.1`
   (all other knobs are the frozen defaults).
 
+## Refinement before/after (Phase 2 hard-gate evidence, 2026-06-13)
+
+First real-data results of the offline plane-BA refinement
+(`graph_slam_offline_runner ... -p refine:=true -p refine_save_maps:=true`,
+frozen metric profile, `--downsample 0.1`). Backend-input bags exist for
+two substrates; both passed the 3-run byte-identity gate **including the
+refined artifacts** (`trajectory_refined.tum` + `map_refinement_report.yaml`,
+and the refined trajectory md5 reproduced across independent invocations).
+
+| substrate | metric | optimized (before) | refined (after) | Δ |
+|---|---|---:|---:|---|
+| NTU tnp_01 (Leica GT) | APE RMSE (m) | 0.8460511516520233 | **0.8190124186992095** | **−3.2 %** |
+| | MME (nats) | −0.970478040 | **−1.110389903** | crisper |
+| | thickness mean (m) | 0.084944868 | **0.074452257** | **−12.4 %** |
+| | thickness p95 (m) | 0.116538522 | **0.110470374** | −5.2 % |
+| | planar coverage | 0.496509563 | **0.573336748** | **+15.5 %** |
+| MID-360 (GLIM cross-val ref) | APE RMSE (m) | 7.262851264566504 | 7.254892426501326 | −0.1 % |
+| | MME (nats) | −1.612667608 | −1.620476494 | crisper |
+| | thickness mean (m) | 0.044403193 | 0.044050759 | −0.8 % |
+| | planar coverage | 0.550698372 | 0.545862322 | −0.9 % |
+
+Reading: the NTU row is the headline — against total-station-grade GT the
+refinement improves the *trajectory* (−3.2 %) and the *map* (thickness
+−12.4 %) simultaneously, with planar coverage RISING (+15.5 %): blurred
+geometry crossing the frozen acceptance gates is exactly the predicted
+signature of real crispening, not metric gaming. The MID-360 deltas are
+small because that reference is a cross-validation trajectory whose
+global disagreement (meters) dominates; its slight coverage dip (−0.9 %)
+keeps the per-substrate rollout discipline honest — outdoor/cross-val
+profiles stay report-only in Phase 3.
+
+Existing artifacts are untouched by the stage: `loop_edges.csv`
+md5 `feee9547…` and `trajectory_optimized.tum` md5 `92676db4…` are
+unchanged with `refine:=true`. Resources: 640 submaps / 1079 m in
+4:38 wall / 539 MB peak RSS (NTU: 1:54 / 367 MB) — inside the design
+note's budget.
+
 ## Threshold outlook (for Phase 3, not enforced yet)
 
 Per-profile, baseline-relative: a refined map must not regress MME,
