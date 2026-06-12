@@ -279,6 +279,13 @@ if(BUILD_TESTING)
     target_include_directories(test_plane_ba PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
+    test_hba_pyramid
+    test/test_hba_pyramid.cpp
+  )
+  if(TARGET test_hba_pyramid)
+    target_include_directories(test_hba_pyramid PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  endif()
+  ament_add_gtest(
     test_plane_feature_association
     test/test_plane_feature_association.cpp
   )
