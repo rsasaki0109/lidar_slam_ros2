@@ -70,11 +70,23 @@ struct MapQualityConfig
   // Optional deterministic voxel-centroid downsample applied before any
   // metric (0.0 = off). Keeps the metric cost bounded on dense maps.
   double downsample_voxel_size {0.0};
-  // Plane metrics share the Phase 2 extractor.
+  // Plane metrics share the Phase 2 extractor, but with the FROZEN
+  // metric extraction profile below (Phase 1 calibration on the five
+  // gate substrates, docs/research/map-quality-baseline.md). Changing
+  // these values invalidates every recorded baseline; Phase 2 tuning
+  // must not touch them (the optimizer may not adjust its own judge).
   plane_extraction::PlaneExtractionConfig plane_config;
   // Below this planar coverage the plane metrics are reported as
   // not meaningful (expected on vegetation-heavy outdoor maps).
-  double min_meaningful_planar_coverage {0.10};
+  double min_meaningful_planar_coverage {0.05};
+
+  MapQualityConfig()
+  {
+    plane_config.max_plane_thickness = 0.15;
+    plane_config.min_planarity_ratio = 4.0;
+    plane_config.min_points_per_plane = 10;
+    plane_config.max_octree_depth = 4;
+  }
 };
 
 struct MapQualityReport

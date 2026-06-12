@@ -60,6 +60,12 @@ void printUsage()
     "  [--mme-radius <m>]            Mean Map Entropy neighborhood radius (default 0.5)\n"
     "  [--mme-min-neighbors <n>]     minimum neighbors for a valid MME point (default 8)\n"
     "  [--root-voxel-size <m>]       plane extractor root voxel size (default 1.0)\n"
+    "  [--max-plane-thickness <m>]   accept threshold on sqrt(lambda_min) (default 0.06)\n"
+    "  [--min-planarity-ratio <f>]   lambda_mid/lambda_min floor (default 6.0)\n"
+    "  [--min-points-per-plane <n>]  patch support floor (default 20)\n"
+    "  [--max-octree-depth <n>]      root voxel split depth (default 3)\n"
+    "  [--quarter-tolerance <f>]     quarter-test tolerance factor (default 2.0)\n"
+    "  [--no-quarter-test]           disable the quarter consistency test\n"
     "  [--min-meaningful-coverage <f>] planar coverage floor for meaningful plane metrics\n"
     "                                  (default 0.10)\n";
 }
@@ -103,6 +109,18 @@ int main(int argc, char ** argv)
       config.mme_min_neighbors = std::stoi(argv[++i]);
     } else if (arg == "--root-voxel-size" && has_value) {
       config.plane_config.root_voxel_size = std::stod(argv[++i]);
+    } else if (arg == "--max-plane-thickness" && has_value) {
+      config.plane_config.max_plane_thickness = std::stod(argv[++i]);
+    } else if (arg == "--min-planarity-ratio" && has_value) {
+      config.plane_config.min_planarity_ratio = std::stod(argv[++i]);
+    } else if (arg == "--min-points-per-plane" && has_value) {
+      config.plane_config.min_points_per_plane = std::stoi(argv[++i]);
+    } else if (arg == "--max-octree-depth" && has_value) {
+      config.plane_config.max_octree_depth = std::stoi(argv[++i]);
+    } else if (arg == "--quarter-tolerance" && has_value) {
+      config.plane_config.quarter_test_tolerance = std::stod(argv[++i]);
+    } else if (arg == "--no-quarter-test") {
+      config.plane_config.enable_quarter_test = false;
     } else if (arg == "--min-meaningful-coverage" && has_value) {
       config.min_meaningful_planar_coverage = std::stod(argv[++i]);
     } else {

@@ -103,6 +103,7 @@ python3 scripts/simple_lanelet2_generator.py \
 | `run_release_readiness_checks.sh` | リリースゲート（APE 閾値、`--offline-determinism-bag` / `--frontend-determinism-bag` で決定論ハードゲート）|
 | `run_offline_determinism_check.sh` | オフラインバックエンド決定論ゲート（N-run バイト一致 + 任意 APE レポート）|
 | `run_frontend_determinism_check.sh` | オフラインフロントエンド決定論ゲート（scanmatcher lockstep、N-run バイト一致）|
+| `run_map_quality_check.sh` | マップ品質メトリクス（MME/平面厚/coverage、N-run バイト一致。release gate の `--map-quality-pcd`）|
 | `run_rko_lio_graph_benchmark.sh` | ベンチマークパイプライン |
 | `run_autoware_quickstart.sh` | NTU VIRAL → Autoware マップ E2E |
 | `download_ntu_viral_tnp01.sh` | NTU VIRAL データダウンロード |
