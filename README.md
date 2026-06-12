@@ -41,11 +41,9 @@ artifacts you need downstream:
   produce *byte-identical* trajectories, loop edges and submaps on every run
   (verified 3-run on MID-360 and NTU VIRAL); the release gate enforces both
   (`--offline-determinism-bag` / `--frontend-determinism-bag`).
-- **Globally refined, quality-gated maps** — offline hierarchical plane
-  bundle adjustment (clean-room, BSD-2) refines submap poses after graph
-  optimization (default on in the offline runner), gated by holdout-validated
-  map-quality thresholds. On every ground-truth substrate it improves
-  trajectory APE *and* map crispness simultaneously, byte-reproducibly
+- **Globally refined, quality-gated maps** — clean-room plane bundle adjustment
+  refines submap poses offline (default on) under holdout-validated quality
+  thresholds; APE and crispness improve together on every GT substrate
   ([evidence](docs/research/map-quality-baseline.md)).
 - **GNSS georeferencing** — optional GNSS constraints and projector metadata for
   real-world coordinates.
@@ -71,12 +69,10 @@ docker run --rm -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
 This pulls the prebuilt image, downloads a public Livox MID-360 driving bag
 (517 MB, [Zenodo](https://zenodo.org/records/14841855), CC-BY 4.0) and runs the
 full RKO-LIO + graph_based_slam pipeline headless — a few minutes later
-`./lidarslam_output/mid360_demo/` holds the Autoware-ready map
-(`map.pcd`, `pointcloud_map/` tiles, `map_projector_info.yaml`) and the
-loop-closed trajectory (`traj_corrected.tum`). Add
-`-v lidarslam_demo_data:/lidarslam_ws/datasets` to cache the bag between runs.
-Any other command works too, e.g.
-`docker run --rm -it ghcr.io/rsasaki0109/lidar_slam_ros2:humble bash`.
+`./lidarslam_output/mid360_demo/` holds the Autoware-ready map bundle and
+the loop-closed trajectory (`traj_corrected.tum`). Add
+`-v lidarslam_demo_data:/lidarslam_ws/datasets` to cache the bag between runs;
+appending `bash` instead drops you into an interactive shell.
 
 ### Build from source
 
@@ -155,14 +151,13 @@ Every release is blocked in CI by these per-dataset thresholds.
 | RTK-SLAM Stadtgarten 1 (outdoor park, ~1 km loop) | Livox MID-360 | total-station checkpoints¹ | **1.666 m** (median 1.511) | report-only² |
 | Newer College `math-hard` (~320 m loop) | Ouster OS0-128 | prism ground truth | reported separately | ≤ 0.10 m |
 
-¹ Surveyed checkpoints from the public RTK-SLAM dataset (CC-BY 4.0); scored on the
-dense odometry trajectory, the same form as the dataset's published baselines.
-² Outdoor profiles soak as report-only before graduating; the former
-cross-validation gate vs GLIM (3.64 m) is also report-only since v0.5. Full
-methodology and caveats: [docs/comparison.md](docs/comparison.md).
+¹ Surveyed checkpoints from the public RTK-SLAM dataset (CC-BY 4.0), scored like
+its published baselines (dense odometry trajectory).
+² Outdoor profiles soak as report-only before graduating; the former GLIM
+cross-validation gate is also report-only since v0.5. Methodology and
+caveats: [docs/comparison.md](docs/comparison.md).
 
 Reproduce locally:
-
 ```bash
 bash scripts/run_rko_lio_graph_benchmark.sh
 bash scripts/run_release_readiness_checks.sh --fail-on-profiles
@@ -208,17 +203,14 @@ Preview the doc site locally: `python3 -m mkdocs serve`.
 | Jazzy  | 24.04 | default workflow build + package tests in CI; Autoware dogfood exercised locally |
 
 `graph_based_slam` is BSD-2-Clause; `RKO-LIO`, `DLIO`, and the optional vendored
-`3D-BBS` are MIT; `FAST_GICP` is BSD-3-Clause; built-in Scan Context is implemented
-locally. The default workflow excludes GPL-only components — `Thirdparty/lio-sam`
-and `Thirdparty/3d_bbs` are gated by `COLCON_IGNORE`.
+`3D-BBS` are MIT; `FAST_GICP` is BSD-3-Clause; built-in Scan Context is local. GPL-only
+components (`Thirdparty/lio-sam`, `Thirdparty/3d_bbs`) are excluded via `COLCON_IGNORE`.
 
 ## Quality gates
 
 ```bash
 bash scripts/run_default_ci_checks.sh
 bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10
-# + map-quality thresholds on the gate-built refined map (v0.7):
-#   --offline-determinism-map-quality-profile configs/map_quality_profiles/indoor_construction.yaml
 ```
 
 Reference commands and parameter pointers live in [docs/workflows.md](docs/workflows.md).
