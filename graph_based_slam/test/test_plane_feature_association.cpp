@@ -46,16 +46,6 @@ namespace
 namespace map_refinement = graphslam::map_refinement;
 namespace plane_extraction = graphslam::plane_extraction;
 
-template<int N>
-struct PriorityTag : PriorityTag<N - 1>
-{
-};
-
-template<>
-struct PriorityTag<0>
-{
-};
-
 Eigen::Matrix4d makePose(
   const double yaw,
   const Eigen::Vector3d & translation)
@@ -229,134 +219,6 @@ double relativeTranslationError(
     relative_ground_truth.block<3, 1>(0, 3)).norm();
 }
 
-template<typename Config>
-auto disablePosePriorsImpl(
-  Config * config,
-  PriorityTag<2>)
--> decltype(config->use_pose_priors = false, void())
-{
-  config->use_pose_priors = false;
-}
-
-template<typename Config>
-auto disablePosePriorsImpl(
-  Config * config,
-  PriorityTag<1>)
--> decltype(config->enable_pose_priors = false, void())
-{
-  config->enable_pose_priors = false;
-}
-
-template<typename Config>
-void disablePosePriorsImpl(
-  Config *,
-  PriorityTag<0>)
-{
-}
-
-template<typename Config>
-void disablePosePriors(
-  Config * config)
-{
-  disablePosePriorsImpl(config, PriorityTag<2>());
-}
-
-template<typename Config>
-auto setMaxIterationsImpl(
-  Config * config,
-  PriorityTag<1>)
--> decltype(config->max_iterations = 30, void())
-{
-  config->max_iterations = 30;
-}
-
-template<typename Config>
-void setMaxIterationsImpl(
-  Config *,
-  PriorityTag<0>)
-{
-}
-
-template<typename Config>
-void setMaxIterations(
-  Config * config)
-{
-  setMaxIterationsImpl(config, PriorityTag<1>());
-}
-
-template<typename PoseVector, typename FeatureVector, typename Config>
-auto runSolvePlaneBaImpl(
-  const PoseVector & poses,
-  const FeatureVector & features,
-  const Config & config,
-  PriorityTag<1>)
--> decltype(map_refinement::solvePlaneBa(poses, features, config))
-{
-  return map_refinement::solvePlaneBa(poses, features, config);
-}
-
-template<typename PoseVector, typename FeatureVector, typename Config>
-auto runSolvePlaneBaImpl(
-  const PoseVector & poses,
-  const FeatureVector & features,
-  const Config & config,
-  PriorityTag<0>)
--> decltype(map_refinement::solvePlaneBa(features, poses, config))
-{
-  return map_refinement::solvePlaneBa(features, poses, config);
-}
-
-template<typename PoseVector, typename FeatureVector, typename Config>
-auto runSolvePlaneBa(
-  const PoseVector & poses,
-  const FeatureVector & features,
-  const Config & config)
--> decltype(runSolvePlaneBaImpl(poses, features, config, PriorityTag<1>()))
-{
-  return runSolvePlaneBaImpl(poses, features, config, PriorityTag<1>());
-}
-
-template<typename Result>
-auto optimizedPosesImpl(
-  const Result & result,
-  PriorityTag<3>)
--> decltype((result.poses))
-{
-  return result.poses;
-}
-
-template<typename Result>
-auto optimizedPosesImpl(
-  const Result & result,
-  PriorityTag<2>)
--> decltype((result.optimized_poses))
-{
-  return result.optimized_poses;
-}
-
-template<typename Result>
-auto optimizedPosesImpl(
-  const Result & result,
-  PriorityTag<1>)
--> decltype((result.refined_poses))
-{
-  return result.refined_poses;
-}
-
-const std::vector<Eigen::Matrix4d> & optimizedPosesImpl(
-  const std::vector<Eigen::Matrix4d> & result,
-  PriorityTag<0>)
-{
-  return result;
-}
-
-template<typename Result>
-const std::vector<Eigen::Matrix4d> & optimizedPoses(
-  const Result & result)
-{
-  return optimizedPosesImpl(result, PriorityTag<3>());
-}
-
 }  // namespace
 
 TEST(PlaneFeatureAssociation, SharedNoisyFloorCreatesTwoPoseFeatures)
@@ -386,8 +248,8 @@ TEST(PlaneFeatureAssociation, SharedNoisyFloorCreatesTwoPoseFeatures)
   extraction_config.collect_point_indices = true;
   const plane_extraction::PlaneExtractionResult extraction =
     plane_extraction::extractPlanarPatches(
-      buildWorldCloud(local_clouds, poses),
-      extraction_config);
+    buildWorldCloud(local_clouds, poses),
+    extraction_config);
 
   ASSERT_GE(extraction.patches.size(), association.features.size());
   for (std::size_t feature_index = 0; feature_index < association.features.size();
@@ -459,12 +321,13 @@ TEST(PlaneFeatureAssociation, AssociatedFeaturesImprovePlaneBaPose)
   ASSERT_GE(association.features.size(), 3U);
 
   map_refinement::PlaneBaConfig ba_config;
-  disablePosePriors(&ba_config);
-  setMaxIterations(&ba_config);
+  ba_config.prior_translation_sigma = 0.0;
+  ba_config.max_iterations = 30;
 
   const double initial_error = relativeTranslationError(initial_poses, ground_truth);
-  const auto ba_result = runSolvePlaneBa(initial_poses, association.features, ba_config);
-  const std::vector<Eigen::Matrix4d> & refined_poses = optimizedPoses(ba_result);
+  const map_refinement::PlaneBaResult ba_result =
+    map_refinement::solvePlaneBa(association.features, initial_poses, ba_config);
+  const std::vector<Eigen::Matrix4d> & refined_poses = ba_result.poses;
   ASSERT_EQ(initial_poses.size(), refined_poses.size());
 
   const double refined_error = relativeTranslationError(refined_poses, ground_truth);
