@@ -99,10 +99,67 @@ unchanged with `refine:=true`. Resources: 640 submaps / 1079 m in
 4:38 wall / 539 MB peak RSS (NTU: 1:54 / 367 MB) — inside the design
 note's budget.
 
-## Threshold outlook (for Phase 3, not enforced yet)
+## Indoor construction replay evidence (Phase 3, 2026-06-13)
 
-Per-profile, baseline-relative: a refined map must not regress MME,
-thickness mean, or coverage on its own substrate beyond noise; blocking
-absolute thresholds are deferred until the Phase 2 deltas exist and a
-holdout sequence validates them (`docs/roadmap/v0.7.md` Phase 3,
-threshold hygiene).
+Backend-input bags were recorded for both RTK-SLAM construction sequences
+(`ros2 bag record /rko_lio/odometry /rko_lio/frame` on an isolated domain
+while the exact original benchmark configuration replayed:
+cs1 = `rko_lio_rtk_slam_mid360.yaml`, cs2 =
+`rko_lio_mid360_low_voxel_no_deskew.yaml`, both with
+`lidarslam/param/lidarslam.yaml`; 6301 / 5865 frames captured). Each
+substrate then ran the 3-run offline determinism check with
+`refine: true` + `refine_save_maps: true` — **byte identity passed on
+both, including the refined artifacts**.
+
+APE is scored against the total-station checkpoint GT with
+`ape_from_tum.py --interpolate --max-time-diff 2.0` (checkpoints are taken
+while the platform is stationary, so they fall between submap-rate poses;
+linear interpolation across the stop is exact up to noise; 15 pairs each).
+
+| substrate | metric | optimized (before) | refined (after) | Δ |
+|---|---|---:|---:|---|
+| construction_seq1 (tuning) | APE RMSE (m) | 0.7800603471740267 | **0.7744167604040919** | −0.7 % |
+| | MME (nats) | −0.894974483 | **−0.932375982** | crisper |
+| | thickness mean (m) | 0.077957119 | **0.075093748** | **−3.7 %** |
+| | thickness p95 (m) | 0.120066887 | 0.120291624 | +0.2 % |
+| | planar coverage | 0.377912074 | **0.394277537** | **+4.3 %** |
+| construction_seq2 (holdout) | APE RMSE (m) | 0.8376950131160659 | **0.825250416881328** | **−1.5 %** |
+| | MME (nats) | −0.915227013 | **−0.942085924** | crisper |
+| | thickness mean (m) | 0.082155760 | **0.078891815** | **−4.0 %** |
+| | thickness p95 (m) | 0.124039191 | 0.123056184 | −0.8 % |
+| | planar coverage | 0.423900020 | 0.424767096 | +0.2 % |
+
+With the NTU Phase 2 row, refinement now improves trajectory APE against
+real ground truth on **all three GT substrates** (NTU −3.2 %, cs1 −0.7 %,
+cs2 −1.5 %) while making the maps measurably crisper — never trading one
+for the other.
+
+## Threshold calibration (Phase 3, enforced via profiles)
+
+Selection discipline: thresholds were chosen from the **tuning substrates
+only** (refined cs1 replay above + the Phase 2 NTU evidence), written into
+`configs/map_quality_profiles/indoor_construction.yaml`, and only then was
+the held-out cs2 replay evaluated against them.
+
+| row (indoor_construction, blocking) | limit | tuning basis (cs1 refined) | holdout (cs2 refined) |
+|---|---:|---:|---:|
+| thickness_rms_mean_max_m | 0.085 | 0.075093748 | 0.078891815 PASS |
+| thickness_rms_p95_max_m | 0.15 | 0.120291624 | 0.123056184 PASS |
+| planar_coverage_min | 0.30 | 0.394277537 | 0.424767096 PASS |
+| mean_map_entropy_max_nats | −0.80 | −0.932375982 | −0.942085924 PASS |
+| mme_valid_fraction_min | 0.90 | 0.976671657 | 0.980798880 PASS |
+
+**Holdout verdict: all five rows PASS untouched** (`check_map_quality_thresholds.py`
+exit 0, `violations=0`).
+
+Margin rationale: limits sit between today's healthy refined values and
+the Phase 1 failure regime (~0.09 m walls; planar coverage collapses
+toward the 0.05 meaningfulness floor on blurred indoor maps — the original
+full-session cs2 map measured 0.085). The unrefined replay maps also pass
+these rows today (cs2 optimized thickness 0.0822 < 0.085): the gate
+guards the *deliverable* against the blur/divergence regime, it does not
+force refinement to exist — refinement is defaulted on separately.
+`patch_count_min` is deliberately unused (scales with map extent, not
+quality). The outdoor profile (`outdoor_vegetation.yaml`) stays
+report-only: Stadtgarten coverage baselines are 0.12–0.16, vegetation-
+dominated, and refinement evidence there is a v0.8 item.
