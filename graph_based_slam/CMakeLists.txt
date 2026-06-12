@@ -265,6 +265,13 @@ if(BUILD_TESTING)
     target_include_directories(test_point_cluster PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
+    test_scatter_eigen_cost
+    test/test_scatter_eigen_cost.cpp
+  )
+  if(TARGET test_scatter_eigen_cost)
+    target_include_directories(test_scatter_eigen_cost PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  endif()
+  ament_add_gtest(
     test_adaptive_voxel_plane_extractor
     test/test_adaptive_voxel_plane_extractor.cpp
   )
