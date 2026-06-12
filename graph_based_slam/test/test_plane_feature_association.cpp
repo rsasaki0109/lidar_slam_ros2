@@ -265,8 +265,8 @@ TEST(PlaneFeatureAssociation, SharedNoisyFloorCreatesTwoPoseFeatures)
         feature.observations[observation_index];
       const Eigen::Vector3d world_centroid =
         transformPoint(
-          poses[static_cast<std::size_t>(observation.pose_index)],
-          clusterCentroid(observation.local_cluster));
+        poses[static_cast<std::size_t>(observation.pose_index)],
+        clusterCentroid(observation.local_cluster));
       EXPECT_LT((world_centroid - patch_centroid).norm(), 0.1);
     }
   }
@@ -315,9 +315,9 @@ TEST(PlaneFeatureAssociation, AssociatedFeaturesImprovePlaneBaPose)
 
   const map_refinement::AssociationResult association =
     map_refinement::associatePlaneFeatures(
-      local_clouds,
-      initial_poses,
-      association_config);
+    local_clouds,
+    initial_poses,
+    association_config);
   ASSERT_GE(association.features.size(), 3U);
 
   map_refinement::PlaneBaConfig ba_config;
