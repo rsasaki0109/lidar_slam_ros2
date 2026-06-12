@@ -251,6 +251,24 @@ if(BUILD_TESTING)
     )
   endif()
   ament_add_gtest(
+    test_adaptive_voxel_plane_extractor
+    test/test_adaptive_voxel_plane_extractor.cpp
+  )
+  if(TARGET test_adaptive_voxel_plane_extractor)
+    target_include_directories(
+      test_adaptive_voxel_plane_extractor PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_map_quality_metrics
+    test/test_map_quality_metrics.cpp
+  )
+  if(TARGET test_map_quality_metrics)
+    target_include_directories(
+      test_map_quality_metrics PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
     test_registration_determinism
     test/test_registration_determinism.cpp
   )
@@ -609,6 +627,18 @@ add_executable(graph_based_slam_node
   src/graph_based_slam_node.cpp
 )
 
+add_executable(map_quality_report
+  src/map_quality_report_main.cpp
+)
+
+target_include_directories(map_quality_report PRIVATE include ${EIGEN3_INCLUDE_DIR})
+
+target_compile_features(map_quality_report PRIVATE cxx_std_17)
+
+target_link_libraries(map_quality_report
+  ${PCL_LIBRARIES}
+)
+
 target_link_libraries(graph_based_slam_node
   graph_based_slam_component
 )
@@ -678,6 +708,7 @@ install(TARGETS
 install(TARGETS
   graph_based_slam_node
   graph_slam_offline_runner
+  map_quality_report
   DESTINATION lib/${PROJECT_NAME}
 )
 
