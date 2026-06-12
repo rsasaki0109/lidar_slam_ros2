@@ -58,6 +58,7 @@ extern "C" {
 
 #include <lidarslam_msgs/msg/map_array.hpp>
 #include "scanmatcher/lidar_undistortion.hpp"
+#include "scanmatcher/imu_processing.hpp"
 #include "scanmatcher/pose_acceptance.hpp"
 #include "scanmatcher/pose_prediction.hpp"
 #include "scanmatcher/voxel_hash_map.hpp"
@@ -273,9 +274,9 @@ private:
 
     // imu
     double scan_period_ {0.1};
-    double last_imu_time_ {0.0};
-    double imu_integrated_yaw_ {0.0};
-    bool imu_integrated_yaw_valid_ {false};
+    // Yaw-integration state owned by the pure orientation core — see
+    // imu_processing.hpp.
+    imu_processing::OrientationState imu_orientation_state_;
     tf2::Quaternion latest_imu_robot_quat_ {0.0, 0.0, 0.0, 1.0};
     rclcpp::Time latest_imu_stamp_ {0, 0, RCL_ROS_TIME};
     bool latest_imu_orientation_valid_ {false};
