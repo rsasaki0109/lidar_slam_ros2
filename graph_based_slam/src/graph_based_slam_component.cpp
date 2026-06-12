@@ -74,10 +74,6 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("ndt_resolution", ndt_resolution);
   declare_parameter("ndt_num_threads", 0);
   get_parameter("ndt_num_threads", ndt_num_threads);
-  declare_parameter("loop_detection_period", 1000);
-  get_parameter("loop_detection_period", loop_detection_period_);
-  declare_parameter("event_driven_loop_search", true);
-  get_parameter("event_driven_loop_search", event_driven_loop_search_);
   declare_parameter("threshold_loop_closure_score", 1.0);
   get_parameter("threshold_loop_closure_score", threshold_loop_closure_score_);
   declare_parameter("scan_context_loop_closure_score_threshold", -1.0);
@@ -848,7 +844,6 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "voxel_leaf_size[m]:" << voxel_leaf_size << std::endl;
   std::cout << "ndt_resolution[m]:" << ndt_resolution << std::endl;
   std::cout << "ndt_num_threads:" << ndt_num_threads << std::endl;
-  std::cout << "loop_detection_period[Hz]:" << loop_detection_period_ << std::endl;
   std::cout << "threshold_loop_closure_score:" << threshold_loop_closure_score_ << std::endl;
   std::cout << "scan_context_loop_closure_score_threshold:" <<
     scan_context_loop_closure_score_threshold_ << std::endl;
@@ -1136,11 +1131,8 @@ void GraphBasedSlamComponent::initializePubSub()
           }
         }
         initial_map_array_received_ = true;
-        is_map_array_updated_ = true;
       }
-      if (event_driven_loop_search_) {
-        runEventDrivenLoopSearch();
-      }
+      runEventDrivenLoopSearch();
     };
 
   map_array_sub_ =
@@ -1171,12 +1163,6 @@ void GraphBasedSlamComponent::initializePubSub()
     RCLCPP_INFO(
       get_logger(), "Direct odom+cloud input mode enabled (stamp-synced, queue %zu)", sync_depth);
   }
-
-  std::chrono::milliseconds period(loop_detection_period_);
-  loop_detect_timer_ = create_wall_timer(
-    std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-    std::bind(&GraphBasedSlamComponent::searchLoop, this)
-  );
 
   modified_map_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
     "modified_map",
@@ -1225,7 +1211,7 @@ void GraphBasedSlamComponent::handleMapSaveRequest(
   std::cout << "Received an request to save the map" << std::endl;
   lidarslam_msgs::msg::MapArray map_array_msg;
   LoopEdges loop_edges;
-  if (!snapshotGraphState(map_array_msg, loop_edges, false)) {
+  if (!snapshotGraphState(map_array_msg, loop_edges)) {
     std::cout << "initial map is not received" << std::endl;
     return;
   }
@@ -1234,22 +1220,15 @@ void GraphBasedSlamComponent::handleMapSaveRequest(
 
 bool GraphBasedSlamComponent::snapshotGraphState(
   lidarslam_msgs::msg::MapArray & map_array_msg,
-  LoopEdges & loop_edges,
-  bool consume_map_update)
+  LoopEdges & loop_edges)
 {
   std::lock_guard<std::mutex> lock(mtx_);
   if (!initial_map_array_received_) {
     return false;
   }
-  if (consume_map_update && !is_map_array_updated_) {
-    return false;
-  }
 
   map_array_msg = map_array_msg_;
   loop_edges = loop_edge_set_.edges();
-  if (consume_map_update) {
-    is_map_array_updated_ = false;
-  }
   return true;
 }
 
@@ -1306,44 +1285,12 @@ GraphBasedSlamComponent::makeFilteredLocalSubmapProvider(
          };
 }
 
-void GraphBasedSlamComponent::searchLoop()
-{
-  if (event_driven_loop_search_) {
-    // Loop search runs on submap arrival (runEventDrivenLoopSearch); the
-    // wall timer stays registered only as unchanged online pacing.
-    return;
-  }
-  lidarslam_msgs::msg::MapArray map_array_msg;
-  LoopEdges loop_edges;
-  if (!snapshotGraphState(map_array_msg, loop_edges, true)) {return;}
-  if (map_array_msg.submaps.size() < 2) {return;}
-  if (map_array_msg.cloud_coordinate != map_array_msg.LOCAL) {
-    RCLCPP_WARN(get_logger(), "cloud_coordinate should be local, but it's not local.");
-  }
-  int num_submaps = map_array_msg.submaps.size();
-
-  if (debug_flag_) {
-    RCLCPP_INFO(get_logger(), "searching Loop, num_submaps:%d", num_submaps);
-  }
-
-  const auto build_filtered_local_submap = makeFilteredLocalSubmapProvider(map_array_msg);
-
-  // Keep every enabled descriptor database aligned 1:1 with submap indices.
-  backend_core_.ingestDescriptors(num_submaps, build_filtered_local_submap);
-
-  // Legacy (historical) behaviour: query only the single latest submap per
-  // timer tick. The deterministic_loop_scheduling catch-up variant (v0.4 D1)
-  // was retired in v0.6 Phase 3 — event-driven loop search subsumes it by
-  // querying every submap in arrival order.
-  searchLoopForLatest(map_array_msg, loop_edges, num_submaps, num_submaps - 1);
-}
-
 void GraphBasedSlamComponent::runEventDrivenLoopSearch()
 {
   while (rclcpp::ok()) {
     lidarslam_msgs::msg::MapArray map_array_msg;
     LoopEdges loop_edges;
-    if (!snapshotGraphState(map_array_msg, loop_edges, false)) {return;}
+    if (!snapshotGraphState(map_array_msg, loop_edges)) {return;}
     const int num_submaps = static_cast<int>(map_array_msg.submaps.size());
     if (num_submaps < 2) {return;}
     int query_idx = last_searched_submap_idx_ + 1;
@@ -2148,16 +2095,13 @@ void GraphBasedSlamComponent::tryCreateSubmap(
     }
 
     initial_map_array_received_ = true;
-    is_map_array_updated_ = true;
   }
 
   if (n % 50 == 0) {
     RCLCPP_INFO(get_logger(), "Odom input: %d submaps, distance: %.1fm", n, accumulated_distance_);
   }
 
-  if (event_driven_loop_search_) {
-    runEventDrivenLoopSearch();
-  }
+  runEventDrivenLoopSearch();
 }
 
 void GraphBasedSlamComponent::saveSubmapToPCD(

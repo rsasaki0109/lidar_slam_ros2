@@ -39,7 +39,6 @@ graph_based_slam:
       ndt_resolution: 1.0
       ndt_num_threads: 2
       voxel_leaf_size: 0.1
-      loop_detection_period: 3000
       threshold_loop_closure_score: 0.7
       distance_loop_closure: 100.0
       range_of_searching_loop_closure: 20.0
