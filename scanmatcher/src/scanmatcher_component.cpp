@@ -1044,7 +1044,8 @@ void ScanMatcherComponent::receiveCloud(
 
   // Set adaptive correspondence distance before alignment (all methods)
   if (adaptive_correspondence_threshold_ && adaptive_corr_dist_ema_ > 0.0) {
-    double max_dist = adaptive_corr_dist_multiplier_ * adaptive_corr_dist_ema_;
+    double max_dist = map_update_policy::adaptiveMaxCorrespondenceDistance(
+      adaptive_corr_dist_multiplier_, adaptive_corr_dist_ema_);
     if (registration_method_ == "NDT") {
       auto ndt_ptr = boost::dynamic_pointer_cast<
         pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
@@ -1095,14 +1096,8 @@ void ScanMatcherComponent::receiveCloud(
       registration_->setMaxCorrespondenceDistance(
         std::numeric_limits<double>::max());  // Reset for next frame
     }
-    if (mean_corr > 0.0) {
-      if (adaptive_corr_dist_ema_ <= 0.0) {
-        adaptive_corr_dist_ema_ = mean_corr;  // Initialize
-      } else {
-        adaptive_corr_dist_ema_ = adaptive_corr_dist_ema_alpha_ * mean_corr +
-          (1.0 - adaptive_corr_dist_ema_alpha_) * adaptive_corr_dist_ema_;
-      }
-    }
+    adaptive_corr_dist_ema_ = map_update_policy::updateAdaptiveCorrespondenceEma(
+      adaptive_corr_dist_ema_, mean_corr, adaptive_corr_dist_ema_alpha_);
   }
 
   Eigen::Matrix4f final_transformation = registration_->getFinalTransformation();
@@ -1251,14 +1246,16 @@ void ScanMatcherComponent::publishMapAndPose(
   path_pub_->publish(path_);
 
   trans_ = (accepted_position - previous_position_).norm();
-  if (trans_ >= trans_for_mapupdate_ && !mapping_flag_ && !suppress_map_update) {
+  if (
+    map_update_policy::shouldTriggerMapUpdate(
+      trans_, trans_for_mapupdate_, mapping_flag_, suppress_map_update))
+  {
     geometry_msgs::msg::PoseStamped current_pose_stamped;
     current_pose_stamped = current_pose_stamped_;
     previous_position_ = accepted_position;
-    const bool use_async_map_update =
-      async_map_update_ &&
-      (async_map_update_warmup_submaps_ <= 0 ||
-      static_cast<int>(map_array_msg_.submaps.size()) >= async_map_update_warmup_submaps_);
+    const bool use_async_map_update = map_update_policy::useAsyncMapUpdate(
+      async_map_update_, async_map_update_warmup_submaps_,
+      static_cast<int>(map_array_msg_.submaps.size()));
     if (use_async_map_update) {
       mapping_task_ =
         std::packaged_task<void()>(
@@ -1314,7 +1311,7 @@ void ScanMatcherComponent::updateMap(
         current_pose_stamped.pose.position.z);
       voxel_hash_map_->update(transformed_cloud_ptr, current_pos);
       // Use local points within spatial radius for registration target
-      double local_radius = std::min(voxel_hash_map_max_distance_, 50.0);
+      double local_radius = map_update_policy::voxelHashLocalRadius(voxel_hash_map_max_distance_);
       auto voxel_cloud = voxel_hash_map_->getLocalPoints(current_pos, local_radius);
       targeted_cloud_.clear();
       targeted_cloud_ += *voxel_cloud;
@@ -1322,44 +1319,30 @@ void ScanMatcherComponent::updateMap(
       // Spatial local map: select submaps within radius of current position
       targeted_cloud_.clear();
       targeted_cloud_ += *transformed_cloud_ptr;
-      int num_submaps = map_array_msg_.submaps.size();
       Eigen::Vector3d current_pos(
         current_pose_stamped.pose.position.x,
         current_pose_stamped.pose.position.y,
         current_pose_stamped.pose.position.z);
-      int added = 0;
-      for (int i = num_submaps - 1; i >= 0 && added < num_targeted_cloud_ - 1; i--) {
-        Eigen::Vector3d submap_pos(
-          map_array_msg_.submaps[i].pose.position.x,
-          map_array_msg_.submaps[i].pose.position.y,
-          map_array_msg_.submaps[i].pose.position.z);
-        double dist = (submap_pos - current_pos).norm();
-        if (dist <= spatial_local_map_radius_) {
-          pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-          pcl::fromROSMsg(map_array_msg_.submaps[i].cloud, *tmp_ptr);
-          pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-          Eigen::Affine3d submap_affine;
-          tf2::fromMsg(map_array_msg_.submaps[i].pose, submap_affine);
-          pcl::transformPointCloud(*tmp_ptr, *transformed_tmp_ptr, submap_affine.matrix());
-          targeted_cloud_ += *transformed_tmp_ptr;
-          added++;
-        }
+      std::vector<Eigen::Vector3d> submap_positions;
+      submap_positions.reserve(map_array_msg_.submaps.size());
+      for (const auto & submap_entry : map_array_msg_.submaps) {
+        submap_positions.emplace_back(
+          submap_entry.pose.position.x,
+          submap_entry.pose.position.y,
+          submap_entry.pose.position.z);
       }
+      const std::vector<int> selected_indices =
+        map_update_policy::selectSpatialSubmapIndices(
+        submap_positions, current_pos, spatial_local_map_radius_, num_targeted_cloud_);
+      appendTransformedSubmaps(selected_indices);
     } else {
       // Temporal local map: use N most recent submaps (original behavior)
       targeted_cloud_.clear();
       targeted_cloud_ += *transformed_cloud_ptr;
-      int num_submaps = map_array_msg_.submaps.size();
-      for (int i = 0; i < num_targeted_cloud_ - 1; i++) {
-        if (num_submaps - 1 - i < 0) {continue;}
-        pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-        pcl::fromROSMsg(map_array_msg_.submaps[num_submaps - 1 - i].cloud, *tmp_ptr);
-        pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-        Eigen::Affine3d submap_affine;
-        tf2::fromMsg(map_array_msg_.submaps[num_submaps - 1 - i].pose, submap_affine);
-        pcl::transformPointCloud(*tmp_ptr, *transformed_tmp_ptr, submap_affine.matrix());
-        targeted_cloud_ += *transformed_tmp_ptr;
-      }
+      const std::vector<int> selected_indices =
+        map_update_policy::selectTemporalSubmapIndices(
+        static_cast<int>(map_array_msg_.submaps.size()), num_targeted_cloud_);
+      appendTransformedSubmaps(selected_indices);
     }
 
     map_array_msg_.header.stamp = current_pose_stamped.header.stamp;
@@ -1372,9 +1355,25 @@ void ScanMatcherComponent::updateMap(
 
   rclcpp::Time map_time = clock_.now();
   double dt = map_time.seconds() - last_map_time_.seconds();
-  if (dt > map_publish_period_) {
+  if (map_update_policy::shouldPublishMap(dt, map_publish_period_)) {
     publishMap(map_array_snapshot, global_frame_id_);
     last_map_time_ = map_time;
+  }
+}
+
+// Decode, transform into the map frame, and append the selected submaps to
+// targeted_cloud_. Cloud I/O for the pure index selection in
+// map_update_policy.hpp; expects mtx_ to be held by the caller.
+void ScanMatcherComponent::appendTransformedSubmaps(const std::vector<int> & submap_indices)
+{
+  for (const int i : submap_indices) {
+    pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+    pcl::fromROSMsg(map_array_msg_.submaps[i].cloud, *tmp_ptr);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+    Eigen::Affine3d submap_affine;
+    tf2::fromMsg(map_array_msg_.submaps[i].pose, submap_affine);
+    pcl::transformPointCloud(*tmp_ptr, *transformed_tmp_ptr, submap_affine.matrix());
+    targeted_cloud_ += *transformed_tmp_ptr;
   }
 }
 

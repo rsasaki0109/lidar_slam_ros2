@@ -59,6 +59,7 @@ extern "C" {
 #include <lidarslam_msgs/msg/map_array.hpp>
 #include "scanmatcher/lidar_undistortion.hpp"
 #include "scanmatcher/imu_processing.hpp"
+#include "scanmatcher/map_update_policy.hpp"
 #include "scanmatcher/pose_acceptance.hpp"
 #include "scanmatcher/pose_prediction.hpp"
 #include "scanmatcher/voxel_hash_map.hpp"
@@ -154,6 +155,7 @@ private:
       const geometry_msgs::msg::PoseStamped current_pose_stamped
     );
     bool refreshRegistrationTargetFromTargetedCloud();
+    void appendTransformedSubmaps(const std::vector<int> & submap_indices);
     geometry_msgs::msg::TransformStamped calculateMaptoOdomTransform(
       const geometry_msgs::msg::TransformStamped &base_to_map_msg,
       const rclcpp::Time stamp
