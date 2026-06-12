@@ -100,6 +100,16 @@ for i in $(seq 2 "${RUNS}"); do
     echo "MISMATCH (optimized trajectory): run1 vs run${i}"
     status=1
   fi
+  # v0.7 refinement artifacts (present only when the runner ran with
+  # refine:=true) join the byte-identity contract.
+  for refined_artifact in trajectory_refined.tum map_refinement_report.yaml; do
+    if [[ -f "${OUTPUT_DIR}/run1/${refined_artifact}" ]]; then
+      if ! diff -q "${OUTPUT_DIR}/run1/${refined_artifact}"         "${OUTPUT_DIR}/run${i}/${refined_artifact}" > /dev/null; then
+        echo "MISMATCH (${refined_artifact}): run1 vs run${i}"
+        status=1
+      fi
+    fi
+  done
 done
 
 summary="${OUTPUT_DIR}/offline_determinism_summary.md"

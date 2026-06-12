@@ -45,6 +45,7 @@
 //     -p bag_path:=output/backend_replay_x/backend_input \
 //     -p output_dir:=/tmp/offline_run1
 
+#include <pcl/io/pcd_io.h>  // NOLINT(build/include_order)
 #include <pcl_conversions/pcl_conversions.h>  // NOLINT(build/include_order)
 
 #include <cstdio>
@@ -64,6 +65,7 @@
 #include <tf2_eigen/tf2_eigen.hpp>
 
 #include "graph_based_slam/backend_core.hpp"
+#include "graph_based_slam/map_refiner.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/registration_factory.hpp"
 #include "graph_based_slam/submap_creation.hpp"
@@ -136,6 +138,20 @@ int main(int argc, char ** argv)
   node->get_parameter_or("voxel_leaf_size", voxel_leaf_size, 0.2);
   node->get_parameter_or("submap_distance_threshold", submap_distance_threshold, 1.5);
   node->get_parameter_or("debug_flag", debug_flag, false);
+
+  // v0.7 Phase 2 (docs/roadmap/v0.7.md): optional offline plane-BA
+  // refinement of the optimized submap poses. Off by default; when it
+  // does not improve anything the pose-graph solution is kept unchanged.
+  bool refine = false;
+  double refine_cloud_downsample = 0.10;
+  int refine_window_size = 16;
+  int refine_window_stride = 8;
+  node->get_parameter_or("refine", refine, false);
+  node->get_parameter_or("refine_cloud_downsample", refine_cloud_downsample, 0.10);
+  node->get_parameter_or("refine_window_size", refine_window_size, 16);
+  node->get_parameter_or("refine_window_stride", refine_window_stride, 8);
+  bool refine_save_maps = false;
+  node->get_parameter_or("refine_save_maps", refine_save_maps, false);
 
   graphslam::backend_core::DescriptorConfig descriptor_config;
   node->get_parameter_or("use_scan_context", descriptor_config.use_scan_context, false);
@@ -552,6 +568,79 @@ int main(int argc, char ** argv)
       writeTum(output_dir + "/trajectory_optimized.tum", records, optimized_poses);
     }
   }
+  if (refine && !optimized_poses.empty()) {
+    graphslam::map_refinement::MapRefinerConfig refiner_config;
+    refiner_config.cloud_downsample_voxel = refine_cloud_downsample;
+    refiner_config.pyramid.window_size = refine_window_size;
+    refiner_config.pyramid.window_stride = refine_window_stride;
+
+    std::vector<std::vector<Eigen::Vector3d>> local_clouds;
+    local_clouds.reserve(records.size());
+    for (const auto & record : records) {
+      std::vector<Eigen::Vector3d> points;
+      points.reserve(record.cloud->size());
+      for (size_t i = 0; i < record.cloud->size(); ++i) {
+        const auto & p = record.cloud->points[i];
+        if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {continue;}
+        points.push_back(Eigen::Vector3d(p.x, p.y, p.z));
+      }
+      local_clouds.push_back(points);
+    }
+    std::vector<Eigen::Matrix4d> initial_matrices;
+    initial_matrices.reserve(optimized_poses.size());
+    for (const auto & pose : optimized_poses) {
+      initial_matrices.push_back(pose.matrix());
+    }
+
+    const graphslam::map_refinement::MapRefinerResult refined =
+      graphslam::map_refinement::refineSubmapPoses(
+      local_clouds, initial_matrices, refiner_config);
+
+    std::vector<Eigen::Isometry3d> refined_poses;
+    refined_poses.reserve(refined.poses.size());
+    for (const auto & pose : refined.poses) {
+      refined_poses.push_back(Eigen::Isometry3d(pose));
+    }
+    writeTum(output_dir + "/trajectory_refined.tum", records, refined_poses);
+    {
+      std::ofstream report(output_dir + "/map_refinement_report.yaml");
+      const std::vector<std::string> lines =
+        graphslam::map_refinement::refinerReportYamlLines(refined, refiner_config);
+      for (size_t i = 0; i < lines.size(); ++i) {
+        report << lines[i] << "\n";
+      }
+    }
+    RCLCPP_INFO(
+      logger, "Refinement %s: %zu windows, status=%s",
+      refined.accepted ? "accepted" : "rejected",
+      refined.pyramid_result.windows.size(), refined.status.c_str());
+
+    if (refine_save_maps) {
+      // Before/after map PCDs for the map-quality gate stage. The clouds
+      // are the runner's own deterministic submap clouds; only the poses
+      // differ between the two maps.
+      const auto save_map =
+        [&](const std::vector<Eigen::Matrix4d> & poses, const std::string & path) {
+          pcl::PointCloud<pcl::PointXYZ> map_cloud;
+          for (size_t i = 0; i < local_clouds.size(); ++i) {
+            const Eigen::Matrix3d rotation = poses[i].block<3, 3>(0, 0);
+            const Eigen::Vector3d translation = poses[i].block<3, 1>(0, 3);
+            for (size_t j = 0; j < local_clouds[i].size(); ++j) {
+              const Eigen::Vector3d world = rotation * local_clouds[i][j] + translation;
+              map_cloud.push_back(
+                pcl::PointXYZ(
+                  static_cast<float>(world.x()), static_cast<float>(world.y()),
+                  static_cast<float>(world.z())));
+            }
+          }
+          pcl::io::savePCDFileBinary(path, map_cloud);
+        };
+      save_map(initial_matrices, output_dir + "/map_optimized.pcd");
+      save_map(refined.poses, output_dir + "/map_refined.pcd");
+      RCLCPP_INFO(logger, "Wrote map_optimized.pcd and map_refined.pcd");
+    }
+  }
+
   RCLCPP_INFO(logger, "Wrote %s/loop_edges.csv and TUM trajectories", output_dir.c_str());
 
   rclcpp::shutdown();
