@@ -43,10 +43,10 @@ full gate green。発信用技術 writeup（#279、`docs/research/byte-reproduci
 
 **進行中: v0.7 Phase 4（stretch）= HILTI 2022 外部 mm-GT 評価基盤**
 （§2.4、task #18）。exp01 construction ground level で RKO-LIO 生
-オドメトリが mm 制御点に対し **6.6cm RMSE**（優秀）。所見: 短く追従良好な
-228s シーケンスでは MID-360 長尺向けデフォルトのループ閉じ込みが過剰発火
-し corrected は悪化（0.89m）— 短尺・低ドリフトシーケンスでは frontend が
-deliverable という評価上の発見。
+オドメトリが mm 制御点に対し **6.6cm RMSE**（優秀、外部 mm-GT で検証）。
+非再訪スイープのためループ閉じ込みはゼロ（正しい挙動）で backend は忠実な
+パススルー。methodology note: 疎な submap 軌跡は補間でなく submap 時刻で
+採点すべき（§2.4）。
 
 次の候補: bloom リリース実行（task #14、ndt_omp_ros2 fork 先行、
 `docs/rosdistro-release.md`、maintainer の GitHub 操作）/ v0.8 スコープ
@@ -188,15 +188,25 @@ config: `configs/hilti2022/rko_lio_hilti2022_pandar.yaml`、voxel 0.25 / deskew 
 
 | 手法 | RMSE (m) | median | max | pairs | 備考 |
 |---|---|---|---|---|---|
-| **RKO-LIO raw** | **0.066** | 0.053 | 0.128 | 13 | mm-GT 比で優秀 |
-| RKO-LIO + loop closure | 0.891 | 0.783 | 1.432 | 12 | デフォルトループ過剰発火で悪化 |
+| **RKO-LIO raw（dense）** | **0.066** | 0.053 | 0.128 | 13 | mm-GT 比で優秀。確定値 |
+| corrected（submap, sparse） | 0.891 | — | — | 12 | スコアリング・アーティファクト（下記）|
 
-**所見**: 短く追従良好な構造化 indoor シーケンスでは生オドメトリ（6.6cm）が
-deliverable。MID-360 長尺向けにチューンされたデフォルトのループ閉じ込みが
-誤候補（fitness 4–10）を受理して corrected を悪化させる。lidarslam graph
-profile の per-substrate 化（短尺・低ドリフトはループ閾値を厳格化 or 無効）が
-今後の課題。extrinsic は calibration の quaternion を `[x,y,z,w]` として読むのが
-正（`[w,x,y,z]` 解釈は z が −229m に発散、経験的に確定）。
+**所見**: exp01 は非再訪の一筆書きスイープ（904m / 228s）でループ閉じ込みは
+**ゼロ**（max edge `|i-j|`=5 = 隣接拘束のみ、IMU/GNSS/prior 全て無し）。これは
+正しい挙動。pose graph 最適化は完全な **no-op**: submap タイムスタンプで
+corrected == raw オドメトリが diff 0.000m で一致（検証済み）。corrected の
+0.89m は**実劣化ではなく採点アーティファクト** — GT 制御点は静止時取得のため
+distance-threshold で submap が作られない時間帯に落ち、最寄り submap から
+2.3–7.6s 離れる。手持ち ~1m/s でこの間に数 m 動くため、疎な submap 軌跡
+（中央 1.2s, 最大 19.9s 間隔）の線形補間が誤差を生む。**結論: 短く非再訪な
+シーケンスでは backend は忠実なパススルー、deliverable は dense odometry
+（6.6cm）。疎な corrected/submap 軌跡は補間でなく submap 時刻で採点すべき**
+（評価ハーネスの methodology note）。extrinsic は calibration の quaternion を
+`[x,y,z,w]` として読むのが正（`[w,x,y,z]` 解釈は z が −229m に発散、経験確定）。
+
+> 注（2026-06-13 訂正）: 当初「デフォルトループの過剰発火で corrected 悪化」と
+> 記録したが、pose graph 直接検査でループ・IMU・prior が全てゼロと判明。劣化は
+> 存在せず、0.89m は疎サンプリング採点のアーティファクトだった。
 
 ---
 
@@ -369,7 +379,7 @@ profile の per-substrate 化（短尺・低ドリフトはループ閾値を厳
 | 0c | **bloom リリース実行（P2-7 後半）** | repo 側 prep 完了（0.5.0 整列 + ランブック `docs/rosdistro-release.md`）。残り = ndt_omp_ros2 fork PR #11 マージ（整備 PR 作成済み）→ 先行 bloom → 本体 bloom → ros/rosdistro PR（maintainer の GitHub 操作が必要、§13） |
 | 0f | ~~v0.6 決定論 core/shell リファクタリング~~ | ✅ 2026-06-12 完遂（PR #237–#263、tag v0.6.0 + pre-release）。全フェーズゲート PASS: 両基盤 3-run バイト一致（backend + frontend）、event-driven default 化、純ヘッダ 19+4 本。詳細 [`docs/roadmap/v0.6.md`](docs/roadmap/v0.6.md)、[`docs/releases/v0.6.0.md`](docs/releases/v0.6.0.md) |
 | 0g | ~~v0.7 マップリファインメント + 品質ゲート~~ | ✅ 2026-06-13 完遂（PR #264–#279）。Phase 0–3 全 PASS: clean-room 階層平面 BA、holdout 検証済み blocking 閾値、refine default-on、実 GT 3 基盤で APE+マップ同時改善、クロージング full gate green。詳細 [`docs/roadmap/v0.7.md`](docs/roadmap/v0.7.md)、[`docs/research/byte-reproducible-map-authoring.md`](docs/research/byte-reproducible-map-authoring.md) |
-| 0h | **v0.7 Phase 4: HILTI 2022 外部 mm-GT 基盤（進行中）** | exp01 で RKO-LIO 生 6.6cm RMSE（§2.4、task #18）。残り = ループ過剰発火の per-substrate profile 化、exp07 long corridor（退化シナリオ）追加、評価基盤の PR 化。download/config は repo 投入候補 |
+| 0h | **v0.7 Phase 4: HILTI 2022 外部 mm-GT 基盤（進行中）** | exp01 で RKO-LIO 生 6.6cm RMSE（§2.4、task #18、PR #280 で基盤投入済み）。ループはゼロで backend パススルー（正常）。残り = exp07 long corridor（退化シナリオ、v0.8 degeneracy の布石）/ 他 construction 系列 / sparse corrected 軌跡の採点改善 |
 | 0d | ~~D1 8-vs-16 再現性ベンチ~~ | ✅ 2026-06-11 実施（GLIM MID-360 bag、3 run × {off/16, on/16, on/8}）。on/16 は APE 実質無回帰（差 0.06m ≪ noise 0.40m）だが分散縮小なし（σ 0.066→0.259）、on/8 arm の 2 実行で loop 試行ゼロ。mp8 の系統的 regression 署名は消滅し乱高下に置換（スケジューリング主要因子と整合、根本原因の証明ではない）。**default off 維持で D1 完全クローズ**（§1.2、research summary） |
 | 0e | **発信（P2-8）** | ghcr ワンコマンド + lanelet2 完全バンドル + 実 GT 数値が揃い、発信material は完成状態。ROS Discourse / Reddit / X はユーザー本人が実施。事前に B2 social preview 設定（Web UI 1 分） |
 | 1 | **GNSS odom→ENU yaw 整合の実装** | 初検証（2026-06-12）で制約形成 ✅・LocalCartesian projector ✅ まで実証済み。残るは yaw 整合（ENU トラックとの 2D 最小二乗 → アンカー回転 or vertex-0 gauge 解放）。これが入ると GNSS georeferencing が実用になる。`docs/research/gnss-constraint-first-validation.md` |
