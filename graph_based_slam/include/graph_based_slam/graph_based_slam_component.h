@@ -119,6 +119,7 @@ extern "C" {
 #include "g2o/types/slam3d/se3quat.h"
 #include "g2o/types/slam3d/vertex_pointxyz.h"
 #include "g2o/types/slam3d/vertex_se3.h"
+#include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/candidate_aggregator.hpp"
 #include "graph_based_slam/gnss_weighting.hpp"
 #include "graph_based_slam/scan_context.hpp"
@@ -145,6 +146,10 @@ private:
 
     boost::shared_ptr < pcl::Registration < pcl::PointXYZI, pcl::PointXYZI >> registration_;
     pcl::VoxelGrid < pcl::PointXYZI > voxelgrid_;
+
+    // ROS-free backend state (descriptor databases; the search and
+    // optimization orchestration migrate here across Phase 2).
+    backend_core::BackendCore backend_core_;
 
     lidarslam_msgs::msg::MapArray map_array_msg_;
     rclcpp::Subscription < lidarslam_msgs::msg::MapArray > ::SharedPtr map_array_sub_;
@@ -257,7 +262,6 @@ private:
     bool use_scan_context_ {false};
     double scan_context_threshold_ {0.3};
     bool prefer_scan_context_candidates_ {false};
-    ScanContext::Database scan_context_db_;
     bool use_bev_descriptor_ {false};
     double bev_descriptor_threshold_ {0.20};
     double bev_descriptor_grid_size_m_ {80.0};
@@ -273,7 +277,6 @@ private:
     bool bev_use_mutual_visibility_ {false};
     double bev_mutual_visibility_min_overlap_ratio_ {0.05};
     double bev_mutual_visibility_occupancy_eps_ {0.5};
-    SubmapBEVDescriptor::Database bev_descriptor_db_;
     // Triangle (STD/BTC-style) descriptor place-recognition path. Built on the
     // BSD-2 primitives in graph_based_slam/triangle_descriptor*. Default off
     // so the existing default workflow stays unchanged.
@@ -355,17 +358,12 @@ private:
     // facades) at the cost of triangle-only recall.
     bool triangle_verify_with_bev_ {false};
     double triangle_verify_bev_max_distance_ {0.30};
-    graphslam::triangle::TriangleDatabase triangle_descriptor_db_;
-    using TrianglePerSubmap = candidate_aggregator::TriangleSubmapFeatures;
-    std::vector < TrianglePerSubmap > triangle_descriptor_per_submap_;
-    int triangle_descriptor_next_submap_idx_ {0};
     bool use_solid_descriptor_ {false};
     double solid_descriptor_min_similarity_ {0.70};
     int solid_descriptor_sequence_window_ {0};
     double solid_descriptor_sequence_min_similarity_ {-1.0};
     double solid_descriptor_pose_consistency_threshold_m_ {-1.0};
     double solid_descriptor_max_euclidean_distance_m_ {-1.0};
-    SolidDescriptor::Database solid_descriptor_db_;
     bool use_3d_bbs_for_scan_context_ {false};
     double three_d_bbs_min_level_res_ {1.0};
     int three_d_bbs_max_level_ {3};
