@@ -51,12 +51,19 @@ Options:
   --offline-determinism-reference-tum <tum>
                                 Optional reference trajectory; adds per-run APE
                                 to the determinism report (report only)
-  --map-quality-pcd <path>      Run the map-quality metrics stage (v0.7
-                                Phase 1, docs/roadmap/v0.7.md) on this map
-                                PCD file or pointcloud_map directory.
-                                Repeatable. Metric values are report-only,
-                                but a byte-level mismatch across the 3 runs
-                                fails the gate (determinism enforcement)
+  --map-quality-pcd <path>[@<profile>]
+                                Run the map-quality metrics stage (v0.7,
+                                docs/roadmap/v0.7.md) on this map PCD file
+                                or pointcloud_map directory. Repeatable.
+                                A byte-level mismatch across the 3 runs
+                                always fails the gate (determinism
+                                enforcement). With @<profile> the metric
+                                values are additionally checked against
+                                that threshold profile YAML (Phase 3); a
+                                blocking profile fails the gate on
+                                violation, report_only only reports.
+                                Without a profile the values stay
+                                report-only
   --map-quality-downsample <m>  Downsample for the map-quality stage
                                 (default: 0.1)
   --frontend-determinism-bag <dir>
@@ -138,6 +145,7 @@ OFFLINE_DETERMINISM_RUNS=""
 OFFLINE_DETERMINISM_PARAMS=""
 OFFLINE_DETERMINISM_REFERENCE_TUM=""
 MAP_QUALITY_PCDS=()
+MAP_QUALITY_PROFILES=()
 MAP_QUALITY_DOWNSAMPLE=""
 FRONTEND_DETERMINISM_BAG=""
 FRONTEND_DETERMINISM_CLOUD_TOPIC=""
@@ -267,7 +275,13 @@ while [[ $# -gt 0 ]]; do
       ;;
     --map-quality-pcd)
       [[ $# -ge 2 ]] || usage
-      MAP_QUALITY_PCDS+=("$(realpath -m "$2")")
+      if [[ "$2" == *@* ]]; then
+        MAP_QUALITY_PCDS+=("$(realpath -m "${2%@*}")")
+        MAP_QUALITY_PROFILES+=("$(realpath -m "${2##*@}")")
+      else
+        MAP_QUALITY_PCDS+=("$(realpath -m "$2")")
+        MAP_QUALITY_PROFILES+=("")
+      fi
       shift 2
       ;;
     --map-quality-downsample)
@@ -512,9 +526,10 @@ if [[ "${RUN_DOGFOOD}" == "true" ]]; then
 fi
 
 if [[ ${#MAP_QUALITY_PCDS[@]} -gt 0 ]]; then
-  echo "==> Running map-quality metrics stage (report-only values, 3-run byte identity)"
+  echo "==> Running map-quality metrics stage (3-run byte identity + optional threshold profiles)"
   MAP_QUALITY_INDEX=0
   for MAP_QUALITY_PCD in "${MAP_QUALITY_PCDS[@]}"; do
+    MAP_QUALITY_PROFILE="${MAP_QUALITY_PROFILES[$MAP_QUALITY_INDEX]}"
     MAP_QUALITY_INDEX=$((MAP_QUALITY_INDEX + 1))
     MAP_QUALITY_NAME=$(basename "$(dirname "${MAP_QUALITY_PCD}")")_$(basename "${MAP_QUALITY_PCD%.*}")
     MAP_QUALITY_CMD=(
@@ -525,6 +540,9 @@ if [[ ${#MAP_QUALITY_PCDS[@]} -gt 0 ]]; then
     )
     if [[ -n "${MAP_QUALITY_DOWNSAMPLE}" ]]; then
       MAP_QUALITY_CMD+=(--downsample "${MAP_QUALITY_DOWNSAMPLE}")
+    fi
+    if [[ -n "${MAP_QUALITY_PROFILE}" ]]; then
+      MAP_QUALITY_CMD+=(--profile "${MAP_QUALITY_PROFILE}")
     fi
     "${MAP_QUALITY_CMD[@]}" 2>&1 | tee -a "${OUT_DIR}/map_quality.log"
   done
