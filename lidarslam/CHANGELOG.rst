@@ -2,6 +2,12 @@
 Changelog for package lidarslam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.6.0 (2026-06-12)
+------------------
+* Presets updated for the v0.6 deterministic backend: event-driven loop
+  search is the default and ``deterministic_loop_scheduling`` is retired.
+* Contributors: Ryohei Sasaki
+
 0.5.0 (2026-06-11)
 ------------------
 * First release prepared for the ROS 2 buildfarm (Humble / Jazzy).
