@@ -1574,6 +1574,27 @@ void GraphBasedSlamComponent::searchLoopForLatest(
     solid_descriptor_sequence_min_similarity_;
   aggregator_config.solid_descriptor_pose_consistency_threshold_m =
     solid_descriptor_pose_consistency_threshold_m_;
+  aggregator_config.triangle_descriptor_exclude_recent = triangle_descriptor_exclude_recent_;
+  aggregator_config.triangle_descriptor_edge_bin_m = triangle_descriptor_edge_bin_m_;
+  aggregator_config.triangle_descriptor_quad_feature_bin_m =
+    triangle_descriptor_quad_feature_bin_m_;
+  aggregator_config.triangle_descriptor_inlier_translation_m =
+    triangle_descriptor_inlier_translation_m_;
+  aggregator_config.triangle_descriptor_inlier_rotation_deg =
+    triangle_descriptor_inlier_rotation_deg_;
+  aggregator_config.triangle_descriptor_min_inliers = triangle_descriptor_min_inliers_;
+  aggregator_config.triangle_descriptor_min_inlier_ratio = triangle_descriptor_min_inlier_ratio_;
+  aggregator_config.triangle_descriptor_max_pairs = triangle_descriptor_max_pairs_;
+  aggregator_config.triangle_descriptor_min_4th_point_agreements =
+    triangle_descriptor_min_4th_point_agreements_;
+  aggregator_config.triangle_descriptor_fourth_point_max_distance_m =
+    triangle_descriptor_fourth_point_max_distance_m_;
+  aggregator_config.triangle_descriptor_refine_se3_with_all_inliers =
+    triangle_descriptor_refine_se3_with_all_inliers_;
+  aggregator_config.triangle_descriptor_min_votes = triangle_descriptor_min_votes_;
+  aggregator_config.triangle_descriptor_skip_ransac = triangle_descriptor_skip_ransac_;
+  aggregator_config.triangle_verify_with_bev = triangle_verify_with_bev_;
+  aggregator_config.triangle_verify_bev_max_distance = triangle_verify_bev_max_distance_;
 
   auto emit_aggregator_logs =
     [this](const std::vector<candidate_aggregator::LogLine> & logs) {
@@ -1650,154 +1671,19 @@ void GraphBasedSlamComponent::searchLoopForLatest(
     emit_aggregator_logs(aggregator_logs);
   }
 
-  if (
-    use_triangle_descriptor_ &&
-    static_cast<int>(triangle_descriptor_per_submap_.size()) > latest_idx &&
-    triangle_descriptor_db_.submapCount() >
-    static_cast<std::size_t>(triangle_descriptor_exclude_recent_))
-  {
-    const auto & query_kps = triangle_descriptor_per_submap_[latest_idx].keypoints;
-    const auto & query_tris = triangle_descriptor_per_submap_[latest_idx].triangles;
-    if (!query_tris.empty()) {
-      graphslam::triangle::HashConfig hash_cfg;
-      hash_cfg.edge_bin_m = static_cast<float>(triangle_descriptor_edge_bin_m_);
-      hash_cfg.quad_feature_bin_m =
-        static_cast<float>(triangle_descriptor_quad_feature_bin_m_);
-      graphslam::triangle::VoteConfig vote_cfg;
-      vote_cfg.exclude_submap_id = -1;
-      graphslam::triangle::VerificationConfig verify_cfg;
-      verify_cfg.inlier_translation_m =
-        static_cast<float>(triangle_descriptor_inlier_translation_m_);
-      verify_cfg.inlier_rotation_deg =
-        static_cast<float>(triangle_descriptor_inlier_rotation_deg_);
-      verify_cfg.min_inliers = triangle_descriptor_min_inliers_;
-      verify_cfg.min_inlier_ratio =
-        static_cast<float>(triangle_descriptor_min_inlier_ratio_);
-      verify_cfg.max_pairs = triangle_descriptor_max_pairs_;
-      verify_cfg.min_4th_point_agreements =
-        triangle_descriptor_min_4th_point_agreements_;
-      verify_cfg.fourth_point_max_distance_m =
-        static_cast<float>(triangle_descriptor_fourth_point_max_distance_m_);
-      verify_cfg.refine_se3_with_all_inliers =
-        triangle_descriptor_refine_se3_with_all_inliers_;
-
-      // Mask out the latest_idx and any recent submaps so we don't loop on
-      // ourselves. We do this by running the vote step first and dropping any
-      // candidate whose submap_id is too close to latest_idx.
-      const auto votes = graphslam::triangle::accumulateVotes(
-        triangle_descriptor_db_, query_kps, query_tris, hash_cfg, vote_cfg);
-      int chosen_submap_id = -1;
-      int chosen_votes = 0;
-      for (const auto & v : votes) {
-        if (v.submap_id < 0) {continue;}
-        if (latest_idx - v.submap_id < triangle_descriptor_exclude_recent_) {continue;}
-        chosen_submap_id = v.submap_id;
-        chosen_votes = v.votes;
-        break;
-      }
-      if (
-        chosen_submap_id >= 0 &&
-        chosen_votes >= triangle_descriptor_min_votes_ &&
-        !triangle_descriptor_skip_ransac_)
-      {
-        // Re-run verification scoped to the chosen submap to recover SE(3).
-        vote_cfg.exclude_submap_id = -1;
-        graphslam::triangle::TriangleDatabase scoped_db;
-        const auto db_kps_idx = static_cast<std::size_t>(chosen_submap_id);
-        if (db_kps_idx < triangle_descriptor_per_submap_.size()) {
-          scoped_db.addSubmap(
-            chosen_submap_id,
-            triangle_descriptor_per_submap_[db_kps_idx].keypoints,
-            triangle_descriptor_per_submap_[db_kps_idx].triangles,
-            hash_cfg);
-        }
-        const auto cand = graphslam::triangle::findLoopCandidate(
-          scoped_db, query_kps, query_tris, hash_cfg, vote_cfg, verify_cfg);
-        if (cand.accepted) {
-          const double travel_distance =
-            latest_moving_distance - map_array_msg.submaps[chosen_submap_id].distance;
-          bool bev_cross_verify_ok = true;
-          double bev_cross_verify_distance = std::numeric_limits<double>::infinity();
-          if (
-            triangle_verify_with_bev_ &&
-            use_bev_descriptor_ &&
-            chosen_submap_id < bev_descriptor_db_.size() &&
-            !bev_descriptor_db_.descriptors.empty())
-          {
-            graphslam::bev::MutualVisibilityConfig mv_cfg;
-            mv_cfg.min_overlap_ratio = bev_mutual_visibility_min_overlap_ratio_;
-            mv_cfg.occupancy_eps =
-              static_cast<float>(bev_mutual_visibility_occupancy_eps_);
-            const auto fov = graphslam::bev::mutualVisibilityWithYawSearch(
-              bev_descriptor_db_.descriptors.back(),
-              bev_descriptor_db_.descriptors[chosen_submap_id],
-              chosen_submap_id,
-              bev_descriptor_yaw_bins_,
-              mv_cfg);
-            bev_cross_verify_distance = fov.valid ?
-              fov.distance : std::numeric_limits<double>::infinity();
-            bev_cross_verify_ok =
-              fov.valid && fov.distance <= triangle_verify_bev_max_distance_;
-          }
-          if (travel_distance > distance_loop_closure_ && bev_cross_verify_ok) {
-            const Eigen::Matrix3f R = cand.transform.block<3, 3>(0, 0);
-            const Eigen::Vector3f euler = R.eulerAngles(2, 1, 0);
-            double tri_yaw_rad = static_cast<double>(euler[0]);
-            while (tri_yaw_rad > M_PI) {tri_yaw_rad -= 2.0 * M_PI;}
-            while (tri_yaw_rad < -M_PI) {tri_yaw_rad += 2.0 * M_PI;}
-            const double tri_metric =
-              1.0 / (1.0 + static_cast<double>(cand.inliers));
-            add_candidate(
-              chosen_submap_id,
-              tri_metric,
-              LoopCandidate::Source::TRIANGLE_DESCRIPTOR,
-              tri_yaw_rad,
-              &cand.transform);
-            std::cout << "Triangle loop candidate: id=" << chosen_submap_id
-                      << " votes=" << chosen_votes
-                      << " inliers=" << cand.inliers
-                      << " eval_n=" << cand.eval_n
-                      << " inlier_ratio="
-                      << std::fixed << std::setprecision(3) << cand.inlier_ratio
-                      << std::defaultfloat
-                      << " yaw_deg=" << tri_yaw_rad * 180.0 / M_PI;
-            if (triangle_verify_with_bev_) {
-              std::cout << " bev_xv_dist=" << bev_cross_verify_distance;
-            }
-            std::cout << std::endl;
-          } else if (!bev_cross_verify_ok && debug_flag_) {
-            RCLCPP_INFO(
-              get_logger(),
-              "Skip Triangle candidate %d: BEV cross-verify distance %.3f > %.3f",
-              chosen_submap_id, bev_cross_verify_distance,
-              triangle_verify_bev_max_distance_);
-          } else if (debug_flag_) {
-            RCLCPP_INFO(
-              get_logger(),
-              "Skip Triangle candidate %d (travel %.3f m <= %.3f m)",
-              chosen_submap_id, travel_distance, distance_loop_closure_);
-          }
-        } else if (debug_flag_) {
-          // Surface the ratio gate too: an inlier count that beats the
-          // absolute min can still fail when min_inlier_ratio is set and
-          // eval_n is high. Knowing the ratio is the only way operators
-          // can tune precision_floor without re-running.
-          RCLCPP_INFO(
-            get_logger(),
-            "Triangle votes for %d (%d votes) rejected: inliers %d/%d "
-            "(ratio %.3f) below min_inliers=%d min_inlier_ratio=%.3f",
-            chosen_submap_id, chosen_votes, cand.inliers, cand.eval_n,
-            cand.inlier_ratio, triangle_descriptor_min_inliers_,
-            triangle_descriptor_min_inlier_ratio_);
-        }
-      } else if (debug_flag_ && !votes.empty()) {
-        RCLCPP_INFO(
-          get_logger(),
-          "Triangle top vote %d only %d votes (need %d) or excluded",
-          votes.front().submap_id, votes.front().votes,
-          triangle_descriptor_min_votes_);
-      }
-    }
+  if (use_triangle_descriptor_) {
+    std::vector<candidate_aggregator::LogLine> aggregator_logs;
+    candidate_aggregator::collectTriangleCandidate(
+      triangle_descriptor_db_,
+      triangle_descriptor_per_submap_,
+      bev_descriptor_db_,
+      use_bev_descriptor_,
+      submap_travel_distances,
+      latest_idx,
+      aggregator_config,
+      candidates,
+      aggregator_logs);
+    emit_aggregator_logs(aggregator_logs);
   }
   if (candidates.empty()) {
     return;

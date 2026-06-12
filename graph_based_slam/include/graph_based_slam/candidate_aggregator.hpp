@@ -41,6 +41,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <iomanip>
 #include <limits>
 #include <sstream>
 #include <string>
@@ -56,6 +57,7 @@
 #include "graph_based_slam/scan_context.hpp"
 #include "graph_based_slam/solid_descriptor.hpp"
 #include "graph_based_slam/submap_bev_descriptor.hpp"
+#include "graph_based_slam/triangle_descriptor_database.hpp"
 
 namespace graphslam
 {
@@ -98,6 +100,30 @@ struct Config
   int solid_descriptor_sequence_window {0};
   double solid_descriptor_sequence_min_similarity {0.0};
   double solid_descriptor_pose_consistency_threshold_m {0.0};
+
+  int triangle_descriptor_exclude_recent {0};
+  double triangle_descriptor_edge_bin_m {0.0};
+  double triangle_descriptor_quad_feature_bin_m {0.0};
+  double triangle_descriptor_inlier_translation_m {0.0};
+  double triangle_descriptor_inlier_rotation_deg {0.0};
+  int triangle_descriptor_min_inliers {0};
+  double triangle_descriptor_min_inlier_ratio {0.0};
+  int triangle_descriptor_max_pairs {0};
+  int triangle_descriptor_min_4th_point_agreements {0};
+  double triangle_descriptor_fourth_point_max_distance_m {0.0};
+  bool triangle_descriptor_refine_se3_with_all_inliers {false};
+  int triangle_descriptor_min_votes {0};
+  bool triangle_descriptor_skip_ransac {false};
+  bool triangle_verify_with_bev {false};
+  double triangle_verify_bev_max_distance {0.0};
+};
+
+// Per-submap triangle features, kept by the shell in submap order
+// (historically the component's private TrianglePerSubmap struct).
+struct TriangleSubmapFeatures
+{
+  std::vector<graphslam::triangle::Keypoint> keypoints;
+  std::vector<graphslam::triangle::TriangleDescriptor> triangles;
 };
 
 // The shared candidate upsert (historically the add_candidate lambda):
@@ -736,6 +762,186 @@ inline void collectSolidCandidates(
         << " best_similarity=" << best_solid_similarity
         << " threshold=" << config.solid_descriptor_min_similarity;
     logs.push_back(LogLine{false, oss.str()});
+  }
+}
+
+// Triangle source: vote across the whole database, take the first
+// non-recent top vote, then re-run RANSAC verification scoped to that
+// submap to recover the SE(3). Survivors of the travel-distance gate (and
+// the optional BEV cross-verification) become a TRIANGLE_DESCRIPTOR
+// candidate whose selection metric is 1 / (1 + inliers) and whose
+// relative transform seeds the registration initial guess.
+inline void collectTriangleCandidate(
+  const graphslam::triangle::TriangleDatabase & triangle_db,
+  const std::vector<TriangleSubmapFeatures> & triangle_per_submap,
+  const SubmapBEVDescriptor::Database & bev_db,
+  bool use_bev_descriptor,
+  const std::vector<double> & submap_travel_distances,
+  int latest_idx,
+  const Config & config,
+  std::vector<loop_verifier::LoopCandidate> & candidates,
+  std::vector<LogLine> & logs)
+{
+  if (
+    static_cast<int>(triangle_per_submap.size()) <= latest_idx ||
+    triangle_db.submapCount() <=
+    static_cast<std::size_t>(config.triangle_descriptor_exclude_recent))
+  {
+    return;
+  }
+  const auto & query_kps = triangle_per_submap[latest_idx].keypoints;
+  const auto & query_tris = triangle_per_submap[latest_idx].triangles;
+  if (query_tris.empty()) {
+    return;
+  }
+  const double latest_moving_distance = submap_travel_distances[latest_idx];
+  graphslam::triangle::HashConfig hash_cfg;
+  hash_cfg.edge_bin_m = static_cast<float>(config.triangle_descriptor_edge_bin_m);
+  hash_cfg.quad_feature_bin_m =
+    static_cast<float>(config.triangle_descriptor_quad_feature_bin_m);
+  graphslam::triangle::VoteConfig vote_cfg;
+  vote_cfg.exclude_submap_id = -1;
+  graphslam::triangle::VerificationConfig verify_cfg;
+  verify_cfg.inlier_translation_m =
+    static_cast<float>(config.triangle_descriptor_inlier_translation_m);
+  verify_cfg.inlier_rotation_deg =
+    static_cast<float>(config.triangle_descriptor_inlier_rotation_deg);
+  verify_cfg.min_inliers = config.triangle_descriptor_min_inliers;
+  verify_cfg.min_inlier_ratio =
+    static_cast<float>(config.triangle_descriptor_min_inlier_ratio);
+  verify_cfg.max_pairs = config.triangle_descriptor_max_pairs;
+  verify_cfg.min_4th_point_agreements =
+    config.triangle_descriptor_min_4th_point_agreements;
+  verify_cfg.fourth_point_max_distance_m =
+    static_cast<float>(config.triangle_descriptor_fourth_point_max_distance_m);
+  verify_cfg.refine_se3_with_all_inliers =
+    config.triangle_descriptor_refine_se3_with_all_inliers;
+
+  // Mask out the latest_idx and any recent submaps so we don't loop on
+  // ourselves. We do this by running the vote step first and dropping any
+  // candidate whose submap_id is too close to latest_idx.
+  const auto votes = graphslam::triangle::accumulateVotes(
+    triangle_db, query_kps, query_tris, hash_cfg, vote_cfg);
+  int chosen_submap_id = -1;
+  int chosen_votes = 0;
+  for (const auto & v : votes) {
+    if (v.submap_id < 0) {continue;}
+    if (latest_idx - v.submap_id < config.triangle_descriptor_exclude_recent) {continue;}
+    chosen_submap_id = v.submap_id;
+    chosen_votes = v.votes;
+    break;
+  }
+  if (
+    chosen_submap_id >= 0 &&
+    chosen_votes >= config.triangle_descriptor_min_votes &&
+    !config.triangle_descriptor_skip_ransac)
+  {
+    // Re-run verification scoped to the chosen submap to recover SE(3).
+    vote_cfg.exclude_submap_id = -1;
+    graphslam::triangle::TriangleDatabase scoped_db;
+    const auto db_kps_idx = static_cast<std::size_t>(chosen_submap_id);
+    if (db_kps_idx < triangle_per_submap.size()) {
+      scoped_db.addSubmap(
+        chosen_submap_id,
+        triangle_per_submap[db_kps_idx].keypoints,
+        triangle_per_submap[db_kps_idx].triangles,
+        hash_cfg);
+    }
+    const auto cand = graphslam::triangle::findLoopCandidate(
+      scoped_db, query_kps, query_tris, hash_cfg, vote_cfg, verify_cfg);
+    if (cand.accepted) {
+      const double travel_distance =
+        latest_moving_distance - submap_travel_distances[chosen_submap_id];
+      bool bev_cross_verify_ok = true;
+      double bev_cross_verify_distance = std::numeric_limits<double>::infinity();
+      if (
+        config.triangle_verify_with_bev &&
+        use_bev_descriptor &&
+        chosen_submap_id < bev_db.size() &&
+        !bev_db.descriptors.empty())
+      {
+        graphslam::bev::MutualVisibilityConfig mv_cfg;
+        mv_cfg.min_overlap_ratio = config.bev_mutual_visibility_min_overlap_ratio;
+        mv_cfg.occupancy_eps =
+          static_cast<float>(config.bev_mutual_visibility_occupancy_eps);
+        const auto fov = graphslam::bev::mutualVisibilityWithYawSearch(
+          bev_db.descriptors.back(),
+          bev_db.descriptors[chosen_submap_id],
+          chosen_submap_id,
+          config.bev_descriptor_yaw_bins,
+          mv_cfg);
+        bev_cross_verify_distance = fov.valid ?
+          fov.distance : std::numeric_limits<double>::infinity();
+        bev_cross_verify_ok =
+          fov.valid && fov.distance <= config.triangle_verify_bev_max_distance;
+      }
+      if (travel_distance > config.distance_loop_closure && bev_cross_verify_ok) {
+        const Eigen::Matrix3f R = cand.transform.block<3, 3>(0, 0);
+        const Eigen::Vector3f euler = R.eulerAngles(2, 1, 0);
+        double tri_yaw_rad = static_cast<double>(euler[0]);
+        while (tri_yaw_rad > M_PI) {tri_yaw_rad -= 2.0 * M_PI;}
+        while (tri_yaw_rad < -M_PI) {tri_yaw_rad += 2.0 * M_PI;}
+        const double tri_metric =
+          1.0 / (1.0 + static_cast<double>(cand.inliers));
+        upsertCandidate(
+          candidates,
+          chosen_submap_id,
+          tri_metric,
+          loop_verifier::LoopCandidate::Source::TRIANGLE_DESCRIPTOR,
+          tri_yaw_rad,
+          &cand.transform);
+        std::ostringstream oss;
+        oss << "Triangle loop candidate: id=" << chosen_submap_id
+            << " votes=" << chosen_votes
+            << " inliers=" << cand.inliers
+            << " eval_n=" << cand.eval_n
+            << " inlier_ratio="
+            << std::fixed << std::setprecision(3) << cand.inlier_ratio
+            << std::defaultfloat
+            << " yaw_deg=" << tri_yaw_rad * 180.0 / M_PI;
+        if (config.triangle_verify_with_bev) {
+          oss << " bev_xv_dist=" << bev_cross_verify_distance;
+        }
+        logs.push_back(LogLine{false, oss.str()});
+      } else if (!bev_cross_verify_ok && config.debug) {
+        char buffer[256];
+        std::snprintf(
+          buffer, sizeof(buffer),
+          "Skip Triangle candidate %d: BEV cross-verify distance %.3f > %.3f",
+          chosen_submap_id, bev_cross_verify_distance,
+          config.triangle_verify_bev_max_distance);
+        logs.push_back(LogLine{true, std::string(buffer)});
+      } else if (config.debug) {
+        char buffer[256];
+        std::snprintf(
+          buffer, sizeof(buffer),
+          "Skip Triangle candidate %d (travel %.3f m <= %.3f m)",
+          chosen_submap_id, travel_distance, config.distance_loop_closure);
+        logs.push_back(LogLine{true, std::string(buffer)});
+      }
+    } else if (config.debug) {
+      // Surface the ratio gate too: an inlier count that beats the
+      // absolute min can still fail when min_inlier_ratio is set and
+      // eval_n is high. Knowing the ratio is the only way operators
+      // can tune precision_floor without re-running.
+      char buffer[320];
+      std::snprintf(
+        buffer, sizeof(buffer),
+        "Triangle votes for %d (%d votes) rejected: inliers %d/%d "
+        "(ratio %.3f) below min_inliers=%d min_inlier_ratio=%.3f",
+        chosen_submap_id, chosen_votes, cand.inliers, cand.eval_n,
+        cand.inlier_ratio, config.triangle_descriptor_min_inliers,
+        config.triangle_descriptor_min_inlier_ratio);
+      logs.push_back(LogLine{true, std::string(buffer)});
+    }
+  } else if (config.debug && !votes.empty()) {
+    char buffer[256];
+    std::snprintf(
+      buffer, sizeof(buffer),
+      "Triangle top vote %d only %d votes (need %d) or excluded",
+      votes.front().submap_id, votes.front().votes,
+      config.triangle_descriptor_min_votes);
+    logs.push_back(LogLine{true, std::string(buffer)});
   }
 }
 
