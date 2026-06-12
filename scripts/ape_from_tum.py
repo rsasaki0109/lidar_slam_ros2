@@ -59,6 +59,50 @@ def associate(
     return ref_xyz_matched, est_xyz_matched
 
 
+def interpolate_association(
+    ref: list[tuple[float, tuple[float, float, float]]],
+    est: list[tuple[float, tuple[float, float, float]]],
+    max_edge_diff: float,
+) -> tuple[list[tuple[float, float, float]], list[tuple[float, float, float]]]:
+    """Sample the estimated trajectory at the reference timestamps.
+
+    Linear position interpolation between the two estimated poses that
+    bracket each reference timestamp. Made for sparse checkpoint references
+    (e.g. total-station checkpoints taken while the platform is stationary,
+    which fall into the time gaps of a submap-rate trajectory). Outside the
+    estimated time range the nearest endpoint is used only when it is
+    within max_edge_diff.
+    """
+    est_times = [ts for ts, _ in est]
+    est_xyz = [xyz for _, xyz in est]
+    ref_xyz_matched: list[tuple[float, float, float]] = []
+    est_xyz_matched: list[tuple[float, float, float]] = []
+
+    for ref_ts, ref_xyz in ref:
+        idx = bisect.bisect_left(est_times, ref_ts)
+        if idx == 0:
+            if est_times[0] - ref_ts > max_edge_diff:
+                continue
+            sampled = est_xyz[0]
+        elif idx == len(est_times):
+            if ref_ts - est_times[-1] > max_edge_diff:
+                continue
+            sampled = est_xyz[-1]
+        else:
+            t0, t1 = est_times[idx - 1], est_times[idx]
+            p0, p1 = est_xyz[idx - 1], est_xyz[idx]
+            w = 0.0 if t1 == t0 else (ref_ts - t0) / (t1 - t0)
+            sampled = (
+                p0[0] + w * (p1[0] - p0[0]),
+                p0[1] + w * (p1[1] - p0[1]),
+                p0[2] + w * (p1[2] - p0[2]),
+            )
+        ref_xyz_matched.append(ref_xyz)
+        est_xyz_matched.append(sampled)
+
+    return ref_xyz_matched, est_xyz_matched
+
+
 def align_first_pose(
     ref_xyz: list[tuple[float, float, float]],
     est_xyz: list[tuple[float, float, float]],
@@ -142,6 +186,14 @@ def main() -> int:
     ap.add_argument("--est", required=True, help="Estimated TUM trajectory")
     ap.add_argument("--out", required=True, help="Output report path")
     ap.add_argument("--max-time-diff", type=float, default=0.05, help="Max timestamp association gap in seconds")
+    ap.add_argument(
+        "--interpolate",
+        action="store_true",
+        help="Linearly interpolate the estimated trajectory at the reference "
+        "timestamps instead of nearest-neighbour matching. For sparse "
+        "checkpoint references that fall between submap-rate poses; "
+        "--max-time-diff then only bounds extrapolation at the ends.",
+    )
     args = ap.parse_args()
 
     ref = read_tum(Path(args.ref).expanduser().resolve())
@@ -149,7 +201,10 @@ def main() -> int:
     if not ref or not est:
         return 1
 
-    ref_xyz, est_xyz = associate(ref, est, args.max_time_diff)
+    if args.interpolate:
+        ref_xyz, est_xyz = interpolate_association(ref, est, args.max_time_diff)
+    else:
+        ref_xyz, est_xyz = associate(ref, est, args.max_time_diff)
     if len(ref_xyz) < 2:
         return 1
 

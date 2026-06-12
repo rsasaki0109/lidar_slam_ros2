@@ -1,12 +1,22 @@
-# Phase 3 rollout mirrors the v0.5 GT-gate rollout: indoor profiles block first
-# while outdoor profiles remain report-only until calibration evidence lands.
-# Thresholds marked PROVISIONAL are replaced by the Phase 3 calibration PR.
+# v0.7 Phase 3 rollout (docs/roadmap/v0.7.md): indoor profiles block first,
+# outdoor profiles stay report-only — the same shape as the v0.5 GT-gate
+# rollout.
+#
+# Calibration (2026-06-13, docs/research/map-quality-baseline.md §thresholds):
+# values were selected from the TUNING substrates only — the refined
+# construction_seq1 backend replay (thickness 0.0751, coverage 0.394,
+# MME -0.932, valid_fraction 0.977) and the Phase 2 NTU evidence — and then
+# validated untouched on the held-out construction_seq2 replay. The margins
+# are set to admit healthy refined maps and reject the pre-refinement
+# failure regime observed in the Phase 1 baseline (~0.09 m walls, planar
+# coverage collapse on blurred indoor maps).
 map_quality_profile:
   name: indoor_construction
   enforcement: blocking
   require_meaningful_planes: true
   thresholds:
-    # PROVISIONAL values - calibrated in the Phase 3 evidence PR (holdout-validated).
-    thickness_rms_mean_max_m: 0.999
-    planar_coverage_min: 0.001
-    mme_valid_fraction_min: 0.5
+    thickness_rms_mean_max_m: 0.085
+    thickness_rms_p95_max_m: 0.15
+    planar_coverage_min: 0.30
+    mean_map_entropy_max_nats: -0.80
+    mme_valid_fraction_min: 0.90

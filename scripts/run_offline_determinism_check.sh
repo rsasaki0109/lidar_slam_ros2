@@ -11,12 +11,16 @@ set -euo pipefail
 #     --bag output/backend_replay_x/backend_input \
 #     [--params lidarslam/param/lidarslam_mid360_rko_graph.yaml] \
 #     [--runs 3] [--output-dir output/offline_determinism_<timestamp>] \
-#     [--reference-tum output/glim_mid360_reference.tum]
+#     [--reference-tum output/glim_mid360_reference.tum] \
+#     [--ape-interpolate] [--ape-max-time-diff 0.05]
 #
 # When --reference-tum is given, each run's trajectory_optimized.tum is also
 # scored with scripts/ape_from_tum.py (report only; the gate is byte
-# identity, not an APE threshold). A markdown summary in the same shape as
-# the legacy backend_replay_summary.md is always written.
+# identity, not an APE threshold). For sparse checkpoint references (e.g.
+# total-station checkpoints recorded while the platform is stationary,
+# which fall between submap-rate poses) pass --ape-interpolate together
+# with a generous --ape-max-time-diff (e.g. 2.0). A markdown summary in the
+# same shape as the legacy backend_replay_summary.md is always written.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -26,6 +30,8 @@ PARAMS="${REPO_ROOT}/lidarslam/param/lidarslam_mid360_rko_graph.yaml"
 RUNS=3
 OUTPUT_DIR="${REPO_ROOT}/output/offline_determinism_$(date +%Y%m%d_%H%M%S)"
 REFERENCE_TUM=""
+APE_INTERPOLATE=false
+APE_MAX_TIME_DIFF="0.05"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -34,6 +40,8 @@ while [[ $# -gt 0 ]]; do
     --runs) RUNS="$2"; shift 2 ;;
     --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
     --reference-tum) REFERENCE_TUM="$2"; shift 2 ;;
+    --ape-interpolate) APE_INTERPOLATE=true; shift ;;
+    --ape-max-time-diff) APE_MAX_TIME_DIFF="$2"; shift 2 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -69,10 +77,17 @@ for i in $(seq 1 "${RUNS}"); do
     > "${run_dir}/runner.log" 2>&1
   md5sum "${run_dir}/loop_edges.csv" "${run_dir}/trajectory_optimized.tum"
   if [[ -n "${REFERENCE_TUM}" ]]; then
-    python3 "${SCRIPT_DIR}/ape_from_tum.py" \
-      --ref "${REFERENCE_TUM}" \
-      --est "${run_dir}/trajectory_optimized.tum" \
-      --out "${run_dir}/ape.txt" \
+    APE_CMD=(
+      python3 "${SCRIPT_DIR}/ape_from_tum.py"
+      --ref "${REFERENCE_TUM}"
+      --est "${run_dir}/trajectory_optimized.tum"
+      --out "${run_dir}/ape.txt"
+      --max-time-diff "${APE_MAX_TIME_DIFF}"
+    )
+    if [[ "${APE_INTERPOLATE}" == "true" ]]; then
+      APE_CMD+=(--interpolate)
+    fi
+    "${APE_CMD[@]}" \
       > "${run_dir}/ape_postprocess.log" 2>&1 \
       || echo "WARN: APE post-processing failed in run ${i}; continuing" >&2
   fi
