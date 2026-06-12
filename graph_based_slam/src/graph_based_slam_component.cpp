@@ -1063,27 +1063,9 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
 
   voxelgrid_.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
 
-  if (registration_method == "NDT") {
-    boost::shared_ptr<pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>
-    ndt(new pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>());
-    ndt->setMaximumIterations(100);
-    ndt->setResolution(ndt_resolution);
-    ndt->setTransformationEpsilon(0.01);
-    // ndt->setTransformationEpsilon(1e-6);
-    ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
-    if (ndt_num_threads > 0) {ndt->setNumThreads(ndt_num_threads);}
-    registration_ = ndt;
-  } else if (registration_method == "GICP") {
-    boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
-    gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
-    gicp->setMaxCorrespondenceDistance(30);
-    gicp->setMaximumIterations(100);
-    // gicp->setCorrespondenceRandomness(20);
-    gicp->setTransformationEpsilon(1e-8);
-    gicp->setEuclideanFitnessEpsilon(1e-6);
-    gicp->setRANSACIterations(0);
-    registration_ = gicp;
-  } else {
+  registration_ =
+    backend_core::makeLoopRegistration(registration_method, ndt_resolution, ndt_num_threads);
+  if (!registration_) {
     RCLCPP_ERROR(get_logger(), "invalid registration_method");
     exit(1);
   }

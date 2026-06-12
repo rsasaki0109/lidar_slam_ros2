@@ -38,6 +38,7 @@ find_package(tf2_sensor_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(lidarslam_msgs REQUIRED)
 find_package(message_filters REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
 find_package(ndt_omp_ros2 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(g2o QUIET
@@ -615,6 +616,34 @@ target_link_libraries(graph_based_slam_node
 ament_target_dependencies(graph_based_slam_node
   rclcpp)
 
+add_executable(graph_slam_offline_runner
+  src/graph_slam_offline_runner.cpp
+  src/three_d_bbs_loop_verifier.cpp
+)
+
+if(GRAPH_BASED_SLAM_HAVE_3D_BBS)
+  target_compile_definitions(graph_slam_offline_runner PRIVATE GRAPH_BASED_SLAM_HAVE_3D_BBS)
+  target_link_libraries(graph_slam_offline_runner graph_based_slam_3d_bbs_vendor)
+endif()
+
+ament_target_dependencies(graph_slam_offline_runner
+  rclcpp
+  rosbag2_cpp
+  tf2_eigen
+  pcl_conversions
+  nav_msgs
+  sensor_msgs
+  ndt_omp_ros2
+)
+
+target_link_libraries(graph_slam_offline_runner
+  ${PCL_LIBRARIES}
+  g2o::core
+  g2o::types_slam3d
+  g2o::solver_eigen
+  g2o::stuff
+)
+
 include_directories(
   include
   ${PCL_INCLUDE_DIRS}
@@ -648,6 +677,7 @@ install(TARGETS
 
 install(TARGETS
   graph_based_slam_node
+  graph_slam_offline_runner
   DESTINATION lib/${PROJECT_NAME}
 )
 
