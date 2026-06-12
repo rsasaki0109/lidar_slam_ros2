@@ -4,12 +4,13 @@ graph_based_slam:
       ndt_resolution: 1.5
       voxel_leaf_size: 0.2
       loop_detection_period: 3000
-      # Opt-in (v0.4 D1). false = query only the latest submap per timer tick
-      # (historical wall-clock-driven behaviour). true = deterministically catch
-      # up over every un-queried submap so the loop-search query set no longer
-      # depends on timer batching. Default off; flip to true only after the
-      # 8-vs-16 reproducibility validation.
-      deterministic_loop_scheduling: false
+      # Default on (v0.6 Phase 3). true = loop search runs once per submap
+      # arrival in arrival order, so the (query, db) pair set is a pure
+      # function of the input stream instead of wall-clock timer batching.
+      # false = legacy timer path (latest submap only per tick), kept for one
+      # release after the default flip. Replaces the retired
+      # deterministic_loop_scheduling parameter.
+      event_driven_loop_search: true
       threshold_loop_closure_score: 1.5
       scan_context_loop_closure_score_threshold: -1.0
       distance_loop_closure: 30.0

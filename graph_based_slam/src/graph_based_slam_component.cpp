@@ -76,9 +76,7 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("ndt_num_threads", ndt_num_threads);
   declare_parameter("loop_detection_period", 1000);
   get_parameter("loop_detection_period", loop_detection_period_);
-  declare_parameter("deterministic_loop_scheduling", false);
-  get_parameter("deterministic_loop_scheduling", deterministic_loop_scheduling_);
-  declare_parameter("event_driven_loop_search", false);
+  declare_parameter("event_driven_loop_search", true);
   get_parameter("event_driven_loop_search", event_driven_loop_search_);
   declare_parameter("threshold_loop_closure_score", 1.0);
   get_parameter("threshold_loop_closure_score", threshold_loop_closure_score_);
@@ -1333,20 +1331,11 @@ void GraphBasedSlamComponent::searchLoop()
   // Keep every enabled descriptor database aligned 1:1 with submap indices.
   backend_core_.ingestDescriptors(num_submaps, build_filtered_local_submap);
 
-  if (deterministic_loop_scheduling_) {
-    // Catch up over every submap not yet used as a loop-search query so the
-    // query set is a deterministic function of the map, independent of how the
-    // wall-clock timer batched submap arrivals (v0.4 D1 reproducibility fix).
-    int query_start = last_searched_submap_idx_ + 1;
-    if (query_start < 1) {query_start = 1;}
-    for (int q = query_start; q < num_submaps; ++q) {
-      searchLoopForLatest(map_array_msg, loop_edges, num_submaps, q);
-    }
-    last_searched_submap_idx_ = num_submaps - 1;
-  } else {
-    // Default (historical) behaviour: query only the single latest submap.
-    searchLoopForLatest(map_array_msg, loop_edges, num_submaps, num_submaps - 1);
-  }
+  // Legacy (historical) behaviour: query only the single latest submap per
+  // timer tick. The deterministic_loop_scheduling catch-up variant (v0.4 D1)
+  // was retired in v0.6 Phase 3 — event-driven loop search subsumes it by
+  // querying every submap in arrival order.
+  searchLoopForLatest(map_array_msg, loop_edges, num_submaps, num_submaps - 1);
 }
 
 void GraphBasedSlamComponent::runEventDrivenLoopSearch()

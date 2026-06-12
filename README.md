@@ -36,6 +36,11 @@ artifacts you need downstream:
   ([accuracy](#accuracy)).
 - **Loop closure, GPL-free** — built-in Scan Context by default, plus opt-in
   BEV / SOLiD / STD/BTC-style Triangle descriptors and 3D-BBS verification.
+- **Deterministic offline mapping** — `graph_slam_offline_runner` replays a
+  recorded odometry bag through the backend and produces *byte-identical* loop
+  edges and optimized trajectory on every run (verified 3-run on MID-360 and
+  NTU VIRAL); the release gate enforces it
+  (`run_release_readiness_checks.sh --offline-determinism-bag`).
 - **GNSS georeferencing** — optional GNSS constraints and projector metadata for
   real-world coordinates.
 
