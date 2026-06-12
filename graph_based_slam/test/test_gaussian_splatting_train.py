@@ -255,6 +255,36 @@ def test_parser_quality_flags_set():
     assert args.mcmc is True and args.mcmc_cap == 300000
 
 
+def test_parser_lidar_depth_lambda():
+    args = tg.build_parser().parse_args(['--transforms', 't', '--out', 'o'])
+    assert args.lidar_depth_lambda == 0.0
+    args = tg.build_parser().parse_args(
+        ['--transforms', 't', '--out', 'o', '--lidar-depth-lambda', '0.002'])
+    assert args.lidar_depth_lambda == 0.002
+
+
+def _depth_ds():
+    return {'K': np.eye(3), 'width': 8, 'height': 8,
+            'viewmats': [np.eye(4)], 'image_paths': [], 'groups': [0]}
+
+
+def test_lidar_depth_requires_init_points():
+    # The guard fires before any torch/GPU work, so it is CPU-testable.
+    with pytest.raises(ValueError, match='requires an init point cloud'):
+        tg.train_densify(_depth_ds(), init_points=None,
+                         lidar_depth_lambda=0.5, iters=1, device='cpu')
+
+
+def test_lidar_depth_incompatible_with_pose_optimisation():
+    pts = np.zeros((4, 3), dtype=np.float32)
+    with pytest.raises(ValueError, match='incompatible'):
+        tg.train_densify(_depth_ds(), init_points=pts, lidar_depth_lambda=0.5,
+                         optimize_extrinsic=True, iters=1, device='cpu')
+    with pytest.raises(ValueError, match='incompatible'):
+        tg.train_densify(_depth_ds(), init_points=pts, lidar_depth_lambda=0.5,
+                         optimize_pose_groups=True, iters=1, device='cpu')
+
+
 def test_make_ssim_noise_below_one():
     torch = pytest.importorskip('torch')
     a = torch.rand(32, 40, 3)

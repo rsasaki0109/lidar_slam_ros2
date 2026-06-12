@@ -224,6 +224,52 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     return rgb, seen
 
 
+def project_depth_maps(points: np.ndarray, viewmats, K: np.ndarray,
+                       width: int, height: int) -> list:
+    """Project a world point cloud into each posed camera as a sparse depth map.
+
+    For depth-supervised 3DGS training: the LiDAR cloud carries metric geometry,
+    so projecting it into every view gives a sparse per-pixel ground-truth depth
+    to regularise the rendered (expected) depth against. ``viewmats`` are OpenCV
+    world->camera (as ``train_gsplat.load_transforms`` returns); a point's depth
+    is its camera-frame ``z``. When several points land on the same pixel only
+    the nearest is kept (a per-pixel z-buffer), so a wall in front naturally
+    occludes the points behind it.
+
+    Returns a list (one entry per view) of ``(pix_idx int64 (M,), depth float32
+    (M,))`` where ``pix_idx = v * width + u`` indexes the flattened image and
+    ``M`` is the number of occupied pixels in that view (sparse; usually far
+    fewer than the point count after the z-buffer dedups colliding pixels).
+    """
+    pts = np.asarray(points, dtype=np.float64)
+    fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
+    npix = int(width) * int(height)
+    out = []
+    for vm in viewmats:
+        vm = np.asarray(vm, dtype=np.float64)
+        cam = pts @ vm[:3, :3].T + vm[:3, 3]
+        z = cam[:, 2]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            u = np.nan_to_num(fx * cam[:, 0] / z + cx, nan=-1.0,
+                              posinf=-1.0, neginf=-1.0)
+            v = np.nan_to_num(fy * cam[:, 1] / z + cy, nan=-1.0,
+                              posinf=-1.0, neginf=-1.0)
+        ui = np.round(u).astype(np.int64)
+        vi = np.round(v).astype(np.int64)
+        inb = (z > 1e-6) & (ui >= 0) & (ui < width) & (vi >= 0) & (vi < height)
+        if not inb.any():
+            out.append((np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.float32)))
+            continue
+        pix = vi[inb] * int(width) + ui[inb]
+        # Per-pixel nearest-depth z-buffer over the flattened image, then keep
+        # only the pixels that actually received a point.
+        buf = np.full(npix, np.inf, dtype=np.float64)
+        np.minimum.at(buf, pix, z[inb])
+        upix = np.unique(pix)
+        out.append((upix.astype(np.int64), buf[upix].astype(np.float32)))
+    return out
+
+
 def drop_sparse_points(xyz: np.ndarray, min_neighbors: int = 3,
                        voxel: float = 0.1) -> np.ndarray:
     """Keep-mask of points whose 3x3x3 voxel neighbourhood holds enough points.
