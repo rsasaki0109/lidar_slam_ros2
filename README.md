@@ -177,14 +177,14 @@ the RTK-SLAM Construction Hall sequence (CC-BY 4.0), the same sequence the
 
 The same SLAM output plus synced camera images can also be trained into a
 photoreal 3D Gaussian Splatting scene — LiDAR-primed (no COLMAP), trained with
-gsplat (Apache-2.0):
+gsplat (Apache-2.0) — and **[spun in your browser →](https://rsasaki0109.github.io/lidar_slam_ros2/3dgs-viewer.html)** (no install, no GPU):
 
 ```bash
 python3 tools/gaussian_splatting/render_map_flythrough.py --help  # the flythrough above (--color-mode rgb)
 bash scripts/run_rtkslam_3dgs_flythrough.sh   # photoreal 3DGS (or run_koide_3dgs_flythrough.sh)
 ```
 
-Pipeline, quality levers, and data-suitability notes: [docs/3dgs-map-tutorial.md](docs/3dgs-map-tutorial.md).
+Pipeline, quality levers, the [interactive viewer](docs/3dgs-viewer.md), and data-suitability notes: [docs/3dgs-map-tutorial.md](docs/3dgs-map-tutorial.md).
 
 ## Docs
 
