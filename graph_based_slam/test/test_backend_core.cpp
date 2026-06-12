@@ -380,44 +380,47 @@ TEST(BackendCoreSearch, TranslationCapRejectionKeepsBestAttemptLine)
   EXPECT_TRUE(has_best_attempt);
 }
 
-TEST(BackendCoreSearch, ArrivalBatchingDoesNotChangeTheResultStream)
+// Event-driven drain helper: ingest [0..q], then search q against the
+// truncated map state, for every query not yet processed.
+void drainArrivals(
+  SearchHarness & harness,
+  int & next_query,
+  int available,
+  std::vector<backend_core::LoopSearchOutput> & outputs)
 {
-  // Simulate the event-driven drain (ingest [0..q], then search q against
-  // the truncated map state) under two arrival patterns of the same
-  // 11-submap revisit stream: one-at-a-time vs two large batches. The
-  // proposal and log streams must be identical — the v0.4 D1 failure mode
-  // (results coupled to arrival batching) pinned as a core-level test.
   const auto trajectory = makeRevisitTrajectory();
   const auto provider = makeRevisitProvider();
   const auto config = makeRevisitSearchConfig();
+  while (next_query < available) {
+    harness.core.ingestDescriptors(next_query + 1, provider);
+    const std::vector<backend_core::SubmapMeta> visible(
+      trajectory.begin(), trajectory.begin() + next_query + 1);
+    outputs.push_back(
+      harness.core.searchLoopForSubmap(
+        visible, next_query, config, provider, harness.ndt, harness.voxelgrid,
+        harness.bbs_verifier));
+    ++next_query;
+  }
+}
 
-  const auto drain =
-    [&](SearchHarness & harness, int & next_query, int available,
-    std::vector<backend_core::LoopSearchOutput> & outputs) {
-      while (next_query < available) {
-        harness.core.ingestDescriptors(next_query + 1, provider);
-        const std::vector<backend_core::SubmapMeta> visible(
-          trajectory.begin(), trajectory.begin() + next_query + 1);
-        outputs.push_back(
-          harness.core.searchLoopForSubmap(
-            visible, next_query, config, provider, harness.ndt, harness.voxelgrid,
-            harness.bbs_verifier));
-        ++next_query;
-      }
-    };
-
+TEST(BackendCoreSearch, ArrivalBatchingDoesNotChangeTheResultStream)
+{
+  // Simulate the event-driven drain under two arrival patterns of the same
+  // 11-submap revisit stream: one-at-a-time vs two large batches. The
+  // proposal and log streams must be identical — the v0.4 D1 failure mode
+  // (results coupled to arrival batching) pinned as a core-level test.
   SearchHarness one_by_one;
   int next_a = 1;
   std::vector<backend_core::LoopSearchOutput> outputs_a;
   for (int available = 2; available <= 11; ++available) {
-    drain(one_by_one, next_a, available, outputs_a);
+    drainArrivals(one_by_one, next_a, available, outputs_a);
   }
 
   SearchHarness batched;
   int next_b = 1;
   std::vector<backend_core::LoopSearchOutput> outputs_b;
-  drain(batched, next_b, 6, outputs_b);
-  drain(batched, next_b, 11, outputs_b);
+  drainArrivals(batched, next_b, 6, outputs_b);
+  drainArrivals(batched, next_b, 11, outputs_b);
 
   ASSERT_EQ(outputs_a.size(), outputs_b.size());
   ASSERT_EQ(outputs_a.size(), 10u);
