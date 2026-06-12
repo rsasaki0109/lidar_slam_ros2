@@ -6,12 +6,17 @@
 #   bash scripts/run_map_quality_check.sh \
 #     --input output/rtkslam_cs2_run2/map.pcd \
 #     --output-dir output/map_quality_cs2 \
-#     [--runs 3] [--downsample 0.1]
+#     [--runs 3] [--downsample 0.1] \
+#     [--profile configs/map_quality_profiles/indoor_construction.yaml]
 #
-# Metric VALUES are report-only (the thresholds come in Phase 3, with a
-# holdout); what this script *enforces* is determinism: every run must
-# produce byte-identical map_quality_report.yaml. The metric extraction
-# profile itself is frozen in MapQualityConfig
+# This script always enforces determinism: every run must produce a
+# byte-identical map_quality_report.yaml. Without --profile the metric
+# VALUES are report-only. With --profile the values are additionally
+# compared against the profile's threshold table
+# (scripts/check_map_quality_thresholds.py); a `blocking` profile turns
+# violations into a non-zero exit, a `report_only` profile prints the
+# verdict rows without failing (v0.7 Phase 3 rollout shape). The metric
+# extraction profile itself is frozen in MapQualityConfig
 # (docs/research/map-quality-baseline.md) and is deliberately not
 # exposed here.
 set -euo pipefail
@@ -21,6 +26,7 @@ INPUT=""
 OUTPUT_DIR=""
 RUNS=3
 DOWNSAMPLE=0.1
+PROFILE=""
 
 usage() {
   grep '^#' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
@@ -49,6 +55,11 @@ while [[ $# -gt 0 ]]; do
       DOWNSAMPLE="$2"
       shift 2
       ;;
+    --profile)
+      [[ $# -ge 2 ]] || usage
+      PROFILE=$(realpath -m "$2")
+      shift 2
+      ;;
     *)
       usage
       ;;
@@ -57,6 +68,10 @@ done
 
 if [[ -z "${INPUT}" || -z "${OUTPUT_DIR}" ]]; then
   echo "--input and --output-dir are required" >&2
+  exit 2
+fi
+if [[ -n "${PROFILE}" && ! -f "${PROFILE}" ]]; then
+  echo "profile not found: ${PROFILE}" >&2
   exit 2
 fi
 if [[ ! -e "${INPUT}" ]]; then
@@ -99,6 +114,19 @@ for md5 in "${MD5S[@]}"; do
   fi
 done
 
+THRESHOLD_LOG="${OUTPUT_DIR}/threshold_verdict.txt"
+THRESHOLD_STATUS=0
+if [[ -n "${PROFILE}" ]]; then
+  set +e
+  python3 "${REPO_ROOT}/scripts/check_map_quality_thresholds.py" \
+    --report "${OUTPUT_DIR}/run1/map_quality_report.yaml" \
+    --profile "${PROFILE}" \
+    --out "${OUTPUT_DIR}/threshold_verdict.yaml" \
+    > "${THRESHOLD_LOG}" 2>&1
+  THRESHOLD_STATUS=$?
+  set -e
+fi
+
 SUMMARY="${OUTPUT_DIR}/map_quality_summary.md"
 {
   echo "# Map-quality check"
@@ -107,17 +135,32 @@ SUMMARY="${OUTPUT_DIR}/map_quality_summary.md"
   echo "- runs: ${RUNS}, downsample: ${DOWNSAMPLE} m"
   echo "- reports_identical: ${IDENTICAL}"
   echo "- report_md5: \`${MD5S[0]}\`"
+  if [[ -n "${PROFILE}" ]]; then
+    echo "- threshold_profile: \`${PROFILE}\`"
+  fi
   echo
   echo '```yaml'
   cat "${OUTPUT_DIR}/run1/map_quality_report.yaml"
   echo '```'
+  if [[ -n "${PROFILE}" ]]; then
+    echo
+    echo '```'
+    cat "${THRESHOLD_LOG}"
+    echo '```'
+  fi
 } > "${SUMMARY}"
 
 echo "--- verdict"
 cat "${OUTPUT_DIR}/run1/map_quality_report.yaml"
-if [[ "${IDENTICAL}" == "true" ]]; then
-  echo "MAP_QUALITY_OK: ${RUNS} runs produced byte-identical map_quality_report.yaml"
-else
+if [[ -n "${PROFILE}" ]]; then
+  cat "${THRESHOLD_LOG}"
+fi
+if [[ "${IDENTICAL}" != "true" ]]; then
   echo "MAP_QUALITY_FAILED: reports differ across runs" >&2
   exit 1
 fi
+if [[ "${THRESHOLD_STATUS}" -ne 0 ]]; then
+  echo "MAP_QUALITY_FAILED: threshold check failed (exit ${THRESHOLD_STATUS})" >&2
+  exit "${THRESHOLD_STATUS}"
+fi
+echo "MAP_QUALITY_OK: ${RUNS} runs produced byte-identical map_quality_report.yaml"
