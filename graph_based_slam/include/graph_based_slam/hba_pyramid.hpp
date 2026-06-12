@@ -189,9 +189,9 @@ inline HbaPyramidResult refinePosesHierarchically(
 
     const std::vector<std::vector<Eigen::Vector3d>> window_clouds =
       detail::copyCloudWindow(
-        local_clouds,
-        start_index,
-        window_pose_count);
+      local_clouds,
+      start_index,
+      window_pose_count);
     std::vector<Eigen::Matrix4d> window_poses = detail::copyPoseWindow(
       poses,
       start_index,
