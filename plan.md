@@ -42,11 +42,11 @@ cs2 −1.5%、壁厚 −12.4%/−3.7%/−4.0%、3-run バイト一致）。ク�
 full gate green。発信用技術 writeup（#279、`docs/research/byte-reproducible-map-authoring.md`）。
 
 **進行中: v0.7 Phase 4（stretch）= HILTI 2022 外部 mm-GT 評価基盤**
-（§2.4、task #18）。exp01 construction ground level で RKO-LIO 生
-オドメトリが mm 制御点に対し **6.6cm RMSE**（優秀、外部 mm-GT で検証）。
-非再訪スイープのためループ閉じ込みはゼロ（正しい挙動）で backend は忠実な
-パススルー。methodology note: 疎な submap 軌跡は補間でなく submap 時刻で
-採点すべき（§2.4）。
+（§2.4、task #18）。RKO-LIO 生オドメトリを mm 制御点で検証: exp01
+construction floor **6.6cm**（優秀）、exp07 long corridor **0.32m**（退化で
+約 5 倍ドリフト = v0.8 degeneracy registration の動機づけ）。両者とも非再訪
+スイープでループはゼロ（正しい挙動、backend パススルー）。methodology
+note: 疎な submap 軌跡は補間でなく submap 時刻で採点すべき（§2.4）。
 
 次の候補: bloom リリース実行（task #14、ndt_omp_ros2 fork 先行、
 `docs/rosdistro-release.md`、maintainer の GitHub 操作）/ v0.8 スコープ
@@ -179,17 +179,31 @@ indoor で 0.15–0.40m（真 GT, agreement でなく accuracy）。outdoor の�
 （粗 voxel 1.0m 案は 2.348m で却下）。outdoor preset:
 `configs/mid360_robot/rko_lio_rtk_slam_mid360_outdoor.yaml`。詳細・経緯・profile は §11。
 
-#### 2.4 HILTI 2022 exp01（228s, Hesai PandarXT-32, Alphasense IMU, mm 制御点 GT）
+#### 2.4 HILTI 2022（Hesai PandarXT-32, Alphasense IMU, mm 制御点 GT）
 
 外部 mm 級 GT 評価基盤（v0.7 Phase 4、CC BY-NC-SA、評価専用・再配布なし）。
-公開チャレンジの total-station 制御点（疎、静止時取得）に対し
-`ape_from_tum.py --interpolate` で採点（download: `scripts/download_hilti2022_exp01.sh`、
+公開チャレンジの total-station 制御点（疎、静止時取得）に対し dense raw
+odometry を `ape_from_tum.py --interpolate` で採点（download:
+`scripts/download_hilti2022.sh --sequence exp01|exp07`、
 config: `configs/hilti2022/rko_lio_hilti2022_pandar.yaml`、voxel 0.25 / deskew on）：
 
-| 手法 | RMSE (m) | median | max | pairs | 備考 |
-|---|---|---|---|---|---|
-| **RKO-LIO raw（dense）** | **0.066** | 0.053 | 0.128 | 13 | mm-GT 比で優秀。確定値 |
-| corrected（submap, sparse） | 0.891 | — | — | 12 | スコアリング・アーティファクト（下記）|
+| sequence | 環境 | RKO-LIO raw RMSE (m) | median | path | pairs | loops |
+|---|---|---|---|---|---|---|
+| **exp01** | construction ground level | **0.066** | 0.053 | 一筆書き | 13 | 0（非再訪）|
+| **exp07** | long corridor（退化）| **0.318** | 0.329 | 124m 一筆書き | 6 | 0（非再訪）|
+
+exp07 は廊下退化シナリオ。raw 0.32m は exp01（6.6cm）の約 5 倍 = 特徴の
+乏しい廊下軸での測定可能なドリフト（~0.26% of path、壊滅的ではない）。
+per-axis 残差 x=0.145 / y=0.235 / z=0.157。両シーケンスとも非再訪一筆書きで
+ループはゼロ（backend パススルー）。**これが v0.8 degeneracy-aware
+registration の動機づけ基盤**（退化方向の情報行列縮退を検出して
+registration を安定化）。
+
+exp01 の corrected 採点メモ（参考）:
+
+| 手法 | RMSE (m) | pairs | 備考 |
+|---|---|---|---|
+| corrected（submap, sparse） | 0.891 | 12 | スコアリング・アーティファクト（下記）|
 
 **所見**: exp01 は非再訪の一筆書きスイープ（904m / 228s）でループ閉じ込みは
 **ゼロ**（max edge `|i-j|`=5 = 隣接拘束のみ、IMU/GNSS/prior 全て無し）。これは
@@ -379,7 +393,7 @@ distance-threshold で submap が作られない時間帯に落ち、最寄り s
 | 0c | **bloom リリース実行（P2-7 後半）** | repo 側 prep 完了（0.5.0 整列 + ランブック `docs/rosdistro-release.md`）。残り = ndt_omp_ros2 fork PR #11 マージ（整備 PR 作成済み）→ 先行 bloom → 本体 bloom → ros/rosdistro PR（maintainer の GitHub 操作が必要、§13） |
 | 0f | ~~v0.6 決定論 core/shell リファクタリング~~ | ✅ 2026-06-12 完遂（PR #237–#263、tag v0.6.0 + pre-release）。全フェーズゲート PASS: 両基盤 3-run バイト一致（backend + frontend）、event-driven default 化、純ヘッダ 19+4 本。詳細 [`docs/roadmap/v0.6.md`](docs/roadmap/v0.6.md)、[`docs/releases/v0.6.0.md`](docs/releases/v0.6.0.md) |
 | 0g | ~~v0.7 マップリファインメント + 品質ゲート~~ | ✅ 2026-06-13 完遂（PR #264–#279）。Phase 0–3 全 PASS: clean-room 階層平面 BA、holdout 検証済み blocking 閾値、refine default-on、実 GT 3 基盤で APE+マップ同時改善、クロージング full gate green。詳細 [`docs/roadmap/v0.7.md`](docs/roadmap/v0.7.md)、[`docs/research/byte-reproducible-map-authoring.md`](docs/research/byte-reproducible-map-authoring.md) |
-| 0h | **v0.7 Phase 4: HILTI 2022 外部 mm-GT 基盤（進行中）** | exp01 で RKO-LIO 生 6.6cm RMSE（§2.4、task #18、PR #280 で基盤投入済み）。ループはゼロで backend パススルー（正常）。残り = exp07 long corridor（退化シナリオ、v0.8 degeneracy の布石）/ 他 construction 系列 / sparse corrected 軌跡の採点改善 |
+| 0h | **v0.7 Phase 4: HILTI 2022 外部 mm-GT 基盤（進行中）** | exp01 6.6cm / exp07 long corridor 0.32m（退化、§2.4、task #18、PR #280/#282）。両者ループゼロで backend パススルー（正常）。残り = 他 construction 系列 / sparse corrected 軌跡の採点改善 / **exp07 退化を v0.8 degeneracy registration の検証基盤に** |
 | 0d | ~~D1 8-vs-16 再現性ベンチ~~ | ✅ 2026-06-11 実施（GLIM MID-360 bag、3 run × {off/16, on/16, on/8}）。on/16 は APE 実質無回帰（差 0.06m ≪ noise 0.40m）だが分散縮小なし（σ 0.066→0.259）、on/8 arm の 2 実行で loop 試行ゼロ。mp8 の系統的 regression 署名は消滅し乱高下に置換（スケジューリング主要因子と整合、根本原因の証明ではない）。**default off 維持で D1 完全クローズ**（§1.2、research summary） |
 | 0e | **発信（P2-8）** | ghcr ワンコマンド + lanelet2 完全バンドル + 実 GT 数値が揃い、発信material は完成状態。ROS Discourse / Reddit / X はユーザー本人が実施。事前に B2 social preview 設定（Web UI 1 分） |
 | 1 | **GNSS odom→ENU yaw 整合の実装** | 初検証（2026-06-12）で制約形成 ✅・LocalCartesian projector ✅ まで実証済み。残るは yaw 整合（ENU トラックとの 2D 最小二乗 → アンカー回転 or vertex-0 gauge 解放）。これが入ると GNSS georeferencing が実用になる。`docs/research/gnss-constraint-first-validation.md` |
