@@ -222,6 +222,14 @@ if(BUILD_TESTING)
     target_include_directories(test_map_saver PRIVATE include)
   endif()
   ament_add_gtest(
+    test_backend_core
+    test/test_backend_core.cpp
+  )
+  if(TARGET test_backend_core)
+    target_include_directories(test_backend_core PRIVATE include ${EIGEN3_INCLUDE_DIR})
+    target_link_libraries(test_backend_core ${PCL_LIBRARIES})
+  endif()
+  ament_add_gtest(
     test_pose_graph_optimization
     test/test_pose_graph_optimization.cpp
   )

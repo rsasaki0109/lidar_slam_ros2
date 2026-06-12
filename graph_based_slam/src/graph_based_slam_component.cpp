@@ -1085,10 +1085,36 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
     exit(1);
   }
 
-  bev_descriptor_db_.configure(
-    bev_descriptor_grid_size_m_,
-    bev_descriptor_grid_cells_,
-    bev_descriptor_yaw_bins_);
+  backend_core::DescriptorConfig descriptor_config;
+  descriptor_config.use_scan_context = use_scan_context_;
+  descriptor_config.use_bev_descriptor = use_bev_descriptor_;
+  descriptor_config.use_solid_descriptor = use_solid_descriptor_;
+  descriptor_config.use_triangle_descriptor = use_triangle_descriptor_;
+  descriptor_config.bev_descriptor_grid_size_m = bev_descriptor_grid_size_m_;
+  descriptor_config.bev_descriptor_grid_cells = bev_descriptor_grid_cells_;
+  descriptor_config.bev_descriptor_yaw_bins = bev_descriptor_yaw_bins_;
+  descriptor_config.triangle_descriptor_keypoint_mode = triangle_descriptor_keypoint_mode_;
+  descriptor_config.triangle_descriptor_grid_size_m = triangle_descriptor_grid_size_m_;
+  descriptor_config.triangle_descriptor_grid_cells = triangle_descriptor_grid_cells_;
+  descriptor_config.triangle_descriptor_min_salience_m = triangle_descriptor_min_salience_m_;
+  descriptor_config.triangle_descriptor_max_keypoints = triangle_descriptor_max_keypoints_;
+  descriptor_config.triangle_descriptor_edge_voxel_size_m =
+    triangle_descriptor_edge_voxel_size_m_;
+  descriptor_config.triangle_descriptor_edge_neighbor_radius_m =
+    triangle_descriptor_edge_neighbor_radius_m_;
+  descriptor_config.triangle_descriptor_edge_min_neighbors =
+    triangle_descriptor_edge_min_neighbors_;
+  descriptor_config.triangle_descriptor_edge_min_edgeness =
+    triangle_descriptor_edge_min_edgeness_;
+  descriptor_config.triangle_descriptor_edge_nms_radius_m =
+    triangle_descriptor_edge_nms_radius_m_;
+  descriptor_config.triangle_descriptor_min_edge_m = triangle_descriptor_min_edge_m_;
+  descriptor_config.triangle_descriptor_max_edge_m = triangle_descriptor_max_edge_m_;
+  descriptor_config.triangle_descriptor_max_triangles = triangle_descriptor_max_triangles_;
+  descriptor_config.triangle_descriptor_edge_bin_m = triangle_descriptor_edge_bin_m_;
+  descriptor_config.triangle_descriptor_quad_feature_bin_m =
+    triangle_descriptor_quad_feature_bin_m_;
+  backend_core_.configure(descriptor_config);
 
   initializePubSub();
 
@@ -1349,81 +1375,8 @@ void GraphBasedSlamComponent::searchLoop()
       return filtered_cloud;
     };
 
-  // Keep Scan Context database aligned 1:1 with submap indices.
-  if (use_scan_context_ && scan_context_db_.nextSubmapIndex() < num_submaps) {
-    for (int idx = scan_context_db_.nextSubmapIndex(); idx < num_submaps; ++idx) {
-      const auto filtered_aggregated_cloud = build_filtered_local_submap(idx);
-      if (filtered_aggregated_cloud->empty()) {
-        scan_context_db_.add(
-          idx, ScanContext::Descriptor::Zero(
-            ScanContext::NUM_RINGS,
-            ScanContext::NUM_SECTORS));
-        continue;
-      }
-      scan_context_db_.add(idx, ScanContext::computeDescriptor(filtered_aggregated_cloud));
-    }
-  }
-
-  if (use_bev_descriptor_ && bev_descriptor_db_.nextSubmapIndex() < num_submaps) {
-    for (int idx = bev_descriptor_db_.nextSubmapIndex(); idx < num_submaps; ++idx) {
-      const auto filtered_aggregated_cloud = build_filtered_local_submap(idx);
-      bev_descriptor_db_.add(
-        idx,
-        SubmapBEVDescriptor::computeDescriptor(
-          filtered_aggregated_cloud,
-          bev_descriptor_grid_size_m_,
-          bev_descriptor_grid_cells_));
-    }
-  }
-  if (use_solid_descriptor_ && solid_descriptor_db_.nextSubmapIndex() < num_submaps) {
-    for (int idx = solid_descriptor_db_.nextSubmapIndex(); idx < num_submaps; ++idx) {
-      const auto filtered_aggregated_cloud = build_filtered_local_submap(idx);
-      solid_descriptor_db_.add(
-        idx,
-        SolidDescriptor::computeDescriptor(filtered_aggregated_cloud));
-    }
-  }
-  if (use_triangle_descriptor_ && triangle_descriptor_next_submap_idx_ < num_submaps) {
-    graphslam::triangle::KeypointExtractionConfig kp_cfg;
-    if (triangle_descriptor_keypoint_mode_ == "edge_3d") {
-      kp_cfg.mode = graphslam::triangle::KeypointMode::EDGE_3D;
-    } else {
-      kp_cfg.mode = graphslam::triangle::KeypointMode::BEV_MAX_HEIGHT;
-    }
-    kp_cfg.grid_size_m = triangle_descriptor_grid_size_m_;
-    kp_cfg.grid_cells = triangle_descriptor_grid_cells_;
-    kp_cfg.min_salience_m = static_cast<float>(triangle_descriptor_min_salience_m_);
-    kp_cfg.max_keypoints = triangle_descriptor_max_keypoints_;
-    kp_cfg.edge_voxel_size_m = static_cast<float>(triangle_descriptor_edge_voxel_size_m_);
-    kp_cfg.edge_neighbor_radius_m =
-      static_cast<float>(triangle_descriptor_edge_neighbor_radius_m_);
-    kp_cfg.edge_min_neighbors = triangle_descriptor_edge_min_neighbors_;
-    kp_cfg.edge_min_edgeness = static_cast<float>(triangle_descriptor_edge_min_edgeness_);
-    kp_cfg.edge_nms_radius_m = static_cast<float>(triangle_descriptor_edge_nms_radius_m_);
-    graphslam::triangle::TriangleBuildConfig build_cfg;
-    build_cfg.min_edge_m = static_cast<float>(triangle_descriptor_min_edge_m_);
-    build_cfg.max_edge_m = static_cast<float>(triangle_descriptor_max_edge_m_);
-    build_cfg.max_triangles = triangle_descriptor_max_triangles_;
-    graphslam::triangle::HashConfig hash_cfg;
-    hash_cfg.edge_bin_m = static_cast<float>(triangle_descriptor_edge_bin_m_);
-    hash_cfg.quad_feature_bin_m =
-      static_cast<float>(triangle_descriptor_quad_feature_bin_m_);
-    for (int idx = triangle_descriptor_next_submap_idx_; idx < num_submaps; ++idx) {
-      const auto filtered_aggregated_cloud = build_filtered_local_submap(idx);
-      std::vector<graphslam::triangle::Keypoint> kps;
-      std::vector<graphslam::triangle::TriangleDescriptor> tris;
-      if (filtered_aggregated_cloud && !filtered_aggregated_cloud->empty()) {
-        kps = graphslam::triangle::extractKeypoints(*filtered_aggregated_cloud, kp_cfg);
-        tris = graphslam::triangle::buildTriangles(kps, build_cfg);
-      }
-      TrianglePerSubmap entry;
-      entry.keypoints = kps;
-      entry.triangles = tris;
-      triangle_descriptor_per_submap_.push_back(entry);
-      triangle_descriptor_db_.addSubmap(idx, kps, tris, hash_cfg);
-    }
-    triangle_descriptor_next_submap_idx_ = num_submaps;
-  }
+  // Keep every enabled descriptor database aligned 1:1 with submap indices.
+  backend_core_.ingestDescriptors(num_submaps, build_filtered_local_submap);
 
   if (deterministic_loop_scheduling_) {
     // Catch up over every submap not yet used as a loop-search query so the
@@ -1632,7 +1585,7 @@ void GraphBasedSlamComponent::searchLoopForLatest(
   if (use_scan_context_) {
     std::vector<candidate_aggregator::LogLine> aggregator_logs;
     candidate_aggregator::collectScanContextCandidate(
-      scan_context_db_,
+      backend_core_.scanContextDb(),
       submap_travel_distances,
       latest_idx,
       aggregator_config,
@@ -1642,11 +1595,11 @@ void GraphBasedSlamComponent::searchLoopForLatest(
   }
 
   if (use_bev_descriptor_ &&
-    bev_descriptor_db_.size() > SubmapBEVDescriptor::DEFAULT_EXCLUDE_RECENT)
+    backend_core_.bevDescriptorDb().size() > SubmapBEVDescriptor::DEFAULT_EXCLUDE_RECENT)
   {
     std::vector<candidate_aggregator::LogLine> aggregator_logs;
     candidate_aggregator::rerankDistanceCandidatesWithBev(
-      bev_descriptor_db_,
+      backend_core_.bevDescriptorDb(),
       submap_affines,
       latest_idx,
       aggregator_config,
@@ -1661,7 +1614,7 @@ void GraphBasedSlamComponent::searchLoopForLatest(
   if (use_solid_descriptor_) {
     std::vector<candidate_aggregator::LogLine> aggregator_logs;
     candidate_aggregator::collectSolidCandidates(
-      solid_descriptor_db_,
+      backend_core_.solidDescriptorDb(),
       submap_affines,
       distance_candidates,
       latest_idx,
@@ -1674,9 +1627,9 @@ void GraphBasedSlamComponent::searchLoopForLatest(
   if (use_triangle_descriptor_) {
     std::vector<candidate_aggregator::LogLine> aggregator_logs;
     candidate_aggregator::collectTriangleCandidate(
-      triangle_descriptor_db_,
-      triangle_descriptor_per_submap_,
-      bev_descriptor_db_,
+      backend_core_.triangleDb(),
+      backend_core_.trianglePerSubmap(),
+      backend_core_.bevDescriptorDb(),
       use_bev_descriptor_,
       submap_travel_distances,
       latest_idx,
