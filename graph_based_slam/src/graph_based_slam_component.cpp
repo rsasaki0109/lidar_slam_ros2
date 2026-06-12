@@ -482,6 +482,7 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       loop_edge_dedup_index_window_);
     loop_edge_dedup_index_window_ = 0;
   }
+  loop_edge_set_.configure(loop_edge_dedup_index_window_);
   if (loop_max_translation_delta_ <= 0.0) {
     RCLCPP_WARN(
       get_logger(),
@@ -1265,7 +1266,7 @@ bool GraphBasedSlamComponent::snapshotGraphState(
   }
 
   map_array_msg = map_array_msg_;
-  loop_edges = loop_edges_;
+  loop_edges = loop_edge_set_.edges();
   if (consume_map_update) {
     is_map_array_updated_ = false;
   }
@@ -1275,44 +1276,13 @@ bool GraphBasedSlamComponent::snapshotGraphState(
 void GraphBasedSlamComponent::snapshotLoopEdges(LoopEdges & loop_edges)
 {
   std::lock_guard<std::mutex> lock(mtx_);
-  loop_edges = loop_edges_;
+  loop_edges = loop_edge_set_.edges();
 }
 
 bool GraphBasedSlamComponent::upsertLoopEdge(const LoopEdge & loop_edge)
 {
-  if (loop_edge.pair_id.first < 0 || loop_edge.pair_id.second < 0) {
-    return false;
-  }
-
-  LoopEdge normalized = loop_edge;
-  if (normalized.pair_id.first > normalized.pair_id.second) {
-    std::swap(normalized.pair_id.first, normalized.pair_id.second);
-    normalized.relative_pose = normalized.relative_pose.inverse();
-  }
-  if (normalized.pair_id.first == normalized.pair_id.second) {
-    return false;
-  }
-
   std::lock_guard<std::mutex> lock(mtx_);
-  auto is_nearby_pair = [this](const LoopEdge & lhs, const LoopEdge & rhs) {
-      return std::abs(lhs.pair_id.first - rhs.pair_id.first) <= loop_edge_dedup_index_window_ &&
-             std::abs(lhs.pair_id.second - rhs.pair_id.second) <= loop_edge_dedup_index_window_;
-    };
-  for (auto & existing : loop_edges_) {
-    if (!is_nearby_pair(existing, normalized)) {
-      continue;
-    }
-    if (existing.fitness_score > 0.0 &&
-      normalized.fitness_score >= existing.fitness_score)
-    {
-      return false;
-    }
-    existing = normalized;
-    return true;
-  }
-
-  loop_edges_.push_back(normalized);
-  return true;
+  return loop_edge_set_.upsert(loop_edge);
 }
 backend_core::BackendCore::LocalSubmapProvider
 GraphBasedSlamComponent::makeFilteredLocalSubmapProvider(

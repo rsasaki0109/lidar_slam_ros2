@@ -223,6 +223,74 @@ TEST(BackendCoreIngestion, SameOrderedInputProducesBitwiseIdenticalState)
   }
 }
 
+// --- LoopEdgeSet characterization ----------------------------------------
+
+backend_core::LoopEdgeSet::Edge makeEdge(int first, int second, double fitness)
+{
+  backend_core::LoopEdgeSet::Edge edge;
+  edge.pair_id = std::make_pair(first, second);
+  edge.relative_pose = Eigen::Isometry3d(Eigen::Translation3d(1.0, 2.0, 3.0));
+  edge.fitness_score = fitness;
+  return edge;
+}
+
+TEST(LoopEdgeSet, NormalizesPairOrderAndInvertsThePose)
+{
+  backend_core::LoopEdgeSet edge_set;
+  EXPECT_TRUE(edge_set.upsert(makeEdge(5, 2, 0.5)));
+  ASSERT_EQ(edge_set.edges().size(), 1u);
+  EXPECT_EQ(edge_set.edges()[0].pair_id, (std::pair<int, int>(2, 5)));
+  const Eigen::Isometry3d expected =
+    Eigen::Isometry3d(Eigen::Translation3d(1.0, 2.0, 3.0)).inverse();
+  EXPECT_DOUBLE_EQ(
+    (edge_set.edges()[0].relative_pose.matrix() - expected.matrix()).cwiseAbs().maxCoeff(),
+    0.0);
+}
+
+TEST(LoopEdgeSet, RejectsNegativeAndSelfPairs)
+{
+  backend_core::LoopEdgeSet edge_set;
+  EXPECT_FALSE(edge_set.upsert(makeEdge(-1, 3, 0.5)));
+  EXPECT_FALSE(edge_set.upsert(makeEdge(3, -1, 0.5)));
+  EXPECT_FALSE(edge_set.upsert(makeEdge(4, 4, 0.5)));
+  EXPECT_TRUE(edge_set.edges().empty());
+}
+
+TEST(LoopEdgeSet, NearbyPairKeepsTheStrictlyBetterFitness)
+{
+  backend_core::LoopEdgeSet edge_set;
+  edge_set.configure(8);
+  EXPECT_TRUE(edge_set.upsert(makeEdge(10, 100, 0.5)));
+  // Equal fitness within the window is rejected (>= keeps the incumbent).
+  EXPECT_FALSE(edge_set.upsert(makeEdge(12, 104, 0.5)));
+  ASSERT_EQ(edge_set.edges().size(), 1u);
+  EXPECT_EQ(edge_set.edges()[0].pair_id, (std::pair<int, int>(10, 100)));
+  // Strictly better fitness replaces the nearby edge in place.
+  EXPECT_TRUE(edge_set.upsert(makeEdge(12, 104, 0.4)));
+  ASSERT_EQ(edge_set.edges().size(), 1u);
+  EXPECT_EQ(edge_set.edges()[0].pair_id, (std::pair<int, int>(12, 104)));
+  EXPECT_DOUBLE_EQ(edge_set.edges()[0].fitness_score, 0.4);
+}
+
+TEST(LoopEdgeSet, NonPositiveExistingFitnessIsAlwaysReplaced)
+{
+  backend_core::LoopEdgeSet edge_set;
+  edge_set.configure(8);
+  EXPECT_TRUE(edge_set.upsert(makeEdge(10, 100, 0.0)));
+  EXPECT_TRUE(edge_set.upsert(makeEdge(10, 100, 5.0)));
+  ASSERT_EQ(edge_set.edges().size(), 1u);
+  EXPECT_DOUBLE_EQ(edge_set.edges()[0].fitness_score, 5.0);
+}
+
+TEST(LoopEdgeSet, DistantPairAppends)
+{
+  backend_core::LoopEdgeSet edge_set;
+  edge_set.configure(8);
+  EXPECT_TRUE(edge_set.upsert(makeEdge(10, 100, 0.5)));
+  EXPECT_TRUE(edge_set.upsert(makeEdge(30, 200, 0.9)));
+  EXPECT_EQ(edge_set.edges().size(), 2u);
+}
+
 // --- searchLoopForSubmap characterization -------------------------------
 //
 // A revisit scenario driven by the DISTANCE source only: submap 0 and the

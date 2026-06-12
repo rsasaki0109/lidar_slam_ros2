@@ -39,6 +39,7 @@
 // a provider callback, so message-vs-PCD-cache stays its concern.
 
 #include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <sstream>
 #include <string>
@@ -106,6 +107,69 @@ struct LoopEdgeProposal
   std::pair<int, int> pair_id{-1, -1};
   Eigen::Isometry3d relative_pose{Eigen::Isometry3d::Identity()};
   double fitness_score{0.0};
+};
+
+// Accepted loop edges with the nearby-pair dedup/upsert policy
+// (semantics pinned by test_backend_core.cpp). Single-threaded by
+// contract like the rest of the core; the shell serializes access.
+class LoopEdgeSet
+{
+public:
+  struct Edge
+  {
+    std::pair<int, int> pair_id{-1, -1};
+    Eigen::Isometry3d relative_pose{Eigen::Isometry3d::Identity()};
+    double fitness_score{0.0};
+  };
+
+  void configure(int dedup_index_window) {dedup_index_window_ = dedup_index_window;}
+
+  // Historical upsertLoopEdge: reject negative/self pairs, normalize the
+  // index order (swap + inverse pose), and against a nearby existing edge
+  // (both indices within the dedup window) keep the better fitness —
+  // a positive existing fitness survives unless the new edge is strictly
+  // better; a non-positive one is always replaced.
+  bool upsert(const Edge & edge)
+  {
+    if (edge.pair_id.first < 0 || edge.pair_id.second < 0) {
+      return false;
+    }
+
+    Edge normalized = edge;
+    if (normalized.pair_id.first > normalized.pair_id.second) {
+      std::swap(normalized.pair_id.first, normalized.pair_id.second);
+      normalized.relative_pose = normalized.relative_pose.inverse();
+    }
+    if (normalized.pair_id.first == normalized.pair_id.second) {
+      return false;
+    }
+
+    auto is_nearby_pair = [this](const Edge & lhs, const Edge & rhs) {
+        return std::abs(lhs.pair_id.first - rhs.pair_id.first) <= dedup_index_window_ &&
+               std::abs(lhs.pair_id.second - rhs.pair_id.second) <= dedup_index_window_;
+      };
+    for (auto & existing : edges_) {
+      if (!is_nearby_pair(existing, normalized)) {
+        continue;
+      }
+      if (existing.fitness_score > 0.0 &&
+        normalized.fitness_score >= existing.fitness_score)
+      {
+        return false;
+      }
+      existing = normalized;
+      return true;
+    }
+
+    edges_.push_back(normalized);
+    return true;
+  }
+
+  const std::vector<Edge> & edges() const {return edges_;}
+
+private:
+  int dedup_index_window_{8};
+  std::vector<Edge> edges_;
 };
 
 struct LoopSearchOutput
