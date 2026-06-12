@@ -58,6 +58,7 @@ extern "C" {
 
 #include <lidarslam_msgs/msg/map_array.hpp>
 #include "scanmatcher/lidar_undistortion.hpp"
+#include "scanmatcher/pose_prediction.hpp"
 #include "scanmatcher/voxel_hash_map.hpp"
 
 #include <pclomp/ndt_omp.h>
@@ -147,6 +148,7 @@ private:
       int frame_index,
       const std::string & stage);
     Eigen::Matrix4f getTransformation(const geometry_msgs::msg::Pose pose);
+    pose_prediction::ImuPredictionConfig makeImuPredictionConfig() const;
     void publishMap(const lidarslam_msgs::msg::MapArray & map_array_msg, const std::string & map_frame_id);
     void updateMap(
       const pcl::PointCloud < pcl::PointXYZI > ::ConstPtr cloud_ptr,
