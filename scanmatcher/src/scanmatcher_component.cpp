@@ -928,7 +928,7 @@ void ScanMatcherComponent::receiveCloud(
         }
       }
       if (targeted_cloud_ptr) {
-        if (!recovery_target_active_) {
+        if (!pose_acceptance_state_.recovery_target_active) {
           if (registration_method_ == "NDT") {
             registration_->setInputTarget(targeted_cloud_ptr);
           } else {
@@ -980,9 +980,9 @@ void ScanMatcherComponent::receiveCloud(
   sim_trans = pose_prediction::applyConstantVelocityPrediction(
     sim_trans,
     use_constant_velocity_model_,
-    last_accepted_delta_valid_,
-    tracking_state_ == TrackingState::Tracking,
-    last_accepted_delta_position_);
+    pose_acceptance_state_.last_accepted_delta_valid,
+    pose_acceptance_state_.tracking_state == TrackingState::Tracking,
+    pose_acceptance_state_.last_accepted_delta_position);
 
   // IMU initial guess modification (only when complementary filter is disabled)
   if (!imu_complementary_enable_) {
@@ -996,7 +996,8 @@ void ScanMatcherComponent::receiveCloud(
       imu_prediction_config,
       imu_observation,
       current_orientation_quat,
-      tracking_state_ != TrackingState::Tracking || recovery_target_active_);
+      pose_acceptance_state_.tracking_state != TrackingState::Tracking ||
+      pose_acceptance_state_.recovery_target_active);
   }
 
   if (use_odom_) {
@@ -1016,8 +1017,8 @@ void ScanMatcherComponent::receiveCloud(
       if (previous_odom_valid_) {
         const bool odom_prior_active =
           !odom_prior_suspect_recovery_only_ ||
-          tracking_state_ != TrackingState::Tracking ||
-          recovery_target_active_;
+          pose_acceptance_state_.tracking_state != TrackingState::Tracking ||
+          pose_acceptance_state_.recovery_target_active;
         if (odom_prior_active) {
           const Eigen::Matrix4f odom_delta = previous_odom_mat_.inverse() * odom_mat;
           const Eigen::Matrix4f filtered_odom_delta = odom_prior::filterAndBlendDelta(
@@ -1182,393 +1183,34 @@ void ScanMatcherComponent::publishMapAndPose(
   geometry_msgs::msg::Quaternion quat_msg = tf2::toMsg(quat_eig);
   const bool has_converged = registration_->hasConverged();
   const double fitness_score = registration_->getFitnessScore();
-  tf2::Quaternion diag_quat_tf;
-  double diag_roll, diag_pitch, diag_yaw;
-  tf2::fromMsg(quat_msg, diag_quat_tf);
-  tf2::Matrix3x3(diag_quat_tf).getRPY(diag_roll, diag_pitch, diag_yaw);
-  double dt = 0.0;
-  double trans_jump = 0.0;
-  double yaw_jump_deg = 0.0;
-  double fitness_ratio = 1.0;
-  double trans_ratio = 1.0;
-  double fitness_ref = fitness_score;
-  double trans_ref = 0.0;
-  bool warmup_complete = false;
-  bool reject_pose_update = false;
-  bool hard_reject_pose_update = false;
-  bool soft_reject_map_update = false;
-  bool adaptive_ratio_reject = false;
-  bool fitness_only_map_reject = false;
-  bool trans_only_map_reject = false;
-  bool trans_streak_map_reject = false;
-  bool fitness_streak_map_reject = false;
-  bool hard_ratio_reject = false;
-  bool motion_gate_suspect = false;
-  bool motion_gate_hard = false;
-  double motion_gate_trans_limit = 0.0;
-  double motion_gate_yaw_limit_deg = 0.0;
-  constexpr double kFitnessScoreSanityLimit = 1.0e4;
-  const bool invalid_fitness_score =
-    !std::isfinite(fitness_score) || fitness_score >= kFitnessScoreSanityLimit;
+  pose_acceptance::Input acceptance_input;
+  acceptance_input.position = position;
+  acceptance_input.orientation = quat_msg;
+  acceptance_input.previous_orientation = current_pose_stamped_.pose.orientation;
+  acceptance_input.has_converged = has_converged;
+  acceptance_input.fitness_score = fitness_score;
+  acceptance_input.stamp_sec = stamp.seconds();
+  acceptance_input.previous_stamp_sec = previous_pose_stamp_.seconds();
+  // Duration::seconds() on the rclcpp::Time pair, exactly as the historical
+  // inline block computed dt (double-double subtraction rounds differently).
+  acceptance_input.dt = pose_acceptance_state_.previous_pose_diagnostic_valid ?
+    (stamp - previous_pose_stamp_).seconds() : 0.0;
+  acceptance_input.mapping_in_progress = mapping_flag_;
 
-  if (previous_pose_diagnostic_valid_) {
-    dt = (stamp - previous_pose_stamp_).seconds();
-    trans_jump = (position - previous_pose_diagnostic_position_).norm();
-    yaw_jump_deg =
-      std::abs(wrapAngleRad(diag_yaw - previous_pose_diagnostic_yaw_)) * 180.0 / M_PI;
-
-    if (dt <= 0.0) {
-      RCLCPP_WARN(
-        get_logger(),
-        "POSE_STAMP_NONMONOTONIC stamp=%.9f prev_stamp=%.9f dt=%.6f frame=%s",
-        stamp.seconds(),
-        previous_pose_stamp_.seconds(),
-        dt,
-        robot_frame_id_.c_str());
-    }
-
-    if (!has_converged || trans_jump >= diagnostic_warn_trans_jump_ ||
-      yaw_jump_deg >= diagnostic_warn_yaw_jump_deg_)
-    {
-      RCLCPP_WARN(
-        get_logger(),
-        "POSE_JUMP stamp=%.9f dt=%.6f trans=%.6f yaw_deg=%.3f converged=%s fitness=%.6f frame=%s",
-        stamp.seconds(),
-        dt,
-        trans_jump,
-        yaw_jump_deg,
-        has_converged ? "true" : "false",
-        fitness_score,
-        robot_frame_id_.c_str());
-    }
-
-    if (reject_stats_initialized_) {
-      fitness_ref = accepted_fitness_ema_;
-      trans_ref = accepted_trans_ema_;
-      if (
-        !std::isfinite(fitness_ref) || fitness_ref <= 0.0 ||
-        fitness_ref >= kFitnessScoreSanityLimit ||
-        !std::isfinite(trans_ref) || trans_ref < 0.0)
-      {
-        reject_stats_initialized_ = false;
-        accepted_fitness_ema_ = 0.0;
-        accepted_trans_ema_ = 0.0;
-        accepted_pose_count_ = 0;
-        fitness_ref = fitness_score;
-        trans_ref = trans_jump;
-      }
-    } else {
-      fitness_ref = fitness_score;
-      trans_ref = trans_jump;
-    }
-
-    const double fitness_ref_safe = (fitness_ref > 1e-6) ? fitness_ref : 1e-6;
-    const double trans_ref_safe = (trans_ref > 1e-3) ? trans_ref : 1e-3;
-    fitness_ratio = fitness_score / fitness_ref_safe;
-    trans_ratio = trans_jump / trans_ref_safe;
-
-    if (
-      motion_gate_enable_ &&
-      motion_gate_max_linear_velocity_ > 0.0 &&
-      motion_gate_max_yaw_rate_deg_ > 0.0)
-    {
-      const double effective_dt = std::max(dt, scan_period_);
-      motion_gate_trans_limit = motion_gate_max_linear_velocity_ * effective_dt;
-      motion_gate_yaw_limit_deg = motion_gate_max_yaw_rate_deg_ * effective_dt;
-      motion_gate_suspect =
-        trans_jump > motion_gate_trans_limit ||
-        yaw_jump_deg > motion_gate_yaw_limit_deg;
-      motion_gate_hard =
-        motion_gate_hard_multiplier_ > 1.0 &&
-        (
-        trans_jump > motion_gate_trans_limit * motion_gate_hard_multiplier_ ||
-        yaw_jump_deg > motion_gate_yaw_limit_deg * motion_gate_hard_multiplier_);
-    }
-
-    warmup_complete = accepted_pose_count_ >= reject_warmup_scans_;
-    adaptive_ratio_reject =
-      warmup_complete &&
-      reject_stats_initialized_ &&
-      reject_fitness_ratio_ > 0.0 &&
-      reject_trans_jump_ratio_ > 0.0 &&
-      fitness_ratio >= reject_fitness_ratio_ &&
-      trans_ratio >= reject_trans_jump_ratio_;
-    fitness_only_map_reject =
-      warmup_complete &&
-      reject_stats_initialized_ &&
-      reject_fitness_only_ratio_ > 0.0 &&
-      fitness_ratio >= reject_fitness_only_ratio_;
-    trans_only_map_reject =
-      warmup_complete &&
-      reject_stats_initialized_ &&
-      reject_trans_only_ratio_ > 0.0 &&
-      trans_jump >= diagnostic_warn_trans_jump_ &&
-      trans_ratio >= reject_trans_only_ratio_;
-    if (
-      trans_jump >= diagnostic_warn_trans_jump_ &&
-      trans_ratio >= reject_trans_jump_ratio_)
-    {
-      elevated_trans_streak_ += 1;
-    } else {
-      elevated_trans_streak_ = 0;
-    }
-    trans_streak_map_reject =
-      reject_trans_streak_scans_ > 0 &&
-      elevated_trans_streak_ >= reject_trans_streak_scans_;
-    if (
-      warmup_complete &&
-      reject_stats_initialized_ &&
-      reject_fitness_streak_ratio_ > 0.0 &&
-      fitness_ratio >= reject_fitness_streak_ratio_)
-    {
-      elevated_fitness_streak_ += 1;
-    } else {
-      elevated_fitness_streak_ = 0;
-    }
-    fitness_streak_map_reject =
-      reject_fitness_streak_scans_ > 0 &&
-      elevated_fitness_streak_ >= reject_fitness_streak_scans_;
-    hard_ratio_reject =
-      warmup_complete &&
-      reject_stats_initialized_ &&
-      reject_hard_fitness_ratio_ > 0.0 &&
-      reject_hard_trans_ratio_ > 0.0 &&
-      fitness_ratio >= reject_hard_fitness_ratio_ &&
-      trans_ratio >= reject_hard_trans_ratio_;
-
-    hard_reject_pose_update =
-      invalid_fitness_score ||
-      (reject_nonconverged_pose_update_ && !has_converged) ||
-      (reject_fitness_score_ > 0.0 && fitness_score > reject_fitness_score_) ||
-      (
-      !motion_gate_enable_ &&
-      reject_trans_jump_ > 0.0 &&
-      trans_jump >= reject_trans_jump_) ||
-      motion_gate_hard ||
-      hard_ratio_reject;
-    soft_reject_map_update =
-      (adaptive_ratio_reject || fitness_only_map_reject || trans_only_map_reject ||
-      trans_streak_map_reject || fitness_streak_map_reject || motion_gate_suspect) &&
-      !hard_reject_pose_update;
-    reject_pose_update = hard_reject_pose_update;
+  pose_acceptance::Outcome acceptance = pose_acceptance::evaluate(
+    makePoseAcceptanceConfig(), pose_acceptance_state_, acceptance_input);
+  for (const auto & warn_line : acceptance.warn_lines) {
+    RCLCPP_WARN(get_logger(), "%s", warn_line.c_str());
   }
-
-  Eigen::Vector3d accepted_position = position;
-  geometry_msgs::msg::Quaternion accepted_quat_msg = quat_msg;
-  double accepted_yaw = diag_yaw;
-  Eigen::Vector3d predicted_position = position;
-  geometry_msgs::msg::Quaternion predicted_quat_msg = quat_msg;
-  double predicted_yaw = diag_yaw;
-  Eigen::Vector3d clipped_position = position;
-  geometry_msgs::msg::Quaternion clipped_quat_msg = quat_msg;
-  double clipped_yaw = diag_yaw;
-  if (previous_pose_diagnostic_valid_) {
-    predicted_position = previous_pose_diagnostic_position_;
-    predicted_quat_msg = current_pose_stamped_.pose.orientation;
-    predicted_yaw = previous_pose_diagnostic_yaw_;
-    if (last_accepted_delta_valid_) {
-      predicted_position += last_accepted_delta_position_;
-      tf2::Quaternion prev_quat_tf;
-      tf2::Quaternion predicted_quat_tf;
-      tf2::fromMsg(current_pose_stamped_.pose.orientation, prev_quat_tf);
-      predicted_quat_tf = prev_quat_tf * last_accepted_delta_quat_;
-      predicted_quat_tf.normalize();
-      predicted_quat_msg = tf2::toMsg(predicted_quat_tf);
-      double predicted_roll;
-      double predicted_pitch;
-      tf2::Matrix3x3(predicted_quat_tf).getRPY(predicted_roll, predicted_pitch, predicted_yaw);
-    }
-
-    if (motion_gate_enable_ && motion_gate_trans_limit > 0.0 && motion_gate_yaw_limit_deg > 0.0) {
-      const Eigen::Vector3d candidate_delta = position - predicted_position;
-      clipped_position =
-        predicted_position + clampVectorNorm(candidate_delta, motion_gate_trans_limit);
-
-      const double max_yaw_delta = motion_gate_yaw_limit_deg * M_PI / 180.0;
-      const double candidate_yaw_delta = wrapAngleRad(diag_yaw - predicted_yaw);
-      const double clipped_yaw_delta =
-        std::clamp(candidate_yaw_delta, -max_yaw_delta, max_yaw_delta);
-      clipped_yaw = predicted_yaw + clipped_yaw_delta;
-      clipped_quat_msg = quaternionFromRPY(diag_roll, diag_pitch, clipped_yaw);
-    }
-  }
-  if (previous_pose_diagnostic_valid_ && hard_reject_pose_update) {
-    accepted_position = predicted_position;
-    accepted_quat_msg = predicted_quat_msg;
-    accepted_yaw = predicted_yaw;
-  } else if (previous_pose_diagnostic_valid_ && soft_reject_map_update) {
-    accepted_position = clipped_position;
-    accepted_quat_msg = clipped_quat_msg;
-    accepted_yaw = clipped_yaw;
-  } else if (previous_pose_diagnostic_valid_ && tracking_state_ == TrackingState::Recovery) {
-    accepted_position = clipped_position;
-    accepted_quat_msg = clipped_quat_msg;
-    accepted_yaw = clipped_yaw;
-  } else if (previous_pose_diagnostic_valid_ && tracking_state_ == TrackingState::Suspect) {
-    accepted_position = clipped_position;
-    accepted_quat_msg = clipped_quat_msg;
-    accepted_yaw = clipped_yaw;
-  }
-  if (previous_pose_diagnostic_valid_ && (hard_reject_pose_update || soft_reject_map_update)) {
-    if (invalid_fitness_score) {
-      RCLCPP_WARN(
-        get_logger(),
-        "POSE_FITNESS_INVALID stamp=%.9f fitness=%.6f frame=%s",
-        stamp.seconds(),
-        fitness_score,
-        robot_frame_id_.c_str());
-    }
-    RCLCPP_WARN(
-      get_logger(),
-      "POSE_REJECT stamp=%.9f dt=%.6f trans=%.6f yaw_deg=%.3f converged=%s fitness=%.6f fitness_ref=%.6f fitness_ratio=%.3f trans_ref=%.6f trans_ratio=%.3f motion_gate=%s motion_gate_hard=%s trans_limit=%.3f yaw_limit_deg=%.3f adaptive=%s fitness_only=%s trans_only=%s trans_streak=%s fitness_streak=%s hard_ratio=%s streak_count=%d mode=%s cooldown=%d reject_nonconv=%s reject_fitness=%.3f reject_trans=%.3f frame=%s",
-      stamp.seconds(),
-      dt,
-      trans_jump,
-      yaw_jump_deg,
-      has_converged ? "true" : "false",
-      fitness_score,
-      fitness_ref,
-      fitness_ratio,
-      trans_ref,
-      trans_ratio,
-      motion_gate_suspect ? "true" : "false",
-      motion_gate_hard ? "true" : "false",
-      motion_gate_trans_limit,
-      motion_gate_yaw_limit_deg,
-      adaptive_ratio_reject ? "true" : "false",
-      fitness_only_map_reject ? "true" : "false",
-      trans_only_map_reject ? "true" : "false",
-      trans_streak_map_reject ? "true" : "false",
-      fitness_streak_map_reject ? "true" : "false",
-      hard_ratio_reject ? "true" : "false",
-      elevated_fitness_streak_,
-      hard_reject_pose_update ? "hard" : "map_only",
-      reject_map_update_cooldown_scans_,
-      reject_nonconverged_pose_update_ ? "true" : "false",
-      reject_fitness_score_,
-      reject_trans_jump_,
-      robot_frame_id_.c_str());
-  }
-
-  if (!reject_pose_update && !soft_reject_map_update) {
-    double alpha = reject_ema_alpha_;
-    if (alpha <= 0.0 || alpha > 1.0) {alpha = 0.1;}
-    double fitness_sample = fitness_score;
-    double trans_sample = trans_jump;
-    if (!reject_stats_initialized_) {
-      accepted_fitness_ema_ = fitness_sample;
-      accepted_trans_ema_ = trans_sample;
-      reject_stats_initialized_ = true;
-    } else {
-      if (accepted_pose_count_ >= reject_warmup_scans_) {
-        if (reject_fitness_ratio_ > 0.0 && accepted_fitness_ema_ > 1e-6) {
-          const double fitness_cap = accepted_fitness_ema_ * reject_fitness_ratio_;
-          if (fitness_sample > fitness_cap) {fitness_sample = fitness_cap;}
-        }
-        if (reject_trans_jump_ratio_ > 0.0 && accepted_trans_ema_ > 1e-3) {
-          const double trans_cap = accepted_trans_ema_ * reject_trans_jump_ratio_;
-          if (trans_sample > trans_cap) {trans_sample = trans_cap;}
-        }
-      }
-      accepted_fitness_ema_ = (1.0 - alpha) * accepted_fitness_ema_ + alpha * fitness_sample;
-      accepted_trans_ema_ = (1.0 - alpha) * accepted_trans_ema_ + alpha * trans_sample;
-    }
-    accepted_pose_count_ += 1;
-  }
-  if (reject_pose_update || soft_reject_map_update) {
-    consecutive_reject_count_ += 1;
-  } else {
-    consecutive_reject_count_ = 0;
-  }
-  if (hard_reject_pose_update) {
-    last_accepted_delta_valid_ = false;
-  }
-  if (hard_reject_pose_update) {
-    const bool activate_recovery_target =
-      !mapping_flag_ &&
-      (
-      reject_recovery_scans_ <= 1 ||
-      consecutive_reject_count_ >= reject_recovery_scans_);
-    if (activate_recovery_target) {
-      recovery_target_active_ = refreshRegistrationTargetFromTargetedCloud();
-      consecutive_reject_count_ = 0;
-      RCLCPP_WARN(
-        get_logger(),
-        "POSE_REJECT_HARD_RECOVERY stamp=%.9f frame=%s",
-        stamp.seconds(),
-        robot_frame_id_.c_str());
-    }
-    reject_stats_initialized_ = false;
-    accepted_fitness_ema_ = 0.0;
-    accepted_trans_ema_ = 0.0;
-    accepted_pose_count_ = 0;
-    elevated_fitness_streak_ = 0;
-    elevated_trans_streak_ = 0;
-    state_clean_consecutive_accepted_ = 0;
-    tracking_state_ = TrackingState::Recovery;
-    RCLCPP_WARN(
-      get_logger(),
-      "POSE_REJECT_HARD_RECOVERY stamp=%.9f frame=%s",
-      stamp.seconds(),
-      robot_frame_id_.c_str());
-  }
-  if (hard_reject_pose_update) {
-    state_clean_consecutive_accepted_ = 0;
-    if (tracking_state_ != TrackingState::Recovery) {
-      tracking_state_ = TrackingState::Recovery;
-      RCLCPP_WARN(get_logger(), "TRACKING_STATE recovery stamp=%.9f", stamp.seconds());
-    }
-  } else if (soft_reject_map_update) {
-    state_clean_consecutive_accepted_ = 0;
-    if (tracking_state_ == TrackingState::Tracking) {
-      tracking_state_ = TrackingState::Suspect;
-      RCLCPP_WARN(get_logger(), "TRACKING_STATE suspect stamp=%.9f", stamp.seconds());
-    }
-  } else if (tracking_state_ != TrackingState::Tracking) {
-    state_clean_consecutive_accepted_ += 1;
-    if (
-      tracking_state_ == TrackingState::Recovery &&
-      state_clean_consecutive_accepted_ >= recovery_clear_consecutive_accepted_)
-    {
-      tracking_state_ = TrackingState::Suspect;
-      state_clean_consecutive_accepted_ = 0;
-      RCLCPP_WARN(get_logger(), "TRACKING_STATE suspect stamp=%.9f", stamp.seconds());
-    } else if (
-      tracking_state_ == TrackingState::Suspect &&
-      state_clean_consecutive_accepted_ >= suspect_clear_consecutive_accepted_)
-    {
-      tracking_state_ = TrackingState::Tracking;
-      state_clean_consecutive_accepted_ = 0;
-      recovery_target_active_ = false;
-      RCLCPP_WARN(get_logger(), "TRACKING_STATE tracking stamp=%.9f", stamp.seconds());
-    }
-  }
-  if (previous_pose_diagnostic_valid_ && !hard_reject_pose_update) {
-    last_accepted_delta_position_ = accepted_position - previous_pose_diagnostic_position_;
-    tf2::Quaternion previous_quat_tf;
-    tf2::Quaternion current_quat_tf;
-    tf2::fromMsg(current_pose_stamped_.pose.orientation, previous_quat_tf);
-    tf2::fromMsg(accepted_quat_msg, current_quat_tf);
-    last_accepted_delta_quat_ = previous_quat_tf.inverse() * current_quat_tf;
-    last_accepted_delta_quat_.normalize();
-    last_accepted_delta_valid_ = true;
+  if (acceptance.request_recovery_target_refresh) {
+    // The decision is pure; the registration-target side effect is not.
+    pose_acceptance_state_.recovery_target_active = refreshRegistrationTargetFromTargetedCloud();
   }
   previous_pose_stamp_ = stamp;
-  previous_pose_diagnostic_position_ = accepted_position;
-  previous_pose_diagnostic_yaw_ = accepted_yaw;
-  previous_pose_diagnostic_valid_ = true;
 
-  const bool reject_map_update_now = hard_reject_pose_update || soft_reject_map_update;
-  const bool suppress_map_update =
-    reject_map_update_now || reject_map_update_cooldown_remaining_ > 0 ||
-    tracking_state_ != TrackingState::Tracking;
-  if (hard_reject_pose_update) {
-    reject_map_update_cooldown_remaining_ = hard_reject_map_update_cooldown_scans_;
-  } else if (soft_reject_map_update) {
-    reject_map_update_cooldown_remaining_ = reject_map_update_cooldown_scans_;
-  } else if (reject_map_update_cooldown_remaining_ > 0) {
-    reject_map_update_cooldown_remaining_ -= 1;
-  }
+  const Eigen::Vector3d accepted_position = acceptance.accepted_position;
+  const geometry_msgs::msg::Quaternion accepted_quat_msg = acceptance.accepted_quat_msg;
+  const bool suppress_map_update = acceptance.suppress_map_update;
 
   // Post-NDT complementary filter: blend roll/pitch with IMU for output only
   // current_pose_stamped_ keeps raw NDT result for next-frame initial guess
@@ -1577,7 +1219,7 @@ void ScanMatcherComponent::publishMapAndPose(
   if (
     imu_complementary_enable_ && imu_complementary_alpha_ > 0.0 &&
     use_imu_ && latest_imu_orientation_valid_ && cloud_imu_reference_valid_ &&
-    previous_pose_diagnostic_valid_)
+    pose_acceptance_state_.previous_pose_diagnostic_valid)
   {
     const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
     if (imu_age <= imu_pose_prediction_max_age_) {
@@ -1876,6 +1518,39 @@ Eigen::Matrix4f ScanMatcherComponent::getTransformation(const geometry_msgs::msg
   tf2::fromMsg(pose, affine);
   Eigen::Matrix4f sim_trans = affine.matrix().cast<float>();
   return sim_trans;
+}
+
+pose_acceptance::Config ScanMatcherComponent::makePoseAcceptanceConfig() const
+{
+  pose_acceptance::Config config;
+  config.diagnostic_warn_trans_jump = diagnostic_warn_trans_jump_;
+  config.diagnostic_warn_yaw_jump_deg = diagnostic_warn_yaw_jump_deg_;
+  config.reject_nonconverged_pose_update = reject_nonconverged_pose_update_;
+  config.reject_fitness_score = reject_fitness_score_;
+  config.reject_fitness_ratio = reject_fitness_ratio_;
+  config.reject_fitness_only_ratio = reject_fitness_only_ratio_;
+  config.reject_trans_only_ratio = reject_trans_only_ratio_;
+  config.reject_trans_streak_scans = reject_trans_streak_scans_;
+  config.reject_fitness_streak_ratio = reject_fitness_streak_ratio_;
+  config.reject_fitness_streak_scans = reject_fitness_streak_scans_;
+  config.reject_hard_fitness_ratio = reject_hard_fitness_ratio_;
+  config.reject_trans_jump = reject_trans_jump_;
+  config.reject_trans_jump_ratio = reject_trans_jump_ratio_;
+  config.reject_hard_trans_ratio = reject_hard_trans_ratio_;
+  config.reject_ema_alpha = reject_ema_alpha_;
+  config.motion_gate_enable = motion_gate_enable_;
+  config.motion_gate_max_linear_velocity = motion_gate_max_linear_velocity_;
+  config.motion_gate_max_yaw_rate_deg = motion_gate_max_yaw_rate_deg_;
+  config.motion_gate_hard_multiplier = motion_gate_hard_multiplier_;
+  config.reject_warmup_scans = reject_warmup_scans_;
+  config.reject_map_update_cooldown_scans = reject_map_update_cooldown_scans_;
+  config.hard_reject_map_update_cooldown_scans = hard_reject_map_update_cooldown_scans_;
+  config.reject_recovery_scans = reject_recovery_scans_;
+  config.recovery_clear_consecutive_accepted = recovery_clear_consecutive_accepted_;
+  config.suspect_clear_consecutive_accepted = suspect_clear_consecutive_accepted_;
+  config.scan_period = scan_period_;
+  config.robot_frame_id = robot_frame_id_;
+  return config;
 }
 
 pose_prediction::ImuPredictionConfig ScanMatcherComponent::makeImuPredictionConfig() const
