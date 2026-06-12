@@ -12,7 +12,12 @@ set -euo pipefail
 #     [--params lidarslam/param/lidarslam_mid360_rko_graph.yaml] \
 #     [--runs 3] [--output-dir output/offline_determinism_<timestamp>] \
 #     [--reference-tum output/glim_mid360_reference.tum] \
-#     [--ape-interpolate] [--ape-max-time-diff 0.05]
+#     [--ape-interpolate] [--ape-max-time-diff 0.05] \
+#     [--save-maps]
+#
+# --save-maps forwards refine_save_maps:=true to the runner so each run
+# writes map_optimized.pcd / map_refined.pcd (used by the release gate to
+# run the map-quality profile check on the gate-produced refined map).
 #
 # When --reference-tum is given, each run's trajectory_optimized.tum is also
 # scored with scripts/ape_from_tum.py (report only; the gate is byte
@@ -32,6 +37,7 @@ OUTPUT_DIR="${REPO_ROOT}/output/offline_determinism_$(date +%Y%m%d_%H%M%S)"
 REFERENCE_TUM=""
 APE_INTERPOLATE=false
 APE_MAX_TIME_DIFF="0.05"
+SAVE_MAPS=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -42,6 +48,7 @@ while [[ $# -gt 0 ]]; do
     --reference-tum) REFERENCE_TUM="$2"; shift 2 ;;
     --ape-interpolate) APE_INTERPOLATE=true; shift ;;
     --ape-max-time-diff) APE_MAX_TIME_DIFF="$2"; shift 2 ;;
+    --save-maps) SAVE_MAPS=true; shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -70,10 +77,16 @@ for i in $(seq 1 "${RUNS}"); do
   run_dir="${OUTPUT_DIR}/run${i}"
   mkdir -p "${run_dir}"
   echo "--- run ${i}/${RUNS}"
-  ros2 run graph_based_slam graph_slam_offline_runner --ros-args \
-    --params-file "${PARAMS}" \
-    -p bag_path:="${BAG}" \
-    -p output_dir:="${run_dir}" \
+  RUNNER_CMD=(
+    ros2 run graph_based_slam graph_slam_offline_runner --ros-args
+    --params-file "${PARAMS}"
+    -p bag_path:="${BAG}"
+    -p output_dir:="${run_dir}"
+  )
+  if [[ "${SAVE_MAPS}" == "true" ]]; then
+    RUNNER_CMD+=(-p refine_save_maps:=true)
+  fi
+  "${RUNNER_CMD[@]}" \
     > "${run_dir}/runner.log" 2>&1
   md5sum "${run_dir}/loop_edges.csv" "${run_dir}/trajectory_optimized.tum"
   if [[ -n "${REFERENCE_TUM}" ]]; then

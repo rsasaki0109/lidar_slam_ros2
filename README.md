@@ -41,6 +41,14 @@ artifacts you need downstream:
   produce *byte-identical* trajectories, loop edges and submaps on every run
   (verified 3-run on MID-360 and NTU VIRAL); the release gate enforces both
   (`--offline-determinism-bag` / `--frontend-determinism-bag`).
+- **Globally refined, quality-gated maps** — an offline hierarchical plane
+  bundle adjustment (clean-room, BSD-2) refines the submap poses after graph
+  optimization (default on in the offline runner) and the result is held to
+  explicit map-quality thresholds (plane thickness, planar coverage, mean map
+  entropy) with holdout-validated per-profile tables. On every ground-truth
+  substrate the refinement improves trajectory APE *and* map crispness
+  simultaneously (NTU −3.2 %, construction −1.5 %/−0.7 %), byte-reproducibly
+  ([evidence](docs/research/map-quality-baseline.md)).
 - **GNSS georeferencing** — optional GNSS constraints and projector metadata for
   real-world coordinates.
 
@@ -211,6 +219,9 @@ and `Thirdparty/3d_bbs` are gated by `COLCON_IGNORE`.
 ```bash
 bash scripts/run_default_ci_checks.sh
 bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10
+# map-quality thresholds on the gate-produced refined map (v0.7):
+#   --offline-determinism-bag <backend_input> \
+#   --offline-determinism-map-quality-profile configs/map_quality_profiles/indoor_construction.yaml
 ```
 
 Reference commands and parameter pointers live in [docs/workflows.md](docs/workflows.md).

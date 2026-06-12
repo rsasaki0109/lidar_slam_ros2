@@ -51,6 +51,13 @@ Options:
   --offline-determinism-reference-tum <tum>
                                 Optional reference trajectory; adds per-run APE
                                 to the determinism report (report only)
+  --offline-determinism-map-quality-profile <yaml>
+                                Run the map-quality threshold profile on the
+                                refined map produced BY the determinism gate
+                                itself (v0.7 Phase 3): forwards --save-maps to
+                                the determinism runs and then checks
+                                run1/map_refined.pcd against this profile
+                                (blocking profiles fail the gate on violation)
   --map-quality-pcd <path>[@<profile>]
                                 Run the map-quality metrics stage (v0.7,
                                 docs/roadmap/v0.7.md) on this map PCD file
@@ -144,6 +151,7 @@ OFFLINE_DETERMINISM_BAG=""
 OFFLINE_DETERMINISM_RUNS=""
 OFFLINE_DETERMINISM_PARAMS=""
 OFFLINE_DETERMINISM_REFERENCE_TUM=""
+OFFLINE_DETERMINISM_MAP_QUALITY_PROFILE=""
 MAP_QUALITY_PCDS=()
 MAP_QUALITY_PROFILES=()
 MAP_QUALITY_DOWNSAMPLE=""
@@ -271,6 +279,11 @@ while [[ $# -gt 0 ]]; do
     --offline-determinism-reference-tum)
       [[ $# -ge 2 ]] || usage
       OFFLINE_DETERMINISM_REFERENCE_TUM=$(realpath -m "$2")
+      shift 2
+      ;;
+    --offline-determinism-map-quality-profile)
+      [[ $# -ge 2 ]] || usage
+      OFFLINE_DETERMINISM_MAP_QUALITY_PROFILE=$(realpath -m "$2")
       shift 2
       ;;
     --map-quality-pcd)
@@ -467,7 +480,25 @@ if [[ -n "${OFFLINE_DETERMINISM_BAG}" ]]; then
   if [[ -n "${OFFLINE_DETERMINISM_REFERENCE_TUM}" ]]; then
     OFFLINE_DETERMINISM_CMD+=(--reference-tum "${OFFLINE_DETERMINISM_REFERENCE_TUM}")
   fi
+  if [[ -n "${OFFLINE_DETERMINISM_MAP_QUALITY_PROFILE}" ]]; then
+    OFFLINE_DETERMINISM_CMD+=(--save-maps)
+  fi
   "${OFFLINE_DETERMINISM_CMD[@]}" 2>&1 | tee "${OUT_DIR}/offline_determinism.log"
+
+  if [[ -n "${OFFLINE_DETERMINISM_MAP_QUALITY_PROFILE}" ]]; then
+    echo "==> Checking the gate-produced refined map against the map-quality profile"
+    REFINED_MAP="${OUT_DIR}/offline_determinism/run1/map_refined.pcd"
+    if [[ ! -f "${REFINED_MAP}" ]]; then
+      echo "refined map not found: ${REFINED_MAP}" >&2
+      echo "(the determinism stage must run with refine enabled to produce it)" >&2
+      exit 1
+    fi
+    bash "${REPO_ROOT}/scripts/run_map_quality_check.sh" \
+      --input "${REFINED_MAP}" \
+      --output-dir "${OUT_DIR}/offline_determinism_map_quality" \
+      --profile "${OFFLINE_DETERMINISM_MAP_QUALITY_PROFILE}" \
+      2>&1 | tee "${OUT_DIR}/offline_determinism_map_quality.log"
+  fi
 fi
 
 if [[ -n "${FRONTEND_DETERMINISM_BAG}" ]]; then
