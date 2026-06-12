@@ -341,10 +341,10 @@ inline PlaneCostResult evaluatePlaneCost(
       const double hessian_value =
         detail::quadraticForm(second_derivative, u0) +
         detail::eigenvectorCurvatureTerm(
-          row_derivative.a,
-          column_derivative.a,
-          eigenvectors,
-          eigenvalues);
+        row_derivative.a,
+        column_derivative.a,
+        eigenvectors,
+        eigenvalues);
 
       const int row = 6 * row_derivative.pose_index + row_derivative.axis;
       const int column = 6 * column_derivative.pose_index + column_derivative.axis;
