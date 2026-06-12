@@ -1,0 +1,12 @@
+# Phase 3 rollout mirrors the v0.5 GT-gate rollout: indoor profiles block first
+# while outdoor profiles remain report-only until calibration evidence lands.
+# Thresholds marked PROVISIONAL are replaced by the Phase 3 calibration PR.
+map_quality_profile:
+  name: indoor_construction
+  enforcement: blocking
+  require_meaningful_planes: true
+  thresholds:
+    # PROVISIONAL values - calibrated in the Phase 3 evidence PR (holdout-validated).
+    thickness_rms_mean_max_m: 0.999
+    planar_coverage_min: 0.001
+    mme_valid_fraction_min: 0.5
