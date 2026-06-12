@@ -5,7 +5,6 @@ graph_based_slam:
     ndt_num_threads: 0
     voxel_leaf_size: 0.2
 
-    loop_detection_period: 1000
     # Relaxed from 15.0 to 50.0 to actually fire loop closures on
     # driving_slam_mid360. With the strict 15.0 threshold all 20
     # nearest-revisit candidates (fitness 33-93) are rejected.
