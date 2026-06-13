@@ -52,4 +52,5 @@ nav:
       - v0.2.1: releases/v0.2.1.md
       - v0.2.0: releases/v0.2.0.md
   - Research:
+      - Byte-Reproducible Map Authoring: research/byte-reproducible-map-authoring.md
       - Triangle Stack (2026-05): research/triangle-stack-2026-05-summary.md
