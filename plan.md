@@ -28,16 +28,30 @@ event-driven loop search default 化、実バグ修正（~6% 入力ドロップ 
 IMU/GNSS 誤ブロック重み / tie-break 欠落 / GNSS yaw 整合 = 初の
 georeferenced マップ）、god object 分解（純ヘッダ 19+4 本、テスト 1100 超）。
 
-次の主要アクション: **v0.7 オフラインマップリファインメント + マップ品質
-ゲート**（[`docs/roadmap/v0.7.md`](docs/roadmap/v0.7.md)、方向性承認
-2026-06-12）。SOTA 戦略 = raw odometry では戦わず「マップ品質 × 再現性 ×
-検証可能性」（map authoring の SOTA）を取る: Phase 0 legacy timer 削除 →
-Phase 1 マップ品質メトリクス（MME/平面厚）baseline → Phase 2 clean-room
-（BSD-2、論文ベース、GPL 参照禁止）の HBA/BALM2 風 階層平面 BA → Phase 3
-ゲート昇格 + クレーム。v0.8 候補 = 退化検出 / マルチセッション / 動的除去 /
-intensity / HILTI 基盤。並行: bloom リリース実行（ndt_omp_ros2 fork 先行、
-`docs/rosdistro-release.md`、maintainer の GitHub 操作）、発信（P2-8、
-v0.6.0 の決定論クレームが素材）。
+**v0.7 完了（2026-06-13, PR #264–#279）**: オフラインマップリファインメント
++ マップ品質ゲート（map authoring の SOTA、[`docs/roadmap/v0.7.md`](docs/roadmap/v0.7.md)）。
+Phase 0 legacy timer 削除（#265、md5 不変で挙動保存証明）→ Phase 1 凍結
+マップ品質メトリクス（MME/平面厚/coverage、optimizer が自分の審判を
+動かせないよう先に凍結、#266/#267）→ Phase 2 clean-room（BSD-2、論文
+のみ、GPL 参照禁止）BALM2/HBA 風 階層平面 BA（#268–#274、6 層ライブラリ +
+有限差分・合成 GT オラクル、「間違ったマップを磨く」故障を prior で抑止）
+→ Phase 3 holdout 検証付き閾値 + refine default-on（#275–#278、tuning は
+cs1+NTU のみ→holdout cs2 を未接触で 5/5 PASS）。**実 GT 3 基盤すべてで
+リファインメントが軌跡とマップを同時改善**（APE NTU −3.2% / cs1 −0.7% /
+cs2 −1.5%、壁厚 −12.4%/−3.7%/−4.0%、3-run バイト一致）。クロージング
+full gate green。発信用技術 writeup（#279、`docs/research/byte-reproducible-map-authoring.md`）。
+
+**進行中: v0.7 Phase 4（stretch）= HILTI 2022 外部 mm-GT 評価基盤**
+（§2.4、task #18）。exp01 construction ground level で RKO-LIO 生
+オドメトリが mm 制御点に対し **6.6cm RMSE**（優秀）。所見: 短く追従良好な
+228s シーケンスでは MID-360 長尺向けデフォルトのループ閉じ込みが過剰発火
+し corrected は悪化（0.89m）— 短尺・低ドリフトシーケンスでは frontend が
+deliverable という評価上の発見。
+
+次の候補: bloom リリース実行（task #14、ndt_omp_ros2 fork 先行、
+`docs/rosdistro-release.md`、maintainer の GitHub 操作）/ v0.8 スコープ
+（退化検出 / マルチセッション / 動的除去 / intensity / HILTI 拡張）/
+発信（v0.6 決定論 + v0.7 リファインメント evidence が素材、1000 スター施策）。
 
 ---
 
@@ -164,6 +178,25 @@ indoor で 0.15–0.40m（真 GT, agreement でなく accuracy）。outdoor の�
 **correspondence starvation** で、`double_downsample: false` のみで 0.835m に改善
 （粗 voxel 1.0m 案は 2.348m で却下）。outdoor preset:
 `configs/mid360_robot/rko_lio_rtk_slam_mid360_outdoor.yaml`。詳細・経緯・profile は §11。
+
+#### 2.4 HILTI 2022 exp01（228s, Hesai PandarXT-32, Alphasense IMU, mm 制御点 GT）
+
+外部 mm 級 GT 評価基盤（v0.7 Phase 4、CC BY-NC-SA、評価専用・再配布なし）。
+公開チャレンジの total-station 制御点（疎、静止時取得）に対し
+`ape_from_tum.py --interpolate` で採点（download: `scripts/download_hilti2022_exp01.sh`、
+config: `configs/hilti2022/rko_lio_hilti2022_pandar.yaml`、voxel 0.25 / deskew on）：
+
+| 手法 | RMSE (m) | median | max | pairs | 備考 |
+|---|---|---|---|---|---|
+| **RKO-LIO raw** | **0.066** | 0.053 | 0.128 | 13 | mm-GT 比で優秀 |
+| RKO-LIO + loop closure | 0.891 | 0.783 | 1.432 | 12 | デフォルトループ過剰発火で悪化 |
+
+**所見**: 短く追従良好な構造化 indoor シーケンスでは生オドメトリ（6.6cm）が
+deliverable。MID-360 長尺向けにチューンされたデフォルトのループ閉じ込みが
+誤候補（fitness 4–10）を受理して corrected を悪化させる。lidarslam graph
+profile の per-substrate 化（短尺・低ドリフトはループ閾値を厳格化 or 無効）が
+今後の課題。extrinsic は calibration の quaternion を `[x,y,z,w]` として読むのが
+正（`[w,x,y,z]` 解釈は z が −229m に発散、経験的に確定）。
 
 ---
 
@@ -335,7 +368,8 @@ indoor で 0.15–0.40m（真 GT, agreement でなく accuracy）。outdoor の�
 | 0b | ~~v0.5 indoor pair を blocking 昇格 + mid360_vs_glim 降格~~ | ✅ PR #228。4/4 seq 計測、indoor blocking、glim は report-only canary（§11.8 C） |
 | 0c | **bloom リリース実行（P2-7 後半）** | repo 側 prep 完了（0.5.0 整列 + ランブック `docs/rosdistro-release.md`）。残り = ndt_omp_ros2 fork PR #11 マージ（整備 PR 作成済み）→ 先行 bloom → 本体 bloom → ros/rosdistro PR（maintainer の GitHub 操作が必要、§13） |
 | 0f | ~~v0.6 決定論 core/shell リファクタリング~~ | ✅ 2026-06-12 完遂（PR #237–#263、tag v0.6.0 + pre-release）。全フェーズゲート PASS: 両基盤 3-run バイト一致（backend + frontend）、event-driven default 化、純ヘッダ 19+4 本。詳細 [`docs/roadmap/v0.6.md`](docs/roadmap/v0.6.md)、[`docs/releases/v0.6.0.md`](docs/releases/v0.6.0.md) |
-| 0g | **v0.7 マップリファインメント + 品質ゲート** | 方向性承認（2026-06-12）。Phase 0 legacy timer 削除 → Phase 1 マップ品質メトリクス baseline（MME/平面厚、report-only）→ Phase 2 clean-room 階層平面 BA（BSD-2、論文ベース; 合成 GT 回復 + 3-run バイト一致 + APE 無回帰がハードゲート）→ Phase 3 default 化 + blocking 閾値。詳細 [`docs/roadmap/v0.7.md`](docs/roadmap/v0.7.md) |
+| 0g | ~~v0.7 マップリファインメント + 品質ゲート~~ | ✅ 2026-06-13 完遂（PR #264–#279）。Phase 0–3 全 PASS: clean-room 階層平面 BA、holdout 検証済み blocking 閾値、refine default-on、実 GT 3 基盤で APE+マップ同時改善、クロージング full gate green。詳細 [`docs/roadmap/v0.7.md`](docs/roadmap/v0.7.md)、[`docs/research/byte-reproducible-map-authoring.md`](docs/research/byte-reproducible-map-authoring.md) |
+| 0h | **v0.7 Phase 4: HILTI 2022 外部 mm-GT 基盤（進行中）** | exp01 で RKO-LIO 生 6.6cm RMSE（§2.4、task #18）。残り = ループ過剰発火の per-substrate profile 化、exp07 long corridor（退化シナリオ）追加、評価基盤の PR 化。download/config は repo 投入候補 |
 | 0d | ~~D1 8-vs-16 再現性ベンチ~~ | ✅ 2026-06-11 実施（GLIM MID-360 bag、3 run × {off/16, on/16, on/8}）。on/16 は APE 実質無回帰（差 0.06m ≪ noise 0.40m）だが分散縮小なし（σ 0.066→0.259）、on/8 arm の 2 実行で loop 試行ゼロ。mp8 の系統的 regression 署名は消滅し乱高下に置換（スケジューリング主要因子と整合、根本原因の証明ではない）。**default off 維持で D1 完全クローズ**（§1.2、research summary） |
 | 0e | **発信（P2-8）** | ghcr ワンコマンド + lanelet2 完全バンドル + 実 GT 数値が揃い、発信material は完成状態。ROS Discourse / Reddit / X はユーザー本人が実施。事前に B2 social preview 設定（Web UI 1 分） |
 | 1 | **GNSS odom→ENU yaw 整合の実装** | 初検証（2026-06-12）で制約形成 ✅・LocalCartesian projector ✅ まで実証済み。残るは yaw 整合（ENU トラックとの 2D 最小二乗 → アンカー回転 or vertex-0 gauge 解放）。これが入ると GNSS georeferencing が実用になる。`docs/research/gnss-constraint-first-validation.md` |
