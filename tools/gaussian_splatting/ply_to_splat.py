@@ -5,10 +5,10 @@
 WebGL viewer vendored under ``docs/assets/3dgs-viewer/`` (antimatter15/splat).
 Each Gaussian is packed into 32 bytes:
 
-    float32 x, y, z          (12)  position
-    float32 sx, sy, sz       (12)  scale == exp(scale_log)
+    float32 x, y, z          (12)  position (little-endian)
+    float32 sx, sy, sz       (12)  scale == exp(scale_log) (little-endian)
     uint8   r, g, b, a        (4)  band-0 colour + sigmoid(opacity)
-    uint8   qx, qy, qz, qw     (4)  unit quaternion * 128 + 128
+    uint8   qw, qx, qy, qz     (4)  unit quaternion * 128 + 128 (INRIA w,x,y,z)
 
 Splats are emitted in descending order of ``volume * opacity`` so the viewer's
 progressive loader draws the most significant Gaussians first. ``--max-points``
@@ -33,7 +33,8 @@ SPLAT_BYTES = 32
 
 
 def _sigmoid(x: np.ndarray) -> np.ndarray:
-    return 1.0 / (1.0 + np.exp(-x))
+    # Clip to a saturating range so huge-magnitude logits don't overflow exp().
+    return 1.0 / (1.0 + np.exp(-np.clip(x, -60.0, 60.0)))
 
 
 def gaussians_to_splat_bytes(means: np.ndarray, scales_log: np.ndarray,
@@ -51,20 +52,29 @@ def gaussians_to_splat_bytes(means: np.ndarray, scales_log: np.ndarray,
     of giant splats otherwise streak across arbitrary web-viewer angles.
     Returns the raw bytes.
     """
+    if max_points is not None and max_points <= 0:
+        raise ValueError(f'max_points must be positive or None, got {max_points}')
     means = np.asarray(means, dtype=np.float32)
     scales = np.exp(np.asarray(scales_log, dtype=np.float32))
     quats = np.asarray(quats, dtype=np.float64)
-    opac = np.asarray(opacities_logit, dtype=np.float64)
+    opac = np.asarray(opacities_logit, dtype=np.float64).reshape(-1)
     colors = np.asarray(colors_rgb, dtype=np.float64)
     n = means.shape[0]
-    if not (scales.shape[0] == quats.shape[0] == opac.shape[0]
-            == colors.shape[0] == n):
-        raise ValueError('all Gaussian arrays must share the leading dimension')
+    if n == 0:
+        raise ValueError('no Gaussians to convert (empty input)')
+    if not (means.shape == (n, 3) and scales.shape == (n, 3)
+            and colors.shape == (n, 3) and quats.shape == (n, 4)
+            and opac.shape == (n,)):
+        raise ValueError(
+            'shape mismatch: expected means/scales/colors (N,3), quats (N,4), '
+            f'opacity (N,), got {means.shape}/{scales.shape}/{colors.shape}/'
+            f'{quats.shape}/{opac.shape}')
 
     alpha = _sigmoid(opac)
-    keep = alpha >= min_opacity
+    keep = (alpha >= min_opacity)
+    keep &= np.isfinite(means).all(axis=1) & np.isfinite(scales).all(axis=1)
     if max_scale is not None:
-        keep = keep & (scales.max(axis=1) <= max_scale)
+        keep &= (scales.max(axis=1) <= max_scale)
     if not np.any(keep):
         raise ValueError(
             f'min_opacity={min_opacity} / max_scale={max_scale} pruned every '
@@ -92,8 +102,10 @@ def gaussians_to_splat_bytes(means: np.ndarray, scales_log: np.ndarray,
     rot = np.clip((quats / norm) * 128.0 + 128.0, 0, 255).astype(np.uint8)
 
     buf = np.empty((order.size, SPLAT_BYTES), dtype=np.uint8)
-    buf[:, 0:12] = means.view(np.uint8).reshape(order.size, 12)
-    buf[:, 12:24] = scales.view(np.uint8).reshape(order.size, 12)
+    # Force little-endian: the JS viewer reads the float32s as LE regardless of
+    # the host byte order.
+    buf[:, 0:12] = means.astype('<f4').view(np.uint8).reshape(order.size, 12)
+    buf[:, 12:24] = scales.astype('<f4').view(np.uint8).reshape(order.size, 12)
     buf[:, 24:28] = rgba
     buf[:, 28:32] = rot
     return buf.tobytes()

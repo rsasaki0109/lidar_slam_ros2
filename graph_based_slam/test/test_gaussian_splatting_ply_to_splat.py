@@ -32,6 +32,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import struct
 import sys
 
 import numpy as np
@@ -158,6 +159,55 @@ def test_quaternion_is_normalised_and_packed():
     _, _, _, rot = _decode(blob)
     # (1,0,0,0) * 128 + 128 -> (255, 128, 128, 128) after clipping.
     np.testing.assert_array_equal(rot[0], np.array([255, 128, 128, 128]))
+
+
+def test_golden_single_splat_bytes():
+    # Pins endianness, 32-byte stride, RGBA quantisation, and quaternion order
+    # against an independent struct-packed reference.
+    means = np.array([[1.0, 2.0, 3.0]])
+    scales_log = np.zeros((1, 3))            # exp(0) -> scale 1.0
+    quats = np.array([[1.0, 0.0, 0.0, 0.0]])  # (w, x, y, z)
+    opac = np.array([0.0])                   # sigmoid(0) -> 0.5
+    colors = np.array([[0.5, 0.25, 1.0]])
+    blob = p2s.gaussians_to_splat_bytes(means, scales_log, quats, opac, colors)
+    expected = (struct.pack('<fff', 1.0, 2.0, 3.0)
+                + struct.pack('<fff', 1.0, 1.0, 1.0)
+                + bytes([127, 63, 255, 127])      # 0.5*255->127, 0.25*255->63, a
+                + bytes([255, 128, 128, 128]))    # (1,0,0,0)*128+128, 256 clip 255
+    assert blob == expected
+
+
+def test_max_points_non_positive_raises():
+    means, scales_log, quats, opac, colors = _gaussian_set()
+    for bad in (0, -1):
+        with pytest.raises(ValueError):
+            p2s.gaussians_to_splat_bytes(
+                means, scales_log, quats, opac, colors, max_points=bad)
+
+
+def test_empty_input_raises():
+    empty = np.zeros((0, 3))
+    with pytest.raises(ValueError):
+        p2s.gaussians_to_splat_bytes(
+            empty, empty, np.zeros((0, 4)), np.zeros((0,)), empty)
+
+
+def test_column_vector_opacity_is_accepted():
+    # opacities_logit as (N, 1) must not broadcast the keep mask to (N, N).
+    means, scales_log, quats, opac, colors = _gaussian_set(n=4)
+    blob = p2s.gaussians_to_splat_bytes(
+        means, scales_log, quats, opac.reshape(-1, 1), colors)
+    assert len(blob) == SPLAT_BYTES * 4
+
+
+def test_non_finite_gaussians_are_dropped():
+    means, scales_log, quats, opac, colors = _gaussian_set(n=4)
+    means = means.copy()
+    means[1] = np.nan
+    scales_log = scales_log.copy()
+    scales_log[2] = np.inf
+    blob = p2s.gaussians_to_splat_bytes(means, scales_log, quats, opac, colors)
+    assert len(blob) == SPLAT_BYTES * 2
 
 
 def test_ply_roundtrip_through_disk(tmp_path):
