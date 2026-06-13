@@ -766,7 +766,13 @@ async function main() {
 
     const rowLength = 3 * 4 + 3 * 4 + 4 + 4;
     const reader = req.body.getReader();
-    let splatData = new Uint8Array(req.headers.get("content-length"));
+    // Local modification (lidarslam_ros2): the content-length is unreliable when
+    // the server gzips the response (GitHub Pages reports the COMPRESSED length),
+    // which is both too small and not a multiple of rowLength -- the worker's
+    // Float32Array view over the buffer then threw. Treat it as a hint only,
+    // rounded up to a whole splat, and grow as the decoded stream arrives.
+    const sizeHint = parseInt(req.headers.get("content-length")) || 0;
+    let splatData = new Uint8Array(Math.ceil(sizeHint / rowLength) * rowLength);
 
     const downsample =
         splatData.length / rowLength > 500000 ? 1 : 1 / devicePixelRatio;
@@ -1459,6 +1465,17 @@ async function main() {
         const { done, value } = await reader.read();
         if (done || stopLoading) break;
 
+        // Local modification (lidarslam_ros2): grow the buffer to fit the
+        // decoded stream when the (gzip) content-length hint was too small.
+        // Keep the length a whole number of splats so the worker's Float32Array
+        // view stays 4-byte aligned.
+        if (bytesRead + value.length > splatData.length) {
+            const needed =
+                Math.ceil((bytesRead + value.length) / rowLength) * rowLength;
+            const grown = new Uint8Array(Math.max(needed, splatData.length * 2));
+            grown.set(splatData.subarray(0, bytesRead));
+            splatData = grown;
+        }
         splatData.set(value, bytesRead);
         bytesRead += value.length;
 
