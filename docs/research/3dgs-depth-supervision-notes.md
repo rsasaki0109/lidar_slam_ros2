@@ -85,6 +85,31 @@ koide の保留視点（held-out）で実測した深度分布（同一視点、
 [3dgs-trajectory-flythrough-notes.md](3dgs-trajectory-flythrough-notes.md)）は突いていない。
 外挿下での幾何保持は次段の検証課題。）
 
+## 外挿下の幾何保持 — 軌跡から外れても面に乗るか (2026-06-13)
+
+内挿（hold-every-N）でなく**外挿**を直接突く。各 held-out 視点をカメラ右方向へ
+ドリー（0/0.2/0.4/0.8m）し、各 offset で LiDAR を投影した GT 深度に対する**レンダ深度
+の中央誤差**を測る（GT 画像不要・純幾何）。RTK-SLAM walk の学習済み ply で:
+
+| ドリー量 | base | depth λ=0.002 | depth λ=0.02 |
+|----------|------|---------------|--------------|
+| 0.0 m | 349 cm | 35 cm | 20 cm |
+| 0.2 m | 330 cm | 39 cm | 26 cm |
+| 0.4 m | 290 cm | 42 cm | 30 cm |
+| 0.8 m | 184 cm | 45 cm | 34 cm |
+
+- **base は全 offset で数 m ズレ**（幾何が至る所で空洞、offset 0 ですら 349cm）。
+- **深度教師ありは 0.8m 外挿しても 35→45cm に保持**（+10cm/0.8m のみ）= 幾何が外挿下でも
+  崩れず緩やかに劣化。**約 6〜10 倍忠実**。
+
+**重要な限界（正直所見）**: RGB を同条件で外挿レンダすると、**深度教師ありでも床に
+floater（散乱ブロブ）が現れ、見た目の novel-view 崩壊は防げない**（base と同程度）。
+深度教師ありは Gaussian の**位置（深度）を実面に固定する**が、**視点依存の見え
+（色・grazing opacity・未モデルのブラー）は直さない**。すなわち本レバーは
+**「幾何忠実度の保険」であって「photoreal な novel-view 描画の修正」ではない**。
+photoreal flythrough の限界は依然キャプチャ品質律速
+（[3dgs-trajectory-flythrough-notes.md](3dgs-trajectory-flythrough-notes.md)）。
+
 ## 位置づけと既定
 
 - **既定 OFF（opt-in）**。他の品質レバー同様、PSNR を払うので default では入れない。
@@ -107,8 +132,10 @@ python3 tools/gaussian_splatting/train_gsplat.py \
 
 ## 残課題 / 次レバー
 
-- 退化シーン（HILTI exp07 廊下、RTK-SLAM 歩行窓）での効果測定。floater が支配的なほど
-  深度教師ありの相対利得は大きいはず。
+- ✅ 2 シーン目クロス検証（RTK-SLAM）・✅ 外挿下の幾何保持 = 上記で完了。
+- **見た目の novel-view 崩壊**（外挿で残る floater/blob）は深度教師ありの範囲外。
+  視点依存色・grazing opacity・モーションブラーのモデル化が別途必要。
 - depth loss の warmup / densify 後半のみ適用で PSNR 代償を圧縮できるか。
 - scale-invariant / 相対深度損失で大深度シーンの重み付けを改善。
-- 深度教師あり前提なら **法線/平面正則化**（2DGS 系）も自然な次段。
+- 深度教師あり前提なら **法線/平面正則化**（2DGS 系）も自然な次段（外挿下の floater
+  抑制にも効く可能性）。
