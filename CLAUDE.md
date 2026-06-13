@@ -107,7 +107,7 @@ python3 scripts/simple_lanelet2_generator.py \
 | `run_rko_lio_graph_benchmark.sh` | ベンチマークパイプライン |
 | `run_autoware_quickstart.sh` | NTU VIRAL → Autoware マップ E2E |
 | `download_ntu_viral_tnp01.sh` | NTU VIRAL データダウンロード |
-| `download_hilti2022_exp01.sh` | HILTI 2022 exp01 DL + ROS2 変換（外部 mm-GT 評価基盤、PandarXT-32）|
+| `download_hilti2022.sh` | HILTI 2022 DL + ROS2 変換（`--sequence exp01\|exp07`、外部 mm-GT 評価基盤、PandarXT-32）|
 | `run_docker_demo.sh` | Docker ワンコマンドデモ（MID-360 bag DL → headless SLAM）|
 
 ### AWSIM・Autoware
