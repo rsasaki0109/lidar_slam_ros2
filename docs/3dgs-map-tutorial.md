@@ -115,12 +115,14 @@ koide（近接密カラー、30 視点）で 8 つの品質レバーを検証し
 | antialiased (`--antialiased`) | **-0.6dB（逆効果）** | OFF |
 | MCMCStrategy (`--mcmc`) | **-1.3〜-1.5dB（LiDAR-primed と不適合）** | OFF |
 | LiDAR 深度教師 (`--lidar-depth-lambda 0.002`) | **新規視点 深度 21m→0.4m**（PSNR -1dB） | OFF |
+| 2DGS surfel + 平面正則化 | **負（深度教師ありに勝てず・外挿不安定）** | 非採用 |
 
 詳細な ablation:
 [`research/3dgs-koide-first-light.md`](research/3dgs-koide-first-light.md) /
 [`research/3dgs-sh-degree-notes.md`](research/3dgs-sh-degree-notes.md) /
 [`research/3dgs-mcmc-notes.md`](research/3dgs-mcmc-notes.md) /
-[`research/3dgs-depth-supervision-notes.md`](research/3dgs-depth-supervision-notes.md)。
+[`research/3dgs-depth-supervision-notes.md`](research/3dgs-depth-supervision-notes.md) /
+[`research/3dgs-2dgs-notes.md`](research/3dgs-2dgs-notes.md)。
 
 **見た目 ≠ 幾何**: photometric-only は綺麗でも新規視点の深度が約 10 倍ズレる（floater）。
 幾何忠実なマップが要るなら `--lidar-depth-lambda` で LiDAR 実面に整列させる
