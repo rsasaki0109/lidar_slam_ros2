@@ -407,7 +407,8 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
                   ssim_lambda: float = 0.0, knn_scale: bool = False,
                   sh_degree: Optional[int] = None,
                   antialiased: bool = False, mcmc: bool = False,
-                  mcmc_cap: int = 500000) -> dict:
+                  mcmc_cap: int = 500000,
+                  lidar_depth_lambda: float = 0.0) -> dict:
     """Train with gsplat DefaultStrategy adaptive density control (densify/prune).
 
     Same I/O contract as ``train`` but the Gaussian count grows/shrinks via the
@@ -429,7 +430,31 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     (per-channel gain + bias applied to the render inside the loss only),
     absorbing auto-exposure/white-balance differences between merged sessions.
     Group 0 is the reference, so the exported Gaussians keep its exposure.
+
+    ``lidar_depth_lambda`` (>0) adds a LiDAR depth-supervision term: the init
+    cloud is projected into every view as a sparse ground-truth depth map and
+    the rendered expected depth (gsplat ``RGB+ED``) is pulled towards it with an
+    L1 loss at those pixels. The LiDAR carries metric geometry, so this anchors
+    the Gaussians to the real surface and curbs the view-dependent floaters /
+    collapse that photometric-only training leaves on sparse captures. Requires
+    ``init_points`` (the LiDAR cloud) -- raises ``ValueError`` without them, and
+    is mutually exclusive with the pose-optimisation levers (the GT depth is
+    projected at fixed poses, and trusting vs distrusting the poses is
+    contradictory).
     """
+    if lidar_depth_lambda > 0.0:
+        if init_points is None or len(init_points) == 0:
+            raise ValueError('lidar_depth_lambda>0 requires an init point cloud '
+                             '(--init-ply) to supervise depth against')
+        if optimize_extrinsic or optimize_pose_groups:
+            # The depth GT is projected once from the given viewmats; pose
+            # self-calibration moves the cameras under it, so the rendered depth
+            # and GT would drift into different frames. The two levers are also
+            # contradictory in intent (depth supervision trusts the LiDAR
+            # geometry; pose refinement distrusts the poses). Forbid the combo.
+            raise ValueError('lidar_depth_lambda is incompatible with '
+                             '--optimize-extrinsic / --optimize-pose-groups '
+                             '(GT depth is projected at fixed poses)')
     import torch
     import torch.nn.functional as F
     import imageio.v3 as iio
@@ -476,6 +501,30 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
             img = np.stack([img] * 3, axis=-1)
         gts.append(torch.tensor(img[..., :3], device=dev))
     gts = torch.stack(gts)
+
+    # LiDAR depth supervision: project the init cloud into every view as a
+    # sparse GT depth map (flattened pixel index + metric z), kept on-device for
+    # a cheap gather in the loss. Built once; only the current view is used per
+    # iter. Empty views (no points project) simply contribute no depth term.
+    depth_gt = None
+    if lidar_depth_lambda > 0.0:
+        import pointcloud_io as _pcio
+        maps = _pcio.project_depth_maps(
+            np.asarray(init_points, dtype=np.float64),
+            dataset['viewmats'], dataset['K'], W, H)
+        depth_gt = [(torch.tensor(pix, dtype=torch.long, device=dev),
+                     torch.tensor(d, dtype=torch.float32, device=dev))
+                    for pix, d in maps]
+        n_sup = sum(int(p.numel()) for p, _ in depth_gt)
+        if n_sup == 0:
+            # No init point projects into any view -- almost always a bad
+            # extrinsic or a cloud/camera frame mismatch. Fail loudly rather
+            # than train a silent photometric-only model.
+            raise ValueError('lidar_depth_lambda>0 but the init cloud projects '
+                             'into 0 pixels across all views (check extrinsics/'
+                             'frames)')
+        print(f'LiDAR depth supervision: {n_sup} GT pixels over '
+              f'{len(depth_gt)} views (lambda={lidar_depth_lambda})', flush=True)
 
     if mcmc:
         # MCMC keeps a fixed Gaussian budget (cap_max) and relocates dead/low-
@@ -533,14 +582,19 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
 
     rasterize_mode = 'antialiased' if antialiased else 'classic'
 
-    def render_view(i, vm=None):
+    def render_view(i, vm=None, *, with_depth=False):
         out, _, info = rasterization(
             params['means'], F.normalize(params['quats'], dim=-1),
             torch.exp(params['scales']), torch.sigmoid(params['opacities']),
             _colors_arg(),
             viewmats[i:i + 1] if vm is None else vm, K, W, H,
             sh_degree=sh_degree, rasterize_mode=rasterize_mode, packed=False,
+            render_mode='RGB+ED' if with_depth else 'RGB',
         )
+        if with_depth:
+            # RGB+ED packs expected depth as the trailing channel: (H,W,4).
+            assert out.shape[-1] == 4, f'expected RGB+ED (4 ch), got {out.shape}'
+            return out[0][..., :3], out[0][..., 3], info
         return out[0], info
 
     loss_history: list[float] = []
@@ -551,13 +605,23 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
             vm = (vm[0] @ _se3_exp_torch(taus_g[groups[idx]]))[None]
         if optimize_extrinsic:
             vm = (_se3_exp_torch(tau) @ vm[0])[None]
-        render, info = render_view(idx, vm)
+        if depth_gt is not None:
+            render, depth, info = render_view(idx, vm, with_depth=True)
+        else:
+            render, info = render_view(idx, vm)
         if not mcmc:
             strategy.step_pre_backward(params, optimizers, state, it, info)
         if optimize_exposure:
             e = expo[groups[idx]]
             render = render * (1.0 + e[:3]) + e[3:]
         loss, mse = _photometric_loss(render, gts[idx], ssim_fn, ssim_lambda)
+        if depth_gt is not None:
+            pix, dgt = depth_gt[idx]
+            if pix.numel() > 0:
+                # Pull the rendered expected depth toward the LiDAR depth at the
+                # sparse projected pixels (metric L1).
+                dr = depth.reshape(-1)[pix]
+                loss = loss + lidar_depth_lambda * F.l1_loss(dr, dgt)
         if optimize_exposure:
             # keep the affine compensation near identity: it should absorb
             # auto-exposure drift, not repaint inconsistent geometry
@@ -613,6 +677,22 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         return out
 
     metrics = _eval_views(_eval_render, gts, ssim_fn)
+    depth_mae = None
+    if depth_gt is not None:
+        # Median absolute error (m) between rendered and LiDAR depth at the
+        # supervised pixels -- a geometry-fidelity readout independent of PSNR.
+        errs = []
+        with torch.no_grad():
+            for i in range(viewmats.shape[0]):
+                pix, dgt = depth_gt[i]
+                if pix.numel() == 0:
+                    continue
+                vm = None if eval_vm is None else eval_vm[i:i + 1]
+                dr = render_view(i, vm, with_depth=True)[1].reshape(-1)[pix]
+                errs.append(torch.abs(dr - dgt))
+        if errs:
+            depth_mae = float(torch.median(torch.cat(errs)).cpu())
+            print(f'LiDAR depth median abs error: {depth_mae:.4f} m', flush=True)
     if sh_degree is None:
         colors_rgb = torch.sigmoid(params['colors']).detach().cpu().numpy()
         sh_rest = None
@@ -631,6 +711,7 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         'sh_rest': sh_rest,
         'loss_history': loss_history,
         'psnr': metrics['psnr'], 'ssim': metrics['ssim'],
+        'depth_mae': depth_mae,
     }
     if optimize_extrinsic:
         # viewmat_refined = M @ viewmat with M = exp(tau); equivalently the
@@ -679,6 +760,11 @@ def build_parser() -> argparse.ArgumentParser:
                         'instead of clone/split DefaultStrategy (implies --densify)')
     p.add_argument('--mcmc-cap', type=int, default=500000,
                    help='max Gaussian budget for --mcmc (default 500000)')
+    p.add_argument('--lidar-depth-lambda', type=float, default=0.0,
+                   help='weight of the LiDAR depth-supervision L1 term; projects '
+                        'the --init-ply cloud into each view as sparse GT depth '
+                        'and anchors the rendered depth to it (implies --densify, '
+                        'needs --init-ply; 0 = off)')
     p.add_argument('--densify', action='store_true',
                    help='use gsplat DefaultStrategy adaptive density control')
     p.add_argument('--optimize-extrinsic', action='store_true',
@@ -712,7 +798,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f'LiDAR-primed init: {len(init_points)} points from {args.init_ply}')
     if (args.densify or args.optimize_extrinsic or args.optimize_pose_groups
             or args.optimize_exposure or args.sh_degree is not None
-            or args.antialiased or args.mcmc):
+            or args.antialiased or args.mcmc or args.lidar_depth_lambda > 0.0):
         params = train_densify(
             dataset, init_points=init_points, init_colors=init_colors,
             num_init=args.num_init, iters=args.iters, lr=args.lr,
@@ -721,7 +807,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             optimize_exposure=args.optimize_exposure,
             ssim_lambda=args.ssim_lambda, knn_scale=args.knn_scale_init,
             sh_degree=args.sh_degree, antialiased=args.antialiased,
-            mcmc=args.mcmc, mcmc_cap=args.mcmc_cap)
+            mcmc=args.mcmc, mcmc_cap=args.mcmc_cap,
+            lidar_depth_lambda=args.lidar_depth_lambda)
     else:
         params = train(dataset, init_points=init_points, init_colors=init_colors,
                        num_init=args.num_init, iters=args.iters,
@@ -729,9 +816,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     out = export_ply(args.out, params['means'], params['scales_log'],
                      params['quats'], params['opacities_logit'],
                      params['colors_rgb'], params.get('sh_rest'))
+    dmae = params.get('depth_mae')
     print(f'final mse {params["loss_history"][-1]:.6f}  '
           f'PSNR {params.get("psnr", float("nan")):.2f} dB  '
-          f'SSIM {params.get("ssim", float("nan")):.4f} -> {out}')
+          f'SSIM {params.get("ssim", float("nan")):.4f}'
+          + (f'  depthMAE {dmae:.4f} m' if dmae is not None else '')
+          + f' -> {out}')
     if 'extrinsic_delta' in params:
         import yaml
         from extract_posed_images import parse_extrinsic_dict
