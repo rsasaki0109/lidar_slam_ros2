@@ -38,6 +38,7 @@ nav:
   - Autoware Foxglove: autoware-foxglove.md
   - Operator Workflows: workflows.md
   - 3DGS Photoreal Map: 3dgs-map-tutorial.md
+  - 3DGS Map Viewer: 3dgs-viewer.md
   - Benchmarking And Release Gate: benchmarking.md
   - rosdistro Binary Release: rosdistro-release.md
   - DDS / Large-Message Tuning: dds-tuning.md
