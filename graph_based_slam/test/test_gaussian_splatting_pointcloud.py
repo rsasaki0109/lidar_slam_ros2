@@ -236,6 +236,45 @@ def test_colorize_robust_rejects_bad_zbuf_bin():
 
 
 # --------------------------------------------------------------------------- #
+# project_depth_maps (LiDAR depth supervision GT)
+# --------------------------------------------------------------------------- #
+def test_project_depth_maps_centre_pixel_and_depth():
+    vms, K, W, H = _cam()
+    pts = np.array([[0.0, 0.0, 5.0]])      # projects to (50, 50) at depth 5
+    (pix, depth), = pcio.project_depth_maps(pts, vms, K, W, H)
+    assert pix.tolist() == [50 * W + 50]
+    np.testing.assert_allclose(depth, [5.0], atol=1e-6)
+
+
+def test_project_depth_maps_zbuffer_keeps_nearest():
+    vms, K, W, H = _cam()
+    # Two points on the same ray land on one pixel; only the near depth survives.
+    pts = np.array([[0.0, 0.0, 8.0], [0.0, 0.0, 2.0]])
+    (pix, depth), = pcio.project_depth_maps(pts, vms, K, W, H)
+    assert pix.tolist() == [50 * W + 50]
+    np.testing.assert_allclose(depth, [2.0], atol=1e-6)
+
+
+def test_project_depth_maps_culls_behind_and_out_of_frame():
+    vms, K, W, H = _cam()
+    pts = np.array([[0.0, 0.0, -5.0],      # behind the camera
+                    [10.0, 0.0, 5.0]])     # u = 250 -> off image
+    (pix, depth), = pcio.project_depth_maps(pts, vms, K, W, H)
+    assert pix.size == 0 and depth.size == 0
+
+
+def test_project_depth_maps_one_entry_per_view():
+    vms1, K, W, H = _cam()
+    vms = np.concatenate([vms1, vms1], axis=0)
+    pts = np.array([[0.0, 0.0, 5.0]])
+    maps = pcio.project_depth_maps(pts, vms, K, W, H)
+    assert len(maps) == 2
+    for pix, depth in maps:
+        assert pix.tolist() == [50 * W + 50]
+        np.testing.assert_allclose(depth, [5.0], atol=1e-6)
+
+
+# --------------------------------------------------------------------------- #
 # drop_sparse_points
 # --------------------------------------------------------------------------- #
 def test_drop_sparse_points_keeps_cluster_drops_isolated():
