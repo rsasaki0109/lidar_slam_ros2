@@ -208,6 +208,53 @@ def render_frames(gaussians: dict, viewmats: np.ndarray, K: np.ndarray,
     return frames
 
 
+def render_rgbd_frames(gaussians: dict, viewmats: np.ndarray, K: np.ndarray,
+                       width: int, height: int, *,
+                       device: str = 'cuda') -> tuple[np.ndarray, np.ndarray]:
+    """Rasterise every w2c view returning RGB and expected depth.
+
+    Returns ``(rgb, depth)`` where ``rgb`` is uint8 ``(F, H, W, 3)`` and
+    ``depth`` is float32 ``(F, H, W)`` of the gsplat *expected* depth (per-pixel
+    opacity-weighted ray distance, in the Gaussian model's coordinate units).
+    For a LiDAR-primed model those units are metric, so the depth is a usable
+    range image for open-loop perception data generation (Phase 1).
+    """
+    import torch
+    import torch.nn.functional as F
+
+    from gsplat import rasterization
+
+    dev = torch.device(device)
+    means = torch.tensor(gaussians['means'], dtype=torch.float32, device=dev)
+    quats = F.normalize(
+        torch.tensor(gaussians['quats'], dtype=torch.float32, device=dev), dim=-1)
+    scales = torch.exp(
+        torch.tensor(gaussians['scales_log'], dtype=torch.float32, device=dev))
+    opac = torch.sigmoid(
+        torch.tensor(gaussians['opacities_logit'], dtype=torch.float32, device=dev))
+    sh_degree = infer_sh_degree(gaussians['sh_rest'])
+    if sh_degree is None:
+        colors = torch.tensor(np.clip(gaussians['colors_rgb'], 0.0, 1.0),
+                              dtype=torch.float32, device=dev)
+    else:
+        sh0 = (gaussians['colors_rgb'] - 0.5) / SH_C0
+        sh = np.concatenate([sh0[:, None, :], gaussians['sh_rest']], axis=1)
+        colors = torch.tensor(sh, dtype=torch.float32, device=dev)
+    kmat = torch.tensor(K, dtype=torch.float32, device=dev)[None]
+    rgb = np.empty((len(viewmats), height, width, 3), dtype=np.uint8)
+    depth = np.empty((len(viewmats), height, width), dtype=np.float32)
+    with torch.no_grad():
+        for i, vm in enumerate(viewmats):
+            vmt = torch.tensor(vm, dtype=torch.float32, device=dev)[None]
+            out, _, _ = rasterization(means, quats, scales, opac, colors, vmt,
+                                      kmat, width, height, sh_degree=sh_degree,
+                                      packed=False, render_mode='RGB+ED')
+            rgb[i] = (out[0, ..., :3].clamp(0.0, 1.0) * 255.0).to(
+                torch.uint8).cpu().numpy()
+            depth[i] = out[0, ..., 3].cpu().numpy()
+    return rgb, depth
+
+
 def write_videos(frames: np.ndarray, order: Sequence[int], *, fps: int,
                  mp4: Optional[Path], gif: Optional[Path], gif_fps: int,
                  gif_scale: float) -> None:
