@@ -55,3 +55,25 @@ render に対して走らせるための ROS 2 ノード骨格。Phase 0
   perception を回す統合。
 - 動的アクタ（歩行者/車）は vanilla 3DGS では出ないので Phase 3 で compositing。
 - render 結果の exposure/tone を実カメラに寄せる後処理（sim2real gap の更なる縮小）。
+
+## Addendum (2026-06-15): co-registered Autoware マップ束
+
+クリーン construction 3DGS と同一 SLAM frame の Autoware マップ束を生成
+（`output/rtkslam_autoware_map/`、ライブ Autoware 接続の前提セット）:
+
+- `pointcloud_map.pcd` — NDT 用点群（lidar_init = LiDAR 蓄積雲、400k 点、
+  open3d で PLY→PCD）。
+- `lanelet2_map.osm` — `simple_lanelet2_generator.py` で SLAM 軌跡から生成
+  （28 lanelets、隣接で境界ノード共有 = Autoware ルーティング要件）。
+- `map_projector_info.yaml` — `projector_type: local`（geo 投影なし、SLAM frame）。
+
+3 成果物 + 3DGS が全て RKO-LIO SLAM frame を共有 → **align = identity** で
+`sensor_sim_node` に繋がる。座標確認: cloud bbox x[-77,25] y[-12,78] と
+trajectory bbox x[-71,0.4] y[-42,70] は同一メトリック frame で重畳。
+注意: PCD は 3DGS と同じ 480-545s 窓のみ、lanelet2 は全 738s 軌跡（窓内は整合）。
+
+**残り（ライブ Autoware-in-the-loop）**: Autoware (Humble, CUDA docker) を上記
+マップで起動 → bag の `/livox/points` で NDT localization → `/localization/
+kinematic_state` を `sensor_sim_node` の `pose_topic` に接続。ただし
+construction_seq1 は屋内マシンホールの徒歩シーンで、自動運転/ルーティングとしては
+人工的。意味のある走行 closed-loop には屋外路上シーン（isuzu クラス、±1m 耐性）が適切。
