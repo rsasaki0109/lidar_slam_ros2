@@ -51,7 +51,8 @@ RTX 4070 Ti SUPER / gsplat 1.5.3 / scale 0.25–0.5 / 横オフセット x 軸�
   first150=空の試験路（草地・舗装のみ、車/人なし）、construction=データ不整合。
   layer は実装・動作済み（`--detector yolov8n.pt`）だが、**車両/歩行者が実際に
   frame に映る走行シーンが必要**。これはコードでなくデータの不足。
-- **construction_seq1 はクリーンに測れなかった**。ディスク上の 3DGS 成果物
+- **construction_seq1 はクリーンに測れなかった**（後日解決、下記 addendum 参照）。
+  ディスク上の 3DGS 成果物
   （`output/rtkslam_3dgs/`）は flythrough 実験で images/ と transforms が何度も
   再生成され不整合化しており、現行 `transforms_crop.json` から再学習しても
   **train PSNR 12 dB・MSE 発散気味（収束せず）**。raw rosbag はローカルに無く
@@ -79,3 +80,41 @@ Phase 3  dynamic actors + RL
   extract を回してクリーンな `point_cloud.ply` × `transforms` を作り直す。
 - 走行スケールで ±1 m が通ったので、Phase 2 の closed-loop sensor-sim node の
   レンダリングリアルタイム性検証に進むのが妥当。
+
+## Addendum (2026-06-15): construction クリーン再構築と外挿曲線
+
+上記の construction 不整合を解決。raw bag は実はローカルにあった
+（`datasets/rtk_slam/ros2/construction_seq1`, 13GB）。クリーン再構築:
+
+1. RKO-LIO SLAM（`compare_with_glim.sh`、frame=`livox_lidar`=点群の実 frame_id。
+   `livox_frame` 指定だと TF が繋がらず空軌跡になる罠）→ 5167 poses / 738s。
+2. `extract_posed_images.py` で **`--time-offset -0.020638`**（calib YAML の
+   camera timeshift。flythrough script の `0` は誤り）→ 260 posed images。
+3. crop（half-res + vignette）→ `train_gsplat.py`（sh1, densify, 12k iters）。
+
+**全 260 view で学習すると train 14.7 dB・recon が bimodal**（views 130-208 は
+~25 dB だが両端 0-117 / 221-247 は 8-17 dB）。原因は no-IMU SLAM 軌跡の
+トラッキング誤差（POSE_JUMP/REJECT が両端で発生）。flythrough の
+`FLY_FIRST=116/FLY_LAST=208` は正にこの well-tracked 区間を指していた。
+
+**well-tracked 区間（views 125-208, 84 枚）だけで再学習 → recon mean 28.9 dB
+(min 24.4, max 31.9, 全 view >20 dB)**。12 dB 非収束を解消。
+
+外挿曲線（クリーンモデル、scale 1.0）:
+
+| offset | ssim_vs_base | sharpness 比 | floater |
+|---|---|---|---|
+| ±0.25 m | 0.40 | 1.8 | 0.02 |
+| ±0.50 m | 0.28 | 2.2 | 0.03 |
+| ±1.00 m | 0.15 | 3.8 | 0.05 |
+
+**所見の訂正**: construction_seq1 は「走行スケール」ではなく**屋内マシンホールの
+近接被写体ウォーク**で、koide と同じ近接レジーム（有効横範囲 < 0.25 m、±1 m で
+sharpness 3.8 倍＝floater）。**外挿耐性を決めるのは「走行/手持ち」でなく被写体距離**。
+±1 m 耐性が出たのは isuzu（屋外・遠景の路上）だった。広い横ずれ耐性の closed-loop
+には屋外開放シーンが要る。
+
+closed-loop デモ: `pose_player`(SLAM 軌跡) → `sensor_sim_node`
+(recon 28.8 dB, 600x440) → `output/sim2real_gap/closed_loop_construction.mp4`。
+photoreal な実シーン closed-loop が ROS 経由で成立。`pose_topic` を Autoware の
+`/localization/kinematic_state` に差し替えれば実走 Autoware-in-the-loop になる。
