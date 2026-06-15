@@ -19,6 +19,8 @@
 #   CAMERA=1 PLY=output/stadt_3dgs/gsplat/point_cloud.ply \
 #     TRANSFORMS=output/stadt_3dgs/gsplat/transforms.json \
 #     STEPS=40000 bash scripts/run_drive_rl.sh       # pixel-observation (GPU)
+#   DETECT=1 PLY=output/assets/truck_scene.ply STEPS=40000 \
+#     bash scripts/run_drive_rl.sh                    # active perception (GPU+YOLO)
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -29,6 +31,7 @@ STEPS="${STEPS:-60000}"
 EVAL_EPISODES="${EVAL_EPISODES:-30}"
 SAVE="${SAVE:-}"
 CAMERA="${CAMERA:-}"
+DETECT="${DETECT:-}"
 PLY="${PLY:-}"
 TRANSFORMS="${TRANSFORMS:-}"
 RENDER_SIZE="${RENDER_SIZE:-84}"
@@ -36,7 +39,9 @@ RENDER_SIZE="${RENDER_SIZE:-84}"
 ARGS=(--steps "${STEPS}" --eval-episodes "${EVAL_EPISODES}")
 [[ -n "${TRAJ}" ]] && ARGS+=(--traj "${REPO_ROOT}/${TRAJ}")
 [[ -n "${SAVE}" ]] && ARGS+=(--save "${SAVE}")
-if [[ -n "${CAMERA}" ]]; then
+if [[ -n "${DETECT}" ]]; then
+  ARGS+=(--detect-target --ply "${REPO_ROOT}/${PLY}" --render-size "${RENDER_SIZE}")
+elif [[ -n "${CAMERA}" ]]; then
   ARGS+=(--camera --ply "${REPO_ROOT}/${PLY}" \
          --transforms "${REPO_ROOT}/${TRANSFORMS}" --render-size "${RENDER_SIZE}")
 fi

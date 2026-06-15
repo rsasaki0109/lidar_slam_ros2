@@ -102,6 +102,38 @@ PPO (120k, omega_max=0.5): mean return  25.30, success 100%
 - 罠: pixel 観測は idle ローカル最適に落ちやすい（操舵自由度を task 難度に合わせる）。
   start heading は隣接アンカーの y ジッタで荒れるので **始点→終点の全体方向**から取る。
 
+## 追記: 知覚駆動 RL（能動知覚, 2026-06-16）
+
+pixel 観測の閉ループに、**報酬を検出器の出力に差し替え**た = 知覚駆動方策。エージェントは
+camera 観測（3DGS render）から学習し、**報酬 = その render 上で YOLO が対象を検出する
+confidence のみ**（`percept_only`、ナビ報酬なし）。Phase 3 で測った**検出レンジの sweet spot**
+（truck は 7–13m・正面で conf 0.83、遠近で低下）が報酬地形になるので、エージェントは
+「対象が最もよく見える視点に自分を立たせる」ことを学ぶ。
+
+- env: `drive_env` に `percept_reward_fn`(ego pose→scalar) / `percept_weight` / `percept_only`
+  フック追加（後方互換、pure テスト済み 4 ケース）。
+- カメラ: `scene_camera.make_target_orbit_render_fn` — ego が対象を周回し常に対象を注視
+  （`azimuth_basis`/`target_orbit_eye`、`detect_in_scene.dolly_viewmats` と同一幾何、pure 3 ケース）。
+- 報酬: 別レンダ（320px, fx 240）に `sim2real_gap.Detector`(yolov8n) をかけ、対象クラスの
+  最大 conf を返すクロージャ。観測は 84×84（fx 60）の同一視点 render。`CnnPolicy` PPO。
+
+Truck シーン（Tanks&Temples, 2.06M Gaussian）、対象=truck(COCO 7)、azimuth 125°、start_range 14m:
+
+```
+random policy : mean return  60.4, mean detect-conf 0.302
+PPO (40k step): mean return 136.5, mean detect-conf 0.683
+```
+
+- **検出 conf を 2 倍以上（0.302→0.683）に改善**。rollout では range 13.7m から **sweet spot
+  ~10–12m・正面（lateral→-0.27）に収束**して dwell、conf は終盤 0.91 まで上昇
+  （`output/stadt_3dgs/pixel_rl/detect_pov.gif`/`_strip.png` で truck がフレーム中央に寄る）。
+  **84×84 pixel だけを観測し、YOLO の出力だけを報酬に、対象が最もよく見える視点を獲得**した。
+- これで Phase 0–4 が完全な閉ループに: render → CNN 方策 → 行動 → render → **検出器 → 報酬**。
+  検出スコアリング（`detect_in_scene`/`sim2real_gap`）がそのまま RL 報酬として機能することを実証。
+- 罠: **obs と検出の render は別物**（obs=fx60 広角 / 検出=fx240 望遠 320px）。評価時に obs の fx を
+  学習時(=60)と変えると方策が別観測を受け取り性能が崩れる（fx240 で評価し 0.30 と誤認 → fx60 で 0.68 に訂正）。
+  検出 conf は同一 pose でもフレーム間で揺れる（recon フローター）ので報酬はノイジー、horizon を長めに。
+
 ## sim2real ブリッジ（pixel 観測）と次
 
 - `obs_mode='camera'` + `render_fn`（`GaussianRenderer.render(pose→viewmat)`）で、
@@ -120,5 +152,5 @@ Phase 0  外挿安定性 / 有効視点範囲                  ← 完了
 Phase 1  open-loop RGB-D データ生成                 ← 完了
 Phase 2  closed-loop sensor-sim ROS 2 node          ← 完了
 Phase 3  dynamic actors + 検出 gap (orbit/dolly/LiDAR-primed) ← 完了
-Phase 4  closed-loop RL                              ← 本ノート（env + state PPO + dynamic 回避 + pixel 観測 100% 走破）
+Phase 4  closed-loop RL                              ← 本ノート（env + state PPO + dynamic 回避 + pixel 観測 100% 走破 + 知覚駆動 detect-conf 0.30→0.68）
 ```

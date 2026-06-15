@@ -109,3 +109,31 @@ def test_look_at_viewmat_is_world_to_camera():
     # eye maps to the origin
     e = vm @ np.array([0.0, 0.0, 0.0, 1.0])
     assert np.allclose(e[:3], 0.0, atol=1e-9)
+
+
+def test_azimuth_basis_orthonormal_and_in_plane():
+    e_app, e_lat, up = sc.azimuth_basis(125.0, up_axis='y')
+    assert np.allclose(up, [0.0, 1.0, 0.0])
+    # e_app, e_lat lie in the ground plane (no up component)
+    assert e_app[1] == pytest.approx(0.0)
+    assert e_lat[1] == pytest.approx(0.0)
+    # right-handed orthonormal: up x e_app == e_lat
+    assert np.allclose(np.cross(up, e_app), e_lat, atol=1e-9)
+    assert np.linalg.norm(e_app) == pytest.approx(1.0)
+
+
+def test_azimuth_basis_matches_dolly_convention():
+    # azimuth 0 about y-up points along +x (dolly: eye[x] += d*cos(a))
+    e_app, _, _ = sc.azimuth_basis(0.0, up_axis='y')
+    assert np.allclose(e_app, [1.0, 0.0, 0.0], atol=1e-9)
+
+
+def test_target_orbit_eye_distance_and_elevation():
+    e_app, e_lat, up = sc.azimuth_basis(90.0, up_axis='y')  # +z
+    target = np.array([1.0, 0.0, -2.0])
+    eye = sc.target_orbit_eye(10.0, 0.0, target=target, e_app=e_app,
+                              e_lat=e_lat, up=up, elevation=-2.0)
+    ground = eye - np.array([0.0, eye[1], 0.0])  # drop up component
+    tground = target - np.array([0.0, target[1], 0.0])
+    assert np.linalg.norm(ground - tground) == pytest.approx(10.0)  # range
+    assert eye[1] == pytest.approx(target[1] - 2.0)  # elevation along up
