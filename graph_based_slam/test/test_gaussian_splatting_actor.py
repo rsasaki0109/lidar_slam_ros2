@@ -196,3 +196,51 @@ def test_linspace_sym_rejects_nonpositive_count():
 def test_logit_sigmoid_roundtrip():
     for p in (0.1, 0.5, 0.99):
         assert 1.0 / (1.0 + np.exp(-ac.logit(p))) == pytest.approx(p, abs=1e-6)
+
+
+def _toy_scene(n=40):
+    rng = np.random.default_rng(0)
+    means = rng.uniform(-5.0, 5.0, (n, 3))
+    return {
+        'means': means,
+        'scales_log': np.full((n, 3), -2.0),
+        'quats': np.tile([1.0, 0.0, 0.0, 0.0], (n, 1)),
+        'opacities_logit': np.zeros(n),
+        'colors_rgb': rng.uniform(0.0, 1.0, (n, 3)),
+        'sh_rest': None,
+    }
+
+
+def test_crop_gaussians_keeps_only_in_box():
+    g = _toy_scene()
+    g['means'][0] = [0.0, 0.0, 0.5]   # inside
+    g['means'][1] = [9.0, 9.0, 0.5]   # outside in x/y
+    out = ac.crop_gaussians(g, [0.0, 0.0], 1.0, [0.0, 2.0])
+    m = out['means']
+    assert np.all(np.abs(m[:, 0]) <= 1.0) and np.all(np.abs(m[:, 1]) <= 1.0)
+    assert np.all((m[:, 2] >= 0.0) & (m[:, 2] <= 2.0))
+    # every per-gaussian array is subset to the same length
+    assert out['colors_rgb'].shape[0] == m.shape[0] == out['quats'].shape[0]
+
+
+def test_crop_gaussians_subsets_sh_rest_when_present():
+    g = _toy_scene(6)
+    g['means'][:] = 0.0  # all inside
+    g['sh_rest'] = np.arange(6 * 3 * 3, dtype=float).reshape(6, 3, 3)
+    out = ac.crop_gaussians(g, [0.0, 0.0], 1.0, [-1.0, 1.0])
+    assert out['sh_rest'].shape == (6, 3, 3)
+
+
+def test_crop_gaussians_raises_on_empty_box():
+    with pytest.raises(ValueError):
+        ac.crop_gaussians(_toy_scene(), [100.0, 100.0], 0.1, [0.0, 1.0])
+
+
+def test_recenter_gaussians_zeroes_xy_centroid_and_grounds_z():
+    g = _toy_scene(2)
+    g['means'] = np.array([[1.0, 2.0, 3.0], [3.0, 4.0, 5.0]], dtype=float)
+    g['quats'] = np.tile([1.0, 0.0, 0.0, 0.0], (2, 1))
+    out = ac.recenter_gaussians(g)
+    assert np.allclose(out['means'][:, :2].mean(axis=0), [0.0, 0.0])
+    assert out['means'][:, 2].min() == pytest.approx(0.0)
+    assert np.allclose(out['quats'], g['quats'])  # pure translation
