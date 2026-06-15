@@ -80,6 +80,43 @@ def make_box_actor(size_xyz: Sequence[float], *, spacing: float = 0.1,
     }
 
 
+def crop_gaussians(g: dict, center_xy: Sequence[float], half_extent_xy: float,
+                   z_range: Sequence[float]) -> dict:
+    """Subset a gaussians dict to an axis-aligned box around ``center_xy``.
+
+    Keeps Gaussians whose mean lies within ``half_extent_xy`` of ``center_xy`` in
+    x and y and within ``z_range`` (inclusive). Every per-Gaussian array is
+    indexed the same way (including ``sh_rest`` when present), so the result is a
+    valid standalone model -- used to mint a photoreal volumetric actor by
+    cutting a compact object out of a trained scene.
+    """
+    means = np.asarray(g['means'], dtype=float)
+    cx, cy = float(center_xy[0]), float(center_xy[1])
+    zlo, zhi = float(z_range[0]), float(z_range[1])
+    keep = ((np.abs(means[:, 0] - cx) <= half_extent_xy)
+            & (np.abs(means[:, 1] - cy) <= half_extent_xy)
+            & (means[:, 2] >= zlo) & (means[:, 2] <= zhi))
+    if not np.any(keep):
+        raise ValueError('crop box contains no Gaussians')
+    out = {k: (np.asarray(v)[keep] if k != 'sh_rest' else
+               (None if v is None else np.asarray(v)[keep]))
+           for k, v in g.items()}
+    return out
+
+
+def recenter_gaussians(g: dict) -> dict:
+    """Translate a gaussians dict so its x/y centroid is 0 and it rests on z=0.
+
+    A pure translation (orientations untouched), so an arbitrary actor model can
+    be placed with the same ``rigid_from_pos_yaw`` convention as the box actor.
+    """
+    means = np.asarray(g['means'], dtype=float)
+    shift = np.array([means[:, 0].mean(), means[:, 1].mean(), means[:, 2].min()])
+    out = dict(g)
+    out['means'] = means - shift
+    return out
+
+
 def _rotate_quats_wxyz(quats_wxyz: np.ndarray, rot: np.ndarray) -> np.ndarray:
     """Apply a world rotation ``rot`` to a batch of ``wxyz`` Gaussian quaternions."""
     out = np.empty_like(np.asarray(quats_wxyz, dtype=float))
@@ -300,8 +337,9 @@ def load_sprite(path: Path) -> np.ndarray:
 
 def run(ply: Path, transforms: Path, out_dir: Path, *, view: int, frames: int,
         mode: str, box_size: Sequence[float], sprite: Optional[Path],
-        distance: float, lateral: float, drop: float, sprite_height_m: float,
-        scale: float, detector, out_fps: int, device: str = 'cuda') -> dict:
+        actor_ply: Optional[Path], yaw: float, distance: float, lateral: float,
+        drop: float, sprite_height_m: float, scale: float, detector,
+        out_fps: int, device: str = 'cuda') -> dict:
     """Render the actor crossing one scene view and write video + per-frame labels."""
     import imageio.v2 as imageio
 
@@ -318,14 +356,19 @@ def run(ply: Path, transforms: Path, out_dir: Path, *, view: int, frames: int,
 
     scene_rgb, scene_depth, _ = rasterize_rgbda(scene, vm, K, width, height,
                                                 device=device)
-    box = make_box_actor(box_size) if mode == 'box' else None
+    if mode == 'box':
+        actor_g = make_box_actor(box_size)
+    elif mode == 'ply':
+        actor_g = recenter_gaussians(load_gaussian_ply(actor_ply))
+    else:
+        actor_g = None
     spr = load_sprite(sprite) if mode == 'sprite' else None
 
     out_dir.mkdir(parents=True, exist_ok=True)
     composited, labels, per_frame = [], [], []
     for i, pos in enumerate(poses):
-        if mode == 'box':
-            placed = transform_gaussians(box, rigid_from_pos_yaw(pos, 0.0))
+        if actor_g is not None:  # volumetric actor (box or arbitrary 3DGS ply)
+            placed = transform_gaussians(actor_g, rigid_from_pos_yaw(pos, yaw))
             arb, adp, aac = rasterize_rgbda(placed, vm, K, width, height,
                                             device=device)
             frame, mask = composite_depth(scene_rgb, scene_depth, arb, adp, aac)
@@ -378,11 +421,17 @@ def build_parser() -> argparse.ArgumentParser:
                    help='scene camera index to stage the actor in front of')
     p.add_argument('--frames', type=int, default=48,
                    help='frames as the actor crosses the view')
-    p.add_argument('--mode', default='box', choices=('box', 'sprite'))
+    p.add_argument('--mode', default='box', choices=('box', 'sprite', 'ply'))
     p.add_argument('--box-size', default='0.6,0.6,1.7',
                    help='box actor w,d,h in metres (default a standing person)')
     p.add_argument('--sprite', default='',
                    help='RGBA cutout for --mode sprite (real object)')
+    p.add_argument('--actor-ply', default='',
+                   help='trained 3DGS .ply used as a volumetric actor for '
+                        '--mode ply (e.g. an object cut from a scene with '
+                        'crop_actor_ply.py); recentred onto the ground')
+    p.add_argument('--yaw', type=float, default=0.0,
+                   help='actor heading in radians (volumetric actor modes)')
     p.add_argument('--distance', type=float, default=4.0,
                    help='actor distance ahead of the camera (m)')
     p.add_argument('--lateral', type=float, default=2.0,
@@ -406,6 +455,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     if args.mode == 'sprite' and not args.sprite:
         raise SystemExit('--mode sprite requires --sprite')
+    if args.mode == 'ply' and not args.actor_ply:
+        raise SystemExit('--mode ply requires --actor-ply')
     detector = None
     if args.detector:
         from sim2real_gap import Detector
@@ -416,9 +467,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                  view=args.view, frames=args.frames, mode=args.mode,
                  box_size=box_size,
                  sprite=Path(args.sprite) if args.sprite else None,
-                 distance=args.distance, lateral=args.lateral, drop=args.drop,
-                 sprite_height_m=args.sprite_height_m, scale=args.scale,
-                 detector=detector, out_fps=args.fps, device=args.device)
+                 actor_ply=Path(args.actor_ply) if args.actor_ply else None,
+                 yaw=args.yaw, distance=args.distance, lateral=args.lateral,
+                 drop=args.drop, sprite_height_m=args.sprite_height_m,
+                 scale=args.scale, detector=detector, out_fps=args.fps,
+                 device=args.device)
     print(f"wrote {report['mp4']} ({report['frames']} frames, mode {report['mode']})")
     labelled = sum(1 for r in report['per_frame'] if r['gt_bbox'] is not None)
     print(f"  {labelled}/{report['frames']} frames have a visible actor label")

@@ -78,11 +78,30 @@ per-pixel alpha を尊重するので合成側の変更は不要、sprite 生成
 **それでも recall 0.50 止まり**なのは依然オクルージョン（前景機材の背後で失敗）と
 低解像度が主因で、Phase 3 本体の所見は変わらない。
 
+## 追記: volumetric photoreal actor (ply モード) (2026-06-16)
+
+billboard sprite は単一 depth なので視点が振れると平面に見える。これを解消する
+**volumetric actor**（任意の学習済み 3DGS .ply を actor として読み込む `--mode ply`）を
+追加した。box actor と同じ depth-test ラスタライズ経路に乗り、毎フレーム
+`transform_gaussians` で world pose に置いて `rasterize_rgbda` → `composite_depth`。
+真の Gaussian 幾何なので**正しい視差**を持ち、**per-pixel で前景に部分遮蔽される**
+（単一平面の billboard では原理的に不可能）。
+
+photoreal なデモ素材は外部 COCO アセット（データ依存）に頼らず、
+**シーン自身の Gaussian を AABB で切り出して可動オブジェクト化**する
+（`tools/gaussian_splatting/crop_actor_ply.py`、pure 部 `crop_gaussians`/
+`recenter_gaussians` を CPU テスト）。検証（construction, view40）: シーンから
+10265 Gaussian（1.4x1.4x3.4m）を切り出し → actor として横断 → 実写の塊が床に立ち
+前景機材に部分遮蔽されて合成される（600x440, 36/36 frame ラベル）。
+
+残る素材課題は「**車・人クラスの learned 3DGS モデル**」の調達（コードでなくアセット）。
+machinery（ply 読み込み・配置・parallax・occlusion・GT label）は完成しているので、
+そうした actor モデルを `--actor-ply` に渡せばそのまま COCO 検出 gap も締まる。
+
 ## 限界 / 次アクション
 
-- **真に photoreal な actor**（斜めビューでも平面感が出ない）には actor 自体の
-  3DGS モデルが要る。billboard sprite は単一 depth なので視点が振れると平面に見える。
-  これは学習アセット待ちのデータ依存で、コードでなく素材の問題。
+- **COCO クラスの learned 3DGS actor モデル**（車・歩行者）の調達がデータ依存で残る。
+  公開 object-3DGS データセット or 小規模学習が経路。machinery は ply モードで完成済み。
 - 検出 gap の改善余地: 解像度を上げる / closed-loop では sensor_sim_node
   （Phase 2）の出力解像度を上げる。低解像度ほど gap が急拡大するのは
   運用上の重要知見。

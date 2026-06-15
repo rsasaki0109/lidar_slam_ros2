@@ -35,9 +35,11 @@ TRANSFORMS="${TRANSFORMS:?set TRANSFORMS to the transforms.json the scene traine
 OUT_DIR="${OUT_DIR:-output/phase3_actor}"
 VIEW="${VIEW:-40}"
 FRAMES="${FRAMES:-36}"
-MODE="${MODE:-box}"
+MODE="${MODE:-box}"            # box | sprite | ply
 BOX_SIZE="${BOX_SIZE:-0.6,0.6,1.7}"
 SPRITE="${SPRITE:-}"
+ACTOR_PLY="${ACTOR_PLY:-}"     # trained 3DGS .ply for MODE=ply (volumetric actor)
+YAW="${YAW:-0.0}"
 DISTANCE="${DISTANCE:-3.5}"
 LATERAL="${LATERAL:-1.5}"
 DROP="${DROP:-0.7}"
@@ -48,10 +50,11 @@ FPS="${FPS:-12}"
 
 ARGS=(--ply "${PLY}" --transforms "${TRANSFORMS}" --out "${OUT_DIR}"
       --view "${VIEW}" --frames "${FRAMES}" --mode "${MODE}"
-      --box-size "${BOX_SIZE}" --distance "${DISTANCE}" --lateral "${LATERAL}"
-      --drop "${DROP}" --sprite-height-m "${SPRITE_HEIGHT_M}" --scale "${SCALE}"
-      --fps "${FPS}")
+      --box-size "${BOX_SIZE}" --yaw "${YAW}" --distance "${DISTANCE}"
+      --lateral "${LATERAL}" --drop "${DROP}"
+      --sprite-height-m "${SPRITE_HEIGHT_M}" --scale "${SCALE}" --fps "${FPS}")
 [[ -n "${SPRITE}" ]] && ARGS+=(--sprite "${SPRITE}")
+[[ -n "${ACTOR_PLY}" ]] && ARGS+=(--actor-ply "${ACTOR_PLY}")
 [[ -n "${DETECTOR}" ]] && ARGS+=(--detector "${DETECTOR}")
 
 python3 tools/gaussian_splatting/actor_compositing.py "${ARGS[@]}"
