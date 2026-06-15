@@ -84,6 +84,37 @@ def orbit_viewmats(target: Sequence[float], radius: float, elevation: float,
     return np.stack(out)
 
 
+def dolly_viewmats(target: Sequence[float], azimuth_deg: float, near: float,
+                   far: float, count: int, *, elevation: float = 0.0,
+                   up_axis: str = 'y') -> np.ndarray:
+    """Synthesise ``count`` views dollying toward ``target`` at a fixed azimuth.
+
+    Cameras sit at a single bearing ``azimuth_deg`` (in the plane perpendicular
+    to ``up_axis``) and step from ``far`` to ``near`` distance, each looking at
+    ``target`` -- the ego approaching a roadside object head-on. The recall as a
+    function of distance is the detector's effective range on a 3DGS object.
+    """
+    if count < 1:
+        raise ValueError('count must be positive')
+    if up_axis not in _UP:
+        raise ValueError(f'up_axis must be one of x/y/z, got {up_axis!r}')
+    target = np.asarray(target, dtype=float)
+    ui = _UP[up_axis]
+    up = np.zeros(3)
+    up[ui] = 1.0
+    h0, h1 = (i for i in range(3) if i != ui)
+    a = np.radians(azimuth_deg)
+    dists = np.linspace(far, near, count) if count > 1 else np.array([near])
+    out = []
+    for d in dists:
+        eye = target.astype(float).copy()
+        eye[h0] += d * np.cos(a)
+        eye[h1] += d * np.sin(a)
+        eye[ui] += elevation
+        out.append(look_at_viewmat(eye, target, up))
+    return np.stack(out)
+
+
 def subsample(points: np.ndarray, limit: int) -> np.ndarray:
     """Evenly stride ``points`` down to at most ``limit`` rows (deterministic)."""
     points = np.asarray(points)
@@ -116,8 +147,9 @@ def run(ply: Path, out_dir: Path, *, center_xy: Sequence[float],
         half_extent: float, z_range: Sequence[float], target_cls: int,
         radius: float, elevation: float, frames: int, up_axis: str,
         arc_deg: float, fx: float, width: int, height: int, detector,
-        out_fps: int, device: str = 'cuda') -> dict:
-    """Orbit the object, render + detect each novel view, score against the box."""
+        out_fps: int, path: str = 'orbit', azimuth_deg: float = 0.0,
+        near: float = 4.0, far: float = 16.0, device: str = 'cuda') -> dict:
+    """Render + detect each novel view along the path, score against the object box."""
     import imageio.v2 as imageio
 
     scene = load_gaussian_ply(ply)
@@ -125,8 +157,14 @@ def run(ply: Path, out_dir: Path, *, center_xy: Sequence[float],
                        0.5 * (z_range[0] + z_range[1])], dtype=float)
     K = np.array([[fx, 0.0, width / 2.0], [0.0, fx, height / 2.0],
                   [0.0, 0.0, 1.0]])
-    vms = orbit_viewmats(target, radius, elevation, frames, up_axis=up_axis,
-                         arc_deg=arc_deg)
+    if path == 'dolly':
+        vms = dolly_viewmats(target, azimuth_deg, near, far, frames,
+                             elevation=elevation, up_axis=up_axis)
+        dists = list(np.linspace(far, near, frames)) if frames > 1 else [near]
+    else:
+        vms = orbit_viewmats(target, radius, elevation, frames, up_axis=up_axis,
+                             arc_deg=arc_deg)
+        dists = [radius] * frames
     # Tight ground truth: project the object's own Gaussian means (subsampled),
     # not the loose AABB corners, so the box hugs the object's silhouette.
     obj_pts = subsample(crop_gaussians(scene, center_xy, half_extent,
@@ -141,26 +179,31 @@ def run(ply: Path, out_dir: Path, *, center_xy: Sequence[float],
         dets = detector(rgb) if detector is not None else []
         best, hit = score_detection(dets, gt, target_cls)
         frames_rgb.append(rgb)
-        per_view.append({'view': i, 'gt_bbox': gt, 'n_dets': len(dets),
+        per_view.append({'view': i, 'distance_m': round(float(dists[i]), 2),
+                         'gt_bbox': gt, 'n_dets': len(dets),
                          'best_iou': round(best, 3), 'hit': hit,
+                         'present': target_cls in {d['cls'] for d in dets},
                          'classes': sorted({d['cls'] for d in dets})})
 
-    mp4 = out_dir / 'orbit.mp4'
+    mp4 = out_dir / f'{path}.mp4'
     with imageio.get_writer(mp4, fps=out_fps, codec='libx264', quality=8,
                             macro_block_size=2) as wr:
         for f in frames_rgb:
             wr.append_data(f)
 
     scored = [v for v in per_view if v['gt_bbox'] is not None]
-    cls_present = sum(1 for v in scored if target_cls in v['classes'])
+    cls_present = sum(1 for v in scored if v['present'])
+    # For a dolly, the farthest distance still detected = the effective range.
+    present_dists = [v['distance_m'] for v in scored if v['present']]
     report = {
-        'ply': str(ply), 'target_cls': target_cls, 'frames': frames,
-        'render_size': [width, height], 'orbit_radius': radius,
+        'ply': str(ply), 'path': path, 'target_cls': target_cls,
+        'frames': frames, 'render_size': [width, height],
         'recall_iou50': (sum(v['hit'] for v in scored) / len(scored)
                          if scored else 0.0),
         'class_present_rate': cls_present / len(scored) if scored else 0.0,
         'mean_best_iou': (float(np.mean([v['best_iou'] for v in scored]))
                           if scored else 0.0),
+        'max_detect_range_m': max(present_dists) if present_dists else 0.0,
         'per_view': per_view,
     }
     (out_dir / 'detect_in_scene.json').write_text(json.dumps(report, indent=2))
@@ -180,8 +223,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--z-range', default='-4,3', help='object z_min,z_max (metres)')
     p.add_argument('--class-id', type=int, default=7,
                    help='COCO class to score (7 = truck, 2 = car, 0 = person)')
+    p.add_argument('--path', default='orbit', choices=('orbit', 'dolly'),
+                   help="'orbit' (all-round views) or 'dolly' (approach at a "
+                        'fixed bearing -> detection range)')
     p.add_argument('--radius', type=float, default=9.0,
                    help='orbit radius around the object (metres)')
+    p.add_argument('--azimuth', type=float, default=125.0,
+                   help='dolly bearing in degrees (125 ~ truck front)')
+    p.add_argument('--near', type=float, default=4.0,
+                   help='dolly nearest distance (metres)')
+    p.add_argument('--far', type=float, default=18.0,
+                   help='dolly farthest distance (metres)')
     p.add_argument('--elevation', type=float, default=-2.0,
                    help='camera offset along the up axis (metres)')
     p.add_argument('--frames', type=int, default=36)
@@ -214,11 +266,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                  elevation=args.elevation, frames=args.frames,
                  up_axis=args.up_axis, arc_deg=args.arc, fx=args.fx,
                  width=args.width, height=args.height, detector=detector,
-                 out_fps=args.fps, device=args.device)
-    print(f"wrote {report['mp4']} ({report['frames']} orbit views)")
+                 out_fps=args.fps, path=args.path, azimuth_deg=args.azimuth,
+                 near=args.near, far=args.far, device=args.device)
+    print(f"wrote {report['mp4']} ({report['frames']} {report['path']} views)")
     print(f"  class-present rate {report['class_present_rate']:.2f}, "
           f"recall@IoU0.5 {report['recall_iou50']:.2f}, "
           f"mean best IoU {report['mean_best_iou']:.2f}")
+    if report['path'] == 'dolly':
+        print(f"  max detection range {report['max_detect_range_m']:.1f} m")
     return 0
 
 
