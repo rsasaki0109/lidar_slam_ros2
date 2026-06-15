@@ -22,7 +22,7 @@ from typing import Optional, Sequence
 
 import numpy as np
 
-from actor_compositing import crop_gaussians
+from actor_compositing import crop_gaussians, reorient_up_to_z
 from render_path import load_gaussian_ply
 from train_gsplat import export_ply
 
@@ -38,6 +38,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help='half-width of the crop box in x and y (metres)')
     p.add_argument('--z-range', default='-1e9,1e9',
                    help='z_min,z_max of the crop box (metres)')
+    p.add_argument('--up-axis', default='z', choices=('x', 'y', 'z'),
+                   help="scene up axis; reoriented to +z so the actor stands "
+                        "upright (y for Tanks&Temples scenes)")
     return p
 
 
@@ -47,7 +50,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     center = [float(v) for v in args.center.split(',')]
     z_range = [float(v) for v in args.z_range.split(',')]
     scene = load_gaussian_ply(args.ply)
-    actor = crop_gaussians(scene, center, args.half_extent, z_range)
+    actor = reorient_up_to_z(crop_gaussians(scene, center, args.half_extent,
+                                            z_range), args.up_axis)
     out = export_ply(args.out, actor['means'], actor['scales_log'],
                      actor['quats'], actor['opacities_logit'],
                      actor['colors_rgb'], actor['sh_rest'])

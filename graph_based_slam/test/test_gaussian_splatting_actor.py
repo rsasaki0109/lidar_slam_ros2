@@ -236,6 +236,26 @@ def test_crop_gaussians_raises_on_empty_box():
         ac.crop_gaussians(_toy_scene(), [100.0, 100.0], 0.1, [0.0, 1.0])
 
 
+def test_reorient_up_to_z_y_up_maps_to_z():
+    g = _toy_scene(1)
+    g['means'] = np.array([[2.0, 3.0, 4.0]])  # y is the scene up axis
+    out = ac.reorient_up_to_z(g, 'y')
+    # the y component (3.0) becomes the new +z height
+    assert out['means'][0, 2] == pytest.approx(3.0)
+    assert np.allclose(np.linalg.norm(out['quats'], axis=1), 1.0)
+
+
+def test_reorient_up_to_z_identity_for_z():
+    g = _toy_scene(3)
+    out = ac.reorient_up_to_z(g, 'z')
+    assert np.allclose(out['means'], g['means'])
+
+
+def test_reorient_up_to_z_rejects_bad_axis():
+    with pytest.raises(ValueError):
+        ac.reorient_up_to_z(_toy_scene(2), 'w')
+
+
 def test_recenter_gaussians_zeroes_xy_centroid_and_grounds_z():
     g = _toy_scene(2)
     g['means'] = np.array([[1.0, 2.0, 3.0], [3.0, 4.0, 5.0]], dtype=float)
