@@ -36,7 +36,6 @@ from typing import Optional, Sequence
 
 import numpy as np
 
-import posed_images as pi
 from render_path import load_gaussian_ply, matrix_to_quat_xyzw, scale_intrinsics
 from train_gsplat import load_transforms
 
@@ -104,6 +103,31 @@ def crop_gaussians(g: dict, center_xy: Sequence[float], half_extent_xy: float,
     return out
 
 
+_UP_TO_Z = {
+    'z': np.eye(3),
+    'y': np.array([[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]]),
+    'x': np.array([[0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]]),
+}
+
+
+def reorient_up_to_z(g: dict, up_axis: str) -> dict:
+    """Rotate a gaussians dict so the given world up axis maps to +z.
+
+    Assets trained in a different convention (e.g. the y-up Tanks&Temples
+    scenes) must be reoriented before they sit upright under the z-up actor
+    convention (``recenter_gaussians`` grounds on min-z, ``rigid_from_pos_yaw``
+    yaws about z).
+    """
+    if up_axis not in _UP_TO_Z:
+        raise ValueError(f'up_axis must be one of x/y/z, got {up_axis!r}')
+    rot = _UP_TO_Z[up_axis]
+    if up_axis == 'z':
+        return dict(g)
+    t = np.eye(4)
+    t[:3, :3] = rot
+    return transform_gaussians(g, t)
+
+
 def recenter_gaussians(g: dict) -> dict:
     """Translate a gaussians dict so its x/y centroid is 0 and it rests on z=0.
 
@@ -118,12 +142,21 @@ def recenter_gaussians(g: dict) -> dict:
 
 
 def _rotate_quats_wxyz(quats_wxyz: np.ndarray, rot: np.ndarray) -> np.ndarray:
-    """Apply a world rotation ``rot`` to a batch of ``wxyz`` Gaussian quaternions."""
-    out = np.empty_like(np.asarray(quats_wxyz, dtype=float))
-    for i, q in enumerate(quats_wxyz):
-        rq = pi.quat_to_matrix([q[1], q[2], q[3], q[0]])  # wxyz -> xyzw -> R
-        xyzw = matrix_to_quat_xyzw(rot @ rq)
-        out[i] = [xyzw[3], xyzw[0], xyzw[1], xyzw[2]]
+    """Apply a world rotation ``rot`` to a batch of ``wxyz`` Gaussian quaternions.
+
+    Vectorised: the orientation update ``rot @ R_g`` corresponds to the Hamilton
+    product ``q_rot (x) q_g``, computed for all Gaussians at once (a Python loop
+    is far too slow for the ~10^6 Gaussians of a real scene crop).
+    """
+    q = np.asarray(quats_wxyz, dtype=float)
+    rx = matrix_to_quat_xyzw(rot)               # xyzw quaternion of rot
+    rw, rxx, ryy, rzz = rx[3], rx[0], rx[1], rx[2]
+    w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+    out = np.empty_like(q)
+    out[:, 0] = rw * w - rxx * x - ryy * y - rzz * z
+    out[:, 1] = rw * x + rxx * w + ryy * z - rzz * y
+    out[:, 2] = rw * y - rxx * z + ryy * w + rzz * x
+    out[:, 3] = rw * z + rxx * y - ryy * x + rzz * w
     return out
 
 
@@ -363,12 +396,18 @@ def run(ply: Path, transforms: Path, out_dir: Path, *, view: int, frames: int,
     else:
         actor_g = None
     spr = load_sprite(sprite) if mode == 'sprite' else None
+    # The heading is fixed across the sweep, so rotate the actor once (a Python
+    # quat loop over ~10^6 Gaussians per frame would be hopeless); each frame
+    # then only translates the means -- cheap even for a full scene crop.
+    actor_rot = (transform_gaussians(actor_g, rigid_from_pos_yaw([0.0, 0.0, 0.0],
+                 yaw)) if actor_g is not None else None)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     composited, labels, per_frame = [], [], []
     for i, pos in enumerate(poses):
-        if actor_g is not None:  # volumetric actor (box or arbitrary 3DGS ply)
-            placed = transform_gaussians(actor_g, rigid_from_pos_yaw(pos, yaw))
+        if actor_rot is not None:  # volumetric actor (box or arbitrary 3DGS ply)
+            placed = dict(actor_rot)
+            placed['means'] = actor_rot['means'] + np.asarray(pos, dtype=float)
             arb, adp, aac = rasterize_rgbda(placed, vm, K, width, height,
                                             device=device)
             frame, mask = composite_depth(scene_rgb, scene_depth, arb, adp, aac)
