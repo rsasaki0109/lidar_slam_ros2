@@ -64,6 +64,44 @@ PPO (120k)    : mean return  24.05, success 100%, collision 0%
   実証。検出スコアリング（`detect_in_scene`/`sim2real_gap`）を報酬項に差し替えれば、
   pixel 観測下の知覚駆動方策へ直結する。
 
+## 追記: pixel 観測 RL（閉ループ完成, 2026-06-16）
+
+`state` 観測（低次元ベクトル）で env の学習可能性を確かめたので、最終段の
+**pixel 観測**＝エージェントが **3DGS render を直接見て**学習する閉ループを実装した。
+
+- ツール: `tools/gaussian_splatting/scene_camera.py`（ego pose `(x,y,yaw)` →
+  3DGS viewmat の写像。pure 幾何 4 ケースを `test_gaussian_splatting_scene_camera.py`
+  で CPU テスト、ament_flake8 clean）。
+- コリドー/カメラは記録済み軌跡（`transforms.json`）から導出: カメラ姿勢の up 列を
+  平均して **world-up** を、位置を ground 平面に射影して PCA で **travel 軸 e1**
+  （`e2 = up×e1`）を復元。ego は `origin + x·e1 + y·e2 + height·up` に立ち、heading
+  方向を見る。これで env の 2D コリドー（Phase 0 有効視点範囲）と 3DGS render が同一
+  frame に揃う。
+- render は GPU 常駐 `GaussianRenderer`（84×84 で **509 FPS**）。`obs_mode='camera'`
+  で毎 step ego カメラから rasterise → `CnnPolicy` PPO。
+
+stadtgarten LiDAR-primed 3DGS（recon 18.9 dB）の実コリドー（直線 17 m）で学習:
+
+```
+random policy : mean return -19.44, success   0%
+PPO (40k,  omega_max=1.0): mean return  -3.54, success 0%   # idle ローカル最適
+PPO (120k, omega_max=0.5): mean return  25.30, success 100%
+```
+
+- 当初 40k では return が −35→−3.5 に改善しただけで **success 0%**。−3.5 ≈
+  `step_cost × ~175 step` で、「**コリドー逸脱の −5 を避けて idle する**」ローカル最適に
+  陥っていた（過操舵での逸脱リスクを学習）。直線コリドーなので **操舵自由度を絞り**
+  （`omega_max` 1.0→0.5）、学習量を 120k に増やすと **goal 到達 100%** に到達。
+- 学習方策の rollout（`output/stadt_3dgs/pixel_rl/rollout_pov.gif` / `_strip.png`）:
+  goal 到達・57 step・x −8.48→8.05 m（コリドー全長走破）・最大横ずれ 0.64 m・
+  throttle 0.99（フル前進）。**3DGS render だけを観測してコリドーを走破**する方策を獲得。
+- これで Phase 0–4 の全部品（render・actor・検出・RL）が **1 本の閉ループ**に繋がった:
+  記録軌跡 → 3DGS シーン → ego カメラ render → CNN 方策 → 行動 → 次 pose。検出
+  スコアリング（`detect_in_scene` / `sim2real_gap`）を報酬項に差し替えれば知覚駆動方策へ
+  そのまま拡張できる。
+- 罠: pixel 観測は idle ローカル最適に落ちやすい（操舵自由度を task 難度に合わせる）。
+  start heading は隣接アンカーの y ジッタで荒れるので **始点→終点の全体方向**から取る。
+
 ## sim2real ブリッジ（pixel 観測）と次
 
 - `obs_mode='camera'` + `render_fn`（`GaussianRenderer.render(pose→viewmat)`）で、
@@ -82,5 +120,5 @@ Phase 0  外挿安定性 / 有効視点範囲                  ← 完了
 Phase 1  open-loop RGB-D データ生成                 ← 完了
 Phase 2  closed-loop sensor-sim ROS 2 node          ← 完了
 Phase 3  dynamic actors + 検出 gap (orbit/dolly/LiDAR-primed) ← 完了
-Phase 4  closed-loop RL                              ← 本ノート（env + PPO 収束。pixel/dynamic は次）
+Phase 4  closed-loop RL                              ← 本ノート（env + state PPO + dynamic 回避 + pixel 観測 100% 走破）
 ```
