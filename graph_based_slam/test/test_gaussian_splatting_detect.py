@@ -93,6 +93,26 @@ def test_orbit_viewmats_rejects_bad_inputs():
         dis.orbit_viewmats([0, 0, 0], 5.0, 0.0, 4, up_axis='w')
 
 
+def test_dolly_viewmats_steps_far_to_near_at_fixed_bearing():
+    target = np.array([1.0, 2.0, 3.0])
+    vms = dis.dolly_viewmats(target, 0.0, 4.0, 16.0, 5, up_axis='y')
+    assert vms.shape == (5, 4, 4)
+    cs = np.array([_center_of(vm) for vm in vms])
+    # azimuth 0 about y -> cameras offset along +x; distance shrinks far->near
+    dx = cs[:, 0] - 1.0
+    assert dx[0] == pytest.approx(16.0) and dx[-1] == pytest.approx(4.0)
+    assert np.all(np.diff(dx) < 0)             # monotonically approaching
+    assert np.allclose(cs[:, 1], 2.0)          # constant height (y up)
+    assert np.allclose(cs[:, 2], 3.0)          # on the bearing line
+
+
+def test_dolly_viewmats_rejects_bad_inputs():
+    with pytest.raises(ValueError):
+        dis.dolly_viewmats([0, 0, 0], 0.0, 4.0, 16.0, 0)
+    with pytest.raises(ValueError):
+        dis.dolly_viewmats([0, 0, 0], 0.0, 4.0, 16.0, 4, up_axis='w')
+
+
 def test_subsample_caps_length_and_keeps_endpoints():
     pts = np.arange(30).reshape(10, 3)
     out = dis.subsample(pts, 4)

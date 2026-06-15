@@ -43,6 +43,38 @@ Phase 3 の compositing は隣接する問い（貼り込んだ actor）に答�
   ないため物体シルエットよりやや緩く、検出 box との IoU が 0.5 に届きにくいため。
   代表 hit view（IoU 0.536）では GT box がトラックをよく囲む。
 
+## 追記: 検出レンジ（dolly = ego 前進接近） (2026-06-16)
+
+orbit は全方位だが、closed-loop で効くのは「ego が路側の物体にどこまで近づけば
+検出できるか（**検出レンジ**）」。`--path dolly` は固定方位で far→near にカメラを
+寄せる（ego が前方の物体へ接近）パスで、距離ごとの検出を測る。
+
+Truck シーン、正面方位（azimuth 125°、orbit で hit した向き）、18m→4m、24 step:
+
+```
+--path dolly --azimuth 125 --near 4 --far 18 --frames 24
+→ class-present rate 0.75, recall@IoU0.5 0.42, mean best IoU 0.34
+→ max detection range 15.0 m
+```
+
+距離別（present = truck として検出）:
+
+| 距離 | 検出 | 最良 IoU |
+|---|---|---|
+| >15 m | ✗ | 0（小さすぎ） |
+| 15 → 6.4 m | ✓ | 0.47–**0.63**（9–9.5m がピーク） |
+| <6 m | △ | 0.0–0.01（画面を溢れ文脈喪失） |
+| 4 m | ✗ | 0 |
+
+- **3DGS 再レンダの実トラックは正面接近で 15m から検出でき、7–13m が sweet spot**。
+  近すぎ（<6m、物体が画面を溢れる）と遠すぎ（>15m、小さい）で落ちる典型的な
+  検出器特性が、3DGS render 上でもそのまま出る。
+- **正面方位では class-present 0.75**（全方位 orbit の 0.47 より高い）= viewpoint
+  依存の再確認。closed-loop の ego は前方の車両を canonical 角度で見るので、
+  この sweet-spot レンジが実効的に効く。
+- dolly は recall@IoU0.5 も 0.42 と orbit（0.06）より高い。物体が常に良く framed され
+  GT box と整合するため。
+
 ## 限界 / 次
 
 - tight な IoU/recall には 3D インスタンス mask（学習済み actor の alpha or
