@@ -11,26 +11,11 @@
 #              reliably a real object is detected once embedded in a 3DGS render).
 #
 # A sprite can be made from any image with a detector, e.g. the tallest portrait
-# person in ultralytics' bundled bus.jpg:
-#   python3 - <<'PY'
-#   import numpy as np, imageio.v2 as imageio, os
-#   from ultralytics import YOLO
-#   m = YOLO('yolov8n.pt')
-#   src = os.path.expanduser('~/.local/lib/python3.12/site-packages/ultralytics/assets/bus.jpg')
-#   img = np.asarray(imageio.imread(src))[..., :3]
-#   res = m.predict(img[..., ::-1], conf=0.4, verbose=False)[0]
-#   best = None
-#   for b in res.boxes:
-#       if int(b.cls.item()) == 0:
-#           x1, y1, x2, y2 = (int(v) for v in b.xyxy[0].tolist())
-#           if y2 - y1 > x2 - x1 and (best is None or y2 - y1 > best[1]):
-#               best = ((x1, y1, x2, y2), y2 - y1)
-#   (x1, y1, x2, y2), _ = best
-#   crop = img[y1:y2, x1:x2]
-#   rgba = np.dstack([crop, np.full(crop.shape[:2], 255, np.uint8)])
-#   os.makedirs('output/assets', exist_ok=True)
-#   imageio.imwrite('output/assets/person_sprite.png', rgba)
-#   PY
+# person in ultralytics' bundled bus.jpg. Cut a tight RGBA sprite (segmentation
+# alpha matte, no background halo) with make_actor_sprite.py:
+#   python3 tools/gaussian_splatting/make_actor_sprite.py \
+#     --image "$(python3 -c 'import ultralytics,os;print(os.path.dirname(ultralytics.__file__)+"/assets/bus.jpg")')" \
+#     --out output/assets/person_seg.png --class-id 0
 #
 # Requires: a CUDA GPU with torch + gsplat; ultralytics if DETECTOR is set.
 #

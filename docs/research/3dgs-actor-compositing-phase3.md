@@ -56,13 +56,33 @@ bus.jpg の縦長歩行者（504x197、素のクロップは person conf 0.87 �
 明瞭に連動する。これが「3DGS をデータ生成・closed-loop に使うときの知覚 gap」の
 最初の定量値。
 
+## 追記: セグメント alpha sprite で gap を tight に再測 (2026-06-16)
+
+初回の矩形クロップ sprite は背景マージンを抱え（alpha coverage ~1.0）、
+合成にハローが出て GT box も緩く、検出が成立しても IoU が伸びなかった。
+インスタンスセグメンテーション（`tools/gaussian_splatting/make_actor_sprite.py`、
+ultralytics `*-seg` + `retina_masks`、pure 部 8 ケースを
+`test_gaussian_splatting_sprite.py` で CPU テスト）で**人物シルエットの alpha matte**
+に置き換えると、合成は背景ハローなし・GT box は tight になり、検出 gap が改善した:
+
+| sprite | render scale | recall | mean best IoU |
+|---|---|---|---|
+| 矩形クロップ | 1.0 (600x440) | 0.28 | 0.28 |
+| **セグメント alpha** | 1.0 | **0.50** | **0.38** |
+| 矩形クロップ | 0.5 (300x220) | 0.06 | 0.21 |
+| **セグメント alpha** | 0.5 | **0.33** | **0.31** |
+
+bus.jpg の歩行者 sprite は 194x507・alpha coverage 0.52（= 矩形の約半分が背景だった）。
+背景除去でフル解像度 recall がほぼ倍増（0.28→0.50）。`paste_sprite` は元から
+per-pixel alpha を尊重するので合成側の変更は不要、sprite 生成だけで gap が締まる。
+**それでも recall 0.50 止まり**なのは依然オクルージョン（前景機材の背後で失敗）と
+低解像度が主因で、Phase 3 本体の所見は変わらない。
+
 ## 限界 / 次アクション
 
-- **sprite は矩形カットアウト**（セグメンテーション alpha でない）ので GT box に
-  背景マージンが入り、検出が成立しても IoU が伸びにくい（mean ~0.28）。tight な
-  検出 gap には人物セグメント alpha か、actor 自体の 3DGS モデルが要る。
-- **真に photoreal な actor** は実物体の 3DGS モデル（車・人の learned Gaussian）を
-  挿入するのが本命。billboard は単一 depth なので斜めビューで平面感が出る。
+- **真に photoreal な actor**（斜めビューでも平面感が出ない）には actor 自体の
+  3DGS モデルが要る。billboard sprite は単一 depth なので視点が振れると平面に見える。
+  これは学習アセット待ちのデータ依存で、コードでなく素材の問題。
 - 検出 gap の改善余地: 解像度を上げる / closed-loop では sensor_sim_node
   （Phase 2）の出力解像度を上げる。低解像度ほど gap が急拡大するのは
   運用上の重要知見。
