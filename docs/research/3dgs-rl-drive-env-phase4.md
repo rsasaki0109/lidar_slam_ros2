@@ -41,6 +41,29 @@ PPO (60k step): mean return  23.78, success 100%
 - 報酬が「前進 − corridor 逸脱」なので、学習方策は **Phase 0 の有効視点範囲内に
   留まりながら goal へ向かう**走り方を獲得する（sim2real の前提と一貫）。
 
+## 追記: dynamic actor 回避タスク (2026-06-16)
+
+closed-loop の dynamic actor（`3dgs-actor-compositing-phase3.md`）を RL に取り込んだ。
+env に**横断歩行者**（`crossing_actor`、step→xy のスクリプト actor）を追加し、
+state 観測に actor の ego 相対 range/bearing（+3 次元）、報酬に近接 yield コスト、
+衝突（`actor_radius` 内）で終了＋ペナルティを加えた（後方互換: actor 無しは現状維持）。
+
+直線コリドー＋「フル速で走ると到達タイミングで歩行者が経路中心に来る」横断を設定
+（= **直進フル速は step 18 で衝突**する経路）。stable-baselines3 PPO / state 観測 / CPU:
+
+```
+random policy : mean return -24.17, success   0%, collision 0%
+PPO (120k)    : mean return  24.05, success 100%, collision 0%
+```
+
+- **PPO は衝突 0% で goal 到達 100%** を獲得。rollout では最小 ego–歩行者距離 2.86 m
+  （衝突半径 1.0 m に対し安全マージン）を保ち、安全な接近速度（throttle ~0.74、
+  フル 1.0 でない）で歩行者が抜けた後に通過する。**直進フル速が衝突する経路で、
+  actor 観測を使って衝突回避方策を学習**したことを示す。
+- これで RL は「ナビ（goal 到達）」だけでなく「**動的物体の知覚-回避**」まで学習可能と
+  実証。検出スコアリング（`detect_in_scene`/`sim2real_gap`）を報酬項に差し替えれば、
+  pixel 観測下の知覚駆動方策へ直結する。
+
 ## sim2real ブリッジ（pixel 観測）と次
 
 - `obs_mode='camera'` + `render_fn`（`GaussianRenderer.render(pose→viewmat)`）で、
