@@ -142,13 +142,22 @@ def make_drive_env(anchors: np.ndarray, goal_xy: Sequence[float], *,
                    render_size: Sequence[int] = (120, 160),
                    actor_fn: Optional[Callable[[int], np.ndarray]] = None,
                    actor_radius: float = 1.0, yield_dist: float = 4.0,
-                   collision_penalty: float = 10.0):
+                   collision_penalty: float = 10.0,
+                   percept_reward_fn: Optional[Callable[[np.ndarray], float]] = None,
+                   percept_weight: float = 1.0, percept_only: bool = False):
     """Build a Gymnasium ``DriveEnv`` instance (imports gymnasium lazily).
 
     When ``actor_fn`` (step -> world xy) is given, a dynamic actor (e.g. a
     crossing pedestrian) is added: the state obs gains the actor's ego-frame
     range/bearing, a proximity cost applies within ``yield_dist`` ahead, and a
     collision (within ``actor_radius``) ends the episode with ``collision_penalty``.
+
+    When ``percept_reward_fn`` (ego pose -> scalar, e.g. a detector's confidence
+    on the ego render) is given, ``percept_weight * percept_reward_fn(pose)`` is
+    added to the step reward -- the perception-driven loop. With ``percept_only``
+    the navigation terms (progress / goal / corridor) are dropped so the detector
+    output is the sole reward: an active-perception task where the agent learns to
+    stand where the object is best detected, terminating only on bounds/timeout.
     """
     import gymnasium as gym
     from gymnasium import spaces
@@ -214,16 +223,33 @@ def make_drive_env(anchors: np.ndarray, goal_xy: Sequence[float], *,
             self._step += 1
             dist, _ = goal_range_bearing(self._pose, goal_xy)
             dev = corridor_deviation(self._pose[:2], anchors)
-            reward = step_reward(self._prev_dist, dist, dev, max_dev=max_dev,
-                                 goal_tol=goal_tol)
+            if percept_only:
+                # active perception: detector output is the only reward; only
+                # leaving the world bounds or running out of time ends it.
+                reward = 0.0
+                if abs(self._pose[0]) > bounds or abs(self._pose[1]) > bounds:
+                    terminated, truncated, reason = True, False, 'out_of_bounds'
+                    reward -= 5.0
+                elif self._step >= max_steps:
+                    terminated, truncated, reason = False, True, 'timeout'
+                else:
+                    terminated, truncated, reason = False, False, ''
+            else:
+                reward = step_reward(self._prev_dist, dist, dev, max_dev=max_dev,
+                                     goal_tol=goal_tol)
+                terminated, truncated, reason = episode_status(
+                    self._pose, goal_xy, dev=dev, goal_tol=goal_tol,
+                    bounds=bounds, hard_dev=hard_dev, step=self._step,
+                    max_steps=max_steps)
+                if reason == 'out_of_bounds' or reason == 'left_corridor':
+                    reward -= 5.0
             self._prev_dist = dist
-            terminated, truncated, reason = episode_status(
-                self._pose, goal_xy, dev=dev, goal_tol=goal_tol, bounds=bounds,
-                hard_dev=hard_dev, step=self._step, max_steps=max_steps)
-            if reason == 'out_of_bounds' or reason == 'left_corridor':
-                reward -= 5.0
             info = {'pose': self._pose.copy(), 'dev': dev, 'dist': dist,
                     'reason': reason}
+            if percept_reward_fn is not None:
+                pr = float(percept_reward_fn(self._pose))
+                reward += percept_weight * pr
+                info['percept'] = pr
             if has_actor:
                 actor_xy = self._actor_xy()
                 arange, abear = goal_range_bearing(self._pose, actor_xy)

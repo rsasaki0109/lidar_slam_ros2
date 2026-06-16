@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Sequence
 
 import numpy as np
 
@@ -103,6 +103,66 @@ def look_at_viewmat(eye: np.ndarray, target: np.ndarray,
     c2w = np.eye(4)
     c2w[:3, 0], c2w[:3, 1], c2w[:3, 2], c2w[:3, 3] = right, down, fwd, eye
     return np.linalg.inv(c2w)
+
+
+_AXIS = {'x': 0, 'y': 1, 'z': 2}
+
+
+def azimuth_basis(azimuth_deg: float, up_axis: str = 'y') -> tuple:
+    """Ground-plane ``(e_app, e_lat, up)`` for a bearing about ``up_axis``.
+
+    ``e_app`` points outward from a target at ``azimuth_deg`` in the plane
+    perpendicular to ``up_axis`` (matching ``detect_in_scene.dolly_viewmats``);
+    ``e_lat = up x e_app`` is the in-plane lateral. An eye at distance ``d`` and
+    lateral ``l`` from a target ``T`` is ``T + d*e_app + l*e_lat + elev*up``.
+    """
+    if up_axis not in _AXIS:
+        raise ValueError(f'up_axis must be one of x/y/z, got {up_axis!r}')
+    ui = _AXIS[up_axis]
+    h0, h1 = (i for i in range(3) if i != ui)
+    up = np.zeros(3)
+    up[ui] = 1.0
+    a = np.radians(float(azimuth_deg))
+    e_app = np.zeros(3)
+    e_app[h0], e_app[h1] = np.cos(a), np.sin(a)
+    e_lat = np.cross(up, e_app)
+    return e_app, e_lat / np.linalg.norm(e_lat), up
+
+
+def target_orbit_eye(approach_range: float, lateral: float, *,
+                     target: np.ndarray, e_app: np.ndarray, e_lat: np.ndarray,
+                     up: np.ndarray, elevation: float) -> np.ndarray:
+    """Eye position at ``approach_range``/``lateral`` from ``target`` (look-at cam)."""
+    return (np.asarray(target, dtype=float) + float(approach_range) * e_app
+            + float(lateral) * e_lat + float(elevation) * up)
+
+
+def make_target_orbit_render_fn(renderer, *, target: Sequence[float],
+                                azimuth_deg: float, up_axis: str = 'y',
+                                elevation: float = -2.0, start_range: float = 14.0,
+                                fx: float = 240.0, width: int = 84,
+                                height: int = 84
+                                ) -> Callable[[np.ndarray], np.ndarray]:
+    """Build ``pose (ex, ey, _) -> uint8 image`` for an ego circling a target.
+
+    The ego advances ``+ex`` to approach (range ``= start_range - ex``) and
+    ``ey`` is the lateral offset; the camera always looks at ``target`` (yaw is
+    unused -- the view is governed by where the ego stands). This is the
+    active-perception substrate: a detector on this render rewards the agent for
+    standing where the object is best seen (Phase 3 detection-range sweet spot).
+    """
+    target = np.asarray(target, dtype=float)
+    e_app, e_lat, up = azimuth_basis(azimuth_deg, up_axis)
+    k = np.array([[fx, 0.0, width / 2.0], [0.0, fx, height / 2.0],
+                  [0.0, 0.0, 1.0]], dtype=float)
+
+    def render_fn(pose: np.ndarray) -> np.ndarray:
+        eye = target_orbit_eye(start_range - float(pose[0]), float(pose[1]),
+                               target=target, e_app=e_app, e_lat=e_lat, up=up,
+                               elevation=elevation)
+        return renderer.render(look_at_viewmat(eye, target, up), k, width, height)
+
+    return render_fn
 
 
 def make_scene_render_fn(renderer, frame: dict, *, fx: float = 60.0,

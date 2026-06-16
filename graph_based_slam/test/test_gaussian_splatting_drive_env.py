@@ -210,3 +210,52 @@ def test_actor_env_collision_terminates():
         if term or trunc:
             break
     assert reason == 'collision'
+
+
+def test_percept_reward_adds_weighted_term():
+    pytest.importorskip('gymnasium')
+    # a percept_fn that returns ego x; weight 2 -> reward gains 2 * pose_x
+    percept = lambda pose: float(pose[0])  # noqa: E731
+    env = de.make_drive_env(_anchors(), [10.0, 0.0], dt=0.5, v_max=2.0,
+                            max_steps=50, percept_reward_fn=percept,
+                            percept_weight=2.0)
+    base = de.make_drive_env(_anchors(), [10.0, 0.0], dt=0.5, v_max=2.0,
+                             max_steps=50)
+    env.reset(seed=0)
+    base.reset(seed=0)
+    _, r, _, _, info = env.step([1.0, 0.0])
+    _, rb, _, _, _ = base.step([1.0, 0.0])
+    assert 'percept' in info
+    assert r == pytest.approx(rb + 2.0 * info['percept'])
+
+
+def test_percept_only_reward_is_just_perception():
+    pytest.importorskip('gymnasium')
+    # percept_only: navigation terms dropped; reward == weight * percept until
+    # bounds/timeout. Constant percept of 1.0, weight 0.5 -> reward 0.5/step.
+    percept = lambda pose: 1.0  # noqa: E731
+    env = de.make_drive_env(_anchors(), [1e3, 0.0], dt=0.5, v_max=2.0,
+                            bounds=50.0, max_steps=3, percept_reward_fn=percept,
+                            percept_weight=0.5, percept_only=True)
+    env.reset(seed=0)
+    _, r, term, trunc, info = env.step([1.0, 0.0])
+    assert r == pytest.approx(0.5) and not term and not trunc
+    env.step([1.0, 0.0])
+    _, _, _, trunc, info = env.step([1.0, 0.0])
+    assert trunc and info['reason'] == 'timeout'  # ends on horizon, not goal
+
+
+def test_percept_only_terminates_out_of_bounds():
+    pytest.importorskip('gymnasium')
+    percept = lambda pose: 0.0  # noqa: E731
+    env = de.make_drive_env(_anchors(), [1e3, 0.0], dt=0.5, v_max=2.0,
+                            bounds=1.5, max_steps=50, percept_reward_fn=percept,
+                            percept_weight=1.0, percept_only=True)
+    env.reset(seed=0)
+    reason = ''
+    for _ in range(50):
+        _, _, term, trunc, info = env.step([1.0, 0.0])  # drive past bounds
+        reason = info['reason']
+        if term or trunc:
+            break
+    assert reason == 'out_of_bounds'
