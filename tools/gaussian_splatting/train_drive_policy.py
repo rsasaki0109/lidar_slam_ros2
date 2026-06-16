@@ -77,6 +77,38 @@ def evaluate(env, policy, episodes: int) -> tuple:
     return float(np.mean(returns)), goals / episodes, collisions / episodes
 
 
+def build_camera_env(args):
+    """Build a pixel-observation DriveEnv: the agent sees the 3DGS render itself.
+
+    Corridor and camera come from a recorded trajectory (``transforms.json``): the
+    ground plane / world-up / travel axis are recovered from the camera poses, the
+    ego drives in that plane, and each step rasterises the resident 3DGS model from
+    the ego camera. This closes the sim2real loop -- the policy learns from exactly
+    the image the closed-loop sensor-sim publishes.
+    """
+    import scene_camera as sc
+    from gaussian_renderer import GaussianRenderer
+
+    v_max, dt = 1.5, 0.2
+    c2w = sc.load_cam_c2w(args.transforms)
+    frame = sc.derive_ground_frame(c2w)
+    anchors = sc.corridor_xy(c2w, frame)
+    renderer = GaussianRenderer(args.ply)
+    h = w = int(args.render_size)
+    render_fn = sc.make_scene_render_fn(renderer, frame, fx=args.fx,
+                                        width=w, height=h)
+    start = anchors[0]
+    # heading from the overall travel direction (adjacent anchors jitter in y)
+    heading = float(np.arctan2(anchors[-1, 1] - anchors[0, 1],
+                               anchors[-1, 0] - anchors[0, 0]))
+    return drive_env.make_drive_env(
+        anchors, anchors[-1], start_pose=(float(start[0]), float(start[1]),
+                                          heading),
+        max_dev=args.max_dev, hard_dev=args.hard_dev, dt=dt, v_max=v_max,
+        omega_max=0.5, max_steps=args.max_steps, goal_tol=1.0,
+        obs_mode='camera', render_fn=render_fn, render_size=(h, w))
+
+
 def build_env(args):
     """Construct the DriveEnv from a trajectory, a straight corridor, or an arc.
 
@@ -84,6 +116,8 @@ def build_env(args):
     crossing the centreline timed to a full-speed run -- so a naive fast policy
     collides and the agent must yield (slow, let it pass) to reach the goal.
     """
+    if args.camera:
+        return build_camera_env(args)
     v_max, dt = 2.0, 0.2
     if args.traj:
         xy = load_traj_xy(Path(args.traj))
@@ -123,18 +157,31 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                    help='add a pedestrian crossing the corridor (avoidance task)')
     p.add_argument('--straight', action='store_true',
                    help='use a straight corridor (implied by --actor)')
+    p.add_argument('--camera', action='store_true',
+                   help='pixel observation: learn from the 3DGS render (GPU)')
+    p.add_argument('--ply', default='', help='3DGS model .ply (camera obs)')
+    p.add_argument('--transforms', default='',
+                   help='transforms.json for corridor/camera (camera obs)')
+    p.add_argument('--render-size', type=int, default=84,
+                   help='square render resolution for camera obs')
+    p.add_argument('--fx', type=float, default=60.0,
+                   help='focal length px for camera obs')
     p.add_argument('--seed', type=int, default=0)
     p.add_argument('--save', default='', help='optional path to save the policy')
     args = p.parse_args(argv)
 
     from stable_baselines3 import PPO
 
+    if args.camera and not (args.ply and args.transforms):
+        p.error('--camera requires --ply and --transforms')
+
     env = build_env(args)
     base_ret, base_succ, base_col = evaluate(env, None, args.eval_episodes)
     print(f'random policy: mean return {base_ret:.2f}, success {base_succ:.0%}, '
           f'collision {base_col:.0%}')
 
-    model = PPO('MlpPolicy', env, seed=args.seed, verbose=0)
+    policy = 'CnnPolicy' if args.camera else 'MlpPolicy'
+    model = PPO(policy, env, seed=args.seed, verbose=0)
     model.learn(total_timesteps=args.steps)
     ret, succ, col = evaluate(env, model, args.eval_episodes)
     print(f'PPO ({args.steps} steps): mean return {ret:.2f}, success {succ:.0%}, '
