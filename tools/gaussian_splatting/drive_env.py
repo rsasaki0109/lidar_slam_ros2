@@ -64,6 +64,27 @@ def corridor_deviation(pose_xy: Sequence[float],
     return float(np.sqrt((d * d).sum(axis=1)).min())
 
 
+def crossing_actor(step: int, *, x: float, y0: float, y1: float,
+                   cross_steps: int) -> np.ndarray:
+    """A pedestrian crossing the corridor at fixed ``x``, ``y0``->``y1`` then held.
+
+    Deterministic (no RNG) so the env and its tests are reproducible: the actor
+    walks linearly from ``y0`` to ``y1`` over ``cross_steps`` steps and stops at
+    ``y1`` afterwards.
+    """
+    f = min(max(step / max(cross_steps, 1), 0.0), 1.0)
+    return np.array([float(x), float(y0) + (float(y1) - float(y0)) * f],
+                    dtype=float)
+
+
+def collision(a_xy: Sequence[float], b_xy: Sequence[float],
+              radius: float) -> bool:
+    """Whether two points are within ``radius`` of each other."""
+    a = np.asarray(a_xy, dtype=float)
+    b = np.asarray(b_xy, dtype=float)
+    return bool(np.hypot(*(a - b)) <= radius)
+
+
 def step_reward(prev_dist: float, dist: float, dev: float, *, max_dev: float,
                 step_cost: float = 0.02, dev_weight: float = 0.5,
                 goal_tol: float = 1.0, goal_bonus: float = 10.0) -> float:
@@ -118,14 +139,24 @@ def make_drive_env(anchors: np.ndarray, goal_xy: Sequence[float], *,
                    omega_max: float = 1.0, max_steps: int = 200,
                    goal_tol: float = 1.0, obs_mode: str = 'state',
                    render_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
-                   render_size: Sequence[int] = (120, 160)):
-    """Build a Gymnasium ``DriveEnv`` instance (imports gymnasium lazily)."""
+                   render_size: Sequence[int] = (120, 160),
+                   actor_fn: Optional[Callable[[int], np.ndarray]] = None,
+                   actor_radius: float = 1.0, yield_dist: float = 4.0,
+                   collision_penalty: float = 10.0):
+    """Build a Gymnasium ``DriveEnv`` instance (imports gymnasium lazily).
+
+    When ``actor_fn`` (step -> world xy) is given, a dynamic actor (e.g. a
+    crossing pedestrian) is added: the state obs gains the actor's ego-frame
+    range/bearing, a proximity cost applies within ``yield_dist`` ahead, and a
+    collision (within ``actor_radius``) ends the episode with ``collision_penalty``.
+    """
     import gymnasium as gym
     from gymnasium import spaces
 
     anchors = np.asarray(anchors, dtype=float)
     goal_xy = np.asarray(goal_xy, dtype=float)
     start_pose = np.asarray(start_pose, dtype=float)
+    has_actor = actor_fn is not None
 
     class _DriveEnv(gym.Env):
         metadata = {'render_modes': []}
@@ -141,21 +172,33 @@ def make_drive_env(anchors: np.ndarray, goal_xy: Sequence[float], *,
                                                     dtype=np.uint8)
             else:
                 # [goal_dist, cos(bearing), sin(bearing), corridor_dev]
+                # (+ [actor_range, cos, sin] when an actor is present)
                 span = 4.0 * float(bounds)
-                hi = np.array([span, 1.0, 1.0, span], dtype=np.float32)
-                lo = np.array([0.0, -1.0, -1.0, 0.0], dtype=np.float32)
-                self.observation_space = spaces.Box(lo, hi, dtype=np.float32)
+                hi = [span, 1.0, 1.0, span]
+                lo = [0.0, -1.0, -1.0, 0.0]
+                if has_actor:
+                    hi += [span, 1.0, 1.0]
+                    lo += [0.0, -1.0, -1.0]
+                self.observation_space = spaces.Box(
+                    np.array(lo, dtype=np.float32),
+                    np.array(hi, dtype=np.float32), dtype=np.float32)
             self._pose = start_pose.copy()
             self._step = 0
             self._prev_dist = 0.0
+
+        def _actor_xy(self):
+            return np.asarray(actor_fn(self._step), dtype=float)
 
         def _obs(self):
             if obs_mode == 'camera':
                 return np.asarray(render_fn(self._pose), dtype=np.uint8)
             dist, bearing = goal_range_bearing(self._pose, goal_xy)
             dev = corridor_deviation(self._pose[:2], anchors)
-            return np.array([dist, np.cos(bearing), np.sin(bearing), dev],
-                            dtype=np.float32)
+            vec = [dist, np.cos(bearing), np.sin(bearing), dev]
+            if has_actor:
+                arange, abear = goal_range_bearing(self._pose, self._actor_xy())
+                vec += [arange, np.cos(abear), np.sin(abear)]
+            return np.array(vec, dtype=np.float32)
 
         def reset(self, *, seed=None, options=None):
             super().reset(seed=seed)
@@ -181,6 +224,18 @@ def make_drive_env(anchors: np.ndarray, goal_xy: Sequence[float], *,
                 reward -= 5.0
             info = {'pose': self._pose.copy(), 'dev': dev, 'dist': dist,
                     'reason': reason}
+            if has_actor:
+                actor_xy = self._actor_xy()
+                arange, abear = goal_range_bearing(self._pose, actor_xy)
+                # proximity cost only for an actor ahead within yield_dist
+                if arange < yield_dist and abs(abear) < np.pi / 2:
+                    reward -= (yield_dist - arange) / yield_dist
+                info['actor_xy'] = actor_xy
+                info['actor_dist'] = arange
+                if collision(self._pose[:2], actor_xy, actor_radius):
+                    reward -= collision_penalty
+                    terminated, reason = True, 'collision'
+                    info['reason'] = reason
             return self._obs(), float(reward), terminated, truncated, info
 
     return _DriveEnv()
