@@ -16,6 +16,9 @@
 #   bash scripts/run_drive_rl.sh                     # synthetic arc corridor
 #   TRAJ=output/rtkslam_stadtgarten_seq2_run/traj_raw.tum \
 #     STEPS=80000 bash scripts/run_drive_rl.sh       # real trajectory corridor
+#   CAMERA=1 PLY=output/stadt_3dgs/gsplat/point_cloud.ply \
+#     TRANSFORMS=output/stadt_3dgs/gsplat/transforms.json \
+#     STEPS=40000 bash scripts/run_drive_rl.sh       # pixel-observation (GPU)
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -25,9 +28,17 @@ TRAJ="${TRAJ:-}"
 STEPS="${STEPS:-60000}"
 EVAL_EPISODES="${EVAL_EPISODES:-30}"
 SAVE="${SAVE:-}"
+CAMERA="${CAMERA:-}"
+PLY="${PLY:-}"
+TRANSFORMS="${TRANSFORMS:-}"
+RENDER_SIZE="${RENDER_SIZE:-84}"
 
 ARGS=(--steps "${STEPS}" --eval-episodes "${EVAL_EPISODES}")
 [[ -n "${TRAJ}" ]] && ARGS+=(--traj "${REPO_ROOT}/${TRAJ}")
 [[ -n "${SAVE}" ]] && ARGS+=(--save "${SAVE}")
+if [[ -n "${CAMERA}" ]]; then
+  ARGS+=(--camera --ply "${REPO_ROOT}/${PLY}" \
+         --transforms "${REPO_ROOT}/${TRANSFORMS}" --render-size "${RENDER_SIZE}")
+fi
 
-python3 train_drive_policy.py "${ARGS[@]}"
+python3 -u train_drive_policy.py "${ARGS[@]}"
