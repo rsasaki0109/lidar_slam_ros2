@@ -170,3 +170,43 @@ def test_env_passes_gymnasium_checker():
 
     env = de.make_drive_env(_anchors(), [10.0, 0.0], max_steps=50)
     check_env(env, skip_render_check=True)
+
+
+def test_crossing_actor_walks_then_holds():
+    a0 = de.crossing_actor(0, x=5.0, y0=-3.0, y1=3.0, cross_steps=10)
+    amid = de.crossing_actor(5, x=5.0, y0=-3.0, y1=3.0, cross_steps=10)
+    aend = de.crossing_actor(20, x=5.0, y0=-3.0, y1=3.0, cross_steps=10)
+    assert np.allclose(a0, [5.0, -3.0])
+    assert np.allclose(amid, [5.0, 0.0])
+    assert np.allclose(aend, [5.0, 3.0])  # clamped at y1 after cross_steps
+
+
+def test_collision_radius():
+    assert de.collision([0.0, 0.0], [0.5, 0.0], 1.0)
+    assert not de.collision([0.0, 0.0], [2.0, 0.0], 1.0)
+
+
+def test_actor_env_obs_has_extra_actor_dims():
+    pytest.importorskip('gymnasium')
+    actor = lambda s: de.crossing_actor(s, x=5.0, y0=-3.0, y1=3.0, cross_steps=20)  # noqa: E731
+    env = de.make_drive_env(_anchors(), [10.0, 0.0], max_steps=50,
+                            actor_fn=actor)
+    obs, _ = env.reset(seed=0)
+    assert obs.shape == (7,)
+    assert env.observation_space.contains(obs)
+
+
+def test_actor_env_collision_terminates():
+    pytest.importorskip('gymnasium')
+    # actor parked dead ahead at x=2 on the corridor -> driving straight collides
+    actor = lambda s: np.array([2.0, 0.0])  # noqa: E731
+    env = de.make_drive_env(_anchors(), [10.0, 0.0], dt=0.5, v_max=2.0,
+                            max_steps=50, actor_radius=1.0, actor_fn=actor)
+    env.reset(seed=0)
+    reason = ''
+    for _ in range(50):
+        _, _, term, trunc, info = env.step([1.0, 0.0])
+        reason = info['reason']
+        if term or trunc:
+            break
+    assert reason == 'collision'
