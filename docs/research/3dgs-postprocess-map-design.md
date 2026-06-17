@@ -5,7 +5,7 @@
 > これは新規ワークストリームの提案。ライセンス・センサ調査・PoC 計画を確定し、
 > 実装着手の Go/No-Go をユーザー判断に委ねるための土台。
 
-関連メモリ: `[[project_v0_3_positioning]]` `[[project_awsim_pipeline]]`
+関連メモリ: `[[project_v0_3_positioning]]`
 `[[project_mid360_robot_toolkit_stack]]` `[[project_v0_4_roadmap_draft]]`
 
 ---
@@ -67,7 +67,6 @@ stack"、`[[project_v0_3_positioning]]`）と整合する。3DGS は「精度 cl
 | **NTU VIRAL tnp_01**(ローカル) | ステレオ | `/left/image_raw`,`/right/image_raw` + `camera_left.yaml`,`camera_right.yaml` | OS1 + horz/vert | release-track + Leica GT。屋外検証用。 |
 | **autoware_leo_drive_isuzu** bag1-6(ローカル) | 3カメラ | `/lucid_vision/camera_{0,1,2}/raw_image` + camera_info | あり | 実車 AD マルチカメラ。large。 |
 | **KITTI Odometry** | カラー(別DL) | `calib.txt` P0-P3 + `Tr`(velo→cam) | velodyne | LO ベースライン連動。画像は別 DL 必要。 |
-| **AWSIM** | △ | シーン側でカメラセンサ有効化が必要 | あり | sim photoreal twin。AWSIM demo 連動。 |
 | **MID-360 実機 / mid360_public** | **なし** | `/livox/lidar` + `/livox/imu` のみ | — | **production のカメラ欠落（§7 課題1）**。 |
 | Newer College math_hard(ローカル) | なし | LiDAR + IMU のみ（local subset） | — | このサブセットは画像無し。 |
 
@@ -121,8 +120,6 @@ SLAM が既に出力しているもの:
 
 - **dynamic-object filter**（既存）: 動的物体（車・人）は 3DGS で floater 化する。
   既存の動的物体フィルタで posed 画像/点群をマスクすれば品質が上がる。
-- **AWSIM demo**: AWSIM シーンでカメラを有効化すれば、自作マップの
-  photoreal twin を AWSIM × Autoware tutorial に追加できる。
 
 ---
 
@@ -149,8 +146,9 @@ SLAM が既に出力しているもの:
 | **M0** | 本設計 doc（ライセンス・センサ・アーキ確定） | — | 本ドキュメント承認 |
 | **M1 first light** | koide bag → posed 画像 → LiDAR-primed gsplat → `.ply` + viewer | `koide_lidar_camera_calib`（ローカル） | 1 シーンで認識できる 3DGS が出る。スクショ 1 枚。 |
 | **M2 GT 検証** | NTU VIRAL ステレオで品質確認、ポーズ品質と 3DGS 品質の相関を見る | `ntu_viral/tnp_01`（ローカル, GT 付） | PSNR/見た目を記録。SLAM ドリフトが ghosting に出るか確認。 |
-| **M3 AWSIM 連動** | AWSIM シーンでカメラ有効化 → 自作マップの photoreal twin | AWSIM | AWSIM tutorial に 3DGS セクション追加 |
 | **M4 production 化(stretch)** | ドキュメント化された成果物、CI smoke（極小 fixture） | fixture | release 成果物として doc 化 |
+
+> ラダーは M2 → M4 へ直行する（中間の連動マイルストーンは廃止）。
 
 M1 は**全データがローカル**にあり、外部依存は gsplat の Docker のみ。最小リスクで
 着手できる。
@@ -163,11 +161,11 @@ M1 は**全データがローカル**にあり、外部依存は gsplat の Dock
    3DGS を production path に載せるなら選択肢:
    - (a) MID-360 リグに USB カメラ追加 + 外部標定（toolkit 拡張、`[[project_mid360_robot_toolkit_stack]]`）
    - (b) LiDAR-only の intensity/geometry 3DGS（単色 or intensity 着色、低 fidelity）
-   - (c) 3DGS は当面ベンチマーク/AWSIM 成果物に限定し、MID-360 production には載せない
+   - (c) 3DGS は当面ベンチマーク成果物に限定し、MID-360 production には載せない
    → **どれを取るか要判断**。
 
 2. **3DGS をどの claim に紐づけるか** — 「検査用の見栄え成果物」止まりか、
-   「digital-twin / sim アセット生成」まで狙うか。後者なら AWSIM 連動(M3)を前倒し。
+   「digital-twin / sim アセット生成」まで狙うか。
 
 3. **v0.4 roadmap への組み込み** — 現 roadmap (A〜F) は 3DGS を含まない。
    新ワークストリーム G として差し込むか、v0.4 とは独立した research track にするか。

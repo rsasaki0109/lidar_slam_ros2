@@ -52,9 +52,6 @@ jobs:
           bash -n scripts/run_graph_slam_pointcloud_map_in_autoware.sh
           bash -n scripts/prepare_velodyne_pointcloud_overlay.sh
           bash -n scripts/run_open_data_applanix_velodyne_gnss_smoke.sh
-          bash -n scripts/run_awsim_autoware_demo.sh
-          bash -n scripts/run_awsim_selfmade_map_demo.sh
-          bash -n scripts/test_awsim_setup.sh
           bash -n scripts/download_autoware_artifacts.sh
           bash -n scripts/prepare_autoware_map_from_graph_slam.sh
           bash -n scripts/record_screen.sh

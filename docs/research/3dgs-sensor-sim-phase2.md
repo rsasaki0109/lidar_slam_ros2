@@ -24,7 +24,7 @@ render に対して走らせるための ROS 2 ノード骨格。Phase 0
 
 ## 検証
 
-- **リアルタイム性（本命の成立条件）**: 4070 Ti SUPER / gsplat 1.5.3、
+- **リアルタイム性（本命の成立条件）**: a GPU / gsplat 1.5.3、
   毎フレーム GPU 再アップロードする `render_frames` 経由でも
   isuzu(496k gaussians, 720幅) ~112 FPS、koide(660k, 2448幅フル) 16.8 FPS /
   1224幅 31.5 FPS。実用解像度で 30+ FPS → **レンダはボトルネックでない**。
@@ -50,8 +50,7 @@ render に対して走らせるための ROS 2 ノード骨格。Phase 0
 
 ## 次アクション
 
-- AWSIM×Autoware パイプライン（`docs/awsim-autonomous-driving-tutorial.md`）の
-  localization pose を `pose_topic` に繋ぎ、実シーンの 3DGS（要 align 推定）で
+- Autoware localization pose を `pose_topic` に繋ぎ、実シーンの 3DGS（要 align 推定）で
   perception を回す統合。
 - 動的アクタ（歩行者/車）は vanilla 3DGS では出ないので Phase 3 で compositing。
 - render 結果の exposure/tone を実カメラに寄せる後処理（sim2real gap の更なる縮小）。

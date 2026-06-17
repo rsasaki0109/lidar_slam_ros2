@@ -61,39 +61,6 @@ ROS 2, PCL, Eigen3, G2O, OpenMP
 GitHub Actions（main.yml）で Humble + Jazzy マトリクスビルド＋テスト。
 リリースゲート: APE RMSE <= 0.10m + Autoware マップ検証。
 
-## AWSIM × Autoware 自動運転パイプライン
-
-AWSIM シミュレータで LiDAR データを取得 → lidarslam でマップ生成 → Autoware で自動運転。
-
-```bash
-# セットアップ確認
-bash scripts/test_awsim_setup.sh
-
-# サンプルマップでデモ（3ターミナル）
-bash scripts/run_awsim_autoware_demo.sh awsim      # AWSIM
-bash scripts/run_awsim_autoware_demo.sh autoware    # Autoware
-bash scripts/run_awsim_autoware_demo.sh engage      # 自動運転開始
-
-# 自作マップでワンコマンドデモ
-bash scripts/run_awsim_selfmade_map_demo.sh
-
-# 軌跡から lanelet2 生成
-python3 scripts/simple_lanelet2_generator.py \
-  --input output/.../traj_corrected.tum \
-  --output map/lanelet2_map.osm \
-  --lane-width 3.5 --origin-lat ... --origin-lon ... --resolution 1.0
-```
-
-### AWSIM 注意事項
-
-- AWSIM は Docker 内で起動必須（ホスト Jazzy と衝突する）
-- Autoware: `ghcr.io/autowarefoundation/autoware:universe-cuda` (Humble)
-- AWSIM LiDAR にタイムスタンプなし → lidarslam は `deskew:=false`
-- NDT 閾値: SLAM マップ品質次第で 2.3 → 1.5 に調整が必要な場合あり
-- lanelet2: 複数 lanelet に分割 + 境界ノード共有が Autoware ルーティングに必須
-
-詳細: `docs/awsim-autonomous-driving-tutorial.md`
-
 ## スクリプト一覧
 
 ### SLAM・ベンチマーク
@@ -110,12 +77,9 @@ python3 scripts/simple_lanelet2_generator.py \
 | `download_hilti2022.sh` | HILTI 2022 DL + ROS2 変換（`--sequence exp01\|exp07`、外部 mm-GT 評価基盤、PandarXT-32）|
 | `run_docker_demo.sh` | Docker ワンコマンドデモ（MID-360 bag DL → headless SLAM）|
 
-### AWSIM・Autoware
+### Autoware・ユーティリティ
 | スクリプト | 用途 |
 |-----------|------|
-| `test_awsim_setup.sh` | AWSIM + Autoware セットアップ確認 |
-| `run_awsim_autoware_demo.sh` | サンプルマップ AWSIM デモ |
-| `run_awsim_selfmade_map_demo.sh` | 自作マップ自動運転デモ |
 | `download_autoware_artifacts.sh` | Autoware ML モデルダウンロード |
 | `simple_lanelet2_generator.py` | TUM 軌跡 → lanelet2 OSM |
 | `build_autoware_map_from_slam.sh` | SLAM 出力 → Autoware マップ（PCD変換+lanelet2+projector）|

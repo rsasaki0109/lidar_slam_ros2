@@ -74,16 +74,13 @@ Covers the v0.4 and v0.5 roadmap milestones on top of 0.3.0.
 ## 0.3.0 - 2026-05-25
 
 Public `v3` release. Carries forward the non-GPL default workflow from
-`v0.2.x` and adds end-to-end AWSIM × Autoware, the Livox MID-360 operator
+`v0.2.x` and adds the Livox MID-360 operator
 toolkit, an opt-in STD/BTC-style triangle descriptor research stack with
 variance-validated defaults, dogfood wrapper measurement plumbing, and a
 user-friendly README.
 
 ### Highlights
 
-- **AWSIM × Autoware end-to-end pipeline** — sample-map and self-made-map
-  demos, one-command wrappers, lanelet2 generation from TUM trajectory; see
-  `docs/awsim-autonomous-driving-tutorial.md`
 - **Livox MID-360 operator toolkit** — Jetson-class robot-side recording →
   SLAM → Autoware map workflow with host preflight, bag stamp rewriter,
   recording / production-candidate sessions, public-dataset map runner, and
@@ -118,7 +115,7 @@ user-friendly README.
   distance-based loop closure
 - the default release path remains non-GPL and focused on pointcloud-map
   generation for Autoware-compatible workflows
-- AWSIM and the triangle stack are additive — they do not change the default
+- The triangle stack is additive — it does not change the default
   public path
 
 ## 0.2.2 - 2026-03-28

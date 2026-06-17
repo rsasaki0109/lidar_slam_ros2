@@ -3,7 +3,7 @@
 # Usage: bash scripts/record_screen.sh [output.mp4] [duration_sec]
 #   Ctrl+C で手動停止も可能
 
-OUT="${1:-output/awsim_shinjuku_slam/demo.mp4}"
+OUT="${1:-output/screen_recording/demo.mp4}"
 DUR="${2:-90}"
 
 mkdir -p "$(dirname "${OUT}")"

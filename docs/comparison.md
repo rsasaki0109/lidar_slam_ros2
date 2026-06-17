@@ -144,7 +144,6 @@ The public `v0.2.2` position is:
 - classic-path suite: `bash scripts/run_open_data_classic_path_benchmark_suite.sh`
 - place-recognition suite: `bash scripts/run_place_recognition_benchmark.sh`
 - KITTI Odometry dev split: `bash scripts/run_kitti_00_05_07_report.sh`
-- AWSIM → Autoware E2E demo: `bash scripts/run_awsim_selfmade_map_demo.sh`
 - research-track MID360 default tuning (kept for parity with prior numbers):
   `voxel_size=0.5`, `max_range=80.0`, `search_submap_num=5`,
   `loop_edge_dedup_index_window=20`, `loop_edge_info_weight=200`
@@ -154,7 +153,7 @@ The public `v0.2.2` position is:
 Safe claims:
 
 - the default path is benchmarked on `NTU VIRAL` and reports on `MID-360`
-- the pointcloud-map flow is dogfooded into Autoware end-to-end via AWSIM
+- the pointcloud-map flow is dogfooded into Autoware end-to-end (map loaders)
 - the repository already provides reusable comparison artifacts for
   dynamic-filtering, classic-path open-data runs, and place-recognition
 - the release gate is now data-aware (per-dataset pass/target thresholds) so

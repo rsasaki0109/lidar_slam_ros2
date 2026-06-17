@@ -31,12 +31,10 @@ limitation.
 
 ## When you stream online: tune CycloneDDS + the kernel
 
-If you must run a streaming pipeline (e.g. live sensor → online SLAM, or the
-AWSIM × Autoware demo where AWSIM publishes the cloud over DDS), set both a
+If you must run a streaming pipeline (e.g. live sensor → online SLAM, or any
+case where a publisher pushes the cloud over DDS), set both a
 CycloneDDS profile **and** the kernel socket/fragment limits. The values below
-are the ones validated in the AWSIM × Autoware demo
-(`docs/awsim-autonomous-driving-tutorial.md`) and are a sane starting point for
-loopback / single-host streaming.
+are a sane starting point for loopback / single-host streaming.
 
 ### CycloneDDS profile
 

@@ -8,8 +8,7 @@
 **Turn a rosbag into a map you can actually drive on.**
 
 ROS 2 LiDAR SLAM that outputs an Autoware-ready map bundle — `pointcloud_map/`,
-`map_projector_info.yaml`, and auto-generated lanelet2 — and proves it by driving
-autonomously on that map in AWSIM. Frontend is `RKO-LIO` (MIT), backend is
+`map_projector_info.yaml`, and auto-generated lanelet2. Frontend is `RKO-LIO` (MIT), backend is
 `graph_based_slam` (BSD-2). No GPL components on the default workflow.
 
 ![Point cloud map built by this stack (Shinjuku demo bag)](lidarslam/images/map.png)
@@ -29,8 +28,6 @@ artifacts you need downstream:
   `map_verify: PASS` on every saved bundle.
 - **lanelet2 auto-generation** — drivable lanelets from the SLAM trajectory,
   validated for multi-segment Autoware routing.
-- **Driven, not just plotted** — the map → autonomous-driving loop is dogfooded
-  end-to-end in AWSIM ([tutorial](docs/awsim-autonomous-driving-tutorial.md)).
 - **Surveyed ground truth** — releases are gated in CI by per-dataset APE
   thresholds, including total-station checkpoints on a Livox MID-360
   ([accuracy](#accuracy)).
@@ -53,7 +50,6 @@ flowchart LR
     bag(["rosbag2"]) --> rko["RKO-LIO<br/>LiDAR-inertial odometry"]
     rko --> gbs["graph_based_slam<br/>loop closure + graph optimization"]
     gbs --> bundle["Autoware map bundle<br/>pointcloud_map · lanelet2 · projector info"]
-    bundle --> drive["AWSIM × Autoware<br/>autonomous driving"]
     bundle -.-> gs3d["3DGS photoreal map<br/>(optional)"]
 ```
 
@@ -120,21 +116,6 @@ ros2 service call /map_save std_srvs/srv/Empty
 Required topics, optional GNSS / IMU pre-integration, and the dynamic-object
 filter parameters are documented in [docs/workflows.md](docs/workflows.md).
 
-## Drive on your map (AWSIM × Autoware)
-
-[![Autoware-compatible pointcloud-map authoring — click for the demo video](lidarslam/images/social_autoware_map_authoring.png)](lidarslam/images/social_autoware_map_authoring_demo.mp4)
-
-*Click the card for the demo video.*
-
-```bash
-bash scripts/test_awsim_setup.sh
-bash scripts/run_awsim_selfmade_map_demo.sh
-```
-
-Builds the Autoware map bundle from your SLAM output, generates lanelet2 from the
-trajectory, and brings up AWSIM + Autoware to drive on it. Multi-terminal bringup
-and lanelet2 notes: [docs/awsim-autonomous-driving-tutorial.md](docs/awsim-autonomous-driving-tutorial.md).
-
 ![Autoware map loaders rendering a pointcloud_map authored by this stack](lidarslam/images/autoware_map_loader_proof.png)
 
 ## Accuracy
@@ -189,7 +170,7 @@ Pipeline, quality levers, the [interactive viewer](docs/3dgs-viewer.md), and dat
 ## Docs
 
 - **Getting started**: [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
-- **Pipelines**: [AWSIM autonomous-driving tutorial](docs/awsim-autonomous-driving-tutorial.md) · [Autoware-compatible map authoring](docs/autoware-map-authoring.md) · [3DGS map tutorial](docs/3dgs-map-tutorial.md)
+- **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md) · [3DGS map tutorial](docs/3dgs-map-tutorial.md)
 - **Benchmarking**: [Benchmarking and release gate](docs/benchmarking.md) · [Comparison](docs/comparison.md)
 - **Project**: [v0.2.2 release notes](docs/releases/v0.2.2.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
 

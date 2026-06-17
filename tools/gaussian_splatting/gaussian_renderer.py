@@ -6,7 +6,7 @@ every Gaussian to the GPU on each call, which is fine for a one-shot flythrough
 but wasteful in a closed loop. ``GaussianRenderer`` uploads the model once and
 keeps the tensors resident, so each ``render(...)`` is just a rasterisation --
 fast enough for an Autoware-in-the-loop camera (see scripts: 30+ FPS at
-practical resolutions on a 4070 Ti SUPER).
+practical resolutions on a GPU).
 
 The pose maths (``pose_to_viewmat`` and the camera-frame conventions) are
 numpy-only and unit tested on CPU; the renderer itself needs CUDA + torch +

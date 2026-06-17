@@ -14,7 +14,6 @@ set -uo pipefail
 #   bash scripts/prepare_autoware_map_from_graph_slam.sh \
 #     --pcd-dir ./pointcloud_map \
 #     --g2o ./pose_graph.g2o \
-#     --awsim-config /path/to/config.json \
 #     --output ./autoware_map
 # ============================================================
 
@@ -30,7 +29,6 @@ Required:
   --output DIR        Output Autoware map directory
 
 Optional:
-  --awsim-config FILE AWSIM config.json (for coordinate transform)
   --lane-width FLOAT  Lane width in metres (default: 7.0)
   --resolution FLOAT  Lanelet2 resampling resolution (default: 2.0)
   -h, --help          Show this help
@@ -40,7 +38,6 @@ EOF
 PCD_DIR=""
 G2O_FILE=""
 OUTPUT_DIR=""
-AWSIM_CONFIG=""
 LANE_WIDTH=7.0
 RESOLUTION=2.0
 
@@ -49,7 +46,6 @@ while [[ $# -gt 0 ]]; do
         --pcd-dir)      PCD_DIR="$2"; shift 2 ;;
         --g2o)          G2O_FILE="$2"; shift 2 ;;
         --output)       OUTPUT_DIR="$2"; shift 2 ;;
-        --awsim-config) AWSIM_CONFIG="$2"; shift 2 ;;
         --lane-width)   LANE_WIDTH="$2"; shift 2 ;;
         --resolution)   RESOLUTION="$2"; shift 2 ;;
         -h|--help)      usage; exit 0 ;;
@@ -69,7 +65,6 @@ echo "=== Prepare Autoware Map ==="
 echo "  PCD dir:      ${PCD_DIR}"
 echo "  G2O file:     ${G2O_FILE}"
 echo "  Output:       ${OUTPUT_DIR}"
-echo "  AWSIM config: ${AWSIM_CONFIG:-none (no transform)}"
 echo "  Lane width:   ${LANE_WIDTH}m"
 echo ""
 
@@ -77,13 +72,12 @@ echo ""
 echo "[1/4] Extracting trajectory from pose graph..."
 TRAJ_FILE="${OUTPUT_DIR}/traj_slam.tum"
 
-python3 - "${G2O_FILE}" "${TRAJ_FILE}" "${AWSIM_CONFIG}" << 'PYEOF'
-import sys, json, math
+python3 - "${G2O_FILE}" "${TRAJ_FILE}" << 'PYEOF'
+import sys
 import numpy as np
 from pathlib import Path
 
 g2o_path, tum_path = Path(sys.argv[1]), Path(sys.argv[2])
-awsim_config = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] else None
 
 vertices = []
 for line in g2o_path.read_text().splitlines():
@@ -95,15 +89,6 @@ arr = np.array(vertices)
 dist = np.sum(np.linalg.norm(np.diff(arr[:, 1:4], axis=0), axis=1))
 print(f"  {len(arr)} vertices, distance: {dist:.1f}m")
 
-if awsim_config:
-    cfg = json.loads(Path(awsim_config).read_text())['egoConfiguration']
-    yaw = math.radians(cfg['egoEulerAngles']['z'])
-    fwd, right, up = -arr[:, 3], arr[:, 1], arr[:, 2]
-    arr[:, 1] = fwd * math.sin(yaw) + right * math.cos(yaw)
-    arr[:, 2] = fwd * math.cos(yaw) - right * math.sin(yaw)
-    arr[:, 3] = up
-    print(f"  Transformed (ego yaw={math.degrees(yaw):.1f}deg)")
-
 np.savetxt(str(tum_path), arr, fmt='%.10f')
 print(f"  Saved {tum_path}")
 PYEOF
@@ -111,8 +96,8 @@ PYEOF
 # --- Step 2: Merge and transform PCD ---
 echo "[2/4] Merging and transforming PCD files..."
 
-python3 - "${PCD_DIR}" "${OUTPUT_DIR}/pointcloud_map.pcd" "${AWSIM_CONFIG}" << 'PYEOF'
-import struct, sys, json, math
+python3 - "${PCD_DIR}" "${OUTPUT_DIR}/pointcloud_map.pcd" << 'PYEOF'
+import struct, sys
 import numpy as np
 from pathlib import Path
 
@@ -124,7 +109,6 @@ except ImportError:
     import lzf
 
 pcd_dir, out_path = Path(sys.argv[1]), Path(sys.argv[2])
-awsim_config = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] else None
 
 pcd_files = sorted([f for f in pcd_dir.glob('*.pcd') if f.name != 'pointcloud_map.pcd'])
 print(f"  {len(pcd_files)} PCD files")
@@ -152,18 +136,6 @@ for pf in pcd_files:
 pts = np.vstack(all_points)
 print(f"  {len(pts)} total points")
 
-if awsim_config:
-    cfg = json.loads(Path(awsim_config).read_text())['egoConfiguration']
-    ex, ey, ez = cfg['egoPosition']['x'], cfg['egoPosition']['y'], cfg['egoPosition']['z']
-    yaw = math.radians(cfg['egoEulerAngles']['z'])
-    fwd, right, up = -pts[:, 2], pts[:, 0], pts[:, 1]
-    pts = np.column_stack([
-        ex + fwd * math.sin(yaw) + right * math.cos(yaw),
-        ey + fwd * math.cos(yaw) - right * math.sin(yaw),
-        ez + up,
-    ])
-    print(f"  Transformed to map frame")
-
 n = len(pts)
 with open(out_path, 'wb') as f:
     hdr = (f"# .PCD v0.7 - Point Cloud Data file format\nVERSION 0.7\n"
@@ -180,21 +152,8 @@ PYEOF
 # --- Step 3: Generate lanelet2 ---
 echo "[3/4] Generating lanelet2 map..."
 
-if [ -n "${AWSIM_CONFIG}" ]; then
-    ORIGIN_LAT=$(python3 -c "
-import json; cfg = json.load(open('${AWSIM_CONFIG}'))
-ey = cfg['egoConfiguration']['egoPosition']['y']
-print(f'{8.933148867864661e-06 * ey + 3.524013802340699e+01:.10f}')
-")
-    ORIGIN_LON=$(python3 -c "
-import json; cfg = json.load(open('${AWSIM_CONFIG}'))
-ex = cfg['egoConfiguration']['egoPosition']['x']
-print(f'{1.118735193095598e-05 * ex + 1.387786037832050e+02:.10f}')
-")
-else
-    ORIGIN_LAT=0.0
-    ORIGIN_LON=0.0
-fi
+ORIGIN_LAT=0.0
+ORIGIN_LON=0.0
 echo "  Origin: lat=${ORIGIN_LAT}, lon=${ORIGIN_LON}"
 
 python3 "${SCRIPT_DIR}/simple_lanelet2_generator.py" \
@@ -215,4 +174,4 @@ echo ""
 echo "=== Done ==="
 ls -lh "${OUTPUT_DIR}/"
 echo ""
-echo "To use: bash scripts/run_awsim_selfmade_map_demo.sh"
+echo "To use: load ${OUTPUT_DIR}/ in Autoware map loaders"
