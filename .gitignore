@@ -7,9 +7,7 @@ install/
 log/
 demo_data/
 datasets/
-output/*
-!output/BENCHMARK_README.md
-!output/benchmark_report.md
+output/
 map.pcd
 map_projector_info.yaml
 pointcloud_map/
