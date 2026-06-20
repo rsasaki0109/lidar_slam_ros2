@@ -153,6 +153,94 @@ def test_cli_json_output_matches_machine_readable_payload(tmp_path: Path):
     assert any('No Imu topic was found' in item for item in payload['missing_requirements'])
 
 
+def test_cli_help_is_user_facing():
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), '--help'],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert 'Autoware-compatible map workflow' in result.stdout
+    assert 'The input must be the rosbag2 directory' in result.stdout
+    assert 'Pass /path/to/rosbag2, not /path/to/rosbag2_0.db3.' in result.stdout
+    assert 'Profiles this tool can recommend:' in result.stdout
+    assert 'rko_lio_graph_public_path' in result.stdout
+    assert '--json' in result.stdout
+
+
+def test_cli_rejects_missing_bag_without_traceback(tmp_path: Path):
+    missing_bag = tmp_path / 'missing_bag'
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), str(missing_bag)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'error:' in result.stderr
+    assert 'rosbag2 directory does not exist' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+def test_cli_rejects_db3_file_without_traceback(tmp_path: Path):
+    db3_path = tmp_path / 'demo_0.db3'
+    db3_path.write_text('', encoding='utf-8')
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), str(db3_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'error:' in result.stderr
+    assert 'not the .db3 file' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+def test_cli_rejects_missing_metadata_without_traceback(tmp_path: Path):
+    bag_dir = tmp_path / 'bag_without_metadata'
+    bag_dir.mkdir()
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), str(bag_dir)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'error:' in result.stderr
+    assert 'metadata.yaml not found' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+def test_cli_rejects_invalid_metadata_yaml_without_traceback(tmp_path: Path):
+    bag_dir = tmp_path / 'bag'
+    bag_dir.mkdir()
+    (bag_dir / 'metadata.yaml').write_text(
+        'rosbag2_bagfile_information: [invalid',
+        encoding='utf-8',
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), str(bag_dir)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'error:' in result.stderr
+    assert 'failed to parse' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
 def test_livox_mid360_bag_emits_tuned_preset_hint(tmp_path: Path):
     module = _load_module()
     bag_dir = tmp_path / 'mid360_demo_bag'
