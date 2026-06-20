@@ -13,6 +13,24 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+PROFILE_CHOICES = (
+    'rko_lio_graph_public_path',
+    'rko_lio_graph_mid360_preset',
+    'pointcloud_gnss_smoke',
+    'packet_applanix_smoke',
+)
+PROFILE_HELP = (
+    (
+        'rko_lio_graph_public_path',
+        'PointCloud2 + Imu through RKO-LIO and graph_based_slam.',
+    ),
+    (
+        'rko_lio_graph_mid360_preset',
+        'Livox/MID360 PointCloud2 + Imu with tracked tuned params.',
+    ),
+    ('pointcloud_gnss_smoke', 'PointCloud2 + NavSatFix smoke workflow.'),
+    ('packet_applanix_smoke', 'VelodyneScan + Applanix GSOF49 smoke workflow.'),
+)
 
 
 def _load_script_module(script_name: str, module_name: str):
@@ -60,7 +78,12 @@ def build_execution_plan(
 
     recommendations = {item['id']: item for item in payload['recommendations']}
     if selected_profile not in recommendations:
-        raise RuntimeError(f'unknown or unavailable profile: {selected_profile}')
+        available_profiles = ', '.join(recommendations) if recommendations else 'none'
+        raise RuntimeError(
+            f'profile is not compatible with this bag: {selected_profile}. '
+            f'Available profiles: {available_profiles}. '
+            'Run preflight to inspect the detected topics and missing requirements.'
+        )
 
     summary = payload['summary']
     output_dir = output_dir.expanduser().resolve()
@@ -87,7 +110,8 @@ def build_execution_plan(
             '--bag', str(bag_path),
             '--lidar-topic', pointcloud,
             '--imu-topic', imu,
-            '--lidarslam-param', str(REPO_ROOT / 'lidarslam' / 'param' / 'lidarslam_mid360_rko_graph.yaml'),
+            '--lidarslam-param',
+            str(REPO_ROOT / 'lidarslam' / 'param' / 'lidarslam_mid360_rko_graph.yaml'),
             '--rko-param', str(REPO_ROOT / 'lidarslam' / 'param' / 'rko_lio_mid360.yaml'),
             '--output-dir', str(output_dir),
             '--wait-for-offline-completion',
@@ -136,16 +160,42 @@ def build_execution_plan(
 
 
 def validate_bag_path(bag_path: Path) -> None:
-    if not bag_path.is_dir():
+    if bag_path.is_file():
+        if bag_path.suffix == '.db3':
+            raise FileNotFoundError(
+                f'rosbag2 path points to a .db3 file: {bag_path}. '
+                'Pass the rosbag2 directory that contains metadata.yaml, not the .db3 file.'
+            )
+        raise FileNotFoundError(
+            f'rosbag2 path is a file, not a directory: {bag_path}. '
+            'Pass the rosbag2 directory that contains metadata.yaml.'
+        )
+    if not bag_path.exists():
         raise FileNotFoundError(
             f'rosbag2 directory does not exist: {bag_path}. '
-            'Pass the directory that contains metadata.yaml, not a .db3 file.'
+            'Pass the directory that contains metadata.yaml.'
+        )
+    if not bag_path.is_dir():
+        raise FileNotFoundError(
+            f'rosbag2 path is not a directory: {bag_path}. '
+            'Pass the directory that contains metadata.yaml.'
         )
     if not (bag_path / 'metadata.yaml').is_file():
         raise FileNotFoundError(
             f'metadata.yaml not found under {bag_path}. '
             'Pass the rosbag2 directory that contains metadata.yaml.'
         )
+
+
+def validate_output_dir(output_dir: Path) -> None:
+    if output_dir.exists() and not output_dir.is_dir():
+        raise ValueError(f'output directory path is a file, not a directory: {output_dir}')
+
+    for parent in output_dir.parents:
+        if parent.exists():
+            if not parent.is_dir():
+                raise ValueError(f'output directory parent is not a directory: {parent}')
+            return
 
 
 def maybe_open_viewer(args: argparse.Namespace, output_dir: Path) -> None:
@@ -243,24 +293,63 @@ def write_diagnostics(output_dir: Path, bag_path: Path) -> None:
     )
 
 
+def _profile_help_text() -> str:
+    lines = ['Workflow profiles:']
+    for profile_id, description in PROFILE_HELP:
+        lines.append(f'  {profile_id}: {description}')
+    return '\n'.join(lines)
+
+
+def _help_epilog() -> str:
+    return '\n'.join([
+        'The input must be the rosbag2 directory that contains metadata.yaml.',
+        'Pass /path/to/rosbag2, not /path/to/rosbag2_0.db3.',
+        '',
+        _profile_help_text(),
+        '',
+        'Expected successful outputs:',
+        '  pointcloud_map/',
+        '  map_projector_info.yaml',
+        '  verify_autoware_map.log',
+        '  autoware_map_diagnosis.md',
+        '',
+        'Examples:',
+        '  python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2 --dry-run',
+        (
+            '  python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2 '
+            '--output-dir output/my_map'
+        ),
+        '  python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2 --viewer foxglove',
+    ])
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description='Inspect a bag and run the shortest supported Autoware-compatible map-authoring workflow.'
+        description=(
+            'Inspect a rosbag2 directory, choose a supported Autoware-compatible '
+            'map workflow, and write map artifacts under output/ by default.'
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_help_epilog(),
     )
-    parser.add_argument('bag', help='Path to a rosbag2 directory.')
+    parser.add_argument(
+        'bag',
+        metavar='rosbag2_dir',
+        help='Directory containing metadata.yaml.',
+    )
     parser.add_argument(
         '--profile',
-        choices=[
-            'rko_lio_graph_public_path',
-            'rko_lio_graph_mid360_preset',
-            'pointcloud_gnss_smoke',
-            'packet_applanix_smoke',
-        ],
+        choices=PROFILE_CHOICES,
+        metavar='<id>',
         help='Force a compatible profile instead of the default recommendation.',
     )
     parser.add_argument(
         '--output-dir',
-        help='Directory for generated map outputs and logs. Defaults to output/autoware_map_authoring_<bag>_<timestamp>.',
+        metavar='<dir>',
+        help=(
+            'Directory for generated map outputs and logs. Defaults to '
+            'output/autoware_map_authoring_<bag>_<timestamp>.'
+        ),
     )
     parser.add_argument(
         '--viewer',
@@ -268,13 +357,35 @@ def parse_args() -> argparse.Namespace:
         default='none',
         help='Open the saved map after the run (default: none).',
     )
-    parser.add_argument('--autoware-core-dir', help='autoware_core checkout used by the Docker viewer.')
-    parser.add_argument('--work-dir', help='Runtime workspace directory for Autoware/Foxglove viewers.')
+    parser.add_argument(
+        '--autoware-core-dir',
+        help='autoware_core checkout used by the Docker viewer.',
+    )
+    parser.add_argument(
+        '--work-dir',
+        help='Runtime workspace directory for Autoware/Foxglove viewers.',
+    )
     parser.add_argument('--viewer-run-dir', help='Existing built viewer runtime to reuse.')
-    parser.add_argument('--viewer-rebuild', action='store_true', help='Rebuild the viewer runtime before opening.')
-    parser.add_argument('--auto-exit-secs', type=int, help='Auto-close the viewer after N seconds.')
-    parser.add_argument('--no-verify-map', action='store_true', help='Skip verify_autoware_map.py in smoke wrappers.')
-    parser.add_argument('--dry-run', action='store_true', help='Print the selected command without executing it.')
+    parser.add_argument(
+        '--viewer-rebuild',
+        action='store_true',
+        help='Rebuild the viewer runtime before opening.',
+    )
+    parser.add_argument(
+        '--auto-exit-secs',
+        type=int,
+        help='Auto-close the viewer after N seconds.',
+    )
+    parser.add_argument(
+        '--no-verify-map',
+        action='store_true',
+        help='Skip verify_autoware_map.py in smoke wrappers.',
+    )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Print the selected command without executing it.',
+    )
     return parser.parse_args()
 
 
@@ -287,6 +398,7 @@ def main() -> int:
     )
     try:
         validate_bag_path(bag_path)
+        validate_output_dir(output_dir)
         plan = build_execution_plan(
             bag_path=bag_path,
             profile_id=args.profile,
@@ -305,16 +417,41 @@ def main() -> int:
     if args.dry_run:
         return 0
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print(f'error: failed to create output directory {output_dir}: {exc}', file=sys.stderr)
+        return 2
+
+    command_error: subprocess.CalledProcessError | None = None
     try:
         subprocess.run(plan['command'], check=True, cwd=REPO_ROOT)
+    except subprocess.CalledProcessError as exc:
+        command_error = exc
     finally:
         if output_dir.exists():
-            maybe_verify_map(output_dir, enabled=not args.no_verify_map)
-            write_diagnostics(output_dir, bag_path)
+            try:
+                maybe_verify_map(output_dir, enabled=not args.no_verify_map)
+                write_diagnostics(output_dir, bag_path)
+            except (OSError, RuntimeError, ValueError) as exc:
+                print(f'warning: failed to write run diagnostics: {exc}', file=sys.stderr)
+
+    if command_error is not None:
+        print(
+            f'error: map workflow failed with exit code {command_error.returncode}.',
+            file=sys.stderr,
+        )
+        print('failed command:', shlex.join(plan['command']), file=sys.stderr)
+        if (output_dir / 'autoware_map_diagnosis.md').is_file():
+            print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
+        return command_error.returncode or 1
 
     print_next_steps(args, output_dir)
-    maybe_open_viewer(args, output_dir)
+    try:
+        maybe_open_viewer(args, output_dir)
+    except subprocess.CalledProcessError as exc:
+        print(f'error: viewer failed with exit code {exc.returncode}.', file=sys.stderr)
+        return exc.returncode or 1
     print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
     return 0
 
