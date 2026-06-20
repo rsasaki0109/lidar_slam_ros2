@@ -4,6 +4,7 @@
 import argparse
 import json
 import shlex
+import sys
 import textwrap
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -20,6 +21,19 @@ TFMESSAGE = 'tf2_msgs/msg/TFMessage'
 GSOF49 = 'applanix_msgs/msg/NavigationSolutionGsof49'
 GSOF50 = 'applanix_msgs/msg/NavigationPerformanceGsof50'
 VELOCITY_REPORT = 'autoware_auto_vehicle_msgs/msg/VelocityReport'
+
+PROFILE_HELP = (
+    (
+        'rko_lio_graph_public_path',
+        'PointCloud2 + Imu through RKO-LIO and graph_based_slam.',
+    ),
+    (
+        'rko_lio_graph_mid360_preset',
+        'Livox/MID360 PointCloud2 + Imu with tracked tuned params.',
+    ),
+    ('pointcloud_gnss_smoke', 'PointCloud2 + NavSatFix smoke workflow.'),
+    ('packet_applanix_smoke', 'VelodyneScan + Applanix GSOF49 smoke workflow.'),
+)
 
 
 @dataclass(frozen=True)
@@ -48,11 +62,24 @@ def load_bag_metadata(bag_path: Path) -> dict[str, Any]:
     """Load rosbag2 metadata.yaml."""
     metadata_path = bag_path / 'metadata.yaml'
     if not metadata_path.is_file():
-        raise FileNotFoundError(f'metadata.yaml not found under {bag_path}')
-    data = yaml.safe_load(metadata_path.read_text(encoding='utf-8')) or {}
+        raise FileNotFoundError(
+            f'metadata.yaml not found under {bag_path}. '
+            'Pass the rosbag2 directory that contains metadata.yaml.'
+        )
+    try:
+        data = yaml.safe_load(metadata_path.read_text(encoding='utf-8')) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f'failed to parse {metadata_path}: {exc}') from exc
+    if not isinstance(data, dict):
+        raise ValueError(
+            f'{metadata_path} must contain a rosbag2 metadata YAML mapping.'
+        )
     bag_info = data.get('rosbag2_bagfile_information', {}) or {}
-    if not bag_info:
-        raise ValueError(f'rosbag2_bagfile_information missing in {metadata_path}')
+    if not isinstance(bag_info, dict) or not bag_info:
+        raise ValueError(
+            f'rosbag2_bagfile_information missing in {metadata_path}. '
+            'Use a rosbag2 metadata.yaml file, not a topic list or arbitrary YAML file.'
+        )
     return bag_info
 
 
@@ -67,6 +94,8 @@ def _duration_seconds(bag_info: dict[str, Any]) -> float | None:
 def _collect_topics(bag_info: dict[str, Any]) -> list[TopicRecord]:
     topics = []
     for entry in bag_info.get('topics_with_message_count', []) or []:
+        if not isinstance(entry, dict):
+            continue
         record = _topic_from_entry(entry)
         if record.name and record.msg_type:
             topics.append(record)
@@ -340,6 +369,7 @@ def render_text_report(payload: dict[str, Any]) -> str:
         lines.extend([
             '',
             f"Recommended path: {primary['label']}",
+            f"Recommended profile: {primary['id']}",
             'Why:',
         ])
         for reason in primary['why']:
@@ -357,7 +387,7 @@ def render_text_report(payload: dict[str, Any]) -> str:
             lines.append('')
             lines.append('Other compatible paths:')
             for alternative in recommendations[1:]:
-                lines.append(f"  - {alternative['label']}")
+                lines.append(f"  - {alternative['label']} [{alternative['id']}]")
                 lines.append(textwrap.indent(alternative['command'], '    '))
     else:
         lines.extend([
@@ -378,12 +408,71 @@ def render_text_report(payload: dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
+def validate_bag_path(bag_path: Path) -> None:
+    """Validate that a CLI input points at a rosbag2 directory."""
+    if bag_path.is_file():
+        if bag_path.suffix == '.db3':
+            raise FileNotFoundError(
+                f'rosbag2 path points to a .db3 file: {bag_path}. '
+                'Pass the rosbag2 directory that contains metadata.yaml, not the .db3 file.'
+            )
+        raise FileNotFoundError(
+            f'rosbag2 path is a file, not a directory: {bag_path}. '
+            'Pass the rosbag2 directory that contains metadata.yaml.'
+        )
+    if not bag_path.exists():
+        raise FileNotFoundError(
+            f'rosbag2 directory does not exist: {bag_path}. '
+            'Pass the directory that contains metadata.yaml.'
+        )
+    if not bag_path.is_dir():
+        raise FileNotFoundError(
+            f'rosbag2 path is not a directory: {bag_path}. '
+            'Pass the directory that contains metadata.yaml.'
+        )
+    if not (bag_path / 'metadata.yaml').is_file():
+        raise FileNotFoundError(
+            f'metadata.yaml not found under {bag_path}. '
+            'Pass the rosbag2 directory that contains metadata.yaml.'
+        )
+
+
+def _profile_help_text() -> str:
+    lines = ['Profiles this tool can recommend:']
+    for profile_id, description in PROFILE_HELP:
+        lines.append(f'  {profile_id}: {description}')
+    return '\n'.join(lines)
+
+
+def _help_epilog() -> str:
+    return '\n'.join([
+        'The input must be the rosbag2 directory that contains metadata.yaml.',
+        'Pass /path/to/rosbag2, not /path/to/rosbag2_0.db3.',
+        '',
+        _profile_help_text(),
+        '',
+        'Typical commands:',
+        '  python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2',
+        '  python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2 --json',
+        '  bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2 --dry-run',
+    ])
+
+
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(
-        description='Inspect a rosbag2 and suggest the shortest supported map-authoring path.'
+        description=(
+            'Inspect a rosbag2 directory and suggest the shortest supported '
+            'Autoware-compatible map workflow.'
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_help_epilog(),
     )
-    parser.add_argument('bag', help='Path to a rosbag2 directory that contains metadata.yaml.')
+    parser.add_argument(
+        'bag',
+        metavar='rosbag2_dir',
+        help='Directory containing metadata.yaml.',
+    )
     parser.add_argument(
         '--json',
         action='store_true',
@@ -396,7 +485,13 @@ def main() -> int:
     """Entry point."""
     args = parse_args()
     bag_path = Path(args.bag).expanduser().resolve()
-    payload = build_preflight_payload(bag_path)
+    try:
+        validate_bag_path(bag_path)
+        payload = build_preflight_payload(bag_path)
+    except (OSError, ValueError) as exc:
+        print(f'error: {exc}', file=sys.stderr)
+        return 2
+
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
