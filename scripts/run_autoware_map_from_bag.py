@@ -7,6 +7,7 @@ import argparse
 import importlib.util
 import shlex
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -132,6 +133,19 @@ def build_execution_plan(
         'command': command,
         'output_dir': output_dir,
     }
+
+
+def validate_bag_path(bag_path: Path) -> None:
+    if not bag_path.is_dir():
+        raise FileNotFoundError(
+            f'rosbag2 directory does not exist: {bag_path}. '
+            'Pass the directory that contains metadata.yaml, not a .db3 file.'
+        )
+    if not (bag_path / 'metadata.yaml').is_file():
+        raise FileNotFoundError(
+            f'metadata.yaml not found under {bag_path}. '
+            'Pass the rosbag2 directory that contains metadata.yaml.'
+        )
 
 
 def maybe_open_viewer(args: argparse.Namespace, output_dir: Path) -> None:
@@ -271,12 +285,17 @@ def main() -> int:
     output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else (
         REPO_ROOT / 'output' / f'autoware_map_authoring_{bag_path.stem}_{timestamp}'
     )
-    plan = build_execution_plan(
-        bag_path=bag_path,
-        profile_id=args.profile,
-        output_dir=output_dir,
-        verify_map=not args.no_verify_map,
-    )
+    try:
+        validate_bag_path(bag_path)
+        plan = build_execution_plan(
+            bag_path=bag_path,
+            profile_id=args.profile,
+            output_dir=output_dir,
+            verify_map=not args.no_verify_map,
+        )
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        print(f'error: {exc}', file=sys.stderr)
+        return 2
 
     print(f"Selected profile: {plan['label']}")
     print(f"Output directory: {plan['output_dir']}")

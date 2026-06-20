@@ -26,7 +26,7 @@ bash scripts/run_autoware_quickstart.sh
 
 Release:
 
-- <https://github.com/rsasaki0109/lidarslam_ros2/releases/tag/v0.2.2>
+- <https://github.com/rsasaki0109/lidar_slam_ros2/releases/tag/v0.2.2>
 
 ### Medium
 
@@ -49,7 +49,7 @@ bash scripts/run_autoware_quickstart.sh
 
 Docs:
 
-- <https://github.com/rsasaki0109/lidarslam_ros2/blob/develop/docs/autoware-map-authoring.md>
+- <https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/docs/autoware-map-authoring.md>
 
 ## English
 
@@ -72,7 +72,7 @@ bash scripts/run_autoware_quickstart.sh
 
 Release:
 
-- <https://github.com/rsasaki0109/lidarslam_ros2/releases/tag/v0.2.2>
+- <https://github.com/rsasaki0109/lidar_slam_ros2/releases/tag/v0.2.2>
 
 ## Alt Text
 

@@ -126,6 +126,7 @@ The current public position of this repository is:
 
 ## Related Docs
 
+- [Getting Started](getting-started.md)
 - [Autoware Quickstart](autoware-quickstart.md)
 - [Operator Workflows](workflows.md)
 - [Benchmarking And Release Gate](benchmarking.md)

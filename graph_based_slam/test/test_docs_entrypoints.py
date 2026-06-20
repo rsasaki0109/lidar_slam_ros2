@@ -41,7 +41,9 @@ VERSION_PATH = REPO_ROOT / 'VERSION'
 CHANGELOG_PATH = REPO_ROOT / 'CHANGELOG.md'
 RELEASING_PATH = REPO_ROOT / 'RELEASING.md'
 MKDOCS_CONFIG_PATH = REPO_ROOT / 'mkdocs.yml'
+GITIGNORE_PATH = REPO_ROOT / '.gitignore'
 DOCS_INDEX_PATH = REPO_ROOT / 'docs' / 'index.md'
+GETTING_STARTED = REPO_ROOT / 'docs' / 'getting-started.md'
 DOCS_ASSETS_DIR = REPO_ROOT / 'docs' / 'assets'
 DOCS_EXTRA_CSS_PATH = DOCS_ASSETS_DIR / 'stylesheets' / 'extra.css'
 DOCS_AUTOWARE_PROOF_SITE_IMAGE_PATH = DOCS_ASSETS_DIR / 'images' / 'autoware_map_loader_proof.png'
@@ -72,10 +74,6 @@ SOCIAL_CARD_PATH = (
 SOCIAL_DEMO_VIDEO_PATH = (
     REPO_ROOT / 'lidarslam' / 'images' / 'social_autoware_map_authoring_demo.mp4'
 )
-BENCHMARK_SUMMARY_PATH = REPO_ROOT / 'output' / 'benchmark_summary.md'
-BENCHMARK_REPORT_PATH = REPO_ROOT / 'output' / 'latest_report.html'
-STRESS_REPORT_PATH = REPO_ROOT / 'output' / 'stress_validation_report_20260325.md'
-V2_READINESS_PATH = REPO_ROOT / 'output' / 'v2_beta_readiness_20260324.md'
 
 
 def test_docs_exist_and_are_linked_from_readme():
@@ -90,6 +88,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert RELEASING_PATH.is_file()
     assert MKDOCS_CONFIG_PATH.is_file()
     assert DOCS_INDEX_PATH.is_file()
+    assert GETTING_STARTED.is_file()
     assert DOCS_ASSETS_DIR.is_dir()
     assert DOCS_EXTRA_CSS_PATH.is_file()
     assert DOCS_AUTOWARE_PROOF_SITE_IMAGE_PATH.is_file()
@@ -111,6 +110,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(CONTRIBUTING.md)' in readme
     assert '(CHANGELOG.md)' in readme
     assert '(RELEASING.md)' in readme
+    assert '(docs/getting-started.md)' in readme
     assert '(docs/autoware-map-authoring.md)' in readme
     assert '(docs/autoware-quickstart.md)' in readme
     assert '(docs/autoware-foxglove.md)' in readme
@@ -120,7 +120,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert 'python3 -m mkdocs serve' in readme
     assert 'run_autoware_map_beginner.sh' in readme
     assert '(lidarslam/images/autoware_map_loader_proof.png)' in readme
-    assert 'git clone --recursive https://github.com/rsasaki0109/lidarslam_ros2.git' in readme
+    assert 'git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git' in readme
     assert 'rosdep install --from-paths src --ignore-src -r -y' in readme
     # The required-topics table and the dynamic-object-filter figure moved to
     # docs/workflows.md so the README stays narrow; keep the assets on disk
@@ -214,12 +214,14 @@ def test_contributing_and_issue_templates_exist():
     assert 'run_autoware_quickstart.sh' in contributing
 
 
-def test_public_report_snapshots_exist():
-    """Public release docs should have tracked benchmark/report snapshots."""
-    assert BENCHMARK_SUMMARY_PATH.is_file()
-    assert BENCHMARK_REPORT_PATH.is_file()
-    assert STRESS_REPORT_PATH.is_file()
-    assert V2_READINESS_PATH.is_file()
+def test_generated_output_artifacts_are_local_only():
+    """Generated benchmark/report artifacts should stay out of git."""
+    gitignore = GITIGNORE_PATH.read_text(encoding='utf-8')
+    benchmarking_doc = BENCHMARKING_DOC.read_text(encoding='utf-8')
+
+    assert 'output/' in gitignore
+    assert 'benchmark_summary.md' in benchmarking_doc
+    assert 'latest_report.html' in benchmarking_doc
 
 
 def test_release_metadata_and_core_package_versions_match():
@@ -272,8 +274,10 @@ def test_release_metadata_and_core_package_versions_match():
 
     assert 'site_name: lidarslam_ros2 Docs' in mkdocs_config
     assert 'site_url: https://rsasaki0109.github.io/lidar_slam_ros2/' in mkdocs_config
+    assert 'repo_url: https://github.com/rsasaki0109/lidar_slam_ros2' in mkdocs_config
     assert 'name: material' in mkdocs_config
     assert 'assets/stylesheets/extra.css' in mkdocs_config
+    assert 'Getting Started: getting-started.md' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
     assert 'Autoware Foxglove: autoware-foxglove.md' in mkdocs_config
     assert 'Benchmarking And Release Gate: benchmarking.md' in mkdocs_config
@@ -286,12 +290,21 @@ def test_release_metadata_and_core_package_versions_match():
 def test_docs_cover_autoware_and_release_gate_keywords():
     """The adoption docs should mention the supported operator workflows."""
     autoware_doc = AUTOWARE_QUICKSTART.read_text(encoding='utf-8')
+    getting_started_doc = GETTING_STARTED.read_text(encoding='utf-8')
     autoware_map_doc = AUTOWARE_MAP_AUTHORING.read_text(encoding='utf-8')
     autoware_foxglove_doc = AUTOWARE_FOXGLOVE.read_text(encoding='utf-8')
     benchmarking_doc = BENCHMARKING_DOC.read_text(encoding='utf-8')
     comparison_doc = COMPARISON_DOC.read_text(encoding='utf-8')
 
+    assert 'run_autoware_map_beginner.sh' in getting_started_doc
+    assert 'preflight_autoware_map_bag.py' in getting_started_doc
+    assert 'verify_autoware_map.py' in getting_started_doc
+    assert (
+        'git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git'
+        in getting_started_doc
+    )
     assert 'run_autoware_quickstart.sh' in autoware_doc
+    assert 'Getting Started' in autoware_doc
     assert 'preflight_autoware_map_bag.py' in autoware_doc
     assert 'run_autoware_map_beginner.sh' in autoware_doc
     assert 'run_autoware_map_from_bag.py' in autoware_doc

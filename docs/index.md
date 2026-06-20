@@ -15,7 +15,7 @@
       <span>Foxglove proof path</span>
     </div>
     <div class="hero__actions">
-      <a class="md-button md-button--primary" href="autoware-map-authoring.html">Start With Map Authoring</a>
+      <a class="md-button md-button--primary" href="getting-started.html">Start Here</a>
       <a class="md-button" href="autoware-quickstart.html">Run The Quickstart</a>
     </div>
   </div>
@@ -48,6 +48,10 @@
 ## Start Here
 
 <div class="card-grid">
+  <a class="link-card" href="getting-started.html">
+    <h3>Getting Started</h3>
+    <p>Choose Docker, a local build, or your own bag without reading every workflow first.</p>
+  </a>
   <a class="link-card" href="autoware-map-authoring.html">
     <h3>Autoware-Compatible Map Authoring</h3>
     <p>The shortest product-level summary of the supported public path.</p>
