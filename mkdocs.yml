@@ -1,8 +1,8 @@
 site_name: lidarslam_ros2 Docs
 site_description: ROS 2 LiDAR SLAM docs for pointcloud-map authoring, benchmarking, and Autoware-compatible workflows.
 site_url: https://rsasaki0109.github.io/lidar_slam_ros2/
-repo_url: https://github.com/rsasaki0109/lidarslam_ros2
-repo_name: rsasaki0109/lidarslam_ros2
+repo_url: https://github.com/rsasaki0109/lidar_slam_ros2
+repo_name: rsasaki0109/lidar_slam_ros2
 docs_dir: docs
 use_directory_urls: false
 extra_css:
@@ -33,6 +33,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Getting Started: getting-started.md
   - Autoware-Compatible Map Authoring: autoware-map-authoring.md
   - Autoware Quickstart: autoware-quickstart.md
   - Autoware Foxglove: autoware-foxglove.md

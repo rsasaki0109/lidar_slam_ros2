@@ -11,7 +11,7 @@ README.
 
 ```bash
 cd ~/ros2_ws/src
-git clone --recursive https://github.com/rsasaki0109/lidarslam_ros2
+git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2
 cd ..
 rosdep install --from-paths src --ignore-src -r -y
 ```

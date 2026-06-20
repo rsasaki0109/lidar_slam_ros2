@@ -86,7 +86,9 @@ pure odometry novelty.
 
 ## Local Benchmark Snapshot
 
-These numbers come from local artifacts currently checked under `output/`.
+These numbers come from generated benchmark artifacts under local `output/`
+directories. `output/` is ignored by git; use the commands in
+[Benchmarking And Release Gate](benchmarking.md) to regenerate the reports.
 
 ### Release-track datasets
 
@@ -125,11 +127,11 @@ definition and attribution:
 
 Source artifacts:
 
-- `output/benchmark_summary.md`
-- `output/latest_report.html`
-- `output/stress_validation_report_20260325.md`
+- `output/benchmark_summary.md` (generated locally)
+- `output/latest_report.html` (generated locally)
+- `output/stress_validation_report_<YYYYMMDD>.md` (generated locally)
 - `scripts/release_profiles.yaml` (profile definitions)
-- `output/kitti_dev_<timestamp>/kitti_dev_report.md` (KITTI LO baseline)
+- `output/kitti_dev_<timestamp>/kitti_dev_report.md` (generated locally, KITTI LO baseline)
 
 ## Current Default Position
 

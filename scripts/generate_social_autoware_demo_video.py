@@ -167,7 +167,7 @@ def _make_slide_cta() -> Image.Image:
         [
             'bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2',
             'Docs: rsasaki0109.github.io/lidar_slam_ros2/',
-            'Release: github.com/rsasaki0109/lidarslam_ros2/releases/tag/v0.2.2',
+            'Release: github.com/rsasaki0109/lidar_slam_ros2/releases/tag/v0.2.2',
         ],
         eyebrow='quickstart',
     )

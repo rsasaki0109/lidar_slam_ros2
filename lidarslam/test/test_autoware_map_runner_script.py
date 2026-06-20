@@ -110,6 +110,9 @@ def test_beginner_wrapper_exposes_simple_viewer_flags():
     assert '--autoware' in script
     assert '--no-viewer' in script
     assert '--dry-run' in script
+    assert '--preflight-only' in script
+    assert 'metadata.yaml not found' in script
+    assert 'not a .db3 file' in script
 
 
 def test_runner_prefers_mid360_preset_for_livox_bag(tmp_path: Path):

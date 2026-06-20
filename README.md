@@ -1,9 +1,9 @@
 # lidarslam_ros2
 
-[![CI](https://github.com/rsasaki0109/lidarslam_ros2/actions/workflows/main.yml/badge.svg?branch=develop)](https://github.com/rsasaki0109/lidarslam_ros2/actions/workflows/main.yml)
+[![CI](https://github.com/rsasaki0109/lidar_slam_ros2/actions/workflows/main.yml/badge.svg?branch=develop)](https://github.com/rsasaki0109/lidar_slam_ros2/actions/workflows/main.yml)
 [![License: BSD-2-Clause](https://img.shields.io/badge/License-BSD--2--Clause-blue.svg)](https://opensource.org/licenses/BSD-2-Clause)
 [![ROS 2: Humble | Jazzy](https://img.shields.io/badge/ROS%202-Humble%20%7C%20Jazzy-22314E?logo=ros&logoColor=white)](#support-and-license)
-[![GitHub stars](https://img.shields.io/github/stars/rsasaki0109/lidarslam_ros2?style=flat&logo=github)](https://github.com/rsasaki0109/lidarslam_ros2/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/rsasaki0109/lidar_slam_ros2?style=flat&logo=github)](https://github.com/rsasaki0109/lidar_slam_ros2/stargazers)
 
 **Turn a rosbag into a map you can actually drive on.**
 
@@ -55,6 +55,9 @@ flowchart LR
 
 ## Quickstart
 
+Not sure which path fits your setup? Start with the
+[Getting Started guide](docs/getting-started.md).
+
 ### Try it with Docker (one command, no build)
 
 ```bash
@@ -74,20 +77,20 @@ appending `bash` instead drops you into an interactive shell.
 
 ```bash
 cd ~/ros2_ws/src
-git clone --recursive https://github.com/rsasaki0109/lidarslam_ros2.git
+git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git
 cd ..
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
 ```
 
-If you cloned without `--recursive`: `git -C src/lidarslam_ros2 submodule update --init --recursive`.
+If you cloned without `--recursive`: `git -C src/lidar_slam_ros2 submodule update --init --recursive`.
 
 Then run one public dataset end to end — NTU VIRAL `tnp_01` (~580 s outdoor bag)
 through RKO-LIO + graph_based_slam into an Autoware-loadable map:
 
 ```bash
-cd src/lidarslam_ros2
+cd src/lidar_slam_ros2
 bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_autoware_quickstart.sh
 python3 scripts/verify_autoware_map.py output/.../pointcloud_map
@@ -169,7 +172,7 @@ Pipeline, quality levers, the [interactive viewer](docs/3dgs-viewer.md), and dat
 
 ## Docs
 
-- **Getting started**: [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
+- **Getting started**: [Getting Started](docs/getting-started.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
 - **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md) · [3DGS map tutorial](docs/3dgs-map-tutorial.md)
 - **Benchmarking**: [Benchmarking and release gate](docs/benchmarking.md) · [Comparison](docs/comparison.md)
 - **Project**: [v0.2.2 release notes](docs/releases/v0.2.2.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
