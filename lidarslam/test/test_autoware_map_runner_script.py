@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import subprocess
 
 import yaml
 
@@ -113,6 +114,21 @@ def test_beginner_wrapper_exposes_simple_viewer_flags():
     assert '--preflight-only' in script
     assert 'metadata.yaml not found' in script
     assert 'not a .db3 file' in script
+
+
+def test_beginner_wrapper_help_is_user_facing():
+    result = subprocess.run(
+        ['bash', str(BEGINNER_SCRIPT_PATH), '--help'],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert 'Autoware-compatible map workflow' in result.stderr
+    assert 'The input must be the rosbag2 directory' in result.stderr
+    assert 'Expected successful outputs:' in result.stderr
+    assert '--output-dir <dir>' in result.stderr
 
 
 def test_runner_prefers_mid360_preset_for_livox_bag(tmp_path: Path):

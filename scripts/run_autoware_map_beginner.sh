@@ -2,11 +2,15 @@
 set -euo pipefail
 
 usage() {
+  local exit_code="${1:-1}"
   cat <<'EOF' >&2
 Usage:
   run_autoware_map_beginner.sh <rosbag2_dir> [options]
 
-Beginner-friendly wrapper around run_autoware_map_from_bag.py.
+Inspect a rosbag2 directory, choose the shortest supported
+Autoware-compatible map workflow, and write the result under output/ by default.
+
+The input must be the rosbag2 directory that contains metadata.yaml.
 
 Options:
   --preflight-only             Print the bag preflight report and exit
@@ -16,7 +20,17 @@ Options:
   --dry-run                     Print the selected command without executing it
   --help                        Show this help
 
-Any remaining options are forwarded to run_autoware_map_from_bag.py.
+Common forwarded options:
+  --output-dir <dir>            Write outputs to a specific directory
+  --profile <id>                Force a compatible workflow profile
+  --no-verify-map               Skip pointcloud_map verification
+  --auto-exit-secs <seconds>    Close the viewer after a timeout
+
+Expected successful outputs:
+  pointcloud_map/
+  map_projector_info.yaml
+  verify_autoware_map.log
+  autoware_map_diagnosis.md
 
 Examples:
   bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
@@ -24,11 +38,15 @@ Examples:
   bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2 --foxglove
   bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2 --output-dir output/my_map
 EOF
-  exit 1
+  exit "$exit_code"
 }
 
+if [[ $# -eq 1 && ( "$1" == "--help" || "$1" == "-h" ) ]]; then
+  usage 0
+fi
+
 if [[ $# -lt 1 ]]; then
-  usage
+  usage 1
 fi
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -58,7 +76,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --help|-h)
-      usage
+      usage 0
       ;;
     --dry-run|--no-verify-map|--viewer-rebuild)
       FORWARDED_ARGS+=("$1")
@@ -71,7 +89,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     -*)
       echo "Unknown option: $1" >&2
-      usage
+      usage 1
       ;;
     *)
       if [[ -z "$BAG_PATH" ]]; then
@@ -79,14 +97,14 @@ while [[ $# -gt 0 ]]; do
         shift
       else
         echo "Unexpected positional argument: $1" >&2
-        usage
+        usage 1
       fi
       ;;
   esac
 done
 
 if [[ -z "$BAG_PATH" ]]; then
-  usage
+  usage 1
 fi
 
 if [[ ! -d "$BAG_PATH" ]]; then
