@@ -94,6 +94,103 @@ def test_runner_script_supports_profiles_and_viewers():
     assert '--dry-run' in script
 
 
+def test_runner_help_is_user_facing():
+    result = subprocess.run(
+        ['python3', str(SCRIPT_PATH), '--help'],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert 'Autoware-compatible map workflow' in result.stdout
+    assert 'The input must be the rosbag2 directory' in result.stdout
+    assert 'Workflow profiles:' in result.stdout
+    assert 'Expected successful outputs:' in result.stdout
+    assert '--output-dir <dir>' in result.stdout
+
+
+def test_runner_rejects_db3_file_without_traceback(tmp_path: Path):
+    db3_path = tmp_path / 'demo_0.db3'
+    db3_path.write_text('', encoding='utf-8')
+
+    result = subprocess.run(
+        ['python3', str(SCRIPT_PATH), str(db3_path), '--dry-run'],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'error:' in result.stderr
+    assert 'not the .db3 file' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+def test_runner_rejects_output_file_without_traceback(tmp_path: Path):
+    bag_dir = _write_metadata(
+        tmp_path,
+        'demo_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_file = tmp_path / 'map_output'
+    output_file.write_text('', encoding='utf-8')
+
+    result = subprocess.run(
+        [
+            'python3',
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_file),
+            '--dry-run',
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'output directory path is a file' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+def test_runner_rejects_incompatible_profile_with_available_hint(tmp_path: Path):
+    bag_dir = _write_metadata(
+        tmp_path,
+        'demo_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+
+    result = subprocess.run(
+        [
+            'python3',
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--profile',
+            'pointcloud_gnss_smoke',
+            '--dry-run',
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert (
+        'profile is not compatible with this bag: pointcloud_gnss_smoke'
+        in result.stderr
+    )
+    assert 'Available profiles: rko_lio_graph_public_path' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
 def test_dogfood_script_can_skip_viewer():
     script = (REPO_ROOT / 'scripts' / 'run_rko_lio_graph_autoware_dogfood.sh').read_text(
         encoding='utf-8'
