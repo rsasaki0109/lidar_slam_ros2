@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -66,7 +67,12 @@ def _parse_projector_type(run_dir: Path) -> str | None:
     path = run_dir / 'map_projector_info.yaml'
     if not path.is_file():
         return None
-    data = yaml.safe_load(path.read_text(encoding='utf-8')) or {}
+    try:
+        data = yaml.safe_load(path.read_text(encoding='utf-8')) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f'failed to parse {path}: {exc}') from exc
+    if not isinstance(data, dict):
+        raise ValueError(f'{path} must contain a YAML mapping.')
     return data.get('projector_type')
 
 
@@ -186,6 +192,8 @@ def summarize_run(run_dir: Path, bag_path: Path | None = None) -> dict[str, Any]
 
     if bag_path is not None:
         module = _load_preflight_module()
+        if hasattr(module, 'validate_bag_path'):
+            module.validate_bag_path(bag_path)
         summary['bag_preflight'] = module.build_preflight_payload(bag_path)
     summary['suggested_next_steps'] = _suggest_next_steps(summary)
     return summary
@@ -244,10 +252,72 @@ def render_markdown(summary: dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
+def validate_run_dir(run_dir: Path) -> None:
+    """Validate a CLI run directory input."""
+    if run_dir.is_file():
+        raise FileNotFoundError(
+            f'run directory path is a file, not a directory: {run_dir}. '
+            'Pass the output directory created by the map workflow.'
+        )
+    if not run_dir.exists():
+        raise FileNotFoundError(
+            f'run directory does not exist: {run_dir}. '
+            'Pass the output directory created by the map workflow.'
+        )
+    if not run_dir.is_dir():
+        raise FileNotFoundError(
+            f'run directory path is not a directory: {run_dir}. '
+            'Pass the output directory created by the map workflow.'
+        )
+    if run_dir.name == 'pointcloud_map' and (run_dir / 'pointcloud_map_metadata.yaml').is_file():
+        raise ValueError(
+            f'run_dir points to the nested pointcloud_map directory: {run_dir}. '
+            'Pass its parent output directory instead.'
+        )
+
+
+def _help_epilog() -> str:
+    return '\n'.join([
+        'The input must be the map workflow output directory.',
+        'Pass output/autoware_map_authoring_<bag>_<timestamp>, not its pointcloud_map/ child.',
+        '',
+        'Files this tool checks when present:',
+        '  lidarslam.launch.log or slam.launch.log',
+        '  map_save.log',
+        '  verify_autoware_map.log',
+        '  pointcloud_map/pointcloud_map_metadata.yaml',
+        '  map_projector_info.yaml',
+        '',
+        'Examples:',
+        '  python3 scripts/diagnose_autoware_map_run.py output/my_map_run',
+        '  python3 scripts/diagnose_autoware_map_run.py output/my_map_run --write',
+        (
+            '  python3 scripts/diagnose_autoware_map_run.py output/my_map_run '
+            '--bag /path/to/rosbag2'
+        ),
+        '  python3 scripts/diagnose_autoware_map_run.py output/my_map_run --json',
+    ])
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description='Diagnose a map-authoring output directory.')
-    parser.add_argument('run_dir', help='Output directory containing logs and pointcloud_map artifacts.')
-    parser.add_argument('--bag', help='Optional source rosbag2 directory to include preflight context.')
+    parser = argparse.ArgumentParser(
+        description=(
+            'Diagnose an Autoware-compatible map workflow output directory and '
+            'suggest the next command.'
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_help_epilog(),
+    )
+    parser.add_argument(
+        'run_dir',
+        metavar='output_dir',
+        help='Map workflow output directory containing logs and map artifacts.',
+    )
+    parser.add_argument(
+        '--bag',
+        metavar='<rosbag2_dir>',
+        help='Optional source rosbag2 directory to include preflight context.',
+    )
     parser.add_argument('--json', action='store_true', help='Print JSON instead of markdown.')
     parser.add_argument(
         '--write',
@@ -259,17 +329,30 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    run_dir = Path(args.run_dir)
+    run_dir = Path(args.run_dir).expanduser().resolve()
     bag_path = Path(args.bag).expanduser().resolve() if args.bag else None
-    summary = summarize_run(run_dir, bag_path)
+    try:
+        validate_run_dir(run_dir)
+        summary = summarize_run(run_dir, bag_path)
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(f'error: {exc}', file=sys.stderr)
+        return 2
+
     markdown = render_markdown(summary)
 
     if args.write:
-        (run_dir / 'autoware_map_diagnosis.md').write_text(markdown, encoding='utf-8')
-        (run_dir / 'autoware_map_diagnosis.json').write_text(
-            json.dumps(summary, indent=2, sort_keys=True),
-            encoding='utf-8',
-        )
+        try:
+            (run_dir / 'autoware_map_diagnosis.md').write_text(markdown, encoding='utf-8')
+            (run_dir / 'autoware_map_diagnosis.json').write_text(
+                json.dumps(summary, indent=2, sort_keys=True),
+                encoding='utf-8',
+            )
+        except OSError as exc:
+            print(
+                f'error: failed to write diagnosis files under {run_dir}: {exc}',
+                file=sys.stderr,
+            )
+            return 2
 
     if args.json:
         print(json.dumps(summary, indent=2, sort_keys=True))

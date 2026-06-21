@@ -33,6 +33,8 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import subprocess
+import sys
 
 import yaml
 
@@ -104,3 +106,113 @@ def test_summary_reports_tf_issue_hints(tmp_path: Path):
     assert 'The /map_save service call failed' in hints
     assert 'A ROS node died during the run' in hints
     assert any('tail -n 120' in step for step in summary['suggested_next_steps'])
+
+
+def test_cli_help_is_user_facing():
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), '--help'],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert 'Autoware-compatible map workflow output directory' in result.stdout
+    assert 'not its pointcloud_map/ child' in result.stdout
+    assert 'Files this tool checks when present:' in result.stdout
+    assert 'diagnose_autoware_map_run.py output/my_map_run --write' in result.stdout
+
+
+def test_cli_rejects_missing_run_dir_without_traceback(tmp_path: Path):
+    missing_run_dir = tmp_path / 'missing_run'
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), str(missing_run_dir)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'error:' in result.stderr
+    assert 'run directory does not exist' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+def test_cli_rejects_pointcloud_map_child_without_traceback(tmp_path: Path):
+    pointcloud_map_dir = tmp_path / 'run' / 'pointcloud_map'
+    pointcloud_map_dir.mkdir(parents=True)
+    (pointcloud_map_dir / 'pointcloud_map_metadata.yaml').write_text(
+        'tile_size: 20\n',
+        encoding='utf-8',
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), str(pointcloud_map_dir)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'error:' in result.stderr
+    assert 'nested pointcloud_map directory' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+def test_cli_write_creates_diagnosis_files(tmp_path: Path):
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    (run_dir / 'verify_autoware_map.log').write_text(
+        'PASS: 8  |  WARN: 0  |  FAIL: 0\nRESULT: PASS -- map is Autoware-compatible\n',
+        encoding='utf-8',
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), str(run_dir), '--write'],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert '# Autoware Map Run Diagnosis' in result.stdout
+    assert (run_dir / 'autoware_map_diagnosis.md').is_file()
+    assert (run_dir / 'autoware_map_diagnosis.json').is_file()
+
+
+def test_cli_rejects_missing_bag_context_without_traceback(tmp_path: Path):
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    missing_bag = tmp_path / 'missing_bag'
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), str(run_dir), '--bag', str(missing_bag)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'error:' in result.stderr
+    assert 'rosbag2 directory does not exist' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+def test_cli_rejects_db3_bag_context_without_traceback(tmp_path: Path):
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    db3_path = tmp_path / 'demo_0.db3'
+    db3_path.write_text('', encoding='utf-8')
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), str(run_dir), '--bag', str(db3_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'error:' in result.stderr
+    assert 'not the .db3 file' in result.stderr
+    assert 'Traceback' not in result.stderr
