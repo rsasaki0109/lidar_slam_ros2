@@ -130,7 +130,7 @@ def read_xyz_from_pcd(filepath: str, header: dict) -> list[tuple[float, float, f
 # Main verification
 # ---------------------------------------------------------------------------
 class MapVerifier:
-    def __init__(self, map_dir: str, check_bounds: bool = False, verbose: bool = False):
+    def __init__(self, map_dir: str | Path, check_bounds: bool = False, verbose: bool = False):
         self.map_dir = Path(map_dir)
         self.check_bounds = check_bounds
         self.verbose = verbose
@@ -177,6 +177,10 @@ class MapVerifier:
             self.fail(f"Failed to parse YAML: {e}")
             self._print_summary()
             return False
+        if not isinstance(config, dict):
+            self.fail(f"{meta_path.name} must contain a YAML mapping")
+            self._print_summary()
+            return False
         self.ok(f"metadata YAML parsed: {meta_path.name}")
 
         # --- 3. Resolution ---
@@ -184,6 +188,18 @@ class MapVerifier:
         y_res = config.get("y_resolution")
         if x_res is None or y_res is None:
             self.fail("x_resolution or y_resolution missing from metadata")
+            self._print_summary()
+            return False
+        if (
+            not isinstance(x_res, (int, float))
+            or not isinstance(y_res, (int, float))
+            or isinstance(x_res, bool)
+            or isinstance(y_res, bool)
+        ):
+            self.fail(
+                "x_resolution and y_resolution must be numeric values: "
+                f"x_resolution={x_res}, y_resolution={y_res}"
+            )
             self._print_summary()
             return False
         if x_res <= 0 or y_res <= 0:
@@ -216,6 +232,17 @@ class MapVerifier:
                         f"Autoware parses as std::vector<int>."
                     )
                     continue
+            elif (
+                not isinstance(cx, int)
+                or not isinstance(cy, int)
+                or isinstance(cx, bool)
+                or isinstance(cy, bool)
+            ):
+                self.fail(
+                    f"entry '{key}' has non-integer coordinates: [{cx}, {cy}]. "
+                    "Coordinates must be YAML integers."
+                )
+                continue
 
             ix, iy = int(cx), int(cy)
             tiles[key] = (ix, iy)
@@ -373,20 +400,88 @@ class MapVerifier:
             print("RESULT: FAIL -- map has compatibility issues")
 
 
-def main():
+def validate_map_path(map_dir: Path) -> None:
+    """Validate CLI input without treating map content failures as argument errors."""
+    if map_dir.is_file():
+        if map_dir.suffix == ".pcd":
+            raise FileNotFoundError(
+                f"map path points to a PCD tile file: {map_dir}. "
+                "Pass the pointcloud_map directory or its parent output directory."
+            )
+        raise FileNotFoundError(
+            f"map path is a file, not a directory: {map_dir}. "
+            "Pass the pointcloud_map directory or its parent output directory."
+        )
+    if not map_dir.exists():
+        raise FileNotFoundError(
+            f"map directory does not exist: {map_dir}. "
+            "Pass the pointcloud_map directory or its parent output directory."
+        )
+    if not map_dir.is_dir():
+        raise FileNotFoundError(
+            f"map path is not a directory: {map_dir}. "
+            "Pass the pointcloud_map directory or its parent output directory."
+        )
+
+
+def _help_epilog() -> str:
+    return "\n".join([
+        "The input may be either:",
+        "  output/<run_dir>/pointcloud_map",
+        "  output/<run_dir> containing pointcloud_map/",
+        "",
+        "Expected map files:",
+        "  pointcloud_map_metadata.yaml",
+        "  one or more referenced .pcd tile files",
+        "  map_projector_info.yaml in the map directory or its parent",
+        "",
+        "Examples:",
+        "  python3 scripts/verify_autoware_map.py output/my_map/pointcloud_map",
+        "  python3 scripts/verify_autoware_map.py output/my_map",
+        (
+            "  python3 scripts/verify_autoware_map.py output/my_map/pointcloud_map "
+            "--check-bounds"
+        ),
+        "  python3 scripts/verify_autoware_map.py output/my_map/pointcloud_map --verbose",
+        "",
+        "Exit codes:",
+        "  0: compatible map",
+        "  1: map compatibility issue",
+        "  2: invalid CLI input",
+    ])
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Verify a pointcloud map directory for Autoware compatibility")
-    parser.add_argument("map_dir", help="Path to map directory (contains pointcloud_map_metadata.yaml or pointcloud_map/ subdir)")
+        description="Verify a pointcloud map directory for Autoware compatibility.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_help_epilog(),
+    )
+    parser.add_argument(
+        "map_dir",
+        metavar="map_dir",
+        help="pointcloud_map directory or parent output directory.",
+    )
     parser.add_argument("--check-bounds", action="store_true",
                         help="Check that all points fall within their tile bounds (slow)")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Show per-file details")
-    args = parser.parse_args()
+    return parser.parse_args(argv)
 
-    verifier = MapVerifier(args.map_dir, check_bounds=args.check_bounds, verbose=args.verbose)
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    map_dir = Path(args.map_dir).expanduser().resolve()
+    try:
+        validate_map_path(map_dir)
+    except OSError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    verifier = MapVerifier(map_dir, check_bounds=args.check_bounds, verbose=args.verbose)
     success = verifier.run()
-    sys.exit(0 if success else 1)
+    return 0 if success else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
