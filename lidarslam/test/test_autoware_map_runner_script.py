@@ -226,6 +226,47 @@ def test_beginner_wrapper_help_is_user_facing():
     assert 'The input must be the rosbag2 directory' in result.stderr
     assert 'Expected successful outputs:' in result.stderr
     assert '--output-dir <dir>' in result.stderr
+    assert '--viewer-rebuild' in result.stderr
+
+
+def test_beginner_wrapper_rejects_missing_option_value_before_bag_validation(
+    tmp_path: Path,
+):
+    result = subprocess.run(
+        [
+            'bash',
+            str(BEGINNER_SCRIPT_PATH),
+            str(tmp_path / 'missing_bag'),
+            '--output-dir',
+            '--dry-run',
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'error: option requires a value: --output-dir' in result.stderr
+    assert 'metadata.yaml not found' not in result.stderr
+
+
+def test_beginner_wrapper_rejects_conflicting_viewer_flags(tmp_path: Path):
+    result = subprocess.run(
+        [
+            'bash',
+            str(BEGINNER_SCRIPT_PATH),
+            str(tmp_path / 'missing_bag'),
+            '--foxglove',
+            '--autoware',
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'error: viewer already set to foxglove; cannot also use --autoware' in result.stderr
+    assert 'metadata.yaml not found' not in result.stderr
 
 
 def test_runner_prefers_mid360_preset_for_livox_bag(tmp_path: Path):
