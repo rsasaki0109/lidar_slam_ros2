@@ -177,6 +177,41 @@ def test_map_verifier_rejects_float_tile_coordinates(tmp_path):
     assert _has_text(verifier.failures, 'YAML coordinates are floats')
 
 
+def test_map_verifier_rejects_string_tile_coordinates_without_throwing(tmp_path):
+    """String YAML coordinates should fail cleanly, not raise ValueError."""
+    _, pointcloud_dir = _create_map_bundle(tmp_path)
+    metadata_path = pointcloud_dir / 'pointcloud_map_metadata.yaml'
+    metadata = {
+        'x_resolution': 20,
+        'y_resolution': 20,
+        '0_0.pcd': ['0', '0'],
+    }
+    metadata_path.write_text(
+        yaml.safe_dump(metadata, sort_keys=False),
+        encoding='utf-8',
+    )
+
+    verifier = MapVerifier(str(pointcloud_dir))
+
+    assert verifier.run() is False
+    assert _has_text(verifier.failures, 'Coordinates must be YAML integers')
+
+
+def test_map_verifier_rejects_non_mapping_metadata_without_throwing(tmp_path):
+    """Metadata must be a mapping."""
+    pointcloud_dir = tmp_path / 'pointcloud_map'
+    pointcloud_dir.mkdir()
+    (pointcloud_dir / 'pointcloud_map_metadata.yaml').write_text(
+        '- not\n- metadata\n',
+        encoding='utf-8',
+    )
+
+    verifier = MapVerifier(str(pointcloud_dir))
+
+    assert verifier.run() is False
+    assert _has_text(verifier.failures, 'must contain a YAML mapping')
+
+
 def test_map_verifier_requires_origin_for_local_cartesian(tmp_path):
     """Require map_origin for LocalCartesian maps."""
     _, pointcloud_dir = _create_map_bundle(
@@ -299,3 +334,75 @@ def test_prepare_script_fails_without_projector_file(tmp_path):
 
     assert result.returncode != 0
     assert 'map_projector_info.yaml not found' in result.stderr
+
+
+def test_verify_cli_help_is_user_facing():
+    """The CLI help should show expected inputs and examples."""
+    result = subprocess.run(
+        ['python3', str(VERIFY_SCRIPT), '--help'],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert 'pointcloud_map directory or parent output directory' in result.stdout
+    assert 'Expected map files:' in result.stdout
+    assert 'Exit codes:' in result.stdout
+    assert '--check-bounds' in result.stdout
+
+
+def test_verify_cli_rejects_missing_map_dir_without_traceback(tmp_path):
+    """Missing CLI input should be an argument error."""
+    missing_dir = tmp_path / 'missing_map'
+
+    result = subprocess.run(
+        ['python3', str(VERIFY_SCRIPT), str(missing_dir)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert 'error:' in result.stderr
+    assert 'map directory does not exist' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+def test_verify_cli_rejects_pcd_file_without_traceback(tmp_path):
+    """A PCD file is not a valid map_dir argument."""
+    pcd_file = tmp_path / '0_0.pcd'
+    _write_binary_xyz_pcd(pcd_file, [(0.0, 0.0, 0.0)])
+
+    result = subprocess.run(
+        ['python3', str(VERIFY_SCRIPT), str(pcd_file)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert 'error:' in result.stderr
+    assert 'PCD tile file' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+def test_verify_cli_reports_bad_metadata_without_traceback(tmp_path):
+    """Malformed metadata content should return a compatibility failure."""
+    pointcloud_dir = tmp_path / 'pointcloud_map'
+    pointcloud_dir.mkdir()
+    (pointcloud_dir / 'pointcloud_map_metadata.yaml').write_text(
+        '- not\n- metadata\n',
+        encoding='utf-8',
+    )
+
+    result = subprocess.run(
+        ['python3', str(VERIFY_SCRIPT), str(pointcloud_dir)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert 'must contain a YAML mapping' in result.stdout
+    assert 'Traceback' not in result.stderr
