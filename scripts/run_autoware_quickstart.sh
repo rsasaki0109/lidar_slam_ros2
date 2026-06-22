@@ -5,6 +5,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 DEFAULT_AUTO_EXIT_SECS=20
 
 usage() {
+  local exit_code="${1:-1}"
   cat <<'EOF' >&2
 Usage:
   run_autoware_quickstart.sh
@@ -24,7 +25,15 @@ Examples:
   bash scripts/run_autoware_quickstart.sh dogfood --viewer-rebuild
   bash scripts/run_autoware_quickstart.sh output/bench_rko_lio_ntu_viral_loopgate_20260324
 EOF
-  exit 1
+  exit "$exit_code"
+}
+
+fail() {
+  echo "error: $1" >&2
+  if [[ $# -gt 1 ]]; then
+    echo "hint: $2" >&2
+  fi
+  exit 2
 }
 
 has_auto_exit_flag() {
@@ -52,6 +61,11 @@ run_existing() {
   local source_dir="$1"
   shift
 
+  if [[ ! -d "$source_dir" ]]; then
+    fail "graph_slam_output_dir does not exist or is not a directory: ${source_dir}" \
+      "pass an existing graph_based_slam output directory, or use 'dogfood'."
+  fi
+
   local cmd=(
     bash "${SCRIPT_DIR}/run_graph_slam_pointcloud_map_in_autoware.sh"
     "${source_dir}"
@@ -68,14 +82,17 @@ case "${1:-}" in
     run_dogfood
     ;;
   --help|-h)
-    usage
+    usage 0
     ;;
   dogfood)
     shift
     run_dogfood "$@"
     ;;
   existing)
-    [[ $# -ge 2 ]] || usage
+    if [[ $# -lt 2 || "$2" == --* ]]; then
+      fail "existing requires <graph_slam_output_dir>." \
+        "usage: bash scripts/run_autoware_quickstart.sh existing <graph_slam_output_dir>"
+    fi
     source_dir="$2"
     shift 2
     run_existing "${source_dir}" "$@"
@@ -85,8 +102,11 @@ case "${1:-}" in
       source_dir="$1"
       shift
       run_existing "${source_dir}" "$@"
-    else
+    elif [[ "$1" == --* ]]; then
       run_dogfood "$@"
+    else
+      fail "graph_slam_output_dir does not exist or is not a directory: $1" \
+        "use 'dogfood' for the bundled demo path, or pass an existing output directory."
     fi
     ;;
 esac
