@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF' >&2
 Usage:
-  run_rko_lio_graph_benchmark.sh [options]
+  bash scripts/run_rko_lio_graph_benchmark.sh [options]
 
 Options:
   --bag <dir>                    Restamped rosbag2 used by RKO-LIO
@@ -31,7 +31,39 @@ Options:
 This runs the recommended benchmark path:
   rosbag2 -> RKO-LIO + graph_based_slam -> raw/corrected trajectories -> APE -> metrics.json
 EOF
-  exit 1
+}
+
+fail() {
+  echo "error: $*" >&2
+  echo "hint: run 'bash scripts/run_rko_lio_graph_benchmark.sh --help' for valid options." >&2
+  exit 2
+}
+
+die() {
+  echo "error: $*" >&2
+  exit 2
+}
+
+require_value() {
+  local option="$1"
+  local value="${2:-}"
+  if [[ -z "${value}" || "${value}" == -* ]]; then
+    fail "option requires a value: ${option}"
+  fi
+  OPTION_VALUE="${value}"
+}
+
+parse_bool() {
+  local option="$1"
+  local value="$2"
+  case "${value}" in
+    true|false)
+      printf '%s\n' "${value}"
+      ;;
+    *)
+      fail "${option} expects true or false."
+      ;;
+  esac
 }
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -73,82 +105,83 @@ SKIP_MAP_SAVE=false
 SKIP_REFERENCE_GEN=false
 PUBLISH_STATIC_TF=true
 REFERENCE_SOURCE=""
+OPTION_VALUE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --bag)
-      [[ $# -ge 2 ]] || usage
-      BAG_PATH=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      BAG_PATH=$(realpath -m "${OPTION_VALUE}")
       shift 2
       ;;
     --reference-bag)
-      [[ $# -ge 2 ]] || usage
-      REFERENCE_BAG=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      REFERENCE_BAG=$(realpath -m "${OPTION_VALUE}")
       shift 2
       ;;
     --reference-tum)
-      [[ $# -ge 2 ]] || usage
-      REFERENCE_TUM=$(realpath -m "$2")
+      require_value "$1" "${2:-}"
+      REFERENCE_TUM=$(realpath -m "${OPTION_VALUE}")
       shift 2
       ;;
     --reference-meta)
-      [[ $# -ge 2 ]] || usage
-      REFERENCE_META=$(realpath -m "$2")
+      require_value "$1" "${2:-}"
+      REFERENCE_META=$(realpath -m "${OPTION_VALUE}")
       shift 2
       ;;
     --lidar-topic)
-      [[ $# -ge 2 ]] || usage
-      LIDAR_TOPIC="$2"
+      require_value "$1" "${2:-}"
+      LIDAR_TOPIC="${OPTION_VALUE}"
       shift 2
       ;;
     --imu-topic)
-      [[ $# -ge 2 ]] || usage
-      IMU_TOPIC="$2"
+      require_value "$1" "${2:-}"
+      IMU_TOPIC="${OPTION_VALUE}"
       shift 2
       ;;
     --base-frame)
-      [[ $# -ge 2 ]] || usage
-      BASE_FRAME="$2"
+      require_value "$1" "${2:-}"
+      BASE_FRAME="${OPTION_VALUE}"
       shift 2
       ;;
     --lidarslam-param)
-      [[ $# -ge 2 ]] || usage
-      LIDARSLAM_PARAM=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      LIDARSLAM_PARAM=$(realpath -m "${OPTION_VALUE}")
       shift 2
       ;;
     --rko-param)
-      [[ $# -ge 2 ]] || usage
-      RKO_PARAM=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      RKO_PARAM=$(realpath -m "${OPTION_VALUE}")
       shift 2
       ;;
     --output-dir)
-      [[ $# -ge 2 ]] || usage
-      OUTPUT_DIR=$(realpath -m "$2")
+      require_value "$1" "${2:-}"
+      OUTPUT_DIR=$(realpath -m "${OPTION_VALUE}")
       shift 2
       ;;
     --run-name)
-      [[ $# -ge 2 ]] || usage
-      RUN_NAME="$2"
+      require_value "$1" "${2:-}"
+      RUN_NAME="${OPTION_VALUE}"
       shift 2
       ;;
     --startup-timeout-secs)
-      [[ $# -ge 2 ]] || usage
-      STARTUP_TIMEOUT_SECS="$2"
+      require_value "$1" "${2:-}"
+      STARTUP_TIMEOUT_SECS="${OPTION_VALUE}"
       shift 2
       ;;
     --save-timeout-secs)
-      [[ $# -ge 2 ]] || usage
-      SAVE_TIMEOUT_SECS="$2"
+      require_value "$1" "${2:-}"
+      SAVE_TIMEOUT_SECS="${OPTION_VALUE}"
       shift 2
       ;;
     --offline-timeout-secs)
-      [[ $# -ge 2 ]] || usage
-      OFFLINE_TIMEOUT_SECS="$2"
+      require_value "$1" "${2:-}"
+      OFFLINE_TIMEOUT_SECS="${OPTION_VALUE}"
       shift 2
       ;;
     --quiescence-secs)
-      [[ $# -ge 2 ]] || usage
-      QUIESCENCE_SECS="$2"
+      require_value "$1" "${2:-}"
+      QUIESCENCE_SECS="${OPTION_VALUE}"
       shift 2
       ;;
     --skip-map-save)
@@ -160,21 +193,21 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --publish-static-tf)
-      [[ $# -ge 2 ]] || usage
-      PUBLISH_STATIC_TF="$2"
+      require_value "$1" "${2:-}"
+      PUBLISH_STATIC_TF=$(parse_bool "$1" "${OPTION_VALUE}")
       shift 2
       ;;
     --reference-source)
-      [[ $# -ge 2 ]] || usage
-      REFERENCE_SOURCE="$2"
+      require_value "$1" "${2:-}"
+      REFERENCE_SOURCE="${OPTION_VALUE}"
       shift 2
       ;;
     --help|-h)
       usage
+      exit 0
       ;;
     *)
-      echo "Unknown option: $1" >&2
-      usage
+      fail "unknown option: $1"
       ;;
   esac
 done
@@ -195,25 +228,31 @@ if [[ -z "$RUN_NAME" ]]; then
   RUN_NAME="$(basename "$OUTPUT_DIR")"
 fi
 
+if [[ -e "$OUTPUT_DIR" && ! -d "$OUTPUT_DIR" ]]; then
+  fail "output directory path is a file: $OUTPUT_DIR"
+fi
+
 if [[ ! -d "$BAG_PATH" ]]; then
-  echo "rosbag2 directory not found: $BAG_PATH" >&2
+  echo "error: rosbag2 directory not found: $BAG_PATH" >&2
+  echo "hint: --bag must point to a rosbag2 directory containing metadata.yaml." >&2
   if [[ "$BAG_PATH" == "$DEFAULT_BAG" ]]; then
     default_benchmark_bag_missing_hint
   fi
-  exit 1
+  exit 2
 fi
-[[ -f "$BAG_PATH/metadata.yaml" ]] || { echo "metadata.yaml not found under $BAG_PATH" >&2; exit 1; }
-[[ -f "$LIDARSLAM_PARAM" ]] || { echo "lidarslam param file not found: $LIDARSLAM_PARAM" >&2; exit 1; }
-[[ -f "$RKO_PARAM" ]] || { echo "RKO-LIO param file not found: $RKO_PARAM" >&2; exit 1; }
+[[ -f "$BAG_PATH/metadata.yaml" ]] || die "metadata.yaml not found under $BAG_PATH"
+[[ -f "$LIDARSLAM_PARAM" ]] || die "lidarslam param file not found: $LIDARSLAM_PARAM"
+[[ -f "$RKO_PARAM" ]] || die "RKO-LIO param file not found: $RKO_PARAM"
 if [[ "$SKIP_REFERENCE_GEN" == "false" ]]; then
   if [[ ! -d "$REFERENCE_BAG" ]]; then
-    echo "reference rosbag2 directory not found: $REFERENCE_BAG" >&2
+    echo "error: reference rosbag2 directory not found: $REFERENCE_BAG" >&2
+    echo "hint: --reference-bag must point to a rosbag2 directory containing metadata.yaml." >&2
     if [[ "$REFERENCE_BAG" == "$DEFAULT_REFERENCE_BAG" ]]; then
       default_benchmark_bag_missing_hint
     fi
-    exit 1
+    exit 2
   fi
-  [[ -f "$REFERENCE_BAG/metadata.yaml" ]] || { echo "metadata.yaml not found under $REFERENCE_BAG" >&2; exit 1; }
+  [[ -f "$REFERENCE_BAG/metadata.yaml" ]] || die "metadata.yaml not found under $REFERENCE_BAG"
 fi
 
 set +u
@@ -226,8 +265,15 @@ elif [[ -n "${ROS_DISTRO:-}" && -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]]; then
 fi
 set -u
 
-command -v ros2 >/dev/null 2>&1 || { echo "ros2 not found in PATH" >&2; exit 1; }
-command -v python3 >/dev/null 2>&1 || { echo "python3 not found in PATH" >&2; exit 1; }
+if ! command -v ros2 >/dev/null 2>&1; then
+  echo "error: required command not found: ros2" >&2
+  echo "hint: source a ROS 2 setup file before running this benchmark." >&2
+  exit 2
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "error: required command not found: python3" >&2
+  exit 2
+fi
 
 mkdir -p "$OUTPUT_DIR"
 if [[ -z "${ROS_LOG_DIR:-}" ]]; then
