@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF' >&2
 Usage:
-  run_default_ci_checks.sh [options]
+  bash scripts/run_default_ci_checks.sh [options]
 
 Options:
   --build-only                 Build the default workflow packages without running tests
@@ -15,11 +15,36 @@ This script verifies the default permissive-license workflow for this repository
   - build: ndt_omp_ros2, lidarslam_msgs, scanmatcher, graph_based_slam, lidarslam, rko_lio
   - test:  lidarslam_msgs, scanmatcher, graph_based_slam, lidarslam
 EOF
-  exit 1
+}
+
+fail() {
+  echo "error: $*" >&2
+  echo "hint: run 'bash scripts/run_default_ci_checks.sh --help' for valid options." >&2
+  exit 2
+}
+
+require_value() {
+  local option="$1"
+  local value="${2:-}"
+  if [[ -z "${value}" || "${value}" == -* ]]; then
+    fail "option requires a value: ${option}"
+  fi
+  OPTION_VALUE="${value}"
+}
+
+require_command() {
+  local command_name="$1"
+  local install_hint="$2"
+  if ! command -v "${command_name}" >/dev/null 2>&1; then
+    echo "error: required command not found: ${command_name}" >&2
+    echo "hint: ${install_hint}" >&2
+    exit 2
+  fi
 }
 
 BUILD_ONLY=false
 CMAKE_BUILD_TYPE="Release"
+OPTION_VALUE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -28,16 +53,16 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --cmake-build-type)
-      [[ $# -ge 2 ]] || usage
-      CMAKE_BUILD_TYPE="$2"
+      require_value "$1" "${2:-}"
+      CMAKE_BUILD_TYPE="${OPTION_VALUE}"
       shift 2
       ;;
     --help|-h)
       usage
+      exit 0
       ;;
     *)
-      echo "Unknown option: $1" >&2
-      usage
+      fail "unknown option: $1"
       ;;
   esac
 done
@@ -46,10 +71,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
 cd "${REPO_ROOT}"
 
-if ! command -v colcon >/dev/null 2>&1; then
-  echo "colcon not found in PATH" >&2
-  exit 1
-fi
+require_command colcon "install colcon, for example: sudo apt install python3-colcon-common-extensions"
 
 if ! command -v ros2 >/dev/null 2>&1; then
   for candidate in jazzy humble rolling iron; do
@@ -64,8 +86,9 @@ if ! command -v ros2 >/dev/null 2>&1; then
 fi
 
 if ! command -v ros2 >/dev/null 2>&1; then
-  echo "ros2 not found in PATH and no /opt/ros/<distro>/setup.bash was detected" >&2
-  exit 1
+  echo "error: required command not found: ros2" >&2
+  echo "hint: source a ROS 2 setup file, for example: source /opt/ros/humble/setup.bash" >&2
+  exit 2
 fi
 
 BUILD_TARGETS=(
@@ -81,10 +104,14 @@ TEST_TARGETS=(
 )
 
 echo "==> Building default workflow packages"
-colcon build \
+echo "==> Build targets: ${BUILD_TARGETS[*]}"
+if ! colcon build \
   --event-handlers console_direct+ \
   --packages-up-to "${BUILD_TARGETS[@]}" \
-  --cmake-args -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
+  --cmake-args -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"; then
+  echo "error: colcon build failed for default workflow packages" >&2
+  exit 1
+fi
 
 if [[ -f "${REPO_ROOT}/install/setup.bash" ]]; then
   set +u
@@ -99,10 +126,17 @@ if [[ "${BUILD_ONLY}" == "true" ]]; then
 fi
 
 echo "==> Running default workflow tests"
-colcon test \
+echo "==> Test targets: ${TEST_TARGETS[*]}"
+if ! colcon test \
   --event-handlers console_direct+ \
   --return-code-on-test-failure \
-  --packages-select "${TEST_TARGETS[@]}"
+  --packages-select "${TEST_TARGETS[@]}"; then
+  echo "error: colcon test failed for default workflow packages" >&2
+  exit 1
+fi
 
 echo "==> Test results"
-colcon test-result --verbose
+if ! colcon test-result --verbose; then
+  echo "error: colcon test-result reported failures" >&2
+  exit 1
+fi
