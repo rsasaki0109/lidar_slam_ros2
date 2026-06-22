@@ -307,6 +307,80 @@ def test_prepare_script_replaces_existing_pointcloud_map_contents(tmp_path):
     assert (target_root / 'pointcloud_map' / '0_0.pcd').is_file()
 
 
+def test_prepare_script_help_is_user_facing():
+    """The staging script help should be a successful command."""
+    result = subprocess.run(
+        ['bash', str(PREPARE_SCRIPT), '--help'],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert 'prepare_autoware_map_from_graph_slam.sh' in result.stderr
+    assert 'graph_slam_output_dir' in result.stderr
+    assert '--smoke' in result.stderr
+
+
+def test_prepare_script_rejects_missing_output_dir_before_realpath(tmp_path):
+    """A missing output positional should produce a direct script error."""
+    source_root, _ = _create_map_bundle(tmp_path / 'graph_output')
+
+    result = subprocess.run(
+        ['bash', str(PREPARE_SCRIPT), str(source_root), '--smoke'],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert 'error: autoware_map_dir is required before options.' in result.stderr
+    assert 'realpath' not in result.stderr
+
+
+def test_prepare_script_rejects_missing_option_value_before_realpath(
+    tmp_path,
+):
+    """Missing option values should not fall through to realpath."""
+    source_root, _ = _create_map_bundle(tmp_path / 'graph_output')
+    target_root = tmp_path / 'staged_map'
+
+    result = subprocess.run(
+        [
+            'bash',
+            str(PREPARE_SCRIPT),
+            str(source_root),
+            str(target_root),
+            '--autoware-core-dir',
+            '--smoke',
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert 'error: option requires a value: --autoware-core-dir' in result.stderr
+    assert 'realpath' not in result.stderr
+
+
+def test_prepare_script_rejects_output_file_without_traceback(tmp_path):
+    """The staged-map output must be a directory path."""
+    source_root, _ = _create_map_bundle(tmp_path / 'graph_output')
+    output_file = tmp_path / 'staged_map'
+    output_file.write_text('', encoding='utf-8')
+
+    result = subprocess.run(
+        ['bash', str(PREPARE_SCRIPT), str(source_root), str(output_file)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert 'error: Autoware map output path is a file' in result.stderr
+
+
 def test_prepare_script_fails_without_projector_file(tmp_path):
     """The staging script should reject source dirs without projector info."""
     source_root = tmp_path / 'graph_output'
