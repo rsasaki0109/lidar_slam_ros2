@@ -2,6 +2,7 @@
 set -euo pipefail
 
 usage() {
+  local exit_code="${1:-1}"
   cat <<'EOF' >&2
 Usage:
   run_graph_slam_pointcloud_map_in_autoware_foxglove.sh <graph_slam_output_dir> [options]
@@ -19,11 +20,43 @@ Options:
   --auto-exit-secs <sec>         Auto-stop the bridge after N seconds
   --help                         Show this help
 EOF
-  exit 1
+  exit "$exit_code"
 }
 
+fail() {
+  echo "error: $1" >&2
+  if [[ $# -gt 1 ]]; then
+    echo "hint: $2" >&2
+  fi
+  exit 2
+}
+
+require_value() {
+  local option="$1"
+  local value="${2:-}"
+  if [[ -z "$value" || "$value" == --* ]]; then
+    fail "option requires a value: ${option}" \
+      "run this script with --help for valid options."
+  fi
+}
+
+if [[ $# -eq 1 && ( "$1" == "--help" || "$1" == "-h" ) ]]; then
+  usage 0
+fi
+
 if [[ $# -lt 1 ]]; then
-  usage
+  fail "graph_slam_output_dir is required." \
+    "pass the output directory that contains pointcloud_map/ or graph SLAM map artifacts."
+fi
+
+if [[ "$1" == --* ]]; then
+  fail "graph_slam_output_dir is required before options." \
+    "put <graph_slam_output_dir> before options; run --help for details."
+fi
+
+if [[ ! -d "$1" ]]; then
+  fail "graph_based_slam output directory not found: $1" \
+    "pass the saved graph_based_slam output directory, not a pointcloud_map tile or option."
 fi
 
 SOURCE_DIR=$(realpath "$1")
@@ -43,23 +76,23 @@ AUTO_EXIT_SECS=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stage-dir)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       STAGE_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --autoware-core-dir)
-      [[ $# -ge 2 ]] || usage
-      AUTOWARE_CORE_DIR=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      AUTOWARE_CORE_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --work-dir)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       WORK_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --run-dir)
-      [[ $# -ge 2 ]] || usage
-      RUN_DIR=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      RUN_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --rebuild)
@@ -67,36 +100,36 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --foxglove-prefix)
-      [[ $# -ge 2 ]] || usage
-      FOXGLOVE_PREFIX=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      FOXGLOVE_PREFIX=$(realpath -m "$2")
       shift 2
       ;;
     --port)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       PORT="$2"
       shift 2
       ;;
     --address)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       ADDRESS="$2"
       shift 2
       ;;
     --topic-whitelist)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       TOPIC_WHITELIST="$2"
       shift 2
       ;;
     --auto-exit-secs)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       AUTO_EXIT_SECS="$2"
       shift 2
       ;;
     --help|-h)
-      usage
+      usage 0
       ;;
     *)
-      echo "Unknown option: $1" >&2
-      usage
+      fail "unknown option: $1" \
+        "run this script with --help for valid options."
       ;;
   esac
 done
