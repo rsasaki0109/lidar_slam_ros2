@@ -9,6 +9,7 @@ if [[ ! -f "${WS_ROOT}/install/setup.bash" && -f "${REPO_ROOT}/../install/setup.
 fi
 
 usage() {
+  local exit_code="${1:-1}"
   cat <<'EOF' >&2
 Usage:
   run_rko_lio_graph_autoware_dogfood.sh [options]
@@ -56,7 +57,35 @@ Defaults target the NTU VIRAL tnp_01 restamped VN100 rosbag2 currently stored in
 The script runs RKO-LIO + graph_based_slam, waits for offline odometry to finish, calls /map_save,
 then stages the resulting map for Autoware and opens it in the host's rviz2.
 EOF
-  exit 1
+  exit "$exit_code"
+}
+
+fail() {
+  echo "error: $1" >&2
+  if [[ $# -gt 1 ]]; then
+    echo "hint: $2" >&2
+  fi
+  exit 2
+}
+
+require_value() {
+  local option="$1"
+  local value="${2:-}"
+  if [[ -z "$value" || "$value" == --* ]]; then
+    fail "option requires a value: ${option}" \
+      "run this script with --help for valid options."
+  fi
+}
+
+parse_bool() {
+  local option="$1"
+  local value="$2"
+  case "${value,,}" in
+    true|1|yes) echo true ;;
+    false|0|no) echo false ;;
+    *) fail "${option} expects true or false." \
+      "accepted values: true, false, 1, 0, yes, no." ;;
+  esac
 }
 
 DEFAULT_BAG="${REPO_ROOT}/demo_data/ntu_viral/tnp_01_points_restamped_vn100_rosbag2"
@@ -103,78 +132,78 @@ REFERENCE_TUM=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --bag)
-      [[ $# -ge 2 ]] || usage
-      BAG_PATH=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      BAG_PATH=$(realpath -m "$2")
       shift 2
       ;;
     --lidar-topic)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       LIDAR_TOPIC="$2"
       shift 2
       ;;
     --imu-topic)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       IMU_TOPIC="$2"
       shift 2
       ;;
     --base-frame)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       BASE_FRAME="$2"
       shift 2
       ;;
     --lidar-frame)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       LIDAR_FRAME="$2"
       shift 2
       ;;
     --imu-frame)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       IMU_FRAME="$2"
       shift 2
       ;;
     --lidarslam-param)
-      [[ $# -ge 2 ]] || usage
-      LIDARSLAM_PARAM=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      LIDARSLAM_PARAM=$(realpath -m "$2")
       shift 2
       ;;
     --rko-param)
-      [[ $# -ge 2 ]] || usage
-      RKO_PARAM=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      RKO_PARAM=$(realpath -m "$2")
       shift 2
       ;;
     --output-dir)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       OUTPUT_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --run-name)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       RUN_NAME="$2"
       shift 2
       ;;
     --save-timeout-secs)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       SAVE_TIMEOUT_SECS="$2"
       shift 2
       ;;
     --startup-timeout-secs)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       STARTUP_TIMEOUT_SECS="$2"
       shift 2
       ;;
     --offline-quiet-log-secs)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       OFFLINE_QUIET_LOG_SECS="$2"
       shift 2
       ;;
     --graph-drain-secs)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       GRAPH_DRAIN_SECS="$2"
       shift 2
       ;;
     --viewer-run-dir)
-      [[ $# -ge 2 ]] || usage
-      VIEWER_RUN_DIR=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      VIEWER_RUN_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --wait-for-offline-completion)
@@ -186,17 +215,17 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --auto-exit-secs)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       AUTO_EXIT_SECS="$2"
       shift 2
       ;;
     --autoware-core-dir)
-      [[ $# -ge 2 ]] || usage
-      AUTOWARE_CORE_DIR=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      AUTOWARE_CORE_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --work-dir)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       WORK_DIR=$(realpath -m "$2")
       shift 2
       ;;
@@ -209,54 +238,46 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --capture-corrected-path)
-      [[ $# -ge 2 ]] || usage
-      case "${2,,}" in
-        true|1|yes) CAPTURE_CORRECTED_PATH=true ;;
-        false|0|no) CAPTURE_CORRECTED_PATH=false ;;
-        *) echo "--capture-corrected-path expects true/false" >&2; usage ;;
-      esac
+      require_value "$1" "${2:-}"
+      CAPTURE_CORRECTED_PATH=$(parse_bool "$1" "$2")
       shift 2
       ;;
     --corrected-path-topic)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       CORRECTED_PATH_TOPIC="$2"
       shift 2
       ;;
     --generate-lanelet2)
-      [[ $# -ge 2 ]] || usage
-      case "${2,,}" in
-        true|1|yes) GENERATE_LANELET2=true ;;
-        false|0|no) GENERATE_LANELET2=false ;;
-        *) echo "--generate-lanelet2 expects true/false" >&2; usage ;;
-      esac
+      require_value "$1" "${2:-}"
+      GENERATE_LANELET2=$(parse_bool "$1" "$2")
       shift 2
       ;;
     --origin-lat)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       ORIGIN_LAT="$2"
       shift 2
       ;;
     --origin-lon)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       ORIGIN_LON="$2"
       shift 2
       ;;
     --lane-width)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       LANE_WIDTH="$2"
       shift 2
       ;;
     --reference-tum)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       REFERENCE_TUM=$(realpath -m "$2")
       shift 2
       ;;
     --help|-h)
-      usage
+      usage 0
       ;;
     *)
-      echo "Unknown option: $1" >&2
-      usage
+      fail "unknown option: $1" \
+        "run this script with --help for valid options."
       ;;
   esac
 done
@@ -279,17 +300,33 @@ if [[ -z "$RUN_NAME" ]]; then
 fi
 
 if [[ ! -d "$BAG_PATH" ]]; then
-  echo "rosbag2 directory not found: $BAG_PATH" >&2
+  echo "error: rosbag2 directory not found: $BAG_PATH" >&2
   if [[ "$BAG_PATH" == "$DEFAULT_BAG" ]]; then
     default_bag_missing_hint
+  else
+    echo "hint: pass the rosbag2 directory that contains metadata.yaml." >&2
   fi
-  exit 1
+  exit 2
 fi
-[[ -f "$BAG_PATH/metadata.yaml" ]] || { echo "metadata.yaml not found under $BAG_PATH" >&2; exit 1; }
-[[ -f "$LIDARSLAM_PARAM" ]] || { echo "lidarslam param file not found: $LIDARSLAM_PARAM" >&2; exit 1; }
-[[ -f "$RKO_PARAM" ]] || { echo "RKO-LIO param file not found: $RKO_PARAM" >&2; exit 1; }
+[[ -f "$BAG_PATH/metadata.yaml" ]] ||
+  fail "metadata.yaml not found under $BAG_PATH" \
+    "pass the rosbag2 directory, not a .db3 file or parent folder."
+[[ -f "$LIDARSLAM_PARAM" ]] ||
+  fail "lidarslam param file not found: $LIDARSLAM_PARAM"
+[[ -f "$RKO_PARAM" ]] ||
+  fail "RKO-LIO param file not found: $RKO_PARAM"
+if [[ -e "$OUTPUT_DIR" && ! -d "$OUTPUT_DIR" ]]; then
+  fail "output directory path is a file, not a directory: $OUTPUT_DIR" \
+    "choose a directory path for generated map outputs and logs."
+fi
 if [[ "$SKIP_VIEWER" == "false" ]]; then
-  [[ -d "$AUTOWARE_CORE_DIR" ]] || { echo "autoware_core directory not found: $AUTOWARE_CORE_DIR" >&2; exit 1; }
+  [[ -d "$AUTOWARE_CORE_DIR" ]] ||
+    fail "autoware_core directory not found: $AUTOWARE_CORE_DIR" \
+      "pass --autoware-core-dir, or use --skip-viewer for map output only."
+  if [[ -n "$VIEWER_RUN_DIR" && ! -d "$VIEWER_RUN_DIR" ]]; then
+    fail "viewer run directory not found: $VIEWER_RUN_DIR" \
+      "omit --viewer-run-dir to let the viewer build or discover one."
+  fi
 fi
 
 set +u
