@@ -24,6 +24,10 @@ Common forwarded options:
   --output-dir <dir>            Write outputs to a specific directory
   --profile <id>                Force a compatible workflow profile
   --no-verify-map               Skip pointcloud_map verification
+  --viewer-rebuild              Rebuild viewer runtime before opening
+  --autoware-core-dir <dir>     autoware_core checkout for the Dockerized viewer
+  --work-dir <dir>              Runtime workspace for Autoware/Foxglove viewers
+  --viewer-run-dir <dir>        Existing built viewer runtime to reuse
   --auto-exit-secs <seconds>    Close the viewer after a timeout
 
 Expected successful outputs:
@@ -41,12 +45,40 @@ EOF
   exit "$exit_code"
 }
 
+fail() {
+  echo "error: $1" >&2
+  if [[ $# -gt 1 ]]; then
+    echo "hint: $2" >&2
+  fi
+  exit 2
+}
+
+require_value() {
+  local option="$1"
+  local value="${2:-}"
+  if [[ -z "$value" || "$value" == --* ]]; then
+    fail "option requires a value: ${option}" \
+      "run 'bash scripts/run_autoware_map_beginner.sh --help' for valid options."
+  fi
+}
+
+set_viewer() {
+  local selected="$1"
+  local option="$2"
+  if [[ "$VIEWER" != "none" && "$selected" != "none" && "$VIEWER" != "$selected" ]]; then
+    fail "viewer already set to ${VIEWER}; cannot also use ${option}" \
+      "choose one of --foxglove, --autoware, or --no-viewer."
+  fi
+  VIEWER="$selected"
+}
+
 if [[ $# -eq 1 && ( "$1" == "--help" || "$1" == "-h" ) ]]; then
   usage 0
 fi
 
 if [[ $# -lt 1 ]]; then
-  usage 1
+  fail "rosbag2_dir is required." \
+    "pass the rosbag2 directory that contains metadata.yaml."
 fi
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -60,15 +92,15 @@ FORWARDED_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --foxglove)
-      VIEWER=foxglove
+      set_viewer foxglove "$1"
       shift
       ;;
     --autoware)
-      VIEWER=autoware
+      set_viewer autoware "$1"
       shift
       ;;
     --no-viewer)
-      VIEWER=none
+      set_viewer none "$1"
       shift
       ;;
     --preflight-only)
@@ -83,28 +115,29 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --profile|--output-dir|--autoware-core-dir|--work-dir|--viewer-run-dir|--auto-exit-secs)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       FORWARDED_ARGS+=("$1" "$2")
       shift 2
       ;;
     -*)
-      echo "Unknown option: $1" >&2
-      usage 1
+      fail "unknown option: $1" \
+        "run 'bash scripts/run_autoware_map_beginner.sh --help' for valid options."
       ;;
     *)
       if [[ -z "$BAG_PATH" ]]; then
         BAG_PATH="$1"
         shift
       else
-        echo "Unexpected positional argument: $1" >&2
-        usage 1
+        fail "unexpected positional argument: $1" \
+          "pass exactly one rosbag2 directory."
       fi
       ;;
   esac
 done
 
 if [[ -z "$BAG_PATH" ]]; then
-  usage 1
+  fail "rosbag2_dir is required." \
+    "pass the rosbag2 directory that contains metadata.yaml."
 fi
 
 if [[ ! -d "$BAG_PATH" ]]; then
