@@ -2,6 +2,7 @@
 set -euo pipefail
 
 usage() {
+  local exit_code="${1:-1}"
   cat <<'EOF' >&2
 Usage:
   run_autoware_pointcloud_map_viewer_docker.sh <autoware_map_dir> [autoware_core_dir] [work_dir] [options]
@@ -17,11 +18,43 @@ Docker, then opens the pointcloud map in the host's rviz2. The map directory mus
   pointcloud_map/
   map_projector_info.yaml
 EOF
-  exit 1
+  exit "$exit_code"
 }
 
+fail() {
+  echo "error: $1" >&2
+  if [[ $# -gt 1 ]]; then
+    echo "hint: $2" >&2
+  fi
+  exit 2
+}
+
+require_value() {
+  local option="$1"
+  local value="${2:-}"
+  if [[ -z "$value" || "$value" == --* ]]; then
+    fail "option requires a value: ${option}" \
+      "run this script with --help for valid options."
+  fi
+}
+
+if [[ $# -eq 1 && ( "$1" == "--help" || "$1" == "-h" ) ]]; then
+  usage 0
+fi
+
 if [[ $# -lt 1 ]]; then
-  usage
+  fail "autoware_map_dir is required." \
+    "pass the directory that contains pointcloud_map/ and map_projector_info.yaml."
+fi
+
+if [[ "$1" == --* ]]; then
+  fail "autoware_map_dir is required before options." \
+    "put <autoware_map_dir> before options; run --help for details."
+fi
+
+if [[ ! -d "$1" ]]; then
+  fail "Autoware map directory not found: $1" \
+    "pass the bundle directory, not pointcloud_map/ or a PCD tile."
 fi
 
 MAP_DIR=$(realpath "$1")
@@ -30,7 +63,7 @@ shift
 AUTOWARE_CORE_DIR=/tmp/autoware_core
 WORK_DIR=/tmp/autoware_map_runtime_ws
 if [[ $# -gt 0 && "$1" != --* ]]; then
-  AUTOWARE_CORE_DIR=$(realpath "$1")
+  AUTOWARE_CORE_DIR=$(realpath -m "$1")
   shift
 fi
 if [[ $# -gt 0 && "$1" != --* ]]; then
@@ -45,8 +78,8 @@ AUTO_EXIT_SECS=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --run-dir)
-      [[ $# -ge 2 ]] || usage
-      RUN_DIR=$(realpath "$2")
+      require_value "$1" "${2:-}"
+      RUN_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --rebuild)
@@ -54,27 +87,31 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --auto-exit-secs)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       AUTO_EXIT_SECS="$2"
       shift 2
       ;;
     --help|-h)
-      usage
+      usage 0
       ;;
     *)
-      echo "Unknown option: $1" >&2
-      usage
+      fail "unknown option: $1" \
+        "run this script with --help for valid options."
       ;;
   esac
 done
 
 if [[ ! -d "$MAP_DIR/pointcloud_map" || ! -f "$MAP_DIR/map_projector_info.yaml" ]]; then
-  echo "Autoware map bundle is incomplete under $MAP_DIR" >&2
-  exit 1
+  fail "Autoware map bundle is incomplete under $MAP_DIR" \
+    "expected pointcloud_map/ and map_projector_info.yaml."
 fi
 if [[ ! -d "$AUTOWARE_CORE_DIR" ]]; then
-  echo "autoware_core directory not found: $AUTOWARE_CORE_DIR" >&2
-  exit 1
+  fail "autoware_core directory not found: $AUTOWARE_CORE_DIR" \
+    "pass the autoware_core checkout as the second positional argument."
+fi
+if [[ -n "$RUN_DIR" && ! -d "$RUN_DIR" ]]; then
+  fail "Autoware runtime run directory not found: $RUN_DIR" \
+    "omit --run-dir to let the script build or discover one under the work directory."
 fi
 if [[ -z "${DISPLAY:-}" ]]; then
   echo "DISPLAY is not set; cannot launch RViz." >&2
