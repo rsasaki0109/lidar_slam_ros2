@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF' >&2
 Usage:
-  run_release_readiness_checks.sh [options]
+  bash scripts/run_release_readiness_checks.sh [options]
 
 Options:
   --out-dir <dir>               Output directory for logs and summaries
@@ -120,7 +120,20 @@ each profile in the YAML scores its own pass/target threshold against the best
 matching run, with optional report_only_until semantics so hard datasets
 (MID-360, NTU) can be reported without blocking release.
 EOF
-  exit 1
+}
+
+fail() {
+  echo "error: $*" >&2
+  echo "hint: run 'bash scripts/run_release_readiness_checks.sh --help' for valid options." >&2
+  exit 2
+}
+
+require_value() {
+  local option="$1"
+  local value="${2:-}"
+  if [[ -z "${value}" || "${value}" == -* ]]; then
+    fail "option requires a value: ${option}"
+  fi
 }
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -172,27 +185,27 @@ AUTO_EXIT_SECS=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --out-dir)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       OUT_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --benchmark-root)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       BENCHMARK_ROOT=$(realpath -m "$2")
       shift 2
       ;;
     --ape-threshold)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       APE_THRESHOLD="$2"
       shift 2
       ;;
     --ape-threshold-reference-kind)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       APE_THRESHOLD_REFERENCE_KIND="$2"
       shift 2
       ;;
     --release-profile)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       RELEASE_PROFILE=$(realpath -m "$2")
       shift 2
       ;;
@@ -217,77 +230,77 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --public-mid360-completion-output-dir)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       PUBLIC_MID360_COMPLETION_OUTPUT_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --public-mid360-loop-cloud)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       PUBLIC_MID360_LOOP_CLOUD=$(realpath -m "$2")
       shift 2
       ;;
     --public-mid360-segment-reset-plan)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       PUBLIC_MID360_SEGMENT_RESET_PLAN=$(realpath -m "$2")
       shift 2
       ;;
     --public-mid360-start-run-dir)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       PUBLIC_MID360_START_RUN_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --public-mid360-end-run-dir)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       PUBLIC_MID360_END_RUN_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --public-mid360-segment-map-alignment)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       PUBLIC_MID360_SEGMENT_MAP_ALIGNMENT=$(realpath -m "$2")
       shift 2
       ;;
     --public-mid360-adoption-gate)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       PUBLIC_MID360_ADOPTION_GATE=$(realpath -m "$2")
       shift 2
       ;;
     --public-mid360-dashboard-html)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       PUBLIC_MID360_DASHBOARD_HTML=$(realpath -m "$2")
       shift 2
       ;;
     --public-mid360-min-segment-rko-poses)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       PUBLIC_MID360_MIN_SEGMENT_RKO_POSES="$2"
       shift 2
       ;;
     --offline-determinism-bag)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       OFFLINE_DETERMINISM_BAG=$(realpath -m "$2")
       shift 2
       ;;
     --offline-determinism-runs)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       OFFLINE_DETERMINISM_RUNS="$2"
       shift 2
       ;;
     --offline-determinism-params)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       OFFLINE_DETERMINISM_PARAMS=$(realpath -m "$2")
       shift 2
       ;;
     --offline-determinism-reference-tum)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       OFFLINE_DETERMINISM_REFERENCE_TUM=$(realpath -m "$2")
       shift 2
       ;;
     --offline-determinism-map-quality-profile)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       OFFLINE_DETERMINISM_MAP_QUALITY_PROFILE=$(realpath -m "$2")
       shift 2
       ;;
     --map-quality-pcd)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       if [[ "$2" == *@* ]]; then
         MAP_QUALITY_PCDS+=("$(realpath -m "${2%@*}")")
         MAP_QUALITY_PROFILES+=("$(realpath -m "${2##*@}")")
@@ -298,42 +311,42 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --map-quality-downsample)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       MAP_QUALITY_DOWNSAMPLE="$2"
       shift 2
       ;;
     --frontend-determinism-bag)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       FRONTEND_DETERMINISM_BAG=$(realpath -m "$2")
       shift 2
       ;;
     --frontend-determinism-cloud-topic)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       FRONTEND_DETERMINISM_CLOUD_TOPIC="$2"
       shift 2
       ;;
     --frontend-determinism-imu-topic)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       FRONTEND_DETERMINISM_IMU_TOPIC="$2"
       shift 2
       ;;
     --frontend-determinism-runs)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       FRONTEND_DETERMINISM_RUNS="$2"
       shift 2
       ;;
     --frontend-determinism-params)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       FRONTEND_DETERMINISM_PARAMS=$(realpath -m "$2")
       shift 2
       ;;
     --frontend-determinism-max-clouds)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       FRONTEND_DETERMINISM_MAX_CLOUDS="$2"
       shift 2
       ;;
     --frontend-determinism-reference-tum)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       FRONTEND_DETERMINISM_REFERENCE_TUM=$(realpath -m "$2")
       shift 2
       ;;
@@ -342,17 +355,17 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --autoware-core-dir)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       AUTOWARE_CORE_DIR=$(realpath "$2")
       shift 2
       ;;
     --work-dir)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       WORK_DIR=$(realpath -m "$2")
       shift 2
       ;;
     --viewer-run-dir)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       VIEWER_RUN_DIR=$(realpath "$2")
       shift 2
       ;;
@@ -361,16 +374,16 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --auto-exit-secs)
-      [[ $# -ge 2 ]] || usage
+      require_value "$1" "${2:-}"
       AUTO_EXIT_SECS="$2"
       shift 2
       ;;
     --help|-h)
       usage
+      exit 0
       ;;
     *)
-      echo "Unknown option: $1" >&2
-      usage
+      fail "unknown option: $1"
       ;;
   esac
 done

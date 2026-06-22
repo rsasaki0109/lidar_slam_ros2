@@ -362,6 +362,56 @@ def test_benchmark_summary_threshold_can_filter_reference_kind(tmp_path):
     assert 'reference_kind=ground_truth' in result.stdout
 
 
+def _run_release_readiness(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ['bash', str(RELEASE_READINESS_SCRIPT), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+
+
+def test_release_readiness_help_exits_successfully():
+    result = _run_release_readiness('--help')
+
+    assert result.returncode == 0
+    assert 'run_release_readiness_checks.sh' in result.stderr
+    assert '--skip-default-ci' in result.stderr
+
+
+def test_release_readiness_rejects_missing_option_value_before_realpath():
+    result = _run_release_readiness('--out-dir', '--skip-default-ci')
+
+    assert result.returncode == 2
+    assert 'error: option requires a value: --out-dir' in result.stderr
+    assert 'realpath' not in result.stderr
+
+
+def test_release_readiness_rejects_unknown_option_with_help_hint():
+    result = _run_release_readiness('--bogus')
+
+    assert result.returncode == 2
+    assert 'error: unknown option: --bogus' in result.stderr
+    assert 'run_release_readiness_checks.sh --help' in result.stderr
+    assert 'Release readiness output:' not in result.stdout
+
+
+def test_release_readiness_can_skip_expensive_stages(tmp_path):
+    out_dir = tmp_path / 'release_readiness_cli'
+
+    result = _run_release_readiness(
+        '--skip-default-ci',
+        '--skip-benchmark-summary',
+        '--out-dir',
+        str(out_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert out_dir.is_dir()
+    assert 'Release readiness checks completed' in result.stdout
+
+
 def test_synthetic_fixture_generator_drives_release_gate(tmp_path):
     """The synthetic fixture generator should produce gate-ready artifacts."""
     benchmark_root = tmp_path / 'fixture'
