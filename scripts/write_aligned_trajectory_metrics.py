@@ -9,6 +9,7 @@ import json
 import math
 from pathlib import Path
 import re
+import sys
 from typing import Any
 
 import numpy as np
@@ -122,15 +123,35 @@ def _match_with_tolerance(
     # Default (match_tolerance is None): the historical 0.05 -> 0.15 s cascade,
     # right for a dense estimate sampled near the reference. A single explicit
     # tolerance is for sparse references (e.g. RTK-SLAM total-station
-    # checkpoints) scored against a downsampled trajectory, and to reproduce the
-    # dataset's own max_dt; it suppresses the silent dropping of checkpoints
-    # that have no estimate pose within 0.15 s.
+    # checkpoints, or HILTI-style submap-rate corrected trajectories) scored
+    # against a downsampled trajectory, and to reproduce the dataset's own
+    # max_dt; it suppresses the silent dropping of checkpoints that have no
+    # estimate pose within 0.15 s (see plan.md Sec. 2.4 / 11.3: an
+    # under-tolerant match silently drops sparse reference points and biases
+    # the reported error).
     if match_tolerance is not None:
         return _match_rows(ref_rows, est_rows, tolerance=match_tolerance)
     pairs = _match_rows(ref_rows, est_rows, tolerance=0.05)
     if len(pairs) < 10:
         pairs = _match_rows(ref_rows, est_rows, tolerance=0.15)
     return pairs
+
+
+def _match_diagnostics(
+    ref_rows: list[dict[str, float]],
+    pairs: list[tuple[dict[str, float], dict[str, float]]],
+) -> dict[str, Any]:
+    """Diagnostics that make silent-drop bias visible (plan.md Sec. 2.4 /
+    11.3): how many reference points were actually paired, how many were
+    rejected (no estimate pose within tolerance), and how stale the worst
+    matched pair is in time.
+    """
+    matched_gaps = [abs(ref['t'] - est['t']) for ref, est in pairs]
+    return {
+        'total_ref_points': len(ref_rows),
+        'rejected_ref_points': len(ref_rows) - len(pairs),
+        'max_time_gap_s': max(matched_gaps) if matched_gaps else None,
+    }
 
 
 def _ape_metrics(
@@ -162,6 +183,7 @@ def _ape_metrics(
             + sorted_errors[len(sorted_errors) // 2]
         )
 
+    diagnostics = _match_diagnostics(ref_rows, aligned_pairs)
     return {
         'alignment': 'se3_umeyama',
         'pairs': len(aligned_pairs),
@@ -174,6 +196,7 @@ def _ape_metrics(
         'path_length_est_m': _path_length(est_rows),
         'path_length_est_aligned_m': _path_length(est_aligned),
         'path_length_ref_m': _path_length(ref_rows),
+        **diagnostics,
     }
 
 
@@ -385,11 +408,29 @@ def main() -> int:
 
     match_tolerance = args.match_tolerance if args.match_tolerance > 0 else None
     corrected_ape = _ape_metrics(ref_rows, corrected_rows, match_tolerance)
+    if corrected_ape.get('rejected_ref_points', 0) > 0:
+        print(
+            "warning: corrected trajectory match rejected "
+            f"{corrected_ape['rejected_ref_points']}/{corrected_ape['total_ref_points']} "
+            "reference point(s) with no estimate pose within tolerance "
+            f"(max_time_gap_s={corrected_ape.get('max_time_gap_s')}); "
+            "see 'rejected_ref_points' / 'max_time_gap_s' in metrics.json",
+            file=sys.stderr,
+        )
     raw_ape = None
     if raw_tum and raw_tum.is_file():
         raw_rows = _load_tum(raw_tum)
         if raw_rows:
             raw_ape = _ape_metrics(ref_rows, raw_rows, match_tolerance)
+            if raw_ape.get('rejected_ref_points', 0) > 0:
+                print(
+                    "warning: raw trajectory match rejected "
+                    f"{raw_ape['rejected_ref_points']}/{raw_ape['total_ref_points']} "
+                    "reference point(s) with no estimate pose within tolerance "
+                    f"(max_time_gap_s={raw_ape.get('max_time_gap_s')}); "
+                    "see 'rejected_ref_points' / 'max_time_gap_s' in metrics.json",
+                    file=sys.stderr,
+                )
 
     bag_duration_sec = _bag_duration_seconds(bag_path / 'metadata.yaml')
     wall_sec = args.wall_sec
@@ -447,13 +488,19 @@ def main() -> int:
             'ape_log_path': '',
             'ape': {
                 key: corrected_ape[key]
-                for key in ('alignment', 'pairs', 'rmse', 'mean', 'median', 'max', 'min', 'std')
+                for key in (
+                    'alignment', 'pairs', 'rmse', 'mean', 'median', 'max', 'min', 'std',
+                    'rejected_ref_points', 'total_ref_points', 'max_time_gap_s',
+                )
             },
             'raw_ape_log_path': '',
             'raw_ape': (
                 {
                     key: raw_ape[key]
-                    for key in ('alignment', 'pairs', 'rmse', 'mean', 'median', 'max', 'min', 'std')
+                    for key in (
+                        'alignment', 'pairs', 'rmse', 'mean', 'median', 'max', 'min', 'std',
+                        'rejected_ref_points', 'total_ref_points', 'max_time_gap_s',
+                    )
                 }
                 if raw_ape is not None else None
             ),
@@ -465,6 +512,9 @@ def main() -> int:
             'estimated_path_length_m': corrected_ape['path_length_est_m'],
             'estimated_aligned_path_length_m': corrected_ape['path_length_est_aligned_m'],
             'reference_label': args.reference_label,
+            'rejected_ref_points': corrected_ape['rejected_ref_points'],
+            'total_ref_points': corrected_ape['total_ref_points'],
+            'max_time_gap_s': corrected_ape['max_time_gap_s'],
         },
     }
     if raw_tum and raw_tum.is_file():
