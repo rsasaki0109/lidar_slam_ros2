@@ -215,7 +215,9 @@ distance-threshold で submap が作られない時間帯に落ち、最寄り s
 （中央 1.2s, 最大 19.9s 間隔）の線形補間が誤差を生む。**結論: 短く非再訪な
 シーケンスでは backend は忠実なパススルー、deliverable は dense odometry
 （6.6cm）。疎な corrected/submap 軌跡は補間でなく submap 時刻で採点すべき**
-（評価ハーネスの methodology note）。extrinsic は calibration の quaternion を
+（評価ハーネスの methodology note → 2026-07-05 実装済み: `ape_from_tum.py
+--sparse-match`、棄却診断付き。`test_sparse_trajectory_scoring.py` で
+補間アーティファクト ~5m vs 正採点 ~0.05m を合成実証）。extrinsic は calibration の quaternion を
 `[x,y,z,w]` として読むのが正（`[w,x,y,z]` 解釈は z が −229m に発散、経験確定）。
 
 > 注（2026-06-13 訂正）: 当初「デフォルトループの過剰発火で corrected 悪化」と
@@ -334,7 +336,7 @@ distance-threshold で submap が作られない時間帯に落ち、最寄り s
 
 | 項目 | 状態 | 理由 |
 |------|------|------|
-| GNSS ポーズグラフ制約 | 🟡 部分実証 | 2026-06-12 RTK-SLAM stadtgarten_seq2 で初検証: #242 修正後にエッジ 163 本形成・RTK 判定・ENU 変換まで動作 ✅。ただし **odom→ENU の初期 yaw 整合が未実装**でアンカーがマップを剪断（pose0 で 0m → 遠方 337m の回転不整合パターン）→ 精度用途はまだ不可。詳細: `docs/research/gnss-constraint-first-validation.md` |
+| GNSS ポーズグラフ制約 | 🟡 部分実証 | 2026-06-12 RTK-SLAM stadtgarten_seq2 で初検証: #242 修正後にエッジ 163 本形成・RTK 判定・ENU 変換まで動作 ✅。odom→ENU 初期 yaw 整合も PR #244 で実装済み（2D Kabsch + vertex-0 gauge 解放、stadtgarten_seq2 で実証）。詳細: `docs/research/gnss-constraint-first-validation.md` |
 | ~~`map_projector_info.yaml`（LocalCartesian）~~ | ✅ | 同検証で初実証: LocalCartesian + WGS84 + 実origin（Stadtgarten 48.78199/9.17295）が出力された |
 | ~~Autoware 実環境読み込み~~ | ✅ | map loaders 読込 dogfood 済み |
 
@@ -396,7 +398,7 @@ distance-threshold で submap が作られない時間帯に落ち、最寄り s
 | 0h | **v0.7 Phase 4: HILTI 2022 外部 mm-GT 基盤（進行中）** | exp01 6.6cm / exp07 long corridor 0.32m（退化、§2.4、task #18、PR #280/#282）。両者ループゼロで backend パススルー（正常）。残り = 他 construction 系列 / sparse corrected 軌跡の採点改善 / **exp07 退化を v0.8 degeneracy registration の検証基盤に** |
 | 0d | ~~D1 8-vs-16 再現性ベンチ~~ | ✅ 2026-06-11 実施（GLIM MID-360 bag、3 run × {off/16, on/16, on/8}）。on/16 は APE 実質無回帰（差 0.06m ≪ noise 0.40m）だが分散縮小なし（σ 0.066→0.259）、on/8 arm の 2 実行で loop 試行ゼロ。mp8 の系統的 regression 署名は消滅し乱高下に置換（スケジューリング主要因子と整合、根本原因の証明ではない）。**default off 維持で D1 完全クローズ**（§1.2、research summary） |
 | 0e | **発信（P2-8）** | ghcr ワンコマンド + lanelet2 完全バンドル + 実 GT 数値が揃い、発信material は完成状態。ROS Discourse / Reddit / X はユーザー本人が実施。事前に B2 social preview 設定（Web UI 1 分） |
-| 1 | **GNSS odom→ENU yaw 整合の実装** | 初検証（2026-06-12）で制約形成 ✅・LocalCartesian projector ✅ まで実証済み。残るは yaw 整合（ENU トラックとの 2D 最小二乗 → アンカー回転 or vertex-0 gauge 解放）。これが入ると GNSS georeferencing が実用になる。`docs/research/gnss-constraint-first-validation.md` |
+| 1 | ~~GNSS odom→ENU yaw 整合の実装~~ | ✅ 実装済み（PR #244 `18fdbc1`、2026-06-12）。閉形式 2D Kabsch（`gnss_alignment.hpp`）+ vertex-0 gauge 解放方式。最小観測性ガード（`gnss_yaw_alignment_min_anchors`=10 / `gnss_yaw_alignment_min_baseline_m`=5.0）付き。stadtgarten_seq2 実データで yaw −111.83° / baseline 201.9m / rms 1.90m を確認済み。2026-07-05 再検証: build + 1379 tests 0 fail。`docs/research/gnss-constraint-first-validation.md` |
 | 2 | ~~Autoware 実環境での読み込みテスト~~ | ✅ map loaders 読込は検証済み（README の loader proof、§6） |
 | 3a | ~~MID-360 robot toolkit chain (操作員 pipeline)~~ | ✅ PR #168-#177 で 10 PR inside-out で landing 完了 (§10) |
 | 3b | **実機 Jetson + MID-360 robot での dogfood 実走** | chain (§10) を組んだものの実機 bag での E2E 検証はまだ。dogfood-vs-bench の cloud distribution 不一致も併せて調査 |
