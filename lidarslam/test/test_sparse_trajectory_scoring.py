@@ -27,7 +27,8 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""Regression tests for the sparse (submap-rate) trajectory scoring mode.
+"""
+Regression tests for the sparse (submap-rate) trajectory scoring mode.
 
 Background (plan.md Sec. 2.4, HILTI 2022 exp01): pose graph optimization was
 a verified no-op (corrected == raw odometry, 0.000 m diff) yet the sparse
@@ -77,7 +78,9 @@ def _write_tum(path: Path, rows: list[tuple[float, float, float, float]]) -> Non
     path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
-def _run_ape(ref_tum: Path, est_tum: Path, out: Path, *extra_args: str) -> subprocess.CompletedProcess:
+def _run_ape(
+    ref_tum: Path, est_tum: Path, out: Path, *extra_args: str,
+) -> subprocess.CompletedProcess:
     return subprocess.run(
         [
             sys.executable,
@@ -143,10 +146,7 @@ _REF_ROWS = [
 
 
 def test_interpolate_produces_artifact_error_and_sparse_match_scores_correctly(tmp_path):
-    """--interpolate fabricates a several-metre error for the sparse
-    trajectory's gap; --sparse-match, anchored on the real nearby submap
-    pose, scores it correctly (sub-metre).
-    """
+    """Interpolation fabricates metres of error in the gap; sparse-match scores correctly."""
     ref_tum = tmp_path / 'ref.tum'
     est_tum = tmp_path / 'est.tum'
     _write_tum(ref_tum, _REF_ROWS)
@@ -186,11 +186,10 @@ def test_interpolate_produces_artifact_error_and_sparse_match_scores_correctly(t
 
 
 def test_sparse_match_association_matches_nearest_pose_not_interpolated(tmp_path):
-    """Unit-level check directly on `associate`/`interpolate_association`:
-    the sparse-match association returns the estimate's own raw position
-    (not a fabricated blend) for the reference point that falls in the gap.
-    """
-    ref_xyz, est_xyz, diagnostics = APE.associate(_REF_ROWS_AS_TUPLES(), _EST_ROWS_AS_TUPLES(), 10.0)
+    """Sparse-match association returns the estimate's raw position, not a fabricated blend."""
+    ref_xyz, est_xyz, diagnostics = APE.associate(
+        _REF_ROWS_AS_TUPLES(), _EST_ROWS_AS_TUPLES(), 10.0,
+    )
     # ref index 4 is the t=13 control point (see _REF_ROWS).
     assert est_xyz[4] == (36.0, 0.0, 0.0)
     assert diagnostics['pairs'] == len(_REF_ROWS)
@@ -215,12 +214,7 @@ def _EST_ROWS_AS_TUPLES():
 
 
 def test_sparse_match_rejects_out_of_tolerance_reference_points_with_diagnostics(tmp_path):
-    """A reference (GT) point with no estimate pose within tolerance must be
-    rejected -- and that rejection must be visible in the diagnostics and a
-    stderr warning, not silently dropped (plan.md Sec. 2.4 / 11.3: silent
-    drops of sparse reference points have historically produced biased
-    scores).
-    """
+    """Out-of-tolerance reference points must be rejected visibly, never silently dropped."""
     ref_rows = [
         (0.0, 0.0, 0.0, 0.0),
         (1.0, 1.0, 0.0, 0.0),
@@ -267,10 +261,7 @@ def test_interpolate_and_sparse_match_are_mutually_exclusive(tmp_path):
 
 
 def test_default_mode_is_unchanged(tmp_path):
-    """No new flags: default nearest-neighbour behaviour and output format
-    (existing keys) must be preserved; only new, additive diagnostic lines
-    are appended to the report.
-    """
+    """Default nearest-neighbour behaviour and existing report keys must be preserved."""
     rows = [(float(i), float(i) * 2.0, 0.0, 0.0) for i in range(6)]
     ref_tum = tmp_path / 'ref.tum'
     est_tum = tmp_path / 'est.tum'
