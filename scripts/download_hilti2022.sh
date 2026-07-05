@@ -93,7 +93,7 @@ echo "    --bag ${ROS2_DIR} \\"
 echo "    --lidar-topic /hesai/pandar --imu-topic /alphasense/imu \\"
 echo "    --rko-param configs/hilti2022/rko_lio_hilti2022_pandar.yaml \\"
 echo "    --reference-tum ${GT_FILE} \\"
-echo "    --skip-reference-gen --reference-source hilti2022_${SEQUENCE}_control_points \\"
+echo "    --skip-reference-gen --reference-source hilti2022_${SEQUENCE}_control_points_gt \\"
 echo "    --quiescence-secs 60 --output-dir output/hilti2022_${SEQUENCE}_run"
 echo
 echo "Scoring (dense raw odometry vs sparse stationary control points):"

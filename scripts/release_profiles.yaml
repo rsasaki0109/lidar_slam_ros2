@@ -21,6 +21,18 @@
 #     cross-val caveat (separate track).
 #   - ``report_only_until`` is the demotion/soak mechanism (FAIL -> WARN while
 #     set); new profiles introduced mid-cycle soak as report-only first.
+#   - As of v0.8 Phase 0 (docs/roadmap/v0.8.md §5), two HILTI 2022 rows
+#     (``hilti2022_exp01``, ``hilti2022_exp07``) are added as
+#     ``report_only_until: v0.8``. Unlike prior soak-then-graduate rows,
+#     these two are *frozen baselines*: ``pass`` is pinned to the exact
+#     measured raw-odometry RMSE (v0.7 Phase 4 evidence, reconfirmed in
+#     ``docs/research/hilti-degeneracy-baseline.md``), not a looser
+#     graduation target, so any drift shows as WARN without blocking. HILTI
+#     is CC BY-NC-SA / evaluation-only and fetched on demand
+#     (``scripts/download_hilti2022.sh``), so these rows only evaluate when
+#     a matching local run exists; "blocking" for this substrate is a
+#     manual pre-release checklist item, not a ``report_only_until`` flip
+#     (§6 of the roadmap).
 #
 # Fields:
 #   name: short identifier (snake_case)
@@ -142,6 +154,62 @@ release_profiles:
     pass: 2.20
     target: 1.70
     report_only_until: v0.6
+
+  # v0.8 Phase 0 (docs/roadmap/v0.8.md §5): HILTI 2022 raw-odometry baseline
+  # freeze, new wiring (no HILTI profile existed before this). exp01 is the
+  # feature-rich companion substrate (construction ground level, one-shot
+  # 904 m sweep, 13 control-point pairs, zero loop closures -- backend
+  # passthrough). pass is pinned to the exact frozen RMSE so this is a
+  # regression canary against the v0.8 baseline, not a graduation target;
+  # report_only_until: v0.8 keeps it WARN-only through the whole roadmap.
+  # Reproduce: docs/research/hilti-degeneracy-baseline.md.
+  - name: hilti2022_exp01
+    description: HILTI 2022 Hesai PandarXT-32 exp01 construction ground level vs mm total-station control points (feature-rich, dense raw odometry)
+    match:
+      points_topic: /hesai/pandar
+      reference_kind: ground_truth
+      reference_source_contains: hilti2022_exp01_control_points_gt
+      min_ape_pairs: 10
+    metric: ape_rmse_gt_m
+    pass: 0.066
+    report_only_until: v0.8
+
+  # Companion degenerate substrate: 124 m long-corridor one-shot sweep, only
+  # 6 control-point pairs, zero loop closures. RMSE ~5x exp01 on the same
+  # sensor/pipeline -- the exact evidence v0.8 degeneracy-aware registration
+  # exists to address (docs/roadmap/v0.8.md §0). Frozen, not a threshold to
+  # tune against; do not lower `pass` on this row to celebrate a detector
+  # change before Phase 3 holdout validation says so.
+  - name: hilti2022_exp07
+    description: HILTI 2022 Hesai PandarXT-32 exp07 long corridor vs mm total-station control points (degenerate, dense raw odometry)
+    match:
+      points_topic: /hesai/pandar
+      reference_kind: ground_truth
+      reference_source_contains: hilti2022_exp07_control_points_gt
+      min_ape_pairs: 4
+    metric: ape_rmse_gt_m
+    pass: 0.318
+    report_only_until: v0.8
+
+  # Third freeze substrate and designated Phase 3 holdout companion to exp01
+  # (docs/roadmap/v0.8.md §5, §6): 82 m construction-upper-level one-shot
+  # sweep, 7 control-point pairs, zero loop edges (the 82 m path never
+  # clears the 100 m distance_loop_closure gate, so the physical revisit in
+  # the GT is never eligible -- backend passthrough, corrected == raw to
+  # 0.0000 m). Frozen at the dense raw-odometry RMSE measured 2026-07-05
+  # (0.0715, rounded up to 3 dp so the frozen run itself evaluates PASS);
+  # docs/research/hilti-degeneracy-baseline.md §3. Holdout hygiene: do not
+  # tune against this row once Phase 2 threshold-tuning starts.
+  - name: hilti2022_exp04
+    description: HILTI 2022 Hesai PandarXT-32 exp04 construction upper level vs mm total-station control points (feature-rich, dense raw odometry)
+    match:
+      points_topic: /hesai/pandar
+      reference_kind: ground_truth
+      reference_source_contains: hilti2022_exp04_control_points_gt
+      min_ape_pairs: 5
+    metric: ape_rmse_gt_m
+    pass: 0.072
+    report_only_until: v0.8
 
   - name: leo_drive_applanix_velodyne_cross
     description: Leo Drive applanix/velodyne open data vs Applanix GSOF49 cross-validation

@@ -279,6 +279,15 @@ if(BUILD_TESTING)
     target_include_directories(test_plane_ba PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
+    test_synthetic_degeneracy_fixtures
+    test/test_synthetic_degeneracy_fixtures.cpp
+  )
+  if(TARGET test_synthetic_degeneracy_fixtures)
+    target_include_directories(
+      test_synthetic_degeneracy_fixtures PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
     test_map_refiner
     test/test_map_refiner.cpp
   )
