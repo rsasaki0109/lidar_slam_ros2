@@ -296,9 +296,9 @@ TEST(LocalizabilityAnalysis, TwoDistinctWeakEigenvaluesStayIndividuallyDegenerat
   // NON_OBSERVABLE cluster -- each is its own isolated degenerate direction.
   Matrix6d h = Matrix6d::Zero();
   h(0, 0) = 0.0;      // exactly zero
-  h(1, 1) = 0.05;     // weak (contribution ~1.25e-5, below the 1e-4 default
-                      // well_conditioned_ratio) but far outside
-                      // multiplicity_relative_gap (1e-6) from direction 0's
+  h(1, 1) = 0.05;     // weak (contribution ~1.25e-5, below the 1.5e-5
+                      // default well_conditioned_ratio) but far outside
+                      // multiplicity_relative_gap (1e-8) from direction 0's
                       // contribution of exactly 0 -- a distinct, isolated
                       // weak direction, not part of direction 0's cluster.
   for (int i = 2; i < 6; ++i) {

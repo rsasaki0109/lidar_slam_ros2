@@ -297,6 +297,33 @@ if(BUILD_TESTING)
     )
   endif()
   ament_add_gtest(
+    test_odometry_covariance_localizability
+    test/test_odometry_covariance_localizability.cpp
+  )
+  if(TARGET test_odometry_covariance_localizability)
+    target_include_directories(
+      test_odometry_covariance_localizability PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_degeneracy_diagnostics_csv
+    test/test_degeneracy_diagnostics_csv.cpp
+  )
+  if(TARGET test_degeneracy_diagnostics_csv)
+    target_include_directories(
+      test_degeneracy_diagnostics_csv PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_degeneracy_report_summary
+    test/test_degeneracy_report_summary.cpp
+  )
+  if(TARGET test_degeneracy_report_summary)
+    target_include_directories(
+      test_degeneracy_report_summary PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
     test_map_refiner
     test/test_map_refiner.cpp
   )
@@ -365,6 +392,11 @@ if(BUILD_TESTING)
   ament_add_pytest_test(
     test_map_quality_profiles
     test/test_map_quality_profiles.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_summarize_degeneracy_csv
+    test/test_summarize_degeneracy_csv.py
     TIMEOUT 120
   )
   ament_add_pytest_test(

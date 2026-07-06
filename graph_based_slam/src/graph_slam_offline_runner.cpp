@@ -65,6 +65,8 @@
 #include <tf2_eigen/tf2_eigen.hpp>
 
 #include "graph_based_slam/backend_core.hpp"
+#include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
+#include "graph_based_slam/degeneracy_report_summary.hpp"
 #include "graph_based_slam/map_refiner.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/registration_factory.hpp"
@@ -99,6 +101,75 @@ void writeTum(
     out << line << "\n";
   }
 }
+
+// v0.8 Phase 1 (docs/roadmap/v0.8.md §5): opt-in, report-only per-scan
+// degeneracy diagnostics from the recorded odometry covariance (filled by
+// the Thirdparty/rko_lio diagnostic patch). Default off: the existing
+// deterministic artifacts (loop_edges.csv, TUM trajectories) are
+// byte-identical whether or not these outputs are requested.
+struct DegeneracyDiagnosticsSink
+{
+  std::ofstream csv;
+  bool report_enabled{false};
+  graphslam::degeneracy::DegeneracyReportAccumulator accumulator;
+
+  void configure(rclcpp::Node & node, const rclcpp::Logger & logger)
+  {
+    std::string csv_path;
+    node.get_parameter_or(
+      "degeneracy_diagnostics_csv_path", csv_path, std::string());
+    node.get_parameter_or("save_degeneracy_report", report_enabled, false);
+    if (csv_path.empty()) {
+      return;
+    }
+    csv.open(csv_path);
+    if (csv.is_open()) {
+      csv << graphslam::degeneracy::degeneracyDiagnosticsCsvHeaderLine() << "\n";
+    } else {
+      RCLCPP_WARN(
+        logger, "failed to open degeneracy_diagnostics_csv_path: %s (CSV disabled)",
+        csv_path.c_str());
+    }
+  }
+
+  // One row per paired scan, before the submap-distance decision -- the
+  // degeneracy signal is a property of the frontend solve, not of submap
+  // spacing.
+  void recordScan(const nav_msgs::msg::Odometry & odom)
+  {
+    if (!csv.is_open() && !report_enabled) {
+      return;
+    }
+    const graphslam::degeneracy::CovarianceLocalizabilityResult result =
+      graphslam::degeneracy::analyzeOdometryCovariance(odom.pose.covariance);
+    const double stamp_sec = rclcpp::Time(odom.header.stamp).seconds();
+    if (csv.is_open()) {
+      csv << graphslam::degeneracy::degeneracyDiagnosticsCsvRowLine(stamp_sec, result) << "\n";
+    }
+    if (report_enabled) {
+      accumulator.add(stamp_sec, result);
+    }
+  }
+
+  void writeReport(const std::string & output_dir, const rclcpp::Logger & logger)
+  {
+    if (!report_enabled) {
+      return;
+    }
+    const std::string report_path = output_dir + "/degeneracy_report.yaml";
+    std::ofstream report(report_path);
+    if (!report.is_open()) {
+      RCLCPP_WARN(logger, "failed to write degeneracy report: %s", report_path.c_str());
+      return;
+    }
+    const std::vector<std::string> lines =
+      graphslam::degeneracy::degeneracyReportYamlLines(accumulator.summary());
+    for (size_t i = 0; i < lines.size(); ++i) {
+      report << lines[i] << "\n";
+    }
+    RCLCPP_INFO(logger, "Wrote %s", report_path.c_str());
+  }
+};
 
 }  // namespace
 
@@ -155,6 +226,9 @@ int main(int argc, char ** argv)
   node->get_parameter_or("refine_window_stride", refine_window_stride, 8);
   bool refine_save_maps = false;
   node->get_parameter_or("refine_save_maps", refine_save_maps, false);
+
+  DegeneracyDiagnosticsSink degeneracy_sink;
+  degeneracy_sink.configure(*node, logger);
 
   graphslam::backend_core::DescriptorConfig descriptor_config;
   node->get_parameter_or("use_scan_context", descriptor_config.use_scan_context, false);
@@ -441,6 +515,7 @@ int main(int argc, char ** argv)
   const auto process_pair =
     [&](const nav_msgs::msg::Odometry & odom, const sensor_msgs::msg::PointCloud2 & cloud_msg) {
       ++paired_count;
+      degeneracy_sink.recordScan(odom);
       const Eigen::Vector3d position(
         odom.pose.pose.position.x,
         odom.pose.pose.position.y,
@@ -643,6 +718,8 @@ int main(int argc, char ** argv)
       RCLCPP_INFO(logger, "Wrote map_optimized.pcd and map_refined.pcd");
     }
   }
+
+  degeneracy_sink.writeReport(output_dir, logger);
 
   RCLCPP_INFO(logger, "Wrote %s/loop_edges.csv and TUM trajectories", output_dir.c_str());
 

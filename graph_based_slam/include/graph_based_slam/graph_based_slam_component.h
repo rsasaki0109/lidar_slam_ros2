@@ -80,6 +80,7 @@ extern "C" {
 #include <tf2_ros/transform_broadcaster.h>  // NOLINT(build/include_order)
 #include <tf2_ros/transform_listener.h>  // NOLINT(build/include_order)
 
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -121,6 +122,7 @@ extern "C" {
 #include "g2o/types/slam3d/vertex_se3.h"
 #include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/candidate_aggregator.hpp"
+#include "graph_based_slam/degeneracy_report_summary.hpp"
 #include "graph_based_slam/registration_factory.hpp"
 #include "graph_based_slam/gnss_weighting.hpp"
 #include "graph_based_slam/scan_context.hpp"
@@ -421,6 +423,24 @@ private:
     void tryCreateSubmap(
       const nav_msgs::msg::Odometry & odom_msg,
       const sensor_msgs::msg::PointCloud2 & cloud_msg);
+
+    // v0.8 Phase 1 (docs/roadmap/v0.8.md §5): opt-in, report-only per-scan
+    // degeneracy diagnostics on the use_odom_input path. The received
+    // Odometry pose.covariance (filled anisotropically by the
+    // Thirdparty/rko_lio diagnostic patch) is classified per scan via
+    // localizability_analysis.hpp; when degeneracy_diagnostics_csv_path is
+    // non-empty a per-scan CSV row is appended, and when
+    // save_degeneracy_report is true a degeneracy_report.yaml summary joins
+    // the map bundle at /map_save time (best-effort, like the other bundle
+    // artifacts). Both default off: default behavior (and determinism) is
+    // unchanged, and nothing here feeds back into any pose or edge weight.
+    std::string degeneracy_diagnostics_csv_path_;
+    bool save_degeneracy_report_ {false};
+    std::mutex degeneracy_mtx_;
+    std::ofstream degeneracy_csv_ofs_;
+    degeneracy::DegeneracyReportAccumulator degeneracy_accumulator_;
+    void recordScanDegeneracy(const nav_msgs::msg::Odometry & odom_msg);
+    void writeDegeneracyReport();
 
     // GNSS constraints for georeferenced mapping
     bool use_gnss_ {false};
