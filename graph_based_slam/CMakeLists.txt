@@ -288,6 +288,15 @@ if(BUILD_TESTING)
     )
   endif()
   ament_add_gtest(
+    test_localizability_analysis
+    test/test_localizability_analysis.cpp
+  )
+  if(TARGET test_localizability_analysis)
+    target_include_directories(
+      test_localizability_analysis PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
     test_map_refiner
     test/test_map_refiner.cpp
   )
