@@ -39,6 +39,7 @@
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
 #include "graph_based_slam/bev_mutual_visibility.hpp"
 #include "graph_based_slam/candidate_aggregator.hpp"
+#include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "graph_based_slam/gnss_alignment.hpp"
 #include "graph_based_slam/loop_verifier.hpp"
@@ -1026,9 +1027,32 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("submap_distance_threshold", submap_distance_threshold_);
   declare_parameter("odom_cloud_sync_queue_size", 100);
   get_parameter("odom_cloud_sync_queue_size", odom_cloud_sync_queue_size_);
+  // v0.8 Phase 1 report-only degeneracy diagnostics (opt-in, default off:
+  // empty path / false flag leaves default behavior untouched).
+  declare_parameter("degeneracy_diagnostics_csv_path", std::string(""));
+  get_parameter("degeneracy_diagnostics_csv_path", degeneracy_diagnostics_csv_path_);
+  declare_parameter("save_degeneracy_report", false);
+  get_parameter("save_degeneracy_report", save_degeneracy_report_);
   std::cout << "use_odom_input:" << std::boolalpha << use_odom_input_ << std::endl;
   if (use_odom_input_) {
     std::cout << "submap_distance_threshold[m]:" << submap_distance_threshold_ << std::endl;
+  }
+  if (!degeneracy_diagnostics_csv_path_.empty()) {
+    std::cout << "degeneracy_diagnostics_csv_path:" << degeneracy_diagnostics_csv_path_ <<
+      std::endl;
+  }
+  std::cout << "save_degeneracy_report:" << std::boolalpha << save_degeneracy_report_ <<
+    std::endl;
+  if (!degeneracy_diagnostics_csv_path_.empty()) {
+    degeneracy_csv_ofs_.open(degeneracy_diagnostics_csv_path_);
+    if (degeneracy_csv_ofs_.is_open()) {
+      degeneracy_csv_ofs_ << degeneracy::degeneracyDiagnosticsCsvHeaderLine() << "\n";
+    } else {
+      RCLCPP_WARN(
+        get_logger(), "failed to open degeneracy_diagnostics_csv_path: %s (CSV disabled)",
+        degeneracy_diagnostics_csv_path_.c_str());
+      degeneracy_diagnostics_csv_path_.clear();
+    }
   }
   std::cout << "use_imu_preintegration:" << std::boolalpha << use_imu_preintegration_ << std::endl;
   if (use_imu_preintegration_) {
@@ -1757,6 +1781,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
         filter_result.stats.output_points);
     }
     saveGridDividedMap(map_to_save);
+    writeDegeneracyReport();
   }
 }
 
@@ -2048,7 +2073,57 @@ void GraphBasedSlamComponent::receiveSyncedOdomCloud(
       get_logger(), "First synced odom+cloud pair: (%.2f, %.2f, %.2f), %zu bytes", pos.x(),
       pos.y(), pos.z(), cloud_msg->data.size());
   }
+  recordScanDegeneracy(*odom_msg);
   tryCreateSubmap(*odom_msg, *cloud_msg);
+}
+
+void GraphBasedSlamComponent::recordScanDegeneracy(const nav_msgs::msg::Odometry & odom_msg)
+{
+  // Opt-in, report-only (v0.8 Phase 1): compute nothing at all unless one of
+  // the two diagnostics outputs was requested, so the default path stays
+  // byte-for-byte identical in behavior and cost.
+  const bool csv_enabled = degeneracy_csv_ofs_.is_open();
+  if (!csv_enabled && !save_degeneracy_report_) {
+    return;
+  }
+
+  const degeneracy::CovarianceLocalizabilityResult result =
+    degeneracy::analyzeOdometryCovariance(odom_msg.pose.covariance);
+  const double stamp_sec = rclcpp::Time(odom_msg.header.stamp).seconds();
+
+  std::lock_guard<std::mutex> lock(degeneracy_mtx_);
+  if (csv_enabled) {
+    degeneracy_csv_ofs_ << degeneracy::degeneracyDiagnosticsCsvRowLine(stamp_sec, result) << "\n";
+  }
+  if (save_degeneracy_report_) {
+    degeneracy_accumulator_.add(stamp_sec, result);
+  }
+}
+
+void GraphBasedSlamComponent::writeDegeneracyReport()
+{
+  if (!save_degeneracy_report_) {
+    return;
+  }
+  // Best-effort, same as the other map-bundle artifacts
+  // (map_projector_info.yaml etc.): a failure to write the report must not
+  // fail the map save itself.
+  degeneracy::DegeneracyReportSummary summary;
+  {
+    std::lock_guard<std::mutex> lock(degeneracy_mtx_);
+    summary = degeneracy_accumulator_.summary();
+  }
+  const std::string report_path = map_save_dir_ + "/degeneracy_report.yaml";
+  std::ofstream report(report_path);
+  if (!report.is_open()) {
+    RCLCPP_WARN(get_logger(), "failed to write degeneracy report: %s", report_path.c_str());
+    return;
+  }
+  const std::vector<std::string> lines = degeneracy::degeneracyReportYamlLines(summary);
+  for (size_t i = 0; i < lines.size(); ++i) {
+    report << lines[i] << "\n";
+  }
+  std::cout << "Degeneracy report: " << report_path << std::endl;
 }
 
 void GraphBasedSlamComponent::tryCreateSubmap(

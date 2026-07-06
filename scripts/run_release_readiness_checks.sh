@@ -73,6 +73,15 @@ Options:
                                 report-only
   --map-quality-downsample <m>  Downsample for the map-quality stage
                                 (default: 0.1)
+  --degeneracy-report <csv>     Run the degeneracy diagnostics report stage
+                                (v0.8 Phase 1, docs/roadmap/v0.8.md §5) on a
+                                per-scan diagnostics CSV produced by
+                                graph_based_slam / graph_slam_offline_runner
+                                with degeneracy_diagnostics_csv_path set.
+                                Repeatable. Report-only: the stage writes a
+                                Markdown/JSON summary and never fails the
+                                gate, even on a missing/malformed CSV (same
+                                rollout shape as v0.7's report-only stages)
   --frontend-determinism-bag <dir>
                                 Run the offline frontend determinism hard gate
                                 (Phase 4, docs/roadmap/v0.6.md) on this raw
@@ -168,6 +177,7 @@ OFFLINE_DETERMINISM_MAP_QUALITY_PROFILE=""
 MAP_QUALITY_PCDS=()
 MAP_QUALITY_PROFILES=()
 MAP_QUALITY_DOWNSAMPLE=""
+DEGENERACY_REPORT_CSVS=()
 FRONTEND_DETERMINISM_BAG=""
 FRONTEND_DETERMINISM_CLOUD_TOPIC=""
 FRONTEND_DETERMINISM_IMU_TOPIC=""
@@ -313,6 +323,11 @@ while [[ $# -gt 0 ]]; do
     --map-quality-downsample)
       require_value "$1" "${2:-}"
       MAP_QUALITY_DOWNSAMPLE="$2"
+      shift 2
+      ;;
+    --degeneracy-report)
+      require_value "$1" "${2:-}"
+      DEGENERACY_REPORT_CSVS+=("$(realpath -m "$2")")
       shift 2
       ;;
     --frontend-determinism-bag)
@@ -592,6 +607,27 @@ if [[ ${#MAP_QUALITY_PCDS[@]} -gt 0 ]]; then
   done
 fi
 
+if [[ ${#DEGENERACY_REPORT_CSVS[@]} -gt 0 ]]; then
+  echo "==> Running degeneracy diagnostics report stage (v0.8 Phase 1, report-only)"
+  DEGENERACY_INDEX=0
+  for DEGENERACY_CSV in "${DEGENERACY_REPORT_CSVS[@]}"; do
+    DEGENERACY_INDEX=$((DEGENERACY_INDEX + 1))
+    DEGENERACY_NAME=$(basename "$(dirname "${DEGENERACY_CSV}")")_$(basename "${DEGENERACY_CSV%.*}")
+    DEGENERACY_OUT="${OUT_DIR}/degeneracy_report/${DEGENERACY_INDEX}_${DEGENERACY_NAME}"
+    mkdir -p "${DEGENERACY_OUT}"
+    # Report-only (docs/roadmap/v0.8.md §5 Phase 1): a summarizer failure is
+    # logged but never fails the readiness gate.
+    if ! python3 "${REPO_ROOT}/scripts/summarize_degeneracy_csv.py" \
+      --csv "${DEGENERACY_CSV}" \
+      --write-md "${DEGENERACY_OUT}/degeneracy_summary.md" \
+      --write-json "${DEGENERACY_OUT}/degeneracy_summary.json" \
+      2>&1 | tee -a "${OUT_DIR}/degeneracy_report.log"; then
+      echo "warning: degeneracy report stage failed for ${DEGENERACY_CSV} (report-only, not gating)" \
+        | tee -a "${OUT_DIR}/degeneracy_report.log"
+    fi
+  done
+fi
+
 echo "==> Release readiness checks completed"
 echo "  output_dir: ${OUT_DIR}"
 if [[ -f "${OUT_DIR}/benchmark_summary.md" ]]; then
@@ -613,4 +649,7 @@ if [[ -n "${PUBLIC_MID360_COMPLETION_OUTPUT_DIR}" \
 fi
 if [[ -f "${OUT_DIR}/offline_determinism/offline_determinism_summary.md" ]]; then
   echo "  offline_determinism_summary_md: ${OUT_DIR}/offline_determinism/offline_determinism_summary.md"
+fi
+if [[ -d "${OUT_DIR}/degeneracy_report" ]]; then
+  echo "  degeneracy_report_dir: ${OUT_DIR}/degeneracy_report (report-only)"
 fi

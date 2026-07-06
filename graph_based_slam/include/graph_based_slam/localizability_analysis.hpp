@@ -145,21 +145,32 @@ enum class LocalizabilityCategory
 /// property this file's tests check), so none of them are raw eigenvalue
 /// floors in `H`'s native physical units.
 ///
-/// PROVISIONAL PHASE 1 DEFAULTS. Per docs/roadmap/v0.8.md §5 Phase 1 /
-/// §9 item 3, these are *not* borrowed from Zhang & Singh or X-ICP (their
-/// published values were tuned to their own sensors/feature scales and do
-/// not port directly) and are *not* the final answer -- they are only
-/// calibrated well enough to pass on the Phase 0 synthetic fixtures
-/// (corridor / box / single-plane). The Phase 1 gate requires recalibrating
-/// both ratios from real Phase 0 HILTI exp01/exp04/exp07 `(H, b)`
-/// telemetry before they are used to judge real substrates.
+/// PHASE 1 CALIBRATED DEFAULTS (2026-07-06). Per docs/roadmap/v0.8.md §5
+/// Phase 1 / §9 item 3, these are *not* borrowed from Zhang & Singh or
+/// X-ICP (their published values were tuned to their own sensors/feature
+/// scales and do not port directly); they were calibrated on real HILTI
+/// 2022 RKO-LIO per-scan H eigenvalue telemetry (exp01 feature-rich control
+/// vs exp07 long corridor, via the fork's anisotropic odometry covariance)
+/// against the Phase 0 frozen drift asymmetry, and re-checked against the
+/// Phase 0 synthetic fixtures (corridor / box / single-plane). Full
+/// calibration record, quantile tables and threshold sweep:
+/// docs/research/hilti-degeneracy-classification-phase1.md.
 struct LocalizabilityThresholds
 {
   /// A direction is WELL_CONDITIONED when its normalized contribution
   /// (`lambda_i / trace(H)`) is at least this fraction of the Hessian's
   /// total information. Directions below this are "weak" candidates for
   /// DEGENERATE or NON_OBSERVABLE (see the multiplicity rule above).
-  double well_conditioned_ratio {1.0e-4};
+  ///
+  /// Calibration (Phase 1): exp01's smallest per-scan normalized
+  /// contribution never drops below ~1.7e-5 (1% quantile 1.72e-5) across
+  /// 1582 scans, while exp07's median smallest contribution is 5.2e-6;
+  /// 1.5e-5 sits between the two populations, classifying 99.9% of exp01
+  /// scans fully well-conditioned while flagging the majority of exp07
+  /// scans (58% overall, 74% of mid-corridor frames) as directionally
+  /// ill-constrained. The synthetic box fixture's smallest contribution
+  /// (4.8e-4) stays a factor ~30 above this threshold.
+  double well_conditioned_ratio {1.5e-5};
 
   /// Two adjacent (post-sort) weak directions are considered part of the
   /// same near-repeated eigenspace -- and therefore escalated together to
@@ -167,8 +178,19 @@ struct LocalizabilityThresholds
   /// more than this amount. Deliberately far smaller than
   /// `well_conditioned_ratio`: this only merges directions that are
   /// mutually indistinguishable from each other (e.g. simultaneously
-  /// algebraically zero), not merely "both weak".
-  double multiplicity_relative_gap {1.0e-6};
+  /// algebraically zero, or both clamped to the RKO-LIO covariance
+  /// eigenvalue floor), not merely "both weak".
+  ///
+  /// Calibration (Phase 1): on real exp07 telemetry, *distinct* weak
+  /// directions are separated by contribution gaps >= ~9e-8 (25% quantile
+  /// 8.9e-8), while mutually-indistinguishable pairs (two directions both
+  /// at the fork's `1e-6 * lambda_max` covariance floor) differ by
+  /// <= ~1e-16. The provisional 1e-6 sat *above* typical weak-direction
+  /// contributions themselves and merged almost any two weak directions
+  /// (56% of exp07 scans spuriously NON_OBSERVABLE); 1e-8 sits cleanly
+  /// between the two populations (exp07 NON_OBSERVABLE drops to the 16%
+  /// of frames with a genuine >= 2-dimensional floored near-null space).
+  double multiplicity_relative_gap {1.0e-8};
 };
 
 /// Result for a single one of the six SE(3) update directions, in ascending
