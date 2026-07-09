@@ -528,12 +528,15 @@ wrapped = {"/**": {"ros__parameters": data}}
 dst_path.write_text(yaml.safe_dump(wrapped, sort_keys=False))
 PY
 
-if [[ "$SKIP_REFERENCE_GEN" == "false" || ! -f "$REFERENCE_TUM" || ! -f "$REFERENCE_META" ]]; then
+if [[ "$SKIP_REFERENCE_GEN" == "false" ]]; then
   python3 "${SCRIPT_DIR}/generate_ntu_viral_tnp01_reference.py" \
     --source-bag "$REFERENCE_BAG" \
     --out "$REFERENCE_TUM" \
     --rko-param "$RKO_PARAM" \
     --write-meta "$REFERENCE_META"
+else
+  [[ -f "$REFERENCE_TUM" ]] || die "--skip-reference-gen set but reference TUM not found: $REFERENCE_TUM (pass --reference-tum)"
+  [[ -f "$REFERENCE_META" ]] || die "--skip-reference-gen set but reference meta not found: $REFERENCE_META (pass --reference-meta, e.g. an empty '{}' JSON if no prism-offset metadata applies)"
 fi
 
 echo "Running RKO-LIO benchmark"
@@ -679,6 +682,7 @@ python3 "${SCRIPT_DIR}/ape_from_tum.py" \
 python3 "${SCRIPT_DIR}/ape_from_tum.py" \
   --ref "$REFERENCE_TUM" \
   --est "$CORRECTED_TUM_PRISM" \
+  --sparse-match \
   --out "$CORRECTED_APE"
 
 BENCH_T1="$(python3 - <<'PY'
