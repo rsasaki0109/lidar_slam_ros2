@@ -39,7 +39,7 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 ### frontend(scan-matcher) 
 - input  
-/input_cloud  (sensor_msgs/PointCloud2)  
+/points_raw  (sensor_msgs/PointCloud2)  
 /tf(from "base_link" to LiDAR's frame)  
 /initial_pose  (geometry_msgs/PoseStamed)(optional)  
 /imu  (sensor_msgs/Imu)(optional)  
