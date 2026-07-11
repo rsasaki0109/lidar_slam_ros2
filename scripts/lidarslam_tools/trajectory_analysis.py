@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+"""Trajectory association, alignment, and error-series helpers."""
 
 from __future__ import annotations
 
@@ -294,6 +294,5 @@ def build_aligned_series(rec: Any) -> dict[str, Any] | None:
         "peak_time": times[peak_idx],
         "peak_error": err_norm[peak_idx],
     }
-
 
 
