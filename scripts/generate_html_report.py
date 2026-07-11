@@ -20,12 +20,19 @@ from lidarslam_tools.report_diagnostics import collect_log_alerts, render_log_al
 from lidarslam_tools.report_model import (
     RunRecord,
     ape_spike_ratio,
+    as_bool,
+    as_float,
     badge,
     fmt_float,
     fmt_ratio,
+    infer_reference_kind,
+    is_spiky_run,
     load_record,
+    median,
     metric_link,
     quality_markup,
+    resolve_artifact_path,
+    run_quality,
     slugify,
     stability_markup,
     summarize_group,
@@ -33,6 +40,44 @@ from lidarslam_tools.report_model import (
 from lidarslam_tools.report_page import render_page
 from lidarslam_tools.report_sections import build_page, plot_bundle, run_row, section
 from lidarslam_tools.trajectory_analysis import Pose, build_aligned_series
+
+
+__all__ = [
+    'GLIM_COLOR',
+    'LIDAR_COLOR',
+    'Pose',
+    'RunRecord',
+    'ape_spike_ratio',
+    'as_bool',
+    'as_float',
+    'badge',
+    'build_aligned_series',
+    'build_page',
+    'collect_log_alerts',
+    'diff_chart_svg',
+    'fmt_float',
+    'fmt_ratio',
+    'infer_reference_kind',
+    'is_spiky_run',
+    'line_chart_svg',
+    'load_record',
+    'main',
+    'median',
+    'metric_link',
+    'plot_bundle',
+    'plotly_3d_chart',
+    'quality_markup',
+    'render_log_alerts',
+    'render_page',
+    'resolve_artifact_path',
+    'run_quality',
+    'run_row',
+    'section',
+    'slugify',
+    'stability_markup',
+    'summarize_group',
+    'xy_chart_svg',
+]
 
 
 def main() -> int:

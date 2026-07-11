@@ -30,6 +30,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 import sys
 
@@ -50,6 +51,20 @@ from lidarslam_tools.trajectory_analysis import (  # noqa: E402
     associate_poses,
     unwrap_degrees,
 )
+
+
+def test_legacy_entrypoint_exports_the_public_helpers():
+    spec = importlib.util.spec_from_file_location(
+        'generate_html_report', REPO_ROOT / 'scripts' / 'generate_html_report.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    expected = {
+        'RunRecord', 'as_bool', 'load_record', 'run_quality',
+        'build_aligned_series', 'line_chart_svg', 'build_page', 'main',
+    }
+    assert expected <= set(module.__all__)
+    assert all(hasattr(module, name) for name in module.__all__)
 
 
 def _record(**overrides) -> RunRecord:
