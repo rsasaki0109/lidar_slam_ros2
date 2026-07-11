@@ -42,6 +42,7 @@
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "graph_based_slam/gnss_alignment.hpp"
+#include "graph_based_slam/gnss_geometry.hpp"
 #include "graph_based_slam/loop_verifier.hpp"
 #include "graph_based_slam/map_saver.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
@@ -1862,21 +1863,7 @@ void GraphBasedSlamComponent::receiveNavSatFix(const sensor_msgs::msg::NavSatFix
 
 bool GraphBasedSlamComponent::isUsableGnssFix(const sensor_msgs::msg::NavSatFix & msg) const
 {
-  if (!std::isfinite(msg.latitude) || !std::isfinite(msg.longitude) ||
-    !std::isfinite(msg.altitude))
-  {
-    return false;
-  }
-  if (msg.latitude < -90.0 || msg.latitude > 90.0) {
-    return false;
-  }
-  if (msg.longitude < -180.0 || msg.longitude > 180.0) {
-    return false;
-  }
-  if (std::abs(msg.latitude) < 1e-6 && std::abs(msg.longitude) < 1e-6) {
-    return false;
-  }
-  return true;
+  return detail::isUsableGeodeticFix(msg.latitude, msg.longitude, msg.altitude);
 }
 
 void GraphBasedSlamComponent::tryInitializeGnssOrigin(double lat, double lon, double alt)
@@ -1958,47 +1945,15 @@ void GraphBasedSlamComponent::tryInitializeGnssOrigin(double lat, double lon, do
 double GraphBasedSlamComponent::approximateGeodeticDistanceMeters(
   double lat0, double lon0, double lat1, double lon1) const
 {
-  constexpr double kEarthRadiusM = 6378137.0;
-  auto toRad = [](double deg) {return deg * M_PI / 180.0;};
-
-  const double lat0_rad = toRad(lat0);
-  const double lat1_rad = toRad(lat1);
-  const double dlat = lat1_rad - lat0_rad;
-  const double dlon = toRad(lon1 - lon0);
-  const double x = dlon * std::cos((lat0_rad + lat1_rad) * 0.5);
-  const double y = dlat;
-  return std::sqrt(x * x + y * y) * kEarthRadiusM;
+  return detail::approximateGeodeticDistanceMeters(lat0, lon0, lat1, lon1);
 }
 
 Eigen::Vector3d GraphBasedSlamComponent::geodeticToEnu(
   double lat, double lon, double alt) const
 {
-  // WGS84 parameters
-  constexpr double a = 6378137.0;              // semi-major axis [m]
-  constexpr double f = 1.0 / 298.257223563;    // flattening
-  constexpr double e2 = 2 * f - f * f;         // eccentricity squared
-
-  auto toRad = [](double deg) {return deg * M_PI / 180.0;};
-
-  double lat0 = toRad(gnss_origin_lat_);
-  double lon0 = toRad(gnss_origin_lon_);
-  double lat1 = toRad(lat);
-  double lon1 = toRad(lon);
-
-  double dlat = lat1 - lat0;
-  double dlon = lon1 - lon0;
-  double dalt = alt - gnss_origin_alt_;
-
-  double sin_lat0 = std::sin(lat0);
-  double N = a / std::sqrt(1.0 - e2 * sin_lat0 * sin_lat0);
-  double M = a * (1.0 - e2) / std::pow(1.0 - e2 * sin_lat0 * sin_lat0, 1.5);
-
-  // ENU: East = dlon * N * cos(lat), North = dlat * M, Up = dalt
-  double east = dlon * N * std::cos(lat0);
-  double north = dlat * M;
-  double up = dalt;
-
-  return Eigen::Vector3d(east, north, up);
+  const detail::GeodeticOrigin origin {
+    gnss_origin_lat_, gnss_origin_lon_, gnss_origin_alt_};
+  return detail::geodeticToEnu(lat, lon, alt, origin);
 }
 
 void GraphBasedSlamComponent::receiveImu(const sensor_msgs::msg::Imu & msg)
