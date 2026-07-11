@@ -240,5 +240,3 @@ def run_quality(rec: RunRecord) -> tuple[str, str]:
 def quality_markup(rec: RunRecord) -> str:
     label, tone = run_quality(rec)
     return badge(label, tone)
-
-

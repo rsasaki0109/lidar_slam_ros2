@@ -68,6 +68,3 @@ def render_log_alerts(rec: RunRecord) -> str:
             "</div>"
         )
     return "<div class='alert-grid'>" + "".join(cards) + "</div>"
-
-
-

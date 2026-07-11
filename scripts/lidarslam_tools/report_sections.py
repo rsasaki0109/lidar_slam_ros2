@@ -256,6 +256,3 @@ def section(summary: dict[str, Any], output_root: Path) -> str:
 
 def build_page(output_root: Path, groups: list[dict[str, Any]]) -> str:
     return render_page(output_root, groups, section, fmt_float, fmt_ratio)
-
-
-

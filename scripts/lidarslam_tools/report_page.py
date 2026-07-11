@@ -461,5 +461,3 @@ def render_page(
 </body>
 </html>
 """
-
-

@@ -294,5 +294,3 @@ def build_aligned_series(rec: Any) -> dict[str, Any] | None:
         "peak_time": times[peak_idx],
         "peak_error": err_norm[peak_idx],
     }
-
-

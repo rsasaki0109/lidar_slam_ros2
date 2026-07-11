@@ -19,7 +19,6 @@ def svg_header(width: int, height: int) -> str:
         "xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='xMidYMid meet'>"
     )
 
-
 def line_chart_svg(
     times: list[float],
     ref_vals: list[float],
@@ -272,5 +271,3 @@ def plotly_3d_chart(
         f"<div class='plot-card plotly-card'><div id='{div_id}' class='plotly-3d'></div></div>"
         f"<script>Plotly.newPlot({json.dumps(div_id)}, {json.dumps(data)}, {json.dumps(layout)}, {json.dumps(config)});</script>"
     )
-
-
