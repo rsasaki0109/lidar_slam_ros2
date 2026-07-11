@@ -31,11 +31,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
-
-import yaml
-
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / 'scripts'))
@@ -50,6 +47,8 @@ from run_lidar_slam import (  # noqa: E402
     read_bag_summary,
     resolve_bag,
 )
+
+import yaml  # noqa: E402
 
 
 def _bag(path: Path, topic: str = '/hesai/pandar') -> Path:
