@@ -4,141 +4,32 @@
 from __future__ import annotations
 
 import importlib.util
-import json
 import shlex
 import textwrap
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from lidarslam_tools.serialization import payload_to_json
+from lidarslam_tools.mid360_models import (
+    DiagnosisPlan,
+    MapRunOptions,
+    MapRunPlan,
+    MessageSample,
+    PreflightCheck,
+    RobotFrames,
+    RobotProfile,
+    TopicSelection,
+)
+
 
 MID360_PROFILE_ID = 'rko_lio_graph_mid360_preset'
 DEFAULT_SAMPLE_MESSAGES = 20
 POINTCLOUD_MIN_METADATA_HZ = 5.0
 IMU_MIN_METADATA_HZ = 50.0
-
-
-@dataclass(frozen=True)
-class RobotFrames:
-    """Frame names used by the robot mapping launch."""
-
-    base_frame: str = 'base_link'
-    lidar_frame: str = 'livox_frame'
-    imu_frame: str = 'livox_frame'
-
-
-@dataclass(frozen=True)
-class RobotProfile:
-    """Robot-specific MID-360 mapping defaults."""
-
-    robot_name: str
-    frames: RobotFrames
-    expected_pointcloud_topic: str = ''
-    expected_imu_topic: str = ''
-    mount: dict[str, Any] | None = None
-    source_path: str = ''
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            'robot_name': self.robot_name,
-            'frames': asdict(self.frames),
-            'expected_pointcloud_topic': self.expected_pointcloud_topic,
-            'expected_imu_topic': self.expected_imu_topic,
-            'mount': self.mount or {},
-            'source_path': self.source_path,
-        }
-
-
-@dataclass(frozen=True)
-class TopicSelection:
-    """Topic names selected from rosbag2 metadata."""
-
-    pointcloud: str | None
-    imu: str | None
-
-    @property
-    def ready(self) -> bool:
-        return bool(self.pointcloud and self.imu)
-
-
-@dataclass(frozen=True)
-class MessageSample:
-    """Small, standard-message sample extracted from a rosbag2 topic."""
-
-    topic: str
-    msg_type: str
-    timestamp_ns: int | None = None
-    header_stamp_ns: int | None = None
-    frame_id: str = ''
-    tf_pairs: tuple[tuple[str, str], ...] = ()
-
-
-@dataclass(frozen=True)
-class PreflightCheck:
-    """A single robot preflight check."""
-
-    id: str
-    status: str
-    message: str
-
-
-@dataclass(frozen=True)
-class MapRunOptions:
-    """Options that affect the MID-360 map runner command."""
-
-    output_dir: Path | None = None
-    run_name: str = ''
-    save_timeout_secs: str = ''
-    startup_timeout_secs: str = ''
-    viewer: str = 'none'
-    viewer_rebuild: bool = False
-    viewer_run_dir: str = ''
-    autoware_core_dir: str = ''
-    work_dir: str = ''
-    auto_exit_secs: str = ''
-    keep_launch: bool = False
-
-
-@dataclass(frozen=True)
-class MapRunPlan:
-    """Commands needed for one MID-360 map run."""
-
-    output_dir: Path
-    dogfood_command: list[str]
-    foxglove_command: list[str]
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            'output_dir': str(self.output_dir),
-            'dogfood_command': self.dogfood_command,
-            'dogfood_command_shell': shlex.join(self.dogfood_command),
-            'foxglove_command': self.foxglove_command,
-            'foxglove_command_shell': (
-                shlex.join(self.foxglove_command) if self.foxglove_command else ''
-            ),
-        }
-
-
-@dataclass(frozen=True)
-class DiagnosisPlan:
-    """Command and expected outputs for map-run diagnosis."""
-
-    command: list[str]
-    markdown_path: Path
-    json_path: Path
-    ran: bool = False
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            'command': self.command,
-            'command_shell': shlex.join(self.command),
-            'markdown_path': str(self.markdown_path),
-            'json_path': str(self.json_path),
-            'ran': self.ran,
-        }
 
 
 class Mid360RunDiagnosisPlanner:
@@ -1416,8 +1307,3 @@ class Mid360MapRunPlanner:
         if options.auto_exit_secs:
             command.extend(['--auto-exit-secs', options.auto_exit_secs])
         return command
-
-
-def payload_to_json(payload: dict[str, Any]) -> str:
-    """Serialize payloads consistently for CLIs."""
-    return json.dumps(payload, indent=2, sort_keys=True)
