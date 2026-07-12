@@ -147,6 +147,49 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 '--lidar-key', args.lidar_key,
             ])
         commands.append(('coloured map', build))
+
+    if args.quality_profile is not None:
+        alignment_report = out_dir / 'lidar_camera_alignment.json'
+        colour_report = out_dir / 'heldout_point_colors.json'
+        quality_report = out_dir / 'colored_map_quality_gate.json'
+        rebuild_map = any(name == 'coloured map' for name, _ in commands)
+        rebuild_images = any(name == 'posed images' for name, _ in commands)
+        if (rebuild_map or rebuild_images or args.force_quality or
+                is_stale(alignment_report, [colored_map, transforms])):
+            commands.append(('camera-LiDAR alignment', [
+                sys.executable,
+                str(REPO_ROOT / 'scripts' /
+                    'evaluate_lidar_camera_alignment.py'),
+                '--pointcloud', str(colored_map),
+                '--transforms', str(transforms),
+                '--out', str(alignment_report),
+            ]))
+        if (rebuild_map or rebuild_images or args.force_quality or
+                is_stale(colour_report, [colored_map, transforms])):
+            commands.append(('held-out colour', [
+                sys.executable,
+                str(REPO_ROOT / 'scripts' / 'evaluate_heldout_point_colors.py'),
+                '--pointcloud', str(colored_map),
+                '--transforms', str(transforms),
+                '--out', str(colour_report),
+            ]))
+        gate_inputs = [Path(args.trajectory_report), Path(args.geometry_report),
+                       alignment_report, colour_report,
+                       Path(args.quality_profile)]
+        if (args.force_quality or
+                any(name in ('camera-LiDAR alignment', 'held-out colour')
+                    for name, _ in commands) or
+                is_stale(quality_report, gate_inputs)):
+            commands.append(('quality gate', [
+                sys.executable,
+                str(REPO_ROOT / 'scripts' / 'check_colored_map_quality.py'),
+                '--trajectory-report', str(args.trajectory_report),
+                '--geometry-report', str(args.geometry_report),
+                '--alignment-report', str(alignment_report),
+                '--colour-report', str(colour_report),
+                '--profile', str(args.quality_profile),
+                '--out', str(quality_report),
+            ]))
     return commands
 
 
@@ -155,6 +198,13 @@ def run_pipeline(args) -> dict:
     out_dir = Path(args.out)
     if args.kalibr_camchain is not None and args.lidar_calibration is None:
         raise ValueError('--kalibr-camchain requires --lidar-calibration')
+    if args.quality_profile is not None:
+        missing = [name for name in ('trajectory_report', 'geometry_report')
+                   if getattr(args, name) is None]
+        if missing:
+            options = ', '.join('--' + name.replace('_', '-')
+                                for name in missing)
+            raise ValueError(f'--quality-profile requires {options}')
     if not args.dry_run:
         out_dir.mkdir(parents=True, exist_ok=True)
         if args.kalibr_camchain is not None:
@@ -234,6 +284,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--force-images', action='store_true')
     p.add_argument('--force-map', action='store_true')
     p.add_argument('--force-trajectory', action='store_true')
+    p.add_argument('--quality-profile', type=Path,
+                   help='run alignment, held-out colour, and integrated quality '
+                        'checks using this profile')
+    p.add_argument('--trajectory-report', type=Path,
+                   help='metrics.json containing evo.ape.rmse for quality gate')
+    p.add_argument('--geometry-report', type=Path,
+                   help='map_quality_report.yaml for quality gate')
+    p.add_argument('--force-quality', action='store_true',
+                   help='rerun quality reports even when outputs are current')
     p.add_argument('--dry-run', action='store_true')
     return p
 

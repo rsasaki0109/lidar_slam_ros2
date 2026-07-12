@@ -67,6 +67,14 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
   --points-topic /livox/points --camera-topic /image \
   --camera-info-topic /camera_info
 
+# GT付き検証では外部reportを渡し、校正・held-out色・統合gateも一括実行
+python3 tools/gaussian_splatting/colored_map_pipeline.py \
+  <bag> output/<run>/traj_corrected.tum output/<run>/colored_map \
+  --extrinsic configs/gaussian_splatting/<lidar_camera_extrinsic>.yaml \
+  --trajectory-report output/<run>/metrics.json \
+  --geometry-report output/<run>/map_quality_report.yaml \
+  --quality-profile configs/colored_map_quality_profiles/<profile>.yaml
+
 # Kalibr camchain + 別LiDAR calibration（HILTI形式）はextrinsicを自動合成。
 # 疎な補正軌跡は --raw-traj の高密度軌跡へ自動伝播してから着色する
 python3 tools/gaussian_splatting/colored_map_pipeline.py \
@@ -83,6 +91,9 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
 dense SLAM軌跡を渡すこと。疎なpose-graph keyframe列を使う場合は `--raw-traj` に
 補正前のdense軌跡を渡すと、補正を全poseへ伝播した軌跡が出力先に保存・再利用される。
 入力軌跡やposed画像が成果物より新しい場合は、依存する後段だけ自動再生成される。
+`--quality-profile`は明示的opt-inで、`lidar_camera_alignment.json`、
+`heldout_point_colors.json`、`colored_map_quality_gate.json`も出力する。
+これらも入力より新しければ再利用し、`--force-quality`で品質3段階だけ再実行できる。
 robust着色は1ピクセル単位のz-bufferで遮蔽を判定し、隣接ピクセルの前景によって
 本来見える点が未着色になる粗いbin由来の欠落を防ぐ。
 複数viewの統合にはRGB medoidを使い、チャネル別medianが実際には観測されていない

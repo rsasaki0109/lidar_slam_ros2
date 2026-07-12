@@ -227,3 +227,31 @@ def test_dense_trajectory_passes_density_guard(tmp_path):
         '1.0 0 0 0 0 0 0 1\n'
         '1.1 0 0 0 0 0 0 1\n')
     cmp.validate_trajectory_density(traj, 0.5)
+
+
+def test_quality_profile_adds_two_evaluators_and_gate(tmp_path):
+    args = _args(
+        tmp_path, '--quality-profile', str(tmp_path / 'profile.yaml'),
+        '--trajectory-report', str(tmp_path / 'metrics.json'),
+        '--geometry-report', str(tmp_path / 'map_quality_report.yaml'))
+    commands = cmp.build_commands(args)
+    assert [name for name, _ in commands][-3:] == [
+        'camera-LiDAR alignment', 'held-out colour', 'quality gate']
+    gate = commands[-1][1]
+    assert gate[gate.index('--trajectory-report') + 1] == str(
+        tmp_path / 'metrics.json')
+    assert gate[gate.index('--geometry-report') + 1] == str(
+        tmp_path / 'map_quality_report.yaml')
+    assert gate[gate.index('--alignment-report') + 1].endswith(
+        'out/lidar_camera_alignment.json')
+    assert gate[gate.index('--colour-report') + 1].endswith(
+        'out/heldout_point_colors.json')
+
+
+def test_quality_profile_requires_external_reports_before_running(tmp_path):
+    import pytest
+    args = _args(
+        tmp_path, '--quality-profile', str(tmp_path / 'profile.yaml'),
+        '--dry-run')
+    with pytest.raises(ValueError, match='trajectory-report.*geometry-report'):
+        cmp.run_pipeline(args)
