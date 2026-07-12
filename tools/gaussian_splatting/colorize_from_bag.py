@@ -33,8 +33,9 @@
 A LiDAR scan and a camera on the same rig share a *static* extrinsic, so a
 single time-matched (cloud, image) pair can be coloured by projection with no
 SLAM and no map frame: pick a cloud, pick the nearest image in time, resolve
-``camera_optical <- lidar`` from ``/tf`` + ``/tf_static`` (they are rigidly
-mounted, so the transform is time-independent), undistort the image, and hand
+``camera_optical <- lidar`` from ``/tf`` + ``/tf_static`` or an explicit
+7-value calibration (they are rigidly mounted, so the transform is
+time-independent), undistort the image, and hand
 the pair to the offline colorizer
 (``pointcloud_io.colorize_by_projection_robust`` — occlusion-aware, bilinear,
 depth-weighted). This is the productionised form of the real-data experiment in
@@ -49,6 +50,7 @@ inside ``main`` so importing this module never needs a ROS environment.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from typing import Sequence
 
@@ -69,6 +71,36 @@ def nearest_index(sorted_stamps: Sequence[int], target: int) -> int:
     return int(np.argmin(np.abs(arr.astype(np.int64) - int(target))))
 
 
+def select_synced_time(pc_stamps: Sequence[int], image_stamps: Sequence[int],
+                       time_frac: float, search_radius: int = 2
+                       ) -> tuple[int, int]:
+    """Select a mutually-nearest cloud/image pair near ``time_frac``.
+
+    Around the requested position, examine the nearest image plus
+    ``search_radius`` neighbours on each side. Each image is paired with its
+    nearest cloud; the smallest time offset wins (proximity to the requested
+    time breaks ties). This reduces motion-induced colour offset without
+    moving to an unrelated part of the bag.
+    """
+    if not pc_stamps:
+        raise ValueError('no point-cloud stamps')
+    if not image_stamps:
+        raise ValueError('no image stamps')
+    frac = min(max(float(time_frac), 0.0), 1.0)
+    target = pc_stamps[min(int(len(pc_stamps) * frac), len(pc_stamps) - 1)]
+    center = nearest_index(image_stamps, target)
+    radius = max(int(search_radius), 0)
+    candidates = []
+    for index in range(max(0, center - radius),
+                       min(len(image_stamps), center + radius + 1)):
+        image_time = int(image_stamps[index])
+        pc_time = int(pc_stamps[nearest_index(pc_stamps, image_time)])
+        candidates.append((abs(pc_time - image_time),
+                           abs(pc_time - target), pc_time, image_time))
+    _, _, pc_time, image_time = min(candidates)
+    return pc_time, image_time
+
+
 def transform_msg_to_matrix(translation, rotation) -> np.ndarray:
     """Build a 4x4 ``target <- source`` matrix from a geometry_msgs Transform.
 
@@ -79,6 +111,53 @@ def transform_msg_to_matrix(translation, rotation) -> np.ndarray:
     t = [translation.x, translation.y, translation.z]
     q = [rotation.x, rotation.y, rotation.z, rotation.w]
     return pi.make_transform(t, q)
+
+
+def extrinsic_matrix(values=None, path=None) -> np.ndarray | None:
+    """Load a ``camera_optical <- lidar`` transform from CLI values or JSON.
+
+    The compact form is ``tx ty tz qx qy qz qw``. A JSON file may contain that
+    seven-value list, an object with ``translation`` and ``rotation_xyzw``
+    arrays, or an official direct_visual_lidar_calibration ``calib.json``.
+    The latter stores the opposite transform and is inverted automatically.
+    Exactly one source may be supplied. ``None`` means use bag TF.
+    """
+    if values is not None and path is not None:
+        raise ValueError('use either extrinsic values or an extrinsic file, not both')
+    invert = False
+    if path is not None:
+        try:
+            data = json.loads(Path(path).read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f'failed to read extrinsic JSON {path!s}: {exc}') from exc
+        if isinstance(data, dict) and 'results' in data and \
+                'T_lidar_camera' in data['results']:
+            values = data['results']['T_lidar_camera']
+            invert = True  # official result is lidar <- camera
+        elif isinstance(data, dict):
+            if 'translation' not in data or 'rotation_xyzw' not in data:
+                raise ValueError(
+                    'extrinsic JSON needs translation/rotation_xyzw or '
+                    'results/T_lidar_camera')
+            values = [*data['translation'], *data['rotation_xyzw']]
+        else:
+            values = data
+    if values is None:
+        return None
+    try:
+        vals = np.asarray(values, dtype=np.float64)
+    except (TypeError, ValueError) as exc:
+        raise ValueError('extrinsic values must be numeric') from exc
+    if vals.shape != (7,):
+        raise ValueError(
+            'extrinsic must have 7 values: tx ty tz qx qy qz qw')
+    if not np.all(np.isfinite(vals)):
+        raise ValueError('extrinsic values must be finite')
+    quat_norm = float(np.linalg.norm(vals[3:]))
+    if quat_norm <= 1e-12:
+        raise ValueError('extrinsic quaternion must be non-zero')
+    matrix = pi.make_transform(vals[:3], vals[3:] / quat_norm)
+    return np.linalg.inv(matrix) if invert else matrix
 
 
 def merge_colorings(per_camera, default_rgb=(80, 80, 80)
@@ -111,12 +190,13 @@ def merge_colorings(per_camera, default_rgb=(80, 80, 80)
 # --------------------------------------------------------------------------- #
 # rosbag2 + tf2 (lazy ROS imports live inside these)
 # --------------------------------------------------------------------------- #
-def _collect(bag_path, pc_topic, cameras):
+def _collect(bag_path, pc_topic, cameras, need_tf=True):
     """One pass over the bag: tf buffer, each camera's CameraInfo, and stamps.
 
     ``cameras`` is a list of ``(image_topic, info_topic, optical_frame)``.
     Returns ``(buf, infos, pc_stamps, img_stamps, types)`` where ``infos`` and
-    ``img_stamps`` are keyed by info_topic / image_topic respectively.
+    ``img_stamps`` are keyed by info_topic / image_topic respectively. With
+    ``need_tf=False``, TF topics are optional and ``buf`` is ``None``.
     """
     from rclpy.serialization import deserialize_message
     from rosidl_runtime_py.utilities import get_message
@@ -126,12 +206,18 @@ def _collect(bag_path, pc_topic, cameras):
 
     reader = _open_reader(bag_path)
     types = {t.name: t.type for t in reader.get_all_topics_and_types()}
-    tf_cls = get_message(types['/tf'])
-    tf_static_cls = get_message(types['/tf_static'])
-    try:
-        buf = tf2_ros.BufferCore(rclpy.duration.Duration(seconds=3600))
-    except TypeError:  # older signature
-        buf = tf2_ros.BufferCore()
+    if need_tf and ('/tf' not in types or '/tf_static' not in types):
+        raise RuntimeError(
+            'bag has no /tf and /tf_static; pass --extrinsic or '
+            '--extrinsic-file with camera_optical <- lidar calibration')
+    tf_cls = get_message(types['/tf']) if '/tf' in types else None
+    tf_static_cls = get_message(types['/tf_static']) if '/tf_static' in types else None
+    buf = None
+    if need_tf:
+        try:
+            buf = tf2_ros.BufferCore(rclpy.duration.Duration(seconds=3600))
+        except TypeError:  # older signature
+            buf = tf2_ros.BufferCore()
 
     info_topics = {c[1] for c in cameras}
     image_topics = {c[0] for c in cameras}
@@ -140,10 +226,10 @@ def _collect(bag_path, pc_topic, cameras):
     img_stamps: dict = {t: [] for t in image_topics}
     while reader.has_next():
         topic, raw, bagt = reader.read_next()
-        if topic == '/tf_static':
+        if need_tf and topic == '/tf_static':
             for tr in deserialize_message(raw, tf_static_cls).transforms:
                 buf.set_transform_static(tr, 'bag')
-        elif topic == '/tf':
+        elif need_tf and topic == '/tf':
             for tr in deserialize_message(raw, tf_cls).transforms:
                 buf.set_transform(tr, 'bag')
         elif topic in info_topics and topic not in infos:
@@ -228,17 +314,32 @@ def colorize_bag_frame(args) -> dict:
     from rclpy.time import Time
 
     cameras = _camera_list(args)
+    manual_extrinsic = extrinsic_matrix(
+        getattr(args, 'extrinsic', None), getattr(args, 'extrinsic_file', None))
+    if manual_extrinsic is not None and len(cameras) != 1:
+        raise ValueError(
+            'manual extrinsic currently supports one camera; remove --extra-camera')
     buf, infos, pc_stamps, img_stamps, types = _collect(
-        args.bag, args.pc_topic, cameras)
+        args.bag, args.pc_topic, cameras, need_tf=manual_extrinsic is None)
 
-    frac = min(max(args.time_frac, 0.0), 1.0)
-    pc_time = pc_stamps[min(int(len(pc_stamps) * frac), len(pc_stamps) - 1)]
+    primary_image_topic = cameras[0][0]
+    pc_time, primary_image_time = select_synced_time(
+        pc_stamps, img_stamps[primary_image_topic], args.time_frac,
+        getattr(args, 'sync_search_radius', 2))
 
     # Choose each camera's nearest-in-time image and gather every message.
     per_cam_time = {}
     wanted = {(args.pc_topic, pc_time)}
+    max_pair_dt_ms = getattr(args, 'max_pair_dt_ms', 100.0)
     for img_topic, info_topic, _frame in cameras:
-        t = img_stamps[img_topic][nearest_index(img_stamps[img_topic], pc_time)]
+        t = primary_image_time if img_topic == primary_image_topic else \
+            img_stamps[img_topic][nearest_index(img_stamps[img_topic], pc_time)]
+        pair_dt_ms = abs(t - pc_time) / 1e6
+        if max_pair_dt_ms > 0 and pair_dt_ms > max_pair_dt_ms:
+            raise RuntimeError(
+                f'nearest image on {img_topic!r} is {pair_dt_ms:.1f} ms from '
+                f'the cloud (limit {max_pair_dt_ms:.1f} ms); choose another '
+                '--time-frac or relax --max-pair-dt-ms')
         per_cam_time[img_topic] = t
         wanted.add((img_topic, t))
     msgs = _grab_messages(args.bag, wanted, types)
@@ -252,9 +353,12 @@ def colorize_bag_frame(args) -> dict:
         K = np.asarray(info.k, dtype=np.float64).reshape(3, 3)
         D = np.asarray(info.d, dtype=np.float64)
         W, H = int(info.width), int(info.height)
-        tf = buf.lookup_transform_core(frame, args.base_frame, Time().to_msg())
-        world_to_cam = transform_msg_to_matrix(
-            tf.transform.translation, tf.transform.rotation)
+        if manual_extrinsic is None:
+            tf = buf.lookup_transform_core(frame, args.base_frame, Time().to_msg())
+            world_to_cam = transform_msg_to_matrix(
+                tf.transform.translation, tf.transform.rotation)
+        else:
+            world_to_cam = manual_extrinsic
         rgb_img = _image_to_rgb(
             msgs[(img_topic, per_cam_time[img_topic])], K, D, not args.no_undistort)
         colors, seen, counts = pcio.colorize_by_projection_robust(
@@ -295,11 +399,23 @@ def build_parser() -> argparse.ArgumentParser:
                    help='frame the point cloud is expressed in')
     p.add_argument('--camera-optical-frame', default='camera_top/camera_optical_link',
                    help='camera OPTICAL frame (REP-103 z-forward) to project into')
+    extrinsic = p.add_mutually_exclusive_group()
+    extrinsic.add_argument(
+        '--extrinsic', type=float, nargs=7,
+        metavar=('TX', 'TY', 'TZ', 'QX', 'QY', 'QZ', 'QW'),
+        help='camera_optical <- lidar transform; allows bags without TF')
+    extrinsic.add_argument(
+        '--extrinsic-file', type=Path,
+        help='JSON transform or direct_visual_lidar_calibration calib.json')
     p.add_argument('--extra-camera', nargs=3, action='append',
                    metavar=('IMAGE_TOPIC', 'INFO_TOPIC', 'OPTICAL_FRAME'),
                    help='add another camera to fuse (repeatable); more coverage')
     p.add_argument('--time-frac', type=float, default=0.6,
                    help='pick the cloud at this fraction through the bag [0,1]')
+    p.add_argument('--max-pair-dt-ms', type=float, default=100.0,
+                   help='reject image/cloud pairs farther apart (<=0 disables)')
+    p.add_argument('--sync-search-radius', type=int, default=2,
+                   help='neighbouring images per side searched for best sync')
     p.add_argument('--no-undistort', action='store_true',
                    help='skip plumb_bob undistortion (needs OpenCV otherwise)')
     p.add_argument('--normalize-exposure', action='store_true',
