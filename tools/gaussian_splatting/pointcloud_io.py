@@ -183,6 +183,30 @@ def _median_luminance(img: np.ndarray) -> float:
     return float(np.median(np.tensordot(arr[:, :, :3], coeff, axes=([-1], [0]))))
 
 
+def observed_color_medoids(samples: np.ndarray, chunk: int = 20000) -> np.ndarray:
+    """Choose the observed RGB sample nearest all other samples per point.
+
+    A channel-wise median can synthesize a colour that no camera observed. For
+    example, red, green, and blue samples produce black. The L1 medoid retains
+    median-like outlier resistance while guaranteeing that every output row is
+    one of the input camera observations. Chunking bounds the temporary pairwise
+    distance array for large maps.
+    """
+    values = np.asarray(samples, dtype=np.uint8)
+    if values.ndim != 3 or values.shape[2] != 3 or values.shape[1] < 1:
+        raise ValueError(f'samples must be NxSx3 with S >= 1, got {values.shape}')
+    if chunk < 1:
+        raise ValueError('chunk must be >= 1')
+    out = np.empty((values.shape[0], 3), dtype=np.uint8)
+    for start in range(0, len(values), chunk):
+        block = values[start:start + chunk].astype(np.int16)
+        pairwise = np.abs(block[:, :, None, :] - block[:, None, :, :])
+        scores = pairwise.sum(axis=(2, 3), dtype=np.int32)
+        choice = np.argmin(scores, axis=1)
+        out[start:start + len(block)] = block[np.arange(len(block)), choice]
+    return out
+
+
 def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   K: np.ndarray, images, width: int, height: int,
                                   default_rgb=(128, 128, 128), *,
@@ -201,8 +225,9 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     and only samples views where the point sits within ``depth_tol`` (plus
     2 % of range) of the nearest depth in its bin; each image is scaled so its
     median luminance matches the global median (``normalize_exposure``); and the
-    final colour is the per-channel median over up to ``max_samples`` valid
-    samples, which rejects residual specular / motion-blur outliers.
+    final colour is the RGB medoid over up to ``max_samples`` valid samples,
+    which rejects residual specular / motion-blur outliers without synthesizing
+    a colour that no camera actually observed.
 
     A value above one for ``zbuf_bin`` trades memory for a coarse occlusion
     approximation. It can falsely hide a surface when an unrelated nearer point
@@ -297,7 +322,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     seen_idx = np.flatnonzero(seen)
     for c in np.unique(counts[seen_idx]):
         group = seen_idx[counts[seen_idx] == c]
-        rgb[group] = np.median(samples[group, :int(c), :], axis=1).astype(np.uint8)
+        rgb[group] = observed_color_medoids(samples[group, :int(c), :])
     return (rgb, seen, counts) if return_counts else (rgb, seen)
 
 

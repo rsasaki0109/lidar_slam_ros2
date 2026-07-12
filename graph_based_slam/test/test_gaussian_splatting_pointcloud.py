@@ -194,6 +194,31 @@ def test_colorize_averages_over_views():
 # --------------------------------------------------------------------------- #
 # colorize_by_projection_robust
 # --------------------------------------------------------------------------- #
+def test_observed_color_medoid_never_synthesizes_unseen_rgb():
+    samples = np.array([[[255, 0, 0], [0, 255, 0], [0, 0, 255]]],
+                       dtype=np.uint8)
+    out = pcio.observed_color_medoids(samples)
+    # A channel median would invent black [0, 0, 0]. Tied medoids resolve to
+    # the first real observation, deterministically.
+    np.testing.assert_array_equal(out, [[255, 0, 0]])
+
+
+def test_observed_color_medoid_rejects_single_outlier_and_chunks():
+    samples = np.array([
+        [[10, 20, 30], [11, 21, 31], [250, 0, 200]],
+        [[100, 110, 120], [101, 111, 121], [0, 255, 0]],
+    ], dtype=np.uint8)
+    out = pcio.observed_color_medoids(samples, chunk=1)
+    np.testing.assert_array_equal(out, [[11, 21, 31], [100, 110, 120]])
+
+
+def test_observed_color_medoid_validates_shape_and_chunk():
+    with np.testing.assert_raises(ValueError):
+        pcio.observed_color_medoids(np.zeros((2, 0, 3), dtype=np.uint8))
+    with np.testing.assert_raises(ValueError):
+        pcio.observed_color_medoids(np.zeros((2, 1, 3), dtype=np.uint8), chunk=0)
+
+
 def test_colorize_robust_occluded_point_is_unseen():
     vms, K, W, H = _cam()
     img = np.full((H, W, 3), 200, dtype=np.uint8)
