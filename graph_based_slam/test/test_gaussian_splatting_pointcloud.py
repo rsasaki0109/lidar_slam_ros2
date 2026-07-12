@@ -309,6 +309,44 @@ def test_colorize_robust_bilinear_blends_neighbouring_pixels():
     np.testing.assert_array_equal(rgb_n[0], [100, 100, 100])
 
 
+def test_colorize_robust_edge_aware_avoids_boundary_mix():
+    vms, K, W, H = _cam()
+    img = np.zeros((H, W, 3), dtype=np.uint8)
+    img[50, 51] = [255, 255, 255]
+    pts = np.array([[0.02, 0.0, 5.0]])  # u=50.4, nearest pixel is black at 50
+    rgb, seen = pcio.colorize_by_projection_robust(
+        pts, vms, K, [img], W, H, normalize_exposure=False,
+        interp='edge-aware', edge_threshold=48.0)
+    assert seen[0]
+    np.testing.assert_array_equal(rgb[0], [0, 0, 0])
+
+    mixed, _ = pcio.colorize_by_projection_robust(
+        pts, vms, K, [img], W, H, normalize_exposure=False,
+        interp='bilinear')
+    np.testing.assert_array_equal(mixed[0], [102, 102, 102])
+
+
+def test_colorize_robust_edge_aware_keeps_smooth_bilinear_sampling():
+    vms, K, W, H = _cam()
+    img = np.full((H, W, 3), 100, dtype=np.uint8)
+    img[50, 51] = [110, 110, 110]
+    pts = np.array([[0.02, 0.0, 5.0]])
+    rgb, seen = pcio.colorize_by_projection_robust(
+        pts, vms, K, [img], W, H, normalize_exposure=False,
+        interp='edge-aware', edge_threshold=48.0)
+    assert seen[0]
+    np.testing.assert_array_equal(rgb[0], [104, 104, 104])
+
+
+def test_colorize_robust_edge_aware_validates_threshold():
+    vms, K, W, H = _cam()
+    img = np.zeros((H, W, 3), dtype=np.uint8)
+    with np.testing.assert_raises(ValueError):
+        pcio.colorize_by_projection_robust(
+            np.array([[0.0, 0.0, 5.0]]), vms, K, [img], W, H,
+            normalize_exposure=False, edge_threshold=-1.0)
+
+
 def test_colorize_robust_prefers_nearest_views_when_full():
     _, K, W, H = _cam()
     red = np.full((H, W, 3), [200, 0, 0], dtype=np.uint8)     # far / wrong colour
