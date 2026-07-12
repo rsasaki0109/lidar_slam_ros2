@@ -1,0 +1,14 @@
+pointcloud_colorization:
+  ros__parameters:
+    map_frame: "map"
+    # Must be the camera OPTICAL frame (REP-103: +z forward, +x right, +y down).
+    camera_optical_frame: "camera_optical_link"
+    voxel_size: 0.1            # colour-accumulation voxel size [m]
+    zbuf_bin: 4               # per-frame z-buffer cell size [px] (occlusion)
+    depth_tolerance: 0.15     # visible if within this (+2% range) of nearest [m]
+    use_bilinear: true        # sub-pixel colour sampling (vs nearest)
+    normalize_exposure: true  # rescale each frame toward a running median luma
+    exposure_ema_alpha: 0.1   # smoothing of the exposure target
+    publish_period: 2.0       # colored_map publish period [s]
+    sync_queue_size: 10       # image/camera_info ApproximateTime queue
+    max_project_points: 2000000  # cap points projected per frame (strided)

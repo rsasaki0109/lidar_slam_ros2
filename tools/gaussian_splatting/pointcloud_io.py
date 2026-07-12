@@ -141,13 +141,44 @@ def colorize_by_projection(points: np.ndarray, viewmats: np.ndarray,
     return rgb, seen
 
 
+def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
+                   width: int, height: int, interp: str) -> np.ndarray:
+    """Sample ``img`` at float pixel coords ``(uf, vf)`` -> float32 ``(M,3)``.
+
+    ``interp='nearest'`` rounds to the pixel centre; ``'bilinear'`` blends the
+    four surrounding pixels (edge coords clamp, so the border never wraps). A
+    2-D (grayscale) image is broadcast to three channels.
+    """
+    im = np.asarray(img).astype(np.float32)
+    if im.ndim == 2:
+        im = np.repeat(im[:, :, None], 3, axis=2)
+    im = im[:, :, :3]
+    if interp == 'nearest':
+        ui = np.clip(np.round(uf).astype(np.int64), 0, width - 1)
+        vi = np.clip(np.round(vf).astype(np.int64), 0, height - 1)
+        return im[vi, ui]
+    if interp != 'bilinear':
+        raise ValueError(f"interp must be 'nearest' or 'bilinear', got {interp!r}")
+    x0 = np.clip(np.floor(uf).astype(np.int64), 0, width - 1)
+    y0 = np.clip(np.floor(vf).astype(np.int64), 0, height - 1)
+    x1 = np.minimum(x0 + 1, width - 1)
+    y1 = np.minimum(y0 + 1, height - 1)
+    wx = np.clip(uf - x0, 0.0, 1.0)[:, None].astype(np.float32)
+    wy = np.clip(vf - y0, 0.0, 1.0)[:, None].astype(np.float32)
+    top = im[y0, x0] * (1.0 - wx) + im[y0, x1] * wx
+    bot = im[y1, x0] * (1.0 - wx) + im[y1, x1] * wx
+    return top * (1.0 - wy) + bot * wy
+
+
 def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   K: np.ndarray, images, width: int, height: int,
                                   default_rgb=(128, 128, 128), *,
                                   zbuf_bin: int = 4, depth_tol: float = 0.15,
                                   max_samples: int = 12,
-                                  normalize_exposure: bool = True
-                                  ) -> tuple[np.ndarray, np.ndarray]:
+                                  normalize_exposure: bool = True,
+                                  interp: str = 'bilinear',
+                                  prefer_near: bool = True,
+                                  return_counts: bool = False):
     """Occlusion-aware, exposure-normalised, median-robust point colorization.
 
     ``colorize_by_projection`` averages every view a point lands in, so points
@@ -157,17 +188,28 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     bins) and only samples views where the point sits within ``depth_tol`` (plus
     2 % of range) of the nearest depth in its bin; each image is scaled so its
     median luminance matches the global median (``normalize_exposure``); and the
-    final colour is the per-channel median over the first ``max_samples`` valid
+    final colour is the per-channel median over up to ``max_samples`` valid
     samples, which rejects residual specular / motion-blur outliers.
 
-    Returns ``(rgb uint8 (N,3), seen bool (N,))``; unseen points get
-    ``default_rgb``.
+    Quality knobs: ``interp='bilinear'`` samples sub-pixel (blends the four
+    surrounding pixels) instead of snapping to the nearest, cutting the colour
+    bleed nearest-pixel sampling leaves along edges. ``prefer_near=True`` keeps,
+    once a point has ``max_samples`` observations, the *nearest* ones (a new
+    closer view evicts the farthest stored sample) so colour comes from the
+    highest-resolution, least-foreshortened views rather than whichever happened
+    to be visited first.
+
+    Returns ``(rgb uint8 (N,3), seen bool (N,))``, or with ``return_counts`` the
+    triple ``(rgb, seen, counts uint16 (N,))`` giving each point's surviving
+    sample count (a colour-confidence signal). Unseen points get ``default_rgb``.
     """
     points = np.asarray(points, dtype=np.float64)
     n = points.shape[0]
     rgb = np.tile(np.asarray(default_rgb, dtype=np.uint8), (n, 1))
+    counts = np.zeros(n, dtype=np.uint16)
     if n == 0 or max_samples <= 0:
-        return rgb, np.zeros(n, dtype=bool)
+        seen = np.zeros(n, dtype=bool)
+        return (rgb, seen, counts) if return_counts else (rgb, seen)
     if zbuf_bin < 1:
         raise ValueError('zbuf_bin must be >= 1')
 
@@ -175,7 +217,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     zb_w = (int(width) + zbuf_bin - 1) // zbuf_bin
     zb_h = (int(height) + zbuf_bin - 1) // zbuf_bin
     samples = np.empty((n, int(max_samples), 3), dtype=np.uint8)
-    counts = np.zeros(n, dtype=np.uint16)
+    # Depth stored alongside each sample so a nearer view can evict the farthest.
+    sample_z = np.full((n, int(max_samples)), np.inf, dtype=np.float32)
 
     scales = np.ones(len(images), dtype=np.float32)
     if normalize_exposure:
@@ -193,10 +236,12 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         cam = points @ vm[:3, :3].T + vm[:3, 3]
         z = cam[:, 2]
         with np.errstate(divide='ignore', invalid='ignore'):
-            u = np.nan_to_num(fx * cam[:, 0] / z + cx, nan=-1.0,
-                              posinf=-1.0, neginf=-1.0).astype(np.int64)
-            v = np.nan_to_num(fy * cam[:, 1] / z + cy, nan=-1.0,
-                              posinf=-1.0, neginf=-1.0).astype(np.int64)
+            uf = np.nan_to_num(fx * cam[:, 0] / z + cx, nan=-1.0,
+                               posinf=-1.0, neginf=-1.0)
+            vf = np.nan_to_num(fy * cam[:, 1] / z + cy, nan=-1.0,
+                               posinf=-1.0, neginf=-1.0)
+        u = np.round(uf).astype(np.int64)
+        v = np.round(vf).astype(np.int64)
         inb = (z > 1e-6) & (u >= 0) & (u < width) & (v >= 0) & (v < height)
         if not inb.any():
             continue
@@ -204,24 +249,40 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         zbuf = np.full(zb_w * zb_h, np.inf, dtype=np.float32)
         np.minimum.at(zbuf, zbin, z[inb].astype(np.float32))
         visible = z[inb] <= zbuf[zbin] + depth_tol + 0.02 * z[inb]
-        idx = ids[inb][visible]
-        idx = idx[counts[idx] < max_samples]
-        if idx.size == 0:
+        cand = ids[inb][visible]  # unique point ids seen (unoccluded) this view
+        if cand.size == 0:
             continue
-        cols = np.asarray(img)[v[idx], u[idx]]
-        if cols.ndim == 1:
-            cols = np.repeat(cols[:, None], 3, axis=1)
-        cols = np.clip(cols[:, :3].astype(np.float32) * scales[vi],
-                       0.0, 255.0).astype(np.uint8)
-        samples[idx, counts[idx].astype(np.intp), :] = cols
-        counts[idx] += 1
+        cand_z = z[inb][visible].astype(np.float32)
+        cols = _sample_pixels(img, uf[cand], vf[cand], width, height, interp)
+        cols = np.clip(cols * scales[vi], 0.0, 255.0).astype(np.uint8)
+
+        # Points with room: append into the next free slot.
+        room = counts[cand] < max_samples
+        if room.any():
+            rc = cand[room]
+            slot = counts[rc].astype(np.intp)
+            samples[rc, slot, :] = cols[room]
+            sample_z[rc, slot] = cand_z[room]
+            counts[rc] += 1
+        # Full points: if enabled, evict the farthest stored sample when nearer.
+        if prefer_near and (~room).any():
+            fc = cand[~room]
+            fcz = cand_z[~room]
+            fcols = cols[~room]
+            far_slot = np.argmax(sample_z[fc], axis=1)
+            nearer = fcz < sample_z[fc, far_slot]
+            if nearer.any():
+                fb = fc[nearer]
+                sb = far_slot[nearer]
+                samples[fb, sb, :] = fcols[nearer]
+                sample_z[fb, sb] = fcz[nearer]
 
     seen = counts > 0
     seen_idx = np.flatnonzero(seen)
     for c in np.unique(counts[seen_idx]):
         group = seen_idx[counts[seen_idx] == c]
         rgb[group] = np.median(samples[group, :int(c), :], axis=1).astype(np.uint8)
-    return rgb, seen
+    return (rgb, seen, counts) if return_counts else (rgb, seen)
 
 
 def project_depth_maps(points: np.ndarray, viewmats, K: np.ndarray,

@@ -235,6 +235,62 @@ def test_colorize_robust_rejects_bad_zbuf_bin():
                                            zbuf_bin=0)
 
 
+def test_colorize_robust_bilinear_blends_neighbouring_pixels():
+    vms, K, W, H = _cam()
+    img = np.zeros((H, W, 3), dtype=np.uint8)
+    img[50, 50] = [100, 100, 100]
+    img[50, 51] = [200, 200, 200]
+    # x = 0.02 -> u = 100*0.02/5 + 50 = 50.4 (40 % of the way to pixel 51).
+    pts = np.array([[0.02, 0.0, 5.0]])
+    rgb, seen = pcio.colorize_by_projection_robust(
+        pts, vms, K, [img], W, H, normalize_exposure=False, interp='bilinear')
+    assert seen[0]
+    # 0.6*100 + 0.4*200 = 140 on every channel.
+    np.testing.assert_array_equal(rgb[0], [140, 140, 140])
+    # Nearest snaps to pixel 50 -> the un-blended 100.
+    rgb_n, _ = pcio.colorize_by_projection_robust(
+        pts, vms, K, [img], W, H, normalize_exposure=False, interp='nearest')
+    np.testing.assert_array_equal(rgb_n[0], [100, 100, 100])
+
+
+def test_colorize_robust_prefers_nearest_views_when_full():
+    _, K, W, H = _cam()
+    red = np.full((H, W, 3), [200, 0, 0], dtype=np.uint8)     # far / wrong colour
+    green = np.full((H, W, 3), [0, 200, 0], dtype=np.uint8)   # near / true colour
+    # Same on-axis point; a per-view +z shift changes only its camera depth.
+    far, near0, near1 = np.eye(4), np.eye(4), np.eye(4)
+    far[2, 3], near0[2, 3], near1[2, 3] = 20.0, 0.0, 1.0
+    vms = np.stack([far, near0, near1])
+    pts = np.array([[0.0, 0.0, 5.0]])
+    # Budget of 2 samples, seen by 3 views: the far red view must be evicted.
+    rgb, seen = pcio.colorize_by_projection_robust(
+        pts, vms, K, [red, green, green], W, H, normalize_exposure=False,
+        max_samples=2, prefer_near=True)
+    assert seen[0]
+    np.testing.assert_array_equal(rgb[0], [0, 200, 0])
+    # Without the preference the first two (red + green) survive -> a blend.
+    rgb_fifo, _ = pcio.colorize_by_projection_robust(
+        pts, vms, K, [red, green, green], W, H, normalize_exposure=False,
+        max_samples=2, prefer_near=False)
+    assert not np.array_equal(rgb_fifo[0], [0, 200, 0])
+
+
+def test_colorize_robust_return_counts_reports_confidence():
+    vms1, K, W, H = _cam()
+    img = np.zeros((H, W, 3), dtype=np.uint8)
+    img[50, 50] = [10, 20, 30]
+    vms = np.concatenate([vms1] * 3, axis=0)
+    # One point seen by all three views, one far off-frame (never seen).
+    pts = np.array([[0.0, 0.0, 5.0], [50.0, 0.0, 5.0]])
+    out = pcio.colorize_by_projection_robust(
+        pts, vms, K, [img, img, img], W, H, normalize_exposure=False,
+        return_counts=True)
+    assert len(out) == 3
+    rgb, seen, counts = out
+    assert counts[0] == 3 and counts[1] == 0
+    assert seen[0] and not seen[1]
+
+
 # --------------------------------------------------------------------------- #
 # project_depth_maps (LiDAR depth supervision GT)
 # --------------------------------------------------------------------------- #
