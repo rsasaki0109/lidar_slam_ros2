@@ -141,6 +141,44 @@ def test_compose_world_lidar_applies_rig_extrinsic_before_body_pose():
     np.testing.assert_allclose(out, [[10.0, 3.0, 0.0]], atol=1e-9)
 
 
+def test_deskew_points_compensates_body_motion_during_scan():
+    import posed_images as pi
+    samples = [
+        pi.TrajectorySample(0.0, np.array([0.0, 0.0, 0.0]),
+                            np.array([0.0, 0.0, 0.0, 1.0])),
+        pi.TrajectorySample(0.1, np.array([1.0, 0.0, 0.0]),
+                            np.array([0.0, 0.0, 0.0, 1.0])),
+    ]
+    # A static object at world x=10 is observed at LiDAR x=10 then x=9 as the
+    # body translates by one metre during the scan.
+    points = np.array([[10.0, 0.0, 0.0], [9.0, 0.0, 0.0]])
+    out = bli.deskew_points(
+        points, np.array([0.0, 0.1]), samples, np.eye(4),
+        bin_seconds=0.001, max_extrapolation=0.0)
+    np.testing.assert_allclose(out, [[10.0, 0.0, 0.0],
+                                     [10.0, 0.0, 0.0]], atol=1e-6)
+
+
+def test_deskew_points_applies_lidar_extrinsic_and_validates_inputs():
+    import posed_images as pi
+    samples = [
+        pi.TrajectorySample(1.0, np.zeros(3),
+                            np.array([0.0, 0.0, 0.0, 1.0])),
+        pi.TrajectorySample(2.0, np.zeros(3),
+                            np.array([0.0, 0.0, 0.0, 1.0])),
+    ]
+    extrinsic = np.eye(4)
+    extrinsic[:3, 3] = [1.0, 2.0, 3.0]
+    out = bli.deskew_points(
+        np.array([[0.0, 0.0, 0.0]]), np.array([1.5]), samples, extrinsic)
+    np.testing.assert_allclose(out, [[1.0, 2.0, 3.0]], atol=1e-6)
+    with np.testing.assert_raises(ValueError):
+        bli.deskew_points(np.zeros((2, 3)), np.zeros(1), samples, extrinsic)
+    with np.testing.assert_raises(ValueError):
+        bli.deskew_points(np.zeros((1, 3)), np.zeros(1), samples, extrinsic,
+                          bin_seconds=0.0)
+
+
 # --------------------------------------------------------------------------- #
 # colorize_by_projection
 # --------------------------------------------------------------------------- #

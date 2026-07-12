@@ -149,6 +149,12 @@ The generated `dense_corrected_trajectory.tum` is reused on later runs. Use
 newer trajectory and posed-image inputs and automatically rebuilds downstream
 artifacts, preventing stale coloured maps from being silently reused.
 
+When a `PointCloud2` scan carries per-point `timestamp`, `time`, or `t`, map
+accumulation deskews the scan against the dense trajectory in 1 ms pose bins.
+Use `--no-deskew` on `build_lidar_init.py` only for an explicit A/B baseline.
+On HILTI 2022 exp04 this reduced mean plane thickness from 8.89 cm to 6.25 cm
+and increased planar coverage from 21.38% to 48.16%.
+
 ## Accuracy
 
 Current numbers from the release-gate profiles (`scripts/release_profiles.yaml`).
