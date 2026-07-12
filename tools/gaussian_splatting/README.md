@@ -64,14 +64,11 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
   --points-topic /livox/points --camera-topic /image \
   --camera-info-topic /camera_info
 
-# Kalibr camchain + 別LiDAR calibration（HILTI形式）はextrinsicを自動合成
-python3 scripts/densify_corrected_trajectory.py \
-  --raw output/<run>/traj_raw.tum \
-  --corrected output/<run>/traj_corrected.tum \
-  --output output/<run>/traj_corrected_dense.tum
-
+# Kalibr camchain + 別LiDAR calibration（HILTI形式）はextrinsicを自動合成。
+# 疎な補正軌跡は --raw-traj の高密度軌跡へ自動伝播してから着色する
 python3 tools/gaussian_splatting/colored_map_pipeline.py \
-  <bag> output/<run>/traj_corrected_dense.tum output/<run>/colored_map \
+  <bag> output/<run>/traj_corrected.tum output/<run>/colored_map \
+  --raw-traj output/<run>/traj_raw.tum \
   --kalibr-camchain calibration/camchain-imucam.yaml \
   --lidar-calibration calibration/lidar_calibration.yaml \
   --intrinsics-yaml calibration/camchain-imucam.yaml \
@@ -80,7 +77,8 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
 
 この形式ではcamera pose用の `body <- camera` と、点群積算用の
 `body <- LiDAR` をそれぞれ校正ファイルから適用する。`traj` にはscanを補間できる
-dense SLAM軌跡を渡すこと。疎なpose-graph keyframe列は既定で検出・拒否される。
+dense SLAM軌跡を渡すこと。疎なpose-graph keyframe列を使う場合は `--raw-traj` に
+補正前のdense軌跡を渡すと、補正を全poseへ伝播した軌跡が出力先に保存・再利用される。
 
 SLAM推定軌跡による着色地図の検証出力（RTK-SLAM Construction Hall 1、全60 m loop）:
 

@@ -134,15 +134,18 @@ the same SLAM poses.
 The sequence is from the RTK-SLAM dataset (CC-BY 4.0). Its total-station
 checkpoints are also used by the [accuracy gate](#accuracy).
 
-If graph optimization outputs sparse keyframes, propagate their corrections
-onto the dense SLAM pose stream before building the coloured map:
+If graph optimization outputs sparse keyframes, the coloured-map pipeline can
+propagate their corrections onto the dense SLAM pose stream automatically:
 
 ```bash
-python3 scripts/densify_corrected_trajectory.py \
-  --raw output/<run>/traj_raw.tum \
-  --corrected output/<run>/traj_corrected.tum \
-  --output output/<run>/traj_corrected_dense.tum
+python3 tools/gaussian_splatting/colored_map_pipeline.py \
+  <bag> output/<run>/traj_corrected.tum output/<run>/colored_map \
+  --raw-traj output/<run>/traj_raw.tum \
+  --extrinsic configs/gaussian_splatting/<lidar_camera_extrinsic>.yaml
 ```
+
+The generated `dense_corrected_trajectory.tum` is reused on later runs. Use
+`--force-trajectory` after either input trajectory changes.
 
 ## Accuracy
 

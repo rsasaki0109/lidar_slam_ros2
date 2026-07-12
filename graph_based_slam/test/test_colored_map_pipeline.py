@@ -58,6 +58,44 @@ def test_build_commands_connects_extract_to_robust_map(tmp_path):
     assert '--color-robust' in build
 
 
+def test_raw_trajectory_adds_densification_and_connects_dense_output(tmp_path):
+    args = _args(tmp_path, '--raw-traj', str(tmp_path / 'raw.tum'))
+    commands = cmp.build_commands(args)
+    assert [name for name, _ in commands] == [
+        'dense corrected trajectory', 'posed images', 'coloured map']
+    densify, extract, build = [command for _, command in commands]
+    dense = str(tmp_path / 'out' / 'dense_corrected_trajectory.tum')
+    assert densify[densify.index('--raw') + 1] == str(tmp_path / 'raw.tum')
+    assert densify[densify.index('--corrected') + 1] == str(
+        tmp_path / 'traj.tum')
+    assert densify[densify.index('--output') + 1] == dense
+    assert extract[extract.index('--traj') + 1] == dense
+    assert build[build.index('--traj') + 1] == dense
+
+
+def test_existing_dense_trajectory_and_outputs_are_reused(tmp_path):
+    out = tmp_path / 'out'
+    (out / 'posed_images').mkdir(parents=True)
+    (out / 'dense_corrected_trajectory.tum').write_text('dense\n')
+    (out / 'posed_images' / 'transforms.json').write_text('{}')
+    (out / 'colored_map.ply').write_text('ply\n')
+    args = _args(tmp_path, '--raw-traj', str(tmp_path / 'raw.tum'))
+    assert cmp.build_commands(args) == []
+
+
+def test_force_trajectory_rebuilds_all_dependent_stages(tmp_path):
+    out = tmp_path / 'out'
+    (out / 'posed_images').mkdir(parents=True)
+    (out / 'dense_corrected_trajectory.tum').write_text('dense\n')
+    (out / 'posed_images' / 'transforms.json').write_text('{}')
+    (out / 'colored_map.ply').write_text('ply\n')
+    args = _args(
+        tmp_path, '--raw-traj', str(tmp_path / 'raw.tum'),
+        '--force-trajectory')
+    assert [name for name, _ in cmp.build_commands(args)] == [
+        'dense corrected trajectory', 'posed images', 'coloured map']
+
+
 def test_build_commands_reuses_existing_outputs(tmp_path):
     out = tmp_path / 'out'
     (out / 'posed_images').mkdir(parents=True)
