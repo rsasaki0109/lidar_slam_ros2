@@ -96,8 +96,16 @@ def parse_extrinsic_dict(data: dict) -> np.ndarray:
         return m
     if 'translation' in data and 'rotation_xyzw' in data:
         return pi.make_transform(data['translation'], data['rotation_xyzw'])
+    if 'results' in data and 'T_lidar_camera' in data['results']:
+        # direct_visual_lidar_calibration stores lidar/body <- camera, exactly
+        # the direction this extractor needs.
+        values = data['results']['T_lidar_camera']
+        if len(values) != 7:
+            raise ValueError('T_lidar_camera must contain 7 values')
+        return pi.make_transform(values[:3], values[3:])
     raise ValueError(
-        "extrinsic must provide 'matrix' or 'translation'+'rotation_xyzw'"
+        'extrinsic must provide matrix, translation+rotation_xyzw, or '
+        'results.T_lidar_camera'
     )
 
 
