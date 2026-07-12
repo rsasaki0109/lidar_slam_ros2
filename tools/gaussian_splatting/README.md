@@ -73,6 +73,13 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
   --points-topic /hesai/pandar \
   --camera-topic /alphasense/cam0/image_raw
 
+検証出力（HILTI cam0 はモノクロカメラ）:
+
+![HILTI 2022 exp04 着色点群](../../docs/assets/images/hilti-exp04-colored-map.jpg)
+
+この検証出力は HILTI 2022 exp04 データから生成した派生成果物です。元データの
+CC BY-NC-SA 条件に従い、研究・非商用の検証用途として HILTI Challenge へ帰属します。
+
 # 2b) gsplat 学習 → .ply（GPU）。--init-ply で LiDAR-primed init、
 #     --densify で adaptive density control（鮮鋭化）
 python3 tools/gaussian_splatting/train_gsplat.py \
