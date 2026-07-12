@@ -80,6 +80,8 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
 dense SLAM軌跡を渡すこと。疎なpose-graph keyframe列を使う場合は `--raw-traj` に
 補正前のdense軌跡を渡すと、補正を全poseへ伝播した軌跡が出力先に保存・再利用される。
 入力軌跡やposed画像が成果物より新しい場合は、依存する後段だけ自動再生成される。
+robust着色は1ピクセル単位のz-bufferで遮蔽を判定し、隣接ピクセルの前景によって
+本来見える点が未着色になる粗いbin由来の欠落を防ぐ。
 
 SLAM推定軌跡による着色地図の検証出力（RTK-SLAM Construction Hall 1、全60 m loop）:
 

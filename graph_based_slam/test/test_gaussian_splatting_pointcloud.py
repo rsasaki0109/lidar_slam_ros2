@@ -207,6 +207,26 @@ def test_colorize_robust_occluded_point_is_unseen():
     np.testing.assert_array_equal(rgb[1], [7, 7, 7])
 
 
+def test_colorize_robust_neighbouring_pixel_does_not_false_occlude():
+    vms, K, W, H = _cam()
+    img = np.zeros((H, W, 3), dtype=np.uint8)
+    img[50, 50] = [200, 0, 0]
+    img[50, 51] = [0, 200, 0]
+    # These land in adjacent pixels but share a 4x4 coarse bin. The near red
+    # point must not incorrectly hide the farther green surface.
+    pts = np.array([[0.0, 0.0, 2.0], [0.08, 0.0, 8.0]])
+    rgb, seen = pcio.colorize_by_projection_robust(
+        pts, vms, K, [img], W, H, normalize_exposure=False,
+        interp='nearest')
+    assert seen.tolist() == [True, True]
+    np.testing.assert_array_equal(rgb, [[200, 0, 0], [0, 200, 0]])
+
+    _, coarse_seen = pcio.colorize_by_projection_robust(
+        pts, vms, K, [img], W, H, normalize_exposure=False,
+        interp='nearest', zbuf_bin=4)
+    assert coarse_seen.tolist() == [True, False]
+
+
 def test_colorize_robust_median_rejects_outlier_view():
     vms1, K, W, H = _cam()
     imgs = []
