@@ -129,7 +129,7 @@ accumulated geometry. The result below follows the full estimated 60 m walking
 loop from RTK-SLAM Construction Hall 1; the trajectory and the coloured map use
 the same SLAM poses.
 
-![Camera-coloured SLAM point-cloud map and its estimated trajectory](lidarslam/images/map_flythrough_rtkslam.gif)
+![Camera-coloured SLAM point-cloud map and its estimated trajectory](lidarslam/images/map_flythrough_rtkslam.webp)
 
 The sequence is from the RTK-SLAM dataset (CC-BY 4.0). Its total-station
 checkpoints are also used by the [accuracy gate](#accuracy).

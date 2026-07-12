@@ -83,7 +83,7 @@ dense SLAM軌跡を渡すこと。疎なpose-graph keyframe列を使う場合は
 
 SLAM推定軌跡による着色地図の検証出力（RTK-SLAM Construction Hall 1、全60 m loop）:
 
-![SLAM推定軌跡とカメラ着色点群地図](../../lidarslam/images/map_flythrough_rtkslam.gif)
+![SLAM推定軌跡とカメラ着色点群地図](../../lidarslam/images/map_flythrough_rtkslam.webp)
 
 点群のmap座標への積算とカメラposeの両方に、同じ補正済みSLAM軌跡を使用します。
 元データは RTK-SLAM dataset（CC-BY 4.0）です。
