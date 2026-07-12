@@ -37,14 +37,66 @@ def compose_world_lidar(world_T_body: np.ndarray,
             np.asarray(body_T_lidar, dtype=np.float64))
 
 
-def _read_pointcloud_xyz(msg) -> np.ndarray:
-    """Extract finite XYZ (N,3) from a sensor_msgs/PointCloud2 message."""
+def _read_pointcloud_xyz_time(msg) -> tuple[np.ndarray, Optional[np.ndarray]]:
+    """Extract finite XYZ and optional absolute per-point timestamps."""
     from sensor_msgs_py import point_cloud2
 
-    pts = point_cloud2.read_points_numpy(msg, field_names=('x', 'y', 'z'),
-                                         skip_nans=True)
-    pts = np.asarray(pts, dtype=np.float32).reshape(-1, 3)
-    return pts[np.isfinite(pts).all(axis=1)]
+    field_names = {field.name for field in msg.fields}
+    time_name = next((name for name in ('timestamp', 'time', 't')
+                      if name in field_names), None)
+    if time_name is None:
+        pts = point_cloud2.read_points_numpy(
+            msg, field_names=('x', 'y', 'z'), skip_nans=True)
+        pts = np.asarray(pts, dtype=np.float32).reshape(-1, 3)
+        return pts[np.isfinite(pts).all(axis=1)], None
+
+    records = point_cloud2.read_points(
+        msg, field_names=('x', 'y', 'z', time_name), skip_nans=False)
+    pts = np.stack([records['x'], records['y'], records['z']], axis=1)
+    raw_time = np.asarray(records[time_name], dtype=np.float64)
+    finite = np.isfinite(pts).all(axis=1) & np.isfinite(raw_time)
+    pts = pts[finite].astype(np.float32)
+    raw_time = raw_time[finite]
+    header_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+    # HILTI stores Unix seconds; common ROS drivers instead store seconds from
+    # the scan header. Unknown large integer tick formats safely fall back to a
+    # rigid scan rather than guessing their unit.
+    if raw_time.size == 0:
+        return pts, None
+    if float(np.median(np.abs(raw_time))) > 1.0e8:
+        timestamps = raw_time
+    elif float(np.max(np.abs(raw_time))) <= 10.0:
+        timestamps = header_time + raw_time
+    else:
+        return pts, None
+    if float(np.ptp(timestamps)) > 1.0:
+        return pts, None
+    return pts, timestamps
+
+
+def deskew_points(points: np.ndarray, timestamps: np.ndarray,
+                  samples: Sequence[pi.TrajectorySample],
+                  body_T_lidar: np.ndarray, *, bin_seconds: float = 0.001,
+                  max_extrapolation: float = 0.1) -> np.ndarray:
+    """Transform points at acquisition time using binned trajectory poses."""
+    pts = np.asarray(points, dtype=np.float64)
+    stamps = np.asarray(timestamps, dtype=np.float64)
+    if pts.ndim != 2 or pts.shape[1] != 3 or stamps.shape != (len(pts),):
+        raise ValueError('points must be Nx3 and timestamps must be length N')
+    if bin_seconds <= 0.0:
+        raise ValueError('bin_seconds must be > 0')
+    if len(pts) == 0:
+        return np.empty((0, 3), dtype=np.float32)
+    bins = np.floor((stamps - stamps.min()) / bin_seconds).astype(np.int64)
+    world = np.empty_like(pts)
+    for bin_id in np.unique(bins):
+        selected = bins == bin_id
+        stamp = float(np.mean(stamps[selected]))
+        world_T_body = pi.interpolate_pose(
+            samples, stamp, max_extrapolation=max_extrapolation)
+        world_T_lidar = compose_world_lidar(world_T_body, body_T_lidar)
+        world[selected] = transform_points(pts[selected], world_T_lidar)
+    return world.astype(np.float32)
 
 
 def build(args: argparse.Namespace) -> dict:
@@ -67,6 +119,7 @@ def build(args: argparse.Namespace) -> dict:
 
     chunks: list[np.ndarray] = []
     used = 0
+    deskewed = 0
     skipped = 0
     seen = 0
     t0 = None
@@ -93,19 +146,28 @@ def build(args: argparse.Namespace) -> dict:
         except ValueError:
             skipped += 1
             continue
-        pts = _read_pointcloud_xyz(msg)
+        pts, point_timestamps = _read_pointcloud_xyz_time(msg)
         if args.max_range > 0 or args.min_range > 0:
             rng = np.linalg.norm(pts, axis=1)
             keep = rng >= args.min_range
             if args.max_range > 0:
                 keep &= rng <= args.max_range
             pts = pts[keep]
+            if point_timestamps is not None:
+                point_timestamps = point_timestamps[keep]
         # PointCloud2 XYZ is expressed in the LiDAR frame, while the SLAM TUM
         # trajectory is world <- body/IMU. Compose both transforms explicitly;
         # treating raw LiDAR points as body-frame points rotates every scan
         # around the wrong axes on rigs such as HILTI's PandarXT-32.
-        world_T_lidar = compose_world_lidar(world_T_body, body_T_lidar)
-        world_pts = transform_points(pts, world_T_lidar).astype(np.float32)
+        if args.deskew and point_timestamps is not None:
+            world_pts = deskew_points(
+                pts, point_timestamps, samples, body_T_lidar,
+                bin_seconds=args.deskew_bin_ms * 1e-3,
+                max_extrapolation=args.max_extrapolation)
+            deskewed += 1
+        else:
+            world_T_lidar = compose_world_lidar(world_T_body, body_T_lidar)
+            world_pts = transform_points(pts, world_T_lidar).astype(np.float32)
         # Downsample each scan before accumulating so peak memory is bounded by
         # the downsampled cloud, not the sum of every raw scan (a long bag is
         # tens of millions of points before any reduction).
@@ -130,7 +192,7 @@ def build(args: argparse.Namespace) -> dict:
         rgb, seen = _colorize(world, args.color_transforms, robust=args.color_robust)
         colored = int(seen.sum())
     out = pcio.write_ply(args.out, world, rgb)
-    return {'scans_used': used, 'scans_skipped': skipped,
+    return {'scans_used': used, 'scans_deskewed': deskewed, 'scans_skipped': skipped,
             'points': int(world.shape[0]), 'colored': colored, 'out': str(out)}
 
 
@@ -166,6 +228,11 @@ def build_parser() -> argparse.ArgumentParser:
                         'training as a fog tube on the camera path)')
     p.add_argument('--max-points', type=int, default=300000, help='cap final point count')
     p.add_argument('--max-extrapolation', type=float, default=0.1)
+    p.add_argument('--no-deskew', action='store_false', dest='deskew',
+                   help='ignore per-point timestamps and transform each scan '
+                        'at its header time')
+    p.add_argument('--deskew-bin-ms', type=float, default=1.0,
+                   help='pose bin width for per-point deskew (default 1 ms)')
     p.add_argument('--stride', type=int, default=1, help='use every Nth scan')
     p.add_argument('--start-time', type=float, default=0.0,
                    help='use scans at/after this many seconds from bag start')
@@ -192,7 +259,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     summary = build(args)
     print(f"accumulated {summary['scans_used']} scans "
-          f"({summary['scans_skipped']} skipped) -> "
+          f"({summary['scans_deskewed']} deskewed, "
+          f"{summary['scans_skipped']} skipped) -> "
           f"{summary['points']} points "
           f"({summary['colored']} coloured) -> {summary['out']}")
     return 0
