@@ -110,6 +110,9 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_map_update_policy test/test_map_update_policy.cpp)
   target_include_directories(test_map_update_policy PRIVATE include ${EIGEN3_INCLUDE_DIR})
+
+  ament_add_gtest(test_point_colorizer test/test_point_colorizer.cpp)
+  target_include_directories(test_point_colorizer PRIVATE include ${EIGEN3_INCLUDE_DIR})
 endif()
 
 add_library(scanmatcher_component SHARED
@@ -148,6 +151,15 @@ if(small_gicp_FOUND)
   target_link_libraries(small_gicp_odom_node ${PCL_LIBRARIES})
 endif()
 
+find_package(message_filters REQUIRED)
+add_executable(pointcloud_colorization_node
+  src/pointcloud_colorization_node.cpp
+)
+target_include_directories(pointcloud_colorization_node PRIVATE include ${EIGEN3_INCLUDE_DIR})
+ament_target_dependencies(pointcloud_colorization_node
+  rclcpp sensor_msgs geometry_msgs tf2_ros tf2_eigen pcl_conversions message_filters)
+target_link_libraries(pointcloud_colorization_node ${PCL_LIBRARIES})
+
 include_directories(
     include
     ${PCL_INCLUDE_DIRS}
@@ -179,7 +191,8 @@ install(TARGETS
   RUNTIME DESTINATION bin
 )
 
-set(INSTALL_TARGETS scanmatcher_node scan_matcher_offline_runner)
+set(INSTALL_TARGETS scanmatcher_node scan_matcher_offline_runner
+  pointcloud_colorization_node)
 if(small_gicp_FOUND)
   list(APPEND INSTALL_TARGETS small_gicp_odom_node)
 endif()
