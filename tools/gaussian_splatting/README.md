@@ -73,9 +73,9 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
   --points-topic /hesai/pandar \
   --camera-topic /alphasense/cam0/image_raw
 
-RGB着色の検証出力（KITTI同期済みRGB + Velodyne、20,285可視点）:
+RGB着色地図の検証出力（KITTI drive 0001、108スキャン、420,731点、走行106.9 m）:
 
-![KITTI RGB着色点群](../../docs/assets/images/kitti-rgb-colored-point-cloud.jpg)
+![KITTI RGB着色点群地図](../../docs/assets/images/kitti-rgb-colored-map.jpg)
 
 この画像は KITTI Vision Benchmark Suite のデータから生成した派生成果物です。
 元データの CC BY-NC-SA 3.0 条件に従う研究・非商用の検証用途で、KITTI の
