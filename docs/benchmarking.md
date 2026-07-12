@@ -12,6 +12,44 @@ bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
 
+## FAST-LIVO2 head-to-head
+
+Use the exact same bag, sensor messages, calibration, trajectory reference, and
+evaluation alignment for both systems. Record each result in this compact JSON
+shape (unknown metrics should be omitted, never estimated):
+
+```json
+{
+  "system": "lidarslam_ros2",
+  "dataset": "hilti2022_exp04",
+  "trajectory": {"ape_rmse_m": 0.07146},
+  "geometry": {
+    "plane_thickness_mean_m": 0.0599,
+    "planar_coverage": 0.5355
+  },
+  "colour": {
+    "heldout_rgb_l2_median": 36.37,
+    "heldout_rgb_inlier_20": 0.3536
+  }
+}
+```
+
+Add RPE and runtime keys only after measuring them. Create a second manifest
+with `"system": "FAST-LIVO2"` and run:
+
+```bash
+python3 scripts/compare_fast_livo2.py \
+  --ours output/head_to_head/lidarslam_ros2.json \
+  --fast-livo2 output/head_to_head/fast_livo2.json \
+  --out output/head_to_head/comparison.json
+```
+
+The command also writes `comparison.md`. It scores APE, RPE, real-time factor,
+peak memory, plane thickness, planar coverage, held-out RGB error, and held-out
+RGB inlier rate. A metric only counts when both systems provide it; values
+within 1% are ties. This prevents an attractive map image or a single trajectory
+number from being presented as an overall win.
+
 That wrapper:
 
 - uses the bundled NTU VIRAL `rosbag2`
