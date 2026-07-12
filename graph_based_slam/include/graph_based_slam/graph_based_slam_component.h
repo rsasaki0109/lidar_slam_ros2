@@ -123,6 +123,7 @@ extern "C" {
 #include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/candidate_aggregator.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
+#include "graph_based_slam/gnss_origin_accumulator.hpp"
 #include "graph_based_slam/registration_factory.hpp"
 #include "graph_based_slam/gnss_weighting.hpp"
 #include "graph_based_slam/scan_context.hpp"
@@ -472,14 +473,8 @@ private:
       bool rtk_like;
       double horizontal_stddev_m;
     };
-    struct GnssOriginSample
-    {
-      double lat;
-      double lon;
-      double alt;
-    };
     std::vector < GnssEnu > gnss_buffer_;
-    std::vector < GnssOriginSample > gnss_origin_candidates_;
+    detail::GnssOriginAccumulator gnss_origin_accumulator_;
     std::mutex gnss_mtx_;
     bool gnss_origin_set_ {false};
     double gnss_origin_lat_ {0.0};
@@ -488,11 +483,6 @@ private:
     void receiveNavSatFix(const sensor_msgs::msg::NavSatFix & msg);
     bool isUsableGnssFix(const sensor_msgs::msg::NavSatFix & msg) const;
     void tryInitializeGnssOrigin(double lat, double lon, double alt);
-    double approximateGeodeticDistanceMeters(
-      double lat0,
-      double lon0,
-      double lat1,
-      double lon1) const;
     Eigen::Vector3d geodeticToEnu(double lat, double lon, double alt) const;
 
     // IMU preintegration

@@ -133,6 +133,13 @@ if(BUILD_TESTING)
     target_include_directories(test_gnss_geometry PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
+    test_gnss_origin_accumulator
+    test/test_gnss_origin_accumulator.cpp
+  )
+  if(TARGET test_gnss_origin_accumulator)
+    target_include_directories(test_gnss_origin_accumulator PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  endif()
+  ament_add_gtest(
     test_adjacent_edge_auto_scale
     test/test_adjacent_edge_auto_scale.cpp
   )
