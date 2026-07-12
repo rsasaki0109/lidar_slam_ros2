@@ -517,6 +517,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_heldout_point_colors
+    test/test_heldout_point_colors.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_gaussian_splatting_render
     test/test_gaussian_splatting_render.py
     TIMEOUT 120
