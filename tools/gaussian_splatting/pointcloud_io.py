@@ -170,6 +170,19 @@ def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
     return top * (1.0 - wy) + bot * wy
 
 
+def _median_luminance(img: np.ndarray) -> float:
+    """Median luminance of mono or RGB(A) image data."""
+    arr = np.asarray(img, dtype=np.float32)
+    if arr.ndim == 2:
+        return float(np.median(arr))
+    if arr.ndim != 3 or arr.shape[2] == 0:
+        raise ValueError(f'image must be HxW or HxWxC, got {arr.shape}')
+    if arr.shape[2] == 1:
+        return float(np.median(arr[:, :, 0]))
+    coeff = np.asarray([0.299, 0.587, 0.114], dtype=np.float32)
+    return float(np.median(np.tensordot(arr[:, :, :3], coeff, axes=([-1], [0]))))
+
+
 def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   K: np.ndarray, images, width: int, height: int,
                                   default_rgb=(128, 128, 128), *,
@@ -222,10 +235,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
 
     scales = np.ones(len(images), dtype=np.float32)
     if normalize_exposure:
-        coeff = np.asarray([0.299, 0.587, 0.114], dtype=np.float32)
-        meds = np.asarray([float(np.median(np.tensordot(
-            np.asarray(img).astype(np.float32), coeff, axes=([-1], [0]))))
-            for img in images], dtype=np.float32)
+        meds = np.asarray([_median_luminance(img) for img in images],
+                          dtype=np.float32)
         valid = meds > 1.0e-6
         if valid.any():
             scales[valid] = float(np.median(meds[valid])) / meds[valid]

@@ -291,6 +291,18 @@ def test_colorize_robust_return_counts_reports_confidence():
     assert seen[0] and not seen[1]
 
 
+def test_colorize_robust_normalizes_mono_images_and_broadcasts_rgb():
+    vms1, K, W, H = _cam()
+    vms = np.concatenate([vms1, vms1], axis=0)
+    dark = np.full((H, W), 50, dtype=np.uint8)
+    bright = np.full((H, W), 100, dtype=np.uint8)
+    rgb, seen = pcio.colorize_by_projection_robust(
+        np.array([[0.0, 0.0, 5.0]]), vms, K, [dark, bright], W, H,
+        normalize_exposure=True)
+    assert seen[0]
+    np.testing.assert_array_equal(rgb[0], [75, 75, 75])
+
+
 # --------------------------------------------------------------------------- #
 # project_depth_maps (LiDAR depth supervision GT)
 # --------------------------------------------------------------------------- #

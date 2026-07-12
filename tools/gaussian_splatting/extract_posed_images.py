@@ -119,6 +119,31 @@ def load_intrinsics_yaml(path: str | Path) -> pi.CameraIntrinsics:
     """
     import re
 
+    # Kalibr camchain format (HILTI, many visual-inertial datasets). Select the
+    # first camera in file order; single-camera files naturally behave the same.
+    import yaml
+    try:
+        parsed = yaml.safe_load(Path(path).read_text())
+    except yaml.YAMLError:
+        parsed = None
+    if isinstance(parsed, dict):
+        cameras = [value for key, value in parsed.items()
+                   if str(key).startswith('cam') and isinstance(value, dict)]
+        if cameras and 'intrinsics' in cameras[0] and 'resolution' in cameras[0]:
+            camera = cameras[0]
+            intr = camera['intrinsics']
+            resolution = camera['resolution']
+            if len(intr) != 4 or len(resolution) != 2:
+                raise ValueError(f'{path}: invalid Kalibr intrinsics/resolution')
+            return pi.CameraIntrinsics(
+                width=int(resolution[0]), height=int(resolution[1]),
+                fx=float(intr[0]), fy=float(intr[1]),
+                cx=float(intr[2]), cy=float(intr[3]),
+                distortion=tuple(float(x) for x in camera.get(
+                    'distortion_coeffs', [])),
+                distortion_model=str(camera.get('distortion_model', 'plumb_bob')),
+            )
+
     text = Path(path).read_text()
 
     def grab(key: str, default: Optional[float] = None,
@@ -161,6 +186,40 @@ def load_extrinsic(path: Optional[str | Path]) -> np.ndarray:
 
     data = yaml.safe_load(Path(path).read_text())
     return parse_extrinsic_dict(data)
+
+
+def compose_kalibr_lidar_extrinsic(camchain_path: str | Path,
+                                   lidar_calibration_path: str | Path, *,
+                                   camera_key: str = 'cam0',
+                                   lidar_key: str = 'PandarXT-32') -> np.ndarray:
+    """Compose ``lidar <- camera`` from Kalibr and parented LiDAR YAMLs.
+
+    Kalibr stores ``T_cam_imu`` (camera <- IMU). The HILTI-style LiDAR file
+    stores the selected sensor's extrinsic relative to its ``parent``
+    (IMU <- LiDAR). Inverting both and composing yields LiDAR <- camera, the
+    body <- camera direction used by posed-image extraction when SLAM runs in
+    the LiDAR frame.
+    """
+    import yaml
+
+    camchain = yaml.safe_load(Path(camchain_path).read_text())
+    if camera_key not in camchain or 'T_cam_imu' not in camchain[camera_key]:
+        raise ValueError(f'{camchain_path}: missing {camera_key}.T_cam_imu')
+    camera_T_imu = np.asarray(
+        camchain[camera_key]['T_cam_imu'], dtype=np.float64)
+    if camera_T_imu.shape != (4, 4):
+        raise ValueError(f'{camchain_path}: {camera_key}.T_cam_imu must be 4x4')
+
+    lidar_doc = yaml.safe_load(Path(lidar_calibration_path).read_text())
+    sensors = lidar_doc.get('sensors', {}) if isinstance(lidar_doc, dict) else {}
+    if lidar_key not in sensors or 'extrinsics' not in sensors[lidar_key]:
+        raise ValueError(f'{lidar_calibration_path}: missing sensor {lidar_key}')
+    extrinsic = sensors[lidar_key]['extrinsics']
+    if 'translation' not in extrinsic or 'quaternion' not in extrinsic:
+        raise ValueError(f'{lidar_calibration_path}: incomplete {lidar_key} extrinsic')
+    imu_T_lidar = pi.make_transform(
+        extrinsic['translation'], extrinsic['quaternion'])
+    return np.linalg.inv(imu_T_lidar) @ np.linalg.inv(camera_T_imu)
 
 
 def resolve_world_T_camera(
@@ -326,10 +385,18 @@ def extract(args: argparse.Namespace) -> dict:
         import cv2
         k = np.array([[intrinsics.fx, 0, intrinsics.cx],
                       [0, intrinsics.fy, intrinsics.cy], [0, 0, 1.0]])
-        d = np.array((list(intrinsics.distortion) + [0] * 5)[:5], dtype=float)
         size = (intrinsics.width, intrinsics.height)
-        new_k, _ = cv2.getOptimalNewCameraMatrix(k, d, size, 0, size)
-        undistort_map = cv2.initUndistortRectifyMap(k, d, None, new_k, size, cv2.CV_16SC2)
+        if intrinsics.distortion_model in ('equidistant', 'fisheye'):
+            d = np.array((list(intrinsics.distortion) + [0] * 4)[:4], dtype=float)
+            new_k = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
+                k, d, size, np.eye(3), balance=0.0)
+            undistort_map = cv2.fisheye.initUndistortRectifyMap(
+                k, d, np.eye(3), new_k, size, cv2.CV_16SC2)
+        else:
+            d = np.array((list(intrinsics.distortion) + [0] * 5)[:5], dtype=float)
+            new_k, _ = cv2.getOptimalNewCameraMatrix(k, d, size, 0, size)
+            undistort_map = cv2.initUndistortRectifyMap(
+                k, d, None, new_k, size, cv2.CV_16SC2)
         out_intrinsics = pi.CameraIntrinsics(
             intrinsics.width, intrinsics.height,
             float(new_k[0, 0]), float(new_k[1, 1]),

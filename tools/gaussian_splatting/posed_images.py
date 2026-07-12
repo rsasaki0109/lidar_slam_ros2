@@ -206,6 +206,7 @@ class CameraIntrinsics:
     cx: float
     cy: float
     distortion: tuple[float, ...] = ()  # (k1, k2, p1, p2, k3) plumb-bob order
+    distortion_model: str = 'plumb_bob'
 
     @classmethod
     def from_camera_info(cls, width: int, height: int, k: Sequence[float],

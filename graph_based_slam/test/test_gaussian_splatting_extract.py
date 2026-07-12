@@ -155,6 +155,29 @@ def test_load_extrinsic_identity_when_none():
     np.testing.assert_allclose(ex.load_extrinsic(None), np.eye(4), atol=1e-12)
 
 
+def test_compose_kalibr_lidar_extrinsic(tmp_path):
+    camchain = tmp_path / 'camchain.yaml'
+    camchain.write_text(
+        'cam0:\n'
+        '  T_cam_imu:\n'
+        '    - [1, 0, 0, 1]\n'
+        '    - [0, 1, 0, 0]\n'
+        '    - [0, 0, 1, 0]\n'
+        '    - [0, 0, 0, 1]\n')
+    lidar = tmp_path / 'lidar.yaml'
+    lidar.write_text(
+        'sensors:\n'
+        '  PandarXT-32:\n'
+        '    parent: imu\n'
+        '    extrinsics:\n'
+        '      translation: [0, 2, 0]\n'
+        '      quaternion: [0, 0, 0, 1]\n')
+    matrix = ex.compose_kalibr_lidar_extrinsic(camchain, lidar)
+    # inv(imu<-lidar) @ inv(camera<-imu)
+    np.testing.assert_allclose(matrix[:3, 3], [-1, -2, 0], atol=1e-12)
+    np.testing.assert_allclose(matrix[:3, :3], np.eye(3), atol=1e-12)
+
+
 # --------------------------------------------------------------------------- #
 # Intrinsics YAML (NTU VIRAL / Kalibr style)
 # --------------------------------------------------------------------------- #
@@ -184,6 +207,23 @@ def test_load_intrinsics_yaml_missing_field(tmp_path):
     p.write_text('image_width: 100\nimage_height: 50\n')  # no projection params
     with pytest.raises(ValueError):
         ex.load_intrinsics_yaml(p)
+
+
+def test_load_intrinsics_yaml_kalibr_equidistant(tmp_path):
+    p = tmp_path / 'camchain.yaml'
+    p.write_text(
+        'cam0:\n'
+        '  camera_model: pinhole\n'
+        '  intrinsics: [351.3, 351.5, 367.9, 253.8]\n'
+        '  distortion_model: equidistant\n'
+        '  distortion_coeffs: [-0.03, -0.01, 0.009, -0.004]\n'
+        '  resolution: [720, 540]\n')
+    intr = ex.load_intrinsics_yaml(p)
+    assert (intr.width, intr.height) == (720, 540)
+    assert intr.fx == pytest.approx(351.3)
+    assert intr.cy == pytest.approx(253.8)
+    assert intr.distortion_model == 'equidistant'
+    assert intr.distortion == pytest.approx((-0.03, -0.01, 0.009, -0.004))
 
 
 # --------------------------------------------------------------------------- #

@@ -92,3 +92,32 @@ def test_no_undistort_and_custom_topics_are_forwarded(tmp_path):
     assert extract[extract.index('--camera-topic') + 1] == '/rgb'
     assert extract[extract.index('--camera-info-topic') + 1] == '/info'
     assert build[build.index('--points-topic') + 1] == '/points'
+
+
+def test_intrinsics_yaml_is_forwarded_for_bags_without_camera_info(tmp_path):
+    intrinsics = tmp_path / 'camchain.yaml'
+    commands = cmp.build_commands(_args(
+        tmp_path, '--intrinsics-yaml', str(intrinsics)))
+    extract = commands[0][1]
+    assert extract[extract.index('--intrinsics-yaml') + 1] == str(intrinsics)
+
+
+def test_kalibr_pair_uses_generated_extrinsic(tmp_path):
+    args = cmp.build_parser().parse_args([
+        str(tmp_path / 'bag'), str(tmp_path / 'traj.tum'), str(tmp_path / 'out'),
+        '--kalibr-camchain', str(tmp_path / 'camchain.yaml'),
+        '--lidar-calibration', str(tmp_path / 'lidar.yaml'),
+    ])
+    extract = cmp.build_commands(args)[0][1]
+    generated = tmp_path / 'out' / 'generated_lidar_camera_extrinsic.json'
+    assert extract[extract.index('--extrinsic') + 1] == str(generated)
+
+
+def test_kalibr_camchain_requires_lidar_calibration(tmp_path):
+    import pytest
+    args = cmp.build_parser().parse_args([
+        str(tmp_path / 'bag'), str(tmp_path / 'traj.tum'), str(tmp_path / 'out'),
+        '--kalibr-camchain', str(tmp_path / 'camchain.yaml'), '--dry-run',
+    ])
+    with pytest.raises(ValueError, match='lidar-calibration'):
+        cmp.run_pipeline(args)
