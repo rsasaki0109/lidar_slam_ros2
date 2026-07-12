@@ -277,10 +277,36 @@ def test_colorize_robust_exposure_normalization_rescales_bright_view():
     vms = np.stack([away, away, np.eye(4)])
     pts = np.array([[0.0, 0.0, 5.0]])
     rgb, seen = pcio.colorize_by_projection_robust(
-        pts, vms, K, [dark, dark, bright], W, H, normalize_exposure=True)
+        pts, vms, K, [dark, dark, bright], W, H, normalize_exposure=True,
+        exposure_scale_limit=10.0)
     assert seen[0]
     # Global median luminance is the dark 60; the bright view is scaled by 1/3.
     assert abs(int(rgb[0][0]) - 60) <= 1
+
+
+def test_colorize_robust_exposure_normalization_clamps_extreme_gain():
+    _, K, W, H = _cam()
+    dark = np.full((H, W, 3), 60, dtype=np.uint8)
+    bright = np.full((H, W, 3), 180, dtype=np.uint8)
+    away = np.eye(4)
+    away[:3, 3] = [1000.0, 0.0, 0.0]
+    vms = np.stack([away, away, np.eye(4)])
+    rgb, seen = pcio.colorize_by_projection_robust(
+        np.array([[0.0, 0.0, 5.0]]), vms, K,
+        [dark, dark, bright], W, H, normalize_exposure=True,
+        exposure_scale_limit=1.5)
+    assert seen[0]
+    # The requested 1/3 scale is capped at 1/1.5, preserving real brightness.
+    np.testing.assert_array_equal(rgb[0], [120, 120, 120])
+
+
+def test_colorize_robust_exposure_rejects_limit_below_one():
+    vms, K, W, H = _cam()
+    img = np.zeros((H, W, 3), dtype=np.uint8)
+    with np.testing.assert_raises(ValueError):
+        pcio.colorize_by_projection_robust(
+            np.array([[0.0, 0.0, 5.0]]), vms, K, [img], W, H,
+            exposure_scale_limit=0.9)
 
 
 def test_colorize_robust_rejects_bad_zbuf_bin():
