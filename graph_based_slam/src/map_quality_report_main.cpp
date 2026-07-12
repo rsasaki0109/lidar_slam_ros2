@@ -27,9 +27,10 @@
 // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-// map_quality_report: deterministic map-quality metrics over a PCD map
+// map_quality_report: deterministic map-quality metrics over a PCD/PLY map
 // (docs/roadmap/v0.7.md, Phase 1). Input is a single .pcd file or a
-// directory of .pcd cells (e.g. the Autoware pointcloud_map/ bundle,
+// .ply file, or a directory of .pcd/.ply cells (e.g. the Autoware
+// pointcloud_map/ bundle,
 // loaded in sorted filename order); output is map_quality_report.yaml
 // with Mean Map Entropy, plane-thickness statistics (with planar
 // coverage and an explicit not-meaningful state) and density stats.
@@ -37,9 +38,11 @@
 // the same report bytes, and the release gate relies on that.
 
 #include <pcl/io/pcd_io.h>  // NOLINT(build/include_order)
+#include <pcl/io/ply_io.h>  // NOLINT(build/include_order)
 #include <pcl/point_types.h>  // NOLINT(build/include_order)
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -55,7 +58,7 @@ namespace
 void printUsage()
 {
   std::cout <<
-    "usage: map_quality_report --input <map.pcd | pcd_dir> --output-dir <dir>\n"
+    "usage: map_quality_report --input <map.pcd | map.ply | cloud_dir> --output-dir <dir>\n"
     "  [--downsample <m>]            deterministic voxel-centroid downsample (default 0 = off)\n"
     "  [--mme-radius <m>]            Mean Map Entropy neighborhood radius (default 0.5)\n"
     "  [--mme-min-neighbors <n>]     minimum neighbors for a valid MME point (default 8)\n"
@@ -70,10 +73,22 @@ void printUsage()
     "                                  (default 0.10)\n";
 }
 
-bool loadPcdInto(const std::string & path, std::vector<Eigen::Vector3d> & points)
+bool loadCloudInto(const std::string & path, std::vector<Eigen::Vector3d> & points)
 {
   pcl::PointCloud<pcl::PointXYZ> cloud;
-  if (pcl::io::loadPCDFile<pcl::PointXYZ>(path, cloud) == -1) {
+  std::string extension = std::filesystem::path(path).extension().string();
+  std::transform(extension.begin(), extension.end(), extension.begin(),
+    [](unsigned char value) {return static_cast<char>(std::tolower(value));});
+  int status = -1;
+  if (extension == ".pcd") {
+    status = pcl::io::loadPCDFile<pcl::PointXYZ>(path, cloud);
+  } else if (extension == ".ply") {
+    status = pcl::io::loadPLYFile<pcl::PointXYZ>(path, cloud);
+  } else {
+    std::cerr << "error: unsupported point-cloud extension for " << path << std::endl;
+    return false;
+  }
+  if (status == -1 || cloud.empty()) {
     std::cerr << "error: failed to load " << path << std::endl;
     return false;
   }
@@ -135,27 +150,34 @@ int main(int argc, char ** argv)
 
   std::vector<Eigen::Vector3d> points;
   if (std::filesystem::is_directory(input)) {
-    std::vector<std::string> pcd_files;
+    std::vector<std::string> cloud_files;
     for (const auto & entry : std::filesystem::directory_iterator(input)) {
-      if (entry.path().extension() == ".pcd") {
-        pcd_files.push_back(entry.path().string());
+      std::string extension = entry.path().extension().string();
+      std::transform(extension.begin(), extension.end(), extension.begin(),
+        [](unsigned char value) {return static_cast<char>(std::tolower(value));});
+      if (extension == ".pcd" || extension == ".ply") {
+        cloud_files.push_back(entry.path().string());
       }
     }
     // Sorted filename order: the input point order (and therefore the
     // report bytes) must not depend on directory iteration order.
-    std::sort(pcd_files.begin(), pcd_files.end());
-    if (pcd_files.empty()) {
-      std::cerr << "error: no .pcd files in " << input << std::endl;
+    std::sort(cloud_files.begin(), cloud_files.end());
+    if (cloud_files.empty()) {
+      std::cerr << "error: no .pcd or .ply files in " << input << std::endl;
       return 1;
     }
-    for (size_t i = 0; i < pcd_files.size(); ++i) {
-      if (!loadPcdInto(pcd_files[i], points)) {return 1;}
+    for (size_t i = 0; i < cloud_files.size(); ++i) {
+      if (!loadCloudInto(cloud_files[i], points)) {return 1;}
     }
-    std::cout << "loaded " << pcd_files.size() << " pcd cells, " << points.size() <<
+    std::cout << "loaded " << cloud_files.size() << " cloud files, " << points.size() <<
       " finite points" << std::endl;
   } else {
-    if (!loadPcdInto(input, points)) {return 1;}
+    if (!loadCloudInto(input, points)) {return 1;}
     std::cout << "loaded " << points.size() << " finite points" << std::endl;
+  }
+  if (points.empty()) {
+    std::cerr << "error: input contains no finite points: " << input << std::endl;
+    return 1;
   }
 
   const graphslam::map_quality::MapQualityReport report =
