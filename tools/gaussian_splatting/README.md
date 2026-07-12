@@ -82,6 +82,8 @@ dense SLAM軌跡を渡すこと。疎なpose-graph keyframe列を使う場合は
 入力軌跡やposed画像が成果物より新しい場合は、依存する後段だけ自動再生成される。
 robust着色は1ピクセル単位のz-bufferで遮蔽を判定し、隣接ピクセルの前景によって
 本来見える点が未着色になる粗いbin由来の欠落を防ぐ。
+複数viewの統合にはRGB medoidを使い、チャネル別medianが実際には観測されていない
+濁った合成色を作る問題も防ぐ。
 
 SLAM推定軌跡による着色地図の検証出力（RTK-SLAM Construction Hall 1、全60 m loop）:
 
