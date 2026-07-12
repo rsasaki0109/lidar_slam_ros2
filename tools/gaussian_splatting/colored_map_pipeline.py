@@ -46,6 +46,14 @@ from typing import Sequence
 
 
 TOOL_DIR = Path(__file__).resolve().parent
+REPO_ROOT = TOOL_DIR.parents[1]
+
+
+def effective_trajectory(args) -> Path:
+    """Return the trajectory consumed by image and map generation."""
+    if args.raw_traj is None:
+        return Path(args.traj)
+    return Path(args.out) / 'dense_corrected_trajectory.tum'
 
 
 def validate_trajectory_density(path: Path, max_gap: float) -> None:
@@ -76,12 +84,25 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
     extrinsic_path = (Path(args.extrinsic) if args.extrinsic is not None else
                       out_dir / 'generated_body_camera_extrinsic.json')
     commands = []
+    trajectory = effective_trajectory(args)
 
-    rebuild_images = args.force_images or not transforms.is_file()
+    rebuild_trajectory = (args.raw_traj is not None and
+                          (args.force_trajectory or not trajectory.is_file()))
+    if rebuild_trajectory:
+        commands.append(('dense corrected trajectory', [
+            sys.executable,
+            str(REPO_ROOT / 'scripts' / 'densify_corrected_trajectory.py'),
+            '--raw', str(args.raw_traj), '--corrected', str(args.traj),
+            '--output', str(trajectory),
+            '--max-anchor-offset', str(args.max_anchor_offset),
+        ]))
+
+    rebuild_images = (rebuild_trajectory or args.force_images or
+                      not transforms.is_file())
     if rebuild_images:
         extract = [
             sys.executable, str(TOOL_DIR / 'extract_posed_images.py'),
-            '--bag', str(args.bag), '--traj', str(args.traj),
+            '--bag', str(args.bag), '--traj', str(trajectory),
             '--camera-topic', args.camera_topic,
             '--camera-info-topic', args.camera_info_topic,
             '--extrinsic', str(extrinsic_path), '--out', str(posed_dir),
@@ -99,7 +120,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
     if rebuild_images or args.force_map or not colored_map.is_file():
         build = [
             sys.executable, str(TOOL_DIR / 'build_lidar_init.py'),
-            '--bag', str(args.bag), '--traj', str(args.traj),
+            '--bag', str(args.bag), '--traj', str(trajectory),
             '--points-topic', args.points_topic, '--out', str(colored_map),
             '--voxel', str(args.voxel), '--max-points', str(args.max_points),
             '--min-range', str(args.min_range), '--max-range', str(args.max_range),
@@ -122,8 +143,6 @@ def run_pipeline(args) -> dict:
     if args.kalibr_camchain is not None and args.lidar_calibration is None:
         raise ValueError('--kalibr-camchain requires --lidar-calibration')
     if not args.dry_run:
-        validate_trajectory_density(args.traj, args.max_trajectory_gap)
-    if not args.dry_run:
         out_dir.mkdir(parents=True, exist_ok=True)
         if args.kalibr_camchain is not None:
             from extract_posed_images import load_kalibr_body_camera_extrinsic
@@ -133,22 +152,39 @@ def run_pipeline(args) -> dict:
             generated = out_dir / 'generated_body_camera_extrinsic.json'
             generated.write_text(json.dumps({'matrix': matrix.tolist()}, indent=2))
     commands = build_commands(args)
+    trajectory = effective_trajectory(args)
+    trajectory_validated = False
     for name, command in commands:
+        if (not args.dry_run and name != 'dense corrected trajectory' and
+                not trajectory_validated):
+            validate_trajectory_density(
+                trajectory, args.max_trajectory_gap)
+            trajectory_validated = True
         print(f'[{name}]', ' '.join(command))
         if not args.dry_run:
             subprocess.run(command, check=True)
+    if not args.dry_run and not trajectory_validated:
+        validate_trajectory_density(trajectory, args.max_trajectory_gap)
     return {
         'stages': [name for name, _ in commands],
         'transforms': out_dir / 'posed_images' / 'transforms.json',
         'colored_map': out_dir / 'colored_map.ply',
+        'trajectory': trajectory,
     }
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument('bag', type=Path, help='rosbag2 directory')
-    p.add_argument('traj', type=Path, help='SLAM trajectory (TUM, world<-body)')
+    p.add_argument('traj', type=Path,
+                   help='corrected SLAM trajectory (TUM, world<-body)')
     p.add_argument('out', type=Path, help='output directory')
+    p.add_argument('--raw-traj', type=Path,
+                   help='dense pre-optimization TUM trajectory; propagate the '
+                        'corrections from traj before colouring')
+    p.add_argument('--max-anchor-offset', type=float, default=0.2,
+                   help='allowed corrected-anchor extrapolation into the raw '
+                        'trajectory (s)')
     calibration = p.add_mutually_exclusive_group(required=True)
     calibration.add_argument('--extrinsic', type=Path,
                              help='body<-camera YAML/JSON or vlcal calib.json')
@@ -179,6 +215,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--no-undistort', action='store_true')
     p.add_argument('--force-images', action='store_true')
     p.add_argument('--force-map', action='store_true')
+    p.add_argument('--force-trajectory', action='store_true')
     p.add_argument('--dry-run', action='store_true')
     return p
 
@@ -190,6 +227,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print('completed stages:', ', '.join(summary['stages']))
     else:
         print('everything is up to date; nothing to do')
+    print('trajectory:', summary['trajectory'])
     print('coloured map:', summary['colored_map'])
     return 0
 
