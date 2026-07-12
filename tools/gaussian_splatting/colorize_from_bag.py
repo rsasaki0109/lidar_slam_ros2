@@ -160,6 +160,91 @@ def extrinsic_matrix(values=None, path=None) -> np.ndarray | None:
     return np.linalg.inv(matrix) if invert else matrix
 
 
+def projection_diagnostics(points, world_to_cam, K, width, height, *,
+                           zbuf_bin=4, depth_tol=0.15) -> dict:
+    """Project points and report in-frame/visible samples for an overlay.
+
+    Returns arrays ``indices``, ``u``, ``v``, ``depth`` and ``visible``. The
+    coarse z-buffer matches the production colorizer, so hidden points can be
+    distinguished from points that genuinely contributed colour.
+    """
+    xyz = np.asarray(points, dtype=np.float64)
+    transform = np.asarray(world_to_cam, dtype=np.float64)
+    intr = np.asarray(K, dtype=np.float64).reshape(3, 3)
+    if zbuf_bin < 1:
+        raise ValueError('zbuf_bin must be >= 1')
+    cam = xyz @ transform[:3, :3].T + transform[:3, 3]
+    depth = cam[:, 2]
+    with np.errstate(divide='ignore', invalid='ignore'):
+        u = np.nan_to_num(intr[0, 0] * cam[:, 0] / depth + intr[0, 2], nan=-1.0)
+        v = np.nan_to_num(intr[1, 1] * cam[:, 1] / depth + intr[1, 2], nan=-1.0)
+    ui = np.round(u).astype(np.int64)
+    vi = np.round(v).astype(np.int64)
+    in_frame = ((depth > 1e-6) & (ui >= 0) & (ui < width) &
+                (vi >= 0) & (vi < height))
+    indices = np.flatnonzero(in_frame)
+    if indices.size == 0:
+        return {
+            'indices': indices, 'u': u[indices], 'v': v[indices],
+            'depth': depth[indices], 'visible': np.zeros(0, dtype=bool),
+        }
+    cols = (int(width) + zbuf_bin - 1) // zbuf_bin
+    rows = (int(height) + zbuf_bin - 1) // zbuf_bin
+    cells = (vi[indices] // zbuf_bin) * cols + ui[indices] // zbuf_bin
+    zbuf = np.full(rows * cols, np.inf, dtype=np.float64)
+    np.minimum.at(zbuf, cells, depth[indices])
+    visible = depth[indices] <= zbuf[cells] + depth_tol + 0.02 * depth[indices]
+    return {
+        'indices': indices, 'u': u[indices], 'v': v[indices],
+        'depth': depth[indices], 'visible': visible,
+    }
+
+
+def _write_diagnostic_overlay(path, rgb_image, diagnostics, *, pair_dt_ms,
+                              total_points) -> Path:
+    """Write a depth-coloured projection overlay with a compact status panel."""
+    import cv2
+
+    canvas = np.ascontiguousarray(np.asarray(rgb_image, dtype=np.uint8).copy())
+    u = np.round(diagnostics['u']).astype(np.int64)
+    v = np.round(diagnostics['v']).astype(np.int64)
+    depth = diagnostics['depth']
+    visible = diagnostics['visible']
+    # Occluded samples remain visible as small magenta dots for diagnosis.
+    for x, y in zip(u[~visible], v[~visible]):
+        cv2.circle(canvas, (int(x), int(y)), 1, (255, 0, 255), -1)
+    if visible.any():
+        visible_depth = depth[visible]
+        near, far = np.percentile(visible_depth, [5, 95])
+        scale = np.clip((visible_depth - near) / max(far - near, 1e-6), 0.0, 1.0)
+        # Near=red, middle=green, far=blue (RGB).
+        colours = np.column_stack([
+            255.0 * (1.0 - scale),
+            255.0 * (1.0 - np.abs(2.0 * scale - 1.0)),
+            255.0 * scale,
+        ]).astype(np.uint8)
+        for x, y, colour in zip(u[visible], v[visible], colours):
+            cv2.circle(canvas, (int(x), int(y)), 2,
+                       tuple(int(c) for c in colour), -1)
+    in_frame = len(diagnostics['indices'])
+    n_visible = int(visible.sum())
+    lines = [
+        f'points: {total_points}  in-frame: {in_frame}  visible: {n_visible}',
+        f'pair dt: {pair_dt_ms:.1f} ms  depth: near red -> far blue',
+        'magenta: rejected by occlusion z-buffer',
+    ]
+    cv2.rectangle(canvas, (8, 8), (850, 92), (0, 0, 0), -1)
+    for row, line in enumerate(lines):
+        cv2.putText(canvas, line, (20, 34 + row * 24),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2,
+                    cv2.LINE_AA)
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if not cv2.imwrite(str(output), canvas[:, :, ::-1]):
+        raise RuntimeError(f'failed to write diagnostic overlay {output}')
+    return output
+
+
 def merge_colorings(per_camera, default_rgb=(80, 80, 80)
                     ) -> tuple[np.ndarray, np.ndarray]:
     """Fuse several cameras' colourings of one cloud into a single colour.
@@ -348,6 +433,7 @@ def colorize_bag_frame(args) -> dict:
 
     per_camera = []
     cam_stats = []
+    overlay_context = None
     for img_topic, info_topic, frame in cameras:
         info = infos[info_topic]
         K = np.asarray(info.k, dtype=np.float64).reshape(3, 3)
@@ -366,9 +452,12 @@ def colorize_bag_frame(args) -> dict:
             default_rgb=tuple(args.default_rgb),
             normalize_exposure=args.normalize_exposure, return_counts=True)
         per_camera.append((colors, seen, counts))
-        cam_stats.append({
+        stats = {
             'image_topic': img_topic, 'colored': int(seen.sum()),
-            'pair_dt_ms': abs(per_cam_time[img_topic] - pc_time) / 1e6})
+            'pair_dt_ms': abs(per_cam_time[img_topic] - pc_time) / 1e6}
+        cam_stats.append(stats)
+        if img_topic == primary_image_topic:
+            overlay_context = (rgb_img, world_to_cam, K, W, H, stats)
 
     colors, seen = merge_colorings(per_camera, tuple(args.default_rgb))
     n_seen = int(seen.sum())
@@ -379,11 +468,20 @@ def colorize_bag_frame(args) -> dict:
                           xyz, colors)
     seen_ply = pcio.write_ply(out_prefix.with_name(out_prefix.name + '_seen.ply'),
                               xyz[seen], colors[seen])
+    overlay_path = None
+    requested_overlay = getattr(args, 'diagnostic_overlay', None)
+    if requested_overlay is not None and overlay_context is not None:
+        rgb_img, world_to_cam, K, W, H, stats = overlay_context
+        diagnostics = projection_diagnostics(xyz, world_to_cam, K, W, H)
+        overlay_path = _write_diagnostic_overlay(
+            requested_overlay, rgb_img, diagnostics,
+            pair_dt_ms=stats['pair_dt_ms'], total_points=len(xyz))
     return {
         'pc_frames': len(pc_stamps), 'cameras': cam_stats,
         'points': len(xyz), 'colored': n_seen,
         'colored_frac': n_seen / max(1, len(xyz)),
         'full_ply': str(full), 'seen_ply': str(seen_ply),
+        'diagnostic_overlay': str(overlay_path) if overlay_path else None,
     }
 
 
@@ -422,6 +520,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help='rescale image luminance (harmless for a single view)')
     p.add_argument('--default-rgb', type=int, nargs=3, default=(80, 80, 80),
                    help='colour for points no camera saw')
+    p.add_argument('--diagnostic-overlay', type=Path,
+                   help='write depth/occlusion projection overlay PNG')
     return p
 
 
@@ -434,6 +534,8 @@ def main(argv=None) -> int:
     print(f"merged coloured {s['colored']}/{s['points']} "
           f"({100.0 * s['colored_frac']:.1f}%)")
     print(f"wrote {s['full_ply']}\n      {s['seen_ply']}")
+    if s['diagnostic_overlay']:
+        print(f"      {s['diagnostic_overlay']}")
     return 0
 
 
