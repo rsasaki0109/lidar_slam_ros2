@@ -63,6 +63,8 @@ def test_build_commands_connects_extract_to_robust_map(tmp_path):
     assert extract[extract.index('--time-offset') + 1] == 'auto'
     assert build[build.index('--color-transforms') + 1] == transforms
     assert '--color-robust' in build
+    assert build[build.index('--min-neighbors') + 1] == '2'
+    assert build[build.index('--sparse-voxel') + 1] == '0.1'
 
 
 def test_raw_trajectory_adds_densification_and_connects_dense_output(tmp_path):
@@ -167,6 +169,14 @@ def test_no_undistort_and_custom_topics_are_forwarded(tmp_path):
     assert extract[extract.index('--camera-topic') + 1] == '/rgb'
     assert extract[extract.index('--camera-info-topic') + 1] == '/info'
     assert build[build.index('--points-topic') + 1] == '/points'
+
+
+def test_custom_density_filter_is_forwarded(tmp_path):
+    commands = cmp.build_commands(_args(
+        tmp_path, '--min-neighbors', '0', '--sparse-voxel', '0.2'))
+    build = commands[-1][1]
+    assert build[build.index('--min-neighbors') + 1] == '0'
+    assert build[build.index('--sparse-voxel') + 1] == '0.2'
 
 
 def test_intrinsics_yaml_is_forwarded_for_bags_without_camera_info(tmp_path):

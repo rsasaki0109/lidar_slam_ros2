@@ -91,6 +91,8 @@ robust着色は1ピクセル単位のz-bufferで遮蔽を判定し、隣接ピ�
 全画面medianの差だけで白飛び・黒潰れさせない。
 HILTI 2022 exp04ではper-point timestamp deskewにより、平面厚RMS meanが
 8.89 cmから6.25 cmへ改善し、planar coverageは21.38%から48.16%へ増加した。
+既定の弱いdensity guard（0.1 m近傍に最低1支持点）を加えると、81.5%の点を保持して
+平面厚5.99 cm、planar coverage 53.55%まで改善する。`--min-neighbors 0` で無効化可能。
 
 外部校正はLiDAR depth境界と強い画像edgeの距離で診断できる。この自然scene metricは
 校正targetの代替ではなく、bag全体に対するpixel単位の回帰検査として使う。
