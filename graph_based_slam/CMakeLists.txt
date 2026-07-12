@@ -512,6 +512,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_lidar_camera_alignment
+    test/test_lidar_camera_alignment.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_gaussian_splatting_render
     test/test_gaussian_splatting_render.py
     TIMEOUT 120

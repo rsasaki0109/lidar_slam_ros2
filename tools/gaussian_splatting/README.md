@@ -30,6 +30,7 @@ photorealistic map / novel-view 成果物を後処理で再構成するための
 | `pointcloud_io.py` | 最小 PLY 入出力（xyz[+rgb]）＋ voxel 間引き＋ **画像投影による点群着色**（`colorize_by_projection`）。 | numpy のみ | `test_gaussian_splatting_pointcloud.py`（12）|
 | `build_lidar_init.py` | bag のスキャンを SLAM 軌跡で world 系に蓄積 → **LiDAR-primed init 点群** PLY。FILE-compressed(zstd) bag 対応。`--color-transforms` で transforms.json の posed 画像を投影して着色（品質中立だが検査用に有用）。 | rosbag2_py（実行時のみ）| 同上（`transform_points` 等の純粋部）|
 | `colored_map_pipeline.py` | bag + TUM軌跡 + camera extrinsic から、posed画像抽出 → 遮蔽対応の複数view着色map生成を一括実行。既存成果物の再利用、`--dry-run`、段階別forceに対応。 | 上記2ツールと同じ | `test_colored_map_pipeline.py` |
+| `../../scripts/evaluate_lidar_camera_alignment.py` | LiDAR depth境界とcamera画像edgeの距離を測り、外部校正をpixel単位で評価。 | numpy, imageio | `test_lidar_camera_alignment.py` |
 | `train_gsplat.py` | `transforms.json` + 画像で gsplat 学習 → INRIA 標準 `.ply` 出力。OpenGL c2w を OpenCV w2c に変換。`--init-ply` で **LiDAR-primed init**（位置＋色 seed）、`--densify` で gsplat `DefaultStrategy` の adaptive density control、`--ssim-lambda`（既定 0.2）で INRIA 標準 **L1+D-SSIM 損失**、`--knn-scale-init` で点群の局所密度から per-Gaussian スケール seed、`--sh-degree D` で **視点依存カラー（SH 次数 D、INRIA 標準 f_dc+f_rest 出力）**、`--antialiased` で gsplat の antialiased rasterize mode、`--mcmc`（+`--mcmc-cap`）で MCMCStrategy（LiDAR-primed init では DefaultStrategy 優位＝既定）、`--optimize-extrinsic` で共有 6-DoF extrinsic の photometric 自己校正。学習終了時に全ビューの PSNR/SSIM を出力。 | torch, gsplat (CUDA) | `test_gaussian_splatting_train.py`（20、純粋部）|
 | `selftest_gpu.py` | opt-in GPU セルフテスト。合成シーンを描画→`transforms.json`→学習→`.ply` の全鎖を検証。 | torch, gsplat (CUDA) | 手動実行（CI 非対象）|
 | `render_path.py` | 学習済み `.ply` + `transforms.json` から**フライスルー動画（mp4/GIF）**を描画する CLI。INRIA `.ply` の読み戻し、学習視点を通る SLERP+box-smooth カメラパス、`--ping-pong` ループ、`--scale` 縮小描画、`--rotate` 横倒しカメラ補正。 | torch, gsplat (CUDA)（純粋部は numpy のみ）| `test_gaussian_splatting_render.py`（13、ply 読み戻し/パス/回転/intrinsics の純粋部）|
@@ -88,6 +89,16 @@ robust着色は1ピクセル単位のz-bufferで遮蔽を判定し、隣接ピ�
 強い色境界では実画素へ切り替え、前景色と背景色のにじみを抑える。
 画像間の露出正規化は倍率を `1/1.5`〜`1.5` に制限し、実際に明るい壁や暗い区間を
 全画面medianの差だけで白飛び・黒潰れさせない。
+
+外部校正はLiDAR depth境界と強い画像edgeの距離で診断できる。この自然scene metricは
+校正targetの代替ではなく、bag全体に対するpixel単位の回帰検査として使う。
+
+```bash
+python3 scripts/evaluate_lidar_camera_alignment.py \
+  --pointcloud output/<run>/colored_map.ply \
+  --transforms output/<run>/posed_images/transforms.json \
+  --out output/<run>/lidar_camera_alignment.json
+```
 
 SLAM推定軌跡による着色地図の検証出力（RTK-SLAM Construction Hall 1、全60 m loop）:
 
