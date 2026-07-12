@@ -229,6 +229,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   zbuf_bin: int = 1, depth_tol: float = 0.15,
                                   max_samples: int = 12,
                                   normalize_exposure: bool = True,
+                                  exposure_scale_limit: float = 1.5,
                                   interp: str = 'edge-aware',
                                   edge_threshold: float = 48.0,
                                   prefer_near: bool = True,
@@ -240,8 +241,10 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     auto-exposure differences wash the average out. This variant first builds a
     per-view z-buffer from the point cloud itself (one pixel per bin by default)
     and only samples views where the point sits within ``depth_tol`` (plus
-    2 % of range) of the nearest depth in its bin; each image is scaled so its
-    median luminance matches the global median (``normalize_exposure``); and the
+    2 % of range) of the nearest depth in its bin; each image is scaled toward
+    the global median luminance (``normalize_exposure``), with the gain clamped
+    symmetrically by ``exposure_scale_limit`` so genuine scene lighting is not
+    flattened; and the
     final colour is the RGB medoid over up to ``max_samples`` valid samples,
     which rejects residual specular / motion-blur outliers without synthesizing
     a colour that no camera actually observed.
@@ -273,6 +276,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         return (rgb, seen, counts) if return_counts else (rgb, seen)
     if zbuf_bin < 1:
         raise ValueError('zbuf_bin must be >= 1')
+    if exposure_scale_limit < 1.0:
+        raise ValueError('exposure_scale_limit must be >= 1')
 
     fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
     zb_w = (int(width) + zbuf_bin - 1) // zbuf_bin
@@ -288,6 +293,9 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         valid = meds > 1.0e-6
         if valid.any():
             scales[valid] = float(np.median(meds[valid])) / meds[valid]
+            scales[valid] = np.clip(
+                scales[valid], 1.0 / exposure_scale_limit,
+                exposure_scale_limit)
 
     ids = np.arange(n)
     for vi, (vm, img) in enumerate(zip(viewmats, images)):
