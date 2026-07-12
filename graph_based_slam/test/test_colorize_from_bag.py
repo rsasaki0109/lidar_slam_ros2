@@ -176,6 +176,39 @@ def test_extrinsic_matrix_rejects_bad_inputs(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
+# diagnostic projection overlay geometry
+# --------------------------------------------------------------------------- #
+def test_projection_diagnostics_marks_occluded_point():
+    K = np.array([[100, 0, 50], [0, 100, 50], [0, 0, 1]], dtype=float)
+    points = np.array([
+        [0, 0, 2],       # nearest surface at the principal point
+        [0, 0, 8],       # same pixel, hidden behind the near surface
+        [100, 0, 1],     # outside the image
+    ], dtype=float)
+    result = cfb.projection_diagnostics(
+        points, np.eye(4), K, 100, 100, zbuf_bin=4, depth_tol=0.15)
+    assert result['indices'].tolist() == [0, 1]
+    np.testing.assert_allclose(result['u'], [50, 50])
+    np.testing.assert_allclose(result['v'], [50, 50])
+    assert result['visible'].tolist() == [True, False]
+
+
+def test_projection_diagnostics_handles_no_in_frame_points():
+    K = np.eye(3)
+    result = cfb.projection_diagnostics(
+        np.array([[0, 0, -1]], dtype=float), np.eye(4), K, 10, 10)
+    assert result['indices'].size == 0
+    assert result['visible'].size == 0
+
+
+def test_projection_diagnostics_rejects_bad_zbuffer_bin():
+    import pytest
+    with pytest.raises(ValueError, match='zbuf_bin'):
+        cfb.projection_diagnostics(
+            np.zeros((1, 3)), np.eye(4), np.eye(3), 10, 10, zbuf_bin=0)
+
+
+# --------------------------------------------------------------------------- #
 # merge_colorings
 # --------------------------------------------------------------------------- #
 def test_merge_single_camera_passthrough():
