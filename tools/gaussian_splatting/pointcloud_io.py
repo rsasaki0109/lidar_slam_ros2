@@ -186,7 +186,7 @@ def _median_luminance(img: np.ndarray) -> float:
 def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   K: np.ndarray, images, width: int, height: int,
                                   default_rgb=(128, 128, 128), *,
-                                  zbuf_bin: int = 4, depth_tol: float = 0.15,
+                                  zbuf_bin: int = 1, depth_tol: float = 0.15,
                                   max_samples: int = 12,
                                   normalize_exposure: bool = True,
                                   interp: str = 'bilinear',
@@ -197,12 +197,17 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     ``colorize_by_projection`` averages every view a point lands in, so points
     behind walls or machines pick up the colour of whatever occludes them and
     auto-exposure differences wash the average out. This variant first builds a
-    coarse per-view z-buffer from the point cloud itself (``zbuf_bin`` pixel
-    bins) and only samples views where the point sits within ``depth_tol`` (plus
+    per-view z-buffer from the point cloud itself (one pixel per bin by default)
+    and only samples views where the point sits within ``depth_tol`` (plus
     2 % of range) of the nearest depth in its bin; each image is scaled so its
     median luminance matches the global median (``normalize_exposure``); and the
     final colour is the per-channel median over up to ``max_samples`` valid
     samples, which rejects residual specular / motion-blur outliers.
+
+    A value above one for ``zbuf_bin`` trades memory for a coarse occlusion
+    approximation. It can falsely hide a surface when an unrelated nearer point
+    lands in a neighbouring pixel, so final map generation should keep the
+    one-pixel default.
 
     Quality knobs: ``interp='bilinear'`` samples sub-pixel (blends the four
     surrounding pixels) instead of snapping to the nearest, cutting the colour
