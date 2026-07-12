@@ -1,0 +1,13 @@
+colored_map_quality_profile:
+  name: hilti_exp04_baseline
+  enforcement: report_only
+  thresholds:
+    ape_rmse_max_m: 0.10
+    thickness_rms_mean_max_m: 0.07
+    thickness_rms_p95_max_m: 0.12
+    planar_coverage_min: 0.50
+    alignment_median_max_px: 7.0
+    alignment_inlier_2px_min: 0.25
+    heldout_rgb_median_max: 40.0
+    heldout_rgb_inlier_20_min: 0.30
+    heldout_scored_fraction_min: 0.95
