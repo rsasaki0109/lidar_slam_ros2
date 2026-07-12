@@ -32,6 +32,7 @@ photorealistic map / novel-view 成果物を後処理で再構成するための
 | `colored_map_pipeline.py` | bag + TUM軌跡 + camera extrinsic から、posed画像抽出 → 遮蔽対応の複数view着色map生成を一括実行。既存成果物の再利用、`--dry-run`、段階別forceに対応。 | 上記2ツールと同じ | `test_colored_map_pipeline.py` |
 | `../../scripts/evaluate_lidar_camera_alignment.py` | LiDAR depth境界とcamera画像edgeの距離を測り、外部校正をpixel単位で評価。 | numpy, imageio | `test_lidar_camera_alignment.py` |
 | `../../scripts/evaluate_heldout_point_colors.py` | 偶数viewだけで点群を着色し、除外した奇数viewへのRGB再投影誤差を評価。 | numpy, imageio | `test_heldout_point_colors.py` |
+| `../../scripts/check_colored_map_quality.py` | 軌跡APE、点群形状、外部校正、held-out着色の4レポートをprofile閾値で一括判定。 | PyYAML | `test_colored_map_quality_gate.py` |
 | `train_gsplat.py` | `transforms.json` + 画像で gsplat 学習 → INRIA 標準 `.ply` 出力。OpenGL c2w を OpenCV w2c に変換。`--init-ply` で **LiDAR-primed init**（位置＋色 seed）、`--densify` で gsplat `DefaultStrategy` の adaptive density control、`--ssim-lambda`（既定 0.2）で INRIA 標準 **L1+D-SSIM 損失**、`--knn-scale-init` で点群の局所密度から per-Gaussian スケール seed、`--sh-degree D` で **視点依存カラー（SH 次数 D、INRIA 標準 f_dc+f_rest 出力）**、`--antialiased` で gsplat の antialiased rasterize mode、`--mcmc`（+`--mcmc-cap`）で MCMCStrategy（LiDAR-primed init では DefaultStrategy 優位＝既定）、`--optimize-extrinsic` で共有 6-DoF extrinsic の photometric 自己校正。学習終了時に全ビューの PSNR/SSIM を出力。 | torch, gsplat (CUDA) | `test_gaussian_splatting_train.py`（20、純粋部）|
 | `selftest_gpu.py` | opt-in GPU セルフテスト。合成シーンを描画→`transforms.json`→学習→`.ply` の全鎖を検証。 | torch, gsplat (CUDA) | 手動実行（CI 非対象）|
 | `render_path.py` | 学習済み `.ply` + `transforms.json` から**フライスルー動画（mp4/GIF）**を描画する CLI。INRIA `.ply` の読み戻し、学習視点を通る SLERP+box-smooth カメラパス、`--ping-pong` ループ、`--scale` 縮小描画、`--rotate` 横倒しカメラ補正。 | torch, gsplat (CUDA)（純粋部は numpy のみ）| `test_gaussian_splatting_render.py`（13、ply 読み戻し/パス/回転/intrinsics の純粋部）|
@@ -120,6 +121,22 @@ HILTI 2022 exp04のdeskew + density guard済み点群では、126枚で着色し
 RGB L2中央値36.37、20以内inlier率35.36%だった。P90は225.33であり、色そのものに加え
 未モデル化の動体、遮蔽境界、時刻同期、camera--LiDAR外部校正の残差も含む厳しい
 end-to-end回帰指標として扱う。
+
+4領域をまとめて確認する場合は統合gateを使う。結果は人向けの一覧と機械可読JSONの
+両方へ出力され、`blocking` profileの違反時は終了コード1になる。
+
+```bash
+python3 scripts/check_colored_map_quality.py \
+  --trajectory-report output/<run>/metrics.json \
+  --geometry-report output/<run>/map_quality_report.yaml \
+  --alignment-report output/<run>/lidar_camera_alignment.json \
+  --colour-report output/<run>/heldout_point_colors.json \
+  --profile configs/colored_map_quality_profiles/hilti_exp04_report_only.yaml \
+  --out output/<run>/colored_map_quality_gate.json
+```
+
+付属HILTI profileは同じexp04測定から定めた初期baselineなので`report_only`である。
+別走行を含む再現試験で閾値を固定してから`blocking`へ昇格する。
 
 SLAM推定軌跡による着色地図の検証出力（RTK-SLAM Construction Hall 1、全60 m loop）:
 
