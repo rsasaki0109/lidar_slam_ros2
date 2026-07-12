@@ -135,6 +135,8 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             '--points-topic', args.points_topic, '--out', str(colored_map),
             '--voxel', str(args.voxel), '--max-points', str(args.max_points),
             '--min-range', str(args.min_range), '--max-range', str(args.max_range),
+            '--min-neighbors', str(args.min_neighbors),
+            '--sparse-voxel', str(args.sparse_voxel),
             '--stride', str(args.scan_stride),
             '--start-time', str(args.start_time), '--end-time', str(args.end_time),
             '--color-transforms', str(transforms), '--color-robust',
@@ -221,6 +223,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--max-points', type=int, default=300000)
     p.add_argument('--min-range', type=float, default=0.0)
     p.add_argument('--max-range', type=float, default=80.0)
+    p.add_argument('--min-neighbors', type=int, default=2,
+                   help='minimum points in the local density neighbourhood; '
+                        'default 2 removes isolated LiDAR returns, 0 disables')
+    p.add_argument('--sparse-voxel', type=float, default=0.1,
+                   help='density-neighbourhood voxel size (m)')
     p.add_argument('--start-time', type=float, default=0.0)
     p.add_argument('--end-time', type=float, default=-1.0)
     p.add_argument('--no-undistort', action='store_true')

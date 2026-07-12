@@ -245,11 +245,11 @@ def build_parser() -> argparse.ArgumentParser:
                    help='use the occlusion-aware / exposure-normalised / median '
                         'colorizer instead of the plain all-view average (slower; '
                         'much cleaner colours for map flythroughs)')
-    p.add_argument('--min-neighbors', type=int, default=0,
+    p.add_argument('--min-neighbors', type=int, default=2,
                    help='drop points whose 3x3x3 voxel neighbourhood (see '
-                        '--sparse-voxel) holds fewer points; 0 disables. Removes '
-                        'isolated stray returns that render as dust')
-    p.add_argument('--sparse-voxel', type=float, default=0.08,
+                        '--sparse-voxel) holds fewer points; default 2 requires '
+                        'one supporting neighbour, 0 disables')
+    p.add_argument('--sparse-voxel', type=float, default=0.1,
                    help='voxel size (m) for the --min-neighbors density filter')
     return p
 

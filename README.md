@@ -154,6 +154,9 @@ accumulation deskews the scan against the dense trajectory in 1 ms pose bins.
 Use `--no-deskew` on `build_lidar_init.py` only for an explicit A/B baseline.
 On HILTI 2022 exp04 this reduced mean plane thickness from 8.89 cm to 6.25 cm
 and increased planar coverage from 21.38% to 48.16%.
+The default one-neighbour density guard then removes isolated LiDAR returns
+(`--min-neighbors 2 --sparse-voxel 0.1`), retaining 81.5% of points while
+improving mean thickness to 5.99 cm and planar coverage to 53.55%.
 
 ## Accuracy
 
