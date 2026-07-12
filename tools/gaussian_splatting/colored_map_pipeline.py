@@ -56,6 +56,15 @@ def effective_trajectory(args) -> Path:
     return Path(args.out) / 'dense_corrected_trajectory.tum'
 
 
+def is_stale(output: Path, inputs: Sequence[Path]) -> bool:
+    """Return whether an existing output predates any available input."""
+    if not output.is_file():
+        return True
+    output_mtime = output.stat().st_mtime_ns
+    return any(path.is_file() and path.stat().st_mtime_ns > output_mtime
+               for path in inputs)
+
+
 def validate_trajectory_density(path: Path, max_gap: float) -> None:
     """Reject sparse graph keyframes that cannot register individual scans."""
     if max_gap <= 0:
@@ -86,8 +95,9 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
     commands = []
     trajectory = effective_trajectory(args)
 
-    rebuild_trajectory = (args.raw_traj is not None and
-                          (args.force_trajectory or not trajectory.is_file()))
+    rebuild_trajectory = (args.raw_traj is not None and (
+        args.force_trajectory or is_stale(
+            trajectory, [Path(args.raw_traj), Path(args.traj)])))
     if rebuild_trajectory:
         commands.append(('dense corrected trajectory', [
             sys.executable,
@@ -98,7 +108,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
         ]))
 
     rebuild_images = (rebuild_trajectory or args.force_images or
-                      not transforms.is_file())
+                      is_stale(transforms, [trajectory]))
     if rebuild_images:
         extract = [
             sys.executable, str(TOOL_DIR / 'extract_posed_images.py'),
@@ -117,7 +127,8 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             extract.extend(['--intrinsics-yaml', str(args.intrinsics_yaml)])
         commands.append(('posed images', extract))
 
-    if rebuild_images or args.force_map or not colored_map.is_file():
+    if (rebuild_images or args.force_map or
+            is_stale(colored_map, [trajectory, transforms])):
         build = [
             sys.executable, str(TOOL_DIR / 'build_lidar_init.py'),
             '--bag', str(args.bag), '--traj', str(trajectory),
