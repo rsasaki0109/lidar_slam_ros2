@@ -133,6 +133,14 @@ def test_parse_extrinsic_matrix():
     np.testing.assert_allclose(T, m, atol=1e-12)
 
 
+def test_parse_extrinsic_official_vlcal_result():
+    T = ex.parse_extrinsic_dict({
+        'results': {'T_lidar_camera': [1, 2, 3, 0, 0, 0, 1]},
+    })
+    np.testing.assert_allclose(T[:3, 3], [1, 2, 3], atol=1e-12)
+    np.testing.assert_allclose(T[:3, :3], np.eye(3), atol=1e-12)
+
+
 def test_parse_extrinsic_bad_matrix_shape():
     with pytest.raises(ValueError):
         ex.parse_extrinsic_dict({'matrix': [[1, 0], [0, 1]]})

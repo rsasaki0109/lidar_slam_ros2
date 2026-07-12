@@ -29,6 +29,7 @@ photorealistic map / novel-view 成果物を後処理で再構成するための
 | `extract_posed_images.py` | rosbag2 から画像 + `camera_info` を取り出し、各画像の `world<-camera` を解決して `transforms.json` + 画像を書き出す CLI。`sensor_msgs/Image` は **numpy で生復号**（cv_bridge 非依存）、`rosbag2_py` は遅延 import。 | rosbag2_py（実行時のみ）| `test_gaussian_splatting_extract.py`（17、ポーズ/外部標定/復号ロジックは ROS 非依存）|
 | `pointcloud_io.py` | 最小 PLY 入出力（xyz[+rgb]）＋ voxel 間引き＋ **画像投影による点群着色**（`colorize_by_projection`）。 | numpy のみ | `test_gaussian_splatting_pointcloud.py`（12）|
 | `build_lidar_init.py` | bag のスキャンを SLAM 軌跡で world 系に蓄積 → **LiDAR-primed init 点群** PLY。FILE-compressed(zstd) bag 対応。`--color-transforms` で transforms.json の posed 画像を投影して着色（品質中立だが検査用に有用）。 | rosbag2_py（実行時のみ）| 同上（`transform_points` 等の純粋部）|
+| `colored_map_pipeline.py` | bag + TUM軌跡 + camera extrinsic から、posed画像抽出 → 遮蔽対応の複数view着色map生成を一括実行。既存成果物の再利用、`--dry-run`、段階別forceに対応。 | 上記2ツールと同じ | `test_colored_map_pipeline.py` |
 | `train_gsplat.py` | `transforms.json` + 画像で gsplat 学習 → INRIA 標準 `.ply` 出力。OpenGL c2w を OpenCV w2c に変換。`--init-ply` で **LiDAR-primed init**（位置＋色 seed）、`--densify` で gsplat `DefaultStrategy` の adaptive density control、`--ssim-lambda`（既定 0.2）で INRIA 標準 **L1+D-SSIM 損失**、`--knn-scale-init` で点群の局所密度から per-Gaussian スケール seed、`--sh-degree D` で **視点依存カラー（SH 次数 D、INRIA 標準 f_dc+f_rest 出力）**、`--antialiased` で gsplat の antialiased rasterize mode、`--mcmc`（+`--mcmc-cap`）で MCMCStrategy（LiDAR-primed init では DefaultStrategy 優位＝既定）、`--optimize-extrinsic` で共有 6-DoF extrinsic の photometric 自己校正。学習終了時に全ビューの PSNR/SSIM を出力。 | torch, gsplat (CUDA) | `test_gaussian_splatting_train.py`（20、純粋部）|
 | `selftest_gpu.py` | opt-in GPU セルフテスト。合成シーンを描画→`transforms.json`→学習→`.ply` の全鎖を検証。 | torch, gsplat (CUDA) | 手動実行（CI 非対象）|
 | `render_path.py` | 学習済み `.ply` + `transforms.json` から**フライスルー動画（mp4/GIF）**を描画する CLI。INRIA `.ply` の読み戻し、学習視点を通る SLERP+box-smooth カメラパス、`--ping-pong` ループ、`--scale` 縮小描画、`--rotate` 横倒しカメラ補正。 | torch, gsplat (CUDA)（純粋部は numpy のみ）| `test_gaussian_splatting_render.py`（13、ply 読み戻し/パス/回転/intrinsics の純粋部）|
@@ -55,6 +56,13 @@ python3 tools/gaussian_splatting/build_lidar_init.py \
   --bag <bag> --traj output/<run>/traj_corrected.tum \
   --points-topic /livox/points --voxel 0.05 \
   --out output/<run>/gsplat/lidar_init.ply
+
+# 着色点群だけが目的なら、画像抽出 + robust複数view着色を一括実行
+python3 tools/gaussian_splatting/colored_map_pipeline.py \
+  <bag> output/<run>/traj_corrected.tum output/<run>/colored_map \
+  --extrinsic configs/gaussian_splatting/<lidar_camera_extrinsic>.yaml \
+  --points-topic /livox/points --camera-topic /image \
+  --camera-info-topic /camera_info
 
 # 2b) gsplat 学習 → .ply（GPU）。--init-ply で LiDAR-primed init、
 #     --densify で adaptive density control（鮮鋭化）
