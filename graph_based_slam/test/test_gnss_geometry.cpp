@@ -27,9 +27,9 @@
 // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include <limits>
-
 #include <gtest/gtest.h>
+
+#include <limits>
 
 #include "graph_based_slam/gnss_geometry.hpp"
 
@@ -45,8 +45,9 @@ TEST(GnssGeometry, ValidatesFiniteCoordinatesAndRanges)
   EXPECT_TRUE(isUsableGeodeticFix(35.681236, 139.767125, 12.0));
   EXPECT_FALSE(isUsableGeodeticFix(0.0, 0.0, 0.0));
   EXPECT_FALSE(isUsableGeodeticFix(91.0, 139.0, 0.0));
-  EXPECT_FALSE(isUsableGeodeticFix(
-    std::numeric_limits<double>::quiet_NaN(), 139.0, 0.0));
+  EXPECT_FALSE(
+    isUsableGeodeticFix(
+      std::numeric_limits<double>::quiet_NaN(), 139.0, 0.0));
 }
 
 TEST(GnssGeometry, ComputesShortGeodeticDistanceSymmetrically)

@@ -32,7 +32,7 @@
 
 #include <cmath>
 
-#include <Eigen/Core>
+#include <Eigen/Core>  // NOLINT(build/include_order)
 
 namespace graphslam
 {
