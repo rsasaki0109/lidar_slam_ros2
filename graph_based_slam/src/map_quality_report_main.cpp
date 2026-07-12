@@ -77,7 +77,8 @@ bool loadCloudInto(const std::string & path, std::vector<Eigen::Vector3d> & poin
 {
   pcl::PointCloud<pcl::PointXYZ> cloud;
   std::string extension = std::filesystem::path(path).extension().string();
-  std::transform(extension.begin(), extension.end(), extension.begin(),
+  std::transform(
+    extension.begin(), extension.end(), extension.begin(),
     [](unsigned char value) {return static_cast<char>(std::tolower(value));});
   int status = -1;
   if (extension == ".pcd") {
@@ -153,7 +154,8 @@ int main(int argc, char ** argv)
     std::vector<std::string> cloud_files;
     for (const auto & entry : std::filesystem::directory_iterator(input)) {
       std::string extension = entry.path().extension().string();
-      std::transform(extension.begin(), extension.end(), extension.begin(),
+      std::transform(
+        extension.begin(), extension.end(), extension.begin(),
         [](unsigned char value) {return static_cast<char>(std::tolower(value));});
       if (extension == ".pcd" || extension == ".ply") {
         cloud_files.push_back(entry.path().string());
