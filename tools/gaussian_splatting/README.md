@@ -65,8 +65,13 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
   --camera-info-topic /camera_info
 
 # Kalibr camchain + 別LiDAR calibration（HILTI形式）はextrinsicを自動合成
+python3 scripts/densify_corrected_trajectory.py \
+  --raw output/<run>/traj_raw.tum \
+  --corrected output/<run>/traj_corrected.tum \
+  --output output/<run>/traj_corrected_dense.tum
+
 python3 tools/gaussian_splatting/colored_map_pipeline.py \
-  <bag> output/<run>/traj_corrected.tum output/<run>/colored_map \
+  <bag> output/<run>/traj_corrected_dense.tum output/<run>/colored_map \
   --kalibr-camchain calibration/camchain-imucam.yaml \
   --lidar-calibration calibration/lidar_calibration.yaml \
   --intrinsics-yaml calibration/camchain-imucam.yaml \

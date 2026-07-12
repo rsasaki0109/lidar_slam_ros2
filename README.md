@@ -134,6 +134,16 @@ the same SLAM poses.
 The sequence is from the RTK-SLAM dataset (CC-BY 4.0). Its total-station
 checkpoints are also used by the [accuracy gate](#accuracy).
 
+If graph optimization outputs sparse keyframes, propagate their corrections
+onto the dense SLAM pose stream before building the coloured map:
+
+```bash
+python3 scripts/densify_corrected_trajectory.py \
+  --raw output/<run>/traj_raw.tum \
+  --corrected output/<run>/traj_corrected.tum \
+  --output output/<run>/traj_corrected_dense.tum
+```
+
 ## Accuracy
 
 Current numbers from the release-gate profiles (`scripts/release_profiles.yaml`).
