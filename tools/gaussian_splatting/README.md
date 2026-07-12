@@ -64,6 +64,22 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
   --points-topic /livox/points --camera-topic /image \
   --camera-info-topic /camera_info
 
+# Kalibr camchain + 別LiDAR calibration（HILTI形式）はextrinsicを自動合成
+python3 tools/gaussian_splatting/colored_map_pipeline.py \
+  <bag> output/<run>/traj_corrected.tum output/<run>/colored_map \
+  --kalibr-camchain calibration/camchain-imucam.yaml \
+  --lidar-calibration calibration/lidar_calibration.yaml \
+  --intrinsics-yaml calibration/camchain-imucam.yaml \
+  --points-topic /hesai/pandar \
+  --camera-topic /alphasense/cam0/image_raw
+
+SLAM推定軌跡による着色地図の検証出力（RTK-SLAM Construction Hall 1、全60 m loop）:
+
+![SLAM推定軌跡とカメラ着色点群地図](../../lidarslam/images/map_flythrough_rtkslam.gif)
+
+点群のmap座標への積算とカメラposeの両方に、同じ補正済みSLAM軌跡を使用します。
+元データは RTK-SLAM dataset（CC-BY 4.0）です。
+
 # 2b) gsplat 学習 → .ply（GPU）。--init-ply で LiDAR-primed init、
 #     --densify で adaptive density control（鮮鋭化）
 python3 tools/gaussian_splatting/train_gsplat.py \

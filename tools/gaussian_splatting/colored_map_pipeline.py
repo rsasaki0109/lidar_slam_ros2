@@ -38,6 +38,7 @@ so an interrupted or repeated run only performs missing work.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -53,6 +54,8 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
     posed_dir = out_dir / 'posed_images'
     transforms = posed_dir / 'transforms.json'
     colored_map = out_dir / 'colored_map.ply'
+    extrinsic_path = (Path(args.extrinsic) if args.extrinsic is not None else
+                      out_dir / 'generated_lidar_camera_extrinsic.json')
     commands = []
 
     rebuild_images = args.force_images or not transforms.is_file()
@@ -62,7 +65,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             '--bag', str(args.bag), '--traj', str(args.traj),
             '--camera-topic', args.camera_topic,
             '--camera-info-topic', args.camera_info_topic,
-            '--extrinsic', str(args.extrinsic), '--out', str(posed_dir),
+            '--extrinsic', str(extrinsic_path), '--out', str(posed_dir),
             '--time-offset', args.time_offset,
             '--clock-reference-topic', args.points_topic,
             '--stride', str(args.image_stride),
@@ -70,6 +73,8 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
         ]
         if not args.no_undistort:
             extract.append('--undistort')
+        if args.intrinsics_yaml is not None:
+            extract.extend(['--intrinsics-yaml', str(args.intrinsics_yaml)])
         commands.append(('posed images', extract))
 
     if rebuild_images or args.force_map or not colored_map.is_file():
@@ -90,8 +95,17 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
 def run_pipeline(args) -> dict:
     """Execute missing stages and return paths plus the stages that ran."""
     out_dir = Path(args.out)
+    if args.kalibr_camchain is not None and args.lidar_calibration is None:
+        raise ValueError('--kalibr-camchain requires --lidar-calibration')
     if not args.dry_run:
         out_dir.mkdir(parents=True, exist_ok=True)
+        if args.kalibr_camchain is not None:
+            from extract_posed_images import compose_kalibr_lidar_extrinsic
+            matrix = compose_kalibr_lidar_extrinsic(
+                args.kalibr_camchain, args.lidar_calibration,
+                camera_key=args.camera_key, lidar_key=args.lidar_key)
+            generated = out_dir / 'generated_lidar_camera_extrinsic.json'
+            generated.write_text(json.dumps({'matrix': matrix.tolist()}, indent=2))
     commands = build_commands(args)
     for name, command in commands:
         print(f'[{name}]', ' '.join(command))
@@ -109,11 +123,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('bag', type=Path, help='rosbag2 directory')
     p.add_argument('traj', type=Path, help='SLAM trajectory (TUM, world<-body)')
     p.add_argument('out', type=Path, help='output directory')
-    p.add_argument('--extrinsic', type=Path, required=True,
-                   help='body<-camera YAML/JSON or vlcal calib.json')
+    calibration = p.add_mutually_exclusive_group(required=True)
+    calibration.add_argument('--extrinsic', type=Path,
+                             help='body<-camera YAML/JSON or vlcal calib.json')
+    calibration.add_argument('--kalibr-camchain', type=Path,
+                             help='Kalibr camera chain with T_cam_imu')
+    p.add_argument('--lidar-calibration', type=Path,
+                   help='parented LiDAR calibration paired with Kalibr camchain')
+    p.add_argument('--camera-key', default='cam0')
+    p.add_argument('--lidar-key', default='PandarXT-32')
     p.add_argument('--points-topic', default='/livox/points')
     p.add_argument('--camera-topic', default='/image')
     p.add_argument('--camera-info-topic', default='/camera_info')
+    p.add_argument('--intrinsics-yaml', type=Path,
+                   help='camera intrinsics YAML when the bag has no CameraInfo')
     p.add_argument('--time-offset', default='auto',
                    help='camera-to-trajectory clock offset or auto')
     p.add_argument('--image-stride', type=int, default=1)
