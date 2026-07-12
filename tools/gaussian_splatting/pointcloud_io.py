@@ -142,12 +142,15 @@ def colorize_by_projection(points: np.ndarray, viewmats: np.ndarray,
 
 
 def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
-                   width: int, height: int, interp: str) -> np.ndarray:
+                   width: int, height: int, interp: str,
+                   edge_threshold: float = 48.0) -> np.ndarray:
     """Sample ``img`` at float pixel coords ``(uf, vf)`` -> float32 ``(M,3)``.
 
     ``interp='nearest'`` rounds to the pixel centre; ``'bilinear'`` blends the
-    four surrounding pixels (edge coords clamp, so the border never wraps). A
-    2-D (grayscale) image is broadcast to three channels.
+    four surrounding pixels (edge coords clamp, so the border never wraps).
+    ``'edge-aware'`` uses bilinear on smooth patches but switches to the nearest
+    real pixel when the local RGB range exceeds ``edge_threshold``, preventing
+    foreground/background colour bleed. A 2-D image is broadcast to RGB.
     """
     im = np.asarray(img).astype(np.float32)
     if im.ndim == 2:
@@ -157,8 +160,12 @@ def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
         ui = np.clip(np.round(uf).astype(np.int64), 0, width - 1)
         vi = np.clip(np.round(vf).astype(np.int64), 0, height - 1)
         return im[vi, ui]
-    if interp != 'bilinear':
-        raise ValueError(f"interp must be 'nearest' or 'bilinear', got {interp!r}")
+    if interp not in ('bilinear', 'edge-aware'):
+        raise ValueError(
+            "interp must be 'nearest', 'bilinear', or 'edge-aware', "
+            f'got {interp!r}')
+    if edge_threshold < 0.0:
+        raise ValueError('edge_threshold must be >= 0')
     x0 = np.clip(np.floor(uf).astype(np.int64), 0, width - 1)
     y0 = np.clip(np.floor(vf).astype(np.int64), 0, height - 1)
     x1 = np.minimum(x0 + 1, width - 1)
@@ -167,7 +174,16 @@ def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
     wy = np.clip(vf - y0, 0.0, 1.0)[:, None].astype(np.float32)
     top = im[y0, x0] * (1.0 - wx) + im[y0, x1] * wx
     bot = im[y1, x0] * (1.0 - wx) + im[y1, x1] * wx
-    return top * (1.0 - wy) + bot * wy
+    bilinear = top * (1.0 - wy) + bot * wy
+    if interp == 'bilinear':
+        return bilinear
+    corners = np.stack([im[y0, x0], im[y0, x1], im[y1, x0], im[y1, x1]], axis=1)
+    local_range = np.ptp(corners, axis=1).max(axis=1)
+    ui = np.clip(np.round(uf).astype(np.int64), 0, width - 1)
+    vi = np.clip(np.round(vf).astype(np.int64), 0, height - 1)
+    use_nearest = local_range > edge_threshold
+    bilinear[use_nearest] = im[vi[use_nearest], ui[use_nearest]]
+    return bilinear
 
 
 def _median_luminance(img: np.ndarray) -> float:
@@ -213,7 +229,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   zbuf_bin: int = 1, depth_tol: float = 0.15,
                                   max_samples: int = 12,
                                   normalize_exposure: bool = True,
-                                  interp: str = 'bilinear',
+                                  interp: str = 'edge-aware',
+                                  edge_threshold: float = 48.0,
                                   prefer_near: bool = True,
                                   return_counts: bool = False):
     """Occlusion-aware, exposure-normalised, median-robust point colorization.
@@ -234,9 +251,10 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     lands in a neighbouring pixel, so final map generation should keep the
     one-pixel default.
 
-    Quality knobs: ``interp='bilinear'`` samples sub-pixel (blends the four
-    surrounding pixels) instead of snapping to the nearest, cutting the colour
-    bleed nearest-pixel sampling leaves along edges. ``prefer_near=True`` keeps,
+    Quality knobs: ``interp='edge-aware'`` blends sub-pixel samples on smooth
+    patches and snaps to a real pixel across strong RGB edges, avoiding mixed
+    foreground/background colours. ``edge_threshold`` controls that switch.
+    ``prefer_near=True`` keeps,
     once a point has ``max_samples`` observations, the *nearest* ones (a new
     closer view evicts the farthest stored sample) so colour comes from the
     highest-resolution, least-foreshortened views rather than whichever happened
@@ -294,7 +312,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         if cand.size == 0:
             continue
         cand_z = z[inb][visible].astype(np.float32)
-        cols = _sample_pixels(img, uf[cand], vf[cand], width, height, interp)
+        cols = _sample_pixels(
+            img, uf[cand], vf[cand], width, height, interp, edge_threshold)
         cols = np.clip(cols * scales[vi], 0.0, 255.0).astype(np.uint8)
 
         # Points with room: append into the next free slot.
