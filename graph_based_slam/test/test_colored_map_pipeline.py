@@ -29,6 +29,7 @@
 
 """Tests for the user-facing coloured-map pipeline command composition."""
 
+import os
 from pathlib import Path
 import sys
 
@@ -38,6 +39,12 @@ if str(TOOL_DIR) not in sys.path:
     sys.path.insert(0, str(TOOL_DIR))
 
 import colored_map_pipeline as cmp  # noqa: E402
+
+
+def _write_at(path, text, stamp_ns):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    os.utime(path, ns=(stamp_ns, stamp_ns))
 
 
 def _args(tmp_path, *extra):
@@ -94,6 +101,36 @@ def test_force_trajectory_rebuilds_all_dependent_stages(tmp_path):
         '--force-trajectory')
     assert [name for name, _ in cmp.build_commands(args)] == [
         'dense corrected trajectory', 'posed images', 'coloured map']
+
+
+def test_newer_trajectory_input_rebuilds_all_dependent_stages(tmp_path):
+    out = tmp_path / 'out'
+    _write_at(out / 'dense_corrected_trajectory.tum', 'dense\n', 2)
+    _write_at(out / 'posed_images' / 'transforms.json', '{}', 3)
+    _write_at(out / 'colored_map.ply', 'ply\n', 4)
+    _write_at(tmp_path / 'raw.tum', 'raw\n', 5)
+    _write_at(tmp_path / 'traj.tum', 'corrected\n', 1)
+    args = _args(tmp_path, '--raw-traj', str(tmp_path / 'raw.tum'))
+    assert [name for name, _ in cmp.build_commands(args)] == [
+        'dense corrected trajectory', 'posed images', 'coloured map']
+
+
+def test_newer_direct_trajectory_rebuilds_images_and_map(tmp_path):
+    out = tmp_path / 'out'
+    _write_at(out / 'posed_images' / 'transforms.json', '{}', 2)
+    _write_at(out / 'colored_map.ply', 'ply\n', 3)
+    _write_at(tmp_path / 'traj.tum', 'dense\n', 4)
+    assert [name for name, _ in cmp.build_commands(_args(tmp_path))] == [
+        'posed images', 'coloured map']
+
+
+def test_newer_posed_images_rebuild_only_map(tmp_path):
+    out = tmp_path / 'out'
+    _write_at(tmp_path / 'traj.tum', 'dense\n', 1)
+    _write_at(out / 'colored_map.ply', 'ply\n', 2)
+    _write_at(out / 'posed_images' / 'transforms.json', '{}', 3)
+    assert [name for name, _ in cmp.build_commands(_args(tmp_path))] == [
+        'coloured map']
 
 
 def test_build_commands_reuses_existing_outputs(tmp_path):

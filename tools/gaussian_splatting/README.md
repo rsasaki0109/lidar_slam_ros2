@@ -79,6 +79,7 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
 `body <- LiDAR` をそれぞれ校正ファイルから適用する。`traj` にはscanを補間できる
 dense SLAM軌跡を渡すこと。疎なpose-graph keyframe列を使う場合は `--raw-traj` に
 補正前のdense軌跡を渡すと、補正を全poseへ伝播した軌跡が出力先に保存・再利用される。
+入力軌跡やposed画像が成果物より新しい場合は、依存する後段だけ自動再生成される。
 
 SLAM推定軌跡による着色地図の検証出力（RTK-SLAM Construction Hall 1、全60 m loop）:
 

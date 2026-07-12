@@ -145,7 +145,9 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
 ```
 
 The generated `dense_corrected_trajectory.tum` is reused on later runs. Use
-`--force-trajectory` after either input trajectory changes.
+`--force-trajectory` to regenerate it explicitly. The pipeline also detects
+newer trajectory and posed-image inputs and automatically rebuilds downstream
+artifacts, preventing stale coloured maps from being silently reused.
 
 ## Accuracy
 
