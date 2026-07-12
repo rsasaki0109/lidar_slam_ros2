@@ -415,6 +415,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       gnss_origin_consistency_threshold_m_);
     gnss_origin_consistency_threshold_m_ = 20.0;
   }
+  gnss_origin_accumulator_.configure(
+    gnss_origin_min_samples_, gnss_origin_consistency_threshold_m_);
   if (gnss_covariance_min_variance_m2_ <= 0.0) {
     RCLCPP_WARN(
       get_logger(),
@@ -1868,84 +1870,31 @@ bool GraphBasedSlamComponent::isUsableGnssFix(const sensor_msgs::msg::NavSatFix 
 
 void GraphBasedSlamComponent::tryInitializeGnssOrigin(double lat, double lon, double alt)
 {
-  GnssOriginSample sample {lat, lon, alt};
-
-  if (!gnss_origin_candidates_.empty()) {
-    double mean_lat = 0.0;
-    double mean_lon = 0.0;
-    double mean_alt = 0.0;
-    for (const auto & candidate : gnss_origin_candidates_) {
-      mean_lat += candidate.lat;
-      mean_lon += candidate.lon;
-      mean_alt += candidate.alt;
-    }
-    mean_lat /= gnss_origin_candidates_.size();
-    mean_lon /= gnss_origin_candidates_.size();
-    mean_alt /= gnss_origin_candidates_.size();
-
-    const double jump_m = approximateGeodeticDistanceMeters(mean_lat, mean_lon, lat, lon);
-    if (jump_m > gnss_origin_consistency_threshold_m_) {
-      RCLCPP_WARN(
-        get_logger(),
-        "Resetting GNSS origin initialization after %.1f m jump in candidate fixes",
-        jump_m);
-      gnss_origin_candidates_.clear();
-    }
+  const detail::GnssOriginUpdate update = gnss_origin_accumulator_.add(lat, lon, alt);
+  if (update.reset_after_jump) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Resetting GNSS origin initialization after %.1f m jump in candidate fixes",
+      update.deviation_m);
   }
-
-  gnss_origin_candidates_.push_back(sample);
-
-  if (static_cast<int>(gnss_origin_candidates_.size()) < gnss_origin_min_samples_) {
-    return;
-  }
-
-  double mean_lat = 0.0;
-  double mean_lon = 0.0;
-  double mean_alt = 0.0;
-  for (const auto & candidate : gnss_origin_candidates_) {
-    mean_lat += candidate.lat;
-    mean_lon += candidate.lon;
-    mean_alt += candidate.alt;
-  }
-  mean_lat /= gnss_origin_candidates_.size();
-  mean_lon /= gnss_origin_candidates_.size();
-  mean_alt /= gnss_origin_candidates_.size();
-
-  double max_deviation_m = 0.0;
-  for (const auto & candidate : gnss_origin_candidates_) {
-    const double deviation_m = approximateGeodeticDistanceMeters(
-      mean_lat, mean_lon, candidate.lat, candidate.lon);
-    if (deviation_m > max_deviation_m) {
-      max_deviation_m = deviation_m;
-    }
-  }
-
-  if (max_deviation_m > gnss_origin_consistency_threshold_m_) {
-    const GnssOriginSample latest = gnss_origin_candidates_.back();
-    gnss_origin_candidates_.clear();
-    gnss_origin_candidates_.push_back(latest);
+  if (update.restarted_after_inconsistency) {
     RCLCPP_WARN(
       get_logger(),
       "GNSS origin candidates were inconsistent (max deviation %.1f m), restarting accumulation",
-      max_deviation_m);
+      update.deviation_m);
+  }
+  if (!update.initialized) {
     return;
   }
 
-  gnss_origin_lat_ = mean_lat;
-  gnss_origin_lon_ = mean_lon;
-  gnss_origin_alt_ = mean_alt;
+  gnss_origin_lat_ = update.origin.latitude_deg;
+  gnss_origin_lon_ = update.origin.longitude_deg;
+  gnss_origin_alt_ = update.origin.altitude_m;
   gnss_origin_set_ = true;
-  gnss_origin_candidates_.clear();
   RCLCPP_INFO(
     get_logger(),
     "GNSS origin set from %d consistent fixes: lat=%.8f, lon=%.8f, alt=%.2f",
     gnss_origin_min_samples_, gnss_origin_lat_, gnss_origin_lon_, gnss_origin_alt_);
-}
-
-double GraphBasedSlamComponent::approximateGeodeticDistanceMeters(
-  double lat0, double lon0, double lat1, double lon1) const
-{
-  return detail::approximateGeodeticDistanceMeters(lat0, lon0, lat1, lon1);
 }
 
 Eigen::Vector3d GraphBasedSlamComponent::geodeticToEnu(
