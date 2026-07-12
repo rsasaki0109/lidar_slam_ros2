@@ -73,6 +73,10 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
   --points-topic /hesai/pandar \
   --camera-topic /alphasense/cam0/image_raw
 
+この形式ではcamera pose用の `body <- camera` と、点群積算用の
+`body <- LiDAR` をそれぞれ校正ファイルから適用する。`traj` にはscanを補間できる
+dense SLAM軌跡を渡すこと。疎なpose-graph keyframe列は既定で検出・拒否される。
+
 SLAM推定軌跡による着色地図の検証出力（RTK-SLAM Construction Hall 1、全60 m loop）:
 
 ![SLAM推定軌跡とカメラ着色点群地図](../../lidarslam/images/map_flythrough_rtkslam.gif)
