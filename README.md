@@ -14,9 +14,8 @@ ROS 2 LiDAR SLAM that outputs an Autoware-ready map bundle — `pointcloud_map/`
 ![Point cloud map built by this stack (Shinjuku demo bag)](lidarslam/images/map.png)
 
 *Shinjuku point cloud map built from a demo rosbag with this stack — start at the
-[Quickstart](#quickstart). For the animated map flythrough and the optional photoreal
-render, jump to [Photoreal 3DGS map](#photoreal-3dgs-map-optional). `develop` is the
-default branch; latest release notes: [v0.6.0](docs/releases/v0.6.0.md).*
+[Quickstart](#quickstart). `develop` is the default branch; latest release notes:
+[v0.6.0](docs/releases/v0.6.0.md).*
 
 ## Why lidarslam_ros2
 
@@ -44,13 +43,14 @@ artifacts you need downstream:
   ([evidence](docs/research/map-quality-baseline.md)).
 - **GNSS georeferencing** — optional GNSS constraints and projector metadata for
   real-world coordinates.
+- **Camera-coloured point-cloud maps** — synchronized images are projected onto
+  registered LiDAR scans with calibration-aware, occlusion-resistant colouring.
 
 ```mermaid
 flowchart LR
     bag(["rosbag2"]) --> rko["RKO-LIO<br/>LiDAR-inertial odometry"]
     rko --> gbs["graph_based_slam<br/>loop closure + graph optimization"]
     gbs --> bundle["Autoware map bundle<br/>pointcloud_map · lanelet2 · projector info"]
-    bundle -.-> gs3d["3DGS photoreal map<br/>(optional)"]
 ```
 
 ## Quickstart
@@ -121,6 +121,19 @@ filter parameters are documented in [docs/workflows.md](docs/workflows.md).
 
 ![Autoware map loaders rendering a pointcloud_map authored by this stack](lidarslam/images/autoware_map_loader_proof.png)
 
+## Camera-coloured point-cloud maps
+
+The colouring pipeline registers consecutive LiDAR scans in the map frame and
+projects synchronized camera pixels onto the accumulated geometry. The example
+below uses 108 KITTI scans over a 106.9 m trajectory, producing a 420,731-point
+RGB map rather than a single coloured scan.
+
+![Registered RGB-coloured LiDAR map built from 108 KITTI scans](docs/assets/images/kitti-rgb-colored-map.jpg)
+
+The preview is derived from the KITTI Vision Benchmark Suite under CC
+BY-NC-SA 3.0 for research/non-commercial validation, with attribution to
+A. Geiger, P. Lenz, C. Stiller, and R. Urtasun.
+
 ## Accuracy
 
 Current numbers from the release-gate profiles (`scripts/release_profiles.yaml`).
@@ -149,31 +162,10 @@ bash scripts/run_release_readiness_checks.sh --fail-on-profiles
 
 Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](docs/benchmarking.md).
 
-## Photoreal 3DGS map (optional)
-
-Below, the SLAM deliverable itself — the point-cloud map in real camera
-colours (the synced images projected onto the LiDAR points) with the estimated
-walking trajectory — as a follow-camera flythrough riding the full 60 m loop of
-the RTK-SLAM Construction Hall sequence (CC-BY 4.0), the same sequence the
-[release gate](#accuracy) scores against:
-
-![Follow-camera flythrough of the camera-coloured SLAM point-cloud map along the full estimated walking loop (RTK-SLAM Construction Hall 1)](lidarslam/images/map_flythrough_rtkslam.gif)
-
-The same SLAM output plus synced camera images can also be trained into a
-photoreal 3D Gaussian Splatting scene — LiDAR-primed (no COLMAP), trained with
-gsplat (Apache-2.0) — and **[spun in your browser →](https://rsasaki0109.github.io/lidar_slam_ros2/3dgs-viewer.html)** (no install, no GPU):
-
-```bash
-python3 tools/gaussian_splatting/render_map_flythrough.py --help  # the flythrough above (--color-mode rgb)
-bash scripts/run_rtkslam_3dgs_flythrough.sh   # photoreal 3DGS (or run_koide_3dgs_flythrough.sh)
-```
-
-Pipeline, quality levers, the [interactive viewer](docs/3dgs-viewer.md), and data-suitability notes: [docs/3dgs-map-tutorial.md](docs/3dgs-map-tutorial.md).
-
 ## Docs
 
 - **Getting started**: [Getting Started](docs/getting-started.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
-- **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md) · [3DGS map tutorial](docs/3dgs-map-tutorial.md)
+- **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md)
 - **Benchmarking**: [Benchmarking and release gate](docs/benchmarking.md) · [Comparison](docs/comparison.md)
 - **Project**: [v0.2.2 release notes](docs/releases/v0.2.2.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
 
