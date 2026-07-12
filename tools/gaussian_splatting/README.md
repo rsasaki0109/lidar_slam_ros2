@@ -73,13 +73,12 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
   --points-topic /hesai/pandar \
   --camera-topic /alphasense/cam0/image_raw
 
-RGB着色地図の検証出力（KITTI drive 0001、108スキャン、420,731点、走行106.9 m）:
+SLAM推定軌跡による着色地図の検証出力（RTK-SLAM Construction Hall 1、全60 m loop）:
 
-![KITTI RGB着色点群地図](../../docs/assets/images/kitti-rgb-colored-map.jpg)
+![SLAM推定軌跡とカメラ着色点群地図](../../lidarslam/images/map_flythrough_rtkslam.gif)
 
-この画像は KITTI Vision Benchmark Suite のデータから生成した派生成果物です。
-元データの CC BY-NC-SA 3.0 条件に従う研究・非商用の検証用途で、KITTI の
-著者（A. Geiger、P. Lenz、C. Stiller、R. Urtasun）へ帰属します。
+点群のmap座標への積算とカメラposeの両方に、同じ補正済みSLAM軌跡を使用します。
+元データは RTK-SLAM dataset（CC-BY 4.0）です。
 
 # 2b) gsplat 学習 → .ply（GPU）。--init-ply で LiDAR-primed init、
 #     --densify で adaptive density control（鮮鋭化）

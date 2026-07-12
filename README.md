@@ -123,16 +123,16 @@ filter parameters are documented in [docs/workflows.md](docs/workflows.md).
 
 ## Camera-coloured point-cloud maps
 
-The colouring pipeline registers consecutive LiDAR scans in the map frame and
-projects synchronized camera pixels onto the accumulated geometry. The example
-below uses 108 KITTI scans over a 106.9 m trajectory, producing a 420,731-point
-RGB map rather than a single coloured scan.
+The colouring pipeline uses the corrected SLAM trajectory to register consecutive
+LiDAR scans in the map frame, then projects synchronized camera pixels onto the
+accumulated geometry. The result below follows the full estimated 60 m walking
+loop from RTK-SLAM Construction Hall 1; the trajectory and the coloured map use
+the same SLAM poses.
 
-![Registered RGB-coloured LiDAR map built from 108 KITTI scans](docs/assets/images/kitti-rgb-colored-map.jpg)
+![Camera-coloured SLAM point-cloud map and its estimated trajectory](lidarslam/images/map_flythrough_rtkslam.gif)
 
-The preview is derived from the KITTI Vision Benchmark Suite under CC
-BY-NC-SA 3.0 for research/non-commercial validation, with attribution to
-A. Geiger, P. Lenz, C. Stiller, and R. Urtasun.
+The sequence is from the RTK-SLAM dataset (CC-BY 4.0). Its total-station
+checkpoints are also used by the [accuracy gate](#accuracy).
 
 ## Accuracy
 
