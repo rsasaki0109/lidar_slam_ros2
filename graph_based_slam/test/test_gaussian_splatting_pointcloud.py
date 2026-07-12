@@ -130,6 +130,17 @@ def test_transform_points_rotation_90z():
     np.testing.assert_allclose(out, [[0, 1, 0]], atol=1e-9)
 
 
+def test_compose_world_lidar_applies_rig_extrinsic_before_body_pose():
+    world_T_body = np.eye(4)
+    world_T_body[:3, 3] = [10.0, 0.0, 0.0]
+    body_T_lidar = np.eye(4)
+    body_T_lidar[:3, :3] = [[0, -1, 0], [1, 0, 0], [0, 0, 1]]
+    body_T_lidar[:3, 3] = [0.0, 2.0, 0.0]
+    world_T_lidar = bli.compose_world_lidar(world_T_body, body_T_lidar)
+    out = bli.transform_points(np.array([[1.0, 0.0, 0.0]]), world_T_lidar)
+    np.testing.assert_allclose(out, [[10.0, 3.0, 0.0]], atol=1e-9)
+
+
 # --------------------------------------------------------------------------- #
 # colorize_by_projection
 # --------------------------------------------------------------------------- #

@@ -172,10 +172,14 @@ def test_compose_kalibr_lidar_extrinsic(tmp_path):
         '    extrinsics:\n'
         '      translation: [0, 2, 0]\n'
         '      quaternion: [0, 0, 0, 1]\n')
-    matrix = ex.compose_kalibr_lidar_extrinsic(camchain, lidar)
-    # inv(imu<-lidar) @ inv(camera<-imu)
-    np.testing.assert_allclose(matrix[:3, 3], [-1, -2, 0], atol=1e-12)
+    matrix = ex.load_kalibr_body_camera_extrinsic(camchain, lidar)
+    # Camera pose follows the body/IMU trajectory; LiDAR translation must not
+    # leak into body<-camera.
+    np.testing.assert_allclose(matrix[:3, 3], [-1, 0, 0], atol=1e-12)
     np.testing.assert_allclose(matrix[:3, :3], np.eye(3), atol=1e-12)
+
+    body_T_lidar = ex.load_parented_sensor_extrinsic(lidar, 'PandarXT-32')
+    np.testing.assert_allclose(body_T_lidar[:3, 3], [0, 2, 0], atol=1e-12)
 
 
 # --------------------------------------------------------------------------- #

@@ -108,9 +108,12 @@ def test_kalibr_pair_uses_generated_extrinsic(tmp_path):
         '--kalibr-camchain', str(tmp_path / 'camchain.yaml'),
         '--lidar-calibration', str(tmp_path / 'lidar.yaml'),
     ])
-    extract = cmp.build_commands(args)[0][1]
-    generated = tmp_path / 'out' / 'generated_lidar_camera_extrinsic.json'
+    extract, build = [command for _, command in cmp.build_commands(args)]
+    generated = tmp_path / 'out' / 'generated_body_camera_extrinsic.json'
     assert extract[extract.index('--extrinsic') + 1] == str(generated)
+    assert build[build.index('--lidar-calibration') + 1] == str(
+        tmp_path / 'lidar.yaml')
+    assert build[build.index('--lidar-key') + 1] == 'PandarXT-32'
 
 
 def test_kalibr_camchain_requires_lidar_calibration(tmp_path):
@@ -121,3 +124,21 @@ def test_kalibr_camchain_requires_lidar_calibration(tmp_path):
     ])
     with pytest.raises(ValueError, match='lidar-calibration'):
         cmp.run_pipeline(args)
+
+
+def test_sparse_graph_keyframes_are_rejected(tmp_path):
+    import pytest
+    traj = tmp_path / 'traj.tum'
+    traj.write_text(
+        '1.0 0 0 0 0 0 0 1\n'
+        '2.2 0 0 0 0 0 0 1\n')
+    with pytest.raises(ValueError, match='dense SLAM trajectory'):
+        cmp.validate_trajectory_density(traj, 0.5)
+
+
+def test_dense_trajectory_passes_density_guard(tmp_path):
+    traj = tmp_path / 'traj.tum'
+    traj.write_text(
+        '1.0 0 0 0 0 0 0 1\n'
+        '1.1 0 0 0 0 0 0 1\n')
+    cmp.validate_trajectory_density(traj, 0.5)

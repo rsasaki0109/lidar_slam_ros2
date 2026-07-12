@@ -48,6 +48,25 @@ from typing import Sequence
 TOOL_DIR = Path(__file__).resolve().parent
 
 
+def validate_trajectory_density(path: Path, max_gap: float) -> None:
+    """Reject sparse graph keyframes that cannot register individual scans."""
+    if max_gap <= 0:
+        return
+    stamps = []
+    for line in path.read_text().splitlines():
+        fields = line.split()
+        if fields and not fields[0].startswith('#'):
+            stamps.append(float(fields[0]))
+    if len(stamps) < 2:
+        raise ValueError(f'{path}: trajectory needs at least two poses')
+    largest = max(b - a for a, b in zip(stamps, stamps[1:]))
+    if largest > max_gap:
+        raise ValueError(
+            f'{path}: trajectory pose gap {largest:.3f}s exceeds '
+            f'--max-trajectory-gap {max_gap:.3f}s; use a dense SLAM '
+            'trajectory rather than sparse pose-graph keyframes')
+
+
 def build_commands(args) -> list[tuple[str, list[str]]]:
     """Return the missing/forced pipeline stages as ``(name, argv)`` pairs."""
     out_dir = Path(args.out)
@@ -55,7 +74,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
     transforms = posed_dir / 'transforms.json'
     colored_map = out_dir / 'colored_map.ply'
     extrinsic_path = (Path(args.extrinsic) if args.extrinsic is not None else
-                      out_dir / 'generated_lidar_camera_extrinsic.json')
+                      out_dir / 'generated_body_camera_extrinsic.json')
     commands = []
 
     rebuild_images = args.force_images or not transforms.is_file()
@@ -88,6 +107,11 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             '--start-time', str(args.start_time), '--end-time', str(args.end_time),
             '--color-transforms', str(transforms), '--color-robust',
         ]
+        if args.lidar_calibration is not None:
+            build.extend([
+                '--lidar-calibration', str(args.lidar_calibration),
+                '--lidar-key', args.lidar_key,
+            ])
         commands.append(('coloured map', build))
     return commands
 
@@ -98,13 +122,15 @@ def run_pipeline(args) -> dict:
     if args.kalibr_camchain is not None and args.lidar_calibration is None:
         raise ValueError('--kalibr-camchain requires --lidar-calibration')
     if not args.dry_run:
+        validate_trajectory_density(args.traj, args.max_trajectory_gap)
+    if not args.dry_run:
         out_dir.mkdir(parents=True, exist_ok=True)
         if args.kalibr_camchain is not None:
-            from extract_posed_images import compose_kalibr_lidar_extrinsic
-            matrix = compose_kalibr_lidar_extrinsic(
+            from extract_posed_images import load_kalibr_body_camera_extrinsic
+            matrix = load_kalibr_body_camera_extrinsic(
                 args.kalibr_camchain, args.lidar_calibration,
                 camera_key=args.camera_key, lidar_key=args.lidar_key)
-            generated = out_dir / 'generated_lidar_camera_extrinsic.json'
+            generated = out_dir / 'generated_body_camera_extrinsic.json'
             generated.write_text(json.dumps({'matrix': matrix.tolist()}, indent=2))
     commands = build_commands(args)
     for name, command in commands:
@@ -139,6 +165,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help='camera intrinsics YAML when the bag has no CameraInfo')
     p.add_argument('--time-offset', default='auto',
                    help='camera-to-trajectory clock offset or auto')
+    p.add_argument('--max-trajectory-gap', type=float, default=0.5,
+                   help='reject sparse pose streams with a larger gap (s); '
+                        'set <=0 to disable')
     p.add_argument('--image-stride', type=int, default=1)
     p.add_argument('--scan-stride', type=int, default=1)
     p.add_argument('--voxel', type=float, default=0.1)

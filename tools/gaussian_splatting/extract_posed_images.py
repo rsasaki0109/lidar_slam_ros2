@@ -188,17 +188,18 @@ def load_extrinsic(path: Optional[str | Path]) -> np.ndarray:
     return parse_extrinsic_dict(data)
 
 
-def compose_kalibr_lidar_extrinsic(camchain_path: str | Path,
-                                   lidar_calibration_path: str | Path, *,
-                                   camera_key: str = 'cam0',
-                                   lidar_key: str = 'PandarXT-32') -> np.ndarray:
-    """Compose ``lidar <- camera`` from Kalibr and parented LiDAR YAMLs.
+def load_kalibr_body_camera_extrinsic(camchain_path: str | Path,
+                                      lidar_calibration_path: str | Path, *,
+                                      camera_key: str = 'cam0',
+                                      lidar_key: str = 'PandarXT-32') -> np.ndarray:
+    """Load ``body/IMU <- camera`` for a body-frame SLAM trajectory.
 
     Kalibr stores ``T_cam_imu`` (camera <- IMU). The HILTI-style LiDAR file
-    stores the selected sensor's extrinsic relative to its ``parent``
-    (IMU <- LiDAR). Inverting both and composing yields LiDAR <- camera, the
-    body <- camera direction used by posed-image extraction when SLAM runs in
-    the LiDAR frame.
+    is validated here because the paired pipeline also uses its ``IMU <-
+    LiDAR`` transform when accumulating scans. Camera poses, however, must be
+    composed with the frame represented by the SLAM trajectory (IMU/body), not
+    with the raw LiDAR frame. Therefore the required transform is simply the
+    inverse Kalibr transform.
     """
     import yaml
 
@@ -210,16 +211,33 @@ def compose_kalibr_lidar_extrinsic(camchain_path: str | Path,
     if camera_T_imu.shape != (4, 4):
         raise ValueError(f'{camchain_path}: {camera_key}.T_cam_imu must be 4x4')
 
-    lidar_doc = yaml.safe_load(Path(lidar_calibration_path).read_text())
-    sensors = lidar_doc.get('sensors', {}) if isinstance(lidar_doc, dict) else {}
-    if lidar_key not in sensors or 'extrinsics' not in sensors[lidar_key]:
-        raise ValueError(f'{lidar_calibration_path}: missing sensor {lidar_key}')
-    extrinsic = sensors[lidar_key]['extrinsics']
+    load_parented_sensor_extrinsic(lidar_calibration_path, lidar_key)
+    return np.linalg.inv(camera_T_imu)
+
+
+def compose_kalibr_lidar_extrinsic(camchain_path: str | Path,
+                                   lidar_calibration_path: str | Path, *,
+                                   camera_key: str = 'cam0',
+                                   lidar_key: str = 'PandarXT-32') -> np.ndarray:
+    """Compatibility alias for ``load_kalibr_body_camera_extrinsic``."""
+    return load_kalibr_body_camera_extrinsic(
+        camchain_path, lidar_calibration_path,
+        camera_key=camera_key, lidar_key=lidar_key)
+
+
+def load_parented_sensor_extrinsic(path: str | Path,
+                                   sensor_key: str) -> np.ndarray:
+    """Load ``parent <- sensor`` from a HILTI-style sensor-tree YAML."""
+    import yaml
+
+    doc = yaml.safe_load(Path(path).read_text())
+    sensors = doc.get('sensors', {}) if isinstance(doc, dict) else {}
+    if sensor_key not in sensors or 'extrinsics' not in sensors[sensor_key]:
+        raise ValueError(f'{path}: missing sensor {sensor_key}')
+    extrinsic = sensors[sensor_key]['extrinsics']
     if 'translation' not in extrinsic or 'quaternion' not in extrinsic:
-        raise ValueError(f'{lidar_calibration_path}: incomplete {lidar_key} extrinsic')
-    imu_T_lidar = pi.make_transform(
-        extrinsic['translation'], extrinsic['quaternion'])
-    return np.linalg.inv(imu_T_lidar) @ np.linalg.inv(camera_T_imu)
+        raise ValueError(f'{path}: incomplete {sensor_key} extrinsic')
+    return pi.make_transform(extrinsic['translation'], extrinsic['quaternion'])
 
 
 def resolve_world_T_camera(

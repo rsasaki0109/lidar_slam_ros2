@@ -30,6 +30,13 @@ def transform_points(points: np.ndarray, world_T_body: np.ndarray) -> np.ndarray
     return (pts @ world_T_body[:3, :3].T) + world_T_body[:3, 3]
 
 
+def compose_world_lidar(world_T_body: np.ndarray,
+                        body_T_lidar: np.ndarray) -> np.ndarray:
+    """Compose ``world <- LiDAR`` from a body trajectory and rig extrinsic."""
+    return (np.asarray(world_T_body, dtype=np.float64) @
+            np.asarray(body_T_lidar, dtype=np.float64))
+
+
 def _read_pointcloud_xyz(msg) -> np.ndarray:
     """Extract finite XYZ (N,3) from a sensor_msgs/PointCloud2 message."""
     from sensor_msgs_py import point_cloud2
@@ -46,6 +53,11 @@ def build(args: argparse.Namespace) -> dict:
     from sensor_msgs.msg import PointCloud2
 
     samples = pi.read_tum_trajectory(args.traj)
+    body_T_lidar = np.eye(4)
+    if args.lidar_calibration:
+        from extract_posed_images import load_parented_sensor_extrinsic
+        body_T_lidar = load_parented_sensor_extrinsic(
+            args.lidar_calibration, args.lidar_key)
 
     import rosbag2_py
     # Reuse the extractor's reader factory so FILE-compressed (zstd) bags work.
@@ -88,7 +100,12 @@ def build(args: argparse.Namespace) -> dict:
             if args.max_range > 0:
                 keep &= rng <= args.max_range
             pts = pts[keep]
-        world_pts = transform_points(pts, world_T_body).astype(np.float32)
+        # PointCloud2 XYZ is expressed in the LiDAR frame, while the SLAM TUM
+        # trajectory is world <- body/IMU. Compose both transforms explicitly;
+        # treating raw LiDAR points as body-frame points rotates every scan
+        # around the wrong axes on rigs such as HILTI's PandarXT-32.
+        world_T_lidar = compose_world_lidar(world_T_body, body_T_lidar)
+        world_pts = transform_points(pts, world_T_lidar).astype(np.float32)
         # Downsample each scan before accumulating so peak memory is bounded by
         # the downsampled cloud, not the sum of every raw scan (a long bag is
         # tens of millions of points before any reduction).
@@ -135,6 +152,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--bag', required=True)
     p.add_argument('--traj', required=True, help='SLAM trajectory (TUM, world<-body)')
     p.add_argument('--points-topic', default='/livox/points')
+    p.add_argument('--lidar-calibration', default=None,
+                   help='HILTI-style sensor-tree YAML containing parent<-LiDAR')
+    p.add_argument('--lidar-key', default='PandarXT-32',
+                   help='sensor key inside --lidar-calibration')
     p.add_argument('--out', required=True, help='output init .ply')
     p.add_argument('--voxel', type=float, default=0.1, help='voxel size (m)')
     p.add_argument('--max-range', type=float, default=80.0, help='drop points beyond (m)')
