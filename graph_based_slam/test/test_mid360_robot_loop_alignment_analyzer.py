@@ -31,8 +31,8 @@
 
 from __future__ import annotations
 
-import json
 import importlib.util
+import json
 from pathlib import Path
 import struct
 import subprocess

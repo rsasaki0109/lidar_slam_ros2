@@ -72,7 +72,7 @@ def test_rko_lio_benchmark_help_exits_successfully():
 
 def test_trajectory_only_mode_uses_full_dump_as_explicit_passthrough():
     script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
-    assert "find \"$OUTPUT_DIR\" -mindepth 2 -maxdepth 2" in script
+    assert 'find "$OUTPUT_DIR" -mindepth 2 -maxdepth 2' in script
     assert 'Trajectory-only passthrough from full-rate dump' in script
     assert 'cp "${BACKEND_TUMS[0]}" "$RAW_TUM"' in script
 
