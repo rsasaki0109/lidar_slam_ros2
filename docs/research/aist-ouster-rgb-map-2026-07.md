@@ -20,7 +20,8 @@ held-out camera colour consistency.
 - automatic camera-clock to LiDAR-clock offset and drift estimation, followed
   by the independently validated AIST-specific +10 ms residual adjustment
 - all RGB frames, all scans, 0.15 m map voxel, range 1–80 m
-- weak density guard: one supporting point (`min_neighbors=1`)
+- isolated-return guard: self plus one supporting point
+  (`min_neighbors=2`, 0.20 m density voxel)
 - robust 1-pixel z-buffer + edge-aware sampling + RGB medoid fusion
 - rigid scan accumulation (`--no-deskew`), explicitly frozen below
 - held-out protocol: even images colour, odd images score
@@ -40,29 +41,24 @@ bash scripts/run_aist_ouster_rgb_map_benchmark.sh \
 | metric | 16:25:54 | 16:26:51 |
 |---|---:|---:|
 | scans / RGB views | 291 / 58 | 265 / 53 |
-| map points | 176,709 | 137,477 |
-| RGB-coloured points | 64,293 | 47,773 |
-| whole-map coloured fraction | **36.38%** | **34.75%** |
-| chromatic fraction (channel range ≥10) | **60.02%** | **64.39%** |
-| unique observed colours | 36,755 | 29,336 |
-| held-out RGB L2 median ↓ | **20.34** | **16.37** |
-| held-out RGB L2 inlier ≤20 ↑ | **49.45%** | **57.31%** |
+| map points | 175,670 | 136,765 |
+| RGB-coloured points | 63,934 | 47,522 |
+| whole-map coloured fraction | **36.39%** | **34.75%** |
+| chromatic fraction (channel range ≥10) | **60.12%** | **64.48%** |
+| unique observed colours | 36,620 | 29,238 |
+| held-out RGB L2 median ↓ | **20.35** | **16.40** |
+| held-out RGB L2 inlier ≤20 ↑ | **49.43%** | **57.26%** |
 | held-out scored fraction | 99.87% | 100.00% |
-| plane thickness mean ↓ | 0.0823 m | 0.0744 m |
-| plane thickness p95 ↓ | 0.1230 m | 0.1193 m |
-| planar coverage ↑ | 47.44% | 53.95% |
-| colour-map wall time | 177.7 s | 158.7 s |
-| processing / bag duration ↓ | 6.13× | 6.00× |
-| colour-map peak RSS | 1,084.0 MiB | 1,009.0 MiB |
+| plane thickness mean ↓ | 0.08206 m | 0.07422 m |
+| plane thickness p95 ↓ | 0.12290 m | 0.11916 m |
+| planar coverage ↑ | 48.12% | 54.50% |
 
 The former one-scan check covered only 9.55% / 10.57% of each 32,768-point
 scan. It remains useful as a fast calibration smoke test, but it is no longer
 the evidence for a camera-coloured point-cloud **map**.
 
-Both resource rows are clean end-to-end reruns of the frozen rigid-scan runner
-with the adopted +10 ms adjustment. Their PLY SHA-256 prefixes are
-`1d2ea97f...f6f0f3` and `435a1744...a1982`; timings come directly from those
-runs rather than a first-pass deskew ablation.
+The combined +10 ms / isolated-return artifacts have PLY SHA-256 prefixes
+`620edfc8...e7a900` and `3209bd26...43d933`.
 
 ## Ablations and rejected shortcuts
 
@@ -103,6 +99,28 @@ adjustment and exposes `--time-offset-adjustment` for measured calibration;
 it does not assume that every sensor pair shares this residual. A controlled
 16:26:51 end-to-end pair measured 154.79 s / 1,009.1 MiB at 0 ms and
 158.73 s / 1,009.0 MiB at +10 ms, within the 5% runtime/RSS gate.
+
+### Isolated LiDAR returns
+
+`min_neighbors` counts the point itself. The former AIST value of one was
+therefore a no-op, not one supporting return. Candidates were selected on
+16:25:54 and frozen before evaluation on 16:26:51:
+
+| candidate | outcome |
+|---|---|
+| 2 points / 0.15 m | geometry improved, rejected: runtime median +8.9% |
+| 2 points / 0.30 m | runtime passed, rejected: holdout thickness p95 +0.27% |
+| **2 points / 0.20 m** | **adopted: geometry and 5% resource gates passed** |
+
+The adopted guard removed only 0.59% / 0.52% of map points. Relative to the
+time-corrected baseline, mean thickness changed 0.08230→0.08206 m and
+0.0744→0.07422 m, while planar coverage rose 47.44→48.12% and
+53.95→54.50%. Held-out RGB metrics stayed within 0.3% and chromatic fractions
+rose on both captures.
+
+Controlled map-only timing was 26.93→27.34 s on 16:25:54 (+1.5%) and
+22.09→22.70 s on 16:26:51 (+2.8%); peak RSS changed −1.7% / +0.05%.
+The filter is kept AIST-runner-specific because point density varies by sensor.
 
 ### Exposure normalization
 

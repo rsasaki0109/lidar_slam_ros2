@@ -413,6 +413,8 @@ def drop_sparse_points(xyz: np.ndarray, min_neighbors: int = 3,
                        voxel: float = 0.1) -> np.ndarray:
     """Keep-mask of points whose 3x3x3 voxel neighbourhood holds enough points.
 
+    The count includes the query point, so two means one supporting point and
+    one is a no-op. Zero is handled by callers as an explicit disabled value.
     Isolated stray returns render as dust in the map flythrough; counting the
     points in each voxel plus its 26 neighbours (integer 3D keys, ``np.unique``
     histogram) and dropping points below ``min_neighbors`` removes them without

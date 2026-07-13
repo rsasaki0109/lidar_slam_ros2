@@ -561,6 +561,12 @@ def test_drop_sparse_points_grid_boundary_is_safe():
     assert keep.tolist() == [True, True]
 
 
+def test_drop_sparse_points_one_counts_the_query_point():
+    pts = np.array([[0.0, 0.0, 0.0], [9.0, -4.0, 2.0]])
+    keep = pcio.drop_sparse_points(pts, min_neighbors=1, voxel=0.1)
+    assert keep.all()
+
+
 def test_drop_sparse_points_neighbouring_voxels_count_together():
     # Two points in adjacent voxels see each other through the 26-neighbourhood.
     pts = np.array([[0.0, 0.0, 0.0], [0.11, 0.0, 0.0]])

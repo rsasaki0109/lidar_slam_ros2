@@ -54,6 +54,7 @@ def test_runner_freezes_rigid_scan_and_real_rgb_reports():
 
     assert '--no-deskew' in source
     assert '--time-offset-adjustment 0.01' in source
+    assert '--min-neighbors 2 --sparse-voxel 0.20' in source
     assert 'analyze_colored_point_cloud.py' in source
     assert 'evaluate_heldout_point_colors.py' in source
     assert 'run_map_quality_check.sh' in source
