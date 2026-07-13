@@ -70,3 +70,26 @@ The cache-controlled repeat pair measured 57.78 s / 472,680 KiB for the
 candidate and 57.57 s / 472,624 KiB for default-off: +0.36% wall time and
 +0.012% peak RSS. Accuracy and the local resource gate pass this phase;
 repository-wide public-suite and map-quality adoption remain pending.
+
+## Non-HILTI holdout and adoption verdict
+
+The frozen candidate was next run, without retuning, on the public GLIM
+MID-360 bag used by the existing cross-validation workflow. It completed all
+2,772 poses in 64.22 s with 307,704 KiB peak RSS, but changed the trajectory
+substantially: its SE(3)-aligned delta from the existing RKO-LIO baseline was
+5.891 m RMSE over all poses.
+
+Against the workflow's unchanged GLIM cross-validation reference, raw APE
+RMSE regressed from **1.167254 m** to **3.179403 m** over all 576 reference
+poses. This is an accuracy hard failure, so map-quality and wider resource
+adoption checks cannot rescue the candidate.
+
+Final decision: retain the implementation as an opt-in research path with
+`degeneracy_aware_solve=false` by default. Do not promote it to the shipped
+RKO-LIO default. The result demonstrates that a motion prior helpful in a
+PandarXT-32 corridor does not transfer safely to MID-360's narrow-FOV motion;
+future work needs a sensor- and prior-consistency gate, not another global
+weight adjustment.
+
+MID-360 artifact:
+`/media/sasaki/aiueo/benchmarks/mid360_public/degeneracy_solve_holdout_20260713/frozen_candidate`.
