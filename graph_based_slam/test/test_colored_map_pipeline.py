@@ -33,12 +33,15 @@ import os
 from pathlib import Path
 import sys
 
+import imageio.v3 as iio
+import numpy as np
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOL_DIR = REPO_ROOT / 'tools' / 'gaussian_splatting'
 if str(TOOL_DIR) not in sys.path:
     sys.path.insert(0, str(TOOL_DIR))
 
-import colored_map_pipeline as cmp  # noqa: E402
+import colored_map_pipeline as cmp  # noqa: E402, I100
 
 
 def _write_at(path, text, stamp_ns):
@@ -227,6 +230,27 @@ def test_dense_trajectory_passes_density_guard(tmp_path):
         '1.0 0 0 0 0 0 0 1\n'
         '1.1 0 0 0 0 0 0 1\n')
     cmp.validate_trajectory_density(traj, 0.5)
+
+
+def test_colour_source_rejects_mono_and_accepts_real_rgb(tmp_path):
+    images = tmp_path / 'images'
+    images.mkdir()
+    iio.imwrite(images / 'mono.png', np.zeros((8, 8), np.uint8))
+    transforms = tmp_path / 'transforms.json'
+    transforms.write_text(
+        '{"frames": [{"file_path": "images/mono.png"}]}')
+    import pytest
+    with pytest.raises(ValueError, match='monochrome'):
+        cmp.validate_colour_source(transforms)
+    assert not cmp.validate_colour_source(
+        transforms, allow_monochrome=True)['is_colour']
+
+    rgb = np.zeros((8, 8, 3), np.uint8)
+    rgb[:, :, 0] = 200
+    iio.imwrite(images / 'rgb.png', rgb)
+    transforms.write_text(
+        '{"frames": [{"file_path": "images/rgb.png"}]}')
+    assert cmp.validate_colour_source(transforms)['is_colour']
 
 
 def test_quality_profile_adds_two_evaluators_and_gate(tmp_path):

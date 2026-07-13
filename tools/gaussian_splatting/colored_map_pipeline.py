@@ -44,6 +44,8 @@ import subprocess
 import sys
 from typing import Sequence
 
+import numpy as np
+
 
 TOOL_DIR = Path(__file__).resolve().parent
 REPO_ROOT = TOOL_DIR.parents[1]
@@ -82,6 +84,38 @@ def validate_trajectory_density(path: Path, max_gap: float) -> None:
             f'{path}: trajectory pose gap {largest:.3f}s exceeds '
             f'--max-trajectory-gap {max_gap:.3f}s; use a dense SLAM '
             'trajectory rather than sparse pose-graph keyframes')
+
+
+def validate_colour_source(transforms: Path, allow_monochrome: bool = False
+                           ) -> dict:
+    """Reject mono posed images unless the caller explicitly allows them."""
+    import imageio.v3 as iio
+
+    document = json.loads(Path(transforms).read_text())
+    frames = document.get('frames', [])
+    if not frames:
+        raise ValueError(f'{transforms}: no posed image frames')
+    sampled = frames[::max(1, len(frames) // 5)][:5]
+    deltas = []
+    channels = []
+    for frame in sampled:
+        path = (Path(transforms).parent / frame['file_path']).resolve()
+        image = np.asarray(iio.imread(path))
+        channels.append(1 if image.ndim == 2 else image.shape[2])
+        if image.ndim == 3 and image.shape[2] >= 3:
+            deltas.append(float(np.mean(np.ptp(image[:, :, :3], axis=2))))
+        else:
+            deltas.append(0.0)
+    colour_delta = float(np.mean(deltas))
+    is_colour = max(channels) >= 3 and colour_delta > 0.5
+    report = {'sampled_frames': len(sampled), 'max_channels': max(channels),
+              'mean_channel_delta': colour_delta, 'is_colour': is_colour}
+    if not is_colour and not allow_monochrome:
+        raise ValueError(
+            'camera source is monochrome; RGB point colouring would only copy '
+            'luminance into three channels. Choose a bgr8/rgb8 camera topic, or '
+            'pass --allow-monochrome for geometry-only benchmarking')
+    return report
 
 
 def build_commands(args) -> list[tuple[str, list[str]]]:
@@ -223,6 +257,10 @@ def run_pipeline(args) -> dict:
             validate_trajectory_density(
                 trajectory, args.max_trajectory_gap)
             trajectory_validated = True
+        if not args.dry_run and name == 'coloured map':
+            validate_colour_source(
+                out_dir / 'posed_images' / 'transforms.json',
+                args.allow_monochrome)
         print(f'[{name}]', ' '.join(command))
         if not args.dry_run:
             subprocess.run(command, check=True)
@@ -281,6 +319,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--start-time', type=float, default=0.0)
     p.add_argument('--end-time', type=float, default=-1.0)
     p.add_argument('--no-undistort', action='store_true')
+    p.add_argument('--allow-monochrome', action='store_true',
+                   help='allow luminance-only maps for geometry benchmarks')
     p.add_argument('--force-images', action='store_true')
     p.add_argument('--force-map', action='store_true')
     p.add_argument('--force-trajectory', action='store_true')

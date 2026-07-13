@@ -72,6 +72,9 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
   --points-topic /livox/points --camera-topic /image \
   --camera-info-topic /camera_info
 
+# mono cameraをgeometry-only用途で意図的に使う場合だけ追加
+# --allow-monochrome
+
 # GT付き検証では外部reportを渡し、校正・held-out色・統合gateも一括実行
 python3 tools/gaussian_splatting/colored_map_pipeline.py \
   <bag> output/<run>/traj_corrected.tum output/<run>/colored_map \
@@ -96,6 +99,10 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
 dense SLAM軌跡を渡すこと。疎なpose-graph keyframe列を使う場合は `--raw-traj` に
 補正前のdense軌跡を渡すと、補正を全poseへ伝播した軌跡が出力先に保存・再利用される。
 入力軌跡やposed画像が成果物より新しい場合は、依存する後段だけ自動再生成される。
+pipelineはmono8やRGB 3chが同値の入力を既定で拒否し、輝度を3chへ複製した点群を
+「カラー」と誤認しない。HILTI 2022のcam0〜cam4はすべてmono8なので幾何・軌跡
+benchmark用とし、RGB着色はAIST Ouster公開bag（`/image`, bgr8, 2448×2048）で
+検証する。geometry-only用途だけ `--allow-monochrome` で明示的に許可できる。
 `--quality-profile`は明示的opt-inで、`lidar_camera_alignment.json`、
 `heldout_point_colors.json`、`colored_map_quality_gate.json`も出力する。
 これらも入力より新しければ再利用し、`--force-quality`で品質3段階だけ再実行できる。
