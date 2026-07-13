@@ -392,6 +392,10 @@ int main(int argc, char ** argv)
     "scan_context_query_stride", aggregator.scan_context_query_stride, 1);
   aggregator.scan_context_query_stride = std::max(1, aggregator.scan_context_query_stride);
   node->get_parameter_or(
+    "scan_context_exclude_recent", aggregator.scan_context_exclude_recent,
+    graphslam::ScanContext::EXCLUDE_RECENT);
+  aggregator.scan_context_exclude_recent = std::max(1, aggregator.scan_context_exclude_recent);
+  node->get_parameter_or(
     "bev_use_mutual_visibility", aggregator.bev_use_mutual_visibility, false);
   node->get_parameter_or(
     "bev_mutual_visibility_min_overlap_ratio",

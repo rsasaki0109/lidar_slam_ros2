@@ -327,6 +327,26 @@ TEST_F(CandidateAggregatorScanContext, QueryStrideSkipsNonSelectedSubmapsDetermi
     "Skip ScanContext query at submap 51 because query stride is 4");
 }
 
+TEST_F(CandidateAggregatorScanContext, ConfigurableRecentExclusionSupportsShortSequences)
+{
+  db_.add(0, makePatternDescriptor(0));
+  for (int id = 1; id < 43; ++id) {
+    db_.add(id, makeFillerDescriptor(id));
+  }
+  db_.add(43, makePatternDescriptor(0));
+  travels_.assign(44, 0.0);
+  travels_[43] = 100.0;
+  auto config = makeConfig();
+  config.scan_context_exclude_recent = 20;
+
+  candidate_aggregator::collectScanContextCandidate(
+    db_, travels_, 43, config, candidates_, logs_);
+
+  ASSERT_EQ(candidates_.size(), 1U);
+  EXPECT_EQ(candidates_[0].index, 0);
+  EXPECT_EQ(candidates_[0].source, Source::SCAN_CONTEXT);
+}
+
 Eigen::Affine3d makeTestPose(double x, double y)
 {
   Eigen::Affine3d pose = Eigen::Affine3d::Identity();

@@ -477,6 +477,11 @@ For the short supported path, use
 The backend validates candidates geometrically before adding a loop edge and
 keeps only the best local edge inside the configured dedup window.
 
+Scan Context normally excludes the 50 most recent submaps. Experimental short
+sequences may override `scan_context_exclude_recent`, but the value must remain
+positive and the default stays 50. Treat a smaller window as an ablation: it
+can expose aliased descriptors that the geometric verifier must reject.
+
 To regenerate the README loop-area zoom figure used for visual inspection of
 closing-segment duplication:
 

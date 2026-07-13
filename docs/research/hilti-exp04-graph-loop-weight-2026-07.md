@@ -75,6 +75,30 @@ alone is therefore not a safe acceptance signal. A stronger weight fits the
 false constraint harder and monotonically worsens the independent GT metric.
 Accuracy fails before runtime or memory can affect the adoption decision.
 
+## Short-sequence Scan Context ablation
+
+The standard 50-submap recent-exclusion window prevents a query on this
+44-submap sequence. The opt-in `scan_context_exclude_recent` parameter now
+makes that window explicit while retaining 50 as the default. With exclusion
+20, query stride 1, descriptor threshold 0.55, and Scan Context registration
+fitness threshold 0.7, two runs were byte-identical and accepted zero edges.
+The runner SHA-256 was
+`0e144243f3c0b3544c1e88db9e2416157df0f33e1a18878d14ff9815c4b9f93e`.
+
+The shortened window did expose descriptor matches, but their yaw hints were
+strongly aliased (for example `4 -> 27` at 24 degrees and `0 -> 43` at -54
+degrees). Geometric registration rejected every Scan Context proposal; the
+best examples still had fitness 4.35 and 80.45 respectively. The unchanged
+trajectory is byte-identical to the no-loop baseline. This is a valid
+deterministic negative result, not an accuracy improvement.
+
+As a control, delaying distance search until 66 m and admitting the final
+`0 -> 43` neighbourhood produced exactly one byte-identical edge in two runs.
+After propagating its sparse graph correction to all 1,258 raw poses, APE RMSE
+regressed from **0.071560 m** to **0.313932 m** over all seven matched control
+points. Therefore neither the smaller Scan Context exclusion nor an endpoint
+distance edge is adopted for HILTI exp04.
+
 ## Reproduction
 
 Record one odometry/cloud pair for every RKO output scan, then verify the bag
