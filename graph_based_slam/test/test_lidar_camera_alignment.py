@@ -32,6 +32,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 import numpy as np
@@ -85,3 +86,45 @@ def test_score_view_handles_no_depth_edges():
         points, np.eye(4), K, np.zeros((10, 10, 3), dtype=np.uint8))
     assert result['edge_points'] == 0
     assert result['median_px'] is None
+
+
+def test_correction_matrix_applies_translation_and_rotation():
+    matrix = lca.correction_matrix([1.0, 2.0, 3.0, 0.0, 0.0, np.pi / 2])
+    np.testing.assert_allclose(matrix[:3, 3], [1.0, 2.0, 3.0])
+    np.testing.assert_allclose(
+        matrix[:3, :3] @ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], atol=1e-12)
+
+
+def test_optimize_correction_descends_synthetic_objective(monkeypatch):
+    target = np.array([0.02, -0.01, 0.0, np.deg2rad(0.2), 0.0, 0.0])
+
+    def objective(*args, reference_edge_points=None, **kwargs):
+        parameters = args[4]
+        loss = float(np.sum((parameters - target) ** 2))
+        return loss, {'edge_points': 100, 'mean_px': loss,
+                      'median_px': loss, 'coverage': 1.0}
+
+    monkeypatch.setattr(lca, 'alignment_objective', objective)
+    parameters, before, after = lca.optimize_correction(
+        np.zeros((0, 3)), np.zeros((0, 4, 4)), np.eye(3), [], rounds=2)
+    assert after['loss'] < before['loss']
+    np.testing.assert_allclose(parameters, target, atol=np.deg2rad(0.1))
+
+
+def test_write_corrected_transforms_preserves_images_and_updates_pose(tmp_path):
+    images = tmp_path / 'source' / 'images'
+    images.mkdir(parents=True)
+    (images / '000.png').write_bytes(b'pixel')
+    source = tmp_path / 'source' / 'transforms.json'
+    source.write_text(json.dumps({
+        'fl_x': 10, 'fl_y': 10, 'cx': 5, 'cy': 5, 'w': 10, 'h': 10,
+        'frames': [{'file_path': 'images/000.png',
+                    'transform_matrix': np.eye(4).tolist()}],
+    }))
+    output = tmp_path / 'result' / 'corrected.json'
+    correction = lca.correction_matrix([0.1, 0, 0, 0, 0, 0])
+    original = lca.tg.load_transforms(source)['viewmats'][0]
+    lca.write_corrected_transforms(source, output, correction)
+    loaded = lca.tg.load_transforms(output)
+    np.testing.assert_allclose(loaded['viewmats'][0], correction @ original)
+    assert loaded['image_paths'][0] == (images / '000.png').resolve()

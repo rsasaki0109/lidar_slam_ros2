@@ -137,6 +137,12 @@ python3 scripts/evaluate_lidar_camera_alignment.py \
   --out output/<run>/lidar_camera_alignment.json
 ```
 
+微小な外部校正残差は `--optimize-extrinsic --corrected-transforms-out <別名.json>`
+でcamera-frame 6-DoFを粗→細探索できる。LiDAR edge支持数90%未満にはpenaltyを掛け、
+点を画面外へ逃がす偽改善を防ぐ。原本は上書き禁止で、補正前後metricと行列をreportへ
+保存する。HILTI exp04の独立view検証ではmean edge距離を0.16%改善したが、held-out
+RGB medianの改善は35.48198→35.47576と小さく、production既定にはしていない。
+
 着色に使っていない画像への再投影誤差も測定できる。既定では偶数viewのみで着色し、
 奇数viewをheld-out検証に使うため、入力画像を覚えただけの色一致を避けられる。
 
