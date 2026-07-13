@@ -26,6 +26,8 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+"""Tests for normalized GNU-time runtime evidence."""
+
 import importlib.util
 from pathlib import Path
 
@@ -40,6 +42,7 @@ SPEC.loader.exec_module(runtime)
 
 
 def test_parse_gnu_time_reports_realtime_and_memory():
+    """Parse the historical single-run report without changing its values."""
     text = (
         'Elapsed (wall clock) time (h:mm:ss or m:ss): 2:35.22\n'
         'Maximum resident set size (kbytes): 908668\n'
@@ -53,12 +56,35 @@ def test_parse_gnu_time_reports_realtime_and_memory():
 
 
 def test_elapsed_seconds_accepts_hours_and_rejects_bad_input():
+    """Accept GNU time clock formats and reject incomplete values."""
     assert runtime.elapsed_seconds('1:02:03.5') == 3723.5
     with pytest.raises(ValueError):
         runtime.elapsed_seconds('3.5')
 
 
+def test_parse_gnu_time_normalizes_repeated_determinism_runs():
+    """Report per-run wall time while preserving the measured total."""
+    text = (
+        'Elapsed (wall clock) time (h:mm:ss or m:ss): 6:00.00\n'
+        'Maximum resident set size (kbytes): 102400\n'
+        'Exit status: 0\n')
+
+    report = runtime.parse_gnu_time(text, 60.0, repetitions=3)
+
+    assert report['total_wall_time_sec'] == 360.0
+    assert report['wall_time_sec'] == 120.0
+    assert report['realtime_factor'] == 2.0
+    assert report['repetitions'] == 3
+
+
+def test_parse_gnu_time_rejects_zero_repetitions():
+    """Require at least one execution in a timed stage."""
+    with pytest.raises(ValueError, match='repetitions'):
+        runtime.parse_gnu_time('', 60.0, repetitions=0)
+
+
 def test_reads_duration_from_rosbag2_metadata(tmp_path):
+    """Read sensor duration directly from canonical rosbag2 metadata."""
     metadata = tmp_path / 'metadata.yaml'
     metadata.write_text(
         'rosbag2_bagfile_information:\n'
@@ -69,6 +95,7 @@ def test_reads_duration_from_rosbag2_metadata(tmp_path):
 
 
 def test_rejects_metadata_without_duration(tmp_path):
+    """Fail explicitly when rosbag2 duration evidence is unavailable."""
     metadata = tmp_path / 'metadata.yaml'
     metadata.write_text('rosbag2_bagfile_information: {}\n')
 

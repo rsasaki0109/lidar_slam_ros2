@@ -48,10 +48,13 @@ def elapsed_seconds(value: str) -> float:
     raise ValueError(f'invalid elapsed time {value!r}')
 
 
-def parse_gnu_time(text: str, bag_duration_sec: float) -> dict:
+def parse_gnu_time(text: str, bag_duration_sec: float,
+                   repetitions: int = 1) -> dict:
     """Extract wall time, peak RSS, CPU load, and processing/sensor ratio."""
     if bag_duration_sec <= 0.0:
         raise ValueError('bag duration must be positive')
+    if repetitions < 1:
+        raise ValueError('repetitions must be positive')
     elapsed_key = 'Elapsed (wall clock) time (h:mm:ss or m:ss)'
     known_keys = (elapsed_key, 'Maximum resident set size (kbytes)',
                   'Percent of CPU this job got', 'Exit status')
@@ -65,10 +68,13 @@ def parse_gnu_time(text: str, bag_duration_sec: float) -> dict:
                 break
     if elapsed_key not in fields or 'Maximum resident set size (kbytes)' not in fields:
         raise ValueError('GNU time report lacks elapsed time or maximum RSS')
-    wall = elapsed_seconds(fields[elapsed_key])
+    total_wall = elapsed_seconds(fields[elapsed_key])
+    wall = total_wall / repetitions
     cpu = fields.get('Percent of CPU this job got', '').rstrip('%')
     return {
         'wall_time_sec': wall,
+        'total_wall_time_sec': total_wall,
+        'repetitions': repetitions,
         'bag_duration_sec': float(bag_duration_sec),
         'realtime_factor': wall / bag_duration_sec,
         'peak_rss_mb': float(fields['Maximum resident set size (kbytes)']) / 1024.0,
@@ -93,6 +99,7 @@ def read_rosbag2_duration(metadata_path: Path) -> float:
 
 
 def main() -> int:
+    """Convert one GNU time report into normalized JSON evidence."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--time-file', type=Path, required=True)
     duration = parser.add_mutually_exclusive_group(required=True)
@@ -101,11 +108,15 @@ def main() -> int:
         '--bag-metadata', type=Path,
         help='rosbag2 metadata.yaml; duration is read automatically')
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument(
+        '--repetitions', type=int, default=1,
+        help='identical timed runs; wall time is normalized per run')
     args = parser.parse_args()
     bag_duration_sec = (
         read_rosbag2_duration(args.bag_metadata)
         if args.bag_metadata is not None else args.bag_duration_sec)
-    report = parse_gnu_time(args.time_file.read_text(), bag_duration_sec)
+    report = parse_gnu_time(
+        args.time_file.read_text(), bag_duration_sec, args.repetitions)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))

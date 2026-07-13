@@ -791,6 +791,16 @@ if(BUILD_TESTING)
     TIMEOUT 60
   )
   ament_add_pytest_test(
+    test_slam_candidate_regression
+    test/test_slam_candidate_regression.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
+    test_plane_revisit_candidate_benchmark_script
+    test/test_plane_revisit_candidate_benchmark_script.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
     test_las_export
     test/test_las_export.py
     TIMEOUT 60

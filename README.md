@@ -152,6 +152,38 @@ python3 scripts/evaluate_public_suite_gate.py \
   --out <suite>/adoption_gate.json
 ```
 
+For a code or parameter candidate, compare frozen baseline and candidate
+manifests across the MID-360 positive case and HILTI position-only holdout:
+
+```bash
+bash scripts/run_plane_revisit_candidate_benchmark.sh \
+  --dataset mid360_public --bag <backend-input-bag> \
+  --reference-tum <reference.tum> --fixed-loop-edges <verified.csv> \
+  --output-dir /media/<ssd>/benchmarks/phase7/mid360
+```
+
+Run the same command with `--dataset hilti_exp04` and its backend-input bag.
+Each invocation produces comparable `off/manifest` and `on/manifest` evidence;
+`--dry-run` prints the complete pipeline without starting ROS processing.
+For a backend bag containing only submap-rate poses, pass the matching dense
+frontend trajectory with `--dense-raw-tum`; graph corrections are propagated
+onto it before timestamp association and RPE evaluation.
+
+```bash
+python3 scripts/evaluate_slam_candidate_regression.py \
+  --baseline <mid360-baseline>/cross_repo_benchmark.json \
+  --baseline <hilti-baseline>/cross_repo_benchmark.json \
+  --candidate <mid360-candidate>/cross_repo_benchmark.json \
+  --candidate <hilti-candidate>/cross_repo_benchmark.json \
+  --output output/phase7/candidate_regression.json --require-pass
+```
+
+The adjacent Markdown report exposes ATE, translational RPE, planar thickness,
+coverage and processing/sensor-time deltas. HILTI remains position-only, so the
+gate deliberately does not claim rotational RPE from its sparse reference.
+The first full plane-revisit result and its default-off decision are documented
+in [the Phase 7 regression note](docs/research/phase7-plane-revisit-regression-2026-07.md).
+
 The gate verifies report completeness, runtime/memory, input hashes, the 2%
 regression ceiling, and two independently improved datasets. Detailed commands,
 report-only RGB inputs, deskew ablations, and `--require-adopt` automation are

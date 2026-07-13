@@ -36,9 +36,9 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 BAG=""
 PARAMS="${REPO_ROOT}/lidarslam/param/lidarslam_mid360_rko_graph.yaml"
-SETUP_FILE="${REPO_ROOT}/install/setup.bash"
-if [[ ! -f "${SETUP_FILE}" && -f "${REPO_ROOT}/../install/setup.bash" ]]; then
-  SETUP_FILE="${REPO_ROOT}/../install/setup.bash"
+SETUP_FILE="${REPO_ROOT}/../install/setup.bash"
+if [[ ! -f "${SETUP_FILE}" ]]; then
+  SETUP_FILE="${REPO_ROOT}/install/setup.bash"
 fi
 RUNS=3
 OUTPUT_DIR="${REPO_ROOT}/output/offline_determinism_$(date +%Y%m%d_%H%M%S)"

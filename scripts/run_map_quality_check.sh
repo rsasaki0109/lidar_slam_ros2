@@ -7,6 +7,7 @@
 #     --input output/rtkslam_cs2_run2/map.pcd \
 #     --output-dir output/map_quality_cs2 \
 #     [--runs 3] [--downsample 0.1] \
+#     [--setup /path/to/workspace/install/setup.bash] \
 #     [--profile configs/map_quality_profiles/indoor_construction.yaml]
 #
 # This script always enforces determinism: every run must produce a
@@ -27,9 +28,9 @@ OUTPUT_DIR=""
 RUNS=3
 DOWNSAMPLE=0.1
 PROFILE=""
-SETUP_FILE="${REPO_ROOT}/install/setup.bash"
-if [[ ! -f "${SETUP_FILE}" && -f "${REPO_ROOT}/../install/setup.bash" ]]; then
-  SETUP_FILE="${REPO_ROOT}/../install/setup.bash"
+SETUP_FILE="${REPO_ROOT}/../install/setup.bash"
+if [[ ! -f "${SETUP_FILE}" ]]; then
+  SETUP_FILE="${REPO_ROOT}/install/setup.bash"
 fi
 
 usage() {
@@ -62,6 +63,11 @@ while [[ $# -gt 0 ]]; do
     --profile)
       [[ $# -ge 2 ]] || usage
       PROFILE=$(realpath -m "$2")
+      shift 2
+      ;;
+    --setup)
+      [[ $# -ge 2 ]] || usage
+      SETUP_FILE=$(realpath -m "$2")
       shift 2
       ;;
     *)

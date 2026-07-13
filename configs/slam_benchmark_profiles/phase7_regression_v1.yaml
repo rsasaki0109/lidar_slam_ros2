@@ -1,0 +1,50 @@
+slam_candidate_regression_profile:
+  name: phase7_regression_v1
+  datasets:
+    mid360_public:
+      purpose: positive plane-revisit and future odometry candidate gate
+      primary_metric: trajectory.graph_corrected.ate_m
+      require_primary_improvement: true
+      metrics:
+        - path: trajectory.graph_corrected.ate_m
+          label: ATE RMSE (m)
+          direction: lower
+          max_regression_percent: 0.0
+        - path: trajectory.graph_corrected.rpe_trans_pct
+          label: RPE translation (%)
+          direction: lower
+          max_regression_percent: 2.0
+        - path: geometry.map_quality_report.plane_metrics.thickness_rms_mean_m
+          label: planar thickness mean (m)
+          direction: lower
+          max_regression_percent: 1.0
+        - path: geometry.map_quality_report.plane_metrics.planar_coverage
+          label: planar coverage
+          direction: higher
+          max_regression_absolute: 0.002
+        - path: runtime.realtime_factor
+          label: processing / sensor time
+          direction: lower
+          max_regression_percent: 10.0
+    hilti_exp04:
+      purpose: position-only negative holdout; plane revisit must not regress
+      primary_metric: trajectory.graph_corrected.ate_m
+      require_primary_improvement: false
+      metrics:
+        - path: trajectory.graph_corrected.ate_m
+          label: position-only ATE (m)
+          direction: lower
+          max_regression_percent: 2.0
+        - path: geometry.map_quality_report.plane_metrics.thickness_rms_mean_m
+          label: planar thickness mean (m)
+          direction: lower
+          max_regression_percent: 1.0
+        - path: geometry.map_quality_report.plane_metrics.planar_coverage
+          label: planar coverage
+          direction: higher
+          max_regression_absolute: 0.002
+        - path: runtime.realtime_factor
+          label: processing / sensor time
+          direction: lower
+          max_regression_percent: 10.0
+          max_regression_absolute: 0.005
