@@ -647,6 +647,24 @@ fi
 LAUNCH_PID=""
 LAUNCH_PGID=""
 
+# /modified_path is emitted by map_save. A --skip-map-save run cannot measure
+# graph correction, so use the authoritative full-rate offline dump for both
+# paths and explicitly treat the result as a frontend/passthrough benchmark.
+if [[ "$SKIP_MAP_SAVE" == "true" ]]; then
+  readarray -t BACKEND_TUMS < <(
+    find "$OUTPUT_DIR" -mindepth 2 -maxdepth 2 -type f -name '*_tum_*.txt' -print
+  )
+  if [[ "${#BACKEND_TUMS[@]}" -eq 1 && -s "${BACKEND_TUMS[0]}" ]]; then
+    cp "${BACKEND_TUMS[0]}" "$RAW_TUM"
+    cp "${BACKEND_TUMS[0]}" "$CORRECTED_TUM"
+    echo "Trajectory-only passthrough from full-rate dump: ${BACKEND_TUMS[0]}"
+  else
+    die "trajectory-only run expected exactly one full-rate TUM dump"
+  fi
+elif [[ ! -s "$CORRECTED_TUM" ]]; then
+  die "corrected trajectory missing after map_save"
+fi
+
 readarray -t PRISM_OFFSET < <(python3 - "$REFERENCE_META" <<'PY'
 import json
 import sys

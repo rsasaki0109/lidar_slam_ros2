@@ -61,6 +61,14 @@ def test_zoo_command_compares_raw_and_corrected_and_preserves_gt_policy(tmp_path
     assert '--position-only-reference' in command
 
 
+def test_dense_graph_trajectory_is_a_required_preprocessing_step(tmp_path):
+    command = cross.densify_command(
+        tmp_path / 'raw.tum', tmp_path / 'sparse.tum', tmp_path / 'dense.tum')
+    assert command[1].endswith('densify_corrected_trajectory.py')
+    assert command[command.index('--raw') + 1].endswith('raw.tum')
+    assert command[command.index('--corrected') + 1].endswith('sparse.tum')
+
+
 def test_manifest_marks_missing_evidence_and_computes_graph_delta(tmp_path):
     for name in ('profile', 'gt', 'raw', 'corrected'):
         (tmp_path / name).write_text(name)
@@ -69,7 +77,8 @@ def test_manifest_marks_missing_evidence_and_computes_graph_delta(tmp_path):
         {'name': 'graph_corrected', 'ate_m': 0.08},
     ]}
     profile = {'name': 'test', 'enforcement': 'report_only',
-               'adoption_policy': {'minimum_improved_datasets': 2}}
+               'adoption_policy': {'minimum_improved_datasets': 2},
+               'required_success_metrics': {'runtime.process_exit_status': 0}}
     dataset = {'primary_metric': 'ate_m',
                'required_reports': ['trajectory', 'geometry', 'runtime'],
                'required_metrics': ['trajectory.frontend_raw.ate_m',
@@ -82,4 +91,13 @@ def test_manifest_marks_missing_evidence_and_computes_graph_delta(tmp_path):
     assert manifest['primary_delta']['improved'] is True
     assert manifest['evidence']['missing_reports'] == ['runtime']
     assert manifest['evidence']['missing_metrics'] == ['runtime.peak_rss_mb']
+    assert manifest['evidence']['failed_success_metrics'][0]['value'] is None
     assert manifest['verdict'] == 'INCOMPLETE'
+
+
+def test_metric_delta_treats_numerical_noise_as_tie():
+    summary = {'methods': [
+        {'name': 'frontend_raw', 'ate_m': 0.07155989354899428},
+        {'name': 'graph_corrected', 'ate_m': 0.07155989354899392},
+    ]}
+    assert cross.metric_delta(summary, 'ate_m')['improved'] is None

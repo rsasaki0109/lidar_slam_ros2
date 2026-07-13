@@ -89,6 +89,13 @@ def zoo_command(zoo: Path, dataset_config: dict[str, Any], gt: Path,
     return command
 
 
+def densify_command(raw: Path, corrected: Path, output: Path) -> list[str]:
+    """Build the canonical dense graph trajectory before metric association."""
+    return [sys.executable, str(REPO_ROOT / 'scripts/densify_corrected_trajectory.py'),
+            '--raw', str(raw), '--corrected', str(corrected),
+            '--output', str(output), '--max-anchor-offset', '0.2']
+
+
 def metric_delta(summary: dict[str, Any], metric: str) -> dict[str, Any]:
     methods = {row['name']: row for row in summary.get('methods', [])}
     raw = methods.get('frontend_raw', {}).get(metric)
@@ -97,8 +104,9 @@ def metric_delta(summary: dict[str, Any], metric: str) -> dict[str, Any]:
         return {'metric': metric, 'raw': raw, 'corrected': corrected,
                 'change_percent': None, 'improved': None}
     change = ((corrected - raw) / abs(raw) * 100.0) if raw != 0.0 else None
+    improved = None if change is None or abs(change) <= 1.0e-6 else corrected < raw
     return {'metric': metric, 'raw': float(raw), 'corrected': float(corrected),
-            'change_percent': change, 'improved': corrected < raw}
+            'change_percent': change, 'improved': improved}
 
 
 def load_optional_reports(paths: dict[str, Path | None]) -> dict[str, Any]:
@@ -121,6 +129,7 @@ def build_manifest(profile: dict[str, Any], dataset_name: str,
     available = {'trajectory', *reports.keys()}
     missing = sorted(set(dataset_config.get('required_reports', [])) - available)
     missing_metrics = []
+    resolved_metrics = {}
     for metric_path in dataset_config.get('required_metrics', []):
         value: Any = normalized
         for key in metric_path.split('.'):
@@ -131,6 +140,19 @@ def build_manifest(profile: dict[str, Any], dataset_name: str,
         if (not isinstance(value, (int, float)) or isinstance(value, bool) or
                 value != value or abs(float(value)) == float('inf')):
             missing_metrics.append(metric_path)
+        else:
+            resolved_metrics[metric_path] = value
+    failed_success_metrics = []
+    for metric_path, expected in profile.get('required_success_metrics', {}).items():
+        value: Any = normalized
+        for key in metric_path.split('.'):
+            if not isinstance(value, dict) or key not in value:
+                value = None
+                break
+            value = value[key]
+        if value != expected:
+            failed_success_metrics.append(
+                {'metric': metric_path, 'value': value, 'expected': expected})
     delta = metric_delta(trajectory_summary, dataset_config['primary_metric'])
     return {
         'schema_version': 1,
@@ -152,10 +174,12 @@ def build_manifest(profile: dict[str, Any], dataset_name: str,
             'missing_reports': missing,
             'required_metrics': dataset_config.get('required_metrics', []),
             'missing_metrics': missing_metrics,
-            'complete': not missing and not missing_metrics,
+            'resolved_metrics': resolved_metrics,
+            'failed_success_metrics': failed_success_metrics,
+            'complete': not missing and not missing_metrics and not failed_success_metrics,
         },
         'adoption_policy': profile.get('adoption_policy', {}),
-        'verdict': ('INCOMPLETE' if missing or missing_metrics else
+        'verdict': ('INCOMPLETE' if missing or missing_metrics or failed_success_metrics else
                     'IMPROVED' if delta['improved'] is True else
                     'REGRESSED' if delta['improved'] is False else 'RECORDED'),
     }
@@ -180,10 +204,14 @@ def main() -> int:
     except (OSError, yaml.YAMLError, ValueError) as error:
         parser.error(str(error))
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    dense_corrected = args.out_dir / 'traj_corrected_dense.tum'
+    subprocess.run(
+        densify_command(args.raw_tum, args.corrected_tum, dense_corrected),
+        check=True)
     trajectory_path = args.out_dir / 'trajectory_summary.json'
     command = zoo_command(
         args.localization_zoo, dataset_config, args.gt_tum, args.raw_tum,
-        args.corrected_tum, trajectory_path)
+        dense_corrected, trajectory_path)
     subprocess.run(command, check=True)
     reports = load_optional_reports({
         'geometry': args.geometry_report,
@@ -192,7 +220,8 @@ def main() -> int:
         'runtime': args.runtime_report,
     })
     inputs = {'profile': args.profile, 'gt_tum': args.gt_tum,
-              'raw_tum': args.raw_tum, 'corrected_tum': args.corrected_tum}
+              'raw_tum': args.raw_tum, 'corrected_tum': args.corrected_tum,
+              'corrected_dense_tum': dense_corrected}
     for name, path in (('geometry_report', args.geometry_report),
                        ('alignment_report', args.alignment_report),
                        ('colour_report', args.colour_report),
@@ -208,7 +237,9 @@ def main() -> int:
                       'verdict': manifest['verdict'],
                       'primary_delta': manifest['primary_delta'],
                       'missing_reports': manifest['evidence']['missing_reports'],
-                      'missing_metrics': manifest['evidence']['missing_metrics']},
+                      'missing_metrics': manifest['evidence']['missing_metrics'],
+                      'failed_success_metrics': manifest['evidence'][
+                          'failed_success_metrics']},
                      indent=2))
     return 0 if manifest['verdict'] != 'INCOMPLETE' else 2
 
