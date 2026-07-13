@@ -140,11 +140,12 @@ def score_view(points: np.ndarray, viewmat: np.ndarray, K: np.ndarray,
         lidar_edges, image_edges(image, edge_percentile), max_distance)
     if distances.size == 0:
         return {'edge_points': 0, 'median_px': None, 'p90_px': None,
-                'inlier_2px': None}
+                'inlier_2px': None, 'out_of_range_fraction': None}
     return {'edge_points': int(distances.size),
             'median_px': float(np.median(distances)),
             'p90_px': float(np.percentile(distances, 90)),
-            'inlier_2px': float(np.mean(distances <= 2.0))}
+            'inlier_2px': float(np.mean(distances <= 2.0)),
+            'out_of_range_fraction': float(np.mean(distances > max_distance))}
 
 
 def correction_matrix(parameters: np.ndarray) -> np.ndarray:
@@ -186,7 +187,9 @@ def alignment_objective(points: np.ndarray, viewmats: np.ndarray,
     penalty = max(0.0, 0.9 - coverage) * max_distance * 4.0
     loss = float(np.mean(values) + penalty)
     return loss, {'edge_points': edge_points, 'mean_px': float(np.mean(values)),
-                  'median_px': float(np.median(values)), 'coverage': coverage}
+                  'median_px': float(np.median(values)),
+                  'out_of_range_fraction': float(np.mean(values > max_distance)),
+                  'coverage': coverage}
 
 
 def optimize_correction(points: np.ndarray, viewmats: np.ndarray, K: np.ndarray,
@@ -307,7 +310,8 @@ def main() -> int:
     report = {'pointcloud': str(args.pointcloud.resolve()),
               'transforms': str(args.transforms.resolve()),
               'views_scored': len(valid), 'edge_points': int(weights.sum())}
-    for name in ('median_px', 'p90_px', 'inlier_2px'):
+    for name in ('median_px', 'p90_px', 'inlier_2px',
+                 'out_of_range_fraction'):
         report[f'weighted_{name}'] = float(np.average(
             [item[name] for item in valid], weights=weights))
     if optimization is not None:

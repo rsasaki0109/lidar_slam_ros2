@@ -122,6 +122,30 @@ Controlled map-only timing was 26.93→27.34 s on 16:25:54 (+1.5%) and
 22.09→22.70 s on 16:26:51 (+2.8%); peak RSS changed −1.7% / +0.05%.
 The filter is kept AIST-runner-specific because point density varies by sensor.
 
+### Camera–LiDAR external calibration
+
+The official `calib.json` was retained. CPU-only depth-edge coordinate search
+was fitted on six even (training) views of 16:25:54 and scored on the odd
+held-out colour views. The 3-round candidate moved the camera by
+`[-30, -20, +5]` mm / `[-0.3, -0.1, +0.1]` deg. Although its training edge
+mean improved 10.181→9.879 px, held-out RGB regressed: median
+20.355→20.650 and inlier ≤20 49.43→48.99%.
+
+A conservative 2-round search also failed the adoption gate. Its
+`[-15, +15, +10]` mm / `[-0.15, 0, -0.1]` deg correction improved held-out
+mean and p90, but median regressed 20.355→20.507 and inlier fell
+49.43→49.19%. The opposite Y directions selected by the two searches and the
+66.30% of official-calibration edges beyond the 12 px search radius show that
+the natural-scene edge objective is not well constrained enough to override
+the official target calibration. The second capture was not opened after the
+first-dataset gate failed.
+
+The alignment report now records `out_of_range_fraction` per view and as a
+weighted aggregate. This makes a saturated search explicit instead of letting
+the clipped `max_distance + 1` value look like a precise calibration score.
+Rejected artifacts are under
+`aist_rgb_map/extrinsic_ablation_20260713/162554`.
+
 ### Exposure normalization
 
 Disabling the robust colourizer's per-view median-luminance gains was tested

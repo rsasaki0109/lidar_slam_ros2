@@ -86,6 +86,17 @@ def test_score_view_handles_no_depth_edges():
         points, np.eye(4), K, np.zeros((10, 10, 3), dtype=np.uint8))
     assert result['edge_points'] == 0
     assert result['median_px'] is None
+    assert result['out_of_range_fraction'] is None
+
+
+def test_score_view_reports_search_range_saturation(monkeypatch):
+    monkeypatch.setattr(
+        lca, 'nearest_edge_distances',
+        lambda *args, **kwargs: np.array([0.0, 13.0], dtype=np.float32))
+    result = lca.score_view(
+        np.array([[0.0, 0.0, 2.0]]), np.eye(4), np.eye(3),
+        np.zeros((10, 10, 3), dtype=np.uint8), max_distance=12)
+    assert result['out_of_range_fraction'] == 0.5
 
 
 def test_correction_matrix_applies_translation_and_rotation():
