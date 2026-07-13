@@ -64,6 +64,8 @@ def test_dogfood_help_exits_successfully():
     assert result.returncode == 0
     assert 'run_rko_lio_graph_autoware_dogfood.sh' in result.stderr
     assert '--skip-viewer' in result.stderr
+    assert '--capture-raw-odometry' in result.stderr
+    assert '--raw-odometry-topic' in result.stderr
 
 
 def test_dogfood_rejects_missing_option_value_before_realpath():
@@ -80,6 +82,13 @@ def test_dogfood_rejects_invalid_bool_without_usage_dump():
     assert result.returncode == 2
     assert 'error: --capture-corrected-path expects true or false.' in result.stderr
     assert 'Usage:' not in result.stderr
+
+
+def test_dogfood_rejects_invalid_raw_capture_bool():
+    result = _run_dogfood('--capture-raw-odometry', 'maybe')
+
+    assert result.returncode == 2
+    assert 'error: --capture-raw-odometry expects true or false.' in result.stderr
 
 
 def test_dogfood_rejects_missing_bag_dir_without_realpath(tmp_path: Path):

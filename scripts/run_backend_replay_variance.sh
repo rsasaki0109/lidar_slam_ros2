@@ -241,6 +241,7 @@ record_mode() {
   local benchmark_cmd=(
     bash "${SCRIPT_DIR}/run_rko_lio_mid360_crossval_benchmark.sh"
     --output-dir "${OUTPUT_DIR}/source_run"
+    --reference-tum "${REFERENCE_TUM}"
   )
 
   if [[ -n "${SOURCE_BAG}" ]]; then

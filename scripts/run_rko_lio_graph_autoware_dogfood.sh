@@ -37,6 +37,10 @@ Options:
   --capture-corrected-path BOOL  Subscribe to /modified_path during the run and write
                                  traj_corrected.tum next to the map outputs (default: true).
   --corrected-path-topic TOPIC   nav_msgs/Path topic to capture (default: /modified_path).
+  --capture-raw-odometry BOOL    Subscribe to frontend odometry and write traj_raw.tum
+                                 next to the map outputs (default: true).
+  --raw-odometry-topic TOPIC     nav_msgs/Odometry topic to capture
+                                 (default: /rko_lio/odometry).
   --generate-lanelet2 BOOL       Generate lanelet2_map.osm from traj_corrected.tum (default: true).
   --origin-lat <deg>             Origin latitude for lanelet2 local coordinates (default: 0.0).
   --origin-lon <deg>             Origin longitude for lanelet2 local coordinates (default: 0.0).
@@ -123,6 +127,8 @@ WAIT_FOR_OFFLINE_COMPLETION=false
 SKIP_VIEWER=false
 CAPTURE_CORRECTED_PATH=true
 CORRECTED_PATH_TOPIC="/modified_path"
+CAPTURE_RAW_ODOMETRY=true
+RAW_ODOMETRY_TOPIC="/rko_lio/odometry"
 GENERATE_LANELET2=true
 ORIGIN_LAT="0.0"
 ORIGIN_LON="0.0"
@@ -247,6 +253,16 @@ while [[ $# -gt 0 ]]; do
       CORRECTED_PATH_TOPIC="$2"
       shift 2
       ;;
+    --capture-raw-odometry)
+      require_value "$1" "${2:-}"
+      CAPTURE_RAW_ODOMETRY=$(parse_bool "$1" "$2")
+      shift 2
+      ;;
+    --raw-odometry-topic)
+      require_value "$1" "${2:-}"
+      RAW_ODOMETRY_TOPIC="$2"
+      shift 2
+      ;;
     --generate-lanelet2)
       require_value "$1" "${2:-}"
       GENERATE_LANELET2=$(parse_bool "$1" "$2")
@@ -353,12 +369,16 @@ RKO_ROS_PARAM_FILE="${OUTPUT_DIR}/rko_params.ros.yaml"
 CORRECTED_TUM="${OUTPUT_DIR}/traj_corrected.tum"
 CORRECTED_LOG="${OUTPUT_DIR}/path_corrected_logger.log"
 CORRECTED_APE_REPORT="${OUTPUT_DIR}/traj_corrected_ape.txt"
+RAW_TUM="${OUTPUT_DIR}/traj_raw.tum"
+RAW_LOG="${OUTPUT_DIR}/odom_raw_logger.log"
 LANELET2_OSM="${OUTPUT_DIR}/lanelet2_map.osm"
 PATH_TO_TUM_SCRIPT="${REPO_ROOT}/scripts/path_to_tum.py"
+ODOM_TO_TUM_SCRIPT="${REPO_ROOT}/scripts/odom_to_tum.py"
 APE_FROM_TUM_SCRIPT="${REPO_ROOT}/scripts/ape_from_tum.py"
 LAUNCH_PID=""
 LAUNCH_PGID=""
 CORRECTED_LOGGER_PID=""
+RAW_LOGGER_PID=""
 KEEP_RUNNING=0
 
 [[ -n "$REFERENCE_TUM" && ! -f "$REFERENCE_TUM" ]] && { echo "--reference-tum file not found: $REFERENCE_TUM" >&2; exit 1; }
@@ -391,6 +411,10 @@ cleanup() {
   if [[ -n "$CORRECTED_LOGGER_PID" ]]; then
     kill "$CORRECTED_LOGGER_PID" >/dev/null 2>&1 || true
     wait "$CORRECTED_LOGGER_PID" 2>/dev/null || true
+  fi
+  if [[ -n "$RAW_LOGGER_PID" ]]; then
+    kill "$RAW_LOGGER_PID" >/dev/null 2>&1 || true
+    wait "$RAW_LOGGER_PID" 2>/dev/null || true
   fi
   if [[ -n "$LAUNCH_PGID" ]]; then
     kill -- "-${LAUNCH_PGID}" >/dev/null 2>&1 || true
@@ -598,6 +622,20 @@ fi
 
 echo "SLAM launch is up"
 
+if [[ "$CAPTURE_RAW_ODOMETRY" == "true" ]]; then
+  if [[ ! -f "$ODOM_TO_TUM_SCRIPT" ]]; then
+    echo "Warning: $ODOM_TO_TUM_SCRIPT not found; skipping raw odometry capture." >&2
+  else
+    echo "Capturing $RAW_ODOMETRY_TOPIC -> $RAW_TUM"
+    python3 "$ODOM_TO_TUM_SCRIPT" \
+      --topic "$RAW_ODOMETRY_TOPIC" \
+      --output "$RAW_TUM" \
+      --use-sim-time false \
+      >"$RAW_LOG" 2>&1 &
+    RAW_LOGGER_PID="$!"
+  fi
+fi
+
 if [[ "$CAPTURE_CORRECTED_PATH" == "true" ]]; then
   if [[ ! -f "$PATH_TO_TUM_SCRIPT" ]]; then
     echo "Warning: $PATH_TO_TUM_SCRIPT not found; skipping /modified_path capture." >&2
@@ -673,6 +711,25 @@ if [[ -n "$CORRECTED_LOGGER_PID" ]]; then
     echo "Corrected trajectory written: $CORRECTED_TUM ($(wc -l < "$CORRECTED_TUM") poses)"
   else
     echo "Warning: $CORRECTED_TUM was not produced (no /modified_path messages?)." >&2
+  fi
+fi
+
+if [[ -n "$RAW_LOGGER_PID" ]]; then
+  kill -INT "$RAW_LOGGER_PID" >/dev/null 2>&1 || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    kill -0 "$RAW_LOGGER_PID" 2>/dev/null || break
+    sleep 1
+  done
+  if kill -0 "$RAW_LOGGER_PID" 2>/dev/null; then
+    echo "Warning: odom_to_tum did not exit on SIGINT, sending SIGKILL." >&2
+    kill -KILL "$RAW_LOGGER_PID" >/dev/null 2>&1 || true
+  fi
+  wait "$RAW_LOGGER_PID" 2>/dev/null || true
+  RAW_LOGGER_PID=""
+  if [[ -f "$RAW_TUM" ]]; then
+    echo "Raw trajectory written: $RAW_TUM ($(wc -l < "$RAW_TUM") poses)"
+  else
+    echo "Warning: $RAW_TUM was not produced (no $RAW_ODOMETRY_TOPIC messages?)." >&2
   fi
 fi
 
