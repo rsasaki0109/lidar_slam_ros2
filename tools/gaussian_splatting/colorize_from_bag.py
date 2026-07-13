@@ -272,6 +272,24 @@ def merge_colorings(per_camera, default_rgb=(80, 80, 80)
     return out, seen
 
 
+def colour_statistics(rgb: np.ndarray, seen: np.ndarray) -> dict:
+    """Summarise whether visible point colours contain real chroma."""
+    colours = np.asarray(rgb, dtype=np.uint8)
+    mask = np.asarray(seen, dtype=bool)
+    if colours.shape != (len(mask), 3):
+        raise ValueError('rgb and seen shapes must match')
+    selected = colours[mask]
+    if not len(selected):
+        return {'mean_channel_range': 0.0, 'chromatic_fraction_10': 0.0,
+                'unique_colours': 0}
+    channel_range = np.ptp(selected.astype(np.int16), axis=1)
+    return {
+        'mean_channel_range': float(np.mean(channel_range)),
+        'chromatic_fraction_10': float(np.mean(channel_range >= 10)),
+        'unique_colours': int(len(np.unique(selected, axis=0))),
+    }
+
+
 # --------------------------------------------------------------------------- #
 # rosbag2 + tf2 (lazy ROS imports live inside these)
 # --------------------------------------------------------------------------- #
@@ -450,7 +468,10 @@ def colorize_bag_frame(args) -> dict:
         colors, seen, counts = pcio.colorize_by_projection_robust(
             xyz, world_to_cam[None], K, [rgb_img], W, H,
             default_rgb=tuple(args.default_rgb),
-            normalize_exposure=args.normalize_exposure, return_counts=True)
+            zbuf_bin=args.zbuf_bin, depth_tol=args.depth_tol,
+            normalize_exposure=args.normalize_exposure,
+            interp=args.interp, edge_threshold=args.edge_threshold,
+            return_counts=True)
         per_camera.append((colors, seen, counts))
         stats = {
             'image_topic': img_topic, 'colored': int(seen.sum()),
@@ -480,6 +501,13 @@ def colorize_bag_frame(args) -> dict:
         'pc_frames': len(pc_stamps), 'cameras': cam_stats,
         'points': len(xyz), 'colored': n_seen,
         'colored_frac': n_seen / max(1, len(xyz)),
+        'colour_statistics': colour_statistics(colors, seen),
+        'projection_config': {
+            'zbuf_bin': args.zbuf_bin,
+            'depth_tol_m': args.depth_tol,
+            'interp': args.interp,
+            'edge_threshold': args.edge_threshold,
+        },
         'full_ply': str(full), 'seen_ply': str(seen_ply),
         'diagnostic_overlay': str(overlay_path) if overlay_path else None,
     }
@@ -518,21 +546,36 @@ def build_parser() -> argparse.ArgumentParser:
                    help='skip plumb_bob undistortion (needs OpenCV otherwise)')
     p.add_argument('--normalize-exposure', action='store_true',
                    help='rescale image luminance (harmless for a single view)')
+    p.add_argument('--zbuf-bin', type=int, default=1,
+                   help='occlusion z-buffer pixel bin size (default: 1)')
+    p.add_argument('--depth-tol', type=float, default=0.15,
+                   help='base visible-depth tolerance in metres (default: 0.15)')
+    p.add_argument('--interp', choices=('nearest', 'bilinear', 'edge-aware'),
+                   default='edge-aware', help='image sampling mode')
+    p.add_argument('--edge-threshold', type=float, default=48.0,
+                   help='RGB range where edge-aware sampling snaps to nearest')
     p.add_argument('--default-rgb', type=int, nargs=3, default=(80, 80, 80),
                    help='colour for points no camera saw')
     p.add_argument('--diagnostic-overlay', type=Path,
                    help='write depth/occlusion projection overlay PNG')
+    p.add_argument('--report', type=Path, help='write machine-readable summary JSON')
     return p
 
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     s = colorize_bag_frame(args)
+    if args.report is not None:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps(s, indent=2) + '\n')
     print(f"pc_frames={s['pc_frames']}  cameras={len(s['cameras'])}")
     for c in s['cameras']:
         print(f"  {c['image_topic']}: {c['colored']} pts  (dt={c['pair_dt_ms']:.1f}ms)")
     print(f"merged coloured {s['colored']}/{s['points']} "
           f"({100.0 * s['colored_frac']:.1f}%)")
+    stats = s['colour_statistics']
+    print(f"real RGB: channel range={stats['mean_channel_range']:.1f}, "
+          f"chromatic>=10={100.0 * stats['chromatic_fraction_10']:.1f}%")
     print(f"wrote {s['full_ply']}\n      {s['seen_ply']}")
     if s['diagnostic_overlay']:
         print(f"      {s['diagnostic_overlay']}")

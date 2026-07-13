@@ -19,6 +19,7 @@ See ``docs/research/3dgs-postprocess-map-design.md``.
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence
 
@@ -81,6 +82,56 @@ def compute_clock_offset(cam_header: float, cam_bagtime: float,
     skew_cam = cam_header - cam_bagtime
     skew_ref = ref_header - ref_bagtime
     return skew_ref - skew_cam
+
+
+@dataclass(frozen=True)
+class ClockCorrection:
+    """Affine correction added to camera stamps at a bag receive time."""
+
+    offset: float
+    drift: float = 0.0
+    origin: float = 0.0
+
+    def apply(self, header_stamp: float, bag_time: float) -> float:
+        return header_stamp + self.offset + self.drift * (bag_time - self.origin)
+
+
+def _robust_clock_line(samples: np.ndarray, origin: float) -> tuple[float, float]:
+    """Fit ``header-bagtime = intercept + slope*(bagtime-origin)`` robustly."""
+    values = np.asarray(samples, dtype=np.float64)
+    if values.ndim != 2 or values.shape[1] != 2 or len(values) < 2:
+        raise ValueError('clock samples must be Nx2 (header, bagtime), N >= 2')
+    x = values[:, 1] - origin
+    y = values[:, 0] - values[:, 1]
+    keep = np.isfinite(x) & np.isfinite(y)
+    if keep.sum() < 2:
+        raise ValueError('clock samples need at least two finite rows')
+    for _ in range(3):
+        design = np.column_stack((np.ones(keep.sum()), x[keep]))
+        intercept, slope = np.linalg.lstsq(design, y[keep], rcond=None)[0]
+        residual = y - (intercept + slope * x)
+        median = np.median(residual[keep])
+        mad = np.median(np.abs(residual[keep] - median))
+        if mad <= 1.0e-12:
+            break
+        next_keep = keep & (np.abs(residual - median) <= 4.5 * 1.4826 * mad)
+        if next_keep.sum() < 2 or np.array_equal(next_keep, keep):
+            break
+        keep = next_keep
+    return float(intercept), float(slope)
+
+
+def estimate_clock_correction(cam_samples: np.ndarray,
+                              ref_samples: np.ndarray) -> ClockCorrection:
+    """Estimate camera-to-reference clock offset and drift from many samples."""
+    cam = np.asarray(cam_samples, dtype=np.float64)
+    ref = np.asarray(ref_samples, dtype=np.float64)
+    if cam.ndim != 2 or ref.ndim != 2 or cam.shape[1:] != (2,) or ref.shape[1:] != (2,):
+        raise ValueError('camera and reference samples must be Nx2')
+    origin = float(np.median(np.concatenate((cam[:, 1], ref[:, 1]))))
+    cam_offset, cam_drift = _robust_clock_line(cam, origin)
+    ref_offset, ref_drift = _robust_clock_line(ref, origin)
+    return ClockCorrection(ref_offset - cam_offset, ref_drift - cam_drift, origin)
 
 
 def parse_extrinsic_dict(data: dict) -> np.ndarray:
@@ -361,10 +412,34 @@ def _first_header_and_bagtime(bag_path: str | Path, topic: str,
     raise RuntimeError(f'no message found on topic {topic!r}')
 
 
-def resolve_time_offset(args: argparse.Namespace) -> float:
-    """Resolve ``--time-offset`` (a float, or ``auto`` via clock alignment)."""
+def _clock_samples(bag_path: str | Path, topic: str, msg_type,
+                   max_samples: int = 256,
+                   min_interval: float = 0.5) -> np.ndarray:
+    """Read clock pairs spread across a topic without decoding image payloads."""
+    from rclpy.serialization import deserialize_message
+
+    reader = _open_reader(bag_path)
+    rows = []
+    last_bagtime = -np.inf
+    while reader.has_next() and len(rows) < max_samples:
+        tname, raw, bagt = reader.read_next()
+        bagtime = bagt * 1.0e-9
+        if tname != topic or bagtime - last_bagtime < min_interval:
+            continue
+        msg = deserialize_message(raw, msg_type)
+        header = ros_stamp_to_seconds(msg.header.stamp.sec, msg.header.stamp.nanosec)
+        rows.append((header, bagtime))
+        last_bagtime = bagtime
+    if len(rows) < 2:
+        raise RuntimeError(f'fewer than two clock samples on topic {topic!r}')
+    return np.asarray(rows, dtype=np.float64)
+
+
+def resolve_clock_correction(args: argparse.Namespace) -> ClockCorrection:
+    """Resolve fixed or robust affine camera-to-reference clock correction."""
+    adjustment = float(getattr(args, 'time_offset_adjustment', 0.0))
     if str(args.time_offset).lower() != 'auto':
-        return float(args.time_offset)
+        return ClockCorrection(float(args.time_offset) + adjustment)
     if not args.clock_reference_topic:
         raise ValueError('--time-offset auto requires --clock-reference-topic')
     from sensor_msgs.msg import CompressedImage, Image, PointCloud2
@@ -372,13 +447,21 @@ def resolve_time_offset(args: argparse.Namespace) -> float:
     cam_type = (CompressedImage
                 if _topic_type(args.bag, args.camera_topic).endswith('CompressedImage')
                 else Image)
-    cam_h, cam_b = _first_header_and_bagtime(args.bag, args.camera_topic, cam_type)
-    ref_h, ref_b = _first_header_and_bagtime(
-        args.bag, args.clock_reference_topic, PointCloud2
-    )
-    off = compute_clock_offset(cam_h, cam_b, ref_h, ref_b)
-    print(f'auto time-offset: {off:.4f}s (camera -> {args.clock_reference_topic} clock)')
-    return off
+    cam_samples = _clock_samples(args.bag, args.camera_topic, cam_type)
+    ref_samples = _clock_samples(args.bag, args.clock_reference_topic, PointCloud2)
+    correction = estimate_clock_correction(cam_samples, ref_samples)
+    correction = ClockCorrection(
+        correction.offset + adjustment, correction.drift, correction.origin)
+    print(f'auto clock correction: offset={correction.offset:.6f}s '
+          f'drift={correction.drift * 1.0e6:.3f}ppm '
+          f'adjustment={adjustment:+.6f}s '
+          f'(camera -> {args.clock_reference_topic})')
+    return correction
+
+
+def resolve_time_offset(args: argparse.Namespace) -> float:
+    """Backward-compatible fixed offset accessor; auto returns its intercept."""
+    return resolve_clock_correction(args).offset
 
 
 def extract(args: argparse.Namespace) -> dict:
@@ -395,7 +478,7 @@ def extract(args: argparse.Namespace) -> dict:
         intrinsics = load_intrinsics_yaml(args.intrinsics_yaml)
     else:
         intrinsics = read_camera_intrinsics(args.bag, args.camera_info_topic)
-    time_offset = resolve_time_offset(args)
+    clock_correction = resolve_clock_correction(args)
 
     undistort_map = None
     out_intrinsics = intrinsics
@@ -447,9 +530,10 @@ def extract(args: argparse.Namespace) -> dict:
             continue
         msg = deserialize_message(raw, msg_cls)
         stamp = ros_stamp_to_seconds(msg.header.stamp.sec, msg.header.stamp.nanosec)
+        corrected_stamp = clock_correction.apply(stamp, bagt * 1.0e-9)
         world_T_cam = resolve_world_T_camera(
-            stamp, samples, body_T_cam,
-            max_extrapolation=args.max_extrapolation, time_offset=time_offset,
+            corrected_stamp, samples, body_T_cam,
+            max_extrapolation=args.max_extrapolation,
         )
         if world_T_cam is None:
             dropped += 1
@@ -464,7 +548,7 @@ def extract(args: argparse.Namespace) -> dict:
             import cv2
             rgb = cv2.remap(rgb, undistort_map[0], undistort_map[1], cv2.INTER_LINEAR)
         iio.imwrite(str(out_dir / rel), rgb)
-        frames.append(pi.PosedImage(rel, world_T_cam, stamp))
+        frames.append(pi.PosedImage(rel, world_T_cam, corrected_stamp))
         seen += 1
 
     if not frames:
@@ -503,6 +587,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--time-offset', default='0.0',
                    help='seconds added to image stamps, or "auto" to align the '
                         'camera clock to --clock-reference-topic via bag receive time')
+    p.add_argument('--time-offset-adjustment', type=float, default=0.0,
+                   help='seconds added after fixed or auto clock correction; '
+                        'intended for measured synchronization ablations')
     p.add_argument('--clock-reference-topic', default=None,
                    help='PointCloud2 topic whose clock the trajectory uses '
                         '(required for --time-offset auto)')

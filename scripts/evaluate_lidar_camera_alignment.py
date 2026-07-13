@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -45,6 +46,7 @@ if str(TOOL_DIR) not in sys.path:
     sys.path.insert(0, str(TOOL_DIR))
 
 import pointcloud_io as pcio  # noqa: E402
+import posed_images as pi  # noqa: E402
 import train_gsplat as tg  # noqa: E402
 
 
@@ -138,11 +140,115 @@ def score_view(points: np.ndarray, viewmat: np.ndarray, K: np.ndarray,
         lidar_edges, image_edges(image, edge_percentile), max_distance)
     if distances.size == 0:
         return {'edge_points': 0, 'median_px': None, 'p90_px': None,
-                'inlier_2px': None}
+                'inlier_2px': None, 'out_of_range_fraction': None}
     return {'edge_points': int(distances.size),
             'median_px': float(np.median(distances)),
             'p90_px': float(np.percentile(distances, 90)),
-            'inlier_2px': float(np.mean(distances <= 2.0))}
+            'inlier_2px': float(np.mean(distances <= 2.0)),
+            'out_of_range_fraction': float(np.mean(distances > max_distance))}
+
+
+def correction_matrix(parameters: np.ndarray) -> np.ndarray:
+    """Build camera-frame SE(3) correction from xyz metres and xyz radians."""
+    tx, ty, tz, rx, ry, rz = np.asarray(parameters, dtype=np.float64).reshape(6)
+    sx, cx = np.sin(rx), np.cos(rx)
+    sy, cy = np.sin(ry), np.cos(ry)
+    sz, cz = np.sin(rz), np.cos(rz)
+    rotation_x = np.array([[1, 0, 0], [0, cx, -sx], [0, sx, cx]])
+    rotation_y = np.array([[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]])
+    rotation_z = np.array([[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]])
+    result = np.eye(4)
+    result[:3, :3] = rotation_z @ rotation_y @ rotation_x
+    result[:3, 3] = [tx, ty, tz]
+    return result
+
+
+def alignment_objective(points: np.ndarray, viewmats: np.ndarray,
+                        K: np.ndarray, images: list[np.ndarray],
+                        parameters: np.ndarray, *, edge_percentile: float = 95.0,
+                        max_distance: int = 12,
+                        reference_edge_points: int | None = None) -> tuple[float, dict]:
+    """Return coverage-guarded mean edge distance for one SE(3) correction."""
+    delta = correction_matrix(parameters)
+    chunks = []
+    for viewmat, image in zip(viewmats, images):
+        height, width = image.shape[:2]
+        lidar_edges = depth_edges(projected_depth(
+            points, delta @ viewmat, K, width, height))
+        chunks.append(nearest_edge_distances(
+            lidar_edges, image_edges(image, edge_percentile), max_distance))
+    values = np.concatenate([item for item in chunks if item.size]) \
+        if any(item.size for item in chunks) else np.zeros(0, np.float32)
+    if not values.size:
+        return float('inf'), {'edge_points': 0, 'mean_px': None}
+    edge_points = int(values.size)
+    reference = edge_points if reference_edge_points is None else reference_edge_points
+    coverage = edge_points / max(reference, 1)
+    penalty = max(0.0, 0.9 - coverage) * max_distance * 4.0
+    loss = float(np.mean(values) + penalty)
+    return loss, {'edge_points': edge_points, 'mean_px': float(np.mean(values)),
+                  'median_px': float(np.median(values)),
+                  'out_of_range_fraction': float(np.mean(values > max_distance)),
+                  'coverage': coverage}
+
+
+def optimize_correction(points: np.ndarray, viewmats: np.ndarray, K: np.ndarray,
+                        images: list[np.ndarray], *, rounds: int = 3,
+                        translation_step: float = 0.02,
+                        rotation_step_deg: float = 0.2,
+                        edge_percentile: float = 95.0,
+                        max_distance: int = 12) -> tuple[np.ndarray, dict, dict]:
+    """Coordinate-search a camera-frame correction, coarse to fine."""
+    parameters = np.zeros(6, dtype=np.float64)
+    base_loss, before = alignment_objective(
+        points, viewmats, K, images, parameters,
+        edge_percentile=edge_percentile, max_distance=max_distance)
+    best_loss = base_loss
+    reference = before['edge_points']
+    steps = np.array([translation_step] * 3 +
+                     [np.deg2rad(rotation_step_deg)] * 3)
+    for _ in range(rounds):
+        for axis in range(6):
+            for direction in (-1.0, 1.0):
+                candidate = parameters.copy()
+                candidate[axis] += direction * steps[axis]
+                loss, _ = alignment_objective(
+                    points, viewmats, K, images, candidate,
+                    edge_percentile=edge_percentile,
+                    max_distance=max_distance,
+                    reference_edge_points=reference)
+                if loss < best_loss:
+                    parameters, best_loss = candidate, loss
+        steps *= 0.5
+    _, after = alignment_objective(
+        points, viewmats, K, images, parameters,
+        edge_percentile=edge_percentile, max_distance=max_distance,
+        reference_edge_points=reference)
+    before['loss'] = base_loss
+    after['loss'] = best_loss
+    return parameters, before, after
+
+
+def write_corrected_transforms(source: Path, output: Path,
+                               correction: np.ndarray) -> Path:
+    """Write corrected camera poses without modifying the source dataset."""
+    source = Path(source).resolve()
+    output = Path(output).resolve()
+    if source == output:
+        raise ValueError('corrected transforms output must differ from source')
+    document = json.loads(source.read_text())
+    dataset = tg.load_transforms(source)
+    if len(document['frames']) != len(dataset['viewmats']):
+        raise ValueError('frame and viewmat counts differ')
+    for frame, viewmat, image_path in zip(
+            document['frames'], dataset['viewmats'], dataset['image_paths']):
+        corrected_c2w_cv = np.linalg.inv(correction @ viewmat)
+        frame['transform_matrix'] = (
+            corrected_c2w_cv @ pi.ROS_OPTICAL_TO_OPENGL).tolist()
+        frame['file_path'] = os.path.relpath(image_path, output.parent)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(document, indent=2) + '\n')
+    return output
 
 
 def main() -> int:
@@ -155,17 +261,44 @@ def main() -> int:
                         help='retain this percentile of nonzero image gradients; '
                              '95 focuses the metric on structural edges')
     parser.add_argument('--max-distance', type=int, default=12)
+    parser.add_argument('--optimize-extrinsic', action='store_true')
+    parser.add_argument('--optimization-rounds', type=int, default=3)
+    parser.add_argument('--translation-step', type=float, default=0.02)
+    parser.add_argument('--rotation-step-deg', type=float, default=0.2)
+    parser.add_argument('--corrected-transforms-out', type=Path)
     args = parser.parse_args()
-    if args.view_stride < 1 or args.max_distance < 1:
-        raise SystemExit('--view-stride and --max-distance must be >= 1')
+    if (args.view_stride < 1 or args.max_distance < 1 or
+            args.optimization_rounds < 1 or args.translation_step <= 0.0 or
+            args.rotation_step_deg <= 0.0):
+        raise SystemExit('stride, distance, rounds, and search steps must be > 0')
     import imageio.v3 as iio
     points, _ = pcio.read_ply_xyz(args.pointcloud)
     dataset = tg.load_transforms(args.transforms)
+    viewmats = np.asarray(dataset['viewmats'], dtype=np.float64)
+    selected = list(range(0, len(viewmats), args.view_stride))
+    images = [np.asarray(iio.imread(dataset['image_paths'][index]))
+              for index in selected]
+    optimization = None
+    delta = np.eye(4)
+    if args.optimize_extrinsic:
+        parameters, before, after = optimize_correction(
+            points, viewmats[selected], dataset['K'], images,
+            rounds=args.optimization_rounds,
+            translation_step=args.translation_step,
+            rotation_step_deg=args.rotation_step_deg,
+            edge_percentile=args.edge_percentile,
+            max_distance=args.max_distance)
+        delta = correction_matrix(parameters)
+        optimization = {
+            'parameters_xyz_m_rpy_deg': parameters[:3].tolist() +
+            np.rad2deg(parameters[3:]).tolist(),
+            'camera_correction_matrix': delta.tolist(),
+            'before': before, 'after': after,
+        }
     per_view = []
-    for index in range(0, len(dataset['viewmats']), args.view_stride):
+    for index, image in zip(selected, images):
         score = score_view(
-            points, dataset['viewmats'][index], dataset['K'],
-            iio.imread(dataset['image_paths'][index]),
+            points, delta @ viewmats[index], dataset['K'], image,
             edge_percentile=args.edge_percentile,
             max_distance=args.max_distance)
         score['view_index'] = index
@@ -177,9 +310,18 @@ def main() -> int:
     report = {'pointcloud': str(args.pointcloud.resolve()),
               'transforms': str(args.transforms.resolve()),
               'views_scored': len(valid), 'edge_points': int(weights.sum())}
-    for name in ('median_px', 'p90_px', 'inlier_2px'):
+    for name in ('median_px', 'p90_px', 'inlier_2px',
+                 'out_of_range_fraction'):
         report[f'weighted_{name}'] = float(np.average(
             [item[name] for item in valid], weights=weights))
+    if optimization is not None:
+        report['extrinsic_optimization'] = optimization
+        if args.corrected_transforms_out is not None:
+            corrected = write_corrected_transforms(
+                args.transforms, args.corrected_transforms_out, delta)
+            report['corrected_transforms'] = str(corrected)
+    elif args.corrected_transforms_out is not None:
+        raise SystemExit('--corrected-transforms-out requires --optimize-extrinsic')
     report['per_view'] = per_view
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2) + '\n')

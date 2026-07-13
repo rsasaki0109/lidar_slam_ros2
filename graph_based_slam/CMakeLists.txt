@@ -311,6 +311,15 @@ if(BUILD_TESTING)
     )
   endif()
   ament_add_gtest(
+    test_degeneracy_aware_solve
+    test/test_degeneracy_aware_solve.cpp
+  )
+  if(TARGET test_degeneracy_aware_solve)
+    target_include_directories(
+      test_degeneracy_aware_solve PRIVATE include ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
     test_odometry_covariance_localizability
     test/test_odometry_covariance_localizability.cpp
   )

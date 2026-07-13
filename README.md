@@ -30,16 +30,14 @@ artifacts you need downstream:
 - **Surveyed ground truth** — releases are gated in CI by per-dataset APE
   thresholds, including total-station checkpoints on a Livox MID-360
   ([accuracy](#accuracy)).
-- **Loop closure, GPL-free** — built-in Scan Context by default, plus opt-in
-  BEV / SOLiD / STD/BTC-style Triangle descriptors and 3D-BBS verification.
+- **Loop closure, GPL-free** — opt-in built-in Scan Context, BEV / SOLiD /
+  STD/BTC-style Triangle descriptors, and 3D-BBS verification.
 - **Deterministic offline mapping** — `graph_slam_offline_runner` (backend,
   recorded odometry bag) and `scan_matcher_offline_runner` (frontend, raw bag)
-  produce *byte-identical* trajectories, loop edges and submaps on every run
-  (verified 3-run on MID-360 and NTU VIRAL); the release gate enforces both
-  (`--offline-determinism-bag` / `--frontend-determinism-bag`).
+  produce *byte-identical* trajectories, loop edges and submaps; the release
+  gate enforces both.
 - **Globally refined, quality-gated maps** — clean-room plane bundle adjustment
-  refines submap poses offline (default on) under holdout-validated quality
-  thresholds; APE and crispness improve together on every GT substrate
+  refines submap poses under holdout-validated quality thresholds
   ([evidence](docs/research/map-quality-baseline.md)).
 - **GNSS georeferencing** — optional GNSS constraints and projector metadata for
   real-world coordinates.
@@ -65,13 +63,10 @@ docker run --rm -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
   ghcr.io/rsasaki0109/lidar_slam_ros2:humble
 ```
 
-This pulls the prebuilt image, downloads a public Livox MID-360 driving bag
-(517 MB, [Zenodo](https://zenodo.org/records/14841855), CC-BY 4.0) and runs the
-full RKO-LIO + graph_based_slam pipeline headless — a few minutes later
-`./lidarslam_output/mid360_demo/` holds the Autoware-ready map bundle and
-the loop-closed trajectory (`traj_corrected.tum`). Add
-`-v lidarslam_demo_data:/lidarslam_ws/datasets` to cache the bag between runs;
-appending `bash` instead drops you into an interactive shell.
+This downloads a public 517 MB Livox MID-360 bag and runs the full headless
+pipeline. The Autoware bundle and `traj_corrected.tum` appear under
+`./lidarslam_output/mid360_demo/`; the [quickstart](docs/getting-started.md)
+shows caching and interactive-shell options.
 
 ### Build from source
 
@@ -106,28 +101,16 @@ One command turns the bag into a complete Autoware map bundle:
 `pointcloud_map/` tiles, `map_projector_info.yaml`, and a `lanelet2_map.osm`
 generated from the loop-closed trajectory.
 
-Or invoke the launch files directly:
-
-```bash
-ros2 launch lidarslam rko_lio_slam.launch.py \
-  bag_path:=/path/to/rosbag2 \
-  lidar_topic:=/os_cloud_node/points \
-  imu_topic:=/os_cloud_node/imu
-ros2 service call /map_save std_srvs/srv/Empty
-```
-
-Required topics, optional GNSS / IMU pre-integration, and the dynamic-object
-filter parameters are documented in [docs/workflows.md](docs/workflows.md).
+Direct launch commands, required topics, GNSS / IMU pre-integration, and
+dynamic-object filtering are in [docs/workflows.md](docs/workflows.md).
 
 ![Autoware map loaders rendering a pointcloud_map authored by this stack](lidarslam/images/autoware_map_loader_proof.png)
 
 ## Camera-coloured point-cloud maps
 
-The colouring pipeline uses the corrected SLAM trajectory to register consecutive
-LiDAR scans in the map frame, then projects synchronized camera pixels onto the
-accumulated geometry. The result below follows the full estimated 60 m walking
-loop from RTK-SLAM Construction Hall 1; the trajectory and the coloured map use
-the same SLAM poses.
+The pipeline registers LiDAR scans with the corrected trajectory, then projects
+synchronized camera pixels onto that geometry. This RTK-SLAM Construction Hall
+1 result follows the full estimated 60 m walking loop.
 
 ![Camera-coloured SLAM point-cloud map and its estimated trajectory](lidarslam/images/map_flythrough_rtkslam.webp)
 
@@ -144,19 +127,35 @@ python3 tools/gaussian_splatting/colored_map_pipeline.py \
   --extrinsic configs/gaussian_splatting/<lidar_camera_extrinsic>.yaml
 ```
 
-The generated `dense_corrected_trajectory.tum` is reused on later runs. Use
-`--force-trajectory` to regenerate it explicitly. The pipeline also detects
-newer trajectory and posed-image inputs and automatically rebuilds downstream
-artifacts, preventing stale coloured maps from being silently reused.
+The pipeline caches `dense_corrected_trajectory.tum` and rebuilds stale
+downstream artifacts; use `--force-trajectory` for an explicit refresh.
 
-When a `PointCloud2` scan carries per-point `timestamp`, `time`, or `t`, map
-accumulation deskews the scan against the dense trajectory in 1 ms pose bins.
-Use `--no-deskew` on `build_lidar_init.py` only for an explicit A/B baseline.
-On HILTI 2022 exp04 this reduced mean plane thickness from 8.89 cm to 6.25 cm
-and increased planar coverage from 21.38% to 48.16%.
-The default one-neighbour density guard then removes isolated LiDAR returns
-(`--min-neighbors 2 --sparse-voxel 0.1`), retaining 81.5% of points while
-improving mean thickness to 5.99 cm and planar coverage to 53.55%.
+### Cross-repository SLAM benchmark
+
+`public_suite_v1.yaml` connects Localization Zoo trajectories to the graph,
+geometry, real-RGB, runtime and memory gates:
+
+```bash
+python3 scripts/run_cross_repo_slam_benchmark.py \
+  --localization-zoo ../loc_zoo_ws/localization_zoo \
+  --dataset <profile> --gt-tum <gt.tum> --raw-tum <raw.tum> \
+  --corrected-tum <graph.tum> --runtime-report <runtime.json> \
+  --out-dir <benchmark-dir>
+```
+
+Aggregate at least two distinct dataset manifests before promotion:
+
+```bash
+python3 scripts/evaluate_public_suite_gate.py \
+  --manifest <dataset-a>/cross_repo_benchmark.json \
+  --manifest <dataset-b>/cross_repo_benchmark.json \
+  --out <suite>/adoption_gate.json
+```
+
+The gate verifies report completeness, runtime/memory, input hashes, the 2%
+regression ceiling, and two independently improved datasets. Detailed commands,
+report-only RGB inputs, deskew ablations, and `--require-adopt` automation are
+in [operator workflows](docs/workflows.md) and [benchmarking](docs/benchmarking.md).
 
 ## Accuracy
 

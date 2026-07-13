@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 import struct
@@ -42,6 +43,13 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / 'scripts' / 'analyze_mid360_robot_loop_alignment.py'
+ANALYZER_PATH = REPO_ROOT / 'scripts' / 'mid360_robot_loop_alignment_analyzer.py'
+sys.path.insert(0, str(REPO_ROOT / 'scripts'))
+ANALYZER_SPEC = importlib.util.spec_from_file_location('loop_alignment_analyzer', ANALYZER_PATH)
+assert ANALYZER_SPEC and ANALYZER_SPEC.loader
+ANALYZER = importlib.util.module_from_spec(ANALYZER_SPEC)
+sys.modules[ANALYZER_SPEC.name] = ANALYZER
+ANALYZER_SPEC.loader.exec_module(ANALYZER)
 
 
 def _write_binary_xyz_pcd(path: Path, points: list[tuple[float, float, float]]) -> None:
@@ -221,6 +229,16 @@ def test_loop_alignment_cli_reads_binary_compressed_cloud(tmp_path: Path):
     assert report['status'] == 'PASS'
     assert report['cloud']['tiles'][0]['data'] == 'binary_compressed'
     assert report['cloud']['sampled_points'] == len(_connected_cloud_points())
+
+
+def test_pure_python_lzf_decodes_extended_back_reference():
+    # Literal "A", followed by an extended-length back-reference that repeats
+    # it 20 times. LZF stores the extended length byte before the low offset.
+    compressed = bytes([0, ord('A'), 7 << 5, 11, 0])
+
+    decoded = ANALYZER._decompress_lzf_pure_python(compressed, 21)
+
+    assert decoded == b'A' * 21
 
 
 def test_loop_alignment_cli_fails_on_trajectory_loop_distance(tmp_path: Path):

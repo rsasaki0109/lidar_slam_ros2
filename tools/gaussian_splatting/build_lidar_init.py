@@ -189,14 +189,21 @@ def build(args: argparse.Namespace) -> dict:
     rgb = None
     colored = 0
     if args.color_transforms:
-        rgb, seen = _colorize(world, args.color_transforms, robust=args.color_robust)
+        rgb, seen = _colorize(
+            world, args.color_transforms, robust=args.color_robust,
+            normalize_exposure=args.color_normalize_exposure,
+            exposure_scale_limit=args.color_exposure_scale_limit,
+            max_samples=args.color_max_samples)
         colored = int(seen.sum())
     out = pcio.write_ply(args.out, world, rgb)
     return {'scans_used': used, 'scans_deskewed': deskewed, 'scans_skipped': skipped,
             'points': int(world.shape[0]), 'colored': colored, 'out': str(out)}
 
 
-def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False):
+def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
+              normalize_exposure: bool = True,
+              exposure_scale_limit: float = 1.5,
+              max_samples: int = 12):
     """Project ``world`` points into the posed images of a transforms.json."""
     import imageio.v3 as iio
     import train_gsplat as tg
@@ -205,7 +212,16 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False):
     images = [np.asarray(iio.imread(p)) for p in ds['image_paths']]
     fn = (pcio.colorize_by_projection_robust if robust
           else pcio.colorize_by_projection)
-    return fn(world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'])
+    kwargs = {}
+    if robust:
+        kwargs = {
+            'normalize_exposure': normalize_exposure,
+            'exposure_scale_limit': exposure_scale_limit,
+            'max_samples': max_samples,
+        }
+    return fn(
+        world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'],
+        **kwargs)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -245,6 +261,14 @@ def build_parser() -> argparse.ArgumentParser:
                    help='use the occlusion-aware / exposure-normalised / median '
                         'colorizer instead of the plain all-view average (slower; '
                         'much cleaner colours for map flythroughs)')
+    p.add_argument('--color-no-normalize-exposure', action='store_false',
+                   dest='color_normalize_exposure',
+                   help='keep camera RGB values unchanged instead of applying '
+                        'per-view global-median exposure gains')
+    p.add_argument('--color-exposure-scale-limit', type=float, default=1.5,
+                   help='maximum robust-color exposure gain and reciprocal loss')
+    p.add_argument('--color-max-samples', type=int, default=12,
+                   help='nearest valid camera observations retained per point')
     p.add_argument('--min-neighbors', type=int, default=2,
                    help='drop points whose 3x3x3 voxel neighbourhood (see '
                         '--sparse-voxel) holds fewer points; default 2 requires '

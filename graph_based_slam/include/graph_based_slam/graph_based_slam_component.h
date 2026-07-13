@@ -261,6 +261,8 @@ private:
     // Scan Context loop detection
     bool use_scan_context_ {false};
     double scan_context_threshold_ {0.3};
+    int scan_context_query_stride_ {1};
+    int scan_context_exclude_recent_ {ScanContext::EXCLUDE_RECENT};
     bool prefer_scan_context_candidates_ {false};
     bool use_bev_descriptor_ {false};
     double bev_descriptor_threshold_ {0.20};

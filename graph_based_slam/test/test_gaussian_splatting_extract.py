@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 import sys
 
@@ -73,6 +74,33 @@ def test_compute_clock_offset_aligns_sensor_clocks():
 
 def test_compute_clock_offset_zero_when_synced():
     assert ex.compute_clock_offset(10.0, 100.0, 10.0, 100.0) == pytest.approx(0.0)
+
+
+def test_estimate_clock_correction_recovers_offset_drift_and_rejects_outlier():
+    bag = 1000.0 + np.linspace(0.0, 120.0, 25)
+    origin = np.median(bag)
+    cam_skew = 5.0 + 10.0e-6 * (bag - origin)
+    ref_skew = 7.0 + 30.0e-6 * (bag - origin)
+    camera = np.column_stack((bag + cam_skew, bag))
+    reference = np.column_stack((bag + ref_skew, bag))
+    camera[7, 0] += 0.25
+    correction = ex.estimate_clock_correction(camera, reference)
+    assert correction.offset == pytest.approx(2.0, abs=1.0e-9)
+    assert correction.drift == pytest.approx(20.0e-6, abs=1.0e-10)
+    corrected = correction.apply(camera[-1, 0], bag[-1])
+    assert corrected == pytest.approx(reference[-1, 0], abs=1.0e-9)
+
+
+def test_estimate_clock_correction_validates_sample_shape():
+    with pytest.raises(ValueError):
+        ex.estimate_clock_correction(np.zeros((1, 2)), np.zeros((2, 2)))
+
+
+def test_fixed_clock_correction_accepts_measured_adjustment():
+    args = argparse.Namespace(time_offset='1.25', time_offset_adjustment=-0.02)
+    correction = ex.resolve_clock_correction(args)
+    assert correction.offset == pytest.approx(1.23)
+    assert correction.drift == 0.0
 
 
 # --------------------------------------------------------------------------- #
@@ -274,6 +302,7 @@ def test_parser_requires_bag_traj_out():
     assert args.bag == 'b' and args.traj == 't' and args.out == 'o'
     assert args.camera_topic == '/cam'
     assert args.max_extrapolation == 0.05
+    assert args.time_offset_adjustment == 0.0
 
 
 def test_parser_missing_required_exits():

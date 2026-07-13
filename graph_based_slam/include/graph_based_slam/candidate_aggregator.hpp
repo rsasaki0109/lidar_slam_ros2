@@ -83,6 +83,8 @@ struct Config
   // Maximum euclidean distance for the distance source.
   double range_of_searching_loop_closure {0.0};
   double scan_context_threshold {0.0};
+  int scan_context_query_stride {1};
+  int scan_context_exclude_recent {ScanContext::EXCLUDE_RECENT};
 
   bool bev_use_mutual_visibility {false};
   double bev_mutual_visibility_min_overlap_ratio {0.0};
@@ -225,7 +227,18 @@ inline void collectScanContextCandidate(
   std::vector<loop_verifier::LoopCandidate> & candidates,
   std::vector<LogLine> & logs)
 {
-  if (scan_context_db.size() <= ScanContext::EXCLUDE_RECENT) {
+  const int query_stride = std::max(1, config.scan_context_query_stride);
+  if (latest_idx % query_stride != 0) {
+    if (config.debug) {
+      std::ostringstream oss;
+      oss << "Skip ScanContext query at submap " << latest_idx
+          << " because query stride is " << query_stride;
+      logs.push_back(LogLine{false, oss.str()});
+    }
+    return;
+  }
+  const int exclude_recent = std::max(1, config.scan_context_exclude_recent);
+  if (scan_context_db.size() <= exclude_recent) {
     return;
   }
   const double latest_moving_distance = submap_travel_distances[latest_idx];
@@ -233,7 +246,7 @@ inline void collectScanContextCandidate(
     scan_context_db.descriptors.back(),
     config.max_loop_candidate_count,
     ScanContext::NUM_CANDIDATES,
-    ScanContext::EXCLUDE_RECENT,
+    exclude_recent,
     config.scan_context_threshold);
 
   if (!sc_matches.empty()) {
@@ -289,7 +302,7 @@ inline void collectScanContextCandidate(
     const auto best = scan_context_db.query(
       scan_context_db.descriptors.back(),
       ScanContext::NUM_CANDIDATES,
-      ScanContext::EXCLUDE_RECENT,
+      exclude_recent,
       std::numeric_limits<double>::max());
     std::ostringstream oss;
     oss << "ScanContext no match: best_sc_dist=" << best.second

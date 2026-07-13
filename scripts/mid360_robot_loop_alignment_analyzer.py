@@ -288,13 +288,18 @@ def _load_cloud_points(
         pcd_paths = [map_dir / name for name in referenced]
     else:
         pcd_paths = sorted(map_dir.glob('*.pcd'))
+    # Reserve a fair quota for every spatial tile. Stopping after the global
+    # cap biases the sample toward metadata order (typically negative X) and
+    # can leave the actual loop area with zero points.
+    fair_tile_quota = max(
+        1,
+        min(max_points_per_tile, max_total_points // max(1, len(pcd_paths))),
+    )
     points: list[tuple[float, float, float]] = []
     tile_summaries = []
     unsupported = []
     for path in pcd_paths:
-        if len(points) >= max_total_points:
-            break
-        tile = _read_pcd_xyz(path, max_points=max_points_per_tile)
+        tile = _read_pcd_xyz(path, max_points=fair_tile_quota)
         tile_summaries.append({
             'name': path.name,
             'points': tile['points'],
@@ -304,8 +309,8 @@ def _load_cloud_points(
         })
         if tile['error']:
             unsupported.append(f'{path.name}: {tile["error"]}')
-        remaining = max_total_points - len(points)
-        points.extend(tile['xyz'][:remaining])
+        points.extend(tile['xyz'])
+    points = _sample_points(points, max_total_points)
     return {
         'map_dir': str(map_dir),
         'metadata_path': str(metadata_path) if metadata_path.is_file() else '',
@@ -476,15 +481,15 @@ def _decompress_lzf_pure_python(compressed: bytes, expected_size: int) -> bytes:
         else:
             length = control >> 5
             reference_offset = (control & 0x1F) << 8
-            if index >= len(compressed):
-                raise ValueError('truncated LZF back-reference')
-            reference_offset += compressed[index]
-            index += 1
             if length == 7:
                 if index >= len(compressed):
                     raise ValueError('truncated LZF extended length')
                 length += compressed[index]
                 index += 1
+            if index >= len(compressed):
+                raise ValueError('truncated LZF back-reference')
+            reference_offset += compressed[index]
+            index += 1
             length += 2
             reference = len(output) - reference_offset - 1
             if reference < 0:

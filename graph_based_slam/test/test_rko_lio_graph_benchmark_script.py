@@ -70,6 +70,22 @@ def test_rko_lio_benchmark_help_exits_successfully():
     assert '--skip-reference-gen' in result.stderr
 
 
+def test_trajectory_only_mode_uses_full_dump_as_explicit_passthrough():
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+    assert 'find "$OUTPUT_DIR" -mindepth 2 -maxdepth 2' in script
+    assert 'Trajectory-only passthrough from full-rate dump' in script
+    assert 'cp "${BACKEND_TUMS[0]}" "$RAW_TUM"' in script
+
+
+def test_quiet_completion_requires_substantial_bag_progress():
+    """Require both near-end and minimum-progress quiet-completion guards."""
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+
+    assert 'raw_tum_reached "$end_stamp" 120.0' in script
+    assert 'raw_tum_reached_fraction 0.8' in script
+    assert '[[ -n "$end_stamp" ]]' in script
+
+
 def test_rko_lio_benchmark_rejects_missing_option_value_before_realpath():
     result = _run_benchmark('--bag', '--skip-map-save')
 

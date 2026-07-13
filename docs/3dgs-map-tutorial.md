@@ -64,8 +64,9 @@ python3 tools/gaussian_splatting/extract_posed_images.py \
   --out <run>/gsplat
 ```
 
-- `--time-offset auto`: カメラと LiDAR がセンサ内蔵クロックの別基準でも、bag 受信
-  時刻から skew を相殺（Livox+cam bag で頻出。koide は ~21.9s ずれていた）。
+- `--time-offset auto`: カメラと LiDAR がセンサ内蔵クロックの別基準でも、bag全区間
+  （最大256 sample）の受信時刻からoffsetと線形driftをロバスト推定する。
+  Livox+cam bagで頻出し、koideは約21.9秒ずれていた。
 - `--extrinsic`: camera optical ← body の外部標定 YAML（`matrix` または
   `translation`+`rotation_xyzw`）。`/tf_static` から合成した例が
   `configs/gaussian_splatting/` にある。

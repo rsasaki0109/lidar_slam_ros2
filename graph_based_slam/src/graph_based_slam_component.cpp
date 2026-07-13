@@ -251,6 +251,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   }
   declare_parameter("scan_context_threshold", 0.3);
   get_parameter("scan_context_threshold", scan_context_threshold_);
+  declare_parameter("scan_context_query_stride", 1);
+  get_parameter("scan_context_query_stride", scan_context_query_stride_);
+  declare_parameter("scan_context_exclude_recent", ScanContext::EXCLUDE_RECENT);
+  get_parameter("scan_context_exclude_recent", scan_context_exclude_recent_);
   declare_parameter("bev_descriptor_threshold", 0.20);
   get_parameter("bev_descriptor_threshold", bev_descriptor_threshold_);
   declare_parameter("bev_descriptor_grid_size_m", 80.0);
@@ -895,6 +899,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "use_scan_context:" << std::boolalpha << use_scan_context_ << std::endl;
   if (use_scan_context_) {
     std::cout << "scan_context_threshold:" << scan_context_threshold_ << std::endl;
+    std::cout << "scan_context_query_stride:" <<
+      std::max(1, scan_context_query_stride_) << std::endl;
+    std::cout << "scan_context_exclude_recent:" <<
+      std::max(1, scan_context_exclude_recent_) << std::endl;
     std::cout << "prefer_scan_context_candidates:" << std::boolalpha <<
       prefer_scan_context_candidates_ << std::endl;
     std::cout << "use_3d_bbs_for_scan_context:" << std::boolalpha <<
@@ -1393,6 +1401,8 @@ void GraphBasedSlamComponent::searchLoopForLatest(
   aggregator_config.distance_loop_closure = distance_loop_closure_;
   aggregator_config.range_of_searching_loop_closure = range_of_searching_loop_closure_;
   aggregator_config.scan_context_threshold = scan_context_threshold_;
+  aggregator_config.scan_context_query_stride = std::max(1, scan_context_query_stride_);
+  aggregator_config.scan_context_exclude_recent = std::max(1, scan_context_exclude_recent_);
   aggregator_config.bev_use_mutual_visibility = bev_use_mutual_visibility_;
   aggregator_config.bev_mutual_visibility_min_overlap_ratio =
     bev_mutual_visibility_min_overlap_ratio_;

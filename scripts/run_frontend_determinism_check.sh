@@ -13,6 +13,8 @@ set -euo pipefail
 #     [--imu-topic /imu/imu] \
 #     [--params lidarslam/param/lidarslam.yaml] \
 #     [--runs 3] [--max-clouds 0] \
+#     [--ros-domain-base 120] \
+#     [--resume] \
 #     [--output-dir output/frontend_determinism_<timestamp>] \
 #     [--reference-tum demo_data/ntu_viral/tnp_01/leica_pose.tum]
 #
@@ -31,6 +33,8 @@ RUNS=3
 MAX_CLOUDS=0
 OUTPUT_DIR="${REPO_ROOT}/output/frontend_determinism_$(date +%Y%m%d_%H%M%S)"
 REFERENCE_TUM=""
+RESUME=false
+ROS_DOMAIN_BASE=120
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -42,12 +46,18 @@ while [[ $# -gt 0 ]]; do
     --max-clouds) MAX_CLOUDS="$2"; shift 2 ;;
     --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
     --reference-tum) REFERENCE_TUM="$2"; shift 2 ;;
+    --ros-domain-base) ROS_DOMAIN_BASE="$2"; shift 2 ;;
+    --resume) RESUME=true; shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
 
 if [[ -z "${BAG}" || -z "${CLOUD_TOPIC}" ]]; then
   echo "--bag <raw bag dir> and --cloud-topic <topic> are required" >&2
+  exit 2
+fi
+if (( ROS_DOMAIN_BASE < 0 || ROS_DOMAIN_BASE + RUNS > 233 )); then
+  echo "--ros-domain-base must leave one valid ROS domain (0..232) per run" >&2
   exit 2
 fi
 if [[ ! -f "${REPO_ROOT}/install/setup.bash" ]]; then
@@ -73,11 +83,24 @@ for i in $(seq 1 "${RUNS}"); do
   run_dir="${OUTPUT_DIR}/run${i}"
   mkdir -p "${run_dir}"
   echo "--- run ${i}/${RUNS}"
+  if [[ "${RESUME}" == true && \
+        -f "${run_dir}/.complete" && \
+        -s "${run_dir}/trajectory_frontend.tum" && \
+        -s "${run_dir}/submaps_frontend.csv" ]]; then
+    echo "reuse complete run ${i}: ${run_dir}"
+    continue
+  fi
+  rm -f "${run_dir}/.complete"
   imu_topic_args=()
   if [[ -n "${IMU_TOPIC}" ]]; then
     imu_topic_args=(-p imu_topic:="${IMU_TOPIC}")
   fi
-  ros2 run scanmatcher scan_matcher_offline_runner --ros-args \
+  # A direct bag callback still constructs ROS publishers. Give every run a
+  # private local DDS domain so a stale runner cannot inject wall-clock poses
+  # or keep the next runner alive during shutdown.
+  ROS_DOMAIN_ID=$((ROS_DOMAIN_BASE + i - 1)) ROS_LOCALHOST_ONLY=1 \
+    ros2 run scanmatcher scan_matcher_offline_runner --ros-args \
+    --disable-rosout-logs \
     --params-file "${PARAMS}" \
     -p async_map_update:=false \
     -p bag_path:="${BAG}" \
@@ -86,6 +109,7 @@ for i in $(seq 1 "${RUNS}"); do
     -p max_clouds:="${MAX_CLOUDS}" \
     -p output_dir:="${run_dir}" \
     > "${run_dir}/runner.log" 2>&1
+  touch "${run_dir}/.complete"
   md5sum "${run_dir}/trajectory_frontend.tum" "${run_dir}/submaps_frontend.csv"
   if [[ -n "${REFERENCE_TUM}" ]]; then
     python3 "${SCRIPT_DIR}/ape_from_tum.py" \

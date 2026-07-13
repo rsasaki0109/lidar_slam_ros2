@@ -112,6 +112,32 @@ def test_voxel_downsample_keeps_rgb_alignment():
     np.testing.assert_array_equal(out_rgb[order], [[10, 20, 30], [40, 50, 60]])
 
 
+def test_project_planar_voxels_flattens_safe_plane_without_deleting_points():
+    xy = np.array([(x, y) for x in np.linspace(0.1, 0.9, 4)
+                   for y in np.linspace(0.1, 0.9, 4)])
+    z = 0.5 + np.linspace(-0.03, 0.03, len(xy))
+    points = np.column_stack((xy, z))
+    refined, projected = pcio.project_planar_voxels(points, 1.0)
+    assert projected.all()
+    assert refined.shape == points.shape
+    eigenvalues = np.linalg.eigvalsh(np.cov(refined.T, bias=True))
+    assert eigenvalues[0] < 1.0e-12
+
+
+def test_project_planar_voxels_keeps_sparse_groups():
+    sparse = np.array([[0.1, 0.1, 0.1], [0.2, 0.2, 0.2]])
+    refined, projected = pcio.project_planar_voxels(sparse, 1.0)
+    np.testing.assert_array_equal(refined, sparse)
+    assert not projected.any()
+
+
+def test_project_planar_voxels_validates_options():
+    with np.testing.assert_raises(ValueError):
+        pcio.project_planar_voxels(np.zeros((1, 3)), 0.0)
+    with np.testing.assert_raises(ValueError):
+        pcio.project_planar_voxels(np.zeros((1, 3)), 1.0, min_points=2)
+
+
 # --------------------------------------------------------------------------- #
 # LiDAR init point transform
 # --------------------------------------------------------------------------- #
@@ -449,6 +475,20 @@ def test_colorize_robust_return_counts_reports_confidence():
     assert seen[0] and not seen[1]
 
 
+def test_colorize_robust_observation_mask_rejects_bad_view():
+    vms1, K, W, H = _cam()
+    vms = np.concatenate([vms1] * 3, axis=0)
+    images = [np.full((H, W, 3), value, np.uint8)
+              for value in (50, 50, 240)]
+    points = np.array([[0.0, 0.0, 5.0]])
+    mask = np.array([[True, True, False]])
+    rgb, seen, counts = pcio.colorize_by_projection_robust(
+        points, vms, K, images, W, H, normalize_exposure=False,
+        observation_mask=mask, return_counts=True)
+    assert seen[0] and counts[0] == 2
+    np.testing.assert_array_equal(rgb[0], [50, 50, 50])
+
+
 def test_colorize_robust_normalizes_mono_images_and_broadcasts_rgb():
     vms1, K, W, H = _cam()
     vms = np.concatenate([vms1, vms1], axis=0)
@@ -519,6 +559,12 @@ def test_drop_sparse_points_grid_boundary_is_safe():
     pts = np.array([[0.0, 0.0, 0.0], [9.0, 9.0, 9.0]])
     keep = pcio.drop_sparse_points(pts, min_neighbors=1, voxel=0.1)
     assert keep.tolist() == [True, True]
+
+
+def test_drop_sparse_points_one_counts_the_query_point():
+    pts = np.array([[0.0, 0.0, 0.0], [9.0, -4.0, 2.0]])
+    keep = pcio.drop_sparse_points(pts, min_neighbors=1, voxel=0.1)
+    assert keep.all()
 
 
 def test_drop_sparse_points_neighbouring_voxels_count_together():

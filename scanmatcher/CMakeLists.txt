@@ -62,7 +62,6 @@ else()
 endif()
 
 if(small_gicp_FOUND)
-  list(APPEND dependencies small_gicp)
   add_definitions(-DHAS_SMALL_GICP)
   message(STATUS "small_gicp found")
 else()
@@ -121,6 +120,10 @@ src/scanmatcher_component.cpp
 
 target_compile_definitions(scanmatcher_component PRIVATE "GS_SM_BUILDING_DLL")
 
+if(small_gicp_FOUND)
+  target_link_libraries(scanmatcher_component small_gicp::small_gicp)
+endif()
+
 ament_target_dependencies(scanmatcher_component ${dependencies})
 
 add_executable(scanmatcher_node
@@ -147,8 +150,9 @@ if(small_gicp_FOUND)
   src/small_gicp_odom_node.cpp
   )
   ament_target_dependencies(small_gicp_odom_node
-    rclcpp sensor_msgs nav_msgs tf2_ros pcl_conversions small_gicp)
-  target_link_libraries(small_gicp_odom_node ${PCL_LIBRARIES})
+    rclcpp sensor_msgs nav_msgs tf2_ros pcl_conversions)
+  target_link_libraries(small_gicp_odom_node
+    ${PCL_LIBRARIES} small_gicp::small_gicp)
 endif()
 
 find_package(message_filters REQUIRED)

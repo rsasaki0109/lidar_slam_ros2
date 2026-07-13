@@ -44,6 +44,8 @@ import subprocess
 import sys
 from typing import Sequence
 
+import numpy as np
+
 
 TOOL_DIR = Path(__file__).resolve().parent
 REPO_ROOT = TOOL_DIR.parents[1]
@@ -84,6 +86,38 @@ def validate_trajectory_density(path: Path, max_gap: float) -> None:
             'trajectory rather than sparse pose-graph keyframes')
 
 
+def validate_colour_source(transforms: Path, allow_monochrome: bool = False
+                           ) -> dict:
+    """Reject mono posed images unless the caller explicitly allows them."""
+    import imageio.v3 as iio
+
+    document = json.loads(Path(transforms).read_text())
+    frames = document.get('frames', [])
+    if not frames:
+        raise ValueError(f'{transforms}: no posed image frames')
+    sampled = frames[::max(1, len(frames) // 5)][:5]
+    deltas = []
+    channels = []
+    for frame in sampled:
+        path = (Path(transforms).parent / frame['file_path']).resolve()
+        image = np.asarray(iio.imread(path))
+        channels.append(1 if image.ndim == 2 else image.shape[2])
+        if image.ndim == 3 and image.shape[2] >= 3:
+            deltas.append(float(np.mean(np.ptp(image[:, :, :3], axis=2))))
+        else:
+            deltas.append(0.0)
+    colour_delta = float(np.mean(deltas))
+    is_colour = max(channels) >= 3 and colour_delta > 0.5
+    report = {'sampled_frames': len(sampled), 'max_channels': max(channels),
+              'mean_channel_delta': colour_delta, 'is_colour': is_colour}
+    if not is_colour and not allow_monochrome:
+        raise ValueError(
+            'camera source is monochrome; RGB point colouring would only copy '
+            'luminance into three channels. Choose a bgr8/rgb8 camera topic, or '
+            'pass --allow-monochrome for geometry-only benchmarking')
+    return report
+
+
 def build_commands(args) -> list[tuple[str, list[str]]]:
     """Return the missing/forced pipeline stages as ``(name, argv)`` pairs."""
     out_dir = Path(args.out)
@@ -117,6 +151,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             '--camera-info-topic', args.camera_info_topic,
             '--extrinsic', str(extrinsic_path), '--out', str(posed_dir),
             '--time-offset', args.time_offset,
+            '--time-offset-adjustment', str(args.time_offset_adjustment),
             '--clock-reference-topic', args.points_topic,
             '--stride', str(args.image_stride),
             '--start-time', str(args.start_time), '--end-time', str(args.end_time),
@@ -140,12 +175,18 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             '--stride', str(args.scan_stride),
             '--start-time', str(args.start_time), '--end-time', str(args.end_time),
             '--color-transforms', str(transforms), '--color-robust',
+            '--color-exposure-scale-limit', str(args.color_exposure_scale_limit),
+            '--color-max-samples', str(args.color_max_samples),
         ]
+        if not args.color_normalize_exposure:
+            build.append('--color-no-normalize-exposure')
         if args.lidar_calibration is not None:
             build.extend([
                 '--lidar-calibration', str(args.lidar_calibration),
                 '--lidar-key', args.lidar_key,
             ])
+        if args.no_deskew:
+            build.append('--no-deskew')
         commands.append(('coloured map', build))
 
     if args.quality_profile is not None:
@@ -223,6 +264,10 @@ def run_pipeline(args) -> dict:
             validate_trajectory_density(
                 trajectory, args.max_trajectory_gap)
             trajectory_validated = True
+        if not args.dry_run and name == 'coloured map':
+            validate_colour_source(
+                out_dir / 'posed_images' / 'transforms.json',
+                args.allow_monochrome)
         print(f'[{name}]', ' '.join(command))
         if not args.dry_run:
             subprocess.run(command, check=True)
@@ -264,11 +309,17 @@ def build_parser() -> argparse.ArgumentParser:
                    help='camera intrinsics YAML when the bag has no CameraInfo')
     p.add_argument('--time-offset', default='auto',
                    help='camera-to-trajectory clock offset or auto')
+    p.add_argument('--time-offset-adjustment', type=float, default=0.0,
+                   help='seconds added after fixed or auto clock correction')
     p.add_argument('--max-trajectory-gap', type=float, default=0.5,
                    help='reject sparse pose streams with a larger gap (s); '
                         'set <=0 to disable')
     p.add_argument('--image-stride', type=int, default=1)
     p.add_argument('--scan-stride', type=int, default=1)
+    p.add_argument('--no-deskew', action='store_true',
+                   help='accumulate each scan at its scan pose; use when the '
+                        'trajectory is registration-at-scan-rate rather than '
+                        'a continuous-time body trajectory')
     p.add_argument('--voxel', type=float, default=0.1)
     p.add_argument('--max-points', type=int, default=300000)
     p.add_argument('--min-range', type=float, default=0.0)
@@ -281,6 +332,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--start-time', type=float, default=0.0)
     p.add_argument('--end-time', type=float, default=-1.0)
     p.add_argument('--no-undistort', action='store_true')
+    p.add_argument('--allow-monochrome', action='store_true',
+                   help='allow luminance-only maps for geometry benchmarks')
+    p.add_argument('--color-no-normalize-exposure', action='store_false',
+                   dest='color_normalize_exposure',
+                   help='ablate per-view exposure normalization while retaining '
+                        'occlusion-aware RGB medoid fusion')
+    p.add_argument('--color-exposure-scale-limit', type=float, default=1.5)
+    p.add_argument('--color-max-samples', type=int, default=12)
     p.add_argument('--force-images', action='store_true')
     p.add_argument('--force-map', action='store_true')
     p.add_argument('--force-trajectory', action='store_true')

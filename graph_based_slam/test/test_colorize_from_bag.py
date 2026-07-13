@@ -251,6 +251,30 @@ def test_merge_empty_raises():
         cfb.merge_colorings([])
 
 
+def test_colour_statistics_distinguishes_rgb_from_repeated_luminance():
+    rgb = np.array([[100, 100, 100], [200, 50, 20], [0, 100, 20]], np.uint8)
+    stats = cfb.colour_statistics(rgb, np.array([True, True, False]))
+    assert stats['mean_channel_range'] == 90.0
+    assert stats['chromatic_fraction_10'] == 0.5
+    assert stats['unique_colours'] == 2
+
+
+def test_colour_statistics_handles_no_visible_points():
+    stats = cfb.colour_statistics(
+        np.zeros((1, 3), np.uint8), np.array([False]))
+    assert stats['chromatic_fraction_10'] == 0.0
+    assert stats['unique_colours'] == 0
+
+
+def test_projection_quality_cli_defaults_are_frozen():
+    args = cfb.build_parser().parse_args(['bag', 'output'])
+
+    assert args.zbuf_bin == 1
+    assert args.depth_tol == 0.15
+    assert args.interp == 'edge-aware'
+    assert args.edge_threshold == 48.0
+
+
 def test_transform_optical_rotation_is_a_valid_axis_permutation():
     # The standard camera_link<->optical quaternion (0.5,-0.5,0.5,-0.5) must
     # produce a proper rotation (orthonormal, det +1) that maps each unit axis

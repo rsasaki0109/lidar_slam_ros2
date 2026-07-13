@@ -233,6 +233,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   interp: str = 'edge-aware',
                                   edge_threshold: float = 48.0,
                                   prefer_near: bool = True,
+                                  observation_mask: Optional[np.ndarray] = None,
                                   return_counts: bool = False):
     """Occlusion-aware, exposure-normalised, median-robust point colorization.
 
@@ -269,6 +270,10 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     """
     points = np.asarray(points, dtype=np.float64)
     n = points.shape[0]
+    if observation_mask is not None:
+        observation_mask = np.asarray(observation_mask, dtype=bool)
+        if observation_mask.shape != (n, len(images)):
+            raise ValueError('observation_mask must be points x images')
     rgb = np.tile(np.asarray(default_rgb, dtype=np.uint8), (n, 1))
     counts = np.zeros(n, dtype=np.uint16)
     if n == 0 or max_samples <= 0:
@@ -317,9 +322,14 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         np.minimum.at(zbuf, zbin, z[inb].astype(np.float32))
         visible = z[inb] <= zbuf[zbin] + depth_tol + 0.02 * z[inb]
         cand = ids[inb][visible]  # unique point ids seen (unoccluded) this view
+        if observation_mask is not None:
+            keep = observation_mask[cand, vi]
+            cand = cand[keep]
+            cand_z = z[inb][visible].astype(np.float32)[keep]
+        else:
+            cand_z = z[inb][visible].astype(np.float32)
         if cand.size == 0:
             continue
-        cand_z = z[inb][visible].astype(np.float32)
         cols = _sample_pixels(
             img, uf[cand], vf[cand], width, height, interp, edge_threshold)
         cols = np.clip(cols * scales[vi], 0.0, 255.0).astype(np.uint8)
@@ -403,6 +413,8 @@ def drop_sparse_points(xyz: np.ndarray, min_neighbors: int = 3,
                        voxel: float = 0.1) -> np.ndarray:
     """Keep-mask of points whose 3x3x3 voxel neighbourhood holds enough points.
 
+    The count includes the query point, so two means one supporting point and
+    one is a no-op. Zero is handled by callers as an explicit disabled value.
     Isolated stray returns render as dust in the map flythrough; counting the
     points in each voxel plus its 26 neighbours (integer 3D keys, ``np.unique``
     histogram) and dropping points below ``min_neighbors`` removes them without
@@ -434,6 +446,66 @@ def drop_sparse_points(xyz: np.ndarray, min_neighbors: int = 3,
                 hit = (pos < uniq.size) & (uniq[pos_c] == nk)
                 total[hit] += counts[pos_c[hit]]
     return total >= int(min_neighbors)
+
+
+def project_planar_voxels(points: np.ndarray, voxel_size: float, *,
+                          min_points: int = 10,
+                          max_planarity_ratio: float = 0.06,
+                          min_second_to_first_ratio: float = 0.04,
+                          max_projection_distance: float = 0.18
+                          ) -> tuple[np.ndarray, np.ndarray]:
+    """Project locally planar voxel points onto their PCA plane.
+
+    Only sufficiently populated, two-dimensional voxels are modified. A
+    distance cap prevents a second surface or boundary return from being
+    collapsed onto the fitted plane. Returns coordinates and a projected mask.
+    """
+    xyz = np.asarray(points, dtype=np.float64)
+    if xyz.ndim != 2 or xyz.shape[1] != 3:
+        raise ValueError(f'points must be Nx3, got {xyz.shape}')
+    if voxel_size <= 0.0:
+        raise ValueError('voxel_size must be positive')
+    if min_points < 3:
+        raise ValueError('min_points must be >= 3')
+    if not 0.0 <= max_planarity_ratio <= 1.0:
+        raise ValueError('max_planarity_ratio must be in [0, 1]')
+    if min_second_to_first_ratio < 0.0:
+        raise ValueError('min_second_to_first_ratio must be >= 0')
+    if max_projection_distance < 0.0:
+        raise ValueError('max_projection_distance must be >= 0')
+    refined = xyz.copy()
+    projected = np.zeros(len(xyz), dtype=bool)
+    if not len(xyz):
+        return refined, projected
+
+    keys = np.floor(xyz / voxel_size).astype(np.int64)
+    order = np.lexsort((keys[:, 2], keys[:, 1], keys[:, 0]))
+    ordered_keys = keys[order]
+    changes = np.flatnonzero(np.any(
+        ordered_keys[1:] != ordered_keys[:-1], axis=1)) + 1
+    bounds = np.concatenate(([0], changes, [len(xyz)]))
+    for begin, end in zip(bounds[:-1], bounds[1:]):
+        ids = order[begin:end]
+        if ids.size < min_points:
+            continue
+        block = xyz[ids]
+        centre = block.mean(axis=0)
+        centred = block - centre
+        eigenvalues, eigenvectors = np.linalg.eigh(
+            centred.T @ centred / ids.size)
+        total = max(float(eigenvalues.sum()), 1.0e-12)
+        if eigenvalues[0] / total > max_planarity_ratio:
+            continue
+        if eigenvalues[1] / max(float(eigenvalues[2]), 1.0e-12) < \
+                min_second_to_first_ratio:
+            continue
+        normal = eigenvectors[:, 0]
+        distances = centred @ normal
+        use = np.abs(distances) <= max_projection_distance
+        chosen = ids[use]
+        refined[chosen] = block[use] - distances[use, None] * normal
+        projected[chosen] = True
+    return refined, projected
 
 
 def voxel_downsample(xyz: np.ndarray, voxel_size: float,
