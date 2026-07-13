@@ -151,6 +151,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             '--camera-info-topic', args.camera_info_topic,
             '--extrinsic', str(extrinsic_path), '--out', str(posed_dir),
             '--time-offset', args.time_offset,
+            '--time-offset-adjustment', str(args.time_offset_adjustment),
             '--clock-reference-topic', args.points_topic,
             '--stride', str(args.image_stride),
             '--start-time', str(args.start_time), '--end-time', str(args.end_time),
@@ -308,6 +309,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help='camera intrinsics YAML when the bag has no CameraInfo')
     p.add_argument('--time-offset', default='auto',
                    help='camera-to-trajectory clock offset or auto')
+    p.add_argument('--time-offset-adjustment', type=float, default=0.0,
+                   help='seconds added after fixed or auto clock correction')
     p.add_argument('--max-trajectory-gap', type=float, default=0.5,
                    help='reject sparse pose streams with a larger gap (s); '
                         'set <=0 to disable')

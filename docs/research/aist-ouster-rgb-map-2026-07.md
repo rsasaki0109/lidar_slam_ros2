@@ -17,7 +17,8 @@ held-out camera colour consistency.
 - official direct-visual-LiDAR `calib.json`
 - `/points`, `/image`, `/camera_info`
 - deterministic `scan_matcher_offline_runner` with `lidarslam_lo.yaml`
-- automatic camera-clock to LiDAR-clock offset and drift estimation
+- automatic camera-clock to LiDAR-clock offset and drift estimation, followed
+  by the independently validated AIST-specific +10 ms residual adjustment
 - all RGB frames, all scans, 0.15 m map voxel, range 1–80 m
 - weak density guard: one supporting point (`min_neighbors=1`)
 - robust 1-pixel z-buffer + edge-aware sampling + RGB medoid fusion
@@ -40,28 +41,28 @@ bash scripts/run_aist_ouster_rgb_map_benchmark.sh \
 |---|---:|---:|
 | scans / RGB views | 291 / 58 | 265 / 53 |
 | map points | 176,709 | 137,477 |
-| RGB-coloured points | 64,337 | 47,764 |
-| whole-map coloured fraction | **36.41%** | **34.74%** |
-| chromatic fraction (channel range ≥10) | **59.52%** | **64.14%** |
-| unique observed colours | 36,416 | 29,072 |
-| held-out RGB L2 median ↓ | **21.02** | **16.90** |
-| held-out RGB L2 inlier ≤20 ↑ | **48.34%** | **56.23%** |
-| held-out scored fraction | 99.88% | 100.00% |
+| RGB-coloured points | 64,293 | 47,773 |
+| whole-map coloured fraction | **36.38%** | **34.75%** |
+| chromatic fraction (channel range ≥10) | **60.02%** | **64.39%** |
+| unique observed colours | 36,755 | 29,336 |
+| held-out RGB L2 median ↓ | **20.34** | **16.37** |
+| held-out RGB L2 inlier ≤20 ↑ | **49.45%** | **57.31%** |
+| held-out scored fraction | 99.87% | 100.00% |
 | plane thickness mean ↓ | 0.0823 m | 0.0744 m |
 | plane thickness p95 ↓ | 0.1230 m | 0.1193 m |
 | planar coverage ↑ | 47.44% | 53.95% |
-| colour-map wall time | 174.6 s | 137.2 s |
-| processing / bag duration ↓ | 6.02× | 5.19× |
-| colour-map peak RSS | 1,088.1 MiB | 1,003.6 MiB |
+| colour-map wall time | 177.7 s | 158.7 s |
+| processing / bag duration ↓ | 6.13× | 6.00× |
+| colour-map peak RSS | 1,084.0 MiB | 1,009.0 MiB |
 
 The former one-scan check covered only 9.55% / 10.57% of each 32,768-point
 scan. It remains useful as a fast calibration smoke test, but it is no longer
 the evidence for a camera-coloured point-cloud **map**.
 
-The 16:25 resource row is a clean end-to-end rerun of the frozen rigid-scan
-runner. Its PLY SHA-256 (`79589bd4...e3e0e5`) and all quality metrics match the
-earlier rigid artifact; unlike the preliminary table, its timing comes directly
-from that run rather than a first-pass deskew ablation.
+Both resource rows are clean end-to-end reruns of the frozen rigid-scan runner
+with the adopted +10 ms adjustment. Their PLY SHA-256 prefixes are
+`1d2ea97f...f6f0f3` and `435a1744...a1982`; timings come directly from those
+runs rather than a first-pass deskew ablation.
 
 ## Ablations and rejected shortcuts
 
@@ -79,6 +80,29 @@ Searching every image raised single-scan coverage slightly, but can select an
 unrepresentative bag edge. A synthetic −50 ms scan-midpoint pairing reduced the
 reported timestamp residual while lowering chromatic fraction on both captures.
 Neither was adopted.
+
+The affine clock estimate can still leave a small physical capture residual.
+An explicit post-auto adjustment was therefore swept on 16:25:54 and frozen
+before opening 16:26:51:
+
+| adjustment | held-out median ↓ | p90 ↓ | inlier ≤20 ↑ |
+|---:|---:|---:|---:|
+| −10 ms | 21.75 | 90.35 | 47.20% |
+| 0 ms | 21.02 | 89.83 | 48.34% |
+| **+10 ms** | **20.34** | **89.50** | **49.45%** |
+| +20 ms | 20.76 | 90.30 | 48.83% |
+
+The frozen +10 ms candidate then improved the independent 16:26:51 capture:
+median 16.90→16.37, p90 68.17→66.07, and inlier 56.23→57.31%.
+Its XYZ arrays exactly match both rigid baselines. Whole-map chroma improved
+59.52→60.02% and 64.14→64.39%, while coverage changed only
+36.41→36.38% and 34.74→34.75%.
+
+The correction is AIST-runner-specific. The generic extractor keeps a zero
+adjustment and exposes `--time-offset-adjustment` for measured calibration;
+it does not assume that every sensor pair shares this residual. A controlled
+16:26:51 end-to-end pair measured 154.79 s / 1,009.1 MiB at 0 ms and
+158.73 s / 1,009.0 MiB at +10 ms, within the 5% runtime/RSS gate.
 
 ### Exposure normalization
 

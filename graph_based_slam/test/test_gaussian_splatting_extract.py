@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 import sys
 
@@ -93,6 +94,13 @@ def test_estimate_clock_correction_recovers_offset_drift_and_rejects_outlier():
 def test_estimate_clock_correction_validates_sample_shape():
     with pytest.raises(ValueError):
         ex.estimate_clock_correction(np.zeros((1, 2)), np.zeros((2, 2)))
+
+
+def test_fixed_clock_correction_accepts_measured_adjustment():
+    args = argparse.Namespace(time_offset='1.25', time_offset_adjustment=-0.02)
+    correction = ex.resolve_clock_correction(args)
+    assert correction.offset == pytest.approx(1.23)
+    assert correction.drift == 0.0
 
 
 # --------------------------------------------------------------------------- #
@@ -294,6 +302,7 @@ def test_parser_requires_bag_traj_out():
     assert args.bag == 'b' and args.traj == 't' and args.out == 'o'
     assert args.camera_topic == '/cam'
     assert args.max_extrapolation == 0.05
+    assert args.time_offset_adjustment == 0.0
 
 
 def test_parser_missing_required_exits():

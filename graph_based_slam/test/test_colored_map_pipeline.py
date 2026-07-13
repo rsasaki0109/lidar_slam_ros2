@@ -64,6 +64,7 @@ def test_build_commands_connects_extract_to_robust_map(tmp_path):
     transforms = str(tmp_path / 'out' / 'posed_images' / 'transforms.json')
     assert '--undistort' in extract
     assert extract[extract.index('--time-offset') + 1] == 'auto'
+    assert extract[extract.index('--time-offset-adjustment') + 1] == '0.0'
     assert build[build.index('--color-transforms') + 1] == transforms
     assert '--color-robust' in build
     assert build[build.index('--min-neighbors') + 1] == '2'
@@ -81,6 +82,13 @@ def test_colour_ablation_options_reach_map_builder(tmp_path):
     assert '--color-no-normalize-exposure' in build
     assert build[build.index('--color-exposure-scale-limit') + 1] == '1.2'
     assert build[build.index('--color-max-samples') + 1] == '5'
+
+
+def test_time_offset_adjustment_reaches_image_extractor(tmp_path):
+    commands = cmp.build_commands(_args(
+        tmp_path, '--time-offset-adjustment', '-0.02'))
+    extract = commands[0][1]
+    assert extract[extract.index('--time-offset-adjustment') + 1] == '-0.02'
 
 
 def test_raw_trajectory_adds_densification_and_connects_dense_output(tmp_path):

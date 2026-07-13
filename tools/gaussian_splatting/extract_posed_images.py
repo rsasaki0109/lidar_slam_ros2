@@ -437,8 +437,9 @@ def _clock_samples(bag_path: str | Path, topic: str, msg_type,
 
 def resolve_clock_correction(args: argparse.Namespace) -> ClockCorrection:
     """Resolve fixed or robust affine camera-to-reference clock correction."""
+    adjustment = float(getattr(args, 'time_offset_adjustment', 0.0))
     if str(args.time_offset).lower() != 'auto':
-        return ClockCorrection(float(args.time_offset))
+        return ClockCorrection(float(args.time_offset) + adjustment)
     if not args.clock_reference_topic:
         raise ValueError('--time-offset auto requires --clock-reference-topic')
     from sensor_msgs.msg import CompressedImage, Image, PointCloud2
@@ -449,8 +450,11 @@ def resolve_clock_correction(args: argparse.Namespace) -> ClockCorrection:
     cam_samples = _clock_samples(args.bag, args.camera_topic, cam_type)
     ref_samples = _clock_samples(args.bag, args.clock_reference_topic, PointCloud2)
     correction = estimate_clock_correction(cam_samples, ref_samples)
+    correction = ClockCorrection(
+        correction.offset + adjustment, correction.drift, correction.origin)
     print(f'auto clock correction: offset={correction.offset:.6f}s '
           f'drift={correction.drift * 1.0e6:.3f}ppm '
+          f'adjustment={adjustment:+.6f}s '
           f'(camera -> {args.clock_reference_topic})')
     return correction
 
@@ -583,6 +587,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--time-offset', default='0.0',
                    help='seconds added to image stamps, or "auto" to align the '
                         'camera clock to --clock-reference-topic via bag receive time')
+    p.add_argument('--time-offset-adjustment', type=float, default=0.0,
+                   help='seconds added after fixed or auto clock correction; '
+                        'intended for measured synchronization ablations')
     p.add_argument('--clock-reference-topic', default=None,
                    help='PointCloud2 topic whose clock the trajectory uses '
                         '(required for --time-offset auto)')

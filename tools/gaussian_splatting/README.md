@@ -58,6 +58,8 @@ python3 tools/gaussian_splatting/extract_posed_images.py \
 
 # autoは最大256組を一次回帰し、timestamp外れ値をMADで除外する。
 # HILTI exp04はoffset -0.12us、drift -0.000074ppmで同期済みだった。
+# auto後に実測した物理的な撮像残差だけを足す場合は
+# --time-offset-adjustment <seconds> を使う（既定0、dataset間で検証すること）。
 
 # 2a) LiDAR-primed init 点群を構築（COLMAP 不要の幾何事前）
 python3 tools/gaussian_splatting/build_lidar_init.py \

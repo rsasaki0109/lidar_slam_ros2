@@ -93,7 +93,8 @@ echo "[2/6] posed RGB images + rigid-scan coloured map"
   "${BAG}" "${TRAJECTORY}" "${MAP_DIR}" \
   --extrinsic "${EXTRINSIC}" \
   --points-topic /points --camera-topic /image --camera-info-topic /camera_info \
-  --time-offset auto --image-stride 1 --scan-stride 1 \
+  --time-offset auto --time-offset-adjustment 0.01 \
+  --image-stride 1 --scan-stride 1 \
   --voxel 0.15 --max-points 300000 \
   --min-neighbors 1 --sparse-voxel 0.15 --min-range 1.0 --max-range 80.0 \
   --no-deskew
