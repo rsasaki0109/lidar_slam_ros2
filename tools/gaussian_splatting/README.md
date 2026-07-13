@@ -106,6 +106,11 @@ HILTI 2022 exp04ではper-point timestamp deskewにより、平面厚RMS meanが
 8.89 cmから6.25 cmへ改善し、planar coverageは21.38%から48.16%へ増加した。
 既定の弱いdensity guard（0.1 m近傍に最低1支持点）を加えると、81.5%の点を保持して
 平面厚5.99 cm、planar coverage 53.55%まで改善する。`--min-neighbors 0` で無効化可能。
+CPU-onlyのplanar refinementは、十分に平面らしいvoxelだけを局所PCA平面へ投影し、
+境界から離れた点の厚みを点削除なしで縮める。既定mapを保持するopt-in後処理として
+`python3 scripts/refine_planar_map.py --input map.ply --output map_refined.ply`
+を使う。HILTI exp04の1.0 m設定では平面厚2.03 cm（FAST-LIVO2 3.09 cm）まで改善したが、
+coverageは55.26%から51.41%へ下がるため、用途別に元mapと併記して評価する。
 
 外部校正はLiDAR depth境界と強い画像edgeの距離で診断できる。この自然scene metricは
 校正targetの代替ではなく、bag全体に対するpixel単位の回帰検査として使う。

@@ -112,6 +112,32 @@ def test_voxel_downsample_keeps_rgb_alignment():
     np.testing.assert_array_equal(out_rgb[order], [[10, 20, 30], [40, 50, 60]])
 
 
+def test_project_planar_voxels_flattens_safe_plane_without_deleting_points():
+    xy = np.array([(x, y) for x in np.linspace(0.1, 0.9, 4)
+                   for y in np.linspace(0.1, 0.9, 4)])
+    z = 0.5 + np.linspace(-0.03, 0.03, len(xy))
+    points = np.column_stack((xy, z))
+    refined, projected = pcio.project_planar_voxels(points, 1.0)
+    assert projected.all()
+    assert refined.shape == points.shape
+    eigenvalues = np.linalg.eigvalsh(np.cov(refined.T, bias=True))
+    assert eigenvalues[0] < 1.0e-12
+
+
+def test_project_planar_voxels_keeps_sparse_groups():
+    sparse = np.array([[0.1, 0.1, 0.1], [0.2, 0.2, 0.2]])
+    refined, projected = pcio.project_planar_voxels(sparse, 1.0)
+    np.testing.assert_array_equal(refined, sparse)
+    assert not projected.any()
+
+
+def test_project_planar_voxels_validates_options():
+    with np.testing.assert_raises(ValueError):
+        pcio.project_planar_voxels(np.zeros((1, 3)), 0.0)
+    with np.testing.assert_raises(ValueError):
+        pcio.project_planar_voxels(np.zeros((1, 3)), 1.0, min_points=2)
+
+
 # --------------------------------------------------------------------------- #
 # LiDAR init point transform
 # --------------------------------------------------------------------------- #

@@ -436,6 +436,66 @@ def drop_sparse_points(xyz: np.ndarray, min_neighbors: int = 3,
     return total >= int(min_neighbors)
 
 
+def project_planar_voxels(points: np.ndarray, voxel_size: float, *,
+                          min_points: int = 10,
+                          max_planarity_ratio: float = 0.06,
+                          min_second_to_first_ratio: float = 0.04,
+                          max_projection_distance: float = 0.18
+                          ) -> tuple[np.ndarray, np.ndarray]:
+    """Project locally planar voxel points onto their PCA plane.
+
+    Only sufficiently populated, two-dimensional voxels are modified. A
+    distance cap prevents a second surface or boundary return from being
+    collapsed onto the fitted plane. Returns coordinates and a projected mask.
+    """
+    xyz = np.asarray(points, dtype=np.float64)
+    if xyz.ndim != 2 or xyz.shape[1] != 3:
+        raise ValueError(f'points must be Nx3, got {xyz.shape}')
+    if voxel_size <= 0.0:
+        raise ValueError('voxel_size must be positive')
+    if min_points < 3:
+        raise ValueError('min_points must be >= 3')
+    if not 0.0 <= max_planarity_ratio <= 1.0:
+        raise ValueError('max_planarity_ratio must be in [0, 1]')
+    if min_second_to_first_ratio < 0.0:
+        raise ValueError('min_second_to_first_ratio must be >= 0')
+    if max_projection_distance < 0.0:
+        raise ValueError('max_projection_distance must be >= 0')
+    refined = xyz.copy()
+    projected = np.zeros(len(xyz), dtype=bool)
+    if not len(xyz):
+        return refined, projected
+
+    keys = np.floor(xyz / voxel_size).astype(np.int64)
+    order = np.lexsort((keys[:, 2], keys[:, 1], keys[:, 0]))
+    ordered_keys = keys[order]
+    changes = np.flatnonzero(np.any(
+        ordered_keys[1:] != ordered_keys[:-1], axis=1)) + 1
+    bounds = np.concatenate(([0], changes, [len(xyz)]))
+    for begin, end in zip(bounds[:-1], bounds[1:]):
+        ids = order[begin:end]
+        if ids.size < min_points:
+            continue
+        block = xyz[ids]
+        centre = block.mean(axis=0)
+        centred = block - centre
+        eigenvalues, eigenvectors = np.linalg.eigh(
+            centred.T @ centred / ids.size)
+        total = max(float(eigenvalues.sum()), 1.0e-12)
+        if eigenvalues[0] / total > max_planarity_ratio:
+            continue
+        if eigenvalues[1] / max(float(eigenvalues[2]), 1.0e-12) < \
+                min_second_to_first_ratio:
+            continue
+        normal = eigenvectors[:, 0]
+        distances = centred @ normal
+        use = np.abs(distances) <= max_projection_distance
+        chosen = ids[use]
+        refined[chosen] = block[use] - distances[use, None] * normal
+        projected[chosen] = True
+    return refined, projected
+
+
 def voxel_downsample(xyz: np.ndarray, voxel_size: float,
                      rgb: Optional[np.ndarray] = None
                      ) -> tuple[np.ndarray, Optional[np.ndarray]]:
