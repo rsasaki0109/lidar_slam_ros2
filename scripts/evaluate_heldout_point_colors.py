@@ -115,6 +115,8 @@ def main() -> int:
     parser.add_argument('--folds', type=int, default=2)
     parser.add_argument('--holdout-fold', type=int, default=1)
     parser.add_argument('--view-stride', type=int, default=5)
+    parser.add_argument('--use-pointcloud-colors', action='store_true',
+                        help='score stored RGB instead of recolouring train views')
     args = parser.parse_args()
     if args.folds < 2 or not 0 <= args.holdout_fold < args.folds:
         raise SystemExit('--folds must be >= 2 and --holdout-fold must be valid')
@@ -122,7 +124,7 @@ def main() -> int:
         raise SystemExit('--view-stride must be >= 1')
 
     import imageio.v3 as iio
-    points, _ = pcio.read_ply_xyz(args.pointcloud)
+    points, stored_colors = pcio.read_ply_xyz(args.pointcloud)
     dataset = tg.load_transforms(args.transforms)
     viewmats = np.asarray(dataset['viewmats'], dtype=np.float64)
     K = np.asarray(dataset['K'], dtype=np.float64)
@@ -130,9 +132,15 @@ def main() -> int:
     holdout = [i for i in range(len(images)) if i % args.folds == args.holdout_fold]
     holdout_set = set(holdout)
     train = [i for i in range(len(images)) if i not in holdout_set]
-    colors, seen = pcio.colorize_by_projection_robust(
-        points, viewmats[train], K,
-        [images[i] for i in train], dataset['width'], dataset['height'])
+    if args.use_pointcloud_colors:
+        if stored_colors is None:
+            raise SystemExit('--use-pointcloud-colors requires RGB in the PLY')
+        colors = stored_colors
+        seen = np.ones(len(points), dtype=bool)
+    else:
+        colors, seen = pcio.colorize_by_projection_robust(
+            points, viewmats[train], K,
+            [images[i] for i in train], dataset['width'], dataset['height'])
     scales = exposure_scales(images)
     errors = []
     visible_total = 0
@@ -153,6 +161,7 @@ def main() -> int:
     report = {
         'train_views': len(train), 'heldout_views': len(holdout),
         'heldout_views_scored': len(per_view),
+        'color_source': ('pointcloud' if args.use_pointcloud_colors else 'train'),
         'visible_points': visible_total, 'scored_points': int(combined.size),
         'training_coverage': float(seen.mean()),
         'heldout_scored_fraction': float(combined.size / visible_total),

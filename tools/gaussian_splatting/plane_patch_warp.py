@@ -226,3 +226,115 @@ def select_reference_patch(images: list[np.ndarray], K: np.ndarray,
     if not np.isfinite(scores).any():
         return None, scores
     return int(np.argmax(scores)), scores
+
+
+def select_planar_voxel_references(points: np.ndarray, images: list[np.ndarray],
+                                   K: np.ndarray, world_to_cameras: np.ndarray, *,
+                                   voxel_size: float = 1.0, min_points: int = 10,
+                                   max_views: int = 6,
+                                   max_planarity_ratio: float = 0.06,
+                                   min_tangent_ratio: float = 0.04,
+                                   patch_radius: int = 4) -> np.ndarray:
+    """Return one reference-view index per point, shared by planar voxels.
+
+    Candidate views are restricted to the nearest in-frame cameras before the
+    plane-warped NCC update. Non-planar voxels and voxels without two valid
+    observations retain ``-1`` for a downstream robust-colour fallback.
+    """
+    xyz = np.asarray(points, dtype=np.float64)
+    views = np.asarray(world_to_cameras, dtype=np.float64)
+    if xyz.ndim != 2 or xyz.shape[1] != 3:
+        raise ValueError(f'points must be Nx3, got {xyz.shape}')
+    if len(images) != len(views):
+        raise ValueError('images and world_to_cameras must match')
+    if voxel_size <= 0.0 or min_points < 3 or max_views < 2:
+        raise ValueError('invalid voxel_size, min_points, or max_views')
+    references = np.full(len(xyz), -1, dtype=np.int32)
+    if not len(xyz):
+        return references
+    camera_centres = np.stack([
+        np.linalg.inv(view)[:3, 3] for view in views])
+    keys = np.floor(xyz / voxel_size).astype(np.int64)
+    order = np.lexsort((keys[:, 2], keys[:, 1], keys[:, 0]))
+    ordered = keys[order]
+    changes = np.flatnonzero(np.any(ordered[1:] != ordered[:-1], axis=1)) + 1
+    bounds = np.concatenate(([0], changes, [len(xyz)]))
+    for begin, end in zip(bounds[:-1], bounds[1:]):
+        ids = order[begin:end]
+        if ids.size < min_points:
+            continue
+        block = xyz[ids]
+        centre = block.mean(axis=0)
+        centred = block - centre
+        values, vectors = np.linalg.eigh(centred.T @ centred / ids.size)
+        total = max(float(values.sum()), 1.0e-12)
+        if values[0] / total > max_planarity_ratio:
+            continue
+        if values[1] / max(float(values[2]), 1.0e-12) < min_tangent_ratio:
+            continue
+        candidates = []
+        for view_index, view in enumerate(views):
+            try:
+                _, pixel = project_point(K, view, centre)
+            except ValueError:
+                continue
+            height, width = np.asarray(images[view_index]).shape[:2]
+            if (patch_radius <= pixel[0] <= width - 1 - patch_radius and
+                    patch_radius <= pixel[1] <= height - 1 - patch_radius):
+                distance = np.linalg.norm(camera_centres[view_index] - centre)
+                candidates.append((distance, view_index))
+        candidates.sort()
+        chosen_views = [index for _, index in candidates[:max_views]]
+        if len(chosen_views) < 2:
+            continue
+        local, _ = select_reference_patch(
+            [images[index] for index in chosen_views], K, views[chosen_views],
+            centre, vectors[:, 0], radius=patch_radius)
+        if local is not None:
+            references[ids] = chosen_views[local]
+    return references
+
+
+def apply_reference_colours(points: np.ndarray, images: list[np.ndarray],
+                            K: np.ndarray, world_to_cameras: np.ndarray,
+                            reference_indices: np.ndarray,
+                            fallback_rgb: np.ndarray,
+                            depth_tolerance: float = 0.15
+                            ) -> tuple[np.ndarray, np.ndarray]:
+    """Colour selected planar points from their reference view with z-buffering."""
+    xyz = np.asarray(points, dtype=np.float64)
+    refs = np.asarray(reference_indices, dtype=np.int32)
+    colours = np.asarray(fallback_rgb, dtype=np.uint8).copy()
+    if colours.shape != (len(xyz), 3) or refs.shape != (len(xyz),):
+        raise ValueError('fallback_rgb/ref indices must match points')
+    updated = np.zeros(len(xyz), dtype=bool)
+    fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
+    for view_index in np.unique(refs[refs >= 0]):
+        image = np.asarray(images[view_index])
+        if image.ndim == 2:
+            image = np.repeat(image[:, :, None], 3, axis=2)
+        view = np.asarray(world_to_cameras[view_index], dtype=np.float64)
+        camera = xyz @ view[:3, :3].T + view[:3, 3]
+        depth = camera[:, 2]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            u = fx * camera[:, 0] / depth + cx
+            v = fy * camera[:, 1] / depth + cy
+        safe_u = np.nan_to_num(u, nan=-1.0, posinf=-1.0, neginf=-1.0)
+        safe_v = np.nan_to_num(v, nan=-1.0, posinf=-1.0, neginf=-1.0)
+        ui = np.round(safe_u).astype(np.int64)
+        vi = np.round(safe_v).astype(np.int64)
+        height, width = image.shape[:2]
+        in_frame = ((depth > 1.0e-6) & (ui >= 0) & (ui < width) &
+                    (vi >= 0) & (vi < height))
+        zbuffer = np.full(height * width, np.inf, dtype=np.float64)
+        pixels = vi[in_frame] * width + ui[in_frame]
+        np.minimum.at(zbuffer, pixels, depth[in_frame])
+        chosen = np.flatnonzero((refs == view_index) & in_frame)
+        visible = depth[chosen] <= (
+            zbuffer[vi[chosen] * width + ui[chosen]] + depth_tolerance +
+            0.02 * depth[chosen])
+        chosen = chosen[visible]
+        colours[chosen] = np.clip(
+            image[vi[chosen], ui[chosen], :3], 0, 255).astype(np.uint8)
+        updated[chosen] = True
+    return colours, updated

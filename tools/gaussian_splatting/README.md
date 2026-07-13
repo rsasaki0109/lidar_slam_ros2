@@ -33,6 +33,7 @@ photorealistic map / novel-view 成果物を後処理で再構成するための
 | `../../scripts/evaluate_lidar_camera_alignment.py` | LiDAR depth境界とcamera画像edgeの距離を測り、外部校正をpixel単位で評価。 | numpy, imageio | `test_lidar_camera_alignment.py` |
 | `../../scripts/evaluate_heldout_point_colors.py` | 偶数viewだけで点群を着色し、除外した奇数viewへのRGB再投影誤差を評価。 | numpy, imageio | `test_heldout_point_colors.py` |
 | `plane_patch_warp.py` | LiDAR局所平面とcamera相対poseからplane-induced homographyを作り、direct alignment用patchをwarp/NCC評価。 | numpy | `test_plane_patch_warp.py` |
+| `colorize_planar_references.py` | 平面ボクセルごとに参照patchを選び、遮蔽判定付きで一貫した色をPLYへ適用。 | numpy, imageio | `--help` |
 | `../../scripts/check_colored_map_quality.py` | 軌跡APE、点群形状、外部校正、held-out着色の4レポートをprofile閾値で一括判定。 | PyYAML | `test_colored_map_quality_gate.py` |
 | `train_gsplat.py` | `transforms.json` + 画像で gsplat 学習 → INRIA 標準 `.ply` 出力。OpenGL c2w を OpenCV w2c に変換。`--init-ply` で **LiDAR-primed init**（位置＋色 seed）、`--densify` で gsplat `DefaultStrategy` の adaptive density control、`--ssim-lambda`（既定 0.2）で INRIA 標準 **L1+D-SSIM 損失**、`--knn-scale-init` で点群の局所密度から per-Gaussian スケール seed、`--sh-degree D` で **視点依存カラー（SH 次数 D、INRIA 標準 f_dc+f_rest 出力）**、`--antialiased` で gsplat の antialiased rasterize mode、`--mcmc`（+`--mcmc-cap`）で MCMCStrategy（LiDAR-primed init では DefaultStrategy 優位＝既定）、`--optimize-extrinsic` で共有 6-DoF extrinsic の photometric 自己校正。学習終了時に全ビューの PSNR/SSIM を出力。 | torch, gsplat (CUDA) | `test_gaussian_splatting_train.py`（20、純粋部）|
 | `selftest_gpu.py` | opt-in GPU セルフテスト。合成シーンを描画→`transforms.json`→学習→`.ply` の全鎖を検証。 | torch, gsplat (CUDA) | 手動実行（CI 非対象）|
@@ -112,6 +113,13 @@ CPU-onlyのplanar refinementは、十分に平面らしいvoxelだけを局所PC
 `python3 scripts/refine_planar_map.py --input map.ply --output map_refined.ply`
 を使う。HILTI exp04の1.0 m設定では平面厚2.03 cm（FAST-LIVO2 3.09 cm）まで改善したが、
 coverageは55.26%から51.41%へ下がるため、用途別に元mapと併記して評価する。
+
+FAST-LIVO2式のplane-warped NCC参照patch選択は
+`colorize_planar_references.py` でCPU-onlyに検証できる。これは実験用opt-inであり、
+既定着色には使わない。HILTI exp04の偶数126 viewで平面点9.72%を単一参照色へ
+置換した結果、奇数viewのRGB L2 medianは35.48から36.74へ悪化したためである。
+参照patch更新はdirect trackingには有効でも、最終色は露出・遮蔽に強い複数viewの
+RGB medoidが優位だった。今後は参照選択を単一色置換ではなく観測外れ値の棄却に使う。
 
 外部校正はLiDAR depth境界と強い画像edgeの距離で診断できる。この自然scene metricは
 校正targetの代替ではなく、bag全体に対するpixel単位の回帰検査として使う。

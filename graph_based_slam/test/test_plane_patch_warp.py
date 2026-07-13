@@ -111,3 +111,26 @@ def test_reference_update_requires_two_usable_views():
         np.array([0.0, 0.0, 5.0]), np.array([0.0, 0.0, 1.0]))
     assert selected is None
     assert np.isneginf(scores[0])
+
+
+def test_planar_voxel_batch_selects_consistent_view_and_applies_colour():
+    y, x = np.mgrid[:100, :100]
+    texture = (3.0 * x + 2.0 * y + 20.0 * np.sin(x / 4.0)).astype(np.float32)
+    corrupted = np.flipud(texture)
+    views = np.repeat(np.eye(4)[None], 3, axis=0)
+    views[1, 0, 3] = 0.1
+    views[2, 0, 3] = -0.1
+    xy = np.array([(a, b) for a in np.linspace(0.05, 0.35, 4)
+                   for b in np.linspace(0.05, 0.35, 4)])
+    points = np.column_stack((xy, np.full(len(xy), 5.0)))
+    refs = WARP.select_planar_voxel_references(
+        points, [texture, texture, corrupted], _camera(), views)
+    assert np.all(refs == refs[0])
+    assert refs[0] in (0, 1)
+    rgb_images = [np.repeat(image[:, :, None], 3, axis=2)
+                  for image in (texture, texture, corrupted)]
+    colours, updated = WARP.apply_reference_colours(
+        points, rgb_images, _camera(), views, refs,
+        np.zeros((len(points), 3), dtype=np.uint8))
+    assert updated.all()
+    assert colours.any()
