@@ -117,6 +117,11 @@ def main() -> int:
     parser.add_argument('--view-stride', type=int, default=5)
     parser.add_argument('--use-pointcloud-colors', action='store_true',
                         help='score stored RGB instead of recolouring train views')
+    parser.add_argument('--no-normalize-exposure', action='store_false',
+                        dest='normalize_exposure',
+                        help='compare raw camera RGB without per-view exposure gains')
+    parser.add_argument('--exposure-scale-limit', type=float, default=1.5,
+                        help='maximum exposure gain and reciprocal loss')
     args = parser.parse_args()
     if args.folds < 2 or not 0 <= args.holdout_fold < args.folds:
         raise SystemExit('--folds must be >= 2 and --holdout-fold must be valid')
@@ -140,8 +145,11 @@ def main() -> int:
     else:
         colors, seen = pcio.colorize_by_projection_robust(
             points, viewmats[train], K,
-            [images[i] for i in train], dataset['width'], dataset['height'])
-    scales = exposure_scales(images)
+            [images[i] for i in train], dataset['width'], dataset['height'],
+            normalize_exposure=args.normalize_exposure,
+            exposure_scale_limit=args.exposure_scale_limit)
+    scales = (exposure_scales(images, args.exposure_scale_limit)
+              if args.normalize_exposure else np.ones(len(images)))
     errors = []
     visible_total = 0
     per_view = []
@@ -162,6 +170,8 @@ def main() -> int:
         'train_views': len(train), 'heldout_views': len(holdout),
         'heldout_views_scored': len(per_view),
         'color_source': ('pointcloud' if args.use_pointcloud_colors else 'train'),
+        'normalize_exposure': args.normalize_exposure,
+        'exposure_scale_limit': args.exposure_scale_limit,
         'visible_points': visible_total, 'scored_points': int(combined.size),
         'training_coverage': float(seen.mean()),
         'heldout_scored_fraction': float(combined.size / visible_total),

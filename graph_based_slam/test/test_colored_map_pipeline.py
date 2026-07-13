@@ -68,6 +68,19 @@ def test_build_commands_connects_extract_to_robust_map(tmp_path):
     assert '--color-robust' in build
     assert build[build.index('--min-neighbors') + 1] == '2'
     assert build[build.index('--sparse-voxel') + 1] == '0.1'
+    assert build[build.index('--color-exposure-scale-limit') + 1] == '1.5'
+    assert build[build.index('--color-max-samples') + 1] == '12'
+    assert '--color-no-normalize-exposure' not in build
+
+
+def test_colour_ablation_options_reach_map_builder(tmp_path):
+    commands = cmp.build_commands(_args(
+        tmp_path, '--color-no-normalize-exposure',
+        '--color-exposure-scale-limit', '1.2', '--color-max-samples', '5'))
+    build = commands[1][1]
+    assert '--color-no-normalize-exposure' in build
+    assert build[build.index('--color-exposure-scale-limit') + 1] == '1.2'
+    assert build[build.index('--color-max-samples') + 1] == '5'
 
 
 def test_raw_trajectory_adds_densification_and_connects_dense_output(tmp_path):

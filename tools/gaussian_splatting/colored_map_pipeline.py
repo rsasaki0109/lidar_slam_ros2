@@ -174,7 +174,11 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             '--stride', str(args.scan_stride),
             '--start-time', str(args.start_time), '--end-time', str(args.end_time),
             '--color-transforms', str(transforms), '--color-robust',
+            '--color-exposure-scale-limit', str(args.color_exposure_scale_limit),
+            '--color-max-samples', str(args.color_max_samples),
         ]
+        if not args.color_normalize_exposure:
+            build.append('--color-no-normalize-exposure')
         if args.lidar_calibration is not None:
             build.extend([
                 '--lidar-calibration', str(args.lidar_calibration),
@@ -327,6 +331,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--no-undistort', action='store_true')
     p.add_argument('--allow-monochrome', action='store_true',
                    help='allow luminance-only maps for geometry benchmarks')
+    p.add_argument('--color-no-normalize-exposure', action='store_false',
+                   dest='color_normalize_exposure',
+                   help='ablate per-view exposure normalization while retaining '
+                        'occlusion-aware RGB medoid fusion')
+    p.add_argument('--color-exposure-scale-limit', type=float, default=1.5)
+    p.add_argument('--color-max-samples', type=int, default=12)
     p.add_argument('--force-images', action='store_true')
     p.add_argument('--force-map', action='store_true')
     p.add_argument('--force-trajectory', action='store_true')

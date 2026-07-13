@@ -90,3 +90,19 @@ def test_exposure_scales_are_clamped():
               np.full((4, 4, 3), 200, dtype=np.uint8)]
     scales = hpc.exposure_scales(images, limit=1.5)
     np.testing.assert_allclose(scales, [1.5, 1.0, 2.0 / 3.0])
+
+
+def test_score_heldout_view_can_compare_raw_exposure():
+    vm, K = _camera()
+    points = np.array([[0.0, 0.0, 2.0]])
+    colors = np.array([[10, 20, 30]], dtype=np.uint8)
+    image = np.zeros((10, 10, 3), dtype=np.uint8)
+    image[5, 5] = colors[0]
+    raw_errors, _ = hpc.score_heldout_view(
+        points, colors, np.array([True]), vm, K, image,
+        exposure_scale=1.0)
+    scaled_errors, _ = hpc.score_heldout_view(
+        points, colors, np.array([True]), vm, K, image,
+        exposure_scale=1.5)
+    np.testing.assert_allclose(raw_errors, [0.0])
+    assert scaled_errors[0] > 0.0

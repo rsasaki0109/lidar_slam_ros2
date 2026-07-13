@@ -80,6 +80,28 @@ unrepresentative bag edge. A synthetic −50 ms scan-midpoint pairing reduced th
 reported timestamp residual while lowering chromatic fraction on both captures.
 Neither was adopted.
 
+### Exposure normalization
+
+Disabling the robust colourizer's per-view median-luminance gains was tested
+first on the frozen 16:25:54 capture. The held-out evaluator applied the same
+choice independently to its train and held-out image folds; it did not score
+RGB values produced from held-out views.
+
+| 16:25:54 | normalized (adopted) | raw exposure (rejected) |
+|---|---:|---:|
+| chromatic fraction ↑ | 59.52% | **61.66%** |
+| held-out RGB L2 median ↓ | **21.02** | 21.24 |
+| held-out RGB L2 p90 ↓ | **89.83** | 94.00 |
+| held-out RGB L2 inlier ≤20 ↑ | **48.34%** | 47.91% |
+
+The extra saturation did not represent more consistent colour: all held-out
+quality measures regressed. The candidate therefore failed the first-dataset
+gate and was not spent on the second capture. Exposure normalization remains
+enabled by default. The build and held-out CLIs retain explicit opt-out and
+gain-limit controls so this decision is reproducible rather than hard-coded.
+The rejected artifact is
+`aist_rgb_map/exposure_ablation_20260713/162554_no_normalize`.
+
 ### Per-point Ouster deskew
 
 Ouster stores `t=0..99.96 ms`, but the scanmatcher trajectory is a sequence of
