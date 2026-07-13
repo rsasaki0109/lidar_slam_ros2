@@ -54,11 +54,22 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def git_revision(path: Path) -> str | None:
-    result = subprocess.run(
+def git_provenance(path: Path) -> dict[str, Any]:
+    revision = subprocess.run(
         ['git', '-C', str(path), 'rev-parse', 'HEAD'], capture_output=True,
         text=True, check=False)
-    return result.stdout.strip() if result.returncode == 0 else None
+    diff = subprocess.run(
+        ['git', '-C', str(path), 'diff', '--binary', 'HEAD'], capture_output=True,
+        check=False)
+    status = subprocess.run(
+        ['git', '-C', str(path), 'status', '--porcelain', '--untracked-files=no'],
+        capture_output=True, text=True, check=False)
+    diff_bytes = diff.stdout if diff.returncode == 0 else b''
+    return {
+        'revision': revision.stdout.strip() if revision.returncode == 0 else None,
+        'tracked_dirty': bool(status.stdout.strip()) if status.returncode == 0 else None,
+        'tracked_diff_sha256': hashlib.sha256(diff_bytes).hexdigest(),
+    }
 
 
 def load_profile(path: Path, dataset: str) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -161,8 +172,8 @@ def build_manifest(profile: dict[str, Any], dataset_name: str,
         'dataset': dataset_name,
         'dataset_contract': dataset_config,
         'revisions': {
-            'lidar_slam_ros2': git_revision(REPO_ROOT),
-            'localization_zoo': git_revision(zoo),
+            'lidar_slam_ros2': git_provenance(REPO_ROOT),
+            'localization_zoo': git_provenance(zoo),
         },
         'inputs': {name: {'path': str(path.resolve()), 'sha256': sha256(path)}
                    for name, path in inputs.items()},

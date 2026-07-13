@@ -101,3 +101,10 @@ def test_metric_delta_treats_numerical_noise_as_tie():
         {'name': 'graph_corrected', 'ate_m': 0.07155989354899392},
     ]}
     assert cross.metric_delta(summary, 'ate_m')['improved'] is None
+
+
+def test_git_provenance_records_revision_and_tracked_diff_hash():
+    provenance = cross.git_provenance(ROOT)
+    assert len(provenance['revision']) == 40
+    assert len(provenance['tracked_diff_sha256']) == 64
+    assert isinstance(provenance['tracked_dirty'], bool)
