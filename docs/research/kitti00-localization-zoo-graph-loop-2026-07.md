@@ -141,6 +141,53 @@ Raw and graph-corrected RPE are tied to floating-point precision, so this row
 adds a third complete dataset to the public suite without claiming an
 improvement.
 
+## Strict strided Scan Context candidate
+
+An opt-in Scan Context candidate now improves the current overlap-0.8 KITTI
+capture, but is not adopted as a default because it has not improved a second
+dataset. The candidate keeps the generic NDT gate at 0.7 and adds three
+descriptor-specific controls:
+
+- `scan_context_threshold=0.55` supplies the yaw-aware proposal;
+- `scan_context_query_stride=4` runs descriptor proposals only on every fourth
+  submap, deterministically;
+- `scan_context_loop_closure_score_threshold=0.2` applies a stricter NDT gate
+  to Scan Context proposals than to distance proposals.
+
+The unrestricted stride-1/score-0.7 exploration accepted two edges. It reduced
+global ATE but regressed the frozen 100 m translational RPE by 2.2035% and took
+523.40 s in the graph backend, so it was rejected. Fixed-edge replay showed
+that edge `13 -> 114` was harmful while `28 -> 176` improved both global ATE
+and translational RPE. The stricter, strided candidate rediscovers only
+`28 -> 176` without using GT during selection.
+
+| metric | current default | strict strided SC | change |
+|---|---:|---:|---:|
+| accepted loops | 0 | 1 (`28 -> 176`) | +1 |
+| 100 m translational RPE | 1.018635% | **1.016778%** | **-0.1823%** |
+| rotational RPE | 0.0101714 deg/m | 0.0101934 deg/m | +0.217% |
+| first-aligned ATE | 17.645450 m | **16.012326 m** | **-9.26%** |
+| graph wall time | 20.61 s | 76.20 s | +269.8% |
+| full pipeline wall time | 1,509.10 s | 1,564.69 s | +3.68% |
+| pipeline peak RSS | 168.08 MiB | 172.22 MiB | +2.47% |
+
+Two isolated candidate runs produced byte-identical edge and trajectory files.
+The graph runner SHA-256 was
+`5e07e73b031e35732fd98e3db33c5de07abac03aaa63317d1fed34c52aebc770`.
+The diagnostic manifest is
+`/media/sasaki/aiueo/benchmarks/kitti00_graph_20260713/tricp_current_graph_sc055_stride4_gate0p2_cross_repo_diagnostic/cross_repo_benchmark.json`.
+
+On HILTI exp04 the same descriptor controls produced no loop: its 44 submaps
+do not exceed Scan Context's 50-submap recent-exclusion window. The candidate
+trajectory is byte-identical to the HILTI baseline, while graph runtime rises
+to 42.91 s. Therefore this is one improved dataset plus one tied dataset, not
+the two independent improvements required for default adoption.
+
+The offline runner also accepts `fixed_loop_edges_path` for fast, identical
+constraint-set weight ablations. The replay path skips descriptor search and
+records the selected setup, runner SHA, params SHA, bag metadata SHA, fixed
+edge SHA, and every parameter override in its summary.
+
 ## Reproduction
 
 Create the fixed paired bag from localization_zoo output:
@@ -178,6 +225,25 @@ bash scripts/run_offline_determinism_check.sh \
 
 For the report-only weight transfer, append
 `--param loop_edge_info_weight:=400.0` to the second command.
+
+Run the opt-in strict strided Scan Context candidate with an explicit build
+overlay:
+
+```bash
+bash scripts/run_offline_determinism_check.sh \
+  --setup /path/to/workspace/install/setup.bash \
+  --bag /path/to/backend_tricp_stride16/rosbag2 \
+  --params lidarslam/param/lidarslam_kitti_velodyne.yaml \
+  --runs 2 --output-dir /path/to/sc_stride4_gate0p2 \
+  --reference-tum /path/to/backend_tricp_stride16/ground_truth.tum \
+  --param submap_distance_threshold:=10.0 \
+  --param max_loop_candidate_count:=1 \
+  --param use_scan_context:=true --param scan_context_threshold:=0.55 \
+  --param scan_context_query_stride:=4 \
+  --param prefer_scan_context_candidates:=true \
+  --param scan_context_loop_closure_score_threshold:=0.2 \
+  --param threshold_loop_closure_score:=0.7 --param refine:=false
+```
 
 The wrappers assign a private localhost ROS domain per run and only reuse an
 output carrying a `.complete` marker, preventing stale DDS participants or

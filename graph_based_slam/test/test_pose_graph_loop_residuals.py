@@ -115,3 +115,32 @@ def test_offline_csv_constraint_against_tum_vertices(tmp_path: Path):
     assert report['status'] == 'PASS'
     assert report['loop_edges'][0]['fitness'] == 0.25
     assert math.isclose(report['loop_edges'][0]['translation_residual_m'], 2.5)
+
+
+def test_offline_csv_constraint_against_timestamp_matched_reference(tmp_path: Path):
+    trajectory = tmp_path / 'trajectory_raw.tum'
+    trajectory.write_text(
+        '10.0 100 0 0 0 0 0 1\n'
+        '20.0 200 0 0 0 0 0 1\n',
+        encoding='utf-8',
+    )
+    reference = tmp_path / 'ground_truth.tum'
+    reference.write_text(
+        '9.99 1 0 0 0 0 0 1\n'
+        '20.01 8.5 0 0 0 0 0 1\n',
+        encoding='utf-8',
+    )
+    loops = tmp_path / 'loop_edges.csv'
+    loops.write_text(
+        'from,to,fitness,tx,ty,tz,qx,qy,qz,qw\n'
+        '0,1,0.25,5,0,0,0,0,0,1\n',
+        encoding='utf-8',
+    )
+
+    report = MODULE.analyze_offline_reference(
+        trajectory, reference, loops, max_time_diff=0.02)
+
+    assert report['status'] == 'PASS'
+    assert report['loop_edges_missing_vertices'] == 0
+    assert math.isclose(report['loop_edges'][0]['translation_residual_m'], 2.5)
+    assert math.isclose(report['loop_edges'][0]['reference_pair_distance_m'], 7.5)

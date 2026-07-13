@@ -30,8 +30,8 @@ artifacts you need downstream:
 - **Surveyed ground truth** — releases are gated in CI by per-dataset APE
   thresholds, including total-station checkpoints on a Livox MID-360
   ([accuracy](#accuracy)).
-- **Loop closure, GPL-free** — built-in Scan Context by default, plus opt-in
-  BEV / SOLiD / STD/BTC-style Triangle descriptors and 3D-BBS verification.
+- **Loop closure, GPL-free** — opt-in built-in Scan Context, BEV / SOLiD /
+  STD/BTC-style Triangle descriptors, and 3D-BBS verification.
 - **Deterministic offline mapping** — `graph_slam_offline_runner` (backend,
   recorded odometry bag) and `scan_matcher_offline_runner` (frontend, raw bag)
   produce *byte-identical* trajectories, loop edges and submaps; the release

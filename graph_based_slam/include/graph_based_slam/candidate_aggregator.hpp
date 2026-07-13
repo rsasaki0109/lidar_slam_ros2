@@ -83,6 +83,7 @@ struct Config
   // Maximum euclidean distance for the distance source.
   double range_of_searching_loop_closure {0.0};
   double scan_context_threshold {0.0};
+  int scan_context_query_stride {1};
 
   bool bev_use_mutual_visibility {false};
   double bev_mutual_visibility_min_overlap_ratio {0.0};
@@ -225,6 +226,16 @@ inline void collectScanContextCandidate(
   std::vector<loop_verifier::LoopCandidate> & candidates,
   std::vector<LogLine> & logs)
 {
+  const int query_stride = std::max(1, config.scan_context_query_stride);
+  if (latest_idx % query_stride != 0) {
+    if (config.debug) {
+      std::ostringstream oss;
+      oss << "Skip ScanContext query at submap " << latest_idx
+          << " because query stride is " << query_stride;
+      logs.push_back(LogLine{false, oss.str()});
+    }
+    return;
+  }
   if (scan_context_db.size() <= ScanContext::EXCLUDE_RECENT) {
     return;
   }

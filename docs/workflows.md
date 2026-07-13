@@ -156,6 +156,17 @@ prevents accidental double conversion. The frozen sequence-00 experiment and
 adoption decision are in
 [kitti00-localization-zoo-graph-loop-2026-07.md](research/kitti00-localization-zoo-graph-loop-2026-07.md).
 
+When multiple ROS overlays exist, pass
+`--setup /path/to/install/setup.bash` to
+`run_offline_determinism_check.sh`. The wrapper resolves the runner from that
+overlay and records its SHA-256, params and bag-metadata hashes, and every
+`--param` override in `offline_determinism_summary.md`. For a fast
+information-weight ablation, pass
+`--param fixed_loop_edges_path:=/path/to/loop_edges.csv`; descriptor search is
+skipped while the frozen constraints are replayed. Experimental Scan Context
+runs can reduce proposal cost deterministically with
+`scan_context_query_stride` (default 1, preserving existing behavior).
+
 ### Backend only: `graph_based_slam`
 
 Launch:

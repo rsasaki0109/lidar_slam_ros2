@@ -53,6 +53,8 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <sstream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -99,6 +101,70 @@ void writeTum(
       line, sizeof(line), "%.9f %.9f %.9f %.9f %.9f %.9f %.9f %.9f",
       records[i].stamp_sec, t.x(), t.y(), t.z(), q.x(), q.y(), q.z(), q.w());
     out << line << "\n";
+  }
+}
+
+void loadFixedLoopEdges(
+  const std::string & path,
+  std::size_t submap_count,
+  graphslam::backend_core::LoopEdgeSet & edge_set)
+{
+  std::ifstream input(path);
+  if (!input.is_open()) {
+    throw std::runtime_error("failed to open fixed loop edge CSV: " + path);
+  }
+  std::string line;
+  if (!std::getline(input, line) || line != "from,to,fitness,tx,ty,tz,qx,qy,qz,qw") {
+    throw std::runtime_error("invalid fixed loop edge CSV header: " + path);
+  }
+  int line_number = 1;
+  while (std::getline(input, line)) {
+    ++line_number;
+    if (line.empty()) {
+      continue;
+    }
+    std::vector<std::string> fields;
+    std::stringstream stream(line);
+    std::string field;
+    while (std::getline(stream, field, ',')) {
+      fields.push_back(field);
+    }
+    if (fields.size() != 10) {
+      throw std::runtime_error(
+              "invalid fixed loop edge field count at line " + std::to_string(line_number));
+    }
+    graphslam::backend_core::LoopEdgeSet::Edge edge;
+    try {
+      edge.pair_id = {std::stoi(fields[0]), std::stoi(fields[1])};
+      edge.fitness_score = std::stod(fields[2]);
+      edge.relative_pose = Eigen::Isometry3d::Identity();
+      edge.relative_pose.translation() = Eigen::Vector3d(
+        std::stod(fields[3]), std::stod(fields[4]), std::stod(fields[5]));
+      Eigen::Quaterniond quaternion(
+        std::stod(fields[9]), std::stod(fields[6]), std::stod(fields[7]), std::stod(fields[8]));
+      if (quaternion.norm() <= 0.0) {
+        throw std::runtime_error("zero-norm quaternion");
+      }
+      quaternion.normalize();
+      edge.relative_pose.linear() = quaternion.toRotationMatrix();
+    } catch (const std::exception & error) {
+      throw std::runtime_error(
+              "invalid fixed loop edge at line " + std::to_string(line_number) + ": " +
+              error.what());
+    }
+    if (
+      edge.pair_id.first < 0 || edge.pair_id.second < 0 ||
+      static_cast<std::size_t>(edge.pair_id.first) >= submap_count ||
+      static_cast<std::size_t>(edge.pair_id.second) >= submap_count)
+    {
+      throw std::runtime_error(
+              "fixed loop edge index out of range at line " + std::to_string(line_number));
+    }
+    if (!edge_set.upsert(edge)) {
+      throw std::runtime_error(
+              "fixed loop edge was invalid or deduplicated at line " +
+              std::to_string(line_number));
+    }
   }
 }
 
@@ -185,10 +251,12 @@ int main(int argc, char ** argv)
   std::string output_dir;
   std::string odom_topic;
   std::string cloud_topic;
+  std::string fixed_loop_edges_path;
   node->get_parameter_or("bag_path", bag_path, std::string());
   node->get_parameter_or("output_dir", output_dir, std::string("."));
   node->get_parameter_or("offline_odom_topic", odom_topic, std::string("/rko_lio/odometry"));
   node->get_parameter_or("offline_cloud_topic", cloud_topic, std::string("/rko_lio/frame"));
+  node->get_parameter_or("fixed_loop_edges_path", fixed_loop_edges_path, std::string());
   if (bag_path.empty()) {
     RCLCPP_ERROR(logger, "bag_path parameter is required");
     rclcpp::shutdown();
@@ -320,6 +388,9 @@ int main(int argc, char ** argv)
   node->get_parameter_or(
     "range_of_searching_loop_closure", aggregator.range_of_searching_loop_closure, 20.0);
   node->get_parameter_or("scan_context_threshold", aggregator.scan_context_threshold, 0.3);
+  node->get_parameter_or(
+    "scan_context_query_stride", aggregator.scan_context_query_stride, 1);
+  aggregator.scan_context_query_stride = std::max(1, aggregator.scan_context_query_stride);
   node->get_parameter_or(
     "bev_use_mutual_visibility", aggregator.bev_use_mutual_visibility, false);
   node->get_parameter_or(
@@ -469,6 +540,10 @@ int main(int argc, char ** argv)
 
   const auto drain_queries = [&]() {
       const int num_submaps = static_cast<int>(records.size());
+      if (!fixed_loop_edges_path.empty()) {
+        next_query_idx = num_submaps;
+        return;
+      }
       while (next_query_idx < num_submaps) {
         const int query_idx = next_query_idx;
         core.ingestDescriptors(query_idx + 1, filtered_local_provider);
@@ -570,6 +645,19 @@ int main(int argc, char ** argv)
       } else {
         pending_clouds[key] = cloud_msg;
       }
+    }
+  }
+
+  if (!fixed_loop_edges_path.empty()) {
+    try {
+      loadFixedLoopEdges(fixed_loop_edges_path, records.size(), edge_set);
+      RCLCPP_INFO(
+        logger, "Loaded %zu fixed loop edges from %s; descriptor search was skipped",
+        edge_set.edges().size(), fixed_loop_edges_path.c_str());
+    } catch (const std::exception & error) {
+      RCLCPP_ERROR(logger, "%s", error.what());
+      rclcpp::shutdown();
+      return 1;
     }
   }
 
@@ -725,4 +813,4 @@ int main(int argc, char ** argv)
 
   rclcpp::shutdown();
   return 0;
-}
+}  // NOLINT(readability/fn_size)

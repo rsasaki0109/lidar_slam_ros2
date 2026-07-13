@@ -10,6 +10,7 @@ set -euo pipefail
 #   bash scripts/run_offline_determinism_check.sh \
 #     --bag output/backend_replay_x/backend_input \
 #     [--params lidarslam/param/lidarslam_mid360_rko_graph.yaml] \
+#     [--setup /path/to/workspace/install/setup.bash] \
 #     [--runs 3] [--output-dir output/offline_determinism_<timestamp>] \
 #     [--ros-domain-base 140] [--resume] \
 #     [--reference-tum output/glim_mid360_reference.tum] \
@@ -35,6 +36,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 BAG=""
 PARAMS="${REPO_ROOT}/lidarslam/param/lidarslam_mid360_rko_graph.yaml"
+SETUP_FILE="${REPO_ROOT}/install/setup.bash"
 RUNS=3
 OUTPUT_DIR="${REPO_ROOT}/output/offline_determinism_$(date +%Y%m%d_%H%M%S)"
 REFERENCE_TUM=""
@@ -49,6 +51,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --bag) BAG="$2"; shift 2 ;;
     --params) PARAMS="$2"; shift 2 ;;
+    --setup) SETUP_FILE="$2"; shift 2 ;;
     --runs) RUNS="$2"; shift 2 ;;
     --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
     --reference-tum) REFERENCE_TUM="$2"; shift 2 ;;
@@ -78,19 +81,60 @@ if [[ -z "${BAG}" ]]; then
   echo "--bag <backend_input bag dir> is required" >&2
   exit 2
 fi
-if [[ ! -f "${REPO_ROOT}/install/setup.bash" ]]; then
-  echo "install/setup.bash not found; build the workspace first" >&2
+PARAMS="$(realpath -m "${PARAMS}")"
+SETUP_FILE="$(realpath -m "${SETUP_FILE}")"
+BAG="$(realpath -m "${BAG}")"
+if [[ ! -f "${SETUP_FILE}" ]]; then
+  echo "setup file not found: ${SETUP_FILE}" >&2
+  exit 2
+fi
+if [[ ! -f "${PARAMS}" ]]; then
+  echo "params file not found: ${PARAMS}" >&2
+  exit 2
+fi
+if [[ ! -d "${BAG}" ]]; then
+  echo "bag directory not found: ${BAG}" >&2
   exit 2
 fi
 
 # shellcheck disable=SC1091
 set +u
-source "${REPO_ROOT}/install/setup.bash"
+source "${SETUP_FILE}"
 set -u
+
+GRAPH_PREFIX="$(ros2 pkg prefix graph_based_slam)"
+RUNNER_EXECUTABLE="${GRAPH_PREFIX}/lib/graph_based_slam/graph_slam_offline_runner"
+if [[ ! -x "${RUNNER_EXECUTABLE}" ]]; then
+  echo "graph_slam_offline_runner not found under selected setup: ${RUNNER_EXECUTABLE}" >&2
+  exit 2
+fi
+RUNNER_SHA256="$(sha256sum "${RUNNER_EXECUTABLE}" | awk '{print $1}')"
+PARAMS_SHA256="$(sha256sum "${PARAMS}" | awk '{print $1}')"
+BAG_METADATA_SHA256="n/a"
+if [[ -f "${BAG}/metadata.yaml" ]]; then
+  BAG_METADATA_SHA256="$(sha256sum "${BAG}/metadata.yaml" | awk '{print $1}')"
+fi
+FIXED_LOOP_EDGES_PATH=""
+for override in "${PARAM_OVERRIDES[@]}"; do
+  if [[ "${override}" == fixed_loop_edges_path:=* ]]; then
+    FIXED_LOOP_EDGES_PATH="${override#*:=}"
+  fi
+done
+FIXED_LOOP_EDGES_SHA256=""
+if [[ -n "${FIXED_LOOP_EDGES_PATH}" ]]; then
+  FIXED_LOOP_EDGES_PATH="$(realpath -m "${FIXED_LOOP_EDGES_PATH}")"
+  if [[ ! -f "${FIXED_LOOP_EDGES_PATH}" ]]; then
+    echo "fixed loop edge CSV not found: ${FIXED_LOOP_EDGES_PATH}" >&2
+    exit 2
+  fi
+  FIXED_LOOP_EDGES_SHA256="$(sha256sum "${FIXED_LOOP_EDGES_PATH}" | awk '{print $1}')"
+fi
 
 mkdir -p "${OUTPUT_DIR}"
 echo "bag:    ${BAG}"
 echo "params: ${PARAMS}"
+echo "setup:  ${SETUP_FILE}"
+echo "runner: ${RUNNER_EXECUTABLE} (${RUNNER_SHA256})"
 echo "runs:   ${RUNS}"
 echo "out:    ${OUTPUT_DIR}"
 
@@ -107,7 +151,7 @@ for i in $(seq 1 "${RUNS}"); do
   fi
   rm -f "${run_dir}/.complete"
   RUNNER_CMD=(
-    ros2 run graph_based_slam graph_slam_offline_runner --ros-args
+    "${RUNNER_EXECUTABLE}" --ros-args
     --disable-rosout-logs
     --params-file "${PARAMS}"
     -p bag_path:="${BAG}"
@@ -177,6 +221,25 @@ done
 
 summary="${OUTPUT_DIR}/offline_determinism_summary.md"
 {
+  echo "runner_setup: \`${SETUP_FILE}\`"
+  echo "runner_executable: \`${RUNNER_EXECUTABLE}\`"
+  echo "runner_sha256: \`${RUNNER_SHA256}\`"
+  echo "params_file: \`${PARAMS}\`"
+  echo "params_sha256: \`${PARAMS_SHA256}\`"
+  echo "bag_metadata_sha256: \`${BAG_METADATA_SHA256}\`"
+  if [[ -n "${FIXED_LOOP_EDGES_PATH}" ]]; then
+    echo "fixed_loop_edges_path: \`${FIXED_LOOP_EDGES_PATH}\`"
+    echo "fixed_loop_edges_sha256: \`${FIXED_LOOP_EDGES_SHA256}\`"
+  fi
+  echo "parameter_overrides:"
+  if [[ ${#PARAM_OVERRIDES[@]} -eq 0 ]]; then
+    echo "- none"
+  else
+    for override in "${PARAM_OVERRIDES[@]}"; do
+      echo "- \`${override}\`"
+    done
+  fi
+  echo ""
   echo "| run | ape_rmse | n_loop_edges | loop_edges_md5 | trajectory_md5 |"
   echo "| --- | ---: | ---: | --- | --- |"
   for i in $(seq 1 "${RUNS}"); do

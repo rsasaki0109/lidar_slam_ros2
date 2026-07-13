@@ -72,15 +72,19 @@ def analyze(path: Path, adjacency_window: int = 20) -> dict[str, Any]:
 
 
 def parse_tum_vertices(path: Path) -> dict[int, np.ndarray]:
-    vertices: dict[int, np.ndarray] = {}
+    return {index: pose for index, (_, pose) in enumerate(parse_tum_poses(path))}
+
+
+def parse_tum_poses(path: Path) -> list[tuple[float, np.ndarray]]:
+    poses: list[tuple[float, np.ndarray]] = []
     for index, line in enumerate(path.read_text(encoding='utf-8').splitlines()):
         parts = line.split()
         if not parts or parts[0].startswith('#'):
             continue
         if len(parts) < 8:
             raise ValueError(f'invalid TUM record at line {index + 1}')
-        vertices[len(vertices)] = pose_matrix([float(v) for v in parts[1:8]])
-    return vertices
+        poses.append((float(parts[0]), pose_matrix([float(v) for v in parts[1:8]])))
+    return poses
 
 
 def parse_loop_edges_csv(path: Path) -> list[dict[str, Any]]:
@@ -113,12 +117,48 @@ def analyze_offline(trajectory: Path, loop_edges_csv: Path) -> dict[str, Any]:
     )
 
 
+def analyze_offline_reference(
+    trajectory: Path,
+    reference_trajectory: Path,
+    loop_edges_csv: Path,
+    max_time_diff: float = 0.05,
+) -> dict[str, Any]:
+    indexed_poses = parse_tum_poses(trajectory)
+    reference_poses = parse_tum_poses(reference_trajectory)
+    edges = parse_loop_edges_csv(loop_edges_csv)
+    reference_vertices: dict[int, np.ndarray] = {}
+    if reference_poses:
+        reference_times = np.array([stamp for stamp, _ in reference_poses])
+        for index in {edge[key] for edge in edges for key in ('from', 'to')}:
+            if index < 0 or index >= len(indexed_poses):
+                continue
+            stamp = indexed_poses[index][0]
+            insertion = int(np.searchsorted(reference_times, stamp))
+            choices = [candidate for candidate in (insertion - 1, insertion)
+                       if 0 <= candidate < len(reference_poses)]
+            if not choices:
+                continue
+            nearest = min(choices, key=lambda candidate: abs(reference_times[candidate] - stamp))
+            if abs(reference_times[nearest] - stamp) <= max_time_diff:
+                reference_vertices[index] = reference_poses[nearest][1]
+    return analyze_edges(
+        reference_vertices, edges, adjacency_window=-1, pose_label='reference',
+        source={
+            'trajectory_path': str(trajectory.resolve()),
+            'reference_trajectory_path': str(reference_trajectory.resolve()),
+            'loop_edges_csv_path': str(loop_edges_csv.resolve()),
+            'max_time_diff': max_time_diff,
+        },
+    )
+
+
 def analyze_edges(
     vertices: dict[int, np.ndarray],
     edges: list[dict[str, Any]],
     *,
     adjacency_window: int,
-    source: dict[str, str],
+    source: dict[str, Any],
+    pose_label: str = 'optimized',
 ) -> dict[str, Any]:
     loop_rows: list[dict[str, Any]] = []
     missing_vertices = 0
@@ -137,7 +177,7 @@ def analyze_edges(
             'index_gap': index_gap,
             'translation_residual_m': float(np.linalg.norm(error[:3, 3])),
             'rotation_residual_deg': rotation_angle_deg(error[:3, :3]),
-            'optimized_pair_distance_m': float(np.linalg.norm(predicted[:3, 3])),
+            f'{pose_label}_pair_distance_m': float(np.linalg.norm(predicted[:3, 3])),
             'measurement_translation_m': float(np.linalg.norm(edge['measurement'][:3, 3])),
             'line_number': edge['line_number'],
         }
@@ -172,24 +212,38 @@ def main() -> int:
     parser.add_argument('pose_graph', type=Path, nargs='?')
     parser.add_argument('--trajectory', type=Path)
     parser.add_argument('--loop-edges-csv', type=Path)
+    parser.add_argument('--reference-trajectory', type=Path)
+    parser.add_argument('--max-time-diff', type=float, default=0.05)
     parser.add_argument('--adjacency-window', type=int, default=20)
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
     if args.adjacency_window < 0:
         parser.error('--adjacency-window must be >= 0')
+    if args.max_time_diff < 0.0:
+        parser.error('--max-time-diff must be >= 0')
     offline_mode = args.trajectory is not None or args.loop_edges_csv is not None
     if offline_mode and not (args.trajectory and args.loop_edges_csv):
         parser.error('--trajectory and --loop-edges-csv must be provided together')
     if offline_mode and args.pose_graph:
         parser.error('pose_graph cannot be combined with offline artifact arguments')
+    if args.reference_trajectory and not offline_mode:
+        parser.error('--reference-trajectory requires offline artifact arguments')
     if not offline_mode and not args.pose_graph:
         parser.error('pose_graph or offline artifact arguments are required')
     try:
         if offline_mode:
-            report = analyze_offline(
-                args.trajectory.expanduser().resolve(),
-                args.loop_edges_csv.expanduser().resolve(),
-            )
+            if args.reference_trajectory:
+                report = analyze_offline_reference(
+                    args.trajectory.expanduser().resolve(),
+                    args.reference_trajectory.expanduser().resolve(),
+                    args.loop_edges_csv.expanduser().resolve(),
+                    args.max_time_diff,
+                )
+            else:
+                report = analyze_offline(
+                    args.trajectory.expanduser().resolve(),
+                    args.loop_edges_csv.expanduser().resolve(),
+                )
         else:
             report = analyze(args.pose_graph.expanduser().resolve(), args.adjacency_window)
     except (OSError, ValueError) as exc:

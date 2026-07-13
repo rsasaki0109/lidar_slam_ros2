@@ -64,3 +64,27 @@ def test_runs_are_dds_isolated_and_resume_requires_completion_marker():
     assert '--ros-domain-base' in source
     assert '--resume' in source
     assert '${run_dir}/.complete' in source
+
+
+def test_selected_setup_and_runner_binary_are_frozen_in_summary():
+    source = SCRIPT.read_text()
+
+    assert '--setup) SETUP_FILE="$2"' in source
+    assert 'ros2 pkg prefix graph_based_slam' in source
+    assert 'RUNNER_CMD=(' in source
+    assert '"${RUNNER_EXECUTABLE}" --ros-args' in source
+    assert 'runner_sha256:' in source
+    assert 'params_sha256:' in source
+    assert 'bag_metadata_sha256:' in source
+    assert 'parameter_overrides:' in source
+
+
+def test_fixed_loop_edge_replay_can_be_forwarded_as_one_knob_ablation():
+    source = SCRIPT.read_text()
+    runner_source = (
+        ROOT / 'graph_based_slam/src/graph_slam_offline_runner.cpp').read_text()
+
+    assert 'RUNNER_CMD+=(-p "${override}")' in source
+    assert 'fixed_loop_edges_path' in runner_source
+    assert 'descriptor search was skipped' in runner_source
+    assert 'fixed_loop_edges_sha256:' in source
