@@ -174,8 +174,8 @@ and translational RPE. The stricter, strided candidate rediscovers only
 Two isolated candidate runs produced byte-identical edge and trajectory files.
 The graph runner SHA-256 was
 `5e07e73b031e35732fd98e3db33c5de07abac03aaa63317d1fed34c52aebc770`.
-The diagnostic manifest is
-`/media/sasaki/aiueo/benchmarks/kitti00_graph_20260713/tricp_current_graph_sc055_stride4_gate0p2_cross_repo_diagnostic/cross_repo_benchmark.json`.
+The tracked-clean manifest is
+`/media/sasaki/aiueo/benchmarks/kitti00_graph_20260713/tricp_current_graph_sc055_stride4_gate0p2_cross_repo/cross_repo_benchmark.json`.
 
 On HILTI exp04 the same descriptor controls produced no loop: its 44 submaps
 do not exceed Scan Context's 50-submap recent-exclusion window. The candidate
