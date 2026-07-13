@@ -413,6 +413,34 @@ sys.exit(0 if reached else 1)
 PY
 }
 
+raw_tum_reached_fraction() {
+  # Guard the deliberately generous end margin below on short bags. Without
+  # this check, a 120 s margin makes every pose after 5.8 s look "near the
+  # end" on a 125.8 s bag and a mid-run writer pause can terminate the run.
+  local fraction="$1"
+  python3 - "$RAW_TUM" "$BAG_PATH" "$fraction" <<'PY'
+import sys
+from pathlib import Path
+
+import yaml
+
+try:
+    with open(sys.argv[1], 'rb') as fh:
+        fh.seek(-256, 2)
+        last = fh.read().decode(errors='replace').strip().splitlines()[-1]
+    last_stamp = float(last.split()[0])
+    meta = yaml.safe_load((Path(sys.argv[2]) / 'metadata.yaml').read_text())
+    info = meta['rosbag2_bagfile_information']
+    start_ns = info['starting_time']['nanoseconds_since_epoch']
+    duration_ns = info['duration']['nanoseconds']
+    required_stamp = (start_ns + duration_ns * float(sys.argv[3])) / 1e9
+    reached = last_stamp >= required_stamp
+except (OSError, KeyError, IndexError, TypeError, ValueError, yaml.YAMLError):
+    reached = False
+sys.exit(0 if reached else 1)
+PY
+}
+
 run_state_signature() {
   # Trajectory files only: the launch log keeps growing with TF warnings on
   # some bags, which would starve a log-based quiescence check forever and
@@ -476,7 +504,9 @@ wait_for_offline_completion() {
       if (( SECONDS - stable_since >= QUIESCENCE_SECS )); then
         # 120 s margin: the lidar stream can end well before the bag's global
         # end stamp (other topics keep recording; 62 s on stadtgarten_seq2).
-        if [[ -z "$end_stamp" ]] || raw_tum_reached "$end_stamp" 120.0; then
+        if [[ -n "$end_stamp" ]] && \
+          raw_tum_reached "$end_stamp" 120.0 && \
+          raw_tum_reached_fraction 0.8; then
           echo "Trajectory reached the bag end and stayed quiet for ${QUIESCENCE_SECS}s; treating benchmark run as complete"
           return 0
         fi
