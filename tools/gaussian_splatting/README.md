@@ -47,7 +47,7 @@ GPU 不要の純粋部は ament pytest harness（`run_default_ci_checks.sh`）�
 ```bash
 # 1) bag から posed 画像 + transforms.json を抽出（ROS 環境）
 #    --time-offset auto: カメラと LiDAR がセンサ内蔵クロックの別基準でも
-#    bag 受信時刻から skew を相殺（Livox+cam bag で頻出）
+#    bag全区間の受信時刻からoffset+driftをロバスト推定（Livox+camで頻出）
 python3 tools/gaussian_splatting/extract_posed_images.py \
   --bag demo_data/koide_lidar_camera_calib/livox/rosbag2_2023_03_09-13_42_46 \
   --traj output/<run>/traj_corrected.tum \
@@ -55,6 +55,9 @@ python3 tools/gaussian_splatting/extract_posed_images.py \
   --extrinsic configs/gaussian_splatting/<lidar_camera_extrinsic>.yaml \
   --time-offset auto --clock-reference-topic /livox/points \
   --out output/<run>/gsplat
+
+# autoは最大256組を一次回帰し、timestamp外れ値をMADで除外する。
+# HILTI exp04はoffset -0.12us、drift -0.000074ppmで同期済みだった。
 
 # 2a) LiDAR-primed init 点群を構築（COLMAP 不要の幾何事前）
 python3 tools/gaussian_splatting/build_lidar_init.py \
