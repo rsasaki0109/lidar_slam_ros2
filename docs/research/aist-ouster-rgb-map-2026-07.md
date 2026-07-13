@@ -50,13 +50,18 @@ bash scripts/run_aist_ouster_rgb_map_benchmark.sh \
 | plane thickness mean ↓ | 0.0823 m | 0.0744 m |
 | plane thickness p95 ↓ | 0.1230 m | 0.1193 m |
 | planar coverage ↑ | 47.44% | 53.95% |
-| colour-map wall time | 193.8 s | 137.2 s |
-| processing / bag duration ↓ | 6.68× | 5.19× |
-| colour-map peak RSS | 1,115.7 MiB | 1,003.6 MiB |
+| colour-map wall time | 174.6 s | 137.2 s |
+| processing / bag duration ↓ | 6.02× | 5.19× |
+| colour-map peak RSS | 1,088.1 MiB | 1,003.6 MiB |
 
 The former one-scan check covered only 9.55% / 10.57% of each 32,768-point
 scan. It remains useful as a fast calibration smoke test, but it is no longer
 the evidence for a camera-coloured point-cloud **map**.
+
+The 16:25 resource row is a clean end-to-end rerun of the frozen rigid-scan
+runner. Its PLY SHA-256 (`79589bd4...e3e0e5`) and all quality metrics match the
+earlier rigid artifact; unlike the preliminary table, its timing comes directly
+from that run rather than a first-pass deskew ablation.
 
 ## Ablations and rejected shortcuts
 
