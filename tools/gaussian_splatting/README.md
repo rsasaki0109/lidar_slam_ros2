@@ -103,6 +103,20 @@ pipelineはmono8やRGB 3chが同値の入力を既定で拒否し、輝度を3ch
 「カラー」と誤認しない。HILTI 2022のcam0〜cam4はすべてmono8なので幾何・軌跡
 benchmark用とし、RGB着色はAIST Ouster公開bag（`/image`, bgr8, 2448×2048）で
 検証する。geometry-only用途だけ `--allow-monochrome` で明示的に許可できる。
+
+AIST Ouster RGB benchmarkは公式 `calib.json` を固定し、2 captureを分離して使う。
+
+```bash
+python3 tools/gaussian_splatting/colorize_from_bag.py \
+  <aist-ouster-bag> output/aist_rgb \
+  --pc-topic /points --image-topic /image \
+  --camera-info-topic /camera_info --extrinsic-file <calib.json> \
+  --time-frac 0.6 --max-pair-dt-ms 100 --report output/aist_rgb.json
+```
+
+16:25 captureはcoverage 9.5%、pair差33.4 ms、有彩色率57.7%、16:26の独立captureは
+10.6%、22.5 ms、59.6%だった。coverageは単眼画角と360° Ouster scan全点の比である。
+reportの `mean_channel_range` と `chromatic_fraction_10` でmono複製への退行も検出する。
 `--quality-profile`は明示的opt-inで、`lidar_camera_alignment.json`、
 `heldout_point_colors.json`、`colored_map_quality_gate.json`も出力する。
 これらも入力より新しければ再利用し、`--force-quality`で品質3段階だけ再実行できる。
