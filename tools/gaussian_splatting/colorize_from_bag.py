@@ -468,7 +468,10 @@ def colorize_bag_frame(args) -> dict:
         colors, seen, counts = pcio.colorize_by_projection_robust(
             xyz, world_to_cam[None], K, [rgb_img], W, H,
             default_rgb=tuple(args.default_rgb),
-            normalize_exposure=args.normalize_exposure, return_counts=True)
+            zbuf_bin=args.zbuf_bin, depth_tol=args.depth_tol,
+            normalize_exposure=args.normalize_exposure,
+            interp=args.interp, edge_threshold=args.edge_threshold,
+            return_counts=True)
         per_camera.append((colors, seen, counts))
         stats = {
             'image_topic': img_topic, 'colored': int(seen.sum()),
@@ -499,6 +502,12 @@ def colorize_bag_frame(args) -> dict:
         'points': len(xyz), 'colored': n_seen,
         'colored_frac': n_seen / max(1, len(xyz)),
         'colour_statistics': colour_statistics(colors, seen),
+        'projection_config': {
+            'zbuf_bin': args.zbuf_bin,
+            'depth_tol_m': args.depth_tol,
+            'interp': args.interp,
+            'edge_threshold': args.edge_threshold,
+        },
         'full_ply': str(full), 'seen_ply': str(seen_ply),
         'diagnostic_overlay': str(overlay_path) if overlay_path else None,
     }
@@ -537,6 +546,14 @@ def build_parser() -> argparse.ArgumentParser:
                    help='skip plumb_bob undistortion (needs OpenCV otherwise)')
     p.add_argument('--normalize-exposure', action='store_true',
                    help='rescale image luminance (harmless for a single view)')
+    p.add_argument('--zbuf-bin', type=int, default=1,
+                   help='occlusion z-buffer pixel bin size (default: 1)')
+    p.add_argument('--depth-tol', type=float, default=0.15,
+                   help='base visible-depth tolerance in metres (default: 0.15)')
+    p.add_argument('--interp', choices=('nearest', 'bilinear', 'edge-aware'),
+                   default='edge-aware', help='image sampling mode')
+    p.add_argument('--edge-threshold', type=float, default=48.0,
+                   help='RGB range where edge-aware sampling snaps to nearest')
     p.add_argument('--default-rgb', type=int, nargs=3, default=(80, 80, 80),
                    help='colour for points no camera saw')
     p.add_argument('--diagnostic-overlay', type=Path,

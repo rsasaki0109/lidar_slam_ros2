@@ -182,6 +182,12 @@ def test_custom_density_filter_is_forwarded(tmp_path):
     assert build[build.index('--sparse-voxel') + 1] == '0.2'
 
 
+def test_no_deskew_is_forwarded_to_map_builder(tmp_path):
+    commands = cmp.build_commands(_args(tmp_path, '--no-deskew'))
+
+    assert '--no-deskew' in commands[-1][1]
+
+
 def test_intrinsics_yaml_is_forwarded_for_bags_without_camera_info(tmp_path):
     intrinsics = tmp_path / 'camchain.yaml'
     commands = cmp.build_commands(_args(

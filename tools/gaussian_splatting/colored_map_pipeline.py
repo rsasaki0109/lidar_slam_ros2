@@ -180,6 +180,8 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 '--lidar-calibration', str(args.lidar_calibration),
                 '--lidar-key', args.lidar_key,
             ])
+        if args.no_deskew:
+            build.append('--no-deskew')
         commands.append(('coloured map', build))
 
     if args.quality_profile is not None:
@@ -307,6 +309,10 @@ def build_parser() -> argparse.ArgumentParser:
                         'set <=0 to disable')
     p.add_argument('--image-stride', type=int, default=1)
     p.add_argument('--scan-stride', type=int, default=1)
+    p.add_argument('--no-deskew', action='store_true',
+                   help='accumulate each scan at its scan pose; use when the '
+                        'trajectory is registration-at-scan-rate rather than '
+                        'a continuous-time body trajectory')
     p.add_argument('--voxel', type=float, default=0.1)
     p.add_argument('--max-points', type=int, default=300000)
     p.add_argument('--min-range', type=float, default=0.0)

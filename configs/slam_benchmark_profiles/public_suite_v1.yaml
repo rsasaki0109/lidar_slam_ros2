@@ -68,13 +68,14 @@ slam_benchmark_profile:
         - runtime.peak_rss_mb
     aist_ouster_rgb:
       purpose: real_rgb_lidar_camera_colour
-      alignment: first
-      position_only_reference: false
-      segment_length_m: 10.0
-      max_time_difference_s: 0.10
-      primary_metric: chromatic_fraction_10
-      required_reports: [colour, runtime]
+      primary_metric_path: colour.colour_statistics.chromatic_fraction_10
+      required_reports: [geometry, alignment, colour, runtime]
       required_metrics:
+        - geometry.map_quality_report.plane_metrics.thickness_rms_mean_m
+        - geometry.map_quality_report.plane_metrics.planar_coverage
+        - alignment.rgb_l2_median
+        - alignment.rgb_l2_inlier_20
+        - alignment.heldout_scored_fraction
         - colour.colored_frac
         - colour.colour_statistics.mean_channel_range
         - colour.colour_statistics.chromatic_fraction_10

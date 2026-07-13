@@ -56,3 +56,21 @@ def test_elapsed_seconds_accepts_hours_and_rejects_bad_input():
     assert runtime.elapsed_seconds('1:02:03.5') == 3723.5
     with pytest.raises(ValueError):
         runtime.elapsed_seconds('3.5')
+
+
+def test_reads_duration_from_rosbag2_metadata(tmp_path):
+    metadata = tmp_path / 'metadata.yaml'
+    metadata.write_text(
+        'rosbag2_bagfile_information:\n'
+        '  duration:\n'
+        '    nanoseconds: 125814128037\n')
+
+    assert runtime.read_rosbag2_duration(metadata) == pytest.approx(125.814128037)
+
+
+def test_rejects_metadata_without_duration(tmp_path):
+    metadata = tmp_path / 'metadata.yaml'
+    metadata.write_text('rosbag2_bagfile_information: {}\n')
+
+    with pytest.raises(ValueError, match='duration.nanoseconds'):
+        runtime.read_rosbag2_duration(metadata)

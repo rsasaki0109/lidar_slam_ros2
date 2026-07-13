@@ -35,6 +35,8 @@ import argparse
 import json
 from pathlib import Path
 
+import yaml
+
 
 def elapsed_seconds(value: str) -> float:
     """Parse GNU time h:mm:ss or m:ss elapsed values."""
@@ -72,17 +74,38 @@ def parse_gnu_time(text: str, bag_duration_sec: float) -> dict:
         'peak_rss_mb': float(fields['Maximum resident set size (kbytes)']) / 1024.0,
         'cpu_percent': float(cpu) if cpu else None,
         'process_exit_status': int(fields.get('Exit status', '0')),
-        'source': 'GNU time -v around full benchmark wrapper',
+        'source': 'GNU time -v around the timed benchmark stage',
     }
+
+
+def read_rosbag2_duration(metadata_path: Path) -> float:
+    """Read the recorded duration from a rosbag2 metadata.yaml file."""
+    metadata = yaml.safe_load(metadata_path.read_text())
+    try:
+        nanoseconds = metadata['rosbag2_bagfile_information']['duration']['nanoseconds']
+        duration = float(nanoseconds) / 1e9
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(
+            f'{metadata_path} lacks rosbag2 duration.nanoseconds') from exc
+    if duration <= 0.0:
+        raise ValueError('bag duration must be positive')
+    return duration
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--time-file', type=Path, required=True)
-    parser.add_argument('--bag-duration-sec', type=float, required=True)
+    duration = parser.add_mutually_exclusive_group(required=True)
+    duration.add_argument('--bag-duration-sec', type=float)
+    duration.add_argument(
+        '--bag-metadata', type=Path,
+        help='rosbag2 metadata.yaml; duration is read automatically')
     parser.add_argument('--out', type=Path, required=True)
     args = parser.parse_args()
-    report = parse_gnu_time(args.time_file.read_text(), args.bag_duration_sec)
+    bag_duration_sec = (
+        read_rosbag2_duration(args.bag_metadata)
+        if args.bag_metadata is not None else args.bag_duration_sec)
+    report = parse_gnu_time(args.time_file.read_text(), bag_duration_sec)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))

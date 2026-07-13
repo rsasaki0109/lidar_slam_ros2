@@ -266,6 +266,15 @@ def test_colour_statistics_handles_no_visible_points():
     assert stats['unique_colours'] == 0
 
 
+def test_projection_quality_cli_defaults_are_frozen():
+    args = cfb.build_parser().parse_args(['bag', 'output'])
+
+    assert args.zbuf_bin == 1
+    assert args.depth_tol == 0.15
+    assert args.interp == 'edge-aware'
+    assert args.edge_threshold == 48.0
+
+
 def test_transform_optical_rotation_is_a_valid_axis_permutation():
     # The standard camera_link<->optical quaternion (0.5,-0.5,0.5,-0.5) must
     # produce a proper rotation (orthonormal, det +1) that maps each unit axis

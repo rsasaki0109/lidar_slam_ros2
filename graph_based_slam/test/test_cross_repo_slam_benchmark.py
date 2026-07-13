@@ -103,6 +103,43 @@ def test_metric_delta_treats_numerical_noise_as_tie():
     assert cross.metric_delta(summary, 'ate_m')['improved'] is None
 
 
+def test_report_only_manifest_records_primary_observation(tmp_path):
+    (tmp_path / 'profile').write_text('profile')
+    profile = {'name': 'test', 'required_success_metrics': {
+        'runtime.process_exit_status': 0}}
+    dataset = {
+        'primary_metric_path': 'colour.stats.chroma',
+        'required_reports': ['colour', 'runtime'],
+        'required_metrics': ['colour.stats.chroma', 'runtime.peak_rss_mb'],
+    }
+    reports = {
+        'colour': {'stats': {'chroma': 0.61}},
+        'runtime': {'peak_rss_mb': 1000.0, 'process_exit_status': 0},
+    }
+
+    manifest = cross.build_manifest(
+        profile, 'rgb', dataset, tmp_path, {'profile': tmp_path / 'profile'},
+        {'methods': []}, reports)
+
+    assert manifest['evidence']['complete'] is True
+    assert manifest['evidence']['missing_reports'] == []
+    assert manifest['primary_delta'] == {
+        'mode': 'observation', 'metric': 'colour.stats.chroma',
+        'value': 0.61, 'improved': None}
+    assert manifest['verdict'] == 'RECORDED'
+
+
+def test_aist_profile_is_report_only_and_freezes_all_quality_axes():
+    _, dataset = cross.load_profile(
+        ROOT / 'configs/slam_benchmark_profiles/public_suite_v1.yaml',
+        'aist_ouster_rgb')
+
+    assert 'trajectory' not in dataset['required_reports']
+    assert set(dataset['required_reports']) == {
+        'geometry', 'alignment', 'colour', 'runtime'}
+    assert dataset['primary_metric_path'].startswith('colour.')
+
+
 def test_git_provenance_records_revision_and_tracked_diff_hash():
     provenance = cross.git_provenance(ROOT)
     assert len(provenance['revision']) == 40

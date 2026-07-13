@@ -27,7 +27,7 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""Run Localization Zoo on raw/corrected TUM and freeze cross-repo evidence."""
+"""Freeze trajectory or report-only evidence under one cross-repo contract."""
 
 from __future__ import annotations
 
@@ -131,23 +131,45 @@ def load_optional_reports(paths: dict[str, Path | None]) -> dict[str, Any]:
     return reports
 
 
+def resolve_metric(document: dict[str, Any], metric_path: str) -> Any:
+    """Resolve a dot-separated numeric metric path from nested reports."""
+    value: Any = document
+    for key in metric_path.split('.'):
+        if not isinstance(value, dict) or key not in value:
+            return None
+        value = value[key]
+    return value
+
+
+def primary_result(dataset_config: dict[str, Any], trajectory_summary: dict[str, Any],
+                   normalized: dict[str, Any]) -> dict[str, Any]:
+    """Return a trajectory delta or a report-only primary observation."""
+    metric_path = dataset_config.get('primary_metric_path')
+    if metric_path:
+        value = resolve_metric(normalized, metric_path)
+        numeric = (isinstance(value, (int, float)) and not isinstance(value, bool) and
+                   value == value and abs(float(value)) != float('inf'))
+        return {'mode': 'observation', 'metric': metric_path,
+                'value': float(value) if numeric else None, 'improved': None}
+    result = metric_delta(trajectory_summary, dataset_config['primary_metric'])
+    result['mode'] = 'trajectory_delta'
+    return result
+
+
 def build_manifest(profile: dict[str, Any], dataset_name: str,
                    dataset_config: dict[str, Any], zoo: Path,
                    inputs: dict[str, Path], trajectory_summary: dict[str, Any],
                    reports: dict[str, Any]) -> dict[str, Any]:
     methods = {row.get('name'): row for row in trajectory_summary.get('methods', [])}
     normalized = {'trajectory': methods, **reports}
-    available = {'trajectory', *reports.keys()}
+    available = set(reports)
+    if methods:
+        available.add('trajectory')
     missing = sorted(set(dataset_config.get('required_reports', [])) - available)
     missing_metrics = []
     resolved_metrics = {}
     for metric_path in dataset_config.get('required_metrics', []):
-        value: Any = normalized
-        for key in metric_path.split('.'):
-            if not isinstance(value, dict) or key not in value:
-                value = None
-                break
-            value = value[key]
+        value = resolve_metric(normalized, metric_path)
         if (not isinstance(value, (int, float)) or isinstance(value, bool) or
                 value != value or abs(float(value)) == float('inf')):
             missing_metrics.append(metric_path)
@@ -155,16 +177,11 @@ def build_manifest(profile: dict[str, Any], dataset_name: str,
             resolved_metrics[metric_path] = value
     failed_success_metrics = []
     for metric_path, expected in profile.get('required_success_metrics', {}).items():
-        value: Any = normalized
-        for key in metric_path.split('.'):
-            if not isinstance(value, dict) or key not in value:
-                value = None
-                break
-            value = value[key]
+        value = resolve_metric(normalized, metric_path)
         if value != expected:
             failed_success_metrics.append(
                 {'metric': metric_path, 'value': value, 'expected': expected})
-    delta = metric_delta(trajectory_summary, dataset_config['primary_metric'])
+    primary = primary_result(dataset_config, trajectory_summary, normalized)
     return {
         'schema_version': 1,
         'profile': profile['name'],
@@ -178,7 +195,7 @@ def build_manifest(profile: dict[str, Any], dataset_name: str,
         'inputs': {name: {'path': str(path.resolve()), 'sha256': sha256(path)}
                    for name, path in inputs.items()},
         'trajectory': trajectory_summary,
-        'primary_delta': delta,
+        'primary_delta': primary,
         'reports': reports,
         'evidence': {
             'required_reports': dataset_config.get('required_reports', []),
@@ -191,8 +208,8 @@ def build_manifest(profile: dict[str, Any], dataset_name: str,
         },
         'adoption_policy': profile.get('adoption_policy', {}),
         'verdict': ('INCOMPLETE' if missing or missing_metrics or failed_success_metrics else
-                    'IMPROVED' if delta['improved'] is True else
-                    'REGRESSED' if delta['improved'] is False else 'RECORDED'),
+                    'IMPROVED' if primary['improved'] is True else
+                    'REGRESSED' if primary['improved'] is False else 'RECORDED'),
     }
 
 
@@ -201,9 +218,9 @@ def main() -> int:
     parser.add_argument('--localization-zoo', type=Path, required=True)
     parser.add_argument('--dataset', required=True)
     parser.add_argument('--profile', type=Path, default=DEFAULT_PROFILE)
-    parser.add_argument('--gt-tum', type=Path, required=True)
-    parser.add_argument('--raw-tum', type=Path, required=True)
-    parser.add_argument('--corrected-tum', type=Path, required=True)
+    parser.add_argument('--gt-tum', type=Path)
+    parser.add_argument('--raw-tum', type=Path)
+    parser.add_argument('--corrected-tum', type=Path)
     parser.add_argument('--geometry-report', type=Path)
     parser.add_argument('--alignment-report', type=Path)
     parser.add_argument('--colour-report', type=Path)
@@ -214,25 +231,38 @@ def main() -> int:
         profile, dataset_config = load_profile(args.profile, args.dataset)
     except (OSError, yaml.YAMLError, ValueError) as error:
         parser.error(str(error))
+    needs_trajectory = 'trajectory' in dataset_config.get('required_reports', [])
+    if needs_trajectory:
+        missing = [flag for flag, value in (
+            ('--gt-tum', args.gt_tum), ('--raw-tum', args.raw_tum),
+            ('--corrected-tum', args.corrected_tum)) if value is None]
+        if missing:
+            parser.error(
+                f'dataset {args.dataset!r} requires trajectory inputs: '
+                + ', '.join(missing))
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    dense_corrected = args.out_dir / 'traj_corrected_dense.tum'
-    subprocess.run(
-        densify_command(args.raw_tum, args.corrected_tum, dense_corrected),
-        check=True)
-    trajectory_path = args.out_dir / 'trajectory_summary.json'
-    command = zoo_command(
-        args.localization_zoo, dataset_config, args.gt_tum, args.raw_tum,
-        dense_corrected, trajectory_path)
-    subprocess.run(command, check=True)
+    trajectory_summary: dict[str, Any] = {'methods': []}
+    inputs = {'profile': args.profile}
+    if needs_trajectory:
+        dense_corrected = args.out_dir / 'traj_corrected_dense.tum'
+        subprocess.run(
+            densify_command(args.raw_tum, args.corrected_tum, dense_corrected),
+            check=True)
+        trajectory_path = args.out_dir / 'trajectory_summary.json'
+        command = zoo_command(
+            args.localization_zoo, dataset_config, args.gt_tum, args.raw_tum,
+            dense_corrected, trajectory_path)
+        subprocess.run(command, check=True)
+        trajectory_summary = json.loads(trajectory_path.read_text())
+        inputs.update({'gt_tum': args.gt_tum, 'raw_tum': args.raw_tum,
+                       'corrected_tum': args.corrected_tum,
+                       'corrected_dense_tum': dense_corrected})
     reports = load_optional_reports({
         'geometry': args.geometry_report,
         'alignment': args.alignment_report,
         'colour': args.colour_report,
         'runtime': args.runtime_report,
     })
-    inputs = {'profile': args.profile, 'gt_tum': args.gt_tum,
-              'raw_tum': args.raw_tum, 'corrected_tum': args.corrected_tum,
-              'corrected_dense_tum': dense_corrected}
     for name, path in (('geometry_report', args.geometry_report),
                        ('alignment_report', args.alignment_report),
                        ('colour_report', args.colour_report),
@@ -241,7 +271,7 @@ def main() -> int:
             inputs[name] = path
     manifest = build_manifest(
         profile, args.dataset, dataset_config, args.localization_zoo, inputs,
-        json.loads(trajectory_path.read_text()), reports)
+        trajectory_summary, reports)
     output = args.out_dir / 'cross_repo_benchmark.json'
     output.write_text(json.dumps(manifest, indent=2) + '\n')
     print(json.dumps({'output': str(output), 'dataset': args.dataset,
