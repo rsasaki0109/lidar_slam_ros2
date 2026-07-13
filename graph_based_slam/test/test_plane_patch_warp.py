@@ -89,3 +89,25 @@ def test_degenerate_plane_and_textureless_ncc_are_rejected():
     with pytest.raises(ValueError, match='camera centre'):
         WARP.plane_homography(_camera(), np.eye(4), [1, 0, 0], [0, 0, 5])
     assert WARP.zero_mean_ncc(np.ones(9), np.ones(9)) is None
+
+
+def test_reference_update_rejects_inconsistent_patch():
+    y, x = np.mgrid[:100, :100]
+    texture = (3.0 * x + 2.0 * y + 20.0 * np.sin(x / 4.0)).astype(np.float32)
+    corrupted = np.flipud(texture).copy()
+    views = np.repeat(np.eye(4)[None], 3, axis=0)
+    views[1, 0, 3] = 0.1
+    views[2, 0, 3] = -0.1
+    selected, scores = WARP.select_reference_patch(
+        [texture, texture, corrupted], _camera(), views,
+        np.array([0.0, 0.0, 5.0]), np.array([0.0, 0.0, 1.0]))
+    assert selected in (0, 1)
+    assert scores[selected] > scores[2]
+
+
+def test_reference_update_requires_two_usable_views():
+    selected, scores = WARP.select_reference_patch(
+        [np.zeros((100, 100), np.float32)], _camera(), np.eye(4)[None],
+        np.array([0.0, 0.0, 5.0]), np.array([0.0, 0.0, 1.0]))
+    assert selected is None
+    assert np.isneginf(scores[0])

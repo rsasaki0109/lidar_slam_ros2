@@ -131,3 +131,98 @@ def zero_mean_ncc(reference: np.ndarray, target: np.ndarray,
     if denominator <= 1.0e-9:
         return None
     return float(np.clip(left @ right / denominator, -1.0, 1.0))
+
+
+def project_point(K: np.ndarray, world_to_camera: np.ndarray,
+                  point_world: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Project one world point, returning camera XYZ and pixel coordinates."""
+    intr = np.asarray(K, dtype=np.float64)
+    transform = np.asarray(world_to_camera, dtype=np.float64)
+    point = np.asarray(point_world, dtype=np.float64).reshape(3)
+    camera = transform[:3, :3] @ point + transform[:3, 3]
+    if camera[2] <= 1.0e-9:
+        raise ValueError('point is behind the camera')
+    pixel_h = intr @ camera
+    return camera, pixel_h[:2] / pixel_h[2]
+
+
+def select_reference_patch(images: list[np.ndarray], K: np.ndarray,
+                           world_to_cameras: np.ndarray,
+                           point_world: np.ndarray,
+                           normal_world: np.ndarray, *, radius: int = 4,
+                           angle_weight: float = 0.25,
+                           min_ncc: float = -1.0) -> tuple[int | None, np.ndarray]:
+    """Select the most consistent, front-facing plane-warped reference patch.
+
+    Each candidate patch is warped into every other observation with the local
+    plane homography before zero-mean NCC is evaluated. The mean NCC rejects
+    dynamic/blurred observations; a smaller front-facing term preserves detail,
+    matching the two terms of FAST-LIVO2 equation (12).
+    """
+    views = np.asarray(world_to_cameras, dtype=np.float64)
+    if len(images) != len(views) or views.ndim != 3 or views.shape[1:] != (4, 4):
+        raise ValueError('images and world_to_cameras must have matching views')
+    if radius < 1:
+        raise ValueError('radius must be >= 1')
+    if not 0.0 <= angle_weight <= 1.0:
+        raise ValueError('angle_weight must be in [0, 1]')
+    normal = np.asarray(normal_world, dtype=np.float64).reshape(3)
+    if np.linalg.norm(normal) <= 1.0e-12:
+        raise ValueError('normal_world must be non-zero')
+    normal /= np.linalg.norm(normal)
+
+    camera_points = []
+    centres = []
+    usable = []
+    for index, view in enumerate(views):
+        try:
+            camera_point, centre = project_point(K, view, point_world)
+        except ValueError:
+            continue
+        h, w = np.asarray(images[index]).shape[:2]
+        if (centre[0] < radius or centre[1] < radius or
+                centre[0] > w - 1 - radius or centre[1] > h - 1 - radius):
+            continue
+        camera_points.append(camera_point)
+        centres.append(centre)
+        usable.append(index)
+    scores = np.full(len(images), -np.inf, dtype=np.float64)
+    if len(usable) < 2:
+        return None, scores
+
+    offsets = np.array([(dx, dy) for dy in range(-radius, radius + 1)
+                        for dx in range(-radius, radius + 1)], dtype=np.float64)
+    for local_ref, ref_index in enumerate(usable):
+        reference_pixels = centres[local_ref] + offsets
+        reference_patch, reference_valid = bilinear_sample(
+            np.asarray(images[ref_index]), reference_pixels)
+        ref_view = views[ref_index]
+        ref_camera_point = camera_points[local_ref]
+        ref_normal = ref_view[:3, :3] @ normal
+        ncc_values = []
+        for local_target, target_index in enumerate(usable):
+            if target_index == ref_index:
+                continue
+            target_T_reference = views[target_index] @ np.linalg.inv(ref_view)
+            try:
+                homography = plane_homography(
+                    K, target_T_reference, ref_normal, ref_camera_point)
+            except ValueError:
+                continue
+            target_pixels, warp_valid = warp_pixels(homography, reference_pixels)
+            target_patch, sample_valid = bilinear_sample(
+                np.asarray(images[target_index]), target_pixels)
+            ncc = zero_mean_ncc(
+                reference_patch, target_patch,
+                reference_valid & warp_valid & sample_valid)
+            if ncc is not None and ncc >= min_ncc:
+                ncc_values.append(ncc)
+        if not ncc_values:
+            continue
+        view_cosine = abs(float(ref_normal @ ref_camera_point)) / max(
+            np.linalg.norm(ref_camera_point), 1.0e-12)
+        scores[ref_index] = ((1.0 - angle_weight) * np.mean(ncc_values) +
+                             angle_weight * view_cosine)
+    if not np.isfinite(scores).any():
+        return None, scores
+    return int(np.argmax(scores)), scores
