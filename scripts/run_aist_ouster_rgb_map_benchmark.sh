@@ -127,6 +127,10 @@ python3 "${SCRIPT_DIR}/run_cross_repo_slam_benchmark.py" \
   --alignment-report "${MAP_DIR}/heldout_point_colors.json" \
   --colour-report "${MAP_DIR}/colored_map_report.json" \
   --runtime-report "${MAP_DIR}/runtime.json" \
+  --raw-artifact "aist_rosbag=${BAG}" \
+  --raw-artifact "official_extrinsic=${EXTRINSIC}" \
+  --raw-artifact "frontend_trajectory=${TRAJECTORY}" \
+  --raw-artifact "coloured_map=${MAP_DIR}/colored_map.ply" \
   --out-dir "${OUTPUT_DIR}/shared_evidence"
 
 echo "AIST RGB map benchmark complete: ${OUTPUT_DIR}"

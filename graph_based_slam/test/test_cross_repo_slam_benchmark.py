@@ -145,3 +145,15 @@ def test_git_provenance_records_revision_and_tracked_diff_hash():
     assert len(provenance['revision']) == 40
     assert len(provenance['tracked_diff_sha256']) == 64
     assert isinstance(provenance['tracked_dirty'], bool)
+
+
+def test_directory_hash_and_named_raw_artifacts_are_deterministic(tmp_path):
+    bag = tmp_path / 'bag'
+    bag.mkdir()
+    (bag / 'metadata.yaml').write_text('metadata')
+    (bag / 'data.db3').write_text('data')
+
+    assert cross.sha256(bag) == cross.sha256(bag)
+    assert cross.parse_named_paths([f'bag={bag}']) == {'bag': bag}
+    with pytest.raises(ValueError, match='duplicate'):
+        cross.parse_named_paths([f'bag={bag}', f'bag={bag}'])

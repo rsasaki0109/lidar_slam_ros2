@@ -47,10 +47,20 @@ DEFAULT_PROFILE = REPO_ROOT / 'configs/slam_benchmark_profiles/public_suite_v1.y
 
 
 def sha256(path: Path) -> str:
+    """Hash a file or a directory tree including relative file names."""
     digest = hashlib.sha256()
-    with Path(path).open('rb') as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b''):
-            digest.update(block)
+    path = Path(path)
+    files = [path] if path.is_file() else sorted(
+        candidate for candidate in path.rglob('*') if candidate.is_file())
+    if not files:
+        raise ValueError(f'{path}: input is not a file or non-empty directory')
+    for candidate in files:
+        if path.is_dir():
+            digest.update(candidate.relative_to(path).as_posix().encode())
+            digest.update(b'\0')
+        with candidate.open('rb') as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b''):
+                digest.update(block)
     return digest.hexdigest()
 
 
@@ -129,6 +139,22 @@ def load_optional_reports(paths: dict[str, Path | None]) -> dict[str, Any]:
                 raise ValueError(f'{path}: report must contain a mapping')
             reports[name] = document
     return reports
+
+
+def parse_named_paths(values: list[str]) -> dict[str, Path]:
+    """Parse repeatable NAME=PATH evidence arguments without silent overwrite."""
+    result = {}
+    for value in values:
+        if '=' not in value:
+            raise ValueError(f'raw artifact must be NAME=PATH, got {value!r}')
+        name, path_text = value.split('=', 1)
+        if not name or not path_text or name in result:
+            raise ValueError(f'invalid or duplicate raw artifact {value!r}')
+        path = Path(path_text)
+        if not path.exists():
+            raise ValueError(f'raw artifact not found: {path}')
+        result[name] = path
+    return result
 
 
 def resolve_metric(document: dict[str, Any], metric_path: str) -> Any:
@@ -225,10 +251,14 @@ def main() -> int:
     parser.add_argument('--alignment-report', type=Path)
     parser.add_argument('--colour-report', type=Path)
     parser.add_argument('--runtime-report', type=Path)
+    parser.add_argument(
+        '--raw-artifact', action='append', default=[], metavar='NAME=PATH',
+        help='hash an additional source or generated artifact; repeatable')
     parser.add_argument('--out-dir', type=Path, required=True)
     args = parser.parse_args()
     try:
         profile, dataset_config = load_profile(args.profile, args.dataset)
+        raw_artifacts = parse_named_paths(args.raw_artifact)
     except (OSError, yaml.YAMLError, ValueError) as error:
         parser.error(str(error))
     needs_trajectory = 'trajectory' in dataset_config.get('required_reports', [])
@@ -269,6 +299,8 @@ def main() -> int:
                        ('runtime_report', args.runtime_report)):
         if path is not None:
             inputs[name] = path
+    for name, path in raw_artifacts.items():
+        inputs[f'raw_artifact.{name}'] = path
     manifest = build_manifest(
         profile, args.dataset, dataset_config, args.localization_zoo, inputs,
         trajectory_summary, reports)

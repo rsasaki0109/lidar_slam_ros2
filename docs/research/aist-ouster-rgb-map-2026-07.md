@@ -108,6 +108,10 @@ Each output contains:
 - `colored_map/runtime.json` (wall time, realtime factor, peak RSS, CPU, exit)
 - `shared_evidence/cross_repo_benchmark.json` (the complete public-suite contract)
 
+The shared manifest hashes the complete source rosbag directory, official
+extrinsic, frontend trajectory, coloured PLY, profile, and every metric report.
+The suite gate can therefore detect missing inputs or later artifact drift.
+
 `analyze_colored_point_cloud.py` hashes the PLY and excludes the known default
 fill colour before computing coverage/chroma, preventing unobserved grey points
 from being misreported as camera-coloured.

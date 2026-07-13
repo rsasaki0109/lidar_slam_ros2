@@ -33,3 +33,6 @@ def test_runner_freezes_rigid_scan_and_real_rgb_reports():
     assert 'run_cross_repo_slam_benchmark.py' in source
     assert '--dataset aist_ouster_rgb' in source
     assert '--alignment-report "${MAP_DIR}/heldout_point_colors.json"' in source
+    assert '--raw-artifact "aist_rosbag=${BAG}"' in source
+    assert '--raw-artifact "official_extrinsic=${EXTRINSIC}"' in source
+    assert '--raw-artifact "coloured_map=${MAP_DIR}/colored_map.ply"' in source

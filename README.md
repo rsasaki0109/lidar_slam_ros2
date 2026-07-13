@@ -169,6 +169,23 @@ association evidence, raw-to-graph primary-metric delta, and optional geometry,
 calibration, colour, and runtime reports. Missing required reports or metrics
 produce `INCOMPLETE` and exit code 2, so partial evidence cannot be promoted.
 
+For report-only datasets such as AIST RGB, omit trajectory arguments and pass
+the frozen quality reports plus source artifacts. After collecting manifests
+from at least two distinct datasets, run the conservative promotion gate:
+
+```bash
+python3 scripts/evaluate_public_suite_gate.py \
+  --manifest <dataset-a>/cross_repo_benchmark.json \
+  --manifest <dataset-b>/cross_repo_benchmark.json \
+  --out <suite>/adoption_gate.json
+```
+
+Repeated captures of one dataset do not increase the improved-dataset count.
+The gate verifies report completeness, runtime and peak memory, every recorded
+input hash, the 2% primary-regression ceiling, and at least two independently
+improved datasets. Use `--require-adopt` in automation when rejection must
+return a non-zero status.
+
 When a `PointCloud2` scan carries per-point `timestamp`, `time`, or `t`, map
 accumulation deskews the scan against the dense trajectory in 1 ms pose bins.
 Use `--no-deskew` on `build_lidar_init.py` only for an explicit A/B baseline.
