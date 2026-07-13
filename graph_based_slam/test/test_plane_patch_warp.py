@@ -134,3 +134,17 @@ def test_planar_voxel_batch_selects_consistent_view_and_applies_colour():
         np.zeros((len(points), 3), dtype=np.uint8))
     assert updated.all()
     assert colours.any()
+
+
+def test_planar_voxel_batch_returns_ncc_compatible_view_mask():
+    y, x = np.mgrid[:100, :100]
+    texture = (x + 3.0 * y).astype(np.float32)
+    corrupted = np.flipud(texture)
+    points = np.array([(a, b, 5.0) for a in np.linspace(0.05, 0.35, 4)
+                       for b in np.linspace(0.05, 0.35, 4)])
+    refs, mask = WARP.select_planar_voxel_references(
+        points, [texture, texture, corrupted], _camera(),
+        np.repeat(np.eye(4)[None], 3, axis=0), return_view_mask=True)
+    assert refs[0] in (0, 1)
+    assert np.all(mask[:, refs[0]])
+    assert not mask[:, 2].any()

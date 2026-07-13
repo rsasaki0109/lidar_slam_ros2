@@ -234,7 +234,10 @@ def select_planar_voxel_references(points: np.ndarray, images: list[np.ndarray],
                                    max_views: int = 6,
                                    max_planarity_ratio: float = 0.06,
                                    min_tangent_ratio: float = 0.04,
-                                   patch_radius: int = 4) -> np.ndarray:
+                                   patch_radius: int = 4,
+                                   return_view_mask: bool = False,
+                                   score_margin: float = 0.12
+                                   ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
     """Return one reference-view index per point, shared by planar voxels.
 
     Candidate views are restricted to the nearest in-frame cameras before the
@@ -250,8 +253,11 @@ def select_planar_voxel_references(points: np.ndarray, images: list[np.ndarray],
     if voxel_size <= 0.0 or min_points < 3 or max_views < 2:
         raise ValueError('invalid voxel_size, min_points, or max_views')
     references = np.full(len(xyz), -1, dtype=np.int32)
+    view_mask = np.ones((len(xyz), len(views)), dtype=bool)
     if not len(xyz):
-        return references
+        return (references, view_mask) if return_view_mask else references
+    if score_margin < 0.0:
+        raise ValueError('score_margin must be >= 0')
     camera_centres = np.stack([
         np.linalg.inv(view)[:3, 3] for view in views])
     keys = np.floor(xyz / voxel_size).astype(np.int64)
@@ -287,12 +293,18 @@ def select_planar_voxel_references(points: np.ndarray, images: list[np.ndarray],
         chosen_views = [index for _, index in candidates[:max_views]]
         if len(chosen_views) < 2:
             continue
-        local, _ = select_reference_patch(
+        local, scores = select_reference_patch(
             [images[index] for index in chosen_views], K, views[chosen_views],
             centre, vectors[:, 0], radius=patch_radius)
         if local is not None:
             references[ids] = chosen_views[local]
-    return references
+            if return_view_mask:
+                compatible = np.isfinite(scores) & (
+                    scores >= scores[local] - score_margin)
+                if compatible.sum() >= 2:
+                    view_mask[ids] = False
+                    view_mask[np.ix_(ids, np.asarray(chosen_views)[compatible])] = True
+    return (references, view_mask) if return_view_mask else references
 
 
 def apply_reference_colours(points: np.ndarray, images: list[np.ndarray],

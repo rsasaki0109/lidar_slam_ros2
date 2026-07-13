@@ -475,6 +475,20 @@ def test_colorize_robust_return_counts_reports_confidence():
     assert seen[0] and not seen[1]
 
 
+def test_colorize_robust_observation_mask_rejects_bad_view():
+    vms1, K, W, H = _cam()
+    vms = np.concatenate([vms1] * 3, axis=0)
+    images = [np.full((H, W, 3), value, np.uint8)
+              for value in (50, 50, 240)]
+    points = np.array([[0.0, 0.0, 5.0]])
+    mask = np.array([[True, True, False]])
+    rgb, seen, counts = pcio.colorize_by_projection_robust(
+        points, vms, K, images, W, H, normalize_exposure=False,
+        observation_mask=mask, return_counts=True)
+    assert seen[0] and counts[0] == 2
+    np.testing.assert_array_equal(rgb[0], [50, 50, 50])
+
+
 def test_colorize_robust_normalizes_mono_images_and_broadcasts_rgb():
     vms1, K, W, H = _cam()
     vms = np.concatenate([vms1, vms1], axis=0)

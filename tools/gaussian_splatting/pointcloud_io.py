@@ -233,6 +233,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   interp: str = 'edge-aware',
                                   edge_threshold: float = 48.0,
                                   prefer_near: bool = True,
+                                  observation_mask: Optional[np.ndarray] = None,
                                   return_counts: bool = False):
     """Occlusion-aware, exposure-normalised, median-robust point colorization.
 
@@ -269,6 +270,10 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     """
     points = np.asarray(points, dtype=np.float64)
     n = points.shape[0]
+    if observation_mask is not None:
+        observation_mask = np.asarray(observation_mask, dtype=bool)
+        if observation_mask.shape != (n, len(images)):
+            raise ValueError('observation_mask must be points x images')
     rgb = np.tile(np.asarray(default_rgb, dtype=np.uint8), (n, 1))
     counts = np.zeros(n, dtype=np.uint16)
     if n == 0 or max_samples <= 0:
@@ -317,9 +322,14 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         np.minimum.at(zbuf, zbin, z[inb].astype(np.float32))
         visible = z[inb] <= zbuf[zbin] + depth_tol + 0.02 * z[inb]
         cand = ids[inb][visible]  # unique point ids seen (unoccluded) this view
+        if observation_mask is not None:
+            keep = observation_mask[cand, vi]
+            cand = cand[keep]
+            cand_z = z[inb][visible].astype(np.float32)[keep]
+        else:
+            cand_z = z[inb][visible].astype(np.float32)
         if cand.size == 0:
             continue
-        cand_z = z[inb][visible].astype(np.float32)
         cols = _sample_pixels(
             img, uf[cand], vf[cand], width, height, interp, edge_threshold)
         cols = np.clip(cols * scales[vi], 0.0, 255.0).astype(np.uint8)

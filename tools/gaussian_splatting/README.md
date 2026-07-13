@@ -120,6 +120,9 @@ FAST-LIVO2式のplane-warped NCC参照patch選択は
 置換した結果、奇数viewのRGB L2 medianは35.48から36.74へ悪化したためである。
 参照patch更新はdirect trackingには有効でも、最終色は露出・遮蔽に強い複数viewの
 RGB medoidが優位だった。今後は参照選択を単一色置換ではなく観測外れ値の棄却に使う。
+NCC最良scoreから0.12、0.30、0.50以内のviewだけを残す外れ値棄却も検証したが、
+held-out RGB L2 medianは順に36.63、36.66、36.53で、既定の35.48へ届かなかった。
+このため `--mode filter` も比較実験用に留め、production既定値は変更しない。
 
 外部校正はLiDAR depth境界と強い画像edgeの距離で診断できる。この自然scene metricは
 校正targetの代替ではなく、bag全体に対するpixel単位の回帰検査として使う。

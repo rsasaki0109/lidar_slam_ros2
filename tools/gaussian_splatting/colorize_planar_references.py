@@ -77,6 +77,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--voxel-size', type=float, default=1.0)
     parser.add_argument('--min-points', type=int, default=10)
     parser.add_argument('--max-views', type=int, default=6)
+    parser.add_argument('--score-margin', type=float, default=0.12)
+    parser.add_argument('--mode', choices=('filter', 'replace'), default='filter')
     return parser
 
 
@@ -96,19 +98,25 @@ def main() -> int:
               for index in selected]
     views = np.asarray(dataset['viewmats'], dtype=np.float64)[selected]
     K = np.asarray(dataset['K'], dtype=np.float64)
-    fallback, seen = pcio.colorize_by_projection_robust(
-        points, views, K, images, dataset['width'], dataset['height'])
     normalized = normalize_exposures(images)
-    references = ppw.select_planar_voxel_references(
+    references, view_mask = ppw.select_planar_voxel_references(
         points, [luminance(image) for image in normalized], K, views,
         voxel_size=args.voxel_size, min_points=args.min_points,
-        max_views=args.max_views)
-    colours, updated = ppw.apply_reference_colours(
-        points, normalized, K, views, references, fallback)
+        max_views=args.max_views, return_view_mask=True,
+        score_margin=args.score_margin)
+    fallback, seen = pcio.colorize_by_projection_robust(
+        points, views, K, images, dataset['width'], dataset['height'],
+        observation_mask=(view_mask if args.mode == 'filter' else None))
+    if args.mode == 'replace':
+        colours, updated = ppw.apply_reference_colours(
+            points, normalized, K, views, references, fallback)
+    else:
+        colours = fallback
+        updated = np.any(~view_mask, axis=1)
     pcio.write_ply(args.out, points, colours)
     print(f'points={len(points)} fallback_seen={seen.mean():.4f} '
           f'planar_selected={(references >= 0).mean():.4f} '
-          f'planar_updated={updated.mean():.4f} out={args.out}')
+          f'planar_filtered={updated.mean():.4f} mode={args.mode} out={args.out}')
     return 0
 
 
