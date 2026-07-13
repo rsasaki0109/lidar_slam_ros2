@@ -48,3 +48,24 @@ slam_candidate_regression_profile:
           direction: lower
           max_regression_percent: 10.0
           max_regression_absolute: 0.005
+    rtkslam_construction_seq2:
+      purpose: second positive plane-revisit gate with total-station GT
+      primary_metric: trajectory.graph_corrected.ate_m
+      require_primary_improvement: true
+      metrics:
+        - path: trajectory.graph_corrected.ate_m
+          label: position-only ATE (m)
+          direction: lower
+          max_regression_percent: 0.0
+        - path: geometry.map_quality_report.plane_metrics.thickness_rms_mean_m
+          label: planar thickness mean (m)
+          direction: lower
+          max_regression_percent: 1.0
+        - path: geometry.map_quality_report.plane_metrics.planar_coverage
+          label: planar coverage
+          direction: higher
+          max_regression_absolute: 0.002
+        - path: runtime.realtime_factor
+          label: processing / sensor time
+          direction: lower
+          max_regression_percent: 10.0

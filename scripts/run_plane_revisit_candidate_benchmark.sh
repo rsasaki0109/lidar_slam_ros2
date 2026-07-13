@@ -29,7 +29,7 @@ usage() {
   cat <<'EOF' >&2
 Usage:
   bash scripts/run_plane_revisit_candidate_benchmark.sh \
-    --dataset mid360_public|hilti_exp04 \
+    --dataset mid360_public|hilti_exp04|rtkslam_construction_seq2 \
     --bag <backend-input-bag> --reference-tum <reference.tum> [options]
 
 Options:
@@ -80,7 +80,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ "${DATASET}" == "mid360_public" || "${DATASET}" == "hilti_exp04" ]] || usage
+case "${DATASET}" in
+  mid360_public|hilti_exp04|rtkslam_construction_seq2) ;;
+  *) usage ;;
+esac
 [[ -d "${BAG}" && -f "${BAG}/metadata.yaml" ]] || {
   echo "backend-input rosbag2 not found: ${BAG}" >&2; exit 2; }
 [[ -f "${REFERENCE_TUM}" ]] || { echo "reference TUM not found: ${REFERENCE_TUM}" >&2; exit 2; }
@@ -156,8 +159,26 @@ for arm in off on; do
   fi
   run mkdir -p "${ARM_DIR}"
   run /usr/bin/time -v -o "${TIME_FILE}" "${OFFLINE_CMD[@]}"
+  RUNTIME_DURATION_ARGS=(--bag-metadata "${BAG}/metadata.yaml")
+  if [[ -n "${DENSE_RAW_TUM}" ]]; then
+    SENSOR_DURATION=$(awk '
+      NF >= 8 && $1 !~ /^#/ {
+        if (!seen) {first=$1; seen=1}
+        last=$1
+      }
+      END {
+        if (!seen || last <= first) exit 1
+        printf "%.9f", last-first
+      }
+    ' "${DENSE_RAW_TUM}") || {
+      echo "cannot derive sensor duration from dense raw TUM: ${DENSE_RAW_TUM}" >&2
+      exit 1
+    }
+    RUNTIME_DURATION_ARGS=(--bag-duration-sec "${SENSOR_DURATION}")
+    echo "runtime sensor duration from dense raw TUM: ${SENSOR_DURATION}s"
+  fi
   run python3 "${SCRIPT_DIR}/write_runtime_report.py" \
-    --time-file "${TIME_FILE}" --bag-metadata "${BAG}/metadata.yaml" \
+    --time-file "${TIME_FILE}" "${RUNTIME_DURATION_ARGS[@]}" \
     --repetitions "${RUNS}" --out "${ARM_DIR}/runtime.json"
   run bash "${SCRIPT_DIR}/run_map_quality_check.sh" \
     --input "${OFFLINE_DIR}/run1/map_optimized.pcd" \
@@ -176,6 +197,17 @@ for arm in off on; do
     --raw-artifact "runner_executable=${RUNNER_EXECUTABLE}" \
     --out-dir "${ARM_DIR}/manifest"
 done
+
+if [[ "${DRY_RUN}" != true ]]; then
+  for invariant in loop_edges.csv trajectory_raw.tum; do
+    if ! cmp -s "${OUTPUT_DIR}/off/offline/run1/${invariant}" \
+      "${OUTPUT_DIR}/on/offline/run1/${invariant}"; then
+      echo "OFF/ON invariant differs: ${invariant}" >&2
+      exit 1
+    fi
+  done
+  echo "OFF/ON invariants match: loop_edges.csv, trajectory_raw.tum"
+fi
 
 cat <<EOF
 

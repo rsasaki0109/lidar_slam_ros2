@@ -50,6 +50,58 @@ RGB inlier rate. A metric only counts when both systems provide it; values
 within 1% are ties. This prevents an attractive map image or a single trajectory
 number from being presented as an overall win.
 
+## SLAM candidate regression
+
+Run plane-revisit OFF/ON with the same backend input and reference:
+
+```bash
+bash scripts/run_plane_revisit_candidate_benchmark.sh \
+  --dataset mid360_public --bag <backend-input-bag> \
+  --reference-tum <reference.tum> --fixed-loop-edges <verified.csv> \
+  --output-dir /media/<ssd>/benchmarks/phase7/mid360
+```
+
+Repeat with `hilti_exp04` and `rtkslam_construction_seq2`. Construction Seq2 is
+the required second positive sequence; its total-station checkpoints contain
+positions but no surveyed orientations, so rotational RPE is forbidden.
+`--dry-run` prints the pipeline without starting ROS. For submap-rate backend
+poses, supply the matching frontend trajectory with `--dense-raw-tum`.
+
+To create a deterministic backend input from the original sensor bag:
+
+```bash
+ROS_DOMAIN_ID=210 ROS_LOCALHOST_ONLY=1 \
+bash scripts/record_backend_input.sh --output-dir <work>/backend_input -- \
+  bash scripts/run_rko_lio_graph_benchmark.sh \
+    --bag <construction_seq2> --lidar-topic /livox/points \
+    --imu-topic /livox/imu --skip-reference-gen \
+    --reference-tum <construction_seq2_gt.tum> \
+    --reference-meta <construction_seq2_reference.json> \
+    --rko-param configs/mid360_robot/rko_lio_mid360_low_voxel_no_deskew.yaml \
+    --lidarslam-param lidarslam/param/lidarslam.yaml \
+    --output-dir <work>/source_run --offline-timeout-secs 5400
+```
+
+The recorder refuses overwrite, flushes MCAP on exit, and requires non-empty
+`/rko_lio/odometry` and `/rko_lio/frame` topics. When `--dense-raw-tum` is
+supplied to the candidate runner, its timestamp span is used as the runtime
+denominator; backend bags use processing time, not original sensor time.
+Compare the three dataset pairs:
+
+```bash
+python3 scripts/evaluate_slam_candidate_regression.py \
+  --baseline <mid360-off>/cross_repo_benchmark.json \
+  --baseline <hilti-off>/cross_repo_benchmark.json \
+  --baseline <construction-seq2-off>/cross_repo_benchmark.json \
+  --candidate <mid360-on>/cross_repo_benchmark.json \
+  --candidate <hilti-on>/cross_repo_benchmark.json \
+  --candidate <construction-seq2-on>/cross_repo_benchmark.json \
+  --output output/phase7/candidate_regression.json --require-pass
+```
+
+Promotion requires complete reports, matching inputs, bounded runtime and map
+quality, and independently improved MID-360 and Construction Seq2 trajectories.
+
 That wrapper:
 
 - uses the bundled NTU VIRAL `rosbag2`

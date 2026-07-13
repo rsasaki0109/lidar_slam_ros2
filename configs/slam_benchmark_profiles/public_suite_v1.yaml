@@ -66,6 +66,22 @@ slam_benchmark_profile:
         - geometry.map_quality_report.plane_metrics.planar_coverage
         - runtime.realtime_factor
         - runtime.peak_rss_mb
+    rtkslam_construction_seq2:
+      purpose: surveyed_indoor_plane_revisit_and_map_consistency
+      alignment: se3
+      position_only_reference: true
+      segment_length_m: 20.0
+      max_time_difference_s: 2.0
+      primary_metric: ate_m
+      required_reports: [trajectory, geometry, runtime]
+      required_metrics:
+        - trajectory.frontend_raw.ate_m
+        - trajectory.graph_corrected.ate_m
+        - geometry.map_quality_report.plane_metrics.thickness_rms_mean_m
+        - geometry.map_quality_report.plane_metrics.planar_coverage
+        - runtime.realtime_factor
+        - runtime.peak_rss_mb
+      forbidden_claims: [rotational_rpe]
     aist_ouster_rgb:
       purpose: real_rgb_lidar_camera_colour
       primary_metric_path: colour.colour_statistics.chromatic_fraction_10

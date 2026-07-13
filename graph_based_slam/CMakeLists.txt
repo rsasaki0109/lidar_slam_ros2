@@ -801,6 +801,11 @@ if(BUILD_TESTING)
     TIMEOUT 60
   )
   ament_add_pytest_test(
+    test_record_backend_input_script
+    test/test_record_backend_input_script.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
     test_las_export
     test/test_las_export.py
     TIMEOUT 60

@@ -49,6 +49,17 @@ def test_profile_freezes_hilti_position_only_contract():
     assert 'rotational_rpe' in dataset['forbidden_claims']
 
 
+def test_profile_freezes_rtkslam_surveyed_position_only_contract():
+    """Construction Seq2 uses tolerant sparse checkpoints without fake RPE."""
+    _, dataset = cross.load_profile(
+        ROOT / 'configs/slam_benchmark_profiles/public_suite_v1.yaml',
+        'rtkslam_construction_seq2')
+
+    assert dataset['position_only_reference'] is True
+    assert dataset['max_time_difference_s'] == 2.0
+    assert 'rotational_rpe' in dataset['forbidden_claims']
+
+
 def test_zoo_command_compares_raw_and_corrected_and_preserves_gt_policy(tmp_path):
     config = {'alignment': 'se3', 'position_only_reference': True,
               'segment_length_m': 10.0, 'max_time_difference_s': 0.05}

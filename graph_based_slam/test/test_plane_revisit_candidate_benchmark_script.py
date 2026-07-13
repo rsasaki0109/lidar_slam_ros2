@@ -41,6 +41,8 @@ def test_runner_freezes_off_on_runtime_geometry_and_trajectory_evidence():
     assert 'run_offline_determinism_check.sh' in source
     assert '/usr/bin/time' in source
     assert 'write_runtime_report.py' in source
+    assert 'runtime sensor duration from dense raw TUM' in source
+    assert 'RUNTIME_DURATION_ARGS=(--bag-duration-sec "${SENSOR_DURATION}")' in source
     assert 'run_map_quality_check.sh' in source
     assert '--setup "${SETUP_FILE}"' in source
     assert 'run_cross_repo_slam_benchmark.py' in source
@@ -56,6 +58,8 @@ def test_runner_isolates_candidate_switch_and_ros_domains():
     assert 'DOMAIN_BASE=$((ROS_DOMAIN_BASE + RUNS))' in source
     assert 'if [[ "${arm}" == on ]]; then' in source
     assert 'CANDIDATE_PARAMS' in source
+    assert 'OFF/ON invariant differs' in source
+    assert 'loop_edges.csv trajectory_raw.tum' in source
 
 
 def test_runner_recommends_external_output_and_supports_dry_run():
@@ -67,3 +71,4 @@ def test_runner_recommends_external_output_and_supports_dry_run():
     assert '--dry-run' in source
     assert '--dense-raw-tum <tum>' in source
     assert 'RAW_TUM="${DENSE_RAW_TUM}"' in source
+    assert 'rtkslam_construction_seq2' in source

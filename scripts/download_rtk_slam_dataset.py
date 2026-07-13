@@ -47,7 +47,7 @@ def _human_gb(num_bytes: int) -> str:
 def _download(url: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     # wget -c is resumable, which matters for multi-GB LFS payloads.
-    cmd = ['wget', '-c', '-O', str(dest), url]
+    cmd = ['wget', '-c', '--progress=dot:giga', '-O', str(dest), url]
     print(f'  {url}\n    -> {dest}')
     subprocess.run(cmd, check=True)
 

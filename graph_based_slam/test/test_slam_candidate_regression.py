@@ -64,12 +64,16 @@ def _inputs(tmp_path, mid_candidate=None, hilti_candidate=None):
     baseline_documents = {
         'mid360_public': _manifest('mid360_public', 1.0, 2.0, 0.05, 0.40, 0.8),
         'hilti_exp04': _manifest('hilti_exp04', 0.5, None, 0.04, 0.50, 0.7),
+        'rtkslam_construction_seq2': _manifest(
+            'rtkslam_construction_seq2', 0.20, None, 0.08, 0.42, 0.9),
     }
     candidate_documents = {
         'mid360_public': mid_candidate or _manifest(
             'mid360_public', 0.8, 1.9, 0.049, 0.401, 0.85),
         'hilti_exp04': hilti_candidate or _manifest(
             'hilti_exp04', 0.5, None, 0.04, 0.50, 0.72),
+        'rtkslam_construction_seq2': _manifest(
+            'rtkslam_construction_seq2', 0.18, None, 0.079, 0.421, 0.95),
     }
     baselines = {}
     candidates = {}
@@ -180,3 +184,21 @@ def test_markdown_contains_review_table(tmp_path):
 
     assert '# SLAM candidate regression: ADOPT_CANDIDATE' in summary
     assert '| mid360_public | ATE RMSE (m) |' in summary
+
+
+def test_rtkslam_second_positive_must_improve_surveyed_ate(tmp_path):
+    """A second positive dataset cannot pass by merely avoiding regression."""
+    profile = gate._load_profile(
+        ROOT / 'configs/slam_benchmark_profiles/phase7_regression_v1.yaml')
+    baselines, candidates = _inputs(tmp_path)
+    candidates['rtkslam_construction_seq2'][1]['trajectory']['methods'][0][
+        'ate_m'] = 0.20
+
+    report = gate.evaluate(profile, baselines, candidates)
+
+    rtkslam = next(
+        row for row in report['datasets']
+        if row['dataset'] == 'rtkslam_construction_seq2')
+    assert rtkslam['checks']['all_metrics_within_budget'] is True
+    assert rtkslam['checks']['primary_improved'] is False
+    assert report['verdict'] == 'REJECT_CANDIDATE'

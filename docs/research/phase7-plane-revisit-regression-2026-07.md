@@ -2,6 +2,10 @@
 
 Date: 2026-07-14
 
+> Historical two-dataset decision. The required Construction Seq2 follow-up
+> rejected promotion; see
+> [Phase 8 RTK-SLAM validation](phase8-rtkslam-plane-revisit-2026-07.md).
+
 ## Decision
 
 The current initial-residual-gated plane-revisit candidate **passes the Phase 7
