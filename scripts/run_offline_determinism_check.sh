@@ -13,11 +13,13 @@ set -euo pipefail
 #     [--runs 3] [--output-dir output/offline_determinism_<timestamp>] \
 #     [--reference-tum output/glim_mid360_reference.tum] \
 #     [--ape-interpolate] [--ape-max-time-diff 0.05] \
-#     [--save-maps]
+#     [--save-maps] [--param name:=value ...]
 #
 # --save-maps forwards refine_save_maps:=true to the runner so each run
 # writes map_optimized.pcd / map_refined.pcd (used by the release gate to
 # run the map-quality profile check on the gate-produced refined map).
+# Repeatable --param name:=value arguments are appended after the parameter
+# file and make one-knob ablations explicit without copying the full YAML.
 #
 # When --reference-tum is given, each run's trajectory_optimized.tum is also
 # scored with scripts/ape_from_tum.py (report only; the gate is byte
@@ -38,6 +40,7 @@ REFERENCE_TUM=""
 APE_INTERPOLATE=false
 APE_MAX_TIME_DIFF="0.05"
 SAVE_MAPS=false
+PARAM_OVERRIDES=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -49,6 +52,14 @@ while [[ $# -gt 0 ]]; do
     --ape-interpolate) APE_INTERPOLATE=true; shift ;;
     --ape-max-time-diff) APE_MAX_TIME_DIFF="$2"; shift 2 ;;
     --save-maps) SAVE_MAPS=true; shift ;;
+    --param)
+      if [[ "${2:-}" != *:=* || "${2%%:=*}" == "" || "${2#*:=}" == "" ]]; then
+        echo "--param expects name:=value" >&2
+        exit 2
+      fi
+      PARAM_OVERRIDES+=("$2")
+      shift 2
+      ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -86,6 +97,9 @@ for i in $(seq 1 "${RUNS}"); do
   if [[ "${SAVE_MAPS}" == "true" ]]; then
     RUNNER_CMD+=(-p refine_save_maps:=true)
   fi
+  for override in "${PARAM_OVERRIDES[@]}"; do
+    RUNNER_CMD+=(-p "${override}")
+  done
   "${RUNNER_CMD[@]}" \
     > "${run_dir}/runner.log" 2>&1
   md5sum "${run_dir}/loop_edges.csv" "${run_dir}/trajectory_optimized.tum"
