@@ -43,6 +43,7 @@ Optional 3D-BBS support:
 | Standard NTU VIRAL benchmark | `bash scripts/run_rko_lio_graph_benchmark.sh` |
 | KITTI Odometry small_gicp evaluation | `bash scripts/run_kitti_odometry_benchmark.sh --sequence 00 --small-gicp --force-prepare` |
 | KITTI Odometry small_gicp sweep | `bash scripts/sweep_kitti_small_gicp.sh --dataset "$KITTI_ODOMETRY_ROOT" --sequences "00 05 07"` |
+| localization_zoo PCD/trajectory → fixed graph bag | `python3 scripts/pcd_sequence_to_rosbag2.py --help` then `bash scripts/run_offline_determinism_check.sh` |
 | MID360 cross-validation benchmark | `bash scripts/run_rko_lio_mid360_crossval_benchmark.sh` |
 | MID-360 browser 3D map preview | `python3 scripts/export_mid360_robot_3d_map_preview.py output/mid360_public/rko_sweep_no_quiet_all/voxel_0p50_min_1p00_dd_on` writes `mid360_robot_3d_map_preview.html`, `mid360_robot_3d_map_preview.ply`, and overlay JSON from an existing `pointcloud_map/` |
 | Mixed-quality open-data GNSS smoke | `bash scripts/run_open_data_applanix_velodyne_gnss_smoke.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
@@ -143,6 +144,14 @@ bash scripts/sweep_kitti_small_gicp.sh \
 The KITTI wrappers write prepared rosbag2 data and benchmark artifacts under
 `output/` by default. The raw KITTI dataset belongs under `datasets/`, which is
 local-only and ignored by Git.
+
+For a trajectory already evaluated by `localization_zoo`, the converter also
+accepts `--estimate-matrices` and writes exact-timestamp
+`/rko_lio/odometry` + cloud pairs for the deterministic backend runner. Pass
+KITTI `calib.txt` with `--calib` so camera-frame reference matrices are written
+in the Velodyne body frame. The frozen sequence-00 experiment and adoption
+decision are in
+[kitti00-localization-zoo-graph-loop-2026-07.md](research/kitti00-localization-zoo-graph-loop-2026-07.md).
 
 ### Backend only: `graph_based_slam`
 

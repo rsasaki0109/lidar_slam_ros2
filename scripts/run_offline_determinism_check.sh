@@ -11,6 +11,7 @@ set -euo pipefail
 #     --bag output/backend_replay_x/backend_input \
 #     [--params lidarslam/param/lidarslam_mid360_rko_graph.yaml] \
 #     [--runs 3] [--output-dir output/offline_determinism_<timestamp>] \
+#     [--ros-domain-base 140] [--resume] \
 #     [--reference-tum output/glim_mid360_reference.tum] \
 #     [--ape-interpolate] [--ape-max-time-diff 0.05] \
 #     [--save-maps] [--param name:=value ...]
@@ -41,6 +42,8 @@ APE_INTERPOLATE=false
 APE_MAX_TIME_DIFF="0.05"
 SAVE_MAPS=false
 PARAM_OVERRIDES=()
+ROS_DOMAIN_BASE=140
+RESUME=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -52,6 +55,8 @@ while [[ $# -gt 0 ]]; do
     --ape-interpolate) APE_INTERPOLATE=true; shift ;;
     --ape-max-time-diff) APE_MAX_TIME_DIFF="$2"; shift 2 ;;
     --save-maps) SAVE_MAPS=true; shift ;;
+    --ros-domain-base) ROS_DOMAIN_BASE="$2"; shift 2 ;;
+    --resume) RESUME=true; shift ;;
     --param)
       if [[ "${2:-}" != *:=* || "${2%%:=*}" == "" || "${2#*:=}" == "" ]]; then
         echo "--param expects name:=value" >&2
@@ -63,6 +68,11 @@ while [[ $# -gt 0 ]]; do
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
+
+if (( ROS_DOMAIN_BASE < 0 || ROS_DOMAIN_BASE + RUNS > 233 )); then
+  echo "--ros-domain-base must leave one valid ROS domain (0..232) per run" >&2
+  exit 2
+fi
 
 if [[ -z "${BAG}" ]]; then
   echo "--bag <backend_input bag dir> is required" >&2
@@ -88,8 +98,17 @@ for i in $(seq 1 "${RUNS}"); do
   run_dir="${OUTPUT_DIR}/run${i}"
   mkdir -p "${run_dir}"
   echo "--- run ${i}/${RUNS}"
+  if [[ "${RESUME}" == true && \
+        -f "${run_dir}/.complete" && \
+        -s "${run_dir}/loop_edges.csv" && \
+        -s "${run_dir}/trajectory_optimized.tum" ]]; then
+    echo "reuse complete run ${i}: ${run_dir}"
+    continue
+  fi
+  rm -f "${run_dir}/.complete"
   RUNNER_CMD=(
     ros2 run graph_based_slam graph_slam_offline_runner --ros-args
+    --disable-rosout-logs
     --params-file "${PARAMS}"
     -p bag_path:="${BAG}"
     -p output_dir:="${run_dir}"
@@ -100,7 +119,8 @@ for i in $(seq 1 "${RUNS}"); do
   for override in "${PARAM_OVERRIDES[@]}"; do
     RUNNER_CMD+=(-p "${override}")
   done
-  "${RUNNER_CMD[@]}" \
+  ROS_DOMAIN_ID=$((ROS_DOMAIN_BASE + i - 1)) ROS_LOCALHOST_ONLY=1 \
+    "${RUNNER_CMD[@]}" \
     > "${run_dir}/runner.log" 2>&1
   md5sum "${run_dir}/loop_edges.csv" "${run_dir}/trajectory_optimized.tum"
   if [[ -n "${REFERENCE_TUM}" ]]; then
@@ -118,6 +138,7 @@ for i in $(seq 1 "${RUNS}"); do
       > "${run_dir}/ape_postprocess.log" 2>&1 \
       || echo "WARN: APE post-processing failed in run ${i}; continuing" >&2
   fi
+  touch "${run_dir}/.complete"
 done
 
 ape_rmse_for_run() {

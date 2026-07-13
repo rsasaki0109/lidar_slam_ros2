@@ -24,3 +24,14 @@ def test_param_override_is_forwarded_after_params_file():
     assert 'RUNNER_CMD+=(-p "${override}")' in source
     assert source.index('RUNNER_CMD+=(-p "${override}")') > source.index(
         '--params-file "${PARAMS}"')
+
+
+def test_runs_are_dds_isolated_and_resume_requires_completion_marker():
+    source = SCRIPT.read_text()
+
+    assert '--disable-rosout-logs' in source
+    assert 'ROS_DOMAIN_ID=' in source
+    assert 'ROS_LOCALHOST_ONLY=1' in source
+    assert '--ros-domain-base' in source
+    assert '--resume' in source
+    assert '${run_dir}/.complete' in source
