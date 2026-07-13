@@ -1,0 +1,81 @@
+slam_benchmark_profile:
+  name: public_suite_v1
+  enforcement: report_only
+  adoption_policy:
+    minimum_improved_datasets: 2
+    maximum_primary_metric_regression_percent: 2.0
+    require_runtime_and_memory: true
+    require_raw_artifacts: true
+  datasets:
+    hilti_exp04:
+      purpose: geometry_and_sparse_position_accuracy
+      alignment: se3
+      position_only_reference: true
+      segment_length_m: 10.0
+      max_time_difference_s: 0.05
+      primary_metric: ate_m
+      required_reports: [trajectory, geometry, runtime]
+      required_metrics:
+        - trajectory.frontend_raw.ate_m
+        - trajectory.graph_corrected.ate_m
+        - geometry.map_quality_report.plane_metrics.thickness_rms_mean_m
+        - geometry.map_quality_report.plane_metrics.planar_coverage
+        - runtime.realtime_factor
+        - runtime.peak_rss_mb
+      forbidden_claims: [rgb_colour_accuracy, rotational_rpe]
+    nclt_2013_01_10:
+      purpose: lidar_imu_odometry_and_bias
+      alignment: first
+      position_only_reference: false
+      segment_length_m: 100.0
+      max_time_difference_s: 0.02
+      primary_metric: rpe_trans_pct
+      required_reports: [trajectory, runtime]
+      required_metrics:
+        - trajectory.frontend_raw.rpe_trans_pct
+        - trajectory.graph_corrected.rpe_trans_pct
+        - runtime.realtime_factor
+        - runtime.peak_rss_mb
+    kitti_odometry:
+      purpose: lidar_odometry_drift
+      alignment: first
+      position_only_reference: false
+      segment_length_m: 100.0
+      max_time_difference_s: 0.001
+      primary_metric: rpe_trans_pct
+      required_reports: [trajectory, runtime]
+      required_metrics:
+        - trajectory.frontend_raw.rpe_trans_pct
+        - trajectory.graph_corrected.rpe_trans_pct
+        - runtime.realtime_factor
+        - runtime.peak_rss_mb
+    mid360_public:
+      purpose: loop_closure_relocalization_and_map_consistency
+      alignment: se3
+      position_only_reference: false
+      segment_length_m: 20.0
+      max_time_difference_s: 0.05
+      primary_metric: ate_m
+      required_reports: [trajectory, geometry, runtime]
+      required_metrics:
+        - trajectory.frontend_raw.ate_m
+        - trajectory.graph_corrected.ate_m
+        - geometry.map_quality_report.plane_metrics.thickness_rms_mean_m
+        - geometry.map_quality_report.plane_metrics.planar_coverage
+        - runtime.realtime_factor
+        - runtime.peak_rss_mb
+    aist_ouster_rgb:
+      purpose: real_rgb_lidar_camera_colour
+      alignment: first
+      position_only_reference: false
+      segment_length_m: 10.0
+      max_time_difference_s: 0.10
+      primary_metric: chromatic_fraction_10
+      required_reports: [colour, runtime]
+      required_metrics:
+        - colour.colored_frac
+        - colour.colour_statistics.mean_channel_range
+        - colour.colour_statistics.chromatic_fraction_10
+        - runtime.realtime_factor
+        - runtime.peak_rss_mb
+      forbidden_claims: [slam_trajectory_accuracy]

@@ -149,6 +149,26 @@ The generated `dense_corrected_trajectory.tum` is reused on later runs. Use
 newer trajectory and posed-image inputs and automatically rebuilds downstream
 artifacts, preventing stale coloured maps from being silently reused.
 
+### Cross-repository SLAM benchmark
+
+`configs/slam_benchmark_profiles/public_suite_v1.yaml` freezes the role, GT
+policy, primary metric, and required evidence for HILTI, NCLT, KITTI, Mid360,
+and AIST RGB. Compare frontend and graph trajectories through Localization Zoo:
+
+```bash
+python3 scripts/run_cross_repo_slam_benchmark.py \
+  --localization-zoo ../loc_zoo_ws/localization_zoo \
+  --dataset hilti_exp04 --gt-tum <gt.tum> \
+  --raw-tum <traj_raw.tum> --corrected-tum <traj_corrected.tum> \
+  --geometry-report <map_quality_report.yaml> \
+  --runtime-report <runtime.json> --out-dir <benchmark-dir>
+```
+
+The output records both git revisions, SHA-256 for every input, timestamp
+association evidence, raw-to-graph primary-metric delta, and optional geometry,
+calibration, colour, and runtime reports. Missing required reports or metrics
+produce `INCOMPLETE` and exit code 2, so partial evidence cannot be promoted.
+
 When a `PointCloud2` scan carries per-point `timestamp`, `time`, or `t`, map
 accumulation deskews the scan against the dense trajectory in 1 ms pose bins.
 Use `--no-deskew` on `build_lidar_init.py` only for an explicit A/B baseline.
