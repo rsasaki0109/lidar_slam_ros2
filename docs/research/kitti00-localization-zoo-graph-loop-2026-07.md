@@ -7,6 +7,11 @@ evaluation input. Keep the graph loop fitness threshold at `0.7`. Relaxing it
 to `1.5` admits one loop, but slightly worsens independent ground-truth APE, so
 the candidate is **not adopted**.
 
+On that rejected one-edge profile, raising loop information weight from 100 to
+400 improves both fitted residual and APE relative to weight 100, but still
+does not beat the threshold-0.7 default. Weight 400 therefore remains
+non-default as well.
+
 This is a second graph-SLAM dataset with trajectory ground truth. It confirms
 that an accepted registration edge is not, by itself, evidence of a better
 trajectory.
@@ -84,6 +89,25 @@ counterbalanced. The baseline's two isolated runs produced byte-identical loop
 sets and optimized trajectories (`SHA-256
 756245d53bec6f7a02a8fded0713a652350b46b5f12b5ba057fb41dd6ccf432a`).
 
+## Loop-weight transfer check
+
+The accepted edge was then frozen and only `loop_edge_info_weight` was changed.
+This checks the direction previously seen on MID360 without changing candidate
+discovery.
+
+| metric | weight 100 | weight 400 | change |
+|---|---:|---:|---:|
+| edge set | `28 → 252` | `28 → 252` | identical |
+| APE RMSE (m) | 8.267352 | 8.264587 | -0.0334% |
+| loop rotation residual (deg) | 2.369562 | 2.067070 | -12.77% |
+| loop translation residual (m) | 0.00053716 | 0.00013030 | -75.74% |
+
+Weight 400 fits the frozen constraint better and recovers most of the APE
+regression introduced by admitting it. It still loses to the threshold-0.7
+default (8.263387 m). MID360 has no independent trajectory GT, and its earlier
+comparison used weight 200 rather than 100, so these two observations cannot be
+counted as two independent trajectory improvements under `public_suite_v1`.
+
 ## Reproduction
 
 Create the fixed paired bag from localization_zoo output:
@@ -119,6 +143,9 @@ bash scripts/run_offline_determinism_check.sh \
   --param max_loop_candidate_count:=1 \
   --param threshold_loop_closure_score:=1.5 --param refine:=false
 ```
+
+For the report-only weight transfer, append
+`--param loop_edge_info_weight:=400.0` to the second command.
 
 The wrappers assign a private localhost ROS domain per run and only reuse an
 output carrying a `.complete` marker, preventing stale DDS participants or
