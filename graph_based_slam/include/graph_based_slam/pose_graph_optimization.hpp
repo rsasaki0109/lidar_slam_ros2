@@ -58,6 +58,7 @@
 #define GRAPH_BASED_SLAM_WITH_G2O 1
 #endif
 #include "graph_based_slam/loop_edge_robustifier.hpp"
+#include "graph_based_slam/plane_revisit_edge.hpp"
 
 namespace graphslam
 {
@@ -95,6 +96,16 @@ struct GnssConstraint
   Eigen::Vector3d info_diag {Eigen::Vector3d::Zero()};
 };
 
+struct PlaneRevisitConstraint
+{
+  int from {0};
+  int to {0};
+  PlaneRevisitMeasurement measurement;
+  double normal_info_weight {10.0};
+  double offset_info_weight {10.0};
+  double robust_kernel_delta {1.0};
+};
+
 struct AdjacentEdgeConfig
 {
   int num_adjacent_pose_constraints {5};
@@ -125,6 +136,9 @@ struct OptimizationResult
   std::vector<double> adjacent_chi2;
   std::vector<double> adjacent_trans_chi2;
   std::vector<double> adjacent_rot_chi2;
+  int plane_revisit_edges {0};
+  double plane_revisit_chi2_before {0.0};
+  double plane_revisit_chi2_after {0.0};
 };
 
 // What to collect for the caller's NIS auto-scale update; NONE skips the
@@ -150,7 +164,8 @@ inline OptimizationResult optimizePoseGraph(
   // settle into the anchor (ENU) frame; the historical default pins it.
   bool fix_first_vertex = true,
   int iterations = 10,
-  const std::string & save_path = std::string())
+  const std::string & save_path = std::string(),
+  const std::vector<PlaneRevisitConstraint> & plane_constraints = {})
 {
   g2o::SparseOptimizer optimizer;
   optimizer.setVerbose(false);
@@ -238,6 +253,38 @@ inline OptimizationResult optimizePoseGraph(
     optimizer.addEdge(edge_se3);
   }
 
+  /* Structural plane re-observation edges. */
+  std::vector<PlaneRevisitEdge *> plane_edges;
+  for (const auto & constraint : plane_constraints) {
+    if (constraint.from < 0 || constraint.to < 0 ||
+      constraint.from >= submaps_size || constraint.to >= submaps_size ||
+      constraint.from == constraint.to)
+    {
+      continue;
+    }
+    PlaneRevisitEdge * edge = new PlaneRevisitEdge();
+    edge->setMeasurement(constraint.measurement);
+    Eigen::Matrix4d information = Eigen::Matrix4d::Zero();
+    information.topLeftCorner<3, 3>().diagonal().setConstant(
+      std::max(0.0, constraint.normal_info_weight));
+    information(3, 3) = std::max(0.0, constraint.offset_info_weight);
+    edge->setInformation(information);
+    if (constraint.robust_kernel_delta > 0.0) {
+      auto * kernel = new g2o::RobustKernelHuber();
+      kernel->setDelta(constraint.robust_kernel_delta);
+      edge->setRobustKernel(kernel);
+    }
+    edge->vertices()[0] = optimizer.vertex(constraint.from);
+    edge->vertices()[1] = optimizer.vertex(constraint.to);
+    optimizer.addEdge(edge);
+    edge->computeError();
+    plane_edges.push_back(edge);
+  }
+  double plane_chi2_before = 0.0;
+  for (auto * edge : plane_edges) {
+    plane_chi2_before += edge->chi2();
+  }
+
   /* GNSS position anchors */
   int gnss_edges_added = 0;
   for (const auto & gnss_constraint : gnss_constraints) {
@@ -273,10 +320,16 @@ inline OptimizationResult optimizePoseGraph(
   }
 
   OptimizationResult result;
+  result.plane_revisit_edges = static_cast<int>(plane_edges.size());
+  result.plane_revisit_chi2_before = plane_chi2_before;
   result.poses.reserve(submaps_size);
   for (int i = 0; i < submaps_size; i++) {
     g2o::VertexSE3 * vertex_se3 = static_cast<g2o::VertexSE3 *>(optimizer.vertex(i));
     result.poses.push_back(vertex_se3->estimate());
+  }
+  for (auto * edge : plane_edges) {
+    edge->computeError();
+    result.plane_revisit_chi2_after += edge->chi2();
   }
 
   if (chi2_collection == Chi2Collection::SPLIT) {

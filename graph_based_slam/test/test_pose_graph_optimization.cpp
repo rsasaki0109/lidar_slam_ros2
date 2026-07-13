@@ -39,6 +39,7 @@
 #include <Eigen/Geometry>  // NOLINT(build/include_order)
 
 #include "graph_based_slam/pose_graph_optimization.hpp"
+#include "graph_based_slam/plane_revisit_constraints.hpp"
 
 namespace graphslam
 {
@@ -52,6 +53,7 @@ using pose_graph::ImuEdgeConfig;
 using pose_graph::ImuRotationConstraint;
 using pose_graph::LoopConstraint;
 using pose_graph::LoopEdgeConfig;
+using pose_graph::PlaneRevisitConstraint;
 using pose_graph::SubmapNode;
 using pose_graph::optimizePoseGraph;
 
@@ -272,6 +274,198 @@ TEST(PoseGraphOptimization, ImuRotationConstraintInfluencesOrientation)
     result.poses[0].linear().transpose() * result.poses[1].linear());
   EXPECT_GT(delta.angle() * 180.0 / M_PI, 5.0)
     << "a dominant IMU yaw constraint must rotate the relative orientation";
+}
+
+TEST(PoseGraphOptimization, PlaneRevisitCorrectsNormalDirectionDriftOnly)
+{
+  std::vector<SubmapNode> submaps(2);
+  submaps[0].pose = Eigen::Isometry3d::Identity();
+  submaps[1].pose = Eigen::Isometry3d::Identity();
+  submaps[1].pose.translation() = Eigen::Vector3d(1.30, 0.70, -0.20);
+
+  // Both keyframes observe world plane x=0. In keyframe 0 it is x=0;
+  // keyframe 1's true origin is x=1, hence local equation x+1=0.
+  PlaneRevisitConstraint plane;
+  plane.from = 0;
+  plane.to = 1;
+  plane.measurement.from.normal = Eigen::Vector3d::UnitX();
+  plane.measurement.from.offset = 0.0;
+  plane.measurement.from.support_points = 200;
+  plane.measurement.to.normal = Eigen::Vector3d::UnitX();
+  plane.measurement.to.offset = 1.0;
+  plane.measurement.to.support_points = 180;
+  plane.normal_info_weight = 1000.0;
+  plane.offset_info_weight = 1000.0;
+
+  AdjacentEdgeConfig no_odometry;
+  no_odometry.num_adjacent_pose_constraints = 0;
+  const auto result = optimizePoseGraph(
+    submaps, {}, {}, {}, no_odometry, LoopEdgeConfig{}, ImuEdgeConfig{},
+    Chi2Collection::NONE, true, 20, std::string(), {plane});
+
+  ASSERT_EQ(result.plane_revisit_edges, 1);
+  EXPECT_GT(result.plane_revisit_chi2_before, 1.0);
+  EXPECT_LT(result.plane_revisit_chi2_after, result.plane_revisit_chi2_before * 1e-4);
+  EXPECT_NEAR(result.poses[1].translation().x(), 1.0, 1e-4);
+  // A single x-normal plane must not invent constraints tangent to itself.
+  EXPECT_NEAR(result.poses[1].translation().y(), 0.70, 1e-6);
+  EXPECT_NEAR(result.poses[1].translation().z(), -0.20, 1e-6);
+}
+
+TEST(PoseGraphOptimization, PlaneRevisitAlignsNormalsWithoutConstrainingNormalYaw)
+{
+  std::vector<SubmapNode> submaps(2);
+  submaps[0].pose = Eigen::Isometry3d::Identity();
+  submaps[1].pose = Eigen::Isometry3d::Identity();
+  submaps[1].pose.linear() =
+    Eigen::AngleAxisd(8.0 * M_PI / 180.0, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+
+  PlaneRevisitConstraint plane;
+  plane.from = 0;
+  plane.to = 1;
+  plane.measurement.from.normal = Eigen::Vector3d::UnitX();
+  plane.measurement.to.normal = Eigen::Vector3d::UnitX();
+  plane.normal_info_weight = 1000.0;
+  plane.offset_info_weight = 1000.0;
+
+  AdjacentEdgeConfig no_odometry;
+  no_odometry.num_adjacent_pose_constraints = 0;
+  const auto result = optimizePoseGraph(
+    submaps, {}, {}, {}, no_odometry, LoopEdgeConfig{}, ImuEdgeConfig{},
+    Chi2Collection::NONE, true, 20, std::string(), {plane});
+  const Eigen::Vector3d corrected_normal =
+    result.poses[1].rotation() * Eigen::Vector3d::UnitX();
+  EXPECT_GT(corrected_normal.dot(Eigen::Vector3d::UnitX()), 0.999999);
+  EXPECT_LT(result.plane_revisit_chi2_after, result.plane_revisit_chi2_before * 1e-4);
+}
+
+TEST(PoseGraphOptimization, BuildsSparseFactorsFromAssociatedLocalPlaneClusters)
+{
+  map_refinement::PlaneFeature feature;
+  for (const int pose_index : {0, 3, 8, 12}) {
+    map_refinement::PlaneFeatureObservation observation;
+    observation.pose_index = pose_index;
+    for (int y = 0; y < 8; ++y) {
+      for (int z = 0; z < 6; ++z) {
+        observation.local_cluster.add(
+          Eigen::Vector3d(-static_cast<double>(pose_index), 0.2 * y, 0.2 * z));
+      }
+    }
+    feature.observations.push_back(observation);
+  }
+  pose_graph::PlaneRevisitBuilderConfig config;
+  config.min_pose_separation = 5;
+  config.max_constraints_per_feature = 2;
+  const auto result = pose_graph::buildPlaneRevisitConstraints({feature}, config);
+
+  ASSERT_EQ(result.constraints.size(), 2U);
+  EXPECT_EQ(result.constraints[0].from, 0);
+  EXPECT_EQ(result.constraints[0].to, 8);
+  EXPECT_EQ(result.constraints[1].to, 12);
+  EXPECT_EQ(result.constraints[0].measurement.from.support_points, 48);
+  EXPECT_NEAR(result.constraints[0].measurement.to.offset, 8.0, 1e-12);
+  EXPECT_EQ(result.observations_rejected, 0);
+  EXPECT_EQ(result.features_with_constraints, 1);
+  EXPECT_EQ(result.max_pose_separation, 12);
+}
+
+TEST(PoseGraphOptimization, RejectsNoisyOrWeakPlaneObservations)
+{
+  map_refinement::PlaneFeature feature;
+  map_refinement::PlaneFeatureObservation weak;
+  weak.pose_index = 0;
+  weak.local_cluster.add(Eigen::Vector3d::Zero());
+  feature.observations.push_back(weak);
+  map_refinement::PlaneFeatureObservation noisy;
+  noisy.pose_index = 10;
+  for (int i = 0; i < 100; ++i) {
+    noisy.local_cluster.add(Eigen::Vector3d(
+      static_cast<double>(i % 5), static_cast<double>((i / 5) % 5),
+      static_cast<double>(i / 25)));
+  }
+  feature.observations.push_back(noisy);
+  const auto result = pose_graph::buildPlaneRevisitConstraints(
+    {feature}, pose_graph::PlaneRevisitBuilderConfig{});
+  EXPECT_TRUE(result.constraints.empty());
+  EXPECT_EQ(result.observations_rejected, 2);
+  EXPECT_EQ(result.features_with_constraints, 0);
+  EXPECT_EQ(result.max_pose_separation, 0);
+}
+
+TEST(PoseGraphOptimization, InitialResidualGateRejectsDifferentParallelWall)
+{
+  std::vector<Eigen::Isometry3d> poses(2, Eigen::Isometry3d::Identity());
+  poses[1].translation() = Eigen::Vector3d::UnitX();
+
+  PlaneRevisitConstraint consistent;
+  consistent.from = 0;
+  consistent.to = 1;
+  consistent.measurement.from.normal = Eigen::Vector3d::UnitX();
+  consistent.measurement.to.normal = Eigen::Vector3d::UnitX();
+  consistent.measurement.from.offset = 0.0;
+  consistent.measurement.to.offset = 1.0;
+
+  PlaneRevisitConstraint different_wall = consistent;
+  different_wall.measurement.to.offset = 0.0;
+  const auto result = pose_graph::gatePlaneRevisitConstraintsByInitialResidual(
+    {consistent, different_wall}, poses, 5.0, 0.20);
+
+  ASSERT_EQ(result.constraints.size(), 1U);
+  EXPECT_EQ(result.rejected, 1);
+  EXPECT_NEAR(result.accepted_max_normal_error_deg, 0.0, 1e-12);
+  EXPECT_NEAR(result.accepted_max_offset_error_m, 0.0, 1e-12);
+}
+
+TEST(PoseGraphOptimization, OrthogonalPlaneRevisitsReduceTrajectoryRmse)
+{
+  std::vector<SubmapNode> estimated(6);
+  std::vector<Eigen::Vector3d> truth;
+  std::vector<PlaneRevisitConstraint> constraints;
+  double squared_error_before = 0.0;
+  for (int i = 0; i < 6; ++i) {
+    const Eigen::Vector3d true_position(i, 0.5 * i, 0.2 * i);
+    truth.push_back(true_position);
+    estimated[i].pose = Eigen::Isometry3d::Identity();
+    estimated[i].pose.translation() =
+      true_position + Eigen::Vector3d(0.05 * i, -0.03 * i, 0.02 * i);
+    estimated[i].pose.linear() = Eigen::AngleAxisd(
+      i * M_PI / 180.0, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    squared_error_before +=
+      (estimated[i].pose.translation() - true_position).squaredNorm();
+    if (i == 0) {
+      continue;
+    }
+    for (int axis = 0; axis < 3; ++axis) {
+      PlaneRevisitConstraint constraint;
+      constraint.from = 0;
+      constraint.to = i;
+      constraint.measurement.from.normal = Eigen::Vector3d::Unit(axis);
+      constraint.measurement.to.normal = Eigen::Vector3d::Unit(axis);
+      constraint.measurement.to.offset = true_position(axis);
+      constraint.normal_info_weight = 1000.0;
+      constraint.offset_info_weight = 1000.0;
+      constraints.push_back(constraint);
+    }
+  }
+  const double rmse_before = std::sqrt(squared_error_before / estimated.size());
+  AdjacentEdgeConfig weak_odometry;
+  weak_odometry.num_adjacent_pose_constraints = 1;
+  weak_odometry.info_weight = 1.0;
+  const auto result = optimizePoseGraph(
+    estimated, {}, {}, {}, weak_odometry, LoopEdgeConfig{}, ImuEdgeConfig{},
+    Chi2Collection::NONE, true, 50, std::string(), constraints);
+
+  double squared_error_after = 0.0;
+  for (std::size_t i = 0; i < result.poses.size(); ++i) {
+    squared_error_after +=
+      (result.poses[i].translation() - truth[i]).squaredNorm();
+  }
+  const double rmse_after = std::sqrt(squared_error_after / result.poses.size());
+  EXPECT_GT(rmse_before, 0.15);
+  EXPECT_LT(rmse_after, 0.002);
+  EXPECT_LT(rmse_after, rmse_before * 0.02);
+  EXPECT_EQ(result.plane_revisit_edges, 15);
+  EXPECT_LT(result.plane_revisit_chi2_after, result.plane_revisit_chi2_before * 1e-3);
 }
 
 }  // namespace

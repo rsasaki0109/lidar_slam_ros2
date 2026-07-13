@@ -775,6 +775,36 @@ if(BUILD_TESTING)
     test/test_mid360_robot_3d_map_preview.py
     TIMEOUT 120
   )
+  ament_add_pytest_test(
+    test_bim_export
+    test/test_bim_export.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_bim_regression_gate
+    test/test_bim_regression_gate.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
+    test_plane_revisit_ab_gate
+    test/test_plane_revisit_ab_gate.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
+    test_las_export
+    test/test_las_export.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
+    test_map_export_gis
+    test/test_map_export_gis.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
+    test_mesh_export
+    test/test_mesh_export.py
+    TIMEOUT 60
+  )
 endif()
 
 add_library(graph_based_slam_component SHARED

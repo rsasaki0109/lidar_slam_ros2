@@ -6,8 +6,9 @@ build/
 install/
 log/
 demo_data/
-datasets/
-output/
+# Local data roots may be directories or symlinks to an external SSD.
+/datasets
+/output
 map.pcd
 map_projector_info.yaml
 pointcloud_map/

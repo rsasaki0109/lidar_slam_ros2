@@ -70,6 +70,8 @@
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
 #include "graph_based_slam/map_refiner.hpp"
+#include "graph_based_slam/plane_feature_association.hpp"
+#include "graph_based_slam/plane_revisit_constraints.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/registration_factory.hpp"
 #include "graph_based_slam/submap_creation.hpp"
@@ -294,6 +296,53 @@ int main(int argc, char ** argv)
   node->get_parameter_or("refine_window_stride", refine_window_stride, 8);
   bool refine_save_maps = false;
   node->get_parameter_or("refine_save_maps", refine_save_maps, false);
+
+  // Optional long-baseline plane re-observation factors. Disabled by default
+  // so historical deterministic outputs remain unchanged until explicitly
+  // enabled for an A/B run.
+  bool use_plane_revisit_constraints = false;
+  double plane_revisit_cloud_downsample = 0.20;
+  int plane_revisit_min_pose_separation = 5;
+  int plane_revisit_max_constraints_per_feature = 4;
+  double plane_revisit_normal_info_weight = 10.0;
+  double plane_revisit_offset_info_weight = 10.0;
+  double plane_revisit_root_voxel_size = 2.0;
+  int plane_revisit_max_octree_depth = 1;
+  double plane_revisit_max_plane_thickness = 0.08;
+  double plane_revisit_min_planarity_ratio = 4.0;
+  int plane_revisit_min_points_per_observation = 20;
+  double plane_revisit_max_initial_normal_error_deg = 2.0;
+  double plane_revisit_max_initial_offset_error_m = 0.03;
+  node->get_parameter_or(
+    "use_plane_revisit_constraints", use_plane_revisit_constraints, false);
+  node->get_parameter_or(
+    "plane_revisit_cloud_downsample", plane_revisit_cloud_downsample, 0.20);
+  node->get_parameter_or(
+    "plane_revisit_min_pose_separation", plane_revisit_min_pose_separation, 5);
+  node->get_parameter_or(
+    "plane_revisit_max_constraints_per_feature",
+    plane_revisit_max_constraints_per_feature, 4);
+  node->get_parameter_or(
+    "plane_revisit_normal_info_weight", plane_revisit_normal_info_weight, 10.0);
+  node->get_parameter_or(
+    "plane_revisit_offset_info_weight", plane_revisit_offset_info_weight, 10.0);
+  node->get_parameter_or(
+    "plane_revisit_root_voxel_size", plane_revisit_root_voxel_size, 2.0);
+  node->get_parameter_or(
+    "plane_revisit_max_octree_depth", plane_revisit_max_octree_depth, 1);
+  node->get_parameter_or(
+    "plane_revisit_max_plane_thickness", plane_revisit_max_plane_thickness, 0.08);
+  node->get_parameter_or(
+    "plane_revisit_min_planarity_ratio", plane_revisit_min_planarity_ratio, 4.0);
+  node->get_parameter_or(
+    "plane_revisit_min_points_per_observation",
+    plane_revisit_min_points_per_observation, 20);
+  node->get_parameter_or(
+    "plane_revisit_max_initial_normal_error_deg",
+    plane_revisit_max_initial_normal_error_deg, 2.0);
+  node->get_parameter_or(
+    "plane_revisit_max_initial_offset_error_m",
+    plane_revisit_max_initial_offset_error_m, 0.03);
 
   DegeneracyDiagnosticsSink degeneracy_sink;
   degeneracy_sink.configure(*node, logger);
@@ -701,14 +750,121 @@ int main(int argc, char ** argv)
   loop_config.robust_kernel_delta = loop_edge_robust_kernel_delta;
   graphslam::pose_graph::ImuEdgeConfig imu_config;
 
+  std::vector<std::vector<Eigen::Vector3d>> local_clouds;
+  if (use_plane_revisit_constraints || refine) {
+    local_clouds.reserve(records.size());
+    for (const auto & record : records) {
+      std::vector<Eigen::Vector3d> points;
+      points.reserve(record.cloud->size());
+      for (const auto & point : record.cloud->points) {
+        if (!std::isfinite(point.x) || !std::isfinite(point.y) || !std::isfinite(point.z)) {
+          continue;
+        }
+        points.emplace_back(point.x, point.y, point.z);
+      }
+      local_clouds.push_back(std::move(points));
+    }
+  }
+
+  graphslam::pose_graph::PlaneRevisitBuilderResult plane_revisit_result;
+  graphslam::pose_graph::PlaneRevisitGateResult plane_revisit_gate_result;
+  graphslam::map_refinement::AssociationResult plane_revisit_association;
+  if (use_plane_revisit_constraints && !local_clouds.empty()) {
+    std::vector<std::vector<Eigen::Vector3d>> downsampled_clouds;
+    downsampled_clouds.reserve(local_clouds.size());
+    for (const auto & cloud : local_clouds) {
+      downsampled_clouds.push_back(
+        graphslam::map_quality::downsampleByVoxelCentroid(
+          cloud, plane_revisit_cloud_downsample));
+    }
+    std::vector<Eigen::Matrix4d> pose_matrices;
+    pose_matrices.reserve(submap_nodes.size());
+    for (const auto & node_data : submap_nodes) {
+      pose_matrices.push_back(node_data.pose.matrix());
+    }
+    graphslam::map_refinement::AssociationConfig association_config;
+    association_config.min_observing_poses = 2;
+    association_config.min_points_per_observation =
+      plane_revisit_min_points_per_observation;
+    association_config.extraction.root_voxel_size = plane_revisit_root_voxel_size;
+    association_config.extraction.max_octree_depth = plane_revisit_max_octree_depth;
+    association_config.extraction.max_plane_thickness =
+      plane_revisit_max_plane_thickness;
+    association_config.extraction.min_planarity_ratio =
+      plane_revisit_min_planarity_ratio;
+    plane_revisit_association = graphslam::map_refinement::associatePlaneFeatures(
+      downsampled_clouds, pose_matrices, association_config);
+    graphslam::pose_graph::PlaneRevisitBuilderConfig builder_config;
+    builder_config.min_pose_separation = plane_revisit_min_pose_separation;
+    builder_config.max_constraints_per_feature =
+      plane_revisit_max_constraints_per_feature;
+    builder_config.normal_info_weight = plane_revisit_normal_info_weight;
+    builder_config.offset_info_weight = plane_revisit_offset_info_weight;
+    plane_revisit_result = graphslam::pose_graph::buildPlaneRevisitConstraints(
+      plane_revisit_association.features, builder_config);
+    std::vector<Eigen::Isometry3d> initial_poses;
+    initial_poses.reserve(submap_nodes.size());
+    for (const auto & node_data : submap_nodes) {
+      initial_poses.push_back(node_data.pose);
+    }
+    plane_revisit_gate_result =
+      graphslam::pose_graph::gatePlaneRevisitConstraintsByInitialResidual(
+      plane_revisit_result.constraints, initial_poses,
+      plane_revisit_max_initial_normal_error_deg,
+      plane_revisit_max_initial_offset_error_m);
+    plane_revisit_result.constraints = plane_revisit_gate_result.constraints;
+    RCLCPP_INFO(
+      logger,
+      "Plane revisit association: %d/%d patches, %zu constraints (%d rejected observations)",
+      plane_revisit_association.patches_used, plane_revisit_association.patches_total,
+      plane_revisit_result.constraints.size(), plane_revisit_result.observations_rejected);
+  }
+
   std::vector<Eigen::Isometry3d> optimized_poses;
   optimized_poses.reserve(records.size());
   if (!records.empty()) {
     const graphslam::pose_graph::OptimizationResult result =
       graphslam::pose_graph::optimizePoseGraph(
       submap_nodes, loop_constraints, {}, {}, adjacent_config, loop_config, imu_config,
-      graphslam::pose_graph::Chi2Collection::NONE);
+      graphslam::pose_graph::Chi2Collection::NONE, true, 10, std::string(),
+      plane_revisit_result.constraints);
     optimized_poses = result.poses;
+    if (use_plane_revisit_constraints) {
+      std::ofstream report(output_dir + "/plane_revisit_report.yaml");
+      report << "plane_revisit:\n";
+      report << "  enabled: true\n";
+      report << "  root_voxel_size_m: " << plane_revisit_root_voxel_size << "\n";
+      report << "  max_octree_depth: " << plane_revisit_max_octree_depth << "\n";
+      report << "  max_plane_thickness_m: " << plane_revisit_max_plane_thickness << "\n";
+      report << "  min_planarity_ratio: " << plane_revisit_min_planarity_ratio << "\n";
+      report << "  min_points_per_observation: " <<
+        plane_revisit_min_points_per_observation << "\n";
+      report << "  max_initial_normal_error_deg: " <<
+        plane_revisit_max_initial_normal_error_deg << "\n";
+      report << "  max_initial_offset_error_m: " <<
+        plane_revisit_max_initial_offset_error_m << "\n";
+      report << "  patches_total: " << plane_revisit_association.patches_total << "\n";
+      report << "  patches_used: " << plane_revisit_association.patches_used << "\n";
+      report << "  points_used: " << plane_revisit_association.points_used << "\n";
+      report << "  features_seen: " << plane_revisit_result.features_seen << "\n";
+      report << "  features_with_constraints: " <<
+        plane_revisit_result.features_with_constraints << "\n";
+      report << "  observations_seen: " << plane_revisit_result.observations_seen << "\n";
+      report << "  observations_rejected: " << plane_revisit_result.observations_rejected << "\n";
+      report << "  max_pose_separation: " <<
+        plane_revisit_result.max_pose_separation << "\n";
+      report << "  candidate_constraints: " <<
+        plane_revisit_result.constraints.size() + plane_revisit_gate_result.rejected << "\n";
+      report << "  constraints_rejected_initial_residual: " <<
+        plane_revisit_gate_result.rejected << "\n";
+      report << "  accepted_max_initial_normal_error_deg: " <<
+        plane_revisit_gate_result.accepted_max_normal_error_deg << "\n";
+      report << "  accepted_max_initial_offset_error_m: " <<
+        plane_revisit_gate_result.accepted_max_offset_error_m << "\n";
+      report << "  constraints: " << result.plane_revisit_edges << "\n";
+      report << "  chi2_before: " << result.plane_revisit_chi2_before << "\n";
+      report << "  chi2_after: " << result.plane_revisit_chi2_after << "\n";
+    }
   }
 
   // --- Deterministic outputs. loop_edges.csv is the Phase 2 hard-gate
@@ -744,18 +900,6 @@ int main(int argc, char ** argv)
     refiner_config.pyramid.window_size = refine_window_size;
     refiner_config.pyramid.window_stride = refine_window_stride;
 
-    std::vector<std::vector<Eigen::Vector3d>> local_clouds;
-    local_clouds.reserve(records.size());
-    for (const auto & record : records) {
-      std::vector<Eigen::Vector3d> points;
-      points.reserve(record.cloud->size());
-      for (size_t i = 0; i < record.cloud->size(); ++i) {
-        const auto & p = record.cloud->points[i];
-        if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {continue;}
-        points.push_back(Eigen::Vector3d(p.x, p.y, p.z));
-      }
-      local_clouds.push_back(points);
-    }
     std::vector<Eigen::Matrix4d> initial_matrices;
     initial_matrices.reserve(optimized_poses.size());
     for (const auto & pose : optimized_poses) {

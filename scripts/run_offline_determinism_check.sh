@@ -37,6 +37,9 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BAG=""
 PARAMS="${REPO_ROOT}/lidarslam/param/lidarslam_mid360_rko_graph.yaml"
 SETUP_FILE="${REPO_ROOT}/install/setup.bash"
+if [[ ! -f "${SETUP_FILE}" && -f "${REPO_ROOT}/../install/setup.bash" ]]; then
+  SETUP_FILE="${REPO_ROOT}/../install/setup.bash"
+fi
 RUNS=3
 OUTPUT_DIR="${REPO_ROOT}/output/offline_determinism_$(date +%Y%m%d_%H%M%S)"
 REFERENCE_TUM=""
@@ -209,7 +212,7 @@ for i in $(seq 2 "${RUNS}"); do
   fi
   # v0.7 refinement artifacts (present only when the runner ran with
   # refine:=true) join the byte-identity contract.
-  for refined_artifact in trajectory_refined.tum map_refinement_report.yaml; do
+  for refined_artifact in trajectory_refined.tum map_refinement_report.yaml plane_revisit_report.yaml; do
     if [[ -f "${OUTPUT_DIR}/run1/${refined_artifact}" ]]; then
       if ! diff -q "${OUTPUT_DIR}/run1/${refined_artifact}"         "${OUTPUT_DIR}/run${i}/${refined_artifact}" > /dev/null; then
         echo "MISMATCH (${refined_artifact}): run1 vs run${i}"

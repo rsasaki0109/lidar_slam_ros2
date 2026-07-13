@@ -83,6 +83,41 @@ def test_read_ascii_ply(tmp_path):
     assert rgb is None
 
 
+def test_read_binary_pcd_xyz_rgb(tmp_path):
+    dtype = np.dtype([
+        ('x', '<f4'), ('y', '<f4'), ('z', '<f4'),
+        ('red', 'u1'), ('green', 'u1'), ('blue', 'u1'),
+    ])
+    records = np.array([
+        (1.0, 2.0, 3.0, 10, 20, 30),
+        (-4.0, 5.0, 6.0, 40, 50, 60),
+    ], dtype=dtype)
+    header = (
+        '# .PCD v0.7\nVERSION 0.7\nFIELDS x y z red green blue\n'
+        'SIZE 4 4 4 1 1 1\nTYPE F F F U U U\nCOUNT 1 1 1 1 1 1\n'
+        'WIDTH 2\nHEIGHT 1\nPOINTS 2\nDATA binary\n')
+    path = tmp_path / 'binary.pcd'
+    path.write_bytes(header.encode('ascii') + records.tobytes())
+
+    xyz, rgb = pcio.read_point_cloud_xyz(path)
+
+    np.testing.assert_allclose(xyz, [[1, 2, 3], [-4, 5, 6]], atol=1e-6)
+    np.testing.assert_array_equal(rgb, [[10, 20, 30], [40, 50, 60]])
+
+
+def test_read_ascii_pcd_xyz(tmp_path):
+    path = tmp_path / 'ascii.pcd'
+    path.write_text(
+        '# .PCD v0.7\nVERSION 0.7\nFIELDS x y z\nSIZE 4 4 4\n'
+        'TYPE F F F\nCOUNT 1 1 1\nWIDTH 2\nHEIGHT 1\nPOINTS 2\n'
+        'DATA ascii\n1 2 3\n4 5 6\n')
+
+    xyz, rgb = pcio.read_point_cloud_xyz(path)
+
+    np.testing.assert_allclose(xyz, [[1, 2, 3], [4, 5, 6]], atol=1e-6)
+    assert rgb is None
+
+
 # --------------------------------------------------------------------------- #
 # Voxel downsampling
 # --------------------------------------------------------------------------- #

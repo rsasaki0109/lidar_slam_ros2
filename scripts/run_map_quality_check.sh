@@ -27,6 +27,10 @@ OUTPUT_DIR=""
 RUNS=3
 DOWNSAMPLE=0.1
 PROFILE=""
+SETUP_FILE="${REPO_ROOT}/install/setup.bash"
+if [[ ! -f "${SETUP_FILE}" && -f "${REPO_ROOT}/../install/setup.bash" ]]; then
+  SETUP_FILE="${REPO_ROOT}/../install/setup.bash"
+fi
 
 usage() {
   grep '^#' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
@@ -78,14 +82,14 @@ if [[ ! -e "${INPUT}" ]]; then
   echo "input not found: ${INPUT}" >&2
   exit 2
 fi
-if [[ ! -f "${REPO_ROOT}/install/setup.bash" ]]; then
-  echo "install/setup.bash not found; build the workspace first" >&2
+if [[ ! -f "${SETUP_FILE}" ]]; then
+  echo "install/setup.bash not found in the repository or parent workspace" >&2
   exit 2
 fi
 
 # shellcheck disable=SC1091
 set +u
-source "${REPO_ROOT}/install/setup.bash"
+source "${SETUP_FILE}"
 set -u
 
 mkdir -p "${OUTPUT_DIR}"
@@ -132,6 +136,7 @@ SUMMARY="${OUTPUT_DIR}/map_quality_summary.md"
   echo "# Map-quality check"
   echo
   echo "- input: \`${INPUT}\`"
+  echo "- runner_setup: \`${SETUP_FILE}\`"
   echo "- runs: ${RUNS}, downsample: ${DOWNSAMPLE} m"
   echo "- reports_identical: ${IDENTICAL}"
   echo "- report_md5: \`${MD5S[0]}\`"

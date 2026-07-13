@@ -1,5 +1,31 @@
 #!/usr/bin/env python3
-"""Minimal PLY point-cloud I/O + voxel downsampling (numpy only, ROS/GPU-free).
+# Copyright 2026 Sasaki
+# All rights reserved.
+#
+# Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#  * Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+"""Minimal PLY/PCD point-cloud I/O + voxel downsampling (numpy only, ROS/GPU-free).
 
 Shared by ``build_lidar_init.py`` (writes a LiDAR-primed init cloud) and
 ``train_gsplat.py`` (seeds Gaussians from it). Supports the small subset of PLY
@@ -94,6 +120,90 @@ def read_ply_xyz(path: str | Path) -> tuple[np.ndarray, Optional[np.ndarray]]:
     rgb = (np.stack([rec['red'], rec['green'], rec['blue']], axis=1).astype(np.uint8)
            if has_rgb else None)
     return xyz, rgb
+
+
+def read_pcd_xyz(path: str | Path) -> tuple[np.ndarray, Optional[np.ndarray]]:
+    """Read fixed-width ASCII or binary PCD into ``(xyz, rgb)``.
+
+    This deliberately covers the uncompressed PCD files emitted by the
+    offline graph runner. ``binary_compressed`` remains unsupported because
+    decoding PCL's LZF stream would add a non-numpy dependency.
+    """
+    path = Path(path)
+    metadata: dict[str, list[str]] = {}
+    with path.open('rb') as fh:
+        while True:
+            line = fh.readline()
+            if not line:
+                raise ValueError(f'{path}: PCD DATA header is missing')
+            decoded = line.decode('ascii').strip()
+            if not decoded or decoded.startswith('#'):
+                continue
+            key, *values = decoded.split()
+            metadata[key.upper()] = values
+            if key.upper() == 'DATA':
+                payload = fh.read()
+                break
+
+    fields = metadata.get('FIELDS', metadata.get('FIELD', []))
+    sizes = [int(value) for value in metadata.get('SIZE', [])]
+    types = metadata.get('TYPE', [])
+    counts = [int(value) for value in metadata.get('COUNT', ['1'] * len(fields))]
+    points = int(metadata.get('POINTS', metadata.get('WIDTH', ['0']))[0])
+    if not fields or not (len(fields) == len(sizes) == len(types) == len(counts)):
+        raise ValueError(f'{path}: inconsistent PCD field metadata')
+    if any(count != 1 for count in counts):
+        raise ValueError(f'{path}: PCD COUNT > 1 is not supported')
+    if not all(axis in fields for axis in ('x', 'y', 'z')):
+        raise ValueError(f'{path}: PCD must contain x y z fields')
+
+    scalar_types = {
+        ('F', 4): '<f4', ('F', 8): '<f8',
+        ('I', 1): 'i1', ('I', 2): '<i2', ('I', 4): '<i4',
+        ('U', 1): 'u1', ('U', 2): '<u2', ('U', 4): '<u4',
+    }
+    try:
+        dtype = np.dtype([
+            (name, scalar_types[(kind.upper(), size)])
+            for name, size, kind in zip(fields, sizes, types)
+        ])
+    except KeyError as exc:
+        raise ValueError(f'{path}: unsupported PCD scalar type {exc.args[0]}') from exc
+
+    data_kind = metadata['DATA'][0].lower()
+    if data_kind == 'binary':
+        expected = points * dtype.itemsize
+        if len(payload) < expected:
+            raise ValueError(
+                f'{path}: truncated PCD payload ({len(payload)} < {expected} bytes)')
+        records = np.frombuffer(payload[:expected], dtype=dtype, count=points)
+        xyz = np.stack([records['x'], records['y'], records['z']], axis=1)
+        rgb = (np.stack([records['red'], records['green'], records['blue']], axis=1)
+               if all(channel in fields for channel in ('red', 'green', 'blue'))
+               else None)
+    elif data_kind == 'ascii':
+        rows = np.loadtxt(payload.splitlines(), dtype=np.float64, ndmin=2,
+                          max_rows=points)
+        indices = {name: index for index, name in enumerate(fields)}
+        xyz = rows[:, [indices['x'], indices['y'], indices['z']]]
+        rgb = (rows[:, [indices['red'], indices['green'], indices['blue']]]
+               if all(channel in fields for channel in ('red', 'green', 'blue'))
+               else None)
+    else:
+        raise ValueError(f'{path}: unsupported PCD DATA {data_kind}')
+    return (np.asarray(xyz, dtype=np.float32),
+            None if rgb is None else np.asarray(rgb, dtype=np.uint8))
+
+
+def read_point_cloud_xyz(
+        path: str | Path) -> tuple[np.ndarray, Optional[np.ndarray]]:
+    """Read a supported ``.ply`` or ``.pcd`` cloud by file extension."""
+    suffix = Path(path).suffix.lower()
+    if suffix == '.ply':
+        return read_ply_xyz(path)
+    if suffix == '.pcd':
+        return read_pcd_xyz(path)
+    raise ValueError(f'unsupported point-cloud extension: {suffix or "<none>"}')
 
 
 def colorize_by_projection(points: np.ndarray, viewmats: np.ndarray,

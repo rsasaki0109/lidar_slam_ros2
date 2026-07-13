@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "name": "hilti-scan-to-bim-v1",
+  "cases": {
+    "synthetic_closed_room": {
+      "description": "Four observed walls must form one stable room without invented geometry.",
+      "rules": {
+        "summary.observed_walls": {"exact": 4},
+        "summary.synthetic_walls": {"exact": 0},
+        "summary.accepted_rooms": {"exact": 1},
+        "summary.rejected_room_candidates": {"exact": 0},
+        "summary.dangling_wall_ends": {"exact": 0}
+      }
+    },
+    "exp01": {
+      "description": "Open construction scan: retain observed walls and reject false room closure.",
+      "rules": {
+        "summary.observed_walls": {"min": 18},
+        "summary.synthetic_walls": {"exact": 0},
+        "summary.accepted_rooms": {"exact": 0},
+        "summary.rejected_room_candidates": {"min": 1},
+        "element_fit.coverage_ratio.mean": {"min": 0.18},
+        "element_fit.distribution_ratio.mean": {"min": 0.93},
+        "element_fit.distance_rmse_m.mean": {"max": 0.075}
+      }
+    },
+    "exp07": {
+      "description": "Long corridor scan: preserve wall evidence and allow only evidence-backed closure.",
+      "rules": {
+        "summary.observed_walls": {"min": 18},
+        "summary.synthetic_walls": {"max": 2},
+        "summary.accepted_rooms": {"min": 1},
+        "summary.dangling_wall_ends": {"max": 42},
+        "element_fit.coverage_ratio.mean": {"min": 0.16},
+        "element_fit.distribution_ratio.mean": {"min": 0.93},
+        "element_fit.distance_rmse_m.mean": {"max": 0.07},
+        "element_fit.distance_p95_m.mean": {"max": 0.11}
+      }
+    }
+  }
+}
