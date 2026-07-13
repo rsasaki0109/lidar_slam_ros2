@@ -3,10 +3,10 @@
 ## Decision
 
 The current defaults remain unchanged. The shared evaluation loop is complete
-for one HILTI geometry/trajectory capture and two independent AIST real-RGB
-captures, but no candidate improves two distinct datasets. The aggregate verdict
-is therefore `DO_NOT_ADOPT`; this is the intended conservative outcome, not a
-failed benchmark.
+for one HILTI geometry/trajectory capture, one Localization Zoo KITTI odometry
+capture, and two independent AIST real-RGB captures, but no candidate improves
+two distinct datasets. The aggregate verdict is therefore `DO_NOT_ADOPT`; this
+is the intended conservative outcome, not a failed benchmark.
 
 ## Mechanized contract
 
@@ -36,13 +36,15 @@ counting improvements. It requires:
 | dataset | captures | evidence | primary result |
 |---|---:|---|---|
 | HILTI 2022 exp04 | 1 | trajectory, geometry, runtime/memory | graph ATE tied (0.07156 m) |
+| KITTI Odometry 00 | 1 | Localization Zoo LO, graph, runtime/memory | graph RPE tied (1.01864%) |
 | AIST Ouster RGB | 2 | geometry, held-out RGB, colour, runtime/memory | chromatic fraction 59.52%, 64.14% |
 
 The generated suite report records:
 
-- unique complete datasets: 2;
+- unique complete datasets: 3;
 - improved datasets: 0 (required: 2);
-- worst primary regression: 0.0%;
+- worst primary regression: effectively 0.0% (`8.72e-14%` floating-point
+  residue);
 - completeness, multi-dataset, regression, runtime/memory, and raw-integrity
   gates: pass;
 - minimum-improved-datasets gate: fail;
@@ -50,6 +52,18 @@ The generated suite report records:
 
 External artifact:
 `/media/sasaki/aiueo/benchmarks/public_suite_20260713/baseline_adoption_gate.json`.
+Its SHA-256 after the three-dataset audit is
+`2ce9836a8e2b435126352ccfb138dfe4672378d04c34f57f90a889271b9ee234`.
+
+The KITTI row is the current Localization Zoo default TrICP-LO profile
+(automatic overlap 0.8, no GT seed), not the earlier overlap-0.9 research
+capture. It processes all 4,541 scans at 1.018635% 100 m translational RPE.
+The fixed graph backend consumes all 4,541 odometry/cloud pairs, creates 356
+submaps, accepts zero loops, and reproduces the same trajectory byte-for-byte
+twice. Isolated frontend plus one backend run take 1,509.10 s wall time
+(3.2069x the official 470.5816 s sequence span) with 168.08 MiB pipeline peak
+RSS. The manifest hashes the raw PCD tree, fixed backend bag, trajectory,
+runtime logs, and graph edge set.
 
 ## Reproduction
 
@@ -59,6 +73,7 @@ main README and the AIST RGB benchmark note. Then aggregate them:
 ```bash
 python3 scripts/evaluate_public_suite_gate.py \
   --manifest /path/to/hilti/cross_repo_benchmark.json \
+  --manifest /path/to/kitti/cross_repo_benchmark.json \
   --manifest /path/to/aist/cross_repo_benchmark.json \
   --out /path/to/public_suite/adoption_gate.json
 ```

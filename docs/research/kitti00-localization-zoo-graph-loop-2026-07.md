@@ -3,9 +3,10 @@
 ## Decision
 
 The two repositories now share a fixed, timestamp-paired KITTI Odometry 00
-evaluation input. Keep the graph loop fitness threshold at `0.7`. Relaxing it
-to `1.5` admits one loop, but slightly worsens independent ground-truth APE, so
-the candidate is **not adopted**.
+evaluation input. Keep the graph loop fitness threshold at `0.7`. On the
+original overlap-0.9 research capture, relaxing it to `1.5` admits one loop,
+but slightly worsens independent ground-truth APE, so the candidate is **not
+adopted**.
 
 On that rejected one-edge profile, raising loop information weight from 100 to
 400 improves both fitted residual and APE relative to weight 100, but still
@@ -21,8 +22,8 @@ trajectory.
 - public dataset: KITTI Odometry sequence 00, 4,541 scans, 454.0 s
 - PCD source: `localization_zoo/dogfooding_results/kitti_seq_00_full`
 - frontend trajectory: `TrICP_LO.txt`, produced without a GT seed
-- official calibration: KITTI `sequences/00/calib.txt`
-- reference: KITTI camera poses converted to the Velodyne body frame
+- reference: Localization Zoo `csv_lidar_pose` ground truth, already expressed
+  as LiDAR poses (no additional KITTI camera calibration)
 - backend cloud sampling: deterministic acquisition-order stride 16
 - backend topics: `/rko_lio/odometry` and `/rko_lio/frame`
 - pairing: exact nanosecond timestamp, 4,541 odometry/cloud pairs each
@@ -33,9 +34,16 @@ SQLite bag (`SHA-256 4b64f7e648f3e5548a9ef964d83327e744755bb977d6a80d8aa82343e9c
 The runner reports 4,541 paired scans, 356 submaps and 3,707.2 m travelled, with
 no unpaired messages.
 
-The full TrICP trajectory scores at 8.116305 m SE(3)-aligned APE over all 4,541
+The full TrICP trajectory scores at 8.113333 m SE(3)-aligned APE over all 4,541
 poses. Its TUM SHA-256 is
 `c17d27047e92798d66c06ccc13a73565396761fa3e4ca9f78826099c29d445d7`.
+
+The first report pass had applied KITTI camera calibration to this reference a
+second time. SE(3) alignment hid most of the error, so the candidate decision
+did not change, but the absolute values moved slightly. All APE values below
+were re-scored against the original LiDAR-pose matrices. The converter now
+requires the explicit pair `--gt-frame camera --calib ...` for actual
+camera-frame matrices and rejects `--calib` with its default LiDAR contract.
 
 ## Frontend findings
 
@@ -74,10 +82,10 @@ submap timestamps, never interpolated across sparse poses.
 | metric | threshold 0.7 | threshold 1.5 | change |
 |---|---:|---:|---:|
 | accepted loops | 0 | 1 | +1 |
-| raw APE RMSE (m) | 8.263387 | 8.263387 | 0 |
-| optimized APE RMSE (m) | 8.263387 | 8.267352 | **+0.0480%** |
-| optimized median error (m) | 6.224564 | 6.214412 | -0.163% |
-| optimized max error (m) | 21.600065 | 21.610661 | +0.0491% |
+| raw APE RMSE (m) | 8.258272 | 8.258272 | 0 |
+| optimized APE RMSE (m) | 8.258272 | 8.262137 | **+0.0468%** |
+| optimized median error (m) | 6.157462 | 6.156093 | -0.0222% |
+| optimized max error (m) | 21.592761 | 21.603352 | +0.0491% |
 | wall time (s/run) | 29.98 | 37.39 | report only |
 | peak RSS (KiB) | 171,148 | 168,756 | -1.40% |
 
@@ -98,15 +106,40 @@ discovery.
 | metric | weight 100 | weight 400 | change |
 |---|---:|---:|---:|
 | edge set | `28 → 252` | `28 → 252` | identical |
-| APE RMSE (m) | 8.267352 | 8.264587 | -0.0334% |
+| APE RMSE (m) | 8.262137 | 8.259382 | -0.0333% |
 | loop rotation residual (deg) | 2.369562 | 2.067070 | -12.77% |
 | loop translation residual (m) | 0.00053716 | 0.00013030 | -75.74% |
 
 Weight 400 fits the frozen constraint better and recovers most of the APE
 regression introduced by admitting it. It still loses to the threshold-0.7
-default (8.263387 m). MID360 has no independent trajectory GT, and its earlier
+default (8.258272 m). MID360 has no independent trajectory GT, and its earlier
 comparison used weight 200 rather than 100, so these two observations cannot be
 counted as two independent trajectory improvements under `public_suite_v1`.
+
+## Current-default resource freeze
+
+Localization Zoo later changed TrICP-LO's default automatic-overlap result from
+0.9 to 0.8. A fresh no-GT-seed run at revision `12228612` is therefore kept as
+a separate current-default capture rather than mixed with the ablation above:
+
+| metric | current default |
+|---|---:|
+| scans / output poses | 4,541 / 4,541 |
+| 100 m translational RPE | 1.018635% |
+| rotational RPE | 0.010171 deg/m |
+| unaligned ATE | 17.645450 m |
+| frontend wall / peak RSS | 1,488.49 s / 42,512 KiB |
+| one graph run wall / peak RSS | 20.61 s / 172,112 KiB |
+| full pipeline realtime factor | 3.206883 |
+| graph result | 356 submaps, 0 loops, byte-identical across two runs |
+
+The complete cross-repository manifest is
+`/media/sasaki/aiueo/benchmarks/kitti00_graph_20260713/tricp_current_cross_repo_nocalib/cross_repo_benchmark.json`.
+It records 100% timestamp coverage, runtime/memory, both repository revisions,
+and hashes for the PCD tree, fixed bag, frontend summary/log, and graph edges.
+Raw and graph-corrected RPE are tied to floating-point precision, so this row
+adds a third complete dataset to the public suite without claiming an
+improvement.
 
 ## Reproduction
 
@@ -117,7 +150,6 @@ python3 scripts/pcd_sequence_to_rosbag2.py \
   --pcd-dir /path/to/localization_zoo/dogfooding_results/kitti_seq_00_full \
   --gt-matrices /path/to/localization_zoo/dogfooding_results/kitti_seq_00_full_evaluated_gt.txt \
   --estimate-matrices /path/to/localization_zoo/dogfooding_results/TrICP_LO.txt \
-  --calib /path/to/KITTI_odometry/sequences/00/calib.txt \
   --output-dir /path/to/backend_tricp_stride16 \
   --point-stride 16 \
   --topic /rko_lio/frame --odom-topic /rko_lio/odometry

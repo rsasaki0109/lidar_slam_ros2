@@ -142,6 +142,19 @@ def load_kitti_camera_to_velodyne(calib_path: Path) -> np.ndarray:
     raise ValueError(f'{calib_path}: missing Tr or Tr_velo_to_cam')
 
 
+def ground_truth_body_transform(
+    gt_frame: str, calib_path: Path | None
+) -> np.ndarray | None:
+    """Resolve an explicit GT-frame contract without double calibration."""
+    if gt_frame == 'camera':
+        if calib_path is None:
+            raise ValueError('--gt-frame camera requires --calib')
+        return load_kitti_camera_to_velodyne(calib_path)
+    if calib_path is not None:
+        raise ValueError('--calib requires --gt-frame camera')
+    return None
+
+
 def load_frames(pcd_dir: Path, timestamp_scale: float) -> list[tuple[Path, float]]:
     timestamp_path = pcd_dir / 'frame_timestamps.csv'
     rows = list(csv.DictReader(timestamp_path.open(newline='')))
@@ -238,7 +251,12 @@ def main() -> int:
         help='optional 3x4 LiDAR estimate rows written as estimate.tum')
     parser.add_argument(
         '--calib', type=Path,
-        help='KITTI calib.txt; converts world_T_camera poses to world_T_velodyne')
+        help=('KITTI calib.txt; only with --gt-frame camera. Do not pass for '
+              'Localization Zoo csv_lidar_pose/evaluated_gt matrices.'))
+    parser.add_argument(
+        '--gt-frame', choices=('lidar', 'camera'), default='lidar',
+        help=('frame represented by --gt-matrices (default: lidar). Camera '
+              'requires --calib; lidar forbids it to prevent double conversion.'))
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--timestamp-scale', type=float, default=0.1)
     parser.add_argument('--topic', default='/points')
@@ -255,6 +273,11 @@ def main() -> int:
     args = parser.parse_args()
     if args.timestamp_scale <= 0.0 or args.max_frames < 0 or args.point_stride < 1:
         parser.error('timestamp scale/stride must be positive and max frames non-negative')
+    try:
+        body_from_matrix_frame = ground_truth_body_transform(
+            args.gt_frame, args.calib)
+    except ValueError as error:
+        parser.error(str(error))
     frames = load_frames(args.pcd_dir, args.timestamp_scale)
     gt_lines = [line for line in args.gt_matrices.read_text().splitlines() if line.strip()]
     if len(frames) != len(gt_lines):
@@ -278,8 +301,6 @@ def main() -> int:
         write_bag(
             frames, bag, args.topic, args.frame_id, args.force, args.point_stride,
             estimate_lines, args.odom_topic)
-    body_from_matrix_frame = (
-        load_kitti_camera_to_velodyne(args.calib) if args.calib else None)
     tum.write_text('\n'.join(
         matrix_line_to_tum(stamp, line, body_from_matrix_frame)
         for (_, stamp), line in zip(frames, gt_lines)) + '\n')

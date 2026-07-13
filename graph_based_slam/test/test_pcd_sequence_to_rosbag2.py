@@ -78,6 +78,20 @@ def test_loads_kitti_calib_and_converts_camera_pose_to_velodyne(tmp_path):
     assert [float(value) for value in fields[1:4]] == [9.0, 0.0, 0.0]
 
 
+def test_gt_frame_contract_prevents_double_calibration(tmp_path):
+    calib = tmp_path / 'calib.txt'
+    calib.write_text('Tr: 1 0 0 1 0 1 0 0 0 0 1 0\n')
+
+    with pytest.raises(ValueError, match='requires --gt-frame camera'):
+        converter.ground_truth_body_transform('lidar', calib)
+    with pytest.raises(ValueError, match='requires --calib'):
+        converter.ground_truth_body_transform('camera', None)
+    assert converter.ground_truth_body_transform('lidar', None) is None
+    np.testing.assert_allclose(
+        converter.ground_truth_body_transform('camera', calib),
+        converter.load_kitti_camera_to_velodyne(calib))
+
+
 def test_rejects_non_xyzi_layout(tmp_path):
     path = tmp_path / 'cloud.pcd'
     path.write_bytes(

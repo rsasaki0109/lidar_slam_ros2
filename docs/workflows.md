@@ -147,10 +147,13 @@ local-only and ignored by Git.
 
 For a trajectory already evaluated by `localization_zoo`, the converter also
 accepts `--estimate-matrices` and writes exact-timestamp
-`/rko_lio/odometry` + cloud pairs for the deterministic backend runner. Pass
-KITTI `calib.txt` with `--calib` so camera-frame reference matrices are written
-in the Velodyne body frame. The frozen sequence-00 experiment and adoption
-decision are in
+`/rko_lio/odometry` + cloud pairs for the deterministic backend runner.
+Localization Zoo's `csv_lidar_pose` / `*_evaluated_gt.txt` matrices are already
+LiDAR-frame poses: keep the default `--gt-frame lidar` and do not pass
+`--calib`. For official KITTI camera-frame pose matrices, pass both
+`--gt-frame camera` and KITTI `calib.txt` with `--calib`; the explicit pair
+prevents accidental double conversion. The frozen sequence-00 experiment and
+adoption decision are in
 [kitti00-localization-zoo-graph-loop-2026-07.md](research/kitti00-localization-zoo-graph-loop-2026-07.md).
 
 ### Backend only: `graph_based_slam`
