@@ -37,7 +37,7 @@ counting improvements. It requires:
 |---|---:|---|---|
 | HILTI 2022 exp04 | 1 | trajectory, geometry, runtime/memory | graph ATE tied (0.07156 m) |
 | KITTI Odometry 00 | 1 | Localization Zoo LO, graph, runtime/memory | graph RPE tied (1.01864%) |
-| AIST Ouster RGB | 2 | geometry, held-out RGB, colour, runtime/memory | chromatic fraction 59.52%, 64.14% |
+| AIST Ouster RGB | 2 | geometry, held-out RGB, colour, runtime/memory | chromatic fraction 60.12%, 64.48% |
 
 The generated suite report records:
 
@@ -82,6 +82,28 @@ the required two-improved-datasets check and therefore remains
 `/media/sasaki/aiueo/benchmarks/public_suite_20260713/sc055_stride4_gate0p2_adoption_gate.json`
 with SHA-256
 `7a10b32925e5623da8a001f62a2e5d18771bd9f80372d5afbcd08bb9ec751802`.
+
+## Final camera-colour artifacts
+
+The AIST-specific +10 ms residual clock adjustment and isolated-return guard
+were subsequently accepted on both AIST captures without changing generic
+sensor defaults. The final self-contained runs include two byte-identical
+frontend trajectories per capture, geometry/colour/held-out/resource reports,
+and complete cross-repository manifests:
+
+- `aist_rgb_map/final_162554_20260713`, manifest SHA-256
+  `18fd3d04cefd63227b4c81643536ac3a94b1e93599ea6aeda91d39bf3d9e7de7`;
+- `aist_rgb_map/final_162651_20260713`, manifest SHA-256
+  `24c0d106cbdf29f8b4a5e23dd78d622e5c8f37f2517ffae3fae0e953b94f9a0e`.
+
+Re-aggregating these with the frozen HILTI and Localization Zoo KITTI
+manifests passes completeness, three-dataset, regression, runtime/memory, and
+raw-integrity gates. The global verdict remains `DO_NOT_ADOPT` only because an
+AIST-specific observation is not evidence of improvement on two distinct
+datasets. The report is
+`/media/sasaki/aiueo/benchmarks/public_suite_20260713/final_rgb_adoption_gate.json`
+with SHA-256
+`99612d2d803f4f6548221419382bb6fcdd575ea62dd11e99e4c88931ae5803b2`.
 
 ## Reproduction
 

@@ -52,6 +52,9 @@ bash scripts/run_aist_ouster_rgb_map_benchmark.sh \
 | plane thickness mean ↓ | 0.08206 m | 0.07422 m |
 | plane thickness p95 ↓ | 0.12290 m | 0.11916 m |
 | planar coverage ↑ | 48.12% | 54.50% |
+| end-to-end colour-map wall time | 179.31 s | 176.80 s |
+| processing / bag duration ↓ | 6.18× | 6.69× |
+| end-to-end peak RSS | 1,088.36 MiB | 1,008.02 MiB |
 
 The former one-scan check covered only 9.55% / 10.57% of each 32,768-point
 scan. It remains useful as a fast calibration smoke test, but it is no longer
@@ -59,6 +62,9 @@ the evidence for a camera-coloured point-cloud **map**.
 
 The combined +10 ms / isolated-return artifacts have PLY SHA-256 prefixes
 `620edfc8...e7a900` and `3209bd26...43d933`.
+The self-contained final artifact roots are
+`aist_rgb_map/final_162554_20260713` and
+`aist_rgb_map/final_162651_20260713`.
 
 ## Ablations and rejected shortcuts
 
