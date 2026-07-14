@@ -38,6 +38,7 @@
 // state, independent of wall-clock timing. The shell supplies clouds via
 // a provider callback, so message-vs-PCD-cache stays its concern.
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
@@ -48,6 +49,7 @@
 
 #include <pcl/common/transforms.h>  // NOLINT(build/include_order)
 #include <pcl/filters/voxel_grid.h>  // NOLINT(build/include_order)
+#include <pcl/kdtree/kdtree_flann.h>  // NOLINT(build/include_order)
 #include <pcl/point_cloud.h>  // NOLINT(build/include_order)
 #include <pcl/point_types.h>  // NOLINT(build/include_order)
 #include <pcl/registration/registration.h>  // NOLINT(build/include_order)
@@ -197,6 +199,87 @@ struct LoopSearchConfig
   candidate_aggregator::Config aggregator;
   loop_verifier::GateConfig gates;
 };
+
+// Registration output is already expressed in the target/world frame.
+// Measure how much of that aligned source has actual target support instead
+// of relying only on the registration optimizer's aggregate fitness score.
+struct RegistrationOverlapMetrics
+{
+  double source_to_target {0.0};
+  double target_to_source {0.0};
+  double harmonic_mean {0.0};
+};
+
+inline pcl::PointCloud<pcl::PointXYZI>::Ptr finiteCloud(
+  const pcl::PointCloud<pcl::PointXYZI> & cloud)
+{
+  pcl::PointCloud<pcl::PointXYZI>::Ptr finite(new pcl::PointCloud<pcl::PointXYZI>);
+  finite->reserve(cloud.size());
+  for (const auto & point : cloud) {
+    if (std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z)) {
+      finite->push_back(point);
+    }
+  }
+  return finite;
+}
+
+inline double directedOverlapRatio(
+  const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & query,
+  const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & reference,
+  double max_distance_m)
+{
+  if (!query || !reference || query->empty() || reference->empty() || max_distance_m <= 0.0) {
+    return 0.0;
+  }
+  pcl::KdTreeFLANN<pcl::PointXYZI> reference_tree;
+  reference_tree.setInputCloud(reference);
+  const float max_distance_squared = static_cast<float>(max_distance_m * max_distance_m);
+  std::vector<int> neighbor_index(1);
+  std::vector<float> neighbor_distance_squared(1);
+  std::size_t matched_count = 0;
+  for (const auto & point : *query) {
+    if (
+      reference_tree.nearestKSearch(point, 1, neighbor_index, neighbor_distance_squared) > 0 &&
+      neighbor_distance_squared[0] <= max_distance_squared)
+    {
+      ++matched_count;
+    }
+  }
+  return static_cast<double>(matched_count) / static_cast<double>(query->size());
+}
+
+inline RegistrationOverlapMetrics registrationOverlapMetrics(
+  const pcl::PointCloud<pcl::PointXYZI> & aligned_source,
+  const pcl::PointCloud<pcl::PointXYZI> & target,
+  double max_distance_m,
+  bool compute_reverse = true)
+{
+  RegistrationOverlapMetrics metrics;
+  if (aligned_source.empty() || target.empty() || max_distance_m <= 0.0) {
+    return metrics;
+  }
+  const auto finite_source = finiteCloud(aligned_source);
+  const auto finite_target = finiteCloud(target);
+  metrics.source_to_target = directedOverlapRatio(finite_source, finite_target, max_distance_m);
+  if (!compute_reverse) {
+    return metrics;
+  }
+  metrics.target_to_source = directedOverlapRatio(finite_target, finite_source, max_distance_m);
+  const double sum = metrics.source_to_target + metrics.target_to_source;
+  if (sum > 0.0) {
+    metrics.harmonic_mean =
+      2.0 * metrics.source_to_target * metrics.target_to_source / sum;
+  }
+  return metrics;
+}
+
+inline double registrationOverlapRatio(
+  const pcl::PointCloud<pcl::PointXYZI> & aligned_source,
+  const pcl::PointCloud<pcl::PointXYZI> & target,
+  double max_distance_m)
+{
+  return registrationOverlapMetrics(aligned_source, target, max_distance_m).source_to_target;
+}
 
 // Backend-owned loop-closure state. Single-threaded by contract: the
 // caller serializes access (today the component's SingleThreadedExecutor,
@@ -624,6 +707,20 @@ public:
       const Eigen::Matrix4f final_transformation = registration.getFinalTransformation();
       const loop_verifier::RegistrationDelta registration_delta =
         loop_verifier::computeRegistrationDelta(final_transformation);
+      // Avoid building a target KD-tree for candidates that an earlier,
+      // cheaper gate already rejects. Passing overlap=1 cannot trigger the
+      // overlap gate and preserves the historical gate order.
+      const loop_verifier::GateResult pre_overlap_gate = loop_verifier::evaluateGates(
+        candidate.source, fitness_score, registration_delta, search_config.gates, 1.0);
+      RegistrationOverlapMetrics overlap_metrics;
+      if (pre_overlap_gate.rejection == loop_verifier::GateRejection::NONE) {
+        const pcl::PointCloud<pcl::PointXYZI>::Ptr overlap_target =
+          candidate.source == LoopCandidate::Source::SCAN_CONTEXT ?
+          filtered_clouds_sc_ptr : filtered_clouds_ptr;
+        overlap_metrics = registrationOverlapMetrics(
+          *output_cloud_ptr, *overlap_target, search_config.gates.overlap_max_distance_m,
+          debug);
+      }
 
       LoopCandidateResult candidate_result;
       candidate_result.index = candidate.index;
@@ -635,6 +732,9 @@ public:
       candidate_result.euclidean_distance = (latest_submap_pos - candidate_submap_pos).norm();
       candidate_result.translation_delta_m = registration_delta.translation_m;
       candidate_result.rotation_delta_deg = registration_delta.rotation_deg;
+      candidate_result.overlap_ratio = overlap_metrics.source_to_target;
+      candidate_result.reverse_overlap_ratio = overlap_metrics.target_to_source;
+      candidate_result.mutual_overlap_ratio = overlap_metrics.harmonic_mean;
       candidate_result.source = candidate.source;
       candidate_result.used_3d_bbs = used_3d_bbs;
       candidate_result.three_d_bbs_score_percentage = three_d_bbs_score_percentage;
@@ -644,7 +744,8 @@ public:
       selection.considerConverged(candidate_result);
 
       const loop_verifier::GateResult gate = loop_verifier::evaluateGates(
-        candidate.source, fitness_score, registration_delta, search_config.gates);
+        candidate.source, fitness_score, registration_delta, search_config.gates,
+        overlap_metrics.source_to_target);
       if (gate.rejection != loop_verifier::GateRejection::NONE) {
         if (debug) {
           switch (gate.rejection) {
@@ -678,6 +779,18 @@ public:
                 latest_idx,
                 registration_delta.rotation_deg,
                 gate.rotation_cap_deg);
+              output.logs.push_back({true, std::string(log_buffer)});
+              break;
+            case loop_verifier::GateRejection::OVERLAP:
+              std::snprintf(
+                log_buffer, sizeof(log_buffer),
+                "Rejected loop candidate %d -> %d because overlap %.6f is below %.6f "
+                "(max neighbor distance %.3f m)",
+                candidate.index,
+                latest_idx,
+                overlap_metrics.source_to_target,
+                gate.min_overlap_ratio,
+                search_config.gates.overlap_max_distance_m);
               output.logs.push_back({true, std::string(log_buffer)});
               break;
             default:
@@ -720,6 +833,12 @@ public:
                      << " fitness:" << best_attempt.fitness_score
                      << " correction_translation:" << best_attempt.translation_delta_m
                      << " correction_rotation_deg:" << best_attempt.rotation_delta_deg
+                     << " overlap_ratio:" << best_attempt.overlap_ratio;
+        if (debug) {
+          attempt_line << " reverse_overlap_ratio:" << best_attempt.reverse_overlap_ratio
+                       << " mutual_overlap_ratio:" << best_attempt.mutual_overlap_ratio;
+        }
+        attempt_line
                      << " used_3d_bbs:" << best_attempt.used_3d_bbs
                      << " 3d_bbs_score:" << best_attempt.three_d_bbs_score_percentage;
         output.logs.push_back({false, attempt_line.str()});
@@ -759,7 +878,12 @@ public:
     }
     std::ostringstream correction_line;
     correction_line << "correction translation[m]:" << best_candidate.translation_delta_m
-                    << " rotation[deg]:" << best_candidate.rotation_delta_deg;
+                    << " rotation[deg]:" << best_candidate.rotation_delta_deg
+                    << " overlap_ratio:" << best_candidate.overlap_ratio;
+    if (debug) {
+      correction_line << " reverse_overlap_ratio:" << best_candidate.reverse_overlap_ratio
+                      << " mutual_overlap_ratio:" << best_candidate.mutual_overlap_ratio;
+    }
     output.logs.push_back({false, correction_line.str()});
     output.logs.push_back({false, "final transformation:"});
     std::ostringstream transformation_line;

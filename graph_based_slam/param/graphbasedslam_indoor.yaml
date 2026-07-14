@@ -17,6 +17,12 @@ graph_based_slam:
       loop_edge_dedup_index_window: 8
       loop_max_translation_delta: 15.0
       loop_max_rotation_delta_deg: 45.0
+      # Aligned-source support gate. 0 disables it; enable only with a
+      # dataset-calibrated ratio. Construction Seq2 uses 0.76 at 0.5 m.
+      loop_min_overlap_ratio: 0.0
+      loop_min_overlap_ratio_large_correction: 0.0
+      loop_overlap_large_correction_translation_m: 0.0
+      loop_overlap_max_distance_m: 0.5
       # Descriptor-only override (opt-in). Indoor structured scenes can
       # accumulate >15 m drift over long traversals; when triangle / scan
       # context propose a revisit with confident inliers, NDT often

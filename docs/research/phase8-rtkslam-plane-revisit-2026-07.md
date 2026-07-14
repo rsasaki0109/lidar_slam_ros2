@@ -58,3 +58,116 @@ The next candidate should keep the reproducible dataset contract and sweep the
 normal/offset information weights plus initial offset gate. Promotion still
 requires Construction Seq2 ATE to improve without exceeding the existing map
 quality and runtime budgets.
+
+## Follow-up: loop-edge attribution
+
+Checkpoint-level attribution showed that the graph baseline's main regression
+was not caused by the plane factor. Removing only distance-loop edge `57 -> 123`
+changed graph ATE from 0.174372 m to 0.143967 m: 17.44% better than the six-edge
+graph and 6.38% better than raw RKO-LIO. Removing any of the other five edges
+made ATE worse, so a global loop-weight reduction is not an adequate fix.
+
+The result is deterministic across three runs when the five verified edges are
+frozen. Plane revisit on that corrected substrate changes ATE to 0.144433 m and
+reduces planar coverage from 0.295084 to 0.291398, so the plane candidate still
+fails independently of the bad loop. Use `analyze_sparse_checkpoint_errors.py`
+to retain the per-checkpoint evidence instead of relying on aggregate ATE alone.
+
+## Follow-up: cloud-overlap loop verifier
+
+NDT fitness alone could not separate the harmful edge from the useful ones.
+An aligned-source overlap metric now counts points with a target neighbor
+within 0.5 m, after the cheaper fitness and correction gates pass. The bad
+`57 -> 123` edge measured 0.648 overlap. Its possible replacements
+`59 -> 123` and `59 -> 124` measured 0.710 and 0.752, while the lowest useful
+edge (`54 -> 145`) measured 0.765. The other useful edges ranged from 0.794
+to 0.955.
+
+`loop_min_overlap_ratio=0.76` therefore produced exactly the five-edge oracle
+set without a fixed-edge CSV. Three runs were byte-identical, and the dense
+position-only ATE was 0.143967 m (6.38% better than raw and 17.44% better than
+the original six-edge graph). Map quality was also deterministic and matched
+the fixed five-edge result: mean planar thickness 0.083919 m and coverage
+0.295084. Evidence is stored under:
+
+```text
+/media/sasaki/aiueo/benchmarks/phase8/rtkslam_cs2_20260714/
+  overlap_probe_r05/
+  overlap_gate070/
+  overlap_gate076/
+  overlap_gate076_probe/manifest/
+```
+
+The optimized implementation adds about 2.3 s to the dynamic offline backend
+run on this sequence (roughly 5.7% including refinement), rather than the
+initial diagnostic implementation's 20 s overhead.
+
+## Cross-dataset overlap holdouts
+
+The same `0.76 / 0.5 m` gate was then exercised through dynamic loop search,
+not fixed-edge replay, on MID-360 and HILTI exp04. The result rejects promotion
+as a global default:
+
+- HILTI exp04 passed the negative holdout. Under the deliberately open
+  `distance_loop_closure=20 m`, fitness `1.1` profile, the known false
+  `2 -> 37` edge had overlap 0.594 and was rejected. The resulting zero-loop
+  trajectory was byte-identical to the conservative baseline.
+- MID-360 did not preserve the known edge. `6 -> 604` had overlap 0.742 and
+  was rejected; the nearby `7 -> 604` candidate had overlap 0.797 and was
+  accepted instead. Dense cross-validation ATE was 1.226013 m versus
+  1.167254 m raw (+5.03%), so this is not a safe transfer despite keeping one
+  loop edge.
+
+Evidence is stored in:
+
+```text
+/media/sasaki/aiueo/benchmarks/phase8/loop_overlap_holdouts_20260714/
+  hilti_exp04_open_gate_probe/
+  mid360_probe/
+```
+
+Keep the generic YAML default disabled (`loop_min_overlap_ratio=0.0`) and use
+0.76 only for the validated Construction Seq2 profile. A general verifier now
+needs a density/FOV-aware score (for example multi-radius support or a mutual
+source/target overlap), because no single 0.5 m threshold separates the
+Construction substitute at 0.752 from the MID-360 edge at 0.742.
+
+## Correction-adaptive overlap candidate
+
+Bidirectional overlap was measured before choosing a replacement. Its harmonic
+mean did not separate the classes: the Construction false edge scored 0.580,
+the valid MID-360 edge 0.544, and valid Construction `54 -> 145` only 0.315.
+The reverse direction is biased by the larger target aggregation window, so it
+is retained only as a debug diagnostic rather than exposed as a gate.
+
+The useful separation came from registration correction magnitude. The
+Construction false edge and substitutes apply only 0.30--0.45 m translation,
+the MID-360 edge applies 7.25 m, and the HILTI false edge applies 2.00 m but has
+only 0.594 source overlap. The following explicit adaptive candidate was
+therefore evaluated:
+
+```yaml
+loop_min_overlap_ratio: 0.76
+loop_min_overlap_ratio_large_correction: 0.70
+loop_overlap_large_correction_translation_m: 1.0
+loop_overlap_max_distance_m: 0.5
+```
+
+| Dataset | Result | Artifact check |
+| --- | --- | --- |
+| Construction Seq2 | five verified edges; dense ATE 0.143967 m | edge and trajectory hashes match the three-run five-edge result |
+| HILTI exp04 open gate | false `2 -> 37` rejected; zero loops | trajectory hash matches the conservative baseline |
+| MID-360 | valid `6 -> 604` retained; dense ATE 1.214342 m | edge and trajectory hashes match the prior two-run dynamic baseline |
+| KITTI 00 | valid `28 -> 176` retained; overlap 0.864002 | edge `5d0344e82042` and trajectory `b39e5cc9ff98` hashes match the established baseline |
+
+This fixes the narrow-FOV transfer failure without weakening the strict gate
+for small corrections. It is implemented consistently in the live component
+and offline runner, but stays opt-in pending more than these three substrates.
+Evidence is under:
+
+```text
+/media/sasaki/aiueo/benchmarks/phase8/
+  mutual_overlap_probe_20260714/
+  adaptive_overlap_gate_20260714/
+  adaptive_overlap_gate_kitti00_20260714/current/
+```

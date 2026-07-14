@@ -75,6 +75,27 @@ CloudPtr makeCloud(int idx)
   return cloud;
 }
 
+TEST(BackendCoreOverlap, CountsAlignedSourcePointsWithNearbyTargetSupport)
+{
+  pcl::PointCloud<pcl::PointXYZI> source;
+  pcl::PointCloud<pcl::PointXYZI> target;
+  for (int i = 0; i < 4; ++i) {
+    pcl::PointXYZI point;
+    point.x = static_cast<float>(i);
+    source.push_back(point);
+    if (i < 3) {
+      target.push_back(point);
+    }
+  }
+
+  EXPECT_DOUBLE_EQ(backend_core::registrationOverlapRatio(source, target, 0.01), 0.75);
+  const auto metrics = backend_core::registrationOverlapMetrics(source, target, 0.01);
+  EXPECT_DOUBLE_EQ(metrics.source_to_target, 0.75);
+  EXPECT_DOUBLE_EQ(metrics.target_to_source, 1.0);
+  EXPECT_NEAR(metrics.harmonic_mean, 6.0 / 7.0, 1e-12);
+  EXPECT_DOUBLE_EQ(backend_core::registrationOverlapRatio(source, target, 0.0), 0.0);
+}
+
 // Provider that records every requested index in call order.
 struct RecordingProvider
 {

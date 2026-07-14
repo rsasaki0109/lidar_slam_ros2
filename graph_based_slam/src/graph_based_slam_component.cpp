@@ -96,6 +96,18 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("loop_max_translation_delta", loop_max_translation_delta_);
   declare_parameter("loop_max_rotation_delta_deg", 45.0);
   get_parameter("loop_max_rotation_delta_deg", loop_max_rotation_delta_deg_);
+  declare_parameter("loop_min_overlap_ratio", 0.0);
+  get_parameter("loop_min_overlap_ratio", loop_min_overlap_ratio_);
+  declare_parameter("loop_min_overlap_ratio_large_correction", 0.0);
+  get_parameter(
+    "loop_min_overlap_ratio_large_correction",
+    loop_min_overlap_ratio_large_correction_);
+  declare_parameter("loop_overlap_large_correction_translation_m", 0.0);
+  get_parameter(
+    "loop_overlap_large_correction_translation_m",
+    loop_overlap_large_correction_translation_m_);
+  declare_parameter("loop_overlap_max_distance_m", 0.5);
+  get_parameter("loop_overlap_max_distance_m", loop_overlap_max_distance_m_);
   declare_parameter("loop_max_translation_delta_descriptor", -1.0);
   get_parameter("loop_max_translation_delta_descriptor", loop_max_translation_delta_descriptor_);
   declare_parameter("loop_max_rotation_delta_deg_descriptor", -1.0);
@@ -499,6 +511,39 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       loop_max_rotation_delta_deg_);
     loop_max_rotation_delta_deg_ = 45.0;
   }
+  if (loop_min_overlap_ratio_ < 0.0 || loop_min_overlap_ratio_ > 1.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_min_overlap_ratio must be in [0, 1], resetting %.3f to 0 (disabled)",
+      loop_min_overlap_ratio_);
+    loop_min_overlap_ratio_ = 0.0;
+  }
+  if (
+    loop_min_overlap_ratio_large_correction_ < 0.0 ||
+    loop_min_overlap_ratio_large_correction_ > 1.0)
+  {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_min_overlap_ratio_large_correction must be in [0, 1], "
+      "resetting %.3f to 0 (disabled)",
+      loop_min_overlap_ratio_large_correction_);
+    loop_min_overlap_ratio_large_correction_ = 0.0;
+  }
+  if (loop_overlap_large_correction_translation_m_ < 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_overlap_large_correction_translation_m must be non-negative, "
+      "resetting %.3f to 0 (disabled)",
+      loop_overlap_large_correction_translation_m_);
+    loop_overlap_large_correction_translation_m_ = 0.0;
+  }
+  if (loop_overlap_max_distance_m_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_overlap_max_distance_m must be positive, resetting %.3f to 0.5",
+      loop_overlap_max_distance_m_);
+    loop_overlap_max_distance_m_ = 0.5;
+  }
   // Descriptor overrides: -1.0 = disabled (fall back to generic cap).
   // Any other non-positive value is treated as invalid and clamped to -1.0
   // so that operators see clear feedback instead of silently disabling the
@@ -863,6 +908,12 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "loop_edge_dedup_index_window:" << loop_edge_dedup_index_window_ << std::endl;
   std::cout << "loop_max_translation_delta[m]:" << loop_max_translation_delta_ << std::endl;
   std::cout << "loop_max_rotation_delta[deg]:" << loop_max_rotation_delta_deg_ << std::endl;
+  std::cout << "loop_min_overlap_ratio:" << loop_min_overlap_ratio_ << std::endl;
+  std::cout << "loop_min_overlap_ratio_large_correction:" <<
+    loop_min_overlap_ratio_large_correction_ << std::endl;
+  std::cout << "loop_overlap_large_correction_translation_m[m]:" <<
+    loop_overlap_large_correction_translation_m_ << std::endl;
+  std::cout << "loop_overlap_max_distance_m[m]:" << loop_overlap_max_distance_m_ << std::endl;
   std::cout << "loop_max_translation_delta_descriptor[m]:" <<
     loop_max_translation_delta_descriptor_ << std::endl;
   std::cout << "loop_max_rotation_delta_deg_descriptor[deg]:" <<
@@ -1451,6 +1502,12 @@ void GraphBasedSlamComponent::searchLoopForLatest(
   gate_config.scan_context_score_threshold = scan_context_loop_closure_score_threshold_;
   gate_config.max_translation_m = loop_max_translation_delta_;
   gate_config.max_rotation_deg = loop_max_rotation_delta_deg_;
+  gate_config.min_overlap_ratio = loop_min_overlap_ratio_;
+  gate_config.min_overlap_ratio_large_correction =
+    loop_min_overlap_ratio_large_correction_;
+  gate_config.overlap_large_correction_translation_m =
+    loop_overlap_large_correction_translation_m_;
+  gate_config.overlap_max_distance_m = loop_overlap_max_distance_m_;
   gate_config.max_translation_descriptor_m = loop_max_translation_delta_descriptor_;
   gate_config.max_rotation_descriptor_deg = loop_max_rotation_delta_deg_descriptor_;
 

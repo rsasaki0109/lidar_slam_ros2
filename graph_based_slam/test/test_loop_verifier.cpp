@@ -291,6 +291,44 @@ TEST(LoopVerifierGates, CorrectionExactlyAtTheCapPasses)
   EXPECT_EQ(result.rejection, GateRejection::NONE);
 }
 
+TEST(LoopVerifierGates, OverlapGateIsDisabledByDefaultAndRejectsOnlyBelowThreshold)
+{
+  auto config = makeGateConfig();
+  RegistrationDelta delta;
+  EXPECT_EQ(
+    loop_verifier::evaluateGates(Source::DISTANCE, 0.1, delta, config, 0.0).rejection,
+    GateRejection::NONE);
+
+  config.min_overlap_ratio = 0.6;
+  const auto below = loop_verifier::evaluateGates(Source::DISTANCE, 0.1, delta, config, 0.599);
+  EXPECT_EQ(below.rejection, GateRejection::OVERLAP);
+  EXPECT_DOUBLE_EQ(below.min_overlap_ratio, 0.6);
+  EXPECT_DOUBLE_EQ(below.overlap_ratio, 0.599);
+  EXPECT_EQ(
+    loop_verifier::evaluateGates(Source::DISTANCE, 0.1, delta, config, 0.6).rejection,
+    GateRejection::NONE);
+}
+
+TEST(LoopVerifierGates, LargeCorrectionCanUseAnExplicitRelaxedOverlapThreshold)
+{
+  auto config = makeGateConfig();
+  config.min_overlap_ratio = 0.76;
+  config.min_overlap_ratio_large_correction = 0.70;
+  config.overlap_large_correction_translation_m = 1.0;
+  RegistrationDelta delta;
+  delta.translation_m = 0.99;
+  const auto small = loop_verifier::evaluateGates(
+    Source::DISTANCE, 0.1, delta, config, 0.74);
+  EXPECT_EQ(small.rejection, GateRejection::OVERLAP);
+  EXPECT_DOUBLE_EQ(small.min_overlap_ratio, 0.76);
+
+  delta.translation_m = 1.0;
+  const auto large = loop_verifier::evaluateGates(
+    Source::DISTANCE, 0.1, delta, config, 0.74);
+  EXPECT_EQ(large.rejection, GateRejection::NONE);
+  EXPECT_DOUBLE_EQ(large.min_overlap_ratio, 0.70);
+}
+
 TEST(LoopVerifierSelection, FirstArrivalWinsOnEqualFitness)
 {
   SelectionState selection;

@@ -521,6 +521,15 @@ int main(int argc, char ** argv)
     "scan_context_loop_closure_score_threshold", gates.scan_context_score_threshold, -1.0);
   node->get_parameter_or("loop_max_translation_delta", gates.max_translation_m, 15.0);
   node->get_parameter_or("loop_max_rotation_delta_deg", gates.max_rotation_deg, 45.0);
+  node->get_parameter_or("loop_min_overlap_ratio", gates.min_overlap_ratio, 0.0);
+  node->get_parameter_or(
+    "loop_min_overlap_ratio_large_correction",
+    gates.min_overlap_ratio_large_correction, 0.0);
+  node->get_parameter_or(
+    "loop_overlap_large_correction_translation_m",
+    gates.overlap_large_correction_translation_m, 0.0);
+  node->get_parameter_or(
+    "loop_overlap_max_distance_m", gates.overlap_max_distance_m, 0.5);
   node->get_parameter_or(
     "loop_max_translation_delta_descriptor", gates.max_translation_descriptor_m, -1.0);
   node->get_parameter_or(

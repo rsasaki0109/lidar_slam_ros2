@@ -82,6 +82,9 @@ struct LoopCandidateResult
   double euclidean_distance {0.0};
   double translation_delta_m {0.0};
   double rotation_delta_deg {0.0};
+  double overlap_ratio {0.0};
+  double reverse_overlap_ratio {0.0};
+  double mutual_overlap_ratio {0.0};
   LoopCandidate::Source source {LoopCandidate::Source::DISTANCE};
   bool used_3d_bbs {false};
   double three_d_bbs_score_percentage {0.0};
@@ -176,6 +179,14 @@ struct GateConfig
   // in stored pose) always keep the strict generic cap.
   double max_translation_descriptor_m {0.0};
   double max_rotation_descriptor_deg {0.0};
+  // Fraction of aligned source points that must have a target neighbor
+  // within overlap_max_distance_m. A non-positive ratio disables the gate.
+  double min_overlap_ratio {0.0};
+  // Optional relaxed source-overlap threshold for registrations applying a
+  // large translational correction (e.g. a narrow-FOV sensor closing drift).
+  double min_overlap_ratio_large_correction {0.0};
+  double overlap_large_correction_translation_m {0.0};
+  double overlap_max_distance_m {0.5};
 };
 
 enum class GateRejection
@@ -183,7 +194,8 @@ enum class GateRejection
   NONE,
   FITNESS,
   TRANSLATION,
-  ROTATION
+  ROTATION,
+  OVERLAP
 };
 
 struct GateResult
@@ -193,6 +205,8 @@ struct GateResult
   double score_threshold {0.0};
   double translation_cap_m {0.0};
   double rotation_cap_deg {0.0};
+  double min_overlap_ratio {0.0};
+  double overlap_ratio {0.0};
 };
 
 // Acceptance gates in their historical order: fitness (>= rejects, so a
@@ -202,9 +216,19 @@ inline GateResult evaluateGates(
   LoopCandidate::Source source,
   double fitness_score,
   const RegistrationDelta & delta,
-  const GateConfig & config)
+  const GateConfig & config,
+  double overlap_ratio = 1.0)
 {
   GateResult result;
+  result.min_overlap_ratio = config.min_overlap_ratio;
+  result.overlap_ratio = overlap_ratio;
+  if (
+    config.overlap_large_correction_translation_m > 0.0 &&
+    delta.translation_m >= config.overlap_large_correction_translation_m &&
+    config.min_overlap_ratio_large_correction > 0.0)
+  {
+    result.min_overlap_ratio = config.min_overlap_ratio_large_correction;
+  }
   result.score_threshold =
     (source == LoopCandidate::Source::SCAN_CONTEXT &&
     config.scan_context_score_threshold > 0.0) ?
@@ -227,6 +251,10 @@ inline GateResult evaluateGates(
   }
   if (delta.rotation_deg > result.rotation_cap_deg) {
     result.rejection = GateRejection::ROTATION;
+    return result;
+  }
+  if (result.min_overlap_ratio > 0.0 && overlap_ratio < result.min_overlap_ratio) {
+    result.rejection = GateRejection::OVERLAP;
     return result;
   }
   return result;

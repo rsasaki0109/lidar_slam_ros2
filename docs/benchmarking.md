@@ -102,6 +102,21 @@ python3 scripts/evaluate_slam_candidate_regression.py \
 Promotion requires complete reports, matching inputs, bounded runtime and map
 quality, and independently improved MID-360 and Construction Seq2 trajectories.
 
+When aggregate ATE hides which surveyed positions changed, generate a
+checkpoint-level JSON and Markdown report:
+
+```bash
+python3 scripts/analyze_sparse_checkpoint_errors.py \
+  --reference-tum <surveyed-positions.tum> \
+  --reference-csv <checkpoint-labels.csv> \
+  --estimate raw=<raw.tum> --estimate baseline=<off-dense.tum> \
+  --estimate candidate=<on-dense.tum> --baseline-label baseline \
+  --output <suite>/checkpoint_errors.json
+```
+
+Each trajectory is independently SE(3)-aligned without scale before per-point
+errors are compared, matching the position-only public-suite ATE semantics.
+
 That wrapper:
 
 - uses the bundled NTU VIRAL `rosbag2`
@@ -163,6 +178,45 @@ Typical outputs are written under:
 - `output/bench_rko_lio_ntu_viral_<name>/ape_raw_vs_gt.txt`
 - `output/bench_rko_lio_ntu_viral_<name>/ape_corrected_vs_gt.txt`
 - `output/bench_rko_lio_ntu_viral_<name>/metrics.json`
+
+## Loop Cloud-Overlap Gate
+
+After registration, the backend can require a fraction of aligned source
+points to have target-cloud support. `loop_min_overlap_ratio: 0.0` keeps the
+gate disabled for backward compatibility; `loop_overlap_max_distance_m`
+defines the nearest-neighbor support radius. The cheap fitness and correction
+gates run first, so rejected registrations do not pay the KD-tree cost.
+
+Construction Seq2 validated the following dataset-specific candidate:
+
+```yaml
+loop_min_overlap_ratio: 0.76
+loop_overlap_max_distance_m: 0.5
+```
+
+The ratio rejected the harmful `57 -> 123` revisit and its adjacent
+substitutes while retaining five beneficial loop edges. Do not promote this
+threshold to a general default until it passes the other release datasets.
+
+For a cross-sensor candidate, the source-overlap threshold can be explicitly
+relaxed only when registration applies a large translation correction:
+
+```yaml
+loop_min_overlap_ratio: 0.76
+loop_min_overlap_ratio_large_correction: 0.70
+loop_overlap_large_correction_translation_m: 1.0
+loop_overlap_max_distance_m: 0.5
+```
+
+The effective threshold is 0.76 below 1.0 m correction and 0.70 at or above
+it. Leaving either large-correction parameter at zero disables the override.
+The candidate preserved the established MID-360 loop, rejected the HILTI
+exp04 false loop, retained Construction Seq2's five verified edges, and
+preserved KITTI 00's `28 -> 176` loop (source overlap 0.864002) with
+byte-identical edge and trajectory artifacts. The generic YAML default remains
+disabled while broader release validation is pending. Reverse and harmonic
+overlap are emitted in debug logs for diagnosis, but are not acceptance gates
+because target aggregation extent biases them.
 
 ## Summaries And HTML Report
 

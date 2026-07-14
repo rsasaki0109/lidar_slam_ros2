@@ -209,6 +209,10 @@ private:
     int loop_edge_dedup_index_window_ {8};
     double loop_max_translation_delta_ {15.0};
     double loop_max_rotation_delta_deg_ {45.0};
+    double loop_min_overlap_ratio_ {0.0};
+    double loop_min_overlap_ratio_large_correction_ {0.0};
+    double loop_overlap_large_correction_translation_m_ {0.0};
+    double loop_overlap_max_distance_m_ {0.5};
     // Per-source overrides for descriptor-based candidates (TRIANGLE,
     // SCAN_CONTEXT, BEV, SOLID). When positive, replace the generic caps
     // above for those sources only — DISTANCE keeps the strict default.
