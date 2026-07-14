@@ -157,6 +157,8 @@ loop_overlap_max_distance_m: 0.5
 | --- | --- | --- |
 | Construction Seq2 | five verified edges; dense ATE 0.143967 m | edge and trajectory hashes match the three-run five-edge result |
 | HILTI exp04 open gate | false `2 -> 37` rejected; zero loops | trajectory hash matches the conservative baseline |
+| HILTI exp01 | no candidate passed the fitness gate; zero loops | OFF/ON APE 0.897399 m and trajectory hash `a05346e83a7a` match |
+| HILTI exp07 | no candidate passed the fitness gate; zero loops | OFF/ON APE 0.618685 m and trajectory hash `ecd6d0e52b50` match |
 | MID-360 | valid `6 -> 604` retained; dense ATE 1.214342 m | edge and trajectory hashes match the prior two-run dynamic baseline |
 | KITTI 00 | valid `28 -> 176` retained; overlap 0.864002 | edge `5d0344e82042` and trajectory `b39e5cc9ff98` hashes match the established baseline |
 
@@ -170,4 +172,13 @@ Evidence is under:
   mutual_overlap_probe_20260714/
   adaptive_overlap_gate_20260714/
   adaptive_overlap_gate_kitti00_20260714/current/
+  hilti_overlap_crossval_20260714/{exp01,exp07}/
 ```
+
+The exp01/exp07 holdouts establish non-regression on complete sequences, but
+do not exercise the overlap threshold because the cheaper fitness gate rejects
+all candidates. They therefore strengthen release coverage without by
+themselves justifying a generic default-on setting. Their 2,277-pair and
+1,322-pair frozen backend inputs were produced by
+`scripts/run_hilti_overlap_crossval.sh`; the wrapper also emits machine-readable
+OFF/ON comparisons and refuses to overwrite incomplete captures.

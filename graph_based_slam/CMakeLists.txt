@@ -806,6 +806,11 @@ if(BUILD_TESTING)
     TIMEOUT 60
   )
   ament_add_pytest_test(
+    test_hilti_overlap_crossval_script
+    test/test_hilti_overlap_crossval_script.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
     test_sparse_checkpoint_errors
     test/test_sparse_checkpoint_errors.py
     TIMEOUT 60

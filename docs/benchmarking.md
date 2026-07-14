@@ -218,6 +218,20 @@ disabled while broader release validation is pending. Reverse and harmonic
 overlap are emitted in debug logs for diagnosis, but are not acceptance gates
 because target aggregation extent biases them.
 
+HILTI exp01/exp07 can be frozen and compared end to end with one command. Raw
+bags and generated backend MCAPs stay on the external SSD by default:
+
+```bash
+bash scripts/run_hilti_overlap_crossval.sh --sequence all --runs 2
+```
+
+Use `--dry-run` to inspect every command, `--record-only` to stop after input
+capture, or `--offline-only --resume` to reuse an existing capture. Each
+sequence writes `comparison.json` and `comparison.md` beside `gate_off/` and
+`gate_adaptive/`. The capture stage generates a parameter snapshot that keeps
+submap publication active but disables expensive live loop registration; both
+offline variants then consume the exact same odometry/cloud pairs.
+
 ## Summaries And HTML Report
 
 To summarize all collected runs:

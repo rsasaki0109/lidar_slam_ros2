@@ -89,6 +89,7 @@ GitHub Actions（main.yml）で Humble + Jazzy マトリクスビルド＋テス
 | `evaluate_slam_candidate_regression.py` | Phase 7候補をMID360/HILTIのATE・RPE・地図品質・実行時間でbaseline比較 |
 | `run_plane_revisit_candidate_benchmark.sh` | plane-revisit OFF/ON実行からPhase 7 manifest生成までを自動化 |
 | `record_backend_input.sh` | 任意frontend実行中のbackend入力2 topicを検証付きでMCAP記録 |
+| `run_hilti_overlap_crossval.sh` | HILTI exp01/exp07の固定backend入力生成＋overlap gate OFF/ON比較 |
 | `analyze_sparse_checkpoint_errors.py` | sparse位置GTで候補別・checkpoint別のSE(3)整列誤差をJSON/Markdown化 |
 | `run_autoware_quickstart.sh` | NTU VIRAL → Autoware マップ E2E |
 | `download_ntu_viral_tnp01.sh` | NTU VIRAL データダウンロード |
