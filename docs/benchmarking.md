@@ -218,6 +218,14 @@ disabled while broader release validation is pending. Reverse and harmonic
 overlap are emitted in debug logs for diagnosis, but are not acceptance gates
 because target aggregation extent biases them.
 
+Accepted candidates and debug attempts also report `support_rmse_m` and
+`support_p90_m`. These are nearest-neighbour distances for source points that
+fall within `loop_overlap_max_distance_m`; they reuse the overlap KD-tree and
+do not launch another search. Treat them as diagnostics, not gates: repeated
+geometry can produce low support residuals at the wrong longitudinal offset.
+The p90 calculation uses linear-time selection rather than sorting all
+supported points.
+
 HILTI exp01/exp07 can be frozen and compared end to end with one command. Raw
 bags and generated backend MCAPs stay on the external SSD by default:
 

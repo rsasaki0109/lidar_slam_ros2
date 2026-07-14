@@ -85,6 +85,8 @@ struct LoopCandidateResult
   double overlap_ratio {0.0};
   double reverse_overlap_ratio {0.0};
   double mutual_overlap_ratio {0.0};
+  double support_rmse_m {0.0};
+  double support_p90_m {0.0};
   LoopCandidate::Source source {LoopCandidate::Source::DISTANCE};
   bool used_3d_bbs {false};
   double three_d_bbs_score_percentage {0.0};

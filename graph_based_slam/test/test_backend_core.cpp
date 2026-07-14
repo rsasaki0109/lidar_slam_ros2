@@ -84,6 +84,7 @@ TEST(BackendCoreOverlap, CountsAlignedSourcePointsWithNearbyTargetSupport)
     point.x = static_cast<float>(i);
     source.push_back(point);
     if (i < 3) {
+      point.x += static_cast<float>((i + 1) * 0.001);
       target.push_back(point);
     }
   }
@@ -93,6 +94,8 @@ TEST(BackendCoreOverlap, CountsAlignedSourcePointsWithNearbyTargetSupport)
   EXPECT_DOUBLE_EQ(metrics.source_to_target, 0.75);
   EXPECT_DOUBLE_EQ(metrics.target_to_source, 1.0);
   EXPECT_NEAR(metrics.harmonic_mean, 6.0 / 7.0, 1e-12);
+  EXPECT_NEAR(metrics.source_support_rmse_m, std::sqrt(14.0e-6 / 3.0), 1e-7);
+  EXPECT_NEAR(metrics.source_support_p90_m, 0.003, 1e-7);
   EXPECT_DOUBLE_EQ(backend_core::registrationOverlapRatio(source, target, 0.0), 0.0);
 }
 

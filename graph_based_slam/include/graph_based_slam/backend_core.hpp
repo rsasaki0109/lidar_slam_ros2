@@ -38,7 +38,9 @@
 // state, independent of wall-clock timing. The shell supplies clouds via
 // a provider callback, so message-vs-PCD-cache stays its concern.
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
@@ -208,6 +210,15 @@ struct RegistrationOverlapMetrics
   double source_to_target {0.0};
   double target_to_source {0.0};
   double harmonic_mean {0.0};
+  double source_support_rmse_m {0.0};
+  double source_support_p90_m {0.0};
+};
+
+struct DirectedOverlapMetrics
+{
+  double ratio {0.0};
+  double support_rmse_m {0.0};
+  double support_p90_m {0.0};
 };
 
 inline pcl::PointCloud<pcl::PointXYZI>::Ptr finiteCloud(
@@ -223,29 +234,57 @@ inline pcl::PointCloud<pcl::PointXYZI>::Ptr finiteCloud(
   return finite;
 }
 
-inline double directedOverlapRatio(
+inline DirectedOverlapMetrics directedOverlapMetrics(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & query,
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & reference,
   double max_distance_m)
 {
+  DirectedOverlapMetrics metrics;
   if (!query || !reference || query->empty() || reference->empty() || max_distance_m <= 0.0) {
-    return 0.0;
+    return metrics;
   }
   pcl::KdTreeFLANN<pcl::PointXYZI> reference_tree;
   reference_tree.setInputCloud(reference);
   const float max_distance_squared = static_cast<float>(max_distance_m * max_distance_m);
   std::vector<int> neighbor_index(1);
   std::vector<float> neighbor_distance_squared(1);
-  std::size_t matched_count = 0;
+  std::vector<double> matched_distance_squared;
+  matched_distance_squared.reserve(query->size());
   for (const auto & point : *query) {
     if (
       reference_tree.nearestKSearch(point, 1, neighbor_index, neighbor_distance_squared) > 0 &&
       neighbor_distance_squared[0] <= max_distance_squared)
     {
-      ++matched_count;
+      matched_distance_squared.push_back(neighbor_distance_squared[0]);
     }
   }
-  return static_cast<double>(matched_count) / static_cast<double>(query->size());
+  metrics.ratio =
+    static_cast<double>(matched_distance_squared.size()) / static_cast<double>(query->size());
+  if (matched_distance_squared.empty()) {
+    return metrics;
+  }
+  double sum_squared = 0.0;
+  for (const double distance_squared : matched_distance_squared) {
+    sum_squared += distance_squared;
+  }
+  metrics.support_rmse_m =
+    std::sqrt(sum_squared / static_cast<double>(matched_distance_squared.size()));
+  const std::size_t p90_index =
+    (9 * matched_distance_squared.size() + 9) / 10 - 1;
+  std::nth_element(
+    matched_distance_squared.begin(),
+    matched_distance_squared.begin() + static_cast<std::ptrdiff_t>(p90_index),
+    matched_distance_squared.end());
+  metrics.support_p90_m = std::sqrt(matched_distance_squared[p90_index]);
+  return metrics;
+}
+
+inline double directedOverlapRatio(
+  const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & query,
+  const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & reference,
+  double max_distance_m)
+{
+  return directedOverlapMetrics(query, reference, max_distance_m).ratio;
 }
 
 inline RegistrationOverlapMetrics registrationOverlapMetrics(
@@ -260,7 +299,11 @@ inline RegistrationOverlapMetrics registrationOverlapMetrics(
   }
   const auto finite_source = finiteCloud(aligned_source);
   const auto finite_target = finiteCloud(target);
-  metrics.source_to_target = directedOverlapRatio(finite_source, finite_target, max_distance_m);
+  const DirectedOverlapMetrics forward =
+    directedOverlapMetrics(finite_source, finite_target, max_distance_m);
+  metrics.source_to_target = forward.ratio;
+  metrics.source_support_rmse_m = forward.support_rmse_m;
+  metrics.source_support_p90_m = forward.support_p90_m;
   if (!compute_reverse) {
     return metrics;
   }
@@ -735,6 +778,8 @@ public:
       candidate_result.overlap_ratio = overlap_metrics.source_to_target;
       candidate_result.reverse_overlap_ratio = overlap_metrics.target_to_source;
       candidate_result.mutual_overlap_ratio = overlap_metrics.harmonic_mean;
+      candidate_result.support_rmse_m = overlap_metrics.source_support_rmse_m;
+      candidate_result.support_p90_m = overlap_metrics.source_support_p90_m;
       candidate_result.source = candidate.source;
       candidate_result.used_3d_bbs = used_3d_bbs;
       candidate_result.three_d_bbs_score_percentage = three_d_bbs_score_percentage;
@@ -833,7 +878,9 @@ public:
                      << " fitness:" << best_attempt.fitness_score
                      << " correction_translation:" << best_attempt.translation_delta_m
                      << " correction_rotation_deg:" << best_attempt.rotation_delta_deg
-                     << " overlap_ratio:" << best_attempt.overlap_ratio;
+                     << " overlap_ratio:" << best_attempt.overlap_ratio
+                     << " support_rmse_m:" << best_attempt.support_rmse_m
+                     << " support_p90_m:" << best_attempt.support_p90_m;
         if (debug) {
           attempt_line << " reverse_overlap_ratio:" << best_attempt.reverse_overlap_ratio
                        << " mutual_overlap_ratio:" << best_attempt.mutual_overlap_ratio;
@@ -879,7 +926,9 @@ public:
     std::ostringstream correction_line;
     correction_line << "correction translation[m]:" << best_candidate.translation_delta_m
                     << " rotation[deg]:" << best_candidate.rotation_delta_deg
-                    << " overlap_ratio:" << best_candidate.overlap_ratio;
+                    << " overlap_ratio:" << best_candidate.overlap_ratio
+                    << " support_rmse_m:" << best_candidate.support_rmse_m
+                    << " support_p90_m:" << best_candidate.support_p90_m;
     if (debug) {
       correction_line << " reverse_overlap_ratio:" << best_candidate.reverse_overlap_ratio
                       << " mutual_overlap_ratio:" << best_candidate.mutual_overlap_ratio;

@@ -182,3 +182,42 @@ themselves justifying a generic default-on setting. Their 2,277-pair and
 1,322-pair frozen backend inputs were produced by
 `scripts/run_hilti_overlap_crossval.sh`; the wrapper also emits machine-readable
 OFF/ON comparisons and refuses to overwrite incomplete captures.
+
+## HILTI fitness relaxation and support-distance probe
+
+The exp01 zero-loop result was investigated rather than assuming its NDT
+fitness scale merely needed normalization. This follows the motivation of
+[Trimmed ICP](https://doi.org/10.1109/ICPR.2002.1047997), which applies least
+trimmed squares to partially overlapping clouds, and
+[Generalized-ICP](https://doi.org/10.15607/RSS.2009.V.021), which models local
+planar structure probabilistically. Neither idea was promoted without a
+fixed-input counterfactual.
+
+| exp01 variant | loop edges | interpolated APE RMSE (m) | conclusion |
+| --- | ---: | ---: | --- |
+| conservative NDT fitness 0.7 | 0 | 0.897399 | baseline |
+| NDT fitness 10, overlap disabled | 2 | 1.000332 | relaxed fitness regresses 11.5% |
+| NDT fitness 10, adaptive overlap | 1 (`14 -> 79`) | 1.461211 | high-overlap alias regresses 62.8% |
+| GICP fitness 10, adaptive overlap | 0 | 0.897399 | rejects exp01 aliases, but also rejects the valid KITTI edge |
+| ScanContext, fitness 0.7, adaptive overlap | 0 | 0.897399 | descriptors find candidates but none pass geometric verification |
+
+The harmful `14 -> 79` edge has NDT fitness 0.849210, correction 3.289 m /
+7.933 deg, source overlap 0.746136, support RMSE 0.239223 m, and support p90
+0.399387 m. Sparse-checkpoint RMSE worsens from 1.281948 m to 1.774295 m.
+The valid KITTI `28 -> 176` edge has nearly the same support residuals
+(0.232568 m RMSE, 0.369690 m p90), so support distance cannot safely classify
+the alias. It is emitted as a density-independent diagnostic but is not an
+acceptance gate. Cross-registration consensus was also rejected because GICP
+failed to converge on the valid KITTI edge.
+
+The evidence supports retaining the conservative NDT fitness gate. exp07 is a
+104.8 m one-way corridor and produces no loop candidates even at fitness 10,
+so loop-closure tuning cannot improve that sequence. Further exp01/exp07
+accuracy work belongs in the odometry/degeneracy path, not a weaker graph
+verifier. Probe artifacts are under:
+
+```text
+/media/sasaki/aiueo/benchmarks/phase8/
+  hilti_fitness_probe_20260714/
+  loop_support_probe_20260714/
+```
