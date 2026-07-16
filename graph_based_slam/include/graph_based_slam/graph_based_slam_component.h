@@ -205,6 +205,7 @@ private:
     double distance_loop_closure_;
     double range_of_searching_loop_closure_;
     int search_submap_num_;
+    int loop_search_query_stride_ {1};
     int max_loop_candidate_count_ {3};
     int loop_edge_dedup_index_window_ {8};
     double loop_max_translation_delta_ {15.0};
@@ -389,6 +390,12 @@ private:
     int dynamic_object_filter_min_observations_ {2};
     int dynamic_object_filter_temporal_window_ {5};
     double dynamic_object_filter_max_range_from_sensor_m_ {30.0};
+    bool use_planar_map_filter_ {false};
+    double planar_map_filter_voxel_size_ {0.1};
+    int planar_map_filter_min_neighbors_ {3};
+    double planar_map_filter_max_small_eigenvalue_ratio_ {0.24};
+    double planar_map_filter_min_middle_eigenvalue_ratio_ {0.0};
+    double planar_map_filter_min_retained_ratio_ {0.90};
 
     // PCD disk cache for memory-efficient submap storage
     std::string pcd_cache_dir_;
@@ -406,6 +413,10 @@ private:
     double map_leaf_size_ {0.2};
     void saveGridDividedMap(
       const pcl::PointCloud < pcl::PointXYZI > ::Ptr & map);
+    void writeMapBundleArtifacts(
+      const lidarslam_msgs::msg::MapArray & map_array_msg,
+      const LoopEdges & loop_edges,
+      const std::vector < Eigen::Isometry3d > &optimized_poses);
 
     // Direct odometry + cloud input mode (for LIO frontends). The two
     // streams are stamp-synchronized (message_filters ApproximateTime) so

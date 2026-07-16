@@ -129,7 +129,7 @@ def main() -> int:
         raise SystemExit('--view-stride must be >= 1')
 
     import imageio.v3 as iio
-    points, stored_colors = pcio.read_ply_xyz(args.pointcloud)
+    points, stored_colors = pcio.read_point_cloud_xyz(args.pointcloud)
     dataset = tg.load_transforms(args.transforms)
     viewmats = np.asarray(dataset['viewmats'], dtype=np.float64)
     K = np.asarray(dataset['K'], dtype=np.float64)
@@ -139,7 +139,8 @@ def main() -> int:
     train = [i for i in range(len(images)) if i not in holdout_set]
     if args.use_pointcloud_colors:
         if stored_colors is None:
-            raise SystemExit('--use-pointcloud-colors requires RGB in the PLY')
+            raise SystemExit(
+                '--use-pointcloud-colors requires RGB in the point cloud')
         colors = stored_colors
         seen = np.ones(len(points), dtype=bool)
     else:

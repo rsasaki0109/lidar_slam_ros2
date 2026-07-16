@@ -170,6 +170,21 @@ def read_pcd_xyz(path: str | Path) -> tuple[np.ndarray, Optional[np.ndarray]]:
     except KeyError as exc:
         raise ValueError(f'{path}: unsupported PCD scalar type {exc.args[0]}') from exc
 
+    def decode_rgb(values: np.ndarray) -> np.ndarray:
+        """Decode PCL's packed 0x00RRGGBB ``rgb`` scalar."""
+        index = fields.index('rgb')
+        if sizes[index] != 4 or types[index].upper() not in ('F', 'U', 'I'):
+            raise ValueError(f'{path}: packed rgb must be a 4-byte F/U/I scalar')
+        if types[index].upper() == 'F':
+            packed = np.asarray(values, dtype='<f4').view('<u4')
+        else:
+            packed = np.asarray(values, dtype='<u4')
+        return np.stack([
+            (packed >> 16) & 0xff,
+            (packed >> 8) & 0xff,
+            packed & 0xff,
+        ], axis=1).astype(np.uint8)
+
     data_kind = metadata['DATA'][0].lower()
     if data_kind == 'binary':
         expected = points * dtype.itemsize
@@ -178,17 +193,24 @@ def read_pcd_xyz(path: str | Path) -> tuple[np.ndarray, Optional[np.ndarray]]:
                 f'{path}: truncated PCD payload ({len(payload)} < {expected} bytes)')
         records = np.frombuffer(payload[:expected], dtype=dtype, count=points)
         xyz = np.stack([records['x'], records['y'], records['z']], axis=1)
-        rgb = (np.stack([records['red'], records['green'], records['blue']], axis=1)
-               if all(channel in fields for channel in ('red', 'green', 'blue'))
-               else None)
+        if all(channel in fields for channel in ('red', 'green', 'blue')):
+            rgb = np.stack(
+                [records['red'], records['green'], records['blue']], axis=1)
+        elif 'rgb' in fields:
+            rgb = decode_rgb(records['rgb'])
+        else:
+            rgb = None
     elif data_kind == 'ascii':
         rows = np.loadtxt(payload.splitlines(), dtype=np.float64, ndmin=2,
                           max_rows=points)
         indices = {name: index for index, name in enumerate(fields)}
         xyz = rows[:, [indices['x'], indices['y'], indices['z']]]
-        rgb = (rows[:, [indices['red'], indices['green'], indices['blue']]]
-               if all(channel in fields for channel in ('red', 'green', 'blue'))
-               else None)
+        if all(channel in fields for channel in ('red', 'green', 'blue')):
+            rgb = rows[:, [indices['red'], indices['green'], indices['blue']]]
+        elif 'rgb' in fields:
+            rgb = decode_rgb(rows[:, indices['rgb']])
+        else:
+            rgb = None
     else:
         raise ValueError(f'{path}: unsupported PCD DATA {data_kind}')
     return (np.asarray(xyz, dtype=np.float32),

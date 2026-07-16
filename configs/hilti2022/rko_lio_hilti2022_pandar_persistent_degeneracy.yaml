@@ -1,0 +1,23 @@
+# Opt-in v0.8 stateful degeneracy candidate for HILTI 2022 PandarXT-32.
+# Sensor/calibration settings match rko_lio_hilti2022_pandar.yaml. The solve
+# may blend the motion prior only after the same isolated translational weak
+# axis persists for three consecutive scans. This is an A/B research profile,
+# not a shipped default.
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055]
+initialization_phase: true
+deskew: true
+voxel_size: 0.25
+min_range: 0.7
+max_range: 100.0
+double_downsample: true
+
+degeneracy_aware_solve: true
+degeneracy_well_conditioned_ratio: 1.0e-6
+degeneracy_multiplicity_relative_gap: 1.0e-8
+degeneracy_prior_weight: 0.25
+degeneracy_persistence_gate: true
+degeneracy_persistence_min_scans: 3
+degeneracy_persistence_tracking_ratio: 1.5e-5
+degeneracy_persistence_min_absolute_cosine: 0.98
+degeneracy_persistence_min_translation_fraction: 0.99

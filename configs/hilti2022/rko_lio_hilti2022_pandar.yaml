@@ -17,3 +17,8 @@ voxel_size: 0.25
 min_range: 0.7
 max_range: 100.0
 double_downsample: true
+# Competition scope is SLAM-only. Keep all saved/global-map recovery paths
+# explicitly disabled rather than relying on upstream defaults.
+enable_kidnap_relocalization: false
+reset_on_registration_failure: false
+relocalize_after_scan_gap: false

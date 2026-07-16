@@ -183,6 +183,13 @@ if(BUILD_TESTING)
     target_include_directories(test_loop_edge_robustifier PRIVATE include)
   endif()
   ament_add_gtest(
+    test_loop_search_schedule
+    test/test_loop_search_schedule.cpp
+  )
+  if(TARGET test_loop_search_schedule)
+    target_include_directories(test_loop_search_schedule PRIVATE include)
+  endif()
+  ament_add_gtest(
     test_triangle_descriptor
     test/test_triangle_descriptor.cpp
   )
@@ -320,6 +327,56 @@ if(BUILD_TESTING)
     )
   endif()
   ament_add_gtest(
+    test_persistent_weak_direction
+    test/test_persistent_weak_direction.cpp
+  )
+  if(TARGET test_persistent_weak_direction)
+    target_include_directories(
+      test_persistent_weak_direction PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_rko_multiscan_observability
+    test/test_rko_multiscan_observability.cpp
+  )
+  if(TARGET test_rko_multiscan_observability)
+    target_include_directories(
+      test_rko_multiscan_observability PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_selective_visual_fusion
+    test/test_selective_visual_fusion.cpp
+  )
+  if(TARGET test_selective_visual_fusion)
+    target_include_directories(
+      test_selective_visual_fusion PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_radar_ego_velocity
+    test/test_radar_ego_velocity.cpp
+  )
+  if(TARGET test_radar_ego_velocity)
+    target_include_directories(
+      test_radar_ego_velocity PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    )
+    # radar_ego_velocity.hpp uses std::optional; this package otherwise defaults to C++14.
+    target_compile_features(test_radar_ego_velocity PRIVATE cxx_std_17)
+  endif()
+  ament_add_gtest(
+    test_intensity_profile
+    test/test_intensity_profile.cpp
+  )
+  if(TARGET test_intensity_profile)
+    target_include_directories(
+      test_intensity_profile PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    )
+    # intensity_profile.hpp uses std::clamp/structured bindings; this package otherwise
+    # defaults to C++14 (see test_radar_ego_velocity above).
+    target_compile_features(test_intensity_profile PRIVATE cxx_std_17)
+  endif()
+  ament_add_gtest(
     test_odometry_covariance_localizability
     test/test_odometry_covariance_localizability.cpp
   )
@@ -407,9 +464,103 @@ if(BUILD_TESTING)
       test_dynamic_object_filter PRIVATE include ${EIGEN3_INCLUDE_DIR}
     )
   endif()
+  ament_add_gtest(
+    test_planar_map_filter
+    test/test_planar_map_filter.cpp
+  )
+  if(TARGET test_planar_map_filter)
+    target_include_directories(
+      test_planar_map_filter PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
   ament_add_pytest_test(
     test_autoware_map_tools
     test/test_autoware_map_tools.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_map_bundle_verifier
+    test/test_map_bundle_verifier.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_competitive_slam_profile
+    test/test_competitive_slam_profile.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_competitive_candidate_provenance
+    test/test_competitive_candidate_provenance.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_fast_livo2_benchmark_runner
+    test/test_fast_livo2_benchmark_runner.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_glim_benchmark_runner
+    test/test_glim_benchmark_runner.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_convert_ply_xyz_to_pcd
+    test/test_convert_ply_xyz_to_pcd.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_freeze_hilti2022_holdout_inputs
+    test/test_freeze_hilti2022_holdout_inputs.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_compare_rosbag_semantic_inputs
+    test/test_compare_rosbag_semantic_inputs.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_validate_fast_livo2_processing_rtf
+    test/test_validate_fast_livo2_processing_rtf.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_compare_checkpoint_trajectory_errors
+    test/test_compare_checkpoint_trajectory_errors.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_summarize_repeated_map_quality
+    test/test_summarize_repeated_map_quality.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_summarize_repeated_visual_quality
+    test/test_summarize_repeated_visual_quality.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_repose_posed_images
+    test/test_repose_posed_images.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_extract_selective_visual_constraints
+    test/test_extract_selective_visual_constraints.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_evaluate_competitive_sequence_gate
+    test/test_evaluate_competitive_sequence_gate.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_compose_competitive_result
+    test/test_compose_competitive_result.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_evaluate_competitive_suite_gate
+    test/test_evaluate_competitive_suite_gate.py
     TIMEOUT 120
   )
   ament_add_pytest_test(
@@ -875,11 +1026,23 @@ add_executable(map_quality_report
   src/map_quality_report_main.cpp
 )
 
+add_executable(planar_map_filter
+  src/planar_map_filter_main.cpp
+)
+
 target_include_directories(map_quality_report PRIVATE include ${EIGEN3_INCLUDE_DIR})
 
 target_compile_features(map_quality_report PRIVATE cxx_std_17)
 
 target_link_libraries(map_quality_report
+  ${PCL_LIBRARIES}
+)
+
+target_include_directories(planar_map_filter PRIVATE include ${EIGEN3_INCLUDE_DIR})
+
+target_compile_features(planar_map_filter PRIVATE cxx_std_17)
+
+target_link_libraries(planar_map_filter
   ${PCL_LIBRARIES}
 )
 
@@ -953,6 +1116,7 @@ install(TARGETS
   graph_based_slam_node
   graph_slam_offline_runner
   map_quality_report
+  planar_map_filter
   DESTINATION lib/${PROJECT_NAME}
 )
 

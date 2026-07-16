@@ -81,7 +81,8 @@ def test_quiet_completion_requires_substantial_bag_progress():
     """Require both near-end and minimum-progress quiet-completion guards."""
     script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
 
-    assert 'raw_tum_reached "$end_stamp" 120.0' in script
+    assert 'COMPLETION_END_MARGIN_SECS=120' in script
+    assert 'raw_tum_reached "$end_stamp" "$COMPLETION_END_MARGIN_SECS"' in script
     assert 'raw_tum_reached_fraction 0.8' in script
     assert '[[ -n "$end_stamp" ]]' in script
 

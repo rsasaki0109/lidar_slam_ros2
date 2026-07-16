@@ -44,7 +44,9 @@
 #include "graph_based_slam/gnss_alignment.hpp"
 #include "graph_based_slam/gnss_geometry.hpp"
 #include "graph_based_slam/loop_verifier.hpp"
+#include "graph_based_slam/loop_search_schedule.hpp"
 #include "graph_based_slam/map_saver.hpp"
+#include "graph_based_slam/planar_map_filter.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/submap_creation.hpp"
 #include "g2o/core/robust_kernel_impl.h"
@@ -88,6 +90,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("range_of_searching_loop_closure", range_of_searching_loop_closure_);
   declare_parameter("search_submap_num", 3);
   get_parameter("search_submap_num", search_submap_num_);
+  declare_parameter("loop_search_query_stride", 1);
+  get_parameter("loop_search_query_stride", loop_search_query_stride_);
   declare_parameter("max_loop_candidate_count", 3);
   get_parameter("max_loop_candidate_count", max_loop_candidate_count_);
   declare_parameter("loop_edge_dedup_index_window", 8);
@@ -363,6 +367,22 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter(
     "dynamic_object_filter_max_range_from_sensor_m",
     dynamic_object_filter_max_range_from_sensor_m_);
+  declare_parameter("use_planar_map_filter", false);
+  get_parameter("use_planar_map_filter", use_planar_map_filter_);
+  declare_parameter("planar_map_filter_voxel_size", 0.1);
+  get_parameter("planar_map_filter_voxel_size", planar_map_filter_voxel_size_);
+  declare_parameter("planar_map_filter_min_neighbors", 3);
+  get_parameter("planar_map_filter_min_neighbors", planar_map_filter_min_neighbors_);
+  declare_parameter("planar_map_filter_max_small_eigenvalue_ratio", 0.24);
+  get_parameter(
+    "planar_map_filter_max_small_eigenvalue_ratio",
+    planar_map_filter_max_small_eigenvalue_ratio_);
+  declare_parameter("planar_map_filter_min_middle_eigenvalue_ratio", 0.0);
+  get_parameter(
+    "planar_map_filter_min_middle_eigenvalue_ratio",
+    planar_map_filter_min_middle_eigenvalue_ratio_);
+  declare_parameter("planar_map_filter_min_retained_ratio", 0.90);
+  get_parameter("planar_map_filter_min_retained_ratio", planar_map_filter_min_retained_ratio_);
   declare_parameter("map_save_dir", std::string("."));
   get_parameter("map_save_dir", map_save_dir_);
   // The launch files have always passed this; until v0.6 Phase 1 it was
@@ -481,6 +501,13 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       "search_submap_num must be >= 1, clamping %d to 1",
       search_submap_num_);
     search_submap_num_ = 1;
+  }
+  if (loop_search_query_stride_ < 1) {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_search_query_stride must be >= 1, clamping %d to 1",
+      loop_search_query_stride_);
+    loop_search_query_stride_ = 1;
   }
   if (max_loop_candidate_count_ < 1) {
     RCLCPP_WARN(
@@ -893,6 +920,26 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       dynamic_object_filter_max_range_from_sensor_m_);
     dynamic_object_filter_max_range_from_sensor_m_ = 30.0;
   }
+  if (planar_map_filter_voxel_size_ <= 0.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "planar_map_filter_voxel_size must be positive, resetting %.3f to 0.1",
+      planar_map_filter_voxel_size_);
+    planar_map_filter_voxel_size_ = 0.1;
+  }
+  if (planar_map_filter_min_neighbors_ < 3) {
+    RCLCPP_WARN(
+      get_logger(),
+      "planar_map_filter_min_neighbors must be >= 3, clamping %d to 3",
+      planar_map_filter_min_neighbors_);
+    planar_map_filter_min_neighbors_ = 3;
+  }
+  planar_map_filter_max_small_eigenvalue_ratio_ = std::max(
+    0.0, std::min(1.0, planar_map_filter_max_small_eigenvalue_ratio_));
+  planar_map_filter_min_middle_eigenvalue_ratio_ = std::max(
+    0.0, std::min(1.0, planar_map_filter_min_middle_eigenvalue_ratio_));
+  planar_map_filter_min_retained_ratio_ = std::max(
+    0.0, std::min(1.0, planar_map_filter_min_retained_ratio_));
   std::cout << "registration_method:" << registration_method << std::endl;
   std::cout << "voxel_leaf_size[m]:" << voxel_leaf_size << std::endl;
   std::cout << "ndt_resolution[m]:" << ndt_resolution << std::endl;
@@ -904,6 +951,7 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "range_of_searching_loop_closure[m]:" << range_of_searching_loop_closure_ <<
     std::endl;
   std::cout << "search_submap_num:" << search_submap_num_ << std::endl;
+  std::cout << "loop_search_query_stride:" << loop_search_query_stride_ << std::endl;
   std::cout << "max_loop_candidate_count:" << max_loop_candidate_count_ << std::endl;
   std::cout << "loop_edge_dedup_index_window:" << loop_edge_dedup_index_window_ << std::endl;
   std::cout << "loop_max_translation_delta[m]:" << loop_max_translation_delta_ << std::endl;
@@ -1082,6 +1130,18 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       dynamic_object_filter_temporal_window_ << std::endl;
     std::cout << "dynamic_object_filter_max_range_from_sensor_m:" <<
       dynamic_object_filter_max_range_from_sensor_m_ << std::endl;
+  }
+  std::cout << "use_planar_map_filter:" << std::boolalpha << use_planar_map_filter_ << std::endl;
+  if (use_planar_map_filter_) {
+    std::cout << "planar_map_filter_voxel_size:" << planar_map_filter_voxel_size_ << std::endl;
+    std::cout << "planar_map_filter_min_neighbors:" << planar_map_filter_min_neighbors_ <<
+      std::endl;
+    std::cout << "planar_map_filter_max_small_eigenvalue_ratio:" <<
+      planar_map_filter_max_small_eigenvalue_ratio_ << std::endl;
+    std::cout << "planar_map_filter_min_middle_eigenvalue_ratio:" <<
+      planar_map_filter_min_middle_eigenvalue_ratio_ << std::endl;
+    std::cout << "planar_map_filter_min_retained_ratio:" <<
+      planar_map_filter_min_retained_ratio_ << std::endl;
   }
   declare_parameter("use_odom_input", false);
   get_parameter("use_odom_input", use_odom_input_);
@@ -1397,7 +1457,13 @@ void GraphBasedSlamComponent::runEventDrivenLoopSearch()
     map_array_msg.submaps.resize(query_idx + 1);
     const auto build_filtered_local_submap = makeFilteredLocalSubmapProvider(map_array_msg);
     backend_core_.ingestDescriptors(query_idx + 1, build_filtered_local_submap);
-    searchLoopForLatest(map_array_msg, loop_edges, query_idx + 1, query_idx);
+    if (loop_search_schedule::shouldSearch(query_idx, loop_search_query_stride_)) {
+      searchLoopForLatest(map_array_msg, loop_edges, query_idx + 1, query_idx);
+    } else if (debug_flag_) {
+      RCLCPP_INFO(
+        get_logger(), "loop search registration skipped for query submap %d by stride %d",
+        query_idx, loop_search_query_stride_);
+    }
     last_searched_submap_idx_ = query_idx;
   }
 }
@@ -1709,10 +1775,31 @@ void GraphBasedSlamComponent::doPoseAdjustment(
       pose_graph::Chi2Collection::SPLIT : pose_graph::Chi2Collection::UNIFIED;
   }
 
+  std::string pose_graph_save_path = save_pose_graph_path_;
+  const std::string bundle_pose_graph_path = map_save_dir_ + "/pose_graph.g2o";
+  if (do_save_map) {
+    std::filesystem::create_directories(map_save_dir_);
+    pose_graph_save_path = bundle_pose_graph_path;
+  }
   const pose_graph::OptimizationResult opt_result = pose_graph::optimizePoseGraph(
     submap_nodes, loop_constraints, imu_constraints, gnss_constraints,
     adjacent_cfg, loop_cfg, imu_cfg, chi2_collection,
-    fix_first_vertex, /*iterations=*/ 10, save_pose_graph_path_);
+    fix_first_vertex, /*iterations=*/ 10, pose_graph_save_path);
+
+  if (do_save_map && !save_pose_graph_path_.empty() &&
+    std::filesystem::path(save_pose_graph_path_).lexically_normal() !=
+    std::filesystem::path(bundle_pose_graph_path).lexically_normal())
+  {
+    std::error_code copy_error;
+    std::filesystem::copy_file(
+      bundle_pose_graph_path, save_pose_graph_path_,
+      std::filesystem::copy_options::overwrite_existing, copy_error);
+    if (copy_error) {
+      RCLCPP_WARN(
+        get_logger(), "failed to copy pose graph to configured path %s: %s",
+        save_pose_graph_path_.c_str(), copy_error.message().c_str());
+    }
+  }
 
   if (adjacent_edge_info_auto_scale_ && submaps_size > 1) {
     graphslam::detail::AutoScaleConfig cfg;
@@ -1851,6 +1938,7 @@ void GraphBasedSlamComponent::doPoseAdjustment(
         filter_result.stats.output_points);
     }
     saveGridDividedMap(map_to_save);
+    writeMapBundleArtifacts(map_array_msg, loop_edges, opt_result.poses);
     writeDegeneracyReport();
   }
 }
@@ -2168,6 +2256,88 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::loadSubmapFromPCD(
   return cloud;
 }
 
+void GraphBasedSlamComponent::writeMapBundleArtifacts(
+  const lidarslam_msgs::msg::MapArray & map_array_msg,
+  const LoopEdges & loop_edges,
+  const std::vector<Eigen::Isometry3d> & optimized_poses)
+{
+  std::filesystem::create_directories(map_save_dir_);
+
+  const std::string trajectory_path = map_save_dir_ + "/trajectory_optimized.tum";
+  std::ofstream trajectory(trajectory_path);
+  if (!trajectory.is_open()) {
+    RCLCPP_WARN(get_logger(), "failed to write optimized trajectory: %s", trajectory_path.c_str());
+  } else {
+    const std::size_t count = std::min(map_array_msg.submaps.size(), optimized_poses.size());
+    for (std::size_t i = 0; i < count; ++i) {
+      const Eigen::Vector3d t = optimized_poses[i].translation();
+      const Eigen::Quaterniond q(optimized_poses[i].rotation());
+      map_saver::TrajectoryPose record;
+      record.timestamp = rclcpp::Time(map_array_msg.submaps[i].header.stamp).seconds();
+      record.tx = t.x();
+      record.ty = t.y();
+      record.tz = t.z();
+      record.qx = q.x();
+      record.qy = q.y();
+      record.qz = q.z();
+      record.qw = q.w();
+      trajectory << map_saver::trajectoryTumLine(record) << "\n";
+    }
+  }
+
+  const std::string loop_edges_path = map_save_dir_ + "/loop_edges.csv";
+  std::ofstream loop_csv(loop_edges_path);
+  if (!loop_csv.is_open()) {
+    RCLCPP_WARN(get_logger(), "failed to write loop edges: %s", loop_edges_path.c_str());
+  } else {
+    loop_csv << map_saver::loopEdgesCsvHeader() << "\n";
+    for (const auto & edge : loop_edges) {
+      const Eigen::Vector3d t = edge.relative_pose.translation();
+      const Eigen::Quaterniond q(edge.relative_pose.rotation());
+      map_saver::LoopEdgeRecord record;
+      record.from = edge.pair_id.first;
+      record.to = edge.pair_id.second;
+      record.fitness = edge.fitness_score;
+      record.tx = t.x();
+      record.ty = t.y();
+      record.tz = t.z();
+      record.qx = q.x();
+      record.qy = q.y();
+      record.qz = q.z();
+      record.qw = q.w();
+      loop_csv << map_saver::loopEdgeCsvLine(record) << "\n";
+    }
+  }
+
+  map_saver::BundleManifest manifest;
+  manifest.frame_id = map_array_msg.header.frame_id.empty() ? "map" : map_array_msg.header.frame_id;
+  manifest.submap_count = optimized_poses.size();
+  manifest.loop_edge_count = loop_edges.size();
+  manifest.map_leaf_size = map_leaf_size_;
+  manifest.grid_size_x = map_grid_size_x_;
+  manifest.grid_size_y = map_grid_size_y_;
+  manifest.dynamic_object_filter = use_dynamic_object_filter_;
+  manifest.planar_map_filter = use_planar_map_filter_;
+  manifest.planar_map_filter_voxel_size = planar_map_filter_voxel_size_;
+  manifest.planar_map_filter_min_neighbors = planar_map_filter_min_neighbors_;
+  manifest.planar_map_filter_max_small_eigenvalue_ratio =
+    planar_map_filter_max_small_eigenvalue_ratio_;
+  manifest.planar_map_filter_min_middle_eigenvalue_ratio =
+    planar_map_filter_min_middle_eigenvalue_ratio_;
+  manifest.planar_map_filter_min_retained_ratio = planar_map_filter_min_retained_ratio_;
+  const std::string manifest_path = map_save_dir_ + "/map_bundle.yaml";
+  std::ofstream manifest_file(manifest_path);
+  if (!manifest_file.is_open()) {
+    RCLCPP_WARN(get_logger(), "failed to write map bundle manifest: %s", manifest_path.c_str());
+  } else {
+    manifest_file << map_saver::bundleManifestYaml(manifest);
+  }
+
+  RCLCPP_INFO(
+    get_logger(), "Map bundle artifacts: trajectory=%s loops=%s manifest=%s",
+    trajectory_path.c_str(), loop_edges_path.c_str(), manifest_path.c_str());
+}
+
 void GraphBasedSlamComponent::saveGridDividedMap(
   const pcl::PointCloud<pcl::PointXYZI>::Ptr & map)
 {
@@ -2196,6 +2366,34 @@ void GraphBasedSlamComponent::saveGridDividedMap(
 
   std::cout << map_saver::downsampleLogLine(map->size(), downsampled->size(), map_leaf_size_)
             << std::endl;
+
+  // Apply map-quality refinement to the same leaf-sized point set that is
+  // exported and evaluated. Filtering before this VoxelGrid changes local
+  // covariance according to raw submap sampling density and does not match
+  // the saved-map contract.
+  if (use_planar_map_filter_) {
+    PlanarMapFilterConfig filter_config;
+    filter_config.voxel_size = planar_map_filter_voxel_size_;
+    filter_config.min_neighbors = planar_map_filter_min_neighbors_;
+    filter_config.max_small_eigenvalue_ratio =
+      planar_map_filter_max_small_eigenvalue_ratio_;
+    filter_config.min_middle_eigenvalue_ratio =
+      planar_map_filter_min_middle_eigenvalue_ratio_;
+    filter_config.min_retained_ratio = planar_map_filter_min_retained_ratio_;
+    const auto filter_result = buildPlanarMapFilteredMap(downsampled, filter_config);
+    downsampled = filter_result.cloud;
+    RCLCPP_INFO(
+      get_logger(),
+      "Planar map filter: input_points %zu, finite %zu, planar_voxels %zu/%zu, "
+      "supported_points %zu, output_points %zu, fallback %s",
+      filter_result.stats.input_points,
+      filter_result.stats.finite_points,
+      filter_result.stats.planar_voxels,
+      filter_result.stats.voxel_count,
+      filter_result.stats.supported_points,
+      filter_result.stats.output_points,
+      filter_result.stats.fallback_to_input ? "true" : "false");
+  }
 
   // Compute bounding box and grid-aligned bounds (semantics pinned by
   // test_map_saver.cpp)

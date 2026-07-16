@@ -192,5 +192,76 @@ TEST(MapSaverSubmapCache, PathAppendsIndexedFilename)
   EXPECT_EQ(map_saver::submapCachePath("/cache", 42), "/cache/submap_42.pcd");
 }
 
+TEST(MapSaverBundle, TrajectoryUsesOfflineRunnerTumPrecision)
+{
+  map_saver::TrajectoryPose pose;
+  pose.timestamp = 1.25;
+  pose.tx = 2.0;
+  pose.ty = -3.5;
+  pose.tz = 0.125;
+  pose.qz = 0.5;
+  pose.qw = 0.866025403784;
+  EXPECT_EQ(
+    map_saver::trajectoryTumLine(pose),
+    "1.250000000 2.000000000 -3.500000000 0.125000000 0.000000000 "
+    "0.000000000 0.500000000 0.866025404");
+}
+
+TEST(MapSaverBundle, LoopEdgeMatchesOfflineCsvContract)
+{
+  map_saver::LoopEdgeRecord edge;
+  edge.from = 6;
+  edge.to = 604;
+  edge.fitness = 0.47313574856385182;
+  edge.tx = 1.5;
+  edge.qw = 1.0;
+  EXPECT_EQ(
+    map_saver::loopEdgesCsvHeader(),
+    "from,to,fitness,tx,ty,tz,qx,qy,qz,qw");
+  EXPECT_EQ(
+    map_saver::loopEdgeCsvLine(edge),
+    "6,604,0.47313574856385182,1.5,0,0,0,0,0,1");
+}
+
+TEST(MapSaverBundle, ManifestNamesEveryRequiredArtifactDeterministically)
+{
+  map_saver::BundleManifest manifest;
+  manifest.submap_count = 42;
+  manifest.loop_edge_count = 3;
+  manifest.map_leaf_size = 0.2;
+  manifest.grid_size_x = 20.0;
+  manifest.grid_size_y = 10.0;
+  manifest.dynamic_object_filter = true;
+  manifest.planar_map_filter = true;
+  manifest.planar_map_filter_voxel_size = 0.1;
+  manifest.planar_map_filter_min_neighbors = 3;
+  manifest.planar_map_filter_max_small_eigenvalue_ratio = 0.24;
+  manifest.planar_map_filter_min_middle_eigenvalue_ratio = 0.0;
+  manifest.planar_map_filter_min_retained_ratio = 0.9;
+  EXPECT_EQ(
+    map_saver::bundleManifestYaml(manifest),
+    "format_version: 1\n"
+    "frame_id: map\n"
+    "submap_count: 42\n"
+    "loop_edge_count: 3\n"
+    "map_leaf_size_m: 0.20000000000000001\n"
+    "grid_size_x_m: 20\n"
+    "grid_size_y_m: 10\n"
+    "dynamic_object_filter: true\n"
+    "planar_map_filter: true\n"
+    "planar_map_filter_voxel_size_m: 0.10000000000000001\n"
+    "planar_map_filter_min_neighbors: 3\n"
+    "planar_map_filter_max_small_eigenvalue_ratio: 0.23999999999999999\n"
+    "planar_map_filter_min_middle_eigenvalue_ratio: 0\n"
+    "planar_map_filter_min_retained_ratio: 0.90000000000000002\n"
+    "artifacts:\n"
+    "  full_map: map.pcd\n"
+    "  pointcloud_map: pointcloud_map\n"
+    "  trajectory: trajectory_optimized.tum\n"
+    "  pose_graph: pose_graph.g2o\n"
+    "  loop_edges: loop_edges.csv\n"
+    "  projector_info: map_projector_info.yaml\n");
+}
+
 }  // namespace
 }  // namespace graphslam

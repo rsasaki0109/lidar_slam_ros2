@@ -1,0 +1,187 @@
+competitive_slam_profile:
+  schema_version: 1
+  name: competitive_slam_v1
+  frozen_on: '2026-07-15'
+  holdout_selection_preregistration_sha256: 4853d37197eab76c77952aa38fb38a374016ee00c4cd4403f70b36f59dc5db23
+  repetitions: 3
+  excluded_capabilities:
+    - saved_map_loading
+    - localization_mode
+    - relocalization
+  execution_contract:
+    same_bag_bytes: true
+    same_sensor_messages: true
+    same_bag_bytes_scope: identical_within_each_ros_representation_and_all_repetitions
+    cross_ros_representation_policy: canonical_deserialized_message_digest
+    require_cross_ros_topic_counts_equal: true
+    require_cross_ros_record_timestamps_equal: true
+    require_cross_ros_all_sensor_fields_equal: true
+    ignored_cross_ros_transport_fields: [std_msgs/Header.seq]
+    same_calibration: true
+    same_machine: true
+    same_alignment_policy: true
+    hash_all_inputs: true
+    report_failed_runs: true
+    unknown_metrics_must_be_omitted: true
+  runtime_policy:
+    playback_rate: 1.0
+    fast_livo2_processing_probe_rate: 1.25
+    fast_livo2_processing_probe_fixed_drain_seconds: 5.0
+    fast_livo2_processing_probe_max_ape_drift_percent: 1.0
+    fast_livo2_processing_probe_repetitions: 3
+    gate_metric: runtime.processing_realtime_factor
+    gate_definition: processing_wall_time_divided_by_sensor_duration
+    exclude_runner_startup_shutdown: true
+    replay_wall_realtime_factor_is_diagnostic_only: true
+    maximum_trajectory_end_gap_seconds: 0.25
+  repetition_aggregation:
+    trajectory_accuracy: median
+    processing_realtime_factor: median
+    peak_rss: maximum
+    completion_and_failures: worst_case
+    mapping_quality: worst_case
+  rivals:
+    glim:
+      repository: https://github.com/koide3/glim.git
+      revision: faa264a1bce1bda406f73457e35511f56cdc2eaa
+      revision_kind: tag_v1.2.2
+      annotated_tag_object: 2044c47825cff7b508e5ea96c1d295e023b0e36c
+      ros2_repository: https://github.com/koide3/glim_ros2.git
+      ros2_revision: 4a9e7a4cb084967c8525a1be529ad3ba2a118ae7
+      license: MIT
+    fast_livo2:
+      repository: https://github.com/hku-mars/FAST-LIVO2.git
+      revision: 0d2c0346107b75b59934975adec9a6eeeb913c64
+      revision_kind: main
+      license: GPL-2.0
+  tracks:
+    glim_cpu_lidar_imu:
+      rival: glim
+      required_modalities: [lidar, imu]
+      accelerator: cpu
+    glim_gpu_lidar_imu:
+      rival: glim
+      required_modalities: [lidar, imu]
+      accelerator: cuda
+      enabled_when: nvidia_gpu_available
+    fast_livo2_lidar_imu_visual:
+      rival: fast_livo2
+      required_modalities: [lidar, imu, monocular_camera]
+      accelerator: cpu
+  win_policy:
+    minimum_assigned_holdouts: 3
+    minimum_holdout_wins: 3
+    minimum_primary_improvement_percent: 3.0
+    maximum_primary_regression_percent: 2.0
+    maximum_mapping_regression_percent: 2.0
+    maximum_visual_colour_regression_percent: 2.0
+    tie_relative_tolerance: 0.01
+    maximum_realtime_factor: 1.0
+    maximum_peak_rss_ratio_to_rival: 1.20
+    require_zero_incomplete_trajectories: true
+    require_zero_catastrophic_failures: true
+    require_zero_verified_false_loops: true
+    require_geometry_non_regression: true
+  required_metrics:
+    common:
+      - trajectory.ape_rmse_m
+      - runtime.processing_realtime_factor
+      - runtime.peak_rss_mb
+      - completion.trajectory_complete
+      - completion.process_exit_status
+    orientation_ground_truth_only:
+      - trajectory.rpe_translation_rmse_m
+      - trajectory.rpe_rotation_rmse_deg
+    mapping:
+      - geometry.plane_thickness_mean_m
+      - geometry.plane_thickness_p95_m
+      - geometry.planar_coverage
+      - loop_closure.accepted_edges
+      - loop_closure.verified_false_edges
+    visual_track:
+      - colour.heldout_rgb_l2_median
+      - colour.heldout_rgb_inlier_20
+  datasets:
+    bringup:
+      rtkslam_construction_seq2:
+        modalities: [lidar, imu, monocular_camera]
+        reference: sparse_total_station_position
+        tuning_allowed: false
+        reason: previously used for loop and overlap-gate development
+    development:
+      hilti_exp01:
+        modalities: [lidar, imu, monocular_camera]
+        reference: sparse_total_station_position
+        tuning_allowed: true
+    regression_only:
+      hilti_exp04:
+        modalities: [lidar, imu, monocular_camera]
+        reference: sparse_total_station_position
+      hilti_exp07:
+        modalities: [lidar, imu, monocular_camera]
+        reference: sparse_total_station_position
+      mid360_public:
+        modalities: [lidar, imu]
+        reference: cross_validation_only
+        forbidden_claims: [absolute_trajectory_accuracy]
+    holdout_slots:
+      holdout_1:
+        status: frozen
+        dataset: NTU-VIRAL
+        sequence: rtp_01
+        environment: outdoor_carpark
+        selection_reason: preregistered_unobserved_outdoor_carpark
+        official_datafile_id: 98194
+        archive_url: https://researchdata.ntu.edu.sg/api/access/datafile/98194
+        archive_expected_bytes: 5317633190
+        archive_expected_md5: 7b2c995f57f9524e0840d809653e1134
+        ground_truth_sha256: 3ddd4d98bec370b9646b7beef14463916117f8ea9bafe8ebec28fb7f2e9b0933
+        ground_truth_repository_revision: a55d18c1d901bf7c9cfe3d43b7ddf767ab1d3544
+        required_modalities: [lidar, imu, monocular_camera]
+        raw_rosbag1_sha256: 38553a2d8707ed7beccbd7c85d3252d63adc195f74607355ad27b590c46ea9b8
+        canonical_rosbag2_tree_sha256: b332dadc9e51b0672f97d6e9d766925e95c750fad55cda9b137d3d981eaff954
+        input_manifest_sha256: 0d630f2c0bc7b62087573957cc3a5eff1bcd6ba4475d8b33ac5a04ab31992424
+        semantic_equivalence_sha256: 51397c52ebbc8d9290c529de736f2356580ce8c64b62fe30eb6cf723e9099b0b
+      holdout_2:
+        status: frozen
+        dataset: NTU-VIRAL
+        sequence: tnp_02
+        environment: indoor_research_techno_plaza
+        selection_reason: preregistered_unobserved_indoor_plaza
+        official_datafile_id: 98196
+        archive_url: https://researchdata.ntu.edu.sg/api/access/datafile/98196
+        archive_expected_bytes: 6661876134
+        archive_expected_md5: d247dab93fba8060ff105cd2d85084ad
+        ground_truth_sha256: 8f9d31951aae09c5a101cd8a201b9734996f43dc9483e0cc604e59d671709d07
+        ground_truth_repository_revision: a55d18c1d901bf7c9cfe3d43b7ddf767ab1d3544
+        required_modalities: [lidar, imu, monocular_camera]
+        raw_rosbag1_sha256: 3af768a9c47d85c6bf9f062a0246f7b7832b5eb0cb1618051eac93b0617f542a
+        canonical_rosbag2_tree_sha256: 8e8d2046afcf81c44a3272e5a560991fd587ac3051a7b54a5f2eb18250ec12e0
+        input_manifest_sha256: a4671397e9bbb82e096b6537d6e90a20747e29333c9134a443e128ba24060e51
+        semantic_equivalence_sha256: 98df707a2cfe37a25e467ac8e80bc0b473070300f41befd317542128594ec8c2
+      holdout_3:
+        status: frozen
+        dataset: NTU-VIRAL
+        sequence: spms_01
+        environment: outdoor_facade
+        selection_reason: preregistered_unobserved_outdoor_facade
+        official_datafile_id: 98192
+        archive_url: https://researchdata.ntu.edu.sg/api/access/datafile/98192
+        archive_expected_bytes: 5856439436
+        archive_expected_md5: 06d2cc4ee9503ed0a725b2354fdf7e0b
+        ground_truth_sha256: 59f086bb880c1ee0ddec00fc4fae7a4385649cad25244d7eff80dd5519e21abd
+        ground_truth_repository_revision: a55d18c1d901bf7c9cfe3d43b7ddf767ab1d3544
+        required_modalities: [lidar, imu, monocular_camera]
+        raw_rosbag1_sha256: 7600f8acfc0d7855f8b0c8d8f25c68e152244955804208ecf4e06d478aa2bd9d
+        canonical_rosbag2_tree_sha256: 107980ff0a1992570cc87e46bca824324478c92358838a2fe0c3130d602a5195
+        input_manifest_sha256: da53a0e655557acbbf6b710e70a4184a842566ab040bacd9d8d6d05ae41529d5
+        semantic_equivalence_sha256: 9fad1516adde86f798af7f4f663fff70a6547ed4f07c9ea9759d1aedbf415f6f
+  phase_gates:
+    before_algorithm_tuning:
+      require_all_holdout_slots_assigned: true
+      require_all_holdout_inputs_frozen: true
+      require_official_rival_baselines_complete: true
+    before_victory_claim:
+      require_holdout_inputs_still_hash_identical: true
+      require_three_repetitions_per_system: true
+      require_all_win_policy_checks: true

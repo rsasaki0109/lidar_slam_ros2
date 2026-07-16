@@ -1,0 +1,13 @@
+<launch>
+  <!-- Official HILTI22 configuration with map export enabled only for the
+       separate geometry/colour evidence run. Runtime repetitions continue to
+       use the upstream launch file unchanged. -->
+  <rosparam command="load" file="$(find fast_livo)/config/HILTI22.yaml" />
+  <param name="pcd_save/pcd_save_en" value="true" />
+  <param name="pcd_save/type" value="0" />
+  <param name="pcd_save/interval" value="-1" />
+  <param name="pcd_save/colmap_output_en" value="false" />
+  <node pkg="fast_livo" type="fastlivo_mapping" name="laserMapping" output="screen">
+    <rosparam file="$(find fast_livo)/config/camera_fisheye_HILTI22.yaml" />
+  </node>
+</launch>
