@@ -53,11 +53,11 @@ using rko_lio::core::unit_axis_from_step;
 double texture(const double s)
 {
   auto bump = [s](const double center, const double amplitude, const double width) {
-    const double d = (s - center) / width;
-    return amplitude * std::exp(-0.5 * d * d);
-  };
+      const double d = (s - center) / width;
+      return amplitude * std::exp(-0.5 * d * d);
+    };
   return bump(-18.0, 3.0, 1.2) + bump(-7.0, 1.5, 0.8) + bump(3.5, 2.5, 1.5) + bump(14.0, 2.0, 1.0) +
-    bump(21.0, 1.0, 0.6);
+         bump(21.0, 1.0, 0.6);
 }
 
 // Dense samples of `texture` along the x axis so every 0.25 m bin fills.
@@ -95,8 +95,10 @@ TEST(IntensityProfile, RecoversKnownShiftWithinTolerance)
 
   const Eigen::Vector3d axis(1.0, 0.0, 0.0);
   const Eigen::Vector3d origin = Eigen::Vector3d::Zero();
-  const IntensityProfile profile_a = build_intensity_profile(points_a, intensities_a, axis, origin, config);
-  const IntensityProfile profile_b = build_intensity_profile(points_b, intensities_b, axis, origin, config);
+  const IntensityProfile profile_a = build_intensity_profile(points_a, intensities_a, axis, origin,
+    config);
+  const IntensityProfile profile_b = build_intensity_profile(points_b, intensities_b, axis, origin,
+    config);
   ASSERT_TRUE(profile_a.valid);
   ASSERT_TRUE(profile_b.valid);
 
@@ -119,8 +121,10 @@ TEST(IntensityProfile, RecoversPositiveShift)
 
   const Eigen::Vector3d axis(1.0, 0.0, 0.0);
   const Eigen::Vector3d origin = Eigen::Vector3d::Zero();
-  const IntensityProfile profile_a = build_intensity_profile(points_a, intensities_a, axis, origin, config);
-  const IntensityProfile profile_b = build_intensity_profile(points_b, intensities_b, axis, origin, config);
+  const IntensityProfile profile_a = build_intensity_profile(points_a, intensities_a, axis, origin,
+    config);
+  const IntensityProfile profile_b = build_intensity_profile(points_b, intensities_b, axis, origin,
+    config);
   ASSERT_TRUE(profile_a.valid);
   ASSERT_TRUE(profile_b.valid);
 
@@ -150,11 +154,13 @@ TEST(IntensityProfile, LowCorrelationIsRejected)
     points_a.emplace_back(s, 0.0, 0.0);
     intensities_a.push_back(noise(rng));
     points_b.emplace_back(s, 0.0, 0.0);
-    intensities_b.push_back(noise(rng)); // independent noise: uncorrelated with a
+    intensities_b.push_back(noise(rng));  // independent noise: uncorrelated with a
   }
 
-  const IntensityProfile profile_a = build_intensity_profile(points_a, intensities_a, axis, origin, config);
-  const IntensityProfile profile_b = build_intensity_profile(points_b, intensities_b, axis, origin, config);
+  const IntensityProfile profile_a = build_intensity_profile(points_a, intensities_a, axis, origin,
+    config);
+  const IntensityProfile profile_b = build_intensity_profile(points_b, intensities_b, axis, origin,
+    config);
   ASSERT_TRUE(profile_a.valid);
   ASSERT_TRUE(profile_b.valid);
 
@@ -176,7 +182,8 @@ TEST(IntensityProfile, UnderfilledScanIsRejected)
     {-1.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {2.0, 0.0, 0.0}};
   std::vector<float> intensities = {10.0F, 20.0F, 30.0F, 40.0F};
 
-  const IntensityProfile profile = build_intensity_profile(points, intensities, axis, origin, config);
+  const IntensityProfile profile = build_intensity_profile(points, intensities, axis, origin,
+    config);
   EXPECT_FALSE(profile.valid);
   EXPECT_LT(profile.filled_count, config.min_filled_bins);
 }
@@ -200,7 +207,8 @@ TEST(IntensityProfile, MismatchedSizesIsRejected)
   const Eigen::Vector3d origin = Eigen::Vector3d::Zero();
   const std::vector<Eigen::Vector3d> points = {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}};
   const std::vector<float> intensities = {1.0F};
-  const IntensityProfile profile = build_intensity_profile(points, intensities, axis, origin, config);
+  const IntensityProfile profile = build_intensity_profile(points, intensities, axis, origin,
+    config);
   EXPECT_FALSE(profile.valid);
 }
 
@@ -237,8 +245,9 @@ TEST(IntensityImpliedVelocity, ZeroShiftMatchesInitialGuessDisplacement)
   const Eigen::Vector3d axis(1.0, 0.0, 0.0);
   const Eigen::Vector3d initial_guess_translation(5.0, 0.0, 0.0);
   const Eigen::Vector3d previous_origin(0.0, 0.0, 0.0);
-  const double v = intensity_implied_velocity_along_axis(axis, initial_guess_translation, previous_origin, 0.0, 2.0);
-  EXPECT_NEAR(v, 2.5, 1.0e-9); // (5 - 0) / 2
+  const double v = intensity_implied_velocity_along_axis(axis, initial_guess_translation,
+    previous_origin, 0.0, 2.0);
+  EXPECT_NEAR(v, 2.5, 1.0e-9);  // (5 - 0) / 2
 }
 
 TEST(IntensityImpliedVelocity, ShiftAddsToTheImpliedDisplacement)
@@ -248,8 +257,9 @@ TEST(IntensityImpliedVelocity, ShiftAddsToTheImpliedDisplacement)
   const Eigen::Vector3d axis(1.0, 0.0, 0.0);
   const Eigen::Vector3d initial_guess_translation(5.0, 0.0, 0.0);
   const Eigen::Vector3d previous_origin(0.0, 0.0, 0.0);
-  const double v = intensity_implied_velocity_along_axis(axis, initial_guess_translation, previous_origin, 0.5, 2.0);
-  EXPECT_NEAR(v, 2.75, 1.0e-9); // (5 + 0.5 - 0) / 2
+  const double v = intensity_implied_velocity_along_axis(axis, initial_guess_translation,
+    previous_origin, 0.5, 2.0);
+  EXPECT_NEAR(v, 2.75, 1.0e-9);  // (5 + 0.5 - 0) / 2
 }
 
 TEST(IntensityImpliedVelocity, OnlyTheAxisProjectionMatters)
@@ -259,7 +269,8 @@ TEST(IntensityImpliedVelocity, OnlyTheAxisProjectionMatters)
   const Eigen::Vector3d axis(1.0, 0.0, 0.0);
   const Eigen::Vector3d initial_guess_translation(5.0, 3.0, -7.0);
   const Eigen::Vector3d previous_origin(0.0, 9.0, 4.0);
-  const double v = intensity_implied_velocity_along_axis(axis, initial_guess_translation, previous_origin, 0.0, 2.0);
+  const double v = intensity_implied_velocity_along_axis(axis, initial_guess_translation,
+    previous_origin, 0.0, 2.0);
   EXPECT_NEAR(v, 2.5, 1.0e-9);
 }
 
@@ -268,6 +279,8 @@ TEST(IntensityImpliedVelocity, NonPositiveDtReturnsZero)
   const Eigen::Vector3d axis(1.0, 0.0, 0.0);
   const Eigen::Vector3d initial_guess_translation(5.0, 0.0, 0.0);
   const Eigen::Vector3d previous_origin(0.0, 0.0, 0.0);
-  EXPECT_EQ(intensity_implied_velocity_along_axis(axis, initial_guess_translation, previous_origin, 0.5, 0.0), 0.0);
-  EXPECT_EQ(intensity_implied_velocity_along_axis(axis, initial_guess_translation, previous_origin, 0.5, -1.0), 0.0);
+  EXPECT_EQ(intensity_implied_velocity_along_axis(axis, initial_guess_translation, previous_origin,
+    0.5, 0.0), 0.0);
+  EXPECT_EQ(intensity_implied_velocity_along_axis(axis, initial_guess_translation, previous_origin,
+    0.5, -1.0), 0.0);
 }

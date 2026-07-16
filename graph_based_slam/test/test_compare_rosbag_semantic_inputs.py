@@ -35,6 +35,7 @@ import importlib.util
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -42,7 +43,13 @@ SCRIPT = ROOT / 'scripts' / 'compare_rosbag_semantic_inputs.py'
 SPEC = importlib.util.spec_from_file_location('semantic_inputs', SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
-SPEC.loader.exec_module(MODULE)
+try:
+    SPEC.loader.exec_module(MODULE)
+    HAS_ROSBAGS = True
+except ImportError:  # pragma: no cover - environment dependent
+    HAS_ROSBAGS = False
+
+pytestmark = pytest.mark.skipif(not HAS_ROSBAGS, reason='rosbags is not installed')
 
 
 @dataclass

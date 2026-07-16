@@ -114,8 +114,10 @@ def test_glim_compact_points_are_transformed_to_world(tmp_path):
 
 
 def test_glim_runner_exposes_required_map_gate_option(monkeypatch):
-    monkeypatch.setattr(sys, 'argv', ['runner', '--bag', '/tmp/bag',
-                                     '--output', '/tmp/out',
-                                     '--reference-meta', '/tmp/ref',
-                                     '--save-maps'])
+    argv = [
+        'runner', '--bag', '/tmp/bag',
+        '--output', '/tmp/out',
+        '--reference-meta', '/tmp/ref',
+        '--save-maps']
+    monkeypatch.setattr(sys, 'argv', argv)
     assert RUNNER.parse_args().save_maps is True
