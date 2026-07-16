@@ -50,6 +50,15 @@ tunnel では固有値ゲートが正しく発火し (1981 scan で radar prior 
 残り −8.6% は radar 速度の系統的過小 (狭 FOV single-chip の観測限界、fog 検証で
 speed 比 ~0.62、前方軸はより良い) と整合。
 
+追補: `radar_velocity_scale` (node param、default 1.0) を追加し tunnel で
+スイープした結果、**1.05 で到達 495.3 m (誤差 −0.9%)**、1.10 は 519.8 m
+(+4.0%) で行き過ぎ。fog は 1.05 でわずかに悪化 (22.68 → 24.34 m) — fog の
+補正方向の radar 速度はほぼ不偏のため。スケールはジオメトリ依存の較正値
+として tunnel 専用 param
+(`rko_lio_lidar_degeneracy_radar_weak_direction_tunnel.{yaml,ros.yaml}`) に
+1.05 を置き、共有デフォルトは 1.0 を維持 (真値 ~500 m への tuned 値である
+ことに注意)。run: `runs/tunnel_rko_lio_radar_scale105_v1`。
+
 ## 知見 3: intensity プロファイル拘束は「ゲートのカバレッジ」で死ぬ (負結果)
 
 反射率 1D プロファイルのスキャン間相関 (`intensity_profile.hpp`、相関 0.85–0.98)
