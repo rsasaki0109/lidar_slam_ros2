@@ -19,6 +19,7 @@ DRAIN_SECS="10"
 ADJACENT_WINDOW=5
 LIDARSLAM_PARAM="lidarslam/param/lidarslam_mid360_rko_graph.yaml"
 LIDARSLAM_PARAM_GIVEN=false
+PLANAR_MAP_FILTER_OVERRIDE=""
 REFERENCE_TUM="output/glim_mid360_reference.tum"
 SOURCE_BAG=""
 
@@ -64,6 +65,10 @@ Options:
       graph_based_slam parameter file.
       Default: lidarslam/param/lidarslam_mid360_rko_graph.yaml
       In record mode this is forwarded to the source benchmark only when given.
+
+  --planar-map-filter BOOL
+      Override use_planar_map_filter for a replay ablation (true|false).
+      By default the value from --lidarslam-param is used.
 
   --reference-tum FILE
       Reference trajectory for APE post-processing.
@@ -353,18 +358,25 @@ run_one_replay() {
 
   echo "Replay run ${idx}: ${run_dir}"
 
+  local backend_cmd=(
+    ros2 run graph_based_slam graph_based_slam_node --ros-args
+    --params-file "${LIDARSLAM_PARAM}"
+    -r odom_input:=/rko_lio/odometry
+    -r cloud_input:=/rko_lio/frame
+    -p use_odom_input:=true
+    -p use_sim_time:=true
+    -p map_save_dir:="${run_dir}"
+    -p save_map_path:="${run_dir}/map.pcd"
+    -p save_pose_graph_path:="${run_dir}/pose_graph.g2o"
+  )
+  if [[ -n "${PLANAR_MAP_FILTER_OVERRIDE}" ]]; then
+    backend_cmd+=(-p use_planar_map_filter:="${PLANAR_MAP_FILTER_OVERRIDE}")
+  fi
+
   # The backend writes pose_graph.g2o into its CWD (hardcoded relative path
   # in doPoseAdjustment), so give every run its own working directory.
   (
-    cd "${run_dir}" && exec setsid ros2 run graph_based_slam graph_based_slam_node --ros-args \
-      --params-file "${LIDARSLAM_PARAM}" \
-      -r odom_input:=/rko_lio/odometry \
-      -r cloud_input:=/rko_lio/frame \
-      -p use_odom_input:=true \
-      -p use_sim_time:=true \
-      -p map_save_dir:="${run_dir}" \
-      -p save_map_path:="${run_dir}/map.pcd" \
-      -p save_pose_graph_path:="${run_dir}/pose_graph.g2o"
+    cd "${run_dir}" && exec setsid "${backend_cmd[@]}"
   ) > "${run_dir}/backend.log" 2>&1 &
   BACKEND_PID=$!
   BACKEND_PGID="${BACKEND_PID}"
@@ -393,6 +405,19 @@ run_one_replay() {
 
   if ! call_map_save "${run_dir}"; then
     echo "WARN: /map_save failed twice in run ${idx}; continuing" >&2
+    failed=1
+  fi
+
+  if ! python3 "${SCRIPT_DIR}/verify_map_bundle.py" "${run_dir}" \
+    > "${run_dir}/map_bundle_verify.log" 2>&1; then
+    echo "WARN: map bundle verification failed in run ${idx}" >&2
+    failed=1
+  fi
+
+  if ! python3 "${SCRIPT_DIR}/verify_autoware_map.py" "${run_dir}" \
+    > "${run_dir}/autoware_map_verify.log" 2>&1; then
+    echo "WARN: Autoware map verification failed in run ${idx}" >&2
+    failed=1
   fi
 
   sleep 3
@@ -499,6 +524,15 @@ while [[ $# -gt 0 ]]; do
     --lidarslam-param)
       LIDARSLAM_PARAM="$(resolve_repo_path "$2")"
       LIDARSLAM_PARAM_GIVEN=true
+      shift 2
+      ;;
+    --planar-map-filter)
+      PLANAR_MAP_FILTER_OVERRIDE="$2"
+      if [[ "${PLANAR_MAP_FILTER_OVERRIDE}" != true &&
+            "${PLANAR_MAP_FILTER_OVERRIDE}" != false ]]; then
+        echo "ERROR: --planar-map-filter must be true or false" >&2
+        exit 2
+      fi
       shift 2
       ;;
     --reference-tum)

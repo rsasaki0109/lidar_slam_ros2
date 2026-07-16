@@ -22,6 +22,8 @@ Options:
   --save-timeout-secs <sec>      Timeout waiting for map outputs (default: 60)
   --offline-timeout-secs <sec>   Max wall-clock for the offline node to finish the bag (default: 1800)
   --quiescence-secs <sec>        Treat the run as done after this many stable seconds (default: 20)
+  --completion-end-margin-secs <sec>
+                                 Required trajectory proximity to bag end (default: 120)
   --skip-map-save                Do not call /map_save or verify the map bundle
   --skip-reference-gen           Reuse an existing reference TUM/meta without regenerating it
   --publish-static-tf BOOL       static_transform_publisher (default: true)
@@ -97,6 +99,7 @@ RUN_NAME=""
 STARTUP_TIMEOUT_SECS=30
 SAVE_TIMEOUT_SECS=60
 QUIESCENCE_SECS=20
+COMPLETION_END_MARGIN_SECS=120
 # Max wall-clock to wait for the offline node to finish replaying the bag.
 # Long / compute-heavy sequences (e.g. dense indoor MID-360) can process well
 # below real time; raise this so the run is not cut off mid-bag.
@@ -182,6 +185,11 @@ while [[ $# -gt 0 ]]; do
     --quiescence-secs)
       require_value "$1" "${2:-}"
       QUIESCENCE_SECS="${OPTION_VALUE}"
+      shift 2
+      ;;
+    --completion-end-margin-secs)
+      require_value "$1" "${2:-}"
+      COMPLETION_END_MARGIN_SECS="${OPTION_VALUE}"
       shift 2
       ;;
     --skip-map-save)
@@ -502,10 +510,11 @@ wait_for_offline_completion() {
         stable_since=$SECONDS
       fi
       if (( SECONDS - stable_since >= QUIESCENCE_SECS )); then
-        # 120 s margin: the lidar stream can end well before the bag's global
-        # end stamp (other topics keep recording; 62 s on stadtgarten_seq2).
+        # Some generic bags retain non-LiDAR topics after the sensor stream,
+        # so the historical default is 120 s. Competitive profiles set a
+        # dataset-specific tight margin and record it in their provenance.
         if [[ -n "$end_stamp" ]] && \
-          raw_tum_reached "$end_stamp" 120.0 && \
+          raw_tum_reached "$end_stamp" "$COMPLETION_END_MARGIN_SECS" && \
           raw_tum_reached_fraction 0.8; then
           echo "Trajectory reached the bag end and stayed quiet for ${QUIESCENCE_SECS}s; treating benchmark run as complete"
           return 0
@@ -529,7 +538,8 @@ wait_for_offline_completion() {
 call_map_save_with_retry() {
   local deadline=$((SECONDS + SAVE_TIMEOUT_SECS))
   while (( SECONDS < deadline )); do
-    if timeout 15 ros2 service call /map_save std_srvs/srv/Empty "{}" >"${MAP_SAVE_LOG}" 2>&1; then
+    local remaining_secs=$((deadline - SECONDS))
+    if timeout "${remaining_secs}" ros2 service call /map_save std_srvs/srv/Empty "{}" >"${MAP_SAVE_LOG}" 2>&1; then
       return 0
     fi
     sleep 2
@@ -695,32 +705,41 @@ elif [[ ! -s "$CORRECTED_TUM" ]]; then
   die "corrected trajectory missing after map_save"
 fi
 
-readarray -t PRISM_OFFSET < <(python3 - "$REFERENCE_META" <<'PY'
+readarray -t PRISM_TRANSFORM < <(python3 - "$REFERENCE_META" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 meta = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-offset = meta.get("lidar_to_prism_translation_m") or {}
-print(offset.get("x", 0.0))
-print(offset.get("y", 0.0))
-print(offset.get("z", 0.0))
+for frame in ("base", "body", "imu"):
+    offset = meta.get(f"{frame}_to_prism_translation_m")
+    if offset is not None:
+        print(frame)
+        print(offset["x"])
+        print(offset["y"])
+        print(offset["z"])
+        break
+else:
+    raise SystemExit(
+        "RKO-LIO trajectory is base-frame pose, but reference metadata lacks "
+        "base/body/imu_to_prism_translation_m")
 PY
 )
+PRISM_SOURCE_FRAME="${PRISM_TRANSFORM[0]}"
 
 python3 "${SCRIPT_DIR}/apply_tum_frame_offset.py" \
   --in "$RAW_TUM" \
   --out "$RAW_TUM_PRISM" \
-  --tx "${PRISM_OFFSET[0]}" \
-  --ty "${PRISM_OFFSET[1]}" \
-  --tz "${PRISM_OFFSET[2]}"
+  --tx "${PRISM_TRANSFORM[1]}" \
+  --ty "${PRISM_TRANSFORM[2]}" \
+  --tz "${PRISM_TRANSFORM[3]}"
 
 python3 "${SCRIPT_DIR}/apply_tum_frame_offset.py" \
   --in "$CORRECTED_TUM" \
   --out "$CORRECTED_TUM_PRISM" \
-  --tx "${PRISM_OFFSET[0]}" \
-  --ty "${PRISM_OFFSET[1]}" \
-  --tz "${PRISM_OFFSET[2]}"
+  --tx "${PRISM_TRANSFORM[1]}" \
+  --ty "${PRISM_TRANSFORM[2]}" \
+  --tz "${PRISM_TRANSFORM[3]}"
 
 python3 "${SCRIPT_DIR}/ape_from_tum.py" \
   --ref "$REFERENCE_TUM" \
@@ -750,6 +769,7 @@ METRICS_ARGS=(
   --bag "$BAG_PATH"
   --reference-tum "$REFERENCE_TUM"
   --reference-meta "$REFERENCE_META"
+  --trajectory-source-frame "$PRISM_SOURCE_FRAME"
   --points-topic "$LIDAR_TOPIC"
   --imu-topic "$IMU_TOPIC"
   --lidarslam-param "$LIDARSLAM_PARAM"

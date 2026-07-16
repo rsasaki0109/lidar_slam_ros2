@@ -105,6 +105,42 @@ def test_read_binary_pcd_xyz_rgb(tmp_path):
     np.testing.assert_array_equal(rgb, [[10, 20, 30], [40, 50, 60]])
 
 
+def test_read_binary_pcd_packed_uint_rgb(tmp_path):
+    dtype = np.dtype([
+        ('x', '<f4'), ('y', '<f4'), ('z', '<f4'), ('rgb', '<u4'),
+    ])
+    records = np.array([
+        (1.0, 2.0, 3.0, 0x000A141E),
+        (-4.0, 5.0, 6.0, 0x0028323C),
+    ], dtype=dtype)
+    header = (
+        '# .PCD v0.7\nVERSION 0.7\nFIELDS x y z rgb\n'
+        'SIZE 4 4 4 4\nTYPE F F F U\nCOUNT 1 1 1 1\n'
+        'WIDTH 2\nHEIGHT 1\nPOINTS 2\nDATA binary\n')
+    path = tmp_path / 'packed_uint.pcd'
+    path.write_bytes(header.encode('ascii') + records.tobytes())
+
+    xyz, rgb = pcio.read_point_cloud_xyz(path)
+
+    np.testing.assert_allclose(xyz, [[1, 2, 3], [-4, 5, 6]], atol=1e-6)
+    np.testing.assert_array_equal(rgb, [[10, 20, 30], [40, 50, 60]])
+
+
+def test_read_ascii_pcd_packed_float_rgb(tmp_path):
+    packed = np.array([0x000A141E, 0x0028323C], dtype='<u4').view('<f4')
+    path = tmp_path / 'packed_float_ascii.pcd'
+    path.write_text(
+        '# .PCD v0.7\nVERSION 0.7\nFIELDS x y z rgb\n'
+        'SIZE 4 4 4 4\nTYPE F F F F\nCOUNT 1 1 1 1\n'
+        'WIDTH 2\nHEIGHT 1\nPOINTS 2\nDATA ascii\n'
+        f'1 2 3 {packed[0]:.9g}\n4 5 6 {packed[1]:.9g}\n')
+
+    xyz, rgb = pcio.read_point_cloud_xyz(path)
+
+    np.testing.assert_allclose(xyz, [[1, 2, 3], [4, 5, 6]], atol=1e-6)
+    np.testing.assert_array_equal(rgb, [[10, 20, 30], [40, 50, 60]])
+
+
 def test_read_ascii_pcd_xyz(tmp_path):
     path = tmp_path / 'ascii.pcd'
     path.write_text(

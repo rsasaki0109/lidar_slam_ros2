@@ -41,6 +41,7 @@
 #include <cmath>
 
 #include "graph_based_slam/localizability_analysis.hpp"
+#include "graph_based_slam/persistent_weak_direction.hpp"
 
 namespace graphslam
 {
@@ -58,6 +59,9 @@ struct DegeneracyAwareSolveConfig
 
   double degenerate_prior_weight {0.25};
   LocalizabilityThresholds thresholds {};
+  bool require_persistent_direction {false};
+  double persistent_direction_min_absolute_cosine {0.98};
+  PersistentWeakDirectionState persistent_direction {};
 };
 
 struct DegeneracyAwareSolveResult
@@ -65,6 +69,7 @@ struct DegeneracyAwareSolveResult
   Vector6d update {Vector6d::Zero()};
   LocalizabilityReport localizability {};
   bool used_prior {false};
+  bool intervention_applied {false};
   bool valid {false};
 };
 
@@ -82,6 +87,56 @@ inline DegeneracyAwareSolveResult solveDegeneracyAware(
 
   const double prior_weight = std::max(0.0, std::min(1.0, config.degenerate_prior_weight));
   constexpr double kEigenvalueFloor = 1.0e-12;
+
+  if (config.require_persistent_direction) {
+    // Preserve the legacy solve exactly until a weak world-frame axis has
+    // persisted for the configured number of scans. Once confirmed, replace
+    // only that isolated weak component; all other directions, including a
+    // repeated NON_OBSERVABLE subspace, retain the legacy geometric update.
+    // This is the fail-safe policy motivated by the MID-360 Phase 2 failure.
+    result.update = h.ldlt().solve(-b);
+    if (!result.update.allFinite()) {
+      result.update.setZero();
+      return result;
+    }
+
+    if (config.persistent_direction.confirmed) {
+      const double min_cosine = std::max(
+        0.0, std::min(1.0, config.persistent_direction_min_absolute_cosine));
+      for (const DirectionResult & direction : result.localizability.directions) {
+        if (direction.category != LocalizabilityCategory::DEGENERATE) {
+          continue;
+        }
+        const double match = std::abs(
+          direction.eigenvector.dot(config.persistent_direction.axis));
+        if (match < min_cosine) {
+          continue;
+        }
+
+        const Vector6d & axis = direction.eigenvector;
+        const double legacy_component = axis.dot(result.update);
+        double geometric_component = 0.0;
+        if (direction.eigenvalue > kEigenvalueFloor) {
+          geometric_component = -axis.dot(b) / direction.eigenvalue;
+        }
+        const double blended_component =
+          (1.0 - prior_weight) * geometric_component + prior_weight * axis.dot(prior_update);
+        result.update += (blended_component - legacy_component) * axis;
+        result.used_prior = prior_weight > 0.0;
+        result.intervention_applied = true;
+        break;
+      }
+    }
+
+    result.valid = result.update.allFinite();
+    if (!result.valid) {
+      result.update.setZero();
+      result.used_prior = false;
+      result.intervention_applied = false;
+    }
+    return result;
+  }
+
   for (const DirectionResult & direction : result.localizability.directions) {
     const Vector6d & axis = direction.eigenvector;
     double component = 0.0;
@@ -98,6 +153,7 @@ inline DegeneracyAwareSolveResult solveDegeneracyAware(
       component =
         (1.0 - prior_weight) * geometric_component + prior_weight * axis.dot(prior_update);
       result.used_prior = result.used_prior || prior_weight > 0.0;
+      result.intervention_applied = true;
     }
     // A NON_OBSERVABLE eigenspace has no stable individual axes. Its
     // update remains zero instead of injecting an arbitrary basis-dependent
@@ -109,6 +165,7 @@ inline DegeneracyAwareSolveResult solveDegeneracyAware(
   if (!result.valid) {
     result.update.setZero();
     result.used_prior = false;
+    result.intervention_applied = false;
   }
   return result;
 }

@@ -1,0 +1,21 @@
+# Opt-in v0.8 stateful degeneracy candidate for the public GLIM MID-360 bag.
+# The sensor settings reproduce the Phase 2 default RKO-LIO baseline. This
+# profile intentionally excludes kidnap recovery/relocalization options.
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+initialization_phase: false
+deskew: true
+voxel_size: 1.0
+min_range: 1.0
+max_range: 100.0
+double_downsample: true
+
+degeneracy_aware_solve: true
+degeneracy_well_conditioned_ratio: 1.0e-6
+degeneracy_multiplicity_relative_gap: 1.0e-8
+degeneracy_prior_weight: 0.25
+degeneracy_persistence_gate: true
+degeneracy_persistence_min_scans: 3
+degeneracy_persistence_tracking_ratio: 1.5e-5
+degeneracy_persistence_min_absolute_cosine: 0.98
+degeneracy_persistence_min_translation_fraction: 0.99

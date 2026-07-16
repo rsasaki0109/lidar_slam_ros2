@@ -132,6 +132,12 @@ def main() -> int:
         help='Reference source label stored in metrics.json',
     )
     parser.add_argument(
+        '--trajectory-source-frame',
+        default='base',
+        choices=('base', 'body', 'imu', 'lidar'),
+        help='Local frame represented by the input trajectory pose origin.',
+    )
+    parser.add_argument(
         '--points-topic',
         default='/os1_cloud_node1/points',
         help='LiDAR topic used for the run',
@@ -272,6 +278,8 @@ def main() -> int:
 
     bag_duration_sec = _bag_duration_seconds(bag_path / 'metadata.yaml')
     reference_meta_data = _read_reference_meta(reference_meta) if reference_meta else {}
+    trajectory_offset = reference_meta_data.get(
+        f'{args.trajectory_source_frame}_to_prism_translation_m')
     raw_ape = _parse_ape_report(raw_ape_path)
     corrected_ape = _parse_ape_report(corrected_ape_path)
     map_verify = _verify_map(out_dir / 'pointcloud_map')
@@ -347,7 +355,9 @@ def main() -> int:
                 'corrected_tum_lines': _read_pose_count(corrected_tum),
                 'corrected_ape': corrected_ape,
                 'reference_meta_path': _fmt_path(reference_meta),
-                'prism_offset_m': reference_meta_data.get('lidar_to_prism_translation_m'),
+                'trajectory_source_frame': args.trajectory_source_frame,
+                'trajectory_to_prism_offset_m': trajectory_offset,
+                'prism_offset_m': trajectory_offset,
             }
         ),
         'scanmatcher_lo': (

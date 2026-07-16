@@ -215,6 +215,11 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
                 'source': 'leica_prism_gt',
                 'topic': '/leica/pose/relative',
                 'source_bag': '/tmp/source_bag',
+                'body_to_prism_translation_m': {
+                    'x': -0.293656,
+                    'y': -0.012288,
+                    'z': -0.273095,
+                },
                 'lidar_to_prism_translation_m': {
                     'x': -0.243656,
                     'y': -0.012288,
@@ -237,6 +242,8 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
             str(reference_tum),
             '--reference-meta',
             str(reference_meta),
+            '--trajectory-source-frame',
+            'body',
             '--wall-sec',
             '1.0',
         ],
@@ -259,7 +266,8 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
     assert metrics['graph_based_slam']['map_verify']['ok'] is True
     assert metrics.get('pipeline') == 'rko_lio'
     assert metrics['rko_lio']['available'] is True
-    assert metrics['rko_lio']['prism_offset_m']['x'] == -0.243656
+    assert metrics['rko_lio']['trajectory_source_frame'] == 'body'
+    assert metrics['rko_lio']['prism_offset_m']['x'] == -0.293656
 
 
 def test_write_lo_metrics_sets_scanmatcher_payload(tmp_path):

@@ -10,7 +10,7 @@
 # nothing from the dataset is redistributed with this repository.
 #
 # Usage:
-#   bash scripts/download_hilti2022.sh [--sequence exp01|exp04|exp07] \
+#   bash scripts/download_hilti2022.sh [--sequence exp01|exp02|exp03|exp04|exp07|exp21] \
 #     [--dest datasets/hilti2022] [--no-convert] [--drop-bag1]
 set -euo pipefail
 
@@ -34,10 +34,13 @@ done
 
 # Map a short sequence id to its dataset file slug.
 case "${SEQUENCE}" in
-  exp01) SLUG="exp01_construction_ground_level" ;;
-  exp04) SLUG="exp04_construction_upper_level" ;;
-  exp07) SLUG="exp07_long_corridor" ;;
-  *) echo "unknown sequence: ${SEQUENCE} (known: exp01, exp04, exp07)" >&2; exit 2 ;;
+  exp01) SLUG="exp01_construction_ground_level"; EXPECTED_BAG_BYTES=0 ;;
+  exp02) SLUG="exp02_construction_multilevel"; EXPECTED_BAG_BYTES=35358555915 ;;
+  exp03) SLUG="exp03_construction_stairs"; EXPECTED_BAG_BYTES=21915037983 ;;
+  exp04) SLUG="exp04_construction_upper_level"; EXPECTED_BAG_BYTES=0 ;;
+  exp07) SLUG="exp07_long_corridor"; EXPECTED_BAG_BYTES=0 ;;
+  exp21) SLUG="exp21_outside_building"; EXPECTED_BAG_BYTES=12014463331 ;;
+  *) echo "unknown sequence: ${SEQUENCE} (known: exp01, exp02, exp03, exp04, exp07, exp21)" >&2; exit 2 ;;
 esac
 
 BASE_URL="https://tp-public-facing.s3.eu-north-1.amazonaws.com/Challenges/2022"
@@ -45,6 +48,7 @@ GT_URL="https://hilti-challenge.com/assets/2022/ground_truth"
 BAG1="${DEST_DIR}/${SLUG}.bag"
 ROS2_DIR="${DEST_DIR}/${SEQUENCE}_ros2"
 GT_FILE="${DEST_DIR}/${SLUG}_gt.txt"
+RAW_BAG_SHA_FILE="${DEST_DIR}/${SEQUENCE}_raw_bag.sha256"
 
 mkdir -p "${DEST_DIR}"
 
@@ -63,9 +67,29 @@ if [[ ! -f "${DEST_DIR}/calibration_files.zip" ]]; then
     "${BASE_URL}/2022322_calibration_files.zip"
 fi
 
-if [[ ! -f "${BAG1}" && ! -e "${ROS2_DIR}/metadata.yaml" ]]; then
+ACTUAL_BAG_BYTES=0
+[[ ! -f "${BAG1}" ]] || ACTUAL_BAG_BYTES=$(stat -c '%s' "${BAG1}")
+if [[ ! -e "${ROS2_DIR}/metadata.yaml" ]] && \
+   [[ ! -f "${BAG1}" || ("${EXPECTED_BAG_BYTES}" -gt 0 && "${ACTUAL_BAG_BYTES}" -ne "${EXPECTED_BAG_BYTES}") ]]; then
   echo "downloading ${SLUG} rosbag (multi-GB)..."
-  curl -fL --retry 3 -o "${BAG1}" "${BASE_URL}/${SLUG}.bag"
+  curl -fL --retry 3 --retry-all-errors --continue-at - \
+    -o "${BAG1}" "${BASE_URL}/${SLUG}.bag"
+fi
+
+if [[ -f "${BAG1}" && "${EXPECTED_BAG_BYTES}" -gt 0 ]]; then
+  ACTUAL_BAG_BYTES=$(stat -c '%s' "${BAG1}")
+  if [[ "${ACTUAL_BAG_BYTES}" -ne "${EXPECTED_BAG_BYTES}" ]]; then
+    echo "incomplete rosbag1: expected ${EXPECTED_BAG_BYTES} bytes, got ${ACTUAL_BAG_BYTES}" >&2
+    exit 1
+  fi
+fi
+
+# Keep the original rosbag1 content identity even when --drop-bag1 is used.
+# FAST-LIVO2 consumes this representation while the ROS 2 systems consume the
+# converted bag, so both identities are part of the same-input audit trail.
+if [[ -f "${BAG1}" && ! -s "${RAW_BAG_SHA_FILE}" ]]; then
+  echo "hashing original rosbag1..."
+  sha256sum "${BAG1}" | cut -d' ' -f1 > "${RAW_BAG_SHA_FILE}"
 fi
 
 if [[ "${DO_CONVERT}" == "true" && ! -e "${ROS2_DIR}/metadata.yaml" ]]; then
@@ -84,6 +108,7 @@ fi
 
 echo "done"
 echo "  bag:    ${ROS2_DIR}"
+echo "  raw sha: ${RAW_BAG_SHA_FILE}"
 echo "  gt:     ${GT_FILE}"
 echo "  topics: /hesai/pandar (PointCloud2), /alphasense/imu (Imu)"
 echo
