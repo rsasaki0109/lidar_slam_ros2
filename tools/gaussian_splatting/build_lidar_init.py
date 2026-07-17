@@ -42,7 +42,7 @@ def _read_pointcloud_xyz_time(msg) -> tuple[np.ndarray, Optional[np.ndarray]]:
     from sensor_msgs_py import point_cloud2
 
     field_names = {field.name for field in msg.fields}
-    time_name = next((name for name in ('timestamp', 'time', 't')
+    time_name = next((name for name in ('timestamp', 'time', 't', 'offset_time')
                       if name in field_names), None)
     if time_name is None:
         pts = point_cloud2.read_points_numpy(
@@ -59,11 +59,16 @@ def _read_pointcloud_xyz_time(msg) -> tuple[np.ndarray, Optional[np.ndarray]]:
     raw_time = raw_time[finite]
     header_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
     # HILTI stores Unix seconds; common ROS drivers instead store seconds from
-    # the scan header. Unknown large integer tick formats safely fall back to a
-    # rigid scan rather than guessing their unit.
+    # the scan header; Livox drivers store integer nanoseconds from the scan
+    # header as ``offset_time``. Unknown large integer tick formats safely
+    # fall back to a rigid scan rather than guessing their unit.
     if raw_time.size == 0:
         return pts, None
-    if float(np.median(np.abs(raw_time))) > 1.0e8:
+    if time_name == 'offset_time':
+        if float(np.max(np.abs(raw_time))) > 2.0e9:
+            return pts, None
+        timestamps = header_time + raw_time * 1.0e-9
+    elif float(np.median(np.abs(raw_time))) > 1.0e8:
         timestamps = raw_time
     elif float(np.max(np.abs(raw_time))) <= 10.0:
         timestamps = header_time + raw_time
@@ -193,7 +198,9 @@ def build(args: argparse.Namespace) -> dict:
             world, args.color_transforms, robust=args.color_robust,
             normalize_exposure=args.color_normalize_exposure,
             exposure_scale_limit=args.color_exposure_scale_limit,
-            max_samples=args.color_max_samples)
+            max_samples=args.color_max_samples,
+            image_margin=args.color_image_margin,
+            min_samples=args.color_min_samples)
         colored = int(seen.sum())
     out = pcio.write_ply(args.out, world, rgb)
     return {'scans_used': used, 'scans_deskewed': deskewed, 'scans_skipped': skipped,
@@ -203,25 +210,32 @@ def build(args: argparse.Namespace) -> dict:
 def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
               normalize_exposure: bool = True,
               exposure_scale_limit: float = 1.5,
-              max_samples: int = 12):
+              max_samples: int = 12,
+              image_margin: int = 0,
+              min_samples: int = 1):
     """Project ``world`` points into the posed images of a transforms.json."""
     import imageio.v3 as iio
     import train_gsplat as tg
 
     ds = tg.load_transforms(transforms_path)
     images = [np.asarray(iio.imread(p)) for p in ds['image_paths']]
-    fn = (pcio.colorize_by_projection_robust if robust
-          else pcio.colorize_by_projection)
-    kwargs = {}
-    if robust:
-        kwargs = {
-            'normalize_exposure': normalize_exposure,
-            'exposure_scale_limit': exposure_scale_limit,
-            'max_samples': max_samples,
-        }
-    return fn(
+    if not robust:
+        return pcio.colorize_by_projection(
+            world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'])
+    rgb, seen, counts = pcio.colorize_by_projection_robust(
         world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'],
-        **kwargs)
+        normalize_exposure=normalize_exposure,
+        exposure_scale_limit=exposure_scale_limit,
+        max_samples=max_samples, image_margin=image_margin,
+        return_counts=True)
+    if min_samples > 1:
+        # Colours confirmed by too few camera observations are unreliable
+        # (occlusion-fringe or specular one-offs that pepper flat surfaces);
+        # demote them to unseen so RGB consumers drop them.
+        low = seen & (counts < min_samples)
+        rgb[low] = (128, 128, 128)
+        seen = seen & ~low
+    return rgb, seen
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -269,6 +283,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help='maximum robust-color exposure gain and reciprocal loss')
     p.add_argument('--color-max-samples', type=int, default=12,
                    help='nearest valid camera observations retained per point')
+    p.add_argument('--color-min-samples', type=int, default=1,
+                   help='demote robust colours confirmed by fewer surviving '
+                        'camera samples than this to unseen (1 keeps all)')
+    p.add_argument('--color-image-margin', type=int, default=0,
+                   help='ignore colour samples within this many pixels of the '
+                        'image border (skips lens-vignette darkening; 0 keeps '
+                        'the full frame)')
     p.add_argument('--min-neighbors', type=int, default=2,
                    help='drop points whose 3x3x3 voxel neighbourhood (see '
                         '--sparse-voxel) holds fewer points; default 2 requires '

@@ -306,3 +306,17 @@ def test_quality_profile_requires_external_reports_before_running(tmp_path):
         '--dry-run')
     with pytest.raises(ValueError, match='trajectory-report.*geometry-report'):
         cmp.run_pipeline(args)
+
+
+def test_vignette_and_confidence_options_reach_map_builder(tmp_path):
+    commands = cmp.build_commands(_args(
+        tmp_path, '--color-image-margin', '140', '--color-min-samples', '3'))
+    build = commands[1][1]
+    assert build[build.index('--color-image-margin') + 1] == '140'
+    assert build[build.index('--color-min-samples') + 1] == '3'
+
+
+def test_vignette_and_confidence_defaults_are_off(tmp_path):
+    build = cmp.build_commands(_args(tmp_path))[1][1]
+    assert build[build.index('--color-image-margin') + 1] == '0'
+    assert build[build.index('--color-min-samples') + 1] == '1'

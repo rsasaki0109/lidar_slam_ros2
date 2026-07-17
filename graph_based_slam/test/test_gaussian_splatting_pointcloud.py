@@ -643,3 +643,40 @@ def test_drop_sparse_points_neighbouring_voxels_count_together():
     pts = np.array([[0.0, 0.0, 0.0], [0.11, 0.0, 0.0]])
     keep = pcio.drop_sparse_points(pts, min_neighbors=2, voxel=0.1)
     assert keep.tolist() == [True, True]
+
+
+def test_colorize_robust_image_margin_skips_border_samples():
+    vms, K, W, H = _cam()
+    img = np.full((H, W, 3), 200, dtype=np.uint8)
+    # Two points: one lands at the centre, one lands 4 px from the border.
+    pts = np.array([[0.0, 0.0, 5.0], [2.3, 0.0, 5.0]])  # u = 50 and u = 96
+    rgb, seen = pcio.colorize_by_projection_robust(
+        pts, vms, K, [img], W, H, normalize_exposure=False, image_margin=10)
+    assert seen[0] and not seen[1]
+    np.testing.assert_array_equal(rgb[0], [200, 200, 200])
+    # Margin 0 (default) keeps the border point colourable.
+    _, seen_full = pcio.colorize_by_projection_robust(
+        pts, vms, K, [img], W, H, normalize_exposure=False)
+    assert seen_full.all()
+
+
+def test_colorize_robust_image_margin_keeps_full_frame_occlusion():
+    vms, K, W, H = _cam()
+    img = np.full((H, W, 3), 200, dtype=np.uint8)
+    # A near point inside the margin still occludes the far point behind it
+    # even though the near point itself is never sampled for colour.
+    near = [2.3, 0.0, 5.0]    # u = 96, inside the 10 px margin band
+    far = [4.6, 0.0, 10.0]    # same pixel, twice the depth
+    rgb, seen = pcio.colorize_by_projection_robust(
+        np.array([near, far]), vms, K, [img], W, H,
+        normalize_exposure=False, image_margin=10)
+    assert not seen.any()
+
+
+def test_colorize_robust_image_margin_validation():
+    vms, K, W, H = _cam()
+    img = np.zeros((H, W, 3), dtype=np.uint8)
+    for margin in (-1, 50, 60):
+        with np.testing.assert_raises(ValueError):
+            pcio.colorize_by_projection_robust(
+                np.zeros((1, 3)), vms, K, [img], W, H, image_margin=margin)

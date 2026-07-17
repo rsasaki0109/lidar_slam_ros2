@@ -210,3 +210,71 @@ def test_parser_defaults():
     assert args.rotate == 0
     assert args.frames == 240
     assert not args.ping_pong
+
+
+# --------------------------------------------------------------------------- #
+# CPU rasteriser
+# --------------------------------------------------------------------------- #
+def _point_set(points, colors, size=0.05):
+    from render_slam_3dgs_sidebyside import points_to_gaussians
+
+    return points_to_gaussians(np.asarray(points, dtype=float),
+                               np.asarray(colors, dtype=float), size)
+
+
+def _centred_camera():
+    K = np.array([[300.0, 0.0, 64.0], [0.0, 300.0, 48.0], [0.0, 0.0, 1.0]])
+    return K, np.eye(4)[None], 128, 96
+
+
+def test_render_frames_cpu_nearest_point_wins():
+    gaussians = _point_set([[0.0, 0.0, 2.0], [0.0, 0.0, 5.0]],
+                           [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    K, viewmats, width, height = _centred_camera()
+    frames = rp.render_frames_cpu(gaussians, viewmats, K, width, height)
+    assert frames.shape == (1, height, width, 3)
+    np.testing.assert_array_equal(frames[0, 48, 64], [255, 0, 0])
+
+
+def test_render_frames_cpu_background_is_black():
+    gaussians = _point_set([[0.0, 0.0, 2.0]], [[1.0, 1.0, 1.0]])
+    K, viewmats, width, height = _centred_camera()
+    frames = rp.render_frames_cpu(gaussians, viewmats, K, width, height)
+    assert frames[0, 0, 0].tolist() == [0, 0, 0]
+
+
+def test_render_frames_cpu_behind_camera_is_culled():
+    gaussians = _point_set([[0.0, 0.0, -2.0]], [[1.0, 1.0, 1.0]])
+    K, viewmats, width, height = _centred_camera()
+    frames = rp.render_frames_cpu(gaussians, viewmats, K, width, height)
+    assert int(frames.sum()) == 0
+
+
+def test_render_frames_cpu_far_points_shrink():
+    K, viewmats, width, height = _centred_camera()
+
+    def lit_pixels(depth):
+        gaussians = _point_set([[0.0, 0.0, depth]], [[1.0, 1.0, 1.0]], size=0.05)
+        frames = rp.render_frames_cpu(gaussians, viewmats, K, width, height)
+        return int((frames[0].sum(axis=2) > 0).sum())
+
+    assert lit_pixels(1.0) > lit_pixels(8.0) > 0
+
+
+def test_render_frames_cpu_rejects_sh_and_bad_supersample():
+    gaussians = _point_set([[0.0, 0.0, 2.0]], [[1.0, 0.0, 0.0]])
+    K, viewmats, width, height = _centred_camera()
+    with pytest.raises(ValueError):
+        rp.render_frames_cpu(dict(gaussians, sh_rest=np.zeros((1, 3, 3))),
+                             viewmats, K, width, height)
+    with pytest.raises(ValueError):
+        rp.render_frames_cpu(gaussians, viewmats, K, width, height,
+                             supersample=0)
+
+
+def test_render_frames_dispatches_cpu_device():
+    gaussians = _point_set([[0.0, 0.0, 2.0]], [[0.0, 1.0, 0.0]])
+    K, viewmats, width, height = _centred_camera()
+    frames = rp.render_frames(gaussians, viewmats, K, width, height,
+                              device='cpu')
+    np.testing.assert_array_equal(frames[0, 48, 64], [0, 255, 0])
