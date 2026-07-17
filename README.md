@@ -181,6 +181,17 @@ bash scripts/run_release_readiness_checks.sh --fail-on-profiles
 
 Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](docs/benchmarking.md).
 
+## Degeneracy resilience (fog / tunnels)
+
+Opt-in RKO-LIO gates recover odometry in two failure modes plain
+LiDAR-inertial tracking can't fix alone: fog/dust "clutter-lock" (pose
+freezes despite real motion) and long, self-similar tunnels (trajectory
+falls far short of true distance). A radar disagreement gate cut fog
+endpoint drift **32.8 m → 22.7 m (-31%)**; combined radar gates took tunnel
+reach from **98.7 m → 495.3 m** (~500 m true distance). Four ready-to-layer
+presets and a symptom → remedy table are in
+[docs/degeneracy-guide.md](docs/degeneracy-guide.md).
+
 ## Docs
 
 - **Getting started**: [Getting Started](docs/getting-started.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
