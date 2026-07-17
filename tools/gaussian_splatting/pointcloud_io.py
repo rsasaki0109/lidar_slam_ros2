@@ -366,6 +366,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   edge_threshold: float = 48.0,
                                   prefer_near: bool = True,
                                   observation_mask: Optional[np.ndarray] = None,
+                                  image_margin: int = 0,
                                   return_counts: bool = False):
     """Occlusion-aware, exposure-normalised, median-robust point colorization.
 
@@ -394,7 +395,10 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     once a point has ``max_samples`` observations, the *nearest* ones (a new
     closer view evicts the farthest stored sample) so colour comes from the
     highest-resolution, least-foreshortened views rather than whichever happened
-    to be visited first.
+    to be visited first. ``image_margin`` ignores samples within that many
+    pixels of the image border, where lens vignetting darkens the pixels that
+    per-view global exposure gains cannot repair; points near one view's border
+    stay colourable from the views that see them more centrally.
 
     Returns ``(rgb uint8 (N,3), seen bool (N,))``, or with ``return_counts`` the
     triple ``(rgb, seen, counts uint16 (N,))`` giving each point's surviving
@@ -415,6 +419,9 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         raise ValueError('zbuf_bin must be >= 1')
     if exposure_scale_limit < 1.0:
         raise ValueError('exposure_scale_limit must be >= 1')
+    if image_margin < 0 or 2 * image_margin >= min(int(width), int(height)):
+        raise ValueError('image_margin must be >= 0 and leave a usable '
+                         'central image region')
 
     fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
     zb_w = (int(width) + zbuf_bin - 1) // zbuf_bin
@@ -453,6 +460,13 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         zbuf = np.full(zb_w * zb_h, np.inf, dtype=np.float32)
         np.minimum.at(zbuf, zbin, z[inb].astype(np.float32))
         visible = z[inb] <= zbuf[zbin] + depth_tol + 0.02 * z[inb]
+        if image_margin > 0:
+            # The z-buffer above still uses the full frame (occlusion geometry
+            # is valid to the border); only colour sampling skips the margin.
+            visible &= ((u[inb] >= image_margin) &
+                        (u[inb] < width - image_margin) &
+                        (v[inb] >= image_margin) &
+                        (v[inb] < height - image_margin))
         cand = ids[inb][visible]  # unique point ids seen (unoccluded) this view
         if observation_mask is not None:
             keep = observation_mask[cand, vi]

@@ -177,6 +177,8 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             '--color-transforms', str(transforms), '--color-robust',
             '--color-exposure-scale-limit', str(args.color_exposure_scale_limit),
             '--color-max-samples', str(args.color_max_samples),
+            '--color-image-margin', str(args.color_image_margin),
+            '--color-min-samples', str(args.color_min_samples),
         ]
         if not args.color_normalize_exposure:
             build.append('--color-no-normalize-exposure')
@@ -340,6 +342,12 @@ def build_parser() -> argparse.ArgumentParser:
                         'occlusion-aware RGB medoid fusion')
     p.add_argument('--color-exposure-scale-limit', type=float, default=1.5)
     p.add_argument('--color-max-samples', type=int, default=12)
+    p.add_argument('--color-image-margin', type=int, default=0,
+                   help='ignore colour samples within this many pixels of the '
+                        'image border (lens vignette)')
+    p.add_argument('--color-min-samples', type=int, default=1,
+                   help='demote colours confirmed by fewer surviving camera '
+                        'samples than this to unseen (1 keeps all)')
     p.add_argument('--force-images', action='store_true')
     p.add_argument('--force-map', action='store_true')
     p.add_argument('--force-trajectory', action='store_true')

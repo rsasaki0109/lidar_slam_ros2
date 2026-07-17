@@ -170,11 +170,86 @@ def scale_intrinsics(K: np.ndarray, width: int, height: int,
 
 
 # --------------------------------------------------------------------------- #
-# Rendering (torch + gsplat; imported lazily)
+# Rendering (torch + gsplat imported lazily; device='cpu' is numpy-only)
 # --------------------------------------------------------------------------- #
+def render_frames_cpu(gaussians: dict, viewmats: np.ndarray, K: np.ndarray,
+                      width: int, height: int, *,
+                      supersample: int = 2) -> np.ndarray:
+    """CUDA-free rasteriser for band-0 point sets (``sh_rest`` must be None).
+
+    Each Gaussian is drawn as an opaque disc whose radius matches its
+    projected 2-sigma extent, with per-pixel nearest-depth visibility, on a
+    ``supersample``x canvas that is box-downsampled for anti-aliasing. This
+    matches the gsplat look for the near-opaque flat-colour point clouds that
+    ``points_to_gaussians`` produces; translucent or anisotropic Gaussian
+    sets still need the CUDA path.
+    """
+    if gaussians['sh_rest'] is not None:
+        raise ValueError('render_frames_cpu only supports sh_rest=None sets')
+    if supersample < 1:
+        raise ValueError('supersample must be >= 1')
+    ss = int(supersample)
+    w2, h2 = int(width) * ss, int(height) * ss
+    means = np.asarray(gaussians['means'], dtype=np.float64)
+    sigma = np.exp(np.asarray(gaussians['scales_log'], dtype=np.float64)[:, 0])
+    colors = (np.clip(np.asarray(gaussians['colors_rgb'], dtype=np.float64),
+                      0.0, 1.0) * 255.0).astype(np.uint8)
+    fx, fy = float(K[0, 0]) * ss, float(K[1, 1]) * ss
+    cx, cy = float(K[0, 2]) * ss, float(K[1, 2]) * ss
+    max_radius = 4 * ss
+    depth_shift = np.int64(1) << np.int64(24)
+    no_hit = np.iinfo(np.int64).max
+    frames = np.empty((len(viewmats), height, width, 3), dtype=np.uint8)
+    for i, vm in enumerate(viewmats):
+        vm = np.asarray(vm, dtype=np.float64)
+        cam = means @ vm[:3, :3].T + vm[:3, 3]
+        z = cam[:, 2]
+        near = z > 0.05
+        u = np.round(fx * cam[near, 0] / z[near] + cx).astype(np.int64)
+        v = np.round(fy * cam[near, 1] / z[near] + cy).astype(np.int64)
+        zn = z[near]
+        radius = np.clip(np.round(2.0 * sigma[near] * fx / zn).astype(np.int64),
+                         1, max_radius)
+        inb = ((u >= -max_radius) & (u < w2 + max_radius) &
+               (v >= -max_radius) & (v < h2 + max_radius))
+        u, v, zn, radius = u[inb], v[inb], zn[inb], radius[inb]
+        ids = np.flatnonzero(near)[inb]
+        buf = np.full(w2 * h2, no_hit, dtype=np.int64)
+        if len(ids):
+            # One winner-take-all pass per disc offset: pack (quantized depth,
+            # local index) into an int64 so np.minimum.at resolves per-pixel
+            # visibility and point identity at once.
+            zq = np.minimum(zn / max(float(zn.max()), 1.0e-6), 1.0)
+            keys = (zq * float(depth_shift - 2)).astype(np.int64) * depth_shift \
+                + np.arange(len(ids), dtype=np.int64)
+            by_radius = np.argsort(radius, kind='stable')
+            sorted_radius = radius[by_radius]
+            for r in np.unique(radius):
+                sel = by_radius[np.searchsorted(sorted_radius, r):
+                                np.searchsorted(sorted_radius, r, side='right')]
+                for dy in range(-int(r), int(r) + 1):
+                    for dx in range(-int(r), int(r) + 1):
+                        if dy * dy + dx * dx > r * r:
+                            continue
+                        uu = u[sel] + dx
+                        vv = v[sel] + dy
+                        ok = (uu >= 0) & (uu < w2) & (vv >= 0) & (vv < h2)
+                        if not ok.any():
+                            continue
+                        np.minimum.at(buf, vv[ok] * w2 + uu[ok], keys[sel][ok])
+        canvas = np.zeros((w2 * h2, 3), dtype=np.uint8)
+        hit = buf != no_hit
+        canvas[hit] = colors[ids[buf[hit] % depth_shift]]
+        frames[i] = canvas.reshape(height, ss, width, ss, 3) \
+            .mean(axis=(1, 3)).astype(np.uint8)
+    return frames
+
+
 def render_frames(gaussians: dict, viewmats: np.ndarray, K: np.ndarray,
                   width: int, height: int, *, device: str = 'cuda') -> np.ndarray:
     """Rasterise every w2c view; returns uint8 frames (F, H, W, 3)."""
+    if device == 'cpu':
+        return render_frames_cpu(gaussians, viewmats, K, width, height)
     import torch
     import torch.nn.functional as F
 
