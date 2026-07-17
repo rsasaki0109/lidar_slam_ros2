@@ -139,3 +139,21 @@ benchmark: `/media/sasaki/aiueo/benchmarks/hilti_exp07_intensity_disagreement_20
 - graph_based_slam をデフォルト param で並走させると event-driven ループ探索が
   詰まり DDS バックプレッシャで全体が停止する。退化ベンチは
   `lidarslam_lidar_degeneracy.yaml` (loop stride 1000000) を使う。
+
+## 知見 5 (2026-07-17): 連続情報重み付き radar 融合で fog 26.17 → 11.21 m
+
+不一致ゲートの構造的取り逃し (起動遅れ・閾値未満・radar 方向外) を解消する
+`radar_velocity_continuous_fusion` を実装: 毎スキャン post-ICP で ICP 速度と
+radar 速度を情報重み付きベイズ融合 (radar 側はセンサ軸別 σ: 前方 0.06 /
+横・縦 0.5 m/s、ICP 側は固定トラストスケール 0.2)。
+
+- fog: 26.17 → **11.21 m** (baseline 35.57 m、新アーキ)。tunnel: 505.0 m 維持。
+  決定論バイト一致、テスト全 green。
+- **実装上の発見**: 本実装の ICP Hessian 並進ブロックは対応点数正規化 +
+  並進ヤコビアン=単位行列のため**常に ≈I** で、幾何的信頼度を運ばない
+  (クラッタロックの「自信満々の誤り」と本物の確信を区別できない)。
+  情報重みの ICP 側は固定スケールとするしかなく、これが loose 結合の限界。
+- DR-LRIO (密結合) の <1 m には未達。残差は yaw ドリフト蓄積 + radar バイアス
+  で、逐次補正でなく同時最適化 (密結合) が必要という結論。
+- config: `rko_lio_lidar_degeneracy_radar_continuous.{yaml,ros.yaml}`、
+  プリセット `presets/corridor_fog_radar.ros.yaml` にも反映済み。

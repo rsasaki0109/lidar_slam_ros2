@@ -38,6 +38,7 @@ nav:
   - Autoware Quickstart: autoware-quickstart.md
   - Autoware Foxglove: autoware-foxglove.md
   - Operator Workflows: workflows.md
+  - Degeneracy Resilience Guide: degeneracy-guide.md
   - 3DGS Photoreal Map: 3dgs-map-tutorial.md
   - 3DGS Map Viewer: 3dgs-viewer.md
   - Benchmarking And Release Gate: benchmarking.md

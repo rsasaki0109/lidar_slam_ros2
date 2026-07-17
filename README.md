@@ -181,6 +181,11 @@ bash scripts/run_release_readiness_checks.sh --fail-on-profiles
 
 Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](docs/benchmarking.md).
 
+## Degeneracy resilience (fog / tunnels)
+
+Opt-in radar/intensity gates recover fog "clutter-lock" (drift **35.6 → 11.2 m**) and
+self-similar tunnels (reach **98.7 m → ~500 m**): [docs/degeneracy-guide.md](docs/degeneracy-guide.md).
+
 ## Docs
 
 - **Getting started**: [Getting Started](docs/getting-started.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
