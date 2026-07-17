@@ -183,14 +183,8 @@ Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](d
 
 ## Degeneracy resilience (fog / tunnels)
 
-Opt-in RKO-LIO gates recover odometry in two failure modes plain
-LiDAR-inertial tracking can't fix alone: fog/dust "clutter-lock" (pose
-freezes despite real motion) and long, self-similar tunnels (trajectory
-falls far short of true distance). A radar disagreement gate cut fog
-endpoint drift **32.8 m → 22.7 m (-31%)**; combined radar gates took tunnel
-reach from **98.7 m → 495.3 m** (~500 m true distance). Four ready-to-layer
-presets and a symptom → remedy table are in
-[docs/degeneracy-guide.md](docs/degeneracy-guide.md).
+Opt-in radar/intensity gates recover fog "clutter-lock" (drift **35.6 → 11.2 m**) and
+self-similar tunnels (reach **98.7 m → ~500 m**): [docs/degeneracy-guide.md](docs/degeneracy-guide.md).
 
 ## Docs
 
