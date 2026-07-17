@@ -121,7 +121,7 @@ If graph optimization outputs sparse keyframes, the coloured-map pipeline can
 propagate their corrections onto the dense SLAM pose stream automatically:
 
 ```bash
-python3 tools/gaussian_splatting/colored_map_pipeline.py \
+python3 tools/colored_map/colored_map_pipeline.py \
   <bag> output/<run>/traj_corrected.tum output/<run>/colored_map \
   --raw-traj output/<run>/traj_raw.tum \
   --extrinsic configs/gaussian_splatting/<lidar_camera_extrinsic>.yaml

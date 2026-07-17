@@ -6,8 +6,8 @@ The whole HILTI bag -> SLAM map -> IFC flow now has one entry point. Existing
 maps/IFCs are reused by default, so rerunning it is safe and fast:
 
 ```bash
-python3 tools/gaussian_splatting/bim_pipeline.py exp01
-python3 tools/gaussian_splatting/bim_pipeline.py /path/to/map.ply
+python3 tools/colored_map/bim_pipeline.py exp01
+python3 tools/colored_map/bim_pipeline.py /path/to/map.ply
 ```
 
 Use `--dry-run` to preview, `--force-map` to rerun SLAM, and `--force-ifc` to
@@ -18,7 +18,7 @@ exp01 and exp07 evidence cases with the checked-in quality profile:
 
 ```bash
 python3 scripts/evaluate_bim_regression_gate.py \
-  --profile tools/gaussian_splatting/bim_regression_profile_v1.json \
+  --profile tools/colored_map/bim_regression_profile_v1.json \
   --case synthetic_closed_room=builtin:closed-room \
   --case exp01=/path/to/exp01_bim_metrics.json \
   --case exp07=/path/to/exp07_bim_metrics.json \
@@ -38,7 +38,7 @@ off so it can be picked up cold.
 
 ## Files
 
-- `tools/gaussian_splatting/bim_export.py` — extraction, topology, QA and IFC writer.
+- `tools/colored_map/bim_export.py` — extraction, topology, QA and IFC writer.
 - `graph_based_slam/test/test_bim_export.py` — **72 tests**, all pure-numpy except
   4 IFC-writer tests (`pytest.importorskip('ifcopenshell')`).
 - Run: `python3 -m pytest graph_based_slam/test/test_bim_export.py -q`
@@ -126,7 +126,7 @@ IFC (lazy `ifcopenshell` 0.8.5):
   `motion_gate_enable=false`, `reject_nonconverged_pose_update=false`.
 - **Capturing `/map`**: subscribe and write the PLY **on every callback** — the SIGINT-save
   pattern silently fails under rclpy's own SIGINT handler.
-- Reference scripts are checked in at `tools/gaussian_splatting/bim_reference_scripts/`
+- Reference scripts are checked in at `tools/colored_map/bim_reference_scripts/`
   (`run_hilti_slam.sh`, `capture_map.py`) — they encode the working SLAM params above.
   **Their `OUT=` path still points at the old session scratchpad; edit it before running.**
   `exp07_map.ply` / `exp01_map.ply` were their SLAM outputs (in the scratchpad, may be gone).

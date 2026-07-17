@@ -83,21 +83,21 @@ timeout -s INT 1800 ros2 run rko_lio offline_node --ros-args \
   -p imu_topic:=/livox/imu -p lidar_topic:=/livox/points -p base_frame:=base_link \
   -p dump_results:=true -p results_dir:=<out> -p run_name:=seq1_rko
 # 2) posed images (time-offset 0 で良い; Kalibr -20.6ms は有意差なしを実測済み)
-python3 tools/gaussian_splatting/extract_posed_images.py \
+python3 tools/colored_map/extract_posed_images.py \
   --bag <bag> --traj <tum> --camera-topic /camera/image_raw/compressed \
   --intrinsics-yaml configs/gaussian_splatting/rtk_slam_cam0_intrinsics.yaml \
   --extrinsic configs/gaussian_splatting/rtk_slam_cam0_extrinsic.yaml \
   --undistort --time-offset 0 --start-time 480 --end-time 545 --stride 5 \
   --max-extrapolation 0.2 --out <out>/posed
 # 3) 着色点群 (採用パラメータ)
-python3 tools/gaussian_splatting/build_lidar_init.py \
+python3 tools/colored_map/build_lidar_init.py \
   --bag <bag> --traj <tum> --points-topic /livox/points \
   --start-time 480 --end-time 545 --voxel 0.015 --min-range 1.5 --max-range 60 \
   --max-points 5000000 --min-neighbors 8 --sparse-voxel 0.1 \
   --color-transforms <out>/posed/transforms.json --color-robust \
   --color-image-margin 140 --color-min-samples 3 --out colored.ply
 # 4) レンダ + README アセット
-python3 tools/gaussian_splatting/render_map_flythrough.py \
+python3 tools/colored_map/render_map_flythrough.py \
   --pointcloud colored.ply --transforms <out>/posed/transforms.json \
   --color-mode rgb --frames 240 --fps 30 --point-size 0.02 --scale 0.375 \
   --loop-fade 12 --device cpu --mp4 master.mp4
@@ -170,3 +170,18 @@ ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
 - #364: realtime 移植 + exp04 検証
 - #365: appearance 指標 + masked held-out
 - #366: appearance のゲート組込み(本文書を含む)
+
+## 9. 追記 (2026-07-18): tools/colored_map/ へ分離
+
+着色は gsplat と無関係、という指摘を受けて本文書を含む着色・エクスポート系
+14 モジュールを `tools/gaussian_splatting/` から `tools/colored_map/` へ移動した。
+旧パスには **sys.modules リダイレクト式 shim** があり、旧来の
+`sys.path.insert(gs_dir)` + `import pointcloud_io` も
+`python3 tools/gaussian_splatting/build_lidar_init.py` も動き続ける
+(shim は spec 名を先に `sys.modules` へ登録すること — dataclass が
+`sys.modules[cls.__module__]` を引くため、忘れると collection で落ちる)。
+3DGS 側に残る `train_gsplat` / `render_path` / `render_slam_3dgs_sidebyside`
+への依存は、移動側 3 ファイル (build_lidar_init / render_map_flythrough /
+colorize_planar_references) の先頭 bootstrap が解決する。
+tests / scripts の旧パス参照は shim で無改修動作 — 新規コードは
+`tools/colored_map/` を直接参照すること。
