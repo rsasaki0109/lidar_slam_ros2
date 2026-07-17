@@ -286,8 +286,9 @@ def test_quality_profile_adds_two_evaluators_and_gate(tmp_path):
         '--trajectory-report', str(tmp_path / 'metrics.json'),
         '--geometry-report', str(tmp_path / 'map_quality_report.yaml'))
     commands = cmp.build_commands(args)
-    assert [name for name, _ in commands][-3:] == [
-        'camera-LiDAR alignment', 'held-out colour', 'quality gate']
+    assert [name for name, _ in commands][-4:] == [
+        'camera-LiDAR alignment', 'held-out colour', 'appearance',
+        'quality gate']
     gate = commands[-1][1]
     assert gate[gate.index('--trajectory-report') + 1] == str(
         tmp_path / 'metrics.json')
@@ -320,3 +321,20 @@ def test_vignette_and_confidence_defaults_are_off(tmp_path):
     build = cmp.build_commands(_args(tmp_path))[1][1]
     assert build[build.index('--color-image-margin') + 1] == '0'
     assert build[build.index('--color-min-samples') + 1] == '1'
+
+
+def test_quality_profile_adds_appearance_stage_and_gate_wiring(tmp_path):
+    for name in ('profile.yaml', 'traj_report.json', 'geom_report.yaml'):
+        (tmp_path / name).write_text('{}')
+    commands = cmp.build_commands(_args(
+        tmp_path, '--quality-profile', str(tmp_path / 'profile.yaml'),
+        '--trajectory-report', str(tmp_path / 'traj_report.json'),
+        '--geometry-report', str(tmp_path / 'geom_report.yaml')))
+    names = [name for name, _ in commands]
+    assert 'appearance' in names
+    appearance = dict(commands)['appearance']
+    assert appearance[appearance.index('--out') + 1].endswith(
+        'colored_map_appearance.json')
+    gate_cmd = dict(commands)['quality gate']
+    assert gate_cmd[gate_cmd.index('--appearance-report') + 1].endswith(
+        'colored_map_appearance.json')

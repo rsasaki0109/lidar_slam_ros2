@@ -51,6 +51,9 @@ def _reports():
                       'weighted_inlier_2px': 0.26},
         'colour': {'rgb_l2_median': 36.4, 'rgb_l2_inlier_20': 0.35,
                    'heldout_scored_fraction': 0.999},
+        'appearance': {'coverage': 0.998, 'chroma_retention': 1.01,
+                       'roughness': {'roughness_median': 2.05,
+                                     'roughness_p90': 12.3}},
     }
 
 
@@ -94,3 +97,29 @@ def test_missing_metric_is_actionable():
     del reports['alignment']['weighted_median_px']
     with pytest.raises(gate.QualityGateError, match='weighted_median_px'):
         gate.evaluate(reports, _profile())
+
+
+def test_appearance_domain_gates_pepper_and_coverage():
+    profile = {'colored_map_quality_profile': {
+        'name': 'test', 'enforcement': 'blocking', 'thresholds': {
+            'appearance_coverage_min': 0.95,
+            'appearance_roughness_median_max': 2.5,
+            'appearance_roughness_p90_max': 15.0,
+            'appearance_chroma_retention_min': 0.9}}}
+    result = gate.evaluate(_reports(), profile)
+    assert result['overall'] == 'OK'
+    peppered = _reports()
+    peppered['appearance']['roughness']['roughness_p90'] = 18.5
+    peppered['appearance']['coverage'] = 0.768
+    result = gate.evaluate(peppered, profile)
+    assert result['violations'] == 2
+
+
+def test_appearance_threshold_without_report_is_actionable():
+    reports = _reports()
+    del reports['appearance']
+    profile = {'colored_map_quality_profile': {
+        'name': 'test', 'enforcement': 'report_only', 'thresholds': {
+            'appearance_coverage_min': 0.95}}}
+    with pytest.raises(gate.QualityGateError, match='appearance-report'):
+        gate.evaluate(reports, profile)

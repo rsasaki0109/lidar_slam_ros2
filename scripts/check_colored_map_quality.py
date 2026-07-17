@@ -59,6 +59,14 @@ METRICS = {
         'colour', ('rgb_l2_inlier_20',), 'min'),
     'heldout_scored_fraction_min': (
         'colour', ('heldout_scored_fraction',), 'min'),
+    'appearance_coverage_min': (
+        'appearance', ('coverage',), 'min'),
+    'appearance_roughness_median_max': (
+        'appearance', ('roughness', 'roughness_median'), 'max'),
+    'appearance_roughness_p90_max': (
+        'appearance', ('roughness', 'roughness_p90'), 'max'),
+    'appearance_chroma_retention_min': (
+        'appearance', ('chroma_retention',), 'min'),
 }
 
 
@@ -117,6 +125,9 @@ def evaluate(reports: dict[str, dict[str, Any]],
         if isinstance(limit_value, bool) or not isinstance(limit_value, (int, float)):
             raise QualityGateError(f'threshold {key} must be numeric')
         report_name, metric_path, comparison = METRICS[key]
+        if report_name not in reports:
+            raise QualityGateError(
+                f'threshold {key} needs --{report_name}-report')
         value = nested_number(reports[report_name], metric_path)
         limit = float(limit_value)
         passed = value <= limit if comparison == 'max' else value >= limit
@@ -139,6 +150,10 @@ def main() -> int:
     parser.add_argument('--geometry-report', type=Path, required=True)
     parser.add_argument('--alignment-report', type=Path, required=True)
     parser.add_argument('--colour-report', type=Path, required=True)
+    parser.add_argument('--appearance-report', type=Path, default=None,
+                        help='evaluate_colored_map_appearance.py output; '
+                             'required when the profile sets appearance_* '
+                             'thresholds')
     parser.add_argument('--profile', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
     args = parser.parse_args()
@@ -149,6 +164,8 @@ def main() -> int:
             'alignment': load_mapping(args.alignment_report),
             'colour': load_mapping(args.colour_report),
         }
+        if args.appearance_report is not None:
+            reports['appearance'] = load_mapping(args.appearance_report)
         result = evaluate(reports, load_mapping(args.profile))
     except QualityGateError as exc:
         parser.error(str(exc))
