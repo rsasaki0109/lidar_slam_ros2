@@ -194,6 +194,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
     if args.quality_profile is not None:
         alignment_report = out_dir / 'lidar_camera_alignment.json'
         colour_report = out_dir / 'heldout_point_colors.json'
+        appearance_report = out_dir / 'colored_map_appearance.json'
         quality_report = out_dir / 'colored_map_quality_gate.json'
         rebuild_map = any(name == 'coloured map' for name, _ in commands)
         rebuild_images = any(name == 'posed images' for name, _ in commands)
@@ -216,11 +217,22 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 '--transforms', str(transforms),
                 '--out', str(colour_report),
             ]))
+        if (rebuild_map or rebuild_images or args.force_quality or
+                is_stale(appearance_report, [colored_map, transforms])):
+            commands.append(('appearance', [
+                sys.executable,
+                str(REPO_ROOT / 'scripts' /
+                    'evaluate_colored_map_appearance.py'),
+                '--pointcloud', str(colored_map),
+                '--transforms', str(transforms),
+                '--out', str(appearance_report),
+            ]))
         gate_inputs = [Path(args.trajectory_report), Path(args.geometry_report),
-                       alignment_report, colour_report,
+                       alignment_report, colour_report, appearance_report,
                        Path(args.quality_profile)]
         if (args.force_quality or
-                any(name in ('camera-LiDAR alignment', 'held-out colour')
+                any(name in ('camera-LiDAR alignment', 'held-out colour',
+                             'appearance')
                     for name, _ in commands) or
                 is_stale(quality_report, gate_inputs)):
             commands.append(('quality gate', [
@@ -230,6 +242,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 '--geometry-report', str(args.geometry_report),
                 '--alignment-report', str(alignment_report),
                 '--colour-report', str(colour_report),
+                '--appearance-report', str(appearance_report),
                 '--profile', str(args.quality_profile),
                 '--out', str(quality_report),
             ]))
