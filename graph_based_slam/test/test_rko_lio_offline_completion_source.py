@@ -27,7 +27,8 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""Source-level regression checks for RKO-LIO offline completion.
+"""
+Source-level regression checks for RKO-LIO offline completion.
 
 Paths and identifiers track the upstream-integrated rko_lio layout
 (base_node/threaded_node split, snake_case VoxelHashMap API).
