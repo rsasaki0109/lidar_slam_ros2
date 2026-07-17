@@ -204,6 +204,13 @@ A/B: Kalibr の camera timeshift (-20.6ms) は depth-edge アライメントで
 RGB L2 はビネット領域を「正解」に含むため margin 適用側が僅かに悪く出る
 (64.5→66.3) が、目視では胡椒ノイズ・黒ずみが明確に減る — この指標は
 ビネット除外の評価には使えない、が学び。
+→ その後 `evaluate_heldout_point_colors.py --image-margin` で正解画素側も
+ビネット帯を除外できるようにしたところ順位は反転し、margin 版が忠実度でも
+勝つ (A 43.5 vs B 40.1 median、inlier_20 0.257→0.296)。「見た目」側は
+`scripts/evaluate_colored_map_appearance.py` (彩度保持率 chroma_retention +
+voxel 内色ラフネス roughness + coverage) が新設され、exp04 の旧着色→
+再着色→margin の視覚順位 (rough_p90 18.5→17.6→12.3、coverage 0.77→1.00)
+を数値で再現する。
 
 レンダは CUDA 不要になった: `render_path.render_frames_cpu` (深度量子化+
 点 ID を int64 に詰めて `np.minimum.at` 一発で可視性と色を同時解決する
