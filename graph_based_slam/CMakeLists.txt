@@ -116,6 +116,14 @@ if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_cmake_pytest REQUIRED)
+  if(DEFINED ENV{ROS_DISTRO} AND "$ENV{ROS_DISTRO}" STREQUAL "humble")
+    # humble ships an older uncrustify binary whose formatting output diverges
+    # from the version used on newer distros (e.g. jazzy) for a handful of
+    # files. Since a single formatting cannot satisfy both uncrustify
+    # versions at once, skip the redundant style check on humble only;
+    # jazzy (and any other supported distro) still enforces it.
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_uncrustify)
+  endif()
   ament_lint_auto_find_test_dependencies()
   ament_add_gtest(
     test_gnss_weighting

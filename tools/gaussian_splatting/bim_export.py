@@ -1457,6 +1457,14 @@ def _count_dangling_wall_ends(planes: list[dict], tolerance: float = 0.3) -> int
                for i, point in enumerate(endpoints))
 
 
+def _fmt_optional_pct(value: Optional[float]) -> str:
+    return '-' if value is None else f'{value:.0%}'
+
+
+def _fmt_optional_fixed(value: Optional[float], decimals: int = 4) -> str:
+    return '-' if value is None else f'{value:.{decimals}f}'
+
+
 def build_bim_metrics(planes: list[dict], rooms: Optional[list[dict]] = None,
                       *, source: str = '', settings: Optional[dict] = None) -> dict:
     """Build a deterministic, machine-readable BIM QA manifest."""
@@ -1619,18 +1627,18 @@ def write_html_report(planes: list[dict], path: str | Path, *,
         f'<td>{html.escape(p.get("provenance", "unknown"))}</td>'
         f'<td>{p.get("confidence", "-")}</td><td>{html.escape(p.get("confidence_level", "-"))}</td>'
         f'<td>{p.get("confidence_metrics", {}).get("support_points", "-")}</td>'
-        f'<td>{("-" if p.get("element_fit", {}).get("coverage_ratio") is None else f"{p["element_fit"]["coverage_ratio"]:.0%}")}</td>'
-        f'<td>{("-" if p.get("element_fit", {}).get("distribution_ratio") is None else f"{p["element_fit"]["distribution_ratio"]:.0%}")}</td>'
-        f'<td>{("-" if p.get("element_fit", {}).get("distance_rmse_m") is None else f"{p["element_fit"]["distance_rmse_m"]:.4f}")}</td>'
-        f'<td>{("-" if p.get("element_fit", {}).get("distance_p95_m") is None else f"{p["element_fit"]["distance_p95_m"]:.4f}")}</td></tr>'
+        f'<td>{_fmt_optional_pct(p.get("element_fit", {}).get("coverage_ratio"))}</td>'
+        f'<td>{_fmt_optional_pct(p.get("element_fit", {}).get("distribution_ratio"))}</td>'
+        f'<td>{_fmt_optional_fixed(p.get("element_fit", {}).get("distance_rmse_m"))}</td>'
+        f'<td>{_fmt_optional_fixed(p.get("element_fit", {}).get("distance_p95_m"))}</td></tr>'
         for i, p in enumerate(planes))
     local_segments = [(wi, si, seg) for wi, wall in enumerate(walls)
                       for si, seg in enumerate(wall.get('quality_segments', []))]
     issue_rows = ''.join(
         f'<tr><td>Wall {wi + 1}</td><td>{si + 1}</td><td>{seg["score"]}</td>'
         f'<td>{seg["level"]}</td><td>{seg["support_points"]}</td>'
-        f'<td>{("-" if seg["observation_rmse_m"] is None else f"{seg["observation_rmse_m"]:.3f}")}</td>'
-        f'<td>{("-" if seg["model_rmse_m"] is None else f"{seg["model_rmse_m"]:.3f}")}</td>'
+        f'<td>{_fmt_optional_fixed(seg["observation_rmse_m"], 3)}</td>'
+        f'<td>{_fmt_optional_fixed(seg["model_rmse_m"], 3)}</td>'
         f'<td>{html.escape(seg["recommendation"])}</td></tr>'
         for wi, si, seg in local_segments if seg['level'] != 'High')
     regularization_rows = ''.join(
