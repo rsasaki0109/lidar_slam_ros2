@@ -97,6 +97,23 @@ run: `runs/tunnel_rko_lio_intensity_disagreement_v1`,
 `runs/fog_rko_lio_intensity_disagreement_v1`。param:
 `rko_lio_lidar_degeneracy_intensity_disagreement.{yaml,ros.yaml}` (default off)。
 
+### 追試 (2026-07-17): HILTI exp07 では全閾値で悪化 — 適用条件の確定
+
+mm-GT のある HILTI 2022 exp07 (長い自己相似廊下、baseline APE 0.318 m) に
+適用した結果、min_mps 0.2/0.05/0.02 のいずれでも **APE 0.94〜2.39 m と
+2.9〜7.5 倍悪化**。原因は閾値ではなく**相関のエイリアシング**: 自己相似廊下では
+反射テクスチャ自体も走行軸に沿って周期的で、相関 ≥0.6 の「もっともらしく
+誤った」シフトが定常的に発生し (52% の試行が閾値超過)、weight 1.0 で直接
+注入されて累積する。fog (テクスチャがセンサ随伴ノイズ) と鏡像の失敗モード。
+
+**適用条件の結論**: intensity 不一致ゲートが有効なのは「幾何は自己相似だが
+反射テクスチャは特徴的 (照明・標識・ケーブル等)」な環境のみ (NTNU tunnel が
+該当)。幾何もテクスチャも自己相似な環境 (HILTI exp07) とテクスチャが偽物の
+環境 (fog) では有害。default-off の環境別オプトインが正しい運用。対策候補
+(未実装): min_correlation 引き上げ、profile 長短縮、weight < 1 の減衰、
+シフト分布の多峰性検出によるエイリアス棄却。
+benchmark: `/media/sasaki/aiueo/benchmarks/hilti_exp07_intensity_disagreement_20260717/`。
+
 ## 実装 (Thirdparty/rko_lio、全て default-off で既存挙動バイト同一)
 
 - `core/radar_ego_velocity.hpp`: /radar/cloud (x,y,z,intensity,velocity) から
