@@ -6,7 +6,7 @@ extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, -0.05, 0.0, 0.055]
 # FAST-LIVO2 camera_T_lidar (Rcl/Pcl) and body_T_lidar calibration.
 extrinsic_cam2base_quat_xyzw_xyz: [0.50158807, 0.49175768, 0.49725142, 0.50923945, 0.00552938, -0.12431338, 0.01614686]
 
-lidar_time_offset_sec: 0.0
+lidar_timestamps.offset_seconds: 0.0
 initialization_phase: true
 deskew: true
 voxel_size: 0.35
@@ -14,7 +14,7 @@ icp_keypoint_voxel_multiplier: 1.5
 max_points_per_voxel: 20
 min_range: 1.0
 max_range: 100.0
-max_correspondance_distance: 0.5
+max_correspondence_distance: 0.5
 double_downsample: true
 enable_kidnap_relocalization: false
 reset_on_registration_failure: false

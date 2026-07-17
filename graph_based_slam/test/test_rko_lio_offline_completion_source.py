@@ -27,7 +27,12 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""Source-level regression checks for RKO-LIO offline completion."""
+"""
+Source-level regression checks for RKO-LIO offline completion.
+
+Paths and identifiers track the upstream-integrated rko_lio layout
+(base_node/threaded_node split, snake_case VoxelHashMap API).
+"""
 
 from __future__ import annotations
 
@@ -40,14 +45,17 @@ RKO_ROS_DIR = REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'ros'
 
 def test_offline_completion_does_not_wait_for_trailing_imu_buffer():
     offline_node = (RKO_ROS_DIR / 'offline_node.cpp').read_text(encoding='utf-8')
-    node_header = (RKO_ROS_DIR / 'node.hpp').read_text(encoding='utf-8')
-    node_cpp = (RKO_ROS_DIR / 'node.cpp').read_text(encoding='utf-8')
+    threaded_header = (RKO_ROS_DIR / 'threaded_node.hpp').read_text(encoding='utf-8')
+    threaded_cpp = (RKO_ROS_DIR / 'threaded_node.cpp').read_text(encoding='utf-8')
 
-    assert 'atomic_registration_active' in node_header
-    assert 'atomic_registration_active = true;' in node_cpp
-    assert 'atomic_registration_active = false;' in node_cpp
+    assert 'registration_busy' in threaded_header
+    assert 'registration_busy = true;' in threaded_cpp
+    assert 'registration_busy = false;' in threaded_cpp
     assert 'Trailing IMU messages are expected' in offline_node
-    assert 'lidar_buffer.empty() && !atomic_registration_active' in offline_node
+    assert 'lidar_buffer.empty() && !registration_busy.load()' in offline_node
+    # The end-of-bag drain must also drop trailing frames that can never be
+    # matched with IMU data instead of idling forever.
+    assert '!atomic_can_process && !registration_busy.load()' in offline_node
     assert 'imu_buffer.empty() && lidar_buffer.empty()' not in offline_node
 
 
@@ -57,10 +65,8 @@ def test_rko_lio_has_kidnap_relocalization_recovery_path():
         REPO_ROOT / 'configs' / 'mid360_robot' / 'rko_lio_mid360_kidnap_tolerant.yaml'
     )
     core_header = (rko_core_dir / 'lio.hpp').read_text(encoding='utf-8')
-    core_cpp = (REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'core' / 'lio.cpp').read_text(
-        encoding='utf-8'
-    )
-    node_cpp = (RKO_ROS_DIR / 'node.cpp').read_text(encoding='utf-8')
+    core_cpp = (rko_core_dir / 'lio.cpp').read_text(encoding='utf-8')
+    base_node_cpp = (RKO_ROS_DIR / 'base_node.cpp').read_text(encoding='utf-8')
     config = config_path.read_text(encoding='utf-8')
 
     assert 'enable_kidnap_relocalization' in core_header
@@ -69,8 +75,8 @@ def test_rko_lio_has_kidnap_relocalization_recovery_path():
     assert 'try_global_relocalization' in core_cpp
     assert 'Kidnap relocalization matched' in core_cpp
     assert 'Kidnap recovery accepted scan' in core_cpp
-    assert 'relocalization_map.AddPoints' in core_cpp
-    assert 'declare_parameter<bool>("enable_kidnap_relocalization"' in node_cpp
+    assert 'relocalization_map.add_points' in core_cpp
+    assert 'declare_parameter<bool>("enable_kidnap_relocalization"' in base_node_cpp
     assert 'enable_kidnap_relocalization: true' in config
     assert 'reset_on_registration_failure: true' in config
     assert 'relocalize_after_scan_gap: false' in config
