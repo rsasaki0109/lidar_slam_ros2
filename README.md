@@ -128,7 +128,7 @@ python3 tools/colored_map/colored_map_pipeline.py \
 ```
 
 The pipeline caches `dense_corrected_trajectory.tum` and rebuilds stale
-downstream artifacts; use `--force-trajectory` for an explicit refresh.
+downstream artifacts; use `--force-trajectory` for an explicit refresh. Moving rigs can add `--refine-spatiotemporal-calibration`; see the [held-out-gated design and RTK-SLAM result](docs/research/colored-map-spatiotemporal-calibration-2026-07.md).
 
 ### Cross-repository SLAM benchmark
 

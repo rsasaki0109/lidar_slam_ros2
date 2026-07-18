@@ -1,5 +1,11 @@
 # 点群着色 品質改善 引き継ぎ (2026-07-18)
 
+> 2026-07-19 追記: residual time offset と6DoF外部較正を dense TUM 軌跡から
+> 連続時間で再合成する opt-in stage を追加した。train/held-out の双方で
+> LiDAR depth edge と画像edgeの距離が改善した場合だけ
+> `transforms_spatiotemporal.json` を採用する。設計とRTK Seq1 smoke結果は
+> `docs/research/colored-map-spatiotemporal-calibration-2026-07.md` を参照。
+
 BIM 枝の `BIM_HANDOFF.md` と同じ趣旨の引き継ぎ文書。README の
 camera-coloured flythrough の色が濁っていた問題を起点に、着色パイプライン・
 リアルタイムノード・評価系を一気に改善した一連の作業(lidar_slam_ros2
