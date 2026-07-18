@@ -311,3 +311,12 @@ transformsにもmask参照と来歴が保持される。動的除外時は部分
 実データ閾値の採用は次段階で行い、coverageだけでなくheld-out色誤差、appearance、
 各棄却理由、boundary cropを同時比較する。設計記録は
 `docs/research/colored-map-geometry-aware-fusion-2026-07.md`。
+
+## 16. 追記 (2026-07-19): edge-aware sampling性能
+
+`_sample_pixels(..., interp='edge-aware')`の4 corner stack + `np.ptp`を、
+bilinear用cornerからin-place min/maxを更新する実装へ置換した。random 1,000座標で
+旧式と完全一致。100万座標microbenchmarkはmedian 1.402s→0.519s、RSS
+270,092→238,664 KiB。Construction Seq1の同一48.4万点/260画像screenでは
+130.53s→97.91s（25.0%短縮）、coverage/report同一、PLY SHA-256も同一だった。
+詳細は`docs/research/colored-map-fusion-performance-2026-07.md`。

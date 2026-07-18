@@ -499,6 +499,35 @@ def test_colorize_robust_edge_aware_keeps_smooth_bilinear_sampling():
     np.testing.assert_array_equal(rgb[0], [104, 104, 104])
 
 
+def test_edge_aware_sampling_matches_pairwise_corner_reference():
+    rng = np.random.default_rng(19)
+    image = rng.integers(0, 256, (23, 31, 3), dtype=np.uint8)
+    u = rng.uniform(-0.25, 30.25, 1000)
+    v = rng.uniform(-0.25, 22.25, 1000)
+    actual = pcio._sample_pixels(
+        image, u, v, 31, 23, 'edge-aware', 48.0)
+
+    source = image.astype(np.float32)
+    x0 = np.clip(np.floor(u).astype(np.int64), 0, 30)
+    y0 = np.clip(np.floor(v).astype(np.int64), 0, 22)
+    x1, y1 = np.minimum(x0 + 1, 30), np.minimum(y0 + 1, 22)
+    wx = np.clip(u - x0, 0.0, 1.0)[:, None].astype(np.float32)
+    wy = np.clip(v - y0, 0.0, 1.0)[:, None].astype(np.float32)
+    top = source[y0, x0] * (1.0 - wx) + source[y0, x1] * wx
+    bottom = source[y1, x0] * (1.0 - wx) + source[y1, x1] * wx
+    expected = top * (1.0 - wy) + bottom * wy
+    corners = np.stack([
+        source[y0, x0], source[y0, x1],
+        source[y1, x0], source[y1, x1],
+    ], axis=1)
+    use_nearest = np.ptp(corners, axis=1).max(axis=1) > 48.0
+    nearest_u = np.clip(np.round(u).astype(np.int64), 0, 30)
+    nearest_v = np.clip(np.round(v).astype(np.int64), 0, 22)
+    expected[use_nearest] = source[
+        nearest_v[use_nearest], nearest_u[use_nearest]]
+    np.testing.assert_array_equal(actual, expected)
+
+
 def test_colorize_robust_edge_aware_validates_threshold():
     vms, K, W, H = _cam()
     img = np.zeros((H, W, 3), dtype=np.uint8)

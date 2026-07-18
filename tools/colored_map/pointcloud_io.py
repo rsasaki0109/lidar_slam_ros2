@@ -305,13 +305,26 @@ def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
     y1 = np.minimum(y0 + 1, height - 1)
     wx = np.clip(uf - x0, 0.0, 1.0)[:, None].astype(np.float32)
     wy = np.clip(vf - y0, 0.0, 1.0)[:, None].astype(np.float32)
-    top = im[y0, x0] * (1.0 - wx) + im[y0, x1] * wx
-    bot = im[y1, x0] * (1.0 - wx) + im[y1, x1] * wx
+    p00, p10 = im[y0, x0], im[y0, x1]
+    if interp == 'edge-aware':
+        local_minimum = np.minimum(p00, p10)
+        local_maximum = np.maximum(p00, p10)
+    top = p00 * (1.0 - wx) + p10 * wx
+    del p00, p10
+    p01, p11 = im[y1, x0], im[y1, x1]
+    if interp == 'edge-aware':
+        np.minimum(local_minimum, p01, out=local_minimum)
+        np.minimum(local_minimum, p11, out=local_minimum)
+        np.maximum(local_maximum, p01, out=local_maximum)
+        np.maximum(local_maximum, p11, out=local_maximum)
+    bot = p01 * (1.0 - wx) + p11 * wx
+    del p01, p11
     bilinear = top * (1.0 - wy) + bot * wy
     if interp == 'bilinear':
         return bilinear
-    corners = np.stack([im[y0, x0], im[y0, x1], im[y1, x0], im[y1, x1]], axis=1)
-    local_range = np.ptp(corners, axis=1).max(axis=1)
+    # Avoid materialising Mx4x3 corners. At multi-million-point scale that
+    # temporary dominates edge-aware sampling memory and reduction time.
+    local_range = (local_maximum - local_minimum).max(axis=1)
     ui = np.clip(np.round(uf).astype(np.int64), 0, width - 1)
     vi = np.clip(np.round(vf).astype(np.int64), 0, height - 1)
     use_nearest = local_range > edge_threshold
