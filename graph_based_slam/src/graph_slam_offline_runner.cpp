@@ -790,6 +790,7 @@ int main(int argc, char ** argv)
 
   std::vector<Eigen::Isometry3d> optimized_poses;
   std::string pose_graph_g2o;
+  graphslam::DeterministicArtifacts artifacts;
   optimized_poses.reserve(records.size());
   if (!records.empty()) {
     graphslam::PoseGraphRequest request;
@@ -798,9 +799,18 @@ int main(int argc, char ** argv)
     request.loop_config = loop_config;
     request.imu_config = imu_config;
     request.plane_constraints = plane_revisit_result.constraints;
-    const graphslam::pose_graph::OptimizationResult result = application.optimize(request);
+    std::vector<double> artifact_timestamps;
+    artifact_timestamps.reserve(records.size());
+    for (const auto & record : records) {
+      artifact_timestamps.push_back(record.stamp_sec);
+    }
+    const graphslam::OptimizationArtifacts application_result =
+      application.optimizeAndSerialize(request, artifact_timestamps);
+    const graphslam::pose_graph::OptimizationResult & result =
+      application_result.optimization;
     optimized_poses = result.poses;
     pose_graph_g2o = result.pose_graph_g2o;
+    artifacts = application_result.artifacts;
     if (use_plane_revisit_constraints) {
       std::ofstream report(output_dir + "/plane_revisit_report.yaml");
       report << "plane_revisit:\n";
@@ -837,25 +847,13 @@ int main(int argc, char ** argv)
       report << "  chi2_before: " << result.plane_revisit_chi2_before << "\n";
       report << "  chi2_after: " << result.plane_revisit_chi2_after << "\n";
     }
+  } else {
+    artifacts = application.deterministicArtifacts(graphslam::ArtifactRequest{});
   }
 
-  // --- Deterministic outputs. loop_edges.csv is the Phase 2 hard-gate
-  // artifact: same bag + same config must reproduce it byte-identically.
-  {
-    std::ostringstream csv;
-    csv << "from,to,fitness,tx,ty,tz,qx,qy,qz,qw\n";
-    char line[512];
-    for (const auto & edge : loop_edges) {
-      const Eigen::Vector3d t = edge.relative_pose.translation();
-      const Eigen::Quaterniond q(edge.relative_pose.rotation());
-      std::snprintf(
-        line, sizeof(line), "%d,%d,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g",
-        edge.pair_id.first, edge.pair_id.second, edge.fitness_score,
-        t.x(), t.y(), t.z(), q.x(), q.y(), q.z(), q.w());
-      csv << line << "\n";
-    }
-    map_output.writeBytes(output_dir + "/loop_edges.csv", csv.str());
-  }
+  // Canonical loop/trajectory bytes come from the same Application method
+  // used by the live ROS adapter. Adapter scheduling cannot change formatting.
+  map_output.writeBytes(output_dir + "/loop_edges.csv", artifacts.loop_edges_csv);
   {
     std::vector<Eigen::Isometry3d> raw_poses;
     raw_poses.reserve(records.size());
@@ -866,7 +864,7 @@ int main(int argc, char ** argv)
       output_dir + "/trajectory_raw.tum", tumBytes(records, raw_poses));
     if (!optimized_poses.empty()) {
       map_output.writeBytes(
-        output_dir + "/trajectory_optimized.tum", tumBytes(records, optimized_poses));
+        output_dir + "/trajectory_optimized.tum", artifacts.trajectory_optimized_tum);
       map_output.writeBytes(output_dir + "/pose_graph.g2o", pose_graph_g2o);
     }
   }

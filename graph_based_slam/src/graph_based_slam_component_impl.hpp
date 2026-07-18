@@ -73,6 +73,8 @@
 
 namespace graphslam
 {
+struct DeterministicArtifacts;
+
 class GraphBasedSlamComponent::Impl    // NOLINT(runtime/indentation_namespace)
 {
 public:
@@ -115,7 +117,6 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr modified_map_pub_;
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr map_save_srv_;
 
-  using LoopEdges = std::vector<backend_core::LoopEdgeSet::Edge>;
   using PointCloud = pcl::PointCloud<pcl::PointXYZI>;
   using PointCloudPtr = PointCloud::Ptr;
   using MapSaveRequestHeader = std::shared_ptr<rmw_request_id_t>;
@@ -133,12 +134,9 @@ private:
     // the data, not of how the executor batched arrivals.
   void runEventDrivenLoopSearch();
   void drainEventDrivenLoopSearch();
-  bool snapshotGraphState(
-    lidarslam_msgs::msg::MapArray & map_array_msg,
-    LoopEdges & loop_edges);
+  bool snapshotGraphState(lidarslam_msgs::msg::MapArray & map_array_msg);
   void doPoseAdjustment(
     lidarslam_msgs::msg::MapArray map_array_msg,
-    const LoopEdges & loop_edges,
     bool do_save_map);
   void publishMapAndPose();
 
@@ -159,7 +157,7 @@ private:
     const pcl::PointCloud<pcl::PointXYZI>::Ptr & map);
   void writeMapBundleArtifacts(
     const lidarslam_msgs::msg::MapArray & map_array_msg,
-    const LoopEdges & loop_edges,
+    const DeterministicArtifacts & artifacts,
     const std::vector<Eigen::Isometry3d> & optimized_poses);
 
     // Direct odometry + cloud input mode (for LIO frontends). The two

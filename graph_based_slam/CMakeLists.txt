@@ -159,6 +159,11 @@ if(BUILD_TESTING)
     list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_uncrustify)
   endif()
   ament_lint_auto_find_test_dependencies()
+  ament_add_pytest_test(
+    test_graph_slam_architecture
+    test/test_graph_slam_architecture.py
+    TIMEOUT 60
+  )
   ament_add_gtest(
     test_graph_slam_config
     test/test_graph_slam_config.cpp
@@ -1093,6 +1098,7 @@ endif()
 
 add_library(graph_based_slam_component SHARED
   src/graph_based_slam_component.cpp
+  src/graph_slam_ros_adapter.cpp
   src/graph_slam_composition.cpp
   src/three_d_bbs_loop_verifier.cpp
 )

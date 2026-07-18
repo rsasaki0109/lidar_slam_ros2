@@ -31,10 +31,12 @@
 
 #include <algorithm>
 #include <mutex>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 
 #include "graph_based_slam/loop_search_schedule.hpp"
+#include "graph_based_slam/map_saver.hpp"
 #include "graph_based_slam/registration_factory.hpp"
 
 namespace graphslam
@@ -176,24 +178,19 @@ GraphSlamStateSnapshot GraphSlamApplication::stateSnapshot() const
   return result;
 }
 
-pose_graph::OptimizationResult GraphSlamApplication::optimize(
-  const PoseGraphRequest & request) const
+namespace
 {
-  std::vector<LoopEdge> graph_edges;
-  {
-    std::lock_guard<std::mutex> lock(engine_->mutex);
-    graph_edges = engine_->loop_edges.edges();
-  }
-  std::vector<pose_graph::LoopConstraint> loop_constraints;
-  loop_constraints.reserve(graph_edges.size());
+std::vector<pose_graph::LoopConstraint> loopConstraintsForPrefix(
+  const std::vector<GraphSlamApplication::LoopEdge> & graph_edges,
+  std::size_t submap_count)
+{
+  std::vector<pose_graph::LoopConstraint> constraints;
+  constraints.reserve(graph_edges.size());
   for (const auto & edge : graph_edges) {
-    // A query-prefix optimization sees exactly the canonical graph induced
-    // by that prefix, even if a batched processSubmaps() call has already
-    // accepted edges for later queries.
     if (
       edge.pair_id.first < 0 || edge.pair_id.second < 0 ||
-      edge.pair_id.first >= static_cast<int>(request.submaps.size()) ||
-      edge.pair_id.second >= static_cast<int>(request.submaps.size()))
+      edge.pair_id.first >= static_cast<int>(submap_count) ||
+      edge.pair_id.second >= static_cast<int>(submap_count))
     {
       continue;
     }
@@ -202,13 +199,120 @@ pose_graph::OptimizationResult GraphSlamApplication::optimize(
     constraint.to = edge.pair_id.second;
     constraint.relative_pose = edge.relative_pose;
     constraint.fitness_score = edge.fitness_score;
-    loop_constraints.push_back(constraint);
+    constraints.push_back(constraint);
   }
+  return constraints;
+}
+
+pose_graph::OptimizationResult optimizeWithEdges(
+  const PoseGraphRequest & request,
+  const std::vector<GraphSlamApplication::LoopEdge> & graph_edges)
+{
+  const auto loop_constraints = loopConstraintsForPrefix(
+    graph_edges, request.submaps.size());
   return pose_graph::optimizePoseGraph(
     request.submaps, loop_constraints, request.imu_constraints,
     request.gnss_constraints, request.adjacent_config, request.loop_config,
     request.imu_config, request.chi2_collection, request.fix_first_vertex,
     request.iterations, request.plane_constraints);
+}
+
+DeterministicArtifacts serializeWithEdges(
+  const ArtifactRequest & request,
+  const std::vector<GraphSlamApplication::LoopEdge> & graph_edges)
+{
+  if (request.timestamps.size() != request.optimized_poses.size()) {
+    throw std::invalid_argument("artifact timestamps and optimized poses must have equal size");
+  }
+
+  DeterministicArtifacts artifacts;
+  std::ostringstream loop_csv;
+  loop_csv << map_saver::loopEdgesCsvHeader() << "\n";
+  const int pose_count = static_cast<int>(request.optimized_poses.size());
+  for (const auto & edge : graph_edges) {
+    if (
+      edge.pair_id.first < 0 || edge.pair_id.second < 0 ||
+      edge.pair_id.first >= pose_count || edge.pair_id.second >= pose_count)
+    {
+      continue;
+    }
+    const Eigen::Vector3d translation = edge.relative_pose.translation();
+    const Eigen::Quaterniond orientation(edge.relative_pose.rotation());
+    map_saver::LoopEdgeRecord record;
+    record.from = edge.pair_id.first;
+    record.to = edge.pair_id.second;
+    record.fitness = edge.fitness_score;
+    record.tx = translation.x();
+    record.ty = translation.y();
+    record.tz = translation.z();
+    record.qx = orientation.x();
+    record.qy = orientation.y();
+    record.qz = orientation.z();
+    record.qw = orientation.w();
+    loop_csv << map_saver::loopEdgeCsvLine(record) << "\n";
+    ++artifacts.loop_edge_count;
+  }
+  artifacts.loop_edges_csv = loop_csv.str();
+
+  std::ostringstream trajectory;
+  for (std::size_t i = 0; i < request.optimized_poses.size(); ++i) {
+    const Eigen::Vector3d translation = request.optimized_poses[i].translation();
+    const Eigen::Quaterniond orientation(request.optimized_poses[i].rotation());
+    map_saver::TrajectoryPose record;
+    record.timestamp = request.timestamps[i];
+    record.tx = translation.x();
+    record.ty = translation.y();
+    record.tz = translation.z();
+    record.qx = orientation.x();
+    record.qy = orientation.y();
+    record.qz = orientation.z();
+    record.qw = orientation.w();
+    trajectory << map_saver::trajectoryTumLine(record) << "\n";
+  }
+  artifacts.trajectory_optimized_tum = trajectory.str();
+  return artifacts;
+}
+}  // namespace
+
+pose_graph::OptimizationResult GraphSlamApplication::optimize(
+  const PoseGraphRequest & request) const
+{
+  std::vector<LoopEdge> graph_edges;
+  {
+    std::lock_guard<std::mutex> lock(engine_->mutex);
+    graph_edges = engine_->loop_edges.edges();
+  }
+  return optimizeWithEdges(request, graph_edges);
+}
+
+OptimizationArtifacts GraphSlamApplication::optimizeAndSerialize(
+  const PoseGraphRequest & request,
+  const std::vector<double> & timestamps) const
+{
+  std::vector<LoopEdge> graph_edges;
+  {
+    std::lock_guard<std::mutex> lock(engine_->mutex);
+    graph_edges = engine_->loop_edges.edges();
+  }
+  OptimizationArtifacts result;
+  result.optimization = optimizeWithEdges(request, graph_edges);
+  ArtifactRequest artifact_request;
+  artifact_request.timestamps = timestamps;
+  artifact_request.optimized_poses = result.optimization.poses;
+  result.artifacts = serializeWithEdges(artifact_request, graph_edges);
+  return result;
+}
+
+DeterministicArtifacts GraphSlamApplication::deterministicArtifacts(
+  const ArtifactRequest & request) const
+{
+  std::vector<LoopEdge> graph_edges;
+  {
+    std::lock_guard<std::mutex> lock(engine_->mutex);
+    graph_edges = engine_->loop_edges.edges();
+  }
+
+  return serializeWithEdges(request, graph_edges);
 }
 
 }  // namespace graphslam
