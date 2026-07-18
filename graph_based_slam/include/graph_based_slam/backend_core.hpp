@@ -32,9 +32,9 @@
 
 // The ROS-free, clock-free backend state (docs/roadmap/v0.6.md, Phase 2).
 // This engine owns the four loop-closure descriptor databases and their
-// submap-ingestion/search algorithms. GraphSlamApplication owns workflow
-// ordering and accepted graph state; engine resource ownership moves here
-// in the next architecture milestone. The contract this class builds toward:
+// submap-ingestion/search algorithms. GraphSlamApplication is the aggregate
+// lifetime boundary: its private engine owns this state together with the
+// registration, filters, verifier, scheduling and accepted graph. The contract:
 // the same ordered submap sequence plus the same config produce the same
 // state, independent of wall-clock timing. The shell supplies clouds via
 // a provider callback, so message-vs-PCD-cache stays its concern.
@@ -263,9 +263,9 @@ inline double registrationOverlapRatio(
   return registrationOverlapMetrics(aligned_source, target, max_distance_m).source_to_target;
 }
 
-// Backend-owned loop-closure state. Single-threaded by contract: the ROS
-// shell enforces this with SerializedWorkDrain and the offline runner owns
-// the core from its bag loop.
+// Backend-owned loop-closure state. Single-threaded by contract: the owning
+// GraphSlamApplication serializes access, while the ROS shell only coalesces
+// notifications from a potentially multi-threaded executor.
 class BackendCore
 {
 public:
@@ -373,8 +373,8 @@ public:
   // (pure aggregator calls over the descriptor databases), registration
   // verification and best-candidate selection. Raw submap clouds come
   // from the provider (message vs PCD cache stays the shell's concern);
-  // the registration / voxel filter / 3D-BBS compute objects are injected
-  // so the shell and the offline runner can own their own instances.
+  // registration / voxel filter / 3D-BBS compute objects are borrowed from
+  // the owning GraphSlamApplication engine for this synchronous operation.
   // Every operator-visible line is returned as a LogLine so the shell
   // emits byte-identical output.
   LoopSearchOutput searchLoopForSubmap(

@@ -36,6 +36,7 @@
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "graph_based_slam/gnss_weighting.hpp"
+#include "graph_based_slam/graph_slam_application.hpp"
 #include "graph_based_slam/map_saver.hpp"
 #include "graph_based_slam/planar_map_filter.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
@@ -45,6 +46,7 @@ namespace graphslam
 
 backend_core::DescriptorConfig makeDescriptorConfig(const GraphSlamConfig & config);
 backend_core::LoopSearchConfig makeLoopSearchConfig(const GraphSlamConfig & config);
+GraphSlamApplicationConfig makeGraphSlamApplicationConfig(const GraphSlamConfig & config);
 
 struct PoseGraphConfigBundle
 {

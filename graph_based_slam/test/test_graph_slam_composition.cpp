@@ -40,9 +40,13 @@ TEST(GraphSlamComposition, BuildsDescriptorAndLoopSearchBoundaries)
   config.max_loop_candidate_count_ = 7;
   config.scan_context_query_stride_ = 0;
   config.loop_max_translation_delta_ = 12.5;
+  config.registration_method = "GICP";
+  config.voxel_leaf_size = 0.35;
+  config.loop_search_query_stride_ = 3;
 
   const auto descriptor = graphslam::makeDescriptorConfig(config);
   const auto loop_search = graphslam::makeLoopSearchConfig(config);
+  const auto application = graphslam::makeGraphSlamApplicationConfig(config);
 
   EXPECT_TRUE(descriptor.use_triangle_descriptor);
   EXPECT_EQ(descriptor.triangle_descriptor_max_keypoints, 73);
@@ -50,6 +54,10 @@ TEST(GraphSlamComposition, BuildsDescriptorAndLoopSearchBoundaries)
   EXPECT_EQ(loop_search.aggregator.max_loop_candidate_count, 7);
   EXPECT_EQ(loop_search.aggregator.scan_context_query_stride, 1);
   EXPECT_DOUBLE_EQ(loop_search.gates.max_translation_m, 12.5);
+  EXPECT_EQ(application.registration_method, "GICP");
+  EXPECT_DOUBLE_EQ(application.voxel_leaf_size, 0.35);
+  EXPECT_EQ(application.loop_search_query_stride, 3);
+  EXPECT_EQ(application.loop_search.search_submap_num, 9);
 }
 
 TEST(GraphSlamComposition, KeepsAdaptiveStateOutsideStartupConfig)
