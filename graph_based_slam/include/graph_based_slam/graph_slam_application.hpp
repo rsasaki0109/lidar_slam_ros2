@@ -86,6 +86,25 @@ struct GraphSlamStateSnapshot
   std::vector<backend_core::LoopEdgeSet::Edge> loop_edges;
 };
 
+struct ArtifactRequest
+{
+  std::vector<double> timestamps;
+  std::vector<Eigen::Isometry3d> optimized_poses;
+};
+
+struct DeterministicArtifacts
+{
+  std::string loop_edges_csv;
+  std::string trajectory_optimized_tum;
+  std::size_t loop_edge_count {0};
+};
+
+struct OptimizationArtifacts
+{
+  pose_graph::OptimizationResult optimization;
+  DeterministicArtifacts artifacts;
+};
+
 class GraphSlamApplication
 {
 public:
@@ -109,6 +128,17 @@ public:
   GraphSlamStateSnapshot stateSnapshot() const;
 
   pose_graph::OptimizationResult optimize(const PoseGraphRequest & request) const;
+
+  // One canonical graph snapshot drives optimization and artifact bytes.
+  // Both live and replay adapters use this transaction boundary.
+  OptimizationArtifacts optimizeAndSerialize(
+    const PoseGraphRequest & request,
+    const std::vector<double> & timestamps) const;
+
+  // Canonical artifact bytes shared by live ROS and offline replay adapters.
+  // Edges outside the supplied optimized prefix are excluded exactly as they
+  // are by optimize(), preserving query-prefix semantics after a batched drain.
+  DeterministicArtifacts deterministicArtifacts(const ArtifactRequest & request) const;
 
 private:
   class Engine;

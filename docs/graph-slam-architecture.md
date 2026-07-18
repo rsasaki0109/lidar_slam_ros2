@@ -108,11 +108,28 @@ preservation, and append behavior.
 
 ### 5. Architecture hardening
 
-- keep the ROS component at 300 lines or fewer;
-- enforce forbidden dependencies for backend targets in CI;
-- require online/offline parity and byte-identical loop-edge and trajectory
-  artifacts for identical ordered input;
-- run default CI and release gates for every milestone.
+The exported ROS component is now a 48-line registration and lifetime shell;
+ROS subscriptions, message conversion, diagnostics, and publication live in a
+separate outer adapter translation unit. A CI architecture contract caps the
+component at 300 physical lines and verifies that it does not reach into the
+mapping engine directly.
+
+The same contract walks the complete repository-local include closure of
+`GraphSlamApplication` and rejects ROS, rosbag, clock, stream-file, or
+filesystem dependencies. It also inspects the CMake target boundary so the
+filesystem adapter cannot be linked into the deterministic application.
+
+Optimization and deterministic artifact rendering are one Application
+transaction. A single canonical loop-graph snapshot produces the optimized
+poses, g2o bytes, loop-edge CSV, and optimized TUM trajectory. Live callbacks
+and offline replay both call `optimizeAndSerialize()`; their adapters only
+choose output destinations. The parity test submits the same ordered input as
+one live-style batch and as incremental replay, then requires byte-identical
+loop CSV, optimized trajectory, and g2o artifacts.
+
+Default CI, both supported ROS distributions, documentation checks, and the
+release-readiness pass/fail guards remain required before the milestone PR is
+made ready for review.
 
 Each milestone is delivered as one reviewable pull request. Compatibility is
 preserved at its boundary: existing parameter names, defaults, topics, and

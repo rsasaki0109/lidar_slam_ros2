@@ -170,6 +170,63 @@ TEST(GraphSlamApplication, OptimizesPlainPoseGraphRequestsThroughTheSharedEntryP
   EXPECT_DOUBLE_EQ(result.poses[0].translation().x(), 3.5);
 }
 
+TEST(GraphSlamApplication, OnlineAndOfflineBatchingProduceByteIdenticalArtifacts)
+{
+  Fixture fixture;
+  auto online = fixture.makeApplication();
+  auto offline = fixture.makeApplication();
+  const auto ordered_submaps = submaps(4);
+
+  // A live callback may receive the complete prefix, while bag replay can
+  // submit one ordered submap at a time. Both paths enter the same engine.
+  online->processSubmaps(ordered_submaps, emptyCloud);
+  for (int count = 1; count <= 4; ++count) {
+    offline->processSubmaps(submaps(count), emptyCloud);
+  }
+
+  GraphSlamApplication::LoopEdge edge;
+  edge.pair_id = {0, 3};
+  edge.relative_pose.translation().x() = 30.0;
+  edge.fitness_score = 0.125;
+  ASSERT_TRUE(online->upsertLoopEdge(edge));
+  ASSERT_TRUE(offline->upsertLoopEdge(edge));
+
+  PoseGraphRequest pose_graph_request;
+  pose_graph_request.submaps.resize(ordered_submaps.size());
+  for (std::size_t i = 0; i < ordered_submaps.size(); ++i) {
+    pose_graph_request.submaps[i].pose =
+      Eigen::Isometry3d(ordered_submaps[i].pose.matrix());
+  }
+  const std::vector<double> timestamps {1000.0, 1001.0, 1002.0, 1003.0};
+  const auto online_result = online->optimizeAndSerialize(
+    pose_graph_request, timestamps);
+  const auto offline_result = offline->optimizeAndSerialize(
+    pose_graph_request, timestamps);
+
+  EXPECT_EQ(
+    online_result.artifacts.loop_edges_csv,
+    offline_result.artifacts.loop_edges_csv);
+  EXPECT_EQ(
+    online_result.artifacts.trajectory_optimized_tum,
+    offline_result.artifacts.trajectory_optimized_tum);
+  EXPECT_EQ(
+    online_result.optimization.pose_graph_g2o,
+    offline_result.optimization.pose_graph_g2o);
+  EXPECT_EQ(online_result.artifacts.loop_edge_count, 1U);
+  EXPECT_FALSE(online_result.artifacts.trajectory_optimized_tum.empty());
+}
+
+TEST(GraphSlamApplication, ArtifactRequestRejectsMismatchedTimestamps)
+{
+  Fixture fixture;
+  auto application = fixture.makeApplication();
+  ArtifactRequest request;
+  request.timestamps.push_back(1.0);
+  EXPECT_THROW(
+    static_cast<void>(application->deterministicArtifacts(request)),
+    std::invalid_argument);
+}
+
 TEST(GraphSlamApplication, RejectsInvalidWorkflowConfiguration)
 {
   GraphSlamApplicationConfig config;
