@@ -790,6 +790,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_spatiotemporal_calibration
+    test/test_spatiotemporal_calibration.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_heldout_point_colors
     test/test_heldout_point_colors.py
     TIMEOUT 120

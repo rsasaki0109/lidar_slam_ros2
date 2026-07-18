@@ -141,6 +141,47 @@ def test_write_corrected_transforms_preserves_images_and_updates_pose(tmp_path):
     assert loaded['image_paths'][0] == (images / '000.png').resolve()
 
 
+def test_write_recomposed_transforms_embeds_calibration_uncertainty(tmp_path):
+    images = tmp_path / 'source' / 'images'
+    images.mkdir(parents=True)
+    (images / '000.png').write_bytes(b'pixel')
+    source = tmp_path / 'source' / 'transforms.json'
+    source.write_text(json.dumps({
+        'fl_x': 10, 'fl_y': 10, 'cx': 5, 'cy': 5, 'w': 10, 'h': 10,
+        'frames': [{'file_path': 'images/000.png',
+                    'transform_matrix': np.eye(4).tolist()}],
+    }))
+    output = tmp_path / 'result' / 'recomposed.json'
+    calibration = {
+        'accepted': True,
+        'uncertainty_dt_s_xyz_m_rpy_rad': [0.01] * 7,
+    }
+    lca.write_recomposed_transforms(
+        source, output, np.asarray([np.eye(4)]),
+        calibration=calibration)
+    document = json.loads(output.read_text())
+    assert document['spatiotemporal_calibration'] == calibration
+    assert (lca.tg.load_transforms(output)['image_paths'][0] ==
+            (images / '000.png').resolve())
+
+
+def test_calibration_metadata_exposes_compact_fusion_contract():
+    observability = {
+        'uncertainty_dt_s_xyz_m_rpy_rad': [0.01] * 7,
+        'condition_number': 2.0,
+        'maximum_abs_time_translation_correlation': 0.1,
+    }
+    metadata = lca.calibration_metadata({
+        'accepted': True,
+        'parameters_dt_s_xyz_m_rpy_deg': [0.0] * 7,
+        'boundary_axes': [],
+        'production_calibration': {'observability': observability},
+    })
+    assert metadata['accepted']
+    assert metadata['uncertainty_dt_s_xyz_m_rpy_rad'] == [0.01] * 7
+    assert metadata['condition_number'] == 2.0
+
+
 def _moving_samples():
     return [
         lca.pi.TrajectorySample(
@@ -198,6 +239,34 @@ def test_spatiotemporal_optimizer_is_deterministic_and_bounded(monkeypatch):
     assert abs(first[0]) <= 0.05
     assert np.all(np.abs(first[1:4]) <= 0.05)
     assert np.all(np.abs(np.rad2deg(first[4:])) <= 0.3 + 1e-12)
+
+
+def test_production_optimizer_runs_pyramid_and_observability(monkeypatch):
+    target = np.array([0.02, -0.02, 0.0, 0.0,
+                       np.deg2rad(0.2), 0.0, 0.0])
+
+    def objective(*args, reference_edge_points=None,
+                  image_edge_masks=None, **kwargs):
+        parameters = np.asarray(args[6])
+        loss = 1.0 + float(np.sum((parameters - target) ** 2))
+        return loss, {'edge_points': 100, 'mean_px': loss,
+                      'median_px': loss, 'coverage': 1.0}
+
+    monkeypatch.setattr(lca, 'spatiotemporal_objective', objective)
+    parameters, before, after, report = \
+        lca.optimize_spatiotemporal_production(
+            np.zeros((0, 3)), _moving_samples(), np.array([1.0]),
+            np.eye(4), np.eye(3), [np.zeros((20, 20), np.uint8)],
+            scales=(0.5, 1.0), rounds_per_level=2,
+            time_step=0.02, translation_step=0.02,
+            rotation_step_deg=0.2, max_time_offset=0.1,
+            max_translation=0.1, max_rotation_deg=1.0,
+            auto_bound_expansions=0, minimum_curvature=1e-12)
+    assert after['loss'] < before['loss']
+    np.testing.assert_allclose(parameters, target, atol=0.005)
+    assert [level['scale'] for level in report['levels']] == [0.5, 1.0]
+    assert report['observability']['observable']
+    assert not report['boundary_axes']
 
 
 def test_trajectory_excitation_rejects_static_time_offset():

@@ -104,8 +104,12 @@ def test_spatiotemporal_refinement_inserts_geometry_and_heldout_calibration(tmp_
     coloured = dict(commands)['coloured map']
     assert '--color-transforms' not in geometry
     assert '--optimize-spatiotemporal' in calibration
+    assert '--production-calibration' in calibration
     assert calibration[calibration.index('--max-time-offset') + 1] == '0.04'
     assert calibration[calibration.index('--max-points') + 1] == '300000'
+    assert calibration[calibration.index('--pyramid-scales') + 1] == \
+        '0.25,0.5,1.0'
+    assert calibration[calibration.index('--holdout-fraction') + 1] == '0.2'
     assert calibration[
         calibration.index('--minimum-heldout-improvement') + 1] == '0.02'
     refined = str(
