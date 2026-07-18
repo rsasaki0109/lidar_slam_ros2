@@ -38,6 +38,7 @@
 #include <stdexcept>
 #include <unordered_map>
 
+#include <pcl/common/common.h>  // NOLINT(build/include_order)
 #include <pcl/io/pcd_io.h>  // NOLINT(build/include_order)
 #include <pcl/filters/voxel_grid.h>  // NOLINT(build/include_order)
 #include <pcl_conversions/pcl_conversions.h>  // NOLINT(build/include_order)
@@ -59,7 +60,6 @@
 #include "graph_based_slam/map_saver.hpp"
 #include "graph_based_slam/planar_map_filter.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
-#include "graph_based_slam/registration_factory.hpp"
 #include "graph_based_slam/submap_creation.hpp"
 #include "g2o/core/robust_kernel_impl.h"
 #define GRAPH_BASED_SLAM_WITH_G2O 1
@@ -92,10 +92,11 @@ GraphSlamConfig loadValidatedGraphSlamConfig(rclcpp::Node & node)
 
 struct GraphBasedSlamComponent::Impl::BackendWorkspace
 {
-  backend_core::BackendCore core;
-  boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> registration;
-  pcl::VoxelGrid<pcl::PointXYZI> voxelgrid;
-  ThreeDBBSLoopVerifier three_d_bbs_loop_verifier;
+  explicit BackendWorkspace(GraphSlamApplicationConfig config)
+  : application(new GraphSlamApplication(std::move(config)))
+  {
+  }
+
   std::unique_ptr<GraphSlamApplication> application;
 };
 
@@ -114,7 +115,7 @@ GraphBasedSlamComponent::Impl::Impl(GraphBasedSlamComponent & node)
   tfbuffer_(std::make_shared<rclcpp::Clock>(clock_)),
   listener_(tfbuffer_),
   broadcaster_(&node_),
-  backend_(std::make_unique<BackendWorkspace>())
+  backend_(std::make_unique<BackendWorkspace>(makeGraphSlamApplicationConfig(config_)))
 {
   RCLCPP_INFO(node_.get_logger(), "initialization start");
 
@@ -138,27 +139,6 @@ GraphBasedSlamComponent::Impl::Impl(GraphBasedSlamComponent & node)
         config_.degeneracy_diagnostics_csv_path_.c_str());
     }
   }
-
-  backend_->voxelgrid.setLeafSize(
-    config_.voxel_leaf_size, config_.voxel_leaf_size, config_.voxel_leaf_size);
-
-  backend_->registration =
-    backend_core::makeLoopRegistration(
-    config_.registration_method, config_.ndt_resolution, config_.ndt_num_threads);
-  if (!backend_->registration) {
-    RCLCPP_ERROR(node_.get_logger(), "invalid registration_method");
-    exit(1);
-  }
-
-  GraphSlamApplicationConfig application_config;
-  application_config.descriptors = makeDescriptorConfig(config_);
-  application_config.loop_search = makeLoopSearchConfig(config_);
-  application_config.loop_search_query_stride = config_.loop_search_query_stride_;
-  application_config.loop_edge_dedup_index_window = config_.loop_edge_dedup_index_window_;
-  backend_->application.reset(new GraphSlamApplication(
-      application_config,
-      {backend_->core, *backend_->registration, backend_->voxelgrid,
-        backend_->three_d_bbs_loop_verifier}));
 
   initializePubSub();
 
@@ -286,44 +266,8 @@ bool GraphBasedSlamComponent::Impl::snapshotGraphState(
   if (!graph_state_.snapshot(map_array_msg)) {
     return false;
   }
-  loop_edges = backend_->application->loopEdges();
+  loop_edges = backend_->application->stateSnapshot().loop_edges;
   return true;
-}
-GraphBasedSlamComponent::Impl::LocalSubmapProvider
-GraphBasedSlamComponent::Impl::makeFilteredLocalSubmapProvider(
-  const lidarslam_msgs::msg::MapArray & map_array_msg)
-{
-  return [this, &map_array_msg](int ref_idx) -> pcl::PointCloud<pcl::PointXYZI>::Ptr {
-           pcl::PointCloud<pcl::PointXYZI>::Ptr aggregated_cloud(
-             new pcl::PointCloud<pcl::PointXYZI>);
-           Eigen::Affine3d reference_affine;
-           tf2::fromMsg(map_array_msg.submaps[ref_idx].pose, reference_affine);
-           for (int k = 0; k < config_.search_submap_num_ && (ref_idx - k) >= 0; ++k) {
-             const int src_idx = ref_idx - k;
-             pcl::PointCloud<pcl::PointXYZI>::Ptr cloud =
-               loadSubmapCloud(map_array_msg, src_idx);
-             if (!cloud || cloud->empty()) {
-               continue;
-             }
-             Eigen::Affine3d src_affine;
-             tf2::fromMsg(map_array_msg.submaps[src_idx].pose, src_affine);
-             pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud(
-               new pcl::PointCloud<pcl::PointXYZI>);
-             const Eigen::Matrix4f local_transform =
-               (reference_affine.inverse() * src_affine).matrix().cast<float>();
-             pcl::transformPointCloud(*cloud, *transformed_cloud, local_transform);
-             *aggregated_cloud += *transformed_cloud;
-           }
-
-           pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud(
-             new pcl::PointCloud<pcl::PointXYZI>);
-           if (aggregated_cloud->empty()) {
-             return filtered_cloud;
-           }
-           backend_->voxelgrid.setInputCloud(aggregated_cloud);
-           backend_->voxelgrid.filter(*filtered_cloud);
-           return filtered_cloud;
-         };
 }
 
 void GraphBasedSlamComponent::Impl::runEventDrivenLoopSearch()
@@ -341,7 +285,7 @@ void GraphBasedSlamComponent::Impl::drainEventDrivenLoopSearch()
     if (!snapshotGraphState(map_array_msg, loop_edges)) {return;}
     const int num_submaps = static_cast<int>(map_array_msg.submaps.size());
     if (num_submaps < 2) {return;}
-    if (backend_->application->nextQueryIndex() >= num_submaps) {return;}
+    if (backend_->application->stateSnapshot().next_query_index >= num_submaps) {return;}
     if (map_array_msg.cloud_coordinate != map_array_msg.LOCAL) {
       RCLCPP_WARN(node_.get_logger(), "cloud_coordinate should be local, but it's not local.");
     }
@@ -353,13 +297,12 @@ void GraphBasedSlamComponent::Impl::drainEventDrivenLoopSearch()
       meta.travel_distance = submap.distance;
       ordered_submaps.push_back(meta);
     }
-    const auto filtered_local_provider = makeFilteredLocalSubmapProvider(map_array_msg);
     const auto raw_cloud_provider =
       [this, &map_array_msg](int idx) -> pcl::PointCloud<pcl::PointXYZI>::Ptr {
         return loadSubmapCloud(map_array_msg, idx);
       };
     const auto events = backend_->application->processSubmaps(
-      ordered_submaps, filtered_local_provider, raw_cloud_provider);
+      ordered_submaps, raw_cloud_provider);
     for (const auto & event : events) {
       if (config_.debug_flag_) {
         RCLCPP_INFO(
@@ -538,7 +481,6 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
   }
   PoseGraphRequest optimization_request;
   optimization_request.submaps = submap_nodes;
-  optimization_request.loop_edges = loop_edges;
   optimization_request.imu_constraints = imu_constraints;
   optimization_request.gnss_constraints = gnss_constraints;
   optimization_request.adjacent_config = pose_graph_config.adjacent;

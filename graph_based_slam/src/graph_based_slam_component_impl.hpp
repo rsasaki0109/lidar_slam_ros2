@@ -117,7 +117,6 @@ private:
   using LoopEdges = std::vector<backend_core::LoopEdgeSet::Edge>;
   using PointCloud = pcl::PointCloud<pcl::PointXYZI>;
   using PointCloudPtr = PointCloud::Ptr;
-  using LocalSubmapProvider = std::function<PointCloudPtr(int)>;
   using MapSaveRequestHeader = std::shared_ptr<rmw_request_id_t>;
   using MapSaveRequest = std::shared_ptr<std_srvs::srv::Empty::Request>;
   using MapSaveResponse = std::shared_ptr<std_srvs::srv::Empty::Response>;
@@ -133,10 +132,6 @@ private:
     // the data, not of how the executor batched arrivals.
   void runEventDrivenLoopSearch();
   void drainEventDrivenLoopSearch();
-    // Voxel-filtered local aggregate of a submap and its recent neighbors;
-    // the returned provider borrows map_array_msg and must not outlive it.
-  LocalSubmapProvider makeFilteredLocalSubmapProvider(
-    const lidarslam_msgs::msg::MapArray & map_array_msg);
   bool snapshotGraphState(
     lidarslam_msgs::msg::MapArray & map_array_msg,
     LoopEdges & loop_edges);

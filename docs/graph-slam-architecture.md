@@ -66,9 +66,24 @@ ownership can move as one coherent unit in milestone 3.
 
 ### 3. Backend engine ownership
 
-- make the application own graph, registration, optimization, and scheduling;
-- expose immutable result snapshots instead of shared mutable containers;
-- keep ordering and tie-breaking explicit for deterministic output.
+`GraphSlamApplication` is now the aggregate lifetime boundary for the mapping
+engine. It is constructed from plain configuration only. Its private engine
+owns descriptor databases, registration, the shared voxel filter, 3D-BBS,
+query scheduling, and the canonical deduplicated loop graph. Neither the ROS
+component nor the offline runner can construct or retain those resources.
+
+Descriptor aggregation and filtering also moved behind `processSubmaps()`.
+Adapters now supply only ordered submap metadata and a synchronous raw-cloud
+provider; batching therefore cannot select a different filtering path.
+`GraphSlamStateSnapshot` and per-query events return graph state by value.
+Pose-graph requests no longer accept loop edges from callers: optimization
+uses the canonical graph induced by the supplied submap prefix, excluding any
+later accepted edges after a batched drain.
+
+Registration creation and invalid-method handling are identical online and
+offline because they happen in the same constructor. The composition root
+maps the validated ROS snapshot into the complete application configuration;
+the offline adapter builds the same plain DTO from replay parameters.
 
 ### 4. External I/O ports
 

@@ -44,8 +44,8 @@ namespace backend_core
 {
 
 // Accepted loop edges with the nearby-pair dedup/upsert policy. This
-// container is deliberately synchronization-free; BackendCore owns one in
-// offline mode and GraphStateStore protects one in the ROS shell.
+// container is deliberately synchronization-free; GraphSlamApplication owns
+// the single canonical instance and protects it with its engine mutex.
 class LoopEdgeSet
 {
 public:

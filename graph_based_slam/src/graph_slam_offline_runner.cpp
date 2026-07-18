@@ -75,9 +75,7 @@
 #include "graph_based_slam/plane_feature_association.hpp"
 #include "graph_based_slam/plane_revisit_constraints.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
-#include "graph_based_slam/registration_factory.hpp"
 #include "graph_based_slam/submap_creation.hpp"
-#include "graph_based_slam/three_d_bbs_loop_verifier.hpp"
 
 namespace
 {
@@ -554,57 +552,23 @@ int main(int argc, char ** argv)
   node->get_parameter_or(
     "loop_edge_robust_kernel_type", loop_edge_robust_kernel_type, std::string("huber"));
 
-  auto registration = graphslam::backend_core::makeLoopRegistration(
-    registration_method, ndt_resolution, ndt_num_threads);
-  if (!registration) {
-    RCLCPP_ERROR(logger, "invalid registration_method");
-    rclcpp::shutdown();
-    return 1;
-  }
-  pcl::VoxelGrid<pcl::PointXYZI> voxelgrid;
-  voxelgrid.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
-  graphslam::ThreeDBBSLoopVerifier bbs_verifier;
-
-  BackendCore core;
   graphslam::GraphSlamApplicationConfig application_config;
   application_config.descriptors = descriptor_config;
   application_config.loop_search = search_config;
+  application_config.registration_method = registration_method;
+  application_config.ndt_resolution = ndt_resolution;
+  application_config.ndt_num_threads = ndt_num_threads;
+  application_config.voxel_leaf_size = voxel_leaf_size;
   application_config.loop_search_query_stride = loop_search_query_stride;
   application_config.loop_edge_dedup_index_window =
     loop_edge_dedup_index_window < 0 ? 0 : loop_edge_dedup_index_window;
-  graphslam::GraphSlamApplication application(
-    application_config, {core, *registration, voxelgrid, bbs_verifier});
+  graphslam::GraphSlamApplication application(application_config);
 
   std::vector<SubmapRecord> records;
   bool last_position_valid = false;
   Eigen::Vector3d last_position = Eigen::Vector3d::Zero();
   double accumulated_distance = 0.0;
 
-  // The same voxel-filtered local-aggregate semantics as the component's
-  // makeFilteredLocalSubmapProvider, over the in-memory record store.
-  const auto filtered_local_provider = [&](int ref_idx) -> CloudPtr {
-      CloudPtr aggregated_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-      const Eigen::Affine3d & reference_affine = records[ref_idx].meta.pose;
-      for (int k = 0; k < search_config.search_submap_num && (ref_idx - k) >= 0; ++k) {
-        const int src_idx = ref_idx - k;
-        const CloudPtr & cloud = records[src_idx].cloud;
-        if (!cloud || cloud->empty()) {
-          continue;
-        }
-        CloudPtr transformed_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-        const Eigen::Matrix4f local_transform =
-          (reference_affine.inverse() * records[src_idx].meta.pose).matrix().cast<float>();
-        pcl::transformPointCloud(*cloud, *transformed_cloud, local_transform);
-        *aggregated_cloud += *transformed_cloud;
-      }
-      CloudPtr filtered_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-      if (aggregated_cloud->empty()) {
-        return filtered_cloud;
-      }
-      voxelgrid.setInputCloud(aggregated_cloud);
-      voxelgrid.filter(*filtered_cloud);
-      return filtered_cloud;
-    };
   const auto raw_cloud_provider = [&](int idx) -> CloudPtr {
       return records[idx].cloud;
     };
@@ -618,8 +582,7 @@ int main(int argc, char ** argv)
       for (const auto & record : records) {
         ordered_submaps.push_back(record.meta);
       }
-      const auto events = application.processSubmaps(
-        ordered_submaps, filtered_local_provider, raw_cloud_provider);
+      const auto events = application.processSubmaps(ordered_submaps, raw_cloud_provider);
       for (const auto & event : events) {
         for (const auto & line : event.search_output.logs) {
           if (line.via_logger) {
@@ -712,7 +675,7 @@ int main(int argc, char ** argv)
       loadFixedLoopEdges(fixed_loop_edges_path, records.size(), application);
       RCLCPP_INFO(
         logger, "Loaded %zu fixed loop edges from %s; descriptor search was skipped",
-        application.loopEdges().size(), fixed_loop_edges_path.c_str());
+        application.stateSnapshot().loop_edges.size(), fixed_loop_edges_path.c_str());
     } catch (const std::exception & error) {
       RCLCPP_ERROR(logger, "%s", error.what());
       rclcpp::shutdown();
@@ -724,7 +687,8 @@ int main(int argc, char ** argv)
     logger,
     "Offline run complete: %zu pairs, %zu submaps, %.1f m travelled, %zu loop edges "
     "(%zu odom / %zu cloud messages left unpaired)",
-    paired_count, records.size(), accumulated_distance, application.loopEdges().size(),
+    paired_count, records.size(), accumulated_distance,
+    application.stateSnapshot().loop_edges.size(),
     pending_odoms.size(), pending_clouds.size());
 
   // --- Final pose-graph optimization from raw odometry poses plus the
@@ -737,7 +701,7 @@ int main(int argc, char ** argv)
     submap_node.pose = Eigen::Isometry3d(record.meta.pose.matrix());
     submap_nodes.push_back(submap_node);
   }
-  const auto loop_edges = application.loopEdges();
+  const auto loop_edges = application.stateSnapshot().loop_edges;
   graphslam::pose_graph::AdjacentEdgeConfig adjacent_config;
   adjacent_config.num_adjacent_pose_constraints = num_adjacent_pose_constraints;
   adjacent_config.info_weight = adjacent_edge_info_weight;
@@ -822,7 +786,6 @@ int main(int argc, char ** argv)
   if (!records.empty()) {
     graphslam::PoseGraphRequest request;
     request.submaps = submap_nodes;
-    request.loop_edges = loop_edges;
     request.adjacent_config = adjacent_config;
     request.loop_config = loop_config;
     request.imu_config = imu_config;

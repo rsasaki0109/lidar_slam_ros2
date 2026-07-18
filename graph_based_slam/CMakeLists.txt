@@ -126,6 +126,7 @@ set_target_properties(graph_slam_application PROPERTIES POSITION_INDEPENDENT_COD
 target_include_directories(
   graph_slam_application PUBLIC include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS}
 )
+ament_target_dependencies(graph_slam_application ndt_omp_ros2)
 target_link_libraries(
   graph_slam_application
   ${PCL_LIBRARIES}

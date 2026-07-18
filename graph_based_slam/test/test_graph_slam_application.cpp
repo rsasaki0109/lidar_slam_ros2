@@ -32,8 +32,6 @@
 #include <memory>
 #include <vector>
 
-#include <pcl/registration/icp.h>  // NOLINT(build/include_order)
-
 #include "graph_based_slam/graph_slam_application.hpp"
 
 namespace graphslam
@@ -45,17 +43,12 @@ using Cloud = pcl::PointCloud<pcl::PointXYZI>;
 
 struct Fixture
 {
-  backend_core::BackendCore backend;
-  pcl::IterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI> registration;
-  pcl::VoxelGrid<pcl::PointXYZI> voxelgrid;
-  ThreeDBBSLoopVerifier verifier;
-
   std::unique_ptr<GraphSlamApplication> makeApplication(int stride = 1)
   {
     GraphSlamApplicationConfig config;
+    config.registration_method = "GICP";
     config.loop_search_query_stride = stride;
-    return std::unique_ptr<GraphSlamApplication>(new GraphSlamApplication(
-      config, {backend, registration, voxelgrid, verifier}));
+    return std::unique_ptr<GraphSlamApplication>(new GraphSlamApplication(config));
   }
 };
 
@@ -80,13 +73,13 @@ TEST(GraphSlamApplication, BatchAndIncrementalInputProduceTheSameQueryOrder)
 {
   Fixture batch_fixture;
   auto batch = batch_fixture.makeApplication();
-  const auto batch_events = batch->processSubmaps(submaps(5), emptyCloud, emptyCloud);
+  const auto batch_events = batch->processSubmaps(submaps(5), emptyCloud);
 
   Fixture incremental_fixture;
   auto incremental = incremental_fixture.makeApplication();
   std::vector<LoopSearchEvent> incremental_events;
   for (int count = 1; count <= 5; ++count) {
-    const auto events = incremental->processSubmaps(submaps(count), emptyCloud, emptyCloud);
+    const auto events = incremental->processSubmaps(submaps(count), emptyCloud);
     incremental_events.insert(incremental_events.end(), events.begin(), events.end());
   }
 
@@ -98,15 +91,15 @@ TEST(GraphSlamApplication, BatchAndIncrementalInputProduceTheSameQueryOrder)
     EXPECT_EQ(batch_events[i].graph_changed, incremental_events[i].graph_changed);
     EXPECT_EQ(batch_events[i].loop_edges.size(), incremental_events[i].loop_edges.size());
   }
-  EXPECT_EQ(batch->nextQueryIndex(), 5);
-  EXPECT_EQ(incremental->nextQueryIndex(), 5);
+  EXPECT_EQ(batch->stateSnapshot().next_query_index, 5);
+  EXPECT_EQ(incremental->stateSnapshot().next_query_index, 5);
 }
 
 TEST(GraphSlamApplication, StrideSkipsRegistrationButStillAdvancesEveryQuery)
 {
   Fixture fixture;
   auto application = fixture.makeApplication(2);
-  const auto events = application->processSubmaps(submaps(6), emptyCloud, emptyCloud);
+  const auto events = application->processSubmaps(submaps(6), emptyCloud);
 
   ASSERT_EQ(events.size(), 5U);
   EXPECT_TRUE(events[0].registration_searched);
@@ -114,7 +107,32 @@ TEST(GraphSlamApplication, StrideSkipsRegistrationButStillAdvancesEveryQuery)
   EXPECT_TRUE(events[2].registration_searched);
   EXPECT_FALSE(events[3].registration_searched);
   EXPECT_TRUE(events[4].registration_searched);
-  EXPECT_EQ(application->nextQueryIndex(), 6);
+  EXPECT_EQ(application->stateSnapshot().next_query_index, 6);
+}
+
+TEST(GraphSlamApplication, OwnsDeterministicDescriptorAggregationAndFiltering)
+{
+  GraphSlamApplicationConfig config;
+  config.registration_method = "GICP";
+  config.descriptors.use_scan_context = true;
+  config.loop_search.search_submap_num = 3;
+  config.loop_search_query_stride = 100;
+  GraphSlamApplication application(config);
+  std::vector<int> requested_indices;
+  const auto provider = [&requested_indices](int index) {
+      requested_indices.push_back(index);
+      backend_core::BackendCore::CloudPtr cloud(new Cloud);
+      pcl::PointXYZI point;
+      point.x = static_cast<float>(index);
+      cloud->push_back(point);
+      return cloud;
+    };
+
+  const auto events = application.processSubmaps(submaps(3), provider);
+
+  ASSERT_EQ(events.size(), 2U);
+  const std::vector<int> expected {0, 1, 0, 2, 1, 0};
+  EXPECT_EQ(requested_indices, expected);
 }
 
 TEST(GraphSlamApplication, OwnsTheCanonicalDeduplicatedLoopEdgeSet)
@@ -127,7 +145,7 @@ TEST(GraphSlamApplication, OwnsTheCanonicalDeduplicatedLoopEdgeSet)
   edge.fitness_score = 0.3;
 
   ASSERT_TRUE(application->upsertLoopEdge(edge));
-  const auto edges = application->loopEdges();
+  const auto edges = application->stateSnapshot().loop_edges;
   ASSERT_EQ(edges.size(), 1U);
   EXPECT_EQ(edges[0].pair_id, std::make_pair(2, 9));
   EXPECT_DOUBLE_EQ(edges[0].relative_pose.translation().x(), -7.0);
@@ -138,6 +156,10 @@ TEST(GraphSlamApplication, OptimizesPlainPoseGraphRequestsThroughTheSharedEntryP
 {
   Fixture fixture;
   auto application = fixture.makeApplication();
+  GraphSlamApplication::LoopEdge future_edge;
+  future_edge.pair_id = {0, 5};
+  future_edge.fitness_score = 0.1;
+  ASSERT_TRUE(application->upsertLoopEdge(future_edge));
   PoseGraphRequest request;
   request.submaps.resize(1);
   request.submaps[0].pose.translation().x() = 3.5;
@@ -150,13 +172,21 @@ TEST(GraphSlamApplication, OptimizesPlainPoseGraphRequestsThroughTheSharedEntryP
 
 TEST(GraphSlamApplication, RejectsInvalidWorkflowConfiguration)
 {
-  Fixture fixture;
   GraphSlamApplicationConfig config;
+  config.registration_method = "GICP";
   config.loop_search_query_stride = 0;
-  EXPECT_THROW(
-    GraphSlamApplication(config, {
-        fixture.backend, fixture.registration, fixture.voxelgrid, fixture.verifier}),
-    std::invalid_argument);
+  EXPECT_THROW(static_cast<void>(GraphSlamApplication(config)), std::invalid_argument);
+}
+
+TEST(GraphSlamApplication, RejectsInvalidOwnedEngineConfiguration)
+{
+  GraphSlamApplicationConfig config;
+  config.registration_method = "not-a-registration";
+  EXPECT_THROW(static_cast<void>(GraphSlamApplication(config)), std::invalid_argument);
+
+  config.registration_method = "GICP";
+  config.voxel_leaf_size = 0.0;
+  EXPECT_THROW(static_cast<void>(GraphSlamApplication(config)), std::invalid_argument);
 }
 
 }  // namespace

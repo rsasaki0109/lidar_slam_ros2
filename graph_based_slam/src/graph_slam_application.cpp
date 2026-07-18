@@ -30,66 +30,132 @@
 #include "graph_based_slam/graph_slam_application.hpp"
 
 #include <algorithm>
+#include <mutex>
 #include <stdexcept>
 #include <utility>
 
 #include "graph_based_slam/loop_search_schedule.hpp"
+#include "graph_based_slam/registration_factory.hpp"
 
 namespace graphslam
 {
 
-GraphSlamApplication::GraphSlamApplication(
-  GraphSlamApplicationConfig config,
-  GraphSlamApplicationDependencies dependencies)
-: config_(std::move(config)), dependencies_(dependencies)
+class GraphSlamApplication::Engine
 {
-  if (config_.loop_search_query_stride < 1) {
-    throw std::invalid_argument("loop_search_query_stride must be at least 1");
+public:
+  using CloudPtr = backend_core::BackendCore::CloudPtr;
+  using LocalSubmapProvider = backend_core::BackendCore::LocalSubmapProvider;
+
+  explicit Engine(GraphSlamApplicationConfig application_config)
+  : config(std::move(application_config))
+  {
+    if (config.loop_search_query_stride < 1) {
+      throw std::invalid_argument("loop_search_query_stride must be at least 1");
+    }
+    if (config.loop_edge_dedup_index_window < 0) {
+      throw std::invalid_argument("loop_edge_dedup_index_window must not be negative");
+    }
+    if (!(config.voxel_leaf_size > 0.0)) {
+      throw std::invalid_argument("voxel_leaf_size must be positive");
+    }
+    registration = backend_core::makeLoopRegistration(
+      config.registration_method, config.ndt_resolution, config.ndt_num_threads);
+    if (!registration) {
+      throw std::invalid_argument("unknown registration_method: " + config.registration_method);
+    }
+    const float voxel_leaf_size = static_cast<float>(config.voxel_leaf_size);
+    voxelgrid.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
+    backend.configure(config.descriptors);
+    loop_edges.configure(config.loop_edge_dedup_index_window);
   }
-  if (config_.loop_edge_dedup_index_window < 0) {
-    throw std::invalid_argument("loop_edge_dedup_index_window must not be negative");
+
+  CloudPtr filteredLocalSubmap(
+    const std::vector<backend_core::SubmapMeta> & ordered_submaps,
+    const LocalSubmapProvider & raw_cloud_provider,
+    int reference_index)
+  {
+    CloudPtr aggregate(new pcl::PointCloud<pcl::PointXYZI>);
+    const Eigen::Affine3d & reference_pose = ordered_submaps[reference_index].pose;
+    for (int offset = 0;
+      offset < config.loop_search.search_submap_num && reference_index - offset >= 0;
+      ++offset)
+    {
+      const int source_index = reference_index - offset;
+      const CloudPtr source = raw_cloud_provider(source_index);
+      if (!source || source->empty()) {
+        continue;
+      }
+      CloudPtr transformed(new pcl::PointCloud<pcl::PointXYZI>);
+      const Eigen::Matrix4f local_transform =
+        (reference_pose.inverse() * ordered_submaps[source_index].pose).matrix().cast<float>();
+      pcl::transformPointCloud(*source, *transformed, local_transform);
+      *aggregate += *transformed;
+    }
+
+    CloudPtr filtered(new pcl::PointCloud<pcl::PointXYZI>);
+    if (!aggregate->empty()) {
+      voxelgrid.setInputCloud(aggregate);
+      voxelgrid.filter(*filtered);
+    }
+    return filtered;
   }
-  dependencies_.backend.configure(config_.descriptors);
-  loop_edges_.configure(config_.loop_edge_dedup_index_window);
+
+  GraphSlamApplicationConfig config;
+  backend_core::BackendCore backend;
+  boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> registration;
+  pcl::VoxelGrid<pcl::PointXYZI> voxelgrid;
+  ThreeDBBSLoopVerifier three_d_bbs_verifier;
+  mutable std::mutex mutex;
+  int next_query_index {1};
+  backend_core::LoopEdgeSet loop_edges;
+};
+
+GraphSlamApplication::GraphSlamApplication(GraphSlamApplicationConfig config)
+: engine_(new Engine(std::move(config)))
+{
 }
+
+GraphSlamApplication::~GraphSlamApplication() = default;
 
 std::vector<LoopSearchEvent> GraphSlamApplication::processSubmaps(
   const std::vector<backend_core::SubmapMeta> & ordered_submaps,
-  const LocalSubmapProvider & filtered_local_provider,
   const LocalSubmapProvider & raw_cloud_provider)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(engine_->mutex);
   std::vector<LoopSearchEvent> events;
   const int submap_count = static_cast<int>(ordered_submaps.size());
-  if (next_query_index_ >= submap_count) {
+  if (engine_->next_query_index >= submap_count) {
     return events;
   }
 
-  events.reserve(static_cast<std::size_t>(submap_count - next_query_index_));
-  for (; next_query_index_ < submap_count; ++next_query_index_) {
+  const LocalSubmapProvider filtered_local_provider =
+    [this, &ordered_submaps, &raw_cloud_provider](int index) {
+      return engine_->filteredLocalSubmap(ordered_submaps, raw_cloud_provider, index);
+    };
+  events.reserve(static_cast<std::size_t>(submap_count - engine_->next_query_index));
+  for (; engine_->next_query_index < submap_count; ++engine_->next_query_index) {
     LoopSearchEvent event;
-    event.query_index = next_query_index_;
-    dependencies_.backend.ingestDescriptors(next_query_index_ + 1, filtered_local_provider);
+    event.query_index = engine_->next_query_index;
+    engine_->backend.ingestDescriptors(engine_->next_query_index + 1, filtered_local_provider);
     event.registration_searched = loop_search_schedule::shouldSearch(
-      next_query_index_, config_.loop_search_query_stride);
+      engine_->next_query_index, engine_->config.loop_search_query_stride);
     if (event.registration_searched) {
       // Expose only the ordered prefix visible to this query. This makes
       // batching observationally equivalent to one-submap-at-a-time input.
       std::vector<backend_core::SubmapMeta> visible(
-        ordered_submaps.begin(), ordered_submaps.begin() + next_query_index_ + 1);
-      event.search_output = dependencies_.backend.searchLoopForSubmap(
-        visible, next_query_index_, config_.loop_search, raw_cloud_provider,
-        dependencies_.registration, dependencies_.voxelgrid,
-        dependencies_.three_d_bbs_verifier);
+        ordered_submaps.begin(), ordered_submaps.begin() + engine_->next_query_index + 1);
+      event.search_output = engine_->backend.searchLoopForSubmap(
+        visible, engine_->next_query_index, engine_->config.loop_search, raw_cloud_provider,
+        *engine_->registration, engine_->voxelgrid, engine_->three_d_bbs_verifier);
       if (event.search_output.proposal.found) {
         LoopEdge edge;
         edge.pair_id = event.search_output.proposal.pair_id;
         edge.relative_pose = event.search_output.proposal.relative_pose;
         edge.fitness_score = event.search_output.proposal.fitness_score;
-        event.graph_changed = loop_edges_.upsert(edge);
+        event.graph_changed = engine_->loop_edges.upsert(edge);
       }
     }
-    event.loop_edges = loop_edges_.edges();
+    event.loop_edges = engine_->loop_edges.edges();
     events.push_back(std::move(event));
   }
   return events;
@@ -97,28 +163,40 @@ std::vector<LoopSearchEvent> GraphSlamApplication::processSubmaps(
 
 bool GraphSlamApplication::upsertLoopEdge(const LoopEdge & edge)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-  return loop_edges_.upsert(edge);
+  std::lock_guard<std::mutex> lock(engine_->mutex);
+  return engine_->loop_edges.upsert(edge);
 }
 
-std::vector<GraphSlamApplication::LoopEdge> GraphSlamApplication::loopEdges() const
+GraphSlamStateSnapshot GraphSlamApplication::stateSnapshot() const
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-  return loop_edges_.edges();
-}
-
-int GraphSlamApplication::nextQueryIndex() const
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return next_query_index_;
+  std::lock_guard<std::mutex> lock(engine_->mutex);
+  GraphSlamStateSnapshot result;
+  result.next_query_index = engine_->next_query_index;
+  result.loop_edges = engine_->loop_edges.edges();
+  return result;
 }
 
 pose_graph::OptimizationResult GraphSlamApplication::optimize(
   const PoseGraphRequest & request) const
 {
+  std::vector<LoopEdge> graph_edges;
+  {
+    std::lock_guard<std::mutex> lock(engine_->mutex);
+    graph_edges = engine_->loop_edges.edges();
+  }
   std::vector<pose_graph::LoopConstraint> loop_constraints;
-  loop_constraints.reserve(request.loop_edges.size());
-  for (const auto & edge : request.loop_edges) {
+  loop_constraints.reserve(graph_edges.size());
+  for (const auto & edge : graph_edges) {
+    // A query-prefix optimization sees exactly the canonical graph induced
+    // by that prefix, even if a batched processSubmaps() call has already
+    // accepted edges for later queries.
+    if (
+      edge.pair_id.first < 0 || edge.pair_id.second < 0 ||
+      edge.pair_id.first >= static_cast<int>(request.submaps.size()) ||
+      edge.pair_id.second >= static_cast<int>(request.submaps.size()))
+    {
+      continue;
+    }
     pose_graph::LoopConstraint constraint;
     constraint.from = edge.pair_id.first;
     constraint.to = edge.pair_id.second;

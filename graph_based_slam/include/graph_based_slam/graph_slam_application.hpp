@@ -30,7 +30,7 @@
 #ifndef GRAPH_BASED_SLAM__GRAPH_SLAM_APPLICATION_HPP_
 #define GRAPH_BASED_SLAM__GRAPH_SLAM_APPLICATION_HPP_
 
-#include <mutex>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -42,22 +42,19 @@ namespace graphslam
 {
 
 // The ordered, ROS-free workflow boundary shared by live and replay adapters.
-// Milestone 2 deliberately injects the compute-heavy engine objects; ownership
-// of those resources moves into the backend in Milestone 3.
+// It is also the lifetime boundary for every stateful mapping-engine resource:
+// descriptor databases, registration, filtering, 3D-BBS, scheduling and the
+// canonical graph. Adapters provide ordered data, never engine objects.
 struct GraphSlamApplicationConfig
 {
   backend_core::DescriptorConfig descriptors;
   backend_core::LoopSearchConfig loop_search;
+  std::string registration_method {"NDT"};
+  double ndt_resolution {3.0};
+  int ndt_num_threads {0};
+  double voxel_leaf_size {0.2};
   int loop_search_query_stride {1};
   int loop_edge_dedup_index_window {8};
-};
-
-struct GraphSlamApplicationDependencies
-{
-  backend_core::BackendCore & backend;
-  pcl::Registration<pcl::PointXYZI, pcl::PointXYZI> & registration;
-  pcl::VoxelGrid<pcl::PointXYZI> & voxelgrid;
-  ThreeDBBSLoopVerifier & three_d_bbs_verifier;
 };
 
 struct LoopSearchEvent
@@ -72,7 +69,6 @@ struct LoopSearchEvent
 struct PoseGraphRequest
 {
   std::vector<pose_graph::SubmapNode> submaps;
-  std::vector<backend_core::LoopEdgeSet::Edge> loop_edges;
   std::vector<pose_graph::ImuRotationConstraint> imu_constraints;
   std::vector<pose_graph::GnssConstraint> gnss_constraints;
   pose_graph::AdjacentEdgeConfig adjacent_config;
@@ -85,36 +81,39 @@ struct PoseGraphRequest
   std::vector<pose_graph::PlaneRevisitConstraint> plane_constraints;
 };
 
+struct GraphSlamStateSnapshot
+{
+  int next_query_index {1};
+  std::vector<backend_core::LoopEdgeSet::Edge> loop_edges;
+};
+
 class GraphSlamApplication
 {
 public:
   using LocalSubmapProvider = backend_core::BackendCore::LocalSubmapProvider;
   using LoopEdge = backend_core::LoopEdgeSet::Edge;
 
-  GraphSlamApplication(
-    GraphSlamApplicationConfig config,
-    GraphSlamApplicationDependencies dependencies);
+  explicit GraphSlamApplication(GraphSlamApplicationConfig config);
+  ~GraphSlamApplication();
+
+  GraphSlamApplication(const GraphSlamApplication &) = delete;
+  GraphSlamApplication & operator=(const GraphSlamApplication &) = delete;
 
   // Process every not-yet-observed query from the ordered prefix. The same
   // input prefix produces the same event order regardless of callback/bag
   // batching. Providers are invoked synchronously and are not retained.
   std::vector<LoopSearchEvent> processSubmaps(
     const std::vector<backend_core::SubmapMeta> & ordered_submaps,
-    const LocalSubmapProvider & filtered_local_provider,
     const LocalSubmapProvider & raw_cloud_provider);
 
   bool upsertLoopEdge(const LoopEdge & edge);
-  std::vector<LoopEdge> loopEdges() const;
-  int nextQueryIndex() const;
+  GraphSlamStateSnapshot stateSnapshot() const;
 
   pose_graph::OptimizationResult optimize(const PoseGraphRequest & request) const;
 
 private:
-  GraphSlamApplicationConfig config_;
-  GraphSlamApplicationDependencies dependencies_;
-  mutable std::mutex mutex_;
-  int next_query_index_ {1};
-  backend_core::LoopEdgeSet loop_edges_;
+  class Engine;
+  std::unique_ptr<Engine> engine_;
 };
 
 }  // namespace graphslam
