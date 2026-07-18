@@ -45,6 +45,7 @@ import sys
 from typing import Sequence
 
 import numpy as np
+import yaml
 
 
 TOOL_DIR = Path(__file__).resolve().parent
@@ -65,6 +66,25 @@ def is_stale(output: Path, inputs: Sequence[Path]) -> bool:
     output_mtime = output.stat().st_mtime_ns
     return any(path.is_file() and path.stat().st_mtime_ns > output_mtime
                for path in inputs)
+
+
+def profile_uses_planar_roughness(path: Path) -> bool:
+    """Return whether a readable quality profile gates planar roughness."""
+    try:
+        document = yaml.safe_load(path.read_text(encoding='utf-8'))
+        thresholds = document['colored_map_quality_profile']['thresholds']
+    except (OSError, TypeError, KeyError, yaml.YAMLError):
+        return False
+    return any(str(key).startswith('appearance_planar_roughness_')
+               for key in thresholds)
+
+
+def report_has_metric(path: Path, metric: str) -> bool:
+    """Return whether an existing JSON report contains a top-level metric."""
+    try:
+        return metric in json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError, TypeError):
+        return False
 
 
 def validate_trajectory_density(path: Path, max_gap: float) -> None:
@@ -178,6 +198,8 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             '--color-exposure-scale-limit', str(args.color_exposure_scale_limit),
             '--color-max-samples', str(args.color_max_samples),
             '--color-image-margin', str(args.color_image_margin),
+            '--color-vignette-gain-limit',
+            str(args.color_vignette_gain_limit),
             '--color-min-samples', str(args.color_min_samples),
         ]
         if not args.color_normalize_exposure:
@@ -198,6 +220,9 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
         quality_report = out_dir / 'colored_map_quality_gate.json'
         rebuild_map = any(name == 'coloured map' for name, _ in commands)
         rebuild_images = any(name == 'posed images' for name, _ in commands)
+        planar_roughness = (
+            args.appearance_planar_roughness or
+            profile_uses_planar_roughness(Path(args.quality_profile)))
         if (rebuild_map or rebuild_images or args.force_quality or
                 is_stale(alignment_report, [colored_map, transforms])):
             commands.append(('camera-LiDAR alignment', [
@@ -218,34 +243,45 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 '--out', str(colour_report),
             ]))
         if (rebuild_map or rebuild_images or args.force_quality or
-                is_stale(appearance_report, [colored_map, transforms])):
-            commands.append(('appearance', [
+                is_stale(appearance_report, [colored_map, transforms]) or
+                (planar_roughness and not report_has_metric(
+                    appearance_report, 'planar_roughness'))):
+            appearance_command = [
                 sys.executable,
                 str(REPO_ROOT / 'scripts' /
                     'evaluate_colored_map_appearance.py'),
                 '--pointcloud', str(colored_map),
                 '--transforms', str(transforms),
                 '--out', str(appearance_report),
-            ]))
-        gate_inputs = [Path(args.trajectory_report), Path(args.geometry_report),
-                       alignment_report, colour_report, appearance_report,
+            ]
+            if planar_roughness:
+                appearance_command.append('--planar-roughness')
+            commands.append(('appearance', appearance_command))
+        gate_inputs = [alignment_report, colour_report, appearance_report,
                        Path(args.quality_profile)]
+        gate_inputs.extend(Path(path) for path in
+                           (args.trajectory_report, args.geometry_report)
+                           if path is not None)
         if (args.force_quality or
                 any(name in ('camera-LiDAR alignment', 'held-out colour',
                              'appearance')
                     for name, _ in commands) or
                 is_stale(quality_report, gate_inputs)):
-            commands.append(('quality gate', [
+            gate_command = [
                 sys.executable,
                 str(REPO_ROOT / 'scripts' / 'check_colored_map_quality.py'),
-                '--trajectory-report', str(args.trajectory_report),
-                '--geometry-report', str(args.geometry_report),
                 '--alignment-report', str(alignment_report),
                 '--colour-report', str(colour_report),
                 '--appearance-report', str(appearance_report),
                 '--profile', str(args.quality_profile),
                 '--out', str(quality_report),
-            ]))
+            ]
+            for option, path in (
+                    ('--trajectory-report', args.trajectory_report),
+                    ('--geometry-report', args.geometry_report)):
+                if path is not None:
+                    gate_command.extend((option, str(path)))
+            commands.append(('quality gate', gate_command))
     return commands
 
 
@@ -254,13 +290,6 @@ def run_pipeline(args) -> dict:
     out_dir = Path(args.out)
     if args.kalibr_camchain is not None and args.lidar_calibration is None:
         raise ValueError('--kalibr-camchain requires --lidar-calibration')
-    if args.quality_profile is not None:
-        missing = [name for name in ('trajectory_report', 'geometry_report')
-                   if getattr(args, name) is None]
-        if missing:
-            options = ', '.join('--' + name.replace('_', '-')
-                                for name in missing)
-            raise ValueError(f'--quality-profile requires {options}')
     if not args.dry_run:
         out_dir.mkdir(parents=True, exist_ok=True)
         if args.kalibr_camchain is not None:
@@ -358,6 +387,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--color-image-margin', type=int, default=0,
                    help='ignore colour samples within this many pixels of the '
                         'image border (lens vignette)')
+    p.add_argument('--color-vignette-gain-limit', type=float, default=1.0,
+                   help='maximum automatic radial luminance gain; 1 disables')
     p.add_argument('--color-min-samples', type=int, default=1,
                    help='demote colours confirmed by fewer surviving camera '
                         'samples than this to unseen (1 keeps all)')
@@ -367,6 +398,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--quality-profile', type=Path,
                    help='run alignment, held-out colour, and integrated quality '
                         'checks using this profile')
+    p.add_argument('--appearance-planar-roughness', action='store_true',
+                   help='include PCA-planar voxel roughness in appearance report')
     p.add_argument('--trajectory-report', type=Path,
                    help='metrics.json containing evo.ape.rmse for quality gate')
     p.add_argument('--geometry-report', type=Path,

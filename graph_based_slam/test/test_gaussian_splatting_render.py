@@ -270,6 +270,30 @@ def test_render_frames_cpu_rejects_sh_and_bad_supersample():
     with pytest.raises(ValueError):
         rp.render_frames_cpu(gaussians, viewmats, K, width, height,
                              supersample=0)
+    with pytest.raises(ValueError, match='soft_edge_px'):
+        rp.render_frames_cpu(gaussians, viewmats, K, width, height,
+                             soft_edge_px=-0.1)
+
+
+def test_render_frames_cpu_soft_edge_expands_with_fade():
+    gaussians = _point_set(
+        [[0.0, 0.0, 2.0]], [[1.0, 1.0, 1.0]], size=0.03)
+    K = np.array([[20.0, 0.0, 8.0],
+                  [0.0, 20.0, 8.0],
+                  [0.0, 0.0, 1.0]])
+    viewmats = np.eye(4)[None]
+    opaque = rp.render_frames_cpu(
+        gaussians, viewmats, K, 16, 16, supersample=2)
+    explicit_off = rp.render_frames_cpu(
+        gaussians, viewmats, K, 16, 16, supersample=2,
+        soft_edge_px=0.0)
+    softened = rp.render_frames_cpu(
+        gaussians, viewmats, K, 16, 16, supersample=2,
+        soft_edge_px=1.0)
+    assert np.count_nonzero(softened) > np.count_nonzero(opaque)
+    np.testing.assert_array_equal(explicit_off, opaque)
+    assert softened[0, 8, 8, 0] >= opaque[0, 8, 8, 0]
+    assert np.any((softened > 0) & (softened < 255))
 
 
 def test_render_frames_dispatches_cpu_device():

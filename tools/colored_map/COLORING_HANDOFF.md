@@ -185,3 +185,72 @@ ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
 colorize_planar_references) の先頭 bootstrap が解決する。
 tests / scripts の旧パス参照は shim で無改修動作 — 新規コードは
 `tools/colored_map/` を直接参照すること。
+
+## 10. 追記 (2026-07-18): radial vignette correction
+
+未着手候補2を実装した。`colorize_by_projection_robust` の
+`vignette_gain_limit` (`build_lidar_init.py` / pipeline では
+`--color-vignette-gain-limit`) が複数画像の半径別輝度中央値から共通gain curveを
+推定する。内周60%は厳密に1倍、外周だけ単調増加で補正し、指定値でclampする。
+default 1.0は補正なしで、従来出力と同一。
+
+RTK-SLAM construction_seq1でDと同じ4,840,318点を使い、marginを探索した。
+held-out truthは全て`--image-margin 140`。
+
+| 構成 | margin | coverage | held-out median / inlier20 | rough med / p90 | chroma |
+|---|---:|---:|---:|---:|---:|
+| D (従来採用) | 140 | 0.7280 | 40.31 / 0.2945 | 5.38 / 20.13 | 1.005 |
+| G | 40 | 0.8156 | 43.17 / 0.2650 | 5.00 / 19.04 | 1.002 |
+| H | 100 | 0.7658 | 41.75 / 0.2797 | 5.13 / 19.53 | 1.001 |
+| **I (採用候補)** | **120** | **0.7476** | **41.11 / 0.2862** | **5.22 / 19.97** | **1.002** |
+
+IはRTK report-only profileの9項目を全てPASSし、D比でcoverageを約2ポイント
+回復した。同一4視点gridでも新たな白カブリ・黒ずみ・色滲みは見られなかった。
+再現オプションは `--color-image-margin 120
+--color-vignette-gain-limit 2.5 --color-min-samples 3`。成果物は同benchmark
+directoryの`colored_I_vignette_deadzone_margin120.ply`, `app_I.json`,
+`heldout_masked_I.json`, `quality_I.json`, `test_grid_{D,I}.png`。
+
+## 11. 追記 (2026-07-18): planar-only roughness
+
+未着手候補3も実装した。`evaluate_colored_map_appearance.py
+--planar-roughness`は既存の全voxel `roughness`を残したまま、PCAで平面と判定した
+voxelだけの`planar_roughness`を追加する。default-off。品質プロファイルに
+`appearance_planar_roughness_*`閾値があればpipelineが自動で有効化する。
+
+RTK A/B/D/Iの planar median / p90 はそれぞれ 7.20/25.89,
+7.68/28.12, 7.50/23.75, 7.16/23.50。RTK profileをmedian<=7.6,
+p90<=25.0に較正した。D/IはPASSし、旧A/Bはp90で検出する。平面点率は
+約0.72%（約2.6万点、約2千voxel）なので、レポートの`planar_points`と
+`voxels_scored`も併せて監視すること。成果物は`app_planar_{A,B,D,I}.json`と
+`quality_planar_I.json`。
+
+## 12. 追記 (2026-07-18): realtime実bag A/B
+
+未着手候補5を`/home/sasaki/autoware_data/all-sensors-bag1`で実施した。
+LiDARは`/sensing/lidar/concatenated/pointcloud` (`base_link`)、camera_0は
+`/lucid_vision/camera_0/{raw_image,camera_info}` (720x465 BGR8)、optical frameは
+`camera_top/camera_optical_link`。bagには完成mapがないため、各scanをmap入力として
+TF/QoS/投影/confirmationの実データ配線を検証した。
+
+約26秒warm-up後、A (`margin=0,min_samples=1`) は138,760 voxel中22,155 confirmed
+(coverage 0.1597, chroma 26.83)、B (`margin=40,min_samples=3`) は156,547中15,075
+(coverage 0.0963, chroma 27.32)。Bは低信頼色を期待どおり降格し、TF失敗、node警告、
+crashなし。`scripts/evaluate_realtime_colored_map.py`を追加し、成果物は
+`realtime_{A,B}.json`。完成world mapでの長時間品質評価は、map topicを含むbagが
+得られた時の追加課題。
+
+## 13. 追記 (2026-07-18): CPU soft fill + export再検証
+
+未着手候補4/6を完了した。CPU rendererに`soft_edge_px`、flythrough CLIに
+`--soft-edge-px`を追加（default 0で従来とバイト同一）。初版の半透明fringeは
+手前点が奥のdiscを覆って暗い輪郭を作ったため不採用。最終版は既存の不透明pixelを
+一切変えず、黒いpixelだけを外周fadeで埋める。Iの同一2視点gridでsoft=1は
+black pixel率を41.58%から38.43%へ削減、changed fraction 7.50%、平均絶対画素差
+2.71。成果物は`test_grid_I_soft{0,1}.png`（失敗版）と
+`test_grid_I_soft1_fill_only.png`（最終版）。
+
+I点群のexportも再検証した。GIS CSV / LASを0.1m thinningして851,755点、LASは
+全点RGBあり・座標量子1mm。meshには`--thin-voxel`を追加し、0.2m thinning + BPA
+(radii 0.15/0.3/0.6m)で127,396 vertices / 109,189 triangles、vertex colourあり。
+成果物はbenchmark directoryの`exports_I/`。

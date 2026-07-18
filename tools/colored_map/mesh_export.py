@@ -126,15 +126,18 @@ def _build_arg_parser():
                    help='BPA ball radii [m] (default: from point spacing)')
     p.add_argument('--normal-radius', type=float, default=0.5,
                    help='normal-estimation search radius [m]')
+    p.add_argument('--thin-voxel', type=float, default=0.0,
+                   help='voxel-downsample input before meshing [m] (0=off)')
     return p
 
 
 def main(argv=None) -> int:
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from pointcloud_io import read_ply_xyz
+    from pointcloud_io import read_ply_xyz, voxel_downsample
     args = _build_arg_parser().parse_args(argv)
     xyz, rgb = read_ply_xyz(args.input)
+    xyz, rgb = voxel_downsample(xyz, args.thin_voxel, rgb)
     mesh = reconstruct_mesh(xyz, rgb, method=args.method, depth=args.depth,
                             density_quantile=args.density_quantile,
                             radii=args.radii, normal_radius=args.normal_radius)
