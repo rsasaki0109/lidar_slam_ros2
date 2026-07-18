@@ -37,8 +37,9 @@ binary-little-endian or ascii. See
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
+import geometry_aware_fusion as gaf
 import numpy as np
 
 
@@ -616,7 +617,20 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   min_view_cosine: float = 0.0,
                                   min_projected_scale: float = 0.0,
                                   view_score_power: float = 0.0,
-                                  return_counts: bool = False):
+                                  occlusion_margin_px: int = 0,
+                                  depth_edge_margin_px: int = 0,
+                                  depth_edge_tolerance: float = 0.15,
+                                  depth_edge_relative_tolerance: float = 0.02,
+                                  exclusion_masks: Optional[
+                                      Sequence[Optional[np.ndarray]]] = None,
+                                  dynamic_mask_margin_px: int = 0,
+                                  calibration: Optional[dict] = None,
+                                  view_timestamps: Optional[
+                                      Sequence[float]] = None,
+                                  calibration_sigma_multiplier: float = 0.0,
+                                  maximum_uncertainty_margin_px: int = 12,
+                                  return_counts: bool = False,
+                                  return_diagnostics: bool = False):
     """Occlusion-aware, exposure-normalised, median-robust point colorization.
 
     ``colorize_by_projection`` averages every view a point lands in, so points
@@ -655,6 +669,14 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     Returns ``(rgb uint8 (N,3), seen bool (N,))``, or with ``return_counts`` the
     triple ``(rgb, seen, counts uint16 (N,))`` giving each point's surviving
     sample count (a colour-confidence signal). Unseen points get ``default_rgb``.
+
+    Geometry-aware fusion is opt-in. ``occlusion_margin_px`` tests nearby
+    z-buffer cells so a foreground silhouette suppresses background colour
+    samples in adjacent pixels. ``depth_edge_margin_px`` rejects both sides of
+    a measured depth discontinuity. Per-frame ``exclusion_masks`` remove
+    dynamic image regions. Accepted calibration uncertainty can expand all
+    three guards per observation after propagation through range, focal length,
+    and camera motion. ``return_diagnostics`` appends rejection counters.
     """
     points = np.asarray(points, dtype=np.float64)
     n = points.shape[0]
@@ -666,11 +688,24 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         point_normals = np.asarray(point_normals, dtype=np.float64)
         if point_normals.shape != (n, 3):
             raise ValueError('point_normals must be Nx3')
+    if exclusion_masks is not None:
+        if len(exclusion_masks) != len(images):
+            raise ValueError('exclusion_masks must match the image count')
+        for mask in exclusion_masks:
+            if mask is not None and np.asarray(mask).shape != (height, width):
+                raise ValueError('each exclusion mask must be HxW')
     rgb = np.tile(np.asarray(default_rgb, dtype=np.uint8), (n, 1))
     counts = np.zeros(n, dtype=np.uint16)
+    diagnostics = {
+        'projected': 0, 'rejected_zbuffer': 0,
+        'rejected_occlusion': 0, 'rejected_occlusion_margin': 0,
+        'rejected_depth_edge': 0, 'rejected_dynamic_mask': 0,
+        'accepted_samples': 0,
+    }
     if n == 0 or max_samples <= 0:
         seen = np.zeros(n, dtype=bool)
-        return (rgb, seen, counts) if return_counts else (rgb, seen)
+        result = (rgb, seen, counts) if return_counts else (rgb, seen)
+        return result + (diagnostics,) if return_diagnostics else result
     if zbuf_bin < 1:
         raise ValueError('zbuf_bin must be >= 1')
     if exposure_scale_limit < 1.0:
@@ -684,6 +719,29 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         raise ValueError('min_view_cosine must be in [0, 1]')
     if min_projected_scale < 0.0 or view_score_power < 0.0:
         raise ValueError('min_projected_scale and view_score_power must be >= 0')
+    geometry_values = (
+        occlusion_margin_px, depth_edge_margin_px, dynamic_mask_margin_px,
+        maximum_uncertainty_margin_px)
+    if any(value < 0 for value in geometry_values):
+        raise ValueError('geometry-aware pixel margins must be non-negative')
+    if (depth_edge_tolerance < 0.0 or
+            depth_edge_relative_tolerance < 0.0 or
+            calibration_sigma_multiplier < 0.0):
+        raise ValueError('geometry tolerances and calibration sigma must be '
+                         'non-negative')
+    geometry_enabled = bool(
+        occlusion_margin_px or depth_edge_margin_px or
+        exclusion_masks is not None or calibration_sigma_multiplier)
+    if geometry_enabled and zbuf_bin != 1:
+        raise ValueError('geometry-aware fusion requires a one-pixel z-buffer')
+    if calibration_sigma_multiplier > 0.0 and view_timestamps is None:
+        raise ValueError('calibration uncertainty requires view timestamps')
+
+    linear_speeds = np.zeros(len(images), dtype=np.float64)
+    angular_speeds = np.zeros(len(images), dtype=np.float64)
+    if calibration_sigma_multiplier > 0.0:
+        linear_speeds, angular_speeds = gaf.camera_motion_rates(
+            np.asarray(viewmats), view_timestamps)
 
     fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
     zb_w = (int(width) + zbuf_bin - 1) // zbuf_bin
@@ -732,10 +790,54 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         inb = (z > 1e-6) & (u >= 0) & (u < width) & (v >= 0) & (v < height)
         if not inb.any():
             continue
+        diagnostics['projected'] += int(inb.sum())
         zbin = (v[inb] // zbuf_bin) * zb_w + (u[inb] // zbuf_bin)
         zbuf = np.full(zb_w * zb_h, np.inf, dtype=np.float32)
         np.minimum.at(zbuf, zbin, z[inb].astype(np.float32))
-        visible = z[inb] <= zbuf[zbin] + depth_tol + 0.02 * z[inb]
+        projected_z = z[inb].astype(np.float32)
+        uncertainty_margin = gaf.calibration_pixel_radii(
+            projected_z, max(float(fx), float(fy)), calibration,
+            linear_speed=linear_speeds[vi],
+            angular_speed=angular_speeds[vi],
+            sigma_multiplier=calibration_sigma_multiplier,
+            maximum_radius=maximum_uncertainty_margin_px)
+        zbuffer_image = zbuf.reshape(zb_h, zb_w)
+        occlusion_radii = uncertainty_margin + int(occlusion_margin_px)
+        if np.any(occlusion_radii > 0):
+            local_minimum, _, _ = gaf.neighborhood_depth_statistics(
+                zbuffer_image, u[inb], v[inb], occlusion_radii)
+        else:
+            local_minimum = zbuf[zbin]
+        zbuffer_visible = projected_z <= (
+            zbuf[zbin] + depth_tol + 0.02 * projected_z)
+        diagnostics['rejected_zbuffer'] += int((~zbuffer_visible).sum())
+        visible = projected_z <= (
+            local_minimum + depth_tol + 0.02 * projected_z)
+        diagnostics['rejected_occlusion_margin'] += int(
+            (zbuffer_visible & ~visible).sum())
+        diagnostics['rejected_occlusion'] += int((~visible).sum())
+
+        edge_radii = uncertainty_margin + int(depth_edge_margin_px)
+        if np.any(edge_radii > 0):
+            local_minimum, local_maximum, support = \
+                gaf.neighborhood_depth_statistics(
+                    zbuffer_image, u[inb], v[inb], edge_radii)
+            discontinuity = (
+                (support >= 2) &
+                ((local_maximum - local_minimum) >
+                 depth_edge_tolerance +
+                 depth_edge_relative_tolerance * local_minimum))
+            diagnostics['rejected_depth_edge'] += int(
+                (visible & discontinuity).sum())
+            visible &= ~discontinuity
+
+        if exclusion_masks is not None and exclusion_masks[vi] is not None:
+            mask_radii = uncertainty_margin + int(dynamic_mask_margin_px)
+            dynamic = gaf.mask_neighborhood_any(
+                exclusion_masks[vi], u[inb], v[inb], mask_radii)
+            diagnostics['rejected_dynamic_mask'] += int(
+                (visible & dynamic).sum())
+            visible &= ~dynamic
         if image_margin > 0:
             # The z-buffer above still uses the full frame (occlusion geometry
             # is valid to the border); only colour sampling skips the margin.
@@ -751,6 +853,11 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         else:
             cand_z = z[inb][visible].astype(np.float32)
         quality = (float(fx) / np.maximum(cand_z, 1.0e-6)).astype(np.float32)
+        if calibration_sigma_multiplier > 0.0 and cand.size:
+            kept_uncertainty = uncertainty_margin[visible]
+            if observation_mask is not None:
+                kept_uncertainty = kept_uncertainty[keep]
+            quality /= 1.0 + kept_uncertainty.astype(np.float32)
         if point_normals is not None and cand.size:
             camera_centre = -vm[:3, :3].T @ vm[:3, 3]
             sight = camera_centre[None, :] - points[cand]
@@ -777,6 +884,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                      quality[confidence])
         if cand.size == 0:
             continue
+        diagnostics['accepted_samples'] += int(cand.size)
         cols = _sample_pixels(
             img, uf[cand], vf[cand], width, height, interp, edge_threshold)
         if vignette_gains is not None:
@@ -819,7 +927,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     for c in np.unique(counts[seen_idx]):
         group = seen_idx[counts[seen_idx] == c]
         rgb[group] = observed_color_medoids(samples[group, :int(c), :])
-    return (rgb, seen, counts) if return_counts else (rgb, seen)
+    result = (rgb, seen, counts) if return_counts else (rgb, seen)
+    return result + (diagnostics,) if return_diagnostics else result
 
 
 def project_depth_maps(points: np.ndarray, viewmats, K: np.ndarray,

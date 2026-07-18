@@ -795,6 +795,21 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_geometry_aware_fusion
+    test/test_geometry_aware_fusion.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_attach_dynamic_image_masks
+    test/test_attach_dynamic_image_masks.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_recolor_pointcloud
+    test/test_recolor_pointcloud.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_heldout_point_colors
     test/test_heldout_point_colors.py
     TIMEOUT 120

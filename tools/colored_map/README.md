@@ -13,6 +13,7 @@ numpy ラスタライザで CUDA / torch 不要)。歴史的経緯で
 |---|---|
 | `colored_map_pipeline.py` | bag + TUM 軌跡 → posed images → 着色マップ → 品質ゲートまでの一括実行 |
 | `extract_posed_images.py` | bag から姿勢付きカメラ画像 (`transforms.json`) を抽出 |
+| `attach_dynamic_image_masks.py` | 外部の動的物体PNG maskを検証し、hash/coverage付きmanifestへ接続 |
 | `build_lidar_init.py` | スキャン蓄積 + robust着色（overlap RGB balance / view confidence対応） |
 | `recolor_pointcloud.py` | 既存PLYのXYZを保持してcamera画像から再着色し、coverage JSONを出力 |
 | `render_map_flythrough.py` | 着色マップ動画（cinematic path / surface splat / 描画指標対応） |
@@ -39,6 +40,32 @@ K3構成ではさらに `--color-overlap-balance --color-view-confidence
 --color-normal-voxel 0.12 --color-view-score-power 1` を使う。前者は同じ3D点を
 見る画像間のRGB差から露出・white balanceを安定化し、後者はsurface normalの
 入射角と投影解像度で観測を順位付けする。いずれもdefault-off。
+
+物体境界の色滲みを抑えるgeometry-aware fusionもdefault-offで利用できる。
+`--color-geometry-aware`は1 pixel z-buffer近傍で、手前silhouetteの隣に投影された
+背景点と、深度不連続の両側をRGB候補から除外する。外部segmentationのPNGを
+`--dynamic-mask-dir`で接続し`--color-dynamic-exclusion`を指定すると動的領域も
+除外する。`--refine-spatiotemporal-calibration`と
+`--color-calibration-sigma-multiplier`を組み合わせると、較正の7DoF不確実性と
+camera速度をpixel半径へ伝播し、各guardを観測ごとに拡張する。棄却数は
+`fusion_diagnostics`としてmap/recolor reportへ残る。
+
+```bash
+python3 tools/colored_map/colored_map_pipeline.py BAG TRAJECTORY OUT \
+  --extrinsic BODY_CAMERA.json --refine-spatiotemporal-calibration \
+  --color-geometry-aware \
+  --dynamic-mask-dir dynamic_masks --color-dynamic-exclusion \
+  --color-dynamic-mask-margin-px 2 \
+  --color-calibration-sigma-multiplier 1.0
+```
+
+maskは各posed imageと同じstemのPNGで、非zero pixelを除外領域とする。動的除外を
+有効にする場合は全frameのmaskが必須。詳しい設計と安全条件は
+[`colored-map-geometry-aware-fusion-2026-07.md`](../../docs/research/colored-map-geometry-aware-fusion-2026-07.md)
+を参照。
+silhouette/depth-edge marginはConstruction Seq1の全量候補が既存planar quality
+gateを通らなかったため既定0。dataset固有のpaired A/Bと既存profileを通すまで
+明示的に有効化しないこと。
 
 README動画の再現設定は `render_map_flythrough.py --device cpu
 --soft-edge-px 1 --surface-splat --surface-aspect-limit 2.5
