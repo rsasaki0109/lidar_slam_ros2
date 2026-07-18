@@ -44,9 +44,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 TOOL_DIR = REPO_ROOT / 'tools' / 'gaussian_splatting'
 if str(TOOL_DIR) not in sys.path:
     sys.path.insert(0, str(TOOL_DIR))
+COLORED_MAP_DIR = REPO_ROOT / 'tools' / 'colored_map'
+if str(COLORED_MAP_DIR) not in sys.path:
+    sys.path.insert(0, str(COLORED_MAP_DIR))
 
 import pointcloud_io as pcio  # noqa: E402
 import posed_images as pi  # noqa: E402
+import spatiotemporal_calibration as stc  # noqa: E402
 import train_gsplat as tg  # noqa: E402
 
 
@@ -378,6 +382,122 @@ def optimize_spatiotemporal(
     return parameters, before, after
 
 
+def optimize_spatiotemporal_production(
+        points: np.ndarray, samples: list[pi.TrajectorySample],
+        stamps: np.ndarray, body_T_camera: np.ndarray, K: np.ndarray,
+        images: list[np.ndarray], *, scales: tuple[float, ...] = (0.25, 0.5, 1.0),
+        rounds_per_level: int = 2, time_step: float = 0.02,
+        translation_step: float = 0.02, rotation_step_deg: float = 0.2,
+        max_time_offset: float = 0.1, max_translation: float = 0.1,
+        max_rotation_deg: float = 2.0, auto_bound_expansions: int = 2,
+        bound_expansion_factor: float = 2.0, observability_scale: float = 1.0,
+        minimum_curvature: float = 1e-6, maximum_condition: float = 1e6,
+        maximum_time_translation_correlation: float = 0.98,
+        edge_percentile: float = 95.0,
+        max_distance: int = 12) -> tuple[np.ndarray, dict, dict, dict]:
+    """Optimize a pyramid and audit local identifiability before adoption."""
+    if (not scales or any(not 0.0 < scale <= 1.0 for scale in scales) or
+            tuple(sorted(scales)) != scales):
+        raise ValueError('pyramid scales must be sorted values in (0, 1]')
+    if not np.isclose(observability_scale, scales[-1]):
+        raise ValueError('observability scale must match the finest pyramid '
+                         'scale')
+    parameters = np.zeros(7, dtype=np.float64)
+    base_steps = np.array([time_step] + [translation_step] * 3 +
+                          [np.deg2rad(rotation_step_deg)] * 3)
+    bounds = np.array([max_time_offset] + [max_translation] * 3 +
+                      [np.deg2rad(max_rotation_deg)] * 3)
+    initial_bounds = bounds.copy()
+    levels = []
+
+    def level_objective(scale, reference_parameters=None):
+        level_images = [stc.downsample_nearest(image, scale)
+                        for image in images]
+        level_K = stc.scale_intrinsics(K, scale)
+        edge_masks = [image_edges(image, edge_percentile)
+                      for image in level_images]
+        reference_parameters = (parameters if reference_parameters is None
+                                else reference_parameters)
+        _, reference_metrics = spatiotemporal_objective(
+            points, samples, stamps, body_T_camera, level_K, level_images,
+            reference_parameters, edge_percentile=edge_percentile,
+            max_distance=max(2, int(round(max_distance * scale))),
+            image_edge_masks=edge_masks)
+        reference_edges = reference_metrics['edge_points']
+
+        def objective(candidate):
+            loss, _ = spatiotemporal_objective(
+                points, samples, stamps, body_T_camera, level_K, level_images,
+                candidate, edge_percentile=edge_percentile,
+                max_distance=max(2, int(round(max_distance * scale))),
+                reference_edge_points=reference_edges,
+                image_edge_masks=edge_masks)
+            return loss
+        return objective
+
+    base_loss, before = spatiotemporal_objective(
+        points, samples, stamps, body_T_camera, K, images, parameters,
+        edge_percentile=edge_percentile, max_distance=max_distance)
+    before['loss'] = base_loss
+    for scale in scales:
+        objective = level_objective(scale, np.zeros(7))
+        multiplier = max(1.0, np.sqrt(1.0 / scale))
+        parameters, loss, search = stc.bounded_coordinate_search(
+            objective, parameters, base_steps * multiplier, bounds,
+            rounds=rounds_per_level)
+        levels.append({'scale': scale, 'loss': loss, 'search': search,
+                       'bounds_dt_s_xyz_m_rpy_rad': bounds.tolist()})
+
+    expansions = []
+    boundary_tolerance = base_steps * 0.5
+    for expansion in range(auto_bound_expansions):
+        touching = stc.boundary_axes(
+            parameters, bounds, tolerance=boundary_tolerance)
+        if not touching:
+            break
+        old_bounds = bounds.copy()
+        for name in touching:
+            axis = stc.PARAMETER_NAMES.index(name)
+            bounds[axis] *= bound_expansion_factor
+        objective = level_objective(scales[-1], np.zeros(7))
+        parameters, loss, search = stc.bounded_coordinate_search(
+            objective, parameters, base_steps * 0.5, bounds,
+            rounds=rounds_per_level)
+        expansions.append({
+            'iteration': expansion + 1, 'trigger_axes': touching,
+            'old_bounds_dt_s_xyz_m_rpy_rad': old_bounds.tolist(),
+            'new_bounds_dt_s_xyz_m_rpy_rad': bounds.tolist(),
+            'loss': loss, 'search': search,
+        })
+
+    final_loss, after = spatiotemporal_objective(
+        points, samples, stamps, body_T_camera, K, images, parameters,
+        edge_percentile=edge_percentile, max_distance=max_distance,
+        reference_edge_points=before['edge_points'])
+    after['loss'] = final_loss
+    audit_objective = level_objective(observability_scale, parameters)
+    observability = stc.finite_difference_observability(
+        audit_objective, parameters, base_steps * 0.5,
+        minimum_curvature=minimum_curvature,
+        maximum_condition=maximum_condition,
+        maximum_correlation=maximum_time_translation_correlation)
+    report = {
+        'mode': 'multi_resolution_production',
+        'pyramid_scales': list(scales),
+        'levels': levels,
+        'initial_bounds_dt_s_xyz_m_rpy_rad': initial_bounds.tolist(),
+        'final_bounds_dt_s_xyz_m_rpy_rad': bounds.tolist(),
+        'bound_expansions': expansions,
+        'boundary_tolerance_dt_s_xyz_m_rpy_rad':
+            boundary_tolerance.tolist(),
+        'boundary_axes': stc.boundary_axes(
+            parameters, bounds, tolerance=boundary_tolerance),
+        'observability_scale': observability_scale,
+        'observability': observability,
+    }
+    return parameters, before, after, report
+
+
 def calibration_acceptance(train_before: dict, train_after: dict,
                            heldout_before: dict, heldout_after: dict, *,
                            minimum_edge_points: int,
@@ -459,6 +579,9 @@ def main() -> int:
     optimization_mode = parser.add_mutually_exclusive_group()
     optimization_mode.add_argument('--optimize-extrinsic', action='store_true')
     optimization_mode.add_argument('--optimize-spatiotemporal', action='store_true')
+    parser.add_argument('--production-calibration', action='store_true',
+                        help='enable pyramid search, stratified holdout, bound '
+                             'expansion, and observability rejection')
     parser.add_argument('--trajectory', type=Path,
                         help='dense TUM world<-body trajectory; required for '
                              'spatiotemporal optimization')
@@ -471,6 +594,19 @@ def main() -> int:
     parser.add_argument('--max-rotation-deg', type=float, default=2.0)
     parser.add_argument('--holdout-modulo', type=int, default=5,
                         help='every Nth selected view is validation-only')
+    parser.add_argument('--holdout-fraction', type=float, default=0.2)
+    parser.add_argument('--spatial-segments', type=int, default=4)
+    parser.add_argument('--pyramid-scales', default='0.25,0.5,1.0')
+    parser.add_argument('--rounds-per-pyramid-level', type=int, default=2)
+    parser.add_argument('--auto-bound-expansions', type=int, default=2)
+    parser.add_argument('--bound-expansion-factor', type=float, default=2.0)
+    parser.add_argument('--observability-scale', type=float, default=1.0,
+                        help='audit resolution; must match the finest pyramid '
+                             'scale')
+    parser.add_argument('--minimum-curvature', type=float, default=1e-6)
+    parser.add_argument('--maximum-condition', type=float, default=1e6)
+    parser.add_argument('--maximum-time-translation-correlation', type=float,
+                        default=0.98)
     parser.add_argument('--minimum-edge-points', type=int, default=50)
     parser.add_argument('--minimum-heldout-improvement', type=float, default=0.0,
                         help='fractional held-out loss reduction required to '
@@ -482,11 +618,31 @@ def main() -> int:
             args.rotation_step_deg <= 0.0 or args.time_step <= 0.0 or
             args.max_time_offset < 0.0 or args.max_translation < 0.0 or
             args.max_rotation_deg < 0.0 or args.holdout_modulo < 2 or
+            not 0.0 < args.holdout_fraction < 0.5 or
+            args.spatial_segments < 1 or args.rounds_per_pyramid_level < 1 or
+            args.auto_bound_expansions < 0 or
+            args.bound_expansion_factor <= 1.0 or
+            not 0.0 < args.observability_scale <= 1.0 or
+            args.minimum_curvature <= 0.0 or args.maximum_condition <= 1.0 or
+            not 0.0 <= args.maximum_time_translation_correlation < 1.0 or
             args.minimum_edge_points < 1 or args.max_points < 0 or
             not 0.0 <= args.minimum_heldout_improvement < 1.0):
         raise SystemExit('stride, distance, rounds, and search steps must be > 0')
     if args.optimize_spatiotemporal and args.trajectory is None:
         raise SystemExit('--optimize-spatiotemporal requires --trajectory')
+    if args.production_calibration and not args.optimize_spatiotemporal:
+        raise SystemExit('--production-calibration requires '
+                         '--optimize-spatiotemporal')
+    try:
+        pyramid_scales = tuple(float(item) for item in
+                               args.pyramid_scales.split(','))
+    except ValueError as exc:
+        raise SystemExit('--pyramid-scales must be comma-separated numbers') \
+            from exc
+    if (args.production_calibration and pyramid_scales and
+            not np.isclose(args.observability_scale, pyramid_scales[-1])):
+        raise SystemExit('--observability-scale must match the finest '
+                         '--pyramid-scales value')
     import imageio.v3 as iio
     points, _ = pcio.read_ply_xyz(args.pointcloud)
     if args.max_points and len(points) > args.max_points:
@@ -518,24 +674,58 @@ def main() -> int:
             raise SystemExit(
                 'time offset is unobservable: selected views contain less than '
                 '0.05 m translation and 1 degree rotation')
-        heldout = [index for ordinal, index in enumerate(selected)
-                   if ordinal % args.holdout_modulo == 0]
-        train = [index for index in selected if index not in heldout]
+        split_report = None
+        if args.production_calibration:
+            selected_poses = np.asarray([
+                pi.interpolate_pose(samples, float(stamps[index]))
+                for index in selected])
+            train, heldout, split_report = stc.stratified_view_split(
+                stamps, selected_poses, selected,
+                holdout_fraction=args.holdout_fraction,
+                spatial_segments=args.spatial_segments)
+        else:
+            heldout = [index for ordinal, index in enumerate(selected)
+                       if ordinal % args.holdout_modulo == 0]
+            train = [index for index in selected if index not in heldout]
         if not train or not heldout:
             raise SystemExit('spatiotemporal calibration needs train and held-out views')
         image_by_index = dict(zip(selected, images))
         train_images = [image_by_index[index] for index in train]
         heldout_images = [image_by_index[index] for index in heldout]
-        parameters, train_before, train_after = optimize_spatiotemporal(
-            points, samples, stamps[train], body_T_camera, dataset['K'],
-            train_images, rounds=args.optimization_rounds,
-            time_step=args.time_step, translation_step=args.translation_step,
-            rotation_step_deg=args.rotation_step_deg,
-            max_time_offset=args.max_time_offset,
-            max_translation=args.max_translation,
-            max_rotation_deg=args.max_rotation_deg,
-            edge_percentile=args.edge_percentile,
-            max_distance=args.max_distance)
+        production_report = None
+        if args.production_calibration:
+            (parameters, train_before, train_after,
+             production_report) = optimize_spatiotemporal_production(
+                points, samples, stamps[train], body_T_camera, dataset['K'],
+                train_images, scales=pyramid_scales,
+                rounds_per_level=args.rounds_per_pyramid_level,
+                time_step=args.time_step,
+                translation_step=args.translation_step,
+                rotation_step_deg=args.rotation_step_deg,
+                max_time_offset=args.max_time_offset,
+                max_translation=args.max_translation,
+                max_rotation_deg=args.max_rotation_deg,
+                auto_bound_expansions=args.auto_bound_expansions,
+                bound_expansion_factor=args.bound_expansion_factor,
+                observability_scale=args.observability_scale,
+                minimum_curvature=args.minimum_curvature,
+                maximum_condition=args.maximum_condition,
+                maximum_time_translation_correlation=(
+                    args.maximum_time_translation_correlation),
+                edge_percentile=args.edge_percentile,
+                max_distance=args.max_distance)
+        else:
+            parameters, train_before, train_after = optimize_spatiotemporal(
+                points, samples, stamps[train], body_T_camera, dataset['K'],
+                train_images, rounds=args.optimization_rounds,
+                time_step=args.time_step,
+                translation_step=args.translation_step,
+                rotation_step_deg=args.rotation_step_deg,
+                max_time_offset=args.max_time_offset,
+                max_translation=args.max_translation,
+                max_rotation_deg=args.max_rotation_deg,
+                edge_percentile=args.edge_percentile,
+                max_distance=args.max_distance)
         zero = np.zeros(7)
         heldout_before_loss, heldout_before = spatiotemporal_objective(
             points, samples, stamps[heldout], body_T_camera, dataset['K'],
@@ -553,9 +743,6 @@ def main() -> int:
             train_before, train_after, heldout_before, heldout_after,
             minimum_edge_points=args.minimum_edge_points,
             minimum_heldout_improvement=args.minimum_heldout_improvement)
-        if accepted:
-            effective_viewmats = recompose_viewmats(
-                samples, stamps, body_T_camera, parameters)
         parameter_bounds = np.array([
             args.max_time_offset, args.max_translation,
             args.max_translation, args.max_translation,
@@ -569,6 +756,17 @@ def main() -> int:
             name for name, value, bound in zip(
                 names, reported_parameters, parameter_bounds)
             if bound > 0.0 and abs(value) >= bound - 1e-12]
+        if production_report is not None:
+            boundary_axes = production_report['boundary_axes']
+            if boundary_axes:
+                accepted = False
+                rejection_reason = 'search_boundary_reached'
+            if not production_report['observability']['observable']:
+                accepted = False
+                rejection_reason = 'calibration_not_observable'
+        if accepted:
+            effective_viewmats = recompose_viewmats(
+                samples, stamps, body_T_camera, parameters)
         optimization = {
             'accepted': accepted,
             'parameters_dt_s_xyz_m_rpy_deg': [float(parameters[0])] +
@@ -578,9 +776,11 @@ def main() -> int:
             'trajectory_excitation': excitation,
             'train_view_indices': train,
             'heldout_view_indices': heldout,
+            'validation_split': split_report,
             'minimum_edge_points': args.minimum_edge_points,
             'search_bounds_dt_s_xyz_m_rpy_deg': parameter_bounds.tolist(),
             'boundary_axes': boundary_axes,
+            'production_calibration': production_report,
             'train': {'before': train_before, 'after': train_after},
             'heldout': {'before': heldout_before, 'after': heldout_after},
             'rejection_reason': rejection_reason,

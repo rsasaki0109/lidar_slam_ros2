@@ -5,6 +5,9 @@
 > LiDAR depth edge と画像edgeの距離が改善した場合だけ
 > `transforms_spatiotemporal.json` を採用する。設計とRTK Seq1 smoke結果は
 > `docs/research/colored-map-spatiotemporal-calibration-2026-07.md` を参照。
+> production版では画像pyramid、移動距離×motion stratified held-out、探索幅を
+> 考慮したbound拡張、7軸曲率・条件数・時刻/並進相関の可観測性gateまで追加。
+> Seq1 200k点 smokeはtrain 9.20% / held-out 7.85%改善、可観測性PASS。
 
 BIM 枝の `BIM_HANDOFF.md` と同じ趣旨の引き継ぎ文書。README の
 camera-coloured flythrough の色が濁っていた問題を起点に、着色パイプライン・

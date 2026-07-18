@@ -257,6 +257,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 '--trajectory', str(trajectory),
                 '--out', str(calibration_report),
                 '--optimize-spatiotemporal',
+                '--production-calibration',
                 '--corrected-transforms-out', str(refined_transforms),
                 '--view-stride', str(args.calibration_view_stride),
                 '--max-points', str(args.calibration_max_points),
@@ -268,6 +269,23 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 '--max-translation', str(args.calibration_max_translation),
                 '--max-rotation-deg', str(args.calibration_max_rotation_deg),
                 '--holdout-modulo', str(args.calibration_holdout_modulo),
+                '--holdout-fraction', str(args.calibration_holdout_fraction),
+                '--spatial-segments', str(args.calibration_spatial_segments),
+                '--pyramid-scales', args.calibration_pyramid_scales,
+                '--rounds-per-pyramid-level',
+                str(args.calibration_rounds_per_pyramid_level),
+                '--auto-bound-expansions',
+                str(args.calibration_auto_bound_expansions),
+                '--bound-expansion-factor',
+                str(args.calibration_bound_expansion_factor),
+                '--observability-scale',
+                str(args.calibration_observability_scale),
+                '--minimum-curvature',
+                str(args.calibration_minimum_curvature),
+                '--maximum-condition',
+                str(args.calibration_maximum_condition),
+                '--maximum-time-translation-correlation',
+                str(args.calibration_maximum_time_translation_correlation),
                 '--minimum-edge-points',
                 str(args.calibration_minimum_edge_points),
                 '--minimum-heldout-improvement',
@@ -353,6 +371,11 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
 def run_pipeline(args) -> dict:
     """Execute missing stages and return paths plus the stages that ran."""
     out_dir = Path(args.out)
+    try:
+        calibration_scales = tuple(
+            float(item) for item in args.calibration_pyramid_scales.split(','))
+    except ValueError as exc:
+        raise ValueError('calibration pyramid scales must be numbers') from exc
     if args.kalibr_camchain is not None and args.lidar_calibration is None:
         raise ValueError('--kalibr-camchain requires --lidar-calibration')
     if args.force_calibration and not args.refine_spatiotemporal_calibration:
@@ -369,9 +392,26 @@ def run_pipeline(args) -> dict:
             args.calibration_max_translation < 0.0 or
             args.calibration_max_rotation_deg < 0.0 or
             args.calibration_holdout_modulo < 2 or
+            not 0.0 < args.calibration_holdout_fraction < 0.5 or
+            args.calibration_spatial_segments < 1 or
+            args.calibration_rounds_per_pyramid_level < 1 or
+            args.calibration_auto_bound_expansions < 0 or
+            args.calibration_bound_expansion_factor <= 1.0 or
+            not 0.0 < args.calibration_observability_scale <= 1.0 or
+            args.calibration_minimum_curvature <= 0.0 or
+            args.calibration_maximum_condition <= 1.0 or
+            not 0.0 <= args.calibration_maximum_time_translation_correlation < 1.0 or
             args.calibration_minimum_edge_points < 1 or
             not 0.0 <= args.calibration_minimum_heldout_improvement < 1.0):
         raise ValueError('invalid spatiotemporal calibration search settings')
+    if (args.refine_spatiotemporal_calibration and
+            (not calibration_scales or
+             tuple(sorted(calibration_scales)) != calibration_scales or
+             any(not 0.0 < scale <= 1.0 for scale in calibration_scales) or
+             not np.isclose(args.calibration_observability_scale,
+                            calibration_scales[-1]))):
+        raise ValueError('calibration observability scale must match the '
+                         'finest valid pyramid scale')
     if not args.dry_run:
         out_dir.mkdir(parents=True, exist_ok=True)
         if args.kalibr_camchain is not None:
@@ -452,6 +492,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--calibration-max-translation', type=float, default=0.1)
     p.add_argument('--calibration-max-rotation-deg', type=float, default=2.0)
     p.add_argument('--calibration-holdout-modulo', type=int, default=5)
+    p.add_argument('--calibration-holdout-fraction', type=float, default=0.2)
+    p.add_argument('--calibration-spatial-segments', type=int, default=4)
+    p.add_argument('--calibration-pyramid-scales', default='0.25,0.5,1.0')
+    p.add_argument('--calibration-rounds-per-pyramid-level', type=int,
+                   default=2)
+    p.add_argument('--calibration-auto-bound-expansions', type=int, default=2)
+    p.add_argument('--calibration-bound-expansion-factor', type=float,
+                   default=2.0)
+    p.add_argument('--calibration-observability-scale', type=float, default=1.0)
+    p.add_argument('--calibration-minimum-curvature', type=float, default=1e-6)
+    p.add_argument('--calibration-maximum-condition', type=float, default=1e6)
+    p.add_argument('--calibration-maximum-time-translation-correlation',
+                   type=float, default=0.98)
     p.add_argument('--calibration-minimum-edge-points', type=int, default=50)
     p.add_argument('--calibration-minimum-heldout-improvement', type=float,
                    default=0.0)

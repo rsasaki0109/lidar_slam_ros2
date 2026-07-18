@@ -200,6 +200,34 @@ def test_spatiotemporal_optimizer_is_deterministic_and_bounded(monkeypatch):
     assert np.all(np.abs(np.rad2deg(first[4:])) <= 0.3 + 1e-12)
 
 
+def test_production_optimizer_runs_pyramid_and_observability(monkeypatch):
+    target = np.array([0.02, -0.02, 0.0, 0.0,
+                       np.deg2rad(0.2), 0.0, 0.0])
+
+    def objective(*args, reference_edge_points=None,
+                  image_edge_masks=None, **kwargs):
+        parameters = np.asarray(args[6])
+        loss = 1.0 + float(np.sum((parameters - target) ** 2))
+        return loss, {'edge_points': 100, 'mean_px': loss,
+                      'median_px': loss, 'coverage': 1.0}
+
+    monkeypatch.setattr(lca, 'spatiotemporal_objective', objective)
+    parameters, before, after, report = \
+        lca.optimize_spatiotemporal_production(
+            np.zeros((0, 3)), _moving_samples(), np.array([1.0]),
+            np.eye(4), np.eye(3), [np.zeros((20, 20), np.uint8)],
+            scales=(0.5, 1.0), rounds_per_level=2,
+            time_step=0.02, translation_step=0.02,
+            rotation_step_deg=0.2, max_time_offset=0.1,
+            max_translation=0.1, max_rotation_deg=1.0,
+            auto_bound_expansions=0, minimum_curvature=1e-12)
+    assert after['loss'] < before['loss']
+    np.testing.assert_allclose(parameters, target, atol=0.005)
+    assert [level['scale'] for level in report['levels']] == [0.5, 1.0]
+    assert report['observability']['observable']
+    assert not report['boundary_axes']
+
+
 def test_trajectory_excitation_rejects_static_time_offset():
     static = [
         lca.pi.TrajectorySample(
