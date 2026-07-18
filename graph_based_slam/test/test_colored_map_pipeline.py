@@ -91,6 +91,49 @@ def test_time_offset_adjustment_reaches_image_extractor(tmp_path):
     assert extract[extract.index('--time-offset-adjustment') + 1] == '-0.02'
 
 
+def test_spatiotemporal_refinement_inserts_geometry_and_heldout_calibration(tmp_path):
+    commands = cmp.build_commands(_args(
+        tmp_path, '--refine-spatiotemporal-calibration',
+        '--calibration-max-time-offset', '0.04',
+        '--calibration-minimum-heldout-improvement', '0.02'))
+    assert [name for name, _ in commands] == [
+        'posed images', 'calibration geometry',
+        'spatiotemporal calibration', 'coloured map']
+    geometry = dict(commands)['calibration geometry']
+    calibration = dict(commands)['spatiotemporal calibration']
+    coloured = dict(commands)['coloured map']
+    assert '--color-transforms' not in geometry
+    assert '--optimize-spatiotemporal' in calibration
+    assert calibration[calibration.index('--max-time-offset') + 1] == '0.04'
+    assert calibration[calibration.index('--max-points') + 1] == '300000'
+    assert calibration[
+        calibration.index('--minimum-heldout-improvement') + 1] == '0.02'
+    refined = str(
+        tmp_path / 'out' / 'posed_images' /
+        'transforms_spatiotemporal.json')
+    assert calibration[
+        calibration.index('--corrected-transforms-out') + 1] == refined
+    assert coloured[coloured.index('--color-transforms') + 1] == refined
+
+
+def test_existing_spatiotemporal_outputs_are_reused(tmp_path):
+    out = tmp_path / 'out'
+    (out / 'posed_images').mkdir(parents=True)
+    (out / 'posed_images' / 'transforms.json').write_text('{}')
+    (out / 'spatiotemporal_calibration_geometry.ply').write_text('ply\n')
+    (out / 'posed_images' / 'transforms_spatiotemporal.json').write_text('{}')
+    (out / 'spatiotemporal_calibration.json').write_text('{}')
+    (out / 'colored_map.ply').write_text('ply\n')
+    assert cmp.build_commands(_args(
+        tmp_path, '--refine-spatiotemporal-calibration')) == []
+
+
+def test_force_calibration_requires_opt_in(tmp_path):
+    import pytest
+    with pytest.raises(ValueError, match='refine-spatiotemporal'):
+        cmp.run_pipeline(_args(tmp_path, '--force-calibration', '--dry-run'))
+
+
 def test_raw_trajectory_adds_densification_and_connects_dense_output(tmp_path):
     args = _args(tmp_path, '--raw-traj', str(tmp_path / 'raw.tum'))
     commands = cmp.build_commands(args)

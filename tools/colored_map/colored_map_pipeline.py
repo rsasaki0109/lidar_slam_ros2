@@ -142,7 +142,10 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
     """Return the missing/forced pipeline stages as ``(name, argv)`` pairs."""
     out_dir = Path(args.out)
     posed_dir = out_dir / 'posed_images'
-    transforms = posed_dir / 'transforms.json'
+    extracted_transforms = posed_dir / 'transforms.json'
+    refined_transforms = posed_dir / 'transforms_spatiotemporal.json'
+    transforms = (refined_transforms if args.refine_spatiotemporal_calibration
+                  else extracted_transforms)
     colored_map = out_dir / 'colored_map.ply'
     extrinsic_path = (Path(args.extrinsic) if args.extrinsic is not None else
                       out_dir / 'generated_body_camera_extrinsic.json')
@@ -162,7 +165,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
         ]))
 
     rebuild_images = (rebuild_trajectory or args.force_images or
-                      is_stale(transforms, [trajectory]))
+                      is_stale(extracted_transforms, [trajectory]))
     if rebuild_images:
         extract = [
             sys.executable, str(TOOL_DIR / 'extract_posed_images.py'),
@@ -182,46 +185,98 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             extract.extend(['--intrinsics-yaml', str(args.intrinsics_yaml)])
         commands.append(('posed images', extract))
 
-    if (rebuild_images or args.force_map or
-            is_stale(colored_map, [trajectory, transforms])):
-        build = [
+    def map_command(output: Path, color_transforms: Path | None = None) -> list[str]:
+        command = [
             sys.executable, str(TOOL_DIR / 'build_lidar_init.py'),
             '--bag', str(args.bag), '--traj', str(trajectory),
-            '--points-topic', args.points_topic, '--out', str(colored_map),
+            '--points-topic', args.points_topic, '--out', str(output),
             '--voxel', str(args.voxel), '--max-points', str(args.max_points),
             '--min-range', str(args.min_range), '--max-range', str(args.max_range),
             '--min-neighbors', str(args.min_neighbors),
             '--sparse-voxel', str(args.sparse_voxel),
             '--stride', str(args.scan_stride),
             '--start-time', str(args.start_time), '--end-time', str(args.end_time),
-            '--color-transforms', str(transforms), '--color-robust',
-            '--color-exposure-scale-limit', str(args.color_exposure_scale_limit),
-            '--color-max-samples', str(args.color_max_samples),
-            '--color-image-margin', str(args.color_image_margin),
-            '--color-vignette-gain-limit',
-            str(args.color_vignette_gain_limit),
-            '--color-min-samples', str(args.color_min_samples),
         ]
-        if not args.color_normalize_exposure:
-            build.append('--color-no-normalize-exposure')
-        if args.color_overlap_balance:
-            build.append('--color-overlap-balance')
-        if args.color_view_confidence:
-            build.extend([
-                '--color-view-confidence',
-                '--color-normal-voxel', str(args.color_normal_voxel),
-                '--color-min-view-cosine', str(args.color_min_view_cosine),
-                '--color-min-projected-scale', str(args.color_min_projected_scale),
-                '--color-view-score-power', str(args.color_view_score_power),
-            ])
         if args.lidar_calibration is not None:
-            build.extend([
+            command.extend([
                 '--lidar-calibration', str(args.lidar_calibration),
                 '--lidar-key', args.lidar_key,
             ])
         if args.no_deskew:
-            build.append('--no-deskew')
-        commands.append(('coloured map', build))
+            command.append('--no-deskew')
+        if color_transforms is not None:
+            command.extend([
+                '--color-transforms', str(color_transforms), '--color-robust',
+                '--color-exposure-scale-limit',
+                str(args.color_exposure_scale_limit),
+                '--color-max-samples', str(args.color_max_samples),
+                '--color-image-margin', str(args.color_image_margin),
+                '--color-vignette-gain-limit',
+                str(args.color_vignette_gain_limit),
+                '--color-min-samples', str(args.color_min_samples),
+            ])
+            if not args.color_normalize_exposure:
+                command.append('--color-no-normalize-exposure')
+            if args.color_overlap_balance:
+                command.append('--color-overlap-balance')
+            if args.color_view_confidence:
+                command.extend([
+                    '--color-view-confidence',
+                    '--color-normal-voxel', str(args.color_normal_voxel),
+                    '--color-min-view-cosine', str(args.color_min_view_cosine),
+                    '--color-min-projected-scale',
+                    str(args.color_min_projected_scale),
+                    '--color-view-score-power', str(args.color_view_score_power),
+                ])
+        return command
+
+    rebuild_calibration = False
+    if args.refine_spatiotemporal_calibration:
+        calibration_cloud = out_dir / 'spatiotemporal_calibration_geometry.ply'
+        calibration_report = out_dir / 'spatiotemporal_calibration.json'
+        rebuild_calibration_cloud = (
+            rebuild_trajectory or args.force_map or args.force_calibration or
+            is_stale(calibration_cloud, [trajectory]))
+        if rebuild_calibration_cloud:
+            commands.append(('calibration geometry', map_command(
+                calibration_cloud)))
+        rebuild_calibration = (
+            rebuild_images or rebuild_calibration_cloud or
+            args.force_calibration or
+            is_stale(refined_transforms, [trajectory, extracted_transforms,
+                                          calibration_cloud]) or
+            is_stale(calibration_report, [trajectory, extracted_transforms,
+                                          calibration_cloud]))
+        if rebuild_calibration:
+            commands.append(('spatiotemporal calibration', [
+                sys.executable,
+                str(REPO_ROOT / 'scripts' /
+                    'evaluate_lidar_camera_alignment.py'),
+                '--pointcloud', str(calibration_cloud),
+                '--transforms', str(extracted_transforms),
+                '--trajectory', str(trajectory),
+                '--out', str(calibration_report),
+                '--optimize-spatiotemporal',
+                '--corrected-transforms-out', str(refined_transforms),
+                '--view-stride', str(args.calibration_view_stride),
+                '--max-points', str(args.calibration_max_points),
+                '--optimization-rounds', str(args.calibration_rounds),
+                '--time-step', str(args.calibration_time_step),
+                '--translation-step', str(args.calibration_translation_step),
+                '--rotation-step-deg', str(args.calibration_rotation_step_deg),
+                '--max-time-offset', str(args.calibration_max_time_offset),
+                '--max-translation', str(args.calibration_max_translation),
+                '--max-rotation-deg', str(args.calibration_max_rotation_deg),
+                '--holdout-modulo', str(args.calibration_holdout_modulo),
+                '--minimum-edge-points',
+                str(args.calibration_minimum_edge_points),
+                '--minimum-heldout-improvement',
+                str(args.calibration_minimum_heldout_improvement),
+            ]))
+
+    if (rebuild_images or rebuild_calibration or args.force_map or
+            is_stale(colored_map, [trajectory, transforms])):
+        commands.append(('coloured map', map_command(colored_map, transforms)))
 
     if args.quality_profile is not None:
         alignment_report = out_dir / 'lidar_camera_alignment.json'
@@ -300,6 +355,23 @@ def run_pipeline(args) -> dict:
     out_dir = Path(args.out)
     if args.kalibr_camchain is not None and args.lidar_calibration is None:
         raise ValueError('--kalibr-camchain requires --lidar-calibration')
+    if args.force_calibration and not args.refine_spatiotemporal_calibration:
+        raise ValueError(
+            '--force-calibration requires --refine-spatiotemporal-calibration')
+    if args.refine_spatiotemporal_calibration and (
+            args.calibration_view_stride < 1 or
+            args.calibration_max_points < 1 or
+            args.calibration_rounds < 1 or
+            args.calibration_time_step <= 0.0 or
+            args.calibration_translation_step <= 0.0 or
+            args.calibration_rotation_step_deg <= 0.0 or
+            args.calibration_max_time_offset < 0.0 or
+            args.calibration_max_translation < 0.0 or
+            args.calibration_max_rotation_deg < 0.0 or
+            args.calibration_holdout_modulo < 2 or
+            args.calibration_minimum_edge_points < 1 or
+            not 0.0 <= args.calibration_minimum_heldout_improvement < 1.0):
+        raise ValueError('invalid spatiotemporal calibration search settings')
     if not args.dry_run:
         out_dir.mkdir(parents=True, exist_ok=True)
         if args.kalibr_camchain is not None:
@@ -329,7 +401,9 @@ def run_pipeline(args) -> dict:
         validate_trajectory_density(trajectory, args.max_trajectory_gap)
     return {
         'stages': [name for name, _ in commands],
-        'transforms': out_dir / 'posed_images' / 'transforms.json',
+        'transforms': out_dir / 'posed_images' / (
+            'transforms_spatiotemporal.json'
+            if args.refine_spatiotemporal_calibration else 'transforms.json'),
         'colored_map': out_dir / 'colored_map.ply',
         'trajectory': trajectory,
     }
@@ -365,6 +439,22 @@ def build_parser() -> argparse.ArgumentParser:
                    help='camera-to-trajectory clock offset or auto')
     p.add_argument('--time-offset-adjustment', type=float, default=0.0,
                    help='seconds added after fixed or auto clock correction')
+    p.add_argument('--refine-spatiotemporal-calibration', action='store_true',
+                   help='optimize camera time offset and 6DoF extrinsic on '
+                        'LiDAR/image edges, accepting only held-out improvement')
+    p.add_argument('--calibration-view-stride', type=int, default=10)
+    p.add_argument('--calibration-max-points', type=int, default=300000)
+    p.add_argument('--calibration-rounds', type=int, default=3)
+    p.add_argument('--calibration-time-step', type=float, default=0.02)
+    p.add_argument('--calibration-translation-step', type=float, default=0.02)
+    p.add_argument('--calibration-rotation-step-deg', type=float, default=0.2)
+    p.add_argument('--calibration-max-time-offset', type=float, default=0.1)
+    p.add_argument('--calibration-max-translation', type=float, default=0.1)
+    p.add_argument('--calibration-max-rotation-deg', type=float, default=2.0)
+    p.add_argument('--calibration-holdout-modulo', type=int, default=5)
+    p.add_argument('--calibration-minimum-edge-points', type=int, default=50)
+    p.add_argument('--calibration-minimum-heldout-improvement', type=float,
+                   default=0.0)
     p.add_argument('--max-trajectory-gap', type=float, default=0.5,
                    help='reject sparse pose streams with a larger gap (s); '
                         'set <=0 to disable')
@@ -411,6 +501,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--force-images', action='store_true')
     p.add_argument('--force-map', action='store_true')
     p.add_argument('--force-trajectory', action='store_true')
+    p.add_argument('--force-calibration', action='store_true')
     p.add_argument('--quality-profile', type=Path,
                    help='run alignment, held-out colour, and integrated quality '
                         'checks using this profile')

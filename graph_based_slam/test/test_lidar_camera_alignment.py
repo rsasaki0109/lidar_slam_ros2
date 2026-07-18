@@ -139,3 +139,93 @@ def test_write_corrected_transforms_preserves_images_and_updates_pose(tmp_path):
     loaded = lca.tg.load_transforms(output)
     np.testing.assert_allclose(loaded['viewmats'][0], correction @ original)
     assert loaded['image_paths'][0] == (images / '000.png').resolve()
+
+
+def _moving_samples():
+    return [
+        lca.pi.TrajectorySample(
+            float(index), np.array([float(index), 0.0, 0.0]),
+            np.array([0.0, 0.0, 0.0, 1.0]))
+        for index in range(4)
+    ]
+
+
+def test_recompose_viewmats_applies_continuous_time_and_extrinsic_delta():
+    parameters = np.array([0.25, 0.1, 0, 0, 0, 0, 0])
+    viewmat = lca.recompose_viewmats(
+        _moving_samples(), np.array([1.0]), np.eye(4), parameters)[0]
+    # world<-camera x is trajectory(1.25) + local extrinsic x correction.
+    np.testing.assert_allclose(np.linalg.inv(viewmat)[:3, 3], [1.35, 0, 0])
+
+
+def test_infer_body_camera_recovers_static_extrinsic_and_consistency():
+    samples = _moving_samples()
+    stamps = np.array([0.0, 1.0, 2.0])
+    extrinsic = lca.correction_matrix([0.1, -0.2, 0.3, 0.01, 0.02, -0.03])
+    viewmats = np.asarray([
+        np.linalg.inv(lca.pi.interpolate_pose(samples, stamp) @ extrinsic)
+        for stamp in stamps])
+    inferred, consistency = lca.infer_body_T_camera(
+        samples, stamps, viewmats)
+    np.testing.assert_allclose(inferred, extrinsic, atol=1e-12)
+    assert consistency['translation_spread_p95_m'] < 1e-12
+    assert consistency['rotation_spread_p95_deg'] < 1e-5
+
+
+def test_spatiotemporal_optimizer_is_deterministic_and_bounded(monkeypatch):
+    target = np.array([0.08, 0.08, -0.04, 0.0,
+                       np.deg2rad(0.4), 0.0, 0.0])
+
+    def objective(*args, reference_edge_points=None, **kwargs):
+        parameters = np.asarray(args[6])
+        loss = float(np.sum((parameters - target) ** 2))
+        return loss, {'edge_points': 100, 'mean_px': loss,
+                      'median_px': loss, 'coverage': 1.0}
+
+    monkeypatch.setattr(lca, 'spatiotemporal_objective', objective)
+    call = lambda: lca.optimize_spatiotemporal(
+        np.zeros((0, 3)), _moving_samples(), np.array([1.0]), np.eye(4),
+        np.eye(3), [], rounds=3, time_step=0.04,
+        translation_step=0.04, rotation_step_deg=0.4,
+        max_time_offset=0.05, max_translation=0.05,
+        max_rotation_deg=0.3)
+    first, before, after = call()
+    second, _, _ = call()
+    np.testing.assert_array_equal(first, second)
+    assert after['loss'] < before['loss']
+    assert abs(first[0]) <= 0.05
+    assert np.all(np.abs(first[1:4]) <= 0.05)
+    assert np.all(np.abs(np.rad2deg(first[4:])) <= 0.3 + 1e-12)
+
+
+def test_trajectory_excitation_rejects_static_time_offset():
+    static = [
+        lca.pi.TrajectorySample(
+            float(index), np.zeros(3), np.array([0.0, 0.0, 0.0, 1.0]))
+        for index in range(3)
+    ]
+    assert not lca.trajectory_excitation(
+        static, np.array([0.0, 1.0, 2.0]))['time_offset_observable']
+    assert lca.trajectory_excitation(
+        _moving_samples(), np.array([0.0, 1.0, 2.0]))['time_offset_observable']
+
+
+def test_calibration_acceptance_requires_heldout_improvement_and_support():
+    before = {'edge_points': 100, 'loss': 10.0}
+    improved = {'edge_points': 100, 'loss': 8.0}
+    accepted, reason = lca.calibration_acceptance(
+        before, improved, before, improved,
+        minimum_edge_points=50, minimum_heldout_improvement=0.1)
+    assert accepted and reason is None
+    accepted, reason = lca.calibration_acceptance(
+        before, improved, before, {'edge_points': 100, 'loss': 9.5},
+        minimum_edge_points=50, minimum_heldout_improvement=0.1)
+    assert not accepted and reason == 'heldout_or_training_loss_did_not_improve'
+    accepted, _ = lca.calibration_acceptance(
+        before, improved, before, before,
+        minimum_edge_points=50, minimum_heldout_improvement=0.0)
+    assert not accepted
+    accepted, reason = lca.calibration_acceptance(
+        {'edge_points': 10, 'loss': 10.0}, improved, before, improved,
+        minimum_edge_points=50, minimum_heldout_improvement=0.1)
+    assert not accepted and reason == 'insufficient_edge_support'
