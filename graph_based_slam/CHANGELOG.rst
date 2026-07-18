@@ -2,6 +2,19 @@
 Changelog for package graph_based_slam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Serialize event-driven backend work independently of the ROS executor, so
+  composable deployments cannot concurrently mutate ``BackendCore`` or lose a
+  submap notification that arrives while loop search is finishing.
+* Move authoritative map/edge ownership into ``GraphStateStore``. PCD cache
+  writes are staged before atomic state commits, and one immutable snapshot is
+  reused across a batch of loop-search queries instead of deep-copying the
+  complete ``MapArray`` for every query.
+* Hide ``BackendCore``, registration, voxel filtering, and 3D-BBS state behind
+  an implementation-only workspace, keeping g2o, pclomp, and descriptor
+  database headers out of the public ROS component interface.
+
 0.6.0 (2026-06-12)
 ------------------
 * Deterministic core / ROS shell refactor (v0.6 roadmap): the loop-closure

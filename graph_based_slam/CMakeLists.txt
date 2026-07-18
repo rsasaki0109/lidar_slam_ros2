@@ -198,6 +198,21 @@ if(BUILD_TESTING)
     target_include_directories(test_loop_search_schedule PRIVATE include)
   endif()
   ament_add_gtest(
+    test_serialized_work_drain
+    test/test_serialized_work_drain.cpp
+  )
+  if(TARGET test_serialized_work_drain)
+    target_include_directories(test_serialized_work_drain PRIVATE include)
+  endif()
+  ament_add_gtest(
+    test_graph_state_store
+    test/test_graph_state_store.cpp
+  )
+  if(TARGET test_graph_state_store)
+    target_include_directories(test_graph_state_store PRIVATE include ${EIGEN3_INCLUDE_DIR})
+    ament_target_dependencies(test_graph_state_store lidarslam_msgs)
+  endif()
+  ament_add_gtest(
     test_triangle_descriptor
     test/test_triangle_descriptor.cpp
   )

@@ -68,19 +68,16 @@ extern "C" {
 }  // extern "C"
 #endif
 
+#include <Eigen/Core>  // NOLINT(build/include_order)
+#include <Eigen/Geometry>  // NOLINT(build/include_order)
+#include <pcl/point_cloud.h>  // NOLINT(build/include_order)
 #include <pcl/point_types.h>  // NOLINT(build/include_order)
-#include <pcl/io/pcd_io.h>  // NOLINT(build/include_order)
-#include <pcl/registration/gicp.h>  // NOLINT(build/include_order)
-#include <pcl/registration/ndt.h>  // NOLINT(build/include_order)
-#include <pcl_conversions/pcl_conversions.h>  // NOLINT(build/include_order)
-#include <pclomp/gicp_omp.h>  // NOLINT(build/include_order)
-#include <pclomp/ndt_omp.h>  // NOLINT(build/include_order)
-#include <pclomp/voxel_grid_covariance_omp.h>  // NOLINT(build/include_order)
 #include <tf2_ros/buffer.h>  // NOLINT(build/include_order)
 #include <tf2_ros/transform_broadcaster.h>  // NOLINT(build/include_order)
 #include <tf2_ros/transform_listener.h>  // NOLINT(build/include_order)
 
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -99,38 +96,14 @@ extern "C" {
 #include <message_filters/synchronizer.h>  // NOLINT(build/include_order)
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
-#include <pclomp/gicp_omp_impl.hpp>
-#include <pclomp/ndt_omp_impl.hpp>
-#include <pclomp/voxel_grid_covariance_omp_impl.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_srvs/srv/empty.hpp>
-#include <tf2_eigen/tf2_eigen.hpp>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
-
-#include "g2o/core/block_solver.h"
-#include "g2o/core/optimization_algorithm_levenberg.h"
-#include "g2o/core/sparse_optimizer.h"
-#include "g2o/solvers/eigen/linear_solver_eigen.h"
-#include "g2o/types/slam3d/edge_se3.h"
-#include "g2o/types/slam3d/edge_se3_pointxyz.h"
-#include "g2o/types/slam3d/parameter_se3_offset.h"
-#include "g2o/types/slam3d/se3quat.h"
-#include "g2o/types/slam3d/vertex_pointxyz.h"
-#include "g2o/types/slam3d/vertex_se3.h"
-#include "graph_based_slam/backend_core.hpp"
-#include "graph_based_slam/candidate_aggregator.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
 #include "graph_based_slam/gnss_origin_accumulator.hpp"
-#include "graph_based_slam/registration_factory.hpp"
-#include "graph_based_slam/gnss_weighting.hpp"
-#include "graph_based_slam/scan_context.hpp"
-#include "graph_based_slam/solid_descriptor.hpp"
-#include "graph_based_slam/submap_bev_descriptor.hpp"
-#include "graph_based_slam/three_d_bbs_loop_verifier.hpp"
-#include "graph_based_slam/triangle_descriptor_database.hpp"
+#include "graph_based_slam/graph_state_store.hpp"
+#include "graph_based_slam/serialized_work_drain.hpp"
 
 namespace graphslam
 {
@@ -139,31 +112,41 @@ namespace graphslam
 public:
     GS_GBS_PUBLIC
     explicit GraphBasedSlamComponent(const rclcpp::NodeOptions & options);
+    GS_GBS_PUBLIC
+    ~GraphBasedSlamComponent() override;
 
 private:
-    std::mutex mtx_;
+    struct BackendWorkspace;
 
     rclcpp::Clock clock_;
     tf2_ros::Buffer tfbuffer_;
     tf2_ros::TransformListener listener_;
     tf2_ros::TransformBroadcaster broadcaster_;
 
-    boost::shared_ptr < pcl::Registration < pcl::PointXYZI, pcl::PointXYZI >> registration_;
-    pcl::VoxelGrid < pcl::PointXYZI > voxelgrid_;
+    // Compiler firewall for the ROS-free backend, registration engine,
+    // voxel filter and 3D-BBS verifier. Their PCL/pclomp/descriptor headers
+    // stay in the component implementation translation unit.
+    std::unique_ptr < BackendWorkspace > backend_;
+    // BackendWorkspace is single-threaded by contract. Keep that contract
+    // when hosted by a MultiThreadedExecutor, while coalescing arrivals
+    // during a long search.
+    scheduling::SerializedWorkDrain backend_work_drain_;
+    // Serializes ordered input staging (cloud conversion / PCD writes) but
+    // never blocks GraphStateStore snapshots during that I/O.
+    std::mutex submap_ingest_mtx_;
+    GraphStateStore graph_state_;
 
-    // ROS-free backend state (descriptor databases; the search and
-    // optimization orchestration migrate here across Phase 2).
-    backend_core::BackendCore backend_core_;
-
-    lidarslam_msgs::msg::MapArray map_array_msg_;
     rclcpp::Subscription < lidarslam_msgs::msg::MapArray > ::SharedPtr map_array_sub_;
     rclcpp::Publisher < lidarslam_msgs::msg::MapArray > ::SharedPtr modified_map_array_pub_;
     rclcpp::Publisher < nav_msgs::msg::Path > ::SharedPtr modified_path_pub_;
     rclcpp::Publisher < sensor_msgs::msg::PointCloud2 > ::SharedPtr modified_map_pub_;
     rclcpp::Service < std_srvs::srv::Empty > ::SharedPtr map_save_srv_;
 
-    using LoopEdge = backend_core::LoopEdgeSet::Edge;
-    using LoopEdges = std::vector < LoopEdge >;
+    using LoopEdge = GraphStateStore::LoopEdge;
+    using LoopEdges = GraphStateStore::LoopEdges;
+    using PointCloud = pcl::PointCloud < pcl::PointXYZI >;
+    using PointCloudPtr = PointCloud::Ptr;
+    using LocalSubmapProvider = std::function < PointCloudPtr(int) >;
     using MapSaveRequestHeader = std::shared_ptr < rmw_request_id_t >;
     using MapSaveRequest = std::shared_ptr < std_srvs::srv::Empty::Request >;
     using MapSaveResponse = std::shared_ptr < std_srvs::srv::Empty::Response >;
@@ -178,6 +161,7 @@ private:
     // against exactly the map state [0..q] so the result is a function of
     // the data, not of how the executor batched arrivals.
     void runEventDrivenLoopSearch();
+    void drainEventDrivenLoopSearch();
     // Per-query loop search body shared by the event-driven drain.
     void searchLoopForLatest(
       const lidarslam_msgs::msg::MapArray & map_array_msg,
@@ -186,7 +170,7 @@ private:
       int latest_idx);
     // Voxel-filtered local aggregate of a submap and its recent neighbors;
     // the returned provider borrows map_array_msg and must not outlive it.
-    backend_core::BackendCore::LocalSubmapProvider makeFilteredLocalSubmapProvider(
+    LocalSubmapProvider makeFilteredLocalSubmapProvider(
       const lidarslam_msgs::msg::MapArray & map_array_msg);
     bool snapshotGraphState(
       lidarslam_msgs::msg::MapArray & map_array_msg,
@@ -256,10 +240,7 @@ private:
     double adjacent_edge_info_auto_scale_target_nis_trans_ {3.0};
     double adjacent_edge_info_auto_scale_target_nis_rot_ {3.0};
 
-    bool initial_map_array_received_ {false};
     int previous_submaps_num_ {0};
-
-    backend_core::LoopEdgeSet loop_edge_set_;
 
     bool debug_flag_ {false};
 
@@ -267,7 +248,7 @@ private:
     bool use_scan_context_ {false};
     double scan_context_threshold_ {0.3};
     int scan_context_query_stride_ {1};
-    int scan_context_exclude_recent_ {ScanContext::EXCLUDE_RECENT};
+    int scan_context_exclude_recent_ {50};
     bool prefer_scan_context_candidates_ {false};
     bool use_bev_descriptor_ {false};
     double bev_descriptor_threshold_ {0.20};
@@ -383,8 +364,6 @@ private:
     double three_d_bbs_translation_search_margin_m_ {15.0};
     double three_d_bbs_roll_pitch_search_deg_ {10.0};
     double three_d_bbs_yaw_search_deg_ {180.0};
-    ThreeDBBSLoopVerifier three_d_bbs_loop_verifier_;
-
     bool use_dynamic_object_filter_ {false};
     double dynamic_object_filter_voxel_size_ {0.3};
     int dynamic_object_filter_min_observations_ {2};
@@ -400,10 +379,17 @@ private:
     // PCD disk cache for memory-efficient submap storage
     std::string pcd_cache_dir_;
     bool use_pcd_cache_ {false};
-    void saveSubmapToPCD(
+    std::mutex pcd_cache_mtx_;
+    void stageMapArrayCloudCache(lidarslam_msgs::msg::MapArray & map_array_msg);
+    bool saveSubmapToPCD(
+      int idx,
+      const pcl::PointCloud < pcl::PointXYZI > ::Ptr & cloud);
+    bool saveSubmapToPCDUnlocked(
       int idx,
       const pcl::PointCloud < pcl::PointXYZI > ::Ptr & cloud);
     pcl::PointCloud < pcl::PointXYZI > ::Ptr loadSubmapFromPCD(int idx);
+    pcl::PointCloud < pcl::PointXYZI > ::Ptr loadSubmapCloud(
+      const lidarslam_msgs::msg::MapArray & map_array_msg, int idx);
 
     // Autoware-compatible grid-divided PCD map output
     std::string map_save_dir_ {"."};
