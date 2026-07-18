@@ -87,9 +87,24 @@ the offline adapter builds the same plain DTO from replay parameters.
 
 ### 4. External I/O ports
 
-- define clock, cache/storage, diagnostics, and map-output ports;
-- provide ROS/filesystem adapters outside the backend;
-- use in-memory adapters for deterministic unit and replay tests.
+The outer boundary now exposes explicit clock, submap storage, diagnostics,
+and map-output ports. The live ROS composition root binds those contracts to
+the node clock, ROS logging, PCD storage, and filesystem artifact output. The
+offline runner uses the same filesystem artifact adapter, while unit and
+deterministic replay tests can bind manual-clock and in-memory adapters.
+
+Pose-graph optimization no longer accepts a save path. It serializes the
+canonical g2o graph to bytes in `OptimizationResult`; an outer map-output port
+decides whether and where to persist those bytes. The same boundary owns
+trajectory, loop-edge, bundle-manifest, diagnostic-report, grid metadata, and
+PCD output. Consequently `graph_slam_application` neither links the
+filesystem adapter nor observes a clock, logger, ROS API, or path.
+
+Submap cache access is also a value-snapshot contract. In-memory and PCD
+implementations return independent clouds, so callers cannot mutate storage
+state through an alias. Port validation rejects partial composition, and unit
+tests pin clock control, diagnostic ordering, snapshot isolation, exact byte
+preservation, and append behavior.
 
 ### 5. Architecture hardening
 

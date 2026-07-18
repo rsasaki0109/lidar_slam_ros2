@@ -77,7 +77,6 @@ struct PoseGraphRequest
   pose_graph::Chi2Collection chi2_collection {pose_graph::Chi2Collection::NONE};
   bool fix_first_vertex {true};
   int iterations {10};
-  std::string save_path;
   std::vector<pose_graph::PlaneRevisitConstraint> plane_constraints;
 };
 

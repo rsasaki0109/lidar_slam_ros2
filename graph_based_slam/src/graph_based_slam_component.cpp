@@ -28,24 +28,24 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "graph_based_slam_component_impl.hpp"
-#include "graph_slam_composition.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
-#include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <unordered_map>
 
 #include <pcl/common/common.h>  // NOLINT(build/include_order)
-#include <pcl/io/pcd_io.h>  // NOLINT(build/include_order)
 #include <pcl/filters/voxel_grid.h>  // NOLINT(build/include_order)
 #include <pcl_conversions/pcl_conversions.h>  // NOLINT(build/include_order)
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
 
+#include "filesystem_io_ports.hpp"
+#include "graph_slam_composition.hpp"
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
 #include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/bev_mutual_visibility.hpp"
@@ -71,6 +71,63 @@ namespace graphslam
 {
 namespace
 {
+class RosClockPort final : public ports::ClockPort
+{
+public:
+  explicit RosClockPort(rclcpp::Clock::SharedPtr clock)
+  : clock_(std::move(clock)) {}
+
+  double nowSeconds() const override {return clock_->now().seconds();}
+
+private:
+  rclcpp::Clock::SharedPtr clock_;
+};
+
+class RosDiagnosticsPort final : public ports::DiagnosticsPort
+{
+public:
+  explicit RosDiagnosticsPort(rclcpp::Logger logger)
+  : logger_(std::move(logger)) {}
+
+  void emit(const ports::DiagnosticEvent & event) override
+  {
+    switch (event.level) {
+      case ports::DiagnosticLevel::DEBUG:
+        RCLCPP_DEBUG(logger_, "[%s] %s", event.code.c_str(), event.message.c_str());
+        break;
+      case ports::DiagnosticLevel::INFO:
+        RCLCPP_INFO(logger_, "[%s] %s", event.code.c_str(), event.message.c_str());
+        break;
+      case ports::DiagnosticLevel::WARNING:
+        RCLCPP_WARN(logger_, "[%s] %s", event.code.c_str(), event.message.c_str());
+        break;
+      case ports::DiagnosticLevel::ERROR:
+        RCLCPP_ERROR(logger_, "[%s] %s", event.code.c_str(), event.message.c_str());
+        break;
+    }
+  }
+
+private:
+  rclcpp::Logger logger_;
+};
+
+ports::ExternalIoPorts makeExternalIoPorts(
+  rclcpp::Node & node, const GraphSlamConfig & config)
+{
+  ports::ExternalIoPorts result;
+  result.clock = std::make_shared<RosClockPort>(node.get_clock());
+  if (config.use_pcd_cache_) {
+    result.submap_storage =
+      std::make_shared<adapters::PcdSubmapStorage>(config.pcd_cache_dir_);
+  } else {
+    result.submap_storage = std::make_shared<ports::InMemorySubmapStorage>();
+  }
+  result.diagnostics = std::make_shared<RosDiagnosticsPort>(node.get_logger());
+  result.map_output = std::make_shared<adapters::FilesystemMapOutput>();
+  result.validate();
+  return result;
+}
+
 GraphSlamConfig loadValidatedGraphSlamConfig(rclcpp::Node & node)
 {
   GraphSlamConfig config = loadGraphSlamConfig(node);
@@ -115,7 +172,8 @@ GraphBasedSlamComponent::Impl::Impl(GraphBasedSlamComponent & node)
   tfbuffer_(std::make_shared<rclcpp::Clock>(clock_)),
   listener_(tfbuffer_),
   broadcaster_(&node_),
-  backend_(std::make_unique<BackendWorkspace>(makeGraphSlamApplicationConfig(config_)))
+  backend_(std::make_unique<BackendWorkspace>(makeGraphSlamApplicationConfig(config_))),
+  io_ports_(makeExternalIoPorts(node_, config_))
 {
   RCLCPP_INFO(node_.get_logger(), "initialization start");
 
@@ -123,20 +181,17 @@ GraphBasedSlamComponent::Impl::Impl(GraphBasedSlamComponent & node)
   adjacent_edge_info_weight_trans_ = config_.adjacent_edge_info_weight_trans_;
   adjacent_edge_info_weight_rot_ = config_.adjacent_edge_info_weight_rot_;
 
-  if (config_.use_pcd_cache_) {
-    std::filesystem::create_directories(config_.pcd_cache_dir_);
-  }
   gnss_origin_accumulator_.configure(
     config_.gnss_origin_min_samples_, config_.gnss_origin_consistency_threshold_m_);
   logGraphSlamConfig(config_, node_.get_logger());
   if (!config_.degeneracy_diagnostics_csv_path_.empty()) {
-    degeneracy_csv_ofs_.open(config_.degeneracy_diagnostics_csv_path_);
-    if (degeneracy_csv_ofs_.is_open()) {
-      degeneracy_csv_ofs_ << degeneracy::degeneracyDiagnosticsCsvHeaderLine() << "\n";
-    } else {
-      RCLCPP_WARN(
-        node_.get_logger(), "failed to open degeneracy_diagnostics_csv_path: %s (CSV disabled)",
-        config_.degeneracy_diagnostics_csv_path_.c_str());
+    degeneracy_csv_enabled_ = io_ports_.map_output->writeBytes(
+      config_.degeneracy_diagnostics_csv_path_,
+      degeneracy::degeneracyDiagnosticsCsvHeaderLine() + "\n");
+    if (!degeneracy_csv_enabled_) {
+      io_ports_.diagnostics->emit(
+        {ports::DiagnosticLevel::WARNING, "degeneracy_csv_open_failed",
+          config_.degeneracy_diagnostics_csv_path_});
     }
   }
 
@@ -473,11 +528,9 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     config_, adjacent_edge_info_weight_, adjacent_edge_info_weight_trans_,
     adjacent_edge_info_weight_rot_);
 
-  std::string pose_graph_save_path = config_.save_pose_graph_path_;
   const std::string bundle_pose_graph_path = config_.map_save_dir_ + "/pose_graph.g2o";
   if (do_save_map) {
-    std::filesystem::create_directories(config_.map_save_dir_);
-    pose_graph_save_path = bundle_pose_graph_path;
+    io_ports_.map_output->prepareDirectory(config_.map_save_dir_);
   }
   PoseGraphRequest optimization_request;
   optimization_request.submaps = submap_nodes;
@@ -488,23 +541,25 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
   optimization_request.imu_config = pose_graph_config.imu;
   optimization_request.chi2_collection = pose_graph_config.chi2_collection;
   optimization_request.fix_first_vertex = fix_first_vertex;
-  optimization_request.save_path = pose_graph_save_path;
   const pose_graph::OptimizationResult opt_result =
     backend_->application->optimize(optimization_request);
 
-  if (do_save_map && !config_.save_pose_graph_path_.empty() &&
-    std::filesystem::path(config_.save_pose_graph_path_).lexically_normal() !=
-    std::filesystem::path(bundle_pose_graph_path).lexically_normal())
+  if (do_save_map &&
+    !io_ports_.map_output->writeBytes(bundle_pose_graph_path, opt_result.pose_graph_g2o))
   {
-    std::error_code copy_error;
-    std::filesystem::copy_file(
-      bundle_pose_graph_path, config_.save_pose_graph_path_,
-      std::filesystem::copy_options::overwrite_existing, copy_error);
-    if (copy_error) {
-      RCLCPP_WARN(
-        node_.get_logger(), "failed to copy pose graph to configured path %s: %s",
-        config_.save_pose_graph_path_.c_str(), copy_error.message().c_str());
-    }
+    io_ports_.diagnostics->emit(
+      {ports::DiagnosticLevel::WARNING, "pose_graph_write_failed", bundle_pose_graph_path});
+  }
+  if (!config_.save_pose_graph_path_.empty() &&
+    (!do_save_map ||
+    std::filesystem::path(config_.save_pose_graph_path_).lexically_normal() !=
+    std::filesystem::path(bundle_pose_graph_path).lexically_normal()) &&
+    !io_ports_.map_output->writeBytes(
+      config_.save_pose_graph_path_, opt_result.pose_graph_g2o))
+  {
+    io_ports_.diagnostics->emit(
+      {ports::DiagnosticLevel::WARNING, "pose_graph_write_failed",
+        config_.save_pose_graph_path_});
   }
 
   if (config_.adjacent_edge_info_auto_scale_ && submaps_size > 1) {
@@ -657,7 +712,7 @@ void GraphBasedSlamComponent::Impl::receiveNavSatFix(const sensor_msgs::msg::Nav
   Eigen::Vector3d enu = geodeticToEnu(msg.latitude, msg.longitude, msg.altitude);
   const detail::GnssConstraintWeights gnss_weights =
     detail::computeGnssConstraintWeights(msg, makeGnssWeightingConfig(config_));
-  const double receive_time_sec = node_.get_clock()->now().seconds();
+  const double receive_time_sec = io_ports_.clock->nowSeconds();
   const double header_time_sec = rclcpp::Time(msg.header.stamp).seconds();
   const detail::GnssTimestampResolution stamp_resolution =
     detail::resolveGnssMeasurementStamp(
@@ -825,7 +880,7 @@ void GraphBasedSlamComponent::Impl::recordScanDegeneracy(const nav_msgs::msg::Od
   // Opt-in, report-only (v0.8 Phase 1): compute nothing at all unless one of
   // the two diagnostics outputs was requested, so the default path stays
   // byte-for-byte identical in behavior and cost.
-  const bool csv_enabled = degeneracy_csv_ofs_.is_open();
+  const bool csv_enabled = degeneracy_csv_enabled_;
   if (!csv_enabled && !config_.save_degeneracy_report_) {
     return;
   }
@@ -836,7 +891,9 @@ void GraphBasedSlamComponent::Impl::recordScanDegeneracy(const nav_msgs::msg::Od
 
   std::lock_guard<std::mutex> lock(degeneracy_mtx_);
   if (csv_enabled) {
-    degeneracy_csv_ofs_ << degeneracy::degeneracyDiagnosticsCsvRowLine(stamp_sec, result) << "\n";
+    io_ports_.map_output->appendBytes(
+      config_.degeneracy_diagnostics_csv_path_,
+      degeneracy::degeneracyDiagnosticsCsvRowLine(stamp_sec, result) + "\n");
   }
   if (config_.save_degeneracy_report_) {
     degeneracy_accumulator_.add(stamp_sec, result);
@@ -857,14 +914,15 @@ void GraphBasedSlamComponent::Impl::writeDegeneracyReport()
     summary = degeneracy_accumulator_.summary();
   }
   const std::string report_path = config_.map_save_dir_ + "/degeneracy_report.yaml";
-  std::ofstream report(report_path);
-  if (!report.is_open()) {
-    RCLCPP_WARN(node_.get_logger(), "failed to write degeneracy report: %s", report_path.c_str());
-    return;
-  }
   const std::vector<std::string> lines = degeneracy::degeneracyReportYamlLines(summary);
+  std::ostringstream report;
   for (size_t i = 0; i < lines.size(); ++i) {
     report << lines[i] << "\n";
+  }
+  if (!io_ports_.map_output->writeBytes(report_path, report.str())) {
+    io_ports_.diagnostics->emit(
+      {ports::DiagnosticLevel::WARNING, "degeneracy_report_write_failed", report_path});
+    return;
   }
   std::cout << "Degeneracy report: " << report_path << std::endl;
 }
@@ -900,8 +958,12 @@ void GraphBasedSlamComponent::Impl::tryCreateSubmap(
   if (config_.use_pcd_cache_) {
     pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
     pcl::fromROSMsg(submap.cloud, *cloud);
-    if (saveSubmapToPCD(submap_idx, cloud)) {
+    if (io_ports_.submap_storage->store(submap_idx, *cloud)) {
       submap.cloud = sensor_msgs::msg::PointCloud2();
+    } else {
+      io_ports_.diagnostics->emit(
+        {ports::DiagnosticLevel::WARNING, "submap_cache_write_failed",
+          "failed to store submap " + std::to_string(submap_idx)});
     }
   }
   std_msgs::msg::Header map_header;
@@ -922,51 +984,28 @@ void GraphBasedSlamComponent::Impl::tryCreateSubmap(
 void GraphBasedSlamComponent::Impl::stageMapArrayCloudCache(
   lidarslam_msgs::msg::MapArray & map_array_msg)
 {
-  // Treat a full MapArray cache refresh as one repository transaction so
-  // backend readers never observe a mixture of old and newly written files.
-  std::lock_guard<std::mutex> cache_lock(pcd_cache_mtx_);
+  std::vector<ports::SubmapWrite> writes;
   for (int i = 0; i < static_cast<int>(map_array_msg.submaps.size()); ++i) {
-    auto & submap = map_array_msg.submaps[i];
+    const auto & submap = map_array_msg.submaps[i];
     if (submap.cloud.data.empty()) {
       continue;
     }
     pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
     pcl::fromROSMsg(submap.cloud, *cloud);
-    if (!cloud->empty() && saveSubmapToPCDUnlocked(i, cloud)) {
-      submap.cloud = sensor_msgs::msg::PointCloud2();
+    if (!cloud->empty()) {
+      writes.push_back({i, cloud});
     }
   }
-}
-
-bool GraphBasedSlamComponent::Impl::saveSubmapToPCD(
-  int idx,
-  const pcl::PointCloud<pcl::PointXYZI>::Ptr & cloud)
-{
-  std::lock_guard<std::mutex> cache_lock(pcd_cache_mtx_);
-  return saveSubmapToPCDUnlocked(idx, cloud);
-}
-
-bool GraphBasedSlamComponent::Impl::saveSubmapToPCDUnlocked(
-  int idx,
-  const pcl::PointCloud<pcl::PointXYZI>::Ptr & cloud)
-{
-  std::string path = map_saver::submapCachePath(config_.pcd_cache_dir_, idx);
-  if (pcl::io::savePCDFileBinaryCompressed(path, *cloud) == 0) {
-    return true;
+  const std::vector<bool> stored = io_ports_.submap_storage->storeBatch(writes);
+  for (std::size_t i = 0; i < writes.size(); ++i) {
+    if (i < stored.size() && stored[i]) {
+      map_array_msg.submaps[writes[i].index].cloud = sensor_msgs::msg::PointCloud2();
+    } else {
+      io_ports_.diagnostics->emit(
+        {ports::DiagnosticLevel::WARNING, "submap_cache_write_failed",
+          "failed to store submap " + std::to_string(writes[i].index)});
+    }
   }
-  RCLCPP_WARN(node_.get_logger(), "Failed to save PCD: %s", path.c_str());
-  return false;
-}
-
-pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::Impl::loadSubmapFromPCD(int idx)
-{
-  std::lock_guard<std::mutex> cache_lock(pcd_cache_mtx_);
-  auto cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
-  std::string path = map_saver::submapCachePath(config_.pcd_cache_dir_, idx);
-  if (pcl::io::loadPCDFile(path, *cloud) == -1) {
-    RCLCPP_WARN(node_.get_logger(), "Failed to load PCD: %s", path.c_str());
-  }
-  return cloud;
 }
 
 pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::Impl::loadSubmapCloud(
@@ -975,7 +1014,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::Impl::loadSubmapCl
 {
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
   if (config_.use_pcd_cache_) {
-    cloud = loadSubmapFromPCD(idx);
+    cloud = io_ports_.submap_storage->load(idx);
     if (!cloud->empty()) {
       return cloud;
     }
@@ -992,53 +1031,52 @@ void GraphBasedSlamComponent::Impl::writeMapBundleArtifacts(
   const LoopEdges & loop_edges,
   const std::vector<Eigen::Isometry3d> & optimized_poses)
 {
-  std::filesystem::create_directories(config_.map_save_dir_);
+  io_ports_.map_output->prepareDirectory(config_.map_save_dir_);
 
   const std::string trajectory_path = config_.map_save_dir_ + "/trajectory_optimized.tum";
-  std::ofstream trajectory(trajectory_path);
-  if (!trajectory.is_open()) {
-    RCLCPP_WARN(
-      node_.get_logger(), "failed to write optimized trajectory: %s", trajectory_path.c_str());
-  } else {
-    const std::size_t count = std::min(map_array_msg.submaps.size(), optimized_poses.size());
-    for (std::size_t i = 0; i < count; ++i) {
-      const Eigen::Vector3d t = optimized_poses[i].translation();
-      const Eigen::Quaterniond q(optimized_poses[i].rotation());
-      map_saver::TrajectoryPose record;
-      record.timestamp = rclcpp::Time(map_array_msg.submaps[i].header.stamp).seconds();
-      record.tx = t.x();
-      record.ty = t.y();
-      record.tz = t.z();
-      record.qx = q.x();
-      record.qy = q.y();
-      record.qz = q.z();
-      record.qw = q.w();
-      trajectory << map_saver::trajectoryTumLine(record) << "\n";
-    }
+  std::ostringstream trajectory;
+  const std::size_t count = std::min(map_array_msg.submaps.size(), optimized_poses.size());
+  for (std::size_t i = 0; i < count; ++i) {
+    const Eigen::Vector3d t = optimized_poses[i].translation();
+    const Eigen::Quaterniond q(optimized_poses[i].rotation());
+    map_saver::TrajectoryPose record;
+    record.timestamp = rclcpp::Time(map_array_msg.submaps[i].header.stamp).seconds();
+    record.tx = t.x();
+    record.ty = t.y();
+    record.tz = t.z();
+    record.qx = q.x();
+    record.qy = q.y();
+    record.qz = q.z();
+    record.qw = q.w();
+    trajectory << map_saver::trajectoryTumLine(record) << "\n";
+  }
+  if (!io_ports_.map_output->writeBytes(trajectory_path, trajectory.str())) {
+    io_ports_.diagnostics->emit(
+      {ports::DiagnosticLevel::WARNING, "trajectory_write_failed", trajectory_path});
   }
 
   const std::string loop_edges_path = config_.map_save_dir_ + "/loop_edges.csv";
-  std::ofstream loop_csv(loop_edges_path);
-  if (!loop_csv.is_open()) {
-    RCLCPP_WARN(node_.get_logger(), "failed to write loop edges: %s", loop_edges_path.c_str());
-  } else {
-    loop_csv << map_saver::loopEdgesCsvHeader() << "\n";
-    for (const auto & edge : loop_edges) {
-      const Eigen::Vector3d t = edge.relative_pose.translation();
-      const Eigen::Quaterniond q(edge.relative_pose.rotation());
-      map_saver::LoopEdgeRecord record;
-      record.from = edge.pair_id.first;
-      record.to = edge.pair_id.second;
-      record.fitness = edge.fitness_score;
-      record.tx = t.x();
-      record.ty = t.y();
-      record.tz = t.z();
-      record.qx = q.x();
-      record.qy = q.y();
-      record.qz = q.z();
-      record.qw = q.w();
-      loop_csv << map_saver::loopEdgeCsvLine(record) << "\n";
-    }
+  std::ostringstream loop_csv;
+  loop_csv << map_saver::loopEdgesCsvHeader() << "\n";
+  for (const auto & edge : loop_edges) {
+    const Eigen::Vector3d t = edge.relative_pose.translation();
+    const Eigen::Quaterniond q(edge.relative_pose.rotation());
+    map_saver::LoopEdgeRecord record;
+    record.from = edge.pair_id.first;
+    record.to = edge.pair_id.second;
+    record.fitness = edge.fitness_score;
+    record.tx = t.x();
+    record.ty = t.y();
+    record.tz = t.z();
+    record.qx = q.x();
+    record.qy = q.y();
+    record.qz = q.z();
+    record.qw = q.w();
+    loop_csv << map_saver::loopEdgeCsvLine(record) << "\n";
+  }
+  if (!io_ports_.map_output->writeBytes(loop_edges_path, loop_csv.str())) {
+    io_ports_.diagnostics->emit(
+      {ports::DiagnosticLevel::WARNING, "loop_edges_write_failed", loop_edges_path});
   }
 
   map_saver::BundleManifest manifest;
@@ -1058,12 +1096,11 @@ void GraphBasedSlamComponent::Impl::writeMapBundleArtifacts(
     config_.planar_map_filter_min_middle_eigenvalue_ratio_;
   manifest.planar_map_filter_min_retained_ratio = config_.planar_map_filter_min_retained_ratio_;
   const std::string manifest_path = config_.map_save_dir_ + "/map_bundle.yaml";
-  std::ofstream manifest_file(manifest_path);
-  if (!manifest_file.is_open()) {
-    RCLCPP_WARN(
-      node_.get_logger(), "failed to write map bundle manifest: %s", manifest_path.c_str());
-  } else {
-    manifest_file << map_saver::bundleManifestYaml(manifest);
+  if (!io_ports_.map_output->writeBytes(
+      manifest_path, map_saver::bundleManifestYaml(manifest)))
+  {
+    io_ports_.diagnostics->emit(
+      {ports::DiagnosticLevel::WARNING, "manifest_write_failed", manifest_path});
   }
 
   RCLCPP_INFO(
@@ -1081,14 +1118,8 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(
 
   // Create output directory (clean existing PCD files to prevent orphans)
   std::string out_dir = config_.map_save_dir_ + "/pointcloud_map";
-  if (std::filesystem::exists(out_dir)) {
-    for (auto & entry : std::filesystem::directory_iterator(out_dir)) {
-      if (entry.path().extension() == ".pcd" || entry.path().extension() == ".yaml") {
-        std::filesystem::remove(entry.path());
-      }
-    }
-  }
-  std::filesystem::create_directories(out_dir);
+  io_ports_.map_output->prepareDirectory(out_dir);
+  io_ports_.map_output->removeByExtension(out_dir, {".pcd", ".yaml"});
 
   // Downsample the map
   pcl::PointCloud<pcl::PointXYZI>::Ptr downsampled(new pcl::PointCloud<pcl::PointXYZI>);
@@ -1144,22 +1175,21 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(
 
   // Save each grid cell as PCD and build the Autoware pointcloud_map_loader
   // metadata (content produced in map_saver.hpp)
-  std::ofstream meta(out_dir + "/pointcloud_map_metadata.yaml");
+  std::ostringstream meta;
   meta << map_saver::metadataHeader(grid_config);
 
   int saved = 0;
   for (auto & [key, cloud] : grid_cells) {
     if (cloud->empty()) {continue;}
     const map_saver::CellFile cell = map_saver::makeCellFile(key, grid_bounds, grid_config);
-    pcl::io::savePCDFileBinaryCompressed(out_dir + "/" + cell.filename, *cloud);
+    io_ports_.map_output->writePointCloud(out_dir + "/" + cell.filename, *cloud);
     meta << map_saver::metadataEntry(cell);
     saved++;
   }
-
-  meta.close();
+  io_ports_.map_output->writeBytes(out_dir + "/pointcloud_map_metadata.yaml", meta.str());
 
   // Also save the full map as a single PCD for convenience
-  pcl::io::savePCDFileBinaryCompressed(config_.map_save_dir_ + "/map.pcd", *downsampled);
+  io_ports_.map_output->writePointCloud(config_.map_save_dir_ + "/map.pcd", *downsampled);
 
   std::cout << map_saver::savedMapLogLine(saved, grid_config, out_dir) << std::endl;
   std::cout << "Total points: " << downsampled->size() << std::endl;
@@ -1167,10 +1197,10 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(
 
   // Always emit map_projector_info.yaml so Autoware can load pointcloud-only maps.
   std::string proj_file = config_.map_save_dir_ + "/map_projector_info.yaml";
-  std::ofstream proj(proj_file);
-  proj << map_saver::projectorInfoYaml(gnss_origin_set_, gnss_origin_lat_, gnss_origin_lon_);
+  io_ports_.map_output->writeBytes(
+    proj_file,
+    map_saver::projectorInfoYaml(gnss_origin_set_, gnss_origin_lat_, gnss_origin_lon_));
   std::cout << map_saver::projectorInfoLogLine(gnss_origin_set_, proj_file) << std::endl;
-  proj.close();
 }
 }  // namespace graphslam
 

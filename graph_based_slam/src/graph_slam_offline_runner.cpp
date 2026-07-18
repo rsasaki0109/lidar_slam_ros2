@@ -76,6 +76,7 @@
 #include "graph_based_slam/plane_revisit_constraints.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/submap_creation.hpp"
+#include "filesystem_io_ports.hpp"
 
 namespace
 {
@@ -90,11 +91,11 @@ struct SubmapRecord
   CloudPtr cloud;
 };
 
-void writeTum(
-  const std::string & path, const std::vector<SubmapRecord> & records,
+std::string tumBytes(
+  const std::vector<SubmapRecord> & records,
   const std::vector<Eigen::Isometry3d> & poses)
 {
-  std::ofstream out(path);
+  std::ostringstream out;
   char line[256];
   for (std::size_t i = 0; i < records.size(); ++i) {
     const Eigen::Vector3d t = poses[i].translation();
@@ -104,6 +105,7 @@ void writeTum(
       records[i].stamp_sec, t.x(), t.y(), t.z(), q.x(), q.y(), q.z(), q.w());
     out << line << "\n";
   }
+  return out.str();
 }
 
 void loadFixedLoopEdges(
@@ -264,7 +266,12 @@ int main(int argc, char ** argv)
     rclcpp::shutdown();
     return 1;
   }
-  std::filesystem::create_directories(output_dir);
+  graphslam::adapters::FilesystemMapOutput map_output;
+  if (!map_output.prepareDirectory(output_dir)) {
+    RCLCPP_ERROR(logger, "failed to prepare output_dir: %s", output_dir.c_str());
+    rclcpp::shutdown();
+    return 1;
+  }
 
   // Same parameter names and defaults as the live component.
   std::string registration_method;
@@ -782,6 +789,7 @@ int main(int argc, char ** argv)
   }
 
   std::vector<Eigen::Isometry3d> optimized_poses;
+  std::string pose_graph_g2o;
   optimized_poses.reserve(records.size());
   if (!records.empty()) {
     graphslam::PoseGraphRequest request;
@@ -792,6 +800,7 @@ int main(int argc, char ** argv)
     request.plane_constraints = plane_revisit_result.constraints;
     const graphslam::pose_graph::OptimizationResult result = application.optimize(request);
     optimized_poses = result.poses;
+    pose_graph_g2o = result.pose_graph_g2o;
     if (use_plane_revisit_constraints) {
       std::ofstream report(output_dir + "/plane_revisit_report.yaml");
       report << "plane_revisit:\n";
@@ -833,7 +842,7 @@ int main(int argc, char ** argv)
   // --- Deterministic outputs. loop_edges.csv is the Phase 2 hard-gate
   // artifact: same bag + same config must reproduce it byte-identically.
   {
-    std::ofstream csv(output_dir + "/loop_edges.csv");
+    std::ostringstream csv;
     csv << "from,to,fitness,tx,ty,tz,qx,qy,qz,qw\n";
     char line[512];
     for (const auto & edge : loop_edges) {
@@ -845,6 +854,7 @@ int main(int argc, char ** argv)
         t.x(), t.y(), t.z(), q.x(), q.y(), q.z(), q.w());
       csv << line << "\n";
     }
+    map_output.writeBytes(output_dir + "/loop_edges.csv", csv.str());
   }
   {
     std::vector<Eigen::Isometry3d> raw_poses;
@@ -852,9 +862,12 @@ int main(int argc, char ** argv)
     for (const auto & record : records) {
       raw_poses.push_back(Eigen::Isometry3d(record.meta.pose.matrix()));
     }
-    writeTum(output_dir + "/trajectory_raw.tum", records, raw_poses);
+    map_output.writeBytes(
+      output_dir + "/trajectory_raw.tum", tumBytes(records, raw_poses));
     if (!optimized_poses.empty()) {
-      writeTum(output_dir + "/trajectory_optimized.tum", records, optimized_poses);
+      map_output.writeBytes(
+        output_dir + "/trajectory_optimized.tum", tumBytes(records, optimized_poses));
+      map_output.writeBytes(output_dir + "/pose_graph.g2o", pose_graph_g2o);
     }
   }
   if (refine && !optimized_poses.empty()) {
@@ -878,14 +891,16 @@ int main(int argc, char ** argv)
     for (const auto & pose : refined.poses) {
       refined_poses.push_back(Eigen::Isometry3d(pose));
     }
-    writeTum(output_dir + "/trajectory_refined.tum", records, refined_poses);
+    map_output.writeBytes(
+      output_dir + "/trajectory_refined.tum", tumBytes(records, refined_poses));
     {
-      std::ofstream report(output_dir + "/map_refinement_report.yaml");
+      std::ostringstream report;
       const std::vector<std::string> lines =
         graphslam::map_refinement::refinerReportYamlLines(refined, refiner_config);
       for (size_t i = 0; i < lines.size(); ++i) {
         report << lines[i] << "\n";
       }
+      map_output.writeBytes(output_dir + "/map_refinement_report.yaml", report.str());
     }
     RCLCPP_INFO(
       logger, "Refinement %s: %zu windows, status=%s",
@@ -898,7 +913,7 @@ int main(int argc, char ** argv)
       // differ between the two maps.
       const auto save_map =
         [&](const std::vector<Eigen::Matrix4d> & poses, const std::string & path) {
-          pcl::PointCloud<pcl::PointXYZ> map_cloud;
+          graphslam::ports::PointCloudXyz map_cloud;
           for (size_t i = 0; i < local_clouds.size(); ++i) {
             const Eigen::Matrix3d rotation = poses[i].block<3, 3>(0, 0);
             const Eigen::Vector3d translation = poses[i].block<3, 1>(0, 3);
@@ -910,7 +925,7 @@ int main(int argc, char ** argv)
                   static_cast<float>(world.z())));
             }
           }
-          pcl::io::savePCDFileBinary(path, map_cloud);
+          map_output.writePointCloudXyz(path, map_cloud);
         };
       save_map(initial_matrices, output_dir + "/map_optimized.pcd");
       save_map(refined.poses, output_dir + "/map_refined.pcd");
