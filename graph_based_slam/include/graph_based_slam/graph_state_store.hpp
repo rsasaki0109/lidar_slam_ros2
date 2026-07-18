@@ -33,32 +33,21 @@
 #include <cstddef>
 #include <mutex>
 #include <utility>
-#include <vector>
 
 #include <lidarslam_msgs/msg/map_array.hpp>
 #include <lidarslam_msgs/msg/sub_map.hpp>
 #include <std_msgs/msg/header.hpp>
 
-#include "graph_based_slam/loop_edge_set.hpp"
-
 namespace graphslam
 {
 
-// The ROS shell's authoritative graph input state. Expensive cloud
+// The ROS shell's authoritative ROS-message input snapshot. Expensive cloud
 // conversion and cache I/O must finish before replace()/append() so readers
 // observe either the previous complete state or the next complete state.
+// Mapping workflow state and accepted loop edges belong to GraphSlamApplication.
 class GraphStateStore
 {
 public:
-  using LoopEdge = backend_core::LoopEdgeSet::Edge;
-  using LoopEdges = std::vector<LoopEdge>;
-
-  void configureLoopEdgeDedupWindow(int window)
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    loop_edges_.configure(window);
-  }
-
   void replace(lidarslam_msgs::msg::MapArray map_array)
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -83,36 +72,20 @@ public:
     return map_array_.submaps.size();
   }
 
-  bool snapshot(
-    lidarslam_msgs::msg::MapArray & map_array,
-    LoopEdges & loop_edges) const
+  bool snapshot(lidarslam_msgs::msg::MapArray & map_array) const
   {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!initialized_) {
       return false;
     }
     map_array = map_array_;
-    loop_edges = loop_edges_.edges();
     return true;
-  }
-
-  LoopEdges snapshotLoopEdges() const
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return loop_edges_.edges();
-  }
-
-  bool upsertLoopEdge(const LoopEdge & loop_edge)
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return loop_edges_.upsert(loop_edge);
   }
 
 private:
   mutable std::mutex mutex_;
   bool initialized_{false};
   lidarslam_msgs::msg::MapArray map_array_;
-  backend_core::LoopEdgeSet loop_edges_;
 };
 
 }  // namespace graphslam

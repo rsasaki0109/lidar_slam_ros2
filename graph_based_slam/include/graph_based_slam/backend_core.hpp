@@ -31,9 +31,10 @@
 #define GRAPH_BASED_SLAM__BACKEND_CORE_HPP_
 
 // The ROS-free, clock-free backend state (docs/roadmap/v0.6.md, Phase 2).
-// This first stage owns the four loop-closure descriptor databases and
-// their submap-ingestion logic; the search and optimization orchestration
-// migrate here in later stages. The contract this class builds toward:
+// This engine owns the four loop-closure descriptor databases and their
+// submap-ingestion/search algorithms. GraphSlamApplication owns workflow
+// ordering and accepted graph state; engine resource ownership moves here
+// in the next architecture milestone. The contract this class builds toward:
 // the same ordered submap sequence plus the same config produce the same
 // state, independent of wall-clock timing. The shell supplies clouds via
 // a provider callback, so message-vs-PCD-cache stays its concern.

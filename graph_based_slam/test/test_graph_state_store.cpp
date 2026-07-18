@@ -40,12 +40,11 @@ TEST(GraphStateStore, IsEmptyUntilTheFirstCompleteStateIsCommitted)
 {
   graphslam::GraphStateStore store;
   lidarslam_msgs::msg::MapArray map_array;
-  graphslam::GraphStateStore::LoopEdges loop_edges;
 
-  EXPECT_FALSE(store.snapshot(map_array, loop_edges));
+  EXPECT_FALSE(store.snapshot(map_array));
 
   store.replace(lidarslam_msgs::msg::MapArray());
-  EXPECT_TRUE(store.snapshot(map_array, loop_edges));
+  EXPECT_TRUE(store.snapshot(map_array));
   EXPECT_TRUE(map_array.submaps.empty());
 }
 
@@ -59,12 +58,11 @@ TEST(GraphStateStore, ReplaceAndSnapshotDoNotAliasCallerOwnedMessages)
   store.replace(std::move(input));
 
   lidarslam_msgs::msg::MapArray first_snapshot;
-  graphslam::GraphStateStore::LoopEdges loop_edges;
-  ASSERT_TRUE(store.snapshot(first_snapshot, loop_edges));
+  ASSERT_TRUE(store.snapshot(first_snapshot));
   first_snapshot.submaps[0].distance = 99.0;
 
   lidarslam_msgs::msg::MapArray second_snapshot;
-  ASSERT_TRUE(store.snapshot(second_snapshot, loop_edges));
+  ASSERT_TRUE(store.snapshot(second_snapshot));
   EXPECT_EQ(second_snapshot.header.frame_id, "map");
   ASSERT_EQ(second_snapshot.submaps.size(), 1U);
   EXPECT_DOUBLE_EQ(second_snapshot.submaps[0].distance, 12.5);
@@ -82,29 +80,11 @@ TEST(GraphStateStore, AppendCommitsMapHeaderAndSubmapTogether)
   EXPECT_EQ(store.append(std::move(submap), header), 1U);
 
   lidarslam_msgs::msg::MapArray snapshot;
-  graphslam::GraphStateStore::LoopEdges loop_edges;
-  ASSERT_TRUE(store.snapshot(snapshot, loop_edges));
+  ASSERT_TRUE(store.snapshot(snapshot));
   EXPECT_EQ(snapshot.header.frame_id, "map");
   EXPECT_EQ(snapshot.header.stamp.sec, 42);
   ASSERT_EQ(snapshot.submaps.size(), 1U);
   EXPECT_DOUBLE_EQ(snapshot.submaps[0].distance, 3.0);
-}
-
-TEST(GraphStateStore, SnapshotKeepsMapAndAcceptedEdgesInOneCriticalSection)
-{
-  graphslam::GraphStateStore store;
-  store.configureLoopEdgeDedupWindow(0);
-  store.replace(lidarslam_msgs::msg::MapArray());
-  graphslam::GraphStateStore::LoopEdge edge;
-  edge.pair_id = {1, 4};
-  edge.fitness_score = 0.2;
-  ASSERT_TRUE(store.upsertLoopEdge(edge));
-
-  lidarslam_msgs::msg::MapArray snapshot;
-  graphslam::GraphStateStore::LoopEdges loop_edges;
-  ASSERT_TRUE(store.snapshot(snapshot, loop_edges));
-  ASSERT_EQ(loop_edges.size(), 1U);
-  EXPECT_EQ(loop_edges[0].pair_id, std::make_pair(1, 4));
 }
 
 TEST(GraphStateStore, ConcurrentAppendAndSnapshotRemainConsistent)
@@ -128,8 +108,7 @@ TEST(GraphStateStore, ConcurrentAppendAndSnapshotRemainConsistent)
 
   while (!writer_done.load()) {
     lidarslam_msgs::msg::MapArray snapshot;
-    graphslam::GraphStateStore::LoopEdges loop_edges;
-    if (!store.snapshot(snapshot, loop_edges)) {
+    if (!store.snapshot(snapshot)) {
       inconsistent_snapshot = true;
       break;
     }

@@ -52,9 +52,17 @@ they are not configuration work.
 
 ### 2. Unified application
 
-- introduce `GraphSlamApplication` as the only mapping workflow entry point;
-- route online callbacks and offline replay through the same commands;
-- move orchestration and state transitions out of the ROS component.
+`GraphSlamApplication` is now the ordered, ROS-free mapping workflow entry
+point. Both the live component and deterministic bag replay submit the same
+ordered submap prefixes through `processSubmaps()`. The application owns the
+query cursor, stride scheduling, accepted/deduplicated loop-edge set, and the
+pose-graph optimization command. This makes callback batching observationally
+equivalent to submitting one submap at a time.
+
+The adapters still convert ROS messages, load clouds, emit logs, and publish or
+write results. Registration, voxel filtering, descriptor storage, and 3D-BBS
+objects are injected into the application during this milestone so their
+ownership can move as one coherent unit in milestone 3.
 
 ### 3. Backend engine ownership
 
