@@ -104,6 +104,9 @@ def test_calibration_uncertainty_is_default_off_and_requires_acceptance():
         depth, 100.0, None).tolist() == [0]
     with np.testing.assert_raises(ValueError):
         gaf.calibration_pixel_radii(
+            depth, 100.0, None, sigma_multiplier=1.0)
+    with np.testing.assert_raises(ValueError):
+        gaf.calibration_pixel_radii(
             depth, 100.0,
             {'accepted': False,
              'uncertainty_dt_s_xyz_m_rpy_rad': [0.0] * 7},

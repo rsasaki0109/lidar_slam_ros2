@@ -131,8 +131,10 @@ def calibration_pixel_radii(
         raise ValueError('depth must contain finite positive ranges')
     if focal_px <= 0.0 or sigma_multiplier < 0.0 or maximum_radius < 0:
         raise ValueError('focal, sigma multiplier, and maximum radius are invalid')
-    if calibration is None or sigma_multiplier == 0.0:
+    if sigma_multiplier == 0.0:
         return np.zeros(ranges.shape, dtype=np.int16)
+    if calibration is None:
+        raise ValueError('calibration uncertainty metadata is required')
     if not calibration.get('accepted', False):
         raise ValueError('calibration uncertainty requires an accepted calibration')
     uncertainty = np.asarray(
