@@ -112,6 +112,13 @@ if(OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
 
+add_library(graph_slam_config STATIC
+  src/graph_slam_config.cpp
+)
+set_target_properties(graph_slam_config PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(graph_slam_config PRIVATE src)
+ament_target_dependencies(graph_slam_config rclcpp)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   find_package(ament_cmake_gtest REQUIRED)
@@ -125,6 +132,15 @@ if(BUILD_TESTING)
     list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_uncrustify)
   endif()
   ament_lint_auto_find_test_dependencies()
+  ament_add_gtest(
+    test_graph_slam_config
+    test/test_graph_slam_config.cpp
+  )
+  if(TARGET test_graph_slam_config)
+    target_include_directories(test_graph_slam_config PRIVATE src)
+    target_link_libraries(test_graph_slam_config graph_slam_config)
+    ament_target_dependencies(test_graph_slam_config rclcpp)
+  endif()
   ament_add_gtest(
     test_gnss_weighting
     test/test_gnss_weighting.cpp
@@ -1020,6 +1036,7 @@ endif()
 
 add_library(graph_based_slam_component SHARED
   src/graph_based_slam_component.cpp
+  src/graph_slam_composition.cpp
   src/three_d_bbs_loop_verifier.cpp
 )
 
@@ -1047,6 +1064,7 @@ ament_target_dependencies(graph_based_slam_component
 )
 
 target_link_libraries(graph_based_slam_component
+  graph_slam_config
   g2o::core
   g2o::types_slam3d
   g2o::solver_eigen
@@ -1120,6 +1138,21 @@ include_directories(
   include
   ${PCL_INCLUDE_DIRS}
 )
+
+if(BUILD_TESTING)
+  ament_add_gtest(
+    test_graph_slam_composition
+    test/test_graph_slam_composition.cpp
+  )
+  if(TARGET test_graph_slam_composition)
+    target_include_directories(
+      test_graph_slam_composition PRIVATE src include ${EIGEN3_INCLUDE_DIR}
+    )
+    target_link_libraries(test_graph_slam_composition graph_based_slam_component)
+    ament_target_dependencies(test_graph_slam_composition rclcpp)
+  endif()
+endif()
+
 link_directories(
   ${PCL_LIBRARY_DIRS}
 )

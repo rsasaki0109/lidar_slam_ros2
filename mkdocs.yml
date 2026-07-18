@@ -39,6 +39,7 @@ nav:
   - Autoware Foxglove: autoware-foxglove.md
   - Operator Workflows: workflows.md
   - Degeneracy Resilience Guide: degeneracy-guide.md
+  - Graph SLAM Architecture: graph-slam-architecture.md
   - 3DGS Photoreal Map: 3dgs-map-tutorial.md
   - 3DGS Map Viewer: 3dgs-viewer.md
   - Benchmarking And Release Gate: benchmarking.md

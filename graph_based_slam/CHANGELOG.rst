@@ -17,6 +17,12 @@ Forthcoming
 * Complete the component PImpl boundary: ROS subscriptions, configuration,
   graph state, and sensor/cache implementation details now live in a private
   source header, reducing the installed component header from 518 to 78 lines.
+* Centralize all 143 ROS parameters in a typed, source-private
+  ``GraphSlamConfig`` loader with startup validation, keeping parameter
+  declaration separate from live graph and sensor state.
+* Add pure composition builders for descriptor, loop-search, pose-graph,
+  filtering, grid, and GNSS configuration, and freeze the validated startup
+  snapshot before runtime initialization begins.
 
 0.6.0 (2026-06-12)
 ------------------

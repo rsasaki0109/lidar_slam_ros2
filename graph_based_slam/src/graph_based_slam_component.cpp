@@ -28,12 +28,14 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "graph_based_slam_component_impl.hpp"
+#include "graph_slam_composition.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <stdexcept>
 #include <unordered_map>
 
 #include <pcl/io/pcd_io.h>  // NOLINT(build/include_order)
@@ -67,6 +69,27 @@ using namespace std::chrono_literals;
 
 namespace graphslam
 {
+namespace
+{
+GraphSlamConfig loadValidatedGraphSlamConfig(rclcpp::Node & node)
+{
+  GraphSlamConfig config = loadGraphSlamConfig(node);
+  const ConfigNormalization normalization = normalizeGraphSlamConfig(config);
+  for (const auto & warning : normalization.warnings) {
+    RCLCPP_WARN(node.get_logger(), "graph SLAM config: %s", warning.c_str());
+  }
+
+  const auto errors = validateGraphSlamConfig(config);
+  if (!errors.empty()) {
+    for (const auto & error : errors) {
+      RCLCPP_ERROR(node.get_logger(), "invalid graph SLAM configuration: %s", error.c_str());
+    }
+    throw std::invalid_argument(errors.front());
+  }
+  return config;
+}
+}  // namespace
+
 struct GraphBasedSlamComponent::Impl::BackendWorkspace
 {
   backend_core::BackendCore core;
@@ -85,6 +108,7 @@ GraphBasedSlamComponent::~GraphBasedSlamComponent() = default;
 
 GraphBasedSlamComponent::Impl::Impl(GraphBasedSlamComponent & node)
 : node_(node),
+  config_(loadValidatedGraphSlamConfig(node_)),
   clock_(RCL_ROS_TIME),
   tfbuffer_(std::make_shared<rclcpp::Clock>(clock_)),
   listener_(tfbuffer_),
@@ -92,1183 +116,41 @@ GraphBasedSlamComponent::Impl::Impl(GraphBasedSlamComponent & node)
   backend_(std::make_unique<BackendWorkspace>())
 {
   RCLCPP_INFO(node_.get_logger(), "initialization start");
-  std::string registration_method;
-  double voxel_leaf_size;
-  double ndt_resolution;
-  int ndt_num_threads;
 
-  node_.declare_parameter("registration_method", "NDT");
-  node_.get_parameter("registration_method", registration_method);
-  node_.declare_parameter("voxel_leaf_size", 0.2);
-  node_.get_parameter("voxel_leaf_size", voxel_leaf_size);
-  node_.declare_parameter("ndt_resolution", 5.0);
-  node_.get_parameter("ndt_resolution", ndt_resolution);
-  node_.declare_parameter("ndt_num_threads", 0);
-  node_.get_parameter("ndt_num_threads", ndt_num_threads);
-  node_.declare_parameter("threshold_loop_closure_score", 1.0);
-  node_.get_parameter("threshold_loop_closure_score", threshold_loop_closure_score_);
-  node_.declare_parameter("scan_context_loop_closure_score_threshold", -1.0);
-  node_.get_parameter(
-    "scan_context_loop_closure_score_threshold",
-    scan_context_loop_closure_score_threshold_);
-  node_.declare_parameter("distance_loop_closure", 20.0);
-  node_.get_parameter("distance_loop_closure", distance_loop_closure_);
-  node_.declare_parameter("range_of_searching_loop_closure", 20.0);
-  node_.get_parameter("range_of_searching_loop_closure", range_of_searching_loop_closure_);
-  node_.declare_parameter("search_submap_num", 3);
-  node_.get_parameter("search_submap_num", search_submap_num_);
-  node_.declare_parameter("loop_search_query_stride", 1);
-  node_.get_parameter("loop_search_query_stride", loop_search_query_stride_);
-  node_.declare_parameter("max_loop_candidate_count", 3);
-  node_.get_parameter("max_loop_candidate_count", max_loop_candidate_count_);
-  node_.declare_parameter("loop_edge_dedup_index_window", 8);
-  node_.get_parameter("loop_edge_dedup_index_window", loop_edge_dedup_index_window_);
-  node_.declare_parameter("loop_max_translation_delta", 15.0);
-  node_.get_parameter("loop_max_translation_delta", loop_max_translation_delta_);
-  node_.declare_parameter("loop_max_rotation_delta_deg", 45.0);
-  node_.get_parameter("loop_max_rotation_delta_deg", loop_max_rotation_delta_deg_);
-  node_.declare_parameter("loop_min_overlap_ratio", 0.0);
-  node_.get_parameter("loop_min_overlap_ratio", loop_min_overlap_ratio_);
-  node_.declare_parameter("loop_min_overlap_ratio_large_correction", 0.0);
-  node_.get_parameter(
-    "loop_min_overlap_ratio_large_correction",
-    loop_min_overlap_ratio_large_correction_);
-  node_.declare_parameter("loop_overlap_large_correction_translation_m", 0.0);
-  node_.get_parameter(
-    "loop_overlap_large_correction_translation_m",
-    loop_overlap_large_correction_translation_m_);
-  node_.declare_parameter("loop_overlap_max_distance_m", 0.5);
-  node_.get_parameter("loop_overlap_max_distance_m", loop_overlap_max_distance_m_);
-  node_.declare_parameter("loop_max_translation_delta_descriptor", -1.0);
-  node_.get_parameter(
-    "loop_max_translation_delta_descriptor", loop_max_translation_delta_descriptor_);
-  node_.declare_parameter("loop_max_rotation_delta_deg_descriptor", -1.0);
-  node_.get_parameter(
-    "loop_max_rotation_delta_deg_descriptor", loop_max_rotation_delta_deg_descriptor_);
-  node_.declare_parameter("num_adjacent_pose_cnstraints", 5);
-  node_.get_parameter("num_adjacent_pose_cnstraints", num_adjacent_pose_cnstraints_);
-  node_.declare_parameter("use_save_map_in_loop", true);
-  node_.get_parameter("use_save_map_in_loop", use_save_map_in_loop_);
-  node_.declare_parameter("debug_flag", false);
-  node_.get_parameter("debug_flag", debug_flag_);
-  node_.declare_parameter("adjacent_edge_info_weight", 1000.0);
-  node_.get_parameter("adjacent_edge_info_weight", adjacent_edge_info_weight_);
-  node_.declare_parameter("adjacent_edge_info_auto_scale", false);
-  node_.get_parameter("adjacent_edge_info_auto_scale", adjacent_edge_info_auto_scale_);
-  node_.declare_parameter("adjacent_edge_info_auto_scale_target_nis", 6.0);
-  node_.get_parameter(
-    "adjacent_edge_info_auto_scale_target_nis",
-    adjacent_edge_info_auto_scale_target_nis_);
-  node_.declare_parameter("adjacent_edge_info_auto_scale_ema_alpha", 0.3);
-  node_.get_parameter(
-    "adjacent_edge_info_auto_scale_ema_alpha",
-    adjacent_edge_info_auto_scale_ema_alpha_);
-  node_.declare_parameter("adjacent_edge_info_auto_scale_min", 1.0);
-  node_.get_parameter("adjacent_edge_info_auto_scale_min", adjacent_edge_info_auto_scale_min_);
-  node_.declare_parameter("adjacent_edge_info_auto_scale_max", 1.0e6);
-  node_.get_parameter("adjacent_edge_info_auto_scale_max", adjacent_edge_info_auto_scale_max_);
-  node_.declare_parameter("adjacent_edge_info_auto_scale_split_trans_rot", false);
-  node_.get_parameter(
-    "adjacent_edge_info_auto_scale_split_trans_rot",
-    adjacent_edge_info_auto_scale_split_trans_rot_);
-  node_.declare_parameter("adjacent_edge_info_weight_trans", -1.0);
-  node_.get_parameter("adjacent_edge_info_weight_trans", adjacent_edge_info_weight_trans_);
-  node_.declare_parameter("adjacent_edge_info_weight_rot", -1.0);
-  node_.get_parameter("adjacent_edge_info_weight_rot", adjacent_edge_info_weight_rot_);
-  node_.declare_parameter("adjacent_edge_info_auto_scale_target_nis_trans", 3.0);
-  node_.get_parameter(
-    "adjacent_edge_info_auto_scale_target_nis_trans",
-    adjacent_edge_info_auto_scale_target_nis_trans_);
-  node_.declare_parameter("adjacent_edge_info_auto_scale_target_nis_rot", 3.0);
-  node_.get_parameter(
-    "adjacent_edge_info_auto_scale_target_nis_rot",
-    adjacent_edge_info_auto_scale_target_nis_rot_);
-  // Trans/rot weights default to the unified weight when negative (i.e., user
-  // has not provided an explicit per-block override). This keeps the split
-  // mode safe to enable on existing YAMLs that only set
-  // adjacent_edge_info_weight.
-  if (adjacent_edge_info_weight_trans_ <= 0.0) {
-    adjacent_edge_info_weight_trans_ = adjacent_edge_info_weight_;
-  }
-  if (adjacent_edge_info_weight_rot_ <= 0.0) {
-    adjacent_edge_info_weight_rot_ = adjacent_edge_info_weight_;
-  }
-  node_.declare_parameter("loop_edge_info_weight", 100.0);
-  node_.get_parameter("loop_edge_info_weight", loop_edge_info_weight_);
-  node_.declare_parameter("loop_edge_robust_kernel_delta", 1.0);
-  node_.get_parameter("loop_edge_robust_kernel_delta", loop_edge_robust_kernel_delta_);
-  node_.declare_parameter("loop_edge_robust_kernel_type", std::string("huber"));
-  node_.get_parameter("loop_edge_robust_kernel_type", loop_edge_robust_kernel_type_);
-  node_.declare_parameter("use_scan_context", false);
-  node_.get_parameter("use_scan_context", use_scan_context_);
-  node_.declare_parameter("use_bev_descriptor", false);
-  node_.get_parameter("use_bev_descriptor", use_bev_descriptor_);
-  node_.declare_parameter("use_solid_descriptor", false);
-  node_.get_parameter("use_solid_descriptor", use_solid_descriptor_);
-  node_.declare_parameter("use_triangle_descriptor", false);
-  node_.get_parameter("use_triangle_descriptor", use_triangle_descriptor_);
-  node_.declare_parameter("triangle_descriptor_grid_size_m", 60.0);
-  node_.get_parameter("triangle_descriptor_grid_size_m", triangle_descriptor_grid_size_m_);
-  node_.declare_parameter("triangle_descriptor_grid_cells", 100);
-  node_.get_parameter("triangle_descriptor_grid_cells", triangle_descriptor_grid_cells_);
-  node_.declare_parameter("triangle_descriptor_max_keypoints", 40);
-  node_.get_parameter("triangle_descriptor_max_keypoints", triangle_descriptor_max_keypoints_);
-  node_.declare_parameter("triangle_descriptor_min_salience_m", 0.8);
-  node_.get_parameter("triangle_descriptor_min_salience_m", triangle_descriptor_min_salience_m_);
-  node_.declare_parameter("triangle_descriptor_min_edge_m", 2.0);
-  node_.get_parameter("triangle_descriptor_min_edge_m", triangle_descriptor_min_edge_m_);
-  node_.declare_parameter("triangle_descriptor_max_edge_m", 50.0);
-  node_.get_parameter("triangle_descriptor_max_edge_m", triangle_descriptor_max_edge_m_);
-  node_.declare_parameter("triangle_descriptor_max_triangles", 3000);
-  node_.get_parameter("triangle_descriptor_max_triangles", triangle_descriptor_max_triangles_);
-  node_.declare_parameter("triangle_descriptor_edge_bin_m", 0.5);
-  node_.get_parameter("triangle_descriptor_edge_bin_m", triangle_descriptor_edge_bin_m_);
-  node_.declare_parameter("triangle_descriptor_quad_feature_bin_m", 0.0);
-  node_.get_parameter(
-    "triangle_descriptor_quad_feature_bin_m",
-    triangle_descriptor_quad_feature_bin_m_);
-  node_.declare_parameter<std::string>(
-    "triangle_descriptor_keypoint_mode", triangle_descriptor_keypoint_mode_);
-  node_.get_parameter("triangle_descriptor_keypoint_mode", triangle_descriptor_keypoint_mode_);
-  node_.declare_parameter("triangle_descriptor_edge_voxel_size_m", 0.4);
-  node_.get_parameter(
-    "triangle_descriptor_edge_voxel_size_m", triangle_descriptor_edge_voxel_size_m_);
-  node_.declare_parameter("triangle_descriptor_edge_neighbor_radius_m", 1.0);
-  node_.get_parameter(
-    "triangle_descriptor_edge_neighbor_radius_m",
-    triangle_descriptor_edge_neighbor_radius_m_);
-  node_.declare_parameter("triangle_descriptor_edge_min_neighbors", 6);
-  node_.get_parameter(
-    "triangle_descriptor_edge_min_neighbors", triangle_descriptor_edge_min_neighbors_);
-  node_.declare_parameter("triangle_descriptor_edge_min_edgeness", 0.5);
-  node_.get_parameter(
-    "triangle_descriptor_edge_min_edgeness", triangle_descriptor_edge_min_edgeness_);
-  node_.declare_parameter("triangle_descriptor_edge_nms_radius_m", 2.0);
-  node_.get_parameter(
-    "triangle_descriptor_edge_nms_radius_m", triangle_descriptor_edge_nms_radius_m_);
-  node_.declare_parameter("triangle_descriptor_min_votes", 6);
-  node_.get_parameter("triangle_descriptor_min_votes", triangle_descriptor_min_votes_);
-  node_.declare_parameter("triangle_descriptor_min_inliers", 4);
-  node_.get_parameter("triangle_descriptor_min_inliers", triangle_descriptor_min_inliers_);
-  node_.declare_parameter("triangle_descriptor_min_inlier_ratio", 0.0);
-  node_.get_parameter(
-    "triangle_descriptor_min_inlier_ratio",
-    triangle_descriptor_min_inlier_ratio_);
-  node_.declare_parameter("triangle_descriptor_max_pairs", 64);
-  node_.get_parameter("triangle_descriptor_max_pairs", triangle_descriptor_max_pairs_);
-  node_.declare_parameter("triangle_descriptor_min_4th_point_agreements", 0);
-  node_.get_parameter(
-    "triangle_descriptor_min_4th_point_agreements",
-    triangle_descriptor_min_4th_point_agreements_);
-  node_.declare_parameter("triangle_descriptor_fourth_point_max_distance_m", 2.0);
-  node_.get_parameter(
-    "triangle_descriptor_fourth_point_max_distance_m",
-    triangle_descriptor_fourth_point_max_distance_m_);
-  node_.declare_parameter("triangle_descriptor_refine_se3_with_all_inliers", false);
-  node_.get_parameter(
-    "triangle_descriptor_refine_se3_with_all_inliers",
-    triangle_descriptor_refine_se3_with_all_inliers_);
-  node_.declare_parameter("triangle_descriptor_skip_ransac", false);
-  node_.get_parameter(
-    "triangle_descriptor_skip_ransac",
-    triangle_descriptor_skip_ransac_);
-  node_.declare_parameter("triangle_descriptor_inlier_translation_m", 2.0);
-  node_.get_parameter(
-    "triangle_descriptor_inlier_translation_m",
-    triangle_descriptor_inlier_translation_m_);
-  node_.declare_parameter("triangle_descriptor_inlier_rotation_deg", 5.0);
-  node_.get_parameter(
-    "triangle_descriptor_inlier_rotation_deg",
-    triangle_descriptor_inlier_rotation_deg_);
-  node_.declare_parameter("triangle_descriptor_exclude_recent", 4);
-  node_.get_parameter("triangle_descriptor_exclude_recent", triangle_descriptor_exclude_recent_);
-  node_.declare_parameter("triangle_verify_with_bev", false);
-  node_.get_parameter("triangle_verify_with_bev", triangle_verify_with_bev_);
-  node_.declare_parameter("triangle_verify_bev_max_distance", 0.30);
-  node_.get_parameter("triangle_verify_bev_max_distance", triangle_verify_bev_max_distance_);
-  node_.declare_parameter("use_pcd_cache", false);
-  node_.get_parameter("use_pcd_cache", use_pcd_cache_);
-  node_.declare_parameter("pcd_cache_dir", std::string("/tmp/graph_slam_pcd_cache"));
-  node_.get_parameter("pcd_cache_dir", pcd_cache_dir_);
-  if (use_pcd_cache_) {
-    std::filesystem::create_directories(pcd_cache_dir_);
-    std::cout << "pcd_cache_dir:" << pcd_cache_dir_ << std::endl;
-  }
-  node_.declare_parameter("scan_context_threshold", 0.3);
-  node_.get_parameter("scan_context_threshold", scan_context_threshold_);
-  node_.declare_parameter("scan_context_query_stride", 1);
-  node_.get_parameter("scan_context_query_stride", scan_context_query_stride_);
-  node_.declare_parameter("scan_context_exclude_recent", ScanContext::EXCLUDE_RECENT);
-  node_.get_parameter("scan_context_exclude_recent", scan_context_exclude_recent_);
-  node_.declare_parameter("bev_descriptor_threshold", 0.20);
-  node_.get_parameter("bev_descriptor_threshold", bev_descriptor_threshold_);
-  node_.declare_parameter("bev_descriptor_grid_size_m", 80.0);
-  node_.get_parameter("bev_descriptor_grid_size_m", bev_descriptor_grid_size_m_);
-  node_.declare_parameter("bev_descriptor_grid_cells", 40);
-  node_.get_parameter("bev_descriptor_grid_cells", bev_descriptor_grid_cells_);
-  node_.declare_parameter("bev_descriptor_yaw_bins", 24);
-  node_.get_parameter("bev_descriptor_yaw_bins", bev_descriptor_yaw_bins_);
-  node_.declare_parameter("bev_descriptor_sequence_window", 0);
-  node_.get_parameter("bev_descriptor_sequence_window", bev_descriptor_sequence_window_);
-  node_.declare_parameter("bev_descriptor_sequence_threshold", -1.0);
-  node_.get_parameter("bev_descriptor_sequence_threshold", bev_descriptor_sequence_threshold_);
-  node_.declare_parameter("bev_descriptor_pose_consistency_threshold_m", -1.0);
-  node_.get_parameter(
-    "bev_descriptor_pose_consistency_threshold_m",
-    bev_descriptor_pose_consistency_threshold_m_);
-  node_.declare_parameter("bev_descriptor_max_euclidean_distance_m", -1.0);
-  node_.get_parameter(
-    "bev_descriptor_max_euclidean_distance_m",
-    bev_descriptor_max_euclidean_distance_m_);
-  node_.declare_parameter("bev_descriptor_rerank_weight_m", 100.0);
-  node_.get_parameter("bev_descriptor_rerank_weight_m", bev_descriptor_rerank_weight_m_);
-  node_.declare_parameter("bev_use_mutual_visibility", false);
-  node_.get_parameter("bev_use_mutual_visibility", bev_use_mutual_visibility_);
-  node_.declare_parameter("bev_mutual_visibility_min_overlap_ratio", 0.05);
-  node_.get_parameter(
-    "bev_mutual_visibility_min_overlap_ratio",
-    bev_mutual_visibility_min_overlap_ratio_);
-  node_.declare_parameter("bev_mutual_visibility_occupancy_eps", 0.5);
-  node_.get_parameter(
-    "bev_mutual_visibility_occupancy_eps",
-    bev_mutual_visibility_occupancy_eps_);
-  node_.declare_parameter("solid_descriptor_min_similarity", 0.70);
-  node_.get_parameter("solid_descriptor_min_similarity", solid_descriptor_min_similarity_);
-  node_.declare_parameter("solid_descriptor_sequence_window", 0);
-  node_.get_parameter("solid_descriptor_sequence_window", solid_descriptor_sequence_window_);
-  node_.declare_parameter("solid_descriptor_sequence_min_similarity", -1.0);
-  node_.get_parameter(
-    "solid_descriptor_sequence_min_similarity",
-    solid_descriptor_sequence_min_similarity_);
-  node_.declare_parameter("solid_descriptor_pose_consistency_threshold_m", -1.0);
-  node_.get_parameter(
-    "solid_descriptor_pose_consistency_threshold_m",
-    solid_descriptor_pose_consistency_threshold_m_);
-  node_.declare_parameter("solid_descriptor_max_euclidean_distance_m", -1.0);
-  node_.get_parameter(
-    "solid_descriptor_max_euclidean_distance_m",
-    solid_descriptor_max_euclidean_distance_m_);
-  node_.declare_parameter("prefer_scan_context_candidates", false);
-  node_.get_parameter("prefer_scan_context_candidates", prefer_scan_context_candidates_);
-  node_.declare_parameter("use_3d_bbs_for_scan_context", false);
-  node_.get_parameter("use_3d_bbs_for_scan_context", use_3d_bbs_for_scan_context_);
-  node_.declare_parameter("three_d_bbs_min_level_res", 1.0);
-  node_.get_parameter("three_d_bbs_min_level_res", three_d_bbs_min_level_res_);
-  node_.declare_parameter("three_d_bbs_max_level", 3);
-  node_.get_parameter("three_d_bbs_max_level", three_d_bbs_max_level_);
-  node_.declare_parameter("three_d_bbs_score_threshold_percentage", 0.25);
-  node_.get_parameter(
-    "three_d_bbs_score_threshold_percentage",
-    three_d_bbs_score_threshold_percentage_);
-  node_.declare_parameter("three_d_bbs_timeout_msec", 50);
-  node_.get_parameter("three_d_bbs_timeout_msec", three_d_bbs_timeout_msec_);
-  node_.declare_parameter("three_d_bbs_num_threads", 0);
-  node_.get_parameter("three_d_bbs_num_threads", three_d_bbs_num_threads_);
-  node_.declare_parameter("three_d_bbs_voxel_leaf_size", 1.0);
-  node_.get_parameter("three_d_bbs_voxel_leaf_size", three_d_bbs_voxel_leaf_size_);
-  node_.declare_parameter("three_d_bbs_source_submap_num", 2);
-  node_.get_parameter("three_d_bbs_source_submap_num", three_d_bbs_source_submap_num_);
-  node_.declare_parameter("three_d_bbs_target_submap_radius", 1);
-  node_.get_parameter("three_d_bbs_target_submap_radius", three_d_bbs_target_submap_radius_);
-  node_.declare_parameter("three_d_bbs_translation_search_margin_m", 15.0);
-  node_.get_parameter(
-    "three_d_bbs_translation_search_margin_m",
-    three_d_bbs_translation_search_margin_m_);
-  node_.declare_parameter("three_d_bbs_roll_pitch_search_deg", 10.0);
-  node_.get_parameter(
-    "three_d_bbs_roll_pitch_search_deg",
-    three_d_bbs_roll_pitch_search_deg_);
-  node_.declare_parameter("three_d_bbs_yaw_search_deg", 180.0);
-  node_.get_parameter("three_d_bbs_yaw_search_deg", three_d_bbs_yaw_search_deg_);
-  node_.declare_parameter("use_dynamic_object_filter", false);
-  node_.get_parameter("use_dynamic_object_filter", use_dynamic_object_filter_);
-  node_.declare_parameter("dynamic_object_filter_voxel_size", 0.3);
-  node_.get_parameter("dynamic_object_filter_voxel_size", dynamic_object_filter_voxel_size_);
-  node_.declare_parameter("dynamic_object_filter_min_observations", 2);
-  node_.get_parameter(
-    "dynamic_object_filter_min_observations",
-    dynamic_object_filter_min_observations_);
-  node_.declare_parameter("dynamic_object_filter_temporal_window", 5);
-  node_.get_parameter(
-    "dynamic_object_filter_temporal_window",
-    dynamic_object_filter_temporal_window_);
-  node_.declare_parameter("dynamic_object_filter_max_range_from_sensor_m", 30.0);
-  node_.get_parameter(
-    "dynamic_object_filter_max_range_from_sensor_m",
-    dynamic_object_filter_max_range_from_sensor_m_);
-  node_.declare_parameter("use_planar_map_filter", false);
-  node_.get_parameter("use_planar_map_filter", use_planar_map_filter_);
-  node_.declare_parameter("planar_map_filter_voxel_size", 0.1);
-  node_.get_parameter("planar_map_filter_voxel_size", planar_map_filter_voxel_size_);
-  node_.declare_parameter("planar_map_filter_min_neighbors", 3);
-  node_.get_parameter("planar_map_filter_min_neighbors", planar_map_filter_min_neighbors_);
-  node_.declare_parameter("planar_map_filter_max_small_eigenvalue_ratio", 0.24);
-  node_.get_parameter(
-    "planar_map_filter_max_small_eigenvalue_ratio",
-    planar_map_filter_max_small_eigenvalue_ratio_);
-  node_.declare_parameter("planar_map_filter_min_middle_eigenvalue_ratio", 0.0);
-  node_.get_parameter(
-    "planar_map_filter_min_middle_eigenvalue_ratio",
-    planar_map_filter_min_middle_eigenvalue_ratio_);
-  node_.declare_parameter("planar_map_filter_min_retained_ratio", 0.90);
-  node_.get_parameter(
-    "planar_map_filter_min_retained_ratio", planar_map_filter_min_retained_ratio_);
-  node_.declare_parameter("map_save_dir", std::string("."));
-  node_.get_parameter("map_save_dir", map_save_dir_);
-  // The launch files have always passed this; until v0.6 Phase 1 it was
-  // silently ignored and the graph went to the CWD. The default keeps the
-  // historical CWD behaviour.
-  node_.declare_parameter("save_pose_graph_path", std::string("pose_graph.g2o"));
-  node_.get_parameter("save_pose_graph_path", save_pose_graph_path_);
-  node_.declare_parameter("map_grid_size_x", 20.0);
-  node_.get_parameter("map_grid_size_x", map_grid_size_x_);
-  node_.declare_parameter("map_grid_size_y", 20.0);
-  node_.get_parameter("map_grid_size_y", map_grid_size_y_);
-  node_.declare_parameter("map_leaf_size", 0.2);
-  node_.get_parameter("map_leaf_size", map_leaf_size_);
-  node_.declare_parameter("use_gnss", false);
-  node_.get_parameter("use_gnss", use_gnss_);
-  node_.declare_parameter("gnss_topic", std::string("/gnss/fix"));
-  node_.get_parameter("gnss_topic", gnss_topic_);
-  node_.declare_parameter("gnss_info_weight", 1.0);
-  node_.get_parameter("gnss_info_weight", gnss_info_weight_);
-  node_.declare_parameter("gnss_use_covariance_weighting", true);
-  node_.get_parameter("gnss_use_covariance_weighting", gnss_use_covariance_weighting_);
-  node_.declare_parameter("gnss_covariance_min_variance_m2", 0.01);
-  node_.get_parameter("gnss_covariance_min_variance_m2", gnss_covariance_min_variance_m2_);
-  node_.declare_parameter("gnss_covariance_max_variance_m2", 25.0);
-  node_.get_parameter("gnss_covariance_max_variance_m2", gnss_covariance_max_variance_m2_);
-  node_.declare_parameter("gnss_rtk_fix_max_horizontal_stddev_m", 0.3);
-  node_.get_parameter(
-    "gnss_rtk_fix_max_horizontal_stddev_m",
-    gnss_rtk_fix_max_horizontal_stddev_m_);
-  node_.declare_parameter("gnss_rtk_fix_weight_scale", 3.0);
-  node_.get_parameter("gnss_rtk_fix_weight_scale", gnss_rtk_fix_weight_scale_);
-  node_.declare_parameter("gnss_non_rtk_weight_scale", 1.0);
-  node_.get_parameter("gnss_non_rtk_weight_scale", gnss_non_rtk_weight_scale_);
-  node_.declare_parameter("gnss_header_stamp_max_skew_sec", 30.0);
-  node_.get_parameter("gnss_header_stamp_max_skew_sec", gnss_header_stamp_max_skew_sec_);
-  node_.declare_parameter("gnss_align_yaw", true);
-  node_.get_parameter("gnss_align_yaw", gnss_align_yaw_);
-  node_.declare_parameter("gnss_yaw_alignment_min_anchors", 10);
-  node_.get_parameter("gnss_yaw_alignment_min_anchors", gnss_yaw_alignment_min_anchors_);
-  node_.declare_parameter("gnss_yaw_alignment_min_baseline_m", 5.0);
-  node_.get_parameter("gnss_yaw_alignment_min_baseline_m", gnss_yaw_alignment_min_baseline_m_);
-  node_.declare_parameter("gnss_origin_min_samples", 3);
-  node_.get_parameter("gnss_origin_min_samples", gnss_origin_min_samples_);
-  node_.declare_parameter("gnss_origin_consistency_threshold_m", 20.0);
-  node_.get_parameter(
-    "gnss_origin_consistency_threshold_m",
-    gnss_origin_consistency_threshold_m_);
-  node_.declare_parameter("use_imu_preintegration", false);
-  node_.get_parameter("use_imu_preintegration", use_imu_preintegration_);
-  node_.declare_parameter("imu_rotation_info_roll_pitch", 100.0);
-  node_.get_parameter("imu_rotation_info_roll_pitch", imu_rotation_info_roll_pitch_);
-  node_.declare_parameter("imu_rotation_info_yaw", 10.0);
-  node_.get_parameter("imu_rotation_info_yaw", imu_rotation_info_yaw_);
+  adjacent_edge_info_weight_ = config_.adjacent_edge_info_weight_;
+  adjacent_edge_info_weight_trans_ = config_.adjacent_edge_info_weight_trans_;
+  adjacent_edge_info_weight_rot_ = config_.adjacent_edge_info_weight_rot_;
 
-  if (gnss_origin_min_samples_ < 1) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "gnss_origin_min_samples must be >= 1, clamping %d to 1",
-      gnss_origin_min_samples_);
-    gnss_origin_min_samples_ = 1;
-  }
-  if (gnss_origin_consistency_threshold_m_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "gnss_origin_consistency_threshold_m must be positive, resetting %.3f to 20.0",
-      gnss_origin_consistency_threshold_m_);
-    gnss_origin_consistency_threshold_m_ = 20.0;
+  if (config_.use_pcd_cache_) {
+    std::filesystem::create_directories(config_.pcd_cache_dir_);
   }
   gnss_origin_accumulator_.configure(
-    gnss_origin_min_samples_, gnss_origin_consistency_threshold_m_);
-  if (gnss_covariance_min_variance_m2_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "gnss_covariance_min_variance_m2 must be positive, resetting %.6f to 0.01",
-      gnss_covariance_min_variance_m2_);
-    gnss_covariance_min_variance_m2_ = 0.01;
-  }
-  if (gnss_covariance_max_variance_m2_ < gnss_covariance_min_variance_m2_) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "gnss_covariance_max_variance_m2 must be >= min variance, resetting %.6f to %.6f",
-      gnss_covariance_max_variance_m2_, gnss_covariance_min_variance_m2_);
-    gnss_covariance_max_variance_m2_ = gnss_covariance_min_variance_m2_;
-  }
-  if (gnss_rtk_fix_max_horizontal_stddev_m_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "gnss_rtk_fix_max_horizontal_stddev_m must be positive, resetting %.3f to 0.3",
-      gnss_rtk_fix_max_horizontal_stddev_m_);
-    gnss_rtk_fix_max_horizontal_stddev_m_ = 0.3;
-  }
-  if (gnss_rtk_fix_weight_scale_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "gnss_rtk_fix_weight_scale must be positive, resetting %.3f to 3.0",
-      gnss_rtk_fix_weight_scale_);
-    gnss_rtk_fix_weight_scale_ = 3.0;
-  }
-  if (gnss_non_rtk_weight_scale_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "gnss_non_rtk_weight_scale must be positive, resetting %.3f to 1.0",
-      gnss_non_rtk_weight_scale_);
-    gnss_non_rtk_weight_scale_ = 1.0;
-  }
-  if (gnss_header_stamp_max_skew_sec_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "gnss_header_stamp_max_skew_sec must be positive, resetting %.3f to 30.0",
-      gnss_header_stamp_max_skew_sec_);
-    gnss_header_stamp_max_skew_sec_ = 30.0;
-  }
-  if (search_submap_num_ < 1) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "search_submap_num must be >= 1, clamping %d to 1",
-      search_submap_num_);
-    search_submap_num_ = 1;
-  }
-  if (loop_search_query_stride_ < 1) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "loop_search_query_stride must be >= 1, clamping %d to 1",
-      loop_search_query_stride_);
-    loop_search_query_stride_ = 1;
-  }
-  if (max_loop_candidate_count_ < 1) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "max_loop_candidate_count must be >= 1, clamping %d to 1",
-      max_loop_candidate_count_);
-    max_loop_candidate_count_ = 1;
-  }
-  if (loop_edge_dedup_index_window_ < 0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "loop_edge_dedup_index_window must be >= 0, clamping %d to 0",
-      loop_edge_dedup_index_window_);
-    loop_edge_dedup_index_window_ = 0;
-  }
-  graph_state_.configureLoopEdgeDedupWindow(loop_edge_dedup_index_window_);
-  if (loop_max_translation_delta_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "loop_max_translation_delta must be positive, resetting %.3f to 15.0",
-      loop_max_translation_delta_);
-    loop_max_translation_delta_ = 15.0;
-  }
-  if (loop_max_rotation_delta_deg_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "loop_max_rotation_delta_deg must be positive, resetting %.3f to 45.0",
-      loop_max_rotation_delta_deg_);
-    loop_max_rotation_delta_deg_ = 45.0;
-  }
-  if (loop_min_overlap_ratio_ < 0.0 || loop_min_overlap_ratio_ > 1.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "loop_min_overlap_ratio must be in [0, 1], resetting %.3f to 0 (disabled)",
-      loop_min_overlap_ratio_);
-    loop_min_overlap_ratio_ = 0.0;
-  }
-  if (
-    loop_min_overlap_ratio_large_correction_ < 0.0 ||
-    loop_min_overlap_ratio_large_correction_ > 1.0)
-  {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "loop_min_overlap_ratio_large_correction must be in [0, 1], "
-      "resetting %.3f to 0 (disabled)",
-      loop_min_overlap_ratio_large_correction_);
-    loop_min_overlap_ratio_large_correction_ = 0.0;
-  }
-  if (loop_overlap_large_correction_translation_m_ < 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "loop_overlap_large_correction_translation_m must be non-negative, "
-      "resetting %.3f to 0 (disabled)",
-      loop_overlap_large_correction_translation_m_);
-    loop_overlap_large_correction_translation_m_ = 0.0;
-  }
-  if (loop_overlap_max_distance_m_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "loop_overlap_max_distance_m must be positive, resetting %.3f to 0.5",
-      loop_overlap_max_distance_m_);
-    loop_overlap_max_distance_m_ = 0.5;
-  }
-  // Descriptor overrides: -1.0 = disabled (fall back to generic cap).
-  // Any other non-positive value is treated as invalid and clamped to -1.0
-  // so that operators see clear feedback instead of silently disabling the
-  // generic cap for descriptor sources.
-  if (loop_max_translation_delta_descriptor_ <= 0.0 &&
-    loop_max_translation_delta_descriptor_ != -1.0)
-  {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "loop_max_translation_delta_descriptor must be > 0 (override) or -1 "
-      "(disabled); resetting %.3f to -1",
-      loop_max_translation_delta_descriptor_);
-    loop_max_translation_delta_descriptor_ = -1.0;
-  }
-  if (loop_max_rotation_delta_deg_descriptor_ <= 0.0 &&
-    loop_max_rotation_delta_deg_descriptor_ != -1.0)
-  {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "loop_max_rotation_delta_deg_descriptor must be > 0 (override) or -1 "
-      "(disabled); resetting %.3f to -1",
-      loop_max_rotation_delta_deg_descriptor_);
-    loop_max_rotation_delta_deg_descriptor_ = -1.0;
-  }
-  if (num_adjacent_pose_cnstraints_ < 1) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "num_adjacent_pose_cnstraints must be >= 1, clamping %d to 1",
-      num_adjacent_pose_cnstraints_);
-    num_adjacent_pose_cnstraints_ = 1;
-  }
-  if (adjacent_edge_info_weight_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "adjacent_edge_info_weight must be positive, resetting %.3f to 1000.0",
-      adjacent_edge_info_weight_);
-    adjacent_edge_info_weight_ = 1000.0;
-  }
-  if (adjacent_edge_info_weight_trans_ <= 0.0) {
-    adjacent_edge_info_weight_trans_ = adjacent_edge_info_weight_;
-  }
-  if (adjacent_edge_info_weight_rot_ <= 0.0) {
-    adjacent_edge_info_weight_rot_ = adjacent_edge_info_weight_;
-  }
-  if (adjacent_edge_info_auto_scale_target_nis_trans_ <= 0.0) {
-    adjacent_edge_info_auto_scale_target_nis_trans_ = 3.0;
-  }
-  if (adjacent_edge_info_auto_scale_target_nis_rot_ <= 0.0) {
-    adjacent_edge_info_auto_scale_target_nis_rot_ = 3.0;
-  }
-  if (loop_edge_info_weight_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "loop_edge_info_weight must be positive, resetting %.3f to 100.0",
-      loop_edge_info_weight_);
-    loop_edge_info_weight_ = 100.0;
-  }
-  if (loop_edge_robust_kernel_delta_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "loop_edge_robust_kernel_delta must be positive, resetting %.3f to 1.0",
-      loop_edge_robust_kernel_delta_);
-    loop_edge_robust_kernel_delta_ = 1.0;
-  }
-  if (bev_descriptor_threshold_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "bev_descriptor_threshold must be positive, resetting %.3f to 0.20",
-      bev_descriptor_threshold_);
-    bev_descriptor_threshold_ = 0.20;
-  }
-  if (bev_descriptor_grid_size_m_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "bev_descriptor_grid_size_m must be positive, resetting %.3f to 80.0",
-      bev_descriptor_grid_size_m_);
-    bev_descriptor_grid_size_m_ = 80.0;
-  }
-  if (bev_descriptor_grid_cells_ < 8) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "bev_descriptor_grid_cells must be >= 8, clamping %d to 8",
-      bev_descriptor_grid_cells_);
-    bev_descriptor_grid_cells_ = 8;
-  }
-  if (bev_descriptor_yaw_bins_ < 1) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "bev_descriptor_yaw_bins must be >= 1, clamping %d to 1",
-      bev_descriptor_yaw_bins_);
-    bev_descriptor_yaw_bins_ = 1;
-  }
-  if (bev_descriptor_sequence_window_ < 0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "bev_descriptor_sequence_window must be >= 0, clamping %d to 0",
-      bev_descriptor_sequence_window_);
-    bev_descriptor_sequence_window_ = 0;
-  }
-  if (bev_descriptor_sequence_threshold_ <= 0.0) {
-    bev_descriptor_sequence_threshold_ = bev_descriptor_threshold_;
-  }
-  if (bev_descriptor_rerank_weight_m_ < 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "bev_descriptor_rerank_weight_m must be >= 0.0, clamping %.3f to 0.0",
-      bev_descriptor_rerank_weight_m_);
-    bev_descriptor_rerank_weight_m_ = 0.0;
-  }
-  if (bev_descriptor_pose_consistency_threshold_m_ == 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "bev_descriptor_pose_consistency_threshold_m must be negative (disabled) or positive, "
-      "resetting 0.0 to disabled");
-    bev_descriptor_pose_consistency_threshold_m_ = -1.0;
-  }
-  if (triangle_descriptor_keypoint_mode_ != "bev_max_height" &&
-    triangle_descriptor_keypoint_mode_ != "edge_3d")
-  {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "triangle_descriptor_keypoint_mode must be 'bev_max_height' or 'edge_3d', "
-      "got '%s'; falling back to 'bev_max_height'",
-      triangle_descriptor_keypoint_mode_.c_str());
-    triangle_descriptor_keypoint_mode_ = "bev_max_height";
-  }
-  if (triangle_descriptor_edge_voxel_size_m_ < 0.0) {
-    triangle_descriptor_edge_voxel_size_m_ = 0.0;
-  }
-  if (triangle_descriptor_edge_neighbor_radius_m_ <= 0.05) {
-    triangle_descriptor_edge_neighbor_radius_m_ = 0.05;
-  }
-  if (triangle_descriptor_edge_min_neighbors_ < 4) {
-    triangle_descriptor_edge_min_neighbors_ = 4;
-  }
-  if (triangle_descriptor_edge_min_edgeness_ < 0.0) {
-    triangle_descriptor_edge_min_edgeness_ = 0.0;
-  } else if (triangle_descriptor_edge_min_edgeness_ > 1.0) {
-    triangle_descriptor_edge_min_edgeness_ = 1.0;
-  }
-  if (triangle_descriptor_edge_nms_radius_m_ < 0.0) {
-    triangle_descriptor_edge_nms_radius_m_ = 0.0;
-  }
-  if (triangle_descriptor_grid_size_m_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "triangle_descriptor_grid_size_m must be positive, resetting %.3f to 60.0",
-      triangle_descriptor_grid_size_m_);
-    triangle_descriptor_grid_size_m_ = 60.0;
-  }
-  if (triangle_descriptor_grid_cells_ < 8) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "triangle_descriptor_grid_cells must be >= 8, clamping %d to 8",
-      triangle_descriptor_grid_cells_);
-    triangle_descriptor_grid_cells_ = 8;
-  }
-  if (triangle_descriptor_max_keypoints_ < 4) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "triangle_descriptor_max_keypoints must be >= 4, clamping %d to 4",
-      triangle_descriptor_max_keypoints_);
-    triangle_descriptor_max_keypoints_ = 4;
-  }
-  if (triangle_descriptor_min_edge_m_ <= 0.0) {
-    triangle_descriptor_min_edge_m_ = 2.0;
-  }
-  if (triangle_descriptor_max_edge_m_ <= triangle_descriptor_min_edge_m_) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "triangle_descriptor_max_edge_m (%.3f) must exceed min_edge_m (%.3f); using min*5",
-      triangle_descriptor_max_edge_m_, triangle_descriptor_min_edge_m_);
-    triangle_descriptor_max_edge_m_ = triangle_descriptor_min_edge_m_ * 5.0;
-  }
-  if (triangle_descriptor_max_triangles_ < 100) {
-    triangle_descriptor_max_triangles_ = 100;
-  }
-  if (triangle_descriptor_edge_bin_m_ <= 0.0) {
-    triangle_descriptor_edge_bin_m_ = 1.0;
-  }
-  if (triangle_descriptor_quad_feature_bin_m_ < 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "triangle_descriptor_quad_feature_bin_m must be >= 0 (0 = disabled); "
-      "resetting %.3f to 0",
-      triangle_descriptor_quad_feature_bin_m_);
-    triangle_descriptor_quad_feature_bin_m_ = 0.0;
-  }
-  if (triangle_descriptor_min_votes_ < 1) {
-    triangle_descriptor_min_votes_ = 1;
-  }
-  if (triangle_descriptor_min_inliers_ < 1) {
-    triangle_descriptor_min_inliers_ = 1;
-  }
-  if (triangle_descriptor_min_inlier_ratio_ < 0.0) {
-    triangle_descriptor_min_inlier_ratio_ = 0.0;
-  } else if (triangle_descriptor_min_inlier_ratio_ > 1.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "triangle_descriptor_min_inlier_ratio must be in [0, 1]; clamping %.3f to 1.0",
-      triangle_descriptor_min_inlier_ratio_);
-    triangle_descriptor_min_inlier_ratio_ = 1.0;
-  }
-  if (triangle_descriptor_max_pairs_ < 3) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "triangle_descriptor_max_pairs must be >= 3; clamping %d to 3",
-      triangle_descriptor_max_pairs_);
-    triangle_descriptor_max_pairs_ = 3;
-  }
-  if (triangle_descriptor_min_4th_point_agreements_ < 0) {
-    triangle_descriptor_min_4th_point_agreements_ = 0;
-  }
-  if (triangle_descriptor_fourth_point_max_distance_m_ <= 0.0) {
-    triangle_descriptor_fourth_point_max_distance_m_ = 2.0;
-  }
-  if (triangle_descriptor_inlier_translation_m_ <= 0.0) {
-    triangle_descriptor_inlier_translation_m_ = 2.0;
-  }
-  if (triangle_descriptor_inlier_rotation_deg_ <= 0.0) {
-    triangle_descriptor_inlier_rotation_deg_ = 5.0;
-  }
-  if (triangle_descriptor_exclude_recent_ < 0) {
-    triangle_descriptor_exclude_recent_ = 0;
-  }
-  if (triangle_verify_bev_max_distance_ <= 0.0) {
-    triangle_verify_bev_max_distance_ = 0.30;
-  }
-  if (
-    solid_descriptor_min_similarity_ <= -1.0 ||
-    solid_descriptor_min_similarity_ > 1.0)
-  {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "solid_descriptor_min_similarity must be in (-1, 1], resetting %.3f to 0.70",
-      solid_descriptor_min_similarity_);
-    solid_descriptor_min_similarity_ = 0.70;
-  }
-  if (solid_descriptor_sequence_window_ < 0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "solid_descriptor_sequence_window must be >= 0, clamping %d to 0",
-      solid_descriptor_sequence_window_);
-    solid_descriptor_sequence_window_ = 0;
-  }
-  if (
-    solid_descriptor_sequence_min_similarity_ <= -1.0 ||
-    solid_descriptor_sequence_min_similarity_ > 1.0)
-  {
-    solid_descriptor_sequence_min_similarity_ = solid_descriptor_min_similarity_;
-  }
-  if (solid_descriptor_pose_consistency_threshold_m_ == 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "solid_descriptor_pose_consistency_threshold_m must be negative (disabled) or positive, "
-      "resetting 0.0 to disabled");
-    solid_descriptor_pose_consistency_threshold_m_ = -1.0;
-  }
-  if (three_d_bbs_min_level_res_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "three_d_bbs_min_level_res must be positive, resetting %.3f to 1.0",
-      three_d_bbs_min_level_res_);
-    three_d_bbs_min_level_res_ = 1.0;
-  }
-  if (three_d_bbs_max_level_ < 1) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "three_d_bbs_max_level must be >= 1, clamping %d to 1",
-      three_d_bbs_max_level_);
-    three_d_bbs_max_level_ = 1;
-  }
-  if (three_d_bbs_score_threshold_percentage_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "three_d_bbs_score_threshold_percentage must be positive, resetting %.3f to 0.25",
-      three_d_bbs_score_threshold_percentage_);
-    three_d_bbs_score_threshold_percentage_ = 0.25;
-  }
-  if (three_d_bbs_voxel_leaf_size_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "three_d_bbs_voxel_leaf_size must be positive, resetting %.3f to 1.0",
-      three_d_bbs_voxel_leaf_size_);
-    three_d_bbs_voxel_leaf_size_ = 1.0;
-  }
-  if (three_d_bbs_source_submap_num_ < 1) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "three_d_bbs_source_submap_num must be >= 1, clamping %d to 1",
-      three_d_bbs_source_submap_num_);
-    three_d_bbs_source_submap_num_ = 1;
-  }
-  if (three_d_bbs_target_submap_radius_ < 0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "three_d_bbs_target_submap_radius must be >= 0, clamping %d to 0",
-      three_d_bbs_target_submap_radius_);
-    three_d_bbs_target_submap_radius_ = 0;
-  }
-  if (three_d_bbs_translation_search_margin_m_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "three_d_bbs_translation_search_margin_m must be positive, resetting %.3f to 15.0",
-      three_d_bbs_translation_search_margin_m_);
-    three_d_bbs_translation_search_margin_m_ = 15.0;
-  }
-  if (three_d_bbs_roll_pitch_search_deg_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "three_d_bbs_roll_pitch_search_deg must be positive, resetting %.3f to 10.0",
-      three_d_bbs_roll_pitch_search_deg_);
-    three_d_bbs_roll_pitch_search_deg_ = 10.0;
-  }
-  if (three_d_bbs_yaw_search_deg_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "three_d_bbs_yaw_search_deg must be positive, resetting %.3f to 180.0",
-      three_d_bbs_yaw_search_deg_);
-    three_d_bbs_yaw_search_deg_ = 180.0;
-  }
-  if (dynamic_object_filter_voxel_size_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "dynamic_object_filter_voxel_size must be positive, resetting %.3f to 0.3",
-      dynamic_object_filter_voxel_size_);
-    dynamic_object_filter_voxel_size_ = 0.3;
-  }
-  if (dynamic_object_filter_min_observations_ < 1) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "dynamic_object_filter_min_observations must be >= 1, clamping %d to 1",
-      dynamic_object_filter_min_observations_);
-    dynamic_object_filter_min_observations_ = 1;
-  }
-  if (dynamic_object_filter_temporal_window_ < 0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "dynamic_object_filter_temporal_window must be >= 0, clamping %d to 0",
-      dynamic_object_filter_temporal_window_);
-    dynamic_object_filter_temporal_window_ = 0;
-  }
-  if (dynamic_object_filter_max_range_from_sensor_m_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "dynamic_object_filter_max_range_from_sensor_m must be positive, resetting %.3f to 30.0",
-      dynamic_object_filter_max_range_from_sensor_m_);
-    dynamic_object_filter_max_range_from_sensor_m_ = 30.0;
-  }
-  if (planar_map_filter_voxel_size_ <= 0.0) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "planar_map_filter_voxel_size must be positive, resetting %.3f to 0.1",
-      planar_map_filter_voxel_size_);
-    planar_map_filter_voxel_size_ = 0.1;
-  }
-  if (planar_map_filter_min_neighbors_ < 3) {
-    RCLCPP_WARN(
-      node_.get_logger(),
-      "planar_map_filter_min_neighbors must be >= 3, clamping %d to 3",
-      planar_map_filter_min_neighbors_);
-    planar_map_filter_min_neighbors_ = 3;
-  }
-  planar_map_filter_max_small_eigenvalue_ratio_ = std::max(
-    0.0, std::min(1.0, planar_map_filter_max_small_eigenvalue_ratio_));
-  planar_map_filter_min_middle_eigenvalue_ratio_ = std::max(
-    0.0, std::min(1.0, planar_map_filter_min_middle_eigenvalue_ratio_));
-  planar_map_filter_min_retained_ratio_ = std::max(
-    0.0, std::min(1.0, planar_map_filter_min_retained_ratio_));
-  std::cout << "registration_method:" << registration_method << std::endl;
-  std::cout << "voxel_leaf_size[m]:" << voxel_leaf_size << std::endl;
-  std::cout << "ndt_resolution[m]:" << ndt_resolution << std::endl;
-  std::cout << "ndt_num_threads:" << ndt_num_threads << std::endl;
-  std::cout << "threshold_loop_closure_score:" << threshold_loop_closure_score_ << std::endl;
-  std::cout << "scan_context_loop_closure_score_threshold:" <<
-    scan_context_loop_closure_score_threshold_ << std::endl;
-  std::cout << "distance_loop_closure[m]:" << distance_loop_closure_ << std::endl;
-  std::cout << "range_of_searching_loop_closure[m]:" << range_of_searching_loop_closure_ <<
-    std::endl;
-  std::cout << "search_submap_num:" << search_submap_num_ << std::endl;
-  std::cout << "loop_search_query_stride:" << loop_search_query_stride_ << std::endl;
-  std::cout << "max_loop_candidate_count:" << max_loop_candidate_count_ << std::endl;
-  std::cout << "loop_edge_dedup_index_window:" << loop_edge_dedup_index_window_ << std::endl;
-  std::cout << "loop_max_translation_delta[m]:" << loop_max_translation_delta_ << std::endl;
-  std::cout << "loop_max_rotation_delta[deg]:" << loop_max_rotation_delta_deg_ << std::endl;
-  std::cout << "loop_min_overlap_ratio:" << loop_min_overlap_ratio_ << std::endl;
-  std::cout << "loop_min_overlap_ratio_large_correction:" <<
-    loop_min_overlap_ratio_large_correction_ << std::endl;
-  std::cout << "loop_overlap_large_correction_translation_m[m]:" <<
-    loop_overlap_large_correction_translation_m_ << std::endl;
-  std::cout << "loop_overlap_max_distance_m[m]:" << loop_overlap_max_distance_m_ << std::endl;
-  std::cout << "loop_max_translation_delta_descriptor[m]:" <<
-    loop_max_translation_delta_descriptor_ << std::endl;
-  std::cout << "loop_max_rotation_delta_deg_descriptor[deg]:" <<
-    loop_max_rotation_delta_deg_descriptor_ << std::endl;
-  std::cout << "num_adjacent_pose_cnstraints:" << num_adjacent_pose_cnstraints_ << std::endl;
-  std::cout << "adjacent_edge_info_weight:" << adjacent_edge_info_weight_ << std::endl;
-  std::cout << "adjacent_edge_info_auto_scale:" << std::boolalpha
-            << adjacent_edge_info_auto_scale_ << std::endl;
-  if (adjacent_edge_info_auto_scale_) {
-    std::cout << "adjacent_edge_info_auto_scale_split_trans_rot:" << std::boolalpha
-              << adjacent_edge_info_auto_scale_split_trans_rot_ << std::endl;
-    if (adjacent_edge_info_auto_scale_split_trans_rot_) {
-      std::cout << "adjacent_edge_info_weight_trans:"
-                << adjacent_edge_info_weight_trans_ << std::endl;
-      std::cout << "adjacent_edge_info_weight_rot:"
-                << adjacent_edge_info_weight_rot_ << std::endl;
-      std::cout << "adjacent_edge_info_auto_scale_target_nis_trans:"
-                << adjacent_edge_info_auto_scale_target_nis_trans_ << std::endl;
-      std::cout << "adjacent_edge_info_auto_scale_target_nis_rot:"
-                << adjacent_edge_info_auto_scale_target_nis_rot_ << std::endl;
-    } else {
-      std::cout << "adjacent_edge_info_auto_scale_target_nis:"
-                << adjacent_edge_info_auto_scale_target_nis_ << std::endl;
-    }
-  }
-  std::cout << "loop_edge_info_weight:" << loop_edge_info_weight_ << std::endl;
-  std::cout << "loop_edge_robust_kernel_delta:" << loop_edge_robust_kernel_delta_ << std::endl;
-  std::cout << "loop_edge_robust_kernel_type:"
-            << graphslam::robust::loopEdgeKernelTypeName(
-    graphslam::robust::parseLoopEdgeKernelType(loop_edge_robust_kernel_type_))
-            << std::endl;
-  std::cout << "use_save_map_in_loop:" << std::boolalpha << use_save_map_in_loop_ << std::endl;
-  std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
-  std::cout << "use_scan_context:" << std::boolalpha << use_scan_context_ << std::endl;
-  if (use_scan_context_) {
-    std::cout << "scan_context_threshold:" << scan_context_threshold_ << std::endl;
-    std::cout << "scan_context_query_stride:" <<
-      std::max(1, scan_context_query_stride_) << std::endl;
-    std::cout << "scan_context_exclude_recent:" <<
-      std::max(1, scan_context_exclude_recent_) << std::endl;
-    std::cout << "prefer_scan_context_candidates:" << std::boolalpha <<
-      prefer_scan_context_candidates_ << std::endl;
-    std::cout << "use_3d_bbs_for_scan_context:" << std::boolalpha <<
-      use_3d_bbs_for_scan_context_ << std::endl;
-    if (use_3d_bbs_for_scan_context_) {
-      std::cout << "three_d_bbs_min_level_res:" << three_d_bbs_min_level_res_ << std::endl;
-      std::cout << "three_d_bbs_max_level:" << three_d_bbs_max_level_ << std::endl;
-      std::cout << "three_d_bbs_score_threshold_percentage:" <<
-        three_d_bbs_score_threshold_percentage_ << std::endl;
-      std::cout << "three_d_bbs_timeout_msec:" << three_d_bbs_timeout_msec_ << std::endl;
-      std::cout << "three_d_bbs_num_threads:" << three_d_bbs_num_threads_ << std::endl;
-      std::cout << "three_d_bbs_voxel_leaf_size:" << three_d_bbs_voxel_leaf_size_ << std::endl;
-      std::cout << "three_d_bbs_source_submap_num:" << three_d_bbs_source_submap_num_ <<
-        std::endl;
-      std::cout << "three_d_bbs_target_submap_radius:" << three_d_bbs_target_submap_radius_ <<
-        std::endl;
-      std::cout << "three_d_bbs_translation_search_margin_m:" <<
-        three_d_bbs_translation_search_margin_m_ << std::endl;
-      std::cout << "three_d_bbs_roll_pitch_search_deg:" <<
-        three_d_bbs_roll_pitch_search_deg_ << std::endl;
-      std::cout << "three_d_bbs_yaw_search_deg:" << three_d_bbs_yaw_search_deg_ << std::endl;
-    }
-  }
-  std::cout << "use_bev_descriptor:" << std::boolalpha << use_bev_descriptor_ << std::endl;
-  if (use_bev_descriptor_) {
-    std::cout << "bev_descriptor_threshold:" << bev_descriptor_threshold_ << std::endl;
-    std::cout << "bev_descriptor_grid_size_m:" << bev_descriptor_grid_size_m_ << std::endl;
-    std::cout << "bev_descriptor_grid_cells:" << bev_descriptor_grid_cells_ << std::endl;
-    std::cout << "bev_descriptor_yaw_bins:" << bev_descriptor_yaw_bins_ << std::endl;
-    std::cout << "bev_descriptor_sequence_window:" << bev_descriptor_sequence_window_ <<
-      std::endl;
-    std::cout << "bev_descriptor_sequence_threshold:" << bev_descriptor_sequence_threshold_ <<
-      std::endl;
-    std::cout << "bev_descriptor_pose_consistency_threshold_m:" <<
-      bev_descriptor_pose_consistency_threshold_m_ << std::endl;
-    std::cout << "bev_descriptor_max_euclidean_distance_m:" <<
-      bev_descriptor_max_euclidean_distance_m_ << std::endl;
-    std::cout << "bev_descriptor_rerank_weight_m:" << bev_descriptor_rerank_weight_m_ <<
-      std::endl;
-    std::cout << "bev_use_mutual_visibility:" << std::boolalpha <<
-      bev_use_mutual_visibility_ << std::endl;
-    if (bev_use_mutual_visibility_) {
-      std::cout << "bev_mutual_visibility_min_overlap_ratio:" <<
-        bev_mutual_visibility_min_overlap_ratio_ << std::endl;
-      std::cout << "bev_mutual_visibility_occupancy_eps:" <<
-        bev_mutual_visibility_occupancy_eps_ << std::endl;
-    }
-  }
-  std::cout << "use_solid_descriptor:" << std::boolalpha << use_solid_descriptor_ << std::endl;
-  if (use_solid_descriptor_) {
-    std::cout << "solid_descriptor_min_similarity:" << solid_descriptor_min_similarity_ <<
-      std::endl;
-    std::cout << "solid_descriptor_sequence_window:" << solid_descriptor_sequence_window_ <<
-      std::endl;
-    std::cout << "solid_descriptor_sequence_min_similarity:" <<
-      solid_descriptor_sequence_min_similarity_ << std::endl;
-    std::cout << "solid_descriptor_pose_consistency_threshold_m:" <<
-      solid_descriptor_pose_consistency_threshold_m_ << std::endl;
-    std::cout << "solid_descriptor_max_euclidean_distance_m:" <<
-      solid_descriptor_max_euclidean_distance_m_ << std::endl;
-  }
-  std::cout << "use_triangle_descriptor:" << std::boolalpha <<
-    use_triangle_descriptor_ << std::endl;
-  if (use_triangle_descriptor_) {
-    std::cout << "triangle_descriptor_keypoint_mode:" <<
-      triangle_descriptor_keypoint_mode_ << std::endl;
-    std::cout << "triangle_descriptor_grid_size_m:" <<
-      triangle_descriptor_grid_size_m_ << std::endl;
-    std::cout << "triangle_descriptor_grid_cells:" <<
-      triangle_descriptor_grid_cells_ << std::endl;
-    std::cout << "triangle_descriptor_max_keypoints:" <<
-      triangle_descriptor_max_keypoints_ << std::endl;
-    std::cout << "triangle_descriptor_min_salience_m:" <<
-      triangle_descriptor_min_salience_m_ << std::endl;
-    std::cout << "triangle_descriptor_edge_voxel_size_m:" <<
-      triangle_descriptor_edge_voxel_size_m_ << std::endl;
-    std::cout << "triangle_descriptor_edge_neighbor_radius_m:" <<
-      triangle_descriptor_edge_neighbor_radius_m_ << std::endl;
-    std::cout << "triangle_descriptor_edge_min_neighbors:" <<
-      triangle_descriptor_edge_min_neighbors_ << std::endl;
-    std::cout << "triangle_descriptor_edge_min_edgeness:" <<
-      triangle_descriptor_edge_min_edgeness_ << std::endl;
-    std::cout << "triangle_descriptor_edge_nms_radius_m:" <<
-      triangle_descriptor_edge_nms_radius_m_ << std::endl;
-    std::cout << "triangle_descriptor_min_edge_m:" <<
-      triangle_descriptor_min_edge_m_ << std::endl;
-    std::cout << "triangle_descriptor_max_edge_m:" <<
-      triangle_descriptor_max_edge_m_ << std::endl;
-    std::cout << "triangle_descriptor_max_triangles:" <<
-      triangle_descriptor_max_triangles_ << std::endl;
-    std::cout << "triangle_descriptor_edge_bin_m:" <<
-      triangle_descriptor_edge_bin_m_ << std::endl;
-    std::cout << "triangle_descriptor_quad_feature_bin_m:" <<
-      triangle_descriptor_quad_feature_bin_m_ << std::endl;
-    std::cout << "triangle_descriptor_min_votes:" <<
-      triangle_descriptor_min_votes_ << std::endl;
-    std::cout << "triangle_descriptor_min_inliers:" <<
-      triangle_descriptor_min_inliers_ << std::endl;
-    std::cout << "triangle_descriptor_min_inlier_ratio:" <<
-      triangle_descriptor_min_inlier_ratio_ << std::endl;
-    std::cout << "triangle_descriptor_max_pairs:" <<
-      triangle_descriptor_max_pairs_ << std::endl;
-    std::cout << "triangle_descriptor_min_4th_point_agreements:" <<
-      triangle_descriptor_min_4th_point_agreements_ << std::endl;
-    std::cout << "triangle_descriptor_fourth_point_max_distance_m:" <<
-      triangle_descriptor_fourth_point_max_distance_m_ << std::endl;
-    std::cout << "triangle_descriptor_refine_se3_with_all_inliers:" <<
-      std::boolalpha << triangle_descriptor_refine_se3_with_all_inliers_ << std::endl;
-    std::cout << "triangle_descriptor_skip_ransac:" <<
-      std::boolalpha << triangle_descriptor_skip_ransac_ << std::endl;
-    std::cout << "triangle_descriptor_inlier_translation_m:" <<
-      triangle_descriptor_inlier_translation_m_ << std::endl;
-    std::cout << "triangle_descriptor_inlier_rotation_deg:" <<
-      triangle_descriptor_inlier_rotation_deg_ << std::endl;
-    std::cout << "triangle_descriptor_exclude_recent:" <<
-      triangle_descriptor_exclude_recent_ << std::endl;
-  }
-  std::cout << "use_dynamic_object_filter:" << std::boolalpha << use_dynamic_object_filter_ <<
-    std::endl;
-  if (use_dynamic_object_filter_) {
-    std::cout << "dynamic_object_filter_voxel_size:" << dynamic_object_filter_voxel_size_ <<
-      std::endl;
-    std::cout << "dynamic_object_filter_min_observations:" <<
-      dynamic_object_filter_min_observations_ << std::endl;
-    std::cout << "dynamic_object_filter_temporal_window:" <<
-      dynamic_object_filter_temporal_window_ << std::endl;
-    std::cout << "dynamic_object_filter_max_range_from_sensor_m:" <<
-      dynamic_object_filter_max_range_from_sensor_m_ << std::endl;
-  }
-  std::cout << "use_planar_map_filter:" << std::boolalpha << use_planar_map_filter_ << std::endl;
-  if (use_planar_map_filter_) {
-    std::cout << "planar_map_filter_voxel_size:" << planar_map_filter_voxel_size_ << std::endl;
-    std::cout << "planar_map_filter_min_neighbors:" << planar_map_filter_min_neighbors_ <<
-      std::endl;
-    std::cout << "planar_map_filter_max_small_eigenvalue_ratio:" <<
-      planar_map_filter_max_small_eigenvalue_ratio_ << std::endl;
-    std::cout << "planar_map_filter_min_middle_eigenvalue_ratio:" <<
-      planar_map_filter_min_middle_eigenvalue_ratio_ << std::endl;
-    std::cout << "planar_map_filter_min_retained_ratio:" <<
-      planar_map_filter_min_retained_ratio_ << std::endl;
-  }
-  node_.declare_parameter("use_odom_input", false);
-  node_.get_parameter("use_odom_input", use_odom_input_);
-  node_.declare_parameter("submap_distance_threshold", 1.5);
-  node_.get_parameter("submap_distance_threshold", submap_distance_threshold_);
-  node_.declare_parameter("odom_cloud_sync_queue_size", 100);
-  node_.get_parameter("odom_cloud_sync_queue_size", odom_cloud_sync_queue_size_);
-  // v0.8 Phase 1 report-only degeneracy diagnostics (opt-in, default off:
-  // empty path / false flag leaves default behavior untouched).
-  node_.declare_parameter("degeneracy_diagnostics_csv_path", std::string(""));
-  node_.get_parameter("degeneracy_diagnostics_csv_path", degeneracy_diagnostics_csv_path_);
-  node_.declare_parameter("save_degeneracy_report", false);
-  node_.get_parameter("save_degeneracy_report", save_degeneracy_report_);
-  std::cout << "use_odom_input:" << std::boolalpha << use_odom_input_ << std::endl;
-  if (use_odom_input_) {
-    std::cout << "submap_distance_threshold[m]:" << submap_distance_threshold_ << std::endl;
-  }
-  if (!degeneracy_diagnostics_csv_path_.empty()) {
-    std::cout << "degeneracy_diagnostics_csv_path:" << degeneracy_diagnostics_csv_path_ <<
-      std::endl;
-  }
-  std::cout << "save_degeneracy_report:" << std::boolalpha << save_degeneracy_report_ <<
-    std::endl;
-  if (!degeneracy_diagnostics_csv_path_.empty()) {
-    degeneracy_csv_ofs_.open(degeneracy_diagnostics_csv_path_);
+    config_.gnss_origin_min_samples_, config_.gnss_origin_consistency_threshold_m_);
+  graph_state_.configureLoopEdgeDedupWindow(config_.loop_edge_dedup_index_window_);
+  logGraphSlamConfig(config_, node_.get_logger());
+  if (!config_.degeneracy_diagnostics_csv_path_.empty()) {
+    degeneracy_csv_ofs_.open(config_.degeneracy_diagnostics_csv_path_);
     if (degeneracy_csv_ofs_.is_open()) {
       degeneracy_csv_ofs_ << degeneracy::degeneracyDiagnosticsCsvHeaderLine() << "\n";
     } else {
       RCLCPP_WARN(
         node_.get_logger(), "failed to open degeneracy_diagnostics_csv_path: %s (CSV disabled)",
-        degeneracy_diagnostics_csv_path_.c_str());
-      degeneracy_diagnostics_csv_path_.clear();
+        config_.degeneracy_diagnostics_csv_path_.c_str());
     }
   }
-  std::cout << "use_imu_preintegration:" << std::boolalpha << use_imu_preintegration_ << std::endl;
-  if (use_imu_preintegration_) {
-    std::cout << "imu_rotation_info_roll_pitch:" << imu_rotation_info_roll_pitch_ << std::endl;
-    std::cout << "imu_rotation_info_yaw:" << imu_rotation_info_yaw_ << std::endl;
-  }
-  if (use_gnss_) {
-    std::cout << "gnss_topic:" << gnss_topic_ << std::endl;
-    std::cout << "gnss_info_weight:" << gnss_info_weight_ << std::endl;
-    std::cout << "gnss_use_covariance_weighting:" << std::boolalpha <<
-      gnss_use_covariance_weighting_ << std::endl;
-    std::cout << "gnss_covariance_min_variance_m2:" << gnss_covariance_min_variance_m2_ <<
-      std::endl;
-    std::cout << "gnss_covariance_max_variance_m2:" << gnss_covariance_max_variance_m2_ <<
-      std::endl;
-    std::cout << "gnss_rtk_fix_max_horizontal_stddev_m:" <<
-      gnss_rtk_fix_max_horizontal_stddev_m_ << std::endl;
-    std::cout << "gnss_rtk_fix_weight_scale:" << gnss_rtk_fix_weight_scale_ << std::endl;
-    std::cout << "gnss_non_rtk_weight_scale:" << gnss_non_rtk_weight_scale_ << std::endl;
-    std::cout << "gnss_origin_min_samples:" << gnss_origin_min_samples_ << std::endl;
-    std::cout << "gnss_origin_consistency_threshold_m:"
-              << gnss_origin_consistency_threshold_m_ << std::endl;
-  }
-  std::cout << "------------------" << std::endl;
 
-  backend_->voxelgrid.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
+  backend_->voxelgrid.setLeafSize(
+    config_.voxel_leaf_size, config_.voxel_leaf_size, config_.voxel_leaf_size);
 
   backend_->registration =
-    backend_core::makeLoopRegistration(registration_method, ndt_resolution, ndt_num_threads);
+    backend_core::makeLoopRegistration(
+    config_.registration_method, config_.ndt_resolution, config_.ndt_num_threads);
   if (!backend_->registration) {
     RCLCPP_ERROR(node_.get_logger(), "invalid registration_method");
     exit(1);
   }
 
-  backend_core::DescriptorConfig descriptor_config;
-  descriptor_config.use_scan_context = use_scan_context_;
-  descriptor_config.use_bev_descriptor = use_bev_descriptor_;
-  descriptor_config.use_solid_descriptor = use_solid_descriptor_;
-  descriptor_config.use_triangle_descriptor = use_triangle_descriptor_;
-  descriptor_config.bev_descriptor_grid_size_m = bev_descriptor_grid_size_m_;
-  descriptor_config.bev_descriptor_grid_cells = bev_descriptor_grid_cells_;
-  descriptor_config.bev_descriptor_yaw_bins = bev_descriptor_yaw_bins_;
-  descriptor_config.triangle_descriptor_keypoint_mode = triangle_descriptor_keypoint_mode_;
-  descriptor_config.triangle_descriptor_grid_size_m = triangle_descriptor_grid_size_m_;
-  descriptor_config.triangle_descriptor_grid_cells = triangle_descriptor_grid_cells_;
-  descriptor_config.triangle_descriptor_min_salience_m = triangle_descriptor_min_salience_m_;
-  descriptor_config.triangle_descriptor_max_keypoints = triangle_descriptor_max_keypoints_;
-  descriptor_config.triangle_descriptor_edge_voxel_size_m =
-    triangle_descriptor_edge_voxel_size_m_;
-  descriptor_config.triangle_descriptor_edge_neighbor_radius_m =
-    triangle_descriptor_edge_neighbor_radius_m_;
-  descriptor_config.triangle_descriptor_edge_min_neighbors =
-    triangle_descriptor_edge_min_neighbors_;
-  descriptor_config.triangle_descriptor_edge_min_edgeness =
-    triangle_descriptor_edge_min_edgeness_;
-  descriptor_config.triangle_descriptor_edge_nms_radius_m =
-    triangle_descriptor_edge_nms_radius_m_;
-  descriptor_config.triangle_descriptor_min_edge_m = triangle_descriptor_min_edge_m_;
-  descriptor_config.triangle_descriptor_max_edge_m = triangle_descriptor_max_edge_m_;
-  descriptor_config.triangle_descriptor_max_triangles = triangle_descriptor_max_triangles_;
-  descriptor_config.triangle_descriptor_edge_bin_m = triangle_descriptor_edge_bin_m_;
-  descriptor_config.triangle_descriptor_quad_feature_bin_m =
-    triangle_descriptor_quad_feature_bin_m_;
-  backend_->core.configure(descriptor_config);
+  backend_->core.configure(makeDescriptorConfig(config_));
 
   initializePubSub();
 
@@ -1297,7 +179,7 @@ void GraphBasedSlamComponent::Impl::initializePubSub()
         // seeing the previous complete graph until the move-only commit.
         std::lock_guard<std::mutex> ingest_lock(submap_ingest_mtx_);
         lidarslam_msgs::msg::MapArray staged_map = *msg_ptr;
-        if (use_pcd_cache_) {
+        if (config_.use_pcd_cache_) {
           stageMapArrayCloudCache(staged_map);
         }
         graph_state_.replace(std::move(staged_map));
@@ -1309,13 +191,13 @@ void GraphBasedSlamComponent::Impl::initializePubSub()
     node_.create_subscription<lidarslam_msgs::msg::MapArray>(
     "map_array", rclcpp::QoS(rclcpp::KeepLast(1)).reliable(), map_array_callback);
 
-  if (use_odom_input_) {
+  if (config_.use_odom_input_) {
     // Deep queues so a long loop-search callback cannot overflow the
     // subscription histories and drop frames, plus stamp-based pairing so
     // the submap pose/cloud match is a function of the data, not of the
     // executor schedule. Reliability is kept as before (odom reliable,
     // cloud sensor-data/best-effort) for publisher compatibility.
-    const size_t sync_depth = static_cast<size_t>(std::max(odom_cloud_sync_queue_size_, 1));
+    const size_t sync_depth = static_cast<size_t>(std::max(config_.odom_cloud_sync_queue_size_, 1));
     rmw_qos_profile_t odom_qos = rmw_qos_profile_default;
     odom_qos.depth = sync_depth;
     rmw_qos_profile_t cloud_qos = rmw_qos_profile_sensor_data;
@@ -1346,7 +228,7 @@ void GraphBasedSlamComponent::Impl::initializePubSub()
     "modified_path",
     rclcpp::QoS(10));
 
-  if (use_imu_preintegration_) {
+  if (config_.use_imu_preintegration_) {
     auto imu_callback =
       [this](const sensor_msgs::msg::Imu::SharedPtr msg) -> void
       {
@@ -1357,14 +239,14 @@ void GraphBasedSlamComponent::Impl::initializePubSub()
     RCLCPP_INFO(node_.get_logger(), "IMU preintegration enabled, subscribed to /imu");
   }
 
-  if (use_gnss_) {
+  if (config_.use_gnss_) {
     gnss_sub_ = node_.create_subscription<sensor_msgs::msg::NavSatFix>(
-      gnss_topic_, rclcpp::SensorDataQoS(),
+      config_.gnss_topic_, rclcpp::SensorDataQoS(),
       [this](const sensor_msgs::msg::NavSatFix::SharedPtr msg) {receiveNavSatFix(*msg);});
     RCLCPP_INFO(
       node_.get_logger(),
       "GNSS constraints enabled, subscribed to %s",
-      gnss_topic_.c_str());
+      config_.gnss_topic_.c_str());
   }
 
   RCLCPP_INFO(node_.get_logger(), "initialization end");
@@ -1414,7 +296,7 @@ GraphBasedSlamComponent::Impl::makeFilteredLocalSubmapProvider(
              new pcl::PointCloud<pcl::PointXYZI>);
            Eigen::Affine3d reference_affine;
            tf2::fromMsg(map_array_msg.submaps[ref_idx].pose, reference_affine);
-           for (int k = 0; k < search_submap_num_ && (ref_idx - k) >= 0; ++k) {
+           for (int k = 0; k < config_.search_submap_num_ && (ref_idx - k) >= 0; ++k) {
              const int src_idx = ref_idx - k;
              pcl::PointCloud<pcl::PointXYZI>::Ptr cloud =
                loadSubmapCloud(map_array_msg, src_idx);
@@ -1468,18 +350,18 @@ void GraphBasedSlamComponent::Impl::drainEventDrivenLoopSearch()
     // Each search receives an explicit prefix length, avoiding one full
     // MapArray deep-copy per query without exposing future submaps to q.
     for (; query_idx < num_submaps && rclcpp::ok(); ++query_idx) {
-      if (debug_flag_) {
+      if (config_.debug_flag_) {
         RCLCPP_INFO(
           node_.get_logger(), "event-driven loop search, query submap %d of %d", query_idx,
           num_submaps);
       }
       backend_->core.ingestDescriptors(query_idx + 1, build_filtered_local_submap);
-      if (loop_search_schedule::shouldSearch(query_idx, loop_search_query_stride_)) {
+      if (loop_search_schedule::shouldSearch(query_idx, config_.loop_search_query_stride_)) {
         searchLoopForLatest(map_array_msg, loop_edges, query_idx + 1, query_idx);
-      } else if (debug_flag_) {
+      } else if (config_.debug_flag_) {
         RCLCPP_INFO(
           node_.get_logger(), "loop search registration skipped for query submap %d by stride %d",
-          query_idx, loop_search_query_stride_);
+          query_idx, config_.loop_search_query_stride_);
       }
       last_searched_submap_idx_ = query_idx;
     }
@@ -1510,88 +392,7 @@ void GraphBasedSlamComponent::Impl::searchLoopForLatest(
       return loadSubmapCloud(map_array_msg, idx);
     };
 
-  backend_core::LoopSearchConfig search_config;
-  search_config.search_submap_num = search_submap_num_;
-  search_config.prefer_scan_context_candidates = prefer_scan_context_candidates_;
-  search_config.use_3d_bbs_for_scan_context = use_3d_bbs_for_scan_context_;
-  search_config.three_d_bbs_source_submap_num = three_d_bbs_source_submap_num_;
-  search_config.three_d_bbs_target_submap_radius = three_d_bbs_target_submap_radius_;
-  search_config.three_d_bbs_voxel_leaf_size = three_d_bbs_voxel_leaf_size_;
-  search_config.three_d_bbs_min_level_res = three_d_bbs_min_level_res_;
-  search_config.three_d_bbs_max_level = three_d_bbs_max_level_;
-  search_config.three_d_bbs_score_threshold_percentage =
-    three_d_bbs_score_threshold_percentage_;
-  search_config.three_d_bbs_timeout_msec = three_d_bbs_timeout_msec_;
-  search_config.three_d_bbs_num_threads = three_d_bbs_num_threads_;
-  search_config.three_d_bbs_translation_search_margin_m =
-    three_d_bbs_translation_search_margin_m_;
-  search_config.three_d_bbs_roll_pitch_search_deg = three_d_bbs_roll_pitch_search_deg_;
-  search_config.three_d_bbs_yaw_search_deg = three_d_bbs_yaw_search_deg_;
-
-  candidate_aggregator::Config & aggregator_config = search_config.aggregator;
-  aggregator_config.debug = debug_flag_;
-  aggregator_config.max_loop_candidate_count = max_loop_candidate_count_;
-  aggregator_config.distance_loop_closure = distance_loop_closure_;
-  aggregator_config.range_of_searching_loop_closure = range_of_searching_loop_closure_;
-  aggregator_config.scan_context_threshold = scan_context_threshold_;
-  aggregator_config.scan_context_query_stride = std::max(1, scan_context_query_stride_);
-  aggregator_config.scan_context_exclude_recent = std::max(1, scan_context_exclude_recent_);
-  aggregator_config.bev_use_mutual_visibility = bev_use_mutual_visibility_;
-  aggregator_config.bev_mutual_visibility_min_overlap_ratio =
-    bev_mutual_visibility_min_overlap_ratio_;
-  aggregator_config.bev_mutual_visibility_occupancy_eps = bev_mutual_visibility_occupancy_eps_;
-  aggregator_config.bev_descriptor_yaw_bins = bev_descriptor_yaw_bins_;
-  aggregator_config.bev_descriptor_max_euclidean_distance_m =
-    bev_descriptor_max_euclidean_distance_m_;
-  aggregator_config.bev_descriptor_threshold = bev_descriptor_threshold_;
-  aggregator_config.bev_descriptor_sequence_window = bev_descriptor_sequence_window_;
-  aggregator_config.bev_descriptor_sequence_threshold = bev_descriptor_sequence_threshold_;
-  aggregator_config.bev_descriptor_pose_consistency_threshold_m =
-    bev_descriptor_pose_consistency_threshold_m_;
-  aggregator_config.bev_descriptor_rerank_weight_m = bev_descriptor_rerank_weight_m_;
-  aggregator_config.solid_descriptor_max_euclidean_distance_m =
-    solid_descriptor_max_euclidean_distance_m_;
-  aggregator_config.solid_descriptor_min_similarity = solid_descriptor_min_similarity_;
-  aggregator_config.solid_descriptor_sequence_window = solid_descriptor_sequence_window_;
-  aggregator_config.solid_descriptor_sequence_min_similarity =
-    solid_descriptor_sequence_min_similarity_;
-  aggregator_config.solid_descriptor_pose_consistency_threshold_m =
-    solid_descriptor_pose_consistency_threshold_m_;
-  aggregator_config.triangle_descriptor_exclude_recent = triangle_descriptor_exclude_recent_;
-  aggregator_config.triangle_descriptor_edge_bin_m = triangle_descriptor_edge_bin_m_;
-  aggregator_config.triangle_descriptor_quad_feature_bin_m =
-    triangle_descriptor_quad_feature_bin_m_;
-  aggregator_config.triangle_descriptor_inlier_translation_m =
-    triangle_descriptor_inlier_translation_m_;
-  aggregator_config.triangle_descriptor_inlier_rotation_deg =
-    triangle_descriptor_inlier_rotation_deg_;
-  aggregator_config.triangle_descriptor_min_inliers = triangle_descriptor_min_inliers_;
-  aggregator_config.triangle_descriptor_min_inlier_ratio = triangle_descriptor_min_inlier_ratio_;
-  aggregator_config.triangle_descriptor_max_pairs = triangle_descriptor_max_pairs_;
-  aggregator_config.triangle_descriptor_min_4th_point_agreements =
-    triangle_descriptor_min_4th_point_agreements_;
-  aggregator_config.triangle_descriptor_fourth_point_max_distance_m =
-    triangle_descriptor_fourth_point_max_distance_m_;
-  aggregator_config.triangle_descriptor_refine_se3_with_all_inliers =
-    triangle_descriptor_refine_se3_with_all_inliers_;
-  aggregator_config.triangle_descriptor_min_votes = triangle_descriptor_min_votes_;
-  aggregator_config.triangle_descriptor_skip_ransac = triangle_descriptor_skip_ransac_;
-  aggregator_config.triangle_verify_with_bev = triangle_verify_with_bev_;
-  aggregator_config.triangle_verify_bev_max_distance = triangle_verify_bev_max_distance_;
-
-  loop_verifier::GateConfig & gate_config = search_config.gates;
-  gate_config.generic_score_threshold = threshold_loop_closure_score_;
-  gate_config.scan_context_score_threshold = scan_context_loop_closure_score_threshold_;
-  gate_config.max_translation_m = loop_max_translation_delta_;
-  gate_config.max_rotation_deg = loop_max_rotation_delta_deg_;
-  gate_config.min_overlap_ratio = loop_min_overlap_ratio_;
-  gate_config.min_overlap_ratio_large_correction =
-    loop_min_overlap_ratio_large_correction_;
-  gate_config.overlap_large_correction_translation_m =
-    loop_overlap_large_correction_translation_m_;
-  gate_config.overlap_max_distance_m = loop_overlap_max_distance_m_;
-  gate_config.max_translation_descriptor_m = loop_max_translation_delta_descriptor_;
-  gate_config.max_rotation_descriptor_deg = loop_max_rotation_delta_deg_descriptor_;
+  const backend_core::LoopSearchConfig search_config = makeLoopSearchConfig(config_);
 
   const backend_core::LoopSearchOutput search_output = backend_->core.searchLoopForSubmap(
     submaps,
@@ -1629,7 +430,7 @@ void GraphBasedSlamComponent::Impl::searchLoopForLatest(
   query_prefix.cloud_coordinate = map_array_msg.cloud_coordinate;
   query_prefix.submaps.assign(
     map_array_msg.submaps.begin(), map_array_msg.submaps.begin() + num_submaps);
-  doPoseAdjustment(std::move(query_prefix), loop_edges, use_save_map_in_loop_);
+  doPoseAdjustment(std::move(query_prefix), loop_edges, config_.use_save_map_in_loop_);
 }
 
 void GraphBasedSlamComponent::Impl::doPoseAdjustment(
@@ -1653,7 +454,7 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
 
   /* IMU rotation constraints (pre-pass over the IMU buffer) */
   std::vector<pose_graph::ImuRotationConstraint> imu_constraints;
-  if (use_imu_preintegration_ && submaps_size > 1) {
+  if (config_.use_imu_preintegration_ && submaps_size > 1) {
     std::lock_guard<std::mutex> imu_lock(imu_mtx_);
     for (int i = 1; i < submaps_size; i++) {
       double t0 = rclcpp::Time(map_array_msg.submaps[i - 1].header.stamp).seconds();
@@ -1674,7 +475,7 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
       imu_constraint.measurement.translation() = odom_relative.translation();
       imu_constraints.push_back(imu_constraint);
     }
-    if (debug_flag_) {
+    if (config_.debug_flag_) {
       RCLCPP_INFO(
         node_.get_logger(), "Added %zu IMU rotation constraint edges", imu_constraints.size());
     }
@@ -1694,7 +495,7 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
 
   /* GNSS anchors (pre-pass: nearest-measurement match over the buffer) */
   std::vector<pose_graph::GnssConstraint> gnss_constraints;
-  if (use_gnss_ && gnss_origin_set_) {
+  if (config_.use_gnss_ && gnss_origin_set_) {
     std::lock_guard<std::mutex> gnss_lock(gnss_mtx_);
     int gnss_rtk_like_edges_added = 0;
 
@@ -1724,7 +525,7 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
         gnss_rtk_like_edges_added++;
       }
     }
-    if (debug_flag_) {
+    if (config_.debug_flag_) {
       RCLCPP_INFO(
         node_.get_logger(),
         "Added %zu GNSS position constraint edges (%d RTK-like by covariance)",
@@ -1738,7 +539,7 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
   // so the anchors govern the global pose — without this the anchors shear
   // the map (docs/research/gnss-constraint-first-validation.md).
   bool fix_first_vertex = true;
-  if (gnss_align_yaw_ && !gnss_constraints.empty()) {
+  if (config_.gnss_align_yaw_ && !gnss_constraints.empty()) {
     std::vector<Eigen::Vector2d> odom_xy;
     std::vector<Eigen::Vector2d> enu_xy;
     odom_xy.reserve(gnss_constraints.size());
@@ -1749,7 +550,8 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
       enu_xy.emplace_back(gnss_constraint.position.x(), gnss_constraint.position.y());
     }
     const auto alignment = gnss_alignment::estimatePlanarAlignment(
-      odom_xy, enu_xy, gnss_yaw_alignment_min_anchors_, gnss_yaw_alignment_min_baseline_m_);
+      odom_xy, enu_xy, config_.gnss_yaw_alignment_min_anchors_,
+        config_.gnss_yaw_alignment_min_baseline_m_);
     if (alignment.valid) {
       Eigen::Isometry3d enu_from_odom = Eigen::Isometry3d::Identity();
       enu_from_odom.linear() =
@@ -1765,7 +567,7 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
         "GNSS yaw alignment applied: yaw=%.2f deg, baseline=%.1f m, rms=%.2f m; "
         "vertex-0 gauge released, graph moves to the ENU frame",
         alignment.yaw_rad * 180.0 / M_PI, alignment.baseline_m, alignment.rms_residual_m);
-    } else if (debug_flag_) {
+    } else if (config_.debug_flag_) {
       RCLCPP_INFO(
         node_.get_logger(),
         "GNSS yaw alignment not applied (pairs=%zu, baseline=%.1f m); keeping the "
@@ -1774,61 +576,41 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     }
   }
 
-  pose_graph::AdjacentEdgeConfig adjacent_cfg;
-  adjacent_cfg.num_adjacent_pose_constraints = num_adjacent_pose_cnstraints_;
-  adjacent_cfg.split_trans_rot = adjacent_edge_info_auto_scale_split_trans_rot_;
-  adjacent_cfg.info_weight = adjacent_edge_info_weight_;
-  adjacent_cfg.info_weight_trans = adjacent_edge_info_weight_trans_;
-  adjacent_cfg.info_weight_rot = adjacent_edge_info_weight_rot_;
+  const PoseGraphConfigBundle pose_graph_config = makePoseGraphConfig(
+    config_, adjacent_edge_info_weight_, adjacent_edge_info_weight_trans_,
+    adjacent_edge_info_weight_rot_);
 
-  pose_graph::LoopEdgeConfig loop_cfg;
-  loop_cfg.info_weight = loop_edge_info_weight_;
-  loop_cfg.robust_kernel_type = loop_edge_robust_kernel_type_;
-  loop_cfg.robust_kernel_delta = loop_edge_robust_kernel_delta_;
-
-  pose_graph::ImuEdgeConfig imu_cfg;
-  imu_cfg.info_roll_pitch = imu_rotation_info_roll_pitch_;
-  imu_cfg.info_yaw = imu_rotation_info_yaw_;
-
-  pose_graph::Chi2Collection chi2_collection = pose_graph::Chi2Collection::NONE;
-  if (adjacent_edge_info_auto_scale_) {
-    chi2_collection = adjacent_edge_info_auto_scale_split_trans_rot_ ?
-      pose_graph::Chi2Collection::SPLIT : pose_graph::Chi2Collection::UNIFIED;
-  }
-
-  std::string pose_graph_save_path = save_pose_graph_path_;
-  const std::string bundle_pose_graph_path = map_save_dir_ + "/pose_graph.g2o";
+  std::string pose_graph_save_path = config_.save_pose_graph_path_;
+  const std::string bundle_pose_graph_path = config_.map_save_dir_ + "/pose_graph.g2o";
   if (do_save_map) {
-    std::filesystem::create_directories(map_save_dir_);
+    std::filesystem::create_directories(config_.map_save_dir_);
     pose_graph_save_path = bundle_pose_graph_path;
   }
   const pose_graph::OptimizationResult opt_result = pose_graph::optimizePoseGraph(
     submap_nodes, loop_constraints, imu_constraints, gnss_constraints,
-    adjacent_cfg, loop_cfg, imu_cfg, chi2_collection,
+    pose_graph_config.adjacent, pose_graph_config.loop, pose_graph_config.imu,
+    pose_graph_config.chi2_collection,
     fix_first_vertex, /*iterations=*/ 10, pose_graph_save_path);
 
-  if (do_save_map && !save_pose_graph_path_.empty() &&
-    std::filesystem::path(save_pose_graph_path_).lexically_normal() !=
+  if (do_save_map && !config_.save_pose_graph_path_.empty() &&
+    std::filesystem::path(config_.save_pose_graph_path_).lexically_normal() !=
     std::filesystem::path(bundle_pose_graph_path).lexically_normal())
   {
     std::error_code copy_error;
     std::filesystem::copy_file(
-      bundle_pose_graph_path, save_pose_graph_path_,
+      bundle_pose_graph_path, config_.save_pose_graph_path_,
       std::filesystem::copy_options::overwrite_existing, copy_error);
     if (copy_error) {
       RCLCPP_WARN(
         node_.get_logger(), "failed to copy pose graph to configured path %s: %s",
-        save_pose_graph_path_.c_str(), copy_error.message().c_str());
+        config_.save_pose_graph_path_.c_str(), copy_error.message().c_str());
     }
   }
 
-  if (adjacent_edge_info_auto_scale_ && submaps_size > 1) {
-    graphslam::detail::AutoScaleConfig cfg;
-    cfg.ema_alpha = adjacent_edge_info_auto_scale_ema_alpha_;
-    cfg.min_scale = adjacent_edge_info_auto_scale_min_;
-    cfg.max_scale = adjacent_edge_info_auto_scale_max_;
+  if (config_.adjacent_edge_info_auto_scale_ && submaps_size > 1) {
+    graphslam::detail::AutoScaleConfig cfg = pose_graph_config.auto_scale;
 
-    if (adjacent_edge_info_auto_scale_split_trans_rot_) {
+    if (config_.adjacent_edge_info_auto_scale_split_trans_rot_) {
       // Level 2: split the post-opt residuals into translation / rotation
       // blocks and rescale w_trans and w_rot independently (the chi2
       // vectors come back from optimizePoseGraph in edge order).
@@ -1837,12 +619,12 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
       const double median_chi2_rot =
         graphslam::detail::medianChi2(opt_result.adjacent_rot_chi2);
 
-      cfg.target_nis = adjacent_edge_info_auto_scale_target_nis_trans_;
+      cfg.target_nis = config_.adjacent_edge_info_auto_scale_target_nis_trans_;
       const double prev_w_trans = adjacent_edge_info_weight_trans_;
       adjacent_edge_info_weight_trans_ =
         graphslam::detail::nextScale(prev_w_trans, median_chi2_trans, cfg);
 
-      cfg.target_nis = adjacent_edge_info_auto_scale_target_nis_rot_;
+      cfg.target_nis = config_.adjacent_edge_info_auto_scale_target_nis_rot_;
       const double prev_w_rot = adjacent_edge_info_weight_rot_;
       adjacent_edge_info_weight_rot_ =
         graphslam::detail::nextScale(prev_w_rot, median_chi2_rot, cfg);
@@ -1851,15 +633,15 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
         node_.get_logger(),
         "[auto_scale_split] trans median_chi2=%.3f target=%.3f w_trans=%.3f -> %.3f | "
         "rot median_chi2=%.3f target=%.3f w_rot=%.3f -> %.3f (n=%zu)",
-        median_chi2_trans, adjacent_edge_info_auto_scale_target_nis_trans_,
+        median_chi2_trans, config_.adjacent_edge_info_auto_scale_target_nis_trans_,
         prev_w_trans, adjacent_edge_info_weight_trans_,
-        median_chi2_rot, adjacent_edge_info_auto_scale_target_nis_rot_,
+        median_chi2_rot, config_.adjacent_edge_info_auto_scale_target_nis_rot_,
         prev_w_rot, adjacent_edge_info_weight_rot_,
         opt_result.adjacent_trans_chi2.size());
     } else {
       const double median_chi2 = graphslam::detail::medianChi2(opt_result.adjacent_chi2);
 
-      cfg.target_nis = adjacent_edge_info_auto_scale_target_nis_;
+      cfg.target_nis = config_.adjacent_edge_info_auto_scale_target_nis_;
       const double prev_weight = adjacent_edge_info_weight_;
       adjacent_edge_info_weight_ =
         graphslam::detail::nextScale(prev_weight, median_chi2, cfg);
@@ -1880,7 +662,7 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
   path.header.frame_id = "map";
   pcl::PointCloud<pcl::PointXYZI>::Ptr map_ptr(new pcl::PointCloud<pcl::PointXYZI>());
   std::vector<TimedSubmapCloud> dynamic_filter_submaps;
-  if (do_save_map && use_dynamic_object_filter_) {
+  if (do_save_map && config_.use_dynamic_object_filter_) {
     dynamic_filter_submaps.reserve(submaps_size);
   }
   for (int i = 0; i < submaps_size; i++) {
@@ -1899,7 +681,7 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     sensor_msgs::msg::PointCloud2::SharedPtr cloud_msg_ptr(new sensor_msgs::msg::PointCloud2);
     pcl::toROSMsg(*transformed_cloud_ptr, *cloud_msg_ptr);
     *map_ptr += *transformed_cloud_ptr;
-    if (do_save_map && use_dynamic_object_filter_) {
+    if (do_save_map && config_.use_dynamic_object_filter_) {
       dynamic_filter_submaps.push_back(
         TimedSubmapCloud{
           i,
@@ -1930,14 +712,10 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
   modified_map_pub_->publish(*map_msg_ptr);
   if (do_save_map) {
     pcl::PointCloud<pcl::PointXYZI>::Ptr map_to_save = map_ptr;
-    if (use_dynamic_object_filter_) {
-      DynamicObjectFilterConfig filter_config;
-      filter_config.voxel_size = dynamic_object_filter_voxel_size_;
-      filter_config.min_observations = dynamic_object_filter_min_observations_;
-      filter_config.temporal_window = dynamic_object_filter_temporal_window_;
-      filter_config.max_range_from_sensor_m = dynamic_object_filter_max_range_from_sensor_m_;
+    if (config_.use_dynamic_object_filter_) {
       const auto filter_result =
-        buildDynamicObjectFilteredMap(dynamic_filter_submaps, filter_config);
+        buildDynamicObjectFilteredMap(dynamic_filter_submaps,
+          makeDynamicObjectFilterConfig(config_));
       if (!filter_result.cloud->empty()) {
         map_to_save = filter_result.cloud;
       }
@@ -1977,22 +755,13 @@ void GraphBasedSlamComponent::Impl::receiveNavSatFix(const sensor_msgs::msg::Nav
   }
 
   Eigen::Vector3d enu = geodeticToEnu(msg.latitude, msg.longitude, msg.altitude);
-  detail::GnssWeightingConfig weighting_config;
-  weighting_config.base_info_weight = gnss_info_weight_;
-  weighting_config.vertical_weight_scale = 0.1;
-  weighting_config.use_covariance_weighting = gnss_use_covariance_weighting_;
-  weighting_config.covariance_min_variance_m2 = gnss_covariance_min_variance_m2_;
-  weighting_config.covariance_max_variance_m2 = gnss_covariance_max_variance_m2_;
-  weighting_config.rtk_fix_max_horizontal_stddev_m = gnss_rtk_fix_max_horizontal_stddev_m_;
-  weighting_config.rtk_fix_weight_scale = gnss_rtk_fix_weight_scale_;
-  weighting_config.non_rtk_weight_scale = gnss_non_rtk_weight_scale_;
   const detail::GnssConstraintWeights gnss_weights =
-    detail::computeGnssConstraintWeights(msg, weighting_config);
+    detail::computeGnssConstraintWeights(msg, makeGnssWeightingConfig(config_));
   const double receive_time_sec = node_.get_clock()->now().seconds();
   const double header_time_sec = rclcpp::Time(msg.header.stamp).seconds();
   const detail::GnssTimestampResolution stamp_resolution =
     detail::resolveGnssMeasurementStamp(
-    header_time_sec, receive_time_sec, gnss_header_stamp_max_skew_sec_);
+    header_time_sec, receive_time_sec, config_.gnss_header_stamp_max_skew_sec_);
   GnssEnu g;
   g.stamp = stamp_resolution.stamp_sec;
   g.x = enu.x();
@@ -2006,17 +775,17 @@ void GraphBasedSlamComponent::Impl::receiveNavSatFix(const sensor_msgs::msg::Nav
   g.horizontal_stddev_m = gnss_weights.horizontal_stddev_m;
   gnss_buffer_.push_back(g);
 
-  if (debug_flag_ && stamp_resolution.used_fallback) {
+  if (config_.debug_flag_ && stamp_resolution.used_fallback) {
     RCLCPP_WARN_THROTTLE(
       node_.get_logger(),
       *node_.get_clock(),
       5000,
       "GNSS header stamp %.3f s differs from receive time %.3f s by more than "
       "%.3f s; using receive time",
-      header_time_sec, receive_time_sec, gnss_header_stamp_max_skew_sec_);
+      header_time_sec, receive_time_sec, config_.gnss_header_stamp_max_skew_sec_);
   }
 
-  if (debug_flag_ && gnss_weights.covariance_valid) {
+  if (config_.debug_flag_ && gnss_weights.covariance_valid) {
     RCLCPP_INFO_THROTTLE(
       node_.get_logger(),
       *node_.get_clock(),
@@ -2064,7 +833,7 @@ void GraphBasedSlamComponent::Impl::tryInitializeGnssOrigin(double lat, double l
   RCLCPP_INFO(
     node_.get_logger(),
     "GNSS origin set from %d consistent fixes: lat=%.8f, lon=%.8f, alt=%.2f",
-    gnss_origin_min_samples_, gnss_origin_lat_, gnss_origin_lon_, gnss_origin_alt_);
+    config_.gnss_origin_min_samples_, gnss_origin_lat_, gnss_origin_lon_, gnss_origin_alt_);
 }
 
 Eigen::Vector3d GraphBasedSlamComponent::Impl::geodeticToEnu(
@@ -2141,7 +910,7 @@ void GraphBasedSlamComponent::Impl::receiveSyncedOdomCloud(
   if (!std::isfinite(pos.x()) || !std::isfinite(pos.y()) || !std::isfinite(pos.z())) {
     return;
   }
-  if (debug_flag_ && !first_synced_input_logged_) {
+  if (config_.debug_flag_ && !first_synced_input_logged_) {
     first_synced_input_logged_ = true;
     RCLCPP_INFO(
       node_.get_logger(), "First synced odom+cloud pair: (%.2f, %.2f, %.2f), %zu bytes", pos.x(),
@@ -2157,7 +926,7 @@ void GraphBasedSlamComponent::Impl::recordScanDegeneracy(const nav_msgs::msg::Od
   // the two diagnostics outputs was requested, so the default path stays
   // byte-for-byte identical in behavior and cost.
   const bool csv_enabled = degeneracy_csv_ofs_.is_open();
-  if (!csv_enabled && !save_degeneracy_report_) {
+  if (!csv_enabled && !config_.save_degeneracy_report_) {
     return;
   }
 
@@ -2169,14 +938,14 @@ void GraphBasedSlamComponent::Impl::recordScanDegeneracy(const nav_msgs::msg::Od
   if (csv_enabled) {
     degeneracy_csv_ofs_ << degeneracy::degeneracyDiagnosticsCsvRowLine(stamp_sec, result) << "\n";
   }
-  if (save_degeneracy_report_) {
+  if (config_.save_degeneracy_report_) {
     degeneracy_accumulator_.add(stamp_sec, result);
   }
 }
 
 void GraphBasedSlamComponent::Impl::writeDegeneracyReport()
 {
-  if (!save_degeneracy_report_) {
+  if (!config_.save_degeneracy_report_) {
     return;
   }
   // Best-effort, same as the other map-bundle artifacts
@@ -2187,7 +956,7 @@ void GraphBasedSlamComponent::Impl::writeDegeneracyReport()
     std::lock_guard<std::mutex> lock(degeneracy_mtx_);
     summary = degeneracy_accumulator_.summary();
   }
-  const std::string report_path = map_save_dir_ + "/degeneracy_report.yaml";
+  const std::string report_path = config_.map_save_dir_ + "/degeneracy_report.yaml";
   std::ofstream report(report_path);
   if (!report.is_open()) {
     RCLCPP_WARN(node_.get_logger(), "failed to write degeneracy report: %s", report_path.c_str());
@@ -2212,7 +981,7 @@ void GraphBasedSlamComponent::Impl::tryCreateSubmap(
 
   // Check distance threshold (semantics pinned by test_submap_creation.cpp)
   const submap_creation::Decision decision = submap_creation::evaluate(
-    pos, last_submap_position_valid_, last_submap_position_, submap_distance_threshold_);
+    pos, last_submap_position_valid_, last_submap_position_, config_.submap_distance_threshold_);
   if (!decision.create) {return;}
   accumulated_distance_ += decision.distance;
   last_submap_position_ = pos;
@@ -2228,7 +997,7 @@ void GraphBasedSlamComponent::Impl::tryCreateSubmap(
   submap.cloud.header.frame_id = odom_msg.child_frame_id;
 
   const int submap_idx = static_cast<int>(graph_state_.submapCount());
-  if (use_pcd_cache_) {
+  if (config_.use_pcd_cache_) {
     pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
     pcl::fromROSMsg(submap.cloud, *cloud);
     if (saveSubmapToPCD(submap_idx, cloud)) {
@@ -2281,7 +1050,7 @@ bool GraphBasedSlamComponent::Impl::saveSubmapToPCDUnlocked(
   int idx,
   const pcl::PointCloud<pcl::PointXYZI>::Ptr & cloud)
 {
-  std::string path = map_saver::submapCachePath(pcd_cache_dir_, idx);
+  std::string path = map_saver::submapCachePath(config_.pcd_cache_dir_, idx);
   if (pcl::io::savePCDFileBinaryCompressed(path, *cloud) == 0) {
     return true;
   }
@@ -2293,7 +1062,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::Impl::loadSubmapFr
 {
   std::lock_guard<std::mutex> cache_lock(pcd_cache_mtx_);
   auto cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
-  std::string path = map_saver::submapCachePath(pcd_cache_dir_, idx);
+  std::string path = map_saver::submapCachePath(config_.pcd_cache_dir_, idx);
   if (pcl::io::loadPCDFile(path, *cloud) == -1) {
     RCLCPP_WARN(node_.get_logger(), "Failed to load PCD: %s", path.c_str());
   }
@@ -2305,7 +1074,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::Impl::loadSubmapCl
   int idx)
 {
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
-  if (use_pcd_cache_) {
+  if (config_.use_pcd_cache_) {
     cloud = loadSubmapFromPCD(idx);
     if (!cloud->empty()) {
       return cloud;
@@ -2323,9 +1092,9 @@ void GraphBasedSlamComponent::Impl::writeMapBundleArtifacts(
   const LoopEdges & loop_edges,
   const std::vector<Eigen::Isometry3d> & optimized_poses)
 {
-  std::filesystem::create_directories(map_save_dir_);
+  std::filesystem::create_directories(config_.map_save_dir_);
 
-  const std::string trajectory_path = map_save_dir_ + "/trajectory_optimized.tum";
+  const std::string trajectory_path = config_.map_save_dir_ + "/trajectory_optimized.tum";
   std::ofstream trajectory(trajectory_path);
   if (!trajectory.is_open()) {
     RCLCPP_WARN(
@@ -2348,7 +1117,7 @@ void GraphBasedSlamComponent::Impl::writeMapBundleArtifacts(
     }
   }
 
-  const std::string loop_edges_path = map_save_dir_ + "/loop_edges.csv";
+  const std::string loop_edges_path = config_.map_save_dir_ + "/loop_edges.csv";
   std::ofstream loop_csv(loop_edges_path);
   if (!loop_csv.is_open()) {
     RCLCPP_WARN(node_.get_logger(), "failed to write loop edges: %s", loop_edges_path.c_str());
@@ -2376,19 +1145,19 @@ void GraphBasedSlamComponent::Impl::writeMapBundleArtifacts(
   manifest.frame_id = map_array_msg.header.frame_id.empty() ? "map" : map_array_msg.header.frame_id;
   manifest.submap_count = optimized_poses.size();
   manifest.loop_edge_count = loop_edges.size();
-  manifest.map_leaf_size = map_leaf_size_;
-  manifest.grid_size_x = map_grid_size_x_;
-  manifest.grid_size_y = map_grid_size_y_;
-  manifest.dynamic_object_filter = use_dynamic_object_filter_;
-  manifest.planar_map_filter = use_planar_map_filter_;
-  manifest.planar_map_filter_voxel_size = planar_map_filter_voxel_size_;
-  manifest.planar_map_filter_min_neighbors = planar_map_filter_min_neighbors_;
+  manifest.map_leaf_size = config_.map_leaf_size_;
+  manifest.grid_size_x = config_.map_grid_size_x_;
+  manifest.grid_size_y = config_.map_grid_size_y_;
+  manifest.dynamic_object_filter = config_.use_dynamic_object_filter_;
+  manifest.planar_map_filter = config_.use_planar_map_filter_;
+  manifest.planar_map_filter_voxel_size = config_.planar_map_filter_voxel_size_;
+  manifest.planar_map_filter_min_neighbors = config_.planar_map_filter_min_neighbors_;
   manifest.planar_map_filter_max_small_eigenvalue_ratio =
-    planar_map_filter_max_small_eigenvalue_ratio_;
+    config_.planar_map_filter_max_small_eigenvalue_ratio_;
   manifest.planar_map_filter_min_middle_eigenvalue_ratio =
-    planar_map_filter_min_middle_eigenvalue_ratio_;
-  manifest.planar_map_filter_min_retained_ratio = planar_map_filter_min_retained_ratio_;
-  const std::string manifest_path = map_save_dir_ + "/map_bundle.yaml";
+    config_.planar_map_filter_min_middle_eigenvalue_ratio_;
+  manifest.planar_map_filter_min_retained_ratio = config_.planar_map_filter_min_retained_ratio_;
+  const std::string manifest_path = config_.map_save_dir_ + "/map_bundle.yaml";
   std::ofstream manifest_file(manifest_path);
   if (!manifest_file.is_open()) {
     RCLCPP_WARN(
@@ -2411,7 +1180,7 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(
   }
 
   // Create output directory (clean existing PCD files to prevent orphans)
-  std::string out_dir = map_save_dir_ + "/pointcloud_map";
+  std::string out_dir = config_.map_save_dir_ + "/pointcloud_map";
   if (std::filesystem::exists(out_dir)) {
     for (auto & entry : std::filesystem::directory_iterator(out_dir)) {
       if (entry.path().extension() == ".pcd" || entry.path().extension() == ".yaml") {
@@ -2425,26 +1194,20 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(
   pcl::PointCloud<pcl::PointXYZI>::Ptr downsampled(new pcl::PointCloud<pcl::PointXYZI>);
   pcl::VoxelGrid<pcl::PointXYZI> vg;
   vg.setInputCloud(map);
-  vg.setLeafSize(map_leaf_size_, map_leaf_size_, map_leaf_size_);
+  vg.setLeafSize(config_.map_leaf_size_, config_.map_leaf_size_, config_.map_leaf_size_);
   vg.filter(*downsampled);
 
-  std::cout << map_saver::downsampleLogLine(map->size(), downsampled->size(), map_leaf_size_)
+  std::cout << map_saver::downsampleLogLine(map->size(), downsampled->size(),
+      config_.map_leaf_size_)
             << std::endl;
 
   // Apply map-quality refinement to the same leaf-sized point set that is
   // exported and evaluated. Filtering before this VoxelGrid changes local
   // covariance according to raw submap sampling density and does not match
   // the saved-map contract.
-  if (use_planar_map_filter_) {
-    PlanarMapFilterConfig filter_config;
-    filter_config.voxel_size = planar_map_filter_voxel_size_;
-    filter_config.min_neighbors = planar_map_filter_min_neighbors_;
-    filter_config.max_small_eigenvalue_ratio =
-      planar_map_filter_max_small_eigenvalue_ratio_;
-    filter_config.min_middle_eigenvalue_ratio =
-      planar_map_filter_min_middle_eigenvalue_ratio_;
-    filter_config.min_retained_ratio = planar_map_filter_min_retained_ratio_;
-    const auto filter_result = buildPlanarMapFilteredMap(downsampled, filter_config);
+  if (config_.use_planar_map_filter_) {
+    const auto filter_result =
+      buildPlanarMapFilteredMap(downsampled, makePlanarMapFilterConfig(config_));
     downsampled = filter_result.cloud;
     RCLCPP_INFO(
       node_.get_logger(),
@@ -2464,9 +1227,7 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(
   pcl::PointXYZI min_pt, max_pt;
   pcl::getMinMax3D(*downsampled, min_pt, max_pt);
 
-  map_saver::GridConfig grid_config;
-  grid_config.grid_size_x = map_grid_size_x_;
-  grid_config.grid_size_y = map_grid_size_y_;
+  const map_saver::GridConfig grid_config = makeGridConfig(config_);
   const map_saver::GridBounds grid_bounds =
     map_saver::computeGridBounds(min_pt.x, min_pt.y, max_pt.x, max_pt.y, grid_config);
 
@@ -2498,14 +1259,14 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(
   meta.close();
 
   // Also save the full map as a single PCD for convenience
-  pcl::io::savePCDFileBinaryCompressed(map_save_dir_ + "/map.pcd", *downsampled);
+  pcl::io::savePCDFileBinaryCompressed(config_.map_save_dir_ + "/map.pcd", *downsampled);
 
   std::cout << map_saver::savedMapLogLine(saved, grid_config, out_dir) << std::endl;
   std::cout << "Total points: " << downsampled->size() << std::endl;
   std::cout << "Metadata: " << out_dir << "/pointcloud_map_metadata.yaml" << std::endl;
 
   // Always emit map_projector_info.yaml so Autoware can load pointcloud-only maps.
-  std::string proj_file = map_save_dir_ + "/map_projector_info.yaml";
+  std::string proj_file = config_.map_save_dir_ + "/map_projector_info.yaml";
   std::ofstream proj(proj_file);
   proj << map_saver::projectorInfoYaml(gnss_origin_set_, gnss_origin_lat_, gnss_origin_lon_);
   std::cout << map_saver::projectorInfoLogLine(gnss_origin_set_, proj_file) << std::endl;

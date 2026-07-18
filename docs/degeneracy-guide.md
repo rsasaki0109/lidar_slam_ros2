@@ -2,7 +2,7 @@
 
 RKO-LIO's degeneracy-resilience feature set is ~30 expert-tuned parameters
 spread across several files. This page turns that into four presets under
-[`lidarslam/param/presets/`](../lidarslam/param/presets/) plus a symptom
+[`lidarslam/param/presets/`](https://github.com/rsasaki0109/lidar_slam_ros2/tree/develop/lidarslam/param/presets) plus a symptom
 lookup so you don't have to read the research notes to pick a config.
 
 Everything here is opt-in and default-off; unmodified `rko_lio` behavior is
@@ -16,8 +16,8 @@ exp07 negative-result check). Read that page for the full methodology.
 
 | Symptom | Root cause | Preset | Sensors needed |
 | --- | --- | --- | --- |
-| Trajectory reach is much shorter than the true traveled distance in a long, straight, self-similar corridor/tunnel | Single-axis (translation-along-travel) degeneracy: ICP's Hessian is genuinely weak along the corridor axis, so small residuals get absorbed as "no motion" | [`tunnel_radar.ros.yaml`](../lidarslam/param/presets/tunnel_radar.ros.yaml) if you have radar; [`tunnel_intensity_no_radar.ros.yaml`](../lidarslam/param/presets/tunnel_intensity_no_radar.ros.yaml) if you don't **and** the corridor has distinctive reflectivity markings (see limitations) | LiDAR + IMU (+ radar, strongly preferred) |
-| Pose freezes in fog/dust/smoke despite real motion: point count drops, IMU still shows walking/driving vibration, reported velocity goes to ~0 | "Clutter lock" -- aerosol returns travel with the sensor, so ICP sees a **healthy, well-conditioned** Hessian and confidently reports near-zero motion. Eigenvalue-based weak-direction gates never fire in this mode -- only a second, disagreeing sensor can catch it | [`corridor_fog_radar.ros.yaml`](../lidarslam/param/presets/corridor_fog_radar.ros.yaml) | LiDAR + IMU + radar (required -- no radar-less fix is validated for this failure mode) |
+| Trajectory reach is much shorter than the true traveled distance in a long, straight, self-similar corridor/tunnel | Single-axis (translation-along-travel) degeneracy: ICP's Hessian is genuinely weak along the corridor axis, so small residuals get absorbed as "no motion" | [`tunnel_radar.ros.yaml`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/lidarslam/param/presets/tunnel_radar.ros.yaml) if you have radar; [`tunnel_intensity_no_radar.ros.yaml`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/lidarslam/param/presets/tunnel_intensity_no_radar.ros.yaml) if you don't **and** the corridor has distinctive reflectivity markings (see limitations) | LiDAR + IMU (+ radar, strongly preferred) |
+| Pose freezes in fog/dust/smoke despite real motion: point count drops, IMU still shows walking/driving vibration, reported velocity goes to ~0 | "Clutter lock" -- aerosol returns travel with the sensor, so ICP sees a **healthy, well-conditioned** Hessian and confidently reports near-zero motion. Eigenvalue-based weak-direction gates never fire in this mode -- only a second, disagreeing sensor can catch it | [`corridor_fog_radar.ros.yaml`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/lidarslam/param/presets/corridor_fog_radar.ros.yaml) | LiDAR + IMU + radar (required -- no radar-less fix is validated for this failure mode) |
 | Otherwise-good tracking but consistent drift along just one axis (e.g. lateral creep down a flat-walled corridor, or vertical creep under a low, featureless ceiling) | A single Hessian eigenvalue is persistently weak along that one world-frame axis. Confirm with `degeneracy_persistence.csv` (dumped when `dump_results: true`; columns include `confirmed`, `axis_tx..axis_rz`) before reaching for a preset -- it tells you which axis and how often it's confirmed | Same as the corridor/tunnel row if an external sensor (radar or a distinctively textured surface) observes that axis; otherwise `degeneracy_aware_solve` alone (in `tunnel_radar.ros.yaml` / `tunnel_intensity_no_radar.ros.yaml`, minus the radar/intensity gates) still blends a geometric/IMU prior into the confirmed weak direction, with no cross-sensor validation behind it | LiDAR + IMU, cross-sensor gate only if the weak axis is externally observable |
 
 If none of these match -- registration is failing outright, or you were
@@ -55,7 +55,7 @@ ros2 run rko_lio online_node --ros-args \
 ```
 
 You can also drive this through
-[`lidarslam/launch/rko_lio_slam.launch.py`](../lidarslam/launch/rko_lio_slam.launch.py)
+[`lidarslam/launch/rko_lio_slam.launch.py`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/lidarslam/launch/rko_lio_slam.launch.py)
 by passing `rko_param_file:=<merged_yaml>` (that launch file accepts only
 one RKO-LIO param file argument, so merge your sensor config and the chosen
 preset into one file first if you use it instead of `ros2 run`).
