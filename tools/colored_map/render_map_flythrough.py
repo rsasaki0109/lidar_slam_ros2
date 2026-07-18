@@ -282,7 +282,8 @@ def render_flythrough(scene: dict, args: argparse.Namespace,
         frames[k] = render_frames(merge_gaussians(culled, traj),
                                   scene['viewmats'][j][None], scene['K'],
                                   scene['width'], scene['height'],
-                                  device=args.device)[0]
+                                  device=args.device,
+                                  soft_edge_px=args.soft_edge_px)[0]
     return frames
 
 
@@ -354,6 +355,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--dry-run', action='store_true',
                    help='build the camera path, print sanity stats and exit')
     p.add_argument('--device', default='cuda')
+    p.add_argument('--soft-edge-px', type=float, default=0.0,
+                   help='CPU-only outer disc fade width in output pixels; 0 off')
     return p
 
 

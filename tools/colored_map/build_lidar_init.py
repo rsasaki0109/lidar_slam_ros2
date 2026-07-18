@@ -208,6 +208,7 @@ def build(args: argparse.Namespace) -> dict:
             exposure_scale_limit=args.color_exposure_scale_limit,
             max_samples=args.color_max_samples,
             image_margin=args.color_image_margin,
+            vignette_gain_limit=args.color_vignette_gain_limit,
             min_samples=args.color_min_samples)
         colored = int(seen.sum())
     out = pcio.write_ply(args.out, world, rgb)
@@ -220,6 +221,7 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
               exposure_scale_limit: float = 1.5,
               max_samples: int = 12,
               image_margin: int = 0,
+              vignette_gain_limit: float = 1.0,
               min_samples: int = 1):
     """Project ``world`` points into the posed images of a transforms.json."""
     import imageio.v3 as iio
@@ -235,6 +237,7 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
         normalize_exposure=normalize_exposure,
         exposure_scale_limit=exposure_scale_limit,
         max_samples=max_samples, image_margin=image_margin,
+        vignette_gain_limit=vignette_gain_limit,
         return_counts=True)
     if min_samples > 1:
         # Colours confirmed by too few camera observations are unreliable
@@ -298,6 +301,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help='ignore colour samples within this many pixels of the '
                         'image border (skips lens-vignette darkening; 0 keeps '
                         'the full frame)')
+    p.add_argument('--color-vignette-gain-limit', type=float, default=1.0,
+                   help='estimate and apply a shared radial luminance gain, '
+                        'clamped to this value (1 disables correction)')
     p.add_argument('--min-neighbors', type=int, default=2,
                    help='drop points whose 3x3x3 voxel neighbourhood (see '
                         '--sparse-voxel) holds fewer points; default 2 requires '

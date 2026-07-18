@@ -138,7 +138,11 @@ def voxel_color_roughness(xyz: np.ndarray, rgb: np.ndarray,
 
 def evaluate(xyz: np.ndarray, rgb: np.ndarray, *,
              default_rgb=(128, 128, 128), voxel: float = 0.08,
-             images=None, pixel_stride: int = 4) -> dict:
+             images=None, pixel_stride: int = 4,
+             planar_roughness: bool = False,
+             planar_min_points: int = 10,
+             planar_max_ratio: float = 0.06,
+             planar_min_second_ratio: float = 0.04) -> dict:
     """Assemble the appearance report for one coloured cloud."""
     default = np.asarray(default_rgb, dtype=np.uint8)
     seen = np.any(np.asarray(rgb) != default[None, :], axis=1)
@@ -159,6 +163,23 @@ def evaluate(xyz: np.ndarray, rgb: np.ndarray, *,
         report['image_chroma_mean'] = source
         report['chroma_retention'] = (
             float(report['chroma_mean'] / source) if source >= 2.0 else None)
+    if planar_roughness:
+        coloured_xyz = np.asarray(xyz)[seen]
+        _, planar = pcio.project_planar_voxels(
+            coloured_xyz, voxel, min_points=planar_min_points,
+            max_planarity_ratio=planar_max_ratio,
+            min_second_to_first_ratio=planar_min_second_ratio,
+            max_projection_distance=float('inf'))
+        report['planar_points'] = int(planar.sum())
+        report['planar_fraction'] = (
+            float(planar.mean()) if len(planar) else 0.0)
+        report['planar_roughness'] = voxel_color_roughness(
+            coloured_xyz[planar], coloured[planar], voxel=voxel)
+        report['planar_parameters'] = {
+            'min_points': planar_min_points,
+            'max_planarity_ratio': planar_max_ratio,
+            'min_second_to_first_ratio': planar_min_second_ratio,
+        }
     return report
 
 
@@ -177,6 +198,11 @@ def main() -> int:
                         help='sample every Nth source image for image chroma')
     parser.add_argument('--default-rgb', type=int, nargs=3,
                         default=(128, 128, 128))
+    parser.add_argument('--planar-roughness', action='store_true',
+                        help='also score colour roughness in PCA-planar voxels')
+    parser.add_argument('--planar-min-points', type=int, default=10)
+    parser.add_argument('--planar-max-ratio', type=float, default=0.06)
+    parser.add_argument('--planar-min-second-ratio', type=float, default=0.04)
     args = parser.parse_args()
     if args.view_stride < 1:
         raise SystemExit('--view-stride must be >= 1')
@@ -192,7 +218,11 @@ def main() -> int:
         images = [np.asarray(iio.imread(path))
                   for path in dataset['image_paths'][::args.view_stride]]
     report = evaluate(xyz, rgb, default_rgb=tuple(args.default_rgb),
-                      voxel=args.voxel, images=images)
+                      voxel=args.voxel, images=images,
+                      planar_roughness=args.planar_roughness,
+                      planar_min_points=args.planar_min_points,
+                      planar_max_ratio=args.planar_max_ratio,
+                      planar_min_second_ratio=args.planar_min_second_ratio)
     report['pointcloud'] = str(args.pointcloud.resolve())
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2) + '\n')

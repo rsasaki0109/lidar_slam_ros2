@@ -139,3 +139,30 @@ def test_evaluate_mono_images_disable_retention():
     mono = np.full((8, 8), 90, dtype=np.uint8)
     report = app.evaluate(xyz, rgb, images=[mono])
     assert report['chroma_retention'] is None
+
+
+def test_planar_roughness_is_optional_and_detects_planar_pepper():
+    rng = np.random.default_rng(7)
+    xy = rng.uniform(0.0, 0.07, (80, 2))
+    xyz = np.column_stack([xy, rng.normal(0.0, 0.0002, 80)])
+    rgb = np.full((80, 3), 100, dtype=np.uint8)
+    rgb[:8] = 240
+    ordinary = app.evaluate(xyz, rgb, voxel=0.08)
+    planar = app.evaluate(
+        xyz, rgb, voxel=0.08, planar_roughness=True,
+        planar_min_points=10)
+    assert 'planar_roughness' not in ordinary
+    assert planar['planar_points'] == 80
+    assert planar['planar_fraction'] == pytest.approx(1.0)
+    assert planar['planar_roughness']['roughness_p90'] > 30.0
+
+
+def test_planar_roughness_rejects_line_like_voxel():
+    xyz = np.column_stack([
+        np.linspace(0.0, 0.07, 20), np.zeros(20), np.zeros(20)])
+    rgb = np.full((20, 3), 100, dtype=np.uint8)
+    report = app.evaluate(
+        xyz, rgb, voxel=0.08, planar_roughness=True,
+        planar_min_points=10)
+    assert report['planar_points'] == 0
+    assert report['planar_roughness']['voxels_scored'] == 0

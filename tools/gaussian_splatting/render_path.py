@@ -174,7 +174,8 @@ def scale_intrinsics(K: np.ndarray, width: int, height: int,
 # --------------------------------------------------------------------------- #
 def render_frames_cpu(gaussians: dict, viewmats: np.ndarray, K: np.ndarray,
                       width: int, height: int, *,
-                      supersample: int = 2) -> np.ndarray:
+                      supersample: int = 2,
+                      soft_edge_px: float = 0.0) -> np.ndarray:
     """CUDA-free rasteriser for band-0 point sets (``sh_rest`` must be None).
 
     Each Gaussian is drawn as an opaque disc whose radius matches its
@@ -183,12 +184,19 @@ def render_frames_cpu(gaussians: dict, viewmats: np.ndarray, K: np.ndarray,
     matches the gsplat look for the near-opaque flat-colour point clouds that
     ``points_to_gaussians`` produces; translucent or anisotropic Gaussian
     sets still need the CUDA path.
+
+    ``soft_edge_px`` adds a fading outer fringe only where the opaque render
+    is still black. Existing surface pixels and depth winners are untouched,
+    avoiding dark halos where a foreground fringe overlaps another disc.
     """
     if gaussians['sh_rest'] is not None:
         raise ValueError('render_frames_cpu only supports sh_rest=None sets')
     if supersample < 1:
         raise ValueError('supersample must be >= 1')
+    if soft_edge_px < 0.0:
+        raise ValueError('soft_edge_px must be >= 0')
     ss = int(supersample)
+    soft_width = int(round(float(soft_edge_px) * ss))
     w2, h2 = int(width) * ss, int(height) * ss
     means = np.asarray(gaussians['means'], dtype=np.float64)
     sigma = np.exp(np.asarray(gaussians['scales_log'], dtype=np.float64)[:, 0])
@@ -197,6 +205,7 @@ def render_frames_cpu(gaussians: dict, viewmats: np.ndarray, K: np.ndarray,
     fx, fy = float(K[0, 0]) * ss, float(K[1, 1]) * ss
     cx, cy = float(K[0, 2]) * ss, float(K[1, 2]) * ss
     max_radius = 4 * ss
+    max_draw_radius = max_radius + soft_width
     depth_shift = np.int64(1) << np.int64(24)
     no_hit = np.iinfo(np.int64).max
     frames = np.empty((len(viewmats), height, width, 3), dtype=np.uint8)
@@ -210,11 +219,13 @@ def render_frames_cpu(gaussians: dict, viewmats: np.ndarray, K: np.ndarray,
         zn = z[near]
         radius = np.clip(np.round(2.0 * sigma[near] * fx / zn).astype(np.int64),
                          1, max_radius)
-        inb = ((u >= -max_radius) & (u < w2 + max_radius) &
-               (v >= -max_radius) & (v < h2 + max_radius))
+        inb = ((u >= -max_draw_radius) & (u < w2 + max_draw_radius) &
+               (v >= -max_draw_radius) & (v < h2 + max_draw_radius))
         u, v, zn, radius = u[inb], v[inb], zn[inb], radius[inb]
         ids = np.flatnonzero(near)[inb]
         buf = np.full(w2 * h2, no_hit, dtype=np.int64)
+        fringe_buf = (np.full(w2 * h2, no_hit, dtype=np.int64)
+                      if soft_width > 0 else None)
         if len(ids):
             # One winner-take-all pass per disc offset: pack (quantized depth,
             # local index) into an int64 so np.minimum.at resolves per-pixel
@@ -227,29 +238,53 @@ def render_frames_cpu(gaussians: dict, viewmats: np.ndarray, K: np.ndarray,
             for r in np.unique(radius):
                 sel = by_radius[np.searchsorted(sorted_radius, r):
                                 np.searchsorted(sorted_radius, r, side='right')]
-                for dy in range(-int(r), int(r) + 1):
-                    for dx in range(-int(r), int(r) + 1):
-                        if dy * dy + dx * dx > r * r:
+                draw_radius = int(r) + soft_width
+                for dy in range(-draw_radius, draw_radius + 1):
+                    for dx in range(-draw_radius, draw_radius + 1):
+                        if dy * dy + dx * dx > draw_radius * draw_radius:
                             continue
                         uu = u[sel] + dx
                         vv = v[sel] + dy
                         ok = (uu >= 0) & (uu < w2) & (vv >= 0) & (vv < h2)
                         if not ok.any():
                             continue
-                        np.minimum.at(buf, vv[ok] * w2 + uu[ok], keys[sel][ok])
+                        target = (fringe_buf if soft_width > 0 and
+                                  dy * dy + dx * dx > r * r else buf)
+                        np.minimum.at(
+                            target, vv[ok] * w2 + uu[ok], keys[sel][ok])
         canvas = np.zeros((w2 * h2, 3), dtype=np.uint8)
         hit = buf != no_hit
-        canvas[hit] = colors[ids[buf[hit] % depth_shift]]
+        winners = buf[hit] % depth_shift
+        canvas[hit] = colors[ids[winners]]
+        if fringe_buf is not None:
+            fringe_hit = (~hit) & (fringe_buf != no_hit)
+            fringe_winners = fringe_buf[fringe_hit] % depth_shift
+            pixels = np.flatnonzero(fringe_hit)
+            px = pixels % w2
+            py = pixels // w2
+            distance = np.hypot(
+                px - u[fringe_winners], py - v[fringe_winners])
+            alpha = np.clip(
+                (radius[fringe_winners] + soft_width - distance) / soft_width,
+                0.0, 1.0)
+            fringe_colours = colors[ids[fringe_winners]].astype(np.float32)
+            canvas[fringe_hit] = np.round(
+                fringe_colours * alpha[:, None]).astype(np.uint8)
         frames[i] = canvas.reshape(height, ss, width, ss, 3) \
             .mean(axis=(1, 3)).astype(np.uint8)
     return frames
 
 
 def render_frames(gaussians: dict, viewmats: np.ndarray, K: np.ndarray,
-                  width: int, height: int, *, device: str = 'cuda') -> np.ndarray:
+                  width: int, height: int, *, device: str = 'cuda',
+                  soft_edge_px: float = 0.0) -> np.ndarray:
     """Rasterise every w2c view; returns uint8 frames (F, H, W, 3)."""
     if device == 'cpu':
-        return render_frames_cpu(gaussians, viewmats, K, width, height)
+        return render_frames_cpu(
+            gaussians, viewmats, K, width, height,
+            soft_edge_px=soft_edge_px)
+    if soft_edge_px != 0.0:
+        raise ValueError('soft_edge_px is only supported by the CPU renderer')
     import torch
     import torch.nn.functional as F
 

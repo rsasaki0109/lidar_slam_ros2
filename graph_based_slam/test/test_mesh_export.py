@@ -61,6 +61,12 @@ def _load():
 mesh_export = _load()
 
 
+def test_cli_parser_accepts_thin_voxel():
+    args = mesh_export._build_arg_parser().parse_args(
+        ['input.ply', 'output.ply', '--thin-voxel', '0.1'])
+    assert args.thin_voxel == pytest.approx(0.1)
+
+
 def _red_sphere(n=3000):
     """Build a dense red sphere for both reconstructors."""
     sph = o3d.geometry.TriangleMesh.create_sphere(radius=1.0, resolution=20)

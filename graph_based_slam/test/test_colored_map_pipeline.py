@@ -300,27 +300,34 @@ def test_quality_profile_adds_two_evaluators_and_gate(tmp_path):
         'out/heldout_point_colors.json')
 
 
-def test_quality_profile_requires_external_reports_before_running(tmp_path):
-    import pytest
+def test_quality_profile_allows_appearance_and_colour_only(tmp_path):
     args = _args(
         tmp_path, '--quality-profile', str(tmp_path / 'profile.yaml'),
         '--dry-run')
-    with pytest.raises(ValueError, match='trajectory-report.*geometry-report'):
-        cmp.run_pipeline(args)
+    commands = cmp.build_commands(args)
+    gate = dict(commands)['quality gate']
+    assert '--trajectory-report' not in gate
+    assert '--geometry-report' not in gate
+    assert '--alignment-report' in gate
+    assert '--colour-report' in gate
+    assert '--appearance-report' in gate
 
 
 def test_vignette_and_confidence_options_reach_map_builder(tmp_path):
     commands = cmp.build_commands(_args(
-        tmp_path, '--color-image-margin', '140', '--color-min-samples', '3'))
+        tmp_path, '--color-image-margin', '140', '--color-min-samples', '3',
+        '--color-vignette-gain-limit', '2.5'))
     build = commands[1][1]
     assert build[build.index('--color-image-margin') + 1] == '140'
     assert build[build.index('--color-min-samples') + 1] == '3'
+    assert build[build.index('--color-vignette-gain-limit') + 1] == '2.5'
 
 
 def test_vignette_and_confidence_defaults_are_off(tmp_path):
     build = cmp.build_commands(_args(tmp_path))[1][1]
     assert build[build.index('--color-image-margin') + 1] == '0'
     assert build[build.index('--color-min-samples') + 1] == '1'
+    assert build[build.index('--color-vignette-gain-limit') + 1] == '1.0'
 
 
 def test_quality_profile_adds_appearance_stage_and_gate_wiring(tmp_path):
@@ -338,3 +345,21 @@ def test_quality_profile_adds_appearance_stage_and_gate_wiring(tmp_path):
     gate_cmd = dict(commands)['quality gate']
     assert gate_cmd[gate_cmd.index('--appearance-report') + 1].endswith(
         'colored_map_appearance.json')
+
+
+def test_planar_roughness_option_reaches_appearance_evaluator(tmp_path):
+    commands = cmp.build_commands(_args(
+        tmp_path, '--quality-profile', str(tmp_path / 'profile.yaml'),
+        '--appearance-planar-roughness'))
+    assert '--planar-roughness' in dict(commands)['appearance']
+
+
+def test_planar_roughness_profile_enables_evaluator_automatically(tmp_path):
+    profile = tmp_path / 'profile.yaml'
+    profile.write_text(
+        'colored_map_quality_profile:\n'
+        '  thresholds:\n'
+        '    appearance_planar_roughness_p90_max: 25.0\n')
+    commands = cmp.build_commands(_args(
+        tmp_path, '--quality-profile', str(profile)))
+    assert '--planar-roughness' in dict(commands)['appearance']

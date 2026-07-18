@@ -680,3 +680,31 @@ def test_colorize_robust_image_margin_validation():
         with np.testing.assert_raises(ValueError):
             pcio.colorize_by_projection_robust(
                 np.zeros((1, 3)), vms, K, [img], W, H, image_margin=margin)
+
+
+def test_radial_vignette_gain_recovers_dark_border_and_is_default_off():
+    vms, K, W, H = _cam()
+    yy, xx = np.mgrid[:H, :W]
+    radius = np.hypot(xx - 50.0, yy - 50.0) / np.hypot(50.0, 50.0)
+    image = np.clip(120.0 * (1.0 - 0.5 * radius ** 2), 0, 255)
+    image = np.repeat(image[:, :, None], 3, axis=2).astype(np.uint8)
+    points = np.array([[0.0, 0.0, 5.0], [2.25, 0.0, 5.0]])
+    baseline, _ = pcio.colorize_by_projection_robust(
+        points, vms, K, [image], W, H, normalize_exposure=False)
+    disabled, _ = pcio.colorize_by_projection_robust(
+        points, vms, K, [image], W, H, normalize_exposure=False,
+        vignette_gain_limit=1.0)
+    corrected, _ = pcio.colorize_by_projection_robust(
+        points, vms, K, [image], W, H, normalize_exposure=False,
+        vignette_gain_limit=2.5)
+    np.testing.assert_array_equal(disabled, baseline)
+    assert corrected[1, 0] > baseline[1, 0] + 15
+    assert abs(int(corrected[1, 0]) - int(corrected[0, 0])) < 10
+
+
+def test_radial_vignette_gain_validation():
+    vms, K, W, H = _cam()
+    with np.testing.assert_raises(ValueError):
+        pcio.colorize_by_projection_robust(
+            np.zeros((1, 3)), vms, K, [np.zeros((H, W, 3))], W, H,
+            vignette_gain_limit=0.9)

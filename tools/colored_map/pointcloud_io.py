@@ -331,6 +331,85 @@ def _median_luminance(img: np.ndarray) -> float:
     return float(np.median(np.tensordot(arr[:, :, :3], coeff, axes=([-1], [0]))))
 
 
+def estimate_radial_vignette_gains(images, width: int, height: int, *,
+                                   cx: Optional[float] = None,
+                                   cy: Optional[float] = None,
+                                   bins: int = 32, sample_stride: int = 8,
+                                   gain_limit: float = 2.5) -> np.ndarray:
+    """Estimate one robust radial luminance correction shared by all views.
+
+    Each image is normalised by its central luminance before annular profiles
+    are combined, which separates per-view exposure from a lens-fixed radial
+    falloff. The returned curve only brightens, is monotonically non-decreasing,
+    and is clamped by ``gain_limit``. It therefore cannot amplify dark corners
+    without a caller explicitly choosing a limit above one.
+    """
+    if bins < 4:
+        raise ValueError('bins must be >= 4')
+    if sample_stride < 1:
+        raise ValueError('sample_stride must be >= 1')
+    if gain_limit < 1.0:
+        raise ValueError('gain_limit must be >= 1')
+    if len(images) == 0:
+        return np.ones(bins, dtype=np.float32)
+    centre_x = (width - 1) * 0.5 if cx is None else float(cx)
+    centre_y = (height - 1) * 0.5 if cy is None else float(cy)
+    ys = np.arange(0, height, sample_stride, dtype=np.float32)
+    xs = np.arange(0, width, sample_stride, dtype=np.float32)
+    xx, yy = np.meshgrid(xs, ys)
+    corner_radius = max(
+        np.hypot(x - centre_x, y - centre_y)
+        for x in (0.0, width - 1.0) for y in (0.0, height - 1.0))
+    radius = np.hypot(xx - centre_x, yy - centre_y) / max(corner_radius, 1.0)
+    bin_ids = np.minimum((radius * bins).astype(np.intp), bins - 1)
+    central = radius <= 0.2
+    profiles = []
+    coeff = np.asarray([0.299, 0.587, 0.114], dtype=np.float32)
+    for image in images:
+        arr = np.asarray(image, dtype=np.float32)
+        if arr.shape[:2] != (height, width):
+            raise ValueError('all images must match width and height')
+        if arr.ndim == 2:
+            lum = arr
+        elif arr.ndim == 3 and arr.shape[2] == 1:
+            lum = arr[:, :, 0]
+        elif arr.ndim == 3 and arr.shape[2] >= 3:
+            lum = np.tensordot(arr[:, :, :3], coeff, axes=([-1], [0]))
+        else:
+            raise ValueError(f'image must be HxW or HxWxC, got {arr.shape}')
+        sampled = lum[::sample_stride, ::sample_stride]
+        reference = float(np.median(sampled[central]))
+        if reference <= 1.0e-6:
+            continue
+        profile = np.asarray([
+            np.median(sampled[bin_ids == index]) / reference
+            if np.any(bin_ids == index) else np.nan
+            for index in range(bins)
+        ], dtype=np.float32)
+        valid_bins = np.flatnonzero(np.isfinite(profile))
+        if valid_bins.size:
+            profile = np.interp(
+                np.arange(bins), valid_bins, profile[valid_bins]).astype(np.float32)
+        profiles.append(profile)
+    if not profiles:
+        return np.ones(bins, dtype=np.float32)
+    radial_profile = np.median(np.stack(profiles), axis=0)
+    radial_profile = np.where(
+        np.isfinite(radial_profile) & (radial_profile > 1.0e-6),
+        radial_profile, 1.0)
+    gains = 1.0 / radial_profile
+    gains = np.convolve(np.pad(gains, (1, 1), mode='edge'),
+                        np.asarray([0.25, 0.5, 0.25]), mode='valid')
+    central_gain = float(np.median(gains[:max(1, bins // 5)]))
+    gains /= max(central_gain, 1.0e-6)
+    # Lens vignetting is an outer-field effect. Pin the inner 60% to identity
+    # so scene-content outliers in a tiny central annulus cannot be propagated
+    # across the whole curve by the monotonic constraint below.
+    gains[:int(np.ceil(0.6 * bins))] = 1.0
+    gains = np.maximum.accumulate(np.clip(gains, 1.0, gain_limit))
+    return gains.astype(np.float32)
+
+
 def observed_color_medoids(samples: np.ndarray, chunk: int = 20000) -> np.ndarray:
     """Choose the observed RGB sample nearest all other samples per point.
 
@@ -367,6 +446,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   prefer_near: bool = True,
                                   observation_mask: Optional[np.ndarray] = None,
                                   image_margin: int = 0,
+                                  vignette_gain_limit: float = 1.0,
                                   return_counts: bool = False):
     """Occlusion-aware, exposure-normalised, median-robust point colorization.
 
@@ -399,6 +479,9 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     pixels of the image border, where lens vignetting darkens the pixels that
     per-view global exposure gains cannot repair; points near one view's border
     stay colourable from the views that see them more centrally.
+    ``vignette_gain_limit > 1`` estimates a shared radial luminance profile,
+    pins the inner 60 % of the image radius to unity, and brightens only the
+    outer field up to the requested clamp. The default 1 disables correction.
 
     Returns ``(rgb uint8 (N,3), seen bool (N,))``, or with ``return_counts`` the
     triple ``(rgb, seen, counts uint16 (N,))`` giving each point's surviving
@@ -419,6 +502,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         raise ValueError('zbuf_bin must be >= 1')
     if exposure_scale_limit < 1.0:
         raise ValueError('exposure_scale_limit must be >= 1')
+    if vignette_gain_limit < 1.0:
+        raise ValueError('vignette_gain_limit must be >= 1')
     if image_margin < 0 or 2 * image_margin >= min(int(width), int(height)):
         raise ValueError('image_margin must be >= 0 and leave a usable '
                          'central image region')
@@ -429,6 +514,15 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     samples = np.empty((n, int(max_samples), 3), dtype=np.uint8)
     # Depth stored alongside each sample so a nearer view can evict the farthest.
     sample_z = np.full((n, int(max_samples)), np.inf, dtype=np.float32)
+    vignette_gains = None
+    vignette_radius = 1.0
+    if vignette_gain_limit > 1.0:
+        vignette_gains = estimate_radial_vignette_gains(
+            images, width, height, cx=cx, cy=cy,
+            gain_limit=vignette_gain_limit)
+        vignette_radius = max(
+            np.hypot(x - cx, y - cy)
+            for x in (0.0, width - 1.0) for y in (0.0, height - 1.0))
 
     scales = np.ones(len(images), dtype=np.float32)
     if normalize_exposure:
@@ -478,6 +572,12 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
             continue
         cols = _sample_pixels(
             img, uf[cand], vf[cand], width, height, interp, edge_threshold)
+        if vignette_gains is not None:
+            radius = np.hypot(uf[cand] - cx, vf[cand] - cy) / vignette_radius
+            gain = np.interp(
+                radius, np.linspace(0.0, 1.0, len(vignette_gains)),
+                vignette_gains).astype(np.float32)
+            cols *= gain[:, None]
         cols = np.clip(cols * scales[vi], 0.0, 255.0).astype(np.uint8)
 
         # Points with room: append into the next free slot.
