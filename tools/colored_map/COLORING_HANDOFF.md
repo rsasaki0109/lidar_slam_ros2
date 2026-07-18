@@ -254,3 +254,28 @@ I点群のexportも再検証した。GIS CSV / LASを0.1m thinningして851,755�
 全点RGBあり・座標量子1mm。meshには`--thin-voxel`を追加し、0.2m thinning + BPA
 (radii 0.15/0.3/0.6m)で127,396 vertices / 109,189 triangles、vertex colourあり。
 成果物はbenchmark directoryの`exports_I/`。
+
+## 14. 追記 (2026-07-18): K3着色 + surface cinematic README動画
+
+Iを起点に、画像overlapで共有される可視3D点のRGB比からframe単位の露出・white
+balanceを解く`estimate_overlap_rgb_gains`と、voxel PCA normalの入射角・投影scaleで
+観測を選ぶview confidenceを追加した。両方default-off。無正則化のKは長いloopで
+gain driftが累積し、ほぼ全frameがclampしたため不採用。既存のscalar exposureを
+absolute priorにした正則化256と、近距離優先を覆さない弱いangle係数を使うK3を採用。
+
+K3 (`colored_K3_balanced_confidence.ply`) は4,840,318点でcoverage 0.74761
+(I: 0.74755)、roughness median/p90 5.43/20.67、planar roughness 7.23/23.89、
+chroma retention 1.002。masked held-outはmedian 41.17 / inlier20 0.2863で、RTK
+report-only profileの11項目を全PASSした。再着色だけを反復できる
+`recolor_pointcloud.py`も追加した。
+
+CPU rendererはvoxel normalを投影してnormal-aligned ellipseを描く
+`--surface-splat`を追加。cameraはarc-length pathへcorner slowdown、look-ahead、
+近距離構図を加えた`--camera-preset cinematic`を追加した。旧挙動はそれぞれ
+default-off / `legacy`。README版は240 frames、600x450、30fps、point size 0.025、
+render voxel 0.03、soft edge 1px、surface aspect 2.5、normal voxel 0.12、cinematic。
+
+同じ240 frame評価で旧README→K3はoccupied pixel 0.78820→0.80735、black pixel
+0.21180→0.19265、temporal delta p90 0.01589→0.01113、flicker p90
+0.00800→0.00688。WebP/MP4/GIFをK3から再生成した。成果物・JSON・棄却したK/K2は
+`/media/sasaki/aiueo/benchmarks/rtkslam_seq1_colored_map_20260718/`に保存。

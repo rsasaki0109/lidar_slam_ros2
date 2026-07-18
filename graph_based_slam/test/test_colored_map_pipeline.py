@@ -316,11 +316,20 @@ def test_quality_profile_allows_appearance_and_colour_only(tmp_path):
 def test_vignette_and_confidence_options_reach_map_builder(tmp_path):
     commands = cmp.build_commands(_args(
         tmp_path, '--color-image-margin', '140', '--color-min-samples', '3',
-        '--color-vignette-gain-limit', '2.5'))
+        '--color-vignette-gain-limit', '2.5', '--color-overlap-balance',
+        '--color-view-confidence', '--color-normal-voxel', '0.2',
+        '--color-min-view-cosine', '0.1', '--color-min-projected-scale', '8',
+        '--color-view-score-power', '2'))
     build = commands[1][1]
     assert build[build.index('--color-image-margin') + 1] == '140'
     assert build[build.index('--color-min-samples') + 1] == '3'
     assert build[build.index('--color-vignette-gain-limit') + 1] == '2.5'
+    assert '--color-overlap-balance' in build
+    assert '--color-view-confidence' in build
+    assert build[build.index('--color-normal-voxel') + 1] == '0.2'
+    assert build[build.index('--color-min-view-cosine') + 1] == '0.1'
+    assert build[build.index('--color-min-projected-scale') + 1] == '8.0'
+    assert build[build.index('--color-view-score-power') + 1] == '2.0'
 
 
 def test_vignette_and_confidence_defaults_are_off(tmp_path):
@@ -328,6 +337,8 @@ def test_vignette_and_confidence_defaults_are_off(tmp_path):
     assert build[build.index('--color-image-margin') + 1] == '0'
     assert build[build.index('--color-min-samples') + 1] == '1'
     assert build[build.index('--color-vignette-gain-limit') + 1] == '1.0'
+    assert '--color-overlap-balance' not in build
+    assert '--color-view-confidence' not in build
 
 
 def test_quality_profile_adds_appearance_stage_and_gate_wiring(tmp_path):

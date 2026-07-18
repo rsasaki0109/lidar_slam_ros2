@@ -204,6 +204,16 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
         ]
         if not args.color_normalize_exposure:
             build.append('--color-no-normalize-exposure')
+        if args.color_overlap_balance:
+            build.append('--color-overlap-balance')
+        if args.color_view_confidence:
+            build.extend([
+                '--color-view-confidence',
+                '--color-normal-voxel', str(args.color_normal_voxel),
+                '--color-min-view-cosine', str(args.color_min_view_cosine),
+                '--color-min-projected-scale', str(args.color_min_projected_scale),
+                '--color-view-score-power', str(args.color_view_score_power),
+            ])
         if args.lidar_calibration is not None:
             build.extend([
                 '--lidar-calibration', str(args.lidar_calibration),
@@ -389,6 +399,12 @@ def build_parser() -> argparse.ArgumentParser:
                         'image border (lens vignette)')
     p.add_argument('--color-vignette-gain-limit', type=float, default=1.0,
                    help='maximum automatic radial luminance gain; 1 disables')
+    p.add_argument('--color-overlap-balance', action='store_true')
+    p.add_argument('--color-view-confidence', action='store_true')
+    p.add_argument('--color-normal-voxel', type=float, default=0.12)
+    p.add_argument('--color-min-view-cosine', type=float, default=0.0)
+    p.add_argument('--color-min-projected-scale', type=float, default=0.0)
+    p.add_argument('--color-view-score-power', type=float, default=1.0)
     p.add_argument('--color-min-samples', type=int, default=1,
                    help='demote colours confirmed by fewer surviving camera '
                         'samples than this to unseen (1 keeps all)')
