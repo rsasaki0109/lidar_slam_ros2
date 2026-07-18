@@ -209,6 +209,12 @@ def build(args: argparse.Namespace) -> dict:
             max_samples=args.color_max_samples,
             image_margin=args.color_image_margin,
             vignette_gain_limit=args.color_vignette_gain_limit,
+            overlap_color_balance=args.color_overlap_balance,
+            view_confidence=args.color_view_confidence,
+            normal_voxel=args.color_normal_voxel,
+            min_view_cosine=args.color_min_view_cosine,
+            min_projected_scale=args.color_min_projected_scale,
+            view_score_power=args.color_view_score_power,
             min_samples=args.color_min_samples)
         colored = int(seen.sum())
     out = pcio.write_ply(args.out, world, rgb)
@@ -222,6 +228,12 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
               max_samples: int = 12,
               image_margin: int = 0,
               vignette_gain_limit: float = 1.0,
+              overlap_color_balance: bool = False,
+              view_confidence: bool = False,
+              normal_voxel: float = 0.12,
+              min_view_cosine: float = 0.0,
+              min_projected_scale: float = 0.0,
+              view_score_power: float = 0.0,
               min_samples: int = 1):
     """Project ``world`` points into the posed images of a transforms.json."""
     import imageio.v3 as iio
@@ -232,12 +244,19 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
     if not robust:
         return pcio.colorize_by_projection(
             world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'])
+    normals = (pcio.estimate_voxel_normals(world, voxel=normal_voxel)
+               if view_confidence else None)
     rgb, seen, counts = pcio.colorize_by_projection_robust(
         world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'],
         normalize_exposure=normalize_exposure,
         exposure_scale_limit=exposure_scale_limit,
         max_samples=max_samples, image_margin=image_margin,
         vignette_gain_limit=vignette_gain_limit,
+        overlap_color_balance=overlap_color_balance,
+        point_normals=normals,
+        min_view_cosine=min_view_cosine,
+        min_projected_scale=min_projected_scale,
+        view_score_power=view_score_power,
         return_counts=True)
     if min_samples > 1:
         # Colours confirmed by too few camera observations are unreliable
@@ -304,6 +323,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--color-vignette-gain-limit', type=float, default=1.0,
                    help='estimate and apply a shared radial luminance gain, '
                         'clamped to this value (1 disables correction)')
+    p.add_argument('--color-overlap-balance', action='store_true',
+                   help='solve per-frame exposure and white balance from RGB '
+                        'of shared visible 3D points')
+    p.add_argument('--color-view-confidence', action='store_true',
+                   help='prefer observations with strong incidence angle and '
+                        'projected resolution using voxel normals')
+    p.add_argument('--color-normal-voxel', type=float, default=0.12)
+    p.add_argument('--color-min-view-cosine', type=float, default=0.0)
+    p.add_argument('--color-min-projected-scale', type=float, default=0.0)
+    p.add_argument('--color-view-score-power', type=float, default=1.0)
     p.add_argument('--min-neighbors', type=int, default=2,
                    help='drop points whose 3x3x3 voxel neighbourhood (see '
                         '--sparse-voxel) holds fewer points; default 2 requires '

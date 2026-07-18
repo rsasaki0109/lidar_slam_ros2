@@ -296,6 +296,31 @@ def test_render_frames_cpu_soft_edge_expands_with_fade():
     assert np.any((softened > 0) & (softened < 255))
 
 
+def test_render_frames_cpu_surface_splat_aligns_ellipse_to_plane():
+    gaussians = _point_set(
+        [[0.0, 0.0, 2.0]], [[1.0, 1.0, 1.0]], size=0.03)
+    gaussians['surface_normals'] = np.array([[1.0, 0.0, 0.0]])
+    K = np.array([[40.0, 0.0, 16.0],
+                  [0.0, 40.0, 16.0],
+                  [0.0, 0.0, 1.0]])
+    frame = rp.render_frames_cpu(
+        gaussians, np.eye(4)[None], K, 32, 32, supersample=2,
+        surface_splat=True, surface_aspect_limit=3.0)[0]
+    yy, xx = np.nonzero(frame.sum(axis=2) > 0)
+    assert np.ptp(yy) > np.ptp(xx)
+
+
+def test_render_frames_cpu_surface_splat_validation():
+    gaussians = _point_set([[0.0, 0.0, 2.0]], [[1.0, 1.0, 1.0]])
+    K, viewmats, width, height = _centred_camera()
+    with pytest.raises(ValueError, match='surface_normals'):
+        rp.render_frames_cpu(gaussians, viewmats, K, width, height,
+                             surface_splat=True)
+    with pytest.raises(ValueError, match='surface_aspect_limit'):
+        rp.render_frames_cpu(gaussians, viewmats, K, width, height,
+                             surface_aspect_limit=0.9)
+
+
 def test_render_frames_dispatches_cpu_device():
     gaussians = _point_set([[0.0, 0.0, 2.0]], [[0.0, 1.0, 0.0]])
     K, viewmats, width, height = _centred_camera()

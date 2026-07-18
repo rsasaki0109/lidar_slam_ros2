@@ -410,6 +410,170 @@ def estimate_radial_vignette_gains(images, width: int, height: int, *,
     return gains.astype(np.float32)
 
 
+def estimate_voxel_normals(points: np.ndarray, *, voxel: float = 0.12,
+                           min_points: int = 6) -> np.ndarray:
+    """Estimate deterministic surface normals from per-voxel covariance.
+
+    The dense coloured maps contain millions of points, making a per-point
+    k-nearest-neighbour fit unnecessarily expensive.  Points are instead
+    grouped into metric voxels and share the least-variance eigenvector of
+    their voxel covariance.  Voxels without enough support receive a zero
+    normal, which callers treat as "confidence unavailable" rather than
+    inventing an orientation.
+    """
+    xyz = np.asarray(points, dtype=np.float64)
+    if xyz.ndim != 2 or xyz.shape[1] != 3:
+        raise ValueError(f'points must be Nx3, got {xyz.shape}')
+    if voxel <= 0.0:
+        raise ValueError('voxel must be > 0')
+    if min_points < 3:
+        raise ValueError('min_points must be >= 3')
+    if len(xyz) == 0:
+        return np.zeros((0, 3), dtype=np.float32)
+    keys = np.floor(xyz / float(voxel)).astype(np.int64)
+    _, inverse, counts = np.unique(
+        keys, axis=0, return_inverse=True, return_counts=True)
+    groups = len(counts)
+    sums = np.stack([
+        np.bincount(inverse, weights=xyz[:, axis], minlength=groups)
+        for axis in range(3)
+    ], axis=1)
+    means = sums / counts[:, None]
+    centred = xyz - means[inverse]
+    covariance = np.empty((groups, 3, 3), dtype=np.float64)
+    for row in range(3):
+        for col in range(row, 3):
+            value = np.bincount(
+                inverse, weights=centred[:, row] * centred[:, col],
+                minlength=groups) / counts
+            covariance[:, row, col] = value
+            covariance[:, col, row] = value
+    normals_by_group = np.zeros((groups, 3), dtype=np.float64)
+    supported = counts >= int(min_points)
+    if supported.any():
+        _, eigenvectors = np.linalg.eigh(covariance[supported])
+        normals_by_group[supported] = eigenvectors[:, :, 0]
+    return normals_by_group[inverse].astype(np.float32)
+
+
+def estimate_overlap_rgb_gains(points: np.ndarray, viewmats: np.ndarray,
+                               K: np.ndarray, images, width: int, height: int,
+                               *, gain_limit: float = 1.5,
+                               sample_limit: int = 50000,
+                               min_shared: int = 64,
+                               neighbour_span: int = 8,
+                               regularization: float = 256.0) -> np.ndarray:
+    """Solve per-view RGB gains from shared, visible 3D observations.
+
+    For nearby image pairs, the same unoccluded LiDAR points provide direct
+    colour correspondences.  Median log-RGB ratios form a small pose-order
+    graph whose least-squares solution removes exposure and white-balance
+    discontinuities without assuming that unrelated images depict equally
+    bright scene content.  Gains are centred per channel and symmetrically
+    clamped.  A disconnected or correspondence-free graph returns identity.
+    """
+    xyz = np.asarray(points, dtype=np.float64)
+    views = np.asarray(viewmats, dtype=np.float64)
+    if len(views) != len(images):
+        raise ValueError('viewmats and images must have equal length')
+    if gain_limit < 1.0:
+        raise ValueError('gain_limit must be >= 1')
+    if sample_limit < 1 or min_shared < 1 or neighbour_span < 1:
+        raise ValueError('sample_limit, min_shared and neighbour_span must be >= 1')
+    if regularization < 0.0:
+        raise ValueError('regularization must be >= 0')
+    if len(images) == 0 or len(xyz) == 0:
+        return np.ones((len(images), 3), dtype=np.float32)
+    if len(xyz) > sample_limit:
+        choose = np.linspace(0, len(xyz) - 1, sample_limit).astype(np.intp)
+        xyz = xyz[choose]
+    fx, fy, cx, cy = (float(K[0, 0]), float(K[1, 1]),
+                      float(K[0, 2]), float(K[1, 2]))
+    observations = []
+    for vm, image in zip(views, images):
+        cam = xyz @ vm[:3, :3].T + vm[:3, 3]
+        z = cam[:, 2]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            uf = np.nan_to_num(fx * cam[:, 0] / z + cx, nan=-1.0,
+                               posinf=-1.0, neginf=-1.0)
+            vf = np.nan_to_num(fy * cam[:, 1] / z + cy, nan=-1.0,
+                               posinf=-1.0, neginf=-1.0)
+        u = np.round(uf).astype(np.int64)
+        v = np.round(vf).astype(np.int64)
+        inside = ((z > 1.0e-6) & (u >= 0) & (u < width) &
+                  (v >= 0) & (v < height))
+        ids = np.flatnonzero(inside)
+        if not len(ids):
+            observations.append((ids, np.zeros((0, 3), dtype=np.float32)))
+            continue
+        pixel = v[ids] * int(width) + u[ids]
+        depth = np.full(int(width) * int(height), np.inf, dtype=np.float32)
+        np.minimum.at(depth, pixel, z[ids].astype(np.float32))
+        visible = z[ids] <= depth[pixel] + 0.15 + 0.02 * z[ids]
+        ids = ids[visible]
+        colours = _sample_pixels(
+            image, uf[ids], vf[ids], width, height, 'nearest', 48.0)
+        if colours.ndim == 1:
+            colours = np.repeat(colours[:, None], 3, axis=1)
+        elif colours.shape[1] == 1:
+            colours = np.repeat(colours, 3, axis=1)
+        observations.append((ids, colours[:, :3].astype(np.float32)))
+
+    rows = []
+    targets = []
+    for right in range(len(observations)):
+        ids_r, colours_r = observations[right]
+        for left in range(max(0, right - neighbour_span), right):
+            ids_l, colours_l = observations[left]
+            common, il, ir = np.intersect1d(
+                ids_l, ids_r, assume_unique=True, return_indices=True)
+            if len(common) < min_shared:
+                continue
+            a, b = colours_l[il], colours_r[ir]
+            usable = np.all((a > 5.0) & (a < 250.0) &
+                            (b > 5.0) & (b < 250.0), axis=1)
+            if int(usable.sum()) < min_shared:
+                continue
+            row = np.zeros(len(observations), dtype=np.float64)
+            row[left], row[right] = -1.0, 1.0
+            rows.append(row)
+            targets.append(np.median(
+                np.log(a[usable]) - np.log(b[usable]), axis=0))
+    if not rows:
+        return np.ones((len(images), 3), dtype=np.float32)
+    if regularization > 0.0:
+        # Local pair ratios contain real changes of scene content.  Without an
+        # absolute prior, tiny biases accumulate around a long walking loop and
+        # drive almost every gain into its clamp.  The existing, conservative
+        # luminance-only normalisation is a stable prior; overlap RGB ratios
+        # refine white balance locally without being allowed to drift away.
+        medians = np.asarray([_median_luminance(image) for image in images])
+        valid = medians > 1.0e-6
+        scalar = np.ones(len(images), dtype=np.float64)
+        if valid.any():
+            scalar[valid] = np.median(medians[valid]) / medians[valid]
+        scalar = np.clip(scalar, 1.0 / gain_limit, gain_limit)
+        weight = np.sqrt(float(regularization))
+        for index in range(len(images)):
+            row = np.zeros(len(images), dtype=np.float64)
+            row[index] = weight
+            rows.append(row)
+            targets.append(np.full(3, weight * np.log(scalar[index])))
+    else:
+        # Gauge constraint used by exact synthetic tests and ablations.
+        rows.append(np.ones(len(images), dtype=np.float64) / len(images))
+        targets.append(np.zeros(3, dtype=np.float64))
+    design = np.stack(rows)
+    target = np.stack(targets)
+    log_gain = np.stack([
+        np.linalg.lstsq(design, target[:, channel], rcond=None)[0]
+        for channel in range(3)
+    ], axis=1)
+    gains = np.exp(log_gain)
+    gains = np.clip(gains, 1.0 / gain_limit, gain_limit)
+    return gains.astype(np.float32)
+
+
 def observed_color_medoids(samples: np.ndarray, chunk: int = 20000) -> np.ndarray:
     """Choose the observed RGB sample nearest all other samples per point.
 
@@ -447,6 +611,11 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   observation_mask: Optional[np.ndarray] = None,
                                   image_margin: int = 0,
                                   vignette_gain_limit: float = 1.0,
+                                  overlap_color_balance: bool = False,
+                                  point_normals: Optional[np.ndarray] = None,
+                                  min_view_cosine: float = 0.0,
+                                  min_projected_scale: float = 0.0,
+                                  view_score_power: float = 0.0,
                                   return_counts: bool = False):
     """Occlusion-aware, exposure-normalised, median-robust point colorization.
 
@@ -493,6 +662,10 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         observation_mask = np.asarray(observation_mask, dtype=bool)
         if observation_mask.shape != (n, len(images)):
             raise ValueError('observation_mask must be points x images')
+    if point_normals is not None:
+        point_normals = np.asarray(point_normals, dtype=np.float64)
+        if point_normals.shape != (n, 3):
+            raise ValueError('point_normals must be Nx3')
     rgb = np.tile(np.asarray(default_rgb, dtype=np.uint8), (n, 1))
     counts = np.zeros(n, dtype=np.uint16)
     if n == 0 or max_samples <= 0:
@@ -507,6 +680,10 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     if image_margin < 0 or 2 * image_margin >= min(int(width), int(height)):
         raise ValueError('image_margin must be >= 0 and leave a usable '
                          'central image region')
+    if not 0.0 <= min_view_cosine <= 1.0:
+        raise ValueError('min_view_cosine must be in [0, 1]')
+    if min_projected_scale < 0.0 or view_score_power < 0.0:
+        raise ValueError('min_projected_scale and view_score_power must be >= 0')
 
     fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
     zb_w = (int(width) + zbuf_bin - 1) // zbuf_bin
@@ -514,6 +691,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     samples = np.empty((n, int(max_samples), 3), dtype=np.uint8)
     # Depth stored alongside each sample so a nearer view can evict the farthest.
     sample_z = np.full((n, int(max_samples)), np.inf, dtype=np.float32)
+    sample_quality = np.full((n, int(max_samples)), -np.inf, dtype=np.float32)
     vignette_gains = None
     vignette_radius = 1.0
     if vignette_gain_limit > 1.0:
@@ -524,16 +702,20 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
             np.hypot(x - cx, y - cy)
             for x in (0.0, width - 1.0) for y in (0.0, height - 1.0))
 
-    scales = np.ones(len(images), dtype=np.float32)
-    if normalize_exposure:
+    scales = np.ones((len(images), 3), dtype=np.float32)
+    if overlap_color_balance:
+        scales = estimate_overlap_rgb_gains(
+            points, viewmats, K, images, width, height,
+            gain_limit=exposure_scale_limit)
+    elif normalize_exposure:
         meds = np.asarray([_median_luminance(img) for img in images],
                           dtype=np.float32)
         valid = meds > 1.0e-6
         if valid.any():
-            scales[valid] = float(np.median(meds[valid])) / meds[valid]
-            scales[valid] = np.clip(
-                scales[valid], 1.0 / exposure_scale_limit,
-                exposure_scale_limit)
+            scalar = float(np.median(meds[valid])) / meds[valid]
+            scalar = np.clip(scalar, 1.0 / exposure_scale_limit,
+                             exposure_scale_limit)
+            scales[valid] = scalar[:, None]
 
     ids = np.arange(n)
     for vi, (vm, img) in enumerate(zip(viewmats, images)):
@@ -568,6 +750,31 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
             cand_z = z[inb][visible].astype(np.float32)[keep]
         else:
             cand_z = z[inb][visible].astype(np.float32)
+        quality = (float(fx) / np.maximum(cand_z, 1.0e-6)).astype(np.float32)
+        if point_normals is not None and cand.size:
+            camera_centre = -vm[:3, :3].T @ vm[:3, 3]
+            sight = camera_centre[None, :] - points[cand]
+            sight /= np.maximum(np.linalg.norm(sight, axis=1, keepdims=True),
+                                1.0e-9)
+            normal_length = np.linalg.norm(point_normals[cand], axis=1)
+            cosine = np.abs(np.sum(point_normals[cand] * sight, axis=1))
+            cosine = np.where(normal_length > 0.5, cosine, 1.0)
+            confidence = ((cosine >= min_view_cosine) &
+                          (quality >= min_projected_scale))
+            cand, cand_z, quality = (cand[confidence], cand_z[confidence],
+                                     quality[confidence])
+            cosine = cosine[confidence]
+            if view_score_power > 0.0:
+                # Incidence angle refines the existing projected-resolution
+                # ranking but cannot make a much farther view beat a close one.
+                # A hard cosine product caused neighbouring planar points to
+                # select different distant frames and increased colour noise.
+                angular = np.power(cosine, view_score_power).astype(np.float32)
+                quality *= 0.75 + 0.25 * angular
+        elif min_projected_scale > 0.0:
+            confidence = quality >= min_projected_scale
+            cand, cand_z, quality = (cand[confidence], cand_z[confidence],
+                                     quality[confidence])
         if cand.size == 0:
             continue
         cols = _sample_pixels(
@@ -578,7 +785,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                 radius, np.linspace(0.0, 1.0, len(vignette_gains)),
                 vignette_gains).astype(np.float32)
             cols *= gain[:, None]
-        cols = np.clip(cols * scales[vi], 0.0, 255.0).astype(np.uint8)
+        cols = np.clip(cols * scales[vi][None, :], 0.0, 255.0).astype(np.uint8)
 
         # Points with room: append into the next free slot.
         room = counts[cand] < max_samples
@@ -587,19 +794,25 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
             slot = counts[rc].astype(np.intp)
             samples[rc, slot, :] = cols[room]
             sample_z[rc, slot] = cand_z[room]
+            sample_quality[rc, slot] = quality[room]
             counts[rc] += 1
         # Full points: if enabled, evict the farthest stored sample when nearer.
         if prefer_near and (~room).any():
             fc = cand[~room]
             fcz = cand_z[~room]
             fcols = cols[~room]
-            far_slot = np.argmax(sample_z[fc], axis=1)
-            nearer = fcz < sample_z[fc, far_slot]
-            if nearer.any():
-                fb = fc[nearer]
-                sb = far_slot[nearer]
-                samples[fb, sb, :] = fcols[nearer]
-                sample_z[fb, sb] = fcz[nearer]
+            if point_normals is not None or min_projected_scale > 0.0:
+                replace_slot = np.argmin(sample_quality[fc], axis=1)
+                better = quality[~room] > sample_quality[fc, replace_slot]
+            else:
+                replace_slot = np.argmax(sample_z[fc], axis=1)
+                better = fcz < sample_z[fc, replace_slot]
+            if better.any():
+                fb = fc[better]
+                sb = replace_slot[better]
+                samples[fb, sb, :] = fcols[better]
+                sample_z[fb, sb] = fcz[better]
+                sample_quality[fb, sb] = quality[~room][better]
 
     seen = counts > 0
     seen_idx = np.flatnonzero(seen)

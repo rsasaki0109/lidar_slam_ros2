@@ -25,6 +25,8 @@ numpy-only and unit tested on CPU; rendering needs CUDA + torch + gsplat.
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
+import json
 from pathlib import Path
 import sys
 from typing import Optional, Sequence
@@ -98,6 +100,44 @@ def resample_equal_arclength(points: np.ndarray, count: int) -> tuple[np.ndarray
     return out, float(s[-1])
 
 
+def resample_cinematic_arclength(points: np.ndarray, count: int,
+                                 corner_slowdown: float) -> tuple[np.ndarray, float]:
+    """Resample while spending more frames at changes of heading."""
+    if corner_slowdown < 0.0:
+        raise ValueError('corner_slowdown must be >= 0')
+    if corner_slowdown == 0.0:
+        return resample_equal_arclength(points, count)
+    dense, total = resample_equal_arclength(points, max(int(count) * 8, 256))
+    delta = np.diff(dense, axis=0)
+    length = np.linalg.norm(delta, axis=1)
+    direction = delta / np.maximum(length[:, None], 1.0e-9)
+    turn = np.zeros(len(length))
+    if len(direction) > 1:
+        turn[1:] = np.arccos(np.clip(
+            np.sum(direction[1:] * direction[:-1], axis=1), -1.0, 1.0))
+    turn = moving_average_edge(turn[:, None], 9)[:, 0]
+    timeline = np.concatenate([[0.0], np.cumsum(
+        length * (1.0 + float(corner_slowdown) * turn / np.pi))])
+    targets = np.linspace(0.0, timeline[-1], int(count))
+    out = np.stack([
+        np.interp(targets, timeline, dense[:, axis]) for axis in range(3)
+    ], axis=1)
+    return out, total
+
+
+def look_ahead_targets(path: np.ndarray, distance: float) -> np.ndarray:
+    """Return points ``distance`` metres ahead along an ordered path."""
+    path = np.asarray(path, dtype=np.float64)
+    if distance <= 0.0:
+        return path.copy()
+    arc = np.concatenate([[0.0], np.cumsum(
+        np.linalg.norm(np.diff(path, axis=0), axis=1))])
+    target_arc = np.minimum(arc + float(distance), arc[-1])
+    return np.stack([
+        np.interp(target_arc, arc, path[:, axis]) for axis in range(3)
+    ], axis=1)
+
+
 def smooth_tangents(path: np.ndarray, window: int = 15) -> np.ndarray:
     """Unit travel directions along ``path`` (central differences, smoothed).
 
@@ -121,7 +161,8 @@ def smooth_tangents(path: np.ndarray, window: int = 15) -> np.ndarray:
 
 def third_person_path(ride: np.ndarray, tangents: np.ndarray, *, follow_back: float,
                       lift: float, look_up: float = 0.8,
-                      eye_smooth_window: int = 31) -> tuple[np.ndarray, np.ndarray]:
+                      eye_smooth_window: int = 31,
+                      targets: Optional[np.ndarray] = None) -> tuple[np.ndarray, np.ndarray]:
     """Follow-camera eyes and forward directions for a ride along ``ride``.
 
     The camera sits ``follow_back`` metres behind (horizontally, along the
@@ -134,7 +175,8 @@ def third_person_path(ride: np.ndarray, tangents: np.ndarray, *, follow_back: fl
     horiz /= np.maximum(np.linalg.norm(horiz, axis=1, keepdims=True), 1.0e-9)
     eyes = ride - horiz * float(follow_back) + WORLD_UP * float(lift)
     eyes = moving_average_edge(eyes, eye_smooth_window)
-    forwards = ride + WORLD_UP * float(look_up) - eyes
+    focus = ride if targets is None else np.asarray(targets, dtype=np.float64)
+    forwards = focus + WORLD_UP * float(look_up) - eyes
     forwards /= np.maximum(np.linalg.norm(forwards, axis=1, keepdims=True), 1.0e-9)
     return eyes, forwards
 
@@ -228,12 +270,27 @@ def build_scene(args: argparse.Namespace) -> dict:
     c2ws = np.linalg.inv(np.asarray(dataset['viewmats'], dtype=np.float64))
     raw_positions = c2ws[:, :3, 3]
 
-    ride, total_len = resample_equal_arclength(
-        moving_average_edge(raw_positions, 7), args.frames)
-    tangents = smooth_tangents(ride)
+    cinematic = args.camera_preset == 'cinematic'
+    path_window = 11 if cinematic else 7
+    tangent_window = 21 if cinematic else 15
+    eye_window = 41 if cinematic else 31
+    follow_back = (4.5 if cinematic and args.follow_back == 5.5
+                   else args.follow_back)
+    lift = 4.3 if cinematic and args.cam_lift == 5.5 else args.cam_lift
+    look_up = 0.6 if cinematic and args.look_up == 0.8 else args.look_up
+    look_ahead = 1.2 if cinematic and args.look_ahead == 0.0 else args.look_ahead
+    corner_slowdown = (2.0 if cinematic and args.corner_slowdown == 0.0
+                       else args.corner_slowdown)
+    ride, total_len = resample_cinematic_arclength(
+        moving_average_edge(raw_positions, path_window), args.frames,
+        corner_slowdown)
+    tangents = smooth_tangents(ride, tangent_window)
+    targets = look_ahead_targets(ride, look_ahead)
     eyes, forwards = third_person_path(ride, tangents,
-                                       follow_back=args.follow_back,
-                                       lift=args.cam_lift)
+                                       follow_back=follow_back, lift=lift,
+                                       look_up=look_up,
+                                       eye_smooth_window=eye_window,
+                                       targets=targets)
     line = resample_polyline(raw_positions, 0.05)
     line[:, 2] -= 0.5
     return {
@@ -241,6 +298,11 @@ def build_scene(args: argparse.Namespace) -> dict:
         'raw_positions': raw_positions, 'ride': ride, 'eyes': eyes,
         'viewmats': build_viewmats(eyes, forwards), 'line': line,
         'total_len': total_len,
+        'camera_parameters': {
+            'preset': args.camera_preset, 'follow_back': follow_back,
+            'lift': lift, 'look_up': look_up, 'look_ahead': look_ahead,
+            'corner_slowdown': corner_slowdown,
+        },
     }
 
 
@@ -262,29 +324,93 @@ def render_flythrough(scene: dict, args: argparse.Namespace,
                          '(is the ply colorized and does it overlap the trajectory?)')
     xyz = xyz[keep]
     if args.color_mode == 'rgb':
-        colors = enhance_colors(rgb[keep].astype(np.float64) / 255.0,
+        kept_rgb = rgb[keep]
+        if args.render_voxel > 0.0:
+            xyz, kept_rgb = pcio.voxel_downsample(
+                xyz, args.render_voxel, kept_rgb)
+            print(f'render voxel {args.render_voxel:g} m -> {len(xyz)} points')
+        colors = enhance_colors(kept_rgb.astype(np.float64) / 255.0,
                                 saturation=args.saturation)
     else:
+        if args.render_voxel > 0.0:
+            xyz, _ = pcio.voxel_downsample(xyz, args.render_voxel)
+            print(f'render voxel {args.render_voxel:g} m -> {len(xyz)} points')
         colors = height_colormap(xyz[:, 2])
     cloud = points_to_gaussians(xyz, colors, args.point_size, 0.95)
+    surface_normals = None
+    if args.surface_splat:
+        surface_normals = pcio.estimate_voxel_normals(
+            xyz, voxel=args.surface_normal_voxel)
     line = scene['line']
     line_rgb = np.tile(np.array([1.0, 40.0 / 255.0, 220.0 / 255.0]),
                        (len(line), 1))
-    frames = np.empty((len(frame_indices), scene['height'], scene['width'], 3),
-                      dtype=np.uint8)
-    for k, j in enumerate(frame_indices):
+
+    def render_one(j: int) -> np.ndarray:
         eye = scene['eyes'][j]
         keep_map = mask_far_from(cloud['means'], eye, 3.0)
         culled = {key: (val[keep_map] if isinstance(val, np.ndarray) else val)
                   for key, val in cloud.items()}
         keep_line = mask_far_from(line, eye, 2.5)
         traj = points_to_gaussians(line[keep_line], line_rgb[keep_line], 0.02, 0.99)
-        frames[k] = render_frames(merge_gaussians(culled, traj),
-                                  scene['viewmats'][j][None], scene['K'],
-                                  scene['width'], scene['height'],
-                                  device=args.device,
-                                  soft_edge_px=args.soft_edge_px)[0]
-    return frames
+        merged = merge_gaussians(culled, traj)
+        if surface_normals is not None:
+            merged['surface_normals'] = np.concatenate([
+                surface_normals[keep_map], np.zeros((len(traj['means']), 3))
+            ], axis=0)
+        return render_frames(merged,
+                             scene['viewmats'][j][None], scene['K'],
+                             scene['width'], scene['height'],
+                             device=args.device,
+                             soft_edge_px=args.soft_edge_px,
+                             surface_splat=args.surface_splat,
+                             surface_aspect_limit=args.surface_aspect_limit)[0]
+
+    indices = [int(index) for index in frame_indices]
+    if args.render_workers <= 1:
+        rendered = [render_one(index) for index in indices]
+    else:
+        with ThreadPoolExecutor(max_workers=args.render_workers) as pool:
+            rendered = list(pool.map(render_one, indices))
+    return np.stack(rendered)
+
+
+def flythrough_metrics(frames: np.ndarray) -> dict:
+    """Return display-space coverage and temporal luminance diagnostics."""
+    data = np.asarray(frames, dtype=np.uint8)
+    occupied = np.any(data > 3, axis=3)
+    black_fraction = float(1.0 - occupied.mean())
+    luminance = np.tensordot(
+        data.astype(np.float32), np.asarray([0.299, 0.587, 0.114]),
+        axes=([-1], [0]))
+    frame_luminance = np.asarray([
+        np.median(lum[mask]) if mask.any() else 0.0
+        for lum, mask in zip(luminance, occupied)
+    ], dtype=np.float64)
+    delta = np.abs(np.diff(frame_luminance)) / 255.0
+    trend = moving_average_edge(frame_luminance[:, None], 9)[:, 0]
+    flicker = np.abs(frame_luminance - trend) / 255.0
+    return {
+        'frames': int(len(data)),
+        'black_pixel_fraction': black_fraction,
+        'occupied_pixel_fraction': 1.0 - black_fraction,
+        'frame_luminance_median': float(np.median(frame_luminance)),
+        'temporal_luminance_delta_median': float(np.median(delta)) if len(delta) else 0.0,
+        'temporal_luminance_delta_p90': float(np.percentile(delta, 90)) if len(delta) else 0.0,
+        'temporal_flicker_median': float(np.median(flicker)),
+        'temporal_flicker_p90': float(np.percentile(flicker, 90)),
+    }
+
+
+def write_metrics(path: Optional[str], frames: np.ndarray, scene: dict) -> None:
+    """Write optional JSON metrics beside a rendered candidate."""
+    if path is None:
+        return
+    report = flythrough_metrics(frames)
+    report['camera'] = scene['camera_parameters']
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2) + '\n')
+    print(f'wrote {out}')
 
 
 def annotate(frames: np.ndarray, scene: dict, frame_indices: np.ndarray,
@@ -330,6 +456,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help='map point Gaussian sigma in metres (bigger than the '
                         'side-by-side default: the camera travels close to the cloud; '
                         'use ~0.018 for a dense camera-coloured cloud)')
+    p.add_argument('--render-voxel', type=float, default=0.0,
+                   help='display-only voxel thinning in metres; 0 keeps all points')
+    p.add_argument('--render-workers', type=int, default=1,
+                   help='parallel CPU frames; 1 preserves serial rendering')
     p.add_argument('--color-mode', choices=('height', 'rgb'), default='height',
                    help='height = cold-to-warm height ramp; rgb = the ply\'s own '
                         'camera-projected colours (photoreal-coloured map; needs '
@@ -341,6 +471,15 @@ def build_parser() -> argparse.ArgumentParser:
                    help='camera height above the ride point in metres')
     p.add_argument('--follow-back', type=float, default=5.5,
                    help='camera distance behind the ride point in metres')
+    p.add_argument('--camera-preset', choices=('legacy', 'cinematic'),
+                   default='legacy',
+                   help='cinematic moves closer, looks ahead, and slows at turns')
+    p.add_argument('--look-ahead', type=float, default=0.0,
+                   help='focus this many metres ahead along the trajectory')
+    p.add_argument('--look-up', type=float, default=0.8,
+                   help='vertical focus offset above the trajectory (m)')
+    p.add_argument('--corner-slowdown', type=float, default=0.0,
+                   help='extra frame density around turns; 0 keeps equal speed')
     p.add_argument('--ceiling-cut', type=float, default=2.3,
                    help='drop map points more than this many metres above the '
                         'local walking height (<= 0 disables the cutaway)')
@@ -357,6 +496,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--device', default='cuda')
     p.add_argument('--soft-edge-px', type=float, default=0.0,
                    help='CPU-only outer disc fade width in output pixels; 0 off')
+    p.add_argument('--surface-splat', action='store_true',
+                   help='CPU-only normal-aligned elliptical map splats')
+    p.add_argument('--surface-aspect-limit', type=float, default=3.0)
+    p.add_argument('--surface-normal-voxel', type=float, default=0.12)
+    p.add_argument('--metrics-out', default=None,
+                   help='optional JSON black-pixel and temporal-flicker report')
     return p
 
 
@@ -365,6 +510,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     if args.frames < 2:
         raise SystemExit('--frames must be at least 2')
+    if args.render_workers < 1:
+        raise SystemExit('--render-workers must be at least 1')
+    if args.surface_normal_voxel <= 0.0:
+        raise SystemExit('--surface-normal-voxel must be positive')
+    if args.surface_aspect_limit < 1.0:
+        raise SystemExit('--surface-aspect-limit must be at least 1')
     if not (args.dry_run or args.test_grid > 0 or args.mp4 or args.gif):
         raise SystemExit('nothing to do: pass --mp4 and/or --gif')
 
@@ -391,6 +542,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         grid.save(out)
         print(f'wrote {out}')
+        write_metrics(args.metrics_out, frames, scene)
         return 0
 
     idx = np.arange(args.frames)
@@ -398,6 +550,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.loop_fade > 0:
         w = fade_weights(len(frames), args.loop_fade)
         frames = (frames.astype(np.float32) * w[:, None, None, None]).astype(np.uint8)
+    write_metrics(args.metrics_out, frames, scene)
     write_videos(frames, list(range(len(frames))), fps=args.fps,
                  mp4=Path(args.mp4) if args.mp4 else None,
                  gif=Path(args.gif) if args.gif else None,

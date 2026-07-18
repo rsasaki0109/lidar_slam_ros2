@@ -708,3 +708,47 @@ def test_radial_vignette_gain_validation():
         pcio.colorize_by_projection_robust(
             np.zeros((1, 3)), vms, K, [np.zeros((H, W, 3))], W, H,
             vignette_gain_limit=0.9)
+
+
+def test_estimate_voxel_normals_finds_planar_axis_and_marks_sparse():
+    yy, xx = np.mgrid[:4, :4]
+    plane = np.column_stack([xx.ravel(), yy.ravel(), np.zeros(16)]) * 0.01
+    sparse = np.array([[2.0, 2.0, 2.0]])
+    normals = pcio.estimate_voxel_normals(
+        np.vstack([plane, sparse]), voxel=0.1, min_points=6)
+    assert np.all(np.abs(normals[:16, 2]) > 0.99)
+    np.testing.assert_array_equal(normals[-1], [0.0, 0.0, 0.0])
+
+
+def test_estimate_overlap_rgb_gains_matches_shared_scene_colours():
+    _, K, W, H = _cam()
+    xx, yy = np.meshgrid(np.linspace(-0.5, 0.5, 5),
+                         np.linspace(-0.5, 0.5, 5))
+    points = np.column_stack([xx.ravel(), yy.ravel(), np.full(xx.size, 5.0)])
+    images = [
+        np.full((H, W, 3), [50, 80, 120], dtype=np.uint8),
+        np.full((H, W, 3), [100, 80, 60], dtype=np.uint8),
+    ]
+    gains = pcio.estimate_overlap_rgb_gains(
+        points, np.stack([np.eye(4), np.eye(4)]), K, images, W, H,
+        min_shared=16, neighbour_span=1, gain_limit=2.0,
+        regularization=0.0)
+    corrected0 = np.array([50, 80, 120]) * gains[0]
+    corrected1 = np.array([100, 80, 60]) * gains[1]
+    np.testing.assert_allclose(corrected0, corrected1, rtol=0.02)
+
+
+def test_view_confidence_rejects_grazing_observation():
+    _, K, W, H = _cam()
+    red = np.full((H, W, 3), [200, 0, 0], dtype=np.uint8)
+    green = np.full((H, W, 3), [0, 200, 0], dtype=np.uint8)
+    centred = np.eye(4)
+    side = np.eye(4)
+    side[0, 3] = -1.0  # camera centre at world x=+1
+    rgb, seen = pcio.colorize_by_projection_robust(
+        np.array([[0.0, 0.0, 5.0]]), np.stack([centred, side]), K,
+        [red, green], W, H, normalize_exposure=False, max_samples=1,
+        point_normals=np.array([[1.0, 0.0, 0.0]]),
+        min_view_cosine=0.1, view_score_power=1.0)
+    assert seen[0]
+    np.testing.assert_array_equal(rgb[0], [0, 200, 0])
