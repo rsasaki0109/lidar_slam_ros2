@@ -54,8 +54,8 @@
 #include "graph_based_slam/gnss_alignment.hpp"
 #include "graph_based_slam/gnss_geometry.hpp"
 #include "graph_based_slam/gnss_weighting.hpp"
+#include "graph_based_slam/graph_slam_application.hpp"
 #include "graph_based_slam/loop_verifier.hpp"
-#include "graph_based_slam/loop_search_schedule.hpp"
 #include "graph_based_slam/map_saver.hpp"
 #include "graph_based_slam/planar_map_filter.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
@@ -96,6 +96,7 @@ struct GraphBasedSlamComponent::Impl::BackendWorkspace
   boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> registration;
   pcl::VoxelGrid<pcl::PointXYZI> voxelgrid;
   ThreeDBBSLoopVerifier three_d_bbs_loop_verifier;
+  std::unique_ptr<GraphSlamApplication> application;
 };
 
 GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & options)
@@ -126,7 +127,6 @@ GraphBasedSlamComponent::Impl::Impl(GraphBasedSlamComponent & node)
   }
   gnss_origin_accumulator_.configure(
     config_.gnss_origin_min_samples_, config_.gnss_origin_consistency_threshold_m_);
-  graph_state_.configureLoopEdgeDedupWindow(config_.loop_edge_dedup_index_window_);
   logGraphSlamConfig(config_, node_.get_logger());
   if (!config_.degeneracy_diagnostics_csv_path_.empty()) {
     degeneracy_csv_ofs_.open(config_.degeneracy_diagnostics_csv_path_);
@@ -150,7 +150,15 @@ GraphBasedSlamComponent::Impl::Impl(GraphBasedSlamComponent & node)
     exit(1);
   }
 
-  backend_->core.configure(makeDescriptorConfig(config_));
+  GraphSlamApplicationConfig application_config;
+  application_config.descriptors = makeDescriptorConfig(config_);
+  application_config.loop_search = makeLoopSearchConfig(config_);
+  application_config.loop_search_query_stride = config_.loop_search_query_stride_;
+  application_config.loop_edge_dedup_index_window = config_.loop_edge_dedup_index_window_;
+  backend_->application.reset(new GraphSlamApplication(
+      application_config,
+      {backend_->core, *backend_->registration, backend_->voxelgrid,
+        backend_->three_d_bbs_loop_verifier}));
 
   initializePubSub();
 
@@ -275,17 +283,11 @@ bool GraphBasedSlamComponent::Impl::snapshotGraphState(
   lidarslam_msgs::msg::MapArray & map_array_msg,
   LoopEdges & loop_edges)
 {
-  return graph_state_.snapshot(map_array_msg, loop_edges);
-}
-
-void GraphBasedSlamComponent::Impl::snapshotLoopEdges(LoopEdges & loop_edges)
-{
-  loop_edges = graph_state_.snapshotLoopEdges();
-}
-
-bool GraphBasedSlamComponent::Impl::upsertLoopEdge(const LoopEdge & loop_edge)
-{
-  return graph_state_.upsertLoopEdge(loop_edge);
+  if (!graph_state_.snapshot(map_array_msg)) {
+    return false;
+  }
+  loop_edges = backend_->application->loopEdges();
+  return true;
 }
 GraphBasedSlamComponent::Impl::LocalSubmapProvider
 GraphBasedSlamComponent::Impl::makeFilteredLocalSubmapProvider(
@@ -339,98 +341,58 @@ void GraphBasedSlamComponent::Impl::drainEventDrivenLoopSearch()
     if (!snapshotGraphState(map_array_msg, loop_edges)) {return;}
     const int num_submaps = static_cast<int>(map_array_msg.submaps.size());
     if (num_submaps < 2) {return;}
-    int query_idx = last_searched_submap_idx_ + 1;
-    if (query_idx < 1) {query_idx = 1;}
-    if (query_idx >= num_submaps) {return;}
+    if (backend_->application->nextQueryIndex() >= num_submaps) {return;}
     if (map_array_msg.cloud_coordinate != map_array_msg.LOCAL) {
       RCLCPP_WARN(node_.get_logger(), "cloud_coordinate should be local, but it's not local.");
     }
-    const auto build_filtered_local_submap = makeFilteredLocalSubmapProvider(map_array_msg);
-    // One immutable snapshot serves the whole currently available batch.
-    // Each search receives an explicit prefix length, avoiding one full
-    // MapArray deep-copy per query without exposing future submaps to q.
-    for (; query_idx < num_submaps && rclcpp::ok(); ++query_idx) {
+    std::vector<backend_core::SubmapMeta> ordered_submaps;
+    ordered_submaps.reserve(map_array_msg.submaps.size());
+    for (const auto & submap : map_array_msg.submaps) {
+      backend_core::SubmapMeta meta;
+      tf2::fromMsg(submap.pose, meta.pose);
+      meta.travel_distance = submap.distance;
+      ordered_submaps.push_back(meta);
+    }
+    const auto filtered_local_provider = makeFilteredLocalSubmapProvider(map_array_msg);
+    const auto raw_cloud_provider =
+      [this, &map_array_msg](int idx) -> pcl::PointCloud<pcl::PointXYZI>::Ptr {
+        return loadSubmapCloud(map_array_msg, idx);
+      };
+    const auto events = backend_->application->processSubmaps(
+      ordered_submaps, filtered_local_provider, raw_cloud_provider);
+    for (const auto & event : events) {
       if (config_.debug_flag_) {
         RCLCPP_INFO(
-          node_.get_logger(), "event-driven loop search, query submap %d of %d", query_idx,
+          node_.get_logger(), "event-driven loop search, query submap %d of %d", event.query_index,
           num_submaps);
       }
-      backend_->core.ingestDescriptors(query_idx + 1, build_filtered_local_submap);
-      if (loop_search_schedule::shouldSearch(query_idx, config_.loop_search_query_stride_)) {
-        searchLoopForLatest(map_array_msg, loop_edges, query_idx + 1, query_idx);
-      } else if (config_.debug_flag_) {
+      for (const auto & line : event.search_output.logs) {
+        if (line.via_logger) {
+          RCLCPP_INFO(node_.get_logger(), "%s", line.text.c_str());
+        } else {
+          std::cout << line.text << std::endl;
+        }
+      }
+      if (!event.registration_searched && config_.debug_flag_) {
         RCLCPP_INFO(
           node_.get_logger(), "loop search registration skipped for query submap %d by stride %d",
-          query_idx, config_.loop_search_query_stride_);
+          event.query_index, config_.loop_search_query_stride_);
       }
-      last_searched_submap_idx_ = query_idx;
+      if (event.search_output.proposal.found && !event.graph_changed) {
+        std::cout << "loop edge skipped as redundant or lower quality" << std::endl;
+      }
+      if (event.graph_changed) {
+        lidarslam_msgs::msg::MapArray query_prefix;
+        query_prefix.header = map_array_msg.header;
+        query_prefix.cloud_coordinate = map_array_msg.cloud_coordinate;
+        query_prefix.submaps.assign(
+          map_array_msg.submaps.begin(),
+          map_array_msg.submaps.begin() + event.query_index + 1);
+        doPoseAdjustment(
+          std::move(query_prefix), event.loop_edges, config_.use_save_map_in_loop_);
+      }
     }
   }
-}
-
-void GraphBasedSlamComponent::Impl::searchLoopForLatest(
-  const lidarslam_msgs::msg::MapArray & map_array_msg,
-  LoopEdges & loop_edges,
-  int num_submaps,
-  int latest_idx)
-{
-  if (num_submaps < 1 || num_submaps > static_cast<int>(map_array_msg.submaps.size())) {
-    return;
-  }
-  std::vector<backend_core::SubmapMeta> submaps;
-  submaps.reserve(num_submaps);
-  for (int i = 0; i < num_submaps; ++i) {
-    const auto & submap = map_array_msg.submaps[i];
-    backend_core::SubmapMeta meta;
-    tf2::fromMsg(submap.pose, meta.pose);
-    meta.travel_distance = submap.distance;
-    submaps.push_back(meta);
-  }
-
-  const auto raw_cloud_provider =
-    [this, &map_array_msg](int idx) -> pcl::PointCloud<pcl::PointXYZI>::Ptr {
-      return loadSubmapCloud(map_array_msg, idx);
-    };
-
-  const backend_core::LoopSearchConfig search_config = makeLoopSearchConfig(config_);
-
-  const backend_core::LoopSearchOutput search_output = backend_->core.searchLoopForSubmap(
-    submaps,
-    latest_idx,
-    search_config,
-    raw_cloud_provider,
-    *backend_->registration,
-    backend_->voxelgrid,
-    backend_->three_d_bbs_loop_verifier);
-
-  for (const auto & line : search_output.logs) {
-    if (line.via_logger) {
-      RCLCPP_INFO(node_.get_logger(), "%s", line.text.c_str());
-    } else {
-      std::cout << line.text << std::endl;
-    }
-  }
-
-  if (!search_output.proposal.found) {
-    return;
-  }
-
-  LoopEdge loop_edge;
-  loop_edge.pair_id = search_output.proposal.pair_id;
-  loop_edge.relative_pose = search_output.proposal.relative_pose;
-  loop_edge.fitness_score = search_output.proposal.fitness_score;
-  const bool graph_changed = upsertLoopEdge(loop_edge);
-  if (!graph_changed) {
-    std::cout << "loop edge skipped as redundant or lower quality" << std::endl;
-    return;
-  }
-  snapshotLoopEdges(loop_edges);
-  lidarslam_msgs::msg::MapArray query_prefix;
-  query_prefix.header = map_array_msg.header;
-  query_prefix.cloud_coordinate = map_array_msg.cloud_coordinate;
-  query_prefix.submaps.assign(
-    map_array_msg.submaps.begin(), map_array_msg.submaps.begin() + num_submaps);
-  doPoseAdjustment(std::move(query_prefix), loop_edges, config_.use_save_map_in_loop_);
 }
 
 void GraphBasedSlamComponent::Impl::doPoseAdjustment(
@@ -479,18 +441,6 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
       RCLCPP_INFO(
         node_.get_logger(), "Added %zu IMU rotation constraint edges", imu_constraints.size());
     }
-  }
-
-  /* loop edges -> plain constraints */
-  std::vector<pose_graph::LoopConstraint> loop_constraints;
-  loop_constraints.reserve(loop_edges.size());
-  for (const auto & loop_edge : loop_edges) {
-    pose_graph::LoopConstraint loop_constraint;
-    loop_constraint.from = loop_edge.pair_id.first;
-    loop_constraint.to = loop_edge.pair_id.second;
-    loop_constraint.relative_pose = loop_edge.relative_pose;
-    loop_constraint.fitness_score = loop_edge.fitness_score;
-    loop_constraints.push_back(loop_constraint);
   }
 
   /* GNSS anchors (pre-pass: nearest-measurement match over the buffer) */
@@ -586,11 +536,19 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     std::filesystem::create_directories(config_.map_save_dir_);
     pose_graph_save_path = bundle_pose_graph_path;
   }
-  const pose_graph::OptimizationResult opt_result = pose_graph::optimizePoseGraph(
-    submap_nodes, loop_constraints, imu_constraints, gnss_constraints,
-    pose_graph_config.adjacent, pose_graph_config.loop, pose_graph_config.imu,
-    pose_graph_config.chi2_collection,
-    fix_first_vertex, /*iterations=*/ 10, pose_graph_save_path);
+  PoseGraphRequest optimization_request;
+  optimization_request.submaps = submap_nodes;
+  optimization_request.loop_edges = loop_edges;
+  optimization_request.imu_constraints = imu_constraints;
+  optimization_request.gnss_constraints = gnss_constraints;
+  optimization_request.adjacent_config = pose_graph_config.adjacent;
+  optimization_request.loop_config = pose_graph_config.loop;
+  optimization_request.imu_config = pose_graph_config.imu;
+  optimization_request.chi2_collection = pose_graph_config.chi2_collection;
+  optimization_request.fix_first_vertex = fix_first_vertex;
+  optimization_request.save_path = pose_graph_save_path;
+  const pose_graph::OptimizationResult opt_result =
+    backend_->application->optimize(optimization_request);
 
   if (do_save_map && !config_.save_pose_graph_path_.empty() &&
     std::filesystem::path(config_.save_pose_graph_path_).lexically_normal() !=

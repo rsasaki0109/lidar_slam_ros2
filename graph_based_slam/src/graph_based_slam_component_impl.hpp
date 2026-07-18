@@ -68,6 +68,7 @@
 #include "graph_based_slam/degeneracy_report_summary.hpp"
 #include "graph_based_slam/gnss_origin_accumulator.hpp"
 #include "graph_based_slam/graph_state_store.hpp"
+#include "graph_based_slam/loop_edge_set.hpp"
 #include "graph_based_slam/serialized_work_drain.hpp"
 
 namespace graphslam
@@ -113,8 +114,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr modified_map_pub_;
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr map_save_srv_;
 
-  using LoopEdge = GraphStateStore::LoopEdge;
-  using LoopEdges = GraphStateStore::LoopEdges;
+  using LoopEdges = std::vector<backend_core::LoopEdgeSet::Edge>;
   using PointCloud = pcl::PointCloud<pcl::PointXYZI>;
   using PointCloudPtr = PointCloud::Ptr;
   using LocalSubmapProvider = std::function<PointCloudPtr(int)>;
@@ -133,12 +133,6 @@ private:
     // the data, not of how the executor batched arrivals.
   void runEventDrivenLoopSearch();
   void drainEventDrivenLoopSearch();
-    // Per-query loop search body shared by the event-driven drain.
-  void searchLoopForLatest(
-    const lidarslam_msgs::msg::MapArray & map_array_msg,
-    LoopEdges & loop_edges,
-    int num_submaps,
-    int latest_idx);
     // Voxel-filtered local aggregate of a submap and its recent neighbors;
     // the returned provider borrows map_array_msg and must not outlive it.
   LocalSubmapProvider makeFilteredLocalSubmapProvider(
@@ -146,15 +140,12 @@ private:
   bool snapshotGraphState(
     lidarslam_msgs::msg::MapArray & map_array_msg,
     LoopEdges & loop_edges);
-  void snapshotLoopEdges(LoopEdges & loop_edges);
-  bool upsertLoopEdge(const LoopEdge & loop_edge);
   void doPoseAdjustment(
     lidarslam_msgs::msg::MapArray map_array_msg,
     const LoopEdges & loop_edges,
     bool do_save_map);
   void publishMapAndPose();
 
-  int last_searched_submap_idx_ {-1};
     // Event-driven loop search (the only scheduling semantics since v0.7
     // Phase 0): loop search runs once per submap arrival in arrival order,
     // each query seeing exactly the map state up to itself. The legacy

@@ -119,6 +119,22 @@ set_target_properties(graph_slam_config PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(graph_slam_config PRIVATE src)
 ament_target_dependencies(graph_slam_config rclcpp)
 
+add_library(graph_slam_application STATIC
+  src/graph_slam_application.cpp
+)
+set_target_properties(graph_slam_application PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(
+  graph_slam_application PUBLIC include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS}
+)
+target_link_libraries(
+  graph_slam_application
+  ${PCL_LIBRARIES}
+  g2o::core
+  g2o::types_slam3d
+  g2o::solver_eigen
+  g2o::stuff
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   find_package(ament_cmake_gtest REQUIRED)
@@ -292,6 +308,23 @@ if(BUILD_TESTING)
     ament_target_dependencies(test_backend_core ndt_omp_ros2)
     target_link_libraries(
       test_backend_core ${PCL_LIBRARIES} graph_based_slam_3d_bbs_vendor
+    )
+  endif()
+  ament_add_gtest(
+    test_graph_slam_application
+    test/test_graph_slam_application.cpp
+    src/three_d_bbs_loop_verifier.cpp
+  )
+  if(TARGET test_graph_slam_application)
+    target_include_directories(
+      test_graph_slam_application PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+    ament_target_dependencies(test_graph_slam_application ndt_omp_ros2)
+    target_link_libraries(
+      test_graph_slam_application
+      graph_slam_application
+      ${PCL_LIBRARIES}
+      graph_based_slam_3d_bbs_vendor
     )
   endif()
   ament_add_gtest(
@@ -1065,6 +1098,7 @@ ament_target_dependencies(graph_based_slam_component
 
 target_link_libraries(graph_based_slam_component
   graph_slam_config
+  graph_slam_application
   g2o::core
   g2o::types_slam3d
   g2o::solver_eigen
@@ -1127,6 +1161,7 @@ ament_target_dependencies(graph_slam_offline_runner
 )
 
 target_link_libraries(graph_slam_offline_runner
+  graph_slam_application
   ${PCL_LIBRARIES}
   g2o::core
   g2o::types_slam3d

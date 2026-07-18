@@ -70,8 +70,8 @@
 #include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
+#include "graph_based_slam/graph_slam_application.hpp"
 #include "graph_based_slam/map_refiner.hpp"
-#include "graph_based_slam/loop_search_schedule.hpp"
 #include "graph_based_slam/plane_feature_association.hpp"
 #include "graph_based_slam/plane_revisit_constraints.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
@@ -111,7 +111,7 @@ void writeTum(
 void loadFixedLoopEdges(
   const std::string & path,
   std::size_t submap_count,
-  graphslam::backend_core::LoopEdgeSet & edge_set)
+  graphslam::GraphSlamApplication & application)
 {
   std::ifstream input(path);
   if (!input.is_open()) {
@@ -164,7 +164,7 @@ void loadFixedLoopEdges(
       throw std::runtime_error(
               "fixed loop edge index out of range at line " + std::to_string(line_number));
     }
-    if (!edge_set.upsert(edge)) {
+    if (!application.upsertLoopEdge(edge)) {
       throw std::runtime_error(
               "fixed loop edge was invalid or deduplicated at line " +
               std::to_string(line_number));
@@ -566,15 +566,19 @@ int main(int argc, char ** argv)
   graphslam::ThreeDBBSLoopVerifier bbs_verifier;
 
   BackendCore core;
-  core.configure(descriptor_config);
-  graphslam::backend_core::LoopEdgeSet edge_set;
-  edge_set.configure(loop_edge_dedup_index_window < 0 ? 0 : loop_edge_dedup_index_window);
+  graphslam::GraphSlamApplicationConfig application_config;
+  application_config.descriptors = descriptor_config;
+  application_config.loop_search = search_config;
+  application_config.loop_search_query_stride = loop_search_query_stride;
+  application_config.loop_edge_dedup_index_window =
+    loop_edge_dedup_index_window < 0 ? 0 : loop_edge_dedup_index_window;
+  graphslam::GraphSlamApplication application(
+    application_config, {core, *registration, voxelgrid, bbs_verifier});
 
   std::vector<SubmapRecord> records;
   bool last_position_valid = false;
   Eigen::Vector3d last_position = Eigen::Vector3d::Zero();
   double accumulated_distance = 0.0;
-  int next_query_idx = 1;
 
   // The same voxel-filtered local-aggregate semantics as the component's
   // makeFilteredLocalSubmapProvider, over the in-memory record store.
@@ -606,45 +610,27 @@ int main(int argc, char ** argv)
     };
 
   const auto drain_queries = [&]() {
-      const int num_submaps = static_cast<int>(records.size());
       if (!fixed_loop_edges_path.empty()) {
-        next_query_idx = num_submaps;
         return;
       }
-      while (next_query_idx < num_submaps) {
-        const int query_idx = next_query_idx;
-        core.ingestDescriptors(query_idx + 1, filtered_local_provider);
-        if (!graphslam::loop_search_schedule::shouldSearch(
-            query_idx, loop_search_query_stride))
-        {
-          next_query_idx = query_idx + 1;
-          continue;
-        }
-        std::vector<graphslam::backend_core::SubmapMeta> visible;
-        visible.reserve(query_idx + 1);
-        for (int i = 0; i <= query_idx; ++i) {
-          visible.push_back(records[i].meta);
-        }
-        const graphslam::backend_core::LoopSearchOutput output = core.searchLoopForSubmap(
-          visible, query_idx, search_config, raw_cloud_provider, *registration, voxelgrid,
-          bbs_verifier);
-        for (const auto & line : output.logs) {
+      std::vector<graphslam::backend_core::SubmapMeta> ordered_submaps;
+      ordered_submaps.reserve(records.size());
+      for (const auto & record : records) {
+        ordered_submaps.push_back(record.meta);
+      }
+      const auto events = application.processSubmaps(
+        ordered_submaps, filtered_local_provider, raw_cloud_provider);
+      for (const auto & event : events) {
+        for (const auto & line : event.search_output.logs) {
           if (line.via_logger) {
             RCLCPP_INFO(logger, "%s", line.text.c_str());
           } else {
             std::cout << line.text << std::endl;
           }
         }
-        if (output.proposal.found) {
-          graphslam::backend_core::LoopEdgeSet::Edge edge;
-          edge.pair_id = output.proposal.pair_id;
-          edge.relative_pose = output.proposal.relative_pose;
-          edge.fitness_score = output.proposal.fitness_score;
-          if (!edge_set.upsert(edge)) {
-            std::cout << "loop edge skipped as redundant or lower quality" << std::endl;
-          }
+        if (event.search_output.proposal.found && !event.graph_changed) {
+          std::cout << "loop edge skipped as redundant or lower quality" << std::endl;
         }
-        next_query_idx = query_idx + 1;
       }
     };
 
@@ -723,10 +709,10 @@ int main(int argc, char ** argv)
 
   if (!fixed_loop_edges_path.empty()) {
     try {
-      loadFixedLoopEdges(fixed_loop_edges_path, records.size(), edge_set);
+      loadFixedLoopEdges(fixed_loop_edges_path, records.size(), application);
       RCLCPP_INFO(
         logger, "Loaded %zu fixed loop edges from %s; descriptor search was skipped",
-        edge_set.edges().size(), fixed_loop_edges_path.c_str());
+        application.loopEdges().size(), fixed_loop_edges_path.c_str());
     } catch (const std::exception & error) {
       RCLCPP_ERROR(logger, "%s", error.what());
       rclcpp::shutdown();
@@ -738,7 +724,7 @@ int main(int argc, char ** argv)
     logger,
     "Offline run complete: %zu pairs, %zu submaps, %.1f m travelled, %zu loop edges "
     "(%zu odom / %zu cloud messages left unpaired)",
-    paired_count, records.size(), accumulated_distance, edge_set.edges().size(),
+    paired_count, records.size(), accumulated_distance, application.loopEdges().size(),
     pending_odoms.size(), pending_clouds.size());
 
   // --- Final pose-graph optimization from raw odometry poses plus the
@@ -751,16 +737,7 @@ int main(int argc, char ** argv)
     submap_node.pose = Eigen::Isometry3d(record.meta.pose.matrix());
     submap_nodes.push_back(submap_node);
   }
-  std::vector<graphslam::pose_graph::LoopConstraint> loop_constraints;
-  loop_constraints.reserve(edge_set.edges().size());
-  for (const auto & edge : edge_set.edges()) {
-    graphslam::pose_graph::LoopConstraint loop_constraint;
-    loop_constraint.from = edge.pair_id.first;
-    loop_constraint.to = edge.pair_id.second;
-    loop_constraint.relative_pose = edge.relative_pose;
-    loop_constraint.fitness_score = edge.fitness_score;
-    loop_constraints.push_back(loop_constraint);
-  }
+  const auto loop_edges = application.loopEdges();
   graphslam::pose_graph::AdjacentEdgeConfig adjacent_config;
   adjacent_config.num_adjacent_pose_constraints = num_adjacent_pose_constraints;
   adjacent_config.info_weight = adjacent_edge_info_weight;
@@ -843,11 +820,14 @@ int main(int argc, char ** argv)
   std::vector<Eigen::Isometry3d> optimized_poses;
   optimized_poses.reserve(records.size());
   if (!records.empty()) {
-    const graphslam::pose_graph::OptimizationResult result =
-      graphslam::pose_graph::optimizePoseGraph(
-      submap_nodes, loop_constraints, {}, {}, adjacent_config, loop_config, imu_config,
-      graphslam::pose_graph::Chi2Collection::NONE, true, 10, std::string(),
-      plane_revisit_result.constraints);
+    graphslam::PoseGraphRequest request;
+    request.submaps = submap_nodes;
+    request.loop_edges = loop_edges;
+    request.adjacent_config = adjacent_config;
+    request.loop_config = loop_config;
+    request.imu_config = imu_config;
+    request.plane_constraints = plane_revisit_result.constraints;
+    const graphslam::pose_graph::OptimizationResult result = application.optimize(request);
     optimized_poses = result.poses;
     if (use_plane_revisit_constraints) {
       std::ofstream report(output_dir + "/plane_revisit_report.yaml");
@@ -893,7 +873,7 @@ int main(int argc, char ** argv)
     std::ofstream csv(output_dir + "/loop_edges.csv");
     csv << "from,to,fitness,tx,ty,tz,qx,qy,qz,qw\n";
     char line[512];
-    for (const auto & edge : edge_set.edges()) {
+    for (const auto & edge : loop_edges) {
       const Eigen::Vector3d t = edge.relative_pose.translation();
       const Eigen::Quaterniond q(edge.relative_pose.rotation());
       std::snprintf(
