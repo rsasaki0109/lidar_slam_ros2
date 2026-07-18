@@ -64,7 +64,7 @@ def is_stale(output: Path, inputs: Sequence[Path]) -> bool:
     if not output.is_file():
         return True
     output_mtime = output.stat().st_mtime_ns
-    return any(path.is_file() and path.stat().st_mtime_ns > output_mtime
+    return any(path.exists() and path.stat().st_mtime_ns > output_mtime
                for path in inputs)
 
 
@@ -143,9 +143,13 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
     out_dir = Path(args.out)
     posed_dir = out_dir / 'posed_images'
     extracted_transforms = posed_dir / 'transforms.json'
+    masked_transforms = posed_dir / 'transforms_dynamic_masks.json'
     refined_transforms = posed_dir / 'transforms_spatiotemporal.json'
+    calibration_transforms = (
+        masked_transforms if args.dynamic_mask_dir is not None
+        else extracted_transforms)
     transforms = (refined_transforms if args.refine_spatiotemporal_calibration
-                  else extracted_transforms)
+                  else calibration_transforms)
     colored_map = out_dir / 'colored_map.ply'
     extrinsic_path = (Path(args.extrinsic) if args.extrinsic is not None else
                       out_dir / 'generated_body_camera_extrinsic.json')
@@ -184,6 +188,25 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
         if args.intrinsics_yaml is not None:
             extract.extend(['--intrinsics-yaml', str(args.intrinsics_yaml)])
         commands.append(('posed images', extract))
+
+    rebuild_masks = False
+    if args.dynamic_mask_dir is not None:
+        mask_dir = Path(args.dynamic_mask_dir)
+        mask_inputs = [extracted_transforms, mask_dir]
+        if mask_dir.is_dir():
+            mask_inputs.extend(sorted(mask_dir.glob('*.png')))
+        rebuild_masks = (
+            rebuild_images or args.force_dynamic_masks or
+            is_stale(masked_transforms, mask_inputs))
+        if rebuild_masks:
+            attach = [
+                sys.executable, str(TOOL_DIR / 'attach_dynamic_image_masks.py'),
+                '--transforms', str(extracted_transforms),
+                '--mask-dir', str(mask_dir), '--out', str(masked_transforms),
+            ]
+            if args.allow_missing_dynamic_masks:
+                attach.append('--allow-missing')
+            commands.append(('dynamic image masks', attach))
 
     def map_command(output: Path, color_transforms: Path | None = None) -> list[str]:
         command = [
@@ -228,6 +251,26 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                     str(args.color_min_projected_scale),
                     '--color-view-score-power', str(args.color_view_score_power),
                 ])
+            if args.color_geometry_aware:
+                command.extend([
+                    '--color-geometry-aware',
+                    '--color-occlusion-margin-px',
+                    str(args.color_occlusion_margin_px),
+                    '--color-depth-edge-margin-px',
+                    str(args.color_depth_edge_margin_px),
+                    '--color-depth-edge-tolerance',
+                    str(args.color_depth_edge_tolerance),
+                    '--color-depth-edge-relative-tolerance',
+                    str(args.color_depth_edge_relative_tolerance),
+                    '--color-dynamic-mask-margin-px',
+                    str(args.color_dynamic_mask_margin_px),
+                    '--color-calibration-sigma-multiplier',
+                    str(args.color_calibration_sigma_multiplier),
+                    '--color-max-uncertainty-margin-px',
+                    str(args.color_max_uncertainty_margin_px),
+                ])
+                if args.color_dynamic_exclusion:
+                    command.append('--color-dynamic-exclusion')
         return command
 
     rebuild_calibration = False
@@ -241,11 +284,11 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             commands.append(('calibration geometry', map_command(
                 calibration_cloud)))
         rebuild_calibration = (
-            rebuild_images or rebuild_calibration_cloud or
+            rebuild_masks or rebuild_calibration_cloud or
             args.force_calibration or
-            is_stale(refined_transforms, [trajectory, extracted_transforms,
+            is_stale(refined_transforms, [trajectory, calibration_transforms,
                                           calibration_cloud]) or
-            is_stale(calibration_report, [trajectory, extracted_transforms,
+            is_stale(calibration_report, [trajectory, calibration_transforms,
                                           calibration_cloud]))
         if rebuild_calibration:
             commands.append(('spatiotemporal calibration', [
@@ -253,7 +296,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 str(REPO_ROOT / 'scripts' /
                     'evaluate_lidar_camera_alignment.py'),
                 '--pointcloud', str(calibration_cloud),
-                '--transforms', str(extracted_transforms),
+                '--transforms', str(calibration_transforms),
                 '--trajectory', str(trajectory),
                 '--out', str(calibration_report),
                 '--optimize-spatiotemporal',
@@ -292,7 +335,8 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 str(args.calibration_minimum_heldout_improvement),
             ]))
 
-    if (rebuild_images or rebuild_calibration or args.force_map or
+    if (rebuild_images or rebuild_masks or rebuild_calibration or
+            args.force_map or
             is_stale(colored_map, [trajectory, transforms])):
         commands.append(('coloured map', map_command(colored_map, transforms)))
 
@@ -381,6 +425,30 @@ def run_pipeline(args) -> dict:
     if args.force_calibration and not args.refine_spatiotemporal_calibration:
         raise ValueError(
             '--force-calibration requires --refine-spatiotemporal-calibration')
+    if args.color_dynamic_exclusion and not args.color_geometry_aware:
+        raise ValueError('--color-dynamic-exclusion requires '
+                         '--color-geometry-aware')
+    if args.color_dynamic_exclusion and args.dynamic_mask_dir is None:
+        raise ValueError('--color-dynamic-exclusion requires '
+                         '--dynamic-mask-dir')
+    if args.force_dynamic_masks and args.dynamic_mask_dir is None:
+        raise ValueError('--force-dynamic-masks requires --dynamic-mask-dir')
+    if (args.color_dynamic_exclusion and
+            args.allow_missing_dynamic_masks):
+        raise ValueError('dynamic exclusion requires complete masks; remove '
+                         '--allow-missing-dynamic-masks')
+    if (args.color_calibration_sigma_multiplier > 0.0 and
+            not args.refine_spatiotemporal_calibration):
+        raise ValueError('calibration uncertainty fusion requires '
+                         '--refine-spatiotemporal-calibration')
+    if (args.color_occlusion_margin_px < 0 or
+            args.color_depth_edge_margin_px < 0 or
+            args.color_depth_edge_tolerance < 0.0 or
+            args.color_depth_edge_relative_tolerance < 0.0 or
+            args.color_dynamic_mask_margin_px < 0 or
+            args.color_calibration_sigma_multiplier < 0.0 or
+            args.color_max_uncertainty_margin_px < 0):
+        raise ValueError('invalid geometry-aware colour fusion settings')
     if args.refine_spatiotemporal_calibration and (
             args.calibration_view_stride < 1 or
             args.calibration_max_points < 1 or
@@ -443,7 +511,9 @@ def run_pipeline(args) -> dict:
         'stages': [name for name, _ in commands],
         'transforms': out_dir / 'posed_images' / (
             'transforms_spatiotemporal.json'
-            if args.refine_spatiotemporal_calibration else 'transforms.json'),
+            if args.refine_spatiotemporal_calibration else
+            ('transforms_dynamic_masks.json'
+             if args.dynamic_mask_dir is not None else 'transforms.json')),
         'colored_map': out_dir / 'colored_map.ply',
         'trajectory': trajectory,
     }
@@ -548,6 +618,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--color-min-view-cosine', type=float, default=0.0)
     p.add_argument('--color-min-projected-scale', type=float, default=0.0)
     p.add_argument('--color-view-score-power', type=float, default=1.0)
+    p.add_argument('--color-geometry-aware', action='store_true')
+    p.add_argument('--color-occlusion-margin-px', type=int, default=2)
+    p.add_argument('--color-depth-edge-margin-px', type=int, default=2)
+    p.add_argument('--color-depth-edge-tolerance', type=float, default=0.15)
+    p.add_argument('--color-depth-edge-relative-tolerance', type=float,
+                   default=0.02)
+    p.add_argument('--color-dynamic-exclusion', action='store_true')
+    p.add_argument('--dynamic-mask-dir', type=Path,
+                   help='PNG dynamic-object masks named after image stems')
+    p.add_argument('--allow-missing-dynamic-masks', action='store_true',
+                   help='attach available masks while retaining unmasked frames')
+    p.add_argument('--color-dynamic-mask-margin-px', type=int, default=2)
+    p.add_argument('--color-calibration-sigma-multiplier', type=float,
+                   default=0.0)
+    p.add_argument('--color-max-uncertainty-margin-px', type=int, default=8)
     p.add_argument('--color-min-samples', type=int, default=1,
                    help='demote colours confirmed by fewer surviving camera '
                         'samples than this to unseen (1 keeps all)')
@@ -555,6 +640,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--force-map', action='store_true')
     p.add_argument('--force-trajectory', action='store_true')
     p.add_argument('--force-calibration', action='store_true')
+    p.add_argument('--force-dynamic-masks', action='store_true')
     p.add_argument('--quality-profile', type=Path,
                    help='run alignment, held-out colour, and integrated quality '
                         'checks using this profile')

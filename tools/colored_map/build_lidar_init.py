@@ -201,8 +201,9 @@ def build(args: argparse.Namespace) -> dict:
         world = world[keep]
     rgb = None
     colored = 0
+    fusion_diagnostics = None
     if args.color_transforms:
-        rgb, seen = _colorize(
+        color_result = _colorize(
             world, args.color_transforms, robust=args.color_robust,
             normalize_exposure=args.color_normalize_exposure,
             exposure_scale_limit=args.color_exposure_scale_limit,
@@ -215,11 +216,30 @@ def build(args: argparse.Namespace) -> dict:
             min_view_cosine=args.color_min_view_cosine,
             min_projected_scale=args.color_min_projected_scale,
             view_score_power=args.color_view_score_power,
-            min_samples=args.color_min_samples)
+            min_samples=args.color_min_samples,
+            geometry_aware=args.color_geometry_aware,
+            occlusion_margin_px=args.color_occlusion_margin_px,
+            depth_edge_margin_px=args.color_depth_edge_margin_px,
+            depth_edge_tolerance=args.color_depth_edge_tolerance,
+            depth_edge_relative_tolerance=(
+                args.color_depth_edge_relative_tolerance),
+            dynamic_exclusion=args.color_dynamic_exclusion,
+            dynamic_mask_margin_px=args.color_dynamic_mask_margin_px,
+            calibration_sigma_multiplier=(
+                args.color_calibration_sigma_multiplier),
+            maximum_uncertainty_margin_px=(
+                args.color_max_uncertainty_margin_px),
+            return_diagnostics=args.color_geometry_aware)
+        if args.color_geometry_aware:
+            rgb, seen, fusion_diagnostics = color_result
+        else:
+            rgb, seen = color_result
         colored = int(seen.sum())
     out = pcio.write_ply(args.out, world, rgb)
-    return {'scans_used': used, 'scans_deskewed': deskewed, 'scans_skipped': skipped,
-            'points': int(world.shape[0]), 'colored': colored, 'out': str(out)}
+    return {'scans_used': used, 'scans_deskewed': deskewed,
+            'scans_skipped': skipped, 'points': int(world.shape[0]),
+            'colored': colored, 'fusion_diagnostics': fusion_diagnostics,
+            'out': str(out)}
 
 
 def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
@@ -234,7 +254,17 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
               min_view_cosine: float = 0.0,
               min_projected_scale: float = 0.0,
               view_score_power: float = 0.0,
-              min_samples: int = 1):
+              min_samples: int = 1,
+              geometry_aware: bool = False,
+              occlusion_margin_px: int = 2,
+              depth_edge_margin_px: int = 2,
+              depth_edge_tolerance: float = 0.15,
+              depth_edge_relative_tolerance: float = 0.02,
+              dynamic_exclusion: bool = False,
+              dynamic_mask_margin_px: int = 2,
+              calibration_sigma_multiplier: float = 0.0,
+              maximum_uncertainty_margin_px: int = 8,
+              return_diagnostics: bool = False):
     """Project ``world`` points into the posed images of a transforms.json."""
     import imageio.v3 as iio
     import train_gsplat as tg
@@ -246,7 +276,23 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
             world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'])
     normals = (pcio.estimate_voxel_normals(world, voxel=normal_voxel)
                if view_confidence else None)
-    rgb, seen, counts = pcio.colorize_by_projection_robust(
+    if dynamic_exclusion and not geometry_aware:
+        raise ValueError('dynamic exclusion requires geometry-aware fusion')
+    exclusion_masks = None
+    if geometry_aware and dynamic_exclusion:
+        mask_paths = ds['dynamic_mask_paths']
+        if any(path is None for path in mask_paths):
+            raise ValueError('dynamic exclusion requires dynamic_mask_path for '
+                             'every transforms frame')
+        exclusion_masks = [
+            np.asarray(iio.imread(path)) != 0 for path in mask_paths]
+        exclusion_masks = [
+            np.any(mask, axis=2) if mask.ndim == 3 else mask
+            for mask in exclusion_masks]
+    calibration = (ds['spatiotemporal_calibration']
+                   if geometry_aware and calibration_sigma_multiplier > 0.0
+                   else None)
+    result = pcio.colorize_by_projection_robust(
         world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'],
         normalize_exposure=normalize_exposure,
         exposure_scale_limit=exposure_scale_limit,
@@ -257,7 +303,22 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
         min_view_cosine=min_view_cosine,
         min_projected_scale=min_projected_scale,
         view_score_power=view_score_power,
-        return_counts=True)
+        occlusion_margin_px=occlusion_margin_px if geometry_aware else 0,
+        depth_edge_margin_px=depth_edge_margin_px if geometry_aware else 0,
+        depth_edge_tolerance=depth_edge_tolerance,
+        depth_edge_relative_tolerance=depth_edge_relative_tolerance,
+        exclusion_masks=exclusion_masks,
+        dynamic_mask_margin_px=dynamic_mask_margin_px,
+        calibration=calibration,
+        view_timestamps=(ds['timestamps'] if calibration is not None else None),
+        calibration_sigma_multiplier=(
+            calibration_sigma_multiplier if geometry_aware else 0.0),
+        maximum_uncertainty_margin_px=maximum_uncertainty_margin_px,
+        return_counts=True, return_diagnostics=return_diagnostics)
+    if return_diagnostics:
+        rgb, seen, counts, diagnostics = result
+    else:
+        rgb, seen, counts = result
     if min_samples > 1:
         # Colours confirmed by too few camera observations are unreliable
         # (occlusion-fringe or specular one-offs that pepper flat surfaces);
@@ -265,7 +326,7 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
         low = seen & (counts < min_samples)
         rgb[low] = (128, 128, 128)
         seen = seen & ~low
-    return rgb, seen
+    return (rgb, seen, diagnostics) if return_diagnostics else (rgb, seen)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -333,6 +394,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--color-min-view-cosine', type=float, default=0.0)
     p.add_argument('--color-min-projected-scale', type=float, default=0.0)
     p.add_argument('--color-view-score-power', type=float, default=1.0)
+    p.add_argument('--color-geometry-aware', action='store_true',
+                   help='enable depth-edge, silhouette, dynamic-mask, and '
+                        'calibration-uncertainty guards')
+    p.add_argument('--color-occlusion-margin-px', type=int, default=2)
+    p.add_argument('--color-depth-edge-margin-px', type=int, default=2)
+    p.add_argument('--color-depth-edge-tolerance', type=float, default=0.15)
+    p.add_argument('--color-depth-edge-relative-tolerance', type=float,
+                   default=0.02)
+    p.add_argument('--color-dynamic-exclusion', action='store_true',
+                   help='exclude per-frame dynamic_mask_path pixels')
+    p.add_argument('--color-dynamic-mask-margin-px', type=int, default=2)
+    p.add_argument('--color-calibration-sigma-multiplier', type=float,
+                   default=0.0)
+    p.add_argument('--color-max-uncertainty-margin-px', type=int, default=8)
     p.add_argument('--min-neighbors', type=int, default=2,
                    help='drop points whose 3x3x3 voxel neighbourhood (see '
                         '--sparse-voxel) holds fewer points; default 2 requires '

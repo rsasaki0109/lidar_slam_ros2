@@ -60,6 +60,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--min-view-cosine', type=float, default=0.0)
     parser.add_argument('--min-projected-scale', type=float, default=0.0)
     parser.add_argument('--view-score-power', type=float, default=1.0)
+    parser.add_argument('--geometry-aware', action='store_true')
+    parser.add_argument('--occlusion-margin-px', type=int, default=2)
+    parser.add_argument('--depth-edge-margin-px', type=int, default=2)
+    parser.add_argument('--depth-edge-tolerance', type=float, default=0.15)
+    parser.add_argument('--depth-edge-relative-tolerance', type=float,
+                        default=0.02)
+    parser.add_argument('--dynamic-exclusion', action='store_true')
+    parser.add_argument('--dynamic-mask-margin-px', type=int, default=2)
+    parser.add_argument('--calibration-sigma-multiplier', type=float,
+                        default=0.0)
+    parser.add_argument('--max-uncertainty-margin-px', type=int, default=8)
     parser.add_argument('--no-normalize-exposure', action='store_false',
                         dest='normalize_exposure')
     return parser
@@ -68,7 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> dict:
     """Colour one existing map and return a compact coverage report."""
     xyz, _ = pcio.read_ply_xyz(args.input)
-    rgb, seen = builder._colorize(
+    result = builder._colorize(
         xyz, args.transforms, robust=True,
         normalize_exposure=args.normalize_exposure,
         exposure_scale_limit=args.exposure_scale_limit,
@@ -81,7 +92,21 @@ def run(args: argparse.Namespace) -> dict:
         min_view_cosine=args.min_view_cosine,
         min_projected_scale=args.min_projected_scale,
         view_score_power=args.view_score_power,
-        min_samples=args.min_samples)
+        min_samples=args.min_samples, geometry_aware=args.geometry_aware,
+        occlusion_margin_px=args.occlusion_margin_px,
+        depth_edge_margin_px=args.depth_edge_margin_px,
+        depth_edge_tolerance=args.depth_edge_tolerance,
+        depth_edge_relative_tolerance=args.depth_edge_relative_tolerance,
+        dynamic_exclusion=args.dynamic_exclusion,
+        dynamic_mask_margin_px=args.dynamic_mask_margin_px,
+        calibration_sigma_multiplier=args.calibration_sigma_multiplier,
+        maximum_uncertainty_margin_px=args.max_uncertainty_margin_px,
+        return_diagnostics=args.geometry_aware)
+    if args.geometry_aware:
+        rgb, seen, diagnostics = result
+    else:
+        rgb, seen = result
+        diagnostics = None
     output = pcio.write_ply(args.out, xyz, rgb)
     report = {
         'input': str(args.input), 'output': str(output),
@@ -92,6 +117,8 @@ def run(args: argparse.Namespace) -> dict:
         'image_margin': int(args.image_margin),
         'vignette_gain_limit': float(args.vignette_gain_limit),
         'min_samples': int(args.min_samples),
+        'geometry_aware': bool(args.geometry_aware),
+        'fusion_diagnostics': diagnostics,
     }
     if args.report:
         path = Path(args.report)

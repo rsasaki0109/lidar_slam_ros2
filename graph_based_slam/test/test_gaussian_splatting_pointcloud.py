@@ -560,6 +560,121 @@ def test_colorize_robust_observation_mask_rejects_bad_view():
     np.testing.assert_array_equal(rgb[0], [50, 50, 50])
 
 
+def test_geometry_occlusion_margin_rejects_adjacent_background():
+    vms, K, width, height = _cam()
+    image = np.zeros((height, width, 3), dtype=np.uint8)
+    image[50, 50], image[50, 51] = [200, 0, 0], [0, 200, 0]
+    points = np.array([[0.0, 0.0, 5.0], [0.1, 0.0, 10.0]])
+    rgb, seen, diagnostics = pcio.colorize_by_projection_robust(
+        points, vms, K, [image], width, height,
+        normalize_exposure=False, interp='nearest',
+        occlusion_margin_px=1, return_diagnostics=True)
+    assert seen.tolist() == [True, False]
+    np.testing.assert_array_equal(rgb[0], [200, 0, 0])
+    assert diagnostics['rejected_occlusion'] == 1
+
+
+def test_geometry_depth_edge_rejects_both_sides_but_keeps_flat_surface():
+    vms, K, width, height = _cam()
+    image = np.full((height, width, 3), 100, dtype=np.uint8)
+    discontinuity = np.array([[0.0, 0.0, 5.0], [0.1, 0.0, 10.0]])
+    _, seen, diagnostics = pcio.colorize_by_projection_robust(
+        discontinuity, vms, K, [image], width, height,
+        normalize_exposure=False, depth_edge_margin_px=1,
+        depth_edge_tolerance=0.2, return_diagnostics=True)
+    assert seen.tolist() == [False, False]
+    assert diagnostics['rejected_depth_edge'] == 2
+
+    flat = np.array([[0.0, 0.0, 5.0], [0.05, 0.0, 5.0]])
+    _, flat_seen = pcio.colorize_by_projection_robust(
+        flat, vms, K, [image], width, height,
+        normalize_exposure=False, depth_edge_margin_px=1,
+        depth_edge_tolerance=0.2)
+    assert flat_seen.all()
+
+
+def test_geometry_dynamic_mask_and_margin_reject_image_regions():
+    vms, K, width, height = _cam()
+    image = np.full((height, width, 3), 100, dtype=np.uint8)
+    mask = np.zeros((height, width), dtype=bool)
+    mask[50, 50] = True
+    points = np.array([[0.0, 0.0, 5.0], [0.05, 0.0, 5.0]])
+    _, seen, diagnostics = pcio.colorize_by_projection_robust(
+        points, vms, K, [image], width, height,
+        normalize_exposure=False, exclusion_masks=[mask],
+        dynamic_mask_margin_px=1, return_diagnostics=True)
+    assert seen.tolist() == [False, False]
+    assert diagnostics['rejected_dynamic_mask'] == 2
+
+
+def test_calibration_uncertainty_expands_geometry_margin():
+    vms, K, width, height = _cam()
+    image = np.full((height, width, 3), 100, dtype=np.uint8)
+    points = np.array([[0.0, 0.0, 5.0], [0.1, 0.0, 10.0]])
+    calibration = {
+        'accepted': True,
+        'uncertainty_dt_s_xyz_m_rpy_rad':
+            [0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0],
+    }
+    _, seen = pcio.colorize_by_projection_robust(
+        points, vms, K, [image], width, height,
+        normalize_exposure=False, calibration=calibration,
+        view_timestamps=[0.0], calibration_sigma_multiplier=1.0,
+        maximum_uncertainty_margin_px=2, depth_edge_tolerance=100.0)
+    assert seen.tolist() == [True, False]
+
+
+def test_geometry_fusion_rejects_coarse_zbuffer_and_missing_timestamps():
+    vms, K, width, height = _cam()
+    image = np.zeros((height, width, 3), dtype=np.uint8)
+    point = np.array([[0.0, 0.0, 5.0]])
+    with np.testing.assert_raises(ValueError):
+        pcio.colorize_by_projection_robust(
+            point, vms, K, [image], width, height,
+            occlusion_margin_px=1, zbuf_bin=2)
+    with np.testing.assert_raises(ValueError):
+        pcio.colorize_by_projection_robust(
+            point, vms, K, [image], width, height,
+            calibration={'accepted': True,
+                         'uncertainty_dt_s_xyz_m_rpy_rad': [0.0] * 7},
+            calibration_sigma_multiplier=1.0)
+
+
+def test_builder_loads_manifest_dynamic_masks_for_geometry_fusion(tmp_path):
+    import imageio.v3 as iio
+    import json
+
+    images = tmp_path / 'images'
+    masks = tmp_path / 'masks'
+    images.mkdir()
+    masks.mkdir()
+    image = np.full((100, 100, 3), 120, dtype=np.uint8)
+    mask = np.zeros((100, 100), dtype=np.uint8)
+    mask[50, 50] = 255
+    iio.imwrite(images / '0.png', image)
+    iio.imwrite(masks / '0.png', mask)
+    document = {
+        'w': 100, 'h': 100, 'fl_x': 100.0, 'fl_y': 100.0,
+        'cx': 50.0, 'cy': 50.0,
+        'frames': [{
+            'file_path': 'images/0.png', 'dynamic_mask_path': 'masks/0.png',
+            'timestamp': 0.0,
+            'transform_matrix': np.diag([1.0, -1.0, -1.0, 1.0]).tolist(),
+        }],
+    }
+    transforms = tmp_path / 'transforms.json'
+    transforms.write_text(json.dumps(document))
+    rgb, seen, diagnostics = bli._colorize(
+        np.array([[0.0, 0.0, 5.0]]), str(transforms), robust=True,
+        normalize_exposure=False, geometry_aware=True,
+        occlusion_margin_px=0, depth_edge_margin_px=0,
+        dynamic_exclusion=True, dynamic_mask_margin_px=0,
+        return_diagnostics=True)
+    assert not seen[0]
+    np.testing.assert_array_equal(rgb[0], [128, 128, 128])
+    assert diagnostics['rejected_dynamic_mask'] == 1
+
+
 def test_colorize_robust_normalizes_mono_images_and_broadcasts_rgb():
     vms1, K, W, H = _cam()
     vms = np.concatenate([vms1, vms1], axis=0)
