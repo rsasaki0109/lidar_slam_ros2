@@ -112,10 +112,10 @@ The pipeline registers LiDAR scans with the corrected trajectory, then projects
 synchronized camera pixels onto that geometry. This RTK-SLAM Construction Hall
 1 result follows the full estimated 60 m walking loop.
 
-![Camera-coloured SLAM point-cloud map and its estimated trajectory](lidarslam/images/map_flythrough_rtkslam.webp)
+![Camera-coloured SLAM point-cloud map and its estimated trajectory](lidarslam/images/map_flythrough_rtkslam.webp) ([MP4](lidarslam/images/map_flythrough_rtkslam.mp4) · [GIF](lidarslam/images/map_flythrough_rtkslam.gif))
 
-The sequence is from the RTK-SLAM dataset (CC-BY 4.0). Its total-station
-checkpoints are also used by the [accuracy gate](#accuracy).
+K3 has 4.84 M points, 74.76% colour coverage, and 11/11 profile checks passing; its cinematic render improves frame occupancy from 78.82% to 82.13% and flicker p90 from 0.00800 to 0.00668. See the [release-readiness record](docs/research/colored-map-release-readiness-2026-07.md) for provenance, rejected candidates, performance, and limits.
+The sequence is from RTK-SLAM (CC-BY 4.0); its total-station checkpoints also drive the [accuracy gate](#accuracy).
 
 If graph optimization outputs sparse keyframes, the coloured-map pipeline can
 propagate their corrections onto the dense SLAM pose stream automatically:
@@ -127,8 +127,8 @@ python3 tools/colored_map/colored_map_pipeline.py \
   --extrinsic configs/gaussian_splatting/<lidar_camera_extrinsic>.yaml
 ```
 
-The pipeline caches `dense_corrected_trajectory.tum` and rebuilds stale
-downstream artifacts; use `--force-trajectory` for an explicit refresh. Moving rigs can add `--refine-spatiotemporal-calibration`; see the [held-out-gated design and RTK-SLAM result](docs/research/colored-map-spatiotemporal-calibration-2026-07.md).
+The pipeline caches `dense_corrected_trajectory.tum` and rebuilds stale downstream artifacts; use `--force-trajectory` for an explicit refresh.
+Moving rigs can add `--refine-spatiotemporal-calibration`; see the [held-out-gated design and RTK-SLAM result](docs/research/colored-map-spatiotemporal-calibration-2026-07.md).
 
 ### Cross-repository SLAM benchmark
 

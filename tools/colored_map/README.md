@@ -67,6 +67,11 @@ silhouette/depth-edge marginはConstruction Seq1の全量候補が既存planar q
 gateを通らなかったため既定0。dataset固有のpaired A/Bと既存profileを通すまで
 明示的に有効化しないこと。
 
+edge-aware samplingは4 cornerの巨大な一時stackを作らず、同じcornerからRGBの
+min/maxをin-place更新する。旧式との完全一致testに加え、Construction Seq1の
+paired screenでPLY SHA-256とreportが一致し、wall timeを25.0%短縮した。詳細は
+[`colored-map-fusion-performance-2026-07.md`](../../docs/research/colored-map-fusion-performance-2026-07.md)。
+
 README動画の再現設定は `render_map_flythrough.py --device cpu
 --soft-edge-px 1 --surface-splat --surface-aspect-limit 2.5
 --surface-normal-voxel 0.12 --camera-preset cinematic --render-voxel 0.03
@@ -77,6 +82,7 @@ README動画の再現設定は `render_map_flythrough.py --device cpu
 
 - [`COLORING_HANDOFF.md`](COLORING_HANDOFF.md) — 着色品質枝 (2026-07-18)
 - [`BIM_HANDOFF.md`](BIM_HANDOFF.md) — Scan-to-BIM 枝 (2026-07-11)
+- [`colored-map-release-readiness-2026-07.md`](../../docs/research/colored-map-release-readiness-2026-07.md) — 公開判定と制約
 
 チュートリアル: [`docs/3dgs-map-tutorial.md`](../../docs/3dgs-map-tutorial.md)
 (フライスルー生成)、[`docs/workflows.md`](../../docs/workflows.md)。
