@@ -183,12 +183,13 @@ def test_spatiotemporal_optimizer_is_deterministic_and_bounded(monkeypatch):
                       'median_px': loss, 'coverage': 1.0}
 
     monkeypatch.setattr(lca, 'spatiotemporal_objective', objective)
-    call = lambda: lca.optimize_spatiotemporal(
-        np.zeros((0, 3)), _moving_samples(), np.array([1.0]), np.eye(4),
-        np.eye(3), [], rounds=3, time_step=0.04,
-        translation_step=0.04, rotation_step_deg=0.4,
-        max_time_offset=0.05, max_translation=0.05,
-        max_rotation_deg=0.3)
+    def call():
+        return lca.optimize_spatiotemporal(
+            np.zeros((0, 3)), _moving_samples(), np.array([1.0]), np.eye(4),
+            np.eye(3), [], rounds=3, time_step=0.04,
+            translation_step=0.04, rotation_step_deg=0.4,
+            max_time_offset=0.05, max_translation=0.05,
+            max_rotation_deg=0.3)
     first, before, after = call()
     second, _, _ = call()
     np.testing.assert_array_equal(first, second)
