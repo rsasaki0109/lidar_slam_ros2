@@ -35,7 +35,7 @@ import json
 from pathlib import Path
 import sys
 
-import imageio.v3 as iio
+import imageio as iio
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

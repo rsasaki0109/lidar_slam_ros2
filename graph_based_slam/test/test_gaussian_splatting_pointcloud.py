@@ -641,7 +641,7 @@ def test_geometry_fusion_rejects_coarse_zbuffer_and_missing_timestamps():
 
 
 def test_builder_loads_manifest_dynamic_masks_for_geometry_fusion(tmp_path):
-    import imageio.v3 as iio
+    import imageio as iio
     import json
 
     images = tmp_path / 'images'

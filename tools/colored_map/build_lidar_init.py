@@ -266,7 +266,7 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
               maximum_uncertainty_margin_px: int = 8,
               return_diagnostics: bool = False):
     """Project ``world`` points into the posed images of a transforms.json."""
-    import imageio.v3 as iio
+    import imageio as iio
     import train_gsplat as tg
 
     ds = tg.load_transforms(transforms_path)

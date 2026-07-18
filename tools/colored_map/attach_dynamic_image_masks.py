@@ -42,7 +42,7 @@ import numpy as np
 def attach_masks(source: Path, mask_dir: Path, output: Path, *,
                  allow_missing: bool = False) -> dict:
     """Validate masks, rewrite relative paths, and return provenance summary."""
-    import imageio.v3 as iio
+    import imageio as iio
 
     source, mask_dir, output = (
         Path(source).resolve(), Path(mask_dir).resolve(), Path(output).resolve())
