@@ -14,6 +14,9 @@ Forthcoming
 * Hide ``BackendCore``, registration, voxel filtering, and 3D-BBS state behind
   an implementation-only workspace, keeping g2o, pclomp, and descriptor
   database headers out of the public ROS component interface.
+* Complete the component PImpl boundary: ROS subscriptions, configuration,
+  graph state, and sensor/cache implementation details now live in a private
+  source header, reducing the installed component header from 518 to 78 lines.
 
 0.6.0 (2026-06-12)
 ------------------
