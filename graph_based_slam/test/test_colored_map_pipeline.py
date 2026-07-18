@@ -148,6 +148,13 @@ def test_geometry_aware_fusion_forwards_all_production_guards(tmp_path):
     assert calibration[calibration.index('--transforms') + 1] == masked
 
 
+def test_geometry_boundary_guards_are_default_off(tmp_path):
+    args = _args(tmp_path, '--color-geometry-aware')
+    coloured = dict(cmp.build_commands(args))['coloured map']
+    assert coloured[coloured.index('--color-occlusion-margin-px') + 1] == '0'
+    assert coloured[coloured.index('--color-depth-edge-margin-px') + 1] == '0'
+
+
 def test_dynamic_masks_are_cached_and_new_masks_rebuild_dependents(tmp_path):
     out = tmp_path / 'out'
     masks = tmp_path / 'masks'

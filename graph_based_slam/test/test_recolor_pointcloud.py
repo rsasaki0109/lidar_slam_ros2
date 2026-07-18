@@ -62,3 +62,5 @@ def test_parser_exposes_default_off_screening_stride(tmp_path):
         '--out', str(tmp_path / 'out.ply'),
     ])
     assert args.point_stride == 1
+    assert args.occlusion_margin_px == 0
+    assert args.depth_edge_margin_px == 0

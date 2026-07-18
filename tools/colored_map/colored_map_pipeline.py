@@ -619,11 +619,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--color-min-projected-scale', type=float, default=0.0)
     p.add_argument('--color-view-score-power', type=float, default=1.0)
     p.add_argument('--color-geometry-aware', action='store_true')
-    p.add_argument('--color-occlusion-margin-px', type=int, default=2)
-    p.add_argument('--color-depth-edge-margin-px', type=int, default=2)
-    p.add_argument('--color-depth-edge-tolerance', type=float, default=0.15)
+    p.add_argument('--color-occlusion-margin-px', type=int, default=0)
+    p.add_argument('--color-depth-edge-margin-px', type=int, default=0)
+    p.add_argument('--color-depth-edge-tolerance', type=float, default=1.0)
     p.add_argument('--color-depth-edge-relative-tolerance', type=float,
-                   default=0.02)
+                   default=0.10)
     p.add_argument('--color-dynamic-exclusion', action='store_true')
     p.add_argument('--dynamic-mask-dir', type=Path,
                    help='PNG dynamic-object masks named after image stems')

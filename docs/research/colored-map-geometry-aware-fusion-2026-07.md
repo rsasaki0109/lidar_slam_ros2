@@ -107,3 +107,19 @@ unnecessarily strict. It recovered screening coverage above the corrected-pose
 baseline while retaining most of S4's held-out improvement. S6 traded less
 coverage for less improvement and was rejected. S5 was promoted to the final
 full-density trial.
+
+Full-density S5 (candidate N) recovered coverage to 0.7712 and further improved
+held-out median/inlier 20 to 39.94/0.3007. Global roughness was 5.75/24.61 and
+chroma retention was 0.9964, but planar roughness was 8.67/28.02 and therefore
+failed the existing 7.6/25.0 profile. N cannot be promoted against K3 alone
+because it also includes the newly accepted camera calibration. A full-density
+corrected-pose baseline without geometry guards is required to separate the
+calibration effect from the guard effect.
+
+That baseline (candidate O) measured coverage 0.7408, held-out median/inlier 20
+40.23/0.2928, global roughness 5.20/20.33, and planar roughness 7.72/22.65.
+Compared directly with O, N improved coverage and held-out colour fidelity but
+worsened planar roughness to 8.67/28.02. The boundary guard was therefore not
+promoted and the existing quality threshold was not relaxed. CLI boundary
+margins default to zero; dynamic masks, uncertainty propagation, and explicitly
+validated dataset-specific margins remain available independently.

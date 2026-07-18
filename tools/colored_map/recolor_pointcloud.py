@@ -71,11 +71,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--min-projected-scale', type=float, default=0.0)
     parser.add_argument('--view-score-power', type=float, default=1.0)
     parser.add_argument('--geometry-aware', action='store_true')
-    parser.add_argument('--occlusion-margin-px', type=int, default=2)
-    parser.add_argument('--depth-edge-margin-px', type=int, default=2)
-    parser.add_argument('--depth-edge-tolerance', type=float, default=0.15)
+    parser.add_argument('--occlusion-margin-px', type=int, default=0)
+    parser.add_argument('--depth-edge-margin-px', type=int, default=0)
+    parser.add_argument('--depth-edge-tolerance', type=float, default=1.0)
     parser.add_argument('--depth-edge-relative-tolerance', type=float,
-                        default=0.02)
+                        default=0.10)
     parser.add_argument('--dynamic-exclusion', action='store_true')
     parser.add_argument('--dynamic-mask-margin-px', type=int, default=2)
     parser.add_argument('--calibration-sigma-multiplier', type=float,

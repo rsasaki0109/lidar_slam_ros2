@@ -256,10 +256,10 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
               view_score_power: float = 0.0,
               min_samples: int = 1,
               geometry_aware: bool = False,
-              occlusion_margin_px: int = 2,
-              depth_edge_margin_px: int = 2,
-              depth_edge_tolerance: float = 0.15,
-              depth_edge_relative_tolerance: float = 0.02,
+              occlusion_margin_px: int = 0,
+              depth_edge_margin_px: int = 0,
+              depth_edge_tolerance: float = 1.0,
+              depth_edge_relative_tolerance: float = 0.10,
               dynamic_exclusion: bool = False,
               dynamic_mask_margin_px: int = 2,
               calibration_sigma_multiplier: float = 0.0,
@@ -397,11 +397,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--color-geometry-aware', action='store_true',
                    help='enable depth-edge, silhouette, dynamic-mask, and '
                         'calibration-uncertainty guards')
-    p.add_argument('--color-occlusion-margin-px', type=int, default=2)
-    p.add_argument('--color-depth-edge-margin-px', type=int, default=2)
-    p.add_argument('--color-depth-edge-tolerance', type=float, default=0.15)
+    p.add_argument('--color-occlusion-margin-px', type=int, default=0)
+    p.add_argument('--color-depth-edge-margin-px', type=int, default=0)
+    p.add_argument('--color-depth-edge-tolerance', type=float, default=1.0)
     p.add_argument('--color-depth-edge-relative-tolerance', type=float,
-                   default=0.02)
+                   default=0.10)
     p.add_argument('--color-dynamic-exclusion', action='store_true',
                    help='exclude per-frame dynamic_mask_path pixels')
     p.add_argument('--color-dynamic-mask-margin-px', type=int, default=2)

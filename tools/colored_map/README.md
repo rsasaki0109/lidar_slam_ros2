@@ -53,8 +53,7 @@ camera速度をpixel半径へ伝播し、各guardを観測ごとに拡張する�
 ```bash
 python3 tools/colored_map/colored_map_pipeline.py BAG TRAJECTORY OUT \
   --extrinsic BODY_CAMERA.json --refine-spatiotemporal-calibration \
-  --color-geometry-aware --color-occlusion-margin-px 2 \
-  --color-depth-edge-margin-px 2 \
+  --color-geometry-aware \
   --dynamic-mask-dir dynamic_masks --color-dynamic-exclusion \
   --color-dynamic-mask-margin-px 2 \
   --color-calibration-sigma-multiplier 1.0
@@ -64,6 +63,9 @@ maskは各posed imageと同じstemのPNGで、非zero pixelを除外領域とす
 有効にする場合は全frameのmaskが必須。詳しい設計と安全条件は
 [`colored-map-geometry-aware-fusion-2026-07.md`](../../docs/research/colored-map-geometry-aware-fusion-2026-07.md)
 を参照。
+silhouette/depth-edge marginはConstruction Seq1の全量候補が既存planar quality
+gateを通らなかったため既定0。dataset固有のpaired A/Bと既存profileを通すまで
+明示的に有効化しないこと。
 
 README動画の再現設定は `render_map_flythrough.py --device cpu
 --soft-edge-px 1 --surface-splat --surface-aspect-limit 2.5
