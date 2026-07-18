@@ -320,3 +320,12 @@ bilinear用cornerからin-place min/maxを更新する実装へ置換した。ra
 270,092→238,664 KiB。Construction Seq1の同一48.4万点/260画像screenでは
 130.53s→97.91s（25.0%短縮）、coverage/report同一、PLY SHA-256も同一だった。
 詳細は`docs/research/colored-map-fusion-performance-2026-07.md`。
+
+## 17. 追記 (2026-07-19): release finish
+
+READMEへK3の4.84 M点、coverage 74.76%、11項目profile、動画のoccupied pixel / flicker
+改善を明記し、WebPにMP4/GIF fallbackを追加した。公開判断は
+`docs/research/colored-map-release-readiness-2026-07.md`へ集約。K3動画を5時点で
+目視し、MP4は600x450 / 30 fps / 240 frames / 8秒、GIFは480x360 / 10 fps /
+80 frames / 8秒を確認した。geometry boundary guardを既定化せず、既存planar gateを
+維持する制約もREADME、release note、release recordで一致させた。
