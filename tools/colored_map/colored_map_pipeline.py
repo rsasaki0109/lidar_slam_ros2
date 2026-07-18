@@ -109,7 +109,7 @@ def validate_trajectory_density(path: Path, max_gap: float) -> None:
 def validate_colour_source(transforms: Path, allow_monochrome: bool = False
                            ) -> dict:
     """Reject mono posed images unless the caller explicitly allows them."""
-    import imageio.v3 as iio
+    import imageio as iio
 
     document = json.loads(Path(transforms).read_text())
     frames = document.get('frames', [])

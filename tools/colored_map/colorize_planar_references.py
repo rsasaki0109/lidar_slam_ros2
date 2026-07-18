@@ -93,7 +93,7 @@ def main() -> int:
     args = build_parser().parse_args()
     if args.folds < 1 or not 0 <= args.fold < args.folds:
         raise SystemExit('--folds must be >= 1 and --fold must be valid')
-    import imageio.v3 as iio
+    import imageio as iio
 
     points, _ = pcio.read_ply_xyz(args.pointcloud)
     dataset = tg.load_transforms(args.transforms)
