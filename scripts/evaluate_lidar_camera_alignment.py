@@ -522,7 +522,8 @@ def calibration_acceptance(train_before: dict, train_after: dict,
 
 
 def write_recomposed_transforms(source: Path, output: Path,
-                                viewmats: np.ndarray) -> Path:
+                                viewmats: np.ndarray, *,
+                                calibration: dict | None = None) -> Path:
     """Write continuous-time recomposed poses while preserving frame metadata."""
     source, output = Path(source).resolve(), Path(output).resolve()
     if source == output:
@@ -536,9 +537,34 @@ def write_recomposed_transforms(source: Path, output: Path,
         frame['transform_matrix'] = (
             np.linalg.inv(viewmat) @ pi.ROS_OPTICAL_TO_OPENGL).tolist()
         frame['file_path'] = os.path.relpath(image_path, output.parent)
+    if calibration is not None:
+        document['spatiotemporal_calibration'] = calibration
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(document, indent=2) + '\n')
     return output
+
+
+def calibration_metadata(optimization: dict) -> dict:
+    """Return the compact uncertainty contract consumed by RGB fusion."""
+    production = optimization.get('production_calibration')
+    observability = (production.get('observability')
+                     if production is not None else None)
+    metadata = {
+        'accepted': bool(optimization['accepted']),
+        'parameters_dt_s_xyz_m_rpy_deg':
+            optimization['parameters_dt_s_xyz_m_rpy_deg'],
+        'boundary_axes': optimization['boundary_axes'],
+    }
+    if observability is not None:
+        metadata.update({
+            'uncertainty_dt_s_xyz_m_rpy_rad':
+                observability['uncertainty_dt_s_xyz_m_rpy_rad'],
+            'condition_number': observability['condition_number'],
+            'maximum_abs_time_translation_correlation':
+                observability[
+                    'maximum_abs_time_translation_correlation'],
+        })
+    return metadata
 
 
 def write_corrected_transforms(source: Path, output: Path,
@@ -827,7 +853,8 @@ def main() -> int:
         if args.corrected_transforms_out is not None:
             corrected = write_recomposed_transforms(
                 args.transforms, args.corrected_transforms_out,
-                effective_viewmats)
+                effective_viewmats,
+                calibration=calibration_metadata(optimization))
             report['corrected_transforms'] = str(corrected)
     elif optimization is not None:
         report['extrinsic_optimization'] = optimization
