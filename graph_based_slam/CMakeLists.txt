@@ -136,6 +136,16 @@ target_link_libraries(
   g2o::stuff
 )
 
+add_library(graph_slam_io_adapters STATIC
+  src/filesystem_io_ports.cpp
+)
+set_target_properties(graph_slam_io_adapters PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(graph_slam_io_adapters PRIVATE cxx_std_17)
+target_include_directories(
+  graph_slam_io_adapters PUBLIC include PRIVATE src ${PCL_INCLUDE_DIRS}
+)
+target_link_libraries(graph_slam_io_adapters ${PCL_LIBRARIES})
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   find_package(ament_cmake_gtest REQUIRED)
@@ -326,6 +336,19 @@ if(BUILD_TESTING)
       graph_slam_application
       ${PCL_LIBRARIES}
       graph_based_slam_3d_bbs_vendor
+    )
+  endif()
+  ament_add_gtest(
+    test_external_io_ports
+    test/test_external_io_ports.cpp
+  )
+  if(TARGET test_external_io_ports)
+    target_include_directories(
+      test_external_io_ports PRIVATE include src ${PCL_INCLUDE_DIRS}
+    )
+    target_compile_features(test_external_io_ports PRIVATE cxx_std_17)
+    target_link_libraries(
+      test_external_io_ports graph_slam_io_adapters ${PCL_LIBRARIES}
     )
   endif()
   ament_add_gtest(
@@ -1073,6 +1096,7 @@ add_library(graph_based_slam_component SHARED
   src/graph_slam_composition.cpp
   src/three_d_bbs_loop_verifier.cpp
 )
+target_compile_features(graph_based_slam_component PRIVATE cxx_std_17)
 
 target_compile_definitions(graph_based_slam_component PRIVATE "GS_GBS_BUILDING_DLL")
 if(GRAPH_BASED_SLAM_HAVE_3D_BBS)
@@ -1100,6 +1124,7 @@ ament_target_dependencies(graph_based_slam_component
 target_link_libraries(graph_based_slam_component
   graph_slam_config
   graph_slam_application
+  graph_slam_io_adapters
   g2o::core
   g2o::types_slam3d
   g2o::solver_eigen
@@ -1145,6 +1170,7 @@ add_executable(graph_slam_offline_runner
   src/graph_slam_offline_runner.cpp
   src/three_d_bbs_loop_verifier.cpp
 )
+target_compile_features(graph_slam_offline_runner PRIVATE cxx_std_17)
 
 if(GRAPH_BASED_SLAM_HAVE_3D_BBS)
   target_compile_definitions(graph_slam_offline_runner PRIVATE GRAPH_BASED_SLAM_HAVE_3D_BBS)
@@ -1163,6 +1189,7 @@ ament_target_dependencies(graph_slam_offline_runner
 
 target_link_libraries(graph_slam_offline_runner
   graph_slam_application
+  graph_slam_io_adapters
   ${PCL_LIBRARIES}
   g2o::core
   g2o::types_slam3d

@@ -208,7 +208,7 @@ pose_graph::OptimizationResult GraphSlamApplication::optimize(
     request.submaps, loop_constraints, request.imu_constraints,
     request.gnss_constraints, request.adjacent_config, request.loop_config,
     request.imu_config, request.chi2_collection, request.fix_first_vertex,
-    request.iterations, request.save_path, request.plane_constraints);
+    request.iterations, request.plane_constraints);
 }
 
 }  // namespace graphslam

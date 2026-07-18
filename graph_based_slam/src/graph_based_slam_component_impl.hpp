@@ -41,7 +41,6 @@
 #include <tf2_ros/transform_broadcaster.h>  // NOLINT(build/include_order)
 #include <tf2_ros/transform_listener.h>  // NOLINT(build/include_order)
 
-#include <fstream>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -66,6 +65,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_srvs/srv/empty.hpp>
 #include "graph_based_slam/degeneracy_report_summary.hpp"
+#include "graph_based_slam/external_io_ports.hpp"
 #include "graph_based_slam/gnss_origin_accumulator.hpp"
 #include "graph_based_slam/graph_state_store.hpp"
 #include "graph_based_slam/loop_edge_set.hpp"
@@ -93,6 +93,7 @@ private:
     // voxel filter and 3D-BBS verifier. Their PCL/pclomp/descriptor headers
     // stay in the component implementation translation unit.
   std::unique_ptr<BackendWorkspace> backend_;
+  ports::ExternalIoPorts io_ports_;
     // BackendWorkspace is single-threaded by contract. Keep that contract
     // when hosted by a MultiThreadedExecutor, while coalescing arrivals
     // during a long search.
@@ -149,15 +150,7 @@ private:
   int previous_submaps_num_ {0};
 
   // PCD disk cache for memory-efficient submap storage.
-  std::mutex pcd_cache_mtx_;
   void stageMapArrayCloudCache(lidarslam_msgs::msg::MapArray & map_array_msg);
-  bool saveSubmapToPCD(
-    int idx,
-    const pcl::PointCloud<pcl::PointXYZI>::Ptr & cloud);
-  bool saveSubmapToPCDUnlocked(
-    int idx,
-    const pcl::PointCloud<pcl::PointXYZI>::Ptr & cloud);
-  pcl::PointCloud<pcl::PointXYZI>::Ptr loadSubmapFromPCD(int idx);
   pcl::PointCloud<pcl::PointXYZI>::Ptr loadSubmapCloud(
     const lidarslam_msgs::msg::MapArray & map_array_msg, int idx);
 
@@ -201,7 +194,7 @@ private:
     // artifacts). Both default off: default behavior (and determinism) is
     // unchanged, and nothing here feeds back into any pose or edge weight.
   std::mutex degeneracy_mtx_;
-  std::ofstream degeneracy_csv_ofs_;
+  bool degeneracy_csv_enabled_ {false};
   degeneracy::DegeneracyReportAccumulator degeneracy_accumulator_;
   void recordScanDegeneracy(const nav_msgs::msg::Odometry & odom_msg);
   void writeDegeneracyReport();
