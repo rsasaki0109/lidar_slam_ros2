@@ -697,7 +697,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     rgb = np.tile(np.asarray(default_rgb, dtype=np.uint8), (n, 1))
     counts = np.zeros(n, dtype=np.uint16)
     diagnostics = {
-        'projected': 0, 'rejected_occlusion': 0,
+        'projected': 0, 'rejected_zbuffer': 0,
+        'rejected_occlusion': 0, 'rejected_occlusion_margin': 0,
         'rejected_depth_edge': 0, 'rejected_dynamic_mask': 0,
         'accepted_samples': 0,
     }
@@ -807,8 +808,13 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                 zbuffer_image, u[inb], v[inb], occlusion_radii)
         else:
             local_minimum = zbuf[zbin]
+        zbuffer_visible = projected_z <= (
+            zbuf[zbin] + depth_tol + 0.02 * projected_z)
+        diagnostics['rejected_zbuffer'] += int((~zbuffer_visible).sum())
         visible = projected_z <= (
             local_minimum + depth_tol + 0.02 * projected_z)
+        diagnostics['rejected_occlusion_margin'] += int(
+            (zbuffer_visible & ~visible).sum())
         diagnostics['rejected_occlusion'] += int((~visible).sum())
 
         edge_radii = uncertainty_margin + int(depth_edge_margin_px)

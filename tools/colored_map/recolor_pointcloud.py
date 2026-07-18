@@ -41,6 +41,13 @@ import build_lidar_init as builder
 import pointcloud_io as pcio
 
 
+def select_paired_subset(xyz, stride: int):
+    """Return a deterministic index-strided subset for paired A/B trials."""
+    if stride < 1:
+        raise ValueError('point stride must be at least one')
+    return xyz[::stride]
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Construct the command-line parser."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -49,6 +56,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--transforms', required=True)
     parser.add_argument('--out', required=True)
     parser.add_argument('--report', default=None)
+    parser.add_argument('--point-stride', type=int, default=1,
+                        help='deterministically use every Nth input point; '
+                             'intended for paired parameter screening')
     parser.add_argument('--exposure-scale-limit', type=float, default=1.5)
     parser.add_argument('--max-samples', type=int, default=12)
     parser.add_argument('--min-samples', type=int, default=1)
@@ -79,6 +89,8 @@ def build_parser() -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> dict:
     """Colour one existing map and return a compact coverage report."""
     xyz, _ = pcio.read_ply_xyz(args.input)
+    input_points = len(xyz)
+    xyz = select_paired_subset(xyz, args.point_stride)
     result = builder._colorize(
         xyz, args.transforms, robust=True,
         normalize_exposure=args.normalize_exposure,
@@ -110,7 +122,9 @@ def run(args: argparse.Namespace) -> dict:
     output = pcio.write_ply(args.out, xyz, rgb)
     report = {
         'input': str(args.input), 'output': str(output),
+        'input_points': int(input_points),
         'points': int(len(xyz)), 'colored': int(seen.sum()),
+        'point_stride': int(args.point_stride),
         'coverage': float(seen.mean()) if len(seen) else 0.0,
         'overlap_balance': bool(args.overlap_balance),
         'view_confidence': bool(args.view_confidence),

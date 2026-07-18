@@ -572,6 +572,8 @@ def test_geometry_occlusion_margin_rejects_adjacent_background():
     assert seen.tolist() == [True, False]
     np.testing.assert_array_equal(rgb[0], [200, 0, 0])
     assert diagnostics['rejected_occlusion'] == 1
+    assert diagnostics['rejected_zbuffer'] == 0
+    assert diagnostics['rejected_occlusion_margin'] == 1
 
 
 def test_geometry_depth_edge_rejects_both_sides_but_keeps_flat_surface():
