@@ -33,7 +33,7 @@ import os
 from pathlib import Path
 import sys
 
-import imageio.v3 as iio
+import imageio as iio
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -118,6 +118,59 @@ def test_spatiotemporal_refinement_inserts_geometry_and_heldout_calibration(tmp_
     assert calibration[
         calibration.index('--corrected-transforms-out') + 1] == refined
     assert coloured[coloured.index('--color-transforms') + 1] == refined
+
+
+def test_geometry_aware_fusion_forwards_all_production_guards(tmp_path):
+    commands = cmp.build_commands(_args(
+        tmp_path, '--refine-spatiotemporal-calibration',
+        '--color-geometry-aware', '--color-occlusion-margin-px', '3',
+        '--color-depth-edge-margin-px', '4',
+        '--dynamic-mask-dir', str(tmp_path / 'masks'),
+        '--color-dynamic-exclusion', '--color-dynamic-mask-margin-px', '5',
+        '--color-calibration-sigma-multiplier', '1.5',
+        '--color-max-uncertainty-margin-px', '9'))
+    coloured = dict(commands)['coloured map']
+    assert '--color-geometry-aware' in coloured
+    assert coloured[coloured.index('--color-occlusion-margin-px') + 1] == '3'
+    assert coloured[coloured.index('--color-depth-edge-margin-px') + 1] == '4'
+    assert '--color-dynamic-exclusion' in coloured
+    assert coloured[coloured.index('--color-dynamic-mask-margin-px') + 1] == '5'
+    assert coloured[
+        coloured.index('--color-calibration-sigma-multiplier') + 1] == '1.5'
+    assert coloured[
+        coloured.index('--color-max-uncertainty-margin-px') + 1] == '9'
+    attach = dict(commands)['dynamic image masks']
+    masked = str(tmp_path / 'out' / 'posed_images' /
+                 'transforms_dynamic_masks.json')
+    calibration = dict(commands)['spatiotemporal calibration']
+    assert attach[attach.index('--mask-dir') + 1] == str(tmp_path / 'masks')
+    assert attach[attach.index('--out') + 1] == masked
+    assert calibration[calibration.index('--transforms') + 1] == masked
+
+
+def test_dynamic_masks_are_cached_and_new_masks_rebuild_dependents(tmp_path):
+    out = tmp_path / 'out'
+    masks = tmp_path / 'masks'
+    masks.mkdir()
+    _write_at(tmp_path / 'traj.tum', 'dense\n', 1)
+    _write_at(out / 'posed_images' / 'transforms.json', '{}', 2)
+    _write_at(masks / 'frame.png', 'mask', 2)
+    os.utime(masks, ns=(2, 2))
+    _write_at(out / 'posed_images' / 'transforms_dynamic_masks.json', '{}', 3)
+    _write_at(out / 'colored_map.ply', 'ply\n', 4)
+    args = _args(tmp_path, '--dynamic-mask-dir', str(masks))
+    assert cmp.build_commands(args) == []
+    os.utime(masks / 'frame.png', ns=(5, 5))
+    assert [name for name, _ in cmp.build_commands(args)] == [
+        'dynamic image masks', 'coloured map']
+
+
+def test_dynamic_exclusion_requires_mask_dataset(tmp_path):
+    import pytest
+    args = _args(tmp_path, '--color-geometry-aware',
+                 '--color-dynamic-exclusion', '--dry-run')
+    with pytest.raises(ValueError, match='dynamic-mask-dir'):
+        cmp.run_pipeline(args)
 
 
 def test_existing_spatiotemporal_outputs_are_reused(tmp_path):

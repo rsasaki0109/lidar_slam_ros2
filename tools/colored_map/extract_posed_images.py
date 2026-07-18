@@ -353,7 +353,7 @@ def decode_compressed_image(fmt: str, data: bytes) -> np.ndarray:
     ``format`` (e.g. ``"bgr8; jpeg compressed bgr8"``); decoding such a payload
     yields swapped channels, so honour a leading ``bgr`` tag.
     """
-    import imageio.v3 as iio
+    import imageio as iio
 
     img = iio.imread(bytes(data))
     if img.ndim == 3 and img.shape[2] >= 3 and \
@@ -466,7 +466,7 @@ def resolve_time_offset(args: argparse.Namespace) -> float:
 
 def extract(args: argparse.Namespace) -> dict:
     """Run the full extraction and return a small summary dict."""
-    import imageio.v3 as iio
+    import imageio as iio
     from rclpy.serialization import deserialize_message
     from sensor_msgs.msg import CompressedImage, Image
 

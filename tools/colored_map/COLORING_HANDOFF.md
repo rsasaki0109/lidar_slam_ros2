@@ -288,3 +288,26 @@ render voxel 0.03、soft edge 1px、surface aspect 2.5、normal voxel 0.12、cin
 0.21180→0.19265、temporal delta p90 0.01589→0.01113、flicker p90
 0.00800→0.00688。WebP/MP4/GIFをK3から再生成した。成果物・JSON・棄却したK/K2は
 `/media/sasaki/aiueo/benchmarks/rtkslam_seq1_colored_map_20260718/`に保存。
+
+## 15. 追記 (2026-07-19): geometry-aware RGB fusion
+
+K3までのrobust medoid/view confidenceは、同じ3D点に届いた色の選択には強いが、
+silhouette隣接pixelへ投影された背景点、深度境界そのもの、移動物体の色を静的地図へ
+焼き付ける問題は入力候補の段階で除けなかった。そこでprojection fusionへ次の4 guard
+を統合した（全てdefault-off）。
+
+1. 1 pixel z-buffer近傍の最小深度によるforeground silhouette margin
+2. 近傍深度rangeによる不連続両側の除外
+3. frameごとの外部dynamic maskと可変dilation
+4. accepted 7DoF calibration covarianceのrange/focal/motion依存pixel伝播
+
+`attach_dynamic_image_masks.py`はsegmentation modelには依存せず、posed imageと同じ
+stemのPNGを検証して`dynamic_mask_path`をframeへ付与する。rootにはmask schema、
+全frame完備性、mask pixel率、frame別SHA-256を保存する。pipelineの工程は
+`posed images -> dynamic image masks -> calibration -> coloured map`となり、較正済み
+transformsにもmask参照と来歴が保持される。動的除外時は部分maskを拒否する。
+
+実装時点の集中回帰は129 pass / 4 skip、graph_based_slam全Python回帰も実行した。
+実データ閾値の採用は次段階で行い、coverageだけでなくheld-out色誤差、appearance、
+各棄却理由、boundary cropを同時比較する。設計記録は
+`docs/research/colored-map-geometry-aware-fusion-2026-07.md`。
