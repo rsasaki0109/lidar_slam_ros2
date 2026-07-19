@@ -454,6 +454,7 @@ def test_fixed_contour_options_reach_calibration_and_alignment(tmp_path):
         tmp_path, '--refine-spatiotemporal-calibration',
         '--calibration-fixed-contours',
         '--calibration-contour-max-points-per-view', '12000',
+        '--calibration-orientation-max-angle-deg', '25',
         '--quality-profile', str(tmp_path / 'profile.yaml'),
         '--alignment-fixed-contours',
         '--alignment-contour-association-distance', '30')
@@ -463,6 +464,8 @@ def test_fixed_contour_options_reach_calibration_and_alignment(tmp_path):
     assert '--fixed-contours' in calibration
     assert calibration[
         calibration.index('--contour-max-points-per-view') + 1] == '12000'
+    assert calibration[
+        calibration.index('--orientation-max-angle-deg') + 1] == '25.0'
     assert '--fixed-contours' in alignment
     assert alignment[
         alignment.index('--contour-association-distance') + 1] == '30'

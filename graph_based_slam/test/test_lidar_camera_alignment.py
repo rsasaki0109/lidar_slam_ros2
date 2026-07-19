@@ -61,6 +61,16 @@ def test_depth_edges_detects_supported_depth_step():
     assert edges.sum() == 2
 
 
+def test_depth_edge_normal_field_reports_horizontal_step_normal():
+    depth = np.full((8, 8), np.inf, np.float32)
+    depth[3, 2:6] = [2.0, 2.0, 4.0, 4.0]
+    edges, nx, ny = lca.depth_edge_normal_field(
+        depth, absolute=0.25, relative=0.0)
+    assert edges[3, 3] and edges[3, 4]
+    np.testing.assert_allclose(nx[3, 3:5], 1.0)
+    np.testing.assert_allclose(ny[3, 3:5], 0.0)
+
+
 def test_surface_supported_edges_keep_surfaces_and_reject_isolated_pair():
     depth = np.full((12, 12), np.inf, dtype=np.float32)
     depth[2:10, 2:6] = 2.0
@@ -105,6 +115,28 @@ def test_nearest_edge_correspondences_reports_signed_direction_and_saturation():
     assert np.isnan(result['dy_px'][1]) and np.isnan(result['dx_px'][1])
 
 
+def test_oriented_correspondence_rejects_perpendicular_edge():
+    query = np.zeros((12, 12), bool)
+    target = np.zeros_like(query)
+    query[6, 4] = True
+    target[6, 6] = True
+    qnx = np.zeros((12, 12), np.float32)
+    qny = np.zeros_like(qnx)
+    tnx = np.zeros_like(qnx)
+    tny = np.zeros_like(qnx)
+    qnx[6, 4] = 1.0
+    tny[6, 6] = 1.0
+    rejected = lca.nearest_oriented_edge_correspondences(
+        query, target, qnx, qny, tnx, tny,
+        max_distance=4, max_angle_deg=20.0)
+    assert rejected['distance_px'][0] == 5.0
+    tnx[6, 6], tny[6, 6] = 1.0, 0.0
+    accepted = lca.nearest_oriented_edge_correspondences(
+        query, target, qnx, qny, tnx, tny,
+        max_distance=4, max_angle_deg=20.0)
+    assert accepted['distance_px'][0] == 2.0
+
+
 def test_projected_depth_keeps_nearest_point():
     points = np.array([[0.0, 0.0, 2.0], [0.0, 0.0, 5.0]])
     K = np.array([[10.0, 0.0, 5.0], [0.0, 10.0, 5.0], [0.0, 0.0, 1.0]])
@@ -137,7 +169,8 @@ def test_extract_fixed_contours_uses_full_density_edges_and_caps_points():
         np.asarray(points), np.asarray([np.eye(4)]), K, [image],
         edge_percentile=50.0, association_distance=2,
         max_points_per_view=5)
-    assert banks[0].shape == (5, 3)
+    assert banks[0].shape == (5, 5)
+    np.testing.assert_allclose(np.linalg.norm(banks[0][:, 3:5], axis=1), 1.0)
     assert report['views'][0]['raw_depth_edge_pixels'] == 16
     assert report['views'][0]['image_associated_edge_points_before_cap'] > 5
     assert report['total_fixed_contour_points'] == 5

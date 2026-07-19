@@ -166,3 +166,24 @@ rejected a stationary point outside the local neighbourhood. No corrected pose
 was adopted. This establishes density-independent evidence and safe rejection,
 but does not yet improve K4 colour registration; fixed nearest-image-edge
 distance remains too weak and ambiguous in the cluttered warehouse.
+
+### Per-pixel orientation-aware correspondence
+
+Fixed contours can optionally carry the unit normal of their originating depth
+discontinuity. `--orientation-max-angle-deg` then requires the unoriented depth
+normal and image-gradient normal to agree as well as satisfying pixel distance.
+Angle-rejected contours remain saturated residuals rather than disappearing
+from the population. The option is default-off and requires fixed contours.
+
+The 30-degree production smoke retained all 260,000 fixed contour points but
+left 61.24% without a valid match. Training loss improved only 1.09% and
+held-out loss 0.52%, both worse than distance-only contours. The solution also
+reached search bounds and failed observability because of insufficient and
+unstable curvature, an unobservable time/translation pair, an out-of-local
+stationary point, and ill-conditioning. It was rejected and original poses were
+exported.
+
+Pixel normals from a sparse depth raster are not stable enough around shelves,
+corners, and thin structures. The next candidate should group contour pixels
+into supported line segments and estimate one robust tangent per segment,
+rather than loosening this per-pixel gate until it becomes distance-only again.

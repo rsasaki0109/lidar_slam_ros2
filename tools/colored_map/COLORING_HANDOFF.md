@@ -378,3 +378,11 @@ correspondence supportが必要。
 0.76%（7.3723→7.3160 px）のみ。stationary pointもlocal範囲外で可観測性FAILとなり
 不採用。密度非依存の証拠集合は完成したが、clutter環境のnearest image-edge目的が
 まだ曖昧で、K4のpose/README assetは更新していない。
+
+固定contourへdepth discontinuity normalを持たせ、画像gradient normalとの角度も見る
+`--orientation-max-angle-deg`をdefault-offで追加した。30度の13 view×20k smokeは
+全260k点を母集団に残したまま未対応61.24%、train改善1.09%、held-out改善0.52%。
+search boundaryへ到達し、曲率不足/不安定、time-translation pair非可観測、local外の
+stationary point、ill-conditionでもFAILしたため不採用。疎depth rasterのpixel normalは
+棚・角・細構造で不安定。次は角度を緩めるのでなく、contourを支持付きline segmentへ
+束ねてsegment tangentをrobust推定する。K4 pose/assetは引き続き未変更。

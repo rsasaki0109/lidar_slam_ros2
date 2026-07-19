@@ -368,6 +368,8 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 str(args.calibration_contour_max_points_per_view),
                 '--contour-min-points-per-view',
                 str(args.calibration_contour_min_points_per_view),
+                '--orientation-max-angle-deg',
+                str(args.calibration_orientation_max_angle_deg),
             ] if args.calibration_fixed_contours else [])))
 
     if (rebuild_images or rebuild_masks or rebuild_calibration or
@@ -423,6 +425,8 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                     str(args.alignment_contour_max_points_per_view),
                     '--contour-min-points-per-view',
                     str(args.alignment_contour_min_points_per_view),
+                    '--orientation-max-angle-deg',
+                    str(args.alignment_orientation_max_angle_deg),
                 ])
             commands.append(('camera-LiDAR alignment', alignment_command))
         if (rebuild_map or rebuild_images or args.force_quality or
@@ -546,6 +550,15 @@ def run_pipeline(args) -> dict:
         if ((association != 0 and association < 12) or maximum < 1 or
                 minimum < 1 or minimum > maximum):
             raise ValueError(f'invalid {prefix} fixed contour settings')
+    if (not 0.0 <= args.calibration_orientation_max_angle_deg <= 90.0 or
+            not 0.0 <= args.alignment_orientation_max_angle_deg <= 90.0):
+        raise ValueError('invalid contour orientation angle')
+    if (args.calibration_orientation_max_angle_deg > 0.0 and
+            not args.calibration_fixed_contours):
+        raise ValueError('calibration orientation gate requires fixed contours')
+    if (args.alignment_orientation_max_angle_deg > 0.0 and
+            not args.alignment_fixed_contours):
+        raise ValueError('alignment orientation gate requires fixed contours')
     if args.refine_spatiotemporal_calibration and (
             args.calibration_view_stride < 1 or
             args.calibration_max_points < 1 or
@@ -691,6 +704,8 @@ def build_parser() -> argparse.ArgumentParser:
                    default=50000)
     p.add_argument('--calibration-contour-min-points-per-view', type=int,
                    default=500)
+    p.add_argument('--calibration-orientation-max-angle-deg', type=float,
+                   default=0.0)
     p.add_argument('--max-trajectory-gap', type=float, default=0.5,
                    help='reject sparse pose streams with a larger gap (s); '
                         'set <=0 to disable')
@@ -788,6 +803,8 @@ def build_parser() -> argparse.ArgumentParser:
                    default=50000)
     p.add_argument('--alignment-contour-min-points-per-view', type=int,
                    default=500)
+    p.add_argument('--alignment-orientation-max-angle-deg', type=float,
+                   default=0.0)
     p.add_argument('--trajectory-report', type=Path,
                    help='metrics.json containing evo.ape.rmse for quality gate')
     p.add_argument('--geometry-report', type=Path,
