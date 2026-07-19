@@ -119,6 +119,25 @@ views. The ten worst views had 36.5% to 54.2% unmatched depth edges, despite a
 (-0.027, -0.126) px and direction coherence was 0.032. The overlays show broad,
 scene-dependent residuals on shelves, ceilings, and object boundaries rather
 than one consistent translation. This rules out treating K4 as a simple static
-extrinsic nudge: the next calibration iteration must first suppress unsupported
-depth edges and then test timing, motion distortion, and trajectory-conditioned
-residuals independently.
+extrinsic nudge. Timing, motion distortion, and trajectory-conditioned residuals
+must therefore be tested independently.
+
+### Surface-supported edge ablation
+
+The evaluator also provides an opt-in same-surface support filter. A projected
+depth-edge pixel is retained only when nearby finite depths agree within an
+absolute and range-relative tolerance. Reports always include the raw edge
+count and retained fraction so filtering cannot improve a score merely by
+discarding difficult observations. Calibration additionally supports a minimum
+retained-fraction rejection gate; the pipeline uses 25% when this filter is
+enabled.
+
+The full-density K4 `radius=2, min_neighbors=4` ablation retained 51.42% of raw
+edges. Median residual improved only from 7.759 to 7.234 px, 2 px inliers from
+22.31% to 23.12%, and out-of-range residuals from 34.96% to 32.79%; p90 remained
+saturated at 13 px. With the production 300,000-point calibration subsample,
+only 7.62% survived. Its apparently lower 4.59 px median is selection bias and
+fails the 25% retention gate. This filter is useful for visual diagnosis but is
+not a K5 calibration candidate. The next objective needs correspondence support
+that remains meaningful under sparse geometry rather than image-plane density
+alone.

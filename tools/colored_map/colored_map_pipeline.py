@@ -349,7 +349,18 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 str(args.calibration_minimum_edge_points),
                 '--minimum-heldout-improvement',
                 str(args.calibration_minimum_heldout_improvement),
-            ]))
+            ] + ([
+                '--depth-support-radius',
+                str(args.calibration_depth_support_radius),
+                '--depth-support-min-neighbors',
+                str(args.calibration_depth_support_min_neighbors),
+                '--depth-support-absolute',
+                str(args.calibration_depth_support_absolute),
+                '--depth-support-relative',
+                str(args.calibration_depth_support_relative),
+                '--minimum-supported-edge-fraction',
+                str(args.calibration_minimum_supported_edge_fraction),
+            ] if args.calibration_depth_support_radius > 0 else [])))
 
     if (rebuild_images or rebuild_masks or rebuild_calibration or
             args.force_map or
@@ -383,6 +394,17 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 alignment_command.extend([
                     '--diagnostics-dir', str(alignment_diagnostics),
                     '--worst-views', str(args.alignment_diagnostic_worst_views),
+                ])
+            if args.alignment_depth_support_radius > 0:
+                alignment_command.extend([
+                    '--depth-support-radius',
+                    str(args.alignment_depth_support_radius),
+                    '--depth-support-min-neighbors',
+                    str(args.alignment_depth_support_min_neighbors),
+                    '--depth-support-absolute',
+                    str(args.alignment_depth_support_absolute),
+                    '--depth-support-relative',
+                    str(args.alignment_depth_support_relative),
                 ])
             commands.append(('camera-LiDAR alignment', alignment_command))
         if (rebuild_map or rebuild_images or args.force_quality or
@@ -482,6 +504,20 @@ def run_pipeline(args) -> dict:
         raise ValueError('invalid dynamic map cleaner settings')
     if args.alignment_diagnostic_worst_views < 1:
         raise ValueError('--alignment-diagnostic-worst-views must be >= 1')
+    for prefix, radius, neighbours, absolute, relative in (
+            ('calibration', args.calibration_depth_support_radius,
+             args.calibration_depth_support_min_neighbors,
+             args.calibration_depth_support_absolute,
+             args.calibration_depth_support_relative),
+            ('alignment', args.alignment_depth_support_radius,
+             args.alignment_depth_support_min_neighbors,
+             args.alignment_depth_support_absolute,
+             args.alignment_depth_support_relative)):
+        if (radius < 0 or neighbours < 1 or absolute < 0.0 or relative < 0.0 or
+                (radius > 0 and neighbours > (2 * radius + 1) ** 2 - 1)):
+            raise ValueError(f'invalid {prefix} depth support settings')
+    if not 0.0 <= args.calibration_minimum_supported_edge_fraction <= 1.0:
+        raise ValueError('invalid calibration minimum supported edge fraction')
     if args.refine_spatiotemporal_calibration and (
             args.calibration_view_stride < 1 or
             args.calibration_max_points < 1 or
@@ -611,6 +647,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--calibration-minimum-edge-points', type=int, default=50)
     p.add_argument('--calibration-minimum-heldout-improvement', type=float,
                    default=0.0)
+    p.add_argument('--calibration-depth-support-radius', type=int, default=0)
+    p.add_argument('--calibration-depth-support-min-neighbors', type=int,
+                   default=4)
+    p.add_argument('--calibration-depth-support-absolute', type=float,
+                   default=0.10)
+    p.add_argument('--calibration-depth-support-relative', type=float,
+                   default=0.01)
+    p.add_argument('--calibration-minimum-supported-edge-fraction', type=float,
+                   default=0.25)
     p.add_argument('--max-trajectory-gap', type=float, default=0.5,
                    help='reject sparse pose streams with a larger gap (s); '
                         'set <=0 to disable')
@@ -694,6 +739,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--alignment-diagnostics', action='store_true',
                    help='write signed residual overlays for worst camera views')
     p.add_argument('--alignment-diagnostic-worst-views', type=int, default=10)
+    p.add_argument('--alignment-depth-support-radius', type=int, default=0)
+    p.add_argument('--alignment-depth-support-min-neighbors', type=int,
+                   default=4)
+    p.add_argument('--alignment-depth-support-absolute', type=float,
+                   default=0.10)
+    p.add_argument('--alignment-depth-support-relative', type=float,
+                   default=0.01)
     p.add_argument('--trajectory-report', type=Path,
                    help='metrics.json containing evo.ape.rmse for quality gate')
     p.add_argument('--geometry-report', type=Path,

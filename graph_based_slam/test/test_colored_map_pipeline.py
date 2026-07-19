@@ -430,6 +430,25 @@ def test_quality_profile_can_emit_alignment_residual_diagnostics(tmp_path):
     assert alignment[alignment.index('--worst-views') + 1] == '6'
 
 
+def test_depth_support_options_reach_calibration_and_alignment(tmp_path):
+    args = _args(
+        tmp_path, '--refine-spatiotemporal-calibration',
+        '--calibration-depth-support-radius', '2',
+        '--calibration-depth-support-min-neighbors', '5',
+        '--quality-profile', str(tmp_path / 'profile.yaml'),
+        '--alignment-depth-support-radius', '3',
+        '--alignment-depth-support-min-neighbors', '7')
+    commands = dict(cmp.build_commands(args))
+    calibration = commands['spatiotemporal calibration']
+    alignment = commands['camera-LiDAR alignment']
+    assert calibration[calibration.index('--depth-support-radius') + 1] == '2'
+    assert calibration[calibration.index('--depth-support-min-neighbors') + 1] == '5'
+    assert calibration[
+        calibration.index('--minimum-supported-edge-fraction') + 1] == '0.25'
+    assert alignment[alignment.index('--depth-support-radius') + 1] == '3'
+    assert alignment[alignment.index('--depth-support-min-neighbors') + 1] == '7'
+
+
 def test_vignette_and_confidence_options_reach_map_builder(tmp_path):
     commands = cmp.build_commands(_args(
         tmp_path, '--color-image-margin', '140', '--color-min-samples', '3',

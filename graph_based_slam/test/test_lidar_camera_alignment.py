@@ -61,6 +61,25 @@ def test_depth_edges_detects_supported_depth_step():
     assert edges.sum() == 2
 
 
+def test_surface_supported_edges_keep_surfaces_and_reject_isolated_pair():
+    depth = np.full((12, 12), np.inf, dtype=np.float32)
+    depth[2:10, 2:6] = 2.0
+    depth[2:10, 6:10] = 4.0
+    depth[0, 0:2] = [2.0, 4.0]
+    edges, raw_count = lca.supported_depth_edges(depth, {
+        'radius': 1, 'min_neighbors': 2, 'absolute': 0.1, 'relative': 0.0,
+    })
+    assert raw_count == 18
+    assert edges[:, 5:7].sum() == 16
+    assert not edges[0, :2].any()
+
+
+def test_surface_support_rejects_impossible_neighbour_count():
+    with np.testing.assert_raises_regex(ValueError, 'exceed'):
+        lca.surface_support_mask(
+            np.ones((4, 4), np.float32), radius=1, min_neighbors=9)
+
+
 def test_nearest_edge_distances_reports_alignment_and_shift():
     query = np.zeros((20, 20), dtype=bool)
     target = np.zeros_like(query)
@@ -351,3 +370,10 @@ def test_calibration_acceptance_requires_heldout_improvement_and_support():
         {'edge_points': 10, 'loss': 10.0}, improved, before, improved,
         minimum_edge_points=50, minimum_heldout_improvement=0.1)
     assert not accepted and reason == 'insufficient_edge_support'
+    filtered = {'edge_points': 100, 'loss': 10.0,
+                'supported_edge_fraction': 0.08}
+    accepted, reason = lca.calibration_acceptance(
+        filtered, improved, filtered, improved,
+        minimum_edge_points=50, minimum_heldout_improvement=0.1,
+        minimum_supported_edge_fraction=0.25)
+    assert not accepted and reason == 'insufficient_supported_edge_fraction'

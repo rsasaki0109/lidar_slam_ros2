@@ -362,3 +362,10 @@ K4の4,906,133点・26 view実測では、ワースト10 viewの12 px圏外率�
 `benchmarks/rtkslam_seq1_colored_map_20260718/k5_diagnostics/`。次はunsupportedな
 LiDAR depth edgeを較正目的から除外した後、時刻・motion distortion・軌跡依存残差を
 別々に評価する。
+
+surface-supported edge gateもdefault-offで実装し、raw edge数と保持率、較正時の
+最小保持率gate（pipeline既定25%）を追加した。しかしK4全点のr2/n4は51.42%を保持して
+median 7.759→7.234 px、圏外率34.96→32.79%に留まり、p90は13 pxのまま。productionの
+30万点subsampleでは保持率7.62%まで崩れたため不採用。見かけのmedian 4.59 pxは
+selection biasであり、保持率gateが正しく拒否する。次は画像平面の点密度に依存しない
+correspondence supportが必要。
