@@ -578,7 +578,7 @@ def write_residual_diagnostics(directory: Path, points: np.ndarray,
                                orientation_max_angle_deg: float = 0.0
                                ) -> dict:
     """Write deterministic worst-view overlays and a compact contact sheet."""
-    import imageio.v3 as iio
+    import imageio as iio
 
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
@@ -1329,7 +1329,7 @@ def main() -> int:
             'absolute': args.depth_support_absolute,
             'relative': args.depth_support_relative,
         }
-    import imageio.v3 as iio
+    import imageio as iio
     full_points, _ = pcio.read_ply_xyz(args.pointcloud)
     points = full_points
     if args.max_points and len(points) > args.max_points:
