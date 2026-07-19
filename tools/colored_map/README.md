@@ -41,6 +41,22 @@ K3構成ではさらに `--color-overlap-balance --color-view-confidence
 見る画像間のRGB差から露出・white balanceを安定化し、後者はsurface normalの
 入射角と投影解像度で観測を順位付けする。いずれもdefault-off。
 
+地図geometry自体の動的障害物は、任意依存の
+[`dynamic-object-removal`](https://github.com/rsasaki0109/dynamic-3d-object-removal)
+0.5以降を導入し、`--dynamic-map-cleaner fusion`で除去できる。各LiDAR scanを
+trajectoryでworld座標へ変換した点と同じ時刻のsensor originをcleanerへ渡すため、
+単純な完成地図の点数削減ではない。大規模bagでは
+`--dynamic-map-cleaner-evidence-stride N`で判定用scanを間引ける。除去点数、比率、
+使用scan数、実装versionは`dynamic_map_cleaning.json`へ保存する。この機能も
+default-offで、静的構造の保持と既存quality profileをpaired評価してから有効化する。
+
+```bash
+pip install 'dynamic-object-removal>=0.5'
+python3 tools/colored_map/colored_map_pipeline.py BAG TRAJECTORY OUT \
+  --dynamic-map-cleaner fusion --dynamic-map-cleaner-workers 4 \
+  --dynamic-map-cleaner-evidence-stride 5
+```
+
 物体境界の色滲みを抑えるgeometry-aware fusionもdefault-offで利用できる。
 `--color-geometry-aware`は1 pixel z-buffer近傍で、手前silhouetteの隣に投影された
 背景点と、深度不連続の両側をRGB候補から除外する。外部segmentationのPNGを

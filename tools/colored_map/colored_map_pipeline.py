@@ -220,6 +220,22 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             '--stride', str(args.scan_stride),
             '--start-time', str(args.start_time), '--end-time', str(args.end_time),
         ]
+        if args.dynamic_map_cleaner != 'none':
+            command.extend([
+                '--dynamic-map-cleaner', args.dynamic_map_cleaner,
+                '--dynamic-map-cleaner-workers',
+                str(args.dynamic_map_cleaner_workers),
+                '--dynamic-map-cleaner-evidence-stride',
+                str(args.dynamic_map_cleaner_evidence_stride),
+                '--dynamic-map-cleaner-free-votes-fraction',
+                str(args.dynamic_map_cleaner_free_votes_fraction),
+                '--dynamic-map-cleaner-free-votes-floor',
+                str(args.dynamic_map_cleaner_free_votes_floor),
+                '--dynamic-map-cleaner-void-min-scans',
+                str(args.dynamic_map_cleaner_void_min_scans),
+                '--dynamic-map-cleaner-report',
+                str(out_dir / 'dynamic_map_cleaning.json'),
+            ])
         if args.lidar_calibration is not None:
             command.extend([
                 '--lidar-calibration', str(args.lidar_calibration),
@@ -449,6 +465,12 @@ def run_pipeline(args) -> dict:
             args.color_calibration_sigma_multiplier < 0.0 or
             args.color_max_uncertainty_margin_px < 0):
         raise ValueError('invalid geometry-aware colour fusion settings')
+    if (args.dynamic_map_cleaner_workers < 1 or
+            args.dynamic_map_cleaner_evidence_stride < 1 or
+            not 0.0 < args.dynamic_map_cleaner_free_votes_fraction <= 1.0 or
+            args.dynamic_map_cleaner_free_votes_floor < 1 or
+            args.dynamic_map_cleaner_void_min_scans < 1):
+        raise ValueError('invalid dynamic map cleaner settings')
     if args.refine_spatiotemporal_calibration and (
             args.calibration_view_stride < 1 or
             args.calibration_max_points < 1 or
@@ -589,6 +611,18 @@ def build_parser() -> argparse.ArgumentParser:
                         'a continuous-time body trajectory')
     p.add_argument('--voxel', type=float, default=0.1)
     p.add_argument('--max-points', type=int, default=300000)
+    p.add_argument('--dynamic-map-cleaner',
+                   choices=('none', 'fusion', 'range', 'scan_ratio'),
+                   default='none')
+    p.add_argument('--dynamic-map-cleaner-workers', type=int, default=1)
+    p.add_argument('--dynamic-map-cleaner-evidence-stride', type=int,
+                   default=1)
+    p.add_argument('--dynamic-map-cleaner-free-votes-fraction', type=float,
+                   default=0.9)
+    p.add_argument('--dynamic-map-cleaner-free-votes-floor', type=int,
+                   default=2)
+    p.add_argument('--dynamic-map-cleaner-void-min-scans', type=int,
+                   default=11)
     p.add_argument('--min-range', type=float, default=0.0)
     p.add_argument('--max-range', type=float, default=80.0)
     p.add_argument('--min-neighbors', type=int, default=2,

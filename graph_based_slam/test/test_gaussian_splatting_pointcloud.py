@@ -898,3 +898,40 @@ def test_view_confidence_rejects_grazing_observation():
         min_view_cosine=0.1, view_score_power=1.0)
     assert seen[0]
     np.testing.assert_array_equal(rgb[0], [0, 200, 0])
+
+
+def test_dynamic_map_cleaner_is_default_off_and_byte_compatible():
+    points = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+    cleaned, report = bli.clean_dynamic_map(points, [], algorithm='none')
+    assert cleaned is points
+    assert report['enabled'] is False
+    assert report['removed_points'] == 0
+
+
+def test_dynamic_map_cleaner_forwards_fusion_evidence_and_reports_removal():
+    class FakeCleaner:
+        __version__ = 'test'
+        received = None
+
+        @classmethod
+        def clean_map_by_fusion(cls, points, scans, **kwargs):
+            cls.received = (scans, kwargs)
+            keep = np.array([True, False, True])
+            return points[keep], keep
+
+    points = np.arange(9, dtype=np.float64).reshape(3, 3)
+    scan = (points[:2], np.array([4.0, 5.0, 6.0]))
+    cleaned, report = bli.clean_dynamic_map(
+        points, [scan], algorithm='fusion', workers=3,
+        evidence_stride=2,
+        free_votes_fraction=0.7, free_votes_floor=4,
+        void_min_scans=5, cleaner_module=FakeCleaner)
+    np.testing.assert_array_equal(cleaned, points[[0, 2]])
+    assert FakeCleaner.received[1] == {
+        'workers': 3, 'free_votes_fraction': 0.7,
+        'free_votes_floor': 4, 'void_min_scans': 5}
+    assert report['implementation_version'] == 'test'
+    assert report['scans'] == 1
+    assert report['evidence_stride'] == 2
+    assert report['removed_points'] == 1
+    assert report['removed_ratio'] == 1 / 3
