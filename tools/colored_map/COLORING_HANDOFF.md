@@ -349,3 +349,40 @@ held-out、global/planar roughnessがすべて改善したためREADME動画へ�
 same-pose provenance、K3 exact rebuild、双方向structure support、品質profile、同一8視点
 目視を採用根拠とする。詳細は
 `docs/research/colored-map-dynamic-cleaning-2026-07.md`。
+
+## 19. 追記 (2026-07-19): K5 residual diagnostics
+
+K4の11項目PASSが目視品質を代表していなかったため、camera-LiDAR alignmentへ
+signed x/y残差、対応率、方向coherence、ワーストview overlay、contact sheetを追加した。
+pipelineでは`--alignment-diagnostics`で品質評価と同時生成できる。通常動作は不変。
+
+K4の4,906,133点・26 view実測では、ワースト10 viewの12 px圏外率が
+36.5%〜54.2%、全体の方向coherenceは0.032だった。一定方向の外部較正ずれだけでは
+説明できず、棚・天井・物体境界にscene-dependentな未対応edgeが広がる。成果物は
+`benchmarks/rtkslam_seq1_colored_map_20260718/k5_diagnostics/`。次はunsupportedな
+LiDAR depth edgeを較正目的から除外した後、時刻・motion distortion・軌跡依存残差を
+別々に評価する。
+
+surface-supported edge gateもdefault-offで実装し、raw edge数と保持率、較正時の
+最小保持率gate（pipeline既定25%）を追加した。しかしK4全点のr2/n4は51.42%を保持して
+median 7.759→7.234 px、圏外率34.96→32.79%に留まり、p90は13 pxのまま。productionの
+30万点subsampleでは保持率7.62%まで崩れたため不採用。見かけのmedian 4.59 pxは
+selection biasであり、保持率gateが正しく拒否する。次は画像平面の点密度に依存しない
+correspondence supportが必要。
+
+続いて全密度4.91M点の初期z-buffer winnerからview別3D contour point IDを固定し、
+30万点subsampleや候補姿勢で評価集合が変わらない`--fixed-contours`を追加した。
+画像edgeから12 px以内を先に選ぶ方式は初期姿勢を最適値へlockし、train/held-outとも
+改善0%だったためoptimizationでは明示拒否する。geometry-only（association=0）の
+13 view×20k点smokeは260k点を100%保持し、train 2.25%改善に対しheld-outは
+0.76%（7.3723→7.3160 px）のみ。stationary pointもlocal範囲外で可観測性FAILとなり
+不採用。密度非依存の証拠集合は完成したが、clutter環境のnearest image-edge目的が
+まだ曖昧で、K4のpose/README assetは更新していない。
+
+固定contourへdepth discontinuity normalを持たせ、画像gradient normalとの角度も見る
+`--orientation-max-angle-deg`をdefault-offで追加した。30度の13 view×20k smokeは
+全260k点を母集団に残したまま未対応61.24%、train改善1.09%、held-out改善0.52%。
+search boundaryへ到達し、曲率不足/不安定、time-translation pair非可観測、local外の
+stationary point、ill-conditionでもFAILしたため不採用。疎depth rasterのpixel normalは
+棚・角・細構造で不安定。次は角度を緩めるのでなく、contourを支持付きline segmentへ
+束ねてsegment tangentをrobust推定する。K4 pose/assetは引き続き未変更。

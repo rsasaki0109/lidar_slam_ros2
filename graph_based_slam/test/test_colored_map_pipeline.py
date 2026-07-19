@@ -420,6 +420,57 @@ def test_quality_profile_allows_appearance_and_colour_only(tmp_path):
     assert '--appearance-report' in gate
 
 
+def test_quality_profile_can_emit_alignment_residual_diagnostics(tmp_path):
+    args = _args(
+        tmp_path, '--quality-profile', str(tmp_path / 'profile.yaml'),
+        '--alignment-diagnostics', '--alignment-diagnostic-worst-views', '6')
+    alignment = dict(cmp.build_commands(args))['camera-LiDAR alignment']
+    diagnostics = alignment[alignment.index('--diagnostics-dir') + 1]
+    assert diagnostics.endswith('out/lidar_camera_alignment_diagnostics')
+    assert alignment[alignment.index('--worst-views') + 1] == '6'
+
+
+def test_depth_support_options_reach_calibration_and_alignment(tmp_path):
+    args = _args(
+        tmp_path, '--refine-spatiotemporal-calibration',
+        '--calibration-depth-support-radius', '2',
+        '--calibration-depth-support-min-neighbors', '5',
+        '--quality-profile', str(tmp_path / 'profile.yaml'),
+        '--alignment-depth-support-radius', '3',
+        '--alignment-depth-support-min-neighbors', '7')
+    commands = dict(cmp.build_commands(args))
+    calibration = commands['spatiotemporal calibration']
+    alignment = commands['camera-LiDAR alignment']
+    assert calibration[calibration.index('--depth-support-radius') + 1] == '2'
+    assert calibration[calibration.index('--depth-support-min-neighbors') + 1] == '5'
+    assert calibration[
+        calibration.index('--minimum-supported-edge-fraction') + 1] == '0.25'
+    assert alignment[alignment.index('--depth-support-radius') + 1] == '3'
+    assert alignment[alignment.index('--depth-support-min-neighbors') + 1] == '7'
+
+
+def test_fixed_contour_options_reach_calibration_and_alignment(tmp_path):
+    args = _args(
+        tmp_path, '--refine-spatiotemporal-calibration',
+        '--calibration-fixed-contours',
+        '--calibration-contour-max-points-per-view', '12000',
+        '--calibration-orientation-max-angle-deg', '25',
+        '--quality-profile', str(tmp_path / 'profile.yaml'),
+        '--alignment-fixed-contours',
+        '--alignment-contour-association-distance', '30')
+    commands = dict(cmp.build_commands(args))
+    calibration = commands['spatiotemporal calibration']
+    alignment = commands['camera-LiDAR alignment']
+    assert '--fixed-contours' in calibration
+    assert calibration[
+        calibration.index('--contour-max-points-per-view') + 1] == '12000'
+    assert calibration[
+        calibration.index('--orientation-max-angle-deg') + 1] == '25.0'
+    assert '--fixed-contours' in alignment
+    assert alignment[
+        alignment.index('--contour-association-distance') + 1] == '30'
+
+
 def test_vignette_and_confidence_options_reach_map_builder(tmp_path):
     commands = cmp.build_commands(_args(
         tmp_path, '--color-image-margin', '140', '--color-min-samples', '3',
