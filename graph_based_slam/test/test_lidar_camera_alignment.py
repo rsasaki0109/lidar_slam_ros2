@@ -72,6 +72,20 @@ def test_nearest_edge_distances_reports_alignment_and_shift():
         lca.nearest_edge_distances(query, query, max_distance=6), 0.0)
 
 
+def test_nearest_edge_correspondences_reports_signed_direction_and_saturation():
+    query = np.zeros((12, 12), dtype=bool)
+    target = np.zeros_like(query)
+    query[4, 4] = True
+    query[10, 10] = True
+    target[2, 7] = True
+    result = lca.nearest_edge_correspondences(query, target, max_distance=4)
+    np.testing.assert_allclose(result['distance_px'][0], np.hypot(-2, 3))
+    assert result['dy_px'][0] == -2
+    assert result['dx_px'][0] == 3
+    assert result['distance_px'][1] == 5
+    assert np.isnan(result['dy_px'][1]) and np.isnan(result['dx_px'][1])
+
+
 def test_projected_depth_keeps_nearest_point():
     points = np.array([[0.0, 0.0, 2.0], [0.0, 0.0, 5.0]])
     K = np.array([[10.0, 0.0, 5.0], [0.0, 10.0, 5.0], [0.0, 0.0, 1.0]])
@@ -91,12 +105,49 @@ def test_score_view_handles_no_depth_edges():
 
 def test_score_view_reports_search_range_saturation(monkeypatch):
     monkeypatch.setattr(
-        lca, 'nearest_edge_distances',
-        lambda *args, **kwargs: np.array([0.0, 13.0], dtype=np.float32))
+        lca, 'nearest_edge_correspondences',
+        lambda *args, **kwargs: {
+            'distance_px': np.array([0.0, 13.0], dtype=np.float32),
+            'dx_px': np.array([0.0, np.nan], dtype=np.float32),
+            'dy_px': np.array([0.0, np.nan], dtype=np.float32)})
     result = lca.score_view(
         np.array([[0.0, 0.0, 2.0]]), np.eye(4), np.eye(3),
         np.zeros((10, 10, 3), dtype=np.uint8), max_distance=12)
     assert result['out_of_range_fraction'] == 0.5
+    assert result['matched_edge_points'] == 1
+
+
+def test_write_residual_diagnostics_ranks_worst_view_and_writes_pngs(
+        tmp_path, monkeypatch):
+    overlays = []
+
+    def render(*args, **kwargs):
+        value = len(overlays) + 1
+        overlays.append(value)
+        return np.full((8, 10, 3), value, dtype=np.uint8)
+
+    monkeypatch.setattr(lca, 'render_residual_overlay', render)
+    per_view = [
+        {'view_index': 0, 'edge_points': 10, 'matched_edge_points': 8,
+         'median_px': 2.0, 'p90_px': 4.0, 'inlier_2px': 0.5,
+         'out_of_range_fraction': 0.1, 'median_dx_px': 1.0,
+         'median_dy_px': 0.0, 'mean_dx_px': 1.0, 'mean_dy_px': 0.0,
+         'direction_coherence': 0.5},
+        {'view_index': 1, 'edge_points': 10, 'matched_edge_points': 5,
+         'median_px': 8.0, 'p90_px': 13.0, 'inlier_2px': 0.1,
+         'out_of_range_fraction': 0.5, 'median_dx_px': -2.0,
+         'median_dy_px': 3.0, 'mean_dx_px': -2.0, 'mean_dy_px': 3.0,
+         'direction_coherence': 0.8},
+    ]
+    result = lca.write_residual_diagnostics(
+        tmp_path, np.zeros((0, 3)), np.asarray([np.eye(4), np.eye(4)]),
+        np.eye(3), [0, 1], [np.zeros((8, 10, 3), np.uint8)] * 2,
+        per_view, worst_views=1, edge_percentile=95.0, max_distance=12)
+    assert result['worst_views'][0]['view_index'] == 1
+    assert (tmp_path / 'worst_01_view_00001.png').is_file()
+    assert (tmp_path / 'worst_views_contact_sheet.png').is_file()
+    assert json.loads((tmp_path / 'diagnostics.json').read_text())[
+        'direction_summary']['weighted_mean_dx_px'] == -2 / 13
 
 
 def test_correction_matrix_applies_translation_and_rotation():

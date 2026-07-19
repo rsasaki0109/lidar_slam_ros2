@@ -90,3 +90,35 @@ multi-scale curvature and undefined-correlation handling, stratified splitting,
 continuous-time pose recomposition, static-motion degeneracy, independent
 held-out rejection, pipeline staging, cache reuse, and unchanged opt-in command
 composition.
+
+## K5 residual diagnostics
+
+An aggregate edge-distance score can hide whether a poor map is caused by one
+constant camera correction or by view-dependent timing and pose errors. The
+alignment evaluator therefore has an optional diagnostic output:
+
+```bash
+python3 scripts/evaluate_lidar_camera_alignment.py \
+  --pointcloud coloured.ply --transforms posed/transforms.json \
+  --out alignment.json --diagnostics-dir alignment_diagnostics \
+  --worst-views 10
+```
+
+Each selected view records the median signed x/y displacement from projected
+LiDAR depth edges to their nearest strong image edges. The diagnostic directory
+contains JSON, the worst-view overlays, and a contact sheet. Image edges are
+green; LiDAR edges progress from cyan through yellow to red as residual grows,
+and unmatched edges are magenta. A stable signed direction across views points
+to a static extrinsic error. Large changes between views instead point to clock,
+motion distortion, rolling shutter, or trajectory error. These images are
+diagnostic evidence, not a replacement for independent held-out acceptance.
+
+The first full-resolution K4 audit used all 4,906,133 geometry points and 26
+views. The ten worst views had 36.5% to 54.2% unmatched depth edges, despite a
+12 px search radius. Across all matched edges, the weighted direction was only
+(-0.027, -0.126) px and direction coherence was 0.032. The overlays show broad,
+scene-dependent residuals on shelves, ceilings, and object boundaries rather
+than one consistent translation. This rules out treating K4 as a simple static
+extrinsic nudge: the next calibration iteration must first suppress unsupported
+depth edges and then test timing, motion distortion, and trajectory-conditioned
+residuals independently.

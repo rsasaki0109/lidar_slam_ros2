@@ -358,6 +358,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
 
     if args.quality_profile is not None:
         alignment_report = out_dir / 'lidar_camera_alignment.json'
+        alignment_diagnostics = out_dir / 'lidar_camera_alignment_diagnostics'
         colour_report = out_dir / 'heldout_point_colors.json'
         appearance_report = out_dir / 'colored_map_appearance.json'
         quality_report = out_dir / 'colored_map_quality_gate.json'
@@ -367,15 +368,23 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             args.appearance_planar_roughness or
             profile_uses_planar_roughness(Path(args.quality_profile)))
         if (rebuild_map or rebuild_images or args.force_quality or
+                (args.alignment_diagnostics and not
+                 (alignment_diagnostics / 'diagnostics.json').is_file()) or
                 is_stale(alignment_report, [colored_map, transforms])):
-            commands.append(('camera-LiDAR alignment', [
+            alignment_command = [
                 sys.executable,
                 str(REPO_ROOT / 'scripts' /
                     'evaluate_lidar_camera_alignment.py'),
                 '--pointcloud', str(colored_map),
                 '--transforms', str(transforms),
                 '--out', str(alignment_report),
-            ]))
+            ]
+            if args.alignment_diagnostics:
+                alignment_command.extend([
+                    '--diagnostics-dir', str(alignment_diagnostics),
+                    '--worst-views', str(args.alignment_diagnostic_worst_views),
+                ])
+            commands.append(('camera-LiDAR alignment', alignment_command))
         if (rebuild_map or rebuild_images or args.force_quality or
                 is_stale(colour_report, [colored_map, transforms])):
             commands.append(('held-out colour', [
@@ -471,6 +480,8 @@ def run_pipeline(args) -> dict:
             args.dynamic_map_cleaner_free_votes_floor < 1 or
             args.dynamic_map_cleaner_void_min_scans < 1):
         raise ValueError('invalid dynamic map cleaner settings')
+    if args.alignment_diagnostic_worst_views < 1:
+        raise ValueError('--alignment-diagnostic-worst-views must be >= 1')
     if args.refine_spatiotemporal_calibration and (
             args.calibration_view_stride < 1 or
             args.calibration_max_points < 1 or
@@ -680,6 +691,9 @@ def build_parser() -> argparse.ArgumentParser:
                         'checks using this profile')
     p.add_argument('--appearance-planar-roughness', action='store_true',
                    help='include PCA-planar voxel roughness in appearance report')
+    p.add_argument('--alignment-diagnostics', action='store_true',
+                   help='write signed residual overlays for worst camera views')
+    p.add_argument('--alignment-diagnostic-worst-views', type=int, default=10)
     p.add_argument('--trajectory-report', type=Path,
                    help='metrics.json containing evo.ape.rmse for quality gate')
     p.add_argument('--geometry-report', type=Path,

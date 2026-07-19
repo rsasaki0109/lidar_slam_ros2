@@ -349,3 +349,16 @@ held-out、global/planar roughnessがすべて改善したためREADME動画へ�
 same-pose provenance、K3 exact rebuild、双方向structure support、品質profile、同一8視点
 目視を採用根拠とする。詳細は
 `docs/research/colored-map-dynamic-cleaning-2026-07.md`。
+
+## 19. 追記 (2026-07-19): K5 residual diagnostics
+
+K4の11項目PASSが目視品質を代表していなかったため、camera-LiDAR alignmentへ
+signed x/y残差、対応率、方向coherence、ワーストview overlay、contact sheetを追加した。
+pipelineでは`--alignment-diagnostics`で品質評価と同時生成できる。通常動作は不変。
+
+K4の4,906,133点・26 view実測では、ワースト10 viewの12 px圏外率が
+36.5%〜54.2%、全体の方向coherenceは0.032だった。一定方向の外部較正ずれだけでは
+説明できず、棚・天井・物体境界にscene-dependentな未対応edgeが広がる。成果物は
+`benchmarks/rtkslam_seq1_colored_map_20260718/k5_diagnostics/`。次はunsupportedな
+LiDAR depth edgeを較正目的から除外した後、時刻・motion distortion・軌跡依存残差を
+別々に評価する。

@@ -420,6 +420,16 @@ def test_quality_profile_allows_appearance_and_colour_only(tmp_path):
     assert '--appearance-report' in gate
 
 
+def test_quality_profile_can_emit_alignment_residual_diagnostics(tmp_path):
+    args = _args(
+        tmp_path, '--quality-profile', str(tmp_path / 'profile.yaml'),
+        '--alignment-diagnostics', '--alignment-diagnostic-worst-views', '6')
+    alignment = dict(cmp.build_commands(args))['camera-LiDAR alignment']
+    diagnostics = alignment[alignment.index('--diagnostics-dir') + 1]
+    assert diagnostics.endswith('out/lidar_camera_alignment_diagnostics')
+    assert alignment[alignment.index('--worst-views') + 1] == '6'
+
+
 def test_vignette_and_confidence_options_reach_map_builder(tmp_path):
     commands = cmp.build_commands(_args(
         tmp_path, '--color-image-margin', '140', '--color-min-samples', '3',

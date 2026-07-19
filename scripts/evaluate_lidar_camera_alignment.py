@@ -124,6 +124,43 @@ def nearest_edge_distances(query: np.ndarray, target: np.ndarray,
     return distances
 
 
+def nearest_edge_correspondences(query: np.ndarray, target: np.ndarray,
+                                 max_distance: int = 12) -> dict:
+    """Return bounded nearest-edge distances and signed target offsets.
+
+    ``dx_px`` and ``dy_px`` point from each LiDAR depth-edge pixel to the
+    matched image-edge pixel. Unmatched pixels retain the historical
+    ``max_distance + 1`` distance and have null-direction sentinels encoded as
+    NaN. The deterministic offset ordering makes diagnostics reproducible.
+    """
+    query_y, query_x = np.nonzero(query)
+    if query_y.size == 0:
+        empty = np.zeros(0, dtype=np.float32)
+        return {'query_y': query_y, 'query_x': query_x,
+                'distance_px': empty, 'dy_px': empty, 'dx_px': empty}
+    distances = np.full(query_y.size, float(max_distance + 1), dtype=np.float32)
+    match_dy = np.full(query_y.size, np.nan, dtype=np.float32)
+    match_dx = np.full(query_y.size, np.nan, dtype=np.float32)
+    height, width = target.shape
+    offsets = [(dy, dx) for dy in range(-max_distance, max_distance + 1)
+               for dx in range(-max_distance, max_distance + 1)
+               if dy * dy + dx * dx <= max_distance * max_distance]
+    offsets.sort(key=lambda item: item[0] * item[0] + item[1] * item[1])
+    for dy, dx in offsets:
+        distance = float(np.hypot(dy, dx))
+        pending = distances > distance
+        y = query_y + dy
+        x = query_x + dx
+        inside = pending & (y >= 0) & (y < height) & (x >= 0) & (x < width)
+        hit = np.zeros(query_y.size, dtype=bool)
+        hit[inside] = target[y[inside], x[inside]]
+        distances[hit] = distance
+        match_dy[hit] = dy
+        match_dx[hit] = dx
+    return {'query_y': query_y, 'query_x': query_x,
+            'distance_px': distances, 'dy_px': match_dy, 'dx_px': match_dx}
+
+
 def projected_depth(points: np.ndarray, viewmat: np.ndarray, K: np.ndarray,
                     width: int, height: int) -> np.ndarray:
     """Project one view into an image containing sparse nearest depths."""
@@ -140,16 +177,152 @@ def score_view(points: np.ndarray, viewmat: np.ndarray, K: np.ndarray,
     """Score one camera view and return pixel-distance alignment metrics."""
     height, width = image.shape[:2]
     lidar_edges = depth_edges(projected_depth(points, viewmat, K, width, height))
-    distances = nearest_edge_distances(
+    correspondences = nearest_edge_correspondences(
         lidar_edges, image_edges(image, edge_percentile), max_distance)
+    distances = correspondences['distance_px']
     if distances.size == 0:
         return {'edge_points': 0, 'median_px': None, 'p90_px': None,
-                'inlier_2px': None, 'out_of_range_fraction': None}
+                'inlier_2px': None, 'out_of_range_fraction': None,
+                'matched_edge_points': 0, 'median_dx_px': None,
+                'median_dy_px': None, 'mean_dx_px': None,
+                'mean_dy_px': None, 'direction_coherence': None}
+    matched = np.isfinite(correspondences['dx_px'])
+    dx = correspondences['dx_px'][matched]
+    dy = correspondences['dy_px'][matched]
+    mean_dx = float(np.mean(dx)) if np.any(matched) else None
+    mean_dy = float(np.mean(dy)) if np.any(matched) else None
+    mean_radius = float(np.mean(np.hypot(dx, dy))) if np.any(matched) else None
     return {'edge_points': int(distances.size),
             'median_px': float(np.median(distances)),
             'p90_px': float(np.percentile(distances, 90)),
             'inlier_2px': float(np.mean(distances <= 2.0)),
-            'out_of_range_fraction': float(np.mean(distances > max_distance))}
+            'out_of_range_fraction': float(np.mean(distances > max_distance)),
+            'matched_edge_points': int(np.sum(matched)),
+            'median_dx_px': (float(np.median(correspondences['dx_px'][matched]))
+                             if np.any(matched) else None),
+            'median_dy_px': (float(np.median(correspondences['dy_px'][matched]))
+                             if np.any(matched) else None),
+            'mean_dx_px': mean_dx, 'mean_dy_px': mean_dy,
+            'direction_coherence': (float(np.hypot(mean_dx, mean_dy) /
+                                          max(mean_radius, 1e-12))
+                                    if mean_radius is not None else None)}
+
+
+def render_residual_overlay(points: np.ndarray, viewmat: np.ndarray,
+                            K: np.ndarray, image: np.ndarray, *,
+                            edge_percentile: float = 95.0,
+                            max_distance: int = 12) -> np.ndarray:
+    """Overlay image edges and colour-coded LiDAR edge residuals."""
+    source = np.asarray(image)
+    if source.ndim == 2:
+        source = np.repeat(source[:, :, None], 3, axis=2)
+    source = source[:, :, :3]
+    if source.dtype != np.uint8:
+        source = np.clip(source, 0, 255).astype(np.uint8)
+    output = np.clip(source.astype(np.float32) * 0.55, 0, 255).astype(np.uint8)
+    height, width = source.shape[:2]
+    camera_edges = image_edges(source, edge_percentile)
+    lidar_edges = depth_edges(projected_depth(points, viewmat, K, width, height))
+    residuals = nearest_edge_correspondences(
+        lidar_edges, camera_edges, max_distance)
+
+    # Camera edges are green. LiDAR edges run cyan -> yellow -> red as the
+    # residual grows; saturated/unmatched edges are magenta.
+    output[camera_edges] = [40, 220, 40]
+    if residuals['distance_px'].size:
+        ratio = np.minimum(residuals['distance_px'], max_distance) / max_distance
+        colours = np.stack([
+            255.0 * ratio,
+            255.0 * (1.0 - np.abs(2.0 * ratio - 1.0)),
+            255.0 * (1.0 - ratio),
+        ], axis=1).astype(np.uint8)
+        unmatched = residuals['distance_px'] > max_distance
+        colours[unmatched] = [255, 0, 255]
+        y, x = residuals['query_y'], residuals['query_x']
+        for dy, dx in ((0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)):
+            yy, xx = y + dy, x + dx
+            inside = (yy >= 0) & (yy < height) & (xx >= 0) & (xx < width)
+            output[yy[inside], xx[inside]] = colours[inside]
+    return output
+
+
+def write_residual_diagnostics(directory: Path, points: np.ndarray,
+                               viewmats: np.ndarray, K: np.ndarray,
+                               selected: list[int], images: list[np.ndarray],
+                               per_view: list[dict], *, worst_views: int,
+                               edge_percentile: float,
+                               max_distance: int) -> dict:
+    """Write deterministic worst-view overlays and a compact contact sheet."""
+    import imageio.v3 as iio
+
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    image_by_index = dict(zip(selected, images))
+    valid = [item for item in per_view if item['edge_points'] > 0]
+    ranked = sorted(
+        valid,
+        key=lambda item: (item['out_of_range_fraction'], item['p90_px'],
+                          item['median_px'], -item['view_index']),
+        reverse=True)[:worst_views]
+    tiles = []
+    entries = []
+    for rank, metrics in enumerate(ranked, 1):
+        index = metrics['view_index']
+        overlay = render_residual_overlay(
+            points, viewmats[index], K, image_by_index[index],
+            edge_percentile=edge_percentile, max_distance=max_distance)
+        filename = f'worst_{rank:02d}_view_{index:05d}.png'
+        path = directory / filename
+        iio.imwrite(path, overlay)
+        tile_width = min(400, overlay.shape[1])
+        step = max(1, int(np.ceil(overlay.shape[1] / tile_width)))
+        tiles.append(overlay[::step, ::step])
+        entries.append({'rank': rank, 'view_index': index,
+                        'overlay': filename, **metrics})
+
+    contact_name = None
+    if tiles:
+        columns = min(2, len(tiles))
+        tile_height = max(tile.shape[0] for tile in tiles)
+        tile_width = max(tile.shape[1] for tile in tiles)
+        rows = (len(tiles) + columns - 1) // columns
+        contact = np.zeros((rows * tile_height, columns * tile_width, 3),
+                           dtype=np.uint8)
+        for ordinal, tile in enumerate(tiles):
+            row, column = divmod(ordinal, columns)
+            contact[row * tile_height:row * tile_height + tile.shape[0],
+                    column * tile_width:column * tile_width + tile.shape[1]] = tile
+        contact_name = 'worst_views_contact_sheet.png'
+        iio.imwrite(directory / contact_name, contact)
+
+    matched = [item for item in valid if item['mean_dx_px'] is not None]
+    direction = None
+    if matched:
+        weights = np.asarray([item['matched_edge_points'] for item in matched],
+                             dtype=float)
+        direction = {
+            'weighted_mean_dx_px': float(np.average(
+                [item['mean_dx_px'] for item in matched], weights=weights)),
+            'weighted_mean_dy_px': float(np.average(
+                [item['mean_dy_px'] for item in matched], weights=weights)),
+            'view_mean_dx_std_px': float(np.std(
+                [item['mean_dx_px'] for item in matched])),
+            'view_mean_dy_std_px': float(np.std(
+                [item['mean_dy_px'] for item in matched])),
+            'weighted_direction_coherence': float(np.average(
+                [item['direction_coherence'] for item in matched],
+                weights=weights)),
+        }
+    result = {'legend': {'camera_edges': 'green',
+                         'aligned_lidar_edges': 'cyan',
+                         'mid_residual_lidar_edges': 'yellow',
+                         'max_residual_lidar_edges': 'red',
+                         'unmatched_lidar_edges': 'magenta'},
+              'ranking': 'out_of_range_fraction,p90_px,median_px',
+              'direction_summary': direction,
+              'contact_sheet': contact_name, 'worst_views': entries}
+    (directory / 'diagnostics.json').write_text(json.dumps(result, indent=2) + '\n')
+    return result
 
 
 def correction_matrix(parameters: np.ndarray) -> np.ndarray:
@@ -602,6 +775,10 @@ def main() -> int:
                         help='retain this percentile of nonzero image gradients; '
                              '95 focuses the metric on structural edges')
     parser.add_argument('--max-distance', type=int, default=12)
+    parser.add_argument('--diagnostics-dir', type=Path,
+                        help='write worst-view residual overlays and summary')
+    parser.add_argument('--worst-views', type=int, default=10,
+                        help='number of residual overlays to write')
     optimization_mode = parser.add_mutually_exclusive_group()
     optimization_mode.add_argument('--optimize-extrinsic', action='store_true')
     optimization_mode.add_argument('--optimize-spatiotemporal', action='store_true')
@@ -652,6 +829,7 @@ def main() -> int:
             args.minimum_curvature <= 0.0 or args.maximum_condition <= 1.0 or
             not 0.0 <= args.maximum_time_translation_correlation < 1.0 or
             args.minimum_edge_points < 1 or args.max_points < 0 or
+            args.worst_views < 1 or
             not 0.0 <= args.minimum_heldout_improvement < 1.0):
         raise SystemExit('stride, distance, rounds, and search steps must be > 0')
     if args.optimize_spatiotemporal and args.trajectory is None:
@@ -865,6 +1043,13 @@ def main() -> int:
     elif args.corrected_transforms_out is not None:
         raise SystemExit('--corrected-transforms-out requires an optimization mode')
     report['per_view'] = per_view
+    if args.diagnostics_dir is not None:
+        report['diagnostics'] = write_residual_diagnostics(
+            args.diagnostics_dir, points, effective_viewmats, dataset['K'],
+            selected, images, per_view, worst_views=args.worst_views,
+            edge_percentile=args.edge_percentile,
+            max_distance=args.max_distance)
+        report['diagnostics']['directory'] = str(args.diagnostics_dir.resolve())
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps({key: value for key, value in report.items()
