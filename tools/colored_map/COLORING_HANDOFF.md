@@ -369,3 +369,12 @@ median 7.759→7.234 px、圏外率34.96→32.79%に留まり、p90は13 pxの�
 30万点subsampleでは保持率7.62%まで崩れたため不採用。見かけのmedian 4.59 pxは
 selection biasであり、保持率gateが正しく拒否する。次は画像平面の点密度に依存しない
 correspondence supportが必要。
+
+続いて全密度4.91M点の初期z-buffer winnerからview別3D contour point IDを固定し、
+30万点subsampleや候補姿勢で評価集合が変わらない`--fixed-contours`を追加した。
+画像edgeから12 px以内を先に選ぶ方式は初期姿勢を最適値へlockし、train/held-outとも
+改善0%だったためoptimizationでは明示拒否する。geometry-only（association=0）の
+13 view×20k点smokeは260k点を100%保持し、train 2.25%改善に対しheld-outは
+0.76%（7.3723→7.3160 px）のみ。stationary pointもlocal範囲外で可観測性FAILとなり
+不採用。密度非依存の証拠集合は完成したが、clutter環境のnearest image-edge目的が
+まだ曖昧で、K4のpose/README assetは更新していない。

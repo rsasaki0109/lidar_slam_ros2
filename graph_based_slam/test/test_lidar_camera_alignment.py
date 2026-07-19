@@ -112,6 +112,37 @@ def test_projected_depth_keeps_nearest_point():
     assert depth[5, 5] == 2.0
 
 
+def test_projected_depth_and_ids_keeps_nearest_source_id():
+    points = np.array([[0.0, 0.0, 5.0], [0.0, 0.0, 2.0]])
+    K = np.array([[10.0, 0.0, 5.0], [0.0, 10.0, 5.0], [0.0, 0.0, 1.0]])
+    depth, point_ids = lca.projected_depth_and_ids(
+        points, np.eye(4), K, 10, 10)
+    assert depth[5, 5] == 2.0
+    assert point_ids[5, 5] == 1
+    assert point_ids[0, 0] == -1
+
+
+def test_extract_fixed_contours_uses_full_density_edges_and_caps_points():
+    width = height = 12
+    K = np.array([[10.0, 0.0, 6.0], [0.0, 10.0, 6.0], [0.0, 0.0, 1.0]])
+    points = []
+    for v in range(2, 10):
+        for u in range(2, 10):
+            z = 2.0 if u < 6 else 4.0
+            points.append([(u - 6.0) * z / 10.0,
+                           (v - 6.0) * z / 10.0, z])
+    image = np.zeros((height, width, 3), np.uint8)
+    image[:, 6:] = 255
+    banks, report = lca.extract_fixed_contours(
+        np.asarray(points), np.asarray([np.eye(4)]), K, [image],
+        edge_percentile=50.0, association_distance=2,
+        max_points_per_view=5)
+    assert banks[0].shape == (5, 3)
+    assert report['views'][0]['raw_depth_edge_pixels'] == 16
+    assert report['views'][0]['image_associated_edge_points_before_cap'] > 5
+    assert report['total_fixed_contour_points'] == 5
+
+
 def test_score_view_handles_no_depth_edges():
     points = np.array([[0.0, 0.0, 2.0]])
     K = np.array([[10.0, 0.0, 5.0], [0.0, 10.0, 5.0], [0.0, 0.0, 1.0]])
@@ -120,6 +151,28 @@ def test_score_view_handles_no_depth_edges():
     assert result['edge_points'] == 0
     assert result['median_px'] is None
     assert result['out_of_range_fraction'] is None
+
+
+def test_alignment_objective_uses_fixed_contours_without_dense_points():
+    image = np.zeros((12, 12, 3), np.uint8)
+    image[:, 6:] = 255
+    K = np.array([[10.0, 0.0, 6.0], [0.0, 10.0, 6.0], [0.0, 0.0, 1.0]])
+    contours = [np.array([[0.0, 0.0, 2.0]])]
+    loss, metrics = lca.alignment_objective(
+        np.zeros((0, 3)), np.asarray([np.eye(4)]), K, [image],
+        np.zeros(6), edge_percentile=50.0,
+        contour_points_by_view=contours)
+    assert np.isfinite(loss)
+    assert metrics['edge_points'] == 1
+    assert metrics['raw_edge_points'] == 1
+
+
+def test_alignment_objective_rejects_mismatched_contour_banks():
+    with np.testing.assert_raises_regex(ValueError, 'bank count'):
+        lca.alignment_objective(
+            np.zeros((0, 3)), np.asarray([np.eye(4)]), np.eye(3),
+            [np.zeros((4, 4), np.uint8)], np.zeros(6),
+            contour_points_by_view=[])
 
 
 def test_score_view_reports_search_range_saturation(monkeypatch):

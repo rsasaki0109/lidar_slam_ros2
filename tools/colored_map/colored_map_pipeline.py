@@ -360,7 +360,15 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 str(args.calibration_depth_support_relative),
                 '--minimum-supported-edge-fraction',
                 str(args.calibration_minimum_supported_edge_fraction),
-            ] if args.calibration_depth_support_radius > 0 else [])))
+            ] if args.calibration_depth_support_radius > 0 else []) + ([
+                '--fixed-contours',
+                '--contour-association-distance',
+                str(args.calibration_contour_association_distance),
+                '--contour-max-points-per-view',
+                str(args.calibration_contour_max_points_per_view),
+                '--contour-min-points-per-view',
+                str(args.calibration_contour_min_points_per_view),
+            ] if args.calibration_fixed_contours else [])))
 
     if (rebuild_images or rebuild_masks or rebuild_calibration or
             args.force_map or
@@ -405,6 +413,16 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                     str(args.alignment_depth_support_absolute),
                     '--depth-support-relative',
                     str(args.alignment_depth_support_relative),
+                ])
+            if args.alignment_fixed_contours:
+                alignment_command.extend([
+                    '--fixed-contours',
+                    '--contour-association-distance',
+                    str(args.alignment_contour_association_distance),
+                    '--contour-max-points-per-view',
+                    str(args.alignment_contour_max_points_per_view),
+                    '--contour-min-points-per-view',
+                    str(args.alignment_contour_min_points_per_view),
                 ])
             commands.append(('camera-LiDAR alignment', alignment_command))
         if (rebuild_map or rebuild_images or args.force_quality or
@@ -518,6 +536,16 @@ def run_pipeline(args) -> dict:
             raise ValueError(f'invalid {prefix} depth support settings')
     if not 0.0 <= args.calibration_minimum_supported_edge_fraction <= 1.0:
         raise ValueError('invalid calibration minimum supported edge fraction')
+    for prefix, association, maximum, minimum in (
+            ('calibration', args.calibration_contour_association_distance,
+             args.calibration_contour_max_points_per_view,
+             args.calibration_contour_min_points_per_view),
+            ('alignment', args.alignment_contour_association_distance,
+             args.alignment_contour_max_points_per_view,
+             args.alignment_contour_min_points_per_view)):
+        if ((association != 0 and association < 12) or maximum < 1 or
+                minimum < 1 or minimum > maximum):
+            raise ValueError(f'invalid {prefix} fixed contour settings')
     if args.refine_spatiotemporal_calibration and (
             args.calibration_view_stride < 1 or
             args.calibration_max_points < 1 or
@@ -656,6 +684,13 @@ def build_parser() -> argparse.ArgumentParser:
                    default=0.01)
     p.add_argument('--calibration-minimum-supported-edge-fraction', type=float,
                    default=0.25)
+    p.add_argument('--calibration-fixed-contours', action='store_true')
+    p.add_argument('--calibration-contour-association-distance', type=int,
+                   default=0)
+    p.add_argument('--calibration-contour-max-points-per-view', type=int,
+                   default=50000)
+    p.add_argument('--calibration-contour-min-points-per-view', type=int,
+                   default=500)
     p.add_argument('--max-trajectory-gap', type=float, default=0.5,
                    help='reject sparse pose streams with a larger gap (s); '
                         'set <=0 to disable')
@@ -746,6 +781,13 @@ def build_parser() -> argparse.ArgumentParser:
                    default=0.10)
     p.add_argument('--alignment-depth-support-relative', type=float,
                    default=0.01)
+    p.add_argument('--alignment-fixed-contours', action='store_true')
+    p.add_argument('--alignment-contour-association-distance', type=int,
+                   default=0)
+    p.add_argument('--alignment-contour-max-points-per-view', type=int,
+                   default=50000)
+    p.add_argument('--alignment-contour-min-points-per-view', type=int,
+                   default=500)
     p.add_argument('--trajectory-report', type=Path,
                    help='metrics.json containing evo.ape.rmse for quality gate')
     p.add_argument('--geometry-report', type=Path,

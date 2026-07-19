@@ -221,14 +221,135 @@ def projected_depth(points: np.ndarray, viewmat: np.ndarray, K: np.ndarray,
     return image
 
 
+def projected_depth_and_ids(points: np.ndarray, viewmat: np.ndarray,
+                            K: np.ndarray, width: int,
+                            height: int) -> tuple[np.ndarray, np.ndarray]:
+    """Project nearest depth and deterministic source point ID per pixel."""
+    points = np.asarray(points, dtype=np.float64)
+    camera = points @ viewmat[:3, :3].T + viewmat[:3, 3]
+    depth = camera[:, 2]
+    with np.errstate(divide='ignore', invalid='ignore'):
+        u = np.nan_to_num(K[0, 0] * camera[:, 0] / depth + K[0, 2], nan=-1.0,
+                          posinf=-1.0, neginf=-1.0)
+        v = np.nan_to_num(K[1, 1] * camera[:, 1] / depth + K[1, 2], nan=-1.0,
+                          posinf=-1.0, neginf=-1.0)
+    ui = np.round(u).astype(np.int64)
+    vi = np.round(v).astype(np.int64)
+    inside = ((depth > 1e-6) & (ui >= 0) & (ui < width) &
+              (vi >= 0) & (vi < height))
+    depth_image = np.full(height * width, np.inf, dtype=np.float64)
+    missing_id = np.iinfo(np.int64).max
+    id_image = np.full(height * width, missing_id, dtype=np.int64)
+    if not np.any(inside):
+        id_image.fill(-1)
+        return (depth_image.reshape(height, width).astype(np.float32),
+                id_image.reshape(height, width))
+    ids = np.flatnonzero(inside)
+    pixels = vi[inside] * width + ui[inside]
+    np.minimum.at(depth_image, pixels, depth[inside])
+    winners = depth[inside] == depth_image[pixels]
+    np.minimum.at(id_image, pixels[winners], ids[winners])
+    id_image[id_image == missing_id] = -1
+    return (depth_image.reshape(height, width).astype(np.float32),
+            id_image.reshape(height, width))
+
+
+def projected_point_mask(points: np.ndarray, viewmat: np.ndarray, K: np.ndarray,
+                         width: int, height: int) -> np.ndarray:
+    """Project fixed 3D contour points into a deterministic binary mask."""
+    points = np.asarray(points, dtype=np.float64)
+    mask = np.zeros((height, width), dtype=bool)
+    if points.size == 0:
+        return mask
+    camera = points @ viewmat[:3, :3].T + viewmat[:3, 3]
+    depth = camera[:, 2]
+    with np.errstate(divide='ignore', invalid='ignore'):
+        u = np.nan_to_num(K[0, 0] * camera[:, 0] / depth + K[0, 2], nan=-1.0,
+                          posinf=-1.0, neginf=-1.0)
+        v = np.nan_to_num(K[1, 1] * camera[:, 1] / depth + K[1, 2], nan=-1.0,
+                          posinf=-1.0, neginf=-1.0)
+    ui = np.round(u).astype(np.int64)
+    vi = np.round(v).astype(np.int64)
+    inside = ((depth > 1e-6) & (ui >= 0) & (ui < width) &
+              (vi >= 0) & (vi < height))
+    mask[vi[inside], ui[inside]] = True
+    return mask
+
+
+def extract_fixed_contours(points: np.ndarray, viewmats: np.ndarray,
+                           K: np.ndarray, images: list[np.ndarray], *,
+                           edge_percentile: float = 95.0,
+                           association_distance: int = 0,
+                           max_points_per_view: int = 50000,
+                           depth_support: dict | None = None
+                           ) -> tuple[list[np.ndarray], dict]:
+    """Freeze full-density visible depth edges as per-view 3D point banks."""
+    banks = []
+    per_view = []
+    for ordinal, (viewmat, image) in enumerate(zip(viewmats, images)):
+        height, width = image.shape[:2]
+        depth, point_ids = projected_depth_and_ids(
+            points, viewmat, K, width, height)
+        lidar_edges, raw_edges = supported_depth_edges(depth, depth_support)
+        edge_ids = point_ids[lidar_edges]
+        valid_ids = edge_ids >= 0
+        edge_ids = edge_ids[valid_ids]
+        query = np.zeros_like(lidar_edges)
+        query[lidar_edges] = valid_ids
+        if association_distance > 0:
+            distances = nearest_edge_distances(
+                query, image_edges(image, edge_percentile),
+                association_distance)
+            associated = distances <= association_distance
+        else:
+            associated = np.ones(len(edge_ids), dtype=bool)
+        selected_ids = edge_ids[associated]
+        # Preserve row-major image order before deterministic thinning so the
+        # cap remains spatially distributed instead of following PLY point ID.
+        _, first_occurrence = np.unique(selected_ids, return_index=True)
+        selected_ids = selected_ids[np.sort(first_occurrence)]
+        before_cap = len(selected_ids)
+        if len(selected_ids) > max_points_per_view:
+            indices = np.linspace(
+                0, len(selected_ids) - 1, max_points_per_view,
+                dtype=np.int64)
+            selected_ids = selected_ids[indices]
+        banks.append(np.asarray(points[selected_ids], dtype=np.float64))
+        per_view.append({
+            'ordinal': ordinal,
+            'raw_depth_edge_pixels': raw_edges,
+            'supported_depth_edge_pixels': int(np.sum(lidar_edges)),
+            'candidate_edge_points_before_cap': before_cap,
+            'image_associated_edge_points_before_cap': (
+                before_cap if association_distance > 0 else None),
+            'fixed_contour_points': len(selected_ids),
+            'association_fraction': float(
+                np.mean(associated) if associated.size else 0.0),
+        })
+    return banks, {
+        'association_distance_px': association_distance,
+        'image_association_enabled': association_distance > 0,
+        'max_points_per_view': max_points_per_view,
+        'depth_support': depth_support,
+        'views': per_view,
+        'total_fixed_contour_points': int(sum(len(bank) for bank in banks)),
+    }
+
+
 def score_view(points: np.ndarray, viewmat: np.ndarray, K: np.ndarray,
                image: np.ndarray, *, edge_percentile: float = 95.0,
                max_distance: int = 12,
-               depth_support: dict | None = None) -> dict:
+               depth_support: dict | None = None,
+               contour_points: np.ndarray | None = None) -> dict:
     """Score one camera view and return pixel-distance alignment metrics."""
     height, width = image.shape[:2]
-    lidar_edges, raw_edge_points = supported_depth_edges(
-        projected_depth(points, viewmat, K, width, height), depth_support)
+    if contour_points is None:
+        lidar_edges, raw_edge_points = supported_depth_edges(
+            projected_depth(points, viewmat, K, width, height), depth_support)
+    else:
+        lidar_edges = projected_point_mask(
+            contour_points, viewmat, K, width, height)
+        raw_edge_points = len(contour_points)
     correspondences = nearest_edge_correspondences(
         lidar_edges, image_edges(image, edge_percentile), max_distance)
     distances = correspondences['distance_px']
@@ -269,7 +390,9 @@ def render_residual_overlay(points: np.ndarray, viewmat: np.ndarray,
                             K: np.ndarray, image: np.ndarray, *,
                             edge_percentile: float = 95.0,
                             max_distance: int = 12,
-                            depth_support: dict | None = None) -> np.ndarray:
+                            depth_support: dict | None = None,
+                            contour_points: np.ndarray | None = None
+                            ) -> np.ndarray:
     """Overlay image edges and colour-coded LiDAR edge residuals."""
     source = np.asarray(image)
     if source.ndim == 2:
@@ -280,8 +403,12 @@ def render_residual_overlay(points: np.ndarray, viewmat: np.ndarray,
     output = np.clip(source.astype(np.float32) * 0.55, 0, 255).astype(np.uint8)
     height, width = source.shape[:2]
     camera_edges = image_edges(source, edge_percentile)
-    lidar_edges, _ = supported_depth_edges(
-        projected_depth(points, viewmat, K, width, height), depth_support)
+    if contour_points is None:
+        lidar_edges, _ = supported_depth_edges(
+            projected_depth(points, viewmat, K, width, height), depth_support)
+    else:
+        lidar_edges = projected_point_mask(
+            contour_points, viewmat, K, width, height)
     residuals = nearest_edge_correspondences(
         lidar_edges, camera_edges, max_distance)
 
@@ -311,13 +438,17 @@ def write_residual_diagnostics(directory: Path, points: np.ndarray,
                                per_view: list[dict], *, worst_views: int,
                                edge_percentile: float,
                                max_distance: int,
-                               depth_support: dict | None = None) -> dict:
+                               depth_support: dict | None = None,
+                               contour_points_by_view: list[np.ndarray] | None = None
+                               ) -> dict:
     """Write deterministic worst-view overlays and a compact contact sheet."""
     import imageio.v3 as iio
 
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     image_by_index = dict(zip(selected, images))
+    contour_by_index = (dict(zip(selected, contour_points_by_view))
+                        if contour_points_by_view is not None else {})
     valid = [item for item in per_view if item['edge_points'] > 0]
     ranked = sorted(
         valid,
@@ -331,7 +462,8 @@ def write_residual_diagnostics(directory: Path, points: np.ndarray,
         overlay = render_residual_overlay(
             points, viewmats[index], K, image_by_index[index],
             edge_percentile=edge_percentile, max_distance=max_distance,
-            depth_support=depth_support)
+            depth_support=depth_support,
+            contour_points=contour_by_index.get(index))
         filename = f'worst_{rank:02d}_view_{index:05d}.png'
         path = directory / filename
         iio.imwrite(path, overlay)
@@ -381,6 +513,7 @@ def write_residual_diagnostics(directory: Path, points: np.ndarray,
                          'unmatched_lidar_edges': 'magenta'},
               'ranking': 'out_of_range_fraction,p90_px,median_px',
               'depth_support': depth_support,
+              'fixed_contours': contour_points_by_view is not None,
               'direction_summary': direction,
               'contact_sheet': contact_name, 'worst_views': entries}
     (directory / 'diagnostics.json').write_text(json.dumps(result, indent=2) + '\n')
@@ -408,18 +541,30 @@ def alignment_objective(points: np.ndarray, viewmats: np.ndarray,
                         max_distance: int = 12,
                         reference_edge_points: int | None = None,
                         image_edge_masks: list[np.ndarray] | None = None,
-                        depth_support: dict | None = None
+                        depth_support: dict | None = None,
+                        contour_points_by_view: list[np.ndarray] | None = None
                         ) -> tuple[float, dict]:
     """Return coverage-guarded mean edge distance for one SE(3) correction."""
+    if (contour_points_by_view is not None and
+            len(contour_points_by_view) != len(images)):
+        raise ValueError('fixed contour bank count must match image count')
     delta = correction_matrix(parameters)
     chunks = []
     targets = (image_edge_masks if image_edge_masks is not None else
                [image_edges(image, edge_percentile) for image in images])
     raw_edge_points = 0
-    for viewmat, image, target in zip(viewmats, images, targets):
+    contours = (contour_points_by_view if contour_points_by_view is not None
+                else [None] * len(images))
+    for viewmat, image, target, contour_points in zip(
+            viewmats, images, targets, contours):
         height, width = image.shape[:2]
-        lidar_edges, raw_count = supported_depth_edges(projected_depth(
-            points, delta @ viewmat, K, width, height), depth_support)
+        if contour_points is None:
+            lidar_edges, raw_count = supported_depth_edges(projected_depth(
+                points, delta @ viewmat, K, width, height), depth_support)
+        else:
+            lidar_edges = projected_point_mask(
+                contour_points, delta @ viewmat, K, width, height)
+            raw_count = len(contour_points)
         raw_edge_points += raw_count
         chunks.append(nearest_edge_distances(lidar_edges, target, max_distance))
     values = np.concatenate([item for item in chunks if item.size]) \
@@ -449,14 +594,16 @@ def optimize_correction(points: np.ndarray, viewmats: np.ndarray, K: np.ndarray,
                         rotation_step_deg: float = 0.2,
                         edge_percentile: float = 95.0,
                         max_distance: int = 12,
-                        depth_support: dict | None = None
+                        depth_support: dict | None = None,
+                        contour_points_by_view: list[np.ndarray] | None = None
                         ) -> tuple[np.ndarray, dict, dict]:
     """Coordinate-search a camera-frame correction, coarse to fine."""
     parameters = np.zeros(6, dtype=np.float64)
     base_loss, before = alignment_objective(
         points, viewmats, K, images, parameters,
         edge_percentile=edge_percentile, max_distance=max_distance,
-        depth_support=depth_support)
+        depth_support=depth_support,
+        contour_points_by_view=contour_points_by_view)
     best_loss = base_loss
     reference = before['edge_points']
     edge_masks = [image_edges(image, edge_percentile) for image in images]
@@ -473,7 +620,8 @@ def optimize_correction(points: np.ndarray, viewmats: np.ndarray, K: np.ndarray,
                     max_distance=max_distance,
                     reference_edge_points=reference,
                     image_edge_masks=edge_masks,
-                    depth_support=depth_support)
+                    depth_support=depth_support,
+                    contour_points_by_view=contour_points_by_view)
                 if loss < best_loss:
                     parameters, best_loss = candidate, loss
         steps *= 0.5
@@ -481,7 +629,8 @@ def optimize_correction(points: np.ndarray, viewmats: np.ndarray, K: np.ndarray,
         points, viewmats, K, images, parameters,
         edge_percentile=edge_percentile, max_distance=max_distance,
         reference_edge_points=reference, image_edge_masks=edge_masks,
-        depth_support=depth_support)
+        depth_support=depth_support,
+        contour_points_by_view=contour_points_by_view)
     before['loss'] = base_loss
     after['loss'] = best_loss
     return parameters, before, after
@@ -567,7 +716,9 @@ def spatiotemporal_objective(
         edge_percentile: float = 95.0, max_distance: int = 12,
         reference_edge_points: int | None = None,
         image_edge_masks: list[np.ndarray] | None = None,
-        depth_support: dict | None = None) -> tuple[float, dict]:
+        depth_support: dict | None = None,
+        contour_points_by_view: list[np.ndarray] | None = None
+        ) -> tuple[float, dict]:
     """Evaluate a continuous-time pose recomposition against image edges."""
     try:
         viewmats = recompose_viewmats(
@@ -579,7 +730,8 @@ def spatiotemporal_objective(
         points, viewmats, K, images, np.zeros(6),
         edge_percentile=edge_percentile, max_distance=max_distance,
         reference_edge_points=reference_edge_points,
-        image_edge_masks=image_edge_masks, depth_support=depth_support)
+        image_edge_masks=image_edge_masks, depth_support=depth_support,
+        contour_points_by_view=contour_points_by_view)
 
 
 def optimize_spatiotemporal(
@@ -591,13 +743,16 @@ def optimize_spatiotemporal(
         max_translation: float = 0.1, max_rotation_deg: float = 2.0,
         edge_percentile: float = 95.0,
         max_distance: int = 12,
-        depth_support: dict | None = None) -> tuple[np.ndarray, dict, dict]:
+        depth_support: dict | None = None,
+        contour_points_by_view: list[np.ndarray] | None = None
+        ) -> tuple[np.ndarray, dict, dict]:
     """Bounded deterministic coordinate search over dt plus a local SE(3)."""
     parameters = np.zeros(7, dtype=np.float64)
     base_loss, before = spatiotemporal_objective(
         points, samples, stamps, body_T_camera, K, images, parameters,
         edge_percentile=edge_percentile, max_distance=max_distance,
-        depth_support=depth_support)
+        depth_support=depth_support,
+        contour_points_by_view=contour_points_by_view)
     reference = before['edge_points']
     edge_masks = [image_edges(image, edge_percentile) for image in images]
     best_loss = base_loss
@@ -621,7 +776,8 @@ def optimize_spatiotemporal(
                         max_distance=max_distance,
                         reference_edge_points=reference,
                         image_edge_masks=edge_masks,
-                        depth_support=depth_support)
+                        depth_support=depth_support,
+                        contour_points_by_view=contour_points_by_view)
                     if loss + 1e-12 < best_loss:
                         parameters, best_loss = candidate, loss
                         changed = True
@@ -630,7 +786,8 @@ def optimize_spatiotemporal(
         points, samples, stamps, body_T_camera, K, images, parameters,
         edge_percentile=edge_percentile, max_distance=max_distance,
         reference_edge_points=reference, image_edge_masks=edge_masks,
-        depth_support=depth_support)
+        depth_support=depth_support,
+        contour_points_by_view=contour_points_by_view)
     before['loss'] = base_loss
     after['loss'] = best_loss
     return parameters, before, after
@@ -649,7 +806,8 @@ def optimize_spatiotemporal_production(
         maximum_time_translation_correlation: float = 0.98,
         edge_percentile: float = 95.0,
         max_distance: int = 12,
-        depth_support: dict | None = None
+        depth_support: dict | None = None,
+        contour_points_by_view: list[np.ndarray] | None = None
         ) -> tuple[np.ndarray, dict, dict, dict]:
     """Optimize a pyramid and audit local identifiability before adoption."""
     if (not scales or any(not 0.0 < scale <= 1.0 for scale in scales) or
@@ -678,7 +836,8 @@ def optimize_spatiotemporal_production(
             points, samples, stamps, body_T_camera, level_K, level_images,
             reference_parameters, edge_percentile=edge_percentile,
             max_distance=max(2, int(round(max_distance * scale))),
-            image_edge_masks=edge_masks, depth_support=depth_support)
+            image_edge_masks=edge_masks, depth_support=depth_support,
+            contour_points_by_view=contour_points_by_view)
         reference_edges = reference_metrics['edge_points']
 
         def objective(candidate):
@@ -687,14 +846,16 @@ def optimize_spatiotemporal_production(
                 candidate, edge_percentile=edge_percentile,
                 max_distance=max(2, int(round(max_distance * scale))),
                 reference_edge_points=reference_edges,
-                image_edge_masks=edge_masks, depth_support=depth_support)
+                image_edge_masks=edge_masks, depth_support=depth_support,
+                contour_points_by_view=contour_points_by_view)
             return loss
         return objective
 
     base_loss, before = spatiotemporal_objective(
         points, samples, stamps, body_T_camera, K, images, parameters,
         edge_percentile=edge_percentile, max_distance=max_distance,
-        depth_support=depth_support)
+        depth_support=depth_support,
+        contour_points_by_view=contour_points_by_view)
     before['loss'] = base_loss
     for scale in scales:
         objective = level_objective(scale, np.zeros(7))
@@ -731,7 +892,8 @@ def optimize_spatiotemporal_production(
         points, samples, stamps, body_T_camera, K, images, parameters,
         edge_percentile=edge_percentile, max_distance=max_distance,
         reference_edge_points=before['edge_points'],
-        depth_support=depth_support)
+        depth_support=depth_support,
+        contour_points_by_view=contour_points_by_view)
     after['loss'] = final_loss
     audit_objective = level_objective(observability_scale, parameters)
     observability = stc.finite_difference_observability(
@@ -742,6 +904,7 @@ def optimize_spatiotemporal_production(
     report = {
         'mode': 'multi_resolution_production',
         'depth_support': depth_support,
+        'fixed_contours': contour_points_by_view is not None,
         'pyramid_scales': list(scales),
         'levels': levels,
         'initial_bounds_dt_s_xyz_m_rpy_rad': initial_bounds.tolist(),
@@ -875,6 +1038,14 @@ def main() -> int:
     parser.add_argument('--depth-support-absolute', type=float, default=0.10,
                         help='metre tolerance for same-surface support')
     parser.add_argument('--depth-support-relative', type=float, default=0.01)
+    parser.add_argument('--fixed-contours', action='store_true',
+                        help='extract full-density 3D depth contours once and '
+                             'reuse them throughout calibration')
+    parser.add_argument('--contour-association-distance', type=int, default=0,
+                        help='initial image-edge association radius; 0 keeps '
+                             'geometry-only contours and avoids pose bias')
+    parser.add_argument('--contour-max-points-per-view', type=int, default=50000)
+    parser.add_argument('--contour-min-points-per-view', type=int, default=500)
     parser.add_argument('--diagnostics-dir', type=Path,
                         help='write worst-view residual overlays and summary')
     parser.add_argument('--worst-views', type=int, default=10,
@@ -938,6 +1109,11 @@ def main() -> int:
             args.depth_support_min_neighbors < 1 or
             args.depth_support_absolute < 0.0 or
             args.depth_support_relative < 0.0 or
+            (args.contour_association_distance != 0 and
+             args.contour_association_distance < args.max_distance) or
+            args.contour_max_points_per_view < 1 or
+            args.contour_min_points_per_view < 1 or
+            args.contour_min_points_per_view > args.contour_max_points_per_view or
             not 0.0 <= args.minimum_supported_edge_fraction <= 1.0 or
             not 0.0 <= args.minimum_heldout_improvement < 1.0):
         raise SystemExit('stride, distance, rounds, and search steps must be > 0')
@@ -946,6 +1122,10 @@ def main() -> int:
     if args.production_calibration and not args.optimize_spatiotemporal:
         raise SystemExit('--production-calibration requires '
                          '--optimize-spatiotemporal')
+    if ((args.optimize_spatiotemporal or args.optimize_extrinsic) and
+            args.fixed_contours and args.contour_association_distance > 0):
+        raise SystemExit('image-associated fixed contours are diagnostic-only; '
+                         'calibration requires geometry-only association 0')
     try:
         pyramid_scales = tuple(float(item) for item in
                                args.pyramid_scales.split(','))
@@ -969,7 +1149,8 @@ def main() -> int:
             'relative': args.depth_support_relative,
         }
     import imageio.v3 as iio
-    points, _ = pcio.read_ply_xyz(args.pointcloud)
+    full_points, _ = pcio.read_ply_xyz(args.pointcloud)
+    points = full_points
     if args.max_points and len(points) > args.max_points:
         indices = np.linspace(
             0, len(points) - 1, args.max_points, dtype=np.int64)
@@ -979,6 +1160,25 @@ def main() -> int:
     selected = list(range(0, len(viewmats), args.view_stride))
     images = [np.asarray(iio.imread(dataset['image_paths'][index]))
               for index in selected]
+    contour_points_by_view = None
+    contour_report = None
+    if args.fixed_contours:
+        contour_points_by_view, contour_report = extract_fixed_contours(
+            full_points, viewmats[selected], dataset['K'], images,
+            edge_percentile=args.edge_percentile,
+            association_distance=args.contour_association_distance,
+            max_points_per_view=args.contour_max_points_per_view,
+            depth_support=depth_support)
+        insufficient = [
+            selected[ordinal]
+            for ordinal, bank in enumerate(contour_points_by_view)
+            if len(bank) < args.contour_min_points_per_view]
+        if insufficient:
+            raise SystemExit(
+                'fixed contour extraction has insufficient points in views: ' +
+                ','.join(str(index) for index in insufficient))
+    contour_by_index = (dict(zip(selected, contour_points_by_view))
+                        if contour_points_by_view is not None else {})
     optimization = None
     delta = np.eye(4)
     effective_viewmats = viewmats.copy()
@@ -1017,6 +1217,10 @@ def main() -> int:
         image_by_index = dict(zip(selected, images))
         train_images = [image_by_index[index] for index in train]
         heldout_images = [image_by_index[index] for index in heldout]
+        train_contours = ([contour_by_index[index] for index in train]
+                          if contour_points_by_view is not None else None)
+        heldout_contours = ([contour_by_index[index] for index in heldout]
+                            if contour_points_by_view is not None else None)
         production_report = None
         if args.production_calibration:
             (parameters, train_before, train_after,
@@ -1039,7 +1243,8 @@ def main() -> int:
                     args.maximum_time_translation_correlation),
                 edge_percentile=args.edge_percentile,
                 max_distance=args.max_distance,
-                depth_support=depth_support)
+                depth_support=depth_support,
+                contour_points_by_view=train_contours)
         else:
             parameters, train_before, train_after = optimize_spatiotemporal(
                 points, samples, stamps[train], body_T_camera, dataset['K'],
@@ -1052,19 +1257,22 @@ def main() -> int:
                 max_rotation_deg=args.max_rotation_deg,
                 edge_percentile=args.edge_percentile,
                 max_distance=args.max_distance,
-                depth_support=depth_support)
+                depth_support=depth_support,
+                contour_points_by_view=train_contours)
         zero = np.zeros(7)
         heldout_before_loss, heldout_before = spatiotemporal_objective(
             points, samples, stamps[heldout], body_T_camera, dataset['K'],
             heldout_images, zero, edge_percentile=args.edge_percentile,
-            max_distance=args.max_distance, depth_support=depth_support)
+            max_distance=args.max_distance, depth_support=depth_support,
+            contour_points_by_view=heldout_contours)
         heldout_after_loss, heldout_after = spatiotemporal_objective(
             points, samples, stamps[heldout], body_T_camera, dataset['K'],
             heldout_images, parameters,
             edge_percentile=args.edge_percentile,
             max_distance=args.max_distance,
             reference_edge_points=heldout_before['edge_points'],
-            depth_support=depth_support)
+            depth_support=depth_support,
+            contour_points_by_view=heldout_contours)
         heldout_before['loss'], heldout_after['loss'] = (
             heldout_before_loss, heldout_after_loss)
         accepted, rejection_reason = calibration_acceptance(
@@ -1073,6 +1281,8 @@ def main() -> int:
             minimum_heldout_improvement=args.minimum_heldout_improvement,
             minimum_supported_edge_fraction=(
                 args.minimum_supported_edge_fraction))
+        rejection_reasons = ([rejection_reason]
+                             if rejection_reason is not None else [])
         parameter_bounds = np.array([
             args.max_time_offset, args.max_translation,
             args.max_translation, args.max_translation,
@@ -1090,10 +1300,12 @@ def main() -> int:
             boundary_axes = production_report['boundary_axes']
             if boundary_axes:
                 accepted = False
-                rejection_reason = 'search_boundary_reached'
+                rejection_reasons.append('search_boundary_reached')
             if not production_report['observability']['observable']:
                 accepted = False
-                rejection_reason = 'calibration_not_observable'
+                rejection_reasons.append('calibration_not_observable')
+        rejection_reason = (rejection_reasons[-1]
+                            if rejection_reasons else None)
         if accepted:
             effective_viewmats = recompose_viewmats(
                 samples, stamps, body_T_camera, parameters)
@@ -1116,6 +1328,7 @@ def main() -> int:
             'train': {'before': train_before, 'after': train_after},
             'heldout': {'before': heldout_before, 'after': heldout_after},
             'rejection_reason': rejection_reason,
+            'rejection_reasons': rejection_reasons,
         }
     elif args.optimize_extrinsic:
         parameters, before, after = optimize_correction(
@@ -1125,7 +1338,8 @@ def main() -> int:
             rotation_step_deg=args.rotation_step_deg,
             edge_percentile=args.edge_percentile,
             max_distance=args.max_distance,
-            depth_support=depth_support)
+            depth_support=depth_support,
+            contour_points_by_view=contour_points_by_view)
         delta = correction_matrix(parameters)
         effective_viewmats = np.asarray(
             [delta @ viewmat for viewmat in viewmats])
@@ -1136,11 +1350,13 @@ def main() -> int:
             'before': before, 'after': after,
         }
     per_view = []
-    for index, image in zip(selected, images):
+    for ordinal, (index, image) in enumerate(zip(selected, images)):
         score = score_view(
             points, effective_viewmats[index], dataset['K'], image,
             edge_percentile=args.edge_percentile,
-            max_distance=args.max_distance, depth_support=depth_support)
+            max_distance=args.max_distance, depth_support=depth_support,
+            contour_points=(contour_points_by_view[ordinal]
+                            if contour_points_by_view is not None else None))
         score['view_index'] = index
         per_view.append(score)
     valid = [item for item in per_view if item['edge_points'] > 0]
@@ -1150,8 +1366,10 @@ def main() -> int:
     report = {'pointcloud': str(args.pointcloud.resolve()),
               'transforms': str(args.transforms.resolve()),
               'points_scored': len(points),
+              'full_density_points': len(full_points),
               'views_scored': len(valid), 'edge_points': int(weights.sum()),
-              'depth_support': depth_support}
+              'depth_support': depth_support,
+              'fixed_contours': contour_report}
     raw_edges = sum(item['raw_edge_points'] for item in valid)
     report['raw_edge_points'] = raw_edges
     report['supported_edge_fraction'] = float(
@@ -1182,7 +1400,8 @@ def main() -> int:
             args.diagnostics_dir, points, effective_viewmats, dataset['K'],
             selected, images, per_view, worst_views=args.worst_views,
             edge_percentile=args.edge_percentile,
-            max_distance=args.max_distance, depth_support=depth_support)
+            max_distance=args.max_distance, depth_support=depth_support,
+            contour_points_by_view=contour_points_by_view)
         report['diagnostics']['directory'] = str(args.diagnostics_dir.resolve())
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2) + '\n')

@@ -141,3 +141,28 @@ fails the 25% retention gate. This filter is useful for visual diagnosis but is
 not a K5 calibration candidate. The next objective needs correspondence support
 that remains meaningful under sparse geometry rather than image-plane density
 alone.
+
+### Fixed full-density 3D contours
+
+The next candidate extracts visible depth-edge winner IDs from the complete
+4.91 M-point geometry before applying `--max-points`. Each view retains a
+deterministically image-distributed cap of those world-space points. During
+7DoF search the same 3D points are reprojected for every candidate, so neither
+the 300,000-point calibration subsample nor candidate-dependent edge detection
+can change the objective's population. Pipeline support is opt-in through
+`--calibration-fixed-contours` and `--alignment-fixed-contours`.
+
+Image-associated contour selection is diagnostic-only. An ablation selecting
+points initially within 12 px of an image edge made zero correction the exact
+optimum: both training and held-out loss changed by 0%. The CLI now rejects
+that mode during optimization. Production calibration requires geometry-only
+selection (`--contour-association-distance 0`).
+
+A geometry-only smoke used 13 stratified views and 20,000 fixed contour points
+per view. All 260,000 points survived the 300,000-point calibration condition.
+The candidate reduced training loss by 2.25%, but held-out loss by only 0.76%
+(7.3723 to 7.3160 px), below the required 2%. The observability audit also
+rejected a stationary point outside the local neighbourhood. No corrected pose
+was adopted. This establishes density-independent evidence and safe rejection,
+but does not yet improve K4 colour registration; fixed nearest-image-edge
+distance remains too weak and ambiguous in the cluttered warehouse.
