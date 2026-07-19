@@ -329,3 +329,23 @@ READMEへK3の4.84 M点、coverage 74.76%、11項目profile、動画のoccupied 
 目視し、MP4は600x450 / 30 fps / 240 frames / 8秒、GIFは480x360 / 10 fps /
 80 frames / 8秒を確認した。geometry boundary guardを既定化せず、既存planar gateを
 維持する制約もREADME、release note、release recordで一致させた。
+
+## 18. 追記 (2026-07-19): K4 pose-aware dynamic cleaning
+
+README点群を実際に更新するため、`dynamic-object-removal` 0.5.0のoffline
+`fusion`を`build_lidar_init.py`へ任意依存・default-offで統合した。deskew済みscanを
+K3と同じRKO-LIO軌跡でworldへ移し、同じposeのsensor originと組にして判定する。
+完成地図だけを後処理する構成ではない。pipelineはalgorithm/version、evidence scan、
+閾値、除去数を`dynamic_map_cleaning.json`へ保存する。
+
+Construction Seq1の639 scanでevery-5thの128 scanを証拠に使い、pre-cap
+6,193,579点中884,580点（14.28%）を除外した。default-off再構築は既存K3の
+4,840,318 XYZと完全一致。K4は4,906,133点、coverage 0.7666、held-out median /
+inlier20は40.54 / 0.2909、global roughness 5.20/19.98、planar roughness
+6.40/23.52、chroma retention 1.0051で11項目を全PASSした。K3→K4でcoverage、
+held-out、global/planar roughnessがすべて改善したためREADME動画へ昇格した。
+
+このsequenceにpoint-wise動的GTはない。14.28%を「動物体の正解率」と解釈せず、
+same-pose provenance、K3 exact rebuild、双方向structure support、品質profile、同一8視点
+目視を採用根拠とする。詳細は
+`docs/research/colored-map-dynamic-cleaning-2026-07.md`。

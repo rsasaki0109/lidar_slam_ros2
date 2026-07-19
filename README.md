@@ -114,7 +114,7 @@ synchronized camera pixels onto that geometry. This RTK-SLAM Construction Hall
 
 ![Camera-coloured SLAM point-cloud map and its estimated trajectory](lidarslam/images/map_flythrough_rtkslam.webp) ([MP4](lidarslam/images/map_flythrough_rtkslam.mp4) · [GIF](lidarslam/images/map_flythrough_rtkslam.gif))
 
-K3 has 4.84 M points, 74.76% colour coverage, and 11/11 profile checks passing; its cinematic render improves frame occupancy from 78.82% to 82.13% and flicker p90 from 0.00800 to 0.00668. See the [release-readiness record](docs/research/colored-map-release-readiness-2026-07.md) for provenance, rejected candidates, performance, and limits.
+K4 has 4.91 M points, 76.66% colour coverage, and 11/11 profile checks passing. Pose-aware dynamic cleaning before K3's camera fusion improves held-out RGB median from 41.17 to 40.54 and planar roughness median from 7.23 to 6.40. See the [release-readiness record](docs/research/colored-map-release-readiness-2026-07.md) for paired K3/K4 evidence and limits.
 The sequence is from RTK-SLAM (CC-BY 4.0); its total-station checkpoints also drive the [accuracy gate](#accuracy).
 
 If graph optimization outputs sparse keyframes, the coloured-map pipeline can

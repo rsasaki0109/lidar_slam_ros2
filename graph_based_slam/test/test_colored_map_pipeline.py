@@ -448,6 +448,34 @@ def test_vignette_and_confidence_defaults_are_off(tmp_path):
     assert '--color-view-confidence' not in build
 
 
+def test_dynamic_map_cleaner_reaches_builder_with_provenance(tmp_path):
+    commands = cmp.build_commands(_args(
+        tmp_path, '--dynamic-map-cleaner', 'fusion',
+        '--dynamic-map-cleaner-workers', '4',
+        '--dynamic-map-cleaner-evidence-stride', '5',
+        '--dynamic-map-cleaner-free-votes-fraction', '0.7',
+        '--dynamic-map-cleaner-free-votes-floor', '3',
+        '--dynamic-map-cleaner-void-min-scans', '4'))
+    build = dict(commands)['coloured map']
+    assert build[build.index('--dynamic-map-cleaner') + 1] == 'fusion'
+    assert build[build.index('--dynamic-map-cleaner-workers') + 1] == '4'
+    assert build[
+        build.index('--dynamic-map-cleaner-evidence-stride') + 1] == '5'
+    assert build[
+        build.index('--dynamic-map-cleaner-free-votes-fraction') + 1] == '0.7'
+    assert build[
+        build.index('--dynamic-map-cleaner-free-votes-floor') + 1] == '3'
+    assert build[
+        build.index('--dynamic-map-cleaner-void-min-scans') + 1] == '4'
+    assert build[build.index('--dynamic-map-cleaner-report') + 1].endswith(
+        'out/dynamic_map_cleaning.json')
+
+
+def test_dynamic_map_cleaner_is_default_off(tmp_path):
+    build = dict(cmp.build_commands(_args(tmp_path)))['coloured map']
+    assert '--dynamic-map-cleaner' not in build
+
+
 def test_quality_profile_adds_appearance_stage_and_gate_wiring(tmp_path):
     for name in ('profile.yaml', 'traj_report.json', 'geom_report.yaml'):
         (tmp_path / name).write_text('{}')

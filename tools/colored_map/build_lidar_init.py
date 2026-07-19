@@ -16,9 +16,10 @@ The transform/accumulation maths is delegated to ``posed_images`` /
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import numpy as np
 
@@ -112,8 +113,86 @@ def deskew_points(points: np.ndarray, timestamps: np.ndarray,
     return world.astype(np.float32)
 
 
+def clean_dynamic_map(
+        world: np.ndarray,
+        scans: Sequence[tuple[np.ndarray, np.ndarray]], *,
+        algorithm: str = 'none', workers: int = 1,
+        evidence_stride: int = 1,
+        free_votes_fraction: float = 0.9, free_votes_floor: int = 2,
+        void_min_scans: int = 11, cleaner_module: Any = None
+        ) -> tuple[np.ndarray, dict]:
+    """Optionally remove dynamic map points with pose-aware scan evidence.
+
+    ``dynamic-object-removal`` stays an optional dependency.  Importing it is
+    delayed until a cleaner is explicitly selected, so the default mapping
+    path and ROS package dependencies remain unchanged.
+    """
+    points = np.asarray(world)
+    if algorithm == 'none':
+        return points, {
+            'enabled': False, 'algorithm': 'none',
+            'input_points': int(len(points)), 'kept_points': int(len(points)),
+            'removed_points': 0, 'removed_ratio': 0.0,
+        }
+    if algorithm not in ('fusion', 'range', 'scan_ratio'):
+        raise ValueError(f'unsupported dynamic cleaner: {algorithm}')
+    if workers < 1:
+        raise ValueError('dynamic cleaner workers must be at least one')
+    if evidence_stride < 1:
+        raise ValueError('dynamic cleaner evidence stride must be at least one')
+    if not 0.0 < free_votes_fraction <= 1.0:
+        raise ValueError('dynamic cleaner free-votes fraction must be in (0, 1]')
+    if free_votes_floor < 1 or void_min_scans < 1:
+        raise ValueError('dynamic cleaner vote thresholds must be positive')
+    if cleaner_module is None:
+        try:
+            import dynamic_object_removal as cleaner_module
+        except ImportError as exc:
+            raise RuntimeError(
+                'dynamic map cleaning requires: '
+                'pip install "dynamic-object-removal>=0.5"') from exc
+    scan_evidence = [(np.asarray(scan), np.asarray(origin))
+                     for scan, origin in scans]
+    if not scan_evidence:
+        raise ValueError('dynamic map cleaning requires pose-aligned scans')
+    if algorithm == 'fusion':
+        _, keep = cleaner_module.clean_map_by_fusion(
+            points, scan_evidence, workers=workers,
+            free_votes_fraction=free_votes_fraction,
+            free_votes_floor=free_votes_floor,
+            void_min_scans=void_min_scans)
+    elif algorithm == 'range':
+        ground_z = float(np.percentile(points[:, 2], 2))
+        _, keep = cleaner_module.clean_map_by_visibility(
+            points, scan_evidence, ground_z=ground_z)
+    else:
+        _, keep = cleaner_module.clean_map_by_scan_ratio(points, scan_evidence)
+    keep = np.asarray(keep, dtype=bool)
+    if keep.shape != (len(points),):
+        raise RuntimeError('dynamic cleaner returned an invalid keep mask')
+    kept = points[keep]
+    removed = int(len(points) - len(kept))
+    return kept, {
+        'enabled': True, 'algorithm': algorithm,
+        'implementation': 'dynamic-object-removal',
+        'implementation_version': str(
+            getattr(cleaner_module, '__version__', 'unknown')),
+        'scans': int(len(scan_evidence)),
+        'input_points': int(len(points)), 'kept_points': int(len(kept)),
+        'removed_points': removed,
+        'removed_ratio': float(removed / len(points)) if len(points) else 0.0,
+        'workers': int(workers),
+        'evidence_stride': int(evidence_stride),
+        'free_votes_fraction': float(free_votes_fraction),
+        'free_votes_floor': int(free_votes_floor),
+        'void_min_scans': int(void_min_scans),
+    }
+
+
 def build(args: argparse.Namespace) -> dict:
     """Accumulate scans into world points and write the init PLY."""
+    if args.dynamic_map_cleaner_evidence_stride < 1:
+        raise ValueError('dynamic cleaner evidence stride must be at least one')
     from rclpy.serialization import deserialize_message
     from sensor_msgs.msg import PointCloud2
 
@@ -131,6 +210,7 @@ def build(args: argparse.Namespace) -> dict:
     reader.set_filter(rosbag2_py.StorageFilter(topics=[args.points_topic]))
 
     chunks: list[np.ndarray] = []
+    dynamic_scans: list[tuple[np.ndarray, np.ndarray]] = []
     used = 0
     deskewed = 0
     skipped = 0
@@ -172,6 +252,7 @@ def build(args: argparse.Namespace) -> dict:
         # trajectory is world <- body/IMU. Compose both transforms explicitly;
         # treating raw LiDAR points as body-frame points rotates every scan
         # around the wrong axes on rigs such as HILTI's PandarXT-32.
+        world_T_lidar = compose_world_lidar(world_T_body, body_T_lidar)
         if args.deskew and point_timestamps is not None:
             world_pts = deskew_points(
                 pts, point_timestamps, samples, body_T_lidar,
@@ -179,13 +260,15 @@ def build(args: argparse.Namespace) -> dict:
                 max_extrapolation=args.max_extrapolation)
             deskewed += 1
         else:
-            world_T_lidar = compose_world_lidar(world_T_body, body_T_lidar)
             world_pts = transform_points(pts, world_T_lidar).astype(np.float32)
         # Downsample each scan before accumulating so peak memory is bounded by
         # the downsampled cloud, not the sum of every raw scan (a long bag is
         # tens of millions of points before any reduction).
         world_pts, _ = pcio.voxel_downsample(world_pts, args.voxel)
         chunks.append(world_pts)
+        if (args.dynamic_map_cleaner != 'none' and
+                used % args.dynamic_map_cleaner_evidence_stride == 0):
+            dynamic_scans.append((world_pts, world_T_lidar[:3, 3].copy()))
         used += 1
 
     if not chunks:
@@ -193,6 +276,14 @@ def build(args: argparse.Namespace) -> dict:
     world = np.concatenate(chunks, axis=0)
     # Final pass dedups points that fell in the same voxel across scan boundaries.
     world, _ = pcio.voxel_downsample(world, args.voxel)
+    world, dynamic_cleaning = clean_dynamic_map(
+        world, dynamic_scans, algorithm=args.dynamic_map_cleaner,
+        workers=args.dynamic_map_cleaner_workers,
+        evidence_stride=args.dynamic_map_cleaner_evidence_stride,
+        free_votes_fraction=args.dynamic_map_cleaner_free_votes_fraction,
+        free_votes_floor=args.dynamic_map_cleaner_free_votes_floor,
+        void_min_scans=args.dynamic_map_cleaner_void_min_scans)
+    chunks.clear()
     if args.max_points > 0 and world.shape[0] > args.max_points:
         rng = np.random.default_rng(0)
         world = world[rng.choice(world.shape[0], args.max_points, replace=False)]
@@ -236,9 +327,15 @@ def build(args: argparse.Namespace) -> dict:
             rgb, seen = color_result
         colored = int(seen.sum())
     out = pcio.write_ply(args.out, world, rgb)
+    if args.dynamic_map_cleaner_report:
+        report_path = Path(args.dynamic_map_cleaner_report)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(
+            json.dumps(dynamic_cleaning, indent=2) + '\n', encoding='utf-8')
     return {'scans_used': used, 'scans_deskewed': deskewed,
             'scans_skipped': skipped, 'points': int(world.shape[0]),
             'colored': colored, 'fusion_diagnostics': fusion_diagnostics,
+            'dynamic_cleaning': dynamic_cleaning,
             'out': str(out)}
 
 
@@ -348,6 +445,23 @@ def build_parser() -> argparse.ArgumentParser:
                         'whole trajectory (unseen by the camera, it survives '
                         'training as a fog tube on the camera path)')
     p.add_argument('--max-points', type=int, default=300000, help='cap final point count')
+    p.add_argument('--dynamic-map-cleaner',
+                   choices=('none', 'fusion', 'range', 'scan_ratio'),
+                   default='none',
+                   help='optional pose-aware dynamic-object removal; requires '
+                        'dynamic-object-removal>=0.5')
+    p.add_argument('--dynamic-map-cleaner-workers', type=int, default=1)
+    p.add_argument('--dynamic-map-cleaner-evidence-stride', type=int,
+                   default=1,
+                   help='use every Nth accumulated scan as cleaning evidence')
+    p.add_argument('--dynamic-map-cleaner-free-votes-fraction', type=float,
+                   default=0.9)
+    p.add_argument('--dynamic-map-cleaner-free-votes-floor', type=int,
+                   default=2)
+    p.add_argument('--dynamic-map-cleaner-void-min-scans', type=int,
+                   default=11)
+    p.add_argument('--dynamic-map-cleaner-report', default=None,
+                   help='write dynamic point-removal provenance JSON')
     p.add_argument('--max-extrapolation', type=float, default=0.1)
     p.add_argument('--no-deskew', action='store_false', dest='deskew',
                    help='ignore per-point timestamps and transform each scan '

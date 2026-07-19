@@ -3,34 +3,37 @@
 ## Decision
 
 The camera-coloured map work is ready to ship as an opt-in, quality-gated
-pipeline. The selected public example remains the K3 Construction Seq1 map.
+pipeline. The selected public example is now the K4 Construction Seq1 map,
+which adds opt-in pose-aware dynamic cleaning to the accepted K3 colour path.
 Spatiotemporal calibration, dynamic masks, calibration-uncertainty propagation,
 and dataset-specific geometry margins are available without changing legacy
 defaults. Geometry boundary margins are not promoted for Construction Seq1.
 
-This distinction matters: the architecture and diagnostics are production
-ready, but a new guard is enabled by default only after paired full-density
-validation passes the existing quality profile. The release does not exchange
-surface consistency for a better aggregate colour score.
+This distinction matters: the K4 artifact passed paired full-density
+validation, while the cleaner remains explicit and default-off for other
+datasets. The release does not exchange surface consistency for a better
+aggregate colour score.
 
 ## Selected map and media
 
-The K3 map contains 4,840,318 points. Of those, 3,618,693 receive camera colour
-for coverage 0.747615. It uses overlap RGB balancing, view confidence, a
+The K4 map contains 4,906,133 points. Of those, 3,761,250 receive camera colour
+for recolour coverage 0.766642. It uses pose-aware `fusion` cleaning followed
+by overlap RGB balancing, view confidence, a
 120-pixel image margin, vignette gain limit 2.5, and at least three camera
 observations. The report-only Construction Seq1 profile has 11 checks and no
 violations:
 
-- held-out RGB L2 median 41.17 (limit 42.0) and inlier-20 fraction 0.2863
+- held-out RGB L2 median 40.54 (limit 42.0) and inlier-20 fraction 0.2909
   (minimum 0.28);
-- global roughness median/p90 5.43/20.67 (limits 6.0/22.0);
-- planar roughness median/p90 7.23/23.89 (limits 7.6/25.0);
-- chroma retention 1.0016 and appearance coverage 0.7476.
+- global roughness median/p90 5.20/19.98 (limits 6.0/22.0);
+- planar roughness median/p90 6.40/23.52 (limits 7.6/25.0);
+- chroma retention 1.0051 and appearance coverage 0.7666.
 
-The README animation is rendered from K3 with the CPU surface-splat and
-cinematic-camera path. Against the previous README animation, occupied-pixel
-fraction improves from 0.78820 to 0.82135 and temporal-flicker p90 falls from
-0.00800 to 0.00668. Five points across the encoded loop were visually checked.
+The README animation is rendered from K4 with the CPU surface-splat and
+cinematic-camera path. The 800x600 supersampled source has temporal-flicker p90
+0.00524, then is Lanczos-downsampled to the existing README dimensions. Six
+points across the final encoded loop and eight paired K3/K4 source views were
+visually checked.
 
 | asset | dimensions | rate | frames | duration |
 | --- | ---: | ---: | ---: | ---: |
@@ -58,12 +61,18 @@ sequence is RTK-SLAM Construction Hall 1, distributed under CC-BY 4.0.
    one-million-coordinate kernel is 63.0% faster with 11.6% lower process RSS;
    a paired 484k-point/260-image screen is 25.0% faster with an identical
    report and byte-identical PLY SHA-256.
+5. K4 supplies world-frame deskewed scans and same-pose sensor origins to
+   `dynamic-object-removal` 0.5.0. Its 128 evidence scans remove 14.28% before
+   the common cap/filter. The reconstructed K3 baseline is XYZ-identical, K4
+   passes all 11 checks, and its planar roughness improves rather than trading
+   static surface consistency for point-count reduction.
 
 Detailed evidence:
 
 - [spatiotemporal calibration](colored-map-spatiotemporal-calibration-2026-07.md)
 - [geometry-aware fusion and paired A/B](colored-map-geometry-aware-fusion-2026-07.md)
 - [performance and output equivalence](colored-map-fusion-performance-2026-07.md)
+- [pose-aware dynamic cleaning and K3/K4 comparison](colored-map-dynamic-cleaning-2026-07.md)
 
 ## Compatibility and safe defaults
 
@@ -77,6 +86,8 @@ uncertainty and strictly increasing timestamps.
 The following are not release claims:
 
 - automatic semantic segmentation (the core consumes external PNG masks);
+- point-wise dynamic-removal precision/recall on Construction Seq1, which has
+  no moving/static ground-truth labels;
 - universal geometry-margin values across cameras, rigs, or datasets;
 - independent Seq2 or cross-rig calibration promotion;
 - a completed world-map quality result from the camera-only realtime bag,
@@ -84,6 +95,10 @@ The following are not release claims:
 
 ## Verification
 
+- dynamic-cleaning/pipeline focused Python suite: 102 passed;
+- full local `graph_based_slam/test`: 1,255 passed, 13 skipped; two source-only
+  RKO-LIO checks were unavailable because this worktree's submodule is not
+  initialized;
 - focused coloured-map Python suite: 134 passed, 4 skipped;
 - ament flake8: passed;
 - paired output-equivalence benchmark: passed;
