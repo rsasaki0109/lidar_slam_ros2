@@ -213,15 +213,13 @@ def test_rko_launch_declares_gnss_topic_argument():
 
 
 def test_offline_node_pins_odom_topic():
-    """The frontend must publish odometry on the fork's historical topic.
-
-    The upstream-integrated rko_lio renamed its default odometry topic from
-    "rko_lio/odometry" to "rko_lio/odom".  The graph backend's odom_input
-    remap (and the record_backend_input tooling) still expect
-    "/rko_lio/odometry", so the launch must pin odom_topic explicitly;
-    otherwise the backend silently receives no odometry and saves an empty
-    map.
-    """
+    """The frontend must publish odometry on the fork's historical topic."""
+    # The upstream-integrated rko_lio renamed its default odometry topic from
+    # "rko_lio/odometry" to "rko_lio/odom".  The graph backend's odom_input
+    # remap (and the record_backend_input tooling) still expect
+    # "/rko_lio/odometry", so the launch must pin odom_topic explicitly;
+    # otherwise the backend silently receives no odometry and saves an empty
+    # map.
     module = _parse_launch_ast()
     factory = _find_function(module, 'create_rko_offline_node')
 
