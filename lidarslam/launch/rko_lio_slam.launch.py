@@ -73,6 +73,10 @@ def create_rko_offline_node(context, *args, **kwargs):
         'initialization_phase': LaunchConfiguration('initialization_phase'),
         'skip_to_time': LaunchConfiguration('skip_to_time'),
         'publish_deskewed_scan': True,
+        # The upstream-integrated rko_lio defaults to "rko_lio/odom"; the
+        # graph backend below (and the record_backend_input tooling) expect
+        # the fork's historical "/rko_lio/odometry".
+        'odom_topic': '/rko_lio/odometry',
         'dump_results': LaunchConfiguration('dump_results'),
         'results_dir': LaunchConfiguration('results_dir'),
         'run_name': LaunchConfiguration('run_name'),
