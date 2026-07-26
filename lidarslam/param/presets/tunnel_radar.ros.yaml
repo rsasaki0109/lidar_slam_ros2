@@ -108,3 +108,15 @@
     radar_disagreement_min_mps: 0.2
     radar_disagreement_min_scans: 10
     radar_disagreement_weight: 1.0
+
+    # Sliding-window absolute gravity alignment (rko_lio gravity_alignment.hpp):
+    # long-window raw-accel mean as an absolute up reference, fed back as a
+    # small capped roll/pitch correction. Fixes the slow pitch drift that the
+    # min_beta regularization cannot observe (its KF reference drifts with the
+    # estimate). NTNU A/B (gain 0.2): tunnel end-z sag -33.45 -> -5.22 m,
+    # transverse RMS 3.50 -> 1.79 m, reach preserved; fog start-end drift
+    # 11.21 -> 9.63 m. Samples are not accumulated while the world-frame yaw
+    # rate exceeds gravity_alignment_max_yaw_rate_rad_s (sustained turning =
+    # centripetal acceleration, which does not average out).
+    gravity_window_alignment: true
+    gravity_alignment_gain: 0.2
