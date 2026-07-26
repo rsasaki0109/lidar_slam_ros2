@@ -32,6 +32,9 @@ artifacts you need downstream:
   ([accuracy](#accuracy)).
 - **Loop closure, GPL-free** — opt-in built-in Scan Context, BEV / SOLiD /
   STD/BTC-style Triangle descriptors, and 3D-BBS verification.
+- **Tunnel / fog degeneracy presets** — opt-in radar fusion and gravity
+  alignment map a ~500 m self-similar tunnel end-to-end
+  ([result](#tunnel-and-fog-mapping-without-degeneracy-collapse), [guide](docs/degeneracy-guide.md)).
 - **Deterministic offline mapping** — `graph_slam_offline_runner` (backend,
   recorded odometry bag) and `scan_matcher_offline_runner` (frontend, raw bag)
   produce *byte-identical* trajectories, loop edges and submaps; the release
@@ -133,25 +136,22 @@ Moving rigs can add `--refine-spatiotemporal-calibration`; see the [held-out-gat
 ### Cross-repository SLAM benchmark
 
 `public_suite_v1.yaml` connects Localization Zoo trajectories to trajectory,
-geometry, real-RGB, runtime, and memory gates:
-
-```bash
-python3 scripts/run_cross_repo_slam_benchmark.py \
-  --localization-zoo ../loc_zoo_ws/localization_zoo \
-  --dataset <profile> --gt-tum <gt.tum> --raw-tum <raw.tum> \
-  --corrected-tum <graph.tum> --runtime-report <runtime.json> \
-  --out-dir <benchmark-dir>
-```
-
-Candidate promotion compares frozen OFF/ON manifests from MID-360, the HILTI
-position-only holdout, and RTK-SLAM Construction Seq2 surveyed checkpoints.
-The gate never invents rotational RPE for position-only references. Complete
-capture, replay, and adoption commands are in
+geometry, real-RGB, runtime, and memory gates, with frozen OFF/ON candidate
+promotion across MID-360, HILTI, and RTK-SLAM surveyed references. Commands,
+replay, and adoption records:
 [Benchmarking and release gate](docs/benchmarking.md#slam-candidate-regression).
-The initial result is recorded in the
-[Phase 7 regression note](docs/research/phase7-plane-revisit-regression-2026-07.md);
-the second-positive rejection is in the
-[Phase 8 RTK-SLAM note](docs/research/phase8-rtkslam-plane-revisit-2026-07.md).
+
+## Tunnel and fog mapping without degeneracy collapse
+
+On the ~500 m self-similar Fyllingsdalen tunnel from the [NTNU LiDAR degeneracy datasets](https://github.com/ntnu-arl/lidar_degeneracy_datasets),
+the plain frontend covers 98.7 m before along-axis degeneracy freezes it. The opt-in
+presets (radar ego-velocity fusion + sliding-window gravity alignment) map the whole
+tunnel — reach **504.5 m**, transverse RMS 1.34 m, end-height −4.7 m (−33 m without
+gravity alignment) — and cut fog clutter-lock drift 35.6 → 9.6 m, with defaults
+unchanged (a MID-360 driving holdout stays byte-identical). Symptom table:
+[Degeneracy Resilience Guide](docs/degeneracy-guide.md); evidence: [research note](docs/research/gravity-window-alignment-2026-07.md).
+
+![NTNU tunnel SLAM map: top view and gravity-alignment before/after side view](lidarslam/images/tunnel_degeneracy_map.png)
 
 ## Accuracy
 

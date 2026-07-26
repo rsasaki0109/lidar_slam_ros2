@@ -126,6 +126,27 @@ That wrapper:
 - verifies the Autoware map bundle when present
 - writes `metrics.json` for the reporting pipeline
 
+### Cross-repository suite (Localization Zoo)
+
+`public_suite_v1.yaml` connects Localization Zoo trajectories to trajectory,
+geometry, real-RGB, runtime, and memory gates:
+
+```bash
+python3 scripts/run_cross_repo_slam_benchmark.py \
+  --localization-zoo ../loc_zoo_ws/localization_zoo \
+  --dataset <profile> --gt-tum <gt.tum> --raw-tum <raw.tum> \
+  --corrected-tum <graph.tum> --runtime-report <runtime.json> \
+  --out-dir <benchmark-dir>
+```
+
+Candidate promotion compares frozen OFF/ON manifests from MID-360, the HILTI
+position-only holdout, and RTK-SLAM Construction Seq2 surveyed checkpoints.
+The gate never invents rotational RPE for position-only references. The
+initial result is recorded in the
+[Phase 7 regression note](research/phase7-plane-revisit-regression-2026-07.md);
+the second-positive rejection is in the
+[Phase 8 RTK-SLAM note](research/phase8-rtkslam-plane-revisit-2026-07.md).
+
 ## KITTI / LiDAR-Only Evaluation
 
 The public default benchmark remains `RKO-LIO + graph_based_slam`. For KITTI
