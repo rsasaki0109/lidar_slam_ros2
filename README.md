@@ -32,6 +32,10 @@ artifacts you need downstream:
   ([accuracy](#accuracy)).
 - **Loop closure, GPL-free** — opt-in built-in Scan Context, BEV / SOLiD /
   STD/BTC-style Triangle descriptors, and 3D-BBS verification.
+- **Tunnel / fog degeneracy presets** — opt-in radar-velocity fusion and
+  gravity window alignment map a ~500 m self-similar tunnel end-to-end
+  ([tunnel result](#tunnel-and-fog-mapping-without-degeneracy-collapse),
+  [guide](docs/degeneracy-guide.md)).
 - **Deterministic offline mapping** — `graph_slam_offline_runner` (backend,
   recorded odometry bag) and `scan_matcher_offline_runner` (frontend, raw bag)
   produce *byte-identical* trajectories, loop edges and submaps; the release
@@ -152,6 +156,34 @@ The initial result is recorded in the
 [Phase 7 regression note](docs/research/phase7-plane-revisit-regression-2026-07.md);
 the second-positive rejection is in the
 [Phase 8 RTK-SLAM note](docs/research/phase8-rtkslam-plane-revisit-2026-07.md).
+
+## Tunnel and fog mapping without degeneracy collapse
+
+Long self-similar tunnels break most LiDAR odometry: ICP's Hessian goes weak
+along the travel axis and the estimator confidently reports "no motion". On
+the ~500 m Fyllingsdalen tunnel from the
+[NTNU LiDAR degeneracy datasets](https://github.com/ntnu-arl/lidar_degeneracy_datasets),
+the plain frontend covers only 98.7 m of the traverse. With the opt-in
+degeneracy presets — radar ego-velocity fusion for the along-axis collapse,
+sliding-window gravity alignment for the slow pitch drift that bends level
+tunnels into parabolas — the full pipeline maps the whole tunnel:
+
+![NTNU tunnel SLAM map: top view and gravity-alignment before/after side view](lidarslam/images/tunnel_degeneracy_map.png)
+
+- Tunnel: reach **504.5 m** of ~500 m true (98.7 m without the presets),
+  transverse RMS 1.34 m, end-height error −4.7 m (−33 m without gravity
+  alignment).
+- Fog / clutter-lock: aerosol returns make ICP freeze with a *healthy-looking*
+  Hessian; radar disagreement gating plus continuous velocity fusion cuts
+  start-end drift on the fog sequence from 35.6 m to 9.6 m.
+- Safety-scoped: everything is preset-scoped opt-in and defaults are
+  unchanged. On a MID-360 driving holdout the gravity corrector stays fully
+  dormant (byte-identical trajectory).
+
+Pick a preset from the symptom table in the
+[Degeneracy Resilience Guide](docs/degeneracy-guide.md); methodology and
+holdout evidence are in the
+[gravity-alignment research note](docs/research/gravity-window-alignment-2026-07.md).
 
 ## Accuracy
 
