@@ -1,0 +1,56 @@
+# Radar-less long straight tunnel/corridor preset (LiDAR + IMU).
+#
+# Symptom: point-to-point ICP enters a confident zero-motion attractor in a
+# long self-similar tunnel. The pose freezes even though IMU propagation still
+# indicates forward motion.
+#
+# Scope is intentionally narrow:
+#   - long, mostly straight, walking-speed traverses;
+#   - LiDAR + IMU only;
+#   - known maximum platform speed, tuned below.
+#
+# Do not use this as a general driving or turning-motion preset. The IMU prior
+# is disabled after sustained yaw, but short turns and the speed limit remain
+# application-specific. For radar-equipped rigs, tunnel_radar.ros.yaml is
+# better validated and does not require a walking-speed cap.
+#
+# Validated on NTNU Fyllingsdalen (~500 m):
+#   plain rko_lio                         102.3 m
+#   intensity-only radar-less preset     153.8 m
+#   this preset                          294.7 m
+#   less-conservative yaw gate (10 scans) 415.6 m, but fog regressed slightly;
+#   no yaw gate reached 517.2 m, but failed the fog negative check.
+#
+# Negative checks for this conservative 5-scan preset:
+#   NTNU fog reach 32.88 m vs baseline 32.80 m;
+#   HILTI exp07 SE(3) APE 0.226 m vs baseline 0.208 m;
+#   MID-360 trajectory delta 0.101 m RMSE (6 corrected scans).
+#
+# Layer this after the sensor config. All feature defaults remain OFF.
+/**:
+  ros__parameters:
+    kinematic_velocity_blend: true
+
+    # Fixed information scales: fresh propagation weight = 9 / (1 + 9) = 0.9.
+    kinematic_blend_icp_information_scale: 1.0
+    kinematic_blend_propagation_information_scale: 9.0
+    kinematic_blend_decay_time_sec: 100.0
+
+    # Only near-exact 3D ICP/propagation agreement refreshes the anchor.
+    kinematic_blend_anchor_agreement_mps: 0.05
+
+    # Robustify both inputs. TODO-USER: set the speed cap from the real
+    # platform envelope. 2.0 m/s is specific to the ~1.7 m/s NTNU walk.
+    kinematic_blend_max_icp_innovation_mps: 1.0
+    kinematic_blend_max_propagated_speed_mps: 2.0
+    kinematic_blend_min_speed: 0.3
+
+    # Clear the straight-motion prior after 5 consecutive scan intervals over
+    # the yaw threshold. Single-scan IMU vibration does not trip the gate.
+    kinematic_blend_max_yaw_rate_rad_s: 0.05
+    kinematic_blend_yaw_gate_min_scans: 5
+
+    # Validated arm keeps map insertion enabled. Lower values are experimental:
+    # partial/full suppression did not prevent runaway in the development sweep.
+    kinematic_blend_map_update_max_propagation_weight: 1.0
+    kinematic_blend_map_update_min_fraction: 1.0

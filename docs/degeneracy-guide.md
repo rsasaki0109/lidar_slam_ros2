@@ -16,7 +16,7 @@ exp07 negative-result check). Read that page for the full methodology.
 
 | Symptom | Root cause | Preset | Sensors needed |
 | --- | --- | --- | --- |
-| Trajectory reach is much shorter than the true traveled distance in a long, straight, self-similar corridor/tunnel | Single-axis (translation-along-travel) degeneracy: ICP's Hessian is genuinely weak along the corridor axis, so small residuals get absorbed as "no motion" | [`tunnel_radar.ros.yaml`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/lidarslam/param/presets/tunnel_radar.ros.yaml) if you have radar; [`tunnel_intensity_no_radar.ros.yaml`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/lidarslam/param/presets/tunnel_intensity_no_radar.ros.yaml) if you don't **and** the corridor has distinctive reflectivity markings (see limitations) | LiDAR + IMU (+ radar, strongly preferred) |
+| Trajectory reach is much shorter than the true traveled distance in a long, straight, self-similar corridor/tunnel | ICP can enter a confident zero-motion attractor: nearest-neighbour wall correspondences confirm "no motion" even while the platform moves | [`tunnel_radar.ros.yaml`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/lidarslam/param/presets/tunnel_radar.ros.yaml) if you have radar; [`tunnel_imu_no_radar.ros.yaml`](../lidarslam/param/presets/tunnel_imu_no_radar.ros.yaml) for a mostly-straight, known-speed LiDAR+IMU traverse; the older [`tunnel_intensity_no_radar.ros.yaml`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/lidarslam/param/presets/tunnel_intensity_no_radar.ros.yaml) only when reflectivity is distinctive | LiDAR + IMU (+ radar, strongly preferred) |
 | Pose freezes in fog/dust/smoke despite real motion: point count drops, IMU still shows walking/driving vibration, reported velocity goes to ~0 | "Clutter lock" -- aerosol returns travel with the sensor, so ICP sees a **healthy, well-conditioned** Hessian and confidently reports near-zero motion. Eigenvalue-based weak-direction gates never fire in this mode -- only a second, disagreeing sensor can catch it | [`corridor_fog_radar.ros.yaml`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/lidarslam/param/presets/corridor_fog_radar.ros.yaml) | LiDAR + IMU + radar (required -- no radar-less fix is validated for this failure mode) |
 | The whole traverse bends smoothly downward (or upward): a long, actually-level tunnel maps as a parabola-in-z (tens of meters of height sag over a few hundred meters) even though reach and lateral tracking look fine | Slow pitch/roll drift relative to gravity. The built-in `min_beta` orientation regularization cannot correct this by construction: its reference comes from a body-acceleration Kalman filter whose measurement is built with the *current* rotation estimate, so the reference drifts along with the estimate (measured on the NTNU tunnel: a 0.5 -> 6.3 deg monotonic gravity tilt that survives a 40x stronger `min_beta` weight) | `gravity_window_alignment: true` (included in [`tunnel_radar.ros.yaml`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/lidarslam/param/presets/tunnel_radar.ros.yaml) and [`corridor_fog_radar.ros.yaml`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/lidarslam/param/presets/corridor_fog_radar.ros.yaml)): the ~20 s window mean of raw accelerometer samples, rotated into the world frame, is an absolute up reference; the residual tilt is fed back as a small, capped, roll/pitch-only correction. Verify with `gravity_alignment_summary.json` (`dump_results: true`) -- `last_tilt_deg` should stay small. Preset-scoped on purpose: on a general handheld walk with frequent turns (HILTI exp07) it slightly *worsened* control-point APE (0.208 -> 0.264 m), and on a driving robot (MID-360) the magnitude gate kept it fully dormant (byte-identical trajectory) | LiDAR + IMU (accelerometer only -- no extra sensor) |
 | Otherwise-good tracking but consistent drift along just one axis (e.g. lateral creep down a flat-walled corridor, or vertical creep under a low, featureless ceiling) | A single Hessian eigenvalue is persistently weak along that one world-frame axis. Confirm with `degeneracy_persistence.csv` (dumped when `dump_results: true`; columns include `confirmed`, `axis_tx..axis_rz`) before reaching for a preset -- it tells you which axis and how often it's confirmed | Same as the corridor/tunnel row if an external sensor (radar or a distinctively textured surface) observes that axis; otherwise `degeneracy_aware_solve` alone (in `tunnel_radar.ros.yaml` / `tunnel_intensity_no_radar.ros.yaml`, minus the radar/intensity gates) still blends a geometric/IMU prior into the confirmed weak direction, with no cross-sensor validation behind it | LiDAR + IMU, cross-sensor gate only if the weak axis is externally observable |
@@ -106,6 +106,15 @@ With `dump_results: true`, `rko_lio` writes summary JSON files to
     that it's helping; you still need to A/B the actual trajectory error or
     reach distance against `degeneracy_off.ros.yaml` before trusting a new
     environment.
+- **`kinematic_velocity_blend_summary.json`** (written whenever
+  `kinematic_velocity_blend: true`):
+  - `anchor_refresh_count` -- scans where 3D ICP velocity agreed closely
+    enough with independent IMU propagation to refresh trust.
+  - `corrected_scan_count` and `mean_correction_m` -- how often and how far
+    the optimized translation was moved.
+  - `mean_propagation_weight`, `max_propagation_weight`, and
+    `max_anchor_age_sec` -- whether the run spent long periods bridged by an
+    old prior. These are diagnostics, not a universal pass threshold.
 - `degeneracy_persistence.csv` -- per-scan diagnostics for the
   Hessian-eigenvalue gates (`confirmed`, `consecutive_scans`,
   `matched_absolute_cosine`, `intervention_count`, and the weak-axis
@@ -134,14 +143,16 @@ environment.
   even between environments on the same rig -- the same 1.05 that helps the
   tunnel makes fog slightly *worse*. Only tune it against a sequence with
   trustworthy distance ground truth.
-- **Soft degeneracy without radar remains unsolved.** In the tunnel dataset,
-  confirmed Hessian-weak-direction windows cover only ~17% of the route;
-  the rest of the distance error accumulates during "soft" degeneracy that
-  never triggers a hard eigenvalue gate. The intensity disagreement gate
-  recovers *some* of this (radar-less tunnel: 98.67 m -> 153.75 m of ~500 m
-  true), but nowhere near what radar achieves (457-495 m), and only under
-  the narrow applicability condition above. There is currently no
-  radar-less fix for fog-style clutter lock at all.
+- **Radar-less IMU velocity blending is straight-motion and speed-envelope
+  specific.** `tunnel_imu_no_radar.ros.yaml` improves the radar-less NTNU
+  tunnel reach from 102.3 m to 294.7 m without exceeding the pseudo-GT scale
+  at any time. Its 2.0 m/s propagated-speed cap is calibrated for a 1.7 m/s
+  walk, not a universal value. A sustained-yaw gate is essential: removing it
+  reaches 517.2 m but badly regresses the fog loop. The conservative preset is
+  nearly neutral on fog and HILTI exp07, but changed a MID-360 driving
+  trajectory by 0.101 m aligned RMSE, so it remains preset-scoped and
+  default-off. There is still no validated radar-less fix for fog-style
+  clutter lock.
 - **Kidnap/registration-failure handling is stop-and-split, not
   relocalize, for mapping workflows.** All presets in this repo ship with
   `enable_kidnap_relocalization` and `reset_on_registration_failure` left
