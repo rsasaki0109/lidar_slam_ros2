@@ -99,6 +99,7 @@ def test_runner_script_supports_profiles_and_viewers():
     assert 'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh' in script
     assert 'run_graph_slam_pointcloud_map_in_autoware.sh' in script
     assert '--dry-run' in script
+    assert '--resume' in script
     assert 'run_manifest.json' in script
     assert 'artifact_checksums' in script
 
@@ -117,6 +118,7 @@ def test_runner_help_is_user_facing():
     assert 'Workflow profiles:' in result.stdout
     assert 'Expected successful outputs:' in result.stdout
     assert '--output-dir <dir>' in result.stdout
+    assert '--resume' in result.stdout
 
 
 def test_runner_rejects_db3_file_without_traceback(tmp_path: Path):
@@ -196,12 +198,19 @@ def test_manifest_helpers_capture_identity_and_finalize_atomically(tmp_path: Pat
     saved = json.loads((final_dir / 'run_manifest.json').read_text(encoding='utf-8'))
     schema = json.loads(
         (
-            REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.json'
+            REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v2.schema.json'
         ).read_text(encoding='utf-8')
     )
     jsonschema.Draft7Validator.check_schema(schema)
     jsonschema.validate(saved, schema)
-    assert saved['schema_version'] == 1
+    assert saved['schema_version'] == 2
+    assert saved['lifecycle'] == {
+        'last_error': None,
+        'resume_count': 0,
+        'runner_exit_code': None,
+        'stage': 'initialized',
+        'verification_enabled': True,
+    }
     assert saved['input']['metadata_sha256'] == module._sha256(
         bag_dir / 'metadata.yaml'
     )
@@ -238,6 +247,16 @@ def test_manifest_rejects_storage_path_outside_bag(tmp_path: Path):
 
     with pytest.raises(ValueError, match='outside the bag'):
         module._bag_identity(bag_dir)
+
+
+def test_postprocessing_lock_rejects_concurrent_owner(tmp_path: Path):
+    module = _load_module()
+    output_dir = tmp_path / 'map_output'
+
+    with module._postprocess_lock(output_dir):
+        with pytest.raises(RuntimeError, match='post-processing is already active'):
+            with module._postprocess_lock(output_dir):
+                pytest.fail('a second post-processing owner acquired the lock')
 
 
 def test_main_writes_success_manifest_and_rejects_collision(
@@ -302,8 +321,16 @@ def test_main_writes_success_manifest_and_rejects_collision(
     manifest = json.loads(
         (output_dir / 'run_manifest.json').read_text(encoding='utf-8')
     )
+    schema = json.loads(
+        (
+            REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v2.schema.json'
+        ).read_text(encoding='utf-8')
+    )
+    jsonschema.validate(manifest, schema)
     assert manifest['status'] == 'succeeded'
     assert manifest['execution']['exit_code'] == 0
+    assert manifest['lifecycle']['stage'] == 'complete'
+    assert manifest['lifecycle']['runner_exit_code'] == 0
     assert manifest['output']['finalized'] is True
     assert manifest['output']['diagnosis_status'] == 'success'
     assert any(
@@ -376,6 +403,8 @@ def test_main_retains_terminal_manifest_for_failed_and_interrupted_runs(
     )
     assert manifest['status'] == expected_status
     assert manifest['execution']['exit_code'] == expected_exit_code
+    assert manifest['lifecycle']['stage'] == 'complete'
+    assert manifest['lifecycle']['runner_exit_code'] == expected_exit_code
     assert manifest['output']['finalized'] is True
     assert not output_dir.with_name('failed_map.partial').exists()
 
@@ -425,8 +454,262 @@ def test_main_preserves_failed_manifest_when_post_finalize_diagnosis_fails(
         (output_dir / 'run_manifest.json').read_text(encoding='utf-8')
     )
     assert manifest['status'] == 'failed'
-    assert manifest['execution']['exit_code'] == 70
+    assert manifest['execution']['exit_code'] == 0
+    assert manifest['lifecycle']['runner_exit_code'] == 70
+    assert manifest['lifecycle']['last_error'] == 'diagnosis fixture failure'
     assert manifest['output']['finalized'] is True
+
+
+@pytest.mark.parametrize(
+    ('resume_from_final', 'stage'),
+    [
+        (False, 'workflow_finished'),
+        (True, 'finalizing'),
+    ],
+)
+def test_main_resumes_only_terminal_postprocessing_without_rerunning_workflow(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    resume_from_final: bool,
+    stage: str,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'demo_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'map_output'
+    working_dir = tmp_path / 'map_output.partial'
+    plan = {
+        'payload': {},
+        'profile_id': 'rko_lio_graph_public_path',
+        'label': 'RKO-LIO + graph_based_slam public path',
+        'command': ['map-workflow', '--output-dir', str(working_dir)],
+        'output_dir': working_dir,
+    }
+    software = {
+        'product_version': '0.6.0',
+        'git_commit': '0' * 40,
+        'git_dirty': False,
+        'package_versions': {'lidarslam': '0.6.0'},
+        'ros_distro': 'jazzy',
+    }
+    monkeypatch.setattr(module, 'build_execution_plan', lambda **kwargs: plan)
+    monkeypatch.setattr(module, '_software_identity', lambda: software)
+
+    manifest = module._build_manifest(bag_dir, output_dir, working_dir, plan)
+    manifest['status'] = 'succeeded'
+    manifest['execution'].update({
+        'started_at': '2026-07-27T00:00:00Z',
+        'finished_at': '2026-07-27T00:01:00Z',
+        'exit_code': 0,
+    })
+    manifest['lifecycle']['stage'] = stage
+    run_dir = output_dir if resume_from_final else working_dir
+    run_dir.mkdir()
+    (run_dir / 'pointcloud_map').mkdir()
+    (run_dir / 'pointcloud_map' / 'pointcloud_map_metadata.yaml').write_text(
+        'tiles: []\n',
+        encoding='utf-8',
+    )
+    (run_dir / 'map_projector_info.yaml').write_text(
+        'projector_type: Local\n',
+        encoding='utf-8',
+    )
+    module._write_manifest(run_dir, manifest)
+
+    def fake_verify(current_dir: Path, enabled: bool):
+        assert enabled is True
+        (current_dir / 'verify_autoware_map.log').write_text(
+            'RESULT: PASS\n',
+            encoding='utf-8',
+        )
+
+    def fake_diagnosis(current_dir: Path, current_bag: Path):
+        assert current_bag == bag_dir
+        (current_dir / 'autoware_map_diagnosis.md').write_text(
+            '# success\n',
+            encoding='utf-8',
+        )
+        (current_dir / 'autoware_map_diagnosis.json').write_text(
+            '{"status":"success"}\n',
+            encoding='utf-8',
+        )
+        return {'status': 'success'}
+
+    def fail_if_workflow_runs(*args, **kwargs):
+        del args, kwargs
+        raise AssertionError('resume must not execute the map workflow')
+
+    monkeypatch.setattr(module, 'maybe_verify_map', fake_verify)
+    monkeypatch.setattr(module, 'write_diagnostics', fake_diagnosis)
+    monkeypatch.setattr(module.subprocess, 'run', fail_if_workflow_runs)
+    monkeypatch.setattr(
+        module.sys,
+        'argv',
+        [
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_dir),
+            '--resume',
+        ],
+    )
+
+    assert module.main() == 0
+    assert output_dir.is_dir()
+    assert not working_dir.exists()
+    saved = json.loads(
+        (output_dir / 'run_manifest.json').read_text(encoding='utf-8')
+    )
+    assert saved['status'] == 'succeeded'
+    assert saved['execution']['exit_code'] == 0
+    assert saved['lifecycle'] == {
+        'last_error': None,
+        'resume_count': 1,
+        'runner_exit_code': 0,
+        'stage': 'complete',
+        'verification_enabled': True,
+    }
+    assert saved['output']['finalized'] is True
+
+
+@pytest.mark.parametrize(
+    ('schema_version', 'stage', 'expected_error'),
+    [
+        (2, 'workflow_running', 'workflow may still be running'),
+        (1, 'workflow_finished', 'resume requires run manifest schema v2'),
+    ],
+)
+def test_main_refuses_unsafe_or_legacy_resume_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+    schema_version: int,
+    stage: str,
+    expected_error: str,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'demo_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'map_output'
+    working_dir = tmp_path / 'map_output.partial'
+    plan = {
+        'payload': {},
+        'profile_id': 'rko_lio_graph_public_path',
+        'label': 'RKO-LIO + graph_based_slam public path',
+        'command': ['map-workflow'],
+        'output_dir': working_dir,
+    }
+    monkeypatch.setattr(module, 'build_execution_plan', lambda **kwargs: plan)
+    monkeypatch.setattr(module, '_software_identity', lambda: {
+        'product_version': '0.6.0',
+        'git_commit': '0' * 40,
+        'git_dirty': False,
+        'package_versions': {'lidarslam': '0.6.0'},
+        'ros_distro': 'jazzy',
+    })
+    manifest = module._build_manifest(bag_dir, output_dir, working_dir, plan)
+    manifest['schema_version'] = schema_version
+    manifest['lifecycle']['stage'] = stage
+    manifest['status'] = 'running' if stage == 'workflow_running' else 'succeeded'
+    manifest['execution'].update({
+        'started_at': '2026-07-27T00:00:00Z',
+        'finished_at': (
+            None if stage == 'workflow_running' else '2026-07-27T00:01:00Z'
+        ),
+        'exit_code': None if stage == 'workflow_running' else 0,
+    })
+    working_dir.mkdir()
+    module._write_manifest(working_dir, manifest)
+    original_manifest = (working_dir / 'run_manifest.json').read_text(encoding='utf-8')
+    monkeypatch.setattr(
+        module.sys,
+        'argv',
+        [
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_dir),
+            '--resume',
+        ],
+    )
+
+    assert module.main() == 2
+    assert expected_error in capsys.readouterr().err
+    assert (working_dir / 'run_manifest.json').read_text(
+        encoding='utf-8'
+    ) == original_manifest
+
+
+def test_main_refuses_resume_when_bag_identity_changed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'demo_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'map_output'
+    working_dir = tmp_path / 'map_output.partial'
+    plan = {
+        'payload': {},
+        'profile_id': 'rko_lio_graph_public_path',
+        'label': 'RKO-LIO + graph_based_slam public path',
+        'command': ['map-workflow'],
+        'output_dir': working_dir,
+    }
+    monkeypatch.setattr(module, 'build_execution_plan', lambda **kwargs: plan)
+    monkeypatch.setattr(module, '_software_identity', lambda: {
+        'product_version': '0.6.0',
+        'git_commit': '0' * 40,
+        'git_dirty': False,
+        'package_versions': {'lidarslam': '0.6.0'},
+        'ros_distro': 'jazzy',
+    })
+    manifest = module._build_manifest(bag_dir, output_dir, working_dir, plan)
+    manifest['status'] = 'succeeded'
+    manifest['execution'].update({
+        'started_at': '2026-07-27T00:00:00Z',
+        'finished_at': '2026-07-27T00:01:00Z',
+        'exit_code': 0,
+    })
+    manifest['lifecycle']['stage'] = 'workflow_finished'
+    working_dir.mkdir()
+    module._write_manifest(working_dir, manifest)
+    (bag_dir / 'demo_bag_0.db3').write_bytes(b'changed bag fixture\n')
+    monkeypatch.setattr(
+        module.sys,
+        'argv',
+        [
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_dir),
+            '--resume',
+        ],
+    )
+
+    assert module.main() == 2
+    assert 'resume input identity mismatch' in capsys.readouterr().err
+    assert working_dir.is_dir()
+    assert not output_dir.exists()
 
 
 def test_runner_rejects_incompatible_profile_with_available_hint(tmp_path: Path):
@@ -479,6 +762,7 @@ def test_beginner_wrapper_exposes_simple_viewer_flags():
     assert '--autoware' in script
     assert '--no-viewer' in script
     assert '--dry-run' in script
+    assert '--resume' in script
     assert '--preflight-only' in script
     assert 'metadata.yaml not found' in script
     assert 'not a .db3 file' in script
@@ -498,6 +782,7 @@ def test_beginner_wrapper_help_is_user_facing():
     assert 'Expected successful outputs:' in result.stderr
     assert '--output-dir <dir>' in result.stderr
     assert '--viewer-rebuild' in result.stderr
+    assert '--resume' in result.stderr
 
 
 def test_beginner_wrapper_rejects_missing_option_value_before_bag_validation(

@@ -31,7 +31,10 @@ not surveyed road semantics; review them before use.
 The versioned machine-readable contracts are published with the
 [golden-path CLI documentation](golden-path-cli.md#versioned-json-contracts).
 Existing output directories are immutable to the runner: operators must choose
-a new name, and in-progress work is isolated under a `.partial` sibling.
+a new name, and in-progress work is isolated under a `.partial` sibling. The
+only exception is explicit `--resume` of an incomplete schema-v2 lifecycle:
+the runner revalidates the original execution identity and completes terminal
+post-processing without rerunning SLAM or replacing map artifacts.
 
 ## Official entrypoints
 

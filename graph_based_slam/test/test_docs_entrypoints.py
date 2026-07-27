@@ -66,6 +66,9 @@ GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
 PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v1.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
 RUN_MANIFEST_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.json'
+RUN_MANIFEST_V2_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v2.schema.json'
+)
 V09_ROADMAP_DOC = REPO_ROOT / 'docs' / 'roadmap' / 'v0.9.md'
 SOCIAL_POST_DOC = REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.2.2.md'
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
@@ -120,6 +123,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert PREFLIGHT_SCHEMA.is_file()
     assert DIAGNOSIS_SCHEMA.is_file()
     assert RUN_MANIFEST_SCHEMA.is_file()
+    assert RUN_MANIFEST_V2_SCHEMA.is_file()
     assert V09_ROADMAP_DOC.is_file()
     assert SOCIAL_POST_DOC.is_file()
     assert DOCS_SITE_WORKFLOW.is_file()
@@ -273,6 +277,9 @@ def test_product_contract_has_bounded_official_surface():
     assert 'preflight-v1.schema.json' in golden_path
     assert 'diagnosis-v1.schema.json' in golden_path
     assert 'run-manifest-v1.schema.json' in golden_path
+    assert 'run-manifest-v2.schema.json' in golden_path
+    assert '--resume' in golden_path
+    assert 'Resume never starts the SLAM workflow again.' in golden_path
     assert 'existing outputs are never overwritten' in (
         REPO_ROOT / 'scripts' / 'run_autoware_map_from_bag.py'
     ).read_text(encoding='utf-8')
