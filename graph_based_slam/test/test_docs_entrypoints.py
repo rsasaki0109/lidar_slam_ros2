@@ -62,6 +62,7 @@ WORKFLOWS_DOC = REPO_ROOT / 'docs' / 'workflows.md'
 BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
 COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
 PRODUCT_CONTRACT_DOC = REPO_ROOT / 'docs' / 'product-contract.md'
+GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
 V09_ROADMAP_DOC = REPO_ROOT / 'docs' / 'roadmap' / 'v0.9.md'
 SOCIAL_POST_DOC = REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.2.2.md'
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
@@ -112,6 +113,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert BENCHMARKING_DOC.is_file()
     assert COMPARISON_DOC.is_file()
     assert PRODUCT_CONTRACT_DOC.is_file()
+    assert GOLDEN_PATH_CLI_DOC.is_file()
     assert V09_ROADMAP_DOC.is_file()
     assert SOCIAL_POST_DOC.is_file()
     assert DOCS_SITE_WORKFLOW.is_file()
@@ -336,6 +338,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'assets/stylesheets/extra.css' in mkdocs_config
     assert 'Getting Started: getting-started.md' in mkdocs_config
     assert 'Product Contract: product-contract.md' in mkdocs_config
+    assert 'Golden-path CLI: golden-path-cli.md' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
     assert 'Autoware Foxglove: autoware-foxglove.md' in mkdocs_config
     assert 'Benchmarking And Release Gate: benchmarking.md' in mkdocs_config

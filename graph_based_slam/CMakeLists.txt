@@ -980,6 +980,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_lidarslam_product_cli
+    test/test_lidarslam_product_cli.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_aligned_trajectory_metrics
     test/test_aligned_trajectory_metrics.py
     TIMEOUT 120
