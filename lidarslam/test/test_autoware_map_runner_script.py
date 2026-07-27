@@ -89,6 +89,26 @@ def _write_metadata(tmp_path: Path, bag_name: str, topics: list[tuple[str, str, 
     return bag_dir
 
 
+def _compatible_pointcloud_inspection(
+    _bag_path: Path,
+    topic: str,
+    _storage_id: str,
+) -> dict:
+    return {
+        'status': 'inspected',
+        'topic': topic,
+        'fields': [
+            {'name': 'x', 'datatype': 7, 'count': 1},
+            {'name': 'y', 'datatype': 7, 'count': 1},
+            {'name': 'z', 'datatype': 7, 'count': 1},
+            {'name': 'time', 'datatype': 7, 'count': 1},
+        ],
+        'rko_lio_compatible': True,
+        'timestamp_field': 'time',
+        'reason': "RKO-LIO-compatible per-point timestamp field 'time' was found.",
+    }
+
+
 def test_runner_script_supports_profiles_and_viewers():
     script = SCRIPT_PATH.read_text(encoding='utf-8')
 
@@ -1160,7 +1180,7 @@ def test_runner_rejects_incompatible_profile_with_available_hint(tmp_path: Path)
         'profile is not compatible with this bag: pointcloud_gnss_smoke'
         in result.stderr
     )
-    assert 'Available profiles: rko_lio_graph_public_path' in result.stderr
+    assert 'Available profiles: none' in result.stderr
     assert 'Traceback' not in result.stderr
 
 
@@ -1260,6 +1280,7 @@ def test_runner_prefers_mid360_preset_for_livox_bag(tmp_path: Path):
         profile_id=None,
         output_dir=tmp_path / 'out',
         verify_map=True,
+        pointcloud_inspector=_compatible_pointcloud_inspection,
     )
 
     assert plan['profile_id'] == 'rko_lio_graph_mid360_preset'
@@ -1288,6 +1309,7 @@ def test_public_plan_pins_both_installed_parameter_files(tmp_path: Path):
         profile_id=None,
         output_dir=tmp_path / 'out',
         verify_map=True,
+        pointcloud_inspector=_compatible_pointcloud_inspection,
     )
 
     command = ' '.join(plan['command'])

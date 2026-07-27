@@ -25,7 +25,12 @@ verification behavior remain authoritative.
 ## Commands
 
 `doctor` checks rosbag2 metadata, reports detected topic capabilities, and
-selects a compatible maintained profile. Add `--json` for automation.
+selects a compatible maintained profile. For RKO-LIO profiles it also reads
+the first selected `PointCloud2` record and requires FLOAT32 XYZ fields plus a
+supported per-point timestamp field (`t`, `timestamp`, `time`, or `stamps`).
+If the record cannot be inspected or does not satisfy that layout, no RKO-LIO
+profile is recommended. Add `--json` for automation. This field-layout check
+does not certify timestamp units, monotonicity, calibration, or TF.
 
 `run` prints the selected profile and deterministic command before execution.
 Use `--dry-run` to inspect the plan without creating the output directory.
@@ -96,6 +101,8 @@ JSON diagnosis artifacts in the output directory.
 Automation should select the schema using `schema_version` and `schema_uri`;
 it must not infer compatibility from the repository version.
 
+- [Preflight schema v2](schemas/preflight-v2.schema.json) — current; adds
+  record-level PointCloud2 field inspection
 - [Preflight schema v1](schemas/preflight-v1.schema.json)
 - [Diagnosis schema v1](schemas/diagnosis-v1.schema.json)
 - [Run manifest schema v1](schemas/run-manifest-v1.schema.json)
@@ -106,8 +113,10 @@ Top-level fields are closed within a published schema. A field addition,
 removal, type change, or semantic break requires a new schema file and
 migration guidance.
 
-Run manifest v1 remains published for existing artifacts. It predates durable
-lifecycle stages, so it can be inspected but cannot be resumed safely.
+Preflight v1 and run manifest v1 remain published for existing artifacts.
+Preflight v1 only reports metadata-level topic compatibility. Run manifest v1
+predates durable lifecycle stages, so it can be inspected but cannot be
+resumed safely.
 
 Each subcommand accepts the same options as its delegated tool:
 

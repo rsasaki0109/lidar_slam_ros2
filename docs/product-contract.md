@@ -73,15 +73,18 @@ The general product path accepts a rosbag2 directory containing
 
 Topic presence is necessary but not sufficient. A bag with the right message
 types can still require a sensor-specific point-time field, calibration,
-frame override or parameter profile. The preflight report describes detected
-capabilities; it does not certify calibration.
+frame override or parameter profile. Before recommending RKO-LIO, the preflight
+reads the first record on the selected `PointCloud2` topic and verifies
+FLOAT32 `x`, `y`, and `z` plus a supported per-point timestamp field named
+`t`, `timestamp`, `time`, or `stamps`. It does not certify timestamp units,
+monotonicity, calibration, or TF connectivity.
 
 ## Support tiers
 
 | Tier | Scope | Evidence and expectation |
 | --- | --- | --- |
 | Validated | Tracked MID-360 Docker demo; NTU VIRAL Ouster/VN-100 quickstart | Fixed public input, parameters and expected artifacts; release documentation records measured accuracy |
-| Maintained-compatible | Generic `PointCloud2 + Imu` through the beginner wrapper on ROS 2 Humble and Jazzy | Built and tested in CI; the operator supplies correct calibration, frames and sensor parameters |
+| Maintained-compatible | Generic record-verified `PointCloud2 + Imu` through the beginner wrapper on ROS 2 Humble and Jazzy | Built and tested in CI; the operator supplies correct timestamp units, calibration, frames and sensor parameters |
 | Evaluation | GNSS/Applanix packet paths, radar degeneracy presets, HILTI, coloured maps and optional loop detectors | Reproducible research or benchmark evidence exists, but it is not a universal plug-and-play hardware guarantee |
 | Out of scope | Safety-certified localization, autonomous-driving validation, arbitrary proprietary bags, Windows native builds | No product support promise |
 

@@ -66,7 +66,7 @@ GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
 DISTRIBUTION_DOC = REPO_ROOT / 'docs' / 'distribution.md'
 OPERATIONAL_RELIABILITY_DOC = REPO_ROOT / 'docs' / 'operational-reliability.md'
 REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
-PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v1.schema.json'
+PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v2.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
 RUN_MANIFEST_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.json'
 RUN_MANIFEST_V2_SCHEMA = (
@@ -284,6 +284,7 @@ def test_product_contract_has_bounded_official_surface():
     assert 'Other scripts and ROS' in contract
     assert '`run_manifest.json`' in contract
     assert '`<output>.partial`' in golden_path
+    assert 'preflight-v2.schema.json' in golden_path
     assert 'preflight-v1.schema.json' in golden_path
     assert 'diagnosis-v1.schema.json' in golden_path
     assert 'run-manifest-v1.schema.json' in golden_path

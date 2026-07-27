@@ -9,7 +9,7 @@ only marked covered when an automated test exercises the public behavior.
 | Failure | Public behavior | Preserved state | Operator action | Coverage |
 | --- | --- | --- | --- | --- |
 | Missing or corrupt `metadata.yaml`, missing referenced storage file | Exit `2` before workflow launch | Existing output is untouched; a new output is not created | Correct or replace the bag, then rerun `lidarslam-map doctor` | Automated |
-| Incompatible topic/profile selection | Exit `2` with available profiles and missing requirements | Existing output is untouched | Choose a compatible profile or fix the input | Automated |
+| Incompatible topic/profile or PointCloud2 field layout | Exit `2` with available profiles and missing requirements before workflow launch; RKO-LIO requires FLOAT32 XYZ and a supported per-point timestamp field | Existing output is untouched | Choose a compatible profile or fix the input fields | Automated |
 | Final or `.partial` output collision | Exit `2`; no overwrite | Both existing paths remain immutable | Inspect the existing run or choose a new output name | Automated |
 | Output filesystem below the configured reserve | Exit `2` before workflow launch with required and observed GiB | Existing output is untouched; a new output is not created | Free storage, choose another output filesystem, or set a deliberately sized `--min-free-space-gib` budget | Automated |
 | Workflow exits non-zero | Propagate the workflow exit code | Final output, diagnosis, checksums, and schema-v2 manifest with `failed` status | Inspect the diagnosis and launch log; rerun into a new directory after fixing the cause | Automated |
