@@ -37,6 +37,7 @@ nav:
   - Product Contract: product-contract.md
   - Golden-path CLI: golden-path-cli.md
   - Operational reliability: operational-reliability.md
+  - Pinned real-data E2E: real-data-e2e.md
   - Distribution and installed CLI: distribution.md
   - Autoware-Compatible Map Authoring: autoware-map-authoring.md
   - Autoware Quickstart: autoware-quickstart.md

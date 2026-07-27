@@ -65,6 +65,7 @@ PRODUCT_CONTRACT_DOC = REPO_ROOT / 'docs' / 'product-contract.md'
 GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
 DISTRIBUTION_DOC = REPO_ROOT / 'docs' / 'distribution.md'
 OPERATIONAL_RELIABILITY_DOC = REPO_ROOT / 'docs' / 'operational-reliability.md'
+REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
 PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v1.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
 RUN_MANIFEST_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.json'
@@ -124,6 +125,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert GOLDEN_PATH_CLI_DOC.is_file()
     assert DISTRIBUTION_DOC.is_file()
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
+    assert REAL_DATA_E2E_DOC.is_file()
     assert PREFLIGHT_SCHEMA.is_file()
     assert DIAGNOSIS_SCHEMA.is_file()
     assert RUN_MANIFEST_SCHEMA.is_file()
@@ -331,6 +333,8 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'docs/getting-started.md' in release_workflow
     assert 'docs/golden-path-cli.md' in release_workflow
     assert 'docs/operational-reliability.md' in release_workflow
+    assert 'docs/real-data-e2e.md' in release_workflow
+    assert 'configs/real_data_e2e/driving_slam_mid360_v1.json' in release_workflow
     assert 'docs/distribution.md' in release_workflow
     assert 'docs/rosdistro-release.md' in release_workflow
     assert 'docs/roadmap/v0.9.md' in release_workflow
@@ -374,6 +378,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'Golden-path CLI: golden-path-cli.md' in mkdocs_config
     assert 'Distribution and installed CLI: distribution.md' in mkdocs_config
     assert 'Operational reliability: operational-reliability.md' in mkdocs_config
+    assert 'Pinned real-data E2E: real-data-e2e.md' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
     assert 'Autoware Foxglove: autoware-foxglove.md' in mkdocs_config
     assert 'Benchmarking And Release Gate: benchmarking.md' in mkdocs_config
@@ -398,6 +403,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     comparison_doc = COMPARISON_DOC.read_text(encoding='utf-8')
     distribution_doc = DISTRIBUTION_DOC.read_text(encoding='utf-8')
     reliability_doc = OPERATIONAL_RELIABILITY_DOC.read_text(encoding='utf-8')
+    real_data_e2e_doc = REAL_DATA_E2E_DOC.read_text(encoding='utf-8')
 
     assert 'lidarslam-map doctor' in getting_started_doc
     assert 'lidarslam-map run' in getting_started_doc
@@ -501,3 +507,30 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert '(operational-reliability.md)' in (
         PRODUCT_CONTRACT_DOC.read_text(encoding='utf-8')
     )
+    assert 'driving_slam_mid360_v1' in real_data_e2e_doc
+    assert '517088133' in real_data_e2e_doc
+    assert '0836c50859bb1af591966b69da166186' in real_data_e2e_doc
+    assert 'validate_real_data_e2e.py' in real_data_e2e_doc
+    assert '(real-data-e2e.md)' in (
+        PRODUCT_CONTRACT_DOC.read_text(encoding='utf-8')
+    )
+
+
+def test_real_data_e2e_workflow_is_pinned_bounded_and_non_geometry():
+    """The scheduled public-bag workflow must be pinned and bounded."""
+    workflow = (
+        REPO_ROOT / '.github' / 'workflows' / 'real-data-e2e.yml'
+    ).read_text(encoding='utf-8')
+
+    assert "cron: '17 17 * * *'" in workflow
+    assert 'workflow_dispatch:' in workflow
+    assert 'container: ros:jazzy-ros-core' in workflow
+    assert 'timeout-minutes: 45' in workflow
+    assert 'actions/cache@v5' in workflow
+    assert '0836c50859bb1af591966b69da166186' in workflow
+    assert 'timeout --signal=TERM --kill-after=30s 20m' in workflow
+    assert 'lidarslam-map doctor' in workflow
+    assert 'lidarslam-map run' in workflow
+    assert 'validate_real_data_e2e.py' in workflow
+    assert 'output/real-data-e2e/run/map.pcd' not in workflow
+    assert 'output/real-data-e2e/run/traj_raw.tum' not in workflow

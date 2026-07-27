@@ -17,6 +17,7 @@ only marked covered when an automated test exercises the public behavior.
 | Termination after the workflow result is durable but before post-processing completes | Leave the last durable schema-v2 lifecycle stage in the final or `.partial` directory | Original input/software/command identity and map artifacts | Run the same command and output path with `--resume`; SLAM is not rerun | Automated |
 | Ambiguous or unsafe resume state | Exit `2`; refuse concurrent or pre-terminal post-processing | Both candidate directories and manifests remain unchanged | Verify no original process is active; resolve the ambiguity manually before retrying | Automated |
 | Missing TF connectivity observed in ROS logs | Diagnosis is `runtime_failed` with a TF connectivity hint | Launch log and diagnosis artifacts | Correct calibration/frame configuration and rerun | Automated diagnosis fixture |
+| Pinned public MID-360 bag → verified map | Nightly Jazzy workflow runs the installed CLI with exact archive/bag identity and bounded output thresholds | Non-geometry evidence report, manifests, diagnosis, verification, and logs | Inspect the failed assertion and retained evidence; do not move the contract without review | Automated real-data E2E |
 
 `run_manifest.json` is authoritative for terminal workflow status. Diagnosis
 uses its `failed` or `interrupted` state even when the workflow stopped before
@@ -45,7 +46,7 @@ the termination coverage:
 - controlled disk-exhaustion injection for manifest and map writes;
 - one-hour and eight-hour soak profiles with RSS, wall-time, output-size, and
   dropped-input counters;
-- nightly pinned real-bag E2E evidence;
 - output migration tooling and last-known-good rollback instructions.
 
-See the [v0.9 roadmap](roadmap/v0.9.md) for the full Phase 3 and v1.0 gates.
+See the [pinned real-data E2E contract](real-data-e2e.md) and the
+[v0.9 roadmap](roadmap/v0.9.md) for the remaining Phase 3 and v1.0 gates.
