@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import struct
 import subprocess
 
 
@@ -52,33 +53,50 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def _write_bag_metadata(path: Path) -> None:
-    path.mkdir()
-    payload = {
-        'rosbag2_bagfile_information': {
-            'duration': {'nanoseconds': 2_000_000_000},
-            'message_count': 220,
-            'topics_with_message_count': [
-                {
-                    'topic_metadata': {
-                        'name': '/points',
-                        'type': 'sensor_msgs/msg/PointCloud2',
-                    },
-                    'message_count': 20,
-                },
-                {
-                    'topic_metadata': {
-                        'name': '/imu',
-                        'type': 'sensor_msgs/msg/Imu',
-                    },
-                    'message_count': 200,
-                },
-            ],
-        },
-    }
-    (path / 'metadata.yaml').write_text(
-        __import__('yaml').safe_dump(payload),
-        encoding='utf-8',
+    import rosbag2_py
+    from rclpy.serialization import serialize_message
+    from sensor_msgs.msg import Imu, PointCloud2, PointField
+
+    def topic_metadata(topic_id: int, name: str, msg_type: str):
+        kwargs = {
+            'name': name,
+            'type': msg_type,
+            'serialization_format': 'cdr',
+        }
+        try:
+            return rosbag2_py.TopicMetadata(id=topic_id, **kwargs)
+        except TypeError:  # Humble TopicMetadata predates the numeric id
+            return rosbag2_py.TopicMetadata(**kwargs)
+
+    writer = rosbag2_py.SequentialWriter()
+    writer.open(
+        rosbag2_py.StorageOptions(uri=str(path), storage_id='sqlite3'),
+        rosbag2_py.ConverterOptions('', ''),
     )
+    writer.create_topic(
+        topic_metadata(0, '/points', 'sensor_msgs/msg/PointCloud2')
+    )
+    writer.create_topic(topic_metadata(1, '/imu', 'sensor_msgs/msg/Imu'))
+
+    points = PointCloud2()
+    points.header.frame_id = 'lidar'
+    points.height = 1
+    points.width = 1
+    points.fields = [
+        PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
+        PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
+        PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1),
+        PointField(name='time', offset=12, datatype=PointField.FLOAT32, count=1),
+    ]
+    points.is_bigendian = False
+    points.point_step = 16
+    points.row_step = 16
+    points.data = list(struct.pack('<ffff', 1.0, 2.0, 3.0, 0.0))
+    points.is_dense = True
+    writer.write('/points', serialize_message(points), 1_000_000_000)
+    writer.write('/imu', serialize_message(Imu()), 1_000_000_001)
+    if hasattr(writer, 'close'):
+        writer.close()
 
 
 def test_global_help_version_and_usage_contract():

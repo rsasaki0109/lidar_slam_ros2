@@ -2,13 +2,13 @@
 """Preflight a rosbag2 for Autoware-compatible map authoring workflows."""
 
 import argparse
+from dataclasses import asdict, dataclass
 import json
+from pathlib import Path
 import shlex
 import sys
 import textwrap
-from dataclasses import asdict, dataclass
-from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import yaml
 
@@ -21,8 +21,17 @@ TFMESSAGE = 'tf2_msgs/msg/TFMessage'
 GSOF49 = 'applanix_msgs/msg/NavigationSolutionGsof49'
 GSOF50 = 'applanix_msgs/msg/NavigationPerformanceGsof50'
 VELOCITY_REPORT = 'autoware_auto_vehicle_msgs/msg/VelocityReport'
-SCHEMA_VERSION = 1
-SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v1.schema.json'
+SCHEMA_VERSION = 2
+SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v2.schema.json'
+POINT_FIELD_UINT32 = 6
+POINT_FIELD_FLOAT32 = 7
+POINT_FIELD_FLOAT64 = 8
+RKO_TIMESTAMP_FIELDS = ('t', 'timestamp', 'time', 'stamps')
+RKO_TIMESTAMP_DATATYPES = (
+    POINT_FIELD_UINT32,
+    POINT_FIELD_FLOAT32,
+    POINT_FIELD_FLOAT64,
+)
 
 PROFILE_HELP = (
     (
@@ -116,6 +125,143 @@ def _best_topic(records: list[TopicRecord], msg_type: str) -> TopicRecord | None
     return grouped[0] if grouped else None
 
 
+def assess_pointcloud_fields(fields: list[dict[str, Any]]) -> dict[str, Any]:
+    """Assess whether PointCloud2 fields satisfy RKO-LIO's reader contract."""
+    normalized = [
+        {
+            'name': str(field.get('name', '')),
+            'datatype': int(field.get('datatype', 0)),
+            'count': int(field.get('count', 0)),
+        }
+        for field in fields
+    ]
+    by_name = {field['name']: field for field in normalized}
+
+    invalid_xyz = [
+        name
+        for name in ('x', 'y', 'z')
+        if name not in by_name
+        or by_name[name]['datatype'] != POINT_FIELD_FLOAT32
+        or by_name[name]['count'] <= 0
+    ]
+    if invalid_xyz:
+        return {
+            'rko_lio_compatible': False,
+            'timestamp_field': None,
+            'reason': (
+                'RKO-LIO requires x, y, and z PointCloud2 fields with FLOAT32 '
+                f'datatype and positive count; invalid or missing: {", ".join(invalid_xyz)}.'
+            ),
+        }
+
+    timestamp_candidates = [
+        by_name[name] for name in RKO_TIMESTAMP_FIELDS if name in by_name
+    ]
+    for field in timestamp_candidates:
+        if (
+            field['datatype'] in RKO_TIMESTAMP_DATATYPES
+            and field['count'] > 0
+        ):
+            return {
+                'rko_lio_compatible': True,
+                'timestamp_field': field['name'],
+                'reason': (
+                    f'RKO-LIO-compatible per-point timestamp field '
+                    f'{field["name"]!r} was found.'
+                ),
+            }
+
+    expected = '/'.join(RKO_TIMESTAMP_FIELDS)
+    if timestamp_candidates:
+        return {
+            'rko_lio_compatible': False,
+            'timestamp_field': None,
+            'reason': (
+                f'PointCloud2 timestamp field must be one of {expected}, have '
+                'positive count, and use UINT32, FLOAT32, or FLOAT64.'
+            ),
+        }
+    return {
+        'rko_lio_compatible': False,
+        'timestamp_field': None,
+        'reason': (
+            'PointCloud2 has no per-point timestamp field required for '
+            f'RKO-LIO deskewing (expected {expected}).'
+        ),
+    }
+
+
+def inspect_pointcloud_record(
+    bag_path: Path,
+    topic: str,
+    storage_id: str,
+) -> dict[str, Any]:
+    """Read the first selected PointCloud2 record and inspect its fields."""
+    base = {
+        'topic': topic,
+        'fields': [],
+        'rko_lio_compatible': None,
+        'timestamp_field': None,
+    }
+    try:
+        import rosbag2_py
+        from rclpy.serialization import deserialize_message
+        from sensor_msgs.msg import PointCloud2
+    except ImportError as exc:
+        return {
+            **base,
+            'status': 'unavailable',
+            'reason': (
+                'PointCloud2 record inspection is unavailable in this environment: '
+                f'{exc}. Source a ROS 2 installation with rosbag2_py, rclpy, and '
+                'sensor_msgs before selecting an RKO-LIO profile.'
+            ),
+        }
+
+    try:
+        reader = rosbag2_py.SequentialReader()
+        reader.open(
+            rosbag2_py.StorageOptions(
+                uri=str(bag_path),
+                storage_id=storage_id,
+            ),
+            rosbag2_py.ConverterOptions('', ''),
+        )
+        reader.set_filter(rosbag2_py.StorageFilter(topics=[topic]))
+        while reader.has_next():
+            record_topic, serialized, _ = reader.read_next()
+            if record_topic != topic:
+                continue
+            message = deserialize_message(serialized, PointCloud2)
+            fields = [
+                {
+                    'name': field.name,
+                    'datatype': field.datatype,
+                    'count': field.count,
+                }
+                for field in message.fields
+            ]
+            assessment = assess_pointcloud_fields(fields)
+            return {
+                **base,
+                **assessment,
+                'status': 'inspected',
+                'fields': fields,
+            }
+    except Exception as exc:  # rosbag2 storage plugins expose backend-specific errors
+        return {
+            **base,
+            'status': 'error',
+            'reason': f'Failed to inspect PointCloud2 record on {topic}: {exc}',
+        }
+
+    return {
+        **base,
+        'status': 'empty',
+        'reason': f'No PointCloud2 record was found on selected topic {topic}.',
+    }
+
+
 def summarize_bag(bag_path: Path) -> dict[str, Any]:
     """Summarize a rosbag2 in terms of map-authoring inputs."""
     bag_info = load_bag_metadata(bag_path)
@@ -132,7 +278,10 @@ def summarize_bag(bag_path: Path) -> dict[str, Any]:
             'applanix_gsof49': [asdict(item) for item in _topic_group(topic_records, GSOF49)],
             'applanix_gsof50': [asdict(item) for item in _topic_group(topic_records, GSOF50)],
             'tf': [asdict(item) for item in _topic_group(topic_records, TFMESSAGE)],
-            'velocity_report': [asdict(item) for item in _topic_group(topic_records, VELOCITY_REPORT)],
+            'velocity_report': [
+                asdict(item)
+                for item in _topic_group(topic_records, VELOCITY_REPORT)
+            ],
         },
     }
 
@@ -156,12 +305,24 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
     capabilities = summary['capabilities']
     recommendations: list[dict[str, Any]] = []
 
-    best_pointcloud = summary['topics']['pointcloud2'][0] if summary['topics']['pointcloud2'] else None
+    best_pointcloud = (
+        summary['topics']['pointcloud2'][0]
+        if summary['topics']['pointcloud2'] else None
+    )
     best_imu = summary['topics']['imu'][0] if summary['topics']['imu'] else None
     best_navsat = summary['topics']['navsatfix'][0] if summary['topics']['navsatfix'] else None
-    best_packet = summary['topics']['velodyne_scan'][0] if summary['topics']['velodyne_scan'] else None
-    best_gsof49 = summary['topics']['applanix_gsof49'][0] if summary['topics']['applanix_gsof49'] else None
-    best_gsof50 = summary['topics']['applanix_gsof50'][0] if summary['topics']['applanix_gsof50'] else None
+    best_packet = (
+        summary['topics']['velodyne_scan'][0]
+        if summary['topics']['velodyne_scan'] else None
+    )
+    best_gsof49 = (
+        summary['topics']['applanix_gsof49'][0]
+        if summary['topics']['applanix_gsof49'] else None
+    )
+    best_gsof50 = (
+        summary['topics']['applanix_gsof50'][0]
+        if summary['topics']['applanix_gsof50'] else None
+    )
     bag_path_lower = bag_path.lower()
 
     def looks_like_livox_mid360() -> bool:
@@ -170,7 +331,12 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
             topic_names.extend(item['name'].lower() for item in summary['topics'][key])
         return 'mid360' in bag_path_lower or any('livox' in name for name in topic_names)
 
-    if capabilities['has_pointcloud2'] and capabilities['has_imu']:
+    pointcloud_inspection = summary['pointcloud_inspection']
+    if (
+        capabilities['has_pointcloud2']
+        and capabilities['has_imu']
+        and pointcloud_inspection['rko_lio_compatible'] is True
+    ):
         command = textwrap.dedent(
             f"""\
             ros2 launch lidarslam rko_lio_slam.launch.py \\
@@ -191,6 +357,10 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
             'why': [
                 f"PointCloud2 is available on {best_pointcloud['name']}",
                 f"Imu is available on {best_imu['name']}",
+                (
+                    'The first PointCloud2 record has RKO-LIO-compatible '
+                    f"per-point timestamps in {pointcloud_inspection['timestamp_field']!r}."
+                ),
                 'This is the main maintained map-authoring path in the repository.',
             ],
             'command': command,
@@ -212,12 +382,22 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
                 'priority': 95,
                 'label': 'RKO-LIO + graph_based_slam MID360/Livox preset',
                 'why': [
-                    f"PointCloud2 topic {best_pointcloud['name']} looks like a Livox/MID360 source",
-                    'The repository tracks a tuned MID360 graph/backend YAML for this sensor family.',
+                    (
+                        f"PointCloud2 topic {best_pointcloud['name']} looks like "
+                        'a Livox/MID360 source'
+                    ),
+                    (
+                        'The repository tracks a tuned MID360 graph/backend YAML '
+                        'for this sensor family.'
+                    ),
                 ],
                 'command': tuned_command,
                 'notes': [
-                    'Use this when the bag is a Livox/MID360-style dataset and you want the tracked tuned preset instead of the generic default.',
+                    (
+                        'Use this when the bag is a Livox/MID360-style dataset and '
+                        'you want the tracked tuned preset instead of the generic '
+                        'default.'
+                    ),
                 ],
             })
 
@@ -237,7 +417,10 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
             'why': [
                 f"PointCloud2 is available on {best_pointcloud['name']}",
                 f"NavSatFix is available on {best_navsat['name']}",
-                'This wrapper produces a verified pointcloud map with GNSS-enabled backend constraints.',
+                (
+                    'This wrapper produces a verified pointcloud map with '
+                    'GNSS-enabled backend constraints.'
+                ),
             ],
             'command': command,
             'notes': [],
@@ -260,7 +443,10 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
             'why': [
                 f"VelodyneScan is available on {best_packet['name']}",
                 f"Applanix GSOF49 is available on {best_gsof49['name']}",
-                'This wrapper converts packet and Applanix data into the maintained pointcloud-map path.',
+                (
+                    'This wrapper converts packet and Applanix data into the '
+                    'maintained pointcloud-map path.'
+                ),
             ],
             'command': command,
             'notes': [],
@@ -269,9 +455,30 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(recommendations, key=lambda item: item['priority'], reverse=True)
 
 
-def build_preflight_payload(bag_path: Path) -> dict[str, Any]:
+def build_preflight_payload(
+    bag_path: Path,
+    pointcloud_inspector: Callable[[Path, str, str], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Create the machine-readable preflight result."""
     summary = summarize_bag(bag_path)
+    if summary['topics']['pointcloud2']:
+        topic = summary['topics']['pointcloud2'][0]['name']
+        bag_info = load_bag_metadata(bag_path)
+        inspector = pointcloud_inspector or inspect_pointcloud_record
+        summary['pointcloud_inspection'] = inspector(
+            bag_path,
+            topic,
+            str(bag_info.get('storage_identifier', '')),
+        )
+    else:
+        summary['pointcloud_inspection'] = {
+            'status': 'not_applicable',
+            'topic': None,
+            'fields': [],
+            'rko_lio_compatible': None,
+            'timestamp_field': None,
+            'reason': 'No PointCloud2 topic was found.',
+        }
     recommendations = build_recommendations(summary)
     bag_q = _safe_quote(summary['bag_path'])
     advisory = []
@@ -295,8 +502,21 @@ def build_preflight_payload(bag_path: Path) -> dict[str, Any]:
         })
 
     missing = []
-    if not summary['capabilities']['has_pointcloud2'] and not summary['capabilities']['has_velodyne_scan']:
+    if (
+        not summary['capabilities']['has_pointcloud2']
+        and not summary['capabilities']['has_velodyne_scan']
+    ):
         missing.append('No PointCloud2 or VelodyneScan topic was found.')
+    inspection = summary['pointcloud_inspection']
+    if (
+        summary['capabilities']['has_pointcloud2']
+        and summary['capabilities']['has_imu']
+        and inspection['rko_lio_compatible'] is not True
+    ):
+        missing.append(
+            f"PointCloud2 topic {inspection['topic']} is not verified as compatible "
+            f"with RKO-LIO: {inspection['reason']}"
+        )
     if not recommendations:
         if not summary['capabilities']['has_imu']:
             missing.append('No Imu topic was found for the main RKO-LIO public path.')
@@ -354,7 +574,7 @@ def render_text_report(payload: dict[str, Any]) -> str:
     lines = [
         'Autoware-Compatible Map Preflight',
         f"bag: {summary['bag_path']}",
-        f"duration: {duration_text}",
+        f'duration: {duration_text}',
         f"messages: {summary['message_count']}",
         '',
         'Detected inputs:',
@@ -367,6 +587,12 @@ def render_text_report(payload: dict[str, Any]) -> str:
         f"  TF/TF_STATIC: {_format_topic_list(summary['topics']['tf'])}",
         f"  VelocityReport: {_format_topic_list(summary['topics']['velocity_report'])}",
     ]
+    inspection = summary['pointcloud_inspection']
+    if inspection['status'] != 'not_applicable':
+        lines.append(
+            '  PointCloud2 record: '
+            f"{inspection['status']} ({inspection['reason']})"
+        )
 
     if recommendations:
         primary = recommendations[0]

@@ -79,6 +79,22 @@ def _write_metadata(tmp_path: Path, topics: list[tuple[str, str, int]]) -> Path:
     return bag_dir
 
 
+def _compatible_inspection(_bag_path: Path, topic: str, _storage_id: str) -> dict:
+    return {
+        'status': 'inspected',
+        'topic': topic,
+        'fields': [
+            {'name': 'x', 'datatype': 7, 'count': 1},
+            {'name': 'y', 'datatype': 7, 'count': 1},
+            {'name': 'z', 'datatype': 7, 'count': 1},
+            {'name': 'time', 'datatype': 7, 'count': 1},
+        ],
+        'rko_lio_compatible': True,
+        'timestamp_field': 'time',
+        'reason': "RKO-LIO-compatible per-point timestamp field 'time' was found.",
+    }
+
+
 def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path):
     module = _load_module()
     bag_dir = _write_metadata(
@@ -90,17 +106,21 @@ def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path)
         ],
     )
 
-    payload = module.build_preflight_payload(bag_dir)
+    payload = module.build_preflight_payload(
+        bag_dir,
+        pointcloud_inspector=_compatible_inspection,
+    )
 
     schema = json.loads(
         (
-            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v1.schema.json'
+            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v2.schema.json'
         ).read_text(encoding='utf-8')
     )
     jsonschema.Draft7Validator.check_schema(schema)
     jsonschema.validate(payload, schema)
-    assert payload['schema_version'] == 1
-    assert payload['schema_uri'].endswith('/schemas/preflight-v1.schema.json')
+    assert payload['schema_version'] == 2
+    assert payload['schema_uri'].endswith('/schemas/preflight-v2.schema.json')
+    assert payload['summary']['pointcloud_inspection']['timestamp_field'] == 'time'
     assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
     assert payload['beginner_commands'][0]['command'].startswith(
         'bash scripts/run_autoware_map_beginner.sh'
@@ -283,7 +303,10 @@ def test_livox_mid360_bag_emits_tuned_preset_hint(tmp_path: Path):
     }
     (bag_dir / 'metadata.yaml').write_text(yaml.safe_dump(metadata), encoding='utf-8')
 
-    payload = module.build_preflight_payload(bag_dir)
+    payload = module.build_preflight_payload(
+        bag_dir,
+        pointcloud_inspector=_compatible_inspection,
+    )
     recommendation_ids = [item['id'] for item in payload['recommendations']]
 
     assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
@@ -294,3 +317,87 @@ def test_livox_mid360_bag_emits_tuned_preset_hint(tmp_path: Path):
     )
     assert 'lidarslam_mid360_rko_graph.yaml' in tuned['command']
     assert 'rko_lio_mid360.yaml' in tuned['command']
+
+
+def test_pointcloud_field_assessment_accepts_supported_timestamp():
+    module = _load_module()
+
+    assessment = module.assess_pointcloud_fields([
+        {'name': 'x', 'datatype': 7, 'count': 1},
+        {'name': 'y', 'datatype': 7, 'count': 1},
+        {'name': 'z', 'datatype': 7, 'count': 1},
+        {'name': 'timestamp', 'datatype': 8, 'count': 1},
+    ])
+
+    assert assessment['rko_lio_compatible'] is True
+    assert assessment['timestamp_field'] == 'timestamp'
+
+
+def test_pointcloud_field_assessment_rejects_missing_timestamp():
+    module = _load_module()
+
+    assessment = module.assess_pointcloud_fields([
+        {'name': 'x', 'datatype': 7, 'count': 1},
+        {'name': 'y', 'datatype': 7, 'count': 1},
+        {'name': 'z', 'datatype': 7, 'count': 1},
+        {'name': 'intensity', 'datatype': 7, 'count': 1},
+    ])
+
+    assert assessment['rko_lio_compatible'] is False
+    assert assessment['timestamp_field'] is None
+    assert 'expected t/timestamp/time/stamps' in assessment['reason']
+
+
+def test_pointcloud_field_assessment_rejects_unsupported_timestamp_type():
+    module = _load_module()
+
+    assessment = module.assess_pointcloud_fields([
+        {'name': 'x', 'datatype': 7, 'count': 1},
+        {'name': 'y', 'datatype': 7, 'count': 1},
+        {'name': 'z', 'datatype': 7, 'count': 1},
+        {'name': 'time', 'datatype': 2, 'count': 1},
+    ])
+
+    assert assessment['rko_lio_compatible'] is False
+    assert 'UINT32, FLOAT32, or FLOAT64' in assessment['reason']
+
+
+def test_missing_point_timestamp_prevents_rko_recommendation(tmp_path: Path):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 200),
+            ('/imu/data', 'sensor_msgs/msg/Imu', 2000),
+        ],
+    )
+
+    def incompatible(_bag_path: Path, topic: str, _storage_id: str) -> dict:
+        return {
+            'status': 'inspected',
+            'topic': topic,
+            'fields': [
+                {'name': 'x', 'datatype': 7, 'count': 1},
+                {'name': 'y', 'datatype': 7, 'count': 1},
+                {'name': 'z', 'datatype': 7, 'count': 1},
+            ],
+            'rko_lio_compatible': False,
+            'timestamp_field': None,
+            'reason': (
+                'PointCloud2 has no per-point timestamp field required for '
+                'RKO-LIO deskewing (expected t/timestamp/time/stamps).'
+            ),
+        }
+
+    payload = module.build_preflight_payload(
+        bag_dir,
+        pointcloud_inspector=incompatible,
+    )
+
+    assert payload['recommended_profile_id'] is None
+    assert payload['recommendations'] == []
+    assert payload['beginner_commands'] == []
+    assert any(
+        'expected t/timestamp/time/stamps' in item
+        for item in payload['missing_requirements']
+    )

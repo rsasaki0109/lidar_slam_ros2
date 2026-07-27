@@ -200,9 +200,13 @@ def build_execution_plan(
     profile_id: str | None,
     output_dir: Path,
     verify_map: bool,
+    pointcloud_inspector=None,
 ) -> dict[str, object]:
     preflight = _load_script_module('preflight_autoware_map_bag.py', 'preflight_autoware_map_bag')
-    payload = preflight.build_preflight_payload(bag_path)
+    payload = preflight.build_preflight_payload(
+        bag_path,
+        pointcloud_inspector=pointcloud_inspector,
+    )
     selected_profile = _select_profile(payload, profile_id)
 
     recommendations = {item['id']: item for item in payload['recommendations']}
