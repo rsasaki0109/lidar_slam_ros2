@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 from typing import Any
 
 import yaml
@@ -100,12 +100,19 @@ def _extract_launch_flags(launch_log: str) -> dict[str, bool]:
     }
 
 
-def _extract_problem_hints(launch_log: str, map_save_log: str, verify_summary: dict[str, Any]) -> list[str]:
+def _extract_problem_hints(
+    launch_log: str,
+    map_save_log: str,
+    verify_summary: dict[str, Any],
+) -> list[str]:
     hints: list[str] = []
     combined = '\n'.join([launch_log, map_save_log])
 
     if 'process has died' in combined:
-        hints.append('A ROS node died during the run. Check the launch log tail for the crashing process.')
+        hints.append(
+            'A ROS node died during the run. '
+            'Check the launch log tail for the crashing process.'
+        )
     if 'failed to initialize rcl' in combined or "Couldn't parse params file" in combined:
         hints.append('The run hit a ROS parameter-file parsing error.')
     if 'TF_NO_FRAME_ID' in combined or 'TF_NO_CHILD_FRAME_ID' in combined:
@@ -114,6 +121,15 @@ def _extract_problem_hints(launch_log: str, map_save_log: str, verify_summary: d
         hints.append('TF tree connectivity was missing for the requested frames.')
     if 'map_save service call failed' in combined:
         hints.append('The /map_save service call failed or timed out.')
+    if (
+        'No space left on device' in combined
+        or 'ENOSPC' in combined
+        or 'Disk quota exceeded' in combined
+    ):
+        hints.append(
+            'The output filesystem ran out of writable space or quota. '
+            'Preserve the run evidence, free storage, and rerun into a new output directory.'
+        )
     if 'Added 0 GNSS position constraint edges' in combined:
         hints.append('GNSS was enabled but the backend accepted zero GNSS edges.')
     if verify_summary['result'] == 'FAIL':
@@ -219,7 +235,9 @@ def summarize_run(run_dir: Path, bag_path: Path | None = None) -> dict[str, Any]
             'launch_log': str(launch_log_path) if launch_log_path else None,
             'map_save_log': str(map_save_log_path) if map_save_log_path else None,
             'verify_log': str(verify_log_path) if verify_log_path else None,
-            'pointcloud_map_metadata': str(pointcloud_metadata_path) if pointcloud_map_exists else None,
+            'pointcloud_map_metadata': (
+                str(pointcloud_metadata_path) if pointcloud_map_exists else None
+            ),
             'map_projector_info': str(map_projector_path) if map_projector_exists else None,
         },
         'launch_flags': launch_flags,

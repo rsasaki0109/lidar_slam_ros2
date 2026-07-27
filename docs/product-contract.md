@@ -67,7 +67,9 @@ The general product path accepts a rosbag2 directory containing
 - `sensor_msgs/msg/Imu`;
 - valid, monotonic timestamps;
 - a known transform between LiDAR, IMU and base frames;
-- enough free disk space for the input bag, intermediate clouds and output map.
+- enough free disk space for the input bag, intermediate clouds and output map;
+  `run` enforces a 5 GiB output-filesystem reserve by default and accepts a
+  deliberately sized `--min-free-space-gib` override.
 
 Topic presence is necessary but not sufficient. A bag with the right message
 types can still require a sensor-specific point-time field, calibration,

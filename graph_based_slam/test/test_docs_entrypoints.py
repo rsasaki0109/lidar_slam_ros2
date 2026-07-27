@@ -521,6 +521,9 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'Automated failure injection' in reliability_doc
     assert 'timestamp reversal' in reliability_doc
     assert 'disk-pressure' in reliability_doc
+    assert '--min-free-space-gib' in reliability_doc
+    assert '5 GiB' in reliability_doc
+    assert 'No space left on device' in reliability_doc
     assert '(operational-reliability.md)' in (
         PRODUCT_CONTRACT_DOC.read_text(encoding='utf-8')
     )
