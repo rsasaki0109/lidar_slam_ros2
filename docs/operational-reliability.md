@@ -92,14 +92,28 @@ Every sample is appended to `telemetry_samples` and atomically checkpoints
 growth exceeds `--max-output-gib`, the harness stops the entire timed process
 group with `SIGTERM` and a bounded `SIGKILL` fallback, then attempts to
 finalize a failed report. The last successful sample remains available even
-when the iteration never produces normal GNU time evidence. Schema v2 defines
-the periodic evidence; schema v1 remains published for existing reports:
+when the iteration never produces normal GNU time evidence.
 
+- [`soak-report-v3.schema.json`](schemas/soak-report-v3.schema.json) — current;
+  adds a non-secret machine fingerprint, harness revision and checksums, and
+  the exact input/software identity copied from each successful product run;
 - [`soak-report-v2.schema.json`](schemas/soak-report-v2.schema.json)
+  — published compatibility schema for periodic telemetry reports;
 - [`soak-report-v1.schema.json`](schemas/soak-report-v1.schema.json)
+  — published compatibility schema for iteration-only reports.
+
+The schema v1 remains published, and schema v2 remains immutable, so archived
+reports retain a resolvable contract.
+
+A passing v3 report requires `provenance_recorded`. The first successful
+iteration fixes the input and software identities for the whole soak; any
+later iteration with a different identity terminates the run as failed. The
+machine ID is a SHA-256 fingerprint: private machine identifiers contribute
+to stability but are never written to the report. Hostnames, usernames and
+network addresses are not collected.
 
 Operator `Ctrl-C` and service `SIGTERM` use the same process-group cleanup and
-return `130` and `143`, respectively. Their terminal v2 report has
+return `130` and `143`, respectively. Their terminal v3 report has
 `interrupted` status. If the filesystem refuses the final atomic update, the
 last successfully written running-state sample remains as recovery evidence.
 
@@ -118,8 +132,8 @@ the termination coverage:
 
 - timestamp reversal detection against real rosbag records before launch;
 - execute and archive the one-hour and eight-hour soak profiles on named
-  release hardware; the harness and machine-readable thresholds are automated,
-  but real-duration evidence is not yet recorded;
+  release hardware; the harness, machine-readable thresholds and v3
+  provenance are automated, but real-duration evidence is not yet recorded;
 - a bounded-filesystem live exhaustion test in the scheduled real-data
   environment;
 - output migration tooling and last-known-good rollback instructions.

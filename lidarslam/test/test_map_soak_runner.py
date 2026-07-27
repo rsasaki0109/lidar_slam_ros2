@@ -53,9 +53,36 @@ SOAK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SOAK)
 
 
-def _schema_v2() -> dict:
+def _schema_v3() -> dict:
     return json.loads(
-        (ROOT / 'docs/schemas/soak-report-v2.schema.json').read_text()
+        (ROOT / 'docs/schemas/soak-report-v3.schema.json').read_text()
+    )
+
+
+def _provenance() -> tuple[dict, dict]:
+    return (
+        {
+            'bag_path': '/data/bag',
+            'metadata_path': '/data/bag/metadata.yaml',
+            'metadata_size_bytes': 42,
+            'metadata_sha256': 'a' * 64,
+            'storage_identifier': 'sqlite3',
+            'storage_files': [
+                {
+                    'path': 'bag_0.db3',
+                    'size_bytes': 1024,
+                    'sha256': 'b' * 64,
+                },
+            ],
+            'identity_algorithm': 'sha256',
+        },
+        {
+            'product_version': '0.9.0',
+            'git_commit': 'c' * 40,
+            'git_dirty': False,
+            'package_versions': {'lidarslam': '0.9.0'},
+            'ros_distro': 'jazzy',
+        },
     )
 
 
@@ -136,6 +163,44 @@ def test_drop_counters_are_explicit_and_conservative():
     }
 
 
+def test_machine_fingerprint_is_stable_and_does_not_expose_private_ids():
+    first = SOAK.capture_machine_fingerprint()
+    second = SOAK.capture_machine_fingerprint()
+
+    assert first == second
+    assert len(first['machine_id']) == 64
+    assert first['logical_cpu_count'] > 0
+    assert 'private_identifiers' not in first
+
+
+def test_iteration_provenance_requires_succeeded_product_manifest(tmp_path):
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    input_identity, software_identity = _provenance()
+    manifest = {
+        'status': 'succeeded',
+        'input': input_identity,
+        'software': software_identity,
+    }
+    (run_dir / SOAK.RUN_MANIFEST_NAME).write_text(
+        json.dumps(manifest),
+        encoding='utf-8',
+    )
+
+    assert SOAK._load_iteration_provenance(run_dir) == (
+        input_identity,
+        software_identity,
+    )
+
+    manifest['status'] = 'failed'
+    (run_dir / SOAK.RUN_MANIFEST_NAME).write_text(
+        json.dumps(manifest),
+        encoding='utf-8',
+    )
+    with pytest.raises(ValueError, match='not succeeded'):
+        SOAK._load_iteration_provenance(run_dir)
+
+
 def test_successful_soak_writes_schema_valid_threshold_evidence(tmp_path):
     args = _args(tmp_path)
     ticks = iter([0.0, 0.0, 3600.0, 3600.0])
@@ -160,7 +225,7 @@ def test_successful_soak_writes_schema_valid_threshold_evidence(tmp_path):
         assert checkpoint['status'] == 'running'
         assert checkpoint['active_iteration_id'] == 'iteration-0001'
         assert len(checkpoint['telemetry_samples']) == 2
-        jsonschema.validate(checkpoint, _schema_v2())
+        jsonschema.validate(checkpoint, _schema_v3())
         log_path.write_text('', encoding='utf-8')
         time_path.write_text('fake GNU time evidence\n', encoding='utf-8')
         return (
@@ -173,6 +238,7 @@ def test_successful_soak_writes_schema_valid_threshold_evidence(tmp_path):
         args,
         clock=lambda: next(ticks),
         run_iteration=fake_iteration,
+        load_iteration_provenance=lambda run_dir: _provenance(),
     )
 
     assert exit_code == 0
@@ -183,8 +249,12 @@ def test_successful_soak_writes_schema_valid_threshold_evidence(tmp_path):
     assert report['telemetry_samples'][1]['output_size_bytes'] == 1024
     assert report['active_iteration_id'] is None
     assert all(report['checks'].values())
+    assert report['input_identity']['metadata_sha256'] == 'a' * 64
+    assert report['software_identity']['git_commit'] == 'c' * 40
+    assert report['hardware']['machine_id']
+    assert report['harness']['runner_sha256']
     saved = json.loads((Path(args.output_root) / SOAK.REPORT_NAME).read_text())
-    schema = _schema_v2()
+    schema = _schema_v3()
     jsonschema.Draft7Validator.check_schema(schema)
     jsonschema.validate(saved, schema)
 
@@ -223,6 +293,87 @@ def test_failed_iteration_stops_and_preserves_failed_report(tmp_path):
     assert report['checks']['target_duration_reached'] is False
     assert report['checks']['all_iterations_succeeded'] is False
     assert (Path(args.output_root) / SOAK.REPORT_NAME).is_file()
+
+
+def test_successful_iteration_without_product_provenance_fails_soak(tmp_path):
+    args = _args(tmp_path)
+    ticks = iter([0.0, 0.0, 12.0])
+
+    def fake_iteration(
+        command,
+        log_path,
+        time_path,
+        *,
+        telemetry_interval_sec,
+        on_sample,
+    ):
+        on_sample(0.0)
+        return (
+            0,
+            {'wall_time_sec': 12.0, 'peak_rss_mib': 64.0, 'exit_code': 0},
+            {'message_filter': 0, 'scan_drop': 0, 'queue_overflow': 0},
+        )
+
+    exit_code, report = SOAK.run_soak(
+        args,
+        clock=lambda: next(ticks),
+        run_iteration=fake_iteration,
+    )
+
+    assert exit_code == 1
+    assert report['status'] == 'failed'
+    assert report['checks']['provenance_recorded'] is False
+    assert 'lacks run_manifest.json' in report['last_error']
+    jsonschema.validate(report, _schema_v3())
+
+
+def test_changed_input_identity_between_iterations_fails_soak(tmp_path):
+    args = _args(tmp_path)
+    ticks = iter([0.0, 0.0, 10.0, 10.0, 20.0])
+    calls = []
+
+    def fake_iteration(
+        command,
+        log_path,
+        time_path,
+        *,
+        telemetry_interval_sec,
+        on_sample,
+    ):
+        calls.append(command)
+        on_sample(0.0)
+        return (
+            0,
+            {'wall_time_sec': 10.0, 'peak_rss_mib': 64.0, 'exit_code': 0},
+            {'message_filter': 0, 'scan_drop': 0, 'queue_overflow': 0},
+        )
+
+    provenance_calls = 0
+
+    def changing_provenance(run_dir):
+        nonlocal provenance_calls
+        provenance_calls += 1
+        input_identity, software_identity = _provenance()
+        if provenance_calls == 2:
+            input_identity = {
+                **input_identity,
+                'metadata_sha256': 'd' * 64,
+            }
+        return input_identity, software_identity
+
+    exit_code, report = SOAK.run_soak(
+        args,
+        clock=lambda: next(ticks),
+        run_iteration=fake_iteration,
+        load_iteration_provenance=changing_provenance,
+    )
+
+    assert exit_code == 1
+    assert len(calls) == 2
+    assert report['status'] == 'failed'
+    assert report['metrics']['iterations_completed'] == 1
+    assert report['metrics']['iterations_failed'] == 1
+    assert 'input identity differs' in report['last_error']
 
 
 def test_telemetry_failure_becomes_terminal_evidence(tmp_path):
@@ -279,6 +430,7 @@ def test_resource_budget_failure_stops_before_another_iteration(tmp_path):
         args,
         clock=lambda: next(ticks),
         run_iteration=over_budget_iteration,
+        load_iteration_provenance=lambda run_dir: _provenance(),
     )
 
     assert exit_code == 1
@@ -483,7 +635,7 @@ def test_sigterm_is_terminal_and_returns_143(tmp_path):
     assert report['metrics']['iterations_failed'] == 1
     assert report['active_iteration_id'] is None
     assert report['last_error'].endswith('interrupted by SIGTERM')
-    jsonschema.validate(report, _schema_v2())
+    jsonschema.validate(report, _schema_v3())
 
 
 def test_existing_output_is_never_overwritten(tmp_path):
