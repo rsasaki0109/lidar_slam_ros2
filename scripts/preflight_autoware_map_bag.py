@@ -21,6 +21,8 @@ TFMESSAGE = 'tf2_msgs/msg/TFMessage'
 GSOF49 = 'applanix_msgs/msg/NavigationSolutionGsof49'
 GSOF50 = 'applanix_msgs/msg/NavigationPerformanceGsof50'
 VELOCITY_REPORT = 'autoware_auto_vehicle_msgs/msg/VelocityReport'
+SCHEMA_VERSION = 1
+SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v1.schema.json'
 
 PROFILE_HELP = (
     (
@@ -321,6 +323,8 @@ def build_preflight_payload(bag_path: Path) -> dict[str, Any]:
         ]
 
     return {
+        'schema_version': SCHEMA_VERSION,
+        'schema_uri': SCHEMA_URI,
         'summary': summary,
         'recommendations': recommendations,
         'recommended_profile_id': recommendations[0]['id'] if recommendations else None,

@@ -63,6 +63,9 @@ BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
 COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
 PRODUCT_CONTRACT_DOC = REPO_ROOT / 'docs' / 'product-contract.md'
 GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
+PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v1.schema.json'
+DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
+RUN_MANIFEST_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.json'
 V09_ROADMAP_DOC = REPO_ROOT / 'docs' / 'roadmap' / 'v0.9.md'
 SOCIAL_POST_DOC = REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.2.2.md'
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
@@ -114,6 +117,9 @@ def test_docs_exist_and_are_linked_from_readme():
     assert COMPARISON_DOC.is_file()
     assert PRODUCT_CONTRACT_DOC.is_file()
     assert GOLDEN_PATH_CLI_DOC.is_file()
+    assert PREFLIGHT_SCHEMA.is_file()
+    assert DIAGNOSIS_SCHEMA.is_file()
+    assert RUN_MANIFEST_SCHEMA.is_file()
     assert V09_ROADMAP_DOC.is_file()
     assert SOCIAL_POST_DOC.is_file()
     assert DOCS_SITE_WORKFLOW.is_file()
@@ -252,6 +258,7 @@ def test_contributing_and_issue_templates_exist():
 def test_product_contract_has_bounded_official_surface():
     """The beginner product surface should stay explicit and bounded."""
     contract = PRODUCT_CONTRACT_DOC.read_text(encoding='utf-8')
+    golden_path = GOLDEN_PATH_CLI_DOC.read_text(encoding='utf-8')
     roadmap = V09_ROADMAP_DOC.read_text(encoding='utf-8')
 
     assert '## Official entrypoints' in contract
@@ -261,6 +268,14 @@ def test_product_contract_has_bounded_official_surface():
     assert 'run_autoware_map_beginner.sh <rosbag2_dir>' in contract
     assert 'download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh' in contract
     assert 'Other scripts and ROS' in contract
+    assert '`run_manifest.json`' in contract
+    assert '`<output>.partial`' in golden_path
+    assert 'preflight-v1.schema.json' in golden_path
+    assert 'diagnosis-v1.schema.json' in golden_path
+    assert 'run-manifest-v1.schema.json' in golden_path
+    assert 'existing outputs are never overwritten' in (
+        REPO_ROOT / 'scripts' / 'run_autoware_map_from_bag.py'
+    ).read_text(encoding='utf-8')
     assert '## Non-goals' in contract
     assert 'No more than three beginner-facing entrypoints' in roadmap
     assert 'Phase 1 — Golden-path UX' in roadmap

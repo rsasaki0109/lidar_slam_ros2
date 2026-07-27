@@ -32,9 +32,12 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 
+import jsonschema
+import pytest
 import yaml
 
 
@@ -55,10 +58,13 @@ def _load_module():
 def _write_metadata(tmp_path: Path, bag_name: str, topics: list[tuple[str, str, int]]) -> Path:
     bag_dir = tmp_path / bag_name
     bag_dir.mkdir()
+    storage_name = f'{bag_name}_0.db3'
     metadata = {
         'rosbag2_bagfile_information': {
             'duration': {'nanoseconds': 2_000_000_000},
             'message_count': sum(count for _, _, count in topics),
+            'storage_identifier': 'sqlite3',
+            'relative_file_paths': [storage_name],
             'topics_with_message_count': [
                 {
                     'topic_metadata': {
@@ -73,6 +79,7 @@ def _write_metadata(tmp_path: Path, bag_name: str, topics: list[tuple[str, str, 
             ],
         },
     }
+    (bag_dir / storage_name).write_bytes(b'rosbag2 fixture\n')
     (bag_dir / 'metadata.yaml').write_text(yaml.safe_dump(metadata), encoding='utf-8')
     return bag_dir
 
@@ -92,6 +99,8 @@ def test_runner_script_supports_profiles_and_viewers():
     assert 'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh' in script
     assert 'run_graph_slam_pointcloud_map_in_autoware.sh' in script
     assert '--dry-run' in script
+    assert 'run_manifest.json' in script
+    assert 'artifact_checksums' in script
 
 
 def test_runner_help_is_user_facing():
@@ -156,6 +165,268 @@ def test_runner_rejects_output_file_without_traceback(tmp_path: Path):
     assert result.returncode == 2
     assert 'output directory path is a file' in result.stderr
     assert 'Traceback' not in result.stderr
+
+
+def test_manifest_helpers_capture_identity_and_finalize_atomically(tmp_path: Path):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'demo_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    final_dir = tmp_path / 'map_output'
+    working_dir = tmp_path / 'map_output.partial'
+    working_dir.mkdir()
+    plan = {
+        'profile_id': 'rko_lio_graph_public_path',
+        'label': 'RKO-LIO + graph_based_slam public path',
+        'command': ['python3', '-c', 'pass'],
+    }
+
+    manifest = module._build_manifest(bag_dir, final_dir, working_dir, plan)
+    module._write_manifest(working_dir, manifest)
+    (working_dir / 'artifact.txt').write_text('map artifact\n', encoding='utf-8')
+    manifest['output']['artifact_checksums'] = module._artifact_checksums(working_dir)
+    module._write_manifest(working_dir, manifest)
+    module._finalize_output(working_dir, final_dir)
+
+    saved = json.loads((final_dir / 'run_manifest.json').read_text(encoding='utf-8'))
+    schema = json.loads(
+        (
+            REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.json'
+        ).read_text(encoding='utf-8')
+    )
+    jsonschema.Draft7Validator.check_schema(schema)
+    jsonschema.validate(saved, schema)
+    assert saved['schema_version'] == 1
+    assert saved['input']['metadata_sha256'] == module._sha256(
+        bag_dir / 'metadata.yaml'
+    )
+    assert saved['input']['storage_identifier'] == 'sqlite3'
+    assert saved['input']['storage_files'] == [{
+        'path': 'demo_bag_0.db3',
+        'sha256': module._sha256(bag_dir / 'demo_bag_0.db3'),
+        'size_bytes': 16,
+    }]
+    assert saved['software']['product_version'] == '0.6.0'
+    assert saved['software']['package_versions']['lidarslam'] == '0.6.0'
+    assert isinstance(saved['software']['git_dirty'], bool)
+    assert saved['profile']['id'] == 'rko_lio_graph_public_path'
+    assert saved['output']['artifact_checksums'][0]['path'] == 'artifact.txt'
+    assert not working_dir.exists()
+
+
+def test_manifest_rejects_storage_path_outside_bag(tmp_path: Path):
+    module = _load_module()
+    bag_dir = tmp_path / 'bag'
+    bag_dir.mkdir()
+    (tmp_path / 'outside.db3').write_bytes(b'outside\n')
+    metadata = {
+        'rosbag2_bagfile_information': {
+            'storage_identifier': 'sqlite3',
+            'relative_file_paths': ['../outside.db3'],
+            'topics_with_message_count': [],
+        },
+    }
+    (bag_dir / 'metadata.yaml').write_text(
+        yaml.safe_dump(metadata),
+        encoding='utf-8',
+    )
+
+    with pytest.raises(ValueError, match='outside the bag'):
+        module._bag_identity(bag_dir)
+
+
+def test_main_writes_success_manifest_and_rejects_collision(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'demo_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'map_output'
+
+    def fake_plan(bag_path, profile_id, output_dir, verify_map):
+        del bag_path, profile_id, verify_map
+        working_dir = output_dir
+        command_script = '\n'.join([
+            'from pathlib import Path',
+            f'root = Path({str(working_dir)!r})',
+            "(root / 'pointcloud_map').mkdir(parents=True, exist_ok=True)",
+            (
+                "(root / 'pointcloud_map' / 'pointcloud_map_metadata.yaml')"
+                ".write_text('tiles: []\\n')"
+            ),
+            "(root / 'map_projector_info.yaml').write_text('projector_type: Local\\n')",
+        ])
+        return {
+            'payload': {},
+            'profile_id': 'rko_lio_graph_public_path',
+            'label': 'RKO-LIO + graph_based_slam public path',
+            'command': ['python3', '-c', command_script],
+            'output_dir': working_dir,
+        }
+
+    def fake_verify(run_dir: Path, enabled: bool):
+        assert enabled is True
+        (run_dir / 'verify_autoware_map.log').write_text(
+            'RESULT: PASS\nPASS: 1 | WARN: 0 | FAIL: 0\n',
+            encoding='utf-8',
+        )
+
+    monkeypatch.setattr(module, 'build_execution_plan', fake_plan)
+    monkeypatch.setattr(module, 'maybe_verify_map', fake_verify)
+    monkeypatch.setattr(
+        module.sys,
+        'argv',
+        [
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_dir),
+        ],
+    )
+
+    assert module.main() == 0
+    assert output_dir.is_dir()
+    assert not output_dir.with_name('map_output.partial').exists()
+    manifest = json.loads(
+        (output_dir / 'run_manifest.json').read_text(encoding='utf-8')
+    )
+    assert manifest['status'] == 'succeeded'
+    assert manifest['execution']['exit_code'] == 0
+    assert manifest['output']['finalized'] is True
+    assert manifest['output']['diagnosis_status'] == 'success'
+    assert any(
+        item['path'] == 'autoware_map_diagnosis.json'
+        for item in manifest['output']['artifact_checksums']
+    )
+
+    assert module.main() == 2
+
+
+@pytest.mark.parametrize(
+    ('workflow_error', 'expected_status', 'expected_exit_code'),
+    [
+        (subprocess.CompletedProcess([], 17), 'failed', 17),
+        (KeyboardInterrupt(), 'interrupted', 130),
+    ],
+)
+def test_main_retains_terminal_manifest_for_failed_and_interrupted_runs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    workflow_error,
+    expected_status: str,
+    expected_exit_code: int,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'demo_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'failed_map'
+    plan = {
+        'payload': {},
+        'profile_id': 'rko_lio_graph_public_path',
+        'label': 'RKO-LIO + graph_based_slam public path',
+        'command': ['map-workflow'],
+        'output_dir': output_dir.with_name('failed_map.partial'),
+    }
+    monkeypatch.setattr(module, 'build_execution_plan', lambda **kwargs: plan)
+    monkeypatch.setattr(module, '_git_state', lambda: {
+        'commit': '0' * 40,
+        'dirty': False,
+    })
+    monkeypatch.setattr(module, 'maybe_verify_map', lambda *args, **kwargs: None)
+
+    if isinstance(workflow_error, BaseException):
+        def fake_run(*args, **kwargs):
+            raise workflow_error
+    else:
+        def fake_run(*args, **kwargs):
+            return workflow_error
+    monkeypatch.setattr(module.subprocess, 'run', fake_run)
+    monkeypatch.setattr(
+        module.sys,
+        'argv',
+        [
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_dir),
+        ],
+    )
+
+    assert module.main() == expected_exit_code
+    manifest = json.loads(
+        (output_dir / 'run_manifest.json').read_text(encoding='utf-8')
+    )
+    assert manifest['status'] == expected_status
+    assert manifest['execution']['exit_code'] == expected_exit_code
+    assert manifest['output']['finalized'] is True
+    assert not output_dir.with_name('failed_map.partial').exists()
+
+
+def test_main_preserves_failed_manifest_when_post_finalize_diagnosis_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'demo_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'map_output'
+    plan = {
+        'payload': {},
+        'profile_id': 'rko_lio_graph_public_path',
+        'label': 'RKO-LIO + graph_based_slam public path',
+        'command': ['python3', '-c', 'pass'],
+        'output_dir': output_dir.with_name('map_output.partial'),
+    }
+    monkeypatch.setattr(module, 'build_execution_plan', lambda **kwargs: plan)
+    monkeypatch.setattr(module, 'maybe_verify_map', lambda *args, **kwargs: None)
+
+    def fail_diagnosis(*args, **kwargs):
+        del args, kwargs
+        raise RuntimeError('diagnosis fixture failure')
+
+    monkeypatch.setattr(module, 'write_diagnostics', fail_diagnosis)
+    monkeypatch.setattr(
+        module.sys,
+        'argv',
+        [
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_dir),
+        ],
+    )
+
+    assert module.main() == 70
+    manifest = json.loads(
+        (output_dir / 'run_manifest.json').read_text(encoding='utf-8')
+    )
+    assert manifest['status'] == 'failed'
+    assert manifest['execution']['exit_code'] == 70
+    assert manifest['output']['finalized'] is True
 
 
 def test_runner_rejects_incompatible_profile_with_available_hint(tmp_path: Path):

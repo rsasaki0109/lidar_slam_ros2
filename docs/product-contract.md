@@ -20,11 +20,18 @@ A successful product-path run produces an output directory containing:
 - `traj_corrected.tum`;
 - `verify_autoware_map.log`;
 - `autoware_map_diagnosis.md`;
+- `autoware_map_diagnosis.json`;
+- `run_manifest.json`, with input/output checksums and execution identity;
 - `lanelet2_map.osm` when lanelet generation is enabled and succeeds.
 
 `verify_autoware_map.py` must report `PASS` before the point-cloud bundle is
 treated as valid. Generated lanelets are a starting point for map authoring,
 not surveyed road semantics; review them before use.
+
+The versioned machine-readable contracts are published with the
+[golden-path CLI documentation](golden-path-cli.md#versioned-json-contracts).
+Existing output directories are immutable to the runner: operators must choose
+a new name, and in-progress work is isolated under a `.partial` sibling.
 
 ## Official entrypoints
 
