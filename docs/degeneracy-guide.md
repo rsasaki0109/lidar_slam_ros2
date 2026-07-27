@@ -145,14 +145,15 @@ environment.
   trustworthy distance ground truth.
 - **Radar-less IMU velocity blending is straight-motion and speed-envelope
   specific.** `tunnel_imu_no_radar.ros.yaml` improves the radar-less NTNU
-  tunnel reach from 102.3 m to 294.7 m without exceeding the pseudo-GT scale
-  at any time. Its 2.0 m/s propagated-speed cap is calibrated for a 1.7 m/s
-  walk, not a universal value. A sustained-yaw gate is essential: removing it
-  reaches 517.2 m but badly regresses the fog loop. The conservative preset is
-  nearly neutral on fog and HILTI exp07, but changed a MID-360 driving
-  trajectory by 0.101 m aligned RMSE, so it remains preset-scoped and
-  default-off. There is still no validated radar-less fix for fog-style
-  clutter lock.
+  tunnel reach from 102.3 m to 415.6 m; its maximum time-aligned pseudo-GT
+  reach ratio is 0.983. Its 2.0 m/s propagated-speed cap is calibrated for a
+  1.7 m/s walk, not a universal value. Sustained-yaw, walking-speed, and
+  near/far range-distribution gates clear the anchor when the scene leaves the
+  validated envelope. Sixty-second speed and scene cooldowns prevent isolated
+  scans from rearming it. Paired runs on fog, HILTI exp07, and MID-360 were
+  byte-identical to default-off controls, but the feature remains
+  preset-scoped and default-off. There is still no validated radar-less fix
+  for fog-style clutter lock.
 - **Kidnap/registration-failure handling is stop-and-split, not
   relocalize, for mapping workflows.** All presets in this repo ship with
   `enable_kidnap_relocalization` and `reset_on_registration_failure` left

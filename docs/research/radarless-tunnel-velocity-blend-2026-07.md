@@ -1,5 +1,10 @@
 # Radar-less tunnel anchor-decayed velocity blend (2026-07-27)
 
+> Update: the adopted preset now includes automatic scene and speed
+> applicability gates. See
+> [adaptive applicability gate](radarless-tunnel-adaptive-applicability-gate-2026-07.md)
+> for the superseding validation.
+
 ## Decision
 
 Adopt as a default-off, straight-walking-tunnel preset only:

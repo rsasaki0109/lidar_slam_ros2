@@ -12,6 +12,37 @@ bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
 
+### Radar-less tunnel frontend A/B
+
+The radar-less tunnel research track has a frontend-only control/candidate
+runner. It uses isolated DDS domains, stops `offline_node` with `SIGINT` after
+odometry becomes quiet, and records the exact parameter layers, Git SHAs, TUM
+trajectories, and comparison metrics:
+
+```bash
+bash scripts/run_radarless_tunnel_ab.sh \
+  --sequence tunnel \
+  --output-root /media/<ssd>/benchmarks/radarless_tunnel_adaptive_v1
+```
+
+Use `--candidate-param name:=value` for a focused override and `--dry-run` to
+freeze the commands without starting ROS. Run `--sequence fog` as the first
+negative check. HILTI exp07 and MID-360 are also supported with explicit
+`--bag`, topic, base-parameter, and optional reference arguments. The runner
+intentionally rejects exp02, exp03, and exp21 because they are reserved final
+holdouts.
+
+`comparison.json` includes endpoint/path metrics, time-aligned reach-ratio
+quantiles after the first 10 m of reference motion, and an SE(3)-aligned
+translation delta. It also records candidate overrides and the velocity-blend
+diagnostic summary when present. For an existing trajectory, the same evaluator
+can be run directly:
+
+```bash
+python3 scripts/evaluate_degeneracy_trajectory.py <candidate.tum> \
+  --reference-trajectory <dense-reference.tum>
+```
+
 ## FAST-LIVO2 head-to-head
 
 Use the exact same bag, sensor messages, calibration, trajectory reference, and

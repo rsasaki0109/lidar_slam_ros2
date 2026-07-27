@@ -17,14 +17,12 @@
 # Validated on NTNU Fyllingsdalen (~500 m):
 #   plain rko_lio                         102.3 m
 #   intensity-only radar-less preset     153.8 m
-#   this preset                          294.7 m
-#   less-conservative yaw gate (10 scans) 415.6 m, but fog regressed slightly;
+#   this preset                          415.6 m
 #   no yaw gate reached 517.2 m, but failed the fog negative check.
 #
-# Negative checks for this conservative 5-scan preset:
-#   NTNU fog reach 32.88 m vs baseline 32.80 m;
-#   HILTI exp07 SE(3) APE 0.226 m vs baseline 0.208 m;
-#   MID-360 trajectory delta 0.101 m RMSE (6 corrected scans).
+# Paired negative checks with the applicability gates below:
+#   NTNU fog, HILTI exp07, and MID-360 trajectories are byte-identical
+#   to their default-off controls; HILTI exp07 control APE is 0.208 m.
 #
 # Layer this after the sensor config. All feature defaults remain OFF.
 /**:
@@ -39,16 +37,32 @@
     # Only near-exact 3D ICP/propagation agreement refreshes the anchor.
     kinematic_blend_anchor_agreement_mps: 0.05
 
-    # Robustify both inputs. TODO-USER: set the speed cap from the real
-    # platform envelope. 2.0 m/s is specific to the ~1.7 m/s NTNU walk.
+    # Robustify both inputs. TODO-USER: set these from the real platform
+    # envelope. The 2.0 m/s pseudo-sensor cap is specific to the ~1.7 m/s
+    # NTNU walk. The 2.5 m/s activation limit tolerates per-scan ICP velocity
+    # noise without allowing driving-speed use of this walking prior.
     kinematic_blend_max_icp_innovation_mps: 1.0
     kinematic_blend_max_propagated_speed_mps: 2.0
+    kinematic_blend_max_activation_speed_mps: 2.5
+    kinematic_blend_speed_gate_min_scans: 3
+    kinematic_blend_speed_reenable_delay_sec: 60.0
     kinematic_blend_min_speed: 0.3
 
-    # Clear the straight-motion prior after 5 consecutive scan intervals over
+    # Clear the straight-motion prior after 10 consecutive scan intervals over
     # the yaw threshold. Single-scan IMU vibration does not trip the gate.
     kinematic_blend_max_yaw_rate_rad_s: 0.05
-    kinematic_blend_yaw_gate_min_scans: 5
+    kinematic_blend_yaw_gate_min_scans: 10
+
+    # Activate only when the observed ranges resemble an open, long corridor.
+    # Dense near clutter rejects fog and handheld scenes. A 60 s cooldown
+    # prevents intermittent clear scans from repeatedly rearming the prior.
+    kinematic_blend_range_scene_gate: true
+    kinematic_blend_scene_near_range_m: 3.0
+    kinematic_blend_scene_max_near_fraction: 0.5
+    kinematic_blend_scene_far_range_m: 10.0
+    kinematic_blend_scene_min_far_fraction: 0.05
+    kinematic_blend_scene_min_valid_points: 100
+    kinematic_blend_scene_reenable_delay_sec: 60.0
 
     # Validated arm keeps map insertion enabled. Lower values are experimental:
     # partial/full suppression did not prevent runaway in the development sweep.
