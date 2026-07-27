@@ -84,7 +84,8 @@ Per release:
 ```bash
 # 0. ensure develop is green and this repo's release prep is merged
 # 1. tag the release commit (release.yml publishes the GitHub release)
-git tag v0.5.0 && git push origin v0.5.0
+VERSION="$(tr -d '\n' < VERSION)"
+git tag "v${VERSION}" && git push origin "v${VERSION}"
 
 # 2. create an empty release repo once (first release only):
 #    https://github.com/rsasaki0109/lidar_slam_ros2-release
@@ -103,7 +104,7 @@ First-run interactive answers:
 | upstream type | `git` |
 | upstream branch | `develop` |
 | version | `:{auto}` (reads package.xml) |
-| release tag | `v:{version}` (upstream tags are v-prefixed: `v0.5.0`; matches the `v*` trigger in `release.yml`) |
+| release tag | `v:{version}` (upstream tags are v-prefixed; matches the `v*` trigger in `release.yml`) |
 | release repository | `https://github.com/rsasaki0109/lidar_slam_ros2-release.git` |
 
 bloom ends by offering to open the `ros/rosdistro` PR with the configured

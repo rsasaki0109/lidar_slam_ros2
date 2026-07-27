@@ -40,6 +40,11 @@ CONTRIBUTING_PATH = REPO_ROOT / 'CONTRIBUTING.md'
 VERSION_PATH = REPO_ROOT / 'VERSION'
 CHANGELOG_PATH = REPO_ROOT / 'CHANGELOG.md'
 RELEASING_PATH = REPO_ROOT / 'RELEASING.md'
+SECURITY_PATH = REPO_ROOT / 'SECURITY.md'
+SUPPORT_PATH = REPO_ROOT / 'SUPPORT.md'
+CODE_OF_CONDUCT_PATH = REPO_ROOT / 'CODE_OF_CONDUCT.md'
+GOVERNANCE_PATH = REPO_ROOT / 'GOVERNANCE.md'
+CITATION_PATH = REPO_ROOT / 'CITATION.cff'
 MKDOCS_CONFIG_PATH = REPO_ROOT / 'mkdocs.yml'
 GITIGNORE_PATH = REPO_ROOT / '.gitignore'
 DOCS_INDEX_PATH = REPO_ROOT / 'docs' / 'index.md'
@@ -56,6 +61,8 @@ AUTOWARE_FOXGLOVE = REPO_ROOT / 'docs' / 'autoware-foxglove.md'
 WORKFLOWS_DOC = REPO_ROOT / 'docs' / 'workflows.md'
 BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
 COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
+PRODUCT_CONTRACT_DOC = REPO_ROOT / 'docs' / 'product-contract.md'
+V09_ROADMAP_DOC = REPO_ROOT / 'docs' / 'roadmap' / 'v0.9.md'
 SOCIAL_POST_DOC = REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.2.2.md'
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
 PUBLIC_AUTOWARE_ENTRYPOINT = REPO_ROOT / 'scripts' / 'run_autoware_quickstart.sh'
@@ -86,6 +93,11 @@ def test_docs_exist_and_are_linked_from_readme():
     assert VERSION_PATH.is_file()
     assert CHANGELOG_PATH.is_file()
     assert RELEASING_PATH.is_file()
+    assert SECURITY_PATH.is_file()
+    assert SUPPORT_PATH.is_file()
+    assert CODE_OF_CONDUCT_PATH.is_file()
+    assert GOVERNANCE_PATH.is_file()
+    assert CITATION_PATH.is_file()
     assert MKDOCS_CONFIG_PATH.is_file()
     assert DOCS_INDEX_PATH.is_file()
     assert GETTING_STARTED.is_file()
@@ -99,6 +111,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert WORKFLOWS_DOC.is_file()
     assert BENCHMARKING_DOC.is_file()
     assert COMPARISON_DOC.is_file()
+    assert PRODUCT_CONTRACT_DOC.is_file()
+    assert V09_ROADMAP_DOC.is_file()
     assert SOCIAL_POST_DOC.is_file()
     assert DOCS_SITE_WORKFLOW.is_file()
     assert README_LOOP_IMAGE_PATH.is_file()
@@ -110,6 +124,11 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(CONTRIBUTING.md)' in readme
     assert '(CHANGELOG.md)' in readme
     assert '(RELEASING.md)' in readme
+    assert '(SECURITY.md)' in readme
+    assert '(SUPPORT.md)' in readme
+    assert '(GOVERNANCE.md)' in readme
+    assert '(docs/product-contract.md)' in readme
+    assert '(docs/roadmap/v0.9.md)' in readme
     assert '(docs/getting-started.md)' in readme
     assert '(docs/autoware-map-authoring.md)' in readme
     assert '(docs/autoware-quickstart.md)' in readme
@@ -199,13 +218,16 @@ def test_docs_reference_existing_entrypoint_scripts():
 
 
 def test_contributing_and_issue_templates_exist():
-    """Community entry points should exist for benchmark and Autoware reports."""
+    """Community entry points should cover support and structured reports."""
     contributing = CONTRIBUTING_PATH.read_text(encoding='utf-8')
 
     assert ISSUE_TEMPLATE_DIR.is_dir()
     assert (ISSUE_TEMPLATE_DIR / 'config.yml').is_file()
     assert (ISSUE_TEMPLATE_DIR / 'benchmark-report.yml').is_file()
     assert (ISSUE_TEMPLATE_DIR / 'autoware-pointcloud-map.yml').is_file()
+    assert (ISSUE_TEMPLATE_DIR / 'bug-report.yml').is_file()
+    assert (ISSUE_TEMPLATE_DIR / 'feature-request.yml').is_file()
+    assert (ISSUE_TEMPLATE_DIR / 'sensor-support.yml').is_file()
     assert 'Benchmark Result Submissions' in contributing
     assert 'Autoware Naming And Trademark Guidance' in contributing
     assert 'Autoware-compatible pointcloud map' in contributing
@@ -213,6 +235,33 @@ def test_contributing_and_issue_templates_exist():
     assert 'endorsed by the Autoware Foundation' in contributing
     assert 'run_release_readiness_checks.sh' in contributing
     assert 'run_autoware_quickstart.sh' in contributing
+    assert '(CODE_OF_CONDUCT.md)' in contributing
+    assert '(GOVERNANCE.md)' in contributing
+    assert '(SUPPORT.md)' in contributing
+    assert '(SECURITY.md)' in contributing
+    assert '(docs/product-contract.md)' in contributing
+
+    issue_config = (ISSUE_TEMPLATE_DIR / 'config.yml').read_text(encoding='utf-8')
+    assert 'Product Contract And Supported Scope' in issue_config
+    assert 'Usage Support' in issue_config
+    assert 'Report A Security Vulnerability' in issue_config
+
+
+def test_product_contract_has_bounded_official_surface():
+    """The beginner product surface should stay explicit and bounded."""
+    contract = PRODUCT_CONTRACT_DOC.read_text(encoding='utf-8')
+    roadmap = V09_ROADMAP_DOC.read_text(encoding='utf-8')
+
+    assert '## Official entrypoints' in contract
+    assert contract.count('| Try the fixed public demo') == 1
+    assert contract.count('| Map your own compatible rosbag2') == 1
+    assert contract.count('| Reproduce the fixed source-workspace quickstart') == 1
+    assert 'run_autoware_map_beginner.sh <rosbag2_dir>' in contract
+    assert 'download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh' in contract
+    assert 'Other scripts and ROS' in contract
+    assert '## Non-goals' in contract
+    assert 'No more than three beginner-facing entrypoints' in roadmap
+    assert 'Phase 1 — Golden-path UX' in roadmap
 
 
 def test_generated_output_artifacts_are_local_only():
@@ -239,7 +288,8 @@ def test_release_metadata_and_core_package_versions_match():
 
     assert version == '0.6.0'
     assert version in changelog
-    assert version in releasing
+    assert 'VERSION="$(tr -d \'\\n\' < VERSION)"' in releasing
+    assert 'git tag "v${VERSION}"' in releasing
     assert 'RTK-SLAM' in release_notes
     assert 'action-gh-release@v2' in release_workflow
     assert 'mkdocs.yml' in release_workflow
@@ -247,6 +297,12 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'docs/assets/' in release_workflow
     assert 'docs/releases/' in release_workflow
     assert 'docs/autoware-map-authoring.md' in release_workflow
+    assert 'docs/product-contract.md' in release_workflow
+    assert 'docs/roadmap/v0.9.md' in release_workflow
+    policy_bundle = (
+        'SECURITY.md SUPPORT.md CODE_OF_CONDUCT.md GOVERNANCE.md CITATION.cff'
+    )
+    assert policy_bundle in release_workflow
     assert 'docs/autoware-foxglove.md' in release_workflow
     assert 'docs/social/autoware_map_authoring_post_v0.2.2.md' in release_workflow
     assert 'docs/workflows.md' in release_workflow
@@ -279,6 +335,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'name: material' in mkdocs_config
     assert 'assets/stylesheets/extra.css' in mkdocs_config
     assert 'Getting Started: getting-started.md' in mkdocs_config
+    assert 'Product Contract: product-contract.md' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
     assert 'Autoware Foxglove: autoware-foxglove.md' in mkdocs_config
     assert 'Benchmarking And Release Gate: benchmarking.md' in mkdocs_config
@@ -286,6 +343,11 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'v0.2.2: releases/v0.2.2.md' in mkdocs_config
     assert 'v0.2.2 Post Kit: social/autoware_map_authoring_post_v0.2.2.md' in mkdocs_config
     assert 'rosdistro Binary Release: rosdistro-release.md' in mkdocs_config
+    assert 'v0.9 Product Foundation: roadmap/v0.9.md' in mkdocs_config
+
+    citation = CITATION_PATH.read_text(encoding='utf-8')
+    assert f'version: {version}' in citation
+    assert 'license: BSD-2-Clause' in citation
 
 
 def test_docs_cover_autoware_and_release_gate_keywords():

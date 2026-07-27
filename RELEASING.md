@@ -1,6 +1,8 @@
 # Releasing
 
-This repository is currently prepared for a public release at `0.6.0`.
+The repository root `VERSION` file is the release version source of truth.
+Tagged `0.x` releases remain prereleases until the v0.9 roadmap's stable
+promotion gate is completed.
 
 ## Release Scope
 
@@ -24,10 +26,11 @@ bash scripts/run_autoware_quickstart.sh
 ```
 
 3. Push the branch and verify GitHub Actions are green.
-4. Confirm `VERSION`, `CHANGELOG.md`, the per-package `CHANGELOG.rst` files,
-   `docs/comparison.md`, `docs/releases/v0.6.0.md`, and the core package
-   versions match (`test_release_metadata_and_core_package_versions_match`
-   enforces most of this).
+4. Set `VERSION="$(tr -d '\n' < VERSION)"` and confirm `CHANGELOG.md`, the
+   per-package `CHANGELOG.rst` files, `docs/comparison.md`,
+   `docs/releases/v${VERSION}.md`, `CITATION.cff`, and the core package versions
+   match (`test_release_metadata_and_core_package_versions_match` enforces most
+   of this).
 5. Review README, `docs/autoware-quickstart.md`, `docs/benchmarking.md`,
    `docs/comparison.md`, and `CONTRIBUTING.md` for operator-facing accuracy.
 
@@ -42,11 +45,11 @@ Two GitHub Actions workflows matter for release:
 
 ## Tagging
 
-Package versions are currently `0.6.0`.
-
 ```bash
-git tag v0.6.0
-git push <remote> v0.6.0
+VERSION="$(tr -d '\n' < VERSION)"
+test -f "docs/releases/v${VERSION}.md"
+git tag "v${VERSION}"
+git push <remote> "v${VERSION}"
 ```
 
 ## Binary release to rosdistro (bloom)

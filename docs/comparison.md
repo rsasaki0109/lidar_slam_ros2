@@ -1,7 +1,7 @@
 # Comparison
 
-This page is the public comparison snapshot for `lidarslam_ros2 v0.2.2` and
-the in-flight `v0.3` track on `develop`.
+This page is the public comparison snapshot for the current tagged
+`lidarslam_ros2 v0.6.0` release and post-v0.6 work on `develop`.
 
 It is intentionally scoped to workflows that are actually exercised in this
 repository. It is not trying to be a universal ranking of every LiDAR SLAM
@@ -135,12 +135,12 @@ Source artifacts:
 
 ## Current Default Position
 
-The public `v0.2.2` position is:
+The current tagged-release position is:
 
 - default workflow: `RKO-LIO + graph_based_slam`
-- public Autoware entrypoint: `bash scripts/run_autoware_quickstart.sh`
-- release gate (legacy): `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10`
-- release gate (`v0.3`): `bash scripts/run_release_readiness_checks.sh --fail-on-profiles`
+- official product entrypoints: the three commands in
+  [`docs/product-contract.md`](product-contract.md)
+- release gate: `bash scripts/run_release_readiness_checks.sh --fail-on-profiles`
   using `scripts/release_profiles.yaml` (per-dataset pass/target thresholds)
 - map-cleanup benchmark: `bash scripts/run_dynamic_object_filter_benchmark.sh`
 - classic-path suite: `bash scripts/run_open_data_classic_path_benchmark_suite.sh`
@@ -178,19 +178,13 @@ Unsafe claims:
 
 ## Release Scope Reminder
 
-`v0.2.2` is a public `v2 beta` release for:
+`v0.6.0` is the current tagged prerelease. The maintained product boundary is
+offline rosbag2-to-verified-map authoring through the three official
+entrypoints. Lanelet generation remains operator-reviewed, and evaluation-tier
+sensor, GNSS, radar, coloured-map, and optional loop-detector paths do not
+become universal hardware guarantees merely because benchmark evidence exists.
 
-- ROS 2 pointcloud-map generation
-- non-GPL default workflow
-- Autoware pointcloud-map loading
-
-`v0.3` (in flight on `develop`) extends this with:
-
-- Autoware-compatible lanelet2 auto-generation + multi-segment routing
-  validation (`scripts/simple_lanelet2_generator.py --validate-structure`)
-- dataset-profile release gate (`scripts/release_profiles.yaml`)
-- KITTI Odometry t_rel / r_rel drift metric and 00/05/07 dev-split aggregator
-- opt-in NIS-driven auto-scale for `adjacent_edge_info_weight`
-
-`MID-360` and other solid-state LiDAR datasets are explicitly research track
-until `v0.4`; they are reported but do not block release.
+The authoritative supported outcome, support tiers, compatibility policy, and
+non-goals are in [`docs/product-contract.md`](product-contract.md). Product
+maturation toward v0.9 and v1.0 follows
+[`docs/roadmap/v0.9.md`](roadmap/v0.9.md).

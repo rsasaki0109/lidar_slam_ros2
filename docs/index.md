@@ -52,6 +52,10 @@
     <h3>Getting Started</h3>
     <p>Choose Docker, a local build, or your own bag without reading every workflow first.</p>
   </a>
+  <a class="link-card" href="product-contract.html">
+    <h3>Product Contract</h3>
+    <p>Know the supported inputs, outputs, entrypoints, and explicit non-goals.</p>
+  </a>
   <a class="link-card" href="autoware-map-authoring.html">
     <h3>Autoware-Compatible Map Authoring</h3>
     <p>The shortest product-level summary of the supported public path.</p>
@@ -96,9 +100,21 @@
 
 ## Releases
 
+- [v0.6.0](releases/v0.6.0.md)
+- [v0.5.0](releases/v0.5.0.md)
+- [v0.3.0](releases/v0.3.0.md)
 - [v0.2.2](releases/v0.2.2.md)
 - [v0.2.1](releases/v0.2.1.md)
 - [v0.2.0](releases/v0.2.0.md)
+
+## Project
+
+- [Product contract](product-contract.md)
+- [v0.9 product roadmap](roadmap/v0.9.md)
+- [Contributing](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/CONTRIBUTING.md)
+- [Support](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/SUPPORT.md)
+- [Security](https://github.com/rsasaki0109/lidar_slam_ros2/security/policy)
+- [Governance](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/GOVERNANCE.md)
 
 ## Local Preview
 

@@ -1,0 +1,73 @@
+name: Bug report
+description: Report a reproducible defect in a maintained product path.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read SUPPORT.md first. Do not report security vulnerabilities here.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release tag, commit SHA, or container digest.
+      placeholder: v0.6.0 or ec8acf1
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: ROS distribution, Ubuntu version, architecture, and install method.
+      placeholder: Jazzy / Ubuntu 24.04 / amd64 / source
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command
+      render: bash
+    validations:
+      required: true
+
+  - type: textarea
+    id: preflight
+    attributes:
+      label: Preflight output
+      description: Run the beginner wrapper with --preflight-only.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and observed behavior
+      description: Explain what should have happened and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics and logs
+      description: Include diagnosis, verifier output, relevant logs, topics, frames, and parameter files.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: I removed credentials and private location data.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true
