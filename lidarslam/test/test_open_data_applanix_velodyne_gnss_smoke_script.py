@@ -83,6 +83,14 @@ def test_applanix_velodyne_smoke_script_supports_overlay_bootstrap():
     assert 'VLS128)' in script
 
 
+def test_applanix_profile_reports_rosbags_dependency_before_launch():
+    script = SMOKE_SCRIPT.read_text(encoding='utf-8')
+
+    assert 'require_rosbags' in script
+    assert "requires the Python package 'rosbags'" in script
+    assert 'docs/distribution.md#profile-specific-extras' in script
+
+
 def test_overlay_preparation_script_stays_minimal_and_public():
     """The overlay helper should pull only the minimum public repos/packages."""
     script = OVERLAY_SCRIPT.read_text(encoding='utf-8')

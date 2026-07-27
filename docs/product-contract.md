@@ -44,11 +44,14 @@ launch files are advanced, benchmark, migration, or research interfaces.
 | Goal | Official command | Contract |
 | --- | --- | --- |
 | Try the fixed public demo without a ROS workspace | `docker run --rm -v "$PWD/lidarslam_output:/lidarslam_ws/output" ghcr.io/rsasaki0109/lidar_slam_ros2:humble` | Downloads the tracked MID-360 demo and writes a headless map bundle |
-| Map your own compatible rosbag2 | `bash scripts/run_autoware_map_beginner.sh <rosbag2_dir>` | Preflights the bag, selects a compatible maintained profile, runs headless, verifies and diagnoses the output |
+| Map your own compatible rosbag2 | `lidarslam-map run <rosbag2_dir> --output-dir <dir>` | Preflights the bag, selects a compatible maintained profile, runs headless, verifies and diagnoses the output |
 | Reproduce the fixed source-workspace quickstart | `bash scripts/download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh` | Runs the tracked NTU VIRAL path and opens the bounded viewer flow |
 
-For automation, run the beginner wrapper with `--no-viewer` and an explicit
-`--output-dir`. Use `--preflight-only` before a long run.
+For automation, use an explicit `--output-dir`; run `lidarslam-map doctor`
+before a long run. The repo-local `./scripts/lidarslam` wrapper and installed
+`ros2 run lidarslam lidarslam-cli` shim expose the same own-bag contract and do
+not add beginner workflows. Installation details are in
+[Distribution and installed CLI](distribution.md).
 
 ## Input contract
 

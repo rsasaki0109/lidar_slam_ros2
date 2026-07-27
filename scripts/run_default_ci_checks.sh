@@ -120,6 +120,25 @@ if [[ -f "${REPO_ROOT}/install/setup.bash" ]]; then
   set -u
 fi
 
+echo "==> Validating clean-prefix product CLI install"
+CLI_INSTALL_TEST_ROOT=$(mktemp -d)
+if ! colcon build \
+  --base-paths "${REPO_ROOT}/lidarslam" \
+  --build-base "${CLI_INSTALL_TEST_ROOT}/build" \
+  --install-base "${CLI_INSTALL_TEST_ROOT}/prefix" \
+  --merge-install \
+  --event-handlers console_direct+ \
+  --cmake-args -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"; then
+  echo "error: clean-prefix lidarslam install build failed" >&2
+  exit 1
+fi
+if ! python3 "${REPO_ROOT}/scripts/check_installed_product_cli.py" \
+  --prefix "${CLI_INSTALL_TEST_ROOT}/prefix"; then
+  echo "error: clean-prefix product CLI validation failed" >&2
+  exit 1
+fi
+rm -rf -- "${CLI_INSTALL_TEST_ROOT}"
+
 if [[ "${BUILD_ONLY}" == "true" ]]; then
   echo "==> Build-only mode completed"
   exit 0

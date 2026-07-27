@@ -63,6 +63,7 @@ BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
 COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
 PRODUCT_CONTRACT_DOC = REPO_ROOT / 'docs' / 'product-contract.md'
 GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
+DISTRIBUTION_DOC = REPO_ROOT / 'docs' / 'distribution.md'
 PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v1.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
 RUN_MANIFEST_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.json'
@@ -120,6 +121,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert COMPARISON_DOC.is_file()
     assert PRODUCT_CONTRACT_DOC.is_file()
     assert GOLDEN_PATH_CLI_DOC.is_file()
+    assert DISTRIBUTION_DOC.is_file()
     assert PREFLIGHT_SCHEMA.is_file()
     assert DIAGNOSIS_SCHEMA.is_file()
     assert RUN_MANIFEST_SCHEMA.is_file()
@@ -140,6 +142,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(SUPPORT.md)' in readme
     assert '(GOVERNANCE.md)' in readme
     assert '(docs/product-contract.md)' in readme
+    assert '(docs/distribution.md)' in readme
     assert '(docs/roadmap/v0.9.md)' in readme
     assert '(docs/getting-started.md)' in readme
     assert '(docs/autoware-map-authoring.md)' in readme
@@ -149,7 +152,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(docs/comparison.md)' in readme
     assert '(docs/benchmarking.md)' in readme
     assert 'python3 -m mkdocs serve' in readme
-    assert 'run_autoware_map_beginner.sh' in readme
+    assert 'lidarslam-map run' in readme
     assert '(lidarslam/images/autoware_map_loader_proof.png)' in readme
     assert 'git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git' in readme
     assert 'rosdep install --from-paths src --ignore-src -r -y' in readme
@@ -269,7 +272,8 @@ def test_product_contract_has_bounded_official_surface():
     assert contract.count('| Try the fixed public demo') == 1
     assert contract.count('| Map your own compatible rosbag2') == 1
     assert contract.count('| Reproduce the fixed source-workspace quickstart') == 1
-    assert 'run_autoware_map_beginner.sh <rosbag2_dir>' in contract
+    assert 'lidarslam-map run <rosbag2_dir> --output-dir <dir>' in contract
+    assert 'ros2 run lidarslam lidarslam-cli' in contract
     assert 'download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh' in contract
     assert 'Other scripts and ROS' in contract
     assert '`run_manifest.json`' in contract
@@ -322,6 +326,10 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'docs/releases/' in release_workflow
     assert 'docs/autoware-map-authoring.md' in release_workflow
     assert 'docs/product-contract.md' in release_workflow
+    assert 'docs/getting-started.md' in release_workflow
+    assert 'docs/golden-path-cli.md' in release_workflow
+    assert 'docs/distribution.md' in release_workflow
+    assert 'docs/rosdistro-release.md' in release_workflow
     assert 'docs/roadmap/v0.9.md' in release_workflow
     policy_bundle = (
         'SECURITY.md SUPPORT.md CODE_OF_CONDUCT.md GOVERNANCE.md CITATION.cff'
@@ -361,6 +369,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'Getting Started: getting-started.md' in mkdocs_config
     assert 'Product Contract: product-contract.md' in mkdocs_config
     assert 'Golden-path CLI: golden-path-cli.md' in mkdocs_config
+    assert 'Distribution and installed CLI: distribution.md' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
     assert 'Autoware Foxglove: autoware-foxglove.md' in mkdocs_config
     assert 'Benchmarking And Release Gate: benchmarking.md' in mkdocs_config
@@ -383,10 +392,11 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     autoware_foxglove_doc = AUTOWARE_FOXGLOVE.read_text(encoding='utf-8')
     benchmarking_doc = BENCHMARKING_DOC.read_text(encoding='utf-8')
     comparison_doc = COMPARISON_DOC.read_text(encoding='utf-8')
+    distribution_doc = DISTRIBUTION_DOC.read_text(encoding='utf-8')
 
-    assert 'run_autoware_map_beginner.sh' in getting_started_doc
-    assert 'preflight_autoware_map_bag.py' in getting_started_doc
-    assert 'verify_autoware_map.py' in getting_started_doc
+    assert 'lidarslam-map doctor' in getting_started_doc
+    assert 'lidarslam-map run' in getting_started_doc
+    assert 'lidarslam-map inspect' in getting_started_doc
     assert (
         'git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git'
         in getting_started_doc
@@ -472,3 +482,9 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert '--profile failing' in benchmarking_doc
     assert 'Capability Comparison' in comparison_doc
     assert 'Current Default Position' in comparison_doc
+    assert 'ros2 run lidarslam lidarslam' in distribution_doc
+    assert 'ros2 run lidarslam lidarslam-cli' in distribution_doc
+    assert 'Humble amd64' in distribution_doc
+    assert 'Jazzy amd64' in distribution_doc
+    assert 'There is currently no supported' in distribution_doc
+    assert 'rko_lio' in distribution_doc

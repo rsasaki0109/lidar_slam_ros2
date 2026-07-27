@@ -2,10 +2,21 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-WS_ROOT="${REPO_ROOT}"
-if [[ ! -f "${WS_ROOT}/install/setup.bash" && -f "${REPO_ROOT}/../install/setup.bash" ]]; then
-  WS_ROOT="$(cd "${REPO_ROOT}/.." && pwd)"
+SOURCE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if [[ -f "${SOURCE_ROOT}/lidarslam/package.xml" ]]; then
+  PACKAGE_SHARE="${SOURCE_ROOT}/lidarslam"
+  WORK_ROOT="${SOURCE_ROOT}"
+  WORKSPACE_SETUP=""
+  if [[ -f "${SOURCE_ROOT}/install/setup.bash" ]]; then
+    WORKSPACE_SETUP="${SOURCE_ROOT}/install/setup.bash"
+  elif [[ -f "${SOURCE_ROOT}/../install/setup.bash" ]]; then
+    WORKSPACE_SETUP="$(cd "${SOURCE_ROOT}/.." && pwd)/install/setup.bash"
+  fi
+else
+  PACKAGE_SHARE="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+  INSTALL_PREFIX="$(cd "${PACKAGE_SHARE}/../.." && pwd)"
+  WORK_ROOT="${PWD}"
+  WORKSPACE_SETUP="${INSTALL_PREFIX}/setup.bash"
 fi
 
 usage() {
@@ -56,6 +67,11 @@ EOF
 die() {
   echo "error: $*" >&2
   exit 1
+}
+
+require_rosbags() {
+  python3 -c 'import rosbags' >/dev/null 2>&1 || die \
+    "the packet_applanix_smoke profile requires the Python package 'rosbags'; see https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/docs/distribution.md#profile-specific-extras"
 }
 
 timestamp() {
@@ -271,7 +287,7 @@ APPLANIX_MSG_DIR="/tmp/applanix/applanix_msgs/msg"
 VELODYNE_OVERLAY="/tmp/velodyne_ws"
 VELODYNE_MODEL="VLP16"
 VELODYNE_CALIBRATION=""
-PARAM_FILE="${REPO_ROOT}/lidarslam/param/lidarslam.yaml"
+PARAM_FILE="${PACKAGE_SHARE}/param/lidarslam.yaml"
 SAVE_DIR=""
 RATE="5.0"
 PLAY_WALL_SEC="60"
@@ -344,7 +360,7 @@ done
 [[ -f "${PARAM_FILE}" ]] || die "param file not found: ${PARAM_FILE}"
 
 if [[ -z "${SAVE_DIR}" ]]; then
-  SAVE_DIR="${REPO_ROOT}/output/open_data_gnss_smoke_$(timestamp)"
+  SAVE_DIR="${WORK_ROOT}/output/open_data_gnss_smoke_$(timestamp)"
 fi
 mkdir -p "${SAVE_DIR}"
 
@@ -366,15 +382,16 @@ VELODYNE_MSG_DIR="$(resolve_velodyne_msg_dir "${VELODYNE_OVERLAY}")" || {
 set +u
 # shellcheck source=/dev/null
 source "/opt/ros/${ROS_DISTRO_NAME}/setup.bash"
-if [[ -f "${WS_ROOT}/install/setup.bash" ]]; then
+if [[ -n "${WORKSPACE_SETUP}" && -f "${WORKSPACE_SETUP}" ]]; then
   # shellcheck source=/dev/null
-  source "${WS_ROOT}/install/setup.bash"
+  source "${WORKSPACE_SETUP}"
 fi
 # shellcheck source=/dev/null
 source "${VELODYNE_OVERLAY}/install/setup.bash"
 set -u
 
 command -v ros2 >/dev/null 2>&1 || die "ros2 not found"
+require_rosbags
 ros2 pkg executables velodyne_pointcloud | grep -q 'velodyne_transform_node' || {
   die "velodyne_transform_node not available after sourcing ${VELODYNE_OVERLAY}"
 }
@@ -576,7 +593,7 @@ if ! call_map_save_with_retry "${MAP_SAVE_LOG}"; then
 fi
 
 if [[ "${VERIFY_MAP}" == "true" ]]; then
-  python3 "${REPO_ROOT}/scripts/verify_autoware_map.py" "${SAVE_DIR}" >"${VERIFY_LOG}" 2>&1
+  python3 "${SCRIPT_DIR}/verify_autoware_map.py" "${SAVE_DIR}" >"${VERIFY_LOG}" 2>&1
 fi
 
 if [[ -f "${SAVE_DIR}/map_projector_info.yaml" ]]; then
