@@ -33,6 +33,10 @@ bash scripts/run_autoware_quickstart.sh
    of this).
 5. Review README, `docs/autoware-quickstart.md`, `docs/benchmarking.md`,
    `docs/comparison.md`, and `CONTRIBUTING.md` for operator-facing accuracy.
+6. Confirm the tagged checkout can build both `ROS_DISTRO=humble` and
+   `ROS_DISTRO=jazzy` Docker targets. The release workflow will refuse to
+   create the GitHub Release unless both published digests pass the installed
+   `lidarslam-map --version` smoke test.
 
 ## Automated Publication
 
@@ -40,8 +44,22 @@ Two GitHub Actions workflows matter for release:
 
 - `.github/workflows/main.yml` runs the continuing CI matrix, release-readiness
   fixture checks, and weekly scheduled validation.
-- `.github/workflows/release.yml` publishes a prerelease when `v*` tags are
-  pushed and uses `docs/releases/v<version>.md` as the release body.
+- `.github/workflows/release.yml` validates the tag, publishes and attests
+  `v<version>-humble` and `v<version>-jazzy` GHCR images, smoke-tests both by
+  registry digest, then publishes the prerelease using
+  `docs/releases/v<version>.md` as the release body. The release assets include
+  the source bundle plus one `release-image-<distro>.json` installation
+  evidence file per image.
+
+The image build emits an OCI SBOM and maximum-mode BuildKit provenance.
+GitHub artifact attestations cover each image digest and the source release
+bundle. Verify an image after publication:
+
+```bash
+gh attestation verify \
+  "oci://ghcr.io/rsasaki0109/lidar_slam_ros2:v${VERSION}-jazzy" \
+  -R rsasaki0109/lidar_slam_ros2
+```
 
 ## Tagging
 

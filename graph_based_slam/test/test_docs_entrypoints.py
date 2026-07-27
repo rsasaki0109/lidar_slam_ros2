@@ -77,6 +77,7 @@ SOCIAL_POST_DOC = REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
 PUBLIC_AUTOWARE_ENTRYPOINT = REPO_ROOT / 'scripts' / 'run_autoware_quickstart.sh'
 RELEASE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'release.yml'
+DOCKER_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'docker.yml'
 DOCS_SITE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'docs-site.yml'
 README_LOOP_IMAGE_PATH = REPO_ROOT / 'lidarslam' / 'images' / 'mid360_loop_closure_zoom.png'
 README_AUTOWARE_PROOF_IMAGE_PATH = (
@@ -132,6 +133,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert RUN_MANIFEST_V2_SCHEMA.is_file()
     assert V09_ROADMAP_DOC.is_file()
     assert SOCIAL_POST_DOC.is_file()
+    assert DOCKER_WORKFLOW.is_file()
     assert DOCS_SITE_WORKFLOW.is_file()
     assert README_LOOP_IMAGE_PATH.is_file()
     assert README_AUTOWARE_PROOF_IMAGE_PATH.is_file()
@@ -324,6 +326,16 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'git tag "v${VERSION}"' in releasing
     assert 'RTK-SLAM' in release_notes
     assert 'action-gh-release@v2' in release_workflow
+    assert 'docker/setup-buildx-action@v4' in release_workflow
+    assert 'docker/login-action@v4' in release_workflow
+    assert 'docker/metadata-action@v6' in release_workflow
+    assert 'docker/build-push-action@v7' in release_workflow
+    assert 'actions/attest@v4' in release_workflow
+    assert 'actions/download-artifact@v7' in release_workflow
+    assert 'release-image-${{ matrix.ros_distro }}.json' in release_workflow
+    assert 'v<VERSION>-<distro>' in (
+        DISTRIBUTION_DOC.read_text(encoding='utf-8')
+    )
     assert 'mkdocs.yml' in release_workflow
     assert 'docs/index.md' in release_workflow
     assert 'docs/assets/' in release_workflow
@@ -497,6 +509,11 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'ros2 run lidarslam lidarslam-cli' in distribution_doc
     assert 'Humble amd64' in distribution_doc
     assert 'Jazzy amd64' in distribution_doc
+    assert ':v<VERSION>-<distro>' in distribution_doc
+    assert 'release-image-humble.json' in distribution_doc
+    assert 'release-image-jazzy.json' in distribution_doc
+    assert 'gh attestation verify' in distribution_doc
+    assert 'BuildKit provenance' in distribution_doc
     assert 'There is currently no supported' in distribution_doc
     assert 'rko_lio' in distribution_doc
     assert 'SIGTERM' in reliability_doc
@@ -534,3 +551,35 @@ def test_real_data_e2e_workflow_is_pinned_bounded_and_non_geometry():
     assert 'validate_real_data_e2e.py' in workflow
     assert 'output/real-data-e2e/run/map.pcd' not in workflow
     assert 'output/real-data-e2e/run/traj_raw.tum' not in workflow
+
+
+def test_container_distribution_builds_and_attests_both_supported_distros():
+    """Container CI and releases must prove both supported binary paths."""
+    docker_workflow = DOCKER_WORKFLOW.read_text(encoding='utf-8')
+    release_workflow = RELEASE_WORKFLOW.read_text(encoding='utf-8')
+
+    for workflow in (docker_workflow, release_workflow):
+        assert '- humble' in workflow
+        assert '- jazzy' in workflow
+        assert 'linux/amd64' in workflow or workflow == docker_workflow
+        assert 'docker/build-push-action@v7' in workflow
+        assert 'actions/attest@v4' in workflow
+        assert 'attestations: write' in workflow
+        assert 'id-token: write' in workflow
+        assert 'sbom:' in workflow
+        assert 'provenance:' in workflow
+        assert 'lidarslam-map --version' in workflow
+
+    assert "load: ${{ github.event_name == 'pull_request' }}" in docker_workflow
+    assert '.github/workflows/release.yml' in docker_workflow
+    assert 'needs:' in release_workflow
+    assert '- images' in release_workflow
+    assert 'v<VERSION>-<distro>' in (
+        DISTRIBUTION_DOC.read_text(encoding='utf-8')
+    )
+    assert '${{ needs.metadata.outputs.tag_name }}-${{ matrix.ros_distro }}' in (
+        release_workflow
+    )
+    assert 'subject-digest: ${{ steps.image.outputs.digest }}' in release_workflow
+    assert 'docker buildx imagetools inspect' in release_workflow
+    assert 'release_image_evidence/*.json' in release_workflow
