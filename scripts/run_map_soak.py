@@ -491,19 +491,14 @@ def _terminate_process_group(process: subprocess.Popen) -> None:
     except ProcessLookupError:
         pass
 
-    deadline = time.monotonic() + PROCESS_SHUTDOWN_GRACE_SECS
-    while time.monotonic() < deadline:
-        process.poll()
-        try:
-            os.killpg(process_group_id, 0)
-        except ProcessLookupError:
-            break
-        time.sleep(0.01)
-    else:
-        try:
-            os.killpg(process_group_id, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+    try:
+        process.wait(timeout=PROCESS_SHUTDOWN_GRACE_SECS)
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(process_group_id, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
     process.wait()
 
 

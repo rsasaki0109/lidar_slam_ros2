@@ -51,9 +51,9 @@ manifest is not replaced by truncated JSON.
 
 The runner starts the delegated workflow in a separate POSIX process group.
 For `SIGINT` and `SIGTERM`, it forwards the same signal to the entire group,
-waits up to ten seconds for the process group to disappear, then sends
-`SIGKILL` to any surviving group members. The leader is always reaped before
-terminal post-processing begins.
+waits up to ten seconds for the group leader, then sends `SIGKILL` to any
+remaining group members even if the leader exited first. The leader is always
+reaped before terminal post-processing begins.
 
 An external `SIGKILL`, kernel panic, power loss, or storage device loss cannot
 be converted into a terminal manifest by user-space code. Such a run may
