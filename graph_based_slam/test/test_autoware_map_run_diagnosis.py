@@ -132,6 +132,43 @@ def test_summary_reports_tf_issue_hints(tmp_path: Path):
     assert any('tail -n 120' in step for step in summary['suggested_next_steps'])
 
 
+def test_summary_uses_terminal_manifest_as_runtime_failure_evidence(
+    tmp_path: Path,
+):
+    module = _load_module()
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    (run_dir / 'run_manifest.json').write_text(
+        json.dumps({
+            'status': 'interrupted',
+            'lifecycle': {
+                'last_error': 'map workflow interrupted by SIGTERM',
+            },
+        }),
+        encoding='utf-8',
+    )
+
+    summary = module.summarize_run(run_dir)
+
+    assert summary['status'] == 'runtime_failed'
+    assert 'map workflow interrupted by SIGTERM' in summary['problem_hints']
+
+
+def test_summary_reports_unreadable_manifest_without_traceback(tmp_path: Path):
+    module = _load_module()
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    (run_dir / 'run_manifest.json').write_text('{not json', encoding='utf-8')
+
+    summary = module.summarize_run(run_dir)
+
+    assert summary['status'] == 'runtime_failed'
+    assert any(
+        hint.startswith('The run manifest is unreadable:')
+        for hint in summary['problem_hints']
+    )
+
+
 def test_cli_help_is_user_facing():
     result = subprocess.run(
         [sys.executable, str(SCRIPT_PATH), '--help'],

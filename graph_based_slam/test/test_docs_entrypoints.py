@@ -64,6 +64,7 @@ COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
 PRODUCT_CONTRACT_DOC = REPO_ROOT / 'docs' / 'product-contract.md'
 GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
 DISTRIBUTION_DOC = REPO_ROOT / 'docs' / 'distribution.md'
+OPERATIONAL_RELIABILITY_DOC = REPO_ROOT / 'docs' / 'operational-reliability.md'
 PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v1.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
 RUN_MANIFEST_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.json'
@@ -122,6 +123,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert PRODUCT_CONTRACT_DOC.is_file()
     assert GOLDEN_PATH_CLI_DOC.is_file()
     assert DISTRIBUTION_DOC.is_file()
+    assert OPERATIONAL_RELIABILITY_DOC.is_file()
     assert PREFLIGHT_SCHEMA.is_file()
     assert DIAGNOSIS_SCHEMA.is_file()
     assert RUN_MANIFEST_SCHEMA.is_file()
@@ -328,6 +330,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'docs/product-contract.md' in release_workflow
     assert 'docs/getting-started.md' in release_workflow
     assert 'docs/golden-path-cli.md' in release_workflow
+    assert 'docs/operational-reliability.md' in release_workflow
     assert 'docs/distribution.md' in release_workflow
     assert 'docs/rosdistro-release.md' in release_workflow
     assert 'docs/roadmap/v0.9.md' in release_workflow
@@ -370,6 +373,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'Product Contract: product-contract.md' in mkdocs_config
     assert 'Golden-path CLI: golden-path-cli.md' in mkdocs_config
     assert 'Distribution and installed CLI: distribution.md' in mkdocs_config
+    assert 'Operational reliability: operational-reliability.md' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
     assert 'Autoware Foxglove: autoware-foxglove.md' in mkdocs_config
     assert 'Benchmarking And Release Gate: benchmarking.md' in mkdocs_config
@@ -393,6 +397,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     benchmarking_doc = BENCHMARKING_DOC.read_text(encoding='utf-8')
     comparison_doc = COMPARISON_DOC.read_text(encoding='utf-8')
     distribution_doc = DISTRIBUTION_DOC.read_text(encoding='utf-8')
+    reliability_doc = OPERATIONAL_RELIABILITY_DOC.read_text(encoding='utf-8')
 
     assert 'lidarslam-map doctor' in getting_started_doc
     assert 'lidarslam-map run' in getting_started_doc
@@ -488,3 +493,11 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'Jazzy amd64' in distribution_doc
     assert 'There is currently no supported' in distribution_doc
     assert 'rko_lio' in distribution_doc
+    assert 'SIGTERM' in reliability_doc
+    assert 'exit `143`' in reliability_doc
+    assert 'Automated failure injection' in reliability_doc
+    assert 'timestamp reversal' in reliability_doc
+    assert 'disk-pressure' in reliability_doc
+    assert '(operational-reliability.md)' in (
+        PRODUCT_CONTRACT_DOC.read_text(encoding='utf-8')
+    )
