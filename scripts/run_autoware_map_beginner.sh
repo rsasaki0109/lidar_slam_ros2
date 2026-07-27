@@ -18,6 +18,7 @@ Options:
   --autoware                    Open the saved map in the Dockerized Autoware viewer after the run
   --no-viewer                   Do not open a viewer after the run (default)
   --dry-run                     Print the selected command without executing it
+  --resume                      Resume terminal post-processing; never rerun SLAM
   --help                        Show this help
 
 Common forwarded options:
@@ -35,12 +36,14 @@ Expected successful outputs:
   map_projector_info.yaml
   verify_autoware_map.log
   autoware_map_diagnosis.md
+  run_manifest.json
 
 Examples:
   bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
   bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2 --preflight-only
   bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2 --foxglove
   bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2 --output-dir output/my_map
+  bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2 --output-dir output/my_map --resume
 EOF
   exit "$exit_code"
 }
@@ -110,7 +113,7 @@ while [[ $# -gt 0 ]]; do
     --help|-h)
       usage 0
       ;;
-    --dry-run|--no-verify-map|--viewer-rebuild)
+    --dry-run|--resume|--no-verify-map|--viewer-rebuild)
       FORWARDED_ARGS+=("$1")
       shift
       ;;

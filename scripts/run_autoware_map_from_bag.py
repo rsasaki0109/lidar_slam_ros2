@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 from datetime import datetime, timezone
+import fcntl
 import hashlib
 import importlib.util
 import json
@@ -21,10 +23,10 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_NAME = 'run_manifest.json'
-MANIFEST_SCHEMA_VERSION = 1
+MANIFEST_SCHEMA_VERSION = 2
 MANIFEST_SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
-    'schemas/run-manifest-v1.schema.json'
+    'schemas/run-manifest-v2.schema.json'
 )
 PROFILE_CHOICES = (
     'rko_lio_graph_public_path',
@@ -298,6 +300,17 @@ def _package_versions() -> dict[str, str]:
     return dict(sorted(versions.items()))
 
 
+def _software_identity() -> dict[str, object]:
+    git_state = _git_state()
+    return {
+        'product_version': _product_version(),
+        'git_commit': git_state['commit'],
+        'git_dirty': git_state['dirty'],
+        'package_versions': _package_versions(),
+        'ros_distro': os.environ.get('ROS_DISTRO'),
+    }
+
+
 def _bag_identity(bag_path: Path) -> dict[str, object]:
     metadata_path = bag_path / 'metadata.yaml'
     metadata_before = metadata_path.stat()
@@ -312,6 +325,12 @@ def _bag_identity(bag_path: Path) -> dict[str, object]:
     metadata = yaml.safe_load(metadata_bytes) or {}
     bag_info = metadata.get('rosbag2_bagfile_information') or {}
     relative_paths = bag_info.get('relative_file_paths') or []
+    if not isinstance(relative_paths, list) or not all(
+        isinstance(path, str) for path in relative_paths
+    ):
+        raise ValueError(
+            'rosbag2 metadata relative_file_paths must be a list of strings'
+        )
     if not relative_paths:
         relative_paths = [
             path.relative_to(bag_path).as_posix()
@@ -377,21 +396,22 @@ def _build_manifest(
     final_output_dir: Path,
     working_output_dir: Path,
     plan: dict[str, object],
+    verify_map: bool = True,
 ) -> dict[str, object]:
-    git_state = _git_state()
     return {
         'schema_version': MANIFEST_SCHEMA_VERSION,
         'schema_uri': MANIFEST_SCHEMA_URI,
         'run_id': str(uuid.uuid4()),
         'status': 'planned',
-        'input': _bag_identity(bag_path),
-        'software': {
-            'product_version': _product_version(),
-            'git_commit': git_state['commit'],
-            'git_dirty': git_state['dirty'],
-            'package_versions': _package_versions(),
-            'ros_distro': os.environ.get('ROS_DISTRO'),
+        'lifecycle': {
+            'stage': 'initialized',
+            'resume_count': 0,
+            'verification_enabled': verify_map,
+            'runner_exit_code': None,
+            'last_error': None,
         },
+        'input': _bag_identity(bag_path),
+        'software': _software_identity(),
         'profile': {
             'id': plan['profile_id'],
             'label': plan['label'],
@@ -410,6 +430,127 @@ def _build_manifest(
             'artifact_checksums': [],
         },
     }
+
+
+def _load_manifest(run_dir: Path) -> dict[str, object]:
+    manifest_path = run_dir / MANIFEST_NAME
+    if not manifest_path.is_file():
+        raise ValueError(f'run manifest not found: {manifest_path}')
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f'run manifest is not readable JSON: {manifest_path}: {exc}') from exc
+    if not isinstance(manifest, dict):
+        raise ValueError(f'run manifest root must be an object: {manifest_path}')
+    return manifest
+
+
+def _validate_resume_state(
+    bag_path: Path,
+    final_output_dir: Path,
+    working_output_dir: Path,
+    plan: dict[str, object],
+    verify_map: bool,
+) -> tuple[Path, dict[str, object]]:
+    existing_dirs = [
+        path for path in (working_output_dir, final_output_dir) if path.exists()
+    ]
+    if len(existing_dirs) != 1:
+        if not existing_dirs:
+            raise ValueError(
+                'no resumable output found. Expected exactly one of '
+                f'{working_output_dir} or {final_output_dir}'
+            )
+        raise ValueError(
+            'ambiguous resume state: both the partial and final output exist: '
+            f'{working_output_dir}, {final_output_dir}'
+        )
+
+    run_dir = existing_dirs[0]
+    if not run_dir.is_dir():
+        raise ValueError(f'resume output path is not a directory: {run_dir}')
+    manifest = _load_manifest(run_dir)
+    if manifest.get('schema_version') != MANIFEST_SCHEMA_VERSION:
+        raise ValueError(
+            'resume requires run manifest schema v2; older manifests remain '
+            'inspectable but cannot be resumed safely'
+        )
+    if manifest.get('schema_uri') != MANIFEST_SCHEMA_URI:
+        raise ValueError('resume manifest schema_uri does not match schema v2')
+
+    lifecycle = manifest.get('lifecycle')
+    execution = manifest.get('execution')
+    output = manifest.get('output')
+    if not all(isinstance(item, dict) for item in (lifecycle, execution, output)):
+        raise ValueError('resume manifest is missing lifecycle, execution, or output state')
+
+    stage = lifecycle.get('stage')
+    valid_stages = {
+        'initialized',
+        'workflow_running',
+        'workflow_finished',
+        'verifying',
+        'verified',
+        'finalizing',
+        'finalized',
+        'diagnosing',
+        'diagnosed',
+        'checksumming',
+        'complete',
+    }
+    if stage not in valid_stages:
+        raise ValueError(f'resume manifest has an unknown lifecycle stage: {stage!r}')
+    if stage in ('initialized', 'workflow_running'):
+        raise ValueError(
+            f'refusing resume from lifecycle stage {stage!r}: the workflow may '
+            'still be running, so starting post-processing could corrupt evidence'
+        )
+    if stage == 'complete':
+        raise ValueError(
+            'run is already complete; use `./scripts/lidarslam inspect '
+            f'{final_output_dir}` instead'
+        )
+    if execution.get('finished_at') is None or execution.get('exit_code') is None:
+        raise ValueError('resume requires a durably recorded terminal workflow result')
+    if lifecycle.get('verification_enabled') is not verify_map:
+        raise ValueError(
+            'resume verification option mismatch; use the same --no-verify-map '
+            'setting as the original run'
+        )
+
+    expected_values = (
+        ('input identity', manifest.get('input'), _bag_identity(bag_path)),
+        ('software identity', manifest.get('software'), _software_identity()),
+        (
+            'profile',
+            manifest.get('profile'),
+            {'id': plan['profile_id'], 'label': plan['label']},
+        ),
+        ('execution argv', execution.get('argv'), plan['command']),
+        ('requested output', output.get('requested_dir'), str(final_output_dir)),
+        ('working output', output.get('working_dir'), str(working_output_dir)),
+    )
+    for label, actual, expected in expected_values:
+        if actual != expected:
+            raise ValueError(
+                f'resume {label} mismatch; use the original bag, software, '
+                'profile, options, and output path'
+            )
+
+    if run_dir == working_output_dir and output.get('finalized') is True:
+        raise ValueError('partial output claims it was already finalized')
+
+    resume_count = lifecycle.get('resume_count')
+    if not isinstance(resume_count, int) or isinstance(resume_count, bool):
+        raise ValueError('resume manifest lifecycle.resume_count must be an integer')
+    lifecycle['resume_count'] = resume_count + 1
+    lifecycle['last_error'] = None
+    workflow_exit_code = execution['exit_code']
+    if manifest.get('status') == 'interrupted' and workflow_exit_code == 130:
+        manifest['status'] = 'interrupted'
+    else:
+        manifest['status'] = 'succeeded' if workflow_exit_code == 0 else 'failed'
+    return run_dir, manifest
 
 
 def _finalize_output(working_dir: Path, final_dir: Path) -> None:
@@ -516,6 +657,130 @@ def write_diagnostics(output_dir: Path, bag_path: Path) -> dict[str, object]:
     return summary
 
 
+@contextmanager
+def _postprocess_lock(output_dir: Path):
+    lock_path = output_dir.with_name(f'.{output_dir.name}.postprocess.lock')
+    try:
+        stream = lock_path.open('a+', encoding='utf-8')
+    except OSError as exc:
+        raise RuntimeError(f'cannot open post-processing lock {lock_path}: {exc}') from exc
+    try:
+        try:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise RuntimeError(
+                f'post-processing is already active for {output_dir}'
+            ) from exc
+        yield
+    finally:
+        stream.close()
+
+
+def _postprocess_run(
+    args: argparse.Namespace,
+    manifest: dict[str, object],
+    bag_path: Path,
+    working_dir: Path,
+    output_dir: Path,
+    run_dir: Path,
+) -> int:
+    lifecycle = manifest['lifecycle']
+    execution = manifest['execution']
+    workflow_exit_code = execution['exit_code']
+    current_dir = run_dir
+    try:
+        _write_manifest(current_dir, manifest)
+        lifecycle['stage'] = 'verifying'
+        _write_manifest(current_dir, manifest)
+        maybe_verify_map(current_dir, enabled=not args.no_verify_map)
+        lifecycle['stage'] = 'verified'
+        _write_manifest(current_dir, manifest)
+
+        if current_dir == working_dir:
+            lifecycle['stage'] = 'finalizing'
+            _write_manifest(current_dir, manifest)
+            _finalize_output(working_dir, output_dir)
+            current_dir = output_dir
+        elif current_dir != output_dir:
+            raise RuntimeError(f'unexpected resume directory: {current_dir}')
+
+        manifest['output']['finalized'] = True
+        lifecycle['stage'] = 'finalized'
+        _write_manifest(current_dir, manifest)
+
+        lifecycle['stage'] = 'diagnosing'
+        _write_manifest(current_dir, manifest)
+        diagnosis = write_diagnostics(current_dir, bag_path)
+        manifest['output']['diagnosis_status'] = diagnosis['status']
+        lifecycle['stage'] = 'diagnosed'
+        _write_manifest(current_dir, manifest)
+
+        interrupted = manifest['status'] == 'interrupted' and workflow_exit_code == 130
+        if interrupted:
+            runner_exit_code = 130
+        elif workflow_exit_code != 0:
+            runner_exit_code = workflow_exit_code
+            manifest['status'] = 'failed'
+        elif not args.no_verify_map and diagnosis['status'] != 'success':
+            runner_exit_code = 1
+            manifest['status'] = 'failed'
+        else:
+            runner_exit_code = 0
+            manifest['status'] = 'succeeded'
+
+        lifecycle['stage'] = 'checksumming'
+        _write_manifest(current_dir, manifest)
+        manifest['output']['artifact_checksums'] = _artifact_checksums(current_dir)
+        lifecycle['stage'] = 'complete'
+        lifecycle['runner_exit_code'] = runner_exit_code
+        lifecycle['last_error'] = None
+        _write_manifest(current_dir, manifest)
+        return runner_exit_code
+    except (OSError, RuntimeError, ValueError, KeyError, TypeError) as exc:
+        print(f'error: failed to finalize output: {exc}', file=sys.stderr)
+        manifest_dir = output_dir if output_dir.exists() else working_dir
+        if manifest_dir.exists():
+            if manifest.get('status') not in ('failed', 'interrupted'):
+                manifest['status'] = 'failed'
+            manifest['output']['finalized'] = output_dir.exists()
+            lifecycle['runner_exit_code'] = 70
+            lifecycle['last_error'] = str(exc)
+            try:
+                manifest['output']['artifact_checksums'] = _artifact_checksums(
+                    manifest_dir
+                )
+                _write_manifest(manifest_dir, manifest)
+            except (OSError, RuntimeError) as manifest_exc:
+                print(
+                    f'warning: failed to preserve terminal manifest: {manifest_exc}',
+                    file=sys.stderr,
+                )
+        return 70
+
+
+def _postprocess_with_lock(
+    args: argparse.Namespace,
+    manifest: dict[str, object],
+    bag_path: Path,
+    working_dir: Path,
+    output_dir: Path,
+    run_dir: Path,
+) -> int:
+    try:
+        with _postprocess_lock(output_dir):
+            return _postprocess_run(
+                args,
+                manifest,
+                bag_path,
+                working_dir,
+                output_dir,
+                run_dir,
+            )
+    except RuntimeError as exc:
+        print(f'error: {exc}', file=sys.stderr)
+        return 70
+
+
 def _profile_help_text() -> str:
     lines = ['Workflow profiles:']
     for profile_id, description in PROFILE_HELP:
@@ -535,12 +800,17 @@ def _help_epilog() -> str:
         '  map_projector_info.yaml',
         '  verify_autoware_map.log',
         '  autoware_map_diagnosis.md',
+        '  run_manifest.json',
         '',
         'Examples:',
         '  python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2 --dry-run',
         (
             '  python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2 '
             '--output-dir output/my_map'
+        ),
+        (
+            '  python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2 '
+            '--output-dir output/my_map --resume'
         ),
         '  python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2 --viewer foxglove',
     ])
@@ -609,11 +879,26 @@ def parse_args() -> argparse.Namespace:
         action='store_true',
         help='Print the selected command without executing it.',
     )
+    parser.add_argument(
+        '--resume',
+        action='store_true',
+        help=(
+            'Resume verification, finalization, diagnosis, and checksums for a '
+            'terminal schema-v2 run; the map workflow is never re-executed.'
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.resume and args.dry_run:
+        print('error: --resume cannot be combined with --dry-run', file=sys.stderr)
+        return 2
+    if args.resume and not args.output_dir:
+        print('error: --resume requires an explicit --output-dir', file=sys.stderr)
+        return 2
+
     bag_path = Path(args.bag).expanduser().resolve()
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else (
@@ -622,8 +907,9 @@ def main() -> int:
     working_dir = output_dir.with_name(f'{output_dir.name}.partial')
     try:
         validate_bag_path(bag_path)
-        validate_output_dir(output_dir)
-        validate_output_dir(working_dir)
+        if not args.resume:
+            validate_output_dir(output_dir)
+            validate_output_dir(working_dir)
         plan = build_execution_plan(
             bag_path=bag_path,
             profile_id=args.profile,
@@ -642,11 +928,44 @@ def main() -> int:
 
     if args.dry_run:
         return 0
+    if args.resume:
+        try:
+            with _postprocess_lock(output_dir):
+                run_dir, manifest = _validate_resume_state(
+                    bag_path,
+                    output_dir,
+                    working_dir,
+                    plan,
+                    not args.no_verify_map,
+                )
+                print(f'Resuming terminal post-processing from: {run_dir}')
+                exit_code = _postprocess_run(
+                    args,
+                    manifest,
+                    bag_path,
+                    working_dir,
+                    output_dir,
+                    run_dir,
+                )
+        except ValueError as exc:
+            print(f'error: {exc}', file=sys.stderr)
+            return 2
+        except RuntimeError as exc:
+            print(f'error: {exc}', file=sys.stderr)
+            return 70
+        return _finish_run(args, plan, output_dir, exit_code)
 
     try:
-        manifest = _build_manifest(bag_path, output_dir, working_dir, plan)
+        manifest = _build_manifest(
+            bag_path,
+            output_dir,
+            working_dir,
+            plan,
+            verify_map=not args.no_verify_map,
+        )
         working_dir.mkdir(parents=True, exist_ok=False)
         manifest['status'] = 'running'
+        manifest['lifecycle']['stage'] = 'workflow_running'
         manifest['execution']['started_at'] = _utc_now()
         _write_manifest(working_dir, manifest)
     except (OSError, RuntimeError, ValueError, ET.ParseError, yaml.YAMLError) as exc:
@@ -673,47 +992,27 @@ def main() -> int:
     manifest['status'] = (
         'interrupted' if interrupted else ('succeeded' if exit_code == 0 else 'failed')
     )
+    manifest['lifecycle']['stage'] = 'workflow_finished'
+    exit_code = _postprocess_with_lock(
+        args,
+        manifest,
+        bag_path,
+        working_dir,
+        output_dir,
+        working_dir,
+    )
+    return _finish_run(args, plan, output_dir, exit_code)
 
-    try:
-        _write_manifest(working_dir, manifest)
-        maybe_verify_map(working_dir, enabled=not args.no_verify_map)
-        _finalize_output(working_dir, output_dir)
-        manifest['output']['finalized'] = True
-        diagnosis = write_diagnostics(output_dir, bag_path)
-        manifest['output']['diagnosis_status'] = diagnosis['status']
-        if (
-            manifest['status'] == 'succeeded'
-            and not args.no_verify_map
-            and diagnosis['status'] != 'success'
-        ):
-            manifest['status'] = 'failed'
-            if exit_code == 0:
-                exit_code = 1
-                manifest['execution']['exit_code'] = exit_code
-        manifest['output']['artifact_checksums'] = _artifact_checksums(output_dir)
-        _write_manifest(output_dir, manifest)
-    except (OSError, RuntimeError, ValueError) as exc:
-        print(f'error: failed to finalize output: {exc}', file=sys.stderr)
-        manifest_dir = output_dir if output_dir.exists() else working_dir
-        if manifest_dir.exists():
-            manifest['status'] = 'failed'
-            manifest['execution']['exit_code'] = 70
-            manifest['output']['finalized'] = output_dir.exists()
-            try:
-                manifest['output']['artifact_checksums'] = _artifact_checksums(
-                    manifest_dir
-                )
-                _write_manifest(manifest_dir, manifest)
-            except (OSError, RuntimeError) as manifest_exc:
-                print(
-                    f'warning: failed to preserve terminal manifest: {manifest_exc}',
-                    file=sys.stderr,
-                )
-        return 70
 
+def _finish_run(
+    args: argparse.Namespace,
+    plan: dict[str, object],
+    output_dir: Path,
+    exit_code: int,
+) -> int:
     if exit_code != 0:
         print(
-            f'error: map workflow failed with exit code {exit_code}.',
+            f'error: map run failed with exit code {exit_code}.',
             file=sys.stderr,
         )
         print('failed command:', shlex.join(plan['command']), file=sys.stderr)
