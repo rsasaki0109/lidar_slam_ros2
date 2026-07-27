@@ -144,6 +144,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'run_autoware_pointcloud_map_foxglove.sh',
         REPO_ROOT / 'scripts' / 'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh',
         REPO_ROOT / 'scripts' / 'run_rko_lio_graph_benchmark.sh',
+        REPO_ROOT / 'scripts' / 'run_radarless_tunnel_ab.sh',
         REPO_ROOT / 'scripts' / 'run_rko_lio_mid360_crossval_benchmark.sh',
         REPO_ROOT / 'scripts' / 'export_mid360_robot_3d_map_preview.py',
         REPO_ROOT / 'scripts' / 'analyze_mid360_robot_public_loop_cloud.py',
@@ -356,6 +357,8 @@ def test_docs_cover_autoware_and_release_gate_keywords():
 
     assert 'download_ntu_viral_tnp01.sh' in benchmarking_doc
     assert 'run_rko_lio_graph_benchmark.sh' in benchmarking_doc
+    assert 'run_radarless_tunnel_ab.sh' in benchmarking_doc
+    assert 'evaluate_degeneracy_trajectory.py' in benchmarking_doc
     assert 'run_rko_lio_mid360_crossval_benchmark.sh' in benchmarking_doc
     assert 'run_open_data_applanix_velodyne_gnss_benchmark.sh' in benchmarking_doc
     assert 'run_open_data_classic_path_benchmark_suite.sh' in benchmarking_doc
