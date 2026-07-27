@@ -34,10 +34,12 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
 import json
 import math
 import os
 from pathlib import Path
+import platform
 import re
 import shlex
 import shutil
@@ -53,9 +55,10 @@ PROFILE_DURATIONS = {
     'eight-hour': 28800.0,
 }
 REPORT_NAME = 'soak_report.json'
+RUN_MANIFEST_NAME = 'run_manifest.json'
 SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
-    'schemas/soak-report-v2.schema.json'
+    'schemas/soak-report-v3.schema.json'
 )
 DEFAULT_TELEMETRY_INTERVAL_SECS = 30.0
 PROCESS_SHUTDOWN_GRACE_SECS = 10.0
@@ -85,6 +88,175 @@ def _raise_termination_signal(signum: int, _frame: object) -> None:
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def capture_machine_fingerprint() -> dict[str, object]:
+    """Capture a stable non-secret identity and public capacity fields."""
+    private_values = []
+    for path in (
+        Path('/etc/machine-id'),
+        Path('/sys/class/dmi/id/product_uuid'),
+        Path('/sys/class/dmi/id/board_serial'),
+    ):
+        try:
+            value = path.read_text(encoding='utf-8').strip()
+        except OSError:
+            value = ''
+        if value:
+            private_values.append(value)
+
+    cpu_fields = {}
+    try:
+        for line in Path('/proc/cpuinfo').read_text(
+            encoding='utf-8',
+            errors='replace',
+        ).splitlines():
+            if ':' not in line:
+                continue
+            name, value = line.split(':', 1)
+            normalized_name = name.strip().lower()
+            if normalized_name in ('model name', 'model', 'hardware'):
+                cpu_fields.setdefault(normalized_name, value.strip())
+    except OSError:
+        pass
+    cpu_model = next(
+        (
+            cpu_fields[name]
+            for name in ('model name', 'model', 'hardware')
+            if cpu_fields.get(name)
+        ),
+        '',
+    )
+
+    memory_total_kb = None
+    try:
+        for line in Path('/proc/meminfo').read_text(
+            encoding='utf-8',
+            errors='replace',
+        ).splitlines():
+            if line.startswith('MemTotal:'):
+                memory_total_kb = int(line.split()[1])
+                break
+    except (OSError, ValueError, IndexError):
+        pass
+
+    os_release = ''
+    try:
+        for line in Path('/etc/os-release').read_text(
+            encoding='utf-8',
+            errors='replace',
+        ).splitlines():
+            if line.startswith('PRETTY_NAME='):
+                os_release = line.split('=', 1)[1].strip().strip('"')
+                break
+    except OSError:
+        pass
+
+    hardware = {
+        'architecture': platform.machine(),
+        'cpu_model': cpu_model,
+        'logical_cpu_count': os.cpu_count(),
+        'memory_total_kb': memory_total_kb,
+    }
+    environment = {
+        'kernel_release': platform.release(),
+        'os_release': os_release,
+    }
+    identity_payload = {
+        'private_identifiers': private_values,
+        **hardware,
+    }
+    machine_id = hashlib.sha256(
+        json.dumps(
+            identity_payload,
+            sort_keys=True,
+            separators=(',', ':'),
+        ).encode('utf-8')
+    ).hexdigest()
+    return {'machine_id': machine_id, **hardware, **environment}
+
+
+def _git_state() -> dict[str, object]:
+    try:
+        commit = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        status = subprocess.run(
+            ['git', 'status', '--porcelain', '--untracked-files=no'],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return {'git_commit': None, 'git_dirty': None}
+    return {
+        'git_commit': commit.stdout.strip() if commit.returncode == 0 else None,
+        'git_dirty': (
+            bool(status.stdout.strip()) if status.returncode == 0 else None
+        ),
+    }
+
+
+def _harness_identity(cli: Path) -> dict[str, object]:
+    version_path = ROOT / 'VERSION'
+    if not version_path.is_file():
+        raise ValueError(f'product VERSION not found: {version_path}')
+    product_version = version_path.read_text(encoding='utf-8').strip()
+    if not product_version:
+        raise ValueError(f'product VERSION is empty: {version_path}')
+    return {
+        'product_version': product_version,
+        **_git_state(),
+        'ros_distro': os.environ.get('ROS_DISTRO'),
+        'runner_sha256': _sha256(Path(__file__).resolve()),
+        'product_cli_sha256': _sha256(cli),
+    }
+
+
+def _load_iteration_provenance(
+    run_dir: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    manifest_path = run_dir / RUN_MANIFEST_NAME
+    if not manifest_path.is_file():
+        raise ValueError(
+            f'successful iteration lacks {RUN_MANIFEST_NAME}: {run_dir}'
+        )
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(
+            f'iteration manifest is not readable JSON: {manifest_path}: {exc}'
+        ) from exc
+    if not isinstance(manifest, dict):
+        raise ValueError(f'iteration manifest root is not an object: {manifest_path}')
+    if manifest.get('status') != 'succeeded':
+        raise ValueError(
+            'successful iteration manifest status is not succeeded: '
+            f'{manifest.get("status")!r}'
+        )
+    input_identity = manifest.get('input')
+    software_identity = manifest.get('software')
+    if not isinstance(input_identity, dict) or not isinstance(
+        software_identity,
+        dict,
+    ):
+        raise ValueError(
+            'successful iteration manifest lacks input/software identity'
+        )
+    return input_identity, software_identity
 
 
 def _positive_finite(value: str) -> float:
@@ -216,6 +388,10 @@ def evaluate_report(report: dict[str, object]) -> dict[str, bool]:
             and metrics['minimum_free_space_bytes']
             >= thresholds['minimum_free_space_bytes']
         ),
+        'provenance_recorded': (
+            report['input_identity'] is not None
+            and report['software_identity'] is not None
+        ),
     }
 
 
@@ -311,7 +487,7 @@ def _terminate_process_group(process: subprocess.Popen) -> None:
 
 def _initial_report(args: argparse.Namespace, cli: Path) -> dict[str, object]:
     return {
-        'schema_version': 2,
+        'schema_version': 3,
         'schema_uri': SCHEMA_URI,
         'status': 'running',
         'last_error': None,
@@ -322,9 +498,13 @@ def _initial_report(args: argparse.Namespace, cli: Path) -> dict[str, object]:
         'started_at': _utc_now(),
         'completed_at': None,
         'hardware_label': args.hardware_label,
+        'hardware': capture_machine_fingerprint(),
+        'harness': _harness_identity(cli),
         'bag_path': str(Path(args.bag).expanduser().resolve()),
         'map_profile': args.map_profile,
         'product_cli': str(cli),
+        'input_identity': None,
+        'software_identity': None,
         'thresholds': {
             'max_peak_rss_mib': args.max_peak_rss_mib,
             'max_output_bytes': math.ceil(args.max_output_gib * 1024**3),
@@ -356,6 +536,10 @@ def run_soak(
         ...,
         tuple[int, dict[str, float | int], dict[str, int]],
     ] = _run_iteration,
+    load_iteration_provenance: Callable[
+        [Path],
+        tuple[dict[str, object], dict[str, object]],
+    ] = _load_iteration_provenance,
 ) -> tuple[int, dict[str, object]]:
     """Execute iterations until the profile duration or first failed run."""
     cli = _resolve_cli(args.cli)
@@ -440,6 +624,26 @@ def run_soak(
                 telemetry_interval_sec=args.telemetry_interval_secs,
                 on_sample=record_sample,
             )
+            if return_code == 0:
+                input_identity, software_identity = load_iteration_provenance(
+                    run_dir,
+                )
+                if (
+                    report['input_identity'] is not None
+                    and report['input_identity'] != input_identity
+                ):
+                    raise ValueError(
+                        f'{iteration_id} input identity differs from prior iterations'
+                    )
+                if (
+                    report['software_identity'] is not None
+                    and report['software_identity'] != software_identity
+                ):
+                    raise ValueError(
+                        f'{iteration_id} software identity differs from prior iterations'
+                    )
+                report['input_identity'] = input_identity
+                report['software_identity'] = software_identity
         except (KeyboardInterrupt, TerminationSignal) as exc:
             if isinstance(exc, TerminationSignal):
                 runner_exit_code = 128 + exc.signum
