@@ -113,7 +113,7 @@ jobs:
       - name: Smoke-test MID-360 robot runbook
         shell: bash
         run: |
-          python3 -m pip install --upgrade pyyaml
+          python3 -m pip install --upgrade pyyaml rosbags
           bash scripts/smoke_mid360_robot_runbook.sh
 
   default-workflow:

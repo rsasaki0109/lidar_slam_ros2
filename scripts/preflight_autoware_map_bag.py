@@ -208,15 +208,11 @@ def inspect_pointcloud_record(
         from rclpy.serialization import deserialize_message
         from sensor_msgs.msg import PointCloud2
     except ImportError as exc:
-        return {
-            **base,
-            'status': 'unavailable',
-            'reason': (
-                'PointCloud2 record inspection is unavailable in this environment: '
-                f'{exc}. Source a ROS 2 installation with rosbag2_py, rclpy, and '
-                'sensor_msgs before selecting an RKO-LIO profile.'
-            ),
-        }
+        return _inspect_pointcloud_record_with_rosbags(
+            bag_path,
+            topic,
+            ros_import_error=exc,
+        )
 
     try:
         reader = rosbag2_py.SequentialReader()
@@ -253,6 +249,81 @@ def inspect_pointcloud_record(
             **base,
             'status': 'error',
             'reason': f'Failed to inspect PointCloud2 record on {topic}: {exc}',
+        }
+
+    return {
+        **base,
+        'status': 'empty',
+        'reason': f'No PointCloud2 record was found on selected topic {topic}.',
+    }
+
+
+def _inspect_pointcloud_record_with_rosbags(
+    bag_path: Path,
+    topic: str,
+    ros_import_error: ImportError,
+) -> dict[str, Any]:
+    """Use the pure-Python rosbags reader when ROS Python bindings are absent."""
+    base = {
+        'topic': topic,
+        'fields': [],
+        'rko_lio_compatible': None,
+        'timestamp_field': None,
+    }
+    try:
+        from rosbags.highlevel import AnyReader
+        from rosbags.typesys import Stores, get_typestore
+    except ImportError as rosbags_error:
+        return {
+            **base,
+            'status': 'unavailable',
+            'reason': (
+                'PointCloud2 record inspection is unavailable: ROS 2 Python '
+                f'bindings failed to import ({ros_import_error}); the rosbags '
+                f'fallback also failed to import ({rosbags_error}). Source ROS 2 '
+                'or install the Python rosbags package before selecting an '
+                'RKO-LIO profile.'
+            ),
+        }
+
+    try:
+        typestore = get_typestore(Stores.LATEST)
+        with AnyReader(
+            [bag_path],
+            default_typestore=typestore,
+        ) as reader:
+            connections = [
+                connection
+                for connection in reader.connections
+                if connection.topic == topic and connection.msgtype == POINTCLOUD2
+            ]
+            for connection, _, serialized in reader.messages(
+                connections=connections,
+            ):
+                message = reader.deserialize(serialized, connection.msgtype)
+                fields = [
+                    {
+                        'name': field.name,
+                        'datatype': int(field.datatype),
+                        'count': int(field.count),
+                    }
+                    for field in message.fields
+                ]
+                assessment = assess_pointcloud_fields(fields)
+                return {
+                    **base,
+                    **assessment,
+                    'status': 'inspected',
+                    'fields': fields,
+                }
+    except Exception as exc:
+        return {
+            **base,
+            'status': 'error',
+            'reason': (
+                f'Failed to inspect PointCloud2 record on {topic} with rosbags: '
+                f'{exc}'
+            ),
         }
 
     return {
