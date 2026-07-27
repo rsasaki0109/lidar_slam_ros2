@@ -2,10 +2,21 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
-WS_ROOT="${REPO_ROOT}"
-if [[ ! -f "${WS_ROOT}/install/setup.bash" && -f "${REPO_ROOT}/../install/setup.bash" ]]; then
-  WS_ROOT="$(cd "${REPO_ROOT}/.." && pwd)"
+SOURCE_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
+if [[ -f "${SOURCE_ROOT}/lidarslam/package.xml" ]]; then
+  PACKAGE_SHARE="${SOURCE_ROOT}/lidarslam"
+  WORK_ROOT="${SOURCE_ROOT}"
+  WORKSPACE_SETUP=""
+  if [[ -f "${SOURCE_ROOT}/install/setup.bash" ]]; then
+    WORKSPACE_SETUP="${SOURCE_ROOT}/install/setup.bash"
+  elif [[ -f "${SOURCE_ROOT}/../install/setup.bash" ]]; then
+    WORKSPACE_SETUP="$(cd "${SOURCE_ROOT}/.." && pwd)/install/setup.bash"
+  fi
+else
+  PACKAGE_SHARE=$(cd "${SCRIPT_DIR}/../.." && pwd)
+  INSTALL_PREFIX=$(cd "${PACKAGE_SHARE}/../.." && pwd)
+  WORK_ROOT="${PWD}"
+  WORKSPACE_SETUP="${INSTALL_PREFIX}/setup.bash"
 fi
 
 usage() {
@@ -92,14 +103,14 @@ parse_bool() {
   esac
 }
 
-DEFAULT_BAG="${REPO_ROOT}/demo_data/ntu_viral/tnp_01_points_restamped_vn100_rosbag2"
+DEFAULT_BAG="${WORK_ROOT}/demo_data/ntu_viral/tnp_01_points_restamped_vn100_rosbag2"
 DEFAULT_LIDAR_TOPIC="/os1_cloud_node1/points"
 DEFAULT_IMU_TOPIC="/imu/imu"
 DEFAULT_BASE_FRAME="base_link"
 DEFAULT_LIDAR_FRAME=""
 DEFAULT_IMU_FRAME=""
-DEFAULT_LIDARSLAM_PARAM="${REPO_ROOT}/lidarslam/param/lidarslam.yaml"
-DEFAULT_RKO_PARAM="${REPO_ROOT}/lidarslam/param/rko_lio_ntu_viral.yaml"
+DEFAULT_LIDARSLAM_PARAM="${PACKAGE_SHARE}/param/lidarslam.yaml"
+DEFAULT_RKO_PARAM="${PACKAGE_SHARE}/param/rko_lio_ntu_viral.yaml"
 DEFAULT_AUTOWARE_CORE="/tmp/autoware_core"
 DEFAULT_WORK_DIR="/tmp/autoware_map_runtime_ws"
 
@@ -308,7 +319,7 @@ EOF
 }
 
 if [[ -z "$OUTPUT_DIR" ]]; then
-  OUTPUT_DIR="${REPO_ROOT}/output/dogfood_rko_lio_autoware_$(date +%Y%m%d_%H%M%S)"
+  OUTPUT_DIR="${WORK_ROOT}/output/dogfood_rko_lio_autoware_$(date +%Y%m%d_%H%M%S)"
 fi
 
 if [[ -z "$RUN_NAME" ]]; then
@@ -346,9 +357,9 @@ if [[ "$SKIP_VIEWER" == "false" ]]; then
 fi
 
 set +u
-if [[ -f "${WS_ROOT}/install/setup.bash" ]]; then
+if [[ -n "${WORKSPACE_SETUP}" && -f "${WORKSPACE_SETUP}" ]]; then
   # shellcheck source=/dev/null
-  source "${WS_ROOT}/install/setup.bash"
+  source "${WORKSPACE_SETUP}"
 elif [[ -n "${ROS_DISTRO:-}" && -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]]; then
   # shellcheck source=/dev/null
   source "/opt/ros/${ROS_DISTRO}/setup.bash"
@@ -372,9 +383,9 @@ CORRECTED_APE_REPORT="${OUTPUT_DIR}/traj_corrected_ape.txt"
 RAW_TUM="${OUTPUT_DIR}/traj_raw.tum"
 RAW_LOG="${OUTPUT_DIR}/odom_raw_logger.log"
 LANELET2_OSM="${OUTPUT_DIR}/lanelet2_map.osm"
-PATH_TO_TUM_SCRIPT="${REPO_ROOT}/scripts/path_to_tum.py"
-ODOM_TO_TUM_SCRIPT="${REPO_ROOT}/scripts/odom_to_tum.py"
-APE_FROM_TUM_SCRIPT="${REPO_ROOT}/scripts/ape_from_tum.py"
+PATH_TO_TUM_SCRIPT="${SCRIPT_DIR}/path_to_tum.py"
+ODOM_TO_TUM_SCRIPT="${SCRIPT_DIR}/odom_to_tum.py"
+APE_FROM_TUM_SCRIPT="${SCRIPT_DIR}/ape_from_tum.py"
 LAUNCH_PID=""
 LAUNCH_PGID=""
 CORRECTED_LOGGER_PID=""
@@ -741,7 +752,7 @@ if [[ "$GENERATE_LANELET2" == true ]]; then
   rm -f "$LANELET2_OSM" "${LANELET2_OSM}.tmp"
   if [[ -f "$CORRECTED_TUM" ]]; then
     echo "Generating Lanelet2 map from corrected trajectory ..."
-    if python3 "$REPO_ROOT/scripts/simple_lanelet2_generator.py" \
+    if python3 "$SCRIPT_DIR/simple_lanelet2_generator.py" \
       --input "$CORRECTED_TUM" \
       --output "${LANELET2_OSM}.tmp" \
       --lane-width "$LANE_WIDTH" \

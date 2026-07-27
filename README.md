@@ -57,7 +57,7 @@ flowchart LR
 ## Quickstart
 
 Start with [Getting Started](docs/getting-started.md). The [Product Contract](docs/product-contract.md)
-defines the maintained surface; the three commands below are its only beginner entrypoints.
+defines the maintained surface; see [Distribution](docs/distribution.md) for installed names and binary-release limits.
 
 ### Try it with Docker (one command, no build)
 
@@ -97,7 +97,7 @@ python3 scripts/verify_autoware_map.py output/.../pointcloud_map
 ## Use your own bag
 
 ```bash
-bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
+lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"
 ```
 
 One command turns the bag into a complete Autoware map bundle:
@@ -188,7 +188,7 @@ self-similar tunnels (reach **98.7 m → ~500 m**): [docs/degeneracy-guide.md](d
 
 ## Docs
 
-- **Getting started**: [Getting Started](docs/getting-started.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
+- **Getting started**: [Getting Started](docs/getting-started.md) · [Distribution](docs/distribution.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
 - **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md)
 - **Benchmarking**: [Benchmarking and release gate](docs/benchmarking.md) · [Comparison](docs/comparison.md)
 - **Project**: [Product contract](docs/product-contract.md) · [v0.6.0 notes](docs/releases/v0.6.0.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)

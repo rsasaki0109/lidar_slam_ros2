@@ -21,7 +21,12 @@ import xml.etree.ElementTree as ET
 import yaml
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+SOURCE_LAYOUT = (REPO_ROOT / 'lidarslam' / 'package.xml').is_file()
+PACKAGE_SHARE = REPO_ROOT / 'lidarslam' if SOURCE_LAYOUT else REPO_ROOT.parent
+SHARE_ROOT = PACKAGE_SHARE.parent
+WORK_ROOT = REPO_ROOT if SOURCE_LAYOUT else Path.cwd()
 MANIFEST_NAME = 'run_manifest.json'
 MANIFEST_SCHEMA_VERSION = 2
 MANIFEST_SCHEMA_URI = (
@@ -47,16 +52,20 @@ PROFILE_HELP = (
     ('packet_applanix_smoke', 'VelodyneScan + Applanix GSOF49 smoke workflow.'),
 )
 PACKAGE_XML_PATHS = (
-    REPO_ROOT / 'lidarslam' / 'package.xml',
-    REPO_ROOT / 'graph_based_slam' / 'package.xml',
-    REPO_ROOT / 'lidarslam_msgs' / 'package.xml',
-    REPO_ROOT / 'scanmatcher' / 'package.xml',
-    REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'package.xml',
+    SHARE_ROOT / 'lidarslam' / 'package.xml',
+    SHARE_ROOT / 'graph_based_slam' / 'package.xml',
+    SHARE_ROOT / 'lidarslam_msgs' / 'package.xml',
+    SHARE_ROOT / 'scanmatcher' / 'package.xml',
+    (
+        REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'package.xml'
+        if SOURCE_LAYOUT
+        else SHARE_ROOT / 'rko_lio' / 'package.xml'
+    ),
 )
 
 
 def _load_script_module(script_name: str, module_name: str):
-    script_path = REPO_ROOT / 'scripts' / script_name
+    script_path = SCRIPT_DIR / script_name
     spec = importlib.util.spec_from_file_location(module_name, script_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f'failed to load module {module_name} from {script_path}')
@@ -115,10 +124,12 @@ def build_execution_plan(
         imu = summary['topics']['imu'][0]['name']
         command = [
             'bash',
-            str(REPO_ROOT / 'scripts' / 'run_rko_lio_graph_autoware_dogfood.sh'),
+            str(SCRIPT_DIR / 'run_rko_lio_graph_autoware_dogfood.sh'),
             '--bag', str(bag_path),
             '--lidar-topic', pointcloud,
             '--imu-topic', imu,
+            '--lidarslam-param', str(PACKAGE_SHARE / 'param' / 'lidarslam.yaml'),
+            '--rko-param', str(PACKAGE_SHARE / 'param' / 'rko_lio_ntu_viral.yaml'),
             '--output-dir', str(output_dir),
             '--wait-for-offline-completion',
             '--skip-viewer',
@@ -128,13 +139,13 @@ def build_execution_plan(
         imu = summary['topics']['imu'][0]['name']
         command = [
             'bash',
-            str(REPO_ROOT / 'scripts' / 'run_rko_lio_graph_autoware_dogfood.sh'),
+            str(SCRIPT_DIR / 'run_rko_lio_graph_autoware_dogfood.sh'),
             '--bag', str(bag_path),
             '--lidar-topic', pointcloud,
             '--imu-topic', imu,
             '--lidarslam-param',
-            str(REPO_ROOT / 'lidarslam' / 'param' / 'lidarslam_mid360_rko_graph.yaml'),
-            '--rko-param', str(REPO_ROOT / 'lidarslam' / 'param' / 'rko_lio_mid360.yaml'),
+            str(PACKAGE_SHARE / 'param' / 'lidarslam_mid360_rko_graph.yaml'),
+            '--rko-param', str(PACKAGE_SHARE / 'param' / 'rko_lio_mid360.yaml'),
             '--output-dir', str(output_dir),
             '--wait-for-offline-completion',
             '--skip-viewer',
@@ -144,10 +155,11 @@ def build_execution_plan(
         gnss = summary['topics']['navsatfix'][0]['name']
         command = [
             'bash',
-            str(REPO_ROOT / 'scripts' / 'run_open_data_gnss_smoke.sh'),
+            str(SCRIPT_DIR / 'run_open_data_gnss_smoke.sh'),
             '--bag', str(bag_path),
             '--points-topic', pointcloud,
             '--gnss-topic', gnss,
+            '--param', str(PACKAGE_SHARE / 'param' / 'lidarslam.yaml'),
             '--save-dir', str(output_dir),
         ]
         if summary['capabilities']['has_imu']:
@@ -159,10 +171,11 @@ def build_execution_plan(
         gsof49 = summary['topics']['applanix_gsof49'][0]['name']
         command = [
             'bash',
-            str(REPO_ROOT / 'scripts' / 'run_open_data_applanix_velodyne_gnss_smoke.sh'),
+            str(SCRIPT_DIR / 'run_open_data_applanix_velodyne_gnss_smoke.sh'),
             '--bag', str(bag_path),
             '--packet-topic', packet,
             '--gsof49-topic', gsof49,
+            '--param', str(PACKAGE_SHARE / 'param' / 'lidarslam.yaml'),
             '--save-dir', str(output_dir),
         ]
         if summary['capabilities']['has_applanix_gsof50']:
@@ -255,6 +268,8 @@ def _file_identity(path: Path, display_path: str) -> dict[str, object]:
 
 
 def _git_state() -> dict[str, object]:
+    if not SOURCE_LAYOUT:
+        return {'commit': None, 'dirty': None}
     commit_result = subprocess.run(
         ['git', 'rev-parse', 'HEAD'],
         cwd=REPO_ROOT,
@@ -568,13 +583,13 @@ def maybe_open_viewer(args: argparse.Namespace, output_dir: Path) -> None:
     if args.viewer == 'foxglove':
         command = [
             'bash',
-            str(REPO_ROOT / 'scripts' / 'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh'),
+            str(SCRIPT_DIR / 'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh'),
             str(output_dir),
         ]
     else:
         command = [
             'bash',
-            str(REPO_ROOT / 'scripts' / 'run_graph_slam_pointcloud_map_in_autoware.sh'),
+            str(SCRIPT_DIR / 'run_graph_slam_pointcloud_map_in_autoware.sh'),
             str(output_dir),
         ]
         if args.autoware_core_dir:
@@ -589,7 +604,7 @@ def maybe_open_viewer(args: argparse.Namespace, output_dir: Path) -> None:
     if args.auto_exit_secs is not None:
         command.extend(['--auto-exit-secs', str(args.auto_exit_secs)])
 
-    subprocess.run(command, check=True, cwd=REPO_ROOT)
+    subprocess.run(command, check=True, cwd=WORK_ROOT)
 
 
 def maybe_verify_map(output_dir: Path, enabled: bool) -> None:
@@ -603,14 +618,14 @@ def maybe_verify_map(output_dir: Path, enabled: bool) -> None:
     verify_log_path = output_dir / 'verify_autoware_map.log'
     verify_command = [
         'python3',
-        str(REPO_ROOT / 'scripts' / 'verify_autoware_map.py'),
+        str(SCRIPT_DIR / 'verify_autoware_map.py'),
         str(pointcloud_map_dir),
     ]
     with verify_log_path.open('w', encoding='utf-8') as stream:
         result = subprocess.run(
             verify_command,
             check=False,
-            cwd=REPO_ROOT,
+            cwd=WORK_ROOT,
             stdout=stream,
             stderr=subprocess.STDOUT,
         )
@@ -902,7 +917,7 @@ def main() -> int:
     bag_path = Path(args.bag).expanduser().resolve()
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else (
-        REPO_ROOT / 'output' / f'autoware_map_authoring_{bag_path.stem}_{timestamp}'
+        WORK_ROOT / 'output' / f'autoware_map_authoring_{bag_path.stem}_{timestamp}'
     )
     working_dir = output_dir.with_name(f'{output_dir.name}.partial')
     try:
@@ -978,7 +993,7 @@ def main() -> int:
     exit_code = 0
     interrupted = False
     try:
-        result = subprocess.run(plan['command'], check=False, cwd=REPO_ROOT)
+        result = subprocess.run(plan['command'], check=False, cwd=WORK_ROOT)
         exit_code = result.returncode
     except KeyboardInterrupt:
         interrupted = True

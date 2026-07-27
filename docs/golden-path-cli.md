@@ -1,7 +1,15 @@
 # Golden-path CLI
 
-Phase 1 introduces one repo-local command surface over the existing,
-well-tested map-authoring tools:
+The product exposes one command surface over the existing, well-tested
+map-authoring tools. After a source build and `source install/setup.bash`, use:
+
+```bash
+lidarslam-map doctor <rosbag2_dir>
+lidarslam-map run <rosbag2_dir> --output-dir output/my_map
+lidarslam-map inspect output/my_map
+```
+
+The equivalent repo-local spelling is:
 
 ```bash
 ./scripts/lidarslam doctor <rosbag2_dir>
@@ -9,7 +17,7 @@ well-tested map-authoring tools:
 ./scripts/lidarslam inspect output/my_map
 ```
 
-This is initially a source-checkout interface. It delegates to
+It delegates to
 `preflight_autoware_map_bag.py`, `run_autoware_map_from_bag.py`, and
 `diagnose_autoware_map_run.py`, so the established profile selection and map
 verification behavior remain authoritative.
@@ -110,12 +118,16 @@ Each subcommand accepts the same options as its delegated tool:
 | `130` | Run was interrupted by the operator |
 | other non-zero | Map-workflow exit code, propagated unchanged |
 
-## Installation-name decision
+## Installed names and compatibility
 
-The ROS package already installs a C++ node named `lidarslam`. Replacing that
-binary silently would break `ros2 run lidarslam lidarslam` users. Until Phase 2
-resolves the installed command and compatibility shim together, the supported
-Phase 1 spelling is explicitly `./scripts/lidarslam`.
+The ROS package's historical C++ node remains
+`ros2 run lidarslam lidarslam`. It is not replaced by the product CLI.
 
-This staged decision does not add a fourth beginner workflow: the CLI is a
-single command surface over the existing own-bag product path.
+The installed product command is `lidarslam-map`. ROS tooling can invoke the
+same command surface through
+`ros2 run lidarslam lidarslam-cli <command> ...`. The repo-local
+`./scripts/lidarslam` spelling remains useful before installation.
+
+These are aliases for the same own-bag entrypoint, not additional beginner
+workflows. See [Distribution and installed CLI](distribution.md) for package
+contents, platform support, and the binary-release boundary.

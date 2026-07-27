@@ -30,7 +30,7 @@ bloom's upstream import) excludes — intended.
 | `libg2o` | released (`ros-<distro>-libg2o`; verified 2026-06-11: `rosdep resolve libg2o` → `ros-humble-libg2o` on jammy, `ros-jazzy-libg2o` on noble) | none |
 | `libpcl-all-dev` | standard rosdep key (system PCL) | none |
 | **`ndt_omp_ros2`** | **not in rosdistro** | **bloom-release it first** (see below) |
-| `rko_lio` | not in rosdistro, and **not** a `package.xml` dependency | not a blocker; see below |
+| `rko_lio` | not in rosdistro, and **not** a `package.xml` dependency | not a build blocker, but blocks a binary flagship-product claim; see below |
 
 ### ndt_omp_ros2 must be released first
 
@@ -49,17 +49,22 @@ Before the first lidarslam release, in the fork repo:
    as soon as the key exists in the distribution file (it does not need to be
    built yet).
 
-### rko_lio is not a blocker
+### rko_lio is a product-distribution blocker
 
 The RKO-LIO flagship launch (`rko_lio_slam.launch.py`) uses the `rko_lio`
 package at runtime, but no core package declares it in `package.xml`, so the
-binary release neither pulls it in nor needs it to build. Consequences for
-apt users, to keep documented honestly:
+four core packages can be built and released without it. That is only a
+buildfarm fact: the resulting apt installation cannot execute the documented
+flagship own-bag profile. Consequences for apt users:
 
 - `lidarslam.launch.py` (scanmatcher frontend) works out of the box.
-- The RKO-LIO frontend needs a source workspace (or the ghcr Docker image)
-  until `rko_lio` itself is released by its upstream — that decision is not
-  ours to make.
+- The RKO-LIO frontend needs a recursive source workspace (or the GHCR image).
+- The project must either bloom-release its maintained RKO-LIO fork for both
+  supported distributions or explicitly change the binary product profile to
+  a frontend delivered from the same distribution.
+
+Do not advertise `sudo apt install ros-<distro>-lidarslam` as the golden path
+until that decision and an installation E2E gate are complete.
 
 ## Distro targets
 

@@ -844,4 +844,38 @@ def test_runner_prefers_mid360_preset_for_livox_bag(tmp_path: Path):
     )
 
     assert plan['profile_id'] == 'rko_lio_graph_mid360_preset'
-    assert 'lidarslam_mid360_rko_graph.yaml' in ' '.join(plan['command'])
+    command = ' '.join(plan['command'])
+    assert str(
+        REPO_ROOT / 'lidarslam' / 'param' / 'lidarslam_mid360_rko_graph.yaml'
+    ) in command
+    assert str(
+        REPO_ROOT / 'lidarslam' / 'param' / 'rko_lio_mid360.yaml'
+    ) in command
+
+
+def test_public_plan_pins_both_installed_parameter_files(tmp_path: Path):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'generic_pointcloud_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+
+    plan = module.build_execution_plan(
+        bag_path=bag_dir,
+        profile_id=None,
+        output_dir=tmp_path / 'out',
+        verify_map=True,
+    )
+
+    command = ' '.join(plan['command'])
+    assert plan['profile_id'] == 'rko_lio_graph_public_path'
+    assert str(
+        REPO_ROOT / 'lidarslam' / 'param' / 'lidarslam.yaml'
+    ) in command
+    assert str(
+        REPO_ROOT / 'lidarslam' / 'param' / 'rko_lio_ntu_viral.yaml'
+    ) in command

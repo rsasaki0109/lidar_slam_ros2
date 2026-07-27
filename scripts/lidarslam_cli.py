@@ -21,10 +21,19 @@ EX_USAGE = 2
 EX_SOFTWARE = 70
 
 
+def command_name() -> str:
+    """Return the source or installed command spelling."""
+    configured = __import__('os').environ.get('LIDARSLAM_CLI_NAME')
+    if configured:
+        return configured
+    return './scripts/lidarslam'
+
+
 def render_help() -> str:
     """Return top-level CLI help."""
+    executable = command_name()
     return '\n'.join([
-        'Usage: ./scripts/lidarslam <command> [options]',
+        f'Usage: {executable} <command> [options]',
         '',
         'Offline rosbag2-to-map product commands:',
         '  doctor <rosbag2_dir>   Check inputs and select a compatible profile',
@@ -35,7 +44,7 @@ def render_help() -> str:
         '  --version              Print the repository product version',
         '  --help                 Show this help',
         '',
-        'Run "./scripts/lidarslam <command> --help" for command options.',
+        f'Run "{executable} <command> --help" for command options.',
         '',
         'Exit codes:',
         '  0   command completed successfully',
@@ -85,7 +94,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     command = args.pop(0)
     if command not in COMMANDS:
         print(f'error: unknown command: {command}', file=sys.stderr)
-        print('hint: run "./scripts/lidarslam --help".', file=sys.stderr)
+        print(f'hint: run "{command_name()} --help".', file=sys.stderr)
         return EX_USAGE
 
     try:

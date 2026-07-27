@@ -59,6 +59,8 @@ RUN apt-get update \
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" \
   && colcon build --packages-up-to lidarslam rko_lio \
     --cmake-args -DCMAKE_BUILD_TYPE=Release \
+  && . install/setup.sh \
+  && lidarslam-map --version \
   && rm -rf build log
 
 ENTRYPOINT ["/lidarslam_ws/docker/entrypoint.sh"]

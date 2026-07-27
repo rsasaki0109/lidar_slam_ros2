@@ -154,6 +154,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_installed_product_cli_contract
+    test/test_installed_product_cli_contract.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_sparse_trajectory_scoring
     test/test_sparse_trajectory_scoring.py
     TIMEOUT 120
@@ -196,5 +201,41 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
+file(
+  STRINGS
+  ${CMAKE_CURRENT_SOURCE_DIR}/product-runtime-files.txt
+  PRODUCT_CLI_SCRIPT_NAMES
+)
+list(FILTER PRODUCT_CLI_SCRIPT_NAMES EXCLUDE REGEX "^[ \t]*(#|$)")
+set(PRODUCT_CLI_SCRIPTS)
+foreach(PRODUCT_CLI_SCRIPT_NAME IN LISTS PRODUCT_CLI_SCRIPT_NAMES)
+  list(
+    APPEND PRODUCT_CLI_SCRIPTS
+    ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/${PRODUCT_CLI_SCRIPT_NAME}
+  )
+endforeach()
+
+# Keep the historical ROS executable untouched at lib/lidarslam/lidarslam.
+# The PATH command and ros2-run shim deliberately use distinct names.
+install(
+  PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/lidarslam
+  DESTINATION bin
+  RENAME lidarslam-map
+)
+install(
+  PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/lidarslam
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME lidarslam-cli
+)
+install(
+  PROGRAMS ${PRODUCT_CLI_SCRIPTS}
+  DESTINATION share/${PROJECT_NAME}/product/scripts
+)
+install(
+  FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../VERSION
+    ${CMAKE_CURRENT_SOURCE_DIR}/product-runtime-files.txt
+  DESTINATION share/${PROJECT_NAME}/product
+)
 
 ament_package()

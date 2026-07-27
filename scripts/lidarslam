@@ -2,4 +2,25 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-exec python3 "${SCRIPT_DIR}/lidarslam_cli.py" "$@"
+CLI_PATH="${SCRIPT_DIR}/lidarslam_cli.py"
+
+if [[ ! -f "${CLI_PATH}" ]]; then
+  for candidate in \
+    "${SCRIPT_DIR}/../share/lidarslam/product/scripts/lidarslam_cli.py" \
+    "${SCRIPT_DIR}/../../share/lidarslam/product/scripts/lidarslam_cli.py"
+  do
+    if [[ -f "${candidate}" ]]; then
+      CLI_PATH="${candidate}"
+      break
+    fi
+  done
+fi
+
+if [[ ! -f "${CLI_PATH}" ]]; then
+  echo "error: installed lidarslam product CLI resources were not found" >&2
+  exit 70
+fi
+
+export LIDARSLAM_CLI_NAME
+LIDARSLAM_CLI_NAME=$(basename "$0")
+exec python3 "${CLI_PATH}" "$@"
