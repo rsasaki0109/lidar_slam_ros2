@@ -1,7 +1,8 @@
 # Distribution and installed CLI
 
-This page describes what can be installed reproducibly today and what remains
-before `lidarslam_ros2` can claim a complete binary-distribution path.
+This page describes the supported source and container installation paths and
+the remaining boundary before `lidarslam_ros2` can publish ROS buildfarm
+packages.
 
 ## Supported source install
 
@@ -73,6 +74,62 @@ that `ros2 run lidarslam lidarslam` was not replaced.
 The Docker image is likewise built without `--symlink-install` and verifies
 `lidarslam-map --version` before its build tree is removed.
 
+## Container install
+
+GHCR is the supported prebuilt amd64 delivery path for both ROS distributions.
+The moving convenience tags track `develop` and are useful for evaluation:
+
+```bash
+docker pull ghcr.io/rsasaki0109/lidar_slam_ros2:humble
+docker run --rm ghcr.io/rsasaki0109/lidar_slam_ros2:humble \
+  lidarslam-map --version
+
+docker pull ghcr.io/rsasaki0109/lidar_slam_ros2:jazzy
+docker run --rm ghcr.io/rsasaki0109/lidar_slam_ros2:jazzy \
+  lidarslam-map --version
+```
+
+`latest` remains an alias of the Humble convenience image for compatibility.
+It is not a release identifier.
+
+Every tagged release publishes exact
+`ghcr.io/rsasaki0109/lidar_slam_ros2:v<VERSION>-<distro>` images only after
+the repository tag matches `VERSION`. For example:
+
+```bash
+IMAGE=ghcr.io/rsasaki0109/lidar_slam_ros2:v0.7.0-jazzy
+docker pull "$IMAGE"
+docker run --rm "$IMAGE" lidarslam-map --version
+```
+
+Use an exact digest for deployment or rollback. Each GitHub Release attaches
+`release-image-humble.json` and `release-image-jazzy.json`; they record the
+tested tag, digest, tag commit, platform, product version, and observed CLI
+version:
+
+```bash
+DIGEST="$(jq -r .digest release-image-jazzy.json)"
+docker run --rm \
+  "ghcr.io/rsasaki0109/lidar_slam_ros2@${DIGEST}" \
+  lidarslam-map --version
+```
+
+The release workflow builds from the tagged recursive checkout, publishes an
+SBOM and maximum-mode BuildKit provenance with each image, creates a signed
+GitHub artifact attestation, then pulls and smoke-tests the registry digest.
+The GitHub Release is created only after both distro images pass. Verify the
+GitHub provenance with:
+
+```bash
+gh attestation verify \
+  oci://ghcr.io/rsasaki0109/lidar_slam_ros2:v0.7.0-jazzy \
+  -R rsasaki0109/lidar_slam_ros2
+```
+
+The version examples illustrate the tag contract; use a tag listed on the
+GitHub Releases page. Convenience tags are intentionally moving, so recording
+their current digest is mandatory when they are used in evaluation evidence.
+
 ## Profile-specific extras
 
 The flagship PointCloud2 + IMU profile is complete after the recursive source
@@ -97,7 +154,7 @@ module is absent. This extra is not required by the default RKO-LIO path.
 | Delivery | Humble amd64 | Jazzy amd64 | arm64 / Jetson | Flagship RKO-LIO path |
 | --- | --- | --- | --- | --- |
 | Recursive source checkout + `colcon` | Tested in CI | Tested in CI | Evaluation; use the Jetson runbook | Included from the maintained submodule |
-| GHCR image | Published convenience image for Humble | Not yet published | Not yet published | Included |
+| GHCR image | Moving and versioned amd64 images | Moving and versioned amd64 images | Not yet published | Included |
 | ROS buildfarm / apt | Not released | Not released | Not released | Packaging decision unresolved |
 
 `amd64` is the tested product target. Jetson/MID-360 workflows have real-device
@@ -122,6 +179,8 @@ that fact only proves buildability; it does not make the installed flagship
 workflow complete. See the [rosdistro release runbook](rosdistro-release.md)
 for the maintainer procedure and remaining prerequisites.
 
-Versioned GHCR tags, release-image SBOM/provenance, upgrade tests, and attached
-release-candidate installation evidence remain Phase 2 work. Until those land,
-use the recursive source install or the documented Humble convenience image.
+Versioned Humble/Jazzy GHCR tags, release-image SBOM/provenance, digest smoke
+tests, and attached installation evidence are automated for the next tagged
+release. ROS buildfarm packages remain blocked by the dependency decisions
+above. Upgrade testing across two released product versions and arm64 image
+publication also remain Phase 2 work.
