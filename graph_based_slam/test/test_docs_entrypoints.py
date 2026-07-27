@@ -528,7 +528,10 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert '--soak-profile one-hour' in reliability_doc
     assert '--hardware-label' in reliability_doc
     assert '--max-peak-rss-mib' in reliability_doc
-    assert 'soak-report-v1.schema.json' in reliability_doc
+    assert '--telemetry-interval-secs' in reliability_doc
+    assert 'soak-report-v2.schema.json' in reliability_doc
+    assert 'schema v1 remains published' in reliability_doc
+    assert 'SIGKILL' in reliability_doc
     assert 'GNU `time`' in reliability_doc
     assert '3,600 or 28,800 seconds' in reliability_doc
     assert '(operational-reliability.md)' in (

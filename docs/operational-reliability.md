@@ -76,15 +76,32 @@ python3 scripts/run_map_soak.py /data/bags/mid360 \
   --map-profile mid360_livox_smoke \
   --max-peak-rss-mib 4096 \
   --max-output-gib 40 \
-  --max-dropped-inputs 0
+  --max-dropped-inputs 0 \
+  --telemetry-interval-secs 30
 ```
 
 The harness repeats complete, collision-safe map runs until the profile
 duration is reached. Each iteration records its command, exit code, GNU time
 wall duration and peak RSS, output size, remaining free space, console log and
-raw GNU time report. `soak_report.json` is updated atomically after every
-iteration and validated by
-[`soak-report-v1.schema.json`](schemas/soak-report-v1.schema.json).
+raw GNU time report. While an iteration is still running, it samples free
+space and cumulative output size every 30 seconds by default. The interval
+must be positive and cannot exceed 60 seconds.
+
+Every sample is appended to `telemetry_samples` and atomically checkpoints
+`soak_report.json`. If free space falls below `--min-free-space-gib` or output
+growth exceeds `--max-output-gib`, the harness stops the entire timed process
+group with `SIGTERM` and a bounded `SIGKILL` fallback, then attempts to
+finalize a failed report. The last successful sample remains available even
+when the iteration never produces normal GNU time evidence. Schema v2 defines
+the periodic evidence; schema v1 remains published for existing reports:
+
+- [`soak-report-v2.schema.json`](schemas/soak-report-v2.schema.json)
+- [`soak-report-v1.schema.json`](schemas/soak-report-v1.schema.json)
+
+Operator `Ctrl-C` and service `SIGTERM` use the same process-group cleanup and
+return `130` and `143`, respectively. Their terminal v2 report has
+`interrupted` status. If the filesystem refuses the final atomic update, the
+last successfully written running-state sample remains as recovery evidence.
 
 The drop counter is a conservative count of documented console signatures for
 message-filter drops, scan drops and queue/buffer overflow. One line can match
@@ -103,8 +120,7 @@ the termination coverage:
 - execute and archive the one-hour and eight-hour soak profiles on named
   release hardware; the harness and machine-readable thresholds are automated,
   but real-duration evidence is not yet recorded;
-- periodic free-space telemetry within a long-running iteration and a
-  bounded-filesystem live exhaustion test in the scheduled real-data
+- a bounded-filesystem live exhaustion test in the scheduled real-data
   environment;
 - output migration tooling and last-known-good rollback instructions.
 
