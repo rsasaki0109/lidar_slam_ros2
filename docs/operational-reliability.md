@@ -51,8 +51,9 @@ manifest is not replaced by truncated JSON.
 
 The runner starts the delegated workflow in a separate POSIX process group.
 For `SIGINT` and `SIGTERM`, it forwards the same signal to the entire group,
-waits up to ten seconds, then sends `SIGKILL` if the group leader has not
-exited. The leader is always reaped before terminal post-processing begins.
+waits up to ten seconds for the process group to disappear, then sends
+`SIGKILL` to any surviving group members. The leader is always reaped before
+terminal post-processing begins.
 
 An external `SIGKILL`, kernel panic, power loss, or storage device loss cannot
 be converted into a terminal manifest by user-space code. Such a run may
@@ -126,10 +127,10 @@ return `130` and `143`, respectively. Their terminal v4 report has
 last successfully written running-state sample remains as recovery evidence.
 
 When an iteration reaches `--max-iteration-secs`, the harness records a final
-sample, terminates and reaps the whole timed process group, and writes a
-terminal v4 report with `failed` status. This converts a live player or mapper
-stall into bounded, machine-readable evidence instead of allowing a named
-one-hour or eight-hour profile to hang indefinitely.
+sample, terminates the whole timed process group, reaps its leader, and writes
+a terminal v4 report with `failed` status. This converts a live player or
+mapper stall into bounded, machine-readable evidence instead of allowing a
+named one-hour or eight-hour profile to hang indefinitely.
 
 The drop counter is a conservative count of documented console signatures for
 message-filter drops, scan drops and queue/buffer overflow. One line can match

@@ -539,6 +539,50 @@ def test_iteration_callback_failure_terminates_process_group(tmp_path):
     assert time.monotonic() - started < 2.0
 
 
+def test_process_group_cleanup_kills_survivor_after_leader_exits(
+    monkeypatch,
+):
+    child_code = (
+        'import signal, time; '
+        'signal.signal(signal.SIGTERM, signal.SIG_IGN); '
+        'time.sleep(30)'
+    )
+    leader_code = (
+        'import subprocess, sys, time; '
+        f'child = subprocess.Popen([sys.executable, "-c", {child_code!r}]); '
+        'time.sleep(0.1); '
+        'print(child.pid, flush=True); '
+        'time.sleep(30)'
+    )
+    process = SOAK.subprocess.Popen(
+        [sys.executable, '-c', leader_code],
+        start_new_session=True,
+        stdout=SOAK.subprocess.PIPE,
+        text=True,
+    )
+    child_pid = int(process.stdout.readline())
+    monkeypatch.setattr(SOAK, 'PROCESS_SHUTDOWN_GRACE_SECS', 0.05)
+
+    try:
+        SOAK._terminate_process_group(process)
+        child_stat = Path(f'/proc/{child_pid}/stat')
+        deadline = time.monotonic() + 1.0
+        while child_stat.exists() and time.monotonic() < deadline:
+            if child_stat.read_text().split()[2] == 'Z':
+                break
+            time.sleep(0.01)
+        assert (
+            not child_stat.exists()
+            or child_stat.read_text().split()[2] == 'Z'
+        )
+    finally:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.wait()
+
+
 def test_real_iteration_emits_periodic_and_final_samples(tmp_path):
     log_path = tmp_path / 'iteration.log'
     time_path = tmp_path / 'iteration.time'

@@ -484,22 +484,26 @@ def _run_iteration(
 
 
 def _terminate_process_group(process: subprocess.Popen) -> None:
-    """Stop and reap the timed command and every descendant in its session."""
-    if process.poll() is not None:
-        return
+    """Stop the timed process group and reap its leader."""
+    process_group_id = process.pid
     try:
-        os.killpg(process.pid, signal.SIGTERM)
+        os.killpg(process_group_id, signal.SIGTERM)
     except ProcessLookupError:
         pass
-    try:
-        process.wait(timeout=PROCESS_SHUTDOWN_GRACE_SECS)
-        return
-    except subprocess.TimeoutExpired:
-        pass
-    try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
+
+    deadline = time.monotonic() + PROCESS_SHUTDOWN_GRACE_SECS
+    while time.monotonic() < deadline:
+        process.poll()
+        try:
+            os.killpg(process_group_id, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.01)
+    else:
+        try:
+            os.killpg(process_group_id, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
     process.wait()
 
 
