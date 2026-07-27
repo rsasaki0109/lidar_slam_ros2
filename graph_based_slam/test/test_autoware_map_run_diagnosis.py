@@ -132,6 +132,23 @@ def test_summary_reports_tf_issue_hints(tmp_path: Path):
     assert any('tail -n 120' in step for step in summary['suggested_next_steps'])
 
 
+def test_summary_reports_map_write_disk_exhaustion(tmp_path: Path):
+    module = _load_module()
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    (run_dir / 'map_save.log').write_text(
+        'write failed: [Errno 28] No space left on device\n',
+        encoding='utf-8',
+    )
+
+    summary = module.summarize_run(run_dir)
+    hints = '\n'.join(summary['problem_hints'])
+
+    assert summary['status'] == 'runtime_failed'
+    assert 'output filesystem ran out of writable space or quota' in hints
+    assert 'free storage' in hints
+
+
 def test_summary_uses_terminal_manifest_as_runtime_failure_evidence(
     tmp_path: Path,
 ):

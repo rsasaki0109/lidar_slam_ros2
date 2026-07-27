@@ -10,9 +10,11 @@ import fcntl
 import hashlib
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -54,6 +56,7 @@ PROFILE_HELP = (
     ('packet_applanix_smoke', 'VelodyneScan + Applanix GSOF49 smoke workflow.'),
 )
 WORKFLOW_SHUTDOWN_GRACE_SECS = 10.0
+DEFAULT_MIN_FREE_SPACE_GIB = 5.0
 PACKAGE_XML_PATHS = (
     SHARE_ROOT / 'lidarslam' / 'package.xml',
     SHARE_ROOT / 'graph_based_slam' / 'package.xml',
@@ -333,6 +336,56 @@ def validate_output_dir(output_dir: Path) -> None:
             return
 
 
+def _minimum_free_space_gib(value: str) -> float:
+    """Parse a positive finite output-storage reserve."""
+    try:
+        parsed = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError('must be a number greater than zero') from exc
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise argparse.ArgumentTypeError('must be a finite number greater than zero')
+    return parsed
+
+
+def check_output_storage(
+    output_dir: Path,
+    minimum_free_space_gib: float,
+) -> dict[str, object]:
+    """Refuse a run whose output filesystem is below the configured reserve."""
+    probe_path = output_dir
+    while not probe_path.exists():
+        parent = probe_path.parent
+        if parent == probe_path:
+            raise ValueError(
+                f'cannot find an existing parent for output directory: {output_dir}'
+            )
+        probe_path = parent
+    if not probe_path.is_dir():
+        raise ValueError(f'output storage probe path is not a directory: {probe_path}')
+
+    required_free_bytes = math.ceil(minimum_free_space_gib * 1024**3)
+    try:
+        observed_free_bytes = shutil.disk_usage(probe_path).free
+    except OSError as exc:
+        raise ValueError(
+            f'cannot inspect free space for output directory {output_dir}: {exc}'
+        ) from exc
+    if observed_free_bytes < required_free_bytes:
+        observed_gib = observed_free_bytes / 1024**3
+        raise ValueError(
+            'insufficient free space for map output: '
+            f'require at least {minimum_free_space_gib:.2f} GiB under '
+            f'{probe_path}, but only {observed_gib:.2f} GiB is available. '
+            'Free storage or choose another --output-dir; lower '
+            '--min-free-space-gib only after sizing the expected map.'
+        )
+    return {
+        'probe_path': str(probe_path.resolve()),
+        'required_free_bytes': required_free_bytes,
+        'observed_free_bytes': observed_free_bytes,
+    }
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
 
@@ -482,11 +535,18 @@ def _bag_identity(bag_path: Path) -> dict[str, object]:
 def _write_manifest(run_dir: Path, manifest: dict[str, object]) -> None:
     destination = run_dir / MANIFEST_NAME
     temporary = run_dir / f'.{MANIFEST_NAME}.tmp'
-    temporary.write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + '\n',
-        encoding='utf-8',
-    )
-    os.replace(temporary, destination)
+    try:
+        temporary.write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + '\n',
+            encoding='utf-8',
+        )
+        os.replace(temporary, destination)
+    except OSError:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
 
 def _artifact_checksums(run_dir: Path) -> list[dict[str, object]]:
@@ -961,6 +1021,16 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        '--min-free-space-gib',
+        type=_minimum_free_space_gib,
+        default=DEFAULT_MIN_FREE_SPACE_GIB,
+        metavar='<GiB>',
+        help=(
+            'Refuse to start when the output filesystem has less than this '
+            f'reserve (default: {DEFAULT_MIN_FREE_SPACE_GIB:g} GiB).'
+        ),
+    )
+    parser.add_argument(
         '--viewer',
         choices=['none', 'autoware', 'foxglove'],
         default='none',
@@ -1021,11 +1091,16 @@ def main() -> int:
         WORK_ROOT / 'output' / f'autoware_map_authoring_{bag_path.stem}_{timestamp}'
     )
     working_dir = output_dir.with_name(f'{output_dir.name}.partial')
+    storage_preflight = None
     try:
         validate_bag_path(bag_path)
         if not args.resume:
             validate_output_dir(output_dir)
             validate_output_dir(working_dir)
+        storage_preflight = check_output_storage(
+            output_dir,
+            args.min_free_space_gib,
+        )
         plan = build_execution_plan(
             bag_path=bag_path,
             profile_id=args.profile,
@@ -1039,6 +1114,12 @@ def main() -> int:
     print(f"Selected profile: {plan['label']}")
     print(f'Output directory: {output_dir}')
     print(f'Atomic working directory: {working_dir}')
+    print(
+        'Storage preflight: '
+        f"{storage_preflight['observed_free_bytes'] / 1024**3:.2f} GiB free; "
+        f"{storage_preflight['required_free_bytes'] / 1024**3:.2f} GiB required "
+        f"under {storage_preflight['probe_path']}"
+    )
     print('Command:')
     print('  ' + shlex.join(plan['command']))
 
@@ -1071,6 +1152,7 @@ def main() -> int:
             return 70
         return _finish_run(args, plan, output_dir, exit_code)
 
+    created_working_dir = False
     try:
         manifest = _build_manifest(
             bag_path,
@@ -1080,11 +1162,17 @@ def main() -> int:
             verify_map=not args.no_verify_map,
         )
         working_dir.mkdir(parents=True, exist_ok=False)
+        created_working_dir = True
         manifest['status'] = 'running'
         manifest['lifecycle']['stage'] = 'workflow_running'
         manifest['execution']['started_at'] = _utc_now()
         _write_manifest(working_dir, manifest)
     except (OSError, RuntimeError, ValueError, ET.ParseError, yaml.YAMLError) as exc:
+        if created_working_dir and not (working_dir / MANIFEST_NAME).exists():
+            try:
+                working_dir.rmdir()
+            except OSError:
+                pass
         print(
             f'error: failed to initialize output directory {working_dir}: {exc}',
             file=sys.stderr,

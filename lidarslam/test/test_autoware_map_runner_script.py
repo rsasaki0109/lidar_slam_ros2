@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import errno
 import importlib.util
 import json
 import os
@@ -122,7 +123,159 @@ def test_runner_help_is_user_facing():
     assert 'Workflow profiles:' in result.stdout
     assert 'Expected successful outputs:' in result.stdout
     assert '--output-dir <dir>' in result.stdout
+    assert '--min-free-space-gib <GiB>' in result.stdout
     assert '--resume' in result.stdout
+
+
+def test_storage_preflight_records_budget_and_refuses_low_space(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = _load_module()
+    output_dir = tmp_path / 'nested' / 'map_output'
+    usage_type = type('DiskUsage', (), {})
+
+    enough = usage_type()
+    enough.free = 7 * 1024**3
+    monkeypatch.setattr(module.shutil, 'disk_usage', lambda path: enough)
+    evidence = module.check_output_storage(output_dir, 5.0)
+
+    assert evidence == {
+        'probe_path': str(tmp_path.resolve()),
+        'required_free_bytes': 5 * 1024**3,
+        'observed_free_bytes': 7 * 1024**3,
+    }
+
+    low = usage_type()
+    low.free = 256 * 1024**2
+    monkeypatch.setattr(module.shutil, 'disk_usage', lambda path: low)
+    with pytest.raises(ValueError, match='insufficient free space for map output'):
+        module.check_output_storage(output_dir, 5.0)
+
+
+@pytest.mark.parametrize('value', ['0', '-1', 'nan', 'inf'])
+def test_storage_preflight_rejects_unsafe_budget_values(value: str):
+    module = _load_module()
+
+    with pytest.raises(
+        module.argparse.ArgumentTypeError,
+        match='finite number greater than zero',
+    ):
+        module._minimum_free_space_gib(value)
+
+
+def test_main_refuses_low_space_before_creating_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'demo_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'map_output'
+    usage_type = type('DiskUsage', (), {})
+    usage = usage_type()
+    usage.free = 1024
+    monkeypatch.setattr(module.shutil, 'disk_usage', lambda path: usage)
+    monkeypatch.setattr(
+        module,
+        'build_execution_plan',
+        lambda **kwargs: pytest.fail('workflow planning must follow storage refusal'),
+    )
+    monkeypatch.setattr(
+        module.sys,
+        'argv',
+        [
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_dir),
+            '--dry-run',
+        ],
+    )
+
+    assert module.main() == 2
+    assert 'insufficient free space for map output' in capsys.readouterr().err
+    assert not output_dir.exists()
+    assert not output_dir.with_name('map_output.partial').exists()
+
+
+def test_atomic_manifest_write_preserves_previous_file_on_enospc(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = _load_module()
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    destination = run_dir / 'run_manifest.json'
+    destination.write_text('{"status":"durable"}\n', encoding='utf-8')
+
+    def fail_replace(source, target):
+        del source, target
+        raise OSError(errno.ENOSPC, 'No space left on device')
+
+    monkeypatch.setattr(module.os, 'replace', fail_replace)
+    with pytest.raises(OSError) as error:
+        module._write_manifest(run_dir, {'status': 'new'})
+
+    assert error.value.errno == errno.ENOSPC
+    assert destination.read_text(encoding='utf-8') == '{"status":"durable"}\n'
+    assert not (run_dir / '.run_manifest.json.tmp').exists()
+
+
+def test_initial_manifest_enospc_removes_empty_partial_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'demo_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'map_output'
+    working_dir = tmp_path / 'map_output.partial'
+    plan = {
+        'payload': {},
+        'profile_id': 'rko_lio_graph_public_path',
+        'label': 'RKO-LIO + graph_based_slam public path',
+        'command': ['map-workflow'],
+        'output_dir': working_dir,
+    }
+    monkeypatch.setattr(module, 'build_execution_plan', lambda **kwargs: plan)
+
+    def fail_manifest_write(*args, **kwargs):
+        del args, kwargs
+        raise OSError(errno.ENOSPC, 'No space left on device')
+
+    monkeypatch.setattr(module, '_write_manifest', fail_manifest_write)
+    monkeypatch.setattr(
+        module.sys,
+        'argv',
+        [
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_dir),
+            '--min-free-space-gib',
+            '0.001',
+        ],
+    )
+
+    assert module.main() == 2
+    assert 'No space left on device' in capsys.readouterr().err
+    assert not output_dir.exists()
+    assert not working_dir.exists()
 
 
 def test_runner_rejects_db3_file_without_traceback(tmp_path: Path):
@@ -418,6 +571,71 @@ def test_main_retains_terminal_manifest_for_failed_and_interrupted_runs(
     assert manifest['lifecycle']['last_error'] == expected_error
     assert manifest['output']['finalized'] is True
     assert not output_dir.with_name('failed_map.partial').exists()
+
+
+def test_map_write_enospc_is_preserved_and_diagnosed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'disk_pressure_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'disk_pressure_map'
+    working_dir = tmp_path / 'disk_pressure_map.partial'
+    plan = {
+        'payload': {},
+        'profile_id': 'rko_lio_graph_public_path',
+        'label': 'disk-pressure injection fixture',
+        'command': ['map-workflow'],
+        'output_dir': working_dir,
+    }
+
+    def inject_map_write_enospc(*args):
+        del args
+        (working_dir / 'map_save.log').write_text(
+            'write failed: [Errno 28] No space left on device\n',
+            encoding='utf-8',
+        )
+        return 28, False, None
+
+    monkeypatch.setattr(module, 'build_execution_plan', lambda **kwargs: plan)
+    monkeypatch.setattr(module, '_run_workflow', inject_map_write_enospc)
+    monkeypatch.setattr(module, 'maybe_verify_map', lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        module.sys,
+        'argv',
+        [
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_dir),
+            '--min-free-space-gib',
+            '0.001',
+        ],
+    )
+
+    assert module.main() == 28
+    manifest = json.loads(
+        (output_dir / 'run_manifest.json').read_text(encoding='utf-8')
+    )
+    diagnosis = json.loads(
+        (output_dir / 'autoware_map_diagnosis.json').read_text(encoding='utf-8')
+    )
+    assert manifest['status'] == 'failed'
+    assert manifest['execution']['exit_code'] == 28
+    assert manifest['lifecycle']['runner_exit_code'] == 28
+    assert manifest['output']['finalized'] is True
+    assert diagnosis['status'] == 'runtime_failed'
+    assert any(
+        'output filesystem ran out of writable space or quota' in hint
+        for hint in diagnosis['problem_hints']
+    )
 
 
 def test_workflow_supervisor_forwards_sigterm_and_reaps_process_group(

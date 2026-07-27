@@ -32,6 +32,10 @@ Use `--dry-run` to inspect the plan without creating the output directory.
 The runner writes into `<output>.partial` and atomically renames that directory
 to the requested output name after the workflow stops. It refuses to start
 when either name already exists, so a new run never overwrites prior evidence.
+It also refuses to launch when the output filesystem has less than 5 GiB free.
+Use `--min-free-space-gib <GiB>` to set a larger reserve after sizing the
+expected map; the configured reserve is a refusal boundary, not an output-size
+prediction.
 Completed, failed, and interrupted workflows retain their artifacts and
 terminal state for diagnosis. The runner isolates the workflow in its own
 process group. `Ctrl-C` (`SIGINT`) and service/container termination
