@@ -53,9 +53,9 @@ SOAK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SOAK)
 
 
-def _schema_v3() -> dict:
+def _schema_v4() -> dict:
     return json.loads(
-        (ROOT / 'docs/schemas/soak-report-v3.schema.json').read_text()
+        (ROOT / 'docs/schemas/soak-report-v4.schema.json').read_text()
     )
 
 
@@ -106,6 +106,7 @@ def _args(tmp_path: Path, **overrides) -> argparse.Namespace:
         'max_peak_rss_mib': 512.0,
         'max_output_gib': 1.0,
         'max_dropped_inputs': 0,
+        'max_iteration_secs': 300.0,
         'min_free_space_gib': 0.01,
         'telemetry_interval_secs': 30.0,
     }
@@ -211,9 +212,11 @@ def test_successful_soak_writes_schema_valid_threshold_evidence(tmp_path):
         time_path,
         *,
         telemetry_interval_sec,
+        max_iteration_sec,
         on_sample,
     ):
         assert telemetry_interval_sec == 30.0
+        assert max_iteration_sec == 300.0
         on_sample(0.0)
         run_dir = Path(command[command.index('--output-dir') + 1])
         run_dir.mkdir(parents=True)
@@ -225,7 +228,7 @@ def test_successful_soak_writes_schema_valid_threshold_evidence(tmp_path):
         assert checkpoint['status'] == 'running'
         assert checkpoint['active_iteration_id'] == 'iteration-0001'
         assert len(checkpoint['telemetry_samples']) == 2
-        jsonschema.validate(checkpoint, _schema_v3())
+        jsonschema.validate(checkpoint, _schema_v4())
         log_path.write_text('', encoding='utf-8')
         time_path.write_text('fake GNU time evidence\n', encoding='utf-8')
         return (
@@ -254,7 +257,7 @@ def test_successful_soak_writes_schema_valid_threshold_evidence(tmp_path):
     assert report['hardware']['machine_id']
     assert report['harness']['runner_sha256']
     saved = json.loads((Path(args.output_root) / SOAK.REPORT_NAME).read_text())
-    schema = _schema_v3()
+    schema = _schema_v4()
     jsonschema.Draft7Validator.check_schema(schema)
     jsonschema.validate(saved, schema)
 
@@ -269,6 +272,7 @@ def test_failed_iteration_stops_and_preserves_failed_report(tmp_path):
         time_path,
         *,
         telemetry_interval_sec,
+        max_iteration_sec,
         on_sample,
     ):
         on_sample(0.0)
@@ -305,6 +309,7 @@ def test_successful_iteration_without_product_provenance_fails_soak(tmp_path):
         time_path,
         *,
         telemetry_interval_sec,
+        max_iteration_sec,
         on_sample,
     ):
         on_sample(0.0)
@@ -324,7 +329,7 @@ def test_successful_iteration_without_product_provenance_fails_soak(tmp_path):
     assert report['status'] == 'failed'
     assert report['checks']['provenance_recorded'] is False
     assert 'lacks run_manifest.json' in report['last_error']
-    jsonschema.validate(report, _schema_v3())
+    jsonschema.validate(report, _schema_v4())
 
 
 def test_changed_input_identity_between_iterations_fails_soak(tmp_path):
@@ -338,6 +343,7 @@ def test_changed_input_identity_between_iterations_fails_soak(tmp_path):
         time_path,
         *,
         telemetry_interval_sec,
+        max_iteration_sec,
         on_sample,
     ):
         calls.append(command)
@@ -386,6 +392,7 @@ def test_telemetry_failure_becomes_terminal_evidence(tmp_path):
         time_path,
         *,
         telemetry_interval_sec,
+        max_iteration_sec,
         on_sample,
     ):
         raise ValueError('GNU time report lacks fields')
@@ -416,6 +423,7 @@ def test_resource_budget_failure_stops_before_another_iteration(tmp_path):
         time_path,
         *,
         telemetry_interval_sec,
+        max_iteration_sec,
         on_sample,
     ):
         on_sample(0.0)
@@ -457,6 +465,7 @@ def test_periodic_low_space_sample_aborts_and_preserves_evidence(
         time_path,
         *,
         telemetry_interval_sec,
+        max_iteration_sec,
         on_sample,
     ):
         on_sample(4.0)
@@ -489,6 +498,7 @@ def test_periodic_output_growth_aborts_before_iteration_finishes(tmp_path):
         time_path,
         *,
         telemetry_interval_sec,
+        max_iteration_sec,
         on_sample,
     ):
         run_dir = Path(command[command.index('--output-dir') + 1])
@@ -520,12 +530,57 @@ def test_iteration_callback_failure_terminates_process_group(tmp_path):
             log_path,
             time_path,
             telemetry_interval_sec=0.01,
+            max_iteration_sec=1.0,
             on_sample=lambda elapsed: (_ for _ in ()).throw(
                 RuntimeError('stop now')
             ),
         )
 
     assert time.monotonic() - started < 2.0
+
+
+def test_process_group_cleanup_kills_survivor_after_leader_exits(
+    monkeypatch,
+):
+    child_code = (
+        'import signal, time; '
+        'signal.signal(signal.SIGTERM, signal.SIG_IGN); '
+        'time.sleep(30)'
+    )
+    leader_code = (
+        'import subprocess, sys, time; '
+        f'child = subprocess.Popen([sys.executable, "-c", {child_code!r}]); '
+        'time.sleep(0.1); '
+        'print(child.pid, flush=True); '
+        'time.sleep(30)'
+    )
+    process = SOAK.subprocess.Popen(
+        [sys.executable, '-c', leader_code],
+        start_new_session=True,
+        stdout=SOAK.subprocess.PIPE,
+        text=True,
+    )
+    child_pid = int(process.stdout.readline())
+    monkeypatch.setattr(SOAK, 'PROCESS_SHUTDOWN_GRACE_SECS', 0.05)
+
+    try:
+        SOAK._terminate_process_group(process)
+        child_stat = Path(f'/proc/{child_pid}/stat')
+        deadline = time.monotonic() + 1.0
+        while child_stat.exists() and time.monotonic() < deadline:
+            if child_stat.read_text().split()[2] == 'Z':
+                break
+            time.sleep(0.01)
+        assert (
+            not child_stat.exists()
+            or child_stat.read_text().split()[2] == 'Z'
+        )
+    finally:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.wait()
 
 
 def test_real_iteration_emits_periodic_and_final_samples(tmp_path):
@@ -538,6 +593,7 @@ def test_real_iteration_emits_periodic_and_final_samples(tmp_path):
         log_path,
         time_path,
         telemetry_interval_sec=0.02,
+        max_iteration_sec=1.0,
         on_sample=samples.append,
     )
 
@@ -552,6 +608,63 @@ def test_real_iteration_emits_periodic_and_final_samples(tmp_path):
     assert samples[0] == 0.0
     assert len(samples) >= 3
     assert samples == sorted(samples)
+
+
+def test_real_iteration_timeout_terminates_process_group(tmp_path):
+    log_path = tmp_path / 'iteration.log'
+    time_path = tmp_path / 'iteration.time'
+    samples = []
+    started = time.monotonic()
+
+    with pytest.raises(TimeoutError, match='max_iteration_sec'):
+        SOAK._run_iteration(
+            [sys.executable, '-c', 'import time; time.sleep(30)'],
+            log_path,
+            time_path,
+            telemetry_interval_sec=30.0,
+            max_iteration_sec=0.05,
+            on_sample=samples.append,
+        )
+
+    assert time.monotonic() - started < 2.0
+    assert samples[0] == 0.0
+    assert samples[-1] >= 0.05
+
+
+def test_iteration_timeout_is_terminal_failed_evidence(tmp_path):
+    args = _args(tmp_path, max_iteration_secs=10.0)
+    ticks = iter([0.0, 0.0, 10.1])
+
+    def timed_out_iteration(
+        command,
+        log_path,
+        time_path,
+        *,
+        telemetry_interval_sec,
+        max_iteration_sec,
+        on_sample,
+    ):
+        assert max_iteration_sec == 10.0
+        on_sample(10.1)
+        raise TimeoutError(
+            'iteration exceeded max_iteration_sec (10)'
+        )
+
+    exit_code, report = SOAK.run_soak(
+        args,
+        clock=lambda: next(ticks),
+        run_iteration=timed_out_iteration,
+    )
+
+    assert exit_code == 1
+    assert report['status'] == 'failed'
+    assert report['metrics']['iterations_failed'] == 1
+    assert report['metrics']['max_observed_iteration_sec'] == 10.1
+    assert report['checks']['iteration_duration_within_budget'] is False
+    assert report['last_error'].endswith(
+        'iteration exceeded max_iteration_sec (10)'
+    )
+    jsonschema.validate(report, _schema_v4())
 
 
 def test_real_iteration_forwards_sigterm_and_restores_handler(tmp_path):
@@ -571,6 +684,7 @@ def test_real_iteration_forwards_sigterm_and_restores_handler(tmp_path):
                 log_path,
                 time_path,
                 telemetry_interval_sec=0.02,
+                max_iteration_sec=1.0,
                 on_sample=lambda elapsed: None,
             )
     finally:
@@ -591,6 +705,7 @@ def test_keyboard_interrupt_is_terminal_and_returns_130(tmp_path):
         time_path,
         *,
         telemetry_interval_sec,
+        max_iteration_sec,
         on_sample,
     ):
         on_sample(1.0)
@@ -619,6 +734,7 @@ def test_sigterm_is_terminal_and_returns_143(tmp_path):
         time_path,
         *,
         telemetry_interval_sec,
+        max_iteration_sec,
         on_sample,
     ):
         on_sample(1.0)
@@ -635,7 +751,7 @@ def test_sigterm_is_terminal_and_returns_143(tmp_path):
     assert report['metrics']['iterations_failed'] == 1
     assert report['active_iteration_id'] is None
     assert report['last_error'].endswith('interrupted by SIGTERM')
-    jsonschema.validate(report, _schema_v3())
+    jsonschema.validate(report, _schema_v4())
 
 
 def test_existing_output_is_never_overwritten(tmp_path):

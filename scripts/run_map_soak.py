@@ -58,7 +58,7 @@ REPORT_NAME = 'soak_report.json'
 RUN_MANIFEST_NAME = 'run_manifest.json'
 SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
-    'schemas/soak-report-v3.schema.json'
+    'schemas/soak-report-v4.schema.json'
 )
 DEFAULT_TELEMETRY_INTERVAL_SECS = 30.0
 PROCESS_SHUTDOWN_GRACE_SECS = 10.0
@@ -388,6 +388,10 @@ def evaluate_report(report: dict[str, object]) -> dict[str, bool]:
             and metrics['minimum_free_space_bytes']
             >= thresholds['minimum_free_space_bytes']
         ),
+        'iteration_duration_within_budget': (
+            metrics['max_observed_iteration_sec']
+            <= thresholds['max_iteration_sec']
+        ),
         'provenance_recorded': (
             report['input_identity'] is not None
             and report['software_identity'] is not None
@@ -414,6 +418,7 @@ def _run_iteration(
     time_path: Path,
     *,
     telemetry_interval_sec: float,
+    max_iteration_sec: float,
     on_sample: Callable[[float], None],
     clock: Callable[[], float] = time.monotonic,
 ) -> tuple[int, dict[str, float | int], dict[str, int]]:
@@ -445,13 +450,26 @@ def _run_iteration(
             on_sample(0.0)
             last_sample_elapsed = 0.0
             while True:
+                elapsed = clock() - iteration_start
+                remaining = max_iteration_sec - elapsed
+                if remaining <= 0:
+                    on_sample(elapsed)
+                    raise TimeoutError(
+                        'iteration exceeded max_iteration_sec '
+                        f'({max_iteration_sec:g})'
+                    )
                 try:
-                    process.wait(timeout=telemetry_interval_sec)
+                    process.wait(timeout=min(telemetry_interval_sec, remaining))
                     break
                 except subprocess.TimeoutExpired:
                     elapsed = clock() - iteration_start
                     on_sample(elapsed)
                     last_sample_elapsed = elapsed
+                    if elapsed >= max_iteration_sec:
+                        raise TimeoutError(
+                            'iteration exceeded max_iteration_sec '
+                            f'({max_iteration_sec:g})'
+                        )
             final_elapsed = clock() - iteration_start
             if last_sample_elapsed is None or final_elapsed > last_sample_elapsed:
                 on_sample(final_elapsed)
@@ -466,20 +484,19 @@ def _run_iteration(
 
 
 def _terminate_process_group(process: subprocess.Popen) -> None:
-    """Stop and reap the timed command and every descendant in its session."""
-    if process.poll() is not None:
-        return
+    """Stop the timed process group and reap its leader."""
+    process_group_id = process.pid
     try:
-        os.killpg(process.pid, signal.SIGTERM)
+        os.killpg(process_group_id, signal.SIGTERM)
     except ProcessLookupError:
         pass
+
     try:
         process.wait(timeout=PROCESS_SHUTDOWN_GRACE_SECS)
-        return
     except subprocess.TimeoutExpired:
         pass
     try:
-        os.killpg(process.pid, signal.SIGKILL)
+        os.killpg(process_group_id, signal.SIGKILL)
     except ProcessLookupError:
         pass
     process.wait()
@@ -487,7 +504,7 @@ def _terminate_process_group(process: subprocess.Popen) -> None:
 
 def _initial_report(args: argparse.Namespace, cli: Path) -> dict[str, object]:
     return {
-        'schema_version': 3,
+        'schema_version': 4,
         'schema_uri': SCHEMA_URI,
         'status': 'running',
         'last_error': None,
@@ -509,6 +526,7 @@ def _initial_report(args: argparse.Namespace, cli: Path) -> dict[str, object]:
             'max_peak_rss_mib': args.max_peak_rss_mib,
             'max_output_bytes': math.ceil(args.max_output_gib * 1024**3),
             'max_dropped_inputs': args.max_dropped_inputs,
+            'max_iteration_sec': args.max_iteration_secs,
             'minimum_free_space_bytes': math.ceil(
                 args.min_free_space_gib * 1024**3
             ),
@@ -520,6 +538,7 @@ def _initial_report(args: argparse.Namespace, cli: Path) -> dict[str, object]:
             'peak_rss_mib': 0.0,
             'output_size_bytes': 0,
             'dropped_inputs_total': 0,
+            'max_observed_iteration_sec': 0.0,
             'minimum_free_space_bytes': None,
         },
         'checks': {},
@@ -598,6 +617,10 @@ def run_soak(
             })
             metrics = report['metrics']
             metrics['wall_time_sec'] = soak_elapsed_sec
+            metrics['max_observed_iteration_sec'] = max(
+                metrics['max_observed_iteration_sec'],
+                iteration_elapsed_sec,
+            )
             metrics['output_size_bytes'] = output_size
             previous_minimum = metrics['minimum_free_space_bytes']
             metrics['minimum_free_space_bytes'] = (
@@ -622,6 +645,7 @@ def run_soak(
                 log_path,
                 time_path,
                 telemetry_interval_sec=args.telemetry_interval_secs,
+                max_iteration_sec=args.max_iteration_secs,
                 on_sample=record_sample,
             )
             if return_code == 0:
@@ -701,6 +725,10 @@ def run_soak(
             metrics['peak_rss_mib'],
             resources['peak_rss_mib'],
         )
+        metrics['max_observed_iteration_sec'] = max(
+            metrics['max_observed_iteration_sec'],
+            resources['wall_time_sec'],
+        )
         metrics['output_size_bytes'] = directory_size_bytes(runs_dir)
         metrics['dropped_inputs_total'] += dropped_total
         previous_minimum = metrics['minimum_free_space_bytes']
@@ -721,6 +749,7 @@ def run_soak(
             'output_size_within_budget',
             'dropped_inputs_within_budget',
             'free_space_within_budget',
+            'iteration_duration_within_budget',
         )
         failed_budget = next(
             (name for name in budget_checks if not report['checks'][name]),
@@ -770,6 +799,15 @@ def parse_args() -> argparse.Namespace:
         '--max-dropped-inputs',
         type=_nonnegative_int,
         required=True,
+    )
+    parser.add_argument(
+        '--max-iteration-secs',
+        type=_positive_finite,
+        required=True,
+        help=(
+            'Terminate the timed process group when one complete map run '
+            'exceeds this wall-time budget'
+        ),
     )
     parser.add_argument(
         '--min-free-space-gib',
