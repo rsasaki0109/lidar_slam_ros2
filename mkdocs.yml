@@ -36,6 +36,7 @@ nav:
   - Getting Started: getting-started.md
   - Product Contract: product-contract.md
   - Golden-path CLI: golden-path-cli.md
+  - Operational reliability: operational-reliability.md
   - Distribution and installed CLI: distribution.md
   - Autoware-Compatible Map Authoring: autoware-map-authoring.md
   - Autoware Quickstart: autoware-quickstart.md

@@ -33,7 +33,12 @@ The runner writes into `<output>.partial` and atomically renames that directory
 to the requested output name after the workflow stops. It refuses to start
 when either name already exists, so a new run never overwrites prior evidence.
 Completed, failed, and interrupted workflows retain their artifacts and
-terminal state for diagnosis.
+terminal state for diagnosis. The runner isolates the workflow in its own
+process group. `Ctrl-C` (`SIGINT`) and service/container termination
+(`SIGTERM`) are forwarded to that group, bounded by a ten-second graceful
+shutdown before forced cleanup. The manifest is then completed with
+`interrupted` status, exit `130` or `143`, and the terminating signal in
+`lifecycle.last_error`.
 
 If the workflow has stopped but verification, finalization, diagnosis, or
 checksum generation was interrupted, resume only those terminal
@@ -115,7 +120,8 @@ Each subcommand accepts the same options as its delegated tool:
 | `0` | Command completed successfully |
 | `2` | Invalid usage, input, profile, or output path |
 | `70` | Internal/tooling error prevented the command from starting |
-| `130` | Run was interrupted by the operator |
+| `130` | Run was interrupted by the operator (`SIGINT`) |
+| `143` | Run was terminated by a service or container manager (`SIGTERM`) |
 | other non-zero | Map-workflow exit code, propagated unchanged |
 
 ## Installed names and compatibility

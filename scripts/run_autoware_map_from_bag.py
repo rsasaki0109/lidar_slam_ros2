@@ -13,8 +13,10 @@ import json
 import os
 from pathlib import Path
 import shlex
+import signal
 import subprocess
 import sys
+import time
 import uuid
 import xml.etree.ElementTree as ET
 
@@ -51,6 +53,7 @@ PROFILE_HELP = (
     ('pointcloud_gnss_smoke', 'PointCloud2 + NavSatFix smoke workflow.'),
     ('packet_applanix_smoke', 'VelodyneScan + Applanix GSOF49 smoke workflow.'),
 )
+WORKFLOW_SHUTDOWN_GRACE_SECS = 10.0
 PACKAGE_XML_PATHS = (
     SHARE_ROOT / 'lidarslam' / 'package.xml',
     SHARE_ROOT / 'graph_based_slam' / 'package.xml',
@@ -62,6 +65,98 @@ PACKAGE_XML_PATHS = (
         else SHARE_ROOT / 'rko_lio' / 'package.xml'
     ),
 )
+
+
+class _TerminationRequested(Exception):
+    """Represent an external termination signal while the workflow is active."""
+
+    def __init__(self, signum: int):
+        super().__init__(signum)
+        self.signum = signum
+
+
+def _terminate_process_group(
+    process: subprocess.Popen,
+    signum: int,
+    grace_secs: float = WORKFLOW_SHUTDOWN_GRACE_SECS,
+) -> None:
+    """Forward a signal to the isolated workflow group and reap its leader."""
+    try:
+        os.killpg(process.pid, signum)
+    except ProcessLookupError:
+        process.wait()
+        return
+
+    deadline = time.monotonic() + grace_secs
+    while time.monotonic() < deadline:
+        process.poll()
+        try:
+            os.killpg(process.pid, 0)
+        except ProcessLookupError:
+            process.wait()
+            return
+        except PermissionError:
+            pass
+        time.sleep(0.05)
+
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    process.wait()
+
+
+def _run_workflow(
+    command: list[str],
+    cwd: Path,
+) -> tuple[int, bool, str | None]:
+    """Run a workflow in an isolated process group with durable signal results."""
+    process: subprocess.Popen | None = None
+
+    def request_termination(signum, _frame):
+        raise _TerminationRequested(signum)
+
+    previous_sigterm = signal.signal(signal.SIGTERM, request_termination)
+    requested_signal = None
+    try:
+        process = subprocess.Popen(command, cwd=cwd, start_new_session=True)
+        try:
+            return process.wait(), False, None
+        except KeyboardInterrupt:
+            requested_signal = signal.SIGINT
+        except _TerminationRequested as exc:
+            requested_signal = exc.signum
+    finally:
+        signal.signal(signal.SIGTERM, previous_sigterm)
+
+    if process is None or requested_signal is None:
+        raise RuntimeError('workflow supervision ended without a process result')
+    _terminate_process_group(process, requested_signal)
+    signal_name = signal.Signals(requested_signal).name
+    return (
+        128 + requested_signal,
+        True,
+        f'map workflow interrupted by {signal_name}',
+    )
+
+
+def _terminal_workflow_error(
+    status: str,
+    exit_code: int,
+) -> str | None:
+    """Return the stable terminal error recorded after post-processing."""
+    if status == 'interrupted':
+        signal_names = {
+            130: 'SIGINT',
+            143: 'SIGTERM',
+        }
+        signal_name = signal_names.get(exit_code)
+        if signal_name:
+            return f'map workflow interrupted by {signal_name}'
+        return f'map workflow interrupted with exit code {exit_code}'
+    if exit_code != 0:
+        return f'map workflow exited with code {exit_code}'
+    return None
 
 
 def _load_script_module(script_name: str, module_name: str):
@@ -559,9 +654,12 @@ def _validate_resume_state(
     if not isinstance(resume_count, int) or isinstance(resume_count, bool):
         raise ValueError('resume manifest lifecycle.resume_count must be an integer')
     lifecycle['resume_count'] = resume_count + 1
-    lifecycle['last_error'] = None
     workflow_exit_code = execution['exit_code']
-    if manifest.get('status') == 'interrupted' and workflow_exit_code == 130:
+    if manifest.get('status') == 'interrupted':
+        if workflow_exit_code not in (130, 143):
+            raise ValueError(
+                'interrupted resume state requires workflow exit code 130 or 143'
+            )
         manifest['status'] = 'interrupted'
     else:
         manifest['status'] = 'succeeded' if workflow_exit_code == 0 else 'failed'
@@ -730,9 +828,9 @@ def _postprocess_run(
         lifecycle['stage'] = 'diagnosed'
         _write_manifest(current_dir, manifest)
 
-        interrupted = manifest['status'] == 'interrupted' and workflow_exit_code == 130
+        interrupted = manifest['status'] == 'interrupted'
         if interrupted:
-            runner_exit_code = 130
+            runner_exit_code = workflow_exit_code
         elif workflow_exit_code != 0:
             runner_exit_code = workflow_exit_code
             manifest['status'] = 'failed'
@@ -748,7 +846,10 @@ def _postprocess_run(
         manifest['output']['artifact_checksums'] = _artifact_checksums(current_dir)
         lifecycle['stage'] = 'complete'
         lifecycle['runner_exit_code'] = runner_exit_code
-        lifecycle['last_error'] = None
+        lifecycle['last_error'] = _terminal_workflow_error(
+            manifest['status'],
+            workflow_exit_code,
+        )
         _write_manifest(current_dir, manifest)
         return runner_exit_code
     except (OSError, RuntimeError, ValueError, KeyError, TypeError) as exc:
@@ -992,15 +1093,16 @@ def main() -> int:
 
     exit_code = 0
     interrupted = False
+    workflow_error = None
     try:
-        result = subprocess.run(plan['command'], check=False, cwd=WORK_ROOT)
-        exit_code = result.returncode
-    except KeyboardInterrupt:
-        interrupted = True
-        exit_code = 130
+        exit_code, interrupted, workflow_error = _run_workflow(
+            plan['command'],
+            WORK_ROOT,
+        )
     except OSError as exc:
         print(f'error: failed to start map workflow: {exc}', file=sys.stderr)
         exit_code = 70
+        workflow_error = f'failed to start map workflow: {exc}'
 
     manifest['execution']['exit_code'] = exit_code
     manifest['execution']['finished_at'] = _utc_now()
@@ -1008,6 +1110,10 @@ def main() -> int:
         'interrupted' if interrupted else ('succeeded' if exit_code == 0 else 'failed')
     )
     manifest['lifecycle']['stage'] = 'workflow_finished'
+    manifest['lifecycle']['last_error'] = (
+        workflow_error
+        or _terminal_workflow_error(manifest['status'], exit_code)
+    )
     exit_code = _postprocess_with_lock(
         args,
         manifest,

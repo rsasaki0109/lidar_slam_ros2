@@ -33,8 +33,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
+import signal
 import subprocess
+import sys
+import time
 
 import jsonschema
 import pytest
@@ -342,18 +346,30 @@ def test_main_writes_success_manifest_and_rejects_collision(
 
 
 @pytest.mark.parametrize(
-    ('workflow_error', 'expected_status', 'expected_exit_code'),
+    ('workflow_result', 'expected_status', 'expected_exit_code', 'expected_error'),
     [
-        (subprocess.CompletedProcess([], 17), 'failed', 17),
-        (KeyboardInterrupt(), 'interrupted', 130),
+        ((17, False, None), 'failed', 17, 'map workflow exited with code 17'),
+        (
+            (130, True, 'map workflow interrupted by SIGINT'),
+            'interrupted',
+            130,
+            'map workflow interrupted by SIGINT',
+        ),
+        (
+            (143, True, 'map workflow interrupted by SIGTERM'),
+            'interrupted',
+            143,
+            'map workflow interrupted by SIGTERM',
+        ),
     ],
 )
 def test_main_retains_terminal_manifest_for_failed_and_interrupted_runs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    workflow_error,
+    workflow_result,
     expected_status: str,
     expected_exit_code: int,
+    expected_error: str,
 ):
     module = _load_module()
     bag_dir = _write_metadata(
@@ -379,13 +395,7 @@ def test_main_retains_terminal_manifest_for_failed_and_interrupted_runs(
     })
     monkeypatch.setattr(module, 'maybe_verify_map', lambda *args, **kwargs: None)
 
-    if isinstance(workflow_error, BaseException):
-        def fake_run(*args, **kwargs):
-            raise workflow_error
-    else:
-        def fake_run(*args, **kwargs):
-            return workflow_error
-    monkeypatch.setattr(module.subprocess, 'run', fake_run)
+    monkeypatch.setattr(module, '_run_workflow', lambda *args: workflow_result)
     monkeypatch.setattr(
         module.sys,
         'argv',
@@ -405,8 +415,199 @@ def test_main_retains_terminal_manifest_for_failed_and_interrupted_runs(
     assert manifest['execution']['exit_code'] == expected_exit_code
     assert manifest['lifecycle']['stage'] == 'complete'
     assert manifest['lifecycle']['runner_exit_code'] == expected_exit_code
+    assert manifest['lifecycle']['last_error'] == expected_error
     assert manifest['output']['finalized'] is True
     assert not output_dir.with_name('failed_map.partial').exists()
+
+
+def test_workflow_supervisor_forwards_sigterm_and_reaps_process_group(
+    tmp_path: Path,
+):
+    child_pid_path = tmp_path / 'child.pid'
+    child_code = '\n'.join([
+        'import os',
+        'from pathlib import Path',
+        'import time',
+        f'Path({str(child_pid_path)!r}).write_text(str(os.getpid()))',
+        'time.sleep(60)',
+    ])
+    probe_code = '\n'.join([
+        'import importlib.util',
+        'import json',
+        'from pathlib import Path',
+        'import sys',
+        f'script = Path({str(SCRIPT_PATH)!r})',
+        "spec = importlib.util.spec_from_file_location('runner_probe', script)",
+        'module = importlib.util.module_from_spec(spec)',
+        'spec.loader.exec_module(module)',
+        (
+            'result = module._run_workflow('
+            f'[sys.executable, "-c", {child_code!r}], Path.cwd())'
+        ),
+        'print(json.dumps(result))',
+    ])
+
+    probe = subprocess.Popen(
+        [sys.executable, '-c', probe_code],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    deadline = time.monotonic() + 5
+    while not child_pid_path.is_file() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert child_pid_path.is_file()
+    child_pid = int(child_pid_path.read_text(encoding='utf-8'))
+
+    os.kill(probe.pid, signal.SIGTERM)
+    stdout, stderr = probe.communicate(timeout=10)
+
+    assert probe.returncode == 0, stderr
+    assert json.loads(stdout) == [
+        143,
+        True,
+        'map workflow interrupted by SIGTERM',
+    ]
+    with pytest.raises(ProcessLookupError):
+        os.kill(child_pid, 0)
+
+
+def test_workflow_supervisor_forces_cleanup_after_grace_period(tmp_path: Path):
+    module = _load_module()
+    descendant_pid_path = tmp_path / 'descendant.pid'
+    descendant_code = '\n'.join([
+        'import signal',
+        'import time',
+        'signal.signal(signal.SIGTERM, signal.SIG_IGN)',
+        'time.sleep(60)',
+    ])
+    leader_code = '\n'.join([
+        'from pathlib import Path',
+        'import signal',
+        'import subprocess',
+        'import sys',
+        'import time',
+        'signal.signal(signal.SIGTERM, signal.SIG_IGN)',
+        (
+            'child = subprocess.Popen('
+            f'[sys.executable, "-c", {descendant_code!r}])'
+        ),
+        f'Path({str(descendant_pid_path)!r}).write_text(str(child.pid))',
+        'time.sleep(60)',
+    ])
+    leader = subprocess.Popen(
+        [sys.executable, '-c', leader_code],
+        start_new_session=True,
+    )
+    deadline = time.monotonic() + 5
+    while not descendant_pid_path.is_file() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert descendant_pid_path.is_file()
+    descendant_pid = int(descendant_pid_path.read_text(encoding='utf-8'))
+
+    module._terminate_process_group(
+        leader,
+        signal.SIGTERM,
+        grace_secs=0.1,
+    )
+
+    assert leader.returncode == -signal.SIGKILL
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        try:
+            os.kill(descendant_pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.01)
+    else:
+        pytest.fail('forced process-group cleanup left a descendant alive')
+
+
+def test_sigterm_failure_injection_preserves_recoverable_terminal_run(
+    tmp_path: Path,
+):
+    bag_dir = _write_metadata(
+        tmp_path,
+        'termination_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'terminated_map'
+    working_dir = tmp_path / 'terminated_map.partial'
+    child_pid_path = tmp_path / 'workflow.pid'
+    child_code = '\n'.join([
+        'import os',
+        'from pathlib import Path',
+        'import time',
+        f'Path({str(child_pid_path)!r}).write_text(str(os.getpid()))',
+        'time.sleep(60)',
+    ])
+    probe_code = '\n'.join([
+        'import importlib.util',
+        'from pathlib import Path',
+        'import sys',
+        f'script = Path({str(SCRIPT_PATH)!r})',
+        "spec = importlib.util.spec_from_file_location('runner_e2e_probe', script)",
+        'module = importlib.util.module_from_spec(spec)',
+        'spec.loader.exec_module(module)',
+        'module.build_execution_plan = lambda **kwargs: {',
+        "    'payload': {},",
+        "    'profile_id': 'rko_lio_graph_public_path',",
+        "    'label': 'termination injection fixture',",
+        f"    'command': [sys.executable, '-c', {child_code!r}],",
+        f"    'output_dir': Path({str(working_dir)!r}),",
+        '}',
+        'sys.argv = [',
+        '    str(script),',
+        f'    {str(bag_dir)!r},',
+        "    '--output-dir',",
+        f'    {str(output_dir)!r},',
+        ']',
+        'raise SystemExit(module.main())',
+    ])
+
+    runner = subprocess.Popen(
+        [sys.executable, '-c', probe_code],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    deadline = time.monotonic() + 5
+    while not child_pid_path.is_file() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert child_pid_path.is_file()
+    child_pid = int(child_pid_path.read_text(encoding='utf-8'))
+
+    os.kill(runner.pid, signal.SIGTERM)
+    stdout, stderr = runner.communicate(timeout=15)
+
+    assert runner.returncode == 143, (stdout, stderr)
+    assert output_dir.is_dir()
+    assert not working_dir.exists()
+    assert (output_dir / 'autoware_map_diagnosis.md').is_file()
+    assert (output_dir / 'autoware_map_diagnosis.json').is_file()
+    manifest = json.loads(
+        (output_dir / 'run_manifest.json').read_text(encoding='utf-8')
+    )
+    schema = json.loads(
+        (
+            REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v2.schema.json'
+        ).read_text(encoding='utf-8')
+    )
+    jsonschema.validate(manifest, schema)
+    assert manifest['status'] == 'interrupted'
+    assert manifest['execution']['exit_code'] == 143
+    assert manifest['lifecycle']['stage'] == 'complete'
+    assert manifest['lifecycle']['runner_exit_code'] == 143
+    assert manifest['lifecycle']['last_error'] == (
+        'map workflow interrupted by SIGTERM'
+    )
+    assert manifest['output']['finalized'] is True
+    assert manifest['output']['diagnosis_status'] == 'runtime_failed'
+    with pytest.raises(ProcessLookupError):
+        os.kill(child_pid, 0)
 
 
 def test_main_preserves_failed_manifest_when_post_finalize_diagnosis_fails(

@@ -42,6 +42,19 @@ def _find_first(run_dir: Path, candidates: list[str]) -> Path | None:
     return None
 
 
+def _read_run_manifest(run_dir: Path) -> tuple[dict[str, Any] | None, list[str]]:
+    manifest_path = run_dir / 'run_manifest.json'
+    if not manifest_path.is_file():
+        return None, []
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, [f'The run manifest is unreadable: {exc}']
+    if not isinstance(manifest, dict):
+        return None, ['The run manifest root is not a JSON object.']
+    return manifest, []
+
+
 def _parse_verify_log(text: str) -> dict[str, Any]:
     result = 'unknown'
     if 'RESULT: PASS' in text:
@@ -157,13 +170,33 @@ def summarize_run(run_dir: Path, bag_path: Path | None = None) -> dict[str, Any]
     verify_summary = _parse_verify_log(verify_log)
     launch_flags = _extract_launch_flags(launch_log)
     problem_hints = _extract_problem_hints(launch_log, map_save_log, verify_summary)
+    run_manifest, manifest_hints = _read_run_manifest(run_dir)
+    problem_hints.extend(manifest_hints)
+    manifest_status = run_manifest.get('status') if run_manifest else None
+    manifest_lifecycle = run_manifest.get('lifecycle') if run_manifest else None
+    if not isinstance(manifest_lifecycle, dict):
+        manifest_lifecycle = {}
+    if manifest_status == 'interrupted':
+        terminal_error = manifest_lifecycle.get('last_error')
+        problem_hints.append(
+            terminal_error
+            or 'The map workflow was interrupted before successful completion.'
+        )
+    elif manifest_status == 'failed':
+        terminal_error = manifest_lifecycle.get('last_error')
+        problem_hints.append(
+            terminal_error
+            or 'The map workflow recorded a terminal failure.'
+        )
 
     pointcloud_map_exists = pointcloud_metadata_path.is_file()
     map_projector_exists = map_projector_path.is_file()
     projector_type = _parse_projector_type(run_dir)
 
     status = 'incomplete'
-    if pointcloud_map_exists and map_projector_exists and verify_summary['result'] == 'PASS':
+    if manifest_status in ('failed', 'interrupted'):
+        status = 'runtime_failed'
+    elif pointcloud_map_exists and map_projector_exists and verify_summary['result'] == 'PASS':
         status = 'success'
     elif verify_summary['result'] == 'FAIL':
         status = 'verify_failed'

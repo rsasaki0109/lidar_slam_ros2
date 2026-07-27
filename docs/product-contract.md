@@ -35,6 +35,9 @@ a new name, and in-progress work is isolated under a `.partial` sibling. The
 only exception is explicit `--resume` of an incomplete schema-v2 lifecycle:
 the runner revalidates the original execution identity and completes terminal
 post-processing without rerunning SLAM or replacing map artifacts.
+Signal handling, preserved failure state, recovery actions, and still-open
+Phase 3 gates are tracked in
+[Operational reliability](operational-reliability.md).
 
 ## Official entrypoints
 
