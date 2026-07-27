@@ -60,16 +60,52 @@ remain at `workflow_running`; `--resume` deliberately refuses it because an
 original process could still own the artifacts. Confirm that no workflow
 process is alive, retain the directory as evidence, and start a new output.
 
+## Soak profiles
+
+The operator-only soak harness exercises the same `lidarslam-map run` contract
+as the golden path. It is deliberately not a fourth beginner entrypoint.
+Choose a fixed one-hour or eight-hour profile and supply budgets tied to a
+named machine. The `lidarslam` package declares GNU `time` as a runtime
+dependency because it supplies the peak-RSS evidence:
+
+```bash
+python3 scripts/run_map_soak.py /data/bags/mid360 \
+  --output-root /data/soak/one-hour-20260727 \
+  --soak-profile one-hour \
+  --hardware-label 'lab-amd64-7950x-64GiB' \
+  --map-profile mid360_livox_smoke \
+  --max-peak-rss-mib 4096 \
+  --max-output-gib 40 \
+  --max-dropped-inputs 0
+```
+
+The harness repeats complete, collision-safe map runs until the profile
+duration is reached. Each iteration records its command, exit code, GNU time
+wall duration and peak RSS, output size, remaining free space, console log and
+raw GNU time report. `soak_report.json` is updated atomically after every
+iteration and validated by
+[`soak-report-v1.schema.json`](schemas/soak-report-v1.schema.json).
+
+The drop counter is a conservative count of documented console signatures for
+message-filter drops, scan drops and queue/buffer overflow. One line can match
+more than one signature, so the total can over-count; a zero only proves those
+signatures were absent from the captured logs. A failed iteration, unreadable
+telemetry, or exceeded RSS/output/drop budget stops the profile immediately
+and preserves failed evidence. The duration gate passes only after the full
+3,600 or 28,800 seconds have elapsed.
+
 ## Open Phase 3 gates
 
 The following readiness rows remain incomplete and must not be inferred from
 the termination coverage:
 
 - timestamp reversal detection against real rosbag records before launch;
-- long-running free-space telemetry and a bounded-filesystem live exhaustion
-  test in the scheduled real-data environment;
-- one-hour and eight-hour soak profiles with RSS, wall-time, output-size, and
-  dropped-input counters;
+- execute and archive the one-hour and eight-hour soak profiles on named
+  release hardware; the harness and machine-readable thresholds are automated,
+  but real-duration evidence is not yet recorded;
+- periodic free-space telemetry within a long-running iteration and a
+  bounded-filesystem live exhaustion test in the scheduled real-data
+  environment;
 - output migration tooling and last-known-good rollback instructions.
 
 See the [pinned real-data E2E contract](real-data-e2e.md) and the

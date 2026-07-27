@@ -159,6 +159,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_map_soak_runner
+    test/test_map_soak_runner.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_sparse_trajectory_scoring
     test/test_sparse_trajectory_scoring.py
     TIMEOUT 120
