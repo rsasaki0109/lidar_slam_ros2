@@ -77,15 +77,18 @@ python3 scripts/run_map_soak.py /data/bags/mid360 \
   --max-peak-rss-mib 4096 \
   --max-output-gib 40 \
   --max-dropped-inputs 0 \
+  --max-iteration-secs 300 \
+  --min-free-space-gib 100 \
   --telemetry-interval-secs 30
 ```
 
 The harness repeats complete, collision-safe map runs until the profile
 duration is reached. Each iteration records its command, exit code, GNU time
 wall duration and peak RSS, output size, remaining free space, console log and
-raw GNU time report. While an iteration is still running, it samples free
-space and cumulative output size every 30 seconds by default. The interval
-must be positive and cannot exceed 60 seconds.
+raw GNU time report. `--max-iteration-secs` is a required positive wall-time
+budget for one complete map run. While an iteration is still running, the
+harness samples free space and cumulative output size every 30 seconds by
+default. The interval must be positive and cannot exceed 60 seconds.
 
 Every sample is appended to `telemetry_samples` and atomically checkpoints
 `soak_report.json`. If free space falls below `--min-free-space-gib` or output
@@ -94,18 +97,23 @@ group with `SIGTERM` and a bounded `SIGKILL` fallback, then attempts to
 finalize a failed report. The last successful sample remains available even
 when the iteration never produces normal GNU time evidence.
 
-- [`soak-report-v3.schema.json`](schemas/soak-report-v3.schema.json) — current;
-  adds a non-secret machine fingerprint, harness revision and checksums, and
-  the exact input/software identity copied from each successful product run;
+- [`soak-report-v4.schema.json`](schemas/soak-report-v4.schema.json) — current;
+  adds the required per-iteration wall-time threshold, maximum observed
+  duration, and `iteration_duration_within_budget` terminal check;
+- [`soak-report-v3.schema.json`](schemas/soak-report-v3.schema.json)
+  — published compatibility schema containing a non-secret machine
+  fingerprint, harness revision and checksums, and the exact input/software
+  identity copied from each successful product run;
 - [`soak-report-v2.schema.json`](schemas/soak-report-v2.schema.json)
   — published compatibility schema for periodic telemetry reports;
 - [`soak-report-v1.schema.json`](schemas/soak-report-v1.schema.json)
   — published compatibility schema for iteration-only reports.
 
-The schema v1 remains published, and schema v2 remains immutable, so archived
-reports retain a resolvable contract.
+Schemas v1, v2 and v3 remain published and immutable, so archived reports
+retain a resolvable contract.
 
-A passing v3 report requires `provenance_recorded`. The first successful
+A passing v4 report requires both `provenance_recorded` and
+`iteration_duration_within_budget`. The first successful
 iteration fixes the input and software identities for the whole soak; any
 later iteration with a different identity terminates the run as failed. The
 machine ID is a SHA-256 fingerprint: private machine identifiers contribute
@@ -113,9 +121,15 @@ to stability but are never written to the report. Hostnames, usernames and
 network addresses are not collected.
 
 Operator `Ctrl-C` and service `SIGTERM` use the same process-group cleanup and
-return `130` and `143`, respectively. Their terminal v3 report has
+return `130` and `143`, respectively. Their terminal v4 report has
 `interrupted` status. If the filesystem refuses the final atomic update, the
 last successfully written running-state sample remains as recovery evidence.
+
+When an iteration reaches `--max-iteration-secs`, the harness records a final
+sample, terminates and reaps the whole timed process group, and writes a
+terminal v4 report with `failed` status. This converts a live player or mapper
+stall into bounded, machine-readable evidence instead of allowing a named
+one-hour or eight-hour profile to hang indefinitely.
 
 The drop counter is a conservative count of documented console signatures for
 message-filter drops, scan drops and queue/buffer overflow. One line can match
@@ -132,8 +146,9 @@ the termination coverage:
 
 - timestamp reversal detection against real rosbag records before launch;
 - execute and archive the one-hour and eight-hour soak profiles on named
-  release hardware; the harness, machine-readable thresholds and v3
-  provenance are automated, but real-duration evidence is not yet recorded;
+  release hardware; the harness, machine-readable thresholds, v4 provenance
+  and per-iteration timeout are automated, but real-duration evidence is not
+  yet recorded;
 - a bounded-filesystem live exhaustion test in the scheduled real-data
   environment;
 - output migration tooling and last-known-good rollback instructions.
