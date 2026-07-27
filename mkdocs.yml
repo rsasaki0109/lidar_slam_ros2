@@ -34,6 +34,7 @@ theme:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Product Contract: product-contract.md
   - Autoware-Compatible Map Authoring: autoware-map-authoring.md
   - Autoware Quickstart: autoware-quickstart.md
   - Autoware Foxglove: autoware-foxglove.md
@@ -46,6 +47,8 @@ nav:
   - rosdistro Binary Release: rosdistro-release.md
   - DDS / Large-Message Tuning: dds-tuning.md
   - Comparison: comparison.md
+  - Roadmaps:
+      - v0.9 Product Foundation: roadmap/v0.9.md
   - Social:
       - v0.2.2 Post Kit: social/autoware_map_authoring_post_v0.2.2.md
   - Releases:

@@ -6,6 +6,11 @@ This repository is trying to be a practical default for ROS 2 LiDAR SLAM and
 Autoware pointcloud-map generation. Contributions are most useful when they are
 easy to reproduce, easy to compare, and clearly scoped.
 
+Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+The [Governance](GOVERNANCE.md), [Support](SUPPORT.md), and
+[Security](SECURITY.md) policies explain decisions, help routes, and private
+vulnerability reporting.
+
 ## What To Send
 
 Useful contributions include:
@@ -57,6 +62,9 @@ If in doubt, prefer compatibility language over product-name language.
 ## Before Opening An Issue
 
 Please collect the smallest reproducible case you can.
+Use the structured bug, feature, sensor-support, benchmark, or Autoware issue
+form that best matches the request. Usage questions must include the diagnostic
+bundle listed in [SUPPORT.md](SUPPORT.md).
 
 For Autoware-related reports, include:
 
@@ -128,10 +136,23 @@ Please keep PRs narrow and explicit.
 
 ## Entry Points
 
+The three official beginner-facing product entrypoints are:
+
+- fixed Docker MID-360 demo (the README Docker command)
+- own-bag wrapper: `scripts/run_autoware_map_beginner.sh`
+- fixed NTU VIRAL source quickstart:
+  `scripts/download_ntu_viral_tnp01.sh` then
+  `scripts/run_autoware_quickstart.sh`
+
+All other scripts and launch files are advanced, benchmark, migration, or
+research interfaces. See the [Product Contract](docs/product-contract.md) for
+the supported boundary.
+
 Useful references:
 
 - Autoware quickstart: [docs/autoware-quickstart.md](docs/autoware-quickstart.md)
 - comparison page: [docs/comparison.md](docs/comparison.md)
 - benchmarking and release gate: [docs/benchmarking.md](docs/benchmarking.md)
-- current release notes: [docs/releases/v0.2.2.md](docs/releases/v0.2.2.md)
+- current release notes: [docs/releases/v0.6.0.md](docs/releases/v0.6.0.md)
+- product roadmap: [docs/roadmap/v0.9.md](docs/roadmap/v0.9.md)
 - benchmark fixture generator: `scripts/generate_sample_benchmark_metrics.py`

@@ -7,7 +7,7 @@
 
 **Turn a rosbag into a map you can actually drive on.**
 
-ROS 2 LiDAR SLAM that outputs an Autoware-ready map bundle — `pointcloud_map/`,
+ROS 2 LiDAR SLAM that outputs an Autoware-compatible map bundle — `pointcloud_map/`,
 `map_projector_info.yaml`, and auto-generated lanelet2. Frontend is `RKO-LIO` (MIT), backend is
 `graph_based_slam` (BSD-2). No GPL components on the default workflow.
 
@@ -22,7 +22,7 @@ ROS 2 LiDAR SLAM that outputs an Autoware-ready map bundle — `pointcloud_map/`
 Most LiDAR SLAM stacks stop at a trajectory and a point cloud. This one ships the
 artifacts you need downstream:
 
-- **Autoware-ready output** — `pointcloud_map/` + `map_projector_info.yaml` open
+- **Autoware-compatible output** — `pointcloud_map/` + `map_projector_info.yaml` open
   directly in Autoware map loaders; `verify_autoware_map.py` prints
   `map_verify: PASS` on every saved bundle.
 - **lanelet2 auto-generation** — drivable lanelets from the SLAM trajectory,
@@ -56,8 +56,8 @@ flowchart LR
 
 ## Quickstart
 
-Not sure which path fits your setup? Start with the
-[Getting Started guide](docs/getting-started.md).
+Start with [Getting Started](docs/getting-started.md). The [Product Contract](docs/product-contract.md)
+defines the maintained surface; the three commands below are its only beginner entrypoints.
 
 ### Try it with Docker (one command, no build)
 
@@ -191,7 +191,7 @@ self-similar tunnels (reach **98.7 m → ~500 m**): [docs/degeneracy-guide.md](d
 - **Getting started**: [Getting Started](docs/getting-started.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
 - **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md)
 - **Benchmarking**: [Benchmarking and release gate](docs/benchmarking.md) · [Comparison](docs/comparison.md)
-- **Project**: [v0.2.2 release notes](docs/releases/v0.2.2.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
+- **Project**: [Product contract](docs/product-contract.md) · [v0.6.0 notes](docs/releases/v0.6.0.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
 
 Preview the doc site locally: `python3 -m mkdocs serve`.
 
