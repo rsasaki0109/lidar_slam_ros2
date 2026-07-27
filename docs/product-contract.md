@@ -38,6 +38,8 @@ post-processing without rerunning SLAM or replacing map artifacts.
 Signal handling, preserved failure state, recovery actions, and still-open
 Phase 3 gates are tracked in
 [Operational reliability](operational-reliability.md).
+The flagship installed workflow is also exercised by the
+[pinned real-data E2E gate](real-data-e2e.md).
 
 ## Official entrypoints
 

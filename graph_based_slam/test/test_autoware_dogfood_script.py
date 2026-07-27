@@ -131,3 +131,16 @@ def test_dogfood_rejects_output_file_before_ros_launch(tmp_path: Path):
     assert result.returncode == 2
     assert 'error: output directory path is a file' in result.stderr
     assert 'ros2 not found' not in result.stderr
+
+
+def test_dogfood_omits_empty_optional_frame_launch_arguments():
+    script = DOGFOOD_SCRIPT.read_text(encoding='utf-8')
+
+    assert 'LAUNCH_ARGS=(' in script
+    assert 'if [[ -n "$LIDAR_FRAME" ]]; then' in script
+    assert 'LAUNCH_ARGS+=("lidar_frame:=${LIDAR_FRAME}")' in script
+    assert 'if [[ -n "$IMU_FRAME" ]]; then' in script
+    assert 'LAUNCH_ARGS+=("imu_frame:=${IMU_FRAME}")' in script
+    assert '"${LAUNCH_ARGS[@]}"' in script
+    assert '"lidar_frame:=${LIDAR_FRAME}" \\' not in script
+    assert '"imu_frame:=${IMU_FRAME}" \\' not in script

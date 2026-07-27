@@ -580,39 +580,35 @@ echo "  output_dir:     $OUTPUT_DIR"
 echo "  run_name:       $RUN_NAME"
 echo "  rko_ros_param:  $RKO_ROS_PARAM_FILE"
 
+LAUNCH_ARGS=(
+  "main_param_dir:=${LIDARSLAM_PARAM}"
+  "rko_param_file:=${RKO_ROS_PARAM_FILE}"
+  "bag_path:=${BAG_PATH}"
+  "lidar_topic:=${LIDAR_TOPIC}"
+  "imu_topic:=${IMU_TOPIC}"
+  "base_frame:=${BASE_FRAME}"
+  "save_dir:=${OUTPUT_DIR}"
+  "results_dir:=${OUTPUT_DIR}"
+  "run_name:=${RUN_NAME}"
+  "dump_results:=true"
+  "use_rviz:=false"
+)
+if [[ -n "$LIDAR_FRAME" ]]; then
+  LAUNCH_ARGS+=("lidar_frame:=${LIDAR_FRAME}")
+fi
+if [[ -n "$IMU_FRAME" ]]; then
+  LAUNCH_ARGS+=("imu_frame:=${IMU_FRAME}")
+fi
+
 if command -v setsid >/dev/null 2>&1; then
   setsid ros2 launch lidarslam rko_lio_slam.launch.py \
-    "main_param_dir:=${LIDARSLAM_PARAM}" \
-    "rko_param_file:=${RKO_ROS_PARAM_FILE}" \
-    "bag_path:=${BAG_PATH}" \
-    "lidar_topic:=${LIDAR_TOPIC}" \
-    "imu_topic:=${IMU_TOPIC}" \
-    "base_frame:=${BASE_FRAME}" \
-    "lidar_frame:=${LIDAR_FRAME}" \
-    "imu_frame:=${IMU_FRAME}" \
-    "save_dir:=${OUTPUT_DIR}" \
-    "results_dir:=${OUTPUT_DIR}" \
-    "run_name:=${RUN_NAME}" \
-    "dump_results:=true" \
-    "use_rviz:=false" \
+    "${LAUNCH_ARGS[@]}" \
     >"${LAUNCH_LOG}" 2>&1 &
   LAUNCH_PID="$!"
   LAUNCH_PGID="$LAUNCH_PID"
 else
   ros2 launch lidarslam rko_lio_slam.launch.py \
-    "main_param_dir:=${LIDARSLAM_PARAM}" \
-    "rko_param_file:=${RKO_ROS_PARAM_FILE}" \
-    "bag_path:=${BAG_PATH}" \
-    "lidar_topic:=${LIDAR_TOPIC}" \
-    "imu_topic:=${IMU_TOPIC}" \
-    "base_frame:=${BASE_FRAME}" \
-    "lidar_frame:=${LIDAR_FRAME}" \
-    "imu_frame:=${IMU_FRAME}" \
-    "save_dir:=${OUTPUT_DIR}" \
-    "results_dir:=${OUTPUT_DIR}" \
-    "run_name:=${RUN_NAME}" \
-    "dump_results:=true" \
-    "use_rviz:=false" \
+    "${LAUNCH_ARGS[@]}" \
     >"${LAUNCH_LOG}" 2>&1 &
   LAUNCH_PID="$!"
 fi

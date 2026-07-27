@@ -64,6 +64,10 @@
     <h3>Operational Reliability</h3>
     <p>Understand failure artifacts, termination handling, recovery, and open reliability gates.</p>
   </a>
+  <a class="link-card" href="real-data-e2e.html">
+    <h3>Pinned Real-data E2E</h3>
+    <p>Inspect the nightly Jazzy gate from a fixed public MID-360 bag to a verified map bundle.</p>
+  </a>
   <a class="link-card" href="autoware-map-authoring.html">
     <h3>Autoware-Compatible Map Authoring</h3>
     <p>The shortest product-level summary of the supported public path.</p>
@@ -119,6 +123,7 @@
 
 - [Product contract](product-contract.md)
 - [Operational reliability](operational-reliability.md)
+- [Pinned real-data E2E gate](real-data-e2e.md)
 - [Distribution and installed CLI](distribution.md)
 - [v0.9 product roadmap](roadmap/v0.9.md)
 - [Contributing](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/CONTRIBUTING.md)
