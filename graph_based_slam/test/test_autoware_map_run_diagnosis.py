@@ -32,10 +32,12 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import sys
 
+import jsonschema
 import yaml
 
 
@@ -72,8 +74,30 @@ def test_summary_marks_success_when_map_and_verify_pass_exist(tmp_path: Path):
         encoding='utf-8',
     )
 
-    summary = module.summarize_run(run_dir)
+    bag_dir = tmp_path / 'bag'
+    bag_dir.mkdir()
+    (bag_dir / 'metadata.yaml').write_text(
+        yaml.safe_dump({
+            'rosbag2_bagfile_information': {
+                'duration': {'nanoseconds': 1},
+                'message_count': 0,
+                'topics_with_message_count': [],
+            },
+        }),
+        encoding='utf-8',
+    )
+    summary = module.summarize_run(run_dir, bag_dir)
 
+    schema = json.loads(
+        (
+            REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
+        ).read_text(encoding='utf-8')
+    )
+    jsonschema.Draft7Validator.check_schema(schema)
+    jsonschema.validate(summary, schema)
+    assert summary['bag_preflight']['schema_version'] == 1
+    assert summary['schema_version'] == 1
+    assert summary['schema_uri'].endswith('/schemas/diagnosis-v1.schema.json')
     assert summary['status'] == 'success'
     assert summary['verify']['result'] == 'PASS'
     assert summary['projector_type'] == 'LocalCartesian'

@@ -12,6 +12,9 @@ from typing import Any
 
 import yaml
 
+SCHEMA_VERSION = 1
+SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/diagnosis-v1.schema.json'
+
 
 def _load_preflight_module():
     import importlib.util
@@ -175,6 +178,8 @@ def summarize_run(run_dir: Path, bag_path: Path | None = None) -> dict[str, Any]
         status = 'runtime_failed'
 
     summary: dict[str, Any] = {
+        'schema_version': SCHEMA_VERSION,
+        'schema_uri': SCHEMA_URI,
         'run_dir': str(run_dir),
         'status': status,
         'files': {

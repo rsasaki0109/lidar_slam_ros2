@@ -37,6 +37,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+import jsonschema
 import yaml
 
 
@@ -91,6 +92,15 @@ def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path)
 
     payload = module.build_preflight_payload(bag_dir)
 
+    schema = json.loads(
+        (
+            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v1.schema.json'
+        ).read_text(encoding='utf-8')
+    )
+    jsonschema.Draft7Validator.check_schema(schema)
+    jsonschema.validate(payload, schema)
+    assert payload['schema_version'] == 1
+    assert payload['schema_uri'].endswith('/schemas/preflight-v1.schema.json')
     assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
     assert payload['beginner_commands'][0]['command'].startswith(
         'bash scripts/run_autoware_map_beginner.sh'

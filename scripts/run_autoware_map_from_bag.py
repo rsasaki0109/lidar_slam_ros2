@@ -4,15 +4,28 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
+import hashlib
 import importlib.util
+import json
+import os
+from pathlib import Path
 import shlex
 import subprocess
 import sys
-from datetime import datetime
-from pathlib import Path
+import uuid
+import xml.etree.ElementTree as ET
+
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+MANIFEST_NAME = 'run_manifest.json'
+MANIFEST_SCHEMA_VERSION = 1
+MANIFEST_SCHEMA_URI = (
+    'https://rsasaki0109.github.io/lidar_slam_ros2/'
+    'schemas/run-manifest-v1.schema.json'
+)
 PROFILE_CHOICES = (
     'rko_lio_graph_public_path',
     'rko_lio_graph_mid360_preset',
@@ -30,6 +43,13 @@ PROFILE_HELP = (
     ),
     ('pointcloud_gnss_smoke', 'PointCloud2 + NavSatFix smoke workflow.'),
     ('packet_applanix_smoke', 'VelodyneScan + Applanix GSOF49 smoke workflow.'),
+)
+PACKAGE_XML_PATHS = (
+    REPO_ROOT / 'lidarslam' / 'package.xml',
+    REPO_ROOT / 'graph_based_slam' / 'package.xml',
+    REPO_ROOT / 'lidarslam_msgs' / 'package.xml',
+    REPO_ROOT / 'scanmatcher' / 'package.xml',
+    REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'package.xml',
 )
 
 
@@ -189,13 +209,215 @@ def validate_bag_path(bag_path: Path) -> None:
 
 def validate_output_dir(output_dir: Path) -> None:
     if output_dir.exists() and not output_dir.is_dir():
-        raise ValueError(f'output directory path is a file, not a directory: {output_dir}')
+        raise ValueError(f'output directory path is a file: {output_dir}')
+    if output_dir.exists():
+        raise ValueError(
+            f'output directory already exists: {output_dir}. '
+            'Choose a new directory; existing outputs are never overwritten.'
+        )
 
     for parent in output_dir.parents:
         if parent.exists():
             if not parent.is_dir():
                 raise ValueError(f'output directory parent is not a directory: {parent}')
             return
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _file_identity(path: Path, display_path: str) -> dict[str, object]:
+    before = path.stat()
+    digest = _sha256(path)
+    after = path.stat()
+    if (
+        before.st_size != after.st_size
+        or before.st_mtime_ns != after.st_mtime_ns
+        or before.st_ino != after.st_ino
+    ):
+        raise RuntimeError(f'file changed while hashing: {path}')
+    return {
+        'path': display_path,
+        'size_bytes': after.st_size,
+        'sha256': digest,
+    }
+
+
+def _git_state() -> dict[str, object]:
+    commit_result = subprocess.run(
+        ['git', 'rev-parse', 'HEAD'],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    status_result = subprocess.run(
+        ['git', 'status', '--porcelain', '--untracked-files=no'],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return {
+        'commit': (
+            commit_result.stdout.strip()
+            if commit_result.returncode == 0
+            else None
+        ),
+        'dirty': (
+            bool(status_result.stdout.strip())
+            if status_result.returncode == 0
+            else None
+        ),
+    }
+
+
+def _product_version() -> str:
+    return (REPO_ROOT / 'VERSION').read_text(encoding='utf-8').strip()
+
+
+def _package_versions() -> dict[str, str]:
+    versions = {}
+    for package_xml in PACKAGE_XML_PATHS:
+        if not package_xml.is_file():
+            continue
+        root = ET.parse(package_xml).getroot()
+        name = root.findtext('name')
+        version = root.findtext('version')
+        if name and version:
+            versions[name.strip()] = version.strip()
+    return dict(sorted(versions.items()))
+
+
+def _bag_identity(bag_path: Path) -> dict[str, object]:
+    metadata_path = bag_path / 'metadata.yaml'
+    metadata_before = metadata_path.stat()
+    metadata_bytes = metadata_path.read_bytes()
+    metadata_after = metadata_path.stat()
+    if (
+        metadata_before.st_size != metadata_after.st_size
+        or metadata_before.st_mtime_ns != metadata_after.st_mtime_ns
+        or metadata_before.st_ino != metadata_after.st_ino
+    ):
+        raise RuntimeError(f'file changed while reading: {metadata_path}')
+    metadata = yaml.safe_load(metadata_bytes) or {}
+    bag_info = metadata.get('rosbag2_bagfile_information') or {}
+    relative_paths = bag_info.get('relative_file_paths') or []
+    if not relative_paths:
+        relative_paths = [
+            path.relative_to(bag_path).as_posix()
+            for pattern in ('*.db3', '*.mcap')
+            for path in sorted(bag_path.glob(pattern))
+        ]
+
+    storage_files = []
+    seen_paths = set()
+    resolved_bag_path = bag_path.resolve()
+    for relative_path in relative_paths:
+        path = (bag_path / str(relative_path)).resolve()
+        try:
+            normalized_relative = path.relative_to(resolved_bag_path).as_posix()
+        except ValueError as exc:
+            raise ValueError(
+                f'rosbag2 metadata references a file outside the bag: {relative_path}'
+            ) from exc
+        if normalized_relative in seen_paths:
+            continue
+        if not path.is_file():
+            raise ValueError(
+                f'rosbag2 storage file referenced by metadata is missing: {path}'
+            )
+        seen_paths.add(normalized_relative)
+        storage_files.append(_file_identity(path, normalized_relative))
+
+    return {
+        'bag_path': str(bag_path),
+        'metadata_path': str(metadata_path),
+        'metadata_size_bytes': metadata_after.st_size,
+        'metadata_sha256': hashlib.sha256(metadata_bytes).hexdigest(),
+        'storage_identifier': bag_info.get('storage_identifier'),
+        'storage_files': storage_files,
+        'identity_algorithm': 'sha256',
+    }
+
+
+def _write_manifest(run_dir: Path, manifest: dict[str, object]) -> None:
+    destination = run_dir / MANIFEST_NAME
+    temporary = run_dir / f'.{MANIFEST_NAME}.tmp'
+    temporary.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + '\n',
+        encoding='utf-8',
+    )
+    os.replace(temporary, destination)
+
+
+def _artifact_checksums(run_dir: Path) -> list[dict[str, object]]:
+    artifacts = []
+    for path in sorted(item for item in run_dir.rglob('*') if item.is_file()):
+        relative = path.relative_to(run_dir)
+        if relative.as_posix() == MANIFEST_NAME or relative.name.startswith(
+            f'.{MANIFEST_NAME}.'
+        ):
+            continue
+        artifacts.append(_file_identity(path, relative.as_posix()))
+    return artifacts
+
+
+def _build_manifest(
+    bag_path: Path,
+    final_output_dir: Path,
+    working_output_dir: Path,
+    plan: dict[str, object],
+) -> dict[str, object]:
+    git_state = _git_state()
+    return {
+        'schema_version': MANIFEST_SCHEMA_VERSION,
+        'schema_uri': MANIFEST_SCHEMA_URI,
+        'run_id': str(uuid.uuid4()),
+        'status': 'planned',
+        'input': _bag_identity(bag_path),
+        'software': {
+            'product_version': _product_version(),
+            'git_commit': git_state['commit'],
+            'git_dirty': git_state['dirty'],
+            'package_versions': _package_versions(),
+            'ros_distro': os.environ.get('ROS_DISTRO'),
+        },
+        'profile': {
+            'id': plan['profile_id'],
+            'label': plan['label'],
+        },
+        'execution': {
+            'argv': plan['command'],
+            'command_shell': shlex.join(plan['command']),
+            'started_at': None,
+            'finished_at': None,
+            'exit_code': None,
+        },
+        'output': {
+            'requested_dir': str(final_output_dir),
+            'working_dir': str(working_output_dir),
+            'finalized': False,
+            'artifact_checksums': [],
+        },
+    }
+
+
+def _finalize_output(working_dir: Path, final_dir: Path) -> None:
+    if final_dir.exists():
+        raise RuntimeError(
+            f'output collision detected before finalization: {final_dir}'
+        )
+    os.replace(working_dir, final_dir)
 
 
 def maybe_open_viewer(args: argparse.Namespace, output_dir: Path) -> None:
@@ -282,15 +504,16 @@ def print_next_steps(args: argparse.Namespace, output_dir: Path) -> None:
         )
 
 
-def write_diagnostics(output_dir: Path, bag_path: Path) -> None:
+def write_diagnostics(output_dir: Path, bag_path: Path) -> dict[str, object]:
     diagnose = _load_script_module('diagnose_autoware_map_run.py', 'diagnose_autoware_map_run')
     summary = diagnose.summarize_run(output_dir, bag_path)
     markdown = diagnose.render_markdown(summary)
     (output_dir / 'autoware_map_diagnosis.md').write_text(markdown, encoding='utf-8')
     (output_dir / 'autoware_map_diagnosis.json').write_text(
-        __import__('json').dumps(summary, indent=2, sort_keys=True),
+        json.dumps(summary, indent=2, sort_keys=True),
         encoding='utf-8',
     )
+    return summary
 
 
 def _profile_help_text() -> str:
@@ -396,13 +619,15 @@ def main() -> int:
     output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else (
         REPO_ROOT / 'output' / f'autoware_map_authoring_{bag_path.stem}_{timestamp}'
     )
+    working_dir = output_dir.with_name(f'{output_dir.name}.partial')
     try:
         validate_bag_path(bag_path)
         validate_output_dir(output_dir)
+        validate_output_dir(working_dir)
         plan = build_execution_plan(
             bag_path=bag_path,
             profile_id=args.profile,
-            output_dir=output_dir,
+            output_dir=working_dir,
             verify_map=not args.no_verify_map,
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
@@ -410,7 +635,8 @@ def main() -> int:
         return 2
 
     print(f"Selected profile: {plan['label']}")
-    print(f"Output directory: {plan['output_dir']}")
+    print(f'Output directory: {output_dir}')
+    print(f'Atomic working directory: {working_dir}')
     print('Command:')
     print('  ' + shlex.join(plan['command']))
 
@@ -418,33 +644,82 @@ def main() -> int:
         return 0
 
     try:
-        output_dir.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
-        print(f'error: failed to create output directory {output_dir}: {exc}', file=sys.stderr)
+        manifest = _build_manifest(bag_path, output_dir, working_dir, plan)
+        working_dir.mkdir(parents=True, exist_ok=False)
+        manifest['status'] = 'running'
+        manifest['execution']['started_at'] = _utc_now()
+        _write_manifest(working_dir, manifest)
+    except (OSError, RuntimeError, ValueError, ET.ParseError, yaml.YAMLError) as exc:
+        print(
+            f'error: failed to initialize output directory {working_dir}: {exc}',
+            file=sys.stderr,
+        )
         return 2
 
-    command_error: subprocess.CalledProcessError | None = None
+    exit_code = 0
+    interrupted = False
     try:
-        subprocess.run(plan['command'], check=True, cwd=REPO_ROOT)
-    except subprocess.CalledProcessError as exc:
-        command_error = exc
-    finally:
-        if output_dir.exists():
-            try:
-                maybe_verify_map(output_dir, enabled=not args.no_verify_map)
-                write_diagnostics(output_dir, bag_path)
-            except (OSError, RuntimeError, ValueError) as exc:
-                print(f'warning: failed to write run diagnostics: {exc}', file=sys.stderr)
+        result = subprocess.run(plan['command'], check=False, cwd=REPO_ROOT)
+        exit_code = result.returncode
+    except KeyboardInterrupt:
+        interrupted = True
+        exit_code = 130
+    except OSError as exc:
+        print(f'error: failed to start map workflow: {exc}', file=sys.stderr)
+        exit_code = 70
 
-    if command_error is not None:
+    manifest['execution']['exit_code'] = exit_code
+    manifest['execution']['finished_at'] = _utc_now()
+    manifest['status'] = (
+        'interrupted' if interrupted else ('succeeded' if exit_code == 0 else 'failed')
+    )
+
+    try:
+        _write_manifest(working_dir, manifest)
+        maybe_verify_map(working_dir, enabled=not args.no_verify_map)
+        _finalize_output(working_dir, output_dir)
+        manifest['output']['finalized'] = True
+        diagnosis = write_diagnostics(output_dir, bag_path)
+        manifest['output']['diagnosis_status'] = diagnosis['status']
+        if (
+            manifest['status'] == 'succeeded'
+            and not args.no_verify_map
+            and diagnosis['status'] != 'success'
+        ):
+            manifest['status'] = 'failed'
+            if exit_code == 0:
+                exit_code = 1
+                manifest['execution']['exit_code'] = exit_code
+        manifest['output']['artifact_checksums'] = _artifact_checksums(output_dir)
+        _write_manifest(output_dir, manifest)
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(f'error: failed to finalize output: {exc}', file=sys.stderr)
+        manifest_dir = output_dir if output_dir.exists() else working_dir
+        if manifest_dir.exists():
+            manifest['status'] = 'failed'
+            manifest['execution']['exit_code'] = 70
+            manifest['output']['finalized'] = output_dir.exists()
+            try:
+                manifest['output']['artifact_checksums'] = _artifact_checksums(
+                    manifest_dir
+                )
+                _write_manifest(manifest_dir, manifest)
+            except (OSError, RuntimeError) as manifest_exc:
+                print(
+                    f'warning: failed to preserve terminal manifest: {manifest_exc}',
+                    file=sys.stderr,
+                )
+        return 70
+
+    if exit_code != 0:
         print(
-            f'error: map workflow failed with exit code {command_error.returncode}.',
+            f'error: map workflow failed with exit code {exit_code}.',
             file=sys.stderr,
         )
         print('failed command:', shlex.join(plan['command']), file=sys.stderr)
         if (output_dir / 'autoware_map_diagnosis.md').is_file():
             print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
-        return command_error.returncode or 1
+        return exit_code
 
     print_next_steps(args, output_dir)
     try:
@@ -453,6 +728,7 @@ def main() -> int:
         print(f'error: viewer failed with exit code {exc.returncode}.', file=sys.stderr)
         return exc.returncode or 1
     print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
+    print(f'Run manifest: {output_dir / MANIFEST_NAME}')
     return 0
 
 
