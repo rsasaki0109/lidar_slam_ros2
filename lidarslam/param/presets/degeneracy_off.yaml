@@ -25,3 +25,4 @@ radar_velocity_fusion: false
 radar_disagreement_gate: false
 intensity_constraint: false
 intensity_disagreement_gate: false
+kinematic_velocity_blend: false
