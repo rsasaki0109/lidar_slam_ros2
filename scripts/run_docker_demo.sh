@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # One-command SLAM demo: download a public Livox MID-360 driving bag
-# (Zenodo 14841855, Koide, CC-BY 4.0, 517 MB zip) and run the flagship
-# RKO-LIO + graph_based_slam pipeline headless, saving an Autoware-ready
-# map (map.pcd, pointcloud_map/ tiles, map_projector_info.yaml) and the
-# corrected trajectory (traj_corrected.tum).
+# (Zenodo 14841855, Koide, CC-BY 4.0, 517 MB zip) and run the installed
+# golden-path CLI with the tracked MID-360 profile. The CLI saves and verifies
+# an Autoware-ready map and records the versioned run/diagnosis contracts.
 #
 # Designed as the default command of the ghcr.io/rsasaki0109/lidar_slam_ros2
 # image, but works on any host with the workspace built and sourced:
@@ -45,16 +44,10 @@ fi
 }
 echo "   bag: ${bag_dir}"
 
-echo "== [2/2] RKO-LIO + graph_based_slam (headless, offline) =="
-bash "${REPO_ROOT}/scripts/run_rko_lio_graph_autoware_dogfood.sh" \
-  --bag "${bag_dir}" \
-  --lidar-topic /livox/lidar --imu-topic /livox/imu \
-  --base-frame livox_frame --lidar-frame livox_frame --imu-frame livox_frame \
-  --rko-param "${REPO_ROOT}/lidarslam/param/rko_lio_mid360.yaml" \
-  --lidarslam-param "${REPO_ROOT}/lidarslam/param/lidarslam_mid360_rko_graph.yaml" \
-  --wait-for-offline-completion --skip-viewer \
-  --output-dir "${OUT_DIR}" \
-  --run-name mid360_demo
+echo "== [2/2] verified golden-path map run (headless, offline) =="
+lidarslam-map run "${bag_dir}" \
+  --profile rko_lio_graph_mid360_preset \
+  --output-dir "${OUT_DIR}"
 
 echo
 echo "== demo finished =="
@@ -63,3 +56,6 @@ echo "  map.pcd                  downsampled point-cloud map"
 echo "  pointcloud_map/          Autoware map tiles (+ metadata)"
 echo "  map_projector_info.yaml  Autoware projector info (local)"
 echo "  traj_corrected.tum       loop-closed trajectory (TUM format)"
+echo "  verify_autoware_map.log  Autoware compatibility result"
+echo "  run_manifest.json        versioned execution evidence"
+echo "  autoware_map_diagnosis.* actionable diagnosis"

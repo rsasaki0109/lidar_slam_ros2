@@ -54,13 +54,13 @@ def test_demo_selects_nested_directory_that_contains_metadata(tmp_path: Path):
     stub_dir = tmp_path / 'bin'
     stub_dir.mkdir()
     capture_path = tmp_path / 'runner_args.txt'
-    bash_stub = stub_dir / 'bash'
-    bash_stub.write_text(
+    cli_stub = stub_dir / 'lidarslam-map'
+    cli_stub.write_text(
         '#!/bin/sh\n'
         'printf "%s\\n" "$@" > "$DEMO_TEST_CAPTURE"\n',
         encoding='utf-8',
     )
-    bash_stub.chmod(0o755)
+    cli_stub.chmod(0o755)
 
     env = os.environ.copy()
     env.update(
@@ -82,5 +82,20 @@ def test_demo_selects_nested_directory_that_contains_metadata(tmp_path: Path):
     assert result.returncode == 0, result.stderr
     assert f'bag: {bag_dir}' in result.stdout
     runner_args = capture_path.read_text(encoding='utf-8').splitlines()
-    assert runner_args[0].endswith('/scripts/run_rko_lio_graph_autoware_dogfood.sh')
-    assert runner_args[runner_args.index('--bag') + 1] == str(bag_dir)
+    assert runner_args[:2] == ['run', str(bag_dir)]
+    assert runner_args[runner_args.index('--profile') + 1] == (
+        'rko_lio_graph_mid360_preset'
+    )
+    assert runner_args[runner_args.index('--output-dir') + 1] == str(
+        tmp_path / 'output'
+    )
+
+
+def test_demo_delegates_to_versioned_product_contract():
+    script = DEMO_SCRIPT.read_text(encoding='utf-8')
+
+    assert 'lidarslam-map run "${bag_dir}"' in script
+    assert '--profile rko_lio_graph_mid360_preset' in script
+    assert 'run_manifest.json' in script
+    assert 'verify_autoware_map.log' in script
+    assert 'run_rko_lio_graph_autoware_dogfood.sh' not in script
