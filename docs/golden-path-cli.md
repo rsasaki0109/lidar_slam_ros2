@@ -100,7 +100,9 @@ JSON diagnosis artifacts in the output directory.
 
 The command help groups options by operator intent. Existing option names
 remain compatible; the tiers make the stable beginner surface distinct from
-viewer plumbing and safety overrides.
+viewer plumbing and safety overrides. The stability label and migration rules
+for every option are defined in the
+[CLI compatibility and option policy](cli-compatibility.md).
 
 | Tier | Options | Use |
 | --- | --- | --- |

@@ -64,6 +64,8 @@ BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
 COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
 PRODUCT_CONTRACT_DOC = REPO_ROOT / 'docs' / 'product-contract.md'
 GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
+CLI_COMPATIBILITY_DOC = REPO_ROOT / 'docs' / 'cli-compatibility.md'
+CLI_V1_CONTRACT = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
 DISTRIBUTION_DOC = REPO_ROOT / 'docs' / 'distribution.md'
 OPERATIONAL_RELIABILITY_DOC = REPO_ROOT / 'docs' / 'operational-reliability.md'
 SOAK_EVIDENCE_DOC = (
@@ -134,6 +136,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert COMPARISON_DOC.is_file()
     assert PRODUCT_CONTRACT_DOC.is_file()
     assert GOLDEN_PATH_CLI_DOC.is_file()
+    assert CLI_COMPATIBILITY_DOC.is_file()
+    assert CLI_V1_CONTRACT.is_file()
     assert DISTRIBUTION_DOC.is_file()
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
     assert SOAK_EVIDENCE_DOC.is_file()
@@ -357,6 +361,8 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'docs/product-contract.md' in release_workflow
     assert 'docs/getting-started.md' in release_workflow
     assert 'docs/golden-path-cli.md' in release_workflow
+    assert 'docs/cli-compatibility.md' in release_workflow
+    assert 'docs/contracts' in release_workflow
     assert 'docs/operational-reliability.md' in release_workflow
     assert 'docs/evidence/real-data-soak-2026-07-28.md' in release_workflow
     assert 'docs/evidence/real-data-soak-2026-07-28.json' in release_workflow
@@ -404,6 +410,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'Getting Started: getting-started.md' in mkdocs_config
     assert 'Product Contract: product-contract.md' in mkdocs_config
     assert 'Golden-path CLI: golden-path-cli.md' in mkdocs_config
+    assert 'CLI compatibility: cli-compatibility.md' in mkdocs_config
     assert 'Distribution and installed CLI: distribution.md' in mkdocs_config
     assert 'Operational reliability: operational-reliability.md' in mkdocs_config
     assert (

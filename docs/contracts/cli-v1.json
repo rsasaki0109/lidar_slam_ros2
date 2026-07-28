@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "contract_id": "lidarslam-map-v1",
+  "product_command": "lidarslam-map",
+  "global_options": [
+    {
+      "names": [
+        "-h",
+        "--help"
+      ],
+      "stability": "stable",
+      "tier": "core"
+    },
+    {
+      "names": [
+        "--version"
+      ],
+      "stability": "stable",
+      "tier": "core"
+    }
+  ],
+  "commands": {
+    "doctor": {
+      "positional": {
+        "name": "rosbag2_dir",
+        "stability": "stable"
+      },
+      "options": [
+        {
+          "names": [
+            "-h",
+            "--help"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--json"
+          ],
+          "stability": "stable",
+          "tier": "automation"
+        }
+      ]
+    },
+    "run": {
+      "positional": {
+        "name": "rosbag2_dir",
+        "stability": "stable"
+      },
+      "options": [
+        {
+          "names": [
+            "-h",
+            "--help"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--profile"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--output-dir"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--min-free-space-gib"
+          ],
+          "stability": "stable",
+          "tier": "lifecycle"
+        },
+        {
+          "names": [
+            "--dry-run"
+          ],
+          "stability": "stable",
+          "tier": "lifecycle"
+        },
+        {
+          "names": [
+            "--resume"
+          ],
+          "stability": "stable",
+          "tier": "lifecycle"
+        },
+        {
+          "names": [
+            "--viewer"
+          ],
+          "stability": "provisional",
+          "tier": "viewer"
+        },
+        {
+          "names": [
+            "--autoware-core-dir"
+          ],
+          "stability": "provisional",
+          "tier": "advanced-viewer"
+        },
+        {
+          "names": [
+            "--work-dir"
+          ],
+          "stability": "provisional",
+          "tier": "advanced-viewer"
+        },
+        {
+          "names": [
+            "--viewer-run-dir"
+          ],
+          "stability": "provisional",
+          "tier": "advanced-viewer"
+        },
+        {
+          "names": [
+            "--viewer-rebuild"
+          ],
+          "stability": "provisional",
+          "tier": "advanced-viewer"
+        },
+        {
+          "names": [
+            "--auto-exit-secs"
+          ],
+          "stability": "provisional",
+          "tier": "advanced-viewer"
+        },
+        {
+          "names": [
+            "--no-verify-map"
+          ],
+          "stability": "provisional",
+          "tier": "break-glass"
+        }
+      ]
+    },
+    "inspect": {
+      "positional": {
+        "name": "output_dir",
+        "stability": "stable"
+      },
+      "options": [
+        {
+          "names": [
+            "-h",
+            "--help"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--bag"
+          ],
+          "stability": "stable",
+          "tier": "context"
+        },
+        {
+          "names": [
+            "--json"
+          ],
+          "stability": "stable",
+          "tier": "automation"
+        },
+        {
+          "names": [
+            "--write"
+          ],
+          "stability": "stable",
+          "tier": "output"
+        }
+      ]
+    }
+  }
+}
