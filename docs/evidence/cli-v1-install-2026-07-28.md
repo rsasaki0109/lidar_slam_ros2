@@ -63,6 +63,32 @@ Jazzy emitted existing developer warnings for CMake policies CMP0144 and
 CMP0072 and a PCL deprecated-header note. They did not change the build or
 validation result.
 
+## Follow-up: operator and full help modes
+
+Commit `9d13735d69c5d2148b68f13b10980a10a70ba0df` organized the same
+compatible option inventory into two stable help modes:
+
+- `<command> --help` shows routine stable operator options;
+- `<command> --help-all` also shows advanced viewer-runtime controls and
+  deprecated compatibility aliases.
+
+The source was mounted read-only at `/repo` and the `lidarslam` package was
+again installed into a new non-symlinked merged prefix inside each pinned
+image listed above. The extended validator proved that normal `view` help
+does not expose `--runtime-dir`, full help does expose it, and both modes work
+from the installed command.
+
+| Distribution | Package build | Extended installed validator | Result |
+| --- | ---: | ---: | --- |
+| Humble | 16.6 s | Passed | Pass |
+| Jazzy | 17.4 s | Passed | Pass |
+
+The repository checks also matched both rendered help modes against
+`docs/contracts/cli-v1.json`, validated Bash completion, passed 59 focused CLI
+tests and 9 documentation tests, and built the MkDocs site in strict mode.
+The Jazzy `lidarslam` package test completed 146 tests with zero failures and
+one skip, including ament flake8, lint, PEP 257 and XML checks.
+
 ## Limitations
 
 - Only the changed `lidarslam` package was rebuilt. The published images
