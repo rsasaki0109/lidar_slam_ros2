@@ -35,6 +35,8 @@ from pathlib import Path
 import re
 import subprocess
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI = REPO_ROOT / 'scripts' / 'lidarslam'
@@ -246,3 +248,57 @@ def test_positionals_and_deprecation_lifecycle_are_machine_readable():
         if 'must_contain' in positional:
             assert positional['must_contain']
             assert all(positional['must_contain'])
+
+
+@pytest.mark.parametrize(
+    ('arguments', 'message'),
+    [
+        (['unknown'], 'unknown command'),
+        (['doctor', '/tmp', '--unknown'], 'unrecognized arguments'),
+        (
+            ['run', '/tmp', '--min-free-space-gib', '0'],
+            'finite number greater than zero',
+        ),
+        (
+            ['run', '/tmp', '--auto-exit-secs', '0'],
+            'positive integer',
+        ),
+        (
+            ['run', '/tmp', '--verification', 'maybe'],
+            'invalid choice',
+        ),
+        (
+            [
+                'run',
+                '/tmp',
+                '--verification',
+                'off',
+                '--no-verify-map',
+            ],
+            'cannot be combined',
+        ),
+        (
+            ['run', '/tmp', '--resume', '--dry-run'],
+            'cannot be combined',
+        ),
+        (
+            ['run', '--help-all', '--dry-run'],
+            'cannot be combined',
+        ),
+    ],
+)
+def test_invalid_options_have_stable_usage_exit(
+    arguments: list[str],
+    message: str,
+):
+    """Invalid names, values, and combinations should consistently exit 2."""
+    completed = subprocess.run(
+        [str(CLI), *arguments],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 2
+    assert message in completed.stderr

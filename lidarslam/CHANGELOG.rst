@@ -6,6 +6,8 @@ Changelog for package lidarslam
 ------------------
 * Add the installed ``lidarslam-map`` product CLI with doctor, run, inspect,
   optional view, completion, and machine-readable option contracts.
+* Normalize path and duration metavars, reject non-positive viewer durations,
+  and enforce exact option/completion parity plus stable usage exit codes.
 * Add preflight-v3, diagnosis-v1, resumable run-manifest-v2, atomic output,
   collision and storage refusal, termination recovery, and digest-only
   rollback planning.

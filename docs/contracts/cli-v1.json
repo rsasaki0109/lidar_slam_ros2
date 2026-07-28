@@ -68,17 +68,17 @@
       "--autoware-core-dir": {
         "default": null,
         "kind": "directory",
-        "value_name": "AUTOWARE_CORE_DIR"
+        "value_name": "<dir>"
       },
       "--work-dir": {
         "default": null,
         "kind": "directory",
-        "value_name": "WORK_DIR"
+        "value_name": "<dir>"
       },
       "--viewer-run-dir": {
         "default": null,
         "kind": "directory",
-        "value_name": "VIEWER_RUN_DIR"
+        "value_name": "<dir>"
       },
       "--auto-exit-secs": {
         "constraints": {
@@ -87,7 +87,7 @@
         "default": null,
         "kind": "integer",
         "unit": "seconds",
-        "value_name": "AUTO_EXIT_SECS"
+        "value_name": "<seconds>"
       },
       "--verification": {
         "choices": [
@@ -119,17 +119,17 @@
       "--autoware-core-dir": {
         "default": null,
         "kind": "directory",
-        "value_name": "AUTOWARE_CORE_DIR"
+        "value_name": "<dir>"
       },
       "--work-dir": {
         "default": null,
         "kind": "directory",
-        "value_name": "WORK_DIR"
+        "value_name": "<dir>"
       },
       "--runtime-dir": {
         "default": null,
         "kind": "directory",
-        "value_name": "RUNTIME_DIR"
+        "value_name": "<dir>"
       },
       "--auto-exit-secs": {
         "constraints": {
@@ -138,7 +138,7 @@
         "default": null,
         "kind": "integer",
         "unit": "seconds",
-        "value_name": "AUTO_EXIT_SECS"
+        "value_name": "<seconds>"
       }
     },
     "migrate-manifest": {
