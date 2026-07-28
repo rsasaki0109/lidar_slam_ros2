@@ -7,12 +7,14 @@ import hashlib
 import json
 import shlex
 import shutil
+import sys
+import time
 import urllib.request
 import zipfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO, TextIO
 
 import yaml
 
@@ -21,6 +23,9 @@ from mid360_robot_tools import payload_to_json
 
 PUBLIC_DATASET_INTAKE_JSON = 'mid360_robot_public_dataset_intake.json'
 PUBLIC_DATASET_INTAKE_MARKDOWN = 'mid360_robot_public_dataset_intake.md'
+DOWNLOAD_CHUNK_BYTES = 1024 * 1024
+DOWNLOAD_PROGRESS_BYTES = 32 * 1024 * 1024
+DOWNLOAD_PROGRESS_INTERVAL_SEC = 5.0
 
 
 @dataclass(frozen=True)
@@ -233,9 +238,11 @@ class PublicDatasetIntake:
         self,
         repo_root: Path,
         registry: dict[str, PublicDataset] | None = None,
+        progress_stream: TextIO | None = sys.stderr,
     ) -> None:
         self._repo_root = repo_root
         self._registry = registry or PUBLIC_MID360_DATASETS
+        self._progress_stream = progress_stream
 
     def build_plan(self, options: PublicDatasetIntakeOptions) -> dict[str, Any]:
         """Build a reproducible intake plan without touching the network."""
@@ -396,15 +403,105 @@ class PublicDatasetIntake:
             part_path.unlink()
         md5 = hashlib.md5()
         with urllib.request.urlopen(file_record.url) as response, part_path.open('wb') as output:
-            while True:
-                chunk = response.read(1024 * 1024)
-                if not chunk:
-                    break
-                md5.update(chunk)
-                output.write(chunk)
+            self._stream_download(file_record, response, output, md5)
         part_path.replace(archive_path)
         messages.append(f'Downloaded {archive_path} with md5 {md5.hexdigest()}.')
         return True
+
+    def _stream_download(
+        self,
+        file_record: PublicDatasetFile,
+        response: BinaryIO,
+        output: BinaryIO,
+        md5: Any,
+    ) -> None:
+        total_bytes = self._response_content_length(response)
+        started_at = time.monotonic()
+        last_report_at = started_at
+        last_report_bytes = 0
+        downloaded_bytes = 0
+        self._print_download_progress(file_record, downloaded_bytes, total_bytes, 0.0)
+
+        while True:
+            chunk = response.read(DOWNLOAD_CHUNK_BYTES)
+            if not chunk:
+                break
+            md5.update(chunk)
+            output.write(chunk)
+            downloaded_bytes += len(chunk)
+            now = time.monotonic()
+            if (
+                now - last_report_at >= DOWNLOAD_PROGRESS_INTERVAL_SEC
+                or downloaded_bytes - last_report_bytes >= DOWNLOAD_PROGRESS_BYTES
+            ):
+                self._print_download_progress(
+                    file_record,
+                    downloaded_bytes,
+                    total_bytes,
+                    now - started_at,
+                )
+                last_report_at = now
+                last_report_bytes = downloaded_bytes
+
+        elapsed_sec = time.monotonic() - started_at
+        self._print_download_progress(
+            file_record,
+            downloaded_bytes,
+            total_bytes,
+            elapsed_sec,
+            complete=True,
+        )
+
+    @staticmethod
+    def _response_content_length(response: BinaryIO) -> int | None:
+        headers = getattr(response, 'headers', None)
+        if headers is None:
+            return None
+        value = headers.get('Content-Length')
+        try:
+            length = int(value)
+        except (TypeError, ValueError):
+            return None
+        return length if length >= 0 else None
+
+    def _print_download_progress(
+        self,
+        file_record: PublicDatasetFile,
+        downloaded_bytes: int,
+        total_bytes: int | None,
+        elapsed_sec: float,
+        *,
+        complete: bool = False,
+    ) -> None:
+        if self._progress_stream is None:
+            return
+        downloaded = self._format_bytes(downloaded_bytes)
+        if total_bytes:
+            percent = min(100.0, downloaded_bytes * 100.0 / total_bytes)
+            amount = f'{downloaded} / {self._format_bytes(total_bytes)} ({percent:.1f}%)'
+        else:
+            amount = downloaded
+        speed = ''
+        if elapsed_sec > 0 and downloaded_bytes > 0:
+            speed = f', {self._format_bytes(int(downloaded_bytes / elapsed_sec))}/s'
+        state = 'Downloaded' if complete else 'Downloading'
+        print(
+            f'{state} {file_record.filename}: {amount}{speed}',
+            file=self._progress_stream,
+            flush=True,
+        )
+
+    @staticmethod
+    def _format_bytes(value: int) -> str:
+        amount = float(value)
+        units = ('B', 'KiB', 'MiB', 'GiB', 'TiB')
+        for unit in units:
+            if amount < 1024.0 or unit == units[-1]:
+                if unit == 'B':
+                    return f'{int(amount)} {unit}'
+                return f'{amount:.1f} {unit}'
+            amount /= 1024.0
+        raise AssertionError('unreachable')
 
     @staticmethod
     def _verify_md5(archive_path: Path, expected_md5: str) -> None:

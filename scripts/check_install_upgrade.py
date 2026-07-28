@@ -28,6 +28,15 @@ SCHEMA_URI = (
 REPORT_NAME = 'install_upgrade_report.json'
 
 
+def _git_command(*args: str) -> list[str]:
+    return [
+        'git',
+        '-c',
+        f'safe.directory={REPO_ROOT}',
+        *args,
+    ]
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
 
@@ -51,7 +60,7 @@ def _atomic_json(path: Path, value: Any) -> None:
 
 def _git_output(*args: str) -> str:
     return subprocess.run(
-        ['git', *args],
+        _git_command(*args),
         cwd=REPO_ROOT,
         check=True,
         capture_output=True,
@@ -73,14 +82,13 @@ def _extract_baseline(reference: str, target: Path) -> str:
     commit = _git_output('rev-parse', f'{reference}^{{commit}}')
     archive = target.parent / 'baseline.tar'
     subprocess.run(
-        [
-            'git',
+        _git_command(
             'archive',
             '--format=tar',
             f'--output={archive}',
             commit,
             'lidarslam',
-        ],
+        ),
         cwd=REPO_ROOT,
         check=True,
     )

@@ -99,3 +99,30 @@ def test_demo_delegates_to_versioned_product_contract():
     assert 'run_manifest.json' in script
     assert 'verify_autoware_map.log' in script
     assert 'run_rko_lio_graph_autoware_dogfood.sh' not in script
+    assert 'LIDARSLAM_HOST_UID' in script
+    assert 'LIDARSLAM_HOST_GID' in script
+    assert 'chown -R "${HOST_UID}:${HOST_GID}" "${target}"' in script
+    assert '.postprocess.lock' in script
+
+
+def test_demo_rejects_incomplete_host_ownership_contract(tmp_path: Path):
+    env = os.environ.copy()
+    env.update(
+        {
+            'DEMO_DATA_DIR': str(tmp_path / 'datasets'),
+            'DEMO_OUTPUT_DIR': str(tmp_path / 'output' / 'mid360_demo'),
+            'LIDARSLAM_HOST_UID': str(os.getuid()),
+        }
+    )
+    env.pop('LIDARSLAM_HOST_GID', None)
+
+    result = subprocess.run(
+        ['/bin/bash', str(DEMO_SCRIPT)],
+        check=False,
+        capture_output=True,
+        env=env,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'set both LIDARSLAM_HOST_UID and LIDARSLAM_HOST_GID' in result.stderr

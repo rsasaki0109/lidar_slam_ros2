@@ -24,7 +24,8 @@ Options:
 Common forwarded options:
   --output-dir <dir>            Write outputs to a specific directory
   --profile <id>                Force a compatible workflow profile
-  --no-verify-map               Skip pointcloud_map verification
+  --verification <mode>         Verification mode: required (default) or off
+  --no-verify-map               Deprecated alias for --verification off
   --viewer-rebuild              Rebuild viewer runtime before opening
   --autoware-core-dir <dir>     autoware_core checkout for the Dockerized viewer
   --work-dir <dir>              Runtime workspace for Autoware/Foxglove viewers
@@ -117,7 +118,12 @@ while [[ $# -gt 0 ]]; do
       FORWARDED_ARGS+=("$1")
       shift
       ;;
-    --profile|--output-dir|--autoware-core-dir|--work-dir|--viewer-run-dir|--auto-exit-secs)
+    --profile|--output-dir|--verification|--auto-exit-secs)
+      require_value "$1" "${2:-}"
+      FORWARDED_ARGS+=("$1" "$2")
+      shift 2
+      ;;
+    --autoware-core-dir|--work-dir|--viewer-run-dir)
       require_value "$1" "${2:-}"
       FORWARDED_ARGS+=("$1" "$2")
       shift 2

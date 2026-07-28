@@ -120,6 +120,18 @@ def test_snapshot_normalizes_prefix_paths_and_ignores_binary_content(
     )
 
 
+def test_git_commands_scope_safe_directory_to_repository():
+    module = _load_module()
+
+    assert module._git_command('status', '--porcelain') == [
+        'git',
+        '-c',
+        f'safe.directory={REPO_ROOT}',
+        'status',
+        '--porcelain',
+    ]
+
+
 def test_compare_reports_stale_missing_and_mode_drift(tmp_path: Path):
     module = _load_module()
     upgraded = tmp_path / 'upgraded'
