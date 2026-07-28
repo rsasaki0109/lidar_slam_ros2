@@ -18,6 +18,7 @@ to a working map.
 cd ~/ros2_ws/src
 git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git
 cd ..
+sudo apt update
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash

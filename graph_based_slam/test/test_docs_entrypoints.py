@@ -75,6 +75,9 @@ SOAK_EVIDENCE_JSON = (
 DOCKER_FIRST_MAP_EVIDENCE_DOC = (
     REPO_ROOT / 'docs' / 'evidence' / 'docker-first-map-2026-07-28.md'
 )
+SOURCE_FIRST_MAP_EVIDENCE_DOC = (
+    REPO_ROOT / 'docs' / 'evidence' / 'source-first-map-2026-07-28.md'
+)
 REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
 PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v2.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
@@ -138,6 +141,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
     assert SOAK_EVIDENCE_DOC.is_file()
     assert SOAK_EVIDENCE_JSON.is_file()
+    assert DOCKER_FIRST_MAP_EVIDENCE_DOC.is_file()
+    assert SOURCE_FIRST_MAP_EVIDENCE_DOC.is_file()
     assert REAL_DATA_E2E_DOC.is_file()
     assert PREFLIGHT_SCHEMA.is_file()
     assert DIAGNOSIS_SCHEMA.is_file()
@@ -414,6 +419,10 @@ def test_release_metadata_and_core_package_versions_match():
         'Docker first-map evidence: evidence/docker-first-map-2026-07-28.md'
         in mkdocs_config
     )
+    assert (
+        'Source first-map evidence: evidence/source-first-map-2026-07-28.md'
+        in mkdocs_config
+    )
     assert 'Pinned real-data E2E: real-data-e2e.md' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
     assert 'Autoware Foxglove: autoware-foxglove.md' in mkdocs_config
@@ -444,6 +453,13 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'lidarslam-map doctor' in getting_started_doc
     assert 'lidarslam-map run' in getting_started_doc
     assert 'lidarslam-map inspect' in getting_started_doc
+    for source_doc in (
+        README_PATH.read_text(encoding='utf-8'),
+        getting_started_doc,
+        distribution_doc,
+        WORKFLOWS_DOC.read_text(encoding='utf-8'),
+    ):
+        assert 'sudo apt update' in source_doc
     assert 'Creative Commons Attribution 4.0' in real_data_e2e_doc
     first_map_evidence = DOCKER_FIRST_MAP_EVIDENCE_DOC.read_text(encoding='utf-8')
     assert 'FINAL_' not in first_map_evidence
@@ -451,6 +467,14 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'PR #407' in first_map_evidence
     assert 'independent-user validations' in first_map_evidence
     assert 'docs/evidence/docker-first-map-2026-07-28.md' in (
+        RELEASE_WORKFLOW.read_text(encoding='utf-8')
+    )
+    source_evidence = SOURCE_FIRST_MAP_EVIDENCE_DOC.read_text(encoding='utf-8')
+    assert 'FINAL_' not in source_evidence
+    assert '6 packages, 7 min 25 s' in source_evidence
+    assert '8 pass, 0 warn, 0 fail' in source_evidence
+    assert 'independent-user reports' in source_evidence
+    assert 'docs/evidence/source-first-map-2026-07-28.md' in (
         RELEASE_WORKFLOW.read_text(encoding='utf-8')
     )
     assert (
