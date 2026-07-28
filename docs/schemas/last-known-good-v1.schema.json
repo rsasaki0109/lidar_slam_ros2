@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/last-known-good-v1.schema.json",
+  "title": "lidarslam_ros2 last-known-good image ledger v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "repository",
+    "reason",
+    "images"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "status": {
+      "enum": [
+        "unassigned",
+        "assigned"
+      ]
+    },
+    "repository": {
+      "const": "ghcr.io/rsasaki0109/lidar_slam_ros2"
+    },
+    "release_tag": {
+      "type": "string",
+      "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "product_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "git_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "promoted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "humble",
+        "jazzy"
+      ],
+      "properties": {
+        "humble": {
+          "$ref": "#/$defs/imageOrNull"
+        },
+        "jazzy": {
+          "$ref": "#/$defs/imageOrNull"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "imageOrNull": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/image"
+        }
+      ]
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "status",
+        "ros_distro",
+        "platform",
+        "tag",
+        "digest",
+        "git_commit",
+        "product_version",
+        "cli_version"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "status": {
+          "const": "PASS"
+        },
+        "ros_distro": {
+          "enum": [
+            "humble",
+            "jazzy"
+          ]
+        },
+        "platform": {
+          "const": "linux/amd64"
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^ghcr\\.io/rsasaki0109/lidar_slam_ros2:v[0-9]+\\.[0-9]+\\.[0-9]+-(humble|jazzy)$"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "git_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "product_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "cli_version": {
+          "type": "string",
+          "pattern": "^lidarslam_ros2 [0-9]+\\.[0-9]+\\.[0-9]+$"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "unassigned"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "images": {
+            "properties": {
+              "humble": {
+                "type": "null"
+              },
+              "jazzy": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "assigned"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "release_tag",
+          "product_version",
+          "git_commit",
+          "promoted_at"
+        ],
+        "properties": {
+          "images": {
+            "properties": {
+              "humble": {
+                "$ref": "#/$defs/image"
+              },
+              "jazzy": {
+                "$ref": "#/$defs/image"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

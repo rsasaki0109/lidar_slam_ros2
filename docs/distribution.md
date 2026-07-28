@@ -130,6 +130,11 @@ The version examples illustrate the tag contract; use a tag listed on the
 GitHub Releases page. Convenience tags are intentionally moving, so recording
 their current digest is mandatory when they are used in evaluation evidence.
 
+For incident containment, use the reviewed last-known-good ledger and
+[release rollback runbook](release-rollback.md). The ledger fails closed while
+unassigned and rollback plans use only attested `repository@sha256:...`
+references; release and convenience tags are never moved by the procedure.
+
 ## Profile-specific extras
 
 The flagship PointCloud2 + IMU profile is complete after the recursive source

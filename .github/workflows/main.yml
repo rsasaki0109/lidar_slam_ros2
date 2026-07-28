@@ -38,6 +38,7 @@ jobs:
         shell: bash
         run: |
           python3 -m pytest graph_based_slam/test/test_docs_entrypoints.py -q
+          python3 -m pytest graph_based_slam/test/test_last_known_good.py -q
 
       - name: Validate public shell entrypoints
         shell: bash

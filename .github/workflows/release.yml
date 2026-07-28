@@ -231,6 +231,7 @@ jobs:
         shell: bash
         run: |
           python3 -m pytest graph_based_slam/test/test_docs_entrypoints.py -q
+          python3 -m pytest graph_based_slam/test/test_last_known_good.py -q
           bash -n scripts/run_autoware_quickstart.sh
           bash -n scripts/download_ntu_viral_tnp01.sh
           bash -n scripts/prepare_velodyne_pointcloud_overlay.sh
@@ -240,10 +241,12 @@ jobs:
         shell: bash
         run: |
           rm -rf release_bundle
-          mkdir -p release_bundle/docs/releases release_bundle/docs/social release_bundle/docs/assets release_bundle/docs/evidence release_bundle/docs/roadmap release_bundle/docs/schemas release_bundle/configs/real_data_e2e release_bundle/output release_bundle/lidarslam/images
+          mkdir -p release_bundle/docs/releases release_bundle/docs/social release_bundle/docs/assets release_bundle/docs/evidence release_bundle/docs/roadmap release_bundle/docs/schemas release_bundle/configs/real_data_e2e release_bundle/configs/release release_bundle/scripts release_bundle/output release_bundle/lidarslam/images
           cp README.md CHANGELOG.md CONTRIBUTING.md RELEASING.md VERSION mkdocs.yml SECURITY.md SUPPORT.md CODE_OF_CONDUCT.md GOVERNANCE.md CITATION.cff release_bundle/
-          cp docs/index.md docs/getting-started.md docs/product-contract.md docs/golden-path-cli.md docs/operational-reliability.md docs/real-data-e2e.md docs/distribution.md docs/rosdistro-release.md docs/autoware-map-authoring.md docs/autoware-foxglove.md docs/autoware-quickstart.md docs/workflows.md docs/benchmarking.md docs/comparison.md release_bundle/docs/
+          cp docs/index.md docs/getting-started.md docs/product-contract.md docs/golden-path-cli.md docs/operational-reliability.md docs/release-rollback.md docs/real-data-e2e.md docs/distribution.md docs/rosdistro-release.md docs/autoware-map-authoring.md docs/autoware-foxglove.md docs/autoware-quickstart.md docs/workflows.md docs/benchmarking.md docs/comparison.md release_bundle/docs/
           cp configs/real_data_e2e/driving_slam_mid360_v1.json release_bundle/configs/real_data_e2e/
+          cp configs/release/last-known-good.json release_bundle/configs/release/
+          cp scripts/manage_last_known_good.py release_bundle/scripts/
           cp docs/evidence/real-data-soak-2026-07-28.md docs/evidence/real-data-soak-2026-07-28.json docs/evidence/docker-first-map-2026-07-28.md release_bundle/docs/evidence/
           cp docs/roadmap/v0.9.md release_bundle/docs/roadmap/
           cp docs/schemas/*.json release_bundle/docs/schemas/
@@ -284,6 +287,16 @@ jobs:
           pattern: release-image-*
           path: release_image_evidence
           merge-multiple: true
+
+      - name: Validate rollback evidence inputs
+        shell: bash
+        run: |
+          python3 scripts/manage_last_known_good.py validate-evidence \
+            release_image_evidence/release-image-humble.json \
+            --ros-distro humble
+          python3 scripts/manage_last_known_good.py validate-evidence \
+            release_image_evidence/release-image-jazzy.json \
+            --ros-distro jazzy
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

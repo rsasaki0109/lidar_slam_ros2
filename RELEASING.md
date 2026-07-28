@@ -37,6 +37,18 @@ bash scripts/run_autoware_quickstart.sh
    `ROS_DISTRO=jazzy` Docker targets. The release workflow will refuse to
    create the GitHub Release unless both published digests pass the installed
    `lidarslam-map --version` smoke test.
+7. For stable promotion, require an assigned, reviewed rollback identity:
+
+```bash
+python3 scripts/manage_last_known_good.py verify \
+  configs/release/last-known-good.json \
+  --require-assigned
+```
+
+   A prerelease may proceed while the ledger is unassigned, but it cannot be
+   described as rollback-ready. After both image records and the pinned
+   real-data gate pass, follow
+   [`docs/release-rollback.md`](docs/release-rollback.md) in a separate PR.
 
 ## Automated Publication
 

@@ -37,6 +37,7 @@ nav:
   - Product Contract: product-contract.md
   - Golden-path CLI: golden-path-cli.md
   - Operational reliability: operational-reliability.md
+  - Release rollback: release-rollback.md
   - Named-hardware soak evidence: evidence/real-data-soak-2026-07-28.md
   - Docker first-map evidence: evidence/docker-first-map-2026-07-28.md
   - Pinned real-data E2E: real-data-e2e.md

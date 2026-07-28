@@ -20,6 +20,7 @@ only marked covered when an automated test exercises the public behavior.
 | Ambiguous or unsafe resume state | Exit `2`; refuse concurrent or pre-terminal post-processing | Both candidate directories and manifests remain unchanged | Verify no original process is active; resolve the ambiguity manually before retrying | Automated |
 | Missing TF connectivity observed in ROS logs | Diagnosis is `runtime_failed` with a TF connectivity hint | Launch log and diagnosis artifacts | Correct calibration/frame configuration and rerun | Automated diagnosis fixture |
 | Pinned public MID-360 bag → verified map | Nightly Jazzy workflow runs the installed CLI with exact archive/bag identity and bounded output thresholds | Non-geometry evidence report, manifests, diagnosis, verification, and logs | Inspect the failed assertion and retained evidence; do not move the contract without review | Automated real-data E2E |
+| New release regression | Select a reviewed cross-distro last-known-good ledger and generate an attested digest-only rollback plan | Current deployment digest, incident evidence, and immutable prior image identity | Verify attestation/version, run the pinned acceptance map, then update deployment to the recorded digest | Automated tooling; first promotion pending |
 
 `run_manifest.json` is authoritative for terminal workflow status. Diagnosis
 uses its `failed` or `interrupted` state even when the workflow stopped before
@@ -167,7 +168,12 @@ the termination coverage:
 - timestamp reversal detection against real rosbag records before launch;
 - a bounded-filesystem live exhaustion test in the scheduled real-data
   environment;
-- output migration tooling and last-known-good rollback instructions.
+- output migration tooling.
+
+Digest-pinned rollback tooling and instructions are now covered by the
+[release rollback runbook](release-rollback.md). The ledger remains honestly
+`unassigned` until the first release with both distro image evidence and the
+pinned real-data acceptance gate is reviewed and promoted.
 
 See the [pinned real-data E2E contract](real-data-e2e.md) and the
 [v0.9 roadmap](roadmap/v0.9.md) for the remaining Phase 3 and v1.0 gates.
