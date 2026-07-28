@@ -40,6 +40,7 @@ nav:
   - Named-hardware soak evidence: evidence/real-data-soak-2026-07-28.md
   - Docker first-map evidence: evidence/docker-first-map-2026-07-28.md
   - Installed build provenance evidence: evidence/installed-build-provenance-2026-07-28.md
+  - Humble source first-map evidence: evidence/source-first-map-humble-2026-07-28.md
   - Pinned real-data E2E: real-data-e2e.md
   - Distribution and installed CLI: distribution.md
   - Autoware-Compatible Map Authoring: autoware-map-authoring.md
