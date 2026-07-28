@@ -202,11 +202,13 @@ def build_execution_plan(
     output_dir: Path,
     verify_map: bool,
     pointcloud_inspector=None,
+    timestamp_inspector=None,
 ) -> dict[str, object]:
     preflight = _load_script_module('preflight_autoware_map_bag.py', 'preflight_autoware_map_bag')
     payload = preflight.build_preflight_payload(
         bag_path,
         pointcloud_inspector=pointcloud_inspector,
+        timestamp_inspector=timestamp_inspector,
     )
     selected_profile = _select_profile(payload, profile_id)
 
