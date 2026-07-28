@@ -70,12 +70,11 @@ Successful runs should leave these files:
 - `verify_autoware_map.log`
 - `autoware_map_diagnosis.md`
 
-To open the browser viewer at the end of a real run, select it explicitly:
+Map generation and viewing have separate exit codes. After a successful run,
+open the browser viewer explicitly:
 
 ```bash
-lidarslam-map run /path/to/rosbag2 \
-  --output-dir "$PWD/output/my_map_with_viewer" \
-  --viewer foxglove
+lidarslam-map view "$PWD/output/my_map" --viewer foxglove
 ```
 
 Or inspect an existing output directory:

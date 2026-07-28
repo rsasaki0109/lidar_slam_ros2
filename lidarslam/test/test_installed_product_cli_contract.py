@@ -29,12 +29,14 @@
 
 """Static contract tests for the curated installed product CLI."""
 
+import importlib.util
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_ROOT = REPO_ROOT / 'lidarslam'
 RUNTIME_MANIFEST = PACKAGE_ROOT / 'product-runtime-files.txt'
+INSTALL_CHECK = REPO_ROOT / 'scripts' / 'check_installed_product_cli.py'
 
 
 def _runtime_names() -> list[str]:
@@ -45,6 +47,27 @@ def _runtime_names() -> list[str]:
     ]
 
 
+def _load_install_check():
+    spec = importlib.util.spec_from_file_location(
+        'check_installed_product_cli',
+        INSTALL_CHECK,
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_installed_help_validator_enforces_source_contract(tmp_path: Path):
+    module = _load_install_check()
+
+    module._validate_installed_help(
+        REPO_ROOT / 'scripts' / 'lidarslam',
+        tmp_path,
+    )
+
+
 def test_product_runtime_manifest_is_curated_and_complete():
     names = _runtime_names()
 
@@ -52,6 +75,7 @@ def test_product_runtime_manifest_is_curated_and_complete():
     assert len(names) == len(set(names))
     assert 'lidarslam_cli.py' in names
     assert 'run_autoware_map_from_bag.py' in names
+    assert 'view_autoware_map.py' in names
     assert 'run_map_soak.py' in names
     assert 'verify_autoware_map.py' in names
     assert 'gaussian_splatting_train.py' not in names
@@ -68,6 +92,8 @@ def test_cmake_preserves_historical_node_and_installs_distinct_cli_names():
     assert 'RENAME lidarslam-map' in cmake
     assert 'DESTINATION lib/${PROJECT_NAME}' in cmake
     assert 'RENAME lidarslam-cli' in cmake
+    assert 'scripts/completions/lidarslam-map.bash' in cmake
+    assert 'DESTINATION share/${PROJECT_NAME}/product/completions' in cmake
     assert 'install(TARGETS\n  lidarslam' in cmake
 
 

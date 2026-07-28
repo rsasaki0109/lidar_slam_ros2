@@ -1,0 +1,451 @@
+{
+  "schema_version": 1,
+  "contract_id": "lidarslam-map-v1",
+  "product_command": "lidarslam-map",
+  "help_modes": {
+    "normal": {
+      "option": "--help",
+      "description": "routine stable operator options",
+      "excludes": {
+        "stability": [
+          "deprecated"
+        ],
+        "tiers": [
+          "viewer-runtime"
+        ]
+      }
+    },
+    "all": {
+      "option": "--help-all",
+      "description": "complete advanced and deprecated option inventory"
+    }
+  },
+  "exit_codes": {
+    "0": "command completed successfully",
+    "2": "invalid usage, input, profile, or output path",
+    "70": "internal or tooling error prevented command startup",
+    "other_nonzero": "delegated workflow or viewer failure"
+  },
+  "value_options": {
+    "doctor": {},
+    "run": {
+      "--profile": {
+        "choices": [
+          "rko_lio_graph_public_path",
+          "rko_lio_graph_mid360_preset",
+          "pointcloud_gnss_smoke",
+          "packet_applanix_smoke"
+        ],
+        "default": "doctor_recommendation",
+        "kind": "enum",
+        "value_name": "<id>"
+      },
+      "--output-dir": {
+        "default": "generated_timestamped_output_dir",
+        "kind": "directory",
+        "value_name": "<dir>"
+      },
+      "--min-free-space-gib": {
+        "constraints": {
+          "finite": true,
+          "exclusive_minimum": 0
+        },
+        "default": 5,
+        "kind": "number",
+        "unit": "GiB",
+        "value_name": "<GiB>"
+      },
+      "--viewer": {
+        "choices": [
+          "none",
+          "autoware",
+          "foxglove"
+        ],
+        "default": "none",
+        "kind": "enum",
+        "value_name": "{none,autoware,foxglove}"
+      },
+      "--autoware-core-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "AUTOWARE_CORE_DIR"
+      },
+      "--work-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "WORK_DIR"
+      },
+      "--viewer-run-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "VIEWER_RUN_DIR"
+      },
+      "--auto-exit-secs": {
+        "constraints": {
+          "exclusive_minimum": 0
+        },
+        "default": null,
+        "kind": "integer",
+        "unit": "seconds",
+        "value_name": "AUTO_EXIT_SECS"
+      },
+      "--verification": {
+        "choices": [
+          "required",
+          "off"
+        ],
+        "default": "required",
+        "kind": "enum",
+        "value_name": "{required,off}"
+      }
+    },
+    "inspect": {
+      "--bag": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "<rosbag2_dir>"
+      }
+    },
+    "view": {
+      "--viewer": {
+        "choices": [
+          "autoware",
+          "foxglove"
+        ],
+        "default": "autoware",
+        "kind": "enum",
+        "value_name": "{autoware,foxglove}"
+      },
+      "--autoware-core-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "AUTOWARE_CORE_DIR"
+      },
+      "--work-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "WORK_DIR"
+      },
+      "--runtime-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "RUNTIME_DIR"
+      },
+      "--auto-exit-secs": {
+        "constraints": {
+          "exclusive_minimum": 0
+        },
+        "default": null,
+        "kind": "integer",
+        "unit": "seconds",
+        "value_name": "AUTO_EXIT_SECS"
+      }
+    }
+  },
+  "deprecation_policy": {
+    "minimum_compatibility_window": "one minor release",
+    "removal_status": "not_scheduled",
+    "warning_channel": "stderr",
+    "warning_count_per_invocation": 1
+  },
+  "global_options": [
+    {
+      "names": [
+        "-h",
+        "--help"
+      ],
+      "stability": "stable",
+      "tier": "core"
+    },
+    {
+      "names": [
+        "--help-all"
+      ],
+      "stability": "stable",
+      "tier": "help"
+    },
+    {
+      "names": [
+        "--version"
+      ],
+      "stability": "stable",
+      "tier": "core"
+    }
+  ],
+  "commands": {
+    "doctor": {
+      "positional": {
+        "kind": "directory",
+        "must_contain": [
+          "metadata.yaml"
+        ],
+        "name": "rosbag2_dir",
+        "stability": "stable"
+      },
+      "options": [
+        {
+          "names": [
+            "-h",
+            "--help"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--help-all"
+          ],
+          "stability": "stable",
+          "tier": "help"
+        },
+        {
+          "names": [
+            "--json"
+          ],
+          "stability": "stable",
+          "tier": "automation"
+        }
+      ]
+    },
+    "run": {
+      "positional": {
+        "kind": "directory",
+        "must_contain": [
+          "metadata.yaml"
+        ],
+        "name": "rosbag2_dir",
+        "stability": "stable"
+      },
+      "options": [
+        {
+          "names": [
+            "-h",
+            "--help"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--help-all"
+          ],
+          "stability": "stable",
+          "tier": "help"
+        },
+        {
+          "names": [
+            "--profile"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--output-dir"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--min-free-space-gib"
+          ],
+          "stability": "stable",
+          "tier": "lifecycle"
+        },
+        {
+          "names": [
+            "--dry-run"
+          ],
+          "stability": "stable",
+          "tier": "lifecycle"
+        },
+        {
+          "names": [
+            "--resume"
+          ],
+          "stability": "stable",
+          "tier": "lifecycle"
+        },
+        {
+          "names": [
+            "--viewer"
+          ],
+          "replacement": "view --viewer",
+          "stability": "deprecated",
+          "tier": "viewer"
+        },
+        {
+          "names": [
+            "--autoware-core-dir"
+          ],
+          "replacement": "view --autoware-core-dir",
+          "stability": "deprecated",
+          "tier": "advanced-viewer"
+        },
+        {
+          "names": [
+            "--work-dir"
+          ],
+          "replacement": "view --work-dir",
+          "stability": "deprecated",
+          "tier": "advanced-viewer"
+        },
+        {
+          "names": [
+            "--viewer-run-dir"
+          ],
+          "replacement": "view --runtime-dir",
+          "stability": "deprecated",
+          "tier": "advanced-viewer"
+        },
+        {
+          "names": [
+            "--viewer-rebuild"
+          ],
+          "replacement": "view --rebuild",
+          "stability": "deprecated",
+          "tier": "advanced-viewer"
+        },
+        {
+          "names": [
+            "--auto-exit-secs"
+          ],
+          "replacement": "view --auto-exit-secs",
+          "stability": "deprecated",
+          "tier": "advanced-viewer"
+        },
+        {
+          "names": [
+            "--verification"
+          ],
+          "stability": "stable",
+          "tier": "verification"
+        },
+        {
+          "names": [
+            "--no-verify-map"
+          ],
+          "replacement": "--verification off",
+          "stability": "deprecated",
+          "tier": "break-glass"
+        }
+      ]
+    },
+    "inspect": {
+      "positional": {
+        "kind": "directory",
+        "name": "output_dir",
+        "stability": "stable"
+      },
+      "options": [
+        {
+          "names": [
+            "-h",
+            "--help"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--help-all"
+          ],
+          "stability": "stable",
+          "tier": "help"
+        },
+        {
+          "names": [
+            "--bag"
+          ],
+          "stability": "stable",
+          "tier": "context"
+        },
+        {
+          "names": [
+            "--json"
+          ],
+          "stability": "stable",
+          "tier": "automation"
+        },
+        {
+          "names": [
+            "--write"
+          ],
+          "stability": "stable",
+          "tier": "output"
+        }
+      ]
+    },
+    "view": {
+      "positional": {
+        "kind": "directory",
+        "must_contain": [
+          "pointcloud_map/pointcloud_map_metadata.yaml",
+          "map_projector_info.yaml"
+        ],
+        "name": "output_dir",
+        "stability": "stable"
+      },
+      "options": [
+        {
+          "names": [
+            "-h",
+            "--help"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--help-all"
+          ],
+          "stability": "stable",
+          "tier": "help"
+        },
+        {
+          "names": [
+            "--viewer"
+          ],
+          "stability": "stable",
+          "tier": "viewer"
+        },
+        {
+          "names": [
+            "--autoware-core-dir"
+          ],
+          "stability": "stable",
+          "tier": "viewer-runtime"
+        },
+        {
+          "names": [
+            "--work-dir"
+          ],
+          "stability": "stable",
+          "tier": "viewer-runtime"
+        },
+        {
+          "names": [
+            "--runtime-dir"
+          ],
+          "stability": "stable",
+          "tier": "viewer-runtime"
+        },
+        {
+          "names": [
+            "--rebuild"
+          ],
+          "stability": "stable",
+          "tier": "viewer-runtime"
+        },
+        {
+          "names": [
+            "--auto-exit-secs"
+          ],
+          "stability": "stable",
+          "tier": "viewer-runtime"
+        }
+      ]
+    }
+  }
+}

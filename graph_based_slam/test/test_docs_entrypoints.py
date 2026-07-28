@@ -64,6 +64,8 @@ BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
 COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
 PRODUCT_CONTRACT_DOC = REPO_ROOT / 'docs' / 'product-contract.md'
 GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
+CLI_COMPATIBILITY_DOC = REPO_ROOT / 'docs' / 'cli-compatibility.md'
+CLI_V1_CONTRACT = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
 DISTRIBUTION_DOC = REPO_ROOT / 'docs' / 'distribution.md'
 OPERATIONAL_RELIABILITY_DOC = REPO_ROOT / 'docs' / 'operational-reliability.md'
 SOAK_EVIDENCE_DOC = (
@@ -74,6 +76,9 @@ SOAK_EVIDENCE_JSON = (
 )
 DOCKER_FIRST_MAP_EVIDENCE_DOC = (
     REPO_ROOT / 'docs' / 'evidence' / 'docker-first-map-2026-07-28.md'
+)
+CLI_V1_INSTALL_EVIDENCE_DOC = (
+    REPO_ROOT / 'docs' / 'evidence' / 'cli-v1-install-2026-07-28.md'
 )
 REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
 PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v2.schema.json'
@@ -134,10 +139,13 @@ def test_docs_exist_and_are_linked_from_readme():
     assert COMPARISON_DOC.is_file()
     assert PRODUCT_CONTRACT_DOC.is_file()
     assert GOLDEN_PATH_CLI_DOC.is_file()
+    assert CLI_COMPATIBILITY_DOC.is_file()
+    assert CLI_V1_CONTRACT.is_file()
     assert DISTRIBUTION_DOC.is_file()
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
     assert SOAK_EVIDENCE_DOC.is_file()
     assert SOAK_EVIDENCE_JSON.is_file()
+    assert CLI_V1_INSTALL_EVIDENCE_DOC.is_file()
     assert REAL_DATA_E2E_DOC.is_file()
     assert PREFLIGHT_SCHEMA.is_file()
     assert DIAGNOSIS_SCHEMA.is_file()
@@ -302,6 +310,16 @@ def test_product_contract_has_bounded_official_surface():
     assert 'run-manifest-v1.schema.json' in golden_path
     assert 'run-manifest-v2.schema.json' in golden_path
     assert '--resume' in golden_path
+    assert 'lidarslam-map run --help-all' in golden_path
+    compatibility = CLI_COMPATIBILITY_DOC.read_text(encoding='utf-8')
+    assert 'Normal help is the operator view' in compatibility
+    assert 'view --help-all' in compatibility
+    cli_contract = json.loads(CLI_V1_CONTRACT.read_text(encoding='utf-8'))
+    assert set(cli_contract['help_modes']) == {'normal', 'all'}
+    assert cli_contract['help_modes']['normal']['excludes'] == {
+        'stability': ['deprecated'],
+        'tiers': ['viewer-runtime'],
+    }
     assert 'Resume never starts the SLAM workflow again.' in golden_path
     assert 'existing outputs are never overwritten' in (
         REPO_ROOT / 'scripts' / 'run_autoware_map_from_bag.py'
@@ -357,9 +375,12 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'docs/product-contract.md' in release_workflow
     assert 'docs/getting-started.md' in release_workflow
     assert 'docs/golden-path-cli.md' in release_workflow
+    assert 'docs/cli-compatibility.md' in release_workflow
+    assert 'docs/contracts' in release_workflow
     assert 'docs/operational-reliability.md' in release_workflow
     assert 'docs/evidence/real-data-soak-2026-07-28.md' in release_workflow
     assert 'docs/evidence/real-data-soak-2026-07-28.json' in release_workflow
+    assert 'docs/evidence/cli-v1-install-2026-07-28.md' in release_workflow
     assert 'docs/schemas/*.json' in release_workflow
     assert 'docs/real-data-e2e.md' in release_workflow
     assert 'configs/real_data_e2e/driving_slam_mid360_v1.json' in release_workflow
@@ -404,6 +425,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'Getting Started: getting-started.md' in mkdocs_config
     assert 'Product Contract: product-contract.md' in mkdocs_config
     assert 'Golden-path CLI: golden-path-cli.md' in mkdocs_config
+    assert 'CLI compatibility: cli-compatibility.md' in mkdocs_config
     assert 'Distribution and installed CLI: distribution.md' in mkdocs_config
     assert 'Operational reliability: operational-reliability.md' in mkdocs_config
     assert (
@@ -412,6 +434,10 @@ def test_release_metadata_and_core_package_versions_match():
     )
     assert (
         'Docker first-map evidence: evidence/docker-first-map-2026-07-28.md'
+        in mkdocs_config
+    )
+    assert (
+        'CLI install evidence: evidence/cli-v1-install-2026-07-28.md'
         in mkdocs_config
     )
     assert 'Pinned real-data E2E: real-data-e2e.md' in mkdocs_config

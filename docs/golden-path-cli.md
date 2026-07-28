@@ -89,33 +89,59 @@ rather than only the path where it happened to be stored.
 verification and post-processing. `succeeded` means both the workflow and
 enabled verification completed successfully. When verification is enabled
 (the default), a non-`success` diagnosis changes the manifest to `failed`.
-With `--no-verify-map`, inspect `output.diagnosis_status` separately;
-`succeeded` does not claim that map verification ran.
+With the diagnostic-only `--verification off`, inspect
+`output.diagnosis_status` separately; `succeeded` does not claim that map
+verification ran. The old `--no-verify-map` spelling remains a deprecated
+compatibility alias.
 
 `inspect` classifies an output as `success`, `map_saved`, `verify_failed`,
 `runtime_failed`, or `incomplete`. Add `--write` to create the Markdown and
 JSON diagnosis artifacts in the output directory.
 
+`view` validates a completed output before staging and opening it. Map
+generation and viewing are deliberately separate, so a standalone viewer
+failure does not change the completed run manifest:
+
+```bash
+lidarslam-map view output/my_map
+lidarslam-map view output/my_map --viewer foxglove
+```
+
 ## Option tiers
 
-The command help groups options by operator intent. Existing option names
-remain compatible; the tiers make the stable beginner surface distinct from
-viewer plumbing and safety overrides.
+Normal command help groups the stable options needed for routine operation.
+Use `--help-all` to also display advanced runtime controls and deprecated
+compatibility aliases:
+
+```bash
+lidarslam-map run --help
+lidarslam-map run --help-all
+lidarslam-map view --help-all
+```
+
+Existing option names remain compatible; the help levels and tiers make the
+stable beginner surface distinct from viewer plumbing and safety overrides.
+The stability label and migration rules for every option are defined in the
+[CLI compatibility and option policy](cli-compatibility.md).
 
 | Tier | Options | Use |
 | --- | --- | --- |
+| Help | `<command> --help`, `<command> --help-all` | Show routine options or the complete advanced/deprecated inventory |
 | Doctor output | `doctor --json` | Emit the versioned preflight contract for automation |
 | Map selection and output | `run --profile`, `run --output-dir` | Select a maintained profile or an explicit artifact directory |
 | Safety and lifecycle | `run --min-free-space-gib`, `run --dry-run`, `run --resume` | Refuse unsafe starts, inspect a plan, or finish terminal post-processing |
-| Viewer | `run --viewer {none,autoware,foxglove}` | Open an optional viewer after a successful run |
-| Advanced viewer | `run --autoware-core-dir`, `run --work-dir`, `run --viewer-run-dir`, `run --viewer-rebuild`, `run --auto-exit-secs` | Control viewer build/runtime details; these require a non-`none` viewer |
-| Advanced safety override | `run --no-verify-map` | Diagnostic-only run without required map verification; success does not claim verification |
+| Viewer | `view --viewer {autoware,foxglove}` | Open an existing completed output; defaults to Autoware |
+| Viewer runtime | `view --autoware-core-dir`, `view --work-dir`, `view --runtime-dir`, `view --rebuild`, `view --auto-exit-secs` | Control viewer build/runtime details |
+| Deprecated viewer compatibility | `run --viewer`, `run --autoware-core-dir`, `run --work-dir`, `run --viewer-run-dir`, `run --viewer-rebuild`, `run --auto-exit-secs` | Preserve existing combined run/view invocations while directing users to `view` |
+| Verification | `run --verification {required,off}` | Keep required map verification (default) or explicitly select a diagnostic-only unverified run |
+| Deprecated verification alias | `run --no-verify-map` | Compatibility spelling for `--verification off`; emits a warning |
 | Inspection context/output | `inspect --bag`, `inspect --json`, `inspect --write` | Add source-bag context, choose machine output, or persist diagnosis files |
 
 Viewer-specific options that would otherwise be ignored are rejected with exit
 code `2`. In particular, `--autoware-core-dir` requires
 `--viewer autoware`; the other advanced viewer options require either
-`--viewer autoware` or `--viewer foxglove`.
+`--viewer autoware` or `--viewer foxglove`. These checks describe only the
+deprecated `run` compatibility options; `view` has no `none` mode.
 
 ## Versioned JSON contracts
 
@@ -145,6 +171,7 @@ Each subcommand accepts the same options as its delegated tool:
 ./scripts/lidarslam doctor --help
 ./scripts/lidarslam run --help
 ./scripts/lidarslam inspect --help
+./scripts/lidarslam view --help
 ```
 
 ## Exit-code contract

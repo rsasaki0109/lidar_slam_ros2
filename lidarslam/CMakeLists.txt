@@ -242,5 +242,10 @@ install(
     ${CMAKE_CURRENT_SOURCE_DIR}/product-runtime-files.txt
   DESTINATION share/${PROJECT_NAME}/product
 )
+install(
+  FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/completions/lidarslam-map.bash
+  DESTINATION share/${PROJECT_NAME}/product/completions
+)
 
 ament_package()
