@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.7.0 - 2026-07-29
+
+The productization release candidate. It turns the research-oriented workspace
+into a documented offline rosbag2-to-Autoware-map product while retaining the
+deterministic and map-quality foundations delivered after v0.6.
+
+### Highlights
+
+- **One installed product CLI** — `lidarslam-map doctor`, `run`, `inspect`,
+  and optional `view` now drive the same source and installed workflow.
+  Machine-readable option contracts, Bash completion, stable exit behavior,
+  preflight-v3, diagnosis-v1, and resumable run-manifest-v2 records are tested
+  on Humble and Jazzy.
+- **Fail-closed map authoring** — output collision, low free space, real
+  bounded-filesystem exhaustion, timestamp reversal, process termination, and
+  partial-run recovery preserve terminal manifests and actionable diagnosis
+  instead of claiming success.
+- **Reproducible distribution** — clean-prefix fresh/upgrade parity, versioned
+  Humble/Jazzy image automation, SBOM, BuildKit and GitHub provenance,
+  digest-only rollback planning, and immutable two-image release promotion
+  are release-gated.
+- **Real-data operations evidence** — the pinned public MID-360 E2E gate,
+  one-hour and eight-hour named-hardware soaks, periodic resource telemetry,
+  bounded iteration timeouts, and a real 32 MiB ENOSPC gate publish
+  schema-validated evidence.
+- **Map-quality and architecture work** — deterministic offline frontend and
+  backend runners, event-driven loop search as the only backend path,
+  map-quality metrics, offline refinement, stronger Graph SLAM ownership
+  boundaries, and opt-in degeneracy/colouring research remain available
+  without expanding the beginner surface.
+
+### Current boundaries
+
+- ROS buildfarm packages are not yet released because `ndt_omp_ros2` and the
+  maintained `rko_lio` flagship dependency still need an explicit rosdistro
+  release decision.
+- amd64 is the tested image platform; arm64/Jetson remains evaluation tier.
+- This is a prerelease candidate. The v1.0 external-adoption gate still
+  requires three independent users to complete first-map validation.
+
 ## 0.6.0 - 2026-06-12
 
 The deterministic core / ROS shell refactor (roadmap `docs/roadmap/v0.6.md`,

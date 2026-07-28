@@ -2,8 +2,8 @@
 Changelog for package graph_based_slam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.7.0 (2026-07-29)
+------------------
 * Serialize event-driven backend work independently of the ROS executor, so
   composable deployments cannot concurrently mutate ``BackendCore`` or lose a
   submap notification that arrives while loop search is finishing.
@@ -23,6 +23,10 @@ Forthcoming
 * Add pure composition builders for descriptor, loop-search, pose-graph,
   filtering, grid, and GNSS configuration, and freeze the validated startup
   snapshot before runtime initialization begins.
+* Remove the legacy wall-clock loop-search path, add deterministic map-quality
+  and offline-refinement gates, and preserve failure evidence during real
+  output-filesystem exhaustion.
+* Contributors: Ryohei Sasaki
 
 0.6.0 (2026-06-12)
 ------------------

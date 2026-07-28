@@ -14,8 +14,8 @@ ROS 2 LiDAR SLAM that outputs an Autoware-compatible map bundle — `pointcloud_
 ![Point cloud map built by this stack (Shinjuku demo bag)](lidarslam/images/map.png)
 
 *Shinjuku point cloud map built from a demo rosbag with this stack — start at the
-[Quickstart](#quickstart). `develop` is the default branch; latest release notes:
-[v0.6.0](docs/releases/v0.6.0.md).*
+[Quickstart](#quickstart). `develop` is the default branch; current release
+candidate notes: [v0.7.0](docs/releases/v0.7.0.md).*
 
 ## Why lidarslam_ros2
 
@@ -191,7 +191,7 @@ self-similar tunnels (reach **98.7 m → ~500 m**): [docs/degeneracy-guide.md](d
 - **Getting started**: [Getting Started](docs/getting-started.md) · [Distribution](docs/distribution.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
 - **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md)
 - **Benchmarking**: [Benchmarking and release gate](docs/benchmarking.md) · [Comparison](docs/comparison.md)
-- **Project**: [Product contract](docs/product-contract.md) · [v0.6.0 notes](docs/releases/v0.6.0.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
+- **Project**: [Product contract](docs/product-contract.md) · [v0.7.0 RC notes](docs/releases/v0.7.0.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
 
 Preview the doc site locally: `python3 -m mkdocs serve`.
 

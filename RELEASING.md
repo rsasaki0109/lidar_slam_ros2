@@ -38,6 +38,21 @@ bash scripts/run_autoware_quickstart.sh
    create the GitHub Release unless both published digests pass the installed
    `lidarslam-map --version` smoke test.
 
+Build the exact curated bundle before creating a new tag:
+
+```bash
+VERSION="$(tr -d '\n' < VERSION)"
+python3 scripts/build_release_bundle.py \
+  --tag "v${VERSION}" \
+  --candidate \
+  --output "/tmp/lidarslam_ros2_v${VERSION}_release_bundle.tar.gz"
+```
+
+The command requires a clean worktree, refuses an existing tag that names a
+different commit, refuses to overwrite its output, and embeds a
+schema-validated SHA-256 inventory. Repeating it from the same commit produces
+the same bundle bytes.
+
 ## Automated Publication
 
 Two GitHub Actions workflows matter for release:
@@ -45,17 +60,25 @@ Two GitHub Actions workflows matter for release:
 - `.github/workflows/main.yml` runs the continuing CI matrix, release-readiness
   fixture checks, and weekly scheduled validation.
 - `.github/workflows/release.yml` validates the tag, publishes and attests
-  `v<version>-humble` and `v<version>-jazzy` GHCR images, smoke-tests both by
-  registry digest, then publishes the prerelease using
+  untagged Humble and Jazzy candidate digests, smoke-tests both by registry
+  digest, verifies their source revision, SBOM, BuildKit provenance, and
+  GitHub attestation, then promotes the pair to
+  `v<version>-humble` and `v<version>-jazzy`. Promotion preflights both
+  digests before creating either tag. A matching existing tag is reused;
+  a different digest fails closed and is never overwritten. The workflow then
+  publishes the prerelease using
   `docs/releases/v<version>.md` as the release body. The release assets include
   the source bundle plus one `release-image-<distro>.json` installation
-  evidence file and one digest-pinned `rollback-plan-<distro>.json` per image.
+  evidence file and one digest-pinned `rollback-plan-<distro>.json` per image,
+  plus `release-promotion.json`.
   Retain the prior release's JSON assets as the last-known-good recovery
   record; do not move a tag to perform rollback.
 
-The image build emits an OCI SBOM and maximum-mode BuildKit provenance.
-GitHub artifact attestations cover each image digest and the source release
-bundle. Verify an image after publication:
+The curated bundle contains `release-bundle-manifest-v1.json`, including the
+exact tag commit and every bundled file hash. The image build emits an OCI
+SBOM and maximum-mode BuildKit provenance. GitHub artifact attestations cover
+each image digest and the source release bundle. Verify an image after
+publication:
 
 ```bash
 lidarslam-map rollback-plan release-image-jazzy.json

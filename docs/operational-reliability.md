@@ -250,6 +250,12 @@ Each release image now produces a schema-validated
 downloaded release-image record can be revalidated with
 `lidarslam-map rollback-plan`; every generated registry command uses the
 immutable `@sha256:` reference and reports that no moving tag is mutated.
+The release publisher itself now pushes candidates by digest, verifies both
+distro records, and uses an idempotent promotion contract: an absent version
+tag is created, the same digest is reused, and a conflicting digest is refused
+before any tag creation. The deterministic source bundle embeds a checksummed
+`release-bundle-manifest-v1` inventory, while `release-promotion-v1` records
+the pairwise promotion result.
 The source and clean-install execution is recorded in the
 [recovery command contract evidence](evidence/recovery-command-contract-2026-07-29.md).
 

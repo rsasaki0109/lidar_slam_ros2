@@ -580,8 +580,14 @@ def test_manifest_helpers_capture_identity_and_finalize_atomically(tmp_path: Pat
         'sha256': module._sha256(bag_dir / 'demo_bag_0.db3'),
         'size_bytes': 16,
     }]
-    assert saved['software']['product_version'] == '0.6.0'
-    assert saved['software']['package_versions']['lidarslam'] == '0.6.0'
+    product_version = (REPO_ROOT / 'VERSION').read_text(
+        encoding='utf-8'
+    ).strip()
+    assert saved['software']['product_version'] == product_version
+    assert (
+        saved['software']['package_versions']['lidarslam']
+        == product_version
+    )
     assert isinstance(saved['software']['git_dirty'], bool)
     assert saved['profile']['id'] == 'rko_lio_graph_public_path'
     assert saved['output']['artifact_checksums'][0]['path'] == 'artifact.txt'

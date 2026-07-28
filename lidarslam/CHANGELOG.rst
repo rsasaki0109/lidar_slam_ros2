@@ -2,6 +2,16 @@
 Changelog for package lidarslam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.7.0 (2026-07-29)
+------------------
+* Add the installed ``lidarslam-map`` product CLI with doctor, run, inspect,
+  optional view, completion, and machine-readable option contracts.
+* Add preflight-v3, diagnosis-v1, resumable run-manifest-v2, atomic output,
+  collision and storage refusal, termination recovery, and digest-only
+  rollback planning.
+* Validate clean-prefix Humble/Jazzy installation and v0.6.0 upgrade parity.
+* Contributors: Ryohei Sasaki
+
 0.6.0 (2026-06-12)
 ------------------
 * Presets updated for the v0.6 deterministic backend: event-driven loop
