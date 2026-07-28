@@ -20,13 +20,24 @@ DATA_DIR="${DEMO_DATA_DIR:-${REPO_ROOT}/datasets/mid360_public}"
 OUT_DIR="${DEMO_OUTPUT_DIR:-${REPO_ROOT}/output/mid360_demo}"
 BAG_NAME="rosbag2_2024_04_16-14_17_01"
 
+find_demo_bag() {
+  local metadata_path
+  metadata_path="$(
+    find "${DATA_DIR}" -type f \
+      -path "*/${BAG_NAME}/metadata.yaml" \
+      -print -quit 2>/dev/null
+  )"
+  [[ -n "${metadata_path}" ]] || return 1
+  dirname "${metadata_path}"
+}
+
 echo "== [1/2] demo data: Driving SLAM Test with Livox MID360 =="
 echo "   (Koide, Zenodo DOI 10.5281/zenodo.14841855, CC-BY 4.0)"
-bag_dir="$(find "${DATA_DIR}" -type d -name "${BAG_NAME}" 2>/dev/null | head -n 1 || true)"
+bag_dir="$(find_demo_bag || true)"
 if [[ -z "${bag_dir}" ]]; then
   python3 "${REPO_ROOT}/scripts/download_mid360_robot_public_dataset.py" \
     --dataset driving_slam_mid360 --dataset-root "${DATA_DIR}"
-  bag_dir="$(find "${DATA_DIR}" -type d -name "${BAG_NAME}" | head -n 1)"
+  bag_dir="$(find_demo_bag || true)"
 fi
 [[ -n "${bag_dir}" && -f "${bag_dir}/metadata.yaml" ]] || {
   echo "error: demo bag not found under ${DATA_DIR}" >&2
