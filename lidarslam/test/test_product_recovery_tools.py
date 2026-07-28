@@ -41,7 +41,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = REPO_ROOT / 'scripts'
 sys.path.insert(0, str(SCRIPTS))
 
-from migrate_run_manifest import migrate_file  # noqa: E402
+from migrate_run_manifest import migrate_file  # noqa: E402, I100
 from plan_image_rollback import build_rollback_plan  # noqa: E402
 from product_schema import validate_contract  # noqa: E402
 
