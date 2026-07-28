@@ -92,6 +92,11 @@ storage-exhaustion
 diagnosis and proof that no success was claimed. A ten-minute process deadline
 and Docker stop/kill fallback bound a wedged failure path.
 
+The exact-revision local execution and its input, image, capacity, terminal
+state and evidence hashes are recorded in the
+[bounded-filesystem exhaustion evidence ledger](evidence/bounded-filesystem-exhaustion-2026-07-29.md).
+The first public post-integration workflow artifact remains a separate gate.
+
 PCL reports the POSIX `ENOSPC` value as `raw_fallocate ... returned 28`; some
 versions then print an unrelated `errno: 2` string. Diagnosis therefore keys
 on the fallocate operation and return value instead of trusting that secondary
