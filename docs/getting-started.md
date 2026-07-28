@@ -7,10 +7,27 @@ to a working map.
 
 | You have | Run |
 | --- | --- |
-| Docker only, no ROS 2 workspace | `docker run --rm -v "$PWD/lidarslam_output:/lidarslam_ws/output" ghcr.io/rsasaki0109/lidar_slam_ros2:humble` |
+| Docker only, no ROS 2 workspace | Follow [Docker First Map](#docker-first-map-no-ros-2-workspace) below |
 | A rosbag2 directory and a built workspace | `lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"` |
 | A bag, but you are not sure which topics it has | `lidarslam-map doctor /path/to/rosbag2` |
 | You want the fixed public demo dataset | `bash scripts/download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh` |
+
+## Docker First Map (No ROS 2 Workspace)
+
+```bash
+mkdir -p "$PWD/lidarslam_output"
+docker run --rm \
+  -e LIDARSLAM_HOST_UID="$(id -u)" \
+  -e LIDARSLAM_HOST_GID="$(id -g)" \
+  -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
+  ghcr.io/rsasaki0109/lidar_slam_ros2:humble
+```
+
+The first run downloads the tracked 517 MB MID-360 bag and prints periodic
+byte, percentage and transfer-rate updates. The map is written to
+`lidarslam_output/mid360_demo`. On Linux, the two ownership variables make the
+container return the output directory to your user even if the run fails.
+Omit them on platforms where Docker already maps bind-mount ownership.
 
 ## 1. Build The Workspace
 

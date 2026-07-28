@@ -12,12 +12,69 @@
 # Environment overrides:
 #   DEMO_DATA_DIR    dataset cache directory (default: <repo>/datasets/mid360_public)
 #   DEMO_OUTPUT_DIR  output directory        (default: <repo>/output/mid360_demo)
+#   LIDARSLAM_HOST_UID/GID
+#                    optional numeric owner for the output mount; set both
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA_DIR="${DEMO_DATA_DIR:-${REPO_ROOT}/datasets/mid360_public}"
 OUT_DIR="${DEMO_OUTPUT_DIR:-${REPO_ROOT}/output/mid360_demo}"
 BAG_NAME="rosbag2_2024_04_16-14_17_01"
+HOST_UID="${LIDARSLAM_HOST_UID:-}"
+HOST_GID="${LIDARSLAM_HOST_GID:-}"
+
+if [[ -n "${HOST_UID}" || -n "${HOST_GID}" ]]; then
+  if [[ -z "${HOST_UID}" || -z "${HOST_GID}" ]]; then
+    echo "error: set both LIDARSLAM_HOST_UID and LIDARSLAM_HOST_GID" >&2
+    exit 2
+  fi
+  if [[ ! "${HOST_UID}" =~ ^[0-9]+$ || ! "${HOST_GID}" =~ ^[0-9]+$ ]]; then
+    echo "error: LIDARSLAM_HOST_UID/GID must be numeric" >&2
+    exit 2
+  fi
+fi
+
+restore_output_ownership() {
+  local run_status="$1"
+  local output_name
+  local output_root
+  local target
+  trap - EXIT
+
+  if [[ -z "${HOST_UID}" ]]; then
+    exit "${run_status}"
+  fi
+
+  output_root="$(dirname -- "${OUT_DIR}")"
+  output_name="$(basename -- "${OUT_DIR}")"
+  if [[ -z "${output_root}" || "${output_root}" == "." || "${output_root}" == "/" ]]; then
+    echo "error: refusing ownership update for unsafe output root: ${output_root}" >&2
+    exit 1
+  fi
+
+  if [[ "${EUID}" -eq 0 ]]; then
+    if [[ -d "${output_root}" ]]; then
+      chown "${HOST_UID}:${HOST_GID}" "${output_root}"
+    fi
+    for target in \
+      "${OUT_DIR}" \
+      "${OUT_DIR}.partial" \
+      "${output_root}/.${output_name}.postprocess.lock"; do
+      if [[ -e "${target}" ]]; then
+        chown -R "${HOST_UID}:${HOST_GID}" "${target}"
+      fi
+    done
+    echo "Output ownership: ${HOST_UID}:${HOST_GID}"
+  elif [[ "$(id -u)" == "${HOST_UID}" && "$(id -g)" == "${HOST_GID}" ]]; then
+    echo "Output ownership already matches ${HOST_UID}:${HOST_GID}"
+  else
+    echo "error: cannot set output ownership without container root privileges" >&2
+    exit 1
+  fi
+  exit "${run_status}"
+}
+
+trap 'restore_output_ownership $?' EXIT
 
 find_demo_bag() {
   local metadata_path
