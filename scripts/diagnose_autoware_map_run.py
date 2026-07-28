@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -333,6 +334,10 @@ def validate_run_dir(run_dir: Path) -> None:
 
 
 def _help_epilog() -> str:
+    command = os.environ.get(
+        'LIDARSLAM_CLI_COMMAND',
+        'python3 scripts/diagnose_autoware_map_run.py',
+    )
     return '\n'.join([
         'The input must be the map workflow output directory.',
         'Pass output/autoware_map_authoring_<bag>_<timestamp>, not its pointcloud_map/ child.',
@@ -345,18 +350,16 @@ def _help_epilog() -> str:
         '  map_projector_info.yaml',
         '',
         'Examples:',
-        '  python3 scripts/diagnose_autoware_map_run.py output/my_map_run',
-        '  python3 scripts/diagnose_autoware_map_run.py output/my_map_run --write',
-        (
-            '  python3 scripts/diagnose_autoware_map_run.py output/my_map_run '
-            '--bag /path/to/rosbag2'
-        ),
-        '  python3 scripts/diagnose_autoware_map_run.py output/my_map_run --json',
+        f'  {command} output/my_map_run',
+        f'  {command} output/my_map_run --write',
+        f'  {command} output/my_map_run --bag /path/to/rosbag2',
+        f'  {command} output/my_map_run --json',
     ])
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog=os.environ.get('LIDARSLAM_CLI_COMMAND'),
         description=(
             'Diagnose an Autoware-compatible map workflow output directory and '
             'suggest the next command.'

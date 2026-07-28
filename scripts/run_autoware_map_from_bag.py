@@ -969,6 +969,10 @@ def _profile_help_text() -> str:
 
 
 def _help_epilog() -> str:
+    command = os.environ.get(
+        'LIDARSLAM_CLI_COMMAND',
+        'python3 scripts/run_autoware_map_from_bag.py',
+    )
     return '\n'.join([
         'The input must be the rosbag2 directory that contains metadata.yaml.',
         'Pass /path/to/rosbag2, not /path/to/rosbag2_0.db3.',
@@ -983,21 +987,16 @@ def _help_epilog() -> str:
         '  run_manifest.json',
         '',
         'Examples:',
-        '  python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2 --dry-run',
-        (
-            '  python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2 '
-            '--output-dir output/my_map'
-        ),
-        (
-            '  python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2 '
-            '--output-dir output/my_map --resume'
-        ),
-        '  python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2 --viewer foxglove',
+        f'  {command} /path/to/rosbag2 --dry-run',
+        f'  {command} /path/to/rosbag2 --output-dir output/my_map',
+        f'  {command} /path/to/rosbag2 --output-dir output/my_map --resume',
+        f'  {command} /path/to/rosbag2 --viewer foxglove',
     ])
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog=os.environ.get('LIDARSLAM_CLI_COMMAND'),
         description=(
             'Inspect a rosbag2 directory, choose a supported Autoware-compatible '
             'map workflow, and write map artifacts under output/ by default.'
@@ -1010,13 +1009,14 @@ def parse_args() -> argparse.Namespace:
         metavar='rosbag2_dir',
         help='Directory containing metadata.yaml.',
     )
-    parser.add_argument(
+    map_options = parser.add_argument_group('map selection and output')
+    map_options.add_argument(
         '--profile',
         choices=PROFILE_CHOICES,
         metavar='<id>',
         help='Force a compatible profile instead of the default recommendation.',
     )
-    parser.add_argument(
+    map_options.add_argument(
         '--output-dir',
         metavar='<dir>',
         help=(
@@ -1024,7 +1024,8 @@ def parse_args() -> argparse.Namespace:
             'output/autoware_map_authoring_<bag>_<timestamp>.'
         ),
     )
-    parser.add_argument(
+    safety_options = parser.add_argument_group('safety and lifecycle')
+    safety_options.add_argument(
         '--min-free-space-gib',
         type=_minimum_free_space_gib,
         default=DEFAULT_MIN_FREE_SPACE_GIB,
@@ -1034,42 +1035,12 @@ def parse_args() -> argparse.Namespace:
             f'reserve (default: {DEFAULT_MIN_FREE_SPACE_GIB:g} GiB).'
         ),
     )
-    parser.add_argument(
-        '--viewer',
-        choices=['none', 'autoware', 'foxglove'],
-        default='none',
-        help='Open the saved map after the run (default: none).',
-    )
-    parser.add_argument(
-        '--autoware-core-dir',
-        help='autoware_core checkout used by the Docker viewer.',
-    )
-    parser.add_argument(
-        '--work-dir',
-        help='Runtime workspace directory for Autoware/Foxglove viewers.',
-    )
-    parser.add_argument('--viewer-run-dir', help='Existing built viewer runtime to reuse.')
-    parser.add_argument(
-        '--viewer-rebuild',
-        action='store_true',
-        help='Rebuild the viewer runtime before opening.',
-    )
-    parser.add_argument(
-        '--auto-exit-secs',
-        type=int,
-        help='Auto-close the viewer after N seconds.',
-    )
-    parser.add_argument(
-        '--no-verify-map',
-        action='store_true',
-        help='Skip verify_autoware_map.py in smoke wrappers.',
-    )
-    parser.add_argument(
+    safety_options.add_argument(
         '--dry-run',
         action='store_true',
         help='Print the selected command without executing it.',
     )
-    parser.add_argument(
+    safety_options.add_argument(
         '--resume',
         action='store_true',
         help=(
@@ -1077,11 +1048,78 @@ def parse_args() -> argparse.Namespace:
             'terminal schema-v2 run; the map workflow is never re-executed.'
         ),
     )
+    viewer_options = parser.add_argument_group('viewer')
+    viewer_options.add_argument(
+        '--viewer',
+        choices=['none', 'autoware', 'foxglove'],
+        default='none',
+        help='Open the saved map after the run (default: none).',
+    )
+    advanced_viewer_options = parser.add_argument_group(
+        'advanced viewer options'
+    )
+    advanced_viewer_options.add_argument(
+        '--autoware-core-dir',
+        help='autoware_core checkout used by the Docker viewer.',
+    )
+    advanced_viewer_options.add_argument(
+        '--work-dir',
+        help='Runtime workspace directory for Autoware/Foxglove viewers.',
+    )
+    advanced_viewer_options.add_argument(
+        '--viewer-run-dir',
+        help='Existing built viewer runtime to reuse.',
+    )
+    advanced_viewer_options.add_argument(
+        '--viewer-rebuild',
+        action='store_true',
+        help='Rebuild the viewer runtime before opening.',
+    )
+    advanced_viewer_options.add_argument(
+        '--auto-exit-secs',
+        type=int,
+        help='Auto-close the viewer after N seconds.',
+    )
+    advanced_overrides = parser.add_argument_group(
+        'advanced safety overrides'
+    )
+    advanced_overrides.add_argument(
+        '--no-verify-map',
+        action='store_true',
+        help=(
+            'Disable required map verification for diagnostics. A successful '
+            'workflow exit will not claim that verification ran.'
+        ),
+    )
     return parser.parse_args()
+
+
+def validate_option_combinations(args: argparse.Namespace) -> None:
+    """Reject viewer options that would otherwise be silently ignored."""
+    viewer_specific = (
+        ('--autoware-core-dir', args.autoware_core_dir),
+        ('--work-dir', args.work_dir),
+        ('--viewer-run-dir', args.viewer_run_dir),
+        ('--viewer-rebuild', args.viewer_rebuild),
+        ('--auto-exit-secs', args.auto_exit_secs is not None),
+    )
+    if args.autoware_core_dir and args.viewer != 'autoware':
+        raise ValueError('--autoware-core-dir requires --viewer autoware')
+    active = [name for name, enabled in viewer_specific if enabled]
+    if args.viewer == 'none' and active:
+        joined = ', '.join(active)
+        raise ValueError(
+            f'{joined} requires --viewer autoware or --viewer foxglove'
+        )
 
 
 def main() -> int:
     args = parse_args()
+    try:
+        validate_option_combinations(args)
+    except ValueError as exc:
+        print(f'error: {exc}', file=sys.stderr)
+        return 2
     if args.resume and args.dry_run:
         print('error: --resume cannot be combined with --dry-run', file=sys.stderr)
         return 2

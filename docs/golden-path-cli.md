@@ -96,6 +96,27 @@ With `--no-verify-map`, inspect `output.diagnosis_status` separately;
 `runtime_failed`, or `incomplete`. Add `--write` to create the Markdown and
 JSON diagnosis artifacts in the output directory.
 
+## Option tiers
+
+The command help groups options by operator intent. Existing option names
+remain compatible; the tiers make the stable beginner surface distinct from
+viewer plumbing and safety overrides.
+
+| Tier | Options | Use |
+| --- | --- | --- |
+| Doctor output | `doctor --json` | Emit the versioned preflight contract for automation |
+| Map selection and output | `run --profile`, `run --output-dir` | Select a maintained profile or an explicit artifact directory |
+| Safety and lifecycle | `run --min-free-space-gib`, `run --dry-run`, `run --resume` | Refuse unsafe starts, inspect a plan, or finish terminal post-processing |
+| Viewer | `run --viewer {none,autoware,foxglove}` | Open an optional viewer after a successful run |
+| Advanced viewer | `run --autoware-core-dir`, `run --work-dir`, `run --viewer-run-dir`, `run --viewer-rebuild`, `run --auto-exit-secs` | Control viewer build/runtime details; these require a non-`none` viewer |
+| Advanced safety override | `run --no-verify-map` | Diagnostic-only run without required map verification; success does not claim verification |
+| Inspection context/output | `inspect --bag`, `inspect --json`, `inspect --write` | Add source-bag context, choose machine output, or persist diagnosis files |
+
+Viewer-specific options that would otherwise be ignored are rejected with exit
+code `2`. In particular, `--autoware-core-dir` requires
+`--viewer autoware`; the other advanced viewer options require either
+`--viewer autoware` or `--viewer foxglove`.
+
 ## Versioned JSON contracts
 
 Automation should select the schema using `schema_version` and `schema_uri`;

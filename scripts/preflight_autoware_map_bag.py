@@ -4,6 +4,7 @@
 import argparse
 from dataclasses import asdict, dataclass
 import json
+import os
 from pathlib import Path
 import shlex
 import sys
@@ -746,6 +747,15 @@ def _profile_help_text() -> str:
 
 
 def _help_epilog() -> str:
+    command = os.environ.get(
+        'LIDARSLAM_CLI_COMMAND',
+        'python3 scripts/preflight_autoware_map_bag.py',
+    )
+    product_command = (
+        command.rsplit(' ', 1)[0]
+        if 'LIDARSLAM_CLI_COMMAND' in os.environ
+        else 'lidarslam-map'
+    )
     return '\n'.join([
         'The input must be the rosbag2 directory that contains metadata.yaml.',
         'Pass /path/to/rosbag2, not /path/to/rosbag2_0.db3.',
@@ -753,15 +763,16 @@ def _help_epilog() -> str:
         _profile_help_text(),
         '',
         'Typical commands:',
-        '  python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2',
-        '  python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2 --json',
-        '  bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2 --dry-run',
+        f'  {command} /path/to/rosbag2',
+        f'  {command} /path/to/rosbag2 --json',
+        f'  {product_command} run /path/to/rosbag2 --dry-run',
     ])
 
 
 def parse_args() -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(
+        prog=os.environ.get('LIDARSLAM_CLI_COMMAND'),
         description=(
             'Inspect a rosbag2 directory and suggest the shortest supported '
             'Autoware-compatible map workflow.'

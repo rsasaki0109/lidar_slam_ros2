@@ -119,6 +119,51 @@ def test_global_help_version_and_usage_contract():
     assert 'unknown command: unknown' in unknown_result.stderr
 
 
+def test_subcommand_help_uses_product_names_and_option_groups():
+    doctor = _run('doctor', '--help')
+    run = _run('run', '--help')
+    inspect = _run('inspect', '--help')
+
+    assert doctor.returncode == run.returncode == inspect.returncode == 0
+    assert 'usage: lidarslam doctor' in doctor.stdout
+    assert 'usage: lidarslam run' in run.stdout
+    assert 'usage: lidarslam inspect' in inspect.stdout
+    assert 'python3 scripts/' not in doctor.stdout
+    assert 'python3 scripts/' not in run.stdout
+    assert 'python3 scripts/' not in inspect.stdout
+    assert 'map selection and output:' in run.stdout
+    assert 'safety and lifecycle:' in run.stdout
+    assert 'viewer:' in run.stdout
+    assert 'advanced viewer options:' in run.stdout
+    assert 'advanced safety overrides:' in run.stdout
+
+
+def test_run_rejects_viewer_options_that_would_be_ignored(tmp_path: Path):
+    missing_bag = tmp_path / 'missing'
+
+    no_viewer = _run('run', str(missing_bag), '--viewer-rebuild')
+    assert no_viewer.returncode == 2
+    expected_error = (
+        '--viewer-rebuild requires --viewer autoware or --viewer foxglove'
+    )
+    assert expected_error in no_viewer.stderr
+    assert 'rosbag2 directory does not exist' not in no_viewer.stderr
+
+    wrong_viewer = _run(
+        'run',
+        str(missing_bag),
+        '--viewer',
+        'foxglove',
+        '--autoware-core-dir',
+        '/tmp/autoware',
+    )
+    assert wrong_viewer.returncode == 2
+    assert (
+        '--autoware-core-dir requires --viewer autoware'
+        in wrong_viewer.stderr
+    )
+
+
 def test_doctor_emits_machine_readable_preflight(tmp_path: Path):
     bag = tmp_path / 'sample_bag'
     _write_bag_metadata(bag)
