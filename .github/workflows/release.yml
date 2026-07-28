@@ -245,7 +245,15 @@ jobs:
           cp docs/index.md docs/getting-started.md docs/product-contract.md docs/golden-path-cli.md docs/cli-compatibility.md docs/operational-reliability.md docs/real-data-e2e.md docs/distribution.md docs/rosdistro-release.md docs/autoware-map-authoring.md docs/autoware-foxglove.md docs/autoware-quickstart.md docs/workflows.md docs/benchmarking.md docs/comparison.md release_bundle/docs/
           cp -r docs/contracts release_bundle/docs/
           cp configs/real_data_e2e/driving_slam_mid360_v1.json release_bundle/configs/real_data_e2e/
-          cp docs/evidence/real-data-soak-2026-07-28.md docs/evidence/real-data-soak-2026-07-28.json docs/evidence/docker-first-map-2026-07-28.md docs/evidence/cli-v1-install-2026-07-28.md release_bundle/docs/evidence/
+          cp \
+            docs/evidence/real-data-soak-2026-07-28.md \
+            docs/evidence/real-data-soak-2026-07-28.json \
+            docs/evidence/docker-first-map-2026-07-28.md \
+            docs/evidence/cli-v1-install-2026-07-28.md \
+            docs/evidence/install-upgrade-2026-07-28.md \
+            docs/evidence/install-upgrade-2026-07-28-humble.json \
+            docs/evidence/install-upgrade-2026-07-28-jazzy.json \
+            release_bundle/docs/evidence/
           cp docs/roadmap/v0.9.md release_bundle/docs/roadmap/
           cp docs/schemas/*.json release_bundle/docs/schemas/
           cp -r docs/assets/. release_bundle/docs/assets/
