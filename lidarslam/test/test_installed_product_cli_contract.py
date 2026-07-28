@@ -29,12 +29,14 @@
 
 """Static contract tests for the curated installed product CLI."""
 
+import importlib.util
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_ROOT = REPO_ROOT / 'lidarslam'
 RUNTIME_MANIFEST = PACKAGE_ROOT / 'product-runtime-files.txt'
+INSTALL_CHECK = REPO_ROOT / 'scripts' / 'check_installed_product_cli.py'
 
 
 def _runtime_names() -> list[str]:
@@ -43,6 +45,27 @@ def _runtime_names() -> list[str]:
         for line in RUNTIME_MANIFEST.read_text(encoding='utf-8').splitlines()
         if line.strip() and not line.lstrip().startswith('#')
     ]
+
+
+def _load_install_check():
+    spec = importlib.util.spec_from_file_location(
+        'check_installed_product_cli',
+        INSTALL_CHECK,
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_installed_help_validator_enforces_source_contract(tmp_path: Path):
+    module = _load_install_check()
+
+    module._validate_installed_help(
+        REPO_ROOT / 'scripts' / 'lidarslam',
+        tmp_path,
+    )
 
 
 def test_product_runtime_manifest_is_curated_and_complete():

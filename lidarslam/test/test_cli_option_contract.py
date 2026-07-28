@@ -40,6 +40,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI = REPO_ROOT / 'scripts' / 'lidarslam'
 CONTRACT_PATH = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
 OPTION_PATTERN = re.compile(r'(?<![A-Za-z0-9-])(--[a-z][a-z0-9-]*|-h)(?![A-Za-z0-9-])')
+VALUE_OPTION_PATTERN = re.compile(
+    r'(?P<option>--[a-z][a-z0-9-]*)[ =]'
+    r'(?P<value>\{[^}\n]+\}|<[^>\n]+>|[A-Z][A-Z0-9_]*)'
+)
 
 
 def _contract() -> dict[str, object]:
@@ -65,6 +69,18 @@ def _help(command: str, *, all_options: bool = False) -> str:
     )
     assert completed.returncode == 0, completed.stderr
     return completed.stdout
+
+
+def _rendered_value_options(rendered_help: str) -> dict[str, str]:
+    option_lines = '\n'.join(
+        line
+        for line in rendered_help.splitlines()
+        if line.lstrip().startswith('-')
+    )
+    return {
+        match.group('option'): match.group('value')
+        for match in VALUE_OPTION_PATTERN.finditer(option_lines)
+    }
 
 
 def test_contract_identifies_the_complete_product_surface():
@@ -144,3 +160,57 @@ def test_stability_and_tier_values_are_explicit():
     ]
     assert deprecated
     assert all(entry['replacement'] for entry in deprecated)
+
+
+def test_value_contract_matches_full_help_and_bounded_choices():
+    """Value-taking options must publish their type, default and metavar."""
+    contract = _contract()
+
+    assert set(contract['value_options']) == set(contract['commands'])
+    for command, command_contract in contract['commands'].items():
+        value_contract = contract['value_options'][command]
+        rendered_values = _rendered_value_options(
+            _help(command, all_options=True)
+        )
+        assert set(value_contract) == set(rendered_values), command
+
+        declared_options = _option_names(command_contract['options'])
+        for option, value in value_contract.items():
+            assert option in declared_options
+            assert value['kind'] in {
+                'directory',
+                'enum',
+                'integer',
+                'number',
+            }
+            assert 'default' in value
+            assert value['value_name'] == rendered_values[option]
+            if value['kind'] == 'enum':
+                assert value['choices']
+                if value['value_name'].startswith('{'):
+                    assert (
+                        '{' + ','.join(value['choices']) + '}'
+                        == value['value_name']
+                    )
+            else:
+                assert 'choices' not in value
+
+
+def test_positionals_and_deprecation_lifecycle_are_machine_readable():
+    """Directory requirements and the warning/removal policy are explicit."""
+    contract = _contract()
+    policy = contract['deprecation_policy']
+
+    assert policy == {
+        'minimum_compatibility_window': 'one minor release',
+        'removal_status': 'not_scheduled',
+        'warning_channel': 'stderr',
+        'warning_count_per_invocation': 1,
+    }
+    for command in contract['commands'].values():
+        positional = command['positional']
+        assert positional['kind'] == 'directory'
+        assert positional['stability'] == 'stable'
+        if 'must_contain' in positional:
+            assert positional['must_contain']
+            assert all(positional['must_contain'])

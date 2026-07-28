@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import struct
 import subprocess
@@ -16,6 +17,14 @@ import tempfile
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SOURCE_RUNTIME_MANIFEST = (
     REPO_ROOT / 'lidarslam' / 'product-runtime-files.txt'
+)
+CLI_CONTRACT = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
+OPTION_PATTERN = re.compile(
+    r'(?<![A-Za-z0-9-])(--[a-z][a-z0-9-]*|-h)(?![A-Za-z0-9-])'
+)
+VALUE_OPTION_PATTERN = re.compile(
+    r'(?P<option>--[a-z][a-z0-9-]*)[ =]'
+    r'(?P<value>\{[^}\n]+\}|<[^>\n]+>|[A-Z][A-Z0-9_]*)'
 )
 
 
@@ -58,6 +67,55 @@ def _require_success(
             f'{label} failed with {result.returncode}\n'
             f'stdout:\n{result.stdout}\nstderr:\n{result.stderr}'
         )
+
+
+def _option_definition_lines(rendered_help: str) -> str:
+    return '\n'.join(
+        line
+        for line in rendered_help.splitlines()
+        if line.lstrip().startswith('-')
+    )
+
+
+def _validate_installed_help(
+    command_path: Path,
+    work_dir: Path,
+) -> None:
+    """Match clean-prefix full help against the source v1 contract."""
+    contract = json.loads(CLI_CONTRACT.read_text(encoding='utf-8'))
+    for command, command_contract in contract['commands'].items():
+        result = _run(
+            [str(command_path), command, '--help-all'],
+            work_dir,
+        )
+        _require_success(result, f'installed {command} --help-all')
+        definition_lines = _option_definition_lines(result.stdout)
+        rendered_options = set(OPTION_PATTERN.findall(definition_lines))
+        expected_options = {
+            name
+            for option in command_contract['options']
+            for name in option['names']
+        }
+        if rendered_options != expected_options:
+            raise RuntimeError(
+                f'installed {command} option inventory differs from '
+                f'contract: rendered={sorted(rendered_options)}, '
+                f'expected={sorted(expected_options)}'
+            )
+
+        rendered_values = {
+            match.group('option'): match.group('value')
+            for match in VALUE_OPTION_PATTERN.finditer(definition_lines)
+        }
+        expected_values = {
+            option: value['value_name']
+            for option, value in contract['value_options'][command].items()
+        }
+        if rendered_values != expected_values:
+            raise RuntimeError(
+                f'installed {command} value contract differs: '
+                f'rendered={rendered_values}, expected={expected_values}'
+            )
 
 
 def _write_bag_fixture(path: Path) -> None:
@@ -180,6 +238,8 @@ def validate_install(prefix: Path) -> None:
             _require_success(result, f'{command.name} --version')
             if not result.stdout.startswith('lidarslam_ros2 '):
                 raise RuntimeError(f'unexpected version output: {result.stdout!r}')
+
+        _validate_installed_help(path_command, work_dir)
 
         executables = _run(
             ['ros2', 'pkg', 'executables', 'lidarslam'],

@@ -82,26 +82,19 @@ def test_completion_is_valid_bash_and_covers_the_option_manifest():
 
 def test_completion_suggests_commands_options_and_bounded_choices():
     """Completion should understand command context and finite option values."""
+    contract = json.loads(CONTRACT.read_text(encoding='utf-8'))
+
     assert {'doctor', 'run', 'inspect', 'view'} <= _complete(
         'lidarslam-map',
         '',
     )
     assert _complete('lidarslam-map', 'run', '--ver') == {'--verification'}
-    assert _complete(
-        'lidarslam-map',
-        'run',
-        '--verification',
-        '',
-    ) == {'required', 'off'}
-    assert _complete(
-        'lidarslam-map',
-        'run',
-        '--viewer',
-        '',
-    ) == {'none', 'autoware', 'foxglove'}
-    assert _complete(
-        'lidarslam-map',
-        'view',
-        '--viewer',
-        '',
-    ) == {'autoware', 'foxglove'}
+    for command, value_options in contract['value_options'].items():
+        for option, value_contract in value_options.items():
+            if value_contract['kind'] == 'enum':
+                assert _complete(
+                    'lidarslam-map',
+                    command,
+                    option,
+                    '',
+                ) == set(value_contract['choices'])

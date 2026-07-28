@@ -6,6 +6,9 @@ how provisional and deprecated options are moved without surprising existing
 users.
 The machine-readable inventory is
 [`contracts/cli-v1.json`](contracts/cli-v1.json).
+It records not only option names and visibility, but also every value-taking
+option's type, metavar, bounded choices, default behavior, units and numeric
+constraints. The contract also describes positional-directory contents.
 
 ## Product surface
 
@@ -43,6 +46,11 @@ After v1.0, removal of a stable option requires a major release. A deprecated
 spelling must continue to work for at least one minor release, emit one
 actionable warning to stderr, and preserve its previous exit-code behavior.
 Automation must not parse warnings from stdout.
+
+No current deprecated option has a scheduled removal release. The
+machine-readable policy records `removal_status: not_scheduled`; choosing a
+release later requires a reviewed contract and migration-guide change, not
+only a parser edit.
 
 JSON artifact compatibility is governed by the published JSON schemas, not by
 this option policy or the repository version.
@@ -119,8 +127,9 @@ verified success.
 
 Every public addition must update `contracts/cli-v1.json`, command help,
 documentation, and tests in the same change. CI compares the manifest with
-the flags rendered by each command, so an undocumented option fails the
-contract test.
+the flags and metavars rendered by each command. It also checks every finite
+choice against shell completion, so an undocumented option, changed value
+shape or stale completion fails the contract test.
 
 ## Migration sequence
 

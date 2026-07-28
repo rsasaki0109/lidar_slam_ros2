@@ -26,6 +26,128 @@
     "70": "internal or tooling error prevented command startup",
     "other_nonzero": "delegated workflow or viewer failure"
   },
+  "value_options": {
+    "doctor": {},
+    "run": {
+      "--profile": {
+        "choices": [
+          "rko_lio_graph_public_path",
+          "rko_lio_graph_mid360_preset",
+          "pointcloud_gnss_smoke",
+          "packet_applanix_smoke"
+        ],
+        "default": "doctor_recommendation",
+        "kind": "enum",
+        "value_name": "<id>"
+      },
+      "--output-dir": {
+        "default": "generated_timestamped_output_dir",
+        "kind": "directory",
+        "value_name": "<dir>"
+      },
+      "--min-free-space-gib": {
+        "constraints": {
+          "finite": true,
+          "exclusive_minimum": 0
+        },
+        "default": 5,
+        "kind": "number",
+        "unit": "GiB",
+        "value_name": "<GiB>"
+      },
+      "--viewer": {
+        "choices": [
+          "none",
+          "autoware",
+          "foxglove"
+        ],
+        "default": "none",
+        "kind": "enum",
+        "value_name": "{none,autoware,foxglove}"
+      },
+      "--autoware-core-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "AUTOWARE_CORE_DIR"
+      },
+      "--work-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "WORK_DIR"
+      },
+      "--viewer-run-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "VIEWER_RUN_DIR"
+      },
+      "--auto-exit-secs": {
+        "constraints": {
+          "exclusive_minimum": 0
+        },
+        "default": null,
+        "kind": "integer",
+        "unit": "seconds",
+        "value_name": "AUTO_EXIT_SECS"
+      },
+      "--verification": {
+        "choices": [
+          "required",
+          "off"
+        ],
+        "default": "required",
+        "kind": "enum",
+        "value_name": "{required,off}"
+      }
+    },
+    "inspect": {
+      "--bag": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "<rosbag2_dir>"
+      }
+    },
+    "view": {
+      "--viewer": {
+        "choices": [
+          "autoware",
+          "foxglove"
+        ],
+        "default": "autoware",
+        "kind": "enum",
+        "value_name": "{autoware,foxglove}"
+      },
+      "--autoware-core-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "AUTOWARE_CORE_DIR"
+      },
+      "--work-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "WORK_DIR"
+      },
+      "--runtime-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "RUNTIME_DIR"
+      },
+      "--auto-exit-secs": {
+        "constraints": {
+          "exclusive_minimum": 0
+        },
+        "default": null,
+        "kind": "integer",
+        "unit": "seconds",
+        "value_name": "AUTO_EXIT_SECS"
+      }
+    }
+  },
+  "deprecation_policy": {
+    "minimum_compatibility_window": "one minor release",
+    "removal_status": "not_scheduled",
+    "warning_channel": "stderr",
+    "warning_count_per_invocation": 1
+  },
   "global_options": [
     {
       "names": [
@@ -53,6 +175,10 @@
   "commands": {
     "doctor": {
       "positional": {
+        "kind": "directory",
+        "must_contain": [
+          "metadata.yaml"
+        ],
         "name": "rosbag2_dir",
         "stability": "stable"
       },
@@ -83,6 +209,10 @@
     },
     "run": {
       "positional": {
+        "kind": "directory",
+        "must_contain": [
+          "metadata.yaml"
+        ],
         "name": "rosbag2_dir",
         "stability": "stable"
       },
@@ -204,6 +334,7 @@
     },
     "inspect": {
       "positional": {
+        "kind": "directory",
         "name": "output_dir",
         "stability": "stable"
       },
@@ -248,6 +379,11 @@
     },
     "view": {
       "positional": {
+        "kind": "directory",
+        "must_contain": [
+          "pointcloud_map/pointcloud_map_metadata.yaml",
+          "map_projector_info.yaml"
+        ],
         "name": "output_dir",
         "stability": "stable"
       },
