@@ -75,3 +75,9 @@ The nightly gate proves one flagship real-data path. It does not replace
 Humble/Jazzy build CI, multi-dataset accuracy benchmarks, long-duration soak
 tests, disk-pressure injection, or independent third-party first-map
 validation.
+
+The separate weekly
+[`bounded filesystem exhaustion`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/.github/workflows/bounded-filesystem-exhaustion.yml)
+workflow reuses this exact public input for a destructive-output reliability
+gate. It mounts the bag read-only, constrains map output to a 32 MiB tmpfs and
+retains only non-geometry failure evidence.

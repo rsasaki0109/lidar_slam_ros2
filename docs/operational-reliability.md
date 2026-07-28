@@ -47,6 +47,41 @@ budget, no output or `.partial` directory is created. Atomic manifest updates
 remove an incomplete temporary file on write failure, so the previous durable
 manifest is not replaced by truncated JSON.
 
+## Real bounded-filesystem exhaustion
+
+The `bounded filesystem exhaustion` scheduled workflow complements synthetic
+failure injection with the pinned public MID-360 bag and the installed Jazzy
+product. It mounts the input read-only and confines every map artifact to a
+32 MiB Docker tmpfs. The normal pinned output is substantially larger, so PCL
+reaches the kernel-backed capacity limit during `/map_save` without consuming
+the host filesystem.
+
+Run the same gate on a named Docker host:
+
+```bash
+python3 scripts/run_bounded_filesystem_exhaustion.py \
+  /data/bags/driving-slam-mid360 \
+  --image lidarslam-enospc:<exact-revision> \
+  --tmpfs-mib 32 \
+  --timeout-secs 600 \
+  --hardware-label lab-amd64-jazzy \
+  --evidence-dir output/bounded-filesystem/evidence
+```
+
+The harness exports only logs, manifests and diagnosis files to the unbounded
+evidence directory; pointcloud geometry is never copied. Its
+[`bounded-filesystem-exhaustion-v1` schema](schemas/bounded-filesystem-exhaustion-v1.schema.json)
+requires one clean harness revision, the exact matching image revision, a
+nonzero product exit, the real PCL `raw_fallocate ... returned 28` signature,
+an almost-full 32 MiB tmpfs, a terminal failed manifest, a storage-exhaustion
+diagnosis and proof that no success was claimed. A ten-minute process deadline
+and Docker stop/kill fallback bound a wedged failure path.
+
+PCL reports the POSIX `ENOSPC` value as `raw_fallocate ... returned 28`; some
+versions then print an unrelated `errno: 2` string. Diagnosis therefore keys
+on the fallocate operation and return value instead of trusting that secondary
+string.
+
 ## Termination boundary
 
 The runner starts the delegated workflow in a separate POSIX process group.
@@ -165,8 +200,8 @@ The following readiness rows remain incomplete and must not be inferred from
 the termination coverage:
 
 - timestamp reversal detection against real rosbag records before launch;
-- a bounded-filesystem live exhaustion test in the scheduled real-data
-  environment;
+- the first passing scheduled bounded-filesystem artifact after this gate is
+  merged;
 - output migration tooling and last-known-good rollback instructions.
 
 See the [pinned real-data E2E contract](real-data-e2e.md) and the
