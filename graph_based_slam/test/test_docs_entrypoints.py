@@ -68,6 +68,18 @@ CLI_COMPATIBILITY_DOC = REPO_ROOT / 'docs' / 'cli-compatibility.md'
 CLI_V1_CONTRACT = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
 DISTRIBUTION_DOC = REPO_ROOT / 'docs' / 'distribution.md'
 OPERATIONAL_RELIABILITY_DOC = REPO_ROOT / 'docs' / 'operational-reliability.md'
+BOUNDED_FILESYSTEM_SCHEMA = (
+    REPO_ROOT
+    / 'docs'
+    / 'schemas'
+    / 'bounded-filesystem-exhaustion-v1.schema.json'
+)
+BOUNDED_FILESYSTEM_WORKFLOW = (
+    REPO_ROOT
+    / '.github'
+    / 'workflows'
+    / 'bounded-filesystem-exhaustion.yml'
+)
 SOAK_EVIDENCE_DOC = (
     REPO_ROOT / 'docs' / 'evidence' / 'real-data-soak-2026-07-28.md'
 )
@@ -155,6 +167,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert CLI_V1_CONTRACT.is_file()
     assert DISTRIBUTION_DOC.is_file()
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
+    assert BOUNDED_FILESYSTEM_SCHEMA.is_file()
+    assert BOUNDED_FILESYSTEM_WORKFLOW.is_file()
     assert SOAK_EVIDENCE_DOC.is_file()
     assert SOAK_EVIDENCE_JSON.is_file()
     assert CLI_V1_INSTALL_EVIDENCE_DOC.is_file()
@@ -610,6 +624,10 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert '--min-free-space-gib' in reliability_doc
     assert '5 GiB' in reliability_doc
     assert 'No space left on device' in reliability_doc
+    assert 'raw_fallocate' in reliability_doc
+    assert '32 MiB Docker tmpfs' in reliability_doc
+    assert 'run_bounded_filesystem_exhaustion.py' in reliability_doc
+    assert 'bounded-filesystem-exhaustion-v1.schema.json' in reliability_doc
     assert 'scripts/run_map_soak.py' in reliability_doc
     assert '--soak-profile one-hour' in reliability_doc
     assert '--hardware-label' in reliability_doc

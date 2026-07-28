@@ -296,6 +296,21 @@ def test_storage_preflight_rejects_unsafe_budget_values(value: str):
         module._minimum_free_space_gib(value)
 
 
+def test_terminal_evidence_reserve_allocates_real_blocks_and_releases(
+    tmp_path: Path,
+):
+    module = _load_module()
+    before = os.statvfs(tmp_path).f_bavail
+    reserve = module._allocate_emergency_evidence_reserve(tmp_path)
+    after_allocate = os.statvfs(tmp_path).f_bavail
+
+    assert reserve.stat().st_size == module.EMERGENCY_EVIDENCE_RESERVE_BYTES
+    assert after_allocate < before
+
+    module._release_emergency_evidence_reserve(reserve)
+    assert not reserve.exists()
+
+
 def test_main_refuses_low_space_before_creating_output(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -391,6 +406,62 @@ def test_initial_manifest_enospc_removes_empty_partial_directory(
         raise OSError(errno.ENOSPC, 'No space left on device')
 
     monkeypatch.setattr(module, '_write_manifest', fail_manifest_write)
+    monkeypatch.setattr(
+        module.sys,
+        'argv',
+        [
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_dir),
+            '--min-free-space-gib',
+            '0.001',
+        ],
+    )
+
+    assert module.main() == 2
+    assert 'No space left on device' in capsys.readouterr().err
+    assert not output_dir.exists()
+    assert not working_dir.exists()
+
+
+def test_emergency_reserve_failure_removes_empty_partial_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+):
+    """A failed reserve allocation must not claim that a workflow started."""
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'demo_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'map_output'
+    working_dir = tmp_path / 'map_output.partial'
+    plan = {
+        'payload': {},
+        'profile_id': 'rko_lio_graph_public_path',
+        'label': 'RKO-LIO + graph_based_slam public path',
+        'command': ['map-workflow'],
+        'output_dir': working_dir,
+    }
+    monkeypatch.setattr(module, 'build_execution_plan', lambda **kwargs: plan)
+    monkeypatch.setattr(
+        module,
+        '_allocate_emergency_evidence_reserve',
+        lambda _path: (_ for _ in ()).throw(
+            OSError(errno.ENOSPC, 'No space left on device')
+        ),
+    )
+    monkeypatch.setattr(
+        module,
+        '_run_workflow',
+        lambda *_args: pytest.fail('workflow must not start'),
+    )
     monkeypatch.setattr(
         module.sys,
         'argv',

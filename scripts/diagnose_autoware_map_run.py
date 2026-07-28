@@ -108,6 +108,13 @@ def _extract_problem_hints(
 ) -> list[str]:
     hints: list[str] = []
     combined = '\n'.join([launch_log, map_save_log])
+    pcl_fallocate_enospc = (
+        'raw_fallocate' in combined
+        and (
+            'returned 28' in combined
+            or 'Error during raw_fallocate' in combined
+        )
+    )
 
     if 'process has died' in combined:
         hints.append(
@@ -126,6 +133,7 @@ def _extract_problem_hints(
         'No space left on device' in combined
         or 'ENOSPC' in combined
         or 'Disk quota exceeded' in combined
+        or pcl_fallocate_enospc
     ):
         hints.append(
             'The output filesystem ran out of writable space or quota. '

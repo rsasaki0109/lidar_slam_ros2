@@ -13,7 +13,7 @@ only marked covered when an automated test exercises the public behavior.
 | Final or `.partial` output collision | Exit `2`; no overwrite | Both existing paths remain immutable | Inspect the existing run or choose a new output name | Automated |
 | Output filesystem below the configured reserve | Exit `2` before workflow launch with required and observed GiB | Existing output is untouched; a new output is not created | Free storage, choose another output filesystem, or set a deliberately sized `--min-free-space-gib` budget | Automated |
 | Workflow exits non-zero | Propagate the workflow exit code | Final output, diagnosis, checksums, and schema-v2 manifest with `failed` status | Inspect the diagnosis and launch log; rerun into a new directory after fixing the cause | Automated |
-| Storage exhaustion during a manifest or map write | Preserve the previous atomic manifest when possible; return the workflow or runner failure code; diagnose `ENOSPC`, quota, and “No space left on device” signatures | Final or `.partial` evidence that was already durable; incomplete manifest temp files are removed | Preserve evidence, free storage, and rerun into a new output directory | Automated failure injection |
+| Storage exhaustion during a manifest or map write | Release a 2 MiB terminal-evidence reserve; return the workflow or runner failure code; diagnose `ENOSPC`, quota, and “No space left on device” signatures | Final failed manifest, diagnosis, logs, and prior durable artifacts; incomplete manifest temp files are removed | Preserve evidence, free storage, and rerun into a new output directory | Automated failure injection and real bounded-filesystem gate |
 | Operator `Ctrl-C` (`SIGINT`) | Forward `SIGINT` to the isolated workflow process group; force cleanup after ten seconds; exit `130` | Final output and manifest with `interrupted` status and signal reason | Inspect preserved evidence; rerun into a new directory if a map is still required | Automated |
 | Service/container stop (`SIGTERM`) | Forward `SIGTERM` to the isolated workflow process group; force cleanup after ten seconds; exit `143` | Final output, diagnosis, checksums, and manifest with `interrupted`, `143`, and `SIGTERM` | Inspect preserved evidence; rerun into a new directory if a map is still required | Automated failure injection |
 | Termination after the workflow result is durable but before post-processing completes | Leave the last durable schema-v2 lifecycle stage in the final or `.partial` directory | Original input/software/command identity and map artifacts | Run the same command and output path with `--resume`; SLAM is not rerun | Automated |
@@ -48,6 +48,59 @@ The value must be finite and greater than zero. When capacity is below the
 budget, no output or `.partial` directory is created. Atomic manifest updates
 remove an incomplete temporary file on write failure, so the previous durable
 manifest is not replaced by truncated JSON.
+
+After initialization, the runner allocates a hidden 2 MiB file with real
+filesystem blocks. It removes that file immediately after the delegated map
+workflow exits, before finalization. This small emergency reserve is not map
+capacity: it exists so a filesystem that becomes completely full can still
+record the terminal manifest and diagnosis. The reserve is removed from both
+successful and failed outputs.
+
+## Real bounded-filesystem exhaustion
+
+The `bounded filesystem exhaustion` scheduled workflow complements synthetic
+failure injection with the pinned public MID-360 bag and the installed Jazzy
+product. It mounts the input read-only and confines every map artifact to a
+32 MiB Docker tmpfs. The normal pinned output is substantially larger, so PCL
+reaches the kernel-backed capacity limit during `/map_save` without consuming
+the host filesystem.
+
+The harness requires Docker, PyYAML and `python3-jsonschema`. It deliberately
+requires `--image`; build that image from the same clean commit instead of
+silently using a stale convenience image.
+
+Run the same gate on a named Docker host:
+
+```bash
+python3 scripts/run_bounded_filesystem_exhaustion.py \
+  /data/bags/driving-slam-mid360 \
+  --image lidarslam-enospc:<exact-revision> \
+  --tmpfs-mib 32 \
+  --timeout-secs 600 \
+  --hardware-label lab-amd64-jazzy \
+  --evidence-dir output/bounded-filesystem/evidence
+```
+
+The harness exports only logs, manifests and diagnosis files to the unbounded
+evidence directory; pointcloud geometry is never copied. Its
+[`bounded-filesystem-exhaustion-v1` schema](schemas/bounded-filesystem-exhaustion-v1.schema.json)
+requires one clean harness revision and an image built from that exact
+revision, a nonzero product exit, the real PCL
+`raw_fallocate ... returned 28` signature,
+at most 10% free space on the 32 MiB tmpfs, a terminal failed manifest, a
+storage-exhaustion
+diagnosis and proof that no success was claimed. A ten-minute process deadline
+and Docker stop/kill fallback bound a wedged failure path.
+
+The exact-revision local execution and its input, image, capacity, terminal
+state and evidence hashes are recorded in the
+[bounded-filesystem exhaustion evidence ledger](evidence/bounded-filesystem-exhaustion-2026-07-29.md).
+The first public post-integration workflow artifact remains a separate gate.
+
+PCL reports the POSIX `ENOSPC` value as `raw_fallocate ... returned 28`; some
+versions then print an unrelated `errno: 2` string. Diagnosis therefore keys
+on the fallocate operation and return value instead of trusting that secondary
+string.
 
 ## Termination boundary
 
@@ -204,8 +257,8 @@ The source and clean-install execution is recorded in the
 The following readiness rows remain incomplete and must not be inferred from
 the termination coverage:
 
-- a bounded-filesystem live exhaustion test in the scheduled real-data
-  environment;
+- the first passing scheduled bounded-filesystem artifact after this gate is
+  merged;
 - the first tagged release execution that publishes the new rollback assets.
 
 See the [pinned real-data E2E contract](real-data-e2e.md) and the

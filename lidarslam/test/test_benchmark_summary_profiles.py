@@ -74,26 +74,26 @@ def test_default_release_profiles_yaml_loads():
     assert 'mid360_vs_glim' in names
 
 
-def test_research_track_profiles_graduated_to_blocking():
-    """Verify v0.4 graduated research-track profiles block regressions, not WARN."""
+def test_release_profiles_preserve_current_blocking_policy():
+    """Blocking profiles stay blocking while the replaced cross-check warns."""
     module = _load_module()
     profiles = module.load_release_profiles(DEFAULT_PROFILE_YAML)
     by_name = {p['name']: p for p in profiles}
     graduated = (
         'ntu_viral_tnp_01',
-        'mid360_vs_glim',
         'leo_drive_applanix_velodyne_cross',
     )
     for name in graduated:
         assert name in by_name, name
         assert by_name[name].get('report_only_until') is None, (
-            f'{name} must block (no report_only_until) as of v0.4')
-    # No shipped profile may carry report_only_until at the v0.4 cut.
-    assert all(p.get('report_only_until') is None for p in profiles)
+            f'{name} must remain a blocking release profile')
+    assert by_name['mid360_vs_glim']['report_only_until'] == (
+        'superseded-by-mid360-gt (D-GT-2)'
+    )
 
 
-def test_graduated_profile_fails_gate_on_regression():
-    """Verify mid360_vs_glim regression past 4.0 m cross-val pass fails, not WARN."""
+def test_superseded_cross_validation_profile_warns_on_regression():
+    """The superseded GLIM cross-check must not block the real-GT gate."""
     module = _load_module()
     profiles = module.load_release_profiles(DEFAULT_PROFILE_YAML)
     mid360 = next(p for p in profiles if p['name'] == 'mid360_vs_glim')
@@ -103,7 +103,7 @@ def test_graduated_profile_fails_gate_on_regression():
              ape_rmse_m='5.00', ape_pairs=600),
     ]
     [result] = module.evaluate_release_profiles([mid360], records)
-    assert result['status'] == 'FAIL'
+    assert result['status'] == 'WARN'
 
 
 def test_load_release_profiles_rejects_unknown_metric(tmp_path: Path):

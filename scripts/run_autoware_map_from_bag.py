@@ -4,24 +4,24 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
+from datetime import datetime, timezone
 import fcntl
 import hashlib
 import importlib.util
 import json
 import math
 import os
+from pathlib import Path
 import shlex
 import shutil
 import signal
 import subprocess
 import sys
 import time
+from typing import Sequence
 import uuid
 import xml.etree.ElementTree as ET
-from contextlib import contextmanager
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Sequence
 
 import yaml
 
@@ -58,6 +58,8 @@ PROFILE_HELP = (
 )
 WORKFLOW_SHUTDOWN_GRACE_SECS = 10.0
 DEFAULT_MIN_FREE_SPACE_GIB = 5.0
+EMERGENCY_EVIDENCE_RESERVE_BYTES = 2 * 1024 * 1024
+EMERGENCY_EVIDENCE_RESERVE_NAME = '.terminal-evidence-reserve'
 PACKAGE_XML_PATHS = (
     SHARE_ROOT / 'lidarslam' / 'package.xml',
     SHARE_ROOT / 'graph_based_slam' / 'package.xml',
@@ -391,6 +393,33 @@ def check_output_storage(
         'required_free_bytes': required_free_bytes,
         'observed_free_bytes': observed_free_bytes,
     }
+
+
+def _allocate_emergency_evidence_reserve(working_dir: Path) -> Path:
+    """Reserve real blocks that can be released for terminal evidence."""
+    reserve_path = working_dir / EMERGENCY_EVIDENCE_RESERVE_NAME
+    descriptor = os.open(
+        reserve_path,
+        os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+        0o600,
+    )
+    try:
+        os.posix_fallocate(
+            descriptor,
+            0,
+            EMERGENCY_EVIDENCE_RESERVE_BYTES,
+        )
+    except OSError:
+        reserve_path.unlink(missing_ok=True)
+        raise
+    finally:
+        os.close(descriptor)
+    return reserve_path
+
+
+def _release_emergency_evidence_reserve(reserve_path: Path) -> None:
+    """Release reserved blocks before manifest and diagnosis finalization."""
+    reserve_path.unlink()
 
 
 def _utc_now() -> str:
@@ -1248,6 +1277,7 @@ def main() -> int:
         return _finish_run(args, plan, output_dir, exit_code)
 
     created_working_dir = False
+    emergency_reserve = None
     try:
         manifest = _build_manifest(
             bag_path,
@@ -1258,11 +1288,17 @@ def main() -> int:
         )
         working_dir.mkdir(parents=True, exist_ok=False)
         created_working_dir = True
+        emergency_reserve = _allocate_emergency_evidence_reserve(working_dir)
         manifest['status'] = 'running'
         manifest['lifecycle']['stage'] = 'workflow_running'
         manifest['execution']['started_at'] = _utc_now()
         _write_manifest(working_dir, manifest)
     except (OSError, RuntimeError, ValueError, ET.ParseError, yaml.YAMLError) as exc:
+        if emergency_reserve is not None:
+            try:
+                _release_emergency_evidence_reserve(emergency_reserve)
+            except OSError:
+                pass
         if created_working_dir and not (working_dir / MANIFEST_NAME).exists():
             try:
                 working_dir.rmdir()
@@ -1286,6 +1322,20 @@ def main() -> int:
         print(f'error: failed to start map workflow: {exc}', file=sys.stderr)
         exit_code = 70
         workflow_error = f'failed to start map workflow: {exc}'
+    finally:
+        if emergency_reserve is not None:
+            try:
+                _release_emergency_evidence_reserve(emergency_reserve)
+            except OSError as exc:
+                print(
+                    'error: failed to release terminal evidence reserve: '
+                    f'{exc}',
+                    file=sys.stderr,
+                )
+                exit_code = 70
+                workflow_error = (
+                    f'failed to release terminal evidence reserve: {exc}'
+                )
 
     manifest['execution']['exit_code'] = exit_code
     manifest['execution']['finished_at'] = _utc_now()
