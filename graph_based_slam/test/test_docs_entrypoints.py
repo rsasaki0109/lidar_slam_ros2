@@ -80,6 +80,12 @@ DOCKER_FIRST_MAP_EVIDENCE_DOC = (
 CLI_V1_INSTALL_EVIDENCE_DOC = (
     REPO_ROOT / 'docs' / 'evidence' / 'cli-v1-install-2026-07-28.md'
 )
+TIMESTAMP_ORDER_EVIDENCE_DOC = (
+    REPO_ROOT
+    / 'docs'
+    / 'evidence'
+    / 'timestamp-order-preflight-2026-07-29.md'
+)
 REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
 PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v3.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
@@ -466,6 +472,9 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     comparison_doc = COMPARISON_DOC.read_text(encoding='utf-8')
     distribution_doc = DISTRIBUTION_DOC.read_text(encoding='utf-8')
     reliability_doc = OPERATIONAL_RELIABILITY_DOC.read_text(encoding='utf-8')
+    timestamp_order_evidence = TIMESTAMP_ORDER_EVIDENCE_DOC.read_text(
+        encoding='utf-8'
+    )
     real_data_e2e_doc = REAL_DATA_E2E_DOC.read_text(encoding='utf-8')
 
     assert 'lidarslam-map doctor' in getting_started_doc
@@ -584,6 +593,11 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'exit `143`' in reliability_doc
     assert 'Automated failure injection' in reliability_doc
     assert 'timestamp reversal' in reliability_doc
+    assert '100,000-record per-topic bound' in timestamp_order_evidence
+    assert '750,000,000 ns' in timestamp_order_evidence
+    assert 'timestamp-order-preflight-2026-07-29.md' in (
+        RELEASE_WORKFLOW.read_text(encoding='utf-8')
+    )
     assert 'disk-pressure' in reliability_doc
     assert '--min-free-space-gib' in reliability_doc
     assert '5 GiB' in reliability_doc

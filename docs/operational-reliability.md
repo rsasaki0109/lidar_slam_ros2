@@ -159,12 +159,32 @@ minimums, reproduction commands and scope limitations. This closes the named
 one-hour/eight-hour execution row for this hardware/input/profile combination;
 it does not establish a universal performance or map-quality guarantee.
 
+## Timestamp reversal and disorder before launch
+
+`lidarslam-map doctor` and the `run` planner publish preflight schema v3 and
+inspect the selected `PointCloud2` and `Imu` `header.stamp` streams before
+starting ROS processes. This makes timestamp reversal a pre-launch diagnosis
+instead of a mapper-time surprise. The scan is bounded at 100,000 records per
+topic:
+
+- `passed` means every metadata-declared selected record was checked;
+- `sampled` means the bound was reached with no observed disorder;
+- `failed` identifies unreadable, invalid or decreasing timestamps and records
+  the reversal count and largest backward jump.
+
+`failed`, `error`, and `unavailable` fail closed for timestamp-dependent
+profiles. Correct the source timestamps or use the documented MID-360 stamp
+rewriter, then rerun `doctor`; do not treat a sampled result as proof about
+records beyond the scan bound.
+
+The named real-bag and derived reversal execution is recorded in
+[timestamp-order preflight evidence](evidence/timestamp-order-preflight-2026-07-29.md).
+
 ## Open Phase 3 gates
 
 The following readiness rows remain incomplete and must not be inferred from
 the termination coverage:
 
-- timestamp reversal detection against real rosbag records before launch;
 - a bounded-filesystem live exhaustion test in the scheduled real-data
   environment;
 - output migration tooling and last-known-good rollback instructions.
