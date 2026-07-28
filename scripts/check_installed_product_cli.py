@@ -252,6 +252,15 @@ def validate_install(prefix: Path) -> None:
         _require_success(view_help, 'installed view --help')
         if '--viewer {autoware,foxglove}' not in view_help.stdout:
             raise RuntimeError('installed view help is missing viewer choices')
+        if '--runtime-dir' in view_help.stdout:
+            raise RuntimeError('installed default view help leaked advanced options')
+        view_help_all = _run(
+            [str(path_command), 'view', '--help-all'],
+            work_dir,
+        )
+        _require_success(view_help_all, 'installed view --help-all')
+        if '--runtime-dir' not in view_help_all.stdout:
+            raise RuntimeError('installed full view help is missing runtime options')
 
         view_incomplete = _run(
             [str(path_command), 'view', str(output_dir)],

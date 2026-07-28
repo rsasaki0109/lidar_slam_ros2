@@ -2,6 +2,24 @@
   "schema_version": 1,
   "contract_id": "lidarslam-map-v1",
   "product_command": "lidarslam-map",
+  "help_modes": {
+    "normal": {
+      "option": "--help",
+      "description": "routine stable operator options",
+      "excludes": {
+        "stability": [
+          "deprecated"
+        ],
+        "tiers": [
+          "viewer-runtime"
+        ]
+      }
+    },
+    "all": {
+      "option": "--help-all",
+      "description": "complete advanced and deprecated option inventory"
+    }
+  },
   "exit_codes": {
     "0": "command completed successfully",
     "2": "invalid usage, input, profile, or output path",
@@ -16,6 +34,13 @@
       ],
       "stability": "stable",
       "tier": "core"
+    },
+    {
+      "names": [
+        "--help-all"
+      ],
+      "stability": "stable",
+      "tier": "help"
     },
     {
       "names": [
@@ -42,6 +67,13 @@
         },
         {
           "names": [
+            "--help-all"
+          ],
+          "stability": "stable",
+          "tier": "help"
+        },
+        {
+          "names": [
             "--json"
           ],
           "stability": "stable",
@@ -62,6 +94,13 @@
           ],
           "stability": "stable",
           "tier": "core"
+        },
+        {
+          "names": [
+            "--help-all"
+          ],
+          "stability": "stable",
+          "tier": "help"
         },
         {
           "names": [
@@ -179,6 +218,13 @@
         },
         {
           "names": [
+            "--help-all"
+          ],
+          "stability": "stable",
+          "tier": "help"
+        },
+        {
+          "names": [
             "--bag"
           ],
           "stability": "stable",
@@ -213,6 +259,13 @@
           ],
           "stability": "stable",
           "tier": "core"
+        },
+        {
+          "names": [
+            "--help-all"
+          ],
+          "stability": "stable",
+          "tier": "help"
         },
         {
           "names": [

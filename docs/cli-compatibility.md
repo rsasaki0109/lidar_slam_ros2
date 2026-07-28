@@ -49,15 +49,28 @@ this option policy or the repository version.
 
 ## Current inventory
 
-| Command | Stable operator options | Non-stable options |
-| --- | --- | --- |
-| `doctor` | `--json` | None |
-| `run` | `--profile`, `--output-dir`, `--min-free-space-gib`, `--dry-run`, `--resume`, `--verification` | Deprecated viewer options and `--no-verify-map` |
-| `inspect` | `--bag`, `--json`, `--write` | None |
-| `view` | `--viewer`, `--autoware-core-dir`, `--work-dir`, `--runtime-dir`, `--rebuild`, `--auto-exit-secs` | None |
+| Command | Routine stable options | Advanced stable options | Deprecated options |
+| --- | --- | --- | --- |
+| `doctor` | `--json` | None | None |
+| `run` | `--profile`, `--output-dir`, `--min-free-space-gib`, `--dry-run`, `--resume`, `--verification` | None | Viewer compatibility options and `--no-verify-map` |
+| `inspect` | `--bag`, `--json`, `--write` | None | None |
+| `view` | `--viewer` | `--autoware-core-dir`, `--work-dir`, `--runtime-dir`, `--rebuild`, `--auto-exit-secs` | None |
 
-`-h`/`--help` is stable for every command. Top-level `--version` is also
-stable.
+`-h`/`--help` and `--help-all` are stable for every command. Top-level
+`--version` is also stable.
+
+Normal help is the operator view; it contains stable options needed for
+routine use. Full help is the compatibility view:
+
+```bash
+lidarslam-map run --help
+lidarslam-map run --help-all
+```
+
+`--help-all` adds advanced runtime controls and deprecated aliases. Hiding a
+deprecated option from normal help does not remove it: the parser, completion,
+machine-readable inventory and migration documentation retain it throughout
+its compatibility window.
 
 The positional names describe directories deliberately:
 
@@ -79,7 +92,11 @@ Viewer construction is not map construction. It is owned by the dedicated
 `view` command, so a viewer failure does not make a completed map look like a
 mapping failure. Existing `run --viewer ...` invocations route through the new
 command and remain warning-emitting compatibility aliases during the
-published deprecation window.
+published deprecation window. They appear in `run --help-all`, not the normal
+operator help.
+
+The normal `view --help` contains viewer selection. Viewer build and runtime
+controls remain stable but advanced, and are listed by `view --help-all`.
 
 `--verification required` is the default. `--verification off` is a diagnostic
 escape hatch, not a normal performance option, and emits a visible warning.
@@ -112,8 +129,10 @@ contract test.
    while preserving its previous combined-command exit behavior.
 3. `--verification {required,off}` makes the safety mode explicit;
    `--no-verify-map` remains its warning-emitting compatibility alias.
-4. Next, freeze help snapshots, exit codes, JSON schemas, and shell completion
-   in the Humble and Jazzy installed-CLI checks.
+4. `--help` presents routine stable options; `--help-all` preserves full
+   discoverability of advanced and deprecated options.
+5. Freeze both help levels, exit codes, JSON schemas, and shell completion in
+   the Humble and Jazzy installed-CLI checks.
 
 No deprecated or provisional option is removed merely because a replacement
 exists. Removal follows the compatibility window above.

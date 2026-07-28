@@ -310,6 +310,16 @@ def test_product_contract_has_bounded_official_surface():
     assert 'run-manifest-v1.schema.json' in golden_path
     assert 'run-manifest-v2.schema.json' in golden_path
     assert '--resume' in golden_path
+    assert 'lidarslam-map run --help-all' in golden_path
+    compatibility = CLI_COMPATIBILITY_DOC.read_text(encoding='utf-8')
+    assert 'Normal help is the operator view' in compatibility
+    assert 'view --help-all' in compatibility
+    cli_contract = json.loads(CLI_V1_CONTRACT.read_text(encoding='utf-8'))
+    assert set(cli_contract['help_modes']) == {'normal', 'all'}
+    assert cli_contract['help_modes']['normal']['excludes'] == {
+        'stability': ['deprecated'],
+        'tiers': ['viewer-runtime'],
+    }
     assert 'Resume never starts the SLAM workflow again.' in golden_path
     assert 'existing outputs are never overwritten' in (
         REPO_ROOT / 'scripts' / 'run_autoware_map_from_bag.py'

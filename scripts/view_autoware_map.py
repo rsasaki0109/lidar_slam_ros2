@@ -26,12 +26,12 @@ def _positive_seconds(value: str) -> int:
     return seconds
 
 
-def _help_epilog() -> str:
+def _help_epilog(*, show_advanced: bool = True) -> str:
     command = os.environ.get(
         'LIDARSLAM_CLI_COMMAND',
         'python3 scripts/view_autoware_map.py',
     )
-    return '\n'.join([
+    lines = [
         'The input must be a completed map-run output containing:',
         '  pointcloud_map/pointcloud_map_metadata.yaml',
         '  map_projector_info.yaml',
@@ -39,12 +39,19 @@ def _help_epilog() -> str:
         'Examples:',
         f'  {command} output/my_map',
         f'  {command} output/my_map --viewer foxglove',
-        f'  {command} output/my_map --rebuild',
-    ])
+    ]
+    if show_advanced:
+        lines.append(f'  {command} output/my_map --rebuild')
+    return '\n'.join(lines)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse the public viewer command options."""
+    show_all_help = os.environ.get('LIDARSLAM_CLI_HELP_MODE') != 'core'
+
+    def advanced_help(text: str) -> str:
+        return text if show_all_help else argparse.SUPPRESS
+
     parser = argparse.ArgumentParser(
         prog=os.environ.get('LIDARSLAM_CLI_COMMAND'),
         description=(
@@ -52,11 +59,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             'bundle, and open an optional viewer.'
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=_help_epilog(),
+        epilog=_help_epilog(show_advanced=show_all_help),
     )
     parser.add_argument(
         'output_dir',
         help='Completed map-run output directory.',
+    )
+    parser.add_argument(
+        '--help-all',
+        action='help',
+        help='Show advanced viewer-runtime options.',
     )
     viewer_options = parser.add_argument_group('viewer')
     viewer_options.add_argument(
@@ -68,25 +80,25 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     runtime_options = parser.add_argument_group('viewer runtime')
     runtime_options.add_argument(
         '--autoware-core-dir',
-        help='autoware_core checkout used by the map loaders.',
+        help=advanced_help('autoware_core checkout used by the map loaders.'),
     )
     runtime_options.add_argument(
         '--work-dir',
-        help='Runtime workspace directory used by the viewer.',
+        help=advanced_help('Runtime workspace directory used by the viewer.'),
     )
     runtime_options.add_argument(
         '--runtime-dir',
-        help='Existing built Docker viewer runtime to reuse.',
+        help=advanced_help('Existing built Docker viewer runtime to reuse.'),
     )
     runtime_options.add_argument(
         '--rebuild',
         action='store_true',
-        help='Rebuild the viewer runtime before opening.',
+        help=advanced_help('Rebuild the viewer runtime before opening.'),
     )
     runtime_options.add_argument(
         '--auto-exit-secs',
         type=_positive_seconds,
-        help='Automatically close the viewer after N seconds.',
+        help=advanced_help('Automatically close the viewer after N seconds.'),
     )
     return parser.parse_args(argv)
 

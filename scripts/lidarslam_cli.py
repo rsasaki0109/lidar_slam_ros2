@@ -21,6 +21,7 @@ COMMANDS = {
 }
 EX_USAGE = 2
 EX_SOFTWARE = 70
+HELP_MODE_ENV = 'LIDARSLAM_CLI_HELP_MODE'
 
 
 def command_name() -> str:
@@ -31,10 +32,10 @@ def command_name() -> str:
     return './scripts/lidarslam'
 
 
-def render_help() -> str:
+def render_help(*, include_all: bool = False) -> str:
     """Return top-level CLI help."""
     executable = command_name()
-    return '\n'.join([
+    lines = [
         f'Usage: {executable} <command> [options]',
         '',
         'Core rosbag2-to-map commands:',
@@ -48,6 +49,7 @@ def render_help() -> str:
         'Global options:',
         '  --version              Print the repository product version',
         '  --help                 Show this help',
+        '  --help-all             Show advanced and deprecated help',
         '',
         f'Run "{executable} <command> --help" for command options.',
         '',
@@ -56,7 +58,17 @@ def render_help() -> str:
         '  2   invalid usage, input, profile, or output path',
         '  70  the command could not start because of an internal/tooling error',
         '  other non-zero values are propagated from a delegated workflow',
-    ])
+    ]
+    if include_all:
+        lines.extend([
+            '',
+            'Help levels:',
+            f'  {executable} <command> --help',
+            '      Show the stable options needed for normal operation.',
+            f'  {executable} <command> --help-all',
+            '      Also show advanced runtime and deprecated compatibility options.',
+        ])
+    return '\n'.join(lines)
 
 
 def read_version() -> str:
@@ -85,6 +97,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args in (['--help'], ['-h']):
         print(render_help())
         return 0
+    if args == ['--help-all']:
+        print(render_help(include_all=True))
+        return 0
     if args == ['--version']:
         try:
             print(f'lidarslam_ros2 {read_version()}')
@@ -104,6 +119,18 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         child_env = os.environ.copy()
+        child_env.pop(HELP_MODE_ENV, None)
+        if '--help-all' in args:
+            if args != ['--help-all']:
+                print(
+                    'error: --help-all cannot be combined with other options',
+                    file=sys.stderr,
+                )
+                return EX_USAGE
+            args = ['--help']
+            child_env[HELP_MODE_ENV] = 'all'
+        elif '--help' in args or '-h' in args:
+            child_env[HELP_MODE_ENV] = 'core'
         child_env['LIDARSLAM_CLI_COMMAND'] = f'{command_name()} {command}'
         completed = subprocess.run(
             command_argv(command, args),

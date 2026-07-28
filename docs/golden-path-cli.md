@@ -109,14 +109,24 @@ lidarslam-map view output/my_map --viewer foxglove
 
 ## Option tiers
 
-The command help groups options by operator intent. Existing option names
-remain compatible; the tiers make the stable beginner surface distinct from
-viewer plumbing and safety overrides. The stability label and migration rules
-for every option are defined in the
+Normal command help groups the stable options needed for routine operation.
+Use `--help-all` to also display advanced runtime controls and deprecated
+compatibility aliases:
+
+```bash
+lidarslam-map run --help
+lidarslam-map run --help-all
+lidarslam-map view --help-all
+```
+
+Existing option names remain compatible; the help levels and tiers make the
+stable beginner surface distinct from viewer plumbing and safety overrides.
+The stability label and migration rules for every option are defined in the
 [CLI compatibility and option policy](cli-compatibility.md).
 
 | Tier | Options | Use |
 | --- | --- | --- |
+| Help | `<command> --help`, `<command> --help-all` | Show routine options or the complete advanced/deprecated inventory |
 | Doctor output | `doctor --json` | Emit the versioned preflight contract for automation |
 | Map selection and output | `run --profile`, `run --output-dir` | Select a maintained profile or an explicit artifact directory |
 | Safety and lifecycle | `run --min-free-space-gib`, `run --dry-run`, `run --resume` | Refuse unsafe starts, inspect a plan, or finish terminal post-processing |

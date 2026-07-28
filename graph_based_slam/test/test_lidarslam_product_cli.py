@@ -137,12 +137,29 @@ def test_subcommand_help_uses_product_names_and_option_groups():
     assert 'python3 scripts/' not in view.stdout
     assert 'map selection and output:' in run.stdout
     assert 'safety and lifecycle:' in run.stdout
-    assert 'deprecated viewer compatibility options:' in run.stdout
-    assert 'deprecated advanced viewer compatibility options:' in run.stdout
+    assert '--help-all' in run.stdout
+    assert 'deprecated viewer compatibility options:' not in run.stdout
+    assert 'deprecated advanced viewer compatibility options:' not in run.stdout
     assert 'verification:' in run.stdout
     assert '--verification {required,off}' in run.stdout
     assert '--viewer {autoware,foxglove}' in view.stdout
-    assert '--runtime-dir' in view.stdout
+    assert '--runtime-dir' not in view.stdout
+
+    run_all = _run('run', '--help-all')
+    view_all = _run('view', '--help-all')
+    assert run_all.returncode == view_all.returncode == 0
+    assert 'deprecated viewer compatibility options:' in run_all.stdout
+    assert 'deprecated advanced viewer compatibility options:' in run_all.stdout
+    assert '--no-verify-map' in run_all.stdout
+    assert 'viewer runtime:' in view_all.stdout
+    assert '--runtime-dir' in view_all.stdout
+
+
+def test_help_all_rejects_ambiguous_combinations():
+    result = _run('run', '--help-all', '--dry-run')
+
+    assert result.returncode == 2
+    assert '--help-all cannot be combined with other options' in result.stderr
 
 
 def test_run_rejects_viewer_options_that_would_be_ignored(tmp_path: Path):

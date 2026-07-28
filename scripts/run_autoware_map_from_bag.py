@@ -998,6 +998,11 @@ def parse_args(
     argv: Sequence[str] | None = None,
 ) -> argparse.Namespace:
     """Parse the map-run product options."""
+    show_all_help = os.environ.get('LIDARSLAM_CLI_HELP_MODE') != 'core'
+
+    def extended_help(text: str) -> str:
+        return text if show_all_help else argparse.SUPPRESS
+
     parser = argparse.ArgumentParser(
         prog=os.environ.get('LIDARSLAM_CLI_COMMAND'),
         description=(
@@ -1011,6 +1016,11 @@ def parse_args(
         'bag',
         metavar='rosbag2_dir',
         help='Directory containing metadata.yaml.',
+    )
+    parser.add_argument(
+        '--help-all',
+        action='help',
+        help='Show advanced and deprecated options.',
     )
     map_options = parser.add_argument_group('map selection and output')
     map_options.add_argument(
@@ -1058,7 +1068,7 @@ def parse_args(
         '--viewer',
         choices=['none', 'autoware', 'foxglove'],
         default='none',
-        help=(
+        help=extended_help(
             'Deprecated: open the saved map after the run. Prefer '
             '"lidarslam-map view <output_dir>" (default: none).'
         ),
@@ -1068,25 +1078,27 @@ def parse_args(
     )
     advanced_viewer_options.add_argument(
         '--autoware-core-dir',
-        help='autoware_core checkout used by the Docker viewer.',
+        help=extended_help('autoware_core checkout used by the Docker viewer.'),
     )
     advanced_viewer_options.add_argument(
         '--work-dir',
-        help='Runtime workspace directory for Autoware/Foxglove viewers.',
+        help=extended_help(
+            'Runtime workspace directory for Autoware/Foxglove viewers.'
+        ),
     )
     advanced_viewer_options.add_argument(
         '--viewer-run-dir',
-        help='Existing built viewer runtime to reuse.',
+        help=extended_help('Existing built viewer runtime to reuse.'),
     )
     advanced_viewer_options.add_argument(
         '--viewer-rebuild',
         action='store_true',
-        help='Rebuild the viewer runtime before opening.',
+        help=extended_help('Rebuild the viewer runtime before opening.'),
     )
     advanced_viewer_options.add_argument(
         '--auto-exit-secs',
         type=int,
-        help='Auto-close the viewer after N seconds.',
+        help=extended_help('Auto-close the viewer after N seconds.'),
     )
     verification_options = parser.add_argument_group(
         'verification'
@@ -1102,9 +1114,7 @@ def parse_args(
     verification_options.add_argument(
         '--no-verify-map',
         action='store_true',
-        help=(
-            'Deprecated alias for "--verification off".'
-        ),
+        help=extended_help('Deprecated alias for "--verification off".'),
     )
     return parser.parse_args(argv)
 

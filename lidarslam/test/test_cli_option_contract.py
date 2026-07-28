@@ -31,9 +31,9 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import re
 import subprocess
-from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -54,9 +54,10 @@ def _option_names(entries: list[dict[str, object]]) -> set[str]:
     }
 
 
-def _help(*args: str) -> str:
+def _help(command: str, *, all_options: bool = False) -> str:
+    help_option = '--help-all' if all_options else '--help'
     completed = subprocess.run(
-        [str(CLI), *args, '--help'],
+        [str(CLI), command, help_option],
         cwd=REPO_ROOT,
         check=False,
         capture_output=True,
@@ -83,26 +84,45 @@ def test_contract_identifies_the_complete_product_surface():
     assert _option_names(contract['global_options']) == {
         '-h',
         '--help',
+        '--help-all',
         '--version',
     }
 
 
 def test_each_subcommand_help_matches_its_option_inventory():
-    """No public flag may appear without an inventory entry."""
+    """Both help levels should match the machine-readable visibility rules."""
     contract = _contract()
+    exclusions = contract['help_modes']['normal']['excludes']
 
     for command, command_contract in contract['commands'].items():
-        rendered = _help(command)
-        option_lines = '\n'.join(
+        rendered_all = _help(command, all_options=True)
+        all_option_lines = '\n'.join(
             line
-            for line in rendered.splitlines()
+            for line in rendered_all.splitlines()
             if line.lstrip().startswith('-')
         )
-        rendered_options = set(OPTION_PATTERN.findall(option_lines))
+        rendered_all_options = set(OPTION_PATTERN.findall(all_option_lines))
         contract_options = _option_names(command_contract['options'])
 
-        assert rendered_options == contract_options, command
-        assert command_contract['positional']['name'] in rendered
+        assert rendered_all_options == contract_options, command
+        assert command_contract['positional']['name'] in rendered_all
+
+        rendered_normal = _help(command)
+        normal_option_lines = '\n'.join(
+            line
+            for line in rendered_normal.splitlines()
+            if line.lstrip().startswith('-')
+        )
+        rendered_normal_options = set(
+            OPTION_PATTERN.findall(normal_option_lines)
+        )
+        expected_normal_options = _option_names([
+            entry
+            for entry in command_contract['options']
+            if entry['stability'] not in exclusions['stability']
+            and entry['tier'] not in exclusions['tiers']
+        ])
+        assert rendered_normal_options == expected_normal_options, command
 
 
 def test_stability_and_tier_values_are_explicit():
