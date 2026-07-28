@@ -80,14 +80,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     runtime_options = parser.add_argument_group('viewer runtime')
     runtime_options.add_argument(
         '--autoware-core-dir',
+        metavar='<dir>',
         help=advanced_help('autoware_core checkout used by the map loaders.'),
     )
     runtime_options.add_argument(
         '--work-dir',
+        metavar='<dir>',
         help=advanced_help('Runtime workspace directory used by the viewer.'),
     )
     runtime_options.add_argument(
         '--runtime-dir',
+        metavar='<dir>',
         help=advanced_help('Existing built Docker viewer runtime to reuse.'),
     )
     runtime_options.add_argument(
@@ -98,6 +101,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     runtime_options.add_argument(
         '--auto-exit-secs',
         type=_positive_seconds,
+        metavar='<seconds>',
         help=advanced_help('Automatically close the viewer after N seconds.'),
     )
     return parser.parse_args(argv)

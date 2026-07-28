@@ -117,8 +117,12 @@ verified success.
 - Use lowercase kebab case.
 - End directory paths with `-dir`.
 - Include units in numeric names, such as `-secs` or `-gib`.
+- Render option values consistently as `<id>`, `<dir>`, `<file>`,
+  `<seconds>`, or an explicit finite choice set.
 - Prefer positive behavior and safe defaults. Negative flags are reserved for
   explicit break-glass behavior.
+- Reject zero, negative, non-finite, and malformed numeric values during
+  argument parsing when the contract requires a positive value.
 - Reject invalid combinations with exit code `2`; do not silently ignore an
   option.
 - Add automation output only through a versioned JSON contract.
@@ -127,9 +131,10 @@ verified success.
 
 Every public addition must update `contracts/cli-v1.json`, command help,
 documentation, and tests in the same change. CI compares the manifest with
-the flags and metavars rendered by each command. It also checks every finite
-choice against shell completion, so an undocumented option, changed value
-shape or stale completion fails the contract test.
+the exact command and option sets in shell completion, the flags and metavars
+rendered by each command, and every finite completion choice. An undocumented
+option, extra stale completion, changed value shape, or missing choice fails
+the contract test.
 
 ## Migration sequence
 

@@ -356,6 +356,19 @@ def _minimum_free_space_gib(value: str) -> float:
     return parsed
 
 
+def _positive_seconds(value: str) -> int:
+    """Parse a positive whole-second duration."""
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            'must be a positive integer'
+        ) from exc
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError('must be a positive integer')
+    return parsed
+
+
 def check_output_storage(
     output_dir: Path,
     minimum_free_space_gib: float,
@@ -1109,16 +1122,19 @@ def parse_args(
     )
     advanced_viewer_options.add_argument(
         '--autoware-core-dir',
+        metavar='<dir>',
         help=extended_help('autoware_core checkout used by the Docker viewer.'),
     )
     advanced_viewer_options.add_argument(
         '--work-dir',
+        metavar='<dir>',
         help=extended_help(
             'Runtime workspace directory for Autoware/Foxglove viewers.'
         ),
     )
     advanced_viewer_options.add_argument(
         '--viewer-run-dir',
+        metavar='<dir>',
         help=extended_help('Existing built viewer runtime to reuse.'),
     )
     advanced_viewer_options.add_argument(
@@ -1128,7 +1144,8 @@ def parse_args(
     )
     advanced_viewer_options.add_argument(
         '--auto-exit-secs',
-        type=int,
+        type=_positive_seconds,
+        metavar='<seconds>',
         help=extended_help('Auto-close the viewer after N seconds.'),
     )
     verification_options = parser.add_argument_group(

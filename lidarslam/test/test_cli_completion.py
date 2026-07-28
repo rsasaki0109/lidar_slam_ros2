@@ -30,8 +30,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+import re
 import subprocess
+from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -39,6 +40,19 @@ COMPLETION = (
     REPO_ROOT / 'scripts' / 'completions' / 'lidarslam-map.bash'
 )
 CONTRACT = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
+SHELL_VARIABLE_PATTERN = re.compile(
+    r"^(?P<name>_LIDARSLAM_MAP_[A-Z_]+)='(?P<values>[^']*)'$",
+    re.MULTILINE,
+)
+
+
+def _completion_variables() -> dict[str, set[str]]:
+    """Return the literal command and option inventories in completion."""
+    text = COMPLETION.read_text(encoding='utf-8')
+    return {
+        match.group('name'): set(match.group('values').split())
+        for match in SHELL_VARIABLE_PATTERN.finditer(text)
+    }
 
 
 def _complete(*words: str) -> set[str]:
@@ -61,7 +75,7 @@ printf '%s\\n' "${{COMPREPLY[@]}}"
 
 
 def test_completion_is_valid_bash_and_covers_the_option_manifest():
-    """Every public long option should remain discoverable in completion."""
+    """Completion inventory should exactly match the public CLI contract."""
     syntax = subprocess.run(
         ['bash', '-n', str(COMPLETION)],
         check=False,
@@ -71,13 +85,27 @@ def test_completion_is_valid_bash_and_covers_the_option_manifest():
     assert syntax.returncode == 0, syntax.stderr
 
     contract = json.loads(CONTRACT.read_text(encoding='utf-8'))
-    completion_text = COMPLETION.read_text(encoding='utf-8')
+    variables = _completion_variables()
+    assert variables['_LIDARSLAM_MAP_COMMANDS'] == set(contract['commands'])
+    assert variables['_LIDARSLAM_MAP_GLOBAL_OPTIONS'] == {
+        name
+        for option in contract['global_options']
+        for name in option['names']
+        if name.startswith('--')
+    }
     for command, command_contract in contract['commands'].items():
-        assert command in completion_text
-        for option in command_contract['options']:
-            for name in option['names']:
-                if name.startswith('--'):
-                    assert name in completion_text
+        variable = (
+            '_LIDARSLAM_MAP_'
+            + command.upper().replace('-', '_')
+            + '_OPTIONS'
+        )
+        expected = {
+            name
+            for option in command_contract['options']
+            for name in option['names']
+            if name.startswith('--')
+        }
+        assert variables[variable] == expected
 
 
 def test_completion_suggests_commands_options_and_bounded_choices():
