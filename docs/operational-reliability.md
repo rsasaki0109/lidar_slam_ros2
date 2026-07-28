@@ -82,7 +82,8 @@ requires one clean harness revision and either the exact matching image
 revision or an attested runtime overlay whose source-file digest matches the
 harness, a
 nonzero product exit, the real PCL `raw_fallocate ... returned 28` signature,
-an almost-full 32 MiB tmpfs, a terminal failed manifest, a storage-exhaustion
+at most 10% free space on the 32 MiB tmpfs, a terminal failed manifest, a
+storage-exhaustion
 diagnosis and proof that no success was claimed. A ten-minute process deadline
 and Docker stop/kill fallback bound a wedged failure path.
 

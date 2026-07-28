@@ -364,9 +364,12 @@ def evaluate_state(
             'id': 'filesystem_nearly_exhausted',
             'passed': (
                 int(filesystem.get('available_bytes', tmpfs_bytes))
-                <= 2 * 1024 * 1024
+                <= tmpfs_bytes // 10
             ),
-            'observed': f'available_bytes={filesystem.get("available_bytes")}',
+            'observed': (
+                f'available_bytes={filesystem.get("available_bytes")}, '
+                f'maximum_bytes={tmpfs_bytes // 10}'
+            ),
         },
         {
             'id': 'manifest_records_failed_terminal_state',

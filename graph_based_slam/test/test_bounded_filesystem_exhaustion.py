@@ -140,6 +140,29 @@ def test_evaluate_state_requires_failed_manifest_and_real_enospc_signature():
         if item['id'] == 'runtime_matches_harness_revision'
     )['passed']
 
+    not_nearly_full = {
+        **state,
+        'filesystem': {
+            'capacity_bytes': 32 * 1024 * 1024,
+            'available_bytes': 4 * 1024 * 1024,
+            'used_bytes': 28 * 1024 * 1024,
+        },
+    }
+    capacity_checks = module.evaluate_state(
+        not_nearly_full,
+        32 * 1024 * 1024,
+        container_exit_code=1,
+        timed_out=False,
+        harness_commit='a' * 40,
+        harness_dirty=False,
+        image_revision='a' * 40,
+        runtime_payload_sha256='b' * 64,
+    )
+    assert not next(
+        item for item in capacity_checks
+        if item['id'] == 'filesystem_nearly_exhausted'
+    )['passed']
+
     false_success = {
         **state,
         'manifest': {
