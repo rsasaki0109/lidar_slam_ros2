@@ -18,6 +18,8 @@ COMMANDS = {
     'run': 'run_autoware_map_from_bag.py',
     'inspect': 'diagnose_autoware_map_run.py',
     'view': 'view_autoware_map.py',
+    'migrate-manifest': 'migrate_run_manifest.py',
+    'rollback-plan': 'plan_image_rollback.py',
 }
 EX_USAGE = 2
 EX_SOFTWARE = 70
@@ -61,6 +63,16 @@ def render_help(*, include_all: bool = False) -> str:
     ]
     if include_all:
         lines.extend([
+            '',
+            'Advanced recovery commands:',
+            (
+                '  migrate-manifest <output_dir>'
+                '  Convert terminal v1 metadata for inspection'
+            ),
+            (
+                '  rollback-plan <release_image_record>'
+                '  Plan an immutable image rollback'
+            ),
             '',
             'Help levels:',
             f'  {executable} <command> --help',

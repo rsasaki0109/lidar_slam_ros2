@@ -49,16 +49,16 @@ Two GitHub Actions workflows matter for release:
   registry digest, then publishes the prerelease using
   `docs/releases/v<version>.md` as the release body. The release assets include
   the source bundle plus one `release-image-<distro>.json` installation
-  evidence file per image.
+  evidence file and one digest-pinned `rollback-plan-<distro>.json` per image.
+  Retain the prior release's JSON assets as the last-known-good recovery
+  record; do not move a tag to perform rollback.
 
 The image build emits an OCI SBOM and maximum-mode BuildKit provenance.
 GitHub artifact attestations cover each image digest and the source release
 bundle. Verify an image after publication:
 
 ```bash
-gh attestation verify \
-  "oci://ghcr.io/rsasaki0109/lidar_slam_ros2:v${VERSION}-jazzy" \
-  -R rsasaki0109/lidar_slam_ros2
+lidarslam-map rollback-plan release-image-jazzy.json
 ```
 
 ## Tagging

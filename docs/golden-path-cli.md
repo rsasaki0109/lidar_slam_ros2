@@ -168,6 +168,27 @@ preflight v2 adds PointCloud2 field inspection but predates header timestamp
 order evidence. Run manifest v1 predates durable lifecycle stages, so it can
 be inspected but cannot be resumed safely.
 
+For archived terminal v1 manifests, create a separate schema-v2 inspection
+copy only when an automation consumer requires v2:
+
+```bash
+lidarslam-map migrate-manifest output/historical_run \
+  --output output/historical_run-v2.json \
+  --verification required
+```
+
+The verification mode is mandatory because v1 did not record it. The command
+accepts only `succeeded`, `failed`, or `interrupted` terminal records with a
+finish time and exit code. It never overwrites `run_manifest.json` or an
+existing destination, and writes lifecycle stage `complete`; the migrated
+copy is therefore never eligible for `run --resume`.
+
+`migrate-manifest` and `rollback-plan` are recovery tools, not beginner
+mapping steps. They are intentionally absent from top-level `--help` and are
+listed by `lidarslam-map --help-all`. Their flags remain published in the
+[CLI v1 contract](contracts/cli-v1.json) and available through explicit
+subcommand help.
+
 Preflight v3 scans up to 100,000 records on the selected PointCloud2 and Imu
 topics. `passed` means every metadata-declared record on those topics was
 checked; `sampled` means the bound was reached without finding disorder.
@@ -184,6 +205,8 @@ Each subcommand accepts the same options as its delegated tool:
 ./scripts/lidarslam run --help
 ./scripts/lidarslam inspect --help
 ./scripts/lidarslam view --help
+./scripts/lidarslam migrate-manifest --help
+./scripts/lidarslam rollback-plan --help
 ```
 
 ## Exit-code contract

@@ -1,11 +1,13 @@
 # Bash completion for the installed lidarslam-map product command.
 
-_LIDARSLAM_MAP_COMMANDS='doctor run inspect view'
+_LIDARSLAM_MAP_COMMANDS='doctor run inspect view migrate-manifest rollback-plan'
 _LIDARSLAM_MAP_GLOBAL_OPTIONS='--help --help-all --version'
 _LIDARSLAM_MAP_DOCTOR_OPTIONS='--help --help-all --json'
 _LIDARSLAM_MAP_RUN_OPTIONS='--help --help-all --profile --output-dir --min-free-space-gib --dry-run --resume --viewer --autoware-core-dir --work-dir --viewer-run-dir --viewer-rebuild --auto-exit-secs --verification --no-verify-map'
 _LIDARSLAM_MAP_INSPECT_OPTIONS='--help --help-all --bag --json --write'
 _LIDARSLAM_MAP_VIEW_OPTIONS='--help --help-all --viewer --autoware-core-dir --work-dir --runtime-dir --rebuild --auto-exit-secs'
+_LIDARSLAM_MAP_MIGRATE_MANIFEST_OPTIONS='--help --help-all --output --verification --json'
+_LIDARSLAM_MAP_ROLLBACK_PLAN_OPTIONS='--help --help-all --json'
 
 _lidarslam_map_complete_directories() {
   local current="$1"
@@ -13,6 +15,15 @@ _lidarslam_map_complete_directories() {
     _filedir -d
   else
     COMPREPLY=($(compgen -d -- "$current"))
+  fi
+}
+
+_lidarslam_map_complete_files() {
+  local current="$1"
+  if declare -F _filedir >/dev/null 2>&1; then
+    _filedir
+  else
+    COMPREPLY=($(compgen -f -- "$current"))
   fi
 }
 
@@ -53,6 +64,10 @@ _lidarslam_map_complete() {
       _lidarslam_map_complete_directories "$current"
       return
       ;;
+    --output)
+      _lidarslam_map_complete_files "$current"
+      return
+      ;;
   esac
 
   case "$command" in
@@ -68,6 +83,12 @@ _lidarslam_map_complete() {
     view)
       options="$_LIDARSLAM_MAP_VIEW_OPTIONS"
       ;;
+    migrate-manifest)
+      options="$_LIDARSLAM_MAP_MIGRATE_MANIFEST_OPTIONS"
+      ;;
+    rollback-plan)
+      options="$_LIDARSLAM_MAP_ROLLBACK_PLAN_OPTIONS"
+      ;;
     *)
       return
       ;;
@@ -77,7 +98,11 @@ _lidarslam_map_complete() {
     COMPREPLY=($(compgen -W "$options" -- "$current"))
     return
   fi
-  _lidarslam_map_complete_directories "$current"
+  if [[ "$command" == 'rollback-plan' ]]; then
+    _lidarslam_map_complete_files "$current"
+  else
+    _lidarslam_map_complete_directories "$current"
+  fi
 }
 
 complete -F _lidarslam_map_complete lidarslam-map

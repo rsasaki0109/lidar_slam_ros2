@@ -140,7 +140,26 @@
         "unit": "seconds",
         "value_name": "AUTO_EXIT_SECS"
       }
-    }
+    },
+    "migrate-manifest": {
+      "--output": {
+        "default": null,
+        "kind": "file",
+        "required": true,
+        "value_name": "<file>"
+      },
+      "--verification": {
+        "choices": [
+          "required",
+          "off"
+        ],
+        "default": null,
+        "kind": "enum",
+        "required": true,
+        "value_name": "{required,off}"
+      }
+    },
+    "rollback-plan": {}
   },
   "deprecation_policy": {
     "minimum_compatibility_window": "one minor release",
@@ -444,6 +463,86 @@
           ],
           "stability": "stable",
           "tier": "viewer-runtime"
+        }
+      ]
+    },
+    "migrate-manifest": {
+      "positional": {
+        "kind": "directory",
+        "must_contain": [
+          "run_manifest.json"
+        ],
+        "name": "output_dir",
+        "stability": "stable"
+      },
+      "options": [
+        {
+          "names": [
+            "-h",
+            "--help"
+          ],
+          "stability": "stable",
+          "tier": "recovery"
+        },
+        {
+          "names": [
+            "--help-all"
+          ],
+          "stability": "stable",
+          "tier": "help"
+        },
+        {
+          "names": [
+            "--output"
+          ],
+          "stability": "stable",
+          "tier": "recovery"
+        },
+        {
+          "names": [
+            "--verification"
+          ],
+          "stability": "stable",
+          "tier": "recovery"
+        },
+        {
+          "names": [
+            "--json"
+          ],
+          "stability": "stable",
+          "tier": "automation"
+        }
+      ]
+    },
+    "rollback-plan": {
+      "positional": {
+        "format": "release-image-v1",
+        "kind": "file",
+        "name": "release_image_record",
+        "stability": "stable"
+      },
+      "options": [
+        {
+          "names": [
+            "-h",
+            "--help"
+          ],
+          "stability": "stable",
+          "tier": "recovery"
+        },
+        {
+          "names": [
+            "--help-all"
+          ],
+          "stability": "stable",
+          "tier": "help"
+        },
+        {
+          "names": [
+            "--json"
+          ],
+          "stability": "stable",
+          "tier": "automation"
         }
       ]
     }
