@@ -4,15 +4,12 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
-from datetime import datetime, timezone
 import fcntl
 import hashlib
 import importlib.util
 import json
 import math
 import os
-from pathlib import Path
 import shlex
 import shutil
 import signal
@@ -21,6 +18,10 @@ import sys
 import time
 import uuid
 import xml.etree.ElementTree as ET
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Sequence
 
 import yaml
 
@@ -688,8 +689,8 @@ def _validate_resume_state(
         raise ValueError('resume requires a durably recorded terminal workflow result')
     if lifecycle.get('verification_enabled') is not verify_map:
         raise ValueError(
-            'resume verification option mismatch; use the same --no-verify-map '
-            'setting as the original run'
+            'resume verification option mismatch; use the same '
+            '--verification mode as the original run'
         )
 
     expected_values = (
@@ -739,6 +740,7 @@ def _finalize_output(working_dir: Path, final_dir: Path) -> None:
 
 
 def maybe_open_viewer(args: argparse.Namespace, output_dir: Path) -> None:
+    """Delegate deprecated combined run/view requests to the view command."""
     if args.viewer == 'none':
         return
 
@@ -868,7 +870,7 @@ def _postprocess_run(
         _write_manifest(current_dir, manifest)
         lifecycle['stage'] = 'verifying'
         _write_manifest(current_dir, manifest)
-        maybe_verify_map(current_dir, enabled=not args.no_verify_map)
+        maybe_verify_map(current_dir, enabled=args.verification_enabled)
         lifecycle['stage'] = 'verified'
         _write_manifest(current_dir, manifest)
 
@@ -897,7 +899,7 @@ def _postprocess_run(
         elif workflow_exit_code != 0:
             runner_exit_code = workflow_exit_code
             manifest['status'] = 'failed'
-        elif not args.no_verify_map and diagnosis['status'] != 'success':
+        elif args.verification_enabled and diagnosis['status'] != 'success':
             runner_exit_code = 1
             manifest['status'] = 'failed'
         else:
@@ -992,7 +994,10 @@ def _help_epilog() -> str:
     ])
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(
+    argv: Sequence[str] | None = None,
+) -> argparse.Namespace:
+    """Parse the map-run product options."""
     parser = argparse.ArgumentParser(
         prog=os.environ.get('LIDARSLAM_CLI_COMMAND'),
         description=(
@@ -1083,18 +1088,25 @@ def parse_args() -> argparse.Namespace:
         type=int,
         help='Auto-close the viewer after N seconds.',
     )
-    advanced_overrides = parser.add_argument_group(
-        'advanced safety overrides'
+    verification_options = parser.add_argument_group(
+        'verification'
     )
-    advanced_overrides.add_argument(
+    verification_options.add_argument(
+        '--verification',
+        choices=['required', 'off'],
+        help=(
+            'Map verification mode (default: required). Use off only for '
+            'diagnosis; an unverified run is never reported as verified.'
+        ),
+    )
+    verification_options.add_argument(
         '--no-verify-map',
         action='store_true',
         help=(
-            'Disable required map verification for diagnostics. A successful '
-            'workflow exit will not claim that verification ran.'
+            'Deprecated alias for "--verification off".'
         ),
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def validate_option_combinations(args: argparse.Namespace) -> None:
@@ -1116,10 +1128,36 @@ def validate_option_combinations(args: argparse.Namespace) -> None:
         )
 
 
+def resolve_verification_mode(args: argparse.Namespace) -> bool:
+    """Return whether map verification is required and emit migration warnings."""
+    if args.no_verify_map and args.verification is not None:
+        raise ValueError(
+            '--no-verify-map cannot be combined with --verification; use '
+            '"--verification off"'
+        )
+    if args.no_verify_map:
+        print(
+            'warning: --no-verify-map is deprecated; use "--verification off". '
+            'Map verification is disabled.',
+            file=sys.stderr,
+        )
+        return False
+    if args.verification == 'off':
+        print(
+            'warning: map verification is disabled; a successful workflow '
+            'exit will not be reported as verified.',
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
 def main() -> int:
+    """Run or resume a map workflow under the product lifecycle contract."""
     args = parse_args()
     try:
         validate_option_combinations(args)
+        args.verification_enabled = resolve_verification_mode(args)
     except ValueError as exc:
         print(f'error: {exc}', file=sys.stderr)
         return 2
@@ -1150,7 +1188,7 @@ def main() -> int:
             bag_path=bag_path,
             profile_id=args.profile,
             output_dir=working_dir,
-            verify_map=not args.no_verify_map,
+            verify_map=args.verification_enabled,
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         print(f'error: {exc}', file=sys.stderr)
@@ -1178,7 +1216,7 @@ def main() -> int:
                     output_dir,
                     working_dir,
                     plan,
-                    not args.no_verify_map,
+                    args.verification_enabled,
                 )
                 print(f'Resuming terminal post-processing from: {run_dir}')
                 exit_code = _postprocess_run(
@@ -1204,7 +1242,7 @@ def main() -> int:
             output_dir,
             working_dir,
             plan,
-            verify_map=not args.no_verify_map,
+            verify_map=args.verification_enabled,
         )
         working_dir.mkdir(parents=True, exist_ok=False)
         created_working_dir = True

@@ -148,7 +148,8 @@ def test_runner_help_is_user_facing():
     assert 'safety and lifecycle:' in result.stdout
     assert 'deprecated viewer compatibility options:' in result.stdout
     assert 'deprecated advanced viewer compatibility options:' in result.stdout
-    assert 'advanced safety overrides:' in result.stdout
+    assert 'verification:' in result.stdout
+    assert '--verification {required,off}' in result.stdout
 
 
 def test_deprecated_run_viewer_routes_through_view_command(
@@ -187,6 +188,42 @@ def test_deprecated_run_viewer_routes_through_view_command(
     warning = capsys.readouterr().err
     assert 'warning: run viewer options are deprecated' in warning
     assert 'lidarslam-map view <output_dir> --viewer foxglove' in warning
+
+
+def test_verification_mode_defaults_safe_and_migrates_old_alias(
+    capsys: pytest.CaptureFixture[str],
+):
+    """Verification should default on and make every disabled mode visible."""
+    module = _load_module()
+
+    required = module.parse_args(['/tmp/bag'])
+    assert module.resolve_verification_mode(required) is True
+    assert capsys.readouterr().err == ''
+
+    disabled = module.parse_args([
+        '/tmp/bag',
+        '--verification',
+        'off',
+    ])
+    assert module.resolve_verification_mode(disabled) is False
+    warning = capsys.readouterr().err
+    assert 'map verification is disabled' in warning
+    assert 'deprecated' not in warning
+
+    legacy = module.parse_args(['/tmp/bag', '--no-verify-map'])
+    assert module.resolve_verification_mode(legacy) is False
+    warning = capsys.readouterr().err
+    assert '--no-verify-map is deprecated' in warning
+    assert '--verification off' in warning
+
+    conflicting = module.parse_args([
+        '/tmp/bag',
+        '--verification',
+        'off',
+        '--no-verify-map',
+    ])
+    with pytest.raises(ValueError, match='cannot be combined'):
+        module.resolve_verification_mode(conflicting)
 
 
 def test_storage_preflight_records_budget_and_refuses_low_space(
@@ -1264,6 +1301,7 @@ def test_beginner_wrapper_help_is_user_facing():
     assert '--output-dir <dir>' in result.stderr
     assert '--viewer-rebuild' in result.stderr
     assert '--resume' in result.stderr
+    assert '--verification <mode>' in result.stderr
 
 
 def test_beginner_wrapper_rejects_missing_option_value_before_bag_validation(

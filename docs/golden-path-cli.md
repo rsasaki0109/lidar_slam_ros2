@@ -89,8 +89,10 @@ rather than only the path where it happened to be stored.
 verification and post-processing. `succeeded` means both the workflow and
 enabled verification completed successfully. When verification is enabled
 (the default), a non-`success` diagnosis changes the manifest to `failed`.
-With `--no-verify-map`, inspect `output.diagnosis_status` separately;
-`succeeded` does not claim that map verification ran.
+With the diagnostic-only `--verification off`, inspect
+`output.diagnosis_status` separately; `succeeded` does not claim that map
+verification ran. The old `--no-verify-map` spelling remains a deprecated
+compatibility alias.
 
 `inspect` classifies an output as `success`, `map_saved`, `verify_failed`,
 `runtime_failed`, or `incomplete`. Add `--write` to create the Markdown and
@@ -121,7 +123,8 @@ for every option are defined in the
 | Viewer | `view --viewer {autoware,foxglove}` | Open an existing completed output; defaults to Autoware |
 | Viewer runtime | `view --autoware-core-dir`, `view --work-dir`, `view --runtime-dir`, `view --rebuild`, `view --auto-exit-secs` | Control viewer build/runtime details |
 | Deprecated viewer compatibility | `run --viewer`, `run --autoware-core-dir`, `run --work-dir`, `run --viewer-run-dir`, `run --viewer-rebuild`, `run --auto-exit-secs` | Preserve existing combined run/view invocations while directing users to `view` |
-| Advanced safety override | `run --no-verify-map` | Diagnostic-only run without required map verification; success does not claim verification |
+| Verification | `run --verification {required,off}` | Keep required map verification (default) or explicitly select a diagnostic-only unverified run |
+| Deprecated verification alias | `run --no-verify-map` | Compatibility spelling for `--verification off`; emits a warning |
 | Inspection context/output | `inspect --bag`, `inspect --json`, `inspect --write` | Add source-bag context, choose machine output, or persist diagnosis files |
 
 Viewer-specific options that would otherwise be ignored are rejected with exit

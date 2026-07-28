@@ -113,7 +113,6 @@ def test_stability_and_tier_values_are_explicit():
         'deprecated',
     }
     assert all(entry['tier'] for entry in entries)
-    assert any(entry['stability'] == 'provisional' for entry in entries)
     deprecated = [
         entry for entry in entries if entry['stability'] == 'deprecated'
     ]

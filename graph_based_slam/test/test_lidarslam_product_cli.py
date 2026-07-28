@@ -139,7 +139,8 @@ def test_subcommand_help_uses_product_names_and_option_groups():
     assert 'safety and lifecycle:' in run.stdout
     assert 'deprecated viewer compatibility options:' in run.stdout
     assert 'deprecated advanced viewer compatibility options:' in run.stdout
-    assert 'advanced safety overrides:' in run.stdout
+    assert 'verification:' in run.stdout
+    assert '--verification {required,off}' in run.stdout
     assert '--viewer {autoware,foxglove}' in view.stdout
     assert '--runtime-dir' in view.stdout
 

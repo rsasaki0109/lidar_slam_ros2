@@ -52,7 +52,7 @@ this option policy or the repository version.
 | Command | Stable operator options | Non-stable options |
 | --- | --- | --- |
 | `doctor` | `--json` | None |
-| `run` | `--profile`, `--output-dir`, `--min-free-space-gib`, `--dry-run`, `--resume` | Deprecated viewer options; provisional `--no-verify-map` |
+| `run` | `--profile`, `--output-dir`, `--min-free-space-gib`, `--dry-run`, `--resume`, `--verification` | Deprecated viewer options and `--no-verify-map` |
 | `inspect` | `--bag`, `--json`, `--write` | None |
 | `view` | `--viewer`, `--autoware-core-dir`, `--work-dir`, `--runtime-dir`, `--rebuild`, `--auto-exit-secs` | None |
 
@@ -72,7 +72,8 @@ The map-producing `run` options are ordered by operator intent:
 1. **Core:** choose a profile and output directory.
 2. **Lifecycle:** plan, reserve storage, or resume post-processing.
 3. **Deprecated compatibility:** forward old viewer requests to `view`.
-4. **Break glass:** disable an integrity check for diagnosis.
+4. **Verification:** retain the required default or explicitly select the
+   diagnostic-only `off` mode.
 
 Viewer construction is not map construction. It is owned by the dedicated
 `view` command, so a viewer failure does not make a completed map look like a
@@ -80,10 +81,10 @@ mapping failure. Existing `run --viewer ...` invocations route through the new
 command and remain warning-emitting compatibility aliases during the
 published deprecation window.
 
-`--no-verify-map` is a diagnostic escape hatch, not a normal performance
-option. Before v1 it should gain an explicit replacement that communicates
-the verification mode. The old name must remain an alias during the same
-deprecation window, and an unverified run must never be described as a
+`--verification required` is the default. `--verification off` is a diagnostic
+escape hatch, not a normal performance option, and emits a visible warning.
+The old `--no-verify-map` name remains a warning-emitting compatibility alias
+during the deprecation window. An unverified run is never described as a
 verified success.
 
 ## Naming rules for new options
@@ -109,9 +110,9 @@ contract test.
 1. `lidarslam-map view <output_dir>` owns optional viewer startup.
 2. `run --viewer ...` routes through `view` and emits a deprecation warning
    while preserving its previous combined-command exit behavior.
-3. Next, introduce an explicit verification-mode option and retain
-   `--no-verify-map` as its compatibility alias.
-4. Then freeze help snapshots, exit codes, JSON schemas, and shell completion
+3. `--verification {required,off}` makes the safety mode explicit;
+   `--no-verify-map` remains its warning-emitting compatibility alias.
+4. Next, freeze help snapshots, exit codes, JSON schemas, and shell completion
    in the Humble and Jazzy installed-CLI checks.
 
 No deprecated or provisional option is removed merely because a replacement

@@ -142,9 +142,17 @@
         },
         {
           "names": [
+            "--verification"
+          ],
+          "stability": "stable",
+          "tier": "verification"
+        },
+        {
+          "names": [
             "--no-verify-map"
           ],
-          "stability": "provisional",
+          "replacement": "--verification off",
+          "stability": "deprecated",
           "tier": "break-glass"
         }
       ]
