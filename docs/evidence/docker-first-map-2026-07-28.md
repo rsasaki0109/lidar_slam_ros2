@@ -128,18 +128,21 @@ Selected final artifact identities:
 | `pointcloud_map/pointcloud_map_metadata.yaml` | `d92eeefc4b068c2cf121bb7664851a2fb03b5a100dd43c2e56347dc541355710` |
 | `traj_corrected.tum` | `001afc405f18b36c9aefb17983ca985da734fed7b2358e9d2d20c7a678eb0338` |
 
-## Findings that remain open
+## Findings and follow-up
 
-- The first 517.1 MB download has no periodic progress display between start
-  and completion. On the trial network this looked idle for several minutes.
-- Files written to the bind mount are owned by container UID/GID `0:0`.
-  They are readable on the host but inconvenient to remove or modify without
-  an ownership-aware Docker invocation or post-run handling.
+- The trial image had no periodic progress display during the first 517.1 MB
+  download. The current downloader reports bytes, percentage and transfer rate
+  at time or byte intervals.
+- The trial image left bind-mounted files owned by container UID/GID `0:0`.
+  The current Docker demo accepts an explicit host UID/GID pair and restores
+  the dedicated output mount, run directory, `.partial` output and lock sidecar
+  on both successful and failed exits.
 - A moving convenience tag is appropriate for evaluation, but evidence and
   deployment must continue to record an immutable digest.
 - This trial covers one amd64 host and Humble image. It does not replace the
   Jazzy gate, source-workspace usability trial, arm64 evaluation, or three
   independent-user first-map reports.
 
-These findings do not invalidate the generated map, but progress visibility
-and host-file ownership remain onboarding work before v1.0.
+The original findings do not invalidate the generated map. Progress visibility
+and host-file ownership were closed as onboarding issues; the platform and
+independent-user coverage gaps remain before v1.0.

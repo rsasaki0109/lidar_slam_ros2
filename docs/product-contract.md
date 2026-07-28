@@ -48,7 +48,7 @@ launch files are advanced, benchmark, migration, or research interfaces.
 
 | Goal | Official command | Contract |
 | --- | --- | --- |
-| Try the fixed public demo without a ROS workspace | `docker run --rm -v "$PWD/lidarslam_output:/lidarslam_ws/output" ghcr.io/rsasaki0109/lidar_slam_ros2:humble` | Downloads the tracked MID-360 demo and writes a headless map bundle |
+| Try the fixed public demo without a ROS workspace | [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) | Downloads the tracked MID-360 demo with progress and writes a user-owned headless map bundle |
 | Map your own compatible rosbag2 | `lidarslam-map run <rosbag2_dir> --output-dir <dir>` | Preflights the bag, selects a compatible maintained profile, runs headless, verifies and diagnoses the output |
 | Reproduce the fixed source-workspace quickstart | `bash scripts/download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh` | Runs the tracked NTU VIRAL path and opens the bounded viewer flow |
 
