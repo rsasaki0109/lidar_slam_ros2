@@ -37,7 +37,11 @@ jobs:
       - name: Validate docs entrypoints
         shell: bash
         run: |
-          python3 -m pytest graph_based_slam/test/test_docs_entrypoints.py -q
+          python3 scripts/check_version_alignment.py
+          python3 -m pytest \
+            graph_based_slam/test/test_version_alignment.py \
+            graph_based_slam/test/test_docs_entrypoints.py \
+            -q
 
       - name: Validate public shell entrypoints
         shell: bash

@@ -26,11 +26,11 @@ bash scripts/run_autoware_quickstart.sh
 ```
 
 3. Push the branch and verify GitHub Actions are green.
-4. Set `VERSION="$(tr -d '\n' < VERSION)"` and confirm `CHANGELOG.md`, the
-   per-package `CHANGELOG.rst` files, `docs/comparison.md`,
-   `docs/releases/v${VERSION}.md`, `CITATION.cff`, and the core package versions
-   match (`test_release_metadata_and_core_package_versions_match` enforces most
-   of this).
+4. Run `python3 scripts/check_version_alignment.py`. `VERSION` is the only
+   version source of truth; the checker requires `CHANGELOG.md`, the
+   per-package `CHANGELOG.rst` files and `package.xml` versions,
+   `docs/comparison.md`, current release links,
+   `docs/releases/v${VERSION}.md`, and `CITATION.cff` to match it.
 5. Review README, `docs/autoware-quickstart.md`, `docs/benchmarking.md`,
    `docs/comparison.md`, and `CONTRIBUTING.md` for operator-facing accuracy.
 6. Confirm the tagged checkout can build both `ROS_DISTRO=humble` and
@@ -67,6 +67,7 @@ gh attestation verify \
 VERSION="$(tr -d '\n' < VERSION)"
 test -f "docs/releases/v${VERSION}.md"
 git tag "v${VERSION}"
+python3 scripts/check_version_alignment.py --tag "v${VERSION}"
 git push <remote> "v${VERSION}"
 ```
 

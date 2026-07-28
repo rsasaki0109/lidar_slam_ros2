@@ -51,16 +51,8 @@ jobs:
             echo "failed to resolve release tag name" >&2
             exit 1
           fi
-          if [[ "${TAG_NAME}" != "v${VERSION}" ]]; then
-            echo "tag ${TAG_NAME} does not match VERSION ${VERSION}" >&2
-            exit 1
-          fi
-
           git fetch --force --tags
-          if ! git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
-            echo "git tag ${TAG_NAME} does not exist" >&2
-            exit 1
-          fi
+          python3 scripts/check_version_alignment.py --tag "${TAG_NAME}"
 
           RELEASE_NOTES="docs/releases/${TAG_NAME}.md"
           if [[ ! -f "${RELEASE_NOTES}" ]]; then

@@ -333,8 +333,8 @@ def test_release_metadata_and_core_package_versions_match():
     docs_site_workflow = DOCS_SITE_WORKFLOW.read_text(encoding='utf-8')
     mkdocs_config = MKDOCS_CONFIG_PATH.read_text(encoding='utf-8')
 
-    assert version == '0.6.0'
     assert version in changelog
+    assert 'check_version_alignment.py' in releasing
     assert 'VERSION="$(tr -d \'\\n\' < VERSION)"' in releasing
     assert 'git tag "v${VERSION}"' in releasing
     assert 'RTK-SLAM' in release_notes
@@ -346,6 +346,9 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'actions/attest@v4' in release_workflow
     assert 'actions/download-artifact@v7' in release_workflow
     assert 'release-image-${{ matrix.ros_distro }}.json' in release_workflow
+    assert 'python3 scripts/check_version_alignment.py --tag "${TAG_NAME}"' in (
+        release_workflow
+    )
     assert 'v<VERSION>-<distro>' in (
         DISTRIBUTION_DOC.read_text(encoding='utf-8')
     )
