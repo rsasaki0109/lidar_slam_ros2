@@ -13,6 +13,9 @@ rosdistro review are still required before the package is available from apt.
 The same gate is now enforced by repository CI. Its
 [first GitHub Actions run](https://github.com/rsasaki0109/ndt_omp_ros2/actions/runs/30358865118)
 passed both matrix jobs.
+The
+[merged-commit run](https://github.com/rsasaki0109/ndt_omp_ros2/actions/runs/30369808717)
+also passed both jobs, including the Bloom/Debian gate and evidence upload.
 
 ## Boundary
 
@@ -28,9 +31,12 @@ passed both matrix jobs.
 | Build type | `RelWithDebInfo` |
 | Humble CI environment | `ros@sha256:afb40d6be65331c20a114d4e229a7ef099fed1b17bf6370daee193514b32aa16` |
 | Jazzy CI environment | `ros@sha256:31daab66eef9139933379fb67159449944f4e2dcf2e22c2d12cc715f29873e0f` |
-| CI run | `30358865118` — success |
+| Initial CI run | `30358865118` — success |
 | Public merged revision | `8b77fa5a6cdcad45bf35918361c892b6d94a287e` |
 | Bloom/Debian evidence revision | `46eafce8ad93282702ef2f3bb0defcf2acdd93ad` |
+| Merged-commit CI run | `30369808717` — success |
+| Humble CI artifact | `bloom-release-humble`, `sha256:efed8e15b161ee48b9297152f82229c94b81abd134c2a1d32445e9d9c134abb2` |
+| Jazzy CI artifact | `bloom-release-jazzy`, `sha256:eef5d130fd70197af059dfab37ec2e4ae183c4bdfd5668a8a569e9b409af534d` |
 
 The initial archive gate also ran with the pinned product build images while
 bypassing their entrypoints and pre-existing workspace prefixes. The
@@ -59,11 +65,12 @@ ROS base images and installs only dependencies declared through rosdep.
 | Public API package test | PASS | PASS |
 | Colcon result | 2 tests, 0 errors/failures/skips | 2 tests, 0 errors/failures/skips |
 | Fresh CMake consumer configure/link/run | PASS | PASS |
-| GitHub Actions job | PASS (2m42s) | PASS (2m39s) |
+| Initial GitHub Actions job | PASS (2m42s) | PASS (2m39s) |
 | `bloom-generate rosdebian` | PASS | PASS |
 | `dpkg-checkbuilddeps` | PASS | PASS |
 | Binary `.deb` build | PASS | PASS |
 | Package identity and required contents | 11/11 PASS | 11/11 PASS |
+| Merged-commit CI and artifact upload | PASS | PASS |
 
 The downstream fixture uses only:
 

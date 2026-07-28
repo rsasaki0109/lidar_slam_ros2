@@ -89,8 +89,11 @@ matrix on every push. The merged `ndt_omp_ros2` source has an independent
 matrix with pinned official ROS images; its
 [first run passed both distributions](https://github.com/rsasaki0109/ndt_omp_ros2/actions/runs/30358865118),
 including rosdep installation, compile, install, package tests and downstream
-consumer linking. All ament tests run on synthetic fixtures (no datasets, no
-network, no GPU), which matches buildfarm constraints.
+consumer linking. The
+[merged-commit run](https://github.com/rsasaki0109/ndt_omp_ros2/actions/runs/30369808717)
+also passed both jobs and uploaded the Bloom/Debian evidence bundles. All
+ament tests run on synthetic fixtures (no datasets, no network, no GPU),
+which matches buildfarm constraints.
 
 ## Release procedure (maintainer)
 
