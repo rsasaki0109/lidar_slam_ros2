@@ -42,10 +42,11 @@ Before the first lidarslam release, in the fork repo:
 
 1. Merge the
    [`release/buildfarm-quality`](https://github.com/rsasaki0109/ndt_omp_ros2/tree/release/buildfarm-quality)
-   branch (`f0326f6`), which installs/exports the library, respects the
-   buildfarm build type, and adds package/consumer smoke tests. The version
-   `0.1.0`, SPDX license, maintainer and changelog metadata are already on
-   the `humble` branch.
+   branch (`a9b30d1`), which installs/exports the library, respects the
+   buildfarm build type, adds package/consumer smoke tests, and runs the
+   complete gate on every Humble/Jazzy change. The version `0.1.0`, SPDX
+   license, maintainer and changelog metadata are already on the `humble`
+   branch.
 2. Re-run the
    [clean archive acceptance gate](evidence/ndt-omp-release-quality-2026-07-28.md)
    at the merge commit, then tag it `0.1.0`.
@@ -77,11 +78,12 @@ acceptance gates must pass after all packages reach the buildfarm.
 ## Distro targets
 
 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.04). Both are exercised by the CI
-matrix on every push. In addition, the release-quality `ndt_omp_ros2` source
-archive has passed isolated compile, install, package-test and downstream
-consumer-link gates on both distributions. All ament tests run on synthetic
-fixtures (no datasets, no network, no GPU), which matches buildfarm
-constraints.
+matrix on every push. The release-quality `ndt_omp_ros2` branch has an
+independent matrix with pinned official ROS images; its
+[first run passed both distributions](https://github.com/rsasaki0109/ndt_omp_ros2/actions/runs/30358865118),
+including rosdep installation, compile, install, package tests and downstream
+consumer linking. All ament tests run on synthetic fixtures (no datasets, no
+network, no GPU), which matches buildfarm constraints.
 
 ## Release procedure (maintainer)
 
