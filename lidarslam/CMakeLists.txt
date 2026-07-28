@@ -27,6 +27,7 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 find_package(rclcpp REQUIRED)
 find_package(scanmatcher REQUIRED)
 find_package(graph_based_slam REQUIRED)
@@ -240,6 +241,45 @@ foreach(PRODUCT_CLI_SCRIPT_NAME IN LISTS PRODUCT_CLI_SCRIPT_NAMES)
   )
 endforeach()
 
+set(
+  LIDARSLAM_SOURCE_REVISION
+  ""
+  CACHE STRING
+  "Exact 40-character source revision for builds without Git metadata"
+)
+set(
+  LIDARSLAM_SOURCE_DIRTY
+  ""
+  CACHE STRING
+  "Source dirty state for an explicit revision: true or false"
+)
+set(PRODUCT_BUILD_INFO_ARGS
+  --source-dir ${CMAKE_CURRENT_SOURCE_DIR}/..
+  --output ${CMAKE_CURRENT_BINARY_DIR}/product-build-info.json
+)
+if(NOT "${LIDARSLAM_SOURCE_REVISION}" STREQUAL "")
+  list(
+    APPEND PRODUCT_BUILD_INFO_ARGS
+    --revision ${LIDARSLAM_SOURCE_REVISION}
+  )
+endif()
+if(NOT "${LIDARSLAM_SOURCE_DIRTY}" STREQUAL "")
+  list(
+    APPEND PRODUCT_BUILD_INFO_ARGS
+    --dirty ${LIDARSLAM_SOURCE_DIRTY}
+  )
+endif()
+add_custom_target(
+  lidarslam_product_build_info ALL
+  COMMAND
+    ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/generate_product_build_info.py
+    ${PRODUCT_BUILD_INFO_ARGS}
+  BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/product-build-info.json
+  COMMENT "Generating installed product source provenance"
+  VERBATIM
+)
+
 # Keep the historical ROS executable untouched at lib/lidarslam/lidarslam.
 # The PATH command and ros2-run shim deliberately use distinct names.
 install(
@@ -260,6 +300,7 @@ install(
   FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/../VERSION
     ${CMAKE_CURRENT_SOURCE_DIR}/product-runtime-files.txt
+    ${CMAKE_CURRENT_BINARY_DIR}/product-build-info.json
   DESTINATION share/${PROJECT_NAME}/product
 )
 install(

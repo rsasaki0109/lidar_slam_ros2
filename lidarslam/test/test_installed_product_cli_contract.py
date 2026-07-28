@@ -104,6 +104,10 @@ def test_cmake_preserves_historical_node_and_installs_distinct_cli_names():
     assert 'rollback-plan-v1.schema.json' in cmake
     assert 'first-map-validation-receipt-v1.schema.json' in cmake
     assert 'DESTINATION share/${PROJECT_NAME}/product/schemas' in cmake
+    assert 'generate_product_build_info.py' in cmake
+    assert 'product-build-info.json' in cmake
+    assert 'LIDARSLAM_SOURCE_REVISION' in cmake
+    assert 'LIDARSLAM_SOURCE_DIRTY' in cmake
     assert 'install(TARGETS\n  lidarslam' in cmake
 
 

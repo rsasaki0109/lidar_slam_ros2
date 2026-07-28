@@ -18,6 +18,8 @@
 ARG ROS_DISTRO=humble
 FROM ros:${ROS_DISTRO}-ros-core
 ARG ROS_DISTRO
+ARG LIDARSLAM_SOURCE_REVISION=
+ARG LIDARSLAM_SOURCE_DIRTY=
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -61,7 +63,10 @@ RUN apt-get update \
 # No --symlink-install: a symlinked install/ dangles once build/ is removed.
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" \
   && colcon build --packages-up-to lidarslam rko_lio \
-    --cmake-args -DCMAKE_BUILD_TYPE=Release \
+    --cmake-args \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLIDARSLAM_SOURCE_REVISION:STRING="${LIDARSLAM_SOURCE_REVISION}" \
+      -DLIDARSLAM_SOURCE_DIRTY:STRING="${LIDARSLAM_SOURCE_DIRTY}" \
   && . install/setup.sh \
   && lidarslam-map --version \
   && rm -rf build log
