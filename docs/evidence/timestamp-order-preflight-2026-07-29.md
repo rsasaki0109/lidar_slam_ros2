@@ -45,6 +45,16 @@ The clean run produced no missing requirements. The derived run emitted an
 actionable requirement naming `/livox/lidar`, one reversal and the exact
 0.750000000-second maximum backward jump. No ROS mapping process was started.
 
+## Cross-reader revalidation
+
+Clean commit `05fefe8c798eb20d24183d66d769265b66a6b062` was then run with the
+Jazzy `rosbag2_py` reader against the same pinned clean bag. Schema v3
+validation passed in 2.705229 seconds, selected
+`rko_lio_graph_public_path`, and reproduced the complete 2,772-record LiDAR
+plus 55,435-record IMU result with zero reversals and zero invalid stamps.
+This verifies that the installed ROS reader and documented pure-Python
+fallback agree on the named real input.
+
 ## Contract covered
 
 - the selected PointCloud2 and Imu streams are inspected, rather than every
@@ -58,10 +68,9 @@ actionable requirement naming `/livox/lidar`, one reversal and the exact
 
 ## Limits
 
-- The clean execution used the pure-Python fallback because ROS Python
-  bindings were not sourced on the evidence host. Humble/Jazzy CI covers the
-  installed ROS dependency path; both readers share the same stamp assessment
-  and schema contract.
+- The first clean and derived executions used the pure-Python fallback.
+  Jazzy `rosbag2_py` was revalidated on the clean input; Humble behavior
+  remains covered by installed-CLI CI rather than this named local execution.
 - A `sampled` result cannot prove monotonicity after the 100,000th selected
   record. It is intentionally not reported as `passed`.
 - The derived input proves detection and pre-launch refusal, not automatic
