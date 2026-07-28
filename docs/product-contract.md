@@ -15,7 +15,7 @@ itself make that feature part of the product contract.
 
 A successful product-path run produces an output directory containing:
 
-- `pointcloud_map/` and `pointcloud_map_metadata.yaml`;
+- `pointcloud_map/` and `pointcloud_map/pointcloud_map_metadata.yaml`;
 - `map_projector_info.yaml`;
 - `traj_corrected.tum`;
 - `verify_autoware_map.log`;
@@ -57,6 +57,13 @@ before a long run. The repo-local `./scripts/lidarslam` wrapper and installed
 `ros2 run lidarslam lidarslam-cli` shim expose the same own-bag contract and do
 not add beginner workflows. Installation details are in
 [Distribution and installed CLI](distribution.md).
+
+The exact three-entrypoint, supported-platform and successful-artifact surface
+is also published as
+[`docs/contracts/first-map-v1.json`](contracts/first-map-v1.json). CI runs
+`python3 scripts/validate_first_map_docs.py` to confirm that these commands
+remain present in the adoption docs and that their executable help still
+matches the documented options and artifacts.
 
 ## Input contract
 

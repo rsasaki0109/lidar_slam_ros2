@@ -107,6 +107,24 @@ Selected final artifact identities:
 | `pointcloud_map/pointcloud_map_metadata.yaml` | `c2a4d1fcc21728909b7c7e7f2cbb8d7a7c561c15584863c8fabc11227ad45305` |
 | `traj_corrected.tum` | `08e3e4537ed74f1ff86dfe51152bef8ba9ae2598eedcba3231473dfe7d70c39f` |
 
+## Documentation-contract follow-up
+
+The trial exposed that the Product Contract described
+`pointcloud_map_metadata.yaml` at an ambiguous output location. The canonical
+path is now `pointcloud_map/pointcloud_map_metadata.yaml`.
+
+The versioned
+[`first-map-v1` contract](../contracts/first-map-v1.json) freezes the three
+beginner entrypoints, Humble/Jazzy source platforms and eight required success
+artifacts. `scripts/validate_first_map_docs.py` checks their exact adoption-doc
+commands and executes the corresponding help probes. The gate passed in pinned
+Humble and Jazzy ROS core containers on 2026-07-28 and is enforced by normal CI
+and the release workflow.
+
+This is a documentation-to-command consistency gate. It prevents drift but
+does not replace the real-data map run or the required independent-user
+reports.
+
 ## Remaining findings
 
 - A clean source install pulls a large PCL/VTK development dependency set.

@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "contract_id": "lidarslam-first-map-v1",
+  "supported_source_platforms": [
+    {
+      "ros_distro": "humble",
+      "ubuntu": "22.04"
+    },
+    {
+      "ros_distro": "jazzy",
+      "ubuntu": "24.04"
+    }
+  ],
+  "successful_run_artifacts": [
+    "pointcloud_map/",
+    "pointcloud_map/pointcloud_map_metadata.yaml",
+    "map_projector_info.yaml",
+    "traj_corrected.tum",
+    "verify_autoware_map.log",
+    "autoware_map_diagnosis.md",
+    "autoware_map_diagnosis.json",
+    "run_manifest.json"
+  ],
+  "official_entrypoints": [
+    {
+      "id": "docker-demo",
+      "audience": "Docker user without a ROS 2 workspace",
+      "command": "docker run --rm -v \"$PWD/lidarslam_output:/lidarslam_ws/output\" ghcr.io/rsasaki0109/lidar_slam_ros2:humble",
+      "documentation": [
+        "docs/getting-started.md",
+        "docs/product-contract.md"
+      ],
+      "required_documentation_snippets": {
+        "README.md": [
+          "docker run --rm -v \"$PWD/lidarslam_output:/lidarslam_ws/output\"",
+          "ghcr.io/rsasaki0109/lidar_slam_ros2:humble"
+        ]
+      },
+      "probes": []
+    },
+    {
+      "id": "own-bag",
+      "audience": "Operator with a compatible rosbag2",
+      "command": "lidarslam-map run <rosbag2_dir> --output-dir <dir>",
+      "documentation": [
+        "docs/product-contract.md"
+      ],
+      "required_documentation_snippets": {
+        "README.md": [
+          "lidarslam-map run /path/to/rosbag2",
+          "--output-dir \"$PWD/output/my_map\""
+        ],
+        "docs/getting-started.md": [
+          "lidarslam-map doctor /path/to/rosbag2",
+          "lidarslam-map run /path/to/rosbag2",
+          "lidarslam-map inspect output/<run_dir> --write"
+        ],
+        "docs/golden-path-cli.md": [
+          "lidarslam-map run <rosbag2_dir>",
+          "--output-dir output/my_map"
+        ]
+      },
+      "probes": [
+        {
+          "argv": [
+            "python3",
+            "scripts/lidarslam_cli.py",
+            "--help"
+          ],
+          "expected_output": [
+            "doctor <rosbag2_dir>",
+            "run <rosbag2_dir>",
+            "inspect <output_dir>"
+          ]
+        },
+        {
+          "argv": [
+            "python3",
+            "scripts/lidarslam_cli.py",
+            "run",
+            "--help"
+          ],
+          "expected_output": [
+            "--output-dir <dir>",
+            "--dry-run",
+            "Expected successful outputs:",
+            "traj_corrected.tum",
+            "autoware_map_diagnosis.json",
+            "run_manifest.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "source-demo",
+      "audience": "Source-workspace user reproducing the fixed public dataset",
+      "command": "bash scripts/download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh",
+      "documentation": [
+        "docs/getting-started.md",
+        "docs/product-contract.md"
+      ],
+      "required_documentation_snippets": {
+        "README.md": [
+          "bash scripts/download_ntu_viral_tnp01.sh",
+          "bash scripts/run_autoware_quickstart.sh"
+        ],
+        "docs/autoware-quickstart.md": [
+          "bash scripts/download_ntu_viral_tnp01.sh",
+          "bash scripts/run_autoware_quickstart.sh"
+        ]
+      },
+      "probes": [
+        {
+          "argv": [
+            "bash",
+            "scripts/download_ntu_viral_tnp01.sh",
+            "--help"
+          ],
+          "expected_output": [
+            "--dest DIR",
+            "--no-convert",
+            "--no-restamp"
+          ]
+        },
+        {
+          "argv": [
+            "bash",
+            "scripts/run_autoware_quickstart.sh",
+            "--help"
+          ],
+          "expected_output": [
+            "No arguments runs the bundled end-to-end dogfood path",
+            "--auto-exit-secs 20",
+            "bash scripts/download_ntu_viral_tnp01.sh"
+          ]
+        }
+      ]
+    }
+  ],
+  "verification_probe": {
+    "argv": [
+      "python3",
+      "scripts/verify_autoware_map.py",
+      "--help"
+    ],
+    "expected_output": [
+      "pointcloud_map directory or parent output directory",
+      "pointcloud_map_metadata.yaml",
+      "map_projector_info.yaml"
+    ]
+  }
+}

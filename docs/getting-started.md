@@ -51,8 +51,11 @@ Successful runs should leave these files:
 - `pointcloud_map/`
 - `pointcloud_map/pointcloud_map_metadata.yaml`
 - `map_projector_info.yaml`
+- `traj_corrected.tum`
 - `verify_autoware_map.log`
 - `autoware_map_diagnosis.md`
+- `autoware_map_diagnosis.json`
+- `run_manifest.json`
 
 To open the browser viewer at the end of a real run, select it explicitly:
 
