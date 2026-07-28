@@ -73,6 +73,12 @@ def test_contract_identifies_the_complete_product_surface():
     assert contract['schema_version'] == 1
     assert contract['contract_id'] == 'lidarslam-map-v1'
     assert contract['product_command'] == 'lidarslam-map'
+    assert contract['exit_codes'] == {
+        '0': 'command completed successfully',
+        '2': 'invalid usage, input, profile, or output path',
+        '70': 'internal or tooling error prevented command startup',
+        'other_nonzero': 'delegated workflow or viewer failure',
+    }
     assert set(contract['commands']) == {'doctor', 'run', 'inspect', 'view'}
     assert _option_names(contract['global_options']) == {
         '-h',

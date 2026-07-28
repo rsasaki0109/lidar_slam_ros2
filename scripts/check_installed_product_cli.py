@@ -116,6 +116,7 @@ def validate_install(prefix: Path) -> None:
     setup_file = prefix / 'setup.bash'
     product_root = prefix / 'share' / 'lidarslam' / 'product'
     product_scripts = product_root / 'scripts'
+    bash_completion = product_root / 'completions' / 'lidarslam-map.bash'
     installed_runtime_manifest = product_root / 'product-runtime-files.txt'
 
     for path in (path_command, ros_shim, historical_node):
@@ -131,6 +132,13 @@ def validate_install(prefix: Path) -> None:
             raise RuntimeError(f'installed product resource is missing: {path}')
     if not (product_root / 'VERSION').is_file():
         raise RuntimeError(f'installed VERSION is missing under {product_root}')
+    if not bash_completion.is_file():
+        raise RuntimeError(f'installed Bash completion is missing: {bash_completion}')
+    completion_syntax = _run(
+        ['bash', '-n', str(bash_completion)],
+        prefix,
+    )
+    _require_success(completion_syntax, 'installed Bash completion syntax')
     if (product_scripts / 'gaussian_splatting_train.py').exists():
         raise RuntimeError('research-only scripts leaked into the product install')
     if shutil.which('ros2') is None:

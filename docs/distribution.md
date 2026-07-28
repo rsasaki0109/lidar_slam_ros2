@@ -29,6 +29,12 @@ lidarslam-map inspect "$PWD/output/my_map"
 lidarslam-map view "$PWD/output/my_map" --viewer foxglove  # optional
 ```
 
+Enable command and option completion in Bash:
+
+```bash
+source "$(ros2 pkg prefix lidarslam)/share/lidarslam/product/completions/lidarslam-map.bash"
+```
+
 Use an absolute output path when it matters where artifacts are written. An
 installed CLI defaults relative output to the current working directory; it
 never writes into the read-only package share.

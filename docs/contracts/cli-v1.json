@@ -2,6 +2,12 @@
   "schema_version": 1,
   "contract_id": "lidarslam-map-v1",
   "product_command": "lidarslam-map",
+  "exit_codes": {
+    "0": "command completed successfully",
+    "2": "invalid usage, input, profile, or output path",
+    "70": "internal or tooling error prevented command startup",
+    "other_nonzero": "delegated workflow or viewer failure"
+  },
   "global_options": [
     {
       "names": [
