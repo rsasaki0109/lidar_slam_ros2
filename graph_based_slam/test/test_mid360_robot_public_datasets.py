@@ -32,6 +32,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -44,6 +45,7 @@ SCRIPT_DIR = REPO_ROOT / 'scripts'
 DOWNLOAD_SCRIPT = SCRIPT_DIR / 'download_mid360_robot_public_dataset.py'
 sys.path.insert(0, str(SCRIPT_DIR))
 
+import mid360_robot_public_datasets as public_datasets  # noqa: E402
 from mid360_robot_public_datasets import (  # noqa: E402
     get_public_dataset,
     public_dataset_registry,
@@ -52,6 +54,54 @@ from mid360_robot_public_datasets import (  # noqa: E402
     PublicDatasetIntake,
     PublicDatasetIntakeOptions,
 )
+
+
+def test_stream_download_reports_periodic_progress(monkeypatch):
+    data = b'x' * (3 * 1024 * 1024)
+    response = io.BytesIO(data)
+    response.headers = {'Content-Length': str(len(data))}
+    output = io.BytesIO()
+    progress = io.StringIO()
+    monkeypatch.setattr(public_datasets, 'DOWNLOAD_PROGRESS_BYTES', 1024 * 1024)
+
+    intake = PublicDatasetIntake(REPO_ROOT, progress_stream=progress)
+    intake._stream_download(
+        PublicDatasetFile(
+            id='fixture',
+            filename='fixture.zip',
+            url='file://fixture',
+        ),
+        response,
+        output,
+        hashlib.md5(),
+    )
+
+    lines = progress.getvalue().splitlines()
+    assert lines[0] == 'Downloading fixture.zip: 0 B / 3.0 MiB (0.0%)'
+    assert sum(line.startswith('Downloading fixture.zip:') for line in lines) == 4
+    assert lines[-1].startswith('Downloaded fixture.zip: 3.0 MiB / 3.0 MiB (100.0%)')
+    assert output.getvalue() == data
+
+
+def test_stream_download_reports_when_time_interval_elapses(monkeypatch):
+    data = b'x' * (2 * 1024 * 1024)
+    response = io.BytesIO(data)
+    response.headers = {}
+    progress = io.StringIO()
+    clock = iter((0.0, 6.0, 6.0, 6.0))
+    monkeypatch.setattr(public_datasets, 'DOWNLOAD_PROGRESS_BYTES', len(data) * 2)
+    monkeypatch.setattr(public_datasets.time, 'monotonic', lambda: next(clock))
+
+    PublicDatasetIntake(REPO_ROOT, progress_stream=progress)._stream_download(
+        PublicDatasetFile(id='fixture', filename='fixture.zip', url='file://fixture'),
+        response,
+        io.BytesIO(),
+        hashlib.md5(),
+    )
+
+    lines = progress.getvalue().splitlines()
+    assert 'Downloading fixture.zip: 1.0 MiB, 170.7 KiB/s' in lines
+    assert lines[-1].startswith('Downloaded fixture.zip: 2.0 MiB, 341.3 KiB/s')
 
 
 def test_public_dataset_registry_contains_recommended_mid360_sources():

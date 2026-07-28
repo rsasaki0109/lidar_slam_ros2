@@ -1,6 +1,9 @@
 # lidarslam_ros2 — prebuilt SLAM workspace + one-command demo.
 #
-#   docker run --rm -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
+#   mkdir -p "$PWD/lidarslam_output"
+#   docker run --rm \
+#     -e LIDARSLAM_HOST_UID="$(id -u)" -e LIDARSLAM_HOST_GID="$(id -g)" \
+#     -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
 #     ghcr.io/rsasaki0109/lidar_slam_ros2:humble
 #
 # The default command downloads a public Livox MID-360 driving bag

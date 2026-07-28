@@ -444,6 +444,10 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'lidarslam-map doctor' in getting_started_doc
     assert 'lidarslam-map run' in getting_started_doc
     assert 'lidarslam-map inspect' in getting_started_doc
+    assert 'LIDARSLAM_HOST_UID' in getting_started_doc
+    assert 'LIDARSLAM_HOST_GID' in getting_started_doc
+    assert 'periodic' in getting_started_doc
+    assert 'Bind-mounted output ownership' in distribution_doc
     assert 'Creative Commons Attribution 4.0' in real_data_e2e_doc
     first_map_evidence = DOCKER_FIRST_MAP_EVIDENCE_DOC.read_text(encoding='utf-8')
     assert 'FINAL_' not in first_map_evidence
