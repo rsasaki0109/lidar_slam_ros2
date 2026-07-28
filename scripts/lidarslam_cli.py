@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -23,7 +24,7 @@ EX_SOFTWARE = 70
 
 def command_name() -> str:
     """Return the source or installed command spelling."""
-    configured = __import__('os').environ.get('LIDARSLAM_CLI_NAME')
+    configured = os.environ.get('LIDARSLAM_CLI_NAME')
     if configured:
         return configured
     return './scripts/lidarslam'
@@ -98,7 +99,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EX_USAGE
 
     try:
-        completed = subprocess.run(command_argv(command, args), check=False)
+        child_env = os.environ.copy()
+        child_env['LIDARSLAM_CLI_COMMAND'] = f'{command_name()} {command}'
+        completed = subprocess.run(
+            command_argv(command, args),
+            check=False,
+            env=child_env,
+        )
     except (OSError, RuntimeError) as exc:
         print(f'error: failed to start {command}: {exc}', file=sys.stderr)
         return EX_SOFTWARE

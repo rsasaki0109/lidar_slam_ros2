@@ -145,6 +145,10 @@ def test_runner_help_is_user_facing():
     assert '--output-dir <dir>' in result.stdout
     assert '--min-free-space-gib <GiB>' in result.stdout
     assert '--resume' in result.stdout
+    assert 'map selection and output:' in result.stdout
+    assert 'safety and lifecycle:' in result.stdout
+    assert 'advanced viewer options:' in result.stdout
+    assert 'advanced safety overrides:' in result.stdout
 
 
 def test_storage_preflight_records_budget_and_refuses_low_space(
