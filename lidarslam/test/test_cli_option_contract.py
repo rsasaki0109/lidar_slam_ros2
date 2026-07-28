@@ -31,9 +31,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import re
 import subprocess
+from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -67,12 +67,13 @@ def _help(*args: str) -> str:
 
 
 def test_contract_identifies_the_complete_product_surface():
+    """The manifest should enumerate every product subcommand and global flag."""
     contract = _contract()
 
     assert contract['schema_version'] == 1
     assert contract['contract_id'] == 'lidarslam-map-v1'
     assert contract['product_command'] == 'lidarslam-map'
-    assert set(contract['commands']) == {'doctor', 'run', 'inspect'}
+    assert set(contract['commands']) == {'doctor', 'run', 'inspect', 'view'}
     assert _option_names(contract['global_options']) == {
         '-h',
         '--help',
@@ -81,6 +82,7 @@ def test_contract_identifies_the_complete_product_surface():
 
 
 def test_each_subcommand_help_matches_its_option_inventory():
+    """No public flag may appear without an inventory entry."""
     contract = _contract()
 
     for command, command_contract in contract['commands'].items():
@@ -98,6 +100,7 @@ def test_each_subcommand_help_matches_its_option_inventory():
 
 
 def test_stability_and_tier_values_are_explicit():
+    """Every flag should carry a bounded stability state and operator tier."""
     contract = _contract()
     entries = list(contract['global_options'])
     for command in contract['commands'].values():
@@ -107,6 +110,12 @@ def test_stability_and_tier_values_are_explicit():
     assert {entry['stability'] for entry in entries} <= {
         'stable',
         'provisional',
+        'deprecated',
     }
     assert all(entry['tier'] for entry in entries)
     assert any(entry['stability'] == 'provisional' for entry in entries)
+    deprecated = [
+        entry for entry in entries if entry['stability'] == 'deprecated'
+    ]
+    assert deprecated
+    assert all(entry['replacement'] for entry in deprecated)

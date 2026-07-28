@@ -26,6 +26,7 @@ The installed own-bag command is then available from any working directory:
 lidarslam-map doctor /path/to/rosbag2
 lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"
 lidarslam-map inspect "$PWD/output/my_map"
+lidarslam-map view "$PWD/output/my_map" --viewer foxglove  # optional
 ```
 
 Use an absolute output path when it matters where artifacts are written. An
@@ -48,9 +49,10 @@ lidarslam-map --help
 ros2 run lidarslam lidarslam-cli --help
 ```
 
-Both spellings dispatch the same `doctor`, `run`, and `inspect` contract. The
-`ros2 run` form is a compatibility shim, not a fourth product workflow.
-Inside a source checkout, `./scripts/lidarslam` exposes the same contract.
+Both spellings dispatch the same `doctor`, `run`, `inspect`, and optional
+post-run `view` contract. The `ros2 run` form is a compatibility shim, not a
+fourth product workflow. Inside a source checkout, `./scripts/lidarslam`
+exposes the same contract.
 
 ## What the installation contains
 
@@ -68,8 +70,9 @@ media are not copied into the product-script directory.
 
 Every Humble/Jazzy default CI job creates a fresh, non-symlinked install prefix
 and checks all curated resources from an unrelated working directory. The gate
-also runs `--version`, `doctor`, an own-bag dry run, and `inspect`, and confirms
-that `ros2 run lidarslam lidarslam` was not replaced.
+also runs `--version`, `doctor`, an own-bag dry run, `inspect`, and the
+non-launching `view` validation path, and confirms that
+`ros2 run lidarslam lidarslam` was not replaced.
 
 The Docker image is likewise built without `--symlink-install` and verifies
 `lidarslam-map --version` before its build tree is removed.

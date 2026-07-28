@@ -742,25 +742,25 @@ def maybe_open_viewer(args: argparse.Namespace, output_dir: Path) -> None:
     if args.viewer == 'none':
         return
 
-    if args.viewer == 'foxglove':
-        command = [
-            'bash',
-            str(SCRIPT_DIR / 'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh'),
-            str(output_dir),
-        ]
-    else:
-        command = [
-            'bash',
-            str(SCRIPT_DIR / 'run_graph_slam_pointcloud_map_in_autoware.sh'),
-            str(output_dir),
-        ]
-        if args.autoware_core_dir:
-            command.extend(['--autoware-core-dir', args.autoware_core_dir])
-
+    print(
+        'warning: run viewer options are deprecated; run the map first, then '
+        'use "lidarslam-map view <output_dir> --viewer '
+        f'{args.viewer}".',
+        file=sys.stderr,
+    )
+    command = [
+        sys.executable,
+        str(SCRIPT_DIR / 'view_autoware_map.py'),
+        str(output_dir),
+        '--viewer',
+        args.viewer,
+    ]
+    if args.autoware_core_dir:
+        command.extend(['--autoware-core-dir', args.autoware_core_dir])
     if args.work_dir:
         command.extend(['--work-dir', args.work_dir])
     if args.viewer_run_dir:
-        command.extend(['--run-dir', args.viewer_run_dir])
+        command.extend(['--runtime-dir', args.viewer_run_dir])
     if args.viewer_rebuild:
         command.append('--rebuild')
     if args.auto_exit_secs is not None:
@@ -812,13 +812,12 @@ def print_next_steps(args: argparse.Namespace, output_dir: Path) -> None:
     if args.viewer == 'none':
         print(
             '  Open in Foxglove: '
-            'bash scripts/run_graph_slam_pointcloud_map_in_autoware_foxglove.sh '
-            f'{shlex.quote(str(output_dir))}'
+            'lidarslam-map view '
+            f'{shlex.quote(str(output_dir))} --viewer foxglove'
         )
         print(
             '  Open in Autoware viewer: '
-            'bash scripts/run_graph_slam_pointcloud_map_in_autoware.sh '
-            f'{shlex.quote(str(output_dir))}'
+            f'lidarslam-map view {shlex.quote(str(output_dir))}'
         )
 
 
@@ -990,7 +989,6 @@ def _help_epilog() -> str:
         f'  {command} /path/to/rosbag2 --dry-run',
         f'  {command} /path/to/rosbag2 --output-dir output/my_map',
         f'  {command} /path/to/rosbag2 --output-dir output/my_map --resume',
-        f'  {command} /path/to/rosbag2 --viewer foxglove',
     ])
 
 
@@ -1048,15 +1046,20 @@ def parse_args() -> argparse.Namespace:
             'terminal schema-v2 run; the map workflow is never re-executed.'
         ),
     )
-    viewer_options = parser.add_argument_group('viewer')
+    viewer_options = parser.add_argument_group(
+        'deprecated viewer compatibility options'
+    )
     viewer_options.add_argument(
         '--viewer',
         choices=['none', 'autoware', 'foxglove'],
         default='none',
-        help='Open the saved map after the run (default: none).',
+        help=(
+            'Deprecated: open the saved map after the run. Prefer '
+            '"lidarslam-map view <output_dir>" (default: none).'
+        ),
     )
     advanced_viewer_options = parser.add_argument_group(
-        'advanced viewer options'
+        'deprecated advanced viewer compatibility options'
     )
     advanced_viewer_options.add_argument(
         '--autoware-core-dir',

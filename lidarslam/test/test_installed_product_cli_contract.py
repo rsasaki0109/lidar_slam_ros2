@@ -52,6 +52,7 @@ def test_product_runtime_manifest_is_curated_and_complete():
     assert len(names) == len(set(names))
     assert 'lidarslam_cli.py' in names
     assert 'run_autoware_map_from_bag.py' in names
+    assert 'view_autoware_map.py' in names
     assert 'run_map_soak.py' in names
     assert 'verify_autoware_map.py' in names
     assert 'gaussian_splatting_train.py' not in names

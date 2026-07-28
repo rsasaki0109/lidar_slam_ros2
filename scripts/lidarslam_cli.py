@@ -17,6 +17,7 @@ COMMANDS = {
     'doctor': 'preflight_autoware_map_bag.py',
     'run': 'run_autoware_map_from_bag.py',
     'inspect': 'diagnose_autoware_map_run.py',
+    'view': 'view_autoware_map.py',
 }
 EX_USAGE = 2
 EX_SOFTWARE = 70
@@ -36,10 +37,13 @@ def render_help() -> str:
     return '\n'.join([
         f'Usage: {executable} <command> [options]',
         '',
-        'Offline rosbag2-to-map product commands:',
+        'Core rosbag2-to-map commands:',
         '  doctor <rosbag2_dir>   Check inputs and select a compatible profile',
         '  run <rosbag2_dir>      Build and verify a map bundle',
         '  inspect <output_dir>   Diagnose an existing map-authoring output',
+        '',
+        'Optional post-processing:',
+        '  view <output_dir>      Open a completed map in an optional viewer',
         '',
         'Global options:',
         '  --version              Print the repository product version',
@@ -51,7 +55,7 @@ def render_help() -> str:
         '  0   command completed successfully',
         '  2   invalid usage, input, profile, or output path',
         '  70  the command could not start because of an internal/tooling error',
-        '  other non-zero values are propagated from the map workflow',
+        '  other non-zero values are propagated from a delegated workflow',
     ])
 
 

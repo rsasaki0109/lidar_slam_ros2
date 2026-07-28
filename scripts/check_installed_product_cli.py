@@ -237,6 +237,27 @@ def validate_install(prefix: Path) -> None:
         if json.loads(inspect.stdout).get('status') != 'incomplete':
             raise RuntimeError('installed inspect returned an unexpected status')
 
+        view_help = _run(
+            [str(path_command), 'view', '--help'],
+            work_dir,
+        )
+        _require_success(view_help, 'installed view --help')
+        if '--viewer {autoware,foxglove}' not in view_help.stdout:
+            raise RuntimeError('installed view help is missing viewer choices')
+
+        view_incomplete = _run(
+            [str(path_command), 'view', str(output_dir)],
+            work_dir,
+        )
+        if view_incomplete.returncode != 2:
+            raise RuntimeError(
+                'installed view did not reject an incomplete map output'
+            )
+        if 'map output is incomplete' not in view_incomplete.stderr:
+            raise RuntimeError(
+                'installed view returned an unexpected incomplete-output error'
+            )
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()

@@ -105,6 +105,7 @@ def test_global_help_version_and_usage_contract():
     assert 'doctor <rosbag2_dir>' in help_result.stdout
     assert 'run <rosbag2_dir>' in help_result.stdout
     assert 'inspect <output_dir>' in help_result.stdout
+    assert 'view <output_dir>' in help_result.stdout
 
     version_result = _run('--version')
     assert version_result.returncode == 0
@@ -123,19 +124,24 @@ def test_subcommand_help_uses_product_names_and_option_groups():
     doctor = _run('doctor', '--help')
     run = _run('run', '--help')
     inspect = _run('inspect', '--help')
+    view = _run('view', '--help')
 
-    assert doctor.returncode == run.returncode == inspect.returncode == 0
+    assert doctor.returncode == run.returncode == inspect.returncode == view.returncode == 0
     assert 'usage: lidarslam doctor' in doctor.stdout
     assert 'usage: lidarslam run' in run.stdout
     assert 'usage: lidarslam inspect' in inspect.stdout
+    assert 'usage: lidarslam view' in view.stdout
     assert 'python3 scripts/' not in doctor.stdout
     assert 'python3 scripts/' not in run.stdout
     assert 'python3 scripts/' not in inspect.stdout
+    assert 'python3 scripts/' not in view.stdout
     assert 'map selection and output:' in run.stdout
     assert 'safety and lifecycle:' in run.stdout
-    assert 'viewer:' in run.stdout
-    assert 'advanced viewer options:' in run.stdout
+    assert 'deprecated viewer compatibility options:' in run.stdout
+    assert 'deprecated advanced viewer compatibility options:' in run.stdout
     assert 'advanced safety overrides:' in run.stdout
+    assert '--viewer {autoware,foxglove}' in view.stdout
+    assert '--runtime-dir' in view.stdout
 
 
 def test_run_rejects_viewer_options_that_would_be_ignored(tmp_path: Path):

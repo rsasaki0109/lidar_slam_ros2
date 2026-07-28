@@ -121,8 +121,7 @@ def test_runner_script_supports_profiles_and_viewers():
     assert '--viewer' in script
     assert 'verify_autoware_map.py' in script
     assert 'Next steps:' in script
-    assert 'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh' in script
-    assert 'run_graph_slam_pointcloud_map_in_autoware.sh' in script
+    assert 'view_autoware_map.py' in script
     assert '--dry-run' in script
     assert '--resume' in script
     assert 'run_manifest.json' in script
@@ -147,8 +146,47 @@ def test_runner_help_is_user_facing():
     assert '--resume' in result.stdout
     assert 'map selection and output:' in result.stdout
     assert 'safety and lifecycle:' in result.stdout
-    assert 'advanced viewer options:' in result.stdout
+    assert 'deprecated viewer compatibility options:' in result.stdout
+    assert 'deprecated advanced viewer compatibility options:' in result.stdout
     assert 'advanced safety overrides:' in result.stdout
+
+
+def test_deprecated_run_viewer_routes_through_view_command(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    """The old combined spelling should warn and delegate without drift."""
+    module = _load_module()
+    recorded: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        recorded.append(command)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(module.subprocess, 'run', fake_run)
+    args = module.argparse.Namespace(
+        viewer='foxglove',
+        autoware_core_dir=None,
+        work_dir='/tmp/view-work',
+        viewer_run_dir='/tmp/view-runtime',
+        viewer_rebuild=True,
+        auto_exit_secs=30,
+    )
+    module.maybe_open_viewer(args, tmp_path / 'map_output')
+
+    assert recorded
+    command = recorded[0]
+    assert command[:2] == [
+        sys.executable,
+        str(module.SCRIPT_DIR / 'view_autoware_map.py'),
+    ]
+    assert command[command.index('--viewer') + 1] == 'foxglove'
+    assert command[command.index('--runtime-dir') + 1] == '/tmp/view-runtime'
+    assert '--rebuild' in command
+    warning = capsys.readouterr().err
+    assert 'warning: run viewer options are deprecated' in warning
+    assert 'lidarslam-map view <output_dir> --viewer foxglove' in warning
 
 
 def test_storage_preflight_records_budget_and_refuses_low_space(

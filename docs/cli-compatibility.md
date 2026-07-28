@@ -2,7 +2,8 @@
 
 `lidarslam-map` is the supported product command. This page defines which
 parts of its command line are intended to remain compatible through v1 and
-how provisional options will be moved without surprising existing users.
+how provisional and deprecated options are moved without surprising existing
+users.
 The machine-readable inventory is
 [`contracts/cli-v1.json`](contracts/cli-v1.json).
 
@@ -16,6 +17,13 @@ lidarslam-map run <rosbag2_dir> --output-dir <dir>
 lidarslam-map inspect <output_dir>
 ```
 
+Viewing is an optional post-processing command, not another required mapping
+step:
+
+```bash
+lidarslam-map view <output_dir> [--viewer autoware|foxglove]
+```
+
 Research scripts, benchmark runners, ROS launch arguments, and the historical
 `ros2 run lidarslam lidarslam` node are outside this CLI contract.
 
@@ -25,6 +33,7 @@ Research scripts, benchmark runners, ROS launch arguments, and the historical
 | --- | --- |
 | Stable | The name, accepted value shape, and meaning are v1 compatibility commitments. Additive choices are allowed when they do not change an existing invocation. |
 | Provisional | The option works and is tested, but its location or spelling may change before v1. A replacement and compatibility alias must land before removal. |
+| Deprecated | A documented replacement exists. The old spelling continues to work during its compatibility window and emits an actionable warning when exercised. |
 
 During v0.9, a stable option cannot be silently renamed, removed, or assigned
 a different default meaning. If a security or data-integrity defect requires
@@ -40,11 +49,12 @@ this option policy or the repository version.
 
 ## Current inventory
 
-| Command | Stable operator options | Provisional options |
+| Command | Stable operator options | Non-stable options |
 | --- | --- | --- |
 | `doctor` | `--json` | None |
-| `run` | `--profile`, `--output-dir`, `--min-free-space-gib`, `--dry-run`, `--resume` | `--viewer`, advanced viewer plumbing, `--no-verify-map` |
+| `run` | `--profile`, `--output-dir`, `--min-free-space-gib`, `--dry-run`, `--resume` | Deprecated viewer options; provisional `--no-verify-map` |
 | `inspect` | `--bag`, `--json`, `--write` | None |
+| `view` | `--viewer`, `--autoware-core-dir`, `--work-dir`, `--runtime-dir`, `--rebuild`, `--auto-exit-secs` | None |
 
 `-h`/`--help` is stable for every command. Top-level `--version` is also
 stable.
@@ -57,17 +67,17 @@ The positional names describe directories deliberately:
 
 ## Option tiers
 
-The `run` options are ordered by operator intent:
+The map-producing `run` options are ordered by operator intent:
 
 1. **Core:** choose a profile and output directory.
 2. **Lifecycle:** plan, reserve storage, or resume post-processing.
-3. **Viewer:** open a successful result.
-4. **Advanced viewer:** control viewer-specific build and workspace details.
-5. **Break glass:** disable an integrity check for diagnosis.
+3. **Deprecated compatibility:** forward old viewer requests to `view`.
+4. **Break glass:** disable an integrity check for diagnosis.
 
-Viewer construction is not map construction. Before v1, viewer behavior
-should move to a dedicated `view` command. Existing `run --viewer ...`
-invocations must remain as warning-emitting compatibility aliases during the
+Viewer construction is not map construction. It is owned by the dedicated
+`view` command, so a viewer failure does not make a completed map look like a
+mapping failure. Existing `run --viewer ...` invocations route through the new
+command and remain warning-emitting compatibility aliases during the
 published deprecation window.
 
 `--no-verify-map` is a diagnostic escape hatch, not a normal performance
@@ -94,16 +104,15 @@ documentation, and tests in the same change. CI compares the manifest with
 the flags rendered by each command, so an undocumented option fails the
 contract test.
 
-## Planned migration sequence
+## Migration sequence
 
-1. Introduce `lidarslam-map view <output_dir>` using the existing viewer
-   implementation.
-2. Route `run --viewer ...` through `view` and emit a deprecation warning
-   without changing the completed map result.
-3. Introduce an explicit verification-mode option and retain
+1. `lidarslam-map view <output_dir>` owns optional viewer startup.
+2. `run --viewer ...` routes through `view` and emits a deprecation warning
+   while preserving its previous combined-command exit behavior.
+3. Next, introduce an explicit verification-mode option and retain
    `--no-verify-map` as its compatibility alias.
-4. Freeze help snapshots, exit codes, JSON schemas, and shell completion in
-   the Humble and Jazzy installed-CLI checks.
+4. Then freeze help snapshots, exit codes, JSON schemas, and shell completion
+   in the Humble and Jazzy installed-CLI checks.
 
-No provisional option is removed merely because the replacement exists.
-Removal follows the compatibility window above.
+No deprecated or provisional option is removed merely because a replacement
+exists. Removal follows the compatibility window above.

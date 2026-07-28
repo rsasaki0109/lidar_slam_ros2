@@ -58,6 +58,11 @@ before a long run. The repo-local `./scripts/lidarslam` wrapper and installed
 not add beginner workflows. Installation details are in
 [Distribution and installed CLI](distribution.md).
 
+After a successful run, `lidarslam-map view <output_dir>` can open the
+completed output in Autoware or Foxglove. Viewing is optional post-processing,
+not a fourth beginner entrypoint, and its failure does not alter the map-run
+manifest.
+
 ## Input contract
 
 The general product path accepts a rosbag2 directory containing

@@ -96,42 +96,48 @@
           "names": [
             "--viewer"
           ],
-          "stability": "provisional",
+          "replacement": "view --viewer",
+          "stability": "deprecated",
           "tier": "viewer"
         },
         {
           "names": [
             "--autoware-core-dir"
           ],
-          "stability": "provisional",
+          "replacement": "view --autoware-core-dir",
+          "stability": "deprecated",
           "tier": "advanced-viewer"
         },
         {
           "names": [
             "--work-dir"
           ],
-          "stability": "provisional",
+          "replacement": "view --work-dir",
+          "stability": "deprecated",
           "tier": "advanced-viewer"
         },
         {
           "names": [
             "--viewer-run-dir"
           ],
-          "stability": "provisional",
+          "replacement": "view --runtime-dir",
+          "stability": "deprecated",
           "tier": "advanced-viewer"
         },
         {
           "names": [
             "--viewer-rebuild"
           ],
-          "stability": "provisional",
+          "replacement": "view --rebuild",
+          "stability": "deprecated",
           "tier": "advanced-viewer"
         },
         {
           "names": [
             "--auto-exit-secs"
           ],
-          "stability": "provisional",
+          "replacement": "view --auto-exit-secs",
+          "stability": "deprecated",
           "tier": "advanced-viewer"
         },
         {
@@ -177,6 +183,64 @@
           ],
           "stability": "stable",
           "tier": "output"
+        }
+      ]
+    },
+    "view": {
+      "positional": {
+        "name": "output_dir",
+        "stability": "stable"
+      },
+      "options": [
+        {
+          "names": [
+            "-h",
+            "--help"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--viewer"
+          ],
+          "stability": "stable",
+          "tier": "viewer"
+        },
+        {
+          "names": [
+            "--autoware-core-dir"
+          ],
+          "stability": "stable",
+          "tier": "viewer-runtime"
+        },
+        {
+          "names": [
+            "--work-dir"
+          ],
+          "stability": "stable",
+          "tier": "viewer-runtime"
+        },
+        {
+          "names": [
+            "--runtime-dir"
+          ],
+          "stability": "stable",
+          "tier": "viewer-runtime"
+        },
+        {
+          "names": [
+            "--rebuild"
+          ],
+          "stability": "stable",
+          "tier": "viewer-runtime"
+        },
+        {
+          "names": [
+            "--auto-exit-secs"
+          ],
+          "stability": "stable",
+          "tier": "viewer-runtime"
         }
       ]
     }
