@@ -226,6 +226,15 @@ def _docker_image_identity(image: str) -> dict[str, Any]:
         'source_revision': str(
             labels.get('org.opencontainers.image.revision', '')
         ),
+        'runtime_overlay_revision': str(
+            labels.get('io.lidarslam.evidence.runtime-overlay-revision', '')
+        ),
+        'runtime_overlay_diagnosis_sha256': str(
+            labels.get(
+                'io.lidarslam.evidence.runtime-overlay-diagnosis-sha256',
+                '',
+            )
+        ),
     }
 
 
@@ -255,6 +264,9 @@ def evaluate_state(
     harness_commit: str = '',
     harness_dirty: bool = False,
     image_revision: str = '',
+    diagnosis_script_sha256: str = '',
+    runtime_overlay_revision: str = '',
+    runtime_overlay_diagnosis_sha256: str = '',
 ) -> list[dict[str, Any]]:
     """Evaluate the terminal evidence without accepting a false success."""
     manifest = state.get('manifest') or {}
@@ -272,14 +284,23 @@ def evaluate_state(
             ),
         },
         {
-            'id': 'image_matches_harness_revision',
-            'passed': (
-                bool(harness_commit)
-                and image_revision == harness_commit
+            'id': 'runtime_matches_harness_revision',
+            'passed': bool(harness_commit) and (
+                image_revision == harness_commit
+                or (
+                    runtime_overlay_revision == harness_commit
+                    and bool(diagnosis_script_sha256)
+                    and runtime_overlay_diagnosis_sha256
+                    == diagnosis_script_sha256
+                )
             ),
             'observed': (
                 f'image_revision={image_revision}, '
-                f'harness_commit={harness_commit}'
+                f'overlay_revision={runtime_overlay_revision}, '
+                f'overlay_diagnosis_sha256='
+                f'{runtime_overlay_diagnosis_sha256}, '
+                f'harness_commit={harness_commit}, '
+                f'diagnosis_script_sha256={diagnosis_script_sha256}'
             ),
         },
         {
@@ -456,6 +477,9 @@ def run(args: argparse.Namespace) -> int:
     harness_identity = {
         **_git_identity(repo_root),
         'script_sha256': _sha256(script_path),
+        'diagnosis_script_sha256': _sha256(
+            repo_root / 'scripts' / 'diagnose_autoware_map_run.py'
+        ),
     }
     exit_code, timed_out, duration_sec = _run_container(
         image=args.image,
@@ -475,6 +499,15 @@ def run(args: argparse.Namespace) -> int:
         harness_commit=harness_identity['commit'],
         harness_dirty=harness_identity['dirty'],
         image_revision=image_identity['source_revision'],
+        diagnosis_script_sha256=(
+            harness_identity['diagnosis_script_sha256']
+        ),
+        runtime_overlay_revision=(
+            image_identity['runtime_overlay_revision']
+        ),
+        runtime_overlay_diagnosis_sha256=(
+            image_identity['runtime_overlay_diagnosis_sha256']
+        ),
     )
     report = {
         'schema_version': SCHEMA_VERSION,

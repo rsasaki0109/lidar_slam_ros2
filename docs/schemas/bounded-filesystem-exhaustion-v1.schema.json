@@ -37,7 +37,9 @@
         "reference",
         "image_id",
         "repo_digests",
-        "source_revision"
+        "source_revision",
+        "runtime_overlay_revision",
+        "runtime_overlay_diagnosis_sha256"
       ],
       "properties": {
         "reference": {"type": "string", "minLength": 1},
@@ -46,17 +48,31 @@
           "type": "array",
           "items": {"type": "string", "minLength": 1}
         },
-        "source_revision": {"type": "string"}
+        "source_revision": {"type": "string"},
+        "runtime_overlay_revision": {"type": "string"},
+        "runtime_overlay_diagnosis_sha256": {
+          "type": "string",
+          "pattern": "^$|^[0-9a-f]{64}$"
+        }
       }
     },
     "harness": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["commit", "dirty", "script_sha256"],
+      "required": [
+        "commit",
+        "dirty",
+        "script_sha256",
+        "diagnosis_script_sha256"
+      ],
       "properties": {
         "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
         "dirty": {"type": "boolean"},
-        "script_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        "script_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "diagnosis_script_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       }
     },
     "input": {
