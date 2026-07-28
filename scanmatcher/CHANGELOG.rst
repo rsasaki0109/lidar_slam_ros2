@@ -2,6 +2,14 @@
 Changelog for package scanmatcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.7.0 (2026-07-29)
+------------------
+* Preserve the deterministic offline frontend contract across Humble/Jazzy
+  clean installs and the product CLI release path.
+* Harden input validation and architecture boundaries without changing the
+  default NDT/FastGICP/SmallGICP selection contract.
+* Contributors: Ryohei Sasaki
+
 0.6.0 (2026-06-12)
 ------------------
 * Deterministic core / ROS shell refactor (v0.6 roadmap): pose prediction,

@@ -6,8 +6,8 @@ type: software
 authors:
   - family-names: Sasaki
     given-names: Ryohei
-version: 0.6.0
-date-released: 2026-06-12
+version: 0.7.0
+date-released: 2026-07-29
 license: BSD-2-Clause
 repository-code: "https://github.com/rsasaki0109/lidar_slam_ros2"
 url: "https://rsasaki0109.github.io/lidar_slam_ros2/"

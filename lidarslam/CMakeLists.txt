@@ -164,6 +164,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_release_image_promotion
+    test/test_release_image_promotion.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_map_soak_runner
     test/test_map_soak_runner.py
     TIMEOUT 120

@@ -154,11 +154,22 @@ by retagging an old image or moving a convenience/versioned tag; map outputs
 are likewise immutable, so a post-rollback mapping run uses a new output
 directory.
 
-The release workflow builds from the tagged recursive checkout, publishes an
-SBOM and maximum-mode BuildKit provenance with each image, creates a signed
-GitHub artifact attestation, then pulls and smoke-tests the registry digest.
-The GitHub Release is created only after both distro images pass. Verify the
-GitHub provenance with:
+The release workflow builds from the tagged recursive checkout and initially
+pushes each candidate by digest without a version tag. It requires the
+installed CLI version and source-revision label to match, verifies the OCI
+SBOM, maximum-mode BuildKit provenance, and signed GitHub attestation, and
+then preflights the Humble/Jazzy pair together. Only tested digests are
+promoted to version tags. A matching tag is safely reused during recovery; a
+tag that already resolves to a different digest aborts the release instead of
+moving it. The GitHub Release is created only after both distro images pass
+and immutable promotion succeeds.
+
+The deterministic release bundle embeds
+`release-bundle-manifest-v1.json`, which records the tag commit and SHA-256 of
+every included product document, evidence record, schema, contract, and media
+file. `release-promotion.json` records which version tags were created or
+reused and always declares `moving_tag_mutated: false`. Verify the GitHub
+provenance with:
 
 ```bash
 gh attestation verify \

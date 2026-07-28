@@ -153,6 +153,7 @@ Useful references:
 - Autoware quickstart: [docs/autoware-quickstart.md](docs/autoware-quickstart.md)
 - comparison page: [docs/comparison.md](docs/comparison.md)
 - benchmarking and release gate: [docs/benchmarking.md](docs/benchmarking.md)
-- current release notes: [docs/releases/v0.6.0.md](docs/releases/v0.6.0.md)
+- current release candidate notes:
+  [docs/releases/v0.7.0.md](docs/releases/v0.7.0.md)
 - product roadmap: [docs/roadmap/v0.9.md](docs/roadmap/v0.9.md)
 - benchmark fixture generator: `scripts/generate_sample_benchmark_metrics.py`

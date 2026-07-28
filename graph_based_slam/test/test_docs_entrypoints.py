@@ -111,11 +111,22 @@ RELEASE_IMAGE_SCHEMA = (
 ROLLBACK_PLAN_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'rollback-plan-v1.schema.json'
 )
+RELEASE_BUNDLE_MANIFEST_SCHEMA = (
+    REPO_ROOT
+    / 'docs'
+    / 'schemas'
+    / 'release-bundle-manifest-v1.schema.json'
+)
+RELEASE_PROMOTION_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas' / 'release-promotion-v1.schema.json'
+)
 V09_ROADMAP_DOC = REPO_ROOT / 'docs' / 'roadmap' / 'v0.9.md'
 SOCIAL_POST_DOC = REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.2.2.md'
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
 PUBLIC_AUTOWARE_ENTRYPOINT = REPO_ROOT / 'scripts' / 'run_autoware_quickstart.sh'
 RELEASE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'release.yml'
+RELEASE_BUNDLE_SCRIPT = REPO_ROOT / 'scripts' / 'build_release_bundle.py'
+RELEASE_PROMOTION_SCRIPT = REPO_ROOT / 'scripts' / 'promote_release_images.py'
 DOCKER_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'docker.yml'
 DOCS_SITE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'docs-site.yml'
 README_LOOP_IMAGE_PATH = REPO_ROOT / 'lidarslam' / 'images' / 'mid360_loop_closure_zoom.png'
@@ -179,6 +190,10 @@ def test_docs_exist_and_are_linked_from_readme():
     assert RUN_MANIFEST_V2_SCHEMA.is_file()
     assert RELEASE_IMAGE_SCHEMA.is_file()
     assert ROLLBACK_PLAN_SCHEMA.is_file()
+    assert RELEASE_BUNDLE_MANIFEST_SCHEMA.is_file()
+    assert RELEASE_PROMOTION_SCHEMA.is_file()
+    assert RELEASE_BUNDLE_SCRIPT.is_file()
+    assert RELEASE_PROMOTION_SCRIPT.is_file()
     assert V09_ROADMAP_DOC.is_file()
     assert SOCIAL_POST_DOC.is_file()
     assert DOCKER_WORKFLOW.is_file()
@@ -377,14 +392,18 @@ def test_release_metadata_and_core_package_versions_match():
         encoding='utf-8'
     )
     release_workflow = RELEASE_WORKFLOW.read_text(encoding='utf-8')
+    release_bundle_script = RELEASE_BUNDLE_SCRIPT.read_text(encoding='utf-8')
+    release_promotion_script = RELEASE_PROMOTION_SCRIPT.read_text(
+        encoding='utf-8'
+    )
     docs_site_workflow = DOCS_SITE_WORKFLOW.read_text(encoding='utf-8')
     mkdocs_config = MKDOCS_CONFIG_PATH.read_text(encoding='utf-8')
 
-    assert version == '0.6.0'
+    assert version == '0.7.0'
     assert version in changelog
     assert 'VERSION="$(tr -d \'\\n\' < VERSION)"' in releasing
     assert 'git tag "v${VERSION}"' in releasing
-    assert 'RTK-SLAM' in release_notes
+    assert 'Autoware-compatible' in release_notes
     assert 'action-gh-release@v2' in release_workflow
     assert 'docker/setup-buildx-action@v4' in release_workflow
     assert 'docker/login-action@v4' in release_workflow
@@ -393,40 +412,52 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'actions/attest@v4' in release_workflow
     assert 'actions/download-artifact@v7' in release_workflow
     assert 'release-image-${{ matrix.ros_distro }}.json' in release_workflow
+    assert 'push-by-digest=true' in release_workflow
+    assert 'scripts/create_release_image_record.py' in release_workflow
+    assert 'scripts/promote_release_images.py' in release_workflow
+    assert 'release-promotion.json' in release_workflow
+    assert 'refusing to move' in release_promotion_script
+    assert 'moving_tag_mutated' in release_promotion_script
     assert 'v<VERSION>-<distro>' in (
         DISTRIBUTION_DOC.read_text(encoding='utf-8')
     )
-    assert 'mkdocs.yml' in release_workflow
-    assert 'docs/index.md' in release_workflow
-    assert 'docs/assets/' in release_workflow
-    assert 'docs/releases/' in release_workflow
-    assert 'docs/autoware-map-authoring.md' in release_workflow
-    assert 'docs/product-contract.md' in release_workflow
-    assert 'docs/getting-started.md' in release_workflow
-    assert 'docs/golden-path-cli.md' in release_workflow
-    assert 'docs/cli-compatibility.md' in release_workflow
-    assert 'docs/contracts' in release_workflow
-    assert 'docs/operational-reliability.md' in release_workflow
-    assert 'docs/evidence/real-data-soak-2026-07-28.md' in release_workflow
-    assert 'docs/evidence/real-data-soak-2026-07-28.json' in release_workflow
-    assert 'docs/evidence/cli-v1-install-2026-07-28.md' in release_workflow
-    assert 'docs/schemas/*.json' in release_workflow
-    assert 'docs/real-data-e2e.md' in release_workflow
-    assert 'configs/real_data_e2e/driving_slam_mid360_v1.json' in release_workflow
-    assert 'docs/distribution.md' in release_workflow
-    assert 'docs/rosdistro-release.md' in release_workflow
-    assert 'docs/roadmap/v0.9.md' in release_workflow
-    policy_bundle = (
-        'SECURITY.md SUPPORT.md CODE_OF_CONDUCT.md GOVERNANCE.md CITATION.cff'
-    )
-    assert policy_bundle in release_workflow
-    assert 'docs/autoware-foxglove.md' in release_workflow
-    assert 'docs/social/autoware_map_authoring_post_v0.2.2.md' in release_workflow
-    assert 'docs/workflows.md' in release_workflow
-    assert 'lidarslam/images/autoware_map_loader_proof.png' in release_workflow
-    assert 'lidarslam/images/dynamic_object_filter_bag6_summary.svg' in release_workflow
-    assert 'lidarslam/images/social_autoware_map_authoring.png' in release_workflow
-    assert 'lidarslam/images/social_autoware_map_authoring_demo.mp4' in release_workflow
+    assert 'scripts/build_release_bundle.py' in release_workflow
+    for bundled_path in (
+        'mkdocs.yml',
+        'docs/index.md',
+        'docs/assets',
+        'docs/releases/',
+        'docs/autoware-map-authoring.md',
+        'docs/product-contract.md',
+        'docs/getting-started.md',
+        'docs/golden-path-cli.md',
+        'docs/cli-compatibility.md',
+        'docs/contracts',
+        'docs/operational-reliability.md',
+        'docs/evidence',
+        'docs/schemas',
+        'docs/real-data-e2e.md',
+        'configs/real_data_e2e/driving_slam_mid360_v1.json',
+        'docs/distribution.md',
+        'docs/rosdistro-release.md',
+        'docs/roadmap/v0.9.md',
+        'docs/autoware-foxglove.md',
+        'docs/social/autoware_map_authoring_post_v0.2.2.md',
+        'docs/workflows.md',
+        'lidarslam/images/autoware_map_loader_proof.png',
+        'lidarslam/images/dynamic_object_filter_bag6_summary.svg',
+        'lidarslam/images/social_autoware_map_authoring.png',
+        'lidarslam/images/social_autoware_map_authoring_demo.mp4',
+    ):
+        assert bundled_path in release_bundle_script
+    for policy in (
+        'SECURITY.md',
+        'SUPPORT.md',
+        'CODE_OF_CONDUCT.md',
+        'GOVERNANCE.md',
+        'CITATION.cff',
+    ):
+        assert policy in release_bundle_script
     assert 'actions/configure-pages@v5' in docs_site_workflow
     assert 'actions/upload-pages-artifact@v4' in docs_site_workflow
     assert 'actions/deploy-pages@v4' in docs_site_workflow
@@ -512,8 +543,8 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'PR #406' in first_map_evidence
     assert 'PR #407' in first_map_evidence
     assert 'independent-user validations' in first_map_evidence
-    assert 'docs/evidence/docker-first-map-2026-07-28.md' in (
-        RELEASE_WORKFLOW.read_text(encoding='utf-8')
+    assert "'docs/evidence'," in RELEASE_BUNDLE_SCRIPT.read_text(
+        encoding='utf-8'
     )
     assert (
         'git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git'
@@ -617,8 +648,8 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'timestamp reversal' in reliability_doc
     assert '100,000-record per-topic bound' in timestamp_order_evidence
     assert '750,000,000 ns' in timestamp_order_evidence
-    assert 'timestamp-order-preflight-2026-07-29.md' in (
-        RELEASE_WORKFLOW.read_text(encoding='utf-8')
+    assert "'docs/evidence'," in RELEASE_BUNDLE_SCRIPT.read_text(
+        encoding='utf-8'
     )
     assert 'disk-pressure' in reliability_doc
     assert '--min-free-space-gib' in reliability_doc

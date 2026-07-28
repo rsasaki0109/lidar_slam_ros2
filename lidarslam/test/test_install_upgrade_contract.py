@@ -43,6 +43,7 @@ WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'install-upgrade.yml'
 EVIDENCE = (
     REPO_ROOT / 'docs' / 'evidence' / 'install-upgrade-2026-07-28.md'
 )
+RELEASE_BUNDLE_SCRIPT = REPO_ROOT / 'scripts' / 'build_release_bundle.py'
 
 
 def _load_module():
@@ -195,6 +196,7 @@ def test_workflow_and_distribution_docs_enforce_upgrade_gate():
     release = (
         REPO_ROOT / '.github' / 'workflows' / 'release.yml'
     ).read_text(encoding='utf-8')
+    release_bundle = RELEASE_BUNDLE_SCRIPT.read_text(encoding='utf-8')
 
     assert 'fetch-depth: 0' in workflow
     assert 'check_install_upgrade.py' in workflow
@@ -210,4 +212,6 @@ def test_workflow_and_distribution_docs_enforce_upgrade_gate():
         'install-upgrade-2026-07-28-humble.json',
         'install-upgrade-2026-07-28-jazzy.json',
     ):
-        assert filename in release
+        assert (REPO_ROOT / 'docs' / 'evidence' / filename).is_file()
+    assert 'docs/evidence' in release_bundle
+    assert 'scripts/build_release_bundle.py' in release
