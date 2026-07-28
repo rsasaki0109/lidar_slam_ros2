@@ -62,14 +62,14 @@ defines the maintained surface; see [Distribution](docs/distribution.md) for ins
 ### Try it with Docker (one command, no build)
 
 ```bash
-docker run --rm -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
+mkdir -p "$PWD/lidarslam_output"
+docker run --rm -e LIDARSLAM_HOST_UID="$(id -u)" -e LIDARSLAM_HOST_GID="$(id -g)" \
+  -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
   ghcr.io/rsasaki0109/lidar_slam_ros2:humble
 ```
 
-This downloads a public 517 MB Livox MID-360 bag and runs the full headless
-pipeline. The Autoware bundle and `traj_corrected.tum` appear under
-`./lidarslam_output/mid360_demo/`; the [quickstart](docs/getting-started.md)
-shows caching and interactive-shell options.
+This runs the 517 MB MID-360 demo with periodic progress and writes `lidarslam_output/mid360_demo/`.
+UID/GID returns it to the Linux user; see [Getting Started](docs/getting-started.md) for other platforms.
 
 ### Build from source
 

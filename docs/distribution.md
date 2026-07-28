@@ -130,6 +130,26 @@ The version examples illustrate the tag contract; use a tag listed on the
 GitHub Releases page. Convenience tags are intentionally moving, so recording
 their current digest is mandatory when they are used in evaluation evidence.
 
+### Bind-mounted output ownership
+
+The default demo starts as container root so it can use the prebuilt workspace
+and its internal dataset cache. On Linux, pass the invoking UID and GID to
+return the dedicated output mount to the host user when the demo exits:
+
+```bash
+mkdir -p "$PWD/lidarslam_output"
+docker run --rm \
+  -e LIDARSLAM_HOST_UID="$(id -u)" \
+  -e LIDARSLAM_HOST_GID="$(id -g)" \
+  -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
+  ghcr.io/rsasaki0109/lidar_slam_ros2:humble
+```
+
+Both variables are required together and must be numeric. The demo changes the
+owner of the dedicated output mount, the requested run directory and any
+failed `.partial` or post-processing lock sidecar; unrelated sibling contents
+are not changed.
+
 ## Profile-specific extras
 
 The flagship PointCloud2 + IMU profile is complete after the recursive source
