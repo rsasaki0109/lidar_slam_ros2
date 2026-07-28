@@ -196,6 +196,8 @@ Each release image now produces a schema-validated
 downloaded release-image record can be revalidated with
 `lidarslam-map rollback-plan`; every generated registry command uses the
 immutable `@sha256:` reference and reports that no moving tag is mutated.
+The source and clean-install execution is recorded in the
+[recovery command contract evidence](evidence/recovery-command-contract-2026-07-29.md).
 
 ## Open Phase 3 gates
 
