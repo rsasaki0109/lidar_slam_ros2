@@ -40,12 +40,18 @@ The dependency is consumed as the submodule
 maintained by the same owner, BSD licensed, with a unique name in rosdistro.
 Before the first lidarslam release, in the fork repo:
 
-1. Bump `package.xml` `<version>` from `0.0.0` to `0.1.0`, set the SPDX
-   license string (`BSD-2-Clause`), and add/confirm a reachable
-   `<maintainer>` (rosdistro review requires one).
-2. Tag and bloom-release it into `humble` and `jazzy` (same procedure as
+1. Merge the
+   [`release/buildfarm-quality`](https://github.com/rsasaki0109/ndt_omp_ros2/tree/release/buildfarm-quality)
+   branch (`f0326f6`), which installs/exports the library, respects the
+   buildfarm build type, and adds package/consumer smoke tests. The version
+   `0.1.0`, SPDX license, maintainer and changelog metadata are already on
+   the `humble` branch.
+2. Re-run the
+   [clean archive acceptance gate](evidence/ndt-omp-release-quality-2026-07-28.md)
+   at the merge commit, then tag it `0.1.0`.
+3. Bloom-release it into `humble` and `jazzy` (same procedure as
    below, separate release repo `ndt_omp_ros2-release`).
-3. Wait for the rosdistro PR to merge; the lidarslam release can be submitted
+4. Wait for the rosdistro PR to merge; the lidarslam release can be submitted
    as soon as the key exists in the distribution file (it does not need to be
    built yet).
 
@@ -70,9 +76,10 @@ acceptance gates must pass after all packages reach the buildfarm.
 
 ## Distro targets
 
-Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.04). Both are already exercised by
-the CI matrix on every push, including the `ndt_omp_ros2` submodule build, so
-no new build risk is expected on the farm. All ament tests run on synthetic
+Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.04). Both are exercised by the CI
+matrix on every push. In addition, the release-quality `ndt_omp_ros2` source
+archive has passed isolated compile, install, package-test and downstream
+consumer-link gates on both distributions. All ament tests run on synthetic
 fixtures (no datasets, no network, no GPU), which matches buildfarm
 constraints.
 
