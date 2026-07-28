@@ -210,7 +210,7 @@ def build_execution_plan(
         timestamp_inspector=timestamp_inspector,
     )
     timestamp_inspection = payload['summary']['record_timestamp_inspection']
-    if timestamp_inspection['status'] != 'passed':
+    if timestamp_inspection['status'] not in ('passed', 'not_applicable'):
         raise RuntimeError(
             'rosbag record timestamp preflight failed: '
             f"{timestamp_inspection['reason']}"
@@ -1170,6 +1170,17 @@ def main() -> int:
         f"{storage_preflight['required_free_bytes'] / 1024**3:.2f} GiB required "
         f"under {storage_preflight['probe_path']}"
     )
+    timestamp_inspection = (
+        plan.get('payload', {})
+        .get('summary', {})
+        .get('record_timestamp_inspection')
+    )
+    if timestamp_inspection is not None:
+        print(
+            'Record timestamp preflight: '
+            f"{timestamp_inspection['status']} "
+            f"({timestamp_inspection['checked_records']} records checked)"
+        )
     print('Command:')
     print('  ' + shlex.join(plan['command']))
 

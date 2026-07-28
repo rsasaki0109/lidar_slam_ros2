@@ -780,7 +780,7 @@ def build_preflight_payload(
 
     missing = []
     timestamp_inspection = summary['record_timestamp_inspection']
-    if timestamp_inspection['status'] != 'passed':
+    if timestamp_inspection['status'] not in ('passed', 'not_applicable'):
         missing.append(
             'Rosbag record timestamp preflight did not pass: '
             f"{timestamp_inspection['reason']}"
