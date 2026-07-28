@@ -190,7 +190,13 @@ jobs:
               product_version: $product_version,
               cli_version: $cli_version
             }' > "${EVIDENCE_FILE}"
+          python3 -m venv .release-contract-venv
+          .release-contract-venv/bin/python -m pip install --quiet jsonschema
+          ROLLBACK_FILE="rollback-plan-${{ matrix.ros_distro }}.json"
+          .release-contract-venv/bin/python scripts/plan_image_rollback.py \
+            "${EVIDENCE_FILE}" --json > "${ROLLBACK_FILE}"
           echo "evidence_file=${EVIDENCE_FILE}" >> "${GITHUB_OUTPUT}"
+          echo "rollback_file=${ROLLBACK_FILE}" >> "${GITHUB_OUTPUT}"
           {
             echo "## ${{ matrix.ros_distro }} release image"
             echo
@@ -203,7 +209,9 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: release-image-${{ matrix.ros_distro }}
-          path: ${{ steps.smoke.outputs.evidence_file }}
+          path: |
+            ${{ steps.smoke.outputs.evidence_file }}
+            ${{ steps.smoke.outputs.rollback_file }}
           if-no-files-found: error
 
   publish:

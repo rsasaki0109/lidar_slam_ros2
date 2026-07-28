@@ -93,6 +93,12 @@ RUN_MANIFEST_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.j
 RUN_MANIFEST_V2_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v2.schema.json'
 )
+RELEASE_IMAGE_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas' / 'release-image-v1.schema.json'
+)
+ROLLBACK_PLAN_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas' / 'rollback-plan-v1.schema.json'
+)
 V09_ROADMAP_DOC = REPO_ROOT / 'docs' / 'roadmap' / 'v0.9.md'
 SOCIAL_POST_DOC = REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.2.2.md'
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
@@ -157,6 +163,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert DIAGNOSIS_SCHEMA.is_file()
     assert RUN_MANIFEST_SCHEMA.is_file()
     assert RUN_MANIFEST_V2_SCHEMA.is_file()
+    assert RELEASE_IMAGE_SCHEMA.is_file()
+    assert ROLLBACK_PLAN_SCHEMA.is_file()
     assert V09_ROADMAP_DOC.is_file()
     assert SOCIAL_POST_DOC.is_file()
     assert DOCKER_WORKFLOW.is_file()
@@ -693,3 +701,8 @@ def test_container_distribution_builds_and_attests_both_supported_distros():
     assert 'subject-digest: ${{ steps.image.outputs.digest }}' in release_workflow
     assert 'docker buildx imagetools inspect' in release_workflow
     assert 'release_image_evidence/*.json' in release_workflow
+    assert 'scripts/plan_image_rollback.py' in release_workflow
+    assert 'rollback-plan-${{ matrix.ros_distro }}.json' in release_workflow
+    assert 'lidarslam-map rollback-plan' in (
+        DISTRIBUTION_DOC.read_text(encoding='utf-8')
+    )

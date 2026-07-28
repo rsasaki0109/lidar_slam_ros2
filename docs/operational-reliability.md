@@ -18,6 +18,8 @@ only marked covered when an automated test exercises the public behavior.
 | Service/container stop (`SIGTERM`) | Forward `SIGTERM` to the isolated workflow process group; force cleanup after ten seconds; exit `143` | Final output, diagnosis, checksums, and manifest with `interrupted`, `143`, and `SIGTERM` | Inspect preserved evidence; rerun into a new directory if a map is still required | Automated failure injection |
 | Termination after the workflow result is durable but before post-processing completes | Leave the last durable schema-v2 lifecycle stage in the final or `.partial` directory | Original input/software/command identity and map artifacts | Run the same command and output path with `--resume`; SLAM is not rerun | Automated |
 | Ambiguous or unsafe resume state | Exit `2`; refuse concurrent or pre-terminal post-processing | Both candidate directories and manifests remain unchanged | Verify no original process is active; resolve the ambiguity manually before retrying | Automated |
+| Historical schema-v1 output needs a v2 reader | Require an explicit verification mode and accept only terminal v1 state; write a separate schema-v2 `complete` record | Source manifest and any existing destination remain byte-for-byte unchanged | Run `migrate-manifest` with a new output filename; use the result for inspection only | Automated |
+| Published image must be rolled back | Validate signed release evidence and generate pull, attestation, and CLI smoke commands for the exact digest | Moving and versioned registry tags are never changed | Run `rollback-plan`, verify its commands, then deploy the immutable digest reference | Automated and release-gated |
 | Missing TF connectivity observed in ROS logs | Diagnosis is `runtime_failed` with a TF connectivity hint | Launch log and diagnosis artifacts | Correct calibration/frame configuration and rerun | Automated diagnosis fixture |
 | Pinned public MID-360 bag → verified map | Nightly Jazzy workflow runs the installed CLI with exact archive/bag identity and bounded output thresholds | Non-geometry evidence report, manifests, diagnosis, verification, and logs | Inspect the failed assertion and retained evidence; do not move the contract without review | Automated real-data E2E |
 
@@ -180,6 +182,21 @@ records beyond the scan bound.
 The named real-bag and derived reversal execution is recorded in
 [timestamp-order preflight evidence](evidence/timestamp-order-preflight-2026-07-29.md).
 
+## Historical output migration and image rollback
+
+Schema-v1 run manifests do not identify a safe resumable lifecycle state or
+the original verification mode. `lidarslam-map migrate-manifest` therefore
+fails closed unless the record is terminal and the operator supplies
+`--verification required` or `--verification off`. Its exclusive atomic
+output is a separate schema-v2 record at lifecycle stage `complete`; it is
+only a compatibility view for inspection and automation.
+
+Each release image now produces a schema-validated
+`release-image-<distro>.json` and `rollback-plan-<distro>.json`. A locally
+downloaded release-image record can be revalidated with
+`lidarslam-map rollback-plan`; every generated registry command uses the
+immutable `@sha256:` reference and reports that no moving tag is mutated.
+
 ## Open Phase 3 gates
 
 The following readiness rows remain incomplete and must not be inferred from
@@ -187,7 +204,7 @@ the termination coverage:
 
 - a bounded-filesystem live exhaustion test in the scheduled real-data
   environment;
-- output migration tooling and last-known-good rollback instructions.
+- the first tagged release execution that publishes the new rollback assets.
 
 See the [pinned real-data E2E contract](real-data-e2e.md) and the
 [v0.9 roadmap](roadmap/v0.9.md) for the remaining Phase 3 and v1.0 gates.

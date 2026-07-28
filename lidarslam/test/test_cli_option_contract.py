@@ -96,13 +96,44 @@ def test_contract_identifies_the_complete_product_surface():
         '70': 'internal or tooling error prevented command startup',
         'other_nonzero': 'delegated workflow or viewer failure',
     }
-    assert set(contract['commands']) == {'doctor', 'run', 'inspect', 'view'}
+    assert set(contract['commands']) == {
+        'doctor',
+        'run',
+        'inspect',
+        'view',
+        'migrate-manifest',
+        'rollback-plan',
+    }
     assert _option_names(contract['global_options']) == {
         '-h',
         '--help',
         '--help-all',
         '--version',
     }
+
+
+def test_recovery_commands_are_kept_out_of_beginner_help():
+    """Recovery tools should be explicit without enlarging the golden path."""
+    normal = subprocess.run(
+        [str(CLI), '--help'],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    complete = subprocess.run(
+        [str(CLI), '--help-all'],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert normal.returncode == 0
+    assert complete.returncode == 0
+    for command in ('migrate-manifest', 'rollback-plan'):
+        assert command not in normal.stdout
+        assert command in complete.stdout
 
 
 def test_each_subcommand_help_matches_its_option_inventory():
@@ -182,6 +213,7 @@ def test_value_contract_matches_full_help_and_bounded_choices():
                 'enum',
                 'integer',
                 'number',
+                'file',
             }
             assert 'default' in value
             assert value['value_name'] == rendered_values[option]
@@ -209,7 +241,7 @@ def test_positionals_and_deprecation_lifecycle_are_machine_readable():
     }
     for command in contract['commands'].values():
         positional = command['positional']
-        assert positional['kind'] == 'directory'
+        assert positional['kind'] in {'directory', 'file'}
         assert positional['stability'] == 'stable'
         if 'must_contain' in positional:
             assert positional['must_contain']

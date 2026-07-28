@@ -84,7 +84,14 @@ def test_completion_suggests_commands_options_and_bounded_choices():
     """Completion should understand command context and finite option values."""
     contract = json.loads(CONTRACT.read_text(encoding='utf-8'))
 
-    assert {'doctor', 'run', 'inspect', 'view'} <= _complete(
+    assert {
+        'doctor',
+        'run',
+        'inspect',
+        'view',
+        'migrate-manifest',
+        'rollback-plan',
+    } <= _complete(
         'lidarslam-map',
         '',
     )

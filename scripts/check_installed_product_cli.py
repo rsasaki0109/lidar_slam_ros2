@@ -165,6 +165,63 @@ def _write_bag_fixture(path: Path) -> None:
         writer.close()
 
 
+def _historical_manifest_fixture() -> dict[str, object]:
+    return {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/run-manifest-v1.schema.json'
+        ),
+        'run_id': '12345678-1234-4234-8234-123456789abc',
+        'status': 'succeeded',
+        'input': {
+            'bag_path': '/data/bag',
+            'metadata_path': '/data/bag/metadata.yaml',
+            'metadata_size_bytes': 42,
+            'metadata_sha256': 'a' * 64,
+            'storage_identifier': 'sqlite3',
+            'storage_files': [],
+            'identity_algorithm': 'sha256',
+        },
+        'software': {
+            'product_version': '0.6.0',
+            'git_commit': 'b' * 40,
+            'git_dirty': False,
+            'package_versions': {'lidarslam': '0.6.0'},
+            'ros_distro': 'jazzy',
+        },
+        'profile': {'id': 'fixture', 'label': 'Fixture'},
+        'execution': {
+            'argv': ['lidarslam-map', 'run', '/data/bag'],
+            'command_shell': 'lidarslam-map run /data/bag',
+            'started_at': '2026-07-29T00:00:00Z',
+            'finished_at': '2026-07-29T00:01:00Z',
+            'exit_code': 0,
+        },
+        'output': {
+            'requested_dir': '/data/map',
+            'working_dir': '/data/map.partial',
+            'finalized': True,
+            'diagnosis_status': 'success',
+            'artifact_checksums': [],
+        },
+    }
+
+
+def _release_image_fixture() -> dict[str, object]:
+    return {
+        'schema_version': 1,
+        'status': 'PASS',
+        'ros_distro': 'jazzy',
+        'platform': 'linux/amd64',
+        'tag': 'ghcr.io/example/lidar_slam_ros2:v0.6.0-jazzy',
+        'digest': f"sha256:{'c' * 64}",
+        'git_commit': 'd' * 40,
+        'product_version': '0.6.0',
+        'cli_version': 'lidarslam_ros2 0.6.0',
+    }
+
+
 def validate_install(prefix: Path) -> None:
     """Validate commands, resources, isolation, and delegated behavior."""
     prefix = prefix.expanduser().resolve()
@@ -175,6 +232,7 @@ def validate_install(prefix: Path) -> None:
     product_root = prefix / 'share' / 'lidarslam' / 'product'
     product_scripts = product_root / 'scripts'
     bash_completion = product_root / 'completions' / 'lidarslam-map.bash'
+    product_schemas = product_root / 'schemas'
     installed_runtime_manifest = product_root / 'product-runtime-files.txt'
 
     for path in (path_command, ros_shim, historical_node):
@@ -190,6 +248,15 @@ def validate_install(prefix: Path) -> None:
             raise RuntimeError(f'installed product resource is missing: {path}')
     if not (product_root / 'VERSION').is_file():
         raise RuntimeError(f'installed VERSION is missing under {product_root}')
+    for schema_name in (
+        'run-manifest-v1.schema.json',
+        'run-manifest-v2.schema.json',
+        'release-image-v1.schema.json',
+        'rollback-plan-v1.schema.json',
+    ):
+        schema_path = product_schemas / schema_name
+        if not schema_path.is_file():
+            raise RuntimeError(f'installed product schema is missing: {schema_path}')
     if not bash_completion.is_file():
         raise RuntimeError(f'installed Bash completion is missing: {bash_completion}')
     completion_syntax = _run(
@@ -240,6 +307,56 @@ def validate_install(prefix: Path) -> None:
                 raise RuntimeError(f'unexpected version output: {result.stdout!r}')
 
         _validate_installed_help(path_command, work_dir)
+
+        historical_run = work_dir / 'historical_run'
+        historical_run.mkdir()
+        historical_source = historical_run / 'run_manifest.json'
+        historical_source.write_text(
+            json.dumps(_historical_manifest_fixture()),
+            encoding='utf-8',
+        )
+        migrated_path = work_dir / 'migrated_manifest.json'
+        migration = _run(
+            [
+                str(path_command),
+                'migrate-manifest',
+                str(historical_run),
+                '--output',
+                str(migrated_path),
+                '--verification',
+                'required',
+                '--json',
+            ],
+            work_dir,
+        )
+        _require_success(migration, 'installed migrate-manifest')
+        migrated = json.loads(migrated_path.read_text(encoding='utf-8'))
+        if migrated.get('lifecycle', {}).get('stage') != 'complete':
+            raise RuntimeError('installed migration was not inspect-only')
+        if json.loads(migration.stdout).get('resume_allowed') is not False:
+            raise RuntimeError('installed migration did not refuse resume')
+
+        release_record = work_dir / 'release-image-jazzy.json'
+        release_record.write_text(
+            json.dumps(_release_image_fixture()),
+            encoding='utf-8',
+        )
+        rollback = _run(
+            [
+                str(path_command),
+                'rollback-plan',
+                str(release_record),
+                '--json',
+            ],
+            work_dir,
+        )
+        _require_success(rollback, 'installed rollback-plan')
+        rollback_payload = json.loads(rollback.stdout)
+        if rollback_payload.get('moving_tag_mutated') is not False:
+            raise RuntimeError('installed rollback plan could move a tag')
+        immutable_ref = rollback_payload.get('immutable_ref', '')
+        if '@sha256:' not in immutable_ref:
+            raise RuntimeError('installed rollback plan is not digest-pinned')
 
         executables = _run(
             ['ros2', 'pkg', 'executables', 'lidarslam'],

@@ -139,14 +139,20 @@ docker run --rm "$IMAGE" lidarslam-map --version
 Use an exact digest for deployment or rollback. Each GitHub Release attaches
 `release-image-humble.json` and `release-image-jazzy.json`; they record the
 tested tag, digest, tag commit, platform, product version, and observed CLI
-version:
+version. It also attaches the schema-validated rollback plan generated from
+each record:
 
 ```bash
-DIGEST="$(jq -r .digest release-image-jazzy.json)"
-docker run --rm \
-  "ghcr.io/rsasaki0109/lidar_slam_ros2@${DIGEST}" \
-  lidarslam-map --version
+lidarslam-map rollback-plan release-image-jazzy.json
 ```
+
+Run the printed pull, `gh attestation verify`, and CLI smoke commands, then
+substitute the printed `ghcr.io/...@sha256:...` reference in the normal Docker
+invocation. Keep the previous release-image JSON with deployment evidence so
+the same last-known-good digest remains recoverable. Never implement rollback
+by retagging an old image or moving a convenience/versioned tag; map outputs
+are likewise immutable, so a post-rollback mapping run uses a new output
+directory.
 
 The release workflow builds from the tagged recursive checkout, publishes an
 SBOM and maximum-mode BuildKit provenance with each image, creates a signed
@@ -156,7 +162,7 @@ GitHub provenance with:
 
 ```bash
 gh attestation verify \
-  oci://ghcr.io/rsasaki0109/lidar_slam_ros2:v0.7.0-jazzy \
+  oci://ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:<digest> \
   -R rsasaki0109/lidar_slam_ros2
 ```
 

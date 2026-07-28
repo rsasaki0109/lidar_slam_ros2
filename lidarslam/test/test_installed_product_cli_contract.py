@@ -74,6 +74,9 @@ def test_product_runtime_manifest_is_curated_and_complete():
     assert names
     assert len(names) == len(set(names))
     assert 'lidarslam_cli.py' in names
+    assert 'product_schema.py' in names
+    assert 'migrate_run_manifest.py' in names
+    assert 'plan_image_rollback.py' in names
     assert 'run_autoware_map_from_bag.py' in names
     assert 'view_autoware_map.py' in names
     assert 'run_map_soak.py' in names
@@ -94,6 +97,9 @@ def test_cmake_preserves_historical_node_and_installs_distinct_cli_names():
     assert 'RENAME lidarslam-cli' in cmake
     assert 'scripts/completions/lidarslam-map.bash' in cmake
     assert 'DESTINATION share/${PROJECT_NAME}/product/completions' in cmake
+    assert 'release-image-v1.schema.json' in cmake
+    assert 'rollback-plan-v1.schema.json' in cmake
+    assert 'DESTINATION share/${PROJECT_NAME}/product/schemas' in cmake
     assert 'install(TARGETS\n  lidarslam' in cmake
 
 
