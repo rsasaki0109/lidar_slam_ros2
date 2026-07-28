@@ -103,7 +103,7 @@ def test_evaluate_state_requires_failed_manifest_and_real_enospc_signature():
         harness_commit='a' * 40,
         harness_dirty=False,
         image_revision='a' * 40,
-        diagnosis_script_sha256='b' * 64,
+        runtime_payload_sha256='b' * 64,
     )
 
     assert len(checks) == 10
@@ -117,9 +117,9 @@ def test_evaluate_state_requires_failed_manifest_and_real_enospc_signature():
         harness_commit='a' * 40,
         harness_dirty=False,
         image_revision='c' * 40,
-        diagnosis_script_sha256='b' * 64,
+        runtime_payload_sha256='b' * 64,
         runtime_overlay_revision='a' * 40,
-        runtime_overlay_diagnosis_sha256='b' * 64,
+        runtime_overlay_payload_sha256='b' * 64,
     )
     assert all(item['passed'] for item in overlay_checks)
 
@@ -131,9 +131,9 @@ def test_evaluate_state_requires_failed_manifest_and_real_enospc_signature():
         harness_commit='a' * 40,
         harness_dirty=False,
         image_revision='c' * 40,
-        diagnosis_script_sha256='b' * 64,
+        runtime_payload_sha256='b' * 64,
         runtime_overlay_revision='a' * 40,
-        runtime_overlay_diagnosis_sha256='d' * 64,
+        runtime_overlay_payload_sha256='d' * 64,
     )
     assert not next(
         item for item in mismatched_overlay_checks
@@ -156,7 +156,7 @@ def test_evaluate_state_requires_failed_manifest_and_real_enospc_signature():
         harness_commit='a' * 40,
         harness_dirty=False,
         image_revision='a' * 40,
-        diagnosis_script_sha256='b' * 64,
+        runtime_payload_sha256='b' * 64,
     )
     failed_ids = {
         item['id'] for item in failed_checks if not item['passed']
@@ -237,13 +237,19 @@ def test_report_schema_accepts_terminal_pass_shape():
             'repo_digests': ['example.invalid/image@sha256:' + 'a' * 64],
             'source_revision': 'c' * 40,
             'runtime_overlay_revision': '',
-            'runtime_overlay_diagnosis_sha256': '',
+            'runtime_overlay_payload_sha256': '',
         },
         'harness': {
             'commit': 'd' * 40,
             'dirty': False,
             'script_sha256': 'e' * 64,
-            'diagnosis_script_sha256': '2' * 64,
+            'runtime_payload': {
+                'files': [{
+                    'path': 'scripts/runtime.py',
+                    'sha256': '2' * 64,
+                }],
+                'sha256': '3' * 64,
+            },
         },
         'input': {
             'bag_name': 'public-bag',

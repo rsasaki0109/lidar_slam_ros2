@@ -229,9 +229,9 @@ def _docker_image_identity(image: str) -> dict[str, Any]:
         'runtime_overlay_revision': str(
             labels.get('io.lidarslam.evidence.runtime-overlay-revision', '')
         ),
-        'runtime_overlay_diagnosis_sha256': str(
+        'runtime_overlay_payload_sha256': str(
             labels.get(
-                'io.lidarslam.evidence.runtime-overlay-diagnosis-sha256',
+                'io.lidarslam.evidence.runtime-overlay-payload-sha256',
                 '',
             )
         ),
@@ -256,6 +256,28 @@ def _git_identity(repo_root: Path) -> dict[str, Any]:
     return {'commit': commit, 'dirty': dirty}
 
 
+def _runtime_payload_identity(repo_root: Path) -> dict[str, Any]:
+    files = [
+        {
+            'path': relative,
+            'sha256': _sha256(repo_root / relative),
+        }
+        for relative in (
+            'scripts/diagnose_autoware_map_run.py',
+            'scripts/run_autoware_map_from_bag.py',
+        )
+    ]
+    canonical = json.dumps(
+        files,
+        separators=(',', ':'),
+        sort_keys=True,
+    ).encode()
+    return {
+        'files': files,
+        'sha256': hashlib.sha256(canonical).hexdigest(),
+    }
+
+
 def evaluate_state(
     state: dict[str, Any],
     tmpfs_bytes: int,
@@ -264,9 +286,9 @@ def evaluate_state(
     harness_commit: str = '',
     harness_dirty: bool = False,
     image_revision: str = '',
-    diagnosis_script_sha256: str = '',
+    runtime_payload_sha256: str = '',
     runtime_overlay_revision: str = '',
-    runtime_overlay_diagnosis_sha256: str = '',
+    runtime_overlay_payload_sha256: str = '',
 ) -> list[dict[str, Any]]:
     """Evaluate the terminal evidence without accepting a false success."""
     manifest = state.get('manifest') or {}
@@ -289,18 +311,18 @@ def evaluate_state(
                 image_revision == harness_commit
                 or (
                     runtime_overlay_revision == harness_commit
-                    and bool(diagnosis_script_sha256)
-                    and runtime_overlay_diagnosis_sha256
-                    == diagnosis_script_sha256
+                    and bool(runtime_payload_sha256)
+                    and runtime_overlay_payload_sha256
+                    == runtime_payload_sha256
                 )
             ),
             'observed': (
                 f'image_revision={image_revision}, '
                 f'overlay_revision={runtime_overlay_revision}, '
-                f'overlay_diagnosis_sha256='
-                f'{runtime_overlay_diagnosis_sha256}, '
+                f'overlay_payload_sha256='
+                f'{runtime_overlay_payload_sha256}, '
                 f'harness_commit={harness_commit}, '
-                f'diagnosis_script_sha256={diagnosis_script_sha256}'
+                f'runtime_payload_sha256={runtime_payload_sha256}'
             ),
         },
         {
@@ -477,9 +499,7 @@ def run(args: argparse.Namespace) -> int:
     harness_identity = {
         **_git_identity(repo_root),
         'script_sha256': _sha256(script_path),
-        'diagnosis_script_sha256': _sha256(
-            repo_root / 'scripts' / 'diagnose_autoware_map_run.py'
-        ),
+        'runtime_payload': _runtime_payload_identity(repo_root),
     }
     exit_code, timed_out, duration_sec = _run_container(
         image=args.image,
@@ -499,14 +519,14 @@ def run(args: argparse.Namespace) -> int:
         harness_commit=harness_identity['commit'],
         harness_dirty=harness_identity['dirty'],
         image_revision=image_identity['source_revision'],
-        diagnosis_script_sha256=(
-            harness_identity['diagnosis_script_sha256']
+        runtime_payload_sha256=(
+            harness_identity['runtime_payload']['sha256']
         ),
         runtime_overlay_revision=(
             image_identity['runtime_overlay_revision']
         ),
-        runtime_overlay_diagnosis_sha256=(
-            image_identity['runtime_overlay_diagnosis_sha256']
+        runtime_overlay_payload_sha256=(
+            image_identity['runtime_overlay_payload_sha256']
         ),
     )
     report = {

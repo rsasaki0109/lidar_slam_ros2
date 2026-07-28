@@ -188,6 +188,21 @@ def test_storage_preflight_rejects_unsafe_budget_values(value: str):
         module._minimum_free_space_gib(value)
 
 
+def test_terminal_evidence_reserve_allocates_real_blocks_and_releases(
+    tmp_path: Path,
+):
+    module = _load_module()
+    before = os.statvfs(tmp_path).f_bavail
+    reserve = module._allocate_emergency_evidence_reserve(tmp_path)
+    after_allocate = os.statvfs(tmp_path).f_bavail
+
+    assert reserve.stat().st_size == module.EMERGENCY_EVIDENCE_RESERVE_BYTES
+    assert after_allocate < before
+
+    module._release_emergency_evidence_reserve(reserve)
+    assert not reserve.exists()
+
+
 def test_main_refuses_low_space_before_creating_output(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
