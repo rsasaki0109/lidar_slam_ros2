@@ -30,7 +30,7 @@ bloom's upstream import) excludes — intended.
 | `libg2o` | released (`ros-<distro>-libg2o`; verified 2026-06-11: `rosdep resolve libg2o` → `ros-humble-libg2o` on jammy, `ros-jazzy-libg2o` on noble) | none |
 | `libpcl-all-dev` | standard rosdep key (system PCL) | none |
 | **`ndt_omp_ros2`** | **not in rosdistro** | **bloom-release it first** (see below) |
-| `rko_lio` | not in rosdistro, and **not** a `package.xml` dependency | not a build blocker, but blocks a binary flagship-product claim; see below |
+| `rko_lio` | released for Humble and Jazzy; declared as a runtime dependency | public package is the binary golden-path frontend |
 
 ### ndt_omp_ros2 must be released first
 
@@ -49,22 +49,24 @@ Before the first lidarslam release, in the fork repo:
    as soon as the key exists in the distribution file (it does not need to be
    built yet).
 
-### rko_lio is a product-distribution blocker
+### rko_lio binary boundary is resolved
 
-The RKO-LIO flagship launch (`rko_lio_slam.launch.py`) uses the `rko_lio`
-package at runtime, but no core package declares it in `package.xml`, so the
-four core packages can be built and released without it. That is only a
-buildfarm fact: the resulting apt installation cannot execute the documented
-flagship own-bag profile. Consequences for apt users:
+The public `rko_lio` package is released in Humble and Jazzy rosdistro.
+`lidarslam/package.xml` declares it as an execution dependency, and the
+standard MID-360 parameters use APIs available in the public package.
 
-- `lidarslam.launch.py` (scanmatcher frontend) works out of the box.
-- The RKO-LIO frontend needs a recursive source workspace (or the GHCR image).
-- The project must either bloom-release its maintained RKO-LIO fork for both
-  supported distributions or explicitly change the binary product profile to
-  a frontend delivered from the same distribution.
+The
+[Humble clean-container first-map trial](evidence/upstream-rko-binary-first-map-2026-07-28.md)
+built without the repository RKO-LIO submodule, resolved
+`ros-humble-rko-lio` from apt, and produced a verified full map. The recursive
+source checkout still supplies the maintained fork for degeneracy, radar,
+intensity and visual-fusion research. Profiles that require those fork-only
+features are source/research capabilities, not part of the binary product
+claim.
 
-Do not advertise `sudo apt install ros-<distro>-lidarslam` as the golden path
-until that decision and an installation E2E gate are complete.
+Do not advertise `sudo apt install ros-<distro>-lidarslam` yet:
+`ndt_omp_ros2` remains unreleased, and the final Humble/Jazzy installed
+acceptance gates must pass after all packages reach the buildfarm.
 
 ## Distro targets
 

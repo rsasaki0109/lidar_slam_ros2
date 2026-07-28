@@ -424,8 +424,30 @@ if(BUILD_TESTING)
   )
   if(TARGET test_degeneracy_aware_solve)
     target_include_directories(
-      test_degeneracy_aware_solve PRIVATE include ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+      test_degeneracy_aware_solve PRIVATE include ${EIGEN3_INCLUDE_DIR}
     )
+    set(
+      RKO_LIO_FORK_TEST_INCLUDE_DIR
+      "${CMAKE_CURRENT_SOURCE_DIR}/../Thirdparty/rko_lio"
+    )
+    if(
+      EXISTS
+      "${RKO_LIO_FORK_TEST_INCLUDE_DIR}/rko_lio/core/degeneracy_aware_solve.hpp"
+    )
+      target_include_directories(
+        test_degeneracy_aware_solve PRIVATE ${RKO_LIO_FORK_TEST_INCLUDE_DIR}
+      )
+      target_compile_definitions(
+        test_degeneracy_aware_solve PRIVATE HAVE_RKO_LIO_FORK_TEST_HEADERS=1
+      )
+      set(HAVE_RKO_LIO_FORK_TEST_HEADERS TRUE)
+    else()
+      set(HAVE_RKO_LIO_FORK_TEST_HEADERS FALSE)
+      message(
+        STATUS
+        "RKO-LIO fork headers are absent; skipping fork-only integration tests"
+      )
+    endif()
   endif()
   ament_add_gtest(
     test_persistent_weak_direction
@@ -436,58 +458,66 @@ if(BUILD_TESTING)
       test_persistent_weak_direction PRIVATE include ${EIGEN3_INCLUDE_DIR}
     )
   endif()
-  ament_add_gtest(
-    test_rko_multiscan_observability
-    test/test_rko_multiscan_observability.cpp
-  )
-  if(TARGET test_rko_multiscan_observability)
-    target_include_directories(
-      test_rko_multiscan_observability PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+  if(HAVE_RKO_LIO_FORK_TEST_HEADERS)
+    ament_add_gtest(
+      test_rko_multiscan_observability
+      test/test_rko_multiscan_observability.cpp
     )
-  endif()
-  ament_add_gtest(
-    test_selective_visual_fusion
-    test/test_selective_visual_fusion.cpp
-  )
-  if(TARGET test_selective_visual_fusion)
-    target_include_directories(
-      test_selective_visual_fusion PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    if(TARGET test_rko_multiscan_observability)
+      target_include_directories(
+        test_rko_multiscan_observability
+        PRIVATE ${RKO_LIO_FORK_TEST_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR}
+      )
+    endif()
+    ament_add_gtest(
+      test_selective_visual_fusion
+      test/test_selective_visual_fusion.cpp
     )
-  endif()
-  ament_add_gtest(
-    test_radar_ego_velocity
-    test/test_radar_ego_velocity.cpp
-  )
-  if(TARGET test_radar_ego_velocity)
-    target_include_directories(
-      test_radar_ego_velocity PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    if(TARGET test_selective_visual_fusion)
+      target_include_directories(
+        test_selective_visual_fusion
+        PRIVATE ${RKO_LIO_FORK_TEST_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR}
+      )
+    endif()
+    ament_add_gtest(
+      test_radar_ego_velocity
+      test/test_radar_ego_velocity.cpp
     )
-    # radar_ego_velocity.hpp uses std::optional; this package otherwise defaults to C++14.
-    target_compile_features(test_radar_ego_velocity PRIVATE cxx_std_17)
-  endif()
-  ament_add_gtest(
-    test_radar_continuous_fusion
-    test/test_radar_continuous_fusion.cpp
-  )
-  if(TARGET test_radar_continuous_fusion)
-    target_include_directories(
-      test_radar_continuous_fusion PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    if(TARGET test_radar_ego_velocity)
+      target_include_directories(
+        test_radar_ego_velocity
+        PRIVATE ${RKO_LIO_FORK_TEST_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR}
+      )
+      # radar_ego_velocity.hpp uses std::optional; this package otherwise
+      # defaults to C++14.
+      target_compile_features(test_radar_ego_velocity PRIVATE cxx_std_17)
+    endif()
+    ament_add_gtest(
+      test_radar_continuous_fusion
+      test/test_radar_continuous_fusion.cpp
     )
-    # radar_ego_velocity.hpp uses std::optional; this package otherwise defaults to C++14
-    # (see test_radar_ego_velocity above).
-    target_compile_features(test_radar_continuous_fusion PRIVATE cxx_std_17)
-  endif()
-  ament_add_gtest(
-    test_intensity_profile
-    test/test_intensity_profile.cpp
-  )
-  if(TARGET test_intensity_profile)
-    target_include_directories(
-      test_intensity_profile PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    if(TARGET test_radar_continuous_fusion)
+      target_include_directories(
+        test_radar_continuous_fusion
+        PRIVATE ${RKO_LIO_FORK_TEST_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR}
+      )
+      # radar_ego_velocity.hpp uses std::optional; this package otherwise
+      # defaults to C++14 (see test_radar_ego_velocity above).
+      target_compile_features(test_radar_continuous_fusion PRIVATE cxx_std_17)
+    endif()
+    ament_add_gtest(
+      test_intensity_profile
+      test/test_intensity_profile.cpp
     )
-    # intensity_profile.hpp uses std::clamp/structured bindings; this package otherwise
-    # defaults to C++14 (see test_radar_ego_velocity above).
-    target_compile_features(test_intensity_profile PRIVATE cxx_std_17)
+    if(TARGET test_intensity_profile)
+      target_include_directories(
+        test_intensity_profile
+        PRIVATE ${RKO_LIO_FORK_TEST_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR}
+      )
+      # intensity_profile.hpp uses std::clamp/structured bindings; this package
+      # otherwise defaults to C++14 (see test_radar_ego_velocity above).
+      target_compile_features(test_intensity_profile PRIVATE cxx_std_17)
+    endif()
   endif()
   ament_add_gtest(
     test_odometry_covariance_localizability

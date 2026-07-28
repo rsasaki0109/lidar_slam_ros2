@@ -360,6 +360,10 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'docs/operational-reliability.md' in release_workflow
     assert 'docs/evidence/real-data-soak-2026-07-28.md' in release_workflow
     assert 'docs/evidence/real-data-soak-2026-07-28.json' in release_workflow
+    assert (
+        'docs/evidence/upstream-rko-binary-first-map-2026-07-28.md'
+        in release_workflow
+    )
     assert 'docs/schemas/*.json' in release_workflow
     assert 'docs/real-data-e2e.md' in release_workflow
     assert 'configs/real_data_e2e/driving_slam_mid360_v1.json' in release_workflow
@@ -412,6 +416,11 @@ def test_release_metadata_and_core_package_versions_match():
     )
     assert (
         'Docker first-map evidence: evidence/docker-first-map-2026-07-28.md'
+        in mkdocs_config
+    )
+    assert (
+        'Upstream RKO binary evidence: '
+        'evidence/upstream-rko-binary-first-map-2026-07-28.md'
         in mkdocs_config
     )
     assert 'Pinned real-data E2E: real-data-e2e.md' in mkdocs_config
@@ -549,6 +558,16 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'BuildKit provenance' in distribution_doc
     assert 'There is currently no supported' in distribution_doc
     assert 'rko_lio' in distribution_doc
+    assert 'ndt_omp_ros2' in distribution_doc
+    assert (
+        '<exec_depend>rko_lio</exec_depend>'
+        in (REPO_ROOT / 'lidarslam' / 'package.xml').read_text(encoding='utf-8')
+    )
+    graph_cmake = (
+        REPO_ROOT / 'graph_based_slam' / 'CMakeLists.txt'
+    ).read_text(encoding='utf-8')
+    assert 'HAVE_RKO_LIO_FORK_TEST_HEADERS' in graph_cmake
+    assert 'skipping fork-only integration tests' in graph_cmake
     assert 'SIGTERM' in reliability_doc
     assert 'exit `143`' in reliability_doc
     assert 'Automated failure injection' in reliability_doc

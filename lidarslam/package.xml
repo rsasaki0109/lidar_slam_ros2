@@ -24,6 +24,7 @@
   <exec_depend>python3-scipy</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
   <exec_depend>rclpy</exec_depend>
+  <exec_depend>rko_lio</exec_depend>
   <exec_depend>rosbag2</exec_depend>
   <exec_depend>time</exec_depend>
 

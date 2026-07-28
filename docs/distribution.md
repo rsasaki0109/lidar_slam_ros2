@@ -7,8 +7,9 @@ packages.
 ## Supported source install
 
 Humble on Ubuntu 22.04 and Jazzy on Ubuntu 24.04 are the supported source-build
-targets. Clone the submodules because the flagship RKO-LIO frontend is supplied
-from the maintained fork in `Thirdparty/`.
+targets. A recursive checkout includes the maintained RKO-LIO research fork;
+the standard product profile is also compatible with the public RKO-LIO
+package released for both distributions.
 
 ```bash
 mkdir -p ~/ros2_ws/src
@@ -153,9 +154,9 @@ module is absent. This extra is not required by the default RKO-LIO path.
 
 | Delivery | Humble amd64 | Jazzy amd64 | arm64 / Jetson | Flagship RKO-LIO path |
 | --- | --- | --- | --- | --- |
-| Recursive source checkout + `colcon` | Tested in CI | Tested in CI | Evaluation; use the Jetson runbook | Included from the maintained submodule |
+| Recursive source checkout + `colcon` | Tested in CI | Tested in CI | Evaluation; use the Jetson runbook | Included; public-compatible default plus fork research profiles |
 | GHCR image | Moving and versioned amd64 images | Moving and versioned amd64 images | Not yet published | Included |
-| ROS buildfarm / apt | Not released | Not released | Not released | Packaging decision unresolved |
+| ROS buildfarm / apt | lidarslam not released | lidarslam not released | Not released | Public `rko_lio` dependency resolved; `ndt_omp_ros2` blocks release |
 
 `amd64` is the tested product target. Jetson/MID-360 workflows have real-device
 evidence, but arm64 installation and image publication are still an evaluation
@@ -164,23 +165,23 @@ tier rather than a release guarantee.
 ## Binary-release boundary
 
 There is currently no supported
-`sudo apt install ros-<distro>-lidarslam` golden path. Two packaging decisions
-remain:
+`sudo apt install ros-<distro>-lidarslam` golden path. The RKO-LIO decision is
+resolved: the public package is released for Humble and Jazzy, is declared as
+a runtime dependency, and the standard MID-360 profile passed a
+[clean Humble binary-dependency first-map trial](evidence/upstream-rko-binary-first-map-2026-07-28.md).
 
-1. `ndt_omp_ros2`, which is a declared build dependency, must be released
-   before the four core packages.
-2. The flagship product profile depends at runtime on the maintained
-   `rko_lio` fork. A binary product claim must either release that fork for
-   Humble and Jazzy or deliberately switch the binary golden path to a
-   frontend available from the same distribution.
+The maintained repository fork remains available in recursive source and GHCR
+installs for research profiles that use fork-only degeneracy, radar, intensity
+or visual-fusion features. Those profiles are not part of the apt product
+claim.
 
-The core packages can be prepared by bloom without declaring `rko_lio`, but
-that fact only proves buildability; it does not make the installed flagship
-workflow complete. See the [rosdistro release runbook](rosdistro-release.md)
-for the maintainer procedure and remaining prerequisites.
+`ndt_omp_ros2`, a declared build dependency, is now the remaining dependency
+blocker and must be released before the four core packages. See the
+[rosdistro release runbook](rosdistro-release.md) for the maintainer procedure
+and final Humble/Jazzy installed acceptance gates.
 
 Versioned Humble/Jazzy GHCR tags, release-image SBOM/provenance, digest smoke
 tests, and attached installation evidence are automated for the next tagged
-release. ROS buildfarm packages remain blocked by the dependency decisions
+release. ROS buildfarm packages remain blocked by the `ndt_omp_ros2` release
 above. Upgrade testing across two released product versions and arm64 image
 publication also remain Phase 2 work.

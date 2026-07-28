@@ -32,7 +32,9 @@
 
 #include "graph_based_slam/degeneracy_aware_solve.hpp"
 #include "graph_based_slam/synthetic_degeneracy_fixtures.hpp"
+#ifdef HAVE_RKO_LIO_FORK_TEST_HEADERS
 #include "rko_lio/core/degeneracy_aware_solve.hpp"
+#endif
 
 namespace
 {
@@ -212,6 +214,7 @@ TEST(DegeneracyAwareSolve, PersistenceGateRejectsAnUnmatchedAxis)
   EXPECT_EQ(result.update, legacy);
 }
 
+#ifdef HAVE_RKO_LIO_FORK_TEST_HEADERS
 TEST(DegeneracyAwareSolve, RkoLioIntegrationMatchesSharedReference)
 {
   const GaussNewtonSystem system =
@@ -298,5 +301,6 @@ TEST(DegeneracyAwareSolve, AdaptiveIterationClassifierRejectsInvalidHessian)
 
   EXPECT_FALSE(rko_lio::core::has_weak_information_direction(invalid, 1.5e-5));
 }
+#endif
 
 }  // namespace
