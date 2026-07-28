@@ -159,12 +159,30 @@ minimums, reproduction commands and scope limitations. This closes the named
 one-hour/eight-hour execution row for this hardware/input/profile combination;
 it does not establish a universal performance or map-quality guarantee.
 
+## Pre-launch record timestamp gate
+
+Preflight schema v3 streams every record on maintained map-authoring input
+topics directly from each sqlite3 storage file. Records are checked per topic
+in sqlite message-row insertion order, including across split files. Equal
+timestamps are accepted; timestamp reversal detection fails closed on the
+first smaller timestamp and reports the
+topic, both row ids, both timestamps, and storage-file names. The implementation
+uses constant memory and runs before workflow planning or output creation:
+
+```bash
+./scripts/lidarslam preflight /path/to/rosbag2
+./scripts/lidarslam run /path/to/rosbag2 --dry-run
+```
+
+This gate deliberately rejects non-sqlite3 storage until an equivalent
+write-order inspection is implemented. It checks rosbag record timestamps, not
+message header stamps or per-point timestamp units.
+
 ## Open Phase 3 gates
 
 The following readiness rows remain incomplete and must not be inferred from
 the termination coverage:
 
-- timestamp reversal detection against real rosbag records before launch;
 - a bounded-filesystem live exhaustion test in the scheduled real-data
   environment;
 - output migration tooling and last-known-good rollback instructions.

@@ -37,6 +37,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import sqlite3
 import subprocess
 import sys
 import time
@@ -84,7 +85,29 @@ def _write_metadata(tmp_path: Path, bag_name: str, topics: list[tuple[str, str, 
             ],
         },
     }
-    (bag_dir / storage_name).write_bytes(b'rosbag2 fixture\n')
+    connection = sqlite3.connect(bag_dir / storage_name)
+    connection.executescript(
+        'CREATE TABLE topics ('
+        'id INTEGER PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, '
+        'serialization_format TEXT NOT NULL, offered_qos_profiles TEXT NOT NULL);'
+        'CREATE TABLE messages ('
+        'id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL, '
+        'timestamp INTEGER NOT NULL, data BLOB NOT NULL);'
+    )
+    message_id = 1
+    for topic_id, (name, msg_type, count) in enumerate(topics, start=1):
+        connection.execute(
+            'INSERT INTO topics VALUES (?, ?, ?, ?, ?)',
+            (topic_id, name, msg_type, 'cdr', ''),
+        )
+        for timestamp in range(1, count + 1):
+            connection.execute(
+                'INSERT INTO messages VALUES (?, ?, ?, ?)',
+                (message_id, topic_id, timestamp, b''),
+            )
+            message_id += 1
+    connection.commit()
+    connection.close()
     (bag_dir / 'metadata.yaml').write_text(yaml.safe_dump(metadata), encoding='utf-8')
     return bag_dir
 
@@ -107,6 +130,61 @@ def _compatible_pointcloud_inspection(
         'timestamp_field': 'time',
         'reason': "RKO-LIO-compatible per-point timestamp field 'time' was found.",
     }
+
+
+def _passing_timestamp_inspection(
+    _bag_path: Path,
+    topics: list[str],
+    _bag_info: dict,
+) -> dict:
+    return {
+        'status': 'passed',
+        'storage_identifier': 'sqlite3',
+        'ordering': 'sqlite_message_row_id',
+        'checked_storage_files': ['fixture.db3'],
+        'checked_topics': [
+            {'topic': topic, 'checked_records': 1}
+            for topic in sorted(topics)
+        ],
+        'checked_records': len(topics),
+        'first_reversal': None,
+        'reason': 'Fixture timestamps are non-decreasing.',
+    }
+
+
+def _replace_fixture_storage(
+    bag_dir: Path,
+    topics: list[tuple[str, str, list[int]]],
+) -> None:
+    metadata = yaml.safe_load(
+        (bag_dir / 'metadata.yaml').read_text(encoding='utf-8')
+    )
+    storage_name = metadata['rosbag2_bagfile_information']['relative_file_paths'][0]
+    storage_path = bag_dir / storage_name
+    storage_path.unlink()
+    connection = sqlite3.connect(storage_path)
+    connection.executescript(
+        'CREATE TABLE topics ('
+        'id INTEGER PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, '
+        'serialization_format TEXT NOT NULL, offered_qos_profiles TEXT NOT NULL);'
+        'CREATE TABLE messages ('
+        'id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL, '
+        'timestamp INTEGER NOT NULL, data BLOB NOT NULL);'
+    )
+    message_id = 1
+    for topic_id, (name, msg_type, timestamps) in enumerate(topics, start=1):
+        connection.execute(
+            'INSERT INTO topics VALUES (?, ?, ?, ?, ?)',
+            (topic_id, name, msg_type, 'cdr', ''),
+        )
+        for timestamp in timestamps:
+            connection.execute(
+                'INSERT INTO messages VALUES (?, ?, ?, ?)',
+                (message_id, topic_id, timestamp, b''),
+            )
+            message_id += 1
+    connection.commit()
+    connection.close()
 
 
 def test_runner_script_supports_profiles_and_viewers():
@@ -226,6 +304,78 @@ def test_main_refuses_low_space_before_creating_output(
 
     assert module.main() == 2
     assert 'insufficient free space for map output' in capsys.readouterr().err
+    assert not output_dir.exists()
+    assert not output_dir.with_name('map_output.partial').exists()
+
+
+def test_main_refuses_record_timestamp_reversal_before_creating_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'reversal_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 3),
+            ('/imu', 'sensor_msgs/msg/Imu', 3),
+        ],
+    )
+    _replace_fixture_storage(
+        bag_dir,
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', [1_000, 2_000, 1_500]),
+            ('/imu', 'sensor_msgs/msg/Imu', [900, 1_100, 1_200]),
+        ],
+    )
+    output_dir = tmp_path / 'map_output'
+    original_loader = module._load_script_module
+    preflight = original_loader(
+        'preflight_autoware_map_bag.py',
+        'preflight_for_reversal_test',
+    )
+
+    class PreflightShim:
+        @staticmethod
+        def build_preflight_payload(bag_path, **_kwargs):
+            return preflight.build_preflight_payload(
+                bag_path,
+                pointcloud_inspector=_compatible_pointcloud_inspection,
+            )
+
+    monkeypatch.setattr(
+        module,
+        '_load_script_module',
+        lambda script_name, module_name: (
+            PreflightShim
+            if script_name == 'preflight_autoware_map_bag.py'
+            else original_loader(script_name, module_name)
+        ),
+    )
+    monkeypatch.setattr(
+        module,
+        '_run_workflow',
+        lambda *args: pytest.fail('workflow must not start after timestamp refusal'),
+    )
+    monkeypatch.setattr(
+        module.sys,
+        'argv',
+        [
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_dir),
+            '--min-free-space-gib',
+            '0.001',
+        ],
+    )
+
+    assert module.main() == 2
+    error = capsys.readouterr().err
+    assert 'record timestamp reversal on /points' in error
+    assert '2000 ns at row 2' in error
+    assert '1500 ns at row 3' in error
     assert not output_dir.exists()
     assert not output_dir.with_name('map_output.partial').exists()
 
@@ -399,7 +549,7 @@ def test_manifest_helpers_capture_identity_and_finalize_atomically(tmp_path: Pat
     assert saved['input']['storage_files'] == [{
         'path': 'demo_bag_0.db3',
         'sha256': module._sha256(bag_dir / 'demo_bag_0.db3'),
-        'size_bytes': 16,
+        'size_bytes': (bag_dir / 'demo_bag_0.db3').stat().st_size,
     }]
     assert saved['software']['product_version'] == '0.6.0'
     assert saved['software']['package_versions']['lidarslam'] == '0.6.0'
@@ -1285,6 +1435,7 @@ def test_runner_prefers_mid360_preset_for_livox_bag(tmp_path: Path):
         output_dir=tmp_path / 'out',
         verify_map=True,
         pointcloud_inspector=_compatible_pointcloud_inspection,
+        timestamp_inspector=_passing_timestamp_inspection,
     )
 
     assert plan['profile_id'] == 'rko_lio_graph_mid360_preset'
@@ -1314,6 +1465,7 @@ def test_public_plan_pins_both_installed_parameter_files(tmp_path: Path):
         output_dir=tmp_path / 'out',
         verify_map=True,
         pointcloud_inspector=_compatible_pointcloud_inspection,
+        timestamp_inspector=_passing_timestamp_inspection,
     )
 
     command = ' '.join(plan['command'])

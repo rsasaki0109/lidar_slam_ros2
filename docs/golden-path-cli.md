@@ -122,8 +122,10 @@ code `2`. In particular, `--autoware-core-dir` requires
 Automation should select the schema using `schema_version` and `schema_uri`;
 it must not infer compatibility from the repository version.
 
-- [Preflight schema v2](schemas/preflight-v2.schema.json) — current; adds
-  record-level PointCloud2 field inspection
+- [Preflight schema v3](schemas/preflight-v3.schema.json) — current; adds
+  full sqlite write-order record timestamp inspection
+- [Preflight schema v2](schemas/preflight-v2.schema.json) — adds record-level
+  PointCloud2 field inspection
 - [Preflight schema v1](schemas/preflight-v1.schema.json)
 - [Diagnosis schema v1](schemas/diagnosis-v1.schema.json)
 - [Run manifest schema v1](schemas/run-manifest-v1.schema.json)
@@ -134,7 +136,7 @@ Top-level fields are closed within a published schema. A field addition,
 removal, type change, or semantic break requires a new schema file and
 migration guidance.
 
-Preflight v1 and run manifest v1 remain published for existing artifacts.
+Preflight v1/v2 and run manifest v1 remain published for existing artifacts.
 Preflight v1 only reports metadata-level topic compatibility. Run manifest v1
 predates durable lifecycle stages, so it can be inspected but cannot be
 resumed safely.

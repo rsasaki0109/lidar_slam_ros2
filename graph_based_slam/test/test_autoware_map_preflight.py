@@ -34,6 +34,7 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import sqlite3
 import subprocess
 import sys
 
@@ -54,13 +55,20 @@ def _load_module():
     return module
 
 
-def _write_metadata(tmp_path: Path, topics: list[tuple[str, str, int]]) -> Path:
+def _write_metadata(
+    tmp_path: Path,
+    topics: list[tuple[str, str, int]],
+    timestamps_by_topic: dict[str, list[int]] | None = None,
+) -> Path:
     bag_dir = tmp_path / 'bag'
     bag_dir.mkdir()
+    storage_name = 'bag_0.db3'
     metadata = {
         'rosbag2_bagfile_information': {
             'duration': {'nanoseconds': 12_500_000_000},
             'message_count': sum(count for _, _, count in topics),
+            'storage_identifier': 'sqlite3',
+            'relative_file_paths': [storage_name],
             'topics_with_message_count': [
                 {
                     'topic_metadata': {
@@ -76,6 +84,35 @@ def _write_metadata(tmp_path: Path, topics: list[tuple[str, str, int]]) -> Path:
         },
     }
     (bag_dir / 'metadata.yaml').write_text(yaml.safe_dump(metadata), encoding='utf-8')
+    connection = sqlite3.connect(bag_dir / storage_name)
+    connection.executescript(
+        'CREATE TABLE topics ('
+        'id INTEGER PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, '
+        'serialization_format TEXT NOT NULL, offered_qos_profiles TEXT NOT NULL);'
+        'CREATE TABLE messages ('
+        'id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL, '
+        'timestamp INTEGER NOT NULL, data BLOB NOT NULL);'
+    )
+    message_id = 1
+    for topic_id, (name, msg_type, count) in enumerate(topics, start=1):
+        connection.execute(
+            'INSERT INTO topics VALUES (?, ?, ?, ?, ?)',
+            (topic_id, name, msg_type, 'cdr', ''),
+        )
+        timestamps = (
+            timestamps_by_topic[name]
+            if timestamps_by_topic is not None and name in timestamps_by_topic
+            else list(range(1, count + 1))
+        )
+        assert len(timestamps) == count
+        for timestamp in timestamps:
+            connection.execute(
+                'INSERT INTO messages VALUES (?, ?, ?, ?)',
+                (message_id, topic_id, timestamp, b''),
+            )
+            message_id += 1
+    connection.commit()
+    connection.close()
     return bag_dir
 
 
@@ -92,6 +129,26 @@ def _compatible_inspection(_bag_path: Path, topic: str, _storage_id: str) -> dic
         'rko_lio_compatible': True,
         'timestamp_field': 'time',
         'reason': "RKO-LIO-compatible per-point timestamp field 'time' was found.",
+    }
+
+
+def _passing_timestamp_inspection(
+    _bag_path: Path,
+    topics: list[str],
+    _bag_info: dict,
+) -> dict:
+    return {
+        'status': 'passed',
+        'storage_identifier': 'sqlite3',
+        'ordering': 'sqlite_message_row_id',
+        'checked_storage_files': ['fixture.db3'],
+        'checked_topics': [
+            {'topic': topic, 'checked_records': 1}
+            for topic in sorted(topics)
+        ],
+        'checked_records': len(topics),
+        'first_reversal': None,
+        'reason': 'Fixture timestamps are non-decreasing.',
     }
 
 
@@ -113,13 +170,14 @@ def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path)
 
     schema = json.loads(
         (
-            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v2.schema.json'
+            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v3.schema.json'
         ).read_text(encoding='utf-8')
     )
     jsonschema.Draft7Validator.check_schema(schema)
     jsonschema.validate(payload, schema)
-    assert payload['schema_version'] == 2
-    assert payload['schema_uri'].endswith('/schemas/preflight-v2.schema.json')
+    assert payload['schema_version'] == 3
+    assert payload['schema_uri'].endswith('/schemas/preflight-v3.schema.json')
+    assert payload['summary']['record_timestamp_inspection']['status'] == 'passed'
     assert payload['summary']['pointcloud_inspection']['timestamp_field'] == 'time'
     assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
     assert payload['beginner_commands'][0]['command'].startswith(
@@ -306,6 +364,7 @@ def test_livox_mid360_bag_emits_tuned_preset_hint(tmp_path: Path):
     payload = module.build_preflight_payload(
         bag_dir,
         pointcloud_inspector=_compatible_inspection,
+        timestamp_inspector=_passing_timestamp_inspection,
     )
     recommendation_ids = [item['id'] for item in payload['recommendations']]
 
@@ -401,3 +460,115 @@ def test_missing_point_timestamp_prevents_rko_recommendation(tmp_path: Path):
         'expected t/timestamp/time/stamps' in item
         for item in payload['missing_requirements']
     )
+
+
+def test_record_timestamp_inspection_streams_real_sqlite_records(tmp_path: Path):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 3),
+            ('/imu', 'sensor_msgs/msg/Imu', 4),
+        ],
+        {
+            '/points': [1_000, 1_000, 2_000],
+            '/imu': [900, 1_100, 1_200, 1_300],
+        },
+    )
+
+    payload = module.build_preflight_payload(
+        bag_dir,
+        pointcloud_inspector=_compatible_inspection,
+    )
+    inspection = payload['summary']['record_timestamp_inspection']
+
+    assert inspection['status'] == 'passed'
+    assert inspection['ordering'] == 'sqlite_message_row_id'
+    assert inspection['checked_records'] == 7
+    assert inspection['first_reversal'] is None
+    assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
+
+
+def test_record_timestamp_reversal_removes_all_workflow_recommendations(
+    tmp_path: Path,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 3),
+            ('/imu', 'sensor_msgs/msg/Imu', 3),
+        ],
+        {
+            '/points': [1_000, 2_000, 1_500],
+            '/imu': [900, 1_100, 1_200],
+        },
+    )
+
+    payload = module.build_preflight_payload(
+        bag_dir,
+        pointcloud_inspector=_compatible_inspection,
+    )
+    inspection = payload['summary']['record_timestamp_inspection']
+
+    assert inspection['status'] == 'failed'
+    assert inspection['first_reversal']['topic'] == '/points'
+    assert inspection['first_reversal']['previous_timestamp_ns'] == 2_000
+    assert inspection['first_reversal']['timestamp_ns'] == 1_500
+    assert payload['recommendations'] == []
+    assert payload['recommended_profile_id'] is None
+    assert payload['beginner_commands'] == []
+    assert any(
+        'record timestamp reversal on /points' in reason
+        for reason in payload['missing_requirements']
+    )
+
+
+def test_record_timestamp_reversal_is_detected_across_split_files(
+    tmp_path: Path,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [('/points', 'sensor_msgs/msg/PointCloud2', 2)],
+        {'/points': [1_000, 2_000]},
+    )
+    second_storage = bag_dir / 'bag_1.db3'
+    connection = sqlite3.connect(second_storage)
+    connection.executescript(
+        'CREATE TABLE topics ('
+        'id INTEGER PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, '
+        'serialization_format TEXT NOT NULL, offered_qos_profiles TEXT NOT NULL);'
+        'CREATE TABLE messages ('
+        'id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL, '
+        'timestamp INTEGER NOT NULL, data BLOB NOT NULL);'
+    )
+    connection.execute(
+        'INSERT INTO topics VALUES (?, ?, ?, ?, ?)',
+        (1, '/points', 'sensor_msgs/msg/PointCloud2', 'cdr', ''),
+    )
+    connection.execute(
+        'INSERT INTO messages VALUES (?, ?, ?, ?)',
+        (1, 1, 1_500, b''),
+    )
+    connection.commit()
+    connection.close()
+    metadata_path = bag_dir / 'metadata.yaml'
+    metadata = yaml.safe_load(metadata_path.read_text(encoding='utf-8'))
+    metadata['rosbag2_bagfile_information']['relative_file_paths'].append(
+        second_storage.name
+    )
+    metadata_path.write_text(yaml.safe_dump(metadata), encoding='utf-8')
+
+    bag_info = module.load_bag_metadata(bag_dir)
+    inspection = module.inspect_record_timestamps(
+        bag_dir,
+        ['/points'],
+        bag_info,
+    )
+
+    assert inspection['status'] == 'failed'
+    assert inspection['first_reversal']['previous_storage_file'] == 'bag_0.db3'
+    assert inspection['first_reversal']['storage_file'] == 'bag_1.db3'
+    assert inspection['first_reversal']['previous_timestamp_ns'] == 2_000
+    assert inspection['first_reversal']['timestamp_ns'] == 1_500

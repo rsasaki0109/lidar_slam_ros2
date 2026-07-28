@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import shlex
+import sqlite3
 import sys
 import textwrap
 from typing import Any, Callable
@@ -22,8 +23,8 @@ TFMESSAGE = 'tf2_msgs/msg/TFMessage'
 GSOF49 = 'applanix_msgs/msg/NavigationSolutionGsof49'
 GSOF50 = 'applanix_msgs/msg/NavigationPerformanceGsof50'
 VELOCITY_REPORT = 'autoware_auto_vehicle_msgs/msg/VelocityReport'
-SCHEMA_VERSION = 2
-SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v2.schema.json'
+SCHEMA_VERSION = 3
+SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v3.schema.json'
 POINT_FIELD_UINT32 = 6
 POINT_FIELD_FLOAT32 = 7
 POINT_FIELD_FLOAT64 = 8
@@ -33,6 +34,15 @@ RKO_TIMESTAMP_DATATYPES = (
     POINT_FIELD_FLOAT32,
     POINT_FIELD_FLOAT64,
 )
+MAINTAINED_INPUT_TYPES = frozenset((
+    POINTCLOUD2,
+    IMU,
+    NAVSATFIX,
+    VELODYNE_SCAN,
+    GSOF49,
+    GSOF50,
+    VELOCITY_REPORT,
+))
 
 PROFILE_HELP = (
     (
@@ -334,6 +344,185 @@ def _inspect_pointcloud_record_with_rosbags(
     }
 
 
+def _storage_files(bag_path: Path, bag_info: dict[str, Any]) -> list[Path]:
+    """Resolve storage files while refusing metadata paths outside the bag."""
+    bag_root = bag_path.resolve()
+    relative_paths = bag_info.get('relative_file_paths', []) or []
+    if not relative_paths:
+        raise ValueError('metadata.yaml does not list any rosbag2 storage files')
+
+    storage_files = []
+    for relative_path in relative_paths:
+        candidate = (bag_root / str(relative_path)).resolve()
+        try:
+            candidate.relative_to(bag_root)
+        except ValueError as exc:
+            raise ValueError(
+                f'rosbag2 storage file resolves outside the bag: {relative_path}'
+            ) from exc
+        if not candidate.is_file():
+            raise FileNotFoundError(
+                f'rosbag2 storage file listed by metadata.yaml is missing: {candidate}'
+            )
+        storage_files.append(candidate)
+    return storage_files
+
+
+def inspect_record_timestamps(
+    bag_path: Path,
+    topics: list[str],
+    bag_info: dict[str, Any],
+) -> dict[str, Any]:
+    """Check every selected sqlite3 record in write order with bounded memory.
+
+    rosbag2 playback APIs may sort by timestamp and hide a recording-time clock
+    jump. SQLite message row ids preserve insertion order, so the check streams
+    each selected topic by row id and carries its last timestamp across split
+    files. Equal timestamps are valid; a smaller timestamp is a reversal.
+    """
+    storage_id = str(bag_info.get('storage_identifier', ''))
+    result: dict[str, Any] = {
+        'status': 'unavailable',
+        'storage_identifier': storage_id,
+        'ordering': 'sqlite_message_row_id',
+        'checked_storage_files': [],
+        'checked_topics': [],
+        'checked_records': 0,
+        'first_reversal': None,
+        'reason': '',
+    }
+    if not topics:
+        return {
+            **result,
+            'status': 'not_applicable',
+            'reason': 'No maintained map-authoring input topics were found.',
+        }
+    if storage_id != 'sqlite3':
+        return {
+            **result,
+            'reason': (
+                'Record timestamp inspection currently requires rosbag2 sqlite3 '
+                f'storage; metadata reports {storage_id or "an empty storage identifier"}. '
+                'Convert the bag to sqlite3 before starting a maintained workflow.'
+            ),
+        }
+
+    selected_topics = sorted(set(topics))
+    previous_by_topic: dict[str, tuple[int, int, str]] = {}
+    checked_by_topic = {topic: 0 for topic in selected_topics}
+    try:
+        storage_files = _storage_files(bag_path, bag_info)
+        for storage_file in storage_files:
+            result['checked_storage_files'].append(
+                str(storage_file.relative_to(bag_path.resolve()))
+            )
+            connection = sqlite3.connect(
+                f'{storage_file.as_uri()}?mode=ro',
+                uri=True,
+            )
+            try:
+                topic_rows = connection.execute(
+                    'SELECT id, name FROM topics'
+                ).fetchall()
+                topic_ids = {
+                    int(topic_id): str(name)
+                    for topic_id, name in topic_rows
+                    if str(name) in checked_by_topic
+                }
+                if not topic_ids:
+                    continue
+                placeholders = ','.join('?' for _ in topic_ids)
+                cursor = connection.execute(
+                    'SELECT id, topic_id, timestamp FROM messages '
+                    f'WHERE topic_id IN ({placeholders}) ORDER BY id',
+                    tuple(topic_ids),
+                )
+                for row_id, topic_id, timestamp in cursor:
+                    topic_name = topic_ids[int(topic_id)]
+                    row_id = int(row_id)
+                    timestamp = int(timestamp)
+                    checked_by_topic[topic_name] += 1
+                    result['checked_records'] += 1
+                    previous = previous_by_topic.get(topic_name)
+                    if previous is not None and timestamp < previous[1]:
+                        result['first_reversal'] = {
+                            'topic': topic_name,
+                            'previous_record_id': previous[0],
+                            'previous_timestamp_ns': previous[1],
+                            'previous_storage_file': previous[2],
+                            'record_id': row_id,
+                            'timestamp_ns': timestamp,
+                            'storage_file': str(
+                                storage_file.relative_to(bag_path.resolve())
+                            ),
+                        }
+                        result['checked_topics'] = [
+                            {
+                                'topic': topic,
+                                'checked_records': checked_by_topic[topic],
+                            }
+                            for topic in selected_topics
+                        ]
+                        return {
+                            **result,
+                            'status': 'failed',
+                            'reason': (
+                                f'Rosbag record timestamp reversal on {topic_name}: '
+                                f'{timestamp} ns at row {row_id} follows '
+                                f'{previous[1]} ns at row {previous[0]}. '
+                                'Re-record or repair the bag clock before launch.'
+                            ),
+                        }
+                    previous_by_topic[topic_name] = (
+                        row_id,
+                        timestamp,
+                        str(storage_file.relative_to(bag_path.resolve())),
+                    )
+            finally:
+                connection.close()
+    except (FileNotFoundError, OSError, sqlite3.Error, ValueError) as exc:
+        return {
+            **result,
+            'status': 'error',
+            'checked_topics': [
+                {
+                    'topic': topic,
+                    'checked_records': checked_by_topic[topic],
+                }
+                for topic in selected_topics
+            ],
+            'reason': f'Failed to inspect rosbag record timestamps: {exc}',
+        }
+
+    result['checked_topics'] = [
+        {
+            'topic': topic,
+            'checked_records': checked_by_topic[topic],
+        }
+        for topic in selected_topics
+    ]
+    empty_topics = [
+        topic for topic, count in checked_by_topic.items() if count == 0
+    ]
+    if empty_topics:
+        return {
+            **result,
+            'status': 'error',
+            'reason': (
+                'Metadata declares maintained input topics with no readable '
+                f'sqlite3 records: {", ".join(empty_topics)}.'
+            ),
+        }
+    return {
+        **result,
+        'status': 'passed',
+        'reason': (
+            f'All {result["checked_records"]} selected rosbag records are '
+            'non-decreasing per topic in sqlite write order.'
+        ),
+    }
+
+
 def summarize_bag(bag_path: Path) -> dict[str, Any]:
     """Summarize a rosbag2 in terms of map-authoring inputs."""
     bag_info = load_bag_metadata(bag_path)
@@ -376,6 +565,8 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
     bag_q = _safe_quote(bag_path)
     capabilities = summary['capabilities']
     recommendations: list[dict[str, Any]] = []
+    if summary['record_timestamp_inspection']['status'] != 'passed':
+        return recommendations
 
     best_pointcloud = (
         summary['topics']['pointcloud2'][0]
@@ -530,12 +721,26 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
 def build_preflight_payload(
     bag_path: Path,
     pointcloud_inspector: Callable[[Path, str, str], dict[str, Any]] | None = None,
+    timestamp_inspector: (
+        Callable[[Path, list[str], dict[str, Any]], dict[str, Any]] | None
+    ) = None,
 ) -> dict[str, Any]:
     """Create the machine-readable preflight result."""
     summary = summarize_bag(bag_path)
+    bag_info = load_bag_metadata(bag_path)
+    maintained_topics = [
+        record.name
+        for record in _collect_topics(bag_info)
+        if record.msg_type in MAINTAINED_INPUT_TYPES
+    ]
+    timestamp_check = timestamp_inspector or inspect_record_timestamps
+    summary['record_timestamp_inspection'] = timestamp_check(
+        bag_path,
+        maintained_topics,
+        bag_info,
+    )
     if summary['topics']['pointcloud2']:
         topic = summary['topics']['pointcloud2'][0]['name']
-        bag_info = load_bag_metadata(bag_path)
         inspector = pointcloud_inspector or inspect_pointcloud_record
         summary['pointcloud_inspection'] = inspector(
             bag_path,
@@ -574,6 +779,12 @@ def build_preflight_payload(
         })
 
     missing = []
+    timestamp_inspection = summary['record_timestamp_inspection']
+    if timestamp_inspection['status'] != 'passed':
+        missing.append(
+            'Rosbag record timestamp preflight did not pass: '
+            f"{timestamp_inspection['reason']}"
+        )
     if (
         not summary['capabilities']['has_pointcloud2']
         and not summary['capabilities']['has_velodyne_scan']
@@ -665,6 +876,11 @@ def render_text_report(payload: dict[str, Any]) -> str:
             '  PointCloud2 record: '
             f"{inspection['status']} ({inspection['reason']})"
         )
+    timestamp_inspection = summary['record_timestamp_inspection']
+    lines.append(
+        '  Record timestamps: '
+        f"{timestamp_inspection['status']} ({timestamp_inspection['reason']})"
+    )
 
     if recommendations:
         primary = recommendations[0]

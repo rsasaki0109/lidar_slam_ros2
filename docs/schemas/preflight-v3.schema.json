@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v3.schema.json",
+  "title": "lidarslam_ros2 preflight v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "schema_uri",
+    "summary",
+    "recommendations",
+    "recommended_profile_id",
+    "beginner_commands",
+    "advisory",
+    "missing_requirements"
+  ],
+  "properties": {
+    "schema_version": {"const": 3},
+    "schema_uri": {
+      "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v3.schema.json"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "bag_path",
+        "topics",
+        "capabilities",
+        "pointcloud_inspection",
+        "record_timestamp_inspection"
+      ],
+      "properties": {
+        "pointcloud_inspection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "topic",
+            "fields",
+            "rko_lio_compatible",
+            "timestamp_field",
+            "reason"
+          ],
+          "properties": {
+            "status": {
+              "enum": ["not_applicable", "unavailable", "error", "empty", "inspected"]
+            },
+            "topic": {"type": ["string", "null"]},
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "datatype", "count"],
+                "properties": {
+                  "name": {"type": "string"},
+                  "datatype": {"type": "integer"},
+                  "count": {"type": "integer", "minimum": 0}
+                }
+              }
+            },
+            "rko_lio_compatible": {"type": ["boolean", "null"]},
+            "timestamp_field": {"type": ["string", "null"]},
+            "reason": {"type": "string", "minLength": 1}
+          }
+        },
+        "record_timestamp_inspection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "storage_identifier",
+            "ordering",
+            "checked_storage_files",
+            "checked_topics",
+            "checked_records",
+            "first_reversal",
+            "reason"
+          ],
+          "properties": {
+            "status": {
+              "enum": ["not_applicable", "unavailable", "error", "passed", "failed"]
+            },
+            "storage_identifier": {"type": "string"},
+            "ordering": {"const": "sqlite_message_row_id"},
+            "checked_storage_files": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "checked_topics": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["topic", "checked_records"],
+                "properties": {
+                  "topic": {"type": "string"},
+                  "checked_records": {"type": "integer", "minimum": 0}
+                }
+              }
+            },
+            "checked_records": {"type": "integer", "minimum": 0},
+            "first_reversal": {
+              "oneOf": [
+                {"type": "null"},
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "topic",
+                    "previous_record_id",
+                    "previous_timestamp_ns",
+                    "previous_storage_file",
+                    "record_id",
+                    "timestamp_ns",
+                    "storage_file"
+                  ],
+                  "properties": {
+                    "topic": {"type": "string"},
+                    "previous_record_id": {"type": "integer", "minimum": 1},
+                    "previous_timestamp_ns": {"type": "integer"},
+                    "previous_storage_file": {"type": "string"},
+                    "record_id": {"type": "integer", "minimum": 1},
+                    "timestamp_ns": {"type": "integer"},
+                    "storage_file": {"type": "string"}
+                  }
+                }
+              ]
+            },
+            "reason": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "recommendations": {"type": "array", "items": {"type": "object"}},
+    "recommended_profile_id": {"type": ["string", "null"]},
+    "beginner_commands": {"type": "array", "items": {"type": "object"}},
+    "advisory": {"type": "array"},
+    "missing_requirements": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

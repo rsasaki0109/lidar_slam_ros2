@@ -76,7 +76,7 @@ DOCKER_FIRST_MAP_EVIDENCE_DOC = (
     REPO_ROOT / 'docs' / 'evidence' / 'docker-first-map-2026-07-28.md'
 )
 REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
-PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v2.schema.json'
+PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v3.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
 RUN_MANIFEST_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.json'
 RUN_MANIFEST_V2_SCHEMA = (
@@ -296,6 +296,7 @@ def test_product_contract_has_bounded_official_surface():
     assert 'Other scripts and ROS' in contract
     assert '`run_manifest.json`' in contract
     assert '`<output>.partial`' in golden_path
+    assert 'preflight-v3.schema.json' in golden_path
     assert 'preflight-v2.schema.json' in golden_path
     assert 'preflight-v1.schema.json' in golden_path
     assert 'diagnosis-v1.schema.json' in golden_path
