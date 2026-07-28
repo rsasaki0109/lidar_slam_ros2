@@ -82,7 +82,10 @@ frame override or parameter profile. Before recommending RKO-LIO, the preflight
 reads the first record on the selected `PointCloud2` topic and verifies
 FLOAT32 `x`, `y`, and `z` plus a supported per-point timestamp field named
 `t`, `timestamp`, `time`, or `stamps`. It does not certify timestamp units,
-monotonicity, calibration, or TF connectivity.
+calibration, or TF connectivity. Before launch it also checks up to 100,000
+`PointCloud2` and `Imu` records per selected topic for invalid or decreasing
+`header.stamp` values. A bounded clean sample is not a full-bag monotonicity
+proof, and the machine report distinguishes `sampled` from `passed`.
 
 ## Support tiers
 

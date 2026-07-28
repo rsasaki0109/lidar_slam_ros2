@@ -109,6 +109,39 @@ def _compatible_pointcloud_inspection(
     }
 
 
+def _monotonic_timestamp_inspection(
+    _bag_path: Path,
+    topics,
+    _storage_id: str,
+    max_records_per_topic: int,
+) -> dict:
+    return {
+        'status': 'passed',
+        'timestamp_source': 'header.stamp',
+        'max_records_per_topic': max_records_per_topic,
+        'failed_topics': [],
+        'topics': [
+            {
+                'topic': topic.name,
+                'msg_type': topic.msg_type,
+                'expected_records': topic.message_count,
+                'records_scanned': topic.message_count,
+                'complete': True,
+                'readable': True,
+                'first_stamp_ns': 1_000_000_000,
+                'last_stamp_ns': 2_000_000_000,
+                'reversal_count': 0,
+                'invalid_stamp_count': 0,
+                'max_backward_jump_ns': 0,
+            }
+            for topic in topics
+        ],
+        'reason': (
+            'All selected PointCloud2/Imu header timestamps are monotonic.'
+        ),
+    }
+
+
 def test_runner_script_supports_profiles_and_viewers():
     script = SCRIPT_PATH.read_text(encoding='utf-8')
 
@@ -1361,6 +1394,7 @@ def test_runner_prefers_mid360_preset_for_livox_bag(tmp_path: Path):
         output_dir=tmp_path / 'out',
         verify_map=True,
         pointcloud_inspector=_compatible_pointcloud_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
     )
 
     assert plan['profile_id'] == 'rko_lio_graph_mid360_preset'
@@ -1390,6 +1424,7 @@ def test_public_plan_pins_both_installed_parameter_files(tmp_path: Path):
         output_dir=tmp_path / 'out',
         verify_map=True,
         pointcloud_inspector=_compatible_pointcloud_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
     )
 
     command = ' '.join(plan['command'])

@@ -38,6 +38,7 @@ import subprocess
 import sys
 
 import jsonschema
+import pytest
 import yaml
 
 
@@ -95,6 +96,39 @@ def _compatible_inspection(_bag_path: Path, topic: str, _storage_id: str) -> dic
     }
 
 
+def _monotonic_timestamp_inspection(
+    _bag_path: Path,
+    topics,
+    _storage_id: str,
+    max_records_per_topic: int,
+) -> dict:
+    return {
+        'status': 'passed',
+        'timestamp_source': 'header.stamp',
+        'max_records_per_topic': max_records_per_topic,
+        'failed_topics': [],
+        'topics': [
+            {
+                'topic': topic.name,
+                'msg_type': topic.msg_type,
+                'expected_records': topic.message_count,
+                'records_scanned': topic.message_count,
+                'complete': True,
+                'readable': True,
+                'first_stamp_ns': 1_000_000_000,
+                'last_stamp_ns': 2_000_000_000,
+                'reversal_count': 0,
+                'invalid_stamp_count': 0,
+                'max_backward_jump_ns': 0,
+            }
+            for topic in topics
+        ],
+        'reason': (
+            'All selected PointCloud2/Imu header timestamps are monotonic.'
+        ),
+    }
+
+
 def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path):
     module = _load_module()
     bag_dir = _write_metadata(
@@ -109,18 +143,20 @@ def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path)
     payload = module.build_preflight_payload(
         bag_dir,
         pointcloud_inspector=_compatible_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
     )
 
     schema = json.loads(
         (
-            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v2.schema.json'
+            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v3.schema.json'
         ).read_text(encoding='utf-8')
     )
     jsonschema.Draft7Validator.check_schema(schema)
     jsonschema.validate(payload, schema)
-    assert payload['schema_version'] == 2
-    assert payload['schema_uri'].endswith('/schemas/preflight-v2.schema.json')
+    assert payload['schema_version'] == 3
+    assert payload['schema_uri'].endswith('/schemas/preflight-v3.schema.json')
     assert payload['summary']['pointcloud_inspection']['timestamp_field'] == 'time'
+    assert payload['summary']['timestamp_order']['status'] == 'passed'
     assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
     assert payload['beginner_commands'][0]['command'].startswith(
         'bash scripts/run_autoware_map_beginner.sh'
@@ -306,6 +342,7 @@ def test_livox_mid360_bag_emits_tuned_preset_hint(tmp_path: Path):
     payload = module.build_preflight_payload(
         bag_dir,
         pointcloud_inspector=_compatible_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
     )
     recommendation_ids = [item['id'] for item in payload['recommendations']]
 
@@ -401,3 +438,215 @@ def test_missing_point_timestamp_prevents_rko_recommendation(tmp_path: Path):
         'expected t/timestamp/time/stamps' in item
         for item in payload['missing_requirements']
     )
+
+
+def test_timestamp_scan_detects_reversal_and_maximum_jump():
+    module = _load_module()
+    topic = module.TopicRecord(
+        '/points',
+        'sensor_msgs/msg/PointCloud2',
+        4,
+    )
+    states = module._timestamp_scan_state([topic], 10)
+
+    for stamp_ns in (1_000, 2_000, 1_500, 3_000):
+        module._record_timestamp_sample(states['/points'], stamp_ns)
+    result = module._finalize_timestamp_scan(
+        states,
+        exhausted=True,
+        max_records_per_topic=10,
+    )
+
+    assert result['status'] == 'failed'
+    assert result['failed_topics'] == ['/points']
+    assert result['topics'][0]['records_scanned'] == 4
+    assert result['topics'][0]['complete'] is True
+    assert result['topics'][0]['reversal_count'] == 1
+    assert result['topics'][0]['max_backward_jump_ns'] == 500
+
+
+def test_timestamp_scan_distinguishes_bounded_sample_from_full_pass():
+    module = _load_module()
+    topic = module.TopicRecord(
+        '/imu',
+        'sensor_msgs/msg/Imu',
+        100,
+    )
+    states = module._timestamp_scan_state([topic], 3)
+
+    for stamp_ns in (1_000, 2_000, 3_000):
+        module._record_timestamp_sample(states['/imu'], stamp_ns)
+    result = module._finalize_timestamp_scan(
+        states,
+        exhausted=False,
+        max_records_per_topic=3,
+    )
+
+    assert result['status'] == 'sampled'
+    assert result['failed_topics'] == []
+    assert result['topics'][0]['complete'] is False
+    assert result['topics'][0]['readable'] is True
+
+
+def test_timestamp_scan_rejects_invalid_and_unreadable_stamps():
+    module = _load_module()
+    points = module.TopicRecord(
+        '/points',
+        'sensor_msgs/msg/PointCloud2',
+        1,
+    )
+    imu = module.TopicRecord('/imu', 'sensor_msgs/msg/Imu', 1)
+    states = module._timestamp_scan_state([points, imu], 10)
+    module._record_timestamp_sample(states['/points'], None)
+
+    result = module._finalize_timestamp_scan(
+        states,
+        exhausted=True,
+        max_records_per_topic=10,
+    )
+
+    assert result['status'] == 'failed'
+    assert result['failed_topics'] == ['/points', '/imu']
+    assert result['topics'][0]['invalid_stamp_count'] == 1
+    assert result['topics'][1]['readable'] is False
+
+
+def test_timestamp_reversal_blocks_affected_mapping_profile(tmp_path: Path):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 200),
+            ('/imu/data', 'sensor_msgs/msg/Imu', 2000),
+        ],
+    )
+
+    def reversed_timestamps(
+        _bag_path: Path,
+        topics,
+        _storage_id: str,
+        max_records_per_topic: int,
+    ) -> dict:
+        result = _monotonic_timestamp_inspection(
+            _bag_path,
+            topics,
+            _storage_id,
+            max_records_per_topic,
+        )
+        result['status'] = 'failed'
+        result['failed_topics'] = ['/points']
+        result['topics'][0]['reversal_count'] = 2
+        result['topics'][0]['max_backward_jump_ns'] = 750_000_000
+        result['reason'] = (
+            'Non-monotonic header timestamps were detected on /points.'
+        )
+        return result
+
+    payload = module.build_preflight_payload(
+        bag_dir,
+        pointcloud_inspector=_compatible_inspection,
+        timestamp_inspector=reversed_timestamps,
+    )
+
+    assert payload['recommended_profile_id'] is None
+    assert payload['beginner_commands'] == []
+    assert any(
+        'Header timestamp disorder on /points' in item
+        and '0.750000000 s' in item
+        for item in payload['missing_requirements']
+    )
+    report = module.render_text_report(payload)
+    assert 'Header timestamp order: failed' in report
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec('rosbags') is None,
+    reason='rosbags is required for the real rosbag2 fallback fixture',
+)
+def test_rosbags_reader_detects_reversal_in_serialized_records(
+    tmp_path: Path,
+):
+    module = _load_module()
+    if str(REPO_ROOT / 'scripts') not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT / 'scripts'))
+    from mid360_robot_sample_bag import (  # noqa: PLC0415
+        Mid360SampleBagWriter,
+        SampleBagConfig,
+    )
+    from rosbags.highlevel import AnyReader  # noqa: PLC0415
+    from rosbags.rosbag2 import Writer  # noqa: PLC0415
+    from rosbags.typesys import Stores, get_typestore  # noqa: PLC0415
+
+    source = tmp_path / 'source'
+    reversed_bag = tmp_path / 'reversed'
+    Mid360SampleBagWriter(
+        SampleBagConfig(
+            output_path=source,
+            duration_sec=0.5,
+            pointcloud_rate_hz=10.0,
+            imu_rate_hz=100.0,
+            force=True,
+        )
+    ).write()
+
+    typestore = get_typestore(Stores.LATEST)
+    previous_point_stamp = None
+    point_index = 0
+    with AnyReader(
+        [source],
+        default_typestore=typestore,
+    ) as reader, Writer(reversed_bag, version=9) as writer:
+        output_connections = {
+            connection.topic: writer.add_connection(
+                connection.topic,
+                connection.msgtype,
+                typestore=typestore,
+            )
+            for connection in reader.connections
+        }
+        for connection, receive_stamp_ns, serialized in reader.messages():
+            if connection.msgtype == 'sensor_msgs/msg/PointCloud2':
+                message = reader.deserialize(
+                    serialized,
+                    connection.msgtype,
+                )
+                header_stamp_ns = (
+                    int(message.header.stamp.sec) * 1_000_000_000
+                    + int(message.header.stamp.nanosec)
+                )
+                if point_index == 3:
+                    header_stamp_ns = previous_point_stamp - 50_000_000
+                    message.header.stamp.sec = (
+                        header_stamp_ns // 1_000_000_000
+                    )
+                    message.header.stamp.nanosec = (
+                        header_stamp_ns % 1_000_000_000
+                    )
+                    serialized = typestore.serialize_cdr(
+                        message,
+                        connection.msgtype,
+                    )
+                previous_point_stamp = header_stamp_ns
+                point_index += 1
+            writer.write(
+                output_connections[connection.topic],
+                receive_stamp_ns,
+                serialized,
+            )
+
+    payload = module.build_preflight_payload(reversed_bag)
+    timestamp_order = payload['summary']['timestamp_order']
+
+    assert payload['summary']['pointcloud_inspection'][
+        'rko_lio_compatible'
+    ] is True
+    assert timestamp_order['status'] == 'failed'
+    assert timestamp_order['failed_topics'] == ['/livox/lidar']
+    points = next(
+        topic
+        for topic in timestamp_order['topics']
+        if topic['topic'] == '/livox/lidar'
+    )
+    assert points['reversal_count'] == 1
+    assert points['max_backward_jump_ns'] == 50_000_000
+    assert payload['recommended_profile_id'] is None

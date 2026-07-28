@@ -250,6 +250,7 @@ jobs:
             docs/evidence/real-data-soak-2026-07-28.json \
             docs/evidence/docker-first-map-2026-07-28.md \
             docs/evidence/cli-v1-install-2026-07-28.md \
+            docs/evidence/timestamp-order-preflight-2026-07-29.md \
             docs/evidence/install-upgrade-2026-07-28.md \
             docs/evidence/install-upgrade-2026-07-28-humble.json \
             docs/evidence/install-upgrade-2026-07-28-jazzy.json \
