@@ -71,6 +71,27 @@ Or inspect an existing output directory:
 lidarslam-map inspect output/<run_dir> --write
 ```
 
+## Validate The Docs As A New User
+
+Independent first-map reports are part of the v1.0 release gate. If you began
+from these public docs without private maintainer instructions, create the
+privacy-bounded report after your first attempt:
+
+```bash
+cp configs/first_map_validation_answers.example.json first-map-answers.json
+$EDITOR first-map-answers.json
+python3 scripts/collect_first_map_validation.py \
+  --answers first-map-answers.json \
+  --run-dir output/<run_dir> \
+  --output-dir first-map-validation \
+  --require-eligible
+```
+
+Review the generated JSON and Markdown, then submit them through the
+[independent first-map validation form](https://github.com/rsasaki0109/lidar_slam_ros2/issues/new?template=first-map-validation.yml).
+The report contains hashes and bounded status summaries, not pointcloud
+geometry, raw logs or absolute local paths.
+
 ## Common First-Run Problems
 
 | Symptom | Next check |

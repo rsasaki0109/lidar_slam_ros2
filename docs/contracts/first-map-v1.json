@@ -148,5 +148,20 @@
       "pointcloud_map_metadata.yaml",
       "map_projector_info.yaml"
     ]
+  },
+  "external_validation_kit": {
+    "answers_template": "configs/first_map_validation_answers.example.json",
+    "collector": "scripts/collect_first_map_validation.py",
+    "command": "python3 scripts/collect_first_map_validation.py --answers first-map-answers.json --run-dir <output_dir> --output-dir first-map-validation --require-eligible",
+    "report_schema": "docs/schemas/independent-first-map-validation-v1.schema.json",
+    "report_files": [
+      "independent_first_map_validation.json",
+      "independent_first_map_validation.md"
+    ],
+    "privacy_boundary": [
+      "no pointcloud geometry",
+      "no raw logs",
+      "no absolute local paths"
+    ]
   }
 }

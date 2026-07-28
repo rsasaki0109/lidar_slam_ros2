@@ -223,6 +223,44 @@ def validate(contract: dict[str, Any]) -> list[str]:
     else:
         errors.append('verification_probe must be an object')
 
+    validation_kit = contract.get('external_validation_kit')
+    if not isinstance(validation_kit, dict):
+        errors.append('external_validation_kit must be an object')
+    else:
+        expected_kit_files = (
+            'answers_template',
+            'collector',
+            'report_schema',
+        )
+        for key in expected_kit_files:
+            relative = validation_kit.get(key)
+            if not isinstance(relative, str) or not relative:
+                errors.append(f'external_validation_kit.{key} must be a path')
+            elif not (REPO_ROOT / relative).is_file():
+                errors.append(
+                    f'external_validation_kit.{key} is missing: {relative}'
+                )
+        kit_command = validation_kit.get('command')
+        if (
+            not isinstance(kit_command, str)
+            or 'collect_first_map_validation.py' not in kit_command
+            or '--require-eligible' not in kit_command
+        ):
+            errors.append(
+                'external_validation_kit.command must run the strict collector'
+            )
+        report_files = validation_kit.get('report_files')
+        if report_files != [
+            'independent_first_map_validation.json',
+            'independent_first_map_validation.md',
+        ]:
+            errors.append('external_validation_kit.report_files are invalid')
+        privacy_boundary = validation_kit.get('privacy_boundary')
+        if not isinstance(privacy_boundary, list) or len(privacy_boundary) != 3:
+            errors.append(
+                'external_validation_kit.privacy_boundary must have 3 items'
+            )
+
     product_contract = _document_text('docs/product-contract.md', errors)
     getting_started = _document_text('docs/getting-started.md', errors)
     for artifact in sorted(EXPECTED_ARTIFACTS):
@@ -230,6 +268,25 @@ def validate(contract: dict[str, Any]) -> list[str]:
             errors.append(f'docs/product-contract.md is missing artifact: {artifact}')
         if artifact not in getting_started:
             errors.append(f'docs/getting-started.md is missing artifact: {artifact}')
+    for relative_path, text in (
+        ('docs/getting-started.md', getting_started),
+        (
+            'docs/evidence/independent-first-map-validations.md',
+            _document_text(
+                'docs/evidence/independent-first-map-validations.md',
+                errors,
+            ),
+        ),
+    ):
+        for snippet in (
+            'python3 scripts/collect_first_map_validation.py',
+            '--answers first-map-answers.json',
+            '--require-eligible',
+        ):
+            if snippet not in text:
+                errors.append(
+                    f'{relative_path} is missing collector snippet: {snippet}'
+                )
 
     return errors
 

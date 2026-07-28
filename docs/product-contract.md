@@ -65,6 +65,15 @@ is also published as
 remain present in the adoption docs and that their executable help still
 matches the documented options and artifacts.
 
+The independent-user adoption gate uses
+`scripts/collect_first_map_validation.py` and the versioned
+[`independent-first-map-validation-v1` schema](schemas/independent-first-map-validation-v1.schema.json).
+It records attestations, immutable tested identity, environment, redacted
+commands, terminal manifest state, verifier/diagnosis results and hashes of
+the required artifacts. It never packages geometry, raw logs or absolute
+local paths. Maintainer-operated reports remain ineligible regardless of a
+passing technical result.
+
 ## Input contract
 
 The general product path accepts a rosbag2 directory containing

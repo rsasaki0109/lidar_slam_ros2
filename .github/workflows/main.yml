@@ -39,6 +39,7 @@ jobs:
         run: |
           python3 -m pytest graph_based_slam/test/test_docs_entrypoints.py -q
           python3 -m pytest graph_based_slam/test/test_first_map_docs_contract.py -q
+          python3 -m pytest graph_based_slam/test/test_first_map_validation_collector.py -q
           python3 scripts/validate_first_map_docs.py
 
       - name: Validate public shell entrypoints

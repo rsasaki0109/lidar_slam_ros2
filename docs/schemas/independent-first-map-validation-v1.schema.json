@@ -1,0 +1,241 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/independent-first-map-validation-v1.schema.json",
+  "title": "Independent first-map validation report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "schema_uri",
+    "acceptance_status",
+    "collected_at",
+    "submission",
+    "run_evidence",
+    "checks",
+    "privacy"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "schema_uri": {
+      "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/independent-first-map-validation-v1.schema.json"
+    },
+    "acceptance_status": {
+      "enum": ["eligible", "not_eligible"]
+    },
+    "collected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "submission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entrypoint_id",
+        "tested_identity",
+        "starting_document",
+        "environment",
+        "commands",
+        "first_attempt",
+        "attestations",
+        "public_consent"
+      ],
+      "properties": {
+        "entrypoint_id": {
+          "enum": ["docker-demo", "own-bag", "source-demo"]
+        },
+        "tested_identity": {"type": "string", "minLength": 1},
+        "starting_document": {"type": "string", "minLength": 1},
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ros_distro",
+            "os",
+            "architecture",
+            "cpu_label",
+            "ram_gib",
+            "docker_version"
+          ],
+          "properties": {
+            "ros_distro": {"enum": ["humble", "jazzy"]},
+            "os": {"type": "string", "minLength": 1},
+            "architecture": {"type": "string", "minLength": 1},
+            "cpu_label": {"type": "string", "minLength": 1},
+            "ram_gib": {"type": "number", "exclusiveMinimum": 0},
+            "docker_version": {"type": ["string", "null"]}
+          }
+        },
+        "commands": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "first_attempt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["result", "elapsed", "findings"],
+          "properties": {
+            "result": {
+              "enum": [
+                "verified_map",
+                "map_unverified",
+                "workflow_incomplete"
+              ]
+            },
+            "elapsed": {"type": "string", "minLength": 1},
+            "findings": {
+              "type": "array",
+              "items": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "attestations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "independent_tester",
+            "docs_only_start",
+            "first_attempt_preserved",
+            "commands_redacted"
+          ],
+          "properties": {
+            "independent_tester": {"type": "boolean"},
+            "docs_only_start": {"type": "boolean"},
+            "first_attempt_preserved": {"type": "boolean"},
+            "commands_redacted": {"type": "boolean"}
+          }
+        },
+        "public_consent": {"type": "boolean"}
+      }
+    },
+    "run_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_directory_supplied",
+        "manifest_sha256",
+        "manifest_summary",
+        "verification",
+        "diagnosis",
+        "artifacts"
+      ],
+      "properties": {
+        "run_directory_supplied": {"type": "boolean"},
+        "manifest_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "manifest_summary": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "status",
+            "lifecycle_stage",
+            "runner_exit_code",
+            "product_version",
+            "git_commit",
+            "git_dirty",
+            "ros_distro",
+            "profile_id",
+            "finalized",
+            "diagnosis_status"
+          ],
+          "properties": {
+            "schema_version": {"type": ["integer", "null"]},
+            "status": {"type": ["string", "null"]},
+            "lifecycle_stage": {"type": ["string", "null"]},
+            "runner_exit_code": {"type": ["integer", "null"]},
+            "product_version": {"type": ["string", "null"]},
+            "git_commit": {"type": ["string", "null"]},
+            "git_dirty": {"type": ["boolean", "null"]},
+            "ros_distro": {"type": ["string", "null"]},
+            "profile_id": {"type": ["string", "null"]},
+            "finalized": {"type": ["boolean", "null"]},
+            "diagnosis_status": {"type": ["string", "null"]}
+          }
+        },
+        "verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["present", "passed", "sha256", "summary"],
+          "properties": {
+            "present": {"type": "boolean"},
+            "passed": {"type": "boolean"},
+            "sha256": {
+              "type": ["string", "null"],
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "summary": {"type": ["string", "null"]}
+          }
+        },
+        "diagnosis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["present", "status", "sha256"],
+          "properties": {
+            "present": {"type": "boolean"},
+            "status": {"type": ["string", "null"]},
+            "sha256": {
+              "type": ["string", "null"],
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "kind",
+              "present",
+              "size_bytes",
+              "sha256"
+            ],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "kind": {"enum": ["file", "directory"]},
+              "present": {"type": "boolean"},
+              "size_bytes": {"type": ["integer", "null"], "minimum": 0},
+              "sha256": {
+                "type": ["string", "null"],
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "passed", "observed"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "passed": {"type": "boolean"},
+          "observed": {"type": "string"}
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "geometry_included",
+        "absolute_local_paths_included",
+        "raw_logs_included"
+      ],
+      "properties": {
+        "geometry_included": {"const": false},
+        "absolute_local_paths_included": {"const": false},
+        "raw_logs_included": {"const": false}
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "entrypoint_id": "docker-demo",
+  "tested_identity": "ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:replace-with-64-hex-digest",
+  "starting_document": "https://rsasaki0109.github.io/lidar_slam_ros2/getting-started/",
+  "environment": {
+    "ros_distro": "humble",
+    "os": "Ubuntu 22.04",
+    "architecture": "amd64",
+    "cpu_label": "redacted CPU model, 8 logical cores",
+    "ram_gib": 16,
+    "docker_version": "Docker 28.x"
+  },
+  "commands": [
+    "docker run --rm -v \"$PWD/lidarslam_output:/lidarslam_ws/output\" ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:<digest>"
+  ],
+  "first_attempt": {
+    "result": "verified_map",
+    "elapsed": "18 minutes",
+    "findings": [
+      "No blocking findings."
+    ]
+  },
+  "attestations": {
+    "independent_tester": true,
+    "docs_only_start": true,
+    "first_attempt_preserved": true,
+    "commands_redacted": true
+  },
+  "public_consent": true
+}

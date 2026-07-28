@@ -18,6 +18,28 @@ Do not publish private bags, credentials, exact site coordinates, faces,
 license plates or other sensitive data. Redacted manifests, verifier summaries,
 diagnosis output and relevant log excerpts are sufficient for triage.
 
+Create a copy of the answers template, replace every placeholder and redact
+commands before collecting evidence:
+
+```bash
+cp configs/first_map_validation_answers.example.json first-map-answers.json
+$EDITOR first-map-answers.json
+
+python3 scripts/collect_first_map_validation.py \
+  --answers first-map-answers.json \
+  --run-dir <output_dir> \
+  --output-dir first-map-validation \
+  --require-eligible
+```
+
+Attach `independent_first_map_validation.json` and
+`independent_first_map_validation.md` to the issue. The collector hashes
+required files but never copies pointcloud geometry, raw logs or absolute
+local paths. Review the two reports before publication. For an unsuccessful
+attempt that created no output directory, omit `--run-dir` and
+`--require-eligible`; the resulting `not_eligible` report still preserves the
+onboarding finding.
+
 ## Acceptance criteria
 
 A report counts toward the gate only when all of these are true:
@@ -29,8 +51,10 @@ A report counts toward the gate only when all of these are true:
    [`first-map-v1.json`](../contracts/first-map-v1.json).
 4. The report identifies an immutable commit, release tag or image digest and
    records the environment and exact commands.
-5. A completed run contains the eight required success artifacts, and map
-   verification reports PASS.
+5. The schema-valid collector report is `eligible`: a completed run contains
+   the eight required success artifacts, its manifest is terminal success,
+   map verification reports PASS, diagnosis reports success and the reported
+   ROS distro matches the manifest.
 6. First-attempt onboarding failures are recorded and each release-blocking
    finding is resolved or explicitly documented before v1.0 sign-off.
 7. A maintainer reviews the evidence and adds the accepted report to this

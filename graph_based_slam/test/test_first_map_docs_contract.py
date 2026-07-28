@@ -86,6 +86,10 @@ def test_ci_and_release_bundle_enforce_the_contract():
             'graph_based_slam/test/test_first_map_docs_contract.py'
             in workflow
         )
+        assert (
+            'graph_based_slam/test/test_first_map_validation_collector.py'
+            in workflow
+        )
     assert 'cp docs/contracts/*.json release_bundle/docs/contracts/' in (
         release_workflow
     )
@@ -94,6 +98,15 @@ def test_ci_and_release_bundle_enforce_the_contract():
     )
     assert 'docs/evidence/independent-first-map-validations.json' in (
         release_workflow
+    )
+    assert (
+        'configs/first_map_validation_answers.example.json '
+        'release_bundle/configs/'
+        in release_workflow
+    )
+    assert (
+        'scripts/collect_first_map_validation.py release_bundle/scripts/'
+        in release_workflow
     )
 
 
@@ -126,3 +139,22 @@ def test_external_validation_gate_starts_at_zero_with_structured_intake():
         'publication',
     ):
         assert f'id: {field_id}' in issue_form
+
+
+def test_external_validation_kit_is_versioned_and_privacy_bounded():
+    contract = json.loads(CONTRACT.read_text(encoding='utf-8'))
+    kit = contract['external_validation_kit']
+
+    assert (REPO_ROOT / kit['answers_template']).is_file()
+    assert (REPO_ROOT / kit['collector']).is_file()
+    assert (REPO_ROOT / kit['report_schema']).is_file()
+    assert kit['report_files'] == [
+        'independent_first_map_validation.json',
+        'independent_first_map_validation.md',
+    ]
+    assert kit['privacy_boundary'] == [
+        'no pointcloud geometry',
+        'no raw logs',
+        'no absolute local paths',
+    ]
+    assert '--require-eligible' in kit['command']

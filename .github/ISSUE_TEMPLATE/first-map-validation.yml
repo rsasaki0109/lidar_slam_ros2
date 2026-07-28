@@ -99,12 +99,12 @@ body:
     attributes:
       label: Non-sensitive evidence
       description: |
-        Attach or paste run_manifest.json, verifier summary, diagnosis, and
-        relevant logs after removing private paths or coordinates.
+        Prefer attaching independent_first_map_validation.json and .md from
+        scripts/collect_first_map_validation.py. Otherwise attach or paste a
+        redacted manifest, verifier summary, diagnosis, and relevant excerpts.
       placeholder: |
-        run_manifest.json attachment
-        RESULT: PASS — 8 pass, 0 warn, 0 fail
-        diagnosis: success
+        independent_first_map_validation.json attachment
+        independent_first_map_validation.md attachment
     validations:
       required: true
 
