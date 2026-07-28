@@ -178,7 +178,9 @@ claim.
 `ndt_omp_ros2`, a declared build dependency, is now the remaining dependency
 blocker and must be released before the four core packages. Its
 [release-quality source archive passes Humble and Jazzy](evidence/ndt-omp-release-quality-2026-07-28.md);
-publication, rather than build compatibility, is the remaining boundary. See the
+the merged source is pinned by this checkout and passes
+[parent integration](evidence/ndt-omp-parent-integration-2026-07-29.md).
+Publication, rather than build compatibility, is the remaining boundary. See the
 [rosdistro release runbook](rosdistro-release.md) for the maintainer procedure
 and final Humble/Jazzy installed acceptance gates.
 

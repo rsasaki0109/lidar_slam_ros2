@@ -2,11 +2,13 @@
 
 ## Result
 
-The proposed `ndt_omp_ros2` release source passed clean archive build,
+The `ndt_omp_ros2` release source passed clean archive build,
 install, package-test and downstream-consumer gates on ROS 2 Humble and
-Jazzy. This closes the source/buildfarm-quality risk. It does not make the
-package available from apt; merge, tag, bloom and rosdistro review are still
-required.
+Jazzy. It also passed Bloom generation, Debian build-dependency closure,
+binary package build, and installed-content inspection for both target
+platforms. The source is now merged into the public `humble` branch. This
+closes the source/buildfarm-quality risk; tag, Bloom publication, and
+rosdistro review are still required before the package is available from apt.
 
 The same gate is now enforced by repository CI. Its
 [first GitHub Actions run](https://github.com/rsasaki0109/ndt_omp_ros2/actions/runs/30358865118)
@@ -18,7 +20,7 @@ passed both matrix jobs.
 | --- | --- |
 | Repository | `https://github.com/rsasaki0109/ndt_omp_ros2` |
 | Branch | `release/buildfarm-quality` |
-| Source revision | `a9b30d1e10effe5a794e5e29c402a064ff5f0278` |
+| Initial CI source revision | `a9b30d1e10effe5a794e5e29c402a064ff5f0278` |
 | Packaging implementation revision | `f0326f6a021e0151c0f5a0c926d98408475a56e0` |
 | Package version | `0.1.0` |
 | Automated source input | GitHub checkout of the recorded revision |
@@ -27,6 +29,8 @@ passed both matrix jobs.
 | Humble CI environment | `ros@sha256:afb40d6be65331c20a114d4e229a7ef099fed1b17bf6370daee193514b32aa16` |
 | Jazzy CI environment | `ros@sha256:31daab66eef9139933379fb67159449944f4e2dcf2e22c2d12cc715f29873e0f` |
 | CI run | `30358865118` — success |
+| Public merged revision | `8b77fa5a6cdcad45bf35918361c892b6d94a287e` |
+| Bloom/Debian evidence revision | `46eafce8ad93282702ef2f3bb0defcf2acdd93ad` |
 
 The initial archive gate also ran with the pinned product build images while
 bypassing their entrypoints and pre-existing workspace prefixes. The
@@ -56,6 +60,10 @@ ROS base images and installs only dependencies declared through rosdep.
 | Colcon result | 2 tests, 0 errors/failures/skips | 2 tests, 0 errors/failures/skips |
 | Fresh CMake consumer configure/link/run | PASS | PASS |
 | GitHub Actions job | PASS (2m42s) | PASS (2m39s) |
+| `bloom-generate rosdebian` | PASS | PASS |
+| `dpkg-checkbuilddeps` | PASS | PASS |
+| Binary `.deb` build | PASS | PASS |
+| Package identity and required contents | 11/11 PASS | 11/11 PASS |
 
 The downstream fixture uses only:
 
@@ -66,9 +74,8 @@ target_link_libraries(consumer ndt_omp_ros2::ndt_omp)
 
 ## Remaining publication sequence
 
-1. Review and merge the release-quality branch.
-2. Re-run this gate at the merge commit and create the `0.1.0` tag.
-3. Create `rsasaki0109/ndt_omp_ros2-release`.
-4. Run bloom for Humble and Jazzy and merge the rosdistro PRs.
-5. Release the four `lidarslam_ros2` packages and run installed first-map
+1. Create the `0.1.0` tag at the merged revision.
+2. Create `rsasaki0109/ndt_omp_ros2-release`.
+3. Run bloom for Humble and Jazzy and merge the rosdistro PRs.
+4. Release the four `lidarslam_ros2` packages and run installed first-map
    acceptance on both distributions.

@@ -5,8 +5,10 @@ installs the four core packages from the ROS buildfarm.
 
 This page records the dependency analysis and the exact release procedure.
 The repository-side prep (versions, SPDX license tags, per-package
-`CHANGELOG.rst`) landed with v0.5.0 and are maintained through v0.6.0; what remains is the bloom/rosdistro
-procedure itself, which requires the maintainer's GitHub account.
+`CHANGELOG.rst`) landed with v0.5.0 and is maintained through v0.6.0. The
+`ndt_omp_ros2` release-quality source is also merged and pinned. What remains
+is tagging and the Bloom/rosdistro procedure, which requires the maintainer's
+GitHub account.
 
 ## Released package set
 
@@ -38,23 +40,28 @@ bloom's upstream import) excludes — intended.
 The dependency is consumed as the submodule
 `https://github.com/rsasaki0109/ndt_omp_ros2` (branch `humble`) — a fork
 maintained by the same owner, BSD licensed, with a unique name in rosdistro.
-Before the first lidarslam release, in the fork repo:
+The
+[`release/buildfarm-quality`](https://github.com/rsasaki0109/ndt_omp_ros2/tree/release/buildfarm-quality)
+branch was reviewed and fast-forwarded into the public `humble` branch at
+`8b77fa5a6cdcad45bf35918361c892b6d94a287e`. That source installs and exports
+the library, respects the buildfarm build type, and runs source, package,
+consumer, Bloom-generation, Debian-build, and package-content gates for
+Humble and Jazzy.
 
-1. Merge the
-   [`release/buildfarm-quality`](https://github.com/rsasaki0109/ndt_omp_ros2/tree/release/buildfarm-quality)
-   branch (`a9b30d1`), which installs/exports the library, respects the
-   buildfarm build type, adds package/consumer smoke tests, and runs the
-   complete gate on every Humble/Jazzy change. The version `0.1.0`, SPDX
-   license, maintainer and changelog metadata are already on the `humble`
-   branch.
-2. Re-run the
-   [clean archive acceptance gate](evidence/ndt-omp-release-quality-2026-07-28.md)
-   at the merge commit, then tag it `0.1.0`.
-3. Bloom-release it into `humble` and `jazzy` (same procedure as
+Before the first lidarslam release:
+
+1. Create and push the `0.1.0` tag at `8b77fa5`.
+2. Bloom-release it into `humble` and `jazzy` (same procedure as
    below, separate release repo `ndt_omp_ros2-release`).
-4. Wait for the rosdistro PR to merge; the lidarslam release can be submitted
+3. Wait for the rosdistro PR to merge; the lidarslam release can be submitted
    as soon as the key exists in the distribution file (it does not need to be
    built yet).
+
+The
+[clean Bloom/Debian acceptance gate](evidence/ndt-omp-release-quality-2026-07-28.md)
+passed for both target pairs, and the
+[parent integration check](evidence/ndt-omp-parent-integration-2026-07-29.md)
+compiled and tested the pinned source with `scanmatcher`.
 
 ### rko_lio binary boundary is resolved
 
@@ -78,8 +85,8 @@ acceptance gates must pass after all packages reach the buildfarm.
 ## Distro targets
 
 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.04). Both are exercised by the CI
-matrix on every push. The release-quality `ndt_omp_ros2` branch has an
-independent matrix with pinned official ROS images; its
+matrix on every push. The merged `ndt_omp_ros2` source has an independent
+matrix with pinned official ROS images; its
 [first run passed both distributions](https://github.com/rsasaki0109/ndt_omp_ros2/actions/runs/30358865118),
 including rosdep installation, compile, install, package tests and downstream
 consumer linking. All ament tests run on synthetic fixtures (no datasets, no

@@ -364,6 +364,14 @@ def test_release_metadata_and_core_package_versions_match():
         'docs/evidence/upstream-rko-binary-first-map-2026-07-28.md'
         in release_workflow
     )
+    assert (
+        'docs/evidence/ndt-omp-release-quality-2026-07-28.md'
+        in release_workflow
+    )
+    assert (
+        'docs/evidence/ndt-omp-parent-integration-2026-07-29.md'
+        in release_workflow
+    )
     assert 'docs/schemas/*.json' in release_workflow
     assert 'docs/real-data-e2e.md' in release_workflow
     assert 'configs/real_data_e2e/driving_slam_mid360_v1.json' in release_workflow
