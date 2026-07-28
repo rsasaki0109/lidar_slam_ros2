@@ -39,6 +39,10 @@ import jsonschema
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / 'scripts' / 'check_install_upgrade.py'
 SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'install-upgrade-v1.schema.json'
+WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'install-upgrade.yml'
+EVIDENCE = (
+    REPO_ROOT / 'docs' / 'evidence' / 'install-upgrade-2026-07-28.md'
+)
 
 
 def _load_module():
@@ -147,3 +151,51 @@ def test_report_schema_is_valid():
     schema = json.loads(SCHEMA.read_text(encoding='utf-8'))
 
     jsonschema.Draft7Validator.check_schema(schema)
+
+
+def test_named_humble_and_jazzy_reports_pass_the_schema():
+    schema = json.loads(SCHEMA.read_text(encoding='utf-8'))
+
+    for distro in ('humble', 'jazzy'):
+        report = json.loads(
+            (
+                REPO_ROOT
+                / 'docs'
+                / 'evidence'
+                / f'install-upgrade-2026-07-28-{distro}.json'
+            ).read_text(encoding='utf-8')
+        )
+        jsonschema.validate(report, schema)
+        assert report['status'] == 'passed'
+        assert report['ros_distro'] == distro
+        assert all(check['passed'] for check in report['checks'])
+        assert report['snapshots']['stale_paths'] == []
+        assert report['snapshots']['missing_paths'] == []
+        assert report['snapshots']['mismatched_paths'] == []
+
+
+def test_workflow_and_distribution_docs_enforce_upgrade_gate():
+    workflow = WORKFLOW.read_text(encoding='utf-8')
+    distribution = (
+        REPO_ROOT / 'docs' / 'distribution.md'
+    ).read_text(encoding='utf-8')
+    evidence = EVIDENCE.read_text(encoding='utf-8')
+    release = (
+        REPO_ROOT / '.github' / 'workflows' / 'release.yml'
+    ).read_text(encoding='utf-8')
+
+    assert 'fetch-depth: 0' in workflow
+    assert 'check_install_upgrade.py' in workflow
+    assert 'install-upgrade-v1.schema.json' in workflow
+    assert 'ros_distro: humble' in workflow
+    assert 'ros_distro: jazzy' in workflow
+    assert 'sha256:9db1a467c99d' in workflow
+    assert 'sha256:7b27bdc109c2' in workflow
+    assert 'python3 scripts/check_install_upgrade.py' in distribution
+    assert '11 / 11 PASS' in evidence
+    for filename in (
+        'install-upgrade-2026-07-28.md',
+        'install-upgrade-2026-07-28-humble.json',
+        'install-upgrade-2026-07-28-jazzy.json',
+    ):
+        assert filename in release

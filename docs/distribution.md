@@ -74,6 +74,31 @@ that `ros2 run lidarslam lidarslam` was not replaced.
 The Docker image is likewise built without `--symlink-install` and verifies
 `lidarslam-map --version` before its build tree is removed.
 
+## Source install upgrade contract
+
+The separate install-upgrade gate starts with the immutable `v0.6.0`
+`lidarslam` package, installs the candidate into that same non-symlinked merge
+prefix, and compares it with a fresh candidate prefix:
+
+```bash
+source /opt/ros/$ROS_DISTRO/setup.bash
+python3 scripts/check_install_upgrade.py \
+  --baseline-ref v0.6.0 \
+  --evidence-dir output/install-upgrade/$ROS_DISTRO \
+  --hardware-label my-amd64-$ROS_DISTRO-host
+```
+
+The gate rejects stale or missing package-owned paths, executable-bit drift,
+and changed text resources after normalizing the install prefix. It then runs
+the complete installed-CLI checker against upgraded and fresh prefixes,
+including the historical ROS node. Binary content hashes are not compared
+because independent build directories can change compiler build IDs.
+
+The named Humble/Jazzy execution and machine-readable reports are in
+[clean-prefix upgrade evidence](evidence/install-upgrade-2026-07-28.md).
+This covers source-built prefix upgrades; Debian/ROS buildfarm package-manager
+upgrades remain a separate release boundary.
+
 ## Container install
 
 GHCR is the supported prebuilt amd64 delivery path for both ROS distributions.
