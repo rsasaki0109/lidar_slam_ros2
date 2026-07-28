@@ -140,16 +140,31 @@ telemetry, or exceeded RSS/output/drop budget stops the profile immediately
 and preserves failed evidence. The duration gate passes only after the full
 3,600 or 28,800 seconds have elapsed.
 
+## Named-hardware execution evidence
+
+The one-hour and eight-hour profiles were executed consecutively on
+2026-07-27/28 using one clean merged revision, one fixed rosbag2 identity and
+the named Jazzy machine
+`sasaki-laptop-i5-1145G7-32GiB-jazzy-native`. Both v4 reports passed all eight
+terminal checks.
+
+| Profile | Iterations | Wall time | Longest iteration | Peak RSS | Output | Drops |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| one-hour | 86 / 86 | 3,638.645 s | 43.164 s / 300 s | 209.320 MiB / 1,024 MiB | 1,889,888,063 B / 5 GiB | 0 / 0 |
+| eight-hour | 671 / 671 | 28,834.115 s | 45.732 s / 300 s | 210.871 MiB / 1,024 MiB | 14,553,359,036 B / 30 GiB | 0 / 0 |
+
+The [auditable evidence ledger](evidence/real-data-soak-2026-07-28.md)
+records the exact commit, input and report hashes, thresholds, free-space
+minimums, reproduction commands and scope limitations. This closes the named
+one-hour/eight-hour execution row for this hardware/input/profile combination;
+it does not establish a universal performance or map-quality guarantee.
+
 ## Open Phase 3 gates
 
 The following readiness rows remain incomplete and must not be inferred from
 the termination coverage:
 
 - timestamp reversal detection against real rosbag records before launch;
-- execute and archive the one-hour and eight-hour soak profiles on named
-  release hardware; the harness, machine-readable thresholds, v4 provenance
-  and per-iteration timeout are automated, but real-duration evidence is not
-  yet recorded;
 - a bounded-filesystem live exhaustion test in the scheduled real-data
   environment;
 - output migration tooling and last-known-good rollback instructions.

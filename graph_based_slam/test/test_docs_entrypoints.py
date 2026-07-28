@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 
@@ -65,6 +66,12 @@ PRODUCT_CONTRACT_DOC = REPO_ROOT / 'docs' / 'product-contract.md'
 GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
 DISTRIBUTION_DOC = REPO_ROOT / 'docs' / 'distribution.md'
 OPERATIONAL_RELIABILITY_DOC = REPO_ROOT / 'docs' / 'operational-reliability.md'
+SOAK_EVIDENCE_DOC = (
+    REPO_ROOT / 'docs' / 'evidence' / 'real-data-soak-2026-07-28.md'
+)
+SOAK_EVIDENCE_JSON = (
+    REPO_ROOT / 'docs' / 'evidence' / 'real-data-soak-2026-07-28.json'
+)
 REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
 PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v2.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
@@ -126,6 +133,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert GOLDEN_PATH_CLI_DOC.is_file()
     assert DISTRIBUTION_DOC.is_file()
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
+    assert SOAK_EVIDENCE_DOC.is_file()
+    assert SOAK_EVIDENCE_JSON.is_file()
     assert REAL_DATA_E2E_DOC.is_file()
     assert PREFLIGHT_SCHEMA.is_file()
     assert DIAGNOSIS_SCHEMA.is_file()
@@ -346,6 +355,9 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'docs/getting-started.md' in release_workflow
     assert 'docs/golden-path-cli.md' in release_workflow
     assert 'docs/operational-reliability.md' in release_workflow
+    assert 'docs/evidence/real-data-soak-2026-07-28.md' in release_workflow
+    assert 'docs/evidence/real-data-soak-2026-07-28.json' in release_workflow
+    assert 'docs/schemas/*.json' in release_workflow
     assert 'docs/real-data-e2e.md' in release_workflow
     assert 'configs/real_data_e2e/driving_slam_mid360_v1.json' in release_workflow
     assert 'docs/distribution.md' in release_workflow
@@ -391,6 +403,10 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'Golden-path CLI: golden-path-cli.md' in mkdocs_config
     assert 'Distribution and installed CLI: distribution.md' in mkdocs_config
     assert 'Operational reliability: operational-reliability.md' in mkdocs_config
+    assert (
+        'Named-hardware soak evidence: evidence/real-data-soak-2026-07-28.md'
+        in mkdocs_config
+    )
     assert 'Pinned real-data E2E: real-data-e2e.md' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
     assert 'Autoware Foxglove: autoware-foxglove.md' in mkdocs_config
@@ -539,6 +555,21 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'SIGKILL' in reliability_doc
     assert 'GNU `time`' in reliability_doc
     assert '3,600 or 28,800 seconds' in reliability_doc
+    assert '(evidence/real-data-soak-2026-07-28.md)' in reliability_doc
+    soak_evidence = SOAK_EVIDENCE_DOC.read_text(encoding='utf-8')
+    soak_ledger = json.loads(SOAK_EVIDENCE_JSON.read_text(encoding='utf-8'))
+    assert '671 / 671' in soak_evidence
+    assert '28,834.115 s' in soak_evidence
+    assert soak_ledger['evidence_version'] == 1
+    assert soak_ledger['software']['git_commit'] == (
+        '0ec55575ffc16eb008e9f24bd6c6f24700bf2f8a'
+    )
+    assert [run['profile'] for run in soak_ledger['runs']] == [
+        'one-hour',
+        'eight-hour',
+    ]
+    assert all(run['status'] == 'passed' for run in soak_ledger['runs'])
+    assert all(all(run['checks'].values()) for run in soak_ledger['runs'])
     assert '(operational-reliability.md)' in (
         PRODUCT_CONTRACT_DOC.read_text(encoding='utf-8')
     )
