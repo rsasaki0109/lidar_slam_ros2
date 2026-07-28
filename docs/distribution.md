@@ -74,6 +74,36 @@ that `ros2 run lidarslam lidarslam` was not replaced.
 The Docker image is likewise built without `--symlink-install` and verifies
 `lidarslam-map --version` before its build tree is removed.
 
+## Installed source identity
+
+Every official install includes
+`share/lidarslam/product/product-build-info.json`. The map runner uses this
+file to populate `software.git_commit` and `software.git_dirty` in
+`run_manifest.json`, even when the installed command runs outside its source
+checkout.
+
+A normal Git clone records its current 40-character commit and tracked dirty
+state at build time. Untracked files are excluded, matching the runtime
+manifest policy. The file contains no build timestamp or host path, so two
+builds with the same source identity produce identical metadata.
+
+Docker excludes `.git` from its build context. The Humble/Jazzy image
+workflows therefore pass the checked-out revision and `dirty=false` explicitly
+and reject an image whose installed revision differs from the checkout.
+Packagers building from a Git-free source archive must provide the same
+identity:
+
+```bash
+colcon build --cmake-args \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DLIDARSLAM_SOURCE_REVISION:STRING=<40-character-commit> \
+  -DLIDARSLAM_SOURCE_DIRTY:STRING=false
+```
+
+Without Git metadata or an explicit revision, the generated file records
+`revision: null` and `dirty: null` rather than inventing provenance. Official
+clean-prefix checks reject that incomplete identity.
+
 ## Container install
 
 GHCR is the supported prebuilt amd64 delivery path for both ROS distributions.
@@ -104,8 +134,8 @@ docker run --rm "$IMAGE" lidarslam-map --version
 
 Use an exact digest for deployment or rollback. Each GitHub Release attaches
 `release-image-humble.json` and `release-image-jazzy.json`; they record the
-tested tag, digest, tag commit, platform, product version, and observed CLI
-version:
+tested tag, digest, tag commit, installed source revision, platform, product
+version, and observed CLI version:
 
 ```bash
 DIGEST="$(jq -r .digest release-image-jazzy.json)"

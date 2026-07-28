@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -28,6 +29,15 @@ def _runtime_names(path: Path) -> tuple[str, ...]:
     if not names:
         raise RuntimeError(f'product runtime manifest is empty: {path}')
     return names
+
+
+def _load_module(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f'cannot load installed product module: {path}')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _run(
@@ -107,7 +117,10 @@ def _write_bag_fixture(path: Path) -> None:
         writer.close()
 
 
-def validate_install(prefix: Path) -> None:
+def validate_install(
+    prefix: Path,
+    expected_source_revision: str | None = None,
+) -> None:
     """Validate commands, resources, isolation, and delegated behavior."""
     prefix = prefix.expanduser().resolve()
     path_command = prefix / 'bin' / 'lidarslam-map'
@@ -116,6 +129,7 @@ def validate_install(prefix: Path) -> None:
     setup_file = prefix / 'setup.bash'
     product_root = prefix / 'share' / 'lidarslam' / 'product'
     product_scripts = product_root / 'scripts'
+    product_build_info = product_root / 'product-build-info.json'
     installed_runtime_manifest = product_root / 'product-runtime-files.txt'
 
     for path in (path_command, ros_shim, historical_node):
@@ -131,6 +145,45 @@ def validate_install(prefix: Path) -> None:
             raise RuntimeError(f'installed product resource is missing: {path}')
     if not (product_root / 'VERSION').is_file():
         raise RuntimeError(f'installed VERSION is missing under {product_root}')
+    if not product_build_info.is_file():
+        raise RuntimeError(
+            f'installed product build information is missing: {product_build_info}'
+        )
+    build_info = json.loads(product_build_info.read_text(encoding='utf-8'))
+    revision = build_info.get('revision')
+    dirty = build_info.get('dirty')
+    if not (
+        build_info.get('schema_version') == 1
+        and isinstance(revision, str)
+        and len(revision) == 40
+        and all(character in '0123456789abcdef' for character in revision)
+        and isinstance(dirty, bool)
+        and build_info.get('source') in ('git', 'override')
+    ):
+        raise RuntimeError(
+            f'installed product build information is incomplete: {build_info}'
+        )
+    if (
+        expected_source_revision is not None
+        and revision != expected_source_revision
+    ):
+        raise RuntimeError(
+            f'installed source revision {revision} does not match expected '
+            f'{expected_source_revision}'
+        )
+    runner = _load_module(
+        product_scripts / 'run_autoware_map_from_bag.py',
+        'installed_run_autoware_map_from_bag',
+    )
+    software_identity = runner._software_identity()
+    if (
+        software_identity.get('git_commit') != revision
+        or software_identity.get('git_dirty') is not dirty
+    ):
+        raise RuntimeError(
+            'installed runner did not consume product build information: '
+            f'{software_identity}'
+        )
     if (product_scripts / 'gaussian_splatting_train.py').exists():
         raise RuntimeError('research-only scripts leaked into the product install')
     if shutil.which('ros2') is None:
@@ -246,9 +299,13 @@ def main() -> int:
         required=True,
         help='Clean CMake install prefix to validate.',
     )
+    parser.add_argument(
+        '--expected-source-revision',
+        help='Require the installed product to record this exact Git commit.',
+    )
     args = parser.parse_args()
     try:
-        validate_install(args.prefix)
+        validate_install(args.prefix, args.expected_source_revision)
     except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
         print(f'error: {exc}', file=__import__('sys').stderr)
         return 1

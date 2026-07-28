@@ -68,6 +68,10 @@ def test_cmake_preserves_historical_node_and_installs_distinct_cli_names():
     assert 'RENAME lidarslam-map' in cmake
     assert 'DESTINATION lib/${PROJECT_NAME}' in cmake
     assert 'RENAME lidarslam-cli' in cmake
+    assert 'generate_product_build_info.py' in cmake
+    assert 'product-build-info.json' in cmake
+    assert 'LIDARSLAM_SOURCE_REVISION' in cmake
+    assert 'LIDARSLAM_SOURCE_DIRTY' in cmake
     assert 'install(TARGETS\n  lidarslam' in cmake
 
 

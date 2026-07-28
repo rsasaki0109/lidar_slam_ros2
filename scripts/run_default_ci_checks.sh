@@ -133,7 +133,8 @@ if ! colcon build \
   exit 1
 fi
 if ! python3 "${REPO_ROOT}/scripts/check_installed_product_cli.py" \
-  --prefix "${CLI_INSTALL_TEST_ROOT}/prefix"; then
+  --prefix "${CLI_INSTALL_TEST_ROOT}/prefix" \
+  --expected-source-revision "$(git -C "${REPO_ROOT}" rev-parse HEAD)"; then
   echo "error: clean-prefix product CLI validation failed" >&2
   exit 1
 fi

@@ -349,6 +349,10 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'v<VERSION>-<distro>' in (
         DISTRIBUTION_DOC.read_text(encoding='utf-8')
     )
+    distribution_doc = DISTRIBUTION_DOC.read_text(encoding='utf-8')
+    assert 'product-build-info.json' in distribution_doc
+    assert 'LIDARSLAM_SOURCE_REVISION:STRING' in distribution_doc
+    assert 'LIDARSLAM_SOURCE_DIRTY:STRING' in distribution_doc
     assert 'mkdocs.yml' in release_workflow
     assert 'docs/index.md' in release_workflow
     assert 'docs/assets/' in release_workflow
@@ -622,6 +626,7 @@ def test_container_distribution_builds_and_attests_both_supported_distros():
     """Container CI and releases must prove both supported binary paths."""
     docker_workflow = DOCKER_WORKFLOW.read_text(encoding='utf-8')
     release_workflow = RELEASE_WORKFLOW.read_text(encoding='utf-8')
+    dockerfile = (REPO_ROOT / 'Dockerfile').read_text(encoding='utf-8')
 
     for workflow in (docker_workflow, release_workflow):
         assert '- humble' in workflow
@@ -634,6 +639,15 @@ def test_container_distribution_builds_and_attests_both_supported_distros():
         assert 'sbom:' in workflow
         assert 'provenance:' in workflow
         assert 'lidarslam-map --version' in workflow
+        assert 'LIDARSLAM_SOURCE_REVISION=${{ steps.source.outputs.revision }}' in workflow
+        assert 'LIDARSLAM_SOURCE_DIRTY=false' in workflow
+        assert 'product-build-info.json' in workflow
+        assert 'OBSERVED_REVISION' in workflow
+
+    assert 'ARG LIDARSLAM_SOURCE_REVISION=' in dockerfile
+    assert 'ARG LIDARSLAM_SOURCE_DIRTY=' in dockerfile
+    assert '-DLIDARSLAM_SOURCE_REVISION:STRING=' in dockerfile
+    assert '-DLIDARSLAM_SOURCE_DIRTY:STRING=' in dockerfile
 
     assert "load: ${{ github.event_name == 'pull_request' }}" in docker_workflow
     assert '.github/workflows/release.yml' in docker_workflow
