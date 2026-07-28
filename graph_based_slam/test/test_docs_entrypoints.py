@@ -75,6 +75,12 @@ SOAK_EVIDENCE_JSON = (
 DOCKER_FIRST_MAP_EVIDENCE_DOC = (
     REPO_ROOT / 'docs' / 'evidence' / 'docker-first-map-2026-07-28.md'
 )
+BUILD_PROVENANCE_EVIDENCE_DOC = (
+    REPO_ROOT
+    / 'docs'
+    / 'evidence'
+    / 'installed-build-provenance-2026-07-28.md'
+)
 REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
 PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v2.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
@@ -138,6 +144,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
     assert SOAK_EVIDENCE_DOC.is_file()
     assert SOAK_EVIDENCE_JSON.is_file()
+    assert BUILD_PROVENANCE_EVIDENCE_DOC.is_file()
     assert REAL_DATA_E2E_DOC.is_file()
     assert PREFLIGHT_SCHEMA.is_file()
     assert DIAGNOSIS_SCHEMA.is_file()
@@ -364,6 +371,10 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'docs/operational-reliability.md' in release_workflow
     assert 'docs/evidence/real-data-soak-2026-07-28.md' in release_workflow
     assert 'docs/evidence/real-data-soak-2026-07-28.json' in release_workflow
+    assert (
+        'docs/evidence/installed-build-provenance-2026-07-28.md'
+        in release_workflow
+    )
     assert 'docs/schemas/*.json' in release_workflow
     assert 'docs/real-data-e2e.md' in release_workflow
     assert 'configs/real_data_e2e/driving_slam_mid360_v1.json' in release_workflow
@@ -416,6 +427,11 @@ def test_release_metadata_and_core_package_versions_match():
     )
     assert (
         'Docker first-map evidence: evidence/docker-first-map-2026-07-28.md'
+        in mkdocs_config
+    )
+    assert (
+        'Installed build provenance evidence: '
+        'evidence/installed-build-provenance-2026-07-28.md'
         in mkdocs_config
     )
     assert 'Pinned real-data E2E: real-data-e2e.md' in mkdocs_config
