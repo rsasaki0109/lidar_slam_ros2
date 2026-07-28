@@ -48,7 +48,7 @@ launch files are advanced, benchmark, migration, or research interfaces.
 
 | Goal | Official command | Contract |
 | --- | --- | --- |
-| Try the fixed public demo without a ROS workspace | `docker run --rm -v "$PWD/lidarslam_output:/lidarslam_ws/output" ghcr.io/rsasaki0109/lidar_slam_ros2:humble` | Downloads the tracked MID-360 demo and writes a headless map bundle |
+| Try the fixed public demo without a ROS workspace | [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) | Downloads the tracked MID-360 demo with progress and writes a user-owned headless map bundle |
 | Map your own compatible rosbag2 | `lidarslam-map run <rosbag2_dir> --output-dir <dir>` | Preflights the bag, selects a compatible maintained profile, runs headless, verifies and diagnoses the output |
 | Reproduce the fixed source-workspace quickstart | `bash scripts/download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh` | Runs the tracked NTU VIRAL path and opens the bounded viewer flow |
 
@@ -57,6 +57,11 @@ before a long run. The repo-local `./scripts/lidarslam` wrapper and installed
 `ros2 run lidarslam lidarslam-cli` shim expose the same own-bag contract and do
 not add beginner workflows. Installation details are in
 [Distribution and installed CLI](distribution.md).
+
+After a successful run, `lidarslam-map view <output_dir>` can open the
+completed output in Autoware or Foxglove. Viewing is optional post-processing,
+not a fourth beginner entrypoint, and its failure does not alter the map-run
+manifest.
 
 ## Input contract
 
@@ -77,7 +82,10 @@ frame override or parameter profile. Before recommending RKO-LIO, the preflight
 reads the first record on the selected `PointCloud2` topic and verifies
 FLOAT32 `x`, `y`, and `z` plus a supported per-point timestamp field named
 `t`, `timestamp`, `time`, or `stamps`. It does not certify timestamp units,
-monotonicity, calibration, or TF connectivity.
+calibration, or TF connectivity. Before launch it also checks up to 100,000
+`PointCloud2` and `Imu` records per selected topic for invalid or decreasing
+`header.stamp` values. A bounded clean sample is not a full-bag monotonicity
+proof, and the machine report distinguishes `sampled` from `passed`.
 
 ## Support tiers
 

@@ -4,15 +4,12 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
-from datetime import datetime, timezone
 import fcntl
 import hashlib
 import importlib.util
 import json
 import math
 import os
-from pathlib import Path
 import shlex
 import shutil
 import signal
@@ -21,6 +18,10 @@ import sys
 import time
 import uuid
 import xml.etree.ElementTree as ET
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Sequence
 
 import yaml
 
@@ -203,11 +204,13 @@ def build_execution_plan(
     output_dir: Path,
     verify_map: bool,
     pointcloud_inspector=None,
+    timestamp_inspector=None,
 ) -> dict[str, object]:
     preflight = _load_script_module('preflight_autoware_map_bag.py', 'preflight_autoware_map_bag')
     payload = preflight.build_preflight_payload(
         bag_path,
         pointcloud_inspector=pointcloud_inspector,
+        timestamp_inspector=timestamp_inspector,
     )
     selected_profile = _select_profile(payload, profile_id)
 
@@ -717,8 +720,8 @@ def _validate_resume_state(
         raise ValueError('resume requires a durably recorded terminal workflow result')
     if lifecycle.get('verification_enabled') is not verify_map:
         raise ValueError(
-            'resume verification option mismatch; use the same --no-verify-map '
-            'setting as the original run'
+            'resume verification option mismatch; use the same '
+            '--verification mode as the original run'
         )
 
     expected_values = (
@@ -768,28 +771,29 @@ def _finalize_output(working_dir: Path, final_dir: Path) -> None:
 
 
 def maybe_open_viewer(args: argparse.Namespace, output_dir: Path) -> None:
+    """Delegate deprecated combined run/view requests to the view command."""
     if args.viewer == 'none':
         return
 
-    if args.viewer == 'foxglove':
-        command = [
-            'bash',
-            str(SCRIPT_DIR / 'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh'),
-            str(output_dir),
-        ]
-    else:
-        command = [
-            'bash',
-            str(SCRIPT_DIR / 'run_graph_slam_pointcloud_map_in_autoware.sh'),
-            str(output_dir),
-        ]
-        if args.autoware_core_dir:
-            command.extend(['--autoware-core-dir', args.autoware_core_dir])
-
+    print(
+        'warning: run viewer options are deprecated; run the map first, then '
+        'use "lidarslam-map view <output_dir> --viewer '
+        f'{args.viewer}".',
+        file=sys.stderr,
+    )
+    command = [
+        sys.executable,
+        str(SCRIPT_DIR / 'view_autoware_map.py'),
+        str(output_dir),
+        '--viewer',
+        args.viewer,
+    ]
+    if args.autoware_core_dir:
+        command.extend(['--autoware-core-dir', args.autoware_core_dir])
     if args.work_dir:
         command.extend(['--work-dir', args.work_dir])
     if args.viewer_run_dir:
-        command.extend(['--run-dir', args.viewer_run_dir])
+        command.extend(['--runtime-dir', args.viewer_run_dir])
     if args.viewer_rebuild:
         command.append('--rebuild')
     if args.auto_exit_secs is not None:
@@ -841,13 +845,12 @@ def print_next_steps(args: argparse.Namespace, output_dir: Path) -> None:
     if args.viewer == 'none':
         print(
             '  Open in Foxglove: '
-            'bash scripts/run_graph_slam_pointcloud_map_in_autoware_foxglove.sh '
-            f'{shlex.quote(str(output_dir))}'
+            'lidarslam-map view '
+            f'{shlex.quote(str(output_dir))} --viewer foxglove'
         )
         print(
             '  Open in Autoware viewer: '
-            'bash scripts/run_graph_slam_pointcloud_map_in_autoware.sh '
-            f'{shlex.quote(str(output_dir))}'
+            f'lidarslam-map view {shlex.quote(str(output_dir))}'
         )
 
 
@@ -898,7 +901,7 @@ def _postprocess_run(
         _write_manifest(current_dir, manifest)
         lifecycle['stage'] = 'verifying'
         _write_manifest(current_dir, manifest)
-        maybe_verify_map(current_dir, enabled=not args.no_verify_map)
+        maybe_verify_map(current_dir, enabled=args.verification_enabled)
         lifecycle['stage'] = 'verified'
         _write_manifest(current_dir, manifest)
 
@@ -927,7 +930,7 @@ def _postprocess_run(
         elif workflow_exit_code != 0:
             runner_exit_code = workflow_exit_code
             manifest['status'] = 'failed'
-        elif not args.no_verify_map and diagnosis['status'] != 'success':
+        elif args.verification_enabled and diagnosis['status'] != 'success':
             runner_exit_code = 1
             manifest['status'] = 'failed'
         else:
@@ -1019,11 +1022,18 @@ def _help_epilog() -> str:
         f'  {command} /path/to/rosbag2 --dry-run',
         f'  {command} /path/to/rosbag2 --output-dir output/my_map',
         f'  {command} /path/to/rosbag2 --output-dir output/my_map --resume',
-        f'  {command} /path/to/rosbag2 --viewer foxglove',
     ])
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(
+    argv: Sequence[str] | None = None,
+) -> argparse.Namespace:
+    """Parse the map-run product options."""
+    show_all_help = os.environ.get('LIDARSLAM_CLI_HELP_MODE') != 'core'
+
+    def extended_help(text: str) -> str:
+        return text if show_all_help else argparse.SUPPRESS
+
     parser = argparse.ArgumentParser(
         prog=os.environ.get('LIDARSLAM_CLI_COMMAND'),
         description=(
@@ -1037,6 +1047,11 @@ def parse_args() -> argparse.Namespace:
         'bag',
         metavar='rosbag2_dir',
         help='Directory containing metadata.yaml.',
+    )
+    parser.add_argument(
+        '--help-all',
+        action='help',
+        help='Show advanced and deprecated options.',
     )
     map_options = parser.add_argument_group('map selection and output')
     map_options.add_argument(
@@ -1077,50 +1092,62 @@ def parse_args() -> argparse.Namespace:
             'terminal schema-v2 run; the map workflow is never re-executed.'
         ),
     )
-    viewer_options = parser.add_argument_group('viewer')
+    viewer_options = parser.add_argument_group(
+        'deprecated viewer compatibility options'
+    )
     viewer_options.add_argument(
         '--viewer',
         choices=['none', 'autoware', 'foxglove'],
         default='none',
-        help='Open the saved map after the run (default: none).',
+        help=extended_help(
+            'Deprecated: open the saved map after the run. Prefer '
+            '"lidarslam-map view <output_dir>" (default: none).'
+        ),
     )
     advanced_viewer_options = parser.add_argument_group(
-        'advanced viewer options'
+        'deprecated advanced viewer compatibility options'
     )
     advanced_viewer_options.add_argument(
         '--autoware-core-dir',
-        help='autoware_core checkout used by the Docker viewer.',
+        help=extended_help('autoware_core checkout used by the Docker viewer.'),
     )
     advanced_viewer_options.add_argument(
         '--work-dir',
-        help='Runtime workspace directory for Autoware/Foxglove viewers.',
+        help=extended_help(
+            'Runtime workspace directory for Autoware/Foxglove viewers.'
+        ),
     )
     advanced_viewer_options.add_argument(
         '--viewer-run-dir',
-        help='Existing built viewer runtime to reuse.',
+        help=extended_help('Existing built viewer runtime to reuse.'),
     )
     advanced_viewer_options.add_argument(
         '--viewer-rebuild',
         action='store_true',
-        help='Rebuild the viewer runtime before opening.',
+        help=extended_help('Rebuild the viewer runtime before opening.'),
     )
     advanced_viewer_options.add_argument(
         '--auto-exit-secs',
         type=int,
-        help='Auto-close the viewer after N seconds.',
+        help=extended_help('Auto-close the viewer after N seconds.'),
     )
-    advanced_overrides = parser.add_argument_group(
-        'advanced safety overrides'
+    verification_options = parser.add_argument_group(
+        'verification'
     )
-    advanced_overrides.add_argument(
-        '--no-verify-map',
-        action='store_true',
+    verification_options.add_argument(
+        '--verification',
+        choices=['required', 'off'],
         help=(
-            'Disable required map verification for diagnostics. A successful '
-            'workflow exit will not claim that verification ran.'
+            'Map verification mode (default: required). Use off only for '
+            'diagnosis; an unverified run is never reported as verified.'
         ),
     )
-    return parser.parse_args()
+    verification_options.add_argument(
+        '--no-verify-map',
+        action='store_true',
+        help=extended_help('Deprecated alias for "--verification off".'),
+    )
+    return parser.parse_args(argv)
 
 
 def validate_option_combinations(args: argparse.Namespace) -> None:
@@ -1142,10 +1169,36 @@ def validate_option_combinations(args: argparse.Namespace) -> None:
         )
 
 
+def resolve_verification_mode(args: argparse.Namespace) -> bool:
+    """Return whether map verification is required and emit migration warnings."""
+    if args.no_verify_map and args.verification is not None:
+        raise ValueError(
+            '--no-verify-map cannot be combined with --verification; use '
+            '"--verification off"'
+        )
+    if args.no_verify_map:
+        print(
+            'warning: --no-verify-map is deprecated; use "--verification off". '
+            'Map verification is disabled.',
+            file=sys.stderr,
+        )
+        return False
+    if args.verification == 'off':
+        print(
+            'warning: map verification is disabled; a successful workflow '
+            'exit will not be reported as verified.',
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
 def main() -> int:
+    """Run or resume a map workflow under the product lifecycle contract."""
     args = parse_args()
     try:
         validate_option_combinations(args)
+        args.verification_enabled = resolve_verification_mode(args)
     except ValueError as exc:
         print(f'error: {exc}', file=sys.stderr)
         return 2
@@ -1176,7 +1229,7 @@ def main() -> int:
             bag_path=bag_path,
             profile_id=args.profile,
             output_dir=working_dir,
-            verify_map=not args.no_verify_map,
+            verify_map=args.verification_enabled,
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         print(f'error: {exc}', file=sys.stderr)
@@ -1204,7 +1257,7 @@ def main() -> int:
                     output_dir,
                     working_dir,
                     plan,
-                    not args.no_verify_map,
+                    args.verification_enabled,
                 )
                 print(f'Resuming terminal post-processing from: {run_dir}')
                 exit_code = _postprocess_run(
@@ -1230,7 +1283,7 @@ def main() -> int:
             output_dir,
             working_dir,
             plan,
-            verify_map=not args.no_verify_map,
+            verify_map=args.verification_enabled,
         )
         working_dir.mkdir(parents=True, exist_ok=False)
         created_working_dir = True

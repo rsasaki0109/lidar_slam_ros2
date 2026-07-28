@@ -22,8 +22,8 @@ TFMESSAGE = 'tf2_msgs/msg/TFMessage'
 GSOF49 = 'applanix_msgs/msg/NavigationSolutionGsof49'
 GSOF50 = 'applanix_msgs/msg/NavigationPerformanceGsof50'
 VELOCITY_REPORT = 'autoware_auto_vehicle_msgs/msg/VelocityReport'
-SCHEMA_VERSION = 2
-SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v2.schema.json'
+SCHEMA_VERSION = 3
+SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v3.schema.json'
 POINT_FIELD_UINT32 = 6
 POINT_FIELD_FLOAT32 = 7
 POINT_FIELD_FLOAT64 = 8
@@ -33,6 +33,8 @@ RKO_TIMESTAMP_DATATYPES = (
     POINT_FIELD_FLOAT32,
     POINT_FIELD_FLOAT64,
 )
+TIMESTAMP_SCAN_MSGTYPES = (POINTCLOUD2, IMU)
+MAX_TIMESTAMP_RECORDS_PER_TOPIC = 100_000
 
 PROFILE_HELP = (
     (
@@ -259,6 +261,285 @@ def inspect_pointcloud_record(
     }
 
 
+def _timestamp_scan_state(
+    topics: list[TopicRecord],
+    max_records_per_topic: int,
+) -> dict[str, dict[str, Any]]:
+    return {
+        topic.name: {
+            'topic': topic.name,
+            'msg_type': topic.msg_type,
+            'expected_records': topic.message_count,
+            'records_scanned': 0,
+            'complete': False,
+            'first_stamp_ns': None,
+            'last_stamp_ns': None,
+            'reversal_count': 0,
+            'invalid_stamp_count': 0,
+            'max_backward_jump_ns': 0,
+            '_limit': max_records_per_topic,
+        }
+        for topic in topics
+    }
+
+
+def _stamp_ns_from_message(message: Any) -> int | None:
+    header = getattr(message, 'header', None)
+    stamp = getattr(header, 'stamp', None)
+    sec = getattr(stamp, 'sec', None)
+    nanosec = getattr(stamp, 'nanosec', None)
+    if sec is None or nanosec is None:
+        return None
+    sec = int(sec)
+    nanosec = int(nanosec)
+    if sec < 0 or not 0 <= nanosec < 1_000_000_000:
+        return None
+    return sec * 1_000_000_000 + nanosec
+
+
+def _record_timestamp_sample(
+    state: dict[str, Any],
+    stamp_ns: int | None,
+) -> None:
+    if state['records_scanned'] >= state['_limit']:
+        return
+    state['records_scanned'] += 1
+    if stamp_ns is None:
+        state['invalid_stamp_count'] += 1
+        return
+    if state['first_stamp_ns'] is None:
+        state['first_stamp_ns'] = stamp_ns
+    previous = state['last_stamp_ns']
+    if previous is not None and stamp_ns < previous:
+        state['reversal_count'] += 1
+        state['max_backward_jump_ns'] = max(
+            state['max_backward_jump_ns'],
+            previous - stamp_ns,
+        )
+    state['last_stamp_ns'] = stamp_ns
+
+
+def _timestamp_scan_satisfied(state: dict[str, Any]) -> bool:
+    expected = state['expected_records']
+    goal = min(
+        expected if expected > 0 else state['_limit'],
+        state['_limit'],
+    )
+    return state['records_scanned'] >= goal
+
+
+def _finalize_timestamp_scan(
+    states: dict[str, dict[str, Any]],
+    *,
+    exhausted: bool,
+    max_records_per_topic: int,
+) -> dict[str, Any]:
+    topics = []
+    failed_topics = []
+    for state in states.values():
+        expected = state['expected_records']
+        state['complete'] = (
+            exhausted
+            or (expected > 0 and state['records_scanned'] >= expected)
+        )
+        state['readable'] = state['records_scanned'] > 0
+        state.pop('_limit')
+        if (
+            not state['readable']
+            or state['reversal_count']
+            or state['invalid_stamp_count']
+        ):
+            failed_topics.append(state['topic'])
+        topics.append(state)
+
+    if failed_topics:
+        status = 'failed'
+        reason = (
+            'Unreadable, non-monotonic, or invalid header timestamps '
+            'were detected on: '
+            + ', '.join(failed_topics)
+            + '. Correct or rewrite the bag before mapping.'
+        )
+    elif all(topic['complete'] for topic in topics):
+        status = 'passed'
+        reason = 'All selected PointCloud2/Imu header timestamps are monotonic.'
+    else:
+        status = 'sampled'
+        reason = (
+            'No reversal was found in the bounded header timestamp sample; '
+            'at least one selected topic was not scanned completely.'
+        )
+    return {
+        'status': status,
+        'timestamp_source': 'header.stamp',
+        'max_records_per_topic': max_records_per_topic,
+        'failed_topics': failed_topics,
+        'topics': topics,
+        'reason': reason,
+    }
+
+
+def inspect_timestamp_order(
+    bag_path: Path,
+    topics: list[TopicRecord],
+    storage_id: str,
+    max_records_per_topic: int = MAX_TIMESTAMP_RECORDS_PER_TOPIC,
+) -> dict[str, Any]:
+    """Boundedly inspect PointCloud2/Imu header timestamps before launch."""
+    selected = [
+        topic for topic in topics
+        if topic.msg_type in TIMESTAMP_SCAN_MSGTYPES
+    ]
+    if not selected:
+        return {
+            'status': 'not_applicable',
+            'timestamp_source': 'header.stamp',
+            'max_records_per_topic': max_records_per_topic,
+            'failed_topics': [],
+            'topics': [],
+            'reason': 'No PointCloud2 or Imu topic was selected for inspection.',
+        }
+    if max_records_per_topic <= 0:
+        raise ValueError('max_records_per_topic must be positive')
+
+    try:
+        import rosbag2_py
+        from rclpy.serialization import deserialize_message
+        from sensor_msgs.msg import Imu, PointCloud2
+    except ImportError as exc:
+        return _inspect_timestamp_order_with_rosbags(
+            bag_path,
+            selected,
+            max_records_per_topic,
+            ros_import_error=exc,
+        )
+
+    message_types = {
+        POINTCLOUD2: PointCloud2,
+        IMU: Imu,
+    }
+    states = _timestamp_scan_state(selected, max_records_per_topic)
+    try:
+        reader = rosbag2_py.SequentialReader()
+        reader.open(
+            rosbag2_py.StorageOptions(
+                uri=str(bag_path),
+                storage_id=storage_id,
+            ),
+            rosbag2_py.ConverterOptions('', ''),
+        )
+        reader.set_filter(
+            rosbag2_py.StorageFilter(topics=list(states))
+        )
+        exhausted = True
+        while reader.has_next():
+            if all(_timestamp_scan_satisfied(state) for state in states.values()):
+                exhausted = False
+                break
+            topic, serialized, _ = reader.read_next()
+            state = states.get(topic)
+            if state is None or _timestamp_scan_satisfied(state):
+                continue
+            message = deserialize_message(
+                serialized,
+                message_types[state['msg_type']],
+            )
+            _record_timestamp_sample(
+                state,
+                _stamp_ns_from_message(message),
+            )
+        return _finalize_timestamp_scan(
+            states,
+            exhausted=exhausted,
+            max_records_per_topic=max_records_per_topic,
+        )
+    except Exception as exc:  # storage plugins expose backend-specific errors
+        return {
+            'status': 'error',
+            'timestamp_source': 'header.stamp',
+            'max_records_per_topic': max_records_per_topic,
+            'failed_topics': [],
+            'topics': [],
+            'reason': f'Failed to inspect header timestamp order: {exc}',
+        }
+
+
+def _inspect_timestamp_order_with_rosbags(
+    bag_path: Path,
+    topics: list[TopicRecord],
+    max_records_per_topic: int,
+    ros_import_error: ImportError,
+) -> dict[str, Any]:
+    try:
+        from rosbags.highlevel import AnyReader
+        from rosbags.typesys import Stores, get_typestore
+    except ImportError as rosbags_error:
+        return {
+            'status': 'unavailable',
+            'timestamp_source': 'header.stamp',
+            'max_records_per_topic': max_records_per_topic,
+            'failed_topics': [],
+            'topics': [],
+            'reason': (
+                'Header timestamp inspection is unavailable: ROS 2 Python '
+                f'bindings failed to import ({ros_import_error}); the rosbags '
+                f'fallback also failed to import ({rosbags_error}).'
+            ),
+        }
+
+    states = _timestamp_scan_state(topics, max_records_per_topic)
+    try:
+        typestore = get_typestore(Stores.LATEST)
+        with AnyReader(
+            [bag_path],
+            default_typestore=typestore,
+        ) as reader:
+            connections = [
+                connection
+                for connection in reader.connections
+                if connection.topic in states
+                and connection.msgtype == states[connection.topic]['msg_type']
+            ]
+            exhausted = True
+            for connection, _, serialized in reader.messages(
+                connections=connections,
+            ):
+                if all(
+                    _timestamp_scan_satisfied(state)
+                    for state in states.values()
+                ):
+                    exhausted = False
+                    break
+                state = states[connection.topic]
+                if _timestamp_scan_satisfied(state):
+                    continue
+                message = reader.deserialize(
+                    serialized,
+                    connection.msgtype,
+                )
+                _record_timestamp_sample(
+                    state,
+                    _stamp_ns_from_message(message),
+                )
+        return _finalize_timestamp_scan(
+            states,
+            exhausted=exhausted,
+            max_records_per_topic=max_records_per_topic,
+        )
+    except Exception as exc:
+        return {
+            'status': 'error',
+            'timestamp_source': 'header.stamp',
+            'max_records_per_topic': max_records_per_topic,
+            'failed_topics': [],
+            'topics': [],
+            'reason': (
+                'Failed to inspect header timestamp order with rosbags: '
+                f'{exc}'
+            ),
+        }
+
+
 def _inspect_pointcloud_record_with_rosbags(
     bag_path: Path,
     topic: str,
@@ -404,10 +685,19 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
         return 'mid360' in bag_path_lower or any('livox' in name for name in topic_names)
 
     pointcloud_inspection = summary['pointcloud_inspection']
+    timestamp_order_ready = (
+        summary['timestamp_order']['status'] in {'passed', 'sampled'}
+    )
+    failed_timestamp_topics = set(
+        summary['timestamp_order']['failed_topics']
+    )
     if (
         capabilities['has_pointcloud2']
         and capabilities['has_imu']
         and pointcloud_inspection['rko_lio_compatible'] is True
+        and timestamp_order_ready
+        and best_pointcloud['name'] not in failed_timestamp_topics
+        and best_imu['name'] not in failed_timestamp_topics
     ):
         command = textwrap.dedent(
             f"""\
@@ -473,7 +763,12 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
                 ],
             })
 
-    if capabilities['has_pointcloud2'] and capabilities['has_navsatfix']:
+    if (
+        capabilities['has_pointcloud2']
+        and capabilities['has_navsatfix']
+        and timestamp_order_ready
+        and best_pointcloud['name'] not in failed_timestamp_topics
+    ):
         command = (
             'bash scripts/run_open_data_gnss_smoke.sh '
             f'--bag {bag_q} '
@@ -530,17 +825,23 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
 def build_preflight_payload(
     bag_path: Path,
     pointcloud_inspector: Callable[[Path, str, str], dict[str, Any]] | None = None,
+    timestamp_inspector: Callable[
+        [Path, list[TopicRecord], str, int],
+        dict[str, Any],
+    ] | None = None,
+    max_timestamp_records_per_topic: int = MAX_TIMESTAMP_RECORDS_PER_TOPIC,
 ) -> dict[str, Any]:
     """Create the machine-readable preflight result."""
     summary = summarize_bag(bag_path)
+    bag_info = load_bag_metadata(bag_path)
+    storage_id = str(bag_info.get('storage_identifier', ''))
     if summary['topics']['pointcloud2']:
         topic = summary['topics']['pointcloud2'][0]['name']
-        bag_info = load_bag_metadata(bag_path)
         inspector = pointcloud_inspector or inspect_pointcloud_record
         summary['pointcloud_inspection'] = inspector(
             bag_path,
             topic,
-            str(bag_info.get('storage_identifier', '')),
+            storage_id,
         )
     else:
         summary['pointcloud_inspection'] = {
@@ -551,6 +852,18 @@ def build_preflight_payload(
             'timestamp_field': None,
             'reason': 'No PointCloud2 topic was found.',
         }
+    timestamp_topics = []
+    for msg_type in TIMESTAMP_SCAN_MSGTYPES:
+        topic = _best_topic(_collect_topics(bag_info), msg_type)
+        if topic is not None:
+            timestamp_topics.append(topic)
+    order_inspector = timestamp_inspector or inspect_timestamp_order
+    summary['timestamp_order'] = order_inspector(
+        bag_path,
+        timestamp_topics,
+        storage_id,
+        max_timestamp_records_per_topic,
+    )
     recommendations = build_recommendations(summary)
     bag_q = _safe_quote(summary['bag_path'])
     advisory = []
@@ -589,6 +902,28 @@ def build_preflight_payload(
             f"PointCloud2 topic {inspection['topic']} is not verified as compatible "
             f"with RKO-LIO: {inspection['reason']}"
         )
+    timestamp_order = summary['timestamp_order']
+    if timestamp_order['status'] in {'error', 'unavailable'}:
+        missing.append(
+            'Header timestamp order could not be inspected before launch: '
+            f"{timestamp_order['reason']}"
+        )
+    if timestamp_order['status'] == 'failed':
+        for topic in timestamp_order['topics']:
+            if not topic['readable']:
+                missing.append(
+                    f"Header timestamps on {topic['topic']} could not be read. "
+                    'Correct or rewrite the bag before mapping.'
+                )
+            elif topic['reversal_count'] or topic['invalid_stamp_count']:
+                missing.append(
+                    f"Header timestamp disorder on {topic['topic']}: "
+                    f"{topic['reversal_count']} reversal(s), "
+                    f"{topic['invalid_stamp_count']} invalid stamp(s), "
+                    f"maximum backward jump "
+                    f"{topic['max_backward_jump_ns'] / 1e9:.9f} s. "
+                    'Correct or rewrite the bag before mapping.'
+                )
     if not recommendations:
         if not summary['capabilities']['has_imu']:
             missing.append('No Imu topic was found for the main RKO-LIO public path.')
@@ -665,6 +1000,11 @@ def render_text_report(payload: dict[str, Any]) -> str:
             '  PointCloud2 record: '
             f"{inspection['status']} ({inspection['reason']})"
         )
+    timestamp_order = summary['timestamp_order']
+    lines.append(
+        '  Header timestamp order: '
+        f"{timestamp_order['status']} ({timestamp_order['reason']})"
+    )
 
     if recommendations:
         primary = recommendations[0]
@@ -784,6 +1124,11 @@ def parse_args() -> argparse.Namespace:
         'bag',
         metavar='rosbag2_dir',
         help='Directory containing metadata.yaml.',
+    )
+    parser.add_argument(
+        '--help-all',
+        action='help',
+        help='Show all options (this command has no advanced options).',
     )
     parser.add_argument(
         '--json',

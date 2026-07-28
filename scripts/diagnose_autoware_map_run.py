@@ -381,6 +381,11 @@ def parse_args() -> argparse.Namespace:
         help='Map workflow output directory containing logs and map artifacts.',
     )
     parser.add_argument(
+        '--help-all',
+        action='help',
+        help='Show all options (this command has no advanced options).',
+    )
+    parser.add_argument(
         '--bag',
         metavar='<rosbag2_dir>',
         help='Optional source rosbag2 directory to include preflight context.',

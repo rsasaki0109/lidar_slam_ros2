@@ -26,6 +26,13 @@ The installed own-bag command is then available from any working directory:
 lidarslam-map doctor /path/to/rosbag2
 lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"
 lidarslam-map inspect "$PWD/output/my_map"
+lidarslam-map view "$PWD/output/my_map" --viewer foxglove  # optional
+```
+
+Enable command and option completion in Bash:
+
+```bash
+source "$(ros2 pkg prefix lidarslam)/share/lidarslam/product/completions/lidarslam-map.bash"
 ```
 
 Use an absolute output path when it matters where artifacts are written. An
@@ -48,9 +55,10 @@ lidarslam-map --help
 ros2 run lidarslam lidarslam-cli --help
 ```
 
-Both spellings dispatch the same `doctor`, `run`, and `inspect` contract. The
-`ros2 run` form is a compatibility shim, not a fourth product workflow.
-Inside a source checkout, `./scripts/lidarslam` exposes the same contract.
+Both spellings dispatch the same `doctor`, `run`, `inspect`, and optional
+post-run `view` contract. The `ros2 run` form is a compatibility shim, not a
+fourth product workflow. Inside a source checkout, `./scripts/lidarslam`
+exposes the same contract.
 
 ## What the installation contains
 
@@ -68,11 +76,37 @@ media are not copied into the product-script directory.
 
 Every Humble/Jazzy default CI job creates a fresh, non-symlinked install prefix
 and checks all curated resources from an unrelated working directory. The gate
-also runs `--version`, `doctor`, an own-bag dry run, and `inspect`, and confirms
-that `ros2 run lidarslam lidarslam` was not replaced.
+also runs `--version`, `doctor`, an own-bag dry run, `inspect`, and the
+non-launching `view` validation path, and confirms that
+`ros2 run lidarslam lidarslam` was not replaced.
 
 The Docker image is likewise built without `--symlink-install` and verifies
 `lidarslam-map --version` before its build tree is removed.
+
+## Source install upgrade contract
+
+The separate install-upgrade gate starts with the immutable `v0.6.0`
+`lidarslam` package, installs the candidate into that same non-symlinked merge
+prefix, and compares it with a fresh candidate prefix:
+
+```bash
+source /opt/ros/$ROS_DISTRO/setup.bash
+python3 scripts/check_install_upgrade.py \
+  --baseline-ref v0.6.0 \
+  --evidence-dir output/install-upgrade/$ROS_DISTRO \
+  --hardware-label my-amd64-$ROS_DISTRO-host
+```
+
+The gate rejects stale or missing package-owned paths, executable-bit drift,
+and changed text resources after normalizing the install prefix. It then runs
+the complete installed-CLI checker against upgraded and fresh prefixes,
+including the historical ROS node. Binary content hashes are not compared
+because independent build directories can change compiler build IDs.
+
+The named Humble/Jazzy execution and machine-readable reports are in
+[clean-prefix upgrade evidence](evidence/install-upgrade-2026-07-28.md).
+This covers source-built prefix upgrades; Debian/ROS buildfarm package-manager
+upgrades remain a separate release boundary.
 
 ## Container install
 
@@ -105,14 +139,20 @@ docker run --rm "$IMAGE" lidarslam-map --version
 Use an exact digest for deployment or rollback. Each GitHub Release attaches
 `release-image-humble.json` and `release-image-jazzy.json`; they record the
 tested tag, digest, tag commit, platform, product version, and observed CLI
-version:
+version. It also attaches the schema-validated rollback plan generated from
+each record:
 
 ```bash
-DIGEST="$(jq -r .digest release-image-jazzy.json)"
-docker run --rm \
-  "ghcr.io/rsasaki0109/lidar_slam_ros2@${DIGEST}" \
-  lidarslam-map --version
+lidarslam-map rollback-plan release-image-jazzy.json
 ```
+
+Run the printed pull, `gh attestation verify`, and CLI smoke commands, then
+substitute the printed `ghcr.io/...@sha256:...` reference in the normal Docker
+invocation. Keep the previous release-image JSON with deployment evidence so
+the same last-known-good digest remains recoverable. Never implement rollback
+by retagging an old image or moving a convenience/versioned tag; map outputs
+are likewise immutable, so a post-rollback mapping run uses a new output
+directory.
 
 The release workflow builds from the tagged recursive checkout, publishes an
 SBOM and maximum-mode BuildKit provenance with each image, creates a signed
@@ -122,13 +162,33 @@ GitHub provenance with:
 
 ```bash
 gh attestation verify \
-  oci://ghcr.io/rsasaki0109/lidar_slam_ros2:v0.7.0-jazzy \
+  oci://ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:<digest> \
   -R rsasaki0109/lidar_slam_ros2
 ```
 
 The version examples illustrate the tag contract; use a tag listed on the
 GitHub Releases page. Convenience tags are intentionally moving, so recording
 their current digest is mandatory when they are used in evaluation evidence.
+
+### Bind-mounted output ownership
+
+The default demo starts as container root so it can use the prebuilt workspace
+and its internal dataset cache. On Linux, pass the invoking UID and GID to
+return the dedicated output mount to the host user when the demo exits:
+
+```bash
+mkdir -p "$PWD/lidarslam_output"
+docker run --rm \
+  -e LIDARSLAM_HOST_UID="$(id -u)" \
+  -e LIDARSLAM_HOST_GID="$(id -g)" \
+  -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
+  ghcr.io/rsasaki0109/lidar_slam_ros2:humble
+```
+
+Both variables are required together and must be numeric. The demo changes the
+owner of the dedicated output mount, the requested run directory and any
+failed `.partial` or post-processing lock sidecar; unrelated sibling contents
+are not changed.
 
 ## Profile-specific extras
 

@@ -64,6 +64,8 @@ BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
 COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
 PRODUCT_CONTRACT_DOC = REPO_ROOT / 'docs' / 'product-contract.md'
 GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
+CLI_COMPATIBILITY_DOC = REPO_ROOT / 'docs' / 'cli-compatibility.md'
+CLI_V1_CONTRACT = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
 DISTRIBUTION_DOC = REPO_ROOT / 'docs' / 'distribution.md'
 OPERATIONAL_RELIABILITY_DOC = REPO_ROOT / 'docs' / 'operational-reliability.md'
 BOUNDED_FILESYSTEM_SCHEMA = (
@@ -87,12 +89,27 @@ SOAK_EVIDENCE_JSON = (
 DOCKER_FIRST_MAP_EVIDENCE_DOC = (
     REPO_ROOT / 'docs' / 'evidence' / 'docker-first-map-2026-07-28.md'
 )
+CLI_V1_INSTALL_EVIDENCE_DOC = (
+    REPO_ROOT / 'docs' / 'evidence' / 'cli-v1-install-2026-07-28.md'
+)
+TIMESTAMP_ORDER_EVIDENCE_DOC = (
+    REPO_ROOT
+    / 'docs'
+    / 'evidence'
+    / 'timestamp-order-preflight-2026-07-29.md'
+)
 REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
-PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v2.schema.json'
+PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v3.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
 RUN_MANIFEST_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.json'
 RUN_MANIFEST_V2_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v2.schema.json'
+)
+RELEASE_IMAGE_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas' / 'release-image-v1.schema.json'
+)
+ROLLBACK_PLAN_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas' / 'rollback-plan-v1.schema.json'
 )
 V09_ROADMAP_DOC = REPO_ROOT / 'docs' / 'roadmap' / 'v0.9.md'
 SOCIAL_POST_DOC = REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.2.2.md'
@@ -146,17 +163,22 @@ def test_docs_exist_and_are_linked_from_readme():
     assert COMPARISON_DOC.is_file()
     assert PRODUCT_CONTRACT_DOC.is_file()
     assert GOLDEN_PATH_CLI_DOC.is_file()
+    assert CLI_COMPATIBILITY_DOC.is_file()
+    assert CLI_V1_CONTRACT.is_file()
     assert DISTRIBUTION_DOC.is_file()
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
     assert BOUNDED_FILESYSTEM_SCHEMA.is_file()
     assert BOUNDED_FILESYSTEM_WORKFLOW.is_file()
     assert SOAK_EVIDENCE_DOC.is_file()
     assert SOAK_EVIDENCE_JSON.is_file()
+    assert CLI_V1_INSTALL_EVIDENCE_DOC.is_file()
     assert REAL_DATA_E2E_DOC.is_file()
     assert PREFLIGHT_SCHEMA.is_file()
     assert DIAGNOSIS_SCHEMA.is_file()
     assert RUN_MANIFEST_SCHEMA.is_file()
     assert RUN_MANIFEST_V2_SCHEMA.is_file()
+    assert RELEASE_IMAGE_SCHEMA.is_file()
+    assert ROLLBACK_PLAN_SCHEMA.is_file()
     assert V09_ROADMAP_DOC.is_file()
     assert SOCIAL_POST_DOC.is_file()
     assert DOCKER_WORKFLOW.is_file()
@@ -310,12 +332,23 @@ def test_product_contract_has_bounded_official_surface():
     assert 'Other scripts and ROS' in contract
     assert '`run_manifest.json`' in contract
     assert '`<output>.partial`' in golden_path
+    assert 'preflight-v3.schema.json' in golden_path
     assert 'preflight-v2.schema.json' in golden_path
     assert 'preflight-v1.schema.json' in golden_path
     assert 'diagnosis-v1.schema.json' in golden_path
     assert 'run-manifest-v1.schema.json' in golden_path
     assert 'run-manifest-v2.schema.json' in golden_path
     assert '--resume' in golden_path
+    assert 'lidarslam-map run --help-all' in golden_path
+    compatibility = CLI_COMPATIBILITY_DOC.read_text(encoding='utf-8')
+    assert 'Normal help is the operator view' in compatibility
+    assert 'view --help-all' in compatibility
+    cli_contract = json.loads(CLI_V1_CONTRACT.read_text(encoding='utf-8'))
+    assert set(cli_contract['help_modes']) == {'normal', 'all'}
+    assert cli_contract['help_modes']['normal']['excludes'] == {
+        'stability': ['deprecated'],
+        'tiers': ['viewer-runtime'],
+    }
     assert 'Resume never starts the SLAM workflow again.' in golden_path
     assert 'existing outputs are never overwritten' in (
         REPO_ROOT / 'scripts' / 'run_autoware_map_from_bag.py'
@@ -371,9 +404,12 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'docs/product-contract.md' in release_workflow
     assert 'docs/getting-started.md' in release_workflow
     assert 'docs/golden-path-cli.md' in release_workflow
+    assert 'docs/cli-compatibility.md' in release_workflow
+    assert 'docs/contracts' in release_workflow
     assert 'docs/operational-reliability.md' in release_workflow
     assert 'docs/evidence/real-data-soak-2026-07-28.md' in release_workflow
     assert 'docs/evidence/real-data-soak-2026-07-28.json' in release_workflow
+    assert 'docs/evidence/cli-v1-install-2026-07-28.md' in release_workflow
     assert 'docs/schemas/*.json' in release_workflow
     assert 'docs/real-data-e2e.md' in release_workflow
     assert 'configs/real_data_e2e/driving_slam_mid360_v1.json' in release_workflow
@@ -418,6 +454,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'Getting Started: getting-started.md' in mkdocs_config
     assert 'Product Contract: product-contract.md' in mkdocs_config
     assert 'Golden-path CLI: golden-path-cli.md' in mkdocs_config
+    assert 'CLI compatibility: cli-compatibility.md' in mkdocs_config
     assert 'Distribution and installed CLI: distribution.md' in mkdocs_config
     assert 'Operational reliability: operational-reliability.md' in mkdocs_config
     assert (
@@ -426,6 +463,10 @@ def test_release_metadata_and_core_package_versions_match():
     )
     assert (
         'Docker first-map evidence: evidence/docker-first-map-2026-07-28.md'
+        in mkdocs_config
+    )
+    assert (
+        'CLI install evidence: evidence/cli-v1-install-2026-07-28.md'
         in mkdocs_config
     )
     assert 'Pinned real-data E2E: real-data-e2e.md' in mkdocs_config
@@ -453,11 +494,18 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     comparison_doc = COMPARISON_DOC.read_text(encoding='utf-8')
     distribution_doc = DISTRIBUTION_DOC.read_text(encoding='utf-8')
     reliability_doc = OPERATIONAL_RELIABILITY_DOC.read_text(encoding='utf-8')
+    timestamp_order_evidence = TIMESTAMP_ORDER_EVIDENCE_DOC.read_text(
+        encoding='utf-8'
+    )
     real_data_e2e_doc = REAL_DATA_E2E_DOC.read_text(encoding='utf-8')
 
     assert 'lidarslam-map doctor' in getting_started_doc
     assert 'lidarslam-map run' in getting_started_doc
     assert 'lidarslam-map inspect' in getting_started_doc
+    assert 'LIDARSLAM_HOST_UID' in getting_started_doc
+    assert 'LIDARSLAM_HOST_GID' in getting_started_doc
+    assert 'periodic' in getting_started_doc
+    assert 'Bind-mounted output ownership' in distribution_doc
     assert 'Creative Commons Attribution 4.0' in real_data_e2e_doc
     first_map_evidence = DOCKER_FIRST_MAP_EVIDENCE_DOC.read_text(encoding='utf-8')
     assert 'FINAL_' not in first_map_evidence
@@ -567,6 +615,11 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'exit `143`' in reliability_doc
     assert 'Automated failure injection' in reliability_doc
     assert 'timestamp reversal' in reliability_doc
+    assert '100,000-record per-topic bound' in timestamp_order_evidence
+    assert '750,000,000 ns' in timestamp_order_evidence
+    assert 'timestamp-order-preflight-2026-07-29.md' in (
+        RELEASE_WORKFLOW.read_text(encoding='utf-8')
+    )
     assert 'disk-pressure' in reliability_doc
     assert '--min-free-space-gib' in reliability_doc
     assert '5 GiB' in reliability_doc
@@ -666,3 +719,8 @@ def test_container_distribution_builds_and_attests_both_supported_distros():
     assert 'subject-digest: ${{ steps.image.outputs.digest }}' in release_workflow
     assert 'docker buildx imagetools inspect' in release_workflow
     assert 'release_image_evidence/*.json' in release_workflow
+    assert 'scripts/plan_image_rollback.py' in release_workflow
+    assert 'rollback-plan-${{ matrix.ros_distro }}.json' in release_workflow
+    assert 'lidarslam-map rollback-plan' in (
+        DISTRIBUTION_DOC.read_text(encoding='utf-8')
+    )

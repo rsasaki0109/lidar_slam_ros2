@@ -159,6 +159,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_product_recovery_tools
+    test/test_product_recovery_tools.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_map_soak_runner
     test/test_map_soak_runner.py
     TIMEOUT 120
@@ -241,6 +246,19 @@ install(
     ${CMAKE_CURRENT_SOURCE_DIR}/../VERSION
     ${CMAKE_CURRENT_SOURCE_DIR}/product-runtime-files.txt
   DESTINATION share/${PROJECT_NAME}/product
+)
+install(
+  FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/run-manifest-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/run-manifest-v2.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/release-image-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/rollback-plan-v1.schema.json
+  DESTINATION share/${PROJECT_NAME}/product/schemas
+)
+install(
+  FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/completions/lidarslam-map.bash
+  DESTINATION share/${PROJECT_NAME}/product/completions
 )
 
 ament_package()

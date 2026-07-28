@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import struct
 import subprocess
@@ -16,6 +17,14 @@ import tempfile
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SOURCE_RUNTIME_MANIFEST = (
     REPO_ROOT / 'lidarslam' / 'product-runtime-files.txt'
+)
+CLI_CONTRACT = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
+OPTION_PATTERN = re.compile(
+    r'(?<![A-Za-z0-9-])(--[a-z][a-z0-9-]*|-h)(?![A-Za-z0-9-])'
+)
+VALUE_OPTION_PATTERN = re.compile(
+    r'(?P<option>--[a-z][a-z0-9-]*)[ =]'
+    r'(?P<value>\{[^}\n]+\}|<[^>\n]+>|[A-Z][A-Z0-9_]*)'
 )
 
 
@@ -58,6 +67,55 @@ def _require_success(
             f'{label} failed with {result.returncode}\n'
             f'stdout:\n{result.stdout}\nstderr:\n{result.stderr}'
         )
+
+
+def _option_definition_lines(rendered_help: str) -> str:
+    return '\n'.join(
+        line
+        for line in rendered_help.splitlines()
+        if line.lstrip().startswith('-')
+    )
+
+
+def _validate_installed_help(
+    command_path: Path,
+    work_dir: Path,
+) -> None:
+    """Match clean-prefix full help against the source v1 contract."""
+    contract = json.loads(CLI_CONTRACT.read_text(encoding='utf-8'))
+    for command, command_contract in contract['commands'].items():
+        result = _run(
+            [str(command_path), command, '--help-all'],
+            work_dir,
+        )
+        _require_success(result, f'installed {command} --help-all')
+        definition_lines = _option_definition_lines(result.stdout)
+        rendered_options = set(OPTION_PATTERN.findall(definition_lines))
+        expected_options = {
+            name
+            for option in command_contract['options']
+            for name in option['names']
+        }
+        if rendered_options != expected_options:
+            raise RuntimeError(
+                f'installed {command} option inventory differs from '
+                f'contract: rendered={sorted(rendered_options)}, '
+                f'expected={sorted(expected_options)}'
+            )
+
+        rendered_values = {
+            match.group('option'): match.group('value')
+            for match in VALUE_OPTION_PATTERN.finditer(definition_lines)
+        }
+        expected_values = {
+            option: value['value_name']
+            for option, value in contract['value_options'][command].items()
+        }
+        if rendered_values != expected_values:
+            raise RuntimeError(
+                f'installed {command} value contract differs: '
+                f'rendered={rendered_values}, expected={expected_values}'
+            )
 
 
 def _write_bag_fixture(path: Path) -> None:
@@ -107,6 +165,63 @@ def _write_bag_fixture(path: Path) -> None:
         writer.close()
 
 
+def _historical_manifest_fixture() -> dict[str, object]:
+    return {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/run-manifest-v1.schema.json'
+        ),
+        'run_id': '12345678-1234-4234-8234-123456789abc',
+        'status': 'succeeded',
+        'input': {
+            'bag_path': '/data/bag',
+            'metadata_path': '/data/bag/metadata.yaml',
+            'metadata_size_bytes': 42,
+            'metadata_sha256': 'a' * 64,
+            'storage_identifier': 'sqlite3',
+            'storage_files': [],
+            'identity_algorithm': 'sha256',
+        },
+        'software': {
+            'product_version': '0.6.0',
+            'git_commit': 'b' * 40,
+            'git_dirty': False,
+            'package_versions': {'lidarslam': '0.6.0'},
+            'ros_distro': 'jazzy',
+        },
+        'profile': {'id': 'fixture', 'label': 'Fixture'},
+        'execution': {
+            'argv': ['lidarslam-map', 'run', '/data/bag'],
+            'command_shell': 'lidarslam-map run /data/bag',
+            'started_at': '2026-07-29T00:00:00Z',
+            'finished_at': '2026-07-29T00:01:00Z',
+            'exit_code': 0,
+        },
+        'output': {
+            'requested_dir': '/data/map',
+            'working_dir': '/data/map.partial',
+            'finalized': True,
+            'diagnosis_status': 'success',
+            'artifact_checksums': [],
+        },
+    }
+
+
+def _release_image_fixture() -> dict[str, object]:
+    return {
+        'schema_version': 1,
+        'status': 'PASS',
+        'ros_distro': 'jazzy',
+        'platform': 'linux/amd64',
+        'tag': 'ghcr.io/example/lidar_slam_ros2:v0.6.0-jazzy',
+        'digest': f"sha256:{'c' * 64}",
+        'git_commit': 'd' * 40,
+        'product_version': '0.6.0',
+        'cli_version': 'lidarslam_ros2 0.6.0',
+    }
+
+
 def validate_install(prefix: Path) -> None:
     """Validate commands, resources, isolation, and delegated behavior."""
     prefix = prefix.expanduser().resolve()
@@ -116,6 +231,8 @@ def validate_install(prefix: Path) -> None:
     setup_file = prefix / 'setup.bash'
     product_root = prefix / 'share' / 'lidarslam' / 'product'
     product_scripts = product_root / 'scripts'
+    bash_completion = product_root / 'completions' / 'lidarslam-map.bash'
+    product_schemas = product_root / 'schemas'
     installed_runtime_manifest = product_root / 'product-runtime-files.txt'
 
     for path in (path_command, ros_shim, historical_node):
@@ -131,6 +248,22 @@ def validate_install(prefix: Path) -> None:
             raise RuntimeError(f'installed product resource is missing: {path}')
     if not (product_root / 'VERSION').is_file():
         raise RuntimeError(f'installed VERSION is missing under {product_root}')
+    for schema_name in (
+        'run-manifest-v1.schema.json',
+        'run-manifest-v2.schema.json',
+        'release-image-v1.schema.json',
+        'rollback-plan-v1.schema.json',
+    ):
+        schema_path = product_schemas / schema_name
+        if not schema_path.is_file():
+            raise RuntimeError(f'installed product schema is missing: {schema_path}')
+    if not bash_completion.is_file():
+        raise RuntimeError(f'installed Bash completion is missing: {bash_completion}')
+    completion_syntax = _run(
+        ['bash', '-n', str(bash_completion)],
+        prefix,
+    )
+    _require_success(completion_syntax, 'installed Bash completion syntax')
     if (product_scripts / 'gaussian_splatting_train.py').exists():
         raise RuntimeError('research-only scripts leaked into the product install')
     if shutil.which('ros2') is None:
@@ -172,6 +305,58 @@ def validate_install(prefix: Path) -> None:
             _require_success(result, f'{command.name} --version')
             if not result.stdout.startswith('lidarslam_ros2 '):
                 raise RuntimeError(f'unexpected version output: {result.stdout!r}')
+
+        _validate_installed_help(path_command, work_dir)
+
+        historical_run = work_dir / 'historical_run'
+        historical_run.mkdir()
+        historical_source = historical_run / 'run_manifest.json'
+        historical_source.write_text(
+            json.dumps(_historical_manifest_fixture()),
+            encoding='utf-8',
+        )
+        migrated_path = work_dir / 'migrated_manifest.json'
+        migration = _run(
+            [
+                str(path_command),
+                'migrate-manifest',
+                str(historical_run),
+                '--output',
+                str(migrated_path),
+                '--verification',
+                'required',
+                '--json',
+            ],
+            work_dir,
+        )
+        _require_success(migration, 'installed migrate-manifest')
+        migrated = json.loads(migrated_path.read_text(encoding='utf-8'))
+        if migrated.get('lifecycle', {}).get('stage') != 'complete':
+            raise RuntimeError('installed migration was not inspect-only')
+        if json.loads(migration.stdout).get('resume_allowed') is not False:
+            raise RuntimeError('installed migration did not refuse resume')
+
+        release_record = work_dir / 'release-image-jazzy.json'
+        release_record.write_text(
+            json.dumps(_release_image_fixture()),
+            encoding='utf-8',
+        )
+        rollback = _run(
+            [
+                str(path_command),
+                'rollback-plan',
+                str(release_record),
+                '--json',
+            ],
+            work_dir,
+        )
+        _require_success(rollback, 'installed rollback-plan')
+        rollback_payload = json.loads(rollback.stdout)
+        if rollback_payload.get('moving_tag_mutated') is not False:
+            raise RuntimeError('installed rollback plan could move a tag')
+        immutable_ref = rollback_payload.get('immutable_ref', '')
+        if '@sha256:' not in immutable_ref:
+            raise RuntimeError('installed rollback plan is not digest-pinned')
 
         executables = _run(
             ['ros2', 'pkg', 'executables', 'lidarslam'],
@@ -236,6 +421,36 @@ def validate_install(prefix: Path) -> None:
         _require_success(inspect, 'installed inspect')
         if json.loads(inspect.stdout).get('status') != 'incomplete':
             raise RuntimeError('installed inspect returned an unexpected status')
+
+        view_help = _run(
+            [str(path_command), 'view', '--help'],
+            work_dir,
+        )
+        _require_success(view_help, 'installed view --help')
+        if '--viewer {autoware,foxglove}' not in view_help.stdout:
+            raise RuntimeError('installed view help is missing viewer choices')
+        if '--runtime-dir' in view_help.stdout:
+            raise RuntimeError('installed default view help leaked advanced options')
+        view_help_all = _run(
+            [str(path_command), 'view', '--help-all'],
+            work_dir,
+        )
+        _require_success(view_help_all, 'installed view --help-all')
+        if '--runtime-dir' not in view_help_all.stdout:
+            raise RuntimeError('installed full view help is missing runtime options')
+
+        view_incomplete = _run(
+            [str(path_command), 'view', str(output_dir)],
+            work_dir,
+        )
+        if view_incomplete.returncode != 2:
+            raise RuntimeError(
+                'installed view did not reject an incomplete map output'
+            )
+        if 'map output is incomplete' not in view_incomplete.stderr:
+            raise RuntimeError(
+                'installed view returned an unexpected incomplete-output error'
+            )
 
 
 def main() -> int:
