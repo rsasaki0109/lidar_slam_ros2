@@ -46,6 +46,8 @@ the pre-existing benchmark-summary expectation for `mid360_vs_glim`: the test
 expects a blocking profile, while the current release profile marks it
 `superseded-by-mid360-gt (D-GT-2)` and therefore returns `WARN`. The focused
 recovery, CLI, installation, upgrade-contract, and docs suites all passed.
+The stale v0.4 expectations were subsequently aligned with the documented
+v0.5 D-GT-2 policy; the broader Python suite then passed.
 
 ## Remaining boundary
 
