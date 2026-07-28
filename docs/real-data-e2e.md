@@ -25,11 +25,11 @@ The cache key includes the archive size and MD5. A restored cache is still
 hashed by the intake and again by the E2E validator, so a corrupt or replaced
 archive fails closed.
 
-The Zenodo record is open access but does not currently declare a license in
-its machine-readable record metadata. The workflow downloads from the
-publisher for validation and does not upload the source bag, trajectories, or
-map geometry. Its retained artifact contains only the contract, intake
-identity, run manifest, diagnosis, verification result, and logs.
+The Zenodo record declares the dataset under Creative Commons Attribution 4.0
+International. The workflow downloads from the publisher for validation and
+does not upload the source bag, trajectories, or map geometry. Its retained
+artifact contains only the contract, intake identity, run manifest, diagnosis,
+verification result, and logs.
 
 ## Blocking assertions
 
