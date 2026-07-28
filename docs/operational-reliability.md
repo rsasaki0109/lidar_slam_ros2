@@ -65,6 +65,10 @@ product. It mounts the input read-only and confines every map artifact to a
 reaches the kernel-backed capacity limit during `/map_save` without consuming
 the host filesystem.
 
+The harness requires Docker, PyYAML and `python3-jsonschema`. It deliberately
+requires `--image`; build that image from the same clean commit instead of
+silently using a stale convenience image.
+
 Run the same gate on a named Docker host:
 
 ```bash
@@ -80,10 +84,9 @@ python3 scripts/run_bounded_filesystem_exhaustion.py \
 The harness exports only logs, manifests and diagnosis files to the unbounded
 evidence directory; pointcloud geometry is never copied. Its
 [`bounded-filesystem-exhaustion-v1` schema](schemas/bounded-filesystem-exhaustion-v1.schema.json)
-requires one clean harness revision and either the exact matching image
-revision or an attested runtime overlay whose source-file digest matches the
-harness, a
-nonzero product exit, the real PCL `raw_fallocate ... returned 28` signature,
+requires one clean harness revision and an image built from that exact
+revision, a nonzero product exit, the real PCL
+`raw_fallocate ... returned 28` signature,
 at most 10% free space on the 32 MiB tmpfs, a terminal failed manifest, a
 storage-exhaustion
 diagnosis and proof that no success was claimed. A ten-minute process deadline

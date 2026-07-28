@@ -1,6 +1,25 @@
 name: bounded filesystem exhaustion
 
 on:
+  push:
+    branches:
+      - develop
+    paths:
+      - .github/workflows/bounded-filesystem-exhaustion.yml
+      - Dockerfile
+      - Thirdparty/ndt_omp_ros2/**
+      - Thirdparty/rko_lio/**
+      - configs/**
+      - docs/schemas/bounded-filesystem-exhaustion-v1.schema.json
+      - graph_based_slam/**
+      - lidarslam/**
+      - lidarslam_msgs/**
+      - scanmatcher/**
+      - docker/entrypoint.sh
+      - scripts/diagnose_autoware_map_run.py
+      - scripts/download_mid360_robot_public_dataset.py
+      - scripts/run_autoware_map_from_bag.py
+      - scripts/run_bounded_filesystem_exhaustion.py
   schedule:
     - cron: '41 18 * * 2'
   workflow_dispatch:
@@ -89,6 +108,18 @@ jobs:
               ).read_text()
           )
           jsonschema.validate(report, schema)
+          jsonschema.validate(
+              report['observed']['manifest'],
+              json.loads(
+                  Path('docs/schemas/run-manifest-v2.schema.json').read_text()
+              ),
+          )
+          jsonschema.validate(
+              report['observed']['diagnosis'],
+              json.loads(
+                  Path('docs/schemas/diagnosis-v1.schema.json').read_text()
+              ),
+          )
           if report['status'] != 'passed':
               raise SystemExit('bounded filesystem report did not pass')
           print('bounded filesystem evidence: PASS')

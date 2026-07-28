@@ -164,6 +164,11 @@ if(BUILD_TESTING)
     test/test_graph_slam_architecture.py
     TIMEOUT 60
   )
+  ament_add_pytest_test(
+    test_bounded_filesystem_exhaustion
+    test/test_bounded_filesystem_exhaustion.py
+    TIMEOUT 120
+  )
   ament_add_gtest(
     test_graph_slam_config
     test/test_graph_slam_config.cpp

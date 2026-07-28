@@ -13,9 +13,10 @@ import shutil
 import subprocess
 import sys
 import time
-import uuid
 from typing import Any
+import uuid
 
+import jsonschema
 import yaml
 
 
@@ -23,10 +24,6 @@ SCHEMA_VERSION = 1
 SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
     'schemas/bounded-filesystem-exhaustion-v1.schema.json'
-)
-DEFAULT_IMAGE = (
-    'ghcr.io/rsasaki0109/lidar_slam_ros2@'
-    'sha256:7b27bdc109c25a7881a884128a91708c2a3e431e776c02b066ec7e33d04b0f1c'
 )
 DEFAULT_TMPFS_MIB = 32
 DEFAULT_TIMEOUT_SECS = 600
@@ -39,6 +36,7 @@ TEXT_EVIDENCE_NAMES = (
     'verify_autoware_map.log',
 )
 STORAGE_HINT = 'output filesystem ran out of writable space or quota'
+REPORT_SCHEMA_NAME = 'bounded-filesystem-exhaustion-v1.schema.json'
 
 
 def _utc_now() -> str:
@@ -80,6 +78,25 @@ def _load_json(path: Path) -> dict[str, Any] | None:
     except (OSError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def _validate_report(repo_root: Path, report: dict[str, Any]) -> None:
+    """Validate the report and its embedded public product contracts."""
+    schemas = repo_root / 'docs' / 'schemas'
+    format_checker = jsonschema.FormatChecker()
+    for payload, schema_name in (
+        (report, REPORT_SCHEMA_NAME),
+        (report['observed']['manifest'], 'run-manifest-v2.schema.json'),
+        (report['observed']['diagnosis'], 'diagnosis-v1.schema.json'),
+    ):
+        schema = json.loads(
+            (schemas / schema_name).read_text(encoding='utf-8')
+        )
+        jsonschema.Draft7Validator.check_schema(schema)
+        jsonschema.Draft7Validator(
+            schema,
+            format_checker=format_checker,
+        ).validate(payload)
 
 
 def _bounded_filesystem_state(path: Path) -> dict[str, int]:
@@ -226,15 +243,6 @@ def _docker_image_identity(image: str) -> dict[str, Any]:
         'source_revision': str(
             labels.get('org.opencontainers.image.revision', '')
         ),
-        'runtime_overlay_revision': str(
-            labels.get('io.lidarslam.evidence.runtime-overlay-revision', '')
-        ),
-        'runtime_overlay_payload_sha256': str(
-            labels.get(
-                'io.lidarslam.evidence.runtime-overlay-payload-sha256',
-                '',
-            )
-        ),
     }
 
 
@@ -286,9 +294,6 @@ def evaluate_state(
     harness_commit: str = '',
     harness_dirty: bool = False,
     image_revision: str = '',
-    runtime_payload_sha256: str = '',
-    runtime_overlay_revision: str = '',
-    runtime_overlay_payload_sha256: str = '',
 ) -> list[dict[str, Any]]:
     """Evaluate the terminal evidence without accepting a false success."""
     manifest = state.get('manifest') or {}
@@ -307,22 +312,10 @@ def evaluate_state(
         },
         {
             'id': 'runtime_matches_harness_revision',
-            'passed': bool(harness_commit) and (
-                image_revision == harness_commit
-                or (
-                    runtime_overlay_revision == harness_commit
-                    and bool(runtime_payload_sha256)
-                    and runtime_overlay_payload_sha256
-                    == runtime_payload_sha256
-                )
-            ),
+            'passed': bool(harness_commit) and image_revision == harness_commit,
             'observed': (
                 f'image_revision={image_revision}, '
-                f'overlay_revision={runtime_overlay_revision}, '
-                f'overlay_payload_sha256='
-                f'{runtime_overlay_payload_sha256}, '
-                f'harness_commit={harness_commit}, '
-                f'runtime_payload_sha256={runtime_payload_sha256}'
+                f'harness_commit={harness_commit}'
             ),
         },
         {
@@ -522,15 +515,6 @@ def run(args: argparse.Namespace) -> int:
         harness_commit=harness_identity['commit'],
         harness_dirty=harness_identity['dirty'],
         image_revision=image_identity['source_revision'],
-        runtime_payload_sha256=(
-            harness_identity['runtime_payload']['sha256']
-        ),
-        runtime_overlay_revision=(
-            image_identity['runtime_overlay_revision']
-        ),
-        runtime_overlay_payload_sha256=(
-            image_identity['runtime_overlay_payload_sha256']
-        ),
     )
     report = {
         'schema_version': SCHEMA_VERSION,
@@ -557,6 +541,7 @@ def run(args: argparse.Namespace) -> int:
         'observed': state,
         'checks': checks,
     }
+    _validate_report(repo_root, report)
     _atomic_json(evidence_dir / 'bounded_filesystem_exhaustion_report.json', report)
     print(json.dumps({
         'status': report['status'],
@@ -595,7 +580,11 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help='Empty host directory that receives non-geometry evidence.',
     )
-    parser.add_argument('--image', default=DEFAULT_IMAGE)
+    parser.add_argument(
+        '--image',
+        required=True,
+        help='Locally available image built from the exact clean harness commit.',
+    )
     parser.add_argument(
         '--tmpfs-mib',
         type=_positive_int,
@@ -631,6 +620,8 @@ def main() -> int:
         OSError,
         subprocess.CalledProcessError,
         ValueError,
+        jsonschema.SchemaError,
+        jsonschema.ValidationError,
         yaml.YAMLError,
     ) as exc:
         print(f'error: {exc}', file=sys.stderr)

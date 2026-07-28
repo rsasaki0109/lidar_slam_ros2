@@ -20,14 +20,44 @@
     "observed",
     "checks"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {"status": {"const": "passed"}}
+      },
+      "then": {
+        "properties": {
+          "harness": {
+            "properties": {"dirty": {"const": false}}
+          },
+          "execution": {
+            "properties": {
+              "container_exit_code": {"not": {"const": 0}},
+              "timed_out": {"const": false}
+            }
+          },
+          "observed": {
+            "properties": {
+              "product_exit_code": {"not": {"const": 0}}
+            }
+          },
+          "checks": {
+            "items": {
+              "properties": {"passed": {"const": true}}
+            }
+          }
+        }
+      }
+    }
+  ],
   "properties": {
     "schema_version": {"const": 1},
     "schema_uri": {
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/bounded-filesystem-exhaustion-v1.schema.json"
     },
     "status": {"enum": ["passed", "failed"]},
-    "started_at": {"type": "string", "minLength": 1},
-    "finished_at": {"type": "string", "minLength": 1},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
     "duration_sec": {"type": "number", "minimum": 0},
     "hardware_label": {"type": "string", "minLength": 1},
     "image": {
@@ -37,22 +67,21 @@
         "reference",
         "image_id",
         "repo_digests",
-        "source_revision",
-        "runtime_overlay_revision",
-        "runtime_overlay_payload_sha256"
+        "source_revision"
       ],
       "properties": {
         "reference": {"type": "string", "minLength": 1},
-        "image_id": {"type": "string", "minLength": 1},
+        "image_id": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
         "repo_digests": {
           "type": "array",
           "items": {"type": "string", "minLength": 1}
         },
-        "source_revision": {"type": "string"},
-        "runtime_overlay_revision": {"type": "string"},
-        "runtime_overlay_payload_sha256": {
+        "source_revision": {
           "type": "string",
-          "pattern": "^$|^[0-9a-f]{64}$"
+          "pattern": "^[0-9a-f]{40}$"
         }
       }
     },
@@ -155,21 +184,98 @@
         }
       }
     },
-    "observed": {"type": "object"},
+    "observed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product_exit_code",
+        "output_layout",
+        "filesystem",
+        "manifest",
+        "diagnosis",
+        "storage_signatures",
+        "captured_files"
+      ],
+      "properties": {
+        "product_exit_code": {"type": "integer"},
+        "output_layout": {"enum": ["final", "partial", "missing"]},
+        "filesystem": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["capacity_bytes", "available_bytes", "used_bytes"],
+          "properties": {
+            "capacity_bytes": {"type": "integer", "minimum": 1},
+            "available_bytes": {"type": "integer", "minimum": 0},
+            "used_bytes": {"type": "integer", "minimum": 0}
+          }
+        },
+        "manifest": {"type": "object"},
+        "diagnosis": {"type": "object"},
+        "storage_signatures": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "line", "text"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "line": {"type": "integer", "minimum": 1},
+              "text": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "captured_files": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^captured/[^/]+$"
+          }
+        }
+      }
+    },
     "checks": {
       "type": "array",
       "minItems": 10,
       "maxItems": 10,
+      "uniqueItems": true,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["id", "passed", "observed"],
         "properties": {
-          "id": {"type": "string", "minLength": 1},
+          "id": {
+            "enum": [
+              "harness_revision_clean",
+              "runtime_matches_harness_revision",
+              "run_completed_within_timeout",
+              "product_failed_closed",
+              "tmpfs_capacity_enforced",
+              "real_enospc_signature_observed",
+              "filesystem_nearly_exhausted",
+              "manifest_records_failed_terminal_state",
+              "diagnosis_identifies_storage_exhaustion",
+              "success_not_claimed"
+            ]
+          },
           "passed": {"type": "boolean"},
           "observed": {"type": "string"}
         }
-      }
+      },
+      "allOf": [
+        {"contains": {"properties": {"id": {"const": "harness_revision_clean"}}}},
+        {"contains": {"properties": {"id": {"const": "runtime_matches_harness_revision"}}}},
+        {"contains": {"properties": {"id": {"const": "run_completed_within_timeout"}}}},
+        {"contains": {"properties": {"id": {"const": "product_failed_closed"}}}},
+        {"contains": {"properties": {"id": {"const": "tmpfs_capacity_enforced"}}}},
+        {"contains": {"properties": {"id": {"const": "real_enospc_signature_observed"}}}},
+        {"contains": {"properties": {"id": {"const": "filesystem_nearly_exhausted"}}}},
+        {"contains": {"properties": {"id": {"const": "manifest_records_failed_terminal_state"}}}},
+        {"contains": {"properties": {"id": {"const": "diagnosis_identifies_storage_exhaustion"}}}},
+        {"contains": {"properties": {"id": {"const": "success_not_claimed"}}}}
+      ]
     }
   }
 }

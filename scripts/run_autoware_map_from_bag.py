@@ -4,24 +4,24 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
+from datetime import datetime, timezone
 import fcntl
 import hashlib
 import importlib.util
 import json
 import math
 import os
+from pathlib import Path
 import shlex
 import shutil
 import signal
 import subprocess
 import sys
 import time
+from typing import Sequence
 import uuid
 import xml.etree.ElementTree as ET
-from contextlib import contextmanager
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Sequence
 
 import yaml
 
@@ -1277,6 +1277,7 @@ def main() -> int:
         return _finish_run(args, plan, output_dir, exit_code)
 
     created_working_dir = False
+    emergency_reserve = None
     try:
         manifest = _build_manifest(
             bag_path,
@@ -1287,12 +1288,17 @@ def main() -> int:
         )
         working_dir.mkdir(parents=True, exist_ok=False)
         created_working_dir = True
+        emergency_reserve = _allocate_emergency_evidence_reserve(working_dir)
         manifest['status'] = 'running'
         manifest['lifecycle']['stage'] = 'workflow_running'
         manifest['execution']['started_at'] = _utc_now()
         _write_manifest(working_dir, manifest)
-        emergency_reserve = _allocate_emergency_evidence_reserve(working_dir)
     except (OSError, RuntimeError, ValueError, ET.ParseError, yaml.YAMLError) as exc:
+        if emergency_reserve is not None:
+            try:
+                _release_emergency_evidence_reserve(emergency_reserve)
+            except OSError:
+                pass
         if created_working_dir and not (working_dir / MANIFEST_NAME).exists():
             try:
                 working_dir.rmdir()
@@ -1317,17 +1323,19 @@ def main() -> int:
         exit_code = 70
         workflow_error = f'failed to start map workflow: {exc}'
     finally:
-        try:
-            _release_emergency_evidence_reserve(emergency_reserve)
-        except OSError as exc:
-            print(
-                f'error: failed to release terminal evidence reserve: {exc}',
-                file=sys.stderr,
-            )
-            exit_code = 70
-            workflow_error = (
-                f'failed to release terminal evidence reserve: {exc}'
-            )
+        if emergency_reserve is not None:
+            try:
+                _release_emergency_evidence_reserve(emergency_reserve)
+            except OSError as exc:
+                print(
+                    'error: failed to release terminal evidence reserve: '
+                    f'{exc}',
+                    file=sys.stderr,
+                )
+                exit_code = 70
+                workflow_error = (
+                    f'failed to release terminal evidence reserve: {exc}'
+                )
 
     manifest['execution']['exit_code'] = exit_code
     manifest['execution']['finished_at'] = _utc_now()

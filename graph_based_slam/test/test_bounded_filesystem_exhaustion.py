@@ -103,13 +103,12 @@ def test_evaluate_state_requires_failed_manifest_and_real_enospc_signature():
         harness_commit='a' * 40,
         harness_dirty=False,
         image_revision='a' * 40,
-        runtime_payload_sha256='b' * 64,
     )
 
     assert len(checks) == 10
     assert all(item['passed'] for item in checks)
 
-    overlay_checks = module.evaluate_state(
+    mismatched_image_checks = module.evaluate_state(
         state,
         32 * 1024 * 1024,
         container_exit_code=1,
@@ -117,26 +116,9 @@ def test_evaluate_state_requires_failed_manifest_and_real_enospc_signature():
         harness_commit='a' * 40,
         harness_dirty=False,
         image_revision='c' * 40,
-        runtime_payload_sha256='b' * 64,
-        runtime_overlay_revision='a' * 40,
-        runtime_overlay_payload_sha256='b' * 64,
-    )
-    assert all(item['passed'] for item in overlay_checks)
-
-    mismatched_overlay_checks = module.evaluate_state(
-        state,
-        32 * 1024 * 1024,
-        container_exit_code=1,
-        timed_out=False,
-        harness_commit='a' * 40,
-        harness_dirty=False,
-        image_revision='c' * 40,
-        runtime_payload_sha256='b' * 64,
-        runtime_overlay_revision='a' * 40,
-        runtime_overlay_payload_sha256='d' * 64,
     )
     assert not next(
-        item for item in mismatched_overlay_checks
+        item for item in mismatched_image_checks
         if item['id'] == 'runtime_matches_harness_revision'
     )['passed']
 
@@ -156,7 +138,6 @@ def test_evaluate_state_requires_failed_manifest_and_real_enospc_signature():
         harness_commit='a' * 40,
         harness_dirty=False,
         image_revision='a' * 40,
-        runtime_payload_sha256='b' * 64,
     )
     assert not next(
         item for item in capacity_checks
@@ -179,7 +160,6 @@ def test_evaluate_state_requires_failed_manifest_and_real_enospc_signature():
         harness_commit='a' * 40,
         harness_dirty=False,
         image_revision='a' * 40,
-        runtime_payload_sha256='b' * 64,
     )
     failed_ids = {
         item['id'] for item in failed_checks if not item['passed']
@@ -259,8 +239,6 @@ def test_report_schema_accepts_terminal_pass_shape():
             'image_id': 'sha256:' + 'b' * 64,
             'repo_digests': ['example.invalid/image@sha256:' + 'a' * 64],
             'source_revision': 'c' * 40,
-            'runtime_overlay_revision': '',
-            'runtime_overlay_payload_sha256': '',
         },
         'harness': {
             'commit': 'd' * 40,
@@ -296,11 +274,72 @@ def test_report_schema_accepts_terminal_pass_shape():
             'timeout_secs': 600,
             'container_log_sha256': '2' * 64,
         },
-        'observed': {},
+        'observed': {
+            'product_exit_code': 1,
+            'output_layout': 'final',
+            'filesystem': {
+                'capacity_bytes': 32 * 1024 * 1024,
+                'available_bytes': 900_000,
+                'used_bytes': 32 * 1024 * 1024 - 900_000,
+            },
+            'manifest': {'status': 'failed'},
+            'diagnosis': {'status': 'runtime_failed'},
+            'storage_signatures': [{
+                'path': 'slam.launch.log',
+                'line': 12,
+                'text': 'raw_fallocate(length=1140644) returned 28.',
+            }],
+            'captured_files': [
+                'captured/run_manifest.json',
+                'captured/autoware_map_diagnosis.json',
+                'captured/slam.launch.log',
+            ],
+        },
         'checks': [
-            {'id': f'check_{index}', 'passed': True, 'observed': 'ok'}
-            for index in range(10)
+            {'id': check_id, 'passed': True, 'observed': 'ok'}
+            for check_id in (
+                'harness_revision_clean',
+                'runtime_matches_harness_revision',
+                'run_completed_within_timeout',
+                'product_failed_closed',
+                'tmpfs_capacity_enforced',
+                'real_enospc_signature_observed',
+                'filesystem_nearly_exhausted',
+                'manifest_records_failed_terminal_state',
+                'diagnosis_identifies_storage_exhaustion',
+                'success_not_claimed',
+            )
         ],
     }
 
     jsonschema.validate(report, schema)
+
+    missing_observation = {**report, 'observed': {}}
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(missing_observation, schema)
+
+    duplicate_check = {
+        **report,
+        'checks': report['checks'][:-1] + [report['checks'][0]],
+    }
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(duplicate_check, schema)
+
+    false_pass = {
+        **report,
+        'checks': [
+            {**check, 'passed': False}
+            if check['id'] == 'product_failed_closed'
+            else check
+            for check in report['checks']
+        ],
+    }
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(false_pass, schema)
+
+    successful_product_exit = {
+        **report,
+        'execution': {**report['execution'], 'container_exit_code': 0},
+    }
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(successful_product_exit, schema)
