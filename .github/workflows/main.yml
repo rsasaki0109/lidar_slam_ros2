@@ -114,6 +114,8 @@ jobs:
         shell: bash
         run: |
           python3 -m pip install --upgrade pyyaml rosbags
+          python3 -m pytest \
+            graph_based_slam/test/test_autoware_map_preflight.py -q
           bash scripts/smoke_mid360_robot_runbook.sh
 
   default-workflow:

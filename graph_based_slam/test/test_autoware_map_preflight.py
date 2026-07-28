@@ -38,6 +38,7 @@ import subprocess
 import sys
 
 import jsonschema
+import pytest
 import yaml
 
 
@@ -556,3 +557,96 @@ def test_timestamp_reversal_blocks_affected_mapping_profile(tmp_path: Path):
     )
     report = module.render_text_report(payload)
     assert 'Header timestamp order: failed' in report
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec('rosbags') is None,
+    reason='rosbags is required for the real rosbag2 fallback fixture',
+)
+def test_rosbags_reader_detects_reversal_in_serialized_records(
+    tmp_path: Path,
+):
+    module = _load_module()
+    if str(REPO_ROOT / 'scripts') not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT / 'scripts'))
+    from mid360_robot_sample_bag import (  # noqa: PLC0415
+        Mid360SampleBagWriter,
+        SampleBagConfig,
+    )
+    from rosbags.highlevel import AnyReader  # noqa: PLC0415
+    from rosbags.rosbag2 import Writer  # noqa: PLC0415
+    from rosbags.typesys import Stores, get_typestore  # noqa: PLC0415
+
+    source = tmp_path / 'source'
+    reversed_bag = tmp_path / 'reversed'
+    Mid360SampleBagWriter(
+        SampleBagConfig(
+            output_path=source,
+            duration_sec=0.5,
+            pointcloud_rate_hz=10.0,
+            imu_rate_hz=100.0,
+            force=True,
+        )
+    ).write()
+
+    typestore = get_typestore(Stores.LATEST)
+    previous_point_stamp = None
+    point_index = 0
+    with AnyReader(
+        [source],
+        default_typestore=typestore,
+    ) as reader, Writer(reversed_bag, version=9) as writer:
+        output_connections = {
+            connection.topic: writer.add_connection(
+                connection.topic,
+                connection.msgtype,
+                typestore=typestore,
+            )
+            for connection in reader.connections
+        }
+        for connection, receive_stamp_ns, serialized in reader.messages():
+            if connection.msgtype == 'sensor_msgs/msg/PointCloud2':
+                message = reader.deserialize(
+                    serialized,
+                    connection.msgtype,
+                )
+                header_stamp_ns = (
+                    int(message.header.stamp.sec) * 1_000_000_000
+                    + int(message.header.stamp.nanosec)
+                )
+                if point_index == 3:
+                    header_stamp_ns = previous_point_stamp - 50_000_000
+                    message.header.stamp.sec = (
+                        header_stamp_ns // 1_000_000_000
+                    )
+                    message.header.stamp.nanosec = (
+                        header_stamp_ns % 1_000_000_000
+                    )
+                    serialized = typestore.serialize_cdr(
+                        message,
+                        connection.msgtype,
+                    )
+                previous_point_stamp = header_stamp_ns
+                point_index += 1
+            writer.write(
+                output_connections[connection.topic],
+                receive_stamp_ns,
+                serialized,
+            )
+
+    payload = module.build_preflight_payload(reversed_bag)
+    timestamp_order = payload['summary']['timestamp_order']
+
+    assert payload['summary']['pointcloud_inspection'][
+        'rko_lio_compatible'
+    ] is True
+    assert timestamp_order['status'] == 'failed'
+    assert timestamp_order['failed_topics'] == ['/livox/lidar']
+    points = next(
+        topic
+        for topic in timestamp_order['topics']
+        if topic['topic'] == '/livox/lidar'
+    )
+    assert points['reversal_count'] == 1
+    assert points['max_backward_jump_ns'] == 50_000_000
+    assert payload['recommended_profile_id'] is None
