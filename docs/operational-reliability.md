@@ -95,7 +95,8 @@ and Docker stop/kill fallback bound a wedged failure path.
 The exact-revision local execution and its input, image, capacity, terminal
 state and evidence hashes are recorded in the
 [bounded-filesystem exhaustion evidence ledger](evidence/bounded-filesystem-exhaustion-2026-07-29.md).
-The first public post-integration workflow artifact remains a separate gate.
+The first public post-integration workflow artifact passed on merge commit
+`4151bf5`; the weekly recurrence remains enabled.
 
 PCL reports the POSIX `ENOSPC` value as `raw_fallocate ... returned 28`; some
 versions then print an unrelated `errno: 2` string. Diagnosis therefore keys
@@ -257,8 +258,6 @@ The source and clean-install execution is recorded in the
 The following readiness rows remain incomplete and must not be inferred from
 the termination coverage:
 
-- the first passing scheduled bounded-filesystem artifact after this gate is
-  merged;
 - the first tagged release execution that publishes the new rollback assets.
 
 See the [pinned real-data E2E contract](real-data-e2e.md) and the

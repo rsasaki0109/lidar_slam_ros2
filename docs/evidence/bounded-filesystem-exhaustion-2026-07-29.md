@@ -71,8 +71,19 @@ The report SHA-256 is
 the container log SHA-256 is
 `0ac93ef25d33a28ebea53b5a841d87cbfd166bd85a07c6a101b828a07764e73b`.
 
-## Boundary
+## Public integration
 
-This maintainer execution proves the exact-revision local gate. It does not
-replace the first passing public workflow artifact after integration, and it
-does not close the separate tagged-release rollback-assets gate.
+Merge commit `4151bf588aad3a2bed352f626a3146e3801df4e1` triggered the
+[first public bounded-filesystem run](https://github.com/rsasaki0109/lidar_slam_ros2/actions/runs/30401935038).
+The exact-revision image build, real-bag exhaustion run, outer report schema,
+embedded manifest-v2 schema, embedded diagnosis-v1 schema, evidence summary,
+and `bounded-filesystem-exhaustion-evidence` artifact upload all passed.
+
+The same workflow remains scheduled weekly and is also change-gated for the
+map runtime, runner, diagnosis, image, dataset intake, schema, and workflow
+paths.
+
+## Remaining boundary
+
+The local and public executions close the bounded-capacity artifact gate.
+They do not close the separate tagged-release rollback-assets gate.
