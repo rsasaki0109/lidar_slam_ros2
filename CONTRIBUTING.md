@@ -83,6 +83,14 @@ For benchmark-related reports, include:
 - `ape_corrected_vs_gt.txt` and `ape_raw_vs_gt.txt` when available
 - logs needed to understand failures or regressions
 
+For a docs-only onboarding trial, use the
+[Independent First-Map Validation](https://github.com/rsasaki0109/lidar_slam_ros2/issues/new?template=first-map-validation.yml)
+form. Record the first attempt before private maintainer guidance, including
+failures, exact commands, tested revision or image digest, elapsed time and
+non-sensitive verifier/diagnosis evidence. The
+[public validation ledger](docs/evidence/independent-first-map-validations.md)
+defines which reports count toward the v1.0 external-adoption gate.
+
 ## Recommended Local Checks
 
 For code changes that touch the default workflow:

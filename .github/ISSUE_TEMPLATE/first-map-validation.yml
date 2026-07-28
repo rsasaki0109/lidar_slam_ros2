@@ -1,0 +1,126 @@
+name: Independent First-Map Validation
+description: Record a docs-only first-map attempt for the v1.0 adoption gate.
+title: "[First Map Validation] "
+labels:
+  - documentation
+  - help wanted
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing the public onboarding path.
+
+        Successful and failed attempts are both valuable. Please record the
+        first attempt before applying private maintainer guidance. Do not
+        upload private bags, credentials, precise site coordinates, or other
+        sensitive data.
+
+  - type: checkboxes
+    id: independence
+    attributes:
+      label: Independence
+      options:
+        - label: I am not the maintainer and did not author the change being tested.
+          required: true
+        - label: I began from public repository documentation without private setup instructions.
+          required: true
+        - label: This report records my first attempt, including failures encountered before success.
+          required: true
+
+  - type: dropdown
+    id: entrypoint
+    attributes:
+      label: Official entrypoint
+      options:
+        - Docker fixed MID-360 demo
+        - Source-workspace fixed NTU VIRAL demo
+        - Own compatible rosbag2 with lidarslam-map
+    validations:
+      required: true
+
+  - type: input
+    id: revision
+    attributes:
+      label: Tested revision or image identity
+      description: Supply a full git commit, release tag, or immutable image digest.
+      placeholder: v0.9.0, full git SHA, or ghcr.io/...@sha256:...
+    validations:
+      required: true
+
+  - type: input
+    id: starting_document
+    attributes:
+      label: Starting documentation
+      description: Link the first public page you followed.
+      placeholder: https://rsasaki0109.github.io/lidar_slam_ros2/getting-started.html
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Include ROS distro, OS, architecture, CPU/RAM, and Docker version when used.
+      placeholder: Jazzy / Ubuntu 24.04 / amd64 / 16 GiB / Docker 28.x
+    validations:
+      required: true
+
+  - type: textarea
+    id: commands
+    attributes:
+      label: Exact commands
+      description: Paste commands in execution order, including any corrective commands.
+      render: bash
+    validations:
+      required: true
+
+  - type: dropdown
+    id: first_attempt_result
+    attributes:
+      label: First-attempt result
+      options:
+        - Map completed and verification passed
+        - Map completed but verification failed
+        - Workflow did not complete
+    validations:
+      required: true
+
+  - type: input
+    id: elapsed_time
+    attributes:
+      label: Time to first verified map
+      description: Use "not reached" when the attempt did not produce a verified map.
+      placeholder: 18 minutes, or not reached
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Non-sensitive evidence
+      description: |
+        Attach or paste run_manifest.json, verifier summary, diagnosis, and
+        relevant logs after removing private paths or coordinates.
+      placeholder: |
+        run_manifest.json attachment
+        RESULT: PASS — 8 pass, 0 warn, 0 fail
+        diagnosis: success
+    validations:
+      required: true
+
+  - type: textarea
+    id: onboarding_findings
+    attributes:
+      label: Onboarding findings
+      description: Record every unclear, missing, incorrect, or unexpectedly slow step.
+      placeholder: The docs did not state the expected PCL install size.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: publication
+    attributes:
+      label: Public evidence
+      options:
+        - label: I consent to this report being linked from the public v1.0 validation ledger.
+          required: true

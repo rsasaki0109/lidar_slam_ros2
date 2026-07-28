@@ -263,6 +263,7 @@ def test_contributing_and_issue_templates_exist():
     assert (ISSUE_TEMPLATE_DIR / 'config.yml').is_file()
     assert (ISSUE_TEMPLATE_DIR / 'benchmark-report.yml').is_file()
     assert (ISSUE_TEMPLATE_DIR / 'autoware-pointcloud-map.yml').is_file()
+    assert (ISSUE_TEMPLATE_DIR / 'first-map-validation.yml').is_file()
     assert (ISSUE_TEMPLATE_DIR / 'bug-report.yml').is_file()
     assert (ISSUE_TEMPLATE_DIR / 'feature-request.yml').is_file()
     assert (ISSUE_TEMPLATE_DIR / 'sensor-support.yml').is_file()

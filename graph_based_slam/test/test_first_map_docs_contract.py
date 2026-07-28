@@ -11,6 +11,15 @@ import sys
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VALIDATOR = REPO_ROOT / 'scripts' / 'validate_first_map_docs.py'
 CONTRACT = REPO_ROOT / 'docs' / 'contracts' / 'first-map-v1.json'
+VALIDATION_FORM = (
+    REPO_ROOT / '.github' / 'ISSUE_TEMPLATE' / 'first-map-validation.yml'
+)
+VALIDATION_LEDGER = (
+    REPO_ROOT / 'docs' / 'evidence' / 'independent-first-map-validations.json'
+)
+VALIDATION_LEDGER_DOC = (
+    REPO_ROOT / 'docs' / 'evidence' / 'independent-first-map-validations.md'
+)
 
 
 def _run(contract: Path) -> subprocess.CompletedProcess[str]:
@@ -80,3 +89,40 @@ def test_ci_and_release_bundle_enforce_the_contract():
     assert 'cp docs/contracts/*.json release_bundle/docs/contracts/' in (
         release_workflow
     )
+    assert 'docs/evidence/independent-first-map-validations.md' in (
+        release_workflow
+    )
+    assert 'docs/evidence/independent-first-map-validations.json' in (
+        release_workflow
+    )
+
+
+def test_external_validation_gate_starts_at_zero_with_structured_intake():
+    ledger = json.loads(VALIDATION_LEDGER.read_text(encoding='utf-8'))
+    ledger_doc = VALIDATION_LEDGER_DOC.read_text(encoding='utf-8')
+    issue_form = VALIDATION_FORM.read_text(encoding='utf-8')
+
+    assert ledger['schema_version'] == 1
+    assert ledger['gate_id'] == 'v1-independent-first-map'
+    assert ledger['target_accepted_validations'] == 3
+    assert ledger['accepted_count'] == len(ledger['validations']) == 0
+    assert 'Status: **0 / 3 accepted validations**.' in ledger_doc
+    assert '| _No accepted validations yet_ |' in ledger_doc
+    assert 'Maintainer-operated Docker, source, CI and real-data runs do not count' in (
+        ledger_doc
+    )
+
+    for field_id in (
+        'independence',
+        'entrypoint',
+        'revision',
+        'starting_document',
+        'environment',
+        'commands',
+        'first_attempt_result',
+        'elapsed_time',
+        'evidence',
+        'onboarding_findings',
+        'publication',
+    ):
+        assert f'id: {field_id}' in issue_form
