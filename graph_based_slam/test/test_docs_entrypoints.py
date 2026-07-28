@@ -72,6 +72,9 @@ SOAK_EVIDENCE_DOC = (
 SOAK_EVIDENCE_JSON = (
     REPO_ROOT / 'docs' / 'evidence' / 'real-data-soak-2026-07-28.json'
 )
+DOCKER_FIRST_MAP_EVIDENCE_DOC = (
+    REPO_ROOT / 'docs' / 'evidence' / 'docker-first-map-2026-07-28.md'
+)
 REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
 PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v2.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
@@ -407,6 +410,10 @@ def test_release_metadata_and_core_package_versions_match():
         'Named-hardware soak evidence: evidence/real-data-soak-2026-07-28.md'
         in mkdocs_config
     )
+    assert (
+        'Docker first-map evidence: evidence/docker-first-map-2026-07-28.md'
+        in mkdocs_config
+    )
     assert 'Pinned real-data E2E: real-data-e2e.md' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
     assert 'Autoware Foxglove: autoware-foxglove.md' in mkdocs_config
@@ -437,6 +444,15 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'lidarslam-map doctor' in getting_started_doc
     assert 'lidarslam-map run' in getting_started_doc
     assert 'lidarslam-map inspect' in getting_started_doc
+    assert 'Creative Commons Attribution 4.0' in real_data_e2e_doc
+    first_map_evidence = DOCKER_FIRST_MAP_EVIDENCE_DOC.read_text(encoding='utf-8')
+    assert 'FINAL_' not in first_map_evidence
+    assert 'PR #406' in first_map_evidence
+    assert 'PR #407' in first_map_evidence
+    assert 'independent-user validations' in first_map_evidence
+    assert 'docs/evidence/docker-first-map-2026-07-28.md' in (
+        RELEASE_WORKFLOW.read_text(encoding='utf-8')
+    )
     assert (
         'git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git'
         in getting_started_doc

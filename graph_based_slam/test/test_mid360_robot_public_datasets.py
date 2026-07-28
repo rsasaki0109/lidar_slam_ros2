@@ -62,6 +62,9 @@ def test_public_dataset_registry_contains_recommended_mid360_sources():
     assert datasets['driving_slam_mid360'].file_by_id().md5 == (
         '0836c50859bb1af591966b69da166186'
     )
+    assert datasets['driving_slam_mid360'].license == (
+        'Creative Commons Attribution 4.0 International.'
+    )
     assert datasets['hard_pointcloud_mid360_outdoor_kidnap_a'].profile[
         'expected_pointcloud_topic'
     ] == '/livox/points'

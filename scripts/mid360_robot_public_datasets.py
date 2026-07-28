@@ -99,7 +99,7 @@ PUBLIC_MID360_DATASETS: dict[str, PublicDataset] = {
         title='Driving SLAM Test with Livox MID360',
         source_url='https://zenodo.org/records/14841855',
         description='Small ROS2 bag for LiDAR-IMU SLAM testing with a Livox MID-360.',
-        license='See Zenodo record.',
+        license='Creative Commons Attribution 4.0 International.',
         citation='Koide, Kenji. Driving SLAM Test with Livox MID360. Zenodo. DOI: 10.5281/zenodo.14841855',
         files=(
             PublicDatasetFile(
