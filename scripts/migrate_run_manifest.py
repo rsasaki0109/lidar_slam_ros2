@@ -121,7 +121,7 @@ def migrate_file(
 ) -> dict[str, Any]:
     """Validate, migrate, and atomically write one historical manifest."""
     run_dir = run_dir.expanduser().resolve()
-    destination = destination.expanduser().resolve()
+    destination = destination.expanduser().absolute()
     if not run_dir.is_dir():
         raise FileNotFoundError(
             f'run directory does not exist or is not a directory: {run_dir}'
@@ -129,7 +129,7 @@ def migrate_file(
     source_path = run_dir / MANIFEST_NAME
     if not source_path.is_file():
         raise FileNotFoundError(f'run manifest not found: {source_path}')
-    if destination == source_path:
+    if destination.resolve(strict=False) == source_path.resolve():
         raise ValueError(
             'migration output must not replace the source run_manifest.json'
         )

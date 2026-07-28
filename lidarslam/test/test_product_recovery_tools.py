@@ -180,6 +180,19 @@ def test_migration_never_replaces_source_or_existing_destination(
     assert destination.read_text(encoding='utf-8') == 'keep me'
 
 
+def test_migration_refuses_broken_destination_symlink(tmp_path: Path):
+    run_dir = tmp_path / 'run'
+    _write_manifest(run_dir, _manifest())
+    destination = tmp_path / 'linked.json'
+    destination.symlink_to(tmp_path / 'missing-target.json')
+
+    with pytest.raises(FileExistsError, match='refusing overwrite'):
+        migrate_file(run_dir, destination, verification_enabled=True)
+
+    assert destination.is_symlink()
+    assert not (tmp_path / 'missing-target.json').exists()
+
+
 def test_migration_refuses_destination_created_during_publish(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

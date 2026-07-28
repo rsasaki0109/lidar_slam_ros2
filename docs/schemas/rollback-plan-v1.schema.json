@@ -56,9 +56,18 @@
       "additionalProperties": false,
       "required": ["pull", "attestation", "cli_smoke"],
       "properties": {
-        "pull": {"type": "string", "minLength": 1},
-        "attestation": {"type": "string", "minLength": 1},
-        "cli_smoke": {"type": "string", "minLength": 1}
+        "pull": {
+          "type": "string",
+          "pattern": "^docker pull ghcr\\.io/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@sha256:[0-9a-f]{64}$"
+        },
+        "attestation": {
+          "type": "string",
+          "pattern": "^gh attestation verify oci://ghcr\\.io/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@sha256:[0-9a-f]{64} -R [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "cli_smoke": {
+          "type": "string",
+          "pattern": "^docker run --rm ghcr\\.io/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@sha256:[0-9a-f]{64} lidarslam-map --version$"
+        }
       }
     }
   }
