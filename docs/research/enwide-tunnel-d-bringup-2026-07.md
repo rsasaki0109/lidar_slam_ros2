@@ -212,6 +212,19 @@ from correction. Peak margin p01 was 0.0815. This validates grid peak behavior
 in fog but also shows a high correction duty cycle; a full tunnel diagnostic
 is required before accuracy can be consumed.
 
+The full tunnel schema-v3 diagnostic then recorded 3,082 accepted and valid
+grid shifts with no search-boundary result. Median shift was −0.0092 m
+longitudinal and −0.00064 m lateral; observed ranges were −0.275 to 0.248 m
+and −0.090 to 0.137 m respectively. The gate corrected 2,025 scans. Runtime
+was 414.1 seconds, 4.9% above the comparable 1D diagnostic. The raw diagnostic
+SHA-256 is
+`5fe8e268dd142f77b73254e26a3b15c71a4babf2de14aed51a1f5671ad202570`.
+
+Together with the fog run, these results satisfy the pre-accuracy diagnostic
+gate: both sequences complete, shifts remain well inside the search window,
+and the added runtime is bounded. V6 may proceed to one public TunnelD
+early-stop run using its already-frozen parameters.
+
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet
 reproduced COIN-LIO on the identical converted input.
