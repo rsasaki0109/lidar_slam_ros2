@@ -119,7 +119,9 @@ jobs:
               scanmatcher \
               graph_based_slam \
               lidarslam \
-            --cmake-args -DCMAKE_BUILD_TYPE=Release
+            --cmake-args \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_TESTING=OFF
 
       - name: Record official binary identity
         shell: bash
