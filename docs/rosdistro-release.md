@@ -30,7 +30,7 @@ bloom's upstream import) excludes — intended.
 | `libg2o` | released (`ros-<distro>-libg2o`; verified 2026-06-11: `rosdep resolve libg2o` → `ros-humble-libg2o` on jammy, `ros-jazzy-libg2o` on noble) | none |
 | `libpcl-all-dev` | standard rosdep key (system PCL) | none |
 | **`ndt_omp_ros2`** | **not in rosdistro** | **bloom-release it first** (see below) |
-| `rko_lio` | PRBonn `0.3.2-1` is registered and built in testing for Humble/Jazzy; main currently has Humble `0.3.0` and Jazzy `0.2.0`; **not yet** a core `package.xml` dependency | run version-pinned official-binary compatibility E2E before declaring it as the flagship runtime dependency |
+| `rko_lio` | PRBonn `0.3.2-1` is registered and built in testing for Humble/Jazzy; main currently has Humble `0.3.0` and Jazzy `0.2.0`; declared as `rko_lio >= 0.3.2` after the official-binary gate passed | wait for `0.3.2` to sync to main before the normal apt path |
 
 This table was rechecked directly against the
 [Humble distribution](https://github.com/ros/rosdistro/blob/master/humble/distribution.yaml)
@@ -64,23 +64,25 @@ Before the first lidarslam release, in the fork repo:
    as soon as the key exists in the distribution file (it does not need to be
    built yet).
 
-### rko_lio exists, but binary compatibility is not yet proven
+### rko_lio binary compatibility is proven for the golden path
 
 The RKO-LIO flagship launch (`rko_lio_slam.launch.py`) uses the `rko_lio`
-package at runtime, but no core package declares it in `package.xml`, so the
-four core packages can be built and released without it. That is only a
-buildfarm fact: the resulting apt installation does not install RKO-LIO.
+package at runtime. `lidarslam/package.xml` now declares
+`<exec_depend version_gte="0.3.2">rko_lio</exec_depend>`, so an installed
+flagship path cannot silently resolve to the older main-repository builds.
 
 An official `rko_lio` release line and binary packages are now present for
 both supported distributions, with the versions differing between testing
 and main as recorded above. The product currently pins the
 `rsasaki0109/rko_lio` fork at package version `0.2.0`; that fork contains
 substantial offline-completion, recovery, diagnostics, and opt-in research
-changes after its common upstream base. It would be incorrect either to claim
-an official binary is equivalent without testing that exact version or to
-bloom the fork under the already-owned `rko_lio` package name.
+changes after its common upstream base. The successful gate proves the
+official binary for the maintained MID-360 golden path; it does not claim
+equivalence for those fork-only research features, and the fork must not be
+bloomed under the already-owned `rko_lio` package name.
 
-The resolution gate is:
+The resolution gate completed in
+[public run 30412938777](https://github.com/rsasaki0109/lidar_slam_ros2/actions/runs/30412938777):
 
 1. Run `.github/workflows/official-rko-binary-compatibility.yml`. It builds
    the release-shaped source tree without the RKO-LIO submodule, installs the
@@ -90,16 +92,18 @@ The resolution gate is:
    `/opt/ros/<distro>`, and runs the pinned MID-360 E2E independently on
    Humble and Jazzy. The workflow records the full Debian build version and
    executable SHA-256 in its non-geometry evidence artifact.
-2. If both pass, add `<exec_depend>rko_lio</exec_depend>` to `lidarslam`,
-   retain fork-only features as evaluation scope, and add package-manager
-   install/upgrade evidence.
-3. If either fails, upstream the minimum product fixes to `PRBonn/rko_lio`
-   or give the maintained fork a non-conflicting package identity before
-   releasing it. Do not silently substitute untested source code.
+2. Both passed all 18 E2E checks. The permanent non-geometry record is
+   [`official-rko-binary-compatibility-2026-07-29.md`](evidence/official-rko-binary-compatibility-2026-07-29.md).
+   `lidarslam` therefore requires `rko_lio >= 0.3.2`; fork-only features
+   remain evaluation scope.
+3. If a scheduled rerun regresses, upstream the minimum product fixes to
+   `PRBonn/rko_lio` or give the maintained fork a non-conflicting package
+   identity before releasing it. Do not silently substitute untested source
+   code.
 
 Do not advertise `sudo apt install ros-<distro>-lidarslam` as the golden path
-until `ndt_omp_ros2` is released, this compatibility decision is complete,
-and the installation E2E gate passes.
+until `ndt_omp_ros2` is released, `rko_lio 0.3.2` is synced to main, and the
+package-manager installation E2E gate passes.
 
 The compatibility workflow runs when its product boundary changes on
 `develop`, is scheduled weekly to detect repository drift, and can be

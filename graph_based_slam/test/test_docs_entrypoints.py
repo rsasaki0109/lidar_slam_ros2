@@ -93,6 +93,18 @@ SOAK_EVIDENCE_DOC = (
 SOAK_EVIDENCE_JSON = (
     REPO_ROOT / 'docs' / 'evidence' / 'real-data-soak-2026-07-28.json'
 )
+OFFICIAL_RKO_EVIDENCE_JSON = (
+    REPO_ROOT
+    / 'docs'
+    / 'evidence'
+    / 'official-rko-binary-compatibility-2026-07-29.json'
+)
+OFFICIAL_RKO_EVIDENCE_DOC = (
+    REPO_ROOT
+    / 'docs'
+    / 'evidence'
+    / 'official-rko-binary-compatibility-2026-07-29.md'
+)
 DOCKER_FIRST_MAP_EVIDENCE_DOC = (
     REPO_ROOT / 'docs' / 'evidence' / 'docker-first-map-2026-07-28.md'
 )
@@ -204,6 +216,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert DISTRIBUTION_DOC.is_file()
     assert ROSDISTRO_RELEASE_DOC.is_file()
     assert OFFICIAL_RKO_COMPATIBILITY_WORKFLOW.is_file()
+    assert OFFICIAL_RKO_EVIDENCE_JSON.is_file()
+    assert OFFICIAL_RKO_EVIDENCE_DOC.is_file()
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
     assert BOUNDED_FILESYSTEM_SCHEMA.is_file()
     assert BOUNDED_FILESYSTEM_WORKFLOW.is_file()
@@ -733,7 +747,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'BuildKit provenance' in distribution_doc
     assert 'There is currently no supported' in distribution_doc
     assert 'rko_lio' in distribution_doc
-    assert 'Official PRBonn `rko_lio` packages exist' in (
+    assert 'Official PRBonn `rko_lio 0.3.2-1` passed' in (
         distribution_doc
     )
     rosdistro_release_doc = ROSDISTRO_RELEASE_DOC.read_text(encoding='utf-8')
@@ -745,6 +759,29 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     )
     assert '`PRBonn/rko_lio`' in rosdistro_release_doc
     assert '`ndt_omp_ros2`' in rosdistro_release_doc
+    lidarslam_package = (
+        REPO_ROOT / 'lidarslam' / 'package.xml'
+    ).read_text(encoding='utf-8')
+    assert '<exec_depend version_gte="0.3.2">rko_lio</exec_depend>' in (
+        lidarslam_package
+    )
+    official_rko_evidence = json.loads(
+        OFFICIAL_RKO_EVIDENCE_JSON.read_text(encoding='utf-8')
+    )
+    assert official_rko_evidence['status'] == 'passed'
+    assert official_rko_evidence['workflow']['run_id'] == 30412938777
+    assert official_rko_evidence['contract']['source_rko_lio_present'] is False
+    assert {
+        candidate['ros_distro']
+        for candidate in official_rko_evidence['candidates']
+    } == {'humble', 'jazzy'}
+    assert all(
+        candidate['deb_version'].startswith('0.3.2-1')
+        and candidate['e2e']['status'] == 'PASS'
+        and candidate['e2e']['checks_passed'] == 18
+        and candidate['e2e']['checks_failed'] == 0
+        for candidate in official_rko_evidence['candidates']
+    )
     assert 'SIGTERM' in reliability_doc
     assert 'exit `143`' in reliability_doc
     assert 'Automated failure injection' in reliability_doc

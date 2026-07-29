@@ -226,7 +226,7 @@ module is absent. This extra is not required by the default RKO-LIO path.
 | --- | --- | --- | --- | --- |
 | Recursive source checkout + `colcon` | Tested in CI | Tested in CI | Evaluation; use the Jetson runbook | Included from the maintained submodule |
 | GHCR image | Moving and versioned amd64 images | Moving and versioned amd64 images | Not yet published | Included |
-| ROS buildfarm / apt | Not released | Not released | Not released | Official RKO-LIO packages exist; version-pinned product compatibility gate pending |
+| ROS buildfarm / apt | Not released | Not released | Not released | Official RKO-LIO 0.3.2 passed the Humble/Jazzy product gate |
 
 `amd64` is the tested product target. Jetson/MID-360 workflows have real-device
 evidence, but arm64 installation and image publication are still an evaluation
@@ -240,21 +240,17 @@ remain:
 
 1. `ndt_omp_ros2`, which is a declared build dependency, must be released
    before the four core packages.
-2. Official PRBonn `rko_lio` packages exist in Humble and Jazzy, but versions
-   differ between the ROS testing and main repositories and the product
-   currently validates a substantially patched maintained fork. The exact
-   candidate binary must pass the same clean installed golden-path E2E on
-   both distributions before `lidarslam` declares it as an `exec_depend`.
-   If it fails, the required fixes must be upstreamed or the fork must
-   receive a non-conflicting package identity.
+2. Official PRBonn `rko_lio 0.3.2-1` passed the clean installed golden-path
+   E2E on Humble and Jazzy. `lidarslam` now declares
+   `rko_lio >= 0.3.2`, but that version must sync from ROS testing to main
+   before normal apt dependency resolution can succeed.
 
-The core packages can be prepared by bloom without declaring `rko_lio`, but
-that fact only proves buildability; it does not make the installed flagship
-workflow complete. See the [rosdistro release runbook](rosdistro-release.md)
-for the maintainer procedure and remaining prerequisites.
+See the [official binary evidence](evidence/official-rko-binary-compatibility-2026-07-29.md)
+and [rosdistro release runbook](rosdistro-release.md) for the verified
+boundary and remaining maintainer prerequisites.
 
 Versioned Humble/Jazzy GHCR tags, release-image SBOM/provenance, digest smoke
 tests, and attached installation evidence are automated for the next tagged
-release. ROS buildfarm packages remain blocked by the dependency and
-compatibility gates above. Package-manager upgrade testing and arm64 image
+release. ROS buildfarm packages remain blocked by the NDT release and RKO-LIO
+main-sync gates above. Binary package-manager upgrade testing and arm64 image
 publication also remain Phase 2 work.
