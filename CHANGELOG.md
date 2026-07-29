@@ -34,7 +34,9 @@ deterministic and map-quality foundations delivered after v0.6.
   duplicate reporters, failed runs, and unreviewed evidence while preserving
   an honest 0/3 status before v1.0. Product runs now emit a privacy-bounded
   receipt that binds the final manifest, diagnosis, and map-verifier log
-  without publishing geometry or private paths.
+  without publishing geometry or private paths. Receipt parsing accepts the
+  verifier's canonical explanatory `RESULT` line and rejects malformed status
+  lookalikes.
 - **Map-quality and architecture work** — deterministic offline frontend and
   backend runners, event-driven loop search as the only backend path,
   map-quality metrics, offline refinement, stronger Graph SLAM ownership

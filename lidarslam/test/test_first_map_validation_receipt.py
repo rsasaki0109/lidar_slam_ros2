@@ -58,7 +58,8 @@ def _write_run(run_dir: Path, *, diagnosis_status: str = 'success') -> None:
         encoding='utf-8',
     )
     verify_path.write_text(
-        'RESULT: PASS\nPASS: 8 | WARN: 0 | FAIL: 0\n'
+        'RESULT: PASS -- map is Autoware-compatible\n'
+        'PASS: 8 | WARN: 0 | FAIL: 0\n'
         f'internal source: {PRIVATE_PATH}\n',
         encoding='utf-8',
     )
@@ -149,6 +150,24 @@ def test_receipt_fails_when_frozen_diagnosis_identity_is_changed(
     assert checks['diagnosis_bound_to_manifest']['observed'] == (
         'missing-or-mismatched'
     )
+
+
+def test_verifier_result_requires_a_bounded_result_line(tmp_path: Path):
+    """Accept the real verifier suffix without accepting status-like text."""
+    module = _load_module(MODULE_PATH, 'first_map_validation_result_line')
+    verify_path = tmp_path / 'verify_autoware_map.log'
+
+    verify_path.write_text(
+        'RESULT: PASS -- map is Autoware-compatible\n',
+        encoding='utf-8',
+    )
+    assert module._verify_result(verify_path) == 'PASS'
+
+    verify_path.write_text(
+        'RESULT: PASSING\n',
+        encoding='utf-8',
+    )
+    assert module._verify_result(verify_path) == 'unknown'
 
 
 def test_terminal_failure_with_no_verify_log_still_has_shareable_receipt(

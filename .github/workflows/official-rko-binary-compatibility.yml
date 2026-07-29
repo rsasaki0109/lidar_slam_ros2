@@ -246,5 +246,7 @@ jobs:
             output/official-rko-compatibility/run/autoware_map_diagnosis.json
             output/official-rko-compatibility/run/autoware_map_diagnosis.md
             output/official-rko-compatibility/run/verify_autoware_map.log
+            output/official-rko-compatibility/run/first_map_validation_receipt.json
+            output/official-rko-compatibility/run/first_map_validation_receipt.md
             output/official-rko-compatibility/run/slam.launch.log
             output/official-rko-compatibility/run/map_save.log

@@ -14,7 +14,7 @@ Changelog for package lidarslam
   collision and storage refusal, termination recovery, and digest-only
   rollback planning.
 * Emit a schema-validated, privacy-bounded first-map validation receipt from
-  the finalized manifest, diagnosis, and Autoware verifier evidence.
+  the finalized manifest, diagnosis, and canonical Autoware verifier result.
 * Validate clean-prefix Humble/Jazzy installation and v0.6.0 upgrade parity.
 * Contributors: Ryohei Sasaki
 

@@ -60,7 +60,11 @@ def _verify_result(path: Path) -> str:
         text = path.read_text(encoding='utf-8', errors='replace')
     except OSError as exc:
         raise ReceiptError(f'cannot read {path.name}: {exc}') from exc
-    match = re.search(r'^RESULT:\s*(PASS|FAIL)\s*$', text, re.MULTILINE)
+    match = re.search(
+        r'^RESULT:\s*(PASS|FAIL)(?:\s+--[^\r\n]*)?\s*$',
+        text,
+        re.MULTILINE,
+    )
     return match.group(1) if match else 'unknown'
 
 
