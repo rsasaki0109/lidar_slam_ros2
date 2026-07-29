@@ -2,7 +2,7 @@
 
 ## Scope
 
-Clean candidate commit `7a474c931f5fbd7e66670e3df23bba857df466ea`
+Clean candidate commit `90981ab69be797e20aae19503546f3deb88a92b9`
 was built on ROS 2 Jazzy and run against the public Leo Drive
 `all-sensors-bag1`. The command used only the benchmark defaults for packet
 topic and playback rate. It therefore exercises the product behavior added in
@@ -43,8 +43,12 @@ Input identity:
 Software identity:
 
 - candidate commit:
-  `7a474c931f5fbd7e66670e3df23bba857df466ea`;
+  `90981ab69be797e20aae19503546f3deb88a92b9`;
 - worktree state at build and run: clean;
+- effective lidarslam parameters SHA-256:
+  `c8939c298034b26510d016a60fc835f596a2e5af7a997e579e8788e63c5a6736`;
+- effective Velodyne parameters SHA-256:
+  `ac4b36e8ffe31101dd68ea367829e74e0440a455ea999cb947ebc91dc2a02153`;
 - Velodyne upstream:
   `56fc178d2dad4b6d38c6a69aeb2435ff75503e52`;
 - diagnostics upstream:
@@ -66,23 +70,29 @@ Machine identity:
 Output identity:
 
 - `metrics.json` SHA-256:
-  `d0a039facfeb7bd5c5c3a6de019d884dfae744192d090fea67762379daa2fc66`;
+  `0f63016eefa0c3a2694f79b88cdbf0f9ac1c67baee60781750047f47f61d363a`;
 - `map.pcd` SHA-256:
-  `cf54234f0a75b341ea03c0e079559db281510a03e4251ebc9c25780063d2b3ab`;
+  `930dbba8bddc1eaa708d5c3d6aea9faf5d16541b4621d2bc9e68d3a74541e6ae`;
 - extracted reference TUM SHA-256:
   `98ea2825378036b2bad838cdff921540bcd4abd050f33b80ba35c5b9db4dba26`.
+
+`metrics.json` validates against `benchmark-metrics-v1.schema.json` and embeds
+the input, reference, effective-parameter, harness, metrics-writer, runtime
+binary, Git commit, and clean-worktree identities above. The preserved
+effective YAML files remain alongside the metrics instead of pointing to
+deleted temporary files.
 
 ## Result
 
 The release profile reported `TARGET_MET`:
 
-- corrected APE RMSE: **0.139152 m**;
+- corrected APE RMSE: **0.138648 m**;
 - profile pass threshold: 1.500 m;
 - profile target threshold: 0.500 m;
-- matched corrected/reference poses: 571, above the 200-pair coverage floor;
-- corrected path length: 95.440 m;
-- raw path: 365 poses, 3,640 matched reference poses, 0.269712 m RMSE;
-- wall time: 54.381 seconds; processing RTF: 1.489.
+- matched corrected/reference poses: 580, above the 200-pair coverage floor;
+- corrected path length: 95.437 m;
+- raw path: 350 poses, 3,490 matched reference poses, 0.277409 m RMSE;
+- wall time: 54.387 seconds; processing RTF: 1.490.
 
 The generated map passed all eight Autoware compatibility checks. The verifier
 reported one informational warning because grid-map metadata lives in the
