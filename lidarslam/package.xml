@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>lidarslam</name>
-  <version>0.7.0</version>
+  <version>0.9.0</version>
   <description>lidarslam_ros2 integration package</description>
   <maintainer email="rsasaki0109@gmail.com">sasaki</maintainer>
   <license>BSD-2-Clause</license>

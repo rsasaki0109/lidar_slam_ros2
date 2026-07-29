@@ -15,7 +15,7 @@ ROS 2 LiDAR SLAM that outputs an Autoware-compatible map bundle — `pointcloud_
 
 *Shinjuku point cloud map built from a demo rosbag with this stack — start at the
 [Quickstart](#quickstart). `develop` is the default branch; current release
-candidate notes: [v0.7.0](docs/releases/v0.7.0.md).*
+candidate notes: [v0.9.0](docs/releases/v0.9.0.md).*
 
 ## Why lidarslam_ros2
 
@@ -156,7 +156,7 @@ unchanged (a MID-360 driving holdout stays byte-identical). Symptom table:
 ## Accuracy
 
 Current numbers from the release-gate profiles (`scripts/release_profiles.yaml`).
-Every release is blocked in CI by these per-dataset thresholds.
+The pre-release gate rejects missing evidence and regressions in every blocking profile.
 
 | Dataset | Sensor | Reference | APE RMSE | Gate (pass) |
 | --- | --- | --- | --- | --- |
@@ -191,7 +191,7 @@ self-similar tunnels (reach **98.7 m → ~500 m**): [docs/degeneracy-guide.md](d
 - **Getting started**: [Getting Started](docs/getting-started.md) · [Distribution](docs/distribution.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
 - **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md)
 - **Benchmarking**: [Benchmarking and release gate](docs/benchmarking.md) · [Comparison](docs/comparison.md)
-- **Project**: [Product contract](docs/product-contract.md) · [Independent first-map validation](docs/external-first-map-validation.md) · [v0.7.0 RC notes](docs/releases/v0.7.0.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
+- **Project**: [Product contract](docs/product-contract.md) · [v1.0 readiness](docs/v1-readiness.md) · [Independent first-map validation](docs/external-first-map-validation.md) · [v0.9.0 RC notes](docs/releases/v0.9.0.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
 
 Preview the doc site locally: `python3 -m mkdocs serve`.
 
@@ -210,11 +210,11 @@ components (`Thirdparty/lio-sam`, `Thirdparty/3d_bbs`) are excluded via `COLCON_
 
 ```bash
 bash scripts/run_default_ci_checks.sh
-bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10
+bash scripts/run_release_readiness_checks.sh --fail-on-profiles
+python3 scripts/check_v1_readiness.py
+python3 scripts/check_ndt_omp_release_readiness.py --offline
 ```
 
 Reference commands and parameter pointers live in [docs/workflows.md](docs/workflows.md).
-
----
 
 If this project saves you mapping time, a ⭐ helps others find it.

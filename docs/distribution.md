@@ -108,6 +108,39 @@ The named Humble/Jazzy execution and machine-readable reports are in
 This covers source-built prefix upgrades; Debian/ROS buildfarm package-manager
 upgrades remain a separate release boundary.
 
+## ROS apt install and upgrade gate
+
+The manual `package-manager install and upgrade` workflow exercises that
+separate boundary on clean Humble and Jazzy containers. It installs the exact
+four product Debian versions, then verifies:
+
+- all four packages have the requested upstream version;
+- `ndt_omp_ros2 >= 0.1.0` and `rko_lio >= 0.3.2` resolved from ROS apt;
+- every required command, runtime resource, schema, completion file, and
+  compatibility shim passes the installed CLI contract under
+  `/opt/ros/<distro>`;
+- an in-place upgrade starts from a passing older main-channel installation,
+  confirms its installed CLI identity, increases the product version, and
+  leaves no path whose package ownership was removed;
+- the package-manager-installed CLI produces and validates the pinned public
+  MID-360 map under the same bounded real-data contract as the other
+  distribution gates.
+
+The read-only verifier is
+`scripts/check_package_manager_install.py`; its report follows
+[`package-manager-install-v1.schema.json`](schemas/package-manager-install-v1.schema.json).
+It queries `dpkg`, package ownership, and the installed prefix, but never runs
+`apt`. Package installation is isolated to the disposable workflow container.
+
+The workflow is manual while no lidarslam buildfarm package exists, so normal
+CI does not create a permanently failing network gate. Run clean-install
+against ROS testing as soon as the candidate builds. While the older release
+is still in main, run the main-to-testing upgrade before the next sync removes
+that two-version window. Finally rerun clean-install against main after sync.
+Only the last two named-distro artifacts together prove the normal apt path;
+the implemented workflow alone is not evidence that unpublished packages
+exist.
+
 ## Container install
 
 GHCR is the supported prebuilt amd64 delivery path for both ROS distributions.
@@ -131,7 +164,7 @@ Every tagged release publishes exact
 the repository tag matches `VERSION`. For example:
 
 ```bash
-IMAGE=ghcr.io/rsasaki0109/lidar_slam_ros2:v0.7.0-jazzy
+IMAGE=ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy
 docker pull "$IMAGE"
 docker run --rm "$IMAGE" lidarslam-map --version
 ```
@@ -253,5 +286,6 @@ boundary and remaining maintainer prerequisites.
 Versioned Humble/Jazzy GHCR tags, release-image SBOM/provenance, digest smoke
 tests, and attached installation evidence are automated for the next tagged
 release. ROS buildfarm packages remain blocked by the NDT release and RKO-LIO
-main-sync gates above. Binary package-manager upgrade testing and arm64 image
-publication also remain Phase 2 work.
+main-sync gates above. The binary package-manager clean-install/upgrade gate
+is implemented but cannot produce release evidence until those packages
+exist; arm64 image publication also remains Phase 2 work.

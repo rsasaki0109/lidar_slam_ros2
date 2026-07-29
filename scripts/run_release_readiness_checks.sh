@@ -15,7 +15,7 @@ Options:
   --release-profile <path>      Release-profile YAML (per-dataset pass/target)
                                 Default: scripts/release_profiles.yaml when omitted
   --no-release-profile          Disable the release-profile gate
-  --fail-on-profiles            Exit non-zero if any release-profile FAILs
+  --fail-on-profiles            Fail if a blocking profile FAILs or has NO_DATA
   --skip-default-ci             Skip scripts/run_default_ci_checks.sh
   --skip-benchmark-summary      Skip benchmark summary generation
   --public-mid360-completion    Run the public MID-360 segment-reset completion gate
@@ -123,11 +123,15 @@ When --ape-threshold is provided, the benchmark summary becomes a hard gate and
 the script exits non-zero if any selected run is missing APE or exceeds the
 threshold. By default this gate is scoped to `ground_truth` runs so
 cross-validation artifacts can appear in reports without blocking release.
+Hard benchmark gates also exit non-zero when the benchmark root contains no
+metrics.json evidence. --skip-benchmark-summary cannot be combined with
+--ape-threshold or --fail-on-profiles.
 
 The release-profile gate runs in addition to (or instead of) --ape-threshold:
 each profile in the YAML scores its own pass/target threshold against the best
 matching run, with optional report_only_until semantics so hard datasets
-(MID-360, NTU) can be reported without blocking release.
+can soak without blocking release. A blocking profile with no matching run
+fails closed.
 EOF
 }
 
@@ -403,6 +407,17 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "${RUN_BENCHMARK_SUMMARY}" != "true" \
+  && ( -n "${APE_THRESHOLD}" || "${FAIL_ON_PROFILES}" == "true" ) ]]; then
+  fail "--skip-benchmark-summary cannot disable a requested benchmark gate"
+fi
+if [[ "${FAIL_ON_PROFILES}" == "true" && -z "${RELEASE_PROFILE}" ]]; then
+  fail "--fail-on-profiles requires an active --release-profile"
+fi
+if [[ "${FAIL_ON_PROFILES}" == "true" && ! -f "${RELEASE_PROFILE}" ]]; then
+  fail "release profile not found: ${RELEASE_PROFILE}"
+fi
+
 mkdir -p "${OUT_DIR}"
 
 echo "Release readiness output: ${OUT_DIR}"
@@ -446,7 +461,12 @@ if [[ "${RUN_BENCHMARK_SUMMARY}" == "true" ]]; then
       --out "${OUT_DIR}/benchmark_report.html" \
       2>&1 | tee "${OUT_DIR}/benchmark_report.log"
   else
-    echo "==> No metrics.json found under ${BENCHMARK_ROOT}; skipping benchmark summary" \
+    if [[ -n "${APE_THRESHOLD}" || "${FAIL_ON_PROFILES}" == "true" ]]; then
+      echo "error: no metrics.json found under ${BENCHMARK_ROOT}; requested benchmark gate has no evidence" \
+        | tee "${OUT_DIR}/benchmark_summary.log" >&2
+      exit 2
+    fi
+    echo "==> No metrics.json found under ${BENCHMARK_ROOT}; benchmark reporting is skipped" \
       | tee "${OUT_DIR}/benchmark_summary.log"
     echo "==> No metrics.json found under ${BENCHMARK_ROOT}; skipping benchmark HTML report" \
       | tee "${OUT_DIR}/benchmark_report.log"

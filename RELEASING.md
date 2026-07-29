@@ -1,8 +1,9 @@
 # Releasing
 
 The repository root `VERSION` file is the release version source of truth.
-Tagged `0.x` releases remain prereleases until the v0.9 roadmap's stable
-promotion gate is completed.
+Versions below `0.9.0` publish as GitHub prereleases. v0.9.x is the stable
+release-candidate line and publishes as a normal GitHub Release; it is not a
+claim that the separate v1.0 readiness gate is complete.
 
 ## Release Scope
 
@@ -21,11 +22,46 @@ The intended public release scope is:
 
 ```bash
 bash scripts/run_default_ci_checks.sh
-bash scripts/run_release_readiness_checks.sh --skip-default-ci --ape-threshold 0.10
+bash scripts/run_release_readiness_checks.sh --skip-default-ci --fail-on-profiles
 bash scripts/run_autoware_quickstart.sh
 ```
 
+The benchmark command is fail-closed: `--ape-threshold` and
+`--fail-on-profiles` require at least one `metrics.json` below
+`--benchmark-root`. An empty benchmark root is a release failure, and
+`--skip-benchmark-summary` cannot be used to bypass either hard gate. Generate
+or restore the release-candidate benchmark evidence before running this check;
+every blocking release profile must have matching data and pass its own
+threshold. CI's synthetic threshold fixture tests the gate plumbing but cannot
+satisfy the release profiles. Omitting the hard-gate options leaves an empty
+root report-only.
+
 3. Push the branch and verify GitHub Actions are green.
+   Also inspect the cross-phase product audit; release candidates may remain
+   `NOT_READY`, but an invalid contract must stop the release:
+
+```bash
+python3 scripts/check_v1_readiness.py --json
+```
+
+If the distribution gate is still open on `ndt_omp_ros2`, inspect it without
+mutating GitHub or rosdistro:
+
+```bash
+python3 scripts/check_ndt_omp_release_readiness.py
+```
+
+Only `READY_TO_TAG` authorizes proceeding to the separately documented
+maintainer commands; `LOCAL_READY` is the offline CI result, not remote
+publication proof.
+
+After Bloom packages enter ROS testing, run
+`.github/workflows/package-manager-install-upgrade.yml` for both Humble and
+Jazzy. Capture clean-install evidence and, when an older main version exists,
+main-to-testing upgrade evidence before the sync. After sync, repeat
+clean-install against `main`; see `docs/rosdistro-release.md` for exact
+dispatch inputs.
+
 4. Set `VERSION="$(tr -d '\n' < VERSION)"` and confirm `CHANGELOG.md`, the
    per-package `CHANGELOG.rst` files, `docs/comparison.md`,
    `docs/releases/v${VERSION}.md`, `CITATION.cff`, and the core package versions
@@ -38,10 +74,11 @@ bash scripts/run_autoware_quickstart.sh
    create the GitHub Release unless both published digests pass the installed
    `lidarslam-map --version` smoke test.
 
-For a v1.0 release, also require the tracked independent-user gate:
+For a v1.0 release, require the complete product gate. This includes the
+tracked independent-user ledger rather than checking it as an isolated proxy:
 
 ```bash
-python3 scripts/check_external_first_map_readiness.py --require-complete
+python3 scripts/check_v1_readiness.py --require-complete
 ```
 
 Prerelease candidates validate the ledger without pretending that 0/3 is
@@ -79,13 +116,27 @@ Two GitHub Actions workflows matter for release:
   `v<version>-humble` and `v<version>-jazzy`. Promotion preflights both
   digests before creating either tag. A matching existing tag is reused;
   a different digest fails closed and is never overwritten. The workflow then
-  publishes the prerelease using
+  publishes the GitHub Release using
   `docs/releases/v<version>.md` as the release body. The release assets include
   the source bundle plus one `release-image-<distro>.json` installation
   evidence file and one digest-pinned `rollback-plan-<distro>.json` per image,
   plus `release-promotion.json`.
   Retain the prior release's JSON assets as the last-known-good recovery
   record; do not move a tag to perform rollback.
+
+After creating the GitHub Release, the workflow runs an independent,
+read-only publication audit:
+
+```bash
+python3 scripts/check_published_release.py --require-published
+```
+
+It requires a non-draft, non-prerelease v0.9 release, resolves the tag commit,
+downloads exactly the six release assets, validates every JSON schema and
+cross-file identity, and verifies the embedded bundle manifest against every
+archived file size and SHA-256. HTTP/API failures are `BLOCKED`; only explicit
+tag/release 404 responses mean `NOT_PUBLISHED`. Retain the uploaded
+`published-release-audit.json` Actions artifact with the release evidence.
 
 The curated bundle contains `release-bundle-manifest-v1.json`, including the
 exact tag commit and every bundled file hash. The image build emits an OCI

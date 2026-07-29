@@ -212,6 +212,7 @@ def test_generated_reference_scores_as_ground_truth(tmp_path):
 
     bag_dir = tmp_path / 'bag'
     bag_dir.mkdir(parents=True, exist_ok=True)
+    (bag_dir / 'data.db3').write_bytes(b'synthetic bag payload')
     (bag_dir / 'metadata.yaml').write_text(
         'rosbag2_bagfile_information:\n  duration:\n    nanoseconds: 1000000000\n',
         encoding='utf-8',
@@ -227,6 +228,7 @@ def test_generated_reference_scores_as_ground_truth(tmp_path):
             '--reference-tum', str(ref_tum),
             '--corrected-tum', str(est_tum),
             '--reference-source', 'rtk_slam_test_gt',
+            '--runtime-artifact', 'true=/bin/true',
         ],
         capture_output=True, text=True, check=False, cwd=REPO_ROOT,
     )
@@ -270,6 +272,7 @@ def test_match_tolerance_recovers_offset_sparse_checkpoints(tmp_path):
 
     bag_dir = tmp_path / 'bag'
     bag_dir.mkdir(parents=True, exist_ok=True)
+    (bag_dir / 'data.db3').write_bytes(b'synthetic bag payload')
     (bag_dir / 'metadata.yaml').write_text(
         'rosbag2_bagfile_information:\n  duration:\n    nanoseconds: 1000000000\n',
         encoding='utf-8',
@@ -284,6 +287,7 @@ def test_match_tolerance_recovers_offset_sparse_checkpoints(tmp_path):
                 '--reference-tum', str(ref_tum),
                 '--corrected-tum', str(est_tum),
                 '--reference-source', 'rtk_slam_test_gt',
+                '--runtime-artifact', 'true=/bin/true',
             ] + extra,
             capture_output=True, text=True, check=False, cwd=REPO_ROOT,
         )

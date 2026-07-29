@@ -34,7 +34,7 @@ body:
     attributes:
       label: Release, commit, or image digest
       description: Prefer a release tag or immutable GHCR digest.
-      placeholder: v0.7.0 or ghcr.io/...@sha256:...
+      placeholder: v0.9.0 or ghcr.io/...@sha256:...
     validations:
       required: true
 

@@ -12,6 +12,27 @@ bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
 
+### Degenerate-LIO SOTA track
+
+The preregistered public degeneracy track is defined in
+`configs/slam_benchmark_profiles/degenerate_lio_sota_v1.yaml`. It begins with
+ENWIDE TunnelS/TunnelD and forbids radar, wheel odometry, GNSS, cameras,
+per-sequence tuning, and scale alignment. Download exact official inputs with:
+
+```bash
+bash scripts/download_enwide.sh \
+  --sequence tunnel_d \
+  --dest datasets/enwide \
+  --convert
+```
+
+The profile remains report-only until all ENWIDE and GEODE degenerate
+sequences, pinned rivals, and the hidden holdout are complete. See
+`docs/research/enwide-sota-benchmark-plan-2026-07.md` for the claim policy.
+Use `scripts/run_enwide_sota_benchmark.sh` for the fixed three-repetition
+candidate run; sensor and scoring choices are deliberately not command-line
+options.
+
 ### Radar-less tunnel frontend A/B
 
 The radar-less tunnel research track has a frontend-only control/candidate
@@ -390,6 +411,10 @@ python3 scripts/write_aligned_trajectory_metrics.py \
   --corrected-tum output/bench_rko_lio_mid360_v3/traj_corrected.tum \
   --raw-tum output/bench_rko_lio_mid360_v3/traj_raw.tum \
   --graph-log output/bench_rko_lio_mid360_v3/graph_slam.log \
+  --parameter-file output/bench_rko_lio_mid360_v3/graph_params.effective.yaml \
+  --benchmark-harness scripts/run_rko_lio_mid360_crossval_benchmark.sh \
+  --runtime-artifact rko_lio_offline_node=install/rko_lio/lib/rko_lio/offline_node \
+  --runtime-artifact graph_based_slam_node=install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node \
   --reference-source glim_mid360_reference \
   --reference-kind cross_validation \
   --reference-label GLIM \
@@ -400,6 +425,16 @@ python3 scripts/write_aligned_trajectory_metrics.py \
 
 The summary/report pipeline now exposes the reference kind, so `ground_truth`
 and `cross_validation` runs do not appear as if they were the same type of APE.
+The writer also hashes rosbag2 metadata and storage, the reference trajectory,
+effective parameters, benchmark harness, metrics writer, and every declared
+runtime artifact. It records the source commit and dirty state. Every shipped
+release profile requires this complete provenance from a clean revision;
+legacy, incomplete, or dirty evidence evaluates as `NO_DATA` and therefore
+cannot satisfy a blocking release profile. “Clean” includes untracked files,
+because an untracked source or build input can otherwise alter a binary without
+changing the recorded commit. The release-profile table's `evidence` column
+distinguishes “no matching run” from candidate runs rejected for incomplete
+provenance or a dirty revision.
 
 For a public-facing snapshot built on top of these artifacts, see
 `docs/comparison.md` and `docs/releases/v0.2.2.md`.
@@ -436,17 +471,21 @@ falls back to Applanix sidecar generation.
 Current Leo Drive packet-path evidence is:
 
 - `driving_30_kmh`, GNSS-only classic path: `APE RMSE 195.285 m`
-- `bag1_front`, `no_imu`: `APE RMSE 0.248 m`
+- `bag1_front`, default GNSS-only path: `APE RMSE 0.139 m`
 - `bag1_front`, native `/sensing/imu/imu_data`: `APE RMSE 0.251 m`
 - `bag6_front`, `no_imu`: `APE RMSE 0.422 m`
 - `bag6_front`, native `/sensing/imu/imu_data`: `APE RMSE 0.365 m`
 
 The important result is that packet IMU deskew is usable on the native
 `all-sensors` bags, but only when the benchmark is replayed conservatively.
-The wrapper now auto-selects `rate=1.0` whenever `--use-imu=true` and `--rate`
-is omitted. The earlier `20m+` regressions were runtime-sensitivity artifacts,
-not a proof that the deskew math itself was fundamentally broken. To reproduce
-the current experimental IMU result on the driving bag:
+The benchmark now defaults to `rate=1.0` for every configuration and
+deterministically prefers a `/front/` packet topic when a bag contains several
+Velodyne streams. The exact-revision
+[bag1 evidence](evidence/leo-drive-packet-benchmark-2026-07-30.md) records the
+input, software, and output hashes. The earlier `20m+` regressions were
+runtime-sensitivity and sensor-selection artifacts, not proof that the deskew
+math itself was fundamentally broken. To reproduce the current experimental
+IMU result on the driving bag:
 
 ```bash
 git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
@@ -690,7 +729,7 @@ default recommendation.
 To run the local readiness gate in one command:
 
 ```bash
-bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10
+bash scripts/run_release_readiness_checks.sh --fail-on-profiles
 ```
 
 That wrapper can run:
@@ -702,13 +741,27 @@ That wrapper can run:
 - standalone public MID-360 continuous kidnap-relocalization gate
 - optional Autoware dogfood
 
-With `--ape-threshold`, the gate is hard:
+The release command uses the per-dataset profile thresholds. With
+`--fail-on-profiles`, it exits non-zero when a blocking profile exceeds its
+threshold or has no matching run. A passing synthetic fixture therefore
+checks reporting mechanics but cannot count as release evidence.
 
+For a one-off uniform threshold check, `--ape-threshold <metres>` is also
+hard:
+
+- it exits non-zero if `--benchmark-root` contains no `metrics.json` evidence
 - it exits non-zero if any selected run is missing APE
 - it exits non-zero if any selected run exceeds the threshold
 - by default `run_release_readiness_checks.sh` applies that hard gate only to
   `ground_truth` runs; `cross_validation` runs stay visible in reports without
   blocking release
+
+`--fail-on-profiles` requires an active, existing release-profile YAML.
+Profiles marked `report_only_until` remain non-blocking even when their data
+is absent. Neither hard benchmark gate can be combined with
+`--skip-benchmark-summary`. Without `--ape-threshold` or
+`--fail-on-profiles`, an empty benchmark root remains report-only and the
+wrapper records that benchmark reporting was skipped.
 
 For the public MID-360 segment-reset completion evidence, add:
 

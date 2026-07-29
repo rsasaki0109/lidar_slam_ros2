@@ -65,8 +65,7 @@ Options:
   --velodyne-calibration FILE Explicit calibration YAML. If omitted, derived from the model.
   --param FILE                Base lidarslam parameter YAML.
   --output-dir DIR            Output directory (default: output/open_data_applanix_velodyne_gnss_benchmark_<timestamp>).
-  --rate FLOAT                ros2 bag play rate (default: 5.0, or 1.0 when --use-imu=true
-                              and --rate is omitted).
+  --rate FLOAT                ros2 bag play rate (default: 1.0).
   --play-wall-sec SEC         Playback timeout. If omitted, derived from bag duration and rate.
   --drain-sec SEC             Extra wait before /map_save (default: 8).
   --use-gnss BOOL             Enable backend GNSS constraints (default: true).
@@ -102,38 +101,18 @@ detect_topic_by_type() {
   local bag_path="$1"
   local msg_type="$2"
   local extra_msg_dir="${3:-}"
-  python3 - "${bag_path}" "${msg_type}" "${extra_msg_dir}" <<'PY'
-from pathlib import Path
-import sys
-
-from rosbags.highlevel import AnyReader
-from rosbags.typesys import Stores, get_typestore, get_types_from_msg
-
-bag_path = Path(sys.argv[1])
-msg_type = sys.argv[2]
-extra_msg_dir = Path(sys.argv[3]) if sys.argv[3] else None
-best_topic = ''
-best_count = -1
-typestore = get_typestore(Stores.LATEST)
-
-if extra_msg_dir is not None:
-    package_name = extra_msg_dir.parent.name
-    for path in sorted(extra_msg_dir.glob('*.msg')):
-        text = path.read_text(encoding='utf-8')
-        typestore.register(get_types_from_msg(text, f'{package_name}/msg/{path.stem}'))
-
-with AnyReader([bag_path], default_typestore=typestore) as reader:
-    for connection in reader.connections:
-        if connection.msgtype != msg_type:
-            continue
-        message_count = getattr(connection, 'msgcount', 0)
-        if message_count > best_count:
-            best_count = message_count
-            best_topic = connection.topic
-
-if best_topic:
-    print(best_topic)
-PY
+  local preferred_substring="${4:-}"
+  local args=(
+    --bag "${bag_path}"
+    --msg-type "${msg_type}"
+  )
+  if [[ -n "${extra_msg_dir}" ]]; then
+    args+=(--extra-msg-dir "${extra_msg_dir}")
+  fi
+  if [[ -n "${preferred_substring}" ]]; then
+    args+=(--preferred-substring "${preferred_substring}")
+  fi
+  python3 "${SCRIPT_DIR}/select_rosbag_topic.py" "${args[@]}"
 }
 
 topic_exists_by_name_and_type() {
@@ -532,7 +511,10 @@ ensure_velodyne_overlay() {
   local overlay_dir="$1"
   local ros_distro_name="$2"
 
-  if [[ -f "${overlay_dir}/install/setup.bash" ]]; then
+  if bash "${SCRIPT_DIR}/prepare_velodyne_pointcloud_overlay.sh" \
+    --overlay-dir "${overlay_dir}" \
+    --check >/dev/null 2>&1
+  then
     return 0
   fi
   bash "${SCRIPT_DIR}/prepare_velodyne_pointcloud_overlay.sh" \
@@ -609,8 +591,7 @@ VELODYNE_MODEL="VLP16"
 VELODYNE_CALIBRATION=""
 PARAM_FILE="${REPO_ROOT}/lidarslam/param/lidarslam.yaml"
 OUTPUT_DIR=""
-RATE="5.0"
-RATE_EXPLICIT="false"
+RATE="1.0"
 PLAY_WALL_SEC=""
 DRAIN_SEC="8"
 USE_GNSS="true"
@@ -696,7 +677,7 @@ while [[ $# -gt 0 ]]; do
     --output-dir)
       OUTPUT_DIR="$(realpath -m "${2:-}")"; shift 2 ;;
     --rate)
-      RATE="${2:-}"; RATE_EXPLICIT="true"; shift 2 ;;
+      RATE="${2:-}"; shift 2 ;;
     --play-wall-sec)
       PLAY_WALL_SEC="${2:-}"; shift 2 ;;
     --drain-sec)
@@ -726,10 +707,6 @@ if [[ -z "${OUTPUT_DIR}" ]]; then
   OUTPUT_DIR="${REPO_ROOT}/output/open_data_applanix_velodyne_gnss_benchmark_$(timestamp)"
 fi
 mkdir -p "${OUTPUT_DIR}"
-
-if [[ "${RATE_EXPLICIT}" != "true" && "${USE_IMU,,}" == "true" ]]; then
-  RATE="1.0"
-fi
 
 if (( DEBUG_CLOUD_DUMP_MAX_FRAMES > 0 )) && [[ -z "${DEBUG_CLOUD_DUMP_DIR}" ]]; then
   DEBUG_CLOUD_DUMP_DIR="${OUTPUT_DIR}/scanmatcher_debug_clouds"
@@ -771,7 +748,8 @@ if [[ -z "${PACKET_TOPIC}" ]]; then
   PACKET_TOPIC="$(detect_topic_by_type \
     "${BAG_PATH}" \
     "velodyne_msgs/msg/VelodyneScan" \
-    "${VELODYNE_MSG_DIR}")"
+    "${VELODYNE_MSG_DIR}" \
+    "/front/")"
 fi
 [[ -n "${PACKET_TOPIC}" ]] || die "failed to detect VelodyneScan topic"
 
@@ -997,6 +975,11 @@ ${PACKET_TOPIC}:
   history: keep_last
   depth: 10
 EOF
+
+EFFECTIVE_MAIN_PARAM="${OUTPUT_DIR}/lidarslam_params.effective.yaml"
+EFFECTIVE_VELODYNE_PARAM="${OUTPUT_DIR}/velodyne_params.effective.yaml"
+cp -- "${TMP_PARAM}" "${EFFECTIVE_MAIN_PARAM}"
+cp -- "${VELODYNE_PARAM}" "${EFFECTIVE_VELODYNE_PARAM}"
 
 LAUNCH_LOG="${OUTPUT_DIR}/lidarslam.launch.log"
 MAP_SAVE_LOG="${OUTPUT_DIR}/map_save.log"
@@ -1280,6 +1263,12 @@ python3 "${SCRIPT_DIR}/write_aligned_trajectory_metrics.py" \
   --raw-tum "${RAW_TUM}" \
   --graph-log "${LAUNCH_LOG}" \
   --lidarslam-param "${TMP_PARAM}" \
+  --parameter-file "${EFFECTIVE_MAIN_PARAM}" \
+  --parameter-file "${EFFECTIVE_VELODYNE_PARAM}" \
+  --benchmark-harness "${BASH_SOURCE[0]}" \
+  --runtime-artifact "velodyne_transform_node=${VELODYNE_OVERLAY}/install/velodyne_pointcloud/lib/velodyne_pointcloud/velodyne_transform_node" \
+  --runtime-artifact "scanmatcher_node=$(ros2 pkg prefix scanmatcher)/lib/scanmatcher/scanmatcher_node" \
+  --runtime-artifact "graph_based_slam_node=$(ros2 pkg prefix graph_based_slam)/lib/graph_based_slam/graph_based_slam_node" \
   --points-topic "${POINTS_TOPIC}" \
   --points-frame "${LIDAR_FRAME_ID}" \
   --robot-frame "${ROBOT_FRAME_ID}" \

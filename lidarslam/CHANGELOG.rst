@@ -2,6 +2,17 @@
 Changelog for package lidarslam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.9.0 (2026-07-30)
+------------------
+* Add the fail-closed v1 readiness audit and preserve the three-entrypoint
+  installed product contract.
+* Require official ``rko_lio >= 0.3.2`` after its Humble/Jazzy installed
+  golden-path E2E passed.
+* Add schema-backed ROS apt clean-install and main-to-testing upgrade
+  evidence, including installed CLI, stale-path, and pinned real-map gates.
+* Keep the beginner apt path disabled until normal-repository evidence exists.
+* Contributors: Ryohei Sasaki
+
 0.7.0 (2026-07-29)
 ------------------
 * Add the installed ``lidarslam-map`` product CLI with doctor, run, inspect,

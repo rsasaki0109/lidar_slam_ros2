@@ -61,6 +61,8 @@ def _rec(**overrides):
         'ape_ref_src': overrides.get('ape_ref_src', 'leica_prism_gt'),
         'ape_rmse_m': overrides.get('ape_rmse_m', '0.500'),
         'ape_pairs': overrides.get('ape_pairs', 500),
+        'provenance_complete': overrides.get('provenance_complete', True),
+        'provenance_git_dirty': overrides.get('provenance_git_dirty', False),
     }
     return base
 
@@ -143,6 +145,25 @@ def test_load_release_profiles_rejects_duplicate_name(tmp_path: Path):
         module.load_release_profiles(bad)
 
 
+def test_load_release_profiles_rejects_non_boolean_provenance_gate(tmp_path: Path):
+    module = _load_module()
+    bad = tmp_path / 'bad.yaml'
+    bad.write_text(
+        textwrap.dedent(
+            """
+            release_profiles:
+              - name: bad_provenance
+                metric: ape_rmse_gt_m
+                pass: 1.0
+                match:
+                  require_clean_provenance: "yes"
+            """
+        )
+    )
+    with pytest.raises(ValueError, match='require_clean_provenance must be boolean'):
+        module.load_release_profiles(bad)
+
+
 def test_evaluate_pass_picks_best_matching_run():
     module = _load_module()
     profile = {
@@ -215,6 +236,58 @@ def test_evaluate_no_data_when_no_matches():
     [result] = module.evaluate_release_profiles([profile], records)
     assert result['status'] == 'NO_DATA'
     assert result['best_run'] is None
+
+
+@pytest.mark.parametrize(
+    ('complete', 'dirty'),
+    [(False, False), (True, True), (False, None)],
+)
+def test_clean_provenance_match_fails_closed(complete, dirty):
+    module = _load_module()
+    profile = {
+        'name': 'p',
+        'metric': 'ape_rmse_gt_m',
+        'pass': 1.0,
+        'match': {'require_clean_provenance': True},
+    }
+    records = [
+        _rec(
+            ape_rmse_m='0.01',
+            provenance_complete=complete,
+            provenance_git_dirty=dirty,
+        ),
+    ]
+    [result] = module.evaluate_release_profiles([profile], records)
+    assert result['status'] == 'NO_DATA'
+    assert result['candidate_runs'] == 1
+    if complete and dirty:
+        assert result['no_data_reason'] == 'dirty revision: r0'
+    else:
+        assert result['no_data_reason'] == 'incomplete provenance: r0'
+
+
+def test_provenance_rejection_diagnostics_preserve_multiple_causes():
+    """NO_DATA should identify incomplete and dirty candidate runs."""
+    module = _load_module()
+    profile = {
+        'name': 'p',
+        'metric': 'ape_rmse_gt_m',
+        'pass': 1.0,
+        'match': {'require_clean_provenance': True},
+    }
+    records = [
+        _rec(run='legacy', provenance_complete=False),
+        _rec(run='local', provenance_git_dirty=True),
+    ]
+    [result] = module.evaluate_release_profiles([profile], records)
+    rendered = '\n'.join(module.render_release_profile_section([result]))
+
+    assert result['status'] == 'NO_DATA'
+    assert result['candidate_runs'] == 2
+    assert result['no_data_reason'] == (
+        'incomplete provenance: legacy; dirty revision: local'
+    )
+    assert result['no_data_reason'] in rendered
 
 
 def test_metric_ape_rmse_gt_m_skips_cross_validation():

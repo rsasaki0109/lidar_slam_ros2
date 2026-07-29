@@ -63,6 +63,23 @@ WORKFLOWS_DOC = REPO_ROOT / 'docs' / 'workflows.md'
 BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
 COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
 PRODUCT_CONTRACT_DOC = REPO_ROOT / 'docs' / 'product-contract.md'
+V1_READINESS_DOC = REPO_ROOT / 'docs' / 'v1-readiness.md'
+V1_READINESS_CONTRACT = (
+    REPO_ROOT / 'docs' / 'contracts' / 'v1-readiness.json'
+)
+V1_READINESS_CONTRACT_SCHEMA = (
+    REPO_ROOT
+    / 'docs'
+    / 'schemas'
+    / 'v1-readiness-contract-v1.schema.json'
+)
+V1_READINESS_REPORT_SCHEMA = (
+    REPO_ROOT
+    / 'docs'
+    / 'schemas'
+    / 'v1-readiness-report-v1.schema.json'
+)
+V1_READINESS_SCRIPT = REPO_ROOT / 'scripts' / 'check_v1_readiness.py'
 GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
 CLI_COMPATIBILITY_DOC = REPO_ROOT / 'docs' / 'cli-compatibility.md'
 CLI_V1_CONTRACT = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
@@ -210,6 +227,11 @@ def test_docs_exist_and_are_linked_from_readme():
     assert BENCHMARKING_DOC.is_file()
     assert COMPARISON_DOC.is_file()
     assert PRODUCT_CONTRACT_DOC.is_file()
+    assert V1_READINESS_DOC.is_file()
+    assert V1_READINESS_CONTRACT.is_file()
+    assert V1_READINESS_CONTRACT_SCHEMA.is_file()
+    assert V1_READINESS_REPORT_SCHEMA.is_file()
+    assert V1_READINESS_SCRIPT.is_file()
     assert GOLDEN_PATH_CLI_DOC.is_file()
     assert CLI_COMPATIBILITY_DOC.is_file()
     assert CLI_V1_CONTRACT.is_file()
@@ -256,6 +278,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(SUPPORT.md)' in readme
     assert '(GOVERNANCE.md)' in readme
     assert '(docs/product-contract.md)' in readme
+    assert '(docs/v1-readiness.md)' in readme
     assert '(docs/external-first-map-validation.md)' in readme
     assert '(docs/distribution.md)' in readme
     assert '(docs/roadmap/v0.9.md)' in readme
@@ -469,10 +492,12 @@ def test_release_metadata_and_core_package_versions_match():
     docs_site_workflow = DOCS_SITE_WORKFLOW.read_text(encoding='utf-8')
     mkdocs_config = MKDOCS_CONFIG_PATH.read_text(encoding='utf-8')
 
-    assert version == '0.7.0'
+    assert version == '0.9.0'
     assert version in changelog
     assert 'VERSION="$(tr -d \'\\n\' < VERSION)"' in releasing
     assert 'git tag "v${VERSION}"' in releasing
+    assert 'scripts/check_v1_readiness.py --json' in releasing
+    assert 'scripts/check_v1_readiness.py --require-complete' in releasing
     assert 'Autoware-compatible' in release_notes
     assert 'action-gh-release@v2' in release_workflow
     assert 'docker/setup-buildx-action@v4' in release_workflow
@@ -499,6 +524,7 @@ def test_release_metadata_and_core_package_versions_match():
         'docs/releases/',
         'docs/autoware-map-authoring.md',
         'docs/product-contract.md',
+        'docs/v1-readiness.md',
         'docs/getting-started.md',
         'docs/golden-path-cli.md',
         'docs/cli-compatibility.md',
@@ -532,6 +558,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'scripts/check_external_first_map_readiness.py' in (
         release_bundle_script
     )
+    assert 'scripts/check_v1_readiness.py' in release_bundle_script
     assert 'actions/configure-pages@v5' in docs_site_workflow
     assert 'actions/upload-pages-artifact@v4' in docs_site_workflow
     assert 'actions/deploy-pages@v4' in docs_site_workflow
@@ -568,6 +595,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'assets/stylesheets/extra.css' in mkdocs_config
     assert 'Getting Started: getting-started.md' in mkdocs_config
     assert 'Product Contract: product-contract.md' in mkdocs_config
+    assert 'v1.0 Readiness: v1-readiness.md' in mkdocs_config
     assert 'Golden-path CLI: golden-path-cli.md' in mkdocs_config
     assert 'CLI compatibility: cli-compatibility.md' in mkdocs_config
     assert 'Distribution and installed CLI: distribution.md' in mkdocs_config

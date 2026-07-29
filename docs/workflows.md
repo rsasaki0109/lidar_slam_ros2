@@ -52,7 +52,7 @@ Optional 3D-BBS support:
 | Packet IMU deskew validation matrix | `bash scripts/run_open_data_packet_imu_deskew_validation_matrix.sh --applanix-msg-dir /tmp/applanix/applanix_msgs/msg` |
 | Dynamic-object-filter save-map benchmark | `bash scripts/run_dynamic_object_filter_benchmark.sh` |
 | MID360 place-recognition comparison | `bash scripts/run_place_recognition_benchmark.sh` |
-| Release/readiness gate | `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10` |
+| Release/readiness gate | `bash scripts/run_release_readiness_checks.sh --fail-on-profiles` |
 
 ## Required Input Topics
 
@@ -341,9 +341,9 @@ Current reference numbers are:
 - `bag6_front`, `no_imu`: `APE RMSE 0.422 m`
 - `bag6_front`, `imu`: `APE RMSE 0.365 m`
 
-The benchmark wrapper therefore auto-selects `rate=1.0` when `--use-imu=true`
-and `--rate` is omitted. To validate the same A/B automatically on the default
-front-lidar cases, run:
+The benchmark wrapper defaults to `rate=1.0` for all runs and deterministically
+prefers a `/front/` packet stream when several Velodyne topics exist. To
+validate the same A/B automatically on the default front-lidar cases, run:
 
 ```bash
 git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix

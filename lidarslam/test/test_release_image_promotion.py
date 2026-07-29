@@ -241,7 +241,7 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     first = tmp_path / 'first.tar.gz'
     second = tmp_path / 'second.tar.gz'
     kwargs = {
-        'tag': 'v0.7.0',
+        'tag': 'v0.9.0',
         'git_commit': 'd' * 40,
     }
 
@@ -266,6 +266,8 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'docs/schemas/release-bundle-manifest-v1.schema.json' in paths
     assert 'docs/schemas/release-promotion-v1.schema.json' in paths
     assert 'scripts/promote_release_images.py' in paths
+    assert 'scripts/release_channel.py' in paths
+    assert 'docs/releases/v0.9.0.md' in paths
 
     with tarfile.open(first, mode='r:gz') as archive:
         names = archive.getnames()
@@ -297,13 +299,13 @@ def test_release_bundle_refuses_version_mismatch_and_overwrite(tmp_path: Path):
     module.build_release_bundle(
         REPO_ROOT,
         output,
-        tag='v0.7.0',
+        tag='v0.9.0',
         git_commit='e' * 40,
     )
     with pytest.raises(ValueError, match='refusing to overwrite'):
         module.build_release_bundle(
             REPO_ROOT,
             output,
-            tag='v0.7.0',
+            tag='v0.9.0',
             git_commit='e' * 40,
         )

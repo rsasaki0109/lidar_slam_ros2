@@ -2,6 +2,17 @@
 Changelog for package scanmatcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.9.0 (2026-07-30)
+------------------
+* Prepare the NDT frontend for ROS buildfarm installation through the pinned,
+  release-ready ``ndt_omp_ros2 0.1.0`` dependency.
+* Keep oriented intensity/height appearance diagnostics and adapters
+  default-off after fog and tunnel holdouts did not justify automatic channel
+  selection.
+* Preserve deterministic offline and installed product behavior across the
+  Humble/Jazzy package-manager evidence contract.
+* Contributors: Ryohei Sasaki
+
 0.7.0 (2026-07-29)
 ------------------
 * Preserve the deterministic offline frontend contract across Humble/Jazzy

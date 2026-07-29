@@ -30,6 +30,7 @@ jobs:
     outputs:
       bundle_name: ${{ steps.meta.outputs.bundle_name }}
       git_commit: ${{ steps.meta.outputs.git_commit }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
       release_notes: ${{ steps.meta.outputs.release_notes }}
       tag_name: ${{ steps.meta.outputs.tag_name }}
       version: ${{ steps.meta.outputs.version }}
@@ -56,6 +57,17 @@ jobs:
             echo "tag ${TAG_NAME} does not match VERSION ${VERSION}" >&2
             exit 1
           fi
+          RELEASE_CHANNEL="$(
+            python3 scripts/release_channel.py "${VERSION}"
+          )"
+          if [[ "${RELEASE_CHANNEL}" == "prerelease" ]]; then
+            PRERELEASE=true
+          elif [[ "${RELEASE_CHANNEL}" == "stable" ]]; then
+            PRERELEASE=false
+          else
+            echo "unknown release channel: ${RELEASE_CHANNEL}" >&2
+            exit 1
+          fi
 
           git fetch --force --tags
           if ! git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
@@ -74,6 +86,7 @@ jobs:
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
           echo "tag_name=${TAG_NAME}" >> "${GITHUB_OUTPUT}"
           echo "git_commit=${TAG_COMMIT}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${PRERELEASE}" >> "${GITHUB_OUTPUT}"
           echo "release_notes=${RELEASE_NOTES}" >> "${GITHUB_OUTPUT}"
           echo "bundle_name=${BUNDLE_NAME}" >> "${GITHUB_OUTPUT}"
 
@@ -287,7 +300,7 @@ jobs:
       - name: Install Python test dependency
         shell: bash
         run: |
-          python3 -m pip install --upgrade pytest
+          python3 -m pip install --upgrade pytest jsonschema
 
       - name: Validate release docs
         shell: bash
@@ -346,8 +359,26 @@ jobs:
           tag_name: ${{ needs.metadata.outputs.tag_name }}
           name: lidarslam_ros2 v${{ needs.metadata.outputs.version }}
           body_path: ${{ needs.metadata.outputs.release_notes }}
-          prerelease: true
+          prerelease: ${{ needs.metadata.outputs.prerelease == 'true' }}
           files: |
             ${{ needs.metadata.outputs.bundle_name }}
             release_image_evidence/*.json
             release-promotion.json
+
+      - name: Verify published release and recovery assets
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/check_published_release.py \
+            --version "${{ needs.metadata.outputs.version }}" \
+            --require-published \
+            --output-json published-release-audit.json
+
+      - name: Upload published release audit
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ needs.metadata.outputs.tag_name }}-published-release-audit
+          path: published-release-audit.json
+          retention-days: 90
+          if-no-files-found: error

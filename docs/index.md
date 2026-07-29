@@ -56,6 +56,10 @@
     <h3>Product Contract</h3>
     <p>Know the supported inputs, outputs, entrypoints, and explicit non-goals.</p>
   </a>
+  <a class="link-card" href="v1-readiness.html">
+    <h3>v1.0 Readiness</h3>
+    <p>Run the fail-closed product audit and inspect every remaining evidence gate.</p>
+  </a>
   <a class="link-card" href="distribution.html">
     <h3>Distribution</h3>
     <p>Install the CLI, understand supported platforms, and see the binary-release boundary.</p>
@@ -112,6 +116,7 @@
 
 ## Releases
 
+- [v0.9.0 stable release candidate](releases/v0.9.0.md)
 - [v0.7.0 release candidate](releases/v0.7.0.md)
 - [v0.6.0](releases/v0.6.0.md)
 - [v0.5.0](releases/v0.5.0.md)
@@ -123,6 +128,7 @@
 ## Project
 
 - [Product contract](product-contract.md)
+- [v1.0 readiness audit](v1-readiness.md)
 - [Operational reliability](operational-reliability.md)
 - [Pinned real-data E2E gate](real-data-e2e.md)
 - [Distribution and installed CLI](distribution.md)

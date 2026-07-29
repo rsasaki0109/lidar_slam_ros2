@@ -186,6 +186,6 @@ failure hints such as TF issues or missing GNSS edges.
 - one-shot runner: `python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2`
 - public Autoware entrypoint: `bash scripts/run_autoware_quickstart.sh`
 - benchmark path: `bash scripts/run_rko_lio_graph_benchmark.sh`
-- release gate: `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10`
+- release gate: `bash scripts/run_release_readiness_checks.sh --fail-on-profiles`
 - map-only verify: `python3 scripts/verify_autoware_map.py <pointcloud_map_dir>`
 - run diagnosis: `python3 scripts/diagnose_autoware_map_run.py <output_dir>`
