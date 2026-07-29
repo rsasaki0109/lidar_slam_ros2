@@ -53,7 +53,10 @@ indexes change.
 The dependency is consumed as the submodule
 `https://github.com/rsasaki0109/ndt_omp_ros2` (branch `humble`) — a fork
 maintained by the same owner, BSD licensed, with a unique name in rosdistro.
-Before the first lidarslam release, in the fork repo:
+Before the first lidarslam release, use the following maintainer sequence.
+The source repository currently has no `0.1.0` tag and
+`rsasaki0109/ndt_omp_ros2-release` does not exist (checked 2026-07-29), so
+all first-release steps below are required.
 
 1. Confirm fork commit `8b77fa5` is green. Its package metadata is `0.1.0`
    with `BSD-2-Clause`, a reachable fork maintainer, `CHANGELOG.rst`, exported
@@ -61,12 +64,111 @@ Before the first lidarslam release, in the fork repo:
    [CI run 30369808717](https://github.com/rsasaki0109/ndt_omp_ros2/actions/runs/30369808717)
    passed the Humble and Jazzy build/test plus Bloom-generated Debian package
    gate.
-2. Create and push tag `0.1.0`, then bloom-release it into `humble` and
-   `jazzy` (same procedure as below, separate release repository
-   `ndt_omp_ros2-release`). Do not tag the parent `lidarslam_ros2` repository.
-3. Wait for the rosdistro PR to merge; the lidarslam release can be submitted
+2. Create and push source tag `0.1.0`, then create the separate
+   `ndt_omp_ros2-release` repository.
+3. Run one new Bloom track for each ROS distribution. Since the repository is
+   not yet in either distribution file, pass the release repository URL
+   explicitly.
+4. Wait for the rosdistro PR to merge; the lidarslam release can be submitted
    as soon as the key exists in the distribution file (it does not need to be
    built yet).
+
+#### NDT 0.1.0 exact commands
+
+These commands deliberately fail closed if the remote branch, package version,
+or tag state differs from the reviewed release candidate:
+
+```bash
+git clone https://github.com/rsasaki0109/ndt_omp_ros2.git
+cd ndt_omp_ros2
+git fetch --prune origin
+
+RELEASE_COMMIT=8b77fa5a6cdcad45bf35918361c892b6d94a287e
+test "$(git rev-parse origin/humble)" = "$RELEASE_COMMIT"
+test -z "$(git status --porcelain)"
+test "$(python3 -c \
+  'import xml.etree.ElementTree as E; print(E.parse("package.xml").findtext("version"))')" \
+  = "0.1.0"
+test -z "$(git ls-remote --tags origin refs/tags/0.1.0)"
+
+git tag -a 0.1.0 "$RELEASE_COMMIT" -m "ndt_omp_ros2 0.1.0"
+git push origin refs/tags/0.1.0
+```
+
+The tag is intentionally **not** `v0.1.0`: the Bloom track below uses the
+default `:{version}` release-tag template. Do not tag the parent
+`lidarslam_ros2` repository.
+
+Create the public release repository once, without generated files, then give
+Bloom the `master` branch it expects:
+
+```bash
+gh auth status
+gh repo create rsasaki0109/ndt_omp_ros2-release \
+  --public \
+  --description "Bloom release repository for ndt_omp_ros2"
+gh auth setup-git
+
+RELEASE_REPO_DIR="$(mktemp -d)/ndt_omp_ros2-release"
+git clone https://github.com/rsasaki0109/ndt_omp_ros2-release.git \
+  "$RELEASE_REPO_DIR"
+git -C "$RELEASE_REPO_DIR" commit --allow-empty -m "Initialize release repository"
+git -C "$RELEASE_REPO_DIR" branch -M master
+git -C "$RELEASE_REPO_DIR" push -u origin master
+```
+
+Install Bloom from the target ROS/Ubuntu package repository, then release
+Humble first and Jazzy second:
+
+```bash
+sudo apt update
+sudo apt install python3-bloom python3-catkin-pkg python3-rosdep
+
+RELEASE_REPO=https://github.com/rsasaki0109/ndt_omp_ros2-release.git
+bloom-release ndt_omp_ros2 \
+  --rosdistro humble \
+  --track humble \
+  --new-track \
+  --override-release-repository-url "$RELEASE_REPO"
+
+bloom-release ndt_omp_ros2 \
+  --rosdistro jazzy \
+  --track jazzy \
+  --new-track \
+  --override-release-repository-url "$RELEASE_REPO"
+```
+
+The command options have distinct jobs:
+
+| Option | Why it is present |
+|---|---|
+| `ndt_omp_ros2` | rosdistro **repository** key; it also matches the single package name here |
+| `--rosdistro <distro>` | selects the Humble or Jazzy distribution file and Debian target |
+| `--track <distro>` | selects the independently maintained Bloom track |
+| `--new-track` | creates that track on its first release; omit it on later releases |
+| `--override-release-repository-url` | supplies the release repository before a rosdistro entry exists |
+
+Use these first-run track answers; press Enter for the values shown as
+defaults:
+
+| Prompt | Answer |
+|---|---|
+| repository name | `ndt_omp_ros2` |
+| upstream repository | `https://github.com/rsasaki0109/ndt_omp_ros2.git` |
+| upstream type | `git` |
+| version | `:{auto}` |
+| release tag | `:{version}` |
+| upstream devel branch | `humble` |
+| ROS distro | `humble` or `jazzy`, matching the command |
+| patches directory | empty / `None` |
+| release repository push URL | empty; the HTTPS origin is already authenticated by `gh auth setup-git` |
+
+Bloom pushes generated branches and tags to the release repository and then
+offers the corresponding `ros/rosdistro` PR. Verify that each generated PR
+only adds `ndt_omp_ros2`, uses the release URL above, and reports version
+`0.1.0-1`. Do not use `--non-interactive` for this first release. If either
+command fails, fix the cause and rerun it; do not accept Bloom's offered
+force-push without first inspecting the release repository.
 
 ### rko_lio binary compatibility is proven for the golden path
 
