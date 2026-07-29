@@ -99,6 +99,21 @@ def test_rko_base_pose_contract_uses_body_not_lidar_lever_arm(tmp_path):
     }
 
 
+def test_rko_pose_contract_prefers_generic_reference_point(tmp_path):
+    metadata = tmp_path / 'reference.json'
+    metadata.write_text(json.dumps({
+        'reference_point_frame': 'base_center',
+        'imu_to_reference_translation_m': {
+            'x': -0.073, 'y': -0.023, 'z': -0.172},
+        'imu_to_prism_translation_m': {'x': 9, 'y': 9, 'z': 9},
+    }))
+    assert RUNNER.base_to_prism_contract(metadata) == {
+        'source_frame': 'imu',
+        'target_frame': 'base_center',
+        'offset_m': {'x': -0.073, 'y': -0.023, 'z': -0.172},
+    }
+
+
 def test_ntu_rko_lidar_to_base_is_inverse_of_glim_lidar_from_imu():
     rko = yaml.safe_load((
         ROOT / 'lidarslam/param/rko_lio_ntu_viral_direct_visual.yaml').read_text())

@@ -76,16 +76,20 @@ def visual_sensor_contract(rko_param: Path, camera_topic: str) -> dict[str, Any]
 def base_to_prism_contract(reference_meta: Path) -> dict[str, Any]:
     metadata = json.loads(reference_meta.read_text())
     for frame in ('base', 'body', 'imu'):
-        offset = metadata.get(f'{frame}_to_prism_translation_m')
-        if isinstance(offset, dict) and all(axis in offset for axis in 'xyz'):
-            return {
-                'source_frame': frame,
-                'target_frame': 'leica_prism',
-                'offset_m': {axis: float(offset[axis]) for axis in 'xyz'},
-            }
+        for suffix in ('reference', 'prism'):
+            offset = metadata.get(f'{frame}_to_{suffix}_translation_m')
+            if isinstance(offset, dict) and all(axis in offset for axis in 'xyz'):
+                return {
+                    'source_frame': frame,
+                    'target_frame': metadata.get(
+                        'reference_point_frame',
+                        'leica_prism' if suffix == 'prism' else 'reference_point'),
+                    'offset_m': {axis: float(offset[axis]) for axis in 'xyz'},
+                }
     raise ValueError(
         'RKO-LIO trajectory is base-frame pose but reference metadata lacks '
-        'base/body/imu_to_prism_translation_m')
+        'base/body/imu_to_reference_translation_m (or legacy '
+        '*_to_prism_translation_m)')
 
 
 def run_once(args: argparse.Namespace, output: Path, index: int,

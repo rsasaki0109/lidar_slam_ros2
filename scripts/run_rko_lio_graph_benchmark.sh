@@ -579,6 +579,39 @@ else
   [[ -f "$REFERENCE_META" ]] || die "--skip-reference-gen set but reference meta not found: $REFERENCE_META (pass --reference-meta, e.g. an empty '{}' JSON if no prism-offset metadata applies)"
 fi
 
+# Validate the scoring-frame contract before starting a potentially multi-hour
+# replay. Command substitution preserves the Python exit status; process
+# substitution would silently turn a malformed contract into an empty array.
+if ! PRISM_TRANSFORM_OUTPUT="$(python3 - "$REFERENCE_META" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+meta = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+for frame in ("base", "body", "imu"):
+    for suffix in ("reference", "prism"):
+        offset = meta.get(f"{frame}_to_{suffix}_translation_m")
+        if offset is not None:
+            print(frame)
+            print(offset["x"])
+            print(offset["y"])
+            print(offset["z"])
+            raise SystemExit(0)
+else:
+    raise SystemExit(
+        "RKO-LIO trajectory is base-frame pose, but reference metadata lacks "
+        "base/body/imu_to_reference_translation_m (or legacy "
+        "*_to_prism_translation_m)")
+PY
+)"; then
+  die "reference frame-offset contract is invalid"
+fi
+readarray -t PRISM_TRANSFORM <<<"$PRISM_TRANSFORM_OUTPUT"
+if [[ "${#PRISM_TRANSFORM[@]}" -ne 4 ]]; then
+  die "reference frame-offset contract must contain a frame and xyz translation"
+fi
+PRISM_SOURCE_FRAME="${PRISM_TRANSFORM[0]}"
+
 echo "Running RKO-LIO benchmark"
 echo "  bag:            $BAG_PATH"
 echo "  reference_tum:  $REFERENCE_TUM"
@@ -705,28 +738,6 @@ elif [[ ! -s "$CORRECTED_TUM" ]]; then
   die "corrected trajectory missing after map_save"
 fi
 
-readarray -t PRISM_TRANSFORM < <(python3 - "$REFERENCE_META" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-meta = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-for frame in ("base", "body", "imu"):
-    offset = meta.get(f"{frame}_to_prism_translation_m")
-    if offset is not None:
-        print(frame)
-        print(offset["x"])
-        print(offset["y"])
-        print(offset["z"])
-        break
-else:
-    raise SystemExit(
-        "RKO-LIO trajectory is base-frame pose, but reference metadata lacks "
-        "base/body/imu_to_prism_translation_m")
-PY
-)
-PRISM_SOURCE_FRAME="${PRISM_TRANSFORM[0]}"
-
 python3 "${SCRIPT_DIR}/apply_tum_frame_offset.py" \
   --in "$RAW_TUM" \
   --out "$RAW_TUM_PRISM" \
@@ -783,6 +794,11 @@ METRICS_ARGS=(
   --started-at "$STARTED_AT"
   --started-at-unix "$STARTED_AT_UNIX"
   --wall-sec "$BENCH_WALL_SEC"
+  --parameter-file "$LIDARSLAM_PARAM"
+  --parameter-file "$RKO_PARAM"
+  --benchmark-harness "${BASH_SOURCE[0]}"
+  --runtime-artifact "rko_lio_offline_node=$(ros2 pkg prefix rko_lio)/lib/rko_lio/offline_node"
+  --runtime-artifact "graph_based_slam_node=$(ros2 pkg prefix graph_based_slam)/lib/graph_based_slam/graph_based_slam_node"
 )
 if [[ -n "$REFERENCE_SOURCE" ]]; then
   METRICS_ARGS+=(--reference-source "$REFERENCE_SOURCE")

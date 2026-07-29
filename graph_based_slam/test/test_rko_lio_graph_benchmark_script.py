@@ -77,6 +77,22 @@ def test_trajectory_only_mode_uses_full_dump_as_explicit_passthrough():
     assert 'cp "${BACKEND_TUMS[0]}" "$RAW_TUM"' in script
 
 
+def test_reference_offset_failure_is_not_masked_by_process_substitution():
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+    assert 'if ! PRISM_TRANSFORM_OUTPUT="$(python3' in script
+    assert 'reference frame-offset contract is invalid' in script
+    assert 'readarray -t PRISM_TRANSFORM <<<"$PRISM_TRANSFORM_OUTPUT"' in script
+    assert 'base/body/imu_to_reference_translation_m' in script
+
+
+def test_release_provenance_identifies_runtime_and_harness():
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+    assert '--benchmark-harness "${BASH_SOURCE[0]}"' in script
+    assert '--runtime-artifact "rko_lio_offline_node=' in script
+    assert '--runtime-artifact "graph_based_slam_node=' in script
+    assert '--parameter-file "$RKO_PARAM"' in script
+
+
 def test_quiet_completion_requires_substantial_bag_progress():
     """Require both near-end and minimum-progress quiet-completion guards."""
     script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
