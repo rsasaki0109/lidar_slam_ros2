@@ -176,6 +176,19 @@ is rejected as an accuracy candidate after one run. The bounded Pearson
 calculation remains as a matcher-correctness fix; this result rejects the
 current 1D disagreement strategy, not overlap-local normalization.
 
+The next matcher core is implemented in RKO-LIO
+`b928368948136a7d17c09c725cf4963a4c23036b`. It builds a world-oriented
+longitudinal/lateral grid with mean reflectivity and height channels, scores
+each 2D translation using the shared overlap-local Pearson accumulator, and
+passes candidates through the same peak policy. Peak exclusion now understands
+up to three offset coordinates while preserving the 1D API.
+
+Synthetic tests recover a known 2D translation, use height to disambiguate
+periodic reflectivity, and reject collinear axes. Core tests pass 56/56 and the
+ROS package builds. This commit is intentionally matcher-only: it does not yet
+alter `LIO::register_scan` or any default parameter. The next milestone is a
+default-off LIO adapter and raw holdout diagnostics before accuracy evaluation.
+
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet
 reproduced COIN-LIO on the identical converted input.
