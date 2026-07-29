@@ -15,6 +15,12 @@ An independent persistent-inactivity gate prevents the prior from converting
 a real stop into false forward motion. After the reference stops at about
 310 s, the candidate moves 0.014 m over the remaining 14 s.
 
+The trajectory evaluator also projects six representative sensor-frame points
+at 5, 10, and 20 m through each candidate/reference pose after global SE(3)
+alignment. This measures the world-placement error that directly blurs an
+accumulated point-cloud map. At 10 m range, projection RMSE improves from
+49.10 m to 17.34 m; at 20 m it improves from 50.16 m to 20.35 m.
+
 Fog, HILTI exp07, and MID-360 driving candidate trajectories remain
 byte-identical to their paired default-off controls.
 
@@ -63,6 +69,8 @@ activity, and anchor expiry still clear the prior.
 | NTNU tunnel aligned RMSE | 48.74 m | 16.21 m | -66.7% |
 | NTNU tunnel max reach ratio | 0.983 | 0.983 | no runaway |
 | motion after reference stop | 40.65 m without stop gate | 0.014 m | stopped |
+| 10 m point projection RMSE | 49.10 m | 17.34 m | -64.7% |
+| 20 m point projection RMSE | 50.16 m | 20.35 m | -59.4% |
 | NTNU fog | paired control | byte-identical | no corrections |
 | HILTI exp07 | paired control | byte-identical | no corrections |
 | MID-360 driving | paired control | byte-identical | no corrections |

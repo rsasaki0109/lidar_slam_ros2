@@ -107,6 +107,101 @@ def _rigid_alignment(
     return rotation, translation
 
 
+def _interpolate_reference_quaternions(
+    reference: np.ndarray,
+    timestamps: np.ndarray,
+) -> np.ndarray:
+    """Slerp TUM quaternions at timestamps inside the reference span."""
+    upper = np.searchsorted(reference[:, 0], timestamps, side="right")
+    upper = np.clip(upper, 1, len(reference) - 1)
+    lower = upper - 1
+    interval = reference[upper, 0] - reference[lower, 0]
+    alpha = (timestamps - reference[lower, 0]) / interval
+
+    q0 = _normalize_quaternions(reference[lower, 4:8])
+    q1 = _normalize_quaternions(reference[upper, 4:8])
+    dot = np.sum(q0 * q1, axis=1)
+    negative = dot < 0.0
+    q1[negative] *= -1.0
+    dot = np.clip(np.abs(dot), 0.0, 1.0)
+
+    result = np.empty_like(q0)
+    nearly_equal = dot > 0.9995
+    result[nearly_equal] = (
+        (1.0 - alpha[nearly_equal, None]) * q0[nearly_equal]
+        + alpha[nearly_equal, None] * q1[nearly_equal]
+    )
+    separated = ~nearly_equal
+    theta = np.arccos(dot[separated])
+    sin_theta = np.sin(theta)
+    result[separated] = (
+        np.sin((1.0 - alpha[separated]) * theta)[:, None]
+        / sin_theta[:, None]
+        * q0[separated]
+        + np.sin(alpha[separated] * theta)[:, None]
+        / sin_theta[:, None]
+        * q1[separated]
+    )
+    return _normalize_quaternions(result)
+
+
+def _normalize_quaternions(quaternions: np.ndarray) -> np.ndarray:
+    norms = np.linalg.norm(quaternions, axis=1, keepdims=True)
+    if np.any(~np.isfinite(norms)) or np.any(norms <= 1.0e-12):
+        raise ValueError("trajectory contains a non-finite or zero quaternion")
+    return quaternions / norms
+
+
+def _quaternion_rotation_matrices(quaternions: np.ndarray) -> np.ndarray:
+    """Convert normalized TUM (x, y, z, w) quaternions to rotation matrices."""
+    q = _normalize_quaternions(quaternions)
+    x, y, z, w = q.T
+    matrices = np.empty((len(q), 3, 3), dtype=float)
+    matrices[:, 0, 0] = 1.0 - 2.0 * (y * y + z * z)
+    matrices[:, 0, 1] = 2.0 * (x * y - z * w)
+    matrices[:, 0, 2] = 2.0 * (x * z + y * w)
+    matrices[:, 1, 0] = 2.0 * (x * y + z * w)
+    matrices[:, 1, 1] = 1.0 - 2.0 * (x * x + z * z)
+    matrices[:, 1, 2] = 2.0 * (y * z - x * w)
+    matrices[:, 2, 0] = 2.0 * (x * z - y * w)
+    matrices[:, 2, 1] = 2.0 * (y * z + x * w)
+    matrices[:, 2, 2] = 1.0 - 2.0 * (x * x + y * y)
+    return matrices
+
+
+def _point_projection_metrics(
+    candidate_xyz_aligned: np.ndarray,
+    candidate_rotations_aligned: np.ndarray,
+    reference_xyz: np.ndarray,
+    reference_rotations: np.ndarray,
+) -> dict[str, Any]:
+    """Measure world-placement error for representative sensor-frame points."""
+    directions = np.vstack((np.eye(3), -np.eye(3)))
+    by_range: dict[str, Any] = {}
+    for point_range_m in (5.0, 10.0, 20.0):
+        local_points = point_range_m * directions
+        candidate_world = (
+            np.einsum("nij,kj->nki", candidate_rotations_aligned, local_points)
+            + candidate_xyz_aligned[:, None, :]
+        )
+        reference_world = (
+            np.einsum("nij,kj->nki", reference_rotations, local_points)
+            + reference_xyz[:, None, :]
+        )
+        errors = np.linalg.norm(candidate_world - reference_world, axis=2).ravel()
+        by_range[f"{point_range_m:g}"] = {
+            "rmse": float(math.sqrt(np.mean(np.square(errors)))),
+            "mean": float(errors.mean()),
+            "p95": float(np.quantile(errors, 0.95)),
+            "max": float(errors.max()),
+        }
+    return {
+        "method": "six_axis_sensor_points_after_se3_trajectory_alignment",
+        "sample_directions": int(len(directions)),
+        "ranges_m": by_range,
+    }
+
+
 def reference_metrics(
     candidate: np.ndarray,
     reference_path: Path,
@@ -135,6 +230,18 @@ def reference_metrics(
     rotation, translation = _rigid_alignment(reference_xyz, candidate_xyz)
     candidate_aligned = (rotation @ candidate_xyz.T).T + translation
     aligned_errors = np.linalg.norm(candidate_aligned - reference_xyz, axis=1)
+    matched_timestamps = candidate[in_range, 0]
+    reference_quaternions = _interpolate_reference_quaternions(
+        reference,
+        matched_timestamps,
+    )
+    candidate_rotations = _quaternion_rotation_matrices(candidate[in_range, 4:8])
+    reference_rotations = _quaternion_rotation_matrices(reference_quaternions)
+    candidate_rotations_aligned = np.einsum(
+        "ij,njk->nik",
+        rotation,
+        candidate_rotations,
+    )
 
     return {
         "trajectory": str(reference_path.resolve()),
@@ -157,6 +264,12 @@ def reference_metrics(
             "p95": float(np.quantile(aligned_errors, 0.95)),
             "max": float(aligned_errors.max()),
         },
+        "aligned_point_projection_delta_m": _point_projection_metrics(
+            candidate_aligned,
+            candidate_rotations_aligned,
+            reference_xyz,
+            reference_rotations,
+        ),
     }
 
 
