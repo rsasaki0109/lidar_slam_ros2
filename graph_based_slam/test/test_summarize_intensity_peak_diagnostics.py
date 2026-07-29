@@ -46,7 +46,8 @@ SPEC.loader.exec_module(SUMMARY)
 
 HEADER = (
     'timestamp,source,correlation,second_best_correlation,peak_margin,'
-    'overlap_bins,base_qualified,has_competing_peak,ambiguous,accepted\n'
+    'longitudinal_shift_m,lateral_shift_m,overlap_bins,base_qualified,'
+    'has_competing_peak,ambiguous,accepted\n'
 )
 
 
@@ -54,21 +55,21 @@ def test_combines_inputs_and_ignores_unqualified_rows(tmp_path):
     first = tmp_path / 'first.csv'
     first.write_text(
         HEADER
-        + '1.0,prior,0.8,0.79,0.01,50,1,1,0,1\n'
-        + '2.0,prior,0.4,0.39,0.01,10,0,1,0,0\n',
+        + '1.0,prior,0.8,0.79,0.01,0.25,0.0,50,1,1,0,1\n'
+        + '2.0,prior,0.4,0.39,0.01,0.0,0.0,10,0,1,0,0\n',
         encoding='utf-8',
     )
     second = tmp_path / 'second.csv'
     second.write_text(
         HEADER
-        + '3.0,prior,0.8,0.75,0.05,50,true,true,false,true\n'
-        + '4.0,gate,0.8,0.60,0.20,50,1,1,1,0\n',
+        + '3.0,prior,0.8,0.75,0.05,0.0,0.0,50,true,true,false,true\n'
+        + '4.0,gate,0.8,0.60,0.20,0.5,-0.25,50,1,1,1,0\n',
         encoding='utf-8',
     )
 
     result = SUMMARY.summarize([first, second])
 
-    assert result['schema_version'] == 2
+    assert result['schema_version'] == 3
     assert result['selection_independent'] is True
     assert result['accuracy_metrics_consumed'] is False
     assert result['rows'] == {
@@ -92,7 +93,7 @@ def test_rejects_legacy_csv_without_base_qualified(tmp_path):
     legacy = tmp_path / 'legacy.csv'
     legacy.write_text(
         HEADER.replace('base_qualified,', '')
-        + '1.0,prior,0.8,0.7,0.1,50,1,0,1\n',
+        + '1.0,prior,0.8,0.7,0.1,0.0,0.0,50,1,0,1\n',
         encoding='utf-8',
     )
 

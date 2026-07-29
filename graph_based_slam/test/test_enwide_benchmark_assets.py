@@ -235,7 +235,7 @@ def test_enwide_runner_exposes_only_dataset_output_and_repetition_options():
             '--lidar-topic', '--imu-topic', '--rko-param', '--segment-length'):
         assert forbidden_option not in completed.stdout
     text = RUNNER.read_text()
-    assert '84a2007e881a5e7c6148af24157c5ac91c544574' in text
+    assert 'db691a390fda76f7887c004d24f18492303c6305' in text
     assert '--completion-end-margin-secs 1.0' in text
     assert '--max-time-gap 0.11' in text
     assert 'warning: position-only scoring failed' in text

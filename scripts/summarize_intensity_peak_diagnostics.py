@@ -48,6 +48,8 @@ REQUIRED_FIELDS = {
     'correlation',
     'second_best_correlation',
     'peak_margin',
+    'longitudinal_shift_m',
+    'lateral_shift_m',
     'overlap_bins',
     'base_qualified',
     'has_competing_peak',
@@ -161,7 +163,7 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
     margins.sort()
     qualified_total = len(margins)
     return {
-        'schema_version': 2,
+        'schema_version': 3,
         'selection_independent': True,
         'accuracy_metrics_consumed': False,
         'inputs': inputs,

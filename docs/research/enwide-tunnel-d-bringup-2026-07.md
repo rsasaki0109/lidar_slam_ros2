@@ -203,6 +203,15 @@ default-off adapter parameters in
 `configs/enwide/rko_lio_os0_oriented_grid_v6.yaml`. Full non-accuracy
 tunnel/fog diagnostics are required before any public accuracy run.
 
+RKO-LIO `db691a390fda76f7887c004d24f18492303c6305` extends diagnostic schema v3
+with longitudinal and lateral shift values. The full fog diagnostic recorded
+1,653 accepted grid shifts and 1,243 corrected scans. Median shifts were
+−0.0099 m longitudinal and approximately zero lateral. Only one lateral result
+reached the search boundary, and the runtime saturation guard excluded it
+from correction. Peak margin p01 was 0.0815. This validates grid peak behavior
+in fog but also shows a high correction duty cycle; a full tunnel diagnostic
+is required before accuracy can be consumed.
+
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet
 reproduced COIN-LIO on the identical converted input.
