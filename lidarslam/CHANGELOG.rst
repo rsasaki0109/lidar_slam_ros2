@@ -11,6 +11,8 @@ Changelog for package lidarslam
 * Add preflight-v3, diagnosis-v1, resumable run-manifest-v2, atomic output,
   collision and storage refusal, termination recovery, and digest-only
   rollback planning.
+* Emit a schema-validated, privacy-bounded first-map validation receipt from
+  the finalized manifest, diagnosis, and Autoware verifier evidence.
 * Validate clean-prefix Humble/Jazzy installation and v0.6.0 upgrade parity.
 * Contributors: Ryohei Sasaki
 

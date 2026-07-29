@@ -703,8 +703,97 @@ def test_main_writes_success_manifest_and_rejects_collision(
         item['path'] == 'autoware_map_diagnosis.json'
         for item in manifest['output']['artifact_checksums']
     )
+    receipt_path = output_dir / 'first_map_validation_receipt.json'
+    receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
+    receipt_schema = json.loads(
+        (
+            REPO_ROOT
+            / 'docs'
+            / 'schemas'
+            / 'first-map-validation-receipt-v1.schema.json'
+        ).read_text(encoding='utf-8')
+    )
+    jsonschema.validate(receipt, receipt_schema)
+    assert receipt['status'] == 'PASS'
+    assert (output_dir / 'first_map_validation_receipt.md').is_file()
+    assert all(
+        item['path'] not in {
+            'first_map_validation_receipt.json',
+            'first_map_validation_receipt.md',
+        }
+        for item in manifest['output']['artifact_checksums']
+    )
 
     assert module.main() == 2
+
+
+def test_diagnostic_only_run_keeps_success_with_failing_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'diagnostic_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'diagnostic_map'
+
+    def fake_plan(bag_path, profile_id, output_dir, verify_map):
+        del bag_path, profile_id
+        assert verify_map is False
+        command_script = '\n'.join([
+            'from pathlib import Path',
+            f'root = Path({str(output_dir)!r})',
+            "(root / 'pointcloud_map').mkdir(parents=True)",
+            (
+                "(root / 'pointcloud_map' / 'pointcloud_map_metadata.yaml')"
+                ".write_text('tiles: []\\n')"
+            ),
+            (
+                "(root / 'map_projector_info.yaml')"
+                ".write_text('projector_type: Local\\n')"
+            ),
+        ])
+        return {
+            'payload': {},
+            'profile_id': 'rko_lio_graph_public_path',
+            'label': 'diagnostic-only fixture',
+            'command': ['python3', '-c', command_script],
+            'output_dir': output_dir,
+        }
+
+    monkeypatch.setattr(module, 'build_execution_plan', fake_plan)
+    monkeypatch.setattr(
+        module.sys,
+        'argv',
+        [
+            str(SCRIPT_PATH),
+            str(bag_dir),
+            '--output-dir',
+            str(output_dir),
+            '--verification',
+            'off',
+        ],
+    )
+
+    assert module.main() == 0
+    manifest = json.loads(
+        (output_dir / 'run_manifest.json').read_text(encoding='utf-8')
+    )
+    receipt = json.loads(
+        (
+            output_dir / 'first_map_validation_receipt.json'
+        ).read_text(encoding='utf-8')
+    )
+    assert manifest['status'] == 'succeeded'
+    assert manifest['lifecycle']['verification_enabled'] is False
+    assert manifest['lifecycle']['runner_exit_code'] == 0
+    assert receipt['status'] == 'FAIL'
+    assert receipt['verification']['autoware_status'] == 'missing'
 
 
 @pytest.mark.parametrize(
@@ -780,6 +869,13 @@ def test_main_retains_terminal_manifest_for_failed_and_interrupted_runs(
     assert manifest['lifecycle']['last_error'] == expected_error
     assert manifest['output']['finalized'] is True
     assert not output_dir.with_name('failed_map.partial').exists()
+    receipt = json.loads(
+        (
+            output_dir / 'first_map_validation_receipt.json'
+        ).read_text(encoding='utf-8')
+    )
+    assert receipt['status'] == 'FAIL'
+    assert receipt['verification']['manifest_status'] == expected_status
 
 
 def test_map_write_enospc_is_preserved_and_diagnosed(

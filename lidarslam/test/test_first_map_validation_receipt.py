@@ -1,0 +1,240 @@
+# Copyright 2026 Sasaki
+# All rights reserved.
+#
+# Software License Agreement (BSD 2-Clause Simplified License)
+
+"""Tests for privacy-bounded external first-map validation receipts."""
+
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+import json
+import subprocess
+from pathlib import Path
+
+import jsonschema
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+MODULE_PATH = REPO_ROOT / 'scripts' / 'first_map_validation_receipt.py'
+RUNNER_PATH = REPO_ROOT / 'scripts' / 'run_autoware_map_from_bag.py'
+CLI_PATH = REPO_ROOT / 'scripts' / 'create_first_map_validation_receipt.py'
+SCHEMA_PATH = (
+    REPO_ROOT
+    / 'docs'
+    / 'schemas'
+    / 'first-map-validation-receipt-v1.schema.json'
+)
+PRIVATE_PATH = '/private/customer/site-42/input.bag'
+PRIVATE_COMMAND = f'ros2 bag play {PRIVATE_PATH}'
+
+
+def _load_module(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _write_run(run_dir: Path, *, diagnosis_status: str = 'success') -> None:
+    run_dir.mkdir()
+    diagnosis_path = run_dir / 'autoware_map_diagnosis.json'
+    verify_path = run_dir / 'verify_autoware_map.log'
+    diagnosis_path.write_text(
+        json.dumps({
+            'schema_version': 1,
+            'run_dir': '/private/customer/site-42/output',
+            'status': diagnosis_status,
+            'verify': {
+                'result': 'PASS' if diagnosis_status == 'success' else 'FAIL',
+            },
+        }),
+        encoding='utf-8',
+    )
+    verify_path.write_text(
+        'RESULT: PASS\nPASS: 8 | WARN: 0 | FAIL: 0\n'
+        f'internal source: {PRIVATE_PATH}\n',
+        encoding='utf-8',
+    )
+    manifest = {
+        'schema_version': 2,
+        'run_id': '02fc84de-c5a2-40d6-9533-af72f89b664b',
+        'status': 'succeeded',
+        'lifecycle': {
+            'stage': 'complete',
+            'runner_exit_code': 0,
+        },
+        'input': {
+            'bag_path': PRIVATE_PATH,
+        },
+        'software': {
+            'product_version': '0.7.0',
+            'git_commit': 'a' * 40,
+        },
+        'profile': {
+            'id': 'rko_lio_graph_mid360_preset',
+        },
+        'execution': {
+            'command_shell': PRIVATE_COMMAND,
+        },
+        'output': {
+            'artifact_checksums': [
+                {
+                    'path': diagnosis_path.name,
+                    'sha256': _sha256(diagnosis_path),
+                },
+                {
+                    'path': verify_path.name,
+                    'sha256': _sha256(verify_path),
+                },
+            ],
+        },
+    }
+    (run_dir / 'run_manifest.json').write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + '\n',
+        encoding='utf-8',
+    )
+
+
+def test_passing_receipt_is_schema_valid_and_privacy_bounded(tmp_path: Path):
+    """A passing receipt should omit private source data."""
+    module = _load_module(MODULE_PATH, 'first_map_validation_receipt_pass')
+    run_dir = tmp_path / 'run'
+    _write_run(run_dir)
+
+    receipt = module.build_receipt(run_dir)
+
+    schema = json.loads(SCHEMA_PATH.read_text(encoding='utf-8'))
+    jsonschema.Draft7Validator(schema).validate(receipt)
+    assert receipt['status'] == 'PASS'
+    assert all(check['passed'] for check in receipt['checks'])
+    assert receipt['verification'] == {
+        'manifest_status': 'succeeded',
+        'diagnosis_status': 'success',
+        'autoware_status': 'PASS',
+        'manifest_sha256': _sha256(run_dir / 'run_manifest.json'),
+    }
+    serialized = json.dumps(receipt)
+    markdown = module.render_markdown(receipt)
+    for private_value in (PRIVATE_PATH, PRIVATE_COMMAND, str(run_dir)):
+        assert private_value not in serialized
+        assert private_value not in markdown
+    assert 'manifest_status=succeeded' in markdown
+    assert 'autoware_status=PASS' in markdown
+
+
+def test_receipt_fails_when_frozen_diagnosis_identity_is_changed(
+    tmp_path: Path,
+):
+    """Tampering with a frozen diagnosis must fail its binding check."""
+    module = _load_module(MODULE_PATH, 'first_map_validation_receipt_tamper')
+    run_dir = tmp_path / 'run'
+    _write_run(run_dir)
+    diagnosis_path = run_dir / 'autoware_map_diagnosis.json'
+    diagnosis = json.loads(diagnosis_path.read_text(encoding='utf-8'))
+    diagnosis['new_unbound_field'] = True
+    diagnosis_path.write_text(json.dumps(diagnosis), encoding='utf-8')
+
+    receipt = module.build_receipt(run_dir)
+
+    assert receipt['status'] == 'FAIL'
+    checks = {check['id']: check for check in receipt['checks']}
+    assert checks['diagnosis_bound_to_manifest']['passed'] is False
+    assert checks['diagnosis_bound_to_manifest']['observed'] == (
+        'missing-or-mismatched'
+    )
+
+
+def test_terminal_failure_with_no_verify_log_still_has_shareable_receipt(
+    tmp_path: Path,
+):
+    """Terminal failures should retain safe evidence even without a map."""
+    module = _load_module(MODULE_PATH, 'first_map_validation_receipt_missing')
+    run_dir = tmp_path / 'run'
+    _write_run(run_dir, diagnosis_status='runtime_failed')
+    (run_dir / 'verify_autoware_map.log').unlink()
+    manifest_path = run_dir / 'run_manifest.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    manifest['status'] = 'failed'
+    manifest['lifecycle']['runner_exit_code'] = 17
+    manifest['output']['artifact_checksums'] = [
+        identity
+        for identity in manifest['output']['artifact_checksums']
+        if identity['path'] != 'verify_autoware_map.log'
+    ]
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + '\n',
+        encoding='utf-8',
+    )
+
+    receipt = module.build_receipt(run_dir)
+
+    schema = json.loads(SCHEMA_PATH.read_text(encoding='utf-8'))
+    jsonschema.Draft7Validator(schema).validate(receipt)
+    assert receipt['status'] == 'FAIL'
+    assert receipt['verification']['autoware_status'] == 'missing'
+    assert receipt['evidence']['verify_log'] == {
+        'filename': 'verify_autoware_map.log',
+        'available': False,
+        'sha256': None,
+    }
+    serialized = json.dumps(receipt)
+    assert PRIVATE_PATH not in serialized
+    assert str(run_dir) not in serialized
+
+
+def test_cli_writes_both_receipts_and_uses_stable_exit_codes(tmp_path: Path):
+    """The CLI should write both formats and preserve exit meaning."""
+    run_dir = tmp_path / 'run'
+    _write_run(run_dir)
+
+    passing = subprocess.run(
+        ['python3', str(CLI_PATH), str(run_dir), '--write', '--json'],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert passing.returncode == 0, passing.stderr
+    assert json.loads(passing.stdout)['status'] == 'PASS'
+    assert (run_dir / 'first_map_validation_receipt.json').is_file()
+    assert (run_dir / 'first_map_validation_receipt.md').is_file()
+
+    missing = subprocess.run(
+        ['python3', str(CLI_PATH), str(tmp_path / 'missing')],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert missing.returncode == 2
+    assert 'run directory does not exist' in missing.stderr
+
+
+def test_receipts_are_derived_and_excluded_from_manifest_artifact_hashes(
+    tmp_path: Path,
+):
+    """Derived receipt files must not create a manifest hash cycle."""
+    receipt_module = _load_module(
+        MODULE_PATH,
+        'first_map_validation_receipt_derived',
+    )
+    runner = _load_module(RUNNER_PATH, 'run_autoware_map_receipt_exclusion')
+    run_dir = tmp_path / 'run'
+    _write_run(run_dir)
+    receipt_module.write_receipt(run_dir)
+
+    identities = runner._artifact_checksums(run_dir)
+    paths = {identity['path'] for identity in identities}
+
+    assert 'autoware_map_diagnosis.json' in paths
+    assert 'verify_autoware_map.log' in paths
+    assert 'run_manifest.json' not in paths
+    assert 'first_map_validation_receipt.json' not in paths
+    assert 'first_map_validation_receipt.md' not in paths

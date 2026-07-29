@@ -253,6 +253,7 @@ def validate_install(prefix: Path) -> None:
         'run-manifest-v2.schema.json',
         'release-image-v1.schema.json',
         'rollback-plan-v1.schema.json',
+        'first-map-validation-receipt-v1.schema.json',
     ):
         schema_path = product_schemas / schema_name
         if not schema_path.is_file():

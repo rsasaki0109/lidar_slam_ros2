@@ -80,6 +80,12 @@ Every non-dry run produces a schema-v2 `run_manifest.json`. It records:
 - the durable lifecycle stage, resume count, runner exit code, and last
   post-processing error.
 
+After the manifest reaches its terminal state, the runner also derives
+`first_map_validation_receipt.json` and `.md`. The receipt contains only
+version/profile identity, status values, and hashes needed for the independent
+first-map program; it excludes map geometry, private paths, and the exact
+command.
+
 Hashing large bags adds a sequential input read before execution. This is
 deliberate: the manifest identifies the data that was actually processed,
 rather than only the path where it happened to be stored.
@@ -156,6 +162,8 @@ it must not infer compatibility from the repository version.
 - [Diagnosis schema v1](schemas/diagnosis-v1.schema.json)
 - [Run manifest schema v1](schemas/run-manifest-v1.schema.json)
 - [Run manifest schema v2](schemas/run-manifest-v2.schema.json) — current;
+- [First-map validation receipt schema v1](schemas/first-map-validation-receipt-v1.schema.json)
+  — privacy-bounded external onboarding evidence;
   adds resumable lifecycle state
 
 Top-level fields are closed within a published schema. A field addition,

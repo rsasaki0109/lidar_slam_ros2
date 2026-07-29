@@ -22,6 +22,8 @@ A successful product-path run produces an output directory containing:
 - `autoware_map_diagnosis.md`;
 - `autoware_map_diagnosis.json`;
 - `run_manifest.json`, with input/output checksums and execution identity;
+- `first_map_validation_receipt.json` and `.md`, a privacy-bounded,
+  issue-ready proof summary derived from the finalized run evidence;
 - `lanelet2_map.osm` when lanelet generation is enabled and succeeds.
 
 `verify_autoware_map.py` must report `PASS` before the point-cloud bundle is

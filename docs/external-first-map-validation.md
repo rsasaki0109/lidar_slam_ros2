@@ -19,15 +19,26 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
 
 2. Record the release tag, commit, or immutable image digest and the exact
    command you ran.
-3. Keep `run_manifest.json`, `autoware_map_diagnosis.json`, and
-   `verify_autoware_map.log`. Compute the manifest identity:
+3. A current `lidarslam-map run` writes
+   `first_map_validation_receipt.json` and
+   `first_map_validation_receipt.md` after finalizing the manifest,
+   diagnosis, and Autoware verification log. Open the Markdown receipt and
+   confirm it says `Receipt status: PASS`.
+
+   For an existing output produced before automatic receipts were added,
+   regenerate the same report:
 
    ```bash
-   sha256sum /path/to/output/run_manifest.json
+   python3 scripts/create_first_map_validation_receipt.py \
+     /path/to/output \
+     --write
    ```
 
 4. Open the
    [Independent First-map Validation issue form](https://github.com/rsasaki0109/lidar_slam_ros2/issues/new?template=first-map-validation.yml).
+   Paste the receipt's `Verification summary` block into the form. Keep the
+   JSON receipt until review; it contains evidence hashes but no map geometry,
+   private paths, or exact command.
 
 Both passing and failing reports are useful. A failed attempt is an onboarding
 finding, not an accepted validation, and must be resolved or explicitly
@@ -38,7 +49,28 @@ documented before v1.0.
     Remove credentials, private paths, precise locations, rosbag payloads,
     point-cloud tiles, trajectories, and screenshots that reveal private
     places. The issue form asks only for command, environment, status,
-    verifier summary, and a manifest checksum.
+    verifier summary, and a manifest checksum. The generated receipt is
+    privacy-bounded, but you must still review it and redact private paths
+    from the separately pasted command.
+
+## What the receipt proves
+
+The
+[`first-map-validation-receipt-v1` schema](schemas/first-map-validation-receipt-v1.schema.json)
+contains only the product version/revision, profile, run ID, status values,
+file hashes, and seven boolean checks. A passing receipt proves:
+
+- the final manifest says `succeeded`, lifecycle `complete`, and runner exit
+  code `0`;
+- the diagnosis says `success`;
+- the Autoware verification result is `PASS`;
+- the diagnosis and verification-log hashes match the identities frozen into
+  the manifest.
+
+The receipt is derived after the final manifest write, so receipt files are
+intentionally excluded from the manifest's artifact-checksum list. This avoids
+a circular manifest → receipt → manifest hash while keeping the three
+authoritative inputs cryptographically bound.
 
 ## Acceptance contract
 
@@ -51,6 +83,8 @@ A report counts only when all of these are true:
 - `run_manifest.json` says `succeeded`;
 - the diagnosis status is `success`;
 - Autoware map verification is `PASS`;
+- the generated receipt says `PASS` and its manifest SHA-256 matches the
+  submitted verification summary;
 - a maintainer reviews the public issue and records its review link;
 - every finding is either resolved or explicitly documented with a public
   resolution link;

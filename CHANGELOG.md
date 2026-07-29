@@ -30,7 +30,9 @@ deterministic and map-quality foundations delivered after v0.6.
 - **Independent adoption contract** — a structured first-map issue form,
   schema-validated public ledger, and strict readiness command reject
   duplicate reporters, failed runs, and unreviewed evidence while preserving
-  an honest 0/3 status before v1.0.
+  an honest 0/3 status before v1.0. Product runs now emit a privacy-bounded
+  receipt that binds the final manifest, diagnosis, and map-verifier log
+  without publishing geometry or private paths.
 - **Map-quality and architecture work** — deterministic offline frontend and
   backend runners, event-driven loop search as the only backend path,
   map-quality metrics, offline refinement, stronger Graph SLAM ownership

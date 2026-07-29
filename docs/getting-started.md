@@ -69,6 +69,12 @@ Successful runs should leave these files:
 - `map_projector_info.yaml`
 - `verify_autoware_map.log`
 - `autoware_map_diagnosis.md`
+- `first_map_validation_receipt.md`
+
+The first-map receipt contains a copy-ready verification summary without map
+geometry or private paths. See
+[Independent First-map Validation](external-first-map-validation.md) if you
+are testing the onboarding path as an independent user.
 
 Map generation and viewing have separate exit codes. After a successful run,
 open the browser viewer explicitly:

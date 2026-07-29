@@ -183,6 +183,11 @@ if(BUILD_TESTING)
     test/test_external_first_map_readiness.py
     TIMEOUT 120
   )
+  ament_add_pytest_test(
+    test_first_map_validation_receipt
+    test/test_first_map_validation_receipt.py
+    TIMEOUT 120
+  )
 endif()
 
 add_executable(lidarslam
@@ -263,6 +268,7 @@ install(
     ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/run-manifest-v2.schema.json
     ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/release-image-v1.schema.json
     ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/rollback-plan-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/first-map-validation-receipt-v1.schema.json
   DESTINATION share/${PROJECT_NAME}/product/schemas
 )
 install(

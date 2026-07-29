@@ -81,6 +81,8 @@ def test_product_runtime_manifest_is_curated_and_complete():
     assert 'view_autoware_map.py' in names
     assert 'run_map_soak.py' in names
     assert 'verify_autoware_map.py' in names
+    assert 'first_map_validation_receipt.py' in names
+    assert 'create_first_map_validation_receipt.py' in names
     assert 'gaussian_splatting_train.py' not in names
     for name in names:
         assert Path(name).name == name
@@ -99,6 +101,7 @@ def test_cmake_preserves_historical_node_and_installs_distinct_cli_names():
     assert 'DESTINATION share/${PROJECT_NAME}/product/completions' in cmake
     assert 'release-image-v1.schema.json' in cmake
     assert 'rollback-plan-v1.schema.json' in cmake
+    assert 'first-map-validation-receipt-v1.schema.json' in cmake
     assert 'DESTINATION share/${PROJECT_NAME}/product/schemas' in cmake
     assert 'install(TARGETS\n  lidarslam' in cmake
 

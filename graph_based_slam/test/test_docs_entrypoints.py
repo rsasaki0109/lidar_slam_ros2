@@ -640,6 +640,9 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     )
     assert 'Independent First-map Validation issue form' in first_map_program
     assert '--require-complete' in first_map_program
+    assert 'first_map_validation_receipt.md' in first_map_program
+    assert 'create_first_map_validation_receipt.py' in first_map_program
+    assert 'first-map-validation-receipt-v1' in first_map_program
     assert 'Do not publish map geometry' in first_map_program
     assert first_map_ledger['schema_version'] == 1
     assert first_map_ledger['required_validations'] == 3

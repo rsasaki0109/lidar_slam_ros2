@@ -33,6 +33,10 @@ PACKAGE_SHARE = REPO_ROOT / 'lidarslam' if SOURCE_LAYOUT else REPO_ROOT.parent
 SHARE_ROOT = PACKAGE_SHARE.parent
 WORK_ROOT = REPO_ROOT if SOURCE_LAYOUT else Path.cwd()
 MANIFEST_NAME = 'run_manifest.json'
+VALIDATION_RECEIPT_NAMES = {
+    'first_map_validation_receipt.json',
+    'first_map_validation_receipt.md',
+}
 MANIFEST_SCHEMA_VERSION = 2
 MANIFEST_SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
@@ -602,8 +606,11 @@ def _artifact_checksums(run_dir: Path) -> list[dict[str, object]]:
     artifacts = []
     for path in sorted(item for item in run_dir.rglob('*') if item.is_file()):
         relative = path.relative_to(run_dir)
-        if relative.as_posix() == MANIFEST_NAME or relative.name.startswith(
-            f'.{MANIFEST_NAME}.'
+        if (
+            relative.as_posix() == MANIFEST_NAME
+            or relative.name.startswith(f'.{MANIFEST_NAME}.')
+            or relative.as_posix() in VALIDATION_RECEIPT_NAMES
+            or relative.name.startswith('.first_map_validation_receipt.')
         ):
             continue
         artifacts.append(_file_identity(path, relative.as_posix()))
@@ -879,6 +886,17 @@ def write_diagnostics(output_dir: Path, bag_path: Path) -> dict[str, object]:
     return summary
 
 
+def write_first_map_validation_receipt(
+    output_dir: Path,
+) -> tuple[dict[str, object], dict[str, Path]]:
+    """Write the privacy-bounded external validation receipt."""
+    receipt_module = _load_script_module(
+        'first_map_validation_receipt.py',
+        'first_map_validation_receipt',
+    )
+    return receipt_module.write_receipt(output_dir)
+
+
 @contextmanager
 def _postprocess_lock(output_dir: Path):
     lock_path = output_dir.with_name(f'.{output_dir.name}.postprocess.lock')
@@ -960,6 +978,16 @@ def _postprocess_run(
             workflow_exit_code,
         )
         _write_manifest(current_dir, manifest)
+        receipt, _ = write_first_map_validation_receipt(current_dir)
+        if (
+            manifest['status'] == 'succeeded'
+            and lifecycle['verification_enabled']
+            and receipt['status'] != 'PASS'
+        ):
+            raise RuntimeError(
+                'successful run did not produce a passing first-map '
+                'validation receipt'
+            )
         return runner_exit_code
     except (OSError, RuntimeError, ValueError, KeyError, TypeError) as exc:
         print(f'error: failed to finalize output: {exc}', file=sys.stderr)
@@ -975,6 +1003,14 @@ def _postprocess_run(
                     manifest_dir
                 )
                 _write_manifest(manifest_dir, manifest)
+                try:
+                    write_first_map_validation_receipt(manifest_dir)
+                except (OSError, RuntimeError, ValueError) as receipt_exc:
+                    print(
+                        'warning: failed to preserve first-map validation '
+                        f'receipt: {receipt_exc}',
+                        file=sys.stderr,
+                    )
             except (OSError, RuntimeError) as manifest_exc:
                 print(
                     f'warning: failed to preserve terminal manifest: {manifest_exc}',
@@ -1030,6 +1066,7 @@ def _help_epilog() -> str:
         '  verify_autoware_map.log',
         '  autoware_map_diagnosis.md',
         '  run_manifest.json',
+        '  first_map_validation_receipt.md',
         '',
         'Examples:',
         f'  {command} /path/to/rosbag2 --dry-run',
@@ -1389,6 +1426,11 @@ def _finish_run(
         print('failed command:', shlex.join(plan['command']), file=sys.stderr)
         if (output_dir / 'autoware_map_diagnosis.md').is_file():
             print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
+        if (output_dir / 'first_map_validation_receipt.md').is_file():
+            print(
+                'First-map receipt: '
+                f'{output_dir / "first_map_validation_receipt.md"}'
+            )
         return exit_code
 
     print_next_steps(args, output_dir)
@@ -1399,6 +1441,10 @@ def _finish_run(
         return exc.returncode or 1
     print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
     print(f'Run manifest: {output_dir / MANIFEST_NAME}')
+    print(
+        'First-map receipt: '
+        f'{output_dir / "first_map_validation_receipt.md"}'
+    )
     return 0
 
 

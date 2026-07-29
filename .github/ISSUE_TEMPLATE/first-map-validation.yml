@@ -70,7 +70,12 @@ body:
     id: verification
     attributes:
       label: Verification summary
-      description: Paste manifest status, diagnosis status, Autoware verifier summary, and the run_manifest.json SHA-256. Do not upload map geometry.
+      description: Paste the Verification summary block from first_map_validation_receipt.md. For older outputs, run create_first_map_validation_receipt.py --write first. Do not upload map geometry.
+      placeholder: |
+        manifest_status=succeeded
+        diagnosis_status=success
+        autoware_status=PASS
+        manifest_sha256=<64 lowercase hex characters>
       render: text
     validations:
       required: true
