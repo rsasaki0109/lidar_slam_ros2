@@ -81,6 +81,7 @@ jobs:
       - name: Fetch only the unreleased NDT dependency
         shell: bash
         run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
           git submodule update --init Thirdparty/ndt_omp_ros2
           test ! -e Thirdparty/rko_lio/package.xml
 

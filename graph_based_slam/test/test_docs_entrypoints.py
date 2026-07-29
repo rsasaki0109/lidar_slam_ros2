@@ -838,6 +838,7 @@ def test_official_rko_binary_gate_is_release_shaped_and_version_pinned():
     assert 'container: ros:humble-ros-core' in workflow
     assert 'container: ros:jazzy-ros-core' in workflow
     assert 'submodules: false' in workflow
+    assert 'safe.directory "${GITHUB_WORKSPACE}"' in workflow
     assert 'git submodule update --init Thirdparty/ndt_omp_ros2' in workflow
     assert 'test ! -e Thirdparty/rko_lio/package.xml' in workflow
     assert 'git submodule update --init Thirdparty/rko_lio' not in workflow
