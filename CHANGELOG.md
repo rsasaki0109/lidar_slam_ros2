@@ -40,9 +40,10 @@ deterministic and map-quality foundations delivered after v0.6.
 ### Current boundaries
 
 - ROS buildfarm packages are not yet released because `ndt_omp_ros2` remains
-  outside rosdistro. Official RKO-LIO `0.3.2-1` binaries now exist for Humble
-  and Jazzy, but clean installed-E2E compatibility with the maintained fork
-  remains a release gate.
+  outside rosdistro. Official RKO-LIO release entries and binaries now exist
+  for Humble and Jazzy, but testing/main versions differ and clean
+  installed-E2E compatibility with the maintained fork remains a release
+  gate.
 - amd64 is the tested image platform; arm64/Jetson remains evaluation tier.
 - This is a prerelease candidate. The v1.0 external-adoption gate still
   requires three independent users to complete first-map validation.

@@ -30,16 +30,22 @@ bloom's upstream import) excludes — intended.
 | `libg2o` | released (`ros-<distro>-libg2o`; verified 2026-06-11: `rosdep resolve libg2o` → `ros-humble-libg2o` on jammy, `ros-jazzy-libg2o` on noble) | none |
 | `libpcl-all-dev` | standard rosdep key (system PCL) | none |
 | **`ndt_omp_ros2`** | **not in rosdistro** | **bloom-release it first** (see below) |
-| `rko_lio` | official PRBonn `0.3.2-1` release exists in Humble and Jazzy; **not yet** a core `package.xml` dependency | run the official-binary compatibility E2E before declaring it as the flagship runtime dependency |
+| `rko_lio` | PRBonn `0.3.2-1` is registered and built in testing for Humble/Jazzy; main currently has Humble `0.3.0` and Jazzy `0.2.0`; **not yet** a core `package.xml` dependency | run version-pinned official-binary compatibility E2E before declaring it as the flagship runtime dependency |
 
 This table was rechecked directly against the
 [Humble distribution](https://github.com/ros/rosdistro/blob/master/humble/distribution.yaml)
 and
 [Jazzy distribution](https://github.com/ros/rosdistro/blob/master/jazzy/distribution.yaml)
 in `ros/rosdistro` on 2026-07-29. Neither distribution contains
-`ndt_omp_ros2`; both contain `rko_lio` from
+`ndt_omp_ros2`; both register `rko_lio` `0.3.2-1` from
 [`PRBonn/rko_lio`](https://github.com/PRBonn/rko_lio) and
 `ros2-gbp/rko_lio-release`.
+
+The amd64 apt indexes were also checked on 2026-07-29. The ROS testing
+repository contains `0.3.2-1` builds for both distributions. The main
+repository, which normal users install from, still contains Humble `0.3.0`
+and Jazzy `0.2.0`; do not describe `0.3.2` as synced to main until those
+indexes change.
 
 ### ndt_omp_ros2 must be released first
 
@@ -65,18 +71,20 @@ package at runtime, but no core package declares it in `package.xml`, so the
 four core packages can be built and released without it. That is only a
 buildfarm fact: the resulting apt installation does not install RKO-LIO.
 
-An official `rko_lio` `0.3.2-1` binary is now present in both supported
-distributions. The product currently pins the `rsasaki0109/rko_lio` fork at
-package version `0.2.0`; that fork contains substantial offline-completion,
-recovery, diagnostics, and opt-in research changes after its common upstream
-base. It would be incorrect either to claim the official binary is equivalent
-without testing it or to bloom the fork under the already-owned `rko_lio`
-package name.
+An official `rko_lio` release line and binary packages are now present for
+both supported distributions, with the versions differing between testing
+and main as recorded above. The product currently pins the
+`rsasaki0109/rko_lio` fork at package version `0.2.0`; that fork contains
+substantial offline-completion, recovery, diagnostics, and opt-in research
+changes after its common upstream base. It would be incorrect either to claim
+an official binary is equivalent without testing that exact version or to
+bloom the fork under the already-owned `rko_lio` package name.
 
 The resolution gate is:
 
-1. Run the installed golden path against official `rko_lio` `0.3.2-1` on
-   clean Humble and Jazzy environments, including the pinned MID-360 E2E.
+1. Run the installed golden path against the exact official RKO-LIO version
+   selected for each clean Humble and Jazzy environment, including the pinned
+   MID-360 E2E. Test the `0.3.2-1` testing candidate before it syncs to main.
 2. If both pass, add `<exec_depend>rko_lio</exec_depend>` to `lidarslam`,
    retain fork-only features as evaluation scope, and add package-manager
    install/upgrade evidence.

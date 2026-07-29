@@ -726,11 +726,14 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'BuildKit provenance' in distribution_doc
     assert 'There is currently no supported' in distribution_doc
     assert 'rko_lio' in distribution_doc
-    assert 'Official PRBonn `rko_lio` `0.3.2-1` packages exist' in (
+    assert 'Official PRBonn `rko_lio` packages exist' in (
         distribution_doc
     )
     rosdistro_release_doc = ROSDISTRO_RELEASE_DOC.read_text(encoding='utf-8')
-    assert '`rko_lio` | official PRBonn `0.3.2-1` release exists' in (
+    assert '`rko_lio` | PRBonn `0.3.2-1` is registered' in (
+        rosdistro_release_doc
+    )
+    assert 'main currently has Humble `0.3.0` and Jazzy `0.2.0`' in (
         rosdistro_release_doc
     )
     assert '`PRBonn/rko_lio`' in rosdistro_release_doc
