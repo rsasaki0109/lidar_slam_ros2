@@ -59,6 +59,10 @@ RKO_INTENSITY_ALIAS_V4 = (
     ROOT / 'configs' / 'enwide'
     / 'rko_lio_os0_intensity_alias_v4.yaml'
 )
+RKO_INTENSITY_PEARSON_V5 = (
+    ROOT / 'configs' / 'enwide'
+    / 'rko_lio_os0_intensity_pearson_v5.yaml'
+)
 
 
 def _profile():
@@ -186,6 +190,13 @@ def test_enwide_alias_v4_only_changes_schema_v2_peak_margin():
     }
 
 
+def test_enwide_pearson_v5_keeps_exploratory_v2_parameters():
+    exploratory = yaml.safe_load(RKO_INTENSITY_V2.read_text())
+    pearson = yaml.safe_load(RKO_INTENSITY_PEARSON_V5.read_text())
+
+    assert pearson == exploratory
+
+
 def test_enwide_runner_exposes_only_dataset_output_and_repetition_options():
     completed = subprocess.run(
         ['bash', str(RUNNER), '--help'],
@@ -200,7 +211,7 @@ def test_enwide_runner_exposes_only_dataset_output_and_repetition_options():
             '--lidar-topic', '--imu-topic', '--rko-param', '--segment-length'):
         assert forbidden_option not in completed.stdout
     text = RUNNER.read_text()
-    assert '9579b775b82daf19b764041564661b6b51a3cc96' in text
+    assert '5c09ba20ab881158d779801daa9eeaa79949ca45' in text
     assert '--completion-end-margin-secs 1.0' in text
     assert '--max-time-gap 0.11' in text
     assert 'warning: position-only scoring failed' in text

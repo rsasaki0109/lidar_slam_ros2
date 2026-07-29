@@ -152,6 +152,22 @@ corrected 683 to 693 scans per run. The summary receipt SHA-256 is
 The lower ATE is encouraging, but the large local error and run-to-run RTE
 spread reject v4 as a production or SOTA candidate.
 
+V4 analysis exposed a deeper matcher error: the reported "NCC" standardized
+each complete profile once, then averaged products over a shift-dependent
+partial overlap. The overlap subset does not retain zero mean and unit
+variance, so scores could exceed one and favor a shift for distribution
+changes rather than texture agreement.
+
+RKO-LIO `5c09ba20ab881158d779801daa9eeaa79949ca45` replaces that calculation
+with Pearson correlation normalized inside each candidate overlap. Scores are
+bounded to `[-1, 1]`, and zero-variance overlaps are rejected. The generic
+peak selector and LIO gate API are unchanged. A 20-second Tunnel smoke test
+completed successfully; its observed score range was 0.314 to 0.953 and
+base-qualified observations dropped from 25 to 19. Candidate v5 freezes the
+same v2 parameters with margin zero in
+`configs/enwide/rko_lio_os0_intensity_pearson_v5.yaml`; its accuracy has not
+yet been consumed.
+
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet
 reproduced COIN-LIO on the identical converted input.
