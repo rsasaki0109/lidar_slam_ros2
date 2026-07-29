@@ -411,6 +411,10 @@ python3 scripts/write_aligned_trajectory_metrics.py \
   --corrected-tum output/bench_rko_lio_mid360_v3/traj_corrected.tum \
   --raw-tum output/bench_rko_lio_mid360_v3/traj_raw.tum \
   --graph-log output/bench_rko_lio_mid360_v3/graph_slam.log \
+  --parameter-file output/bench_rko_lio_mid360_v3/graph_params.effective.yaml \
+  --benchmark-harness scripts/run_rko_lio_mid360_crossval_benchmark.sh \
+  --runtime-artifact rko_lio_offline_node=install/rko_lio/lib/rko_lio/offline_node \
+  --runtime-artifact graph_based_slam_node=install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node \
   --reference-source glim_mid360_reference \
   --reference-kind cross_validation \
   --reference-label GLIM \
@@ -421,6 +425,12 @@ python3 scripts/write_aligned_trajectory_metrics.py \
 
 The summary/report pipeline now exposes the reference kind, so `ground_truth`
 and `cross_validation` runs do not appear as if they were the same type of APE.
+The writer also hashes rosbag2 metadata and storage, the reference trajectory,
+effective parameters, benchmark harness, metrics writer, and every declared
+runtime artifact. It records the source commit and dirty state. Every shipped
+release profile requires this complete provenance from a clean revision;
+legacy, incomplete, or dirty evidence evaluates as `NO_DATA` and therefore
+cannot satisfy a blocking release profile.
 
 For a public-facing snapshot built on top of these artifacts, see
 `docs/comparison.md` and `docs/releases/v0.2.2.md`.

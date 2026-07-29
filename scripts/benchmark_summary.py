@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+import re
 import statistics
 from pathlib import Path
 from typing import Any
@@ -58,6 +59,60 @@ def _as_float(v: Any) -> float | None:
         return float(v)
     except Exception:
         return None
+
+
+def _valid_file_identity(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and isinstance(value.get("path"), str)
+        and bool(value["path"])
+        and isinstance(value.get("size_bytes"), int)
+        and value["size_bytes"] >= 0
+        and isinstance(value.get("sha256"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", value["sha256"]) is not None
+    )
+
+
+def _provenance_state(run: dict[str, Any]) -> tuple[bool, bool | None]:
+    provenance = run.get("provenance")
+    if not isinstance(provenance, dict):
+        return False, None
+    input_identity = provenance.get("input")
+    software = provenance.get("software")
+    if not isinstance(input_identity, dict) or not isinstance(software, dict):
+        return False, None
+    bag = input_identity.get("bag")
+    storage_files = bag.get("storage_files") if isinstance(bag, dict) else None
+    parameter_files = software.get("parameter_files")
+    runtime_artifacts = software.get("runtime_artifacts")
+    commit = software.get("git_commit")
+    dirty = software.get("git_dirty")
+    complete = (
+        isinstance(bag, dict)
+        and _valid_file_identity(bag.get("metadata"))
+        and isinstance(storage_files, list)
+        and bool(storage_files)
+        and all(_valid_file_identity(item) for item in storage_files)
+        and _valid_file_identity(input_identity.get("reference_trajectory"))
+        and isinstance(commit, str)
+        and re.fullmatch(r"[0-9a-f]{40}", commit) is not None
+        and isinstance(dirty, bool)
+        and isinstance(parameter_files, list)
+        and bool(parameter_files)
+        and all(_valid_file_identity(item) for item in parameter_files)
+        and isinstance(runtime_artifacts, list)
+        and bool(runtime_artifacts)
+        and all(
+            isinstance(item, dict)
+            and isinstance(item.get("label"), str)
+            and bool(item["label"])
+            and _valid_file_identity(item)
+            for item in runtime_artifacts
+        )
+        and _valid_file_identity(software.get("benchmark_harness"))
+        and _valid_file_identity(software.get("metrics_writer"))
+    )
+    return complete, dirty if isinstance(dirty, bool) else None
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -143,6 +198,11 @@ def load_release_profiles(path: Path) -> list[dict[str, Any]]:
         match = prof.get("match") or {}
         if not isinstance(match, dict):
             raise ValueError(f"{path}: profile '{name}' 'match' must be a mapping")
+        require_clean = match.get("require_clean_provenance")
+        if require_clean is not None and not isinstance(require_clean, bool):
+            raise ValueError(
+                f"{path}: profile '{name}' require_clean_provenance must be boolean"
+            )
         validated.append(prof)
     return validated
 
@@ -165,6 +225,12 @@ def _profile_match(profile: dict[str, Any], rec: dict[str, Any]) -> bool:
     if min_pairs is not None:
         pairs = _as_float(rec.get("ape_pairs"))
         if pairs is None or pairs < float(min_pairs):
+            return False
+    if match.get("require_clean_provenance"):
+        if (
+            rec.get("provenance_complete") is not True
+            or rec.get("provenance_git_dirty") is not False
+        ):
             return False
     return True
 
@@ -385,6 +451,7 @@ def main() -> int:
         ape = evo.get("ape") if isinstance(evo, dict) else None
         ape_rmse = (ape.get("rmse") if isinstance(ape, dict) else None) if ape is not None else None
         ape_pairs = (ape.get("pairs") if isinstance(ape, dict) else None) if ape is not None else None
+        provenance_complete, provenance_git_dirty = _provenance_state(r)
 
         if lid_success is True:
             lid_ok += 1
@@ -451,6 +518,8 @@ def main() -> int:
                 "ape_rmse_m": _fmt_float(ape_raw),
                 "ape_ok": ape_ok,
                 "ape_pairs": ape_pairs,
+                "provenance_complete": provenance_complete,
+                "provenance_git_dirty": provenance_git_dirty,
                 "primary_raw": primary_raw,
                 "primary_missing": primary_missing,
             }

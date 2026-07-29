@@ -1258,6 +1258,12 @@ python3 "${SCRIPT_DIR}/write_aligned_trajectory_metrics.py" \
   --raw-tum "${RAW_TUM}" \
   --graph-log "${LAUNCH_LOG}" \
   --lidarslam-param "${TMP_PARAM}" \
+  --parameter-file "${TMP_PARAM}" \
+  --parameter-file "${VELODYNE_PARAM}" \
+  --benchmark-harness "${BASH_SOURCE[0]}" \
+  --runtime-artifact "velodyne_transform_node=${VELODYNE_OVERLAY}/install/velodyne_pointcloud/lib/velodyne_pointcloud/velodyne_transform_node" \
+  --runtime-artifact "scanmatcher_node=$(ros2 pkg prefix scanmatcher)/lib/scanmatcher/scanmatcher_node" \
+  --runtime-artifact "graph_based_slam_node=$(ros2 pkg prefix graph_based_slam)/lib/graph_based_slam/graph_based_slam_node" \
   --points-topic "${POINTS_TOPIC}" \
   --points-frame "${LIDAR_FRAME_ID}" \
   --robot-frame "${ROBOT_FRAME_ID}" \

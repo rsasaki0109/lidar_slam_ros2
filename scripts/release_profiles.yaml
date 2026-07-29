@@ -43,6 +43,8 @@
 #     - reference_kind: ground_truth | cross_validation | unknown
 #     - reference_source_contains: substring of reference.source
 #     - min_ape_pairs: minimum evo.ape.pairs to filter out partial/incomplete runs
+#     - require_clean_provenance: require SHA-256 input/software identities from
+#       a clean Git revision; every shipped release profile enables this
 #   metric:
 #     ape_rmse_gt_m            -> evo.ape.rmse, only when reference.kind == ground_truth
 #     ape_rmse_vs_reference_m  -> evo.ape.rmse against any reference (typically cross_validation)
@@ -55,6 +57,7 @@ release_profiles:
   - name: newer_college_math_hard
     description: Newer College math-hard (~320m loop, Ouster OS0-128 + IMU, prism GT)
     match:
+      require_clean_provenance: true
       bag_name_contains: math_hard
       reference_kind: ground_truth
     metric: ape_rmse_gt_m
@@ -64,6 +67,7 @@ release_profiles:
   - name: ntu_viral_tnp_01
     description: NTU VIRAL tnp_01 (~580s outdoor, Ouster OS1-16 + VN-100, Leica prism GT)
     match:
+      require_clean_provenance: true
       bag_name_contains: tnp_01
       reference_kind: ground_truth
       min_ape_pairs: 200
@@ -78,6 +82,7 @@ release_profiles:
   - name: mid360_vs_glim
     description: Livox MID-360 vs GLIM cross-validation (~277s indoor loop; report-only since v0.5)
     match:
+      require_clean_provenance: true
       points_topic: /livox/lidar
       reference_kind: cross_validation
       reference_source_contains: glim_mid360
@@ -99,6 +104,7 @@ release_profiles:
   - name: mid360_gt_rtkslam_construction_seq2
     description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Construction Hall 2 (~600s, 16 chkpt, dense odometry)
     match:
+      require_clean_provenance: true
       points_topic: /livox/points
       reference_kind: ground_truth
       reference_source_contains: rtk_slam_construction_seq2_gt
@@ -115,6 +121,7 @@ release_profiles:
   - name: mid360_gt_rtkslam_construction_seq1
     description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Construction Hall 1 (~741s, 16 chkpt, dense odometry)
     match:
+      require_clean_provenance: true
       points_topic: /livox/points
       reference_kind: ground_truth
       reference_source_contains: rtk_slam_construction_seq1_gt
@@ -134,6 +141,7 @@ release_profiles:
   - name: mid360_gt_rtkslam_stadtgarten_seq2
     description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Stadtgarten 2 (~876s outdoor park, 19 chkpt, dense odometry)
     match:
+      require_clean_provenance: true
       points_topic: /livox/points
       reference_kind: ground_truth
       reference_source_contains: rtk_slam_stadtgarten_seq2_gt
@@ -146,6 +154,7 @@ release_profiles:
   - name: mid360_gt_rtkslam_stadtgarten_seq1
     description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Stadtgarten 1 (~1603s outdoor park, 36 chkpt, dense odometry)
     match:
+      require_clean_provenance: true
       points_topic: /livox/points
       reference_kind: ground_truth
       reference_source_contains: rtk_slam_stadtgarten_seq1_gt
@@ -166,6 +175,7 @@ release_profiles:
   - name: hilti2022_exp01
     description: HILTI 2022 Hesai PandarXT-32 exp01 construction ground level vs mm total-station control points (feature-rich, dense raw odometry)
     match:
+      require_clean_provenance: true
       points_topic: /hesai/pandar
       reference_kind: ground_truth
       reference_source_contains: hilti2022_exp01_control_points_gt
@@ -183,6 +193,7 @@ release_profiles:
   - name: hilti2022_exp07
     description: HILTI 2022 Hesai PandarXT-32 exp07 long corridor vs mm total-station control points (degenerate, dense raw odometry)
     match:
+      require_clean_provenance: true
       points_topic: /hesai/pandar
       reference_kind: ground_truth
       reference_source_contains: hilti2022_exp07_control_points_gt
@@ -203,6 +214,7 @@ release_profiles:
   - name: hilti2022_exp04
     description: HILTI 2022 Hesai PandarXT-32 exp04 construction upper level vs mm total-station control points (feature-rich, dense raw odometry)
     match:
+      require_clean_provenance: true
       points_topic: /hesai/pandar
       reference_kind: ground_truth
       reference_source_contains: hilti2022_exp04_control_points_gt
@@ -214,6 +226,7 @@ release_profiles:
   - name: leo_drive_applanix_velodyne_cross
     description: Leo Drive applanix/velodyne open data vs Applanix GSOF49 cross-validation
     match:
+      require_clean_provenance: true
       points_topic: /open_data/velodyne_points
       reference_kind: cross_validation
       reference_source_contains: applanix_gsof49

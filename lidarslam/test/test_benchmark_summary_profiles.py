@@ -61,6 +61,8 @@ def _rec(**overrides):
         'ape_ref_src': overrides.get('ape_ref_src', 'leica_prism_gt'),
         'ape_rmse_m': overrides.get('ape_rmse_m', '0.500'),
         'ape_pairs': overrides.get('ape_pairs', 500),
+        'provenance_complete': overrides.get('provenance_complete', True),
+        'provenance_git_dirty': overrides.get('provenance_git_dirty', False),
     }
     return base
 
@@ -143,6 +145,25 @@ def test_load_release_profiles_rejects_duplicate_name(tmp_path: Path):
         module.load_release_profiles(bad)
 
 
+def test_load_release_profiles_rejects_non_boolean_provenance_gate(tmp_path: Path):
+    module = _load_module()
+    bad = tmp_path / 'bad.yaml'
+    bad.write_text(
+        textwrap.dedent(
+            """
+            release_profiles:
+              - name: bad_provenance
+                metric: ape_rmse_gt_m
+                pass: 1.0
+                match:
+                  require_clean_provenance: "yes"
+            """
+        )
+    )
+    with pytest.raises(ValueError, match='require_clean_provenance must be boolean'):
+        module.load_release_profiles(bad)
+
+
 def test_evaluate_pass_picks_best_matching_run():
     module = _load_module()
     profile = {
@@ -215,6 +236,29 @@ def test_evaluate_no_data_when_no_matches():
     [result] = module.evaluate_release_profiles([profile], records)
     assert result['status'] == 'NO_DATA'
     assert result['best_run'] is None
+
+
+@pytest.mark.parametrize(
+    ('complete', 'dirty'),
+    [(False, False), (True, True), (False, None)],
+)
+def test_clean_provenance_match_fails_closed(complete, dirty):
+    module = _load_module()
+    profile = {
+        'name': 'p',
+        'metric': 'ape_rmse_gt_m',
+        'pass': 1.0,
+        'match': {'require_clean_provenance': True},
+    }
+    records = [
+        _rec(
+            ape_rmse_m='0.01',
+            provenance_complete=complete,
+            provenance_git_dirty=dirty,
+        ),
+    ]
+    [result] = module.evaluate_release_profiles([profile], records)
+    assert result['status'] == 'NO_DATA'
 
 
 def test_metric_ape_rmse_gt_m_skips_cross_validation():

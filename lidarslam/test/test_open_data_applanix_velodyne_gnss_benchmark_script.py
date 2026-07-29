@@ -44,6 +44,10 @@ def test_open_data_benchmark_script_writes_reference_and_metrics():
     assert 'write_aligned_trajectory_metrics.py' in script
     assert '--reference-kind "cross_validation"' in script
     assert '--reference-source "applanix_gsof49_reference"' in script
+    assert '--benchmark-harness "${BASH_SOURCE[0]}"' in script
+    assert 'velodyne_transform_node=' in script
+    assert 'scanmatcher_node=' in script
+    assert 'graph_based_slam_node=' in script
     assert '--topic /path' in script
     assert '--topic /modified_path' in script
 

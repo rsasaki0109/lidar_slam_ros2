@@ -14,6 +14,8 @@ from typing import Any
 
 import numpy as np
 
+from benchmark_provenance import bag_identity, file_identity, software_identity
+
 
 def _load_tum(path: Path) -> list[dict[str, float]]:
     rows: list[dict[str, float]] = []
@@ -381,6 +383,24 @@ def main() -> int:
         default='',
         help='Output metrics path (default: <out-dir>/metrics.json)',
     )
+    parser.add_argument(
+        '--parameter-file',
+        action='append',
+        default=[],
+        help='Effective parameter file to identify; repeat for multiple files',
+    )
+    parser.add_argument(
+        '--runtime-artifact',
+        action='append',
+        default=[],
+        metavar='LABEL=PATH',
+        help='Runtime executable/library to identify; repeat for multiple artifacts',
+    )
+    parser.add_argument(
+        '--benchmark-harness',
+        default='',
+        help='Benchmark wrapper/script to identify (default: this metrics writer)',
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir).expanduser().resolve()
@@ -397,6 +417,23 @@ def main() -> int:
     metrics_path = (
         Path(args.metrics_out).expanduser().resolve()
         if args.metrics_out else out_dir / 'metrics.json'
+    )
+    parameter_files = [
+        Path(path).expanduser().resolve()
+        for path in (args.parameter_file or [args.lidarslam_param])
+    ]
+    runtime_artifacts: list[tuple[str, Path]] = []
+    for value in args.runtime_artifact:
+        label, separator, path = value.partition('=')
+        if not separator or not label or not path:
+            parser.error('--runtime-artifact must be LABEL=PATH')
+        runtime_artifacts.append((label, Path(path).expanduser().resolve()))
+    if not runtime_artifacts:
+        parser.error('at least one --runtime-artifact LABEL=PATH is required')
+    writer_path = Path(__file__).resolve()
+    harness_path = (
+        Path(args.benchmark_harness).expanduser().resolve()
+        if args.benchmark_harness else writer_path
     )
 
     ref_rows = _load_tum(reference_tum)
@@ -441,6 +478,11 @@ def main() -> int:
     reference_kind = _infer_reference_kind(args.reference_source, args.reference_kind)
     graph_metrics = _extract_loop_info(graph_log) if graph_log else {}
     metrics: dict[str, Any] = {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/benchmark-metrics-v1.schema.json'
+        ),
         'started_at': args.started_at or None,
         'started_at_unix': args.started_at_unix,
         'out_dir': str(out_dir),
@@ -515,6 +557,19 @@ def main() -> int:
             'rejected_ref_points': corrected_ape['rejected_ref_points'],
             'total_ref_points': corrected_ape['total_ref_points'],
             'max_time_gap_s': corrected_ape['max_time_gap_s'],
+        },
+        'provenance': {
+            'input': {
+                'bag': bag_identity(bag_path),
+                'reference_trajectory': file_identity(reference_tum),
+            },
+            'software': software_identity(
+                Path(__file__).resolve().parents[1],
+                parameter_files=parameter_files,
+                runtime_artifacts=runtime_artifacts,
+                benchmark_harness=harness_path,
+                metrics_writer=writer_path,
+            ),
         },
     }
     if raw_tum and raw_tum.is_file():
