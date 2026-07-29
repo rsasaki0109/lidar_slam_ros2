@@ -82,9 +82,12 @@ bloom the fork under the already-owned `rko_lio` package name.
 
 The resolution gate is:
 
-1. Run the installed golden path against the exact official RKO-LIO version
-   selected for each clean Humble and Jazzy environment, including the pinned
-   MID-360 E2E. Test the `0.3.2-1` testing candidate before it syncs to main.
+1. Run `.github/workflows/official-rko-binary-compatibility.yml`. It builds
+   the release-shaped source tree without the RKO-LIO submodule, installs the
+   exact `0.3.2-1` testing candidate, proves `offline_node` resolves from
+   `/opt/ros/<distro>`, and runs the pinned MID-360 E2E independently on
+   Humble and Jazzy. The workflow records the full Debian build version and
+   executable SHA-256 in its non-geometry evidence artifact.
 2. If both pass, add `<exec_depend>rko_lio</exec_depend>` to `lidarslam`,
    retain fork-only features as evaluation scope, and add package-manager
    install/upgrade evidence.
@@ -95,6 +98,15 @@ The resolution gate is:
 Do not advertise `sudo apt install ros-<distro>-lidarslam` as the golden path
 until `ndt_omp_ros2` is released, this compatibility decision is complete,
 and the installation E2E gate passes.
+
+The compatibility workflow runs when its product boundary changes on
+`develop`, is scheduled weekly to detect repository drift, and can be
+dispatched manually. It intentionally uses the maintained MID-360 preset:
+`lidarslam/param/rko_lio_mid360.yaml` only uses parameters implemented by the
+official `0.3.2` line. Research presets containing fork-only recovery,
+diagnostic, radar, visual, or gravity parameters are outside this gate. The
+NTU-VIRAL preset is also outside the first adoption gate because it currently
+contains fork-only timestamp-offset and ICP keypoint controls.
 
 ## Distro targets
 

@@ -68,6 +68,12 @@ CLI_COMPATIBILITY_DOC = REPO_ROOT / 'docs' / 'cli-compatibility.md'
 CLI_V1_CONTRACT = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
 DISTRIBUTION_DOC = REPO_ROOT / 'docs' / 'distribution.md'
 ROSDISTRO_RELEASE_DOC = REPO_ROOT / 'docs' / 'rosdistro-release.md'
+OFFICIAL_RKO_COMPATIBILITY_WORKFLOW = (
+    REPO_ROOT
+    / '.github'
+    / 'workflows'
+    / 'official-rko-binary-compatibility.yml'
+)
 OPERATIONAL_RELIABILITY_DOC = REPO_ROOT / 'docs' / 'operational-reliability.md'
 BOUNDED_FILESYSTEM_SCHEMA = (
     REPO_ROOT
@@ -197,6 +203,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert CLI_V1_CONTRACT.is_file()
     assert DISTRIBUTION_DOC.is_file()
     assert ROSDISTRO_RELEASE_DOC.is_file()
+    assert OFFICIAL_RKO_COMPATIBILITY_WORKFLOW.is_file()
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
     assert BOUNDED_FILESYSTEM_SCHEMA.is_file()
     assert BOUNDED_FILESYSTEM_WORKFLOW.is_file()
@@ -814,6 +821,34 @@ def test_real_data_e2e_workflow_is_pinned_bounded_and_non_geometry():
     assert 'validate_real_data_e2e.py' in workflow
     assert 'output/real-data-e2e/run/map.pcd' not in workflow
     assert 'output/real-data-e2e/run/traj_raw.tum' not in workflow
+
+
+def test_official_rko_binary_gate_is_release_shaped_and_version_pinned():
+    """The adoption gate must not accidentally build the source submodule."""
+    workflow = OFFICIAL_RKO_COMPATIBILITY_WORKFLOW.read_text(
+        encoding='utf-8'
+    )
+    release_doc = ROSDISTRO_RELEASE_DOC.read_text(encoding='utf-8')
+
+    assert 'RKO_RELEASE_VERSION: 0.3.2-1' in workflow
+    assert 'ros2-testing/ubuntu' in workflow
+    assert '- develop' in workflow
+    assert 'lidarslam/param/rko_lio_mid360.yaml' in workflow
+    assert 'container: ros:humble-ros-core' in workflow
+    assert 'container: ros:jazzy-ros-core' in workflow
+    assert 'submodules: false' in workflow
+    assert 'git submodule update --init Thirdparty/ndt_omp_ros2' in workflow
+    assert 'test ! -e Thirdparty/rko_lio/package.xml' in workflow
+    assert 'git submodule update --init Thirdparty/rko_lio' not in workflow
+    assert 'test "${prefix}" = "/opt/ros/${{ matrix.ros_distro }}"' in workflow
+    assert 'executable_sha256' in workflow
+    assert 'timeout --signal=TERM --kill-after=30s 20m' in workflow
+    assert 'validate_real_data_e2e.py' in workflow
+    assert 'output/official-rko-compatibility/run/map.pcd' not in workflow
+    assert 'output/official-rko-compatibility/run/traj_raw.tum' not in workflow
+    assert 'official-rko-binary-compatibility.yml' in release_doc
+    assert 'MID-360 preset' in release_doc
+    assert 'NTU-VIRAL preset is also outside' in release_doc
 
 
 def test_container_distribution_builds_and_attests_both_supported_distros():
