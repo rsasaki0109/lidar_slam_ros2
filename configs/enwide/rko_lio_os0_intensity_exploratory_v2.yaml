@@ -40,6 +40,7 @@ intensity_bin_size_m: 0.25
 intensity_profile_half_length_m: 30.0
 intensity_max_shift_m: 1.5
 intensity_min_correlation: 0.6
+intensity_min_peak_margin: 0.0
 intensity_min_filled_bins: 40
 
 # Existing soft-degeneracy gate, copied without ENWIDE-specific tuning from

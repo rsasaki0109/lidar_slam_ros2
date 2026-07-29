@@ -141,6 +141,7 @@ def test_enwide_exploratory_v2_only_adds_existing_intensity_gate():
         'intensity_disagreement_min_mps': 0.2,
         'intensity_disagreement_min_scans': 3,
         'intensity_disagreement_weight': 1.0,
+        'intensity_min_peak_margin': 0.0,
     }
     assert {
         key: value for key, value in candidate.items()
@@ -162,7 +163,7 @@ def test_enwide_runner_exposes_only_dataset_output_and_repetition_options():
             '--lidar-topic', '--imu-topic', '--rko-param', '--segment-length'):
         assert forbidden_option not in completed.stdout
     text = RUNNER.read_text()
-    assert 'd5793a58dd8bd6743b5173172cd2ae2086d44e03' in text
+    assert 'b4a8937ab13bbb3dfbffe76365752c77bcdca678' in text
     assert '--completion-end-margin-secs 1.0' in text
     assert '--max-time-gap 0.11' in text
     assert 'warning: position-only scoring failed' in text

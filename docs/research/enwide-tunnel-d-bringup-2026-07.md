@@ -10,12 +10,14 @@ baseline. Reject the exploratory v2 intensity-disagreement candidate: it
 improves global ATE but worsens local RTE, runtime, memory, and estimated path
 length.
 
-The next algorithm milestone is alias-aware reflectivity registration. The
-current one-dimensional NCC result needs at least a best-versus-second-peak
-margin and a multimodality diagnostic before it can correct a pose. A later
-candidate should replace the one-dimensional profile with a local oriented
-reflectivity/height representation rather than increasing the existing
-correction weight.
+The first alias-aware reflectivity milestone is implemented in RKO-LIO commit
+`b4a8937ab13bbb3dfbffe76365752c77bcdca678`. The one-dimensional NCC result
+now reports a best-versus-second-peak margin, can reject ambiguous peaks, and
+records aggregate margin diagnostics. Its default margin is zero, preserving
+the historic result until a threshold is selected from diagnostics rather
+than TunnelD accuracy. A later candidate should replace the one-dimensional
+profile with a local oriented reflectivity/height representation rather than
+increasing the existing correction weight.
 
 ## Frozen public input
 
@@ -37,13 +39,14 @@ The source PointCloud2 layout matches the runner contract: relative `t` is
 
 ## Results
 
-Both rows are single-run exploratory results on the same machine and are not
+These are single-run exploratory results on the same machine and are not
 valid three-repetition sequence comparisons.
 
 | candidate | ATE RMSE (m) | 10 m RTE (%) | matched GT | RTF | peak RSS (MiB) |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | preregistered v1 | 23.7841 | 64.5694 | 99.579% | 2.421 | 454.7 |
 | intensity disagreement v2 | 22.0945 | 65.2899 | 99.579% | 2.780 | 642.8 |
+| v2 + alias diagnostics, margin disabled | 22.5956 | 64.6661 | 99.579% | 2.765 | 513.4 |
 
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet
@@ -69,6 +72,14 @@ It makes 998 correlation attempts, accepts 897 shifts, and corrects 721 scans.
 Its endpoint separation improves to 8.66 m, but its total path grows to
 321.70 m and speed p95 to 7.22 m/s. The better global ATE therefore hides
 worse local motion. The 10 m RTE correctly rejects it.
+
+The margin-disabled diagnostic run records 913 peak-margin samples with mean
+0.0942 and minimum 0.0. Its correction acceptance logic is identical to v2,
+but its trajectory SHA-256 differs and its score moves by about 0.5 m ATE.
+RKO's parallel scan processing is therefore not byte-deterministic across
+runs. This is further evidence that the required three repetitions are a
+measurement requirement, not just a reporting convention. No peak-margin
+threshold may be selected from either single-run TunnelD score.
 
 The validated open-tunnel inertial preset is also inapplicable without a new
 classifier. On TunnelD, the median fraction of points below 3 m is 0.780 and
