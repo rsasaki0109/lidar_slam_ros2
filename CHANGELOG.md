@@ -14,7 +14,9 @@ deterministic and map-quality foundations delivered after v0.6.
   preflight-v3, diagnosis-v1, and resumable run-manifest-v2 records are tested
   on Humble and Jazzy. Path and duration metavars use one consistent
   vocabulary, completion must exactly match the option contract, and invalid
-  names, values, or combinations consistently exit with status 2.
+  names, values, or combinations consistently exit with status 2. Doctor,
+  runner help, parser choices, completion, and release bundles share one
+  installed maintained-profile registry.
 - **Fail-closed map authoring** — output collision, low free space, real
   bounded-filesystem exhaustion, timestamp reversal, process termination, and
   partial-run recovery preserve terminal manifests and actionable diagnosis

@@ -13,6 +13,17 @@ from typing import Any, Callable
 
 import yaml
 
+try:
+    from product_profiles import PROFILE_HELP
+except ModuleNotFoundError as exc:
+    if exc.name != 'product_profiles':
+        raise
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    try:
+        from product_profiles import PROFILE_HELP
+    finally:
+        sys.path.pop(0)
+
 
 POINTCLOUD2 = 'sensor_msgs/msg/PointCloud2'
 IMU = 'sensor_msgs/msg/Imu'
@@ -35,19 +46,6 @@ RKO_TIMESTAMP_DATATYPES = (
 )
 TIMESTAMP_SCAN_MSGTYPES = (POINTCLOUD2, IMU)
 MAX_TIMESTAMP_RECORDS_PER_TOPIC = 100_000
-
-PROFILE_HELP = (
-    (
-        'rko_lio_graph_public_path',
-        'PointCloud2 + Imu through RKO-LIO and graph_based_slam.',
-    ),
-    (
-        'rko_lio_graph_mid360_preset',
-        'Livox/MID360 PointCloud2 + Imu with tracked tuned params.',
-    ),
-    ('pointcloud_gnss_smoke', 'PointCloud2 + NavSatFix smoke workflow.'),
-    ('packet_applanix_smoke', 'VelodyneScan + Applanix GSOF49 smoke workflow.'),
-)
 
 
 @dataclass(frozen=True)

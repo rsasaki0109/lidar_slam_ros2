@@ -1,5 +1,6 @@
 lidarslam_cli.py
 product_schema.py
+product_profiles.py
 migrate_run_manifest.py
 plan_image_rollback.py
 preflight_autoware_map_bag.py

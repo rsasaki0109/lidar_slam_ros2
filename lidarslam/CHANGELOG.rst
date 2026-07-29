@@ -8,6 +8,8 @@ Changelog for package lidarslam
   optional view, completion, and machine-readable option contracts.
 * Normalize path and duration metavars, reject non-positive viewer durations,
   and enforce exact option/completion parity plus stable usage exit codes.
+* Keep doctor and runner profile options synchronized through one installed
+  maintained-profile registry.
 * Add preflight-v3, diagnosis-v1, resumable run-manifest-v2, atomic output,
   collision and storage refusal, termination recovery, and digest-only
   rollback planning.

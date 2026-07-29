@@ -75,6 +75,7 @@ def test_product_runtime_manifest_is_curated_and_complete():
     assert len(names) == len(set(names))
     assert 'lidarslam_cli.py' in names
     assert 'product_schema.py' in names
+    assert 'product_profiles.py' in names
     assert 'migrate_run_manifest.py' in names
     assert 'plan_image_rollback.py' in names
     assert 'run_autoware_map_from_bag.py' in names

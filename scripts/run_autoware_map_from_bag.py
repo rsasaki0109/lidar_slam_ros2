@@ -25,6 +25,17 @@ import xml.etree.ElementTree as ET
 
 import yaml
 
+try:
+    from product_profiles import PROFILE_HELP, PROFILE_IDS
+except ModuleNotFoundError as exc:
+    if exc.name != 'product_profiles':
+        raise
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    try:
+        from product_profiles import PROFILE_HELP, PROFILE_IDS
+    finally:
+        sys.path.pop(0)
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
@@ -41,24 +52,6 @@ MANIFEST_SCHEMA_VERSION = 2
 MANIFEST_SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
     'schemas/run-manifest-v2.schema.json'
-)
-PROFILE_CHOICES = (
-    'rko_lio_graph_public_path',
-    'rko_lio_graph_mid360_preset',
-    'pointcloud_gnss_smoke',
-    'packet_applanix_smoke',
-)
-PROFILE_HELP = (
-    (
-        'rko_lio_graph_public_path',
-        'PointCloud2 + Imu through RKO-LIO and graph_based_slam.',
-    ),
-    (
-        'rko_lio_graph_mid360_preset',
-        'Livox/MID360 PointCloud2 + Imu with tracked tuned params.',
-    ),
-    ('pointcloud_gnss_smoke', 'PointCloud2 + NavSatFix smoke workflow.'),
-    ('packet_applanix_smoke', 'VelodyneScan + Applanix GSOF49 smoke workflow.'),
 )
 WORKFLOW_SHUTDOWN_GRACE_SECS = 10.0
 DEFAULT_MIN_FREE_SPACE_GIB = 5.0
@@ -1106,7 +1099,7 @@ def parse_args(
     map_options = parser.add_argument_group('map selection and output')
     map_options.add_argument(
         '--profile',
-        choices=PROFILE_CHOICES,
+        choices=PROFILE_IDS,
         metavar='<id>',
         help='Force a compatible profile instead of the default recommendation.',
     )

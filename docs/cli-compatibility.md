@@ -136,6 +136,11 @@ rendered by each command, and every finite completion choice. An undocumented
 option, extra stale completion, changed value shape, or missing choice fails
 the contract test.
 
+Maintained workflow profile IDs and descriptions have one installed registry,
+`product_profiles.py`. Doctor help, runner choices and help, the CLI contract,
+completion, and release bundles are tested against that registry so a profile
+cannot be added to only one command surface.
+
 ## Migration sequence
 
 1. `lidarslam-map view <output_dir>` owns optional viewer startup.

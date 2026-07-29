@@ -69,6 +69,7 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/first_map_validation_receipt.py',
     'scripts/create_first_map_validation_receipt.py',
     'scripts/plan_image_rollback.py',
+    'scripts/product_profiles.py',
     'scripts/product_schema.py',
     'scripts/promote_release_images.py',
 )

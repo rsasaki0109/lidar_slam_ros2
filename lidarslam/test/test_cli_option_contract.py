@@ -31,9 +31,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import re
+import runpy
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -41,6 +42,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI = REPO_ROOT / 'scripts' / 'lidarslam'
 CONTRACT_PATH = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
+PROFILE_REGISTRY_PATH = REPO_ROOT / 'scripts' / 'product_profiles.py'
 OPTION_PATTERN = re.compile(r'(?<![A-Za-z0-9-])(--[a-z][a-z0-9-]*|-h)(?![A-Za-z0-9-])')
 VALUE_OPTION_PATTERN = re.compile(
     r'(?P<option>--[a-z][a-z0-9-]*)[ =]'
@@ -228,6 +230,24 @@ def test_value_contract_matches_full_help_and_bounded_choices():
                     )
             else:
                 assert 'choices' not in value
+
+
+def test_profile_option_and_help_use_the_maintained_registry():
+    """Keep profile choices and descriptions in one authoritative source."""
+    contract = _contract()
+    registry = runpy.run_path(str(PROFILE_REGISTRY_PATH))
+    profile_ids = tuple(registry['PROFILE_IDS'])
+    profile_help = tuple(registry['PROFILE_HELP'])
+
+    assert profile_ids
+    assert len(profile_ids) == len(set(profile_ids))
+    assert tuple(
+        contract['value_options']['run']['--profile']['choices']
+    ) == profile_ids
+    for command in ('doctor', 'run'):
+        rendered = _help(command)
+        for profile_id, description in profile_help:
+            assert f'{profile_id}: {description}' in rendered
 
 
 def test_positionals_and_deprecation_lifecycle_are_machine_readable():
