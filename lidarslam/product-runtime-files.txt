@@ -14,6 +14,7 @@ create_first_map_validation_receipt.py
 run_rko_lio_graph_autoware_dogfood.sh
 run_open_data_gnss_smoke.sh
 run_open_data_applanix_velodyne_gnss_smoke.sh
+select_rosbag_topic.py
 path_to_tum.py
 odom_to_tum.py
 ape_from_tum.py

@@ -82,38 +82,18 @@ detect_topic_by_type() {
   local bag_path="$1"
   local msg_type="$2"
   local extra_msg_dir="${3:-}"
-  python3 - "${bag_path}" "${msg_type}" "${extra_msg_dir}" <<'PY'
-from pathlib import Path
-import sys
-
-from rosbags.highlevel import AnyReader
-from rosbags.typesys import Stores, get_typestore, get_types_from_msg
-
-bag_path = Path(sys.argv[1])
-msg_type = sys.argv[2]
-extra_msg_dir = Path(sys.argv[3]) if sys.argv[3] else None
-best_topic = ''
-best_count = -1
-typestore = get_typestore(Stores.LATEST)
-
-if extra_msg_dir is not None:
-    package_name = extra_msg_dir.parent.name
-    for path in sorted(extra_msg_dir.glob('*.msg')):
-        text = path.read_text(encoding='utf-8')
-        typestore.register(get_types_from_msg(text, f'{package_name}/msg/{path.stem}'))
-
-with AnyReader([bag_path], default_typestore=typestore) as reader:
-    for connection in reader.connections:
-        if connection.msgtype != msg_type:
-            continue
-        message_count = getattr(connection, 'msgcount', 0)
-        if message_count > best_count:
-            best_count = message_count
-            best_topic = connection.topic
-
-if best_topic:
-    print(best_topic)
-PY
+  local preferred_substring="${4:-}"
+  local args=(
+    --bag "${bag_path}"
+    --msg-type "${msg_type}"
+  )
+  if [[ -n "${extra_msg_dir}" ]]; then
+    args+=(--extra-msg-dir "${extra_msg_dir}")
+  fi
+  if [[ -n "${preferred_substring}" ]]; then
+    args+=(--preferred-substring "${preferred_substring}")
+  fi
+  python3 "${SCRIPT_DIR}/select_rosbag_topic.py" "${args[@]}"
 }
 
 detect_first_header_frame() {
@@ -403,7 +383,8 @@ if [[ -z "${PACKET_TOPIC}" ]]; then
   PACKET_TOPIC="$(detect_topic_by_type \
     "${BAG_PATH}" \
     "velodyne_msgs/msg/VelodyneScan" \
-    "${VELODYNE_MSG_DIR}")"
+    "${VELODYNE_MSG_DIR}" \
+    "/front/")"
 fi
 [[ -n "${PACKET_TOPIC}" ]] || die "failed to detect VelodyneScan topic"
 

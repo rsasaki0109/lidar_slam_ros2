@@ -49,6 +49,8 @@ def test_applanix_velodyne_smoke_script_uses_packet_conversion_and_gnss_sidecar(
     assert 'convert_applanix_gsof_to_navsatfix_bag.py' in script
     assert 'convert_applanix_gsof_to_imu_bag.py' in script
     assert 'velodyne_transform_node' in script
+    assert 'select_rosbag_topic.py' in script
+    assert '"/front/")"' in script
     assert '--gsof49-topic "${GSOF49_TOPIC}"' in script
     assert '--gsof50-topic "${GSOF50_TOPIC}"' in script
     assert '--output-topic "${GNSS_TOPIC}"' in script

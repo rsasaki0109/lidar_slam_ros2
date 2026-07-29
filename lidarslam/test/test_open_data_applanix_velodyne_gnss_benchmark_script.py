@@ -73,6 +73,8 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert 'terminate_pid()' in script
     assert '--check >/dev/null 2>&1' in script
     assert 'velodyne_transform_node' in script
+    assert 'select_rosbag_topic.py' in script
+    assert '"/front/")"' in script
     assert 'convert_applanix_gsof49_to_tf_bag.py' in script
     assert 'convert_applanix_gsof_to_imu_bag.py' in script
     assert 'extract_static_transform_from_bag.py' in script
@@ -115,9 +117,8 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert 'IMU_POSE_PREDICTION="false"' in script
     assert 'CLOUD_QUEUE_DEPTH=""' in script
     assert 'cloud_queue_depth' in script
-    assert 'RATE_EXPLICIT="false"' in script
-    assert 'if [[ "${RATE_EXPLICIT}" != "true" && "${USE_IMU,,}" == "true" ]]; then' in script
     assert 'RATE="1.0"' in script
+    assert 'ros2 bag play rate (default: 1.0)' in script
     assert 'ROS_DOMAIN_ID_OVERRIDE=""' in script
     assert 'export ROS_DOMAIN_ID="${ROS_DOMAIN_ID_OVERRIDE}"' in script
     assert 'DEBUG_CLOUD_DUMP_MAX_FRAMES="0"' in script
