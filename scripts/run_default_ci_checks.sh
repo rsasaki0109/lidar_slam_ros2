@@ -108,7 +108,9 @@ echo "==> Build targets: ${BUILD_TARGETS[*]}"
 if ! colcon build \
   --event-handlers console_direct+ \
   --packages-up-to "${BUILD_TARGETS[@]}" \
-  --cmake-args -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"; then
+  --cmake-args \
+    -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" \
+    -DRKO_LIO_FETCH_CONTENT_DEPS=ON; then
   echo "error: colcon build failed for default workflow packages" >&2
   exit 1
 fi

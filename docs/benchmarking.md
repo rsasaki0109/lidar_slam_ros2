@@ -12,6 +12,27 @@ bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
 
+### Degenerate-LIO SOTA track
+
+The preregistered public degeneracy track is defined in
+`configs/slam_benchmark_profiles/degenerate_lio_sota_v1.yaml`. It begins with
+ENWIDE TunnelS/TunnelD and forbids radar, wheel odometry, GNSS, cameras,
+per-sequence tuning, and scale alignment. Download exact official inputs with:
+
+```bash
+bash scripts/download_enwide.sh \
+  --sequence tunnel_d \
+  --dest datasets/enwide \
+  --convert
+```
+
+The profile remains report-only until all ENWIDE and GEODE degenerate
+sequences, pinned rivals, and the hidden holdout are complete. See
+`docs/research/enwide-sota-benchmark-plan-2026-07.md` for the claim policy.
+Use `scripts/run_enwide_sota_benchmark.sh` for the fixed three-repetition
+candidate run; sensor and scoring choices are deliberately not command-line
+options.
+
 ### Radar-less tunnel frontend A/B
 
 The radar-less tunnel research track has a frontend-only control/candidate

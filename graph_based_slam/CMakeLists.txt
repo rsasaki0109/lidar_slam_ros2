@@ -985,6 +985,21 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_default_ci_checks_script
+    test/test_default_ci_checks_script.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
+    test_enwide_benchmark_assets
+    test/test_enwide_benchmark_assets.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
+    test_score_position_only_trajectory
+    test/test_score_position_only_trajectory.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
     test_validate_real_data_e2e
     test/test_validate_real_data_e2e.py
     TIMEOUT 60

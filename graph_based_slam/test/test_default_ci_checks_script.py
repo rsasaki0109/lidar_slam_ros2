@@ -81,6 +81,10 @@ def test_default_ci_help_exits_successfully():
     assert '--build-only' in result.stderr
 
 
+def test_default_ci_fetches_rko_dependencies_for_clean_local_builds():
+    assert '-DRKO_LIO_FETCH_CONTENT_DEPS=ON' in CI_SCRIPT.read_text()
+
+
 def test_default_ci_rejects_missing_cmake_build_type_value():
     result = _run_ci('--cmake-build-type', '--build-only')
 
