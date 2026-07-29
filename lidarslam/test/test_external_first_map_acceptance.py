@@ -34,8 +34,8 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
-import sys
 from pathlib import Path
+import sys
 
 import pytest
 
