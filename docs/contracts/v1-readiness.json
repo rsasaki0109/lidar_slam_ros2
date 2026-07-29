@@ -115,7 +115,9 @@
       "state": "incomplete",
       "evidence": [
         "docs/external-first-map-validation.md",
-        "docs/evidence/external-first-map-validations.json"
+        "docs/evidence/external-first-map-validations.json",
+        "scripts/prepare_external_first_map_acceptance.py",
+        "docs/schemas/external-first-map-acceptance-v1.schema.json"
       ],
       "blockers": [
         "Accept three distinct independent-user first-map reports; the tracked ledger currently has zero."

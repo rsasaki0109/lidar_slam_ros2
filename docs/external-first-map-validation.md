@@ -99,8 +99,45 @@ as passing evidence.
 
 ## Reviewer workflow
 
-After resolving any onboarding findings, add one accepted entry to
-`docs/evidence/external-first-map-validations.json`. Then validate it:
+Do not hand-edit the tracked ledger first. After resolving any onboarding
+findings:
+
+1. Download the reporter's JSON receipt privately and confirm the public issue
+   contains the matching verification summary.
+2. Create `/tmp/validation-entry.json` with one `validation` object matching
+   the
+   [`external-first-map-validations-v1` schema](schemas/external-first-map-validations-v1.schema.json).
+   Record the public issue-comment or pull-request review URL in
+   `acceptance.review_url`.
+3. Prepare a new ledger file:
+
+   ```bash
+   python3 scripts/prepare_external_first_map_acceptance.py \
+     --entry /tmp/validation-entry.json \
+     --receipt /path/to/first_map_validation_receipt.json \
+     --output-ledger /tmp/external-first-map-validations.proposed.json
+   ```
+
+4. Review the proposed file and its diff, then copy that reviewed proposal to
+   `docs/evidence/external-first-map-validations.json` in a normal pull
+   request. Do not commit the reporter's receipt.
+
+The intake command is fail-closed. It requires a schema-valid PASS receipt,
+all seven receipt checks, exact verification-field and manifest-hash binding,
+a release reference matching the receipt version/revision or an immutable
+image digest, chronological submission and review timestamps, a public
+repository review URL on the submitted issue (or its review PR), a known
+maintainer reviewer, and an independent reporter. The current maintainer is
+explicitly excluded as an independent reporter.
+It appends the entry in memory and revalidates the complete ledger, so
+duplicate reporters, issues, validation IDs, and manifest hashes are rejected.
+
+The command never modifies the input ledger, refuses to write to its path, and
+refuses to overwrite any existing proposal. Without `--output-ledger`, it
+performs a dry run and prints a schema-valid
+[`external-first-map-acceptance-v1` report](schemas/external-first-map-acceptance-v1.schema.json).
+
+After reviewing and placing the proposal in the tracked ledger, validate it:
 
 ```bash
 python3 scripts/check_external_first_map_readiness.py --json
@@ -121,6 +158,9 @@ Exit codes are:
 | `0` | Ledger is valid; with `--require-complete`, the 3-user gate is ready |
 | `1` | Ledger is valid but fewer than three accepted reports exist |
 | `2` | Ledger or schema is invalid, including duplicate evidence |
+
+The intake command uses `0` for `READY_TO_PROPOSE` and `2` for invalid,
+unbound, duplicate, unreviewed, or unsafe-to-write evidence.
 
 The validator reports counts by documentation path for coverage visibility,
 but the v1.0 contract does not invent a per-path quota: the published

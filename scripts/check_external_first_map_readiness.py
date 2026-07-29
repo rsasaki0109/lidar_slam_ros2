@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
 
 import jsonschema
@@ -65,6 +65,14 @@ def validate_ledger(
     """Return a deterministic readiness report for one valid ledger."""
     ledger = _load_object(ledger_path)
     schema = _load_object(schema_path)
+    return validate_ledger_payload(ledger, schema)
+
+
+def validate_ledger_payload(
+    ledger: dict[str, Any],
+    schema: dict[str, Any],
+) -> dict[str, Any]:
+    """Return a readiness report for an in-memory ledger proposal."""
     try:
         jsonschema.Draft7Validator.check_schema(schema)
         jsonschema.Draft7Validator(
@@ -72,8 +80,12 @@ def validate_ledger(
             format_checker=jsonschema.FormatChecker(),
         ).validate(ledger)
     except (jsonschema.SchemaError, jsonschema.ValidationError) as exc:
-        location = '.'.join(str(item) for item in exc.absolute_path) or '<root>'
-        raise LedgerError(f'schema validation failed at {location}: {exc.message}') from exc
+        location = (
+            '.'.join(str(item) for item in exc.absolute_path) or '<root>'
+        )
+        raise LedgerError(
+            f'schema validation failed at {location}: {exc.message}'
+        ) from exc
 
     validations = ledger['validations']
     _require_unique(
@@ -169,7 +181,9 @@ def render_markdown(report: dict[str, Any]) -> str:
         '',
     ]
     if validation_ids:
-        lines.extend(f'- `{validation_id}`' for validation_id in validation_ids)
+        lines.extend(
+            f'- `{validation_id}`' for validation_id in validation_ids
+        )
     else:
         lines.append('- None yet.')
     return '\n'.join(lines) + '\n'
