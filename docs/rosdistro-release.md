@@ -84,7 +84,8 @@ The resolution gate is:
 
 1. Run `.github/workflows/official-rko-binary-compatibility.yml`. It builds
    the release-shaped source tree without the RKO-LIO submodule, installs the
-   exact `0.3.2-1` testing candidate, proves `offline_node` resolves from
+   official `ros2-testing-apt-source` configuration and the exact `0.3.2-1`
+   testing candidate, proves `offline_node` resolves from
    `/opt/ros/<distro>`, and runs the pinned MID-360 E2E independently on
    Humble and Jazzy. The workflow records the full Debian build version and
    executable SHA-256 in its non-geometry evidence artifact.
