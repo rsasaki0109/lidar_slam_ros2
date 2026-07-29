@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+# Copyright 2026 Sasaki
+# All rights reserved.
+#
+# Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above
+#    copyright notice, this list of conditions and the following
+#    disclaimer in the documentation and/or other materials provided
+#    with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+"""Summarize raw intensity-correlation peak diagnostics without accuracy data."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import json
+import math
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+
+REQUIRED_FIELDS = {
+    'timestamp',
+    'source',
+    'correlation',
+    'second_best_correlation',
+    'peak_margin',
+    'overlap_bins',
+    'base_qualified',
+    'ambiguous',
+    'accepted',
+}
+QUANTILES = (
+    ('min', 0.00),
+    ('p01', 0.01),
+    ('p05', 0.05),
+    ('p10', 0.10),
+    ('p25', 0.25),
+    ('p50', 0.50),
+    ('p75', 0.75),
+    ('p90', 0.90),
+    ('p95', 0.95),
+    ('p99', 0.99),
+    ('max', 1.00),
+)
+REPORTING_THRESHOLDS = (0.005, 0.01, 0.02, 0.05, 0.1, 0.2)
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _parse_bool(value: str, path: Path, line_number: int, field: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {'1', 'true'}:
+        return True
+    if normalized in {'0', 'false'}:
+        return False
+    raise ValueError(
+        f'{path}:{line_number}: {field} must be 0/1 or true/false')
+
+
+def _quantile(sorted_values: list[float], probability: float) -> float | None:
+    if not sorted_values:
+        return None
+    position = probability * (len(sorted_values) - 1)
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return sorted_values[lower]
+    fraction = position - lower
+    return (
+        sorted_values[lower] * (1.0 - fraction)
+        + sorted_values[upper] * fraction
+    )
+
+
+def summarize(paths: list[Path]) -> dict[str, Any]:
+    margins: list[float] = []
+    source_counts: Counter[str] = Counter()
+    accepted_count = 0
+    ambiguous_count = 0
+    inputs: list[dict[str, Any]] = []
+
+    for path in paths:
+        row_count = 0
+        qualified_count = 0
+        with path.open(newline='', encoding='utf-8') as stream:
+            reader = csv.DictReader(stream)
+            fields = set(reader.fieldnames or ())
+            missing = sorted(REQUIRED_FIELDS - fields)
+            if missing:
+                raise ValueError(
+                    f'{path}: missing required columns: {", ".join(missing)}')
+            for line_number, row in enumerate(reader, 2):
+                row_count += 1
+                base_qualified = _parse_bool(
+                    row['base_qualified'], path, line_number, 'base_qualified')
+                if not base_qualified:
+                    continue
+                margin = float(row['peak_margin'])
+                if not math.isfinite(margin):
+                    raise ValueError(
+                        f'{path}:{line_number}: peak_margin must be finite')
+                source = row['source'].strip()
+                if not source:
+                    raise ValueError(
+                        f'{path}:{line_number}: source must not be empty')
+                margins.append(margin)
+                source_counts[source] += 1
+                qualified_count += 1
+                ambiguous_count += _parse_bool(
+                    row['ambiguous'], path, line_number, 'ambiguous')
+                accepted_count += _parse_bool(
+                    row['accepted'], path, line_number, 'accepted')
+        inputs.append({
+            'path': str(path.resolve()),
+            'sha256': _sha256(path),
+            'rows': row_count,
+            'base_qualified_rows': qualified_count,
+        })
+
+    margins.sort()
+    qualified_total = len(margins)
+    return {
+        'schema_version': 1,
+        'selection_independent': True,
+        'accuracy_metrics_consumed': False,
+        'inputs': inputs,
+        'rows': {
+            'total': sum(item['rows'] for item in inputs),
+            'base_qualified': qualified_total,
+            'accepted': accepted_count,
+            'ambiguous': ambiguous_count,
+        },
+        'source_counts': dict(sorted(source_counts.items())),
+        'peak_margin_quantiles': {
+            name: _quantile(margins, probability)
+            for name, probability in QUANTILES
+        },
+        'thresholds': {
+            format(threshold, 'g'): {
+                'below_count': sum(value < threshold for value in margins),
+                'below_fraction': (
+                    sum(value < threshold for value in margins)
+                    / qualified_total
+                    if qualified_total else None
+                ),
+            }
+            for threshold in REPORTING_THRESHOLDS
+        },
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        'diagnostics',
+        nargs='+',
+        type=Path,
+        help='intensity_peak_diagnostics.csv files to aggregate',
+    )
+    parser.add_argument('--output', required=True, type=Path)
+    args = parser.parse_args()
+
+    result = summarize(args.diagnostics)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(
+        json.dumps(result, indent=2, sort_keys=True) + '\n',
+        encoding='utf-8',
+    )
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

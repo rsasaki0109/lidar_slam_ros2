@@ -1,0 +1,98 @@
+# Copyright 2026 Sasaki
+# All rights reserved.
+#
+# Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above
+#    copyright notice, this list of conditions and the following
+#    disclaimer in the documentation and/or other materials provided
+#    with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+"""Tests for intensity peak diagnostic summarization."""
+
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+
+import pytest
+
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPT = ROOT / 'scripts' / 'summarize_intensity_peak_diagnostics.py'
+SPEC = importlib.util.spec_from_file_location('peak_summary', SCRIPT)
+assert SPEC is not None and SPEC.loader is not None
+SUMMARY = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(SUMMARY)
+
+HEADER = (
+    'timestamp,source,correlation,second_best_correlation,peak_margin,'
+    'overlap_bins,base_qualified,ambiguous,accepted\n'
+)
+
+
+def test_combines_inputs_and_ignores_unqualified_rows(tmp_path):
+    first = tmp_path / 'first.csv'
+    first.write_text(
+        HEADER
+        + '1.0,prior,0.8,0.79,0.01,50,1,0,1\n'
+        + '2.0,prior,0.4,0.39,0.01,10,0,0,0\n',
+        encoding='utf-8',
+    )
+    second = tmp_path / 'second.csv'
+    second.write_text(
+        HEADER
+        + '3.0,prior,0.8,0.75,0.05,50,true,false,true\n'
+        + '4.0,gate,0.8,0.60,0.20,50,1,1,0\n',
+        encoding='utf-8',
+    )
+
+    result = SUMMARY.summarize([first, second])
+
+    assert result['selection_independent'] is True
+    assert result['accuracy_metrics_consumed'] is False
+    assert result['rows'] == {
+        'total': 4,
+        'base_qualified': 3,
+        'accepted': 2,
+        'ambiguous': 1,
+    }
+    assert result['source_counts'] == {'gate': 1, 'prior': 2}
+    assert result['peak_margin_quantiles']['p50'] == pytest.approx(0.05)
+    assert result['thresholds']['0.1'] == {
+        'below_count': 2,
+        'below_fraction': pytest.approx(2.0 / 3.0),
+    }
+    assert len(result['inputs']) == 2
+    assert all(len(item['sha256']) == 64 for item in result['inputs'])
+
+
+def test_rejects_legacy_csv_without_base_qualified(tmp_path):
+    legacy = tmp_path / 'legacy.csv'
+    legacy.write_text(
+        HEADER.replace('base_qualified,', '')
+        + '1.0,prior,0.8,0.7,0.1,50,0,1\n',
+        encoding='utf-8',
+    )
+
+    with pytest.raises(ValueError, match='base_qualified'):
+        SUMMARY.summarize([legacy])

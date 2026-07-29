@@ -12,7 +12,8 @@ length.
 
 The first alias-aware reflectivity milestone is implemented in RKO-LIO commits
 `b4a8937ab13bbb3dfbffe76365752c77bcdca678` and
-`415375106ef0bc706e307ae507d47d9970b6d0ba`. The one-dimensional NCC result
+`415375106ef0bc706e307ae507d47d9970b6d0ba`. Raw peak observations are exported
+by `f285c9e97e6e4425a1b8cf2d5891624448922d8e`. The one-dimensional NCC result
 now reports a best-versus-second-peak margin, can reject ambiguous peaks, and
 records aggregate margin diagnostics. Its default margin is zero, preserving
 the historic result until a threshold is selected from diagnostics rather
@@ -25,6 +26,32 @@ peak radius, and reports an explicit rejection reason. The current 1D profile
 is an adapter over that API. A later local oriented reflectivity/height
 matcher can reuse the selector without adding another gate directly to
 `LIO::register_scan`.
+
+Every attempted correlation now emits timestamp, source, best and second-best
+score, margin, overlap support, base qualification, ambiguity, and acceptance
+to `intensity_peak_diagnostics.csv`. Base qualification records whether score
+and support passed before the alias-margin policy is applied, so low-quality
+candidates cannot contaminate the alias distribution.
+
+The selection-independent summarizer consumes one or more of these CSVs and
+writes input paths and SHA-256 hashes, qualified row/source counts, fixed
+quantiles, and fixed threshold counts:
+
+```bash
+python3 scripts/summarize_intensity_peak_diagnostics.py \
+  run-a/intensity_peak_diagnostics.csv \
+  run-b/intensity_peak_diagnostics.csv \
+  --output intensity_peak_summary.json
+```
+
+It has no accuracy-metric input. Benchmark analysis can therefore aggregate
+repetitions or holdouts and test a future selection policy from raw evidence
+without replaying the multi-gigabyte bags or selecting against TunnelD ATE.
+
+The 20-second Tunnel smoke test produced 83 raw observations and 25
+base-qualified observations. Its qualified median margin was 0.1465; 20% were
+below 0.05. This validates the dump and summarizer only. The sample is too
+short and too sequence-specific to select a production threshold.
 
 ## Frozen public input
 

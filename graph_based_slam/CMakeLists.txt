@@ -1000,6 +1000,11 @@ if(BUILD_TESTING)
     TIMEOUT 60
   )
   ament_add_pytest_test(
+    test_summarize_intensity_peak_diagnostics
+    test/test_summarize_intensity_peak_diagnostics.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
     test_validate_real_data_e2e
     test/test_validate_real_data_e2e.py
     TIMEOUT 60
