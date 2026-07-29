@@ -2,7 +2,7 @@
 
 ## Scope
 
-Clean candidate commit `90981ab69be797e20aae19503546f3deb88a92b9`
+Clean candidate commit `d5605195455525a362260f9b99504fd96bf0613e`
 was built on ROS 2 Jazzy and run against the public Leo Drive
 `all-sensors-bag1`. The command used only the benchmark defaults for packet
 topic and playback rate. It therefore exercises the product behavior added in
@@ -43,8 +43,8 @@ Input identity:
 Software identity:
 
 - candidate commit:
-  `90981ab69be797e20aae19503546f3deb88a92b9`;
-- worktree state at build and run: clean;
+  `d5605195455525a362260f9b99504fd96bf0613e`;
+- worktree state at build and run: clean, including untracked files;
 - effective lidarslam parameters SHA-256:
   `c8939c298034b26510d016a60fc835f596a2e5af7a997e579e8788e63c5a6736`;
 - effective Velodyne parameters SHA-256:
@@ -70,9 +70,9 @@ Machine identity:
 Output identity:
 
 - `metrics.json` SHA-256:
-  `0f63016eefa0c3a2694f79b88cdbf0f9ac1c67baee60781750047f47f61d363a`;
+  `697b39b4981c6743be107839a3feea7a568fb71611e2eef4a7538e18d11513d2`;
 - `map.pcd` SHA-256:
-  `930dbba8bddc1eaa708d5c3d6aea9faf5d16541b4621d2bc9e68d3a74541e6ae`;
+  `20b98a054db175eebe72821165c09064b2e48302fea25ee815824a60e67ba822`;
 - extracted reference TUM SHA-256:
   `98ea2825378036b2bad838cdff921540bcd4abd050f33b80ba35c5b9db4dba26`.
 
@@ -86,13 +86,13 @@ deleted temporary files.
 
 The release profile reported `TARGET_MET`:
 
-- corrected APE RMSE: **0.138648 m**;
+- corrected APE RMSE: **0.138869 m**;
 - profile pass threshold: 1.500 m;
 - profile target threshold: 0.500 m;
 - matched corrected/reference poses: 580, above the 200-pair coverage floor;
-- corrected path length: 95.437 m;
-- raw path: 350 poses, 3,490 matched reference poses, 0.277409 m RMSE;
-- wall time: 54.387 seconds; processing RTF: 1.490.
+- corrected path length: 95.449 m;
+- raw path: 362 poses, 3,610 matched reference poses, 0.271928 m RMSE;
+- wall time: 54.650 seconds; processing RTF: 1.497.
 
 The generated map passed all eight Autoware compatibility checks. The verifier
 reported one informational warning because grid-map metadata lives in the
