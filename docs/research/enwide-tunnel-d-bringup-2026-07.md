@@ -144,6 +144,7 @@ V4 is the first completed three-repetition candidate.
 | intensity disagreement v2 | 22.0945 | 65.2899 | 99.579% | 2.780 | 642.8 |
 | v2 + alias diagnostics, margin disabled | 22.5956 | 64.6661 | 99.579% | 2.765 | 513.4 |
 | schema-v2 alias v4, three-run median | 20.8877 | 65.1782 | 99.579% | 2.750 | 614.1 |
+| overlap-local Pearson v5, early-stop run | 22.5613 | 63.9480 | 99.579% | 2.678 | 512.8 |
 
 V4 completed all three runs. ATE ranged from 20.3902 to 20.9202 m, while RTE
 ranged from 63.3531% to 66.7671%. It rejected 17 or 18 ambiguous shifts and
@@ -165,8 +166,15 @@ peak selector and LIO gate API are unchanged. A 20-second Tunnel smoke test
 completed successfully; its observed score range was 0.314 to 0.953 and
 base-qualified observations dropped from 25 to 19. Candidate v5 freezes the
 same v2 parameters with margin zero in
-`configs/enwide/rko_lio_os0_intensity_pearson_v5.yaml`; its accuracy has not
-yet been consumed.
+`configs/enwide/rko_lio_os0_intensity_pearson_v5.yaml`.
+
+V5's first TunnelD run accepted 961 base-qualified correlations and corrected
+673 scans. Its RTE is 1.23 percentage points below the v4 median, but its ATE
+is at least 1.64 m above every v4 run. The pre-run early-stop rule required
+both metrics to improve before spending two more full runs, so v5
+is rejected as an accuracy candidate after one run. The bounded Pearson
+calculation remains as a matcher-correctness fix; this result rejects the
+current 1D disagreement strategy, not overlap-local normalization.
 
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet
