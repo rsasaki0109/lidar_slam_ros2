@@ -102,6 +102,36 @@ def test_file_identity_rejects_missing_artifact(tmp_path: Path):
         module.file_identity(tmp_path / 'missing')
 
 
+def test_git_state_treats_untracked_build_input_as_dirty(tmp_path: Path):
+    """Untracked source must invalidate a clean release-evidence claim."""
+    module = _load_module()
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    subprocess.run(['git', 'init', '-q'], cwd=repo, check=True)
+    subprocess.run(
+        ['git', 'config', 'user.email', 'test@example.com'],
+        cwd=repo,
+        check=True,
+    )
+    subprocess.run(
+        ['git', 'config', 'user.name', 'Benchmark Test'],
+        cwd=repo,
+        check=True,
+    )
+    (repo / 'tracked.txt').write_text('tracked\n', encoding='utf-8')
+    subprocess.run(['git', 'add', 'tracked.txt'], cwd=repo, check=True)
+    subprocess.run(
+        ['git', 'commit', '-q', '-m', 'fixture'],
+        cwd=repo,
+        check=True,
+    )
+    assert module._git_state(repo)['git_dirty'] is False
+
+    (repo / 'untracked.cpp').write_text('untracked\n', encoding='utf-8')
+
+    assert module._git_state(repo)['git_dirty'] is True
+
+
 def test_metrics_writer_emits_schema_valid_provenance(tmp_path: Path):
     """The common writer emits a schema-valid, complete provenance record."""
     jsonschema = pytest.importorskip('jsonschema')

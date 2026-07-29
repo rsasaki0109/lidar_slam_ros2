@@ -259,6 +259,35 @@ def test_clean_provenance_match_fails_closed(complete, dirty):
     ]
     [result] = module.evaluate_release_profiles([profile], records)
     assert result['status'] == 'NO_DATA'
+    assert result['candidate_runs'] == 1
+    if complete and dirty:
+        assert result['no_data_reason'] == 'dirty revision: r0'
+    else:
+        assert result['no_data_reason'] == 'incomplete provenance: r0'
+
+
+def test_provenance_rejection_diagnostics_preserve_multiple_causes():
+    """NO_DATA should identify incomplete and dirty candidate runs."""
+    module = _load_module()
+    profile = {
+        'name': 'p',
+        'metric': 'ape_rmse_gt_m',
+        'pass': 1.0,
+        'match': {'require_clean_provenance': True},
+    }
+    records = [
+        _rec(run='legacy', provenance_complete=False),
+        _rec(run='local', provenance_git_dirty=True),
+    ]
+    [result] = module.evaluate_release_profiles([profile], records)
+    rendered = '\n'.join(module.render_release_profile_section([result]))
+
+    assert result['status'] == 'NO_DATA'
+    assert result['candidate_runs'] == 2
+    assert result['no_data_reason'] == (
+        'incomplete provenance: legacy; dirty revision: local'
+    )
+    assert result['no_data_reason'] in rendered
 
 
 def test_metric_ape_rmse_gt_m_skips_cross_validation():

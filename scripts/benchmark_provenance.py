@@ -104,7 +104,7 @@ def _git_state(repo_root: Path) -> dict[str, Any]:
         text=True,
     )
     status = subprocess.run(
-        ['git', 'status', '--porcelain', '--untracked-files=no'],
+        ['git', 'status', '--porcelain', '--untracked-files=normal'],
         cwd=repo_root,
         check=False,
         capture_output=True,

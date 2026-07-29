@@ -430,7 +430,11 @@ effective parameters, benchmark harness, metrics writer, and every declared
 runtime artifact. It records the source commit and dirty state. Every shipped
 release profile requires this complete provenance from a clean revision;
 legacy, incomplete, or dirty evidence evaluates as `NO_DATA` and therefore
-cannot satisfy a blocking release profile.
+cannot satisfy a blocking release profile. “Clean” includes untracked files,
+because an untracked source or build input can otherwise alter a binary without
+changing the recorded commit. The release-profile table's `evidence` column
+distinguishes “no matching run” from candidate runs rejected for incomplete
+provenance or a dirty revision.
 
 For a public-facing snapshot built on top of these artifacts, see
 `docs/comparison.md` and `docs/releases/v0.2.2.md`.

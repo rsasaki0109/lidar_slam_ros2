@@ -207,7 +207,12 @@ def load_release_profiles(path: Path) -> list[dict[str, Any]]:
     return validated
 
 
-def _profile_match(profile: dict[str, Any], rec: dict[str, Any]) -> bool:
+def _profile_match(
+    profile: dict[str, Any],
+    rec: dict[str, Any],
+    *,
+    check_provenance: bool = True,
+) -> bool:
     match = profile.get("match") or {}
     bag_substr = match.get("bag_name_contains")
     if bag_substr and bag_substr not in (rec.get("bag") or ""):
@@ -226,7 +231,7 @@ def _profile_match(profile: dict[str, Any], rec: dict[str, Any]) -> bool:
         pairs = _as_float(rec.get("ape_pairs"))
         if pairs is None or pairs < float(min_pairs):
             return False
-    if match.get("require_clean_provenance"):
+    if check_provenance and match.get("require_clean_provenance"):
         if (
             rec.get("provenance_complete") is not True
             or rec.get("provenance_git_dirty") is not False
@@ -261,11 +266,29 @@ def evaluate_release_profiles(
     """
     results: list[dict[str, Any]] = []
     for prof in profiles:
-        matched = [
+        candidates = [
             rec for rec in records
-            if _profile_match(prof, rec)
+            if _profile_match(prof, rec, check_provenance=False)
             and _profile_metric_value(prof, rec) is not None
         ]
+        matched = [
+            rec for rec in candidates
+            if _profile_match(prof, rec)
+        ]
+        provenance_rejections: dict[str, list[str]] = {
+            "incomplete": [],
+            "dirty": [],
+        }
+        if (prof.get("match") or {}).get("require_clean_provenance"):
+            for rec in candidates:
+                if rec.get("provenance_complete") is not True:
+                    provenance_rejections["incomplete"].append(
+                        str(rec.get("run") or "<unnamed>")
+                    )
+                elif rec.get("provenance_git_dirty") is not False:
+                    provenance_rejections["dirty"].append(
+                        str(rec.get("run") or "<unnamed>")
+                    )
         result: dict[str, Any] = {
             "name": prof["name"],
             "description": prof.get("description", ""),
@@ -274,11 +297,28 @@ def evaluate_release_profiles(
             "target": _as_float(prof.get("target")),
             "report_only_until": prof.get("report_only_until"),
             "matched_runs": len(matched),
+            "candidate_runs": len(candidates),
+            "provenance_rejections": provenance_rejections,
         }
         if not matched:
             result["status"] = "NO_DATA"
             result["best_run"] = None
             result["best_value"] = None
+            if provenance_rejections["incomplete"] or provenance_rejections["dirty"]:
+                reasons = []
+                if provenance_rejections["incomplete"]:
+                    reasons.append(
+                        "incomplete provenance: "
+                        + ", ".join(provenance_rejections["incomplete"])
+                    )
+                if provenance_rejections["dirty"]:
+                    reasons.append(
+                        "dirty revision: "
+                        + ", ".join(provenance_rejections["dirty"])
+                    )
+                result["no_data_reason"] = "; ".join(reasons)
+            else:
+                result["no_data_reason"] = "no matching run"
             results.append(result)
             continue
         scored = [
@@ -305,7 +345,17 @@ def render_release_profile_section(results: list[dict[str, Any]]) -> list[str]:
     if not results:
         return []
     lines = ["", "## Release profile gate", ""]
-    header = ["profile", "status", "metric", "best_run", "best_value", "pass", "target", "report_only_until"]
+    header = [
+        "profile",
+        "status",
+        "metric",
+        "best_run",
+        "best_value",
+        "pass",
+        "target",
+        "evidence",
+        "report_only_until",
+    ]
     lines.append("| " + " | ".join(header) + " |")
     lines.append("| " + " | ".join(["---"] * len(header)) + " |")
     for r in results:
@@ -320,6 +370,13 @@ def render_release_profile_section(results: list[dict[str, Any]]) -> list[str]:
                     _fmt_float(r.get("best_value")),
                     _fmt_float(r.get("pass")),
                     _fmt_float(r.get("target")),
+                    str(
+                        r.get("no_data_reason")
+                        or (
+                            "clean provenance"
+                            if r.get("best_run") else ""
+                        )
+                    ),
                     str(r.get("report_only_until") or ""),
                 ]
             )
@@ -452,6 +509,15 @@ def main() -> int:
         ape_rmse = (ape.get("rmse") if isinstance(ape, dict) else None) if ape is not None else None
         ape_pairs = (ape.get("pairs") if isinstance(ape, dict) else None) if ape is not None else None
         provenance_complete, provenance_git_dirty = _provenance_state(r)
+        provenance_status = (
+            "clean"
+            if provenance_complete and provenance_git_dirty is False
+            else (
+                "dirty"
+                if provenance_complete and provenance_git_dirty is True
+                else "incomplete"
+            )
+        )
 
         if lid_success is True:
             lid_ok += 1
@@ -520,6 +586,7 @@ def main() -> int:
                 "ape_pairs": ape_pairs,
                 "provenance_complete": provenance_complete,
                 "provenance_git_dirty": provenance_git_dirty,
+                "provenance_status": provenance_status,
                 "primary_raw": primary_raw,
                 "primary_missing": primary_missing,
             }
@@ -580,6 +647,7 @@ def main() -> int:
         "glim_wall_s",
         "ape_rmse_m",
         "ape_ok",
+        "provenance",
     ]
 
     md_lines: list[str] = []
@@ -627,6 +695,7 @@ def main() -> int:
             rec["glim_wall_s"],
             rec["ape_rmse_m"],
             rec["ape_ok"],
+            rec["provenance_status"],
         ]
         md_lines.append("| " + " | ".join(row) + " |")
 
@@ -669,6 +738,7 @@ def main() -> int:
                         rec["glim_wall_s"],
                         rec["ape_rmse_m"],
                         rec["ape_ok"],
+                        rec["provenance_status"],
                     ]
                 )
 
