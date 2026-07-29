@@ -30,7 +30,10 @@ matcher can reuse the selector without adding another gate directly to
 
 Every attempted correlation now emits timestamp, source, best and second-best
 score, margin, overlap support, base qualification, ambiguity, and acceptance
-to `intensity_peak_diagnostics.csv`. Base qualification records whether score
+to `intensity_peak_diagnostics.csv`. Schema v4 also records the texture- and
+ICP-implied longitudinal/lateral velocities, their disagreement magnitude,
+streak length, candidate correction magnitude, applied correction vector, and
+whether a correction was applied. Base qualification records whether score
 and support passed before the alias-margin policy is applied, so low-quality
 candidates cannot contaminate the alias distribution.
 
@@ -234,6 +237,15 @@ over v5 but does not beat v4's best run (20.3902 m ATE and 63.3531% RTE), so
 the pre-run rule stops evaluation after one repetition. The reusable 2D
 matcher remains, default-off, as an extension boundary; the current
 high-duty-cycle disagreement policy is rejected as a SOTA candidate.
+
+The next analysis step is therefore policy diagnosis rather than another
+TunnelD parameter sweep. RKO-LIO
+`fac09a7b8cb70a0b4c3c64a84128bc0f2827415c` adds schema-v4 diagnostics that
+make correction duty cycle and the signed longitudinal/lateral velocity gaps
+observable on holdouts. They also distinguish the correction proposed by the
+configured weight from the correction actually applied after the persistence
+gate. This evidence is intended to support a bounded, information-weighted
+fusion policy without using public TunnelD accuracy to select its thresholds.
 
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet

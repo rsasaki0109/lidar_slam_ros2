@@ -47,7 +47,13 @@ SPEC.loader.exec_module(SUMMARY)
 HEADER = (
     'timestamp,source,correlation,second_best_correlation,peak_margin,'
     'longitudinal_shift_m,lateral_shift_m,overlap_bins,base_qualified,'
-    'has_competing_peak,ambiguous,accepted\n'
+    'has_competing_peak,ambiguous,accepted,motion_dt_s,'
+    'intensity_velocity_longitudinal_mps,'
+    'intensity_velocity_lateral_mps,icp_velocity_longitudinal_mps,'
+    'icp_velocity_lateral_mps,velocity_disagreement_mps,'
+    'candidate_correction_m,applied_correction_longitudinal_m,'
+    'applied_correction_lateral_m,applied_correction_m,'
+    'disagreement_streak,disagreement_measured,correction_applied\n'
 )
 
 
@@ -55,21 +61,26 @@ def test_combines_inputs_and_ignores_unqualified_rows(tmp_path):
     first = tmp_path / 'first.csv'
     first.write_text(
         HEADER
-        + '1.0,prior,0.8,0.79,0.01,0.25,0.0,50,1,1,0,1\n'
-        + '2.0,prior,0.4,0.39,0.01,0.0,0.0,10,0,1,0,0\n',
+        + '1.0,prior,0.8,0.79,0.01,0.25,0.0,50,1,1,0,1,'
+        '0,0,0,0,0,0,0,0,0,0,0,0,0\n'
+        + '2.0,prior,0.4,0.39,0.01,0.0,0.0,10,0,1,0,0,'
+        '0,0,0,0,0,0,0,0,0,0,0,0,0\n',
         encoding='utf-8',
     )
     second = tmp_path / 'second.csv'
     second.write_text(
         HEADER
-        + '3.0,prior,0.8,0.75,0.05,0.0,0.0,50,true,true,false,true\n'
-        + '4.0,gate,0.8,0.60,0.20,0.5,-0.25,50,1,1,1,0\n',
+        + '3.0,prior,0.8,0.75,0.05,0.0,0.0,50,true,true,false,true,'
+        '0,0,0,0,0,0,0,0,0,0,0,false,false\n'
+        + '4.0,gate,0.8,0.60,0.20,0.5,-0.25,50,1,1,1,0,'
+        '0.1,1.0,0.2,0.4,0.1,0.608276,0.0608276,0.06,0.01,'
+        '0.0608276,10,true,true\n',
         encoding='utf-8',
     )
 
     result = SUMMARY.summarize([first, second])
 
-    assert result['schema_version'] == 3
+    assert result['schema_version'] == 4
     assert result['selection_independent'] is True
     assert result['accuracy_metrics_consumed'] is False
     assert result['rows'] == {
@@ -78,6 +89,8 @@ def test_combines_inputs_and_ignores_unqualified_rows(tmp_path):
         'with_competing_peak': 3,
         'accepted': 2,
         'ambiguous': 1,
+        'disagreement_measured': 1,
+        'correction_applied': 1,
     }
     assert result['source_counts'] == {'gate': 1, 'prior': 2}
     assert result['peak_margin_quantiles']['p50'] == pytest.approx(0.05)
@@ -85,6 +98,16 @@ def test_combines_inputs_and_ignores_unqualified_rows(tmp_path):
         'below_count': 2,
         'below_fraction': pytest.approx(2.0 / 3.0),
     }
+    assert result['disagreement']['correction_duty_cycle'] == 1.0
+    assert (
+        result['disagreement']['velocity_gap_mps_quantiles']['p50']
+        == pytest.approx(0.608276)
+    )
+    assert (
+        result['disagreement'][
+            'longitudinal_velocity_gap_mps_quantiles']['p50']
+        == pytest.approx(0.6)
+    )
     assert len(result['inputs']) == 2
     assert all(len(item['sha256']) == 64 for item in result['inputs'])
 
@@ -93,7 +116,8 @@ def test_rejects_legacy_csv_without_base_qualified(tmp_path):
     legacy = tmp_path / 'legacy.csv'
     legacy.write_text(
         HEADER.replace('base_qualified,', '')
-        + '1.0,prior,0.8,0.7,0.1,0.0,0.0,50,1,0,1\n',
+        + '1.0,prior,0.8,0.7,0.1,0.0,0.0,50,1,0,1,'
+        '0,0,0,0,0,0,0,0,0,0,0,0,0\n',
         encoding='utf-8',
     )
 

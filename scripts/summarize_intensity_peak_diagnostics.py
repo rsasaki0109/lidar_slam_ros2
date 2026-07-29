@@ -55,6 +55,19 @@ REQUIRED_FIELDS = {
     'has_competing_peak',
     'ambiguous',
     'accepted',
+    'motion_dt_s',
+    'intensity_velocity_longitudinal_mps',
+    'intensity_velocity_lateral_mps',
+    'icp_velocity_longitudinal_mps',
+    'icp_velocity_lateral_mps',
+    'velocity_disagreement_mps',
+    'candidate_correction_m',
+    'applied_correction_longitudinal_m',
+    'applied_correction_lateral_m',
+    'applied_correction_m',
+    'disagreement_streak',
+    'disagreement_measured',
+    'correction_applied',
 }
 QUANTILES = (
     ('min', 0.00),
@@ -105,8 +118,36 @@ def _quantile(sorted_values: list[float], probability: float) -> float | None:
     )
 
 
+def _quantiles(values: list[float]) -> dict[str, float | None]:
+    values.sort()
+    return {
+        name: _quantile(values, probability)
+        for name, probability in QUANTILES
+    }
+
+
+def _finite_float(
+    row: dict[str, str],
+    field: str,
+    path: Path,
+    line_number: int,
+) -> float:
+    value = float(row[field])
+    if not math.isfinite(value):
+        raise ValueError(
+            f'{path}:{line_number}: {field} must be finite')
+    return value
+
+
 def summarize(paths: list[Path]) -> dict[str, Any]:
     margins: list[float] = []
+    velocity_gaps: list[float] = []
+    longitudinal_velocity_gaps: list[float] = []
+    lateral_velocity_gaps: list[float] = []
+    candidate_corrections: list[float] = []
+    applied_corrections: list[float] = []
+    applied_longitudinal_corrections: list[float] = []
+    applied_lateral_corrections: list[float] = []
     source_counts: Counter[str] = Counter()
     accepted_count = 0
     ambiguous_count = 0
@@ -125,6 +166,82 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
                     f'{path}: missing required columns: {", ".join(missing)}')
             for line_number, row in enumerate(reader, 2):
                 row_count += 1
+                disagreement_measured = _parse_bool(
+                    row['disagreement_measured'],
+                    path,
+                    line_number,
+                    'disagreement_measured',
+                )
+                correction_applied = _parse_bool(
+                    row['correction_applied'],
+                    path,
+                    line_number,
+                    'correction_applied',
+                )
+                if correction_applied and not disagreement_measured:
+                    raise ValueError(
+                        f'{path}:{line_number}: correction_applied requires '
+                        'disagreement_measured')
+                if disagreement_measured:
+                    intensity_longitudinal = _finite_float(
+                        row,
+                        'intensity_velocity_longitudinal_mps',
+                        path,
+                        line_number,
+                    )
+                    intensity_lateral = _finite_float(
+                        row,
+                        'intensity_velocity_lateral_mps',
+                        path,
+                        line_number,
+                    )
+                    icp_longitudinal = _finite_float(
+                        row,
+                        'icp_velocity_longitudinal_mps',
+                        path,
+                        line_number,
+                    )
+                    icp_lateral = _finite_float(
+                        row,
+                        'icp_velocity_lateral_mps',
+                        path,
+                        line_number,
+                    )
+                    velocity_gaps.append(_finite_float(
+                        row,
+                        'velocity_disagreement_mps',
+                        path,
+                        line_number,
+                    ))
+                    longitudinal_velocity_gaps.append(
+                        intensity_longitudinal - icp_longitudinal)
+                    lateral_velocity_gaps.append(
+                        intensity_lateral - icp_lateral)
+                    candidate_corrections.append(_finite_float(
+                        row,
+                        'candidate_correction_m',
+                        path,
+                        line_number,
+                    ))
+                if correction_applied:
+                    applied_corrections.append(_finite_float(
+                        row,
+                        'applied_correction_m',
+                        path,
+                        line_number,
+                    ))
+                    applied_longitudinal_corrections.append(_finite_float(
+                        row,
+                        'applied_correction_longitudinal_m',
+                        path,
+                        line_number,
+                    ))
+                    applied_lateral_corrections.append(_finite_float(
+                        row,
+                        'applied_correction_lateral_m',
+                        path,
+                        line_number,
+                    ))
                 base_qualified = _parse_bool(
                     row['base_qualified'], path, line_number, 'base_qualified')
                 if not base_qualified:
@@ -148,11 +265,8 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
                 )
                 if not has_competing_peak:
                     continue
-                margin = float(row['peak_margin'])
-                if not math.isfinite(margin):
-                    raise ValueError(
-                        f'{path}:{line_number}: peak_margin must be finite')
-                margins.append(margin)
+                margins.append(_finite_float(
+                    row, 'peak_margin', path, line_number))
         inputs.append({
             'path': str(path.resolve()),
             'sha256': _sha256(path),
@@ -163,7 +277,7 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
     margins.sort()
     qualified_total = len(margins)
     return {
-        'schema_version': 3,
+        'schema_version': 4,
         'selection_independent': True,
         'accuracy_metrics_consumed': False,
         'inputs': inputs,
@@ -173,11 +287,29 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
             'with_competing_peak': qualified_total,
             'accepted': accepted_count,
             'ambiguous': ambiguous_count,
+            'disagreement_measured': len(velocity_gaps),
+            'correction_applied': len(applied_corrections),
         },
         'source_counts': dict(sorted(source_counts.items())),
-        'peak_margin_quantiles': {
-            name: _quantile(margins, probability)
-            for name, probability in QUANTILES
+        'peak_margin_quantiles': _quantiles(margins),
+        'disagreement': {
+            'correction_duty_cycle': (
+                len(applied_corrections) / len(velocity_gaps)
+                if velocity_gaps else None
+            ),
+            'velocity_gap_mps_quantiles': _quantiles(velocity_gaps),
+            'longitudinal_velocity_gap_mps_quantiles':
+                _quantiles(longitudinal_velocity_gaps),
+            'lateral_velocity_gap_mps_quantiles':
+                _quantiles(lateral_velocity_gaps),
+            'candidate_correction_m_quantiles':
+                _quantiles(candidate_corrections),
+            'applied_correction_m_quantiles':
+                _quantiles(applied_corrections),
+            'applied_longitudinal_correction_m_quantiles':
+                _quantiles(applied_longitudinal_corrections),
+            'applied_lateral_correction_m_quantiles':
+                _quantiles(applied_lateral_corrections),
         },
         'thresholds': {
             format(threshold, 'g'): {
