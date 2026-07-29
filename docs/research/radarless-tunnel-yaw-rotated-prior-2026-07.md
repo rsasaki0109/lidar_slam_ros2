@@ -5,11 +5,15 @@
 Adopt the yaw-rotated inertial velocity prior in the default-off
 `lidarslam/param/presets/tunnel_imu_no_radar.ros.yaml`.
 
-The candidate reaches 506.38 m on the approximately 500 m NTNU
+The candidate reaches 476.05 m on the approximately 500 m NTNU
 Fyllingsdalen sequence, versus 415.59 m for the previous scene-gated preset
 and 102.26 m for default-off RKO-LIO. Its final and maximum time-aligned reach
-ratio against the radar-derived pseudo-GT is 1.004, below the 1.1 runaway
-limit. Aligned translation RMSE improves from 48.74 m to 16.34 m.
+ratios against the radar-derived pseudo-GT are 0.943 and 0.983. Aligned
+translation RMSE improves from 48.74 m to 16.21 m.
+
+An independent persistent-inactivity gate prevents the prior from converting
+a real stop into false forward motion. After the reference stops at about
+310 s, the candidate moves 0.014 m over the remaining 14 s.
 
 Fog, HILTI exp07, and MID-360 driving candidate trajectories remain
 byte-identical to their paired default-off controls.
@@ -43,8 +47,10 @@ A low LiDAR speed may keep using the prior only while all of these hold:
 
 The threshold separates the validation sequence cleanly: walking intervals,
 including the 180-250 s ICP lock, remain above 0.03; the stationary interval
-after 310 s remains below 0.01. The library default is zero, so activity-based
-bridging is disabled unless a preset opts in.
+after 310 s remains below 0.01. Five consecutive inactive scans clear the
+prior regardless of the corrected LiDAR velocity. The library default is zero,
+so activity-based bridging and inactivity rejection are disabled unless a
+preset opts in.
 
 Scene rejection, excessive platform speed, low speed without inertial
 activity, and anchor expiry still clear the prior.
@@ -53,16 +59,17 @@ activity, and anchor expiry still clear the prior.
 
 | sequence | control / previous | adopted candidate | result |
 | --- | ---: | ---: | --- |
-| NTNU tunnel endpoint | 415.59 m previous preset | 506.38 m | +90.79 m |
-| NTNU tunnel aligned RMSE | 48.74 m | 16.34 m | -66.5% |
-| NTNU tunnel max reach ratio | 0.983 | 1.004 | no runaway |
+| NTNU tunnel endpoint | 415.59 m previous preset | 476.05 m | +60.46 m |
+| NTNU tunnel aligned RMSE | 48.74 m | 16.21 m | -66.7% |
+| NTNU tunnel max reach ratio | 0.983 | 0.983 | no runaway |
+| motion after reference stop | 40.65 m without stop gate | 0.014 m | stopped |
 | NTNU fog | paired control | byte-identical | no corrections |
 | HILTI exp07 | paired control | byte-identical | no corrections |
 | MID-360 driving | paired control | byte-identical | no corrections |
 
 Artifacts:
 
-- `/media/sasaki/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs/radarless_tunnel_yaw_rotated_prior_v1`
+- `/media/sasaki/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs/radarless_tunnel_yaw_prior_stop_gate_v1`
 
 ## Rejected variants
 
@@ -75,5 +82,8 @@ Artifacts:
 - Activity gating without preserving the anchor was behavior-identical to the
   415.59 m preset because yaw had already removed the state before low-speed
   activity could retain it.
+- Yaw-rotated prior without an independent inactivity gate appeared to reach
+  506.38 m, but 40.65 m of that motion occurred after the reference had
+  stopped. Endpoint agreement alone hid the temporal failure.
 
 The final exp02, exp03, and exp21 holdouts remain untouched.

@@ -9,20 +9,22 @@
 #   - LiDAR + IMU only;
 #   - known maximum platform speed, tuned below.
 #
-# Do not use this as a general driving or turning-motion preset. The IMU prior
-# is disabled after sustained yaw, but short turns and the speed limit remain
-# application-specific. For radar-equipped rigs, tunnel_radar.ros.yaml is
-# better validated and does not require a walking-speed cap.
+# Do not use this as a general driving preset. Translation correction is
+# suspended during sustained yaw while the velocity prior follows orientation;
+# the turn and speed envelopes remain application-specific. For radar-equipped
+# rigs, tunnel_radar.ros.yaml is better validated and does not require a
+# walking-speed cap.
 #
 # Validated on NTNU Fyllingsdalen (~500 m):
 #   plain rko_lio                         102.3 m
 #   intensity-only radar-less preset     153.8 m
-#   this preset                          415.6 m
+#   this preset                          476.1 m
 #   no yaw gate reached 517.2 m, but failed the fog negative check.
 #
 # Paired negative checks with the applicability gates below:
 #   NTNU fog, HILTI exp07, and MID-360 trajectories are byte-identical
 #   to their default-off controls; HILTI exp07 control APE is 0.208 m.
+#   After the reference stops, this preset moves only 0.014 m over 14 s.
 #
 # Layer this after the sensor config. All feature defaults remain OFF.
 /**:
@@ -51,6 +53,7 @@
     # 0.03 even when tunnel ICP falsely reports zero velocity. A real stationary
     # interval in the validation bag remains below 0.01.
     kinematic_blend_min_accel_magnitude_variance: 0.03
+    kinematic_blend_inactivity_gate_min_scans: 5
 
     # Suspend translation correction after 10 consecutive scan intervals over
     # the yaw threshold and rotate the retained velocity prior into the new
