@@ -86,6 +86,22 @@ explicit `has_competing_peak` flag. Offline margin distributions include only
 base-qualified observations with a competing peak. Threshold selection must
 be repeated on schema-v2 data before another nonzero candidate is evaluated.
 
+The first schema-v2 full-sequence reruns, still with margin zero and without
+accuracy scoring, produced:
+
+| sequence | qualified | competing peak | p01 | p50 | below 0.005 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| NTNU tunnel | 1,307 | 1,303 | 0.00648 | 0.1755 | 0.92% |
+| NTNU fog | 732 | 699 | 0.05436 | 0.4246 | 0.14% |
+
+The schema-v2 diagnostic SHA-256 hashes are
+`0be8c4a06f5bc2a2b4b1cea00d36fab52c97fd431bc6fe50144e6d1a33a70074`
+for tunnel and
+`3ba265faa3220ec524c84cd7b3c42774a07ed7fa45912743ba0f9cb3da9ccfa6`
+for fog. The aggregate has 2,002 comparable observations and a p01 margin of
+0.00847. These are first repetitions only; no replacement threshold is
+selected until the preregistered repetition requirement is satisfied.
+
 ## Frozen public input
 
 - sequence: ENWIDE `tunnel_d`
