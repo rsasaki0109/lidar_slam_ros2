@@ -86,23 +86,34 @@ explicit `has_competing_peak` flag. Offline margin distributions include only
 base-qualified observations with a competing peak. Threshold selection must
 be repeated on schema-v2 data before another nonzero candidate is evaluated.
 
-The schema-v2 full-sequence reruns collected so far, still with margin zero
+The completed schema-v2 full-sequence diagnostic set, still with margin zero
 and without accuracy scoring, produced:
 
 | sequence | runs | qualified/run | competing/run | p01 | p50 | below 0.005 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| NTNU tunnel | 1 | 1,307 | 1,303 | 0.00648 | 0.1755 | 0.92% |
+| NTNU tunnel | 3 | 1,311 mean | 1,307 mean | 0.00532 pooled | 0.1761 pooled | 0.94% |
 | NTNU fog | 3 | 732 | 699 | 0.05436 | 0.4246 | 0.14% |
 
-The schema-v2 diagnostic SHA-256 hashes are
-`0be8c4a06f5bc2a2b4b1cea00d36fab52c97fd431bc6fe50144e6d1a33a70074`
-for tunnel and
+The tunnel diagnostic SHA-256 hashes are
+`0be8c4a06f5bc2a2b4b1cea00d36fab52c97fd431bc6fe50144e6d1a33a70074`,
+`1d9839d47ed45193cdd2aa4e0238887d004f6fa2195259c5029ff6328442f2a9`,
+and
+`3bc95b08e73737ec4a30c51d96938601eb9fc20ae8df03fe1b8364c4cd59ef40`.
+The fog diagnostic SHA-256 is
 `3ba265faa3220ec524c84cd7b3c42774a07ed7fa45912743ba0f9cb3da9ccfa6`
-for fog. All three fog CSVs are byte-identical. The current aggregate has
-3,400 comparable observations, a p01 margin of 0.01301, and 0.44% below
-0.005. Tunnel still has only one schema-v2 repetition; no replacement
-threshold is selected until the preregistered repetition requirement is
-satisfied.
+for all three runs. The three tunnel CSVs differ,
+but their per-run p01 range is narrow (`0.00528` to `0.00648`) and their
+fraction below `0.005` ranges from `0.92%` to `0.99%`. Across all six runs,
+6,019 observations have a competing peak, pooled p01 is `0.00830`, and
+`0.66%` are below `0.005`.
+
+Candidate v4 is frozen at `0.004` before its accuracy is evaluated. The
+selection rule is fixed and accuracy-independent: take 80% of the minimum
+per-run p01 across the six schema-v2 diagnostics and round down to 0.001.
+This leaves a safety margin below the worst observed first percentile and
+does not reuse the already-evaluated v3 threshold. The candidate file is
+`configs/enwide/rko_lio_os0_intensity_alias_v4.yaml`; only the margin differs
+from exploratory v2.
 
 ## Frozen public input
 
