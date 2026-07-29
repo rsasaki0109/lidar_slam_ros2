@@ -52,7 +52,7 @@ Optional 3D-BBS support:
 | Packet IMU deskew validation matrix | `bash scripts/run_open_data_packet_imu_deskew_validation_matrix.sh --applanix-msg-dir /tmp/applanix/applanix_msgs/msg` |
 | Dynamic-object-filter save-map benchmark | `bash scripts/run_dynamic_object_filter_benchmark.sh` |
 | MID360 place-recognition comparison | `bash scripts/run_place_recognition_benchmark.sh` |
-| Release/readiness gate | `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10` |
+| Release/readiness gate | `bash scripts/run_release_readiness_checks.sh --fail-on-profiles` |
 
 ## Required Input Topics
 

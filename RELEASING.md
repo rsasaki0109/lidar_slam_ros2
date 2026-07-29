@@ -22,7 +22,7 @@ The intended public release scope is:
 
 ```bash
 bash scripts/run_default_ci_checks.sh
-bash scripts/run_release_readiness_checks.sh --skip-default-ci --ape-threshold 0.10
+bash scripts/run_release_readiness_checks.sh --skip-default-ci --fail-on-profiles
 bash scripts/run_autoware_quickstart.sh
 ```
 
@@ -31,7 +31,10 @@ The benchmark command is fail-closed: `--ape-threshold` and
 `--benchmark-root`. An empty benchmark root is a release failure, and
 `--skip-benchmark-summary` cannot be used to bypass either hard gate. Generate
 or restore the release-candidate benchmark evidence before running this check;
-omitting the hard-gate options leaves an empty root report-only.
+every blocking release profile must have matching data and pass its own
+threshold. CI's synthetic threshold fixture tests the gate plumbing but cannot
+satisfy the release profiles. Omitting the hard-gate options leaves an empty
+root report-only.
 
 3. Push the branch and verify GitHub Actions are green.
    Also inspect the cross-phase product audit; release candidates may remain

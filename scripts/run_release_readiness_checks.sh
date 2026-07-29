@@ -15,7 +15,7 @@ Options:
   --release-profile <path>      Release-profile YAML (per-dataset pass/target)
                                 Default: scripts/release_profiles.yaml when omitted
   --no-release-profile          Disable the release-profile gate
-  --fail-on-profiles            Exit non-zero if any release-profile FAILs
+  --fail-on-profiles            Fail if a blocking profile FAILs or has NO_DATA
   --skip-default-ci             Skip scripts/run_default_ci_checks.sh
   --skip-benchmark-summary      Skip benchmark summary generation
   --public-mid360-completion    Run the public MID-360 segment-reset completion gate
@@ -130,7 +130,8 @@ metrics.json evidence. --skip-benchmark-summary cannot be combined with
 The release-profile gate runs in addition to (or instead of) --ape-threshold:
 each profile in the YAML scores its own pass/target threshold against the best
 matching run, with optional report_only_until semantics so hard datasets
-(MID-360, NTU) can be reported without blocking release.
+can soak without blocking release. A blocking profile with no matching run
+fails closed.
 EOF
 }
 

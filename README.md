@@ -156,7 +156,7 @@ unchanged (a MID-360 driving holdout stays byte-identical). Symptom table:
 ## Accuracy
 
 Current numbers from the release-gate profiles (`scripts/release_profiles.yaml`).
-Every release is blocked in CI by these per-dataset thresholds.
+The pre-release gate rejects missing evidence and regressions in every blocking profile.
 
 | Dataset | Sensor | Reference | APE RMSE | Gate (pass) |
 | --- | --- | --- | --- | --- |
@@ -210,7 +210,7 @@ components (`Thirdparty/lio-sam`, `Thirdparty/3d_bbs`) are excluded via `COLCON_
 
 ```bash
 bash scripts/run_default_ci_checks.sh
-bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10
+bash scripts/run_release_readiness_checks.sh --fail-on-profiles
 python3 scripts/check_v1_readiness.py
 python3 scripts/check_ndt_omp_release_readiness.py --offline
 ```

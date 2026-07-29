@@ -109,7 +109,7 @@ map_origin:
 - one-shot runner: `python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2`
 - quickstart: `bash scripts/run_autoware_quickstart.sh`
 - benchmark path: `bash scripts/run_rko_lio_graph_benchmark.sh`
-- release gate: `bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10`
+- release gate: `bash scripts/run_release_readiness_checks.sh --fail-on-profiles`
 - map cleanup benchmark: `bash scripts/run_dynamic_object_filter_benchmark.sh`
 - pointcloud-map verify: `python3 scripts/verify_autoware_map.py <pointcloud_map_dir>`
 - map-run diagnosis: `python3 scripts/diagnose_autoware_map_run.py <output_dir>`

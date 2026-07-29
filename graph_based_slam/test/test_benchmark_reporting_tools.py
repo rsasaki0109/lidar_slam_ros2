@@ -491,7 +491,7 @@ def test_release_readiness_requires_profile_for_hard_profile_gate(tmp_path):
 
 
 def test_synthetic_fixture_generator_drives_release_gate(tmp_path):
-    """The synthetic fixture generator should produce gate-ready artifacts."""
+    """The synthetic fixture should exercise the uniform-threshold plumbing."""
     benchmark_root = tmp_path / 'fixture'
     out_dir = tmp_path / 'release_ready'
 
@@ -538,6 +538,92 @@ def test_synthetic_fixture_generator_drives_release_gate(tmp_path):
     assert 'run_best' in (out_dir / 'benchmark_summary.md').read_text(
         encoding='utf-8',
     )
+
+
+def test_synthetic_fixture_cannot_satisfy_release_profiles(tmp_path):
+    """Unrelated passing metrics must not satisfy blocking dataset profiles."""
+    benchmark_root = tmp_path / 'fixture'
+    out_dir = tmp_path / 'release_profiles'
+
+    fixture = subprocess.run(
+        [
+            'python3',
+            str(FIXTURE_SCRIPT),
+            '--root',
+            str(benchmark_root),
+            '--profile',
+            'passing',
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+    assert fixture.returncode == 0, fixture.stderr
+
+    result = _run_release_readiness(
+        '--skip-default-ci',
+        '--benchmark-root',
+        str(benchmark_root),
+        '--out-dir',
+        str(out_dir),
+        '--fail-on-profiles',
+    )
+
+    assert result.returncode == 2
+    assert 'newer_college_math_hard (NO_DATA)' in result.stdout
+    assert 'ntu_viral_tnp_01 (NO_DATA)' in result.stdout
+    assert not (out_dir / 'benchmark_report.html').exists()
+
+
+def test_report_only_profile_may_remain_without_data(tmp_path):
+    """Missing data stays non-blocking only for an explicit report-only row."""
+    benchmark_root = tmp_path / 'fixture'
+    profile_path = tmp_path / 'report_only.yaml'
+    out_dir = tmp_path / 'report_only'
+    profile_path.write_text(
+        '\n'.join([
+            'release_profiles:',
+            '  - name: optional_dataset',
+            '    metric: ape_rmse_gt_m',
+            '    pass: 0.10',
+            '    report_only_until: future-cycle',
+            '    match:',
+            '      bag_name_contains: absent_dataset',
+            '',
+        ]),
+        encoding='utf-8',
+    )
+    fixture = subprocess.run(
+        [
+            'python3',
+            str(FIXTURE_SCRIPT),
+            '--root',
+            str(benchmark_root),
+            '--profile',
+            'passing',
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+    assert fixture.returncode == 0, fixture.stderr
+
+    result = _run_release_readiness(
+        '--skip-default-ci',
+        '--benchmark-root',
+        str(benchmark_root),
+        '--out-dir',
+        str(out_dir),
+        '--release-profile',
+        str(profile_path),
+        '--fail-on-profiles',
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert '| optional_dataset | NO_DATA |' in result.stdout
+    assert (out_dir / 'benchmark_report.html').is_file()
 
 
 def test_synthetic_fixture_generator_failing_profile_trips_release_gate(tmp_path):

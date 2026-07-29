@@ -316,8 +316,8 @@ def main() -> int:
         "--fail-on-profiles",
         action="store_true",
         help=(
-            "Return a non-zero exit code when any release profile is FAIL "
-            "(report_only_until profiles only emit WARN and never block)."
+            "Return a non-zero exit code when any blocking release profile is "
+            "FAIL or has NO_DATA (report_only_until profiles never block)."
         ),
     )
     args = ap.parse_args()
@@ -628,10 +628,22 @@ def main() -> int:
         if not args.release_profile:
             print("error: --fail-on-profiles requires --release-profile")
             return 1
-        failing = [r for r in profile_results if r["status"] == "FAIL"]
+        failing = [
+            r for r in profile_results
+            if (
+                r["status"] == "FAIL"
+                or (
+                    r["status"] == "NO_DATA"
+                    and not r.get("report_only_until")
+                )
+            )
+        ]
         if failing:
-            names = ", ".join(r["name"] for r in failing)
-            print(f"error: release profile gate FAILED for: {names}")
+            failures = ", ".join(
+                f"{r['name']} ({r['status']})"
+                for r in failing
+            )
+            print(f"error: release profile gate FAILED for: {failures}")
             return 2
 
     return 0
