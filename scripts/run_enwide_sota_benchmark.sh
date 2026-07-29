@@ -111,7 +111,7 @@ PROFILE="${REPO_ROOT}/configs/slam_benchmark_profiles/degenerate_lio_sota_v1.yam
 RKO_CONFIG="${REPO_ROOT}/configs/enwide/rko_lio_os0_degenerate_sota_v1.yaml"
 REFERENCE_META="${REPO_ROOT}/configs/enwide/os_imu_to_prism.json"
 GRAPH_CONFIG="${REPO_ROOT}/lidarslam/param/lidarslam.yaml"
-EXPECTED_RKO_REVISION="f285c9e97e6e4425a1b8cf2d5891624448922d8e"
+EXPECTED_RKO_REVISION="9579b775b82daf19b764041564661b6b51a3cc96"
 
 for required in \
   "${BAG}/metadata.yaml" "${MANIFEST}" "${GT}" "${PROFILE}" \

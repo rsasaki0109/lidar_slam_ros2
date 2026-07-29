@@ -50,6 +50,7 @@ REQUIRED_FIELDS = {
     'peak_margin',
     'overlap_bins',
     'base_qualified',
+    'has_competing_peak',
     'ambiguous',
     'accepted',
 }
@@ -107,6 +108,7 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
     source_counts: Counter[str] = Counter()
     accepted_count = 0
     ambiguous_count = 0
+    base_qualified_count = 0
     inputs: list[dict[str, Any]] = []
 
     for path in paths:
@@ -125,21 +127,30 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
                     row['base_qualified'], path, line_number, 'base_qualified')
                 if not base_qualified:
                     continue
-                margin = float(row['peak_margin'])
-                if not math.isfinite(margin):
-                    raise ValueError(
-                        f'{path}:{line_number}: peak_margin must be finite')
                 source = row['source'].strip()
                 if not source:
                     raise ValueError(
                         f'{path}:{line_number}: source must not be empty')
-                margins.append(margin)
                 source_counts[source] += 1
                 qualified_count += 1
+                base_qualified_count += 1
                 ambiguous_count += _parse_bool(
                     row['ambiguous'], path, line_number, 'ambiguous')
                 accepted_count += _parse_bool(
                     row['accepted'], path, line_number, 'accepted')
+                has_competing_peak = _parse_bool(
+                    row['has_competing_peak'],
+                    path,
+                    line_number,
+                    'has_competing_peak',
+                )
+                if not has_competing_peak:
+                    continue
+                margin = float(row['peak_margin'])
+                if not math.isfinite(margin):
+                    raise ValueError(
+                        f'{path}:{line_number}: peak_margin must be finite')
+                margins.append(margin)
         inputs.append({
             'path': str(path.resolve()),
             'sha256': _sha256(path),
@@ -150,13 +161,14 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
     margins.sort()
     qualified_total = len(margins)
     return {
-        'schema_version': 1,
+        'schema_version': 2,
         'selection_independent': True,
         'accuracy_metrics_consumed': False,
         'inputs': inputs,
         'rows': {
             'total': sum(item['rows'] for item in inputs),
-            'base_qualified': qualified_total,
+            'base_qualified': base_qualified_count,
+            'with_competing_peak': qualified_total,
             'accepted': accepted_count,
             'ambiguous': ambiguous_count,
         },

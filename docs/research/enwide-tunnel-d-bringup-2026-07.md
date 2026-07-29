@@ -13,7 +13,8 @@ length.
 The first alias-aware reflectivity milestone is implemented in RKO-LIO commits
 `b4a8937ab13bbb3dfbffe76365752c77bcdca678` and
 `415375106ef0bc706e307ae507d47d9970b6d0ba`. Raw peak observations are exported
-by `f285c9e97e6e4425a1b8cf2d5891624448922d8e`. The one-dimensional NCC result
+by `f285c9e97e6e4425a1b8cf2d5891624448922d8e` and made policy-faithful by
+`9579b775b82daf19b764041564661b6b51a3cc96`. The one-dimensional NCC result
 now reports a best-versus-second-peak margin, can reject ambiguous peaks, and
 records aggregate margin diagnostics. Its default margin is zero, preserving
 the historic result until a threshold is selected from diagnostics rather
@@ -53,8 +54,8 @@ base-qualified observations. Its qualified median margin was 0.1465; 20% were
 below 0.05. This validates the dump and summarizer only. The sample is too
 short and too sequence-specific to select a production threshold.
 
-The threshold-selection diagnostic set then ran the full NTNU tunnel once and
-the distinct fog sequence three times, without computing accuracy:
+The first threshold-selection diagnostic attempt ran the full NTNU tunnel
+once and the distinct fog sequence three times, without computing accuracy:
 
 | sequence | runs | qualified | p01 | p50 | below 0.005 |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -66,12 +67,24 @@ All three fog diagnostic CSVs were byte-identical, with SHA-256
 The tunnel CSV SHA-256 was
 `b8ab4bb3e56ed0d58e03da478422b8b69b57216cdbe51a696570f52cf143aa40`.
 
-The first nonzero candidate margin is frozen at `0.005`: it is below the first
-percentile on each sequence and retains at least 99% of base-qualified
-observations per sequence. This is intentionally a conservative extreme-alias
-filter, not an accuracy-tuned operating point. The frozen candidate is
-`configs/enwide/rko_lio_os0_intensity_alias_v3.yaml`; only its peak margin
-differs from exploratory v2. Accuracy evaluation happens after this freeze.
+That attempt exposed a diagnostic fidelity bug during the first post-freeze
+accuracy run. Peak policy used unclamped profile scores, but the CSV clamped
+best and second-best independently to `[-1, 1]` before recomputing the
+reported margin. Partial-overlap profile scores can exceed one, so 81 accepted
+rows appeared to be below the active margin. The trajectory policy was
+correct; the exported evidence was not faithful to it.
+
+The `0.005` candidate in
+`configs/enwide/rko_lio_os0_intensity_alias_v3.yaml` remains as an immutable
+record of the attempted preregistration, but its threshold evidence is
+invalidated and it is not a production candidate. Its single TunnelD run
+reported 21.6422 m ATE and 65.8713% RTE, which also fails the local-accuracy
+criterion.
+
+Diagnostic schema v2 exports the exact raw policy scores and margin plus an
+explicit `has_competing_peak` flag. Offline margin distributions include only
+base-qualified observations with a competing peak. Threshold selection must
+be repeated on schema-v2 data before another nonzero candidate is evaluated.
 
 ## Frozen public input
 
