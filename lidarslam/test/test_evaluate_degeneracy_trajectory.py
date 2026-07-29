@@ -39,12 +39,12 @@ import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_PATH = REPO_ROOT / "scripts" / "evaluate_degeneracy_trajectory.py"
+SCRIPT_PATH = REPO_ROOT / 'scripts' / 'evaluate_degeneracy_trajectory.py'
 
 
 def _load_module():
     spec = importlib.util.spec_from_file_location(
-        "evaluate_degeneracy_trajectory",
+        'evaluate_degeneracy_trajectory',
         SCRIPT_PATH,
     )
     assert spec is not None
@@ -71,13 +71,13 @@ def _trajectory(yaw_rad: float = 0.0) -> np.ndarray:
 
 
 def _write_tum(path: Path, trajectory: np.ndarray) -> None:
-    np.savetxt(path, trajectory, fmt="%.12f")
+    np.savetxt(path, trajectory, fmt='%.12f')
 
 
 def test_identical_trajectory_has_zero_point_projection_error(tmp_path: Path):
     module = _load_module()
-    candidate_path = tmp_path / "candidate.tum"
-    reference_path = tmp_path / "reference.tum"
+    candidate_path = tmp_path / 'candidate.tum'
+    reference_path = tmp_path / 'reference.tum'
     trajectory = _trajectory()
     _write_tum(candidate_path, trajectory)
     _write_tum(reference_path, trajectory)
@@ -89,14 +89,14 @@ def test_identical_trajectory_has_zero_point_projection_error(tmp_path: Path):
         min_reference_reach_m=1.0,
     )
 
-    point_error = result["reference"]["aligned_point_projection_delta_m"]
-    assert point_error["ranges_m"]["20"]["max"] < 1.0e-10
+    point_error = result['reference']['aligned_point_projection_delta_m']
+    assert point_error['ranges_m']['20']['max'] < 1.0e-10
 
 
 def test_point_projection_error_scales_with_range_for_yaw_error(tmp_path: Path):
     module = _load_module()
-    candidate_path = tmp_path / "candidate.tum"
-    reference_path = tmp_path / "reference.tum"
+    candidate_path = tmp_path / 'candidate.tum'
+    reference_path = tmp_path / 'reference.tum'
     _write_tum(candidate_path, _trajectory(yaw_rad=0.1))
     _write_tum(reference_path, _trajectory())
 
@@ -107,21 +107,21 @@ def test_point_projection_error_scales_with_range_for_yaw_error(tmp_path: Path):
         min_reference_reach_m=1.0,
     )
 
-    ranges = result["reference"]["aligned_point_projection_delta_m"]["ranges_m"]
-    assert ranges["10"]["rmse"] > ranges["5"]["rmse"]
-    assert np.isclose(ranges["20"]["rmse"], 2.0 * ranges["10"]["rmse"])
+    ranges = result['reference']['aligned_point_projection_delta_m']['ranges_m']
+    assert ranges['10']['rmse'] > ranges['5']['rmse']
+    assert np.isclose(ranges['20']['rmse'], 2.0 * ranges['10']['rmse'])
 
 
 def test_zero_quaternion_fails_closed(tmp_path: Path):
     module = _load_module()
-    candidate_path = tmp_path / "candidate.tum"
-    reference_path = tmp_path / "reference.tum"
+    candidate_path = tmp_path / 'candidate.tum'
+    reference_path = tmp_path / 'reference.tum'
     candidate = _trajectory()
     candidate[:, 4:8] = 0.0
     _write_tum(candidate_path, candidate)
     _write_tum(reference_path, _trajectory())
 
-    with pytest.raises(ValueError, match="zero quaternion"):
+    with pytest.raises(ValueError, match='zero quaternion'):
         module.evaluate(
             candidate_path,
             expected_endpoint_distance=None,
