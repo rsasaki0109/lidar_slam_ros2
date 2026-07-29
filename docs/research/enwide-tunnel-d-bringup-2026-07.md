@@ -10,14 +10,21 @@ baseline. Reject the exploratory v2 intensity-disagreement candidate: it
 improves global ATE but worsens local RTE, runtime, memory, and estimated path
 length.
 
-The first alias-aware reflectivity milestone is implemented in RKO-LIO commit
-`b4a8937ab13bbb3dfbffe76365752c77bcdca678`. The one-dimensional NCC result
+The first alias-aware reflectivity milestone is implemented in RKO-LIO commits
+`b4a8937ab13bbb3dfbffe76365752c77bcdca678` and
+`415375106ef0bc706e307ae507d47d9970b6d0ba`. The one-dimensional NCC result
 now reports a best-versus-second-peak margin, can reject ambiguous peaks, and
 records aggregate margin diagnostics. Its default margin is zero, preserving
 the historic result until a threshold is selected from diagnostics rather
-than TunnelD accuracy. A later candidate should replace the one-dimensional
-profile with a local oriented reflectivity/height representation rather than
-increasing the existing correction weight.
+than TunnelD accuracy.
+
+Peak selection is a sensor- and dimensionality-independent core API:
+correlation implementations emit scored offset candidates, while a reusable
+policy selects the best supported candidate, excludes the configurable local
+peak radius, and reports an explicit rejection reason. The current 1D profile
+is an adapter over that API. A later local oriented reflectivity/height
+matcher can reuse the selector without adding another gate directly to
+`LIO::register_scan`.
 
 ## Frozen public input
 
