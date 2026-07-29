@@ -53,6 +53,26 @@ base-qualified observations. Its qualified median margin was 0.1465; 20% were
 below 0.05. This validates the dump and summarizer only. The sample is too
 short and too sequence-specific to select a production threshold.
 
+The threshold-selection diagnostic set then ran the full NTNU tunnel once and
+the distinct fog sequence three times, without computing accuracy:
+
+| sequence | runs | qualified | p01 | p50 | below 0.005 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| tunnel | 1 | 1,322 | 0.00628 | 0.1756 | 0.91% |
+| fog | 3 | 732/run | 0.05459 | 0.4318 | 0.00% |
+
+All three fog diagnostic CSVs were byte-identical, with SHA-256
+`4958c9dbce9a1d3b9726ff4765ddd9f38c80f175adb73eb431b6fe5741479e64`.
+The tunnel CSV SHA-256 was
+`b8ab4bb3e56ed0d58e03da478422b8b69b57216cdbe51a696570f52cf143aa40`.
+
+The first nonzero candidate margin is frozen at `0.005`: it is below the first
+percentile on each sequence and retains at least 99% of base-qualified
+observations per sequence. This is intentionally a conservative extreme-alias
+filter, not an accuracy-tuned operating point. The frozen candidate is
+`configs/enwide/rko_lio_os0_intensity_alias_v3.yaml`; only its peak margin
+differs from exploratory v2. Accuracy evaluation happens after this freeze.
+
 ## Frozen public input
 
 - sequence: ENWIDE `tunnel_d`

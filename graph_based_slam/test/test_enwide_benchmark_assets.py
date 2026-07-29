@@ -51,6 +51,10 @@ RKO_INTENSITY_V2 = (
     ROOT / 'configs' / 'enwide'
     / 'rko_lio_os0_intensity_exploratory_v2.yaml'
 )
+RKO_INTENSITY_ALIAS_V3 = (
+    ROOT / 'configs' / 'enwide'
+    / 'rko_lio_os0_intensity_alias_v3.yaml'
+)
 
 
 def _profile():
@@ -148,6 +152,20 @@ def test_enwide_exploratory_v2_only_adds_existing_intensity_gate():
         key: value for key, value in candidate.items()
         if key in baseline
     } == baseline
+
+
+def test_enwide_alias_v3_only_changes_preregistered_peak_margin():
+    exploratory = yaml.safe_load(RKO_INTENSITY_V2.read_text())
+    alias_aware = yaml.safe_load(RKO_INTENSITY_ALIAS_V3.read_text())
+
+    assert alias_aware['intensity_min_peak_margin'] == 0.005
+    assert {
+        key: value for key, value in alias_aware.items()
+        if key != 'intensity_min_peak_margin'
+    } == {
+        key: value for key, value in exploratory.items()
+        if key != 'intensity_min_peak_margin'
+    }
 
 
 def test_enwide_runner_exposes_only_dataset_output_and_repetition_options():
