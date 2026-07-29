@@ -77,6 +77,7 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/product_profiles.py',
     'scripts/product_schema.py',
     'scripts/promote_release_images.py',
+    'scripts/release_channel.py',
 )
 PRODUCT_CONFIGS = (
     'configs/real_data_e2e/driving_slam_mid360_v1.json',

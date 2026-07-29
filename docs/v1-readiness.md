@@ -63,7 +63,7 @@ The tracked state is **NOT_READY: 6/10 gates complete**.
 | Distribution | `ndt_omp_ros2` preflight is currently `READY_TO_TAG`; publish it to both rosdistros, wait for official RKO-LIO 0.3.2 to reach the normal apt repository, then run package-manager install/upgrade E2E |
 | Reliability | Publish and verify the first tagged release carrying the rollback/recovery assets |
 | External adoption | Accept three distinct independent first-map validations; current ledger is 0/3 |
-| Release publication | Review a v0.9.x version and notes, create its immutable tag, and complete the release workflow |
+| Release publication | v0.9.0 metadata and notes are aligned; create its immutable tag and complete the stable release workflow |
 
 This table is explanatory. The generated report and contract are
 authoritative. Update a gate to `complete` only in the same reviewed change

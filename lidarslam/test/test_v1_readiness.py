@@ -23,7 +23,7 @@ def test_tracked_contract_reports_exact_open_product_gates():
     report = READINESS.evaluate_readiness()
 
     assert report['status'] == 'NOT_READY'
-    assert report['product_version'] == '0.7.0'
+    assert report['product_version'] == '0.9.0'
     assert report['summary'] == {
         'total': 10,
         'complete': 6,
@@ -42,8 +42,8 @@ def test_tracked_contract_reports_exact_open_product_gates():
     }
     assert report['external_first_map']['accepted_validations'] == 0
     assert report['release'] == {
-        'expected_tag': 'v0.7.0',
-        'minimum_version_met': False,
+        'expected_tag': 'v0.9.0',
+        'minimum_version_met': True,
         'tag_present': False,
     }
 

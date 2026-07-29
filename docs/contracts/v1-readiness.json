@@ -125,11 +125,11 @@
       "state": "incomplete",
       "evidence": [
         "docs/roadmap/v0.9.md",
+        "docs/releases/v0.9.0.md",
         "RELEASING.md",
         ".github/workflows/release.yml"
       ],
       "blockers": [
-        "Set and review a v0.9.x VERSION with matching release notes.",
         "Create the matching immutable git tag and complete the release workflow."
       ]
     }

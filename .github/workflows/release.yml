@@ -30,6 +30,7 @@ jobs:
     outputs:
       bundle_name: ${{ steps.meta.outputs.bundle_name }}
       git_commit: ${{ steps.meta.outputs.git_commit }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
       release_notes: ${{ steps.meta.outputs.release_notes }}
       tag_name: ${{ steps.meta.outputs.tag_name }}
       version: ${{ steps.meta.outputs.version }}
@@ -56,6 +57,17 @@ jobs:
             echo "tag ${TAG_NAME} does not match VERSION ${VERSION}" >&2
             exit 1
           fi
+          RELEASE_CHANNEL="$(
+            python3 scripts/release_channel.py "${VERSION}"
+          )"
+          if [[ "${RELEASE_CHANNEL}" == "prerelease" ]]; then
+            PRERELEASE=true
+          elif [[ "${RELEASE_CHANNEL}" == "stable" ]]; then
+            PRERELEASE=false
+          else
+            echo "unknown release channel: ${RELEASE_CHANNEL}" >&2
+            exit 1
+          fi
 
           git fetch --force --tags
           if ! git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
@@ -74,6 +86,7 @@ jobs:
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
           echo "tag_name=${TAG_NAME}" >> "${GITHUB_OUTPUT}"
           echo "git_commit=${TAG_COMMIT}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${PRERELEASE}" >> "${GITHUB_OUTPUT}"
           echo "release_notes=${RELEASE_NOTES}" >> "${GITHUB_OUTPUT}"
           echo "bundle_name=${BUNDLE_NAME}" >> "${GITHUB_OUTPUT}"
 
@@ -346,7 +359,7 @@ jobs:
           tag_name: ${{ needs.metadata.outputs.tag_name }}
           name: lidarslam_ros2 v${{ needs.metadata.outputs.version }}
           body_path: ${{ needs.metadata.outputs.release_notes }}
-          prerelease: true
+          prerelease: ${{ needs.metadata.outputs.prerelease == 'true' }}
           files: |
             ${{ needs.metadata.outputs.bundle_name }}
             release_image_evidence/*.json

@@ -5,17 +5,18 @@ installs the four core packages from the ROS buildfarm.
 
 This page records the dependency analysis and the exact release procedure.
 The repository-side prep (versions, SPDX license tags, per-package
-`CHANGELOG.rst`) landed with v0.5.0 and is maintained through v0.7.0; what remains is the bloom/rosdistro
-procedure itself, which requires the maintainer's GitHub account.
+`CHANGELOG.rst`) landed with v0.5.0 and is maintained through v0.9.0; what
+remains is the bloom/rosdistro procedure itself, which requires the
+maintainer's GitHub account.
 
-## Released package set
+## Planned package set
 
 | Package | Version | Notes |
 |---|---|---|
-| `lidarslam_msgs` | 0.7.0 | messages only |
-| `scanmatcher` | 0.7.0 | NDT frontend (FastGICP / SmallGICP optional, off on the farm) |
-| `graph_based_slam` | 0.7.0 | backend + `/map_save` Autoware bundle |
-| `lidarslam` | 0.7.0 | launch + param presets |
+| `lidarslam_msgs` | 0.9.0 | messages only |
+| `scanmatcher` | 0.9.0 | NDT frontend (FastGICP / SmallGICP optional, off on the farm) |
+| `graph_based_slam` | 0.9.0 | backend + `/map_save` Autoware bundle |
+| `lidarslam` | 0.9.0 | launch + param presets |
 
 These are the only `package.xml` files in the repository outside
 `Thirdparty/`, so bloom's package discovery picks up exactly this set.
@@ -36,12 +37,12 @@ This table was rechecked directly against the
 [Humble distribution](https://github.com/ros/rosdistro/blob/master/humble/distribution.yaml)
 and
 [Jazzy distribution](https://github.com/ros/rosdistro/blob/master/jazzy/distribution.yaml)
-in `ros/rosdistro` on 2026-07-29. Neither distribution contains
+in `ros/rosdistro` on 2026-07-30. Neither distribution contains
 `ndt_omp_ros2`; both register `rko_lio` `0.3.2-1` from
 [`PRBonn/rko_lio`](https://github.com/PRBonn/rko_lio) and
 `ros2-gbp/rko_lio-release`.
 
-The amd64 apt indexes were also checked on 2026-07-29. The ROS testing
+The amd64 apt indexes were also checked on 2026-07-30. The ROS testing
 repository contains `0.3.2-1` builds for both distributions. The main
 repository, which normal users install from, still contains Humble `0.3.0`
 and Jazzy `0.2.0`; do not describe `0.3.2` as synced to main until those
@@ -55,7 +56,7 @@ The dependency is consumed as the submodule
 maintained by the same owner, BSD licensed, with a unique name in rosdistro.
 Before the first lidarslam release, use the following maintainer sequence.
 The source repository currently has no `0.1.0` tag and
-`rsasaki0109/ndt_omp_ros2-release` does not exist (checked 2026-07-29), so
+`rsasaki0109/ndt_omp_ros2-release` does not exist (checked 2026-07-30), so
 all first-release steps below are required.
 
 Run the read-only preflight immediately before doing any publication work:

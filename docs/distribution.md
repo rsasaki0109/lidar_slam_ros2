@@ -164,7 +164,7 @@ Every tagged release publishes exact
 the repository tag matches `VERSION`. For example:
 
 ```bash
-IMAGE=ghcr.io/rsasaki0109/lidar_slam_ros2:v0.7.0-jazzy
+IMAGE=ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy
 docker pull "$IMAGE"
 docker run --rm "$IMAGE" lidarslam-map --version
 ```

@@ -2,6 +2,14 @@
 Changelog for package graph_based_slam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.9.0 (2026-07-30)
+------------------
+* Preserve event-driven deterministic backend behavior under the v0.9
+  installed and package-manager golden-path contracts.
+* Carry versioned readiness, real-map, recovery, and distribution evidence
+  without changing the default loop-closure or map-output policy.
+* Contributors: Ryohei Sasaki
+
 0.7.0 (2026-07-29)
 ------------------
 * Serialize event-driven backend work independently of the ROS executor, so

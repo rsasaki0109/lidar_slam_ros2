@@ -116,6 +116,7 @@
 
 ## Releases
 
+- [v0.9.0 stable release candidate](releases/v0.9.0.md)
 - [v0.7.0 release candidate](releases/v0.7.0.md)
 - [v0.6.0](releases/v0.6.0.md)
 - [v0.5.0](releases/v0.5.0.md)

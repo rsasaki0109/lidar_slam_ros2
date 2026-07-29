@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.9.0 - 2026-07-30
+
+The stable product-foundation release candidate. It keeps the v0.7 golden
+path and adds fail-closed, machine-readable gates for the remaining v1.0
+distribution, publication, and external-adoption work.
+
+### Highlights
+
+- **Cross-phase v1 readiness audit** — one schema-validated contract reports
+  all ten product gates, verifies evidence paths, release version/tag state,
+  and the independent-user ledger, and refuses to describe incomplete work
+  as ready.
+- **Release-ready binary dependencies** — the official PRBonn RKO-LIO
+  `0.3.2-1` binaries passed the pinned Humble/Jazzy installed golden-path E2E,
+  and the product now requires `rko_lio >= 0.3.2`. The pinned
+  `ndt_omp_ros2 0.1.0` candidate has a read-only preflight that distinguishes
+  local readiness, ready-to-tag, partial publication, and completed
+  Humble/Jazzy rosdistro state.
+- **Package-manager evidence gate** — a manual Humble/Jazzy workflow installs
+  exact ROS apt versions, validates every installed CLI/runtime resource,
+  detects stale paths across main-to-testing upgrades, and runs the pinned
+  real MID-360 map contract. It remains evidence-open until public
+  lidarslam packages exist.
+- **Operationally honest distribution** — docs distinguish ROS testing from
+  the normal main repository, preserve exact dependency and candidate state,
+  and withhold the beginner apt command until main-channel installation
+  evidence passes.
+- **Extensible degeneracy research boundary** — the oriented appearance
+  matcher exposes separate intensity/height diagnostics behind default-off
+  adapters. Fog and tunnel holdouts did not justify automatic channel
+  selection, so no experimental policy became a product default.
+
+### Remaining v1.0 gates
+
+- publish `ndt_omp_ros2 0.1.0`, then the four lidarslam packages, into Humble
+  and Jazzy rosdistro;
+- wait for required dependencies and lidarslam packages to reach the normal
+  ROS apt repository, then capture package-manager install/upgrade evidence;
+- publish and verify the first immutable release carrying rollback assets;
+- accept three independent first-map validations. The tracked count remains
+  0/3.
+
 ## 0.7.0 - 2026-07-29
 
 The productization release candidate. It turns the research-oriented workspace

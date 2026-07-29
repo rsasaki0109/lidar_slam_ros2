@@ -1,8 +1,9 @@
 # Releasing
 
 The repository root `VERSION` file is the release version source of truth.
-Tagged `0.x` releases remain prereleases until the v0.9 roadmap's stable
-promotion gate is completed.
+Versions below `0.9.0` publish as GitHub prereleases. v0.9.x is the stable
+release-candidate line and publishes as a normal GitHub Release; it is not a
+claim that the separate v1.0 readiness gate is complete.
 
 ## Release Scope
 
@@ -26,7 +27,7 @@ bash scripts/run_autoware_quickstart.sh
 ```
 
 3. Push the branch and verify GitHub Actions are green.
-   Also inspect the cross-phase product audit; prereleases may remain
+   Also inspect the cross-phase product audit; release candidates may remain
    `NOT_READY`, but an invalid contract must stop the release:
 
 ```bash
@@ -105,7 +106,7 @@ Two GitHub Actions workflows matter for release:
   `v<version>-humble` and `v<version>-jazzy`. Promotion preflights both
   digests before creating either tag. A matching existing tag is reused;
   a different digest fails closed and is never overwritten. The workflow then
-  publishes the prerelease using
+  publishes the GitHub Release using
   `docs/releases/v<version>.md` as the release body. The release assets include
   the source bundle plus one `release-image-<distro>.json` installation
   evidence file and one digest-pinned `rollback-plan-<distro>.json` per image,

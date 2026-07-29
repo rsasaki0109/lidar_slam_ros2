@@ -46,6 +46,7 @@ jobs:
           python3 -m pytest lidarslam/test/test_v1_readiness.py -q
           python3 -m pytest lidarslam/test/test_ndt_omp_release_readiness.py -q
           python3 -m pytest lidarslam/test/test_package_manager_install.py -q
+          python3 -m pytest lidarslam/test/test_release_channel.py -q
           python3 scripts/check_ndt_omp_release_readiness.py --offline
           python3 scripts/check_external_first_map_readiness.py --json
           python3 scripts/check_v1_readiness.py --json
