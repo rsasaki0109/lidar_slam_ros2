@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/v1-readiness-report-v1.schema.json",
+  "title": "lidarslam_ros2 v1 readiness report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "schema_uri",
+    "status",
+    "product_version",
+    "target_version",
+    "minimum_release_candidate_version",
+    "summary",
+    "release",
+    "external_first_map",
+    "gates"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "schema_uri": {
+      "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/v1-readiness-report-v1.schema.json"
+    },
+    "status": {
+      "enum": [
+        "READY",
+        "NOT_READY"
+      ]
+    },
+    "product_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "target_version": {
+      "const": "1.0.0"
+    },
+    "minimum_release_candidate_version": {
+      "const": "0.9.0"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "complete",
+        "incomplete"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 10
+        },
+        "complete": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "incomplete": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_tag",
+        "minimum_version_met",
+        "tag_present"
+      ],
+      "properties": {
+        "expected_tag": {
+          "type": "string"
+        },
+        "minimum_version_met": {
+          "type": "boolean"
+        },
+        "tag_present": {
+          "type": "boolean"
+        }
+      }
+    },
+    "external_first_map": {
+      "type": "object"
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "status",
+          "evidence",
+          "blockers",
+          "detail"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "COMPLETE",
+              "INCOMPLETE"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

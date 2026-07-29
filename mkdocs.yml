@@ -35,6 +35,7 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Product Contract: product-contract.md
+  - v1.0 Readiness: v1-readiness.md
   - Golden-path CLI: golden-path-cli.md
   - CLI compatibility: cli-compatibility.md
   - CLI install evidence: evidence/cli-v1-install-2026-07-28.md

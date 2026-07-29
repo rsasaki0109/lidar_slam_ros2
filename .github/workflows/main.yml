@@ -38,7 +38,9 @@ jobs:
         shell: bash
         run: |
           python3 -m pytest graph_based_slam/test/test_docs_entrypoints.py -q
+          python3 -m pytest lidarslam/test/test_v1_readiness.py -q
           python3 scripts/check_external_first_map_readiness.py --json
+          python3 scripts/check_v1_readiness.py --json
 
       - name: Validate public shell entrypoints
         shell: bash

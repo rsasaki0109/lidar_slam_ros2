@@ -26,6 +26,13 @@ bash scripts/run_autoware_quickstart.sh
 ```
 
 3. Push the branch and verify GitHub Actions are green.
+   Also inspect the cross-phase product audit; prereleases may remain
+   `NOT_READY`, but an invalid contract must stop the release:
+
+```bash
+python3 scripts/check_v1_readiness.py --json
+```
+
 4. Set `VERSION="$(tr -d '\n' < VERSION)"` and confirm `CHANGELOG.md`, the
    per-package `CHANGELOG.rst` files, `docs/comparison.md`,
    `docs/releases/v${VERSION}.md`, `CITATION.cff`, and the core package versions
@@ -38,10 +45,11 @@ bash scripts/run_autoware_quickstart.sh
    create the GitHub Release unless both published digests pass the installed
    `lidarslam-map --version` smoke test.
 
-For a v1.0 release, also require the tracked independent-user gate:
+For a v1.0 release, require the complete product gate. This includes the
+tracked independent-user ledger rather than checking it as an isolated proxy:
 
 ```bash
-python3 scripts/check_external_first_map_readiness.py --require-complete
+python3 scripts/check_v1_readiness.py --require-complete
 ```
 
 Prerelease candidates validate the ledger without pretending that 0/3 is

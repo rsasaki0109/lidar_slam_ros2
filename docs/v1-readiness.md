@@ -1,0 +1,60 @@
+# v1.0 Readiness
+
+`lidarslam_ros2` uses a fail-closed, machine-readable audit for the complete
+v1.0 product goal. It covers the nine readiness dimensions in the
+[v0.9 roadmap](roadmap/v0.9.md#1-measurable-v10-readiness-targets) plus the
+stable v0.9 release-candidate publication gate.
+
+Run the audit from a full git checkout:
+
+```bash
+python3 scripts/check_v1_readiness.py
+```
+
+For automation:
+
+```bash
+python3 scripts/check_v1_readiness.py --json
+python3 scripts/check_v1_readiness.py --require-complete
+```
+
+The normal command reports an honest snapshot and exits zero when the
+contract is valid, even while product work remains. `--require-complete`
+exits 1 unless every gate is complete. An invalid contract, schema, evidence
+path, adoption ledger, version, or git-tag query exits 2.
+
+## Authoritative inputs
+
+- [`contracts/v1-readiness.json`](contracts/v1-readiness.json) records the
+  reviewed state, evidence paths, and explicit blockers for every gate.
+- [`schemas/v1-readiness-contract-v1.schema.json`](schemas/v1-readiness-contract-v1.schema.json)
+  prevents a gate, blocker, or evidence field from silently disappearing.
+- [`schemas/v1-readiness-report-v1.schema.json`](schemas/v1-readiness-report-v1.schema.json)
+  defines the generated JSON report.
+- [`evidence/external-first-map-validations.json`](evidence/external-first-map-validations.json)
+  remains the source of truth for the independent three-user gate.
+- Root `VERSION` and local immutable git tags are checked for the v0.9
+  publication gate.
+
+The checker verifies that all ten expected gate IDs are present exactly once,
+that evidence paths remain inside the repository and exist, that semantic
+versions and tags align, and that the independent-user ledger passes its own
+schema and uniqueness rules. A tracked `complete` state is therefore an
+audited attestation backed by named evidence—not a substitute for rerunning
+the wider CI, real-data, or release workflows cited by that evidence.
+
+## Current snapshot
+
+The tracked state is **NOT_READY: 6/10 gates complete**.
+
+| Open gate | Remaining proof |
+| --- | --- |
+| Distribution | Release `ndt_omp_ros2`; wait for official RKO-LIO 0.3.2 to reach the normal apt repository; run package-manager install/upgrade E2E |
+| Reliability | Publish and verify the first tagged release carrying the rollback/recovery assets |
+| External adoption | Accept three distinct independent first-map validations; current ledger is 0/3 |
+| Release publication | Review a v0.9.x version and notes, create its immutable tag, and complete the release workflow |
+
+This table is explanatory. The generated report and contract are
+authoritative. Update a gate to `complete` only in the same reviewed change
+that adds its final public evidence. Never remove an unmet gate or mark an
+external action complete based on intent.
