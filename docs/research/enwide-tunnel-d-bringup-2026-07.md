@@ -135,14 +135,22 @@ The source PointCloud2 layout matches the runner contract: relative `t` is
 
 ## Results
 
-These are single-run exploratory results on the same machine and are not
-valid three-repetition sequence comparisons.
+The first three rows are single-run exploratory results on the same machine.
+V4 is the first completed three-repetition candidate.
 
 | candidate | ATE RMSE (m) | 10 m RTE (%) | matched GT | RTF | peak RSS (MiB) |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | preregistered v1 | 23.7841 | 64.5694 | 99.579% | 2.421 | 454.7 |
 | intensity disagreement v2 | 22.0945 | 65.2899 | 99.579% | 2.780 | 642.8 |
 | v2 + alias diagnostics, margin disabled | 22.5956 | 64.6661 | 99.579% | 2.765 | 513.4 |
+| schema-v2 alias v4, three-run median | 20.8877 | 65.1782 | 99.579% | 2.750 | 614.1 |
+
+V4 completed all three runs. ATE ranged from 20.3902 to 20.9202 m, while RTE
+ranged from 63.3531% to 66.7671%. It rejected 17 or 18 ambiguous shifts and
+corrected 683 to 693 scans per run. The summary receipt SHA-256 is
+`582568422f9621a8d7a65fb771f54155169496156046c25045ef85253e918b8d`.
+The lower ATE is encouraging, but the large local error and run-to-run RTE
+spread reject v4 as a production or SOTA candidate.
 
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet
