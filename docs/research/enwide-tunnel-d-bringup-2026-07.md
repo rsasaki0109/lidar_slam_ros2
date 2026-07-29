@@ -285,6 +285,25 @@ individual distributions and `height - intensity` gap. Missing or
 zero-variance channels are counted explicitly rather than treated as valid
 correlations.
 
+Schema-v5 holdout runs computed both channel scores for every qualified
+oriented-grid row: 1,652/1,652 in fog and 3,108/3,108 in tunnel. Fog's median
+intensity and height correlations were 0.966 and 0.929; tunnel's were 0.912
+and 0.958. Consequently, median `height - intensity` was −0.024 in fog and
++0.014 in tunnel. The diagnostic SHA-256 hashes are
+`d2b83b8ce320c1cbdab311373c5cbbea71b7bccb295e3eb099284379bf590920`
+for fog and
+`c84fbdba29925d2abac45ae4f6ff1474b81bc9862a58a5b021597343fdab20b7`
+for tunnel.
+
+The median sign is promising only as a dataset-level observation, not as an
+online safety classifier. With fixed non-overlapping 50-scan windows, a
+positive median channel gap occurs in 87.1% of tunnel windows but also 30.3%
+of harmful fog windows. Longer windows do not remove that false-positive
+rate. A channel-gap gate would therefore still authorize substantial harmful
+fog correction, so the hypothesis is rejected for automatic activation. No
+accuracy metric was consumed. The reusable channel diagnostics remain, while
+the oriented-grid correction and its scene classifier remain default-off.
+
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet
 reproduced COIN-LIO on the identical converted input.
