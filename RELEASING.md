@@ -33,6 +33,17 @@ bash scripts/run_autoware_quickstart.sh
 python3 scripts/check_v1_readiness.py --json
 ```
 
+If the distribution gate is still open on `ndt_omp_ros2`, inspect it without
+mutating GitHub or rosdistro:
+
+```bash
+python3 scripts/check_ndt_omp_release_readiness.py
+```
+
+Only `READY_TO_TAG` authorizes proceeding to the separately documented
+maintainer commands; `LOCAL_READY` is the offline CI result, not remote
+publication proof.
+
 4. Set `VERSION="$(tr -d '\n' < VERSION)"` and confirm `CHANGELOG.md`, the
    per-package `CHANGELOG.rst` files, `docs/comparison.md`,
    `docs/releases/v${VERSION}.md`, `CITATION.cff`, and the core package versions

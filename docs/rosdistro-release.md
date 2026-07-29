@@ -58,6 +58,31 @@ The source repository currently has no `0.1.0` tag and
 `rsasaki0109/ndt_omp_ros2-release` does not exist (checked 2026-07-29), so
 all first-release steps below are required.
 
+Run the read-only preflight immediately before doing any publication work:
+
+```bash
+python3 scripts/check_ndt_omp_release_readiness.py
+python3 scripts/check_ndt_omp_release_readiness.py \
+  --require-ready-to-tag \
+  --output-json /tmp/ndt-omp-release-preflight.json
+```
+
+The first command describes the current state; the strict command exits 1
+unless the exact reviewed candidate is `READY_TO_TAG`. It validates the
+parent gitlink, submodule HEAD and cleanliness, package metadata, changelog,
+CMake install/export contract, and Bloom CI assets. Its remote inspection
+then verifies `origin/humble`, source tag, release-repository existence, and
+both rosdistro keys. A GitHub 404 means an initial artifact is absent; any
+other HTTP or network error is `BLOCKED`, never mistaken for absence.
+
+CI runs `--offline`, whose successful state is only `LOCAL_READY`. After
+publication, use `--require-released`; it passes only when the tag, release
+repository, and Humble and Jazzy rosdistro entries all exist. `IN_PROGRESS`
+means publication is partial and the report lists the missing next steps.
+The JSON contract is
+[`ndt-omp-release-readiness-v1.schema.json`](schemas/ndt-omp-release-readiness-v1.schema.json).
+The checker is read-only; it never creates a tag, repository, or PR.
+
 1. Confirm fork commit `8b77fa5` is green. Its package metadata is `0.1.0`
    with `BSD-2-Clause`, a reachable fork maintainer, `CHANGELOG.rst`, exported
    `ndt_omp` CMake target, and installed-consumer tests. Public

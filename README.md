@@ -212,6 +212,7 @@ components (`Thirdparty/lio-sam`, `Thirdparty/3d_bbs`) are excluded via `COLCON_
 bash scripts/run_default_ci_checks.sh
 bash scripts/run_release_readiness_checks.sh --ape-threshold 0.10
 python3 scripts/check_v1_readiness.py
+python3 scripts/check_ndt_omp_release_readiness.py --offline
 ```
 
 Reference commands and parameter pointers live in [docs/workflows.md](docs/workflows.md).

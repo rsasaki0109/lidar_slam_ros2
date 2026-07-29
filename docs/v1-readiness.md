@@ -35,6 +35,13 @@ path, adoption ledger, version, or git-tag query exits 2.
   remains the source of truth for the independent three-user gate.
 - Root `VERSION` and local immutable git tags are checked for the v0.9
   publication gate.
+- The distribution gate includes the read-only
+  `scripts/check_ndt_omp_release_readiness.py` preflight and its
+  [`ndt-omp-release-readiness-v1.schema.json`](schemas/ndt-omp-release-readiness-v1.schema.json)
+  contract. It distinguishes a locally reviewed candidate from
+  `READY_TO_TAG`, partial publication, and a completed rosdistro release.
+  The reviewed live result is preserved in
+  [`ndt-omp-release-preflight-2026-07-29.md`](evidence/ndt-omp-release-preflight-2026-07-29.md).
 
 The checker verifies that all ten expected gate IDs are present exactly once,
 that evidence paths remain inside the repository and exist, that semantic
@@ -49,7 +56,7 @@ The tracked state is **NOT_READY: 6/10 gates complete**.
 
 | Open gate | Remaining proof |
 | --- | --- |
-| Distribution | Release `ndt_omp_ros2`; wait for official RKO-LIO 0.3.2 to reach the normal apt repository; run package-manager install/upgrade E2E |
+| Distribution | `ndt_omp_ros2` preflight is currently `READY_TO_TAG`; publish it to both rosdistros, wait for official RKO-LIO 0.3.2 to reach the normal apt repository, then run package-manager install/upgrade E2E |
 | Reliability | Publish and verify the first tagged release carrying the rollback/recovery assets |
 | External adoption | Accept three distinct independent first-map validations; current ledger is 0/3 |
 | Release publication | Review a v0.9.x version and notes, create its immutable tag, and complete the release workflow |

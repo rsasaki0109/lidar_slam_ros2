@@ -67,6 +67,7 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/build_release_bundle.py',
     'scripts/create_release_image_record.py',
     'scripts/check_external_first_map_readiness.py',
+    'scripts/check_ndt_omp_release_readiness.py',
     'scripts/check_v1_readiness.py',
     'scripts/first_map_validation_receipt.py',
     'scripts/create_first_map_validation_receipt.py',
