@@ -133,3 +133,6 @@ Accuracy claims and gates live in
 [SECURITY.md](https://github.com/rsasaki0109/lidar_slam_ros2/security/policy);
 usage questions and reproducible defects follow
 [SUPPORT.md](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/SUPPORT.md).
+Independent onboarding evidence follows the
+[first-map validation contract](external-first-map-validation.md); its tracked
+ledger remains separate from maintainer-operated demos and CI evidence.

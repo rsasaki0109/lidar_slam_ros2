@@ -226,7 +226,7 @@ module is absent. This extra is not required by the default RKO-LIO path.
 | --- | --- | --- | --- | --- |
 | Recursive source checkout + `colcon` | Tested in CI | Tested in CI | Evaluation; use the Jetson runbook | Included from the maintained submodule |
 | GHCR image | Moving and versioned amd64 images | Moving and versioned amd64 images | Not yet published | Included |
-| ROS buildfarm / apt | Not released | Not released | Not released | Packaging decision unresolved |
+| ROS buildfarm / apt | Not released | Not released | Not released | Official RKO-LIO 0.3.2-1 exists; product compatibility gate pending |
 
 `amd64` is the tested product target. Jetson/MID-360 workflows have real-device
 evidence, but arm64 installation and image publication are still an evaluation
@@ -235,15 +235,17 @@ tier rather than a release guarantee.
 ## Binary-release boundary
 
 There is currently no supported
-`sudo apt install ros-<distro>-lidarslam` golden path. Two packaging decisions
+`sudo apt install ros-<distro>-lidarslam` golden path. Two packaging gates
 remain:
 
 1. `ndt_omp_ros2`, which is a declared build dependency, must be released
    before the four core packages.
-2. The flagship product profile depends at runtime on the maintained
-   `rko_lio` fork. A binary product claim must either release that fork for
-   Humble and Jazzy or deliberately switch the binary golden path to a
-   frontend available from the same distribution.
+2. Official PRBonn `rko_lio` `0.3.2-1` packages exist in Humble and Jazzy,
+   but the product currently validates a substantially patched maintained
+   fork. The official binary must pass the same clean installed golden-path
+   E2E on both distributions before `lidarslam` declares it as an
+   `exec_depend`. If it fails, the required fixes must be upstreamed or the
+   fork must receive a non-conflicting package identity.
 
 The core packages can be prepared by bloom without declaring `rko_lio`, but
 that fact only proves buildability; it does not make the installed flagship
@@ -252,6 +254,6 @@ for the maintainer procedure and remaining prerequisites.
 
 Versioned Humble/Jazzy GHCR tags, release-image SBOM/provenance, digest smoke
 tests, and attached installation evidence are automated for the next tagged
-release. ROS buildfarm packages remain blocked by the dependency decisions
-above. Upgrade testing across two released product versions and arm64 image
+release. ROS buildfarm packages remain blocked by the dependency and
+compatibility gates above. Package-manager upgrade testing and arm64 image
 publication also remain Phase 2 work.

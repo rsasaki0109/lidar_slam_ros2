@@ -178,6 +178,11 @@ if(BUILD_TESTING)
     test/test_sparse_trajectory_scoring.py
     TIMEOUT 120
   )
+  ament_add_pytest_test(
+    test_external_first_map_readiness
+    test/test_external_first_map_readiness.py
+    TIMEOUT 120
+  )
 endif()
 
 add_executable(lidarslam
