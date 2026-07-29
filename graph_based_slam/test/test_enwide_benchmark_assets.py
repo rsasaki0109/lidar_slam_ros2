@@ -63,6 +63,10 @@ RKO_INTENSITY_PEARSON_V5 = (
     ROOT / 'configs' / 'enwide'
     / 'rko_lio_os0_intensity_pearson_v5.yaml'
 )
+RKO_ORIENTED_GRID_V6 = (
+    ROOT / 'configs' / 'enwide'
+    / 'rko_lio_os0_oriented_grid_v6.yaml'
+)
 
 
 def _profile():
@@ -197,6 +201,26 @@ def test_enwide_pearson_v5_keeps_exploratory_v2_parameters():
     assert pearson == exploratory
 
 
+def test_enwide_oriented_grid_v6_only_adds_grid_adapter_parameters():
+    pearson = yaml.safe_load(RKO_INTENSITY_PEARSON_V5.read_text())
+    grid = yaml.safe_load(RKO_ORIENTED_GRID_V6.read_text())
+    added = {
+        key: value for key, value in grid.items()
+        if key not in pearson
+    }
+
+    assert added == {
+        'intensity_oriented_grid': True,
+        'intensity_grid_half_width_m': 5.0,
+        'intensity_grid_max_lateral_shift_m': 0.5,
+        'intensity_grid_height_weight': 0.25,
+    }
+    assert {
+        key: value for key, value in grid.items()
+        if key in pearson
+    } == pearson
+
+
 def test_enwide_runner_exposes_only_dataset_output_and_repetition_options():
     completed = subprocess.run(
         ['bash', str(RUNNER), '--help'],
@@ -211,7 +235,7 @@ def test_enwide_runner_exposes_only_dataset_output_and_repetition_options():
             '--lidar-topic', '--imu-topic', '--rko-param', '--segment-length'):
         assert forbidden_option not in completed.stdout
     text = RUNNER.read_text()
-    assert 'b928368948136a7d17c09c725cf4963a4c23036b' in text
+    assert '84a2007e881a5e7c6148af24157c5ac91c544574' in text
     assert '--completion-end-margin-secs 1.0' in text
     assert '--max-time-gap 0.11' in text
     assert 'warning: position-only scoring failed' in text

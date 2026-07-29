@@ -189,6 +189,20 @@ ROS package builds. This commit is intentionally matcher-only: it does not yet
 alter `LIO::register_scan` or any default parameter. The next milestone is a
 default-off LIO adapter and raw holdout diagnostics before accuracy evaluation.
 
+RKO-LIO `84a2007e881a5e7c6148af24157c5ac91c544574` connects that matcher to the
+existing intensity-disagreement gate behind `intensity_oriented_grid=false`.
+It reuses all existing longitudinal, score, margin, support, streak, and blend
+parameters; only half-width, lateral search range, and height weight are new.
+The 1D and 2D stored states are separate and mutually reset.
+
+With the adapter enabled, the 20-second Tunnel smoke test produced 84
+oriented-grid attempts, all base-qualified and valid, with 78 vector
+corrections. Peak margin ranged from 0.0846 to 0.3311. The run completed in
+7.65 seconds and exported `source=oriented_grid`. Candidate v6 freezes the
+default-off adapter parameters in
+`configs/enwide/rko_lio_os0_oriented_grid_v6.yaml`. Full non-accuracy
+tunnel/fog diagnostics are required before any public accuracy run.
+
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet
 reproduced COIN-LIO on the identical converted input.
