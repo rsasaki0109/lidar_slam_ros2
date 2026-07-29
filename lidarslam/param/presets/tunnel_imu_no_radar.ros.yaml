@@ -18,13 +18,13 @@
 # Validated on NTNU Fyllingsdalen (~500 m):
 #   plain rko_lio                         102.3 m
 #   intensity-only radar-less preset     153.8 m
-#   this preset                          476.1 m
+#   this preset                          499.9 m
 #   no yaw gate reached 517.2 m, but failed the fog negative check.
 #
 # Paired negative checks with the applicability gates below:
 #   NTNU fog, HILTI exp07, and MID-360 trajectories are byte-identical
 #   to their default-off controls; HILTI exp07 control APE is 0.208 m.
-#   After the reference stops, this preset moves only 0.014 m over 14 s.
+#   After the reference stops, this preset moves only 0.011 m over 14 s.
 #
 # Layer this after the sensor config. All feature defaults remain OFF.
 /**:
@@ -40,11 +40,11 @@
     kinematic_blend_anchor_agreement_mps: 0.05
 
     # Robustify both inputs. TODO-USER: set these from the real platform
-    # envelope. The 2.0 m/s pseudo-sensor cap is specific to the ~1.7 m/s
+    # envelope. The 2.1 m/s pseudo-sensor cap is specific to the ~1.7 m/s
     # NTNU walk. The 2.5 m/s activation limit tolerates per-scan ICP velocity
     # noise without allowing driving-speed use of this walking prior.
     kinematic_blend_max_icp_innovation_mps: 1.0
-    kinematic_blend_max_propagated_speed_mps: 2.0
+    kinematic_blend_max_propagated_speed_mps: 2.1
     kinematic_blend_max_activation_speed_mps: 2.5
     kinematic_blend_speed_gate_min_scans: 3
     kinematic_blend_speed_reenable_delay_sec: 60.0

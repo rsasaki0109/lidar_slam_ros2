@@ -1,8 +1,8 @@
 # Radar-less tunnel adaptive applicability gate (2026-07-27)
 
 > Update: retaining and rotating the trusted velocity prior through short yaw
-> intervals raises time-consistent tunnel reach to 476.05 m while preserving
-> all negative checks and limiting post-stop motion to 0.014 m. See
+> intervals raises time-consistent tunnel reach to 499.93 m while preserving
+> all negative checks and limiting post-stop motion to 0.011 m. See
 > [yaw-rotated velocity prior](radarless-tunnel-yaw-rotated-prior-2026-07.md).
 
 ## Decision
