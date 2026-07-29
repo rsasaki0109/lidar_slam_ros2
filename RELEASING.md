@@ -44,6 +44,13 @@ Only `READY_TO_TAG` authorizes proceeding to the separately documented
 maintainer commands; `LOCAL_READY` is the offline CI result, not remote
 publication proof.
 
+After Bloom packages enter ROS testing, run
+`.github/workflows/package-manager-install-upgrade.yml` for both Humble and
+Jazzy. Capture clean-install evidence and, when an older main version exists,
+main-to-testing upgrade evidence before the sync. After sync, repeat
+clean-install against `main`; see `docs/rosdistro-release.md` for exact
+dispatch inputs.
+
 4. Set `VERSION="$(tr -d '\n' < VERSION)"` and confirm `CHANGELOG.md`, the
    per-package `CHANGELOG.rst` files, `docs/comparison.md`,
    `docs/releases/v${VERSION}.md`, `CITATION.cff`, and the core package versions

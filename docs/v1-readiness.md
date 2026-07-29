@@ -42,6 +42,10 @@ path, adoption ledger, version, or git-tag query exits 2.
   `READY_TO_TAG`, partial publication, and a completed rosdistro release.
   The reviewed live result is preserved in
   [`ndt-omp-release-preflight-2026-07-29.md`](evidence/ndt-omp-release-preflight-2026-07-29.md).
+- The package-manager distribution evidence has a versioned
+  [`package-manager-install-v1.schema.json`](schemas/package-manager-install-v1.schema.json)
+  contract and Humble/Jazzy clean-install/upgrade workflow. It remains an
+  open gate until actual ROS testing/main packages produce passing artifacts.
 
 The checker verifies that all ten expected gate IDs are present exactly once,
 that evidence paths remain inside the repository and exist, that semantic

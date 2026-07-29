@@ -57,7 +57,10 @@
         "docs/evidence/ndt-omp-release-preflight-2026-07-29.md",
         "docs/rosdistro-release.md",
         "scripts/check_ndt_omp_release_readiness.py",
-        "docs/schemas/ndt-omp-release-readiness-v1.schema.json"
+        "docs/schemas/ndt-omp-release-readiness-v1.schema.json",
+        ".github/workflows/package-manager-install-upgrade.yml",
+        "scripts/check_package_manager_install.py",
+        "docs/schemas/package-manager-install-v1.schema.json"
       ],
       "blockers": [
         "Release ndt_omp_ros2 0.1.0 into Humble and Jazzy rosdistro.",

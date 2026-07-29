@@ -297,6 +297,44 @@ email, description quality are the usual ones), and wait for the buildfarm.
 Binaries appear in the ROS testing repo first, then sync to main with the
 next distro sync (typically 2–6 weeks).
 
+## Package-manager evidence window
+
+When the new lidarslam version appears in ROS testing, run the clean
+package-manager path for both supported distributions:
+
+```bash
+gh workflow run package-manager-install-upgrade.yml \
+  -f source_ref=v0.9.0 \
+  -f target_version=0.9.0 \
+  -f target_channel=testing \
+  -f mode=clean-install
+```
+
+For every release after the first, also capture the upgrade while the previous
+version remains in main and the new version is in testing:
+
+```bash
+gh workflow run package-manager-install-upgrade.yml \
+  -f source_ref=v0.9.0 \
+  -f target_version=0.9.0 \
+  -f target_channel=testing \
+  -f mode=upgrade \
+  -f baseline_version=0.7.0
+```
+
+Replace the example versions with the exact immutable source tag and apt
+versions under review. The workflow rejects a `source_ref` whose root
+`VERSION` differs from `target_version`, missing exact Debian candidates, an
+old or failed baseline report, dependency versions below the product
+minimums, stale paths, or any installed CLI/real-map failure. Download and
+retain both Humble and Jazzy non-geometry artifacts before the testing
+candidate syncs.
+
+After the target reaches main, rerun `clean-install` with
+`target_channel=main`. Do not add the apt command to the beginner
+documentation until both main-channel jobs pass. The schema-backed verifier
+and workflow are described in [Distribution and installed CLI](distribution.md#ros-apt-install-and-upgrade-gate).
+
 ## After the first sync
 
 - README: add the `sudo apt install ros-humble-lidarslam` install path next
