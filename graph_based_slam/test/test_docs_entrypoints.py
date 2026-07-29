@@ -67,6 +67,7 @@ GOLDEN_PATH_CLI_DOC = REPO_ROOT / 'docs' / 'golden-path-cli.md'
 CLI_COMPATIBILITY_DOC = REPO_ROOT / 'docs' / 'cli-compatibility.md'
 CLI_V1_CONTRACT = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
 DISTRIBUTION_DOC = REPO_ROOT / 'docs' / 'distribution.md'
+ROSDISTRO_RELEASE_DOC = REPO_ROOT / 'docs' / 'rosdistro-release.md'
 OPERATIONAL_RELIABILITY_DOC = REPO_ROOT / 'docs' / 'operational-reliability.md'
 BOUNDED_FILESYSTEM_SCHEMA = (
     REPO_ROOT
@@ -88,6 +89,24 @@ SOAK_EVIDENCE_JSON = (
 )
 DOCKER_FIRST_MAP_EVIDENCE_DOC = (
     REPO_ROOT / 'docs' / 'evidence' / 'docker-first-map-2026-07-28.md'
+)
+EXTERNAL_FIRST_MAP_DOC = (
+    REPO_ROOT / 'docs' / 'external-first-map-validation.md'
+)
+EXTERNAL_FIRST_MAP_LEDGER = (
+    REPO_ROOT
+    / 'docs'
+    / 'evidence'
+    / 'external-first-map-validations.json'
+)
+EXTERNAL_FIRST_MAP_SCHEMA = (
+    REPO_ROOT
+    / 'docs'
+    / 'schemas'
+    / 'external-first-map-validations-v1.schema.json'
+)
+EXTERNAL_FIRST_MAP_SCRIPT = (
+    REPO_ROOT / 'scripts' / 'check_external_first_map_readiness.py'
 )
 CLI_V1_INSTALL_EVIDENCE_DOC = (
     REPO_ROOT / 'docs' / 'evidence' / 'cli-v1-install-2026-07-28.md'
@@ -177,11 +196,16 @@ def test_docs_exist_and_are_linked_from_readme():
     assert CLI_COMPATIBILITY_DOC.is_file()
     assert CLI_V1_CONTRACT.is_file()
     assert DISTRIBUTION_DOC.is_file()
+    assert ROSDISTRO_RELEASE_DOC.is_file()
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
     assert BOUNDED_FILESYSTEM_SCHEMA.is_file()
     assert BOUNDED_FILESYSTEM_WORKFLOW.is_file()
     assert SOAK_EVIDENCE_DOC.is_file()
     assert SOAK_EVIDENCE_JSON.is_file()
+    assert EXTERNAL_FIRST_MAP_DOC.is_file()
+    assert EXTERNAL_FIRST_MAP_LEDGER.is_file()
+    assert EXTERNAL_FIRST_MAP_SCHEMA.is_file()
+    assert EXTERNAL_FIRST_MAP_SCRIPT.is_file()
     assert CLI_V1_INSTALL_EVIDENCE_DOC.is_file()
     assert REAL_DATA_E2E_DOC.is_file()
     assert PREFLIGHT_SCHEMA.is_file()
@@ -211,6 +235,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(SUPPORT.md)' in readme
     assert '(GOVERNANCE.md)' in readme
     assert '(docs/product-contract.md)' in readme
+    assert '(docs/external-first-map-validation.md)' in readme
     assert '(docs/distribution.md)' in readme
     assert '(docs/roadmap/v0.9.md)' in readme
     assert '(docs/getting-started.md)' in readme
@@ -312,6 +337,7 @@ def test_contributing_and_issue_templates_exist():
     assert (ISSUE_TEMPLATE_DIR / 'bug-report.yml').is_file()
     assert (ISSUE_TEMPLATE_DIR / 'feature-request.yml').is_file()
     assert (ISSUE_TEMPLATE_DIR / 'sensor-support.yml').is_file()
+    assert (ISSUE_TEMPLATE_DIR / 'first-map-validation.yml').is_file()
     assert 'Benchmark Result Submissions' in contributing
     assert 'Autoware Naming And Trademark Guidance' in contributing
     assert 'Autoware-compatible pointcloud map' in contributing
@@ -329,6 +355,29 @@ def test_contributing_and_issue_templates_exist():
     assert 'Product Contract And Supported Scope' in issue_config
     assert 'Usage Support' in issue_config
     assert 'Report A Security Vulnerability' in issue_config
+
+    bug_form = (ISSUE_TEMPLATE_DIR / 'bug-report.yml').read_text(
+        encoding='utf-8'
+    )
+    assert 'lidarslam-map doctor <bag> --json' in bug_form
+    assert '--preflight-only' not in bug_form
+
+    first_map_form = (
+        ISSUE_TEMPLATE_DIR / 'first-map-validation.yml'
+    ).read_text(encoding='utf-8')
+    for field_id in (
+        'independence',
+        'documentation_path',
+        'release_ref',
+        'environment',
+        'command',
+        'result',
+        'verification',
+        'findings',
+        'privacy',
+    ):
+        assert f'id: {field_id}' in first_map_form
+    assert 'Do not upload map geometry.' in first_map_form
 
 
 def test_product_contract_has_bounded_official_surface():
@@ -437,6 +486,7 @@ def test_release_metadata_and_core_package_versions_match():
         'docs/evidence',
         'docs/schemas',
         'docs/real-data-e2e.md',
+        'docs/external-first-map-validation.md',
         'configs/real_data_e2e/driving_slam_mid360_v1.json',
         'docs/distribution.md',
         'docs/rosdistro-release.md',
@@ -458,11 +508,24 @@ def test_release_metadata_and_core_package_versions_match():
         'CITATION.cff',
     ):
         assert policy in release_bundle_script
+    assert 'scripts/check_external_first_map_readiness.py' in (
+        release_bundle_script
+    )
     assert 'actions/configure-pages@v5' in docs_site_workflow
     assert 'actions/upload-pages-artifact@v4' in docs_site_workflow
     assert 'actions/deploy-pages@v4' in docs_site_workflow
     assert 'python3 -m mkdocs build --strict' in docs_site_workflow
     assert 'README.md' in docs_site_workflow
+
+    rosdistro_release = ROSDISTRO_RELEASE_DOC.read_text(encoding='utf-8')
+    assert f'maintained through v{version}' in rosdistro_release
+    for package_name in (
+        'lidarslam_msgs',
+        'scanmatcher',
+        'graph_based_slam',
+        'lidarslam',
+    ):
+        assert f'| `{package_name}` | {version} |' in rosdistro_release
 
     package_paths = [
         REPO_ROOT / 'lidarslam' / 'package.xml',
@@ -494,6 +557,10 @@ def test_release_metadata_and_core_package_versions_match():
     )
     assert (
         'Docker first-map evidence: evidence/docker-first-map-2026-07-28.md'
+        in mkdocs_config
+    )
+    assert (
+        'Independent first-map validation: external-first-map-validation.md'
         in mkdocs_config
     )
     assert (
@@ -543,6 +610,23 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'PR #406' in first_map_evidence
     assert 'PR #407' in first_map_evidence
     assert 'independent-user validations' in first_map_evidence
+    first_map_program = EXTERNAL_FIRST_MAP_DOC.read_text(encoding='utf-8')
+    first_map_ledger = json.loads(
+        EXTERNAL_FIRST_MAP_LEDGER.read_text(encoding='utf-8')
+    )
+    first_map_schema = json.loads(
+        EXTERNAL_FIRST_MAP_SCHEMA.read_text(encoding='utf-8')
+    )
+    assert 'Independent First-map Validation issue form' in first_map_program
+    assert '--require-complete' in first_map_program
+    assert 'Do not publish map geometry' in first_map_program
+    assert first_map_ledger['schema_version'] == 1
+    assert first_map_ledger['required_validations'] == 3
+    assert isinstance(first_map_ledger['validations'], list)
+    assert first_map_schema['properties']['required_validations']['const'] == 3
+    assert first_map_schema['definitions']['validation']['properties'][
+        'independent_attestation'
+    ]['const'] is True
     assert "'docs/evidence'," in RELEASE_BUNDLE_SCRIPT.read_text(
         encoding='utf-8'
     )
@@ -642,6 +726,15 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'BuildKit provenance' in distribution_doc
     assert 'There is currently no supported' in distribution_doc
     assert 'rko_lio' in distribution_doc
+    assert 'Official PRBonn `rko_lio` `0.3.2-1` packages exist' in (
+        distribution_doc
+    )
+    rosdistro_release_doc = ROSDISTRO_RELEASE_DOC.read_text(encoding='utf-8')
+    assert '`rko_lio` | official PRBonn `0.3.2-1` release exists' in (
+        rosdistro_release_doc
+    )
+    assert '`PRBonn/rko_lio`' in rosdistro_release_doc
+    assert '`ndt_omp_ros2`' in rosdistro_release_doc
     assert 'SIGTERM' in reliability_doc
     assert 'exit `143`' in reliability_doc
     assert 'Automated failure injection' in reliability_doc

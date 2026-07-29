@@ -38,6 +38,19 @@ bash scripts/run_autoware_quickstart.sh
    create the GitHub Release unless both published digests pass the installed
    `lidarslam-map --version` smoke test.
 
+For a v1.0 release, also require the tracked independent-user gate:
+
+```bash
+python3 scripts/check_external_first_map_readiness.py --require-complete
+```
+
+Prerelease candidates validate the ledger without pretending that 0/3 is
+complete:
+
+```bash
+python3 scripts/check_external_first_map_readiness.py --json
+```
+
 Build the exact curated bundle before creating a new tag:
 
 ```bash

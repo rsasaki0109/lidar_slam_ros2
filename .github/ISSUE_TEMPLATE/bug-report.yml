@@ -14,7 +14,7 @@ body:
     attributes:
       label: Version
       description: Release tag, commit SHA, or container digest.
-      placeholder: v0.6.0 or ec8acf1
+      placeholder: v0.7.0 or 6b89f66
     validations:
       required: true
 
@@ -39,7 +39,7 @@ body:
     id: preflight
     attributes:
       label: Preflight output
-      description: Run the beginner wrapper with --preflight-only.
+      description: Run `lidarslam-map doctor <bag> --json`.
       render: text
     validations:
       required: true

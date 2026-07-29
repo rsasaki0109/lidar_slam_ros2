@@ -1,0 +1,94 @@
+name: Independent First-map Validation
+description: Report a first map completed from the public product documentation.
+title: "[First Map] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing the public first-map path. A successful,
+        independently completed report may count toward the v1.0 adoption
+        gate. Failed attempts are equally useful and will not be hidden.
+        Remove private location data and map geometry before posting.
+
+  - type: checkboxes
+    id: independence
+    attributes:
+      label: Independence
+      options:
+        - label: I am not a lidarslam_ros2 maintainer and did not receive live step-by-step help while completing this run.
+          required: true
+
+  - type: dropdown
+    id: documentation_path
+    attributes:
+      label: Public documentation path
+      options:
+        - Docker First Map
+        - Source quickstart
+        - Own-bag golden path
+    validations:
+      required: true
+
+  - type: input
+    id: release_ref
+    attributes:
+      label: Release, commit, or image digest
+      description: Prefer a release tag or immutable GHCR digest.
+      placeholder: v0.7.0 or ghcr.io/...@sha256:...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, ROS distribution, install method, and relevant hardware.
+      placeholder: Ubuntu 24.04 / amd64 / container-managed ROS / GHCR / i7-12700
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command
+      description: Paste the command copied or derived from the public documentation.
+      render: bash
+    validations:
+      required: true
+
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - PASS — verified first map completed
+        - FAIL — onboarding or mapping did not complete
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification summary
+      description: Paste manifest status, diagnosis status, Autoware verifier summary, and the run_manifest.json SHA-256. Do not upload map geometry.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: findings
+    attributes:
+      label: Findings
+      description: What was unclear, slow, surprising, broken, or especially helpful?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy and reproducibility
+      options:
+        - label: I removed credentials, private location data, and map geometry.
+          required: true
+        - label: The report contains enough version, command, environment, and verification identity for maintainers to review it.
+          required: true

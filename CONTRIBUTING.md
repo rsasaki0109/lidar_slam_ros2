@@ -66,6 +66,12 @@ Use the structured bug, feature, sensor-support, benchmark, or Autoware issue
 form that best matches the request. Usage questions must include the diagnostic
 bundle listed in [SUPPORT.md](SUPPORT.md).
 
+If you completed a first map from the public docs without live maintainer
+guidance, use the
+[independent first-map validation](docs/external-first-map-validation.md)
+form. Passing reports may count toward the v1.0 three-user gate; failed
+attempts are recorded as onboarding findings and are just as valuable.
+
 For Autoware-related reports, include:
 
 - exact map bundle path or a minimal reproduction bundle

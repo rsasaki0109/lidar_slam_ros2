@@ -27,6 +27,10 @@ deterministic and map-quality foundations delivered after v0.6.
   one-hour and eight-hour named-hardware soaks, periodic resource telemetry,
   bounded iteration timeouts, and a real 32 MiB ENOSPC gate publish
   schema-validated evidence.
+- **Independent adoption contract** — a structured first-map issue form,
+  schema-validated public ledger, and strict readiness command reject
+  duplicate reporters, failed runs, and unreviewed evidence while preserving
+  an honest 0/3 status before v1.0.
 - **Map-quality and architecture work** — deterministic offline frontend and
   backend runners, event-driven loop search as the only backend path,
   map-quality metrics, offline refinement, stronger Graph SLAM ownership
@@ -35,9 +39,10 @@ deterministic and map-quality foundations delivered after v0.6.
 
 ### Current boundaries
 
-- ROS buildfarm packages are not yet released because `ndt_omp_ros2` and the
-  maintained `rko_lio` flagship dependency still need an explicit rosdistro
-  release decision.
+- ROS buildfarm packages are not yet released because `ndt_omp_ros2` remains
+  outside rosdistro. Official RKO-LIO `0.3.2-1` binaries now exist for Humble
+  and Jazzy, but clean installed-E2E compatibility with the maintained fork
+  remains a release gate.
 - amd64 is the tested image platform; arm64/Jetson remains evaluation tier.
 - This is a prerelease candidate. The v1.0 external-adoption gate still
   requires three independent users to complete first-map validation.
