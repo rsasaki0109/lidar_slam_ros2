@@ -48,6 +48,8 @@ def test_open_data_benchmark_script_writes_reference_and_metrics():
     assert 'velodyne_transform_node=' in script
     assert 'scanmatcher_node=' in script
     assert 'graph_based_slam_node=' in script
+    assert 'lidarslam_params.effective.yaml' in script
+    assert 'velodyne_params.effective.yaml' in script
     assert '--topic /path' in script
     assert '--topic /modified_path' in script
 

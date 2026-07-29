@@ -976,6 +976,11 @@ ${PACKET_TOPIC}:
   depth: 10
 EOF
 
+EFFECTIVE_MAIN_PARAM="${OUTPUT_DIR}/lidarslam_params.effective.yaml"
+EFFECTIVE_VELODYNE_PARAM="${OUTPUT_DIR}/velodyne_params.effective.yaml"
+cp -- "${TMP_PARAM}" "${EFFECTIVE_MAIN_PARAM}"
+cp -- "${VELODYNE_PARAM}" "${EFFECTIVE_VELODYNE_PARAM}"
+
 LAUNCH_LOG="${OUTPUT_DIR}/lidarslam.launch.log"
 MAP_SAVE_LOG="${OUTPUT_DIR}/map_save.log"
 MAIN_PLAY_LOG="${OUTPUT_DIR}/main_bag_play.log"
@@ -1258,8 +1263,8 @@ python3 "${SCRIPT_DIR}/write_aligned_trajectory_metrics.py" \
   --raw-tum "${RAW_TUM}" \
   --graph-log "${LAUNCH_LOG}" \
   --lidarslam-param "${TMP_PARAM}" \
-  --parameter-file "${TMP_PARAM}" \
-  --parameter-file "${VELODYNE_PARAM}" \
+  --parameter-file "${EFFECTIVE_MAIN_PARAM}" \
+  --parameter-file "${EFFECTIVE_VELODYNE_PARAM}" \
   --benchmark-harness "${BASH_SOURCE[0]}" \
   --runtime-artifact "velodyne_transform_node=${VELODYNE_OVERLAY}/install/velodyne_pointcloud/lib/velodyne_pointcloud/velodyne_transform_node" \
   --runtime-artifact "scanmatcher_node=$(ros2 pkg prefix scanmatcher)/lib/scanmatcher/scanmatcher_node" \
