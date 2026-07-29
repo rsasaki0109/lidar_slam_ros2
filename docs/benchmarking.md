@@ -457,17 +457,21 @@ falls back to Applanix sidecar generation.
 Current Leo Drive packet-path evidence is:
 
 - `driving_30_kmh`, GNSS-only classic path: `APE RMSE 195.285 m`
-- `bag1_front`, `no_imu`: `APE RMSE 0.248 m`
+- `bag1_front`, default GNSS-only path: `APE RMSE 0.139 m`
 - `bag1_front`, native `/sensing/imu/imu_data`: `APE RMSE 0.251 m`
 - `bag6_front`, `no_imu`: `APE RMSE 0.422 m`
 - `bag6_front`, native `/sensing/imu/imu_data`: `APE RMSE 0.365 m`
 
 The important result is that packet IMU deskew is usable on the native
 `all-sensors` bags, but only when the benchmark is replayed conservatively.
-The wrapper now auto-selects `rate=1.0` whenever `--use-imu=true` and `--rate`
-is omitted. The earlier `20m+` regressions were runtime-sensitivity artifacts,
-not a proof that the deskew math itself was fundamentally broken. To reproduce
-the current experimental IMU result on the driving bag:
+The benchmark now defaults to `rate=1.0` for every configuration and
+deterministically prefers a `/front/` packet topic when a bag contains several
+Velodyne streams. The exact-revision
+[bag1 evidence](evidence/leo-drive-packet-benchmark-2026-07-30.md) records the
+input, software, and output hashes. The earlier `20m+` regressions were
+runtime-sensitivity and sensor-selection artifacts, not proof that the deskew
+math itself was fundamentally broken. To reproduce the current experimental
+IMU result on the driving bag:
 
 ```bash
 git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix

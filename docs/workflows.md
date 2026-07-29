@@ -341,9 +341,9 @@ Current reference numbers are:
 - `bag6_front`, `no_imu`: `APE RMSE 0.422 m`
 - `bag6_front`, `imu`: `APE RMSE 0.365 m`
 
-The benchmark wrapper therefore auto-selects `rate=1.0` when `--use-imu=true`
-and `--rate` is omitted. To validate the same A/B automatically on the default
-front-lidar cases, run:
+The benchmark wrapper defaults to `rate=1.0` for all runs and deterministically
+prefers a `/front/` packet stream when several Velodyne topics exist. To
+validate the same A/B automatically on the default front-lidar cases, run:
 
 ```bash
 git clone --depth=1 https://github.com/autowarefoundation/applanix.git /tmp/applanix
