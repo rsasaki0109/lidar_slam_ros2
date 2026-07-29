@@ -68,6 +68,8 @@ REQUIRED_FIELDS = {
     'disagreement_streak',
     'disagreement_measured',
     'correction_applied',
+    'intensity_channel_correlation',
+    'height_channel_correlation',
 }
 QUANTILES = (
     ('min', 0.00),
@@ -148,6 +150,10 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
     applied_corrections: list[float] = []
     applied_longitudinal_corrections: list[float] = []
     applied_lateral_corrections: list[float] = []
+    intensity_channel_correlations: list[float] = []
+    height_channel_correlations: list[float] = []
+    channel_correlation_gaps: list[float] = []
+    missing_channel_score_count = 0
     source_counts: Counter[str] = Counter()
     accepted_count = 0
     ambiguous_count = 0
@@ -159,6 +165,8 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
         qualified_count = 0
         measured_count = 0
         corrected_count = 0
+        channel_score_count = 0
+        missing_file_channel_score_count = 0
         with path.open(newline='', encoding='utf-8') as stream:
             reader = csv.DictReader(stream)
             fields = set(reader.fieldnames or ())
@@ -255,6 +263,40 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
                     raise ValueError(
                         f'{path}:{line_number}: source must not be empty')
                 source_counts[source] += 1
+                if source == 'oriented_grid':
+                    intensity_channel = _finite_float(
+                        row,
+                        'intensity_channel_correlation',
+                        path,
+                        line_number,
+                    )
+                    height_channel = _finite_float(
+                        row,
+                        'height_channel_correlation',
+                        path,
+                        line_number,
+                    )
+                    intensity_available = (
+                        -1.0 <= intensity_channel <= 1.0)
+                    height_available = -1.0 <= height_channel <= 1.0
+                    if not intensity_available and intensity_channel != -2.0:
+                        raise ValueError(
+                            f'{path}:{line_number}: oriented_grid channel '
+                            'intensity correlation must be in [-1, 1] or -2')
+                    if not height_available and height_channel != -2.0:
+                        raise ValueError(
+                            f'{path}:{line_number}: oriented_grid channel '
+                            'height correlation must be in [-1, 1] or -2')
+                    if intensity_available and height_available:
+                        intensity_channel_correlations.append(
+                            intensity_channel)
+                        height_channel_correlations.append(height_channel)
+                        channel_correlation_gaps.append(
+                            height_channel - intensity_channel)
+                        channel_score_count += 1
+                    else:
+                        missing_channel_score_count += 1
+                        missing_file_channel_score_count += 1
                 qualified_count += 1
                 base_qualified_count += 1
                 ambiguous_count += _parse_bool(
@@ -278,6 +320,9 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
             'base_qualified_rows': qualified_count,
             'disagreement_measured_rows': measured_count,
             'correction_applied_rows': corrected_count,
+            'oriented_grid_channel_score_rows': channel_score_count,
+            'oriented_grid_missing_channel_score_rows':
+                missing_file_channel_score_count,
             'correction_duty_cycle': (
                 corrected_count / measured_count
                 if measured_count else None
@@ -287,7 +332,7 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
     margins.sort()
     qualified_total = len(margins)
     return {
-        'schema_version': 4,
+        'schema_version': 5,
         'selection_independent': True,
         'accuracy_metrics_consumed': False,
         'inputs': inputs,
@@ -320,6 +365,16 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
                 _quantiles(applied_longitudinal_corrections),
             'applied_lateral_correction_m_quantiles':
                 _quantiles(applied_lateral_corrections),
+        },
+        'oriented_grid_channels': {
+            'paired_rows': len(channel_correlation_gaps),
+            'missing_rows': missing_channel_score_count,
+            'intensity_correlation_quantiles':
+                _quantiles(intensity_channel_correlations),
+            'height_correlation_quantiles':
+                _quantiles(height_channel_correlations),
+            'height_minus_intensity_quantiles':
+                _quantiles(channel_correlation_gaps),
         },
         'thresholds': {
             format(threshold, 'g'): {

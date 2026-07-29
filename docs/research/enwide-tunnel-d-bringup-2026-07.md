@@ -276,6 +276,15 @@ geometric height consistency while aerosol reflectivity may not. Until that
 hypothesis is tested on both holdouts, the oriented-grid correction remains
 default-off and no new correction threshold is justified.
 
+RKO-LIO `add71ee46322a09139fa95e187d2816ed2c36295` implements that diagnostic
+boundary. The matcher result now retains the intensity and height Pearson
+scores at the selected integer-bin peak while its existing combined score
+continues to drive selection and sub-bin refinement. CSV schema v5 exports
+both channels, and the selection-independent summarizer reports their
+individual distributions and `height - intensity` gap. Missing or
+zero-variance channels are counted explicitly rather than treated as valid
+correlations.
+
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet
 reproduced COIN-LIO on the identical converted input.
