@@ -47,9 +47,14 @@
     kinematic_blend_speed_gate_min_scans: 3
     kinematic_blend_speed_reenable_delay_sec: 60.0
     kinematic_blend_min_speed: 0.3
+    # Walking keeps the within-scan acceleration-magnitude variance well above
+    # 0.03 even when tunnel ICP falsely reports zero velocity. A real stationary
+    # interval in the validation bag remains below 0.01.
+    kinematic_blend_min_accel_magnitude_variance: 0.03
 
-    # Clear the straight-motion prior after 10 consecutive scan intervals over
-    # the yaw threshold. Single-scan IMU vibration does not trip the gate.
+    # Suspend translation correction after 10 consecutive scan intervals over
+    # the yaw threshold and rotate the retained velocity prior into the new
+    # world direction. Single-scan IMU vibration does not trip the gate.
     kinematic_blend_max_yaw_rate_rad_s: 0.05
     kinematic_blend_yaw_gate_min_scans: 10
 
