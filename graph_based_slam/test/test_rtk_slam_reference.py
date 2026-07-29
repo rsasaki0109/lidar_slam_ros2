@@ -197,6 +197,10 @@ def test_generated_reference_scores_as_ground_truth(tmp_path):
     assert meta['source'] == 'rtk_slam_test_gt'
     assert meta['kind'] == 'ground_truth'
     assert meta['checkpoint_count'] == 12
+    assert meta['reference_point_frame'] == 'base_center'
+    assert meta['imu_to_reference_translation_m'] == {
+        'x': -0.073, 'y': -0.023, 'z': -0.172}
+    assert 'calib/calib.yaml' in meta['reference_translation_source']
 
     # Build an estimate that differs from GT by a pure rigid translation, which
     # SE(3) alignment removes -> RMSE ~ 0 over the sparse checkpoint set.

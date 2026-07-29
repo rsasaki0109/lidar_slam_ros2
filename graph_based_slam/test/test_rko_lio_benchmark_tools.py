@@ -37,6 +37,7 @@ import math
 from pathlib import Path
 import struct
 import subprocess
+import sys
 
 import yaml
 
@@ -44,6 +45,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REFERENCE_SCRIPT = REPO_ROOT / 'scripts' / 'generate_ntu_viral_tnp01_reference.py'
 WRITE_METRICS_SCRIPT = REPO_ROOT / 'scripts' / 'write_rko_lio_benchmark_metrics.py'
+sys.path.insert(0, str(REPO_ROOT / 'scripts'))
 
 
 def _load_module(path: Path, name: str):
@@ -56,6 +58,8 @@ def _load_module(path: Path, name: str):
 
 
 REFERENCE_MODULE = _load_module(REFERENCE_SCRIPT, 'generate_ntu_viral_tnp01_reference')
+WRITE_METRICS_MODULE = _load_module(
+    WRITE_METRICS_SCRIPT, 'write_rko_lio_benchmark_metrics')
 
 
 def _write_binary_xyz_pcd(path, points):
@@ -157,6 +161,17 @@ def test_reference_parser_derives_existing_prism_offset(tmp_path):
     )
 
 
+def test_metrics_writer_prefers_generic_reference_offset():
+    metadata = {
+        'imu_to_reference_translation_m': {'x': 1, 'y': 2, 'z': 3},
+        'imu_to_prism_translation_m': {'x': 9, 'y': 9, 'z': 9},
+    }
+    assert WRITE_METRICS_MODULE._trajectory_offset(metadata, 'imu') == {
+        'x': 1, 'y': 2, 'z': 3}
+    assert WRITE_METRICS_MODULE._infer_reference_kind(
+        'rtk_slam_construction_seq1_gt', {}) == 'ground_truth'
+
+
 def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
     """The metrics writer should emit a report-consumable metrics.json."""
     bag_dir = tmp_path / 'bag'
@@ -164,11 +179,13 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
     (bag_dir / 'metadata.yaml').write_text(
         '\n'.join([
             'rosbag2_bagfile_information:',
+            '  storage_identifier: sqlite3',
             '  duration:',
             '    nanoseconds: 2000000000',
         ]),
         encoding='utf-8',
     )
+    (bag_dir / 'data.db3').write_bytes(b'synthetic bag payload')
     out_dir = tmp_path / 'bench'
     out_dir.mkdir()
     _create_map_bundle(out_dir)
@@ -246,6 +263,10 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
             'body',
             '--wall-sec',
             '1.0',
+            '--runtime-artifact',
+            'test_runtime=/bin/true',
+            '--benchmark-harness',
+            str(WRITE_METRICS_SCRIPT),
         ],
         capture_output=True,
         text=True,
@@ -268,6 +289,11 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
     assert metrics['rko_lio']['available'] is True
     assert metrics['rko_lio']['trajectory_source_frame'] == 'body'
     assert metrics['rko_lio']['prism_offset_m']['x'] == -0.293656
+    assert metrics['schema_version'] == 1
+    assert metrics['reference']['kind'] == 'ground_truth'
+    assert metrics['provenance']['input']['bag']['identity_algorithm'] == 'sha256'
+    assert metrics['provenance']['software']['runtime_artifacts'][0][
+        'label'] == 'test_runtime'
 
 
 def test_write_lo_metrics_sets_scanmatcher_payload(tmp_path):

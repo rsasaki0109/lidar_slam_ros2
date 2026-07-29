@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from benchmark_provenance import bag_identity, file_identity, software_identity
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 VERIFY_SCRIPT = REPO_ROOT / 'scripts' / 'verify_autoware_map.py'
@@ -111,6 +113,26 @@ def _fmt_path(path: Path | None) -> str:
     return str(path) if path is not None else ''
 
 
+def _trajectory_offset(metadata: dict[str, Any], frame: str) -> dict[str, Any] | None:
+    """Return the generic reference-point offset, with legacy prism fallback."""
+    return (
+        metadata.get(f'{frame}_to_reference_translation_m')
+        or metadata.get(f'{frame}_to_prism_translation_m')
+    )
+
+
+def _infer_reference_kind(source: str, metadata: dict[str, Any]) -> str:
+    explicit = metadata.get('kind')
+    if explicit:
+        return str(explicit)
+    lowered = source.strip().lower()
+    if 'gt' in lowered or 'ground_truth' in lowered:
+        return 'ground_truth'
+    if 'glim' in lowered or 'cross' in lowered:
+        return 'cross_validation'
+    return 'unknown'
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -210,6 +232,24 @@ def main() -> int:
         help='Output metrics path (default: <out-dir>/metrics.json)',
     )
     parser.add_argument(
+        '--parameter-file',
+        action='append',
+        default=[],
+        help='Effective parameter file to identify; repeat for multiple files.',
+    )
+    parser.add_argument(
+        '--runtime-artifact',
+        action='append',
+        default=[],
+        metavar='LABEL=PATH',
+        help='Runtime executable/library to identify; repeat for multiple artifacts.',
+    )
+    parser.add_argument(
+        '--benchmark-harness',
+        default='',
+        help='Benchmark wrapper/script to identify for release provenance.',
+    )
+    parser.add_argument(
         '--pipeline',
         default='rko_lio',
         choices=('rko_lio', 'lo', 'small_gicp'),
@@ -278,8 +318,9 @@ def main() -> int:
 
     bag_duration_sec = _bag_duration_seconds(bag_path / 'metadata.yaml')
     reference_meta_data = _read_reference_meta(reference_meta) if reference_meta else {}
-    trajectory_offset = reference_meta_data.get(
-        f'{args.trajectory_source_frame}_to_prism_translation_m')
+    trajectory_offset = _trajectory_offset(
+        reference_meta_data, args.trajectory_source_frame)
+    reference_source = reference_meta_data.get('source', args.reference_source)
     raw_ape = _parse_ape_report(raw_ape_path)
     corrected_ape = _parse_ape_report(corrected_ape_path)
     map_verify = _verify_map(out_dir / 'pointcloud_map')
@@ -307,6 +348,11 @@ def main() -> int:
         }
 
     metrics: dict[str, Any] = {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/benchmark-metrics-v1.schema.json'
+        ),
         'started_at': args.started_at or None,
         'started_at_unix': args.started_at_unix,
         'pipeline': args.pipeline,
@@ -317,7 +363,8 @@ def main() -> int:
         'imu_topic': args.imu_topic,
         'frames': frames,
         'reference': {
-            'source': reference_meta_data.get('source', args.reference_source),
+            'source': reference_source,
+            'kind': _infer_reference_kind(reference_source, reference_meta_data),
             'tum_path': str(reference_tum),
             'topic': reference_meta_data.get('topic', '/leica/pose/relative'),
             'meta_path': _fmt_path(reference_meta),
@@ -413,6 +460,39 @@ def main() -> int:
             'raw_ape': raw_ape,
         },
     }
+
+    if args.runtime_artifact:
+        runtime_artifacts: list[tuple[str, Path]] = []
+        for value in args.runtime_artifact:
+            label, separator, path = value.partition('=')
+            if not separator or not label or not path:
+                parser.error('--runtime-artifact must be LABEL=PATH')
+            runtime_artifacts.append(
+                (label, Path(path).expanduser().resolve()))
+        parameter_files = [
+            Path(path).expanduser().resolve()
+            for path in (
+                args.parameter_file
+                or [str(lidarslam_param), str(rko_param)]
+            )
+        ]
+        harness_path = (
+            Path(args.benchmark_harness).expanduser().resolve()
+            if args.benchmark_harness else Path(__file__).resolve()
+        )
+        metrics['provenance'] = {
+            'input': {
+                'bag': bag_identity(bag_path),
+                'reference_trajectory': file_identity(reference_tum),
+            },
+            'software': software_identity(
+                REPO_ROOT,
+                parameter_files=parameter_files,
+                runtime_artifacts=runtime_artifacts,
+                benchmark_harness=harness_path,
+                metrics_writer=Path(__file__).resolve(),
+            ),
+        }
 
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_path.write_text(

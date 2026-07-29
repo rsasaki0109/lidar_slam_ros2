@@ -33,6 +33,11 @@ from pathlib import Path
 REQUIRED_COLUMNS = ('point_id', 'easting', 'northing', 'height', 'env', 'timestamp')
 _NUMERIC_REQUIRED = ('easting', 'northing', 'height', 'timestamp')
 
+# Official RTK-SLAM calibration: the public evaluation expects trajectory
+# positions at the robot base center, while RKO-LIO's identity-extrinsic
+# benchmark preset reports the IMU origin.
+IMU_TO_REFERENCE_TRANSLATION_M = (-0.073, -0.023, -0.172)
+
 
 def parse_checkpoints(text: str) -> list[dict]:
     """Parse RTK-SLAM checkpoint CSV text into a list of dicts (by column name)."""
@@ -124,6 +129,13 @@ def build_reference(csv_path: Path, sequence: str) -> tuple[list[str], dict]:
         ),
         'sequence': sequence,
         'frame': 'local_enu_from_utm',
+        'reference_point_frame': 'base_center',
+        'imu_to_reference_translation_m': dict(
+            zip('xyz', IMU_TO_REFERENCE_TRANSLATION_M)
+        ),
+        'reference_translation_source': (
+            'RTK-SLAM calib/calib.yaml reference_offsets.base_center'
+        ),
         'units': 'meters',
         'local_origin_utm': origin,
         'checkpoint_count': len(local),
