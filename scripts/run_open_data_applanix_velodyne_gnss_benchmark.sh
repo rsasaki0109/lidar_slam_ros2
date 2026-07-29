@@ -532,7 +532,10 @@ ensure_velodyne_overlay() {
   local overlay_dir="$1"
   local ros_distro_name="$2"
 
-  if [[ -f "${overlay_dir}/install/setup.bash" ]]; then
+  if bash "${SCRIPT_DIR}/prepare_velodyne_pointcloud_overlay.sh" \
+    --overlay-dir "${overlay_dir}" \
+    --check >/dev/null 2>&1
+  then
     return 0
   fi
   bash "${SCRIPT_DIR}/prepare_velodyne_pointcloud_overlay.sh" \

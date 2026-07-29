@@ -71,6 +71,7 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert '--ros-domain-id ID' in script
     assert 'create_main_param' in script
     assert 'terminate_pid()' in script
+    assert '--check >/dev/null 2>&1' in script
     assert 'velodyne_transform_node' in script
     assert 'convert_applanix_gsof49_to_tf_bag.py' in script
     assert 'convert_applanix_gsof_to_imu_bag.py' in script

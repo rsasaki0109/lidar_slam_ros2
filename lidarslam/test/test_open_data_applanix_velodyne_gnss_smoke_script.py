@@ -29,6 +29,7 @@
 
 """Regression tests for the Applanix + Velodyne open-data GNSS smoke flow."""
 
+import subprocess
 from pathlib import Path
 
 
@@ -73,6 +74,7 @@ def test_applanix_velodyne_smoke_script_supports_overlay_bootstrap():
     assert 'prepare_velodyne_pointcloud_overlay.sh' in script
     assert '--skip-prepare-overlay' in script
     assert 'ensure_velodyne_overlay' in script
+    assert '--check >/dev/null 2>&1' in script
     assert 'resolve_velodyne_msg_dir' in script
     assert 'velodyne_msgs definitions not found' in script
     assert 'velodyne_msgs/msg/VelodyneScan' in script
@@ -97,4 +99,73 @@ def test_overlay_preparation_script_stays_minimal_and_public():
 
     assert 'https://github.com/ros-drivers/velodyne.git' in script
     assert 'https://github.com/ros/diagnostics.git' in script
-    assert '--packages-select diagnostic_updater velodyne_msgs velodyne_pointcloud' in script
+    assert 'https://github.com/ros/angles.git' in script
+    assert '--check' in script
+    assert 'overlay_is_ready' in script
+    assert 'velodyne_transform_node" ]]' in script
+    assert 'params/VLP16db.yaml" ]]' in script
+    assert 'colcon --log-base "${OVERLAY_DIR}/log" build \\\n' in script
+    assert (
+        '--packages-select angles diagnostic_updater velodyne_msgs '
+        'velodyne_pointcloud'
+    ) in script
+    assert (
+        'set +u\n'
+        '# shellcheck source=/dev/null\n'
+        'source "/opt/ros/${ROS_DISTRO_NAME}/setup.bash"\n'
+        'set -u\n'
+    ) in script
+
+
+def test_overlay_check_rejects_partial_install(tmp_path):
+    """A partial colcon install must not be mistaken for a ready overlay."""
+    setup = tmp_path / 'install' / 'setup.bash'
+    setup.parent.mkdir(parents=True)
+    setup.touch()
+
+    result = subprocess.run(
+        [
+            'bash', str(OVERLAY_SCRIPT),
+            '--overlay-dir', str(tmp_path),
+            '--check',
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert 'velodyne overlay is incomplete' in result.stderr
+
+
+def test_overlay_check_accepts_complete_install(tmp_path):
+    """Readiness should cover messages, runtime, and calibration."""
+    required_files = [
+        tmp_path / 'install' / 'setup.bash',
+        tmp_path / 'install' / 'velodyne_msgs' / 'share' /
+        'velodyne_msgs' / 'msg' / 'VelodyneScan.msg',
+        tmp_path / 'install' / 'velodyne_pointcloud' / 'share' /
+        'velodyne_pointcloud' / 'params' / 'VLP16db.yaml',
+    ]
+    executable = (
+        tmp_path / 'install' / 'velodyne_pointcloud' / 'lib' /
+        'velodyne_pointcloud' / 'velodyne_transform_node'
+    )
+    for path in [*required_files, executable]:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+    executable.chmod(0o755)
+
+    result = subprocess.run(
+        [
+            'bash', str(OVERLAY_SCRIPT),
+            '--overlay-dir', str(tmp_path),
+            '--check',
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert f'overlay_ready: {tmp_path}' in result.stdout
