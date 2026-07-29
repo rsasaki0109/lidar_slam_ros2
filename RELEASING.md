@@ -114,6 +114,20 @@ Two GitHub Actions workflows matter for release:
   Retain the prior release's JSON assets as the last-known-good recovery
   record; do not move a tag to perform rollback.
 
+After creating the GitHub Release, the workflow runs an independent,
+read-only publication audit:
+
+```bash
+python3 scripts/check_published_release.py --require-published
+```
+
+It requires a non-draft, non-prerelease v0.9 release, resolves the tag commit,
+downloads exactly the six release assets, validates every JSON schema and
+cross-file identity, and verifies the embedded bundle manifest against every
+archived file size and SHA-256. HTTP/API failures are `BLOCKED`; only explicit
+tag/release 404 responses mean `NOT_PUBLISHED`. Retain the uploaded
+`published-release-audit.json` Actions artifact with the release evidence.
+
 The curated bundle contains `release-bundle-manifest-v1.json`, including the
 exact tag commit and every bundled file hash. The image build emits an OCI
 SBOM and maximum-mode BuildKit provenance. GitHub artifact attestations cover

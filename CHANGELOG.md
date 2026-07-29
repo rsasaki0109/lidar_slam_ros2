@@ -26,7 +26,9 @@ distribution, publication, and external-adoption work.
 - **Operationally honest distribution** — docs distinguish ROS testing from
   the normal main repository, preserve exact dependency and candidate state,
   and withhold the beginner apt command until main-channel installation
-  evidence passes.
+  evidence passes. A post-publication audit validates the stable release,
+  tag commit, all image/rollback/promotion records, and every archived bundle
+  file hash before publication evidence is accepted.
 - **Extensible degeneracy research boundary** — the oriented appearance
   matcher exposes separate intensity/height diagnostics behind default-off
   adapters. Fog and tunnel holdouts did not justify automatic channel

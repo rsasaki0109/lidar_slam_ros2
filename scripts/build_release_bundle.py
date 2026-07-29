@@ -67,6 +67,7 @@ RELEASE_IMPLEMENTATION_FILES = (
     '.github/workflows/release.yml',
     'scripts/build_release_bundle.py',
     'scripts/check_package_manager_install.py',
+    'scripts/check_published_release.py',
     'scripts/create_release_image_record.py',
     'scripts/check_external_first_map_readiness.py',
     'scripts/check_ndt_omp_release_readiness.py',

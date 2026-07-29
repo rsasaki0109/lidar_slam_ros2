@@ -286,6 +286,9 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ needs.metadata.outputs.tag_name }}
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.metadata.outputs.tag_name }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -300,7 +303,7 @@ jobs:
       - name: Install Python test dependency
         shell: bash
         run: |
-          python3 -m pip install --upgrade pytest
+          python3 -m pip install --upgrade pytest jsonschema
 
       - name: Validate release docs
         shell: bash
@@ -364,3 +367,21 @@ jobs:
             ${{ needs.metadata.outputs.bundle_name }}
             release_image_evidence/*.json
             release-promotion.json
+
+      - name: Verify published release and recovery assets
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/check_published_release.py \
+            --version "${{ needs.metadata.outputs.version }}" \
+            --require-published \
+            --output-json published-release-audit.json
+
+      - name: Upload published release audit
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ needs.metadata.outputs.tag_name }}-published-release-audit
+          path: published-release-audit.json
+          retention-days: 90
+          if-no-files-found: error

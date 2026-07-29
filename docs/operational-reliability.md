@@ -264,7 +264,16 @@ The source and clean-install execution is recorded in the
 The following readiness rows remain incomplete and must not be inferred from
 the termination coverage:
 
-- the first tagged release execution that publishes the new rollback assets.
+- the first tagged release execution that publishes the new rollback assets
+  and passes `scripts/check_published_release.py --require-published`.
+
+That read-only audit validates the stable GitHub Release, immutable tag
+commit, both image records, both digest-only rollback plans, applied
+two-image promotion, and the deterministic bundle's complete embedded hash
+inventory. Its report follows
+[`published-release-v1.schema.json`](schemas/published-release-v1.schema.json).
+A missing release is distinct from a network/API failure, and a release with
+one missing, malformed, duplicated, or cross-version asset is `BLOCKED`.
 
 See the [pinned real-data E2E contract](real-data-e2e.md) and the
 [v0.9 roadmap](roadmap/v0.9.md) for the remaining Phase 3 and v1.0 gates.
