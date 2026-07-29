@@ -110,6 +110,8 @@ def test_combines_inputs_and_ignores_unqualified_rows(tmp_path):
     )
     assert len(result['inputs']) == 2
     assert all(len(item['sha256']) == 64 for item in result['inputs'])
+    assert result['inputs'][0]['correction_duty_cycle'] is None
+    assert result['inputs'][1]['correction_duty_cycle'] == 1.0
 
 
 def test_rejects_legacy_csv_without_base_qualified(tmp_path):

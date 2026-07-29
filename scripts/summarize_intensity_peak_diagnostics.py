@@ -157,6 +157,8 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
     for path in paths:
         row_count = 0
         qualified_count = 0
+        measured_count = 0
+        corrected_count = 0
         with path.open(newline='', encoding='utf-8') as stream:
             reader = csv.DictReader(stream)
             fields = set(reader.fieldnames or ())
@@ -183,6 +185,7 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
                         f'{path}:{line_number}: correction_applied requires '
                         'disagreement_measured')
                 if disagreement_measured:
+                    measured_count += 1
                     intensity_longitudinal = _finite_float(
                         row,
                         'intensity_velocity_longitudinal_mps',
@@ -224,6 +227,7 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
                         line_number,
                     ))
                 if correction_applied:
+                    corrected_count += 1
                     applied_corrections.append(_finite_float(
                         row,
                         'applied_correction_m',
@@ -272,6 +276,12 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
             'sha256': _sha256(path),
             'rows': row_count,
             'base_qualified_rows': qualified_count,
+            'disagreement_measured_rows': measured_count,
+            'correction_applied_rows': corrected_count,
+            'correction_duty_cycle': (
+                corrected_count / measured_count
+                if measured_count else None
+            ),
         })
 
     margins.sort()

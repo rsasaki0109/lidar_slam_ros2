@@ -247,6 +247,35 @@ configured weight from the correction actually applied after the persistence
 gate. This evidence is intended to support a bounded, information-weighted
 fusion policy without using public TunnelD accuracy to select its thresholds.
 
+Three schema-v4 fog repetitions measured 1,653 usable velocity disagreements
+per run. Correction duty cycle was 67.70%, 70.84%, and 69.51% despite
+byte-distinct outputs, confirming that the high activation rate is robust to
+the known parallel nondeterminism. Across the three runs, median velocity
+disagreement was 0.543 m/s and median applied correction was 0.0697 m per
+scan; applied-correction p99 was 0.209 m and the maximum was 0.312 m. The
+signed longitudinal correction was strongly negative (median −0.0545 m per
+corrected scan). Input SHA-256 hashes are recorded in
+`intensity_grid_v6_diag_schema_v4/fog_summary.json`; no accuracy metric was
+consumed.
+
+One full tunnel schema-v4 run then measured 3,106 usable disagreements and
+2,066 corrections, a 66.52% duty cycle. Median velocity disagreement was
+0.543 m/s, median applied correction was 0.0738 m, p99 was 0.279 m, and the
+maximum was 0.437 m. Its diagnostic SHA-256 is
+`d29945ae21e47aef282012b356b33c23019e66ef4f23209d07683b4e248fec6c`.
+The fog and tunnel correction distributions are therefore too similar for a
+velocity-gap threshold or fixed correction cap to classify whether texture
+is physically trustworthy. Temporal smoothness does not rescue this policy:
+fog correlations are stronger and smoother than tunnel correlations, so a
+generic temporal-confidence gate would preferentially trust the harmful fog
+signal.
+
+The next matcher diagnostic must expose the intensity and height channel
+scores separately at the selected 2D peak. A fixed scene should retain
+geometric height consistency while aerosol reflectivity may not. Until that
+hypothesis is tested on both holdouts, the oriented-grid correction remains
+default-off and no new correction threshold is justified.
+
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet
 reproduced COIN-LIO on the identical converted input.
