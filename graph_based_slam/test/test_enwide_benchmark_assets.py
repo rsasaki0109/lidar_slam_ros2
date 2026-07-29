@@ -47,6 +47,10 @@ RUNNER = ROOT / 'scripts' / 'run_enwide_sota_benchmark.sh'
 RKO_CONFIG = (
     ROOT / 'configs' / 'enwide' / 'rko_lio_os0_degenerate_sota_v1.yaml'
 )
+RKO_INTENSITY_V2 = (
+    ROOT / 'configs' / 'enwide'
+    / 'rko_lio_os0_intensity_exploratory_v2.yaml'
+)
 
 
 def _profile():
@@ -63,6 +67,7 @@ def test_enwide_profile_preregisters_no_external_velocity_track():
     assert set(profile['track']['forbidden_modalities']) == {
         'radar', 'wheel_odometry', 'gnss', 'camera',
     }
+    assert profile['track']['maximum_interpolation_time_gap_s'] == 0.11
     assert profile['execution_contract']['parameter_policy'] == (
         'one_frozen_parameter_set'
     )
@@ -124,6 +129,25 @@ def test_enwide_rko_config_uses_official_os0_extrinsic_and_no_external_velocity(
     assert config['radar_velocity_continuous_fusion'] is False
 
 
+def test_enwide_exploratory_v2_only_adds_existing_intensity_gate():
+    baseline = yaml.safe_load(RKO_CONFIG.read_text())
+    candidate = yaml.safe_load(RKO_INTENSITY_V2.read_text())
+    added = {
+        key: value for key, value in candidate.items()
+        if key not in baseline
+    }
+    assert added == {
+        'intensity_disagreement_gate': True,
+        'intensity_disagreement_min_mps': 0.2,
+        'intensity_disagreement_min_scans': 3,
+        'intensity_disagreement_weight': 1.0,
+    }
+    assert {
+        key: value for key, value in candidate.items()
+        if key in baseline
+    } == baseline
+
+
 def test_enwide_runner_exposes_only_dataset_output_and_repetition_options():
     completed = subprocess.run(
         ['bash', str(RUNNER), '--help'],
@@ -140,6 +164,8 @@ def test_enwide_runner_exposes_only_dataset_output_and_repetition_options():
     text = RUNNER.read_text()
     assert 'd5793a58dd8bd6743b5173172cd2ae2086d44e03' in text
     assert '--completion-end-margin-secs 1.0' in text
+    assert '--max-time-gap 0.11' in text
+    assert 'warning: position-only scoring failed' in text
     assert '--skip-map-save' in text
     assert "'sota_claim_allowed': False" in text
     assert 'export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-87}"' in text

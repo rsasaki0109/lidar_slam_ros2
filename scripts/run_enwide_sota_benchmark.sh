@@ -203,10 +203,13 @@ for ((index = 1; index <= RUNS; ++index)); do
   set -e
   printf '%s\n' "${exit_status}" >"${run_dir}.exit_status"
   if [[ -s "${run_dir}/traj_raw_prism.tum" ]]; then
-    python3 "${SCRIPT_DIR}/score_position_only_trajectory.py" \
-      --reference "${GT}" \
-      --estimate "${run_dir}/traj_raw_prism.tum" \
-      --output "${run_dir}/position_score.json"
+    if ! python3 "${SCRIPT_DIR}/score_position_only_trajectory.py" \
+        --reference "${GT}" \
+        --estimate "${run_dir}/traj_raw_prism.tum" \
+        --output "${run_dir}/position_score.json" \
+        --max-time-gap 0.11; then
+      echo "warning: position-only scoring failed for repetition ${index}" >&2
+    fi
   fi
 done
 

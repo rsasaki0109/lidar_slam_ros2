@@ -108,3 +108,39 @@ def test_association_reports_missing_ground_truth_fraction(tmp_path):
     )
     assert result['association']['matched_poses'] == len(estimate)
     assert result['association']['matched_ground_truth_fraction'] < 0.9
+
+
+def test_nominal_10_hz_timestamp_jitter_does_not_fragment_rte(tmp_path):
+    reference_stamps = np.arange(0.0, 25.0, 0.005)
+    reference_positions = np.column_stack((
+        reference_stamps,
+        np.zeros_like(reference_stamps),
+        np.zeros_like(reference_stamps),
+    ))
+    estimate_stamps = np.arange(0.0, 25.0, 0.10005)
+    estimate_positions = np.column_stack((
+        estimate_stamps,
+        np.zeros_like(estimate_stamps),
+        np.zeros_like(estimate_stamps),
+    ))
+    reference = tmp_path / 'reference.tum'
+    estimate = tmp_path / 'estimate.tum'
+    reference.write_text('\n'.join(
+        f'{stamp:.9f} {x:.9f} {y:.9f} {z:.9f} 0 0 0 1'
+        for stamp, (x, y, z) in zip(reference_stamps, reference_positions)
+    ) + '\n')
+    estimate.write_text('\n'.join(
+        f'{stamp:.9f} {x:.9f} {y:.9f} {z:.9f} 0 0 0 1'
+        for stamp, (x, y, z) in zip(estimate_stamps, estimate_positions)
+    ) + '\n')
+
+    result = SCORER.score(
+        reference,
+        estimate,
+        segment_length=10.0,
+        max_time_gap=0.11,
+    )
+
+    assert result['association']['contiguous_blocks'] == 1
+    assert result['association']['matched_ground_truth_fraction'] > 0.99
+    assert result['trajectory']['rte_segments'] > 0

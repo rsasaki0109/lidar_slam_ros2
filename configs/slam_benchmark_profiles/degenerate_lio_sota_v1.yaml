@@ -18,6 +18,7 @@ degenerate_lio_sota_profile:
     alignment: se3_no_scale
     ground_truth: position_only_leica_ms60
     segment_length_m: 10.0
+    maximum_interpolation_time_gap_s: 0.11
     rte_aggregation: segment_mean
     failure_rte_percent: 20.0
   execution_contract:
