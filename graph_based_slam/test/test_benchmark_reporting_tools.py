@@ -412,6 +412,84 @@ def test_release_readiness_can_skip_expensive_stages(tmp_path):
     assert 'Release readiness checks completed' in result.stdout
 
 
+def test_release_readiness_fails_closed_without_threshold_evidence(tmp_path):
+    """A requested APE gate must not pass with an empty benchmark root."""
+    benchmark_root = tmp_path / 'empty'
+    benchmark_root.mkdir()
+    out_dir = tmp_path / 'release_readiness'
+
+    result = _run_release_readiness(
+        '--skip-default-ci',
+        '--benchmark-root',
+        str(benchmark_root),
+        '--out-dir',
+        str(out_dir),
+        '--ape-threshold',
+        '0.10',
+    )
+
+    assert result.returncode == 2
+    assert 'requested benchmark gate has no evidence' in result.stderr
+    assert not (out_dir / 'benchmark_report.html').exists()
+
+
+def test_release_readiness_allows_empty_report_only_benchmark_root(tmp_path):
+    """No metrics may be skipped only when no benchmark hard gate is active."""
+    benchmark_root = tmp_path / 'empty'
+    benchmark_root.mkdir()
+    out_dir = tmp_path / 'release_readiness'
+
+    result = _run_release_readiness(
+        '--skip-default-ci',
+        '--benchmark-root',
+        str(benchmark_root),
+        '--out-dir',
+        str(out_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert 'benchmark reporting is skipped' in result.stdout
+
+
+def test_release_readiness_rejects_skipping_a_requested_gate(tmp_path):
+    """An option conflict must not silently disable the APE gate."""
+    result = _run_release_readiness(
+        '--skip-default-ci',
+        '--skip-benchmark-summary',
+        '--ape-threshold',
+        '0.10',
+        '--out-dir',
+        str(tmp_path / 'out'),
+    )
+
+    assert result.returncode == 2
+    assert 'cannot disable a requested benchmark gate' in result.stderr
+
+
+def test_release_readiness_requires_profile_for_hard_profile_gate(tmp_path):
+    """A hard profile gate must identify an existing profile."""
+    no_profile = _run_release_readiness(
+        '--skip-default-ci',
+        '--no-release-profile',
+        '--fail-on-profiles',
+        '--out-dir',
+        str(tmp_path / 'no_profile'),
+    )
+    missing_profile = _run_release_readiness(
+        '--skip-default-ci',
+        '--release-profile',
+        str(tmp_path / 'missing.yaml'),
+        '--fail-on-profiles',
+        '--out-dir',
+        str(tmp_path / 'missing_profile'),
+    )
+
+    assert no_profile.returncode == 2
+    assert 'requires an active --release-profile' in no_profile.stderr
+    assert missing_profile.returncode == 2
+    assert 'release profile not found' in missing_profile.stderr
+
+
 def test_synthetic_fixture_generator_drives_release_gate(tmp_path):
     """The synthetic fixture generator should produce gate-ready artifacts."""
     benchmark_root = tmp_path / 'fixture'

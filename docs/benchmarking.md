@@ -725,11 +725,18 @@ That wrapper can run:
 
 With `--ape-threshold`, the gate is hard:
 
+- it exits non-zero if `--benchmark-root` contains no `metrics.json` evidence
 - it exits non-zero if any selected run is missing APE
 - it exits non-zero if any selected run exceeds the threshold
 - by default `run_release_readiness_checks.sh` applies that hard gate only to
   `ground_truth` runs; `cross_validation` runs stay visible in reports without
   blocking release
+
+`--fail-on-profiles` is fail-closed in the same way and requires an active,
+existing release-profile YAML. Neither hard benchmark gate can be combined
+with `--skip-benchmark-summary`. Without `--ape-threshold` or
+`--fail-on-profiles`, an empty benchmark root remains report-only and the
+wrapper records that benchmark reporting was skipped.
 
 For the public MID-360 segment-reset completion evidence, add:
 

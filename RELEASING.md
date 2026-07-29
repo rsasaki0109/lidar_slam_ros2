@@ -26,6 +26,13 @@ bash scripts/run_release_readiness_checks.sh --skip-default-ci --ape-threshold 0
 bash scripts/run_autoware_quickstart.sh
 ```
 
+The benchmark command is fail-closed: `--ape-threshold` and
+`--fail-on-profiles` require at least one `metrics.json` below
+`--benchmark-root`. An empty benchmark root is a release failure, and
+`--skip-benchmark-summary` cannot be used to bypass either hard gate. Generate
+or restore the release-candidate benchmark evidence before running this check;
+omitting the hard-gate options leaves an empty root report-only.
+
 3. Push the branch and verify GitHub Actions are green.
    Also inspect the cross-phase product audit; release candidates may remain
    `NOT_READY`, but an invalid contract must stop the release:
