@@ -29,8 +29,8 @@
 
 """Regression tests for the Applanix + Velodyne open-data GNSS smoke flow."""
 
-import subprocess
 from pathlib import Path
+import subprocess
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
