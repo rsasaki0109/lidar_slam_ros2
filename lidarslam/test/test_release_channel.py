@@ -37,6 +37,7 @@ import subprocess
 import sys
 
 import pytest
+import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -86,3 +87,38 @@ def test_release_workflow_uses_classified_channel():
     assert 'scripts/release_channel.py "${VERSION}"' in workflow
     assert 'prerelease=${PRERELEASE}' in workflow
     assert "needs.metadata.outputs.prerelease == 'true'" in workflow
+
+
+def test_github_workflows_reject_duplicate_yaml_keys():
+    """Workflow mappings must not rely on parser-specific duplicate-key rules."""
+
+    class UniqueKeyLoader(yaml.SafeLoader):
+        pass
+
+    def construct_unique_mapping(loader, node, deep=False):
+        loader.flatten_mapping(node)
+        mapping = {}
+        for key_node, value_node in node.value:
+            key = loader.construct_object(key_node, deep=deep)
+            if key in mapping:
+                raise ValueError(
+                    f'duplicate YAML key {key!r} at line '
+                    f'{key_node.start_mark.line + 1}'
+                )
+            mapping[key] = loader.construct_object(value_node, deep=deep)
+        return mapping
+
+    UniqueKeyLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+        construct_unique_mapping,
+    )
+    workflows = sorted((ROOT / '.github' / 'workflows').glob('*.yml'))
+    assert workflows
+    for path in workflows:
+        try:
+            yaml.load(
+                path.read_text(encoding='utf-8'),
+                Loader=UniqueKeyLoader,
+            )
+        except (ValueError, yaml.YAMLError) as exc:
+            pytest.fail(f'{path.relative_to(ROOT)}: {exc}')
