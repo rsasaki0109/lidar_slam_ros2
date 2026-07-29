@@ -145,6 +145,7 @@ V4 is the first completed three-repetition candidate.
 | v2 + alias diagnostics, margin disabled | 22.5956 | 64.6661 | 99.579% | 2.765 | 513.4 |
 | schema-v2 alias v4, three-run median | 20.8877 | 65.1782 | 99.579% | 2.750 | 614.1 |
 | overlap-local Pearson v5, early-stop run | 22.5613 | 63.9480 | 99.579% | 2.678 | 512.8 |
+| oriented reflectivity/height grid v6, early-stop run | 22.3123 | 63.7724 | 99.579% | 2.643 | 642.9 |
 
 V4 completed all three runs. ATE ranged from 20.3902 to 20.9202 m, while RTE
 ranged from 63.3531% to 66.7671%. It rejected 17 or 18 ambiguous shifts and
@@ -224,6 +225,15 @@ Together with the fog run, these results satisfy the pre-accuracy diagnostic
 gate: both sequences complete, shifts remain well inside the search window,
 and the added runtime is bounded. V6 may proceed to one public TunnelD
 early-stop run using its already-frozen parameters.
+
+The v6 public early-stop run accepted 1,170 grid shifts, rejected four
+search-boundary results from correction, and corrected 1,001 scans. Unlike
+the NTNU diagnostics, ENWIDE reached both longitudinal and lateral search
+limits; the saturation guard operated as intended. V6 improves both metrics
+over v5 but does not beat v4's best run (20.3902 m ATE and 63.3531% RTE), so
+the pre-run rule stops evaluation after one repetition. The reusable 2D
+matcher remains, default-off, as an extension boundary; the current
+high-duty-cycle disagreement policy is rejected as a SOTA candidate.
 
 The published COIN-LIO TunnelD reference is 0.487 m ATE and 1.59% RTE. These
 numbers are only an external reference because the local scorer has not yet
