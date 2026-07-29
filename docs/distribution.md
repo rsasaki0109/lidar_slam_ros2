@@ -238,8 +238,9 @@ There is currently no supported
 `sudo apt install ros-<distro>-lidarslam` golden path. Two packaging gates
 remain:
 
-1. `ndt_omp_ros2`, which is a declared build dependency, must be released
-   before the four core packages.
+1. `ndt_omp_ros2`, which is a declared build dependency, is release-ready at
+   pinned commit `8b77fa5` but must still be tagged, Bloom-released, and
+   accepted into rosdistro before the four core packages.
 2. Official PRBonn `rko_lio 0.3.2-1` passed the clean installed golden-path
    E2E on Humble and Jazzy. `lidarslam` now declares
    `rko_lio >= 0.3.2`, but that version must sync from ROS testing to main

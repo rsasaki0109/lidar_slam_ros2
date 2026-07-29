@@ -29,7 +29,7 @@ bloom's upstream import) excludes — intended.
 | rclcpp, rclcpp_components, tf2\*, \*_msgs, pcl_conversions, std_srvs | released ROS packages | none |
 | `libg2o` | released (`ros-<distro>-libg2o`; verified 2026-06-11: `rosdep resolve libg2o` → `ros-humble-libg2o` on jammy, `ros-jazzy-libg2o` on noble) | none |
 | `libpcl-all-dev` | standard rosdep key (system PCL) | none |
-| **`ndt_omp_ros2`** | **not in rosdistro** | **bloom-release it first** (see below) |
+| **`ndt_omp_ros2`** | **not in rosdistro**; upstream fork `0.1.0` metadata and Humble/Jazzy Bloom/deb gates are ready at `8b77fa5` | tag `0.1.0`, bloom-release, and submit it first (see below) |
 | `rko_lio` | PRBonn `0.3.2-1` is registered and built in testing for Humble/Jazzy; main currently has Humble `0.3.0` and Jazzy `0.2.0`; declared as `rko_lio >= 0.3.2` after the official-binary gate passed | wait for `0.3.2` to sync to main before the normal apt path |
 
 This table was rechecked directly against the
@@ -55,11 +55,15 @@ The dependency is consumed as the submodule
 maintained by the same owner, BSD licensed, with a unique name in rosdistro.
 Before the first lidarslam release, in the fork repo:
 
-1. Bump `package.xml` `<version>` from `0.0.0` to `0.1.0`, set the SPDX
-   license string (`BSD-2-Clause`), and add/confirm a reachable
-   `<maintainer>` (rosdistro review requires one).
-2. Tag and bloom-release it into `humble` and `jazzy` (same procedure as
-   below, separate release repo `ndt_omp_ros2-release`).
+1. Confirm fork commit `8b77fa5` is green. Its package metadata is `0.1.0`
+   with `BSD-2-Clause`, a reachable fork maintainer, `CHANGELOG.rst`, exported
+   `ndt_omp` CMake target, and installed-consumer tests. Public
+   [CI run 30369808717](https://github.com/rsasaki0109/ndt_omp_ros2/actions/runs/30369808717)
+   passed the Humble and Jazzy build/test plus Bloom-generated Debian package
+   gate.
+2. Create and push tag `0.1.0`, then bloom-release it into `humble` and
+   `jazzy` (same procedure as below, separate release repository
+   `ndt_omp_ros2-release`). Do not tag the parent `lidarslam_ros2` repository.
 3. Wait for the rosdistro PR to merge; the lidarslam release can be submitted
    as soon as the key exists in the distribution file (it does not need to be
    built yet).
