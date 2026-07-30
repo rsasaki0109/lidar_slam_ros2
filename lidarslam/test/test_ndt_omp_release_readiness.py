@@ -108,7 +108,31 @@ def test_partial_publication_is_in_progress():
     )
 
     assert report['status'] == 'IN_PROGRESS'
-    assert any('jazzy' in action for action in report['actions'])
+    assert any(
+        'PR #52950 (jazzy)' in action
+        and 'do not recreate the source tag or rerun Bloom' in action
+        for action in report['actions']
+    )
+    assert not any(
+        action.startswith('Bloom-release') for action in report['actions'])
+
+
+def test_generated_prs_are_waited_on_without_repeating_bloom():
+    report = PREFLIGHT.evaluate_readiness(
+        local=_local(),
+        remote=_remote(
+            tag=True,
+            release_repo=True,
+            humble=False,
+            jazzy=False,
+        ),
+    )
+
+    assert report['status'] == 'IN_PROGRESS'
+    assert len(report['actions']) == 2
+    assert 'PR #52949 (humble)' in report['actions'][0]
+    assert 'PR #52950 (jazzy)' in report['actions'][1]
+    assert all('rerun Bloom' in action for action in report['actions'])
 
 
 def test_complete_publication_is_released():

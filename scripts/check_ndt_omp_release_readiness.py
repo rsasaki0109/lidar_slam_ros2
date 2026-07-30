@@ -33,6 +33,10 @@ SCHEMA_URI = (
 SOURCE_REPOSITORY = 'rsasaki0109/ndt_omp_ros2'
 RELEASE_REPOSITORY = 'rsasaki0109/ndt_omp_ros2-release'
 DISTROS = ('humble', 'jazzy')
+ROSDISTRO_PULL_REQUESTS = {
+    'humble': 52949,
+    'jazzy': 52950,
+}
 
 
 class PreflightError(ValueError):
@@ -349,10 +353,23 @@ def evaluate_readiness(
                 actions.append('Create and initialize ndt_omp_ros2-release.')
             for distro in DISTROS:
                 if not remote_report['rosdistro'][distro]:
-                    actions.append(
-                        f'Bloom-release ndt_omp_ros2 for {distro} and merge '
-                        'the rosdistro entry.'
-                    )
+                    if (
+                        remote_report['source_tag_present']
+                        and remote_report['release_repository_present']
+                    ):
+                        pr_number = ROSDISTRO_PULL_REQUESTS[distro]
+                        actions.append(
+                            f'Wait for ros/rosdistro PR #{pr_number} '
+                            f'({distro}) to merge; do not recreate the source '
+                            'tag or rerun Bloom while this generated PR is '
+                            'current.'
+                        )
+                    else:
+                        actions.append(
+                            f'After the source tag and release repository are '
+                            f'ready, Bloom-release ndt_omp_ros2 for {distro} '
+                            'and merge the generated rosdistro entry.'
+                        )
 
     report = {
         'schema_version': 1,
@@ -387,7 +404,7 @@ def _summary(report: dict[str, Any]) -> str:
         lines.extend([
             f"Remote branch: {remote['origin_branch_commit']}",
             f"Source tag present: {remote['source_tag_present']}",
-            f"Release repository present: "
+            f'Release repository present: '
             f"{remote['release_repository_present']}",
             f"rosdistro: {remote['rosdistro']}",
         ])

@@ -40,6 +40,10 @@ distribution, publication, and external-adoption work.
   Newer College row now names the official form-gated Maths-Hard sequence and
   its ICP-to-survey-map ground truth instead of incorrectly describing it as
   prism ground truth.
+- **Idempotent publication guidance** — the live `ndt_omp_ros2` release audit
+  now points at the already-generated Humble/Jazzy rosdistro PRs and explicitly
+  forbids recreating the source tag or rerunning Bloom while those PRs remain
+  current.
 - **Extensible degeneracy research boundary** — the oriented appearance
   matcher exposes separate intensity/height diagnostics behind default-off
   adapters. Fog and tunnel holdouts did not justify automatic channel

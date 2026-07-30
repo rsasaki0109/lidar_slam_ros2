@@ -20,8 +20,10 @@ The generated registration pull requests are:
 - Humble: [ros/rosdistro#52949](https://github.com/ros/rosdistro/pull/52949)
 - Jazzy: [ros/rosdistro#52950](https://github.com/ros/rosdistro/pull/52950)
 
-Both PRs were mergeable and all automated checks were passing when reviewed
-on 2026-07-30. They remain external maintainer actions. This evidence records
-progress only; the distribution gate stays incomplete until the live audit
-reports `RELEASED`, RKO-LIO 0.3.2 is present in the normal apt repository,
-and the package-manager install/upgrade E2E passes.
+Both PRs were still open and mergeable, with every automated check passing,
+when reviewed again on 2026-07-31. The live audit now names those existing PRs
+and explicitly forbids recreating the immutable source tag or rerunning Bloom
+while they remain current. They remain external maintainer actions. This
+evidence records progress only; the distribution gate stays incomplete until
+the live audit reports `RELEASED`, RKO-LIO 0.3.2 is present in the normal apt
+repository, and the package-manager install/upgrade E2E passes.
