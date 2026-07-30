@@ -145,6 +145,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_rtk_slam_accuracy_suite
+    test/test_rtk_slam_accuracy_suite.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_place_recognition_benchmark_script
     test/test_place_recognition_benchmark_script.py
     TIMEOUT 120

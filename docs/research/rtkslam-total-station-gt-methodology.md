@@ -37,6 +37,23 @@ GT + 例軌跡: github.com/Willyzw/rtk-slam-eval（数 MB の git clone で取�
   低速 = submap が立たない）がギャップに落ちて採点不能。公開ベースラインも
   dense 形式で採点されており土俵が同じ。
 
+## 再現用 accuracy suite
+
+シーケンスごとの RKO-LIO preset、疎 checkpoint の association、bag 終端判定を
+手入力せず、リポジトリ管理の contract から実行する。
+
+```bash
+python3 scripts/download_rtk_slam_dataset.py --sequence construction_seq2 \
+  --eval-assets
+python3 scripts/run_rtk_slam_accuracy_suite.py --dry-run
+python3 scripts/run_rtk_slam_accuracy_suite.py
+```
+
+既定は最小の `construction_seq2`。複数は `--sequence` を繰り返し、全4本は
+`--sequence all` を使う。大容量データを別ディスクに置く場合だけ
+`--dataset-root <rtk_slam>` を指定する。exact command は `suite_plan.json`、
+最終結果は `suite_summary.json` および各シーケンスの `metrics.json` に残る。
+
 ## 結果(自前 RKO-LIO、v0.5 時点)
 
 | シーケンス | 環境 | config | chkpt | RMSE (m) | median | 公開手法(参考) |
