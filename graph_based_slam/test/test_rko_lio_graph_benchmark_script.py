@@ -34,9 +34,12 @@ from __future__ import annotations
 from pathlib import Path
 import subprocess
 
+import yaml
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BENCHMARK_SCRIPT = REPO_ROOT / 'scripts' / 'run_rko_lio_graph_benchmark.sh'
+NTU_RKO_PROFILE = REPO_ROOT / 'lidarslam' / 'param' / 'rko_lio_ntu_viral.yaml'
 
 
 def _run_benchmark(*args: str) -> subprocess.CompletedProcess[str]:
@@ -77,6 +80,17 @@ def test_default_graph_profile_is_the_validated_ntu_configuration():
         'DEFAULT_LIDARSLAM_PARAM="${REPO_ROOT}/lidarslam/param/'
         'lidarslam_ntu_viral.yaml"'
     ) in script
+
+
+def test_default_ntu_frontend_profile_keeps_calibration_and_tuned_resolution():
+    """The golden profile must combine official extrinsics with bounded tuning."""
+    profile = yaml.safe_load(NTU_RKO_PROFILE.read_text(encoding='utf-8'))
+    assert profile['extrinsic_lidar2base_quat_xyzw_xyz'] == [
+        0.0, 0.0, 0.0, 1.0, -0.05, 0.0, 0.055,
+    ]
+    assert profile['voxel_size'] == 1.5
+    assert profile['gravity_window_alignment'] is True
+    assert profile['gravity_alignment_gain'] == 0.2
 
 
 def test_trajectory_only_mode_uses_full_dump_as_explicit_passthrough():
