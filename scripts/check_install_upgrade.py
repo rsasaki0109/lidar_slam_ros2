@@ -9,7 +9,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
 import stat
 import subprocess
 import sys
@@ -134,7 +133,19 @@ def _build(
     log_base: Path,
     log_path: Path,
     cmake_build_type: str,
+    source_revision: str | None = None,
+    source_dirty: bool | None = None,
 ) -> dict[str, Any]:
+    cmake_args = [f'-DCMAKE_BUILD_TYPE={cmake_build_type}']
+    if source_revision is not None:
+        cmake_args.append(
+            f'-DLIDARSLAM_SOURCE_REVISION:STRING={source_revision}'
+        )
+    if source_dirty is not None:
+        cmake_args.append(
+            '-DLIDARSLAM_SOURCE_DIRTY:STRING='
+            + ('true' if source_dirty else 'false')
+        )
     return _run_logged(
         [
             'colcon',
@@ -151,7 +162,7 @@ def _build(
             '--event-handlers',
             'console_direct+',
             '--cmake-args',
-            f'-DCMAKE_BUILD_TYPE={cmake_build_type}',
+            *cmake_args,
         ],
         log_path,
         REPO_ROOT,
@@ -293,6 +304,8 @@ def run(args: argparse.Namespace) -> int:
             work / 'upgrade-log',
             evidence_dir / 'upgrade-build.log',
             args.cmake_build_type,
+            candidate_commit,
+            candidate_dirty,
         )
 
         print('==> Building fresh candidate comparison prefix')
@@ -303,6 +316,8 @@ def run(args: argparse.Namespace) -> int:
             work / 'fresh-log',
             evidence_dir / 'fresh-build.log',
             args.cmake_build_type,
+            candidate_commit,
+            candidate_dirty,
         )
 
         upgraded_snapshot = (
@@ -323,6 +338,8 @@ def run(args: argparse.Namespace) -> int:
                 str(INSTALL_CHECKER),
                 '--prefix',
                 str(upgrade_prefix),
+                '--expected-source-revision',
+                candidate_commit,
             ],
             evidence_dir / 'upgrade-validation.log',
             REPO_ROOT,
@@ -338,6 +355,8 @@ def run(args: argparse.Namespace) -> int:
                 str(INSTALL_CHECKER),
                 '--prefix',
                 str(fresh_prefix),
+                '--expected-source-revision',
+                candidate_commit,
             ],
             evidence_dir / 'fresh-validation.log',
             REPO_ROOT,

@@ -133,6 +133,43 @@ def test_git_commands_scope_safe_directory_to_repository():
     ]
 
 
+def test_candidate_build_forwards_explicit_source_provenance(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    observed = {}
+
+    def fake_run_logged(command, log_path, cwd):
+        observed['command'] = command
+        observed['log_path'] = log_path
+        observed['cwd'] = cwd
+        return {'exit_code': 0}
+
+    monkeypatch.setattr(module, '_run_logged', fake_run_logged)
+    revision = 'a' * 40
+    result = module._build(
+        tmp_path / 'source',
+        tmp_path / 'build',
+        tmp_path / 'install',
+        tmp_path / 'log',
+        tmp_path / 'build.log',
+        'Release',
+        revision,
+        False,
+    )
+
+    assert result == {'exit_code': 0}
+    assert (
+        f'-DLIDARSLAM_SOURCE_REVISION:STRING={revision}'
+        in observed['command']
+    )
+    assert (
+        '-DLIDARSLAM_SOURCE_DIRTY:STRING=false'
+        in observed['command']
+    )
+
+
 def test_compare_reports_stale_missing_and_mode_drift(tmp_path: Path):
     module = _load_module()
     upgraded = tmp_path / 'upgraded'
