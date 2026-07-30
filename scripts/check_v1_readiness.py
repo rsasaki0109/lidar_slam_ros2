@@ -57,6 +57,19 @@ EXPECTED_GATE_IDS = {
     'external-adoption',
     'release-publication',
 }
+NDT_RELEASE_STATUSES = {
+    'LOCAL_READY',
+    'READY_TO_TAG',
+    'IN_PROGRESS',
+    'RELEASED',
+    'BLOCKED',
+}
+PUBLISHED_RELEASE_STATUSES = {
+    'NOT_PUBLISHED',
+    'IN_PROGRESS',
+    'PUBLISHED',
+    'BLOCKED',
+}
 SEMVER_PATTERN = re.compile(r'^[0-9]+\.[0-9]+\.[0-9]+$')
 
 
@@ -94,17 +107,58 @@ def _version_tuple(value: str) -> tuple[int, int, int]:
     return tuple(int(part) for part in value.split('.'))  # type: ignore[return-value]
 
 
-def _external_checker() -> Any:
-    path = REPO_ROOT / 'scripts' / 'check_external_first_map_readiness.py'
+def _load_checker(repo_root: Path, filename: str, module_name: str) -> Any:
+    path = repo_root / 'scripts' / filename
     spec = importlib.util.spec_from_file_location(
-        'external_first_map_readiness_for_v1',
+        module_name,
         path,
     )
     if spec is None or spec.loader is None:
-        raise ReadinessError(f'cannot load external readiness checker: {path}')
+        raise ReadinessError(f'cannot load readiness checker: {path}')
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        raise ReadinessError(
+            f'cannot load readiness checker {path}: {exc}') from exc
     return module
+
+
+def _external_checker(repo_root: Path) -> Any:
+    return _load_checker(
+        repo_root,
+        'check_external_first_map_readiness.py',
+        'external_first_map_readiness_for_v1',
+    )
+
+
+def inspect_live_publication(
+    *,
+    repo_root: Path,
+    product_version: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Run both authoritative, read-only publication audits."""
+    ndt_checker = _load_checker(
+        repo_root,
+        'check_ndt_omp_release_readiness.py',
+        'ndt_omp_release_readiness_for_v1',
+    )
+    release_checker = _load_checker(
+        repo_root,
+        'check_published_release.py',
+        'published_release_for_v1',
+    )
+    try:
+        ndt_report = ndt_checker.evaluate_readiness(repo_root=repo_root)
+        snapshot = release_checker.inspect_remote(product_version)
+        published_report = release_checker.evaluate_publication(
+            version=product_version,
+            snapshot=snapshot,
+        )
+    except Exception as exc:
+        raise ReadinessError(
+            f'live publication audit could not be trusted: {exc}') from exc
+    return ndt_report, published_report
 
 
 def _git_tags(repo_root: Path) -> set[str]:
@@ -153,6 +207,9 @@ def evaluate_readiness(
     ledger_schema_path: Path = DEFAULT_LEDGER_SCHEMA,
     tags: set[str] | None = None,
     external_report: dict[str, Any] | None = None,
+    require_live_publication: bool = False,
+    ndt_release_report: dict[str, Any] | None = None,
+    published_release_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Validate the contract and return one deterministic readiness report."""
     repo_root = repo_root.resolve()
@@ -184,7 +241,7 @@ def evaluate_readiness(
     tag_present = expected_tag in available_tags
 
     if external_report is None:
-        checker = _external_checker()
+        checker = _external_checker(repo_root)
         try:
             external_report = checker.validate_ledger(
                 ledger_path,
@@ -193,6 +250,24 @@ def evaluate_readiness(
         except checker.LedgerError as exc:
             raise ReadinessError(
                 f'external first-map ledger invalid: {exc}') from exc
+
+    if require_live_publication:
+        if ndt_release_report is None or published_release_report is None:
+            raise ReadinessError(
+                'live publication reports are required for strict evaluation')
+        ndt_status = ndt_release_report.get('status')
+        published_status = published_release_report.get('status')
+        if ndt_status not in NDT_RELEASE_STATUSES:
+            raise ReadinessError(
+                f'NDT live publication report has invalid status: {ndt_status!r}')
+        if published_status not in PUBLISHED_RELEASE_STATUSES:
+            raise ReadinessError(
+                'lidarslam live publication report has invalid status: '
+                f'{published_status!r}'
+            )
+    else:
+        ndt_status = None
+        published_status = None
 
     gate_reports: list[dict[str, Any]] = []
     for gate in contract['gates']:
@@ -226,6 +301,34 @@ def evaluate_readiness(
                 if dynamic not in blockers:
                     blockers.append(dynamic)
 
+        if gate['id'] == 'distribution' and require_live_publication:
+            complete = complete and ndt_status == 'RELEASED'
+            detail = (
+                f'Tracked distribution attestation; live ndt_omp_ros2 '
+                f'release status={ndt_status}.'
+            )
+            if ndt_status != 'RELEASED':
+                dynamic = (
+                    'Live ndt_omp_ros2 release audit must report RELEASED; '
+                    f'observed {ndt_status}.'
+                )
+                if dynamic not in blockers:
+                    blockers.append(dynamic)
+
+        if gate['id'] == 'reliability' and require_live_publication:
+            complete = complete and published_status == 'PUBLISHED'
+            detail = (
+                'Tracked reliability attestation; live stable-release '
+                f'status={published_status}.'
+            )
+            if published_status != 'PUBLISHED':
+                dynamic = (
+                    'Live stable-release audit must report PUBLISHED; '
+                    f'observed {published_status}.'
+                )
+                if dynamic not in blockers:
+                    blockers.append(dynamic)
+
         if gate['id'] == 'release-publication':
             complete = (
                 gate['state'] == 'complete'
@@ -233,10 +336,14 @@ def evaluate_readiness(
                 and tag_present
                 and not missing
             )
+            if require_live_publication:
+                complete = complete and published_status == 'PUBLISHED'
             detail = (
                 f'VERSION={product_version}; minimum={minimum_version}; '
                 f'expected local tag={expected_tag}; '
-                f'tag_present={str(tag_present).lower()}.'
+                f'tag_present={str(tag_present).lower()}; '
+                'live stable-release status='
+                f'{published_status if require_live_publication else "not inspected"}.'
             )
             if not minimum_version_met:
                 blockers.append(
@@ -245,6 +352,13 @@ def evaluate_readiness(
             if not tag_present:
                 blockers.append(
                     f'Immutable release tag {expected_tag} is not present.')
+            if require_live_publication and published_status != 'PUBLISHED':
+                dynamic = (
+                    'Live stable-release audit must report PUBLISHED; '
+                    f'observed {published_status}.'
+                )
+                if dynamic not in blockers:
+                    blockers.append(dynamic)
 
         gate_reports.append({
             'id': gate['id'],
@@ -278,6 +392,11 @@ def evaluate_readiness(
             'minimum_version_met': minimum_version_met,
             'tag_present': tag_present,
         },
+        'publication_audits': {
+            'inspected': require_live_publication,
+            'ndt_omp_ros2_status': ndt_status,
+            'lidarslam_release_status': published_status,
+        },
         'external_first_map': external_report,
         'gates': gate_reports,
     }
@@ -296,6 +415,16 @@ def render_markdown(report: dict[str, Any]) -> str:
             '- Complete gates: '
             f"**{report['summary']['complete']} / "
             f"{report['summary']['total']}**"
+        ),
+        (
+            '- Live publication audits: '
+            '**'
+            + (
+                'inspected'
+                if report['publication_audits']['inspected']
+                else 'not inspected'
+            )
+            + '**'
         ),
         '',
         '| Gate | Status | Detail |',
@@ -349,9 +478,17 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument('--output-json', type=Path)
     parser.add_argument('--output-markdown', type=Path)
     parser.add_argument(
+        '--live',
+        action='store_true',
+        help='Run the read-only NDT and stable-release publication audits.',
+    )
+    parser.add_argument(
         '--require-complete',
         action='store_true',
-        help='Exit 1 unless every v1.0 readiness gate is complete.',
+        help=(
+            'Exit 1 unless every gate is complete; automatically run live '
+            'publication audits before reporting READY.'
+        ),
     )
     return parser.parse_args(argv)
 
@@ -371,6 +508,21 @@ def main(argv: list[str] | None = None) -> int:
             ledger_path=args.ledger,
             ledger_schema_path=args.ledger_schema,
         )
+        if args.live or (args.require_complete and report['status'] == 'READY'):
+            ndt_report, published_report = inspect_live_publication(
+                repo_root=REPO_ROOT,
+                product_version=report['product_version'],
+            )
+            report = evaluate_readiness(
+                contract_path=args.contract,
+                contract_schema_path=args.contract_schema,
+                report_schema_path=args.report_schema,
+                ledger_path=args.ledger,
+                ledger_schema_path=args.ledger_schema,
+                require_live_publication=True,
+                ndt_release_report=ndt_report,
+                published_release_report=published_report,
+            )
     except ReadinessError as exc:
         print(f'v1 readiness audit invalid: {exc}', file=sys.stderr)
         return 2
