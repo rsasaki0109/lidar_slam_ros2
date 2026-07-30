@@ -75,6 +75,11 @@ def test_tracked_contract_reports_exact_open_product_gates():
         'minimum_version_met': True,
         'tag_present': False,
     }
+    assert report['publication_audits'] == {
+        'inspected': False,
+        'ndt_omp_ros2_status': None,
+        'lidarslam_release_status': None,
+    }
 
 
 def test_require_complete_exits_one_for_tracked_state():
@@ -132,6 +137,127 @@ def test_every_complete_gate_can_produce_ready_report(tmp_path):
     assert report['status'] == 'READY'
     assert report['summary']['complete'] == 10
     assert all(gate['blockers'] == [] for gate in report['gates'])
+
+
+@pytest.mark.parametrize(
+    ('ndt_status', 'release_status', 'incomplete'),
+    [
+        ('RELEASED', 'PUBLISHED', set()),
+        ('IN_PROGRESS', 'PUBLISHED', {'distribution'}),
+        (
+            'RELEASED',
+            'NOT_PUBLISHED',
+            {'reliability', 'release-publication'},
+        ),
+    ],
+)
+def test_live_publication_reports_are_required_for_claimed_complete_gates(
+    tmp_path,
+    ndt_status,
+    release_status,
+    incomplete,
+):
+    contract = json.loads(
+        READINESS.DEFAULT_CONTRACT.read_text(encoding='utf-8'))
+    for gate in contract['gates']:
+        gate['state'] = 'complete'
+        gate['blockers'] = []
+        for evidence in gate['evidence']:
+            path = tmp_path / evidence
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch()
+    (tmp_path / 'VERSION').write_text('0.9.0\n', encoding='utf-8')
+    contract_path = tmp_path / 'v1-readiness.json'
+    contract_path.write_text(json.dumps(contract), encoding='utf-8')
+    external = {
+        'status': 'READY',
+        'accepted_validations': 3,
+        'required_validations': 3,
+        'remaining_validations': 0,
+    }
+
+    report = READINESS.evaluate_readiness(
+        repo_root=tmp_path,
+        contract_path=contract_path,
+        tags={'v0.9.0'},
+        external_report=external,
+        require_live_publication=True,
+        ndt_release_report={'status': ndt_status},
+        published_release_report={'status': release_status},
+    )
+
+    observed = {
+        gate['id']
+        for gate in report['gates']
+        if gate['status'] == 'INCOMPLETE'
+    }
+    assert observed == incomplete
+    assert report['status'] == ('NOT_READY' if incomplete else 'READY')
+    assert report['publication_audits'] == {
+        'inspected': True,
+        'ndt_omp_ros2_status': ndt_status,
+        'lidarslam_release_status': release_status,
+    }
+
+
+def test_live_evaluation_fails_without_both_publication_reports(tmp_path):
+    with pytest.raises(
+        READINESS.ReadinessError,
+        match='live publication reports are required',
+    ):
+        READINESS.evaluate_readiness(
+            require_live_publication=True,
+            ndt_release_report={'status': 'RELEASED'},
+        )
+
+
+def test_require_complete_escalates_a_locally_ready_report_to_live(
+    monkeypatch,
+    capsys,
+):
+    reports = [
+        {'status': 'READY', 'product_version': '0.9.0'},
+        {
+            'status': 'NOT_READY',
+            'publication_audits': {
+                'inspected': True,
+                'ndt_omp_ros2_status': 'IN_PROGRESS',
+                'lidarslam_release_status': 'NOT_PUBLISHED',
+            },
+        },
+    ]
+    evaluation_calls = []
+
+    def fake_evaluate(**kwargs):
+        evaluation_calls.append(kwargs)
+        return reports.pop(0)
+
+    monkeypatch.setattr(READINESS, 'evaluate_readiness', fake_evaluate)
+    monkeypatch.setattr(
+        READINESS,
+        'inspect_live_publication',
+        lambda **kwargs: (
+            {'status': 'IN_PROGRESS'},
+            {'status': 'NOT_PUBLISHED'},
+        ),
+    )
+    monkeypatch.setattr(
+        READINESS,
+        'render_markdown',
+        lambda report: f"{report['status']}\n",
+    )
+
+    result = READINESS.main(['--require-complete'])
+
+    assert result == 1
+    assert capsys.readouterr().out == 'NOT_READY\n'
+    assert len(evaluation_calls) == 2
+    assert evaluation_calls[1]['require_live_publication'] is True
+    assert evaluation_calls[1]['ndt_release_report']['status'] == 'IN_PROGRESS'
+    assert (
+        evaluation_calls[1]['published_release_report']['status']
+        == 'NOT_PUBLISHED'
+    )
 
 
 def test_evidence_cannot_escape_repository(tmp_path):

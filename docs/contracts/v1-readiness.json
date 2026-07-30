@@ -55,6 +55,7 @@
         "docs/distribution.md",
         "docs/evidence/official-rko-binary-compatibility-2026-07-29.json",
         "docs/evidence/ndt-omp-release-preflight-2026-07-29.md",
+        "docs/evidence/ndt-omp-release-progress-2026-07-30.md",
         "docs/rosdistro-release.md",
         "scripts/check_ndt_omp_release_readiness.py",
         "docs/schemas/ndt-omp-release-readiness-v1.schema.json",
@@ -63,7 +64,7 @@
         "docs/schemas/package-manager-install-v1.schema.json"
       ],
       "blockers": [
-        "Release ndt_omp_ros2 0.1.0 into Humble and Jazzy rosdistro.",
+        "Merge ros/rosdistro PR #52949 for Humble and #52950 for Jazzy.",
         "Wait for rko_lio 0.3.2 to sync from testing to the normal apt repository.",
         "Run the package-manager install and upgrade E2E for lidarslam_ros2."
       ]

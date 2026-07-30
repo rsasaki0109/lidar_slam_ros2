@@ -55,9 +55,14 @@ The dependency is consumed as the submodule
 `https://github.com/rsasaki0109/ndt_omp_ros2` (branch `humble`) — a fork
 maintained by the same owner, BSD licensed, with a unique name in rosdistro.
 Before the first lidarslam release, use the following maintainer sequence.
-The source repository currently has no `0.1.0` tag and
-`rsasaki0109/ndt_omp_ros2-release` does not exist (checked 2026-07-30), so
-all first-release steps below are required.
+The `0.1.0` source tag and
+[`rsasaki0109/ndt_omp_ros2-release`](https://github.com/rsasaki0109/ndt_omp_ros2-release)
+now exist. Bloom generated both distribution tracks, and the remaining
+publication work is the maintainer review and merge of
+[Humble PR #52949](https://github.com/ros/rosdistro/pull/52949) and
+[Jazzy PR #52950](https://github.com/ros/rosdistro/pull/52950). The live
+preflight therefore reports `IN_PROGRESS`, not `READY_TO_TAG` or `RELEASED`
+(checked 2026-07-30).
 
 Run the read-only preflight immediately before doing any publication work:
 
@@ -90,14 +95,13 @@ The checker is read-only; it never creates a tag, repository, or PR.
    [CI run 30369808717](https://github.com/rsasaki0109/ndt_omp_ros2/actions/runs/30369808717)
    passed the Humble and Jazzy build/test plus Bloom-generated Debian package
    gate.
-2. Create and push source tag `0.1.0`, then create the separate
-   `ndt_omp_ros2-release` repository.
-3. Run one new Bloom track for each ROS distribution. Since the repository is
-   not yet in either distribution file, pass the release repository URL
-   explicitly.
-4. Wait for the rosdistro PR to merge; the lidarslam release can be submitted
-   as soon as the key exists in the distribution file (it does not need to be
-   built yet).
+2. The source tag `0.1.0` and separate `ndt_omp_ros2-release` repository are
+   complete. Do not recreate or move the tag.
+3. The Humble and Jazzy Bloom tracks are complete. Do not rerun Bloom while
+   the generated rosdistro PRs are current and green.
+4. Wait for both rosdistro PRs to merge; the lidarslam release can be
+   submitted as soon as the keys exist in both distribution files (the
+   packages do not need to be built yet).
 
 #### NDT 0.1.0 exact commands
 

@@ -15,13 +15,18 @@ For automation:
 
 ```bash
 python3 scripts/check_v1_readiness.py --json
+python3 scripts/check_v1_readiness.py --live --json
 python3 scripts/check_v1_readiness.py --require-complete
 ```
 
 The normal command reports an honest snapshot and exits zero when the
-contract is valid, even while product work remains. `--require-complete`
-exits 1 unless every gate is complete. An invalid contract, schema, evidence
-path, adoption ledger, version, or git-tag query exits 2.
+contract is valid, even while product work remains. It is deterministic and
+does not contact remote services. `--live` additionally runs the read-only
+NDT rosdistro and stable-release publication audits. `--require-complete`
+exits 1 unless every gate is complete; if local evidence could otherwise
+produce `READY`, it automatically runs those live audits before accepting
+the result. An invalid contract, schema, evidence path, adoption ledger,
+version, git-tag query, or untrustworthy live inspection exits 2.
 
 ## Authoritative inputs
 
@@ -40,8 +45,10 @@ path, adoption ledger, version, or git-tag query exits 2.
   [`ndt-omp-release-readiness-v1.schema.json`](schemas/ndt-omp-release-readiness-v1.schema.json)
   contract. It distinguishes a locally reviewed candidate from
   `READY_TO_TAG`, partial publication, and a completed rosdistro release.
-  The reviewed live result is preserved in
-  [`ndt-omp-release-preflight-2026-07-29.md`](evidence/ndt-omp-release-preflight-2026-07-29.md).
+  The initial and current reviewed results are preserved in
+  [`ndt-omp-release-preflight-2026-07-29.md`](evidence/ndt-omp-release-preflight-2026-07-29.md)
+  and
+  [`ndt-omp-release-progress-2026-07-30.md`](evidence/ndt-omp-release-progress-2026-07-30.md).
 - The package-manager distribution evidence has a versioned
   [`package-manager-install-v1.schema.json`](schemas/package-manager-install-v1.schema.json)
   contract and Humble/Jazzy clean-install/upgrade workflow. It remains an
@@ -55,9 +62,13 @@ path, adoption ledger, version, or git-tag query exits 2.
 The checker verifies that all ten expected gate IDs are present exactly once,
 that evidence paths remain inside the repository and exist, that semantic
 versions and tags align, and that the independent-user ledger passes its own
-schema and uniqueness rules. A tracked `complete` state is therefore an
-audited attestation backed by named evidence—not a substitute for rerunning
-the wider CI, real-data, or release workflows cited by that evidence.
+schema and uniqueness rules. Live evaluation additionally requires
+`ndt_omp_ros2` to report `RELEASED` before the distribution gate can complete,
+and the stable release to report `PUBLISHED` before the reliability or
+release-publication gates can complete. A tracked `complete` state is
+therefore an audited attestation backed by named evidence—not a substitute
+for rerunning the wider CI, real-data, or release workflows cited by that
+evidence.
 
 ## Current snapshot
 
@@ -65,7 +76,7 @@ The tracked state is **NOT_READY: 6/10 gates complete**.
 
 | Open gate | Remaining proof |
 | --- | --- |
-| Distribution | `ndt_omp_ros2` preflight is currently `READY_TO_TAG`; publish it to both rosdistros, wait for official RKO-LIO 0.3.2 to reach the normal apt repository, then run package-manager install/upgrade E2E |
+| Distribution | `ndt_omp_ros2` publication is `IN_PROGRESS`; merge rosdistro PRs [#52949](https://github.com/ros/rosdistro/pull/52949) and [#52950](https://github.com/ros/rosdistro/pull/52950), wait for official RKO-LIO 0.3.2 to reach the normal apt repository, then run package-manager install/upgrade E2E |
 | Reliability | Publish the first tagged release and pass the recovery-asset publication audit |
 | External adoption | Accept three distinct independent first-map validations; current ledger is 0/3 |
 | Release publication | v0.9.0 metadata and notes are aligned; create its immutable tag and pass the stable publication audit |

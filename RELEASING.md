@@ -51,9 +51,11 @@ mutating GitHub or rosdistro:
 python3 scripts/check_ndt_omp_release_readiness.py
 ```
 
-Only `READY_TO_TAG` authorizes proceeding to the separately documented
-maintainer commands; `LOCAL_READY` is the offline CI result, not remote
-publication proof.
+`LOCAL_READY` is the offline CI result, not remote publication proof.
+`READY_TO_TAG` authorizes the initial source-tag and Bloom procedure.
+The current 0.1.0 publication is `IN_PROGRESS`; do not recreate its immutable
+tag or rerun Bloom while the generated Humble and Jazzy rosdistro PRs remain
+current. Only `RELEASED` satisfies this part of the distribution gate.
 
 After Bloom packages enter ROS testing, run
 `.github/workflows/package-manager-install-upgrade.yml` for both Humble and

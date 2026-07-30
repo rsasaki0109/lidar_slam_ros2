@@ -13,6 +13,7 @@
     "minimum_release_candidate_version",
     "summary",
     "release",
+    "publication_audits",
     "external_first_map",
     "gates"
   ],
@@ -79,6 +80,39 @@
         },
         "tag_present": {
           "type": "boolean"
+        }
+      }
+    },
+    "publication_audits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inspected",
+        "ndt_omp_ros2_status",
+        "lidarslam_release_status"
+      ],
+      "properties": {
+        "inspected": {
+          "type": "boolean"
+        },
+        "ndt_omp_ros2_status": {
+          "enum": [
+            null,
+            "LOCAL_READY",
+            "READY_TO_TAG",
+            "IN_PROGRESS",
+            "RELEASED",
+            "BLOCKED"
+          ]
+        },
+        "lidarslam_release_status": {
+          "enum": [
+            null,
+            "NOT_PUBLISHED",
+            "IN_PROGRESS",
+            "PUBLISHED",
+            "BLOCKED"
+          ]
         }
       }
     },
