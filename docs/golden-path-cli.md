@@ -90,6 +90,11 @@ Hashing large bags adds a sequential input read before execution. This is
 deliberate: the manifest identifies the data that was actually processed,
 rather than only the path where it happened to be stored.
 
+Installed commands read Git revision and dirty state from deterministic
+build-time metadata, so moving or deleting the source/build tree does not erase
+software provenance. See
+[Installed source identity](distribution.md#installed-source-identity).
+
 `execution.exit_code` is always the map-workflow exit code.
 `lifecycle.runner_exit_code` is the overall runner result, including
 verification and post-processing. `succeeded` means both the workflow and

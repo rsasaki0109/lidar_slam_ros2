@@ -48,6 +48,7 @@ VALIDATION_RECEIPT_NAMES = {
     'first_map_validation_receipt.json',
     'first_map_validation_receipt.md',
 }
+PRODUCT_BUILD_INFO_PATH = REPO_ROOT / 'product-build-info.json'
 MANIFEST_SCHEMA_VERSION = 2
 MANIFEST_SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
@@ -463,7 +464,29 @@ def _file_identity(path: Path, display_path: str) -> dict[str, object]:
 
 def _git_state() -> dict[str, object]:
     if not SOURCE_LAYOUT:
-        return {'commit': None, 'dirty': None}
+        try:
+            payload = json.loads(
+                PRODUCT_BUILD_INFO_PATH.read_text(encoding='utf-8')
+            )
+        except (OSError, json.JSONDecodeError):
+            return {'commit': None, 'dirty': None}
+        commit = payload.get('revision')
+        dirty = payload.get('dirty')
+        if not (
+            payload.get('schema_version') == 1
+            and payload.get('source') in ('git', 'override', 'unknown')
+            and (
+                commit is None
+                or (
+                    isinstance(commit, str)
+                    and len(commit) == 40
+                    and all(character in '0123456789abcdef' for character in commit)
+                )
+            )
+            and (dirty is None or isinstance(dirty, bool))
+        ):
+            return {'commit': None, 'dirty': None}
+        return {'commit': commit, 'dirty': dirty}
     commit_result = subprocess.run(
         ['git', 'rev-parse', 'HEAD'],
         cwd=REPO_ROOT,
