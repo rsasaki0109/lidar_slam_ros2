@@ -68,6 +68,19 @@ parse_bool() {
   esac
 }
 
+validate_timing_options() {
+  local option value
+  for option in STARTUP_TIMEOUT_SECS SAVE_TIMEOUT_SECS OFFLINE_TIMEOUT_SECS QUIESCENCE_SECS; do
+    value="${!option}"
+    if [[ ! "$value" =~ ^[1-9][0-9]*$ ]]; then
+      fail "${option,,} must be a positive integer."
+    fi
+  done
+  if [[ ! "$COMPLETION_END_MARGIN_SECS" =~ ^([0-9]+([.][0-9]*)?|[.][0-9]+)$ ]]; then
+    fail "--completion-end-margin-secs must be a non-negative finite number."
+  fi
+}
+
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
 WS_ROOT="${REPO_ROOT}"
@@ -219,6 +232,8 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+validate_timing_options
 
 default_benchmark_bag_missing_hint() {
   cat >&2 <<EOF

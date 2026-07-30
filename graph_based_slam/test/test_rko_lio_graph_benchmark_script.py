@@ -135,6 +135,20 @@ def test_rko_lio_benchmark_rejects_invalid_bool_without_usage_dump():
     assert 'Usage:' not in result.stderr
 
 
+def test_rko_lio_benchmark_rejects_unsafe_completion_margin():
+    result = _run_benchmark('--completion-end-margin-secs', 'nan')
+
+    assert result.returncode == 2
+    assert 'must be a non-negative finite number' in result.stderr
+
+
+def test_rko_lio_benchmark_rejects_non_integer_timeout():
+    result = _run_benchmark('--offline-timeout-secs', '1.5')
+
+    assert result.returncode == 2
+    assert 'offline_timeout_secs must be a positive integer' in result.stderr
+
+
 def test_rko_lio_benchmark_reports_missing_bag_without_realpath(tmp_path: Path):
     result = _run_benchmark(
         '--bag',
