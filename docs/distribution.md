@@ -139,7 +139,21 @@ is still in main, run the main-to-testing upgrade before the next sync removes
 that two-version window. Finally rerun clean-install against main after sync.
 Only the last two named-distro artifacts together prove the normal apt path;
 the implemented workflow alone is not evidence that unpublished packages
-exist.
+exist. Each dispatch exposes its exact source ref, product version, apt
+channel, and mode in the immutable workflow run name. After the main-channel
+run completes, verify its public identity and both matrix jobs without
+installing packages locally:
+
+```bash
+python3 scripts/check_package_manager_release_readiness.py \
+  --version "$(tr -d '\n' < VERSION)" \
+  --require-ready
+```
+
+The resulting JSON contract is
+[`package-manager-release-readiness-v1.schema.json`](schemas/package-manager-release-readiness-v1.schema.json).
+GitHub API errors report `BLOCKED`, while absence of the exact successful run
+reports `NOT_RUN`; neither state can satisfy live v1 readiness.
 
 ## Installed source identity
 

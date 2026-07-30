@@ -72,6 +72,15 @@ main-to-testing upgrade evidence before the sync. After sync, repeat
 clean-install against `main`; see `docs/rosdistro-release.md` for exact
 dispatch inputs.
 
+The live v1 gate accepts the normal apt path only after the exact main-channel
+clean-install run succeeds for both named distributions:
+
+```bash
+python3 scripts/check_package_manager_release_readiness.py \
+  --version "$(tr -d '\n' < VERSION)" \
+  --require-ready
+```
+
 4. Set `VERSION="$(tr -d '\n' < VERSION)"` and confirm `CHANGELOG.md`, the
    per-package `CHANGELOG.rst` files, `docs/comparison.md`,
    `docs/releases/v${VERSION}.md`, `CITATION.cff`, and the core package versions

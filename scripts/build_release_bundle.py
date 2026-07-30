@@ -67,10 +67,12 @@ PRODUCT_DOCS = (
 )
 RELEASE_IMPLEMENTATION_FILES = (
     '.github/workflows/package-manager-install-upgrade.yml',
+    'docs/schemas/package-manager-release-readiness-v1.schema.json',
     '.github/workflows/release.yml',
     'scripts/build_release_bundle.py',
     'scripts/check_release_bundle_reproducibility.py',
     'scripts/check_package_manager_install.py',
+    'scripts/check_package_manager_release_readiness.py',
     'scripts/check_published_release.py',
     'scripts/create_release_image_record.py',
     'scripts/check_external_first_map_readiness.py',

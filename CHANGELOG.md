@@ -22,7 +22,9 @@ distribution, publication, and external-adoption work.
   exact ROS apt versions, validates every installed CLI/runtime resource,
   detects stale paths across main-to-testing upgrades, and runs the pinned
   real MID-360 map contract. It remains evidence-open until public
-  lidarslam packages exist.
+  lidarslam packages exist. The live readiness audit now verifies the exact
+  immutable-tag/main-channel run identity and both named-distro jobs, so a
+  workflow definition or hand-edited gate cannot stand in for execution.
 - **Operationally honest distribution** — docs distinguish ROS testing from
   the normal main repository, preserve exact dependency and candidate state,
   and withhold the beginner apt command until main-channel installation

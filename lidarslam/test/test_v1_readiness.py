@@ -140,21 +140,24 @@ def test_every_complete_gate_can_produce_ready_report(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ('ndt_status', 'release_status', 'incomplete'),
+    ('ndt_status', 'release_status', 'package_manager_status', 'incomplete'),
     [
-        ('RELEASED', 'PUBLISHED', set()),
-        ('IN_PROGRESS', 'PUBLISHED', {'distribution'}),
+        ('RELEASED', 'PUBLISHED', 'READY', set()),
+        ('IN_PROGRESS', 'PUBLISHED', 'READY', {'distribution'}),
         (
             'RELEASED',
             'NOT_PUBLISHED',
+            'READY',
             {'reliability', 'release-publication'},
         ),
+        ('RELEASED', 'PUBLISHED', 'NOT_RUN', {'distribution'}),
     ],
 )
 def test_live_publication_reports_are_required_for_claimed_complete_gates(
     tmp_path,
     ndt_status,
     release_status,
+    package_manager_status,
     incomplete,
 ):
     contract = json.loads(
@@ -184,6 +187,7 @@ def test_live_publication_reports_are_required_for_claimed_complete_gates(
         require_live_publication=True,
         ndt_release_report={'status': ndt_status},
         published_release_report={'status': release_status},
+        package_manager_report={'status': package_manager_status},
     )
 
     observed = {
@@ -203,7 +207,7 @@ def test_live_publication_reports_are_required_for_claimed_complete_gates(
 def test_live_evaluation_fails_without_both_publication_reports(tmp_path):
     with pytest.raises(
         READINESS.ReadinessError,
-        match='live publication reports are required',
+        match='live publication and distribution reports are required',
     ):
         READINESS.evaluate_readiness(
             require_live_publication=True,
@@ -252,6 +256,7 @@ def test_require_complete_escalates_a_locally_ready_report_to_live(
         lambda **kwargs: (
             {'status': 'IN_PROGRESS'},
             {'status': 'NOT_PUBLISHED'},
+            {'status': 'NOT_RUN'},
         ),
     )
     monkeypatch.setattr(
@@ -270,6 +275,10 @@ def test_require_complete_escalates_a_locally_ready_report_to_live(
     assert (
         evaluation_calls[1]['published_release_report']['status']
         == 'NOT_PUBLISHED'
+    )
+    assert (
+        evaluation_calls[1]['package_manager_report']['status']
+        == 'NOT_RUN'
     )
 
 

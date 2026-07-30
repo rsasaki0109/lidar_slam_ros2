@@ -1,4 +1,5 @@
 name: package-manager install and upgrade
+run-name: package-manager / ${{ inputs.source_ref }} / ${{ inputs.target_version }} / ${{ inputs.target_channel }} / ${{ inputs.mode }}
 
 on:
   workflow_dispatch:

@@ -22,11 +22,12 @@ python3 scripts/check_v1_readiness.py --require-complete
 The normal command reports an honest snapshot and exits zero when the
 contract is valid, even while product work remains. It is deterministic and
 does not contact remote services. `--live` additionally runs the read-only
-NDT rosdistro and stable-release publication audits. `--require-complete`
-exits 1 unless every gate is complete; if local evidence could otherwise
-produce `READY`, it automatically runs those live audits before accepting
-the result. An invalid contract, schema, evidence path, adoption ledger,
-version, git-tag query, or untrustworthy live inspection exits 2.
+NDT rosdistro, exact Humble/Jazzy main-channel package-manager, and
+stable-release publication audits. `--require-complete` exits 1 unless every
+gate is complete; if local evidence could otherwise produce `READY`, it
+automatically runs those live audits before accepting the result. An invalid
+contract, schema, evidence path, adoption ledger, version, git-tag query, or
+untrustworthy live inspection exits 2.
 
 ## Authoritative inputs
 
@@ -53,6 +54,13 @@ version, git-tag query, or untrustworthy live inspection exits 2.
   [`package-manager-install-v1.schema.json`](schemas/package-manager-install-v1.schema.json)
   contract and Humble/Jazzy clean-install/upgrade workflow. It remains an
   open gate until actual ROS testing/main packages produce passing artifacts.
+  The live
+  `scripts/check_package_manager_release_readiness.py` audit independently
+  requires a successful workflow dispatch named for the exact immutable
+  source tag, product version, `main` apt channel, and `clean-install` mode.
+  Its
+  [`package-manager-release-readiness-v1.schema.json`](schemas/package-manager-release-readiness-v1.schema.json)
+  report requires both named-distro jobs to pass.
 - Release publication and first rollback evidence use the read-only
   `scripts/check_published_release.py` audit and
   [`published-release-v1.schema.json`](schemas/published-release-v1.schema.json).
@@ -63,12 +71,13 @@ The checker verifies that all ten expected gate IDs are present exactly once,
 that evidence paths remain inside the repository and exist, that semantic
 versions and tags align, and that the independent-user ledger passes its own
 schema and uniqueness rules. Live evaluation additionally requires
-`ndt_omp_ros2` to report `RELEASED` before the distribution gate can complete,
-and the stable release to report `PUBLISHED` before the reliability or
-release-publication gates can complete. A tracked `complete` state is
-therefore an audited attestation backed by named evidence—not a substitute
-for rerunning the wider CI, real-data, or release workflows cited by that
-evidence.
+`ndt_omp_ros2` to report `RELEASED` and the exact main-channel Humble/Jazzy
+package-manager run to report `READY` before the distribution gate can
+complete. It also requires the stable release to report `PUBLISHED` before
+the reliability or release-publication gates can complete. A tracked
+`complete` state is therefore an audited attestation backed by named
+evidence—not a substitute for rerunning the wider CI, real-data, or release
+workflows cited by that evidence.
 
 ## Current snapshot
 

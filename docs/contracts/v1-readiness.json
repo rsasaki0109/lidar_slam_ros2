@@ -61,7 +61,9 @@
         "docs/schemas/ndt-omp-release-readiness-v1.schema.json",
         ".github/workflows/package-manager-install-upgrade.yml",
         "scripts/check_package_manager_install.py",
-        "docs/schemas/package-manager-install-v1.schema.json"
+        "docs/schemas/package-manager-install-v1.schema.json",
+        "scripts/check_package_manager_release_readiness.py",
+        "docs/schemas/package-manager-release-readiness-v1.schema.json"
       ],
       "blockers": [
         "Merge ros/rosdistro PR #52949 for Humble and #52950 for Jazzy.",

@@ -70,6 +70,11 @@ PUBLISHED_RELEASE_STATUSES = {
     'PUBLISHED',
     'BLOCKED',
 }
+PACKAGE_MANAGER_RELEASE_STATUSES = {
+    'NOT_RUN',
+    'READY',
+    'BLOCKED',
+}
 SEMVER_PATTERN = re.compile(r'^[0-9]+\.[0-9]+\.[0-9]+$')
 
 
@@ -136,8 +141,8 @@ def inspect_live_publication(
     *,
     repo_root: Path,
     product_version: str,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Run both authoritative, read-only publication audits."""
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Run the authoritative, read-only publication and distribution audits."""
     ndt_checker = _load_checker(
         repo_root,
         'check_ndt_omp_release_readiness.py',
@@ -148,6 +153,11 @@ def inspect_live_publication(
         'check_published_release.py',
         'published_release_for_v1',
     )
+    package_manager_checker = _load_checker(
+        repo_root,
+        'check_package_manager_release_readiness.py',
+        'package_manager_release_for_v1',
+    )
     try:
         ndt_report = ndt_checker.evaluate_readiness(repo_root=repo_root)
         snapshot = release_checker.inspect_remote(product_version)
@@ -155,10 +165,17 @@ def inspect_live_publication(
             version=product_version,
             snapshot=snapshot,
         )
+        package_manager_snapshot = package_manager_checker.inspect_remote(
+            product_version,
+        )
+        package_manager_report = package_manager_checker.evaluate_readiness(
+            version=product_version,
+            snapshot=package_manager_snapshot,
+        )
     except Exception as exc:
         raise ReadinessError(
             f'live publication audit could not be trusted: {exc}') from exc
-    return ndt_report, published_report
+    return ndt_report, published_report, package_manager_report
 
 
 def _git_tags(repo_root: Path) -> set[str]:
@@ -210,6 +227,7 @@ def evaluate_readiness(
     require_live_publication: bool = False,
     ndt_release_report: dict[str, Any] | None = None,
     published_release_report: dict[str, Any] | None = None,
+    package_manager_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Validate the contract and return one deterministic readiness report."""
     repo_root = repo_root.resolve()
@@ -252,11 +270,17 @@ def evaluate_readiness(
                 f'external first-map ledger invalid: {exc}') from exc
 
     if require_live_publication:
-        if ndt_release_report is None or published_release_report is None:
+        if (
+            ndt_release_report is None
+            or published_release_report is None
+            or package_manager_report is None
+        ):
             raise ReadinessError(
-                'live publication reports are required for strict evaluation')
+                'live publication and distribution reports are required '
+                'for strict evaluation')
         ndt_status = ndt_release_report.get('status')
         published_status = published_release_report.get('status')
+        package_manager_status = package_manager_report.get('status')
         if ndt_status not in NDT_RELEASE_STATUSES:
             raise ReadinessError(
                 f'NDT live publication report has invalid status: {ndt_status!r}')
@@ -265,9 +289,15 @@ def evaluate_readiness(
                 'lidarslam live publication report has invalid status: '
                 f'{published_status!r}'
             )
+        if package_manager_status not in PACKAGE_MANAGER_RELEASE_STATUSES:
+            raise ReadinessError(
+                'package-manager live distribution report has invalid status: '
+                f'{package_manager_status!r}'
+            )
     else:
         ndt_status = None
         published_status = None
+        package_manager_status = None
 
     gate_reports: list[dict[str, Any]] = []
     for gate in contract['gates']:
@@ -302,15 +332,27 @@ def evaluate_readiness(
                     blockers.append(dynamic)
 
         if gate['id'] == 'distribution' and require_live_publication:
-            complete = complete and ndt_status == 'RELEASED'
+            complete = (
+                complete
+                and ndt_status == 'RELEASED'
+                and package_manager_status == 'READY'
+            )
             detail = (
                 f'Tracked distribution attestation; live ndt_omp_ros2 '
-                f'release status={ndt_status}.'
+                f'release status={ndt_status}; package-manager main-channel '
+                f'status={package_manager_status}.'
             )
             if ndt_status != 'RELEASED':
                 dynamic = (
                     'Live ndt_omp_ros2 release audit must report RELEASED; '
                     f'observed {ndt_status}.'
+                )
+                if dynamic not in blockers:
+                    blockers.append(dynamic)
+            if package_manager_status != 'READY':
+                dynamic = (
+                    'Live Humble/Jazzy package-manager main-channel audit must '
+                    f'report READY; observed {package_manager_status}.'
                 )
                 if dynamic not in blockers:
                     blockers.append(dynamic)
@@ -480,7 +522,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         '--live',
         action='store_true',
-        help='Run the read-only NDT and stable-release publication audits.',
+        help=(
+            'Run the read-only NDT, package-manager, and stable-release '
+            'publication audits.'
+        ),
     )
     parser.add_argument(
         '--require-complete',
@@ -509,7 +554,11 @@ def main(argv: list[str] | None = None) -> int:
             ledger_schema_path=args.ledger_schema,
         )
         if args.live or (args.require_complete and report['status'] == 'READY'):
-            ndt_report, published_report = inspect_live_publication(
+            (
+                ndt_report,
+                published_report,
+                package_manager_report,
+            ) = inspect_live_publication(
                 repo_root=REPO_ROOT,
                 product_version=report['product_version'],
             )
@@ -522,6 +571,7 @@ def main(argv: list[str] | None = None) -> int:
                 require_live_publication=True,
                 ndt_release_report=ndt_report,
                 published_release_report=published_report,
+                package_manager_report=package_manager_report,
             )
     except ReadinessError as exc:
         print(f'v1 readiness audit invalid: {exc}', file=sys.stderr)
