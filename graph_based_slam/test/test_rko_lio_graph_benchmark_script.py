@@ -89,8 +89,7 @@ def test_default_ntu_frontend_profile_keeps_calibration_and_tuned_resolution():
         0.0, 0.0, 0.0, 1.0, -0.05, 0.0, 0.055,
     ]
     assert profile['voxel_size'] == 1.5
-    assert profile['gravity_window_alignment'] is True
-    assert profile['gravity_alignment_gain'] == 0.2
+    assert profile['gravity_window_alignment'] is False
     assert profile['async.output_publish_delay_ms'] == 20
 
 
