@@ -284,6 +284,10 @@ def render_markdown(receipt: dict[str, Any]) -> str:
         'This receipt intentionally excludes map geometry, private paths, and '
         'the exact command. Review the receipt before sharing it and redact '
         'the separately reported command if it contains a private path.',
+        '',
+        'After reviewing `first_map_validation_receipt.json`, attach that JSON '
+        'file to the public Independent First-map Validation issue. Do not '
+        'attach the manifest, map, logs, bag, or any other run artifact.',
     ])
     return '\n'.join(lines) + '\n'
 

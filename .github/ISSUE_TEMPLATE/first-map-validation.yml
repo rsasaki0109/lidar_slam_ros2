@@ -81,6 +81,15 @@ body:
       required: true
 
   - type: textarea
+    id: receipt
+    attributes:
+      label: Privacy-bounded JSON receipt
+      description: Review first_map_validation_receipt.json, then drag and drop that file here. GitHub uploads it as a public attachment. The generated receipt excludes map geometry, private paths, and the exact command; do not attach any other run artifact.
+      placeholder: Drag and drop first_map_validation_receipt.json here.
+    validations:
+      required: true
+
+  - type: textarea
     id: findings
     attributes:
       label: Findings
@@ -94,6 +103,8 @@ body:
       label: Privacy and reproducibility
       options:
         - label: I removed credentials, private location data, and map geometry.
+          required: true
+        - label: I reviewed the attached JSON receipt and confirmed that it contains no information I need to keep private.
           required: true
         - label: The report contains enough version, command, environment, and verification identity for maintainers to review it.
           required: true

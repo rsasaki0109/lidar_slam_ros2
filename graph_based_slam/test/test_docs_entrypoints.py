@@ -417,11 +417,15 @@ def test_contributing_and_issue_templates_exist():
         'command',
         'result',
         'verification',
+        'receipt',
         'findings',
         'privacy',
     ):
         assert f'id: {field_id}' in first_map_form
     assert 'Do not upload map geometry.' in first_map_form
+    assert 'drag and drop that file here' in first_map_form
+    assert 'GitHub uploads it as a public attachment' in first_map_form
+    assert 'do not attach any other run artifact' in first_map_form
 
 
 def test_product_contract_has_bounded_official_surface():
@@ -672,6 +676,12 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'create_first_map_validation_receipt.py' in first_map_program
     assert 'first-map-validation-receipt-v1' in first_map_program
     assert 'Do not publish map geometry' in first_map_program
+    assert 'Privacy-bounded JSON receipt' in first_map_program
+    assert 'GitHub stores issue' in first_map_program
+    assert 'attachments publicly' in first_map_program
+    assert 'Download `first_map_validation_receipt.json` from the public issue' in (
+        first_map_program
+    )
     assert first_map_ledger['schema_version'] == 1
     assert first_map_ledger['required_validations'] == 3
     assert isinstance(first_map_ledger['validations'], list)

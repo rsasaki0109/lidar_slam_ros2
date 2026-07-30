@@ -36,9 +36,12 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
 
 4. Open the
    [Independent First-map Validation issue form](https://github.com/rsasaki0109/lidar_slam_ros2/issues/new?template=first-map-validation.yml).
-   Paste the receipt's `Verification summary` block into the form. Keep the
-   JSON receipt until review; it contains evidence hashes but no map geometry,
-   private paths, or exact command.
+   Paste the receipt's `Verification summary` block into the form. Review
+   `first_map_validation_receipt.json`, then drag and drop that file into the
+   form's **Privacy-bounded JSON receipt** field. GitHub stores issue
+   attachments publicly. The generated JSON contains evidence hashes but no
+   map geometry, private paths, or exact command; do not attach any other run
+   artifact.
 
 Both passing and failing reports are useful. A failed attempt is an onboarding
 finding, not an accepted validation, and must be resolved or explicitly
@@ -48,10 +51,10 @@ documented before v1.0.
 
     Remove credentials, private paths, precise locations, rosbag payloads,
     point-cloud tiles, trajectories, and screenshots that reveal private
-    places. The issue form asks only for command, environment, status,
-    verifier summary, and a manifest checksum. The generated receipt is
-    privacy-bounded, but you must still review it and redact private paths
-    from the separately pasted command.
+    places. The issue form asks for command, environment, status, verifier
+    summary, and the privacy-bounded JSON receipt. You must still review the
+    receipt before attaching it and redact private paths from the separately
+    pasted command.
 
 ## What the receipt proves
 
@@ -102,8 +105,10 @@ as passing evidence.
 Do not hand-edit the tracked ledger first. After resolving any onboarding
 findings:
 
-1. Download the reporter's JSON receipt privately and confirm the public issue
-   contains the matching verification summary.
+1. Download `first_map_validation_receipt.json` from the public issue. Confirm
+   it is the generated privacy-bounded receipt—not a manifest, map, log, or
+   other run artifact—and that the issue contains its matching verification
+   summary.
 2. Create `/tmp/validation-entry.json` with one `validation` object matching
    the
    [`external-first-map-validations-v1` schema](schemas/external-first-map-validations-v1.schema.json).
@@ -120,7 +125,8 @@ findings:
 
 4. Review the proposed file and its diff, then copy that reviewed proposal to
    `docs/evidence/external-first-map-validations.json` in a normal pull
-   request. Do not commit the reporter's receipt.
+   request. Do not commit a second copy of the reporter's receipt; the public
+   issue attachment remains its review source.
 
 The intake command is fail-closed. It requires a schema-valid PASS receipt,
 all seven receipt checks, exact verification-field and manifest-hash binding,
