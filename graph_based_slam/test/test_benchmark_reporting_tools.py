@@ -622,6 +622,14 @@ def test_report_only_profile_may_remain_without_data(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
+    expected_commit = subprocess.run(
+        ['git', 'rev-parse', 'HEAD'],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=REPO_ROOT,
+    ).stdout.strip()
+    assert f'Release candidate commit: {expected_commit}' in result.stdout
     assert '| optional_dataset | NO_DATA |' in result.stdout
     assert (out_dir / 'benchmark_report.html').is_file()
 

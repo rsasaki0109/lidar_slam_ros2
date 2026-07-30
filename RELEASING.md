@@ -105,6 +105,18 @@ different commit, refuses to overwrite its output, and embeds a
 schema-validated SHA-256 inventory. Repeating it from the same commit produces
 the same bundle bytes.
 
+Before building the bundle, run the hard benchmark gate from the same clean
+commit:
+
+```bash
+bash scripts/run_release_readiness_checks.sh --fail-on-profiles
+```
+
+The wrapper binds every blocking release profile to the exact current `HEAD`.
+Evidence produced by an older clean revision is rejected as `NO_DATA`, so a
+release candidate must be benchmarked again after its final code commit.
+Report-only profiles remain cross-revision historical comparisons.
+
 ## Automated Publication
 
 Two GitHub Actions workflows matter for release:
