@@ -23,7 +23,7 @@ Options:
   --offline-timeout-secs <sec>   Max wall-clock for the offline node to finish the bag (default: 1800)
   --quiescence-secs <sec>        Treat the run as done after this many stable seconds (default: 20)
   --completion-end-margin-secs <sec>
-                                 Required trajectory proximity to bag end (default: 120)
+                                 Required trajectory proximity to bag end (default: 0.25)
   --skip-map-save                Do not call /map_save or verify the map bundle
   --skip-reference-gen           Reuse an existing reference TUM/meta without regenerating it
   --publish-static-tf BOOL       static_transform_publisher (default: true)
@@ -68,6 +68,19 @@ parse_bool() {
   esac
 }
 
+validate_timing_options() {
+  local option value
+  for option in STARTUP_TIMEOUT_SECS SAVE_TIMEOUT_SECS OFFLINE_TIMEOUT_SECS QUIESCENCE_SECS; do
+    value="${!option}"
+    if [[ ! "$value" =~ ^[1-9][0-9]*$ ]]; then
+      fail "${option,,} must be a positive integer."
+    fi
+  done
+  if [[ ! "$COMPLETION_END_MARGIN_SECS" =~ ^([0-9]+([.][0-9]*)?|[.][0-9]+)$ ]]; then
+    fail "--completion-end-margin-secs must be a non-negative finite number."
+  fi
+}
+
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
 WS_ROOT="${REPO_ROOT}"
@@ -99,7 +112,7 @@ RUN_NAME=""
 STARTUP_TIMEOUT_SECS=30
 SAVE_TIMEOUT_SECS=60
 QUIESCENCE_SECS=20
-COMPLETION_END_MARGIN_SECS=120
+COMPLETION_END_MARGIN_SECS=0.25
 # Max wall-clock to wait for the offline node to finish replaying the bag.
 # Long / compute-heavy sequences (e.g. dense indoor MID-360) can process well
 # below real time; raise this so the run is not cut off mid-bag.
@@ -220,6 +233,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+validate_timing_options
+
 default_benchmark_bag_missing_hint() {
   cat >&2 <<EOF
 Default NTU VIRAL benchmark bags not found under demo_data/.
@@ -314,6 +329,7 @@ LAUNCH_PID=""
 LAUNCH_PGID=""
 RAW_LOGGER_PID=""
 CORRECTED_LOGGER_PID=""
+COMPLETION_REASON=""
 
 cleanup() {
   terminate_pid "$RAW_LOGGER_PID"
@@ -324,7 +340,17 @@ cleanup() {
     terminate_pid "$LAUNCH_PID"
   fi
 }
-trap cleanup EXIT INT TERM
+
+on_signal() {
+  local exit_code="$1"
+  trap - EXIT INT TERM
+  cleanup
+  exit "$exit_code"
+}
+
+trap cleanup EXIT
+trap 'on_signal 130' INT
+trap 'on_signal 143' TERM
 
 terminate_pid() {
   local pid="${1:-}"
@@ -483,24 +509,26 @@ wait_for_offline_completion() {
   local last_signature=""
   local stable_since=0
   local deadline=$((SECONDS + timeout_secs))
-  # Primary completion signal: the raw trajectory has reached the bag end and
-  # gone quiet. Quiescence alone is NOT enough — buffered TUM writes can stall
-  # for tens of seconds mid-run and fake completion. A long stall (10x the
-  # quiescence window) is still accepted as a crash/abort fallback.
+  # Primary completion signal: the offline node records successful completion.
+  # A trajectory that reaches the actual bag end and goes quiet is the fallback
+  # for runtimes without that marker. Quiescence or process exit alone is never
+  # enough: buffered TUM writes can pause for tens of seconds mid-run.
   local end_stamp=""
   end_stamp="$(bag_end_stamp 2>/dev/null)" || end_stamp=""
-  local stall_secs=$((QUIESCENCE_SECS * 10))
 
   while (( SECONDS < deadline )); do
     if [[ -s "$RKO_RESULT_TUM" ]]; then
+      COMPLETION_REASON="offline_result_dump"
       return 0
     fi
     if offline_completion_recorded; then
+      COMPLETION_REASON="offline_completion_marker"
       return 0
     fi
 
     if [[ -n "$LAUNCH_PID" ]] && ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
-      return 0
+      echo "Offline launch exited without a completion marker or result dump." >&2
+      return 1
     fi
 
     local current_signature
@@ -510,17 +538,11 @@ wait_for_offline_completion() {
         stable_since=$SECONDS
       fi
       if (( SECONDS - stable_since >= QUIESCENCE_SECS )); then
-        # Some generic bags retain non-LiDAR topics after the sensor stream,
-        # so the historical default is 120 s. Competitive profiles set a
-        # dataset-specific tight margin and record it in their provenance.
         if [[ -n "$end_stamp" ]] && \
           raw_tum_reached "$end_stamp" "$COMPLETION_END_MARGIN_SECS" && \
           raw_tum_reached_fraction 0.8; then
           echo "Trajectory reached the bag end and stayed quiet for ${QUIESCENCE_SECS}s; treating benchmark run as complete"
-          return 0
-        fi
-        if (( SECONDS - stable_since >= stall_secs )); then
-          echo "Warning: trajectory stalled for ${stall_secs}s before the bag end; treating benchmark run as aborted-but-scoreable" >&2
+          COMPLETION_REASON="trajectory_near_bag_end"
           return 0
         fi
       fi
@@ -584,6 +606,7 @@ fi
 # substitution would silently turn a malformed contract into an empty array.
 if ! PRISM_TRANSFORM_OUTPUT="$(python3 - "$REFERENCE_META" <<'PY'
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -592,10 +615,26 @@ for frame in ("base", "body", "imu"):
     for suffix in ("reference", "prism"):
         offset = meta.get(f"{frame}_to_{suffix}_translation_m")
         if offset is not None:
+            if not isinstance(offset, dict):
+                raise SystemExit(f"{frame} offset must be an object with finite xyz values")
+            values = []
+            for axis in ("x", "y", "z"):
+                value = offset.get(axis)
+                if isinstance(value, bool):
+                    raise SystemExit(f"{frame} offset {axis} must be a finite number")
+                try:
+                    numeric = float(value)
+                except (TypeError, ValueError):
+                    raise SystemExit(
+                        f"{frame} offset {axis} must be a finite number"
+                    ) from None
+                if not math.isfinite(numeric):
+                    raise SystemExit(f"{frame} offset {axis} must be a finite number")
+                values.append(numeric)
             print(frame)
-            print(offset["x"])
-            print(offset["y"])
-            print(offset["z"])
+            print(values[0])
+            print(values[1])
+            print(values[2])
             raise SystemExit(0)
 else:
     raise SystemExit(
@@ -794,6 +833,8 @@ METRICS_ARGS=(
   --started-at "$STARTED_AT"
   --started-at-unix "$STARTED_AT_UNIX"
   --wall-sec "$BENCH_WALL_SEC"
+  --completion-reason "$COMPLETION_REASON"
+  --completion-end-margin-secs "$COMPLETION_END_MARGIN_SECS"
   --parameter-file "$LIDARSLAM_PARAM"
   --parameter-file "$RKO_PARAM"
   --benchmark-harness "${BASH_SOURCE[0]}"

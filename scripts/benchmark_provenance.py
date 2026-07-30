@@ -96,27 +96,34 @@ def bag_identity(bag_path: Path) -> dict[str, Any]:
 
 
 def _git_state(repo_root: Path) -> dict[str, Any]:
+    # CI commonly runs tests in a container while the checkout is owned by the
+    # host runner. Trust only the repository path explicitly supplied by the
+    # caller; otherwise Git's dubious-ownership guard makes valid provenance
+    # silently degrade to null.
+    git_command = ['git', '-c', f'safe.directory={repo_root}']
     commit = subprocess.run(
-        ['git', 'rev-parse', 'HEAD'],
+        [*git_command, 'rev-parse', 'HEAD'],
         cwd=repo_root,
         check=False,
         capture_output=True,
         text=True,
     )
     status = subprocess.run(
-        ['git', 'status', '--porcelain', '--untracked-files=normal'],
+        [*git_command, 'status', '--porcelain', '--untracked-files=normal'],
         cwd=repo_root,
         check=False,
         capture_output=True,
         text=True,
     )
+    if commit.returncode != 0:
+        detail = commit.stderr.strip() or 'unknown git error'
+        raise RuntimeError(f'failed to identify benchmark git commit: {detail}')
+    if status.returncode != 0:
+        detail = status.stderr.strip() or 'unknown git error'
+        raise RuntimeError(f'failed to identify benchmark git status: {detail}')
     return {
-        'git_commit': (
-            commit.stdout.strip() if commit.returncode == 0 else None
-        ),
-        'git_dirty': (
-            bool(status.stdout.strip()) if status.returncode == 0 else None
-        ),
+        'git_commit': commit.stdout.strip(),
+        'git_dirty': bool(status.stdout.strip()),
     }
 
 

@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from benchmark_provenance import bag_identity, file_identity, software_identity
 
 
@@ -87,6 +89,22 @@ def _bag_duration_seconds(metadata_path: Path) -> float | None:
             return nanoseconds / 1e9
         if in_duration and stripped and not line.startswith(' '):
             break
+    return None
+
+
+def _bag_topic_message_count(metadata_path: Path, topic: str) -> int | None:
+    """Return the recorded message count for a topic from rosbag2 metadata."""
+    if not metadata_path.is_file():
+        return None
+    try:
+        data = yaml.safe_load(metadata_path.read_text(encoding='utf-8')) or {}
+        topics = data['rosbag2_bagfile_information']['topics_with_message_count']
+        for entry in topics:
+            metadata = entry.get('topic_metadata', {})
+            if metadata.get('name') == topic:
+                return int(entry['message_count'])
+    except (KeyError, TypeError, ValueError, yaml.YAMLError):
+        return None
     return None
 
 
@@ -216,6 +234,17 @@ def main() -> int:
         help='Measured wall time for the full benchmark run',
     )
     parser.add_argument(
+        '--completion-reason',
+        default='',
+        help='Authoritative reason the replay was considered complete.',
+    )
+    parser.add_argument(
+        '--completion-end-margin-secs',
+        type=float,
+        default=None,
+        help='Allowed trajectory-to-bag-end gap for completion fallback.',
+    )
+    parser.add_argument(
         '--started-at',
         default='',
         help='Optional ISO-8601 start timestamp',
@@ -317,6 +346,8 @@ def main() -> int:
     )
 
     bag_duration_sec = _bag_duration_seconds(bag_path / 'metadata.yaml')
+    input_points_messages = _bag_topic_message_count(
+        bag_path / 'metadata.yaml', args.points_topic)
     reference_meta_data = _read_reference_meta(reference_meta) if reference_meta else {}
     trajectory_offset = _trajectory_offset(
         reference_meta_data, args.trajectory_source_frame)
@@ -331,6 +362,11 @@ def main() -> int:
     rtf = None
     if wall_sec is not None and bag_duration_sec and bag_duration_sec > 0.0:
         rtf = wall_sec / bag_duration_sec
+    raw_output_pose_count = _read_pose_count(raw_tum)
+    raw_output_pose_ratio = (
+        raw_output_pose_count / input_points_messages
+        if input_points_messages and input_points_messages > 0 else None
+    )
 
     if args.pipeline in ('lo', 'small_gicp'):
         frames: dict[str, str] = {
@@ -361,6 +397,13 @@ def main() -> int:
         'bag_duration_sec': bag_duration_sec,
         'points_topic': args.points_topic,
         'imu_topic': args.imu_topic,
+        'completion': {
+            'reason': args.completion_reason or None,
+            'end_margin_sec': args.completion_end_margin_secs,
+            'input_points_messages': input_points_messages,
+            'raw_output_pose_count': raw_output_pose_count,
+            'raw_output_pose_ratio': raw_output_pose_ratio,
+        },
         'frames': frames,
         'reference': {
             'source': reference_source,
@@ -375,7 +418,8 @@ def main() -> int:
             'wall_sec': wall_sec,
             'rtf': rtf,
             'tum_path': str(corrected_tum if corrected_tum.is_file() else raw_tum),
-            'tum_lines': _read_pose_count(corrected_tum if corrected_tum.is_file() else raw_tum),
+            'tum_lines': _read_pose_count(
+                corrected_tum if corrected_tum.is_file() else raw_tum),
             'log_path': str(launch_log) if launch_log.is_file() else '',
             'param_path': str(lidarslam_param),
             'out_dir': str(out_dir),

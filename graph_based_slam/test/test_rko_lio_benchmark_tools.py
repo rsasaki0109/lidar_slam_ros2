@@ -39,6 +39,8 @@ import struct
 import subprocess
 import sys
 
+import jsonschema
+import pytest
 import yaml
 
 
@@ -46,6 +48,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 REFERENCE_SCRIPT = REPO_ROOT / 'scripts' / 'generate_ntu_viral_tnp01_reference.py'
 WRITE_METRICS_SCRIPT = REPO_ROOT / 'scripts' / 'write_rko_lio_benchmark_metrics.py'
 sys.path.insert(0, str(REPO_ROOT / 'scripts'))
+
+import benchmark_provenance
 
 
 def _load_module(path: Path, name: str):
@@ -60,6 +64,38 @@ def _load_module(path: Path, name: str):
 REFERENCE_MODULE = _load_module(REFERENCE_SCRIPT, 'generate_ntu_viral_tnp01_reference')
 WRITE_METRICS_MODULE = _load_module(
     WRITE_METRICS_SCRIPT, 'write_rko_lio_benchmark_metrics')
+
+
+def test_git_provenance_explicitly_trusts_only_selected_repo(
+        monkeypatch, tmp_path: Path):
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        stdout = 'a' * 40 + '\n' if 'rev-parse' in command else ''
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr='')
+
+    monkeypatch.setattr(benchmark_provenance.subprocess, 'run', fake_run)
+
+    state = benchmark_provenance._git_state(tmp_path)
+
+    expected_prefix = ['git', '-c', f'safe.directory={tmp_path}']
+    assert [call[0][:3] for call in calls] == [
+        expected_prefix, expected_prefix]
+    assert all(call[1]['cwd'] == tmp_path for call in calls)
+    assert state == {'git_commit': 'a' * 40, 'git_dirty': False}
+
+
+def test_git_provenance_rejects_unidentifiable_commit(
+        monkeypatch, tmp_path: Path):
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command, 128, stdout='', stderr='dubious ownership')
+
+    monkeypatch.setattr(benchmark_provenance.subprocess, 'run', fake_run)
+
+    with pytest.raises(RuntimeError, match='dubious ownership'):
+        benchmark_provenance._git_state(tmp_path)
 
 
 def _write_binary_xyz_pcd(path, points):
@@ -182,6 +218,10 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
             '  storage_identifier: sqlite3',
             '  duration:',
             '    nanoseconds: 2000000000',
+            '  topics_with_message_count:',
+            '    - topic_metadata:',
+            '        name: /os1_cloud_node1/points',
+            '      message_count: 2',
         ]),
         encoding='utf-8',
     )
@@ -263,6 +303,10 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
             'body',
             '--wall-sec',
             '1.0',
+            '--completion-reason',
+            'offline_completion_marker',
+            '--completion-end-margin-secs',
+            '0.25',
             '--runtime-artifact',
             'test_runtime=/bin/true',
             '--benchmark-harness',
@@ -278,6 +322,10 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
     metrics_path = out_dir / 'metrics.json'
     assert metrics_path.is_file()
     metrics = json.loads(metrics_path.read_text(encoding='utf-8'))
+    schema = json.loads(
+        (REPO_ROOT / 'docs/schemas/benchmark-metrics-v1.schema.json').read_text(
+            encoding='utf-8'))
+    jsonschema.validate(metrics, schema)
 
     assert metrics['reference']['source'] == 'leica_prism_gt'
     assert metrics['lidarslam']['success'] is True
@@ -290,6 +338,10 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
     assert metrics['rko_lio']['trajectory_source_frame'] == 'body'
     assert metrics['rko_lio']['prism_offset_m']['x'] == -0.293656
     assert metrics['schema_version'] == 1
+    assert metrics['completion']['reason'] == 'offline_completion_marker'
+    assert metrics['completion']['input_points_messages'] == 2
+    assert metrics['completion']['raw_output_pose_count'] == 2
+    assert metrics['completion']['raw_output_pose_ratio'] == 1.0
     assert metrics['reference']['kind'] == 'ground_truth'
     assert metrics['provenance']['input']['bag']['identity_algorithm'] == 'sha256'
     assert metrics['provenance']['software']['runtime_artifacts'][0][

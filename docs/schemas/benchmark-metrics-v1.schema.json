@@ -18,6 +18,32 @@
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/benchmark-metrics-v1.schema.json"
     },
     "bag_path": {"type": "string"},
+    "completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reason",
+        "end_margin_sec",
+        "input_points_messages",
+        "raw_output_pose_count",
+        "raw_output_pose_ratio"
+      ],
+      "properties": {
+        "reason": {
+          "type": ["string", "null"],
+          "enum": [
+            "offline_result_dump",
+            "offline_completion_marker",
+            "trajectory_near_bag_end",
+            null
+          ]
+        },
+        "end_margin_sec": {"type": ["number", "null"], "minimum": 0},
+        "input_points_messages": {"type": ["integer", "null"], "minimum": 0},
+        "raw_output_pose_count": {"type": "integer", "minimum": 0},
+        "raw_output_pose_ratio": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
     "reference": {"type": "object"},
     "lidarslam": {"type": "object"},
     "evo": {"type": "object"},
