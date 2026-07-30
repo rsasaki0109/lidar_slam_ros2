@@ -8,9 +8,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from benchmark_provenance import bag_identity, file_identity, software_identity
+
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -261,6 +261,14 @@ def main() -> int:
         help='Output metrics path (default: <out-dir>/metrics.json)',
     )
     parser.add_argument(
+        '--skip-map-verify',
+        action='store_true',
+        help=(
+            'Do not inspect pointcloud_map, even if a partial directory exists. '
+            'Use for trajectory-only runs that intentionally skip map_save.'
+        ),
+    )
+    parser.add_argument(
         '--parameter-file',
         action='append',
         default=[],
@@ -354,7 +362,10 @@ def main() -> int:
     reference_source = reference_meta_data.get('source', args.reference_source)
     raw_ape = _parse_ape_report(raw_ape_path)
     corrected_ape = _parse_ape_report(corrected_ape_path)
-    map_verify = _verify_map(out_dir / 'pointcloud_map')
+    map_verify = (
+        None if args.skip_map_verify
+        else _verify_map(out_dir / 'pointcloud_map')
+    )
 
     corrected_success = corrected_tum.is_file() and corrected_ape is not None
     raw_success = raw_tum.is_file() and raw_ape is not None
@@ -492,9 +503,15 @@ def main() -> int:
         'graph_based_slam': {
             'corrected_path_available': corrected_tum.is_file(),
             'map_projector_info_path': str(out_dir / 'map_projector_info.yaml')
-            if (out_dir / 'map_projector_info.yaml').is_file() else '',
+            if (
+                not args.skip_map_verify
+                and (out_dir / 'map_projector_info.yaml').is_file()
+            ) else '',
             'pointcloud_map_dir': str(out_dir / 'pointcloud_map')
-            if (out_dir / 'pointcloud_map').is_dir() else '',
+            if (
+                not args.skip_map_verify
+                and (out_dir / 'pointcloud_map').is_dir()
+            ) else '',
             'map_verify': map_verify,
         },
         'evo': {

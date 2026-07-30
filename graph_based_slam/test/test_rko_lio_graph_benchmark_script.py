@@ -213,6 +213,14 @@ def test_reference_sidecar_controls_timestamp_association_tolerance():
     assert '--max-time-diff "$REFERENCE_MAX_TIME_DIFF"' in script
 
 
+def test_skip_map_save_also_disables_metrics_map_verification():
+    """A trajectory-only run must not inspect a partial map directory."""
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+
+    assert 'if [[ "$SKIP_MAP_SAVE" == "true" ]]; then' in script
+    assert 'METRICS_ARGS+=(--skip-map-verify)' in script
+
+
 def test_rko_lio_benchmark_rejects_missing_option_value_before_realpath():
     result = _run_benchmark('--bag', '--skip-map-save')
 

@@ -929,6 +929,9 @@ METRICS_ARGS=(
 if [[ -n "$REFERENCE_SOURCE" ]]; then
   METRICS_ARGS+=(--reference-source "$REFERENCE_SOURCE")
 fi
+if [[ "$SKIP_MAP_SAVE" == "true" ]]; then
+  METRICS_ARGS+=(--skip-map-verify)
+fi
 python3 "${SCRIPT_DIR}/write_rko_lio_benchmark_metrics.py" "${METRICS_ARGS[@]}"
 
 echo "Benchmark completed"

@@ -348,6 +348,37 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
     assert metrics['provenance']['software']['runtime_artifacts'][0][
         'label'] == 'test_runtime'
 
+    skipped_metrics = out_dir / 'metrics_skip_map.json'
+    skipped = subprocess.run(
+        [
+            'python3',
+            str(WRITE_METRICS_SCRIPT),
+            '--out-dir',
+            str(out_dir),
+            '--bag',
+            str(bag_dir),
+            '--reference-tum',
+            str(reference_tum),
+            '--reference-meta',
+            str(reference_meta),
+            '--trajectory-source-frame',
+            'body',
+            '--metrics-out',
+            str(skipped_metrics),
+            '--skip-map-verify',
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+    assert skipped.returncode == 0, skipped.stderr
+    trajectory_only = json.loads(skipped_metrics.read_text(encoding='utf-8'))
+    graph = trajectory_only['graph_based_slam']
+    assert graph['map_verify'] is None
+    assert graph['pointcloud_map_dir'] == ''
+    assert graph['map_projector_info_path'] == ''
+
 
 def test_write_lo_metrics_sets_scanmatcher_payload(tmp_path):
     """LO pipeline metrics should tag scanmatcher_lo and disable rko_lio."""
