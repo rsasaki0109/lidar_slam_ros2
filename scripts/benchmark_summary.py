@@ -203,6 +203,13 @@ def load_release_profiles(path: Path) -> list[dict[str, Any]]:
             )
         if not isinstance(prof.get("pass"), (int, float)):
             raise ValueError(f"{path}: profile '{name}' missing numeric 'pass'")
+        remediation = prof.get("remediation")
+        if remediation is not None and (
+            not isinstance(remediation, str) or not remediation.strip()
+        ):
+            raise ValueError(
+                f"{path}: profile '{name}' remediation must be a non-empty string"
+            )
         match = prof.get("match") or {}
         if not isinstance(match, dict):
             raise ValueError(f"{path}: profile '{name}' 'match' must be a mapping")
@@ -339,6 +346,7 @@ def evaluate_release_profiles(
             "pass": float(prof["pass"]),
             "target": _as_float(prof.get("target")),
             "report_only_until": prof.get("report_only_until"),
+            "remediation": prof.get("remediation"),
             "matched_runs": len(matched),
             "candidate_runs": len(candidates),
             "provenance_rejections": provenance_rejections,
@@ -435,6 +443,16 @@ def render_release_profile_section(results: list[dict[str, Any]]) -> list[str]:
             )
             + " |"
         )
+    blocking_remediation = [
+        r for r in results
+        if r.get("status") in {"FAIL", "NO_DATA"}
+        and not r.get("report_only_until")
+        and r.get("remediation")
+    ]
+    if blocking_remediation:
+        lines.extend(["", "### Blocking profile remediation", ""])
+        for r in blocking_remediation:
+            lines.append(f"- `{r['name']}`: {r['remediation']}")
     return lines
 
 
@@ -869,6 +887,12 @@ def main() -> int:
                 for r in failing
             )
             print(f"error: release profile gate FAILED for: {failures}")
+            for result in failing:
+                if result.get("remediation"):
+                    print(
+                        f"hint: {result['name']}: "
+                        f"{result['remediation']}"
+                    )
             return 2
 
     return 0

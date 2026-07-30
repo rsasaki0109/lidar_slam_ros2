@@ -573,6 +573,8 @@ def test_synthetic_fixture_cannot_satisfy_release_profiles(tmp_path):
     assert result.returncode == 2
     assert 'newer_college_math_hard (NO_DATA)' in result.stdout
     assert 'ntu_viral_tnp_01 (NO_DATA)' in result.stdout
+    assert 'hint: newer_college_math_hard:' in result.stdout
+    assert 'docs/benchmarking.md#newer-college-maths-hard' in result.stdout
     assert not (out_dir / 'benchmark_report.html').exists()
 
 

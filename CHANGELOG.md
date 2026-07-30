@@ -35,6 +35,11 @@ distribution, publication, and external-adoption work.
   from the clean candidate commit, reuses the complete publication verifier
   against both archives, requires byte-identical output, and retains the
   verified rehearsal artifact before an immutable release tag can be created.
+- **Actionable benchmark blockers** — every blocking release profile carries
+  a tracked remediation command that is printed for `NO_DATA`/`FAIL`. The
+  Newer College row now names the official form-gated Maths-Hard sequence and
+  its ICP-to-survey-map ground truth instead of incorrectly describing it as
+  prism ground truth.
 - **Extensible degeneracy research boundary** — the oriented appearance
   matcher exposes separate intensity/height diagnostics behind default-off
   adapters. Fog and tunnel holdouts did not justify automatic channel

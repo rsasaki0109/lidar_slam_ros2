@@ -167,6 +167,26 @@ def test_load_release_profiles_rejects_non_boolean_provenance_gate(tmp_path: Pat
         module.load_release_profiles(bad)
 
 
+def test_load_release_profiles_rejects_empty_remediation(tmp_path: Path):
+    """Remediation text must be actionable when a profile declares it."""
+    module = _load_module()
+    bad = tmp_path / 'bad_remediation.yaml'
+    bad.write_text(
+        '\n'.join([
+            'release_profiles:',
+            '  - name: bad_remediation',
+            '    metric: ape_rmse_gt_m',
+            '    pass: 0.1',
+            '    remediation: ""',
+            '    match: {}',
+            '',
+        ]),
+        encoding='utf-8',
+    )
+    with pytest.raises(ValueError, match='remediation must be a non-empty string'):
+        module.load_release_profiles(bad)
+
+
 def test_cli_rejects_malformed_required_git_commit(tmp_path: Path):
     result = subprocess.run(
         [
@@ -334,6 +354,26 @@ def test_provenance_rejection_diagnostics_preserve_multiple_causes():
         'incomplete provenance: legacy; dirty revision: local'
     )
     assert result['no_data_reason'] in rendered
+
+
+def test_blocking_no_data_renders_actionable_remediation():
+    """A blocking profile must carry its recovery path into the report."""
+    module = _load_module()
+    profile = {
+        'name': 'form_gated_dataset',
+        'metric': 'ape_rmse_gt_m',
+        'pass': 0.1,
+        'remediation': 'Follow docs/benchmarking.md#dataset and rerun.',
+        'match': {'bag_name_contains': 'missing'},
+    }
+    [result] = module.evaluate_release_profiles([profile], [])
+    rendered = '\n'.join(module.render_release_profile_section([result]))
+
+    assert result['status'] == 'NO_DATA'
+    assert result['remediation'] == profile['remediation']
+    assert '### Blocking profile remediation' in rendered
+    assert '`form_gated_dataset`' in rendered
+    assert profile['remediation'] in rendered
 
 
 def test_blocking_profile_requires_exact_release_candidate_commit():

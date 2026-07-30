@@ -111,9 +111,12 @@ Stadtgarten pair remains report-only while its outdoor evidence soaks.
 | `MID-360` | experimental BEV-assisted rerank | `cross_validation` vs GLIM | `3.607` | report-only                       | sensor-agnostic rerank of distance candidates; still opt-in |
 | Leo Drive (applanix/velodyne) | current default | `cross_validation` vs Applanix GSOF49 | varies per bag | `PASS` (pass ≤ 1.50, target 0.50) | open-data Velodyne packet path |
 
-The Newer College `math-hard` profile (ground truth) is the tightest gate
-(pass ≤ 0.10); its numbers are not checked in to this repo and are reported
-separately on the long-form benchmark notes. The KITTI Odometry 00/05/07 LO
+The Newer College `Maths-Hard` profile (official ICP-to-survey-map ground
+truth) is the tightest gate (pass ≤ 0.10). Its form-gated, CC BY-NC-SA inputs
+and generated numbers are not checked in to this repo; the exact acquisition,
+calibration, and rerun contract is documented in
+[Benchmarking And Release Gate](benchmarking.md#newer-college-maths-hard).
+The KITTI Odometry 00/05/07 LO
 baseline comparison is wired through `scripts/run_kitti_00_05_07_report.sh` and
 emits a non-regression report under
 `output/kitti_dev_<timestamp>/kitti_dev_report.md`.

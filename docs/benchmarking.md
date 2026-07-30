@@ -12,6 +12,75 @@ bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
 
+## Newer College Maths-Hard
+
+`newer_college_math_hard` is the tightest blocking release profile. It refers
+to the Multi-Camera Newer College **Maths-Hard** sequence: Ouster OS0-128,
+243.7 seconds, and approximately 320.6 m. Its reference is the official 10 Hz
+LiDAR ground-truth trajectory produced by registering each Ouster cloud to the
+survey-grade Leica BLK360 prior map. It is not prism ground truth.
+
+The dataset is CC BY-NC-SA 4.0 and the maintainers distribute it through the
+[official request form](https://ori-drs.github.io/newer-college-dataset/download/).
+The repository must not silently scrape, rehost, or relabel those
+non-commercial assets. Before running this profile, request and retain all
+three collection-specific inputs:
+
+- the Collection 3 `Maths-Hard` ROS bag;
+- the LiDAR ground-truth CSV, whose columns are epoch seconds, nanoseconds,
+  position xyz, and quaternion xyzw;
+- the matching Collection 3 calibration files.
+
+The expected sensor topics are `/os_cloud_node/points` and
+`/os_cloud_node/imu`. Convert the delivered ROS 1 bag without changing message
+timestamps:
+
+```bash
+rosbags-convert \
+  --src /path/to/maths-hard.bag \
+  --dst /path/to/math_hard_rosbag2
+```
+
+Generate immutable TUM and metadata artifacts from the official CSV. The
+body-to-reference translation must come from the matching calibration; all
+three values are required so the command cannot silently assume identity:
+
+```bash
+python3 scripts/generate_newer_college_reference.py \
+  --csv /path/to/maths-hard-lidar-gt.csv \
+  --calibration /path/to/collection3-calibration.yaml \
+  --output /path/to/math_hard_gt.tum \
+  --metadata /path/to/math_hard_reference.json \
+  --body-to-reference-x <metres> \
+  --body-to-reference-y <metres> \
+  --body-to-reference-z <metres>
+```
+
+Create the matching RKO-LIO parameter YAML from the same calibration, then run:
+
+```bash
+bash scripts/run_rko_lio_graph_benchmark.sh \
+  --bag /path/to/math_hard_rosbag2 \
+  --reference-tum /path/to/math_hard_gt.tum \
+  --reference-meta /path/to/math_hard_reference.json \
+  --lidar-topic /os_cloud_node/points \
+  --imu-topic /os_cloud_node/imu \
+  --base-frame base \
+  --rko-param /path/to/rko_lio_math_hard.yaml \
+  --lidarslam-param graph_based_slam/param/graphbasedslam_indoor.yaml \
+  --output-dir /path/to/benchmarks/newer_college_math_hard_<commit> \
+  --run-name newer_college_math_hard_<commit> \
+  --skip-reference-gen \
+  --reference-source newer_college_math_hard_icp_map_gt
+```
+
+Do not invent an identity extrinsic or a reference-frame offset. The
+collection calibration must determine the RKO-LIO LiDAR/IMU-to-`base`
+parameters and the `body_to_reference_translation_m` recorded in the reference
+metadata. A run without those exact inputs is useful for diagnosis but is not
+eligible for the 0.10 m release gate. `--fail-on-profiles` prints this
+remediation path when exact candidate-commit evidence is absent.
+
 ### Degenerate-LIO SOTA track
 
 The preregistered public degeneracy track is defined in

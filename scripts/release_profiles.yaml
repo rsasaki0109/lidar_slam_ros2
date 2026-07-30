@@ -55,7 +55,8 @@
 
 release_profiles:
   - name: newer_college_math_hard
-    description: Newer College math-hard (~320m loop, Ouster OS0-128 + IMU, prism GT)
+    description: Newer College Maths-Hard (~320m loop, Ouster OS0-128 + IMU, ICP-to-survey-map GT)
+    remediation: Follow docs/benchmarking.md#newer-college-maths-hard to acquire the form-gated official bag, ground-truth CSV, and collection calibration, then rerun the exact candidate commit.
     match:
       require_clean_provenance: true
       bag_name_contains: math_hard
@@ -66,6 +67,7 @@ release_profiles:
 
   - name: ntu_viral_tnp_01
     description: NTU VIRAL tnp_01 (~580s outdoor, Ouster OS1-16 + VN-100, Leica prism GT)
+    remediation: Run scripts/download_ntu_viral_tnp01.sh and the canonical NTU command in docs/benchmarking.md, then retain metrics.json under the benchmark root.
     match:
       require_clean_provenance: true
       bag_name_contains: tnp_01
@@ -103,6 +105,7 @@ release_profiles:
   # RMSE 0.154 m (median 0.061), vs published fast_lio_sam 0.086 / okvis 0.075.
   - name: mid360_gt_rtkslam_construction_seq2
     description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Construction Hall 2 (~600s, 16 chkpt, dense odometry)
+    remediation: Download construction_seq2 plus eval assets with scripts/download_rtk_slam_dataset.py and run scripts/run_rtk_slam_accuracy_suite.py for the exact candidate commit.
     match:
       require_clean_provenance: true
       points_topic: /livox/points
@@ -120,6 +123,7 @@ release_profiles:
   # College. Graduated to blocking in v0.5 together with construction_seq2.
   - name: mid360_gt_rtkslam_construction_seq1
     description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Construction Hall 1 (~741s, 16 chkpt, dense odometry)
+    remediation: Download construction_seq1 plus eval assets with scripts/download_rtk_slam_dataset.py and run scripts/run_rtk_slam_accuracy_suite.py for the exact candidate commit.
     match:
       require_clean_provenance: true
       points_topic: /livox/points
@@ -226,6 +230,7 @@ release_profiles:
 
   - name: leo_drive_applanix_velodyne_cross
     description: Leo Drive applanix/velodyne open data vs Applanix GSOF49 cross-validation
+    remediation: Run the Leo Drive command in docs/benchmarking.md with --verify-map on the exact candidate commit and retain metrics.json under the benchmark root.
     match:
       require_clean_provenance: true
       points_topic: /open_data/velodyne_points

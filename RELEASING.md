@@ -42,7 +42,9 @@ or restore the release-candidate benchmark evidence before running this check;
 every blocking release profile must have matching data and pass its own
 threshold. CI's synthetic threshold fixture tests the gate plumbing but cannot
 satisfy the release profiles. Omitting the hard-gate options leaves an empty
-root report-only.
+root report-only. When a blocking row is `NO_DATA` or `FAIL`, the command
+prints the profile's tracked remediation path; follow that path rather than
+weakening the threshold or copying evidence from an older commit.
 
 3. Push the branch and verify GitHub Actions are green.
    Also inspect the cross-phase product audit; release candidates may remain

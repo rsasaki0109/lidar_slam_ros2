@@ -8,9 +8,10 @@ ground truth as sparse geodetic-total-station checkpoints in a CSV with the
 columns ``point_id,easting,northing,height,env,timestamp``. This converts that
 CSV into a sparse TUM trajectory (one pose per checkpoint, identity
 orientation) that ``write_aligned_trajectory_metrics.py`` scores exactly like
-the NTU VIRAL / Newer College prism references: each checkpoint is
-timestamp-matched to the estimate and the matched set is SE(3)-aligned
-(Umeyama) before the per-point RMSE. That SE(3)-aligned checkpoint RMSE is the
+the NTU VIRAL prism and Newer College ICP-to-survey-map references: each
+checkpoint is timestamp-matched to the estimate and the matched set is
+SE(3)-aligned (Umeyama) before the per-point RMSE. That SE(3)-aligned
+checkpoint RMSE is the
 v0.5 gate metric (``ape_rmse_gt_m``); the dataset's zero-alignment absolute
 RMSE needs a GNSS-anchored estimate, which a LiDAR-inertial config does not
 produce, so it is out of scope here.
