@@ -29,6 +29,10 @@ distribution, publication, and external-adoption work.
   evidence passes. A post-publication audit validates the stable release,
   tag commit, all image/rollback/promotion records, and every archived bundle
   file hash before publication evidence is accepted.
+- **Pre-tag bundle proof** — main CI builds the curated release bundle twice
+  from the clean candidate commit, reuses the complete publication verifier
+  against both archives, requires byte-identical output, and retains the
+  verified rehearsal artifact before an immutable release tag can be created.
 - **Extensible degeneracy research boundary** — the oriented appearance
   matcher exposes separate intensity/height diagnostics behind default-off
   adapters. Fog and tunnel holdouts did not justify automatic channel

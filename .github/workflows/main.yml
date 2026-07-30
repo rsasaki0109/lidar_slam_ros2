@@ -211,6 +211,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
+      - name: Rehearse deterministic release bundle
+        shell: bash
+        run: |
+          python3 -m pip install --upgrade jsonschema
+          VERSION="$(tr -d '\n' < VERSION)"
+          python3 scripts/check_release_bundle_reproducibility.py \
+            "output/ci_release_bundle/lidarslam_ros2_v${VERSION}_release_bundle.tar.gz"
+
       - name: Generate synthetic benchmark fixture
         shell: bash
         run: |
@@ -233,6 +241,7 @@ jobs:
         with:
           name: release-readiness
           path: |
+            output/ci_release_bundle
             output/ci_release_readiness/benchmark_summary.md
             output/ci_release_readiness/benchmark_summary.csv
             output/ci_release_readiness/benchmark_report.html

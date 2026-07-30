@@ -22,9 +22,17 @@ The intended public release scope is:
 
 ```bash
 bash scripts/run_default_ci_checks.sh
+python3 scripts/check_release_bundle_reproducibility.py \
+  /tmp/lidarslam_ros2_release_candidate.tar.gz
 bash scripts/run_release_readiness_checks.sh --skip-default-ci --fail-on-profiles
 bash scripts/run_autoware_quickstart.sh
 ```
+
+The bundle rehearsal requires a clean source worktree, derives `v<VERSION>`
+and the exact current commit, builds the curated archive twice, runs the same
+complete manifest/hash verification used by the post-publication audit, and
+only then writes the requested candidate artifact. It refuses to overwrite an
+existing file. Main CI runs it before creating synthetic benchmark fixtures.
 
 The benchmark command is fail-closed: `--ape-threshold` and
 `--fail-on-profiles` require at least one `metrics.json` below
@@ -104,6 +112,11 @@ The command requires a clean worktree, refuses an existing tag that names a
 different commit, refuses to overwrite its output, and embeds a
 schema-validated SHA-256 inventory. Repeating it from the same commit produces
 the same bundle bytes.
+
+The pre-release checklist's reproducibility command is the preferred
+maintainer path because it performs both builds and the full re-verification
+in one fail-closed operation. The lower-level command above remains the exact
+single-build primitive used by the tagged release workflow.
 
 Before building the bundle, run the hard benchmark gate from the same clean
 commit:

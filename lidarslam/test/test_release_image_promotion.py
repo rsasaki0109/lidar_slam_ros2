@@ -267,6 +267,7 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'docs/schemas/release-promotion-v1.schema.json' in paths
     assert 'scripts/promote_release_images.py' in paths
     assert 'scripts/release_channel.py' in paths
+    assert 'scripts/check_release_bundle_reproducibility.py' in paths
     assert 'docs/releases/v0.9.0.md' in paths
 
     with tarfile.open(first, mode='r:gz') as archive:
@@ -279,6 +280,53 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
             )
         )
     assert embedded == first_manifest
+
+
+def test_release_bundle_rehearsal_reverifies_and_publishes_once(
+    tmp_path: Path,
+):
+    """The pre-tag gate should publish only a fully reverified pair."""
+    module = _load_module(
+        'check_release_bundle_reproducibility.py',
+        'check_release_bundle_reproducibility',
+    )
+    output = tmp_path / 'candidate.tar.gz'
+    report = module.rehearse_release_bundle(
+        REPO_ROOT,
+        output,
+        tag='v0.9.0',
+        git_commit='d' * 40,
+    )
+
+    assert report['status'] == 'PASS'
+    assert report['bundle'] == str(output.resolve())
+    assert report['sha256'] == hashlib.sha256(output.read_bytes()).hexdigest()
+    assert report['size_bytes'] == output.stat().st_size
+    assert report['files'] > 0
+    assert report['tag'] == 'v0.9.0'
+    assert report['git_commit'] == 'd' * 40
+
+    with pytest.raises(ValueError, match='refusing to overwrite'):
+        module.rehearse_release_bundle(
+            REPO_ROOT,
+            output,
+            tag='v0.9.0',
+            git_commit='d' * 40,
+        )
+
+
+def test_main_ci_rehearses_bundle_before_generating_fixture():
+    """CI should run the clean-worktree rehearsal before creating evidence."""
+    workflow = (REPO_ROOT / '.github' / 'workflows' / 'main.yml').read_text(
+        encoding='utf-8'
+    )
+    rehearsal = 'scripts/check_release_bundle_reproducibility.py'
+    fixture = 'scripts/generate_sample_benchmark_metrics.py'
+
+    assert rehearsal in workflow
+    assert workflow.index(rehearsal) < workflow.index(fixture)
+    assert 'lidarslam_ros2_v${VERSION}_release_bundle.tar.gz' in workflow
+    assert 'output/ci_release_bundle' in workflow
 
 
 def test_release_bundle_refuses_version_mismatch_and_overwrite(tmp_path: Path):

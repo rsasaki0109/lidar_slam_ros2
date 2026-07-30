@@ -204,7 +204,7 @@ def _json_asset(name: str, payload: bytes) -> dict[str, Any]:
     return value
 
 
-def _verify_bundle(
+def verify_release_bundle_payload(
     payload: bytes,
     *,
     version: str,
@@ -366,7 +366,7 @@ def evaluate_publication(
             if passed:
                 try:
                     if name == bundle_name:
-                        _verify_bundle(
+                        verify_release_bundle_payload(
                             payload,
                             version=version,
                             tag=tag,
