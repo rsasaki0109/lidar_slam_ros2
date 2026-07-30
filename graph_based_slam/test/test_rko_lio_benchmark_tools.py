@@ -40,6 +40,7 @@ import subprocess
 import sys
 
 import jsonschema
+import pytest
 import yaml
 
 
@@ -47,6 +48,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 REFERENCE_SCRIPT = REPO_ROOT / 'scripts' / 'generate_ntu_viral_tnp01_reference.py'
 WRITE_METRICS_SCRIPT = REPO_ROOT / 'scripts' / 'write_rko_lio_benchmark_metrics.py'
 sys.path.insert(0, str(REPO_ROOT / 'scripts'))
+
+import benchmark_provenance
 
 
 def _load_module(path: Path, name: str):
@@ -61,6 +64,38 @@ def _load_module(path: Path, name: str):
 REFERENCE_MODULE = _load_module(REFERENCE_SCRIPT, 'generate_ntu_viral_tnp01_reference')
 WRITE_METRICS_MODULE = _load_module(
     WRITE_METRICS_SCRIPT, 'write_rko_lio_benchmark_metrics')
+
+
+def test_git_provenance_explicitly_trusts_only_selected_repo(
+        monkeypatch, tmp_path: Path):
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        stdout = 'a' * 40 + '\n' if 'rev-parse' in command else ''
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr='')
+
+    monkeypatch.setattr(benchmark_provenance.subprocess, 'run', fake_run)
+
+    state = benchmark_provenance._git_state(tmp_path)
+
+    expected_prefix = ['git', '-c', f'safe.directory={tmp_path}']
+    assert [call[0][:3] for call in calls] == [
+        expected_prefix, expected_prefix]
+    assert all(call[1]['cwd'] == tmp_path for call in calls)
+    assert state == {'git_commit': 'a' * 40, 'git_dirty': False}
+
+
+def test_git_provenance_rejects_unidentifiable_commit(
+        monkeypatch, tmp_path: Path):
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command, 128, stdout='', stderr='dubious ownership')
+
+    monkeypatch.setattr(benchmark_provenance.subprocess, 'run', fake_run)
+
+    with pytest.raises(RuntimeError, match='dubious ownership'):
+        benchmark_provenance._git_state(tmp_path)
 
 
 def _write_binary_xyz_pcd(path, points):
