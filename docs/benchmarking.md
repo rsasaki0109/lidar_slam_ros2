@@ -247,10 +247,17 @@ bash scripts/run_rko_lio_mid360_crossval_benchmark.sh \
 Typical outputs are written under:
 
 - `output/bench_rko_lio_ntu_viral_<name>/traj_raw_prism.tum`
+- `output/bench_rko_lio_ntu_viral_<name>/traj_corrected_sparse.tum`
 - `output/bench_rko_lio_ntu_viral_<name>/traj_corrected_prism.tum`
 - `output/bench_rko_lio_ntu_viral_<name>/ape_raw_vs_gt.txt`
 - `output/bench_rko_lio_ntu_viral_<name>/ape_corrected_vs_gt.txt`
 - `output/bench_rko_lio_ntu_viral_<name>/metrics.json`
+
+`traj_corrected_sparse.tum` preserves the optimized graph-node poses emitted
+by `/modified_path`. The canonical `traj_corrected.tum` and
+`traj_corrected_prism.tum` propagate those corrections onto every raw pose, so
+the corrected APE and `metrics.json` describe a full-rate trajectory rather
+than sparse nearest-neighbour samples.
 
 ## Loop Cloud-Overlap Gate
 
