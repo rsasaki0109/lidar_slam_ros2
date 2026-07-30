@@ -100,6 +100,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_bundled_dependency_version_alignment
+    test/test_bundled_dependency_version_alignment.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_lidarslam_launch_config
     test/test_lidarslam_launch_config.py
     TIMEOUT 120

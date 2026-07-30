@@ -209,12 +209,17 @@ flagship path cannot silently resolve to the older main-repository builds.
 
 An official `rko_lio` release line and binary packages are now present for
 both supported distributions, with the versions differing between testing
-and main as recorded above. The product currently pins the
-`rsasaki0109/rko_lio` fork at package version `0.2.0`; that fork contains
-substantial offline-completion, recovery, diagnostics, and opt-in research
-changes after its common upstream base. The successful gate proves the
-official binary for the maintained MID-360 golden path; it does not claim
-equivalence for those fork-only research features, and the fork must not be
+and main as recorded above. The source checkout pins fork merge commit
+`79d71e8`, whose parents are the previous maintained fork (`33402d4`) and
+official PRBonn v0.3.2 (`48e12f9`). Its package metadata is therefore aligned
+at `0.3.2` while retaining the fork's offline-completion, recovery,
+diagnostics, and opt-in research changes. The
+`test_bundled_dependency_version_alignment` CI gate rejects a future bundled
+package version below the `lidarslam/package.xml` runtime minimum.
+
+The successful official-binary gate still proves only the maintained
+MID-360 golden path against the unmodified official package. It does not
+claim equivalence for fork-only research features, and the fork must not be
 bloomed under the already-owned `rko_lio` package name.
 
 The resolution gate completed in
