@@ -118,7 +118,7 @@ def _load_checker(repo_root: Path, filename: str, module_name: str) -> Any:
     module = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(module)
-    except (ImportError, OSError) as exc:
+    except Exception as exc:
         raise ReadinessError(
             f'cannot load readiness checker {path}: {exc}') from exc
     return module

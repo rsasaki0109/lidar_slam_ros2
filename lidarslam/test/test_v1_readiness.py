@@ -211,6 +211,19 @@ def test_live_evaluation_fails_without_both_publication_reports(tmp_path):
         )
 
 
+def test_checker_load_failure_is_normalized_as_readiness_error(tmp_path):
+    scripts = tmp_path / 'scripts'
+    scripts.mkdir()
+    checker = scripts / 'broken.py'
+    checker.write_text('this is not valid Python !!!\n', encoding='utf-8')
+
+    with pytest.raises(
+        READINESS.ReadinessError,
+        match='cannot load readiness checker',
+    ):
+        READINESS._load_checker(tmp_path, 'broken.py', 'broken_for_v1')
+
+
 def test_require_complete_escalates_a_locally_ready_report_to_live(
     monkeypatch,
     capsys,
