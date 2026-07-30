@@ -21,7 +21,8 @@ Options:
   --startup-timeout-secs <sec>   Timeout waiting for startup (default: 30)
   --save-timeout-secs <sec>      Timeout waiting for map outputs (default: 60)
   --offline-timeout-secs <sec>   Max wall-clock for the offline node to finish the bag (default: 1800)
-  --quiescence-secs <sec>        Treat the run as done after this many stable seconds (default: 20)
+  --quiescence-secs <sec>        Require this many stable seconds for completion
+                                 fallback and graph drain (default: 20)
   --completion-end-margin-secs <sec>
                                  Required trajectory proximity to bag end (default: 0.25)
   --skip-map-save                Do not call /map_save or verify the map bundle
@@ -558,6 +559,54 @@ wait_for_offline_completion() {
   return 1
 }
 
+graph_progress_signature() {
+  # The frontend completion marker can precede delivery of its final odometry
+  # and cloud messages to graph_based_slam. Track only graph ingestion events:
+  # unrelated TF warnings may keep the launch log growing indefinitely.
+  local latest_progress
+  latest_progress="$(
+    grep -E \
+      "event-driven loop search, query submap|best_loop_candidate|loop edge skipped|Map bundle artifacts:" \
+      "$LAUNCH_LOG" 2>/dev/null | tail -n 1
+  )" || true
+  if [[ -z "$latest_progress" ]]; then
+    latest_progress="no_graph_progress"
+  fi
+  printf '%s\n' "$latest_progress"
+}
+
+wait_for_graph_drain() {
+  local quiet_secs="$1"
+  local timeout_secs="$2"
+  local deadline=$((SECONDS + timeout_secs))
+  local last_signature=""
+  local stable_since=0
+
+  while (( SECONDS < deadline )); do
+    if [[ -n "$LAUNCH_PID" ]] && ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
+      echo "SLAM launch exited while waiting for graph input to drain." >&2
+      return 1
+    fi
+
+    local current_signature
+    current_signature="$(graph_progress_signature)"
+    if [[ "$current_signature" == "$last_signature" ]]; then
+      if (( stable_since == 0 )); then
+        stable_since=$SECONDS
+      elif (( SECONDS - stable_since >= quiet_secs )); then
+        echo "Graph input stayed quiet for ${quiet_secs}s; map_save barrier satisfied"
+        return 0
+      fi
+    else
+      last_signature="$current_signature"
+      stable_since=$SECONDS
+    fi
+    sleep 1
+  done
+
+  return 1
+}
+
 call_map_save_with_retry() {
   local deadline=$((SECONDS + SAVE_TIMEOUT_SECS))
   while (( SECONDS < deadline )); do
@@ -732,6 +781,12 @@ if ! wait_for_offline_completion "$OFFLINE_TIMEOUT_SECS"; then
 fi
 
 if [[ "$SKIP_MAP_SAVE" == "false" ]]; then
+  echo "Waiting for graph input to drain ..."
+  if ! wait_for_graph_drain "$QUIESCENCE_SECS" "$SAVE_TIMEOUT_SECS"; then
+    echo "Timed out waiting for graph input to drain. Recent launch log:" >&2
+    tail -n 120 "$LAUNCH_LOG" >&2 || true
+    exit 1
+  fi
   echo "Calling /map_save ..."
   if ! call_map_save_with_retry; then
     echo "map_save service call failed. Recent launch log:" >&2

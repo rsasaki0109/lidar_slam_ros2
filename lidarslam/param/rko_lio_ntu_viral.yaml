@@ -9,11 +9,16 @@ deskew: true
 # Clean tnp_01 sweep: 1.4 m regressed and 1.7 m became unstable; 1.5 m is the
 # bounded optimum while preserving the official body_T_lidar calibration.
 voxel_size: 1.5
-gravity_window_alignment: true
-gravity_alignment_gain: 0.2
+# The initial static IMU alignment is required, but continuous window
+# alignment mistakes this sequence's sustained motion acceleration for gravity
+# tilt (5,691/5,691 attempted corrections), regressing APE 0.983 -> 1.070 m.
+gravity_window_alignment: false
 icp_keypoint_voxel_multiplier: 1.5
 max_points_per_voxel: 20
 min_range: 1.0
 max_range: 100.0
 max_correspondence_distance: 0.5
 double_downsample: true
+# Keep the offline producer below the synchronous graph backend's sustained
+# consumption rate. This changes wall time only; pose computation is unchanged.
+async.output_publish_delay_ms: 20
