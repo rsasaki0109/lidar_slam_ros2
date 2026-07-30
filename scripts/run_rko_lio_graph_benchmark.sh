@@ -701,10 +701,33 @@ if [[ "${#PRISM_TRANSFORM[@]}" -ne 4 ]]; then
 fi
 PRISM_SOURCE_FRAME="${PRISM_TRANSFORM[0]}"
 
+if ! REFERENCE_MAX_TIME_DIFF="$(python3 - "$REFERENCE_META" <<'PY'
+import json
+import math
+import sys
+from pathlib import Path
+
+meta = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+value = meta.get("max_time_diff_sec", 0.05)
+if isinstance(value, bool):
+    raise SystemExit("max_time_diff_sec must be a finite positive number")
+try:
+    value = float(value)
+except (TypeError, ValueError):
+    raise SystemExit("max_time_diff_sec must be a finite positive number") from None
+if not math.isfinite(value) or value <= 0.0:
+    raise SystemExit("max_time_diff_sec must be a finite positive number")
+print(value)
+PY
+)"; then
+  die "reference timestamp-association contract is invalid"
+fi
+
 echo "Running RKO-LIO benchmark"
 echo "  bag:            $BAG_PATH"
 echo "  reference_tum:  $REFERENCE_TUM"
 echo "  reference_meta: $REFERENCE_META"
+echo "  max_time_diff:  $REFERENCE_MAX_TIME_DIFF"
 echo "  lidar_topic:    $LIDAR_TOPIC"
 echo "  imu_topic:      $IMU_TOPIC"
 echo "  base_frame:     $BASE_FRAME"
@@ -855,11 +878,13 @@ python3 "${SCRIPT_DIR}/apply_tum_frame_offset.py" \
 python3 "${SCRIPT_DIR}/ape_from_tum.py" \
   --ref "$REFERENCE_TUM" \
   --est "$RAW_TUM_PRISM" \
+  --max-time-diff "$REFERENCE_MAX_TIME_DIFF" \
   --out "$RAW_APE"
 
 python3 "${SCRIPT_DIR}/ape_from_tum.py" \
   --ref "$REFERENCE_TUM" \
   --est "$CORRECTED_TUM_PRISM" \
+  --max-time-diff "$REFERENCE_MAX_TIME_DIFF" \
   --out "$CORRECTED_APE"
 
 BENCH_T1="$(python3 - <<'PY'

@@ -137,12 +137,14 @@ def build_reference(csv_path: Path, sequence: str) -> tuple[list[str], dict]:
             'RTK-SLAM calib/calib.yaml reference_offsets.base_center'
         ),
         'units': 'meters',
+        'max_time_diff_sec': 2.0,
         'local_origin_utm': origin,
         'checkpoint_count': len(local),
         'env_breakdown': env_breakdown(local),
         'metric_note': (
             'Score with write_aligned_trajectory_metrics.py; the SE(3)-aligned '
-            'checkpoint RMSE is the v0.5 gate metric (ape_rmse_gt_m).'
+            'checkpoint RMSE is the v0.5 gate metric (ape_rmse_gt_m). '
+            'Use max_time_diff_sec for sparse checkpoint association.'
         ),
     }
     return tum_lines, meta

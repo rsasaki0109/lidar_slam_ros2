@@ -130,13 +130,14 @@ release_profiles:
     pass: 0.55
     target: 0.30
 
-  # Outdoor pair (Stadtgarten park) -- measured with the shared dd-off preset
-  # (configs/mid360_robot/rko_lio_rtk_slam_mid360_outdoor.yaml,
-  # double_downsample off; the former dd-on preset drifts to 3.9 m here). These are
+  # Outdoor pair (Stadtgarten park) -- sequence 1 uses the shared modern dd-off
+  # preset; sequence 2 uses the measured compatibility preset
+  # (rko_lio_rtk_slam_mid360_stadtgarten_seq2.yaml: legacy voxel order,
+  # 105 m range). The former shared dd-on preset drifts to 3.9 m here. These are
   # honest capability-boundary numbers for LiDAR-inertial raw odometry without
   # GNSS or loop closure (published GNSS-anchored baselines sit at ~0.07 m):
-  # stadtgarten_seq2 0.835 m (median 0.327, 19 chkpt), stadtgarten_seq1
-  # 1.666 m (median 1.511, 36 chkpt, 26 min / ~1 km loop). Soak as
+  # stadtgarten_seq2 0.426 m (median 0.264, 19 chkpt), stadtgarten_seq1
+  # 0.838 m (median 0.511, 36 chkpt, 26 min / ~1 km loop). Soak as
   # report-only with indoor-like headroom before graduating.
   - name: mid360_gt_rtkslam_stadtgarten_seq2
     description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Stadtgarten 2 (~876s outdoor park, 19 chkpt, dense odometry)

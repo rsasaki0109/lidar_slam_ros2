@@ -40,6 +40,14 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BENCHMARK_SCRIPT = REPO_ROOT / 'scripts' / 'run_rko_lio_graph_benchmark.sh'
 NTU_RKO_PROFILE = REPO_ROOT / 'lidarslam' / 'param' / 'rko_lio_ntu_viral.yaml'
+STADTGARTEN_OUTDOOR_PROFILE = (
+    REPO_ROOT / 'configs' / 'mid360_robot' /
+    'rko_lio_rtk_slam_mid360_outdoor.yaml'
+)
+STADTGARTEN_SEQ2_PROFILE = (
+    REPO_ROOT / 'configs' / 'mid360_robot' /
+    'rko_lio_rtk_slam_mid360_stadtgarten_seq2.yaml'
+)
 
 
 def _run_benchmark(*args: str) -> subprocess.CompletedProcess[str]:
@@ -101,6 +109,20 @@ def test_default_ntu_graph_profile_buffers_fast_offline_frontend_bursts():
 
     assert graph['odom_cloud_sync_queue_size'] == 1024
     assert graph['use_save_map_in_loop'] is False
+
+
+def test_stadtgarten_seq2_uses_measured_compatibility_profile_only():
+    outdoor = yaml.safe_load(
+        STADTGARTEN_OUTDOOR_PROFILE.read_text(encoding='utf-8'))
+    seq2 = yaml.safe_load(
+        STADTGARTEN_SEQ2_PROFILE.read_text(encoding='utf-8'))
+
+    assert outdoor.get('legacy_voxel_downsample', False) is False
+    assert outdoor['max_range'] == 100.0
+    assert seq2['legacy_voxel_downsample'] is True
+    assert seq2['max_range'] == 105.0
+    assert seq2['double_downsample'] is False
+    assert seq2['voxel_size'] == 0.5
 
 
 def test_trajectory_only_mode_uses_full_dump_as_explicit_passthrough():
@@ -181,6 +203,14 @@ def test_reference_offset_preflight_requires_finite_numbers():
 
     assert 'math.isfinite(numeric)' in script
     assert 'must be a finite number' in script
+
+
+def test_reference_sidecar_controls_timestamp_association_tolerance():
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+
+    assert 'meta.get("max_time_diff_sec", 0.05)' in script
+    assert 'reference timestamp-association contract is invalid' in script
+    assert '--max-time-diff "$REFERENCE_MAX_TIME_DIFF"' in script
 
 
 def test_rko_lio_benchmark_rejects_missing_option_value_before_realpath():

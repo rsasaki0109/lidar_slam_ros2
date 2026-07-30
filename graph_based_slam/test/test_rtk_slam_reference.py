@@ -197,6 +197,7 @@ def test_generated_reference_scores_as_ground_truth(tmp_path):
     assert meta['source'] == 'rtk_slam_test_gt'
     assert meta['kind'] == 'ground_truth'
     assert meta['checkpoint_count'] == 12
+    assert meta['max_time_diff_sec'] == 2.0
     assert meta['reference_point_frame'] == 'base_center'
     assert meta['imu_to_reference_translation_m'] == {
         'x': -0.073, 'y': -0.023, 'z': -0.172}

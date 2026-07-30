@@ -64,6 +64,25 @@ outdoor config = `configs/mid360_robot/rko_lio_rtk_slam_mid360_outdoor.yaml`。
 | **voxel 0.5, DD off（採用）** | **0.835** | **0.327** | **3.05** |
 | voxel 1.0, corr 1.0, DD off | 2.348 | 0.468 | 8.96 |
 
+## v0.9 RKO-LIO voxel backend再検証
+
+RKO-LIO `d0923f4` では、v0.5時点のBonxai mapとunordered-map voxel samplerが
+robin-map + input-order samplerへ置き換わった。この変更はシーケンスごとに効果が
+逆であり、共有outdoor presetを一律に旧挙動へ戻すことはできない。
+
+| シーケンス / 設定 | chkpt | RMSE (m) | median | max |
+|---|---:|---:|---:|---:|
+| seq2 / modern, range 100 | 19/19 | 1.957 | 0.727 | 5.702 |
+| seq2 / legacy voxel order, range 100 | 19/19 | 1.652 | 0.634 | 4.795 |
+| **seq2 / legacy voxel order, range 105** | **19/19** | **0.426** | **0.264** | **1.246** |
+| seq1 / modern, range 100 | 36/36 | 0.838 | 0.511 | 2.468 |
+
+従ってseq1は共有outdoor presetのmodern samplerを維持し、seq2だけ
+`configs/mid360_robot/rko_lio_rtk_slam_mid360_stadtgarten_seq2.yaml` を使う。
+`legacy_voxel_downsample` は既定falseの互換optionであり、他のデータセットの
+軌跡は変えない。seq2公式bagはLiDARがIMUより約58秒長いため、完全再生時は
+`--completion-end-margin-secs 65` を指定する。
+
 ## ゲート構成(v0.5)
 
 - 屋内 2 profile（`mid360_gt_rtkslam_construction_seq{1,2}`）= **blocking**
