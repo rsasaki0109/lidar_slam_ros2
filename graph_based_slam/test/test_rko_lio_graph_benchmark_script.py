@@ -77,6 +77,21 @@ def test_trajectory_only_mode_uses_full_dump_as_explicit_passthrough():
     assert 'cp "${BACKEND_TUMS[0]}" "$RAW_TUM"' in script
 
 
+def test_sparse_graph_corrections_are_propagated_to_full_rate_trajectory():
+    """The scored corrected artifact must retain the raw pose sampling rate."""
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+    assert (
+        'CORRECTED_SPARSE_TUM="${OUTPUT_DIR}/traj_corrected_sparse.tum"'
+        in script
+    )
+    assert 'CORRECTED_TUM="${OUTPUT_DIR}/traj_corrected.tum"' in script
+    assert '"${SCRIPT_DIR}/densify_corrected_trajectory.py"' in script
+    assert '--corrected "$CORRECTED_SPARSE_TUM"' in script
+    assert '--output "$CORRECTED_TUM"' in script
+    assert '--est "$CORRECTED_TUM_PRISM"' in script
+    assert '--sparse-match' not in script
+
+
 def test_reference_offset_failure_is_not_masked_by_process_substitution():
     script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
     assert 'if ! PRISM_TRANSFORM_OUTPUT="$(python3' in script

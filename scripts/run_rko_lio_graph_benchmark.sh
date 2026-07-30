@@ -315,6 +315,7 @@ PY
 LAUNCH_LOG="${OUTPUT_DIR}/slam.launch.log"
 MAP_SAVE_LOG="${OUTPUT_DIR}/map_save.log"
 RAW_TUM="${OUTPUT_DIR}/traj_raw.tum"
+CORRECTED_SPARSE_TUM="${OUTPUT_DIR}/traj_corrected_sparse.tum"
 CORRECTED_TUM="${OUTPUT_DIR}/traj_corrected.tum"
 RAW_TUM_PRISM="${OUTPUT_DIR}/traj_raw_prism.tum"
 CORRECTED_TUM_PRISM="${OUTPUT_DIR}/traj_corrected_prism.tum"
@@ -479,7 +480,7 @@ run_state_signature() {
   # Trajectory files only: the launch log keeps growing with TF warnings on
   # some bags, which would starve a log-based quiescence check forever and
   # burn the whole --offline-timeout-secs budget after the bag is processed.
-  python3 - "$RAW_TUM" "$CORRECTED_TUM" <<'PY'
+  python3 - "$RAW_TUM" "$CORRECTED_SPARSE_TUM" <<'PY'
 import os
 import sys
 
@@ -707,7 +708,7 @@ RAW_LOGGER_PID="$!"
 
 python3 "${SCRIPT_DIR}/path_to_tum.py" \
   --topic /modified_path \
-  --output "$CORRECTED_TUM" \
+  --output "$CORRECTED_SPARSE_TUM" \
   --use-sim-time false \
   >"${CORRECTED_LOG}" 2>&1 &
 CORRECTED_LOGGER_PID="$!"
@@ -768,14 +769,19 @@ if [[ "$SKIP_MAP_SAVE" == "true" ]]; then
   )
   if [[ "${#BACKEND_TUMS[@]}" -eq 1 && -s "${BACKEND_TUMS[0]}" ]]; then
     cp "${BACKEND_TUMS[0]}" "$RAW_TUM"
-    cp "${BACKEND_TUMS[0]}" "$CORRECTED_TUM"
+    cp "${BACKEND_TUMS[0]}" "$CORRECTED_SPARSE_TUM"
     echo "Trajectory-only passthrough from full-rate dump: ${BACKEND_TUMS[0]}"
   else
     die "trajectory-only run expected exactly one full-rate TUM dump"
   fi
-elif [[ ! -s "$CORRECTED_TUM" ]]; then
+elif [[ ! -s "$CORRECTED_SPARSE_TUM" ]]; then
   die "corrected trajectory missing after map_save"
 fi
+
+python3 "${SCRIPT_DIR}/densify_corrected_trajectory.py" \
+  --raw "$RAW_TUM" \
+  --corrected "$CORRECTED_SPARSE_TUM" \
+  --output "$CORRECTED_TUM"
 
 python3 "${SCRIPT_DIR}/apply_tum_frame_offset.py" \
   --in "$RAW_TUM" \
@@ -799,7 +805,6 @@ python3 "${SCRIPT_DIR}/ape_from_tum.py" \
 python3 "${SCRIPT_DIR}/ape_from_tum.py" \
   --ref "$REFERENCE_TUM" \
   --est "$CORRECTED_TUM_PRISM" \
-  --sparse-match \
   --out "$CORRECTED_APE"
 
 BENCH_T1="$(python3 - <<'PY'
