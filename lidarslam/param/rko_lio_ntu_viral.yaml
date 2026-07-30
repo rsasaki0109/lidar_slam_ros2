@@ -6,7 +6,11 @@ extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, -0.05, 0.0, 0.055]
 lidar_timestamps.offset_seconds: 0.0
 initialization_phase: true
 deskew: true
-voxel_size: 0.35
+# Clean tnp_01 sweep: 1.4 m regressed and 1.7 m became unstable; 1.5 m is the
+# bounded optimum while preserving the official body_T_lidar calibration.
+voxel_size: 1.5
+gravity_window_alignment: true
+gravity_alignment_gain: 0.2
 icp_keypoint_voxel_multiplier: 1.5
 max_points_per_voxel: 20
 min_range: 1.0

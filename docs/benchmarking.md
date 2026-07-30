@@ -173,6 +173,8 @@ That wrapper:
 
 - uses the bundled NTU VIRAL `rosbag2`
 - selects the validated `lidarslam/param/lidarslam_ntu_viral.yaml` graph profile
+- uses the official-calibration `rko_lio_ntu_viral.yaml` frontend profile with
+  the bounded tnp_01 voxel/gravity tuning
 - runs `RKO-LIO + graph_based_slam`
 - saves raw and corrected trajectories
 - computes APE against the Leica prism reference
