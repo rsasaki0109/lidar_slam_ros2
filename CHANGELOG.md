@@ -44,6 +44,9 @@ distribution, publication, and external-adoption work.
   now points at the already-generated Humble/Jazzy rosdistro PRs and explicitly
   forbids recreating the source tag or rerunning Bloom while those PRs remain
   current.
+- **Complete default pytest coverage** — every Python test module in
+  `graph_based_slam` and `lidarslam` is now registered with CTest, and CI rejects
+  future modules that are added without a matching registration.
 - **Extensible degeneracy research boundary** — the oriented appearance
   matcher exposes separate intensity/height diagnostics behind default-off
   adapters. Fog and tunnel holdouts did not justify automatic channel

@@ -969,6 +969,68 @@ if(BUILD_TESTING)
     test/test_newer_college_reference.py
     TIMEOUT 120
   )
+  set(GRAPH_BASED_SLAM_ADDITIONAL_PYTESTS
+    test_aist_ouster_rgb_map_benchmark
+    test_analyze_colored_point_cloud
+    test_applanix_tf_bridge
+    test_autoware_dogfood_script
+    test_autoware_map_preflight
+    test_autoware_map_run_diagnosis
+    test_autoware_quickstart_script
+    test_autoware_viewer_scripts
+    test_benchmark_report_modules
+    test_colored_map_appearance
+    test_colored_map_pipeline
+    test_colorize_from_bag
+    test_compare_fast_livo2
+    test_cross_repo_slam_benchmark
+    test_densify_corrected_trajectory
+    test_docker_demo_script
+    test_download_verified_file
+    test_freeze_ntu_viral_holdout_inputs
+    test_freeze_ntu_viral_input_suite
+    test_freeze_rtkslam_holdout_inputs
+    test_frontend_determinism_script
+    test_generate_ntu_viral_csv_reference
+    test_graph_slam_offline_ablation
+    test_mid360_robot_field_session
+    test_mid360_robot_map_runner
+    test_mid360_robot_plan_cli
+    test_mid360_robot_profile_cli
+    test_mid360_robot_public_bag_clip
+    test_mid360_robot_public_bag_segments
+    test_mid360_robot_public_dataset_map_runner
+    test_mid360_robot_public_dataset_report
+    test_mid360_robot_public_datasets
+    test_mid360_robot_public_loop_bag
+    test_mid360_robot_public_loop_candidates
+    test_mid360_robot_public_map_run_diagnosis
+    test_mid360_robot_readiness_cli
+    test_mid360_robot_record_cli
+    test_mid360_robot_runbook_smoke
+    test_mid360_robot_sample_session
+    test_mid360_robot_sample_session_matrix
+    test_normalize_ntu_viral_rosbag
+    test_ntu_viral_download_script
+    test_offline_determinism_script
+    test_ours_competitive_benchmark_runner
+    test_pcd_sequence_to_rosbag2
+    test_plane_patch_warp
+    test_pose_graph_loop_residuals
+    test_prepare_ntu_viral_holdout
+    test_public_suite_gate
+    test_radarless_tunnel_benchmark_tools
+    test_realtime_colored_map_evaluator
+    test_rko_lio_graph_benchmark_script
+    test_run_lidar_slam
+    test_run_ntu_viral_formal_measurements
+    test_runtime_report
+    test_select_rosbag_topic
+    test_slice_rosbag2
+  )
+  foreach(PYTEST_NAME IN LISTS GRAPH_BASED_SLAM_ADDITIONAL_PYTESTS)
+    ament_add_pytest_test(${PYTEST_NAME} test/${PYTEST_NAME}.py TIMEOUT 120)
+  endforeach()
   ament_add_pytest_test(
     test_benchmark_reporting_tools
     test/test_benchmark_reporting_tools.py

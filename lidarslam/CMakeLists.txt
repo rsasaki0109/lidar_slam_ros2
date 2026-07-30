@@ -199,6 +199,30 @@ if(BUILD_TESTING)
     test/test_first_map_validation_receipt.py
     TIMEOUT 120
   )
+  set(LIDARSLAM_ADDITIONAL_PYTESTS
+    test_aggregate_kitti_metrics
+    test_autoware_map_runner_script
+    test_benchmark_provenance
+    test_benchmark_summary_profiles
+    test_cli_completion
+    test_cli_option_contract
+    test_evaluate_degeneracy_trajectory
+    test_external_first_map_acceptance
+    test_install_upgrade_contract
+    test_kitti_metrics
+    test_ndt_omp_release_readiness
+    test_package_manager_install
+    test_package_manager_release_readiness
+    test_product_build_info
+    test_published_release
+    test_release_channel
+    test_simple_lanelet2_generator
+    test_v1_readiness
+    test_view_autoware_map
+  )
+  foreach(PYTEST_NAME IN LISTS LIDARSLAM_ADDITIONAL_PYTESTS)
+    ament_add_pytest_test(${PYTEST_NAME} test/${PYTEST_NAME}.py TIMEOUT 120)
+  endforeach()
 endif()
 
 add_executable(lidarslam
