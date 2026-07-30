@@ -174,8 +174,9 @@ That wrapper:
 - uses the bundled NTU VIRAL `rosbag2`
 - selects the validated `lidarslam/param/lidarslam_ntu_viral.yaml` graph profile
 - uses the official-calibration `rko_lio_ntu_viral.yaml` frontend profile with
-  the bounded tnp_01 voxel/gravity tuning
+  the bounded tnp_01 voxel/gravity tuning and offline output backpressure
 - runs `RKO-LIO + graph_based_slam`
+- waits for graph ingestion to become quiescent before the final map save
 - saves raw and corrected trajectories
 - computes APE against the Leica prism reference
 - verifies the Autoware map bundle when present

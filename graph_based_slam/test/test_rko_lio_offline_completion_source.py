@@ -59,6 +59,16 @@ def test_offline_completion_does_not_wait_for_trailing_imu_buffer():
     assert 'imu_buffer.empty() && lidar_buffer.empty()' not in offline_node
 
 
+def test_threaded_node_supports_opt_in_output_backpressure():
+    threaded_header = (RKO_ROS_DIR / 'threaded_node.hpp').read_text(encoding='utf-8')
+    threaded_cpp = (RKO_ROS_DIR / 'threaded_node.cpp').read_text(encoding='utf-8')
+
+    assert 'std::chrono::milliseconds output_publish_delay{0}' in threaded_header
+    assert '"async.output_publish_delay_ms", 0' in threaded_cpp
+    assert 'async.output_publish_delay_ms must be non-negative' in threaded_cpp
+    assert 'std::this_thread::sleep_for(output_publish_delay)' in threaded_cpp
+
+
 def test_rko_lio_has_kidnap_relocalization_recovery_path():
     rko_core_dir = REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'core'
     config_path = (

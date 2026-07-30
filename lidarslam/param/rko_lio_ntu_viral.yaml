@@ -17,3 +17,6 @@ min_range: 1.0
 max_range: 100.0
 max_correspondence_distance: 0.5
 double_downsample: true
+# Keep the offline producer below the synchronous graph backend's sustained
+# consumption rate. This changes wall time only; pose computation is unchanged.
+async.output_publish_delay_ms: 20
