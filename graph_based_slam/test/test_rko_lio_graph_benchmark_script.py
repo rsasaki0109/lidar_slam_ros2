@@ -97,10 +97,26 @@ def test_quiet_completion_requires_substantial_bag_progress():
     """Require both near-end and minimum-progress quiet-completion guards."""
     script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
 
-    assert 'COMPLETION_END_MARGIN_SECS=120' in script
+    assert 'COMPLETION_END_MARGIN_SECS=0.25' in script
     assert 'raw_tum_reached "$end_stamp" "$COMPLETION_END_MARGIN_SECS"' in script
     assert 'raw_tum_reached_fraction 0.8' in script
     assert '[[ -n "$end_stamp" ]]' in script
+    assert 'aborted-but-scoreable' not in script
+
+
+def test_signal_handlers_exit_instead_of_continuing_to_map_save():
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+
+    assert "trap 'on_signal 130' INT" in script
+    assert "trap 'on_signal 143' TERM" in script
+    assert 'trap cleanup EXIT INT TERM' not in script
+
+
+def test_reference_offset_preflight_requires_finite_numbers():
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+
+    assert 'math.isfinite(numeric)' in script
+    assert 'must be a finite number' in script
 
 
 def test_rko_lio_benchmark_rejects_missing_option_value_before_realpath():

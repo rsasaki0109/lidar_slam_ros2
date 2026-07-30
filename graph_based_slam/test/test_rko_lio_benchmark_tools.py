@@ -39,6 +39,7 @@ import struct
 import subprocess
 import sys
 
+import jsonschema
 import yaml
 
 
@@ -182,6 +183,10 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
             '  storage_identifier: sqlite3',
             '  duration:',
             '    nanoseconds: 2000000000',
+            '  topics_with_message_count:',
+            '    - topic_metadata:',
+            '        name: /os1_cloud_node1/points',
+            '      message_count: 2',
         ]),
         encoding='utf-8',
     )
@@ -263,6 +268,10 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
             'body',
             '--wall-sec',
             '1.0',
+            '--completion-reason',
+            'offline_completion_marker',
+            '--completion-end-margin-secs',
+            '0.25',
             '--runtime-artifact',
             'test_runtime=/bin/true',
             '--benchmark-harness',
@@ -278,6 +287,10 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
     metrics_path = out_dir / 'metrics.json'
     assert metrics_path.is_file()
     metrics = json.loads(metrics_path.read_text(encoding='utf-8'))
+    schema = json.loads(
+        (REPO_ROOT / 'docs/schemas/benchmark-metrics-v1.schema.json').read_text(
+            encoding='utf-8'))
+    jsonschema.validate(metrics, schema)
 
     assert metrics['reference']['source'] == 'leica_prism_gt'
     assert metrics['lidarslam']['success'] is True
@@ -290,6 +303,10 @@ def test_write_rko_lio_metrics_generates_compatible_metrics_json(tmp_path):
     assert metrics['rko_lio']['trajectory_source_frame'] == 'body'
     assert metrics['rko_lio']['prism_offset_m']['x'] == -0.293656
     assert metrics['schema_version'] == 1
+    assert metrics['completion']['reason'] == 'offline_completion_marker'
+    assert metrics['completion']['input_points_messages'] == 2
+    assert metrics['completion']['raw_output_pose_count'] == 2
+    assert metrics['completion']['raw_output_pose_ratio'] == 1.0
     assert metrics['reference']['kind'] == 'ground_truth'
     assert metrics['provenance']['input']['bag']['identity_algorithm'] == 'sha256'
     assert metrics['provenance']['software']['runtime_artifacts'][0][
