@@ -628,6 +628,7 @@ def test_postprocessing_lock_rejects_concurrent_owner(tmp_path: Path):
 def test_main_writes_success_manifest_and_rejects_collision(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ):
     module = _load_module()
     bag_dir = _write_metadata(
@@ -682,6 +683,15 @@ def test_main_writes_success_manifest_and_rejects_collision(
     )
 
     assert module.main() == 0
+    stdout = capsys.readouterr().out
+    assert (
+        f'Review shareable receipt: '
+        f'{output_dir / "first_map_validation_receipt.json"}'
+    ) in stdout
+    assert (
+        'Report this run (PASS or FAIL): '
+        f'{module.VALIDATION_ISSUE_URL}'
+    ) in stdout
     assert output_dir.is_dir()
     assert not output_dir.with_name('map_output.partial').exists()
     manifest = json.loads(

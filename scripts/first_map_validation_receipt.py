@@ -20,6 +20,10 @@ RECEIPT_MARKDOWN_NAME = 'first_map_validation_receipt.md'
 MANIFEST_NAME = 'run_manifest.json'
 DIAGNOSIS_NAME = 'autoware_map_diagnosis.json'
 VERIFY_LOG_NAME = 'verify_autoware_map.log'
+VALIDATION_ISSUE_URL = (
+    'https://github.com/rsasaki0109/lidar_slam_ros2/issues/new'
+    '?template=first-map-validation.yml'
+)
 
 
 class ReceiptError(ValueError):
@@ -285,9 +289,14 @@ def render_markdown(receipt: dict[str, Any]) -> str:
         'the exact command. Review the receipt before sharing it and redact '
         'the separately reported command if it contains a private path.',
         '',
-        'After reviewing `first_map_validation_receipt.json`, attach that JSON '
-        'file to the public Independent First-map Validation issue. Do not '
-        'attach the manifest, map, logs, bag, or any other run artifact.',
+        '## Submit this run',
+        '',
+        f'[Open the Independent First-map Validation issue form]'
+        f'({VALIDATION_ISSUE_URL}). Both PASS and FAIL reports are useful.',
+        '',
+        'After reviewing `first_map_validation_receipt.json`, attach that '
+        'JSON file to the issue. Do not attach the manifest, map, logs, bag, '
+        'or any other run artifact.',
     ])
     return '\n'.join(lines) + '\n'
 

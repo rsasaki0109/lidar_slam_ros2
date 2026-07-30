@@ -50,6 +50,9 @@ SCHEMA_PATH = (
 )
 PRIVATE_PATH = '/private/customer/site-42/input.bag'
 PRIVATE_COMMAND = f'ros2 bag play {PRIVATE_PATH}'
+ISSUE_TEMPLATE = (
+    REPO_ROOT / '.github' / 'ISSUE_TEMPLATE' / 'first-map-validation.yml'
+)
 
 
 def _load_module(path: Path, name: str):
@@ -150,6 +153,28 @@ def test_passing_receipt_is_schema_valid_and_privacy_bounded(tmp_path: Path):
         assert private_value not in markdown
     assert 'manifest_status=succeeded' in markdown
     assert 'autoware_status=PASS' in markdown
+    assert module.VALIDATION_ISSUE_URL in markdown
+    assert 'Both PASS and FAIL reports are useful.' in markdown
+
+
+def test_submission_link_is_shared_by_receipt_and_runner():
+    receipt_module = _load_module(
+        MODULE_PATH,
+        'first_map_validation_submission_link',
+    )
+    runner_module = _load_module(
+        RUNNER_PATH,
+        'run_autoware_map_submission_link',
+    )
+
+    assert ISSUE_TEMPLATE.is_file()
+    assert (
+        receipt_module.VALIDATION_ISSUE_URL
+        == runner_module.VALIDATION_ISSUE_URL
+    )
+    assert receipt_module.VALIDATION_ISSUE_URL.endswith(
+        '?template=first-map-validation.yml'
+    )
 
 
 def test_receipt_fails_when_frozen_diagnosis_identity_is_changed(
@@ -248,7 +273,9 @@ def test_cli_writes_both_receipts_and_uses_stable_exit_codes(tmp_path: Path):
     markdown_path = run_dir / 'first_map_validation_receipt.md'
     assert markdown_path.is_file()
     markdown = markdown_path.read_text(encoding='utf-8')
-    assert 'attach that JSON file to the public' in markdown
+    assert 'Open the Independent First-map Validation issue form' in markdown
+    assert '?template=first-map-validation.yml' in markdown
+    assert 'attach that JSON file to the issue' in markdown
     assert 'Do not attach the manifest, map, logs, bag' in markdown
 
     missing = subprocess.run(

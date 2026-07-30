@@ -48,6 +48,10 @@ VALIDATION_RECEIPT_NAMES = {
     'first_map_validation_receipt.json',
     'first_map_validation_receipt.md',
 }
+VALIDATION_ISSUE_URL = (
+    'https://github.com/rsasaki0109/lidar_slam_ros2/issues/new'
+    '?template=first-map-validation.yml'
+)
 PRODUCT_BUILD_INFO_PATH = REPO_ROOT / 'product-build-info.json'
 MANIFEST_SCHEMA_VERSION = 2
 MANIFEST_SCHEMA_URI = (
@@ -877,6 +881,10 @@ def print_next_steps(args: argparse.Namespace, output_dir: Path) -> None:
     lanelet2_map = output_dir / 'lanelet2_map.osm'
     if lanelet2_map.is_file():
         print(f'  Lanelet2:   {lanelet2_map}')
+    receipt_json = output_dir / 'first_map_validation_receipt.json'
+    if receipt_json.is_file():
+        print(f'  Review shareable receipt: {receipt_json}')
+        print(f'  Report this run (PASS or FAIL): {VALIDATION_ISSUE_URL}')
 
     if args.viewer == 'none':
         print(
@@ -1446,6 +1454,13 @@ def _finish_run(
             print(
                 'First-map receipt: '
                 f'{output_dir / "first_map_validation_receipt.md"}'
+            )
+        receipt_json = output_dir / 'first_map_validation_receipt.json'
+        if receipt_json.is_file():
+            print(f'Review shareable receipt: {receipt_json}')
+            print(
+                'Report this run (PASS or FAIL): '
+                f'{VALIDATION_ISSUE_URL}'
             )
         return exit_code
 

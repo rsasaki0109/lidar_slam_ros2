@@ -72,9 +72,11 @@ Successful runs should leave these files:
 - `first_map_validation_receipt.md`
 
 The first-map receipt contains a copy-ready verification summary without map
-geometry or private paths. See
-[Independent First-map Validation](external-first-map-validation.md) if you
-are testing the onboarding path as an independent user.
+geometry or private paths. At the end of a run, the CLI prints the reviewable
+JSON receipt path and a direct link to the Independent First-map Validation
+issue form. Both passing and failing reports improve the onboarding path; see
+[Independent First-map Validation](external-first-map-validation.md) for the
+privacy and acceptance rules.
 
 Map generation and viewing have separate exit codes. After a successful run,
 open the browser viewer explicitly:
