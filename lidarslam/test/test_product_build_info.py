@@ -91,6 +91,34 @@ def test_generator_captures_clean_and_dirty_checkout_state(tmp_path: Path):
     assert generator.build_info(repo)['dirty'] is True
 
 
+def test_generator_scopes_safe_directory_to_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Container builds should not require a global Git configuration."""
+    generator = _load(GENERATOR_PATH, 'generate_product_build_info')
+    source = tmp_path / 'source'
+    source.mkdir()
+    observed = {}
+
+    def fake_run(command, **kwargs):
+        observed['command'] = command
+        observed['kwargs'] = kwargs
+        return subprocess.CompletedProcess(command, 0, '', '')
+
+    monkeypatch.setattr(generator.subprocess, 'run', fake_run)
+    generator._run_git(source, 'rev-parse', 'HEAD')
+
+    assert observed['command'] == [
+        'git',
+        '-c',
+        f'safe.directory={source}',
+        'rev-parse',
+        'HEAD',
+    ]
+    assert observed['kwargs']['cwd'] == source
+
+
 def test_generator_supports_validated_override_and_unknown_archive(
     tmp_path: Path,
 ):

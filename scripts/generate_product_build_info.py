@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 import re
 import subprocess
 import sys
-from pathlib import Path
 from typing import Sequence
 
 
@@ -33,7 +33,12 @@ def _parse_dirty(value: str) -> bool:
 
 def _run_git(source_dir: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ['git', *args],
+        [
+            'git',
+            '-c',
+            f'safe.directory={source_dir}',
+            *args,
+        ],
         cwd=source_dir,
         check=False,
         capture_output=True,
