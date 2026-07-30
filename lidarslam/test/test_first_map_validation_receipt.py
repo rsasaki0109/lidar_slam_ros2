@@ -245,7 +245,11 @@ def test_cli_writes_both_receipts_and_uses_stable_exit_codes(tmp_path: Path):
     assert passing.returncode == 0, passing.stderr
     assert json.loads(passing.stdout)['status'] == 'PASS'
     assert (run_dir / 'first_map_validation_receipt.json').is_file()
-    assert (run_dir / 'first_map_validation_receipt.md').is_file()
+    markdown_path = run_dir / 'first_map_validation_receipt.md'
+    assert markdown_path.is_file()
+    markdown = markdown_path.read_text(encoding='utf-8')
+    assert 'attach that JSON file to the public' in markdown
+    assert 'Do not attach the manifest, map, logs, bag' in markdown
 
     missing = subprocess.run(
         ['python3', str(CLI_PATH), str(tmp_path / 'missing')],

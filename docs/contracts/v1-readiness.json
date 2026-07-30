@@ -116,6 +116,7 @@
       "state": "incomplete",
       "evidence": [
         "docs/external-first-map-validation.md",
+        ".github/ISSUE_TEMPLATE/first-map-validation.yml",
         "docs/evidence/external-first-map-validations.json",
         "scripts/prepare_external_first_map_acceptance.py",
         "docs/schemas/external-first-map-acceptance-v1.schema.json"
