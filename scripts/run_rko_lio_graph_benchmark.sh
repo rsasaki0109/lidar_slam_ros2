@@ -95,7 +95,7 @@ DEFAULT_REFERENCE_META="${REPO_ROOT}/output/ntu_viral_tnp01_reference.json"
 DEFAULT_LIDAR_TOPIC="/os1_cloud_node1/points"
 DEFAULT_IMU_TOPIC="/imu/imu"
 DEFAULT_BASE_FRAME="base_link"
-DEFAULT_LIDARSLAM_PARAM="${REPO_ROOT}/lidarslam/param/lidarslam.yaml"
+DEFAULT_LIDARSLAM_PARAM="${REPO_ROOT}/lidarslam/param/lidarslam_ntu_viral.yaml"
 DEFAULT_RKO_PARAM="${REPO_ROOT}/lidarslam/param/rko_lio_ntu_viral.yaml"
 
 BAG_PATH="$DEFAULT_BAG"

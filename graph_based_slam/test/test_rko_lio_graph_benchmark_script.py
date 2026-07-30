@@ -70,6 +70,15 @@ def test_rko_lio_benchmark_help_exits_successfully():
     assert '--skip-reference-gen' in result.stderr
 
 
+def test_default_graph_profile_is_the_validated_ntu_configuration():
+    """The zero-option golden benchmark must use the NTU release profile."""
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+    assert (
+        'DEFAULT_LIDARSLAM_PARAM="${REPO_ROOT}/lidarslam/param/'
+        'lidarslam_ntu_viral.yaml"'
+    ) in script
+
+
 def test_trajectory_only_mode_uses_full_dump_as_explicit_passthrough():
     script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
     assert 'find "$OUTPUT_DIR" -mindepth 2 -maxdepth 2' in script

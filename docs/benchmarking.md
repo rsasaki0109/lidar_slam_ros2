@@ -172,6 +172,7 @@ errors are compared, matching the position-only public-suite ATE semantics.
 That wrapper:
 
 - uses the bundled NTU VIRAL `rosbag2`
+- selects the validated `lidarslam/param/lidarslam_ntu_viral.yaml` graph profile
 - runs `RKO-LIO + graph_based_slam`
 - saves raw and corrected trajectories
 - computes APE against the Leica prism reference
