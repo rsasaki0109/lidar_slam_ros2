@@ -94,18 +94,17 @@ directories. `output/` is ignored by git; use the commands in
 
 ### Release-track datasets
 
-As of v0.4 every profile below is a blocking release-track profile. The current
-numbers all sit under their `pass` thresholds, so graduation flips their status
-from `WARN` to `PASS` without breaking the gate.
+The current blocking profiles below sit under their `pass` thresholds. The
+Stadtgarten pair remains report-only while its outdoor evidence soaks.
 
 | Dataset | Configuration | Reference kind | APE RMSE (m) | Profile gate | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `NTU VIRAL tnp_01` | current default | `ground_truth` | `0.952` | `PASS` (pass ≤ 1.00, target 0.30) | outdoor long-loop GT |
 | `NTU VIRAL tnp_01` | best observed   | `ground_truth` | `0.870` | `PASS` (same)                     | loop-gated backend run |
-| `MID-360` RTK-SLAM Construction Hall 2 | indoor default | `ground_truth` (total station, 16 chkpt) | `0.154` (median 0.061) | `PASS` (pass ≤ 0.30, target 0.15) | dense odometry scored, `--match-tolerance 2.0` |
-| `MID-360` RTK-SLAM Construction Hall 1 | indoor default | `ground_truth` (total station, 16 chkpt) | `0.403` (median 0.263) | `PASS` (pass ≤ 0.55, target 0.30) | hardest indoor hall (published baselines ~0.22) |
-| `MID-360` RTK-SLAM Stadtgarten 2 | outdoor config | `ground_truth` (total station, 19 chkpt) | `0.835` (median 0.327) | report-only soak (pass ≤ 1.20) | outdoor park; `double_downsample: false` (see methodology note) |
-| `MID-360` RTK-SLAM Stadtgarten 1 | outdoor config | `ground_truth` (total station, 36 chkpt) | `1.666` (median 1.511) | report-only soak (pass ≤ 2.20) | 26 min / ~1 km park loop; raw odometry drift, no GNSS / loop closure |
+| `MID-360` RTK-SLAM Construction Hall 2 | indoor default | `ground_truth` (total station, 16 chkpt) | `0.086` (median 0.064, 16/16) | `PASS` (pass ≤ 0.30, target 0.15) | dense odometry scored, 2.0 s association contract |
+| `MID-360` RTK-SLAM Construction Hall 1 | indoor default | `ground_truth` (total station, 16 chkpt) | `0.321` (median 0.163, 16/16) | `PASS` (pass ≤ 0.55, target 0.30) | hardest indoor hall (published baselines ~0.22) |
+| `MID-360` RTK-SLAM Stadtgarten 2 | sequence-specific compatibility preset | `ground_truth` (total station, 19 chkpt) | `0.426` (median 0.264, 19/19) | report-only soak (pass ≤ 1.20) | legacy voxel order + 105 m range; shared default unchanged |
+| `MID-360` RTK-SLAM Stadtgarten 1 | outdoor config | `ground_truth` (total station, 36 chkpt) | `0.838` (median 0.511, 36/36) | report-only soak (pass ≤ 2.20) | 26 min / ~1 km park loop; raw odometry, no GNSS / loop closure |
 | `MID-360` | current default                  | `cross_validation` vs GLIM | `3.641` | report-only since v0.5 (D-GT-2)   | solid-state LiDAR, non-360° FOV |
 | `MID-360` | best observed                    | `cross_validation` vs GLIM | `3.590` | report-only (same)                | rerun with same tuned backend family |
 | `MID-360` | Scan Context candidate           | `cross_validation` vs GLIM | `3.816` | report-only                       | fair current-code comparison; still opt-in |
