@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import subprocess
 import textwrap
 
 import pytest
@@ -63,6 +64,8 @@ def _rec(**overrides):
         'ape_pairs': overrides.get('ape_pairs', 500),
         'provenance_complete': overrides.get('provenance_complete', True),
         'provenance_git_dirty': overrides.get('provenance_git_dirty', False),
+        'provenance_git_commit': overrides.get(
+            'provenance_git_commit', 'a' * 40),
     }
     return base
 
@@ -162,6 +165,49 @@ def test_load_release_profiles_rejects_non_boolean_provenance_gate(tmp_path: Pat
     )
     with pytest.raises(ValueError, match='require_clean_provenance must be boolean'):
         module.load_release_profiles(bad)
+
+
+def test_cli_rejects_malformed_required_git_commit(tmp_path: Path):
+    result = subprocess.run(
+        [
+            'python3',
+            str(SCRIPT_PATH),
+            '--root',
+            str(tmp_path),
+            '--release-profile',
+            str(DEFAULT_PROFILE_YAML),
+            '--required-git-commit',
+            'abc123',
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+
+    assert result.returncode == 1
+    assert 'exactly 40 lowercase hexadecimal characters' in result.stdout
+
+
+def test_cli_hard_profile_gate_requires_commit_binding(tmp_path: Path):
+    result = subprocess.run(
+        [
+            'python3',
+            str(SCRIPT_PATH),
+            '--root',
+            str(tmp_path),
+            '--release-profile',
+            str(DEFAULT_PROFILE_YAML),
+            '--fail-on-profiles',
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+
+    assert result.returncode == 1
+    assert 'requires --required-git-commit' in result.stdout
 
 
 def test_evaluate_pass_picks_best_matching_run():
@@ -288,6 +334,98 @@ def test_provenance_rejection_diagnostics_preserve_multiple_causes():
         'incomplete provenance: legacy; dirty revision: local'
     )
     assert result['no_data_reason'] in rendered
+
+
+def test_blocking_profile_requires_exact_release_candidate_commit():
+    """Clean evidence from an older revision must fail the release gate."""
+    module = _load_module()
+    candidate_commit = 'b' * 40
+    profile = {
+        'name': 'p',
+        'metric': 'ape_rmse_gt_m',
+        'pass': 1.0,
+        'match': {'require_clean_provenance': True},
+    }
+    records = [
+        _rec(
+            run='old_clean_run',
+            ape_rmse_m='0.01',
+            provenance_git_commit='a' * 40,
+        ),
+    ]
+
+    [result] = module.evaluate_release_profiles(
+        [profile],
+        records,
+        required_git_commit=candidate_commit,
+    )
+    rendered = '\n'.join(module.render_release_profile_section([result]))
+
+    assert result['status'] == 'NO_DATA'
+    assert result['matched_runs'] == 0
+    assert result['no_data_reason'] == (
+        'candidate commit mismatch (required bbbbbbbbbbbb): '
+        'old_clean_run@aaaaaaaaaaaa'
+    )
+    assert result['no_data_reason'] in rendered
+
+
+def test_blocking_profile_accepts_exact_release_candidate_commit():
+    """Clean evidence from the requested revision remains eligible."""
+    module = _load_module()
+    candidate_commit = 'b' * 40
+    profile = {
+        'name': 'p',
+        'metric': 'ape_rmse_gt_m',
+        'pass': 1.0,
+        'match': {'require_clean_provenance': True},
+    }
+    records = [
+        _rec(
+            run='candidate_run',
+            ape_rmse_m='0.20',
+            provenance_git_commit=candidate_commit,
+        ),
+    ]
+
+    [result] = module.evaluate_release_profiles(
+        [profile],
+        records,
+        required_git_commit=candidate_commit,
+    )
+    rendered = '\n'.join(module.render_release_profile_section([result]))
+
+    assert result['status'] == 'PASS'
+    assert result['best_run'] == 'candidate_run'
+    assert 'clean provenance @ bbbbbbbbbbbb' in rendered
+
+
+def test_report_only_profile_remains_a_cross_revision_comparison():
+    """Commit binding applies only to profiles that can block release."""
+    module = _load_module()
+    profile = {
+        'name': 'historical',
+        'metric': 'ape_rmse_gt_m',
+        'pass': 1.0,
+        'report_only_until': 'future-cycle',
+        'match': {'require_clean_provenance': True},
+    }
+    records = [
+        _rec(
+            run='older_baseline',
+            provenance_git_commit='a' * 40,
+        ),
+    ]
+
+    [result] = module.evaluate_release_profiles(
+        [profile],
+        records,
+        required_git_commit='b' * 40,
+    )
+
+    assert result['status'] == 'PASS'
+    assert result['best_run'] == 'older_baseline'
+    assert result['required_git_commit'] is None
 
 
 def test_metric_ape_rmse_gt_m_skips_cross_validation():

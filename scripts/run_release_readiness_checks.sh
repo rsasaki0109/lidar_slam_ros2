@@ -15,7 +15,8 @@ Options:
   --release-profile <path>      Release-profile YAML (per-dataset pass/target)
                                 Default: scripts/release_profiles.yaml when omitted
   --no-release-profile          Disable the release-profile gate
-  --fail-on-profiles            Fail if a blocking profile FAILs or has NO_DATA
+  --fail-on-profiles            Fail if a blocking profile FAILs or has NO_DATA;
+                                evidence is bound to the current Git commit
   --skip-default-ci             Skip scripts/run_default_ci_checks.sh
   --skip-benchmark-summary      Skip benchmark summary generation
   --public-mid360-completion    Run the public MID-360 segment-reset completion gate
@@ -131,7 +132,9 @@ The release-profile gate runs in addition to (or instead of) --ape-threshold:
 each profile in the YAML scores its own pass/target threshold against the best
 matching run, with optional report_only_until semantics so hard datasets
 can soak without blocking release. A blocking profile with no matching run
-fails closed.
+fails closed. With --fail-on-profiles, blocking evidence must also have clean,
+complete provenance for the exact current repository commit. Report-only
+profiles remain historical comparisons and are not commit-bound.
 EOF
 }
 
@@ -418,9 +421,25 @@ if [[ "${FAIL_ON_PROFILES}" == "true" && ! -f "${RELEASE_PROFILE}" ]]; then
   fail "release profile not found: ${RELEASE_PROFILE}"
 fi
 
+RELEASE_CANDIDATE_COMMIT=""
+if [[ "${FAIL_ON_PROFILES}" == "true" ]]; then
+  if ! RELEASE_CANDIDATE_COMMIT="$(
+    git -c "safe.directory=${REPO_ROOT}" \
+      -C "${REPO_ROOT}" rev-parse --verify HEAD^{commit}
+  )"; then
+    fail "cannot resolve the release-candidate Git commit from ${REPO_ROOT}"
+  fi
+  if [[ ! "${RELEASE_CANDIDATE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
+    fail "release-candidate Git commit is not an exact 40-character object ID"
+  fi
+fi
+
 mkdir -p "${OUT_DIR}"
 
 echo "Release readiness output: ${OUT_DIR}"
+if [[ -n "${RELEASE_CANDIDATE_COMMIT}" ]]; then
+  echo "Release candidate commit: ${RELEASE_CANDIDATE_COMMIT}"
+fi
 
 if [[ "${RUN_DEFAULT_CI}" == "true" ]]; then
   echo "==> Running default workflow checks"
@@ -449,7 +468,10 @@ if [[ "${RUN_BENCHMARK_SUMMARY}" == "true" ]]; then
     if [[ -n "${RELEASE_PROFILE}" && -f "${RELEASE_PROFILE}" ]]; then
       SUMMARY_CMD+=(--release-profile "${RELEASE_PROFILE}")
       if [[ "${FAIL_ON_PROFILES}" == "true" ]]; then
-        SUMMARY_CMD+=(--fail-on-profiles)
+        SUMMARY_CMD+=(
+          --fail-on-profiles
+          --required-git-commit "${RELEASE_CANDIDATE_COMMIT}"
+        )
       fi
     elif [[ -n "${RELEASE_PROFILE}" ]]; then
       echo "warning: release profile not found at ${RELEASE_PROFILE}; continuing without profile gate" >&2

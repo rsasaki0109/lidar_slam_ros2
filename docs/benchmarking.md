@@ -757,6 +757,15 @@ The release command uses the per-dataset profile thresholds. With
 threshold or has no matching run. A passing synthetic fixture therefore
 checks reporting mechanics but cannot count as release evidence.
 
+The wrapper resolves the current repository `HEAD` and binds every blocking
+profile to that exact 40-character commit. Clean benchmark evidence from an
+older revision is reported as a candidate-commit mismatch and evaluates as
+`NO_DATA`; it cannot authorize the current release candidate. Profiles marked
+`report_only_until` remain useful as historical comparisons and are not
+commit-bound. When invoking `benchmark_summary.py` directly as a hard gate,
+pass both `--fail-on-profiles` and
+`--required-git-commit "$(git rev-parse HEAD)"`.
+
 For a one-off uniform threshold check, `--ape-threshold <metres>` is also
 hard:
 
@@ -767,7 +776,8 @@ hard:
   `ground_truth` runs; `cross_validation` runs stay visible in reports without
   blocking release
 
-`--fail-on-profiles` requires an active, existing release-profile YAML.
+`--fail-on-profiles` requires an active, existing release-profile YAML and an
+exact candidate commit (automatically supplied by the wrapper).
 Profiles marked `report_only_until` remain non-blocking even when their data
 is absent. Neither hard benchmark gate can be combined with
 `--skip-benchmark-summary`. Without `--ape-threshold` or
