@@ -155,6 +155,28 @@ The resulting JSON contract is
 GitHub API errors report `BLOCKED`, while absence of the exact successful run
 reports `NOT_RUN`; neither state can satisfy live v1 readiness.
 
+Before dispatching the expensive real-data workflow, inspect the two binary
+dependencies in disposable Humble and Jazzy containers:
+
+```bash
+python3 scripts/check_ros_apt_dependency_readiness.py --require testing
+```
+
+The checker reads both public `main` and `testing` channels, requires
+`ndt_omp_ros2 >= 0.1.0` and `rko_lio >= 0.3.2` in both named distributions,
+and writes a
+[`ros-apt-dependency-readiness-v1`](schemas/ros-apt-dependency-readiness-v1.schema.json)
+report. `IN_PROGRESS` means at least one testing binary is not ready;
+`TESTING_READY` authorizes the testing-channel package-manager E2E;
+`MAIN_READY` means the dependency half of the normal-channel gate has synced.
+Docker, network, apt, or schema failures are `BLOCKED`, never
+`not-published`. This preflight does not replace the installed product E2E:
+it prevents a workflow dispatch that is guaranteed to fail before installation.
+The
+[2026-07-31 public-channel snapshot](evidence/ros-apt-dependency-readiness-2026-07-31.json)
+records RKO-LIO 0.3.2 as ready in both testing channels while both
+`ndt_omp_ros2` testing binaries remain unpublished.
+
 ## Installed source identity
 
 Every official install includes

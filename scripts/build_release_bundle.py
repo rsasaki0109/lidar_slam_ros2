@@ -73,6 +73,7 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/check_release_bundle_reproducibility.py',
     'scripts/check_package_manager_install.py',
     'scripts/check_package_manager_release_readiness.py',
+    'scripts/check_ros_apt_dependency_readiness.py',
     'scripts/check_published_release.py',
     'scripts/create_release_image_record.py',
     'scripts/check_external_first_map_readiness.py',

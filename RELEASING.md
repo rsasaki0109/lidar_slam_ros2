@@ -74,6 +74,13 @@ main-to-testing upgrade evidence before the sync. After sync, repeat
 clean-install against `main`; see `docs/rosdistro-release.md` for exact
 dispatch inputs.
 
+Avoid a guaranteed-failing workflow dispatch by checking the public dependency
+channels first:
+
+```bash
+python3 scripts/check_ros_apt_dependency_readiness.py --require testing
+```
+
 The live v1 gate accepts the normal apt path only after the exact main-channel
 clean-install run succeeds for both named distributions:
 

@@ -54,6 +54,10 @@ untrustworthy live inspection exits 2.
   [`package-manager-install-v1.schema.json`](schemas/package-manager-install-v1.schema.json)
   contract and Humble/Jazzy clean-install/upgrade workflow. It remains an
   open gate until actual ROS testing/main packages produce passing artifacts.
+  The dependency-only
+  `scripts/check_ros_apt_dependency_readiness.py` preflight first distinguishes
+  missing testing binaries from dependencies that have synced to the normal
+  channel.
   The live
   `scripts/check_package_manager_release_readiness.py` audit independently
   requires a successful workflow dispatch named for the exact immutable

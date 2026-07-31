@@ -313,6 +313,13 @@ When the new lidarslam version appears in ROS testing, run the clean
 package-manager path for both supported distributions:
 
 ```bash
+python3 scripts/check_ros_apt_dependency_readiness.py --require testing
+```
+
+Do not dispatch the dataset-backed workflow until this dependency-only
+preflight reports `TESTING_READY` or `MAIN_READY`.
+
+```bash
 gh workflow run package-manager-install-upgrade.yml \
   -f source_ref=v0.9.0 \
   -f target_version=0.9.0 \
