@@ -2,13 +2,17 @@
 
 ## Decision
 
-- **competitive-v2 frontend:** pending clean isolated exp01/exp04 measurements.
+- **competitive-v2 frontend/backend transport profile:** **promote**. The clean
+  HILTI gate passed on exp01 and on three deterministic exp04 repetitions:
+  every RTF was below 1.0, accuracy improved against the recorded baseline,
+  and all three exp04 trajectories were byte-identical.
 - **Candidate2 backend:** **do not promote** under the frozen
-  `competitive_slam_v1` contract. Only `spms_01` remains unused by candidate
-  development, while the contract requires three assigned, frozen holdouts and
-  three wins. In addition, the frozen manifest identifies a dirty source-tree
-  hash rather than a reviewable commit, and its enabled planar-map refinement
-  is not part of the isolated Candidate2 delta.
+  `competitive_slam_v1` contract. Only `spms_01` remained without an exposed
+  candidate result, and even that slot is retry-only rather than pristine;
+  the contract requires three assigned, frozen holdouts and three wins. In
+  addition, the frozen manifest identifies a dirty source-tree hash rather
+  than a reviewable commit, and its enabled planar-map refinement is not part
+  of the isolated Candidate2 delta.
 
 This decision separates implementation readiness from benchmark eligibility.
 The code below is reviewable and builds in isolation; a successful regression
@@ -25,6 +29,7 @@ holdout.
 | production profile | `ef92aa7` | pinned frontend revision and competitive-v2 HILTI configuration |
 | benchmark harness | `625f3d4` | explicit bag-end completion margin for strict completeness checks |
 | holdout profiles | `4af54b2` | NTU-VIRAL frontend-v2 and trajectory-only Candidate2 safety settings |
+| holdout transport pin | `8908e60` | exact-time, reliable, queue-256 Candidate2 diagnostic profile |
 
 The branch is `agent/kaizen-production-gate-20260801`, based on `3d44bc5`.
 Benchmark/build directories are not source changes.
@@ -33,7 +38,7 @@ Benchmark/build directories are not source changes.
 
 - RKO-LIO core, `offline_node`, and `online_node_component`: built and linked
   from the isolated submodule worktree.
-- `test_frontend_performance_contract`: 1/1 passed.
+- `test_frontend_performance_contract`: 3/3 cases passed.
 - `test_loop_search_schedule`: 3/3 passed.
 - `graph_based_slam` production targets: colcon build passed in the isolated
   overlay.
@@ -47,24 +52,29 @@ Runs performed while another benchmark owns the CPU are invalid.
 
 | Sequence | Candidate RTF | Raw APE RMSE | Baseline RTF | Baseline APE RMSE | Result |
 | --- | ---: | ---: | ---: | ---: | --- |
-| exp01 | pending | pending | 0.9783 | 0.06221018 m | pending |
-| exp04 | pending | pending | 0.5037 | 0.06739868 m | pending |
+| exp01, run 1 | 0.695946 | 0.06194893 m | 0.9783 | 0.06221018 m | pass (-0.42% APE) |
+| exp04, run 1 | 0.355620 | 0.04712426 m | 0.5037 | 0.06739868 m | pass (-30.08% APE) |
+| exp04, run 2 | 0.339366 | 0.04712426 m | 0.5037 | 0.06739868 m | pass (-30.08% APE) |
+| exp04, run 3 | 0.339920 | 0.04712426 m | 0.5037 | 0.06739868 m | pass (-30.08% APE) |
 
 The gate is RTF <= 1.0 and no accuracy regression above 2%.
 
-### Measurement status
+### Measurement provenance and reproducibility
 
-No value is accepted yet. The first unrelated Calibrex batch completed 200
-trials, but a second 200-trial batch immediately began and occupied roughly
-6.5 of 8 logical CPUs. The preflight correctly rejected launch (examples:
-load1 3.28 and CPU busy 88.89%). The measurement process was never started,
-so there is no contaminated candidate result to discard or accidentally cite.
+Accepted artifacts are under
+`competitive_ours/kaizen_clean_9038f20_20260801`, measured at top revision
+`9038f20` and RKO-LIO revision `4619565`. Each run began only after three
+consecutive preflight samples satisfied load1 <= 2.0 and CPU busy <= 10%.
+All runs exited 0, used exact-stamp pairing with queue 256, and produced
+complete trajectories. exp01 produced 2277 poses. Each exp04 run produced
+1258 poses; median RTF was 0.339920 and maximum RTF was 0.355620.
 
-The queued output root is
-`competitive_ours/kaizen_clean_4af54b2_20260801`. It must record three
-consecutive samples with load1 <= 2.0 and CPU busy <= 10% before exp01 starts.
-Until that happens, competitive-v2 remains **not yet promotable**, rather than
-failed.
+The exp01 raw trajectory SHA-256 is
+`8e1bec2bf7eee05986768224efb2fa60e4cbadf657bf12ee82faaca592319e1f`.
+All three exp04 raw trajectories, and their zero-loop corrected copies, have
+SHA-256
+`3ffde3075ed7ce7cc29e69c41cd185d81660b27f87e26b140ba68e39466342d2`.
+This satisfies the RTF, accuracy, completeness, and deterministic-repeat gate.
 
 ## Holdout eligibility audit
 
@@ -108,22 +118,32 @@ Post-hoc dense scoring using the frozen body-to-prism translation
 This is useful safety evidence but is neither a complete formal run nor an
 unused holdout.
 
-## Unused holdout result
+## Retry-only holdout diagnostic
 
-`spms_01`: pending clean isolated candidate retry. This is unused with respect
-to candidate result/tuning evidence (all prior attempts produced zero poses),
-but is reported as retry-only rather than as a pristine unopened slot.
+`spms_01` was run once as a clean isolated retry-only diagnostic at top
+revision `8908e60` / RKO-LIO revision `4619565`. The frozen two-file input-tree
+hash was recomputed as
+`107980ff0a1992570cc87e46bca824324478c92358838a2fe0c3130d602a5195`,
+matching the manifest before result inspection. The run began after three
+quiet preflight samples and exited 0.
 
-## Required continuation
+The 418.172 s bag produced 4181 poses in 340.115 s (RTF 0.813338). Its last
+pose was 0.081 s before the bag end, inside the 0.25 s completeness margin.
+Raw APE RMSE was 3.308048 m with 6242 timestamp pairs. The backend evaluated
+74 best candidates and logged 209 candidate rejections; all observed overlap
+ratios were zero, the minimum best-candidate fitness was 0.784896 against the
+0.7 threshold, and **zero loop edges were accepted**. Raw and corrected
+trajectory files are therefore byte-identical, with SHA-256
+`50ef8678b38608c85660475c73d76c1d2870337f40a08fd3e7826b5a77e3b76c`.
 
-1. Wait for all unrelated Calibrex six-DoF batches to finish without stopping
-   or altering them.
-2. Run the queued exp01 once and exp04 three times from top revision
-   `4af54b2` / RKO-LIO revision `4619565`.
-3. Require complete trajectories, RTF <= 1.0, <=2% APE regression, and
-   byte-identical exp04 frontend trajectories.
-4. Run the scoped Candidate2 trajectory profile on `spms_01` and report it as
-   retry-only diagnostic evidence. Do not call it a pristine formal holdout.
-5. Update this document with the measured values. Candidate2 remains a no-go
-   regardless of that diagnostic result until its dirty map-export delta is
-   reviewable and two additional genuinely new holdouts are frozen.
+The generic metrics file also reports a 3.587707 m "corrected" score, but that
+invocation used a 10 s association gap while the raw score used 0.05 s. Since
+the underlying trajectories are identical, that number is not a correction
+effect and is excluded from the gate decision.
+
+This result demonstrates safe rejection and real-time completion only; it
+does not establish a Candidate2 win and is not a pristine unseen holdout.
+Candidate2 remains a **no-go** until its dirty map-export delta is isolated and
+reviewed, a new clean freeze is created, and two additional genuinely new
+holdouts are registered so the required three-holdout/three-win contract can
+actually be evaluated.
