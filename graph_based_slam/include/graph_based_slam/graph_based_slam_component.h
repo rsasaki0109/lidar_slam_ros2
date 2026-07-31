@@ -96,6 +96,7 @@ extern "C" {
 #include <lidarslam_msgs/msg/map_array.hpp>
 #include <message_filters/subscriber.h>  // NOLINT(build/include_order)
 #include <message_filters/sync_policies/approximate_time.h>  // NOLINT(build/include_order)
+#include <message_filters/sync_policies/exact_time.h>  // NOLINT(build/include_order)
 #include <message_filters/synchronizer.h>  // NOLINT(build/include_order)
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
@@ -421,6 +422,17 @@ private:
     using OdomCloudSyncPolicy = message_filters::sync_policies::ApproximateTime <
       nav_msgs::msg::Odometry, sensor_msgs::msg::PointCloud2 >;
     std::shared_ptr < message_filters::Synchronizer < OdomCloudSyncPolicy >> odom_cloud_sync_;
+    // RKO-LIO stamps its paired odometry and deskewed cloud identically.
+    // ExactTime makes pairing a function of those data stamps rather than
+    // ApproximateTime arrival order, while remaining opt-in for other inputs.
+    bool odom_cloud_sync_use_exact_time_ {false};
+    using OdomCloudSyncPolicyExact = message_filters::sync_policies::ExactTime <
+      nav_msgs::msg::Odometry, sensor_msgs::msg::PointCloud2 >;
+    std::shared_ptr < message_filters::Synchronizer <
+    OdomCloudSyncPolicyExact >> odom_cloud_sync_exact_;
+    // Mapping defaults to lossless/reliable cloud delivery. Live users can
+    // explicitly restore the legacy best-effort sensor-data profile.
+    bool cloud_subscriber_qos_reliable_ {true};
     Eigen::Vector3d last_submap_position_ {0, 0, 0};
     bool last_submap_position_valid_ {false};
     double accumulated_distance_ {0.0};
