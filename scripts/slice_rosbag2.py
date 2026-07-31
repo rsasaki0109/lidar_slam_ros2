@@ -26,7 +26,7 @@ def slice_bag(source: Path, destination: Path, duration_seconds: float,
             raise ValueError(f'topics absent from source bag: {sorted(missing)}')
         start_ns = reader.start_time + round(start_offset_seconds * 1e9)
         end_ns = start_ns + round(duration_seconds * 1e9)
-        with Writer(destination, version=9) as writer:
+        with Writer(destination, version=8) as writer:
             outputs = {
                 connection.id: writer.add_connection(
                     connection.topic, connection.msgtype,

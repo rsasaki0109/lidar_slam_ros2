@@ -52,7 +52,7 @@ def test_slice_bag_filters_time_and_topics_without_reserializing(tmp_path):
     raw_messages = [
         typestore.serialize_cdr(message_class(data=value), message_type)
         for value in ('before', 'inside', 'outside_topic', 'after')]
-    with Writer(source, version=9) as writer:
+    with Writer(source, version=8) as writer:
         keep = writer.add_connection('/keep', message_type, typestore=typestore)
         drop = writer.add_connection('/drop', message_type, typestore=typestore)
         writer.write(keep, 1_000_000_000, raw_messages[0])
@@ -75,7 +75,7 @@ def test_slice_bag_filters_time_and_topics_without_reserializing(tmp_path):
 def test_slice_bag_rejects_missing_topic(tmp_path):
     source = tmp_path / 'source'
     typestore = get_typestore(Stores.ROS2_JAZZY)
-    with Writer(source, version=9) as writer:
+    with Writer(source, version=8) as writer:
         writer.add_connection('/present', 'std_msgs/msg/String', typestore=typestore)
     try:
         SLICER.slice_bag(source, tmp_path / 'slice', 1.0, {'/missing'})

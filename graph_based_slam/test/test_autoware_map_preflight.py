@@ -595,7 +595,7 @@ def test_rosbags_reader_detects_reversal_in_serialized_records(
     with AnyReader(
         [source],
         default_typestore=typestore,
-    ) as reader, Writer(reversed_bag, version=9) as writer:
+    ) as reader, Writer(reversed_bag, version=8) as writer:
         output_connections = {
             connection.topic: writer.add_connection(
                 connection.topic,

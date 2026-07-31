@@ -316,7 +316,9 @@ def test_public_schemas_support_ros_distro_jsonschema():
         jsonschema.Draft7Validator.check_schema(schema)
 
     for path in (REPO_ROOT / 'scripts').glob('*.py'):
-        assert 'Draft202012Validator' not in path.read_text(encoding='utf-8')
+        source = path.read_text(encoding='utf-8')
+        assert 'Draft202012Validator' not in source
+        assert 'version=9' not in source
 
 
 def test_docs_reference_existing_entrypoint_scripts():

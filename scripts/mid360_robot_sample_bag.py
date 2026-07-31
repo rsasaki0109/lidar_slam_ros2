@@ -151,7 +151,7 @@ class Mid360SampleBagWriter:
             ))
         messages.sort(key=lambda item: (item[0], self._topic_priority(item[1])))
 
-        with Writer(output_path, version=9) as writer:
+        with Writer(output_path, version=8) as writer:
             connections = {
                 self._config.pointcloud_topic: writer.add_connection(
                     self._config.pointcloud_topic,
