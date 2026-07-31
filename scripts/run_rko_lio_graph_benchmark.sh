@@ -838,20 +838,25 @@ fi
 LAUNCH_PID=""
 LAUNCH_PGID=""
 
+# The topic logger is diagnostic only: a fast offline replay can publish its
+# first odometry samples before DDS discovery completes. Always replace that
+# potentially truncated stream with RKO-LIO's authoritative full-rate offline
+# dump before trajectory densification and scoring.
+readarray -t BACKEND_TUMS < <(
+  find "$OUTPUT_DIR" -mindepth 2 -maxdepth 2 -type f -name '*_tum_*.txt' -print
+)
+if [[ "${#BACKEND_TUMS[@]}" -ne 1 || ! -s "${BACKEND_TUMS[0]}" ]]; then
+  die "benchmark expected exactly one authoritative full-rate TUM dump"
+fi
+cp "${BACKEND_TUMS[0]}" "$RAW_TUM"
+echo "Raw trajectory restored from full-rate dump: ${BACKEND_TUMS[0]}"
+
 # /modified_path is emitted by map_save. A --skip-map-save run cannot measure
-# graph correction, so use the authoritative full-rate offline dump for both
-# paths and explicitly treat the result as a frontend/passthrough benchmark.
+# graph correction, so use the same authoritative trajectory for both paths
+# and explicitly treat the result as a frontend/passthrough benchmark.
 if [[ "$SKIP_MAP_SAVE" == "true" ]]; then
-  readarray -t BACKEND_TUMS < <(
-    find "$OUTPUT_DIR" -mindepth 2 -maxdepth 2 -type f -name '*_tum_*.txt' -print
-  )
-  if [[ "${#BACKEND_TUMS[@]}" -eq 1 && -s "${BACKEND_TUMS[0]}" ]]; then
-    cp "${BACKEND_TUMS[0]}" "$RAW_TUM"
-    cp "${BACKEND_TUMS[0]}" "$CORRECTED_SPARSE_TUM"
-    echo "Trajectory-only passthrough from full-rate dump: ${BACKEND_TUMS[0]}"
-  else
-    die "trajectory-only run expected exactly one full-rate TUM dump"
-  fi
+  cp "${BACKEND_TUMS[0]}" "$CORRECTED_SPARSE_TUM"
+  echo "Trajectory-only passthrough from full-rate dump"
 elif [[ ! -s "$CORRECTED_SPARSE_TUM" ]]; then
   die "corrected trajectory missing after map_save"
 fi

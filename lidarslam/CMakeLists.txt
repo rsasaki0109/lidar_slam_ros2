@@ -216,6 +216,7 @@ if(BUILD_TESTING)
     test_product_build_info
     test_published_release
     test_release_channel
+    test_rko_lio_graph_benchmark_script
     test_simple_lanelet2_generator
     test_v1_readiness
     test_view_autoware_map
