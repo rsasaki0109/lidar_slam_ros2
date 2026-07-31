@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/published-release-v1.schema.json",
   "title": "Published lidarslam_ros2 release audit v1",
   "type": "object",
@@ -66,15 +66,15 @@
     "checks": {
       "type": "array",
       "uniqueItems": true,
-      "items": {"$ref": "#/$defs/check"}
+      "items": {"$ref": "#/definitions/check"}
     },
     "assets": {
       "type": "array",
       "uniqueItems": true,
-      "items": {"$ref": "#/$defs/asset"}
+      "items": {"$ref": "#/definitions/asset"}
     }
   },
-  "$defs": {
+  "definitions": {
     "check": {
       "type": "object",
       "additionalProperties": false,

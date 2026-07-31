@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/ros-apt-dependency-readiness-v1.schema.json",
   "title": "ROS apt dependency readiness v1",
   "type": "object",
@@ -49,8 +49,8 @@
       "additionalProperties": false,
       "required": ["main", "testing"],
       "properties": {
-        "main": {"$ref": "#/$defs/channel"},
-        "testing": {"$ref": "#/$defs/channel"}
+        "main": {"$ref": "#/definitions/channel"},
+        "testing": {"$ref": "#/definitions/channel"}
       }
     },
     "distros": {
@@ -58,8 +58,8 @@
       "additionalProperties": false,
       "required": ["humble", "jazzy"],
       "properties": {
-        "humble": {"$ref": "#/$defs/distro"},
-        "jazzy": {"$ref": "#/$defs/distro"}
+        "humble": {"$ref": "#/definitions/distro"},
+        "jazzy": {"$ref": "#/definitions/distro"}
       }
     },
     "checks": {
@@ -67,14 +67,14 @@
       "minItems": 8,
       "maxItems": 8,
       "uniqueItems": true,
-      "items": {"$ref": "#/$defs/check"}
+      "items": {"$ref": "#/definitions/check"}
     },
     "actions": {
       "type": "array",
       "items": {"type": "string", "minLength": 1}
     }
   },
-  "$defs": {
+  "definitions": {
     "channel": {
       "type": "object",
       "additionalProperties": false,
@@ -86,8 +86,8 @@
       "additionalProperties": false,
       "required": ["main", "testing"],
       "properties": {
-        "main": {"$ref": "#/$defs/packages"},
-        "testing": {"$ref": "#/$defs/packages"}
+        "main": {"$ref": "#/definitions/packages"},
+        "testing": {"$ref": "#/definitions/packages"}
       }
     },
     "packages": {
@@ -95,8 +95,8 @@
       "additionalProperties": false,
       "required": ["ndt-omp-ros2", "rko-lio"],
       "properties": {
-        "ndt-omp-ros2": {"$ref": "#/$defs/package"},
-        "rko-lio": {"$ref": "#/$defs/package"}
+        "ndt-omp-ros2": {"$ref": "#/definitions/package"},
+        "rko-lio": {"$ref": "#/definitions/package"}
       }
     },
     "package": {

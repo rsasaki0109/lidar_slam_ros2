@@ -386,8 +386,8 @@ def evaluate_readiness(
         'actions': actions,
     }
     schema = json.loads(SCHEMA_PATH.read_text(encoding='utf-8'))
-    jsonschema.Draft202012Validator.check_schema(schema)
-    jsonschema.Draft202012Validator(schema).validate(report)
+    jsonschema.Draft7Validator.check_schema(schema)
+    jsonschema.Draft7Validator(schema).validate(report)
     return report
 
 

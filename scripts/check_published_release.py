@@ -623,8 +623,8 @@ def evaluate_publication(
         'assets': asset_reports,
     }
     schema = _schema('published-release-v1.schema.json')
-    jsonschema.Draft202012Validator.check_schema(schema)
-    jsonschema.Draft202012Validator(schema).validate(report)
+    jsonschema.Draft7Validator.check_schema(schema)
+    jsonschema.Draft7Validator(schema).validate(report)
     return report
 
 

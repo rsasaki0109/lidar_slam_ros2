@@ -95,8 +95,8 @@ def _load_object(path: Path) -> dict[str, Any]:
 def _validate_schema(payload: dict[str, Any], schema_path: Path) -> None:
     schema = _load_object(schema_path)
     try:
-        jsonschema.Draft202012Validator.check_schema(schema)
-        jsonschema.Draft202012Validator(schema).validate(payload)
+        jsonschema.Draft7Validator.check_schema(schema)
+        jsonschema.Draft7Validator(schema).validate(payload)
     except (jsonschema.SchemaError, jsonschema.ValidationError) as exc:
         location = '.'.join(str(item) for item in exc.absolute_path)
         raise ReadinessError(

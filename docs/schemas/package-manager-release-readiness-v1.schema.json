@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/package-manager-release-readiness-v1.schema.json",
   "title": "Public package-manager release readiness report v1",
   "type": "object",
@@ -57,13 +57,13 @@
     "selected_run": {
       "oneOf": [
         {"type": "null"},
-        {"$ref": "#/$defs/run"}
+        {"$ref": "#/definitions/run"}
       ]
     },
     "checks": {
       "type": "array",
       "uniqueItems": true,
-      "items": {"$ref": "#/$defs/check"}
+      "items": {"$ref": "#/definitions/check"}
     },
     "actions": {
       "type": "array",
@@ -71,7 +71,7 @@
       "items": {"type": "string", "minLength": 1}
     }
   },
-  "$defs": {
+  "definitions": {
     "check": {
       "type": "object",
       "additionalProperties": false,
@@ -117,7 +117,7 @@
         "head_sha": {"type": ["string", "null"]},
         "jobs": {
           "type": "array",
-          "items": {"$ref": "#/$defs/job"}
+          "items": {"$ref": "#/definitions/job"}
         }
       }
     }

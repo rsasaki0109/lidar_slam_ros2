@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/v1-readiness-contract-v1.schema.json",
   "title": "lidarslam_ros2 v1 readiness contract v1",
   "type": "object",

@@ -222,7 +222,7 @@ def _load_baseline(path: Path) -> dict[str, Any]:
         raise InstallCheckError('baseline report root must be an object')
     schema = json.loads(SCHEMA_PATH.read_text(encoding='utf-8'))
     try:
-        jsonschema.Draft202012Validator(schema).validate(report)
+        jsonschema.Draft7Validator(schema).validate(report)
     except jsonschema.ValidationError as exc:
         raise InstallCheckError(
             f'baseline report is not schema-valid: {exc.message}') from exc
@@ -382,8 +382,8 @@ def evaluate_install(
         'checks': checks,
     }
     schema = json.loads(SCHEMA_PATH.read_text(encoding='utf-8'))
-    jsonschema.Draft202012Validator.check_schema(schema)
-    jsonschema.Draft202012Validator(schema).validate(report)
+    jsonschema.Draft7Validator.check_schema(schema)
+    jsonschema.Draft7Validator(schema).validate(report)
     return report
 
 

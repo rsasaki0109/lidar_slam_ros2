@@ -34,6 +34,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import jsonschema
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 README_PATH = REPO_ROOT / 'README.md'
@@ -300,6 +302,21 @@ def test_docs_exist_and_are_linked_from_readme():
     # (asserted above) and verify the README still routes readers to those docs.
     assert f'(docs/releases/v{version}.md)' in readme
     assert len(readme.splitlines()) <= 220
+
+
+def test_public_schemas_support_ros_distro_jsonschema():
+    """Public schemas must work with the dependency shipped by ROS distros."""
+    schemas = sorted((REPO_ROOT / 'docs' / 'schemas').glob('*.json'))
+    assert schemas
+
+    for path in schemas:
+        schema = json.loads(path.read_text(encoding='utf-8'))
+        assert schema['$schema'] == 'http://json-schema.org/draft-07/schema#'
+        assert '$defs' not in schema
+        jsonschema.Draft7Validator.check_schema(schema)
+
+    for path in (REPO_ROOT / 'scripts').glob('*.py'):
+        assert 'Draft202012Validator' not in path.read_text(encoding='utf-8')
 
 
 def test_docs_reference_existing_entrypoint_scripts():

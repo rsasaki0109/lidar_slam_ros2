@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/package-manager-install-v1.schema.json",
   "title": "ROS package-manager installation evidence v1",
   "type": "object",
@@ -55,12 +55,12 @@
         "rko-lio"
       ],
       "properties": {
-        "lidarslam": {"$ref": "#/$defs/package"},
-        "lidarslam-msgs": {"$ref": "#/$defs/package"},
-        "scanmatcher": {"$ref": "#/$defs/package"},
-        "graph-based-slam": {"$ref": "#/$defs/package"},
-        "ndt-omp-ros2": {"$ref": "#/$defs/package"},
-        "rko-lio": {"$ref": "#/$defs/package"}
+        "lidarslam": {"$ref": "#/definitions/package"},
+        "lidarslam-msgs": {"$ref": "#/definitions/package"},
+        "scanmatcher": {"$ref": "#/definitions/package"},
+        "graph-based-slam": {"$ref": "#/definitions/package"},
+        "ndt-omp-ros2": {"$ref": "#/definitions/package"},
+        "rko-lio": {"$ref": "#/definitions/package"}
       }
     },
     "snapshot": {
@@ -101,10 +101,10 @@
       "type": "array",
       "minItems": 8,
       "uniqueItems": true,
-      "items": {"$ref": "#/$defs/check"}
+      "items": {"$ref": "#/definitions/check"}
     }
   },
-  "$defs": {
+  "definitions": {
     "package": {
       "type": "object",
       "additionalProperties": false,
