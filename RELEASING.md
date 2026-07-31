@@ -172,8 +172,10 @@ python3 scripts/check_published_release.py --require-published
 It requires a non-draft, non-prerelease v0.9 release, resolves the tag commit,
 downloads exactly the six release assets, validates every JSON schema and
 cross-file identity, and verifies the embedded bundle manifest against every
-archived file size and SHA-256. HTTP/API failures are `BLOCKED`; only explicit
-tag/release 404 responses mean `NOT_PUBLISHED`. Retain the uploaded
+archived file size and SHA-256. It also resolves the live Humble and Jazzy
+version tags from GHCR and requires both to still name the digests recorded in
+the attached release-image evidence. HTTP/API or registry failures are
+`BLOCKED`; only explicit tag/release 404 responses mean `NOT_PUBLISHED`. Retain the uploaded
 `published-release-audit.json` Actions artifact with the release evidence.
 
 The curated bundle contains `release-bundle-manifest-v1.json`, including the

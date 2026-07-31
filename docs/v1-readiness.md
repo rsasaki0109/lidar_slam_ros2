@@ -65,7 +65,8 @@ untrustworthy live inspection exits 2.
   `scripts/check_published_release.py` audit and
   [`published-release-v1.schema.json`](schemas/published-release-v1.schema.json).
   The audit cross-checks the stable release, tag commit, six attached assets,
-  and every file hash in the release bundle.
+  every file hash in the release bundle, and the current Humble/Jazzy GHCR
+  version-tag digests.
 
 The checker verifies that all ten expected gate IDs are present exactly once,
 that evidence paths remain inside the repository and exist, that semantic

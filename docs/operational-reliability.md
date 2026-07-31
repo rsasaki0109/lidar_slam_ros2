@@ -270,10 +270,13 @@ the termination coverage:
 That read-only audit validates the stable GitHub Release, immutable tag
 commit, both image records, both digest-only rollback plans, applied
 two-image promotion, and the deterministic bundle's complete embedded hash
-inventory. Its report follows
+inventory. It independently resolves both live GHCR version tags and rejects
+publication evidence if either tag no longer names its recorded digest. Its
+report follows
 [`published-release-v1.schema.json`](schemas/published-release-v1.schema.json).
-A missing release is distinct from a network/API failure, and a release with
-one missing, malformed, duplicated, or cross-version asset is `BLOCKED`.
+A missing release is distinct from a network/API or registry failure, and a
+release with one missing, malformed, duplicated, cross-version, or moved-image
+asset is `BLOCKED`.
 
 See the [pinned real-data E2E contract](real-data-e2e.md) and the
 [v0.9 roadmap](roadmap/v0.9.md) for the remaining Phase 3 and v1.0 gates.

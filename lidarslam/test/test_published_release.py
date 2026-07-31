@@ -196,6 +196,10 @@ def _snapshot():
                 _rollback(images['jazzy'])),
             'release-promotion.json': _json_bytes(promotion),
         },
+        'image_tag_digests': {
+            image['tag']: image['digest']
+            for image in images.values()
+        },
     }
 
 
@@ -241,6 +245,47 @@ def test_remote_inspection_uses_explicit_tag_404(monkeypatch):
     assert snapshot['release'] is None
     assert any('/git/ref/tags/' in url for url in urls)
     assert not any('/commits/' in url for url in urls)
+
+
+def test_registry_digest_resolver_uses_public_bearer_token(monkeypatch):
+    """The live resolver must use scoped bearer auth and OCI media types."""
+    digest = 'sha256:' + 'a' * 64
+
+    def fake_request(url, *, limit):
+        assert url.startswith('https://ghcr.io/token?')
+        assert limit == AUDIT.MAX_REGISTRY_TOKEN_BYTES
+        return 200, b'{"token":"public-pull-token"}'
+
+    class FakeResponse:
+        status = 200
+        headers = {'Docker-Content-Digest': digest}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        @staticmethod
+        def read(limit):
+            assert limit == AUDIT.MAX_REGISTRY_MANIFEST_BYTES + 1
+            return b'{}'
+
+    def fake_urlopen(request, timeout):
+        assert request.full_url.endswith('/manifests/v0.9.0-jazzy')
+        assert request.get_header('Authorization') == (
+            'Bearer public-pull-token'
+        )
+        assert 'application/vnd.oci.image.index.v1+json' in (
+            request.get_header('Accept')
+        )
+        assert timeout == 30
+        return FakeResponse()
+
+    monkeypatch.setattr(AUDIT, '_request', fake_request)
+    monkeypatch.setattr(AUDIT.urllib.request, 'urlopen', fake_urlopen)
+
+    assert AUDIT._registry_tag_digest('v0.9.0-jazzy') == digest
 
 
 def test_tag_without_release_is_in_progress():
@@ -340,6 +385,25 @@ def test_missing_required_asset_is_blocked():
     check = next(
         item for item in report['checks']
         if item['id'] == 'required-assets'
+    )
+    assert check['status'] == 'FAIL'
+
+
+def test_moved_live_image_tag_is_blocked():
+    """A version tag moved away from its release record must block the audit."""
+    snapshot = _snapshot()
+    tag = f'ghcr.io/{REPOSITORY}:{TAG}-jazzy'
+    snapshot['image_tag_digests'][tag] = 'sha256:' + 'd' * 64
+
+    report = AUDIT.evaluate_publication(
+        version=VERSION,
+        snapshot=snapshot,
+    )
+
+    assert report['status'] == 'BLOCKED'
+    check = next(
+        item for item in report['checks']
+        if item['id'] == 'live-image-tag-digests'
     )
     assert check['status'] == 'FAIL'
 

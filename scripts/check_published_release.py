@@ -13,6 +13,7 @@ import sys
 import tarfile
 from typing import Any
 import urllib.error
+import urllib.parse
 import urllib.request
 
 import jsonschema
@@ -28,6 +29,14 @@ MAX_JSON_BYTES = 2 * 1024 * 1024
 MAX_BUNDLE_BYTES = 128 * 1024 * 1024
 MAX_RELEASE_ASSET_BYTES = 160 * 1024 * 1024
 MAX_UNPACKED_BUNDLE_BYTES = 256 * 1024 * 1024
+MAX_REGISTRY_TOKEN_BYTES = 64 * 1024
+MAX_REGISTRY_MANIFEST_BYTES = 4 * 1024 * 1024
+OCI_MANIFEST_ACCEPT = ', '.join((
+    'application/vnd.oci.image.index.v1+json',
+    'application/vnd.docker.distribution.manifest.list.v2+json',
+    'application/vnd.oci.image.manifest.v1+json',
+    'application/vnd.docker.distribution.manifest.v2+json',
+))
 
 
 class PublishedReleaseError(ValueError):
@@ -99,6 +108,66 @@ def _request_json(url: str) -> tuple[int, dict[str, Any] | None]:
     return status, value
 
 
+def _registry_tag_digest(tag: str) -> str | None:
+    """Resolve one public GHCR tag without pulling its image layers."""
+    token_url = 'https://ghcr.io/token?' + urllib.parse.urlencode({
+        'service': 'ghcr.io',
+        'scope': f'repository:{REPOSITORY}:pull',
+    })
+    status, token_payload = _request(
+        token_url,
+        limit=MAX_REGISTRY_TOKEN_BYTES,
+    )
+    if status != 200:
+        raise PublishedReleaseError(
+            f'GHCR token request unexpectedly returned {status}')
+    try:
+        token_document = json.loads(token_payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PublishedReleaseError(
+            f'invalid GHCR token response: {exc}') from exc
+    if not isinstance(token_document, dict):
+        raise PublishedReleaseError('GHCR token response is not an object')
+    token = token_document.get('token')
+    if not isinstance(token, str) or not token:
+        raise PublishedReleaseError('GHCR token response has no token')
+
+    url = f'https://ghcr.io/v2/{REPOSITORY}/manifests/{tag}'
+    request = urllib.request.Request(
+        url,
+        headers={
+            'Accept': OCI_MANIFEST_ACCEPT,
+            'Authorization': f'Bearer {token}',
+            'User-Agent': 'lidarslam-published-release-audit/1',
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = response.read(MAX_REGISTRY_MANIFEST_BYTES + 1)
+            if len(payload) > MAX_REGISTRY_MANIFEST_BYTES:
+                raise PublishedReleaseError(
+                    f'GHCR manifest exceeds '
+                    f'{MAX_REGISTRY_MANIFEST_BYTES} bytes: {tag}')
+            digest = response.headers.get('Docker-Content-Digest')
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise PublishedReleaseError(
+            f'HTTP {exc.code} while reading GHCR tag {tag}') from exc
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise PublishedReleaseError(
+            f'cannot read GHCR tag {tag}: {exc}') from exc
+    if (
+        not isinstance(digest, str)
+        or len(digest) != 71
+        or not digest.startswith('sha256:')
+        or any(character not in '0123456789abcdef' for character in digest[7:])
+    ):
+        raise PublishedReleaseError(
+            f'GHCR tag {tag} returned invalid digest {digest!r}')
+    return digest
+
+
 def inspect_remote(version: str) -> dict[str, Any]:
     """Inspect release metadata and download its public assets."""
     tag = f'v{version}'
@@ -107,6 +176,7 @@ def inspect_remote(version: str) -> dict[str, Any]:
     tag_commit: str | None = None
     release: dict[str, Any] | None = None
     asset_payloads: dict[str, bytes] = {}
+    image_tag_digests: dict[str, str] = {}
 
     try:
         status, tag_ref = _request_json(f'{api}/git/ref/tags/{tag}')
@@ -186,11 +256,25 @@ def inspect_remote(version: str) -> dict[str, Any]:
                 except PublishedReleaseError as exc:
                     errors.append(str(exc))
 
+        for distro in ('humble', 'jazzy'):
+            image_tag = f'v{version}-{distro}'
+            try:
+                digest = _registry_tag_digest(image_tag)
+                if digest is None:
+                    raise PublishedReleaseError(
+                        f'GHCR tag {image_tag} is not published')
+                image_tag_digests[
+                    f'ghcr.io/{REPOSITORY}:{image_tag}'
+                ] = digest
+            except PublishedReleaseError as exc:
+                errors.append(str(exc))
+
     return {
         'errors': errors,
         'tag_commit': tag_commit,
         'release': release,
         'asset_payloads': asset_payloads,
+        'image_tag_digests': image_tag_digests,
     }
 
 
@@ -302,6 +386,7 @@ def evaluate_publication(
     release = snapshot.get('release')
     tag_commit = snapshot.get('tag_commit')
     asset_payloads = snapshot.get('asset_payloads', {})
+    image_tag_digests = snapshot.get('image_tag_digests', {})
     checks: list[dict[str, str]] = []
     asset_reports: list[dict[str, Any]] = []
 
@@ -470,9 +555,37 @@ def evaluate_publication(
                 True,
                 'tag commit, image, rollback, and promotion identities agree',
             ))
-        except (KeyError, TypeError, PublishedReleaseError) as exc:
+            expected_live_digests = {
+                images[distro]['tag']: images[distro]['digest']
+                for distro in ('humble', 'jazzy')
+            }
+            if not isinstance(image_tag_digests, dict):
+                raise PublishedReleaseError(
+                    'live GHCR image-tag digests are not an object')
+            observed_live_digests = {
+                key: value
+                for key, value in image_tag_digests.items()
+                if isinstance(key, str) and isinstance(value, str)
+            }
+            if observed_live_digests != expected_live_digests:
+                raise PublishedReleaseError(
+                    'live GHCR image-tag digests differ: '
+                    f'expected={expected_live_digests!r}, '
+                    f'observed={observed_live_digests!r}'
+                )
             checks.append(_check(
-                'cross-asset-identity',
+                'live-image-tag-digests',
+                True,
+                'Humble and Jazzy GHCR tags still resolve to recorded digests',
+            ))
+        except (KeyError, TypeError, PublishedReleaseError) as exc:
+            failed_id = (
+                'live-image-tag-digests'
+                if 'GHCR image-tag' in str(exc)
+                else 'cross-asset-identity'
+            )
+            checks.append(_check(
+                failed_id,
                 False,
                 str(exc),
             ))
