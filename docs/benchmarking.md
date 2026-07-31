@@ -81,6 +81,21 @@ metadata. A run without those exact inputs is useful for diagnosis but is not
 eligible for the 0.10 m release gate. `--fail-on-profiles` prints this
 remediation path when exact candidate-commit evidence is absent.
 
+The maintained Maths-Hard profile also sets:
+
+```yaml
+double_downsample: true
+legacy_voxel_downsample: true
+```
+
+This is a measured dataset-specific compatibility setting, not the product
+default. The RKO-LIO v0.3 hash-sorted first pass regressed this sequence from
+0.081 m to 0.141 m APE. Compatibility mode restores the complete pre-v0.3
+two-pass sampler; omitting it does not reproduce the blocking profile. The
+modern default remains `false` and is separately covered by the NTU VIRAL and
+RTK-SLAM release profiles. See the
+[clean-candidate evidence](evidence/rko-voxel-compatibility-2026-07-31.md).
+
 ### Degenerate-LIO SOTA track
 
 The preregistered public degeneracy track is defined in
