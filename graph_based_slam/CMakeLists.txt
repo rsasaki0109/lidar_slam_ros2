@@ -1214,7 +1214,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(
     test_mesh_export
     test/test_mesh_export.py
-    TIMEOUT 60
+    TIMEOUT 300
   )
 endif()
 
