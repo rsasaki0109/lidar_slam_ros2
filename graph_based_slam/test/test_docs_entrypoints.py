@@ -85,6 +85,7 @@ CLI_COMPATIBILITY_DOC = REPO_ROOT / 'docs' / 'cli-compatibility.md'
 CLI_V1_CONTRACT = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
 DISTRIBUTION_DOC = REPO_ROOT / 'docs' / 'distribution.md'
 ROSDISTRO_RELEASE_DOC = REPO_ROOT / 'docs' / 'rosdistro-release.md'
+MAIN_CI_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'main.yml'
 OFFICIAL_RKO_COMPATIBILITY_WORKFLOW = (
     REPO_ROOT
     / '.github'
@@ -903,6 +904,19 @@ def test_real_data_e2e_workflow_is_pinned_bounded_and_non_geometry():
     assert 'validate_real_data_e2e.py' in workflow
     assert 'output/real-data-e2e/run/map.pcd' not in workflow
     assert 'output/real-data-e2e/run/traj_raw.tum' not in workflow
+
+
+def test_default_container_workflow_trusts_checkout_before_running_git():
+    """Container jobs must trust the host-owned Actions checkout."""
+    workflow = MAIN_CI_WORKFLOW.read_text(encoding='utf-8')
+    default_workflow = workflow.split('  default-workflow:', 1)[1]
+
+    checkout = default_workflow.index('uses: actions/checkout@v6')
+    safe_directory = default_workflow.index(
+        'git config --global --add safe.directory "${GITHUB_WORKSPACE}"'
+    )
+    rosdep = default_workflow.index('- name: Initialize rosdep')
+    assert checkout < safe_directory < rosdep
 
 
 def test_official_rko_binary_gate_is_release_shaped_and_version_pinned():
