@@ -205,6 +205,7 @@ private:
     double distance_loop_closure_;
     double range_of_searching_loop_closure_;
     int search_submap_num_;
+    int loop_search_query_stride_ {1};
     int max_loop_candidate_count_ {3};
     int loop_edge_dedup_index_window_ {8};
     double loop_max_translation_delta_ {15.0};

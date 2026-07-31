@@ -43,6 +43,7 @@
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "graph_based_slam/gnss_alignment.hpp"
 #include "graph_based_slam/gnss_geometry.hpp"
+#include "graph_based_slam/loop_search_schedule.hpp"
 #include "graph_based_slam/loop_verifier.hpp"
 #include "graph_based_slam/map_saver.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
@@ -88,6 +89,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("range_of_searching_loop_closure", range_of_searching_loop_closure_);
   declare_parameter("search_submap_num", 3);
   get_parameter("search_submap_num", search_submap_num_);
+  declare_parameter("loop_search_query_stride", 1);
+  get_parameter("loop_search_query_stride", loop_search_query_stride_);
   declare_parameter("max_loop_candidate_count", 3);
   get_parameter("max_loop_candidate_count", max_loop_candidate_count_);
   declare_parameter("loop_edge_dedup_index_window", 8);
@@ -481,6 +484,13 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       "search_submap_num must be >= 1, clamping %d to 1",
       search_submap_num_);
     search_submap_num_ = 1;
+  }
+  if (loop_search_query_stride_ < 1) {
+    RCLCPP_WARN(
+      get_logger(),
+      "loop_search_query_stride must be >= 1, clamping %d to 1",
+      loop_search_query_stride_);
+    loop_search_query_stride_ = 1;
   }
   if (max_loop_candidate_count_ < 1) {
     RCLCPP_WARN(
@@ -904,6 +914,7 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "range_of_searching_loop_closure[m]:" << range_of_searching_loop_closure_ <<
     std::endl;
   std::cout << "search_submap_num:" << search_submap_num_ << std::endl;
+  std::cout << "loop_search_query_stride:" << loop_search_query_stride_ << std::endl;
   std::cout << "max_loop_candidate_count:" << max_loop_candidate_count_ << std::endl;
   std::cout << "loop_edge_dedup_index_window:" << loop_edge_dedup_index_window_ << std::endl;
   std::cout << "loop_max_translation_delta[m]:" << loop_max_translation_delta_ << std::endl;
@@ -1397,7 +1408,13 @@ void GraphBasedSlamComponent::runEventDrivenLoopSearch()
     map_array_msg.submaps.resize(query_idx + 1);
     const auto build_filtered_local_submap = makeFilteredLocalSubmapProvider(map_array_msg);
     backend_core_.ingestDescriptors(query_idx + 1, build_filtered_local_submap);
-    searchLoopForLatest(map_array_msg, loop_edges, query_idx + 1, query_idx);
+    if (loop_search_schedule::shouldSearch(query_idx, loop_search_query_stride_)) {
+      searchLoopForLatest(map_array_msg, loop_edges, query_idx + 1, query_idx);
+    } else if (debug_flag_) {
+      RCLCPP_INFO(
+        get_logger(), "loop search registration skipped for query submap %d by stride %d",
+        query_idx, loop_search_query_stride_);
+    }
     last_searched_submap_idx_ = query_idx;
   }
 }

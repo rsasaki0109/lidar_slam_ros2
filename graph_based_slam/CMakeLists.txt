@@ -183,6 +183,13 @@ if(BUILD_TESTING)
     target_include_directories(test_loop_edge_robustifier PRIVATE include)
   endif()
   ament_add_gtest(
+    test_loop_search_schedule
+    test/test_loop_search_schedule.cpp
+  )
+  if(TARGET test_loop_search_schedule)
+    target_include_directories(test_loop_search_schedule PRIVATE include)
+  endif()
+  ament_add_gtest(
     test_triangle_descriptor
     test/test_triangle_descriptor.cpp
   )

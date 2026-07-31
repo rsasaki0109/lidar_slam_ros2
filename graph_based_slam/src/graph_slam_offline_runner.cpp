@@ -69,6 +69,7 @@
 #include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
+#include "graph_based_slam/loop_search_schedule.hpp"
 #include "graph_based_slam/map_refiner.hpp"
 #include "graph_based_slam/plane_feature_association.hpp"
 #include "graph_based_slam/plane_revisit_constraints.hpp"
@@ -403,6 +404,9 @@ int main(int argc, char ** argv)
 
   graphslam::backend_core::LoopSearchConfig search_config;
   node->get_parameter_or("search_submap_num", search_config.search_submap_num, 3);
+  int loop_search_query_stride = 1;
+  node->get_parameter_or("loop_search_query_stride", loop_search_query_stride, 1);
+  loop_search_query_stride = std::max(1, loop_search_query_stride);
   node->get_parameter_or(
     "prefer_scan_context_candidates", search_config.prefer_scan_context_candidates, false);
   node->get_parameter_or(
@@ -609,6 +613,12 @@ int main(int argc, char ** argv)
       while (next_query_idx < num_submaps) {
         const int query_idx = next_query_idx;
         core.ingestDescriptors(query_idx + 1, filtered_local_provider);
+        if (!graphslam::loop_search_schedule::shouldSearch(
+            query_idx, loop_search_query_stride))
+        {
+          next_query_idx = query_idx + 1;
+          continue;
+        }
         std::vector<graphslam::backend_core::SubmapMeta> visible;
         visible.reserve(query_idx + 1);
         for (int i = 0; i <= query_idx; ++i) {
