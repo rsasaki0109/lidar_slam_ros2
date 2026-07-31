@@ -259,13 +259,12 @@ the pairwise promotion result.
 The source and clean-install execution is recorded in the
 [recovery command contract evidence](evidence/recovery-command-contract-2026-07-29.md).
 
-## Open Phase 3 gates
+## Published recovery evidence
 
-The following readiness rows remain incomplete and must not be inferred from
-the termination coverage:
-
-- the first tagged release execution that publishes the new rollback assets
-  and passes `scripts/check_published_release.py --require-published`.
+The first tagged release published the rollback assets and passed
+`scripts/check_published_release.py --require-published`. The exact tag,
+workflow, assets, and audit result are recorded in the
+[published v0.9.0 release evidence](evidence/published-release-v0.9.0-2026-07-31.md).
 
 That read-only audit validates the stable GitHub Release, immutable tag
 commit, both image records, both digest-only rollback plans, applied
@@ -279,4 +278,5 @@ release with one missing, malformed, duplicated, cross-version, or moved-image
 asset is `BLOCKED`.
 
 See the [pinned real-data E2E contract](real-data-e2e.md) and the
-[v0.9 roadmap](roadmap/v0.9.md) for the remaining Phase 3 and v1.0 gates.
+[v1.0 readiness audit](v1-readiness.md) for the remaining distribution and
+independent-adoption gates.

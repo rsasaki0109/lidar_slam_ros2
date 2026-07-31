@@ -247,6 +247,40 @@ def test_remote_inspection_uses_explicit_tag_404(monkeypatch):
     assert not any('/commits/' in url for url in urls)
 
 
+def test_bounded_request_retries_transient_timeout(monkeypatch):
+    """One transient timeout must not turn a published release into BLOCKED."""
+    calls = []
+    sleeps = []
+
+    class FakeResponse:
+        status = 200
+        headers = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        @staticmethod
+        def read(_limit):
+            return b'{}'
+
+    def fake_urlopen(_request, timeout):
+        calls.append(timeout)
+        if len(calls) < AUDIT.REQUEST_ATTEMPTS:
+            raise AUDIT.urllib.error.URLError(TimeoutError('timed out'))
+        return FakeResponse()
+
+    monkeypatch.setattr(AUDIT.urllib.request, 'urlopen', fake_urlopen)
+    monkeypatch.setattr(AUDIT.time, 'sleep', sleeps.append)
+
+    assert AUDIT._request('https://example.test/release', limit=10) == (
+        200, b'{}')
+    assert calls == [30, 30, 30]
+    assert sleeps == [1, 2]
+
+
 def test_registry_digest_resolver_uses_public_bearer_token(monkeypatch):
     """The live resolver must use scoped bearer auth and OCI media types."""
     digest = 'sha256:' + 'a' * 64

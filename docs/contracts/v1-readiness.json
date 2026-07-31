@@ -77,17 +77,16 @@
     {
       "id": "reliability",
       "title": "Automated failure recovery and bounded operation",
-      "state": "incomplete",
+      "state": "complete",
       "evidence": [
         "docs/operational-reliability.md",
         "docs/evidence/bounded-filesystem-exhaustion-2026-07-29.md",
         "docs/evidence/recovery-command-contract-2026-07-29.md",
+        "docs/evidence/published-release-v0.9.0-2026-07-31.md",
         "scripts/check_published_release.py",
         "docs/schemas/published-release-v1.schema.json"
       ],
-      "blockers": [
-        "Publish the first tagged release and pass the published-release recovery-asset audit."
-      ]
+      "blockers": []
     },
     {
       "id": "compatibility",
@@ -133,18 +132,17 @@
     {
       "id": "release-publication",
       "title": "Stable v0.9 release candidate publication",
-      "state": "incomplete",
+      "state": "complete",
       "evidence": [
         "docs/roadmap/v0.9.md",
         "docs/releases/v0.9.0.md",
+        "docs/evidence/published-release-v0.9.0-2026-07-31.md",
         "RELEASING.md",
         ".github/workflows/release.yml",
         "scripts/check_published_release.py",
         "docs/schemas/published-release-v1.schema.json"
       ],
-      "blockers": [
-        "Create the matching immutable git tag and pass the published-release audit."
-      ]
+      "blockers": []
     }
   ]
 }

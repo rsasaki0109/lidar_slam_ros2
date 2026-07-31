@@ -11,6 +11,7 @@ import os
 from pathlib import Path, PurePosixPath
 import sys
 import tarfile
+import time
 from typing import Any
 import urllib.error
 import urllib.parse
@@ -31,6 +32,8 @@ MAX_RELEASE_ASSET_BYTES = 160 * 1024 * 1024
 MAX_UNPACKED_BUNDLE_BYTES = 256 * 1024 * 1024
 MAX_REGISTRY_TOKEN_BYTES = 64 * 1024
 MAX_REGISTRY_MANIFEST_BYTES = 4 * 1024 * 1024
+REQUEST_ATTEMPTS = 3
+RETRYABLE_HTTP_CODES = frozenset((408, 425, 429, 500, 502, 503, 504))
 OCI_MANIFEST_ACCEPT = ', '.join((
     'application/vnd.oci.image.index.v1+json',
     'application/vnd.docker.distribution.manifest.list.v2+json',
@@ -67,6 +70,36 @@ def _validate(payload: dict[str, Any], schema_name: str) -> None:
         ) from exc
 
 
+def _open_request(
+    request: urllib.request.Request,
+    *,
+    limit: int,
+) -> tuple[int, bytes, Any]:
+    """Read one bounded URL, retrying only transient transport failures."""
+    url = request.full_url
+    for attempt in range(REQUEST_ATTEMPTS):
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                payload = response.read(limit + 1)
+                if len(payload) > limit:
+                    raise PublishedReleaseError(
+                        f'response exceeds {limit} bytes: {url}')
+                return response.status, payload, response.headers
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return 404, b'', {}
+            retryable = exc.code in RETRYABLE_HTTP_CODES
+            if not retryable or attempt + 1 == REQUEST_ATTEMPTS:
+                raise PublishedReleaseError(
+                    f'HTTP {exc.code} while reading {url}') from exc
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            if attempt + 1 == REQUEST_ATTEMPTS:
+                raise PublishedReleaseError(
+                    f'cannot read {url}: {exc}') from exc
+        time.sleep(2 ** attempt)
+    raise AssertionError('request retry loop exhausted without returning')
+
+
 def _request(url: str, *, limit: int) -> tuple[int, bytes]:
     headers = {
         'Accept': 'application/vnd.github+json',
@@ -75,24 +108,11 @@ def _request(url: str, *, limit: int) -> tuple[int, bytes]:
     token = os.environ.get('GITHUB_TOKEN')
     if token and url.startswith('https://api.github.com/'):
         headers['Authorization'] = f'Bearer {token}'
-    request = urllib.request.Request(
-        url,
-        headers=headers,
+    status, payload, _ = _open_request(
+        urllib.request.Request(url, headers=headers),
+        limit=limit,
     )
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = response.read(limit + 1)
-            if len(payload) > limit:
-                raise PublishedReleaseError(
-                    f'response exceeds {limit} bytes: {url}')
-            return response.status, payload
-    except urllib.error.HTTPError as exc:
-        if exc.code == 404:
-            return 404, b''
-        raise PublishedReleaseError(
-            f'HTTP {exc.code} while reading {url}') from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise PublishedReleaseError(f'cannot read {url}: {exc}') from exc
+    return status, payload
 
 
 def _request_json(url: str) -> tuple[int, dict[str, Any] | None]:
@@ -141,22 +161,13 @@ def _registry_tag_digest(tag: str) -> str | None:
             'User-Agent': 'lidarslam-published-release-audit/1',
         },
     )
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = response.read(MAX_REGISTRY_MANIFEST_BYTES + 1)
-            if len(payload) > MAX_REGISTRY_MANIFEST_BYTES:
-                raise PublishedReleaseError(
-                    f'GHCR manifest exceeds '
-                    f'{MAX_REGISTRY_MANIFEST_BYTES} bytes: {tag}')
-            digest = response.headers.get('Docker-Content-Digest')
-    except urllib.error.HTTPError as exc:
-        if exc.code == 404:
-            return None
-        raise PublishedReleaseError(
-            f'HTTP {exc.code} while reading GHCR tag {tag}') from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise PublishedReleaseError(
-            f'cannot read GHCR tag {tag}: {exc}') from exc
+    status, _, response_headers = _open_request(
+        request,
+        limit=MAX_REGISTRY_MANIFEST_BYTES,
+    )
+    if status == 404:
+        return None
+    digest = response_headers.get('Docker-Content-Digest')
     if (
         not isinstance(digest, str)
         or len(digest) != 71
