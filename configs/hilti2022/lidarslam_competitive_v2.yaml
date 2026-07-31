@@ -1,0 +1,12 @@
+# Minimal graph backend overrides for clean competitive-v2 measurement.
+# Loop registration is disabled for the frontend RTF/accuracy gate; descriptor
+# ingestion and the production defaults remain unchanged.
+graph_based_slam:
+  ros__parameters:
+    registration_method: "NDT"
+    range_of_searching_loop_closure: 0.0
+    loop_search_query_stride: 1
+    cloud_subscriber_qos_reliable: true
+    odom_cloud_sync_queue_size: 128
+    map_leaf_size: 0.1
+    debug_flag: false
