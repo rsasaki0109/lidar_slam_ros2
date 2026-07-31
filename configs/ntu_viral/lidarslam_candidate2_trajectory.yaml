@@ -24,6 +24,9 @@ graph_based_slam:
     loop_overlap_max_distance_m: 0.5
     num_adjacent_pose_cnstraints: 5
     use_save_map_in_loop: true
+    cloud_subscriber_qos_reliable: true
+    odom_cloud_sync_use_exact_time: true
+    odom_cloud_sync_queue_size: 256
     adjacent_edge_info_weight: 1000.0
     use_gnss: false
     use_dynamic_object_filter: false
