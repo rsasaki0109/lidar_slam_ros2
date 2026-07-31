@@ -1051,6 +1051,16 @@ def test_workflow_supervisor_forces_cleanup_after_grace_period(tmp_path: Path):
             os.kill(descendant_pid, 0)
         except ProcessLookupError:
             break
+        try:
+            state = Path(f'/proc/{descendant_pid}/stat').read_text(
+                encoding='utf-8'
+            ).split()[2]
+        except (FileNotFoundError, ProcessLookupError):
+            break
+        if state == 'Z':
+            # Minimal container PID 1 implementations may leave a killed,
+            # orphaned descendant as a zombie until the container exits.
+            break
         time.sleep(0.01)
     else:
         pytest.fail('forced process-group cleanup left a descendant alive')

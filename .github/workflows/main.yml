@@ -153,7 +153,20 @@ jobs:
         shell: bash
         run: |
           apt-get update
-          apt-get install -y git python3-rosdep python3-colcon-common-extensions
+          apt-get install -y \
+            git \
+            python3-colcon-common-extensions \
+            python3-pip \
+            python3-rosdep
+
+      - name: Install Python test dependencies
+        shell: bash
+        run: |
+          pip_args=(--upgrade "rosbags==0.11.0")
+          if python3 -m pip install --help | grep -q -- '--break-system-packages'; then
+            pip_args+=(--break-system-packages)
+          fi
+          python3 -m pip install "${pip_args[@]}"
 
       - name: Check out repository
         uses: actions/checkout@v6

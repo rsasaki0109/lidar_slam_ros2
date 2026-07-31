@@ -928,12 +928,17 @@ def test_default_container_workflow_trusts_checkout_before_running_git():
     workflow = MAIN_CI_WORKFLOW.read_text(encoding='utf-8')
     default_workflow = workflow.split('  default-workflow:', 1)[1]
 
+    python_dependencies = default_workflow.index(
+        '- name: Install Python test dependencies'
+    )
     checkout = default_workflow.index('uses: actions/checkout@v6')
     safe_directory = default_workflow.index(
         'git config --global --add safe.directory "${GITHUB_WORKSPACE}"'
     )
     rosdep = default_workflow.index('- name: Initialize rosdep')
-    assert checkout < safe_directory < rosdep
+    assert 'python3-pip' in default_workflow
+    assert 'rosbags==0.11.0' in default_workflow
+    assert python_dependencies < checkout < safe_directory < rosdep
 
 
 def test_official_rko_binary_gate_is_release_shaped_and_version_pinned():
