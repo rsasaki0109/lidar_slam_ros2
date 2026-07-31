@@ -49,14 +49,14 @@ SPEC.loader.exec_module(READINESS)
 
 
 def test_tracked_contract_reports_exact_open_product_gates():
-    report = READINESS.evaluate_readiness()
+    report = READINESS.evaluate_readiness(tags={'v0.9.0'})
 
     assert report['status'] == 'NOT_READY'
     assert report['product_version'] == '0.9.0'
     assert report['summary'] == {
         'total': 10,
-        'complete': 6,
-        'incomplete': 4,
+        'complete': 8,
+        'incomplete': 2,
     }
     incomplete = {
         gate['id']
@@ -65,15 +65,13 @@ def test_tracked_contract_reports_exact_open_product_gates():
     }
     assert incomplete == {
         'distribution',
-        'reliability',
         'external-adoption',
-        'release-publication',
     }
     assert report['external_first_map']['accepted_validations'] == 0
     assert report['release'] == {
         'expected_tag': 'v0.9.0',
         'minimum_version_met': True,
-        'tag_present': False,
+        'tag_present': True,
     }
     assert report['publication_audits'] == {
         'inspected': False,

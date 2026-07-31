@@ -943,6 +943,16 @@ def test_default_container_workflow_trusts_checkout_before_running_git():
     assert python_dependencies < checkout < safe_directory < rosdep
 
 
+def test_docs_metadata_workflow_fetches_release_tags():
+    """The readiness snapshot must inspect the immutable release tag."""
+    workflow = MAIN_CI_WORKFLOW.read_text(encoding='utf-8')
+    docs_job = workflow.split('  docs-and-release-metadata:', 1)[1].split(
+        '  default-workflow:', 1)[0]
+
+    assert 'uses: actions/checkout@v6' in docs_job
+    assert 'fetch-depth: 0' in docs_job
+
+
 def test_official_rko_binary_gate_is_release_shaped_and_version_pinned():
     """The adoption gate must not accidentally build the source submodule."""
     workflow = OFFICIAL_RKO_COMPATIBILITY_WORKFLOW.read_text(
