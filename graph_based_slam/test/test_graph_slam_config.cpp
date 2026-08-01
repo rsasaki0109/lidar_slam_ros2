@@ -72,6 +72,8 @@ TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
       rclcpp::Parameter("voxel_leaf_size", 0.4),
       rclcpp::Parameter("use_gnss", true),
       rclcpp::Parameter("gnss_topic", "/fix/filtered"),
+      rclcpp::Parameter("odom_cloud_sync_use_exact_time", true),
+      rclcpp::Parameter("cloud_subscriber_qos_reliable", false),
   });
   auto node = std::make_shared<rclcpp::Node>("graph_slam_config_test", options);
   const auto parameters_before_load = node->list_parameters({}, 0).names.size();
@@ -82,9 +84,11 @@ TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
   EXPECT_DOUBLE_EQ(config.voxel_leaf_size, 0.4);
   EXPECT_TRUE(config.use_gnss_);
   EXPECT_EQ(config.gnss_topic_, "/fix/filtered");
+  EXPECT_TRUE(config.odom_cloud_sync_use_exact_time_);
+  EXPECT_FALSE(config.cloud_subscriber_qos_reliable_);
   EXPECT_TRUE(node->has_parameter("triangle_descriptor_keypoint_mode"));
   EXPECT_TRUE(node->has_parameter("degeneracy_diagnostics_csv_path"));
-  EXPECT_EQ(node->list_parameters({}, 0).names.size() - parameters_before_load, 143U);
+  EXPECT_EQ(node->list_parameters({}, 0).names.size() - parameters_before_load, 145U);
 }
 
 TEST_F(GraphSlamConfigTest, ValidationReportsIndependentConfigurationErrors)

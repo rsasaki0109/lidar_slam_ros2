@@ -195,6 +195,8 @@ struct GraphSlamConfig
   bool use_odom_input_ {false};
   double submap_distance_threshold_ {1.5};
   int odom_cloud_sync_queue_size_ {100};
+  bool odom_cloud_sync_use_exact_time_ {false};
+  bool cloud_subscriber_qos_reliable_ {true};
   std::string degeneracy_diagnostics_csv_path_;
   bool save_degeneracy_report_ {false};
 };

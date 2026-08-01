@@ -230,26 +230,40 @@ void GraphBasedSlamComponent::Impl::initializePubSub()
     // Deep queues so a long loop-search callback cannot overflow the
     // subscription histories and drop frames, plus stamp-based pairing so
     // the submap pose/cloud match is a function of the data, not of the
-    // executor schedule. Reliability is kept as before (odom reliable,
-    // cloud sensor-data/best-effort) for publisher compatibility.
+    // executor schedule. Competitive profiles use exact stamps and reliable
+    // delivery; live sensors can retain approximate/best-effort behavior.
     const size_t sync_depth = static_cast<size_t>(std::max(config_.odom_cloud_sync_queue_size_, 1));
     rmw_qos_profile_t odom_qos = rmw_qos_profile_default;
     odom_qos.depth = sync_depth;
-    rmw_qos_profile_t cloud_qos = rmw_qos_profile_sensor_data;
+    rmw_qos_profile_t cloud_qos = config_.cloud_subscriber_qos_reliable_ ?
+      rmw_qos_profile_default : rmw_qos_profile_sensor_data;
     cloud_qos.depth = sync_depth;
     odom_sync_sub_ = std::make_shared<message_filters::Subscriber<nav_msgs::msg::Odometry>>(
       &node_, "odom_input", odom_qos);
     cloud_sync_sub_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>>(
       &node_, "cloud_input", cloud_qos);
-    odom_cloud_sync_ = std::make_shared<message_filters::Synchronizer<OdomCloudSyncPolicy>>(
-      OdomCloudSyncPolicy(static_cast<uint32_t>(sync_depth)), *odom_sync_sub_, *cloud_sync_sub_);
-    odom_cloud_sync_->registerCallback(
-      std::bind(
-        &GraphBasedSlamComponent::Impl::receiveSyncedOdomCloud, this, std::placeholders::_1,
-        std::placeholders::_2));
+    if (config_.odom_cloud_sync_use_exact_time_) {
+      odom_cloud_sync_exact_ =
+        std::make_shared<message_filters::Synchronizer<OdomCloudSyncPolicyExact>>(
+        OdomCloudSyncPolicyExact(static_cast<uint32_t>(sync_depth)),
+        *odom_sync_sub_, *cloud_sync_sub_);
+      odom_cloud_sync_exact_->registerCallback(
+        std::bind(
+          &GraphBasedSlamComponent::Impl::receiveSyncedOdomCloud, this,
+          std::placeholders::_1, std::placeholders::_2));
+    } else {
+      odom_cloud_sync_ = std::make_shared<message_filters::Synchronizer<OdomCloudSyncPolicy>>(
+        OdomCloudSyncPolicy(static_cast<uint32_t>(sync_depth)), *odom_sync_sub_, *cloud_sync_sub_);
+      odom_cloud_sync_->registerCallback(
+        std::bind(
+          &GraphBasedSlamComponent::Impl::receiveSyncedOdomCloud, this,
+          std::placeholders::_1, std::placeholders::_2));
+    }
     RCLCPP_INFO(
-      node_.get_logger(), "Direct odom+cloud input mode enabled (stamp-synced, queue %zu)",
-      sync_depth);
+      node_.get_logger(),
+      "Direct odom+cloud input mode enabled (%s-stamp-synced, queue %zu, cloud %s)",
+      config_.odom_cloud_sync_use_exact_time_ ? "exact" : "approximate", sync_depth,
+      config_.cloud_subscriber_qos_reliable_ ? "reliable" : "best-effort");
   }
 
   modified_map_pub_ = node_.create_publisher<sensor_msgs::msg::PointCloud2>(

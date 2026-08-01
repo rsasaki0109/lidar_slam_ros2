@@ -226,6 +226,8 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
   LOAD(use_odom_input_, "use_odom_input");
   LOAD(submap_distance_threshold_, "submap_distance_threshold");
   LOAD(odom_cloud_sync_queue_size_, "odom_cloud_sync_queue_size");
+  LOAD(odom_cloud_sync_use_exact_time_, "odom_cloud_sync_use_exact_time");
+  LOAD(cloud_subscriber_qos_reliable_, "cloud_subscriber_qos_reliable");
   LOAD(degeneracy_diagnostics_csv_path_, "degeneracy_diagnostics_csv_path");
   LOAD(save_degeneracy_report_, "save_degeneracy_report");
 #undef LOAD
@@ -518,6 +520,12 @@ void logGraphSlamConfig(const GraphSlamConfig & config, const rclcpp::Logger & l
     config.use_odom_input_ ? "on" : "off", config.use_gnss_ ? "on" : "off",
     config.use_imu_preintegration_ ? "on" : "off", config.use_pcd_cache_ ? "on" : "off",
     config.map_save_dir_.c_str());
+  RCLCPP_INFO(
+    logger,
+    "graph SLAM config: odom_cloud_sync(mode=%s queue=%d cloud_qos=%s)",
+    config.odom_cloud_sync_use_exact_time_ ? "exact" : "approximate",
+    config.odom_cloud_sync_queue_size_,
+    config.cloud_subscriber_qos_reliable_ ? "reliable" : "best_effort");
 }
 
 }  // namespace graphslam

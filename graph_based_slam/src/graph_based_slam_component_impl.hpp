@@ -57,6 +57,7 @@
 #include <lidarslam_msgs/msg/map_array.hpp>
 #include <message_filters/subscriber.h>  // NOLINT(build/include_order)
 #include <message_filters/sync_policies/approximate_time.h>  // NOLINT(build/include_order)
+#include <message_filters/sync_policies/exact_time.h>  // NOLINT(build/include_order)
 #include <message_filters/synchronizer.h>  // NOLINT(build/include_order)
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
@@ -170,6 +171,10 @@ private:
   using OdomCloudSyncPolicy = message_filters::sync_policies::ApproximateTime<
     nav_msgs::msg::Odometry, sensor_msgs::msg::PointCloud2>;
   std::shared_ptr<message_filters::Synchronizer<OdomCloudSyncPolicy>> odom_cloud_sync_;
+  using OdomCloudSyncPolicyExact = message_filters::sync_policies::ExactTime<
+    nav_msgs::msg::Odometry, sensor_msgs::msg::PointCloud2>;
+  std::shared_ptr<message_filters::Synchronizer<OdomCloudSyncPolicyExact>>
+  odom_cloud_sync_exact_;
   Eigen::Vector3d last_submap_position_ {0, 0, 0};
   bool last_submap_position_valid_ {false};
   double accumulated_distance_ {0.0};
