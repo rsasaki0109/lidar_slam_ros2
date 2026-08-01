@@ -6,6 +6,7 @@
 extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 extrinsic_lidar2base_quat_xyzw_xyz: [0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055]
 initialization_phase: true
+odom_topic: /rko_lio/odometry
 deskew: true
 voxel_size: 0.25
 min_range: 0.7
