@@ -1,0 +1,27 @@
+# RKO-LIO profile for the HILTI 2022 Phasma platform.
+#
+# The three frontend tuning keys were frozen after development on exp01 and
+# regression validation on exp04. The larger publisher queue preserves the
+# reliable frontend/backend link without forcing both executors into lockstep.
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055]
+initialization_phase: true
+odom_topic: /rko_lio/odometry
+deskew: true
+voxel_size: 0.25
+min_range: 0.7
+max_range: 100.0
+double_downsample: true
+
+# Production scope is SLAM-only; recovery research paths stay disabled.
+enable_kidnap_relocalization: false
+reset_on_registration_failure: false
+relocalize_after_scan_gap: false
+
+# Clean development evidence:
+# exp01 RTF 0.9783, APE RMSE 0.06221018 m
+# exp04 RTF 0.5037, APE RMSE 0.06739868 m
+max_iterations: 50
+convergence_criterion: 3.0e-5
+icp_keypoint_voxel_multiplier: 2.25
+publisher_queue_depth: 128

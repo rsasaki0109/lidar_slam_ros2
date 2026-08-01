@@ -31,6 +31,10 @@ Options:
   --reference-source LABEL       Label stored in metrics.json (default: leica_prism_gt)
   --help                         Show this help
 
+Environment:
+  RKO_LIO_BENCHMARK_PRESERVE_ENVIRONMENT=true
+                                 Keep the caller's sourced ROS overlay
+
 This runs the recommended benchmark path:
   rosbag2 -> RKO-LIO + graph_based_slam -> raw/corrected trajectories -> APE -> metrics.json
 EOF
@@ -280,12 +284,14 @@ if [[ "$SKIP_REFERENCE_GEN" == "false" ]]; then
 fi
 
 set +u
-if [[ -f "${WS_ROOT}/install/setup.bash" ]]; then
-  # shellcheck source=/dev/null
-  source "${WS_ROOT}/install/setup.bash"
-elif [[ -n "${ROS_DISTRO:-}" && -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]]; then
-  # shellcheck source=/dev/null
-  source "/opt/ros/${ROS_DISTRO}/setup.bash"
+if [[ "${RKO_LIO_BENCHMARK_PRESERVE_ENVIRONMENT:-false}" != "true" ]]; then
+  if [[ -f "${WS_ROOT}/install/setup.bash" ]]; then
+    # shellcheck source=/dev/null
+    source "${WS_ROOT}/install/setup.bash"
+  elif [[ -n "${ROS_DISTRO:-}" && -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]]; then
+    # shellcheck source=/dev/null
+    source "/opt/ros/${ROS_DISTRO}/setup.bash"
+  fi
 fi
 set -u
 
