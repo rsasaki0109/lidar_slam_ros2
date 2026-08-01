@@ -23,27 +23,32 @@ holdout.
 
 | Area | Revision | Scope |
 | --- | --- | --- |
-| backend | `24fda87` | deterministic loop-search scheduling and unit test |
-| backend transport | `45fe842` | exact-stamp odom/cloud pairing, reliable cloud QoS, and bounded queue headroom |
-| frontend submodule | `60b861a`, `4619565` | exact sparse-voxel nearest-neighbour pruning, queue/config controls, and signed-boundary brute-force contract tests |
-| production profile | `ef92aa7` | pinned frontend revision and competitive-v2 HILTI configuration |
-| benchmark harness | `625f3d4` | explicit bag-end completion margin for strict completeness checks |
-| holdout profiles | `4af54b2` | NTU-VIRAL frontend-v2 and trajectory-only Candidate2 safety settings |
-| holdout transport pin | `8908e60` | exact-time, reliable, queue-256 Candidate2 diagnostic profile |
+| current backend scheduling | `de2f394` base | event-driven loop scheduling and tests already present in current `develop` |
+| current backend transport | `0915034` | exact/approximate stamp policy, selectable reliable cloud QoS, and queue headroom in the Pimpl backend |
+| current frontend release pin | `99b55dc` | RKO-LIO PR #12; competitive-v2 pruning/queue changes on the v0.3.2 configurable-voxel line |
+| original measured frontend | `60b861a`, `4619565` | sparse-grid pruning and signed-boundary brute-force contract tests used by the first isolated gate |
+| current production profiles | `67231b6`, `acf7249`, `c590e29`, `9e19b72` | HILTI/NTU profiles, deterministic transport, and explicit RKO output topic |
+| benchmark overlay support | `7fc63a8` | preserve an explicitly sourced isolated overlay |
 
-The branch is `agent/kaizen-production-gate-20260801`, based on `3d44bc5`.
-Benchmark/build directories are not source changes.
+The merge branch is `agent/kaizen-production-gate-current`, based on current
+`develop` revision `de2f394`. The original measurement branch was
+`agent/kaizen-production-gate-20260801`, based on `3d44bc5`. Benchmark/build
+directories are not source changes.
 
 ## Build and unit verification
 
-- RKO-LIO core, `offline_node`, and `online_node_component`: built and linked
-  from the isolated submodule worktree.
-- `test_frontend_performance_contract`: 3/3 cases passed.
+- RKO-LIO release-pin core, `offline_node`, and `online_node_component`: built
+  and linked from the isolated submodule worktree.
+- Current `test_voxel_hash_map`: 4/4 cases passed, including exact signed
+  boundary comparisons against brute force.
 - `test_loop_search_schedule`: 3/3 passed.
+- `test_graph_slam_config`: 5/5 passed, including exact/reliable overrides.
+- Benchmark script safety tests: 26/26 passed.
 - `graph_based_slam` production targets: colcon build passed in the isolated
   overlay.
 - Overlay provenance was checked with `ros2 pkg prefix`; both `rko_lio` and
   `graph_based_slam` resolve inside the isolated worktree.
+- Runtime startup confirmed `exact-stamp-synced, queue 256, cloud reliable`.
 
 ## Clean HILTI regression gate
 
@@ -52,29 +57,38 @@ Runs performed while another benchmark owns the CPU are invalid.
 
 | Sequence | Candidate RTF | Raw APE RMSE | Baseline RTF | Baseline APE RMSE | Result |
 | --- | ---: | ---: | ---: | ---: | --- |
-| exp01, run 1 | 0.695946 | 0.06194893 m | 0.9783 | 0.06221018 m | pass (-0.42% APE) |
-| exp04, run 1 | 0.355620 | 0.04712426 m | 0.5037 | 0.06739868 m | pass (-30.08% APE) |
-| exp04, run 2 | 0.339366 | 0.04712426 m | 0.5037 | 0.06739868 m | pass (-30.08% APE) |
-| exp04, run 3 | 0.339920 | 0.04712426 m | 0.5037 | 0.06739868 m | pass (-30.08% APE) |
+| exp01, run 1 | 0.832433 | 0.06080387 m | 0.9783 | 0.06221018 m | pass (-2.26% APE) |
+| exp04, run 1 | 0.439305 | 0.04836338 m | 0.5037 | 0.06739868 m | pass (-28.24% APE) |
+| exp04, run 2 | 0.423233 | 0.04836338 m | 0.5037 | 0.06739868 m | pass (-28.24% APE) |
+| exp04, run 3 | 0.423418 | 0.04836338 m | 0.5037 | 0.06739868 m | pass (-28.24% APE) |
 
 The gate is RTF <= 1.0 and no accuracy regression above 2%.
 
 ### Measurement provenance and reproducibility
 
-Accepted artifacts are under
-`competitive_ours/kaizen_clean_9038f20_20260801`, measured at top revision
-`9038f20` and RKO-LIO revision `4619565`. Each run began only after three
+Accepted current-develop artifacts are under
+`competitive_ours/kaizen_current_9e19b72_20260801`, measured at top revision
+`9e19b72` and RKO-LIO release revision `99b55dc`. Each run began only after three
 consecutive preflight samples satisfied load1 <= 2.0 and CPU busy <= 10%.
 All runs exited 0, used exact-stamp pairing with queue 256, and produced
 complete trajectories. exp01 produced 2277 poses. Each exp04 run produced
-1258 poses; median RTF was 0.339920 and maximum RTF was 0.355620.
+1258 poses; median RTF was 0.423418 and maximum RTF was 0.439305. The last
+poses were 0.043 s (exp01) and 0.017 s (exp04) before the respective bag ends,
+inside the strict 0.25 s completion margin. The explicit zero base-to-reference
+offset preserves the legacy HILTI scoring frame while satisfying the current
+reference metadata contract.
 
 The exp01 raw trajectory SHA-256 is
-`8e1bec2bf7eee05986768224efb2fa60e4cbadf657bf12ee82faaca592319e1f`.
-All three exp04 raw trajectories, and their zero-loop corrected copies, have
-SHA-256
-`3ffde3075ed7ce7cc29e69c41cd185d81660b27f87e26b140ba68e39466342d2`.
+`4bfbb5dd7b5928d6820095b757d2ad5ca76f942e738bee1349004965cda5f8dc`.
+All three exp04 raw trajectories have SHA-256
+`760cd0e3234988ff8eb7f072f182f0897abe2381debe11126fb618908dcd1ce4`;
+all three densified passthrough copies have SHA-256
+`fb304781eab2a24a3b580ab4c9159fe2c9b3f618a226b36867d6c16d92dd91f2`.
 This satisfies the RTF, accuracy, completeness, and deterministic-repeat gate.
+
+The earlier isolated `4619565` gate also passed (exp01 RTF 0.695946; exp04
+maximum RTF 0.355620). It remains useful historical evidence, but the promotion
+decision above is now supported directly by the current release pin.
 
 ## Holdout eligibility audit
 
