@@ -45,6 +45,7 @@ DEFAULT_SCHEMA = (
 )
 MEASUREMENT_PATHS = (
     'input.download_bytes',
+    'measurements.workflow_download_bytes',
     'measurements.wall_time_sec',
     'measurements.active_operator_time_sec',
     'measurements.command_count',
@@ -94,13 +95,23 @@ def _path_value(record: dict[str, Any], dotted_path: str) -> Any:
 
 
 def _validate_measurements(record: dict[str, Any]) -> None:
+    dataset_download = record['input']['download_bytes']
     measurements = record['measurements']
+    workflow_download = measurements['workflow_download_bytes']
     wall_time = measurements['wall_time_sec']
     active_time = measurements['active_operator_time_sec']
     peak_disk = measurements['peak_disk_bytes']
     output_bytes = measurements['output_bytes']
     if wall_time is not None and wall_time <= 0:
         raise TrialError('wall_time_sec must be greater than zero when known')
+    if (
+        dataset_download is not None
+        and workflow_download is not None
+        and workflow_download < dataset_download
+    ):
+        raise TrialError(
+            'workflow_download_bytes cannot be less than input.download_bytes'
+        )
     if (
         wall_time is not None
         and active_time is not None

@@ -74,6 +74,7 @@ def _comparable_trial() -> dict[str, object]:
             'download_bytes': 517088133,
         },
         'measurements': {
+            'workflow_download_bytes': 1800000000,
             'wall_time_sec': 83.53,
             'active_operator_time_sec': 45.0,
             'command_count': 1,
@@ -158,6 +159,11 @@ def test_mutable_or_prepared_environment_is_not_comparable(
     ('field', 'value', 'message'),
     [
         ('wall_time_sec', 0.0, 'wall_time_sec must be greater than zero'),
+        (
+            'workflow_download_bytes',
+            500000000,
+            'workflow_download_bytes cannot be less than input.download_bytes',
+        ),
         (
             'active_operator_time_sec',
             100.0,

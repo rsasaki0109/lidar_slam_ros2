@@ -1,0 +1,504 @@
+# G0 onboarding-trial execution runbook
+
+This runbook executes the four G0 onboarding rows defined by the
+[comparable onboarding-trial contract](onboarding-trials.md). It is an
+observer protocol, not a new beginner workflow. The operator follows the
+canonical page named in the matrix; the observer supplies only identity
+pinning, neutral timing, and evidence capture.
+
+The record contract is
+[onboarding-trial-v1.schema.json](schemas/onboarding-trial-v1.schema.json),
+and the validator is `scripts/check_onboarding_trial.py`. Do not run this
+document's trial commands in the product checkout. Use a disposable environment
+and a trial root outside the checkout.
+
+## 1. G0 matrix and current route decisions
+
+Use one fresh environment per row. The suffix is the UTC trial date and an
+optional repeat letter; it is part of the private trial record only.
+
+| Trial | Schema documentation_path | Clean environment | Fixed input | Route decision |
+| --- | --- | --- | --- | --- |
+| g0-docker-humble-YYYYMMDD-a | docker-first-map | Ubuntu 22.04, x86_64, Docker | mid360-public-zenodo-14841855 | Execute [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) with the v0.9.0 digest example below, after verifying the release asset. |
+| g0-docker-jazzy-YYYYMMDD-a | docker-first-map | Ubuntu 24.04, x86_64, Docker | mid360-public-zenodo-14841855 | Execute the same [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) with the documented `:jazzy` image and the verified v0.9.0 digest below. |
+| g0-source-humble-YYYYMMDD-a | source-quickstart | Ubuntu 22.04, x86_64, ROS 2 Humble | mid360-public-zenodo-14841855 | Execute the [fixed source first map](getting-started.md#2-run-the-fixed-first-map-demo) at the reviewed product commit below. |
+| g0-source-jazzy-YYYYMMDD-a | source-quickstart | Ubuntu 24.04, x86_64, ROS 2 Jazzy | mid360-public-zenodo-14841855 | Execute the same fixed source first map at the reviewed product commit below. |
+
+The frozen v0.9.0 examples supplied by the release assets are:
+
+- Humble image digest:
+  sha256:27934744bc21ee7081619f35e322177345479ed69079cda8e37ee61fbfbdbe53.
+- Jazzy image digest:
+  sha256:6eabb19ac77ad24fd123772333357a0c5bfdb38055945213722f6484e0f134ef.
+- Reviewed source first-map product commit:
+  74fe625ab2ee1dc9a0d55ce69bd705d22bac5d76.
+
+These are explicit G0 examples, not permission to trust copied values. The
+operator must verify the matching release-image JSON, tag commit, image
+manifest digest, and (when available) GitHub attestation before use.
+
+The Docker workflow's Humble/Jazzy matrix and the Dockerfile's `ROS_DISTRO`
+argument prove that images are built for both distros. The beginner page now
+names both tags and the shared first-map contract. The release workflow
+publishes exact `v<VERSION>-<distro>` tags and records their digests. Use that
+release evidence when available. The moving convenience tags are not trial
+identities. Audit `.github/workflows/docker.yml`, `.github/workflows/release.yml`,
+`Dockerfile`, and the
+[distribution identity rules](distribution.md#installed-source-identity).
+
+If a row has no runnable, documented path after the preflight below, write a
+valid FAIL record at the earliest stage. Do not make it pass by adding an
+unlisted package, changing the dataset, using --skip-viewer, or inventing a
+Jazzy command.
+
+## 2. Isolation and roles
+
+### Environment requirements
+
+Prepare four independent disposable environments. A disposable VM is the
+preferred Docker host because it gives the image pull a dedicated filesystem
+scope. A disposable Ubuntu container or VM with ROS already installed is
+acceptable for the source rows if its trial filesystem is isolated.
+
+- Before a Docker row, the selected daemon must have no
+  ghcr.io/rsasaki0109/lidar_slam_ros2 image, project dataset, or project
+  output. If the shared development daemon has any of these, stop and use a
+  fresh daemon or VM; do not remove them.
+- Before a source row, the trial root must contain no project checkout, build,
+  install, dataset, or output. ROS itself and platform tools may be part of
+  the base environment.
+- Put the trial root and its observer output on one dedicated filesystem when
+  possible. For a disposable Docker VM, use / as the disk scope. For a
+  source trial, use the dedicated trial mount containing the checkout and all
+  generated data.
+- Do not run docker system prune, docker builder prune, apt clean, or delete a
+  shared Git, package, Docker, or dataset cache. Cleanup may remove only the
+  named disposable trial root after the private evidence has been archived, or
+  may destroy the disposable VM.
+
+The operator sees only the canonical documentation and the observer-approved
+identity substitution. The observer starts and stops timers, records the
+operator's submitted commands without interpreting them, and does not suggest
+fixes. A recovery hint, undocumented option, or manually supplied path is an
+intervention and must be counted. If it is needed for progress, the row cannot
+be an accepted comparable baseline.
+
+### Private trial workspace
+
+Run this preparation outside the product checkout. These are observer setup
+commands and do not count toward measurements.command_count:
+
+~~~bash
+TRIAL_ID='g0-docker-humble-20260810-a'
+TRIAL_ROOT="$(mktemp -d "/tmp/lidarslam-g0-$TRIAL_ID.XXXXXX")"
+OBSERVER_ROOT="$(mktemp -d "/tmp/lidarslam-g0-observer-$TRIAL_ID.XXXXXX")"
+mkdir -p "$TRIAL_ROOT" "$OBSERVER_ROOT"
+test -z "$(find "$TRIAL_ROOT" -mindepth 1 -print -quit)"
+~~~
+
+Keep raw stopwatch notes, disk samples, terminal captures, and any local
+paths under OBSERVER_ROOT. They must not be copied into the trial JSON or a
+public issue.
+
+## 3. Identity and preflight gates
+
+Complete identity checks before the timed operator path. A failed identity or
+route gate is a FAIL and does not justify a local build or a moving tag.
+
+### Docker identity
+
+For a documented Docker row, prefer the exact release-image record attached to
+the GitHub Release. For the frozen v0.9.0 Humble example, the identity inputs
+are:
+
+~~~bash
+IMAGE_TAG='ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble'
+EXPECTED_DIGEST='sha256:27934744bc21ee7081619f35e322177345479ed69079cda8e37ee61fbfbdbe53'
+EXPECTED_VERSION='0.9.0'
+IMAGE_DIGEST="$(docker buildx imagetools inspect "$IMAGE_TAG" \
+  --format '{{json .Manifest}}' | jq -er '.digest')"
+test "$IMAGE_DIGEST" = "$EXPECTED_DIGEST"
+IMAGE_REF="$IMAGE_TAG@$IMAGE_DIGEST"
+printf 'image_ref=%s\nversion=%s\n' "$IMAGE_REF" "$EXPECTED_VERSION" \
+  > "$OBSERVER_ROOT/image-identity.txt"
+~~~
+
+For Jazzy, the frozen release identity is:
+
+~~~bash
+IMAGE_TAG='ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy'
+EXPECTED_DIGEST='sha256:6eabb19ac77ad24fd123772333357a0c5bfdb38055945213722f6484e0f134ef'
+EXPECTED_VERSION='0.9.0'
+IMAGE_DIGEST="$(docker buildx imagetools inspect "$IMAGE_TAG" \
+  --format '{{json .Manifest}}' | jq -er '.digest')"
+test "$IMAGE_DIGEST" = "$EXPECTED_DIGEST"
+IMAGE_REF="$IMAGE_TAG@$IMAGE_DIGEST"
+~~~
+
+The manifest comparison is read-only and does not pull image layers. Also
+verify the attached release-image JSON's tag, digest, product version, platform,
+and tag commit. If the release process requires attestation verification, use
+the documented form:
+
+~~~bash
+gh attestation verify \
+  oci://ghcr.io/rsasaki0109/lidar_slam_ros2@$EXPECTED_DIGEST \
+  -R rsasaki0109/lidar_slam_ros2
+~~~
+
+Do not run a CLI smoke container before the timed trial: that would pull and
+warm the project image. If the image digest, release asset, or product version
+cannot be established without guessing, record FAIL at preflight.
+
+### Source identity
+
+The v0.9.0 tag commit predates the shared source first-map script. The post-fix
+source rows therefore pin the reviewed product commit that introduced the
+canonical source route. Verify that GitHub can resolve it before starting a
+timed clone:
+
+~~~bash
+SOURCE_COMMIT='74fe625ab2ee1dc9a0d55ce69bd705d22bac5d76'
+REPO_URL='https://github.com/rsasaki0109/lidar_slam_ros2.git'
+REMOTE_COMMIT="$(gh api \
+  "repos/rsasaki0109/lidar_slam_ros2/commits/$SOURCE_COMMIT" --jq .sha)"
+test "$REMOTE_COMMIT" = "$SOURCE_COMMIT"
+printf 'source_commit=%s\n' "$SOURCE_COMMIT" \
+  > "$OBSERVER_ROOT/source-identity.txt"
+~~~
+
+This commit remains local until its integration branch is published. A `404`
+is an honest preflight FAIL with finding `source-candidate-not-published`; it
+does not authorize a push, a local-path clone, or fallback to `develop`. After
+publication, the source trial record uses kind `git-commit` and this exact
+40-character lowercase value.
+
+### Route audit
+
+Before starting the stopwatch, check the prerequisites already named by the
+canonical page. Do not install or repair anything during this audit.
+
+For source rows, audit only the prerequisites named by the canonical build and
+fixed-demo sections: the selected ROS distribution, Git, rosdep, colcon, and
+the documented build dependencies. The fixed first-map route is headless and
+does not require `rosbags-convert`, Docker, RViz, a display, or an Autoware
+checkout. If an unlisted prerequisite is required, record FAIL at preflight
+with a stable finding rather than installing it privately.
+
+The preflight record for a route that cannot be executed has:
+
+- environment.clean_start: true only if the isolation checks passed;
+- the planned exact image digest or source commit, not a made-up identity;
+- all unknown measurements as null;
+- outcome.status: FAIL;
+- failure_stage: preflight and at least one finding code;
+- manifest_status: missing, diagnosis_status: missing,
+  verifier_status: NOT_RUN, receipt_status: NOT_CREATED;
+- both evidence hashes as null.
+
+This is a valid audit of an unavailable route. It is not a skipped row.
+
+## 4. Neutral measurement procedure
+
+The schema's seven measurements are captured as follows. Use the same procedure
+for every row and retain the raw observations only under OBSERVER_ROOT.
+
+### Wall time and active operator time
+
+Start wall_time_sec immediately before the operator submits the first command on
+the canonical path. Stop at the first of these events:
+
+1. the required first-map receipt is written and the documented path has no
+   remaining map-producing work; or
+2. the attempt reaches a terminal failure and no documented next action can
+   continue it.
+
+The fixed Docker and source routes are headless. Stop at the generated receipt;
+an optional viewer command is outside this trial. Record the exact process exit
+code observed by the observer.
+
+active_operator_time_sec is a paused stopwatch. Include only time spent
+entering commands, answering a documented prompt, reading required output, or
+following a documented next action. Pause during downloads, builds, SLAM,
+conversion, verification, and viewer startup. Do not include observer note
+taking.
+
+### Command count
+
+Count each command submission by the operator. A copied multiline shell block
+is one command, as specified by the contract. Commands invoked internally by a
+script do not count. A documented recovery command counts; an observer's disk
+sampler, identity lookup, evidence hash, or record-writing command does not.
+
+If the route is rejected before the operator submits a product command, set
+command_count to null; that correctly makes the record incomplete and
+non-comparable while preserving the preflight finding.
+
+### Peak disk bytes
+
+Use the same filesystem scope for all four rows. Capture allocated filesystem
+use, not a rounded df display value. The following observer sampler has a fixed
+250 ms interval and writes only to the private observer root:
+
+~~~bash
+DISK_SCOPE="$TRIAL_ROOT"  # use / only inside a dedicated Docker VM
+disk_used_bytes() {
+  df --output=used -B1 "$DISK_SCOPE" | awk 'NR == 2 {print $1}'
+}
+BASE_USED="$(disk_used_bytes)"
+(
+  while :; do
+    printf '%s\t%s\n' "$(date -u +%s.%N)" "$(disk_used_bytes)"
+    sleep 0.25
+  done
+) > "$OBSERVER_ROOT/disk.tsv" &
+DISK_PID=$!
+~~~
+
+Start the stopwatch after BASE_USED is captured and the sampler is running.
+After the route reaches its terminal event, stop the sampler and calculate:
+
+~~~bash
+kill "$DISK_PID" 2>/dev/null || true
+wait "$DISK_PID" 2>/dev/null || true
+PEAK_USED="$(awk 'BEGIN {max = 0} $2 > max {max = $2} END {print max + 0}' \
+  "$OBSERVER_ROOT/disk.tsv")"
+PEAK_DISK_BYTES=$((PEAK_USED - BASE_USED))
+test "$PEAK_DISK_BYTES" -ge 0
+~~~
+
+The scope must include the Docker daemon's image layers, or the source
+checkout, build/install tree, dataset, temporary output, and final output. If
+the scope also contains unrelated activity, set environment.clean_start to
+false and retain environment_not_clean as a comparability blocker.
+
+### Workflow and input download bytes
+
+`measurements.workflow_download_bytes` measures the complete cold-start
+transfer burden: image layers or source checkout, dependencies, and dataset.
+Use a dedicated trial VM or network namespace with no unrelated traffic. On
+the system that performs the pull or source build, select the trial interface
+and capture its received-byte counter immediately before and after the timed
+path:
+
+~~~bash
+NET_IFACE="${NET_IFACE:-$(ip -o route show default \
+  | awk 'NR == 1 {print $5}')}"
+test -r "/sys/class/net/$NET_IFACE/statistics/rx_bytes"
+RX_START="$(cat "/sys/class/net/$NET_IFACE/statistics/rx_bytes")"
+# Start the timed documented path here.
+# Stop after the receipt or terminal failure.
+RX_END="$(cat "/sys/class/net/$NET_IFACE/statistics/rx_bytes")"
+WORKFLOW_DOWNLOAD_BYTES=$((RX_END - RX_START))
+test "$WORKFLOW_DOWNLOAD_BYTES" -ge 0
+~~~
+
+If the interface carries background updates, observer SSH traffic, or another
+workload, the value is not comparable. Repeat in an isolated environment or
+store `null`; do not subtract an estimated background rate. Registry-manifest
+layer sizes are useful audit inputs but do not replace the observed total.
+
+`input.download_bytes` is the dataset-only portion of that total. Direct
+`DEMO_DATA_DIR` to the private trial root and use the downloader's exact byte
+record or retained archive size, for example:
+
+~~~bash
+stat --format='%s' \
+  "$TRIAL_ROOT/data/driving_slam_mid360/archives/rosbag2_2024_04_16-14_17_01.zip"
+~~~
+
+Both Docker and source now use this same MID-360 downloader and fixed input.
+When the archive path differs, use its machine-readable download record rather
+than a human-readable `517 MB` label. The complete workflow value must be at
+least the dataset value. If a route fails before dataset transfer, `0` is valid
+only when the observer can prove no dataset bytes were transferred; otherwise
+use `null`.
+
+### Output bytes
+
+After the terminal event, identify the one run directory created under the
+dedicated trial root. Use allocated bytes, excluding the source dataset:
+
+~~~bash
+du -sx --block-size=1 "$RUN_DIR" | awk '{print $1}'
+~~~
+
+For a failure with no output directory, 0 is known. If a partial output cannot
+be isolated from unrelated data, use null.
+
+## 5. Docker Humble execution
+
+The observer must use the exact v0.9.0 Humble digest in place of the moving
+`:humble` tag. The bind mount
+and environment overrides below preserve the default command while retaining
+the dataset manifest for exact byte capture; they are observer instrumentation,
+not operator help.
+
+Prepare an empty trial root and start the disk sampler from section 4. Then
+start the stopwatch and submit this one operator command:
+
+~~~bash
+mkdir -p "$TRIAL_ROOT/data" "$TRIAL_ROOT/output"
+docker run --rm \
+  -e DEMO_DATA_DIR=/trial/data \
+  -e DEMO_OUTPUT_DIR=/trial/output/mid360_demo \
+  -e LIDARSLAM_HOST_UID="$(id -u)" \
+  -e LIDARSLAM_HOST_GID="$(id -g)" \
+  --mount type=bind,src="$TRIAL_ROOT",dst=/trial \
+  "$IMAGE_REF"
+~~~
+
+The mkdir is observer preparation when it is done before timing; the docker
+run is the operator command. The default image command remains
+bash scripts/run_docker_demo.sh; do not replace it with a lower-level launch or
+a local docker build. If the image pull, demo download, map run, verification,
+or receipt fails, preserve the partial output and finalize a FAIL with the
+earliest applicable stage.
+
+For a successful attempt, the expected run directory is
+$TRIAL_ROOT/output/mid360_demo. The required receipt is
+first_map_validation_receipt.json; the manifest and verification artifacts are
+described in [Getting Started](getting-started.md#4-check-the-result).
+
+## 6. Docker Jazzy execution
+
+The beginner page now explicitly documents the `:jazzy` substitution and the
+same fixed first-map contract. Repeat section 5 in a fresh Ubuntu 24.04 trial
+environment after setting the Jazzy identity from section 3:
+
+~~~bash
+IMAGE_TAG='ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy'
+EXPECTED_DIGEST='sha256:6eabb19ac77ad24fd123772333357a0c5bfdb38055945213722f6484e0f134ef'
+IMAGE_REF="$IMAGE_TAG@$EXPECTED_DIGEST"
+~~~
+
+Do not reuse the Humble VM, pulled layers, dataset, or output. The operator's
+Docker command and expected run directory remain otherwise identical. Any
+Jazzy-only dependency, launch, verification, or receipt failure is retained as
+a real row finding.
+
+## 7. Source Humble and Jazzy execution
+
+The source rows use the same documented path on their respective supported
+Ubuntu/ROS pair. The observer pins the checkout before the build, and the
+operator then follows the source build and fixed-demo sections. Identity
+checkout commands are observer instrumentation; they are not product
+workarounds.
+
+After the identity and route gates pass, start with an empty TRIAL_ROOT and the
+disk and network samplers. Start timing immediately before the first clone
+command. Submit the canonical source sequence with the reviewed commit pinned:
+
+~~~bash
+mkdir -p "$TRIAL_ROOT/src"
+git clone --recursive "$REPO_URL" "$TRIAL_ROOT/src/lidar_slam_ros2"
+git -C "$TRIAL_ROOT/src/lidar_slam_ros2" checkout --detach "$SOURCE_COMMIT"
+test "$(git -C "$TRIAL_ROOT/src/lidar_slam_ros2" rev-parse HEAD)" = "$SOURCE_COMMIT"
+git -C "$TRIAL_ROOT/src/lidar_slam_ros2" submodule update --init --recursive
+cd "$TRIAL_ROOT"
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+source install/setup.bash
+bash src/lidar_slam_ros2/scripts/run_first_map_demo.sh
+~~~
+
+The clone, commit check, and submodule update are the observer's pinning
+wrapper around the documented recursive clone. If the operator must perform
+any additional checkout repair or dependency installation beyond the page,
+count it as an undocumented manual step and set the outcome to FAIL or, at
+minimum, non-comparable. Do not substitute the old NTU VIRAL dogfood route, a
+different bag, a viewer option, or a hand-written lower-level SLAM command.
+
+For a completed source attempt, locate the single run directory under the
+checkout's `output/mid360_demo/` directory, then apply the evidence and byte
+rules above. The dataset cache under `datasets/mid360_public/` is input data and
+is excluded from `output_bytes`.
+
+## 8. Finalize and validate the trial record
+
+Create the record in a private evidence directory, never in the product
+checkout. Do not paste the exact command, private path, hostname, raw log,
+operator identity, bag metadata, or map geometry into the JSON.
+
+Capture the two allowed evidence identities when the files exist:
+
+~~~bash
+MANIFEST_SHA256="$(sha256sum "$RUN_DIR/run_manifest.json" | awk '{print $1}')"
+RECEIPT_SHA256="$(sha256sum "$RUN_DIR/first_map_validation_receipt.json" \
+  | awk '{print $1}')"
+~~~
+
+Use the actual artifact state to fill the schema fields:
+
+Also populate the required common fields exactly: schema_version `1`, the
+schema URI from the contract, a lower-case slug trial_id, captured_at as a UTC
+ISO 8601 timestamp, documentation_path from the matrix, operator_class as
+maintainer or external, dataset_class `fixed-public`, and the fixed dataset_id.
+Set privacy.contains_private_paths, privacy.contains_exact_command, and
+privacy.contains_operator_identity to `false`; set
+privacy.review_before_sharing to `true`.
+
+| Record field | Source of truth |
+| --- | --- |
+| environment.product_version | Exact release-image record or VERSION in the pinned source checkout; never a guessed tag. |
+| environment.revision | image-digest (sha256: plus 64 hex digits) for Docker, or git-commit (40 lowercase hex digits) for source. |
+| outcome.runner_exit_code | The product route's observed exit code; use null when no route command ran. |
+| outcome.manifest_status | run_manifest.json.status, or missing when the file was not created. |
+| outcome.diagnosis_status | The generated diagnosis status, or missing when unavailable. |
+| outcome.verifier_status | first_map_validation_receipt.json.verification.autoware_status, or NOT_RUN. |
+| outcome.receipt_status | first_map_validation_receipt.json.status, or NOT_CREATED. |
+| evidence.*_sha256 | SHA-256 of the manifest/receipt file when its corresponding file exists; otherwise null. |
+| outcome.failure_stage | Earliest terminal stage: preflight, install, download, mapping, verification, receipt, or viewer. Use none only for a fully passing route. |
+| outcome.finding_codes | Stable lower-case slugs. A FAIL always has at least one. |
+
+For PASS, all of the following must be true: route exit 0, manifest
+succeeded, diagnosis success, verifier PASS, receipt PASS, zero undocumented
+manual steps, failure stage none, and both hashes present. A valid PASS that
+is dirty, incomplete, or uses a release tag instead of an immutable identity is
+not an accepted comparable baseline; retain its checker-reported blocker.
+
+For FAIL, preserve the observed statuses and hashes even when partial
+artifacts exist. A preflight failure has no fabricated receipt. A failed map
+run may still have a hashable failed manifest or failed receipt. Never change
+the outcome to PASS because a map directory happens to exist.
+
+Validate first as a valid record, then as a comparable baseline when PASS is
+expected:
+
+~~~bash
+python3 scripts/check_onboarding_trial.py "$TRIAL_RECORD" --json
+python3 scripts/check_onboarding_trial.py "$TRIAL_RECORD" \
+  --json --require-comparable
+~~~
+
+The first command must exit 0 for both expected PASS and expected FAIL. The
+second must exit 0 only for a complete, clean, immutable, intervention-free
+PASS. Exit 1 is useful evidence for a valid but non-comparable attempt; exit 2
+means the record itself violates the schema or semantic contract and must be
+corrected from observation, not guessed.
+
+Review the generated JSON once for privacy, then summarize only the bounded
+fields in the [weekly growth scorecard](growth-scorecard.md). Keep raw observer
+material private and outside Git unless a separate evidence review approves it.
+
+## 9. Reviewer sign-off
+
+The G0 execution is ready for review only when the reviewer can answer yes to
+each applicable item:
+
+- all four row IDs are present, with a PASS or actionable FAIL for both Docker
+  and both source rows;
+- every attempted row has a clean-start decision and an immutable image digest
+  or 40-character Git commit;
+- the operator received no unlisted recovery command or workaround;
+- wall time, active time, command count, workflow and input download bytes,
+  peak disk, and output bytes are either measured by the rules above or
+  deliberately null;
+- PASS records satisfy the receipt and evidence gates, and FAIL records name a
+  real stage and finding code;
+- the JSON passes the validator and contains no private paths, exact commands,
+  identities, raw logs, bag metadata, or map geometry;
+- no shared cache or unrelated image was pruned.
+
+Only after this sign-off should the row summaries be used to choose the next
+activation blocker for the 1,000-star roadmap.

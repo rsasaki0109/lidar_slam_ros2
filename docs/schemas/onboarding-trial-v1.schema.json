@@ -113,6 +113,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "workflow_download_bytes",
         "wall_time_sec",
         "active_operator_time_sec",
         "command_count",
@@ -120,6 +121,7 @@
         "output_bytes"
       ],
       "properties": {
+        "workflow_download_bytes": {"$ref": "#/definitions/nullableBytes"},
         "wall_time_sec": {"$ref": "#/definitions/nullableMetric"},
         "active_operator_time_sec": {"$ref": "#/definitions/nullableMetric"},
         "command_count": {

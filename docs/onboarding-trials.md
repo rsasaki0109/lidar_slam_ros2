@@ -15,27 +15,31 @@ mark its measurements `INCOMPLETE`.
 | Trial | Clean starting point | Canonical documentation | Fixed input |
 | --- | --- | --- | --- |
 | Docker Humble, x86_64 | Ubuntu 22.04 with Docker installed; no project image, dataset, or output cache | [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) | MID-360 public demo |
-| Docker Jazzy, x86_64 | Ubuntu 24.04 with Docker installed; no project image, dataset, or output cache | Docker first-map candidate for Jazzy | MID-360 public demo |
-| Source Humble, x86_64 | Ubuntu 22.04 with ROS 2 Humble installed; no checkout, build, dataset, or output | [source quickstart](getting-started.md#1-build-the-workspace) | documented source demo |
-| Source Jazzy, x86_64 | Ubuntu 24.04 with ROS 2 Jazzy installed; no checkout, build, dataset, or output | [source quickstart](getting-started.md#1-build-the-workspace) | documented source demo |
+| Docker Jazzy, x86_64 | Ubuntu 24.04 with Docker installed; no project image, dataset, or output cache | [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) with `:jazzy` | MID-360 public demo |
+| Source Humble, x86_64 | Ubuntu 22.04 with ROS 2 Humble installed; no checkout, build, dataset, or output | [fixed source first map](getting-started.md#2-run-the-fixed-first-map-demo) | MID-360 public demo |
+| Source Jazzy, x86_64 | Ubuntu 24.04 with ROS 2 Jazzy installed; no checkout, build, dataset, or output | [fixed source first map](getting-started.md#2-run-the-fixed-first-map-demo) | MID-360 public demo |
 
 A row with no runnable documented path is a product finding, not a skipped
-success. Record it as `FAIL` at the earliest applicable stage. Docker and
-source currently use different fixed datasets, so runtime and output-size
-values are compared across releases within the same row. Cross-path values
-measure onboarding burden only; they are not algorithm-performance claims.
+success. Record it as `FAIL` at the earliest applicable stage. All four rows use
+the same fixed MID-360 dataset and the same first-map output contract. Runtime
+and output-size values are compared across releases within the same row.
+Cross-path values measure onboarding burden only; they are not
+algorithm-performance claims.
 
 ## Measurement sheet
 
 Record every field in
 [`onboarding-trial-v1.schema.json`](schemas/onboarding-trial-v1.schema.json).
 The following rules keep separate operators and releases comparable.
+The detailed observer procedure is the
+[G0 onboarding-trial execution runbook](onboarding-trial-execution.md).
 
 | Field | Measurement rule |
 | --- | --- |
 | `environment.clean_start` | `true` only when the documented prerequisites are present but the project checkout/image, dataset, build, install, and output are absent. Do not pre-pull an image or warm a package, Git, or dataset cache. |
 | `environment.revision` | Resolve source to a 40-character Git commit or an image to a `sha256:` digest before acceptance. A release tag may document a trial, but it is not immutable enough for comparison. |
 | `input.download_bytes` | Count the bytes newly transferred for the selected dataset from a cold dataset cache. Use the archive's recorded payload size when the downloader exposes it. This field excludes unrelated host traffic and prerequisite installation. |
+| `measurements.workflow_download_bytes` | Count all bytes received by the isolated trial environment during the timed documented path, including image layers or source checkout, dependencies, and dataset. Measure a dedicated network interface so unrelated traffic is excluded. This value cannot be smaller than `input.download_bytes`. |
 | `measurements.wall_time_sec` | Start immediately before entering the first command on the selected documentation path. Stop when the receipt is written or the attempt reaches its terminal failure. Include downloads and unattended processing. |
 | `measurements.active_operator_time_sec` | Accumulate only hands-on time spent entering commands, answering prompts, reading required output, and following documented next actions. Pause while a command runs unattended. Do not include note taking for the study. |
 | `measurements.command_count` | Count each command submitted by the operator. A copied multiline shell block is one command; commands invoked internally by a script do not count. Recovery commands count, even when documented. |
@@ -60,7 +64,7 @@ A `PASS` record must have all of these outcomes:
 - SHA-256 values for the manifest and receipt.
 
 A valid record is a **comparable baseline** only when it also starts clean,
-uses an immutable revision, has all six measurements, and passes. Failed and
+uses an immutable revision, has all seven measurements, and passes. Failed and
 incomplete trials remain valuable evidence; they must not be silently removed
 from the study.
 
