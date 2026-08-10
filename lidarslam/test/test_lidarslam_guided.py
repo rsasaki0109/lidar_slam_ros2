@@ -172,6 +172,7 @@ def test_guided_delegates_run_then_viewer_without_touching_slam_logic(
         'why': ['PointCloud2 and Imu are available.'],
     }])
     monkeypatch.setattr(module, '_load_preflight_module', lambda: _fake_preflight(payload))
+    monkeypatch.setattr(module, 'runtime_readiness', lambda _profile: [])
     monkeypatch.setattr(module, 'WORK_ROOT', tmp_path)
     calls: list[list[str]] = []
 
@@ -214,6 +215,7 @@ def test_guided_requires_yes_when_no_terminal_is_available(
         'why': ['PointCloud2 and Imu are available.'],
     }])
     monkeypatch.setattr(module, '_load_preflight_module', lambda: _fake_preflight(payload))
+    monkeypatch.setattr(module, 'runtime_readiness', lambda _profile: [])
     monkeypatch.setattr(module.sys.stdin, 'isatty', lambda: False)
 
     result = module.main([str(bag)])
@@ -295,6 +297,7 @@ def test_guided_dry_run_prints_exact_delegated_command(monkeypatch, tmp_path, ca
         'why': ['PointCloud2 and Imu are available.'],
     }])
     monkeypatch.setattr(module, '_load_preflight_module', lambda: _fake_preflight(payload))
+    monkeypatch.setattr(module, 'runtime_readiness', lambda _profile: [])
     calls: list[list[str]] = []
 
     def fake_run(command, **kwargs):
