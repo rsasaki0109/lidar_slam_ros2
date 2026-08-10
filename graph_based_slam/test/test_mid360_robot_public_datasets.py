@@ -54,6 +54,7 @@ from mid360_robot_public_datasets import (  # noqa: E402,I101
     PublicDatasetFile,
     PublicDatasetIntake,
     PublicDatasetIntakeOptions,
+    download_verified_artifact,
     get_public_dataset,
     public_dataset_registry,
 )
@@ -460,6 +461,69 @@ def test_existing_archive_is_rehashed_and_tampering_fails(tmp_path):
         )
 
     assert archive_path.read_bytes() != payload
+
+
+def test_verified_artifact_wrapper_rehashes_a_pinned_cache(
+    tmp_path,
+    monkeypatch,
+):
+    """Publication tooling can reuse the hardened downloader without a registry."""
+    payload = b'validated standalone artifact'
+    file_record = _pinned_file(payload)
+    destination = tmp_path / file_record.filename
+    destination.write_bytes(payload)
+    monkeypatch.setattr(
+        public_datasets.urllib.request,
+        'urlopen',
+        lambda _request: pytest.fail('verified cache must not use network'),
+    )
+
+    report, messages = download_verified_artifact(
+        file_record,
+        destination,
+        progress_stream=None,
+    )
+
+    assert report['status'] == 'VERIFIED'
+    assert report['source'] == 'cache'
+    assert report['sha256_verified'] is True
+    assert messages[0].startswith('Verified existing archive')
+
+
+def test_verified_artifact_wrapper_requires_size_and_sha256(tmp_path):
+    """A host audit cannot fall back to filename-only or MD5-only trust."""
+    file_record = PublicDatasetFile(
+        id='fixture',
+        filename='fixture.zip',
+        url='https://example.test/fixture.zip',
+        md5='0' * 32,
+    )
+
+    with pytest.raises(ValueError, match='require expected size and SHA-256'):
+        download_verified_artifact(
+            file_record,
+            tmp_path / file_record.filename,
+            progress_stream=None,
+        )
+
+
+def test_verified_artifact_wrapper_rejects_download_symlink(tmp_path):
+    """A publication audit cannot be redirected through a final-path symlink."""
+    payload = b'validated standalone artifact'
+    file_record = _pinned_file(payload)
+    target = tmp_path / 'outside.zip'
+    target.write_bytes(payload)
+    destination = tmp_path / file_record.filename
+    destination.symlink_to(target)
+
+    with pytest.raises(ValueError, match='must not be a symlink'):
+        download_verified_artifact(
+            file_record,
+            destination,
+            progress_stream=None,
+        )
+
+    assert target.read_bytes() == payload
 
 
 def test_public_dataset_registry_contains_recommended_mid360_sources():

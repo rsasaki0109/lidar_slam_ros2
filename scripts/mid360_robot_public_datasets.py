@@ -1086,6 +1086,45 @@ class PublicDatasetIntake:
         return shlex.join(command)
 
 
+def download_verified_artifact(
+    file_record: PublicDatasetFile,
+    destination: Path,
+    *,
+    force: bool = False,
+    verify_md5: bool = True,
+    progress_stream: TextIO | None = sys.stderr,
+) -> tuple[dict[str, Any], list[str]]:
+    """Download one size/SHA-pinned artifact through the hardened intake."""
+    if file_record.size_bytes is None or not file_record.sha256:
+        raise ValueError(
+            'verified artifact downloads require expected size and SHA-256'
+        )
+    destination = destination.expanduser()
+    if destination.is_symlink():
+        raise ValueError(
+            f'artifact destination must not be a symlink: {destination}'
+        )
+    destination = destination.parent.resolve() / destination.name
+    if destination.name != file_record.filename:
+        raise ValueError(
+            f'artifact destination must retain filename '
+            f'{file_record.filename!r}'
+        )
+    options = PublicDatasetIntakeOptions(
+        dataset_id='verified_artifact',
+        dataset_root=destination.parent,
+        force=force,
+        extract=False,
+        verify_md5=verify_md5,
+    )
+    messages: list[str] = []
+    report = PublicDatasetIntake(
+        destination.parent,
+        progress_stream=progress_stream,
+    )._download(file_record, destination, options, messages)
+    return report, messages
+
+
 def render_public_dataset_list(datasets: tuple[PublicDataset, ...]) -> str:
     """Render a concise public dataset list."""
     lines = ['MID-360 Public Datasets', '']
