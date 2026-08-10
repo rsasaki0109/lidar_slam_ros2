@@ -139,6 +139,8 @@ def test_demo_delegates_to_versioned_product_contract():
     assert 'LIDARSLAM_HOST_GID' in script
     assert 'chown -R "${HOST_UID}:${HOST_GID}" "${target}"' in script
     assert '.postprocess.lock' in script
+    assert 'python3 "${SCRIPT_DIR}/download_mid360_robot_public_dataset.py"' in script
+    assert '${REPO_ROOT}/scripts/' not in script
     assert 'exec "${SCRIPT_DIR}/run_first_map_demo.sh" "$@"' in wrapper
     assert 'lidarslam-map run' not in wrapper
 

@@ -16,7 +16,7 @@
 #
 # Build (from a checkout with submodules): docker build -t lidar_slam_ros2 .
 ARG ROS_DISTRO=humble
-FROM ros:${ROS_DISTRO}-ros-core
+FROM ros:${ROS_DISTRO}-ros-core AS builder
 ARG ROS_DISTRO
 ARG LIDARSLAM_SOURCE_REVISION=
 ARG LIDARSLAM_SOURCE_DIRTY=
@@ -60,7 +60,7 @@ RUN apt-get update \
 
 # Same package selection as scripts/run_default_ci_checks.sh (the Thirdparty
 # tree carries extra research packages whose deps are not installed here).
-# No --symlink-install: a symlinked install/ dangles once build/ is removed.
+# No --symlink-install: the runtime stage receives only install/.
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" \
   && colcon build --packages-up-to lidarslam rko_lio \
     --cmake-args \
@@ -69,7 +69,39 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" \
       -DLIDARSLAM_SOURCE_DIRTY:STRING="${LIDARSLAM_SOURCE_DIRTY}" \
   && . install/setup.sh \
   && lidarslam-map --version \
-  && rm -rf build log
+  && python3 docker/collect_runtime_apt_packages.py \
+    --install-root /lidarslam_ws/install \
+    --ros-distro "${ROS_DISTRO}" \
+    --output /tmp/lidarslam-runtime-packages.txt \
+    --report /tmp/lidarslam-runtime-packages.json
+
+FROM ros:${ROS_DISTRO}-ros-core AS runtime
+ARG ROS_DISTRO
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV DEMO_DATA_DIR=/lidarslam_ws/datasets/mid360_public
+ENV DEMO_OUTPUT_DIR=/lidarslam_ws/output/mid360_demo
+
+WORKDIR /lidarslam_ws
+
+COPY --from=builder \
+  /tmp/lidarslam-runtime-packages.txt \
+  /tmp/lidarslam-runtime-packages.txt
+RUN test -s /tmp/lidarslam-runtime-packages.txt \
+  && apt-get update \
+  && xargs -r apt-get install -y --no-install-recommends \
+    < /tmp/lidarslam-runtime-packages.txt \
+  && rm -f /tmp/lidarslam-runtime-packages.txt \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /lidarslam_ws/install/ /lidarslam_ws/install/
+COPY docker/entrypoint.sh /lidarslam_ws/docker/entrypoint.sh
+
+RUN test -x /lidarslam_ws/docker/entrypoint.sh \
+  && test -x /lidarslam_ws/install/lidarslam/bin/lidarslam-map \
+  && test -x /lidarslam_ws/install/lidarslam/share/lidarslam/product/scripts/run_docker_demo.sh \
+  && . /lidarslam_ws/install/setup.sh \
+  && lidarslam-map --version
 
 ENTRYPOINT ["/lidarslam_ws/docker/entrypoint.sh"]
-CMD ["bash", "scripts/run_docker_demo.sh"]
+CMD ["bash", "/lidarslam_ws/install/lidarslam/share/lidarslam/product/scripts/run_docker_demo.sh"]

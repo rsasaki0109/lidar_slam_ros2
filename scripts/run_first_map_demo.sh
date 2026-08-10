@@ -11,15 +11,23 @@
 #   bash scripts/run_first_map_demo.sh
 #
 # Environment overrides:
-#   DEMO_DATA_DIR    dataset cache directory (default: <repo>/datasets/mid360_public)
-#   DEMO_OUTPUT_DIR  output directory        (default: <repo>/output/mid360_demo)
+#   DEMO_DATA_DIR    dataset cache directory
+#                    (default: <checkout-or-cwd>/datasets/mid360_public)
+#   DEMO_OUTPUT_DIR  output directory
+#                    (default: <checkout-or-cwd>/output/mid360_demo)
 #   LIDARSLAM_HOST_UID/GID
 #                    optional numeric owner for the output mount; set both
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DATA_DIR="${DEMO_DATA_DIR:-${REPO_ROOT}/datasets/mid360_public}"
-OUT_DIR="${DEMO_OUTPUT_DIR:-${REPO_ROOT}/output/mid360_demo}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_PARENT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if [[ -f "${SCRIPT_PARENT}/Dockerfile" && -f "${SCRIPT_PARENT}/lidarslam/package.xml" ]]; then
+  WORK_ROOT="${SCRIPT_PARENT}"
+else
+  WORK_ROOT="${PWD}"
+fi
+DATA_DIR="${DEMO_DATA_DIR:-${WORK_ROOT}/datasets/mid360_public}"
+OUT_DIR="${DEMO_OUTPUT_DIR:-${WORK_ROOT}/output/mid360_demo}"
 BAG_NAME="rosbag2_2024_04_16-14_17_01"
 HOST_UID="${LIDARSLAM_HOST_UID:-}"
 HOST_GID="${LIDARSLAM_HOST_GID:-}"
@@ -114,7 +122,7 @@ echo "== [1/2] demo data: Driving SLAM Test with Livox MID360 =="
 echo "   (Koide, Zenodo DOI 10.5281/zenodo.14841855, CC-BY 4.0)"
 bag_dir="$(find_demo_bag || true)"
 if [[ -z "${bag_dir}" ]]; then
-  python3 "${REPO_ROOT}/scripts/download_mid360_robot_public_dataset.py" \
+  python3 "${SCRIPT_DIR}/download_mid360_robot_public_dataset.py" \
     --dataset driving_slam_mid360 --dataset-root "${DATA_DIR}"
   bag_dir="$(find_demo_bag || true)"
 fi

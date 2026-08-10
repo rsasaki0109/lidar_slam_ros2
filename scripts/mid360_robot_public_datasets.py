@@ -18,14 +18,16 @@ from typing import Any, BinaryIO, TextIO
 
 import yaml
 
-from mid360_robot_tools import payload_to_json
-
-
 PUBLIC_DATASET_INTAKE_JSON = 'mid360_robot_public_dataset_intake.json'
 PUBLIC_DATASET_INTAKE_MARKDOWN = 'mid360_robot_public_dataset_intake.md'
 DOWNLOAD_CHUNK_BYTES = 1024 * 1024
 DOWNLOAD_PROGRESS_BYTES = 32 * 1024 * 1024
 DOWNLOAD_PROGRESS_INTERVAL_SEC = 5.0
+
+
+def payload_to_json(payload: dict[str, Any]) -> str:
+    """Serialize without importing source-only robot tooling."""
+    return json.dumps(payload, indent=2, sort_keys=True)
 
 
 @dataclass(frozen=True)

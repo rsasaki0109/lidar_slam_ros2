@@ -85,6 +85,10 @@ def test_product_runtime_manifest_is_curated_and_complete():
     assert 'verify_autoware_map.py' in names
     assert 'first_map_validation_receipt.py' in names
     assert 'create_first_map_validation_receipt.py' in names
+    assert 'run_first_map_demo.sh' in names
+    assert 'run_docker_demo.sh' in names
+    assert 'download_mid360_robot_public_dataset.py' in names
+    assert 'mid360_robot_public_datasets.py' in names
     assert 'gaussian_splatting_train.py' not in names
     for name in names:
         assert Path(name).name == name

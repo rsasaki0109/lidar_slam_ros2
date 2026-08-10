@@ -170,6 +170,16 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_collect_runtime_apt_packages
+    test/test_collect_runtime_apt_packages.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_runtime_docker_image_contract
+    test/test_runtime_docker_image_contract.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_product_recovery_tools
     test/test_product_recovery_tools.py
     TIMEOUT 120

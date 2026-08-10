@@ -12,6 +12,10 @@ diagnose_autoware_map_run.py
 verify_autoware_map.py
 first_map_validation_receipt.py
 create_first_map_validation_receipt.py
+run_first_map_demo.sh
+run_docker_demo.sh
+download_mid360_robot_public_dataset.py
+mid360_robot_public_datasets.py
 run_rko_lio_graph_autoware_dogfood.sh
 run_open_data_gnss_smoke.sh
 run_open_data_applanix_velodyne_gnss_smoke.sh
