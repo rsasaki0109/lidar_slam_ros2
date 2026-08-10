@@ -229,8 +229,11 @@ work and document the actual support boundary instead of hiding the delay.
   reduced Docker's local image-size measurement by 53.6409% on Humble and
   59.6698% on Jazzy while retaining the source-free installed CLI and
   schema-valid first-map result. This passes the local 25% proxy. Compressed
-  OCI size, the full public demo, clean dedicated-VM trials, and the identified
-  ROS-log symlink repair remain promotion gates; no candidate was pushed.
+  OCI size, the full public demo, and clean dedicated-VM trials remain
+  promotion gates; no candidate was pushed. Follow-up commits repaired the
+  atomic ROS-log link and keyed Docker dependencies on package manifests. An
+  exact-revision Jazzy rerun retained the first-map contract and reduced an
+  identical local rebuild to 0.31 seconds with every layer cached.
 - Add tested sensor recipes for the most requested families, starting from
   issue evidence rather than an unbounded compatibility matrix.
 - Make the final success output show the map path, verifier result, viewer path,
@@ -456,10 +459,12 @@ The immediate bounded G0 multi-stage runtime-image pilot has passed its local
 Docker-size proxy and both distro smoke checks. Its
 [evidence record](../evidence/onboarding/runtime-image-slimming-2026-08-11.md)
 keeps the image and fixture reductions separate. Promotion is still paused
-until compressed OCI size, the full public demo, the identified atomic ROS-log
-symlink repair, and clean comparable-VM evidence pass from the reviewed
-candidate. The next active G0 implementation is therefore the repair plus the
-dedicated Humble/Jazzy Docker/source matrix, not a public image retag.
+until compressed OCI size, the full public demo, and clean comparable-VM
+evidence pass from the reviewed candidate. The atomic ROS-log link and Docker
+dependency-cache boundary have passed an exact-revision Jazzy follow-up. The
+next active G0 implementation is therefore the dedicated Humble/Jazzy
+Docker/source matrix, including confirmation of both repairs, not a public
+image retag.
 
 After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the

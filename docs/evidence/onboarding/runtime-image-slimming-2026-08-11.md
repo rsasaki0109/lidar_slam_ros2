@@ -138,7 +138,8 @@ Autoware verifier, and receipt gates pass on both supported distributions.
 The pilot proves that the previous image size was not required by the product
 runtime path.
 
-It is not ready for public image replacement. Promotion remains blocked on:
+At the pilot revision, it was not ready for public image replacement.
+Promotion remained blocked on:
 
 1. an explicitly reviewed compressed-OCI measurement;
 2. clean dedicated-VM Humble and Jazzy Docker/source rows with cold RX, wall
@@ -151,6 +152,61 @@ It is not ready for public image replacement. Promotion remains blocked on:
 6. a Docker cache-boundary improvement: copying the full source before
    dependency installation currently makes small source changes repeat the
    expensive builder dependency layer.
+
+## Follow-up validation — commit `2f98a6c`
+
+The two local implementation findings above were repaired in separate commits:
+
+- `946caec` normalizes a transaction-local `.ros_log/latest` into a portable
+  relative link immediately before atomic finalization; and
+- `2f98a6c` keys the expensive builder dependency layer on the six maintained
+  `package.xml` manifests, then copies the full source before compilation.
+
+A clean Jazzy build at exact commit
+`2f98a6c613f362ea78d4793368c2dd09d1832ee4` proved that the manifest-only tree
+is sufficient for `rosdep`. The dependency step completed successfully in
+222.5 seconds; the subsequent compile and runtime-closure collector reported
+27 ELF files, 225 linked libraries, 150 direct runtime packages, and no direct
+development packages. The loaded local image measured 547,466,584 bytes by
+Docker's `.Size` field, a 59.669786% reduction from the same local Jazzy
+baseline. Its current local image ID is
+`sha256:57f9895e807c20c3a51063545cbf31e593346a99880eebe85955a82388448eee`.
+This remains a local uncompressed-size proxy and identity, not a published OCI
+measurement or digest.
+
+An immediately repeated identical build completed in 0.31 seconds. BuildKit
+reported every builder and runtime step as `CACHED`, including all six
+manifest copies, the `rosdep` dependency layer, the full source copy, the
+compile/collector layer, and the final runtime checks. A network-isolated
+installed-product smoke check also passed the five CLI routes, five Python
+imports, four installed helpers, source/build-tree absence, builder-tool
+absence, exact clean provenance, and `ldd` closure for all 27 installed ELF
+files.
+
+The unchanged default image command was then run with no network against a new
+output root and the same read-only 50-second fixture:
+
+| Observation | Jazzy follow-up |
+| --- | ---: |
+| Container exit / observed wall time | 0 / 26.86 s |
+| Manifest / diagnosis / receipt schemas | 3 / 3 `PASS` |
+| Manifest status / lifecycle | `succeeded` / `complete` |
+| Diagnosis / Autoware verification | `success` / 8 PASS, 0 WARN, 0 FAIL |
+| First-map receipt | 7 / 7 `PASS` |
+| Manifest-recorded artifacts re-hashed | 113 / 113 |
+| Raw / corrected poses | 381 / 87 |
+| Pointcloud tiles / tile bytes | 86 / 3,994,553 |
+| Combined `map.pcd` bytes | 3,974,587 |
+| Regular-file / allocated bytes | 8,308,096 / 8,613,888 |
+| Final transaction directory / broken symlinks | absent / 0 |
+| Output ownership | `1000:1000` |
+
+`.ros_log/latest` now targets the existing sibling directory
+`2026-08-10-19-13-19-649508-95db31a176dd-61` through a relative link. It is
+not dangling and contains no `.partial` path. This closes local findings 5 and
+6 for Jazzy. Compressed-OCI measurement, the dedicated-VM four-row matrix, the
+full 277-second public demo, and the fixture publication decision remain
+promotion gates; the dedicated Humble row must also confirm the shared fixes.
 
 No image, fixture, map, bag, private log, or geometry-bearing result was added
 to Git or pushed by this pilot. The next release decision must use the
