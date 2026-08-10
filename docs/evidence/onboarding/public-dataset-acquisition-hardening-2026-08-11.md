@@ -101,8 +101,10 @@ python3 -m pytest -q \
 ## Fixture activation boundary
 
 No unpublished URL is present in the registry. After a host is explicitly
-selected and the remote fixture passes an immutable download audit, activation
-requires one registry row containing the exact 98,873,952-byte size and
+selected and the remote fixture passes the
+[host-aware publication audit](published-fixture-audit-gate-2026-08-11.md),
+activation requires one registry row containing the exact 98,873,952-byte
+size and
 `20e5151728522877bff75021a473e91c5ae900448fa9e6977bf88653fa464bd3`
 SHA-256. The same installed downloader can then acquire either the bounded
 onboarding fixture or the full proof bag without a second acquisition

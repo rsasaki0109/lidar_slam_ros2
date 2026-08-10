@@ -43,6 +43,7 @@ nav:
   - MID-360 fixture pilot evidence: evidence/onboarding/mid360-onboarding-fixture-pilot-2026-08-10.md
   - MID-360 fixture publication review: evidence/onboarding/mid360-fixture-publication-review-2026-08-11.md
   - Public dataset acquisition hardening: evidence/onboarding/public-dataset-acquisition-hardening-2026-08-11.md
+  - Published fixture audit gate: evidence/onboarding/published-fixture-audit-gate-2026-08-11.md
   - Runtime image slimming evidence: evidence/onboarding/runtime-image-slimming-2026-08-11.md
   - Golden-path CLI: golden-path-cli.md
   - CLI compatibility: cli-compatibility.md

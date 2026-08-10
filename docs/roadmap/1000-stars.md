@@ -235,6 +235,12 @@ work and document the actual support boundary instead of hiding the delay.
   extracts preflighted ZIP members. The full 517,088,133-byte source passed a
   read-only identity and member audit. The unpublished fixture has no registry
   URL yet.
+- The
+  [published-fixture audit gate](../evidence/onboarding/published-fixture-audit-gate-2026-08-11.md)
+  now binds an authorized readiness review to GitHub immutable-release metadata
+  or a Zenodo version record, then independently re-hashes the downloaded
+  artifact. The existing GitHub `v0.9.0` release correctly fails the new
+  immutability requirement; no fixture host or upload has been selected.
 - The [runtime-image slimming pilot](../evidence/onboarding/runtime-image-slimming-2026-08-11.md)
   reduced Docker's local image-size measurement by 53.6409% on Humble and
   59.6698% on Jazzy while retaining the source-free installed CLI and

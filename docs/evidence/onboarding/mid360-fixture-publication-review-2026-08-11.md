@@ -97,9 +97,10 @@ The 98,873,952-byte artifact fits both candidate services. Current official
 GitHub documentation permits release assets below 2 GiB and exposes asset
 SHA-256 and download count through the release API. GitHub also supports
 immutable future releases, which lock the tag and attached assets and provide
-a verifiable attestation. Before choosing that route, an authenticated admin
-must confirm that release immutability is enabled; the current unauthenticated
-check could not inspect the setting.
+a verifiable attestation. The read-only release API reported
+`immutable: false` for the existing `v0.9.0` release. Before choosing that
+route, an authenticated admin must enable release immutability and the future
+release itself must report `immutable: true`.
 
 Zenodo currently permits up to 100 files and 50 GB per upload and registers a
 DOI when a record is published; a DOI may also be reserved while the record is
@@ -132,7 +133,8 @@ or onboarding documentation changes.
    authorization; require `PUBLICATION_READY`.
 4. Create a draft, upload only the exact verified packet, publish it, and
    record the immutable record/release ID, URL, remote digest, and downloaded
-   SHA-256 in a separate publication audit.
+   SHA-256 with the implemented
+   [host-aware remote audit](published-fixture-audit-gate-2026-08-11.md).
 5. Register the audited remote URL in the now
    [checksum-pinned resumable acquisition path](public-dataset-acquisition-hardening-2026-08-11.md),
    with the full public route as a fallback; do not silently replace the full
