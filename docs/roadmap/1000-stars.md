@@ -182,7 +182,7 @@ than page views or repository activity.
 | Accepted independent first maps | 0 | 3 | 10 cumulative |
 | External merged contributors, trailing 180 days | 0 | 2 | 5 |
 | External PRs, trailing 90 days | 1 | 3 | 6 |
-| Untriaged open issues | 29 | 0 | 0 |
+| Untriaged open issues | 16 | 0 | 0 |
 | Median first public response to new supported-product issues | not tracked | <= 5 days | <= 72 hours |
 | v1.0 readiness | 8 / 10 | 10 / 10 | maintained at 10 / 10 |
 
@@ -407,18 +407,18 @@ the local readiness audit. Maintainers can refresh the same aggregate sources
 without collecting private product telemetry:
 
 ```bash
+python3 scripts/collect_growth_snapshot.py \
+  --output docs/evidence/growth/$(date -u +%F).json
+
 gh api repos/rsasaki0109/lidar_slam_ros2
 gh api repos/rsasaki0109/lidar_slam_ros2/traffic/views
 gh api repos/rsasaki0109/lidar_slam_ros2/traffic/clones
 gh api repos/rsasaki0109/lidar_slam_ros2/traffic/popular/referrers
 gh api 'repos/rsasaki0109/lidar_slam_ros2/releases?per_page=20'
-gh api --paginate \
-  -H 'Accept: application/vnd.github.star+json' \
-  'repos/rsasaki0109/lidar_slam_ros2/stargazers?per_page=100'
 python3 scripts/check_v1_readiness.py --json
 ```
 
 Repository and pull-request aggregates were cross-checked against
-`origin/develop` and the GitHub pulls endpoint. A future metrics job should
-encode the aggregation and schema rather than relying on undocumented manual
-queries.
+`origin/develop` and the GitHub pulls endpoint. The collector now encodes the
+weekly aggregation, privacy boundary, and JSON schema; the individual endpoint
+commands remain only as a maintainer audit aid.

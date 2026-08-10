@@ -206,6 +206,7 @@ if(BUILD_TESTING)
     test_benchmark_summary_profiles
     test_cli_completion
     test_cli_option_contract
+    test_collect_growth_snapshot
     test_evaluate_degeneracy_trajectory
     test_external_first_map_acceptance
     test_lidarslam_guided
