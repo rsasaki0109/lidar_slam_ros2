@@ -87,3 +87,18 @@ Target date for the four-row matrix and first blocker rerun: **2026-09-06**,
 the end of the roadmap's G0 Sprint 2 window. The next scorecard decision must
 replace `0 / 4` with measured PASS/FAIL/INCOMPLETE rows; it must not infer
 success from CI or historical evidence.
+
+## First repair from the route audit
+
+The first static route audit found that the source beginner path still used
+the older NTU VIRAL dogfood wrapper and a separate verifier instead of the
+Docker path's versioned `lidarslam-map` manifest, diagnosis, and first-map
+receipt contract. Commit `74fe625ab2ee1dc9a0d55ce69bd705d22bac5d76`
+replaced that split with one shared `run_first_map_demo.sh`: Docker and source
+now use the same MID-360 input, maintained profile, headless runner, and
+success artifacts. It also documents the equivalent Jazzy Docker route.
+
+This is a product repair, not trial evidence. Comparable coverage remains
+`0 / 4` until clean Humble/Jazzy Docker/source attempts are measured with the
+onboarding contract. CI and stubbed regression tests cannot promote a row to
+PASS.
