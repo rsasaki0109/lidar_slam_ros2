@@ -333,7 +333,8 @@ artifact is required to install or use it.
 1. Run the public v0.9 Docker and source paths on clean Humble and Jazzy
    machines.
 2. Record download size, wall time, active operator time, commands, peak disk,
-   failure reason, verifier result, and receipt status.
+   failure reason, verifier result, and receipt status with the
+   [comparable onboarding trial contract](../onboarding-trials.md).
 3. Test `--guided` with representative valid and invalid bag metadata.
 4. Fix the largest observed activation blocker before changing the landing
    page or creating promotional material.
