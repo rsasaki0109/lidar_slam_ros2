@@ -397,6 +397,12 @@ reviewable path for the existing guided own-bag UX and v1 blockers. The current
 v44 research route remains limited to its already-authorized bounded
 failure-profile work and cannot block this sprint.
 
+The
+[2026-08-10 G0 activation decision](../evidence/growth/g0-activation-decision-2026-08-10.md)
+selects the missing clean Docker/source onboarding baseline as the first
+measured blocker. Broad promotion remains behind the four-row trial and repair
+gate.
+
 After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the
 project is genuinely easier for a new user than its alternatives.

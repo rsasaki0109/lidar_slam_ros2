@@ -24,6 +24,10 @@ Without `--output`, the validated JSON is printed to stdout.
 
 The first tracked aggregate is the
 [2026-08-10 G0 baseline](evidence/growth/2026-08-10.json).
+Its first product decision is the
+[G0 activation decision](evidence/growth/g0-activation-decision-2026-08-10.md):
+measure and repair the clean Docker/source first-map matrix before expanding
+promotion.
 
 The collector fails closed if authentication is unavailable, an API response
 is malformed, pagination would be incomplete, the local first-map ledger is

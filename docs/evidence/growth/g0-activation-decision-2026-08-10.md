@@ -1,0 +1,89 @@
+# G0 activation decision — 2026-08-10
+
+## Decision
+
+The largest current G0 activation blocker is **the absence of a current,
+clean, zero-undocumented-step first-map baseline across the promised Docker
+and source paths**.
+
+The repository has discovery activity, a stable v0.9.0 release, and strong
+machine-verifiable output contracts. It does not yet have a comparable trial
+for any row of the Humble/Jazzy Docker/source matrix, or an accepted
+independent-user first map. Therefore the next intervention is to execute and
+repair the onboarding matrix—not add another algorithm route or increase
+promotion.
+
+This decision does not assert that 299 visitors attempted the workflow or that
+all eight bundle downloads were prospective users. GitHub traffic is not a
+funnel cohort. It shows only that discovery is non-zero while the project has
+no accepted evidence at the first-map boundary.
+
+## Baseline evidence
+
+The aggregate values below come from the privacy-bounded
+[2026-08-10 growth snapshot](2026-08-10.json). Trial coverage comes from an
+inventory of tracked onboarding evidence against the
+[v1 trial contract](../../onboarding-trials.md).
+
+| Signal | 2026-08-10 baseline | Decision use |
+| --- | ---: | --- |
+| GitHub Stars | 837 / 1,000 | Lagging discovery milestone; 163 remain. |
+| Unique repository views, 14 days | 299 | Discovery is present, but not attributable to trial attempts. |
+| Unique clones, 14 days | 259 | Do not interpret as users or successful installs. |
+| Autoware/TIER IV top-referrer unique sum | 6 | Qualified discovery is small but non-zero. |
+| v0.9.0 primary-bundle downloads | 8 | Some release acquisition occurred; intent and success are unknown. |
+| Accepted independent first maps | 0 / 3 | The activation and remaining v1 adoption gate is empty. |
+| Comparable clean onboarding trials | 0 / 4 | No current Docker/source row can yet be used as a UX baseline. |
+| v1 readiness | 8 / 10 | Distribution and external adoption remain incomplete. |
+| External PRs, trailing 90 days | 1 | The contributor loop is not yet self-sustaining. |
+| External merged contributors, trailing 180 days | 0 | No recent external maintainer-independent proof loop. |
+| Open / untriaged issues | 29 / 16 | Triage load can hide recurring onboarding findings. |
+
+The historical
+[Docker first-map trial](../docker-first-map-2026-07-28.md) proves that one
+maintainer-operated Humble image eventually produced a verified map after two
+defects were fixed. It predates the current receipt and trial contract, lacks
+the complete active-time and peak-disk measurement set, and covers neither
+Jazzy nor the source route. It remains valid historical evidence but cannot be
+upgraded to a comparable G0 trial by filling missing values from memory.
+
+## Why this blocker wins
+
+- **Discovery is not selected first:** traffic and release acquisition are
+  already non-zero. More promotion before measuring first success would make
+  failures harder to diagnose and increase support load.
+- **Algorithm expansion is not selected:** the v1 audit already marks first
+  success, diagnosis, reproducibility, reliability, and CLI compatibility
+  complete. There is no evidence that another SLAM route is the missing first
+  action.
+- **Distribution remains important but separate:** the rosdistro/package
+  manager gate depends partly on external repository state. Digest-pinned
+  Docker and source trials can expose and repair onboarding defects now.
+- **Issue triage is a parallel G0 obligation:** the 16 untriaged issues may
+  contain useful findings, but they do not substitute for controlled first-map
+  trials.
+
+## Execution gate
+
+Complete the following in order:
+
+1. Run all four fixed matrix rows from clean environments against an immutable
+   image digest or Git commit. Record failures as failures; provide no private
+   recovery instruction to the operator.
+2. Rank findings by number of affected rows, earliest failed stage, and active
+   operator cost. Fix the highest-ranked blocker and rerun the same row from a
+   clean start.
+3. Require at least one Docker and one source row to produce a comparable
+   `PASS`, with zero undocumented steps, before changing the landing page or
+   starting broad promotion.
+4. Select the lower-burden passing path as the first independent-user route.
+   Start the public three-user cohort and retain every failed report as a
+   product finding.
+5. By the tenth independent attempt, require at least 80% first-run completion
+   and median active operator time below ten minutes. If either threshold is
+   missed, keep promotion paused and repair the largest repeated finding.
+
+Target date for the four-row matrix and first blocker rerun: **2026-09-06**,
+the end of the roadmap's G0 Sprint 2 window. The next scorecard decision must
+replace `0 / 4` with measured PASS/FAIL/INCOMPLETE rows; it must not infer
+success from CI or historical evidence.
