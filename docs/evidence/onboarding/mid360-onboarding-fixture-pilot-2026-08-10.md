@@ -164,13 +164,26 @@ cmp "$BUILD_A/mid360_onboarding_50s_v1.manifest.json" \
 Do not use `--allow-dirty` for a publication candidate. That option exists only
 for explicitly non-publishable local experiments.
 
+## Publication review follow-up — 2026-08-11
+
+The separate
+[publication review](mid360-fixture-publication-review-2026-08-11.md) now
+revalidates the exact ZIP, all three member byte streams, attribution, map
+receipt, and two clean rebuilds through a fail-closed machine-readable gate.
+The local packet reports `LOCAL_ARTIFACT_PASS`, but the overall decision is
+`AWAITING_PUBLICATION_DECISION`: the generator and reviewed gate revisions are
+not yet publicly resolvable, no host has been selected, and no explicit upload
+authorization exists. No fixture or source branch was published by the
+review.
+
 ## Promotion decision
 
 The candidate passes the local build, size, provenance, attribution,
 reproducibility, map, verifier, and receipt gates. It is not yet approved for
 upload or for changing the default demo. Promotion remains gated on:
 
-1. a separate publication review and explicit release/upload decision;
+1. an explicit source-push, host, and release/upload decision after the local
+   publication review;
 2. hosting the geometry-bearing ZIP outside Git with the exact manifest and
    checksum;
 3. resumable, checksum-pinned acquisition and a tested fallback to the full

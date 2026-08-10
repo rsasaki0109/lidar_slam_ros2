@@ -223,8 +223,11 @@ work and document the actual support boundary instead of hiding the delay.
 - The resulting [50-second MID-360 fixture pilot](../evidence/onboarding/mid360-onboarding-fixture-pilot-2026-08-10.md)
   produced a byte-reproducible 98,873,952-byte ZIP and a verified local map,
   reducing the dataset transfer by 80.879%. It remains unpublished and cannot
-  replace the full gate. The next independent activation experiments are
-  runtime-image slimming and clean comparable VM trials.
+  replace the full gate. Its
+  [publication review](../evidence/onboarding/mid360-fixture-publication-review-2026-08-11.md)
+  now reports 13/13 `LOCAL_ARTIFACT_PASS` checks and a four-item
+  `AWAITING_PUBLICATION_DECISION`: two revisions are not publicly resolvable,
+  the host is unset, and upload is not authorized.
 - The [runtime-image slimming pilot](../evidence/onboarding/runtime-image-slimming-2026-08-11.md)
   reduced Docker's local image-size measurement by 53.6409% on Humble and
   59.6698% on Jazzy while retaining the source-free installed CLI and
@@ -465,8 +468,10 @@ keeps the image and fixture reductions separate. Promotion is still paused
 until the full public demo and clean comparable-VM evidence pass from the
 reviewed candidate; the final attested release build must reproduce the
 compressed gate. The atomic ROS-log link and Docker dependency-cache boundary
-have passed exact-revision follow-ups. The next active G0 implementation is
-therefore the dedicated Humble/Jazzy Docker/source matrix, including
+have passed exact-revision follow-ups. The 50-second fixture has also passed a
+non-publishing local review. The next G0 transition now needs an explicit
+source-push and fixture-host decision; after that decision, the active
+implementation is the dedicated Humble/Jazzy Docker/source matrix, including
 confirmation of both repairs, not a public image retag.
 
 The matrix decision is now machine-checked rather than inferred from a table.
@@ -475,7 +480,9 @@ present, both Docker outcomes are product PASS but measurement-incomplete,
 zero rows are comparable, and both source rows are missing. G0 cannot advance
 the activation gate until all four outcomes exist and at least one clean
 Docker row plus one clean source row are comparable. The stricter target
-remains all four rows comparable.
+remains all four rows comparable. A source row is not valid until its exact
+revision is publicly resolvable, and a shortened-fixture row must bind the
+published ZIP checksum rather than a private local copy.
 
 After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the

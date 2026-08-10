@@ -419,3 +419,31 @@ def test_checker_is_curated_into_release_bundle():
 
     assert 'scripts/check_fixture_publication.py' in release_builder
     assert (ROOT / 'docs' / 'schemas' / CHECKER.SCHEMA_NAME).is_file()
+
+
+def test_committed_review_is_waiting_and_privacy_bounded():
+    """Tracked evidence records local PASS without implying publication."""
+    review_path = (
+        EVIDENCE /
+        'mid360-onboarding-50s-v1-publication-review-20260811.json'
+    )
+    review_doc = (
+        EVIDENCE / 'mid360-fixture-publication-review-2026-08-11.md'
+    ).read_text(encoding='utf-8')
+    review_bytes = review_path.read_bytes()
+    review = json.loads(review_bytes)
+
+    CHECKER.validate_contract(review, CHECKER.SCHEMA_NAME)
+    assert review['status'] == 'AWAITING_PUBLICATION_DECISION'
+    assert review['local_validation']['status'] == 'LOCAL_ARTIFACT_PASS'
+    assert len(review['local_validation']['checks']) == 13
+    assert review['fixture']['artifact']['sha256'] == (
+        '20e5151728522877bff75021a473e91c5ae900448fa9e6977bf88653fa464bd3'
+    )
+    assert review['publication']['host'] is None
+    assert review['publication']['authorization'] == 'NOT_GRANTED'
+    assert review['publication']['upload_performed'] is False
+    assert b'/home/' not in review_bytes
+    assert b'/tmp/' not in review_bytes
+    assert hashlib.sha256(review_bytes).hexdigest() in review_doc
+    assert not list(EVIDENCE.glob('mid360_onboarding_50s_v1.zip'))

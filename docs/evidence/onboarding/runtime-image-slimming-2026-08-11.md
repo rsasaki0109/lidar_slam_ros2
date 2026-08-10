@@ -282,8 +282,10 @@ runnable-manifest size gate before promotion.
 
 This closes the local compressed-OCI blocker for both supported
 distributions. Promotion still requires the dedicated-VM Docker/source matrix,
-the full 277-second public demo, publication review for the 50-second fixture
-and candidate source revision, and the attested release-candidate rerun. No
+the full 277-second public demo, an authorized publication decision after the
+[50-second fixture review](mid360-fixture-publication-review-2026-08-11.md),
+a publicly resolvable candidate source revision, and the attested
+release-candidate rerun. The fixture packet now passes its local review, but no
 public artifact was changed.
 
 No image, fixture, map, bag, private log, or geometry-bearing result was added
