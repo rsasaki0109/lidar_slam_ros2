@@ -2,6 +2,8 @@
 
 > Status: **active from 2026-08-10**
 >
+> Last planning audit: **2026-08-11**
+>
 > Baseline: **837 GitHub Stars**
 >
 > Target: **1,000 Stars by 2027-06-30**
@@ -69,6 +71,7 @@ but are not an exact historical net-growth ledger.
 | Repository clones | 2,042 total / 259 unique | totals include likely automation; use uniques cautiously |
 | Main v0.9.0 bundle downloads | 8 | GitHub asset count; GHCR pulls are not included |
 | Open issues | 29 | 28 were opened before 2026 and need deliberate triage |
+| Open `good first issue` tasks | 1 | the contributor queue is not yet self-sustaining |
 | Pull requests | 333 total / 324 merged | high maintainer throughput |
 | Historical external PRs | 13 submitted / 10 merged | contribution path exists but is quiet |
 | External PRs in the last 90 days | 1 | contributor growth is a primary constraint |
@@ -84,11 +87,14 @@ six unique visitors combined. Search already finds the project; the larger
 opportunity is to make the landing page easier to understand and to earn more
 qualified Autoware referrals.
 
-The active local development branch is also an operational risk: it is 229
-commits ahead of `origin/develop`, changes 454 files with about 49,508 inserted
-lines, and has additional dirty product, research, and generated-output work.
-This work must be separated into reviewable product and research changes before
-another public release.
+The original research worktree remains an operational risk: it is 229 commits
+ahead of `origin/develop` and still mixes dirty product, research, and generated
+work. Separation has nevertheless advanced. At audited revision `9b3db89`, the
+clean G0 product line contained 31 linear commits on exact public
+`origin/develop` revision `86fa9b6`, changed 92 paths, and had no merge commit or
+dirty file. That line is still local-only. Reviewable separation is therefore
+implemented, but source visibility, pull-request review, fixture hosting, and
+publication authorization remain open gates rather than assumed outcomes.
 
 At the current 90-day pace, another 163 Stars would take roughly 14 months,
 placing the unassisted projection around October–November 2027. The base target
@@ -292,6 +298,11 @@ work and document the actual support boundary instead of hiding the delay.
 - Review all 29 open issues. Label the supported surface, preserve reusable
   answers in docs, close resolved or obsolete reports with a reason, and move
   broad usage discussion only after a suitable public discussion route exists.
+- The
+  [2026-08-11 read-only community audit](../evidence/growth/community-contributor-backlog-2026-08-11.md)
+  groups the complete backlog and defines five copy-ready starter tasks. They
+  are `PREPARED_NOT_PUBLISHED`; creating issues or changing labels still needs
+  explicit authorization and a current duplicate check.
 - Recruit the first three validators through the existing public validation
   issue and release documentation; do not provide private step-by-step help
   that would invalidate the evidence.
@@ -343,6 +354,7 @@ control progression.
 | G2 — proof and launch | 2026-12-01 to 2027-02-28 | stable v1 release, public UX/benchmark scorecard, demo video, at least two recent external contributors | 950 |
 | G3 — ecosystem | 2027-03-01 to 2027-06-30 | ten cumulative first maps, five recent external contributors, maintained sensor recipes and support targets | 1,000 |
 | G4 — sustain | 2027-07-01 to 2027-09-30 | 90-day post-milestone health review, current release, no regression in activation or contributor metrics | maintain >= 1,000 |
+| G5 — institutionalize | 2027-10-01 to 2027-12-31 | two repeatable release cycles, one non-maintainer review owner, documented support capacity, and no single private artifact on the release path | maintain >= 1,000 |
 
 If the March stretch target is reached, do not skip G3 quality work. Move
 directly into the sustainability review.
@@ -360,6 +372,7 @@ smaller runtime image + bounded onboarding fixture
   -> canonical proof launch
   -> maintained sensor and contributor ecosystem
   -> 1,000-Star milestone + 90-day sustainability audit
+  -> repeatable release and review ownership beyond one maintainer
 ```
 
 Issue triage, weekly aggregate measurement, release maintenance, and bounded
@@ -375,6 +388,7 @@ failed activation, distribution, or adoption gate.
 | 2026 Dec–2027 Feb — G2 | publish a current stable v1 release and reproducible UX/benchmark scorecard | retain at least two recent external contributors and publish reusable user findings | release one short English demo and Japanese companion through relevant channels | proof-led launch and 950-Star base checkpoint; 1,000 stretch only if quality gates already pass |
 | 2027 Mar–Jun — G3 | maintain release freshness, claim evidence, and supported sensor recipes | reach ten cumulative first maps and five recent external contributors | grow durable Autoware/ROS task pages and qualified referrals | 1,000 Stars in two weekly snapshots, with all completion conditions still passing |
 | 2027 Jul–Sep — G4 | prevent activation, reliability, and upgrade regressions | verify that support and review load remain maintainable | publish a 90-day health review instead of immediately expanding scope | sustain at least 1,000 Stars and a healthy project for 90 days |
+| 2027 Oct–Dec — G5 | rehearse two releases from public inputs and documented gates | transfer ownership of one review area and keep the starter queue healthy | publish only maintained proof and a year-end health report | remain useful and releaseable after the milestone campaign ends |
 
 Every six weeks, select the largest measured constraint in the discovery-to-
 first-map-to-contribution funnel. Start no more than one product/release slice,
@@ -497,11 +511,113 @@ remains all four rows comparable. A source row is not valid until its exact
 revision is publicly resolvable, and a shortened-fixture row must bind the
 published ZIP checksum rather than a private local copy.
 
+The parallel G0 community slice is also bounded. The live read-only audit found
+one current `good first issue` and prepared five additional tasks from the old
+support backlog. The task bodies, 30-minute estimates, files, checks, and
+non-goals are recorded locally; no GitHub issue or label has been changed.
+Source publication and community publication are separate decisions.
+
 After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the
 project is genuinely easier for a new user than its alternatives.
 
-## 11. Baseline reproduction
+## 11. Long-term operating cadence
+
+The roadmap is operated as a recurring system, not a one-time launch list.
+Each review ends with one explicit constraint, one owner, one evidence artifact,
+and one next review date.
+
+| Cadence | Required review | Durable output |
+| --- | --- | --- |
+| Weekly | capture aggregate growth; label or disposition new issues; inspect support load and blocked reviews | one privacy-bounded growth snapshot and a short decision annotation |
+| Every two weeks | inspect one clean first-map attempt or onboarding finding; review the ready contributor queue | one accepted result, one repaired blocker, or one explicit no-change decision |
+| Monthly | update the Star forecast, release age, v1 gate, external contribution count, and “what became easier” summary | one compact public progress note after the underlying evidence is public |
+| Every six weeks | select the largest measured discovery-to-first-map-to-contribution constraint | one bounded experiment with success and stop criteria |
+| Quarterly | rerun supported clean-install/upgrade checks; audit claims, dependencies, licenses, stale issues, and maintainer load | one health review with the next quarter's WIP allocation |
+| At 1,000 Stars | start the 90-day sustain audit instead of opening a larger feature campaign | G4 health report followed by the G5 ownership review |
+
+### Capacity and WIP policy
+
+Normal maintainer capacity remains approximately 60% product and reliability,
+20% distribution and community, and 20% bounded research. The split is reviewed
+quarterly, but the following limits do not change merely because capacity rises:
+
+- at most one product/release slice, one community slice, and one exploratory
+  research slice may be active at once;
+- at most two starter contributions may wait for substantive maintainer review;
+- a supported-product P0, a failed release gate, or a growing support queue
+  takes capacity from research first;
+- promotional work stops when onboarding or review capacity is failing;
+- no stable release may depend on a private bag, unpublished image, local-only
+  revision, or maintainer-memory-only procedure.
+
+The project reduces scope before reducing evidence. A smaller maintained sensor
+matrix, fewer simultaneous experiments, or a later date is preferable to an
+unreviewable release and a stalled contributor queue.
+
+## 12. Star runway and checkpoint budget
+
+The baseline has 163 Stars remaining. These scenarios are forecasts, not quotas
+and not permission to manufacture engagement.
+
+| Scenario | Net pace | Approximate crossing date | Operating response |
+| --- | ---: | --- | --- |
+| Recent organic pace | 11.8 per month | October–November 2027 | keep quality work; improve qualified distribution only after activation passes |
+| Base plan | 15.2 per month | by 2027-06-30 | deliver G0–G3 in order and review the forecast monthly |
+| Stretch plan | about 21 per month | by 2027-03-31 | accept only if v1, first-map, contributor, and release gates are already healthy |
+
+The phase checkpoints divide the base-plan delta into visible planning units:
+
+| Phase | Start to checkpoint | Net change | Leading outcome that must improve first |
+| --- | ---: | ---: | --- |
+| G0 | 837 to 860 | +23 | clean public candidate, comparable onboarding evidence, triaged support surface |
+| G1 | 860 to 900 | +40 | v1 audit 10/10 and three independent verified first maps |
+| G2 | 900 to 950 | +50 | current stable release, proof-led launch, and recent external contributors |
+| G3 | 950 to 1,000 | +50 | maintained recipes, ten cumulative first maps, and durable qualified referrals |
+
+Missing a Star checkpoint does not invalidate a phase whose activation and
+community outcomes are improving. It triggers a new forecast. Hitting a Star
+checkpoint does not advance a phase whose quality exit is incomplete.
+
+## 13. Constraint experiments
+
+Only one experiment in each funnel stage may be promoted at a time. Every
+experiment needs a pre-intervention baseline, a bounded cost, and a stop rule.
+
+| Funnel stage | First long-term experiment | Success signal | Stop or redirect signal |
+| --- | --- | --- | --- |
+| Discovery | one canonical rosbag2-to-Autoware landing page and proof-led README | qualified Autoware/ROS referrals and release-bundle downloads rise over four weeks | traffic stays flat after indexing and one relevant announcement; revisit positioning rather than duplicate pages |
+| Activation | published 50-second fixture beside the unchanged full proof route | comparable first-map trials improve active time and completion without weakening verification | users still fail before execution or fixture/public-source identity is not reproducible |
+| Trust | public UX and benchmark scorecard with exact revisions and limitations | external first-map reports and evidence-linked citations increase | claims need private context or scorecard rows cannot be independently reproduced |
+| Contribution | five bounded starter tasks and a focused-check contributor path | at least three non-maintainer completions with median prepared-environment time at most 30 minutes | two consecutive tasks exceed 45 minutes because of setup or review bottlenecks |
+| Referral | one short English demo, one Japanese companion, and consented case studies | qualified referrals, validations, and Stars rise together | views rise while receipts and useful reports stay flat; stop promotion and repair activation |
+
+An experiment is not repeated merely because a social post underperformed.
+Repeat only after the underlying product, audience, or distribution condition
+has materially changed.
+
+## 14. Risk register and post-milestone ownership
+
+| Risk | Early signal | Mitigation and owner outcome |
+| --- | --- | --- |
+| Local-only source or fixture blocks reproducibility | a trial cannot name a public immutable revision or checksum | keep G0 closed; obtain separate source and artifact publication decisions |
+| Maintainer concentration | releases, reviews, and support stop when one person is unavailable | by G5, transfer one bounded review area and rehearse two checklist-driven release cycles |
+| Old support backlog hides current product defects | unlabeled or unanswered supported-path issues remain open | complete reasoned triage, convert reusable answers to docs, and track response aggregates weekly |
+| External rosdistro timing slips | package-manager gate remains unchanged across reviews | continue source/Docker activation work; never pretend source proof is binary-package proof |
+| Promotion outruns support | traffic rises while receipts, response time, or review throughput worsen | pause announcements and fix diagnosis, docs, or maintainer capacity |
+| Research consumes the release path | an exploratory candidate becomes a prerequisite for onboarding | enforce the 20% budget and remove failed routes from the product critical path |
+| Unsupported claims damage trust | a comparison omits versions, limits, or reproducible evidence | fail the release/communication review and publish a correction before further promotion |
+| Privacy-bearing evidence leaks | a proposed receipt contains maps, paths, identities, or exact locations | reject the artifact and retain only the reviewed aggregate or privacy-bounded receipt |
+
+After 1,000 Stars, growth work changes from acquisition to retention and
+ownership. G4 proves that activation, release freshness, response load, and
+contribution do not regress for 90 days. G5 then proves that two release cycles
+and at least one review domain can operate from public artifacts and written
+contracts without relying on one maintainer's private state. Only after those
+audits should the project consider a broader sensor matrix, a larger governance
+surface, or a new headline research claim.
+
+## 15. Baseline reproduction
 
 The 2026-08-10 snapshot was taken from the authenticated GitHub REST API and
 the local readiness audit. Maintainers can refresh the same aggregate sources

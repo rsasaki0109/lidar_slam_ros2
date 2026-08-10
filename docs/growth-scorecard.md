@@ -29,6 +29,12 @@ Its first product decision is the
 measure and repair the clean Docker/source first-map matrix before expanding
 promotion.
 
+The parallel community decision is the
+[2026-08-11 contributor backlog](evidence/growth/community-contributor-backlog-2026-08-11.md).
+A read-only audit grouped all 29 open issues and prepared five tasks with exact
+files, non-goals, acceptance criteria, and focused checks. The candidates have
+not been published as GitHub issues and no labels were changed.
+
 The first execution addendum is the
 [2026-08-10 Docker machine-probe summary](evidence/onboarding/docker-machine-probes-2026-08-10.md).
 Humble and Jazzy both reached a canonical-route product `PASS`; both remain

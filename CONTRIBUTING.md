@@ -89,6 +89,38 @@ For benchmark-related reports, include:
 - `ape_corrected_vs_gt.txt` and `ape_raw_vs_gt.txt` when available
 - logs needed to understand failures or regressions
 
+## 30-Minute Starter Path
+
+Start with an open
+[`good first issue`](https://github.com/rsasaki0109/lidar_slam_ros2/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+A bounded starter issue should name the files, non-goals, acceptance criteria,
+and one focused check. You are not expected to download a public dataset or run
+the full end-to-end suite unless the issue explicitly says so.
+
+For a documentation-only change, the normal focused check is:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+For a small Python change, run the exact test and lint scope named by the issue,
+for example:
+
+```bash
+python3 -m pytest -q path/to/test_file.py -k focused_case
+python3 -m flake8 --select=E9,F63,F7,F82 \
+  path/to/change.py path/to/test_file.py
+git diff --check
+```
+
+Some legacy files have pre-existing style debt. A starter task must not expand
+into an unrelated whole-file cleanup; new files and newly added lines should
+still follow the repository's current style.
+
+If the prepared environment still cannot reach the expected result within 30
+minutes, report where the time was spent. That is a contributor-path finding,
+not a reason to silently expand the task.
+
 ## Recommended Local Checks
 
 For code changes that touch the default workflow:
