@@ -23,6 +23,7 @@ source install/setup.bash
 The installed own-bag command is then available from any working directory:
 
 ```bash
+lidarslam-map run /path/to/rosbag2 --guided
 lidarslam-map doctor /path/to/rosbag2
 lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"
 lidarslam-map inspect "$PWD/output/my_map"
@@ -55,10 +56,10 @@ lidarslam-map --help
 ros2 run lidarslam lidarslam-cli --help
 ```
 
-Both spellings dispatch the same `doctor`, `run`, `inspect`, and optional
-post-run `view` contract. The `ros2 run` form is a compatibility shim, not a
-fourth product workflow. Inside a source checkout, `./scripts/lidarslam`
-exposes the same contract.
+Both spellings dispatch the same `doctor`, `run` (including `--guided`),
+`inspect`, and optional post-run `view` contract. The `ros2 run` form is a
+compatibility shim, not a fourth product workflow. Inside a source checkout,
+`./scripts/lidarslam` exposes the same contract.
 
 ## What the installation contains
 

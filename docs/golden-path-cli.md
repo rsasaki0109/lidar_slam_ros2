@@ -5,6 +5,7 @@ map-authoring tools. After a source build and `source install/setup.bash`, use:
 
 ```bash
 lidarslam-map doctor <rosbag2_dir>
+lidarslam-map run <rosbag2_dir> --guided
 lidarslam-map run <rosbag2_dir> --output-dir output/my_map
 lidarslam-map inspect output/my_map
 ```
@@ -13,16 +14,42 @@ The equivalent repo-local spelling is:
 
 ```bash
 ./scripts/lidarslam doctor <rosbag2_dir>
+./scripts/lidarslam run <rosbag2_dir> --guided
 ./scripts/lidarslam run <rosbag2_dir> --output-dir output/my_map
 ./scripts/lidarslam inspect output/my_map
 ```
 
-It delegates to
+`run --guided` is the human-facing mode. It runs the same preflight used by
+`run`, displays the selected profile and safety checks, asks for confirmation,
+and delegates execution to the same runner. `--yes` makes that mode suitable
+for a launcher that is not attached to a terminal. It never changes the
+estimator or profile defaults.
+
+The other commands delegate to
 `preflight_autoware_map_bag.py`, `run_autoware_map_from_bag.py`, and
 `diagnose_autoware_map_run.py`, so the established profile selection and map
 verification behavior remain authoritative.
 
 ## Commands
+
+### `run --guided`
+
+Use this for the first run or whenever the bag is unfamiliar:
+
+```bash
+lidarslam-map run /path/to/rosbag2 --guided
+lidarslam-map run /path/to/rosbag2 --guided --yes
+lidarslam-map run /path/to/rosbag2 --guided --dry-run
+```
+
+The guided mode makes the following visible before starting: bag duration, chosen
+LiDAR and IMU topics, PointCloud2 field inspection, timestamp-order status,
+profile, output directory, and viewer follow-up commands. If no maintained path is safe,
+it stops before launching ROS and prints the missing requirement plus the next
+`doctor` command. It also checks the local ROS runtime artifacts before asking for
+confirmation, so an incomplete build is reported with a copy-ready build/source hint.
+After a run it prints map/verification status and copy-ready
+`inspect`/`view` commands. Use `run` directly for CI and other automation.
 
 `doctor` checks rosbag2 metadata, reports detected topic capabilities, and
 selects a compatible maintained profile. For RKO-LIO profiles it also reads
@@ -139,6 +166,7 @@ The stability label and migration rules for every option are defined in the
 | --- | --- | --- |
 | Help | `<command> --help`, `<command> --help-all` | Show routine options or the complete advanced/deprecated inventory |
 | Doctor output | `doctor --json` | Emit the versioned preflight contract for automation |
+| Guided onboarding | `run --guided`, `run --guided --yes`, `run --guided --dry-run` | Confirm or preview a human-facing run, then use the printed `view` command to open its completed map |
 | Map selection and output | `run --profile`, `run --output-dir` | Select a maintained profile or an explicit artifact directory |
 | Safety and lifecycle | `run --min-free-space-gib`, `run --dry-run`, `run --resume` | Refuse unsafe starts, inspect a plan, or finish terminal post-processing |
 | Viewer | `view --viewer {autoware,foxglove}` | Open an existing completed output; defaults to Autoware |

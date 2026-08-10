@@ -96,16 +96,18 @@ python3 scripts/verify_autoware_map.py output/.../pointcloud_map
 
 ## Use your own bag
 
+Guided mode inspects the bag, explains the selected workflow, and asks before
+starting:
+
 ```bash
-lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"
+lidarslam-map run /path/to/rosbag2 --guided
 ```
 
-One command turns the bag into a complete Autoware map bundle:
+For scripts and CI: `lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"`.
+A successful run writes a complete Autoware map bundle:
 `pointcloud_map/` tiles, `map_projector_info.yaml`, and a `lanelet2_map.osm`
-generated from the loop-closed trajectory.
-
-Direct launch commands, required topics, GNSS / IMU pre-integration, and
-dynamic-object filtering are in [docs/workflows.md](docs/workflows.md).
+generated from the loop-closed trajectory. Direct launches, required topics,
+GNSS/IMU pre-integration, and filtering are in [Operator workflows](docs/workflows.md).
 
 ![Autoware map loaders rendering a pointcloud_map authored by this stack](lidarslam/images/autoware_map_loader_proof.png)
 
@@ -180,11 +182,6 @@ python3 scripts/run_rtk_slam_accuracy_suite.py
 ```
 
 Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](docs/benchmarking.md).
-
-## Degeneracy resilience (fog / tunnels)
-
-Opt-in radar/intensity gates recover fog "clutter-lock" (drift **35.6 → 11.2 m**) and
-self-similar tunnels (reach **98.7 m → ~500 m**): [docs/degeneracy-guide.md](docs/degeneracy-guide.md).
 
 ## Docs
 

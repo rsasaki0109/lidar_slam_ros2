@@ -45,13 +45,13 @@ The flagship installed workflow is also exercised by the
 
 ## Official entrypoints
 
-These are the only beginner-facing product entrypoints. Other scripts and ROS
+These are the only three beginner-facing product workflows. Other scripts and ROS
 launch files are advanced, benchmark, migration, or research interfaces.
 
 | Goal | Official command | Contract |
 | --- | --- | --- |
 | Try the fixed public demo without a ROS workspace | [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) | Downloads the tracked MID-360 demo with progress and writes a user-owned headless map bundle |
-| Map your own compatible rosbag2 | `lidarslam-map run <rosbag2_dir> --output-dir <dir>` | Preflights the bag, selects a compatible maintained profile, runs headless, verifies and diagnoses the output |
+| Map your own compatible rosbag2 | `lidarslam-map run <rosbag2_dir> --guided` for people; `lidarslam-map run <rosbag2_dir> --output-dir <dir>` for automation | Preflights the bag, selects the same maintained profile, runs headless, verifies and diagnoses the output; guided mode adds explanation and confirmation only |
 | Reproduce the fixed source-workspace quickstart | `bash scripts/download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh` | Runs the tracked NTU VIRAL path and opens the bounded viewer flow |
 
 For automation, use an explicit `--output-dir`; run `lidarslam-map doctor`
@@ -60,10 +60,13 @@ before a long run. The repo-local `./scripts/lidarslam` wrapper and installed
 not add beginner workflows. Installation details are in
 [Distribution and installed CLI](distribution.md).
 
+The `run --guided` mode is the recommended human path: it keeps the exact command
+and profile selection visible before execution. Add `--yes` for a non-terminal
+launcher, or use `run` directly when a script must remain non-interactive.
+
 After a successful run, `lidarslam-map view <output_dir>` can open the
 completed output in Autoware or Foxglove. Viewing is optional post-processing,
-not a fourth beginner entrypoint, and its failure does not alter the map-run
-manifest.
+and its failure does not alter the map-run manifest.
 
 ## Input contract
 

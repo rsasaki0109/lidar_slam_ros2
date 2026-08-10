@@ -8,6 +8,7 @@ to a working map.
 | You have | Run |
 | --- | --- |
 | Docker only, no ROS 2 workspace | Follow [Docker First Map](#docker-first-map-no-ros-2-workspace) below |
+| A bag and want an explanation before a long run | `lidarslam-map run /path/to/rosbag2 --guided` |
 | A rosbag2 directory and a built workspace | `lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"` |
 | A bag, but you are not sure which topics it has | `lidarslam-map doctor /path/to/rosbag2` |
 | You want the fixed public demo dataset | `bash scripts/download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh` |
@@ -47,6 +48,17 @@ git -C src/lidar_slam_ros2 submodule update --init --recursive
 ```
 
 ## 2. Run Your First Bag
+
+For a human-operated first run, use the guided path. It checks the bag first,
+shows the detected LiDAR/IMU topics, the selected preset, the output location,
+and waits for confirmation:
+
+```bash
+lidarslam-map run /path/to/rosbag2 --guided
+```
+
+Use `--yes` when launching from another tool, or use the lower-level `run`
+command directly for scripts.
 
 ```bash
 mkdir -p "$PWD/output"

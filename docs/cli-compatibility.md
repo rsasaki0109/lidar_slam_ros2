@@ -60,7 +60,7 @@ this option policy or the repository version.
 | Command | Routine stable options | Advanced stable options | Deprecated options |
 | --- | --- | --- | --- |
 | `doctor` | `--json` | None | None |
-| `run` | `--profile`, `--output-dir`, `--min-free-space-gib`, `--dry-run`, `--resume`, `--verification` | None | Viewer compatibility options and `--no-verify-map` |
+| `run` | `--profile`, `--output-dir`, `--min-free-space-gib`, `--dry-run`, `--resume`, `--guided`, `--yes`, `--verification` | None | Viewer compatibility options and `--no-verify-map` |
 | `inspect` | `--bag`, `--json`, `--write` | None | None |
 | `view` | `--viewer` | `--autoware-core-dir`, `--work-dir`, `--runtime-dir`, `--rebuild`, `--auto-exit-secs` | None |
 
@@ -92,8 +92,10 @@ The map-producing `run` options are ordered by operator intent:
 
 1. **Core:** choose a profile and output directory.
 2. **Lifecycle:** plan, reserve storage, or resume post-processing.
-3. **Deprecated compatibility:** forward old viewer requests to `view`.
-4. **Verification:** retain the required default or explicitly select the
+3. **Guided onboarding:** show the preflight decision and ask before a long
+   human-operated run.
+4. **Deprecated compatibility:** forward old viewer requests to `view`.
+5. **Verification:** retain the required default or explicitly select the
    diagnostic-only `off` mode.
 
 Viewer construction is not map construction. It is owned by the dedicated
@@ -111,6 +113,12 @@ escape hatch, not a normal performance option, and emits a visible warning.
 The old `--no-verify-map` name remains a warning-emitting compatibility alias
 during the deprecation window. An unverified run is never described as a
 verified success.
+
+`run --guided` adds only the interaction layer: it repeats the existing
+preflight, makes the selected profile, topics, checks, and output location
+visible, and asks for confirmation before delegating to the same map runner.
+`run --guided --yes` is the explicit non-terminal form. Both flags leave the
+profile defaults and map algorithm unchanged.
 
 ## Naming rules for new options
 
