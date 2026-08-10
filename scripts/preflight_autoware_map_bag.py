@@ -14,13 +14,13 @@ from typing import Any, Callable
 import yaml
 
 try:
-    from product_profiles import PROFILE_HELP
+    from product_profiles import PROFILE_HELP, select_profile
 except ModuleNotFoundError as exc:
     if exc.name != 'product_profiles':
         raise
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     try:
-        from product_profiles import PROFILE_HELP
+        from product_profiles import PROFILE_HELP, select_profile
     finally:
         sys.path.pop(0)
 

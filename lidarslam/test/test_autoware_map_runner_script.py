@@ -177,6 +177,8 @@ def test_runner_help_is_user_facing():
     assert '--output-dir <dir>' in result.stdout
     assert '--min-free-space-gib <GiB>' in result.stdout
     assert '--resume' in result.stdout
+    assert '--guided' in result.stdout
+    assert '--yes' in result.stdout
     assert 'map selection and output:' in result.stdout
     assert 'safety and lifecycle:' in result.stdout
     assert 'deprecated viewer compatibility options:' in result.stdout

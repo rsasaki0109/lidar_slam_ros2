@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 
 class MaintainedProfile(NamedTuple):
@@ -37,6 +37,36 @@ PROFILE_HELP = tuple(
     (profile.profile_id, profile.description)
     for profile in MAINTAINED_PROFILES
 )
+
+
+def select_profile(
+    payload: dict[str, Any],
+    forced_profile_id: str | None = None,
+) -> str:
+    """Select the same maintained profile for every human and batch path."""
+    if forced_profile_id:
+        return forced_profile_id
+
+    recommendations = payload['recommendations']
+    recommendation_ids = {item['id'] for item in recommendations}
+    summary = payload['summary']
+    pointcloud_topics = summary['topics']['pointcloud2']
+    imu_topics = summary['topics']['imu']
+    bag_path_lower = summary['bag_path'].lower()
+    looks_like_livox = (
+        'mid360' in bag_path_lower
+        or any(
+            'livox' in item['name'].lower()
+            for item in pointcloud_topics + imu_topics
+        )
+    )
+    if looks_like_livox and 'rko_lio_graph_mid360_preset' in recommendation_ids:
+        return 'rko_lio_graph_mid360_preset'
+
+    recommended_profile_id = payload['recommended_profile_id']
+    if not recommended_profile_id:
+        raise RuntimeError('no compatible public path was found for this bag')
+    return recommended_profile_id
 
 if len(PROFILE_IDS) != len(set(PROFILE_IDS)):
     raise RuntimeError('maintained product profile IDs must be unique')

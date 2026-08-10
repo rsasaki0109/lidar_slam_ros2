@@ -208,6 +208,7 @@ if(BUILD_TESTING)
     test_cli_option_contract
     test_evaluate_degeneracy_trajectory
     test_external_first_map_acceptance
+    test_lidarslam_guided
     test_install_upgrade_contract
     test_kitti_metrics
     test_ndt_omp_release_readiness

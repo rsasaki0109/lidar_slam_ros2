@@ -1,3 +1,4 @@
+lidarslam_guided.py
 lidarslam_cli.py
 product_schema.py
 product_profiles.py

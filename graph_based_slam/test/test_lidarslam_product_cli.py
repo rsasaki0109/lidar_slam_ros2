@@ -126,7 +126,13 @@ def test_subcommand_help_uses_product_names_and_option_groups():
     inspect = _run('inspect', '--help')
     view = _run('view', '--help')
 
-    assert doctor.returncode == run.returncode == inspect.returncode == view.returncode == 0
+    assert (
+        doctor.returncode
+        == run.returncode
+        == inspect.returncode
+        == view.returncode
+        == 0
+    )
     assert 'usage: lidarslam doctor' in doctor.stdout
     assert 'usage: lidarslam run' in run.stdout
     assert 'usage: lidarslam inspect' in inspect.stdout
@@ -137,6 +143,8 @@ def test_subcommand_help_uses_product_names_and_option_groups():
     assert 'python3 scripts/' not in view.stdout
     assert 'map selection and output:' in run.stdout
     assert 'safety and lifecycle:' in run.stdout
+    assert '--guided' in run.stdout
+    assert '--yes' in run.stdout
     assert '--help-all' in run.stdout
     assert 'deprecated viewer compatibility options:' not in run.stdout
     assert 'deprecated advanced viewer compatibility options:' not in run.stdout

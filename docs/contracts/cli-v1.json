@@ -288,6 +288,20 @@
         },
         {
           "names": [
+            "--guided"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
+            "--yes"
+          ],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
+          "names": [
             "--viewer"
           ],
           "replacement": "view --viewer",

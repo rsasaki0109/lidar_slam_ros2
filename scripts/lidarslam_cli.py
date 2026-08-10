@@ -42,7 +42,7 @@ def render_help(*, include_all: bool = False) -> str:
         '',
         'Core rosbag2-to-map commands:',
         '  doctor <rosbag2_dir>   Check inputs and select a compatible profile',
-        '  run <rosbag2_dir>      Build and verify a map bundle',
+        '  run <rosbag2_dir>      Build and verify a map bundle (--guided for people)',
         '  inspect <output_dir>   Diagnose an existing map-authoring output',
         '',
         'Optional post-processing:',

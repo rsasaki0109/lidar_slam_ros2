@@ -26,13 +26,13 @@ import xml.etree.ElementTree as ET
 import yaml
 
 try:
-    from product_profiles import PROFILE_HELP, PROFILE_IDS
+    from product_profiles import PROFILE_HELP, PROFILE_IDS, select_profile
 except ModuleNotFoundError as exc:
     if exc.name != 'product_profiles':
         raise
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     try:
-        from product_profiles import PROFILE_HELP, PROFILE_IDS
+        from product_profiles import PROFILE_HELP, PROFILE_IDS, select_profile
     finally:
         sys.path.pop(0)
 
@@ -177,27 +177,31 @@ def _load_script_module(script_name: str, module_name: str):
     return module
 
 
+def _run_guided(args: argparse.Namespace) -> int:
+    """Run the human-facing confirmation layer without duplicating the runner."""
+    guided = _load_script_module('lidarslam_guided.py', 'lidarslam_guided')
+    guided_args = [args.bag]
+    if args.profile:
+        guided_args.extend(['--profile', args.profile])
+    if args.output_dir:
+        guided_args.extend(['--output-dir', args.output_dir])
+    guided_args.extend([
+        '--min-free-space-gib',
+        str(args.min_free_space_gib),
+        '--verification',
+        'required' if args.verification_enabled else 'off',
+    ])
+    if args.viewer != 'none':
+        guided_args.extend(['--viewer', args.viewer])
+    if args.yes:
+        guided_args.append('--yes')
+    if args.dry_run:
+        guided_args.append('--dry-run')
+    return guided.main(guided_args)
+
+
 def _select_profile(payload: dict[str, object], forced_profile_id: str | None) -> str:
-    if forced_profile_id:
-        return forced_profile_id
-
-    recommendations = payload['recommendations']
-    recommendation_ids = {item['id'] for item in recommendations}
-    summary = payload['summary']
-    pointcloud_topics = summary['topics']['pointcloud2']
-    imu_topics = summary['topics']['imu']
-    bag_path_lower = summary['bag_path'].lower()
-    looks_like_livox = (
-        'mid360' in bag_path_lower
-        or any('livox' in item['name'].lower() for item in pointcloud_topics + imu_topics)
-    )
-    if looks_like_livox and 'rko_lio_graph_mid360_preset' in recommendation_ids:
-        return 'rko_lio_graph_mid360_preset'
-
-    recommended_profile_id = payload['recommended_profile_id']
-    if not recommended_profile_id:
-        raise RuntimeError('no compatible public path was found for this bag')
-    return recommended_profile_id
+    return select_profile(payload, forced_profile_id)
 
 
 def build_execution_plan(
@@ -1095,6 +1099,7 @@ def _help_epilog() -> str:
         'Examples:',
         f'  {command} /path/to/rosbag2 --dry-run',
         f'  {command} /path/to/rosbag2 --output-dir output/my_map',
+        f'  {command} /path/to/rosbag2 --guided',
         f'  {command} /path/to/rosbag2 --output-dir output/my_map --resume',
     ])
 
@@ -1165,6 +1170,19 @@ def parse_args(
             'Resume verification, finalization, diagnosis, and checksums for a '
             'terminal schema-v2 run; the map workflow is never re-executed.'
         ),
+    )
+    safety_options.add_argument(
+        '--guided',
+        action='store_true',
+        help=(
+            'Show the detected inputs and exact plan, ask for confirmation, '
+            'then delegate to this same runner.'
+        ),
+    )
+    safety_options.add_argument(
+        '--yes',
+        action='store_true',
+        help='With --guided, start without asking for confirmation.',
     )
     viewer_options = parser.add_argument_group(
         'deprecated viewer compatibility options'
@@ -1245,6 +1263,27 @@ def validate_option_combinations(args: argparse.Namespace) -> None:
         raise ValueError(
             f'{joined} requires --viewer autoware or --viewer foxglove'
         )
+    if args.yes and not args.guided:
+        raise ValueError('--yes requires --guided')
+    if args.guided and args.resume:
+        raise ValueError(
+            '--guided cannot be combined with --resume; use run --resume '
+            'directly for terminal post-processing'
+        )
+    if args.guided and any(
+        value
+        for _name, value in (
+            ('--autoware-core-dir', args.autoware_core_dir),
+            ('--work-dir', args.work_dir),
+            ('--viewer-run-dir', args.viewer_run_dir),
+            ('--viewer-rebuild', args.viewer_rebuild),
+            ('--auto-exit-secs', args.auto_exit_secs is not None),
+        )
+    ):
+        raise ValueError(
+            '--guided cannot be combined with advanced viewer options; '
+            'run the map first, then use "lidarslam-map view"'
+        )
 
 
 def resolve_verification_mode(args: argparse.Namespace) -> bool:
@@ -1286,6 +1325,12 @@ def main() -> int:
     if args.resume and not args.output_dir:
         print('error: --resume requires an explicit --output-dir', file=sys.stderr)
         return 2
+    if args.guided:
+        try:
+            return _run_guided(args)
+        except (ImportError, OSError, RuntimeError, ValueError) as exc:
+            print(f'error: guided workflow could not start: {exc}', file=sys.stderr)
+            return 70
 
     bag_path = Path(args.bag).expanduser().resolve()
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

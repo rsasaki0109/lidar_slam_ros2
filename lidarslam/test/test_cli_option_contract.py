@@ -302,6 +302,21 @@ def test_positionals_and_deprecation_lifecycle_are_machine_readable():
             'cannot be combined',
         ),
         (
+            ['run', '/tmp', '--yes'],
+            'requires --guided',
+        ),
+        (
+            [
+                'run',
+                '/tmp',
+                '--guided',
+                '--resume',
+                '--output-dir',
+                '/tmp/output',
+            ],
+            'cannot be combined with --resume',
+        ),
+        (
             ['run', '--help-all', '--dry-run'],
             'cannot be combined',
         ),

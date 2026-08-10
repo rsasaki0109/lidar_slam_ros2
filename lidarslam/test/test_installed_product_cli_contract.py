@@ -73,6 +73,7 @@ def test_product_runtime_manifest_is_curated_and_complete():
 
     assert names
     assert len(names) == len(set(names))
+    assert 'lidarslam_guided.py' in names
     assert 'lidarslam_cli.py' in names
     assert 'product_schema.py' in names
     assert 'product_profiles.py' in names
