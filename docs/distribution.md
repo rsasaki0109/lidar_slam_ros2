@@ -255,6 +255,24 @@ by retagging an old image or moving a convenience/versioned tag; map outputs
 are likewise immutable, so a post-rollback mapping run uses a new output
 directory.
 
+#### Pre-promotion compressed-size gate
+
+Measure a local single-platform OCI export with
+`scripts/measure_oci_archive.py` before public promotion. The checker verifies
+the complete descriptor and diffID graph, the exact `linux/amd64` platform,
+gzip media types, revision/version labels, and archive closure before applying
+the reduction threshold. A baseline byte count is accepted only together with
+its immutable tag, index digest, and platform-manifest digest. Its output uses
+the
+[`oci-image-measurement-v1` schema](schemas/oci-image-measurement-v1.schema.json).
+The exact command and current Humble/Jazzy evidence are in the
+[runtime-image slimming record](evidence/onboarding/runtime-image-slimming-2026-08-11.md#exact-compressed-oci-follow-up-commit-ff92f09).
+
+This measurement export disables provenance only to keep its OCI index to one
+runnable platform manifest. It is not a substitute for the SBOM, maximum-mode
+provenance, attestation, and digest-bound smoke checks below; the final release
+candidate must satisfy both contracts.
+
 The release workflow builds from the tagged recursive checkout and initially
 pushes each candidate by digest without a version tag. It requires the
 installed CLI version and source-revision label to match, verifies the OCI

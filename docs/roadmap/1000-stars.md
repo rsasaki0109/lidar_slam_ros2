@@ -228,12 +228,14 @@ work and document the actual support boundary instead of hiding the delay.
 - The [runtime-image slimming pilot](../evidence/onboarding/runtime-image-slimming-2026-08-11.md)
   reduced Docker's local image-size measurement by 53.6409% on Humble and
   59.6698% on Jazzy while retaining the source-free installed CLI and
-  schema-valid first-map result. This passes the local 25% proxy. Compressed
-  OCI size, the full public demo, and clean dedicated-VM trials remain
-  promotion gates; no candidate was pushed. Follow-up commits repaired the
-  atomic ROS-log link and keyed Docker dependencies on package manifests. An
-  exact-revision Jazzy rerun retained the first-map contract and reduced an
-  identical local rebuild to 0.31 seconds with every layer cached.
+  schema-valid first-map result. Exact gzip OCI exports at clean commit
+  `ff92f09` then measured 568,999,756 compressed layer bytes on Humble and
+  547,456,033 on Jazzy: 53.635066% and 59.674709% below immutable v0.9.0
+  baselines, so both pass the 25% gate. Follow-up commits repaired the atomic
+  ROS-log link and keyed Docker dependencies on package manifests. Cached
+  exports retained identical canonical image graphs. The full public demo,
+  clean dedicated-VM trials, and attested release-candidate reproduction
+  remain promotion gates; no candidate was pushed.
 - Add tested sensor recipes for the most requested families, starting from
   issue evidence rather than an unbounded compatibility matrix.
 - Make the final success output show the map path, verifier result, viewer path,
@@ -455,16 +457,17 @@ selects the missing clean Docker/source onboarding baseline as the first
 measured blocker. Broad promotion remains behind the four-row trial and repair
 gate.
 
-The immediate bounded G0 multi-stage runtime-image pilot has passed its local
-Docker-size proxy and both distro smoke checks. Its
+The immediate bounded G0 multi-stage runtime-image pilot has passed both its
+local Docker-size proxy and exact compressed-layer gate on both supported
+distributions. Its
 [evidence record](../evidence/onboarding/runtime-image-slimming-2026-08-11.md)
 keeps the image and fixture reductions separate. Promotion is still paused
-until compressed OCI size, the full public demo, and clean comparable-VM
-evidence pass from the reviewed candidate. The atomic ROS-log link and Docker
-dependency-cache boundary have passed an exact-revision Jazzy follow-up. The
-next active G0 implementation is therefore the dedicated Humble/Jazzy
-Docker/source matrix, including confirmation of both repairs, not a public
-image retag.
+until the full public demo and clean comparable-VM evidence pass from the
+reviewed candidate; the final attested release build must reproduce the
+compressed gate. The atomic ROS-log link and Docker dependency-cache boundary
+have passed exact-revision follow-ups. The next active G0 implementation is
+therefore the dedicated Humble/Jazzy Docker/source matrix, including
+confirmation of both repairs, not a public image retag.
 
 The matrix decision is now machine-checked rather than inferred from a table.
 The current tracked evidence reports `INCOMPLETE`: two of four outcomes are

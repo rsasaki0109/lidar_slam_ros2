@@ -208,9 +208,88 @@ not dangling and contains no `.partial` path. This closes local findings 5 and
 full 277-second public demo, and the fixture publication decision remain
 promotion gates; the dedicated Humble row must also confirm the shared fixes.
 
+## Exact compressed OCI follow-up — commit `ff92f09`
+
+The compressed-image experiment gate is now measured directly rather than
+inferred from Docker's local `.Size`. Clean commit
+`ff92f0950fe28e24de63db455c76fefa0039b03f` was exported for `linux/amd64`
+with gzip OCI layers and the same title, description, license, revision, and
+version labels used by the release workflow. Neither candidate was loaded
+under a public tag or pushed.
+
+The immutable v0.9.0 platform manifests were re-read as the baselines:
+
+| ROS distribution | Immutable tag | Index digest | `linux/amd64` manifest digest | Layers | Compressed layer bytes |
+| --- | --- | --- | --- | ---: | ---: |
+| Humble | `ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble` | `sha256:27934744bc21ee7081619f35e322177345479ed69079cda8e37ee61fbfbdbe53` | `sha256:3cbe706a339f01b1a3e022a9b38ca85e15249d67fbb85bc30252281c075bf16c` | 11 | 1,227,220,038 |
+| Jazzy | `ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy` | `sha256:6eabb19ac77ad24fd123772333357a0c5bfdb38055945213722f6484e0f134ef` | `sha256:365b507b2ae8ccace86e6f73fe2d902a4b1f2cde217b973be9be9e011f8529f0` | 11 | 1,357,599,697 |
+
+The candidate result is:
+
+| ROS distribution | Candidate compressed layers | Uncompressed diffID bytes | Reduction | 25% ceiling | Margin | Gate |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Humble | 568,999,756 B | 2,015,947,776 B | 658,220,282 B (53.635066%) | 920,415,029 B | 351,415,273 B | `PASS` |
+| Jazzy | 547,456,033 B | 1,848,688,128 B | 810,143,664 B (59.674709%) | 1,018,199,773 B | 470,743,740 B | `PASS` |
+
+`scripts/measure_oci_archive.py` validates the archive before reporting a
+byte. It rejects unsafe or duplicate members,
+non-gzip layers, platform ambiguity, missing or unreferenced blobs, descriptor
+size or SHA mismatch, decompressed diffID mismatch, and revision/version label
+mismatch. It also binds the baseline reference, index digest, platform
+manifest digest, and byte sum into the
+[`oci-image-measurement-v1`](../../schemas/oci-image-measurement-v1.schema.json)
+record. Both candidates passed 18 safe members, 14 verified descriptors, 12
+verified gzip layers and diffIDs, and zero unreferenced blobs.
+
+| ROS distribution | Candidate manifest | Config digest | OCI tar bytes / local SHA-256 | Measurement record / SHA-256 |
+| --- | --- | --- | --- | --- |
+| Humble | `sha256:8118d035c4b4ced92057a661db5983f9f43afc4837766b672c54539b61d5e990` | `sha256:bac3c758ad5d093360021bb63bdfb4c3c00eba847a1778adc234255af0b492c7` | 569,025,024 / `0f65c0fec70c6cbf44487afb4d6caea73e9269ad8d57adf7bffe1bf03f87920b` | [JSON](runtime-image-oci-humble-2026-08-11.json) / `6fe03086ac61c00e64426ed845dcbd18ac10848c1ad15cffcbfc02410e9b262c` |
+| Jazzy | `sha256:3bdf3cbc808517784740238fb4eb9351a59b9a60320f20cb8e9baefa2ce1bbfc` | `sha256:8f4a0241fc9a844054457837d01c975e7b943274b1318ffdf7fc0bab5dd38958` | 547,481,600 / `328c7a5aa302d7de8e5045fc442f2456aac34d51ac742425989786cc30a73e19` | [JSON](runtime-image-oci-jazzy-2026-08-11.json) / `fba86dc84512dc5b751302dd5c52ec01d1b33e60d4c8d41e8d192b8e4f97f52c` |
+
+The tar SHA-256 is a local audit identity, not the canonical image identity.
+An identical cached Humble export completed in 8.82 seconds after the
+871.05-second clean build. Every builder and runtime step was `CACHED`, and
+the repeated manifest, config, layer descriptors, compressed byte sum, and
+diffIDs were identical. Its tar SHA-256 was instead
+`646369dee95f7debc2a7310e7dc5ecab11856616534cb36350ad6e7e38b295d7`
+because BuildKit changed only the `index.json` created annotation from
+`2026-08-10T22:36:38Z` to `2026-08-10T22:40:25Z`. The earlier Jazzy cached
+export likewise completed in 6.40 seconds with the canonical image graph
+unchanged. Reproducibility claims therefore use the manifest graph, not the
+outer tar wrapper.
+
+A separate linked-worktree repeat exposed a narrower cache boundary. The exact
+main commit and both exact submodule commits reused the dependency layer, but
+`COPY .` missed. That attempt was canceled after 47.77 seconds and produced no
+OCI archive. Inspection found worktree-specific nested `.git` pointers, so
+`.dockerignore` now excludes `**/.git` explicitly with a static contract test.
+
+A scratch BuildKit probe after that repair compared the two exact-commit
+contexts. All 1,427 included members had identical content SHA, mode, owner,
+group, size, type, and link target; only checkout mtimes differed, and BuildKit
+therefore emitted distinct source-layer digests. Cross-worktree compile-cache
+reuse is not claimed. The 8.82-second result above is deliberately scoped to
+an identical rebuild in the same unchanged worktree with all WIP safely
+removed during measurement. Timestamp-normalized build contexts remain an
+optional future optimization, not a release-correctness gate.
+
+The measurement exports deliberately used `--provenance=false` so the index
+contained exactly one runnable platform manifest. This does not weaken the
+public release contract: the release workflow must still produce its SBOM,
+maximum-mode provenance, GitHub attestation, installed-product smoke result,
+and immutable digest records. The exact release candidate must reproduce this
+runnable-manifest size gate before promotion.
+
+This closes the local compressed-OCI blocker for both supported
+distributions. Promotion still requires the dedicated-VM Docker/source matrix,
+the full 277-second public demo, publication review for the 50-second fixture
+and candidate source revision, and the attested release-candidate rerun. No
+public artifact was changed.
+
 No image, fixture, map, bag, private log, or geometry-bearing result was added
-to Git or pushed by this pilot. The next release decision must use the
-dedicated-VM evidence rather than promote these local tags directly.
+to Git or pushed by this pilot. Only privacy-bounded OCI descriptor evidence
+was added. The next release decision must use the dedicated-VM evidence rather
+than promote these local archives directly.
 
 ## Reproduce locally
 
@@ -228,6 +307,27 @@ docker buildx build --load --progress=plain \
   --build-arg LIDARSLAM_SOURCE_REVISION=<40-character-commit> \
   --build-arg LIDARSLAM_SOURCE_DIRTY=false \
   -t lidarslam-runtime-pilot:jazzy .
+```
+
+For the compressed gate, export instead of loading, then bind the candidate to
+an immutable baseline identity:
+
+```bash
+docker buildx build --platform=linux/amd64 --provenance=false \
+  --build-arg ROS_DISTRO=<humble-or-jazzy> \
+  --build-arg LIDARSLAM_SOURCE_REVISION=<40-character-commit> \
+  --build-arg LIDARSLAM_SOURCE_DIRTY=false \
+  --output type=oci,dest=candidate.oci.tar,compression=gzip .
+
+python3 scripts/measure_oci_archive.py candidate.oci.tar \
+  --expected-revision <40-character-commit> \
+  --expected-version <version> \
+  --baseline-compressed-bytes <verified-byte-sum> \
+  --baseline-reference <immutable-version-tag> \
+  --baseline-index-digest sha256:<index-digest> \
+  --baseline-manifest-digest sha256:<platform-manifest-digest> \
+  --minimum-reduction-percent 25 \
+  --output candidate-measurement.json
 ```
 
 Use the published full public bag for release proof. If the unpublished
