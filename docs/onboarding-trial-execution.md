@@ -524,6 +524,23 @@ PASS. Exit 1 is useful evidence for a valid but non-comparable attempt; exit 2
 means the record itself violates the schema or semantic contract and must be
 corrected from observation, not guessed.
 
+After all available rows pass their individual validity checks, evaluate the
+fixed matrix as a separate gate:
+
+~~~bash
+python3 scripts/check_onboarding_trial_matrix.py \
+  "$DOCKER_HUMBLE_RECORD" "$DOCKER_JAZZY_RECORD" \
+  "$SOURCE_HUMBLE_RECORD" "$SOURCE_JAZZY_RECORD" \
+  --json --require-activation-gate
+~~~
+
+Missing rows remain `MISSING`; a valid FAIL remains FAIL. The activation gate
+requires all four outcomes to be present plus at least one comparable Docker
+PASS and one comparable source PASS. Use `--require-all-comparable` only for
+the stricter four-row comparison gate. This audit does not authorize filling
+null measurements, publishing a candidate, or bypassing any image-promotion
+gate.
+
 Review the generated JSON once for privacy, then summarize only the bounded
 fields in the [weekly growth scorecard](growth-scorecard.md). Keep raw observer
 material private and outside Git unless a separate evidence review approves it.

@@ -150,3 +150,27 @@ The candidate has not been uploaded or made the default. It is not a
 comparable onboarding row because no cold VM, network, human active-time, or
 isolated peak-disk measurement was taken. The full 277-second gate remains
 unchanged.
+
+## Machine-readable matrix gate update — 2026-08-11
+
+The fixed matrix now has a fail-closed aggregate checker in
+`scripts/check_onboarding_trial_matrix.py`. It first applies the existing
+single-row schema and semantic audit, then requires the exact Docker/source,
+Humble/Jazzy, Ubuntu, architecture, revision-kind, product-version, source
+commit, and full-dataset pairings. Missing rows stay `MISSING`; a valid FAIL is
+not converted into coverage.
+
+Running it against the two tracked machine probes reports:
+
+- matrix status: `INCOMPLETE`;
+- present outcomes: `2 / 4`;
+- product PASS outcomes: `2 / 4`;
+- comparable rows: `0 / 4`;
+- missing rows: source Humble and source Jazzy; and
+- activation gate: `FAIL`.
+
+This is an audit of existing evidence, not a new trial. Both Docker rows still
+lack active operator time, command count, and isolated peak disk. The source
+candidate is still not publicly resolvable, and no branch, image, fixture, or
+release was published to change that state. The next evidence-producing action
+remains a reviewed publication decision followed by fresh dedicated-VM rows.

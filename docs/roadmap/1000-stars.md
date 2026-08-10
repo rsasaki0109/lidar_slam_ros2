@@ -466,6 +466,14 @@ next active G0 implementation is therefore the dedicated Humble/Jazzy
 Docker/source matrix, including confirmation of both repairs, not a public
 image retag.
 
+The matrix decision is now machine-checked rather than inferred from a table.
+The current tracked evidence reports `INCOMPLETE`: two of four outcomes are
+present, both Docker outcomes are product PASS but measurement-incomplete,
+zero rows are comparable, and both source rows are missing. G0 cannot advance
+the activation gate until all four outcomes exist and at least one clean
+Docker row plus one clean source row are comparable. The stricter target
+remains all four rows comparable.
+
 After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the
 project is genuinely easier for a new user than its alternatives.

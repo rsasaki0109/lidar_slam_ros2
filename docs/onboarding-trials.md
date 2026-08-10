@@ -86,6 +86,23 @@ Exit code `0` means comparable, `1` means the JSON is valid but does not meet
 the comparison gate, and `2` means the record violates the contract. Omit
 `--require-comparable` when auditing an expected failure.
 
+After validating each row, audit the fixed four-row matrix without inferring
+missing success:
+
+```bash
+python3 scripts/check_onboarding_trial_matrix.py \
+  docker-humble.json docker-jazzy.json \
+  source-humble.json source-jazzy.json \
+  --json --require-activation-gate
+```
+
+The matrix checker requires the exact x86_64 Ubuntu/ROS pairing, immutable
+revision kind, fixed full MID-360 dataset identity, one shared product version,
+and one shared source commit. It reports `INCOMPLETE` until all four records
+exist. The activation gate needs at least one comparable Docker row and one
+comparable source row; `--require-all-comparable` is the stricter four-row
+gate. Neither result substitutes for the other release gates.
+
 ## Privacy boundary
 
 The record must not contain operator identity, private filesystem paths, exact
