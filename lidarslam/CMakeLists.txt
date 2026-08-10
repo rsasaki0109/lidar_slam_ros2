@@ -216,13 +216,16 @@ if(BUILD_TESTING)
     test_benchmark_summary_profiles
     test_cli_completion
     test_cli_option_contract
+    test_check_fixture_publication
     test_check_onboarding_trial
+    test_check_onboarding_trial_matrix
     test_collect_growth_snapshot
     test_evaluate_degeneracy_trajectory
     test_external_first_map_acceptance
     test_lidarslam_guided
     test_install_upgrade_contract
     test_kitti_metrics
+    test_measure_oci_archive
     test_ndt_omp_release_readiness
     test_package_manager_install
     test_package_manager_release_readiness
