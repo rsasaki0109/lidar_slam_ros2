@@ -1077,6 +1077,11 @@ if(BUILD_TESTING)
     TIMEOUT 60
   )
   ament_add_pytest_test(
+    test_build_mid360_onboarding_fixture
+    test/test_build_mid360_onboarding_fixture.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_lidarslam_product_cli
     test/test_lidarslam_product_cli.py
     TIMEOUT 120

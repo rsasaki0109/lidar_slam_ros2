@@ -16,6 +16,7 @@ The first contract is
 - archive: `rosbag2_2024_04_16-14_17_01.zip`;
 - exact size: `517088133` bytes;
 - MD5: `0836c50859bb1af591966b69da166186`;
+- SHA-256: `f8f89eebf2aaf9cc1d465bfa5451bbb599cd92d079b59949104bb4e5cb619bdd`;
 - bag identity: exact `metadata.yaml` and sqlite3 SHA-256 values in the
   contract;
 - public sensor payload: 2772 PointCloud2 records and 55435 IMU records over

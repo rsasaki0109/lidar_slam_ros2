@@ -57,6 +57,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
     archive = tmp_path / 'sample.zip'
     archive.write_bytes(b'pinned-real-data-fixture')
     archive_md5 = hashlib.md5(archive.read_bytes()).hexdigest()
+    archive_sha256 = hashlib.sha256(archive.read_bytes()).hexdigest()
     storage = {
         'path': 'sample.db3',
         'size_bytes': 123,
@@ -73,6 +74,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
             'filename': archive.name,
             'size_bytes': archive.stat().st_size,
             'md5': archive_md5,
+            'sha256': archive_sha256,
         },
         'input': {
             'metadata_size_bytes': 50,
@@ -239,6 +241,23 @@ def test_validator_rejects_tampered_cached_archive(tmp_path: Path):
     contract, intake, run_dir = _fixture(tmp_path)
     intake_payload = json.loads(intake.read_text(encoding='utf-8'))
     Path(intake_payload['archive_path']).write_bytes(b'tampered')
+
+    report = module.validate(contract, intake, run_dir)
+
+    assert report['status'] == 'FAIL'
+    archive_check = next(
+        row for row in report['checks'] if row['id'] == 'archive_identity'
+    )
+    assert archive_check['status'] == 'FAIL'
+
+
+def test_validator_rejects_contract_without_archive_sha256(tmp_path: Path):
+    """The pinned real-data contract must carry a strong archive digest."""
+    module = _load_module()
+    contract, intake, run_dir = _fixture(tmp_path)
+    contract_payload = json.loads(contract.read_text(encoding='utf-8'))
+    contract_payload['dataset'].pop('sha256')
+    contract.write_text(json.dumps(contract_payload), encoding='utf-8')
 
     report = module.validate(contract, intake, run_dir)
 
