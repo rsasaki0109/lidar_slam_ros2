@@ -38,6 +38,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILE = REPO_ROOT / 'Dockerfile'
+DOCKERIGNORE = REPO_ROOT / '.dockerignore'
 ENTRYPOINT = REPO_ROOT / 'docker' / 'entrypoint.sh'
 RUNTIME_MANIFEST = REPO_ROOT / 'lidarslam' / 'product-runtime-files.txt'
 SCRIPT_DIR = REPO_ROOT / 'scripts'
@@ -110,6 +111,18 @@ def test_builder_dependency_layer_is_keyed_by_package_manifests():
         assert builder.count(copy) == 1
         assert builder.index(copy) < rosdep
     assert rosdep < source_copy < colcon
+
+
+def test_docker_context_excludes_nested_submodule_git_metadata():
+    """Linked-worktree gitdir pointers must not poison the source cache key."""
+    patterns = {
+        line.strip()
+        for line in DOCKERIGNORE.read_text(encoding='utf-8').splitlines()
+        if line.strip() and not line.lstrip().startswith('#')
+    }
+
+    assert '.git' in patterns
+    assert '**/.git' in patterns
 
 
 def test_entrypoint_enables_nounset_after_ros_setup_files():

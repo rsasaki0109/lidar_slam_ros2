@@ -76,6 +76,7 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/check_ros_apt_dependency_readiness.py',
     'scripts/check_published_release.py',
     'scripts/create_release_image_record.py',
+    'scripts/measure_oci_archive.py',
     'scripts/check_external_first_map_readiness.py',
     'scripts/prepare_external_first_map_acceptance.py',
     'scripts/check_ndt_omp_release_readiness.py',
