@@ -12,7 +12,7 @@ The four current publication blockers are:
 
 1. generator commit `0f91452c505e03fc810c79a0b6e602101ffefce7` is not
    resolvable from the public GitHub repository;
-2. reviewed gate commit `e4fab0e8f386237a100b22da87d165df64f9308d` is not
+2. reviewed product commit `eae85479180d5cafb797cf53db03af57a4363067` is not
    publicly resolvable;
 3. the publication host has not been selected; and
 4. no explicit upload authorization has been granted.
@@ -31,7 +31,7 @@ Two clean rebuilds from the exact generator revision completed in 64.44 and
 | Fixture ZIP | 98,873,952 B | `20e5151728522877bff75021a473e91c5ae900448fa9e6977bf88653fa464bd3` |
 | Build manifest | 6,078 B | `60c37f5c7efa7d61ca20f21803fa11b02add4bad047ae99d277e9e6811fbbb6e` |
 | Geometry-free map receipt | 2,006 B | `86d2b5d2aa493cbb6ecc6efd88095a591f247bcea4bc171c68093cf165cc0754` |
-| Publication review | 4,628 B | `9b82d2e2c8fa7b0021c1110bee23ff205070ea40150edca20aea585b635eb920` |
+| Publication review | 4,628 B | `efd7e7b08f1050c89f45a71580a58bd0189b4e1264155826c39caea0c25193a8` |
 | Local gate | 13 / 13 | `LOCAL_ARTIFACT_PASS` |
 | Map route | 7 / 7 | `PASS` |
 
@@ -78,7 +78,7 @@ python3 scripts/check_fixture_publication.py "$FIXTURE_ZIP" \
   --expected-map-receipt-sha256 86d2b5d2aa493cbb6ecc6efd88095a591f247bcea4bc171c68093cf165cc0754 \
   --review-id mid360-onboarding-50s-v1-2026-08-11 \
   --reviewed-on 2026-08-11 \
-  --review-revision e4fab0e8f386237a100b22da87d165df64f9308d \
+  --review-revision eae85479180d5cafb797cf53db03af57a4363067 \
   --generator-revision-remote-status UNRESOLVABLE \
   --review-revision-remote-status UNRESOLVABLE \
   --clean-rebuilds 2 \
@@ -133,8 +133,10 @@ or onboarding documentation changes.
 4. Create a draft, upload only the exact verified packet, publish it, and
    record the immutable record/release ID, URL, remote digest, and downloaded
    SHA-256 in a separate publication audit.
-5. Add checksum-pinned resumable acquisition with the full public route as a
-   fallback; do not silently replace the full proof gate.
+5. Register the audited remote URL in the now
+   [checksum-pinned resumable acquisition path](public-dataset-acquisition-hardening-2026-08-11.md),
+   with the full public route as a fallback; do not silently replace the full
+   proof gate.
 6. Run the four cold Humble/Jazzy Docker/source VM rows from the publicly
    resolvable reviewed revision before changing an image tag or broadening
    promotion.

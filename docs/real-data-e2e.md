@@ -22,9 +22,11 @@ The first contract is
 - public sensor payload: 2772 PointCloud2 records and 55435 IMU records over
   277.16683667 seconds.
 
-The cache key includes the archive size and MD5. A restored cache is still
-hashed by the intake and again by the E2E validator, so a corrupt or replaced
-archive fails closed.
+The registry and intake pin the archive size, SHA-256, and legacy MD5. The
+cache key still includes size and MD5 for compatibility, but a restored cache
+is re-hashed with SHA-256 by the intake and again checked by the E2E validator,
+so a corrupt or replaced archive fails closed. Interrupted network transfers
+remain under `.part` and resume only after an exact HTTP `Content-Range` check.
 
 The Zenodo record declares the dataset under Creative Commons Attribution 4.0
 International. The workflow downloads from the publisher for validation and

@@ -228,6 +228,13 @@ work and document the actual support boundary instead of hiding the delay.
   now reports 13/13 `LOCAL_ARTIFACT_PASS` checks and a four-item
   `AWAITING_PUBLICATION_DECISION`: two revisions are not publicly resolvable,
   the host is unset, and upload is not authorized.
+- The installed
+  [public-data acquisition path](../evidence/onboarding/public-dataset-acquisition-hardening-2026-08-11.md)
+  now pins size and SHA-256, validates HTTP Range before resume, safely
+  restarts Range-ignoring servers, re-hashes cache hits, and transactionally
+  extracts preflighted ZIP members. The full 517,088,133-byte source passed a
+  read-only identity and member audit. The unpublished fixture has no registry
+  URL yet.
 - The [runtime-image slimming pilot](../evidence/onboarding/runtime-image-slimming-2026-08-11.md)
   reduced Docker's local image-size measurement by 53.6409% on Humble and
   59.6698% on Jazzy while retaining the source-free installed CLI and

@@ -186,8 +186,9 @@ upload or for changing the default demo. Promotion remains gated on:
    publication review;
 2. hosting the geometry-bearing ZIP outside Git with the exact manifest and
    checksum;
-3. resumable, checksum-pinned acquisition and a tested fallback to the full
-   proof route;
+3. activation of the reviewed public URL through the tested
+   [resumable, checksum-pinned acquisition path](public-dataset-acquisition-hardening-2026-08-11.md),
+   retaining the full proof route as fallback;
 4. clean dedicated-VM Humble/Jazzy Docker and source trials with cold RX, wall
    time, active time, command count, and isolated peak disk;
 5. the external first-map cohort; and
