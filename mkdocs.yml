@@ -61,6 +61,7 @@ nav:
   - DDS / Large-Message Tuning: dds-tuning.md
   - Comparison: comparison.md
   - Roadmaps:
+      - 1,000 Stars: roadmap/1000-stars.md
       - v0.9 Product Foundation: roadmap/v0.9.md
   - Social:
       - v0.2.2 Post Kit: social/autoware_map_authoring_post_v0.2.2.md

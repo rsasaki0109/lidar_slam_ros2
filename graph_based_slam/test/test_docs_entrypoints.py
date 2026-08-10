@@ -496,6 +496,10 @@ def test_generated_output_artifacts_are_local_only():
     benchmarking_doc = BENCHMARKING_DOC.read_text(encoding='utf-8')
 
     assert 'output/' in gitignore
+    assert '/build-*/' in gitignore
+    assert '/install-*/' in gitignore
+    assert '/log-*/' in gitignore
+    assert '/symlink_install_manifest.txt' in gitignore
     assert 'benchmark_summary.md' in benchmarking_doc
     assert 'latest_report.html' in benchmarking_doc
 
