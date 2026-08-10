@@ -101,6 +101,52 @@ def test_package_owners_retries_resolved_merged_usr_path(tmp_path):
     ]
 
 
+def test_package_owners_retries_verified_reverse_merged_usr_alias(
+    tmp_path, monkeypatch
+):
+    """Legacy dpkg paths are tried only for a verified merged-/usr pair."""
+    usr_bin = tmp_path / 'usr-bin'
+    usr_bin.mkdir()
+    executable = usr_bin / 'bash'
+    executable.write_bytes(b'fixture')
+    legacy_bin = tmp_path / 'bin'
+    legacy_bin.symlink_to(usr_bin, target_is_directory=True)
+    monkeypatch.setattr(
+        COLLECTOR,
+        'MERGED_USR_DIRECTORY_PAIRS',
+        ((legacy_bin, usr_bin),),
+    )
+    calls = []
+
+    def runner(arguments):
+        calls.append(tuple(arguments))
+        if arguments[-1] == str(legacy_bin / 'bash'):
+            return _result(stdout='bash: ' + str(legacy_bin / 'bash') + '\n')
+        return _result(returncode=1, stderr='not owned')
+
+    assert COLLECTOR.package_owners(executable, runner) == {'bash'}
+    assert calls == [
+        ('dpkg-query', '-S', str(executable)),
+        ('dpkg-query', '-S', str(legacy_bin / 'bash')),
+    ]
+
+
+def test_reverse_merged_usr_alias_requires_same_resolved_directory(tmp_path):
+    """Unrelated legacy and /usr roots cannot create owner candidates."""
+    usr_bin = tmp_path / 'usr-bin'
+    usr_bin.mkdir()
+    executable = usr_bin / 'bash'
+    executable.write_bytes(b'fixture')
+    unrelated_bin = tmp_path / 'unrelated-bin'
+    unrelated_bin.mkdir()
+    (unrelated_bin / 'bash').write_bytes(b'other')
+
+    assert COLLECTOR.owner_path_candidates(
+        executable,
+        ((unrelated_bin, usr_bin),),
+    ) == [executable]
+
+
 def test_linked_libraries_rejects_unexpected_ldd_failure(tmp_path):
     """Unexpected ldd errors cannot be mistaken for static executables."""
     binary = tmp_path / 'binary'

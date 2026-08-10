@@ -106,6 +106,12 @@ DEFAULT_PACKAGES = (
     'ca-certificates',
     'time',
 )
+MERGED_USR_DIRECTORY_PAIRS = (
+    (Path('/bin'), Path('/usr/bin')),
+    (Path('/sbin'), Path('/usr/sbin')),
+    (Path('/lib'), Path('/usr/lib')),
+    (Path('/lib64'), Path('/usr/lib64')),
+)
 
 
 class RuntimePackageError(RuntimeError):
@@ -227,19 +233,60 @@ def parse_owner_output(output: str) -> set[str]:
     return packages
 
 
+def owner_path_candidates(
+    path: Path,
+    directory_pairs: Iterable[tuple[Path, Path]] | None = None,
+) -> list[Path]:
+    """Return package-query paths, including verified merged-/usr aliases."""
+    candidates: list[Path] = []
+
+    def add(candidate: Path) -> None:
+        if candidate not in candidates:
+            candidates.append(candidate)
+
+    add(path)
+    try:
+        add(path.resolve(strict=True))
+    except OSError:
+        pass
+
+    pairs = (
+        MERGED_USR_DIRECTORY_PAIRS
+        if directory_pairs is None
+        else directory_pairs
+    )
+    for legacy_root, usr_root in pairs:
+        try:
+            legacy_resolved = legacy_root.resolve(strict=True)
+            usr_resolved = usr_root.resolve(strict=True)
+            if legacy_resolved != usr_resolved:
+                continue
+        except OSError:
+            continue
+        for candidate in tuple(candidates):
+            try:
+                relative = candidate.relative_to(usr_root)
+            except ValueError:
+                continue
+            legacy_candidate = legacy_root / relative
+            try:
+                if (
+                    legacy_candidate.resolve(strict=True)
+                    != candidate.resolve(strict=True)
+                ):
+                    continue
+            except OSError:
+                continue
+            add(legacy_candidate)
+    return candidates
+
+
 def package_owners(
     path: Path,
     runner: Callable[[Sequence[str]], subprocess.CompletedProcess[str]] = _run,
 ) -> set[str]:
     """Return dpkg owners for a path, including merged-/usr aliases."""
-    candidates = [path]
-    try:
-        resolved = path.resolve(strict=True)
-    except OSError:
-        resolved = path
-    if resolved != path:
-        candidates.append(resolved)
-    for candidate in candidates:
+    for candidate in owner_path_candidates(path):
         result = runner(('dpkg-query', '-S', str(candidate)))
         if result.returncode == 0:
             packages = parse_owner_output(result.stdout)
