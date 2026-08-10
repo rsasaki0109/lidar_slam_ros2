@@ -221,6 +221,7 @@ if(BUILD_TESTING)
     test_release_channel
     test_rko_lio_graph_benchmark_script
     test_ros_apt_dependency_readiness
+    test_run_docker_onboarding_probe
     test_simple_lanelet2_generator
     test_v1_readiness
     test_view_autoware_map

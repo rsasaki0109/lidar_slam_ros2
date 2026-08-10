@@ -34,6 +34,7 @@ inventory of tracked onboarding evidence against the
 | v0.9.0 primary-bundle downloads | 8 | Some release acquisition occurred; intent and success are unknown. |
 | Accepted independent first maps | 0 / 3 | The activation and remaining v1 adoption gate is empty. |
 | Comparable clean onboarding trials | 0 / 4 | No current Docker/source row can yet be used as a UX baseline. |
+| Measured current matrix outcomes | 2 / 4 | Humble and Jazzy Docker are product `PASS`, measurement `INCOMPLETE`. |
 | v1 readiness | 8 / 10 | Distribution and external adoption remain incomplete. |
 | External PRs, trailing 90 days | 1 | The contributor loop is not yet self-sustaining. |
 | External merged contributors, trailing 180 days | 0 | No recent external maintainer-independent proof loop. |
@@ -102,3 +103,35 @@ This is a product repair, not trial evidence. Comparable coverage remains
 `0 / 4` until clean Humble/Jazzy Docker/source attempts are measured with the
 onboarding contract. CI and stubbed regression tests cannot promote a row to
 PASS.
+
+## First measured execution update
+
+The [2026-08-10 Docker machine probes](../onboarding/docker-machine-probes-2026-08-10.md)
+replaced two unknown rows with measured outcomes:
+
+| Row | Product outcome | Measurement status | Wall time | Workflow RX | Undocumented steps |
+| --- | --- | --- | ---: | ---: | ---: |
+| Docker Humble | `PASS` | `INCOMPLETE` | 1,440.865 s | 1,770,636,344 B | 0 |
+| Docker Jazzy | `PASS` | `INCOMPLETE` | 1,140.525 s | 1,906,809,522 B | 0 |
+
+Both rows reached the manifest, diagnosis, Autoware-verifier, and receipt
+`PASS` gates with the exact v0.9.0 image digest and fixed 517,088,133-byte
+input. They remain non-comparable because a container on the shared host did
+not provide an isolated peak-disk scope, and the automation did not observe a
+human active-time stopwatch or human-submitted commands. Those three values
+are `null`, not estimates; the helper's internal Docker invocation does not
+count as an operator command under the trial contract.
+
+This removes an unknown Docker-product defect from the top of the blocker
+list. The immediate four-row-matrix blocker is now publication of the reviewed
+source candidate: GitHub cannot yet resolve commit
+`74fe625ab2ee1dc9a0d55ce69bd705d22bac5d76`, so clean source trials would be
+preflight failures. Publication requires a separate review/push decision; a
+local-path clone would invalidate the evidence.
+
+The largest observed Docker activation cost is different: cold first success
+took 19–24 minutes and received 1.77–1.91 GB. The next product experiment
+should evaluate a smaller onboarding fixture without weakening or replacing
+the full MID-360 proof route. Broad promotion remains paused until at least one
+Docker and one source row become comparable and the independent-user cohort
+has started.

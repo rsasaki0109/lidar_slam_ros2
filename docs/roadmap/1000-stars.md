@@ -216,6 +216,10 @@ work and document the actual support boundary instead of hiding the delay.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.
+- The first [Docker machine probes](../evidence/onboarding/docker-machine-probes-2026-08-10.md)
+  measured 19–24 minute cold paths and 1.77–1.91 GB of workflow RX on Humble
+  and Jazzy. Both product routes passed; the smaller-fixture experiment is now
+  activated, while the full MID-360 route remains the proof path.
 - Add tested sensor recipes for the most requested families, starting from
   issue evidence rather than an unbounded compatibility matrix.
 - Make the final success output show the map path, verifier result, viewer path,

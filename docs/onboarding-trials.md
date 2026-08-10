@@ -10,6 +10,12 @@ the landing page or promoting a release. Never reconstruct a missing value
 from memory. Store it as `null`; the checker will retain the valid record but
 mark its measurements `INCOMPLETE`.
 
+Current bounded evidence is summarized in the
+[2026-08-10 Docker machine probes](evidence/onboarding/docker-machine-probes-2026-08-10.md).
+Both supported Docker rows produced a product `PASS`, but neither is a
+comparable baseline because the maintainer container-host method did not
+observe active human time, human-submitted commands, or isolated peak disk.
+
 ## Fixed G0 trial matrix
 
 | Trial | Clean starting point | Canonical documentation | Fixed input |

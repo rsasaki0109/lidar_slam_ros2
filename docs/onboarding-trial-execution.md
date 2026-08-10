@@ -76,6 +76,53 @@ acceptable for the source rows if its trial filesystem is isolated.
   named disposable trial root after the private evidence has been archived, or
   may destroy the disposable VM.
 
+### Maintainer container-host probe (non-comparable)
+
+The repository includes `docker/onboarding-trial-host.Dockerfile` and
+`scripts/run_docker_onboarding_probe.py` for a bounded machine probe when a
+dedicated VM is not yet available. This mode is useful for replacing an
+unknown Docker product outcome with an honest `PASS` or `FAIL`; it cannot
+produce a comparable baseline on a shared host.
+
+Invoke this reviewed observer helper from the product checkout, but keep the
+bounded record and every reported trial/observer root outside the checkout.
+The operator path itself still runs only in the disposable nested host.
+
+The observer image contains Ubuntu, Docker, and network inspection tools only.
+Build it before timing, using 22.04 for Humble or 24.04 for Jazzy:
+
+~~~bash
+docker build --pull=false \
+  -f docker/onboarding-trial-host.Dockerfile \
+  --build-arg UBUNTU_VERSION=22.04 \
+  -t lidarslam-onboarding-trial-host:22.04 docker
+~~~
+
+The probe starts a fresh nested daemon with a unique data root, `rprivate`
+binds, and a dedicated network namespace. It never mounts the host Docker
+socket. It refuses to start unless the nested daemon reports `overlay2`,
+`/var/lib/docker`, zero images, and zero containers. The actual project image
+is pulled only after the timer and RX counter start.
+
+This instrumentation uses a privileged container. Prefer to run it inside a
+disposable VM, never on an untrusted multi-user host, and never add a broad
+host mount. The CLI therefore requires the explicit
+`--allow-privileged-container-host` acknowledgement. On a shared host, record
+`active_operator_time_sec`, `command_count`, and `peak_disk_bytes` as `null`:
+automation did not observe a human stopwatch or human command submission, and
+`df` would include unrelated filesystem activity. The helper's internal
+Docker invocation is not an operator-submitted command under the contract. A
+successful product route remains `PASS`, while the checker correctly reports
+measurement `INCOMPLETE` and non-comparable.
+
+The script removes only its named nested-host container. It retains its unique
+trial root, private log root, and bounded record for review. Archive and
+validate the record first. Cleanup may then remove only the exact reported
+trial root; private logs contain paths and exact internal commands and must not
+be copied into Git. See the
+[first measured Docker probes](evidence/onboarding/docker-machine-probes-2026-08-10.md)
+for the resulting v0.9.0 evidence.
+
 The operator sees only the canonical documentation and the observer-approved
 identity substitution. The observer starts and stops timers, records the
 operator's submitted commands without interpreting them, and does not suggest

@@ -29,6 +29,15 @@ Its first product decision is the
 measure and repair the clean Docker/source first-map matrix before expanding
 promotion.
 
+The first execution addendum is the
+[2026-08-10 Docker machine-probe summary](evidence/onboarding/docker-machine-probes-2026-08-10.md).
+Humble and Jazzy both reached a canonical-route product `PASS`; both remain
+measurement `INCOMPLETE` because active operator time, human command count,
+and isolated peak disk were deliberately left `null`. This changes measured
+matrix coverage from `0 / 4` to `2 / 4`, but comparable coverage remains
+`0 / 4`. The weekly GitHub snapshot is not overwritten to insert later trial
+observations.
+
 The collector fails closed if authentication is unavailable, an API response
 is malformed, pagination would be incomplete, the local first-map ledger is
 invalid, or the v1 readiness audit cannot be trusted. Its output is validated
