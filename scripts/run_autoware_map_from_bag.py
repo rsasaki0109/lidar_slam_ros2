@@ -806,11 +806,48 @@ def _validate_resume_state(
     return run_dir, manifest
 
 
+def _normalize_ros_log_latest(working_dir: Path) -> None:
+    """Keep ROS's transaction-local ``latest`` link valid after rename."""
+    log_dir = working_dir / '.ros_log'
+    latest = log_dir / 'latest'
+    if log_dir.is_symlink() or not latest.is_symlink():
+        return
+
+    target = Path(os.readlink(latest))
+    if not target.is_absolute():
+        return
+
+    normalized_log_dir = Path(os.path.normpath(str(log_dir)))
+    normalized_target = Path(os.path.normpath(str(target)))
+    try:
+        relative_target = normalized_target.relative_to(normalized_log_dir)
+    except ValueError:
+        return
+
+    rebased_target = log_dir / relative_target
+    if not rebased_target.exists():
+        latest.unlink()
+        return
+
+    portable_target = os.path.relpath(rebased_target, start=log_dir)
+    temporary = latest.with_name(f'.latest.{uuid.uuid4().hex}.tmp')
+    try:
+        temporary.symlink_to(
+            portable_target,
+            target_is_directory=rebased_target.is_dir(),
+        )
+        os.replace(temporary, latest)
+    except OSError:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
 def _finalize_output(working_dir: Path, final_dir: Path) -> None:
     if final_dir.exists():
         raise RuntimeError(
             f'output collision detected before finalization: {final_dir}'
         )
+    _normalize_ros_log_latest(working_dir)
     os.replace(working_dir, final_dir)
 
 

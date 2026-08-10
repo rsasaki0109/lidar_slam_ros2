@@ -596,6 +596,64 @@ def test_manifest_helpers_capture_identity_and_finalize_atomically(tmp_path: Pat
     assert not working_dir.exists()
 
 
+def test_finalize_rewrites_transaction_local_ros_latest_link(tmp_path: Path):
+    """Finalization makes ROS's absolute transaction link portable."""
+    module = _load_module()
+    working_dir = tmp_path / 'map_output.partial'
+    final_dir = tmp_path / 'map_output'
+    session_dir = working_dir / '.ros_log' / 'session-1'
+    session_dir.mkdir(parents=True)
+    latest = working_dir / '.ros_log' / 'latest'
+    latest.symlink_to(session_dir, target_is_directory=True)
+
+    module._finalize_output(working_dir, final_dir)
+
+    finalized_latest = final_dir / '.ros_log' / 'latest'
+    assert finalized_latest.is_symlink()
+    assert os.readlink(finalized_latest) == 'session-1'
+    assert finalized_latest.resolve() == final_dir / '.ros_log' / 'session-1'
+    assert not working_dir.exists()
+
+
+def test_finalize_removes_dangling_transaction_local_ros_latest_link(
+    tmp_path: Path,
+):
+    """Finalization removes a dangling transaction-local ROS link."""
+    module = _load_module()
+    working_dir = tmp_path / 'map_output.partial'
+    final_dir = tmp_path / 'map_output'
+    log_dir = working_dir / '.ros_log'
+    log_dir.mkdir(parents=True)
+    latest = log_dir / 'latest'
+    latest.symlink_to(log_dir / 'missing-session', target_is_directory=True)
+
+    module._finalize_output(working_dir, final_dir)
+
+    finalized_latest = final_dir / '.ros_log' / 'latest'
+    assert not finalized_latest.exists()
+    assert not finalized_latest.is_symlink()
+
+
+def test_finalize_preserves_external_ros_latest_link(tmp_path: Path):
+    """Finalization does not rewrite a deliberately external ROS link."""
+    module = _load_module()
+    working_dir = tmp_path / 'map_output.partial'
+    final_dir = tmp_path / 'map_output'
+    external_session = tmp_path / 'external-session'
+    external_session.mkdir()
+    log_dir = working_dir / '.ros_log'
+    log_dir.mkdir(parents=True)
+    latest = log_dir / 'latest'
+    latest.symlink_to(external_session, target_is_directory=True)
+
+    module._finalize_output(working_dir, final_dir)
+
+    finalized_latest = final_dir / '.ros_log' / 'latest'
+    assert finalized_latest.is_symlink()
+    assert Path(os.readlink(finalized_latest)) == external_session
+    assert finalized_latest.resolve() == external_session
+
+
 def test_manifest_rejects_storage_path_outside_bag(tmp_path: Path):
     module = _load_module()
     bag_dir = tmp_path / 'bag'
