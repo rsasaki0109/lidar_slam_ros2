@@ -320,6 +320,40 @@ control progression.
 If the March stretch target is reached, do not skip G3 quality work. Move
 directly into the sustainability review.
 
+### Long-range dependency map
+
+The phases are not independent feature buckets. The durable path to 1,000
+Stars has one evidence-gated dependency chain:
+
+```text
+smaller runtime image + bounded onboarding fixture
+  -> comparable Humble/Jazzy Docker and source trials
+  -> public validator cohort + package-manager proof
+  -> v1.0 readiness 10 / 10
+  -> canonical proof launch
+  -> maintained sensor and contributor ecosystem
+  -> 1,000-Star milestone + 90-day sustainability audit
+```
+
+Issue triage, weekly aggregate measurement, release maintenance, and bounded
+research run beside this chain rather than after it. An external rosdistro
+delay must not stop onboarding repair or validator preparation. Conversely, a
+research result, traffic spike, or early Star checkpoint cannot bypass a
+failed activation, distribution, or adoption gate.
+
+| Horizon | Product and trust | Adoption and community | Distribution and communication | Outcome checkpoint |
+| --- | --- | --- | --- | --- |
+| 2026 Aug–Sep — G0 | reduce and measure the cold first-map path; preserve full-gate parity | triage the backlog and prepare bounded validator tasks | establish comparable Humble/Jazzy Docker/source evidence | reviewable product line and 860-Star forecast checkpoint |
+| 2026 Oct–Nov — G1 | close the 10/10 v1 audit from real package and first-map evidence | accept three independent first maps; keep five to ten bounded contribution tasks | finish package-manager proof and prepare the canonical v1 landing path | verified activation and 900-Star forecast checkpoint |
+| 2026 Dec–2027 Feb — G2 | publish a current stable v1 release and reproducible UX/benchmark scorecard | retain at least two recent external contributors and publish reusable user findings | release one short English demo and Japanese companion through relevant channels | proof-led launch and 950-Star base checkpoint; 1,000 stretch only if quality gates already pass |
+| 2027 Mar–Jun — G3 | maintain release freshness, claim evidence, and supported sensor recipes | reach ten cumulative first maps and five recent external contributors | grow durable Autoware/ROS task pages and qualified referrals | 1,000 Stars in two weekly snapshots, with all completion conditions still passing |
+| 2027 Jul–Sep — G4 | prevent activation, reliability, and upgrade regressions | verify that support and review load remain maintainable | publish a 90-day health review instead of immediately expanding scope | sustain at least 1,000 Stars and a healthy project for 90 days |
+
+Every six weeks, select the largest measured constraint in the discovery-to-
+first-map-to-contribution funnel. Start no more than one product/release slice,
+one community slice, and one bounded research slice at once. If the calendar
+and a quality gate conflict, revise the forecast rather than the gate.
+
 ## 8. First 90 days
 
 ### Sprint 1 — separate what can safely ship (weeks 1–2)
@@ -411,6 +445,14 @@ The
 selects the missing clean Docker/source onboarding baseline as the first
 measured blocker. Broad promotion remains behind the four-row trial and repair
 gate.
+
+The immediate bounded G0 implementation is a local-only multi-stage runtime
+image pilot. Its precommitted gate is at least a 25% reduction from the
+published image's compressed runtime-layer size while retaining the installed
+CLI, Docker default-demo behavior, verifier result, run receipt, and full-demo
+contract. The pilot is not pushed or promoted before both distro smoke checks
+and the clean comparable-VM evidence. The smaller fixture remains a separate
+intervention, so its transfer reduction cannot be misattributed to the image.
 
 After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the
