@@ -1,7 +1,9 @@
 # Autoware Quickstart
 
-This is the shortest supported path from `lidarslam_ros2` to an Autoware
-pointcloud map shown in `rviz2`.
+This is the advanced viewer/dogfood compatibility path from `lidarslam_ros2` to
+an Autoware pointcloud map shown in `rviz2`. For the beginner first-map result,
+use the fixed, headless [Getting Started](getting-started.md#2-run-the-fixed-first-map-demo)
+command; Docker and source use the same MID-360 dataset and output contract.
 
 If you want the product-level overview first, see
 [Autoware-Compatible Map Authoring](autoware-map-authoring.md).
@@ -33,7 +35,7 @@ For Livox/MID360-style bags, this runner automatically switches to the tracked
 MID360 preset and writes `verify_autoware_map.log` plus a diagnosis report into
 the output directory.
 
-The fixed public entrypoint for this flow is:
+The advanced public entrypoint for this viewer/dogfood flow is:
 
 ```bash
 bash scripts/run_autoware_quickstart.sh
@@ -66,9 +68,9 @@ bash scripts/run_default_ci_checks.sh
 
 ## Fastest Paths
 
-### 1. Run the fixed public quickstart
+### 1. Run the advanced fixed public quickstart
 
-If you want the shortest end-to-end supported path:
+If you need the legacy Autoware viewer/dogfood route:
 
 ```bash
 bash scripts/download_ntu_viral_tnp01.sh

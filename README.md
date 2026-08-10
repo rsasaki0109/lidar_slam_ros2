@@ -84,15 +84,17 @@ source install/setup.bash
 
 If you cloned without `--recursive`: `git -C src/lidar_slam_ros2 submodule update --init --recursive`.
 
-Then run one public dataset end to end — NTU VIRAL `tnp_01` (~580 s outdoor bag)
-through RKO-LIO + graph_based_slam into an Autoware-loadable map:
+Then run the same fixed first-map demo used by Docker. It uses the public
+Livox MID-360 bag (517 MB), the maintained MID-360 profile, and the complete
+manifest/verifier/diagnosis/receipt output contract:
 
 ```bash
 cd src/lidar_slam_ros2
-bash scripts/download_ntu_viral_tnp01.sh
-bash scripts/run_autoware_quickstart.sh
-python3 scripts/verify_autoware_map.py output/.../pointcloud_map
+bash scripts/run_first_map_demo.sh
 ```
+
+The advanced `run_autoware_quickstart.sh` viewer/dogfood route remains available
+for compatibility; it is not required for the beginner first-map path.
 
 ## Use your own bag
 

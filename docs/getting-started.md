@@ -11,7 +11,7 @@ to a working map.
 | A bag and want an explanation before a long run | `lidarslam-map run /path/to/rosbag2 --guided` |
 | A rosbag2 directory and a built workspace | `lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"` |
 | A bag, but you are not sure which topics it has | `lidarslam-map doctor /path/to/rosbag2` |
-| You want the fixed public demo dataset | `bash scripts/download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh` |
+| You want the fixed public first-map demo | `bash scripts/run_first_map_demo.sh` |
 
 ## Docker First Map (No ROS 2 Workspace)
 
@@ -30,6 +30,13 @@ byte, percentage and transfer-rate updates. The map is written to
 container return the output directory to your user even if the run fails.
 Omit them on platforms where Docker already maps bind-mount ownership.
 
+The Docker image invokes the same `scripts/run_first_map_demo.sh` implementation
+used by a sourced source workspace. Both paths use the fixed MID-360 dataset,
+the `rko_lio_graph_mid360_preset`, and the same manifest, verifier, diagnosis,
+and first-map receipt artifacts.
+On Ubuntu 24.04, replace `:humble` with `:jazzy`; the entrypoint and first-map
+contract are unchanged.
+
 ## 1. Build The Workspace
 
 ```bash
@@ -47,7 +54,23 @@ If the repository was cloned without submodules:
 git -C src/lidar_slam_ros2 submodule update --init --recursive
 ```
 
-## 2. Run Your First Bag
+## 2. Run the Fixed First-Map Demo
+
+After the build and `source install/setup.bash`, run one command from the
+repository root:
+
+```bash
+cd ~/ros2_ws/src/lidar_slam_ros2
+bash scripts/run_first_map_demo.sh
+```
+
+This downloads the same fixed 517 MB MID-360 bag used by Docker and writes
+`output/mid360_demo/`. The command calls `lidarslam-map run` with
+`rko_lio_graph_mid360_preset` and prints the paths of the versioned manifest,
+verifier log, diagnosis, and privacy-bounded first-map receipt. The source and
+Docker first-map paths therefore have one fixed dataset and one output contract.
+
+## 3. Run Your Own Bag
 
 For a human-operated first run, use the guided path. It checks the bag first,
 shows the detected LiDAR/IMU topics, the selected preset, the output location,
@@ -72,7 +95,7 @@ lidarslam-map run /path/to/rosbag2 \
 The dry run prints the selected public workflow before anything starts. The real
 run writes the map under `output/` by default.
 
-## 3. Check The Result
+## 4. Check The Result
 
 Successful runs should leave these files:
 
@@ -80,7 +103,10 @@ Successful runs should leave these files:
 - `pointcloud_map/pointcloud_map_metadata.yaml`
 - `map_projector_info.yaml`
 - `verify_autoware_map.log`
+- `run_manifest.json`
+- `autoware_map_diagnosis.json`
 - `autoware_map_diagnosis.md`
+- `first_map_validation_receipt.json`
 - `first_map_validation_receipt.md`
 
 The first-map receipt contains a copy-ready verification summary without map

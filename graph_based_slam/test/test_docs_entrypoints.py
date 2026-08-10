@@ -326,6 +326,8 @@ def test_docs_reference_existing_entrypoint_scripts():
     scripts = [
         PUBLIC_AUTOWARE_ENTRYPOINT,
         REPO_ROOT / 'scripts' / 'download_ntu_viral_tnp01.sh',
+        REPO_ROOT / 'scripts' / 'run_first_map_demo.sh',
+        REPO_ROOT / 'scripts' / 'run_docker_demo.sh',
         REPO_ROOT / 'scripts' / 'run_default_ci_checks.sh',
         REPO_ROOT / 'scripts' / 'run_rko_lio_graph_autoware_dogfood.sh',
         REPO_ROOT / 'scripts' / 'run_graph_slam_pointcloud_map_in_autoware.sh',
@@ -457,10 +459,19 @@ def test_product_contract_has_bounded_official_surface():
     assert '## Official entrypoints' in contract
     assert contract.count('| Try the fixed public demo') == 1
     assert contract.count('| Map your own compatible rosbag2') == 1
-    assert contract.count('| Reproduce the fixed source-workspace quickstart') == 1
+    assert contract.count(
+        '| Run the fixed public demo from a sourced source workspace'
+    ) == 1
     assert 'lidarslam-map run <rosbag2_dir> --output-dir <dir>' in contract
     assert 'ros2 run lidarslam lidarslam-cli' in contract
-    assert 'download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh' in contract
+    assert (
+        'source install/setup.bash && '
+        'bash src/lidar_slam_ros2/scripts/run_first_map_demo.sh' in contract
+    )
+    assert (
+        '`run_autoware_quickstart.sh` remains an advanced viewer/dogfood '
+        'compatibility' in contract
+    )
     assert 'Other scripts and ROS' in contract
     assert '`run_manifest.json`' in contract
     assert '`<output>.partial`' in golden_path
@@ -681,6 +692,9 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'lidarslam-map doctor' in getting_started_doc
     assert 'lidarslam-map run' in getting_started_doc
     assert 'lidarslam-map inspect' in getting_started_doc
+    assert 'bash scripts/run_first_map_demo.sh' in getting_started_doc
+    assert 'rko_lio_graph_mid360_preset' in getting_started_doc
+    assert 'first_map_validation_receipt.json' in getting_started_doc
     assert 'LIDARSLAM_HOST_UID' in getting_started_doc
     assert 'LIDARSLAM_HOST_GID' in getting_started_doc
     assert 'periodic' in getting_started_doc

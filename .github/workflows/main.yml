@@ -63,6 +63,7 @@ jobs:
           bash -n scripts/run_default_ci_checks.sh
           bash -n scripts/run_release_readiness_checks.sh
           bash -n scripts/run_rko_lio_graph_autoware_dogfood.sh
+          bash -n scripts/run_first_map_demo.sh
           bash -n scripts/run_docker_demo.sh
           bash -n docker/entrypoint.sh
           bash -n scripts/run_graph_slam_pointcloud_map_in_autoware.sh

@@ -9,6 +9,7 @@ on:
       - Dockerfile
       - .dockerignore
       - docker/**
+      - scripts/run_first_map_demo.sh
       - scripts/run_docker_demo.sh
       - .github/workflows/docker.yml
       - .github/workflows/release.yml

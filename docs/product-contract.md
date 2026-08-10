@@ -52,7 +52,7 @@ launch files are advanced, benchmark, migration, or research interfaces.
 | --- | --- | --- |
 | Try the fixed public demo without a ROS workspace | [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) | Downloads the tracked MID-360 demo with progress and writes a user-owned headless map bundle |
 | Map your own compatible rosbag2 | `lidarslam-map run <rosbag2_dir> --guided` for people; `lidarslam-map run <rosbag2_dir> --output-dir <dir>` for automation | Preflights the bag, selects the same maintained profile, runs headless, verifies and diagnoses the output; guided mode adds explanation and confirmation only |
-| Reproduce the fixed source-workspace quickstart | `bash scripts/download_ntu_viral_tnp01.sh && bash scripts/run_autoware_quickstart.sh` | Runs the tracked NTU VIRAL path and opens the bounded viewer flow |
+| Run the fixed public demo from a sourced source workspace | `source install/setup.bash && bash src/lidar_slam_ros2/scripts/run_first_map_demo.sh` | Uses the same tracked MID-360 dataset, maintained profile, and manifest/verifier/diagnosis/receipt contract as Docker |
 
 For automation, use an explicit `--output-dir`; run `lidarslam-map doctor`
 before a long run. The repo-local `./scripts/lidarslam` wrapper and installed
@@ -63,6 +63,10 @@ not add beginner workflows. Installation details are in
 The `run --guided` mode is the recommended human path: it keeps the exact command
 and profile selection visible before execution. Add `--yes` for a non-terminal
 launcher, or use `run` directly when a script must remain non-interactive.
+
+`run_autoware_quickstart.sh` remains an advanced viewer/dogfood compatibility
+route for the older NTU VIRAL and Autoware runtime flow. It is intentionally
+separate from the fixed first-map path above.
 
 After a successful run, `lidarslam-map view <output_dir>` can open the
 completed output in Autoware or Foxglove. Viewing is optional post-processing,
