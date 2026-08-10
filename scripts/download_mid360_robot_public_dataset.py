@@ -55,9 +55,23 @@ def parse_args() -> argparse.Namespace:
         help='Output directory for the generated recording check command.',
     )
     parser.add_argument('--dry-run', action='store_true', help='Write a plan without downloading.')
-    parser.add_argument('--force', action='store_true', help='Overwrite existing archive/extract dir.')
+    parser.add_argument(
+        '--force',
+        action='store_true',
+        help=(
+            'Restart partial work and atomically replace an existing '
+            'archive/extract directory.'
+        ),
+    )
     parser.add_argument('--no-extract', action='store_true', help='Download only; do not extract zip.')
-    parser.add_argument('--skip-md5', action='store_true', help='Skip MD5 verification.')
+    parser.add_argument(
+        '--skip-md5',
+        action='store_true',
+        help=(
+            'Skip legacy MD5 verification; registered SHA-256 and size '
+            'checks remain mandatory.'
+        ),
+    )
     parser.add_argument(
         '--check',
         action='store_true',
