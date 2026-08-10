@@ -225,6 +225,12 @@ work and document the actual support boundary instead of hiding the delay.
   reducing the dataset transfer by 80.879%. It remains unpublished and cannot
   replace the full gate. The next independent activation experiments are
   runtime-image slimming and clean comparable VM trials.
+- The [runtime-image slimming pilot](../evidence/onboarding/runtime-image-slimming-2026-08-11.md)
+  reduced Docker's local image-size measurement by 53.6409% on Humble and
+  59.6698% on Jazzy while retaining the source-free installed CLI and
+  schema-valid first-map result. This passes the local 25% proxy. Compressed
+  OCI size, the full public demo, clean dedicated-VM trials, and the identified
+  ROS-log symlink repair remain promotion gates; no candidate was pushed.
 - Add tested sensor recipes for the most requested families, starting from
   issue evidence rather than an unbounded compatibility matrix.
 - Make the final success output show the map path, verifier result, viewer path,
@@ -446,13 +452,14 @@ selects the missing clean Docker/source onboarding baseline as the first
 measured blocker. Broad promotion remains behind the four-row trial and repair
 gate.
 
-The immediate bounded G0 implementation is a local-only multi-stage runtime
-image pilot. Its precommitted gate is at least a 25% reduction from the
-published image's compressed runtime-layer size while retaining the installed
-CLI, Docker default-demo behavior, verifier result, run receipt, and full-demo
-contract. The pilot is not pushed or promoted before both distro smoke checks
-and the clean comparable-VM evidence. The smaller fixture remains a separate
-intervention, so its transfer reduction cannot be misattributed to the image.
+The immediate bounded G0 multi-stage runtime-image pilot has passed its local
+Docker-size proxy and both distro smoke checks. Its
+[evidence record](../evidence/onboarding/runtime-image-slimming-2026-08-11.md)
+keeps the image and fixture reductions separate. Promotion is still paused
+until compressed OCI size, the full public demo, the identified atomic ROS-log
+symlink repair, and clean comparable-VM evidence pass from the reviewed
+candidate. The next active G0 implementation is therefore the repair plus the
+dedicated Humble/Jazzy Docker/source matrix, not a public image retag.
 
 After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the
