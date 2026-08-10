@@ -48,6 +48,14 @@ RUNTIME_DEMO_FILES = (
     'download_mid360_robot_public_dataset.py',
     'mid360_robot_public_datasets.py',
 )
+DEPENDENCY_MANIFESTS = (
+    'lidarslam/package.xml',
+    'lidarslam_msgs/package.xml',
+    'scanmatcher/package.xml',
+    'graph_based_slam/package.xml',
+    'Thirdparty/ndt_omp_ros2/package.xml',
+    'Thirdparty/rko_lio/package.xml',
+)
 
 
 def _runtime_names() -> set[str]:
@@ -87,6 +95,21 @@ def test_runtime_docker_stage_is_source_free_and_fail_closed():
         'CMD ["bash", "/lidarslam_ws/install/lidarslam/share/lidarslam/'
         'product/scripts/run_docker_demo.sh"]'
     ) in runtime
+
+
+def test_builder_dependency_layer_is_keyed_by_package_manifests():
+    """Source-only edits must not invalidate the expensive rosdep layer."""
+    dockerfile = DOCKERFILE.read_text(encoding='utf-8')
+    builder, _ = dockerfile.split(RUNTIME_STAGE, 1)
+    rosdep = builder.index('rosdep install -r -y')
+    source_copy = builder.index('COPY . .')
+    colcon = builder.index('colcon build')
+
+    for manifest in DEPENDENCY_MANIFESTS:
+        copy = f'COPY {manifest} {manifest}'
+        assert builder.count(copy) == 1
+        assert builder.index(copy) < rosdep
+    assert rosdep < source_copy < colcon
 
 
 def test_entrypoint_enables_nounset_after_ros_setup_files():

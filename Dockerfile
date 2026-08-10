@@ -32,7 +32,16 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /lidarslam_ws
-COPY . .
+
+# Key the expensive dependency layer only on the maintained package manifests.
+# Source edits invalidate the later compile layer without downloading the full
+# ROS/PCL build dependency closure again.
+COPY lidarslam/package.xml lidarslam/package.xml
+COPY lidarslam_msgs/package.xml lidarslam_msgs/package.xml
+COPY scanmatcher/package.xml scanmatcher/package.xml
+COPY graph_based_slam/package.xml graph_based_slam/package.xml
+COPY Thirdparty/ndt_omp_ros2/package.xml Thirdparty/ndt_omp_ros2/package.xml
+COPY Thirdparty/rko_lio/package.xml Thirdparty/rko_lio/package.xml
 
 # Same dependency set as .github/workflows/main.yml (default workflow).
 RUN apt-get update \
@@ -57,6 +66,8 @@ RUN apt-get update \
     "ros-${ROS_DISTRO}-rosbag2-storage-mcap" \
     python3-scipy \
   && rm -rf /var/lib/apt/lists/*
+
+COPY . .
 
 # Same package selection as scripts/run_default_ci_checks.sh (the Thirdparty
 # tree carries extra research packages whose deps are not installed here).
