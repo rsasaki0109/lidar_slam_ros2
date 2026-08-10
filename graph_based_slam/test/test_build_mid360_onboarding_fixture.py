@@ -26,6 +26,7 @@
 
 """Tests for the deterministic MID-360 onboarding fixture builder."""
 
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -38,6 +39,7 @@ from rosbags.typesys import get_typestore, Stores
 
 
 ROOT = Path(__file__).resolve().parents[2]
+EVIDENCE_ROOT = ROOT / 'docs' / 'evidence' / 'onboarding'
 sys.path.insert(0, str(ROOT / 'scripts'))
 SPEC = importlib.util.spec_from_file_location(
     'build_mid360_onboarding_fixture',
@@ -291,3 +293,43 @@ def test_storage_identity_rejects_symlinked_parent(tmp_path):
         BUILDER._storage_rows(
             bag, {'relative_file_paths': ['nested/data.db3']}
         )
+
+
+def test_committed_fixture_evidence_is_schema_valid_and_geometry_free():
+    build_path = (
+        EVIDENCE_ROOT /
+        'mid360-onboarding-50s-v1-build-20260810.json'
+    )
+    receipt_path = (
+        EVIDENCE_ROOT /
+        'mid360-onboarding-50s-v1-map-receipt-20260810.json'
+    )
+    evidence_doc = (
+        EVIDENCE_ROOT /
+        'mid360-onboarding-fixture-pilot-2026-08-10.md'
+    ).read_text(encoding='utf-8')
+    build_text = build_path.read_text(encoding='utf-8')
+    receipt_text = receipt_path.read_text(encoding='utf-8')
+    build = json.loads(build_text)
+    receipt = json.loads(receipt_text)
+
+    BUILDER.validate_contract(build, BUILDER.SCHEMA_FILENAME)
+    BUILDER.validate_contract(
+        receipt, 'first-map-validation-receipt-v1.schema.json'
+    )
+    assert '/tmp/' not in build_text + receipt_text
+    assert '/home/' not in build_text + receipt_text
+    assert build['artifact']['size_bytes'] == 98_873_952
+    assert build['artifact']['sha256'] == (
+        '20e5151728522877bff75021a473e91c5ae900448fa9e6977bf88653fa464bd3'
+    )
+    assert build['generation']['revision']['git_dirty'] is False
+    assert build['publication']['map_validation_status'] == 'NOT_RUN'
+    assert build['publication']['track_archive_in_git'] is False
+    assert receipt['status'] == 'PASS'
+    assert len(receipt['checks']) == 7
+    assert all(check['passed'] for check in receipt['checks'])
+    assert receipt['shareability']['contains_map_geometry'] is False
+    assert hashlib.sha256(build_path.read_bytes()).hexdigest() in evidence_doc
+    assert hashlib.sha256(receipt_path.read_bytes()).hexdigest() in evidence_doc
+    assert not list(EVIDENCE_ROOT.glob('mid360_onboarding_50s_v1.zip'))

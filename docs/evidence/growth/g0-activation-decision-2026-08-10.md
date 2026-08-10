@@ -135,3 +135,18 @@ should evaluate a smaller onboarding fixture without weakening or replacing
 the full MID-360 proof route. Broad promotion remains paused until at least one
 Docker and one source row become comparable and the independent-user cohort
 has started.
+
+## Smaller-fixture experiment update
+
+The [50-second MID-360 fixture pilot](../onboarding/mid360-onboarding-fixture-pilot-2026-08-10.md)
+completed the local experiment. Two clean builds produced the same
+98,873,952-byte ZIP and manifest, and the extracted candidate produced a
+seven-of-seven `PASS` first-map receipt. This reduces the dataset transfer by
+80.879%, but arithmetic decomposition of the Docker probes leaves more than
+1.25 GB outside the current dataset download. Runtime-image slimming is
+therefore the next independent transfer intervention.
+
+The candidate has not been uploaded or made the default. It is not a
+comparable onboarding row because no cold VM, network, human active-time, or
+isolated peak-disk measurement was taken. The full 277-second gate remains
+unchanged.

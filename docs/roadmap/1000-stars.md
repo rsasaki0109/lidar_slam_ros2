@@ -220,6 +220,11 @@ work and document the actual support boundary instead of hiding the delay.
   measured 19–24 minute cold paths and 1.77–1.91 GB of workflow RX on Humble
   and Jazzy. Both product routes passed; the smaller-fixture experiment is now
   activated, while the full MID-360 route remains the proof path.
+- The resulting [50-second MID-360 fixture pilot](../evidence/onboarding/mid360-onboarding-fixture-pilot-2026-08-10.md)
+  produced a byte-reproducible 98,873,952-byte ZIP and a verified local map,
+  reducing the dataset transfer by 80.879%. It remains unpublished and cannot
+  replace the full gate. The next independent activation experiments are
+  runtime-image slimming and clean comparable VM trials.
 - Add tested sensor recipes for the most requested families, starting from
   issue evidence rather than an unbounded compatibility matrix.
 - Make the final success output show the map path, verifier result, viewer path,
