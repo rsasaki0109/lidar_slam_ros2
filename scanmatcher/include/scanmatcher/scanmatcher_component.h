@@ -145,6 +145,13 @@ private:
       const rclcpp::Time stamp,
       int frame_index,
       const std::string & stage);
+    bool filterVoxelGridSafely(
+      pcl::PointCloud<pcl::PointXYZI>::ConstPtr input,
+      double leaf_size,
+      pcl::PointCloud<pcl::PointXYZI> & output,
+      const char * stage,
+      const char * parameter_name,
+      bool throttle_warning);
     Eigen::Matrix4f getTransformation(const geometry_msgs::msg::Pose pose);
     pose_prediction::ImuPredictionConfig makeImuPredictionConfig() const;
     pose_acceptance::Config makePoseAcceptanceConfig() const;

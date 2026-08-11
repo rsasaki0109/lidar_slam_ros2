@@ -2,6 +2,15 @@
 Changelog for package scanmatcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Reject unsafe PCL VoxelGrid layouts, absolute voxel-index overflow, invalid
+  leaf sizes, and inconsistent dense clouds before filtering. The affected
+  scan, map update, or registration-target update is skipped with an actionable
+  reason code while the node and last valid map/target remain active.
+* Preserve byte-equivalent PCL output for valid clouds through a shared safety
+  wrapper used by every classic scanmatcher VoxelGrid call site.
+
 0.9.0 (2026-07-30)
 ------------------
 * Prepare the NDT frontend for ROS buildfarm installation through the pinned,

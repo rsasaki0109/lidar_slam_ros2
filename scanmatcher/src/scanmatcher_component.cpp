@@ -1,4 +1,5 @@
 #include "scanmatcher/scanmatcher_component.h"
+#include "scanmatcher/voxel_grid_safety.hpp"
 #include "scanmatcher/odom_prior_utils.hpp"
 #include <chrono>
 #include <cmath>
@@ -826,10 +827,12 @@ bool ScanMatcherComponent::initializeMap(const pcl::PointCloud <pcl::PointXYZI>:
 {
   RCLCPP_INFO(get_logger(), "create a first map");
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-  pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-  voxel_grid.setLeafSize(vg_size_for_map_, vg_size_for_map_, vg_size_for_map_);
-  voxel_grid.setInputCloud(tmp_ptr);
-  voxel_grid.filter(*cloud_ptr);
+  if (!filterVoxelGridSafely(
+      tmp_ptr, vg_size_for_map_, *cloud_ptr, "initial_map",
+      "vg_size_for_map", false))
+  {
+    return false;
+  }
   if (cloud_ptr->size() < static_cast<size_t>(min_points_for_scan_)) {
     RCLCPP_WARN(
       get_logger(),
@@ -907,11 +910,12 @@ void ScanMatcherComponent::receiveCloud(
           } else {
             pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_targeted_cloud_ptr(
               new pcl::PointCloud<pcl::PointXYZI>());
-            pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-            voxel_grid.setLeafSize(vg_size_for_input_, vg_size_for_input_, vg_size_for_input_);
-            voxel_grid.setInputCloud(targeted_cloud_ptr);
-            voxel_grid.filter(*filtered_targeted_cloud_ptr);
-            registration_->setInputTarget(filtered_targeted_cloud_ptr);
+            if (filterVoxelGridSafely(
+                targeted_cloud_ptr, vg_size_for_input_, *filtered_targeted_cloud_ptr,
+                "registration_target", "vg_size_for_input", true))
+            {
+              registration_->setInputTarget(filtered_targeted_cloud_ptr);
+            }
           }
         }
       }
@@ -923,10 +927,12 @@ void ScanMatcherComponent::receiveCloud(
   }
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-  pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-  voxel_grid.setLeafSize(vg_size_for_input_, vg_size_for_input_, vg_size_for_input_);
-  voxel_grid.setInputCloud(cloud_ptr);
-  voxel_grid.filter(*filtered_cloud_ptr);
+  if (!filterVoxelGridSafely(
+      cloud_ptr, vg_size_for_input_, *filtered_cloud_ptr, "input_scan",
+      "vg_size_for_input", true))
+  {
+    return;
+  }
   if (filtered_cloud_ptr->size() < static_cast<size_t>(min_points_for_scan_)) {
     RCLCPP_WARN(
       get_logger(),
@@ -1278,10 +1284,12 @@ void ScanMatcherComponent::updateMap(
   const geometry_msgs::msg::PoseStamped current_pose_stamped)
 {
   pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-  pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-  voxel_grid.setLeafSize(vg_size_for_map_, vg_size_for_map_, vg_size_for_map_);
-  voxel_grid.setInputCloud(cloud_ptr);
-  voxel_grid.filter(*filtered_cloud_ptr);
+  if (!filterVoxelGridSafely(
+      cloud_ptr, vg_size_for_map_, *filtered_cloud_ptr, "map_update",
+      "vg_size_for_map", true))
+  {
+    return;
+  }
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
   pcl::transformPointCloud(*filtered_cloud_ptr, *transformed_cloud_ptr, final_transformation);
@@ -1441,13 +1449,40 @@ bool ScanMatcherComponent::refreshRegistrationTargetFromTargetedCloud()
   } else {
     pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_targeted_cloud_ptr(
       new pcl::PointCloud<pcl::PointXYZI>());
-    pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-    voxel_grid.setLeafSize(vg_size_for_input_, vg_size_for_input_, vg_size_for_input_);
-    voxel_grid.setInputCloud(targeted_cloud_ptr);
-    voxel_grid.filter(*filtered_targeted_cloud_ptr);
+    if (!filterVoxelGridSafely(
+        targeted_cloud_ptr, vg_size_for_input_, *filtered_targeted_cloud_ptr,
+        "recovery_target", "vg_size_for_input", true))
+    {
+      return false;
+    }
     registration_->setInputTarget(filtered_targeted_cloud_ptr);
   }
   return true;
+}
+
+bool ScanMatcherComponent::filterVoxelGridSafely(
+  pcl::PointCloud<pcl::PointXYZI>::ConstPtr input,
+  double leaf_size,
+  pcl::PointCloud<pcl::PointXYZI> & output,
+  const char * stage,
+  const char * parameter_name,
+  bool throttle_warning)
+{
+  const voxel_grid_safety::Report report =
+    voxel_grid_safety::filter<pcl::PointXYZI>(input, leaf_size, output);
+  if (report.safe()) {
+    return true;
+  }
+
+  const std::string message = voxel_grid_safety::formatRejection(
+    report, stage, parameter_name);
+  if (throttle_warning) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 5000, "%s", message.c_str());
+  } else {
+    RCLCPP_WARN(get_logger(), "%s", message.c_str());
+  }
+  return false;
 }
 
 const char * ScanMatcherComponent::trackingStateName(TrackingState state) const

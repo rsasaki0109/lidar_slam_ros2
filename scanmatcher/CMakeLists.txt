@@ -112,6 +112,10 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_point_colorizer test/test_point_colorizer.cpp)
   target_include_directories(test_point_colorizer PRIVATE include ${EIGEN3_INCLUDE_DIR})
+
+  ament_add_gtest(test_voxel_grid_safety test/test_voxel_grid_safety.cpp)
+  target_include_directories(test_voxel_grid_safety PRIVATE include ${PCL_INCLUDE_DIRS})
+  target_link_libraries(test_voxel_grid_safety ${PCL_LIBRARIES})
 endif()
 
 add_library(scanmatcher_component SHARED

@@ -121,6 +121,22 @@ Internal wiring in this launch:
 - `scanmatcher` publishes `lidarslam_msgs/msg/MapArray` on `map_array`
 - `graph_based_slam` subscribes to `map_array`
 
+Voxel-grid safety:
+
+- every classic scanmatcher PCL VoxelGrid call is preflighted against PCL's
+  signed 32-bit index/layout limit;
+- a `VOXEL_GRID_*` warning rejects only the named stage instead of passing an
+  unfiltered cloud downstream or terminating the node;
+- use `vg_size_for_input` for `input_scan`, `registration_target`, and
+  `recovery_target` warnings;
+- use `vg_size_for_map` for `initial_map` and `map_update` warnings;
+- inspect coordinate units and outliers before increasing a leaf size. The
+  node never changes map resolution automatically.
+
+See the
+[VoxelGrid refusal contract](operational-reliability.md#classic-scanmatcher-voxelgrid-refusal-boundary)
+for every reason code, preserved state, and the bounded issue #69 regression.
+
 ### KITTI / LiDAR-only evaluation path
 
 KITTI Odometry Velodyne sequences do not include IMU. Use this path for

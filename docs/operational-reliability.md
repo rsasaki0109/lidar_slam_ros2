@@ -21,11 +21,49 @@ only marked covered when an automated test exercises the public behavior.
 | Historical schema-v1 output needs a v2 reader | Require an explicit verification mode and accept only terminal v1 state; write a separate schema-v2 `complete` record | Source manifest and any existing destination remain byte-for-byte unchanged | Run `migrate-manifest` with a new output filename; use the result for inspection only | Automated |
 | Published image must be rolled back | Validate signed release evidence and generate pull, attestation, and CLI smoke commands for the exact digest | Moving and versioned registry tags are never changed | Run `rollback-plan`, verify its commands, then deploy the immutable digest reference | Automated and release-gated |
 | Missing TF connectivity observed in ROS logs | Diagnosis is `runtime_failed` with a TF connectivity hint | Launch log and diagnosis artifacts | Correct calibration/frame configuration and rerun | Automated diagnosis fixture |
+| Classic scanmatcher VoxelGrid layout or absolute index exceeds PCL's signed 32-bit contract; leaf size is invalid; or a cloud marked dense contains non-finite XYZ | Reject before calling PCL; emit a throttled `VOXEL_GRID_*` reason; skip only the affected input scan, initial map, map update, or registration-target refresh | Process stays active; an existing map and registration target are not replaced; rejected filter output is empty rather than an unfiltered copy | Check coordinate units and outliers first; then adjust `vg_size_for_input` or `vg_size_for_map` only if the intended resolution allows it | Automated boundary, issue-fixture, and valid-output parity tests |
 | Pinned public MID-360 bag → verified map | Nightly Jazzy workflow runs the installed CLI with exact archive/bag identity and bounded output thresholds | Non-geometry evidence report, manifests, diagnosis, verification, and logs | Inspect the failed assertion and retained evidence; do not move the contract without review | Automated real-data E2E |
 
 `run_manifest.json` is authoritative for terminal workflow status. Diagnosis
 uses its `failed` or `interrupted` state even when the workflow stopped before
 writing a recognizable ROS log signature.
+
+## Classic scanmatcher VoxelGrid refusal boundary
+
+PCL 1.12 and 1.14 check whether the product of the three voxel-grid divisions
+exceeds signed 32-bit range. When it does, upstream `VoxelGrid` warns that
+integer indices would overflow and returns the original, unfiltered cloud.
+That fallback is unsafe as an application contract: downstream registration or
+map processing can still receive the unexpectedly dense input. It was followed
+by a `SIGFPE` process exit in public issue #69.
+
+Classic scanmatcher now inspects every input before all five of its PCL
+`VoxelGrid` call sites. It uses the effective float leaf size that PCL will use
+and rejects before filtering when any of these stable reasons applies:
+
+| Reason code | Meaning | First action |
+| --- | --- | --- |
+| `VOXEL_GRID_INVALID_LEAF_SIZE` | The configured value is non-finite, non-positive, outside float range, or so small that its inverse is non-finite. | Set the named leaf-size parameter to a finite value greater than zero. |
+| `VOXEL_GRID_EMPTY_CLOUD` / `VOXEL_GRID_NO_FINITE_POINTS` / `VOXEL_GRID_NULL_INPUT` | No usable XYZ input exists. | Check the topic, PointCloud2 conversion, and range filter. |
+| `VOXEL_GRID_NONFINITE_DENSE_CLOUD` | A publisher marked the cloud `is_dense=true` while at least one XYZ value is non-finite. PCL would not skip that point. | Remove the invalid point or publish the correct `is_dense=false` metadata. |
+| `VOXEL_GRID_INDEX_OVERFLOW` | At least one absolute `floor(coordinate / leaf)` value cannot fit PCL's signed 32-bit voxel index. | Check units, coordinate origin, and outliers before changing resolution. |
+| `VOXEL_GRID_LAYOUT_OVERFLOW` | The conservative voxel division product exceeds `2,147,483,647`. | Check units/outliers; if the span is intentional, increase the parameter named in the warning. |
+
+`vg_size_for_input` controls scan and non-NDT target filtering.
+`vg_size_for_map` controls initial-map and map-update filtering. The node does
+not silently increase either value because that would change map resolution
+and make output depend on an anomalous frame. A rejected input scan does not
+advance the pose. A rejected map update leaves the previous map/target usable;
+a later safe update can proceed. Warnings are throttled on recurring runtime
+paths and include stage, point counts, bounds, divisions when available, the
+parameter name, and a recovery action.
+
+The bounded regression fixture uses only two synthetic points at
+`[-200, -200, -10]` and `[200, 200, 10]` metres with a `0.1 m` leaf. Its
+`4001 x 4001 x 201 = 3,217,608,201` layout reproduces the overflow class
+without retaining the historical private rosbag. The wrapper returns empty
+output and `VOXEL_GRID_LAYOUT_OVERFLOW`; a separate parity test proves that a
+valid cloud produces the same filtered points as direct PCL.
 
 ## Output storage boundary
 
