@@ -274,6 +274,8 @@ all sample-reader failures fatal, or redesigning the preflight report.
 The old source issues are not automatically closed when a starter task is
 published or merged. Each old issue still needs a supported-version check, a
 public resolution or support-boundary explanation, and an explicit disposition.
+Those issue-specific decisions are recorded in the
+[complete read-only triage proposal](open-issue-triage-proposal-2026-08-11.md).
 
 ## Success and stop rules
 

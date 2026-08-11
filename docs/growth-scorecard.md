@@ -35,6 +35,13 @@ A read-only audit grouped all 29 open issues and prepared five tasks with exact
 files, non-goals, acceptance criteria, and focused checks. The candidates have
 not been published as GitHub issues and no labels were changed.
 
+The follow-up
+[complete triage proposal](evidence/growth/open-issue-triage-proposal-2026-08-11.md)
+covers all 29 open issues with a label, priority, disposition, evidence, and
+application gate. Its checker validates offline coverage and can fail closed on
+live GitHub drift using GET requests only. The proposal remains unapplied and
+unauthorized.
+
 The first execution addendum is the
 [2026-08-10 Docker machine-probe summary](evidence/onboarding/docker-machine-probes-2026-08-10.md).
 Humble and Jazzy both reached a canonical-route product `PASS`; both remain

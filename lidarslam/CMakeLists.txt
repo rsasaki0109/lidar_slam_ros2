@@ -218,6 +218,7 @@ if(BUILD_TESTING)
     test_cli_completion
     test_cli_option_contract
     test_check_fixture_publication
+    test_check_issue_triage_proposal
     test_check_onboarding_trial
     test_check_onboarding_trial_matrix
     test_collect_growth_snapshot

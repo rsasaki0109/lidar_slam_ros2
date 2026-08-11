@@ -303,6 +303,11 @@ work and document the actual support boundary instead of hiding the delay.
   groups the complete backlog and defines five copy-ready starter tasks. They
   are `PREPARED_NOT_PUBLISHED`; creating issues or changing labels still needs
   explicit authorization and a current duplicate check.
+- The corresponding
+  [29/29 issue disposition proposal](../evidence/growth/open-issue-triage-proposal-2026-08-11.md)
+  is machine-validated and passes an exact read-only live-drift check. It keeps
+  two issues open, requests four current reproductions, and proposes 23 reasoned
+  closures, but remains `PROPOSED_NOT_APPLIED`.
 - Recruit the first three validators through the existing public validation
   issue and release documentation; do not provide private step-by-step help
   that would invalidate the evidence.
