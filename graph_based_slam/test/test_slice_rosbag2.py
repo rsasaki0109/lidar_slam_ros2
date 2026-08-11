@@ -121,7 +121,7 @@ def test_slice_reads_standard_rosbag2_without_embedded_definitions(tmp_path):
         connection.execute(
             "UPDATE schema SET schema_version = 3, ros_distro = 'humble'"
         )
-        connection.execute('DROP TABLE message_definitions')
+        connection.execute('DROP TABLE IF EXISTS message_definitions')
 
     counts = SLICER.slice_bag(
         source,
