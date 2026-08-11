@@ -32,11 +32,11 @@ import copy
 import hashlib
 import importlib.util
 import json
+from pathlib import Path
 import stat
 import sys
-import zipfile
-from pathlib import Path
 from typing import Any
+import zipfile
 
 import pytest
 

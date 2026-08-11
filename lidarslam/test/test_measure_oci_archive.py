@@ -28,15 +28,15 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 import gzip
 import hashlib
 import importlib.util
 import io
 import json
+from pathlib import Path
 import sys
 import tarfile
-from decimal import Decimal
-from pathlib import Path
 from typing import Any
 
 import pytest

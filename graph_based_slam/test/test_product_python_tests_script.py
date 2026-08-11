@@ -70,7 +70,7 @@ def _fake_python_environment(tmp_path: Path) -> tuple[dict[str, str], Path]:
     call_log = tmp_path / 'python_calls.txt'
     _write_executable(
         bin_dir / 'python3',
-        f'''#!{BASH}
+        f"""#!{BASH}
 set -eu
 printf '%s\\n' "$*" >> "$CALL_LOG"
 case "$*" in
@@ -81,7 +81,7 @@ case "$*" in
   *lidarslam/test*) exit "${{LIDARSLAM_RC:-0}}" ;;
   *) exit 0 ;;
 esac
-''',
+""",
     )
     env = {
         **os.environ,

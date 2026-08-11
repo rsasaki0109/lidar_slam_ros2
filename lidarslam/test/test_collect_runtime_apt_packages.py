@@ -27,8 +27,8 @@
 """Tests for the Docker runtime apt-closure collector."""
 
 import importlib.util
-import subprocess
 from pathlib import Path
+import subprocess
 
 import pytest
 
