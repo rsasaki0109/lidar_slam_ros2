@@ -57,6 +57,14 @@ scanmatcher CTest on Humble and Jazzy. This closes a local reliability-evidence
 gap; it does not satisfy the public-source, public-CI, fixture, matrix, or
 release gates.
 
+The parallel
+[contributor Python test entrypoint](evidence/growth/contributor-python-test-entrypoint-2026-08-11.md)
+now gives prepared contributors one package-scoped command with dependency
+preflight and focused-test forwarding. Final local revision `e2a4dfc` passes
+both complete Python product suites on Humble and Jazzy. This improves a
+contribution leading signal; it does not increment the external-contributor
+metric, and the revision still awaits E1 publication and public CI.
+
 The first execution addendum is the
 [2026-08-10 Docker machine-probe summary](evidence/onboarding/docker-machine-probes-2026-08-10.md).
 Humble and Jazzy both reached a canonical-route product `PASS`; both remain
