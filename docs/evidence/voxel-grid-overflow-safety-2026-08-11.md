@@ -1,9 +1,12 @@
 # Classic scanmatcher VoxelGrid overflow safety — 2026-08-11
 
-> Status: **LOCAL_IMPLEMENTATION_PASS_PUBLICATION_PENDING**
+> Status: **LOCAL_COMPONENT_RECOVERY_PASS_PUBLICATION_PENDING**
 >
-> Implementation commit:
+> Runtime safety commit:
 > `a2368c486fc35c0edcac6d9dbf2f9cb89475c820`
+>
+> Component recovery proof commit:
+> `bce5a9dd2f8f1333b92eba5a0ace98f45db58f3b`
 >
 > Public issue: [#69 — scanmatcher_node-1 process has died](https://github.com/rsasaki0109/lidar_slam_ros2/issues/69)
 >
@@ -19,10 +22,11 @@ valid map or registration target. Valid input still uses PCL with the same
 effective float leaf size; the bounded parity test produces exactly equal
 XYZ/intensity points.
 
-This closes the local code hazard. It does not close public issue #69 because
-the implementation commit is not yet publicly resolvable, the historical
-private rosbag was not retained or replayed, and no reviewed public integration
-or release carries the fix.
+This closes the local code hazard and the local component-continuation gate.
+It does not close public issue #69 because neither commit is publicly
+resolvable, supported public CI has not executed the new component test, the
+historical private rosbag was not retained or replayed, and no reviewed public
+integration or release carries the fix.
 
 ## Upstream behavior being contained
 
@@ -109,24 +113,37 @@ The new `test_voxel_grid_safety` suite has 11 cases:
 Every classic component call site uses the tested wrapper. The component no
 longer contains a direct `pcl::VoxelGrid` construction.
 
+The separate `test_scanmatcher_voxel_grid_recovery` suite exercises the real
+ROS 2 component rather than calling the wrapper directly. One component
+instance receives the bounded issue-class cloud first and must emit
+`VOXEL_GRID_LAYOUT_OVERFLOW` at `initial_map` without publishing a map. The
+same instance then receives a 245-point valid cloud and must publish both the
+safe cloud's timestamped map and pose while `rclcpp::ok()` remains true. A
+failure or process exit aborts the test before those observations can pass.
+
+The integration suite passed ten consecutive executions on each supported
+distribution. The repetition is a local DDS/test-stability check, not a claim
+about the unavailable historical bag.
+
 ## Supported-distribution execution
 
-| Environment | Exact substrate | Build | New suite | Complete scanmatcher CTest |
-| --- | --- | --- | --- | --- |
-| Humble | immutable local image `ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:f1a894d81b5cb7b4e2e55a7b3fc17e538722b59c07b0bec066f2ad499a5e8447`; PCL `1.12.1+dfsg-3build1`; GCC `11.4.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | PASS, read-only source mount and clean `/tmp` build/install | 11 / 11 PASS | 9 / 9 PASS |
-| Jazzy | Ubuntu 24.04 host; PCL `1.14.0+dfsg-1`; GCC `13.3.0`; installed `lidarslam_msgs 0.6.0` and `ndt_omp_ros2 0.0.0` underlay | PASS, clean temporary build/install | 11 / 11 PASS | 9 / 9 PASS |
+| Environment | Exact substrate | Build | Boundary suite | Component recovery | Complete scanmatcher CTest |
+| --- | --- | --- | --- | --- | --- |
+| Humble | immutable local image `ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:f1a894d81b5cb7b4e2e55a7b3fc17e538722b59c07b0bec066f2ad499a5e8447`; PCL `1.12.1+dfsg-3build1`; GCC `11.4.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | PASS, network disabled, source mounted read-only, clean temporary build/install | 11 / 11 PASS | 1 / 1 PASS; 10 consecutive PASS | 10 / 10 PASS |
+| Jazzy | Ubuntu 24.04 host; PCL `1.14.0+dfsg-1`; GCC `13.3.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | PASS, clean temporary build/install | 11 / 11 PASS | 1 / 1 PASS; 10 consecutive PASS | 10 / 10 PASS |
 
 The complete CTest set includes lidar undistortion, math utilities, odometry
 prior, pose prediction, pose acceptance, IMU processing, map-update policy,
-point colorization, and the new safety suite. Humble emitted only the existing
-PCL CMake policy warning. Jazzy additionally emitted the existing PCL 1.14
-deprecated-Boost-header notice; neither build emitted a new-code diagnostic.
+point colorization, the boundary safety suite, and the component recovery
+suite. Humble emitted only the existing PCL CMake policy warning. Jazzy
+additionally emitted the existing PCL 1.14 deprecated-Boost-header notice;
+neither build emitted a new-code diagnostic.
 
 Formatting and documentation checks also passed:
 
-- `ament_uncrustify` on the new header and test;
-- `ament_cpplint --filters=-legal/copyright` on the new header and test, matching
-  the package's existing no-header-banner convention;
+- `ament_uncrustify` on the new header and both tests;
+- `ament_cpplint` on the bannered component test, and the package-consistent
+  `--filters=-legal/copyright` check on the original wrapper/boundary files;
 - `mkdocs build --strict`;
 - `git diff --check`.
 
@@ -134,15 +151,14 @@ Formatting and documentation checks also passed:
 
 Issue #69 should remain open until all of these are true:
 
-1. `a2368c4` or a reviewed descendant is publicly resolvable;
-2. CI reproduces both supported build/test rows from that public revision;
-3. a bounded component or supported-route execution proves the process stays
-   alive after an unsafe frame and can accept a later safe frame;
-4. the public issue response explains the two leaf parameters and reason codes
+1. `bce5a9d` or a reviewed descendant is publicly resolvable;
+2. CI reproduces both supported build/test rows, including the component
+   recovery test, from that public revision;
+3. the public issue response explains the two leaf parameters and reason codes
    without claiming the unavailable historical bag was exactly reproduced;
-5. the fix is included in a named release or the issue explicitly states the
+4. the fix is included in a named release or the issue explicitly states the
    first release expected to contain it.
 
-Until then the honest state is local implementation PASS, public resolution
-pending. No issue label, comment, state, branch, pull request, image, or release
-was changed during this work.
+Until then the honest state is local implementation and component recovery
+PASS, public resolution pending. No issue label, comment, state, branch, pull
+request, image, or release was changed during this work.

@@ -7,6 +7,10 @@
 > Public base: `develop` at
 > `86fa9b610c07ccf4d2b0f10939e17c129d34b40a`
 
+Local descendant `bce5a9d` adds the dual-distro, real-component #69 recovery
+proof after this packet's fixed audit revision. E1 still requires a fresh
+exact-tip audit; this addendum does not authorize or preselect that push tip.
+
 This packet separates source publication, geometry-bearing fixture
 publication, community mutations, and a stable release. Approval of one row
 does not approve another.
@@ -39,7 +43,9 @@ before asking external validators to use them.
 - exact public base equals local `origin/develop`;
 - 36 linear commits, 0 merges, clean worktree, 110 product paths;
 - no changed research/generated/bag/map/archive/binary path;
-- Python 484 PASS, Humble/Jazzy scanmatcher 9/9 PASS, docs strict PASS;
+- Python 484 PASS; the audited revision had Humble/Jazzy scanmatcher 9/9 PASS,
+  and local proof descendant `bce5a9d` has 10/10 plus ten consecutive
+  unsafe-then-safe component passes on each distribution; docs strict PASS;
 - candidate and its fixture/#69 ancestors are currently public-unresolvable.
 
 ### Recommendation

@@ -24,6 +24,20 @@ upload remain undecided, GitHub issue mutations are unauthorized, v1 readiness
 is `8 / 10`, and the existing `v0.9.0` tag correctly prevents a new bundle from
 being rehearsed under the same version.
 
+## Post-audit local addendum
+
+After the fixed product audit above, local descendant `bce5a9d` added only the
+real-component VoxelGrid recovery test, its CMake registration, and changelog
+entry. One component instance now rejects the bounded issue-class initial scan
+and then publishes map and pose for a later safe scan. The test passed ten
+consecutive runs and the complete 10-suite scanmatcher CTest on both
+Humble/PCL 1.12 and Jazzy/PCL 1.14.
+
+This strengthens the #69 evidence without changing production runtime code or
+making the source public. The lineage and 110-path inventory below remain
+deliberately bound to audited revision `e5a5616`; an E1 operation must rerun the
+whole clean-candidate audit against the exact later tip before any push.
+
 ## Lineage and worktree
 
 | Check | Observation | Result |
@@ -117,7 +131,7 @@ authorize or select that version.
 
 | G0 exit | Current state | Required transition |
 | --- | --- | --- |
-| P1 #69 safe rejection | local implementation and dual-distro tests PASS | make reviewed revision public; add public unsafe-then-safe component evidence and carrying release |
+| P1 #69 safe rejection | local implementation and dual-distro component recovery PASS through `bce5a9d` | make reviewed revision public; run supported public CI and name the carrying release |
 | Reviewable product line | local clean candidate PASS | E1 authorization, push exact tip, open Draft PR, review CI/diff |
 | Current issue triage | 29/29 proposal valid and live-current | E3 authorization before labels, comments, or closures |
 | Public fixture identity | local packet PASS | E2 host and upload decision; fresh readiness and remote re-download audit |

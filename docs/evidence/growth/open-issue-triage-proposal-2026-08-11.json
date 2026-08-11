@@ -162,12 +162,13 @@
       "state_reason": null,
       "apply_after": [],
       "recheck_before_apply": true,
-      "rationale": "Local candidate a2368c486fc35c0edcac6d9dbf2f9cb89475c820 now routes all five classic scanmatcher VoxelGrid stages through a signed-32-bit index/layout preflight, rejects unsafe output, and passes 11 focused cases plus all scanmatcher CTests on Humble/PCL 1.12 and Jazzy/PCL 1.14. The fix is still local-only and lacks the public component-level unsafe-then-safe execution and release identity required for closure.",
-      "response_summary": "Keep open while the reviewed fix remains local. After public integration, rerun both supported rows, prove the process accepts a later safe frame, document the stable VOXEL_GRID_* reasons and leaf parameters, and name the carrying release before closing.",
+      "rationale": "Runtime candidate a2368c486fc35c0edcac6d9dbf2f9cb89475c820 routes all five classic scanmatcher VoxelGrid stages through a signed-32-bit index/layout preflight and rejects unsafe output. Component-proof candidate bce5a9dd2f8f1333b92eba5a0ace98f45db58f3b passes an unsafe-then-safe sequence ten consecutive times plus all ten scanmatcher CTests on Humble/PCL 1.12 and Jazzy/PCL 1.14. The fix is still local-only and lacks supported public CI and a carrying release identity required for closure.",
+      "response_summary": "Keep open while the reviewed fix remains local. After public integration, rerun both supported rows including the component recovery test, document the stable VOXEL_GRID_* reasons and leaf parameters, and name the carrying release before closing.",
       "evidence": [
         "scanmatcher/src/scanmatcher_component.cpp",
         "scanmatcher/include/scanmatcher/voxel_grid_safety.hpp",
         "scanmatcher/test/test_voxel_grid_safety.cpp",
+        "scanmatcher/test/test_scanmatcher_voxel_grid_recovery.cpp",
         "docs/operational-reliability.md",
         "docs/evidence/voxel-grid-overflow-safety-2026-08-11.md"
       ]

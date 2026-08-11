@@ -491,13 +491,15 @@ and find a contribution without maintainer guidance.
 
 The next project-wide sprint is **G0 release hygiene and product integration**,
 not another broad algorithm expansion. Its first local deliverable, the P1
-reliability fix for issue #69, now passes at `a2368c4`: all five classic
+reliability fix for issue #69, now passes through `bce5a9d`: all five classic
 scanmatcher VoxelGrid stages fail closed on unsafe integer layouts, 11 boundary
-tests pass, valid-cloud PCL output is unchanged, and all scanmatcher CTests pass
-on Humble/PCL 1.12 and Jazzy/PCL 1.14. The
+tests pass, valid-cloud PCL output is unchanged, and one real component rejects
+the unsafe frame before publishing a map then publishes map and pose for a
+later safe frame. The component test passed ten consecutive runs and the full
+10-suite scanmatcher CTest passed on both Humble/PCL 1.12 and Jazzy/PCL 1.14. The
 [evidence record](../evidence/voxel-grid-overflow-safety-2026-08-11.md) keeps
-the public issue open until a reviewed public revision, component-level
-unsafe-then-safe execution, and carrying release exist. The current v44
+the public issue open until a reviewed public revision, supported public CI,
+and carrying release exist. The current v44
 research route remains limited to its already-authorized bounded failure-profile
 work and cannot block this sprint.
 

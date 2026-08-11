@@ -21,7 +21,7 @@ only marked covered when an automated test exercises the public behavior.
 | Historical schema-v1 output needs a v2 reader | Require an explicit verification mode and accept only terminal v1 state; write a separate schema-v2 `complete` record | Source manifest and any existing destination remain byte-for-byte unchanged | Run `migrate-manifest` with a new output filename; use the result for inspection only | Automated |
 | Published image must be rolled back | Validate signed release evidence and generate pull, attestation, and CLI smoke commands for the exact digest | Moving and versioned registry tags are never changed | Run `rollback-plan`, verify its commands, then deploy the immutable digest reference | Automated and release-gated |
 | Missing TF connectivity observed in ROS logs | Diagnosis is `runtime_failed` with a TF connectivity hint | Launch log and diagnosis artifacts | Correct calibration/frame configuration and rerun | Automated diagnosis fixture |
-| Classic scanmatcher VoxelGrid layout or absolute index exceeds PCL's signed 32-bit contract; leaf size is invalid; or a cloud marked dense contains non-finite XYZ | Reject before calling PCL; emit a throttled `VOXEL_GRID_*` reason; skip only the affected input scan, initial map, map update, or registration-target refresh | Process stays active; an existing map and registration target are not replaced; rejected filter output is empty rather than an unfiltered copy | Check coordinate units and outliers first; then adjust `vg_size_for_input` or `vg_size_for_map` only if the intended resolution allows it | Automated boundary, issue-fixture, and valid-output parity tests |
+| Classic scanmatcher VoxelGrid layout or absolute index exceeds PCL's signed 32-bit contract; leaf size is invalid; or a cloud marked dense contains non-finite XYZ | Reject before calling PCL; emit a throttled `VOXEL_GRID_*` reason; skip only the affected input scan, initial map, map update, or registration-target refresh | Process stays active; an existing map and registration target are not replaced; rejected filter output is empty rather than an unfiltered copy | Check coordinate units and outliers first; then adjust `vg_size_for_input` or `vg_size_for_map` only if the intended resolution allows it | Automated boundary, issue-fixture, valid-output parity, and real-component unsafe-then-safe tests |
 | Pinned public MID-360 bag → verified map | Nightly Jazzy workflow runs the installed CLI with exact archive/bag identity and bounded output thresholds | Non-geometry evidence report, manifests, diagnosis, verification, and logs | Inspect the failed assertion and retained evidence; do not move the contract without review | Automated real-data E2E |
 
 `run_manifest.json` is authoritative for terminal workflow status. Diagnosis
@@ -63,7 +63,11 @@ The bounded regression fixture uses only two synthetic points at
 `4001 x 4001 x 201 = 3,217,608,201` layout reproduces the overflow class
 without retaining the historical private rosbag. The wrapper returns empty
 output and `VOXEL_GRID_LAYOUT_OVERFLOW`; a separate parity test proves that a
-valid cloud produces the same filtered points as direct PCL.
+valid cloud produces the same filtered points as direct PCL. A real ROS 2
+component regression then sends this unsafe cloud before a valid cloud to one
+component instance: no map is published for the rejected timestamp, while the
+later timestamp produces both a map and pose. The test passes on Humble/PCL
+1.12 and Jazzy/PCL 1.14.
 
 ## Output storage boundary
 

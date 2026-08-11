@@ -84,20 +84,22 @@ original user's work:
 
 ### #69 — VoxelGrid overflow crash
 
-This is the highest technical-reliability item in the old backlog. Current
-local candidate `a2368c4` routes all five classic scanmatcher `VoxelGrid`
-stages through a fail-closed signed-32-bit index/layout preflight. Its
+This is the highest technical-reliability item in the old backlog. Runtime
+candidate `a2368c4` routes all five classic scanmatcher `VoxelGrid` stages
+through a fail-closed signed-32-bit index/layout preflight. Component-proof
+candidate `bce5a9d` sends an unsafe frame and a later safe frame to one real
+component instance. Its
 [bounded evidence](../voxel-grid-overflow-safety-2026-08-11.md) passes 11
-focused cases and all nine scanmatcher CTests on Humble/PCL 1.12 and
-Jazzy/PCL 1.14. Valid clouds retain direct-PCL output parity; unsafe output is
-empty and the warning names the stage, parameter, stable reason, and recovery.
+focused cases, ten consecutive component runs, and all ten scanmatcher CTests
+on Humble/PCL 1.12 and Jazzy/PCL 1.14. Valid clouds retain direct-PCL output
+parity; the unsafe timestamp produces no map, and the later safe timestamp
+produces both map and pose.
 
 The issue remains open because the implementation is local-only. Closure still
-requires a publicly resolvable reviewed revision, supported CI, a
-component-level unsafe-then-safe execution showing that the process continues,
-and the carrying release identity. Parameter advice alone is not a sufficient
-crash contract, and the unavailable historical private bag is not described as
-reproduced.
+requires a publicly resolvable reviewed revision, supported public CI running
+the component proof, and the carrying release identity. Parameter advice alone
+is not a sufficient crash contract, and the unavailable historical private bag
+is not described as reproduced.
 
 ### #422 — independent first-map validation
 

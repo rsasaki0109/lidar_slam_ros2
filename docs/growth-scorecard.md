@@ -51,6 +51,12 @@ keeps source push, fixture upload, issue mutations, and release publication as
 four separate approvals. The candidate is reviewable locally; G0 remains
 `HOLD`.
 
+Local descendant `bce5a9d` additionally passes the real-component #69
+unsafe-then-safe recovery sequence ten consecutive times and the full 10-suite
+scanmatcher CTest on Humble and Jazzy. This closes a local reliability-evidence
+gap; it does not satisfy the public-source, public-CI, fixture, matrix, or
+release gates.
+
 The first execution addendum is the
 [2026-08-10 Docker machine-probe summary](evidence/onboarding/docker-machine-probes-2026-08-10.md).
 Humble and Jazzy both reached a canonical-route product `PASS`; both remain
