@@ -61,6 +61,7 @@ jobs:
           bash -n scripts/run_autoware_quickstart.sh
           bash -n scripts/download_ntu_viral_tnp01.sh
           bash -n scripts/run_default_ci_checks.sh
+          bash -n scripts/run_product_python_tests.sh
           bash -n scripts/run_release_readiness_checks.sh
           bash -n scripts/run_rko_lio_graph_autoware_dogfood.sh
           bash -n scripts/run_first_map_demo.sh

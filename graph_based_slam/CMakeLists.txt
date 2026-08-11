@@ -1057,6 +1057,11 @@ if(BUILD_TESTING)
     TIMEOUT 60
   )
   ament_add_pytest_test(
+    test_product_python_tests_script
+    test/test_product_python_tests_script.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
     test_enwide_benchmark_assets
     test/test_enwide_benchmark_assets.py
     TIMEOUT 60

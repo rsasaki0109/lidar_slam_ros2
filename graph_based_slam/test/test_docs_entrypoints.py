@@ -329,6 +329,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'run_first_map_demo.sh',
         REPO_ROOT / 'scripts' / 'run_docker_demo.sh',
         REPO_ROOT / 'scripts' / 'run_default_ci_checks.sh',
+        REPO_ROOT / 'scripts' / 'run_product_python_tests.sh',
         REPO_ROOT / 'scripts' / 'run_rko_lio_graph_autoware_dogfood.sh',
         REPO_ROOT / 'scripts' / 'run_graph_slam_pointcloud_map_in_autoware.sh',
         REPO_ROOT / 'scripts' / 'prepare_autoware_map_from_graph_slam.sh',

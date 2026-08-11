@@ -123,6 +123,21 @@ not a reason to silently expand the task.
 
 ## Recommended Local Checks
 
+For Python-only product changes, use the scoped entrypoint instead of running
+`pytest` at the repository root:
+
+```bash
+bash scripts/run_product_python_tests.sh
+```
+
+It checks the ROS Python prerequisite, excludes optional `Thirdparty` tests,
+and runs `graph_based_slam/test` and `lidarslam/test` in separate pytest
+processes so their legacy duplicate module basename cannot collide. Use
+`--suite lidarslam` or pass a focused pytest expression after `--` when the
+change has a smaller declared scope. The preflight reports missing declared
+dependencies before collection; the full graph suite additionally uses the
+CI-pinned `rosbags==0.11.0` development package.
+
 For code changes that touch the default workflow:
 
 ```bash
