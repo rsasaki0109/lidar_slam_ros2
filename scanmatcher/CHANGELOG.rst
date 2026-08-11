@@ -10,6 +10,9 @@ Forthcoming
   reason code while the node and last valid map/target remain active.
 * Preserve point-for-point XYZ/intensity PCL output for valid clouds through a
   shared safety wrapper used by every classic scanmatcher VoxelGrid call site.
+* Exercise the real ROS 2 component with an unsafe-then-safe cloud sequence;
+  the overflow is rejected without output, then the same process publishes a
+  map and pose for the later valid scan on Humble and Jazzy.
 
 0.9.0 (2026-07-30)
 ------------------

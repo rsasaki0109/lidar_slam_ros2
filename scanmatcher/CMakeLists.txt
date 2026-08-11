@@ -130,6 +130,32 @@ endif()
 
 ament_target_dependencies(scanmatcher_component ${dependencies})
 
+if(BUILD_TESTING)
+  ament_add_gtest(
+    test_scanmatcher_voxel_grid_recovery
+    test/test_scanmatcher_voxel_grid_recovery.cpp
+    TIMEOUT 60
+  )
+  if(TARGET test_scanmatcher_voxel_grid_recovery)
+    target_include_directories(
+      test_scanmatcher_voxel_grid_recovery
+      PRIVATE include ${PCL_INCLUDE_DIRS}
+    )
+    target_link_libraries(
+      test_scanmatcher_voxel_grid_recovery
+      scanmatcher_component
+      ${PCL_LIBRARIES}
+    )
+    ament_target_dependencies(
+      test_scanmatcher_voxel_grid_recovery
+      rclcpp
+      geometry_msgs
+      sensor_msgs
+      pcl_conversions
+    )
+  endif()
+endif()
+
 add_executable(scanmatcher_node
 src/scanmatcher_node.cpp
 )
