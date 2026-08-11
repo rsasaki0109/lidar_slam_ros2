@@ -51,6 +51,7 @@ nav:
   - CLI compatibility: cli-compatibility.md
   - CLI install evidence: evidence/cli-v1-install-2026-07-28.md
   - Operational reliability: operational-reliability.md
+  - VoxelGrid overflow safety evidence: evidence/voxel-grid-overflow-safety-2026-08-11.md
   - Named-hardware soak evidence: evidence/real-data-soak-2026-07-28.md
   - Docker first-map evidence: evidence/docker-first-map-2026-07-28.md
   - Independent first-map validation: external-first-map-validation.md

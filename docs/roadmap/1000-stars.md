@@ -490,12 +490,16 @@ and find a contribution without maintainer guidance.
 ## 10. Immediate next development decision
 
 The next project-wide sprint is **G0 release hygiene and product integration**,
-not another broad algorithm expansion. Its first local deliverable is the P1
-reliability fix for issue #69: every classic scanmatcher VoxelGrid path must
-preflight unsafe integer layouts and fail without terminating the process. The
-fix needs boundary regression tests and must preserve valid-cloud output. The
-current v44 research route remains limited to its already-authorized bounded
-failure-profile work and cannot block this sprint.
+not another broad algorithm expansion. Its first local deliverable, the P1
+reliability fix for issue #69, now passes at `a2368c4`: all five classic
+scanmatcher VoxelGrid stages fail closed on unsafe integer layouts, 11 boundary
+tests pass, valid-cloud PCL output is unchanged, and all scanmatcher CTests pass
+on Humble/PCL 1.12 and Jazzy/PCL 1.14. The
+[evidence record](../evidence/voxel-grid-overflow-safety-2026-08-11.md) keeps
+the public issue open until a reviewed public revision, component-level
+unsafe-then-safe execution, and carrying release exist. The current v44
+research route remains limited to its already-authorized bounded failure-profile
+work and cannot block this sprint.
 
 The
 [2026-08-10 G0 activation decision](../evidence/growth/g0-activation-decision-2026-08-10.md)

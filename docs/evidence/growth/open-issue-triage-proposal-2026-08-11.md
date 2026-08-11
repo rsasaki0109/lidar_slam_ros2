@@ -85,12 +85,19 @@ original user's work:
 ### #69 — VoxelGrid overflow crash
 
 This is the highest technical-reliability item in the old backlog. Current
-`initializeMap` and `updateMap` still invoke PCL `VoxelGrid` directly with the
-configured leaf size. A coordinate span that overflows PCL's integer voxel
-index can still reach that call. Parameter advice is not a sufficient crash
-contract. Closure requires a bounded reproducer, a preflight or safe rejection,
-and a regression test proving that malformed/extreme input cannot terminate the
-node.
+local candidate `a2368c4` routes all five classic scanmatcher `VoxelGrid`
+stages through a fail-closed signed-32-bit index/layout preflight. Its
+[bounded evidence](../voxel-grid-overflow-safety-2026-08-11.md) passes 11
+focused cases and all nine scanmatcher CTests on Humble/PCL 1.12 and
+Jazzy/PCL 1.14. Valid clouds retain direct-PCL output parity; unsafe output is
+empty and the warning names the stage, parameter, stable reason, and recovery.
+
+The issue remains open because the implementation is local-only. Closure still
+requires a publicly resolvable reviewed revision, supported CI, a
+component-level unsafe-then-safe execution showing that the process continues,
+and the carrying release identity. Parameter advice alone is not a sufficient
+crash contract, and the unavailable historical private bag is not described as
+reproduced.
 
 ### #422 — independent first-map validation
 
