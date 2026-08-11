@@ -42,6 +42,15 @@ application gate. Its checker validates offline coverage and can fail closed on
 live GitHub drift using GET requests only. The proposal remains unapplied and
 unauthorized.
 
+The current
+[G0 clean-candidate audit](evidence/growth/g0-clean-candidate-audit-2026-08-11.md)
+binds the reviewed local product revision to the unchanged public `develop`
+base, diff inventory, current gates, and dual-distro #69 verification. Its
+[decision packet](evidence/growth/g0-external-action-decision-packet-2026-08-11.md)
+keeps source push, fixture upload, issue mutations, and release publication as
+four separate approvals. The candidate is reviewable locally; G0 remains
+`HOLD`.
+
 The first execution addendum is the
 [2026-08-10 Docker machine-probe summary](evidence/onboarding/docker-machine-probes-2026-08-10.md).
 Humble and Jazzy both reached a canonical-route product `PASS`; both remain

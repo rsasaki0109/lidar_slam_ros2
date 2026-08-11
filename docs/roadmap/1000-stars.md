@@ -537,6 +537,17 @@ support backlog. The task bodies, 30-minute estimates, files, checks, and
 non-goals are recorded locally; no GitHub issue or label has been changed.
 Source publication and community publication are separate decisions.
 
+The current
+[clean-candidate audit](../evidence/growth/g0-clean-candidate-audit-2026-08-11.md)
+reports `REVIEWABLE_LOCAL_CANDIDATE / G0_HOLD`: exact public/local base parity,
+36 linear commits, 0 merges, 110 product paths, no changed research/generated
+artifact, and current test contracts passing. It also preserves the real
+blocks: source HEAD is public-unresolvable, the matrix is 2/4 present and 0/4
+comparable, v1 is 8/10, and the existing v0.9.0 tag correctly prevents version
+reuse. The
+[external-action packet](../evidence/growth/g0-external-action-decision-packet-2026-08-11.md)
+separates E1 source, E2 fixture, E3 community, and E4 release decisions.
+
 After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the
 project is genuinely easier for a new user than its alternatives.
