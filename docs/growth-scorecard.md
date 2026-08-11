@@ -130,4 +130,11 @@ Use the decision rules from the
 - rising support load means close diagnosis and documentation gaps before
   opening another channel.
 
+At quarter and phase boundaries, use the
+[2026–2029 operating plan](roadmap/1000-stars-2026-2029.md) and its
+[health-review template](roadmap/1000-stars-quarterly-review-template.md).
+The quarterly review selects one largest funnel constraint, records external
+authorization separately from local readiness, and limits the next portfolio
+to one product slice, one community slice, and at most one research slice.
+
 The scorecard is evidence for a product decision, not a target to game.

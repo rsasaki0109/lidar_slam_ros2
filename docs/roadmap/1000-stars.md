@@ -20,6 +20,12 @@ adoption loop. It complements the [v0.9 product roadmap](v0.9.md), the
 research plans. It does not weaken any accuracy, license, compatibility, or
 release gate.
 
+The companion
+[2026–2029 operating plan](1000-stars-2026-2029.md) extends this milestone
+roadmap through compatibility policy, ownership transfer, succession practice,
+and a deliberate 2030 continue/narrow/transfer/archive decision. This document
+remains the source for the 1,000-Star definition and G0–G5 milestone gates.
+
 The 1,000-Star count is a discovery milestone, not the product's purpose. The
 project succeeds only when people can install it, obtain a useful map, verify
 the result, recover from failure, and contribute improvements.
@@ -92,9 +98,12 @@ ahead of `origin/develop` and still mixes dirty product, research, and generated
 work. Separation has nevertheless advanced. At audited revision `9b3db89`, the
 clean G0 product line contained 31 linear commits on exact public
 `origin/develop` revision `86fa9b6`, changed 92 paths, and had no merge commit or
-dirty file. That line is still local-only. Reviewable separation is therefore
-implemented, but source visibility, pull-request review, fixture hosting, and
-publication authorization remain open gates rather than assumed outcomes.
+dirty file. The 2026-08-11 planning refresh at `33be15b` contains 33 linear
+commits and changes 99 paths from the same base, including the complete
+fail-closed issue-triage proposal. That line is still local-only. Reviewable
+separation is therefore implemented, but source visibility, pull-request
+review, fixture hosting, and publication authorization remain open gates rather
+than assumed outcomes.
 
 At the current 90-day pace, another 163 Stars would take roughly 14 months,
 placing the unassisted projection around October–November 2027. The base target
@@ -481,9 +490,11 @@ and find a contribution without maintainer guidance.
 ## 10. Immediate next development decision
 
 The next project-wide sprint is **G0 release hygiene and product integration**,
-not another broad algorithm expansion. The first deliverable is a clean,
-reviewable path for the existing guided own-bag UX and v1 blockers. The current
-v44 research route remains limited to its already-authorized bounded
+not another broad algorithm expansion. Its first local deliverable is the P1
+reliability fix for issue #69: every classic scanmatcher VoxelGrid path must
+preflight unsafe integer layouts and fail without terminating the process. The
+fix needs boundary regression tests and must preserve valid-cloud output. The
+current v44 research route remains limited to its already-authorized bounded
 failure-profile work and cannot block this sprint.
 
 The
@@ -621,6 +632,12 @@ and at least one review domain can operate from public artifacts and written
 contracts without relying on one maintainer's private state. Only after those
 audits should the project consider a broader sensor matrix, a larger governance
 surface, or a new headline research claim.
+
+The [2026–2029 operating plan](1000-stars-2026-2029.md) continues this policy
+through G6–G9: versioned compatibility, evidence-backed ecosystem depth,
+release/triage resilience, and a 2029 strategic renewal decision. Its
+[quarterly template](1000-stars-quarterly-review-template.md) turns the horizon
+into a recurring evidence and ownership review.
 
 ## 15. Baseline reproduction
 
