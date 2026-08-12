@@ -7,8 +7,8 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
-    "expected_path_count": 188,
-    "expected_paths_sha256": "e40852ea812a6f4c2a89ac7ce09261e267a0aa64558c8c1928753ba077428396",
+    "expected_path_count": 189,
+    "expected_paths_sha256": "c336628eeb8e4413a5b3b4b9c898b15c5a683bce973c3ce88301bbd972c6d0a6",
     "scope": "worktree-delta-from-public-pr-head"
   },
   "review_slices": [
@@ -179,6 +179,7 @@
         "docs/contracts/canonical-ndt-convergence-v1.json",
         "docs/contracts/v1-readiness.json",
         "docs/distribution.md",
+        "docs/evidence/growth/canonical-ndt-upstream-pr-packet-2026-08-12.md",
         "docs/evidence/growth/clone-free-docker-launcher-2026-08-12.md",
         "docs/evidence/ndt-omp-release-review-2026-08-12.md",
         "docs/releases/v0.9.1.md",

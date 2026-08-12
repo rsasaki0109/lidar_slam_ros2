@@ -29,7 +29,10 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
 
    The command performs no write or network request. It revalidates the PASS
    receipt against the retained manifest, diagnosis, and verification log,
-   then prints the exact summary, JSON attachment path, and issue form.
+   then prints the copy-ready PASS result, source commit or product-version
+   fallback, exact verification summary, JSON attachment path, issue form,
+   and the four fields that still need your own input. If you ran an immutable
+   image digest, replace the suggested release value with that digest.
 
    For an existing output produced before automatic receipts were added, you
    may regenerate the receipt manually:

@@ -254,7 +254,7 @@
       "--first-map is read-only and cannot be combined with --output or --json",
       "require a verified session, runner exit zero, required verification PASS, and receipt-bound quality PASS",
       "revalidate the regular in-session receipt and its manifest, diagnosis, and verification-log hashes before showing a handoff",
-      "print only the copy-ready verification summary, reviewed JSON receipt path, readable receipt path when available, and canonical issue-form URL",
+      "print the copy-ready PASS result, exact source commit or product-version fallback, verification summary, reviewed JSON receipt path, readable receipt path when available, canonical issue-form URL, and the remaining operator-supplied fields",
       "never upload, open the issue form, or claim an accepted independent validation"
     ],
     "write_rules": [

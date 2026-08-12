@@ -4,19 +4,19 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import importlib.util
 import json
 import os
+from pathlib import Path
 import platform
 import re
 import shlex
 import subprocess
 import sys
-import zipfile
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Sequence
+import zipfile
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -725,6 +725,14 @@ def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
     )
     verification = receipt['verification']
     run = receipt['run']
+    product_version = _safe_identifier(run['product_version'])
+    git_commit = (
+        _safe_identifier(run['git_commit'])
+        if run['git_commit'] is not None else 'unknown'
+    )
+    release_ref = (
+        git_commit if git_commit != 'unknown' else product_version
+    )
     return {
         'status': 'READY_FOR_REVIEW',
         'receipt_status': 'PASS',
@@ -732,12 +740,13 @@ def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
         'markdown_path': str(markdown_path) if markdown_available else None,
         'issue_url': receipt_module.VALIDATION_ISSUE_URL,
         'run': {
-            'product_version': _safe_identifier(run['product_version']),
-            'git_commit': (
-                _safe_identifier(run['git_commit'])
-                if run['git_commit'] is not None else 'unknown'
-            ),
+            'product_version': product_version,
+            'git_commit': git_commit,
             'profile_id': _safe_identifier(run['profile_id']),
+        },
+        'form_fields': {
+            'result': 'PASS — verified first map completed',
+            'release_ref': release_ref,
         },
         'verification_summary': '\n'.join([
             'manifest_status='
@@ -755,11 +764,19 @@ def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
 def render_first_map_handoff(handoff: dict[str, Any]) -> str:
     """Render one concise, copy-ready independent-validation handoff."""
     run = handoff['run']
+    form_fields = handoff['form_fields']
     lines = [
         'First-map validation handoff: READY FOR REVIEW',
         f"  Product: {run['product_version']}",
         f"  Source:  {run['git_commit']}",
         f"  Profile: {run['profile_id']}",
+        '',
+        'Copy-ready issue fields:',
+        f"  Result: {form_fields['result']}",
+        '  Release, commit, or image digest: '
+        f"{form_fields['release_ref']}",
+        '  If you ran an immutable image digest, replace the suggested '
+        'release value with that digest.',
         '',
         'Copy this Verification summary into the issue form:',
         '```text',
@@ -777,6 +794,9 @@ def render_first_map_handoff(handoff: dict[str, Any]) -> str:
     lines.extend([
         'Issue form:',
         f"  {handoff['issue_url']}",
+        '',
+        'Complete these from your own run:',
+        '  Public documentation path; environment; exact command; findings.',
         '',
         'Before sharing: redact private paths from the separately pasted '
         'command. Do not attach the map, bag, manifest, logs, trajectory, '

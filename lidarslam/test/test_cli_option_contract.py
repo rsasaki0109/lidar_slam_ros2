@@ -296,6 +296,10 @@ def test_contract_identifies_the_complete_product_surface():
         '--first-map is read-only'
     )
     assert 'revalidate' in support['first_map_handoff_rules'][2]
+    assert 'copy-ready PASS result' in support['first_map_handoff_rules'][3]
+    assert 'remaining operator-supplied fields' in (
+        support['first_map_handoff_rules'][3]
+    )
     assert 'never upload' in support['first_map_handoff_rules'][4]
     assert 'never upload' in support['write_rules'][2]
     assert set(contract['commands']) == {

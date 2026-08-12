@@ -1073,6 +1073,9 @@ def validate_install(
         )
         required_handoff_text = (
             'First-map validation handoff: READY FOR REVIEW',
+            'Copy-ready issue fields:',
+            'Result: PASS — verified first map completed',
+            f'Release, commit, or image digest: {"a" * 40}',
             'Copy this Verification summary into the issue form:',
             'manifest_status=succeeded',
             'diagnosis_status=success',
@@ -1085,6 +1088,7 @@ def validate_install(
                 'issues/new?template=first-map-validation.yml'
             ),
             'attach only this privacy-bounded JSON receipt',
+            'Complete these from your own run:',
         )
         if any(
             text not in first_map_handoff.stdout

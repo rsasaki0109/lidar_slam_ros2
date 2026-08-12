@@ -228,8 +228,12 @@ ZIP creation is atomic, refuses replacement, and performs no remote mutation.
 The additive `support --first-map` mode does not create that ZIP. It is a
 read-only handoff for a `verified` session whose PASS receipt remains exactly
 bound to the retained manifest, diagnosis, and verification log. It prints a
-copy-ready summary, the local privacy-bounded JSON receipt path, and the
-canonical issue form; it never uploads, opens a browser, or contacts GitHub.
+copy-ready result, exact source commit or product-version fallback,
+verification summary, the local privacy-bounded JSON receipt path, the
+canonical issue form, and the four fields that still need the operator's own
+input. An immutable image user is told to replace the suggested release value
+with the digest they actually ran. The command never uploads, opens a browser,
+or contacts GitHub.
 Missing, stale, malformed, non-PASS, or symlinked evidence fails closed.
 
 `run --guided` remains a compatibility interaction layer: it repeats the existing

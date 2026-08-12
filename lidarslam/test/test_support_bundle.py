@@ -339,6 +339,10 @@ def test_first_map_handoff_revalidates_pass_evidence_without_writing(
     handoff = module.build_first_map_handoff(str(bundle))
     assert handoff['status'] == 'READY_FOR_REVIEW'
     assert handoff['receipt_status'] == 'PASS'
+    assert handoff['form_fields'] == {
+        'result': 'PASS — verified first map completed',
+        'release_ref': 'a' * 40,
+    }
     assert handoff['verification_summary'].splitlines()[:3] == [
         'manifest_status=succeeded',
         'diagnosis_status=success',
@@ -356,7 +360,11 @@ def test_first_map_handoff_revalidates_pass_evidence_without_writing(
     assert module.main([str(bundle), '--first-map']) == 0
     terminal = capsys.readouterr().out
     assert 'First-map validation handoff: READY FOR REVIEW' in terminal
+    assert 'Copy-ready issue fields:' in terminal
+    assert 'Result: PASS — verified first map completed' in terminal
+    assert f'Release, commit, or image digest: {"a" * 40}' in terminal
     assert 'Copy this Verification summary' in terminal
+    assert 'Complete these from your own run:' in terminal
     assert str(bundle / 'map/first_map_validation_receipt.json') in terminal
     assert 'Do not attach the map, bag, manifest, logs' in terminal
     after = {
@@ -366,6 +374,24 @@ def test_first_map_handoff_revalidates_pass_evidence_without_writing(
     }
     assert after == before
     assert not list(bundle.parent.glob('lidarslam-support-*.zip'))
+
+
+def test_first_map_handoff_uses_product_version_when_commit_is_unavailable(
+    tmp_path: Path,
+):
+    module = _load(SCRIPT, 'support_first_map_version_fallback')
+    bundle = _validation_fixture(tmp_path)
+    receipt_path = bundle / 'map/first_map_validation_receipt.json'
+    receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
+    receipt['run']['git_commit'] = None
+    _rewrite(receipt_path, receipt)
+
+    handoff = module.build_first_map_handoff(str(bundle))
+
+    assert handoff['run']['git_commit'] == 'unknown'
+    assert handoff['form_fields']['release_ref'] == (
+        receipt['run']['product_version']
+    )
 
 
 def test_first_map_handoff_rejects_stale_symlinked_and_nonpass_evidence(

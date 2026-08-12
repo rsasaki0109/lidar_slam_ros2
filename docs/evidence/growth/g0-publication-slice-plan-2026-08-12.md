@@ -7,8 +7,8 @@
 > Public and local follow-up base:
 > `3f4dd70cdc58ad421192559213cdee0bdc41eba8`
 >
-> Planned follow-up inventory: 188 paths; SHA-256
-> `e40852ea812a6f4c2a89ac7ce09261e267a0aa64558c8c1928753ba077428396`
+> Planned follow-up inventory: 189 paths; SHA-256
+> `c336628eeb8e4413a5b3b4b9c898b15c5a683bce973c3ce88301bbd972c6d0a6`
 >
 > Remote mutations performed by this review pass: **none**
 
@@ -53,9 +53,9 @@ on the exact future candidate tip.
 | S2 first-map foundation | 31 | one bounded demo/own-bag route reaches a verified local 3D result and retains recovery state | public Humble/Jazzy CI |
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 16 | a fresh terminal uses the exact six-package Humble/Jazzy source route and public preflight | public Humble/Jazzy CI and clean-machine timing |
-| S5 distribution readiness | 42 | NDT convergence, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, and package-manager blockers remain explicit; no release/version reuse is implied | maintainer distribution decision |
+| S5 distribution readiness | 43 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, and package-manager blockers remain explicit; no release/version reuse is implied | maintainer distribution decision |
 | S6 product-shell integration | 56 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard, truthful onboarding matrix, bounded starter queue, CLI contract, docs, tests, and support surface agree | complete product gate and public CI |
-| S7 publication control | 5 | all 188 paths are owned once and external authority remains separate | exact-tip maintainer decision |
+| S7 publication control | 5 | all 189 paths are owned once and external authority remains separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -72,7 +72,7 @@ untracked, non-ignored paths, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 188-path coverage with the fixed inventory digest;
+4. exact 189-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred.
 
@@ -84,11 +84,12 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 188 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 189 paths, 7 slices, no remote mutation |
 | checker regressions | 10 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, authority rejection, and self-contained read-only source dry-run execution |
 | focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
-| focused lidar_slam CLI/queue/plan/scorecard regressions | 91 passed in an isolated package process |
-| complete maintained Python gate | graph: 1,433 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 708 passed; 2,141 total |
+| first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
+| focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
+| complete maintained Python gate | graph: 1,433 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 709 passed; 2,142 total |
 | scanmatcher clean build and CTest | Jazzy RAM-backed clean build of `lidarslam_msgs`, `ndt_omp_ros2`, and `scanmatcher`; 109 tests passed |
 | review follow-up regressions | malformed PointCloud2 recovery with padded organized XYZ-only continuation, metadata tile containment, source-bundle symlink rejection, non-interpolated immutable release-tag checkout, least-privilege release jobs, and self-contained source dry-run are covered |
 | new Python style | `ament_flake8`: 4 files checked, no problems |
