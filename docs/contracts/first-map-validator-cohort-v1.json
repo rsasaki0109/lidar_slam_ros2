@@ -36,7 +36,8 @@
     "acknowledgement_business_days": 2,
     "evidence_review_business_days": 5,
     "supported_p0_disposition_days": 7,
-    "supported_p1_disposition_days": 14
+    "supported_p1_disposition_days": 14,
+    "operational_signal_max_age_hours": 48
   },
   "stop_conditions": [
     "completion-below-80-percent-at-attempt-10",

@@ -43,6 +43,13 @@ service levels, and stop/repair conditions. Recruitment text remains
 fail-closed until one comparable Docker and source row, a canonical public
 path, an exact public revision, and the copy-ready handoff are all public.
 No community post or GitHub write is authorized by that packet.
+Its anonymous operating state now makes the stop/repair loop executable: one
+command cross-checks accepted IDs against the adoption ledger and derives
+capacity, repeated-blocker, initial/hard-cap, completion-rate, and median-time
+decisions without storing participant handles. The tracked empty state remains
+an honest zero-attempt record and cannot render recruitment text. Operational
+signals expire after 48 hours, and accepted attempts must also match the
+ledger's public report, route, and immutable product identity.
 
 The follow-up
 [complete triage proposal](evidence/growth/open-issue-triage-proposal-2026-08-11.md)
@@ -84,9 +91,9 @@ matrix coverage from `0 / 4` to `2 / 4`, but comparable coverage remains
 observations.
 
 The collector fails closed if authentication is unavailable, an API response
-is malformed, pagination would be incomplete, the local first-map ledger is
-invalid, or the v1 readiness audit cannot be trusted. Its output is validated
-against
+is malformed, pagination would be incomplete, the local first-map ledger or
+anonymous cohort state is invalid, cohort counts/rates/status disagree, or the
+v1 readiness audit cannot be trusted. Its output is validated against
 [`growth-snapshot-v1.schema.json`](schemas/growth-snapshot-v1.schema.json).
 
 ## Metric definitions
@@ -101,7 +108,7 @@ against
 | External PRs, 90 days | Pull requests created in the trailing 90 days by non-maintainer, non-bot accounts. |
 | External merged contributors, 180 days | Distinct non-maintainer, non-bot authors whose pull request was merged in the trailing 180 days. Only the count is retained. |
 | First public response | Time from an external, non-bot issue opening to the first maintainer comment in the trailing 90-day cohort. The scorecard includes eligible, responded, unanswered, and responded-only median values. |
-| External first maps | Aggregate accepted/required/remaining counts from the reviewed first-map ledger. |
+| External first maps | Aggregate accepted/required/remaining counts from the reviewed first-map ledger, plus the anonymous cohort's attempted/terminal/active/review-WIP/successful/accepted counts, completion rate, median active minutes, operational state, and fixed stop conditions. Historical snapshots without the optional cohort extension remain valid and are never rewritten. |
 | v1 readiness | Complete/incomplete gate counts from the fail-closed local v1 audit. |
 
 Pass each co-maintainer with `--maintainer LOGIN`; otherwise the default is
@@ -116,6 +123,11 @@ URLs, or raw referrer records. It writes only aggregate counts, durations,
 public release metadata, contract identifiers, and short operator-supplied
 annotations. Do not put names, private support details, or unpublished
 campaign data in an annotation.
+
+The cohort extension copies only bounded aggregate counts, rates, durations,
+fixed state names, and fixed stop-condition IDs. It does not copy attempt IDs,
+report/blocker URLs, accepted validation IDs, or participant handles into the
+weekly snapshot.
 
 The JSON contract fixes both privacy flags to `false`:
 

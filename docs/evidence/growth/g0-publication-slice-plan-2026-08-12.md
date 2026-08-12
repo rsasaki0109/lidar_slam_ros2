@@ -10,8 +10,8 @@
 > Current public PR head:
 > `b12fc602ed7902c8173a129b69d7ab44908bc5ad`
 >
-> Planned follow-up inventory: 196 paths; SHA-256
-> `485623acda30d4e065adcd20e38891a114a1895440fa2bc4e4e87c94334dc54a`
+> Planned follow-up inventory: 201 paths; SHA-256
+> `ea04dc74a12fecbf951103ae4c9de941a0df8a9bf51dc88ec7c03b8c4dec99bf`
 >
 > Remote mutations performed by this review pass: **none**
 
@@ -57,8 +57,8 @@ run again on the exact future candidate tip.
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 16 | a fresh terminal uses the exact six-package Humble/Jazzy source route and public preflight | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 43 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, and package-manager blockers remain explicit; no release/version reuse is implied | maintainer distribution decision |
-| S6 product-shell integration | 63 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard, truthful onboarding matrix, bounded starter queue and validator cohort, CLI contract, docs, tests, and support surface agree | complete product gate and public CI |
-| S7 publication control | 5 | all 196 paths are owned once and external authority remains separate | exact-tip maintainer decision |
+| S6 product-shell integration | 68 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, and support surface agree | complete product gate and public CI |
+| S7 publication control | 5 | all 201 paths are owned once and external authority remains separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -76,7 +76,7 @@ from that base and the local tip descends from the public head, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 196-path coverage with the fixed inventory digest;
+4. exact 201-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred.
 
@@ -88,18 +88,19 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 196 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 201 paths, 7 slices, no remote mutation |
 | checker regressions | 11 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, and self-contained read-only source dry-run execution |
 | focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
-| validator cohort contract | 10 passed; path-specific immutable runtime identity is enforced; recruitment render blocked until every public gate passes; no write authority |
+| validator cohort contract and operating state | 31 passed; path-specific immutable runtime identity, anonymized attempt lifecycle, accepted-ledger evidence binding, four operational stop signals, 48-hour freshness, WIP, batch/target transitions, attempt-10 thresholds, and a one-action human status card are enforced through the CLI; recruitment render remains blocked; no write authority |
+| weekly growth snapshot | 14 passed; new snapshots re-derive cohort count/rate/state consistency while the immutable historical baseline remains schema-valid and identity-free |
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
-| complete maintained Python gate | graph: 1,433 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 720 passed; 2,153 total |
+| complete maintained Python gate | graph: 1,433 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 748 passed; 2,181 total |
 | scanmatcher clean build and CTest | Jazzy RAM-backed clean build of `lidarslam_msgs`, `ndt_omp_ros2`, and `scanmatcher`; 109 tests passed |
 | review follow-up regressions | malformed PointCloud2 recovery with padded organized XYZ-only continuation, metadata tile containment, source-bundle symlink rejection, non-interpolated immutable release-tag checkout, least-privilege release jobs, and self-contained source dry-run are covered |
 | new Python style | `ament_flake8`: 4 files checked, no problems |
 | documentation | `mkdocs build --strict`: PASS with pre-existing Material and navigation notices |
-| machine formats and shells | all 34 planned JSON files parse; all 9 planned shell files pass `bash -n`; `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
+| machine formats and shells | all 37 planned JSON files parse; all 9 planned shell files pass `bash -n`; `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
 
 The two package test directories were intentionally run in separate pytest
 processes through the repository's canonical contributor entrypoint because

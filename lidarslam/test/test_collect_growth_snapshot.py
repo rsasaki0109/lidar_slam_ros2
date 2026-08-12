@@ -196,12 +196,30 @@ class FakeApi:
         return self.records['comments'][number]
 
 
-def _product_reports():
+def _product_reports(captured_at=None):
+    del captured_at
     return (
         {
             'accepted_validations': 0,
             'required_validations': 3,
             'remaining_validations': 3,
+        },
+        {
+            'cohort_id': 'g1-first-map-cohort-2026-08',
+            'status': 'WAITING_FOR_PUBLIC_GATES',
+            'phase': 'initial',
+            'attempt_count': 0,
+            'terminal_attempt_count': 0,
+            'active_attempt_count': 0,
+            'review_wip_count': 0,
+            'successful_first_map_count': 0,
+            'accepted_validations': 0,
+            'accepted_target': 3,
+            'completion_rate': None,
+            'median_active_operator_minutes': None,
+            'operational_signals_fresh': False,
+            'next_attempt_permitted_by_state': False,
+            'stop_conditions': [],
         },
         {
             'status': 'NOT_READY',
@@ -211,12 +229,13 @@ def _product_reports():
 
 
 def _collect(records=None):
-    first_map, readiness = _product_reports()
+    first_map, cohort, readiness = _product_reports()
     return GROWTH.collect_snapshot(
         api=FakeApi(records or _github_records()),
         captured_at=CAPTURED,
         maintainers={'rsasaki0109'},
         first_map_report=first_map,
+        cohort_report=cohort,
         readiness_report=readiness,
         annotations=['v0.9 onboarding baseline'],
     )
@@ -267,6 +286,23 @@ def test_snapshot_aggregates_growth_activation_and_community_metrics():
             'accepted': 0,
             'required': 3,
             'remaining': 3,
+            'cohort': {
+                'id': 'g1-first-map-cohort-2026-08',
+                'status': 'WAITING_FOR_PUBLIC_GATES',
+                'phase': 'initial',
+                'attempted': 0,
+                'terminal': 0,
+                'active': 0,
+                'review_wip': 0,
+                'successful': 0,
+                'accepted': 0,
+                'target': 3,
+                'completion_rate': None,
+                'median_active_operator_minutes': None,
+                'operational_signals_fresh': False,
+                'next_attempt_permitted_by_state': False,
+                'stop_conditions': [],
+            },
         },
         'v1_readiness': {
             'status': 'NOT_READY',
@@ -286,6 +322,80 @@ def test_snapshot_validates_against_the_published_schema():
         schema,
         format_checker=jsonschema.FormatChecker(),
     ).validate(snapshot)
+
+
+def test_historical_snapshot_remains_valid_without_cohort_extension():
+    snapshot = json.loads(
+        (ROOT / 'docs/evidence/growth/2026-08-10.json').read_text(
+            encoding='utf-8'
+        )
+    )
+    schema = json.loads(GROWTH.DEFAULT_SCHEMA.read_text(encoding='utf-8'))
+
+    jsonschema.Draft7Validator(
+        schema,
+        format_checker=jsonschema.FormatChecker(),
+    ).validate(snapshot)
+
+
+def test_live_local_product_metrics_include_fail_closed_cohort_state():
+    first_map, cohort, readiness = GROWTH.collect_product_metrics(
+        repo_root=ROOT,
+        captured_at=datetime(2026, 8, 13, tzinfo=timezone.utc),
+    )
+
+    assert first_map['accepted_validations'] == 0
+    assert cohort['status'] == 'WAITING_FOR_PUBLIC_GATES'
+    assert cohort['attempt_count'] == 0
+    assert cohort['github_writes_authorized'] is False
+    assert readiness['status'] == 'NOT_READY'
+
+
+@pytest.mark.parametrize(
+    ('mutation', 'message'),
+    [
+        (
+            lambda first_map, cohort: cohort.update(completion_rate=1.1),
+            'completion_rate',
+        ),
+        (
+            lambda first_map, cohort: cohort.update(
+                terminal_attempt_count=1,
+                median_active_operator_minutes=5,
+            ),
+            'equal attempted',
+        ),
+        (
+            lambda first_map, cohort: cohort.update(
+                accepted_validations=1,
+            ),
+            'counts conflict',
+        ),
+        (
+            lambda first_map, cohort: cohort.update(accepted_target=4),
+            'target differs',
+        ),
+        (
+            lambda first_map, cohort: cohort.update(
+                next_attempt_permitted_by_state=True,
+            ),
+            'decision conflicts',
+        ),
+    ],
+)
+def test_malformed_cohort_metrics_fail_closed(mutation, message):
+    first_map, cohort, readiness = _product_reports()
+    mutation(first_map, cohort)
+
+    with pytest.raises(GROWTH.SnapshotError, match=message):
+        GROWTH.collect_snapshot(
+            api=FakeApi(_github_records()),
+            captured_at=CAPTURED,
+            maintainers={'rsasaki0109'},
+            first_map_report=first_map,
+            cohort_report=cohort,
+            readiness_report=readiness,
+        )
 
 
 def test_snapshot_never_writes_raw_users_referrers_urls_or_text():

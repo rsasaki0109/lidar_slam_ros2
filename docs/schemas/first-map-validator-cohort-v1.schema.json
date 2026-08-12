@@ -118,13 +118,15 @@
         "acknowledgement_business_days",
         "evidence_review_business_days",
         "supported_p0_disposition_days",
-        "supported_p1_disposition_days"
+        "supported_p1_disposition_days",
+        "operational_signal_max_age_hours"
       ],
       "properties": {
         "acknowledgement_business_days": {"const": 2},
         "evidence_review_business_days": {"const": 5},
         "supported_p0_disposition_days": {"const": 7},
-        "supported_p1_disposition_days": {"const": 14}
+        "supported_p1_disposition_days": {"const": 14},
+        "operational_signal_max_age_hours": {"const": 48}
       }
     },
     "stop_conditions": {

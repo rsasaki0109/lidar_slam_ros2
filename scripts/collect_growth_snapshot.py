@@ -415,18 +415,26 @@ def _load_module(path: Path, name: str) -> Any:
     if spec is None or spec.loader is None:
         raise SnapshotError(f'cannot load local metric provider {path}')
     module = importlib.util.module_from_spec(spec)
+    module_dir = str(path.parent)
+    inserted_path = module_dir not in sys.path
+    if inserted_path:
+        sys.path.insert(0, module_dir)
     try:
         spec.loader.exec_module(module)
     except Exception as exc:
         raise SnapshotError(
             f'cannot load local metric provider {path}: {exc}') from exc
+    finally:
+        if inserted_path:
+            sys.path.remove(module_dir)
     return module
 
 
 def collect_product_metrics(
     repo_root: Path = REPO_ROOT,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Collect aggregate first-map and v1 readiness reports."""
+    captured_at: datetime | None = None,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Collect accepted maps, cohort operations, and v1 readiness."""
     external = _load_module(
         repo_root / 'scripts' / 'check_external_first_map_readiness.py',
         'growth_external_first_map',
@@ -435,15 +443,77 @@ def collect_product_metrics(
         repo_root / 'scripts' / 'check_v1_readiness.py',
         'growth_v1_readiness',
     )
+    cohort = _load_module(
+        repo_root / 'scripts' / 'first_map_validator_cohort.py',
+        'growth_first_map_cohort',
+    )
     try:
         first_map_report = external.validate_ledger()
+        cohort_report = cohort.evaluate_state(
+            _require_object(
+                _load_json(
+                    repo_root
+                    / 'docs'
+                    / 'contracts'
+                    / 'first-map-validator-cohort-v1.json'
+                ),
+                'first-map cohort contract',
+            ),
+            _require_object(
+                _load_json(
+                    repo_root
+                    / 'docs'
+                    / 'schemas'
+                    / 'first-map-validator-cohort-v1.schema.json'
+                ),
+                'first-map cohort contract schema',
+            ),
+            _require_object(
+                _load_json(
+                    repo_root
+                    / 'docs'
+                    / 'evidence'
+                    / 'growth'
+                    / 'first-map-validator-cohort-state.json'
+                ),
+                'first-map cohort state',
+            ),
+            _require_object(
+                _load_json(
+                    repo_root
+                    / 'docs'
+                    / 'schemas'
+                    / 'first-map-validator-cohort-state-v1.schema.json'
+                ),
+                'first-map cohort state schema',
+            ),
+            _require_object(
+                _load_json(
+                    repo_root
+                    / 'docs'
+                    / 'evidence'
+                    / 'external-first-map-validations.json'
+                ),
+                'accepted first-map ledger',
+            ),
+            _require_object(
+                _load_json(
+                    repo_root
+                    / 'docs'
+                    / 'schemas'
+                    / 'external-first-map-validations-v1.schema.json'
+                ),
+                'accepted first-map schema',
+            ),
+            now=captured_at or datetime.now(timezone.utc),
+        )
         readiness_report = readiness.evaluate_readiness(
             external_report=first_map_report,
         )
     except Exception as exc:
         raise SnapshotError(
             f'cannot collect trusted local product metrics: {exc}') from exc
-    return first_map_report, readiness_report
+    return first_map_report, cohort_report, readiness_report
 
 
 def collect_snapshot(
@@ -453,6 +523,7 @@ def collect_snapshot(
     captured_at: datetime,
     maintainers: set[str],
     first_map_report: dict[str, Any],
+    cohort_report: dict[str, Any],
     readiness_report: dict[str, Any],
     annotations: list[str] | None = None,
     schema_path: Path = DEFAULT_SCHEMA,
@@ -502,6 +573,153 @@ def collect_snapshot(
         'remaining_validations',
         'first-map report',
     )
+    cohort_status = cohort_report.get('status')
+    allowed_cohort_statuses = {
+        'WAITING_FOR_PUBLIC_GATES',
+        'WAITING_FOR_OPERATIONAL_SIGNALS',
+        'PAUSED_REPAIR',
+        'TARGET_MET',
+        'HARD_CAP_REVIEW',
+        'INITIAL_BATCH_REVIEW',
+        'CAPACITY_FULL',
+        'READY_FOR_NEXT_ATTEMPT',
+    }
+    if cohort_status not in allowed_cohort_statuses:
+        raise SnapshotError('first-map cohort status is unsupported')
+    cohort_phase = cohort_report.get('phase')
+    if cohort_phase not in {'initial', 'extended'}:
+        raise SnapshotError('first-map cohort phase is unsupported')
+    completion_rate = cohort_report.get('completion_rate')
+    if (
+        completion_rate is not None
+        and (
+            not isinstance(completion_rate, (int, float))
+            or isinstance(completion_rate, bool)
+            or not 0 <= completion_rate <= 1
+        )
+    ):
+        raise SnapshotError('first-map cohort completion_rate is invalid')
+    median_minutes = cohort_report.get('median_active_operator_minutes')
+    if (
+        median_minutes is not None
+        and (
+            not isinstance(median_minutes, (int, float))
+            or isinstance(median_minutes, bool)
+            or median_minutes < 0
+        )
+    ):
+        raise SnapshotError(
+            'first-map cohort median_active_operator_minutes is invalid'
+        )
+    signals_fresh = cohort_report.get('operational_signals_fresh')
+    next_attempt = cohort_report.get('next_attempt_permitted_by_state')
+    if not isinstance(signals_fresh, bool) or not isinstance(next_attempt, bool):
+        raise SnapshotError('first-map cohort boolean state is invalid')
+    stop_conditions = cohort_report.get('stop_conditions')
+    if not isinstance(stop_conditions, list):
+        raise SnapshotError('first-map cohort stop_conditions must be a list')
+    if stop_conditions != sorted(set(stop_conditions)):
+        raise SnapshotError(
+            'first-map cohort stop_conditions must be sorted and unique'
+        )
+    cohort_attempted = _integer(
+        cohort_report,
+        'attempt_count',
+        'first-map cohort',
+    )
+    cohort_terminal = _integer(
+        cohort_report,
+        'terminal_attempt_count',
+        'first-map cohort',
+    )
+    cohort_active = _integer(
+        cohort_report,
+        'active_attempt_count',
+        'first-map cohort',
+    )
+    cohort_review_wip = _integer(
+        cohort_report,
+        'review_wip_count',
+        'first-map cohort',
+    )
+    cohort_successful = _integer(
+        cohort_report,
+        'successful_first_map_count',
+        'first-map cohort',
+    )
+    cohort_accepted = _integer(
+        cohort_report,
+        'accepted_validations',
+        'first-map cohort',
+    )
+    cohort_target = _integer(
+        cohort_report,
+        'accepted_target',
+        'first-map cohort',
+    )
+    if cohort_terminal + cohort_active != cohort_attempted:
+        raise SnapshotError(
+            'first-map cohort terminal and active counts must equal attempted'
+        )
+    if not cohort_accepted <= cohort_successful <= cohort_terminal:
+        raise SnapshotError(
+            'first-map cohort accepted/successful/terminal counts conflict'
+        )
+    if not cohort_active <= cohort_review_wip <= cohort_attempted:
+        raise SnapshotError(
+            'first-map cohort active/review-WIP/attempted counts conflict'
+        )
+    if cohort_accepted > first_map_accepted:
+        raise SnapshotError(
+            'first-map cohort accepted count exceeds the cumulative ledger'
+        )
+    if cohort_target != first_map_required:
+        raise SnapshotError(
+            'first-map cohort target differs from the v1 accepted-map gate'
+        )
+    expected_completion_rate = (
+        cohort_successful / cohort_attempted
+        if cohort_attempted else None
+    )
+    if (
+        completion_rate != expected_completion_rate
+        and not (
+            completion_rate is not None
+            and expected_completion_rate is not None
+            and abs(completion_rate - expected_completion_rate) <= 1e-12
+        )
+    ):
+        raise SnapshotError(
+            'first-map cohort completion_rate conflicts with its counts'
+        )
+    if (cohort_terminal == 0) != (median_minutes is None):
+        raise SnapshotError(
+            'first-map cohort median time conflicts with terminal count'
+        )
+    if next_attempt != (cohort_status == 'READY_FOR_NEXT_ATTEMPT'):
+        raise SnapshotError(
+            'first-map cohort next-attempt decision conflicts with status'
+        )
+    if cohort_status == 'READY_FOR_NEXT_ATTEMPT' and not signals_fresh:
+        raise SnapshotError(
+            'first-map cohort cannot be ready with stale operational signals'
+        )
+    if cohort_status == 'TARGET_MET' and cohort_accepted < cohort_target:
+        raise SnapshotError(
+            'first-map cohort TARGET_MET lacks accepted evidence'
+        )
+    if cohort_status == 'PAUSED_REPAIR' and not stop_conditions:
+        raise SnapshotError('first-map cohort PAUSED_REPAIR lacks a stop reason')
+    if cohort_status == 'CAPACITY_FULL' and cohort_review_wip < 2:
+        raise SnapshotError('first-map cohort CAPACITY_FULL lacks full WIP')
+    if cohort_status == 'INITIAL_BATCH_REVIEW' and cohort_attempted < 5:
+        raise SnapshotError(
+            'first-map cohort INITIAL_BATCH_REVIEW lacks five attempts'
+        )
+    if cohort_status == 'HARD_CAP_REVIEW' and cohort_attempted < 10:
+        raise SnapshotError(
+            'first-map cohort HARD_CAP_REVIEW lacks ten attempts'
+        )
     summary = _require_object(
         readiness_report.get('summary'),
         'v1 readiness summary',
@@ -554,6 +772,23 @@ def collect_snapshot(
                 'accepted': first_map_accepted,
                 'required': first_map_required,
                 'remaining': first_map_remaining,
+                'cohort': {
+                    'id': cohort_report.get('cohort_id'),
+                    'status': cohort_status,
+                    'phase': cohort_phase,
+                    'attempted': cohort_attempted,
+                    'terminal': cohort_terminal,
+                    'active': cohort_active,
+                    'review_wip': cohort_review_wip,
+                    'successful': cohort_successful,
+                    'accepted': cohort_accepted,
+                    'target': cohort_target,
+                    'completion_rate': completion_rate,
+                    'median_active_operator_minutes': median_minutes,
+                    'operational_signals_fresh': signals_fresh,
+                    'next_attempt_permitted_by_state': next_attempt,
+                    'stop_conditions': list(stop_conditions),
+                },
             },
             'v1_readiness': {
                 'status': readiness_status,
@@ -658,13 +893,16 @@ def main(argv: list[str] | None = None) -> int:
         if len(args.annotation) > 10:
             raise SnapshotError('at most ten annotations are allowed')
         api = FixtureApi(args.fixture_dir) if args.fixture_dir else GhApi()
-        first_map_report, readiness_report = collect_product_metrics()
+        first_map_report, cohort_report, readiness_report = (
+            collect_product_metrics(captured_at=captured_at)
+        )
         snapshot = collect_snapshot(
             api=api,
             repository=args.repository,
             captured_at=captured_at,
             maintainers=maintainers,
             first_map_report=first_map_report,
+            cohort_report=cohort_report,
             readiness_report=readiness_report,
             annotations=args.annotation,
             schema_path=args.schema,

@@ -46,6 +46,17 @@ the exact public revision. Abandoned, failed, and successful attempts all
 count in the completion denominator when their outcome is reported. GitHub
 traffic, clones, CI, maintainer demos, and silent visitors are not attempts.
 
+The machine-readable
+[`first-map-validator-cohort-state.json`](first-map-validator-cohort-state.json)
+records only anonymous attempt IDs, lifecycle state, public product identity,
+timing, public report/blocker links, and an accepted-ledger ID when applicable.
+It never stores a participant handle or private contact detail. The evaluator
+cross-checks every `accepted-pass` against the authoritative accepted-first-map
+ledger, so a planning record cannot create an adoption claim.
+`closed-pass` contributes only to the product completion-rate denominator and
+numerator; it does not increase the accepted count without a matching ledger
+entry.
+
 ## Independence and support boundary
 
 - Maintainers cannot count.
@@ -66,6 +77,8 @@ traffic, clones, CI, maintainer demos, and silent visitors are not attempts.
 - acknowledge a cohort report within 2 business days;
 - complete receipt/evidence review within 5 business days;
 - publicly disposition a supported P0 within 7 days and P1 within 14 days;
+- refresh the public source/docs, supported-P0, release-gate, and
+  privacy/safety signal audit at least every 48 hours while attempts are open;
 - keep no more than two attempts or receipts awaiting substantive review.
 
 These are capacity promises, not acceptance guarantees. If they cannot be
@@ -87,6 +100,22 @@ Pause new attempts immediately when any condition below is true:
 For a repeated blocker, fix the public product or docs, rerun the affected
 clean matrix row, and only then resume. Do not answer with private workaround
 instructions that preserve a broken public path.
+
+`python3 scripts/first_map_validator_cohort.py --json` enforces this loop. It
+refuses partial operational-signal snapshots, more than two combined
+active/unreviewed items, more than five attempts before
+an exact public extension-decision comment, duplicate public reports, unbound
+accepted IDs, non-canonical active routes, and more than ten
+attempts. A signal snapshot older than 48 hours returns to
+`WAITING_FOR_OPERATIONAL_SIGNALS`, while future-dated evidence is rejected.
+Accepted attempts must match the accepted ledger's public report URL,
+documentation path, and immutable runtime identity. Cohort accepted IDs are a
+validated subset of the cumulative adoption ledger, so later cohorts can grow
+that ledger without rewriting this bounded state. The evaluator derives
+`CAPACITY_FULL`, `INITIAL_BATCH_REVIEW`,
+`HARD_CAP_REVIEW`, `PAUSED_REPAIR`, or `TARGET_MET`; only
+`READY_FOR_NEXT_ATTEMPT` permits the next attempt at the state layer. None of
+those states authorizes recruitment or a GitHub write.
 
 ## Recruitment policy
 
@@ -110,13 +139,22 @@ python3 scripts/first_map_validator_cohort.py --json
 python3 scripts/first_map_validator_cohort.py --render
 ```
 
-Today the first command validates the waiting state and the second fails
-closed. Rendering copy-ready text still does not authorize posting it.
+Today the first command validates launch contract, anonymous operating state,
+and accepted ledger together, reports `WAITING_FOR_PUBLIC_GATES`, and the
+second fails closed. Rendering copy-ready text still does not authorize
+posting it.
+
+Without `--json`, the first command prints a human-facing status card with
+accepted/attempt/WIP counts, completion and median-time values, signal
+freshness, stop conditions, the write-authority boundary, and exactly one
+next action for the derived state. It contains no participant identity or
+private evidence.
 
 ## Privacy-bounded reporting
 
-The repository stores aggregate accepted/attempted counts, durations, public
-issue links required by the acceptance ledger, and explicit product findings.
+The repository stores anonymous attempt IDs, aggregate accepted/attempted
+counts, durations, public issue links required by the operating/acceptance
+ledgers, and explicit product findings.
 It does not store a recruited-person list, stargazer identities, private
 contact details, raw receipts, maps, bags, or telemetry. Public issue authors
 remain visible on GitHub by their own voluntary submission; their identities
@@ -130,8 +168,10 @@ are not copied into growth snapshots or this packet.
 4. Update the machine contract with the exact public revision, path, and
    immutable runtime identity; require `COPY_READY_NOT_AUTHORIZED` and review
    the rendered text.
-5. Request E3 authorization for the exact issue/community write scope.
-6. Start at most two attempts and operate the stop/repair loop above.
+5. Record a fresh public operational-signal audit in the anonymous state and
+   require `READY_FOR_NEXT_ATTEMPT`.
+6. Request E3 authorization for the exact issue/community write scope.
+7. Start at most two attempts and operate the stop/repair loop above.
 
 No step may mark the v1 gate complete until three distinct public reports pass
 the existing receipt and maintainer acceptance contract.

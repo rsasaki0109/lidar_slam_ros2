@@ -95,7 +95,7 @@ def test_tracked_plan_covers_the_exact_candidate_once():
         'b12fc602ed7902c8173a129b69d7ab44908bc5ad'
     )
     assert report['scope'] == 'worktree-delta-from-pr-base'
-    assert report['path_count'] == 196
+    assert report['path_count'] == 201
     assert report['slice_count'] == 7
     assert report['remote_mutations_performed'] is False
     assert _planned_paths(plan) == actual
@@ -213,6 +213,6 @@ def test_cli_emits_a_machine_readable_local_only_report():
     assert report['public_head_sha'] == (
         'b12fc602ed7902c8173a129b69d7ab44908bc5ad'
     )
-    assert report['path_count'] == 196
+    assert report['path_count'] == 201
     assert report['github_writes_authorized'] is False
     assert report['remote_mutations_performed'] is False

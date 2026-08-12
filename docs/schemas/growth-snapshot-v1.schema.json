@@ -194,7 +194,78 @@
           "properties": {
             "accepted": {"$ref": "#/definitions/nonNegativeInteger"},
             "required": {"$ref": "#/definitions/nonNegativeInteger"},
-            "remaining": {"$ref": "#/definitions/nonNegativeInteger"}
+            "remaining": {"$ref": "#/definitions/nonNegativeInteger"},
+            "cohort": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "status",
+                "phase",
+                "attempted",
+                "terminal",
+                "active",
+                "review_wip",
+                "successful",
+                "accepted",
+                "target",
+                "completion_rate",
+                "median_active_operator_minutes",
+                "operational_signals_fresh",
+                "next_attempt_permitted_by_state",
+                "stop_conditions"
+              ],
+              "properties": {
+                "id": {"const": "g1-first-map-cohort-2026-08"},
+                "status": {
+                  "enum": [
+                    "WAITING_FOR_PUBLIC_GATES",
+                    "WAITING_FOR_OPERATIONAL_SIGNALS",
+                    "PAUSED_REPAIR",
+                    "TARGET_MET",
+                    "HARD_CAP_REVIEW",
+                    "INITIAL_BATCH_REVIEW",
+                    "CAPACITY_FULL",
+                    "READY_FOR_NEXT_ATTEMPT"
+                  ]
+                },
+                "phase": {"enum": ["initial", "extended"]},
+                "attempted": {"type": "integer", "minimum": 0, "maximum": 10},
+                "terminal": {"type": "integer", "minimum": 0, "maximum": 10},
+                "active": {"type": "integer", "minimum": 0, "maximum": 2},
+                "review_wip": {"type": "integer", "minimum": 0, "maximum": 2},
+                "successful": {"type": "integer", "minimum": 0, "maximum": 10},
+                "accepted": {"type": "integer", "minimum": 0, "maximum": 3},
+                "target": {"const": 3},
+                "completion_rate": {
+                  "type": ["number", "null"],
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "median_active_operator_minutes": {
+                  "type": ["number", "null"],
+                  "minimum": 0
+                },
+                "operational_signals_fresh": {"type": "boolean"},
+                "next_attempt_permitted_by_state": {"type": "boolean"},
+                "stop_conditions": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "enum": [
+                      "public-source-or-documentation-drift",
+                      "supported-p0-open",
+                      "failed-release-gate",
+                      "two-unreviewed-receipts",
+                      "two-attempts-share-one-blocker",
+                      "privacy-or-safety-incident",
+                      "completion-below-80-percent-at-attempt-10",
+                      "median-active-time-above-10-minutes-at-attempt-10"
+                    ]
+                  }
+                }
+              }
+            }
           }
         },
         "v1_readiness": {
