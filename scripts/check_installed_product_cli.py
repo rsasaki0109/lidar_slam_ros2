@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -12,7 +13,16 @@ import re
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
+import zipfile
+
+import yaml
+
+
+# This checker imports installed product modules directly. Keep that validation
+# read-only just like the installed launcher it is checking.
+sys.dont_write_bytecode = True
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -27,6 +37,16 @@ VALUE_OPTION_PATTERN = re.compile(
     r'(?P<option>--[a-z][a-z0-9-]*)[ =]'
     r'(?P<value>\{[^}\n]+\}|<[^>\n]+>|[A-Z][A-Z0-9_]*)'
 )
+ROS_ENVIRONMENT_KEYS = (
+    'AMENT_PREFIX_PATH',
+    'CMAKE_PREFIX_PATH',
+    'COLCON_PREFIX_PATH',
+    'LD_LIBRARY_PATH',
+    'PYTHONPATH',
+    'ROS_DISTRO',
+    'ROS_PYTHON_VERSION',
+    'ROS_VERSION',
+)
 
 
 def _runtime_names(path: Path) -> tuple[str, ...]:
@@ -38,6 +58,29 @@ def _runtime_names(path: Path) -> tuple[str, ...]:
     if not names:
         raise RuntimeError(f'product runtime manifest is empty: {path}')
     return names
+
+
+def _python_bytecode_snapshot(
+    root: Path,
+) -> dict[str, tuple[str, int, int, str]]:
+    """Snapshot Python cache artifacts that could mutate an install prefix."""
+    if not root.is_dir():
+        return {}
+    snapshot: dict[str, tuple[str, int, int, str]] = {}
+    for path in sorted(root.rglob('*')):
+        is_cache_dir = path.is_dir() and path.name == '__pycache__'
+        is_bytecode = path.is_file() and path.suffix in ('.pyc', '.pyo')
+        if not (is_cache_dir or is_bytecode):
+            continue
+        stat = path.stat()
+        digest = hashlib.sha256(path.read_bytes()).hexdigest() if is_bytecode else ''
+        snapshot[path.relative_to(root).as_posix()] = (
+            'file' if is_bytecode else 'directory',
+            stat.st_size,
+            stat.st_mtime_ns,
+            digest,
+        )
+    return snapshot
 
 
 def _load_module(path: Path, name: str):
@@ -53,9 +96,14 @@ def _run(
     command: list[str],
     cwd: Path,
     env_updates: dict[str, str] | None = None,
+    *,
+    clean_ros_environment: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.pop('LIDARSLAM_CLI_NAME', None)
+    if clean_ros_environment:
+        for name in ROS_ENVIRONMENT_KEYS:
+            env.pop(name, None)
     if env_updates:
         env.update(env_updates)
     return subprocess.run(
@@ -175,6 +223,21 @@ def _write_bag_fixture(path: Path) -> None:
         writer.close()
 
 
+def _write_unsupported_bag_fixture(path: Path) -> None:
+    path.mkdir()
+    metadata = {
+        'rosbag2_bagfile_information': {
+            'duration': {'nanoseconds': 1_000_000_000},
+            'message_count': 0,
+            'topics_with_message_count': [],
+        },
+    }
+    (path / 'metadata.yaml').write_text(
+        yaml.safe_dump(metadata),
+        encoding='utf-8',
+    )
+
+
 def _historical_manifest_fixture() -> dict[str, object]:
     return {
         'schema_version': 1,
@@ -242,12 +305,15 @@ def validate_install(
     ros_shim = prefix / 'lib' / 'lidarslam' / 'lidarslam-cli'
     historical_node = prefix / 'lib' / 'lidarslam' / 'lidarslam'
     setup_file = prefix / 'setup.bash'
-    product_root = prefix / 'share' / 'lidarslam' / 'product'
+    package_share = prefix / 'share' / 'lidarslam'
+    product_root = package_share / 'product'
     product_scripts = product_root / 'scripts'
     bash_completion = product_root / 'completions' / 'lidarslam-map.bash'
     product_schemas = product_root / 'schemas'
     product_build_info = product_root / 'product-build-info.json'
     installed_runtime_manifest = product_root / 'product-runtime-files.txt'
+
+    bytecode_before = _python_bytecode_snapshot(prefix)
 
     for path in (path_command, ros_shim, historical_node):
         if not path.is_file() or not os.access(path, os.X_OK):
@@ -268,6 +334,19 @@ def validate_install(
         'release-image-v1.schema.json',
         'rollback-plan-v1.schema.json',
         'first-map-validation-receipt-v1.schema.json',
+        'first-map-demo-plan-v1.schema.json',
+        'sensor-setup-v1.schema.json',
+        'sensor-setup-rejection-v1.schema.json',
+        'map-session-recovery-v1.schema.json',
+        'map-session-index-v1.schema.json',
+        'map-session-catalog-v1.schema.json',
+        'map-session-comparison-v1.schema.json',
+        'support-bundle-v1.schema.json',
+        'map-edit-plan-v1.schema.json',
+        'map-edit-receipt-v1.schema.json',
+        'map-project-v1.schema.json',
+        'map-merge-receipt-v1.schema.json',
+        'system-doctor-v1.schema.json',
     ):
         schema_path = product_schemas / schema_name
         if not schema_path.is_file():
@@ -334,8 +413,10 @@ def validate_install(
     with tempfile.TemporaryDirectory(prefix='lidarslam-installed-cli-') as tmp:
         work_dir = Path(tmp)
         bag_dir = work_dir / 'sample_bag'
+        unsupported_bag_dir = work_dir / 'unsupported_bag'
         output_dir = work_dir / 'map_output'
         _write_bag_fixture(bag_dir)
+        _write_unsupported_bag_fixture(unsupported_bag_dir)
 
         path_setup = _run(
             [
@@ -361,6 +442,17 @@ def validate_install(
                 raise RuntimeError(f'unexpected version output: {result.stdout!r}')
 
         _validate_installed_help(path_command, work_dir)
+
+        no_command = _run([str(path_command)], work_dir)
+        if (
+            no_command.returncode != 2
+            or no_command.stdout
+            or 'Usage:' not in no_command.stderr
+        ):
+            raise RuntimeError(
+                'installed non-interactive no-argument invocation did not '
+                'preserve the usage error contract'
+            )
 
         historical_run = work_dir / 'historical_run'
         historical_run.mkdir()
@@ -435,14 +527,640 @@ def validate_install(
                 f'unexpected ROS shim version output: {ros_version.stdout!r}'
             )
 
+        product_schema = _load_module(
+            product_scripts / 'product_schema.py',
+            'installed_product_schema',
+        )
+        system_doctor = _run(
+            [
+                str(path_command),
+                'doctor',
+                '--json',
+                '--min-free-space-gib',
+                '0.001',
+            ],
+            work_dir,
+            clean_ros_environment=True,
+        )
+        _require_success(
+            system_doctor,
+            'direct installed system doctor from a fresh shell',
+        )
+        system_payload = json.loads(system_doctor.stdout)
+        product_schema.validate_contract(
+            system_payload,
+            'system-doctor-v1.schema.json',
+        )
+        if (
+            system_payload.get('status') != 'ready'
+            or system_payload.get('mode') != 'system'
+            or system_payload.get('findings')
+            or system_payload.get('product', {}).get('layout') != 'installed'
+            or system_payload.get('writes_performed') is not False
+            or system_payload.get('network_accessed') is not False
+            or str(prefix) in system_doctor.stdout
+        ):
+            raise RuntimeError(
+                'direct installed system doctor was not ready, read-only, '
+                'or privacy-bounded'
+            )
+
         doctor = _run(
             [str(path_command), 'doctor', str(bag_dir), '--json'],
             work_dir,
+            clean_ros_environment=True,
         )
-        _require_success(doctor, 'installed doctor')
+        _require_success(doctor, 'direct installed doctor from a fresh shell')
         payload = json.loads(doctor.stdout)
         if payload.get('recommended_profile_id') != 'rko_lio_graph_public_path':
-            raise RuntimeError('installed doctor selected an unexpected profile')
+            raise RuntimeError(
+                'direct installed doctor did not auto-activate the product '
+                'environment or selected an unexpected profile'
+            )
+
+        rejection_output = work_dir / 'rejected_session'
+        rejection = _run(
+            [
+                str(path_command),
+                'start',
+                str(unsupported_bag_dir),
+                '--output-dir',
+                str(rejection_output),
+                '--yes',
+                '--dry-run',
+                '--json',
+            ],
+            work_dir,
+        )
+        if rejection.returncode != 2:
+            raise RuntimeError(
+                'installed start did not reject an unsupported bag with '
+                f'exit 2: {rejection.returncode}'
+            )
+        rejection_payload = json.loads(rejection.stdout)
+        product_schema.validate_contract(
+            rejection_payload,
+            'sensor-setup-rejection-v1.schema.json',
+        )
+        if rejection_payload.get('reason', {}).get('code') != (
+            'no-maintained-profile'
+        ):
+            raise RuntimeError('installed start returned an unstable reason code')
+        if rejection_payload.get('files_written') is not False:
+            raise RuntimeError('installed start rejection claimed to write files')
+        if rejection_output.exists():
+            raise RuntimeError('installed start rejection created its output')
+
+        demo_work = work_dir / 'demo-dry-run'
+        demo_plan = _run(
+            [
+                str(path_command),
+                'demo',
+                str(demo_work),
+                '--viewer',
+                'none',
+                '--min-free-space-gib',
+                '0.001',
+                '--dry-run',
+                '--json',
+            ],
+            work_dir,
+        )
+        _require_success(demo_plan, 'installed demo --dry-run --json')
+        demo_payload = json.loads(demo_plan.stdout)
+        product_schema.validate_contract(
+            demo_payload,
+            'first-map-demo-plan-v1.schema.json',
+        )
+        if (
+            demo_payload.get('status') != 'ready'
+            or demo_payload.get('ready') is not True
+            or demo_payload.get('cache', {}).get('download_required')
+            is not True
+            or demo_payload.get('dataset', {}).get('archive_size_bytes')
+            != 517088133
+        ):
+            raise RuntimeError('installed demo returned an invalid dry-run plan')
+        if demo_work.exists():
+            raise RuntimeError('installed demo dry-run wrote its work directory')
+
+        recovery_session = work_dir / 'failed_session'
+        recovery_session.mkdir()
+        recovery_map = recovery_session / 'map'
+        recovery_map.mkdir()
+        recovery_command = [
+            str(path_command),
+            'run',
+            str(bag_dir),
+            '--profile',
+            'rko_lio_graph_public_path',
+            '--output-dir',
+            str(recovery_map),
+            '--verification',
+            'required',
+        ]
+        (recovery_map / 'run_manifest.json').write_text(
+            json.dumps({
+                'schema_version': 2,
+                'status': 'failed',
+                'lifecycle': {'stage': 'complete'},
+                'execution': {
+                    'finished_at': '2026-08-12T00:00:00Z',
+                    'exit_code': 17,
+                },
+            }),
+            encoding='utf-8',
+        )
+        (recovery_map / 'autoware_map_diagnosis.json').write_text(
+            json.dumps({
+                'status': 'runtime_failed',
+                'problem_hints': [
+                    'The output filesystem ran out of writable space or quota.'
+                ],
+                'verify': {'result': 'unknown'},
+            }),
+            encoding='utf-8',
+        )
+        installed_wizard = _load_module(
+            product_scripts / 'sensor_setup_wizard.py',
+            'installed_sensor_setup_wizard',
+        )
+        recovery_manifest = {
+            'bundle_path': str(recovery_session),
+            'input': {'bag_path': str(bag_dir)},
+            'profile': {
+                'id': 'rko_lio_graph_public_path',
+                'label': 'RKO-LIO graph public path',
+            },
+            'run': {
+                'output_dir': str(recovery_map),
+                'argv': recovery_command,
+            },
+        }
+        running_payload = installed_wizard._session_index_payload(
+            type('Args', (), {
+                'verification': 'required',
+            })(),
+            recovery_manifest,
+            runner_exit_code=None,
+            running_stage='workflow_running',
+            active_run_dir=recovery_map,
+        )
+        running_path, running_html = installed_wizard._write_session_index(
+            recovery_session,
+            running_payload,
+        )
+        product_schema.validate_contract(
+            json.loads(running_path.read_text(encoding='utf-8')),
+            'map-session-index-v1.schema.json',
+        )
+        if running_payload.get('quality', {}).get('overall') != 'pending':
+            raise RuntimeError(
+                'installed live session did not keep quality pending'
+            )
+        if running_html is None or not running_html.is_file():
+            raise RuntimeError(
+                'installed start did not create its live session page'
+            )
+        running_html_text = running_html.read_text(encoding='utf-8')
+        if (
+            'Mapping sensor data' not in running_html_text
+            or 'Map quality' not in running_html_text
+            or '<meta http-equiv="refresh" content="2">' not in (
+                running_html_text
+            )
+        ):
+            raise RuntimeError(
+                'installed live session page omitted durable progress'
+            )
+        recovery_payload = installed_wizard._session_recovery_payload(
+            recovery_manifest,
+            17,
+        )
+        recovery_path = installed_wizard._write_session_recovery(
+            recovery_session,
+            recovery_payload,
+        )
+        session_payload = installed_wizard._session_index_payload(
+            type('Args', (), {
+                'verification': 'required',
+            })(),
+            recovery_manifest,
+            runner_exit_code=17,
+            recovery=recovery_payload,
+            recovery_path=recovery_path,
+        )
+        session_path, session_html = installed_wizard._write_session_index(
+            recovery_session,
+            session_payload,
+        )
+        if session_html is None or not session_html.is_file():
+            raise RuntimeError(
+                'installed start recovery did not create session.html'
+            )
+        if session_payload.get('quality', {}).get('overall') != (
+            'action_required'
+        ):
+            raise RuntimeError(
+                'installed recovery session omitted quality action state'
+            )
+        session_html_text = session_html.read_text(encoding='utf-8')
+        if 'storage-exhausted' not in session_html_text:
+            raise RuntimeError(
+                'installed session browser omitted the stable reason code'
+            )
+        if (
+            '<script src=' in session_html_text
+            or '<link ' in session_html_text
+        ):
+            raise RuntimeError(
+                'installed session browser depends on an external resource'
+            )
+        persisted_recovery = json.loads(
+            recovery_path.read_text(encoding='utf-8')
+        )
+        product_schema.validate_contract(
+            persisted_recovery,
+            'map-session-recovery-v1.schema.json',
+        )
+        product_schema.validate_contract(
+            json.loads(session_path.read_text(encoding='utf-8')),
+            'map-session-index-v1.schema.json',
+        )
+        if persisted_recovery.get('reason', {}).get('code') != (
+            'storage-exhausted'
+        ):
+            raise RuntimeError(
+                'installed start recovery returned an unstable reason code'
+            )
+        if persisted_recovery.get('retry', {}).get('output_dir') != (
+            str(recovery_session / 'map.retry')
+        ):
+            raise RuntimeError(
+                'installed start recovery did not choose a fresh retry output'
+            )
+
+        verified_session = work_dir / 'verified_session'
+        verified_map = verified_session / 'map'
+        verified_map.mkdir(parents=True)
+        (verified_map / 'pointcloud_map').mkdir()
+        verified_manifest_path = verified_map / 'run_manifest.json'
+        verified_diagnosis_path = (
+            verified_map / 'autoware_map_diagnosis.json'
+        )
+        verified_log_path = verified_map / 'verify_autoware_map.log'
+        verified_manifest_path.write_text(
+            json.dumps({
+                'status': 'succeeded',
+                'lifecycle': {
+                    'stage': 'complete',
+                    'runner_exit_code': 0,
+                },
+            }),
+            encoding='utf-8',
+        )
+        verified_diagnosis_path.write_text(
+            json.dumps({'status': 'success'}),
+            encoding='utf-8',
+        )
+        verified_log_path.write_text('RESULT: PASS\n', encoding='utf-8')
+
+        def digest(path: Path) -> str:
+            return hashlib.sha256(path.read_bytes()).hexdigest()
+
+        manifest_digest = digest(verified_manifest_path)
+        validation_checks = [
+            'manifest_succeeded',
+            'lifecycle_complete',
+            'runner_exit_zero',
+            'diagnosis_success',
+            'autoware_verification_pass',
+            'diagnosis_bound_to_manifest',
+            'verify_log_bound_to_manifest',
+        ]
+        validation_receipt = {
+            'schema_version': 1,
+            'schema_uri': (
+                'https://rsasaki0109.github.io/lidar_slam_ros2/'
+                'schemas/first-map-validation-receipt-v1.schema.json'
+            ),
+            'status': 'PASS',
+            'run': {
+                'run_id': 'installed-quality-check',
+                'product_version': '0.9.0',
+                'git_commit': 'a' * 40,
+                'profile_id': 'rko_lio_graph_public_path',
+            },
+            'verification': {
+                'manifest_status': 'succeeded',
+                'diagnosis_status': 'success',
+                'autoware_status': 'PASS',
+                'manifest_sha256': manifest_digest,
+            },
+            'evidence': {
+                'manifest': {
+                    'filename': 'run_manifest.json',
+                    'sha256': manifest_digest,
+                },
+                'diagnosis': {
+                    'filename': 'autoware_map_diagnosis.json',
+                    'available': True,
+                    'sha256': digest(verified_diagnosis_path),
+                },
+                'verify_log': {
+                    'filename': 'verify_autoware_map.log',
+                    'available': True,
+                    'sha256': digest(verified_log_path),
+                },
+            },
+            'checks': [
+                {
+                    'id': check_id,
+                    'passed': True,
+                    'observed': 'Installed evidence check passed.',
+                }
+                for check_id in validation_checks
+            ],
+            'shareability': {
+                'contains_map_geometry': False,
+                'contains_private_paths': False,
+                'contains_exact_command': False,
+                'review_before_sharing': True,
+            },
+        }
+        (verified_map / 'first_map_validation_receipt.json').write_text(
+            json.dumps(validation_receipt),
+            encoding='utf-8',
+        )
+        verified_receipt_markdown = (
+            verified_map / 'first_map_validation_receipt.md'
+        )
+        verified_receipt_markdown.write_text(
+            '# First-map validation receipt\n\nRESULT: PASS\n',
+            encoding='utf-8',
+        )
+        verified_manifest = {
+            'bundle_path': str(verified_session),
+            'input': {'bag_path': str(bag_dir)},
+            'profile': {
+                'id': 'rko_lio_graph_public_path',
+                'label': 'RKO-LIO graph public path',
+            },
+            'run': {
+                'output_dir': str(verified_map),
+                'argv': recovery_command,
+            },
+        }
+        verified_payload = installed_wizard._session_index_payload(
+            type('Args', (), {'verification': 'required'})(),
+            verified_manifest,
+            runner_exit_code=0,
+        )
+        verified_path, verified_html = (
+            installed_wizard._write_session_index(
+                verified_session,
+                verified_payload,
+            )
+        )
+        product_schema.validate_contract(
+            json.loads(verified_path.read_text(encoding='utf-8')),
+            'map-session-index-v1.schema.json',
+        )
+        if verified_payload.get('quality', {}).get('overall') != 'pass':
+            raise RuntimeError(
+                'installed terminal session did not preserve '
+                'receipt-bound PASS'
+            )
+        if verified_html is None or 'Evidence integrity' not in (
+            verified_html.read_text(encoding='utf-8')
+        ):
+            raise RuntimeError(
+                'installed terminal session omitted the quality scorecard'
+            )
+
+        session_history_json = _run(
+            [
+                str(path_command),
+                'sessions',
+                str(work_dir),
+                '--status',
+                'verified',
+                '--json',
+            ],
+            work_dir,
+        )
+        _require_success(session_history_json, 'installed sessions --json')
+        history_payload = json.loads(session_history_json.stdout)
+        product_schema.validate_contract(
+            history_payload,
+            'map-session-catalog-v1.schema.json',
+        )
+        if (
+            history_payload.get('summary', {}).get('displayed') != 1
+            or history_payload['sessions'][0]['status'] != 'verified'
+        ):
+            raise RuntimeError(
+                'installed session history did not filter the verified run'
+            )
+        history_page = work_dir / 'sessions.html'
+        if history_page.exists():
+            raise RuntimeError(
+                'installed sessions --json wrote browser output'
+            )
+        session_history_html = _run(
+            [
+                str(path_command),
+                'sessions',
+                str(work_dir),
+                '--viewer',
+                'none',
+            ],
+            work_dir,
+        )
+        _require_success(session_history_html, 'installed sessions browser')
+        history_html_text = history_page.read_text(encoding='utf-8')
+        if (
+            'Recent map sessions' not in history_html_text
+            or 'Open session' not in history_html_text
+            or 'Copy compare command' not in history_html_text
+            or 'Copy support command' not in history_html_text
+            or '<script src=' in history_html_text
+            or '<link ' in history_html_text
+        ):
+            raise RuntimeError(
+                'installed session history omitted its standalone browser UI'
+            )
+
+        comparison_json = _run(
+            [
+                str(path_command),
+                'compare',
+                str(verified_session),
+                str(recovery_session),
+                '--json',
+            ],
+            work_dir,
+        )
+        _require_success(comparison_json, 'installed compare --json')
+        comparison_payload = json.loads(comparison_json.stdout)
+        product_schema.validate_contract(
+            comparison_payload,
+            'map-session-comparison-v1.schema.json',
+        )
+        if (
+            comparison_payload.get('summary', {}).get('total') != 14
+            or comparison_payload.get('policy', {}).get('numeric_score')
+            is not False
+            or comparison_payload.get('policy', {}).get('winner_selected')
+            is not False
+        ):
+            raise RuntimeError(
+                'installed comparison violated its descriptive policy'
+            )
+        comparison_page = work_dir / 'session-comparison.html'
+        if comparison_page.exists():
+            raise RuntimeError('installed compare --json wrote browser output')
+        comparison_html = _run(
+            [
+                str(path_command),
+                'compare',
+                str(verified_session),
+                str(recovery_session),
+                '--output',
+                str(comparison_page),
+                '--viewer',
+                'none',
+            ],
+            work_dir,
+        )
+        _require_success(comparison_html, 'installed compare browser')
+        comparison_html_text = comparison_page.read_text(encoding='utf-8')
+        if (
+            'Compare map sessions' not in comparison_html_text
+            or 'does not invent a numeric' not in comparison_html_text
+            or '<script src=' in comparison_html_text
+            or '<link ' in comparison_html_text
+        ):
+            raise RuntimeError(
+                'installed comparison omitted its standalone browser UI'
+            )
+
+        def tree_snapshot(root: Path) -> dict[str, tuple[str, str | int]]:
+            snapshot: dict[str, tuple[str, str | int]] = {}
+            for path in sorted(root.rglob('*')):
+                relative = str(path.relative_to(root))
+                if path.is_symlink():
+                    snapshot[relative] = ('symlink', os.readlink(path))
+                elif path.is_file():
+                    snapshot[relative] = ('file', digest(path))
+                else:
+                    snapshot[relative] = ('directory', 0)
+            return snapshot
+
+        before_first_map_handoff = tree_snapshot(work_dir)
+        first_map_handoff = _run(
+            [
+                str(path_command),
+                'support',
+                str(verified_session),
+                '--first-map',
+            ],
+            work_dir,
+        )
+        _require_success(
+            first_map_handoff,
+            'installed support --first-map',
+        )
+        required_handoff_text = (
+            'First-map validation handoff: READY FOR REVIEW',
+            'Copy this Verification summary into the issue form:',
+            'manifest_status=succeeded',
+            'diagnosis_status=success',
+            'autoware_status=PASS',
+            f'manifest_sha256={manifest_digest}',
+            str(verified_map / 'first_map_validation_receipt.json'),
+            str(verified_receipt_markdown),
+            (
+                'https://github.com/rsasaki0109/lidar_slam_ros2/'
+                'issues/new?template=first-map-validation.yml'
+            ),
+            'attach only this privacy-bounded JSON receipt',
+        )
+        if any(
+            text not in first_map_handoff.stdout
+            for text in required_handoff_text
+        ):
+            raise RuntimeError(
+                'installed support --first-map omitted its review handoff'
+            )
+        if tree_snapshot(work_dir) != before_first_map_handoff:
+            raise RuntimeError(
+                'installed support --first-map changed local session state'
+            )
+
+        support_zip = work_dir / 'installed-support.zip'
+        support_json = _run(
+            [
+                str(path_command),
+                'support',
+                str(verified_session),
+                '--json',
+            ],
+            work_dir,
+        )
+        _require_success(support_json, 'installed support --json')
+        support_payload = json.loads(support_json.stdout)
+        product_schema.validate_contract(
+            support_payload,
+            'support-bundle-v1.schema.json',
+        )
+        privacy = support_payload.get('privacy', {})
+        if (
+            privacy.get('contains_map_geometry') is not False
+            or privacy.get('contains_raw_sensor_data') is not False
+            or privacy.get('contains_raw_logs') is not False
+            or privacy.get('contains_parameter_contents') is not False
+            or privacy.get('local_paths_redacted') is not True
+            or privacy.get('command_secrets_redacted') is not True
+            or privacy.get('review_before_sharing') is not True
+        ):
+            raise RuntimeError(
+                'installed support report violated its privacy contract'
+            )
+        if str(work_dir) in support_json.stdout or support_zip.exists():
+            raise RuntimeError(
+                'installed support --json leaked a path or wrote a ZIP'
+            )
+        support_archive = _run(
+            [
+                str(path_command),
+                'support',
+                str(verified_session),
+                '--output',
+                str(support_zip),
+            ],
+            work_dir,
+        )
+        _require_success(support_archive, 'installed support ZIP')
+        with zipfile.ZipFile(support_zip) as archive:
+            if archive.namelist() != [
+                'README.txt',
+                'issue-body.md',
+                'support-report.json',
+            ]:
+                raise RuntimeError(
+                    'installed support ZIP has an unexpected member set'
+                )
+            support_members = '\n'.join(
+                archive.read(name).decode('utf-8')
+                for name in archive.namelist()
+            )
+        if str(work_dir) in support_members:
+            raise RuntimeError('installed support ZIP leaked a local path')
+        if 'Review all three ZIP members' not in support_archive.stdout:
+            raise RuntimeError(
+                'installed support ZIP omitted its public-sharing warning'
+            )
 
         dry_run = _run(
             [
@@ -481,7 +1199,7 @@ def validate_install(
             work_dir,
         )
         _require_success(view_help, 'installed view --help')
-        if '--viewer {autoware,foxglove}' not in view_help.stdout:
+        if '--viewer {browser,autoware,foxglove}' not in view_help.stdout:
             raise RuntimeError('installed view help is missing viewer choices')
         if '--runtime-dir' in view_help.stdout:
             raise RuntimeError('installed default view help leaked advanced options')
@@ -505,6 +1223,18 @@ def validate_install(
             raise RuntimeError(
                 'installed view returned an unexpected incomplete-output error'
             )
+
+    bytecode_after = _python_bytecode_snapshot(prefix)
+    if bytecode_after != bytecode_before:
+        changed_bytecode = sorted(
+            path
+            for path in set(bytecode_before) | set(bytecode_after)
+            if bytecode_before.get(path) != bytecode_after.get(path)
+        )
+        raise RuntimeError(
+            'installed product CLI changed Python bytecode in its install '
+            f'prefix: {changed_bytecode[:5]}'
+        )
 
 
 def main() -> int:

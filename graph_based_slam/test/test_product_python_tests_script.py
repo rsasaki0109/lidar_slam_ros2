@@ -104,6 +104,7 @@ def test_help_explains_scoped_separate_process_contract():
     assert '-- <pytest args>' in result.stderr
     assert 'separate pytest' in result.stderr
     assert 'Thirdparty' in result.stderr
+    assert 'Both maintained suites include ROS bag fixtures' in result.stderr
 
 
 def test_unknown_and_invalid_suite_fail_before_preflight():
@@ -146,17 +147,26 @@ def test_one_suite_failure_does_not_hide_the_other_result(tmp_path: Path):
     assert 'lidarslam/test' in pytest_calls[1]
 
 
-def test_lidarslam_only_does_not_require_rosbag2_py(tmp_path: Path):
+def test_lidarslam_suite_reports_missing_ros_python_before_collection(
+    tmp_path: Path,
+):
     env, call_log = _fake_python_environment(tmp_path)
     env['ROSBAG_IMPORT_RC'] = '9'
+    noop_setup = tmp_path / 'noop_setup.bash'
+    noop_setup.write_text(':\n', encoding='utf-8')
 
-    result = _run('--suite', 'lidarslam', env=env)
+    result = _run(
+        '--suite', 'lidarslam', '--ros-setup', str(noop_setup), env=env,
+    )
 
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 2
+    assert (
+        'rosbag2_py is unavailable for the selected product suite: lidarslam'
+        in result.stderr
+    )
     calls = _calls(call_log)
-    assert '-c import rosbag2_py' not in calls
-    assert any('lidarslam/test' in line for line in calls)
-    assert all('graph_based_slam/test' not in line for line in calls)
+    assert '-c import rosbag2_py' in calls
+    assert not any('-m pytest' in line for line in calls)
 
 
 def test_graph_suite_reports_missing_ros_python_with_supported_hint(tmp_path: Path):
@@ -170,7 +180,10 @@ def test_graph_suite_reports_missing_ros_python_with_supported_hint(tmp_path: Pa
     )
 
     assert result.returncode == 2
-    assert 'rosbag2_py is unavailable' in result.stderr
+    assert (
+        'rosbag2_py is unavailable for the selected product suite: '
+        'graph_based_slam' in result.stderr
+    )
     assert '/opt/ros/humble/setup.bash' in result.stderr
     assert '/opt/ros/jazzy/setup.bash' in result.stderr
     assert not any('-m pytest' in line for line in _calls(call_log))

@@ -132,3 +132,17 @@ The next evidence transition is:
    retaining contributor identity or private logs.
 
 E1 source publication and E3 community mutation remain separate decisions.
+
+## 2026-08-12 follow-up
+
+The original revision accurately required `rosbag2_py` only for the graph
+suite. Later product work added rosbag2-backed sensor-setup fixtures under
+`lidarslam/test`, making that assumption stale. The current local candidate now
+auto-sources supported ROS and checks `rosbag2_py` for either suite. An
+unsourced `--suite lidarslam` run passed all 622 tests after that repair. The
+[follow-up evidence](contributor-product-surface-sync-2026-08-12.md) records the
+initial `612 passed / 10 failed` reproduction, updated runner contract, and
+current focused checks. Its final unsourced `--suite all` gate passed 1,428
+graph tests and 622 lidarslam tests after also catching and repairing one new
+interactive-home CTest registration omission. This note does not alter the
+historical dual-distro numbers above.

@@ -19,6 +19,8 @@ Examples:
 The two package test directories intentionally run in separate pytest
 processes. They contain one legacy duplicate module basename, while an
 unscoped repository-root pytest also collects optional Thirdparty tests.
+Both maintained suites include ROS bag fixtures and therefore require
+rosbag2_py from a supported Humble or Jazzy environment.
 EOF
 }
 
@@ -119,7 +121,7 @@ if [[ -n "${ROS_SETUP}" ]]; then
   source_setup "${ROS_SETUP}"
 fi
 
-if [[ "${RUN_GRAPH}" == "true" ]] &&
+if [[ "${RUN_GRAPH}" == "true" || "${RUN_LIDARSLAM}" == "true" ]] &&
   ! "${PYTHON_BIN}" -c 'import rosbag2_py' >/dev/null 2>&1; then
   AUTO_ROS_SETUP=""
   if [[ -z "${ROS_SETUP}" &&
@@ -137,15 +139,16 @@ if [[ "${RUN_GRAPH}" == "true" ]] &&
   fi
 fi
 
-if [[ "${RUN_GRAPH}" == "true" ]] &&
+if [[ "${RUN_GRAPH}" == "true" || "${RUN_LIDARSLAM}" == "true" ]] &&
   ! "${PYTHON_BIN}" -c 'import rosbag2_py' >/dev/null 2>&1; then
-  echo "error: rosbag2_py is unavailable for the graph_based_slam product suite" >&2
+  echo "error: rosbag2_py is unavailable for the selected product suite: ${SUITE}" >&2
   echo "hint: source /opt/ros/humble/setup.bash or /opt/ros/jazzy/setup.bash," >&2
   echo "      or pass --ros-setup with a supported ROS setup file." >&2
   exit 2
 fi
 
-if [[ "${RUN_GRAPH}" == "true" && -n "${ROS_DISTRO:-}" &&
+if [[ ("${RUN_GRAPH}" == "true" || "${RUN_LIDARSLAM}" == "true") &&
+  -n "${ROS_DISTRO:-}" &&
   "${ROS_DISTRO}" != "humble" && "${ROS_DISTRO}" != "jazzy" ]]; then
   echo "error: ROS_DISTRO=${ROS_DISTRO} is outside the Humble/Jazzy support contract" >&2
   echo "hint: rerun after sourcing a supported ROS setup file, or pass --ros-setup." >&2
