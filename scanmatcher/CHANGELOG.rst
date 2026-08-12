@@ -13,6 +13,9 @@ Forthcoming
 * Exercise the real ROS 2 component with an unsafe-then-safe cloud sequence;
   the overflow is rejected without output, then the same process publishes a
   map and pose for the later valid scan on Humble and Jazzy.
+* Cover the asynchronous map-update path and safe component shutdown. Each
+  worker uses the triggering scan's distance snapshot, shared diagnostics stay
+  locked, and destruction waits for an outstanding map update to finish.
 
 0.9.0 (2026-07-30)
 ------------------

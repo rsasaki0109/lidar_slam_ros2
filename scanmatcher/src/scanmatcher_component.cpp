@@ -435,8 +435,8 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
 
   if (registration_method_ == "NDT") {
 
-    pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>::Ptr
-      ndt(new pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>());
+    auto ndt = pcl::make_shared<
+      pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>();
     ndt->setResolution(ndt_resolution);
     ndt->setTransformationEpsilon(ndt_transformation_epsilon_);
     ndt->setMaximumIterations(ndt_max_iterations_);
@@ -449,8 +449,8 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     registration_ = ndt;
 
   } else if (registration_method_ == "GICP") {
-    boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
-      gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
+    auto gicp = pcl::make_shared<
+      pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>();
     gicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
     gicp->setTransformationEpsilon(1e-8);
     registration_ = gicp;
@@ -459,7 +459,7 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
 #ifdef HAS_FAST_GICP
   else if (registration_method_ == "FAST_GICP") {
     using FG = fast_gicp::FastGICP<pcl::PointXYZI, pcl::PointXYZI>;
-    boost::shared_ptr<FG> fgicp(new FG());
+    auto fgicp = pcl::make_shared<FG>();
     fgicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
     fgicp->setTransformationEpsilon(1e-6);
     fgicp->setMaximumIterations(ndt_max_iterations_);
@@ -467,7 +467,7 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     registration_ = fgicp;
   } else if (registration_method_ == "FAST_VGICP") {
     using FVG = fast_gicp::FastVGICP<pcl::PointXYZI, pcl::PointXYZI>;
-    boost::shared_ptr<FVG> fvgicp(new FVG());
+    auto fvgicp = pcl::make_shared<FVG>();
     fvgicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
     fvgicp->setTransformationEpsilon(1e-6);
     fvgicp->setMaximumIterations(ndt_max_iterations_);
@@ -479,7 +479,7 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
 #ifdef HAS_SMALL_GICP
   else if (registration_method_ == "SMALL_GICP" || registration_method_ == "SMALL_VGICP") {
     using SG = small_gicp::RegistrationPCL<pcl::PointXYZI, pcl::PointXYZI>;
-    boost::shared_ptr<SG> sg(new SG());
+    auto sg = pcl::make_shared<SG>();
     if (registration_method_ == "SMALL_VGICP") {
       sg->setRegistrationType("VGICP");
       sg->setVoxelResolution(ndt_resolution);
@@ -530,6 +530,14 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   }
 
   RCLCPP_INFO(get_logger(), "initialization end");
+}
+
+ScanMatcherComponent::~ScanMatcherComponent()
+{
+  // updateMap captures this; keep the node alive until its worker is done.
+  if (mapping_thread_.joinable()) {
+    mapping_thread_.join();
+  }
 }
 
 void ScanMatcherComponent::initializePubSub()
@@ -1026,7 +1034,7 @@ void ScanMatcherComponent::receiveCloud(
       const Eigen::Vector3d prior_rpy = pose_prediction::imuPredictedRotationRpy(
         imu_observation,
         current_orientation_quat);
-      auto ndt_ptr = boost::dynamic_pointer_cast<
+      auto ndt_ptr = pcl::dynamic_pointer_cast<
         pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
       if (ndt_ptr) {
         ndt_ptr->setRotationPrior(prior_rpy, imu_ndt_prior_weight_,
@@ -1037,7 +1045,7 @@ void ScanMatcherComponent::receiveCloud(
 
   // Set IMU Z-translation prior: constrain z-drift using gravity direction
   if (imu_z_prior_enable_ && imu_z_prior_weight_ > 0.0 && registration_method_ == "NDT") {
-    auto ndt_ptr = boost::dynamic_pointer_cast<
+    auto ndt_ptr = pcl::dynamic_pointer_cast<
       pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
     if (ndt_ptr) {
       // Use current z as prior (resist z changes between consecutive frames)
@@ -1053,7 +1061,7 @@ void ScanMatcherComponent::receiveCloud(
     double max_dist = map_update_policy::adaptiveMaxCorrespondenceDistance(
       adaptive_corr_dist_multiplier_, adaptive_corr_dist_ema_);
     if (registration_method_ == "NDT") {
-      auto ndt_ptr = boost::dynamic_pointer_cast<
+      auto ndt_ptr = pcl::dynamic_pointer_cast<
         pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
       if (ndt_ptr) {
         ndt_ptr->setMaxCorrespondenceDistance(max_dist);
@@ -1071,7 +1079,7 @@ void ScanMatcherComponent::receiveCloud(
 
   // Clear rotation prior after alignment (NDT only)
   if (registration_method_ == "NDT") {
-    auto ndt_ptr = boost::dynamic_pointer_cast<
+    auto ndt_ptr = pcl::dynamic_pointer_cast<
       pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
     if (ndt_ptr) {
       if (imu_ndt_prior_enable_) {
@@ -1087,7 +1095,7 @@ void ScanMatcherComponent::receiveCloud(
   if (adaptive_correspondence_threshold_) {
     double mean_corr = 0.0;
     if (registration_method_ == "NDT") {
-      auto ndt_ptr = boost::dynamic_pointer_cast<
+      auto ndt_ptr = pcl::dynamic_pointer_cast<
         pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
       if (ndt_ptr) {
         mean_corr = ndt_ptr->getLastMeanCorrespondenceDistance();
@@ -1139,9 +1147,15 @@ void ScanMatcherComponent::receiveCloud(
   std::cout << "roll:" << roll * 180 / M_PI << "," <<
     "pitch:" << pitch * 180 / M_PI << "," <<
     "yaw:" << yaw * 180 / M_PI << std::endl;
-  int num_submaps = map_array_msg_.submaps.size();
+  int num_submaps;
+  double latest_distance;
+  {
+    std::lock_guard<std::mutex> lock(mtx_);
+    num_submaps = map_array_msg_.submaps.size();
+    latest_distance = latest_distance_;
+  }
   std::cout << "num_submaps:" << num_submaps << std::endl;
-  std::cout << "moving distance:" << latest_distance_ << std::endl;
+  std::cout << "moving distance:" << latest_distance << std::endl;
   std::cout << "---------------------------------------------------------" << std::endl;
 }
 
@@ -1259,6 +1273,7 @@ void ScanMatcherComponent::publishMapAndPose(
     geometry_msgs::msg::PoseStamped current_pose_stamped;
     current_pose_stamped = current_pose_stamped_;
     previous_position_ = accepted_position;
+    const double distance_increment = trans_;
     const bool use_async_map_update = map_update_policy::useAsyncMapUpdate(
       async_map_update_, async_map_update_warmup_submaps_,
       static_cast<int>(map_array_msg_.submaps.size()));
@@ -1267,12 +1282,14 @@ void ScanMatcherComponent::publishMapAndPose(
         std::packaged_task<void()>(
         std::bind(
           &ScanMatcherComponent::updateMap, this, cloud_ptr,
-          final_transformation, current_pose_stamped));
+          final_transformation, current_pose_stamped, distance_increment));
       mapping_future_ = mapping_task_.get_future();
       mapping_thread_ = std::thread(std::move(std::ref(mapping_task_)));
       mapping_flag_ = true;
     } else {
-      updateMap(cloud_ptr, final_transformation, current_pose_stamped);
+      updateMap(
+        cloud_ptr, final_transformation, current_pose_stamped,
+        distance_increment);
       mapping_flag_ = false;
     }
   }
@@ -1281,7 +1298,8 @@ void ScanMatcherComponent::publishMapAndPose(
 void ScanMatcherComponent::updateMap(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud_ptr,
   const Eigen::Matrix4f final_transformation,
-  const geometry_msgs::msg::PoseStamped current_pose_stamped)
+  const geometry_msgs::msg::PoseStamped current_pose_stamped,
+  const double distance_increment)
 {
   pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
   if (!filterVoxelGridSafely(
@@ -1303,13 +1321,15 @@ void ScanMatcherComponent::updateMap(
   lidarslam_msgs::msg::SubMap submap;
   submap.header.stamp = current_pose_stamped.header.stamp;
   submap.header.frame_id = global_frame_id_;
-  latest_distance_ += trans_;
-  submap.distance = latest_distance_;
   submap.pose = current_pose_stamped.pose;
   submap.cloud = cloud_msg;
   lidarslam_msgs::msg::MapArray map_array_snapshot;
   {
     std::lock_guard<std::mutex> lock(mtx_);
+
+    // Attribute distance to the scan that launched this update, not a later scan.
+    latest_distance_ += distance_increment;
+    submap.distance = latest_distance_;
 
     if (use_voxel_hash_map_ && voxel_hash_map_) {
       // VoxelHashMap mode: add points and build target from nearby voxels

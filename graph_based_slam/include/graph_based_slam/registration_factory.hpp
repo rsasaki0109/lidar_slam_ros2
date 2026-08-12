@@ -34,6 +34,7 @@
 // and the offline deterministic runner, so both verify candidates with
 // byte-identical registration settings (docs/roadmap/v0.6.md, Phase 2).
 
+#include <pcl/memory.h>  // NOLINT(build/include_order)
 #include <pcl/registration/registration.h>  // NOLINT(build/include_order)
 #include <pclomp/gicp_omp.h>  // NOLINT(build/include_order)
 #include <pclomp/ndt_omp.h>  // NOLINT(build/include_order)
@@ -50,12 +51,12 @@ namespace backend_core
 {
 
 // Returns nullptr for an unknown method; the caller decides how to fail.
-inline boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>>
+inline pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr
 makeLoopRegistration(const std::string & method, double ndt_resolution, int ndt_num_threads)
 {
   if (method == "NDT") {
-    boost::shared_ptr<pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>
-    ndt(new pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>());
+    auto ndt = pcl::make_shared<
+      pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>();
     ndt->setMaximumIterations(100);
     ndt->setResolution(ndt_resolution);
     ndt->setTransformationEpsilon(0.01);
@@ -64,8 +65,8 @@ makeLoopRegistration(const std::string & method, double ndt_resolution, int ndt_
     return ndt;
   }
   if (method == "GICP") {
-    boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
-    gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
+    auto gicp = pcl::make_shared<
+      pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>();
     gicp->setMaxCorrespondenceDistance(30);
     gicp->setMaximumIterations(100);
     gicp->setTransformationEpsilon(1e-8);

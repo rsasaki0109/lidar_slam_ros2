@@ -104,7 +104,7 @@ public:
 
   GraphSlamApplicationConfig config;
   backend_core::BackendCore backend;
-  boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> registration;
+  pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr registration;
   pcl::VoxelGrid<pcl::PointXYZI> voxelgrid;
   ThreeDBBSLoopVerifier three_d_bbs_verifier;
   mutable std::mutex mutex;

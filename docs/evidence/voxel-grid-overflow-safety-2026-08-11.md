@@ -1,6 +1,6 @@
 # Classic scanmatcher VoxelGrid overflow safety — 2026-08-11
 
-> Status: **LOCAL_COMPONENT_RECOVERY_PASS_PUBLICATION_PENDING**
+> Status: **LOCAL_ASYNC_COMPONENT_RECOVERY_PASS_PUBLIC_CI_PENDING**
 >
 > Runtime safety commit:
 > `a2368c486fc35c0edcac6d9dbf2f9cb89475c820`
@@ -10,7 +10,9 @@
 >
 > Public issue: [#69 — scanmatcher_node-1 process has died](https://github.com/rsasaki0109/lidar_slam_ros2/issues/69)
 >
-> Remote changes made by this work: **none**
+> Integration target: [Draft PR #427](https://github.com/rsasaki0109/lidar_slam_ros2/pull/427)
+>
+> Issue or release mutations made by this follow-up: **none**
 
 ## Decision
 
@@ -22,11 +24,13 @@ valid map or registration target. Valid input still uses PCL with the same
 effective float leaf size; the bounded parity test produces exactly equal
 XYZ/intensity points.
 
-This closes the local code hazard and the local component-continuation gate.
-It does not close public issue #69 because neither commit is publicly
-resolvable, supported public CI has not executed the new component test, the
-historical private rosbag was not retained or replayed, and no reviewed public
-integration or release carries the fix.
+This closes the local code hazard and both local component-continuation gates.
+The asynchronous follow-up also snapshots the triggering scan's distance for
+the worker, locks shared map diagnostics, and joins an outstanding worker before
+component destruction. It does not by itself close public issue #69: the
+historical private rosbag was not retained or replayed, the reviewed public CI
+revision must carry the two-case component test, and a named release plus an
+accurate issue response are still required.
 
 ## Upstream behavior being contained
 
@@ -114,23 +118,33 @@ Every classic component call site uses the tested wrapper. The component no
 longer contains a direct `pcl::VoxelGrid` construction.
 
 The separate `test_scanmatcher_voxel_grid_recovery` suite exercises the real
-ROS 2 component rather than calling the wrapper directly. One component
-instance receives the bounded issue-class cloud first and must emit
-`VOXEL_GRID_LAYOUT_OVERFLOW` at `initial_map` without publishing a map. The
-same instance then receives a 245-point valid cloud and must publish both the
-safe cloud's timestamped map and pose while `rclcpp::ok()` remains true. A
-failure or process exit aborts the test before those observations can pass.
+ROS 2 component rather than calling the wrapper directly. Its first case sends
+the bounded issue-class cloud before initialization and requires
+`VOXEL_GRID_LAYOUT_OVERFLOW` at `initial_map` with no map output. The same
+instance then receives a 245-point valid cloud and must publish both its map and
+pose while `rclcpp::ok()` remains true.
 
-The integration suite passed ten consecutive executions on each supported
-distribution. The repetition is a local DDS/test-stability check, not a claim
+The second case initializes with a valid cloud, then sends a cloud that is safe
+at `vg_size_for_input=0.5` but unsafe at `vg_size_for_map=0.1`. It requires the
+asynchronous `map_update` stage to reject that cloud without adding a map-array
+entry, processes a later valid cloud, and destroys the component without one
+more input callback. This covers the original issue discussion's asynchronous
+suspect, recovery, and joining a still joinable completed worker instead of
+terminating during destruction. Code review and the TSan execution separately
+cover the triggering-scan distance snapshot and shared diagnostic locking.
+
+The asynchronous case passed ten independent process executions on each
+supported distribution. Independent processes are required because the
+intentional five-second logging throttle retains call-site state within one
+process. The repetition is a local DDS/lifecycle stability check, not a claim
 about the unavailable historical bag.
 
 ## Supported-distribution execution
 
 | Environment | Exact substrate | Build | Boundary suite | Component recovery | Complete scanmatcher CTest |
 | --- | --- | --- | --- | --- | --- |
-| Humble | immutable local image `ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:f1a894d81b5cb7b4e2e55a7b3fc17e538722b59c07b0bec066f2ad499a5e8447`; PCL `1.12.1+dfsg-3build1`; GCC `11.4.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | PASS, network disabled, source mounted read-only, clean temporary build/install | 11 / 11 PASS | 1 / 1 PASS; 10 consecutive PASS | 10 / 10 PASS |
-| Jazzy | Ubuntu 24.04 host; PCL `1.14.0+dfsg-1`; GCC `13.3.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | PASS, clean temporary build/install | 11 / 11 PASS | 1 / 1 PASS; 10 consecutive PASS | 10 / 10 PASS |
+| Humble | immutable local image `ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:f1a894d81b5cb7b4e2e55a7b3fc17e538722b59c07b0bec066f2ad499a5e8447`; PCL `1.12.1+dfsg-3build1`; GCC `11.4.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | PASS, network disabled, source mounted read-only, clean temporary build/install | 11 / 11 PASS | 2 / 2 PASS; async case 10 / 10 independent-process PASS | 10 / 10 PASS |
+| Jazzy | Ubuntu 24.04 host; PCL `1.14.0+dfsg-1`; GCC `13.3.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | PASS, clean temporary build/install | 11 / 11 PASS | 2 / 2 PASS; async case 10 / 10 independent-process PASS | 10 / 10 PASS |
 
 The complete CTest set includes lidar undistortion, math utilities, odometry
 prior, pose prediction, pose acceptance, IMU processing, map-update policy,
@@ -139,11 +153,18 @@ suite. Humble emitted only the existing PCL CMake policy warning. Jazzy
 additionally emitted the existing PCL 1.14 deprecated-Boost-header notice;
 neither build emitted a new-code diagnostic.
 
+The Jazzy asynchronous case also passed a GCC ThreadSanitizer build with no
+candidate-code race or lock report. TSan required address randomization to be
+disabled and one library-name-only suppression for an unrelated
+`libOpenNI2.so` static-lifecycle mutex warning; the unsuppressed run identified
+only that third-party warning.
+
 Formatting and documentation checks also passed:
 
-- `ament_uncrustify` on the new header and both tests;
-- `ament_cpplint` on the bannered component test, and the package-consistent
-  `--filters=-legal/copyright` check on the original wrapper/boundary files;
+- `ament_uncrustify` and `ament_cpplint` on the expanded component test;
+- the touched legacy component/header retained the same 55 cpplint findings as
+  the audited base, and `CMakeLists.txt` retained the same five lint findings;
+  the follow-up adds no selected lint debt;
 - `mkdocs build --strict`;
 - `git diff --check`.
 
@@ -151,7 +172,8 @@ Formatting and documentation checks also passed:
 
 Issue #69 should remain open until all of these are true:
 
-1. `bce5a9d` or a reviewed descendant is publicly resolvable;
+1. the reviewed descendant containing the asynchronous hardening is publicly
+   resolvable;
 2. CI reproduces both supported build/test rows, including the component
    recovery test, from that public revision;
 3. the public issue response explains the two leaf parameters and reason codes
@@ -159,6 +181,6 @@ Issue #69 should remain open until all of these are true:
 4. the fix is included in a named release or the issue explicitly states the
    first release expected to contain it.
 
-Until then the honest state is local implementation and component recovery
-PASS, public resolution pending. No issue label, comment, state, branch, pull
-request, image, or release was changed during this work.
+Until then the honest state is local asynchronous component recovery PASS,
+public resolution pending. No issue label, comment, state, image, or release
+was changed during this follow-up.

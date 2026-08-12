@@ -41,6 +41,7 @@
 #include <thread>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <lidarslam_msgs/msg/map_array.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
@@ -55,9 +56,13 @@ using Cloud = pcl::PointCloud<Point>;
 
 constexpr char kCloudTopic[] = "/scanmatcher_voxel_grid_recovery/input_cloud";
 constexpr char kMapTopic[] = "/scanmatcher_voxel_grid_recovery/map";
+constexpr char kMapArrayTopic[] = "/scanmatcher_voxel_grid_recovery/map_array";
 constexpr char kPoseTopic[] = "/scanmatcher_voxel_grid_recovery/current_pose";
 constexpr std::int32_t kUnsafeStampSec = 10;
 constexpr std::int32_t kSafeStampSec = 20;
+constexpr std::int32_t kInitialAsyncStampSec = 30;
+constexpr std::int32_t kUnsafeAsyncStampSec = 40;
+constexpr std::int32_t kRecoveredAsyncStampSec = 50;
 
 Point makePoint(float x, float y, float z, float intensity = 0.0F)
 {
@@ -106,6 +111,14 @@ Cloud makeSafeRegistrationCloud()
       }
     }
   }
+  return cloud;
+}
+
+Cloud makeIssue69MapUpdateCloud()
+{
+  Cloud cloud = makeSafeRegistrationCloud();
+  cloud.push_back(makePoint(-200.0F, -200.0F, -10.0F));
+  cloud.push_back(makePoint(200.0F, 200.0F, 10.0F));
   return cloud;
 }
 
@@ -256,6 +269,112 @@ TEST_F(ScanMatcherVoxelGridRecoveryTest, RejectsUnsafeCloudThenProcessesSafeClou
   EXPECT_TRUE(rclcpp::ok());
 
   executor.remove_node(component);
+  executor.remove_node(probe);
+}
+
+TEST_F(
+  ScanMatcherVoxelGridRecoveryTest,
+  RejectsUnsafeAsyncMapUpdateThenProcessesSafeCloudAndShutsDown)
+{
+  rclcpp::NodeOptions probe_options;
+  probe_options.use_intra_process_comms(true);
+  auto probe = std::make_shared<rclcpp::Node>(
+    "scanmatcher_voxel_grid_async_recovery_probe", probe_options);
+
+  std::size_t initial_map_arrays = 0;
+  std::size_t unsafe_map_arrays = 0;
+  std::size_t recovered_map_arrays = 0;
+  auto map_array_subscription =
+    probe->create_subscription<lidarslam_msgs::msg::MapArray>(
+    kMapArrayTopic,
+    rclcpp::QoS(10),
+    [&initial_map_arrays, &unsafe_map_arrays, &recovered_map_arrays](
+      lidarslam_msgs::msg::MapArray::ConstSharedPtr message)
+    {
+      if (message->header.stamp.sec == kInitialAsyncStampSec) {
+        ++initial_map_arrays;
+      } else if (message->header.stamp.sec == kUnsafeAsyncStampSec) {
+        ++unsafe_map_arrays;
+      } else if (message->header.stamp.sec == kRecoveredAsyncStampSec) {
+        ++recovered_map_arrays;
+      }
+    });
+  auto cloud_publisher = probe->create_publisher<sensor_msgs::msg::PointCloud2>(
+    kCloudTopic,
+    rclcpp::SensorDataQoS().keep_last(10));
+
+  rclcpp::NodeOptions component_options;
+  component_options.use_intra_process_comms(true);
+  component_options.arguments({
+      "--ros-args",
+      "-r", std::string("input_cloud:=") + kCloudTopic,
+      "-r", std::string("map_array:=") + kMapArrayTopic,
+    });
+  component_options.parameter_overrides({
+      rclcpp::Parameter("set_initial_pose", true),
+      rclcpp::Parameter("publish_tf", false),
+      rclcpp::Parameter("registration_method", "NDT"),
+      rclcpp::Parameter("ndt_resolution", 0.5),
+      rclcpp::Parameter("ndt_num_threads", 1),
+      rclcpp::Parameter("ndt_max_iterations", 10),
+      rclcpp::Parameter("vg_size_for_input", 0.5),
+      rclcpp::Parameter("vg_size_for_map", 0.1),
+      rclcpp::Parameter("min_points_for_scan", 20),
+      rclcpp::Parameter("async_map_update", true),
+      rclcpp::Parameter("async_map_update_warmup_submaps", 1),
+      rclcpp::Parameter("trans_for_mapupdate", -1.0),
+      rclcpp::Parameter("debug_flag", true),
+      rclcpp::Parameter("motion_gate_enable", false),
+      rclcpp::Parameter("reject_nonconverged_pose_update", false),
+    });
+  auto component = std::make_shared<graphslam::ScanMatcherComponent>(component_options);
+
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(probe);
+  executor.add_node(component);
+
+  ASSERT_TRUE(
+    spinUntil(
+      executor,
+      [&cloud_publisher, &probe]() {
+        return cloud_publisher->get_subscription_count() == 1U &&
+               probe->count_publishers(kMapArrayTopic) == 1U;
+      },
+      5s));
+
+  cloud_publisher->publish(
+    makeCloudMessage(makeSafeRegistrationCloud(), kInitialAsyncStampSec));
+  ASSERT_TRUE(
+    spinUntil(
+      executor,
+      [&initial_map_arrays]() {return initial_map_arrays >= 1U;},
+      5s));
+
+  testing::internal::CaptureStderr();
+  cloud_publisher->publish(
+    makeCloudMessage(makeIssue69MapUpdateCloud(), kUnsafeAsyncStampSec));
+  spinFor(executor, 1s);
+  const std::string unsafe_log = testing::internal::GetCapturedStderr();
+
+  EXPECT_NE(std::string::npos, unsafe_log.find("[VOXEL_GRID_LAYOUT_OVERFLOW]"));
+  EXPECT_NE(std::string::npos, unsafe_log.find("map_update rejected before PCL"));
+  EXPECT_EQ(0U, unsafe_map_arrays);
+  ASSERT_TRUE(rclcpp::ok());
+
+  cloud_publisher->publish(
+    makeCloudMessage(makeSafeRegistrationCloud(), kRecoveredAsyncStampSec));
+  ASSERT_TRUE(
+    spinUntil(
+      executor,
+      [&recovered_map_arrays]() {return recovered_map_arrays >= 1U;},
+      10s));
+
+  EXPECT_EQ(0U, unsafe_map_arrays);
+  EXPECT_GE(recovered_map_arrays, 1U);
+  EXPECT_TRUE(rclcpp::ok());
+
+  executor.remove_node(component);
+  component.reset();
   executor.remove_node(probe);
 }
 

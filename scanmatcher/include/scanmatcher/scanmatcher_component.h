@@ -92,6 +92,9 @@ public:
     GS_SM_PUBLIC
     explicit ScanMatcherComponent(const rclcpp::NodeOptions & options);
 
+    GS_SM_PUBLIC
+    ~ScanMatcherComponent() override;
+
 private:
     using TrackingState = pose_acceptance::TrackingState;
 
@@ -104,7 +107,7 @@ private:
     std::string robot_frame_id_;
     std::string odom_frame_id_;
 
-    boost::shared_ptr<pcl::Registration < pcl::PointXYZI, pcl::PointXYZI >> registration_;
+    pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr registration_;
 
     rclcpp::Subscription < geometry_msgs::msg::PoseStamped > ::SharedPtr initial_pose_sub_;
     rclcpp::Subscription < sensor_msgs::msg::Imu > ::SharedPtr imu_sub_;
@@ -159,7 +162,8 @@ private:
     void updateMap(
       const pcl::PointCloud < pcl::PointXYZI > ::ConstPtr cloud_ptr,
       const Eigen::Matrix4f final_transformation,
-      const geometry_msgs::msg::PoseStamped current_pose_stamped
+      const geometry_msgs::msg::PoseStamped current_pose_stamped,
+      const double distance_increment
     );
     bool refreshRegistrationTargetFromTargetedCloud();
     void appendTransformedSubmaps(const std::vector<int> & submap_indices);

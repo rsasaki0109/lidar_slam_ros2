@@ -150,6 +150,7 @@ if(BUILD_TESTING)
       test_scanmatcher_voxel_grid_recovery
       rclcpp
       geometry_msgs
+      lidarslam_msgs
       sensor_msgs
       pcl_conversions
     )
