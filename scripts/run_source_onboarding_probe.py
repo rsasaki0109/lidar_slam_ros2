@@ -453,6 +453,7 @@ def _preflight_public_source(
             'install_source_dependencies.sh',
             '--repo-only',
             '-DBUILD_TESTING=OFF',
+            'set +u\nsource "${ROS_SETUP}"\nset -u',
             'lidarslam-map demo',
         ),
         'source quickstart',

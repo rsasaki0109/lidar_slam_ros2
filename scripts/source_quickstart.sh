@@ -276,8 +276,14 @@ fi
 # Source the base setup in this process only. The final message always prints
 # the command needed by the user's current shell.
 CURRENT_STAGE="ROS setup"
+# ROS setup files from supported distributions may reference unset variables
+# while they are being sourced.  Keep nounset for this helper and the user
+# command, but do not let the base distribution setup turn a clean shell into
+# an onboarding failure.
 # shellcheck disable=SC1090
+set +u
 source "${ROS_SETUP}"
+set -u
 [[ "${ROS_DISTRO:-}" == "${SELECTED_ROS_DISTRO}" ]] ||
   fail "${ROS_SETUP} did not activate ROS_DISTRO=${SELECTED_ROS_DISTRO}"
 

@@ -89,6 +89,7 @@ def _public_route_contents() -> dict[str, str]:
             '[source-package-inventory-mismatch]\n'
             'install_source_dependencies.sh --repo-only\n'
             '-DBUILD_TESTING=OFF\n'
+            'set +u\nsource "${ROS_SETUP}"\nset -u\n'
             'lidarslam-map demo\n'
         ),
         'scripts/install_source_dependencies.sh': (

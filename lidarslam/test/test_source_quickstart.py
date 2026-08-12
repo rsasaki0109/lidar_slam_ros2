@@ -129,12 +129,17 @@ def _fixture(
     ros_root = tmp_path / 'opt ros'
     setup = ros_root / 'jazzy' / 'setup.bash'
     setup.parent.mkdir(parents=True)
-    setup.write_text('export ROS_DISTRO=jazzy\n', encoding='utf-8')
+    setup.write_text(
+        'if [[ -z "${AMENT_TRACE_SETUP_FILES}" ]]; then :; fi\n'
+        'export ROS_DISTRO=jazzy\n',
+        encoding='utf-8',
+    )
     os_release = tmp_path / 'os-release'
     os_release.write_text('VERSION_ID="24.04"\n', encoding='utf-8')
 
     env = os.environ.copy()
     env.pop('ROS_DISTRO', None)
+    env.pop('AMENT_TRACE_SETUP_FILES', None)
     env.update({
         'CALL_LOG': str(call_log),
         'LIDARSLAM_OS_RELEASE_FILE': str(os_release),
