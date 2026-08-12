@@ -90,6 +90,7 @@ def _public_route_contents() -> dict[str, str]:
             'install_source_dependencies.sh --repo-only\n'
             '-DBUILD_TESTING=OFF\n'
             'set +u\nsource "${ROS_SETUP}"\nset -u\n'
+            'set +u\nsource "${INSTALL_SETUP}"\nset -u\n'
             'lidarslam-map demo\n'
         ),
         'scripts/install_source_dependencies.sh': (

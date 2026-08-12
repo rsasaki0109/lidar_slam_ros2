@@ -115,6 +115,7 @@ def _fixture(
             'mkdir -p "$PWD/install/lidarslam/bin"\n'
             'cp "$FAKE_LIDARSLAM_MAP" '
             '"$PWD/install/lidarslam/bin/lidarslam-map"\n'
+            ': "${COLCON_TRACE}"\n'
             "printf 'export QUICKSTART_TEST_INSTALL=1\\n"
             "export PATH=\"%s:$PATH\"\\n' "
             '"$PWD/install/lidarslam/bin" '
@@ -140,6 +141,7 @@ def _fixture(
     env = os.environ.copy()
     env.pop('ROS_DISTRO', None)
     env.pop('AMENT_TRACE_SETUP_FILES', None)
+    env.pop('COLCON_TRACE', None)
     env.update({
         'CALL_LOG': str(call_log),
         'LIDARSLAM_OS_RELEASE_FILE': str(os_release),

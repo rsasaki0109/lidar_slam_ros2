@@ -454,6 +454,7 @@ def _preflight_public_source(
             '--repo-only',
             '-DBUILD_TESTING=OFF',
             'set +u\nsource "${ROS_SETUP}"\nset -u',
+            'set +u\nsource "${INSTALL_SETUP}"\nset -u',
             'lidarslam-map demo',
         ),
         'source quickstart',

@@ -350,7 +350,9 @@ echo "==> Build: compiling the 6 repository packages"
 INSTALL_SETUP="${WORKSPACE_ROOT}/install/setup.bash"
 [[ -f "${INSTALL_SETUP}" ]] || fail "build finished without ${INSTALL_SETUP}"
 # shellcheck disable=SC1090
+set +u
 source "${INSTALL_SETUP}"
+set -u
 PRODUCT_COMMAND_PATH=$(command -v lidarslam-map || true)
 [[ -n "${PRODUCT_COMMAND_PATH}" ]] ||
   fail "build finished but lidarslam-map is not available after sourcing ${INSTALL_SETUP}"
