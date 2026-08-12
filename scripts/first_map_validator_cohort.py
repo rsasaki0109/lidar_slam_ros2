@@ -61,9 +61,8 @@ ISSUE_FORM_URL = (
 )
 NEXT_ACTIONS = {
     'WAITING_FOR_PUBLIC_GATES': (
-        'Publish the reviewed candidate, complete comparable Docker/source '
-        'rows, select one canonical public route, and publish the copy-ready '
-        'handoff before recording an attempt.'
+        'Complete the remaining public launch gates in reported order before '
+        'recording an attempt.'
     ),
     'WAITING_FOR_OPERATIONAL_SIGNALS': (
         'Record one complete public operational-signal audit no older than '

@@ -164,16 +164,16 @@ are not copied into growth snapshots or this packet.
 
 ## Next transition
 
-1. Publish and pass CI for the reviewed PR #427 tip under exact approval.
-2. Run fresh dedicated-VM Docker/source rows against that public identity.
-3. Repair any repeated blocker and select the lower-burden comparable PASS.
-4. Update the machine contract with the exact public revision, path, and
+1. Run fresh dedicated-VM Docker/source rows against exact source identity
+   `0a3d5f0c3263082360d87723af0055f74e324c80` and the frozen Docker identities.
+2. Repair any repeated blocker and select the lower-burden comparable PASS.
+3. Update the machine contract with the exact public revision, path, and
    immutable runtime identity; require `COPY_READY_NOT_AUTHORIZED` and review
    the rendered text.
-5. Record a fresh public operational-signal audit in the anonymous state and
+4. Record a fresh public operational-signal audit in the anonymous state and
    require `READY_FOR_NEXT_ATTEMPT`.
-6. Request E3 authorization for the exact issue/community write scope.
-7. Start at most two attempts and operate the stop/repair loop above.
+5. Request E3 authorization for the exact issue/community write scope.
+6. Start at most two attempts and operate the stop/repair loop above.
 
 No step may mark the v1 gate complete until three distinct public reports pass
 the existing receipt and maintainer acceptance contract.
