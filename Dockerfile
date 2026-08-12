@@ -80,6 +80,10 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" \
       -DLIDARSLAM_SOURCE_DIRTY:STRING="${LIDARSLAM_SOURCE_DIRTY}" \
   && . install/setup.sh \
   && lidarslam-map --version \
+  && lidarslam-map start --help >/tmp/lidarslam-start-help.txt \
+  && grep -Fq 'Detect and configure the sensors' /tmp/lidarslam-start-help.txt \
+  && grep -Fq -- '--map-output-dir' /tmp/lidarslam-start-help.txt \
+  && rm -f /tmp/lidarslam-start-help.txt \
   && python3 docker/collect_runtime_apt_packages.py \
     --install-root /lidarslam_ws/install \
     --ros-distro "${ROS_DISTRO}" \
@@ -112,7 +116,11 @@ RUN test -x /lidarslam_ws/docker/entrypoint.sh \
   && test -x /lidarslam_ws/install/lidarslam/bin/lidarslam-map \
   && test -x /lidarslam_ws/install/lidarslam/share/lidarslam/product/scripts/run_docker_demo.sh \
   && . /lidarslam_ws/install/setup.sh \
-  && lidarslam-map --version
+  && lidarslam-map --version \
+  && lidarslam-map start --help >/tmp/lidarslam-start-help.txt \
+  && grep -Fq 'Detect and configure the sensors' /tmp/lidarslam-start-help.txt \
+  && grep -Fq -- '--map-output-dir' /tmp/lidarslam-start-help.txt \
+  && rm -f /tmp/lidarslam-start-help.txt
 
 ENTRYPOINT ["/lidarslam_ws/docker/entrypoint.sh"]
 CMD ["bash", "/lidarslam_ws/install/lidarslam/share/lidarslam/product/scripts/run_docker_demo.sh"]

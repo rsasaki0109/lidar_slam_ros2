@@ -33,8 +33,8 @@ TFMESSAGE = 'tf2_msgs/msg/TFMessage'
 GSOF49 = 'applanix_msgs/msg/NavigationSolutionGsof49'
 GSOF50 = 'applanix_msgs/msg/NavigationPerformanceGsof50'
 VELOCITY_REPORT = 'autoware_auto_vehicle_msgs/msg/VelocityReport'
-SCHEMA_VERSION = 3
-SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v3.schema.json'
+SCHEMA_VERSION = 4
+SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v4.schema.json'
 POINT_FIELD_UINT32 = 6
 POINT_FIELD_FLOAT32 = 7
 POINT_FIELD_FLOAT64 = 8
@@ -46,6 +46,15 @@ RKO_TIMESTAMP_DATATYPES = (
 )
 TIMESTAMP_SCAN_MSGTYPES = (POINTCLOUD2, IMU)
 MAX_TIMESTAMP_RECORDS_PER_TOPIC = 100_000
+
+
+def _finding(code: str, message: str, next_action: str) -> dict[str, str]:
+    """Build one stable, actionable preflight rejection finding."""
+    return {
+        'code': code,
+        'message': message,
+        'next_action': next_action,
+    }
 
 
 @dataclass(frozen=True)
@@ -200,6 +209,7 @@ def inspect_pointcloud_record(
     """Read the first selected PointCloud2 record and inspect its fields."""
     base = {
         'topic': topic,
+        'frame_id': None,
         'fields': [],
         'rko_lio_compatible': None,
         'timestamp_field': None,
@@ -243,6 +253,7 @@ def inspect_pointcloud_record(
                 **base,
                 **assessment,
                 'status': 'inspected',
+                'frame_id': message.header.frame_id.strip() or None,
                 'fields': fields,
             }
     except Exception as exc:  # rosbag2 storage plugins expose backend-specific errors
@@ -275,6 +286,7 @@ def _timestamp_scan_state(
             'reversal_count': 0,
             'invalid_stamp_count': 0,
             'max_backward_jump_ns': 0,
+            '_frame_ids': set(),
             '_limit': max_records_per_topic,
         }
         for topic in topics
@@ -298,10 +310,13 @@ def _stamp_ns_from_message(message: Any) -> int | None:
 def _record_timestamp_sample(
     state: dict[str, Any],
     stamp_ns: int | None,
+    frame_id: str | None = None,
 ) -> None:
     if state['records_scanned'] >= state['_limit']:
         return
     state['records_scanned'] += 1
+    if frame_id and frame_id.strip():
+        state['_frame_ids'].add(frame_id.strip())
     if stamp_ns is None:
         state['invalid_stamp_count'] += 1
         return
@@ -341,6 +356,9 @@ def _finalize_timestamp_scan(
             or (expected > 0 and state['records_scanned'] >= expected)
         )
         state['readable'] = state['records_scanned'] > 0
+        frame_ids = sorted(state.pop('_frame_ids'))
+        state['frame_id'] = frame_ids[0] if len(frame_ids) == 1 else None
+        state['frame_ids'] = frame_ids
         state.pop('_limit')
         if (
             not state['readable']
@@ -445,6 +463,7 @@ def inspect_timestamp_order(
             _record_timestamp_sample(
                 state,
                 _stamp_ns_from_message(message),
+                getattr(getattr(message, 'header', None), 'frame_id', None),
             )
         return _finalize_timestamp_scan(
             states,
@@ -518,6 +537,7 @@ def _inspect_timestamp_order_with_rosbags(
                 _record_timestamp_sample(
                     state,
                     _stamp_ns_from_message(message),
+                    getattr(getattr(message, 'header', None), 'frame_id', None),
                 )
         return _finalize_timestamp_scan(
             states,
@@ -546,6 +566,7 @@ def _inspect_pointcloud_record_with_rosbags(
     """Use the pure-Python rosbags reader when ROS Python bindings are absent."""
     base = {
         'topic': topic,
+        'frame_id': None,
         'fields': [],
         'rko_lio_compatible': None,
         'timestamp_field': None,
@@ -594,6 +615,7 @@ def _inspect_pointcloud_record_with_rosbags(
                     **base,
                     **assessment,
                     'status': 'inspected',
+                    'frame_id': str(message.header.frame_id).strip() or None,
                     'fields': fields,
                 }
     except Exception as exc:
@@ -884,51 +906,107 @@ def build_preflight_payload(
             ),
         })
 
-    missing = []
+    findings = []
     if (
         not summary['capabilities']['has_pointcloud2']
         and not summary['capabilities']['has_velodyne_scan']
     ):
-        missing.append('No PointCloud2 or VelodyneScan topic was found.')
+        findings.append(_finding(
+            'range-input-missing',
+            'No PointCloud2 or VelodyneScan topic was found.',
+            'Record or convert a sensor_msgs/msg/PointCloud2 or '
+            'velodyne_msgs/msg/VelodyneScan topic, then rerun '
+            'lidarslam-map doctor <rosbag2_dir>.',
+        ))
     inspection = summary['pointcloud_inspection']
     if (
         summary['capabilities']['has_pointcloud2']
         and summary['capabilities']['has_imu']
         and inspection['rko_lio_compatible'] is not True
     ):
-        missing.append(
-            f"PointCloud2 topic {inspection['topic']} is not verified as compatible "
-            f"with RKO-LIO: {inspection['reason']}"
-        )
+        if inspection['status'] in {'error', 'unavailable'}:
+            findings.append(_finding(
+                'pointcloud-inspection-unavailable',
+                f"PointCloud2 topic {inspection['topic']} could not be inspected: "
+                f"{inspection['reason']}",
+                'Run ros2 bag info <rosbag2_dir>; repair invalid metadata or '
+                'install the reported storage/message support, then rerun '
+                'lidarslam-map doctor <rosbag2_dir>.',
+            ))
+        elif inspection['status'] == 'empty':
+            findings.append(_finding(
+                'pointcloud-record-missing',
+                f"PointCloud2 topic {inspection['topic']} had no readable record: "
+                f"{inspection['reason']}",
+                'Record at least one readable PointCloud2 message, then rerun '
+                'lidarslam-map doctor <rosbag2_dir>.',
+            ))
+        else:
+            findings.append(_finding(
+                'pointcloud-layout-incompatible',
+                f"PointCloud2 topic {inspection['topic']} is not verified as compatible "
+                f"with RKO-LIO: {inspection['reason']}",
+                'Rewrite the selected PointCloud2 with x/y/z fields and a supported '
+                'per-point timestamp field (t, timestamp, time, or stamps), then '
+                'rerun lidarslam-map doctor <rosbag2_dir>.',
+            ))
     timestamp_order = summary['timestamp_order']
     if timestamp_order['status'] in {'error', 'unavailable'}:
-        missing.append(
+        findings.append(_finding(
+            'timestamp-inspection-unavailable',
             'Header timestamp order could not be inspected before launch: '
-            f"{timestamp_order['reason']}"
-        )
+            f"{timestamp_order['reason']}",
+            'Run ros2 bag info <rosbag2_dir>; repair invalid metadata or install '
+            'the reported storage/message support, then rerun '
+            'lidarslam-map doctor <rosbag2_dir>.',
+        ))
     if timestamp_order['status'] == 'failed':
         for topic in timestamp_order['topics']:
             if not topic['readable']:
-                missing.append(
+                findings.append(_finding(
+                    'timestamp-unreadable',
                     f"Header timestamps on {topic['topic']} could not be read. "
-                    'Correct or rewrite the bag before mapping.'
-                )
+                    'Correct or rewrite the bag before mapping.',
+                    f"Repair or rewrite header.stamp on {topic['topic']}, then "
+                    'rerun lidarslam-map doctor <rosbag2_dir>.',
+                ))
             elif topic['reversal_count'] or topic['invalid_stamp_count']:
-                missing.append(
+                findings.append(_finding(
+                    'timestamp-order-invalid',
                     f"Header timestamp disorder on {topic['topic']}: "
                     f"{topic['reversal_count']} reversal(s), "
                     f"{topic['invalid_stamp_count']} invalid stamp(s), "
                     f"maximum backward jump "
                     f"{topic['max_backward_jump_ns'] / 1e9:.9f} s. "
-                    'Correct or rewrite the bag before mapping.'
-                )
+                    'Correct or rewrite the bag before mapping.',
+                    f"Rewrite header.stamp on {topic['topic']} so it is valid and "
+                    'monotonic, then rerun lidarslam-map doctor <rosbag2_dir>.',
+                ))
     if not recommendations:
         if not summary['capabilities']['has_imu']:
-            missing.append('No Imu topic was found for the main RKO-LIO public path.')
+            findings.append(_finding(
+                'imu-input-missing',
+                'No Imu topic was found for the main RKO-LIO public path.',
+                'Record a sensor_msgs/msg/Imu topic synchronized with the '
+                'PointCloud2 input, then rerun lidarslam-map doctor '
+                '<rosbag2_dir>.',
+            ))
         if not summary['capabilities']['has_navsatfix']:
-            missing.append('No NavSatFix topic was found for the PointCloud2 + GNSS smoke path.')
+            findings.append(_finding(
+                'navsatfix-input-missing',
+                'No NavSatFix topic was found for the PointCloud2 + GNSS smoke path.',
+                'If using the GNSS smoke path, record a sensor_msgs/msg/NavSatFix '
+                'topic, then rerun lidarslam-map doctor <rosbag2_dir>.',
+            ))
         if not summary['capabilities']['has_applanix_gsof49']:
-            missing.append('No Applanix GSOF49 topic was found for the packet + Applanix path.')
+            findings.append(_finding(
+                'applanix-gsof49-input-missing',
+                'No Applanix GSOF49 topic was found for the packet + Applanix path.',
+                'If using the packet path, record an Applanix GSOF49 navigation '
+                'topic, then rerun lidarslam-map doctor <rosbag2_dir>.',
+            ))
+
+    missing = [finding['message'] for finding in findings]
 
     beginner_commands = []
     if recommendations:
@@ -955,6 +1033,7 @@ def build_preflight_payload(
         'recommended_profile_id': recommendations[0]['id'] if recommendations else None,
         'beginner_commands': beginner_commands,
         'advisory': advisory,
+        'findings': findings,
         'missing_requirements': missing,
     }
 
@@ -1033,10 +1112,16 @@ def render_text_report(payload: dict[str, Any]) -> str:
         lines.extend([
             '',
             'Recommended path: none',
-            'Why:',
+            'Findings:',
         ])
-        for item in payload['missing_requirements']:
-            lines.append(f'  - {item}')
+        findings = payload.get('findings') or []
+        if findings:
+            for finding in findings:
+                lines.append(f"  [{finding['code']}] {finding['message']}")
+                lines.append(f"    Next: {finding['next_action']}")
+        else:
+            for item in payload['missing_requirements']:
+                lines.append(f'  - {item}')
 
     if payload['advisory']:
         lines.append('')

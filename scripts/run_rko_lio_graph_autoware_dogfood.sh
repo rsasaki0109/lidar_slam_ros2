@@ -45,13 +45,14 @@ Options:
                                  with no launch-log changes before calling /map_save.
                                  Use this for long bags where graph_based_slam still
                                  has buffered submaps to process (default: 0, disabled).
-  --capture-corrected-path BOOL  Subscribe to /modified_path during the run and write
-                                 traj_corrected.tum next to the map outputs (default: true).
-  --corrected-path-topic TOPIC   nav_msgs/Path topic to capture (default: /modified_path).
-  --capture-raw-odometry BOOL    Subscribe to frontend odometry and write traj_raw.tum
-                                 next to the map outputs (default: true).
-  --raw-odometry-topic TOPIC     nav_msgs/Odometry topic to capture
-                                 (default: /rko_lio/odometry).
+  --capture-corrected-path BOOL  Stage final trajectory_optimized.tum as traj_corrected.tum;
+                                 custom topics use live capture (default: true).
+  --corrected-path-topic TOPIC   Custom nav_msgs/Path live-capture topic
+                                 (default: /modified_path uses final optimized output).
+  --capture-raw-odometry BOOL    Write complete frontend traj_raw.tum from RKO-LIO's native
+                                 dump; custom topics use live capture (default: true).
+  --raw-odometry-topic TOPIC     Custom nav_msgs/Odometry live-capture topic
+                                 (default: /rko_lio/odometry uses the native dump).
   --generate-lanelet2 BOOL       Generate lanelet2_map.osm from traj_corrected.tum (default: true).
   --origin-lat <deg>             Origin latitude for lanelet2 local coordinates (default: 0.0).
   --origin-lon <deg>             Origin longitude for lanelet2 local coordinates (default: 0.0).
@@ -377,6 +378,7 @@ mkdir -p "$ROS_LOG_DIR"
 LAUNCH_LOG="${OUTPUT_DIR}/slam.launch.log"
 MAP_SAVE_LOG="${OUTPUT_DIR}/map_save.log"
 RKO_ROS_PARAM_FILE="${OUTPUT_DIR}/rko_params.ros.yaml"
+GRAPH_ROS_PARAM_FILE="${OUTPUT_DIR}/graph_params.ros.yaml"
 CORRECTED_TUM="${OUTPUT_DIR}/traj_corrected.tum"
 CORRECTED_LOG="${OUTPUT_DIR}/path_corrected_logger.log"
 CORRECTED_APE_REPORT="${OUTPUT_DIR}/traj_corrected_ape.txt"
@@ -390,6 +392,9 @@ LAUNCH_PID=""
 LAUNCH_PGID=""
 CORRECTED_LOGGER_PID=""
 RAW_LOGGER_PID=""
+USE_FINAL_OPTIMIZED_TRAJECTORY=false
+USE_NATIVE_RAW_TRAJECTORY=false
+declare -A EXISTING_RKO_DUMP_DIRS=()
 KEEP_RUNNING=0
 
 [[ -n "$REFERENCE_TUM" && ! -f "$REFERENCE_TUM" ]] && { echo "--reference-tum file not found: $REFERENCE_TUM" >&2; exit 1; }
@@ -414,6 +419,7 @@ if isinstance(data, dict) and any(
 wrapped = {"/**": {"ros__parameters": data}}
 dst_path.write_text(yaml.safe_dump(wrapped, sort_keys=False))
 PY
+cp -f "$LIDARSLAM_PARAM" "$GRAPH_ROS_PARAM_FILE"
 
 cleanup() {
   if [[ "$KEEP_RUNNING" -eq 1 ]]; then
@@ -438,6 +444,43 @@ cleanup() {
   fi
 }
 trap cleanup EXIT INT TERM
+
+stage_native_raw_trajectory() {
+  local run_dir
+  local candidate
+  local selected=""
+  local -a candidates=()
+
+  shopt -s nullglob
+  for run_dir in "$OUTPUT_DIR"/"${RUN_NAME}"_[0-9]*; do
+    if [[ -n "${EXISTING_RKO_DUMP_DIRS[$run_dir]+present}" ]]; then
+      continue
+    fi
+    candidates=("$run_dir"/"${RUN_NAME}"_tum_*.txt)
+    if (( ${#candidates[@]} == 1 )); then
+      selected="${candidates[0]}"
+      break
+    fi
+  done
+  shopt -u nullglob
+
+  if [[ -z "$selected" ]]; then
+    echo "Native RKO-LIO trajectory was not produced for this run under $OUTPUT_DIR." >&2
+    return 1
+  fi
+  cp -- "$selected" "$RAW_TUM"
+  echo "Raw trajectory staged from complete native RKO-LIO results: $RAW_TUM ($(wc -l < "$RAW_TUM") poses)"
+}
+
+stage_final_optimized_trajectory() {
+  local optimized_tum="${OUTPUT_DIR}/trajectory_optimized.tum"
+  if [[ ! -s "$optimized_tum" ]]; then
+    echo "Final optimized trajectory was not produced: $optimized_tum" >&2
+    return 1
+  fi
+  cp -- "$optimized_tum" "$CORRECTED_TUM"
+  echo "Corrected trajectory staged from final graph optimization: $CORRECTED_TUM ($(wc -l < "$CORRECTED_TUM") poses)"
+}
 
 wait_for_log_pattern() {
   local pattern="$1"
@@ -529,8 +572,13 @@ wait_for_offline_completion() {
   local last_log_change_secs=$SECONDS
 
   while (( SECONDS < deadline )); do
-    if grep -Fq "RKO LIO Offline Node took" "$LAUNCH_LOG" 2>/dev/null; then
+    if grep -Fq "RKO LIO offline processing complete" "$LAUNCH_LOG" 2>/dev/null; then
       return 0
+    fi
+
+    if grep -Fq "offline-subscriber-barrier-timeout" "$LAUNCH_LOG" 2>/dev/null ||
+      grep -Fq "offline-subscriber-barrier-invalid" "$LAUNCH_LOG" 2>/dev/null; then
+      return 1
     fi
 
     if [[ -f "$LAUNCH_LOG" ]]; then
@@ -579,6 +627,48 @@ echo "  rko_yaml:       $RKO_PARAM"
 echo "  output_dir:     $OUTPUT_DIR"
 echo "  run_name:       $RUN_NAME"
 echo "  rko_ros_param:  $RKO_ROS_PARAM_FILE"
+echo "  graph_param:    $GRAPH_ROS_PARAM_FILE"
+
+MIN_ODOM_SUBSCRIBERS=1
+if [[ "$CAPTURE_RAW_ODOMETRY" == "true" ]]; then
+  if [[ "$RAW_ODOMETRY_TOPIC" == "/rko_lio/odometry" ]]; then
+    USE_NATIVE_RAW_TRAJECTORY=true
+    shopt -s nullglob
+    for run_dir in "$OUTPUT_DIR"/"${RUN_NAME}"_[0-9]*; do
+      EXISTING_RKO_DUMP_DIRS["$run_dir"]=1
+    done
+    shopt -u nullglob
+    echo "Will stage the complete native RKO-LIO trajectory after offline processing"
+  elif [[ ! -f "$ODOM_TO_TUM_SCRIPT" ]]; then
+    echo "Warning: $ODOM_TO_TUM_SCRIPT not found; skipping raw odometry capture." >&2
+  else
+    echo "Preparing custom live capture $RAW_ODOMETRY_TOPIC -> $RAW_TUM before offline playback"
+    python3 "$ODOM_TO_TUM_SCRIPT" \
+      --topic "$RAW_ODOMETRY_TOPIC" \
+      --output "$RAW_TUM" \
+      --use-sim-time false \
+      >"$RAW_LOG" 2>&1 &
+    RAW_LOGGER_PID="$!"
+    MIN_ODOM_SUBSCRIBERS=2
+  fi
+fi
+
+if [[ "$CAPTURE_CORRECTED_PATH" == "true" ]]; then
+  if [[ "$CORRECTED_PATH_TOPIC" == "/modified_path" ]]; then
+    USE_FINAL_OPTIMIZED_TRAJECTORY=true
+    echo "Will stage the final graph-optimized trajectory after map save"
+  elif [[ ! -f "$PATH_TO_TUM_SCRIPT" ]]; then
+    echo "Warning: $PATH_TO_TUM_SCRIPT not found; skipping /modified_path capture." >&2
+  else
+    echo "Preparing custom live capture $CORRECTED_PATH_TOPIC -> $CORRECTED_TUM before offline playback"
+    python3 "$PATH_TO_TUM_SCRIPT" \
+      --topic "$CORRECTED_PATH_TOPIC" \
+      --output "$CORRECTED_TUM" \
+      --use-sim-time false \
+      >"$CORRECTED_LOG" 2>&1 &
+    CORRECTED_LOGGER_PID="$!"
+  fi
+fi
 
 LAUNCH_ARGS=(
   "main_param_dir:=${LIDARSLAM_PARAM}"
@@ -591,6 +681,11 @@ LAUNCH_ARGS=(
   "results_dir:=${OUTPUT_DIR}"
   "run_name:=${RUN_NAME}"
   "dump_results:=true"
+  "wait_for_output_subscribers:=true"
+  "min_odom_subscribers:=${MIN_ODOM_SUBSCRIBERS}"
+  "min_deskewed_scan_subscribers:=1"
+  "subscriber_wait_timeout_sec:=${STARTUP_TIMEOUT_SECS}"
+  "subscriber_settle_polls:=3"
   "use_rviz:=false"
 )
 if [[ -n "$LIDAR_FRAME" ]]; then
@@ -627,35 +722,13 @@ if ! wait_for_log_pattern "[graph_based_slam]: initialization end" "$STARTUP_TIM
   exit 1
 fi
 
-echo "SLAM launch is up"
-
-if [[ "$CAPTURE_RAW_ODOMETRY" == "true" ]]; then
-  if [[ ! -f "$ODOM_TO_TUM_SCRIPT" ]]; then
-    echo "Warning: $ODOM_TO_TUM_SCRIPT not found; skipping raw odometry capture." >&2
-  else
-    echo "Capturing $RAW_ODOMETRY_TOPIC -> $RAW_TUM"
-    python3 "$ODOM_TO_TUM_SCRIPT" \
-      --topic "$RAW_ODOMETRY_TOPIC" \
-      --output "$RAW_TUM" \
-      --use-sim-time false \
-      >"$RAW_LOG" 2>&1 &
-    RAW_LOGGER_PID="$!"
-  fi
+if ! wait_for_log_pattern "Offline output subscribers ready" "$STARTUP_TIMEOUT_SECS"; then
+  echo "Timed out waiting for the offline output subscriber barrier. Recent launch log:" >&2
+  tail -n 100 "$LAUNCH_LOG" >&2 || true
+  exit 1
 fi
 
-if [[ "$CAPTURE_CORRECTED_PATH" == "true" ]]; then
-  if [[ ! -f "$PATH_TO_TUM_SCRIPT" ]]; then
-    echo "Warning: $PATH_TO_TUM_SCRIPT not found; skipping /modified_path capture." >&2
-  else
-    echo "Capturing $CORRECTED_PATH_TOPIC -> $CORRECTED_TUM"
-    python3 "$PATH_TO_TUM_SCRIPT" \
-      --topic "$CORRECTED_PATH_TOPIC" \
-      --output "$CORRECTED_TUM" \
-      --use-sim-time false \
-      >"$CORRECTED_LOG" 2>&1 &
-    CORRECTED_LOGGER_PID="$!"
-  fi
-fi
+echo "SLAM launch is up; output subscribers are connected before bag playback"
 
 if [[ "$WAIT_FOR_OFFLINE_COMPLETION" == "true" ]]; then
   echo "Waiting for offline bag playback to finish ..."
@@ -721,6 +794,13 @@ if [[ -n "$CORRECTED_LOGGER_PID" ]]; then
   fi
 fi
 
+if [[ "$USE_FINAL_OPTIMIZED_TRAJECTORY" == "true" ]]; then
+  if ! stage_final_optimized_trajectory; then
+    echo "Corrected trajectory capture was requested, so refusing to report a complete run." >&2
+    exit 1
+  fi
+fi
+
 if [[ -n "$RAW_LOGGER_PID" ]]; then
   kill -INT "$RAW_LOGGER_PID" >/dev/null 2>&1 || true
   for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -737,6 +817,13 @@ if [[ -n "$RAW_LOGGER_PID" ]]; then
     echo "Raw trajectory written: $RAW_TUM ($(wc -l < "$RAW_TUM") poses)"
   else
     echo "Warning: $RAW_TUM was not produced (no $RAW_ODOMETRY_TOPIC messages?)." >&2
+  fi
+fi
+
+if [[ "$USE_NATIVE_RAW_TRAJECTORY" == "true" ]]; then
+  if ! stage_native_raw_trajectory; then
+    echo "Raw trajectory capture was requested, so refusing to report a complete run." >&2
+    exit 1
   fi
 fi
 

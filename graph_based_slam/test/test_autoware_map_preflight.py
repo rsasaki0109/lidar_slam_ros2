@@ -148,16 +148,17 @@ def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path)
 
     schema = json.loads(
         (
-            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v3.schema.json'
+            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v4.schema.json'
         ).read_text(encoding='utf-8')
     )
     jsonschema.Draft7Validator.check_schema(schema)
     jsonschema.validate(payload, schema)
-    assert payload['schema_version'] == 3
-    assert payload['schema_uri'].endswith('/schemas/preflight-v3.schema.json')
+    assert payload['schema_version'] == 4
+    assert payload['schema_uri'].endswith('/schemas/preflight-v4.schema.json')
     assert payload['summary']['pointcloud_inspection']['timestamp_field'] == 'time'
     assert payload['summary']['timestamp_order']['status'] == 'passed'
     assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
+    assert payload['findings'] == []
     assert payload['beginner_commands'][0]['command'].startswith(
         'bash scripts/run_autoware_map_beginner.sh'
     )
@@ -217,6 +218,13 @@ def test_cli_json_output_matches_machine_readable_payload(tmp_path: Path):
     assert payload['summary']['capabilities']['has_pointcloud2'] is True
     assert payload['summary']['capabilities']['has_imu'] is False
     assert any('No Imu topic was found' in item for item in payload['missing_requirements'])
+    assert [finding['code'] for finding in payload['findings']] == [
+        'timestamp-inspection-unavailable',
+        'imu-input-missing',
+        'navsatfix-input-missing',
+        'applanix-gsof49-input-missing',
+    ]
+    assert all(finding['next_action'] for finding in payload['findings'])
 
 
 def test_cli_help_is_user_facing():
@@ -438,6 +446,67 @@ def test_missing_point_timestamp_prevents_rko_recommendation(tmp_path: Path):
         'expected t/timestamp/time/stamps' in item
         for item in payload['missing_requirements']
     )
+    layout_finding = next(
+        finding
+        for finding in payload['findings']
+        if finding['code'] == 'pointcloud-layout-incompatible'
+    )
+    assert 'lidarslam-map doctor <rosbag2_dir>' in layout_finding['next_action']
+
+
+def test_reader_failure_is_not_mislabeled_as_pointcloud_layout_failure(
+    tmp_path: Path,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 200),
+            ('/imu/data', 'sensor_msgs/msg/Imu', 2000),
+        ],
+    )
+
+    def failed_pointcloud(_bag_path: Path, topic: str, _storage_id: str) -> dict:
+        return {
+            'status': 'error',
+            'topic': topic,
+            'fields': [],
+            'rko_lio_compatible': None,
+            'timestamp_field': None,
+            'reason': 'metadata could not be parsed',
+        }
+
+    def failed_timestamps(
+        _bag_path: Path,
+        _topics,
+        _storage_id: str,
+        max_records_per_topic: int,
+    ) -> dict:
+        return {
+            'status': 'error',
+            'timestamp_source': 'header.stamp',
+            'max_records_per_topic': max_records_per_topic,
+            'failed_topics': [],
+            'topics': [],
+            'reason': 'metadata could not be parsed',
+        }
+
+    payload = module.build_preflight_payload(
+        bag_dir,
+        pointcloud_inspector=failed_pointcloud,
+        timestamp_inspector=failed_timestamps,
+    )
+
+    codes = [finding['code'] for finding in payload['findings']]
+    assert codes[:2] == [
+        'pointcloud-inspection-unavailable',
+        'timestamp-inspection-unavailable',
+    ]
+    assert 'pointcloud-layout-incompatible' not in codes
+    assert all(
+        'ros2 bag info <rosbag2_dir>' in finding['next_action']
+        for finding in payload['findings'][:2]
+    )
 
 
 def test_timestamp_scan_detects_reversal_and_maximum_jump():
@@ -555,8 +624,16 @@ def test_timestamp_reversal_blocks_affected_mapping_profile(tmp_path: Path):
         and '0.750000000 s' in item
         for item in payload['missing_requirements']
     )
+    timestamp_finding = next(
+        finding
+        for finding in payload['findings']
+        if finding['code'] == 'timestamp-order-invalid'
+    )
+    assert 'Rewrite header.stamp on /points' in timestamp_finding['next_action']
     report = module.render_text_report(payload)
     assert 'Header timestamp order: failed' in report
+    assert '[timestamp-order-invalid]' in report
+    assert 'Next:' in report
 
 
 @pytest.mark.skipif(

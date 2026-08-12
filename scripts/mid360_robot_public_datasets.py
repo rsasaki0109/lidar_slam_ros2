@@ -40,6 +40,43 @@ def payload_to_json(payload: dict[str, Any]) -> str:
 
 
 @dataclass(frozen=True)
+class PublicDatasetExtractedFile:
+    """Immutable identity of one security-relevant extracted file."""
+
+    path: str
+    sha256: str
+    size_bytes: int
+
+    def __post_init__(self) -> None:
+        """Reject paths or identities that cannot be checked safely."""
+        relative = PurePosixPath(self.path)
+        if (
+            not self.path
+            or self.path.startswith('/')
+            or '\\' in self.path
+            or '\x00' in self.path
+            or relative.as_posix() != self.path
+            or any(
+                part in ('', '.', '..')
+                for part in self.path.split('/')
+            )
+        ):
+            raise ValueError(
+                f'invalid extracted file path: {self.path!r}'
+            )
+        if SHA256_PATTERN.fullmatch(self.sha256.lower()) is None:
+            raise ValueError(
+                f'invalid extracted file SHA-256 for {self.path}: '
+                f'{self.sha256!r}'
+            )
+        if self.size_bytes <= 0:
+            raise ValueError(
+                f'invalid extracted file size for {self.path}: '
+                f'{self.size_bytes}'
+            )
+
+
+@dataclass(frozen=True)
 class PublicDatasetFile:
     """Downloadable file in a public MID-360 dataset."""
 
@@ -52,6 +89,7 @@ class PublicDatasetFile:
     size_label: str = ''
     archive_format: str = 'zip'
     notes: str = ''
+    extracted_files: tuple[PublicDatasetExtractedFile, ...] = ()
 
     def __post_init__(self) -> None:
         """Reject malformed immutable identities at registry load time."""
@@ -67,6 +105,18 @@ class PublicDatasetFile:
         if self.size_bytes is not None and self.size_bytes <= 0:
             raise ValueError(
                 f'invalid expected size for {self.id}: {self.size_bytes}'
+            )
+        if self.extracted_files and (
+            not self.sha256 or self.size_bytes is None
+        ):
+            raise ValueError(
+                f'extracted file identities for {self.id} require a '
+                'size- and SHA-256-pinned archive'
+            )
+        extracted_paths = [item.path for item in self.extracted_files]
+        if len(extracted_paths) != len(set(extracted_paths)):
+            raise ValueError(
+                f'duplicate extracted file identity for {self.id}'
             )
 
     def to_dict(self) -> dict[str, Any]:
@@ -149,6 +199,30 @@ PUBLIC_MID360_DATASETS: dict[str, PublicDataset] = {
                 size_bytes=517088133,
                 size_label='517.1 MB',
                 notes='Recommended first public MID-360 ROS2 intake target.',
+                extracted_files=(
+                    PublicDatasetExtractedFile(
+                        path=(
+                            'rosbag2_2024_04_16-14_17_01/'
+                            'metadata.yaml'
+                        ),
+                        sha256=(
+                            '65d66875f49248e38ff14d80e6e749fb'
+                            '50606f6f80bd4be337160e3752691e9a'
+                        ),
+                        size_bytes=5590,
+                    ),
+                    PublicDatasetExtractedFile(
+                        path=(
+                            'rosbag2_2024_04_16-14_17_01/'
+                            'rosbag2_2024_04_16-14_17_01_0.db3'
+                        ),
+                        sha256=(
+                            '3bbd390a97e57af47ad6699baa36eb4c'
+                            '5f39f61b35275505ecaf221c126354f5'
+                        ),
+                        size_bytes=1468932096,
+                    ),
+                ),
             ),
         ),
         default_file_id='rosbag2_2024_04_16',
@@ -291,6 +365,7 @@ class PublicDatasetIntake:
             paths=paths,
             options=options,
             download=self._download_plan(file_record),
+            extraction=self._extraction_plan(file_record),
             bag_candidates=[],
             selected_bag_path='',
             messages=[],
@@ -311,6 +386,7 @@ class PublicDatasetIntake:
                 paths=paths,
                 options=options,
                 download=self._download_plan(file_record),
+                extraction=self._extraction_plan(file_record),
                 bag_candidates=[],
                 selected_bag_path='',
                 messages=['Dry-run only; no files downloaded or extracted.'],
@@ -327,11 +403,21 @@ class PublicDatasetIntake:
             messages,
         )
         archive_ready = download['status'] in {'VERIFIED', 'HASHED'}
+        extraction = self._extraction_plan(file_record)
 
         if options.extract and archive_ready:
-            self._extract(file_record, paths['archive_path'], paths['extract_dir'], options, messages)
+            extraction = self._extract(
+                file_record,
+                paths['archive_path'],
+                paths['extract_dir'],
+                options,
+                messages,
+            )
 
-        bag_candidates = self._find_bag_dirs(paths['extract_dir'])
+        bag_candidates = self._find_bag_dirs(
+            paths['extract_dir'],
+            file_record,
+        )
         selected_bag_path = str(bag_candidates[0]) if bag_candidates else ''
         status = 'READY' if selected_bag_path else 'DOWNLOADED'
         if options.extract and not selected_bag_path:
@@ -345,6 +431,7 @@ class PublicDatasetIntake:
             paths=paths,
             options=options,
             download=download,
+            extraction=extraction,
             bag_candidates=[str(path) for path in bag_candidates],
             selected_bag_path=selected_bag_path,
             messages=messages,
@@ -390,6 +477,7 @@ class PublicDatasetIntake:
         paths: dict[str, Path],
         options: PublicDatasetIntakeOptions,
         download: dict[str, Any],
+        extraction: dict[str, Any],
         bag_candidates: list[str],
         selected_bag_path: str,
         messages: list[str],
@@ -415,6 +503,7 @@ class PublicDatasetIntake:
             'bag_candidates': bag_candidates,
             'selected_bag_path': selected_bag_path,
             'download': download,
+            'extraction': extraction,
             'messages': messages,
             'options': {
                 'file_id': options.file_id or dataset.default_file_id,
@@ -580,6 +669,30 @@ class PublicDatasetIntake:
         }
 
     @staticmethod
+    def _extraction_plan(
+        file_record: PublicDatasetFile,
+    ) -> dict[str, Any]:
+        return {
+            'status': 'NOT_RUN',
+            'source': None,
+            'identity_algorithm': (
+                'sha256' if file_record.extracted_files else None
+            ),
+            'files': [
+                {
+                    'path': item.path,
+                    'expected_size_bytes': item.size_bytes,
+                    'expected_sha256': item.sha256,
+                    'size_bytes': None,
+                    'sha256': None,
+                    'size_verified': None,
+                    'sha256_verified': None,
+                }
+                for item in file_record.extracted_files
+            ],
+        }
+
+    @staticmethod
     def _reject_unsafe_download_path(path: Path, label: str) -> None:
         if path.is_symlink():
             raise ValueError(f'{label} must not be a symlink: {path}')
@@ -615,6 +728,19 @@ class PublicDatasetIntake:
             name: hasher.hexdigest()
             for name, hasher in hashers.items()
         }
+
+    @staticmethod
+    def _hash_sha256_file(path: Path) -> tuple[int, str]:
+        digest = hashlib.sha256()
+        size = 0
+        with path.open('rb') as stream:
+            for chunk in iter(
+                lambda: stream.read(DOWNLOAD_CHUNK_BYTES),
+                b'',
+            ):
+                digest.update(chunk)
+                size += len(chunk)
+        return size, digest.hexdigest()
 
     @staticmethod
     def _download_request(
@@ -881,7 +1007,7 @@ class PublicDatasetIntake:
         extract_dir: Path,
         options: PublicDatasetIntakeOptions,
         messages: list[str],
-    ) -> None:
+    ) -> dict[str, Any]:
         if extract_dir.is_symlink():
             raise ValueError(
                 f'extract directory must not be a symlink: {extract_dir}'
@@ -891,8 +1017,26 @@ class PublicDatasetIntake:
                 f'extract destination is not a directory: {extract_dir}'
             )
         if extract_dir.exists() and not options.force:
-            messages.append(f'Extract directory already exists: {extract_dir}')
-            return
+            if file_record.extracted_files:
+                report = self._verify_extracted_files(
+                    file_record,
+                    extract_dir,
+                    source='cache',
+                )
+                messages.append(
+                    f'Verified existing extraction: {extract_dir} '
+                    f'({len(report["files"])} pinned files).'
+                )
+                return report
+            messages.append(
+                f'Extract directory already exists without registered '
+                f'member identities: {extract_dir}'
+            )
+            return {
+                **self._extraction_plan(file_record),
+                'status': 'REUSED',
+                'source': 'cache',
+            }
 
         if file_record.archive_format != 'zip':
             raise ValueError(
@@ -951,6 +1095,19 @@ class PublicDatasetIntake:
                         f'{exc}'
                     ) from exc
 
+        if file_record.extracted_files:
+            report = self._verify_extracted_files(
+                file_record,
+                partial_dir,
+                source='fresh',
+            )
+        else:
+            report = {
+                **self._extraction_plan(file_record),
+                'status': 'EXTRACTED',
+                'source': 'fresh',
+            }
+
         moved_previous = False
         if extract_dir.exists():
             extract_dir.rename(previous_dir)
@@ -964,6 +1121,88 @@ class PublicDatasetIntake:
         if moved_previous:
             shutil.rmtree(previous_dir)
         messages.append(f'Extracted {archive_path.name} into {extract_dir}.')
+        return report
+
+    @classmethod
+    def _verify_extracted_files(
+        cls,
+        file_record: PublicDatasetFile,
+        extract_dir: Path,
+        *,
+        source: str,
+    ) -> dict[str, Any]:
+        """Hash pinned extracted files and reject any identity mismatch."""
+        checked: list[dict[str, Any]] = []
+        for expected in file_record.extracted_files:
+            path = cls._checked_extracted_path(extract_dir, expected.path)
+            size, sha256 = cls._hash_sha256_file(path)
+            size_verified = size == expected.size_bytes
+            sha256_verified = (
+                sha256.lower() == expected.sha256.lower()
+            )
+            checked.append({
+                'path': expected.path,
+                'expected_size_bytes': expected.size_bytes,
+                'expected_sha256': expected.sha256,
+                'size_bytes': size,
+                'sha256': sha256,
+                'size_verified': size_verified,
+                'sha256_verified': sha256_verified,
+            })
+            failures = [
+                label for label, passed in (
+                    ('size', size_verified),
+                    ('SHA-256', sha256_verified),
+                )
+                if not passed
+            ]
+            if failures:
+                raise ValueError(
+                    f'{", ".join(failures)} mismatch for extracted file '
+                    f'{expected.path}; the extraction must not be used '
+                    '(use --force to replace it from the verified archive)'
+                )
+        return {
+            'status': 'VERIFIED',
+            'source': source,
+            'identity_algorithm': 'sha256',
+            'files': checked,
+        }
+
+    @staticmethod
+    def _checked_extracted_path(
+        extract_dir: Path,
+        relative_path: str,
+    ) -> Path:
+        current = extract_dir
+        parts = PurePosixPath(relative_path).parts
+        for index, part in enumerate(parts):
+            current = current / part
+            try:
+                details = current.lstat()
+            except OSError as exc:
+                raise ValueError(
+                    f'pinned extracted file is missing: {relative_path}'
+                ) from exc
+            if stat.S_ISLNK(details.st_mode):
+                raise ValueError(
+                    f'pinned extracted path must not be a symlink: '
+                    f'{relative_path}'
+                )
+            if index < len(parts) - 1 and not stat.S_ISDIR(
+                details.st_mode
+            ):
+                raise ValueError(
+                    f'pinned extracted parent is not a directory: '
+                    f'{relative_path}'
+                )
+            if index == len(parts) - 1 and not stat.S_ISREG(
+                details.st_mode
+            ):
+                raise ValueError(
+                    f'pinned extracted file is not regular: {relative_path}'
+                )
+        return current
 
     @staticmethod
     def _safe_zip_members(
@@ -1015,9 +1254,24 @@ class PublicDatasetIntake:
         return members
 
     @staticmethod
-    def _find_bag_dirs(extract_dir: Path) -> list[Path]:
+    def _find_bag_dirs(
+        extract_dir: Path,
+        file_record: PublicDatasetFile,
+    ) -> list[Path]:
         if not extract_dir.is_dir():
             return []
+        pinned_metadata = [
+            extract_dir.joinpath(*PurePosixPath(item.path).parts).parent
+            for item in file_record.extracted_files
+            if PurePosixPath(item.path).name == 'metadata.yaml'
+        ]
+        if pinned_metadata:
+            return sorted(
+                path.resolve()
+                for path in pinned_metadata
+                if (path / 'metadata.yaml').is_file()
+                and not (path / 'metadata.yaml').is_symlink()
+            )
         matches = [path.parent for path in extract_dir.rglob('metadata.yaml') if path.is_file()]
         return sorted(set(path.resolve() for path in matches))
 
@@ -1143,6 +1397,7 @@ def render_public_dataset_intake_markdown(report: dict[str, Any]) -> str:
     dataset = report['dataset']
     file_record = report['file']
     download = report['download']
+    extraction = report.get('extraction') or {'status': 'NOT_REPORTED'}
     lines = [
         '# MID-360 Public Dataset Intake',
         '',
@@ -1154,6 +1409,7 @@ def render_public_dataset_intake_markdown(report: dict[str, Any]) -> str:
         f"- file: `{file_record['filename']}`",
         f"- size: `{file_record.get('size_label') or 'unknown'}`",
         f"- download_status: `{download['status']}`",
+        f"- extraction_status: `{extraction['status']}`",
         f"- expected_size_bytes: `{download['expected_size_bytes']}`",
         f"- expected_sha256: `{download['expected_sha256'] or ''}`",
         f"- actual_size_bytes: `{download['size_bytes']}`",

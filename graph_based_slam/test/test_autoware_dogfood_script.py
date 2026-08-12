@@ -37,6 +37,7 @@ import subprocess
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOGFOOD_SCRIPT = REPO_ROOT / 'scripts' / 'run_rko_lio_graph_autoware_dogfood.sh'
+BARRIER_SCRIPT = REPO_ROOT / 'scripts' / 'wait_for_offline_output_subscribers.sh'
 
 
 def _run_dogfood(*args: str) -> subprocess.CompletedProcess[str]:
@@ -66,6 +67,9 @@ def test_dogfood_help_exits_successfully():
     assert '--skip-viewer' in result.stderr
     assert '--capture-raw-odometry' in result.stderr
     assert '--raw-odometry-topic' in result.stderr
+    script = DOGFOOD_SCRIPT.read_text(encoding='utf-8')
+    assert 'graph_params.ros.yaml' in script
+    assert 'cp -f "$LIDARSLAM_PARAM" "$GRAPH_ROS_PARAM_FILE"' in script
 
 
 def test_dogfood_rejects_missing_option_value_before_realpath():
@@ -144,3 +148,79 @@ def test_dogfood_omits_empty_optional_frame_launch_arguments():
     assert '"${LAUNCH_ARGS[@]}"' in script
     assert '"lidar_frame:=${LIDAR_FRAME}" \\' not in script
     assert '"imu_frame:=${IMU_FRAME}" \\' not in script
+
+
+def test_dogfood_connects_consumers_before_offline_bag_playback():
+    script = DOGFOOD_SCRIPT.read_text(encoding='utf-8')
+
+    assert 'Will stage the final graph-optimized trajectory' in script
+    assert 'Will stage the complete native RKO-LIO trajectory' in script
+    assert '"wait_for_output_subscribers:=true"' in script
+    assert '"min_odom_subscribers:=${MIN_ODOM_SUBSCRIBERS}"' in script
+    assert '"min_deskewed_scan_subscribers:=1"' in script
+    assert 'Offline output subscribers ready' in script
+    assert 'RKO LIO offline processing complete' in script
+    assert 'offline-subscriber-barrier-timeout' in script
+
+
+def test_offline_subscriber_barrier_runs_only_after_stable_counts(tmp_path: Path):
+    barrier_source = BARRIER_SCRIPT.read_text(encoding='utf-8')
+    assert 'DISCOVERY_SPIN_SECS=1.0' in barrier_source
+    assert '--spin-time "$DISCOVERY_SPIN_SECS"' in barrier_source
+
+    fake_ros2 = tmp_path / 'ros2'
+    fake_ros2.write_text(
+        '#!/usr/bin/env bash\n'
+        "printf 'Type: test/msg/Fake\\nPublisher count: 0\\nSubscription count: 2\\n'\n",
+        encoding='utf-8',
+    )
+    fake_ros2.chmod(0o755)
+    marker = tmp_path / 'command-ran'
+    env = {'PATH': f'{tmp_path}:/usr/bin:/bin'}
+
+    result = subprocess.run(
+        [
+            'bash',
+            str(BARRIER_SCRIPT),
+            '--odom-topic',
+            '/odom',
+            '--deskewed-topic',
+            '/cloud',
+            '--min-odom',
+            '2',
+            '--min-deskewed',
+            '1',
+            '--timeout-secs',
+            '2',
+            '--settle-polls',
+            '3',
+            '--',
+            'touch',
+            str(marker),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 0
+    assert marker.is_file()
+    assert result.stdout.count('Offline output subscribers ready') == 1
+    assert result.stdout.count('RKO LIO offline processing complete') == 1
+
+
+def test_default_raw_trajectory_uses_complete_native_rko_results():
+    source = DOGFOOD_SCRIPT.read_text(encoding='utf-8')
+    assert 'USE_NATIVE_RAW_TRAJECTORY=true' in source
+    assert 'stage_native_raw_trajectory' in source
+    assert 'cp -- "$selected" "$RAW_TUM"' in source
+    assert 'refusing to report a complete run' in source
+
+
+def test_default_corrected_trajectory_uses_final_graph_optimization():
+    source = DOGFOOD_SCRIPT.read_text(encoding='utf-8')
+    assert 'USE_FINAL_OPTIMIZED_TRAJECTORY=true' in source
+    assert 'stage_final_optimized_trajectory' in source
+    assert 'cp -- "$optimized_tum" "$CORRECTED_TUM"' in source
+    assert 'Corrected trajectory capture was requested' in source

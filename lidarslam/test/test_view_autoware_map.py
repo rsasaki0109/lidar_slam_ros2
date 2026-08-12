@@ -32,6 +32,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import subprocess
+import sys
 
 import pytest
 
@@ -74,7 +75,10 @@ def test_help_has_a_small_viewer_specific_surface():
 
     assert completed.returncode == 0
     assert 'completed map-run output' in completed.stdout
-    assert '--viewer {autoware,foxglove}' in completed.stdout
+    assert '--viewer {browser,autoware,foxglove}' in completed.stdout
+    assert 'default: browser' in completed.stdout
+    assert '--no-open' in completed.stdout
+    assert '--preview-dir' in completed.stdout
     assert '--runtime-dir' in completed.stdout
     assert '--viewer-run-dir' not in completed.stdout
     assert '--rebuild' in completed.stdout
@@ -121,12 +125,10 @@ def test_viewer_command_maps_product_options_to_runtime_options(
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(module.subprocess, 'run', fake_run)
-    result = module.main([
+    arguments = [
         str(output),
         '--viewer',
         viewer,
-        '--autoware-core-dir',
-        '/opt/autoware-core',
         '--work-dir',
         '/tmp/view-work',
         '--runtime-dir',
@@ -134,17 +136,107 @@ def test_viewer_command_maps_product_options_to_runtime_options(
         '--rebuild',
         '--auto-exit-secs',
         '30',
-    ])
+    ]
+    if viewer == 'autoware':
+        arguments.extend(['--autoware-core-dir', '/opt/autoware-core'])
+    result = module.main(arguments)
 
     assert result == 0
     command = recorded[0]
     assert command[:2] == ['bash', str(module.SCRIPT_DIR / expected_script)]
     assert command[2] == str(output.resolve())
-    assert command[command.index('--autoware-core-dir') + 1] == '/opt/autoware-core'
+    if viewer == 'autoware':
+        assert command[command.index('--autoware-core-dir') + 1] == '/opt/autoware-core'
+    else:
+        assert '--autoware-core-dir' not in command
     assert command[command.index('--work-dir') + 1] == '/tmp/view-work'
     assert command[command.index('--run-dir') + 1] == '/tmp/view-runtime'
     assert '--rebuild' in command
     assert command[command.index('--auto-exit-secs') + 1] == '30'
+
+
+def test_default_browser_viewer_exports_self_contained_preview_without_desktop(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    """The default path should be lightweight, headless-safe, and actionable."""
+    module = _load_module()
+    output = _map_output(tmp_path)
+    recorded: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        recorded.append(command)
+        preview_dir = Path(command[command.index('--output-dir') + 1])
+        preview_dir.mkdir(parents=True)
+        (preview_dir / module.BROWSER_PREVIEW_HTML).write_text(
+            '<!doctype html><title>preview</title>\n',
+            encoding='utf-8',
+        )
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(module.subprocess, 'run', fake_run)
+    monkeypatch.setattr(module, 'desktop_session_available', lambda: False)
+
+    assert module.main([str(output)]) == 0
+    command = recorded[0]
+    assert command[0] == sys.executable
+    assert command[1].endswith('export_mid360_robot_3d_map_preview.py')
+    assert command[2] == str(output.resolve())
+    assert Path(command[command.index('--output-dir') + 1]) == output / 'preview'
+    rendered = capsys.readouterr().out
+    assert '3D browser preview ready' in rendered
+    assert 'No desktop session detected' in rendered
+
+
+def test_browser_no_open_and_custom_preview_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    module = _load_module()
+    output = _map_output(tmp_path)
+    preview_dir = tmp_path / 'portable-preview'
+
+    def fake_run(command, **kwargs):
+        preview_dir.mkdir()
+        (preview_dir / module.BROWSER_PREVIEW_HTML).write_text('preview\n', encoding='utf-8')
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(module.subprocess, 'run', fake_run)
+    monkeypatch.setattr(
+        module,
+        'open_browser',
+        lambda _uri: pytest.fail('browser must not be opened with --no-open'),
+    )
+
+    assert module.main([
+        str(output),
+        '--preview-dir',
+        str(preview_dir),
+        '--no-open',
+    ]) == 0
+    assert 'Browser opening skipped by --no-open.' in capsys.readouterr().out
+
+
+def test_viewer_specific_options_are_rejected_instead_of_ignored(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+):
+    module = _load_module()
+    output = _map_output(tmp_path)
+
+    assert module.main([str(output), '--rebuild']) == 2
+    error = capsys.readouterr().err
+    assert '--rebuild cannot be used with --viewer browser' in error
+
+    assert module.main([
+        str(output),
+        '--viewer',
+        'foxglove',
+        '--no-open',
+    ]) == 2
+    assert '--no-open can only be used with --viewer browser' in capsys.readouterr().err
 
 
 def test_viewer_failure_is_propagated(

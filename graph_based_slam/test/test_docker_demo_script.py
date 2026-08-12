@@ -31,23 +31,87 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIRST_MAP_SCRIPT = REPO_ROOT / 'scripts' / 'run_first_map_demo.sh'
 DOCKER_SCRIPT = REPO_ROOT / 'scripts' / 'run_docker_demo.sh'
 BAG_NAME = 'rosbag2_2024_04_16-14_17_01'
+ARCHIVE_SHA256 = (
+    'f8f89eebf2aaf9cc1d465bfa5451bbb5'
+    '99cd92d079b59949104bb4e5cb619bdd'
+)
+METADATA_SHA256 = (
+    '65d66875f49248e38ff14d80e6e749fb'
+    '50606f6f80bd4be337160e3752691e9a'
+)
+STORAGE_SHA256 = (
+    '3bbd390a97e57af47ad6699baa36eb4c'
+    '5f39f61b35275505ecaf221c126354f5'
+)
 
 
-def _run_demo(tmp_path: Path, script: Path, cli_exit: int = 0):
+def _run_demo(
+    tmp_path: Path,
+    script: Path,
+    cli_exit: int = 0,
+    *,
+    resume: bool = False,
+):
     data_dir = tmp_path / 'datasets'
     bag_dir = data_dir / 'driving_slam_mid360' / 'extracted' / BAG_NAME / BAG_NAME
     bag_dir.mkdir(parents=True)
     (bag_dir / 'metadata.yaml').write_text(
         'rosbag2_bagfile_information: {}\n',
+        encoding='utf-8',
+    )
+    intake_manifest = (
+        data_dir / 'driving_slam_mid360'
+        / 'mid360_robot_public_dataset_intake.json'
+    )
+    intake_manifest.write_text(
+        json.dumps({
+            'status': 'READY',
+            'dataset': {'id': 'driving_slam_mid360'},
+            'download': {
+                'status': 'VERIFIED',
+                'expected_size_bytes': 517088133,
+                'size_bytes': 517088133,
+                'expected_sha256': ARCHIVE_SHA256,
+                'sha256': ARCHIVE_SHA256,
+                'size_verified': True,
+                'sha256_verified': True,
+            },
+            'extraction': {
+                'status': 'VERIFIED',
+                'files': [
+                    {
+                        'path': f'{BAG_NAME}/metadata.yaml',
+                        'expected_size_bytes': 5590,
+                        'size_bytes': 5590,
+                        'expected_sha256': METADATA_SHA256,
+                        'sha256': METADATA_SHA256,
+                        'size_verified': True,
+                        'sha256_verified': True,
+                    },
+                    {
+                        'path': f'{BAG_NAME}/{BAG_NAME}_0.db3',
+                        'expected_size_bytes': 1468932096,
+                        'size_bytes': 1468932096,
+                        'expected_sha256': STORAGE_SHA256,
+                        'sha256': STORAGE_SHA256,
+                        'size_verified': True,
+                        'sha256_verified': True,
+                    },
+                ],
+            },
+            'selected_bag_path': str(bag_dir),
+        }),
         encoding='utf-8',
     )
 
@@ -62,6 +126,20 @@ def _run_demo(tmp_path: Path, script: Path, cli_exit: int = 0):
         encoding='utf-8',
     )
     cli_stub.chmod(0o755)
+    intake_capture = tmp_path / 'intake_args.txt'
+    python_stub = stub_dir / 'python3'
+    python_stub.write_text(
+        '#!/bin/sh\n'
+        'case "$1" in\n'
+        '  */download_mid360_robot_public_dataset.py)\n'
+        '    printf "%s\\n" "$@" > "$DEMO_TEST_INTAKE_CAPTURE"\n'
+        '    exit 0\n'
+        '    ;;\n'
+        'esac\n'
+        'exec "$DEMO_TEST_REAL_PYTHON" "$@"\n',
+        encoding='utf-8',
+    )
+    python_stub.chmod(0o755)
 
     env = os.environ.copy()
     env.update(
@@ -70,6 +148,9 @@ def _run_demo(tmp_path: Path, script: Path, cli_exit: int = 0):
             'DEMO_OUTPUT_DIR': str(tmp_path / 'output'),
             'DEMO_TEST_CAPTURE': str(capture_path),
             'DEMO_TEST_EXIT': str(cli_exit),
+            'DEMO_TEST_INTAKE_CAPTURE': str(intake_capture),
+            'DEMO_TEST_REAL_PYTHON': sys.executable,
+            'DEMO_RESUME': '1' if resume else '0',
             'PATH': f'{stub_dir}:{env["PATH"]}',
         }
     )
@@ -88,6 +169,9 @@ def test_demo_selects_nested_directory_that_contains_metadata(tmp_path: Path):
 
     assert result.returncode == 0, result.stderr
     assert f'bag: {bag_dir}' in result.stdout
+    assert 'download_mid360_robot_public_dataset.py' in (
+        tmp_path / 'intake_args.txt'
+    ).read_text(encoding='utf-8')
     runner_args = capture_path.read_text(encoding='utf-8').splitlines()
     assert runner_args[:2] == ['run', str(bag_dir)]
     assert runner_args[runner_args.index('--profile') + 1] == (
@@ -100,6 +184,8 @@ def test_demo_selects_nested_directory_that_contains_metadata(tmp_path: Path):
     assert 'verify_autoware_map.log' in result.stdout
     assert 'autoware_map_diagnosis.json' in result.stdout
     assert 'first_map_validation_receipt.json' in result.stdout
+    assert 'Demo stage 1/3' in result.stdout
+    assert 'Demo stage 3/3' in result.stdout
 
 
 def test_docker_wrapper_runs_the_canonical_first_map_demo(tmp_path: Path):
@@ -112,6 +198,22 @@ def test_docker_wrapper_runs_the_canonical_first_map_demo(tmp_path: Path):
     assert runner_args[runner_args.index('--profile') + 1] == (
         'rko_lio_graph_mid360_preset'
     )
+
+
+def test_demo_resume_delegates_to_runner_resume_without_remapping_flag_loss(
+    tmp_path: Path,
+):
+    result, bag_dir, capture_path = _run_demo(
+        tmp_path,
+        FIRST_MAP_SCRIPT,
+        resume=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert 'resume terminal map verification and evidence' in result.stdout
+    runner_args = capture_path.read_text(encoding='utf-8').splitlines()
+    assert runner_args[:2] == ['run', str(bag_dir)]
+    assert runner_args[-1] == '--resume'
 
 
 def test_demo_reports_failure_without_claiming_success_artifacts(tmp_path: Path):
@@ -134,6 +236,8 @@ def test_demo_delegates_to_versioned_product_contract():
     assert 'autoware_map_diagnosis.md' in script
     assert 'first_map_validation_receipt.json' in script
     assert 'first_map_validation_receipt.md' in script
+    assert 'DEMO_RESUME' in script
+    assert '--resume' in script
     assert 'run_rko_lio_graph_autoware_dogfood.sh' not in script
     assert 'LIDARSLAM_HOST_UID' in script
     assert 'LIDARSLAM_HOST_GID' in script

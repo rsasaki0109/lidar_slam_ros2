@@ -51,6 +51,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 import mid360_robot_public_datasets as public_datasets  # noqa: E402,I100
 from mid360_robot_public_datasets import (  # noqa: E402,I101
     PublicDataset,
+    PublicDatasetExtractedFile,
     PublicDatasetFile,
     PublicDatasetIntake,
     PublicDatasetIntakeOptions,
@@ -541,6 +542,21 @@ def test_public_dataset_registry_contains_recommended_mid360_sources():
         datasets['driving_slam_mid360'].file_by_id().size_bytes
         == 517_088_133
     )
+    extracted = {
+        item.path: item
+        for item in datasets[
+            'driving_slam_mid360'
+        ].file_by_id().extracted_files
+    }
+    assert extracted[
+        'rosbag2_2024_04_16-14_17_01/metadata.yaml'
+    ].sha256 == (
+        '65d66875f49248e38ff14d80e6e749fb50606f6f80bd4be337160e3752691e9a'
+    )
+    assert extracted[
+        'rosbag2_2024_04_16-14_17_01/'
+        'rosbag2_2024_04_16-14_17_01_0.db3'
+    ].size_bytes == 1_468_932_096
     assert datasets['driving_slam_mid360'].license == (
         'Creative Commons Attribution 4.0 International.'
     )
@@ -645,6 +661,77 @@ def test_public_dataset_intake_extracts_local_zip_and_finds_bag(tmp_path: Path):
     assert manifest['download']['sha256'] == hashlib.sha256(
         archive_src.read_bytes()
     ).hexdigest()
+
+
+def test_pinned_extraction_is_verified_and_cached_tampering_fails(
+    tmp_path: Path,
+):
+    """A pinned archive name cannot bless changed extracted bag bytes."""
+    metadata = b'rosbag2_bagfile_information: {}\n'
+    storage = b'synthetic sqlite bytes\n'
+    archive_src = tmp_path / 'source.zip'
+    with zipfile.ZipFile(archive_src, 'w') as archive:
+        archive.writestr('bag/metadata.yaml', metadata)
+        archive.writestr('bag/bag_0.db3', storage)
+    archive_bytes = archive_src.read_bytes()
+    file_record = PublicDatasetFile(
+        id='fixture',
+        filename='fixture.zip',
+        url=archive_src.as_uri(),
+        md5=hashlib.md5(archive_bytes).hexdigest(),
+        sha256=hashlib.sha256(archive_bytes).hexdigest(),
+        size_bytes=len(archive_bytes),
+        extracted_files=(
+            PublicDatasetExtractedFile(
+                path='bag/metadata.yaml',
+                sha256=hashlib.sha256(metadata).hexdigest(),
+                size_bytes=len(metadata),
+            ),
+            PublicDatasetExtractedFile(
+                path='bag/bag_0.db3',
+                sha256=hashlib.sha256(storage).hexdigest(),
+                size_bytes=len(storage),
+            ),
+        ),
+    )
+    dataset = PublicDataset(
+        id='pinned_fixture',
+        title='Pinned fixture',
+        source_url='file://fixture',
+        description='test',
+        license='test',
+        citation='test',
+        files=(file_record,),
+        default_file_id='fixture',
+        profile={},
+    )
+    intake = PublicDatasetIntake(
+        REPO_ROOT,
+        registry={'pinned_fixture': dataset},
+        progress_stream=None,
+    )
+    options = PublicDatasetIntakeOptions(
+        dataset_id='pinned_fixture',
+        dataset_root=tmp_path / 'datasets',
+    )
+
+    first = intake.run(options)
+
+    assert first['status'] == 'READY'
+    assert first['download']['status'] == 'VERIFIED'
+    assert first['extraction']['status'] == 'VERIFIED'
+    assert first['extraction']['source'] == 'fresh'
+    assert all(
+        item['size_verified'] and item['sha256_verified']
+        for item in first['extraction']['files']
+    )
+
+    extracted_metadata = Path(first['extract_dir']) / 'bag' / 'metadata.yaml'
+    extracted_metadata.write_bytes(b'X' + metadata[1:])
+    with pytest.raises(ValueError, match='SHA-256 mismatch'):
+        intake.run(options)
+
+    assert Path(first['archive_path']).read_bytes() == archive_bytes
 
 
 def test_extract_rejects_traversal_before_creating_output(tmp_path):

@@ -156,6 +156,7 @@ def test_runner_script_supports_profiles_and_viewers():
     assert 'Next steps:' in script
     assert 'view_autoware_map.py' in script
     assert '--dry-run' in script
+    assert '--editable' in script
     assert '--resume' in script
     assert 'run_manifest.json' in script
     assert 'artifact_checksums' in script
@@ -176,6 +177,7 @@ def test_runner_help_is_user_facing():
     assert 'Expected successful outputs:' in result.stdout
     assert '--output-dir <dir>' in result.stdout
     assert '--min-free-space-gib <GiB>' in result.stdout
+    assert '--editable' in result.stdout
     assert '--resume' in result.stdout
     assert '--guided' in result.stdout
     assert '--yes' in result.stdout
@@ -744,6 +746,14 @@ def test_main_writes_success_manifest_and_rejects_collision(
 
     assert module.main() == 0
     stdout = capsys.readouterr().out
+    for stage in (
+        'workflow_running',
+        'verifying',
+        'finalizing',
+        'diagnosing',
+        'checksumming',
+    ):
+        assert f'Lifecycle stage: {stage}' in stdout
     assert (
         f'Review shareable receipt: '
         f'{output_dir / "first_map_validation_receipt.json"}'
@@ -1688,3 +1698,107 @@ def test_public_plan_pins_both_installed_parameter_files(tmp_path: Path):
     assert str(
         REPO_ROOT / 'lidarslam' / 'param' / 'rko_lio_ntu_viral.yaml'
     ) in command
+
+
+def test_editable_rko_plan_wraps_mapping_with_backend_recorder(tmp_path: Path):
+    """Editable runs must retain replay input inside the atomic output."""
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'editable_mid360_bag',
+        [
+            ('/livox/lidar', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/livox/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'out.partial'
+
+    plan = module.build_execution_plan(
+        bag_path=bag_dir,
+        profile_id=None,
+        output_dir=output_dir,
+        verify_map=True,
+        pointcloud_inspector=_compatible_pointcloud_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+        editable=True,
+    )
+
+    command = plan['command']
+    assert command[:2] == [
+        'bash',
+        str(REPO_ROOT / 'scripts' / 'record_backend_input.sh'),
+    ]
+    assert command[command.index('--output-dir') + 1] == str(
+        output_dir / 'backend_input'
+    )
+    separator = command.index('--')
+    assert command[separator + 1:separator + 3] == [
+        'bash',
+        str(REPO_ROOT / 'scripts' / 'run_rko_lio_graph_autoware_dogfood.sh'),
+    ]
+
+
+def test_editable_rejects_profiles_without_deterministic_loop_replay(
+    tmp_path: Path,
+):
+    """Opt-in editability must fail closed for unsupported frontends."""
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'gnss_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/fix', 'sensor_msgs/msg/NavSatFix', 20),
+        ],
+    )
+
+    with pytest.raises(ValueError, match='rko_lio_graph profile'):
+        module.build_execution_plan(
+            bag_path=bag_dir,
+            profile_id='pointcloud_gnss_smoke',
+            output_dir=tmp_path / 'out',
+            verify_map=True,
+            pointcloud_inspector=_compatible_pointcloud_inspection,
+            timestamp_inspector=_monotonic_timestamp_inspection,
+            editable=True,
+        )
+
+
+def test_sensor_setup_bundle_overrides_params_and_frames(tmp_path: Path):
+    """A setup bundle must reach the normal runner without losing fields."""
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'mid360_setup_bag',
+        [
+            ('/livox/lidar', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/livox/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    lidarslam_param = tmp_path / 'lidarslam.yaml'
+    rko_param = tmp_path / 'rko_lio.yaml'
+    lidarslam_param.write_text('graph_based_slam: {}\n', encoding='utf-8')
+    rko_param.write_text('initialization_phase: false\n', encoding='utf-8')
+
+    plan = module.build_execution_plan(
+        bag_path=bag_dir,
+        profile_id='rko_lio_graph_mid360_preset',
+        output_dir=tmp_path / 'out',
+        verify_map=True,
+        pointcloud_inspector=_compatible_pointcloud_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+        lidarslam_param=lidarslam_param,
+        rko_param=rko_param,
+        base_frame='robot_base',
+        lidar_frame='livox_frame',
+        imu_frame='imu_link',
+    )
+
+    command = plan['command']
+    assert command[command.index('--lidarslam-param') + 1] == str(
+        lidarslam_param
+    )
+    assert command[command.index('--rko-param') + 1] == str(rko_param)
+    assert command[command.index('--base-frame') + 1] == 'robot_base'
+    assert command[command.index('--lidar-frame') + 1] == 'livox_frame'
+    assert command[command.index('--imu-frame') + 1] == 'imu_link'

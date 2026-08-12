@@ -197,6 +197,8 @@ def _run_guided(args: argparse.Namespace) -> int:
         guided_args.append('--yes')
     if args.dry_run:
         guided_args.append('--dry-run')
+    if args.editable:
+        guided_args.append('--editable')
     return guided.main(guided_args)
 
 
@@ -211,9 +213,16 @@ def build_execution_plan(
     verify_map: bool,
     pointcloud_inspector=None,
     timestamp_inspector=None,
+    preflight_payload: dict[str, object] | None = None,
+    lidarslam_param: Path | None = None,
+    rko_param: Path | None = None,
+    base_frame: str = 'base_link',
+    lidar_frame: str | None = None,
+    imu_frame: str | None = None,
+    editable: bool = False,
 ) -> dict[str, object]:
     preflight = _load_script_module('preflight_autoware_map_bag.py', 'preflight_autoware_map_bag')
-    payload = preflight.build_preflight_payload(
+    payload = preflight_payload or preflight.build_preflight_payload(
         bag_path,
         pointcloud_inspector=pointcloud_inspector,
         timestamp_inspector=timestamp_inspector,
@@ -231,6 +240,24 @@ def build_execution_plan(
 
     summary = payload['summary']
     output_dir = output_dir.expanduser().resolve()
+    custom_rko_params = lidarslam_param is not None or rko_param is not None
+    if custom_rko_params and (lidarslam_param is None or rko_param is None):
+        raise ValueError(
+            '--lidarslam-param and --rko-param must be provided together'
+        )
+    if custom_rko_params and selected_profile not in {
+        'rko_lio_graph_public_path',
+        'rko_lio_graph_mid360_preset',
+    }:
+        raise ValueError(
+            'custom RKO-LIO parameter files require an rko_lio_graph profile'
+        )
+    for label, path in (
+        ('--lidarslam-param', lidarslam_param),
+        ('--rko-param', rko_param),
+    ):
+        if path is not None and not path.expanduser().resolve().is_file():
+            raise ValueError(f'{label} file does not exist: {path}')
 
     if selected_profile == 'rko_lio_graph_public_path':
         pointcloud = summary['topics']['pointcloud2'][0]['name']
@@ -241,8 +268,16 @@ def build_execution_plan(
             '--bag', str(bag_path),
             '--lidar-topic', pointcloud,
             '--imu-topic', imu,
-            '--lidarslam-param', str(PACKAGE_SHARE / 'param' / 'lidarslam.yaml'),
-            '--rko-param', str(PACKAGE_SHARE / 'param' / 'rko_lio_ntu_viral.yaml'),
+            '--lidarslam-param', str(
+                lidarslam_param.expanduser().resolve()
+                if lidarslam_param is not None
+                else PACKAGE_SHARE / 'param' / 'lidarslam.yaml'
+            ),
+            '--rko-param', str(
+                rko_param.expanduser().resolve()
+                if rko_param is not None
+                else PACKAGE_SHARE / 'param' / 'rko_lio_ntu_viral.yaml'
+            ),
             '--output-dir', str(output_dir),
             '--wait-for-offline-completion',
             '--skip-viewer',
@@ -257,7 +292,11 @@ def build_execution_plan(
             '--lidar-topic', pointcloud,
             '--imu-topic', imu,
             '--lidarslam-param',
-            str(PACKAGE_SHARE / 'param' / 'lidarslam_mid360_rko_graph.yaml'),
+            str(
+                lidarslam_param.expanduser().resolve()
+                if lidarslam_param is not None
+                else PACKAGE_SHARE / 'param' / 'lidarslam_mid360_rko_graph.yaml'
+            ),
             '--rko-param', str(PACKAGE_SHARE / 'param' / 'rko_lio_mid360.yaml'),
             '--output-dir', str(output_dir),
             '--wait-for-offline-completion',
@@ -297,6 +336,37 @@ def build_execution_plan(
             command.append('--verify-map')
     else:
         raise RuntimeError(f'profile is not executable yet: {selected_profile}')
+
+    if selected_profile in {
+        'rko_lio_graph_public_path',
+        'rko_lio_graph_mid360_preset',
+    }:
+        if selected_profile == 'rko_lio_graph_mid360_preset' and rko_param is not None:
+            rko_index = command.index('--rko-param') + 1
+            command[rko_index] = str(rko_param.expanduser().resolve())
+        command.extend(['--base-frame', base_frame])
+        if lidar_frame:
+            command.extend(['--lidar-frame', lidar_frame])
+        if imu_frame:
+            command.extend(['--imu-frame', imu_frame])
+
+    if editable:
+        if selected_profile not in {
+            'rko_lio_graph_public_path',
+            'rko_lio_graph_mid360_preset',
+        }:
+            raise ValueError(
+                '--editable requires an rko_lio_graph profile because only '
+                'that backend has deterministic loop replay support'
+            )
+        command = [
+            'bash',
+            str(SCRIPT_DIR / 'record_backend_input.sh'),
+            '--output-dir',
+            str(output_dir / 'backend_input'),
+            '--',
+            *command,
+        ]
 
     return {
         'payload': payload,
@@ -626,6 +696,11 @@ def _write_manifest(run_dir: Path, manifest: dict[str, object]) -> None:
         raise
 
 
+def _announce_lifecycle(stage: str, action: str) -> None:
+    """Report a durable stage without inventing percentage or ETA."""
+    print(f'Lifecycle stage: {stage} — {action}', flush=True)
+
+
 def _artifact_checksums(run_dir: Path) -> list[dict[str, object]]:
     artifacts = []
     for path in sorted(item for item in run_dir.rglob('*') if item.is_file()):
@@ -929,13 +1004,18 @@ def print_next_steps(args: argparse.Namespace, output_dir: Path) -> None:
 
     if args.viewer == 'none':
         print(
+            '  Open 3D preview: '
+            f'lidarslam-map view {shlex.quote(str(output_dir))}'
+        )
+        print(
             '  Open in Foxglove: '
             'lidarslam-map view '
             f'{shlex.quote(str(output_dir))} --viewer foxglove'
         )
         print(
             '  Open in Autoware viewer: '
-            f'lidarslam-map view {shlex.quote(str(output_dir))}'
+            f'lidarslam-map view {shlex.quote(str(output_dir))} '
+            '--viewer autoware'
         )
 
 
@@ -997,6 +1077,7 @@ def _postprocess_run(
         _write_manifest(current_dir, manifest)
         lifecycle['stage'] = 'verifying'
         _write_manifest(current_dir, manifest)
+        _announce_lifecycle('verifying', 'verify generated map artifacts')
         maybe_verify_map(current_dir, enabled=args.verification_enabled)
         lifecycle['stage'] = 'verified'
         _write_manifest(current_dir, manifest)
@@ -1004,6 +1085,7 @@ def _postprocess_run(
         if current_dir == working_dir:
             lifecycle['stage'] = 'finalizing'
             _write_manifest(current_dir, manifest)
+            _announce_lifecycle('finalizing', 'publish output atomically')
             _finalize_output(working_dir, output_dir)
             current_dir = output_dir
         elif current_dir != output_dir:
@@ -1015,6 +1097,7 @@ def _postprocess_run(
 
         lifecycle['stage'] = 'diagnosing'
         _write_manifest(current_dir, manifest)
+        _announce_lifecycle('diagnosing', 'build operator diagnosis')
         diagnosis = write_diagnostics(current_dir, bag_path)
         manifest['output']['diagnosis_status'] = diagnosis['status']
         lifecycle['stage'] = 'diagnosed'
@@ -1035,6 +1118,10 @@ def _postprocess_run(
 
         lifecycle['stage'] = 'checksumming'
         _write_manifest(current_dir, manifest)
+        _announce_lifecycle(
+            'checksumming',
+            'bind artifacts and validation receipt',
+        )
         manifest['output']['artifact_checksums'] = _artifact_checksums(current_dir)
         lifecycle['stage'] = 'complete'
         lifecycle['runner_exit_code'] = runner_exit_code
@@ -1184,6 +1271,33 @@ def parse_args(
             'output/autoware_map_authoring_<bag>_<timestamp>.'
         ),
     )
+    setup_options = parser.add_argument_group('sensor setup bundle overrides')
+    setup_options.add_argument(
+        '--lidarslam-param',
+        metavar='<file>',
+        help='graph_based_slam YAML generated by "lidarslam-map setup".',
+    )
+    setup_options.add_argument(
+        '--rko-param',
+        metavar='<file>',
+        help='RKO-LIO YAML generated by "lidarslam-map setup".',
+    )
+    setup_options.add_argument(
+        '--base-frame',
+        default='base_link',
+        metavar='<frame>',
+        help='Robot base frame (default: base_link).',
+    )
+    setup_options.add_argument(
+        '--lidar-frame',
+        metavar='<frame>',
+        help='LiDAR frame override detected or selected during setup.',
+    )
+    setup_options.add_argument(
+        '--imu-frame',
+        metavar='<frame>',
+        help='IMU frame override detected or selected during setup.',
+    )
     safety_options = parser.add_argument_group('safety and lifecycle')
     safety_options.add_argument(
         '--min-free-space-gib',
@@ -1199,6 +1313,14 @@ def parse_args(
         '--dry-run',
         action='store_true',
         help='Print the selected command without executing it.',
+    )
+    safety_options.add_argument(
+        '--editable',
+        action='store_true',
+        help=(
+            'Retain deterministic backend replay input with the map so '
+            'accepted loop constraints can be disabled later.'
+        ),
     )
     safety_options.add_argument(
         '--resume',
@@ -1226,7 +1348,7 @@ def parse_args(
     )
     viewer_options.add_argument(
         '--viewer',
-        choices=['none', 'autoware', 'foxglove'],
+        choices=['none', 'browser', 'autoware', 'foxglove'],
         default='none',
         help=extended_help(
             'Deprecated: open the saved map after the run. Prefer '
@@ -1295,13 +1417,28 @@ def validate_option_combinations(args: argparse.Namespace) -> None:
     if args.autoware_core_dir and args.viewer != 'autoware':
         raise ValueError('--autoware-core-dir requires --viewer autoware')
     active = [name for name, enabled in viewer_specific if enabled]
-    if args.viewer == 'none' and active:
+    if args.viewer in {'none', 'browser'} and active:
         joined = ', '.join(active)
         raise ValueError(
             f'{joined} requires --viewer autoware or --viewer foxglove'
         )
     if args.yes and not args.guided:
         raise ValueError('--yes requires --guided')
+    if bool(args.lidarslam_param) != bool(args.rko_param):
+        raise ValueError(
+            '--lidarslam-param and --rko-param must be provided together'
+        )
+    if args.guided and any((
+        args.lidarslam_param,
+        args.rko_param,
+        args.base_frame != 'base_link',
+        args.lidar_frame,
+        args.imu_frame,
+    )):
+        raise ValueError(
+            'sensor setup bundle overrides cannot be combined with --guided; '
+            'run the exact command written by "lidarslam-map setup"'
+        )
     if args.guided and args.resume:
         raise ValueError(
             '--guided cannot be combined with --resume; use run --resume '
@@ -1385,11 +1522,32 @@ def main() -> int:
             output_dir,
             args.min_free_space_gib,
         )
+        plan_arguments = {
+            'bag_path': bag_path,
+            'profile_id': args.profile,
+            'output_dir': working_dir,
+            'verify_map': args.verification_enabled,
+        }
+        if args.editable:
+            plan_arguments['editable'] = True
+        if any((
+            args.lidarslam_param,
+            args.rko_param,
+            args.base_frame != 'base_link',
+            args.lidar_frame,
+            args.imu_frame,
+        )):
+            plan_arguments.update({
+                'lidarslam_param': (
+                    Path(args.lidarslam_param) if args.lidarslam_param else None
+                ),
+                'rko_param': Path(args.rko_param) if args.rko_param else None,
+                'base_frame': args.base_frame,
+                'lidar_frame': args.lidar_frame,
+                'imu_frame': args.imu_frame,
+            })
         plan = build_execution_plan(
-            bag_path=bag_path,
-            profile_id=args.profile,
-            output_dir=working_dir,
-            verify_map=args.verification_enabled,
+            **plan_arguments,
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         print(f'error: {exc}', file=sys.stderr)
@@ -1453,6 +1611,7 @@ def main() -> int:
         manifest['lifecycle']['stage'] = 'workflow_running'
         manifest['execution']['started_at'] = _utc_now()
         _write_manifest(working_dir, manifest)
+        _announce_lifecycle('workflow_running', 'run the mapping workflow')
     except (OSError, RuntimeError, ValueError, ET.ParseError, yaml.YAMLError) as exc:
         if emergency_reserve is not None:
             try:

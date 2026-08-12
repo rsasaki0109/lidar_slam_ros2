@@ -7,6 +7,7 @@ import argparse
 import os
 import subprocess
 import sys
+import webbrowser
 from pathlib import Path
 from typing import Sequence
 
@@ -14,6 +15,7 @@ from typing import Sequence
 SCRIPT_DIR = Path(__file__).resolve().parent
 EX_USAGE = 2
 EX_SOFTWARE = 70
+BROWSER_PREVIEW_HTML = 'mid360_robot_3d_map_preview.html'
 
 
 def _positive_seconds(value: str) -> int:
@@ -39,9 +41,12 @@ def _help_epilog(*, show_advanced: bool = True) -> str:
         'Examples:',
         f'  {command} output/my_map',
         f'  {command} output/my_map --viewer foxglove',
+        f'  {command} output/my_map --no-open',
     ]
     if show_advanced:
-        lines.append(f'  {command} output/my_map --rebuild')
+        lines.append(
+            f'  {command} output/my_map --viewer autoware --rebuild'
+        )
     return '\n'.join(lines)
 
 
@@ -55,8 +60,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog=os.environ.get('LIDARSLAM_CLI_COMMAND'),
         description=(
-            'Validate an existing map-run output, stage its Autoware map '
-            'bundle, and open an optional viewer.'
+            'Validate an existing map-run output and open a lightweight '
+            'browser preview or an optional live viewer.'
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=_help_epilog(show_advanced=show_all_help),
@@ -73,11 +78,23 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     viewer_options = parser.add_argument_group('viewer')
     viewer_options.add_argument(
         '--viewer',
-        choices=['autoware', 'foxglove'],
-        default='autoware',
-        help='Viewer to open (default: autoware).',
+        choices=['browser', 'autoware', 'foxglove'],
+        default='browser',
+        help='Viewer to open (default: browser; self-contained and offline).',
+    )
+    viewer_options.add_argument(
+        '--no-open',
+        action='store_true',
+        help='Create the browser preview without opening a desktop browser.',
     )
     runtime_options = parser.add_argument_group('viewer runtime')
+    runtime_options.add_argument(
+        '--preview-dir',
+        metavar='<dir>',
+        help=advanced_help(
+            'Browser preview output directory (default: <output_dir>/preview).'
+        ),
+    )
     runtime_options.add_argument(
         '--autoware-core-dir',
         metavar='<dir>',
@@ -130,6 +147,20 @@ def build_viewer_command(
     output_dir: Path,
 ) -> list[str]:
     """Translate product options into the maintained viewer helper command."""
+    if args.viewer == 'browser':
+        preview_dir = (
+            Path(args.preview_dir).expanduser().resolve()
+            if args.preview_dir
+            else output_dir / 'preview'
+        )
+        return [
+            sys.executable,
+            str(SCRIPT_DIR / 'export_mid360_robot_3d_map_preview.py'),
+            str(output_dir),
+            '--output-dir',
+            str(preview_dir),
+        ]
+
     script_name = (
         'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh'
         if args.viewer == 'foxglove'
@@ -149,12 +180,100 @@ def build_viewer_command(
     return command
 
 
+def validate_viewer_options(args: argparse.Namespace) -> None:
+    """Reject viewer-specific options that would otherwise be ignored."""
+    heavy_runtime_options = {
+        '--autoware-core-dir': args.autoware_core_dir,
+        '--work-dir': args.work_dir,
+        '--runtime-dir': args.runtime_dir,
+        '--rebuild': args.rebuild,
+        '--auto-exit-secs': args.auto_exit_secs,
+    }
+    if args.viewer == 'browser':
+        invalid = [name for name, value in heavy_runtime_options.items() if value]
+        if invalid:
+            raise ValueError(
+                f'{", ".join(invalid)} cannot be used with --viewer browser; '
+                'select --viewer autoware or --viewer foxglove.'
+            )
+        return
+
+    browser_options = {
+        '--no-open': args.no_open,
+        '--preview-dir': args.preview_dir,
+    }
+    invalid = [name for name, value in browser_options.items() if value]
+    if invalid:
+        raise ValueError(
+            f'{", ".join(invalid)} can only be used with --viewer browser.'
+        )
+    if args.autoware_core_dir and args.viewer != 'autoware':
+        raise ValueError('--autoware-core-dir requires --viewer autoware.')
+
+
+def browser_preview_path(args: argparse.Namespace, output_dir: Path) -> Path:
+    """Return the HTML artifact produced by the browser viewer command."""
+    preview_dir = (
+        Path(args.preview_dir).expanduser().resolve()
+        if args.preview_dir
+        else output_dir / 'preview'
+    )
+    return preview_dir / BROWSER_PREVIEW_HTML
+
+
+def desktop_session_available() -> bool:
+    """Return whether opening a local browser is likely to reach the user."""
+    if sys.platform == 'darwin' or os.name == 'nt':
+        return True
+    return bool(os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'))
+
+
+def open_browser(uri: str) -> bool:
+    """Open the preview URI through the platform browser registry."""
+    return bool(webbrowser.open(uri, new=2))
+
+
+def finish_browser_preview(
+    args: argparse.Namespace,
+    output_dir: Path,
+) -> int:
+    """Report and optionally open a generated self-contained preview."""
+    html_path = browser_preview_path(args, output_dir)
+    if not html_path.is_file():
+        print(
+            f'error: browser preview did not produce {html_path}.',
+            file=sys.stderr,
+        )
+        return EX_SOFTWARE
+
+    uri = html_path.as_uri()
+    print('')
+    print('3D browser preview ready')
+    print(f'  HTML: {html_path}')
+    print(f'  URI:  {uri}')
+    if args.no_open:
+        print('Browser opening skipped by --no-open.')
+        return 0
+    if not desktop_session_available():
+        print('No desktop session detected; open the HTML file on the host.')
+        return 0
+    try:
+        opened = open_browser(uri)
+    except (OSError, webbrowser.Error) as exc:
+        print(f'warning: could not open a browser automatically: {exc}', file=sys.stderr)
+        return 0
+    if not opened:
+        print('warning: no browser accepted the preview URI; open the HTML file manually.', file=sys.stderr)
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Validate the map output and propagate the selected viewer result."""
     args = parse_args(argv)
     output_dir = Path(args.output_dir).expanduser().resolve()
     try:
         validate_output_dir(output_dir)
+        validate_viewer_options(args)
         completed = subprocess.run(
             build_viewer_command(args, output_dir),
             check=False,
@@ -172,7 +291,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             f'{completed.returncode}.',
             file=sys.stderr,
         )
-    return completed.returncode
+        return completed.returncode
+    if args.viewer == 'browser':
+        return finish_browser_preview(args, output_dir)
+    return 0
 
 
 if __name__ == '__main__':

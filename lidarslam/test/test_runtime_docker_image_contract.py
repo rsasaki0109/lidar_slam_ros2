@@ -92,6 +92,10 @@ def test_runtime_docker_stage_is_source_free_and_fail_closed():
     assert 'xargs -r apt-get install -y --no-install-recommends' in runtime
     assert 'DEMO_DATA_DIR=/lidarslam_ws/datasets/mid360_public' in runtime
     assert 'DEMO_OUTPUT_DIR=/lidarslam_ws/output/mid360_demo' in runtime
+    assert builder.count('lidarslam-map start --help') == 1
+    assert runtime.count('lidarslam-map start --help') == 1
+    assert dockerfile.count("grep -Fq 'Detect and configure the sensors'") == 2
+    assert dockerfile.count("grep -Fq -- '--map-output-dir'") == 2
     assert (
         'CMD ["bash", "/lidarslam_ws/install/lidarslam/share/lidarslam/'
         'product/scripts/run_docker_demo.sh"]'

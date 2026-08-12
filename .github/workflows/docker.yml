@@ -9,6 +9,7 @@ on:
       - Dockerfile
       - .dockerignore
       - docker/**
+      - scripts/docker_map_bag.sh
       - scripts/run_first_map_demo.sh
       - scripts/run_docker_demo.sh
       - .github/workflows/docker.yml
@@ -20,6 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  artifact-metadata: write
   contents: read
   packages: write
   attestations: write
@@ -117,6 +119,10 @@ jobs:
             echo "unexpected CLI version: ${OBSERVED_VERSION}" >&2
             exit 1
           fi
+          docker run --rm --network none "${IMAGE_REF}" \
+            lidarslam-map start --help >/tmp/lidarslam-start-help.txt
+          grep -Fq 'Detect and configure the sensors' /tmp/lidarslam-start-help.txt
+          grep -Fq -- '--map-output-dir' /tmp/lidarslam-start-help.txt
           OBSERVED_REVISION="$(
             docker run --rm "${IMAGE_REF}" python3 -c \
               'import json, pathlib, subprocess; prefix = pathlib.Path(subprocess.check_output(["ros2", "pkg", "prefix", "lidarslam"], text=True).strip()); print(json.loads((prefix / "share/lidarslam/product/product-build-info.json").read_text())["revision"])'
