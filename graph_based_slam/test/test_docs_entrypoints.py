@@ -53,6 +53,7 @@ GITIGNORE_PATH = REPO_ROOT / '.gitignore'
 DOCS_INDEX_PATH = REPO_ROOT / 'docs' / 'index.md'
 GETTING_STARTED = REPO_ROOT / 'docs' / 'getting-started.md'
 GETTING_STARTED_JA = REPO_ROOT / 'docs' / 'getting-started-ja.md'
+USABILITY_SCORECARD_DOC = REPO_ROOT / 'docs' / 'usability-scorecard.md'
 DOCS_ASSETS_DIR = REPO_ROOT / 'docs' / 'assets'
 DOCS_EXTRA_CSS_PATH = DOCS_ASSETS_DIR / 'stylesheets' / 'extra.css'
 DOCS_AUTOWARE_PROOF_SITE_IMAGE_PATH = DOCS_ASSETS_DIR / 'images' / 'autoware_map_loader_proof.png'
@@ -242,6 +243,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert MKDOCS_CONFIG_PATH.is_file()
     assert DOCS_INDEX_PATH.is_file()
     assert GETTING_STARTED.is_file()
+    assert USABILITY_SCORECARD_DOC.is_file()
     assert DOCS_ASSETS_DIR.is_dir()
     assert DOCS_EXTRA_CSS_PATH.is_file()
     assert DOCS_AUTOWARE_PROOF_SITE_IMAGE_PATH.is_file()
@@ -630,6 +632,7 @@ def test_release_metadata_and_core_package_versions_match():
         'docs/v1-readiness.md',
         'docs/getting-started.md',
         'docs/getting-started-ja.md',
+        'docs/usability-scorecard.md',
         'docs/golden-path-cli.md',
         'docs/cli-compatibility.md',
         'docs/contracts',
@@ -699,6 +702,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'assets/stylesheets/extra.css' in mkdocs_config
     assert 'Getting Started: getting-started.md' in mkdocs_config
     assert '日本語クイックスタート: getting-started-ja.md' in mkdocs_config
+    assert 'GLIM usability scorecard: usability-scorecard.md' in mkdocs_config
     assert 'Product Contract: product-contract.md' in mkdocs_config
     assert 'v1.0 Readiness: v1-readiness.md' in mkdocs_config
     assert 'Golden-path CLI: golden-path-cli.md' in mkdocs_config
@@ -1327,3 +1331,44 @@ def test_japanese_quickstart_keeps_the_canonical_beginner_contract():
     assert 'docs/getting-started-ja.md' in readme
     assert 'href="getting-started-ja.html"' in docs_index
     assert "'docs/getting-started-ja.md'" in bundle
+
+
+def test_glim_usability_scorecard_is_neutral_and_release_bundled():
+    """The GLIM comparison must keep exact evidence and no-winner policy."""
+    document = USABILITY_SCORECARD_DOC.read_text(encoding='utf-8')
+    bundle = (REPO_ROOT / 'scripts' / 'build_release_bundle.py').read_text(
+        encoding='utf-8'
+    )
+    checker = REPO_ROOT / 'scripts' / 'check_usability_scorecard.py'
+    trial_schema = (
+        REPO_ROOT / 'docs' / 'schemas'
+        / 'usability-scorecard-trial-v1.schema.json'
+    )
+    index_schema = (
+        REPO_ROOT / 'docs' / 'schemas'
+        / 'usability-scorecard-evidence-index-v1.schema.json'
+    )
+    evidence_index = (
+        REPO_ROOT / 'docs' / 'contracts'
+        / 'glim-usability-scorecard-evidence-v1.json'
+    )
+
+    assert checker.is_file()
+    assert trial_schema.is_file()
+    assert index_schema.is_file()
+    assert evidence_index.is_file()
+    for task_id in (
+        'discover-supported-path',
+        'run-fixed-demo',
+        'inspect-own-bag',
+        'produce-downstream-artifact',
+        'understand-failure',
+        'repeat-or-upgrade',
+    ):
+        assert task_id in document
+    assert 'check_usability_scorecard.py --json' in document
+    assert '`NOT_READY`' in document
+    assert 'does not infer' in document
+    assert 'overall winner' in document
+    assert "'docs/usability-scorecard.md'" in bundle
+    assert "'scripts/check_usability_scorecard.py'" in bundle

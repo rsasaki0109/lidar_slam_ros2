@@ -226,6 +226,7 @@ if(BUILD_TESTING)
     test_check_issue_triage_proposal
     test_check_onboarding_trial
     test_check_onboarding_trial_matrix
+    test_check_usability_scorecard
     test_collect_growth_snapshot
     test_docker_map_bag
     test_evaluate_degeneracy_trajectory

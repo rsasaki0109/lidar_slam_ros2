@@ -90,7 +90,7 @@ def test_tracked_plan_covers_the_exact_candidate_once():
     report = CHECKER.validate_plan(plan, _schema(), actual)
 
     assert report['status'] == 'PLAN_VALID_LOCAL_ONLY'
-    assert report['path_count'] == 168
+    assert report['path_count'] == 175
     assert report['slice_count'] == 7
     assert report['remote_mutations_performed'] is False
     assert _planned_paths(plan) == actual
@@ -167,6 +167,6 @@ def test_cli_emits_a_machine_readable_local_only_report():
     assert result.returncode == 0, result.stderr
     report = json.loads(result.stdout)
     assert report['status'] == 'PLAN_VALID_LOCAL_ONLY'
-    assert report['path_count'] == 168
+    assert report['path_count'] == 175
     assert report['github_writes_authorized'] is False
     assert report['remote_mutations_performed'] is False

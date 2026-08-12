@@ -160,6 +160,17 @@ Measure these tasks independently:
 | Understand a failure | whether the public error links directly to one safe recovery action |
 | Repeat or upgrade | whether the same command and output contract survive a supported release upgrade |
 
+The six rows now have a versioned
+[neutral usability scorecard contract](../usability-scorecard.md). It requires
+exact public product identities, one paired clean environment, the same input
+per task, task-specific complete measurements, transcript hashes, and an
+external first-attempt operator before reporting `READY`. It never infers an
+overall winner. The checked-in index is intentionally `NOT_READY` with both
+product records absent; local feature evidence is not substituted for a paired
+GLIM trial. The
+[2026-08-12 local contract evidence](../evidence/growth/glim-usability-scorecard-contract-2026-08-12.md)
+records the enforced protocol and the still-missing public trials.
+
 Only compare overlapping tasks, publish the exact versions and commands, and
 record where the products intentionally solve different jobs. The desired
 outcome is not “more user-friendly” as an unsupported slogan. It is:
@@ -698,7 +709,7 @@ led to public Draft PR `#427`. Its public head `3f4dd70` contains 44 commits and
 is 2/4 present and 0/4 comparable, v1 is 8/10, the existing v0.9.0 tag prevents
 version reuse, and the larger GLIM-convenience follow-up has not run public CI.
 
-That 164-path local follow-up now has an exact
+That 175-path local follow-up now has an exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
