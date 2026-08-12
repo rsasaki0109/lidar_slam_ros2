@@ -131,6 +131,11 @@ four-package canonical workspace builds and installs without the fork on the
 network-isolated Humble and Jazzy images.
 The exact implementation and verification record is in the
 [2026-08-12 review audit](evidence/ndt-omp-release-review-2026-08-12.md).
+The
+[copy-ready upstream PR packet](evidence/growth/canonical-ndt-upstream-pr-packet-2026-08-12.md)
+binds the exact local commit, fork branch, Draft PR text, duplicate audit,
+current clean Jazzy rerun, and publication sequence. It remains local-only and
+authorizes no GitHub write.
 Neither patch has been submitted or published.
 
 Before any upstream action, reproduce the local artifact and exact-base gate:

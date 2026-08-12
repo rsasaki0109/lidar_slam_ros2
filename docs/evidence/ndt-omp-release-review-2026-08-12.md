@@ -127,6 +127,13 @@ against a clean detached checkout of that exact commit. The report intentionally
 omits the checkout path. This state means the local bundle is reviewable; it
 does not authorize or claim an upstream PR.
 
+The exact patch was also fixed as local upstream commit
+`618f02f6b50a8590b81f48b4fee5b6cfc8d3f3ea` and rebuilt from a clean Jazzy
+worktree. The copy-ready Draft PR title/body, duplicate check, exact fork
+branch, validation result, publication order, and no-write boundary are in the
+[upstream PR packet](growth/canonical-ndt-upstream-pr-packet-2026-08-12.md).
+The commit is local-only and is not a publicly resolvable revision.
+
 The parent boundary was then tested with a copied `scanmatcher` package that
 depends on canonical `ndt_omp`. That first exposed two additional downstream
 compatibility deltas: the fork-only `setOulierRatio` misspelling and direct
