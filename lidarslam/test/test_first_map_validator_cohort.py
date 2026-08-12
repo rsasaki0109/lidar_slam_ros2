@@ -230,6 +230,13 @@ def test_tracked_contract_is_valid_waiting_and_read_only():
 
     assert report['status'] == 'WAITING_FOR_PUBLIC_GATES'
     assert report['copy_ready'] is False
+    assert report['pending_launch_gates'] == [
+        'comparable_docker_row',
+        'comparable_source_row',
+        'canonical_documentation_path',
+        'canonical_documentation_url',
+        'canonical_runtime_ref',
+    ]
     assert report['accepted_target'] == 3
     assert report['initial_attempt_cap'] == 5
     assert report['hard_attempt_cap'] == 10
@@ -270,7 +277,11 @@ def test_human_summary_names_the_boundary_and_one_next_action():
     assert 'Accepted: **0 / 3**' in rendered
     assert 'Completion rate: not measured' in rendered
     assert 'GitHub/community write authorized: no' in rendered
-    assert 'Publish the reviewed candidate' in rendered
+    assert 'Pending launch gates: comparable_docker_row' in rendered
+    assert 'Run the missing clean comparable Docker/source matrix rows' in (
+        rendered
+    )
+    assert 'Publish the reviewed candidate' not in rendered
     assert 'reporter' not in rendered
 
 
@@ -608,6 +619,7 @@ def test_ready_contract_renders_bounded_privacy_first_recruitment():
 
     assert report['status'] == 'COPY_READY_NOT_AUTHORIZED'
     assert report['copy_ready'] is True
+    assert report['pending_launch_gates'] == []
     assert 'a' * 40 in rendered
     assert (
         'Exact product identity: '

@@ -169,6 +169,28 @@ def _ready_gates(gates: dict[str, Any]) -> bool:
     )
 
 
+def _pending_launch_gates(gates: dict[str, Any]) -> list[str]:
+    """Return stable field names for every launch prerequisite still open."""
+    pending = []
+    if gates['public_revision'] is None:
+        pending.append('public_revision')
+    if not gates['public_revision_resolvable']:
+        pending.append('public_revision_resolvable')
+    if not gates['comparable_docker_row']:
+        pending.append('comparable_docker_row')
+    if not gates['comparable_source_row']:
+        pending.append('comparable_source_row')
+    if gates['canonical_documentation_path'] is None:
+        pending.append('canonical_documentation_path')
+    if gates['canonical_documentation_url'] is None:
+        pending.append('canonical_documentation_url')
+    if gates['canonical_runtime_ref'] is None:
+        pending.append('canonical_runtime_ref')
+    if not gates['copy_ready_handoff_public']:
+        pending.append('copy_ready_handoff_public')
+    return pending
+
+
 def validate_contract(
     contract: dict[str, Any],
     schema: dict[str, Any],
@@ -252,6 +274,7 @@ def validate_contract(
         'cohort_id': contract['cohort_id'],
         'status': contract['status'],
         'copy_ready': ready,
+        'pending_launch_gates': _pending_launch_gates(gates),
         'accepted_target': capacity['accepted_target'],
         'initial_attempt_cap': capacity['initial_attempt_cap'],
         'hard_attempt_cap': capacity['hard_attempt_cap'],
@@ -565,6 +588,7 @@ def evaluate_state(
         'status': status,
         'launch_status': launch['status'],
         'copy_ready': launch['copy_ready'],
+        'pending_launch_gates': launch['pending_launch_gates'],
         'phase': state['phase'],
         'attempt_count': len(attempts),
         'terminal_attempt_count': len(terminal),
@@ -607,7 +631,36 @@ def render_state_summary(report: dict[str, Any]) -> str:
     )
     stop_conditions = report['stop_conditions']
     stop_text = ', '.join(stop_conditions) if stop_conditions else 'none'
+    pending_gates = report['pending_launch_gates']
+    pending_text = ', '.join(pending_gates) if pending_gates else 'none'
     yes_no = {True: 'yes', False: 'no'}
+    next_action = NEXT_ACTIONS[status]
+    if status == 'WAITING_FOR_PUBLIC_GATES':
+        pending = set(pending_gates)
+        if pending & {'public_revision', 'public_revision_resolvable'}:
+            next_action = (
+                'Publish one reviewed exact revision and verify that it is '
+                'publicly resolvable before provisioning a trial host.'
+            )
+        elif pending & {'comparable_docker_row', 'comparable_source_row'}:
+            next_action = (
+                'Run the missing clean comparable Docker/source matrix rows; '
+                'do not recruit while either route lacks measured evidence.'
+            )
+        elif pending & {
+            'canonical_documentation_path',
+            'canonical_documentation_url',
+            'canonical_runtime_ref',
+        }:
+            next_action = (
+                'Select the lower-burden comparable PASS as the canonical '
+                'path and bind its public URL and immutable runtime identity.'
+            )
+        elif 'copy_ready_handoff_public' in pending:
+            next_action = (
+                'Publish and verify the copy-ready first-map handoff at the '
+                'selected immutable product identity.'
+            )
     return '\n'.join([
         '# Independent first-map cohort',
         '',
@@ -630,13 +683,14 @@ def render_state_summary(report: dict[str, Any]) -> str:
             f"{yes_no[report['operational_signals_fresh']]}"
         ),
         f'- Stop conditions: {stop_text}',
+        f'- Pending launch gates: {pending_text}',
         (
             '- Next attempt permitted by state: '
             f"{yes_no[report['next_attempt_permitted_by_state']]}"
         ),
         '- GitHub/community write authorized: no',
         '',
-        f'Next action: {NEXT_ACTIONS[status]}',
+        f'Next action: {next_action}',
     ]) + '\n'
 
 
