@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.9.1 - 2026-08-12
+
+A reliability and first-map usability release candidate. It keeps the v0.9.0
+publication immutable while making the supported Docker and source journeys
+more guided, recoverable, and reviewable.
+
+### Highlights
+
+- **One coherent beginner surface** — the no-argument `lidarslam-map` home,
+  bag-optional doctor, guided `start`, Japanese quickstart, and fixed MID-360
+  demo share the same profiles, preflight, verification, and recovery contract.
+- **Crash-safe point-cloud handling** — classic scanmatcher VoxelGrid paths and
+  graph point-cloud conversions fail closed on unsafe dimensions, overflow,
+  invalid leaves, or inconsistent dense clouds while preserving the process and
+  its last valid map.
+- **Recoverable map lifecycle** — atomic outputs, finalization-only resume,
+  session history and comparison, source-preserving edit/merge plans, local 3D
+  preview, and privacy-bounded support/first-map receipts keep provenance and
+  next actions visible.
+- **Fresh-terminal onboarding** — Docker and the exact six-package Humble/Jazzy
+  source route now converge on one verified first-map outcome, with installed
+  resource checks and public-readiness probes.
+- **Release identity hardening** — release-bundle CI checks out the exact PR
+  head, fetches immutable tags, and refuses historical version reuse. Candidate
+  metadata is aligned at 0.9.1 without moving or recreating `v0.9.0`.
+- **Honest adoption evidence** — onboarding and GLIM usability comparisons are
+  schema-backed, environment-matched, and fail closed when rows are missing;
+  no overall winner is inferred from incomplete evidence.
+
+### Remaining v1.0 gates
+
+- complete the reviewed NDT ownership/rosdistro and main-channel package path;
+- capture complete Humble/Jazzy Docker/source onboarding measurements; and
+- accept three independent first-map validations. The tracked count remains
+  0/3.
+
 ## 0.9.0 - 2026-07-30
 
 The stable product-foundation release candidate. It keeps the v0.7 golden

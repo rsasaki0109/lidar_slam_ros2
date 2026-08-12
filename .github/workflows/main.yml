@@ -231,6 +231,21 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Verify exact candidate and immutable tags
+        shell: bash
+        run: |
+          EXPECTED_SHA="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}"
+          git fetch --force "https://github.com/${GITHUB_REPOSITORY}.git" \
+            '+refs/tags/*:refs/tags/*'
+          test "$(git rev-parse HEAD)" = "${EXPECTED_SHA}"
+          test "$(git rev-parse 'refs/tags/v0.9.0^{commit}')" = \
+            "0df0c4a86df9f68a894c83f8342e4107c3d23b0f"
 
       - name: Rehearse deterministic release bundle
         shell: bash

@@ -2,8 +2,8 @@
 Changelog for package scanmatcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.9.1 (2026-08-12)
+------------------
 * Reject unsafe PCL VoxelGrid layouts, absolute voxel-index overflow, invalid
   leaf sizes, and inconsistent dense clouds before filtering. The affected
   scan, map update, or registration-target update is skipped with an actionable
@@ -16,6 +16,7 @@ Forthcoming
 * Cover the asynchronous map-update path and safe component shutdown. Each
   worker uses the triggering scan's distance snapshot, shared diagnostics stay
   locked, and destruction waits for an outstanding map update to finish.
+* Contributors: Ryohei Sasaki
 
 0.9.0 (2026-07-30)
 ------------------

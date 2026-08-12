@@ -593,7 +593,9 @@ def test_release_metadata_and_core_package_versions_match():
     docs_site_workflow = DOCS_SITE_WORKFLOW.read_text(encoding='utf-8')
     mkdocs_config = MKDOCS_CONFIG_PATH.read_text(encoding='utf-8')
 
-    assert version == '0.9.0'
+    version_parts = version.split('.')
+    assert len(version_parts) == 3
+    assert all(part.isdigit() for part in version_parts)
     assert version in changelog
     assert 'VERSION="$(tr -d \'\\n\' < VERSION)"' in releasing
     assert 'git tag "v${VERSION}"' in releasing
@@ -1083,6 +1085,32 @@ def test_docs_metadata_workflow_fetches_release_tags():
 
     assert 'uses: actions/checkout@v6' in docs_job
     assert 'fetch-depth: 0' in docs_job
+
+
+def test_release_readiness_checkout_is_exact_head_and_tag_aware():
+    """Bundle rehearsal must validate the candidate, not a PR merge ref."""
+    workflow = MAIN_CI_WORKFLOW.read_text(encoding='utf-8')
+    readiness_job = workflow.split('  release-readiness:', 1)[1].split(
+        '  release-readiness-threshold-guard:', 1
+    )[0]
+    exact_ref = (
+        "github.event_name == 'pull_request' && "
+        'github.event.pull_request.head.sha || github.sha'
+    )
+
+    assert 'uses: actions/checkout@v6' in readiness_job
+    assert (
+        'repository: ${{ github.event_name == \'pull_request\' && '
+        'github.event.pull_request.head.repo.full_name || github.repository }}'
+        in readiness_job
+    )
+    assert f'ref: ${{{{ {exact_ref} }}}}' in readiness_job
+    assert 'fetch-depth: 0' in readiness_job
+    assert 'fetch-tags: true' in readiness_job
+    assert 'https://github.com/${GITHUB_REPOSITORY}.git' in readiness_job
+    assert 'test "$(git rev-parse HEAD)" = "${EXPECTED_SHA}"' in readiness_job
+    assert "git rev-parse 'refs/tags/v0.9.0^{commit}'" in readiness_job
+    assert '0df0c4a86df9f68a894c83f8342e4107c3d23b0f' in readiness_job
 
 
 def test_official_rko_binary_gate_is_release_shaped_and_version_pinned():

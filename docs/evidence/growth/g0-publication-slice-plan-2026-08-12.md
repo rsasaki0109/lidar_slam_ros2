@@ -7,8 +7,8 @@
 > Public and local follow-up base:
 > `3f4dd70cdc58ad421192559213cdee0bdc41eba8`
 >
-> Planned follow-up inventory: 175 paths; SHA-256
-> `d28db37857c03fd9c31f512dda256e4a42d96ebd962334c1cf82033aca296288`
+> Planned follow-up inventory: 188 paths; SHA-256
+> `e40852ea812a6f4c2a89ac7ce09261e267a0aa64558c8c1928753ba077428396`
 >
 > Remote mutations performed by this planning pass: **none**
 
@@ -52,9 +52,9 @@ must run again on the exact future candidate tip.
 | S2 first-map foundation | 31 | one bounded demo/own-bag route reaches a verified local 3D result and retains recovery state | public Humble/Jazzy CI |
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 16 | a fresh terminal uses the exact six-package Humble/Jazzy source route and public preflight | public Humble/Jazzy CI and clean-machine timing |
-| S5 distribution readiness | 29 | NDT convergence, immutable upstream patch formatting, clone-free launcher identity, and package-manager blockers remain explicit; no release/version reuse is implied | maintainer distribution decision |
+| S5 distribution readiness | 42 | NDT convergence, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, and package-manager blockers remain explicit; no release/version reuse is implied | maintainer distribution decision |
 | S6 product-shell integration | 56 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard, truthful onboarding matrix, bounded starter queue, CLI contract, docs, tests, and support surface agree | complete product gate and public CI |
-| S7 publication control | 5 | all 175 paths are owned once and external authority remains separate | exact-tip maintainer decision |
+| S7 publication control | 5 | all 188 paths are owned once and external authority remains separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -71,7 +71,7 @@ untracked, non-ignored paths, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 175-path coverage with the fixed inventory digest;
+4. exact 188-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred.
 
@@ -83,11 +83,11 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 175 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 188 paths, 7 slices, no remote mutation |
 | checker regressions | 9 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, and authority rejection |
 | focused graph product/docs regressions | 24 passed in a Jazzy-sourced isolated package process |
 | focused lidar_slam CLI/queue/plan/scorecard regressions | 91 passed in an isolated package process |
-| complete maintained Python gate | graph: 1,430 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 707 passed; 2,137 total |
+| complete maintained Python gate | graph: 1,431 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 707 passed; 2,138 total |
 | new Python style | full `python3 -m flake8`: 2 files checked, no problems |
 | documentation | `mkdocs build --strict`: PASS with pre-existing Material and navigation notices |
 | machine formats and shells | all 96 candidate JSON files parse; changed shell syntax and staged `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
@@ -100,15 +100,15 @@ complete gate.
 
 ## Publication boundary
 
-This planning pass authorizes no commit, push, PR update, comment, review,
-merge, tag, release, package, image, issue, label, or external dependency
-change. The earlier approval for the exact historical tip and the CI-fix push
-does not automatically extend to this larger, still-dirty follow-up.
+The approved CI/version-fix pass authorizes one local commit after complete
+gates. It does not authorize a push, PR update, comment, review, merge, tag,
+release, package, image, issue, label, or external dependency change. Earlier
+push approvals do not automatically extend to the new exact tip.
 
-Before any publication, create and validate a clean exact-tip candidate from
-these slices, rerun the complete local and supported-distro gates, inspect the
-resulting diff and object inventory, and request a maintainer decision naming
-that exact 40-character tip for a non-force update to Draft PR `#427` only.
+Before any publication, validate the clean exact-tip candidate from these
+slices, inspect the resulting diff and object inventory, and request a
+maintainer decision naming that exact 40-character tip for a non-force update
+to Draft PR `#427` only.
 
 ## Remaining GLIM-convenience gate
 

@@ -2,6 +2,16 @@
 Changelog for package graph_based_slam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.9.1 (2026-08-12)
+------------------
+* Reject unsafe or inconsistent point-cloud layouts before conversion and
+  preserve deterministic backend behavior after a rejected input.
+* Add fail-closed first-map preflight, diagnosis, verification, local preview,
+  and atomic finalization/recovery support for the maintained workflows.
+* Add source-preserving map edit and multi-session merge plans with
+  machine-readable receipts and focused regression coverage.
+* Contributors: Ryohei Sasaki
+
 0.9.0 (2026-07-30)
 ------------------
 * Preserve event-driven deterministic backend behavior under the v0.9

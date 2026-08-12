@@ -142,6 +142,7 @@ def inspect_live_publication(
     *,
     repo_root: Path,
     product_version: str,
+    published_release_version: str,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Run the authoritative, read-only publication and distribution audits."""
     ndt_checker = _load_checker(
@@ -161,9 +162,9 @@ def inspect_live_publication(
     )
     try:
         ndt_report = ndt_checker.evaluate_readiness(repo_root=repo_root)
-        snapshot = release_checker.inspect_remote(product_version)
+        snapshot = release_checker.inspect_remote(published_release_version)
         published_report = release_checker.evaluate_publication(
-            version=product_version,
+            version=published_release_version,
             snapshot=snapshot,
         )
         package_manager_snapshot = package_manager_checker.inspect_remote(
@@ -254,7 +255,7 @@ def evaluate_readiness(
     product_tuple = _version_tuple(product_version)
     minimum_version = contract['minimum_release_candidate_version']
     minimum_tuple = _version_tuple(minimum_version)
-    expected_tag = f'v{product_version}'
+    expected_tag = f'v{minimum_version}'
     available_tags = _git_tags(repo_root) if tags is None else tags
     minimum_version_met = product_tuple >= minimum_tuple
     tag_present = expected_tag in available_tags
@@ -562,6 +563,9 @@ def main(argv: list[str] | None = None) -> int:
             ) = inspect_live_publication(
                 repo_root=REPO_ROOT,
                 product_version=report['product_version'],
+                published_release_version=(
+                    report['release']['expected_tag'].removeprefix('v')
+                ),
             )
             report = evaluate_readiness(
                 contract_path=args.contract,

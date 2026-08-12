@@ -5,7 +5,7 @@ installs the four core packages from the ROS buildfarm.
 
 This page records the dependency analysis and the exact release procedure.
 The repository-side prep (versions, SPDX license tags, per-package
-`CHANGELOG.rst`) landed with v0.5.0 and is maintained through v0.9.0; what
+`CHANGELOG.rst`) landed with v0.5.0 and is maintained through v0.9.1; what
 remains is the bloom/rosdistro procedure itself, which requires the
 maintainer's GitHub account.
 
@@ -13,10 +13,10 @@ maintainer's GitHub account.
 
 | Package | Version | Notes |
 |---|---|---|
-| `lidarslam_msgs` | 0.9.0 | messages only |
-| `scanmatcher` | 0.9.0 | NDT frontend (FastGICP / SmallGICP optional, off on the farm) |
-| `graph_based_slam` | 0.9.0 | backend + `/map_save` Autoware bundle |
-| `lidarslam` | 0.9.0 | launch + param presets |
+| `lidarslam_msgs` | 0.9.1 | messages only |
+| `scanmatcher` | 0.9.1 | NDT frontend (FastGICP / SmallGICP optional, off on the farm) |
+| `graph_based_slam` | 0.9.1 | backend + `/map_save` Autoware bundle |
+| `lidarslam` | 0.9.1 | launch + param presets |
 
 These are the only `package.xml` files in the repository outside
 `Thirdparty/`, so bloom's package discovery picks up exactly this set.
@@ -367,8 +367,8 @@ preflight reports `TESTING_READY` or `MAIN_READY`.
 
 ```bash
 gh workflow run package-manager-install-upgrade.yml \
-  -f source_ref=v0.9.0 \
-  -f target_version=0.9.0 \
+  -f source_ref=v0.9.1 \
+  -f target_version=0.9.1 \
   -f target_channel=testing \
   -f mode=clean-install
 ```
@@ -378,11 +378,11 @@ version remains in main and the new version is in testing:
 
 ```bash
 gh workflow run package-manager-install-upgrade.yml \
-  -f source_ref=v0.9.0 \
-  -f target_version=0.9.0 \
+  -f source_ref=v0.9.1 \
+  -f target_version=0.9.1 \
   -f target_channel=testing \
   -f mode=upgrade \
-  -f baseline_version=0.7.0
+  -f baseline_version=0.9.0
 ```
 
 Replace the example versions with the exact immutable source tag and apt

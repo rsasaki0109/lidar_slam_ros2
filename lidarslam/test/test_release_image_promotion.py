@@ -44,6 +44,8 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = REPO_ROOT / 'scripts'
+CURRENT_VERSION = (REPO_ROOT / 'VERSION').read_text(encoding='utf-8').strip()
+CURRENT_TAG = f'v{CURRENT_VERSION}'
 
 
 def _load_module(filename: str, name: str):
@@ -241,7 +243,7 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     first = tmp_path / 'first.tar.gz'
     second = tmp_path / 'second.tar.gz'
     kwargs = {
-        'tag': 'v0.9.0',
+        'tag': CURRENT_TAG,
         'git_commit': 'd' * 40,
     }
 
@@ -269,7 +271,7 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'scripts/release_channel.py' in paths
     assert 'scripts/check_release_bundle_reproducibility.py' in paths
     assert 'scripts/docker_map_bag.sh' in paths
-    assert 'docs/releases/v0.9.0.md' in paths
+    assert f'docs/releases/{CURRENT_TAG}.md' in paths
 
     with tarfile.open(first, mode='r:gz') as archive:
         names = archive.getnames()
@@ -295,7 +297,7 @@ def test_release_bundle_rehearsal_reverifies_and_publishes_once(
     report = module.rehearse_release_bundle(
         REPO_ROOT,
         output,
-        tag='v0.9.0',
+        tag=CURRENT_TAG,
         git_commit='d' * 40,
     )
 
@@ -304,14 +306,14 @@ def test_release_bundle_rehearsal_reverifies_and_publishes_once(
     assert report['sha256'] == hashlib.sha256(output.read_bytes()).hexdigest()
     assert report['size_bytes'] == output.stat().st_size
     assert report['files'] > 0
-    assert report['tag'] == 'v0.9.0'
+    assert report['tag'] == CURRENT_TAG
     assert report['git_commit'] == 'd' * 40
 
     with pytest.raises(ValueError, match='refusing to overwrite'):
         module.rehearse_release_bundle(
             REPO_ROOT,
             output,
-            tag='v0.9.0',
+            tag=CURRENT_TAG,
             git_commit='d' * 40,
         )
 
@@ -348,13 +350,13 @@ def test_release_bundle_refuses_version_mismatch_and_overwrite(tmp_path: Path):
     module.build_release_bundle(
         REPO_ROOT,
         output,
-        tag='v0.9.0',
+        tag=CURRENT_TAG,
         git_commit='e' * 40,
     )
     with pytest.raises(ValueError, match='refusing to overwrite'):
         module.build_release_bundle(
             REPO_ROOT,
             output,
-            tag='v0.9.0',
+            tag=CURRENT_TAG,
             git_commit='e' * 40,
         )
