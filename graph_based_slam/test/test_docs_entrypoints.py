@@ -52,6 +52,7 @@ MKDOCS_CONFIG_PATH = REPO_ROOT / 'mkdocs.yml'
 GITIGNORE_PATH = REPO_ROOT / '.gitignore'
 DOCS_INDEX_PATH = REPO_ROOT / 'docs' / 'index.md'
 GETTING_STARTED = REPO_ROOT / 'docs' / 'getting-started.md'
+GETTING_STARTED_JA = REPO_ROOT / 'docs' / 'getting-started-ja.md'
 DOCS_ASSETS_DIR = REPO_ROOT / 'docs' / 'assets'
 DOCS_EXTRA_CSS_PATH = DOCS_ASSETS_DIR / 'stylesheets' / 'extra.css'
 DOCS_AUTOWARE_PROOF_SITE_IMAGE_PATH = DOCS_ASSETS_DIR / 'images' / 'autoware_map_loader_proof.png'
@@ -628,6 +629,7 @@ def test_release_metadata_and_core_package_versions_match():
         'docs/product-contract.md',
         'docs/v1-readiness.md',
         'docs/getting-started.md',
+        'docs/getting-started-ja.md',
         'docs/golden-path-cli.md',
         'docs/cli-compatibility.md',
         'docs/contracts',
@@ -696,6 +698,7 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'name: material' in mkdocs_config
     assert 'assets/stylesheets/extra.css' in mkdocs_config
     assert 'Getting Started: getting-started.md' in mkdocs_config
+    assert '日本語クイックスタート: getting-started-ja.md' in mkdocs_config
     assert 'Product Contract: product-contract.md' in mkdocs_config
     assert 'v1.0 Readiness: v1-readiness.md' in mkdocs_config
     assert 'Golden-path CLI: golden-path-cli.md' in mkdocs_config
@@ -1283,3 +1286,44 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
     assert '--prompt-active-operator-time' in onboarding
     assert 'source-candidate-not-published' in onboarding
     assert '74fe625ab2ee1dc9a0d55ce69bd705d22bac5d76' not in onboarding
+
+
+def test_japanese_quickstart_keeps_the_canonical_beginner_contract():
+    """The short Japanese route must not drift from supported commands."""
+    readme = README_PATH.read_text(encoding='utf-8')
+    docs_index = DOCS_INDEX_PATH.read_text(encoding='utf-8')
+    japanese = GETTING_STARTED_JA.read_text(encoding='utf-8')
+    bundle = (REPO_ROOT / 'scripts' / 'build_release_bundle.py').read_text(
+        encoding='utf-8'
+    )
+
+    for command in (
+        'lidarslam-map doctor',
+        'lidarslam-map doctor /path/to/rosbag2',
+        'lidarslam-map start /path/to/rosbag2',
+        'lidarslam-map start /path/to/rosbag2 --dry-run',
+        'bash scripts/source_quickstart.sh',
+        'bash scripts/source_quickstart.sh --dry-run',
+        'bash scripts/docker_map_bag.sh /absolute/path/to/rosbag2',
+        'lidarslam-map demo /path/to/work_dir --resume',
+    ):
+        assert command in japanese
+
+    for boundary in (
+        'ネットワークへ接続せず、ファイルも書きません',
+        '517 MB',
+        '8 GiB',
+        '約30分',
+        'PPA/package-manager',
+        '未対応',
+        'bagはread-onlyでmountされます',
+        '`--resume`はmappingを再実行せず',
+        '`map_verify: PASS`',
+    ):
+        assert boundary in japanese
+
+    assert '[Getting Started](getting-started.md)' in japanese
+    assert '[Operator Workflows](workflows.md)' in japanese
+    assert 'docs/getting-started-ja.md' in readme
+    assert 'href="getting-started-ja.html"' in docs_index
+    assert "'docs/getting-started-ja.md'" in bundle

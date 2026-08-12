@@ -16,6 +16,7 @@
     </div>
     <div class="hero__actions">
       <a class="md-button md-button--primary" href="getting-started.html">Start Here</a>
+      <a class="md-button" href="getting-started-ja.html">日本語で始める</a>
       <a class="md-button" href="autoware-quickstart.html">Run The Quickstart</a>
     </div>
   </div>

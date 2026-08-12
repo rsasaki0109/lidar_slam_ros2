@@ -652,6 +652,16 @@ bag it retains the existing input/profile inspection. The
 keeps the real PPA/package-manager advantage and public clean-machine
 comparison pending.
 
+The beginner entry now also has a short
+[Japanese quickstart](../getting-started-ja.md) linked from the README and Docs
+home. It keeps only the canonical doctor, Docker demo, source helper, own-bag,
+success, and recovery decisions; a regression binds those commands and safety
+boundaries to the release bundle. The page states that PPA/package-manager
+installation remains unavailable instead of translating a future promise into
+a current path. The
+[2026-08-12 local evidence](../evidence/growth/japanese-quickstart-2026-08-12.md)
+keeps publication and Japanese first-user timing pending.
+
 The matrix decision is now machine-checked rather than inferred from a table.
 The no-argument checker now loads an explicit schema-backed evidence index
 instead of falsely reporting zero rows when paths are omitted. Current tracked

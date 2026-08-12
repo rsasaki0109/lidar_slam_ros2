@@ -34,6 +34,7 @@ theme:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - 日本語クイックスタート: getting-started-ja.md
   - Product Contract: product-contract.md
   - v1.0 Readiness: v1-readiness.md
   - Weekly growth scorecard: growth-scorecard.md

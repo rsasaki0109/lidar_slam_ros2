@@ -15,7 +15,7 @@ ROS 2 LiDAR SLAM that outputs an Autoware-compatible map bundle — `pointcloud_
 
 *Shinjuku point cloud map built from a demo rosbag with this stack — start at the
 [Quickstart](#quickstart). `develop` is the default branch; current release
-candidate notes: [v0.9.0](docs/releases/v0.9.0.md).*
+candidate notes: [v0.9.0](docs/releases/v0.9.0.md). [日本語クイックスタート](docs/getting-started-ja.md).*
 
 ## Quickstart
 

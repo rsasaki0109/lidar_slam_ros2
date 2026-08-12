@@ -7,8 +7,8 @@
 > Public and local follow-up base:
 > `3f4dd70cdc58ad421192559213cdee0bdc41eba8`
 >
-> Planned follow-up inventory: 164 paths; SHA-256
-> `ccf28e8ccc6944fb395b950c50513c1598d737752874bf789a5320a2f5bc5a05`
+> Planned follow-up inventory: 168 paths; SHA-256
+> `a37baa7f12e12098cf29d89a278dd848193a5e728a4880e43baaea6a258248ff`
 >
 > Remote mutations performed by this planning pass: **none**
 
@@ -53,8 +53,8 @@ must run again on the exact future candidate tip.
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 16 | a fresh terminal uses the exact six-package Humble/Jazzy source route and public preflight | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 29 | NDT convergence, immutable upstream patch formatting, clone-free launcher identity, and package-manager blockers remain explicit; no release/version reuse is implied | maintainer distribution decision |
-| S6 product-shell integration | 45 | the installed home, bag-optional doctor, truthful onboarding matrix, bounded starter queue, CLI contract, docs, tests, and support surface agree | complete product gate and public CI |
-| S7 publication control | 5 | all 164 paths are owned once and external authority remains separate | exact-tip maintainer decision |
+| S6 product-shell integration | 49 | the installed home, bag-optional doctor, Japanese quickstart, truthful onboarding matrix, bounded starter queue, CLI contract, docs, tests, and support surface agree | complete product gate and public CI |
+| S7 publication control | 5 | all 168 paths are owned once and external authority remains separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -71,7 +71,7 @@ untracked, non-ignored paths, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 164-path coverage with the fixed inventory digest;
+4. exact 168-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred.
 
@@ -83,11 +83,11 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 164 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 168 paths, 7 slices, no remote mutation |
 | checker regressions | 9 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, and authority rejection |
 | focused graph product/docs regressions | 22 passed in a Jazzy-sourced isolated package process |
 | focused lidar_slam CLI/queue/plan regressions | 78 passed in an isolated package process |
-| complete maintained Python gate | graph: 1,428 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 694 passed; 2,122 total |
+| complete maintained Python gate | graph: 1,429 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 694 passed; 2,123 total |
 | new Python style | full `python3 -m flake8`: 2 files checked, no problems |
 | documentation | `mkdocs build --strict`: PASS with pre-existing Material and navigation notices |
 | machine formats and shells | all 96 repository JSON files parse; changed shell syntax and staged `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
