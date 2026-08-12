@@ -92,7 +92,7 @@ def test_tracked_plan_covers_the_exact_candidate_once():
     assert report['status'] == 'PLAN_VALID_LOCAL_ONLY'
     assert report['base_sha'] == '3f4dd70cdc58ad421192559213cdee0bdc41eba8'
     assert report['public_head_sha'] == (
-        'b12fc602ed7902c8173a129b69d7ab44908bc5ad'
+        '8a931a3627be503fb10c255ef846c6d3c54a237c'
     )
     assert report['local_tip_sha'] == CHECKER._run_git(['rev-parse', 'HEAD'])[0]
     assert report['unpublished_commit_count'] >= 1
@@ -216,7 +216,7 @@ def test_cli_emits_a_machine_readable_local_only_report():
     report = json.loads(result.stdout)
     assert report['status'] == 'PLAN_VALID_LOCAL_ONLY'
     assert report['public_head_sha'] == (
-        'b12fc602ed7902c8173a129b69d7ab44908bc5ad'
+        '8a931a3627be503fb10c255ef846c6d3c54a237c'
     )
     assert report['local_tip_sha'] == CHECKER._run_git(['rev-parse', 'HEAD'])[0]
     assert report['unpublished_commit_count'] >= 1

@@ -1,6 +1,6 @@
 # G0 follow-up publication slice plan — 2026-08-12
 
-> Decision: **EXACT_LOCAL_PLAN / PUBLICATION_NOT_AUTHORIZED**
+> Decision: **EXACT_LOCAL_PLAN / NO_AUTHORITY_DERIVED_FROM_PLAN**
 >
 > Public Draft PR: `#427`
 >
@@ -8,12 +8,14 @@
 > `3f4dd70cdc58ad421192559213cdee0bdc41eba8`
 >
 > Current public PR head:
-> `b12fc602ed7902c8173a129b69d7ab44908bc5ad`
+> `8a931a3627be503fb10c255ef846c6d3c54a237c`
 >
 > Planned follow-up inventory: 201 paths; SHA-256
 > `ea04dc74a12fecbf951103ae4c9de941a0df8a9bf51dc88ec7c03b8c4dec99bf`
 >
-> Remote mutations performed by this review pass: **none**
+> Last observed remote mutation: exact non-force push from `b12fc60` to
+> `8a931a3`; mutations performed by the checker or review-card command:
+> **none**
 
 ## Outcome
 
@@ -36,15 +38,15 @@ The GitHub repository and PR were inspected without mutation:
 
 - Draft PR `#427`, `Prepare crash-safe guided mapping for G0 review`, remains
   open, draft, and mergeable into `develop`;
-- the public PR head resolves to `b12fc60`; the review fixes remain local-only;
-- the PR currently exposes 253 changed files and 55 commits;
+- the public PR head resolves to `8a931a3`; later review fixes remain local-only;
+- the PR currently exposes 253 changed files and 56 commits;
 - all nine reported GitHub Actions checks pass on the public head, including
   Humble/Jazzy builds, default workflows, upgrade checks, documentation, and
   release-readiness guards; and
 - no PR conversation, inline review, or submitted review was present at the
   observation time.
 
-Passing checks on `b12fc60` validate the published portion of the seven-slice
+Passing checks on `8a931a3` validate the published portion of the seven-slice
 candidate, but do not validate the current local review fixes. Public CI must
 run again on the exact future candidate tip.
 
@@ -88,7 +90,7 @@ IDs.
 
 The checker derives the candidate directly from Git rather than trusting the
 human table. It combines tracked changes from exact PR base `3f4dd70` with
-untracked, non-ignored paths, verifies that public PR head `b12fc60` descends
+untracked, non-ignored paths, verifies that public PR head `8a931a3` descends
 from that base and the local tip descends from the public head, then requires:
 
 1. seven consecutive, dependency-safe slice orders;
@@ -130,13 +132,14 @@ complete gate.
 
 The review follow-up remains local and this plan does not authorize a push, PR
 update, comment, review, merge, tag, release, package, image, issue, label, or
-external dependency change. Earlier push approvals do not automatically
-extend to the new exact tip.
+external dependency change. Maintainer direction is evaluated outside this
+artifact; the plan cannot manufacture authority from a green local check.
 
 Before any publication, validate the clean exact-tip candidate from these
-slices, inspect the resulting diff and object inventory, and request a
-maintainer decision naming that exact 40-character tip for a non-force update
-to Draft PR `#427` only.
+slices and inspect the resulting diff and object inventory. Any non-force
+update to Draft PR `#427` must remain within current maintainer direction;
+force pushes, merge, release, tag, deletion, and third-party communication
+remain separate decisions.
 
 ## Remaining GLIM-convenience gate
 

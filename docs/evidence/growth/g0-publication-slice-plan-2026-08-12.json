@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-12T14:02:44+09:00",
+  "generated_at": "2026-08-13T00:52:51+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
-    "public_head_sha": "b12fc602ed7902c8173a129b69d7ab44908bc5ad",
+    "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
     "expected_path_count": 201,
     "expected_paths_sha256": "ea04dc74a12fecbf951103ae4c9de941a0df8a9bf51dc88ec7c03b8c4dec99bf",
     "scope": "worktree-delta-from-pr-base"
@@ -346,6 +346,6 @@
     "status": "LOCAL_PLAN_ONLY",
     "github_writes_authorized": false,
     "remote_mutations_performed": false,
-    "next_external_action": "maintainer approval for exact candidate tip and non-force PR update"
+    "next_external_action": "maintainer direction outside this plan for exact candidate tip and non-force PR update"
   }
 }

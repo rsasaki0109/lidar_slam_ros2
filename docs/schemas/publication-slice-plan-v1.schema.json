@@ -92,7 +92,7 @@
         "status": {"const": "LOCAL_PLAN_ONLY"},
         "github_writes_authorized": {"const": false},
         "remote_mutations_performed": {"const": false},
-        "next_external_action": {"const": "maintainer approval for exact candidate tip and non-force PR update"}
+        "next_external_action": {"const": "maintainer direction outside this plan for exact candidate tip and non-force PR update"}
       }
     }
   }
