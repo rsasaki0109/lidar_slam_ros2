@@ -28,9 +28,9 @@ claims GitHub write authority.
 These are review focuses, not seven independently cherry-pickable repositories.
 Several product integration files register tests and installed helpers from
 multiple lower slices. Those shared integration files intentionally belong to
-S6, after all of their runtime dependencies. An eventual PR update should
-preserve the review order through bounded commits or clearly labeled commit
-hunks, then run the complete candidate gate at the exact tip.
+S6, after all of their runtime dependencies. PR updates should preserve the
+review order through bounded commits or clearly labeled commit hunks, then run
+the complete candidate gate at the exact tip.
 
 ## Read-only public orientation
 
@@ -39,7 +39,7 @@ The GitHub repository and PR were inspected without mutation:
 - Draft PR `#427`, `Prepare crash-safe guided mapping for G0 review`, remains
   open, draft, and mergeable into `develop`;
 - at the baseline observation, the public PR head resolved to `8a931a3` and
-  later review fixes remained local-only;
+  the later review fixes had not yet been published;
 - at that observation, the PR exposed 253 changed files and 56 commits;
 - all nine reported GitHub Actions checks pass on the public head, including
   Humble/Jazzy builds, default workflows, upgrade checks, documentation, and
@@ -47,9 +47,10 @@ The GitHub repository and PR were inspected without mutation:
 - no PR conversation, inline review, or submitted review was present at the
   observation time.
 
-Passing checks on `8a931a3` validate the published portion of the seven-slice
-candidate, but do not validate the current local review fixes. Public CI must
-run again on the exact future candidate tip.
+At the baseline observation, passing checks on `8a931a3` validated only the
+then-published portion of the seven-slice candidate, not the then-local review
+fixes. Every candidate tip newer than that frozen baseline requires its own
+public CI result.
 
 ## Review order
 
@@ -133,16 +134,17 @@ complete gate.
 
 ## Publication boundary
 
-The review follow-up remains local and this plan does not authorize a push, PR
-update, comment, review, merge, tag, release, package, image, issue, label, or
-external dependency change. Maintainer direction is evaluated outside this
-artifact; the plan cannot manufacture authority from a green local check.
+This plan was authored as a local review artifact and does not authorize a
+push, PR update, comment, review, merge, tag, release, package, image, issue,
+label, or external dependency change. Maintainer direction is evaluated
+outside this artifact; the plan cannot manufacture authority from a green
+local check.
 
-Before any publication, validate the clean exact-tip candidate from these
-slices and inspect the resulting diff and object inventory. Any non-force
-update to Draft PR `#427` must remain within current maintainer direction;
-force pushes, merge, release, tag, deletion, and third-party communication
-remain separate decisions.
+Before any further publication, validate the clean exact-tip candidate from
+these slices and inspect the resulting diff and object inventory. Any
+non-force update to Draft PR `#427` must remain within current maintainer
+direction; force pushes, merge, release, tag, deletion, and third-party
+communication remain separate decisions.
 
 ## Remaining GLIM-convenience gate
 
