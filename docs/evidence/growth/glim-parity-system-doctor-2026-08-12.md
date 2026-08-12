@@ -1,0 +1,110 @@
+# GLIM parity: bag-optional system doctor — 2026-08-12
+
+> Decision: **LOCAL_UX_INCREMENT_PASS / PUBLIC_COMPARISON_PENDING**
+>
+> Candidate base: public Draft PR `#427` head `3f4dd70`
+>
+> Network or files written by `lidarslam-map doctor`: **none**
+>
+> Remote mutations performed: **none**
+
+## Why this increment
+
+The current GLIM documentation presents four adoption advantages that matter to
+a new user: PPA binary packages for Humble/Jazzy, prebuilt Docker images, a
+direct rosbag executor, and an offline viewer that supports correction, export,
+object removal, and session merging. Its setup documentation also separates
+sensor/topic configuration from normal execution.
+
+`lidar_slam_ros2` now overlaps the direct bag, sensor setup, local 3D review,
+editing, and session-merge tasks through `start`, `setup`, `view`, `edit`, and
+`merge`. GLIM's PPA remains the largest installation advantage. That cannot be
+closed honestly by adding another source script: this project's package-manager
+path still depends on reviewed NDT ownership and rosdistro publication.
+
+The largest unblocked adoption gap was therefore the moment immediately after
+installation. Previously, `doctor` required a bag, so a user could not ask
+whether the product surface, ROS environment, and demo storage were ready
+before locating data. The no-argument terminal home also had no safe route for
+someone whose intent was simply “check this installation.”
+
+Primary comparison sources inspected on 2026-08-12:
+
+- [GLIM installation](https://koide3.github.io/glim/installation.html)
+- [GLIM getting started](https://koide3.github.io/glim/quickstart.html)
+- [GLIM Docker images](https://koide3.github.io/glim/docker.html)
+- [GLIM README](https://github.com/koide3/glim/blob/master/README.md)
+
+## Product change
+
+`lidarslam-map doctor` now has two explicit modes:
+
+```bash
+lidarslam-map doctor
+lidarslam-map doctor /path/to/rosbag2
+```
+
+Without a bag it checks, read-only:
+
+1. the curated runtime-file inventory and current product version;
+2. whether a source checkout has a matching installed prefix;
+3. Humble/Jazzy activation and `ros2` availability;
+4. `rosbag2_py`, required for safe input inspection; and
+5. free space for the fixed demo, defaulting to the existing 8 GiB floor.
+
+The report is governed by `system-doctor-v1.schema.json`. It returns `ready` or
+`action_required`, stable finding codes, and one copy-ready `next_action` per
+finding. JSON intentionally omits checkout, home, install-prefix, and
+demo-directory paths. `--demo-dir` chooses another filesystem and
+`--min-free-space-gib` can raise the floor. A successful diagnosis exits zero
+even when action is required; automation keys on `status` and finding codes.
+
+With a bag, the dispatcher delegates to the existing
+`preflight_autoware_map_bag.py` implementation. Topic, PointCloud2 field,
+timestamp, and maintained-profile behavior is not forked. System-only storage
+options are rejected in bag mode rather than ignored.
+
+The interactive no-argument home adds **Check this installation** before full
+help. It prints the exact `lidarslam-map doctor` command and runs immediately
+without confirmation because the contract proves there is no network or write.
+Demo confirmation and own-bag calibration review remain unchanged.
+
+## Verification
+
+| Check | Result |
+| --- | --- |
+| source/installed ready reports and schema invariants | PASS |
+| missing build, runtime file, ROS, CLI, bag reader, and storage findings | stable-code regressions PASS |
+| privacy-bounded JSON | local path exclusion PASS |
+| bag-mode exact delegation and option separation | PASS |
+| TTY home doctor route and unchanged automation behavior | PASS |
+| CLI option/help and machine contract | PASS |
+| graph product CLI and documentation contracts | PASS |
+| focused lidar_slam tests | 37 passed |
+| focused graph tests | 22 passed |
+| non-symlinked Jazzy install | build/install PASS; helper, manifest, and schema installed |
+| fresh-environment absolute installed launcher | `ready`; 53/53 helpers; Jazzy, `ros2`, and `rosbag2_py` ready |
+| non-symlinked Humble overlay install | network-isolated immutable image build/install PASS; helper, manifest, and schema installed |
+| Humble installed launcher and complete installed-product gate | `ready`; 53/53 helpers; Humble, `ros2`, and `rosbag2_py` ready; PASS |
+| Humble report schema | Draft 2020-12 validation PASS; no local path disclosure |
+| installed bytecode state | zero cache artifacts before and after doctor |
+| complete maintained Python gate | graph: 1,428 passed / 13 skipped / 11 existing warnings; lidar_slam: 670 passed; 2,098 total |
+| Python style/docstrings/copyright | `ament_flake8` 7 files; `ament_pep257` and `ament_copyright` 2 files; PASS |
+| documentation | `mkdocs build --strict`: PASS with pre-existing Material/navigation notices |
+| machine formats and shell | 89 versioned candidate JSON files parse; shell syntax and `git diff --check` PASS |
+
+The system doctor now has non-symlinked installed proofs on both Jazzy and
+Humble. The Humble overlay was built with network access disabled from the
+immutable Humble image digest recorded by the distribution evidence, and its
+installed-product gate exercised both doctor modes. The complete public CI
+matrix still must run on the exact future candidate before it can be proposed
+publicly.
+
+## Honest boundary
+
+This increment improves diagnosis and first-command confidence; it does not
+create a PPA, Debian package, release, public benchmark, or independent first
+map. It also does not prove parity from a feature list. After source publication,
+the scorecard must measure command discovery, clean installation, fixed-demo
+completion, failure recovery, and active operator time on equivalent Humble and
+Jazzy hosts.

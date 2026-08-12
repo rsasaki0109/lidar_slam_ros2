@@ -43,7 +43,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI = REPO_ROOT / 'scripts' / 'lidarslam'
 CONTRACT_PATH = REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json'
 PROFILE_REGISTRY_PATH = REPO_ROOT / 'scripts' / 'product_profiles.py'
-OPTION_PATTERN = re.compile(r'(?<![A-Za-z0-9-])(--[a-z][a-z0-9-]*|-h)(?![A-Za-z0-9-])')
+OPTION_PATTERN = re.compile(
+    r'(?<![A-Za-z0-9-])(--[a-z][a-z0-9-]*|-h)(?![A-Za-z0-9-])'
+)
 VALUE_OPTION_PATTERN = re.compile(
     r'(?P<option>--[a-z][a-z0-9-]*)[ =]'
     r'(?P<value>\{[^}\n]+\}|<[^>\n]+>|[A-Z][A-Z0-9_]*)'
@@ -88,7 +90,7 @@ def _rendered_value_options(rendered_help: str) -> dict[str, str]:
 
 
 def test_contract_identifies_the_complete_product_surface():
-    """The manifest should enumerate every product subcommand and global flag."""
+    """The manifest enumerates every product command and global flag."""
     contract = _contract()
 
     assert contract['schema_version'] == 1
@@ -100,11 +102,215 @@ def test_contract_identifies_the_complete_product_surface():
         '70': 'internal or tooling error prevented command startup',
         'other_nonzero': 'delegated workflow or viewer failure',
     }
-    assert set(contract['commands']) == {
+    activation = contract['environment_activation_contract']
+    assert activation['direct_launchers'] == [
+        'absolute installed lidarslam-map path',
+        'repo-local ./scripts/lidarslam after a matching workspace build',
+    ]
+    assert 'nearest aggregate setup.bash' in activation['behavior']
+    assert 'curated lidarslam_cli.py' in activation['matching_rules'][0]
+    assert 'curated installed lidarslam_cli.py' in (
+        activation['matching_rules'][1]
+    )
+    assert 'unrelated parent workspace' in activation['matching_rules'][2]
+    assert 'does not modify' in activation['shell_rule']
+    assert 'normal PATH activation' in activation['normal_path_rule']
+    home = contract['interactive_home_contract']
+    assert home['routes'] == [
+        'demo',
+        'start',
+        'sessions',
         'doctor',
+        'help',
+    ]
+    assert 'interactive stdin and stdout' in home['trigger']
+    assert 'usage exit code 2' in home['non_interactive_behavior']
+    assert 'explicit yes' in home['safety_rules'][2]
+    assert 'sensor and calibration review' in home['safety_rules'][3]
+    assert 'uses no network' in home['safety_rules'][4]
+    assert 'starts no delegated command' in home['safety_rules'][5]
+    doctor = contract['system_doctor_contract']
+    assert doctor['schema_uri'].endswith(
+        '/schemas/system-doctor-v1.schema.json'
+    )
+    assert doctor['command'] == 'doctor'
+    assert doctor['statuses'] == ['ready', 'action_required']
+    assert doctor['finding_fields'] == ['code', 'message', 'next_action']
+    assert 'omit rosbag2_dir' in doctor['system_mode']
+    assert 'maintained-profile preflight' in doctor['bag_mode']
+    assert 'no network and writes no files' in doctor['safety_rules'][0]
+    assert 'omits checkout' in doctor['safety_rules'][1]
+    demo = contract['first_map_demo_plan_contract']
+    assert demo['schema_uri'].endswith(
+        '/schemas/first-map-demo-plan-v1.schema.json'
+    )
+    assert demo['command'] == 'demo'
+    assert demo['statuses'] == [
+        'ready',
+        'resume_ready',
+        'already_verified',
+        'not_ready',
+    ]
+    assert 'checksum-pinned' in demo['dataset_rules'][0]
+    assert 'writes nothing' in demo['safety_rules'][0]
+    assert any(
+        're-hash the registered archive' in rule
+        for rule in demo['safety_rules']
+    )
+    assert any(
+        'receipt-bound PASS' in rule
+        for rule in demo['safety_rules']
+    )
+    assert any(
+        'never restart mapping through resume' in rule
+        for rule in demo['safety_rules']
+    )
+    assert demo['viewer_rule'].startswith('viewer failure never replaces')
+    assert demo['json_rule'].startswith('--json requires --dry-run')
+    assert contract['sensor_setup_rejection_contract'] == {
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/sensor-setup-rejection-v1.schema.json'
+        ),
+        'commands': ['start', 'setup'],
+        'exit_code': 2,
+        'status': 'not_ready',
+        'files_written': False,
+        'reason_codes': [
+            'no-maintained-profile',
+            'profile-incompatible',
+        ],
+        'finding_fields': ['code', 'message', 'next_action'],
+        'operator_rule': (
+            'key on stable codes; display messages and next actions'
+        ),
+    }
+    recovery = contract['map_session_recovery_contract']
+    assert recovery['schema_uri'].endswith(
+        '/schemas/map-session-recovery-v1.schema.json'
+    )
+    assert recovery['command'] == 'start'
+    assert recovery['status'] == 'action_required'
+    assert recovery['artifact'] == 'map_session_recovery.json'
+    assert recovery['browser_artifact'] == 'session.html'
+    assert recovery['browser_behavior'] == (
+        'render action_required in the common session page; open for start '
+        '--viewer browser and retain without opening for --viewer none'
+    )
+    assert recovery['browser_rules'] == [
+        'self-contained HTML with no network resources',
+        'escape bag paths, diagnosis text, evidence paths, and commands',
+        (
+            'an HTML write failure must not suppress session.json or the '
+            'JSON recovery contract'
+        ),
+        'opening failure must not replace the delegated map exit code',
+    ]
+    assert set(recovery['reason_codes']) == {
+        'ambiguous-output-state',
+        'run-manifest-unreadable',
+        'workflow-state-uncertain',
+        'postprocessing-incomplete',
+        'storage-exhausted',
+        'workflow-interrupted',
+        'ros-parameters-invalid',
+        'tf-messages-invalid',
+        'tf-tree-disconnected',
+        'map-save-failed',
+        'ros-node-died',
+        'gnss-constraints-missing',
+        'map-verification-failed',
+        'runner-start-failed',
+        'map-output-incomplete',
+        'workflow-failed',
+    }
+    assert recovery['finding_fields'] == ['code', 'message', 'next_action']
+    assert recovery['safety_rules'] == [
+        'preserve setup and run evidence',
+        (
+            'resume terminal post-processing only when manifest-v2 proves '
+            'it is safe'
+        ),
+        'retry the pinned setup only into a fresh output directory',
+    ]
+    assert recovery['operator_rule'] == (
+        'run next_command first; key automation on reason.code'
+    )
+    session = contract['map_session_index_contract']
+    assert session['schema_uri'].endswith(
+        '/schemas/map-session-index-v1.schema.json'
+    )
+    assert session['artifact'] == 'session.json'
+    assert session['browser_artifact'] == 'session.html'
+    assert session['statuses'] == [
+        'running',
+        'verified',
+        'unverified',
+        'action_required',
+    ]
+    assert session['action_rule'] == (
+        'for terminal statuses, actions[0] is the recommended copy-ready '
+        'next action'
+    )
+    assert session['quality_rules'][0] == (
+        'summarize workflow, map output, Autoware verification, and evidence '
+        'integrity without inventing a numeric score'
+    )
+    assert 'not_verified' in session['quality_rules'][2]
+    assert 'semantically incomplete' in session['quality_rules'][3]
+    catalog = contract['map_session_catalog_contract']
+    assert catalog['schema_uri'].endswith(
+        '/schemas/map-session-catalog-v1.schema.json'
+    )
+    assert catalog['command'] == 'sessions'
+    assert catalog['browser_artifact'] == 'sessions.html'
+    assert catalog['json_rule'].startswith('--json is read-only')
+    assert 'direct child bundles only' in catalog['scan_rules'][0]
+    assert 'symlinks' in catalog['scan_rules'][1]
+    assert '2 MiB' in catalog['scan_rules'][2]
+    comparison = contract['map_session_comparison_contract']
+    assert comparison['schema_uri'].endswith(
+        '/schemas/map-session-comparison-v1.schema.json'
+    )
+    assert comparison['command'] == 'compare'
+    assert comparison['row_count'] == 14
+    assert comparison['json_rule'].startswith('--json is read-only')
+    assert 'numeric score' in comparison['decision_rules'][0]
+    assert 'winner' in comparison['decision_rules'][1]
+    assert 'unavailable' in comparison['evidence_rules'][2]
+    support = contract['support_bundle_contract']
+    assert support['schema_uri'].endswith(
+        '/schemas/support-bundle-v1.schema.json'
+    )
+    assert support['command'] == 'support'
+    assert support['archive_members'] == [
+        'README.txt',
+        'issue-body.md',
+        'support-report.json',
+    ]
+    assert 'credential-like' in support['privacy_rules'][1]
+    assert 'review_before_sharing' in support['privacy_rules'][3]
+    assert 'never follow' in support['evidence_rules'][2]
+    assert support['json_rule'].startswith('--json is read-only')
+    assert support['first_map_handoff_rules'][0].startswith(
+        '--first-map is read-only'
+    )
+    assert 'revalidate' in support['first_map_handoff_rules'][2]
+    assert 'never upload' in support['first_map_handoff_rules'][4]
+    assert 'never upload' in support['write_rules'][2]
+    assert set(contract['commands']) == {
+        'demo',
+        'start',
+        'sessions',
+        'compare',
+        'support',
+        'doctor',
+        'setup',
         'run',
         'inspect',
         'view',
+        'edit',
+        'merge',
         'migrate-manifest',
         'rollback-plan',
     }
@@ -135,6 +341,7 @@ def test_recovery_commands_are_kept_out_of_beginner_help():
 
     assert normal.returncode == 0
     assert complete.returncode == 0
+    assert 'no command in an interactive terminal' in normal.stdout
     for command in ('migrate-manifest', 'rollback-plan'):
         assert command not in normal.stdout
         assert command in complete.stdout
@@ -170,8 +377,10 @@ def test_each_subcommand_help_matches_its_option_inventory():
         expected_normal_options = _option_names([
             entry
             for entry in command_contract['options']
-            if entry['stability'] not in exclusions['stability']
-            and entry['tier'] not in exclusions['tiers']
+            if (
+                entry['stability'] not in exclusions['stability']
+                and entry['tier'] not in exclusions['tiers']
+            )
         ])
         assert rendered_normal_options == expected_normal_options, command
 
@@ -215,19 +424,19 @@ def test_value_contract_matches_full_help_and_bounded_choices():
             assert value['kind'] in {
                 'directory',
                 'enum',
+                'frame',
                 'integer',
                 'number',
                 'file',
+                'transform',
             }
             assert 'default' in value
             assert value['value_name'] == rendered_values[option]
             if value['kind'] == 'enum':
                 assert value['choices']
                 if value['value_name'].startswith('{'):
-                    assert (
-                        '{' + ','.join(value['choices']) + '}'
-                        == value['value_name']
-                    )
+                    expected = '{' + ','.join(value['choices']) + '}'
+                    assert expected == value['value_name']
             else:
                 assert 'choices' not in value
 
@@ -245,6 +454,17 @@ def test_profile_option_and_help_use_the_maintained_registry():
         contract['value_options']['run']['--profile']['choices']
     ) == profile_ids
     for command in ('doctor', 'run'):
+        rendered = _help(command)
+        for profile_id, description in profile_help:
+            assert f'{profile_id}: {description}' in rendered
+    setup_profiles = tuple(
+        contract['value_options']['setup']['--profile']['choices']
+    )
+    assert setup_profiles == profile_ids
+    for command in ('start', 'setup'):
+        assert tuple(
+            contract['value_options'][command]['--profile']['choices']
+        ) == setup_profiles
         rendered = _help(command)
         for profile_id, description in profile_help:
             assert f'{profile_id}: {description}' in rendered
@@ -304,6 +524,18 @@ def test_positionals_and_deprecation_lifecycle_are_machine_readable():
         (
             ['run', '/tmp', '--yes'],
             'requires --guided',
+        ),
+        (
+            ['start', '/tmp', '--json'],
+            '--json requires --dry-run',
+        ),
+        (
+            ['start', '/tmp', '--min-free-space-gib', '0'],
+            'finite and greater than zero',
+        ),
+        (
+            ['sessions', '/tmp', '--limit', '0'],
+            'must be between 1 and 200',
         ),
         (
             [

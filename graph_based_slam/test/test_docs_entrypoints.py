@@ -62,6 +62,17 @@ AUTOWARE_QUICKSTART = REPO_ROOT / 'docs' / 'autoware-quickstart.md'
 AUTOWARE_MAP_AUTHORING = REPO_ROOT / 'docs' / 'autoware-map-authoring.md'
 AUTOWARE_FOXGLOVE = REPO_ROOT / 'docs' / 'autoware-foxglove.md'
 WORKFLOWS_DOC = REPO_ROOT / 'docs' / 'workflows.md'
+ONBOARDING_TRIAL_EXECUTION_DOC = (
+    REPO_ROOT / 'docs' / 'onboarding-trial-execution.md'
+)
+SOURCE_DEPENDENCIES_SCRIPT = (
+    REPO_ROOT / 'scripts' / 'install_source_dependencies.sh'
+)
+SOURCE_QUICKSTART_SCRIPT = REPO_ROOT / 'scripts' / 'source_quickstart.sh'
+DOCKER_MAP_BAG_SCRIPT = REPO_ROOT / 'scripts' / 'docker_map_bag.sh'
+SOURCE_ONBOARDING_PROBE = (
+    REPO_ROOT / 'scripts' / 'run_source_onboarding_probe.py'
+)
 BENCHMARKING_DOC = REPO_ROOT / 'docs' / 'benchmarking.md'
 COMPARISON_DOC = REPO_ROOT / 'docs' / 'comparison.md'
 PRODUCT_CONTRACT_DOC = REPO_ROOT / 'docs' / 'product-contract.md'
@@ -125,6 +136,12 @@ OFFICIAL_RKO_EVIDENCE_DOC = (
     / 'evidence'
     / 'official-rko-binary-compatibility-2026-07-29.md'
 )
+ROS_APT_READINESS_20260812 = (
+    REPO_ROOT
+    / 'docs'
+    / 'evidence'
+    / 'ros-apt-dependency-readiness-2026-08-12.json'
+)
 DOCKER_FIRST_MAP_EVIDENCE_DOC = (
     REPO_ROOT / 'docs' / 'evidence' / 'docker-first-map-2026-07-28.md'
 )
@@ -156,9 +173,14 @@ TIMESTAMP_ORDER_EVIDENCE_DOC = (
     / 'timestamp-order-preflight-2026-07-29.md'
 )
 REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
-PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v3.schema.json'
+PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v4.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
-RUN_MANIFEST_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.json'
+MAP_SESSION_RECOVERY_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas' / 'map-session-recovery-v1.schema.json'
+)
+RUN_MANIFEST_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v1.schema.json'
+)
 RUN_MANIFEST_V2_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'run-manifest-v2.schema.json'
 )
@@ -243,6 +265,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert OFFICIAL_RKO_COMPATIBILITY_WORKFLOW.is_file()
     assert OFFICIAL_RKO_EVIDENCE_JSON.is_file()
     assert OFFICIAL_RKO_EVIDENCE_DOC.is_file()
+    assert ROS_APT_READINESS_20260812.is_file()
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
     assert BOUNDED_FILESYSTEM_SCHEMA.is_file()
     assert BOUNDED_FILESYSTEM_WORKFLOW.is_file()
@@ -256,6 +279,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert REAL_DATA_E2E_DOC.is_file()
     assert PREFLIGHT_SCHEMA.is_file()
     assert DIAGNOSIS_SCHEMA.is_file()
+    assert MAP_SESSION_RECOVERY_SCHEMA.is_file()
     assert RUN_MANIFEST_SCHEMA.is_file()
     assert RUN_MANIFEST_V2_SCHEMA.is_file()
     assert RELEASE_IMAGE_SCHEMA.is_file()
@@ -296,7 +320,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert 'lidarslam-map run' in readme
     assert '(lidarslam/images/autoware_map_loader_proof.png)' in readme
     assert 'git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git' in readme
-    assert 'rosdep install --from-paths src --ignore-src -r -y' in readme
+    assert 'bash scripts/source_quickstart.sh' in readme
+    assert 'Run `lidarslam-map` with no arguments' in readme
     # The required-topics table and the dynamic-object-filter figure moved to
     # docs/workflows.md so the README stays narrow; keep the assets on disk
     # (asserted above) and verify the README still routes readers to those docs.
@@ -412,6 +437,21 @@ def test_contributing_and_issue_templates_exist():
     assert 'endorsed by the Autoware Foundation' in contributing
     assert 'run_release_readiness_checks.sh' in contributing
     assert 'run_autoware_quickstart.sh' in contributing
+    assert 'run_product_python_tests.sh' in contributing
+    assert 'The four official beginner-facing product workflows are:' in (
+        contributing
+    )
+    assert '`lidarslam-map demo`' in contributing
+    assert '`lidarslam-map start <rosbag2_dir>`' in contributing
+    assert '`lidarslam-map sessions`' in contributing
+    assert '`lidarslam-map support <session_bundle>`' in contributing
+    assert 'run `lidarslam-map` without' in contributing
+    assert 'The three official beginner-facing product entrypoints' not in (
+        contributing
+    )
+    assert 'own-bag wrapper: `scripts/run_autoware_map_beginner.sh`' not in (
+        contributing
+    )
     assert '(CODE_OF_CONDUCT.md)' in contributing
     assert '(GOVERNANCE.md)' in contributing
     assert '(SUPPORT.md)' in contributing
@@ -459,23 +499,26 @@ def test_product_contract_has_bounded_official_surface():
 
     assert '## Official entrypoints' in contract
     assert contract.count('| Try the fixed public demo') == 1
+    assert contract.count('| Check an installation before finding a bag') == 1
     assert contract.count('| Map your own compatible rosbag2') == 1
-    assert contract.count(
-        '| Run the fixed public demo from a sourced source workspace'
-    ) == 1
+    assert contract.count('| Return to and compare local sessions') == 1
+    assert contract.count('| Prepare a maintainer or first-map report') == 1
     assert 'lidarslam-map run <rosbag2_dir> --output-dir <dir>' in contract
+    assert '`lidarslam-map demo [work_dir]`' in contract
     assert 'ros2 run lidarslam lidarslam-cli' in contract
-    assert (
-        'source install/setup.bash && '
-        'bash src/lidar_slam_ros2/scripts/run_first_map_demo.sh' in contract
-    )
+    assert '`run_first_map_demo.sh` implementation used by Docker' in contract
     assert (
         '`run_autoware_quickstart.sh` remains an advanced viewer/dogfood '
         'compatibility' in contract
     )
     assert 'Other scripts and ROS' in contract
+    assert 'choice-reducing home, not another mapping workflow' in contract
     assert '`run_manifest.json`' in contract
     assert '`<output>.partial`' in golden_path
+    assert 'preflight-v4.schema.json' in golden_path
+    assert 'sensor-setup-rejection-v1.schema.json' in golden_path
+    assert 'map-session-recovery-v1.schema.json' in golden_path
+    assert 'map-session-index-v1.schema.json' in golden_path
     assert 'preflight-v3.schema.json' in golden_path
     assert 'preflight-v2.schema.json' in golden_path
     assert 'preflight-v1.schema.json' in golden_path
@@ -493,6 +536,21 @@ def test_product_contract_has_bounded_official_surface():
         'stability': ['deprecated'],
         'tiers': ['viewer-runtime'],
     }
+    assert cli_contract['map_session_recovery_contract']['command'] == 'start'
+    assert cli_contract['map_session_index_contract']['command'] == 'start'
+    home = cli_contract['interactive_home_contract']
+    assert home['routes'] == [
+        'demo',
+        'start',
+        'sessions',
+        'doctor',
+        'help',
+    ]
+    assert 'usage exit code 2' in home['non_interactive_behavior']
+    assert 'map_session_recovery.json' in contract
+    assert 'session.json' in contract
+    assert 'session.html' in contract
+    assert 'session.html' in golden_path
     assert 'Resume never starts the SLAM workflow again.' in golden_path
     assert 'existing outputs are never overwritten' in (
         REPO_ROOT / 'scripts' / 'run_autoware_map_from_bag.py'
@@ -691,11 +749,17 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     real_data_e2e_doc = REAL_DATA_E2E_DOC.read_text(encoding='utf-8')
 
     assert 'lidarslam-map doctor' in getting_started_doc
+    assert 'lidarslam-map demo' in getting_started_doc
+    assert 'no arguments on an interactive terminal' in getting_started_doc
     assert 'lidarslam-map run' in getting_started_doc
     assert 'lidarslam-map inspect' in getting_started_doc
     assert 'bash scripts/run_first_map_demo.sh' in getting_started_doc
     assert 'rko_lio_graph_mid360_preset' in getting_started_doc
     assert 'first_map_validation_receipt.json' in getting_started_doc
+    assert (
+        'lidarslam-map support /path/to/session_bundle --first-map'
+        in getting_started_doc
+    )
     assert 'LIDARSLAM_HOST_UID' in getting_started_doc
     assert 'LIDARSLAM_HOST_GID' in getting_started_doc
     assert 'periodic' in getting_started_doc
@@ -714,6 +778,11 @@ def test_docs_cover_autoware_and_release_gate_keywords():
         EXTERNAL_FIRST_MAP_SCHEMA.read_text(encoding='utf-8')
     )
     assert 'Independent First-map Validation issue form' in first_map_program
+    assert 'lidarslam-map support /path/to/session_bundle --first-map' in (
+        first_map_program
+    )
+    assert 'no write or network request' in first_map_program
+    assert 'not edit old session evidence merely' in first_map_program
     assert '--require-complete' in first_map_program
     assert 'first_map_validation_receipt.md' in first_map_program
     assert 'create_first_map_validation_receipt.py' in first_map_program
@@ -838,11 +907,35 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert '`rko_lio` | PRBonn `0.3.2-1` is registered' in (
         rosdistro_release_doc
     )
-    assert 'main currently has Humble `0.3.0` and Jazzy `0.2.0`' in (
+    assert 'main has Humble `0.3.2` and Jazzy `0.2.0`' in (
         rosdistro_release_doc
     )
     assert '`PRBonn/rko_lio`' in rosdistro_release_doc
     assert '`ndt_omp_ros2`' in rosdistro_release_doc
+    assert '`REVIEW_REQUIRED`' in rosdistro_release_doc
+    assert '`include/pclomp/*`' in rosdistro_release_doc
+    assert '`lib/libndt_omp.so`' in rosdistro_release_doc
+    ndt_review_evidence = (
+        REPO_ROOT
+        / 'docs'
+        / 'evidence'
+        / 'ndt-omp-release-review-2026-08-12.md'
+    ).read_text(encoding='utf-8')
+    assert 'upstream convergence' in ndt_review_evidence
+    assert 'not safely co-installable' in ndt_review_evidence
+    assert '5495fd9214945afcb4b35d5a1da385e405c52bf9' in (
+        ndt_review_evidence
+    )
+    assert '109/109 passing' in ndt_review_evidence
+    assert 'c090b8f2228b21dcf30650114f9638f38497ca5a0214e3e6063a53aa7bef66b1' in (
+        ndt_review_evidence
+    )
+    assert 'corrected five-file patch replaces all eleven direct' in (
+        ndt_review_evidence
+    )
+    assert 'graph_based_slam' in ndt_review_evidence
+    assert 'check_canonical_ndt_convergence.py' in rosdistro_release_doc
+    assert 'Prepared reviewer response' in ndt_review_evidence
     lidarslam_package = (
         REPO_ROOT / 'lidarslam' / 'package.xml'
     ).read_text(encoding='utf-8')
@@ -865,6 +958,19 @@ def test_docs_cover_autoware_and_release_gate_keywords():
         and candidate['e2e']['checks_passed'] == 18
         and candidate['e2e']['checks_failed'] == 0
         for candidate in official_rko_evidence['candidates']
+    )
+    apt_readiness = json.loads(
+        ROS_APT_READINESS_20260812.read_text(encoding='utf-8')
+    )
+    assert apt_readiness['status'] == 'IN_PROGRESS'
+    assert apt_readiness['distros']['humble']['main']['rko-lio']['ready'] is True
+    assert apt_readiness['distros']['jazzy']['main']['rko-lio']['ready'] is False
+    assert apt_readiness['distros']['jazzy']['testing']['rko-lio']['ready'] is True
+    assert all(
+        apt_readiness['distros'][distro][channel]['ndt-omp-ros2']['ready']
+        is False
+        for distro in ('humble', 'jazzy')
+        for channel in ('main', 'testing')
     )
     assert 'SIGTERM' in reliability_doc
     assert 'exit `143`' in reliability_doc
@@ -1016,10 +1122,13 @@ def test_container_distribution_builds_and_attests_both_supported_distros():
         assert 'docker/build-push-action@v7' in workflow
         assert 'actions/attest@v4' in workflow
         assert 'attestations: write' in workflow
+        assert 'artifact-metadata: write' in workflow
         assert 'id-token: write' in workflow
         assert 'sbom:' in workflow
         assert 'provenance:' in workflow
         assert 'lidarslam-map --version' in workflow
+        assert 'lidarslam-map start --help' in workflow
+        assert "grep -Fq -- '--map-output-dir'" in workflow
         assert 'LIDARSLAM_SOURCE_REVISION=${{ steps.source.outputs.revision }}' in workflow
         assert 'LIDARSLAM_SOURCE_DIRTY=false' in workflow
         assert 'product-build-info.json' in workflow
@@ -1048,3 +1157,129 @@ def test_container_distribution_builds_and_attests_both_supported_distros():
     assert 'lidarslam-map rollback-plan' in (
         DISTRIBUTION_DOC.read_text(encoding='utf-8')
     )
+    assert 'scripts/docker_map_bag.sh' in docker_workflow
+    assert "'scripts/docker_map_bag.sh'" in RELEASE_BUNDLE_SCRIPT.read_text(
+        encoding='utf-8'
+    )
+    assert 'scripts/build_docker_launcher_asset.py' in release_workflow
+    assert "'scripts/build_docker_launcher_asset.py'" in (
+        RELEASE_BUNDLE_SCRIPT.read_text(encoding='utf-8')
+    )
+    assert '--output lidarslam-map-docker' in release_workflow
+    assert 'lidarslam-map-docker --version' in release_workflow
+    assert 'subject-path: |' in release_workflow
+
+
+def test_container_own_bag_route_is_read_only_and_non_root():
+    """Container users need one safe own-bag route without a source build."""
+    readme = README_PATH.read_text(encoding='utf-8')
+    getting_started = GETTING_STARTED.read_text(encoding='utf-8')
+    distribution = DISTRIBUTION_DOC.read_text(encoding='utf-8')
+
+    assert '[Docker Own-Bag Map](docs/getting-started.md#docker-own-bag-map)' in readme
+    assert DOCKER_MAP_BAG_SCRIPT.is_file()
+    assert 'bash scripts/docker_map_bag.sh /absolute/path/to/rosbag2' in readme
+
+    for document in (getting_started, distribution):
+        assert 'bash scripts/docker_map_bag.sh /absolute/path/to/rosbag2' in document
+        assert '--dry-run' in document
+        assert 'read-only' in document
+        assert 'external container networking' in document
+        assert 'UID/GID' in document
+        assert 'lidarslam-map start' in document
+        assert 'lidarslam-map run /input --guided' not in document
+
+    assert 'Clone-free Docker launcher release gate' in getting_started
+    assert 'gh attestation verify ./lidarslam-map-docker' in getting_started
+    assert 'Standalone launcher asset for the next release' in distribution
+    assert 'Releases from v0.9.1 require the seventh launcher asset' in (
+        distribution
+    )
+
+    launcher = DOCKER_MAP_BAG_SCRIPT.read_text(encoding='utf-8')
+    assert '--user "$(id -u):$(id -g)"' in launcher
+    assert 'docker run --rm --pull=never --network none' in launcher
+    assert 'dst=/input,readonly' in launcher
+    assert 'ROS_LOG_DIR=/output/ros-logs' in launcher
+    assert 'lidarslam-map start /input' in launcher
+    assert '--output-dir /output/setup' in launcher
+    assert '--map-output-dir /output/map' in launcher
+    assert '/var/run/docker.sock' not in launcher
+    assert 'LIDARSLAM_DOCKER_LAUNCHER_VERSION="development"' in launcher
+    assert 'LIDARSLAM_DOCKER_LAUNCHER_REVISION="working-tree"' in launcher
+    assert '--version' in launcher
+    assert 'LIDARSLAM_DOCKER_LAUNCHER_VERSION}-${ROS_DISTRO}' in launcher
+
+    assert '[imu-input-missing]' in getting_started
+    assert 'concrete `Next:` action' in getting_started
+
+
+def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
+    """Beginner builds should be fast while contributor checks stay complete."""
+    readme = README_PATH.read_text(encoding='utf-8')
+    getting_started = GETTING_STARTED.read_text(encoding='utf-8')
+    distribution = DISTRIBUTION_DOC.read_text(encoding='utf-8')
+    onboarding = ONBOARDING_TRIAL_EXECUTION_DOC.read_text(encoding='utf-8')
+    workflows = WORKFLOWS_DOC.read_text(encoding='utf-8')
+    helper = 'bash src/lidar_slam_ros2/scripts/install_source_dependencies.sh'
+    quickstart = 'source_quickstart.sh'
+    fast_build = '-DBUILD_TESTING=OFF'
+
+    assert SOURCE_DEPENDENCIES_SCRIPT.is_file()
+    assert SOURCE_QUICKSTART_SCRIPT.is_file()
+    assert SOURCE_ONBOARDING_PROBE.is_file()
+    quickstart_documents = (
+        readme,
+        getting_started,
+        distribution,
+        onboarding,
+    )
+    for document in quickstart_documents:
+        assert quickstart in document
+    assert helper in workflows
+    quickstart_script = SOURCE_QUICKSTART_SCRIPT.read_text(encoding='utf-8')
+    assert fast_build in quickstart_script
+    assert '--base-paths "${REPO_ROOT}"' in quickstart_script
+    assert '--packages-select "${EXPECTED_SOURCE_PACKAGES[@]}"' in (
+        quickstart_script
+    )
+    assert '[source-package-inventory-mismatch]' in quickstart_script
+    for package in (
+        'graph_based_slam',
+        'lidarslam',
+        'lidarslam_msgs',
+        'ndt_omp_ros2',
+        'rko_lio',
+        'scanmatcher',
+    ):
+        assert package in quickstart_script
+    assert '--repo-only' in quickstart_script
+    assert '--dry-run' in quickstart_script
+    assert 'direct installed command auto-activates this workspace' in (
+        quickstart_script
+    )
+    assert 'no activation step' in quickstart_script
+    for document in (readme, getting_started, distribution, workflows):
+        assert 'mkdir -p ~/ros2_ws/src' in document
+
+    assert 'auto-activates this build' in readme
+    assert 'without changing your shell' in getting_started
+    assert 'auto-activates the matching aggregate' in distribution
+
+    assert '8 GiB' in readme
+    assert '30 minutes' in readme
+    assert '8 GiB' in getting_started
+    assert '30 minutes' in getting_started
+    assert fast_build not in workflows
+    assert 'bash scripts/run_default_ci_checks.sh' in workflows
+    assert 'source-route-contract-missing' in onboarding
+    assert 'python3 scripts/run_source_onboarding_probe.py' in onboarding
+    assert '--public-preflight' in onboarding
+    assert '--public-preflight' in SOURCE_ONBOARDING_PROBE.read_text(
+        encoding='utf-8'
+    )
+    assert '--acknowledge-disposable-host' in onboarding
+    assert '--acknowledge-isolated-network' in onboarding
+    assert '--prompt-active-operator-time' in onboarding
+    assert 'source-candidate-not-published' in onboarding
+    assert '74fe625ab2ee1dc9a0d55ce69bd705d22bac5d76' not in onboarding

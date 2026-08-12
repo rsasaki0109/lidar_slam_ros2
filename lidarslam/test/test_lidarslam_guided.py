@@ -90,6 +90,18 @@ def _payload(*, recommendations: list[dict[str, object]]):
         'recommended_profile_id': (
             recommendations[0]['id'] if recommendations else None
         ),
+        'findings': (
+            []
+            if recommendations
+            else [{
+                'code': 'pointcloud-layout-incompatible',
+                'message': 'PointCloud2 input was not usable.',
+                'next_action': (
+                    'Rewrite the PointCloud2 layout, then run '
+                    'lidarslam-map doctor <rosbag2_dir>.'
+                ),
+            }]
+        ),
         'missing_requirements': ['PointCloud2 input was not usable.'],
     }
 
@@ -128,7 +140,7 @@ def test_guided_help_is_short_and_actionable():
     assert result.returncode == 0
     assert 'guide a safe map run through verification' in result.stdout
     assert '--yes' in result.stdout
-    assert '--viewer {none,foxglove,autoware}' in result.stdout
+    assert '--viewer {none,browser,autoware,foxglove}' in result.stdout
     assert 'use "run" directly in scripts' in result.stdout
 
 
@@ -146,6 +158,8 @@ def test_guided_stops_with_actionable_not_ready_report(monkeypatch, tmp_path, ca
     assert 'NOT READY' in output
     assert 'Detected inputs:' in output
     assert 'IMU:' in output
+    assert '[pointcloud-layout-incompatible]' in output
+    assert 'Next: Rewrite the PointCloud2 layout' in output
     assert 'doctor <rosbag2_dir>' in output
 
 
@@ -175,8 +189,38 @@ def test_guided_stops_before_confirmation_when_runtime_is_incomplete(
     output = capsys.readouterr().out
     assert 'the input is compatible, but the local runtime is incomplete' in output
     assert 'Runtime check: FAILED' in output
+    assert '[runtime-incomplete]' in output
     assert 'graph_based_slam/local_setup.bash' in output
-    assert 'colcon build' in output
+    assert 'source_quickstart.sh' in output
+    assert '--workspace' in output
+    assert '--build-only' in output
+    assert 'install/setup.bash' in output
+
+
+def test_source_runtime_finds_documented_workspace_install(
+    monkeypatch,
+    tmp_path,
+):
+    """A standard <workspace>/src checkout must find <workspace>/install."""
+    module = _load_module()
+    workspace = tmp_path / 'workspace with spaces'
+    repo = workspace / 'src' / 'lidar_slam_ros2'
+    install = workspace / 'install'
+    repo.mkdir(parents=True)
+    (install / 'setup.bash').parent.mkdir(parents=True)
+    (install / 'setup.bash').write_text('# test\n', encoding='utf-8')
+    monkeypatch.setattr(module, 'REPO_ROOT', repo)
+    monkeypatch.setattr(module, 'SOURCE_LAYOUT', True)
+
+    assert module._source_workspace_root() == workspace
+    assert module._runtime_install_roots() == (install,)
+    next_steps = module._render_runtime_next_steps()
+    rendered = '\n'.join(next_steps)
+    assert f"cd '{repo}'" in rendered
+    assert f"--workspace '{workspace}'" in rendered
+    assert '--build-only' in rendered
+    assert f"source '{install / 'setup.bash'}'" in rendered
+    assert len(next_steps) == 4
 
 
 def test_guided_delegates_run_then_viewer_without_touching_slam_logic(
@@ -390,6 +434,7 @@ def test_run_guided_forwards_only_the_interaction_layer(monkeypatch, tmp_path):
         viewer='none',
         yes=True,
         dry_run=True,
+        editable=True,
         resume=False,
     )
 
@@ -406,4 +451,5 @@ def test_run_guided_forwards_only_the_interaction_layer(monkeypatch, tmp_path):
         'required',
         '--yes',
         '--dry-run',
+        '--editable',
     ]]

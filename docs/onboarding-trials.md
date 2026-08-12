@@ -39,6 +39,16 @@ Record every field in
 The following rules keep separate operators and releases comparable.
 The detailed observer procedure is the
 [G0 onboarding-trial execution runbook](onboarding-trial-execution.md).
+Its disposable-host `run_source_onboarding_probe.py` helper can pin the public
+source identity, execute the unchanged headless quickstart, collect the seven
+measurements, and write the same bounded v1 record. It is observer automation,
+not a replacement product path; use the manual protocol when independently
+auditing its measurements.
+Before provisioning a trial VM, `--public-preflight` checks only the immutable
+GitHub source route and returns machine-readable `READY` or `NOT_READY` without
+writing files. It requires the exact six-package inventory, dependency helper,
+fast build, Getting Started route, and matching product version from one
+commit; API/tool failure remains distinct from an unavailable route.
 
 | Field | Measurement rule |
 | --- | --- |
@@ -90,6 +100,17 @@ After validating each row, audit the fixed four-row matrix without inferring
 missing success:
 
 ```bash
+python3 scripts/check_onboarding_trial_matrix.py --json
+```
+
+With no record arguments, the checker loads the schema-backed reviewed index
+at `docs/contracts/g0-onboarding-matrix-evidence-v1.json`. The index names the
+two checked-in Docker records and keeps both missing source rows explicit; it
+does not scan files, infer a latest run, or turn an absent row into a failure or
+success. Use explicit paths when reviewing a provisional matrix that has not
+been added to that index:
+
+```bash
 python3 scripts/check_onboarding_trial_matrix.py \
   docker-humble.json docker-jazzy.json \
   source-humble.json source-jazzy.json \
@@ -99,9 +120,11 @@ python3 scripts/check_onboarding_trial_matrix.py \
 The matrix checker requires the exact x86_64 Ubuntu/ROS pairing, immutable
 revision kind, fixed full MID-360 dataset identity, one shared product version,
 and one shared source commit. It reports `INCOMPLETE` until all four records
-exist. The activation gate needs at least one comparable Docker row and one
-comparable source row; `--require-all-comparable` is the stricter four-row
-gate. Neither result substitutes for the other release gates.
+exist. The current no-argument audit truthfully reports two present Docker PASS
+outcomes, zero comparable rows, and two missing source rows. The activation
+gate needs at least one comparable Docker row and one comparable source row;
+`--require-all-comparable` is the stricter four-row gate. Neither result
+substitutes for the other release gates.
 
 ## Privacy boundary
 

@@ -10,10 +10,11 @@ README.
 - clone with submodules:
 
 ```bash
+mkdir -p ~/ros2_ws/src
 cd ~/ros2_ws/src
 git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2
 cd ..
-rosdep install --from-paths src --ignore-src -r -y
+bash src/lidar_slam_ros2/scripts/install_source_dependencies.sh
 ```
 
 - build and run the default checks:
@@ -38,6 +39,7 @@ Optional 3D-BBS support:
 
 | Goal | Entrypoint |
 | --- | --- |
+| Fixed public first map | `lidarslam-map demo`; add `--viewer none` for headless use or `--dry-run --json` for a network- and write-free plan. |
 | Autoware pointcloud-map quickstart | `bash scripts/run_autoware_quickstart.sh` |
 | Full dogfood flow | `bash scripts/run_rko_lio_graph_autoware_dogfood.sh --auto-exit-secs 20` |
 | Standard NTU VIRAL benchmark | `bash scripts/run_rko_lio_graph_benchmark.sh` |
@@ -45,7 +47,12 @@ Optional 3D-BBS support:
 | KITTI Odometry small_gicp sweep | `bash scripts/sweep_kitti_small_gicp.sh --dataset "$KITTI_ODOMETRY_ROOT" --sequences "00 05 07"` |
 | localization_zoo PCD/trajectory → fixed graph bag | `python3 scripts/pcd_sequence_to_rosbag2.py --help` then `bash scripts/run_offline_determinism_check.sh` |
 | MID360 cross-validation benchmark | `bash scripts/run_rko_lio_mid360_crossval_benchmark.sh` |
-| MID-360 browser 3D map preview | `python3 scripts/export_mid360_robot_3d_map_preview.py output/mid360_public/rko_sweep_no_quiet_all/voxel_0p50_min_1p00_dd_on` writes `mid360_robot_3d_map_preview.html`, `mid360_robot_3d_map_preview.ply`, and overlay JSON from an existing `pointcloud_map/` |
+| Offline browser 3D map preview | `lidarslam-map view output/my_map` writes and opens a self-contained HTML preview; use `--no-open` on headless hosts. The lower-level `export_mid360_robot_3d_map_preview.py` remains available for custom sampling limits. |
+| Recent map-session history | `lidarslam-map sessions` validates direct child session bundles and opens a local newest-first catalog; use `--status action_required`, `--viewer none`, or read-only `--json` as needed. |
+| Evidence-backed session comparison | Select two cards in `sessions.html`, or run `lidarslam-map compare output/session-a output/session-b`; use `--viewer none` or read-only `--json` on headless/automated hosts. |
+| Privacy-first maintainer report | Choose **Get support** in `sessions.html`, or run `lidarslam-map support output/session-a`; review the fixed three-member ZIP before attaching it to a public issue. |
+| Non-destructive 3D map cleanup | Create an RKO graph map with `run --editable`, select unwanted boxes or accepted loops in `view`, then run the browser-printed `edit` command. Replay inputs are auto-detected; `edit --help-all` provides overrides for older outputs. |
+| Multi-session map project | Put the trusted anchor first: `lidarslam-map merge output/day1 output/day2 --output-dir output/site_project`, then inspect separately colored session paths with `lidarslam-map view output/site_project`. |
 | Mixed-quality open-data GNSS smoke | `bash scripts/run_open_data_applanix_velodyne_gnss_smoke.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
 | Mixed-quality open-data GNSS benchmark | `bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh --bag /path/to/rosbag2 --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |
 | Leo Drive classic-path suite | `bash scripts/run_open_data_classic_path_benchmark_suite.sh --applanix-msg-dir /tmp/applanix/applanix_msgs/msg --verify-map` |

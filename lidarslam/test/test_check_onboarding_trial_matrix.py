@@ -28,10 +28,11 @@
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -127,6 +128,10 @@ def _full_matrix() -> list[dict[str, object]]:
     ]
 
 
+def _evidence_index() -> dict[str, object]:
+    return json.loads(MATRIX.EVIDENCE_INDEX_PATH.read_text(encoding='utf-8'))
+
+
 def _make_failed(record: dict[str, object], finding: str) -> None:
     record['outcome'].update({
         'status': 'FAIL',
@@ -183,6 +188,73 @@ def test_partial_matrix_names_missing_rows_without_inferring_success():
     assert report['decision']['actions'][0].endswith(
         'source-humble, source-jazzy'
     )
+
+
+def test_checked_in_index_reports_the_true_two_of_four_state():
+    """No-argument evidence contains both reviewed Docker outcomes."""
+    records = MATRIX.load_evidence_index()
+
+    report = MATRIX.evaluate_matrix(records)
+
+    assert len(records) == 2
+    assert report['decision']['status'] == 'INCOMPLETE'
+    assert report['summary']['present_rows'] == 2
+    assert report['summary']['pass_rows'] == 2
+    assert report['summary']['comparable_rows'] == 0
+    assert [
+        row['row_id'] for row in report['rows'] if not row['present']
+    ] == ['source-humble', 'source-jazzy']
+
+
+def test_no_argument_cli_uses_checked_in_index(capsys):
+    """The maintainer's shortest audit command cannot regress to zero rows."""
+    assert MATRIX.main(['--json']) == 0
+
+    report = json.loads(capsys.readouterr().out)
+    assert report['summary']['present_rows'] == 2
+    assert report['summary']['pass_rows'] == 2
+    assert report['decision']['status'] == 'INCOMPLETE'
+
+
+def test_evidence_index_order_and_paths_fail_closed(tmp_path):
+    """The index cannot shuffle rows or point outside reviewed evidence."""
+    reordered = copy.deepcopy(_evidence_index())
+    reordered['rows'][0], reordered['rows'][1] = (
+        reordered['rows'][1], reordered['rows'][0]
+    )
+    reordered_path = tmp_path / 'reordered.json'
+    reordered_path.write_text(json.dumps(reordered), encoding='utf-8')
+    with pytest.raises(MATRIX.MatrixError, match='fixed matrix order'):
+        MATRIX.load_evidence_index(reordered_path)
+
+    unsafe = copy.deepcopy(_evidence_index())
+    unsafe['rows'][0]['record_path'] = '../private.json'
+    unsafe_path = tmp_path / 'unsafe.json'
+    unsafe_path.write_text(json.dumps(unsafe), encoding='utf-8')
+    with pytest.raises(MATRIX.MatrixError, match='evidence index schema'):
+        MATRIX.load_evidence_index(unsafe_path)
+
+
+def test_evidence_index_rejects_missing_or_mislabeled_record(tmp_path):
+    """A path must exist and prove the row named by its index entry."""
+    missing = copy.deepcopy(_evidence_index())
+    missing['rows'][0]['record_path'] = (
+        'docs/evidence/onboarding/not-present.json'
+    )
+    missing_path = tmp_path / 'missing.json'
+    missing_path.write_text(json.dumps(missing), encoding='utf-8')
+    with pytest.raises(MATRIX.MatrixError, match='not a regular file'):
+        MATRIX.load_evidence_index(missing_path)
+
+    mislabeled = copy.deepcopy(_evidence_index())
+    mislabeled['rows'][0]['record_path'] = (
+        'docs/evidence/onboarding/'
+        'g0-docker-jazzy-20260810-machine-a.json'
+    )
+    mislabeled_path = tmp_path / 'mislabeled.json'
+    mislabeled_path.write_text(json.dumps(mislabeled), encoding='utf-8')
+    with pytest.raises(MATRIX.MatrixError, match='different matrix row'):
+        MATRIX.load_evidence_index(mislabeled_path)
 
 
 def test_one_comparable_row_per_route_passes_only_activation_gate():

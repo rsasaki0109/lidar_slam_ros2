@@ -12,16 +12,22 @@ If you are choosing between Docker, source build, or your own bag, start with
 For the optional browser-based viewer path, see
 [Autoware Foxglove](autoware-foxglove.md).
 
-Before choosing a workflow for an arbitrary bag, run:
+For a normal own-bag map, use the product entrypoint:
+
+```bash
+lidarslam-map start /path/to/rosbag2
+```
+
+It inspects the bag, confirms and saves the selected inputs, verifies the map,
+and opens the offline browser result. RKO-LIO additionally requires explicit
+calibration confirmation. PointCloud2+GNSS and packet+Applanix bags use the
+same entrypoint. The commands below are retained for advanced compatibility
+and debugging.
+
+To run only the bag preflight:
 
 ```bash
 python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2
-```
-
-If you want the shortest beginner-facing entrypoint, run:
-
-```bash
-bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
 ```
 
 If you want the repository to pick and run the shortest supported path from the

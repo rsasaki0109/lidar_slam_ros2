@@ -203,6 +203,7 @@ def render_ready_screen(
     viewer: str,
     dry_run: bool,
     profile_id: str | None = None,
+    editable: bool = False,
 ) -> str:
     """Render the small decision screen shown before a long map run."""
     summary = payload['summary']
@@ -220,6 +221,7 @@ def render_ready_screen(
         f"Time check:  {timestamps['status']} — {timestamps['reason']}",
         f"Workflow:    {_recommendation_summary(payload, profile_id)}",
         f"Output:      {output_dir}",
+        f"Later edits: {'enabled' if editable else 'region cleanup only'}",
         f"Viewer:      {viewer}",
         '',
         f"Ready: {action}.",
@@ -268,11 +270,17 @@ def render_not_ready_screen(
         'What needs attention:',
     ])
     if runtime_issues:
-        lines.extend(f'  - {item}' for item in runtime_issues)
+        lines.append('  [runtime-incomplete] Required installed artifacts are missing.')
+        lines.extend(f'    - {item}' for item in runtime_issues)
+    findings = payload.get('findings') or []
     missing = payload.get('missing_requirements') or []
-    if missing:
+    if findings and not runtime_issues:
+        for finding in findings:
+            lines.append(f"  [{finding['code']}] {finding['message']}")
+            lines.append(f"    Next: {finding['next_action']}")
+    elif missing and not runtime_issues:
         lines.extend(f'  - {item}' for item in missing)
-    else:
+    elif not runtime_issues:
         lines.append('  - The bag did not satisfy a maintained input contract.')
     lines.extend([
         '',
@@ -306,6 +314,8 @@ def build_run_command(args: argparse.Namespace, bag_path: Path, output_dir: Path
         command.extend(['--verification', args.verification])
     if args.dry_run:
         command.append('--dry-run')
+    if args.editable:
+        command.append('--editable')
     return command
 
 
@@ -353,19 +363,38 @@ def print_completion(output_dir: Path) -> None:
     print(f'Map bundle:  {map_state}')
     print(f'Verification: {_verify_result(output_dir)}')
     print(f'Output:      {output_dir}')
+    if (output_dir / 'backend_input' / 'metadata.yaml').is_file() and (
+        output_dir / 'graph_params.ros.yaml'
+    ).is_file():
+        print('Later edits: accepted-loop replay is ready in this output')
     print('')
     print('Next steps:')
     print(f'  Inspect: lidarslam-map inspect {shlex.quote(str(output_dir))} --write')
+    print(f'  3D preview: lidarslam-map view {shlex.quote(str(output_dir))}')
     print(f'  Foxglove: lidarslam-map view {shlex.quote(str(output_dir))} --viewer foxglove')
-    print(f'  Autoware: lidarslam-map view {shlex.quote(str(output_dir))}')
+    print(f'  Autoware: lidarslam-map view {shlex.quote(str(output_dir))} --viewer autoware')
+
+
+def _source_workspace_root() -> Path:
+    """Resolve the colcon workspace that owns this source checkout."""
+    # The documented layout is <workspace>/src/lidar_slam_ros2.  Keep a
+    # repository-local fallback for developer checkouts that build in place,
+    # then support the existing direct-child workspace layout used by local
+    # product candidates.
+    if REPO_ROOT.parent.name == 'src':
+        return REPO_ROOT.parent.parent
+    if (REPO_ROOT / 'install' / 'setup.bash').is_file():
+        return REPO_ROOT
+    return REPO_ROOT.parent
 
 
 def _runtime_install_roots() -> tuple[Path, ...]:
     """Return prefixes in which the delegated workflow may find its packages."""
     if SOURCE_LAYOUT:
-        # Match run_rko_lio_graph_autoware_dogfood.sh exactly: prefer a
-        # workspace-local install, then the parent workspace install.
-        for candidate in (REPO_ROOT / 'install', REPO_ROOT.parent / 'install'):
+        workspace_root = _source_workspace_root()
+        # Prefer the documented colcon workspace, while retaining support for
+        # an intentional repository-local build.
+        for candidate in (workspace_root / 'install', REPO_ROOT / 'install'):
             if (candidate / 'setup.bash').is_file():
                 return (candidate,)
         return ()
@@ -432,10 +461,16 @@ def runtime_readiness(profile_id: str | None) -> list[str]:
 
 def _render_runtime_next_steps() -> list[str]:
     if SOURCE_LAYOUT:
+        workspace_root = _source_workspace_root()
+        helper = REPO_ROOT / 'scripts' / 'source_quickstart.sh'
+        setup = workspace_root / 'install' / 'setup.bash'
         return [
-            '1. Build the workspace: colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release',
-            '2. Source it: source install/setup.bash',
-            '3. Re-run this command with --dry-run, then start the map.',
+            f'1. Open the repository: cd {shlex.quote(str(REPO_ROOT))}',
+            '2. Prepare and build it: '
+            f'bash {shlex.quote(str(helper))} '
+            f'--workspace {shlex.quote(str(workspace_root))} --build-only',
+            f'3. Source it: source {shlex.quote(str(setup))}',
+            '4. Re-run this command with --dry-run, then start the map.',
         ]
     return [
         '1. Source the installed ROS/product environment (for example: source <prefix>/setup.bash).',
@@ -501,7 +536,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         '--viewer',
-        choices=['none', 'foxglove', 'autoware'],
+        choices=['none', 'browser', 'autoware', 'foxglove'],
         default='none',
         help='Open the completed map in this viewer (default: none).',
     )
@@ -514,6 +549,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         '--dry-run',
         action='store_true',
         help='Show the decision and exact delegated command without mapping.',
+    )
+    parser.add_argument(
+        '--editable',
+        action='store_true',
+        help='Keep backend replay input so accepted loops can be disabled later.',
     )
     args = parser.parse_args(argv)
     if not math.isfinite(args.min_free_space_gib) or args.min_free_space_gib <= 0:
@@ -546,6 +586,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload = {
             **payload,
             'recommendations': [],
+            'findings': [{
+                'code': 'profile-incompatible',
+                'message': (
+                    f'Profile {selected_profile!r} is not compatible with this bag.'
+                ),
+                'next_action': (
+                    'Remove --profile or choose one listed by '
+                    'lidarslam-map doctor <rosbag2_dir>.'
+                ),
+            }],
             'missing_requirements': [
                 f'Profile {selected_profile!r} is not compatible with this bag.',
                 'Remove --profile or choose one listed by lidarslam-map doctor.',
@@ -570,6 +620,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         viewer=args.viewer,
         dry_run=args.dry_run,
         profile_id=selected_profile,
+        editable=args.editable,
     ))
     command = build_run_command(args, bag_path, output_dir)
     if args.dry_run:

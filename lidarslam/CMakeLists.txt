@@ -215,16 +215,26 @@ if(BUILD_TESTING)
     test_autoware_map_runner_script
     test_benchmark_provenance
     test_benchmark_summary_profiles
+    test_build_docker_launcher_asset
     test_cli_completion
+    test_cli_interactive_home
     test_cli_option_contract
+    test_canonical_ndt_convergence
+    test_check_publication_slice_plan
+    test_contributor_starter_queue
     test_check_fixture_publication
     test_check_issue_triage_proposal
     test_check_onboarding_trial
     test_check_onboarding_trial_matrix
     test_collect_growth_snapshot
+    test_docker_map_bag
     test_evaluate_degeneracy_trajectory
     test_external_first_map_acceptance
+    test_first_map_demo
     test_lidarslam_guided
+    test_lidarslam_doctor
+    test_install_source_dependencies
+    test_source_quickstart
     test_install_upgrade_contract
     test_kitti_metrics
     test_measure_oci_archive
@@ -237,6 +247,11 @@ if(BUILD_TESTING)
     test_rko_lio_graph_benchmark_script
     test_ros_apt_dependency_readiness
     test_run_docker_onboarding_probe
+    test_run_source_onboarding_probe
+    test_sensor_setup_wizard
+    test_session_compare
+    test_session_history
+    test_support_bundle
     test_simple_lanelet2_generator
     test_v1_readiness
     test_view_autoware_map
@@ -275,6 +290,9 @@ ament_target_dependencies(lidarslam
 install(
   DIRECTORY launch param rviz
   DESTINATION share/${PROJECT_NAME}
+  PATTERN "__pycache__" EXCLUDE
+  PATTERN "*.pyc" EXCLUDE
+  PATTERN "*.pyo" EXCLUDE
 )
 
 install(TARGETS
@@ -365,6 +383,19 @@ install(
     ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/release-image-v1.schema.json
     ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/rollback-plan-v1.schema.json
     ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/first-map-validation-receipt-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/first-map-demo-plan-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/sensor-setup-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/sensor-setup-rejection-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-session-recovery-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-session-index-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-session-catalog-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-session-comparison-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/support-bundle-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-edit-plan-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-edit-receipt-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-project-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-merge-receipt-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/system-doctor-v1.schema.json
   DESTINATION share/${PROJECT_NAME}/product/schemas
 )
 install(

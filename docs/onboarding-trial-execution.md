@@ -6,6 +6,12 @@ observer protocol, not a new beginner workflow. The operator follows the
 canonical page named in the matrix; the observer supplies only identity
 pinning, neutral timing, and evidence capture.
 
+Before provisioning anything, run
+`python3 scripts/check_onboarding_trial_matrix.py --json`. Its reviewed evidence
+index reports which rows already exist and why they are or are not comparable,
+so a maintainer does not accidentally replace useful evidence or mistake an
+empty argument list for an empty project history.
+
 The record contract is
 [onboarding-trial-v1.schema.json](schemas/onboarding-trial-v1.schema.json),
 and the validator is `scripts/check_onboarding_trial.py`. Do not run this
@@ -24,18 +30,19 @@ optional repeat letter; it is part of the private trial record only.
 | g0-source-humble-YYYYMMDD-a | source-quickstart | Ubuntu 22.04, x86_64, ROS 2 Humble | mid360-public-zenodo-14841855 | Execute the [fixed source first map](getting-started.md#2-run-the-fixed-first-map-demo) at the reviewed product commit below. |
 | g0-source-jazzy-YYYYMMDD-a | source-quickstart | Ubuntu 24.04, x86_64, ROS 2 Jazzy | mid360-public-zenodo-14841855 | Execute the same fixed source first map at the reviewed product commit below. |
 
-The frozen v0.9.0 examples supplied by the release assets are:
+The frozen v0.9.0 Docker examples supplied by the release assets are:
 
 - Humble image digest:
   sha256:27934744bc21ee7081619f35e322177345479ed69079cda8e37ee61fbfbdbe53.
 - Jazzy image digest:
   sha256:6eabb19ac77ad24fd123772333357a0c5bfdb38055945213722f6484e0f134ef.
-- Reviewed source first-map product commit:
-  74fe625ab2ee1dc9a0d55ce69bd705d22bac5d76.
 
-These are explicit G0 examples, not permission to trust copied values. The
-operator must verify the matching release-image JSON, tag commit, image
-manifest digest, and (when available) GitHub attestation before use.
+These are explicit G0 Docker examples, not permission to trust copied values.
+The operator must verify the matching release-image JSON, tag commit, image
+manifest digest, and (when available) GitHub attestation before use. The source
+rows instead use one 40-character public commit selected during review. Both
+source rows must use that same commit, and the source preflight below proves
+that it contains the documented dependency helper and fast first-build route.
 
 The Docker workflow's Humble/Jazzy matrix and the Dockerfile's `ROS_DISTRO`
 argument prove that images are built for both distros. The beginner page now
@@ -123,6 +130,88 @@ be copied into Git. See the
 [first measured Docker probes](evidence/onboarding/docker-machine-probes-2026-08-10.md)
 for the resulting v0.9.0 evidence.
 
+### Disposable source-host probe
+
+`scripts/run_source_onboarding_probe.py` automates the observer instrumentation
+for one source row without changing the product route. Run it only inside a
+disposable x86_64 Ubuntu 22.04/Humble or Ubuntu 24.04/Jazzy VM. The source
+quickstart installs apt dependencies and builds directly on that host; a shared
+workstation is not an acceptable target.
+
+Prepare an existing empty trial root, a separate observer parent, and a record
+path outside both. The disk scope must be one filesystem containing the trial
+root, `/usr`, and `/var`; `/` is the normal choice in a dedicated VM. Isolate
+the VM network so its selected interface carries only trial traffic.
+
+Before provisioning or timing either source VM, check the reviewed immutable
+route from any networked observer checkout:
+
+~~~bash
+python3 scripts/run_source_onboarding_probe.py \
+  --public-preflight \
+  --source-commit "$SOURCE_COMMIT" \
+  --product-version 0.9.0
+~~~
+
+This mode requires no ROS installation, trial directory, or acknowledgement.
+It performs GitHub reads only and writes nothing. `READY` exits `0`, a public
+but unavailable route returns `NOT_READY` and exits `1`, and an API, decoding,
+or observer failure exits `2`. The route is ready only when the same commit
+contains the exact six-package quickstart inventory, explicit package selection,
+repository-only dependency helper, tests-disabled build, canonical Getting
+Started instructions, and matching `VERSION`.
+
+After `READY`, review the disposable host and path plan:
+
+~~~bash
+python3 scripts/run_source_onboarding_probe.py \
+  --trial-id "g0-source-${ROS_DISTRO}-dry-run" \
+  --ros-distro "$ROS_DISTRO" \
+  --source-commit "$SOURCE_COMMIT" \
+  --product-version 0.9.0 \
+  --trial-root "$TRIAL_ROOT" \
+  --observer-parent "$OBSERVER_PARENT" \
+  --disk-scope / \
+  --record "$TRIAL_RECORD" \
+  --dry-run
+~~~
+
+Dry-run validates the host and path contract and prints a plan, but performs no
+network request or write. For the measured attempt, start a paused stopwatch
+for active operator time and run:
+
+~~~bash
+python3 scripts/run_source_onboarding_probe.py \
+  --trial-id "g0-source-${ROS_DISTRO}-$(date -u +%Y%m%d)-a" \
+  --ros-distro "$ROS_DISTRO" \
+  --source-commit "$SOURCE_COMMIT" \
+  --product-version 0.9.0 \
+  --trial-root "$TRIAL_ROOT" \
+  --observer-parent "$OBSERVER_PARENT" \
+  --disk-scope / \
+  --record "$TRIAL_RECORD" \
+  --prompt-active-operator-time \
+  --acknowledge-disposable-host \
+  --acknowledge-isolated-network
+~~~
+
+Use `--record-active-time-unknown` instead of the prompt only when no human
+stopwatch observation exists; that keeps the record honest but makes its
+measurements incomplete. The measured mode repeats the exact public preflight
+before cloning, then runs the pinned source quickstart headlessly. A public
+404, package-inventory drift, missing helper, incomplete fast route, or version
+mismatch writes a schema-valid bounded `FAIL` record before timing. An API or
+observer failure exits 2 and does not invent an absence record. If the
+checked-out quickstart still observes a different package inventory, the
+private route log is reduced to stable finding
+`source-package-inventory-mismatch` in the bounded record.
+
+The private observer directory retains the generated pinning script, route log,
+disk samples, and a copy of the bounded record. Keep it outside Git. The
+requested record contains only aggregate measurements and artifact hashes.
+Sections 3, 4, 7, and 8 remain the authoritative manual protocol; this helper
+applies that protocol consistently rather than defining a second source path.
+
 The operator sees only the canonical documentation and the observer-approved
 identity substitution. The observer starts and stops timers, records the
 operator's submitted commands without interpreting them, and does not suggest
@@ -199,26 +288,40 @@ cannot be established without guessing, record FAIL at preflight.
 
 ### Source identity
 
-The v0.9.0 tag commit predates the shared source first-map script. The post-fix
-source rows therefore pin the reviewed product commit that introduced the
-canonical source route. Verify that GitHub can resolve it before starting a
-timed clone:
+The v0.9.0 tag commit predates the shared source first-map script. The source
+rows therefore pin one explicit public commit selected during review, rather
+than a moving branch or a stale hash embedded in this runbook. Export that
+40-character commit before this observer-only preflight. Verify both its remote
+identity and its canonical source-route files before starting a timed clone.
+The `--public-preflight` command above is the maintained machine check. For an
+independent manual audit, use:
 
 ~~~bash
-SOURCE_COMMIT='74fe625ab2ee1dc9a0d55ce69bd705d22bac5d76'
+SOURCE_COMMIT="${SOURCE_COMMIT:?export the reviewed 40-character source commit}"
+[[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
 REPO_URL='https://github.com/rsasaki0109/lidar_slam_ros2.git'
 REMOTE_COMMIT="$(gh api \
   "repos/rsasaki0109/lidar_slam_ros2/commits/$SOURCE_COMMIT" --jq .sha)"
 test "$REMOTE_COMMIT" = "$SOURCE_COMMIT"
+test "$(gh api \
+  "repos/rsasaki0109/lidar_slam_ros2/contents/scripts/source_quickstart.sh?ref=$SOURCE_COMMIT" \
+  --jq .type)" = 'file'
+GETTING_STARTED_CONTENT="$(gh api \
+  "repos/rsasaki0109/lidar_slam_ros2/contents/docs/getting-started.md?ref=$SOURCE_COMMIT" \
+  --jq .content | base64 --decode)"
+grep -Fq 'bash scripts/source_quickstart.sh' \
+  <<<"$GETTING_STARTED_CONTENT"
+grep -Fq '6 ROS packages' <<<"$GETTING_STARTED_CONTENT"
+grep -Fq 'BUILD_TESTING=OFF' <<<"$GETTING_STARTED_CONTENT"
 printf 'source_commit=%s\n' "$SOURCE_COMMIT" \
   > "$OBSERVER_ROOT/source-identity.txt"
 ~~~
 
-This commit remains local until its integration branch is published. A `404`
-is an honest preflight FAIL with finding `source-candidate-not-published`; it
-does not authorize a push, a local-path clone, or fallback to `develop`. After
-publication, the source trial record uses kind `git-commit` and this exact
-40-character lowercase value.
+A `404` is an honest preflight FAIL with finding
+`source-candidate-not-published`; a missing helper, package contract, or build
+flag is `source-route-contract-missing`. Neither finding authorizes a push, a
+local-path clone, or fallback to `develop`. A passing source trial record uses
+kind `git-commit` and the exact verified 40-character lowercase value.
 
 ### Route audit
 
@@ -443,10 +546,8 @@ git -C "$TRIAL_ROOT/src/lidar_slam_ros2" checkout --detach "$SOURCE_COMMIT"
 test "$(git -C "$TRIAL_ROOT/src/lidar_slam_ros2" rev-parse HEAD)" = "$SOURCE_COMMIT"
 git -C "$TRIAL_ROOT/src/lidar_slam_ros2" submodule update --init --recursive
 cd "$TRIAL_ROOT"
-rosdep install --from-paths src --ignore-src -r -y
-colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
-source install/setup.bash
-bash src/lidar_slam_ros2/scripts/run_first_map_demo.sh
+bash src/lidar_slam_ros2/scripts/source_quickstart.sh \
+  --workspace "$TRIAL_ROOT" --viewer none
 ~~~
 
 The clone, commit check, and submodule update are the observer's pinning
@@ -457,7 +558,7 @@ minimum, non-comparable. Do not substitute the old NTU VIRAL dogfood route, a
 different bag, a viewer option, or a hand-written lower-level SLAM command.
 
 For a completed source attempt, locate the single run directory under the
-checkout's `output/mid360_demo/` directory, then apply the evidence and byte
+trial root's `output/mid360_demo/` directory, then apply the evidence and byte
 rules above. The dataset cache under `datasets/mid360_public/` is input data and
 is excluded from `output_bytes`.
 

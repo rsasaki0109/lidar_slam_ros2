@@ -2,7 +2,7 @@
 
 > Status: **active from 2026-08-10**
 >
-> Last planning audit: **2026-08-11**
+> Last planning audit: **2026-08-12**
 >
 > Baseline: **837 GitHub Stars**
 >
@@ -143,10 +143,11 @@ map in the information hierarchy and must not obscure the primary job.
 
 ## 4. User-friendly means measured, including against GLIM
 
-GLIM already offers maintained documentation, Docker images, broad sensor
-support, visual examples, and interactive correction. We should not declare
-victory from a longer feature list. Once per stable release, run a clean-machine
-usability scorecard for both public workflows on equivalent supported hardware.
+GLIM already offers maintained documentation, [PPA binary installation](https://koide3.github.io/glim/installation.html),
+Docker images, broad sensor support, a direct rosbag executor, visual examples,
+and interactive correction. We should not declare victory from a longer feature
+list. Once per stable release, run a clean-machine usability scorecard for both
+public workflows on equivalent supported hardware.
 
 Measure these tasks independently:
 
@@ -164,6 +165,11 @@ record where the products intentionally solve different jobs. The desired
 outcome is not “more user-friendly” as an unsupported slogan. It is:
 
 - one obvious beginner path;
+- an installed no-argument terminal home that reduces the first decision to
+  installation check, demo, own bag, or retained sessions without changing
+  automation behavior;
+- one bag-optional, read-only doctor that reports stable recovery actions
+  before a user commits time or data to mapping;
 - no undocumented manual step before `map_verify: PASS`;
 - a measured first-run completion rate of at least 80% by the tenth independent
   attempt;
@@ -226,8 +232,66 @@ work and document the actual support boundary instead of hiding the delay.
 
 - Reduce the README's first screen to one promise, one visual proof, one Docker
   command, and one own-bag command; move advanced evidence into clear links.
-- Turn `lidarslam-map run BAG --guided` into the canonical own-bag route and
-  package it in every supported distribution.
+- Keep `lidarslam-map start BAG` as the canonical own-bag route and package it
+  in every supported distribution.
+- The current local product candidate adds `lidarslam-map demo [work_dir]` as
+  the packaged public-data route over the existing Docker/source
+  implementation. Its network- and write-free JSON plan exposes dataset
+  identity, attribution, cache/output state, storage, and exact steps; live
+  execution re-hashes the pinned archive and extracted bag members, reuses
+  only receipt-rebuilt PASS output, and prints map, verifier, receipt, review,
+  and diagnosis actions together. Its next local increment adds durable named
+  progress, exact failure actions, and `demo --resume` for terminal
+  post-processing without ever restarting mapping. This is a product repair,
+  not a comparable onboarding row or publication event.
+- The next local activation increment reduces the source path to
+  `bash scripts/source_quickstart.sh`: it detects the installed Humble/Jazzy
+  base, previews all actions without writes, initializes pinned submodules,
+  installs missing base tools and repository-only dependencies, builds only the
+  six repository packages, and runs the verified demo. The README now places
+  the promise, visual proof, Docker command, and own-bag command before the
+  feature inventory. A fail-closed disposable-host probe now verifies the exact
+  public commit and route, measures disk/network/wall time, preserves private
+  logs, and emits the existing bounded trial record. Clean Humble/Jazzy VM rows
+  still require an exact published candidate revision before this can close a
+  comparable source row.
+- The source install no longer ends at a remembered shell-activation step. Its
+  printed absolute `lidarslam-map` launcher now activates only the matching
+  aggregate workspace environment for its child process. Fresh Jazzy isolated
+  and merged installs plus a network-disabled Humble merged install selected
+  the maintained RKO-LIO profile and reached the calibration-review dry-run
+  with all ROS variables removed; both distributions passed the complete
+  clean-prefix checker. The
+  [2026-08-12 activation evidence](../evidence/source-launcher-activation-2026-08-12.md)
+  keeps package-manager and complete cold-source claims pending.
+- The no-install own-bag path now has a one-command Linux host launcher:
+  `bash scripts/docker_map_bag.sh BAG`. It validates the bag and fresh output
+  before Docker, exposes a Docker/network/write-free plan, mounts input
+  read-only, disables external networking for the live run, runs as the host
+  UID/GID, and delegates to the same sensor-review, mapping, verification, and
+  session-page `lidarslam-map start` contract used after installation. This
+  removes the prior eight-line mount recipe and its
+  lower-level `run --guided` fork while preserving explicit calibration review.
+  Image capability is checked before output creation, the run is rebound to an
+  immutable local image ID, and a zero exit cannot claim completion without the
+  session, manifest, and receipt artifacts. Existing public v0.9.0 images
+  correctly fail this new contract until a candidate image is published.
+- The next release pipeline now turns that repo-independent script into a
+  direct attested `lidarslam-map-docker` asset. Its exact tag and source commit
+  are embedded deterministically, its default image is the matching immutable
+  `v<VERSION>-<distro>` tag, and the read-only publication audit requires this
+  seventh asset from v0.9.1 while preserving the historical six-asset v0.9.0
+  audit. This closes the local clone-free delivery implementation, not the
+  publication or clean-machine trial: no asset, image, tag, or release was
+  created by this work.
+- The verified-session page now closes the local-success-to-public-learning
+  gap with **Share this verified first map**. Its existing-command route,
+  `lidarslam-map support SESSION --first-map`, performs no write or network
+  request, revalidates receipt-bound PASS evidence, and prints the copy-ready
+  summary, reviewed JSON attachment, and canonical issue form. Failed sessions
+  receive the privacy-first support ZIP action instead. This reduces the
+  independent-validation handoff without claiming any of the still-missing
+  0/3 external acceptances.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.
@@ -287,10 +351,16 @@ work and document the actual support boundary instead of hiding the delay.
 
 ### C. Distribution and discovery
 
-- Complete the current rosdistro dependency path. As of 2026-08-10,
+- Complete the current rosdistro dependency path. As of 2026-08-12,
   `ros/rosdistro` PRs
   [#52949](https://github.com/ros/rosdistro/pull/52949) and
-  [#52950](https://github.com/ros/rosdistro/pull/52950) remain open.
+  [#52950](https://github.com/ros/rosdistro/pull/52950) remain open with an
+  unanswered question about overlap with the existing `ndt_omp` package.
+  Resolve that collision through upstream convergence or full isolation before
+  requesting merge. A hash-bound upstream patch and complete five-file parent
+  transition now pass exact-base checking plus network-isolated Humble/Jazzy
+  four-package builds; publication still requires an explicit maintainer
+  decision.
 - Exercise clean install and upgrade on Humble and Jazzy after the packages are
   available, then publish v1.0 from the same verified contract.
 - Produce one sub-three-minute English demo with captions and one concise
@@ -325,6 +395,13 @@ work and document the actual support boundary instead of hiding the delay.
 - Make the contributor path finish in under 30 minutes for documentation and
   small CLI changes. Provide focused tests instead of requiring every public
   dataset.
+- Keep contributor-facing product entrypoints synchronized with the product
+  contract. The [2026-08-12 local repair](../evidence/growth/contributor-product-surface-sync-2026-08-12.md)
+  replaces a stale three-entrypoint list with the current four workflows and
+  regression-checks both the canonical commands and focused test route. Its
+  unsourced-shell full gate also auto-selects supported ROS, checks both
+  package suites, and enforces that every product pytest remains registered
+  with CTest; the current local result is 2,050 passed across the two suites.
 - Enable GitHub Discussions only after categories, moderation expectations,
   support boundaries, and a weekly triage slot are ready.
 - Invite sustained contributors into review and roadmap discussion before
@@ -442,8 +519,11 @@ manual step on the fixed demo.
 
 ### Sprint 3 — close the two v1 blockers (weeks 5–8)
 
-1. Track the two open `ndt_omp_ros2` rosdistro PRs and rerun the existing
-   dependency-readiness check after external state changes.
+1. With explicit publication approval, submit the prepared required NDT APIs
+   upstream, answer the two open `ndt_omp_ros2` rosdistro reviews with the
+   collision analysis, and rerun the review-aware readiness check after every
+   external state change. If upstream declines, fully isolate the fork. Do not
+   merge overlapping Debian payloads merely to shorten installation.
 2. Execute package-manager clean-install and upgrade evidence when the required
    repositories contain the packages.
 3. Run a public first-map validation cohort. Treat every failed attempt as a
@@ -523,15 +603,66 @@ source-push and fixture-host decision; after that decision, the active
 implementation is the dedicated Humble/Jazzy Docker/source matrix, including
 confirmation of both repairs, not a public image retag.
 
+The source side of that matrix now has a local disposable-host executor with a
+read-only plan, public-identity preflight, fixed 250 ms disk sampling, isolated
+RX measurement, timeout cleanup, receipt verification, and privacy-bounded
+record generation. This closes observer-tooling ambiguity, not the evidence
+gate: the current private candidate cannot yield a public source row until its
+exact revision is published, and each supported distro still needs a fresh VM.
+
+That executor now separates public route readiness from VM execution. A
+network-read-only `--public-preflight` requires the exact six maintained source
+packages, explicit package selection, repository-only dependency helper,
+tests-disabled build, canonical beginner page, and matching `VERSION` from the
+same immutable commit. The quickstart independently checks `colcon list` before
+rosdep/build and fails inventory drift with a stable code. The current public
+base correctly reports `NOT_READY` because it predates the source quickstart;
+the private candidate is not substituted. This removes a false-positive path
+and avoids spending two clean VMs on an incomplete publication.
+
+The local technical prerequisite beneath those source rows now passes on both
+distributions. Fixed, network-disabled Humble and Jazzy images built all six
+maintained packages from the read-only candidate in 302 and 273 seconds,
+respectively; the source/install package inventories match, the absolute
+fresh-terminal real-bag route and complete installed contract pass, and the
+prefix remains free of Python cache writes. The run also found and closed a
+package-content leak that copied development `__pycache__` plus a runtime
+bytecode-write path. This is deliberately recorded as an all-source overlay
+proof, not a comparable onboarding row: system dependencies were already in
+the images and the exact candidate is not public. The
+[evidence record](../evidence/source-all-packages-install-2026-08-12.md)
+keeps those limits explicit.
+
+The installed CLI now also has a local, TTY-only no-argument home for the common
+intents: installation check, fixed demo, own rosbag2, and retained sessions. It
+delegates to the existing versioned commands, prints the exact command first,
+requires an explicit `yes` before demo writes, and leaves non-interactive
+no-argument behavior at exit `2`. This directly reduces command-discovery time
+in the GLIM usability scorecard without inventing another mapping workflow;
+clean-machine timing still belongs to the four-row onboarding trial.
+The [2026-08-12 evidence record](../evidence/interactive-home-2026-08-12.md)
+binds its source, installed, TTY, safety, documentation, and regression checks.
+
+The next local GLIM-parity increment extends `doctor` without duplicating bag
+preflight. With no bag it verifies the curated product surface, matching
+install, supported ROS environment, bag reader, and demo storage, returning
+path-free JSON and stable recovery actions without network or writes. With a
+bag it retains the existing input/profile inspection. The
+[2026-08-12 system-doctor evidence](../evidence/growth/glim-parity-system-doctor-2026-08-12.md)
+keeps the real PPA/package-manager advantage and public clean-machine
+comparison pending.
+
 The matrix decision is now machine-checked rather than inferred from a table.
-The current tracked evidence reports `INCOMPLETE`: two of four outcomes are
-present, both Docker outcomes are product PASS but measurement-incomplete,
-zero rows are comparable, and both source rows are missing. G0 cannot advance
-the activation gate until all four outcomes exist and at least one clean
-Docker row plus one clean source row are comparable. The stricter target
-remains all four rows comparable. A source row is not valid until its exact
-revision is publicly resolvable, and a shortened-fixture row must bind the
-published ZIP checksum rather than a private local copy.
+The no-argument checker now loads an explicit schema-backed evidence index
+instead of falsely reporting zero rows when paths are omitted. Current tracked
+evidence reports `INCOMPLETE`: two of four outcomes are present, both Docker
+outcomes are product PASS but measurement-incomplete, zero rows are comparable,
+and both source rows are missing. G0 cannot advance the activation gate until
+all four outcomes exist and at least one clean Docker row plus one clean source
+row are comparable. The stricter target remains all four rows comparable. A
+source row is not valid until its exact revision is publicly resolvable, and a
+shortened-fixture row must bind the published ZIP checksum rather than a
+private local copy.
 
 The parallel G0 community slice is also bounded. The live read-only audit found
 one current `good first issue` and prepared five additional tasks from the old
@@ -539,16 +670,31 @@ support backlog. The task bodies, 30-minute estimates, files, checks, and
 non-goals are recorded locally; no GitHub issue or label has been changed.
 Source publication and community publication are separate decisions.
 
-The current
+Those five tasks now have a schema-backed local queue and a contributor-facing
+inspector. Its fixed profiles reject arbitrary commands, verify exact allowed
+paths and labels, mark a task stale when its known implementation gap changes,
+and retain `PREPARED_NOT_PUBLISHED` plus no-write authority in machine output.
+A 2026-08-12 read-only duplicate audit found one open PR (#427) and zero
+task-matching open PRs. Publication still requires a fresh duplicate check and
+a separate maintainer decision; this increment improves the path from support
+finding to a reviewable first contribution without claiming a completion.
+
+The
 [clean-candidate audit](../evidence/growth/g0-clean-candidate-audit-2026-08-11.md)
-reports `REVIEWABLE_LOCAL_CANDIDATE / G0_HOLD`: exact public/local base parity,
-36 linear commits, 0 merges, 110 product paths, no changed research/generated
-artifact, and current test contracts passing. It also preserves the real
-blocks: source HEAD is public-unresolvable, the matrix is 2/4 present and 0/4
-comparable, v1 is 8/10, and the existing v0.9.0 tag correctly prevents version
-reuse. The
+and
 [external-action packet](../evidence/growth/g0-external-action-decision-packet-2026-08-11.md)
-separates E1 source, E2 fixture, E3 community, and E4 release decisions.
+led to public Draft PR `#427`. Its public head `3f4dd70` contains 44 commits and
+116 changed paths; all nine reported checks pass. G0 remains `HOLD`: the matrix
+is 2/4 present and 0/4 comparable, v1 is 8/10, the existing v0.9.0 tag prevents
+version reuse, and the larger GLIM-convenience follow-up has not run public CI.
+
+That 164-path local follow-up now has an exact
+[dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
+Its checker gives every path one review owner across runtime safety, first-map
+foundation, map lifecycle, source onboarding, distribution, product-shell
+integration, and publication control. This is a local review plan only; a
+future non-force PR update requires a clean exact candidate, complete gates,
+and a new approval naming its 40-character tip.
 
 After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the

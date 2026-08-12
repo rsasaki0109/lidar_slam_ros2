@@ -362,6 +362,19 @@ if(BUILD_TESTING)
     )
   endif()
   ament_add_gtest(
+    test_pointcloud_conversion
+    test/test_pointcloud_conversion.cpp
+  )
+  if(TARGET test_pointcloud_conversion)
+    target_include_directories(
+      test_pointcloud_conversion PRIVATE include ${PCL_INCLUDE_DIRS}
+    )
+    ament_target_dependencies(
+      test_pointcloud_conversion sensor_msgs pcl_conversions
+    )
+    target_link_libraries(test_pointcloud_conversion ${PCL_LIBRARIES})
+  endif()
+  ament_add_gtest(
     test_pose_graph_optimization
     test/test_pose_graph_optimization.cpp
   )
@@ -599,6 +612,16 @@ if(BUILD_TESTING)
   ament_add_pytest_test(
     test_map_bundle_verifier
     test/test_map_bundle_verifier.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_map_edit
+    test/test_map_edit.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_map_merge
+    test/test_map_merge.py
     TIMEOUT 120
   )
   ament_add_pytest_test(

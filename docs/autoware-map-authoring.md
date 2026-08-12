@@ -37,16 +37,15 @@ path for you:
 bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
 ```
 
-If you want the CLI to explain the detected topics and selected preset before
-starting, use the guided product entrypoint:
+For a new own-bag session, use the one-command product entrypoint:
 
 ```bash
-lidarslam-map run /path/to/rosbag2 --guided
+lidarslam-map start /path/to/rosbag2
 ```
 
-It asks for confirmation before a long run and prints the exact `inspect` and
-`view` commands after completion. Add `--yes` for a launcher without a
-terminal.
+It shows topics, frames, calibration and the selected preset, asks before
+writing, saves the setup, verifies the map, and opens the browser review. Add
+`--yes` only for an already-reviewed non-terminal launcher.
 
 Use `--foxglove` to open the saved map in the browser path after the run.
 
@@ -116,7 +115,7 @@ map_origin:
 ## Recommended Entrypoints
 
 - bag preflight: `python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2`
-- guided human path: `lidarslam-map run /path/to/rosbag2 --guided`
+- one-command human path: `lidarslam-map start /path/to/rosbag2`
 - beginner one-command path: `bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2`
 - one-shot runner: `python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2`
 - quickstart: `bash scripts/run_autoware_quickstart.sh`

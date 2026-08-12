@@ -1,0 +1,316 @@
+{
+  "schema_version": 1,
+  "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/contributor-starter-queue-v1.schema.json",
+  "queue_id": "g0-community-starters-2026-08-12",
+  "generated_at": "2026-08-12T13:39:03+09:00",
+  "repository": "rsasaki0109/lidar_slam_ros2",
+  "status": "PREPARED_NOT_PUBLISHED",
+  "prepared_environment": {
+    "estimate_excludes": [
+      "first-time ROS or development dependency installation",
+      "repository clone time",
+      "review and maintainer response latency"
+    ],
+    "maximum_task_minutes": 30,
+    "maximum_focused_check_minutes": 5
+  },
+  "remote_duplicate_audit": {
+    "method": "github-connector-read-only",
+    "checked_at": "2026-08-12T13:39:03+09:00",
+    "open_pull_request_count": 1,
+    "open_pull_request_numbers": [427],
+    "task_matches": [
+      {
+        "task_id": "starter-C1",
+        "query": "g2o setup",
+        "matching_open_pull_requests": []
+      },
+      {
+        "task_id": "starter-C2",
+        "query": "no map input frame TF",
+        "matching_open_pull_requests": []
+      },
+      {
+        "task_id": "starter-C3",
+        "query": "Odometry message TF",
+        "matching_open_pull_requests": []
+      },
+      {
+        "task_id": "starter-C4",
+        "query": "PointCloud2 sensor checklist",
+        "matching_open_pull_requests": []
+      },
+      {
+        "task_id": "starter-C5",
+        "query": "empty sampled frame",
+        "matching_open_pull_requests": []
+      }
+    ],
+    "recheck_before_publication": true
+  },
+  "tasks": [
+    {
+      "id": "starter-C1",
+      "publication_status": "PREPARED_NOT_PUBLISHED",
+      "title": "Docs: explain the supported g2o package path and EOL boundary",
+      "outcome": "A new user can distinguish a missing libg2o dependency from an incompatible source-built g2o API and return to the maintained Humble or Jazzy package path.",
+      "estimate_minutes": 20,
+      "labels": [
+        "documentation",
+        "good first issue",
+        "help wanted"
+      ],
+      "source_issue_numbers": [108, 110, 122],
+      "allowed_paths": [
+        "docs/getting-started.md",
+        "docs/rosdistro-release.md"
+      ],
+      "non_goals": [
+        "change CMake",
+        "revive an end-of-life ROS distribution",
+        "vendor g2o"
+      ],
+      "acceptance": [
+        "A reader can identify whether the failure is dependency resolution or a C++ API mismatch.",
+        "Humble and Jazzy are the only maintained distributions claimed.",
+        "The card links to the product support boundary.",
+        "The text shows rosdep resolve libg2o and a supported binary-package check.",
+        "No hardware support or build-success claim is added without evidence."
+      ],
+      "focused_checks": [
+        {
+          "id": "docs-strict",
+          "argv": ["python3", "-m", "mkdocs", "build", "--strict"]
+        }
+      ],
+      "check_profile": "docs-strict",
+      "gap_probes": [
+        {
+          "path": "docs/getting-started.md",
+          "mode": "not_contains",
+          "value": "### Recover g2o dependency failures",
+          "failure_detail": "the planned g2o recovery card marker already exists"
+        }
+      ],
+      "private_data_required": false,
+      "hardware_required": false
+    },
+    {
+      "id": "starter-C2",
+      "publication_status": "PREPARED_NOT_PUBLISHED",
+      "title": "Docs: add a three-check recovery card for an empty /map or viewer",
+      "outcome": "A first-run user can separate missing PointCloud2 input, an empty sampled frame, a disconnected TF path, and a viewer-only problem before asking for support.",
+      "estimate_minutes": 25,
+      "labels": [
+        "documentation",
+        "good first issue",
+        "help wanted"
+      ],
+      "source_issue_numbers": [93, 102, 103, 106],
+      "allowed_paths": [
+        "docs/getting-started.md"
+      ],
+      "non_goals": [
+        "change ROS nodes",
+        "diagnose an individual historical bag",
+        "promise support for an untested sensor"
+      ],
+      "acceptance": [
+        "The card provides one check each for a live PointCloud2 input, a non-empty sampled frame_id, and a connected TF path.",
+        "Each command names the expected observation and one next action.",
+        "Placeholder topic and frame names are visibly marked for replacement.",
+        "The card distinguishes no map messages from a wrong viewer topic or fixed frame.",
+        "The card does not ask a user to upload a map, bag, or location-bearing log.",
+        "The fixed public demo remains the first control experiment."
+      ],
+      "focused_checks": [
+        {
+          "id": "docs-strict",
+          "argv": ["python3", "-m", "mkdocs", "build", "--strict"]
+        }
+      ],
+      "check_profile": "docs-strict",
+      "gap_probes": [
+        {
+          "path": "docs/getting-started.md",
+          "mode": "not_contains",
+          "value": "### Empty map or viewer: three checks",
+          "failure_detail": "the planned no-map three-check card marker already exists"
+        }
+      ],
+      "private_data_required": false,
+      "hardware_required": false
+    },
+    {
+      "id": "starter-C3",
+      "publication_status": "PREPARED_NOT_PUBLISHED",
+      "title": "Docs: explain why an Odometry topic does not guarantee odom -> base_link TF",
+      "outcome": "A user can tell the difference between a nav_msgs/msg/Odometry message, a missing odom-to-base transform, and a stale transform that causes extrapolation.",
+      "estimate_minutes": 25,
+      "labels": [
+        "documentation",
+        "good first issue",
+        "help wanted"
+      ],
+      "source_issue_numbers": [64, 112],
+      "allowed_paths": [
+        "docs/workflows.md"
+      ],
+      "non_goals": [
+        "change scanmatcher timing",
+        "supply a robot-specific broadcaster",
+        "tune a controller"
+      ],
+      "acceptance": [
+        "The card explains that an Odometry publisher does not necessarily broadcast the corresponding transform.",
+        "The Odometry header, odom-to-base TF availability, and transform freshness each have an explicit check.",
+        "Frame direction and placeholder names are explicit.",
+        "A missing transform and an extrapolation problem end in different safe next actions.",
+        "The card does not recommend suppressing TF warnings as a fix or copy a third-party broadcaster implementation."
+      ],
+      "focused_checks": [
+        {
+          "id": "docs-strict",
+          "argv": ["python3", "-m", "mkdocs", "build", "--strict"]
+        }
+      ],
+      "check_profile": "docs-strict",
+      "gap_probes": [
+        {
+          "path": "docs/workflows.md",
+          "mode": "not_contains",
+          "value": "### Odometry message versus TF",
+          "failure_detail": "the planned Odometry-versus-TF card marker already exists"
+        }
+      ],
+      "private_data_required": false,
+      "hardware_required": false
+    },
+    {
+      "id": "starter-C4",
+      "publication_status": "PREPARED_NOT_PUBLISHED",
+      "title": "Docs: add the minimal checklist for adapting another PointCloud2 LiDAR",
+      "outcome": "A user adapting a sensor can verify the generic PointCloud2 input contract and reach a controlled first run without guessing vendor-specific tuning or extrinsics.",
+      "estimate_minutes": 30,
+      "labels": [
+        "documentation",
+        "good first issue",
+        "help wanted"
+      ],
+      "source_issue_numbers": [83, 89, 95, 96, 98, 100, 105, 111, 115],
+      "allowed_paths": [
+        "docs/workflows.md"
+      ],
+      "non_goals": [
+        "add a sensor driver",
+        "claim support for hardware that has not passed a recipe",
+        "select universal tuning values"
+      ],
+      "acceptance": [
+        "The checklist covers the PointCloud2 topic, non-empty frame, static extrinsic, timestamps, scan period, and min/max range.",
+        "Every checklist item has one observation command or configuration field.",
+        "Public launch arguments show how to remap the topic and frames.",
+        "Vendor names remain examples and are not added to the supported matrix.",
+        "Success means ready for a controlled first run rather than accuracy validated.",
+        "The text explicitly rejects guessing an extrinsic and links to the sensor-support issue form."
+      ],
+      "focused_checks": [
+        {
+          "id": "docs-strict",
+          "argv": ["python3", "-m", "mkdocs", "build", "--strict"]
+        }
+      ],
+      "check_profile": "docs-strict",
+      "gap_probes": [
+        {
+          "path": "docs/workflows.md",
+          "mode": "not_contains",
+          "value": "### Adapting another PointCloud2 LiDAR",
+          "failure_detail": "the planned custom PointCloud2 checklist marker already exists"
+        }
+      ],
+      "private_data_required": false,
+      "hardware_required": false
+    },
+    {
+      "id": "starter-C5",
+      "publication_status": "PREPARED_NOT_PUBLISHED",
+      "title": "Preflight: fail clearly when sampled sensor messages have an empty frame_id",
+      "outcome": "Readable sensor samples whose frame_id values are all empty produce a clear failed preflight check, while unavailable sampling remains advisory.",
+      "estimate_minutes": 30,
+      "labels": [
+        "bug",
+        "good first issue",
+        "help wanted"
+      ],
+      "source_issue_numbers": [102],
+      "allowed_paths": [
+        "graph_based_slam/test/test_mid360_robot_tools.py",
+        "scripts/lidarslam_tools/mid360_preflight.py"
+      ],
+      "non_goals": [
+        "change TF connectivity policy",
+        "make every sample-reader failure fatal",
+        "redesign the preflight report"
+      ],
+      "acceptance": [
+        "Readable messages with only empty frame IDs produce a clear failed pointcloud_frame_id or imu_frame_id check.",
+        "A sample-reader failure does not masquerade as an empty-frame failure.",
+        "Existing mismatch, changing-frame, and stable-frame cases keep their current status.",
+        "The regression test needs no rosbag, hardware, network, or generated map."
+      ],
+      "focused_checks": [
+        {
+          "id": "frame-tests",
+          "argv": [
+            "python3",
+            "-m",
+            "pytest",
+            "-q",
+            "graph_based_slam/test/test_mid360_robot_tools.py",
+            "-k",
+            "frame"
+          ]
+        },
+        {
+          "id": "focused-flake8",
+          "argv": [
+            "python3",
+            "-m",
+            "flake8",
+            "--select=E9,F63,F7,F82",
+            "scripts/lidarslam_tools/mid360_preflight.py",
+            "graph_based_slam/test/test_mid360_robot_tools.py"
+          ]
+        },
+        {
+          "id": "diff-check",
+          "argv": ["git", "diff", "--check"]
+        }
+      ],
+      "check_profile": "mid360-empty-frame",
+      "gap_probes": [
+        {
+          "path": "scripts/lidarslam_tools/mid360_preflight.py",
+          "mode": "contains",
+          "value": "        if not frame_ids:\n            return None",
+          "failure_detail": "the known empty-frame return path changed and requires scope review"
+        },
+        {
+          "path": "graph_based_slam/test/test_mid360_robot_tools.py",
+          "mode": "not_contains",
+          "value": "test_preflight_builder_fails_readable_empty_sampled_frame",
+          "failure_detail": "the planned empty sampled frame regression already exists"
+        }
+      ],
+      "private_data_required": false,
+      "hardware_required": false
+    }
+  ],
+  "authority": {
+    "github_writes_authorized": false,
+    "issues_published": false,
+    "remote_mutations_performed": false,
+    "publication_requires_maintainer_confirmation": true
+  }
+}

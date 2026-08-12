@@ -97,6 +97,31 @@ A bounded starter issue should name the files, non-goals, acceptance criteria,
 and one focused check. You are not expected to download a public dataset or run
 the full end-to-end suite unless the issue explicitly says so.
 
+Maintainers can also inspect the next five locally prepared starter tasks with:
+
+```bash
+python3 scripts/contributor_starter_queue.py --list
+python3 scripts/contributor_starter_queue.py --task starter-C1
+```
+
+The command is read-only and marks the queue `PREPARED_NOT_PUBLISHED`. A new
+contributor should start one of these local tasks only after a maintainer has
+published its GitHub issue or explicitly confirmed that the task is still
+unclaimed. Before publication, maintainers must rerun the open-PR duplicate
+check recorded by the queue contract. The default checker validates all five
+scopes, focused-command allowlists, known implementation gaps, and the no-write
+authority boundary:
+
+```bash
+python3 scripts/contributor_starter_queue.py
+```
+
+After changing a published task, run its focused profile with `--verify`, for
+example `python3 scripts/contributor_starter_queue.py --verify starter-C1`.
+This avoids repository-local MkDocs output for documentation tasks and never
+executes an arbitrary command loaded from the JSON contract. A passing focused
+profile does not replace review of the issue's acceptance criteria.
+
 For a documentation-only change, the normal focused check is:
 
 ```bash
@@ -187,19 +212,29 @@ Please keep PRs narrow and explicit.
 - call out license implications if any dependency choice changes
 - link related benchmark or Autoware issues when relevant
 
-## Entry Points
+## Product Entry Points
 
-The three official beginner-facing product entrypoints are:
+The four official beginner-facing product workflows are:
 
-- fixed Docker MID-360 demo (the README Docker command)
-- own-bag wrapper: `scripts/run_autoware_map_beginner.sh`
-- fixed NTU VIRAL source quickstart:
-  `scripts/download_ntu_viral_tnp01.sh` then
-  `scripts/run_autoware_quickstart.sh`
+- try the fixed public MID-360 demo with the README Docker command or
+  `lidarslam-map demo` after installation;
+- map an own compatible rosbag2 with `lidarslam-map start <rosbag2_dir>`, or
+  `bash scripts/docker_map_bag.sh <rosbag2_dir>` without a ROS installation;
+- return to and compare retained work with `lidarslam-map sessions` and
+  `lidarslam-map compare <left> <right>`; and
+- prepare a privacy-bounded maintainer or first-map handoff with
+  `lidarslam-map support <session_bundle>`.
 
-All other scripts and launch files are advanced, benchmark, migration, or
-research interfaces. See the [Product Contract](docs/product-contract.md) for
-the supported boundary.
+An installed user who is unsure where to begin can run `lidarslam-map` without
+arguments on an interactive terminal. Its small home routes to the existing
+demo, own-bag, or session workflow; it is not a fifth workflow. Contributor
+changes to user-visible behavior should preserve this bounded surface and the
+machine contract in `docs/contracts/cli-v1.json`.
+
+Historical beginner wrappers, direct launch files, dataset-specific
+quickstarts, benchmark runners, and research scripts remain available only as
+advanced or compatibility interfaces unless the
+[Product Contract](docs/product-contract.md) explicitly promotes them.
 
 Useful references:
 

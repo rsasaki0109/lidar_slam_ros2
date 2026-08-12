@@ -55,8 +55,8 @@ body:
   - type: textarea
     id: diagnostics
     attributes:
-      label: Diagnostics and logs
-      description: Include diagnosis, verifier output, relevant logs, topics, frames, and parameter files.
+      label: Privacy-first support ZIP and diagnostics
+      description: Run `lidarslam-map support <session_bundle>`, review the three files, then drag the ZIP here. Paste `issue-body.md` or add separately reviewed logs only when needed.
     validations:
       required: true
 
@@ -68,6 +68,8 @@ body:
         - label: I searched existing issues.
           required: true
         - label: I removed credentials and private location data.
+          required: true
+        - label: I reviewed every file in the support ZIP before attaching it.
           required: true
         - label: This is not a security vulnerability.
           required: true

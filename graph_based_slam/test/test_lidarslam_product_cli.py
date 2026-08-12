@@ -102,10 +102,14 @@ def _write_bag_metadata(path: Path) -> None:
 def test_global_help_version_and_usage_contract():
     help_result = _run('--help')
     assert help_result.returncode == 0
-    assert 'doctor <rosbag2_dir>' in help_result.stdout
+    assert 'start <rosbag2_dir>' in help_result.stdout
+    assert 'doctor [rosbag2_dir]' in help_result.stdout
+    assert 'setup <rosbag2_dir>' in help_result.stdout
     assert 'run <rosbag2_dir>' in help_result.stdout
     assert 'inspect <output_dir>' in help_result.stdout
     assert 'view <output_dir>' in help_result.stdout
+    assert 'edit <output_dir>' in help_result.stdout
+    assert 'merge <map_outputs...>' in help_result.stdout
 
     version_result = _run('--version')
     assert version_result.returncode == 0
@@ -121,46 +125,65 @@ def test_global_help_version_and_usage_contract():
 
 
 def test_subcommand_help_uses_product_names_and_option_groups():
+    start = _run('start', '--help')
     doctor = _run('doctor', '--help')
+    setup = _run('setup', '--help')
     run = _run('run', '--help')
     inspect = _run('inspect', '--help')
     view = _run('view', '--help')
+    edit = _run('edit', '--help')
+    merge = _run('merge', '--help')
 
-    assert (
-        doctor.returncode
-        == run.returncode
-        == inspect.returncode
-        == view.returncode
-        == 0
-    )
+    results = (start, doctor, setup, run, inspect, view, edit, merge)
+    assert all(item.returncode == 0 for item in results)
+    assert 'usage: lidarslam start' in start.stdout
     assert 'usage: lidarslam doctor' in doctor.stdout
+    assert 'usage: lidarslam setup' in setup.stdout
     assert 'usage: lidarslam run' in run.stdout
     assert 'usage: lidarslam inspect' in inspect.stdout
     assert 'usage: lidarslam view' in view.stdout
+    assert 'usage: lidarslam edit' in edit.stdout
+    assert 'usage: lidarslam merge' in merge.stdout
     assert 'python3 scripts/' not in doctor.stdout
+    assert 'python3 scripts/' not in start.stdout
+    assert 'python3 scripts/' not in setup.stdout
     assert 'python3 scripts/' not in run.stdout
     assert 'python3 scripts/' not in inspect.stdout
     assert 'python3 scripts/' not in view.stdout
+    assert 'python3 scripts/' not in edit.stdout
+    assert 'python3 scripts/' not in merge.stdout
     assert 'map selection and output:' in run.stdout
     assert 'safety and lifecycle:' in run.stdout
     assert '--guided' in run.stdout
+    assert '--yes' in start.stdout
+    assert '--dry-run' in start.stdout
+    assert '--viewer {none,browser,autoware,foxglove}' in start.stdout
+    assert 'Open the completed map in this viewer' in start.stdout
     assert '--yes' in run.stdout
     assert '--help-all' in run.stdout
     assert 'deprecated viewer compatibility options:' not in run.stdout
     assert 'deprecated advanced viewer compatibility options:' not in run.stdout
     assert 'verification:' in run.stdout
     assert '--verification {required,off}' in run.stdout
-    assert '--viewer {autoware,foxglove}' in view.stdout
+    assert '--viewer {browser,autoware,foxglove}' in view.stdout
     assert '--runtime-dir' not in view.stdout
+    assert '--plan <json>' in edit.stdout
+    assert '--output-dir <dir>' in edit.stdout
+    assert '--backend-input' not in edit.stdout
+    assert '--merge-voxel-size <m>' in merge.stdout
+    assert '--initial-transform <index:tx,ty,tz,yaw_deg>' in merge.stdout
 
     run_all = _run('run', '--help-all')
     view_all = _run('view', '--help-all')
-    assert run_all.returncode == view_all.returncode == 0
+    edit_all = _run('edit', '--help-all')
+    assert run_all.returncode == view_all.returncode == edit_all.returncode == 0
     assert 'deprecated viewer compatibility options:' in run_all.stdout
     assert 'deprecated advanced viewer compatibility options:' in run_all.stdout
     assert '--no-verify-map' in run_all.stdout
     assert 'viewer runtime:' in view_all.stdout
     assert '--runtime-dir' in view_all.stdout
+    assert '--backend-input <rosbag2_dir>' in edit_all.stdout
+    assert '--params <yaml>' in edit_all.stdout
 
 
 def test_help_all_rejects_ambiguous_combinations():

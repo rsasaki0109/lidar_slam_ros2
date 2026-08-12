@@ -32,7 +32,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from check_onboarding_trial import TrialError, evaluate_trial
@@ -45,6 +45,14 @@ SCHEMA_PATH = (
     REPO_ROOT / 'docs' / 'schemas'
     / 'onboarding-trial-matrix-v1.schema.json'
 )
+EVIDENCE_INDEX_PATH = (
+    REPO_ROOT / 'docs' / 'contracts'
+    / 'g0-onboarding-matrix-evidence-v1.json'
+)
+EVIDENCE_INDEX_SCHEMA_PATH = (
+    REPO_ROOT / 'docs' / 'schemas'
+    / 'onboarding-matrix-evidence-index-v1.schema.json'
+)
 SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
     'schemas/onboarding-trial-matrix-v1.schema.json'
@@ -52,6 +60,10 @@ SCHEMA_URI = (
 MATRIX_ID = 'g0-humble-jazzy-docker-source'
 DATASET_ID = 'mid360-public-zenodo-14841855'
 DATASET_BYTES = 517088133
+EVIDENCE_INDEX_SCHEMA_URI = (
+    'https://rsasaki0109.github.io/lidar_slam_ros2/'
+    'schemas/onboarding-matrix-evidence-index-v1.schema.json'
+)
 ROW_CONTRACTS = (
     {
         'row_id': 'docker-humble',
@@ -89,6 +101,7 @@ ROW_CONTRACTS = (
 CONTRACT_BY_KEY = {
     (row['route'], row['ros_distro']): row for row in ROW_CONTRACTS
 }
+EXPECTED_ROW_IDS = tuple(row['row_id'] for row in ROW_CONTRACTS)
 
 
 class MatrixError(ValueError):
@@ -115,6 +128,57 @@ def _route(record: dict[str, Any]) -> str:
         'fixed matrix accepts only docker-first-map and source-quickstart '
         f'records, found {documentation_path!r}'
     )
+
+
+def load_evidence_index(
+    index_path: Path = EVIDENCE_INDEX_PATH,
+    repo_root: Path = REPO_ROOT,
+) -> list[dict[str, Any]]:
+    """Load reviewed records named by the checked-in four-row index."""
+    index = _load_object(index_path)
+    schema = _load_object(EVIDENCE_INDEX_SCHEMA_PATH)
+    try:
+        jsonschema.Draft7Validator.check_schema(schema)
+        jsonschema.Draft7Validator(schema).validate(index)
+    except (jsonschema.SchemaError, jsonschema.ValidationError) as exc:
+        raise MatrixError(
+            f'evidence index schema failed: {exc.message}') from exc
+    if index['schema_uri'] != EVIDENCE_INDEX_SCHEMA_URI:
+        raise MatrixError('evidence index uses an unsupported schema URI')
+    row_ids = tuple(row['row_id'] for row in index['rows'])
+    if row_ids != EXPECTED_ROW_IDS:
+        raise MatrixError(
+            'evidence index rows must use the fixed matrix order: '
+            + ', '.join(EXPECTED_ROW_IDS))
+
+    records = []
+    for row in index['rows']:
+        relative = row['record_path']
+        if relative is None:
+            continue
+        path = PurePosixPath(relative)
+        if (
+            str(path) != relative
+            or relative.startswith('/')
+            or '..' in path.parts
+            or '\\' in relative
+        ):
+            raise MatrixError(
+                f'evidence index contains an unsafe record path: {relative!r}')
+        candidate = repo_root / relative
+        if candidate.is_symlink() or not candidate.is_file():
+            raise MatrixError(
+                f'evidence index record is not a regular file: {relative}')
+        record = _load_object(candidate)
+        route = _route(record)
+        key = (route, record.get('environment', {}).get('ros_distro'))
+        contract = CONTRACT_BY_KEY.get(key)
+        if contract is None or contract['row_id'] != row['row_id']:
+            raise MatrixError(
+                f"evidence index row {row['row_id']} points to a different "
+                'matrix row')
+        records.append(record)
+    return records
 
 
 def _validate_row_contract(
@@ -365,6 +429,14 @@ def render_markdown(report: dict[str, Any]) -> str:
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('records', nargs='*', type=Path)
+    parser.add_argument(
+        '--evidence-index',
+        type=Path,
+        help=(
+            'Use a reviewed evidence index instead of explicit records; '
+            'the checked-in G0 index is used when neither is supplied.'
+        ),
+    )
     parser.add_argument('--json', action='store_true')
     parser.add_argument('--output-json', type=Path)
     parser.add_argument('--require-activation-gate', action='store_true')
@@ -376,9 +448,16 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entrypoint; invalid evidence exits 2 and unmet gates exit 1."""
     args = _parse_args(argv)
     try:
-        report = evaluate_matrix([
-            _load_object(path) for path in args.records
-        ])
+        if args.records and args.evidence_index:
+            raise MatrixError(
+                'explicit records and --evidence-index are mutually exclusive')
+        records = (
+            [_load_object(path) for path in args.records]
+            if args.records
+            else load_evidence_index(
+                args.evidence_index or EVIDENCE_INDEX_PATH)
+        )
+        report = evaluate_matrix(records)
     except MatrixError as exc:
         print(f'onboarding matrix error: {exc}', file=sys.stderr)
         return 2

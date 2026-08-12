@@ -17,6 +17,46 @@ The snapshot was taken from the public GitHub repository on 2026-08-11. It
 retains only aggregate counts and public issue numbers. Author identities and
 comment bodies are not copied into this evidence record.
 
+On 2026-08-12, when the live aggregate had moved to 30 open issues, this prose
+backlog was promoted to the machine-readable
+`docs/contracts/contributor-starter-queue-v1.json` contract. A read-only
+GitHub connector audit found one open pull request, #427, and zero matching
+open pull requests for each of C1–C5. The local checker validates exact file
+scope, a fixed command allowlist, 30-minute estimates, known-gap drift, and the
+no-write boundary. It can render copy-ready task bodies, but it does not create
+issues, labels, comments, branches, or pull requests. The duplicate audit must
+be rerun immediately before any future publication.
+
+```bash
+python3 scripts/contributor_starter_queue.py --json
+python3 scripts/contributor_starter_queue.py --list
+python3 scripts/contributor_starter_queue.py --task starter-C5
+```
+
+## Operationalization validation — 2026-08-12
+
+The checked-in queue reports `QUEUE_READY_LOCAL_ONLY`: all five tasks remain
+locally present, their known gaps are still observable, and none has a matching
+open pull request in the recorded read-only audit. The default command and the
+list/detail views perform no network or workspace write. Focused verification
+uses built-in profiles rather than executing commands supplied by JSON; docs
+output goes to a temporary directory and Python cache writes are disabled.
+
+| Check | Result |
+| --- | --- |
+| queue/schema/drift/authority regressions | 17 passed |
+| `--verify starter-C1` | strict MkDocs profile passed; no workspace artifact |
+| `--verify starter-C5` | frame tests, focused flake8, and diff check passed |
+| contributor runner style | full flake8 passed for runner and test |
+| complete maintained Python gate | graph 1,428 passed / 13 skipped; lidar_slam 687 passed; 2,115 total |
+| documentation | strict MkDocs build passed with pre-existing notices |
+| authority | no issue, label, comment, branch, PR, or other remote mutation |
+
+These checks prove that the queue is bounded and usable by maintainers. They do
+not prove a 30-minute external completion and do not authorize publication.
+That evidence begins only after a separately approved issue is claimed and a
+non-maintainer reports prepared-environment timing.
+
 ## What the backlog says
 
 Only issue

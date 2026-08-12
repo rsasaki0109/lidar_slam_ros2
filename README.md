@@ -17,6 +17,70 @@ ROS 2 LiDAR SLAM that outputs an Autoware-compatible map bundle — `pointcloud_
 [Quickstart](#quickstart). `develop` is the default branch; current release
 candidate notes: [v0.9.0](docs/releases/v0.9.0.md).*
 
+## Quickstart
+
+### Try it with Docker (one command, no build)
+
+```bash
+docker run --rm -e LIDARSLAM_HOST_UID="$(id -u)" -e LIDARSLAM_HOST_GID="$(id -g)" \
+  -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
+  ghcr.io/rsasaki0109/lidar_slam_ros2:humble
+```
+
+This runs the 517 MB MID-360 demo with periodic progress and writes `lidarslam_output/mid360_demo/`.
+UID/GID returns it to the Linux user; see [Getting Started](docs/getting-started.md) for other platforms.
+
+### Map your own bag (one command after install)
+
+```bash
+lidarslam-map start /path/to/rosbag2
+```
+
+Not sure where to begin? Run `lidarslam-map` with no arguments in a terminal; its safe home offers an installation check, the demo, your own bag, or previous sessions. Before finding a bag, run `lidarslam-map doctor`; it uses no network, writes no files, and prints one recovery action for each missing requirement.
+`start` checks sensor setup before writing. See [supported inputs and recovery](#use-your-own-bag).
+
+### Build + verified demo from source (one helper)
+
+```bash
+mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws/src
+git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git
+cd lidar_slam_ros2
+bash scripts/source_quickstart.sh
+```
+
+The helper detects Humble/Jazzy, verifies the exact maintained six-package inventory,
+installs repository-only dependencies, builds only that list, and runs the verified demo. Use `--dry-run` or `--build-only`.
+Completion prints an absolute `lidarslam-map` path that auto-activates this build in
+a fresh terminal—no remembered `source install/setup.bash`. ROS 2 must be installed.
+Allow 8 GiB and roughly 30 minutes; see [Getting Started](docs/getting-started.md)
+and [Operator workflows](docs/workflows.md) for contracts and contributor tests.
+
+## Use your own bag
+
+For your own compatible bag, `start` detects and saves the exact inputs, builds a verified map, and opens it.
+The same command covers PointCloud2+Imu, PointCloud2+NavSatFix, and VelodyneScan+Applanix GSOF49 inputs.
+
+```bash
+lidarslam-map start /path/to/rosbag2
+```
+
+With Docker but no ROS installation, run the same high-level workflow from this checkout; the bag is mounted read-only and all output returns to your user:
+
+```bash
+bash scripts/docker_map_bag.sh /absolute/path/to/rosbag2
+```
+
+See [Docker Own-Bag Map](docs/getting-started.md#docker-own-bag-map) for dry-run, Jazzy, calibration, and immutable-image options.
+
+For RKO-LIO profiles, `--editable` retains deterministic replay input for later loop fixes. A successful run writes
+Autoware artifacts; `lidarslam-map view "$PWD/output/my_map"` provides offline 3D review and
+source-preserving edit plans that `lidarslam-map edit` applies without extra replay paths.
+Reopen runs with `lidarslam-map sessions`, compare two with `lidarslam-map compare day1 day2`, create a private-by-default issue ZIP with `lidarslam-map support day1`, prepare a verified first-map report with `lidarslam-map support day1 --first-map`, or merge visits with `lidarslam-map merge day1 day2 --output-dir site_project`.
+Automation can use `lidarslam-map run`; direct launches and filtering are in [Operator workflows](docs/workflows.md).
+
+![Autoware map loaders rendering a pointcloud_map authored by this stack](lidarslam/images/autoware_map_loader_proof.png)
+
 ## Why lidarslam_ros2
 
 Most LiDAR SLAM stacks stop at a trajectory and a point cloud. This one ships the
@@ -35,17 +99,13 @@ artifacts you need downstream:
 - **Tunnel / fog degeneracy presets** — opt-in radar fusion and gravity
   alignment map a ~500 m self-similar tunnel end-to-end
   ([result](#tunnel-and-fog-mapping-without-degeneracy-collapse), [guide](docs/degeneracy-guide.md)).
-- **Deterministic offline mapping** — `graph_slam_offline_runner` (backend,
-  recorded odometry bag) and `scan_matcher_offline_runner` (frontend, raw bag)
-  produce *byte-identical* trajectories, loop edges and submaps; the release
-  gate enforces both.
+- **Deterministic offline mapping** — backend and frontend offline runners produce
+  byte-identical trajectories, loop edges, and submaps under the release gate.
 - **Globally refined, quality-gated maps** — clean-room plane bundle adjustment
   refines submap poses under holdout-validated quality thresholds
   ([evidence](docs/research/map-quality-baseline.md)).
-- **GNSS georeferencing** — optional GNSS constraints and projector metadata for
-  real-world coordinates.
-- **Camera-coloured point-cloud maps** — synchronized images are projected onto
-  registered LiDAR scans with calibration-aware, occlusion-resistant colouring.
+- **GNSS and camera output** — optional georeferencing plus calibration-aware,
+  occlusion-resistant camera colouring.
 
 ```mermaid
 flowchart LR
@@ -53,65 +113,6 @@ flowchart LR
     rko --> gbs["graph_based_slam<br/>loop closure + graph optimization"]
     gbs --> bundle["Autoware map bundle<br/>pointcloud_map · lanelet2 · projector info"]
 ```
-
-## Quickstart
-
-Start with [Getting Started](docs/getting-started.md). The [Product Contract](docs/product-contract.md)
-defines the maintained surface; see [Distribution](docs/distribution.md) for installed names and binary-release limits.
-
-### Try it with Docker (one command, no build)
-
-```bash
-mkdir -p "$PWD/lidarslam_output"
-docker run --rm -e LIDARSLAM_HOST_UID="$(id -u)" -e LIDARSLAM_HOST_GID="$(id -g)" \
-  -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:humble
-```
-
-This runs the 517 MB MID-360 demo with periodic progress and writes `lidarslam_output/mid360_demo/`.
-UID/GID returns it to the Linux user; see [Getting Started](docs/getting-started.md) for other platforms.
-
-### Build from source
-
-```bash
-cd ~/ros2_ws/src
-git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git
-cd ..
-rosdep install --from-paths src --ignore-src -r -y
-colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
-source install/setup.bash
-```
-
-If you cloned without `--recursive`: `git -C src/lidar_slam_ros2 submodule update --init --recursive`.
-
-Then run the same fixed first-map demo used by Docker. It uses the public
-Livox MID-360 bag (517 MB), the maintained MID-360 profile, and the complete
-manifest/verifier/diagnosis/receipt output contract:
-
-```bash
-cd src/lidar_slam_ros2
-bash scripts/run_first_map_demo.sh
-```
-
-The advanced `run_autoware_quickstart.sh` viewer/dogfood route remains available
-for compatibility; it is not required for the beginner first-map path.
-
-## Use your own bag
-
-Guided mode inspects the bag, explains the selected workflow, and asks before
-starting:
-
-```bash
-lidarslam-map run /path/to/rosbag2 --guided
-```
-
-For scripts and CI: `lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"`.
-A successful run writes a complete Autoware map bundle:
-`pointcloud_map/` tiles, `map_projector_info.yaml`, and a `lanelet2_map.osm`
-generated from the loop-closed trajectory. Direct launches, required topics,
-GNSS/IMU pre-integration, and filtering are in [Operator workflows](docs/workflows.md).
-
-![Autoware map loaders rendering a pointcloud_map authored by this stack](lidarslam/images/autoware_map_loader_proof.png)
 
 ## Camera-coloured point-cloud maps
 
