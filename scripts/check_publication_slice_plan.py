@@ -130,27 +130,27 @@ def _validate_repo_path(path: str) -> None:
 
 def _validate_candidate_lineage(
     base_sha: str,
-    public_head_sha: str,
+    public_baseline_sha: str,
 ) -> tuple[str, int]:
-    """Require the recorded public PR head between the PR base and local tip."""
+    """Require the frozen public baseline between the PR base and local tip."""
     try:
-        base_to_public = _run_git(['merge-base', base_sha, public_head_sha])
-        public_to_local = _run_git(['merge-base', public_head_sha, 'HEAD'])
+        base_to_public = _run_git(['merge-base', base_sha, public_baseline_sha])
+        public_to_local = _run_git(['merge-base', public_baseline_sha, 'HEAD'])
         local_tip = _run_git(['rev-parse', 'HEAD'])
-        unpublished_count = _run_git([
-            'rev-list', '--count', f'{public_head_sha}..HEAD',
+        follow_up_count = _run_git([
+            'rev-list', '--count', f'{public_baseline_sha}..HEAD',
         ])
     except PlanError as exc:
         raise PlanError('candidate lineage cannot be verified') from exc
     if base_to_public != [base_sha]:
-        raise PlanError('public PR head does not descend from the PR base')
-    if public_to_local != [public_head_sha]:
-        raise PlanError('local candidate does not descend from public PR head')
+        raise PlanError('public review baseline does not descend from the PR base')
+    if public_to_local != [public_baseline_sha]:
+        raise PlanError('local candidate does not descend from public review baseline')
     if len(local_tip) != 1 or len(local_tip[0]) != 40:
         raise PlanError('local candidate tip could not be resolved exactly')
-    if len(unpublished_count) != 1 or not unpublished_count[0].isdigit():
-        raise PlanError('unpublished commit count could not be resolved')
-    return local_tip[0], int(unpublished_count[0])
+    if len(follow_up_count) != 1 or not follow_up_count[0].isdigit():
+        raise PlanError('follow-up commit count could not be resolved')
+    return local_tip[0], int(follow_up_count[0])
 
 
 def validate_plan(
@@ -173,7 +173,7 @@ def validate_plan(
         raise PlanError('plan schema_uri is not the supported v1 URI')
 
     candidate = plan['candidate']
-    local_tip_sha, unpublished_commit_count = _validate_candidate_lineage(
+    local_tip_sha, follow_up_commit_count = _validate_candidate_lineage(
         candidate['base_sha'],
         candidate['public_head_sha'],
     )
@@ -237,9 +237,9 @@ def validate_plan(
     return {
         'status': 'PLAN_VALID_LOCAL_ONLY',
         'base_sha': candidate['base_sha'],
-        'public_head_sha': candidate['public_head_sha'],
+        'public_baseline_sha': candidate['public_head_sha'],
         'local_tip_sha': local_tip_sha,
-        'unpublished_commit_count': unpublished_commit_count,
+        'follow_up_commit_count': follow_up_commit_count,
         'worktree_clean': not worktree_status,
         'uncommitted_path_count': len(worktree_status),
         'scope': candidate['scope'],
@@ -272,10 +272,10 @@ def build_slice_review_report(
         'status': 'SLICE_REVIEW_READY_LOCAL_ONLY',
         'candidate': {
             'base_sha': validation_report['base_sha'],
-            'public_head_sha': validation_report['public_head_sha'],
+            'public_baseline_sha': validation_report['public_baseline_sha'],
             'local_tip_sha': validation_report['local_tip_sha'],
-            'unpublished_commit_count': validation_report[
-                'unpublished_commit_count'
+            'follow_up_commit_count': validation_report[
+                'follow_up_commit_count'
             ],
             'pull_request': validation_report['pull_request'],
             'slice_count': validation_report['slice_count'],
@@ -313,11 +313,11 @@ def render_slice_review_card(report: dict[str, Any]) -> str:
         f"- Paths: {review_slice['path_count']}",
         f"- Depends on: {', '.join(dependencies) if dependencies else 'none'}",
         f"- Publication gate: {review_slice['publication_gate']}",
-        f"- Public PR head: {candidate['public_head_sha']}",
+        f"- Frozen public review baseline: {candidate['public_baseline_sha']}",
         f"- Local HEAD: {candidate['local_tip_sha']}",
         (
-            '- Unpublished commits after public head: '
-            f"{candidate['unpublished_commit_count']}"
+            '- Follow-up commits after baseline: '
+            f"{candidate['follow_up_commit_count']}"
         ),
         f"- Worktree clean: {'yes' if candidate['worktree_clean'] else 'no'}",
         (

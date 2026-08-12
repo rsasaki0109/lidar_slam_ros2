@@ -7,7 +7,7 @@
 > PR comparison base:
 > `3f4dd70cdc58ad421192559213cdee0bdc41eba8`
 >
-> Current public PR head:
+> Frozen public review baseline (machine key `public_head_sha`):
 > `8a931a3627be503fb10c255ef846c6d3c54a237c`
 >
 > Planned follow-up inventory: 201 paths; SHA-256
@@ -38,8 +38,9 @@ The GitHub repository and PR were inspected without mutation:
 
 - Draft PR `#427`, `Prepare crash-safe guided mapping for G0 review`, remains
   open, draft, and mergeable into `develop`;
-- the public PR head resolves to `8a931a3`; later review fixes remain local-only;
-- the PR currently exposes 253 changed files and 56 commits;
+- at the baseline observation, the public PR head resolved to `8a931a3` and
+  later review fixes remained local-only;
+- at that observation, the PR exposed 253 changed files and 56 commits;
 - all nine reported GitHub Actions checks pass on the public head, including
   Humble/Jazzy builds, default workflows, upgrade checks, documentation, and
   release-readiness guards; and
@@ -79,9 +80,11 @@ python3 scripts/check_publication_slice_plan.py \
 
 The card revalidates the complete inventory and lineage first, then binds the
 selected review outcome, dependency list, exact paths, verification commands,
-publication gate, public PR head, local HEAD, unpublished-commit count, and
-current worktree cleanliness. A dirty worktree is shown with its uncommitted
-path count rather than being mislabeled as an exact-tip candidate. The card
+publication gate, frozen public baseline, local HEAD, follow-up commit count,
+and current worktree cleanliness. The baseline is an immutable review anchor,
+not a live claim about the remote branch. A dirty worktree is shown with its
+uncommitted path count rather than being mislabeled as an exact-tip candidate.
+The card
 does not execute the displayed commands and cannot authorize or report a
 GitHub mutation. An unknown slice ID fails closed and lists the seven valid
 IDs.
@@ -90,7 +93,7 @@ IDs.
 
 The checker derives the candidate directly from Git rather than trusting the
 human table. It combines tracked changes from exact PR base `3f4dd70` with
-untracked, non-ignored paths, verifies that public PR head `8a931a3` descends
+untracked, non-ignored paths, verifies that public baseline `8a931a3` descends
 from that base and the local tip descends from the public head, then requires:
 
 1. seven consecutive, dependency-safe slice orders;

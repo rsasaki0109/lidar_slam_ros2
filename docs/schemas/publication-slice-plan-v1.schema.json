@@ -32,7 +32,11 @@
         "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
         "pull_request": {"const": 427},
         "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-        "public_head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "public_head_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Frozen public review baseline for the follow-up range; not a live remote-head claim."
+        },
         "expected_path_count": {"type": "integer", "minimum": 1},
         "expected_paths_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "scope": {"const": "worktree-delta-from-pr-base"}
