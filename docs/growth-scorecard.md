@@ -35,6 +35,15 @@ A read-only audit grouped all 29 open issues and prepared five tasks with exact
 files, non-goals, acceptance criteria, and focused checks. The candidates have
 not been published as GitHub issues and no labels were changed.
 
+The external-adoption operating loop is prepared in the
+[first-map validator cohort packet](evidence/growth/first-map-validator-cohort-launch-packet-2026-08-12.md).
+Its machine contract fixes a five-attempt first batch, two-attempt review WIP,
+the ten-attempt 80%/ten-minute decision gate, privacy and independence rules,
+service levels, and stop/repair conditions. Recruitment text remains
+fail-closed until one comparable Docker and source row, a canonical public
+path, an exact public revision, and the copy-ready handoff are all public.
+No community post or GitHub write is authorized by that packet.
+
 The follow-up
 [complete triage proposal](evidence/growth/open-issue-triage-proposal-2026-08-11.md)
 covers all 29 open issues with a label, priority, disposition, evidence, and

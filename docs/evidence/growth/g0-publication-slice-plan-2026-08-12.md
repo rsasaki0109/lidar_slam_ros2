@@ -4,18 +4,21 @@
 >
 > Public Draft PR: `#427`
 >
-> Public and local follow-up base:
+> PR comparison base:
 > `3f4dd70cdc58ad421192559213cdee0bdc41eba8`
 >
-> Planned follow-up inventory: 189 paths; SHA-256
-> `c336628eeb8e4413a5b3b4b9c898b15c5a683bce973c3ce88301bbd972c6d0a6`
+> Current public PR head:
+> `b12fc602ed7902c8173a129b69d7ab44908bc5ad`
+>
+> Planned follow-up inventory: 196 paths; SHA-256
+> `485623acda30d4e065adcd20e38891a114a1895440fa2bc4e4e87c94334dc54a`
 >
 > Remote mutations performed by this review pass: **none**
 
 ## Outcome
 
 The local GLIM-convenience follow-up is now split into seven dependency-ordered
-review focuses. Every tracked or untracked path relative to the exact follow-up base
+review focuses. Every tracked or untracked path relative to the exact PR base
 has exactly one primary review owner. A fail-closed checker rejects missing,
 stale, duplicated, unsafe, or digest-drifted paths and rejects a plan that
 claims GitHub write authority.
@@ -41,9 +44,9 @@ The GitHub repository and PR were inspected without mutation:
 - no PR conversation, inline review, or submitted review was present at the
   observation time.
 
-Passing checks on `b12fc60` validate the published seven-slice candidate, but
-do not validate the current local review fixes. Public CI must run again
-on the exact future candidate tip.
+Passing checks on `b12fc60` validate the published portion of the seven-slice
+candidate, but do not validate the current local review fixes. Public CI must
+run again on the exact future candidate tip.
 
 ## Review order
 
@@ -54,8 +57,8 @@ on the exact future candidate tip.
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 16 | a fresh terminal uses the exact six-package Humble/Jazzy source route and public preflight | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 43 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, and package-manager blockers remain explicit; no release/version reuse is implied | maintainer distribution decision |
-| S6 product-shell integration | 56 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard, truthful onboarding matrix, bounded starter queue, CLI contract, docs, tests, and support surface agree | complete product gate and public CI |
-| S7 publication control | 5 | all 189 paths are owned once and external authority remains separate | exact-tip maintainer decision |
+| S6 product-shell integration | 63 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard, truthful onboarding matrix, bounded starter queue and validator cohort, CLI contract, docs, tests, and support surface agree | complete product gate and public CI |
+| S7 publication control | 5 | all 196 paths are owned once and external authority remains separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -66,13 +69,14 @@ by `python3 scripts/check_publication_slice_plan.py --json`.
 ## Fail-closed invariants
 
 The checker derives the candidate directly from Git rather than trusting the
-human table. It combines tracked changes from exact public head `3f4dd70` with
-untracked, non-ignored paths, then requires:
+human table. It combines tracked changes from exact PR base `3f4dd70` with
+untracked, non-ignored paths, verifies that public PR head `b12fc60` descends
+from that base and the local tip descends from the public head, then requires:
 
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 189-path coverage with the fixed inventory digest;
+4. exact 196-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred.
 
@@ -84,17 +88,18 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 189 paths, 7 slices, no remote mutation |
-| checker regressions | 10 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, authority rejection, and self-contained read-only source dry-run execution |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 196 paths, 7 slices, no remote mutation |
+| checker regressions | 11 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, and self-contained read-only source dry-run execution |
 | focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
+| validator cohort contract | 10 passed; path-specific immutable runtime identity is enforced; recruitment render blocked until every public gate passes; no write authority |
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
-| complete maintained Python gate | graph: 1,433 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 709 passed; 2,142 total |
+| complete maintained Python gate | graph: 1,433 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 720 passed; 2,153 total |
 | scanmatcher clean build and CTest | Jazzy RAM-backed clean build of `lidarslam_msgs`, `ndt_omp_ros2`, and `scanmatcher`; 109 tests passed |
 | review follow-up regressions | malformed PointCloud2 recovery with padded organized XYZ-only continuation, metadata tile containment, source-bundle symlink rejection, non-interpolated immutable release-tag checkout, least-privilege release jobs, and self-contained source dry-run are covered |
 | new Python style | `ament_flake8`: 4 files checked, no problems |
 | documentation | `mkdocs build --strict`: PASS with pre-existing Material and navigation notices |
-| machine formats and shells | all 32 planned JSON files parse; all 9 planned shell files pass `bash -n`; `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
+| machine formats and shells | all 34 planned JSON files parse; all 9 planned shell files pass `bash -n`; `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
 
 The two package test directories were intentionally run in separate pytest
 processes through the repository's canonical contributor entrypoint because

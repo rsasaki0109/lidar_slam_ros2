@@ -128,6 +128,22 @@ def _validate_repo_path(path: str) -> None:
         raise PlanError(f'non-canonical repository-relative path: {path!r}')
 
 
+def _validate_candidate_lineage(
+    base_sha: str,
+    public_head_sha: str,
+) -> None:
+    """Require the recorded public PR head between the PR base and local tip."""
+    try:
+        base_to_public = _run_git(['merge-base', base_sha, public_head_sha])
+        public_to_local = _run_git(['merge-base', public_head_sha, 'HEAD'])
+    except PlanError as exc:
+        raise PlanError('candidate lineage cannot be verified') from exc
+    if base_to_public != [base_sha]:
+        raise PlanError('public PR head does not descend from the PR base')
+    if public_to_local != [public_head_sha]:
+        raise PlanError('local candidate does not descend from public PR head')
+
+
 def validate_plan(
     plan: dict[str, Any],
     schema: dict[str, Any],
@@ -148,6 +164,10 @@ def validate_plan(
         raise PlanError('plan schema_uri is not the supported v1 URI')
 
     candidate = plan['candidate']
+    _validate_candidate_lineage(
+        candidate['base_sha'],
+        candidate['public_head_sha'],
+    )
     slices = plan['review_slices']
     slice_ids = [item['id'] for item in slices]
     orders = [item['order'] for item in slices]
@@ -207,6 +227,8 @@ def validate_plan(
     return {
         'status': 'PLAN_VALID_LOCAL_ONLY',
         'base_sha': candidate['base_sha'],
+        'public_head_sha': candidate['public_head_sha'],
+        'scope': candidate['scope'],
         'pull_request': candidate['pull_request'],
         'path_count': len(canonical_actual),
         'paths_sha256': actual_digest,

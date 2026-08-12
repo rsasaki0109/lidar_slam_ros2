@@ -35,7 +35,7 @@
         "public_head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
         "expected_path_count": {"type": "integer", "minimum": 1},
         "expected_paths_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "scope": {"const": "worktree-delta-from-public-pr-head"}
+        "scope": {"const": "worktree-delta-from-pr-base"}
       }
     },
     "review_slices": {

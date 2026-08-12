@@ -6,10 +6,10 @@
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
-    "public_head_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
-    "expected_path_count": 189,
-    "expected_paths_sha256": "c336628eeb8e4413a5b3b4b9c898b15c5a683bce973c3ce88301bbd972c6d0a6",
-    "scope": "worktree-delta-from-public-pr-head"
+    "public_head_sha": "b12fc602ed7902c8173a129b69d7ab44908bc5ad",
+    "expected_path_count": 196,
+    "expected_paths_sha256": "485623acda30d4e065adcd20e38891a114a1895440fa2bc4e4e87c94334dc54a",
+    "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
     {
@@ -245,10 +245,12 @@
         "docs/cli-compatibility.md",
         "docs/contracts/cli-v1.json",
         "docs/contracts/contributor-starter-queue-v1.json",
+        "docs/contracts/first-map-validator-cohort-v1.json",
         "docs/contracts/g0-onboarding-matrix-evidence-v1.json",
         "docs/contracts/glim-usability-scorecard-evidence-v1.json",
         "docs/evidence/growth/community-contributor-backlog-2026-08-11.md",
         "docs/evidence/growth/contributor-product-surface-sync-2026-08-12.md",
+        "docs/evidence/growth/first-map-validator-cohort-launch-packet-2026-08-12.md",
         "docs/evidence/growth/glim-parity-system-doctor-2026-08-12.md",
         "docs/evidence/growth/glim-usability-scorecard-contract-2026-08-12.md",
         "docs/evidence/growth/japanese-quickstart-2026-08-12.md",
@@ -258,12 +260,15 @@
         "docs/getting-started-ja.md",
         "docs/getting-started.md",
         "docs/golden-path-cli.md",
+        "docs/growth-scorecard.md",
         "docs/index.md",
         "docs/onboarding-trial-execution.md",
         "docs/onboarding-trials.md",
         "docs/product-contract.md",
+        "docs/roadmap/1000-stars-2026-2029.md",
         "docs/roadmap/1000-stars.md",
         "docs/schemas/contributor-starter-queue-v1.schema.json",
+        "docs/schemas/first-map-validator-cohort-v1.schema.json",
         "docs/schemas/onboarding-matrix-evidence-index-v1.schema.json",
         "docs/schemas/system-doctor-v1.schema.json",
         "docs/schemas/usability-scorecard-evidence-index-v1.schema.json",
@@ -280,6 +285,7 @@
         "lidarslam/test/test_cli_interactive_home.py",
         "lidarslam/test/test_cli_option_contract.py",
         "lidarslam/test/test_contributor_starter_queue.py",
+        "lidarslam/test/test_first_map_validator_cohort.py",
         "lidarslam/test/test_lidarslam_doctor.py",
         "lidarslam/test/test_lidarslam_guided.py",
         "mkdocs.yml",
@@ -287,6 +293,7 @@
         "scripts/check_usability_scorecard.py",
         "scripts/completions/lidarslam-map.bash",
         "scripts/contributor_starter_queue.py",
+        "scripts/first_map_validator_cohort.py",
         "scripts/lidarslam_cli.py",
         "scripts/lidarslam_doctor.py",
         "scripts/lidarslam_guided.py"
@@ -297,6 +304,8 @@
         "python3 scripts/check_onboarding_trial_matrix.py --json",
         "python3 scripts/check_usability_scorecard.py --json",
         "python3 scripts/contributor_starter_queue.py --json",
+        "python3 scripts/first_map_validator_cohort.py --json",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_first_map_validator_cohort.py",
         "mkdocs build --strict"
       ],
       "publication_gate": "PUBLIC_CI"
