@@ -1,8 +1,8 @@
 # Source onboarding public preflight — 2026-08-12
 
-> Status: **LOCAL_CONTRACT_PASS / PUBLIC_CANDIDATE_NOT_READY**
+> Status: **PUBLIC_ROUTE_READY / CLEAN_VM_ROWS_PENDING**
 >
-> Remote mutations performed: **none**
+> Preflight remote mutations performed: **none**
 
 ## Finding
 
@@ -47,7 +47,7 @@ The observer also provides:
 python3 scripts/run_source_onboarding_probe.py \
   --public-preflight \
   --source-commit <40-lowercase-hex-commit> \
-  --product-version 0.9.0
+  --product-version <matching-version>
 ```
 
 This mode requires no trial VM, ROS installation, output path, privilege
@@ -66,12 +66,11 @@ instructions, and `VERSION`. It sets `sys.dont_write_bytecode` before importing
 adjacent helpers; public preflight therefore does not create cache files in the
 observer checkout.
 
-## Actual public check
+## Public checks
 
-The local cumulative candidate is based on public commit
-`3f4dd70cdc58ad421192559213cdee0bdc41eba8` but is intentionally dirty and has
-not been published as a new immutable commit. Running public preflight for
-version `0.9.0` against that base returned:
+The first check used public commit
+`3f4dd70cdc58ad421192559213cdee0bdc41eba8`, before the source route was
+published. Running public preflight for version `0.9.0` correctly returned:
 
 ```text
 status=NOT_READY
@@ -81,10 +80,19 @@ detail=public commit lacks scripts/source_quickstart.sh
 writes_performed=false
 ```
 
-This is the expected fail-closed result. The observer did not substitute the
+That was the expected fail-closed result. The observer did not substitute the
 private checkout, a local clone URL, `develop`, or a moving tag. A before/after
 snapshot of all `scripts/**/__pycache__`, `.pyc`, and `.pyo` paths, sizes, and
 mtimes remained identical.
+
+After the reviewed route became publicly resolvable, the same network-read-only
+observer was rerun against exact commit
+`0a3d5f0c3263082360d87723af0055f74e324c80` and matching product version
+`0.9.1`. It returned `READY` with the six expected packages, all four contract
+files, no finding codes, exit `0`, and `writes_performed=false`. This exact
+commit is now the immutable source-route baseline for the disposable Humble
+and Jazzy trials; a branch name or newer moving head must not replace it in a
+record.
 
 ## Verification
 
@@ -106,15 +114,14 @@ The final cumulative milestone receipt binds this gate and the patch identity.
 
 ## Limits and next gate
 
-This proves selection, preflight semantics, and observer safety. It does not
-publish the private candidate, install dependencies on a clean VM, download the
+This proves selection, public route availability, preflight semantics, and
+observer safety. It does not install dependencies on a clean VM, download the
 fixed 517 MB bag, produce a map, or create a comparable onboarding row.
 
-After a separately authorized reviewed commit is public, run this preflight
-first. Only a `READY` result authorizes provisioning the clean Humble and Jazzy
-source-trial VMs. The measured route must then repeat preflight and satisfy the
-existing wall-time, active-time, command-count, download, peak-disk, output,
-verifier, and receipt contract.
+The next step is to provision clean disposable Humble and Jazzy source-trial
+VMs pinned to `0a3d5f0c3263082360d87723af0055f74e324c80`. The measured route must
+repeat preflight and satisfy the existing wall-time, active-time,
+command-count, download, peak-disk, output, verifier, and receipt contract.
 
-No commit, branch, pull request, issue, label, release, image, package, review
-reply, or external repository was changed.
+The public-preflight command changed no commit, branch, pull request, issue,
+label, release, image, package, review reply, or external repository.

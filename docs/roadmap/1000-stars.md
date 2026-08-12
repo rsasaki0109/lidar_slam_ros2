@@ -609,27 +609,27 @@ until the full public demo and clean comparable-VM evidence pass from the
 reviewed candidate; the final attested release build must reproduce the
 compressed gate. The atomic ROS-log link and Docker dependency-cache boundary
 have passed exact-revision follow-ups. The 50-second fixture has also passed a
-non-publishing local review. The next G0 transition now needs an explicit
-source-push and fixture-host decision; after that decision, the active
-implementation is the dedicated Humble/Jazzy Docker/source matrix, including
-confirmation of both repairs, not a public image retag.
+non-publishing local review. The source route is now public at exact commit
+`0a3d5f0c3263082360d87723af0055f74e324c80`; the active implementation is the
+dedicated Humble/Jazzy Docker/source matrix, including confirmation of both
+repairs, not a public image retag.
 
 The source side of that matrix now has a local disposable-host executor with a
 read-only plan, public-identity preflight, fixed 250 ms disk sampling, isolated
 RX measurement, timeout cleanup, receipt verification, and privacy-bounded
-record generation. This closes observer-tooling ambiguity, not the evidence
-gate: the current private candidate cannot yield a public source row until its
-exact revision is published, and each supported distro still needs a fresh VM.
+record generation. The immutable public-identity prerequisite now passes at
+`0a3d5f0`; the evidence gate remains open because each supported distro still
+needs a fresh disposable VM.
 
 That executor now separates public route readiness from VM execution. A
 network-read-only `--public-preflight` requires the exact six maintained source
 packages, explicit package selection, repository-only dependency helper,
 tests-disabled build, canonical beginner page, and matching `VERSION` from the
 same immutable commit. The quickstart independently checks `colcon list` before
-rosdep/build and fails inventory drift with a stable code. The current public
-base correctly reports `NOT_READY` because it predates the source quickstart;
-the private candidate is not substituted. This removes a false-positive path
-and avoids spending two clean VMs on an incomplete publication.
+rosdep/build and fails inventory drift with a stable code. The former base
+`3f4dd70` correctly reported `NOT_READY`; exact public candidate `0a3d5f0` now
+reports `READY` for `0.9.1` without writes. The observer never substitutes a
+private checkout.
 
 The local technical prerequisite beneath those source rows now passes on both
 distributions. Fixed, network-disabled Humble and Jazzy images built all six
@@ -640,7 +640,7 @@ prefix remains free of Python cache writes. The run also found and closed a
 package-content leak that copied development `__pycache__` plus a runtime
 bytecode-write path. This is deliberately recorded as an all-source overlay
 proof, not a comparable onboarding row: system dependencies were already in
-the images and the exact candidate is not public. The
+the images and the run lacked disposable-host timing. The
 [evidence record](../evidence/source-all-packages-install-2026-08-12.md)
 keeps those limits explicit.
 
@@ -704,18 +704,18 @@ The
 [clean-candidate audit](../evidence/growth/g0-clean-candidate-audit-2026-08-11.md)
 and
 [external-action packet](../evidence/growth/g0-external-action-decision-packet-2026-08-11.md)
-led to public Draft PR `#427`. Its public head `3f4dd70` contains 44 commits and
-116 changed paths; all nine reported checks pass. G0 remains `HOLD`: the matrix
-is 2/4 present and 0/4 comparable, v1 is 8/10, the existing v0.9.0 tag prevents
-version reuse, and the larger GLIM-convenience follow-up has not run public CI.
+led to public Draft PR `#427`. Exact public route baseline `0a3d5f0` contains
+the complete reviewed source path and has a network-read-only `READY` result.
+G0 remains `HOLD`: the matrix is 2/4 present and 0/4 comparable, v1 is 8/10,
+and the existing v0.9.0 tag prevents version reuse.
 
-That 175-path local follow-up now has an exact
+The 201-path follow-up from the frozen comparison base now has an exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
-integration, and publication control. This is a local review plan only; a
-future non-force PR update requires a clean exact candidate, complete gates,
-and a new approval naming its 40-character tip.
+integration, and publication control. The plan itself remains local-authority
+only even though its reviewed carrier is public; further PR updates require a
+clean exact candidate and complete gates.
 
 After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the

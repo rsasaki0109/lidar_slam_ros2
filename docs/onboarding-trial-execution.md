@@ -40,9 +40,18 @@ The frozen v0.9.0 Docker examples supplied by the release assets are:
 These are explicit G0 Docker examples, not permission to trust copied values.
 The operator must verify the matching release-image JSON, tag commit, image
 manifest digest, and (when available) GitHub attestation before use. The source
-rows instead use one 40-character public commit selected during review. Both
-source rows must use that same commit, and the source preflight below proves
-that it contains the documented dependency helper and fast first-build route.
+rows instead use this reviewed public identity:
+
+~~~bash
+SOURCE_COMMIT='0a3d5f0c3263082360d87723af0055f74e324c80'
+SOURCE_VERSION='0.9.1'
+export SOURCE_COMMIT SOURCE_VERSION
+~~~
+
+Both source rows must use that exact commit/version pair. The source preflight
+below proves that it contains the documented dependency helper and fast
+first-build route. A later Draft PR head does not silently replace this frozen
+trial identity.
 
 The Docker workflow's Humble/Jazzy matrix and the Dockerfile's `ROS_DISTRO`
 argument prove that images are built for both distros. The beginner page now
@@ -150,7 +159,7 @@ route from any networked observer checkout:
 python3 scripts/run_source_onboarding_probe.py \
   --public-preflight \
   --source-commit "$SOURCE_COMMIT" \
-  --product-version 0.9.0
+  --product-version "$SOURCE_VERSION"
 ~~~
 
 This mode requires no ROS installation, trial directory, or acknowledgement.
@@ -168,7 +177,7 @@ python3 scripts/run_source_onboarding_probe.py \
   --trial-id "g0-source-${ROS_DISTRO}-dry-run" \
   --ros-distro "$ROS_DISTRO" \
   --source-commit "$SOURCE_COMMIT" \
-  --product-version 0.9.0 \
+  --product-version "$SOURCE_VERSION" \
   --trial-root "$TRIAL_ROOT" \
   --observer-parent "$OBSERVER_PARENT" \
   --disk-scope / \
@@ -185,7 +194,7 @@ python3 scripts/run_source_onboarding_probe.py \
   --trial-id "g0-source-${ROS_DISTRO}-$(date -u +%Y%m%d)-a" \
   --ros-distro "$ROS_DISTRO" \
   --source-commit "$SOURCE_COMMIT" \
-  --product-version 0.9.0 \
+  --product-version "$SOURCE_VERSION" \
   --trial-root "$TRIAL_ROOT" \
   --observer-parent "$OBSERVER_PARENT" \
   --disk-scope / \
@@ -289,16 +298,18 @@ cannot be established without guessing, record FAIL at preflight.
 ### Source identity
 
 The v0.9.0 tag commit predates the shared source first-map script. The source
-rows therefore pin one explicit public commit selected during review, rather
-than a moving branch or a stale hash embedded in this runbook. Export that
-40-character commit before this observer-only preflight. Verify both its remote
-identity and its canonical source-route files before starting a timed clone.
+rows therefore pin the explicit public commit and matching version declared in
+section 1, rather than a moving branch or stale release tag. Verify both its
+remote identity and its canonical source-route files before starting a timed
+clone.
 The `--public-preflight` command above is the maintained machine check. For an
 independent manual audit, use:
 
 ~~~bash
 SOURCE_COMMIT="${SOURCE_COMMIT:?export the reviewed 40-character source commit}"
+SOURCE_VERSION="${SOURCE_VERSION:?export the matching product version}"
 [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+[[ "$SOURCE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 REPO_URL='https://github.com/rsasaki0109/lidar_slam_ros2.git'
 REMOTE_COMMIT="$(gh api \
   "repos/rsasaki0109/lidar_slam_ros2/commits/$SOURCE_COMMIT" --jq .sha)"
@@ -313,7 +324,11 @@ grep -Fq 'bash scripts/source_quickstart.sh' \
   <<<"$GETTING_STARTED_CONTENT"
 grep -Fq '6 ROS packages' <<<"$GETTING_STARTED_CONTENT"
 grep -Fq 'BUILD_TESTING=OFF' <<<"$GETTING_STARTED_CONTENT"
-printf 'source_commit=%s\n' "$SOURCE_COMMIT" \
+test "$(gh api \
+  "repos/rsasaki0109/lidar_slam_ros2/contents/VERSION?ref=$SOURCE_COMMIT" \
+  --jq .content | base64 --decode)" = "$SOURCE_VERSION"
+printf 'source_commit=%s\nsource_version=%s\n' \
+  "$SOURCE_COMMIT" "$SOURCE_VERSION" \
   > "$OBSERVER_ROOT/source-identity.txt"
 ~~~
 

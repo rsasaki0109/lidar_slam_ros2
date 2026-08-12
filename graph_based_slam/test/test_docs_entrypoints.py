@@ -1321,6 +1321,15 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
     assert '--acknowledge-isolated-network' in onboarding
     assert '--prompt-active-operator-time' in onboarding
     assert 'source-candidate-not-published' in onboarding
+    assert "SOURCE_VERSION='" + VERSION_PATH.read_text(
+        encoding='utf-8'
+    ).strip() + "'" in onboarding
+    assert (
+        "SOURCE_COMMIT='0a3d5f0c3263082360d87723af0055f74e324c80'"
+        in onboarding
+    )
+    assert onboarding.count('--product-version "$SOURCE_VERSION"') == 3
+    assert '--product-version 0.9.0' not in onboarding
     assert '74fe625ab2ee1dc9a0d55ce69bd705d22bac5d76' not in onboarding
 
 

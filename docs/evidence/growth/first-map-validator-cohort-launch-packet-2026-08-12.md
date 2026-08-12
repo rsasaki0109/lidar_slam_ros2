@@ -25,10 +25,12 @@ the following must become true together:
 - the copy-ready `support --first-map` handoff is present in that public
   revision.
 
-The current matrix has two Docker product PASS outcomes but zero comparable
-rows, and both source rows are missing. The new handoff remains local. Broad
-promotion or recruitment now would violate the G0 activation decision and
-would turn missing public prerequisites into volunteer support work.
+The reviewed source route and copy-ready handoff are publicly resolvable at
+exact commit `0a3d5f0c3263082360d87723af0055f74e324c80`, and its source preflight
+returns `READY`. The current matrix still has two Docker product PASS outcomes
+but zero comparable rows, and both source rows are missing. Broad promotion or
+recruitment now would violate the G0 activation decision and would turn missing
+clean-host evidence into volunteer support work.
 
 ## Cohort shape
 
