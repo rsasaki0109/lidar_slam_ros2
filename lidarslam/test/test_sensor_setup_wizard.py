@@ -44,6 +44,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI = REPO_ROOT / 'scripts' / 'lidarslam'
+PRODUCT_COMMANDS = ('./scripts/lidarslam', 'lidarslam-map')
 SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'sensor-setup-v1.schema.json'
 REJECTION_SCHEMA = (
     REPO_ROOT
@@ -730,7 +731,10 @@ def test_start_not_ready_lists_stable_findings_and_copy_ready_actions(
     assert '[imu-input-missing]' in result.stdout
     assert '[navsatfix-input-missing]' in result.stdout
     assert '[applanix-gsof49-input-missing]' in result.stdout
-    assert f'./scripts/lidarslam doctor {bag}' in result.stdout
+    assert any(
+        f'{command} doctor {bag}' in result.stdout
+        for command in PRODUCT_COMMANDS
+    )
     assert '<rosbag2_dir>' not in result.stdout
     assert 'No files were written' in result.stdout
     assert 'Traceback' not in result.stdout + result.stderr
@@ -778,7 +782,9 @@ def test_setup_not_ready_json_is_a_machine_readable_failure_contract(
         'applanix-gsof49-input-missing',
     ]
     assert all(str(bag) in item['next_action'] for item in payload['findings'])
-    assert payload['next_command'] == f'./scripts/lidarslam doctor {bag}'
+    assert payload['next_command'] in {
+        f'{command} doctor {bag}' for command in PRODUCT_COMMANDS
+    }
     assert result.stderr == ''
     assert not bundle.exists()
 
@@ -890,7 +896,10 @@ def test_packet_applanix_start_dry_run_pins_consumed_topics(tmp_path: Path):
     assert payload['pointcloud']['inspection_status'] == 'not_applicable'
     assert payload['calibration']['source'] == 'not_applicable'
     assert payload['parameters'] == []
-    assert payload['run']['argv'][0:2] == ['./scripts/lidarslam', 'run']
+    assert payload['run']['argv'][0:2] in (
+        ['./scripts/lidarslam', 'run'],
+        ['lidarslam-map', 'run'],
+    )
     assert not session.exists()
 
 

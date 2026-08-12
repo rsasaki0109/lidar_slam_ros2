@@ -171,21 +171,32 @@ def test_fresh_workspace_runs_init_update_install_and_check(tmp_path):
     assert result.returncode == 0, result.stderr
     assert 'Source dependencies are ready for ROS 2 jazzy.' in result.stdout
     calls = call_log.read_text(encoding='utf-8').splitlines()
-    assert calls[0:2] == ['sudo rosdep init', 'rosdep init']
-    assert calls[2] == 'rosdep update --rosdistro jazzy'
-    assert calls[3].startswith(
-        'sudo env DEBIAN_FRONTEND=noninteractive apt-get update'
-    )
-    assert calls[4] == 'apt-get update'
-    assert calls[5].startswith(
+    cursor = 0
+    if os.geteuid() != 0:
+        assert calls[cursor] == 'sudo rosdep init'
+        cursor += 1
+    assert calls[cursor] == 'rosdep init'
+    cursor += 1
+    assert calls[cursor] == 'rosdep update --rosdistro jazzy'
+    cursor += 1
+    if os.geteuid() != 0:
+        assert calls[cursor].startswith(
+            'sudo env DEBIAN_FRONTEND=noninteractive apt-get update'
+        )
+        cursor += 1
+    assert calls[cursor] == 'apt-get update'
+    cursor += 1
+    assert calls[cursor].startswith(
         f'rosdep install --from-paths {workspace}/src '
         '--ignore-src --rosdistro jazzy'
     )
-    assert calls[5].endswith(' -r -y')
-    assert calls[6] == (
+    assert calls[cursor].endswith(' -r -y')
+    cursor += 1
+    assert calls[cursor] == (
         f'rosdep check --from-paths {workspace}/src '
         '--ignore-src --rosdistro jazzy'
     )
+    assert cursor == len(calls) - 1
 
 
 def test_complete_cache_and_explicit_workspace_skip_rosdep_bootstrap(tmp_path):

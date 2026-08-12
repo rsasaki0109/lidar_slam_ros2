@@ -1062,7 +1062,9 @@ def test_real_data_e2e_workflow_is_pinned_bounded_and_non_geometry():
 def test_default_container_workflow_trusts_checkout_before_running_git():
     """Container jobs must trust the host-owned Actions checkout."""
     workflow = MAIN_CI_WORKFLOW.read_text(encoding='utf-8')
-    default_workflow = workflow.split('  default-workflow:', 1)[1]
+    default_workflow = workflow.split('  default-workflow:', 1)[1].split(
+        '  release-readiness:', 1
+    )[0]
 
     python_dependencies = default_workflow.index(
         '- name: Install Python test dependencies'
@@ -1073,7 +1075,9 @@ def test_default_container_workflow_trusts_checkout_before_running_git():
     )
     rosdep = default_workflow.index('- name: Initialize rosdep')
     assert 'python3-pip' in default_workflow
+    assert 'iproute2' in default_workflow
     assert 'rosbags==0.11.0' in default_workflow
+    assert 'fetch-depth: 0' in default_workflow
     assert python_dependencies < checkout < safe_directory < rosdep
 
 
@@ -1100,7 +1104,7 @@ def test_release_readiness_checkout_is_exact_head_and_tag_aware():
 
     assert 'uses: actions/checkout@v6' in readiness_job
     assert (
-        'repository: ${{ github.event_name == \'pull_request\' && '
+        "repository: ${{ github.event_name == 'pull_request' && "
         'github.event.pull_request.head.repo.full_name || github.repository }}'
         in readiness_job
     )
