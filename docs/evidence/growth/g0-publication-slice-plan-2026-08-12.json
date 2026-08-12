@@ -1,0 +1,311 @@
+{
+  "schema_version": 1,
+  "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
+  "generated_at": "2026-08-12T14:02:44+09:00",
+  "candidate": {
+    "repository": "rsasaki0109/lidar_slam_ros2",
+    "pull_request": 427,
+    "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
+    "public_head_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
+    "expected_path_count": 164,
+    "expected_paths_sha256": "ccf28e8ccc6944fb395b950c50513c1598d737752874bf789a5320a2f5bc5a05",
+    "scope": "worktree-delta-from-public-pr-head"
+  },
+  "review_slices": [
+    {
+      "id": "S1-runtime-safety",
+      "order": 1,
+      "title": "Runtime point-cloud and VoxelGrid safety",
+      "review_outcome": "Malformed or oversized layouts fail closed without terminating the mapping process, while valid point clouds retain their fields.",
+      "depends_on": [],
+      "paths": [
+        "docs/evidence/voxel-grid-overflow-safety-2026-08-11.md",
+        "graph_based_slam/include/graph_based_slam/pointcloud_conversion.hpp",
+        "graph_based_slam/include/graph_based_slam/registration_factory.hpp",
+        "graph_based_slam/src/graph_based_slam_component_impl.hpp",
+        "graph_based_slam/src/graph_slam_application.cpp",
+        "graph_based_slam/src/graph_slam_offline_runner.cpp",
+        "graph_based_slam/src/graph_slam_ros_adapter.cpp",
+        "graph_based_slam/test/test_pointcloud_conversion.cpp",
+        "scanmatcher/CHANGELOG.rst",
+        "scanmatcher/CMakeLists.txt",
+        "scanmatcher/include/scanmatcher/scanmatcher_component.h",
+        "scanmatcher/src/scanmatcher_component.cpp",
+        "scanmatcher/test/test_scanmatcher_voxel_grid_recovery.cpp"
+      ],
+      "verification": [
+        "colcon test --packages-select graph_based_slam scanmatcher",
+        "colcon test-result --verbose"
+      ],
+      "publication_gate": "PUBLIC_CI"
+    },
+    {
+      "id": "S2-first-map-foundation",
+      "order": 2,
+      "title": "One-command first map and resilient runtime foundation",
+      "review_outcome": "A user can inspect a bag, build a verified map, reopen it in a local 3D preview, and recover from bounded runtime failures.",
+      "depends_on": [
+        "S1-runtime-safety"
+      ],
+      "paths": [
+        ".github/workflows/docker.yml",
+        "Dockerfile",
+        "docs/schemas/first-map-demo-plan-v1.schema.json",
+        "docs/schemas/preflight-v4.schema.json",
+        "graph_based_slam/test/test_autoware_dogfood_script.py",
+        "graph_based_slam/test/test_autoware_map_preflight.py",
+        "graph_based_slam/test/test_autoware_map_run_diagnosis.py",
+        "graph_based_slam/test/test_docker_demo_script.py",
+        "graph_based_slam/test/test_mid360_robot_3d_map_preview.py",
+        "graph_based_slam/test/test_mid360_robot_public_datasets.py",
+        "lidarslam/launch/rko_lio_slam.launch.py",
+        "lidarslam/test/test_autoware_map_runner_script.py",
+        "lidarslam/test/test_docker_map_bag.py",
+        "lidarslam/test/test_first_map_demo.py",
+        "lidarslam/test/test_rko_lio_launch_config.py",
+        "lidarslam/test/test_runtime_docker_image_contract.py",
+        "lidarslam/test/test_view_autoware_map.py",
+        "scripts/docker_map_bag.sh",
+        "scripts/export_mid360_robot_3d_map_preview.py",
+        "scripts/first_map_demo.py",
+        "scripts/mid360_robot_3d_map_preview.py",
+        "scripts/mid360_robot_loop_alignment_analyzer.py",
+        "scripts/mid360_robot_public_datasets.py",
+        "scripts/preflight_autoware_map_bag.py",
+        "scripts/record_backend_input.sh",
+        "scripts/run_autoware_map_from_bag.py",
+        "scripts/run_first_map_demo.sh",
+        "scripts/run_offline_determinism_check.sh",
+        "scripts/run_rko_lio_graph_autoware_dogfood.sh",
+        "scripts/view_autoware_map.py",
+        "scripts/wait_for_offline_output_subscribers.sh"
+      ],
+      "verification": [
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_first_map_demo.py lidarslam/test/test_docker_map_bag.py lidarslam/test/test_view_autoware_map.py",
+        "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_autoware_map_preflight.py graph_based_slam/test/test_docker_demo_script.py"
+      ],
+      "publication_gate": "PUBLIC_CI"
+    },
+    {
+      "id": "S3-map-lifecycle",
+      "order": 3,
+      "title": "Sensor setup, session history, map editing, merging, and support",
+      "review_outcome": "Users can move beyond a first map without hand-editing commands or losing provenance, recovery state, or support-safe evidence.",
+      "depends_on": [
+        "S2-first-map-foundation"
+      ],
+      "paths": [
+        "docs/schemas/map-edit-plan-v1.schema.json",
+        "docs/schemas/map-edit-receipt-v1.schema.json",
+        "docs/schemas/map-merge-receipt-v1.schema.json",
+        "docs/schemas/map-project-v1.schema.json",
+        "docs/schemas/map-session-catalog-v1.schema.json",
+        "docs/schemas/map-session-comparison-v1.schema.json",
+        "docs/schemas/map-session-index-v1.schema.json",
+        "docs/schemas/map-session-recovery-v1.schema.json",
+        "docs/schemas/sensor-setup-rejection-v1.schema.json",
+        "docs/schemas/sensor-setup-v1.schema.json",
+        "docs/schemas/support-bundle-v1.schema.json",
+        "graph_based_slam/test/test_map_edit.py",
+        "graph_based_slam/test/test_map_merge.py",
+        "lidarslam/test/test_sensor_setup_wizard.py",
+        "lidarslam/test/test_session_compare.py",
+        "lidarslam/test/test_session_history.py",
+        "lidarslam/test/test_support_bundle.py",
+        "scripts/apply_map_edit.py",
+        "scripts/map_edit.py",
+        "scripts/map_merge.py",
+        "scripts/merge_map_sessions.py",
+        "scripts/sensor_setup_wizard.py",
+        "scripts/session_compare.py",
+        "scripts/session_history.py",
+        "scripts/support_bundle.py"
+      ],
+      "verification": [
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_sensor_setup_wizard.py lidarslam/test/test_session_history.py lidarslam/test/test_session_compare.py lidarslam/test/test_support_bundle.py",
+        "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_map_edit.py graph_based_slam/test/test_map_merge.py"
+      ],
+      "publication_gate": "LOCAL_REVIEW"
+    },
+    {
+      "id": "S4-source-onboarding",
+      "order": 4,
+      "title": "Fresh-terminal source install and public onboarding measurement",
+      "review_outcome": "Humble and Jazzy users receive one exact six-package source route with dependency bootstrap, launcher activation, installed checks, and a public-readiness preflight.",
+      "depends_on": [
+        "S2-first-map-foundation"
+      ],
+      "paths": [
+        "docs/evidence/growth/contributor-python-test-entrypoint-2026-08-11.md",
+        "docs/evidence/ros-apt-dependency-readiness-2026-08-12.json",
+        "docs/evidence/source-all-packages-install-2026-08-12.md",
+        "docs/evidence/source-launcher-activation-2026-08-12.md",
+        "docs/evidence/source-onboarding-public-preflight-2026-08-12.md",
+        "graph_based_slam/test/test_product_python_tests_script.py",
+        "lidarslam/test/test_install_source_dependencies.py",
+        "lidarslam/test/test_installed_product_cli_contract.py",
+        "lidarslam/test/test_run_source_onboarding_probe.py",
+        "lidarslam/test/test_source_quickstart.py",
+        "scripts/check_installed_product_cli.py",
+        "scripts/install_source_dependencies.sh",
+        "scripts/lidarslam",
+        "scripts/run_product_python_tests.sh",
+        "scripts/run_source_onboarding_probe.py",
+        "scripts/source_quickstart.sh"
+      ],
+      "verification": [
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_install_source_dependencies.py lidarslam/test/test_source_quickstart.py lidarslam/test/test_run_source_onboarding_probe.py",
+        "bash scripts/source_quickstart.sh --dry-run --workspace /tmp/lidarslam-source-plan"
+      ],
+      "publication_gate": "PUBLIC_CI"
+    },
+    {
+      "id": "S5-distribution-readiness",
+      "order": 5,
+      "title": "NDT dependency, clone-free launcher, and ROS distribution readiness",
+      "review_outcome": "Release tooling reports package-manager blockers honestly, binds the standalone launcher to immutable release identity, refuses historical version reuse, and keeps publication separate from local readiness.",
+      "depends_on": [
+        "S1-runtime-safety",
+        "S4-source-onboarding"
+      ],
+      "paths": [
+        ".gitattributes",
+        ".github/workflows/release.yml",
+        "docs/contracts/canonical-ndt-convergence-v1.json",
+        "docs/contracts/v1-readiness.json",
+        "docs/distribution.md",
+        "docs/evidence/growth/clone-free-docker-launcher-2026-08-12.md",
+        "docs/evidence/ndt-omp-release-review-2026-08-12.md",
+        "docs/roadmap/v0.9.md",
+        "docs/rosdistro-release.md",
+        "docs/schemas/canonical-ndt-convergence-contract-v1.schema.json",
+        "docs/schemas/canonical-ndt-convergence-readiness-v1.schema.json",
+        "docs/schemas/ndt-omp-release-readiness-v2.schema.json",
+        "docs/schemas/published-release-v1.schema.json",
+        "docs/schemas/v1-readiness-report-v1.schema.json",
+        "docs/v1-readiness.md",
+        "lidarslam/test/test_build_docker_launcher_asset.py",
+        "lidarslam/test/test_canonical_ndt_convergence.py",
+        "lidarslam/test/test_ndt_omp_release_readiness.py",
+        "lidarslam/test/test_published_release.py",
+        "lidarslam/test/test_release_image_promotion.py",
+        "lidarslam/test/test_v1_readiness.py",
+        "packaging/ndt_omp/koide3-ndt-omp-lidarslam-priors.patch",
+        "packaging/ndt_omp/lidarslam-canonical-ndt-transition.patch",
+        "scripts/build_docker_launcher_asset.py",
+        "scripts/build_release_bundle.py",
+        "scripts/check_canonical_ndt_convergence.py",
+        "scripts/check_ndt_omp_release_readiness.py",
+        "scripts/check_published_release.py",
+        "scripts/check_v1_readiness.py"
+      ],
+      "verification": [
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_ndt_omp_release_readiness.py lidarslam/test/test_release_image_promotion.py lidarslam/test/test_v1_readiness.py",
+        "python3 scripts/check_ndt_omp_release_readiness.py --json",
+        "python3 scripts/check_canonical_ndt_convergence.py --json",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_build_docker_launcher_asset.py lidarslam/test/test_published_release.py"
+      ],
+      "publication_gate": "MAINTAINER_DECISION"
+    },
+    {
+      "id": "S6-product-shell-integration",
+      "order": 6,
+      "title": "Beginner-facing product shell, installed surface, docs, and support entrypoints",
+      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, installed runtime surface, and copy-ready documentation.",
+      "depends_on": [
+        "S1-runtime-safety",
+        "S2-first-map-foundation",
+        "S3-map-lifecycle",
+        "S4-source-onboarding",
+        "S5-distribution-readiness"
+      ],
+      "paths": [
+        ".github/ISSUE_TEMPLATE/bug-report.yml",
+        ".github/ISSUE_TEMPLATE/config.yml",
+        ".github/ISSUE_TEMPLATE/sensor-support.yml",
+        "CONTRIBUTING.md",
+        "README.md",
+        "SUPPORT.md",
+        "docs/autoware-map-authoring.md",
+        "docs/autoware-quickstart.md",
+        "docs/cli-compatibility.md",
+        "docs/contracts/cli-v1.json",
+        "docs/contracts/contributor-starter-queue-v1.json",
+        "docs/contracts/g0-onboarding-matrix-evidence-v1.json",
+        "docs/evidence/growth/community-contributor-backlog-2026-08-11.md",
+        "docs/evidence/growth/contributor-product-surface-sync-2026-08-12.md",
+        "docs/evidence/growth/glim-parity-system-doctor-2026-08-12.md",
+        "docs/evidence/growth/onboarding-matrix-index-2026-08-12.md",
+        "docs/evidence/interactive-home-2026-08-12.md",
+        "docs/external-first-map-validation.md",
+        "docs/getting-started.md",
+        "docs/golden-path-cli.md",
+        "docs/onboarding-trial-execution.md",
+        "docs/onboarding-trials.md",
+        "docs/product-contract.md",
+        "docs/roadmap/1000-stars.md",
+        "docs/schemas/contributor-starter-queue-v1.schema.json",
+        "docs/schemas/onboarding-matrix-evidence-index-v1.schema.json",
+        "docs/schemas/system-doctor-v1.schema.json",
+        "docs/workflows.md",
+        "graph_based_slam/CMakeLists.txt",
+        "graph_based_slam/test/test_docs_entrypoints.py",
+        "graph_based_slam/test/test_lidarslam_product_cli.py",
+        "lidarslam/CMakeLists.txt",
+        "lidarslam/product-runtime-files.txt",
+        "lidarslam/test/test_check_onboarding_trial_matrix.py",
+        "lidarslam/test/test_cli_interactive_home.py",
+        "lidarslam/test/test_cli_option_contract.py",
+        "lidarslam/test/test_contributor_starter_queue.py",
+        "lidarslam/test/test_lidarslam_doctor.py",
+        "lidarslam/test/test_lidarslam_guided.py",
+        "scripts/check_onboarding_trial_matrix.py",
+        "scripts/completions/lidarslam-map.bash",
+        "scripts/contributor_starter_queue.py",
+        "scripts/lidarslam_cli.py",
+        "scripts/lidarslam_doctor.py",
+        "scripts/lidarslam_guided.py"
+      ],
+      "verification": [
+        "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_docs_entrypoints.py graph_based_slam/test/test_lidarslam_product_cli.py",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_check_onboarding_trial_matrix.py lidarslam/test/test_cli_interactive_home.py lidarslam/test/test_cli_option_contract.py lidarslam/test/test_contributor_starter_queue.py lidarslam/test/test_lidarslam_doctor.py lidarslam/test/test_lidarslam_guided.py",
+        "python3 scripts/check_onboarding_trial_matrix.py --json",
+        "python3 scripts/contributor_starter_queue.py --json",
+        "mkdocs build --strict"
+      ],
+      "publication_gate": "PUBLIC_CI"
+    },
+    {
+      "id": "S7-publication-control",
+      "order": 7,
+      "title": "Exact publication inventory and authority boundary",
+      "review_outcome": "Every follow-up path has one review owner, dependency order is explicit, and a valid local plan cannot authorize or claim a GitHub mutation.",
+      "depends_on": [
+        "S1-runtime-safety",
+        "S2-first-map-foundation",
+        "S3-map-lifecycle",
+        "S4-source-onboarding",
+        "S5-distribution-readiness",
+        "S6-product-shell-integration"
+      ],
+      "paths": [
+        "docs/evidence/growth/g0-publication-slice-plan-2026-08-12.json",
+        "docs/evidence/growth/g0-publication-slice-plan-2026-08-12.md",
+        "docs/schemas/publication-slice-plan-v1.schema.json",
+        "lidarslam/test/test_check_publication_slice_plan.py",
+        "scripts/check_publication_slice_plan.py"
+      ],
+      "verification": [
+        "python3 scripts/check_publication_slice_plan.py --json",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_check_publication_slice_plan.py"
+      ],
+      "publication_gate": "MAINTAINER_DECISION"
+    }
+  ],
+  "authority": {
+    "status": "LOCAL_PLAN_ONLY",
+    "github_writes_authorized": false,
+    "remote_mutations_performed": false,
+    "next_external_action": "maintainer approval for exact candidate tip and non-force PR update"
+  }
+}
