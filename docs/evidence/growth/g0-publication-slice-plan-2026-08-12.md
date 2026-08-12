@@ -66,6 +66,24 @@ validated against
 [`publication-slice-plan-v1.schema.json`](../../schemas/publication-slice-plan-v1.schema.json)
 by `python3 scripts/check_publication_slice_plan.py --json`.
 
+Reviewers can request one bounded, read-only card without manually extracting
+paths or commands from the complete plan:
+
+```bash
+python3 scripts/check_publication_slice_plan.py --slice S1-runtime-safety
+python3 scripts/check_publication_slice_plan.py \
+  --slice S1-runtime-safety --json
+```
+
+The card revalidates the complete inventory and lineage first, then binds the
+selected review outcome, dependency list, exact paths, verification commands,
+publication gate, public PR head, local HEAD, unpublished-commit count, and
+current worktree cleanliness. A dirty worktree is shown with its uncommitted
+path count rather than being mislabeled as an exact-tip candidate. The card
+does not execute the displayed commands and cannot authorize or report a
+GitHub mutation. An unknown slice ID fails closed and lists the seven valid
+IDs.
+
 ## Fail-closed invariants
 
 The checker derives the candidate directly from Git rather than trusting the
@@ -89,13 +107,13 @@ cannot bypass live Git coverage.
 | Check | Result |
 | --- | --- |
 | exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 201 paths, 7 slices, no remote mutation |
-| checker regressions | 11 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, and self-contained read-only source dry-run execution |
+| checker regressions | 14 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, and self-contained read-only source dry-run execution |
 | focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
 | validator cohort contract and operating state | 31 passed; path-specific immutable runtime identity, anonymized attempt lifecycle, accepted-ledger evidence binding, four operational stop signals, 48-hour freshness, WIP, batch/target transitions, attempt-10 thresholds, and a one-action human status card are enforced through the CLI; recruitment render remains blocked; no write authority |
 | weekly growth snapshot | 14 passed; new snapshots re-derive cohort count/rate/state consistency while the immutable historical baseline remains schema-valid and identity-free |
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
-| complete maintained Python gate | graph: 1,433 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 748 passed; 2,181 total |
+| complete maintained Python gate | graph: 1,433 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 751 passed; 2,184 total |
 | scanmatcher clean build and CTest | Jazzy RAM-backed clean build of `lidarslam_msgs`, `ndt_omp_ros2`, and `scanmatcher`; 109 tests passed |
 | review follow-up regressions | malformed PointCloud2 recovery with padded organized XYZ-only continuation, metadata tile containment, source-bundle symlink rejection, non-interpolated immutable release-tag checkout, least-privilege release jobs, and self-contained source dry-run are covered |
 | new Python style | `ament_flake8`: 4 files checked, no problems |

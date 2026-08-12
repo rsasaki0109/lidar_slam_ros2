@@ -94,6 +94,11 @@ def test_tracked_plan_covers_the_exact_candidate_once():
     assert report['public_head_sha'] == (
         'b12fc602ed7902c8173a129b69d7ab44908bc5ad'
     )
+    assert report['local_tip_sha'] == CHECKER._run_git(['rev-parse', 'HEAD'])[0]
+    assert report['unpublished_commit_count'] >= 1
+    status = CHECKER._run_git(['status', '--short'])
+    assert report['worktree_clean'] is (not status)
+    assert report['uncommitted_path_count'] == len(status)
     assert report['scope'] == 'worktree-delta-from-pr-base'
     assert report['path_count'] == 201
     assert report['slice_count'] == 7
@@ -213,6 +218,77 @@ def test_cli_emits_a_machine_readable_local_only_report():
     assert report['public_head_sha'] == (
         'b12fc602ed7902c8173a129b69d7ab44908bc5ad'
     )
+    assert report['local_tip_sha'] == CHECKER._run_git(['rev-parse', 'HEAD'])[0]
+    assert report['unpublished_commit_count'] >= 1
+    status = CHECKER._run_git(['status', '--short'])
+    assert report['worktree_clean'] is (not status)
+    assert report['uncommitted_path_count'] == len(status)
     assert report['path_count'] == 201
     assert report['github_writes_authorized'] is False
+    assert report['remote_mutations_performed'] is False
+
+
+def test_slice_json_binds_exact_scope_without_executing_commands():
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            '--slice',
+            'S1-runtime-safety',
+            '--json',
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+    review_slice = report['review_slice']
+    assert report['status'] == 'SLICE_REVIEW_READY_LOCAL_ONLY'
+    assert review_slice['id'] == 'S1-runtime-safety'
+    assert review_slice['order'] == 1
+    assert report['candidate']['slice_count'] == 7
+    assert report['candidate']['uncommitted_path_count'] >= 0
+    assert review_slice['path_count'] == 13
+    assert review_slice['depends_on'] == []
+    assert review_slice['publication_gate'] == 'PUBLIC_CI'
+    assert report['commands_executed'] is False
+    assert report['github_writes_authorized'] is False
+    assert report['remote_mutations_performed'] is False
+
+
+def test_slice_human_card_has_one_safe_next_action():
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), '--slice', 'S7-publication-control'],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert '# S7-publication-control:' in result.stdout
+    assert '- Commands executed by this card: no' in result.stdout
+    assert '- GitHub write authorized: no' in result.stdout
+    assert '- Worktree clean:' in result.stdout
+    assert '- Uncommitted paths:' in result.stdout
+    assert result.stdout.count('Next action:') == 1
+
+
+def test_unknown_slice_fails_closed_and_lists_valid_ids():
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), '--slice', 'S8-not-real', '--json'],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    report = json.loads(result.stdout)
+    assert report['status'] == 'PLAN_INVALID'
+    assert 'unknown review slice' in report['error']
+    assert 'S1-runtime-safety' in report['error']
     assert report['remote_mutations_performed'] is False

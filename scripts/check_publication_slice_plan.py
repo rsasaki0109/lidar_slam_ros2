@@ -131,17 +131,26 @@ def _validate_repo_path(path: str) -> None:
 def _validate_candidate_lineage(
     base_sha: str,
     public_head_sha: str,
-) -> None:
+) -> tuple[str, int]:
     """Require the recorded public PR head between the PR base and local tip."""
     try:
         base_to_public = _run_git(['merge-base', base_sha, public_head_sha])
         public_to_local = _run_git(['merge-base', public_head_sha, 'HEAD'])
+        local_tip = _run_git(['rev-parse', 'HEAD'])
+        unpublished_count = _run_git([
+            'rev-list', '--count', f'{public_head_sha}..HEAD',
+        ])
     except PlanError as exc:
         raise PlanError('candidate lineage cannot be verified') from exc
     if base_to_public != [base_sha]:
         raise PlanError('public PR head does not descend from the PR base')
     if public_to_local != [public_head_sha]:
         raise PlanError('local candidate does not descend from public PR head')
+    if len(local_tip) != 1 or len(local_tip[0]) != 40:
+        raise PlanError('local candidate tip could not be resolved exactly')
+    if len(unpublished_count) != 1 or not unpublished_count[0].isdigit():
+        raise PlanError('unpublished commit count could not be resolved')
+    return local_tip[0], int(unpublished_count[0])
 
 
 def validate_plan(
@@ -164,10 +173,11 @@ def validate_plan(
         raise PlanError('plan schema_uri is not the supported v1 URI')
 
     candidate = plan['candidate']
-    _validate_candidate_lineage(
+    local_tip_sha, unpublished_commit_count = _validate_candidate_lineage(
         candidate['base_sha'],
         candidate['public_head_sha'],
     )
+    worktree_status = _run_git(['status', '--short'])
     slices = plan['review_slices']
     slice_ids = [item['id'] for item in slices]
     orders = [item['order'] for item in slices]
@@ -228,6 +238,10 @@ def validate_plan(
         'status': 'PLAN_VALID_LOCAL_ONLY',
         'base_sha': candidate['base_sha'],
         'public_head_sha': candidate['public_head_sha'],
+        'local_tip_sha': local_tip_sha,
+        'unpublished_commit_count': unpublished_commit_count,
+        'worktree_clean': not worktree_status,
+        'uncommitted_path_count': len(worktree_status),
         'scope': candidate['scope'],
         'pull_request': candidate['pull_request'],
         'path_count': len(canonical_actual),
@@ -239,10 +253,110 @@ def validate_plan(
     }
 
 
+def build_slice_review_report(
+    plan: dict[str, Any],
+    validation_report: dict[str, Any],
+    slice_id: str,
+) -> dict[str, Any]:
+    """Return one exact, read-only review focus from a validated plan."""
+    review_slice = next(
+        (item for item in plan['review_slices'] if item['id'] == slice_id),
+        None,
+    )
+    if review_slice is None:
+        available = ', '.join(item['id'] for item in plan['review_slices'])
+        raise PlanError(
+            f'unknown review slice {slice_id!r}; available slices: {available}')
+
+    return {
+        'status': 'SLICE_REVIEW_READY_LOCAL_ONLY',
+        'candidate': {
+            'base_sha': validation_report['base_sha'],
+            'public_head_sha': validation_report['public_head_sha'],
+            'local_tip_sha': validation_report['local_tip_sha'],
+            'unpublished_commit_count': validation_report[
+                'unpublished_commit_count'
+            ],
+            'pull_request': validation_report['pull_request'],
+            'slice_count': validation_report['slice_count'],
+            'worktree_clean': validation_report['worktree_clean'],
+            'uncommitted_path_count': validation_report[
+                'uncommitted_path_count'
+            ],
+        },
+        'review_slice': {
+            'id': review_slice['id'],
+            'order': review_slice['order'],
+            'title': review_slice['title'],
+            'review_outcome': review_slice['review_outcome'],
+            'depends_on': list(review_slice['depends_on']),
+            'path_count': len(review_slice['paths']),
+            'paths': list(review_slice['paths']),
+            'verification': list(review_slice['verification']),
+            'publication_gate': review_slice['publication_gate'],
+        },
+        'commands_executed': False,
+        'github_writes_authorized': False,
+        'remote_mutations_performed': False,
+    }
+
+
+def render_slice_review_card(report: dict[str, Any]) -> str:
+    """Render one copy-ready, human-facing publication review card."""
+    candidate = report['candidate']
+    review_slice = report['review_slice']
+    dependencies = review_slice['depends_on']
+    lines = [
+        f"# {review_slice['id']}: {review_slice['title']}",
+        '',
+        f"- Review order: {review_slice['order']} of {candidate['slice_count']}",
+        f"- Paths: {review_slice['path_count']}",
+        f"- Depends on: {', '.join(dependencies) if dependencies else 'none'}",
+        f"- Publication gate: {review_slice['publication_gate']}",
+        f"- Public PR head: {candidate['public_head_sha']}",
+        f"- Local HEAD: {candidate['local_tip_sha']}",
+        (
+            '- Unpublished commits after public head: '
+            f"{candidate['unpublished_commit_count']}"
+        ),
+        f"- Worktree clean: {'yes' if candidate['worktree_clean'] else 'no'}",
+        (
+            '- Uncommitted paths: '
+            f"{candidate['uncommitted_path_count']}"
+        ),
+        '- Commands executed by this card: no',
+        '- GitHub write authorized: no',
+        '',
+        'Review outcome:',
+        review_slice['review_outcome'],
+        '',
+        'Paths:',
+        *(f'- {path}' for path in review_slice['paths']),
+        '',
+        'Verification commands:',
+    ]
+    for command in review_slice['verification']:
+        lines.extend(['', '```bash', command, '```'])
+    lines.extend([
+        '',
+        (
+            'Next action: Review these paths in order, then run the listed '
+            'commands and record their results without treating this card as '
+            'publication approval.'
+        ),
+    ])
+    return '\n'.join(lines)
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--plan', type=Path, default=DEFAULT_PLAN)
     parser.add_argument('--schema', type=Path, default=DEFAULT_SCHEMA)
+    parser.add_argument(
+        '--slice',
+        metavar='ID',
+        help='Render one validated review slice without running its commands.',
+    )
     parser.add_argument('--json', action='store_true')
     return parser.parse_args(argv)
 
@@ -254,6 +368,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         schema = _load_json(args.schema, 'schema')
         paths = candidate_paths(plan.get('candidate', {}).get('base_sha', ''))
         report = validate_plan(plan, schema, paths)
+        if args.slice:
+            report = build_slice_review_report(plan, report, args.slice)
     except PlanError as exc:
         if args.json:
             print(json.dumps({
@@ -267,6 +383,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
+    elif args.slice:
+        print(render_slice_review_card(report))
     else:
         print(
             'PASS: publication slice plan covers '
