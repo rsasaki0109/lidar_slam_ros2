@@ -10,12 +10,12 @@
 > Planned follow-up inventory: 188 paths; SHA-256
 > `e40852ea812a6f4c2a89ac7ce09261e267a0aa64558c8c1928753ba077428396`
 >
-> Remote mutations performed by this planning pass: **none**
+> Remote mutations performed by this review pass: **none**
 
 ## Outcome
 
 The local GLIM-convenience follow-up is now split into seven dependency-ordered
-review focuses. Every tracked or untracked path relative to the public PR head
+review focuses. Every tracked or untracked path relative to the exact follow-up base
 has exactly one primary review owner. A fail-closed checker rejects missing,
 stale, duplicated, unsafe, or digest-drifted paths and rejects a plan that
 claims GitHub write authority.
@@ -33,16 +33,17 @@ The GitHub repository and PR were inspected without mutation:
 
 - Draft PR `#427`, `Prepare crash-safe guided mapping for G0 review`, remains
   open, draft, and mergeable into `develop`;
-- the PR head and clean public worktree both resolve to `3f4dd70`;
-- the PR currently exposes 116 changed files and 44 commits;
+- the public PR head resolves to `b12fc60`; the review fixes remain local-only;
+- the PR currently exposes 253 changed files and 55 commits;
 - all nine reported GitHub Actions checks pass on the public head, including
   Humble/Jazzy builds, default workflows, upgrade checks, documentation, and
   release-readiness guards; and
 - no PR conversation, inline review, or submitted review was present at the
   observation time.
 
-Passing checks on `3f4dd70` do not validate the unpushed follow-up. Public CI
-must run again on the exact future candidate tip.
+Passing checks on `b12fc60` validate the published seven-slice candidate, but
+do not validate the current local review fixes. Public CI must run again
+on the exact future candidate tip.
 
 ## Review order
 
@@ -84,13 +85,15 @@ cannot bypass live Git coverage.
 | Check | Result |
 | --- | --- |
 | exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 188 paths, 7 slices, no remote mutation |
-| checker regressions | 9 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, and authority rejection |
-| focused graph product/docs regressions | 24 passed in a Jazzy-sourced isolated package process |
+| checker regressions | 10 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, authority rejection, and self-contained read-only source dry-run execution |
+| focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
 | focused lidar_slam CLI/queue/plan/scorecard regressions | 91 passed in an isolated package process |
-| complete maintained Python gate | graph: 1,431 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 707 passed; 2,138 total |
-| new Python style | full `python3 -m flake8`: 2 files checked, no problems |
+| complete maintained Python gate | graph: 1,433 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 708 passed; 2,141 total |
+| scanmatcher clean build and CTest | Jazzy RAM-backed clean build of `lidarslam_msgs`, `ndt_omp_ros2`, and `scanmatcher`; 109 tests passed |
+| review follow-up regressions | malformed PointCloud2 recovery with padded organized XYZ-only continuation, metadata tile containment, source-bundle symlink rejection, non-interpolated immutable release-tag checkout, least-privilege release jobs, and self-contained source dry-run are covered |
+| new Python style | `ament_flake8`: 4 files checked, no problems |
 | documentation | `mkdocs build --strict`: PASS with pre-existing Material and navigation notices |
-| machine formats and shells | all 96 candidate JSON files parse; changed shell syntax and staged `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
+| machine formats and shells | all 32 planned JSON files parse; all 9 planned shell files pass `bash -n`; `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
 
 The two package test directories were intentionally run in separate pytest
 processes through the repository's canonical contributor entrypoint because
@@ -100,10 +103,10 @@ complete gate.
 
 ## Publication boundary
 
-The approved CI/version-fix pass authorizes one local commit after complete
-gates. It does not authorize a push, PR update, comment, review, merge, tag,
-release, package, image, issue, label, or external dependency change. Earlier
-push approvals do not automatically extend to the new exact tip.
+The review follow-up remains local and this plan does not authorize a push, PR
+update, comment, review, merge, tag, release, package, image, issue, label, or
+external dependency change. Earlier push approvals do not automatically
+extend to the new exact tip.
 
 Before any publication, validate the clean exact-tip candidate from these
 slices, inspect the resulting diff and object inventory, and request a

@@ -270,6 +270,70 @@ def test_candidate_cannot_be_created_inside_source_bundle(tmp_path: Path):
     assert not (source / 'edited').exists()
 
 
+def test_metadata_tile_path_cannot_escape_staging(tmp_path: Path):
+    """A hostile metadata key must not read, rewrite, or remove an external PCD."""
+    source = _write_bundle(tmp_path / 'source')
+    outside = tmp_path / 'outside.pcd'
+    outside.write_bytes((source / 'map.pcd').read_bytes())
+    outside_before = outside.read_bytes()
+    metadata_path = source / 'pointcloud_map' / 'pointcloud_map_metadata.yaml'
+    metadata = yaml.safe_load(metadata_path.read_text(encoding='utf-8'))
+    metadata['../../../outside.pcd'] = [0, 0]
+    metadata_path.write_text(
+        yaml.safe_dump(metadata, sort_keys=False), encoding='utf-8'
+    )
+    plan = _write_plan(
+        tmp_path / 'plan.json',
+        source,
+        [{
+            'id': 'remove-origin',
+            'type': 'remove_box',
+            'min_xyz': [-0.5, -0.5, -0.5],
+            'max_xyz': [0.5, 0.5, 0.5],
+        }],
+    )
+
+    with pytest.raises(MapEditError, match='unsafe tile path'):
+        apply_map_edit(
+            source_dir=source,
+            plan_path=plan,
+            output_dir=tmp_path / 'candidate',
+        )
+
+    assert outside.read_bytes() == outside_before
+    assert not (tmp_path / 'candidate').exists()
+
+
+def test_source_bundle_symlink_cannot_import_external_content(tmp_path: Path):
+    """A source symlink must not be dereferenced into the edited bundle."""
+    source = _write_bundle(tmp_path / 'source')
+    external = tmp_path / 'private.txt'
+    external.write_text('must stay outside\n', encoding='utf-8')
+    (source / 'operator-note.txt').symlink_to(external)
+    plan = _write_plan(
+        tmp_path / 'plan.json',
+        source,
+        [{
+            'id': 'remove-origin',
+            'type': 'remove_box',
+            'min_xyz': [-0.5, -0.5, -0.5],
+            'max_xyz': [0.5, 0.5, 0.5],
+        }],
+    )
+
+    with pytest.raises(
+        MapEditError, match='source map bundle must not contain symlinks'
+    ):
+        apply_map_edit(
+            source_dir=source,
+            plan_path=plan,
+            output_dir=tmp_path / 'candidate',
+        )
+
+    assert external.read_text(encoding='utf-8') == 'must stay outside\n'
+    assert not (tmp_path / 'candidate').exists()
+
+
 def test_geometry_change_invalidates_plan_even_when_manifest_is_unchanged(
     tmp_path: Path,
 ):

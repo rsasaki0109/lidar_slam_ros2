@@ -3,20 +3,20 @@
 
 from __future__ import annotations
 
+from contextlib import redirect_stdout
 import csv
+from dataclasses import dataclass
+from datetime import datetime, timezone
 import hashlib
 import io
 import json
 import math
 import os
+from pathlib import Path
 import shutil
 import struct
 import subprocess
 import tempfile
-from contextlib import redirect_stdout
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from mid360_robot_loop_alignment_analyzer import _decompress_lzf
@@ -98,6 +98,16 @@ def resolve_bundle_dir(path: Path) -> Path:
         f'map_bundle.yaml was not found under {resolved}; pass a completed map bundle '
         'or its run directory.'
     )
+
+
+def _reject_source_symlinks(bundle_dir: Path) -> None:
+    """Prevent a map edit from importing files outside its source bundle."""
+    for candidate in bundle_dir.rglob('*'):
+        if candidate.is_symlink():
+            raise MapEditError(
+                'source map bundle must not contain symlinks: '
+                f'{candidate.relative_to(bundle_dir)}'
+            )
 
 
 def load_edit_plan(path: Path) -> dict[str, Any]:
@@ -190,8 +200,9 @@ def validate_source_identity(bundle_dir: Path, plan: dict[str, Any]) -> str:
     expected = str(plan['source']['map_bundle_sha256']).lower()
     if actual != expected:
         raise MapEditError(
-            'edit plan source mismatch: map_bundle.yaml changed or belongs to another map '
-            f'(expected {expected}, got {actual}). Reopen the current preview and export a new plan.'
+            'edit plan source mismatch: map_bundle.yaml changed or belongs '
+            f'to another map (expected {expected}, got {actual}). Reopen '
+            'the current preview and export a new plan.'
         )
     identities = {
         'full_map_sha256': sha256_file(_bundle_artifact_path(bundle_dir, 'full_map')),
@@ -276,6 +287,7 @@ def apply_map_edit(
 ) -> dict[str, Any]:
     """Apply one edit plan into a new, verified map bundle."""
     bundle_dir = resolve_bundle_dir(source_dir)
+    _reject_source_symlinks(bundle_dir)
     plan_path = plan_path.expanduser().resolve()
     output_dir = output_dir.expanduser().resolve()
     plan = load_edit_plan(plan_path)
@@ -290,7 +302,8 @@ def apply_map_edit(
             params_path = inferred_params
     if output_dir.exists():
         raise MapEditError(
-            f'output already exists: {output_dir}. Choose a new directory; edits never overwrite maps.'
+            f'output already exists: {output_dir}. Choose a new directory; '
+            'edits never overwrite maps.'
         )
     try:
         output_dir.relative_to(bundle_dir)
@@ -329,9 +342,8 @@ def apply_map_edit(
         dir=output_dir.parent,
     ) as temporary:
         staging = Path(temporary) / 'candidate'
-        # Dereference any internal symlinks while copying. Preserving a PCD
-        # symlink would make the subsequent write follow it back into the
-        # source bundle and violate the non-destructive contract.
+        # The source bundle was checked above, so this copy cannot import an
+        # external symlink target or preserve a link that later writes back.
         shutil.copytree(bundle_dir, staging, symlinks=False)
         replay_report: dict[str, Any] = {'performed': False}
         if loop_operations:
@@ -505,10 +517,15 @@ def _replay_without_disabled_loops(
             'offline replay did not preserve required evidence: '
             + ', '.join(missing_evidence)
         )
-    shutil.copy2(required['map_optimized.pcd'], _bundle_artifact_path(staging, 'full_map'))
-    shutil.copy2(required['trajectory_optimized.tum'], _bundle_artifact_path(staging, 'trajectory'))
-    shutil.copy2(required['pose_graph.g2o'], _bundle_artifact_path(staging, 'pose_graph'))
-    shutil.copy2(required['loop_edges.csv'], _bundle_artifact_path(staging, 'loop_edges'))
+    for source_name, artifact_name in (
+        ('map_optimized.pcd', 'full_map'),
+        ('trajectory_optimized.tum', 'trajectory'),
+        ('pose_graph.g2o', 'pose_graph'),
+        ('loop_edges.csv', 'loop_edges'),
+    ):
+        shutil.copy2(
+            required[source_name], _bundle_artifact_path(staging, artifact_name)
+        )
     _retile_full_map(staging)
     manifest = _load_bundle_manifest(staging)
     manifest['loop_edge_count'] = len(retained)
@@ -727,9 +744,34 @@ def _filter_pcd(
     boxes: list[tuple[tuple[float, float, float], tuple[float, float, float]]],
 ) -> tuple[int, int]:
     layout, records = _binary_records(path)
-    kept = [record for record in records if not _inside_boxes(_xyz_from_record(layout, record), boxes)]
+    kept = [
+        record
+        for record in records
+        if not _inside_boxes(_xyz_from_record(layout, record), boxes)
+    ]
     _write_binary_pcd(path, layout, kept)
     return len(records), len(kept)
+
+
+def _metadata_tile_path(pointcloud_dir: Path, name: str) -> Path:
+    """Resolve one metadata tile without allowing traversal or symlinks."""
+    relative = Path(name)
+    if (
+        relative.is_absolute()
+        or len(relative.parts) != 1
+        or relative.name != name
+        or '/' in name
+        or '\\' in name
+    ):
+        raise MapEditError(
+            f'pointcloud metadata contains an unsafe tile path: {name!r}'
+        )
+    path = pointcloud_dir / relative
+    if path.is_symlink():
+        raise MapEditError(
+            f'pointcloud metadata tile must not be a symlink: {name!r}'
+        )
+    return path
 
 
 def _apply_remove_boxes(
@@ -746,7 +788,7 @@ def _apply_remove_boxes(
     after = 0
     removed_tiles = []
     for name in tile_names:
-        path = pointcloud_dir / name
+        path = _metadata_tile_path(pointcloud_dir, name)
         tile_before, tile_after = _filter_pcd(path, boxes)
         before += tile_before
         after += tile_after
@@ -787,7 +829,9 @@ def _metadata_point_count(staging: Path) -> int:
     total = 0
     for name in metadata:
         if str(name).endswith('.pcd'):
-            total += _pcd_layout(pointcloud_dir / str(name)).points
+            total += _pcd_layout(
+                _metadata_tile_path(pointcloud_dir, str(name))
+            ).points
     return total
 
 

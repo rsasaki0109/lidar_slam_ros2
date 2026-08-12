@@ -1,6 +1,7 @@
 #include "scanmatcher/scanmatcher_component.h"
 #include "scanmatcher/voxel_grid_safety.hpp"
 #include "scanmatcher/odom_prior_utils.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -9,6 +10,8 @@
 #include <limits>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <sstream>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <pcl/common/common.h>
@@ -36,12 +39,151 @@ bool pointCloudHasField(const sensor_msgs::msg::PointCloud2 & msg, const std::st
   return false;
 }
 
-PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg::PointCloud2 & msg)
+bool checkedMultiply(size_t lhs, size_t rhs, size_t * product)
+{
+  if (lhs != 0U && rhs > std::numeric_limits<size_t>::max() / lhs) {
+    return false;
+  }
+  *product = lhs * rhs;
+  return true;
+}
+
+bool validateFloatField(
+  const sensor_msgs::msg::PointCloud2 & msg,
+  const std::string & name,
+  bool required,
+  std::string * error)
+{
+  const sensor_msgs::msg::PointField * match = nullptr;
+  for (const auto & field : msg.fields) {
+    if (field.name != name) {
+      continue;
+    }
+    if (match != nullptr) {
+      *error = "duplicate '" + name + "' field";
+      return false;
+    }
+    match = &field;
+  }
+  if (match == nullptr) {
+    if (required) {
+      *error = "missing required '" + name + "' field";
+      return false;
+    }
+    return true;
+  }
+  if (
+    match->datatype != sensor_msgs::msg::PointField::FLOAT32 ||
+    match->count < 1U)
+  {
+    *error = "field '" + name + "' must be FLOAT32 with count >= 1";
+    return false;
+  }
+  if (
+    msg.point_step < sizeof(float) ||
+    match->offset > msg.point_step - sizeof(float))
+  {
+    *error = "field '" + name + "' extends past point_step";
+    return false;
+  }
+  return true;
+}
+
+bool validatePointCloudLayout(
+  const sensor_msgs::msg::PointCloud2 & msg,
+  size_t * point_count,
+  std::string * error)
+{
+  *point_count = 0U;
+  error->clear();
+  if (msg.is_bigendian) {
+    *error = "big-endian PointCloud2 fields are not supported";
+    return false;
+  }
+  if (msg.width == 0U || msg.height == 0U) {
+    *error = "width and height must both be greater than zero";
+    return false;
+  }
+  if (msg.point_step == 0U) {
+    *error = "point_step must be greater than zero";
+    return false;
+  }
+
+  size_t packed_row_size = 0U;
+  if (!checkedMultiply(msg.width, msg.point_step, &packed_row_size)) {
+    *error = "width * point_step overflows size_t";
+    return false;
+  }
+  if (msg.row_step < packed_row_size) {
+    *error = "row_step must be at least width * point_step";
+    return false;
+  }
+
+  size_t expected_data_size = 0U;
+  if (!checkedMultiply(msg.row_step, msg.height, &expected_data_size)) {
+    *error = "row_step * height overflows size_t";
+    return false;
+  }
+  if (msg.data.size() != expected_data_size) {
+    *error = "data size must equal row_step * height";
+    return false;
+  }
+  if (!checkedMultiply(msg.width, msg.height, point_count)) {
+    *error = "width * height overflows size_t";
+    return false;
+  }
+  if (*point_count > std::numeric_limits<uint32_t>::max()) {
+    *error = "flattened cloud exceeds the PCL uint32 width limit";
+    return false;
+  }
+
+  const bool coordinates_valid =
+    validateFloatField(msg, "x", true, error) &&
+    validateFloatField(msg, "y", true, error) &&
+    validateFloatField(msg, "z", true, error) &&
+    validateFloatField(msg, "intensity", false, error) &&
+    validateFloatField(msg, "time", false, error);
+  if (!coordinates_valid) {
+    return false;
+  }
+
+  const bool has_normal =
+    pointCloudHasField(msg, "normal_x") ||
+    pointCloudHasField(msg, "normal_y") ||
+    pointCloudHasField(msg, "normal_z");
+  return !has_normal ||
+         (validateFloatField(msg, "normal_x", true, error) &&
+         validateFloatField(msg, "normal_y", true, error) &&
+         validateFloatField(msg, "normal_z", true, error));
+}
+
+sensor_msgs::msg::PointCloud2 packPointCloudRows(
+  const sensor_msgs::msg::PointCloud2 & msg)
+{
+  const size_t packed_row_size =
+    static_cast<size_t>(msg.width) * static_cast<size_t>(msg.point_step);
+  if (msg.row_step == packed_row_size) {
+    return msg;
+  }
+
+  sensor_msgs::msg::PointCloud2 packed = msg;
+  packed.row_step = static_cast<uint32_t>(packed_row_size);
+  packed.data.resize(packed_row_size * static_cast<size_t>(msg.height));
+  for (size_t row = 0U; row < msg.height; ++row) {
+    const auto source = msg.data.cbegin() + row * msg.row_step;
+    const auto destination = packed.data.begin() + row * packed_row_size;
+    std::copy_n(source, packed_row_size, destination);
+  }
+  return packed;
+}
+
+PointCloudExtractionResult extractPointCloudXYZIAndTimes(
+  const sensor_msgs::msg::PointCloud2 & msg,
+  size_t point_count)
 {
   PointCloudExtractionResult result;
   const bool has_intensity_field = pointCloudHasField(msg, "intensity");
   const bool has_time_field = pointCloudHasField(msg, "time");
-  const auto point_count = static_cast<size_t>(msg.width) * static_cast<size_t>(msg.height);
   result.cloud->points.reserve(point_count);
   if (has_time_field) {
     result.point_times.reserve(point_count);
@@ -55,7 +197,8 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg:
     sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(msg, "intensity");
     if (has_time_field) {
       sensor_msgs::PointCloud2ConstIterator<float> iter_time(msg, "time");
-      for (; iter_x != iter_x.end();
+      for (size_t index = 0U; index < point_count;
+        ++index,
         ++iter_x, ++iter_y, ++iter_z, ++iter_intensity, ++iter_time)
       {
         pcl::PointXYZI point;
@@ -67,7 +210,8 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg:
         result.point_times.push_back(*iter_time);
       }
     } else {
-      for (; iter_x != iter_x.end();
+      for (size_t index = 0U; index < point_count;
+        ++index,
         ++iter_x, ++iter_y, ++iter_z, ++iter_intensity)
       {
         pcl::PointXYZI point;
@@ -81,7 +225,9 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg:
   } else {
     if (has_time_field) {
       sensor_msgs::PointCloud2ConstIterator<float> iter_time(msg, "time");
-      for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_time) {
+      for (size_t index = 0U; index < point_count;
+        ++index, ++iter_x, ++iter_y, ++iter_z, ++iter_time)
+      {
         pcl::PointXYZI point;
         point.x = *iter_x;
         point.y = *iter_y;
@@ -91,7 +237,7 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg:
         result.point_times.push_back(*iter_time);
       }
     } else {
-      for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
+      for (size_t index = 0U; index < point_count; ++index, ++iter_x, ++iter_y, ++iter_z) {
         pcl::PointXYZI point;
         point.x = *iter_x;
         point.y = *iter_y;
@@ -107,7 +253,7 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg:
   result.cloud->is_dense = msg.is_dense;
   return result;
 }
-}
+}  // namespace
 
 namespace graphslam
 {
@@ -571,6 +717,16 @@ void ScanMatcherComponent::initializePubSub()
         return;
       }
 
+      size_t point_count = 0U;
+      std::string layout_error;
+      if (!validatePointCloudLayout(*msg, &point_count, &layout_error)) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 5000,
+          "[POINTCLOUD_LAYOUT_REJECTED] %s; the node remains active",
+          layout_error.c_str());
+        return;
+      }
+
       sensor_msgs::msg::PointCloud2 transformed_msg;
       try {
         tf2::TimePoint time_point = tf2::TimePoint(
@@ -578,13 +734,29 @@ void ScanMatcherComponent::initializePubSub()
           std::chrono::nanoseconds(msg->header.stamp.nanosec));
         const geometry_msgs::msg::TransformStamped transform = tfbuffer_.lookupTransform(
           robot_frame_id_, msg->header.frame_id, time_point);
-        tf2::doTransform(*msg, transformed_msg, transform); // TODO:slow now(https://github.com/ros/geometry2/pull/432)
+        const sensor_msgs::msg::PointCloud2 packed_msg = packPointCloudRows(*msg);
+        tf2::doTransform(packed_msg, transformed_msg, transform); // TODO:slow now(https://github.com/ros/geometry2/pull/432)
       } catch (tf2::TransformException & e) {
         RCLCPP_ERROR(this->get_logger(), "%s", e.what());
         return;
+      } catch (const std::runtime_error & e) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 5000,
+          "[POINTCLOUD_TRANSFORM_REJECTED] %s; the node remains active",
+          e.what());
+        return;
       }
 
-      PointCloudExtractionResult extracted = extractPointCloudXYZIAndTimes(transformed_msg);
+      PointCloudExtractionResult extracted;
+      try {
+        extracted = extractPointCloudXYZIAndTimes(transformed_msg, point_count);
+      } catch (const std::runtime_error & e) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 5000,
+          "[POINTCLOUD_CONVERSION_REJECTED] %s; the node remains active",
+          e.what());
+        return;
+      }
       pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr = extracted.cloud;
       std::vector<float> point_times = std::move(extracted.point_times);
       int debug_cloud_frame_index = -1;

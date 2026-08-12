@@ -155,6 +155,36 @@ def test_plan_cannot_authorize_github_writes():
         CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
 
 
+def test_source_quickstart_verification_is_self_contained_and_read_only():
+    plan = _plan()
+    source_slice = next(
+        review_slice
+        for review_slice in plan['review_slices']
+        if review_slice['id'] == 'S4-source-onboarding'
+    )
+    command = next(
+        item
+        for item in source_slice['verification']
+        if 'source_quickstart.sh --dry-run' in item
+    )
+
+    result = subprocess.run(
+        ['bash', '-c', command],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    workspace_line = next(
+        line for line in result.stdout.splitlines() if line.startswith('  Workspace: ')
+    )
+    workspace = Path(workspace_line.removeprefix('  Workspace: '))
+    assert not workspace.exists()
+    assert 'Commands (--dry-run; nothing executed)' in result.stdout
+
+
 def test_cli_emits_a_machine_readable_local_only_report():
     result = subprocess.run(
         [sys.executable, str(SCRIPT), '--json'],

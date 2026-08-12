@@ -155,7 +155,7 @@
       ],
       "verification": [
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_install_source_dependencies.py lidarslam/test/test_source_quickstart.py lidarslam/test/test_run_source_onboarding_probe.py",
-        "bash scripts/source_quickstart.sh --dry-run --workspace /tmp/lidarslam-source-plan"
+        "workspace=$(mktemp -d) || exit $?; mkdir \"${workspace}/src\" || { status=$?; rmdir \"${workspace}\"; exit \"${status}\"; }; bash scripts/source_quickstart.sh --dry-run --workspace \"${workspace}\"; status=$?; rmdir \"${workspace}/src\" \"${workspace}\" || status=$?; exit \"${status}\""
       ],
       "publication_gate": "PUBLIC_CI"
     },

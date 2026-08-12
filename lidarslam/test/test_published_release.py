@@ -535,7 +535,23 @@ def test_release_workflow_docs_and_bundle_require_publication_audit():
     assert 'scripts/check_published_release.py' in workflow
     assert '--require-published' in workflow
     assert 'published-release-audit.json' in workflow
-    assert 'ref: ${{ needs.metadata.outputs.tag_name }}' in workflow
+    assert "format('refs/tags/{0}', inputs.tag_name)" in workflow
+    assert 'REQUESTED_TAG: ${{ github.event.inputs.tag_name || github.ref_name }}' in workflow
+    assert 'TAG_NAME="${REQUESTED_TAG}"' in workflow
+    assert 'TAG_NAME="${{' not in workflow
+    assert 'TAG_REF="refs/tags/${TAG_NAME}"' in workflow
+    assert 'git show-ref --verify --quiet "${TAG_REF}"' in workflow
+    assert 'git rev-parse --verify "${TAG_REF}^{commit}"' in workflow
+    assert 'checkout does not match immutable tag ${TAG_REF}' in workflow
+    assert (
+        "ref: ${{ format('refs/tags/{0}', "
+        'needs.metadata.outputs.tag_name) }}'
+    ) in workflow
+    assert workflow.count('artifact-metadata: write') == 2
+    assert workflow.count('contents: write') == 1
+    assert workflow.count('packages: write') == 2
+    assert workflow.count('attestations: write') == 2
+    assert workflow.count('id-token: write') == 2
     assert 'scripts/build_docker_launcher_asset.py' in workflow
     assert '--output lidarslam-map-docker' in workflow
     assert 'lidarslam-map-docker --version' in workflow

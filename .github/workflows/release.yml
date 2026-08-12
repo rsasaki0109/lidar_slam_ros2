@@ -12,11 +12,7 @@ on:
         type: string
 
 permissions:
-  artifact-metadata: write
-  contents: write
-  packages: write
-  attestations: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: release-${{ github.event.inputs.tag_name || github.ref_name }}
@@ -41,14 +37,16 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: ${{ github.event.inputs.tag_name || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag_name) || github.ref }}
 
       - name: Resolve release metadata
         id: meta
         shell: bash
+        env:
+          REQUESTED_TAG: ${{ github.event.inputs.tag_name || github.ref_name }}
         run: |
           VERSION="$(tr -d '\n' < VERSION)"
-          TAG_NAME="${{ github.event.inputs.tag_name || github.ref_name }}"
+          TAG_NAME="${REQUESTED_TAG}"
 
           if [[ -z "${TAG_NAME}" ]]; then
             echo "failed to resolve release tag name" >&2
@@ -71,7 +69,8 @@ jobs:
           fi
 
           git fetch --force --tags
-          if ! git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
+          TAG_REF="refs/tags/${TAG_NAME}"
+          if ! git show-ref --verify --quiet "${TAG_REF}"; then
             echo "git tag ${TAG_NAME} does not exist" >&2
             exit 1
           fi
@@ -83,7 +82,11 @@ jobs:
           fi
 
           BUNDLE_NAME="lidarslam_ros2_${TAG_NAME}_release_bundle.tar.gz"
-          TAG_COMMIT="$(git rev-parse "${TAG_NAME}^{commit}")"
+          TAG_COMMIT="$(git rev-parse --verify "${TAG_REF}^{commit}")"
+          if [[ "$(git rev-parse HEAD)" != "${TAG_COMMIT}" ]]; then
+            echo "checkout does not match immutable tag ${TAG_REF}" >&2
+            exit 1
+          fi
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
           echo "tag_name=${TAG_NAME}" >> "${GITHUB_OUTPUT}"
           echo "git_commit=${TAG_COMMIT}" >> "${GITHUB_OUTPUT}"
@@ -95,6 +98,12 @@ jobs:
     name: publish ${{ matrix.ros_distro }} amd64 image
     needs: metadata
     runs-on: ubuntu-24.04
+    permissions:
+      artifact-metadata: write
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       REGISTRY: ghcr.io
@@ -111,7 +120,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: ${{ needs.metadata.outputs.tag_name }}
+          ref: ${{ format('refs/tags/{0}', needs.metadata.outputs.tag_name) }}
           submodules: recursive
 
       - name: Set up Docker Buildx
@@ -298,6 +307,12 @@ jobs:
       - metadata
       - images
     runs-on: ubuntu-24.04
+    permissions:
+      artifact-metadata: write
+      contents: write
+      packages: write
+      attestations: write
+      id-token: write
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -306,7 +321,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: ${{ needs.metadata.outputs.tag_name }}
+          ref: ${{ format('refs/tags/{0}', needs.metadata.outputs.tag_name) }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4

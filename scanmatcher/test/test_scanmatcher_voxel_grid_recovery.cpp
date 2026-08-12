@@ -33,6 +33,7 @@
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -58,6 +59,7 @@ constexpr char kCloudTopic[] = "/scanmatcher_voxel_grid_recovery/input_cloud";
 constexpr char kMapTopic[] = "/scanmatcher_voxel_grid_recovery/map";
 constexpr char kMapArrayTopic[] = "/scanmatcher_voxel_grid_recovery/map_array";
 constexpr char kPoseTopic[] = "/scanmatcher_voxel_grid_recovery/current_pose";
+constexpr std::int32_t kMalformedStampSec = 5;
 constexpr std::int32_t kUnsafeStampSec = 10;
 constexpr std::int32_t kSafeStampSec = 20;
 constexpr std::int32_t kInitialAsyncStampSec = 30;
@@ -83,6 +85,52 @@ sensor_msgs::msg::PointCloud2 makeCloudMessage(
   message.header.frame_id = "base_link";
   message.header.stamp.sec = stamp_sec;
   message.header.stamp.nanosec = 0;
+  return message;
+}
+
+sensor_msgs::msg::PointCloud2 makeXyzOnlyCloudMessage(
+  const Cloud & cloud,
+  std::int32_t stamp_sec)
+{
+  pcl::PointCloud<pcl::PointXYZ> xyz_cloud;
+  xyz_cloud.is_dense = cloud.is_dense;
+  xyz_cloud.reserve(cloud.size());
+  for (const auto & source : cloud) {
+    pcl::PointXYZ point;
+    point.x = source.x;
+    point.y = source.y;
+    point.z = source.z;
+    xyz_cloud.push_back(point);
+  }
+  sensor_msgs::msg::PointCloud2 message;
+  pcl::toROSMsg(xyz_cloud, message);
+  message.header.frame_id = "base_link";
+  message.header.stamp.sec = stamp_sec;
+  message.header.stamp.nanosec = 0;
+  return message;
+}
+
+sensor_msgs::msg::PointCloud2 makePaddedOrganizedXyzOnlyCloudMessage(
+  const Cloud & cloud,
+  std::int32_t stamp_sec)
+{
+  sensor_msgs::msg::PointCloud2 message =
+    makeXyzOnlyCloudMessage(cloud, stamp_sec);
+  constexpr uint32_t kRows = 5U;
+  constexpr uint32_t kPaddingBytes = 8U;
+  EXPECT_EQ(0U, message.width % kRows);
+  const uint32_t points_per_row = message.width / kRows;
+  const uint32_t packed_row_step = points_per_row * message.point_step;
+  const std::vector<uint8_t> packed_data = std::move(message.data);
+  message.width = points_per_row;
+  message.height = kRows;
+  message.row_step = packed_row_step + kPaddingBytes;
+  message.data.assign(message.row_step * message.height, 0xA5U);
+  for (uint32_t row = 0U; row < message.height; ++row) {
+    const auto source = packed_data.cbegin() + row * packed_row_step;
+    const auto destination = message.data.begin() + row * message.row_step;
+    std::copy_n(source, packed_row_step, destination);
+  }
   return message;
 }
 
@@ -169,23 +217,28 @@ protected:
   }
 };
 
-TEST_F(ScanMatcherVoxelGridRecoveryTest, RejectsUnsafeCloudThenProcessesSafeCloud)
+TEST_F(
+  ScanMatcherVoxelGridRecoveryTest,
+  RejectsMalformedAndUnsafeCloudsThenProcessesSafeCloud)
 {
   rclcpp::NodeOptions probe_options;
   probe_options.use_intra_process_comms(true);
   auto probe = std::make_shared<rclcpp::Node>(
     "scanmatcher_voxel_grid_recovery_probe", probe_options);
 
+  std::size_t malformed_map_messages = 0;
   std::size_t unsafe_map_messages = 0;
   std::size_t safe_map_messages = 0;
   std::size_t safe_pose_messages = 0;
   auto map_subscription = probe->create_subscription<sensor_msgs::msg::PointCloud2>(
     kMapTopic,
     rclcpp::QoS(10),
-    [&unsafe_map_messages, &safe_map_messages](
+    [&malformed_map_messages, &unsafe_map_messages, &safe_map_messages](
       sensor_msgs::msg::PointCloud2::ConstSharedPtr message)
     {
-      if (message->header.stamp.sec == kUnsafeStampSec) {
+      if (message->header.stamp.sec == kMalformedStampSec) {
+        ++malformed_map_messages;
+      } else if (message->header.stamp.sec == kUnsafeStampSec) {
         ++unsafe_map_messages;
       } else if (message->header.stamp.sec == kSafeStampSec) {
         ++safe_map_messages;
@@ -243,6 +296,23 @@ TEST_F(ScanMatcherVoxelGridRecoveryTest, RejectsUnsafeCloudThenProcessesSafeClou
       },
       5s));
 
+  auto malformed_message = makeCloudMessage(
+    makeSafeRegistrationCloud(), kMalformedStampSec);
+  malformed_message.data.clear();
+  testing::internal::CaptureStderr();
+  cloud_publisher->publish(malformed_message);
+  spinFor(executor, 750ms);
+  const std::string malformed_log = testing::internal::GetCapturedStderr();
+
+  EXPECT_NE(
+    std::string::npos,
+    malformed_log.find("[POINTCLOUD_LAYOUT_REJECTED]"));
+  EXPECT_NE(
+    std::string::npos,
+    malformed_log.find("data size must equal row_step * height"));
+  EXPECT_EQ(0U, malformed_map_messages);
+  ASSERT_TRUE(rclcpp::ok());
+
   testing::internal::CaptureStderr();
   cloud_publisher->publish(makeCloudMessage(makeIssue69Cloud(), kUnsafeStampSec));
   spinFor(executor, 750ms);
@@ -250,11 +320,13 @@ TEST_F(ScanMatcherVoxelGridRecoveryTest, RejectsUnsafeCloudThenProcessesSafeClou
 
   EXPECT_NE(std::string::npos, unsafe_log.find("[VOXEL_GRID_LAYOUT_OVERFLOW]"));
   EXPECT_NE(std::string::npos, unsafe_log.find("initial_map rejected before PCL"));
+  EXPECT_EQ(0U, malformed_map_messages);
   EXPECT_EQ(0U, unsafe_map_messages);
   ASSERT_TRUE(rclcpp::ok());
 
   cloud_publisher->publish(
-    makeCloudMessage(makeSafeRegistrationCloud(), kSafeStampSec));
+    makePaddedOrganizedXyzOnlyCloudMessage(
+      makeSafeRegistrationCloud(), kSafeStampSec));
   ASSERT_TRUE(
     spinUntil(
       executor,
@@ -263,6 +335,7 @@ TEST_F(ScanMatcherVoxelGridRecoveryTest, RejectsUnsafeCloudThenProcessesSafeClou
       },
       10s));
 
+  EXPECT_EQ(0U, malformed_map_messages);
   EXPECT_EQ(0U, unsafe_map_messages);
   EXPECT_GE(safe_map_messages, 1U);
   EXPECT_GE(safe_pose_messages, 1U);
