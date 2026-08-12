@@ -123,7 +123,7 @@
           },
           "assets": {
             "minItems": 6,
-            "maxItems": 6,
+            "maxItems": 7,
             "items": {
               "properties": {"status": {"const": "PASS"}}
             }

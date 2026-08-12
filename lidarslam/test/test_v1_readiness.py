@@ -142,6 +142,7 @@ def test_every_complete_gate_can_produce_ready_report(tmp_path):
     [
         ('RELEASED', 'PUBLISHED', 'READY', set()),
         ('IN_PROGRESS', 'PUBLISHED', 'READY', {'distribution'}),
+        ('REVIEW_REQUIRED', 'PUBLISHED', 'READY', {'distribution'}),
         (
             'RELEASED',
             'NOT_PUBLISHED',

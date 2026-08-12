@@ -56,8 +56,9 @@ def _json_bytes(value):
     return (json.dumps(value, sort_keys=True) + '\n').encode()
 
 
-def _bundle(*, tamper_member=False):
-    version_payload = f'{VERSION}\n'.encode()
+def _bundle(*, version=VERSION, tamper_member=False):
+    tag = f'v{version}'
+    version_payload = f'{version}\n'.encode()
     manifest = {
         'schema_version': 1,
         'schema_uri': (
@@ -65,8 +66,8 @@ def _bundle(*, tamper_member=False):
             'schemas/release-bundle-manifest-v1.schema.json'
         ),
         'status': 'PASS',
-        'tag': TAG,
-        'product_version': VERSION,
+        'tag': tag,
+        'product_version': version,
         'git_commit': COMMIT,
         'files': [{
             'path': 'VERSION',
@@ -90,17 +91,18 @@ def _bundle(*, tamper_member=False):
     return output.getvalue()
 
 
-def _image(distro, digest_character):
+def _image(distro, digest_character, *, version=VERSION):
+    tag = f'v{version}'
     return {
         'schema_version': 1,
         'status': 'PASS',
         'ros_distro': distro,
         'platform': 'linux/amd64',
-        'tag': f'ghcr.io/{REPOSITORY}:{TAG}-{distro}',
+        'tag': f'ghcr.io/{REPOSITORY}:{tag}-{distro}',
         'digest': 'sha256:' + digest_character * 64,
         'git_commit': COMMIT,
-        'product_version': VERSION,
-        'cli_version': f'lidarslam_ros2 {VERSION}',
+        'product_version': version,
+        'cli_version': f'lidarslam_ros2 {version}',
     }
 
 
@@ -121,7 +123,7 @@ def _rollback(image):
         'repository': REPOSITORY,
         'ros_distro': distro,
         'platform': image['platform'],
-        'product_version': VERSION,
+        'product_version': image['product_version'],
         'git_commit': COMMIT,
         'tag': image['tag'],
         'digest': image['digest'],
@@ -139,10 +141,24 @@ def _rollback(image):
     }
 
 
-def _snapshot():
+def _launcher(*, version, commit=COMMIT):
+    source = (
+        ROOT / 'scripts' / 'docker_map_bag.sh'
+    ).read_text(encoding='utf-8')
+    return source.replace(
+        'LIDARSLAM_DOCKER_LAUNCHER_VERSION="development"',
+        f'LIDARSLAM_DOCKER_LAUNCHER_VERSION="v{version}"',
+    ).replace(
+        'LIDARSLAM_DOCKER_LAUNCHER_REVISION="working-tree"',
+        f'LIDARSLAM_DOCKER_LAUNCHER_REVISION="{commit}"',
+    ).encode()
+
+
+def _snapshot(*, version=VERSION, include_launcher=False):
+    tag = f'v{version}'
     images = {
-        'humble': _image('humble', 'a'),
-        'jazzy': _image('jazzy', 'b'),
+        'humble': _image('humble', 'a', version=version),
+        'jazzy': _image('jazzy', 'b', version=version),
     }
     promotion = {
         'schema_version': 1,
@@ -153,7 +169,7 @@ def _snapshot():
         'status': 'PASS',
         'mode': 'applied',
         'repository': REPOSITORY,
-        'product_version': VERSION,
+        'product_version': version,
         'git_commit': COMMIT,
         'moving_tag_mutated': False,
         'images': [
@@ -174,28 +190,31 @@ def _snapshot():
         'created_tags': [image['tag'] for image in images.values()],
         'reused_tags': [],
     }
-    bundle_name = f'lidarslam_ros2_{TAG}_release_bundle.tar.gz'
+    bundle_name = f'lidarslam_ros2_{tag}_release_bundle.tar.gz'
+    asset_payloads = {
+        bundle_name: _bundle(version=version),
+        'release-image-humble.json': _json_bytes(images['humble']),
+        'release-image-jazzy.json': _json_bytes(images['jazzy']),
+        'rollback-plan-humble.json': _json_bytes(
+            _rollback(images['humble'])),
+        'rollback-plan-jazzy.json': _json_bytes(
+            _rollback(images['jazzy'])),
+        'release-promotion.json': _json_bytes(promotion),
+    }
+    if include_launcher:
+        asset_payloads['lidarslam-map-docker'] = _launcher(version=version)
     return {
         'errors': [],
         'tag_commit': COMMIT,
         'release': {
-            'tag_name': TAG,
+            'tag_name': tag,
             'draft': False,
             'prerelease': False,
             'html_url': (
-                f'https://github.com/{REPOSITORY}/releases/tag/{TAG}'
+                f'https://github.com/{REPOSITORY}/releases/tag/{tag}'
             ),
         },
-        'asset_payloads': {
-            bundle_name: _bundle(),
-            'release-image-humble.json': _json_bytes(images['humble']),
-            'release-image-jazzy.json': _json_bytes(images['jazzy']),
-            'rollback-plan-humble.json': _json_bytes(
-                _rollback(images['humble'])),
-            'rollback-plan-jazzy.json': _json_bytes(
-                _rollback(images['jazzy'])),
-            'release-promotion.json': _json_bytes(promotion),
-        },
+        'asset_payloads': asset_payloads,
         'image_tag_digests': {
             image['tag']: image['digest']
             for image in images.values()
@@ -213,6 +232,67 @@ def test_complete_stable_release_with_cross_checked_assets_is_published():
     assert len(report['assets']) == 6
     assert all(asset['status'] == 'PASS' for asset in report['assets'])
     assert all(check['status'] == 'PASS' for check in report['checks'])
+
+
+def test_next_release_requires_verified_clone_free_launcher():
+    version = '0.9.1'
+    report = AUDIT.evaluate_publication(
+        version=version,
+        snapshot=_snapshot(version=version, include_launcher=True),
+    )
+
+    assert report['status'] == 'PUBLISHED'
+    assert len(report['assets']) == 7
+    launcher = next(
+        asset for asset in report['assets']
+        if asset['name'] == 'lidarslam-map-docker'
+    )
+    assert launcher['status'] == 'PASS'
+
+
+def test_missing_or_tampered_clone_free_launcher_blocks_next_release():
+    version = '0.9.1'
+    missing = AUDIT.evaluate_publication(
+        version=version,
+        snapshot=_snapshot(version=version),
+    )
+    assert missing['status'] == 'BLOCKED'
+    required = next(
+        check for check in missing['checks']
+        if check['id'] == 'required-assets'
+    )
+    assert required['status'] == 'FAIL'
+
+    snapshot = _snapshot(version=version, include_launcher=True)
+    snapshot['asset_payloads']['lidarslam-map-docker'] = _launcher(
+        version=version,
+        commit='d' * 40,
+    )
+    tampered = AUDIT.evaluate_publication(
+        version=version,
+        snapshot=snapshot,
+    )
+    assert tampered['status'] == 'BLOCKED'
+    launcher = next(
+        asset for asset in tampered['assets']
+        if asset['name'] == 'lidarslam-map-docker'
+    )
+    assert launcher['status'] == 'FAIL'
+    assert 'revision identity differs' in launcher['detail']
+
+
+def test_historical_release_rejects_unexpected_launcher_asset():
+    report = AUDIT.evaluate_publication(
+        version=VERSION,
+        snapshot=_snapshot(include_launcher=True),
+    )
+
+    assert report['status'] == 'BLOCKED'
+    required = next(
+        check for check in report['checks']
+        if check['id'] == 'required-assets'
+    )
+    assert required['status'] == 'FAIL'
 
 
 def test_absent_tag_and_release_are_not_published():
@@ -456,6 +536,10 @@ def test_release_workflow_docs_and_bundle_require_publication_audit():
     assert '--require-published' in workflow
     assert 'published-release-audit.json' in workflow
     assert 'ref: ${{ needs.metadata.outputs.tag_name }}' in workflow
+    assert 'scripts/build_docker_launcher_asset.py' in workflow
+    assert '--output lidarslam-map-docker' in workflow
+    assert 'lidarslam-map-docker --version' in workflow
     assert 'check_published_release.py --require-published' in releasing
     assert 'published-release-v1.schema.json' in reliability
     assert 'scripts/check_published_release.py' in release_bundle
+    assert 'scripts/build_docker_launcher_asset.py' in release_bundle

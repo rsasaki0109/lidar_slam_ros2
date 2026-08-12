@@ -268,6 +268,7 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'scripts/promote_release_images.py' in paths
     assert 'scripts/release_channel.py' in paths
     assert 'scripts/check_release_bundle_reproducibility.py' in paths
+    assert 'scripts/docker_map_bag.sh' in paths
     assert 'docs/releases/v0.9.0.md' in paths
 
     with tarfile.open(first, mode='r:gz') as archive:

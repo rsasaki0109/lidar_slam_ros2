@@ -7,28 +7,93 @@ packages.
 ## Supported source install
 
 Humble on Ubuntu 22.04 and Jazzy on Ubuntu 24.04 are the supported source-build
-targets. Clone the submodules because the flagship RKO-LIO frontend is supplied
-from the maintained fork in `Thirdparty/`.
+targets. Install the matching ROS distribution first. The source quickstart
+selects its `/opt/ros` setup, prepares pinned submodules and repository-only
+dependencies, verifies the exact six-package source inventory, builds only that
+explicit package list, then runs the verified demo. It may ask for your sudo
+password. Inventory drift fails before rosdep or compilation rather than
+silently adding an experimental package to the beginner path.
 
 ```bash
 mkdir -p ~/ros2_ws/src
 cd ~/ros2_ws/src
 git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git
-cd ..
-rosdep install --from-paths src --ignore-src -r -y
-colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
-source install/setup.bash
+cd lidar_slam_ros2
+bash scripts/source_quickstart.sh
 ```
+
+Use `--dry-run` for a write- and network-free plan, `--build-only` to skip the
+517 MB demo, or `--viewer none` on a headless host. The installation build skips
+test-target generation and does not build unrelated workspace packages. After
+it completes, use the absolute installed `lidarslam-map` path printed by the
+helper from any directory, including a fresh terminal. That direct launcher
+auto-activates the matching aggregate `setup.bash` for its own process and
+children; it does not modify the caller's shell. Use
+`source ~/ros2_ws/install/setup.bash` when you want the short command name and
+the rest of the workspace's ROS tools. Use the full build and checks in
+[Operator Workflows](workflows.md) when developing or validating a change.
+The [local direct-launcher evidence](evidence/source-launcher-activation-2026-08-12.md)
+passes this fresh-terminal behavior on both Humble and Jazzy while keeping the
+complete cold-source and package-manager gates separate.
 
 The installed own-bag command is then available from any working directory:
 
 ```bash
-lidarslam-map run /path/to/rosbag2 --guided
+lidarslam-map doctor                                         # install/readiness check
+lidarslam-map demo "$PWD"                                # fixed public first map
+lidarslam-map start /path/to/rosbag2 --editable
 lidarslam-map doctor /path/to/rosbag2
-lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"
+lidarslam-map setup /path/to/rosbag2
+lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map" --editable
 lidarslam-map inspect "$PWD/output/my_map"
-lidarslam-map view "$PWD/output/my_map" --viewer foxglove  # optional
+lidarslam-map view "$PWD/output/my_map"                    # offline 3D preview
+lidarslam-map edit "$PWD/output/my_map" --plan plan.json --output-dir "$PWD/output/my_map_edited"
+lidarslam-map merge "$PWD/output/day1" "$PWD/output/day2" --output-dir "$PWD/output/site_project"
+lidarslam-map view "$PWD/output/my_map" --viewer foxglove # optional live viewer
 ```
+
+Run `doctor` without a bag immediately after installation to verify the
+curated helper set, matching prefix, supported ROS environment, bag reader, and
+fixed-demo storage without network access or writes. Add a rosbag2 directory to
+the same command when you are ready to inspect sensor compatibility.
+
+The published container exposes the same installed CLI. For a Linux own-bag
+run without a ROS workspace, use the repository's host launcher:
+
+```bash
+bash scripts/docker_map_bag.sh /absolute/path/to/rosbag2
+```
+
+It mounts the whole bag read-only, disables external container networking,
+runs as the host UID/GID, keeps every write under one new host output
+directory, and invokes `lidarslam-map start` rather than a separate container
+workflow. Before creating output, it requires the selected image to expose
+`start --help` and binds the run to the resulting local immutable image ID.
+`--dry-run` prints the exact expansion
+without Docker, network, or writes; `--ros-distro jazzy` selects the Jazzy
+image, and `--image <tag-or-digest>` pins an explicit image. Sensor setup
+options follow `--`. The helper is source/release-bundle delivery tooling, not
+an additional installed CLI command.
+
+### Standalone launcher asset for the next release
+
+The release workflow now prepares `lidarslam-map-docker` as a direct,
+attested asset beginning with v0.9.1. The builder replaces development markers
+with the exact release tag and 40-character source revision, validates shell
+syntax, and refuses to overwrite an existing output. A release-built launcher
+defaults to `ghcr.io/rsasaki0109/lidar_slam_ros2:v<VERSION>-<distro>` rather
+than a moving image tag. The published-release audit downloads but never
+executes the remote shell payload; it checks its bounded UTF-8 form, exact
+release identity, version-pinned image behavior, read-only input, network
+isolation, image-capability preflight, and required-result gate.
+
+The historical v0.9.0 release remains valid with its original six recovery
+assets. Releases from v0.9.1 require the seventh launcher asset, and the
+release job attests it together with the deterministic release bundle. The
+asset is not available until a future finalized release actually publishes
+and passes that seven-asset audit; see
+[Getting Started](getting-started.md#clone-free-docker-launcher-release-gate)
+for the guarded download route.
 
 Enable command and option completion in Bash:
 
@@ -39,6 +104,13 @@ source "$(ros2 pkg prefix lidarslam)/share/lidarslam/product/completions/lidarsl
 Use an absolute output path when it matters where artifacts are written. An
 installed CLI defaults relative output to the current working directory; it
 never writes into the read-only package share.
+
+The launcher enforces that boundary for Python as well: delegated processes
+run with bytecode writes disabled, package installation excludes development
+`__pycache__`/`.pyc`/`.pyo` artifacts, and the installed-product gate compares
+Python cache state across the complete prefix before and after its workflows.
+The dual-distro all-six-source check is recorded in
+[the local installation evidence](evidence/source-all-packages-install-2026-08-12.md).
 
 ## Names and compatibility
 
@@ -56,10 +128,19 @@ lidarslam-map --help
 ros2 run lidarslam lidarslam-cli --help
 ```
 
-Both spellings dispatch the same `doctor`, `run` (including `--guided`),
-`inspect`, and optional post-run `view` contract. The `ros2 run` form is a
-compatibility shim, not a fourth product workflow. Inside a source checkout,
+Both spellings dispatch the same `demo`, `start`, `doctor`, `setup`, `run`
+(including `--guided`),
+`inspect`, `view`, non-destructive `edit`, and multi-session `merge` contract.
+The `ros2 run` form is a compatibility shim, not a separate product workflow.
+Inside a source checkout,
 `./scripts/lidarslam` exposes the same contract.
+
+Calling the absolute installed `lidarslam-map` path directly finds the curated
+CLI resource in that prefix and activates its nearest aggregate `setup.bash`
+before delegation. The repo-local wrapper does the same only when the candidate
+workspace contains a matching installed CLI resource. It never scans arbitrary
+locations or sources an unrelated parent workspace. This setup is private to
+the command process; normal shell activation remains explicit.
 
 ## What the installation contains
 
@@ -77,8 +158,9 @@ media are not copied into the product-script directory.
 
 Every Humble/Jazzy default CI job creates a fresh, non-symlinked install prefix
 and checks all curated resources from an unrelated working directory. The gate
-also runs `--version`, `doctor`, an own-bag dry run, `inspect`, and the
-non-launching `view` validation path, and confirms that
+also runs `--version`, a public-demo dry-run, `doctor`, an own-bag dry run,
+`inspect`, and the non-launching `view` validation path. It validates session history, comparison,
+and a privacy-bounded support ZIP from an installed session, and confirms that
 `ros2 run lidarslam lidarslam` was not replaced.
 
 The Docker image is likewise built without `--symlink-install` and verifies
@@ -174,9 +256,10 @@ Docker, network, apt, or schema failures are `BLOCKED`, never
 `not-published`. This preflight does not replace the installed product E2E:
 it prevents a workflow dispatch that is guaranteed to fail before installation.
 The
-[2026-07-31 public-channel snapshot](evidence/ros-apt-dependency-readiness-2026-07-31.json)
-records RKO-LIO 0.3.2 as ready in both testing channels while both
-`ndt_omp_ros2` testing binaries remain unpublished.
+[2026-08-12 public-channel snapshot](evidence/ros-apt-dependency-readiness-2026-08-12.json)
+records the current asymmetric state: Humble RKO-LIO 0.3.2 is ready in both
+main and testing; Jazzy main still exposes 0.2.0 while testing exposes 0.3.2;
+and `ndt_omp_ros2` remains unpublished in both channels for both distributions.
 
 ## Installed source identity
 
@@ -320,6 +403,11 @@ owner of the dedicated output mount, the requested run directory and any
 failed `.partial` or post-processing lock sidecar; unrelated sibling contents
 are not changed.
 
+The own-bag command above instead starts the complete process as the host
+UID/GID, so no root-owned output is created. `HOME` and `ROS_LOG_DIR` are moved
+to writable container/output locations because the image's `/root` is not
+writable to that numeric user.
+
 ## Profile-specific extras
 
 The flagship PointCloud2 + IMU profile is complete after the recursive source
@@ -357,13 +445,18 @@ There is currently no supported
 `sudo apt install ros-<distro>-lidarslam` golden path. Two packaging gates
 remain:
 
-1. `ndt_omp_ros2`, which is a declared build dependency, is release-ready at
-   pinned commit `8b77fa5` but must still be tagged, Bloom-released, and
-   accepted into rosdistro before the four core packages.
+1. `ndt_omp_ros2`, which is a declared build dependency, has a source tag and
+   generated Bloom PRs, but an unanswered review exposed that it installs the
+   same `include/pclomp/*` and `libndt_omp.so` files as Humble's released
+   `ndt_omp`. Resolve the review through upstream convergence or a fully
+   namespaced replacement before any rosdistro merge. The preferred upstream
+   API patch, parent PCL-pointer modernization, and final canonical dependency
+   switch have been prepared and verified locally; see the
+   [2026-08-12 convergence evidence](evidence/ndt-omp-release-review-2026-08-12.md).
 2. Official PRBonn `rko_lio 0.3.2-1` passed the clean installed golden-path
-   E2E on Humble and Jazzy. `lidarslam` now declares
-   `rko_lio >= 0.3.2`, but that version must sync from ROS testing to main
-   before normal apt dependency resolution can succeed.
+   E2E on Humble and Jazzy. `lidarslam` now declares `rko_lio >= 0.3.2`.
+   Humble main satisfies that minimum; Jazzy must still sync 0.3.2 from ROS
+   testing to main before normal Jazzy apt dependency resolution can succeed.
 
 See the [official binary evidence](evidence/official-rko-binary-compatibility-2026-07-29.md)
 and [rosdistro release runbook](rosdistro-release.md) for the verified
@@ -371,7 +464,7 @@ boundary and remaining maintainer prerequisites.
 
 Versioned Humble/Jazzy GHCR tags, release-image SBOM/provenance, digest smoke
 tests, and attached installation evidence are automated for the next tagged
-release. ROS buildfarm packages remain blocked by the NDT release and RKO-LIO
-main-sync gates above. The binary package-manager clean-install/upgrade gate
-is implemented but cannot produce release evidence until those packages
-exist; arm64 image publication also remains Phase 2 work.
+release. ROS buildfarm packages remain blocked by the NDT convergence review
+and the Jazzy RKO-LIO main-sync gate above. The binary package-manager
+clean-install/upgrade gate is implemented but cannot produce release evidence
+until those packages exist; arm64 image publication also remains Phase 2 work.

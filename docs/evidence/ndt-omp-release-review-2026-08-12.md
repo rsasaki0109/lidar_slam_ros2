@@ -1,0 +1,196 @@
+# ndt_omp release-review audit — 2026-08-12
+
+This is a read-only audit of the dependency blocking the normal
+`apt install ros-<distro>-lidarslam` path. It corrects the earlier
+wait-only interpretation of the two generated rosdistro pull requests.
+
+## Result
+
+`python3 scripts/check_ndt_omp_release_readiness.py --json` reported
+`REVIEW_REQUIRED`.
+
+- [Humble PR #52949](https://github.com/ros/rosdistro/pull/52949) is open,
+  non-draft, and mergeable at
+  `c375b1c8e92d14e58a4c10e023920763645fe5c7`.
+- [Jazzy PR #52950](https://github.com/ros/rosdistro/pull/52950) is open,
+  non-draft, and mergeable at
+  `ef7e147af917eee64f4569a528dd98400004cadd`.
+- The latest unanswered human review asks how this package relates to the
+  existing `ndt_omp` package:
+  [direct question](https://github.com/ros/rosdistro/pull/52950#pullrequestreview-4857894506),
+  [matching Humble question](https://github.com/ros/rosdistro/pull/52949#pullrequestreview-4857900792).
+- The source tag and Bloom release repository already exist. Recreating the
+  tag or rerunning Bloom does not answer the review.
+
+No GitHub comment, PR, tag, repository, or distribution file was changed by
+this audit.
+
+## Relationship to the existing package
+
+`ndt_omp_ros2` is a downstream ROS 2 port/fork of
+[koide3/ndt_omp](https://github.com/koide3/ndt_omp), not an independent
+registration implementation. The fork README says this explicitly, and its
+history contains the original `pclomp` implementation.
+
+The current upstream package already supports ROS 2 and exports the same
+algorithm family. Humble rosdistro registers and releases `ndt_omp` version
+`0.0.0-1`; Jazzy does not currently register it. The upstream Hessian
+correction is also already merged as
+[koide3/ndt_omp#46](https://github.com/koide3/ndt_omp/pull/46).
+
+The product-specific delta that `scanmatcher` currently consumes is fork
+commit `d435e32`:
+
+- rotation-prior setters and clearing;
+- translation-prior setters and clearing;
+- maximum NDT correspondence-distance filtering;
+- mean correspondence-distance reporting after alignment.
+
+`scanmatcher/src/scanmatcher_component.cpp` calls all four API groups for its
+opt-in IMU NDT prior, z prior, and adaptive correspondence threshold.
+Buildfarm metadata, target export, installed-consumer tests, and Humble/Jazzy
+CI are release-quality improvements, but they do not make the implementation
+a separate algorithm.
+
+## Co-installation audit
+
+The current fork is not safely co-installable with Humble's released
+`ndt_omp`, even though its ROS package and CMake package are named
+`ndt_omp_ros2`.
+
+| Surface | Existing `ndt_omp` | Candidate `ndt_omp_ros2` | Result |
+| --- | --- | --- | --- |
+| ROS package | `ndt_omp` | `ndt_omp_ros2` | distinct |
+| CMake package | `ndt_omp` | `ndt_omp_ros2` | distinct |
+| C++ namespace | `pclomp` | `pclomp` | collision |
+| installed headers | `include/pclomp/*` | `include/pclomp/*` | file-ownership collision |
+| shared library | `lib/libndt_omp.so` | `lib/libndt_omp.so` | file/SONAME collision |
+| algorithm lineage | koide3 implementation | downstream fork | overlapping implementation |
+
+The two Debian packages can therefore claim the same files under
+`/opt/ros/humble`. A unique repository key alone is not a sufficient
+co-installation boundary. The current rosdistro PRs must not be described as
+merge-ready until this is resolved with the reviewer.
+
+## Convergence decision
+
+The preferred durable path is upstream convergence:
+
+1. Submit the four product-required APIs with focused tests to
+   `koide3/ndt_omp`.
+2. Change both direct consumers, `scanmatcher` and `graph_based_slam`, to
+   depend on the canonical `ndt_omp` package and exported target.
+3. Coordinate a Humble update and first Jazzy release of that canonical
+   package.
+4. Close or supersede the current `ndt_omp_ros2` registrations; never install
+   overlapping headers and libraries under a second Debian package name.
+
+If upstream explicitly declines the project-specific APIs, the fallback is a
+fully isolated fork. That requires a new package identity plus distinct C++
+namespace, include directory, library/SONAME, CMake target, executable path,
+version/tag, Bloom tracks, and rosdistro PRs. Merely renaming `package.xml` is
+not enough.
+
+This decision prioritizes one maintained implementation and normal ROS package
+resolution over a project-specific duplicate. Source and Docker onboarding
+remain available while that external coordination proceeds.
+
+## Prepared and verified convergence implementation
+
+The upstream-first path is no longer only a proposal. A local patch was
+prepared against exact `koide3/ndt_omp` commit
+`5495fd9214945afcb4b35d5a1da385e405c52bf9`:
+
+- artifact:
+  `packaging/ndt_omp/koide3-ndt-omp-lidarslam-priors.patch`;
+- SHA-256: `7b641c32ec4f30faa302e60aaa89765bb9acf67f3f0feb85f9e4e11e88b4dc9f`;
+- payload: rotation and per-axis translation priors, correspondence-distance
+  filtering, accepted-correspondence diagnostics, input sanitization, and
+  four focused GTests;
+- implementation detail: correspondence statistics use the upstream
+  per-input-point reduction order, preserving its deterministic summation
+  rather than transplanting the fork's thread-local accumulator.
+
+The checked-in contract and read-only checker bind the exact upstream commit,
+patch hash, five-path inventory, API markers, test names, parent-consumer
+inventory, and no-write authority boundary:
+
+```bash
+python3 scripts/check_canonical_ndt_convergence.py --json
+python3 scripts/check_canonical_ndt_convergence.py \
+  --upstream-checkout /path/to/clean/koide3-ndt_omp \
+  --require-ready-for-upstream-review
+```
+
+The strict command reported `READY_FOR_UPSTREAM_REVIEW` with 20/20 checks
+against a clean detached checkout of that exact commit. The report intentionally
+omits the checkout path. This state means the local bundle is reviewable; it
+does not authorize or claim an upstream PR.
+
+The parent boundary was then tested with a copied `scanmatcher` package that
+depends on canonical `ndt_omp`. That first exposed two additional downstream
+compatibility deltas: the fork-only `setOulierRatio` misspelling and direct
+use of Boost shared pointers after modern PCL changed its `Ptr` alias. The
+parent source now uses `pcl::Registration::Ptr`, `pcl::make_shared`, and
+`pcl::dynamic_pointer_cast` in both frontend and loop-registration paths;
+the existing `ndt_omp_ros2` build remains compatible with that modernization.
+
+The remaining canonical switch is captured separately as
+`packaging/ndt_omp/lidarslam-canonical-ndt-transition.patch` (SHA-256
+`c090b8f2228b21dcf30650114f9638f38497ca5a0214e3e6063a53aa7bef66b1`).
+The earlier three-file draft was incomplete: `graph_based_slam` also directly
+declared canonical-provider requirements in its manifest and seven CMake
+locations. The corrected five-file patch replaces all eleven direct
+dependency references across both consumers and corrects the fork-only
+outlier-setter spelling. The fail-closed checker compares those counts with
+the live parent files and rejects omission or drift.
+
+Verification completed locally:
+
+- canonical upstream `ndt_omp`: Humble and Jazzy build/install passed; all
+  4/4 new GTests passed on both distributions;
+- complete canonical transition: `ndt_omp`, `lidarslam_msgs`, `scanmatcher`,
+  and `graph_based_slam` built and installed from the same staged source on
+  network-isolated immutable Humble and Jazzy images;
+- installed manifests and both consumer CMake caches resolve `ndt_omp` from
+  the new prefix; no `ndt_omp_ros2` package/share or dependency remains;
+- the convergence checker has 11/11 regressions passing, including artifact
+  drift, graph-consumer omission, dirty/wrong upstream checkout, apply
+  failure, private-path exclusion, create-only output, and authority rejection;
+- the complete maintained product Python gate passes 2,098 tests
+  (`graph_based_slam` 1,428 and `lidarslam` 670), with 13 known skips and no
+  failures;
+- the earlier canonical `scanmatcher` test run remains 109/109 passing;
+- current fork + modernized parent (`ndt_omp_ros2`, `scanmatcher`, and
+  `graph_based_slam`): all three packages built and installed from clean
+  build directories;
+- the first full parent run passed 227/232 CTest targets. The five failures
+  were two free-space safety gates after temporary builds reduced free space
+  below 5 GiB, plus three pre-existing lint findings in newly added map-edit
+  files. The generated build/install directories were removed, the lint
+  findings were corrected, and all five failed targets passed their focused
+  reruns (15/15 functional cases plus copyright, cpplint, and flake8).
+
+These artifacts were prepared but not submitted. No upstream PR, review
+reply, branch push, tag, Bloom run, or rosdistro mutation was performed.
+
+## Prepared reviewer response
+
+The following response is prepared but was not posted:
+
+> Thanks for catching this. `ndt_omp_ros2` is a downstream ROS 2 fork of
+> `koide3/ndt_omp`, not an independent implementation. It carries four APIs
+> used by lidarslam's optional IMU/translation priors and adaptive
+> correspondence threshold, plus buildfarm packaging work. However, the
+> current candidate still installs the same `include/pclomp/*` headers and
+> `libndt_omp.so` as Humble's released `ndt_omp`, so the differently named
+> Debian packages are not safely co-installable. I do not want these PRs
+> merged as-is. My preferred correction is to upstream the required APIs and
+> consume/release the canonical `ndt_omp` package for Humble and Jazzy. If
+> those project-specific APIs are declined upstream, I will instead fully
+> namespace the fork's package, headers, symbols, library, and CMake target,
+> then replace these Bloom registrations. I will report the selected
+> collision-free path here before requesting another merge review.
+
+Posting that response or changing either external PR requires an explicit
+maintainer publication decision.

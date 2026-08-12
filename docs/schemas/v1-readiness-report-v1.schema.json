@@ -101,6 +101,7 @@
             "LOCAL_READY",
             "READY_TO_TAG",
             "IN_PROGRESS",
+            "REVIEW_REQUIRED",
             "RELEASED",
             "BLOCKED"
           ]

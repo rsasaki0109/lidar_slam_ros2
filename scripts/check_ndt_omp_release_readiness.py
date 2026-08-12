@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 from typing import Any
@@ -24,19 +25,25 @@ SCHEMA_PATH = (
     REPO_ROOT
     / 'docs'
     / 'schemas'
-    / 'ndt-omp-release-readiness-v1.schema.json'
+    / 'ndt-omp-release-readiness-v2.schema.json'
 )
 SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
-    'schemas/ndt-omp-release-readiness-v1.schema.json'
+    'schemas/ndt-omp-release-readiness-v2.schema.json'
 )
 SOURCE_REPOSITORY = 'rsasaki0109/ndt_omp_ros2'
 RELEASE_REPOSITORY = 'rsasaki0109/ndt_omp_ros2-release'
+ROSDISTRO_REPOSITORY = 'ros/rosdistro'
 DISTROS = ('humble', 'jazzy')
 ROSDISTRO_PULL_REQUESTS = {
     'humble': 52949,
     'jazzy': 52950,
 }
+ACTIONABLE_REVIEW = re.compile(
+    r'(?:\?|\b(?:please|could you|would you|how does|how do|why|what is|'
+    r'what are|same question|needs? to|must)\b)',
+    re.IGNORECASE,
+)
 
 
 class PreflightError(ValueError):
@@ -222,6 +229,149 @@ def _request_text(url: str) -> tuple[int, str]:
         raise PreflightError(f'cannot read {url}: {exc}') from exc
 
 
+def _empty_pull_requests() -> dict[str, dict[str, Any]]:
+    return {
+        distro: {
+            'number': ROSDISTRO_PULL_REQUESTS[distro],
+            'url': (
+                'https://github.com/ros/rosdistro/pull/'
+                f'{ROSDISTRO_PULL_REQUESTS[distro]}'
+            ),
+            'state': None,
+            'merged': None,
+            'mergeable': None,
+            'head_sha': None,
+            'updated_at': None,
+            'latest_actionable_review': {
+                'url': None,
+                'author': None,
+                'created_at': None,
+            },
+            'response_pending': None,
+        }
+        for distro in DISTROS
+    }
+
+
+def _request_json(url: str) -> Any:
+    status, body = _request_text(url)
+    if status != 200:
+        raise PreflightError(f'unexpected HTTP {status} while reading {url}')
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise PreflightError(f'invalid JSON while reading {url}: {exc}') from exc
+
+
+def _activity_user(item: dict[str, Any]) -> tuple[str, bool]:
+    user = item.get('user')
+    if not isinstance(user, dict):
+        return '', False
+    login = user.get('login')
+    user_type = user.get('type')
+    if not isinstance(login, str):
+        return '', False
+    is_bot = user_type == 'Bot' or login.endswith('[bot]')
+    return login, is_bot
+
+
+def _inspect_pull_request(distro: str) -> dict[str, Any]:
+    number = ROSDISTRO_PULL_REQUESTS[distro]
+    api_root = f'https://api.github.com/repos/{ROSDISTRO_REPOSITORY}'
+    payload = _request_json(f'{api_root}/pulls/{number}')
+    if not isinstance(payload, dict):
+        raise PreflightError(f'pull request #{number} response is not an object')
+    author, _ = _activity_user(payload)
+    if not author:
+        raise PreflightError(f'pull request #{number} has no author identity')
+
+    activity_specs = (
+        (f'{api_root}/pulls/{number}/reviews?per_page=100', 'submitted_at'),
+        (f'{api_root}/issues/{number}/comments?per_page=100', 'created_at'),
+        (f'{api_root}/pulls/{number}/comments?per_page=100', 'created_at'),
+    )
+    actionable: list[dict[str, str]] = []
+    author_responses: list[str] = []
+    for url, timestamp_field in activity_specs:
+        items = _request_json(url)
+        if not isinstance(items, list):
+            raise PreflightError(
+                f'pull request #{number} activity response is not a list')
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            body = item.get('body')
+            timestamp = item.get(timestamp_field)
+            login, is_bot = _activity_user(item)
+            if (
+                not isinstance(body, str)
+                or not body.strip()
+                or not isinstance(timestamp, str)
+                or not login
+            ):
+                continue
+            if login == author:
+                author_responses.append(timestamp)
+                continue
+            review_state = item.get('state')
+            is_actionable = (
+                review_state == 'CHANGES_REQUESTED'
+                or ACTIONABLE_REVIEW.search(body) is not None
+            )
+            if is_bot or not is_actionable:
+                continue
+            html_url = item.get('html_url')
+            if not isinstance(html_url, str) or not html_url.startswith(
+                    'https://github.com/'):
+                continue
+            actionable.append({
+                'url': html_url,
+                'author': login,
+                'created_at': timestamp,
+            })
+
+    latest = max(actionable, key=lambda item: item['created_at']) \
+        if actionable else None
+    response_pending = bool(
+        latest is not None
+        and not any(
+            timestamp > latest['created_at']
+            for timestamp in author_responses
+        )
+        and payload.get('merged') is not True
+    )
+    state = payload.get('state')
+    merged = payload.get('merged')
+    mergeable = payload.get('mergeable')
+    head = payload.get('head')
+    head_sha = head.get('sha') if isinstance(head, dict) else None
+    updated_at = payload.get('updated_at')
+    html_url = payload.get('html_url')
+    if state not in {'open', 'closed'} or not isinstance(merged, bool):
+        raise PreflightError(f'pull request #{number} has invalid state fields')
+    if mergeable is not None and not isinstance(mergeable, bool):
+        raise PreflightError(f'pull request #{number} has invalid mergeable field')
+    if not isinstance(head_sha, str) or not isinstance(updated_at, str):
+        raise PreflightError(f'pull request #{number} has incomplete identity')
+    if not isinstance(html_url, str):
+        raise PreflightError(f'pull request #{number} has no public URL')
+    return {
+        'number': number,
+        'url': html_url,
+        'state': state,
+        'merged': merged,
+        'mergeable': mergeable,
+        'head_sha': head_sha,
+        'updated_at': updated_at,
+        'latest_actionable_review': latest or {
+            'url': None,
+            'author': None,
+            'created_at': None,
+        },
+        'response_pending': response_pending,
+    }
+
+
 def inspect_remote() -> dict[str, Any]:
     """Read public GitHub and rosdistro state without authenticating or writing."""
     errors: list[str] = []
@@ -229,6 +379,7 @@ def inspect_remote() -> dict[str, Any]:
     source_tag_present: bool | None = None
     release_repository_present: bool | None = None
     rosdistro: dict[str, bool | None] = {distro: None for distro in DISTROS}
+    pull_requests = _empty_pull_requests()
 
     try:
         status, body = _request_text(
@@ -275,12 +426,20 @@ def inspect_remote() -> dict[str, Any]:
         except PreflightError as exc:
             errors.append(f'rosdistro {distro}: {exc}')
 
+    if source_tag_present is True and release_repository_present is True:
+        for distro in DISTROS:
+            try:
+                pull_requests[distro] = _inspect_pull_request(distro)
+            except PreflightError as exc:
+                errors.append(f'rosdistro PR {distro}: {exc}')
+
     return {
         'errors': errors,
         'origin_branch_commit': origin_commit,
         'source_tag_present': source_tag_present,
         'release_repository_present': release_repository_present,
         'rosdistro': rosdistro,
+        'pull_requests': pull_requests,
     }
 
 
@@ -305,6 +464,7 @@ def evaluate_readiness(
             'source_tag_present': None,
             'release_repository_present': None,
             'rosdistro': {distro: None for distro in DISTROS},
+            'pull_requests': _empty_pull_requests(),
         }
     elif offline:
         status = 'LOCAL_READY'
@@ -317,9 +477,11 @@ def evaluate_readiness(
             'source_tag_present': None,
             'release_repository_present': None,
             'rosdistro': {distro: None for distro in DISTROS},
+            'pull_requests': _empty_pull_requests(),
         }
     else:
         remote_report = inspect_remote() if remote is None else dict(remote)
+        remote_report.setdefault('pull_requests', _empty_pull_requests())
         remote_report['inspected'] = True
         artifacts = [
             remote_report.get('source_tag_present'),
@@ -332,6 +494,34 @@ def evaluate_readiness(
             or remote_report.get('origin_branch_commit') != EXPECTED_COMMIT
             or any(value is None for value in artifacts)
         )
+        generated_prs_required = (
+            remote_report.get('source_tag_present') is True
+            and remote_report.get('release_repository_present') is True
+            and not all(remote_report.get('rosdistro', {}).values())
+        )
+        if generated_prs_required:
+            for distro in DISTROS:
+                if remote_report['rosdistro'][distro]:
+                    continue
+                pull_request = remote_report['pull_requests'].get(distro, {})
+                if (
+                    pull_request.get('state') is None
+                    or pull_request.get('merged') is None
+                    or pull_request.get('response_pending') is None
+                ):
+                    remote_failed = True
+        closed_unmerged = any(
+            not remote_report['rosdistro'][distro]
+            and remote_report['pull_requests'][distro]['state'] == 'closed'
+            and remote_report['pull_requests'][distro]['merged'] is False
+            for distro in DISTROS
+        ) if not remote_failed else False
+        review_pending = any(
+            not remote_report['rosdistro'][distro]
+            and remote_report['pull_requests'][distro]['response_pending']
+            is True
+            for distro in DISTROS
+        ) if not remote_failed else False
         if remote_failed:
             status = 'BLOCKED'
             actions.append(
@@ -345,6 +535,36 @@ def evaluate_readiness(
             status = 'RELEASED'
             actions.append(
                 'Proceed with the lidarslam_ros2 distribution gate.')
+        elif closed_unmerged:
+            status = 'BLOCKED'
+            for distro in DISTROS:
+                pull_request = remote_report['pull_requests'][distro]
+                if (
+                    not remote_report['rosdistro'][distro]
+                    and pull_request['state'] == 'closed'
+                    and pull_request['merged'] is False
+                ):
+                    actions.append(
+                        f'ros/rosdistro PR #{pull_request["number"]} '
+                        f'({distro}) closed without merge. Resolve the '
+                        'review outcome before creating replacement release '
+                        'state.')
+        elif review_pending:
+            status = 'REVIEW_REQUIRED'
+            for distro in DISTROS:
+                pull_request = remote_report['pull_requests'][distro]
+                if (
+                    not remote_report['rosdistro'][distro]
+                    and pull_request['response_pending'] is True
+                ):
+                    review = pull_request['latest_actionable_review']
+                    actions.append(
+                        f'Respond to the unanswered human review for '
+                        f'ros/rosdistro PR #{pull_request["number"]} '
+                        f'({distro}) at {review["url"]}. Explain the upstream '
+                        'lineage, required API delta, and collision-free '
+                        'convergence plan; do not describe this as wait-only '
+                        'or rerun Bloom.')
         else:
             status = 'IN_PROGRESS'
             if not remote_report['source_tag_present']:
@@ -372,7 +592,7 @@ def evaluate_readiness(
                         )
 
     report = {
-        'schema_version': 1,
+        'schema_version': 2,
         'schema_uri': SCHEMA_URI,
         'package': 'ndt_omp_ros2',
         'candidate': {
@@ -408,6 +628,13 @@ def _summary(report: dict[str, Any]) -> str:
             f"{remote['release_repository_present']}",
             f"rosdistro: {remote['rosdistro']}",
         ])
+        for distro in DISTROS:
+            pull_request = remote['pull_requests'][distro]
+            lines.append(
+                f"rosdistro PR {distro}: #{pull_request['number']} "
+                f"state={pull_request['state']} merged="
+                f"{pull_request['merged']} response_pending="
+                f"{pull_request['response_pending']}")
         lines.extend(f'  [ERROR] {error}' for error in remote['errors'])
     lines.extend(f'Next: {action}' for action in report['actions'])
     return '\n'.join(lines)

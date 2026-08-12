@@ -30,8 +30,8 @@ bloom's upstream import) excludes — intended.
 | rclcpp, rclcpp_components, tf2\*, \*_msgs, pcl_conversions, std_srvs | released ROS packages | none |
 | `libg2o` | released (`ros-<distro>-libg2o`; verified 2026-06-11: `rosdep resolve libg2o` → `ros-humble-libg2o` on jammy, `ros-jazzy-libg2o` on noble) | none |
 | `libpcl-all-dev` | standard rosdep key (system PCL) | none |
-| **`ndt_omp_ros2`** | **not in rosdistro**; upstream fork `0.1.0` metadata and Humble/Jazzy Bloom/deb gates are ready at `8b77fa5` | tag `0.1.0`, bloom-release, and submit it first (see below) |
-| `rko_lio` | PRBonn `0.3.2-1` is registered and built in testing for Humble/Jazzy; main currently has Humble `0.3.0` and Jazzy `0.2.0`; declared as `rko_lio >= 0.3.2` after the official-binary gate passed | wait for `0.3.2` to sync to main before the normal apt path |
+| **`ndt_omp_ros2`** | source tag and Humble/Jazzy Bloom PRs exist, but the candidate overlaps Humble's released `ndt_omp` files and has an unanswered convergence review | answer both reviews and converge on canonical `ndt_omp`, or fully isolate and replace the fork package, before requesting merge |
+| `rko_lio` | PRBonn `0.3.2-1` is registered and built in testing for Humble/Jazzy; main has Humble `0.3.2` and Jazzy `0.2.0`; declared as `rko_lio >= 0.3.2` after the official-binary gate passed | wait for Jazzy `0.3.2` to sync to main before the normal Jazzy apt path |
 
 This table was rechecked directly against the
 [Humble distribution](https://github.com/ros/rosdistro/blob/master/humble/distribution.yaml)
@@ -42,27 +42,37 @@ in `ros/rosdistro` on 2026-07-30. Neither distribution contains
 [`PRBonn/rko_lio`](https://github.com/PRBonn/rko_lio) and
 `ros2-gbp/rko_lio-release`.
 
-The amd64 apt indexes were also checked on 2026-07-30. The ROS testing
-repository contains `0.3.2-1` builds for both distributions. The main
-repository, which normal users install from, still contains Humble `0.3.0`
-and Jazzy `0.2.0`; do not describe `0.3.2` as synced to main until those
-indexes change.
+The amd64 apt indexes were rechecked on 2026-08-12. The ROS testing repository
+contains `0.3.2-1` builds for both distributions. The main repository, which
+normal users install from, now contains Humble `0.3.2` but still contains Jazzy
+`0.2.0`. The exact observed versions are preserved in the
+[2026-08-12 dependency snapshot](evidence/ros-apt-dependency-readiness-2026-08-12.json).
 
-### ndt_omp_ros2 must be released first
+### NDT package convergence review must close first
 
-`scanmatcher` and `graph_based_slam` declare `<depend>ndt_omp_ros2</depend>`.
-The dependency is consumed as the submodule
-`https://github.com/rsasaki0109/ndt_omp_ros2` (branch `humble`) — a fork
-maintained by the same owner, BSD licensed, with a unique name in rosdistro.
-Before the first lidarslam release, use the following maintainer sequence.
-The `0.1.0` source tag and
-[`rsasaki0109/ndt_omp_ros2-release`](https://github.com/rsasaki0109/ndt_omp_ros2-release)
-now exist. Bloom generated both distribution tracks, and the remaining
-publication work is the maintainer review and merge of
-[Humble PR #52949](https://github.com/ros/rosdistro/pull/52949) and
-[Jazzy PR #52950](https://github.com/ros/rosdistro/pull/52950). The live
-preflight therefore reports `IN_PROGRESS`, not `READY_TO_TAG` or `RELEASED`
-(checked 2026-07-30).
+`scanmatcher` directly declares `<depend>ndt_omp_ros2</depend>`. The
+dependency is consumed from
+`https://github.com/rsasaki0109/ndt_omp_ros2` at `8b77fa5`.
+It is a downstream ROS 2 fork of `koide3/ndt_omp`, not an independent
+algorithm. Its product-required delta is the rotation/translation-prior and
+adaptive correspondence API consumed by `scanmatcher`.
+
+The `0.1.0` source tag,
+[release repository](https://github.com/rsasaki0109/ndt_omp_ros2-release),
+and generated [Humble PR #52949](https://github.com/ros/rosdistro/pull/52949)
+and [Jazzy PR #52950](https://github.com/ros/rosdistro/pull/52950) already
+exist. Do not recreate the tag or rerun Bloom.
+
+The current candidate is not safely co-installable with Humble's released
+`ndt_omp 0.0.0-1`. Although the ROS and CMake package names differ, both
+packages install `include/pclomp/*` and `lib/libndt_omp.so` and expose the
+same `pclomp` namespace. The rosdistro reviewer correctly asked how the fork
+relates to the existing package, and no maintainer response follows that
+review. The
+[2026-08-12 review audit](evidence/ndt-omp-release-review-2026-08-12.md)
+records the exact lineage, consumed API delta, collision, and prepared
+response. The live preflight now reports `REVIEW_REQUIRED`, not wait-only
+`IN_PROGRESS`.
 
 Run the read-only preflight immediately before doing any publication work:
 
@@ -77,36 +87,72 @@ The first command describes the current state; the strict command exits 1
 unless the exact reviewed candidate is `READY_TO_TAG`. It validates the
 parent gitlink, submodule HEAD and cleanliness, package metadata, changelog,
 CMake install/export contract, and Bloom CI assets. Its remote inspection
-then verifies `origin/humble`, source tag, release-repository existence, and
-both rosdistro keys. A GitHub 404 means an initial artifact is absent; any
-other HTTP or network error is `BLOCKED`, never mistaken for absence.
+then verifies `origin/humble`, source tag, release-repository existence, both
+rosdistro keys, generated PR state, and whether the latest actionable human
+review has a later author response. A GitHub 404 means an initial artifact is
+absent; any other HTTP, malformed response, or network error is `BLOCKED`,
+never mistaken for absence or reviewer approval.
 
 CI runs `--offline`, whose successful state is only `LOCAL_READY`. After
 publication, use `--require-released`; it passes only when the tag, release
 repository, and Humble and Jazzy rosdistro entries all exist. `IN_PROGRESS`
-means publication is partial and the report lists the missing next steps.
-The JSON contract is
-[`ndt-omp-release-readiness-v1.schema.json`](schemas/ndt-omp-release-readiness-v1.schema.json).
+means publication is partial without an unanswered detected review.
+`REVIEW_REQUIRED` names each unanswered human-review URL and fails every
+strict release gate. The JSON contract is
+[`ndt-omp-release-readiness-v2.schema.json`](schemas/ndt-omp-release-readiness-v2.schema.json).
 The checker is read-only; it never creates a tag, repository, or PR.
 
-1. Confirm fork commit `8b77fa5` is green. Its package metadata is `0.1.0`
-   with `BSD-2-Clause`, a reachable fork maintainer, `CHANGELOG.rst`, exported
-   `ndt_omp` CMake target, and installed-consumer tests. Public
-   [CI run 30369808717](https://github.com/rsasaki0109/ndt_omp_ros2/actions/runs/30369808717)
-   passed the Humble and Jazzy build/test plus Bloom-generated Debian package
-   gate.
-2. The source tag `0.1.0` and separate `ndt_omp_ros2-release` repository are
-   complete. Do not recreate or move the tag.
-3. The Humble and Jazzy Bloom tracks are complete. Do not rerun Bloom while
-   the generated rosdistro PRs are current and green.
-4. Wait for both rosdistro PRs to merge; the lidarslam release can be
-   submitted as soon as the keys exist in both distribution files (the
-   packages do not need to be built yet).
+1. Post the prepared transparent response to both current reviews. It must
+   acknowledge the downstream lineage and file collision; do not request
+   merge of the current package as-is.
+2. Prefer upstream convergence: contribute the four required APIs and focused
+   tests to `koide3/ndt_omp`, change both `scanmatcher` and
+   `graph_based_slam` to the canonical `ndt_omp` package, and coordinate its
+   Humble update and first Jazzy release.
+3. Only if upstream declines the project-specific API, fully isolate the fork:
+   new package identity, C++ namespace, include root, library/SONAME, CMake
+   target, version/tag, Bloom tracks, and replacement rosdistro PRs.
+4. Proceed to the four lidarslam packages only after both supported distros
+   resolve one collision-free NDT dependency from ROS apt.
 
-#### NDT 0.1.0 exact commands
+The implementation needed for step 2 has been prepared and tested locally.
+The upstream patch is based on exact `koide3/ndt_omp` commit
+`5495fd9214945afcb4b35d5a1da385e405c52bf9`; its SHA-256 is
+`7b641c32ec4f30faa302e60aaa89765bb9acf67f3f0feb85f9e4e11e88b4dc9f`.
+It builds and passes four focused tests on both Humble and Jazzy. A
+canonical-package `scanmatcher` build also passes all 109 tests. The parent has already moved
+its registration ownership and casts to the PCL shared-pointer API, so the
+post-upstream transition patch is limited to dependency-name replacement and
+the upstream spelling of `setOutlierRatio`; that patch has SHA-256
+`c090b8f2228b21dcf30650114f9638f38497ca5a0214e3e6063a53aa7bef66b1`.
+It covers both direct consumers: two `scanmatcher` build references, seven
+`graph_based_slam` build references, and both package manifests. The complete
+four-package canonical workspace builds and installs without the fork on the
+network-isolated Humble and Jazzy images.
+The exact implementation and verification record is in the
+[2026-08-12 review audit](evidence/ndt-omp-release-review-2026-08-12.md).
+Neither patch has been submitted or published.
 
-These commands deliberately fail closed if the remote branch, package version,
-or tag state differs from the reviewed release candidate:
+Before any upstream action, reproduce the local artifact and exact-base gate:
+
+```bash
+python3 scripts/check_canonical_ndt_convergence.py --json
+python3 scripts/check_canonical_ndt_convergence.py \
+  --upstream-checkout /path/to/clean/koide3-ndt_omp \
+  --require-ready-for-upstream-review
+```
+
+The machine contract is
+[`canonical-ndt-convergence-v1.json`](contracts/canonical-ndt-convergence-v1.json).
+`READY_FOR_UPSTREAM_REVIEW` is local technical evidence only and never grants
+GitHub write authority.
+
+#### Historical NDT 0.1.0 bootstrap commands — do not rerun
+
+The commands below record the already completed first tag and Bloom setup.
+They are retained for audit history only. The source tag and release repository
+now exist, so the absent-tag assertion intentionally fails. The current action
+is reviewer response and dependency convergence, not replaying these commands.
 
 ```bash
 git clone https://github.com/rsasaki0109/ndt_omp_ros2.git
@@ -243,8 +289,8 @@ The resolution gate completed in
    code.
 
 Do not advertise `sudo apt install ros-<distro>-lidarslam` as the golden path
-until `ndt_omp_ros2` is released, `rko_lio 0.3.2` is synced to main, and the
-package-manager installation E2E gate passes.
+until `ndt_omp_ros2` is released, Jazzy `rko_lio 0.3.2` is synced to main, and
+the package-manager installation E2E gate passes.
 
 The compatibility workflow runs when its product boundary changes on
 `develop`, is scheduled weekly to detect repository drift, and can be

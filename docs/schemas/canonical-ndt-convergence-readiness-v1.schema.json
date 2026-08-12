@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/canonical-ndt-convergence-readiness-v1.schema.json",
+  "title": "Canonical ndt_omp convergence readiness report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "schema_uri",
+    "contract_id",
+    "mode",
+    "status",
+    "checks",
+    "upstream_checkout",
+    "actions",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "schema_uri": {
+      "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/canonical-ndt-convergence-readiness-v1.schema.json"
+    },
+    "contract_id": {"const": "canonical-ndt-convergence-20260812"},
+    "mode": {"enum": ["artifacts", "upstream-checkout"]},
+    "status": {
+      "enum": ["ARTIFACTS_READY", "READY_FOR_UPSTREAM_REVIEW", "BLOCKED"]
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/check"}
+    },
+    "upstream_checkout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inspected", "commit", "clean", "patch_applies"],
+      "properties": {
+        "inspected": {"type": "boolean"},
+        "commit": {"type": ["string", "null"]},
+        "clean": {"type": ["boolean", "null"]},
+        "patch_applies": {"type": ["boolean", "null"]}
+      }
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["github_writes_authorized", "remote_mutations_performed"],
+      "properties": {
+        "github_writes_authorized": {"const": false},
+        "remote_mutations_performed": {"const": false}
+      }
+    }
+  },
+  "definitions": {
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "detail"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "status": {"enum": ["PASS", "FAIL", "NOT_CHECKED"]},
+        "detail": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

@@ -1,4 +1,32 @@
 #!/usr/bin/env python3
+# Copyright 2026 Sasaki
+# All rights reserved.
+#
+# Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
 """Read-only, fail-closed audit of a published lidarslam_ros2 release."""
 
 from __future__ import annotations
@@ -27,6 +55,7 @@ REPORT_SCHEMA_URI = (
     'schemas/published-release-v1.schema.json'
 )
 MAX_JSON_BYTES = 2 * 1024 * 1024
+MAX_LAUNCHER_BYTES = 256 * 1024
 MAX_BUNDLE_BYTES = 128 * 1024 * 1024
 MAX_RELEASE_ASSET_BYTES = 160 * 1024 * 1024
 MAX_UNPACKED_BUNDLE_BYTES = 256 * 1024 * 1024
@@ -40,6 +69,8 @@ OCI_MANIFEST_ACCEPT = ', '.join((
     'application/vnd.oci.image.manifest.v1+json',
     'application/vnd.docker.distribution.manifest.v2+json',
 ))
+STANDALONE_LAUNCHER_NAME = 'lidarslam-map-docker'
+STANDALONE_LAUNCHER_FIRST_VERSION = (0, 9, 1)
 
 
 class PublishedReleaseError(ValueError):
@@ -242,10 +273,12 @@ def inspect_remote(version: str) -> dict[str, Any]:
                 ):
                     errors.append('release asset metadata is incomplete')
                     continue
-                limit = (
-                    MAX_BUNDLE_BYTES if name.endswith('.tar.gz')
-                    else MAX_JSON_BYTES
-                )
+                if name.endswith('.tar.gz'):
+                    limit = MAX_BUNDLE_BYTES
+                elif name == STANDALONE_LAUNCHER_NAME:
+                    limit = MAX_LAUNCHER_BYTES
+                else:
+                    limit = MAX_JSON_BYTES
                 if size < 1 or size > limit:
                     errors.append(
                         f'asset {name} has invalid size {size}')
@@ -297,6 +330,71 @@ def _json_asset(name: str, payload: bytes) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise PublishedReleaseError(f'{name} JSON root is not an object')
     return value
+
+
+def _version_tuple(version: str) -> tuple[int, int, int]:
+    parts = version.split('.')
+    if len(parts) != 3 or any(not part.isdigit() for part in parts):
+        raise PublishedReleaseError(
+            f'expected semantic version, found {version!r}')
+    return int(parts[0]), int(parts[1]), int(parts[2])
+
+
+def _requires_standalone_launcher(version: str) -> bool:
+    return _version_tuple(version) >= STANDALONE_LAUNCHER_FIRST_VERSION
+
+
+def verify_standalone_launcher_payload(
+    payload: bytes,
+    *,
+    tag: str,
+    commit: str,
+) -> None:
+    """Verify a bounded launcher without executing downloaded shell code."""
+    if not payload or len(payload) > MAX_LAUNCHER_BYTES:
+        raise PublishedReleaseError(
+            'standalone Docker launcher has an invalid size')
+    try:
+        text = payload.decode('utf-8')
+    except UnicodeDecodeError as exc:
+        raise PublishedReleaseError(
+            'standalone Docker launcher is not UTF-8') from exc
+    if '\x00' in text or '\r' in text:
+        raise PublishedReleaseError(
+            'standalone Docker launcher contains unsafe control bytes')
+    if not text.startswith('#!/usr/bin/env bash\n'):
+        raise PublishedReleaseError(
+            'standalone Docker launcher has an unexpected shebang')
+    version_line = f'LIDARSLAM_DOCKER_LAUNCHER_VERSION="{tag}"'
+    revision_line = f'LIDARSLAM_DOCKER_LAUNCHER_REVISION="{commit}"'
+    if text.count(version_line) != 1:
+        raise PublishedReleaseError(
+            'standalone Docker launcher version identity differs')
+    if text.count(revision_line) != 1:
+        raise PublishedReleaseError(
+            'standalone Docker launcher revision identity differs')
+    if (
+        'LIDARSLAM_DOCKER_LAUNCHER_VERSION="development"' in text
+        or 'LIDARSLAM_DOCKER_LAUNCHER_REVISION="working-tree"' in text
+    ):
+        raise PublishedReleaseError(
+            'standalone Docker launcher retains development identity')
+    required_fragments = (
+        'IMAGE_TAG="${LIDARSLAM_DOCKER_LAUNCHER_VERSION}-${ROS_DISTRO}"',
+        'docker run --rm --pull=never --network none',
+        'type=bind,src=${BAG_DIR},dst=/input,readonly',
+        'lidarslam-map start /input',
+        'image-contract-missing',
+        'docker-result-missing',
+    )
+    missing = [
+        fragment for fragment in required_fragments
+        if fragment not in text
+    ]
+    if missing:
+        raise PublishedReleaseError(
+            'standalone Docker launcher is missing required fail-closed '
+            f'behavior: {missing}')
 
 
 def verify_release_bundle_payload(
@@ -385,14 +483,16 @@ def evaluate_publication(
     """Validate one injected or live release snapshot."""
     tag = f'v{version}'
     bundle_name = f'lidarslam_ros2_{tag}_release_bundle.tar.gz'
-    required_assets = (
+    required_assets = [
         bundle_name,
         'release-image-humble.json',
         'release-image-jazzy.json',
         'rollback-plan-humble.json',
         'rollback-plan-jazzy.json',
         'release-promotion.json',
-    )
+    ]
+    if _requires_standalone_launcher(version):
+        required_assets.append(STANDALONE_LAUNCHER_NAME)
     errors = list(snapshot.get('errors', []))
     release = snapshot.get('release')
     tag_commit = snapshot.get('tag_commit')
@@ -465,6 +565,12 @@ def evaluate_publication(
                         verify_release_bundle_payload(
                             payload,
                             version=version,
+                            tag=tag,
+                            commit=tag_commit,
+                        )
+                    elif name == STANDALONE_LAUNCHER_NAME:
+                        verify_standalone_launcher_payload(
+                            payload,
                             tag=tag,
                             commit=tag_commit,
                         )

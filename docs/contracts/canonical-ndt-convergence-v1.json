@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/canonical-ndt-convergence-contract-v1.schema.json",
+  "contract_id": "canonical-ndt-convergence-20260812",
+  "status": "LOCAL_REPRODUCIBLE_EXTERNAL_WRITES_REQUIRED",
+  "upstream": {
+    "repository": "https://github.com/koide3/ndt_omp.git",
+    "branch": "master",
+    "base_commit": "5495fd9214945afcb4b35d5a1da385e405c52bf9",
+    "package": "ndt_omp",
+    "patch": {
+      "path": "packaging/ndt_omp/koide3-ndt-omp-lidarslam-priors.patch",
+      "sha256": "7b641c32ec4f30faa302e60aaa89765bb9acf67f3f0feb85f9e4e11e88b4dc9f",
+      "paths": [
+        "CMakeLists.txt",
+        "include/pclomp/ndt_omp.h",
+        "include/pclomp/ndt_omp_impl.hpp",
+        "package.xml",
+        "test/test_ndt_regularization.cpp"
+      ],
+      "additions": 342,
+      "deletions": 1
+    },
+    "required_api_markers": [
+      "clearRotationPrior",
+      "clearTranslationPrior",
+      "getLastCorrespondenceCount",
+      "getLastMeanCorrespondenceDistance",
+      "getMaxCorrespondenceDistance",
+      "setMaxCorrespondenceDistance",
+      "setRotationPrior",
+      "setTranslationPrior"
+    ],
+    "focused_tests": [
+      "AppliesPerAxisTranslationPrior",
+      "AppliesRotationPriorToSelectedAxes",
+      "FiltersByVoxelMeanDistanceAndReportsStatistics",
+      "InvalidConfigurationDisablesOptionalTerms"
+    ]
+  },
+  "parent_transition": {
+    "provider_before": "ndt_omp_ros2",
+    "provider_after": "ndt_omp",
+    "patch": {
+      "path": "packaging/ndt_omp/lidarslam-canonical-ndt-transition.patch",
+      "sha256": "c090b8f2228b21dcf30650114f9638f38497ca5a0214e3e6063a53aa7bef66b1",
+      "paths": [
+        "graph_based_slam/CMakeLists.txt",
+        "graph_based_slam/package.xml",
+        "scanmatcher/CMakeLists.txt",
+        "scanmatcher/package.xml",
+        "scanmatcher/src/scanmatcher_component.cpp"
+      ],
+      "additions": 12,
+      "deletions": 12
+    },
+    "consumer_replacements": [
+      {
+        "path": "graph_based_slam/CMakeLists.txt",
+        "before_count": 7,
+        "after_count": 0
+      },
+      {
+        "path": "graph_based_slam/package.xml",
+        "before_count": 1,
+        "after_count": 0
+      },
+      {
+        "path": "scanmatcher/CMakeLists.txt",
+        "before_count": 2,
+        "after_count": 0
+      },
+      {
+        "path": "scanmatcher/package.xml",
+        "before_count": 1,
+        "after_count": 0
+      }
+    ],
+    "spelling_correction": {
+      "path": "scanmatcher/src/scanmatcher_component.cpp",
+      "before": "setOulierRatio",
+      "after": "setOutlierRatio"
+    }
+  },
+  "collision": {
+    "existing_package": "ndt_omp",
+    "fork_package": "ndt_omp_ros2",
+    "conflicting_install_surfaces": [
+      "include/pclomp/*",
+      "lib/libndt_omp.so"
+    ],
+    "safe_resolution": "UPSTREAM_CONVERGENCE"
+  },
+  "authority": {
+    "github_writes_authorized": false,
+    "remote_mutations_performed": false,
+    "allowed_next_local_action": "VERIFY_HUMBLE_AND_JAZZY_WITHOUT_PUBLICATION"
+  }
+}

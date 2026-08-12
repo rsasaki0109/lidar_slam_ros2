@@ -43,13 +43,22 @@ untrustworthy live inspection exits 2.
   publication gate.
 - The distribution gate includes the read-only
   `scripts/check_ndt_omp_release_readiness.py` preflight and its
-  [`ndt-omp-release-readiness-v1.schema.json`](schemas/ndt-omp-release-readiness-v1.schema.json)
+  [`ndt-omp-release-readiness-v2.schema.json`](schemas/ndt-omp-release-readiness-v2.schema.json)
   contract. It distinguishes a locally reviewed candidate from
-  `READY_TO_TAG`, partial publication, and a completed rosdistro release.
+  `READY_TO_TAG`, partial publication, unanswered human review, and a
+  completed rosdistro release.
   The initial and current reviewed results are preserved in
   [`ndt-omp-release-preflight-2026-07-29.md`](evidence/ndt-omp-release-preflight-2026-07-29.md)
   and
   [`ndt-omp-release-progress-2026-07-30.md`](evidence/ndt-omp-release-progress-2026-07-30.md).
+  The later
+  [release-review audit](evidence/ndt-omp-release-review-2026-08-12.md)
+  records the existing-package collision and upstream-first convergence plan.
+  The exact patch/base/consumer inventory is independently checked by
+  `scripts/check_canonical_ndt_convergence.py` against the versioned
+  [`canonical-ndt-convergence-v1.json`](contracts/canonical-ndt-convergence-v1.json)
+  contract. Its `READY_FOR_UPSTREAM_REVIEW` result is local technical evidence,
+  not GitHub write authority.
 - The package-manager distribution evidence has a versioned
   [`package-manager-install-v1.schema.json`](schemas/package-manager-install-v1.schema.json)
   contract and Humble/Jazzy clean-install/upgrade workflow. It remains an
@@ -90,7 +99,7 @@ The tracked state is **NOT_READY: 8/10 gates complete**.
 
 | Open gate | Remaining proof |
 | --- | --- |
-| Distribution | `ndt_omp_ros2` publication is `IN_PROGRESS`; merge rosdistro PRs [#52949](https://github.com/ros/rosdistro/pull/52949) and [#52950](https://github.com/ros/rosdistro/pull/52950), wait for official RKO-LIO 0.3.2 to reach the normal apt repository, then run package-manager install/upgrade E2E |
+| Distribution | `ndt_omp_ros2` is `REVIEW_REQUIRED`; answer the lineage question and converge on canonical `ndt_omp` or a fully isolated fork before replacing/merging rosdistro PRs [#52949](https://github.com/ros/rosdistro/pull/52949) and [#52950](https://github.com/ros/rosdistro/pull/52950), then wait for Jazzy RKO-LIO 0.3.2 main sync and run package-manager E2E |
 | External adoption | Accept three distinct independent first-map validations; current ledger is 0/3 |
 
 The reliability and release-publication gates closed when the immutable
