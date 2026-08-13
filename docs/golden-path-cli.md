@@ -155,6 +155,12 @@ integrity. Each card retains its source check IDs. No synthetic numeric score is
 created. Verification-off is `NOT VERIFIED`; a missing, malformed, duplicated,
 or semantically incomplete receipt is `UNAVAILABLE`, never an inferred PASS.
 
+The terminal completion output mirrors the same evidence without requiring the
+browser: it prints the verification status, viewer or session-page path, run
+manifest, first-map receipt, and one exact `Next:` command. A verified run also
+prints the read-only `Share:` handoff. When `--viewer none` is used, `Next:` is
+the copy-ready command for reopening the map.
+
 ### `sessions`
 
 Use `lidarslam-map sessions` to reopen recent runs from the default `./output`

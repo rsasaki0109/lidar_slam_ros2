@@ -93,6 +93,13 @@ summary, reviewed receipt path, and canonical issue form. It performs no write,
 browser open, upload, or remote mutation. Recovery sessions instead add a
 `support` action for the existing privacy-bounded ZIP.
 
+After a successful `start`, the terminal prints a bounded **Session summary**
+from the retained session index: evidence-backed verification status, the
+offline viewer or session-page path, run manifest, first-map receipt, and one
+safe `Next:` command. Verified sessions additionally print the read-only
+`Share:` handoff. `--viewer none` reports the retained session page and the
+exact command needed to reopen the map; it does not weaken verification.
+
 For automation, add `--json` to the first-map support command. It returns the
 same read-only handoff as the schema-valid
 [`first-map-handoff-v1`](schemas/first-map-handoff-v1.schema.json) object,

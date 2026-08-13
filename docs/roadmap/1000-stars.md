@@ -346,6 +346,10 @@ work and document the actual support boundary instead of hiding the delay.
   issue evidence rather than an unbounded compatibility matrix.
 - Make the final success output show the map path, verifier result, viewer path,
   run receipt, and exact next command in one screen.
+- The current candidate now projects that handoff from `session.json`, including
+  the headless `--viewer none` path and a read-only `Share:` command for verified
+  sessions. This is a local product-contract increment; clean-machine timing
+  and external first-map acceptance remain separate gates.
 
 ### B. Trust and reproducible proof
 

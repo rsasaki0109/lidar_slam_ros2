@@ -1482,6 +1482,48 @@ def test_completed_map_with_failed_viewer_keeps_map_success_clear(
     assert session['artifacts']['map_preview_html'] is None
 
 
+def test_success_terminal_summary_keeps_paths_and_next_command_together(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+):
+    """Headless completion should expose every copy-ready handoff in one place."""
+    module = _load_module()
+    manifest = _session_manifest(tmp_path)
+    map_output = Path(manifest['run']['output_dir'])
+    _write_validation_receipt(map_output)
+    monkeypatch.setattr(
+        module.subprocess,
+        'run',
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0),
+    )
+
+    result = module._run_session(
+        type('Args', (), {'viewer': 'none', 'verification': 'required'})(),
+        manifest,
+    )
+
+    assert result == 0
+    output = capsys.readouterr().out
+    assert 'Session summary:' in output
+    assert 'Verification:      PASS' in output
+    assert 'Viewer:            not opened (--viewer none)' in output
+    assert f'Run manifest:      {map_output / "run_manifest.json"}' in output
+    assert (
+        'First-map receipt:  '
+        f'{map_output / "first_map_validation_receipt.json"}'
+    ) in output
+    assert (
+        'Next:              '
+        f'./scripts/lidarslam view {map_output}'
+    ) in output
+    assert (
+        'Share:             '
+        f'./scripts/lidarslam support {Path(manifest["bundle_path"])} '
+        '--first-map'
+    ) in output
+
+
 def test_unverified_start_is_honest_and_offers_fresh_verified_output(
     monkeypatch,
     tmp_path: Path,

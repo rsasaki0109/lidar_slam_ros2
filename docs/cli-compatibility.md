@@ -191,6 +191,12 @@ opening is best-effort; run-manifest-v2, validation evidence,
 `map_session_recovery.json` when present, and the delegated map exit code remain
 authoritative.
 
+After a successful terminal `start`, the command also prints a bounded session
+summary projected from that index: verification status, viewer or session-page
+path, run manifest, first-map receipt, and one exact `Next:` command. A verified
+session adds the read-only `Share:` handoff. With `--viewer none`, `Next:` is the
+copy-ready command for reopening the map; no browser is required.
+
 The additive `demo` command is a product orchestrator over the existing fixed
 public-data script, not another SLAM route. Its read-only JSON exists only with
 `--dry-run` and follows `first-map-demo-plan-v1`. It refuses unsafe path/output

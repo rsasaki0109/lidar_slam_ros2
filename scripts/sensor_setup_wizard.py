@@ -2946,6 +2946,116 @@ def _maybe_open_session_report(
         )
 
 
+def _quality_check_status(payload: dict[str, Any], check_id: str) -> str:
+    """Return one evidence-backed check status for terminal summaries."""
+    quality = payload.get('quality')
+    checks = quality.get('checks') if isinstance(quality, dict) else None
+    if not isinstance(checks, list):
+        return 'unavailable'
+    for item in checks:
+        if isinstance(item, dict) and item.get('id') == check_id:
+            status = item.get('status')
+            if isinstance(status, str) and status:
+                return status
+    return 'unavailable'
+
+
+def _completion_next_action(payload: dict[str, Any]) -> dict[str, str] | None:
+    """Choose a safe, copy-ready action for a completed terminal session."""
+    quality = payload.get('quality')
+    overall = quality.get('overall') if isinstance(quality, dict) else None
+    preferred_kinds = {
+        'pass': ('view',),
+        'not_verified': ('verify',),
+        'action_required': ('inspect', 'support', 'view'),
+        'unavailable': ('inspect', 'support', 'view'),
+    }.get(overall, ('view',))
+    actions = payload.get('actions')
+    if not isinstance(actions, list):
+        return None
+    for kind in preferred_kinds:
+        for action in actions:
+            if (
+                isinstance(action, dict)
+                and action.get('kind') == kind
+                and isinstance(action.get('command'), str)
+            ):
+                return {'kind': kind, 'command': action['command']}
+    return None
+
+
+def _render_session_completion_summary(
+    args: argparse.Namespace,
+    payload: dict[str, Any],
+    map_output: Path,
+    *,
+    preview_path: Path | None,
+    report_path: Path | None,
+) -> str:
+    """Render the copy-ready terminal handoff after a successful run."""
+    verification_status = _quality_check_status(payload, 'verification')
+    verification_label = verification_status.replace('_', ' ').upper()
+    lines = ['', 'Session summary:']
+    lines.append(f'  Verification:      {verification_label}')
+    if preview_path is not None:
+        lines.append(f'  Viewer:            {preview_path}')
+    elif args.viewer == 'none':
+        if report_path is not None:
+            lines.append(
+                '  Viewer:            not opened (--viewer none); '
+                f'session page: {report_path}'
+            )
+        else:
+            lines.append('  Viewer:            not opened (--viewer none)')
+    elif report_path is not None:
+        lines.append(
+            '  Viewer:            3D review unavailable; '
+            f'session page: {report_path}'
+        )
+    else:
+        lines.append('  Viewer:            unavailable; use Next below')
+
+    artifacts = payload.get('artifacts')
+    if not isinstance(artifacts, dict):
+        artifacts = {}
+    run_manifest = artifacts.get('run_manifest')
+    validation_receipt = artifacts.get('validation_receipt')
+    lines.append(
+        '  Run manifest:      '
+        f'{run_manifest if run_manifest is not None else "unavailable"}'
+    )
+    lines.append(
+        '  First-map receipt:  '
+        f'{validation_receipt if validation_receipt is not None else "unavailable"}'
+    )
+
+    next_action = _completion_next_action(payload)
+    if next_action is None:
+        next_action = {
+            'kind': 'view',
+            'command': shlex.join([
+                _product_command(),
+                'view',
+                str(map_output),
+            ]),
+        }
+    lines.append(f'  Next:              {next_action["command"]}')
+
+    quality = payload.get('quality')
+    if isinstance(quality, dict) and quality.get('overall') == 'pass':
+        actions = payload.get('actions')
+        if isinstance(actions, list):
+            for action in actions:
+                if (
+                    isinstance(action, dict)
+                    and action.get('kind') == 'share'
+                    and isinstance(action.get('command'), str)
+                ):
+                    lines.append(f'  Share:             {action["command"]}')
+                    break
+    return '\n'.join(lines)
+
+
 def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
     map_output = Path(manifest['run']['output_dir'])
     command = list(manifest['run']['argv'])
@@ -3104,6 +3214,8 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
         candidate = map_output / MAP_PREVIEW_RELATIVE_PATH
         preview_path = candidate if candidate.is_file() else None
 
+    session = None
+    session_path = None
     report_path = None
     try:
         session = _session_index_payload(
@@ -3119,16 +3231,6 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
         print(f'  Session index: {session_path}')
         if report_path is not None:
             print(f'  Session page:  {report_path}')
-            if verification_mode == 'required':
-                print(
-                    '  Share result:  '
-                    + shlex.join([
-                        _product_command(),
-                        'support',
-                        str(setup_bundle),
-                        '--first-map',
-                    ])
-                )
         else:
             print(
                 'warning: [session-html-write-failed] session.json was kept, '
@@ -3156,6 +3258,17 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
         sys.stdout.flush()
         viewer = subprocess.run(view_command, check=False, cwd=WORK_ROOT)
         viewer_returncode = viewer.returncode
+
+    if session is not None:
+        print(
+            _render_session_completion_summary(
+                args,
+                session,
+                map_output,
+                preview_path=preview_path,
+                report_path=report_path,
+            )
+        )
 
     if viewer_returncode != 0:
         print(

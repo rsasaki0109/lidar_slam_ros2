@@ -329,6 +329,13 @@ invent a numeric quality score. Verification-off is shown as `NOT VERIFIED`,
 not as a failed map; missing, malformed, or incomplete receipts are shown as
 `UNAVAILABLE` instead of being guessed from nearby files.
 
+After a terminal run completes, `start` prints one **Session summary** with the
+evidence-backed verification status, 3D viewer or session-page path, run
+manifest, first-map receipt, and one exact `Next:` command. A verified result
+also prints the read-only `Share:` handoff. With `--viewer none`, the summary
+explicitly tells you how to reopen the map, so headless runs do not require
+browser output to continue.
+
 After a verified run, the session page offers **Share this verified first
 map**. Its copy-ready command revalidates the retained receipt and source
 evidence, then prints the exact summary, JSON attachment, and public issue form
