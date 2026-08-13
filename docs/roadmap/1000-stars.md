@@ -657,14 +657,21 @@ clean-machine timing still belongs to the four-row onboarding trial.
 The [2026-08-12 evidence record](../evidence/interactive-home-2026-08-12.md)
 binds its source, installed, TTY, safety, documentation, and regression checks.
 
-The next local GLIM-parity increment extends `doctor` without duplicating bag
-preflight. With no bag it verifies the curated product surface, matching
-install, supported ROS environment, bag reader, and demo storage, returning
-path-free JSON and stable recovery actions without network or writes. With a
-bag it retains the existing input/profile inspection. The
+The local GLIM-parity system-doctor increment now extends `doctor` without
+duplicating bag preflight. With no bag it verifies the curated product surface,
+matching install, supported ROS environment, bag reader, and demo storage,
+returning path-free JSON and stable recovery actions without network or writes.
+With a bag it retains the existing input/profile inspection. The
 [2026-08-12 system-doctor evidence](../evidence/growth/glim-parity-system-doctor-2026-08-12.md)
 keeps the real PPA/package-manager advantage and public clean-machine
 comparison pending.
+
+This local UX increment is complete in the reviewed candidate; the remaining
+GLIM-parity work is measurement, not another overlapping doctor surface. The
+next action is a neutral paired scorecard on exact public identities, using the
+six fixed tasks and an external first-attempt operator after the product
+release/image gate opens. Until then, local feature checks must not be written
+as a comparative usability claim.
 
 The beginner entry now also has a short
 [Japanese quickstart](../getting-started-ja.md) linked from the README and Docs
