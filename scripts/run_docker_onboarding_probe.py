@@ -870,6 +870,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument('--timeout-sec', default=7200.0, type=float)
+    parser.add_argument(
+        '--prompt-human-measurements',
+        action='store_true',
+        help=(
+            'Prompt for both observed active operator time and human-'
+            'submitted command count.'
+        ),
+    )
     parser.add_argument('--prompt-active-operator-time', action='store_true')
     parser.add_argument('--record-active-time-unknown', action='store_true')
     parser.add_argument('--prompt-command-count', action='store_true')
@@ -924,6 +932,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         )
     if not VERSION_RE.fullmatch(args.product_version):
         parser.error('--product-version must be a semantic version')
+    if args.prompt_human_measurements:
+        args.prompt_active_operator_time = True
+        args.prompt_command_count = True
     if not math.isfinite(args.timeout_sec) or args.timeout_sec <= 0:
         parser.error('--timeout-sec must be finite and greater than zero')
     if args.prompt_active_operator_time and args.record_active_time_unknown:

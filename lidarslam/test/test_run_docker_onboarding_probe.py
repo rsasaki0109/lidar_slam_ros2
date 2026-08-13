@@ -422,6 +422,36 @@ def test_cli_rejects_ambiguous_human_measurement_modes(tmp_path):
     assert command_mode.value.code == 2
 
 
+def test_combined_human_measurement_prompt_enables_both_observations(tmp_path):
+    args = PROBE._parse_args([
+        '--trial-id', 'g0-docker-humble-comparable',
+        '--ros-distro', 'humble',
+        '--image-tag',
+        'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble',
+        '--image-digest', 'sha256:' + ('a' * 64),
+        '--record', str(tmp_path / 'record.json'),
+        '--allow-privileged-container-host',
+        '--prompt-human-measurements',
+    ])
+
+    assert args.prompt_active_operator_time is True
+    assert args.prompt_command_count is True
+
+    with pytest.raises(SystemExit) as mixed_mode:
+        PROBE._parse_args([
+            '--trial-id', 'g0-docker-humble-comparable',
+            '--ros-distro', 'humble',
+            '--image-tag',
+            'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble',
+            '--image-digest', 'sha256:' + ('a' * 64),
+            '--record', str(tmp_path / 'record.json'),
+            '--allow-privileged-container-host',
+            '--prompt-human-measurements',
+            '--record-active-time-unknown',
+        ])
+    assert mixed_mode.value.code == 2
+
+
 def test_outer_daemon_rejects_environment_override(monkeypatch):
     """A privileged probe never follows an ambient remote endpoint."""
     monkeypatch.setenv('DOCKER_HOST', 'tcp://example.invalid:2375')

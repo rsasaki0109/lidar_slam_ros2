@@ -489,6 +489,40 @@ def test_cli_rejects_ambiguous_active_time_and_bad_commit(tmp_path):
     assert command_mode.value.code == 2
 
 
+def test_combined_human_measurement_prompt_enables_both_observations(tmp_path):
+    args = PROBE._parse_args([
+        '--trial-id', 'source-jazzy-comparable',
+        '--ros-distro', 'jazzy',
+        '--source-commit', 'a' * 40,
+        '--product-version', '0.9.0',
+        '--trial-root', str(tmp_path),
+        '--observer-parent', str(tmp_path),
+        '--disk-scope', str(tmp_path),
+        '--record', str(tmp_path / 'record.json'),
+        '--prompt-human-measurements',
+        '--dry-run',
+    ])
+
+    assert args.prompt_active_operator_time is True
+    assert args.prompt_command_count is True
+
+    with pytest.raises(SystemExit) as mixed_mode:
+        PROBE._parse_args([
+            '--trial-id', 'source-jazzy-comparable',
+            '--ros-distro', 'jazzy',
+            '--source-commit', 'a' * 40,
+            '--product-version', '0.9.0',
+            '--trial-root', str(tmp_path),
+            '--observer-parent', str(tmp_path),
+            '--disk-scope', str(tmp_path),
+            '--record', str(tmp_path / 'record.json'),
+            '--prompt-human-measurements',
+            '--record-command-count-unknown',
+            '--dry-run',
+        ])
+    assert mixed_mode.value.code == 2
+
+
 def test_public_preflight_cli_needs_only_immutable_source_identity():
     args = PROBE._parse_args([
         '--public-preflight',

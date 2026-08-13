@@ -841,12 +841,14 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path | None]:
         )
     if not (args.prompt_active_operator_time or args.record_active_time_unknown):
         raise ProbeError(
-            'choose --prompt-active-operator-time or '
+            'choose --prompt-human-measurements, '
+            '--prompt-active-operator-time, or '
             '--record-active-time-unknown'
         )
     if not (args.prompt_command_count or args.record_command_count_unknown):
         raise ProbeError(
-            'choose --prompt-command-count or '
+            'choose --prompt-human-measurements, '
+            '--prompt-command-count, or '
             '--record-command-count-unknown'
         )
 
@@ -1039,6 +1041,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument('--network-interface')
     parser.add_argument('--record', type=Path)
     parser.add_argument('--timeout-sec', type=float, default=7200.0)
+    parser.add_argument(
+        '--prompt-human-measurements',
+        action='store_true',
+        help=(
+            'Prompt for both observed active operator time and human-'
+            'submitted command count.'
+        ),
+    )
     parser.add_argument('--prompt-active-operator-time', action='store_true')
     parser.add_argument('--record-active-time-unknown', action='store_true')
     parser.add_argument('--prompt-command-count', action='store_true')
@@ -1063,6 +1073,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error('--source-commit must be exactly 40 lower-case hex digits')
     if not VERSION_RE.fullmatch(args.product_version):
         parser.error('--product-version must be a semantic version')
+    if args.prompt_human_measurements:
+        args.prompt_active_operator_time = True
+        args.prompt_command_count = True
     if args.public_preflight:
         execution_options = (
             args.trial_id,

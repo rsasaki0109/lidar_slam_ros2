@@ -1329,6 +1329,7 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
     )
     assert '--acknowledge-disposable-host' in onboarding
     assert '--acknowledge-isolated-network' in onboarding
+    assert '--prompt-human-measurements' in onboarding
     assert '--prompt-active-operator-time' in onboarding
     assert 'source-candidate-not-published' in onboarding
     assert "SOURCE_VERSION='" + VERSION_PATH.read_text(

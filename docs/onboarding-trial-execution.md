@@ -139,8 +139,7 @@ python3 scripts/run_docker_onboarding_probe.py \
   --record "$RECORD" \
   --disk-scope / \
   --acknowledge-dedicated-filesystem \
-  --prompt-active-operator-time \
-  --prompt-command-count \
+  --prompt-human-measurements \
   --allow-privileged-container-host
 ~~~
 
@@ -149,7 +148,8 @@ unrelated activity. The explicit acknowledgement is required even for `/`;
 the probe checks that its trial root and nested Docker store are on that same
 filesystem. If an independent observer has a paused stopwatch and a human
 command log, the probe can retain those two aggregate values with
-`--prompt-active-operator-time --prompt-command-count`. Otherwise pass
+`--prompt-human-measurements` (a shorthand for
+`--prompt-active-operator-time --prompt-command-count`). Otherwise pass
 `--record-active-time-unknown --record-command-count-unknown`, or omit the
 optional prompts, and the fields remain `null`. The helper's internal Docker
 invocation is never an operator-submitted command under the contract. A
@@ -224,13 +224,15 @@ python3 scripts/run_source_onboarding_probe.py \
   --observer-parent "$OBSERVER_PARENT" \
   --disk-scope / \
   --record "$TRIAL_RECORD" \
-  --prompt-active-operator-time \
-  --prompt-command-count \
+  --prompt-human-measurements \
   --acknowledge-disposable-host \
   --acknowledge-isolated-network
 ~~~
 
-Use `--record-active-time-unknown` and/or
+`--prompt-human-measurements` is the short form for both observed human
+measurements; the individual prompt flags remain available when an observer
+needs to mix an observed value with an explicitly unknown one. Use
+`--record-active-time-unknown` and/or
 `--record-command-count-unknown` instead of the corresponding prompt only when
 that human observation does not exist; this keeps the record honest but makes
 its measurements incomplete. The measured mode repeats the exact public
