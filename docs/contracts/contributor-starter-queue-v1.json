@@ -42,7 +42,7 @@
       },
       {
         "task_id": "starter-C5",
-        "query": "empty sampled frame",
+        "query": "Japanese PointCloud2 topic",
         "matching_open_pull_requests": []
       }
     ],
@@ -235,27 +235,27 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: explain empty frame_id recovery in the Japanese first-run card",
-      "outcome": "Japanese first-run guidance explains how to recognize and repair an empty sampled frame_id without guessing viewer frames or uploading private data.",
+      "title": "Docs: show how to select the PointCloud2 topic in the Japanese recovery card",
+      "outcome": "A Japanese first-run user can list topic types, select the exact PointCloud2 input, and substitute it into the recovery checks without guessing a topic or viewer frame.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
         "good first issue",
         "help wanted"
       ],
-      "source_issue_numbers": [102],
+      "source_issue_numbers": [102, 103],
       "allowed_paths": [
         "docs/getting-started-ja.md"
       ],
       "non_goals": [
-        "change the preflight implementation",
+        "change topic discovery or preflight implementation",
         "translate the entire getting-started guide",
         "claim support for an unvalidated sensor"
       ],
       "acceptance": [
-        "The Japanese three-check recovery card states that a sampled frame_id must be non-empty.",
-        "An empty or timed-out sample tells the operator to repair the publisher header.frame_id and repeat the check.",
-        "The card tells the operator not to guess a viewer frame and keeps the existing topic and TF commands intact.",
+        "The Japanese recovery card shows ros2 topic list -t and tells the reader to choose a topic whose type is sensor_msgs/msg/PointCloud2.",
+        "The card visibly tells the reader to replace <POINTCLOUD_TOPIC> before running both input checks.",
+        "The existing non-empty frame_id repair, TF check, and no-viewer-frame-guessing guidance remain intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
       "focused_checks": [
@@ -269,8 +269,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "publisherの`header.frame_id`を修正してから再確認",
-          "failure_detail": "the planned Japanese empty-frame recovery card marker already exists"
+          "value": "ros2 topic list -t",
+          "failure_detail": "the planned Japanese PointCloud2 topic-selection marker already exists"
         }
       ],
       "private_data_required": false,

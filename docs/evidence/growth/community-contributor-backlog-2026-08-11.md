@@ -252,13 +252,21 @@ python3 -m mkdocs build --strict
 Estimate: **30 minutes**. Non-goals: adding a driver, selecting universal
 tuning values, or claiming support for hardware that has not passed a recipe.
 
-## Candidate C5 — Japanese empty-frame recovery card
+## Completed C5 — Japanese empty-frame recovery card
 
 Suggested issue title:
 
 > Docs: explain empty `frame_id` recovery in the Japanese first-run card
 
-Why this task exists:
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese card now states that a sampled `frame_id` must be
+non-empty and tells the operator to repair the publisher's
+`header.frame_id`, repeat the check, and avoid guessing a viewer frame. The
+queue's drift probe deliberately retires this task after the marker appears.
+
+The original reason for the task was:
 
 - issue #102 shows the operator-visible empty-frame symptom;
 - the English first-run card now explains that an empty sampled `frame_id` is
@@ -296,13 +304,42 @@ Estimate: **30 minutes**. Non-goals: changing the preflight implementation,
 translating the entire getting-started guide, or claiming support for an
 unvalidated sensor.
 
+## Successor C5 — Japanese PointCloud2 topic selection
+
+The next prepared C5 task keeps the same narrow language-path scope while
+removing the next command-discovery gap. The Japanese recovery card still
+uses `<POINTCLOUD_TOPIC>` without showing how to select the correct typed topic.
+
+Suggested issue title:
+
+> Docs: show how to select the PointCloud2 topic in the Japanese recovery card
+
+Acceptance:
+
+- show `ros2 topic list -t` and select a topic whose type is
+  `sensor_msgs/msg/PointCloud2`;
+- tell the reader to replace `<POINTCLOUD_TOPIC>` before both input checks;
+- keep the completed empty-frame repair, TF, and privacy guidance intact;
+- require no rosbag, hardware, network, or private log.
+
+Focused check:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+Estimate: **30 minutes**. Non-goals: changing topic discovery or preflight
+implementation, translating the entire guide, or claiming support for an
+unvalidated sensor.
+
 ## Publication and review sequence
 
 1. Recheck each candidate against the then-current public `develop` revision.
 2. Confirm that no open issue or pull request already implements the exact
    acceptance criteria.
 3. Obtain explicit authorization before creating or editing GitHub issues.
-4. Publish C1 and C5 first; they exercise setup and diagnosis documentation.
+4. Publish C1 and the current C5 successor first; they exercise setup and
+   diagnosis documentation.
 5. Publish C2 and C3 after the first pair's review burden is known.
 6. Publish C4 only after the common sensor checklist has a named maintainer
    reviewer; do not let vendor-specific discussion expand its scope.

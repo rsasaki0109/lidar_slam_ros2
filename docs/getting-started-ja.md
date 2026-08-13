@@ -148,7 +148,9 @@ live入力を確認する場合は、`<POINTCLOUD_TOPIC>`などの山括弧を�
    timeout 5s ros2 topic echo --once --field header.frame_id <POINTCLOUD_TOPIC>
    ```
 
-   出力されたframe名を次のTF確認にそのまま使います。viewerでframe名を推測しません。
+   出力されたframe名を次のTF確認にそのまま使います。出力が空、または5秒で
+   timeoutした場合は、publisherの`header.frame_id`を修正してから再確認します。
+   viewerのframe名を推測して先に進めません。
 
 3. **TFがつながっているか**
 
