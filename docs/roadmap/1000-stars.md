@@ -350,6 +350,9 @@ work and document the actual support boundary instead of hiding the delay.
   the headless `--viewer none` path and a read-only `Share:` command for verified
   sessions. This is a local product-contract increment; clean-machine timing
   and external first-map acceptance remain separate gates.
+- Retained unverified and action-required sessions now print their compact
+  summary before `Next:` in headless history, reducing the return-to-work
+  decision without weakening the external measurement gates.
 
 ### B. Trust and reproducible proof
 

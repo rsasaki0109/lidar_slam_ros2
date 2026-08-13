@@ -169,6 +169,11 @@ quality, profile, bag, map path, and the recommended next action. It links back
 to each retained `session.html`, so verified review and failure recovery resume
 at the same durable page used during mapping.
 
+With `--viewer none`, the terminal projection also prints the retained summary
+for an unverified or action-required session, followed by its copy-ready next
+action. Newlines in retained session text are compacted so the recovery block
+stays one-line-per-field.
+
 The optional positional root changes only the directory being inspected.
 `--status` filters one stable session state, `--limit` is bounded from 1 to 200,
 and `--viewer none` keeps the generated catalog without opening it. `--json` is

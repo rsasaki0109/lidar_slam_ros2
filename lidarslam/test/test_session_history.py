@@ -300,6 +300,10 @@ def test_terminal_history_prints_share_or_recovery_next_action(
                 'quality': {'overall': 'pass'},
                 'created_at': '2026-08-12T03:00:00Z',
                 'profile': {'label': 'verified profile'},
+                'summary': {
+                    'title': 'Map ready',
+                    'message': 'Review the verified result.',
+                },
                 'page_path': None,
                 'recommended_action': None,
             },
@@ -309,6 +313,10 @@ def test_terminal_history_prints_share_or_recovery_next_action(
                 'quality': {'overall': 'action_required'},
                 'created_at': '2026-08-12T04:00:00Z',
                 'profile': {'label': 'failed profile'},
+                'summary': {
+                    'title': 'Mapping needs attention.',
+                    'message': 'The retained run stopped before verification.',
+                },
                 'page_path': None,
                 'recommended_action': {
                     'command': 'lidarslam-map support /tmp/failed',
@@ -323,7 +331,30 @@ def test_terminal_history_prints_share_or_recovery_next_action(
         'Share: lidarslam-map support '
         f'{tmp_path / "verified"} --first-map'
     ) in rendered
+    assert (
+        'Details: Mapping needs attention. — '
+        'The retained run stopped before verification.'
+    ) in rendered
     assert 'Next: lidarslam-map support /tmp/failed' in rendered
+
+
+def test_terminal_history_compacts_retained_summary_text(
+    tmp_path: Path,
+):
+    """Stored newlines must not break the copy-ready terminal layout."""
+    module = _load(SCRIPT, 'session_history_terminal_details')
+    entry = {
+        'status': 'action_required',
+        'quality': {'overall': 'action_required'},
+        'summary': {
+            'title': 'Needs\nattention',
+            'message': 'Retry\r\nwith the retained setup.',
+        },
+    }
+
+    assert module._terminal_summary(entry) == (
+        'Needs attention — Retry with the retained setup.'
+    )
 
 
 def test_json_mode_is_read_only_and_browser_mode_opens_catalog(

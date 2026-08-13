@@ -363,8 +363,9 @@ An explicit alternate root is accepted as the optional positional argument.
 The scanner does not recurse or follow symlinks, skips malformed or oversized
 session records, and caps display at 200 entries. The terminal summary prints a
 copy-ready `Share:` command for a verified session and the retained recovery
-`Next:` command for an action-required session, so headless users do not need
-to open the browser catalog to continue.
+`Details:` plus `Next:` command for an action-required or unverified session,
+so headless users can understand the retained result and continue without
+opening the browser catalog.
 
 Select any two cards in `sessions.html` and copy the generated command, or run:
 

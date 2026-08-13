@@ -287,6 +287,26 @@ def _first_map_share_command(bundle_path: str) -> str:
     return f'{_support_command(bundle_path)} --first-map'
 
 
+def _terminal_summary(entry: dict[str, Any]) -> str | None:
+    """Return one compact retained-session detail for terminal users."""
+    if entry.get('status') == 'verified':
+        return None
+    summary = entry.get('summary')
+    if not isinstance(summary, dict):
+        return None
+    title = summary.get('title')
+    message = summary.get('message')
+    values = [value for value in (title, message) if isinstance(value, str)]
+    if not values:
+        return None
+    # Session text can contain operator-controlled values. Keep the terminal
+    # record one-line and prevent retained newlines from imitating output.
+    return ' — '.join(
+        ' '.join(value.replace('\r', ' ').replace('\n', ' ').split())
+        for value in values
+    )
+
+
 def _render_session_card(entry: dict[str, Any]) -> str:
     status = html.escape(entry['status'])
     quality = html.escape(entry['quality']['overall'])
@@ -649,6 +669,9 @@ def _render_terminal(payload: dict[str, Any]) -> str:
             f"  {entry['profile']['label']}",
             f"  {entry['bundle_path']}",
         ])
+        detail = _terminal_summary(entry)
+        if detail is not None:
+            lines.append(f'  Details: {detail}')
         if entry['page_path'] is not None:
             lines.append(f"  Open: {entry['page_path']}")
         if entry['quality']['overall'] == 'pass':
