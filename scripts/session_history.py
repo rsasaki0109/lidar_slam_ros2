@@ -318,6 +318,19 @@ def _render_session_card(entry: dict[str, Any]) -> str:
         quote=True,
     )
     support_command = _support_command(entry['bundle_path'])
+    share_html = ''
+    if entry['quality']['overall'] == 'pass':
+        share_command = f'{support_command} --first-map'
+        share_html = (
+            '<details class="support-action share-action">'
+            '<summary>Share this verified first map</summary>'
+            '<p>Revalidate the retained receipt, then review and attach only '
+            'the privacy-bounded JSON receipt.</p>'
+            f'<code>{html.escape(share_command)}</code>'
+            '<button class="copy-share button" type="button" '
+            f'data-command="{html.escape(share_command, quote=True)}">'
+            'Copy share command</button></details>'
+        )
     support_html = (
         '<details class="support-action"><summary>Get support</summary>'
         '<p>Create a privacy-first ZIP to review and attach to an issue.</p>'
@@ -349,7 +362,7 @@ def _render_session_card(entry: dict[str, Any]) -> str:
         f'{html.escape(Path(entry["bag_path"]).name)}</dd></div>'
         '</dl>'
         f'<div class="card-actions">{open_control}</div>'
-        f'{action_html}{support_html}{paths_html}</article>'
+        f'{action_html}{share_html}{support_html}{paths_html}</article>'
     )
 
 
@@ -556,7 +569,7 @@ def render_catalog_html(payload: dict[str, Any]) -> str:
       copy.textContent = 'Select and copy the command above';
     }
   });
-  document.querySelectorAll('.copy-support').forEach((button) => {
+  document.querySelectorAll('.copy-support, .copy-share').forEach((button) => {
     button.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(button.dataset.command);

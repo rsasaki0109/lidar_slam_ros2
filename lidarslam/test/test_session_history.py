@@ -241,6 +241,46 @@ def test_catalog_html_escapes_session_text_and_has_no_network_dependency(
     assert 'navigator.clipboard.writeText' in rendered
 
 
+def test_verified_pass_card_has_copy_ready_share_action(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load(SCRIPT, 'session_history_share_action')
+    monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam-map sessions')
+    entry = {
+        'bundle_path': str(tmp_path / 'verified-session'),
+        'session_name': 'verified-session',
+        'session_path': str(tmp_path / 'verified-session/session.json'),
+        'page_path': None,
+        'created_at': '2026-08-12T03:00:00Z',
+        'status': 'verified',
+        'profile': {'label': 'Livox MID-360 · RKO-LIO graph'},
+        'verification': {'mode': 'required', 'result': 'PASS'},
+        'quality': {'overall': 'pass', 'headline': 'All evidence passed'},
+        'summary': {'title': 'Verified map', 'message': 'Ready'},
+        'bag_path': str(tmp_path / 'bag'),
+        'map_output': str(tmp_path / 'map'),
+        'recommended_action': None,
+    }
+
+    rendered = module._render_session_card(entry)
+
+    assert 'Share this verified first map' in rendered
+    assert 'lidarslam-map support' in rendered
+    assert '--first-map' in rendered
+    assert 'Copy share command' in rendered
+    assert 'class="copy-share button"' in rendered
+
+    nonpass = dict(entry)
+    nonpass['quality'] = {
+        'overall': 'action_required',
+        'headline': 'Needs attention',
+    }
+    nonpass_rendered = module._render_session_card(nonpass)
+    assert 'Share this verified first map' not in nonpass_rendered
+    assert 'Copy share command' not in nonpass_rendered
+
+
 def test_json_mode_is_read_only_and_browser_mode_opens_catalog(
     monkeypatch,
     tmp_path: Path,
