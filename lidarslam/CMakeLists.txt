@@ -228,6 +228,7 @@ if(BUILD_TESTING)
     test_check_onboarding_trial_matrix
     test_check_usability_scorecard
     test_collect_growth_snapshot
+    test_complete_onboarding_measurements
     test_docker_map_bag
     test_evaluate_degeneracy_trajectory
     test_external_first_map_acceptance
