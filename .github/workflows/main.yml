@@ -191,7 +191,17 @@ jobs:
           if [[ ! -e /etc/ros/rosdep/sources.list.d/20-default.list ]]; then
             rosdep init
           fi
-          rosdep update --rosdistro "${{ matrix.ros_distro }}"
+          for attempt in 1 2 3; do
+            if rosdep update --rosdistro "${{ matrix.ros_distro }}"; then
+              break
+            fi
+            if [[ "${attempt}" == 3 ]]; then
+              echo "rosdep update failed after ${attempt} attempts" >&2
+              exit 1
+            fi
+            echo "rosdep update failed (attempt ${attempt}/3); retrying" >&2
+            sleep $((attempt * 10))
+          done
 
       - name: Install default workflow dependencies
         shell: bash
