@@ -117,6 +117,56 @@ lidarslam-map demo /path/to/work_dir --resume
 `--resume`はmappingを再実行せず、安全なterminal post-processingだけを再開します。
 状態が不明なbagは`lidarslam-map doctor /path/to/rosbag2`へ戻ってください。
 
+### mapまたはviewerが空のとき: 3つの確認
+
+初回は自分のbagやframeを変更する前に、固定公開デモをviewerなしで実行して
+基準結果を確認します。
+
+```bash
+lidarslam-map demo ~/ros2_ws --viewer none
+```
+
+live入力を確認する場合は、`<POINTCLOUD_TOPIC>`などの山括弧を実際の値に置き換えて、
+次の順に実行します。
+
+1. **PointCloud2が届いているか**
+
+   ```bash
+   timeout 5s ros2 topic hz --window 5 <POINTCLOUD_TOPIC>
+   ```
+
+   `average rate:`が正の値で続けば入力は到達しています。0またはpublisherなしなら、
+   topicのremapまたはpublisherを直してから再確認します。
+
+2. **`frame_id`が空でないか**
+
+   ```bash
+   timeout 5s ros2 topic echo --once --field header.frame_id <POINTCLOUD_TOPIC>
+   ```
+
+   出力されたframe名を次のTF確認にそのまま使います。viewerでframe名を推測しません。
+
+3. **TFがつながっているか**
+
+   ```bash
+   ros2 run tf2_ros tf2_echo <TF_TARGET_FRAME> <POINTCLOUD_FRAME>
+   ```
+
+   `At time ...`が繰り返し表示されることを確認します。利用できない場合は、
+   source/targetの向きとstatic extrinsicを直してから再確認します。
+
+3つが通ってもmap messageがない場合は、viewer設定を変える前に次を確認します。
+
+```bash
+timeout 5s ros2 topic echo --once /map/pointcloud_map
+lidarslam-map inspect /path/to/output --write
+```
+
+messageがなければ生成された`autoware_map_diagnosis.md`の最初のfindingに従います。
+messageがあればmapは存在するため、viewerのfixed frameを`map`、topicを
+`/map/pointcloud_map`に設定し、offline previewを確認します。bag、map、raw logを
+uploadする必要はありません。
+
 ## 詳細
 
 このページは最短経路だけを示します。すべてのoption、対応input、校正、復旧、

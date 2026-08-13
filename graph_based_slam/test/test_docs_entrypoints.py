@@ -1371,6 +1371,17 @@ def test_japanese_quickstart_keeps_the_canonical_beginner_contract():
     ):
         assert boundary in japanese
 
+    for recovery_entrypoint in (
+        'mapまたはviewerが空のとき: 3つの確認',
+        'timeout 5s ros2 topic hz --window 5',
+        'timeout 5s ros2 topic echo --once --field header.frame_id',
+        'ros2 run tf2_ros tf2_echo <TF_TARGET_FRAME> <POINTCLOUD_FRAME>',
+        'timeout 5s ros2 topic echo --once /map/pointcloud_map',
+        'lidarslam-map inspect /path/to/output --write',
+    ):
+        assert recovery_entrypoint in japanese
+
+    assert 'ros2 topic echo --once --timeout' not in japanese
     assert '[Getting Started](getting-started.md)' in japanese
     assert '[Operator Workflows](workflows.md)' in japanese
     assert 'docs/getting-started-ja.md' in readme
