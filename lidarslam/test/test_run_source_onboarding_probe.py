@@ -506,6 +506,22 @@ def test_combined_human_measurement_prompt_enables_both_observations(tmp_path):
     assert args.prompt_active_operator_time is True
     assert args.prompt_command_count is True
 
+    unknown_args = PROBE._parse_args([
+        '--trial-id', 'source-jazzy-unknown',
+        '--ros-distro', 'jazzy',
+        '--source-commit', 'a' * 40,
+        '--product-version', '0.9.0',
+        '--trial-root', str(tmp_path),
+        '--observer-parent', str(tmp_path),
+        '--disk-scope', str(tmp_path),
+        '--record', str(tmp_path / 'unknown.json'),
+        '--record-human-measurements-unknown',
+        '--dry-run',
+    ])
+
+    assert unknown_args.record_active_time_unknown is True
+    assert unknown_args.record_command_count_unknown is True
+
     with pytest.raises(SystemExit) as mixed_mode:
         PROBE._parse_args([
             '--trial-id', 'source-jazzy-comparable',
@@ -521,6 +537,22 @@ def test_combined_human_measurement_prompt_enables_both_observations(tmp_path):
             '--dry-run',
         ])
     assert mixed_mode.value.code == 2
+
+    with pytest.raises(SystemExit) as mixed_unknown_mode:
+        PROBE._parse_args([
+            '--trial-id', 'source-jazzy-unknown',
+            '--ros-distro', 'jazzy',
+            '--source-commit', 'a' * 40,
+            '--product-version', '0.9.0',
+            '--trial-root', str(tmp_path),
+            '--observer-parent', str(tmp_path),
+            '--disk-scope', str(tmp_path),
+            '--record', str(tmp_path / 'unknown.json'),
+            '--record-human-measurements-unknown',
+            '--prompt-command-count',
+            '--dry-run',
+        ])
+    assert mixed_unknown_mode.value.code == 2
 
 
 def test_public_preflight_cli_needs_only_immutable_source_identity():

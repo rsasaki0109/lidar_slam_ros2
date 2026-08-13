@@ -437,6 +437,20 @@ def test_combined_human_measurement_prompt_enables_both_observations(tmp_path):
     assert args.prompt_active_operator_time is True
     assert args.prompt_command_count is True
 
+    unknown_args = PROBE._parse_args([
+        '--trial-id', 'g0-docker-humble-unknown',
+        '--ros-distro', 'humble',
+        '--image-tag',
+        'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble',
+        '--image-digest', 'sha256:' + ('a' * 64),
+        '--record', str(tmp_path / 'unknown.json'),
+        '--allow-privileged-container-host',
+        '--record-human-measurements-unknown',
+    ])
+
+    assert unknown_args.record_active_time_unknown is True
+    assert unknown_args.record_command_count_unknown is True
+
     with pytest.raises(SystemExit) as mixed_mode:
         PROBE._parse_args([
             '--trial-id', 'g0-docker-humble-comparable',
@@ -450,6 +464,20 @@ def test_combined_human_measurement_prompt_enables_both_observations(tmp_path):
             '--record-active-time-unknown',
         ])
     assert mixed_mode.value.code == 2
+
+    with pytest.raises(SystemExit) as mixed_unknown_mode:
+        PROBE._parse_args([
+            '--trial-id', 'g0-docker-humble-unknown',
+            '--ros-distro', 'humble',
+            '--image-tag',
+            'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble',
+            '--image-digest', 'sha256:' + ('a' * 64),
+            '--record', str(tmp_path / 'unknown.json'),
+            '--allow-privileged-container-host',
+            '--record-human-measurements-unknown',
+            '--prompt-command-count',
+        ])
+    assert mixed_unknown_mode.value.code == 2
 
 
 def test_outer_daemon_rejects_environment_override(monkeypatch):

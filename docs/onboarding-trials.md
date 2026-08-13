@@ -49,6 +49,9 @@ The Docker helper uses the same prompts; on a dedicated disposable VM,
 `--disk-scope / --acknowledge-dedicated-filesystem` also records the host
 filesystem peak. Omit that option on a shared host, where the Docker record
 must remain explicitly non-comparable.
+When both human observations are unavailable, both helpers accept
+`--record-human-measurements-unknown` to retain explicit `null` values without
+typing the two individual unknown flags.
 Before provisioning a trial VM, `--public-preflight` checks only the immutable
 GitHub source route and returns machine-readable `READY` or `NOT_READY` without
 writing files. It requires the exact six-package inventory, dependency helper,

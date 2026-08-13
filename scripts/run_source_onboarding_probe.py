@@ -1049,10 +1049,34 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             'submitted command count.'
         ),
     )
-    parser.add_argument('--prompt-active-operator-time', action='store_true')
-    parser.add_argument('--record-active-time-unknown', action='store_true')
-    parser.add_argument('--prompt-command-count', action='store_true')
-    parser.add_argument('--record-command-count-unknown', action='store_true')
+    parser.add_argument(
+        '--record-human-measurements-unknown',
+        action='store_true',
+        help=(
+            'Record both human measurements as unknown; the trial remains '
+            'valid but non-comparable.'
+        ),
+    )
+    parser.add_argument(
+        '--prompt-active-operator-time',
+        action='store_true',
+        help='Prompt for the observed active operator time only.',
+    )
+    parser.add_argument(
+        '--record-active-time-unknown',
+        action='store_true',
+        help='Leave active operator time unknown explicitly.',
+    )
+    parser.add_argument(
+        '--prompt-command-count',
+        action='store_true',
+        help='Prompt for the human-submitted command count only.',
+    )
+    parser.add_argument(
+        '--record-command-count-unknown',
+        action='store_true',
+        help='Leave command count unknown explicitly.',
+    )
     parser.add_argument('--acknowledge-disposable-host', action='store_true')
     parser.add_argument('--acknowledge-isolated-network', action='store_true')
     parser.add_argument(
@@ -1076,6 +1100,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     if args.prompt_human_measurements:
         args.prompt_active_operator_time = True
         args.prompt_command_count = True
+    if args.record_human_measurements_unknown:
+        args.record_active_time_unknown = True
+        args.record_command_count_unknown = True
     if args.public_preflight:
         execution_options = (
             args.trial_id,

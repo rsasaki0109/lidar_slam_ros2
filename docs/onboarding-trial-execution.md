@@ -150,8 +150,10 @@ filesystem. If an independent observer has a paused stopwatch and a human
 command log, the probe can retain those two aggregate values with
 `--prompt-human-measurements` (a shorthand for
 `--prompt-active-operator-time --prompt-command-count`). Otherwise pass
-`--record-active-time-unknown --record-command-count-unknown`, or omit the
-optional prompts, and the fields remain `null`. The helper's internal Docker
+`--record-human-measurements-unknown` (a shorthand for
+`--record-active-time-unknown --record-command-count-unknown`), or use the
+individual unknown flags when only one observation is unavailable. The fields
+then remain `null`. The helper's internal Docker
 invocation is never an operator-submitted command under the contract. A
 successful product route remains `PASS`, while the checker reports
 measurement `INCOMPLETE` until every required measurement is present.
@@ -232,10 +234,11 @@ python3 scripts/run_source_onboarding_probe.py \
 `--prompt-human-measurements` is the short form for both observed human
 measurements; the individual prompt flags remain available when an observer
 needs to mix an observed value with an explicitly unknown one. Use
-`--record-active-time-unknown` and/or
-`--record-command-count-unknown` instead of the corresponding prompt only when
-that human observation does not exist; this keeps the record honest but makes
-its measurements incomplete. The measured mode repeats the exact public
+`--record-human-measurements-unknown` when neither observation exists, or use
+`--record-active-time-unknown` and/or `--record-command-count-unknown` instead
+of the corresponding prompt when only one observation is unavailable. This
+keeps the record honest but makes its measurements incomplete. The measured
+mode repeats the exact public
 preflight before cloning, then runs the pinned source quickstart headlessly. A
 public 404, package-inventory drift, missing helper, incomplete fast route, or
 version mismatch writes a schema-valid bounded `FAIL` record before timing. An
