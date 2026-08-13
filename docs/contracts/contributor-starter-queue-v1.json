@@ -235,72 +235,42 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Preflight: fail clearly when sampled sensor messages have an empty frame_id",
-      "outcome": "Readable sensor samples whose frame_id values are all empty produce a clear failed preflight check, while unavailable sampling remains advisory.",
+      "title": "Docs: explain empty frame_id recovery in the Japanese first-run card",
+      "outcome": "Japanese first-run guidance explains how to recognize and repair an empty sampled frame_id without guessing viewer frames or uploading private data.",
       "estimate_minutes": 30,
       "labels": [
-        "bug",
+        "documentation",
         "good first issue",
         "help wanted"
       ],
       "source_issue_numbers": [102],
       "allowed_paths": [
-        "graph_based_slam/test/test_mid360_robot_tools.py",
-        "scripts/lidarslam_tools/mid360_preflight.py"
+        "docs/getting-started-ja.md"
       ],
       "non_goals": [
-        "change TF connectivity policy",
-        "make every sample-reader failure fatal",
-        "redesign the preflight report"
+        "change the preflight implementation",
+        "translate the entire getting-started guide",
+        "claim support for an unvalidated sensor"
       ],
       "acceptance": [
-        "Readable messages with only empty frame IDs produce a clear failed pointcloud_frame_id or imu_frame_id check.",
-        "A sample-reader failure does not masquerade as an empty-frame failure.",
-        "Existing mismatch, changing-frame, and stable-frame cases keep their current status.",
-        "The regression test needs no rosbag, hardware, network, or generated map."
+        "The Japanese three-check recovery card states that a sampled frame_id must be non-empty.",
+        "An empty or timed-out sample tells the operator to repair the publisher header.frame_id and repeat the check.",
+        "The card tells the operator not to guess a viewer frame and keeps the existing topic and TF commands intact.",
+        "The documentation change needs no rosbag, hardware, network, or private log."
       ],
       "focused_checks": [
         {
-          "id": "frame-tests",
-          "argv": [
-            "python3",
-            "-m",
-            "pytest",
-            "-q",
-            "graph_based_slam/test/test_mid360_robot_tools.py",
-            "-k",
-            "frame"
-          ]
-        },
-        {
-          "id": "focused-flake8",
-          "argv": [
-            "python3",
-            "-m",
-            "flake8",
-            "--select=E9,F63,F7,F82",
-            "scripts/lidarslam_tools/mid360_preflight.py",
-            "graph_based_slam/test/test_mid360_robot_tools.py"
-          ]
-        },
-        {
-          "id": "diff-check",
-          "argv": ["git", "diff", "--check"]
+          "id": "docs-strict",
+          "argv": ["python3", "-m", "mkdocs", "build", "--strict"]
         }
       ],
-      "check_profile": "mid360-empty-frame",
+      "check_profile": "docs-strict",
       "gap_probes": [
         {
-          "path": "scripts/lidarslam_tools/mid360_preflight.py",
-          "mode": "contains",
-          "value": "        if not frame_ids:\n            return None",
-          "failure_detail": "the known empty-frame return path changed and requires scope review"
-        },
-        {
-          "path": "graph_based_slam/test/test_mid360_robot_tools.py",
+          "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "test_preflight_builder_fails_readable_empty_sampled_frame",
-          "failure_detail": "the planned empty sampled frame regression already exists"
+          "value": "publisherの`header.frame_id`を修正してから再確認",
+          "failure_detail": "the planned Japanese empty-frame recovery card marker already exists"
         }
       ],
       "private_data_required": false,

@@ -46,7 +46,7 @@ output goes to a temporary directory and Python cache writes are disabled.
 | --- | --- |
 | queue/schema/drift/authority regressions | 17 passed |
 | `--verify starter-C1` | strict MkDocs profile passed; no workspace artifact |
-| `--verify starter-C5` | frame tests, focused flake8, and diff check passed |
+| `--verify starter-C5` | strict MkDocs profile passed; no workspace artifact |
 | contributor runner style | full flake8 passed for runner and test |
 | complete maintained Python gate | graph 1,428 passed / 13 skipped; lidar_slam 687 passed; 2,115 total |
 | documentation | strict MkDocs build passed with pre-existing notices |
@@ -252,51 +252,49 @@ python3 -m mkdocs build --strict
 Estimate: **30 minutes**. Non-goals: adding a driver, selecting universal
 tuning values, or claiming support for hardware that has not passed a recipe.
 
-## Candidate C5 — empty sampled frame regression
+## Candidate C5 — Japanese empty-frame recovery card
 
 Suggested issue title:
 
-> Preflight: fail clearly when sampled sensor messages have an empty `frame_id`
+> Docs: explain empty `frame_id` recovery in the Japanese first-run card
 
 Why this task exists:
 
 - issue #102 shows the operator-visible empty-frame symptom;
-- `Mid360RobotPreflight._sample_frame_check` currently returns no check when
-  sampled messages exist but every sampled `frame_id` is empty;
-- the diagnostic payload already exposes both `sampled_message_count` and
-  `sampled_frame_ids`, so the change is bounded and fixture-testable.
+- the English first-run card now explains that an empty sampled `frame_id` is
+  a publisher problem, while the Japanese card still stops after the sample
+  command and does not state the repair action;
+- the fail-closed preflight implementation is already covered by the public
+  candidate, so the next bounded contribution should close the language-path
+  gap rather than duplicate the implementation.
 
 Scope:
 
-- update `scripts/lidarslam_tools/mid360_preflight.py`;
-- add regression coverage in
-  `graph_based_slam/test/test_mid360_robot_tools.py`;
-- emit a failed `pointcloud_frame_id` or `imu_frame_id` check when a selected
-  topic has at least one readable sample and no non-empty sampled frame;
-- preserve the current advisory behavior when sampling was unavailable or no
-  message was readable.
+- extend the three-check recovery card in `docs/getting-started-ja.md`;
+- state that a sampled `frame_id` must be non-empty;
+- tell the operator to repair the publisher's `header.frame_id`, repeat the
+  check, and avoid guessing a viewer frame;
+- keep the existing topic and TF commands and the privacy boundary unchanged.
 
 Acceptance:
 
-- readable messages with only empty frame IDs produce a clear failed check;
-- a sample-reader failure does not masquerade as an empty-frame failure;
-- existing mismatch, changing-frame, and stable-frame cases keep their current
-  status;
-- no rosbag, hardware, network, or generated map is needed by the test.
+- the Japanese three-check card states that a sampled `frame_id` must be
+  non-empty;
+- an empty or timed-out sample tells the operator to repair the publisher
+  `header.frame_id` and repeat the check;
+- the card tells the operator not to guess a viewer frame and keeps the
+  existing topic and TF commands intact;
+- no rosbag, hardware, network, or private log is needed by the change.
 
-Focused checks:
+Focused check:
 
 ```bash
-python3 -m pytest -q \
-  graph_based_slam/test/test_mid360_robot_tools.py -k frame
-python3 -m flake8 --select=E9,F63,F7,F82 \
-  scripts/lidarslam_tools/mid360_preflight.py \
-  graph_based_slam/test/test_mid360_robot_tools.py
-git diff --check
+python3 -m mkdocs build --strict
 ```
 
-Estimate: **30 minutes**. Non-goals: changing TF connectivity policy, making
-all sample-reader failures fatal, or redesigning the preflight report.
+Estimate: **30 minutes**. Non-goals: changing the preflight implementation,
+translating the entire getting-started guide, or claiming support for an
+unvalidated sensor.
 
 ## Publication and review sequence
 
@@ -304,7 +302,7 @@ all sample-reader failures fatal, or redesigning the preflight report.
 2. Confirm that no open issue or pull request already implements the exact
    acceptance criteria.
 3. Obtain explicit authorization before creating or editing GitHub issues.
-4. Publish C1 and C5 first; they exercise one docs path and one code/test path.
+4. Publish C1 and C5 first; they exercise setup and diagnosis documentation.
 5. Publish C2 and C3 after the first pair's review burden is known.
 6. Publish C4 only after the common sensor checklist has a named maintainer
    reviewer; do not let vendor-specific discussion expand its scope.

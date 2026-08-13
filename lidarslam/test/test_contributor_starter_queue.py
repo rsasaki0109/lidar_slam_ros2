@@ -87,27 +87,15 @@ def _copy_scoped_files(payload: dict, destination: Path) -> None:
         target.write_bytes((ROOT / path).read_bytes())
 
 
-def test_checked_in_queue_is_schema_valid_and_truthful_about_local_drift():
-    """The checked-in queue reports the implemented C5 gap for review."""
+def test_checked_in_queue_is_schema_valid_and_ready_local_only():
+    """The checked-in queue keeps five actionable local-only tasks."""
     queue, report = CHECKER.evaluate()
 
     jsonschema.Draft7Validator(_schema()).validate(queue)
-    assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
+    assert report['status'] == 'QUEUE_READY_LOCAL_ONLY'
     assert report['task_count'] == 5
-    assert report['ready_task_ids'] == [
-        'starter-C1',
-        'starter-C2',
-        'starter-C3',
-        'starter-C4',
-    ]
-    assert report['stale_tasks'] == [{
-        'id': 'starter-C5',
-        'status': 'STALE',
-        'reasons': [
-            'the known empty-frame return path changed and requires scope review',
-            'the planned empty sampled frame regression already exists',
-        ],
-    }]
+    assert report['ready_task_ids'] == list(CHECKER.EXPECTED_TASK_IDS)
+    assert report['stale_tasks'] == []
     assert report['remote_duplicate_audit'] == {
         'checked_at': '2026-08-12T13:39:03+09:00',
         'open_pull_request_count': 1,
@@ -254,34 +242,23 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
         'starter-C2',
         'starter-C3',
         'starter-C4',
+        'starter-C5',
     ]
-    assert report['stale_tasks'] == [
-        {
-            'id': 'starter-C1',
-            'status': 'STALE',
-            'reasons': ['the planned g2o recovery card marker already exists'],
-        },
-        {
-            'id': 'starter-C5',
-            'status': 'STALE',
-            'reasons': [
-                'the known empty-frame return path changed and requires scope review',
-                'the planned empty sampled frame regression already exists',
-            ],
-        },
-    ]
+    assert report['stale_tasks'] == [{
+        'id': 'starter-C1',
+        'status': 'STALE',
+        'reasons': ['the planned g2o recovery card marker already exists'],
+    }]
 
 
-def test_code_task_becomes_stale_when_known_gap_changes(tmp_path: Path):
-    """A changed code gap requires maintainers to reassess the task."""
+def test_japanese_docs_task_becomes_stale_when_marker_appears(tmp_path: Path):
+    """A completed Japanese recovery card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
-    source = tmp_path / 'scripts' / 'lidarslam_tools' / 'mid360_preflight.py'
+    source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
-        source.read_text(encoding='utf-8').replace(
-            '        if not frame_ids:\n            return None',
-            '        if not frame_ids:\n            return PreflightCheck()',
-        ),
+        source.read_text(encoding='utf-8')
+        + '\npublisherの`header.frame_id`を修正してから再確認\n',
         encoding='utf-8',
     )
 
@@ -290,8 +267,7 @@ def test_code_task_becomes_stale_when_known_gap_changes(tmp_path: Path):
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the known empty-frame return path changed and requires scope review',
-        'the planned empty sampled frame regression already exists',
+        'the planned Japanese empty-frame recovery card marker already exists',
     ]
 
 
@@ -339,8 +315,8 @@ def test_docs_verifier_uses_temp_site_and_never_contract_shell(
     assert kwargs['env']['PYTHONDONTWRITEBYTECODE'] == '1'
 
 
-def test_code_verifier_runs_only_allowlisted_commands(monkeypatch):
-    """Code verification follows the fixed built-in command profile."""
+def test_c5_verifier_uses_the_fixed_docs_profile(monkeypatch):
+    """C5 verification follows the fixed built-in docs profile."""
     calls = []
 
     def fake_run(command, **kwargs):
@@ -353,12 +329,14 @@ def test_code_verifier_runs_only_allowlisted_commands(monkeypatch):
     report = CHECKER.verify_task(task)
 
     assert report['status'] == 'FOCUSED_CHECKS_PASSED'
-    assert [tuple(command) for command, _ in calls] == list(
-        CHECKER.MID360_EMPTY_FRAME_CHECKS)
-    assert all(
-        kwargs['env']['PYTEST_ADDOPTS'] == '-p no:cacheprovider'
-        for _, kwargs in calls
-    )
+    assert len(calls) == 1
+    command, kwargs = calls[0]
+    assert command[:6] == [
+        sys.executable, '-m', 'mkdocs', 'build', '--strict', '--site-dir'
+    ]
+    assert Path(command[6]).name == 'site'
+    assert ROOT not in Path(command[6]).parents
+    assert kwargs['env']['PYTEST_ADDOPTS'] == '-p no:cacheprovider'
 
 
 def test_code_verifier_stops_after_first_failure(monkeypatch):
@@ -389,16 +367,11 @@ def test_default_cli_json_is_path_private_and_no_write():
         text=True,
     )
 
-    assert result.returncode == 1
+    assert result.returncode == 0
     payload = json.loads(result.stdout)
-    assert payload['status'] == 'QUEUE_STALE_LOCAL_ONLY'
-    assert payload['ready_task_ids'] == [
-        'starter-C1',
-        'starter-C2',
-        'starter-C3',
-        'starter-C4',
-    ]
-    assert payload['stale_tasks'][0]['id'] == 'starter-C5'
+    assert payload['status'] == 'QUEUE_READY_LOCAL_ONLY'
+    assert payload['ready_task_ids'] == list(CHECKER.EXPECTED_TASK_IDS)
+    assert payload['stale_tasks'] == []
     assert payload['authority']['github_writes_authorized'] is False
     assert '/home/' not in result.stdout
     assert '/tmp/' not in result.stdout
