@@ -52,12 +52,13 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
    command you ran. Redact private paths from that separately pasted command.
 4. Follow the printed
    [Independent First-map Validation issue form](https://github.com/rsasaki0109/lidar_slam_ros2/issues/new?template=first-map-validation.yml),
-   paste its copy-ready `Verification summary`, review the named
-   `first_map_validation_receipt.json`, then drag only that file into the
-   **Privacy-bounded JSON receipt** field. GitHub stores issue
-   attachments publicly. The generated JSON contains evidence hashes but no
-   map geometry, private paths, or exact command; do not attach any other run
-   artifact.
+   paste its copy-ready `Verification summary`. For a PASS report, review the
+   named `first_map_validation_receipt.json`, then drag only that file into
+   the **Privacy-bounded JSON receipt** field. For a FAIL report with no
+   generated receipt, leave that field empty and paste the first actionable
+   terminal finding instead. GitHub stores issue attachments publicly. The
+   generated JSON contains evidence hashes but no map geometry, private paths,
+   or exact command; do not attach any other run artifact.
 
 Both passing and failing reports are useful. A failed attempt is an onboarding
 finding, not an accepted validation, and must be resolved or explicitly

@@ -70,7 +70,7 @@ body:
     id: verification
     attributes:
       label: Verification summary
-      description: Paste the Verification summary block from first_map_validation_receipt.md. For older outputs, run create_first_map_validation_receipt.py --write first. Do not upload map geometry.
+      description: For PASS, paste the Verification summary block from first_map_validation_receipt.md. For FAIL, paste the terminal status or first actionable finding instead. For older outputs, run create_first_map_validation_receipt.py --write first. Do not upload map geometry.
       placeholder: |
         manifest_status=succeeded
         diagnosis_status=success
@@ -84,10 +84,15 @@ body:
     id: receipt
     attributes:
       label: Privacy-bounded JSON receipt
-      description: Review first_map_validation_receipt.json, then drag and drop that file here. GitHub uploads it as a public attachment. The generated receipt excludes map geometry, private paths, and the exact command; do not attach any other run artifact.
-      placeholder: Drag and drop first_map_validation_receipt.json here.
+      description: >-
+        Required for PASS reports: review first_map_validation_receipt.json,
+        then drag and drop that file here. GitHub uploads it as a public
+        attachment. For FAIL reports, leave this field empty when no receipt
+        was produced. The generated receipt excludes map geometry, private
+        paths, and the exact command; do not attach any other run artifact.
+      placeholder: PASS only — drag and drop first_map_validation_receipt.json here.
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: findings

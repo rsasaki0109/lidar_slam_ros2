@@ -490,8 +490,14 @@ def test_contributing_and_issue_templates_exist():
         assert f'id: {field_id}' in first_map_form
     assert 'Do not upload map geometry.' in first_map_form
     assert 'drag and drop that file here' in first_map_form
-    assert 'GitHub uploads it as a public attachment' in first_map_form
+    assert 'GitHub uploads it as a public' in first_map_form
     assert 'do not attach any other run artifact' in first_map_form
+    receipt_block = first_map_form.split(
+        '  - type: textarea\n    id: receipt\n', 1
+    )[1].split('  - type:', 1)[0]
+    assert 'Required for PASS reports' in receipt_block
+    assert 'For FAIL reports, leave this field empty' in receipt_block
+    assert 'required: false' in receipt_block
 
 
 def test_product_contract_has_bounded_official_surface():
