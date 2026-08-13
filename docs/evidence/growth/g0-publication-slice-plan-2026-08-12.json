@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-13T00:52:51+09:00",
+  "generated_at": "2026-08-13T11:47:45+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 204,
-    "expected_paths_sha256": "86ad6fe4210e9f8b22368fc0f7bd165c4d680ad52ae31a9df0cdb67c60495d2a",
+    "expected_path_count": 205,
+    "expected_paths_sha256": "3961fe106131a42efd369ce7929e3e2af3295c9ed36fc4e52f637c5378a6a9b4",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -251,6 +251,7 @@
         "docs/contracts/first-map-validator-cohort-v1.json",
         "docs/contracts/g0-onboarding-matrix-evidence-v1.json",
         "docs/contracts/glim-usability-scorecard-evidence-v1.json",
+        "docs/evidence/growth/2026-08-13.json",
         "docs/evidence/growth/community-contributor-backlog-2026-08-11.md",
         "docs/evidence/growth/contributor-product-surface-sync-2026-08-12.md",
         "docs/evidence/growth/first-map-validator-cohort-launch-packet-2026-08-12.md",
