@@ -429,6 +429,53 @@ bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh \
   --verify-map
 ```
 
+### Odometry and TF: two separate contracts
+
+An `nav_msgs/msg/Odometry` message contains a parent frame in
+`header.frame_id` and a child frame in `child_frame_id`. Publishing those
+fields does not, by itself, guarantee that the matching transform is present
+in the `/tf` tree. Replace every angle-bracket placeholder before running the
+checks below.
+
+1. **Check the Odometry message frames**
+
+   First confirm that `<ODOM_TOPIC>` is the intended
+   `nav_msgs/msg/Odometry` topic, then sample both frame fields:
+
+   ```bash
+   timeout 5s ros2 topic echo --once --field header.frame_id <ODOM_TOPIC>
+   timeout 5s ros2 topic echo --once --field child_frame_id <ODOM_TOPIC>
+   ```
+
+   Expected: both outputs are non-empty and identify the intended
+   `<ODOM_FRAME>` parent and `<BASE_FRAME>` child. If either is empty or
+   unexpected, correct the Odometry publisher or launch remap before checking
+   TF; do not invent frame names in a viewer.
+
+2. **Check that the directed TF path exists**
+
+   ```bash
+   ros2 run tf2_ros tf2_echo <ODOM_FRAME> <BASE_FRAME>
+   ```
+
+   Expected: repeated `At time ...` transforms in the same parent-to-child
+   direction as the sampled message. If the transform is unavailable, the
+   Odometry topic is not sufficient: enable the supported TF broadcaster or
+   static-extrinsic configuration for the robot, then repeat this check. Do
+   not silence TF warnings or copy a robot-specific broadcaster as a fix.
+
+3. **Check transform freshness separately**
+
+   ```bash
+   ros2 run tf2_ros tf2_monitor <ODOM_FRAME> <BASE_FRAME>
+   ```
+
+   Expected: the monitor reports a live publisher and bounded delay for the
+   path. A missing path is a broadcaster/configuration problem; a large delay,
+   future extrapolation, or stale timestamp is a timing problem. Align the
+   clocks and message/TF timestamps or repair the publisher rate, then rerun
+   the monitor. Increasing a lookup timeout alone does not repair stale data.
+
 ## Run `RKO-LIO + graph_based_slam`
 
 The main launch entrypoint is:

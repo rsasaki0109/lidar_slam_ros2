@@ -539,7 +539,7 @@ command. Choose `<POINTCLOUD_TOPIC>` from a topic listed as
 2. **Non-empty sampled `frame_id`**
 
    ```bash
-   ros2 topic echo --once --timeout 5 --field header.frame_id <POINTCLOUD_TOPIC>
+   timeout 5s ros2 topic echo --once --field header.frame_id <POINTCLOUD_TOPIC>
    ```
 
    Expected: one non-empty frame name, such as `livox_frame`. If the output is
@@ -563,7 +563,7 @@ checks pass but no map message is produced, inspect the run diagnosis rather
 than changing viewer settings:
 
 ```bash
-ros2 topic echo --once --timeout 5 /map/pointcloud_map
+timeout 5s ros2 topic echo --once /map/pointcloud_map
 lidarslam-map inspect /path/to/output --write
 ```
 

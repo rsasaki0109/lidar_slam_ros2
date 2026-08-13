@@ -867,6 +867,10 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'run_open_data_packet_imu_deskew_validation_matrix.sh' in workflows_doc
     assert 'run_dynamic_object_filter_benchmark.sh' in workflows_doc
     assert 'velodyne_msgs/msg/VelodyneScan' in workflows_doc
+    assert 'Odometry and TF: two separate contracts' in workflows_doc
+    assert 'timeout 5s ros2 topic echo --once' in workflows_doc
+    assert 'ros2 topic echo --once --timeout' not in workflows_doc
+    assert 'ros2 topic echo --once --timeout' not in getting_started_doc
 
     assert 'download_ntu_viral_tnp01.sh' in benchmarking_doc
     assert 'run_rko_lio_graph_benchmark.sh' in benchmarking_doc
