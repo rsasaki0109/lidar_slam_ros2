@@ -24,11 +24,11 @@ candidate notes: [v0.9.1](docs/releases/v0.9.1.md). [日本語クイックスタ
 ```bash
 docker run --rm -e LIDARSLAM_HOST_UID="$(id -u)" -e LIDARSLAM_HOST_GID="$(id -g)" \
   -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:humble
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
 ```
 
-This runs the 517 MB MID-360 demo with periodic progress and writes `lidarslam_output/mid360_demo/`.
-UID/GID returns it to the Linux user; see [Getting Started](docs/getting-started.md) for other platforms.
+Use the latest published stable image (`v0.9.0-humble`) for the 517 MB MID-360 demo; it writes `lidarslam_output/mid360_demo/` and returns ownership via UID/GID.
+The `v0.9.1` release candidate is not published yet; use the [source quickstart](#build--verified-demo-from-source-one-helper) for that candidate. See [Getting Started](docs/getting-started.md) for other platforms.
 
 ### Map your own bag (one command after install)
 

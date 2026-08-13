@@ -325,6 +325,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert 'git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git' in readme
     assert 'bash scripts/source_quickstart.sh' in readme
     assert 'Run `lidarslam-map` with no arguments' in readme
+    assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble' in readme
+    assert 'v0.9.1` release candidate is not published yet' in readme
     # The required-topics table and the dynamic-object-filter figure moved to
     # docs/workflows.md so the README stays narrow; keep the assets on disk
     # (asserted above) and verify the README still routes readers to those docs.
@@ -777,6 +779,9 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     )
     assert 'LIDARSLAM_HOST_UID' in getting_started_doc
     assert 'LIDARSLAM_HOST_GID' in getting_started_doc
+    assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble' in getting_started_doc
+    assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy' in getting_started_doc
+    assert 'v0.9.1` release candidate is not published or tagged yet' in getting_started_doc
     assert 'periodic' in getting_started_doc
     assert 'Bind-mounted output ownership' in distribution_doc
     assert 'Creative Commons Attribution 4.0' in real_data_e2e_doc

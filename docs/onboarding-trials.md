@@ -21,7 +21,7 @@ missing and the Docker rows are v0.9.0 while the source rows are v0.9.1.
 | Trial | Clean starting point | Canonical documentation | Fixed input |
 | --- | --- | --- | --- |
 | Docker Humble, x86_64 | Ubuntu 22.04 with Docker installed; no project image, dataset, or output cache | [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) | MID-360 public demo |
-| Docker Jazzy, x86_64 | Ubuntu 24.04 with Docker installed; no project image, dataset, or output cache | [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) with `:jazzy` | MID-360 public demo |
+| Docker Jazzy, x86_64 | Ubuntu 24.04 with Docker installed; no project image, dataset, or output cache | [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) with `v0.9.0-jazzy` | MID-360 public demo |
 | Source Humble, x86_64 | Ubuntu 22.04 with ROS 2 Humble installed; no checkout, build, dataset, or output | [fixed source first map](getting-started.md#2-run-the-fixed-first-map-demo) | MID-360 public demo |
 | Source Jazzy, x86_64 | Ubuntu 24.04 with ROS 2 Jazzy installed; no checkout, build, dataset, or output | [fixed source first map](getting-started.md#2-run-the-fixed-first-map-demo) | MID-360 public demo |
 

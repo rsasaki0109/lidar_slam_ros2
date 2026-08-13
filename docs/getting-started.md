@@ -61,8 +61,13 @@ docker run --rm \
   -e LIDARSLAM_HOST_UID="$(id -u)" \
   -e LIDARSLAM_HOST_GID="$(id -g)" \
   -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:humble
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
 ```
+
+This command is intentionally pinned to the latest published stable image,
+`v0.9.0-humble`, so a clean first run does not silently follow `develop`. The
+`v0.9.1` release candidate is not published or tagged yet; use the source
+quickstart below when you need the candidate revision.
 
 The first run downloads the tracked 517 MB MID-360 bag and prints periodic
 byte, percentage and transfer-rate updates. The map is written to
@@ -74,7 +79,8 @@ The Docker image invokes the same `scripts/run_first_map_demo.sh` implementation
 used by a sourced source workspace. Both paths use the fixed MID-360 dataset,
 the `rko_lio_graph_mid360_preset`, and the same manifest, verifier, diagnosis,
 and first-map receipt artifacts.
-On Ubuntu 24.04, replace `:humble` with `:jazzy`; the entrypoint and first-map
+On Ubuntu 24.04, use
+`ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy`; the entrypoint and first-map
 contract are unchanged.
 
 ### Docker Own-Bag Map

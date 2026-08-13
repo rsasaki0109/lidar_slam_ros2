@@ -526,7 +526,7 @@ be isolated from unrelated data, use null.
 ## 5. Docker Humble execution
 
 The observer must use the exact v0.9.0 Humble digest in place of the moving
-`:humble` tag. The bind mount
+`:humble` convenience tag. The bind mount
 and environment overrides below preserve the default command while retaining
 the dataset manifest for exact byte capture; they are observer instrumentation,
 not operator help.
@@ -559,7 +559,7 @@ described in [Getting Started](getting-started.md#4-check-the-result).
 
 ## 6. Docker Jazzy execution
 
-The beginner page now explicitly documents the `:jazzy` substitution and the
+The beginner page now explicitly documents the exact v0.9.0 Jazzy tag and the
 same fixed first-map contract. Repeat section 5 in a fresh Ubuntu 24.04 trial
 environment after setting the Jazzy identity from section 3:
 

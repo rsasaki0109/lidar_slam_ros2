@@ -41,10 +41,14 @@ docker run --rm \
   -e LIDARSLAM_HOST_UID="$(id -u)" \
   -e LIDARSLAM_HOST_GID="$(id -g)" \
   -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:humble
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
 ```
 
-Ubuntu 24.04/Jazzyでは最後を`:jazzy`に変更します。初回は517 MBの公開bagを
+このコマンドは公開済み安定版`v0.9.0-humble`に固定しています。`develop`の
+移動タグを使わないため、初回導線の内容が不意に変わりません。`v0.9.1`は
+まだ公開・tag付けされていない候補版なので、候補版を試す場合はsource helperを
+使ってください。Ubuntu 24.04/Jazzyでは
+`ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy`を使います。初回は517 MBの公開bagを
 取得し、最低8 GiBの空き容量を使います。目安は約30分ですが、回線とCPUで
 変わります。出力先は`lidarslam_output/mid360_demo/`です。
 
