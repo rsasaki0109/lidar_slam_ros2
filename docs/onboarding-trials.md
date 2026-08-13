@@ -110,10 +110,10 @@ python3 scripts/check_onboarding_trial_matrix.py --json
 
 With no record arguments, the checker loads the schema-backed reviewed index
 at `docs/contracts/g0-onboarding-matrix-evidence-v1.json`. The index names the
-two checked-in Docker records and keeps both missing source rows explicit; it
-does not scan files, infer a latest run, or turn an absent row into a failure or
-success. Use explicit paths when reviewing a provisional matrix that has not
-been added to that index:
+all four checked-in rows explicitly (two Docker and two source); it does not
+scan files, infer a latest run, or turn an absent row into a failure or success.
+Use explicit paths when reviewing a provisional matrix that has not been added
+to that index:
 
 ```bash
 python3 scripts/check_onboarding_trial_matrix.py \
