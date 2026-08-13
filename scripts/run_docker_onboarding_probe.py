@@ -31,9 +31,10 @@
 The probe uses a fresh Docker daemon inside a disposable Ubuntu container. It
 does not mount the host Docker socket or share project image/data caches. This
 is deliberately not a comparable G0 baseline: a container on a shared host
-does not provide the dedicated filesystem required for peak-disk measurement,
-and the script cannot observe a human operator's active time or submitted
-commands. All three fields are therefore recorded as null.
+does not provide the dedicated filesystem required for peak-disk measurement.
+The script can retain separately observed human active time and command count,
+but it never infers either value from its own harness commands. Peak disk is
+still recorded as null in this mode.
 """
 
 from __future__ import annotations
@@ -96,6 +97,59 @@ ARCHIVE_RELATIVE = Path(
 
 class ProbeError(RuntimeError):
     """The observer harness could not produce a trustworthy record."""
+
+
+def _prompt_active_time(wall_time: float, unknown: bool) -> float | None:
+    """Capture a separately observed paused stopwatch without guessing."""
+    if unknown:
+        return None
+    while True:
+        try:
+            value = input(
+                'Observed active operator seconds '
+                '(paused stopwatch; blank records unknown): '
+            ).strip()
+        except EOFError:
+            return None
+        if not value:
+            return None
+        try:
+            parsed = float(value)
+        except ValueError:
+            print('Enter a finite number or leave blank.', file=sys.stderr)
+            continue
+        if not math.isfinite(parsed) or parsed < 0 or parsed > wall_time:
+            print(
+                f'Enter a value from 0 through {wall_time:.3f}.',
+                file=sys.stderr,
+            )
+            continue
+        return round(parsed, 3)
+
+
+def _prompt_command_count(unknown: bool) -> int | None:
+    """Capture human-submitted command count without counting the harness."""
+    if unknown:
+        return None
+    while True:
+        try:
+            value = input(
+                'Observed human-submitted command count '
+                '(blank records unknown): '
+            ).strip()
+        except EOFError:
+            return None
+        if not value:
+            return None
+        try:
+            parsed = int(value)
+        except ValueError:
+            print('Enter a positive integer or leave blank.', file=sys.stderr)
+            continue
+        if parsed < 1:
+            print('Enter a positive integer or leave blank.', file=sys.stderr)
+            continue
+        return parsed
 
 
 def _run(
@@ -747,6 +801,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument('--record', required=True, type=Path)
     parser.add_argument('--temp-parent', default='/tmp', type=Path)
     parser.add_argument('--timeout-sec', default=7200.0, type=float)
+    parser.add_argument('--prompt-active-operator-time', action='store_true')
+    parser.add_argument('--record-active-time-unknown', action='store_true')
+    parser.add_argument('--prompt-command-count', action='store_true')
+    parser.add_argument('--record-command-count-unknown', action='store_true')
     parser.add_argument(
         '--allow-privileged-container-host',
         action='store_true',
@@ -779,6 +837,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error('--product-version must be a semantic version')
     if not math.isfinite(args.timeout_sec) or args.timeout_sec <= 0:
         parser.error('--timeout-sec must be finite and greater than zero')
+    if args.prompt_active_operator_time and args.record_active_time_unknown:
+        parser.error('active-time modes are mutually exclusive')
+    if args.prompt_command_count and args.record_command_count_unknown:
+        parser.error('command-count modes are mutually exclusive')
     if not args.temp_parent.is_dir():
         parser.error('--temp-parent must be an existing directory')
     return args
@@ -1036,6 +1098,15 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
                 receipt_observed,
             )
 
+        wall_time = round(stop_time - start_time, 3)
+        active_time = _prompt_active_time(
+            wall_time,
+            getattr(args, 'record_active_time_unknown', False),
+        )
+        command_count = _prompt_command_count(
+            getattr(args, 'record_command_count_unknown', False),
+        )
+
         record = {
             'schema_version': 1,
             'schema_uri': SCHEMA_URI,
@@ -1061,9 +1132,9 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
             },
             'measurements': {
                 'workflow_download_bytes': rx_end - rx_start,
-                'wall_time_sec': round(stop_time - start_time, 3),
-                'active_operator_time_sec': None,
-                'command_count': None,
+                'wall_time_sec': wall_time,
+                'active_operator_time_sec': active_time,
+                'command_count': command_count,
                 'peak_disk_bytes': None,
                 'output_bytes': output_bytes,
             },

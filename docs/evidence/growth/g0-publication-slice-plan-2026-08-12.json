@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-13T11:47:45+09:00",
+  "generated_at": "2026-08-13T17:22:01+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 205,
-    "expected_paths_sha256": "3961fe106131a42efd369ce7929e3e2af3295c9ed36fc4e52f637c5378a6a9b4",
+    "expected_path_count": 207,
+    "expected_paths_sha256": "9dde48f2004d60a64e7e7b0f050849101eb183fe7416a6de7cfdffe6faa9dc1e",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -130,8 +130,8 @@
     {
       "id": "S4-source-onboarding",
       "order": 4,
-      "title": "Fresh-terminal source install and public onboarding measurement",
-      "review_outcome": "Humble and Jazzy users receive one exact six-package source route with dependency bootstrap, launcher activation, installed checks, and a public-readiness preflight.",
+      "title": "Fresh-terminal source and Docker onboarding measurement",
+      "review_outcome": "Humble and Jazzy users receive one exact six-package source route and a bounded Docker probe with dependency bootstrap, launcher activation, installed checks, and public-readiness preflight.",
       "depends_on": [
         "S2-first-map-foundation"
       ],
@@ -147,11 +147,13 @@
         "graph_based_slam/test/test_product_python_tests_script.py",
         "lidarslam/test/test_install_source_dependencies.py",
         "lidarslam/test/test_installed_product_cli_contract.py",
+        "lidarslam/test/test_run_docker_onboarding_probe.py",
         "lidarslam/test/test_run_source_onboarding_probe.py",
         "lidarslam/test/test_source_quickstart.py",
         "scripts/check_installed_product_cli.py",
         "scripts/install_source_dependencies.sh",
         "scripts/lidarslam",
+        "scripts/run_docker_onboarding_probe.py",
         "scripts/run_product_python_tests.sh",
         "scripts/run_source_onboarding_probe.py",
         "scripts/source_quickstart.sh"

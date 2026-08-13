@@ -29,6 +29,7 @@
 
 from __future__ import annotations
 
+import builtins
 import importlib.util
 import json
 from pathlib import Path
@@ -156,6 +157,22 @@ def test_pass_artifacts_are_read_from_final_run(tmp_path):
     assert artifact['profile_id'] == 'rko_lio_graph_mid360_preset'
     assert len(artifact['manifest_sha256']) == 64
     assert len(artifact['receipt_sha256']) == 64
+
+
+def test_active_time_is_observed_or_explicitly_unknown(monkeypatch):
+    answers = iter(('bad', '25', '4.5'))
+    monkeypatch.setattr(builtins, 'input', lambda _prompt: next(answers))
+
+    assert PROBE._prompt_active_time(10.0, False) == 4.5
+    assert PROBE._prompt_active_time(10.0, True) is None
+
+
+def test_command_count_is_observed_or_explicitly_unknown(monkeypatch):
+    answers = iter(('bad', '0', '7'))
+    monkeypatch.setattr(builtins, 'input', lambda _prompt: next(answers))
+
+    assert PROBE._prompt_command_count(False) == 7
+    assert PROBE._prompt_command_count(True) is None
 
 
 def test_malformed_partial_artifacts_fail_closed(tmp_path):
@@ -340,6 +357,31 @@ def test_cli_rejects_non_finite_timeout(tmp_path, timeout_value):
         ])
 
     assert exc_info.value.code == 2
+
+
+def test_cli_rejects_ambiguous_human_measurement_modes(tmp_path):
+    common = [
+        '--trial-id', 'g0-docker-humble-20260810-machine-modes',
+        '--ros-distro', 'humble',
+        '--image-tag',
+        'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble',
+        '--image-digest', 'sha256:' + ('a' * 64),
+        '--record', str(tmp_path / 'record.json'),
+        '--allow-privileged-container-host',
+    ]
+    with pytest.raises(SystemExit) as active_mode:
+        PROBE._parse_args(common + [
+            '--prompt-active-operator-time',
+            '--record-active-time-unknown',
+        ])
+    assert active_mode.value.code == 2
+
+    with pytest.raises(SystemExit) as command_mode:
+        PROBE._parse_args(common + [
+            '--prompt-command-count',
+            '--record-command-count-unknown',
+        ])
+    assert command_mode.value.code == 2
 
 
 def test_outer_daemon_rejects_environment_override(monkeypatch):

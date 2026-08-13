@@ -123,13 +123,17 @@ is pulled only after the timer and RX counter start.
 This instrumentation uses a privileged container. Prefer to run it inside a
 disposable VM, never on an untrusted multi-user host, and never add a broad
 host mount. The CLI therefore requires the explicit
-`--allow-privileged-container-host` acknowledgement. On a shared host, record
-`active_operator_time_sec`, `command_count`, and `peak_disk_bytes` as `null`:
-automation did not observe a human stopwatch or human command submission, and
-`df` would include unrelated filesystem activity. The helper's internal
-Docker invocation is not an operator-submitted command under the contract. A
+`--allow-privileged-container-host` acknowledgement. On a shared host, keep
+`peak_disk_bytes` as `null`; the helper's nested Docker paths do not prove a
+dedicated filesystem. If an independent observer has a paused stopwatch and a
+human command log, the probe can retain those two aggregate values with
+`--prompt-active-operator-time --prompt-command-count`. Otherwise pass
+`--record-active-time-unknown --record-command-count-unknown`, or omit the
+optional prompts, and the fields remain `null`. The helper's internal Docker
+invocation is never an operator-submitted command under the contract. A
 successful product route remains `PASS`, while the checker correctly reports
-measurement `INCOMPLETE` and non-comparable.
+measurement `INCOMPLETE` and non-comparable until every required measurement is
+present.
 
 The script removes only its named nested-host container. It retains its unique
 trial root, private log root, and bounded record for review. Archive and

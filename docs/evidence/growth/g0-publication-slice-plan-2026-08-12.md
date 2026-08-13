@@ -10,8 +10,8 @@
 > Frozen public review baseline (machine key `public_head_sha`):
 > `8a931a3627be503fb10c255ef846c6d3c54a237c`
 >
-> Planned follow-up inventory: 205 paths; SHA-256
-> `3961fe106131a42efd369ce7929e3e2af3295c9ed36fc4e52f637c5378a6a9b4`
+> Planned follow-up inventory: 207 paths; SHA-256
+> `9dde48f2004d60a64e7e7b0f050849101eb183fe7416a6de7cfdffe6faa9dc1e`
 >
 > Last observed remote mutation: exact non-force push from `b12fc60` to
 > `8a931a3`; mutations performed by the checker or review-card command:
@@ -59,10 +59,10 @@ public CI result.
 | S1 runtime safety | 13 | unsafe point-cloud and VoxelGrid layouts fail closed without losing valid fields | public Humble/Jazzy CI |
 | S2 first-map foundation | 31 | one bounded demo/own-bag route reaches a verified local 3D result and retains recovery state | public Humble/Jazzy CI |
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
-| S4 source onboarding | 19 | a fresh terminal uses the exact six-package Humble/Jazzy source route and public preflight | public Humble/Jazzy CI and clean-machine timing |
+| S4 source onboarding | 21 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded Docker/source measurement, and public preflight | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 43 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, and package-manager blockers remain explicit; no release/version reuse is implied | maintainer distribution decision |
 | S6 product-shell integration | 69 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, and support surface agree | complete product gate and public CI |
-| S7 publication control | 5 | all 205 paths are owned once and external authority remains separate | exact-tip maintainer decision |
+| S7 publication control | 5 | all 207 paths are owned once and external authority remains separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -100,7 +100,7 @@ from that base and the local tip descends from the public head, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 205-path coverage with the fixed inventory digest;
+4. exact 207-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred.
 
@@ -112,7 +112,7 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 205 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 207 paths, 7 slices, no remote mutation |
 | checker regressions | 14 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, and self-contained read-only source dry-run execution |
 | focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
