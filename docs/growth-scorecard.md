@@ -29,6 +29,13 @@ Its first product decision is the
 measure and repair the clean Docker/source first-map matrix before expanding
 promotion.
 
+The next privacy-bounded weekly snapshot is
+[2026-08-13](evidence/growth/2026-08-13.json). It records 837 Stars, 321 unique
+clones, 281 unique views, and 13 downloads of the primary v0.9.0 release
+bundle. The product gates remain unchanged at 0/3 accepted independent maps
+and 8/10 v1 readiness; the snapshot is a measurement update, not an adoption
+claim.
+
 The parallel community decision is the
 [2026-08-11 contributor backlog](evidence/growth/community-contributor-backlog-2026-08-11.md).
 A read-only audit grouped all 29 open issues and prepared five tasks with exact
