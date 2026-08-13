@@ -209,7 +209,9 @@ revalidates the retained receipt plus manifest, diagnosis, and verification-log
 hashes, then prints one copy-ready verification summary, safe environment
 hints, the exact reviewed JSON receipt to attach, and the canonical
 independent-validation issue form. Add `--json` for a schema-valid,
-machine-readable `first-map-handoff-v1` result; it is still read-only.
+machine-readable `first-map-handoff-v1` result; it is still read-only and
+local-only because it includes the local receipt path. Attach only the
+reviewed receipt, never the handoff JSON.
 `--output` remains rejected in this mode so it cannot create a second evidence
 artifact.
 

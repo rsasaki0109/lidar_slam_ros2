@@ -359,7 +359,7 @@ def test_first_map_handoff_revalidates_pass_evidence_without_writing(
     )
     assert handoff['privacy'] == {
         'contains_map_geometry': False,
-        'contains_private_paths': False,
+        'contains_private_paths': True,
         'contains_exact_command': False,
         'review_before_sharing': True,
     }
@@ -408,6 +408,7 @@ def test_first_map_json_is_schema_valid_and_read_only(
     jsonschema.validate(payload, schema)
     assert payload['status'] == 'READY_FOR_REVIEW'
     assert payload['receipt_status'] == 'PASS'
+    assert payload['privacy']['contains_private_paths'] is True
     assert payload['operator_supplied_fields'] == [
         'documentation_path',
         'environment_details',

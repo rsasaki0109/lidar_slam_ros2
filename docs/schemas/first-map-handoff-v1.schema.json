@@ -74,7 +74,7 @@
       ],
       "properties": {
         "contains_map_geometry": {"const": false},
-        "contains_private_paths": {"const": false},
+        "contains_private_paths": {"const": true},
         "contains_exact_command": {"const": false},
         "review_before_sharing": {"const": true}
       }

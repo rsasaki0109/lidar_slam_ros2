@@ -301,6 +301,7 @@ def test_contract_identifies_the_complete_product_surface():
     assert 'revalidate' in support['first_map_handoff_rules'][2]
     assert 'copy-ready PASS result' in support['first_map_handoff_rules'][3]
     assert 'safe environment hints' in support['first_map_handoff_rules'][3]
+    assert 'never the public attachment' in support['first_map_handoff_rules'][3]
     assert 'remaining operator-supplied fields' in (
         support['first_map_handoff_rules'][3]
     )

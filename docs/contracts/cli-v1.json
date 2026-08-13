@@ -252,10 +252,10 @@
     ],
     "json_rule": "--json is read-only and writes no ZIP",
     "first_map_handoff_rules": [
-      "--first-map is read-only; --output remains forbidden and --json selects the schema-valid structured handoff",
+      "--first-map is read-only; --output remains forbidden and --json selects the schema-valid local-only structured handoff",
       "require a verified session, runner exit zero, required verification PASS, and receipt-bound quality PASS",
       "revalidate the regular in-session receipt and its manifest, diagnosis, and verification-log hashes before showing a handoff",
-      "print the copy-ready PASS result, exact source commit or product-version fallback, safe environment hints, verification summary, reviewed JSON receipt path, readable receipt path when available, canonical issue-form URL, and the remaining operator-supplied fields",
+      "print the copy-ready PASS result, exact source commit or product-version fallback, safe environment hints, verification summary, reviewed JSON receipt path, readable receipt path when available, canonical issue-form URL, and the remaining operator-supplied fields; the handoff itself is never the public attachment",
       "never upload, open the issue form, or claim an accepted independent validation"
     ],
     "write_rules": [

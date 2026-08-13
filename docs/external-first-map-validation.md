@@ -37,7 +37,8 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
    returned as the schema-valid
    [`first-map-handoff-v1`](schemas/first-map-handoff-v1.schema.json) object,
    including safe OS/architecture/ROS hints and the four operator-supplied
-   fields.
+   fields. This handoff JSON is local-only because it includes a local receipt
+   path; attach only the reviewed receipt named inside it.
 
    For an existing output produced before automatic receipts were added, you
    may regenerate the receipt manually:

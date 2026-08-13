@@ -770,7 +770,12 @@ def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
             + _safe_identifier(verification['autoware_status']),
             'manifest_sha256=' + verification['manifest_sha256'],
         ]),
-        'privacy': dict(receipt['shareability']),
+        'privacy': {
+            'contains_map_geometry': False,
+            'contains_private_paths': True,
+            'contains_exact_command': False,
+            'review_before_sharing': True,
+        },
         'operator_supplied_fields': [
             'documentation_path',
             'environment_details',

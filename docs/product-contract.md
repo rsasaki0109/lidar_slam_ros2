@@ -97,7 +97,9 @@ For automation, add `--json` to the first-map support command. It returns the
 same read-only handoff as the schema-valid
 [`first-map-handoff-v1`](schemas/first-map-handoff-v1.schema.json) object,
 including safe environment hints and the four fields the operator must still
-complete. `--output` remains rejected in this mode.
+complete. The structured handoff is a local-only helper and contains the
+session's local receipt path; attach only the reviewed receipt it names.
+`--output` remains rejected in this mode.
 
 For automation, use an explicit `--output-dir`; run `lidarslam-map doctor`
 before a long run. The repo-local `./scripts/lidarslam` wrapper and installed
