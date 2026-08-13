@@ -71,6 +71,18 @@ route: its public tag commit
 `scripts/source_quickstart.sh`. No local build or moving image tag is promoted
 to matrix evidence.
 
+The release audit now exposes the same image gate without a second manual
+manifest command:
+
+```bash
+python3 scripts/check_published_release.py --version 0.9.1 --json
+```
+
+Its `images` array reports both exact tags as `ABSENT` while the overall result
+remains `NOT_PUBLISHED`; registry/API failures remain distinguishable as
+`ERROR`/`BLOCKED`. This is a read-only maintainer aid and does not publish or
+retag an image.
+
 ## Public source diagnosis
 
 The network-read-only source preflight against exact public Draft PR commit

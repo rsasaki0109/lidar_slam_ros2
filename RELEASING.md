@@ -181,11 +181,8 @@ downloads exactly the six release assets, validates every JSON schema and
 cross-file identity, and verifies the embedded bundle manifest against every
 archived file size and SHA-256. It also resolves the live Humble and Jazzy
 version tags from GHCR and requires both to still name the digests recorded in
-the attached release-image evidence. The JSON report exposes both image tags
-even before a GitHub Release exists, marking each as `PUBLISHED`, `ABSENT`,
-`NOT_CHECKED`, or `ERROR`. HTTP/API or registry failures are `BLOCKED`; an
-explicitly absent tag/release or image is reported as `NOT_PUBLISHED` until the
-release gate can be evaluated. Retain the uploaded
+the attached release-image evidence. HTTP/API or registry failures are
+`BLOCKED`; only explicit tag/release 404 responses mean `NOT_PUBLISHED`. Retain the uploaded
 `published-release-audit.json` Actions artifact with the release evidence.
 
 The curated bundle contains `release-bundle-manifest-v1.json`, including the
