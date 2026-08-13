@@ -149,6 +149,12 @@ def test_prompted_json_keeps_prompts_off_stdout(tmp_path, monkeypatch, capsys):
     captured = capsys.readouterr()
     result = json.loads(captured.out)
     assert result['comparable'] is True
+    assert 'Measurement card' in captured.err
+    assert 'Record only observations from this exact trial' in captured.err
+    assert 'Pause during downloads, builds, SLAM' in captured.err
+    assert 'A pasted multiline' in captured.err
+    assert 'unknown keeps the' in captured.err
+    assert result['validation_command'] in captured.err
     assert 'Observed active operator seconds' in captured.err
     assert 'Observed human-submitted command count' in captured.err
 

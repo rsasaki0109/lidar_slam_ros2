@@ -691,7 +691,10 @@ dedicated Docker filesystem, provide the separately sampled peak with
 `--peak-disk-bytes`. Review the supplement as bounded evidence before adding
 its path to the matrix evidence index. The helper defaults to
 `$TRIAL_RECORD.measurements.json`, keeps `--json` stdout machine-readable, and
-prints the next comparable-check command after writing the supplement.
+prints the next comparable-check command after writing the supplement. With
+`--prompt-human-measurements`, it also prints a stderr measurement card before
+the prompts: the card fixes the paused-stopwatch and command-count rules,
+shows the wall-time upper bound, and says to leave unobserved values blank.
 
 After all available rows pass their individual validity checks, evaluate the
 fixed matrix as a separate gate:

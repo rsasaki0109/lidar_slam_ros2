@@ -59,6 +59,66 @@ SCHEMA_URI = (
 )
 
 
+def _measurement_card(
+    record: dict[str, Any],
+    values: dict[str, Any],
+    validation_command: str,
+) -> str:
+    """Render a short, privacy-safe worksheet for human observations."""
+    measurements = record['measurements']
+    outcome = record.get('outcome', {})
+    wall_time = values['wall_time_sec']
+    if wall_time is None:
+        wall_time = measurements['wall_time_sec']
+
+    if wall_time is None:
+        wall_line = 'Wall time: unknown (the active-time upper bound is unknown)'
+    else:
+        wall_line = (
+            f'Wall time: {wall_time:.3f} sec '
+            f'(active time must be from 0 through {wall_time:.3f})'
+        )
+
+    def status(field: str) -> str:
+        if values[field] is not None:
+            return f'provided on the command line: {values[field]}'
+        if measurements[field] is not None:
+            return f'already recorded: {measurements[field]}'
+        return 'missing; the prompt below will ask for it'
+
+    lines = [
+        'Measurement card',
+        '----------------',
+        'Record only observations from this exact trial; do not estimate.',
+        f"Trial: {record['trial_id']}",
+        f"Outcome: {outcome.get('status', 'unknown')}",
+        wall_line,
+        '',
+        'Human-observation fields:',
+        f'  active_operator_time_sec: {status("active_operator_time_sec")}',
+        f'  command_count: {status("command_count")}',
+        '',
+        'How to measure active_operator_time_sec:',
+        '  Count hands-on time entering commands, answering prompts, reading',
+        '  required output, and following documented next actions.',
+        '  Pause during downloads, builds, SLAM, conversion, verification,',
+        '  and other unattended processing. Do not count study note taking.',
+        '',
+        'How to measure command_count:',
+        '  Count each command submitted by the operator. A pasted multiline',
+        '  shell block is one command; commands run inside scripts do not',
+        '  count. Documented recovery commands do count.',
+        '',
+        'Leave a value blank when it was not observed; unknown keeps the',
+        'record non-comparable. The supplement stores aggregates only, not',
+        'exact commands, private paths, or operator identity.',
+        '',
+        'After writing, validate with:',
+        f'  {validation_command}',
+    ]
+    return '\n'.join(lines)
+
+
 def _read_object(path: Path) -> tuple[dict[str, Any], bytes]:
     try:
         raw = path.read_bytes()
@@ -196,6 +256,15 @@ def _supplement_values(
     }
     measurements = record['measurements']
     if args.prompt_human_measurements:
+        print(
+            _measurement_card(
+                record,
+                values,
+                _validation_command(args.record, args.output),
+            ),
+            file=sys.stderr,
+        )
+        print('', file=sys.stderr)
         print(
             'Enter only values observed during this exact trial; '
             'blank leaves a field unknown.',

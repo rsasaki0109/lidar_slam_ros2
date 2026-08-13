@@ -82,6 +82,9 @@ The supplement output defaults to `"$TRIAL_RECORD.measurements.json"`; pass
 overwrite an existing supplement or a known measurement. With `--json`, input
 prompts go to stderr so stdout remains valid machine-readable JSON, and the
 result includes the exact next validation command.
+When `--prompt-human-measurements` is used, stderr first shows a compact
+measurement card with the trial identity, wall-time bound, counting rules,
+privacy reminder, and that same validation command.
 
 For a dedicated-filesystem Docker observation, add
 `--peak-disk-bytes "$PEAK_DISK_BYTES"` to the first command. After review, set
