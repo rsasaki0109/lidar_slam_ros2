@@ -251,14 +251,14 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_tf_task_becomes_stale_when_marker_appears(tmp_path: Path):
-    """A completed Japanese TF card requires queue reassessment."""
+def test_japanese_preview_task_becomes_stale_when_marker_appears(tmp_path: Path):
+    """A completed Japanese preview card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\ncheck 2で出たframe名を\n',
+        + '\n--no-open\n',
         encoding='utf-8',
     )
 
@@ -267,7 +267,7 @@ def test_japanese_tf_task_becomes_stale_when_marker_appears(tmp_path: Path):
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese TF frame-substitution marker already exists',
+        'the planned Japanese headless-preview marker already exists',
     ]
 
 
@@ -290,6 +290,19 @@ def test_japanese_recovery_card_explains_pointcloud_topic_selection():
     assert '[sensor_msgs/msg/PointCloud2]' in source
     assert '`<POINTCLOUD_TOPIC>`をその名前に置き換えます' in source
     assert 'PointCloud2の行がない場合は' in source
+
+
+def test_japanese_recovery_card_explains_tf_frame_substitution():
+    """The Japanese card connects the TF placeholders to observed frames."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert 'check 2で出た空でないframe名を`<POINTCLOUD_FRAME>`に入れます' in source
+    assert '<TF_TARGET_FRAME>`にはruntimeまたはviewerが基準にするtarget frame' in source
+    assert '`livox_frame`なら、`<POINTCLOUD_FRAME>`だけを' in source
+    assert 'viewerでframe名を推測したり' in source
+    assert '同じ実際の' in source
+    assert 'frame名で再確認します' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

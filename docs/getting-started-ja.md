@@ -163,12 +163,19 @@ PointCloud2の行がない場合は、publisherまたはlaunchのremapを直し�
 
 3. **TFがつながっているか**
 
+   check 2で出た空でないframe名を`<POINTCLOUD_FRAME>`に入れます。
+   `<TF_TARGET_FRAME>`にはruntimeまたはviewerが基準にするtarget frameを入れます。
+   例えばcheck 2の出力が`livox_frame`なら、`<POINTCLOUD_FRAME>`だけを
+   `livox_frame`に置き換えます。viewerでframe名を推測したり、山括弧を残したまま
+   実行したりしません。
+
    ```bash
    ros2 run tf2_ros tf2_echo <TF_TARGET_FRAME> <POINTCLOUD_FRAME>
    ```
 
    `At time ...`が繰り返し表示されることを確認します。利用できない場合は、
-   source/targetの向きとstatic extrinsicを直してから再確認します。
+   この2つのframeのsource/targetの向きとstatic extrinsicを直してから、同じ実際の
+   frame名で再確認します。
 
 3つが通ってもmap messageがない場合は、viewer設定を変える前に次を確認します。
 

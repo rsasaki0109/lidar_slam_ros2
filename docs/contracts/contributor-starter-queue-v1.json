@@ -42,7 +42,7 @@
       },
       {
         "task_id": "starter-C5",
-        "query": "Japanese TF frame substitution",
+        "query": "Japanese headless preview",
         "matching_open_pull_requests": []
       }
     ],
@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: make TF frame substitution explicit in the Japanese recovery card",
-      "outcome": "A Japanese first-run user can fill the TF check with the runtime target frame and the sampled PointCloud2 frame, preserving transform direction without guessing viewer frames.",
+      "title": "Docs: add headless preview recovery to the Japanese first-run guide",
+      "outcome": "A Japanese first-run user on a headless machine can find the printed local HTML preview or use the no-open preview options without uploading a private map or log.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -248,14 +248,14 @@
         "docs/getting-started-ja.md"
       ],
       "non_goals": [
-        "change TF broadcasters or preflight implementation",
+        "change the browser, viewer, or preview implementation",
         "translate the entire getting-started guide",
         "claim support for an unvalidated sensor"
       ],
       "acceptance": [
-        "The Japanese recovery card identifies <TF_TARGET_FRAME> as the runtime or viewer target frame.",
-        "The card tells the reader to put the non-empty frame sampled in check 2 into <POINTCLOUD_FRAME>.",
-        "The card keeps the tf2_echo source/target order, static-extrinsic recovery action, topic-selection, and no-viewer-frame-guessing guidance intact.",
+        "The Japanese guide explains that a browser not opening or a headless machine should use the printed self-contained HTML path.",
+        "The guide shows --no-open and --preview-dir as the safe preview options when a browser cannot be opened.",
+        "The existing map_verify, diagnosis, TF, topic-selection, and no-private-upload guidance remain intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
       "focused_checks": [
@@ -269,8 +269,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "check 2で出たframe名を",
-          "failure_detail": "the planned Japanese TF frame-substitution marker already exists"
+          "value": "--no-open",
+          "failure_detail": "the planned Japanese headless-preview marker already exists"
         }
       ],
       "private_data_required": false,

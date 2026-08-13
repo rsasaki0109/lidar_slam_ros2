@@ -304,32 +304,38 @@ Estimate: **30 minutes**. Non-goals: changing the preflight implementation,
 translating the entire getting-started guide, or claiming support for an
 unvalidated sensor.
 
-## Completed C5 — Japanese PointCloud2 topic selection
+## Completed C5 — Japanese TF frame substitution
 
 Implementation status:
 
 This bounded documentation task is implemented in the local product candidate
-for PR #427. The Japanese card now shows `ros2 topic list -t`, identifies the
-`sensor_msgs/msg/PointCloud2` row, explains that only the topic name is copied,
-and routes a missing typed topic back to the publisher/remap check. The queue's
-drift probe retires this task after the marker appears.
+for PR #427. The Japanese card now connects the non-empty frame sampled in
+check 2 to `<POINTCLOUD_FRAME>`, identifies the runtime/viewer target frame,
+and tells the operator to reuse the same actual frame names when the TF check
+fails. The queue's drift probe retires this task after the marker appears.
+The preceding C5 topic-selection increment is also retained in the candidate:
+it shows `ros2 topic list -t`, selects the
+`sensor_msgs/msg/PointCloud2` row, and tells the reader to copy only its topic
+name.
 
-## Successor C5 — Japanese TF frame substitution
+## Successor C5 — Japanese headless preview recovery
 
 The current prepared C5 task keeps the same narrow language-path scope while
-removing the next frame-substitution gap.
+removing the next browser/headless recovery gap. The Japanese guide names an
+offline preview but does not yet explain what to do when the browser cannot
+open or when the operator is using a headless machine.
 
 Suggested issue title:
 
-> Docs: make TF frame substitution explicit in the Japanese recovery card
+> Docs: add headless preview recovery to the Japanese first-run guide
 
 Acceptance:
 
-- identify `<TF_TARGET_FRAME>` as the runtime or viewer target frame;
-- tell the reader to put the non-empty frame sampled in check 2 into
-  `<POINTCLOUD_FRAME>`;
-- keep the `tf2_echo` source/target order, static-extrinsic recovery action,
-  completed topic-selection and empty-frame guidance intact;
+- explain that a browser not opening or a headless machine should use the
+  printed self-contained HTML path;
+- show `--no-open` and `--preview-dir` as safe preview options;
+- keep the existing map verification, diagnosis, TF, topic-selection,
+  empty-frame, and privacy guidance intact;
 - require no rosbag, hardware, network, or private log.
 
 Focused check:
@@ -338,7 +344,7 @@ Focused check:
 python3 -m mkdocs build --strict
 ```
 
-Estimate: **30 minutes**. Non-goals: changing TF broadcasters or preflight
+Estimate: **30 minutes**. Non-goals: changing the browser, viewer, or preview
 implementation, translating the entire guide, or claiming support for an
 unvalidated sensor.
 
