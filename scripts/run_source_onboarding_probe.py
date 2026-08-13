@@ -749,6 +749,31 @@ def _prompt_active_time(wall_time: float, unknown: bool) -> float | None:
         return round(parsed, 3)
 
 
+def _prompt_command_count(unknown: bool) -> int | None:
+    """Capture the human-submitted command count without inferring it."""
+    if unknown:
+        return None
+    while True:
+        try:
+            value = input(
+                'Observed human-submitted command count '
+                '(blank records unknown): '
+            ).strip()
+        except EOFError:
+            return None
+        if not value:
+            return None
+        try:
+            parsed = int(value)
+        except ValueError:
+            print('Enter a positive integer or leave blank.', file=sys.stderr)
+            continue
+        if parsed < 1:
+            print('Enter a positive integer or leave blank.', file=sys.stderr)
+            continue
+        return parsed
+
+
 def _write_disk_samples(path: Path, samples: list[tuple[float, int]]) -> None:
     try:
         with path.open('x', encoding='utf-8') as stream:
@@ -790,6 +815,7 @@ def _dry_run_plan(args: argparse.Namespace, interface: str) -> dict[str, Any]:
             'run_source_quickstart_headless',
             'validate_first_map_receipt',
             'capture_observed_active_time',
+            'capture_observed_command_count',
             'write_privacy_bounded_trial_record',
         ],
     }
@@ -817,6 +843,11 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path | None]:
         raise ProbeError(
             'choose --prompt-active-operator-time or '
             '--record-active-time-unknown'
+        )
+    if not (args.prompt_command_count or args.record_command_count_unknown):
+        raise ProbeError(
+            'choose --prompt-command-count or '
+            '--record-command-count-unknown'
         )
 
     try:
@@ -956,6 +987,9 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path | None]:
         wall_time,
         args.record_active_time_unknown,
     )
+    command_count = _prompt_command_count(
+        args.record_command_count_unknown,
+    )
 
     record = _base_record(args)
     record['input']['download_bytes'] = archive_bytes
@@ -963,7 +997,7 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path | None]:
         'workflow_download_bytes': rx_end - rx_start,
         'wall_time_sec': wall_time,
         'active_operator_time_sec': active_time,
-        'command_count': 1,
+        'command_count': command_count,
         'peak_disk_bytes': peak_disk,
         'output_bytes': output_bytes,
     }
@@ -1007,6 +1041,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument('--timeout-sec', type=float, default=7200.0)
     parser.add_argument('--prompt-active-operator-time', action='store_true')
     parser.add_argument('--record-active-time-unknown', action='store_true')
+    parser.add_argument('--prompt-command-count', action='store_true')
+    parser.add_argument('--record-command-count-unknown', action='store_true')
     parser.add_argument('--acknowledge-disposable-host', action='store_true')
     parser.add_argument('--acknowledge-isolated-network', action='store_true')
     parser.add_argument(
@@ -1045,6 +1081,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             args.dry_run
             or args.prompt_active_operator_time
             or args.record_active_time_unknown
+            or args.prompt_command_count
+            or args.record_command_count_unknown
             or args.acknowledge_disposable_host
             or args.acknowledge_isolated_network
         ):
@@ -1073,6 +1111,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error('--timeout-sec must be finite and greater than zero')
     if args.prompt_active_operator_time and args.record_active_time_unknown:
         parser.error('active-time modes are mutually exclusive')
+    if args.prompt_command_count and args.record_command_count_unknown:
+        parser.error('command-count modes are mutually exclusive')
     return args
 
 

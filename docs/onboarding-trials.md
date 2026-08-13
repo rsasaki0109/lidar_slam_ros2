@@ -40,10 +40,11 @@ The following rules keep separate operators and releases comparable.
 The detailed observer procedure is the
 [G0 onboarding-trial execution runbook](onboarding-trial-execution.md).
 Its disposable-host `run_source_onboarding_probe.py` helper can pin the public
-source identity, execute the unchanged headless quickstart, collect the seven
-measurements, and write the same bounded v1 record. It is observer automation,
-not a replacement product path; use the manual protocol when independently
-auditing its measurements.
+source identity, execute the unchanged headless quickstart, collect the machine
+measurements, prompt for the human active-time and command-count observations,
+and write the same bounded v1 record. It is observer automation, not a
+replacement product path; use the manual protocol when independently auditing
+its measurements.
 Before provisioning a trial VM, `--public-preflight` checks only the immutable
 GitHub source route and returns machine-readable `READY` or `NOT_READY` without
 writing files. It requires the exact six-package inventory, dependency helper,

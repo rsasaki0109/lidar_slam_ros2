@@ -71,6 +71,8 @@ def _args(tmp_path: Path, *, dry_run: bool = False) -> argparse.Namespace:
         timeout_sec=60.0,
         prompt_active_operator_time=False,
         record_active_time_unknown=True,
+        prompt_command_count=False,
+        record_command_count_unknown=True,
         acknowledge_disposable_host=True,
         acknowledge_isolated_network=True,
         public_preflight=False,
@@ -135,6 +137,7 @@ def test_dry_run_never_queries_public_source_or_writes(
     assert plan['source_commit'] == 'a' * 40
     assert plan['stages'][0] == 'verify_public_source_identity'
     assert 'run_source_quickstart_headless' in plan['stages']
+    assert 'capture_observed_command_count' in plan['stages']
 
 
 def test_publicly_missing_commit_writes_valid_bounded_fail(
@@ -374,6 +377,14 @@ def test_active_time_is_observed_or_explicitly_unknown(monkeypatch):
     assert PROBE._prompt_active_time(10.0, True) is None
 
 
+def test_command_count_is_observed_or_explicitly_unknown(monkeypatch):
+    answers = iter(('bad', '0', '7'))
+    monkeypatch.setattr(builtins, 'input', lambda _prompt: next(answers))
+
+    assert PROBE._prompt_command_count(False) == 7
+    assert PROBE._prompt_command_count(True) is None
+
+
 @pytest.mark.parametrize(
     ('setup', 'archive_bytes', 'timed_out', 'stage', 'finding'),
     (
@@ -464,6 +475,18 @@ def test_cli_rejects_ambiguous_active_time_and_bad_commit(tmp_path):
     with pytest.raises(SystemExit) as active_mode:
         PROBE._parse_args(common)
     assert active_mode.value.code == 2
+
+    common = [item for item in common if item not in {
+        '--prompt-active-operator-time',
+        '--record-active-time-unknown',
+    }]
+    common.extend([
+        '--prompt-command-count',
+        '--record-command-count-unknown',
+    ])
+    with pytest.raises(SystemExit) as command_mode:
+        PROBE._parse_args(common)
+    assert command_mode.value.code == 2
 
 
 def test_public_preflight_cli_needs_only_immutable_source_identity():

@@ -187,7 +187,7 @@ python3 scripts/run_source_onboarding_probe.py \
 
 Dry-run validates the host and path contract and prints a plan, but performs no
 network request or write. For the measured attempt, start a paused stopwatch
-for active operator time and run:
+for active operator time, keep a private count of submitted commands, and run:
 
 ~~~bash
 python3 scripts/run_source_onboarding_probe.py \
@@ -200,17 +200,19 @@ python3 scripts/run_source_onboarding_probe.py \
   --disk-scope / \
   --record "$TRIAL_RECORD" \
   --prompt-active-operator-time \
+  --prompt-command-count \
   --acknowledge-disposable-host \
   --acknowledge-isolated-network
 ~~~
 
-Use `--record-active-time-unknown` instead of the prompt only when no human
-stopwatch observation exists; that keeps the record honest but makes its
-measurements incomplete. The measured mode repeats the exact public preflight
-before cloning, then runs the pinned source quickstart headlessly. A public
-404, package-inventory drift, missing helper, incomplete fast route, or version
-mismatch writes a schema-valid bounded `FAIL` record before timing. An API or
-observer failure exits 2 and does not invent an absence record. If the
+Use `--record-active-time-unknown` and/or
+`--record-command-count-unknown` instead of the corresponding prompt only when
+that human observation does not exist; this keeps the record honest but makes
+its measurements incomplete. The measured mode repeats the exact public
+preflight before cloning, then runs the pinned source quickstart headlessly. A
+public 404, package-inventory drift, missing helper, incomplete fast route, or
+version mismatch writes a schema-valid bounded `FAIL` record before timing. An
+API or observer failure exits 2 and does not invent an absence record. If the
 checked-out quickstart still observes a different package inventory, the
 private route log is reduced to stable finding
 `source-package-inventory-mismatch` in the bounded record.
@@ -222,11 +224,11 @@ Sections 3, 4, 7, and 8 remain the authoritative manual protocol; this helper
 applies that protocol consistently rather than defining a second source path.
 
 The operator sees only the canonical documentation and the observer-approved
-identity substitution. The observer starts and stops timers, records the
-operator's submitted commands without interpreting them, and does not suggest
-fixes. A recovery hint, undocumented option, or manually supplied path is an
-intervention and must be counted. If it is needed for progress, the row cannot
-be an accepted comparable baseline.
+identity substitution. The observer starts and stops timers and asks for the
+operator's aggregate command count after the route; it does not infer that
+count from harness commands or suggest fixes. A recovery hint, undocumented
+option, or manually supplied path is an intervention and must be counted. If
+it is needed for progress, the row cannot be an accepted comparable baseline.
 
 ### Private trial workspace
 
