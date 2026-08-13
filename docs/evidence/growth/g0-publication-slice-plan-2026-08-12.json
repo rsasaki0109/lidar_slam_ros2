@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-13T17:22:01+09:00",
+  "generated_at": "2026-08-13T22:11:22+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 207,
-    "expected_paths_sha256": "9dde48f2004d60a64e7e7b0f050849101eb183fe7416a6de7cfdffe6faa9dc1e",
+    "expected_path_count": 208,
+    "expected_paths_sha256": "2483f1fa77a92784fe2a5d2447103b6d6b25388715b14083174a51f9c9e09f7a",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -241,6 +241,7 @@
       "paths": [
         ".github/ISSUE_TEMPLATE/bug-report.yml",
         ".github/ISSUE_TEMPLATE/config.yml",
+        ".github/ISSUE_TEMPLATE/first-map-validation.yml",
         ".github/ISSUE_TEMPLATE/sensor-support.yml",
         "CONTRIBUTING.md",
         "README.md",
