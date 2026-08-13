@@ -189,6 +189,37 @@ messageがあればmapは存在するため、viewerのfixed frameを`map`、top
 `/map/pointcloud_map`に設定し、offline previewを確認します。bag、map、raw logを
 uploadする必要はありません。
 
+### ブラウザが開かない・ヘッドレス環境の場合
+
+offline previewはネットワーク不要のself-contained HTMLです。ブラウザが自動で
+開かない場合やヘッドレス環境では、HTMLの生成とブラウザを開く操作を分けます。
+`--no-open`を付けるとブラウザを起動せず、コマンドが表示する`HTML:`の絶対パスを
+使えます。
+
+```bash
+lidarslam-map view /path/to/output \
+  --viewer browser \
+  --no-open
+```
+
+出力例の`HTML: /path/to/output/preview/mid360_robot_3d_map_preview.html`にある
+実際の絶対パスを確認します。デスクトップ環境で開く場合はそのHTMLをブラウザで
+開き、ヘッドレス環境で生成した場合は管理下の方法でHTMLだけをデスクトップ
+環境へコピーして開きます。previewの保存先を明示したい場合は`--preview-dir`を
+追加します。
+
+```bash
+lidarslam-map view /path/to/output \
+  --viewer browser \
+  --no-open \
+  --preview-dir /path/to/preview
+```
+
+`--preview-dir`は`--viewer browser`と一緒に使います。生成されたHTMLにはmapの
+表示データが含まれるため、bag、map、raw logと同じく非公開の成果物として扱い、
+GitHub issueへuploadしません。共有が必要な場合は、先にサニタイズ済みのsupport
+reportを確認します。
+
 ## 詳細
 
 このページは最短経路だけを示します。すべてのoption、対応input、校正、復旧、

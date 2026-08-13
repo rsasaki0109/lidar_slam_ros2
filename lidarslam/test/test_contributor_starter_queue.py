@@ -33,9 +33,9 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import jsonschema
 
@@ -251,14 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_preview_task_becomes_stale_when_marker_appears(tmp_path: Path):
-    """A completed Japanese preview card requires queue reassessment."""
+def test_japanese_session_task_becomes_stale_when_marker_appears(
+    tmp_path: Path,
+):
+    """A completed Japanese session card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n--no-open\n',
+        + '\nlidarslam-map sessions\n',
         encoding='utf-8',
     )
 
@@ -267,7 +269,7 @@ def test_japanese_preview_task_becomes_stale_when_marker_appears(tmp_path: Path)
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese headless-preview marker already exists',
+        'the planned Japanese session-history marker already exists',
     ]
 
 
@@ -303,6 +305,26 @@ def test_japanese_recovery_card_explains_tf_frame_substitution():
     assert 'viewerでframe名を推測したり' in source
     assert '同じ実際の' in source
     assert 'frame名で再確認します' in source
+
+
+def test_japanese_recovery_card_explains_headless_preview_options():
+    """The Japanese card makes local browser recovery copy-ready."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert 'ブラウザが自動で' in source
+    assert 'ヘッドレス環境では' in source
+    assert 'self-contained HTML' in source
+    assert '`--no-open`を付けるとブラウザを起動せず' in source
+    assert 'lidarslam-map view /path/to/output' in source
+    assert '--viewer browser' in source
+    assert '--no-open' in source
+    assert '--preview-dir /path/to/preview' in source
+    assert (
+        '`HTML: /path/to/output/preview/mid360_robot_3d_map_preview.html`'
+        in source
+    )
+    assert 'サニタイズ済みのsupport' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

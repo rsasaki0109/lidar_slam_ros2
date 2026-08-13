@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: add headless preview recovery to the Japanese first-run guide",
-      "outcome": "A Japanese first-run user on a headless machine can find the printed local HTML preview or use the no-open preview options without uploading a private map or log.",
+      "title": "Docs: explain Japanese session history and recovery",
+      "outcome": "A Japanese first-run user can return to a saved session, focus interrupted work, and read the next recovery action without searching timestamped directories or uploading a private map or log.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -248,14 +248,14 @@
         "docs/getting-started-ja.md"
       ],
       "non_goals": [
-        "change the browser, viewer, or preview implementation",
+        "change session storage, recovery, or viewer implementation",
         "translate the entire getting-started guide",
         "claim support for an unvalidated sensor"
       ],
       "acceptance": [
-        "The Japanese guide explains that a browser not opening or a headless machine should use the printed self-contained HTML path.",
-        "The guide shows --no-open and --preview-dir as the safe preview options when a browser cannot be opened.",
-        "The existing map_verify, diagnosis, TF, topic-selection, and no-private-upload guidance remain intact.",
+        "The Japanese guide explains how to list saved sessions with lidarslam-map sessions.",
+        "The guide shows --status action_required, --viewer none, and --json for focused or headless recovery.",
+        "The guide tells the reader to follow the retained Next action and keeps the existing preview and no-private-upload guidance intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
       "focused_checks": [
@@ -269,8 +269,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "--no-open",
-          "failure_detail": "the planned Japanese headless-preview marker already exists"
+          "value": "lidarslam-map sessions",
+          "failure_detail": "the planned Japanese session-history marker already exists"
         }
       ],
       "private_data_required": false,

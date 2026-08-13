@@ -318,12 +318,19 @@ it shows `ros2 topic list -t`, selects the
 `sensor_msgs/msg/PointCloud2` row, and tells the reader to copy only its topic
 name.
 
-## Successor C5 — Japanese headless preview recovery
+## Completed C5 — Japanese headless preview recovery
 
-The current prepared C5 task keeps the same narrow language-path scope while
-removing the next browser/headless recovery gap. The Japanese guide names an
-offline preview but does not yet explain what to do when the browser cannot
-open or when the operator is using a headless machine.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese card now explains that the browser preview is a
+self-contained local HTML artifact, shows the exact `HTML:` path emitted by
+`view`, and gives copy-ready `--no-open` plus `--preview-dir` commands for
+headless or browser-failure recovery. It also keeps the map data privacy
+boundary visible by directing users to the sanitized support report instead of
+uploading the preview, map, bag, or raw log.
+
+The queue's drift probe retires this task after the `--no-open` marker appears.
 
 Suggested issue title:
 
@@ -347,6 +354,37 @@ python3 -m mkdocs build --strict
 Estimate: **30 minutes**. Non-goals: changing the browser, viewer, or preview
 implementation, translating the entire guide, or claiming support for an
 unvalidated sensor.
+
+## Successor C5 — Japanese session history and recovery
+
+The next prepared C5 task keeps the same narrow language-path scope and closes
+the remaining return-path gap. The English guide explains how `sessions` finds
+saved bundles and how `--status action_required`, `--viewer none`, and `--json`
+help a headless operator continue. The Japanese guide currently ends after the
+first preview/recovery card and sends the reader to the English reference.
+
+Suggested issue title:
+
+> Docs: explain Japanese session history and recovery
+
+Acceptance:
+
+- explain how to list saved sessions with `lidarslam-map sessions`;
+- show `--status action_required`, `--viewer none`, and `--json` for focused or
+  headless recovery;
+- tell the reader to follow the retained `Next` action and keep preview,
+  diagnosis, and no-private-upload guidance intact;
+- require no rosbag, hardware, network, or private log.
+
+Focused check:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+Estimate: **30 minutes**. Non-goals: changing session storage, recovery, or
+viewer implementation, translating the entire guide, or claiming support for
+an unvalidated sensor.
 
 ## Publication and review sequence
 
