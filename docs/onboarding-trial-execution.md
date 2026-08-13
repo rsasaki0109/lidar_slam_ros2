@@ -92,13 +92,14 @@ acceptable for the source rows if its trial filesystem is isolated.
   named disposable trial root after the private evidence has been archived, or
   may destroy the disposable VM.
 
-### Maintainer container-host probe (non-comparable)
+### Maintainer container-host probe
 
 The repository includes `docker/onboarding-trial-host.Dockerfile` and
 `scripts/run_docker_onboarding_probe.py` for a bounded machine probe when a
-dedicated VM is not yet available. This mode is useful for replacing an
-unknown Docker product outcome with an honest `PASS` or `FAIL`; it cannot
-produce a comparable baseline on a shared host.
+dedicated VM is not yet available. Without a dedicated filesystem it is useful
+for replacing an unknown Docker product outcome with an honest `PASS` or
+`FAIL`, but it remains non-comparable. A disposable VM can opt into the
+dedicated-filesystem mode below when a comparable baseline is required.
 
 Invoke this reviewed observer helper from the product checkout, but keep the
 bounded record and every reported trial/observer root outside the checkout.
@@ -124,16 +125,36 @@ This instrumentation uses a privileged container. Prefer to run it inside a
 disposable VM, never on an untrusted multi-user host, and never add a broad
 host mount. The CLI therefore requires the explicit
 `--allow-privileged-container-host` acknowledgement. On a shared host, keep
-`peak_disk_bytes` as `null`; the helper's nested Docker paths do not prove a
-dedicated filesystem. If an independent observer has a paused stopwatch and a
-human command log, the probe can retain those two aggregate values with
+`peak_disk_bytes` as `null` because the helper's nested Docker paths do not
+prove a dedicated filesystem. A dedicated VM may instead measure the host
+filesystem that contains the trial and nested Docker data:
+
+~~~bash
+python3 scripts/run_docker_onboarding_probe.py \
+  --trial-id "g0-docker-${ROS_DISTRO}-$(date -u +%Y%m%d)-a" \
+  --ros-distro "$ROS_DISTRO" \
+  --image-tag "ghcr.io/rsasaki0109/lidar_slam_ros2:v${VERSION}-${ROS_DISTRO}" \
+  --image-digest "$IMAGE_DIGEST" \
+  --product-version "$VERSION" \
+  --record "$RECORD" \
+  --disk-scope / \
+  --acknowledge-dedicated-filesystem \
+  --prompt-active-operator-time \
+  --prompt-command-count \
+  --allow-privileged-container-host
+~~~
+
+Use that mode only on a disposable VM whose selected filesystem has no
+unrelated activity. The explicit acknowledgement is required even for `/`;
+the probe checks that its trial root and nested Docker store are on that same
+filesystem. If an independent observer has a paused stopwatch and a human
+command log, the probe can retain those two aggregate values with
 `--prompt-active-operator-time --prompt-command-count`. Otherwise pass
 `--record-active-time-unknown --record-command-count-unknown`, or omit the
 optional prompts, and the fields remain `null`. The helper's internal Docker
 invocation is never an operator-submitted command under the contract. A
-successful product route remains `PASS`, while the checker correctly reports
-measurement `INCOMPLETE` and non-comparable until every required measurement is
-present.
+successful product route remains `PASS`, while the checker reports
+measurement `INCOMPLETE` until every required measurement is present.
 
 The script removes only its named nested-host container. It retains its unique
 trial root, private log root, and bounded record for review. Archive and

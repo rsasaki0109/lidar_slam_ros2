@@ -11,10 +11,10 @@ from memory. Store it as `null`; the checker will retain the valid record but
 mark its measurements `INCOMPLETE`.
 
 Current bounded evidence is summarized in the
-[2026-08-10 Docker machine probes](evidence/onboarding/docker-machine-probes-2026-08-10.md).
-Both supported Docker rows produced a product `PASS`, but neither is a
-comparable baseline because the maintainer container-host method did not
-observe active human time, human-submitted commands, or isolated peak disk.
+[2026-08-12 onboarding matrix](evidence/growth/onboarding-matrix-index-2026-08-12.md).
+All four reviewed Humble/Jazzy Docker and source rows produced a product
+`PASS`, but none is a comparable baseline: required human measurements are
+missing and the Docker rows are v0.9.0 while the source rows are v0.9.1.
 
 ## Fixed G0 trial matrix
 
@@ -45,6 +45,10 @@ measurements, prompt for the human active-time and command-count observations,
 and write the same bounded v1 record. It is observer automation, not a
 replacement product path; use the manual protocol when independently auditing
 its measurements.
+The Docker helper uses the same prompts; on a dedicated disposable VM,
+`--disk-scope / --acknowledge-dedicated-filesystem` also records the host
+filesystem peak. Omit that option on a shared host, where the Docker record
+must remain explicitly non-comparable.
 Before provisioning a trial VM, `--public-preflight` checks only the immutable
 GitHub source route and returns machine-readable `READY` or `NOT_READY` without
 writing files. It requires the exact six-package inventory, dependency helper,
@@ -121,9 +125,10 @@ python3 scripts/check_onboarding_trial_matrix.py \
 The matrix checker requires the exact x86_64 Ubuntu/ROS pairing, immutable
 revision kind, fixed full MID-360 dataset identity, one shared product version,
 and one shared source commit. It reports `INCOMPLETE` until all four records
-exist. The current no-argument audit truthfully reports two present Docker PASS
-outcomes, zero comparable rows, and two missing source rows. The activation
-gate needs at least one comparable Docker row and one comparable source row;
+exist. The current no-argument audit truthfully reports four present product
+PASS outcomes, zero comparable rows, and a `BLOCKED` decision because
+measurements and version alignment remain incomplete. The activation gate
+needs at least one comparable Docker row and one comparable source row;
 `--require-all-comparable` is the stricter four-row gate. Neither result
 substitutes for the other release gates.
 

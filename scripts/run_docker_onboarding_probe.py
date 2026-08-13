@@ -26,32 +26,33 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Run a privacy-bounded, non-comparable Docker onboarding machine probe.
+"""Run a privacy-bounded Docker onboarding machine probe.
 
 The probe uses a fresh Docker daemon inside a disposable Ubuntu container. It
 does not mount the host Docker socket or share project image/data caches. This
-is deliberately not a comparable G0 baseline: a container on a shared host
-does not provide the dedicated filesystem required for peak-disk measurement.
-The script can retain separately observed human active time and command count,
-but it never infers either value from its own harness commands. Peak disk is
-still recorded as null in this mode.
+is non-comparable when run on a shared host because that host does not provide
+the dedicated filesystem required for peak-disk measurement. A dedicated VM
+may opt into host-filesystem sampling with an explicit acknowledgement. The
+script can retain separately observed human active time and command count, but
+it never infers either value from its own harness commands.
 """
 
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import hashlib
 import json
 import math
 import os
-from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, TextIO
 
 import jsonschema
@@ -79,6 +80,7 @@ RECEIPT_SCHEMA = (
 )
 DOCKER_CONTROL_TIMEOUT_SEC = 30.0
 POST_RECEIPT_GRACE_SEC = 60.0
+DISK_SAMPLE_INTERVAL_SEC = 0.25
 OUTER_DOCKER_ENDPOINT = 'unix:///var/run/docker.sock'
 EXPECTED_RECEIPT_CHECKS = {
     'manifest_succeeded',
@@ -150,6 +152,65 @@ def _prompt_command_count(unknown: bool) -> int | None:
             print('Enter a positive integer or leave blank.', file=sys.stderr)
             continue
         return parsed
+
+
+class DiskSampler:
+    """Sample allocated bytes on an explicitly dedicated host filesystem."""
+
+    def __init__(self, scope: Path) -> None:
+        """Create a sampler for one already-validated filesystem scope."""
+        self.scope = scope
+        self.samples: list[int] = []
+        self.error: BaseException | None = None
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def _used_bytes(self) -> int:
+        usage = shutil.disk_usage(self.scope)
+        return usage.total - usage.free
+
+    def start(self) -> int:
+        """Capture the baseline and start bounded background sampling."""
+        if self._thread is not None:
+            raise ProbeError('disk sampler was started twice')
+        baseline = self._used_bytes()
+        self.samples.append(baseline)
+        self._thread = threading.Thread(
+            target=self._sample,
+            daemon=True,
+        )
+        self._thread.start()
+        return baseline
+
+    def _sample(self) -> None:
+        try:
+            while not self._stop.wait(DISK_SAMPLE_INTERVAL_SEC):
+                self.samples.append(self._used_bytes())
+        except BaseException as exc:  # propagated on the controlling thread
+            self.error = exc
+            self._stop.set()
+
+    def stop(self) -> None:
+        """Stop sampling and retain one final observation."""
+        if self._thread is None:
+            return
+        self._stop.set()
+        self._thread.join(timeout=5)
+        if self._thread.is_alive():
+            raise ProbeError('disk sampler did not stop')
+        self._thread = None
+        if self.error is not None:
+            raise ProbeError(f'disk sampler failed: {self.error}')
+        self.samples.append(self._used_bytes())
+
+    def peak_delta(self, baseline: int) -> int:
+        """Return the largest allocated-byte increase from the baseline."""
+        if not self.samples:
+            raise ProbeError('disk sampler produced no observations')
+        peak = max(self.samples) - baseline
+        if peak < 0:
+            raise ProbeError('disk allocation moved below the baseline')
+        return peak
 
 
 def _run(
@@ -800,6 +861,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument('--product-version', default='0.9.0')
     parser.add_argument('--record', required=True, type=Path)
     parser.add_argument('--temp-parent', default='/tmp', type=Path)
+    parser.add_argument(
+        '--disk-scope',
+        type=Path,
+        help=(
+            'Dedicated host filesystem to sample for peak disk usage. '
+            'Omit on a shared host; the record then remains non-comparable.'
+        ),
+    )
     parser.add_argument('--timeout-sec', default=7200.0, type=float)
     parser.add_argument('--prompt-active-operator-time', action='store_true')
     parser.add_argument('--record-active-time-unknown', action='store_true')
@@ -813,11 +882,31 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             '--privileged. Prefer running it inside a dedicated VM.'
         ),
     )
+    parser.add_argument(
+        '--acknowledge-dedicated-filesystem',
+        action='store_true',
+        help=(
+            'Acknowledge that --disk-scope is a disposable dedicated VM '
+            'filesystem with no unrelated activity.'
+        ),
+    )
     args = parser.parse_args(argv)
     if not args.allow_privileged_container_host:
         parser.error(
             '--allow-privileged-container-host is required; review the '
             'isolation warning first'
+        )
+    if args.disk_scope is None and args.acknowledge_dedicated_filesystem:
+        parser.error(
+            '--acknowledge-dedicated-filesystem requires --disk-scope'
+        )
+    if (
+        args.disk_scope is not None
+        and not args.acknowledge_dedicated_filesystem
+    ):
+        parser.error(
+            '--disk-scope requires --acknowledge-dedicated-filesystem; '
+            'shared-host disk measurements are not comparable'
         )
     if not TRIAL_ID_RE.fullmatch(args.trial_id):
         parser.error('--trial-id must be a privacy-bounded lower-case slug')
@@ -843,6 +932,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error('command-count modes are mutually exclusive')
     if not args.temp_parent.is_dir():
         parser.error('--temp-parent must be an existing directory')
+    if args.disk_scope is not None:
+        if args.disk_scope.is_symlink() or not args.disk_scope.is_dir():
+            parser.error('--disk-scope must be an existing real directory')
+        args.disk_scope = args.disk_scope.resolve()
     return args
 
 
@@ -904,6 +997,21 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
     ):
         directory.mkdir(parents=True, exist_ok=False)
 
+    disk_sampler: DiskSampler | None = None
+    disk_baseline: int | None = None
+    sampler_stopped = False
+    if args.disk_scope is not None:
+        scope_device = args.disk_scope.stat().st_dev
+        if any(
+            path.stat().st_dev != scope_device
+            for path in (trial_root, docker_dir, trial_dir)
+        ):
+            raise ProbeError(
+                '--disk-scope must contain the trial and nested Docker data '
+                'on one filesystem'
+            )
+        disk_sampler = DiskSampler(args.disk_scope)
+
     print(f'private trial root: {trial_root}', file=sys.stderr)
     print(f'private observer root: {observer_root}', file=sys.stderr)
     cidfile = observer_root / 'outer-container.cid'
@@ -954,6 +1062,8 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
         interface = _validate_nested_host(host_name, os_version)
 
         image_ref = f'{args.image_tag}@{args.image_digest}'
+        if disk_sampler is not None:
+            disk_baseline = disk_sampler.start()
         rx_start = _read_rx(host_name, interface)
         start_time = time.monotonic()
         stop_time: float | None = None
@@ -1045,6 +1155,10 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
                 stop_time = time.monotonic()
                 rx_end = _read_rx(host_name, interface)
 
+        if disk_sampler is not None and not sampler_stopped:
+            disk_sampler.stop()
+            sampler_stopped = True
+
         if timed_out:
             _cleanup_timed_out_inner_containers(host_name)
         elif _inner_container_ids(host_name, include_stopped=True):
@@ -1055,8 +1169,16 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
         if stop_time is None:
             stop_time = time.monotonic()
             rx_end = _read_rx(host_name, interface)
+        if disk_sampler is not None and not sampler_stopped:
+            disk_sampler.stop()
+            sampler_stopped = True
         if rx_end is None or rx_end < rx_start:
             raise ProbeError('isolated interface RX counter moved backwards')
+        peak_disk = (
+            disk_sampler.peak_delta(disk_baseline)
+            if disk_sampler is not None and disk_baseline is not None
+            else None
+        )
 
         archive = trial_dir / ARCHIVE_RELATIVE
         archive_part = archive.with_suffix(archive.suffix + '.part')
@@ -1135,7 +1257,7 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
                 'wall_time_sec': wall_time,
                 'active_operator_time_sec': active_time,
                 'command_count': command_count,
-                'peak_disk_bytes': None,
+                'peak_disk_bytes': peak_disk,
                 'output_bytes': output_bytes,
             },
             'outcome': {
@@ -1161,21 +1283,26 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
             },
         }
     finally:
-        cleanup_id = container_id
-        if cleanup_id is None and cidfile.is_file():
-            try:
-                candidate = cidfile.read_text(encoding='utf-8').strip()
-            except OSError as exc:
-                raise ProbeError(
-                    'cannot read outer container cidfile for cleanup'
-                ) from exc
-            if not re.fullmatch(r'[0-9a-f]{64}', candidate):
-                raise ProbeError(
-                    'outer container cleanup cidfile is malformed'
-                )
-            cleanup_id = candidate
-        if cleanup_id is not None:
-            _remove_outer_host(cleanup_id)
+        try:
+            if disk_sampler is not None and not sampler_stopped:
+                disk_sampler.stop()
+                sampler_stopped = True
+        finally:
+            cleanup_id = container_id
+            if cleanup_id is None and cidfile.is_file():
+                try:
+                    candidate = cidfile.read_text(encoding='utf-8').strip()
+                except OSError as exc:
+                    raise ProbeError(
+                        'cannot read outer container cidfile for cleanup'
+                    ) from exc
+                if not re.fullmatch(r'[0-9a-f]{64}', candidate):
+                    raise ProbeError(
+                        'outer container cleanup cidfile is malformed'
+                    )
+                cleanup_id = candidate
+            if cleanup_id is not None:
+                _remove_outer_host(cleanup_id)
 
     if record is None:
         raise ProbeError('probe ended without a bounded record')

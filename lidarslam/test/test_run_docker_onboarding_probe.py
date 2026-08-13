@@ -25,7 +25,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Tests for the non-comparable Docker onboarding machine probe."""
+"""Tests for the Docker onboarding machine probe and its safety modes."""
 
 from __future__ import annotations
 
@@ -175,6 +175,18 @@ def test_command_count_is_observed_or_explicitly_unknown(monkeypatch):
     assert PROBE._prompt_command_count(True) is None
 
 
+def test_disk_sampler_reports_peak_delta(tmp_path):
+    """Dedicated-host sampling reports only observed allocation growth."""
+    sampler = PROBE.DiskSampler(tmp_path)
+    sampler.samples = [100, 135, 120]
+
+    assert sampler.peak_delta(100) == 35
+
+    sampler.samples = [99]
+    with pytest.raises(PROBE.ProbeError, match='moved below'):
+        sampler.peak_delta(100)
+
+
 def test_malformed_partial_artifacts_fail_closed(tmp_path):
     """Existing but malformed evidence is never promoted to PASS."""
     run_dir = tmp_path / 'output' / 'mid360_demo.partial'
@@ -322,6 +334,32 @@ def test_cli_requires_privileged_host_acknowledgement(tmp_path):
         ])
 
     assert exc_info.value.code == 2
+
+
+def test_cli_requires_explicit_dedicated_filesystem_acknowledgement(tmp_path):
+    """Disk sampling cannot be enabled without a dedicated-host boundary."""
+    common = [
+        '--trial-id', 'g0-docker-humble-20260810-machine-disk',
+        '--ros-distro', 'humble',
+        '--image-tag',
+        'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble',
+        '--image-digest', 'sha256:' + ('a' * 64),
+        '--record', str(tmp_path / 'record.json'),
+        '--allow-privileged-container-host',
+    ]
+    with pytest.raises(SystemExit) as missing_ack:
+        PROBE._parse_args(common + ['--disk-scope', str(tmp_path)])
+    assert missing_ack.value.code == 2
+
+    with pytest.raises(SystemExit) as missing_scope:
+        PROBE._parse_args(common + ['--acknowledge-dedicated-filesystem'])
+    assert missing_scope.value.code == 2
+
+    args = PROBE._parse_args(common + [
+        '--disk-scope', str(tmp_path),
+        '--acknowledge-dedicated-filesystem',
+    ])
+    assert args.disk_scope == tmp_path.resolve()
 
 
 def test_cli_rejects_product_version_mismatch(tmp_path):
