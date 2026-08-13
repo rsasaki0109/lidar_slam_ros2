@@ -63,7 +63,9 @@ The follow-up
 covers all 29 open issues with a label, priority, disposition, evidence, and
 application gate. Its checker validates offline coverage and can fail closed on
 live GitHub drift using GET requests only. The proposal remains unapplied and
-unauthorized.
+unauthorized. A 2026-08-13 live read-only audit still reports `PASS`: 29 issues,
+23 close proposals, and 6 keep-open or current-reproduction proposals. This
+confirms proposal freshness without treating it as completed triage.
 
 The current
 [G0 clean-candidate audit](evidence/growth/g0-clean-candidate-audit-2026-08-11.md)
