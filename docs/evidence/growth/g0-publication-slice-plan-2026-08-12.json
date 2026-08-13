@@ -7,8 +7,8 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 208,
-    "expected_paths_sha256": "2483f1fa77a92784fe2a5d2447103b6d6b25388715b14083174a51f9c9e09f7a",
+    "expected_path_count": 212,
+    "expected_paths_sha256": "67e687173c2ed018ff3b31ee5639acccf9684b80c307f96a0c3283dc3ecb9a1b",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -131,7 +131,7 @@
       "id": "S4-source-onboarding",
       "order": 4,
       "title": "Fresh-terminal source and Docker onboarding measurement",
-      "review_outcome": "Humble and Jazzy users receive one exact six-package source route and a bounded Docker probe with dependency bootstrap, launcher activation, installed checks, and public-readiness preflight.",
+      "review_outcome": "Humble and Jazzy users receive one exact six-package source route and a bounded Docker probe with dependency bootstrap, launcher activation, installed checks, public-readiness preflight, and an auditable path for attaching retained measurements without rerunning a trial.",
       "depends_on": [
         "S2-first-map-foundation"
       ],
@@ -143,14 +143,18 @@
         "docs/evidence/source-all-packages-install-2026-08-12.md",
         "docs/evidence/source-launcher-activation-2026-08-12.md",
         "docs/evidence/source-onboarding-public-preflight-2026-08-12.md",
+        "docs/schemas/onboarding-measurement-supplement-v1.schema.json",
         "docs/schemas/onboarding-trial-matrix-v1.schema.json",
         "graph_based_slam/test/test_product_python_tests_script.py",
+        "lidarslam/test/test_complete_onboarding_measurements.py",
         "lidarslam/test/test_install_source_dependencies.py",
         "lidarslam/test/test_installed_product_cli_contract.py",
         "lidarslam/test/test_run_docker_onboarding_probe.py",
         "lidarslam/test/test_run_source_onboarding_probe.py",
         "lidarslam/test/test_source_quickstart.py",
         "scripts/check_installed_product_cli.py",
+        "scripts/check_onboarding_trial.py",
+        "scripts/complete_onboarding_measurements.py",
         "scripts/install_source_dependencies.sh",
         "scripts/lidarslam",
         "scripts/run_docker_onboarding_probe.py",
@@ -159,7 +163,7 @@
         "scripts/source_quickstart.sh"
       ],
       "verification": [
-        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_install_source_dependencies.py lidarslam/test/test_source_quickstart.py lidarslam/test/test_run_source_onboarding_probe.py",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_install_source_dependencies.py lidarslam/test/test_source_quickstart.py lidarslam/test/test_run_source_onboarding_probe.py lidarslam/test/test_complete_onboarding_measurements.py",
         "workspace=$(mktemp -d) || exit $?; mkdir \"${workspace}/src\" || { status=$?; rmdir \"${workspace}\"; exit \"${status}\"; }; bash scripts/source_quickstart.sh --dry-run --workspace \"${workspace}\"; status=$?; rmdir \"${workspace}/src\" \"${workspace}\" || status=$?; exit \"${status}\""
       ],
       "publication_gate": "PUBLIC_CI"

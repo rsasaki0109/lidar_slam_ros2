@@ -31,9 +31,11 @@
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
 
 import jsonschema
@@ -42,6 +44,10 @@ import jsonschema
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'onboarding-trial-v1.schema.json'
+)
+SUPPLEMENT_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas'
+    / 'onboarding-measurement-supplement-v1.schema.json'
 )
 MEASUREMENT_PATHS = (
     'input.download_bytes',
@@ -52,6 +58,25 @@ MEASUREMENT_PATHS = (
     'measurements.peak_disk_bytes',
     'measurements.output_bytes',
 )
+SUPPLEMENT_FIELDS = (
+    ('input_download_bytes', ('input', 'download_bytes')),
+    ('workflow_download_bytes', ('measurements', 'workflow_download_bytes')),
+    ('wall_time_sec', ('measurements', 'wall_time_sec')),
+    ('active_operator_time_sec', (
+        'measurements', 'active_operator_time_sec')),
+    ('command_count', ('measurements', 'command_count')),
+    ('peak_disk_bytes', ('measurements', 'peak_disk_bytes')),
+    ('output_bytes', ('measurements', 'output_bytes')),
+)
+SUPPLEMENT_SOURCE_BY_FIELD = {
+    'input_download_bytes': 'observer-log',
+    'workflow_download_bytes': 'observer-log',
+    'wall_time_sec': 'observer-log',
+    'active_operator_time_sec': 'operator-observation',
+    'command_count': 'operator-observation',
+    'peak_disk_bytes': 'dedicated-filesystem-sampler',
+    'output_bytes': 'observer-log',
+}
 IMMUTABLE_REVISION_KINDS = {'git-commit', 'image-digest'}
 
 
@@ -92,6 +117,84 @@ def _path_value(record: dict[str, Any], dotted_path: str) -> Any:
     for item in dotted_path.split('.'):
         value = value[item]
     return value
+
+
+def _nested_value(record: dict[str, Any], path: tuple[str, ...]) -> Any:
+    value: Any = record
+    for item in path:
+        value = value[item]
+    return value
+
+
+def _set_nested_value(
+    record: dict[str, Any],
+    path: tuple[str, ...],
+    value: Any,
+) -> None:
+    target: Any = record
+    for item in path[:-1]:
+        target = target[item]
+    target[path[-1]] = value
+
+
+def apply_measurement_supplement(
+    record: dict[str, Any],
+    supplement: dict[str, Any],
+    *,
+    record_bytes: bytes,
+    schema: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Apply observed missing measurements without rewriting the base record.
+
+    The supplement is bound to the exact bytes of the original record. A
+    non-null supplement value may fill only a null base field; it can never
+    overwrite an observed value or silently replace a trial identity.
+    """
+    contract = schema or _load_object(SUPPLEMENT_SCHEMA)
+    _validate_schema(supplement, contract)
+    if supplement['trial_id'] != record['trial_id']:
+        raise TrialError(
+            'measurement supplement trial_id does not match the base record')
+    actual_sha256 = hashlib.sha256(record_bytes).hexdigest()
+    if supplement['base_record_sha256'] != actual_sha256:
+        raise TrialError(
+            'measurement supplement base_record_sha256 does not match the '
+            'exact base record bytes')
+    try:
+        raw_record = json.loads(record_bytes.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise TrialError('base record bytes are not valid JSON') from exc
+    if raw_record != record:
+        raise TrialError(
+            'base record value does not match the bytes bound by the '
+            'measurement supplement'
+        )
+
+    merged = copy.deepcopy(record)
+    values = supplement['measurements']
+    sources = supplement['measurement_sources']
+    for field, path in SUPPLEMENT_FIELDS:
+        value = values[field]
+        source = sources[field]
+        if value is None:
+            if source != 'not-supplemented':
+                raise TrialError(
+                    f'{field} is null but measurement source is {source!r}')
+            continue
+        if source == 'not-supplemented':
+            raise TrialError(
+                f'{field} has a value but is marked not-supplemented')
+        expected_source = SUPPLEMENT_SOURCE_BY_FIELD[field]
+        if source != expected_source:
+            raise TrialError(
+                f'{field} must use measurement source '
+                f'{expected_source!r}, found {source!r}'
+            )
+        if _nested_value(merged, path) is not None:
+            raise TrialError(
+                f'{field} supplement would overwrite an observed base value')
+        _set_nested_value(merged, path, value)
+    return merged
 
 
 def _validate_measurements(record: dict[str, Any]) -> None:
@@ -246,6 +349,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument('record', type=Path)
     parser.add_argument('--schema', type=Path, default=DEFAULT_SCHEMA)
     parser.add_argument(
+        '--supplement',
+        type=Path,
+        help=(
+            'Apply a SHA-bound onboarding measurement supplement before '
+            'evaluating this record.'
+        ),
+    )
+    parser.add_argument(
         '--json',
         action='store_true',
         help='Print the comparability report as JSON.',
@@ -262,16 +373,38 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entrypoint; invalid records exit 2 and unmet gates exit 1."""
     args = _parse_args(argv)
     try:
+        try:
+            record_bytes = args.record.read_bytes()
+            record_value = json.loads(record_bytes.decode('utf-8'))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise TrialError(
+                f'cannot read JSON object {args.record}: {exc}'
+            ) from exc
+        if not isinstance(record_value, dict):
+            raise TrialError('record JSON root must be an object')
+        supplement_id = None
+        if args.supplement is not None:
+            supplement = _load_object(args.supplement)
+            record_value = apply_measurement_supplement(
+                record_value,
+                supplement,
+                record_bytes=record_bytes,
+            )
+            supplement_id = supplement['supplement_id']
         report = evaluate_trial(
-            _load_object(args.record),
+            record_value,
             _load_object(args.schema),
         )
     except TrialError as exc:
         print(f'error: {exc}', file=sys.stderr)
         return 2
     if args.json:
+        if supplement_id is not None:
+            report['measurement_supplement_id'] = supplement_id
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
+        if supplement_id is not None:
+            print(f'Measurement supplement: `{supplement_id}`')
         print(render_markdown(report), end='')
     if args.require_comparable and not report['comparable']:
         return 1

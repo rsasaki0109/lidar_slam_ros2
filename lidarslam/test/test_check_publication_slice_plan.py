@@ -100,7 +100,7 @@ def test_tracked_plan_covers_the_exact_candidate_once():
     assert report['worktree_clean'] is (not status)
     assert report['uncommitted_path_count'] == len(status)
     assert report['scope'] == 'worktree-delta-from-pr-base'
-    assert report['path_count'] == 208
+    assert report['path_count'] == 212
     assert report['slice_count'] == 7
     assert report['remote_mutations_performed'] is False
     assert _planned_paths(plan) == actual
@@ -223,7 +223,7 @@ def test_cli_emits_a_machine_readable_local_only_report():
     status = CHECKER._run_git(['status', '--short'])
     assert report['worktree_clean'] is (not status)
     assert report['uncommitted_path_count'] == len(status)
-    assert report['path_count'] == 208
+    assert report['path_count'] == 212
     assert report['github_writes_authorized'] is False
     assert report['remote_mutations_performed'] is False
 

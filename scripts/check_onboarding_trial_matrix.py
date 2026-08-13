@@ -35,7 +35,11 @@ import sys
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from check_onboarding_trial import TrialError, evaluate_trial
+from check_onboarding_trial import (
+    TrialError,
+    apply_measurement_supplement,
+    evaluate_trial,
+)
 
 import jsonschema
 
@@ -155,6 +159,11 @@ def load_evidence_index(
     for row in index['rows']:
         relative = row['record_path']
         if relative is None:
+            if row.get('measurement_supplement_path') is not None:
+                raise MatrixError(
+                    f"evidence index row {row['row_id']} has a supplement "
+                    'without a base record'
+                )
             continue
         path = PurePosixPath(relative)
         if (
@@ -169,7 +178,41 @@ def load_evidence_index(
         if candidate.is_symlink() or not candidate.is_file():
             raise MatrixError(
                 f'evidence index record is not a regular file: {relative}')
+        record_bytes = candidate.read_bytes()
         record = _load_object(candidate)
+        supplement_relative = row.get('measurement_supplement_path')
+        if supplement_relative is not None:
+            supplement_path = PurePosixPath(supplement_relative)
+            if (
+                str(supplement_path) != supplement_relative
+                or supplement_relative.startswith('/')
+                or '..' in supplement_path.parts
+                or '\\' in supplement_relative
+            ):
+                raise MatrixError(
+                    'evidence index contains an unsafe measurement '
+                    f'supplement path: {supplement_relative!r}'
+                )
+            supplement_candidate = repo_root / supplement_relative
+            if (
+                supplement_candidate.is_symlink()
+                or not supplement_candidate.is_file()
+            ):
+                raise MatrixError(
+                    'evidence index measurement supplement is not a regular '
+                    f'file: {supplement_relative}'
+                )
+            try:
+                record = apply_measurement_supplement(
+                    record,
+                    _load_object(supplement_candidate),
+                    record_bytes=record_bytes,
+                )
+            except TrialError as exc:
+                raise MatrixError(
+                    f'measurement supplement invalid for {row["row_id"]}: '
+                    f'{exc}'
+                ) from exc
         route = _route(record)
         key = (route, record.get('environment', {}).get('ros_distro'))
         contract = CONTRACT_BY_KEY.get(key)

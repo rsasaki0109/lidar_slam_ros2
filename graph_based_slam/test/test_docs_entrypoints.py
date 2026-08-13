@@ -67,6 +67,14 @@ WORKFLOWS_DOC = REPO_ROOT / 'docs' / 'workflows.md'
 ONBOARDING_TRIAL_EXECUTION_DOC = (
     REPO_ROOT / 'docs' / 'onboarding-trial-execution.md'
 )
+ONBOARDING_TRIALS_DOC = REPO_ROOT / 'docs' / 'onboarding-trials.md'
+ONBOARDING_MEASUREMENT_SCRIPT = (
+    REPO_ROOT / 'scripts' / 'complete_onboarding_measurements.py'
+)
+ONBOARDING_MEASUREMENT_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas'
+    / 'onboarding-measurement-supplement-v1.schema.json'
+)
 SOURCE_DEPENDENCIES_SCRIPT = (
     REPO_ROOT / 'scripts' / 'install_source_dependencies.sh'
 )
@@ -379,6 +387,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'run_mid360_robot_public_continuous_relocalization_gate.py',
         REPO_ROOT / 'scripts' / 'merge_mid360_robot_public_split_bags.py',
         REPO_ROOT / 'scripts' / 'run_release_readiness_checks.sh',
+        ONBOARDING_MEASUREMENT_SCRIPT,
         REPO_ROOT / 'scripts' / 'benchmark_summary.py',
         REPO_ROOT / 'scripts' / 'generate_html_report.py',
         REPO_ROOT / 'scripts' / 'generate_v2_beta_readiness_report.py',
@@ -1278,6 +1287,7 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
     getting_started = GETTING_STARTED.read_text(encoding='utf-8')
     distribution = DISTRIBUTION_DOC.read_text(encoding='utf-8')
     onboarding = ONBOARDING_TRIAL_EXECUTION_DOC.read_text(encoding='utf-8')
+    onboarding_trials = ONBOARDING_TRIALS_DOC.read_text(encoding='utf-8')
     workflows = WORKFLOWS_DOC.read_text(encoding='utf-8')
     helper = 'bash src/lidar_slam_ros2/scripts/install_source_dependencies.sh'
     quickstart = 'source_quickstart.sh'
@@ -1286,6 +1296,8 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
     assert SOURCE_DEPENDENCIES_SCRIPT.is_file()
     assert SOURCE_QUICKSTART_SCRIPT.is_file()
     assert SOURCE_ONBOARDING_PROBE.is_file()
+    assert ONBOARDING_MEASUREMENT_SCRIPT.is_file()
+    assert ONBOARDING_MEASUREMENT_SCHEMA.is_file()
     quickstart_documents = (
         readme,
         getting_started,
@@ -1340,6 +1352,9 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
     assert '--acknowledge-isolated-network' in onboarding
     assert '--prompt-human-measurements' in onboarding
     assert '--record-human-measurements-unknown' in onboarding
+    assert 'complete_onboarding_measurements.py' in onboarding
+    assert '--supplement' in onboarding
+    assert 'measurement_supplement_path' in onboarding_trials
     assert '--prompt-active-operator-time' in onboarding
     assert 'source-candidate-not-published' in onboarding
     assert "SOURCE_VERSION='" + VERSION_PATH.read_text(

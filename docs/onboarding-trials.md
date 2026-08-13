@@ -58,6 +58,32 @@ writing files. It requires the exact six-package inventory, dependency helper,
 fast build, Getting Started route, and matching product version from one
 commit; API/tool failure remains distinct from an unavailable route.
 
+### Attach measurements without rerunning a completed trial
+
+If the product result and machine evidence already exist but a human
+observation was recorded separately, attach only the missing values with the
+SHA-bound supplement helper. It never overwrites the original trial record,
+does not rerun the product, and rejects a supplement whose base-record hash or
+trial ID differs. Use only values observed during the attempt or retained in
+the private observer material; do not reconstruct them from memory.
+
+```bash
+python3 scripts/complete_onboarding_measurements.py \
+  "$TRIAL_RECORD" \
+  --output "$TRIAL_RECORD.measurements.json" \
+  --prompt-human-measurements
+
+python3 scripts/check_onboarding_trial.py "$TRIAL_RECORD" \
+  --supplement "$TRIAL_RECORD.measurements.json" \
+  --json --require-comparable
+```
+
+For a dedicated-filesystem Docker observation, add
+`--peak-disk-bytes "$PEAK_DISK_BYTES"` to the first command. After review, set
+the matching matrix-index row's `measurement_supplement_path` to this
+supplement and rerun `check_onboarding_trial_matrix.py`; a supplement is
+evidence to review, not authorization to manufacture a comparable row.
+
 | Field | Measurement rule |
 | --- | --- |
 | `environment.clean_start` | `true` only when the documented prerequisites are present but the project checkout/image, dataset, build, install, and output are absent. Do not pre-pull an image or warm a package, Git, or dataset cache. |

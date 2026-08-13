@@ -29,10 +29,11 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -207,6 +208,81 @@ def test_checked_in_index_reports_all_recorded_rows_without_inference():
     assert report['rows'][3]['outcome_status'] == 'PASS'
     assert records[2]['measurements']['command_count'] is None
     assert records[3]['measurements']['command_count'] is None
+
+
+def test_evidence_index_applies_sha_bound_measurement_supplement(tmp_path):
+    """A reviewed supplement fills nulls without changing the base record."""
+    evidence_dir = tmp_path / 'docs' / 'evidence' / 'onboarding'
+    evidence_dir.mkdir(parents=True)
+    records = _full_matrix()
+    record_paths = []
+    for record in records:
+        filename = f"{record['trial_id']}.json"
+        path = evidence_dir / filename
+        raw = json.dumps(record, indent=2, sort_keys=True).encode('utf-8') + b'\n'
+        path.write_bytes(raw)
+        record_paths.append(f'docs/evidence/onboarding/{filename}')
+
+    source_humble = records[2]
+    source_humble['measurements']['active_operator_time_sec'] = None
+    source_humble['measurements']['command_count'] = None
+    raw = json.dumps(source_humble, indent=2, sort_keys=True).encode('utf-8') + b'\n'
+    (evidence_dir / f"{source_humble['trial_id']}.json").write_bytes(raw)
+    supplement = {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/onboarding-measurement-supplement-v1.schema.json'
+        ),
+        'supplement_id': 'source-humble-measurements-20260814',
+        'captured_at': '2026-08-14T00:00:00Z',
+        'trial_id': source_humble['trial_id'],
+        'base_record_sha256': hashlib.sha256(raw).hexdigest(),
+        'measurements': {
+            'input_download_bytes': None,
+            'workflow_download_bytes': None,
+            'wall_time_sec': None,
+            'active_operator_time_sec': 45.0,
+            'command_count': 9,
+            'peak_disk_bytes': None,
+            'output_bytes': None,
+        },
+        'measurement_sources': {
+            'input_download_bytes': 'not-supplemented',
+            'workflow_download_bytes': 'not-supplemented',
+            'wall_time_sec': 'not-supplemented',
+            'active_operator_time_sec': 'operator-observation',
+            'command_count': 'operator-observation',
+            'peak_disk_bytes': 'not-supplemented',
+            'output_bytes': 'not-supplemented',
+        },
+        'privacy': {
+            'contains_private_paths': False,
+            'contains_exact_command': False,
+            'contains_operator_identity': False,
+            'review_before_sharing': True,
+        },
+    }
+    supplement_path = evidence_dir / 'source-humble.measurements.json'
+    supplement_path.write_text(
+        json.dumps(supplement, indent=2, sort_keys=True), encoding='utf-8'
+    )
+
+    index = _evidence_index()
+    for row, record_path in zip(index['rows'], record_paths):
+        row['record_path'] = record_path
+    index['rows'][2]['measurement_supplement_path'] = (
+        'docs/evidence/onboarding/source-humble.measurements.json'
+    )
+    index_path = tmp_path / 'index.json'
+    index_path.write_text(json.dumps(index), encoding='utf-8')
+
+    loaded = MATRIX.load_evidence_index(index_path, repo_root=tmp_path)
+    report = MATRIX.evaluate_matrix(loaded)
+
+    assert report['decision']['status'] == 'ALL_ROWS_COMPARABLE'
+    assert loaded[2]['measurements']['active_operator_time_sec'] == 45.0
+    assert loaded[2]['measurements']['command_count'] == 9
 
 
 def test_no_argument_cli_uses_checked_in_index(capsys):

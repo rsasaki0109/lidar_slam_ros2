@@ -672,6 +672,26 @@ PASS. Exit 1 is useful evidence for a valid but non-comparable attempt; exit 2
 means the record itself violates the schema or semantic contract and must be
 corrected from observation, not guessed.
 
+When the observer retained a human stopwatch or command tally separately from
+the product record, do not edit the original JSON. Create a SHA-bound
+measurement supplement instead:
+
+~~~bash
+python3 scripts/complete_onboarding_measurements.py \
+  "$TRIAL_RECORD" \
+  --output "$TRIAL_RECORD.measurements.json" \
+  --prompt-human-measurements
+python3 scripts/check_onboarding_trial.py "$TRIAL_RECORD" \
+  --supplement "$TRIAL_RECORD.measurements.json" \
+  --json --require-comparable
+~~~
+
+The supplement is valid only for the exact base-record bytes and can fill null
+fields only; it cannot overwrite a value already observed in the trial. For a
+dedicated Docker filesystem, provide the separately sampled peak with
+`--peak-disk-bytes`. Review the supplement as bounded evidence before adding
+its path to the matrix evidence index.
+
 After all available rows pass their individual validity checks, evaluate the
 fixed matrix as a separate gate:
 
