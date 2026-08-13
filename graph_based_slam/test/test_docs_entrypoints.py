@@ -1090,6 +1090,8 @@ def test_default_container_workflow_trusts_checkout_before_running_git():
     assert 'fetch-depth: 0' in default_workflow
     assert 'for attempt in 1 2 3' in default_workflow
     assert 'rosdep update failed after ${attempt} attempts' in default_workflow
+    assert "if [[ -d build ]]; then" in default_workflow
+    assert 'No build directory; test results are unavailable' in default_workflow
     assert python_dependencies < checkout < safe_directory < rosdep
 
 

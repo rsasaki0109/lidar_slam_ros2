@@ -233,7 +233,11 @@ jobs:
             # shellcheck source=/dev/null
             source install/setup.bash
           fi
-          colcon test-result --verbose
+          if [[ -d build ]]; then
+            colcon test-result --verbose
+          else
+            echo 'No build directory; test results are unavailable after an earlier failure.'
+          fi
 
   release-readiness:
     name: release readiness
