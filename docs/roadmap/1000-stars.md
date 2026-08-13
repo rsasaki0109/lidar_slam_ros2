@@ -610,7 +610,7 @@ reviewed candidate; the final attested release build must reproduce the
 compressed gate. The atomic ROS-log link and Docker dependency-cache boundary
 have passed exact-revision follow-ups. The 50-second fixture has also passed a
 non-publishing local review. The source route is now public at exact commit
-`0a3d5f0c3263082360d87723af0055f74e324c80`; the active implementation is the
+`549ef03017c776f23fc968881b346aa685356274`; the active implementation is the
 dedicated Humble/Jazzy Docker/source matrix, including confirmation of both
 repairs, not a public image retag.
 
@@ -618,8 +618,11 @@ The source side of that matrix now has a local disposable-host executor with a
 read-only plan, public-identity preflight, fixed 250 ms disk sampling, isolated
 RX measurement, timeout cleanup, receipt verification, and privacy-bounded
 record generation. The immutable public-identity prerequisite now passes at
-`0a3d5f0`; the evidence gate remains open because each supported distro still
-needs a fresh disposable VM.
+`549ef030`; the source route has since produced valid Humble and Jazzy PASS
+records, but the evidence gate remains open because those runtime-image trials
+did not observe human active time or a cold dependency-install baseline. They
+also belong to product `0.9.1`, while the frozen Docker rows remain `0.9.0`;
+the matrix exposes that cross-version evidence but refuses to compare it.
 
 That executor now separates public route readiness from VM execution. A
 network-read-only `--public-preflight` requires the exact six maintained source
@@ -627,7 +630,7 @@ packages, explicit package selection, repository-only dependency helper,
 tests-disabled build, canonical beginner page, and matching `VERSION` from the
 same immutable commit. The quickstart independently checks `colcon list` before
 rosdep/build and fails inventory drift with a stable code. The former base
-`3f4dd70` correctly reported `NOT_READY`; exact public candidate `0a3d5f0` now
+`3f4dd70` correctly reported `NOT_READY`; exact public candidate `549ef030` now
 reports `READY` for `0.9.1` without writes. The observer never substitutes a
 private checkout.
 
@@ -676,14 +679,14 @@ keeps publication and Japanese first-user timing pending.
 The matrix decision is now machine-checked rather than inferred from a table.
 The no-argument checker now loads an explicit schema-backed evidence index
 instead of falsely reporting zero rows when paths are omitted. Current tracked
-evidence reports `INCOMPLETE`: two of four outcomes are present, both Docker
-outcomes are product PASS but measurement-incomplete, zero rows are comparable,
-and both source rows are missing. G0 cannot advance the activation gate until
-all four outcomes exist and at least one clean Docker row plus one clean source
-row are comparable. The stricter target remains all four rows comparable. A
-source row is not valid until its exact revision is publicly resolvable, and a
-shortened-fixture row must bind the published ZIP checksum rather than a
-private local copy.
+evidence reports `BLOCKED`: all four outcomes are present and all four are
+product PASS, but zero rows are comparable because human active time is still
+missing and the Docker/source product versions are not aligned. G0 cannot
+advance the activation gate until the rows share one product version and at
+least one clean Docker row plus one clean source row are comparable. The
+stricter target remains all four rows comparable. A source row is not valid
+until its exact revision is publicly resolvable, and a shortened-fixture row
+must bind the published ZIP checksum rather than a private local copy.
 
 The parallel G0 community slice is also bounded. The live read-only audit found
 one current `good first issue` and prepared five additional tasks from the old
@@ -704,12 +707,12 @@ The
 [clean-candidate audit](../evidence/growth/g0-clean-candidate-audit-2026-08-11.md)
 and
 [external-action packet](../evidence/growth/g0-external-action-decision-packet-2026-08-11.md)
-led to public Draft PR `#427`. Exact public route baseline `0a3d5f0` contains
+led to public Draft PR `#427`. Exact public route baseline `549ef030` contains
 the complete reviewed source path and has a network-read-only `READY` result.
-G0 remains `HOLD`: the matrix is 2/4 present and 0/4 comparable, v1 is 8/10,
+G0 remains `HOLD`: the matrix is 4/4 present and 0/4 comparable, v1 is 8/10,
 and the existing v0.9.0 tag prevents version reuse.
 
-The 201-path follow-up from the frozen comparison base now has an exact
+The 204-path follow-up from the frozen comparison base now has an exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell

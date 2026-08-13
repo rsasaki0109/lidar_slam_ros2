@@ -5,7 +5,7 @@
   "repository": "rsasaki0109/lidar_slam_ros2",
   "status": "WAITING_FOR_PUBLIC_GATES",
   "launch_gates": {
-    "public_revision": "0a3d5f0c3263082360d87723af0055f74e324c80",
+    "public_revision": "549ef03017c776f23fc968881b346aa685356274",
     "public_revision_resolvable": true,
     "comparable_docker_row": false,
     "comparable_source_row": false,

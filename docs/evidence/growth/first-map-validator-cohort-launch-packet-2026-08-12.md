@@ -26,11 +26,13 @@ the following must become true together:
   revision.
 
 The reviewed source route and copy-ready handoff are publicly resolvable at
-exact commit `0a3d5f0c3263082360d87723af0055f74e324c80`, and its source preflight
-returns `READY`. The current matrix still has two Docker product PASS outcomes
-but zero comparable rows, and both source rows are missing. Broad promotion or
-recruitment now would violate the G0 activation decision and would turn missing
-clean-host evidence into volunteer support work.
+exact commit `549ef03017c776f23fc968881b346aa685356274`, and its source
+preflight returns `READY`. The current matrix has four product PASS outcomes,
+but zero comparable rows: the Docker records lack human timing, the two source
+records intentionally lack human active-time observation, and the Docker
+records are `0.9.0` while the source records are `0.9.1`. Broad promotion or
+recruitment now would violate the G0 activation decision and would turn
+missing comparable clean-host evidence into volunteer support work.
 
 ## Cohort shape
 
@@ -164,8 +166,9 @@ are not copied into growth snapshots or this packet.
 
 ## Next transition
 
-1. Run fresh dedicated-VM Docker/source rows against exact source identity
-   `0a3d5f0c3263082360d87723af0055f74e324c80` and the frozen Docker identities.
+1. Align the Docker and source rows to one reviewed product version, then run
+   fresh dedicated-VM Docker/source rows against the exact identities with
+   human active-time observation.
 2. Repair any repeated blocker and select the lower-burden comparable PASS.
 3. Update the machine contract with the exact public revision, path, and
    immutable runtime identity; require `COPY_READY_NOT_AUTHORIZED` and review

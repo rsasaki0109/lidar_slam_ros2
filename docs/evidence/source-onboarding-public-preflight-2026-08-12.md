@@ -87,12 +87,22 @@ mtimes remained identical.
 
 After the reviewed route became publicly resolvable, the same network-read-only
 observer was rerun against exact commit
-`0a3d5f0c3263082360d87723af0055f74e324c80` and matching product version
+`549ef03017c776f23fc968881b346aa685356274` and matching product version
 `0.9.1`. It returned `READY` with the six expected packages, all four contract
 files, no finding codes, exit `0`, and `writes_performed=false`. This exact
-commit is now the immutable source-route baseline for the disposable Humble
-and Jazzy trials; a branch name or newer moving head must not replace it in a
-record.
+commit is the immutable source-route identity used by the current Humble and
+Jazzy source records; a branch name or newer moving head must not replace it in
+a record.
+
+The two measured source trials subsequently completed on 2026-08-13 using
+clean disposable ROS runtime images. Both produced a valid product `PASS`
+with a verified map and receipt; the records are
+`docs/evidence/onboarding/g0-source-humble-20260813-runtime-a.json` and
+`docs/evidence/onboarding/g0-source-jazzy-20260813-runtime-a.json`. They remain
+non-comparable because the observer intentionally recorded no human active
+time (`active_operator_time_sec=null`) and the runtime images already supplied
+ROS and build dependencies. This is progress on route reliability, not a
+claim that the cold clean-host activation gate has passed.
 
 ## Verification
 
@@ -114,14 +124,18 @@ The final cumulative milestone receipt binds this gate and the patch identity.
 
 ## Limits and next gate
 
-This proves selection, public route availability, preflight semantics, and
-observer safety. It does not install dependencies on a clean VM, download the
-fixed 517 MB bag, produce a map, or create a comparable onboarding row.
+This proves selection, public route availability, preflight semantics,
+observer safety, and two successful source-route executions. It does not
+measure human active time or install dependencies on a cold clean VM, so the
+records are valid but not comparable onboarding baselines.
 
-The next step is to provision clean disposable Humble and Jazzy source-trial
-VMs pinned to `0a3d5f0c3263082360d87723af0055f74e324c80`. The measured route must
-repeat preflight and satisfy the existing wall-time, active-time,
-command-count, download, peak-disk, output, verifier, and receipt contract.
+The next step is to provision dedicated disposable Humble and Jazzy source-
+trial VMs pinned to
+`549ef03017c776f23fc968881b346aa685356274`, add a human observer, and replace
+the provisional source rows only when the route satisfies the existing
+wall-time, active-time, command-count, download, peak-disk, output, verifier,
+and receipt contract. The G0 activation gate remains closed until at least one
+Docker PASS and one source PASS are comparable.
 
 The public-preflight command changed no commit, branch, pull request, issue,
 label, release, image, package, review reply, or external repository.

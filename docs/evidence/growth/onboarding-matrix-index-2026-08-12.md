@@ -1,9 +1,9 @@
 # Onboarding matrix evidence index — 2026-08-12
 
-> Decision: **TRUTHFUL_2_OF_4 / ACTIVATION_GATE_CLOSED**
+> Decision: **TRUTHFUL_4_OF_4 / ACTIVATION_GATE_CLOSED**
 >
 > Public source route inspected:
-> `0a3d5f0c3263082360d87723af0055f74e324c80` (`0.9.1`)
+> `549ef03017c776f23fc968881b346aa685356274` (`0.9.1`)
 >
 > Preflight remote mutations performed: **none**
 
@@ -19,9 +19,9 @@ python3 scripts/check_onboarding_trial_matrix.py --json
 
 The command loads
 `docs/contracts/g0-onboarding-matrix-evidence-v1.json`, whose four explicit
-rows point to the reviewed Humble and Jazzy Docker records and retain both
-source rows as `null`. It does not glob a directory, choose a latest file, or
-infer success from a missing record. Explicit paths remain available for
+rows point to the reviewed Humble and Jazzy Docker records plus the two
+reviewed source records. It does not glob a directory, choose a latest file,
+or infer success from a missing record. Explicit paths remain available for
 auditing provisional records before maintainers update the index.
 
 ## Current truthful matrix
@@ -30,22 +30,34 @@ auditing provisional records before maintainers update the index.
 | --- | --- | --- | --- | --- |
 | Docker Humble | yes | `PASS` | `INCOMPLETE` | no |
 | Docker Jazzy | yes | `PASS` | `INCOMPLETE` | no |
-| Source Humble | no | `MISSING` | `MISSING` | no |
-| Source Jazzy | no | `MISSING` | `MISSING` | no |
+| Source Humble | yes | `PASS` | `INCOMPLETE` | no |
+| Source Jazzy | yes | `PASS` | `INCOMPLETE` | no |
 
-The aggregate is two present rows, two product PASS outcomes, zero comparable
+The aggregate is four present rows, four product PASS outcomes, zero comparable
 rows, and a closed activation gate. The Docker records still lack human active
-time, human command count, and isolated peak disk. This change makes that state
-easier to see; it does not upgrade either record.
+time, human command count, and isolated peak disk. The source records have
+complete route, build, map, verifier, and receipt outcomes, but deliberately
+record `active_operator_time_sec=null`; their observer `command_count=1` is the
+single harness invocation, not a human command count. The Docker rows are the
+immutable `0.9.0` release records while the source rows are the reviewed
+`0.9.1` candidate records, so the checker also reports
+`product_version_aligned=false`. It exposes all four rows for review but keeps
+the matrix `BLOCKED`; no cross-version evidence is allowed to pass a route
+comparison gate.
 
 ## Public source diagnosis
 
 The network-read-only source preflight against exact public Draft PR commit
-`0a3d5f0` returns `READY` for product version `0.9.1`: it resolves all six
+`549ef030` returns `READY` for product version `0.9.1`: it resolves all six
 maintained source packages and all four route-contract files with no finding
-codes or writes. This closes the public-identity prerequisite, but it does not
-create an onboarding result. Humble and Jazzy source rows remain legitimately
-absent until separate clean disposable hosts run the measured route.
+codes or writes. Separate clean disposable Humble and Jazzy runtime-image
+trials then completed the documented source route and produced map, verifier,
+and receipt PASS results. The checked-in records are valid product outcomes,
+but remain non-comparable because active human time was not observed. The
+runtime images already contained ROS and the build dependencies, so these rows
+also do not claim a cold package-install baseline. The matrix checker reports
+both this measurement blocker and the Docker/source version-alignment blocker
+as explicit next actions.
 
 The first exact-tip check also exposed a GitHub API boundary: the commits API
 returns HTTP 422, rather than 404, for a syntactically valid but unpublished
@@ -68,19 +80,24 @@ Validation results:
 - onboarding matrix regressions: **12 passed**;
 - source public-preflight regressions: **20 passed**, including real 422
   unpublished-tip classification;
-- no-argument report: **2/4 present, 2 PASS, 0 comparable**;
+- no-argument report: **4/4 present, 4 PASS, 0 comparable, `BLOCKED`**;
 - runner and regression-test full flake8: **PASS**;
-- complete maintained Python gate: graph **1,428 passed / 13 skipped**,
-  lidar_slam **694 passed**, **2,122 total**;
+- complete maintained Python gate: graph **1,433 passed / 13 skipped**,
+  lidar_slam **751 passed**, **2,184 total**;
 - strict MkDocs build: **PASS** with pre-existing notices;
-- source public preflight: **READY** at exact `0a3d5f0`, no writes;
+- source public preflight: **READY** at exact `549ef030`, no writes;
 - issue, PR, branch, release, image, and other mutation by the preflight:
   **none**.
 
 ## Next gate
 
-Run disposable Humble and Jazzy hosts against exact source commit `0a3d5f0` and
-product version `0.9.1`, then retain only schema-valid measured records.
-Comparable Docker replacement rows additionally require a dedicated filesystem
-and human active-time observation; another shared-host automation run would not
-close that gap.
+Align all four rows to one product version first: either obtain reviewed
+immutable Docker records for the `0.9.1` source candidate or deliberately
+rerun source against the exact Docker release identity when the documented
+route exists. Then run dedicated disposable Humble and Jazzy hosts with a
+human observer and replace rows only after active time and command count are
+measured. The Docker rows likewise require a dedicated filesystem and human
+active-time observation; another shared-host automation run would not close
+that gap.
+Until at least one Docker PASS and one source PASS are comparable, the G0
+activation gate stays closed and no independent-user cohort is recruited.

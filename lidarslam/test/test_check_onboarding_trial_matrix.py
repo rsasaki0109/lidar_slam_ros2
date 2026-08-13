@@ -161,6 +161,7 @@ def test_all_four_comparable_rows_pass_both_matrix_gates():
         'comparable_rows': 4,
         'docker_comparable_rows': 2,
         'source_comparable_rows': 2,
+        'product_version_aligned': True,
         'matrix_complete': True,
         'activation_gate': True,
         'all_rows_comparable': True,
@@ -190,30 +191,31 @@ def test_partial_matrix_names_missing_rows_without_inferring_success():
     )
 
 
-def test_checked_in_index_reports_the_true_two_of_four_state():
-    """No-argument evidence contains both reviewed Docker outcomes."""
+def test_checked_in_index_reports_all_recorded_rows_without_inference():
+    """No-argument evidence exposes source PASS rows and their blockers."""
     records = MATRIX.load_evidence_index()
 
     report = MATRIX.evaluate_matrix(records)
 
-    assert len(records) == 2
-    assert report['decision']['status'] == 'INCOMPLETE'
-    assert report['summary']['present_rows'] == 2
-    assert report['summary']['pass_rows'] == 2
+    assert len(records) == 4
+    assert report['decision']['status'] == 'BLOCKED'
+    assert report['summary']['present_rows'] == 4
+    assert report['summary']['pass_rows'] == 4
     assert report['summary']['comparable_rows'] == 0
-    assert [
-        row['row_id'] for row in report['rows'] if not row['present']
-    ] == ['source-humble', 'source-jazzy']
+    assert report['summary']['product_version_aligned'] is False
+    assert report['rows'][2]['outcome_status'] == 'PASS'
+    assert report['rows'][3]['outcome_status'] == 'PASS'
 
 
 def test_no_argument_cli_uses_checked_in_index(capsys):
-    """The maintainer's shortest audit command cannot regress to zero rows."""
+    """The shortest audit reports all evidence and remains fail-closed."""
     assert MATRIX.main(['--json']) == 0
 
     report = json.loads(capsys.readouterr().out)
-    assert report['summary']['present_rows'] == 2
-    assert report['summary']['pass_rows'] == 2
-    assert report['decision']['status'] == 'INCOMPLETE'
+    assert report['summary']['present_rows'] == 4
+    assert report['summary']['pass_rows'] == 4
+    assert report['decision']['status'] == 'BLOCKED'
+    assert report['summary']['product_version_aligned'] is False
 
 
 def test_evidence_index_order_and_paths_fail_closed(tmp_path):
@@ -301,11 +303,18 @@ def test_duplicate_or_mislabeled_rows_fail_closed():
 
 
 def test_mixed_product_or_source_identity_fails_closed():
-    """Every row shares one product line and both source rows one commit."""
+    """Mixed product versions stay visible but cannot pass comparison gates."""
     mixed_version = _full_matrix()
     mixed_version[3]['environment']['product_version'] = '0.9.1'
-    with pytest.raises(MATRIX.MatrixError, match='product version'):
-        MATRIX.evaluate_matrix(mixed_version)
+    report = MATRIX.evaluate_matrix(mixed_version)
+    assert report['decision']['status'] == 'BLOCKED'
+    assert report['summary']['product_version_aligned'] is False
+    assert report['summary']['activation_gate'] is False
+    assert report['summary']['all_rows_comparable'] is False
+    assert any(
+        action.startswith('Align all matrix rows')
+        for action in report['decision']['actions']
+    )
 
     mixed_source = _full_matrix()
     mixed_source[3]['environment']['revision']['value'] = 'f' * 40

@@ -7,8 +7,8 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 201,
-    "expected_paths_sha256": "ea04dc74a12fecbf951103ae4c9de941a0df8a9bf51dc88ec7c03b8c4dec99bf",
+    "expected_path_count": 204,
+    "expected_paths_sha256": "86ad6fe4210e9f8b22368fc0f7bd165c4d680ad52ae31a9df0cdb67c60495d2a",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -137,10 +137,13 @@
       ],
       "paths": [
         "docs/evidence/growth/contributor-python-test-entrypoint-2026-08-11.md",
+        "docs/evidence/onboarding/g0-source-humble-20260813-runtime-a.json",
+        "docs/evidence/onboarding/g0-source-jazzy-20260813-runtime-a.json",
         "docs/evidence/ros-apt-dependency-readiness-2026-08-12.json",
         "docs/evidence/source-all-packages-install-2026-08-12.md",
         "docs/evidence/source-launcher-activation-2026-08-12.md",
         "docs/evidence/source-onboarding-public-preflight-2026-08-12.md",
+        "docs/schemas/onboarding-trial-matrix-v1.schema.json",
         "graph_based_slam/test/test_product_python_tests_script.py",
         "lidarslam/test/test_install_source_dependencies.py",
         "lidarslam/test/test_installed_product_cli_contract.py",

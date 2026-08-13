@@ -24,7 +24,7 @@
     "dataset_id": {"const": "mid360-public-zenodo-14841855"},
     "product_versions": {
       "type": "array",
-      "maxItems": 1,
+      "maxItems": 4,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -53,6 +53,7 @@
         "comparable_rows",
         "docker_comparable_rows",
         "source_comparable_rows",
+        "product_version_aligned",
         "matrix_complete",
         "activation_gate",
         "all_rows_comparable"
@@ -64,6 +65,7 @@
         "comparable_rows": {"type": "integer", "minimum": 0, "maximum": 4},
         "docker_comparable_rows": {"type": "integer", "minimum": 0, "maximum": 2},
         "source_comparable_rows": {"type": "integer", "minimum": 0, "maximum": 2},
+        "product_version_aligned": {"type": "boolean"},
         "matrix_complete": {"type": "boolean"},
         "activation_gate": {"type": "boolean"},
         "all_rows_comparable": {"type": "boolean"}

@@ -90,6 +90,12 @@ matrix coverage from `0 / 4` to `2 / 4`, but comparable coverage remains
 `0 / 4`. The weekly GitHub snapshot is not overwritten to insert later trial
 observations.
 
+The 2026-08-13 source follow-up adds valid Humble and Jazzy product PASS
+records, so the current machine-checked matrix is `4 / 4` present and `0 / 4`
+comparable. The source records intentionally omit human active-time
+observation, and they are `0.9.1` evidence beside the frozen Docker `0.9.0`
+rows; neither condition advances the activation gate.
+
 The collector fails closed if authentication is unavailable, an API response
 is malformed, pagination would be incomplete, the local first-map ledger or
 anonymous cohort state is invalid, cohort counts/rates/status disagree, or the

@@ -259,7 +259,11 @@ def _matrix_row(
     }
 
 
-def _actions(rows: list[dict[str, Any]], activation_gate: bool) -> list[str]:
+def _actions(
+    rows: list[dict[str, Any]],
+    activation_gate: bool,
+    product_version_aligned: bool,
+) -> list[str]:
     actions: list[str] = []
     missing = [row['row_id'] for row in rows if not row['present']]
     if missing:
@@ -271,6 +275,11 @@ def _actions(rows: list[dict[str, Any]], activation_gate: bool) -> list[str]:
         details.extend(row['finding_codes'])
         actions.append(
             f'Resolve {row["row_id"]}: ' + ', '.join(details)
+        )
+    if not product_version_aligned:
+        actions.append(
+            'Align all matrix rows to one product version before comparing '
+            'Docker and source routes.'
         )
     if not missing and not activation_gate:
         actions.append(
@@ -313,11 +322,6 @@ def evaluate_matrix(records: list[dict[str, Any]]) -> dict[str, Any]:
                 record['environment']['revision']['value']
             )
 
-    if len(product_versions) > 1:
-        raise MatrixError(
-            'matrix rows disagree on product version: '
-            + ', '.join(sorted(product_versions))
-        )
     if len(source_revisions) > 1:
         raise MatrixError(
             'source rows disagree on Git commit: '
@@ -339,14 +343,18 @@ def evaluate_matrix(records: list[dict[str, Any]]) -> dict[str, Any]:
     source_comparable = sum(
         row['comparable'] and row['route'] == 'source' for row in rows
     )
+    product_version_aligned = len(product_versions) <= 1
     matrix_complete = present_rows == len(ROW_CONTRACTS)
     activation_gate = (
         matrix_complete
         and docker_comparable >= 1
         and source_comparable >= 1
+        and product_version_aligned
     )
     all_rows_comparable = (
-        matrix_complete and comparable_rows == len(ROW_CONTRACTS)
+        matrix_complete
+        and comparable_rows == len(ROW_CONTRACTS)
+        and product_version_aligned
     )
     if not matrix_complete:
         status = 'INCOMPLETE'
@@ -372,13 +380,16 @@ def evaluate_matrix(records: list[dict[str, Any]]) -> dict[str, Any]:
             'comparable_rows': comparable_rows,
             'docker_comparable_rows': docker_comparable,
             'source_comparable_rows': source_comparable,
+            'product_version_aligned': product_version_aligned,
             'matrix_complete': matrix_complete,
             'activation_gate': activation_gate,
             'all_rows_comparable': all_rows_comparable,
         },
         'decision': {
             'status': status,
-            'actions': _actions(rows, activation_gate),
+            'actions': _actions(
+                rows, activation_gate, product_version_aligned
+            ),
         },
     }
     try:

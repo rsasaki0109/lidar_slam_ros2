@@ -43,7 +43,7 @@ manifest digest, and (when available) GitHub attestation before use. The source
 rows instead use this reviewed public identity:
 
 ~~~bash
-SOURCE_COMMIT='0a3d5f0c3263082360d87723af0055f74e324c80'
+SOURCE_COMMIT='549ef03017c776f23fc968881b346aa685356274'
 SOURCE_VERSION='0.9.1'
 export SOURCE_COMMIT SOURCE_VERSION
 ~~~
@@ -651,11 +651,13 @@ python3 scripts/check_onboarding_trial_matrix.py \
 ~~~
 
 Missing rows remain `MISSING`; a valid FAIL remains FAIL. The activation gate
-requires all four outcomes to be present plus at least one comparable Docker
-PASS and one comparable source PASS. Use `--require-all-comparable` only for
-the stricter four-row comparison gate. This audit does not authorize filling
-null measurements, publishing a candidate, or bypassing any image-promotion
-gate.
+requires all four outcomes to be present, all rows to use one product version,
+plus at least one comparable Docker PASS and one comparable source PASS. The
+checker may report valid rows from different product versions, but it keeps
+the activation and all-row gates closed and emits an explicit alignment action.
+Use `--require-all-comparable` only for the stricter four-row comparison gate.
+This audit does not authorize filling null measurements, publishing a
+candidate, or bypassing any image-promotion gate.
 
 Review the generated JSON once for privacy, then summarize only the bounded
 fields in the [weekly growth scorecard](growth-scorecard.md). Keep raw observer
