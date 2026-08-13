@@ -130,8 +130,17 @@ lidarslam-map demo /path/to/work_dir --resume
 lidarslam-map demo ~/ros2_ws --viewer none
 ```
 
-live入力を確認する場合は、`<POINTCLOUD_TOPIC>`などの山括弧を実際の値に置き換えて、
-次の順に実行します。
+live入力を確認する場合は、まずtopicの型を確認します。
+
+```bash
+ros2 topic list -t
+```
+
+出力のうち`[sensor_msgs/msg/PointCloud2]`と表示された行のtopic名を選び、
+`<POINTCLOUD_TOPIC>`をその名前に置き換えます。例えば
+`/points [sensor_msgs/msg/PointCloud2]`なら、コマンドには`/points`だけを入れます。
+PointCloud2の行がない場合は、publisherまたはlaunchのremapを直してから再確認します。
+山括弧を残したまま実行せず、次の順に確認します。
 
 1. **PointCloud2が届いているか**
 

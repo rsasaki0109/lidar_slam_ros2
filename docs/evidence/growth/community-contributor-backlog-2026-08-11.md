@@ -304,22 +304,32 @@ Estimate: **30 minutes**. Non-goals: changing the preflight implementation,
 translating the entire getting-started guide, or claiming support for an
 unvalidated sensor.
 
-## Successor C5 — Japanese PointCloud2 topic selection
+## Completed C5 — Japanese PointCloud2 topic selection
 
-The next prepared C5 task keeps the same narrow language-path scope while
-removing the next command-discovery gap. The Japanese recovery card still
-uses `<POINTCLOUD_TOPIC>` without showing how to select the correct typed topic.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese card now shows `ros2 topic list -t`, identifies the
+`sensor_msgs/msg/PointCloud2` row, explains that only the topic name is copied,
+and routes a missing typed topic back to the publisher/remap check. The queue's
+drift probe retires this task after the marker appears.
+
+## Successor C5 — Japanese TF frame substitution
+
+The current prepared C5 task keeps the same narrow language-path scope while
+removing the next frame-substitution gap.
 
 Suggested issue title:
 
-> Docs: show how to select the PointCloud2 topic in the Japanese recovery card
+> Docs: make TF frame substitution explicit in the Japanese recovery card
 
 Acceptance:
 
-- show `ros2 topic list -t` and select a topic whose type is
-  `sensor_msgs/msg/PointCloud2`;
-- tell the reader to replace `<POINTCLOUD_TOPIC>` before both input checks;
-- keep the completed empty-frame repair, TF, and privacy guidance intact;
+- identify `<TF_TARGET_FRAME>` as the runtime or viewer target frame;
+- tell the reader to put the non-empty frame sampled in check 2 into
+  `<POINTCLOUD_FRAME>`;
+- keep the `tf2_echo` source/target order, static-extrinsic recovery action,
+  completed topic-selection and empty-frame guidance intact;
 - require no rosbag, hardware, network, or private log.
 
 Focused check:
@@ -328,7 +338,7 @@ Focused check:
 python3 -m mkdocs build --strict
 ```
 
-Estimate: **30 minutes**. Non-goals: changing topic discovery or preflight
+Estimate: **30 minutes**. Non-goals: changing TF broadcasters or preflight
 implementation, translating the entire guide, or claiming support for an
 unvalidated sensor.
 

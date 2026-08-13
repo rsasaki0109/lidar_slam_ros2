@@ -42,7 +42,7 @@
       },
       {
         "task_id": "starter-C5",
-        "query": "Japanese PointCloud2 topic",
+        "query": "Japanese TF frame substitution",
         "matching_open_pull_requests": []
       }
     ],
@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: show how to select the PointCloud2 topic in the Japanese recovery card",
-      "outcome": "A Japanese first-run user can list topic types, select the exact PointCloud2 input, and substitute it into the recovery checks without guessing a topic or viewer frame.",
+      "title": "Docs: make TF frame substitution explicit in the Japanese recovery card",
+      "outcome": "A Japanese first-run user can fill the TF check with the runtime target frame and the sampled PointCloud2 frame, preserving transform direction without guessing viewer frames.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -248,14 +248,14 @@
         "docs/getting-started-ja.md"
       ],
       "non_goals": [
-        "change topic discovery or preflight implementation",
+        "change TF broadcasters or preflight implementation",
         "translate the entire getting-started guide",
         "claim support for an unvalidated sensor"
       ],
       "acceptance": [
-        "The Japanese recovery card shows ros2 topic list -t and tells the reader to choose a topic whose type is sensor_msgs/msg/PointCloud2.",
-        "The card visibly tells the reader to replace <POINTCLOUD_TOPIC> before running both input checks.",
-        "The existing non-empty frame_id repair, TF check, and no-viewer-frame-guessing guidance remain intact.",
+        "The Japanese recovery card identifies <TF_TARGET_FRAME> as the runtime or viewer target frame.",
+        "The card tells the reader to put the non-empty frame sampled in check 2 into <POINTCLOUD_FRAME>.",
+        "The card keeps the tf2_echo source/target order, static-extrinsic recovery action, topic-selection, and no-viewer-frame-guessing guidance intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
       "focused_checks": [
@@ -269,8 +269,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "ros2 topic list -t",
-          "failure_detail": "the planned Japanese PointCloud2 topic-selection marker already exists"
+          "value": "check 2で出たframe名を",
+          "failure_detail": "the planned Japanese TF frame-substitution marker already exists"
         }
       ],
       "private_data_required": false,

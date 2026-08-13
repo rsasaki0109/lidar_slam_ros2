@@ -251,14 +251,14 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_topic_task_becomes_stale_when_marker_appears(tmp_path: Path):
-    """A completed Japanese topic card requires queue reassessment."""
+def test_japanese_tf_task_becomes_stale_when_marker_appears(tmp_path: Path):
+    """A completed Japanese TF card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\nros2 topic list -t\n',
+        + '\ncheck 2で出たframe名を\n',
         encoding='utf-8',
     )
 
@@ -267,7 +267,7 @@ def test_japanese_topic_task_becomes_stale_when_marker_appears(tmp_path: Path):
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese PointCloud2 topic-selection marker already exists',
+        'the planned Japanese TF frame-substitution marker already exists',
     ]
 
 
@@ -279,6 +279,17 @@ def test_japanese_recovery_card_keeps_empty_frame_action():
     assert 'header.frame_id' in source
     assert 'publisherの`header.frame_id`を修正してから再確認' in source
     assert 'viewerのframe名を推測して先に進めません' in source
+
+
+def test_japanese_recovery_card_explains_pointcloud_topic_selection():
+    """The Japanese card makes the topic placeholder copy-ready."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert 'ros2 topic list -t' in source
+    assert '[sensor_msgs/msg/PointCloud2]' in source
+    assert '`<POINTCLOUD_TOPIC>`をその名前に置き換えます' in source
+    assert 'PointCloud2の行がない場合は' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():
