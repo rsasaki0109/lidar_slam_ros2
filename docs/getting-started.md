@@ -512,6 +512,68 @@ lidarslam-map inspect output/<run_dir> --write
 | Browser does not open on a headless machine | Open the printed self-contained HTML file on the host, or rerun with `--no-open` and `--preview-dir <dir>`. |
 | Live viewer starts but no map appears | Confirm the run produced `pointcloud_map/`; verify the browser preview first, then try Foxglove before the full Autoware viewer. |
 
+### Empty map or viewer: three-check recovery
+
+If this is your first run, use the fixed public demo as the control experiment
+before changing an own-bag topic or frame:
+
+```bash
+lidarslam-map demo ~/ros2_ws --viewer none
+```
+
+For a live run, replace every angle-bracket placeholder before running the
+command. Choose `<POINTCLOUD_TOPIC>` from a topic listed as
+`sensor_msgs/msg/PointCloud2` by `ros2 topic list -t`.
+
+1. **Live PointCloud2 input**
+
+   ```bash
+   ros2 topic hz --window 5 <POINTCLOUD_TOPIC>
+   ```
+
+   Expected: `average rate:` continues to report a positive rate. If it stays
+   at zero or reports no publisher, fix the input publisher or launch remap,
+   then repeat this check. For an own rosbag2 directory, run
+   `lidarslam-map doctor /path/to/rosbag2` before retrying.
+
+2. **Non-empty sampled `frame_id`**
+
+   ```bash
+   ros2 topic echo --once --timeout 5 --field header.frame_id <POINTCLOUD_TOPIC>
+   ```
+
+   Expected: one non-empty frame name, such as `livox_frame`. If the output is
+   empty or times out, fix the publisher's `header.frame_id` and repeat the
+   input check; do not guess a frame name in the viewer.
+
+3. **Connected TF path**
+
+   ```bash
+   ros2 run tf2_ros tf2_echo <TF_TARGET_FRAME> <POINTCLOUD_FRAME>
+   ```
+
+   Replace `<TF_TARGET_FRAME>` with the runtime/viewer's target frame and
+   `<POINTCLOUD_FRAME>` with the sampled frame from check 2. Expected: a
+   repeated `At time ...` transform. If `tf2_echo` reports that the transform
+   is unavailable, publish or correct that TF/static extrinsic, then rerun the
+   check with the exact source and target frames.
+
+These checks separate an input/TF failure from a viewer-only failure. If the
+checks pass but no map message is produced, inspect the run diagnosis rather
+than changing viewer settings:
+
+```bash
+ros2 topic echo --once --timeout 5 /map/pointcloud_map
+lidarslam-map inspect /path/to/output --write
+```
+
+No message means the map workflow still needs attention; open the generated
+`autoware_map_diagnosis.md` and follow its first actionable finding. A message
+means the map exists and the blank screen is a viewer configuration issue: set
+the viewer fixed frame to `map` and select `/map/pointcloud_map`, then verify
+the self-contained browser preview. The doctor, diagnosis, and preview stay
+local; no map, bag, or raw log upload is required.
+
 For the full operator reference, continue with
 [Distribution and installed CLI](distribution.md),
 [Autoware Quickstart](autoware-quickstart.md) and
