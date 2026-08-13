@@ -24,6 +24,7 @@ jobs:
   docs-and-release-metadata:
     name: docs and release metadata
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
@@ -141,6 +142,7 @@ jobs:
     needs: docs-and-release-metadata
     runs-on: ${{ matrix.runs_on }}
     container: ${{ matrix.container }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -229,6 +231,7 @@ jobs:
       - docs-and-release-metadata
       - default-workflow
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
