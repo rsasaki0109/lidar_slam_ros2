@@ -206,10 +206,12 @@ For a verified first map, run
 verified first map** from `session.html`. This mode creates no ZIP, writes no
 file, and contacts no remote service. It requires receipt-bound quality PASS,
 revalidates the retained receipt plus manifest, diagnosis, and verification-log
-hashes, then prints one copy-ready verification summary, the exact reviewed
-JSON receipt to attach, and the canonical independent-validation issue form.
-`--output` and `--json` are rejected in this mode so it cannot be mistaken for
-the sanitized support report or create a second evidence artifact.
+hashes, then prints one copy-ready verification summary, safe environment
+hints, the exact reviewed JSON receipt to attach, and the canonical
+independent-validation issue form. Add `--json` for a schema-valid,
+machine-readable `first-map-handoff-v1` result; it is still read-only.
+`--output` remains rejected in this mode so it cannot create a second evidence
+artifact.
 
 ### `setup`
 
@@ -435,7 +437,7 @@ The stability label and migration rules for every option are defined in the
 | Public first map | `demo`, `demo --dry-run --json`, `demo --resume`, `demo --viewer none` | Download fixed public data, verify a map, safely finish interrupted post-processing, reuse trusted output, and optionally open it |
 | One-command session | `start`, `start --yes --dry-run`, `start --editable`, `start --viewer` | Pin calibration and configuration, run the verified map lifecycle, then open the result |
 | Session return and comparison | `sessions`, `sessions --status`, `compare --viewer`, `compare --json` | Reopen local runs and compare two retained evidence sets without inferred scoring |
-| Maintainer or validator report | `support --output`, `support --json`, `support --first-map` | Create a fixed privacy-first ZIP, inspect its sanitized report, or revalidate and hand off one verified first-map receipt without writing |
+| Maintainer or validator report | `support --output`, `support --json`, `support --first-map [--json]` | Create a fixed privacy-first ZIP, inspect its sanitized report, or revalidate and hand off one verified first-map receipt without writing |
 | Doctor output | `doctor --json` | Emit the versioned preflight contract for automation |
 | Guided compatibility | `run --guided`, `run --guided --yes`, `run --guided --dry-run` | Preserve the earlier explained-run path for existing launchers |
 | Map selection and output | `run --profile`, `run --output-dir` | Select a maintained profile or an explicit artifact directory |

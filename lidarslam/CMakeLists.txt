@@ -386,6 +386,7 @@ install(
     ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/release-image-v1.schema.json
     ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/rollback-plan-v1.schema.json
     ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/first-map-validation-receipt-v1.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/first-map-handoff-v1.schema.json
     ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/first-map-demo-plan-v1.schema.json
     ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/sensor-setup-v1.schema.json
     ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/sensor-setup-rejection-v1.schema.json

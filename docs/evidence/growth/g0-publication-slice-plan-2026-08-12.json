@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-13T22:11:22+09:00",
+  "generated_at": "2026-08-14T02:19:37+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 212,
-    "expected_paths_sha256": "67e687173c2ed018ff3b31ee5639acccf9684b80c307f96a0c3283dc3ecb9a1b",
+    "expected_path_count": 213,
+    "expected_paths_sha256": "faec74319cbb8f35fc251d51a4177a2488adce23a6d2bf0b21b8cf39e83a7f95",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -234,7 +234,7 @@
       "id": "S6-product-shell-integration",
       "order": 6,
       "title": "Beginner-facing product shell, installed surface, docs, and support entrypoints",
-      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, installed runtime surface, copy-ready documentation, and neutral GLIM usability scorecard.",
+      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, installed runtime surface, copy-ready documentation, schema-valid first-map handoff JSON, and neutral GLIM usability scorecard.",
       "depends_on": [
         "S1-runtime-safety",
         "S2-first-map-foundation",
@@ -280,6 +280,7 @@
         "docs/roadmap/1000-stars-2026-2029.md",
         "docs/roadmap/1000-stars.md",
         "docs/schemas/contributor-starter-queue-v1.schema.json",
+        "docs/schemas/first-map-handoff-v1.schema.json",
         "docs/schemas/first-map-validator-cohort-state-v1.schema.json",
         "docs/schemas/first-map-validator-cohort-v1.schema.json",
         "docs/schemas/growth-snapshot-v1.schema.json",

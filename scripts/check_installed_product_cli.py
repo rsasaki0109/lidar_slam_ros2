@@ -334,6 +334,7 @@ def validate_install(
         'release-image-v1.schema.json',
         'rollback-plan-v1.schema.json',
         'first-map-validation-receipt-v1.schema.json',
+        'first-map-handoff-v1.schema.json',
         'first-map-demo-plan-v1.schema.json',
         'sensor-setup-v1.schema.json',
         'sensor-setup-rejection-v1.schema.json',

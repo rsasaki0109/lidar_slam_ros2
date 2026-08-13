@@ -45,6 +45,9 @@ WIZARD_TEST = REPO_ROOT / 'lidarslam' / 'test' / 'test_sensor_setup_wizard.py'
 WIZARD = REPO_ROOT / 'scripts' / 'sensor_setup_wizard.py'
 RECEIPT = REPO_ROOT / 'scripts' / 'first_map_validation_receipt.py'
 SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'support-bundle-v1.schema.json'
+HANDOFF_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas' / 'first-map-handoff-v1.schema.json'
+)
 
 
 def _load(path: Path, name: str):
@@ -331,7 +334,10 @@ def test_first_map_handoff_revalidates_pass_evidence_without_writing(
     module = _load(SCRIPT, 'support_first_map_handoff')
     bundle = _validation_fixture(tmp_path)
     before = {
-        path.relative_to(bundle): (path.stat().st_size, path.stat().st_mtime_ns)
+        path.relative_to(bundle): (
+            path.stat().st_size,
+            path.stat().st_mtime_ns,
+        )
         for path in bundle.rglob('*')
         if path.is_file()
     }
@@ -365,10 +371,59 @@ def test_first_map_handoff_revalidates_pass_evidence_without_writing(
     assert f'Release, commit, or image digest: {"a" * 40}' in terminal
     assert 'Copy this Verification summary' in terminal
     assert 'Complete these from your own run:' in terminal
+    assert 'Detected safe environment hints' in terminal
     assert str(bundle / 'map/first_map_validation_receipt.json') in terminal
     assert 'Do not attach the map, bag, manifest, logs' in terminal
     after = {
-        path.relative_to(bundle): (path.stat().st_size, path.stat().st_mtime_ns)
+        path.relative_to(bundle): (
+            path.stat().st_size,
+            path.stat().st_mtime_ns,
+        )
+        for path in bundle.rglob('*')
+        if path.is_file()
+    }
+    assert after == before
+    assert not list(bundle.parent.glob('lidarslam-support-*.zip'))
+
+
+def test_first_map_json_is_schema_valid_and_read_only(
+    tmp_path: Path,
+    capsys,
+):
+    """Structured handoff output validates without changing the session."""
+    module = _load(SCRIPT, 'support_first_map_handoff_json')
+    bundle = _validation_fixture(tmp_path)
+    before = {
+        path.relative_to(bundle): (
+            path.stat().st_size,
+            path.stat().st_mtime_ns,
+        )
+        for path in bundle.rglob('*')
+        if path.is_file()
+    }
+
+    assert module.main([str(bundle), '--first-map', '--json']) == 0
+    payload = json.loads(capsys.readouterr().out)
+    schema = json.loads(HANDOFF_SCHEMA.read_text(encoding='utf-8'))
+    jsonschema.validate(payload, schema)
+    assert payload['status'] == 'READY_FOR_REVIEW'
+    assert payload['receipt_status'] == 'PASS'
+    assert payload['operator_supplied_fields'] == [
+        'documentation_path',
+        'environment_details',
+        'exact_command',
+        'findings',
+    ]
+    assert set(payload['environment_hints']) == {
+        'os_family',
+        'architecture',
+        'ros_distro',
+    }
+    after = {
+        path.relative_to(bundle): (
+            path.stat().st_size,
+            path.stat().st_mtime_ns,
+        )
         for path in bundle.rglob('*')
         if path.is_file()
     }
@@ -421,7 +476,7 @@ def test_first_map_handoff_rejects_stale_symlinked_and_nonpass_evidence(
         module.build_first_map_handoff(str(incomplete))
 
 
-def test_first_map_mode_rejects_writing_and_json_combinations(
+def test_first_map_mode_rejects_writing_but_allows_structured_json(
     tmp_path: Path,
     capsys,
 ):
@@ -434,8 +489,8 @@ def test_first_map_mode_rejects_writing_and_json_combinations(
     ]) == 2
     assert '[invalid-usage]' in capsys.readouterr().err
     assert not output.exists()
-    assert module.main([str(bundle), '--first-map', '--json']) == 2
-    assert '[invalid-usage]' in capsys.readouterr().err
+    assert module.main([str(bundle), '--first-map', '--json']) == 0
+    assert json.loads(capsys.readouterr().out)['status'] == 'READY_FOR_REVIEW'
 
 
 def test_rejects_bundle_session_symlinks_oversized_json_and_bad_output(

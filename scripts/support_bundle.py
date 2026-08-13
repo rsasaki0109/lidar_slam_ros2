@@ -26,6 +26,11 @@ SUPPORT_SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
     'schemas/support-bundle-v1.schema.json'
 )
+FIRST_MAP_HANDOFF_SCHEMA = 'first-map-handoff-v1.schema.json'
+FIRST_MAP_HANDOFF_SCHEMA_URI = (
+    'https://rsasaki0109.github.io/lidar_slam_ros2/'
+    'schemas/first-map-handoff-v1.schema.json'
+)
 FIRST_MAP_RECEIPT_NAME = 'first_map_validation_receipt.json'
 FIRST_MAP_MARKDOWN_NAME = 'first_map_validation_receipt.md'
 MAX_JSON_BYTES = 2 * 1024 * 1024
@@ -725,6 +730,7 @@ def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
     )
     verification = receipt['verification']
     run = receipt['run']
+    product = _product_build_info()
     product_version = _safe_identifier(run['product_version'])
     git_commit = (
         _safe_identifier(run['git_commit'])
@@ -733,7 +739,9 @@ def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
     release_ref = (
         git_commit if git_commit != 'unknown' else product_version
     )
-    return {
+    handoff = {
+        'schema_version': 1,
+        'schema_uri': FIRST_MAP_HANDOFF_SCHEMA_URI,
         'status': 'READY_FOR_REVIEW',
         'receipt_status': 'PASS',
         'receipt_path': str(receipt_path),
@@ -743,6 +751,11 @@ def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
             'product_version': product_version,
             'git_commit': git_commit,
             'profile_id': _safe_identifier(run['profile_id']),
+        },
+        'environment_hints': {
+            'os_family': product['platform']['system'],
+            'architecture': product['platform']['machine'],
+            'ros_distro': product['ros_distro'],
         },
         'form_fields': {
             'result': 'PASS — verified first map completed',
@@ -758,7 +771,15 @@ def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
             'manifest_sha256=' + verification['manifest_sha256'],
         ]),
         'privacy': dict(receipt['shareability']),
+        'operator_supplied_fields': [
+            'documentation_path',
+            'environment_details',
+            'exact_command',
+            'findings',
+        ],
     }
+    product_schema.validate_contract(handoff, FIRST_MAP_HANDOFF_SCHEMA)
+    return handoff
 
 
 def render_first_map_handoff(handoff: dict[str, Any]) -> str:
@@ -792,11 +813,17 @@ def render_first_map_handoff(handoff: dict[str, Any]) -> str:
             f"  {handoff['markdown_path']}",
         ])
     lines.extend([
+        'Detected safe environment hints (verify and complete in the form):',
+        f"  OS family: {handoff['environment_hints']['os_family']}",
+        f"  Architecture: {handoff['environment_hints']['architecture']}",
+        f"  ROS 2: {handoff['environment_hints']['ros_distro'] or 'unknown'}",
+        '',
         'Issue form:',
         f"  {handoff['issue_url']}",
         '',
         'Complete these from your own run:',
-        '  Public documentation path; environment; exact command; findings.',
+        '  Public documentation path; environment details; exact command; '
+        'findings.',
         '',
         'Before sharing: redact private paths from the separately pasted '
         'command. Do not attach the map, bag, manifest, logs, trajectory, '
@@ -953,10 +980,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Create one local support attachment or print its report."""
     args = parse_args(argv)
     if args.first_map:
-        if args.output is not None or args.json:
+        if args.output is not None:
             print(
                 'error: [invalid-usage] --first-map cannot be combined with '
-                '--output or --json',
+                '--output',
                 file=sys.stderr,
             )
             return 2
@@ -965,7 +992,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, RuntimeError, ValueError) as exc:
             print(f'error: [first-map-handoff-invalid] {exc}', file=sys.stderr)
             return 2
-        print(render_first_map_handoff(handoff))
+        if args.json:
+            print(json.dumps(
+                handoff,
+                indent=2,
+                ensure_ascii=False,
+                sort_keys=True,
+            ))
+        else:
+            print(render_first_map_handoff(handoff))
         return 0
     try:
         report = build_support_report(args.session)

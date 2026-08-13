@@ -93,6 +93,12 @@ summary, reviewed receipt path, and canonical issue form. It performs no write,
 browser open, upload, or remote mutation. Recovery sessions instead add a
 `support` action for the existing privacy-bounded ZIP.
 
+For automation, add `--json` to the first-map support command. It returns the
+same read-only handoff as the schema-valid
+[`first-map-handoff-v1`](schemas/first-map-handoff-v1.schema.json) object,
+including safe environment hints and the four fields the operator must still
+complete. `--output` remains rejected in this mode.
+
 For automation, use an explicit `--output-dir`; run `lidarslam-map doctor`
 before a long run. The repo-local `./scripts/lidarslam` wrapper and installed
 `ros2 run lidarslam lidarslam-cli` shim expose the same own-bag contract and do

@@ -282,6 +282,9 @@ def test_contract_identifies_the_complete_product_surface():
     assert support['schema_uri'].endswith(
         '/schemas/support-bundle-v1.schema.json'
     )
+    assert support['first_map_handoff_schema_uri'].endswith(
+        '/schemas/first-map-handoff-v1.schema.json'
+    )
     assert support['command'] == 'support'
     assert support['archive_members'] == [
         'README.txt',
@@ -297,6 +300,7 @@ def test_contract_identifies_the_complete_product_surface():
     )
     assert 'revalidate' in support['first_map_handoff_rules'][2]
     assert 'copy-ready PASS result' in support['first_map_handoff_rules'][3]
+    assert 'safe environment hints' in support['first_map_handoff_rules'][3]
     assert 'remaining operator-supplied fields' in (
         support['first_map_handoff_rules'][3]
     )

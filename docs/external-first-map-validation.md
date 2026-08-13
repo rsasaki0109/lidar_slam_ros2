@@ -33,6 +33,11 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
    fallback, exact verification summary, JSON attachment path, issue form,
    and the four fields that still need your own input. If you ran an immutable
    image digest, replace the suggested release value with that digest.
+   For automation or a wrapper UI, add `--json`; the same read-only handoff is
+   returned as the schema-valid
+   [`first-map-handoff-v1`](schemas/first-map-handoff-v1.schema.json) object,
+   including safe OS/architecture/ROS hints and the four operator-supplied
+   fields.
 
    For an existing output produced before automatic receipts were added, you
    may regenerate the receipt manually:
