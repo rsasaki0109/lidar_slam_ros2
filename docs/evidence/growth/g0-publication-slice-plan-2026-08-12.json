@@ -7,8 +7,8 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 213,
-    "expected_paths_sha256": "faec74319cbb8f35fc251d51a4177a2488adce23a6d2bf0b21b8cf39e83a7f95",
+    "expected_path_count": 215,
+    "expected_paths_sha256": "1bf0818d298a2758fb470accad29a6ec8feb7c70690e7bb577fb97b842b3981e",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -16,7 +16,7 @@
       "id": "S1-runtime-safety",
       "order": 1,
       "title": "Runtime point-cloud and VoxelGrid safety",
-      "review_outcome": "Malformed or oversized layouts fail closed without terminating the mapping process, while valid point clouds retain their fields.",
+      "review_outcome": "Malformed or oversized layouts, plus readable samples with empty frame IDs, fail closed without terminating the mapping process, while valid point clouds retain their fields.",
       "depends_on": [],
       "paths": [
         "docs/evidence/voxel-grid-overflow-safety-2026-08-11.md",
@@ -26,14 +26,17 @@
         "graph_based_slam/src/graph_slam_application.cpp",
         "graph_based_slam/src/graph_slam_offline_runner.cpp",
         "graph_based_slam/src/graph_slam_ros_adapter.cpp",
+        "graph_based_slam/test/test_mid360_robot_tools.py",
         "graph_based_slam/test/test_pointcloud_conversion.cpp",
         "scanmatcher/CHANGELOG.rst",
         "scanmatcher/CMakeLists.txt",
         "scanmatcher/include/scanmatcher/scanmatcher_component.h",
         "scanmatcher/src/scanmatcher_component.cpp",
-        "scanmatcher/test/test_scanmatcher_voxel_grid_recovery.cpp"
+        "scanmatcher/test/test_scanmatcher_voxel_grid_recovery.cpp",
+        "scripts/lidarslam_tools/mid360_preflight.py"
       ],
       "verification": [
+        "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_mid360_robot_tools.py -k frame",
         "colcon test --packages-select graph_based_slam scanmatcher",
         "colcon test-result --verbose"
       ],

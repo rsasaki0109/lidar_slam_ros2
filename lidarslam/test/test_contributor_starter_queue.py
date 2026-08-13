@@ -87,15 +87,27 @@ def _copy_scoped_files(payload: dict, destination: Path) -> None:
         target.write_bytes((ROOT / path).read_bytes())
 
 
-def test_checked_in_queue_is_schema_valid_and_ready_local_only():
-    """The checked-in queue passes schema, drift, and authority checks."""
+def test_checked_in_queue_is_schema_valid_and_truthful_about_local_drift():
+    """The checked-in queue reports the implemented C5 gap for review."""
     queue, report = CHECKER.evaluate()
 
     jsonschema.Draft7Validator(_schema()).validate(queue)
-    assert report['status'] == 'QUEUE_READY_LOCAL_ONLY'
+    assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['task_count'] == 5
-    assert report['ready_task_ids'] == list(CHECKER.EXPECTED_TASK_IDS)
-    assert report['stale_tasks'] == []
+    assert report['ready_task_ids'] == [
+        'starter-C1',
+        'starter-C2',
+        'starter-C3',
+        'starter-C4',
+    ]
+    assert report['stale_tasks'] == [{
+        'id': 'starter-C5',
+        'status': 'STALE',
+        'reasons': [
+            'the known empty-frame return path changed and requires scope review',
+            'the planned empty sampled frame regression already exists',
+        ],
+    }]
     assert report['remote_duplicate_audit'] == {
         'checked_at': '2026-08-12T13:39:03+09:00',
         'open_pull_request_count': 1,
@@ -242,13 +254,22 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
         'starter-C2',
         'starter-C3',
         'starter-C4',
-        'starter-C5',
     ]
-    assert report['stale_tasks'] == [{
-        'id': 'starter-C1',
-        'status': 'STALE',
-        'reasons': ['the planned g2o recovery card marker already exists'],
-    }]
+    assert report['stale_tasks'] == [
+        {
+            'id': 'starter-C1',
+            'status': 'STALE',
+            'reasons': ['the planned g2o recovery card marker already exists'],
+        },
+        {
+            'id': 'starter-C5',
+            'status': 'STALE',
+            'reasons': [
+                'the known empty-frame return path changed and requires scope review',
+                'the planned empty sampled frame regression already exists',
+            ],
+        },
+    ]
 
 
 def test_code_task_becomes_stale_when_known_gap_changes(tmp_path: Path):
@@ -269,7 +290,8 @@ def test_code_task_becomes_stale_when_known_gap_changes(tmp_path: Path):
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the known empty-frame return path changed and requires scope review'
+        'the known empty-frame return path changed and requires scope review',
+        'the planned empty sampled frame regression already exists',
     ]
 
 
@@ -367,9 +389,16 @@ def test_default_cli_json_is_path_private_and_no_write():
         text=True,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == 1
     payload = json.loads(result.stdout)
-    assert payload['status'] == 'QUEUE_READY_LOCAL_ONLY'
+    assert payload['status'] == 'QUEUE_STALE_LOCAL_ONLY'
+    assert payload['ready_task_ids'] == [
+        'starter-C1',
+        'starter-C2',
+        'starter-C3',
+        'starter-C4',
+    ]
+    assert payload['stale_tasks'][0]['id'] == 'starter-C5'
     assert payload['authority']['github_writes_authorized'] is False
     assert '/home/' not in result.stdout
     assert '/tmp/' not in result.stdout
