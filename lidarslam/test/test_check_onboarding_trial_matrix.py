@@ -205,6 +205,8 @@ def test_checked_in_index_reports_all_recorded_rows_without_inference():
     assert report['summary']['product_version_aligned'] is False
     assert report['rows'][2]['outcome_status'] == 'PASS'
     assert report['rows'][3]['outcome_status'] == 'PASS'
+    assert records[2]['measurements']['command_count'] is None
+    assert records[3]['measurements']['command_count'] is None
 
 
 def test_no_argument_cli_uses_checked_in_index(capsys):

@@ -37,9 +37,9 @@ The aggregate is four present rows, four product PASS outcomes, zero comparable
 rows, and a closed activation gate. The Docker records still lack human active
 time, human command count, and isolated peak disk. The source records have
 complete route, build, map, verifier, and receipt outcomes, but deliberately
-record `active_operator_time_sec=null`; their observer `command_count=1` is the
-single harness invocation, not a human command count. The Docker rows are the
-immutable `0.9.0` release records while the source rows are the reviewed
+record both `active_operator_time_sec=null` and `command_count=null` because no
+human observer measurement was retained. The Docker rows are the immutable
+`0.9.0` release records while the source rows are the reviewed
 `0.9.1` candidate records, so the checker also reports
 `product_version_aligned=false`. It exposes all four rows for review but keeps
 the matrix `BLOCKED`; no cross-version evidence is allowed to pass a route

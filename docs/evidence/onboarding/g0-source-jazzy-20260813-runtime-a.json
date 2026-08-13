@@ -23,7 +23,7 @@
   },
   "measurements": {
     "active_operator_time_sec": null,
-    "command_count": 1,
+    "command_count": null,
     "output_bytes": 131739648,
     "peak_disk_bytes": 3570200576,
     "wall_time_sec": 1382.082,
