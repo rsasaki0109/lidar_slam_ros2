@@ -139,3 +139,12 @@ Docker PASS and one source PASS are comparable.
 
 The public-preflight command changed no commit, branch, pull request, issue,
 label, release, image, package, review reply, or external repository.
+
+On 2026-08-13, the complementary release/image identity check for the reviewed
+`0.9.1` source candidate returned `NOT_PUBLISHED`: the `v0.9.1` tag and Release
+were absent, and both exact `v0.9.1-{humble,jazzy}` GHCR manifests were
+unknown. The frozen `v0.9.0` tag was also preflighted as a possible alignment
+fallback; it returned `source-route-contract-missing` because that public
+commit predates `scripts/source_quickstart.sh`. Consequently the existing
+`0.9.0` Docker rows and `0.9.1` source rows remain intentionally separate,
+and no local or moving image identity is substituted.

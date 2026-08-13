@@ -45,6 +45,32 @@ immutable `0.9.0` release records while the source rows are the reviewed
 the matrix `BLOCKED`; no cross-version evidence is allowed to pass a route
 comparison gate.
 
+## Version-alignment preflight — 2026-08-13
+
+The read-only release audit for the reviewed source candidate is still
+`NOT_PUBLISHED`:
+
+```json
+{
+  "expected_tag": "v0.9.1",
+  "expected_version": "0.9.1",
+  "release_present": false,
+  "tag_present": false,
+  "assets": [],
+  "status": "NOT_PUBLISHED"
+}
+```
+
+The exact image probes also return `manifest unknown` for both
+`ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.1-humble` and
+`ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.1-jazzy`. The apparent fallback—
+rerunning source against the frozen `v0.9.0` Docker identity—is not a valid
+route: its public tag commit
+`0df0c4a86df9f68a894c83f8342e4107c3d23b0f` returns
+`source-route-contract-missing` because it predates
+`scripts/source_quickstart.sh`. No local build or moving image tag is promoted
+to matrix evidence.
+
 ## Public source diagnosis
 
 The network-read-only source preflight against exact public Draft PR commit
@@ -91,11 +117,11 @@ Validation results:
 
 ## Next gate
 
-Align all four rows to one product version first: either obtain reviewed
-immutable Docker records for the `0.9.1` source candidate or deliberately
-rerun source against the exact Docker release identity when the documented
-route exists. Then run dedicated disposable Humble and Jazzy hosts with a
-human observer and replace rows only after active time and command count are
+Align all four rows to one product version first. At present that requires a
+reviewed `v0.9.1` Release and its immutable Humble/Jazzy images; the `v0.9.0`
+source fallback is closed by the route-contract preflight above. After that
+identity exists, run dedicated disposable Humble and Jazzy hosts with a human
+observer and replace rows only after active time and command count are
 measured. The Docker rows likewise require a dedicated filesystem and human
 active-time observation; another shared-host automation run would not close
 that gap.
