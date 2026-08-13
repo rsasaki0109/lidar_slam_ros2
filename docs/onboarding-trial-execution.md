@@ -679,7 +679,6 @@ measurement supplement instead:
 ~~~bash
 python3 scripts/complete_onboarding_measurements.py \
   "$TRIAL_RECORD" \
-  --output "$TRIAL_RECORD.measurements.json" \
   --prompt-human-measurements
 python3 scripts/check_onboarding_trial.py "$TRIAL_RECORD" \
   --supplement "$TRIAL_RECORD.measurements.json" \
@@ -690,7 +689,9 @@ The supplement is valid only for the exact base-record bytes and can fill null
 fields only; it cannot overwrite a value already observed in the trial. For a
 dedicated Docker filesystem, provide the separately sampled peak with
 `--peak-disk-bytes`. Review the supplement as bounded evidence before adding
-its path to the matrix evidence index.
+its path to the matrix evidence index. The helper defaults to
+`$TRIAL_RECORD.measurements.json`, keeps `--json` stdout machine-readable, and
+prints the next comparable-check command after writing the supplement.
 
 After all available rows pass their individual validity checks, evaluate the
 fixed matrix as a separate gate:

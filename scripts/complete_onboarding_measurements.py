@@ -38,6 +38,7 @@ import argparse
 import hashlib
 import json
 import math
+import shlex
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -72,10 +73,12 @@ def _read_object(path: Path) -> tuple[dict[str, Any], bytes]:
 def _prompt_active_time(wall_time: float | None) -> float | None:
     while True:
         try:
-            value = input(
+            sys.stderr.write(
                 'Observed active operator seconds '
                 '(paused stopwatch; blank leaves it unknown): '
-            ).strip()
+            )
+            sys.stderr.flush()
+            value = input().strip()
         except EOFError:
             return None
         if not value:
@@ -100,10 +103,12 @@ def _prompt_active_time(wall_time: float | None) -> float | None:
 def _prompt_command_count() -> int | None:
     while True:
         try:
-            value = input(
+            sys.stderr.write(
                 'Observed human-submitted command count '
                 '(blank leaves it unknown): '
-            ).strip()
+            )
+            sys.stderr.flush()
+            value = input().strip()
         except EOFError:
             return None
         if not value:
@@ -136,7 +141,14 @@ def _validate_explicit_values(values: dict[str, Any]) -> None:
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('record', type=Path)
-    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument(
+        '--output',
+        type=Path,
+        help=(
+            'Write the supplement here; defaults to '
+            '<record>.measurements.json.'
+        ),
+    )
     parser.add_argument(
         '--prompt-human-measurements',
         action='store_true',
@@ -155,7 +167,23 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action='store_true',
         help='Exit 1 when the supplemented record is still not comparable.',
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.output is None:
+        args.output = Path(f'{args.record}.measurements.json')
+    return args
+
+
+def _validation_command(record: Path, supplement: Path) -> str:
+    """Return the safe next command without embedding shell syntax."""
+    return shlex.join([
+        'python3',
+        'scripts/check_onboarding_trial.py',
+        str(record),
+        '--supplement',
+        str(supplement),
+        '--json',
+        '--require-comparable',
+    ])
 
 
 def _supplement_values(
@@ -168,6 +196,11 @@ def _supplement_values(
     }
     measurements = record['measurements']
     if args.prompt_human_measurements:
+        print(
+            'Enter only values observed during this exact trial; '
+            'blank leaves a field unknown.',
+            file=sys.stderr,
+        )
         if (
             values['active_operator_time_sec'] is None
             and measurements['active_operator_time_sec'] is None
@@ -265,12 +298,20 @@ def main(argv: list[str] | None = None) -> int:
     result = {
         'supplement_id': supplement['supplement_id'],
         'trial_id': supplement['trial_id'],
+        'supplement_path': str(args.output),
+        'validation_command': _validation_command(
+            args.record,
+            args.output,
+        ),
         **report,
     }
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
-        print(f"Wrote measurement supplement `{supplement['supplement_id']}`.")
+        print(
+            f"Wrote measurement supplement `{supplement['supplement_id']}` "
+            f"to `{args.output}`."
+        )
         print(
             'Supplemented comparability: '
             f"**{'YES' if report['comparable'] else 'NO'}**"
@@ -279,6 +320,9 @@ def main(argv: list[str] | None = None) -> int:
             print('Remaining missing measurements:')
             for field in report['missing_measurements']:
                 print(f'- `{field}`')
+        print('')
+        print('Validate this supplement with:')
+        print(f"  {result['validation_command']}")
     if args.require_comparable and not report['comparable']:
         return 1
     return 0

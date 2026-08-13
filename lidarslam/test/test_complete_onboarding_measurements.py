@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shlex
 import sys
 from pathlib import Path  # noqa: I100
 
@@ -99,6 +100,57 @@ def test_completion_writes_supplement_and_makes_record_comparable(tmp_path):
     ]) == 0
     updated = json.loads(record_path.read_text(encoding='utf-8'))
     assert updated['measurements']['command_count'] is None
+
+
+def test_completion_uses_safe_default_output_and_json_next_command(
+    tmp_path,
+    capsys,
+):
+    """The common path needs no output-path bookkeeping and stays parseable."""
+    record_path = tmp_path / 'trial.json'
+    _write_incomplete_trial(record_path)
+    default_output = Path(f'{record_path}.measurements.json')
+
+    assert COMPLETE.main([
+        str(record_path),
+        '--active-operator-time-sec', '31.5',
+        '--command-count', '8',
+        '--require-comparable',
+        '--json',
+    ]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result['supplement_path'] == str(default_output)
+    assert result['validation_command'] == shlex.join([
+        'python3',
+        'scripts/check_onboarding_trial.py',
+        str(record_path),
+        '--supplement',
+        str(default_output),
+        '--json',
+        '--require-comparable',
+    ])
+    assert default_output.is_file()
+
+
+def test_prompted_json_keeps_prompts_off_stdout(tmp_path, monkeypatch, capsys):
+    """Interactive observations do not corrupt a machine-readable result."""
+    record_path = tmp_path / 'prompted.json'
+    _write_incomplete_trial(record_path)
+    answers = iter(['31.5', '8'])
+    monkeypatch.setattr('builtins.input', lambda: next(answers))
+
+    assert COMPLETE.main([
+        str(record_path),
+        '--prompt-human-measurements',
+        '--json',
+    ]) == 0
+
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result['comparable'] is True
+    assert 'Observed active operator seconds' in captured.err
+    assert 'Observed human-submitted command count' in captured.err
 
 
 def test_completion_rejects_overwrite_and_stale_base(tmp_path):

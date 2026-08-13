@@ -70,13 +70,18 @@ the private observer material; do not reconstruct them from memory.
 ```bash
 python3 scripts/complete_onboarding_measurements.py \
   "$TRIAL_RECORD" \
-  --output "$TRIAL_RECORD.measurements.json" \
   --prompt-human-measurements
 
 python3 scripts/check_onboarding_trial.py "$TRIAL_RECORD" \
   --supplement "$TRIAL_RECORD.measurements.json" \
   --json --require-comparable
 ```
+
+The supplement output defaults to `"$TRIAL_RECORD.measurements.json"`; pass
+`--output` when a different private path is required. The helper refuses to
+overwrite an existing supplement or a known measurement. With `--json`, input
+prompts go to stderr so stdout remains valid machine-readable JSON, and the
+result includes the exact next validation command.
 
 For a dedicated-filesystem Docker observation, add
 `--peak-disk-bytes "$PEAK_DISK_BYTES"` to the first command. After review, set
