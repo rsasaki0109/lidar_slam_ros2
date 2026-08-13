@@ -71,6 +71,7 @@ OCI_MANIFEST_ACCEPT = ', '.join((
 ))
 STANDALONE_LAUNCHER_NAME = 'lidarslam-map-docker'
 STANDALONE_LAUNCHER_FIRST_VERSION = (0, 9, 1)
+IMAGE_DISTROS = ('humble', 'jazzy')
 
 
 class PublishedReleaseError(ValueError):
@@ -210,6 +211,46 @@ def _registry_tag_digest(tag: str) -> str | None:
     return digest
 
 
+def _inspect_image_tags(
+    version: str,
+) -> tuple[dict[str, str], list[dict[str, Any]], list[str]]:
+    """Resolve both immutable release image tags without pulling layers."""
+    image_tag_digests: dict[str, str] = {}
+    image_reports: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for distro in IMAGE_DISTROS:
+        tag = f'v{version}-{distro}'
+        image_tag = f'ghcr.io/{REPOSITORY}:{tag}'
+        try:
+            digest = _registry_tag_digest(tag)
+        except PublishedReleaseError as exc:
+            detail = str(exc)
+            errors.append(detail)
+            image_reports.append({
+                'tag': image_tag,
+                'status': 'ERROR',
+                'digest': None,
+                'detail': detail,
+            })
+            continue
+        if digest is None:
+            image_reports.append({
+                'tag': image_tag,
+                'status': 'ABSENT',
+                'digest': None,
+                'detail': f'GHCR tag {image_tag} is not published',
+            })
+            continue
+        image_tag_digests[image_tag] = digest
+        image_reports.append({
+            'tag': image_tag,
+            'status': 'PUBLISHED',
+            'digest': digest,
+            'detail': f'GHCR tag resolves to {digest}',
+        })
+    return image_tag_digests, image_reports, errors
+
+
 def inspect_remote(version: str) -> dict[str, Any]:
     """Inspect release metadata and download its public assets."""
     tag = f'v{version}'
@@ -218,7 +259,6 @@ def inspect_remote(version: str) -> dict[str, Any]:
     tag_commit: str | None = None
     release: dict[str, Any] | None = None
     asset_payloads: dict[str, bytes] = {}
-    image_tag_digests: dict[str, str] = {}
 
     try:
         status, tag_ref = _request_json(f'{api}/git/ref/tags/{tag}')
@@ -300,18 +340,15 @@ def inspect_remote(version: str) -> dict[str, Any]:
                 except PublishedReleaseError as exc:
                     errors.append(str(exc))
 
-        for distro in ('humble', 'jazzy'):
-            image_tag = f'v{version}-{distro}'
-            try:
-                digest = _registry_tag_digest(image_tag)
-                if digest is None:
-                    raise PublishedReleaseError(
-                        f'GHCR tag {image_tag} is not published')
-                image_tag_digests[
-                    f'ghcr.io/{REPOSITORY}:{image_tag}'
-                ] = digest
-            except PublishedReleaseError as exc:
-                errors.append(str(exc))
+    image_tag_digests, image_reports, image_errors = _inspect_image_tags(
+        version)
+    errors.extend(image_errors)
+    if release is not None:
+        errors.extend(
+            report['detail']
+            for report in image_reports
+            if report['status'] == 'ABSENT'
+        )
 
     return {
         'errors': errors,
@@ -319,6 +356,7 @@ def inspect_remote(version: str) -> dict[str, Any]:
         'release': release,
         'asset_payloads': asset_payloads,
         'image_tag_digests': image_tag_digests,
+        'image_reports': image_reports,
     }
 
 
@@ -475,6 +513,39 @@ def _check(check_id: str, passed: bool, detail: str) -> dict[str, str]:
     }
 
 
+def _normalise_image_reports(
+    version: str,
+    snapshot: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Use live image reports, or infer them from a complete test snapshot."""
+    explicit = snapshot.get('image_reports')
+    if isinstance(explicit, list):
+        return explicit
+    digests = snapshot.get('image_tag_digests')
+    reports: list[dict[str, Any]] = []
+    for distro in IMAGE_DISTROS:
+        tag = f'v{version}-{distro}'
+        image_tag = f'ghcr.io/{REPOSITORY}:{tag}'
+        digest = (
+            digests.get(image_tag)
+            if isinstance(digests, dict)
+            else None
+        )
+        if isinstance(digest, str):
+            status = 'PUBLISHED'
+            detail = f'GHCR tag resolves to {digest}'
+        else:
+            status = 'NOT_CHECKED'
+            detail = 'live GHCR tag digest was not supplied'
+        reports.append({
+            'tag': image_tag,
+            'status': status,
+            'digest': digest,
+            'detail': detail,
+        })
+    return reports
+
+
 def evaluate_publication(
     *,
     version: str,
@@ -498,6 +569,7 @@ def evaluate_publication(
     tag_commit = snapshot.get('tag_commit')
     asset_payloads = snapshot.get('asset_payloads', {})
     image_tag_digests = snapshot.get('image_tag_digests', {})
+    image_reports = _normalise_image_reports(version, snapshot)
     checks: list[dict[str, str]] = []
     asset_reports: list[dict[str, Any]] = []
 
@@ -711,6 +783,10 @@ def evaluate_publication(
             not errors
             and all(check['status'] == 'PASS' for check in checks)
             and all(asset['status'] == 'PASS' for asset in asset_reports)
+            and all(
+                image['status'] == 'PUBLISHED'
+                for image in image_reports
+            )
         ):
             status = 'PUBLISHED'
 
@@ -738,6 +814,7 @@ def evaluate_publication(
         },
         'checks': checks,
         'assets': asset_reports,
+        'images': image_reports,
     }
     schema = _schema('published-release-v1.schema.json')
     jsonschema.Draft7Validator.check_schema(schema)
@@ -758,6 +835,10 @@ def _summary(report: dict[str, Any]) -> str:
     lines.extend(
         f"  [{asset['status']}] {asset['name']}: {asset['detail']}"
         for asset in report['assets']
+    )
+    lines.extend(
+        f"  [{image['status']}] {image['tag']}: {image['detail']}"
+        for image in report['images']
     )
     lines.extend(
         f'  [ERROR] {error}' for error in report['remote']['errors'])

@@ -72,6 +72,12 @@
       "type": "array",
       "uniqueItems": true,
       "items": {"$ref": "#/definitions/asset"}
+    },
+    "images": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {"$ref": "#/definitions/image"}
     }
   },
   "definitions": {
@@ -96,6 +102,25 @@
         "sha256": {
           "type": ["string", "null"],
           "pattern": "^[a-f0-9]{64}$"
+        },
+        "detail": {"type": "string", "minLength": 1}
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tag", "status", "digest", "detail"],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "pattern": "^ghcr\\.io/rsasaki0109/lidar_slam_ros2:v[0-9]+\\.[0-9]+\\.[0-9]+-(humble|jazzy)$"
+        },
+        "status": {
+          "enum": ["PUBLISHED", "ABSENT", "NOT_CHECKED", "ERROR"]
+        },
+        "digest": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[a-f0-9]{64}$"
         },
         "detail": {"type": "string", "minLength": 1}
       }
@@ -126,6 +151,11 @@
             "maxItems": 7,
             "items": {
               "properties": {"status": {"const": "PASS"}}
+            }
+          },
+          "images": {
+            "items": {
+              "properties": {"status": {"const": "PUBLISHED"}}
             }
           }
         }

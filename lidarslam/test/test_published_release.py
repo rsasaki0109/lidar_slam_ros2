@@ -317,6 +317,11 @@ def test_remote_inspection_uses_explicit_tag_404(monkeypatch):
         return 404, None
 
     monkeypatch.setattr(AUDIT, '_request_json', fake_request)
+    monkeypatch.setattr(
+        AUDIT,
+        '_registry_tag_digest',
+        lambda tag: None,
+    )
 
     snapshot = AUDIT.inspect_remote(VERSION)
 
@@ -325,6 +330,69 @@ def test_remote_inspection_uses_explicit_tag_404(monkeypatch):
     assert snapshot['release'] is None
     assert any('/git/ref/tags/' in url for url in urls)
     assert not any('/commits/' in url for url in urls)
+    assert [item['status'] for item in snapshot['image_reports']] == [
+        'ABSENT',
+        'ABSENT',
+    ]
+
+
+def test_missing_release_reports_each_versioned_image_as_absent():
+    report = AUDIT.evaluate_publication(
+        version='0.9.1',
+        snapshot={
+            'errors': [],
+            'tag_commit': None,
+            'release': None,
+            'asset_payloads': {},
+            'image_reports': [
+                {
+                    'tag': f'ghcr.io/{REPOSITORY}:v0.9.1-humble',
+                    'status': 'ABSENT',
+                    'digest': None,
+                    'detail': 'GHCR tag is not published',
+                },
+                {
+                    'tag': f'ghcr.io/{REPOSITORY}:v0.9.1-jazzy',
+                    'status': 'ABSENT',
+                    'digest': None,
+                    'detail': 'GHCR tag is not published',
+                },
+            ],
+        },
+    )
+
+    assert report['status'] == 'NOT_PUBLISHED'
+    assert [item['status'] for item in report['images']] == [
+        'ABSENT',
+        'ABSENT',
+    ]
+
+
+def test_image_audit_failure_cannot_become_published():
+    snapshot = _snapshot()
+    snapshot['image_reports'] = [
+        {
+            'tag': f'ghcr.io/{REPOSITORY}:{TAG}-humble',
+            'status': 'ABSENT',
+            'digest': None,
+            'detail': 'GHCR tag is not published',
+        },
+        {
+            'tag': f'ghcr.io/{REPOSITORY}:{TAG}-jazzy',
+            'status': 'PUBLISHED',
+            'digest': snapshot['image_tag_digests'][
+                f'ghcr.io/{REPOSITORY}:{TAG}-jazzy'
+            ],
+            'detail': 'GHCR tag resolves to the recorded digest',
+        },
+    ]
+
+    report = AUDIT.evaluate_publication(
+        version=VERSION,
+        snapshot=snapshot,
+    )
+
+    assert report['status'] == 'BLOCKED'
 
 
 def test_bounded_request_retries_transient_timeout(monkeypatch):
