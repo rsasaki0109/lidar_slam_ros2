@@ -669,6 +669,9 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     msg->pose.orientation.z = initial_pose_qz_;
     msg->pose.orientation.w = initial_pose_qw_;
     current_pose_stamped_ = *msg;
+    previous_position_.x() = current_pose_stamped_.pose.position.x;
+    previous_position_.y() = current_pose_stamped_.pose.position.y;
+    previous_position_.z() = current_pose_stamped_.pose.position.z;
     pose_pub_->publish(current_pose_stamped_);
     initial_pose_received_ = true;
 

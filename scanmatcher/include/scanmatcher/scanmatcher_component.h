@@ -268,7 +268,7 @@ private:
     pose_acceptance::State pose_acceptance_state_;
 
     // map
-    Eigen::Vector3d previous_position_;
+    Eigen::Vector3d previous_position_ {Eigen::Vector3d::Zero()};
     double trans_;
     double latest_distance_ {0};
 
