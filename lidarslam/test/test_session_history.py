@@ -281,6 +281,51 @@ def test_verified_pass_card_has_copy_ready_share_action(
     assert 'Copy share command' not in nonpass_rendered
 
 
+def test_terminal_history_prints_share_or_recovery_next_action(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load(SCRIPT, 'session_history_terminal_actions')
+    monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam-map sessions')
+    payload = {
+        'summary': {
+            'displayed': 2,
+            'valid': 2,
+            'skipped_invalid': 0,
+        },
+        'sessions': [
+            {
+                'bundle_path': str(tmp_path / 'verified'),
+                'status': 'verified',
+                'quality': {'overall': 'pass'},
+                'created_at': '2026-08-12T03:00:00Z',
+                'profile': {'label': 'verified profile'},
+                'page_path': None,
+                'recommended_action': None,
+            },
+            {
+                'bundle_path': str(tmp_path / 'failed'),
+                'status': 'action_required',
+                'quality': {'overall': 'action_required'},
+                'created_at': '2026-08-12T04:00:00Z',
+                'profile': {'label': 'failed profile'},
+                'page_path': None,
+                'recommended_action': {
+                    'command': 'lidarslam-map support /tmp/failed',
+                },
+            },
+        ],
+    }
+
+    rendered = module._render_terminal(payload)
+
+    assert (
+        'Share: lidarslam-map support '
+        f'{tmp_path / "verified"} --first-map'
+    ) in rendered
+    assert 'Next: lidarslam-map support /tmp/failed' in rendered
+
+
 def test_json_mode_is_read_only_and_browser_mode_opens_catalog(
     monkeypatch,
     tmp_path: Path,

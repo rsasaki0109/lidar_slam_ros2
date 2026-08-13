@@ -354,7 +354,10 @@ session page. Use `--status action_required` to focus on interrupted work,
 `--viewer none` on a headless host, or `--json` for a read-only machine catalog.
 An explicit alternate root is accepted as the optional positional argument.
 The scanner does not recurse or follow symlinks, skips malformed or oversized
-session records, and caps display at 200 entries.
+session records, and caps display at 200 entries. The terminal summary prints a
+copy-ready `Share:` command for a verified session and the retained recovery
+`Next:` command for an action-required session, so headless users do not need
+to open the browser catalog to continue.
 
 Select any two cards in `sessions.html` and copy the generated command, or run:
 

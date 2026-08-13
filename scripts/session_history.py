@@ -283,6 +283,10 @@ def _support_command(bundle_path: str) -> str:
     return f'{_product_command_prefix("support")} {shlex.quote(bundle_path)}'
 
 
+def _first_map_share_command(bundle_path: str) -> str:
+    return f'{_support_command(bundle_path)} --first-map'
+
+
 def _render_session_card(entry: dict[str, Any]) -> str:
     status = html.escape(entry['status'])
     quality = html.escape(entry['quality']['overall'])
@@ -320,7 +324,7 @@ def _render_session_card(entry: dict[str, Any]) -> str:
     support_command = _support_command(entry['bundle_path'])
     share_html = ''
     if entry['quality']['overall'] == 'pass':
-        share_command = f'{support_command} --first-map'
+        share_command = _first_map_share_command(entry['bundle_path'])
         share_html = (
             '<details class="support-action share-action">'
             '<summary>Share this verified first map</summary>'
@@ -647,6 +651,16 @@ def _render_terminal(payload: dict[str, Any]) -> str:
         ])
         if entry['page_path'] is not None:
             lines.append(f"  Open: {entry['page_path']}")
+        if entry['quality']['overall'] == 'pass':
+            lines.append(
+                '  Share: '
+                f"{_first_map_share_command(entry['bundle_path'])}"
+            )
+        elif entry['recommended_action'] is not None:
+            lines.append(
+                '  Next: '
+                f"{entry['recommended_action']['command']}"
+            )
     return '\n'.join(lines)
 
 
