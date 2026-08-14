@@ -907,6 +907,52 @@ audit result: completed / STOPPED — no acceptance
 複数issueへ同じnoteやsession artifactは重複添付しません。`NEW RUN`でもledgerの受理前は
 `READY FOR REVIEW`であり、`MATCHED FOLLOW-UP`や`STOP`をindependent validationへ昇格させません。
 
+### 日本語のvalidation reportのfollow-up実行結果を安全に引き継ぐ
+
+handoffは、次の担当者へ監査結果を渡すためのroutingであり、acceptanceやreceipt編集の許可では
+ありません。action resultごとに引き継ぎ先と公開statusを固定すると、外部contributorはprivate
+artifactやmaintainerのlive guidanceに頼らず、同じ安全境界で相談・reviewを続けられます。
+
+| action result | handoff target | handoff status | 引き継ぎ先がしてよいこと | してはいけないこと |
+| --- | --- | --- | --- | --- |
+| `NOTE ONLY` / `SUPPORT REQUESTED` / `RETRY STARTED` | support | `READY FOR SUPPORT` — not accepted | サニタイズ済み`reason.code`、`Details:`、`Next:`、fresh factsを確認し、保存済みretry条件を案内する | 新しいaccepted evidenceやreceiptを作る。live guidanceだけをindependent validationと呼ぶ |
+| `NEW PAIR PREPARED` | maintainer review | `READY FOR REVIEW` — not accepted | 新runのidentity、session、output、report + reviewed receiptを照合し、不足なら差し戻す | 古いpairをコピーする。ledger前にaccepted、PASS、roadmap evidenceと書く |
+| `STOPPED` | stop / recovery | `STOP` — not accepted | 不足・mismatchをサニタイズして返し、保存済み`Details:`/`Next:`/`retry.command`へ戻す | 原因や再現成功を推測する。公開validation noteや新しいreceiptを作る |
+
+`READY FOR SUPPORT`はsupportの入口であり、結果の受理ではありません。`READY FOR REVIEW`でも、
+maintainer reviewとledgerの明示的なaccepted記録までは受理されません。`STOP`は失敗を隠すstatus
+ではなく、identity、session、output、またはfieldの出どころが確認できないときの再確認経路です。
+どのhandoffでも元のreport、receipt、hash、review statusは変更せず、Dockerの公開済み
+`v0.9.0-humble`/`v0.9.0-jazzy`とsourceの未公開`v0.9.1`候補のidentity境界を保ちます。
+
+次のblockは、担当者へ渡す最小情報を記録するためのものです。roleだけを使い、local path、
+credential、bag、map、raw log、session bundleは書きません。
+
+```text
+follow-up handoff:
+original audit: <sanitized stable code; no private path>
+disposition: MATCHED FOLLOW-UP / NEW RUN / STOP
+action result: NOTE ONLY / SUPPORT REQUESTED / RETRY STARTED /
+               NEW PAIR PREPARED / STOPPED
+handoff target: support / maintainer review / stop
+handoff status: READY FOR SUPPORT / READY FOR REVIEW — not accepted /
+                STOP — not accepted
+original evidence: unchanged
+new evidence: none / one new report + reviewed receipt / none
+owner role: operator / support / maintainer
+next review: <date or not scheduled>
+reason.code: <saved stable code>
+Details: <sanitized explanation>
+Next: <sanitized next action>
+privacy check: <no private path or artifact>
+duplicate check: <one handoff per action audit; no duplicate issue or session artifact>
+```
+
+引き継ぎ先がこのblockのstatusや許可範囲を変更したい場合は、既存のaudit blockを上書きせず、
+新しいaction resultを別の監査メモとして記録します。一つのaction auditにつきhandoffは一つ、
+一つのrunにつきreport + reviewed receiptは一組だけです。missing/mismatchを埋めるための架空の
+hash、viewerの見た目、古いreceiptは使わず、`STOP`から安全なsupport/retryへ戻ります。
+
 ### validation reportのreview statusを区別する
 
 `READY FOR REVIEW`は、元のsessionに対するlocal-onlyの再検証が完了し、canonical issue formへ

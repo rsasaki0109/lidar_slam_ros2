@@ -1060,38 +1060,53 @@ The queue's drift probe retires this task after the safe-disposition marker
 appears. The next task records the actual action result separately, so a
 classification cannot be mistaken for proof that an operation was completed.
 
-## Successor C5 — Auditable Japanese validation-report follow-up action results
+## Completed C5 — Auditable Japanese validation-report follow-up action results
 
-The next prepared C5 task keeps the Japanese language-path scope and records
-what happened after a follow-up disposition. It should separate disposition
-from action result, preserve immutable evidence, prevent duplicate artifacts,
-and keep an action note from being treated as accepted validation.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now separates the disposition from the action
+result and records allowed evidence changes, artifact count, sanitized
+`Details:`/`Next:`, and the handoff result. It keeps matched follow-up and new
+run boundaries explicit, preserves immutable evidence, and stops on an
+out-of-range or mismatched action.
+
+The queue's drift probe retires this task after the action-result marker
+appears. The next task makes the receiver-facing handoff reproducible without
+granting acceptance or receipt-edit authority.
+
+## Successor C5 — Reproducible Japanese validation-report follow-up handoff
+
+The next prepared C5 task keeps the Japanese language-path scope and lets a
+support or maintainer receiver continue a follow-up from a path-free handoff.
+It should separate routing from acceptance, preserve immutable evidence,
+prevent duplicate artifacts, and avoid maintainer-memory-only instructions.
 
 Suggested issue title:
 
-> Docs: audit Japanese validation-report follow-up action results
+> Docs: make Japanese validation-report follow-up handoff reproducible
 
 Outcome:
 
-A Japanese maintainer can record what happened after a follow-up disposition
-without rewriting evidence, duplicating artifacts, or accepting a note.
+A support or maintainer receiver can continue a Japanese follow-up from a
+path-free handoff without rewriting evidence, duplicating artifacts, or
+accepting a note.
 
 Acceptance:
 
-- separate the disposition from the action result and public status for
-  `MATCHED FOLLOW-UP`, `NEW RUN`, and `STOP`;
-- permit `NOTE ONLY`, `SUPPORT REQUESTED`, `RETRY STARTED`, `NEW PAIR
-  PREPARED`, or `STOPPED` only in the matching route; keep no new receipt for
-  `MATCHED FOLLOW-UP`, one new pair for `NEW RUN`, and no public validation note
-  for `STOP`;
-- provide an action-audit block with identity/session/output, allowed evidence
-  change, artifact count, reason.code, sanitized `Details:`/`Next:`, and handoff
-  without private paths;
+- map `NOTE ONLY`, `SUPPORT REQUESTED`, `RETRY STARTED`, `NEW PAIR PREPARED`,
+  and `STOPPED` to a support, maintainer-review, or stop handoff with an
+  explicit public status;
+- provide a handoff block with disposition, action result, target, status,
+  owner role, next review, sanitized `Details:`/`Next:`, and no private paths;
+- make clear that a handoff does not grant acceptance or receipt-edit
+  authority;
 - keep the original report, receipt, and hash immutable, permit one
   report/receipt pair per run, and forbid duplicate issue or session artifacts;
+- preserve one handoff per action audit and route missing or mismatched
+  identity/session/output back to `STOP` and safe support/retry;
 - preserve the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary
-  and stop when identity or session data is missing;
-- preserve the existing support, session, privacy, independent-validation, and
+  and the existing support, session, privacy, independent-validation, and
   review-status guidance;
 - require no rosbag, hardware, network, or private log.
 

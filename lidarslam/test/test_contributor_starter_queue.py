@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_validation_follow_up_action_task_becomes_stale_when_marker_appears(
+def test_japanese_validation_follow_up_handoff_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A successor Japanese action-audit card requires reassessment."""
+    """A successor Japanese handoff card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 日本語のvalidation reportのfollow-up実行結果を安全に引き継ぐ\n',
+        + '\n### 日本語のvalidation reportのfollow-up引き継ぎを再現可能にする\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_validation_follow_up_action_task_becomes_stale_when_marker_app
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese follow-up-action-result marker already exists',
+        'the planned Japanese follow-up-handoff marker already exists',
     ]
 
 
@@ -921,6 +921,41 @@ def test_japanese_recovery_card_audits_follow_up_action_results():
     assert '既存のreportやreceiptを書き換えて整合させず' in normalized
     assert '一つのrunにつきreport+reviewedreceiptは一組だけ' in compact
     assert '複数issueへ同じnoteやsessionartifactは重複添付しません' in compact
+
+
+def test_japanese_recovery_card_explains_reproducible_follow_up_handoff():
+    """The Japanese handoff card keeps routing separate from acceptance."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+    card = source.split(
+        '### 日本語のvalidation reportのfollow-up実行結果を安全に引き継ぐ', 1
+    )[1].split(
+        '### validation reportのreview statusを区別する', 1
+    )[0]
+    normalized = ' '.join(card.split())
+    compact = normalized.replace(' ', '')
+
+    assert 'handoffは、次の担当者へ監査結果を渡すためのrouting' in normalized
+    assert 'acceptanceやreceipt編集の許可ではありません' in compact
+    assert '`READY FOR SUPPORT`' in normalized
+    assert '`READY FOR REVIEW`' in normalized
+    assert '`STOP` — not accepted' in normalized
+    assert 'handoff target' in normalized
+    assert 'owner role' in normalized
+    assert 'next review' in normalized
+    assert 'live guidanceだけをindependent validationと呼ぶ' in normalized
+    assert 'ledger前にaccepted、PASS、roadmap evidenceと書く' in normalized
+    assert '公開validation noteや新しいreceiptを作る' in normalized
+    assert 'follow-up handoff:' in normalized
+    assert 'original audit: <sanitized stable code; no private path>' in normalized
+    assert 'handoff status: READY FOR SUPPORT / READY FOR REVIEW' in normalized
+    assert 'privacy check: <no private path or artifact>' in normalized
+    assert (
+        'duplicate check: <one handoff per action audit; no duplicate issue '
+        'or session artifact>' in normalized
+    )
+    assert '一つのactionauditにつきhandoffは一つ' in compact
+    assert '一つのrunにつきreport+reviewedreceiptは一組だけ' in compact
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():
