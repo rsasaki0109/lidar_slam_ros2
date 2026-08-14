@@ -64,10 +64,19 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['next_action']['id'] == 'align-public-product-version'
     assert '--include-published-release' in report['next_action']['command']
     assert 'mixed-version rows' in report['next_action']['reason']
+    alternatives = report['next_action']['alternatives']
+    assert [item['id'] for item in alternatives] == [
+        'continue-current-candidate',
+        'rebuild-against-published-version',
+    ]
+    assert alternatives[0]['status'] == 'REQUIRES_EXTERNAL_PUBLICATION'
+    assert alternatives[1]['status'] == 'REQUIRES_EXPLICIT_REBASE'
 
     card = DASHBOARD.render_card(report)
     assert card.count('Next action:') == 1
     assert 'GitHub/community writes: **no**' in card
+    assert 'Choices (no write):' in card
+    assert 'never reuse mixed-version measurements' in card
     assert 'g0-current-action-packet-2026-08-14.md' in card
 
 

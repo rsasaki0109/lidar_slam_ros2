@@ -220,13 +220,50 @@ def _published_summary(
     }
 
 
+def _identity_alternatives(published: dict[str, Any]) -> list[dict[str, str]]:
+    """Describe safe identity choices without selecting or publishing one."""
+    version = published['version']
+    publication_status = (
+        'AVAILABLE_FOR_READ_ONLY_PREFLIGHT'
+        if published['status'] == 'PUBLISHED'
+        else 'REQUIRES_EXTERNAL_PUBLICATION'
+    )
+    return [
+        {
+            'id': 'continue-current-candidate',
+            'title': f'Continue the current candidate v{version}',
+            'status': publication_status,
+            'command': (
+                'python3 scripts/check_published_release.py '
+                f'--version {version} --json'
+            ),
+            'write_boundary': (
+                'read-only preflight; release, tag, and image publication '
+                'remain separate'
+            ),
+        },
+        {
+            'id': 'rebuild-against-published-version',
+            'title': 'Rebuild all rows against one existing public version',
+            'status': 'REQUIRES_EXPLICIT_REBASE',
+            'command': (
+                'python3 scripts/prepare_onboarding_matrix_packet.py --help'
+            ),
+            'write_boundary': (
+                'local plan only; run a fresh source preflight and never '
+                'reuse mixed-version measurements'
+            ),
+        },
+    ]
+
+
 def _next_action(
     plan: dict[str, Any],
     matrix: dict[str, Any],
     cohort: dict[str, Any],
     v1: dict[str, Any],
     published: dict[str, Any],
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """Choose one safe next action in dependency order."""
     if plan['status'] != 'PLAN_VALID_LOCAL_ONLY':
         return {
@@ -253,6 +290,7 @@ def _next_action(
                 '--include-published-release '
                 f'--published-release-version {published["version"]}'
             ),
+            'alternatives': _identity_alternatives(published),
             'write_boundary': (
                 'read-only audit; release, tag, and image publication remain '
                 'separate'
@@ -466,9 +504,17 @@ def render_card(report: dict[str, Any]) -> str:
         f"Reason: {report['next_action']['reason']}",
         f"Command: `{report['next_action']['command']}`",
         f"Boundary: {report['next_action']['write_boundary']}",
-        '',
-        f"Current packet: `{report['current_packet']['path']}`",
     ]
+    alternatives = report['next_action'].get('alternatives', [])
+    if alternatives:
+        lines.extend(['', 'Choices (no write):'])
+        for alternative in alternatives:
+            lines.extend([
+                f"- {alternative['title']} — **{alternative['status']}**",
+                f"  Command: `{alternative['command']}`",
+                f"  Boundary: {alternative['write_boundary']}",
+            ])
+    lines.extend(['', f"Current packet: `{report['current_packet']['path']}`"])
     return '\n'.join(lines) + '\n'
 
 

@@ -31,13 +31,16 @@ invalid.
 
 The dashboard deliberately does not turn a product `PASS` into a comparable
 onboarding row. When Docker and source rows use different product versions,
-its next action is the explicit read-only publication audit; do not spend
-human-observer time measuring a mixed-version matrix. After one public
-identity is selected and all rows are rebuilt or re-recorded against it, the
-next action moves to the measurement gate. Human active time, submitted
-command count, isolated disk measurements, and the external first-map
-acceptance gates remain evidence requirements. Recruitment, release, image,
-issue, label, review, and package actions remain separate decisions.
+its next action shows two structured, no-write choices: continue the current
+candidate (which needs a separately authorized release/tag/image publication),
+or intentionally rebuild all four rows against one already-published version.
+The second choice requires a fresh source preflight and fresh records; old
+mixed-version measurements must never be reused. After one public identity is
+selected and all rows are rebuilt or re-recorded against it, the next action
+moves to the measurement gate. Human active time, submitted command count,
+isolated disk measurements, and the external first-map acceptance gates remain
+evidence requirements. Recruitment, release, image, issue, label, review, and
+package actions remain separate decisions.
 
 The current packet is
 [`g0-current-action-packet-2026-08-14.md`](evidence/growth/g0-current-action-packet-2026-08-14.md).
