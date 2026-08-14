@@ -260,7 +260,7 @@ def test_japanese_route_switch_recovery_task_becomes_stale_when_marker_appears(
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 日本語の経路切替とfresh output復旧\n',
+        + '\n### 日本語のsupport reportとvalidation reportを分ける\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_route_switch_recovery_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese fresh-output route-switch recovery marker already exists',
+        'the planned Japanese support-versus-validation-report marker already exists',
     ]
 
 
@@ -632,6 +632,29 @@ def test_japanese_recovery_card_explains_docker_source_route_choice():
     assert 'PPA/package-manager経路は未対応' in card
     assert '出力directoryやsessionを別経路で使い回さず' in card
     assert 'Dockerのreceiptと混ぜない' in card
+
+
+def test_japanese_recovery_card_explains_fresh_output_route_switch():
+    """The Japanese recovery card separates resume, retry, and route changes."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+    card = source.split(
+        '### 日本語の経路切替とfresh output復旧', 1)[1].split(
+            '## 1. インストールを確認する', 1)[0]
+
+    assert '元のrunを別経路で\n続けません' in card
+    assert '`resume.available: true`' in card
+    assert '`next_command`の`--resume`を編集せずに実行する' in card
+    assert '`retry.available: true`' in card
+    assert '`retry.command`を編集せずに実行する' in card
+    assert '`retry.output_dir`の新しいoutput' in card
+    assert 'Docker/sourceの経路を変える' in card
+    assert 'fresh outputで新しいrunを開始する' in card
+    assert '古いmap、session、receipt、manifestを新runへコピー・再利用せず' in card
+    assert '`--resume`は既存sessionの安全なterminal post-processing用' in card
+    assert '`v0.9.0` Dockerまたは\n`v0.9.1` source候補' in card
+    assert '旧runと新runのreceiptやhashを混ぜません' in card
+    assert 'privacy-bounded support reportだけを使います' in card
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

@@ -904,37 +904,53 @@ route, use fresh output when changing routes, and never mix Docker/source
 receipts or session artifacts.
 
 The queue's drift probe retires this task after the Docker/source route-choice
-marker appears. The next task adds safe recovery guidance for switching routes
-after an incomplete run.
+marker appears. The next task separates sanitized support diagnostics from
+independent-validation evidence.
 
-## Successor C5 — Japanese fresh-output route-switch recovery card
+## Completed C5 — Japanese fresh-output route-switch recovery card
 
-The next prepared C5 task keeps the Japanese language-path scope and explains
-what to do when a Docker or source first-map run is incomplete and the user
-chooses a different route. It should prevent `--resume`, saved retry commands,
-and a route switch from being treated as interchangeable or from overwriting
-the original evidence.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now separates same-session `--resume`,
+same-pinned-setup `retry.command`, and a changed Docker/source route. It requires
+fresh output for a route switch, preserves the old map/session/receipt/manifest,
+keeps v0.9.0 Docker and v0.9.1 source identity separate, and directs contributors
+to retained `Details:`/`Next:` instructions without rebuilding commands from
+viewer appearance.
+
+The queue's drift probe retires this task after the fresh-output route-switch
+marker appears. The next task separates sanitized support diagnostics from
+independent-validation evidence.
+
+## Successor C5 — Japanese support report versus validation report
+
+The next prepared C5 task keeps the Japanese language-path scope and clarifies
+which artifact belongs in support and which belongs in an independent-validation
+report. It should prevent a sanitized support diagnostic from being treated as
+accepted evidence or a local recovery bundle from being uploaded publicly.
 
 Suggested issue title:
 
-> Docs: add a Japanese fresh-output route-switch recovery card
+> Docs: explain Japanese support report versus validation report
 
 Outcome:
 
-A Japanese user who changes Docker or source route after an incomplete run can
-start with a fresh output, preserve evidence identity, and avoid overwriting or
-mixing session artifacts.
+A Japanese user can choose a sanitized support report or an independent-validation
+report correctly without treating support diagnostics as accepted evidence or
+exposing local artifacts.
 
 Acceptance:
 
-- distinguish changing routes from using `--resume` or a saved retry command
-  after an incomplete run;
-- require a fresh output for a changed route and tell the reader not to
-  overwrite or reuse the previous map, session, receipt, or manifest;
+- distinguish the sanitized support report from the `--first-map` handoff,
+  public validation report, and reviewed receipt;
+- give one safe choice for support diagnostics and one safe choice for
+  independent validation, and state that a support report is not accepted
+  validation evidence;
+- keep local paths, recovery JSON, maps, bags, raw logs, previews, and session
+  bundles out of public sharing while retaining the reviewed-receipt boundary;
 - preserve the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary
-  and tell the reader which identity to record;
-- direct the reader to retained `Details:`/`Next:`/retry instructions and keep
-  local evidence and privacy boundaries intact;
+  and direct the reader to record the correct identity;
 - preserve the existing version, support, session, preview, privacy, and
   independent-validation guidance;
 - require no rosbag, hardware, network, or private log.

@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: add a Japanese fresh-output route-switch recovery card",
-      "outcome": "A Japanese user who changes Docker or source route after an incomplete run can start with a fresh output, preserve evidence identity, and avoid overwriting or mixing session artifacts.",
+      "title": "Docs: explain Japanese support report versus validation report",
+      "outcome": "A Japanese user can choose a sanitized support report or an independent-validation report correctly without treating support diagnostics as accepted evidence or exposing local artifacts.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -249,15 +249,15 @@
       ],
       "non_goals": [
         "change the issue template, review ledger, support or verification implementation, or acceptance rules",
-        "change the Docker image, source helper, package-manager support, release identity, or route chooser",
+        "change the Docker image, source helper, package-manager support, release identity, route chooser, or recovery implementation",
         "translate the entire getting-started guide",
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide distinguishes changing routes from using --resume or a saved retry command after an incomplete run.",
-        "The recovery card requires a fresh output for a changed route and tells the reader not to overwrite or reuse the previous map, session, receipt, or manifest.",
-        "The card preserves the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary and tells the reader which identity to record.",
-        "The guide directs the reader to retained Details/Next/retry instructions and keeps local evidence and privacy boundaries intact.",
+        "The Japanese guide distinguishes the sanitized support report from the --first-map handoff, public validation report, and reviewed receipt.",
+        "The card gives one safe choice for support diagnostics and one safe choice for independent validation, and says a support report is not accepted validation evidence.",
+        "The guide keeps local paths, recovery JSON, maps, bags, raw logs, previews, and session bundles out of public sharing while retaining the reviewed-receipt boundary.",
+        "The card preserves the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary and directs the reader to record the correct identity.",
         "The existing version, support, session, preview, privacy, and independent-validation guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
@@ -272,8 +272,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### 日本語の経路切替とfresh output復旧",
-          "failure_detail": "the planned Japanese fresh-output route-switch recovery marker already exists"
+          "value": "### 日本語のsupport reportとvalidation reportを分ける",
+          "failure_detail": "the planned Japanese support-versus-validation-report marker already exists"
         }
       ],
       "private_data_required": false,

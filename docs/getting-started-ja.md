@@ -51,6 +51,29 @@ identityとして報告しません。GLIMのようなPPA/package-manager経路�
 これらを代替手段として追加しません。最初のcontrol experimentが失敗した場合は、表示された
 `Details:`と`Next:`を読み、経路やoutputを手で混ぜずに保存済みの指示へ戻ります。
 
+### 日本語の経路切替とfresh output復旧
+
+Dockerまたはsourceのfirst-mapが途中で終わった後に経路を変える場合は、元のrunを別経路で
+続けません。まず元のlocal-onlyの`map_session_recovery.json`、`Details:`、`Next:`を読み、
+次の3つを区別します。
+
+| 状態 | 進め方 | 証跡の境界 |
+| --- | --- | --- |
+| 同じsessionで`resume.available: true` | 保存された`next_command`の`--resume`を編集せずに実行する | post-processingだけを再開し、経路変更やmapping再実行をしない |
+| 同じpinned setupで`retry.available: true` | 保存された`retry.command`を編集せずに実行する | `retry.output_dir`の新しいoutputだけを使い、元のmap・receipt・manifestを上書きしない |
+| Docker/sourceの経路を変える、またはresume/retryがない | doctorと新しい経路のfirst commandを確認し、fresh outputで新しいrunを開始する | 古いmap、session、receipt、manifestを新runへコピー・再利用せず、identityもrunごとに記録する |
+
+`--resume`は既存sessionの安全なterminal post-processing用であり、Dockerからsourceへ、または
+sourceからDockerへ切り替えるcommandではありません。保存済み`retry.command`も元のpinned setupを
+再試行するためのものなので、経路を変えるときは使わず、新しい経路の案内へ戻ります。変更後は
+たとえば`output.docker`と`output.source`のように新しいoutputを選び、`v0.9.0` Dockerまたは
+`v0.9.1` source候補のidentityをそれぞれ`--version`など実際の出力から記録します。
+
+元の証跡は削除・uploadせず、旧runと新runのreceiptやhashを混ぜません。新しいsessionで
+`support --first-map`が`READY FOR REVIEW`を返した場合だけ、その新runのreceiptを確認します。
+viewerの見た目からcommandを再構成したり、古いreceiptを新しいmapへコピーしたりせず、支援が
+必要ならlocal pathを含むrecovery JSONではなく、後述のprivacy-bounded support reportだけを使います。
+
 ## 1. インストールを確認する
 
 ```bash
