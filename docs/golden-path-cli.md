@@ -86,6 +86,12 @@ dataset DOI/license/size/SHA-256, exact paths, cache/output state, unique-volume
 free-space checks, steps, findings, and a copy-ready command. Live `--json` is
 rejected because mapping emits progress rather than one document.
 
+Use `--output <plan-file>` with `--dry-run` to retain either the human card or
+the JSON plan without shell redirection. The file is created exclusively and an
+existing path is refused; the command still returns exit code `2` when the
+saved plan is not ready. The plan file is only an inspection artifact and does
+not create the demo workspace, download data, run mapping, or publish evidence.
+
 The command rejects exact symlink targets, dataset/output overlap, partial
 output, unverified existing output, and insufficient initial free space. A
 previous output is reused only after its receipt is rebuilt from current

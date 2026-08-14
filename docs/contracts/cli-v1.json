@@ -800,6 +800,11 @@
           "tier": "output"
         },
         {
+          "names": ["--output"],
+          "stability": "stable",
+          "tier": "output"
+        },
+        {
           "names": ["--viewer"],
           "stability": "stable",
           "tier": "post-processing"

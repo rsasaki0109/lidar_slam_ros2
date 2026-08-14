@@ -152,6 +152,17 @@ buildだけなら`--build-only`、画面を開かない環境なら`--viewer non
 完了時に表示される絶対パスの`lidarslam-map`は、新しい端末でも対応するworkspaceを
 自動で有効化します。
 
+固定デモを実行する前に計画を保存して確認する場合は、次を使います。
+
+```bash
+lidarslam-map demo ~/ros2_ws \
+  --viewer none --dry-run --json \
+  --output /tmp/mid360-demo-plan.json
+```
+
+`--output`は計画JSONまたは人間向けカードを一度だけ作成し、既存ファイルを上書きしません。
+これはread-onlyの確認用で、bagのdownload、mapping、公開操作は行いません。
+
 !!! note "現在の配布境界"
     GLIMのようなPPA/package-managerの導入経路は、依存packageのrosdistro審査が
     完了するまで未対応です。現時点の正規経路はDockerまたは上記source helperです。

@@ -250,6 +250,10 @@ lidarslam-map demo ~/ros2_ws --viewer none --dry-run --json
 
 The JSON follows the
 [`first-map-demo-plan-v1` schema](schemas/first-map-demo-plan-v1.schema.json).
+To retain it safely for review, add
+`--output /tmp/mid360-demo-plan.json`; the plan file is created once and an
+existing path is refused. This remains read-only and does not create the demo
+workspace.
 If `output/mid360_demo` already has receipt-bound PASS evidence, a repeat
 command reuses it instead of running SLAM again. Existing partial, symlinked,
 overlapping, or unverified output fails with a concrete next action. The

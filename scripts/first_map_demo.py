@@ -143,6 +143,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action='store_true',
         help='With --dry-run, print the schema-valid plan as JSON.',
     )
+    parser.add_argument(
+        '--output',
+        type=Path,
+        metavar='<plan-file>',
+        help=(
+            'With --dry-run, write the human or JSON plan once; refuse an '
+            'existing path.'
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -691,6 +700,38 @@ def _render_plan(plan: dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
+def _write_dry_run_plan(
+    plan: dict[str, Any],
+    *,
+    json_output: bool,
+    output: Path | None,
+) -> bool:
+    """Write one read-only plan, refusing to overwrite an existing file."""
+    payload = (
+        json.dumps(plan, indent=2, sort_keys=True) + '\n'
+        if json_output else
+        _render_plan(plan) + '\n'
+    )
+    if output is None:
+        sys.stdout.write(payload)
+        return True
+    try:
+        with output.open('x', encoding='utf-8') as stream:
+            stream.write(payload)
+    except OSError as exc:
+        print(
+            f'error: [demo-plan-output-failed] {exc}',
+            file=sys.stderr,
+        )
+        return False
+    print(f'Wrote read-only demo plan: {output}', file=sys.stderr)
+    print(
+        'The plan performs no download, mapping, or publication action.',
+        file=sys.stderr,
+    )
+    return True
+
+
 def _open_review(output_dir: Path) -> None:
     executable = shutil.which('lidarslam-map')
     if executable is None:
@@ -812,6 +853,13 @@ def _render_failure(
 def main(argv: Sequence[str] | None = None) -> int:
     """Plan or run the canonical public first-map lifecycle."""
     args = parse_args(argv)
+    if args.output is not None and not args.dry_run:
+        print(
+            'error: [demo-output-requires-dry-run] --output requires '
+            '--dry-run',
+            file=sys.stderr,
+        )
+        return 2
     if args.json and not args.dry_run:
         print(
             'error: [demo-json-requires-dry-run] --json requires --dry-run',
@@ -825,10 +873,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     if args.dry_run:
-        if args.json:
-            print(json.dumps(plan, indent=2, sort_keys=True))
-        else:
-            print(_render_plan(plan))
+        if not _write_dry_run_plan(
+            plan,
+            json_output=args.json,
+            output=args.output,
+        ):
+            return 2
         return 0 if plan['ready'] else 2
 
     if not plan['ready']:

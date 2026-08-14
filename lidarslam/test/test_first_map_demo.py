@@ -260,6 +260,58 @@ def test_dry_run_json_is_schema_valid_copy_ready_and_read_only(
     assert not work.exists()
 
 
+def test_dry_run_output_is_exclusive_and_does_not_overwrite(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+):
+    """The saved human or JSON plan refuses a second write."""
+    module = _load(SCRIPT, 'first_map_demo_output')
+    _enough_space(monkeypatch, module)
+    work = tmp_path / 'work'
+    human_output = tmp_path / 'observer-plan.md'
+    output = tmp_path / 'observer-plan.json'
+    human_args = [
+        str(work),
+        '--viewer',
+        'none',
+        '--dry-run',
+        '--output',
+        str(human_output),
+    ]
+    args = [
+        str(work),
+        '--viewer',
+        'none',
+        '--dry-run',
+        '--json',
+        '--output',
+        str(output),
+    ]
+
+    assert module.main(human_args) == 0
+    assert human_output.read_text(encoding='utf-8').startswith(
+        'Public first-map demo plan\n'
+    )
+    assert module.main(args) == 0
+    original = output.read_bytes()
+    assert json.loads(original)['status'] == 'ready'
+    assert module.main(args) == 2
+    assert output.read_bytes() == original
+    assert 'File exists' in capsys.readouterr().err
+    assert not work.exists()
+
+
+def test_dry_run_output_requires_dry_run(tmp_path: Path, capsys):
+    """Live execution cannot redirect its progress into a plan file."""
+    module = _load(SCRIPT, 'first_map_demo_output_guard')
+    output = tmp_path / 'plan.txt'
+
+    assert module.main(['--output', str(output)]) == 2
+    assert '[demo-output-requires-dry-run]' in capsys.readouterr().err
+    assert not output.exists()
+
+
 def test_safe_terminal_partial_offers_copy_ready_demo_resume(
     monkeypatch,
     tmp_path: Path,

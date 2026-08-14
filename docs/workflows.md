@@ -39,7 +39,7 @@ Optional 3D-BBS support:
 
 | Goal | Entrypoint |
 | --- | --- |
-| Fixed public first map | `lidarslam-map demo`; add `--viewer none` for headless use or `--dry-run --json` for a network- and write-free plan. |
+| Fixed public first map | `lidarslam-map demo`; add `--viewer none` for headless use or `--dry-run --json` for a network- and write-free plan. Add `--output PLAN` to retain that plan once without shell redirection. |
 | Autoware pointcloud-map quickstart | `bash scripts/run_autoware_quickstart.sh` |
 | Full dogfood flow | `bash scripts/run_rko_lio_graph_autoware_dogfood.sh --auto-exit-secs 20` |
 | Standard NTU VIRAL benchmark | `bash scripts/run_rko_lio_graph_benchmark.sh` |

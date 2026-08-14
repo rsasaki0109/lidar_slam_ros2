@@ -128,6 +128,9 @@ free-space floor before download, re-hashes the archive and the two
 security-relevant extracted bag files on every live run, and delegates to the same
 `run_first_map_demo.sh` implementation used by Docker. `--dry-run --json`
 writes nothing and follows `first-map-demo-plan-v1`; live `--json` is rejected.
+With `--dry-run`, `--output PLAN` may retain the human card or JSON plan using
+exclusive creation; an existing plan path is refused and the demo workspace
+remains untouched.
 A retained output is reused only when its schema-valid first-map receipt can be
 rebuilt byte-for-byte from current manifest, diagnosis, and verifier evidence.
 A schema-valid terminal interruption is resumed with `demo --resume`; this

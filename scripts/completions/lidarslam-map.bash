@@ -2,7 +2,7 @@
 
 _LIDARSLAM_MAP_COMMANDS='demo start sessions compare support doctor setup run inspect view edit merge migrate-manifest rollback-plan'
 _LIDARSLAM_MAP_GLOBAL_OPTIONS='--help --help-all --version'
-_LIDARSLAM_MAP_DEMO_OPTIONS='--help --help-all --data-dir --output-dir --viewer --min-free-space-gib --dry-run --resume --json'
+_LIDARSLAM_MAP_DEMO_OPTIONS='--help --help-all --data-dir --output-dir --output --viewer --min-free-space-gib --dry-run --resume --json'
 _LIDARSLAM_MAP_START_OPTIONS='--help --help-all --profile --output-dir --map-output-dir --accept-profile-extrinsics --lidar-to-base --imu-to-base --base-frame --lidar-frame --imu-frame --json --yes --dry-run --editable --viewer --min-free-space-gib --verification'
 _LIDARSLAM_MAP_SESSIONS_OPTIONS='--help --help-all --status --limit --viewer --json'
 _LIDARSLAM_MAP_COMPARE_OPTIONS='--help --help-all --output --viewer --json'

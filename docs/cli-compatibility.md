@@ -91,7 +91,7 @@ this option policy or the repository version.
 
 | Command | Routine stable options | Advanced stable options | Deprecated options |
 | --- | --- | --- | --- |
-| `demo` | cache/output paths, `--viewer`, storage floor, `--dry-run`, `--resume`, `--json` | None | None |
+| `demo` | cache/output paths, `--viewer`, storage floor, `--dry-run`, `--resume`, `--json`, exclusive dry-run plan `--output` | None | None |
 | `start` | sensor selection, calibration, output, `--yes`, `--dry-run`, `--editable`, `--viewer`, storage and verification | None | None |
 | `setup` | profile, output, calibration and frame options, `--json` | None | None |
 | `doctor` | `--json` | None | None |
