@@ -276,6 +276,11 @@
         "kind": "directory",
         "value_name": "<dir>"
       },
+      "--output": {
+        "default": null,
+        "kind": "file",
+        "value_name": "<plan-file>"
+      },
       "--viewer": {
         "choices": [
           "browser",
