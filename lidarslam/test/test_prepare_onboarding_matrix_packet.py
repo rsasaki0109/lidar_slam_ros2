@@ -115,6 +115,13 @@ def test_packet_commands_pin_identity_and_keep_paths_as_placeholders():
     assert '$HOME' not in commands
     assert packet['public_checks']['release']['read_only'] is True
     assert packet['public_checks']['source']['read_only'] is True
+    assert packet['public_checks']['release']['command'] == (
+        'python3 scripts/check_published_release.py '
+        '--version 0.9.1 --json'
+    )
+    assert packet['public_checks']['release']['command'].count(
+        'check_published_release.py'
+    ) == 1
 
 
 @pytest.mark.parametrize(
