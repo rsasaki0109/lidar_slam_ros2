@@ -1016,29 +1016,42 @@ The queue's drift probe retires this task after the follow-up-evidence marker
 appears. The next task makes the sanitized follow-up summary itself easy to
 audit without turning it into a new validation result.
 
-## Successor C5 — Auditable Japanese validation-report follow-up summaries
+## Completed C5 — Auditable Japanese validation-report follow-up summaries
 
-The next prepared C5 task keeps the Japanese language-path scope and explains
-how a maintainer can audit a sanitized follow-up summary against the original
-evidence. It should preserve the distinction between a note, a new report, and
-accepted ledger evidence without exposing private paths or receipt artifacts.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now gives a maintainer-facing audit order for
+identity, same run/output, route, field provenance, and review status. It
+classifies a summary as `MATCHED FOLLOW-UP`, `NEW RUN`, or `STOP`, and keeps the
+original report, receipt, hash, and private artifacts outside the public note.
+
+The queue's drift probe retires this task after the follow-up-summary marker
+appears. The next task defines safe dispositions for the three audit outcomes
+without changing evidence or accepting a note.
+
+## Successor C5 — Auditable Japanese validation-report follow-up dispositions
+
+The next prepared C5 task keeps the Japanese language-path scope and defines
+what a maintainer may do after classifying a follow-up as matched support, a
+separate new run, or stop. It should preserve immutable evidence and prevent a
+follow-up note from being treated as accepted validation.
 
 Suggested issue title:
 
-> Docs: explain auditable Japanese validation-report follow-up summaries
+> Docs: define auditable Japanese validation-report follow-up dispositions
 
 Outcome:
 
-A Japanese maintainer can audit an original report/receipt pair and a follow-up
-summary without treating notes as new evidence or exposing private artifacts.
+A Japanese maintainer can classify a follow-up summary as matched support, a
+separate new run, or stop without altering evidence or accepting a note.
 
 Acceptance:
 
-- distinguish the original report/receipt pair, a follow-up note, and a new
-  independent-validation report;
-- give a copy-ready audit block with route, `reason.code`, sanitized
-  `Details:`/`Next:`, fresh-output facts, and review status without private
-  paths;
+- give a maintainer-facing order for checking identity, same run/output, route,
+  field provenance, and review status;
+- classify a follow-up as `MATCHED FOLLOW-UP`, `NEW RUN`, or `STOP` and give a
+  copy-ready disposition block without private paths;
 - keep the original report, receipt, and hash immutable, permit one
   report/receipt pair per run, and forbid duplicate issue or session artifacts;
 - preserve the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary

@@ -775,6 +775,45 @@ independent validationとも書きません。support相談やmaintainerのlive 
 場合は、follow-up noteまたはサニタイズ済みsupport reportとして扱い、公開validation evidence
 の一組に昇格させません。
 
+### 日本語のvalidation reportのfollow-up要約を監査可能にする
+
+maintainerがfollow-up要約を受け取ったら、要約だけを見てPASSやacceptedを決めず、元の
+`report + reviewed receipt`と照合します。照合は次の順序で行い、どれか一つでも確認できない
+場合は`STOP`にします。
+
+| 順序 | 確認するもの | 一致・不足の判定 |
+| --- | --- | --- |
+| 1. identity | Dockerの公開済み`v0.9.0-humble`/`v0.9.0-jazzy`、またはsourceの未公開`v0.9.1`候補とexact commit/revision | viewer、`develop` tag、example-only値から補わない。missing/mismatchならSTOP |
+| 2. same run | 元のreport、receipt、session/output、`manifest_sha256`が同じrunに結び付く | local pathやsession bundleを公開せず、同じrunを確認できなければSTOP |
+| 3. route | `support follow-up`、または新しい`independent validation`のどちらか | noteを新しいreport/receiptに変換せず、別runなら古い一組と混ぜない |
+| 4. provenance | `reason.code`、sanitized `Details:`/`Next:`、fresh-output factsの出どころ | receipt-derived result、verification、hash、review statusをfollow-up factsで上書きしない |
+| 5. review status | `unresolved`、`retrying`、`READY FOR REVIEW`、maintainer review、ledger | ledgerの明示的なaccepted記録がない限りacceptedと分類しない |
+
+照合結果は、次の3分類だけを使います。`MATCHED FOLLOW-UP`は、元の一組が不変で、同じrunに
+結び付いたサニタイズ済みnoteとして扱える場合だけです。`NEW RUN`は、公開手順を自分で完了した
+別sessionのreportとreceiptが新しく1組そろい、古い一組と混ざっていない場合だけです。identity、
+session、output、route、またはfieldの出どころが不明なら`STOP`であり、viewerの見た目やnoteの
+文面から推測して先に進みません。
+
+```text
+follow-up audit disposition:
+original pair: matched / missing / mismatch
+identity: <public Docker identity or source candidate + exact revision>
+same run/output: matched / stop
+route: support follow-up / new independent validation
+provenance: <reason.code + sanitized Details:/Next: + fresh-output facts>
+evidence change: none — original report, receipt, and hash unchanged
+review status: <unresolved / retrying / READY FOR REVIEW — not accepted>
+disposition: MATCHED FOLLOW-UP / NEW RUN / STOP
+```
+
+このdispositionはmaintainerの監査メモであり、新しいvalidation resultやreceiptではありません。
+`MATCHED FOLLOW-UP`でもoriginal report/receipt pairは1組のまま、`NEW RUN`でも新しいrunの
+report/receiptは1組だけにします。複数issueへ同じnoteやsession artifactを重複添付せず、map、
+bag、raw log、preview、trajectory、parameter、screenshot、handoff JSON、local receipt path、
+session bundle全体は公開しません。`STOP`の結果をaccepted、再現成功、またはroadmap evidenceと
+書かず、保存された`Details:`、`Next:`、`retry.command`へ戻ります。
+
 ### validation reportのreview statusを区別する
 
 `READY FOR REVIEW`は、元のsessionに対するlocal-onlyの再検証が完了し、canonical issue formへ
