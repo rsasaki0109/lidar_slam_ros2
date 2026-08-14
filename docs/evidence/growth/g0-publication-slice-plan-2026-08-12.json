@@ -7,8 +7,8 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 226,
-    "expected_paths_sha256": "d4e10795ffe21c63d69864f07edc078044423ed4372a3568a3d253bd9da73d9b",
+    "expected_path_count": 228,
+    "expected_paths_sha256": "d3bb7c5e0a7a14424d82bf4cc3ac0794863c5b0b3e73340a3c583c6a59306138",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -314,6 +314,7 @@
         "lidarslam/test/test_lidarslam_guided.py",
         "lidarslam/test/test_prepare_onboarding_matrix_packet.py",
         "lidarslam/test/test_prepare_usability_scorecard.py",
+        "lidarslam/test/test_prepare_usability_scorecard_pair.py",
         "mkdocs.yml",
         "scripts/check_g0_readiness.py",
         "scripts/check_onboarding_trial_matrix.py",
@@ -326,7 +327,8 @@
         "scripts/lidarslam_doctor.py",
         "scripts/lidarslam_guided.py",
         "scripts/prepare_onboarding_matrix_packet.py",
-        "scripts/prepare_usability_scorecard.py"
+        "scripts/prepare_usability_scorecard.py",
+        "scripts/prepare_usability_scorecard_pair.py"
       ],
       "verification": [
         "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_docs_entrypoints.py graph_based_slam/test/test_lidarslam_product_cli.py",

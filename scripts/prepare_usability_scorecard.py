@@ -78,7 +78,7 @@ def _slug(value: str, label: str) -> str:
     return value
 
 
-def _build_template(args: argparse.Namespace) -> dict:
+def build_template(args: argparse.Namespace) -> dict:
     """Build a schema-valid, explicitly incomplete trial worksheet."""
     trial_id = args.trial_id or (
         f'ux-template-{args.product}-{datetime.now(timezone.utc):%Y%m%d}'
@@ -215,7 +215,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Write one incomplete worksheet without overwriting an existing file."""
     args = _parser().parse_args(argv)
     try:
-        record = _build_template(args)
+        record = build_template(args)
         payload = json.dumps(record, indent=2, sort_keys=True) + '\n'
         if args.output is None:
             sys.stdout.write(payload)

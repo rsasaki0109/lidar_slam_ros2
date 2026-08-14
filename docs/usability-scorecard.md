@@ -108,6 +108,44 @@ prerequisites have actually been checked. The result is a worksheet, not
 evidence; do not add it to the reviewed index until the observed trial is
 complete and the checker passes.
 
+For a paired run, prepare both records from one shared set of cohort, input,
+and environment arguments. The command assigns opposite product order and
+preflights both output names before writing either worksheet:
+
+```bash
+python3 scripts/prepare_usability_scorecard_pair.py \
+  --lidarslam-version 0.9.1 \
+  --lidarslam-revision-kind git-commit \
+  --lidarslam-revision <40-lowercase-hex-commit> \
+  --lidarslam-documentation-url https://<public-docs-host>/lidarslam \
+  --lidarslam-trial-id lidarslam-pair-operator-a \
+  --glim-version <glim-version> \
+  --glim-revision-kind <git-commit-or-release-tag-or-image-digest> \
+  --glim-revision <exact-glim-revision> \
+  --glim-documentation-url https://<public-docs-host>/glim \
+  --glim-trial-id glim-pair-operator-a \
+  --cohort-id external-paired-operator-a \
+  --comparison-pair-id paired-jazzy-machine-class-a \
+  --input-id fixed-demo-v1 \
+  --ros-distro jazzy \
+  --os-family ubuntu-24.04 \
+  --architecture x86_64 \
+  --hardware-class eight-core-32gib-x86_64 \
+  --machine-fingerprint-sha256 <64-lowercase-hex-fingerprint> \
+  --output-dir /tmp/usability-pair-operator-a
+```
+
+The common fingerprint is convenient for a clean sequential pair. When the
+products use separate hosts, replace it with
+`--lidarslam-machine-fingerprint-sha256` and
+`--glim-machine-fingerprint-sha256`. Use
+`--lidarslam-order second` for the opposite order. Product-publicity flags
+(`--lidarslam-publicly-resolvable` and `--glim-publicly-resolvable`) and
+`--clean-start` remain opt-in claims. The pair command refuses to overwrite
+either existing worksheet and emits a local-only, `PREPARED_INCOMPLETE`
+manifest; it does not add records to the reviewed index or perform a remote
+mutation.
+
 Validate two records before adding them to the index:
 
 ```bash
