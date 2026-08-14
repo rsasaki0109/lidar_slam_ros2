@@ -254,13 +254,13 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
 def test_japanese_validation_follow_up_summary_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A successor Japanese follow-up-disposition card requires reassessment."""
+    """A successor Japanese follow-up-action card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 日本語のvalidation reportのfollow-up監査結果を安全に分類する\n',
+        + '\n### 日本語のvalidation reportのfollow-up分類後の対応を監査可能にする\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_validation_follow_up_summary_task_becomes_stale_when_marker_ap
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese follow-up-disposition marker already exists',
+        'the planned Japanese follow-up-action marker already exists',
     ]
 
 
@@ -852,6 +852,42 @@ def test_japanese_recovery_card_explains_follow_up_audit_dispositions():
     assert '新しいvalidation resultやreceiptではありません' in normalized
     assert '複数issueへ同じnoteやsession artifactを重複添付せず' in normalized
     assert '`STOP`の結果をaccepted、再現成功、またはroadmap evidenceと 書かず' in normalized
+
+
+def test_japanese_recovery_card_explains_safe_follow_up_actions():
+    """The Japanese action card constrains each disposition after review."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+    card = source.split(
+        '### 日本語のvalidation reportのfollow-up監査結果を安全に分類する', 1
+    )[1].split(
+        '### validation reportのreview statusを区別する', 1
+    )[0]
+    normalized = ' '.join(card.split())
+    compact = normalized.replace(' ', '')
+
+    assert '分類の後に何をしてよいかも固定します' in normalized
+    assert '`MATCHED FOLLOW-UP`' in normalized
+    assert '`NEW RUN`' in normalized
+    assert '`STOP`' in normalized
+    assert '許可される対応' in normalized
+    assert 'original report/receipt pairは変更せず' in normalized
+    assert '新しいreceiptを作らない' in normalized
+    assert '新しいrunのreport + reviewed receiptを1組だけ作り' in normalized
+    assert '古いpairと混ぜない' in normalized
+    assert '公開validationnoteを作らない' in compact
+    assert 'identity、session、outputのどれかが不足する場合は`STOP`' in compact
+    assert 'acceptedは、maintainer reviewとledgerの明示的なaccepted記録がある場合だけ書きます' in normalized
+    assert 'follow-up action:' in normalized
+    assert 'allowed action: <saved Details:/Next:/retry.command or new-run review>' in normalized
+    assert 'original evidence: unchanged' in normalized
+    assert 'new evidence: none / one new run report + reviewed receipt / none' in normalized
+    assert (
+        'duplicate check: <one pair per run; no duplicate issue or session '
+        'artifact>' in normalized
+    )
+    assert '一つのrunにつきreport+reviewedreceiptは一組だけ' in compact
+    assert '元のidentity、session、outputに結び付かない場合' in compact
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

@@ -814,6 +814,51 @@ bag、raw log、preview、trajectory、parameter、screenshot、handoff JSON、l
 session bundle全体は公開しません。`STOP`の結果をaccepted、再現成功、またはroadmap evidenceと
 書かず、保存された`Details:`、`Next:`、`retry.command`へ戻ります。
 
+### 日本語のvalidation reportのfollow-up監査結果を安全に分類する
+
+分類の後に何をしてよいかも固定します。`MATCHED FOLLOW-UP`、`NEW RUN`、`STOP`は操作の許可証
+ではなく、元のevidenceをどう扱うかを示す監査結果です。どの分類でも、receipt、
+`run_manifest.json`、`session.json`、`manifest_sha256`を手編集したり、follow-up noteを
+accepted validationへ変換したりしません。
+
+| 分類 | 許可される対応 | evidenceの扱い | 公開status |
+| --- | --- | --- | --- |
+| `MATCHED FOLLOW-UP` | 元のrunのsupport相談、または保存された`Details:`/`Next:`/`retry.command`に従うsafe retry。fresh outputの事実はサニタイズ済みnoteへ追記する | original report/receipt pairは変更せず、新しいreceiptを作らない | `unresolved`、`retrying`、または`READY FOR REVIEW` — not accepted |
+| `NEW RUN` | exact identity、session、outputが確認できる新しいindependent validationだけを別runとして確認する | 新しいrunのreport + reviewed receiptを1組だけ作り、古いpairと混ぜない | maintainer review前は`READY FOR REVIEW` — acceptedはledgerの明示記録後だけ |
+| `STOP` | サニタイズ済みsupportを依頼し、保存された`Details:`、`Next:`、`retry.command`へ戻る | original evidenceはそのまま保持し、新しいreportやreceiptを作らない | `STOP` — not accepted、公開validation noteを作らない |
+
+`MATCHED FOLLOW-UP`では、同じrunの原因確認や保存済みretryだけを行います。retryで新しいoutputが
+得られても、元のreceiptのresult、verification、hash、review statusを上書きせず、観察した事実と
+影響だけをサニタイズしてnoteにします。`NEW RUN`では、Dockerなら公開済み`v0.9.0-humble`または
+`v0.9.0-jazzy`、sourceなら未公開`v0.9.1`候補とexact commit/revisionを確認できる場合だけ、
+新しいreport + reviewed receiptを一組にします。identity、session、outputのどれかが不足する
+場合は`STOP`です。
+
+`STOP`では、文面やviewerの見た目から原因、PASS、再現成功を推測せず、public validation noteを
+作りません。supportへ渡すときもprivate path、credential、bag、map、raw log、session bundleを
+含めず、保存された`Details:`/`Next:`と安全なretry条件だけを使います。acceptedは、maintainer
+reviewとledgerの明示的なaccepted記録がある場合だけ書きます。どの分類でも一つのrunにつき
+report + reviewed receiptは一組だけで、複数issueへ同じnoteやsession artifactを重複添付しません。
+
+次のblockは、分類後の許可された対応を記録するためのものです。local pathやprivate artifactは
+書きません。
+
+```text
+follow-up action:
+disposition: MATCHED FOLLOW-UP / NEW RUN / STOP
+allowed action: <saved Details:/Next:/retry.command or new-run review>
+original evidence: unchanged
+new evidence: none / one new run report + reviewed receipt / none
+next step: <sanitized Details: or Next:; no private path>
+public status: unresolved / READY FOR REVIEW — not accepted / STOP — not accepted
+duplicate check: <one pair per run; no duplicate issue or session artifact>
+```
+
+このaction blockは新しいvalidation resultや受理記録ではありません。`MATCHED FOLLOW-UP`は元の
+一組に対するnote、`NEW RUN`は新しい一組、`STOP`は保留とsupport依頼です。分類後の操作が元の
+identity、session、outputに結び付かない場合や、既存のpairを編集・複製しそうな場合は、操作を
+進めず`STOP`に戻します。
+
 ### validation reportのreview statusを区別する
 
 `READY FOR REVIEW`は、元のsessionに対するlocal-onlyの再検証が完了し、canonical issue formへ

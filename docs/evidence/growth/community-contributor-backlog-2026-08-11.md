@@ -1030,28 +1030,46 @@ The queue's drift probe retires this task after the follow-up-summary marker
 appears. The next task defines safe dispositions for the three audit outcomes
 without changing evidence or accepting a note.
 
-## Successor C5 — Auditable Japanese validation-report follow-up dispositions
+## Completed C5 — Auditable Japanese validation-report follow-up dispositions
+
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now gives a maintainer-facing audit order for
+identity, same run/output, route, field provenance, and review status. It
+classifies a summary as `MATCHED FOLLOW-UP`, `NEW RUN`, or `STOP`, and keeps the
+original report, receipt, hash, and private artifacts outside the public note.
+
+The queue's drift probe retires this task after the follow-up-disposition marker
+appears. The next task defines the permitted action and public status for each
+classification without editing evidence, duplicating artifacts, or accepting a
+note.
+
+## Successor C5 — Safe actions after Japanese validation-report follow-up dispositions
 
 The next prepared C5 task keeps the Japanese language-path scope and defines
 what a maintainer may do after classifying a follow-up as matched support, a
-separate new run, or stop. It should preserve immutable evidence and prevent a
-follow-up note from being treated as accepted validation.
+separate new run, or stop. It should preserve immutable evidence, prevent
+duplicate artifacts, and keep a follow-up note from being treated as accepted
+validation.
 
 Suggested issue title:
 
-> Docs: define auditable Japanese validation-report follow-up dispositions
+> Docs: document safe actions after Japanese validation-report follow-up dispositions
 
 Outcome:
 
-A Japanese maintainer can classify a follow-up summary as matched support, a
-separate new run, or stop without altering evidence or accepting a note.
+A Japanese maintainer can act on `MATCHED FOLLOW-UP`, `NEW RUN`, or `STOP`
+without editing evidence, duplicating artifacts, or accepting a note.
 
 Acceptance:
 
-- give a maintainer-facing order for checking identity, same run/output, route,
-  field provenance, and review status;
-- classify a follow-up as `MATCHED FOLLOW-UP`, `NEW RUN`, or `STOP` and give a
-  copy-ready disposition block without private paths;
+- give the permitted action and public status for `MATCHED FOLLOW-UP`, `NEW
+  RUN`, and `STOP`;
+- keep `MATCHED FOLLOW-UP` on the original pair using saved `Details:`,
+  `Next:`, or retry guidance without a new receipt; use one new pair for `NEW
+  RUN` without mixing identities; preserve evidence and the support route for
+  `STOP`;
 - keep the original report, receipt, and hash immutable, permit one
   report/receipt pair per run, and forbid duplicate issue or session artifacts;
 - preserve the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary
