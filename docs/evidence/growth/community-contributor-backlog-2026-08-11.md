@@ -434,13 +434,22 @@ Estimate: **30 minutes**. Non-goals: changing support-bundle generation, issue
 templates, or session implementation, translating the entire guide, or
 claiming support for an unvalidated sensor.
 
-## Successor C5 — Japanese independent first-map validation handoff
+## Completed C5 — Japanese independent first-map validation handoff
 
-The next prepared C5 task keeps the Japanese language-path scope and makes the
-independent-validation boundary copy-ready. The CLI already prints a
-verification summary, safe environment hints, a reviewed receipt path, and the
-canonical issue form. The missing piece is a short Japanese explanation of how
-to use those outputs without turning the maintainer into a live test guide.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now explains that `--first-map` prints the
+canonical independent-validation issue form alongside the verification summary
+and safe environment hints. It tells the operator to fill the form from their
+own run, redact private paths from the command, and attach only the reviewed
+first-map receipt. It explicitly excludes the local handoff JSON, receipt path,
+map, bag, preview, raw log, trajectory, parameter, and screenshot attachments,
+and preserves the no-live-guidance rule for independent validation.
+
+The queue's drift probe retires this task after the independent-validation
+marker appears. The next task moves one step earlier in the evidence chain:
+recording the exact installed product identity before support or validation.
 
 Suggested issue title:
 
@@ -474,6 +483,48 @@ Estimate: **30 minutes**. Non-goals: changing support-bundle generation, issue
 templates, or first-map validation schemas, translating the entire guide,
 providing live guidance that would invalidate independent validation, or
 claiming support for an unvalidated sensor.
+
+## Successor C5 — Japanese version identity and support-boundary check
+
+The next prepared C5 task keeps the Japanese language-path scope and closes a
+small but important evidence gap: the guide explains which product identity a
+user should record before asking for support or submitting an independent
+validation. The existing Japanese page already distinguishes the published
+v0.9.0 Docker images from the unpublished v0.9.1 source candidate; it does not
+yet show the installed CLI identity command or warn against reporting a moving
+or guessed revision.
+
+Suggested issue title:
+
+> Docs: add a Japanese version identity and support-boundary check
+
+Outcome:
+
+A Japanese first-run user can record the installed product identity, match it
+to the documented stable or candidate path, and avoid presenting an unpublished
+candidate or moving tag as supported release evidence.
+
+Acceptance:
+
+- show `lidarslam-map --version` and tell the reader to record its output before
+  support or validation handoff;
+- distinguish the immutable published v0.9.0 Docker images from the unpublished
+  v0.9.1 source candidate path;
+- tell the reader not to use a moving `develop` tag or guess a release identity
+  when reporting evidence;
+- preserve the existing support, session, preview, diagnosis, privacy, and
+  independent-validation guidance;
+- require no rosbag, hardware, network, or private log.
+
+Focused check:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+Estimate: **30 minutes**. Non-goals: changing release metadata, publishing an
+image, changing version semantics, translating the entire guide, claiming that
+an unpublished candidate is a stable release, or validating an untested sensor.
 
 ## Publication and review sequence
 

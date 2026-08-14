@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_validator_task_becomes_stale_when_marker_appears(
+def test_japanese_version_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese validator card requires queue reassessment."""
+    """A completed Japanese version card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n独立validator向けのissue form\n',
+        + '\nlidarslam-map --version\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_validator_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese independent-validation marker already exists',
+        'the planned Japanese version-identity marker already exists',
     ]
 
 
@@ -362,6 +362,25 @@ def test_japanese_recovery_card_explains_privacy_first_support_handoff():
     assert 'review済みのfirst-map receiptだけ' in source
     assert '`--first-map --json`のhandoff JSONは' in source
     assert '公開添付には使いません' in source
+
+
+def test_japanese_recovery_card_explains_independent_first_map_handoff():
+    """The Japanese card keeps independent validation privacy-bounded."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert '独立validator向けのissue form' in source
+    assert 'canonical\nindependent-validation issue form' in source
+    assert '自分で実行したrunの' in source
+    assert 'private pathをredact' in source
+    assert 'first-map receiptだけを添付します' in source
+    assert 'map、bag、preview、\nraw log、trajectory、parameter' in source
+    assert (
+        '`--first-map --json`のhandoff JSONとlocal receipt pathはpublic '
+        'attachmentではありません' in source
+    )
+    assert 'maintainerのlive step-by-step guidanceは' in source
+    assert '[Independent First-map Validation](external-first-map-validation.md)' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

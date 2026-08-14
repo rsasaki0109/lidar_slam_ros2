@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: explain Japanese independent first-map validation handoff",
-      "outcome": "A Japanese first-run user can turn a verified first-map receipt into a privacy-bounded independent-validation request without uploading a private map, bag, preview, raw log, or local handoff JSON.",
+      "title": "Docs: add a Japanese version identity and support-boundary check",
+      "outcome": "A Japanese first-run user can record the installed product identity, distinguish a published stable image from an unpublished source candidate, and avoid presenting a moving or guessed revision as supported evidence.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -248,15 +248,15 @@
         "docs/getting-started-ja.md"
       ],
       "non_goals": [
-        "change support-bundle generation, issue templates, or first-map validation schemas",
+        "change release metadata, image publication, or version semantics",
         "translate the entire getting-started guide",
-        "provide live guidance that would invalidate independent validation"
+        "claim that an unpublished candidate is a stable release"
       ],
       "acceptance": [
-        "The Japanese guide explains that --first-map prints a verification summary, safe environment hints, and the canonical independent-validation issue form.",
-        "The guide tells the operator to fill the form from their own run and attach only a reviewed first-map receipt.",
-        "The guide explicitly keeps the handoff JSON and local receipt path out of public attachments and states that the command never uploads to GitHub.",
-        "The existing support, session, preview, diagnosis, and no-private-upload guidance remains intact.",
+        "The Japanese guide shows lidarslam-map --version and tells the reader to record its output before support or validation handoff.",
+        "The guide distinguishes the immutable published v0.9.0 Docker images from the unpublished v0.9.1 source candidate path.",
+        "The guide tells the reader not to use a moving develop tag or guess a release identity when reporting evidence.",
+        "The existing support, session, preview, diagnosis, privacy, and independent-validation guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
       "focused_checks": [
@@ -270,8 +270,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "独立validator向けのissue form",
-          "failure_detail": "the planned Japanese independent-validation marker already exists"
+          "value": "lidarslam-map --version",
+          "failure_detail": "the planned Japanese version-identity marker already exists"
         }
       ],
       "private_data_required": false,

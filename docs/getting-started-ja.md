@@ -279,6 +279,19 @@ lidarslam-map support /path/to/session_bundle --first-map
 review済みのfirst-map receiptだけを使います。`--first-map --json`のhandoff JSONは
 local receipt pathを含むため、公開添付には使いません。
 
+独立validator向けのissue formへ送る場合は、同じ出力に含まれるcanonical
+independent-validation issue formを確認します。issue formには自分で実行したrunの
+release/commitまたはimmutable image digest、実行command、OS・architecture・ROS環境、
+statusを記入し、commandからprivate pathをredactします。receiptを添付する前に内容を
+読み、PASSなら名前が示されたfirst-map receiptだけを添付します。map、bag、preview、
+raw log、trajectory、parameter、スクリーンショットは添付しません。
+
+`--first-map --json`のhandoff JSONとlocal receipt pathはpublic attachmentではありません。
+このcommandはuploadしないため、自分でissue formへ入力して共有します。独立validationは
+公開手順を自分で実行した結果だけを対象にし、maintainerのlive step-by-step guidanceは
+validationとして扱いません。詳しい判定条件は[Independent First-map Validation](external-first-map-validation.md)
+を参照してください。
+
 ## 詳細
 
 このページは最短経路だけを示します。すべてのoption、対応input、校正、復旧、
