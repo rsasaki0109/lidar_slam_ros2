@@ -13,8 +13,8 @@
 > Planned follow-up inventory: 218 paths; SHA-256
 > `41e1740213e2e83438b4a537a2437956dbc376fe8bdd4f3eb8b7d20608a3aca1`
 >
-> Last observed remote mutation: exact non-force push from `c806e34` to
-> `09c407e`; mutations performed by the checker or review-card command:
+> Last observed remote mutation: exact non-force push from `09c407e` to
+> `f19a835`; mutations performed by the checker or review-card command:
 > **none**
 
 ## Outcome
@@ -62,7 +62,7 @@ public CI result.
 | S4 source onboarding | 25 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded Docker/source measurement, public preflight, and an auditable SHA-bound supplement path for retained observations | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 43 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, and package-manager blockers remain explicit; no release/version reuse is implied | maintainer distribution decision |
 | S6 product-shell integration | 74 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, and exact-identity observer packet agree | complete product gate and public CI |
-| S7 publication control | 5 | all 215 paths are owned once and external authority remains separate | exact-tip maintainer decision |
+| S7 publication control | 5 | all 218 paths are owned once and external authority remains separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
