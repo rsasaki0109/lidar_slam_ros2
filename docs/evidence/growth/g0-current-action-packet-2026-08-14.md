@@ -7,6 +7,8 @@
 > Draft PR: [#427](https://github.com/rsasaki0109/lidar_slam_ros2/pull/427)
 >
 > Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
+>
+> Latest product UX follow-up tip: `3dcdbf732a449cb6ebf7e77551da2284b8c1cc46`
 
 This reviewed tip is the code-bearing product-candidate revision; later
 docs-only handoff synchronization and product UX follow-up commits must remain
@@ -16,7 +18,8 @@ This is the current, read-only handoff for the G0 release-hygiene decision.
 It was first captured on 2026-08-14 and refreshed on 2026-08-15 after the
 dashboard UX, CI-registration, version-priority, final PR-head CI,
 packet-command-contract, fail-closed usability-worksheet, paired scorecard,
-safe observer-packet-output, and safe first-map-dry-run-plan-output follow-ups.
+safe observer-packet-output, safe first-map-dry-run-plan-output, Docker JSON
+own-bag-plan, and publication-inventory follow-ups.
 The code-bearing packet tip is required to be an ancestor of the current
 checkout revision; later synchronization and product UX follow-up commits
 must remain described in this handoff. It replaces
@@ -29,7 +32,7 @@ gate from being mistaken for the current state.
 | Check | Current result | Meaning |
 | --- | --- | --- |
 | Draft PR #427 | open, draft, mergeable; its current head includes packet synchronization and product UX follow-ups after the reviewed tip above | source candidate is publicly reviewable |
-| PR-head CI | **PASS** for the current branch tip (9 / 9 checks) | revalidation covers the version-priority UX and packet synchronization; CI is not a release approval |
+| PR-head CI | **PENDING** for the latest product UX follow-up tip | revalidation covers the Docker JSON plan and publication-inventory synchronization; CI is not a release approval |
 | Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 229 paths / 7 slices, clean at the refreshed tip | local inventory is complete and cannot authorize a GitHub write |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
