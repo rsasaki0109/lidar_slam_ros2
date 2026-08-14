@@ -733,6 +733,48 @@ map、bag、raw log、preview、trajectory、parameter、screenshot、session bu
 JSON、local receipt pathは公開せず、前述のサニタイズ済みsupport reportまたは内容をreviewした
 receiptだけを使います。
 
+### 日本語のvalidation reportのfollow-up証跡を一組で保つ
+
+follow-upを監査するときは、元のrunの`report + reviewed receipt`、follow-upの要約、別runの
+independent-validation reportを別のものとして記録します。follow-upの要約は新しいreceiptや
+新しいaccepted evidenceではありません。元のreport、receipt、`manifest_sha256`、review status
+を変えず、同じrunなら元の一組を参照し、新しいrunならそのrunだけの一組を作ります。
+
+| 記録 | 意味 | receiptの扱い | 監査で確認すること |
+| --- | --- | --- | --- |
+| original report/receipt pair | 一つのrunから作った公開reportと内容をreviewしたreceipt | そのまま保持し、再生成・編集・hash変更をしない | Docker/source identity、session/output、reportとreceiptの対応が同じrunである |
+| follow-up note | 元のfinding後に行ったsupport相談またはretryの要約 | 新しいreceiptを作らず、元の一組に対するnoteとして扱う | route、保存済み`reason.code`、sanitized `Details:`/`Next:`、fresh-output facts、review statusが分かる |
+| new independent-validation report | 公開手順を自分で完了した別runの報告 | 新しいrunに結び付くreportとreview済みreceiptを1組だけ使う | 古い一組を新runへ混ぜず、acceptedはledgerの明示記録がある場合だけ書く |
+
+次のblockはfollow-up noteの入力用です。local path、credential、raw command、receipt hashを
+そのまま貼らず、保存された情報を公開用にサニタイズしてから使います。
+
+```text
+follow-up audit:
+original report/receipt pair: <one unchanged pair; no local path>
+original identity: <v0.9.0 Docker identity or v0.9.1 source candidate + exact revision>
+follow-up route: <support follow-up / new independent validation>
+reason.code: <saved stable code>
+Details: <sanitized saved explanation>
+Next: <sanitized saved next action>
+fresh-output facts: <one fact and its user impact; no raw artifact>
+review status: <unresolved / retrying / READY FOR REVIEW — not accepted>
+duplicate check: <no duplicate issue or session artifact>
+```
+
+同じrunのsupport follow-upでは、`original report/receipt pair`を1組のまま保ち、`fresh-output
+facts`だけを新しいoutputから追記します。`Details:`、`Next:`、`retry.command`の値が元の
+sessionやlocal pathを含む場合は、公開にはstable code、command名、影響だけを残します。
+別runのindependent validationでは、Dockerなら公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、
+sourceなら未公開`v0.9.1`候補とexact commit/revisionを新しいsessionとreceiptから確認し、
+古いreport、receipt、map、hashをコピーしません。
+
+identity、session、output、またはreportとreceiptが同じrunに結び付くことを確認できない場合は
+監査を止めます。viewerの見た目、古いreceipt、架空のhashで不足を埋めず、acceptedや
+independent validationとも書きません。support相談やmaintainerのlive guidanceだけを行った
+場合は、follow-up noteまたはサニタイズ済みsupport reportとして扱い、公開validation evidence
+の一組に昇格させません。
+
 ### validation reportのreview statusを区別する
 
 `READY FOR REVIEW`は、元のsessionに対するlocal-onlyの再検証が完了し、canonical issue formへ

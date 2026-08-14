@@ -1000,27 +1000,43 @@ retires this task after the finding-follow-up marker appears.
 The next task makes the original report/receipt pair and a follow-up summary
 easy to audit without creating duplicate evidence.
 
-## Successor C5 — Japanese validation-report follow-up evidence pairing
+## Completed C5 — Japanese validation-report follow-up evidence pairing
+
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now distinguishes the original
+`report + reviewed receipt` pair, a follow-up note, and a new
+independent-validation report. It gives a copy-ready audit block with route,
+`reason.code`, sanitized `Details:`/`Next:`, fresh-output facts, review status,
+and a duplicate-artifact check, while keeping the original evidence immutable
+and local artifacts private.
+
+The queue's drift probe retires this task after the follow-up-evidence marker
+appears. The next task makes the sanitized follow-up summary itself easy to
+audit without turning it into a new validation result.
+
+## Successor C5 — Auditable Japanese validation-report follow-up summaries
 
 The next prepared C5 task keeps the Japanese language-path scope and explains
-how to preserve one immutable report/receipt pair while summarizing a follow-up
-for maintainers. It should distinguish the original evidence, a follow-up note,
-and a genuinely new independent-validation report without exposing local data.
+how a maintainer can audit a sanitized follow-up summary against the original
+evidence. It should preserve the distinction between a note, a new report, and
+accepted ledger evidence without exposing private paths or receipt artifacts.
 
 Suggested issue title:
 
-> Docs: explain Japanese validation-report follow-up evidence pairing
+> Docs: explain auditable Japanese validation-report follow-up summaries
 
 Outcome:
 
-A Japanese contributor can keep one immutable report/receipt pair and summarize
-a follow-up without duplicating evidence or confusing review states.
+A Japanese maintainer can audit an original report/receipt pair and a follow-up
+summary without treating notes as new evidence or exposing private artifacts.
 
 Acceptance:
 
-- distinguish an original report/receipt pair from a follow-up note and a new
+- distinguish the original report/receipt pair, a follow-up note, and a new
   independent-validation report;
-- give a copy-ready follow-up summary with route, `reason.code`, sanitized
+- give a copy-ready audit block with route, `reason.code`, sanitized
   `Details:`/`Next:`, fresh-output facts, and review status without private
   paths;
 - keep the original report, receipt, and hash immutable, permit one

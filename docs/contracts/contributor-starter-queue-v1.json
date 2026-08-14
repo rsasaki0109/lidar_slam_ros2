@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: explain Japanese validation-report follow-up evidence pairing",
-      "outcome": "A Japanese contributor can keep one immutable report/receipt pair and summarize a follow-up without duplicating evidence or confusing review states.",
+      "title": "Docs: explain auditable Japanese validation-report follow-up summaries",
+      "outcome": "A Japanese maintainer can audit an original report/receipt pair and a follow-up summary without treating notes as new evidence or exposing private artifacts.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -254,8 +254,8 @@
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide distinguishes an original report/receipt pair from a follow-up note and a new independent-validation report.",
-        "The card gives a copy-ready follow-up summary with route, reason.code, sanitized Details:/Next:, fresh-output facts, and review status without private paths.",
+        "The Japanese guide distinguishes the original report/receipt pair, a follow-up note, and a new independent-validation report.",
+        "The card gives a copy-ready audit block with route, reason.code, sanitized Details:/Next:, fresh-output facts, and review status without private paths.",
         "The guide keeps the original report, receipt, and hash immutable, permits one report/receipt pair per run, and forbids duplicate issue or session artifacts.",
         "The card preserves the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary and tells the reader to stop when identity or session data is missing.",
         "The existing support, session, privacy, independent-validation, and review-status guidance remains intact.",
@@ -272,8 +272,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### 日本語のvalidation reportのfollow-up証跡を一組で保つ",
-          "failure_detail": "the planned Japanese follow-up-evidence marker already exists"
+          "value": "### 日本語のvalidation reportのfollow-up要約を監査可能にする",
+          "failure_detail": "the planned Japanese follow-up-summary marker already exists"
         }
       ],
       "private_data_required": false,

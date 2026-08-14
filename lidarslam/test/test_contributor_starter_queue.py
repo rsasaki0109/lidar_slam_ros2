@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_validation_finding_follow_up_task_becomes_stale_when_marker_appears(
+def test_japanese_validation_follow_up_evidence_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A successor Japanese evidence-pairing card requires reassessment."""
+    """A successor Japanese follow-up-summary card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 日本語のvalidation reportのfollow-up証跡を一組で保つ\n',
+        + '\n### 日本語のvalidation reportのfollow-up要約を監査可能にする\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_validation_finding_follow_up_task_becomes_stale_when_marker_ap
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese follow-up-evidence marker already exists',
+        'the planned Japanese follow-up-summary marker already exists',
     ]
 
 
@@ -774,6 +774,46 @@ def test_japanese_recovery_card_explains_validation_finding_follow_up():
     assert '一つのrunにつきreportとreceiptは1組だけ' in normalized
     assert '複数issueへ重複添付しません' in normalized
     assert 'handoff JSON、local receipt pathは公開せず' in normalized
+
+
+def test_japanese_recovery_card_explains_follow_up_evidence_pairing():
+    """The Japanese pairing card makes follow-up evidence auditable."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+    card = source.split(
+        '### 日本語のvalidation reportのfollow-up証跡を一組で保つ', 1)[1].split(
+            '### validation reportのreview statusを区別する', 1)[0]
+    normalized = ' '.join(card.split())
+    compact = normalized.replace(' ', '')
+
+    assert '元のrunの`report + reviewed receipt`' in normalized
+    assert 'follow-upの要約' in normalized
+    assert '別runの independent-validation report' in normalized
+    assert '新しいreceiptや 新しいaccepted evidenceではありません' in normalized
+    assert '元のreport、receipt、`manifest_sha256`、reviewstatusを変えず' in compact
+    assert 'original report/receipt pair' in normalized
+    assert 'follow-up note' in normalized
+    assert 'new independent-validation report' in normalized
+    assert '新しいreceiptを作らず' in normalized
+    assert '保存済み`reason.code`' in normalized
+    assert 'sanitized `Details:`/`Next:`' in normalized
+    assert 'fresh-output facts' in normalized
+    assert 'acceptedはledgerの明示記録がある場合だけ書く' in normalized
+    assert 'follow-up audit:' in normalized
+    assert 'original identity:' in normalized
+    assert 'follow-up route:' in normalized
+    assert 'reason.code: <saved stable code>' in normalized
+    assert 'Details: <sanitized saved explanation>' in normalized
+    assert 'Next: <sanitized saved next action>' in normalized
+    assert 'review status: <unresolved / retrying / READY FOR REVIEW — not accepted>' in normalized
+    assert 'duplicate check: <no duplicate issue or session artifact>' in normalized
+    assert '同じrunのsupport follow-up' in normalized
+    assert 'fresh-output facts`だけを新しいoutputから追記' in normalized
+    assert '`v0.9.0-humble`または`v0.9.0-jazzy`' in normalized
+    assert '`v0.9.1`候補とexact commit/revision' in normalized
+    assert 'identity、session、output、またはreportとreceiptが同じrunに結び付く' in normalized
+    assert 'acceptedや independent validationとも書きません' in normalized
+    assert '公開validation evidence の一組に昇格させません' in normalized
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():
