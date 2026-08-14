@@ -6,21 +6,21 @@
 >
 > Draft PR: [#427](https://github.com/rsasaki0109/lidar_slam_ros2/pull/427)
 >
-> Exact reviewed product-candidate tip: `b2b3065f5b42f5d4b88c307de6c1e4b6e965c388`
+> Exact reviewed product-candidate tip: `329cf44139b9a21e59787ea13144334282caaa04`
 
 This is the current, read-only handoff for the G0 release-hygiene decision.
 It was first captured on 2026-08-14 and refreshed on 2026-08-15 after the
-dashboard UX and CI-registration follow-up. It replaces neither the historical
-2026-08-11 decision packet nor any maintainer approval. Its purpose is to
-prevent an old commit, old version, or one external action gate from being
-mistaken for the current state.
+dashboard UX, CI-registration, and version-priority follow-ups. It replaces
+neither the historical 2026-08-11 decision packet nor any maintainer approval.
+Its purpose is to prevent an old commit, old version, or one external action
+gate from being mistaken for the current state.
 
 ## Current evidence
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
 | Draft PR #427 | open, draft, mergeable clean; the reviewed candidate tip above is its public head | source candidate is publicly reviewable |
-| PR-head CI | **9 / 9 PASS** on `b2b3065` | public CI is green; it is not a release approval |
+| PR-head CI | **PENDING** for `329cf44` (9 checks expected) | revalidation is required after the version-priority UX change; CI is not a release approval |
 | Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 223 paths / 7 slices, clean at the refreshed tip | local inventory is complete and cannot authorize a GitHub write |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
