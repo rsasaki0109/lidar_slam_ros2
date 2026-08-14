@@ -888,36 +888,53 @@ evidence, and keeps paths, maps, bags, logs, previews, and session bundles out
 of the public example.
 
 The queue's drift probe retires this task after the privacy-safe report-example
-marker appears. The next task helps beginners choose one supported first-map
-route and record the correct identity.
+marker appears. The next task helps a user recover safely when switching
+between the supported first-map routes.
 
-## Successor C5 — Japanese Docker/source route chooser
+## Completed C5 — Japanese Docker/source route chooser
 
-The next prepared C5 task keeps the Japanese language-path scope and adds a
-compact route-choice card. It should help a beginner choose Docker or source
-once, understand the stable/candidate boundary, and avoid mixing artifacts or
-assuming an unsupported package path.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now has one route-choice card with a copy-ready
+Docker fixed-demo command, a source `--dry-run` command, one stop/check boundary
+for each, the published v0.9.0 versus unpublished v0.9.1 identity boundary, and
+the unsupported PPA/package-manager boundary. It tells beginners to choose one
+route, use fresh output when changing routes, and never mix Docker/source
+receipts or session artifacts.
+
+The queue's drift probe retires this task after the Docker/source route-choice
+marker appears. The next task adds safe recovery guidance for switching routes
+after an incomplete run.
+
+## Successor C5 — Japanese fresh-output route-switch recovery card
+
+The next prepared C5 task keeps the Japanese language-path scope and explains
+what to do when a Docker or source first-map run is incomplete and the user
+chooses a different route. It should prevent `--resume`, saved retry commands,
+and a route switch from being treated as interchangeable or from overwriting
+the original evidence.
 
 Suggested issue title:
 
-> Docs: add a Japanese Docker/source route chooser
+> Docs: add a Japanese fresh-output route-switch recovery card
 
 Outcome:
 
-A Japanese beginner can choose one supported Docker or source first-map route,
-record the correct identity, and avoid mixing artifacts or assuming an
-unsupported package path.
+A Japanese user who changes Docker or source route after an incomplete run can
+start with a fresh output, preserve evidence identity, and avoid overwriting or
+mixing session artifacts.
 
 Acceptance:
 
-- compare the fixed Docker first-map route with the source quickstart route and
-  state when each is appropriate;
-- give one first command and one stop/check boundary for each route, while
-  directing a beginner to use one route at a time;
-- keep the published v0.9.0 Docker identity, unpublished v0.9.1 source-candidate
-  boundary, and unsupported package-manager/PPA boundary explicit;
-- tell the reader which release, commit, or image identity to record and do not
-  mix Docker and source artifacts or claim unsupported hardware;
+- distinguish changing routes from using `--resume` or a saved retry command
+  after an incomplete run;
+- require a fresh output for a changed route and tell the reader not to
+  overwrite or reuse the previous map, session, receipt, or manifest;
+- preserve the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary
+  and tell the reader which identity to record;
+- direct the reader to retained `Details:`/`Next:`/retry instructions and keep
+  local evidence and privacy boundaries intact;
 - preserve the existing version, support, session, preview, privacy, and
   independent-validation guidance;
 - require no rosbag, hardware, network, or private log.
@@ -930,7 +947,7 @@ python3 -m mkdocs build --strict
 
 Estimate: **30 minutes**. Non-goals: changing the issue template, review
 ledger, support or verification implementation, changing the Docker image,
-source helper, package-manager support, or release identity, translating the
+source helper, recovery implementation, or release identity, translating the
 entire guide, asking for a private bag/map/raw-log upload, or claiming support
 for an unvalidated sensor.
 

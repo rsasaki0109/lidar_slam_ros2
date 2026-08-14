@@ -16,6 +16,41 @@
 インストール後に端末で引数なしの`lidarslam-map`を実行すると、インストール確認、
 固定デモ、自分のbag、過去のsessionから安全な入口を選べます。
 
+### 日本語のDockerとsource経路を選ぶ
+
+最初のfirst-mapでは、Dockerまたはsourceのどちらか1つだけを選びます。DockerはROS 2の
+workspaceを準備せずに公開済み固定デモを試すcontrol experiment、sourceはHumble/Jazzyの
+環境でhelperを確認しながら構築する経路です。出力directoryやsessionを別経路で使い回さず、
+経路を変える場合は新しいoutputを使ってidentityを記録します。
+
+| 経路 | こういう場合 | 最初の1コマンド | ここで止めて確認 |
+| --- | --- | --- | --- |
+| Docker fixed first-map | ROS 2 workspaceなしで、公開済みの基準デモを先に試したい | 下記のDocker route command | 完了後に`map_verify: PASS`、receiptの`status: PASS`、`--version`のidentityを確認する。PASSでなければ同じoutputをsourceで再利用しない |
+| source quickstart | Ubuntu 22.04/HumbleまたはUbuntu 24.04/Jazzyで、sourceから構築する | `bash scripts/source_quickstart.sh --dry-run` | `dry_run`のplanと`run.command_shell`をreviewしてから実行へ進む。`--version`のrevisionを記録し、Dockerのreceiptと混ぜない |
+
+Docker routeの最初のcommand（Humble）は次の1つです。Jazzyではimage tagだけを
+`v0.9.0-jazzy`に置き換えます。
+
+```bash
+docker run --rm \
+  -e LIDARSLAM_HOST_UID="$(id -u)" \
+  -e LIDARSLAM_HOST_GID="$(id -g)" \
+  -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
+```
+
+source routeの最初のcommandは、書き込み前にplanだけを確認する次の1つです。
+
+```bash
+bash scripts/source_quickstart.sh --dry-run
+```
+
+Dockerのidentityは公開済み安定版`v0.9.0-humble`または`v0.9.0-jazzy`です。source helperは
+まだ公開・tag付けされていない`v0.9.1`候補を扱うため、sourceの結果を公開releaseやDocker
+identityとして報告しません。GLIMのようなPPA/package-manager経路は未対応なので、経路選択で
+これらを代替手段として追加しません。最初のcontrol experimentが失敗した場合は、表示された
+`Details:`と`Next:`を読み、経路やoutputを手で混ぜずに保存済みの指示へ戻ります。
+
 ## 1. インストールを確認する
 
 ```bash

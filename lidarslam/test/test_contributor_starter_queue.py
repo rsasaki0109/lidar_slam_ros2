@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_docker_source_route_task_becomes_stale_when_marker_appears(
+def test_japanese_route_switch_recovery_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A successor Japanese route-choice card requires reassessment."""
+    """A successor Japanese route-switch card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 日本語のDockerとsource経路を選ぶ\n',
+        + '\n### 日本語の経路切替とfresh output復旧\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_docker_source_route_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese Docker/source route-choice marker already exists',
+        'the planned Japanese fresh-output route-switch recovery marker already exists',
     ]
 
 
@@ -608,6 +608,30 @@ def test_japanese_recovery_card_has_privacy_safe_report_example():
     assert 'not submitted / not maintainer-reviewed / not accepted' in example
     assert '/home/' not in example
     assert '/tmp/' not in example
+
+
+def test_japanese_recovery_card_explains_docker_source_route_choice():
+    """The Japanese route card keeps identity and stop boundaries explicit."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+    card = source.split(
+        '### 日本語のDockerとsource経路を選ぶ', 1)[1].split(
+            '## 1. インストールを確認する', 1)[0]
+
+    assert '最初のfirst-mapでは、Dockerまたはsourceのどちらか1つだけ' in card
+    assert 'Docker fixed first-map' in card
+    assert 'source quickstart' in card
+    assert 'v0.9.0-humble' in card
+    assert 'v0.9.0-jazzy' in card
+    assert 'v0.9.1' in card
+    assert 'docker run --rm' in card
+    assert 'bash scripts/source_quickstart.sh --dry-run' in card
+    assert 'map_verify: PASS' in card
+    assert 'receiptの`status: PASS`' in card
+    assert '`dry_run`のplanと`run.command_shell`' in card
+    assert 'PPA/package-manager経路は未対応' in card
+    assert '出力directoryやsessionを別経路で使い回さず' in card
+    assert 'Dockerのreceiptと混ぜない' in card
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():
