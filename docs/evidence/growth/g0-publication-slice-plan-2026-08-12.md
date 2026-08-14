@@ -10,8 +10,8 @@
 > Frozen public review baseline (machine key `public_head_sha`):
 > `8a931a3627be503fb10c255ef846c6d3c54a237c`
 >
-> Planned follow-up inventory: 219 paths; SHA-256
-> `dc1dc6d8ffe79b61ed3946bac79ccd4ec1b6d22357fdc08c25cd7fe915208976`
+> Planned follow-up inventory: 223 paths; SHA-256
+> `fc9a72d334812b1f41b69d20ce22744a44f6dfb79b6d03a3614c2370dd1b951e`
 >
 > Last observed remote mutation: exact non-force push from `f19a835` to
 > `0bb3edc`; mutations performed by the checker or review-card command:
@@ -61,8 +61,8 @@ public CI result.
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 25 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded Docker/source measurement, public preflight, and an auditable SHA-bound supplement path for retained observations | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 43 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, and package-manager blockers remain explicit; no release/version reuse is implied | maintainer distribution decision |
-| S6 product-shell integration | 74 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, and exact-identity observer packet agree | complete product gate and public CI |
-| S7 publication control | 6 | all 219 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
+| S6 product-shell integration | 78 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, exact-identity observer packet, and one-command G0 readiness dashboard agree | complete product gate and public CI |
+| S7 publication control | 6 | all 223 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -100,7 +100,7 @@ from that base and the local tip descends from the public head, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 219-path coverage with the fixed inventory digest;
+4. exact 223-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred.
 
@@ -112,11 +112,12 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 219 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 223 paths, 7 slices, no remote mutation |
 | checker regressions | 14 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, and self-contained read-only source dry-run execution |
 | focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
 | validator cohort contract and operating state | 31 passed; path-specific immutable runtime identity, anonymized attempt lifecycle, accepted-ledger evidence binding, four operational stop signals, 48-hour freshness, WIP, batch/target transitions, attempt-10 thresholds, and a one-action human status card are enforced through the CLI; recruitment render remains blocked; no write authority |
+| G0 readiness dashboard | 4 passed; one-command local HOLD card, optional read-only publication audit, JSON schema, one next action, and checker-error fail-closed behavior are covered |
 | weekly growth snapshot | 14 passed; new snapshots re-derive cohort count/rate/state consistency while the immutable historical baseline remains schema-valid and identity-free |
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
 | complete maintained Python gate | graph: 1,433 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 751 passed; 2,184 total |

@@ -1,0 +1,150 @@
+# Copyright 2026 Sasaki
+# All rights reserved.
+#
+# Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+"""Tests for the local, read-only G0 readiness dashboard."""
+
+from __future__ import annotations
+
+import copy
+import importlib.util
+from pathlib import Path
+
+import pytest
+
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPT = ROOT / 'scripts' / 'check_g0_readiness.py'
+SPEC = importlib.util.spec_from_file_location('check_g0_readiness', SCRIPT)
+assert SPEC is not None and SPEC.loader is not None
+DASHBOARD = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(DASHBOARD)
+
+
+def test_current_dashboard_preserves_the_tracked_hold_state():
+    """The current local evidence remains an honest G0 HOLD."""
+    reports = DASHBOARD.collect_checker_reports()
+    report = DASHBOARD.build_report(reports)
+
+    assert report['status'] == 'HOLD'
+    assert report['authority'] == {
+        'network_reads_performed': False,
+        'github_writes_authorized': False,
+        'remote_mutations_performed': False,
+    }
+    assert report['checks']['publication_plan']['status'] == (
+        'PLAN_VALID_LOCAL_ONLY'
+    )
+    assert report['checks']['publication_plan']['path_count'] == 223
+    assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
+    assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
+    assert report['next_action']['id'] == 'complete-comparable-onboarding'
+
+    card = DASHBOARD.render_card(report)
+    assert card.count('Next action:') == 1
+    assert 'GitHub/community writes: **no**' in card
+    assert 'g0-current-action-packet-2026-08-14.md' in card
+
+
+def test_dashboard_can_include_a_read_only_release_report_without_writes():
+    """An optional release report is represented without adding authority."""
+    reports = DASHBOARD.collect_checker_reports()
+    reports['published_release'] = {
+        'status': 'NOT_PUBLISHED',
+        'expected_version': '0.9.1',
+        'remote': {'tag_present': False},
+        'images': [
+            {'tag': 'ghcr.io/example:v0.9.1-humble', 'status': 'ABSENT'},
+        ],
+    }
+    report = DASHBOARD.build_report(
+        reports,
+        published_release_version='0.9.1',
+    )
+
+    assert report['authority']['network_reads_performed'] is True
+    assert report['checks']['published_release'] == {
+        'status': 'NOT_PUBLISHED',
+        'version': '0.9.1',
+        'tag_present': False,
+        'image_statuses': [
+            {'tag': 'ghcr.io/example:v0.9.1-humble', 'status': 'ABSENT'},
+        ],
+    }
+    assert report['authority']['remote_mutations_performed'] is False
+
+
+def test_dashboard_selects_one_next_action_and_ready_state_is_explicit():
+    """A fully ready synthetic report gets one explicit review action."""
+    reports = DASHBOARD.collect_checker_reports()
+    ready = copy.deepcopy(reports)
+    ready['onboarding_matrix']['decision']['status'] = 'ACTIVATION_GATE_PASS'
+    ready['onboarding_matrix']['summary'].update({
+        'activation_gate': True,
+        'comparable_rows': 2,
+        'docker_comparable_rows': 1,
+        'source_comparable_rows': 1,
+        'product_version_aligned': True,
+    })
+    ready['first_map_cohort'].update({
+        'status': 'READY_FOR_NEXT_ATTEMPT',
+        'launch_status': 'READY_FOR_NEXT_ATTEMPT',
+        'pending_launch_gates': [],
+    })
+    ready['v1_readiness'].update({
+        'status': 'READY',
+        'summary': {'complete': 10, 'incomplete': 0, 'total': 10},
+        'gates': [],
+    })
+    ready['published_release'] = {
+        'status': 'PUBLISHED',
+        'expected_version': '0.9.1',
+        'remote': {'tag_present': True},
+        'images': [],
+    }
+
+    report = DASHBOARD.build_report(
+        ready,
+        published_release_version='0.9.1',
+    )
+
+    assert report['status'] == 'READY_FOR_REVIEW'
+    assert report['next_action']['id'] == 'review-external-gates'
+    assert report['next_action']['write_boundary'].startswith('read-only')
+
+
+def test_checker_error_is_not_downgraded_to_a_hold():
+    """A checker execution error remains an error, never a synthetic HOLD."""
+    def failing_runner(*_args, **_kwargs):
+        return DASHBOARD.subprocess.CompletedProcess(
+            args=[],
+            returncode=2,
+            stdout='',
+            stderr='synthetic checker failure',
+        )
+
+    with pytest.raises(DASHBOARD.G0ReadinessError, match='synthetic'):
+        DASHBOARD.collect_checker_reports(runner=failing_runner)

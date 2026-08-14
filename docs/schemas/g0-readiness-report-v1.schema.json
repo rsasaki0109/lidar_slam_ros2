@@ -1,0 +1,207 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/g0-readiness-report-v1.schema.json",
+  "title": "lidarslam_ros2 G0 readiness report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "schema_uri",
+    "repository",
+    "scope",
+    "status",
+    "authority",
+    "current_packet",
+    "checks",
+    "next_action"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "schema_uri": {
+      "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/g0-readiness-report-v1.schema.json"
+    },
+    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "scope": {"const": "local-g0-readiness"},
+    "status": {"enum": ["HOLD", "READY_FOR_REVIEW"]},
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "network_reads_performed",
+        "github_writes_authorized",
+        "remote_mutations_performed"
+      ],
+      "properties": {
+        "network_reads_performed": {"type": "boolean"},
+        "github_writes_authorized": {"const": false},
+        "remote_mutations_performed": {"const": false}
+      }
+    },
+    "current_packet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "supersedes_historical_snapshot"],
+      "properties": {
+        "path": {
+          "const": "docs/evidence/growth/g0-current-action-packet-2026-08-14.md"
+        },
+        "supersedes_historical_snapshot": {"const": true}
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publication_plan",
+        "onboarding_matrix",
+        "first_map_cohort",
+        "v1_readiness",
+        "published_release"
+      ],
+      "properties": {
+        "publication_plan": {"$ref": "#/definitions/publicationPlan"},
+        "onboarding_matrix": {"$ref": "#/definitions/onboardingMatrix"},
+        "first_map_cohort": {"$ref": "#/definitions/cohort"},
+        "v1_readiness": {"$ref": "#/definitions/v1"},
+        "published_release": {"$ref": "#/definitions/publishedRelease"}
+      }
+    },
+    "next_action": {"$ref": "#/definitions/nextAction"}
+  },
+  "definitions": {
+    "publicationPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "path_count",
+        "slice_count",
+        "worktree_clean",
+        "uncommitted_path_count"
+      ],
+      "properties": {
+        "status": {"const": "PLAN_VALID_LOCAL_ONLY"},
+        "path_count": {"type": "integer", "minimum": 0},
+        "slice_count": {"type": "integer", "minimum": 1},
+        "worktree_clean": {"type": "boolean"},
+        "uncommitted_path_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "onboardingMatrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "product_versions",
+        "present_rows",
+        "pass_rows",
+        "comparable_rows",
+        "docker_comparable_rows",
+        "source_comparable_rows",
+        "product_version_aligned",
+        "activation_gate",
+        "actions"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "INCOMPLETE",
+            "BLOCKED",
+            "ACTIVATION_GATE_PASS",
+            "ALL_ROWS_COMPARABLE"
+          ]
+        },
+        "product_versions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string"}
+        },
+        "present_rows": {"type": "integer", "minimum": 0, "maximum": 4},
+        "pass_rows": {"type": "integer", "minimum": 0, "maximum": 4},
+        "comparable_rows": {"type": "integer", "minimum": 0, "maximum": 4},
+        "docker_comparable_rows": {"type": "integer", "minimum": 0, "maximum": 2},
+        "source_comparable_rows": {"type": "integer", "minimum": 0, "maximum": 2},
+        "product_version_aligned": {"type": "boolean"},
+        "activation_gate": {"type": "boolean"},
+        "actions": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "cohort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "launch_status",
+        "attempt_count",
+        "accepted_validations",
+        "accepted_target",
+        "pending_launch_gates"
+      ],
+      "properties": {
+        "status": {"type": "string", "minLength": 1},
+        "launch_status": {"type": "string", "minLength": 1},
+        "attempt_count": {"type": "integer", "minimum": 0},
+        "accepted_validations": {"type": "integer", "minimum": 0},
+        "accepted_target": {"type": "integer", "minimum": 1},
+        "pending_launch_gates": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "complete", "incomplete", "total", "incomplete_gates"],
+      "properties": {
+        "status": {"enum": ["READY", "NOT_READY"]},
+        "complete": {"type": "integer", "minimum": 0},
+        "incomplete": {"type": "integer", "minimum": 0},
+        "total": {"type": "integer", "minimum": 1},
+        "incomplete_gates": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "publishedRelease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "version", "tag_present", "image_statuses"],
+      "properties": {
+        "status": {"enum": ["NOT_CHECKED", "NOT_PUBLISHED", "PUBLISHED", "BLOCKED"]},
+        "version": {"type": "string", "minLength": 1},
+        "tag_present": {"type": ["boolean", "null"]},
+        "image_statuses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tag", "status"],
+            "properties": {
+              "tag": {"type": "string", "minLength": 1},
+              "status": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    "nextAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "reason", "command", "write_boundary"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]+$"},
+        "title": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "command": {"type": "string", "minLength": 1},
+        "write_boundary": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

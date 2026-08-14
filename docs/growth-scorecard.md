@@ -81,7 +81,20 @@ supersedes the historical snapshot for present handoff decisions. It binds
 Draft PR #427, exact tip `0bb3edc`, green public CI, the 219-path local plan,
 and the still-unpublished v0.9.1/image state, while keeping E2 artifact
 hosting, E3 community mutation, and E4 release publication separate and
-unauthorized.
+unauthorized. The packet's 219-path inventory is its capture-time value; the
+current local follow-up inventory is 223 paths after adding the read-only G0
+dashboard.
+
+The [G0 readiness dashboard](g0-readiness.md) is the single read-only entry
+point for rechecking those local gates:
+
+```bash
+python3 scripts/check_g0_readiness.py
+```
+
+Use `--include-published-release` only when a network-read audit is wanted.
+The dashboard reports one next action and never interprets missing human
+measurements, public identity, release, or community evidence as complete.
 
 Local descendant `bce5a9d` additionally passes the real-component #69
 unsafe-then-safe recovery sequence ten consecutive times and the full 10-suite
