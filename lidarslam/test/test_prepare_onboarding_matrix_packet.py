@@ -31,13 +31,13 @@
 from __future__ import annotations
 
 import importlib.util
+import pathlib
 import sys
-from pathlib import Path
 
 import pytest
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / 'scripts' / 'prepare_onboarding_matrix_packet.py'
 
 
