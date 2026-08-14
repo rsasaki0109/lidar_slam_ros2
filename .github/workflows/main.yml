@@ -52,9 +52,14 @@ jobs:
           python3 -m pytest lidarslam/test/test_published_release.py -q
           python3 -m pytest lidarslam/test/test_release_channel.py -q
           python3 -m pytest lidarslam/test/test_external_first_map_acceptance.py -q
+          python3 -m pytest lidarslam/test/test_check_g0_readiness.py -q
           python3 scripts/check_ndt_omp_release_readiness.py --offline
           python3 scripts/check_external_first_map_readiness.py --json
           python3 scripts/check_v1_readiness.py --json
+          # G0 is intentionally allowed to report HOLD here; this command
+          # verifies that the read-only dashboard remains schema-valid and
+          # fail-closed on every public candidate.
+          python3 scripts/check_g0_readiness.py --json
 
       - name: Validate public shell entrypoints
         shell: bash
