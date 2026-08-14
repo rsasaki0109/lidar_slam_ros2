@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_version_task_becomes_stale_when_marker_appears(
+def test_japanese_reason_code_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese version card requires queue reassessment."""
+    """A completed Japanese reason-code card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\nlidarslam-map --version\n',
+        + '\nreason.code\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_version_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese version-identity marker already exists',
+        'the planned Japanese reason-code marker already exists',
     ]
 
 
@@ -381,6 +381,20 @@ def test_japanese_recovery_card_explains_independent_first_map_handoff():
     )
     assert 'maintainerのlive step-by-step guidanceは' in source
     assert '[Independent First-map Validation](external-first-map-validation.md)' in source
+
+
+def test_japanese_recovery_card_explains_version_identity_boundary():
+    """The Japanese card makes product identity copy-ready."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert 'versionとsupport境界を記録する' in source
+    assert 'lidarslam-map --version' in source
+    assert '公開済み安定版`v0.9.0-humble`または`v0.9.0-jazzy`' in source
+    assert '`v0.9.1`はまだ公開・tag付けされていないsource候補' in source
+    assert 'candidateとしてそのversion/revisionを報告' in source
+    assert '`develop`の移動tagを使ったり' in source
+    assert '`--version`の出力をそのままsupport report' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

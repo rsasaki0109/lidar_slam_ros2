@@ -79,6 +79,21 @@ buildだけなら`--build-only`、画面を開かない環境なら`--viewer non
     GLIMのようなPPA/package-managerの導入経路は、依存packageのrosdistro審査が
     完了するまで未対応です。現時点の正規経路はDockerまたは上記source helperです。
 
+### versionとsupport境界を記録する
+
+supportや独立validationへ進む前に、実際に使ったCLIのversionとrevisionを記録します。
+これはネットワークへ接続せず、mapやsessionを書き込みません。
+
+```bash
+lidarslam-map --version
+```
+
+Dockerの固定デモは公開済み安定版`v0.9.0-humble`または`v0.9.0-jazzy`を使います。
+`v0.9.1`はまだ公開・tag付けされていないsource候補なので、source helperで実行した
+場合はcandidateとしてそのversion/revisionを報告します。`develop`の移動tagを使ったり、
+出力にないrelease identityを推測したりせず、`--version`の出力をそのままsupport report
+やvalidation formへ転記してください。
+
 ## 4. 自分のbagを地図にする
 
 インストール済みの場合は、`metadata.yaml`を含むrosbag2 directoryを渡します。

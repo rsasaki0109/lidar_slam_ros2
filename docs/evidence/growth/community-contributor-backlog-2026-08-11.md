@@ -484,15 +484,20 @@ templates, or first-map validation schemas, translating the entire guide,
 providing live guidance that would invalidate independent validation, or
 claiming support for an unvalidated sensor.
 
-## Successor C5 — Japanese version identity and support-boundary check
+## Completed C5 — Japanese version identity and support-boundary check
 
-The next prepared C5 task keeps the Japanese language-path scope and closes a
-small but important evidence gap: the guide explains which product identity a
-user should record before asking for support or submitting an independent
-validation. The existing Japanese page already distinguishes the published
-v0.9.0 Docker images from the unpublished v0.9.1 source candidate; it does not
-yet show the installed CLI identity command or warn against reporting a moving
-or guessed revision.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now shows the read-only `lidarslam-map
+--version` command, distinguishes the published v0.9.0 Docker images from the
+unpublished v0.9.1 source candidate, and tells the operator to transfer the
+observed version/revision rather than guessing a release identity. The existing
+support, privacy, and independent-validation boundaries remain intact.
+
+The queue's drift probe retires this task after the version marker appears. The
+next task turns the Japanese failure path into stable-code triage so a user can
+choose the correct next action before requesting support.
 
 Suggested issue title:
 
@@ -525,6 +530,46 @@ python3 -m mkdocs build --strict
 Estimate: **30 minutes**. Non-goals: changing release metadata, publishing an
 image, changing version semantics, translating the entire guide, claiming that
 an unpublished candidate is a stable release, or validating an untested sensor.
+
+## Successor C5 — Japanese reason-code and Next-action triage
+
+The next prepared C5 task keeps the Japanese language-path scope and makes the
+failure handoff actionable. The guide already names `[reason-code]`, `Details:`,
+and `Next:` in separate recovery cards, but it does not yet show the read-only
+JSON diagnosis path or explain which stable code fields should drive automation
+and support reports.
+
+Suggested issue title:
+
+> Docs: explain Japanese reason-code and Next-action triage
+
+Outcome:
+
+A Japanese first-run user can read stable diagnosis codes, follow the retained
+Next action, and choose a safe retry or inspection path without guessing from a
+viewer symptom or uploading private data.
+
+Acceptance:
+
+- show `lidarslam-map doctor /path/to/rosbag2 --json` as a read-only diagnosis
+  path;
+- tell the reader to use `reason.code` and `findings[].code` as stable keys
+  rather than guessing from English text or a viewer symptom;
+- tell the reader to follow the exact retained `Next:` action and distinguish
+  safe post-processing recovery from returning to `doctor`;
+- preserve the existing version, support, session, preview, privacy, and
+  independent-validation guidance;
+- require no rosbag, hardware, network, or private log.
+
+Focused check:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+Estimate: **30 minutes**. Non-goals: changing diagnosis schemas, reason codes,
+or recovery implementation, translating the entire guide, asking for a private
+bag/map/raw-log upload, or claiming support for an unvalidated sensor.
 
 ## Publication and review sequence
 

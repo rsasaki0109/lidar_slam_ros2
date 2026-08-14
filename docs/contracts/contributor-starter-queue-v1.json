@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: add a Japanese version identity and support-boundary check",
-      "outcome": "A Japanese first-run user can record the installed product identity, distinguish a published stable image from an unpublished source candidate, and avoid presenting a moving or guessed revision as supported evidence.",
+      "title": "Docs: explain Japanese reason-code and Next-action triage",
+      "outcome": "A Japanese first-run user can read stable diagnosis codes, follow the retained Next action, and choose a safe retry or inspection path without guessing from a viewer symptom or uploading private data.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -248,15 +248,15 @@
         "docs/getting-started-ja.md"
       ],
       "non_goals": [
-        "change release metadata, image publication, or version semantics",
+        "change diagnosis schemas, reason codes, or recovery implementation",
         "translate the entire getting-started guide",
-        "claim that an unpublished candidate is a stable release"
+        "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide shows lidarslam-map --version and tells the reader to record its output before support or validation handoff.",
-        "The guide distinguishes the immutable published v0.9.0 Docker images from the unpublished v0.9.1 source candidate path.",
-        "The guide tells the reader not to use a moving develop tag or guess a release identity when reporting evidence.",
-        "The existing support, session, preview, diagnosis, privacy, and independent-validation guidance remains intact.",
+        "The Japanese guide shows lidarslam-map doctor /path/to/rosbag2 --json as a read-only diagnosis path.",
+        "The guide tells the reader to use reason.code and findings[].code as stable keys rather than guessing from English text or a viewer symptom.",
+        "The guide tells the reader to follow the exact retained Next action and distinguishes safe post-processing recovery from returning to doctor.",
+        "The existing version, support, session, preview, privacy, and independent-validation guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
       "focused_checks": [
@@ -270,8 +270,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "lidarslam-map --version",
-          "failure_detail": "the planned Japanese version-identity marker already exists"
+          "value": "reason.code",
+          "failure_detail": "the planned Japanese reason-code marker already exists"
         }
       ],
       "private_data_required": false,
