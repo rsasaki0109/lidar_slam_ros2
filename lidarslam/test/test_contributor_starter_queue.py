@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_reason_code_task_becomes_stale_when_marker_appears(
+def test_japanese_dry_run_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese reason-code card requires queue reassessment."""
+    """A completed Japanese dry-run card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\nreason.code\n',
+        + '\n### 自分のbagを先にdry-runで確認する\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_reason_code_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese reason-code marker already exists',
+        'the planned Japanese dry-run marker already exists',
     ]
 
 
@@ -395,6 +395,24 @@ def test_japanese_recovery_card_explains_version_identity_boundary():
     assert 'candidateとしてそのversion/revisionを報告' in source
     assert '`develop`の移動tagを使ったり' in source
     assert '`--version`の出力をそのままsupport report' in source
+
+
+def test_japanese_recovery_card_explains_reason_code_and_next_action_triage():
+    """The Japanese card keys diagnosis on stable codes and retained actions."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert 'JSON診断でreason-codeとNext-actionを読む' in source
+    assert 'lidarslam-map doctor /path/to/rosbag2 --json' in source
+    assert 'read-onlyで読み、ネットワークへ接続せず' in source
+    assert '`findings[].code`を安定したキー' in source
+    assert '`reason.code`と各項目の' in source
+    assert 'viewerで見えた症状' in source
+    assert '`next_action`、`Next:`、`next_command`は保持された次の操作' in source
+    assert 'raw JSONをissueへ貼り付けません' in source
+    assert '安全なterminal post-processingだけを再開する`--resume`' in source
+    assert 'mappingやviewerを再試行せず' in source
+    assert '失敗したrunを上書きしません' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

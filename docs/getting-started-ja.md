@@ -32,6 +32,25 @@ lidarslam-map doctor /path/to/rosbag2
 
 これはtopic、PointCloud2のfield、timestamp順、利用可能なprofileを確認します。
 
+### JSON診断でreason-codeとNext-actionを読む
+
+自分のbagをmappingへ渡す前に、診断結果を機械可読な形でも確認できます。
+このコマンドはbagをread-onlyで読み、ネットワークへ接続せず、出力ファイルも作りません。
+
+```bash
+lidarslam-map doctor /path/to/rosbag2 --json
+```
+
+doctorのbag reportでは`findings[].code`を安定したキーとして使います。`start`の
+dry-run JSONや保存済みsessionのrecovery JSONでは、全体の`reason.code`と各項目の
+`findings[].code`を使います。`message`、`Details:`、viewerで見えた症状、英語の説明文を
+手がかりにコードを推測したり、automationのキーにしたりしません。
+
+診断結果の`next_action`、`Next:`、`next_command`は保持された次の操作です。自分で
+pathやoptionを組み立て直さず、そのcommandを確認してからそのまま実行します。JSONには
+bagのlocal pathやtopic名が含まれる場合があるため、raw JSONをissueへ貼り付けません。
+支援が必要なときは、後述のサニタイズ済みsupport reportだけを内容確認後に使います。
+
 ## 2. Dockerで固定デモ {#docker-demo}
 
 ROS 2 workspaceを構築せず、固定MID-360デモから検証済み地図を作ります。
@@ -126,15 +145,19 @@ bash scripts/docker_map_bag.sh /absolute/path/to/rosbag2
 - 自動生成された`lanelet2_map.osm`
 - 検証receiptとoffline review
 
-失敗時は`[reason-code]`と`Next:`を探してください。安全に再開できるデモの
-post-processingだけが残った場合は、表示された次の形式をそのまま実行します。
+失敗時は`[reason-code]`、`Details:`、`Next:`を探してください。保持された次の操作が
+安全なterminal post-processingだけを再開する`--resume`なら、表示されたcommandを
+そのまま実行します。
 
 ```bash
 lidarslam-map demo /path/to/work_dir --resume
 ```
 
 `--resume`はmappingを再実行せず、安全なterminal post-processingだけを再開します。
-状態が不明なbagは`lidarslam-map doctor /path/to/rosbag2`へ戻ってください。
+bagのtopic、field、timestamp、profileが不明、または診断が入力修復を求めている場合は、
+mappingやviewerを再試行せず`lidarslam-map doctor /path/to/rosbag2 --json`へ戻ってください。
+`reason.code`や`findings[].code`の`Next:`が新しいoutput directoryでのretryを示す場合だけ、
+保持されたcommandを使い、失敗したrunを上書きしません。
 
 ### mapまたはviewerが空のとき: 3つの確認
 

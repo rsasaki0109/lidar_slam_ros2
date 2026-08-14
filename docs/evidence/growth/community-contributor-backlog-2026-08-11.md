@@ -531,32 +531,42 @@ Estimate: **30 minutes**. Non-goals: changing release metadata, publishing an
 image, changing version semantics, translating the entire guide, claiming that
 an unpublished candidate is a stable release, or validating an untested sensor.
 
-## Successor C5 — Japanese reason-code and Next-action triage
+## Completed C5 — Japanese reason-code and Next-action triage
 
-The next prepared C5 task keeps the Japanese language-path scope and makes the
-failure handoff actionable. The guide already names `[reason-code]`, `Details:`,
-and `Next:` in separate recovery cards, but it does not yet show the read-only
-JSON diagnosis path or explain which stable code fields should drive automation
-and support reports.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now shows the read-only
+`lidarslam-map doctor /path/to/rosbag2 --json` diagnosis path, distinguishes the
+`findings[].code` field in the doctor report from `reason.code` and
+`findings[].code` in start/session recovery JSON, and tells the reader to use
+stable codes instead of viewer symptoms or English message text. It also tells
+the reader to follow retained `next_action`, `Next:`, or `next_command` values,
+separates safe `--resume` post-processing from returning to doctor, and keeps raw
+JSON with local paths out of public support attachments.
+
+The queue's drift probe retires this task after the next Japanese dry-run card
+marker appears. The next task moves one step earlier in the write boundary:
+showing how to inspect an own-bag plan before a session or map is created.
 
 Suggested issue title:
 
-> Docs: explain Japanese reason-code and Next-action triage
+> Docs: explain the Japanese dry-run and write boundary
 
 Outcome:
 
-A Japanese first-run user can read stable diagnosis codes, follow the retained
-Next action, and choose a safe retry or inspection path without guessing from a
-viewer symptom or uploading private data.
+A Japanese first-run user can inspect an own-bag plan before writes, understand
+when a session or map may be created, and choose a controlled next action without
+rerunning an unknown input blindly.
 
 Acceptance:
 
-- show `lidarslam-map doctor /path/to/rosbag2 --json` as a read-only diagnosis
-  path;
-- tell the reader to use `reason.code` and `findings[].code` as stable keys
-  rather than guessing from English text or a viewer symptom;
-- tell the reader to follow the exact retained `Next:` action and distinguish
-  safe post-processing recovery from returning to `doctor`;
+- show `lidarslam-map start /path/to/rosbag2 --yes --dry-run --json` as a
+  no-write preflight;
+- explain that dry-run creates no session or map output and that confirmation is
+  required before mapping writes;
+- keep `--viewer none` as the safe choice for headless execution and name the
+  retained next command after inspection;
 - preserve the existing version, support, session, preview, privacy, and
   independent-validation guidance;
 - require no rosbag, hardware, network, or private log.
@@ -567,9 +577,48 @@ Focused check:
 python3 -m mkdocs build --strict
 ```
 
-Estimate: **30 minutes**. Non-goals: changing diagnosis schemas, reason codes,
-or recovery implementation, translating the entire guide, asking for a private
-bag/map/raw-log upload, or claiming support for an unvalidated sensor.
+Estimate: **30 minutes**. Non-goals: changing the start or session
+implementation, translating the entire guide, asking for a private bag/map/raw-
+log upload, or claiming support for an unvalidated sensor.
+
+## Successor C5 — Japanese dry-run and write boundary
+
+The next prepared C5 task keeps the Japanese language-path scope and makes the
+first write boundary explicit. The guide already shows `start --dry-run`, but it
+does not yet show the machine-readable `--yes --dry-run --json` preflight or say
+clearly that no session or map is created until the user confirms the plan.
+
+Suggested issue title:
+
+> Docs: explain the Japanese dry-run and write boundary
+
+Outcome:
+
+A Japanese first-run user can inspect an own-bag plan before writes, understand
+when a session or map may be created, and choose a controlled next action without
+rerunning an unknown input blindly.
+
+Acceptance:
+
+- show `lidarslam-map start /path/to/rosbag2 --yes --dry-run --json` as a
+  no-write preflight;
+- explain that dry-run creates no session or map output and that confirmation is
+  required before mapping writes;
+- keep `--viewer none` as the safe choice for headless execution and name the
+  retained next command after inspection;
+- preserve the existing version, support, session, preview, privacy, and
+  independent-validation guidance;
+- require no rosbag, hardware, network, or private log.
+
+Focused check:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+Estimate: **30 minutes**. Non-goals: changing the start or session
+implementation, translating the entire guide, asking for a private bag/map/raw-
+log upload, or claiming support for an unvalidated sensor.
 
 ## Publication and review sequence
 
