@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_support_task_becomes_stale_when_marker_appears(
+def test_japanese_validator_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese support card requires queue reassessment."""
+    """A completed Japanese validator card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\nlidarslam-map support /path/to/session_bundle --json\n',
+        + '\n独立validator向けのissue form\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_support_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese support-handoff marker already exists',
+        'the planned Japanese independent-validation marker already exists',
     ]
 
 
@@ -343,6 +343,25 @@ def test_japanese_recovery_card_explains_session_history_and_recovery():
     assert 'autoware_map_diagnosis.md' in source
     assert 'session履歴、catalog、診断、previewはlocal-only' in source
     assert 'preview\nHTMLをGitHub issueへuploadせず' in source
+
+
+def test_japanese_recovery_card_explains_privacy_first_support_handoff():
+    """The Japanese card makes support sharing reviewable and bounded."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert '支援へ共有する前に確認する' in source
+    assert 'lidarslam-map support /path/to/session_bundle --json' in source
+    assert 'read-onlyで、ZIPを作成せず' in source
+    assert 'README.txt' in source
+    assert 'issue-body.md' in source
+    assert 'support-report.json' in source
+    assert 'map geometry、bag、raw log、parameter内容' in source
+    assert 'credentialのようなcommand値は含まれません' in source
+    assert '`--first-map`はreceipt-boundのPASSを再検証' in source
+    assert 'review済みのfirst-map receiptだけ' in source
+    assert '`--first-map --json`のhandoff JSONは' in source
+    assert '公開添付には使いません' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

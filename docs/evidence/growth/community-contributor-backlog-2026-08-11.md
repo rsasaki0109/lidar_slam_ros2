@@ -392,12 +392,22 @@ Estimate: **30 minutes**. Non-goals: changing session storage, recovery, or
 viewer implementation, translating the entire guide, or claiming support for
 an unvalidated sensor.
 
-## Successor C5 — Japanese privacy-first support handoff
+## Completed C5 — Japanese privacy-first support handoff
 
-The next prepared C5 task keeps the language-path scope and closes the support
-handoff gap. The English guide and CLI already expose a read-only support JSON
-view and a verified first-map handoff, but the Japanese guide currently only
-names a sanitized support report.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now provides the read-only
+`lidarslam-map support /path/to/session_bundle --json` inspection path, explains
+that `--first-map` revalidates a receipt-bound PASS without creating a ZIP or
+contacting GitHub, and names the three generated files that must be reviewed
+before any selective sharing. It keeps maps, bags, raw logs, parameters,
+private paths, credential-like command values, and the `--first-map --json`
+handoff JSON outside the public attachment path.
+
+The queue's drift probe retires this task after the support command marker
+appears. The next task narrows the handoff from privacy review to independent
+validation form use; it does not provide live troubleshooting.
 
 Suggested issue title:
 
@@ -422,6 +432,47 @@ python3 -m mkdocs build --strict
 
 Estimate: **30 minutes**. Non-goals: changing support-bundle generation, issue
 templates, or session implementation, translating the entire guide, or
+claiming support for an unvalidated sensor.
+
+## Successor C5 — Japanese independent first-map validation handoff
+
+The next prepared C5 task keeps the Japanese language-path scope and makes the
+independent-validation boundary copy-ready. The CLI already prints a
+verification summary, safe environment hints, a reviewed receipt path, and the
+canonical issue form. The missing piece is a short Japanese explanation of how
+to use those outputs without turning the maintainer into a live test guide.
+
+Suggested issue title:
+
+> Docs: explain Japanese independent first-map validation handoff
+
+Outcome:
+
+A Japanese first-run user can fill the independent-validation form from their
+own run and attach only a reviewed first-map receipt, without exposing a map,
+bag, preview, raw log, local receipt path, or handoff JSON.
+
+Acceptance:
+
+- explain that `--first-map` prints the verification summary, safe environment
+  hints, and the canonical independent-validation issue form;
+- tell the operator to fill the form from their own run and attach only a
+  reviewed first-map receipt;
+- state that the handoff JSON and local receipt path are not public
+  attachments, and that the command never uploads to GitHub;
+- keep the existing support, session, preview, diagnosis, and no-private-upload
+  guidance intact;
+- require no rosbag, hardware, network, or private log.
+
+Focused check:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+Estimate: **30 minutes**. Non-goals: changing support-bundle generation, issue
+templates, or first-map validation schemas, translating the entire guide,
+providing live guidance that would invalidate independent validation, or
 claiming support for an unvalidated sensor.
 
 ## Publication and review sequence

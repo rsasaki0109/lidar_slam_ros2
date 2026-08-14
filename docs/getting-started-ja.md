@@ -253,6 +253,32 @@ session履歴、catalog、診断、previewはlocal-onlyです。bag、map、raw 
 HTMLをGitHub issueへuploadせず、支援が必要な場合はサニタイズ済みsupport report
 だけを内容確認後に共有します。
 
+### 支援へ共有する前に確認する
+
+まずsupport reportをJSONで確認します。これはread-onlyで、ZIPを作成せず、GitHubへ
+送信もしません。
+
+```bash
+lidarslam-map support /path/to/session_bundle --json
+```
+
+ZIPが必要な場合はsession bundleの隣に作成される次の3ファイルだけを確認します。
+`README.txt`、`issue-body.md`、`support-report.json`にはstatus、diagnosis、証跡の
+hashが含まれますが、map geometry、bag、raw log、parameter内容、正確なlocal path、
+credentialのようなcommand値は含まれません。3ファイルをすべて読んでから、必要な
+部分だけをGitHub issueへ添付します。生成や添付は自動では行われません。
+
+検証済みfirst mapを独立validatorへ渡す場合だけ、次のread-only handoffを使います。
+`--first-map`はreceipt-boundのPASSを再検証し、ZIPを作らず、GitHubへ連絡しません。
+
+```bash
+lidarslam-map support /path/to/session_bundle --first-map
+```
+
+出力されるverification summaryとsafe environment hintsを確認し、公開添付には
+review済みのfirst-map receiptだけを使います。`--first-map --json`のhandoff JSONは
+local receipt pathを含むため、公開添付には使いません。
+
 ## 詳細
 
 このページは最短経路だけを示します。すべてのoption、対応input、校正、復旧、
