@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-15T04:02:43+09:00",
+  "generated_at": "2026-08-15T08:49:42+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 228,
-    "expected_paths_sha256": "d3bb7c5e0a7a14424d82bf4cc3ac0794863c5b0b3e73340a3c583c6a59306138",
+    "expected_path_count": 229,
+    "expected_paths_sha256": "07436abbd2361d26c428718855dfd2de31519040c204d6560bbbf1606c910bfb",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -53,6 +53,7 @@
       "paths": [
         ".github/workflows/docker.yml",
         "Dockerfile",
+        "docs/schemas/docker-map-bag-plan-v1.schema.json",
         "docs/schemas/first-map-demo-plan-v1.schema.json",
         "docs/schemas/preflight-v4.schema.json",
         "graph_based_slam/test/test_autoware_dogfood_script.py",
