@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_validation_findings_task_becomes_stale_when_marker_appears(
+def test_japanese_validation_finding_follow_up_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A successor Japanese finding-follow-up card requires reassessment."""
+    """A successor Japanese evidence-pairing card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 日本語のvalidation reportのfinding follow-upを安全に行う\n',
+        + '\n### 日本語のvalidation reportのfollow-up証跡を一組で保つ\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_validation_findings_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese finding-follow-up marker already exists',
+        'the planned Japanese follow-up-evidence marker already exists',
     ]
 
 
@@ -742,6 +742,38 @@ def test_japanese_recovery_card_explains_safe_validation_findings():
     assert 'receipt JSON' in card
     assert '独立validation reportへ' in card
     assert 'support reportとして扱います' in card
+
+
+def test_japanese_recovery_card_explains_validation_finding_follow_up():
+    """The Japanese follow-up card preserves routes and evidence boundaries."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+    card = source.split(
+        '### 日本語のvalidation reportのfinding follow-upを安全に行う', 1)[1].split(
+            '### validation reportのreview statusを区別する', 1)[0]
+    normalized = ' '.join(card.split())
+
+    assert '`unresolved`または`rejected`' in normalized
+    assert '保存された`Details:`、`Next:`、`retry.command`' in normalized
+    assert 'support follow-up' in normalized
+    assert 'new independent validation' in normalized
+    assert '同じpinned setupの`retry.command`' in normalized
+    assert '新しい`retry.output_dir`のfresh output' in normalized
+    assert '元のreport、receipt、manifest hash、review statusを編集する' in normalized
+    assert 'support reportをaccepted validationにする' in normalized
+    assert '古いmap、session、receipt、hashを新runへコピーする' in normalized
+    assert 'maintainerのlive guidanceだけの結果を独立validationと呼ぶ' in normalized
+    assert 'follow-up route: support follow-up' in normalized
+    assert 'original report/receipt: unchanged' in normalized
+    assert '`reason.code`' in normalized
+    assert 'private pathを除いた保存済みの説明' in normalized
+    assert 'review status: unresolved / retrying — not accepted validation' in normalized
+    assert '`v0.9.0-humble`または`v0.9.0-jazzy`' in normalized
+    assert '`v0.9.1`候補とexact commit/revision' in normalized
+    assert 'identity、session、または 同じrunへの結び付きを確認できない場合は停止' in normalized
+    assert '一つのrunにつきreportとreceiptは1組だけ' in normalized
+    assert '複数issueへ重複添付しません' in normalized
+    assert 'handoff JSON、local receipt pathは公開せず' in normalized
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

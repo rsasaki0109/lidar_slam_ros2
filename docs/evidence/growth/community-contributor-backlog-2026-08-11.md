@@ -980,31 +980,51 @@ The queue's drift probe retires this task after the findings marker appears. The
 next task routes unresolved findings to support or a safe retry without
 duplicating evidence or treating follow-up as accepted validation.
 
-## Successor C5 — Japanese validation-report finding follow-up
+## Completed C5 — Japanese validation-report finding follow-up
+
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now provides a two-route decision table for an
+unresolved finding: a sanitized support follow-up using saved `Details:`,
+`Next:`, and unedited `retry.command` instructions with fresh output, or a new
+independent validation using a fresh run. It keeps the original report, receipt,
+manifest hash, and review status unchanged, forbids duplicate issue/session
+artifacts, and stops when identity or same-session data is missing.
+
+The card preserves the v0.9.0 Docker versus v0.9.1 source-candidate boundary,
+the no-private-upload rule, and the distinction between `READY FOR REVIEW`,
+unresolved follow-up, and accepted ledger evidence. The queue's drift probe
+retires this task after the finding-follow-up marker appears.
+
+The next task makes the original report/receipt pair and a follow-up summary
+easy to audit without creating duplicate evidence.
+
+## Successor C5 — Japanese validation-report follow-up evidence pairing
 
 The next prepared C5 task keeps the Japanese language-path scope and explains
-how a contributor should continue after an unresolved `findings` observation.
-It should distinguish a sanitized support follow-up from a new independent
-validation while preserving the original report, receipt, hash, and session
-identity.
+how to preserve one immutable report/receipt pair while summarizing a follow-up
+for maintainers. It should distinguish the original evidence, a follow-up note,
+and a genuinely new independent-validation report without exposing local data.
 
 Suggested issue title:
 
-> Docs: explain Japanese validation-report finding follow-up
+> Docs: explain Japanese validation-report follow-up evidence pairing
 
 Outcome:
 
-A Japanese reporter can route an unresolved finding to support or a safe retry
-without editing evidence, duplicating reports, or treating the follow-up as
-accepted validation.
+A Japanese contributor can keep one immutable report/receipt pair and summarize
+a follow-up without duplicating evidence or confusing review states.
 
 Acceptance:
 
-- distinguish support follow-up from a new independent validation after a
-  finding;
-- use saved `Details:`/`Next:`/`retry.command` and fresh output without editing
-  the old report, receipt, or hash;
-- keep one report/receipt pair and forbid duplicate issue or session artifacts;
+- distinguish an original report/receipt pair from a follow-up note and a new
+  independent-validation report;
+- give a copy-ready follow-up summary with route, `reason.code`, sanitized
+  `Details:`/`Next:`, fresh-output facts, and review status without private
+  paths;
+- keep the original report, receipt, and hash immutable, permit one
+  report/receipt pair per run, and forbid duplicate issue or session artifacts;
 - preserve the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary
   and stop when identity or session data is missing;
 - preserve the existing support, session, privacy, independent-validation, and

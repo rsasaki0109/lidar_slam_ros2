@@ -694,6 +694,45 @@ findingsへ再掲して証拠を増やしたり、findingを理由に`result`、
 完了していない、またはmaintainerのlive guidanceだけに基づく観察は独立validation reportへ
 入れず、前述のサニタイズ済みsupport reportとして扱います。
 
+### 日本語のvalidation reportのfinding follow-upを安全に行う
+
+`findings`が`unresolved`または`rejected`になった後は、元のreportとreceiptを編集せず、
+まず保存された`Details:`、`Next:`、`retry.command`を読みます。次の二つの経路を混ぜずに
+選びます。
+
+| 経路 | 使う条件 | 進め方 | してはいけないこと |
+| --- | --- | --- | --- |
+| support follow-up | 元のrunの原因を切り分ける、またはretryの結果を相談する | 保存された`Details:`/`Next:`を確認し、同じpinned setupの`retry.command`が使える場合だけlocalで編集せず実行する。新しい`retry.output_dir`のfresh outputをサニタイズ済みsupport reportへ要約する | 元のreport、receipt、manifest hash、review statusを編集する。support reportをaccepted validationにする |
+| new independent validation | 自分で公開手順を最初から完了し、独立した新しいrunの結果を報告する | 公開routeを新しいoutputとsessionで実行し、そのrunに結び付いたreportとreview済みreceiptを1組だけ準備する | 古いmap、session、receipt、hashを新runへコピーする。maintainerのlive guidanceだけの結果を独立validationと呼ぶ |
+
+support follow-upで公開するのは、private pathを除いた観察と再現条件だけです。保存された
+`retry.command`にlocal pathやcredentialが含まれる場合は、command全体をreportへ貼らず、安定した
+`reason.code`、command名、サニタイズ済みの`Details:`/`Next:`だけを記録します。retryは新しい
+outputへ書き、元のoutput、report、receipt、`manifest_sha256`を上書きしません。次のような
+形で一件のfollow-upを要約できます。
+
+```text
+follow-up route: support follow-up
+original report/receipt: unchanged
+reason.code: <保存された安定code>
+Details: <private pathを除いた保存済みの説明>
+Next: <private pathを除いた保存済みの次の操作>
+fresh output: <新しいoutputで観察した事実と影響>
+review status: unresolved / retrying — not accepted validation
+```
+
+new independent validationへ進む場合も、元のreportとreceiptはそのまま保持します。Dockerは
+公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、sourceは未公開`v0.9.1`候補とexact
+commit/revisionを、その新しいsessionとreceiptから確認します。identity、session、または
+同じrunへの結び付きを確認できない場合は停止し、viewerの表示、古いreceipt、架空のhashで
+補いません。新しいreportを提出しても、maintainer reviewとledgerのaccepted記録までは
+`READY FOR REVIEW`または`unresolved`のままで、accepted validationとは書きません。
+
+一つのrunにつきreportとreceiptは1組だけにし、同じfollow-upを複数issueへ重複添付しません。
+map、bag、raw log、preview、trajectory、parameter、screenshot、session bundle全体、handoff
+JSON、local receipt pathは公開せず、前述のサニタイズ済みsupport reportまたは内容をreviewした
+receiptだけを使います。
+
 ### validation reportのreview statusを区別する
 
 `READY FOR REVIEW`は、元のsessionに対するlocal-onlyの再検証が完了し、canonical issue formへ
