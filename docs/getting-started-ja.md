@@ -666,6 +666,34 @@ local pathはtemplateに貼りません。map、bag、raw log、preview、trajec
 screenshotも添付せず、PASSを確認して内容をreviewした
 `first_map_validation_receipt.json`だけをpublic attachmentにします。
 
+### 日本語のvalidation reportのfindingsを安全に書く
+
+`findings`は、自分のrunで気付いた一件の観察をmaintainerが再現・改善するための
+operator-supplied fieldです。`result`、verification summary、manifest hash、receipt attachment、
+review statusを変更したり、root causeやaccepted statusを推測したりするfieldではありません。
+一つの観察につき、次の4項目を自分の値で埋めます。
+
+```text
+findings:
+step: <公開ドキュメントのstepまたはcommand名。private pathは書かない>
+expected: <公開ドキュメントが示す期待動作を1つ>
+observed: <自分のrunで実際に観察した動作を1つ>
+impact: <first-run userが何に困るか、または再現に何が必要か>
+```
+
+`step`には`Docker First Map`、`source quickstart`、`Session summary`など公開名を使い、
+必要なら安定した`reason.code`を添えます。local path、credential、bag/map名、raw logの行、
+preview HTML、screenshot、session bundleの内容を貼らず、viewerで見えた症状だけから診断を
+断定しません。`expected`は公開手順から、`observed`は自分のrunから、`impact`は利用者への
+影響または再現条件から書き分けます。root causeが不明なら`不明`と書き、support reportへ
+戻します。
+
+複数の観察がある場合も、4項目のblockを観察ごとに分けます。同じreceiptのhashや`PASS`を
+findingsへ再掲して証拠を増やしたり、findingを理由に`result`、verification summary、
+`manifest_sha256`、receipt JSON、review statusを書き換えたりしません。自分で公開手順を
+完了していない、またはmaintainerのlive guidanceだけに基づく観察は独立validation reportへ
+入れず、前述のサニタイズ済みsupport reportとして扱います。
+
 ### validation reportのreview statusを区別する
 
 `READY FOR REVIEW`は、元のsessionに対するlocal-onlyの再検証が完了し、canonical issue formへ

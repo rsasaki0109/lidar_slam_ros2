@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: explain safe Japanese validation-report findings",
-      "outcome": "A Japanese validator can write an actionable public finding from their own observation without exposing private artifacts or changing receipt-derived evidence.",
+      "title": "Docs: explain Japanese validation-report finding follow-up",
+      "outcome": "A Japanese reporter can route an unresolved finding to support or a safe retry without editing evidence, duplicating reports, or treating the follow-up as accepted validation.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -254,10 +254,10 @@
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide distinguishes an operator's actionable finding from receipt-derived result, verification, identity, and hash fields.",
-        "The card gives a copy-ready pattern for one concrete observation with step, expected behavior, observed behavior, and impact while requiring private-path redaction.",
-        "The guide says findings must not change result, verification summary, manifest hash, receipt attachment, or review status, and keeps local artifacts out of the report.",
-        "The card preserves the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary and tells the reader to stop when a finding cannot be tied to the same run.",
+        "The Japanese guide distinguishes support follow-up from a new independent validation after a finding.",
+        "The card uses saved Details:, Next:, and retry.command instructions with fresh output without editing the old report, receipt, or hash.",
+        "The guide keeps one report and receipt pair and forbids duplicate issue or session artifacts.",
+        "The card preserves the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary and tells the reader to stop when identity or session data is missing.",
         "The existing support, session, privacy, independent-validation, and review-status guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
@@ -272,8 +272,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### 日本語のvalidation reportのfindingsを安全に書く",
-          "failure_detail": "the planned Japanese validation-findings marker already exists"
+          "value": "### 日本語のvalidation reportのfinding follow-upを安全に行う",
+          "failure_detail": "the planned Japanese finding-follow-up marker already exists"
         }
       ],
       "private_data_required": false,

@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_report_field_provenance_task_becomes_stale_when_marker_appears(
+def test_japanese_validation_findings_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A successor Japanese findings card requires reassessment."""
+    """A successor Japanese finding-follow-up card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 日本語のvalidation reportのfindingsを安全に書く\n',
+        + '\n### 日本語のvalidation reportのfinding follow-upを安全に行う\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_report_field_provenance_task_becomes_stale_when_marker_appears
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese validation-findings marker already exists',
+        'the planned Japanese finding-follow-up marker already exists',
     ]
 
 
@@ -714,6 +714,34 @@ def test_japanese_recovery_card_explains_report_field_provenance():
     assert '`v0.9.1`候補とexact commit/revision' in card
     assert '`develop` tag' in card
     assert 'session bundle全体' in card
+
+
+def test_japanese_recovery_card_explains_safe_validation_findings():
+    """The Japanese findings card keeps observations actionable and safe."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+    card = source.split(
+        '### 日本語のvalidation reportのfindingsを安全に書く', 1)[1].split(
+            '### validation reportのreview statusを区別する', 1)[0]
+
+    assert '`findings`は、自分のrunで気付いた一件の観察' in card
+    assert 'operator-supplied field' in card
+    assert 'step:' in card
+    assert 'expected:' in card
+    assert 'observed:' in card
+    assert 'impact:' in card
+    assert 'Docker First Map' in card
+    assert 'source quickstart' in card
+    assert 'Session summary' in card
+    assert '`reason.code`' in card
+    assert 'private path' in card
+    assert 'raw log' in card
+    assert 'root causeが不明なら`不明`' in card
+    assert '4項目のblockを観察ごとに分けます' in card
+    assert 'manifest_sha256' in card
+    assert 'receipt JSON' in card
+    assert '独立validation reportへ' in card
+    assert 'support reportとして扱います' in card
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

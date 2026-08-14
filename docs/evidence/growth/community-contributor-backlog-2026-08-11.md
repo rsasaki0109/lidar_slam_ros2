@@ -965,33 +965,48 @@ The queue's drift probe retires this task after the field-provenance marker
 appears. The next task makes an operator's public `findings` field actionable
 without allowing it to rewrite receipt-derived evidence or disclose private data.
 
-## Successor C5 — Japanese validation-report findings without private data
+## Completed C5 — Japanese validation-report findings without private data
+
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now gives a four-field `step`/`expected`/
+`observed`/`impact` pattern for one operator observation, distinguishes that
+observation from receipt-derived evidence, forbids private artifacts, root-cause
+claims, and acceptance claims, and routes maintainer-live-guidance-only
+observations to the sanitized support report.
+
+The queue's drift probe retires this task after the findings marker appears. The
+next task routes unresolved findings to support or a safe retry without
+duplicating evidence or treating follow-up as accepted validation.
+
+## Successor C5 — Japanese validation-report finding follow-up
 
 The next prepared C5 task keeps the Japanese language-path scope and explains
-how to record one concrete observation in the public `findings` field. It should
-help maintainers reproduce an onboarding problem without turning an observation
-into a changed result, invented evidence, or a private artifact upload.
+how a contributor should continue after an unresolved `findings` observation.
+It should distinguish a sanitized support follow-up from a new independent
+validation while preserving the original report, receipt, hash, and session
+identity.
 
 Suggested issue title:
 
-> Docs: explain safe Japanese validation-report findings
+> Docs: explain Japanese validation-report finding follow-up
 
 Outcome:
 
-A Japanese validator can write an actionable public finding from their own
-observation without exposing private artifacts or changing receipt-derived
-evidence.
+A Japanese reporter can route an unresolved finding to support or a safe retry
+without editing evidence, duplicating reports, or treating the follow-up as
+accepted validation.
 
 Acceptance:
 
-- distinguish an operator's actionable finding from receipt-derived result,
-  verification, identity, and hash fields;
-- give a copy-ready pattern for one concrete observation with step, expected
-  behavior, observed behavior, and impact while requiring private-path redaction;
-- say findings must not change result, verification summary, manifest hash,
-  receipt attachment, or review status, and keep local artifacts out of the report;
+- distinguish support follow-up from a new independent validation after a
+  finding;
+- use saved `Details:`/`Next:`/`retry.command` and fresh output without editing
+  the old report, receipt, or hash;
+- keep one report/receipt pair and forbid duplicate issue or session artifacts;
 - preserve the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary
-  and stop when a finding cannot be tied to the same run;
+  and stop when identity or session data is missing;
 - preserve the existing support, session, privacy, independent-validation, and
   review-status guidance;
 - require no rosbag, hardware, network, or private log.
