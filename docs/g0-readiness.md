@@ -49,6 +49,12 @@ package-manager run visible without performing any external write. The
 blockers are evidence for the next decision, not proof that an external action
 has been taken.
 
+When the independent first-map cohort is waiting for public gates, the card
+also lists each pending launch prerequisite, such as comparable Docker/source
+rows and the canonical documentation/runtime identity. This makes the closed
+cohort state actionable without rendering recruitment text or authorizing a
+community write.
+
 The current packet is
 [`g0-current-action-packet-2026-08-14.md`](evidence/growth/g0-current-action-packet-2026-08-14.md).
 It supersedes the historical action snapshot for present handoff decisions

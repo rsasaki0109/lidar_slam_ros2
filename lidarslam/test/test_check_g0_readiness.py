@@ -83,6 +83,13 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     ]
     assert alternatives[0]['status'] == 'REQUIRES_EXTERNAL_PUBLICATION'
     assert alternatives[1]['status'] == 'REQUIRES_EXPLICIT_REBASE'
+    assert report['checks']['first_map_cohort']['pending_launch_gates'] == [
+        'comparable_docker_row',
+        'comparable_source_row',
+        'canonical_documentation_path',
+        'canonical_documentation_url',
+        'canonical_runtime_ref',
+    ]
 
     card = DASHBOARD.render_card(report)
     assert card.count('Next action:') == 1
@@ -91,6 +98,8 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert 'never reuse mixed-version measurements' in card
     assert 'v1 blockers:' in card
     assert 'ndt_omp' in card
+    assert 'first-map cohort blockers:' in card
+    assert 'canonical_runtime_ref' in card
     assert 'g0-current-action-packet-2026-08-14.md' in card
 
     packet = (

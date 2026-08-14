@@ -177,6 +177,14 @@ def _cohort_summary(report: dict[str, Any]) -> dict[str, Any]:
     )
     if any(field not in report for field in required):
         raise G0ReadinessError('first-map cohort report is incomplete')
+    pending_launch_gates = report['pending_launch_gates']
+    if not isinstance(pending_launch_gates, list) or not all(
+        isinstance(gate, str) and gate and '\n' not in gate and '\r' not in gate
+        for gate in pending_launch_gates
+    ):
+        raise G0ReadinessError(
+            'first-map cohort contains unsafe pending launch gate fields'
+        )
     return {field: report[field] for field in required}
 
 
@@ -530,6 +538,11 @@ def render_card(report: dict[str, Any]) -> str:
                 f"- {gate['title']} (`{gate['id']}`): {gate['detail']}"
             )
             lines.extend(f"  - {blocker}" for blocker in gate['blockers'])
+    if cohort['pending_launch_gates']:
+        lines.extend(['', 'first-map cohort blockers:'])
+        lines.extend(
+            f'- {gate}' for gate in cohort['pending_launch_gates']
+        )
     lines.extend([
         '',
         'Next action:',
