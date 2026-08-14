@@ -576,6 +576,44 @@ session bundle、map、bag、raw log、previewは引き続きlocal-onlyです。
 rejectedになった場合もmapが削除されたという意味ではなく、保存された安全なretryや新しい
 outputの指示がある場合だけそれに従います。
 
+### 日本語のprivacy-safe validation report例
+
+次は、公開formの項目と値の出どころを理解するための説明用の架空例です。実際のrun、receipt、
+ledgerから作ったものではないため、実際のvalidation result、review済みevidence、accepted
+ledger evidenceではありません。値やhashを自分のreportへコピーせず、自分の
+`support --first-map`とreview済みreceiptから実際の値を確認します。
+
+```text
+[説明用の架空例 — not a real validation result / not accepted ledger evidence]
+公開ドキュメント経路: Docker First Map (example)
+release/commit/image digest: example-image@sha256:<example-only-64-hex-digest>
+environment: Ubuntu 22.04 / amd64 / ROS 2 Humble / Docker
+exact command (private paths redacted):
+docker run --rm ghcr.io/rsasaki0109/lidar_slam_ros2:<immutable-example-release>
+result: PASS — verified first map completed (example only)
+verification summary:
+manifest_status=succeeded
+diagnosis_status=success
+autoware_status=PASS
+manifest_sha256=<example-only; copyしない>
+findings:
+説明用: 固定された公開経路の前提を確認できた
+attachment: first_map_validation_receipt.json (reviewed) [example only]
+review status: EXAMPLE ONLY — not submitted / not maintainer-reviewed / not accepted
+```
+
+この例でreport作成者が入力する`operator-supplied public fields`は、公開ドキュメント経路、
+environment、private pathをredactしたcommand、findingsです。`result`、verification summary、
+`manifest_sha256`、receipt attachmentは実際のreview済みreceiptから転記する
+`receipt-derived fields`であり、見た目やviewerから補いません。架空の`example-only`値を
+実際のevidenceとして扱わず、実runのhashやrelease identityが確認できない場合はreportを
+提出しません。
+
+実際のreportにもlocal path、map、bag、raw log、preview、session bundleは含めません。公開添付は
+前述の条件を満たして内容をreviewしたreceiptだけです。`review status`が
+`not submitted`、`not maintainer-reviewed`、または`not accepted`の例は、GitHub issueや
+validation ledgerの証拠として使いません。
+
 ## 詳細
 
 このページは最短経路だけを示します。すべてのoption、対応input、校正、復旧、

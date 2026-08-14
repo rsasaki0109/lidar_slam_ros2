@@ -854,8 +854,8 @@ artifacts stay local or unshared, while only the reviewed PASS receipt is a
 public attachment candidate.
 
 The queue's drift probe retires this task after the public-share-template
-marker appears. The next task provides a path-free instructional example without
-copying local evidence.
+marker appears. The next task explains the distinction between a local handoff,
+a public report, maintainer review, and accepted ledger evidence.
 
 ## Completed C5 — Japanese validation report review status
 
@@ -874,33 +874,50 @@ The queue's drift probe retires this task after the validation-report review
 status marker appears. The next task supplies a path-free instructional example
 without turning an example into accepted evidence.
 
-## Successor C5 — Japanese privacy-safe validation report example
+## Completed C5 — Japanese privacy-safe validation report example
 
-The next prepared C5 task keeps the Japanese language-path scope and provides
-one clearly illustrative public report example. It should let a contributor
-compare the public form with a safe, path-free example without copying local
-paths or mistaking an example for a reviewed result.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now includes one path-free, clearly illustrative
+report example with an immutable-identity placeholder, redacted command,
+receipt-derived verification fields, operator-supplied public fields, and an
+explicit `not submitted` / `not maintainer-reviewed` / `not accepted` status.
+It warns contributors not to copy example hashes or treat the example as real
+evidence, and keeps paths, maps, bags, logs, previews, and session bundles out
+of the public example.
+
+The queue's drift probe retires this task after the privacy-safe report-example
+marker appears. The next task helps beginners choose one supported first-map
+route and record the correct identity.
+
+## Successor C5 — Japanese Docker/source route chooser
+
+The next prepared C5 task keeps the Japanese language-path scope and adds a
+compact route-choice card. It should help a beginner choose Docker or source
+once, understand the stable/candidate boundary, and avoid mixing artifacts or
+assuming an unsupported package path.
 
 Suggested issue title:
 
-> Docs: add a Japanese privacy-safe validation report example
+> Docs: add a Japanese Docker/source route chooser
 
 Outcome:
 
-A Japanese reporter can compare a path-free illustrative validation report with
-the public form without copying private evidence or treating the example as
-accepted evidence.
+A Japanese beginner can choose one supported Docker or source first-map route,
+record the correct identity, and avoid mixing artifacts or assuming an
+unsupported package path.
 
 Acceptance:
 
-- include one clearly illustrative, path-free public validation-report example
-  covering the documentation path, immutable identity, environment, redacted
-  command, result, summary, findings, and attachment boundary;
-- mark the example as instructional only, not a real validation result and not
-  accepted ledger evidence;
-- separate operator-supplied public fields from receipt-derived fields and keep
-  private paths, maps, bags, raw logs, previews, and session artifacts out of
-  the example;
+- compare the fixed Docker first-map route with the source quickstart route and
+  state when each is appropriate;
+- give one first command and one stop/check boundary for each route, while
+  directing a beginner to use one route at a time;
+- keep the published v0.9.0 Docker identity, unpublished v0.9.1 source-candidate
+  boundary, and unsupported package-manager/PPA boundary explicit;
+- tell the reader which release, commit, or image identity to record and do not
+  mix Docker and source artifacts or claim unsupported hardware;
 - preserve the existing version, support, session, preview, privacy, and
   independent-validation guidance;
 - require no rosbag, hardware, network, or private log.
@@ -912,10 +929,10 @@ python3 -m mkdocs build --strict
 ```
 
 Estimate: **30 minutes**. Non-goals: changing the issue template, review
-ledger, support or verification implementation, claiming the example or an
-unreviewed receipt as accepted validation, translating the entire guide, asking
-for a private bag/map/raw-log upload, or claiming support for an unvalidated
-sensor.
+ledger, support or verification implementation, changing the Docker image,
+source helper, package-manager support, or release identity, translating the
+entire guide, asking for a private bag/map/raw-log upload, or claiming support
+for an unvalidated sensor.
 
 ## Publication and review sequence
 

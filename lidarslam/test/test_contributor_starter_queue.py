@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_privacy_safe_report_example_task_becomes_stale_when_marker_appears(
+def test_japanese_docker_source_route_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A successor Japanese report-example card requires reassessment."""
+    """A successor Japanese route-choice card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 日本語のprivacy-safe validation report例\n',
+        + '\n### 日本語のDockerとsource経路を選ぶ\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_privacy_safe_report_example_task_becomes_stale_when_marker_app
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese privacy-safe validation-report example marker already exists',
+        'the planned Japanese Docker/source route-choice marker already exists',
     ]
 
 
@@ -585,6 +585,29 @@ def test_japanese_recovery_card_explains_validation_report_review_status():
     assert 'liveなstep-by-step validation helpを依頼せず' in source
     assert '複数issueへ重複添付したりしません' in source
     assert 'ledgerにacceptedとして記録された' in source
+
+
+def test_japanese_recovery_card_has_privacy_safe_report_example():
+    """The Japanese example is illustrative and keeps evidence provenance clear."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+    example = source.split(
+        '### 日本語のprivacy-safe validation report例', 1)[1].split(
+            '## 詳細', 1)[0]
+
+    assert '[説明用の架空例 — not a real validation result / not accepted ledger evidence]' in example
+    assert (
+        'release/commit/image digest: example-image@sha256:'
+        '<example-only-64-hex-digest>' in example
+    )
+    assert 'environment: Ubuntu 22.04 / amd64 / ROS 2 Humble / Docker' in example
+    assert 'result: PASS — verified first map completed (example only)' in example
+    assert 'manifest_sha256=<example-only; copyしない>' in example
+    assert 'operator-supplied public fields' in example
+    assert 'receipt-derived fields' in example
+    assert 'not submitted / not maintainer-reviewed / not accepted' in example
+    assert '/home/' not in example
+    assert '/tmp/' not in example
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

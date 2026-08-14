@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: add a Japanese privacy-safe validation report example",
-      "outcome": "A Japanese reporter can compare a path-free illustrative validation report with the public form without copying private evidence or treating the example as accepted evidence.",
+      "title": "Docs: add a Japanese Docker/source route chooser",
+      "outcome": "A Japanese beginner can choose one supported Docker or source first-map route, record the correct identity, and avoid mixing artifacts or assuming an unsupported package path.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -249,14 +249,15 @@
       ],
       "non_goals": [
         "change the issue template, review ledger, support or verification implementation, or acceptance rules",
-        "claim the example or an unreviewed receipt as accepted validation",
+        "change the Docker image, source helper, package-manager support, or release identity",
         "translate the entire getting-started guide",
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide includes one clearly illustrative, path-free public validation-report example covering the documentation path, immutable identity, environment, redacted command, result, summary, findings, and attachment boundary.",
-        "The example is explicitly marked as instructional only, not a real validation result and not accepted ledger evidence.",
-        "The guide separates operator-supplied public fields from receipt-derived fields and keeps private paths, maps, bags, raw logs, previews, and session artifacts out of the example.",
+        "The Japanese guide compares the fixed Docker first-map route with the source quickstart route and states when each is appropriate.",
+        "The card gives one first command and one stop/check boundary for each route, while directing a beginner to use one route at a time.",
+        "The guide keeps the published v0.9.0 Docker identity, unpublished v0.9.1 source-candidate boundary, and unsupported package-manager/PPA boundary explicit.",
+        "The card tells the reader which release, commit, or image identity to record and does not mix Docker and source artifacts or claim unsupported hardware.",
         "The existing version, support, session, preview, privacy, and independent-validation guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
@@ -271,8 +272,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### 日本語のprivacy-safe validation report例",
-          "failure_detail": "the planned Japanese privacy-safe validation-report example marker already exists"
+          "value": "### 日本語のDockerとsource経路を選ぶ",
+          "failure_detail": "the planned Japanese Docker/source route-choice marker already exists"
         }
       ],
       "private_data_required": false,
