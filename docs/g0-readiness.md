@@ -53,7 +53,10 @@ When the independent first-map cohort is waiting for public gates, the card
 also lists each pending launch prerequisite, such as comparable Docker/source
 rows and the canonical documentation/runtime identity. This makes the closed
 cohort state actionable without rendering recruitment text or authorizing a
-community write.
+community write. Machine-readable JSON keeps the stable gate IDs; the human
+card adds the concrete evidence required for each one, including the seven
+measurements and immutable runtime identity. Unknown future IDs remain visible
+and fail safe with a pointer to the cohort contract.
 
 The current packet is
 [`g0-current-action-packet-2026-08-14.md`](evidence/growth/g0-current-action-packet-2026-08-14.md).

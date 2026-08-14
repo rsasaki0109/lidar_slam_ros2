@@ -61,12 +61,52 @@ DEFAULT_RELEASE_VERSION = (
     REPO_ROOT / 'VERSION'
 ).read_text(encoding='utf-8').strip()
 
+COHORT_GATE_GUIDANCE = {
+    'public_revision': (
+        'name one exact public commit for the selected product version'
+    ),
+    'public_revision_resolvable': (
+        'verify that the exact source commit resolves from the public repository'
+    ),
+    'comparable_docker_row': (
+        'record one clean Docker PASS at that version with all seven '
+        'measurements, including active time, command count, and isolated '
+        'peak disk'
+    ),
+    'comparable_source_row': (
+        'record one clean source PASS at that version with all seven '
+        'measurements, including active time and command count'
+    ),
+    'canonical_documentation_path': (
+        'select the public Docker First Map or source quickstart route used by '
+        'the cohort'
+    ),
+    'canonical_documentation_url': (
+        'bind that route to its canonical documentation URL and route fragment'
+    ),
+    'canonical_runtime_ref': (
+        'bind Docker to an immutable GHCR digest or source to the exact public '
+        'commit'
+    ),
+    'copy_ready_handoff_public': (
+        'ensure the public revision contains the copy-ready first-map handoff'
+    ),
+}
+
 
 class G0ReadinessError(ValueError):
     """The dashboard cannot safely summarize a checker result."""
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
+
+
+def _cohort_gate_guidance(gate: str) -> str:
+    """Return bounded human guidance while preserving the machine gate ID."""
+    return COHORT_GATE_GUIDANCE.get(
+        gate,
+        'inspect the first-map cohort contract for the exact missing prerequisite',
+    )
 
 
 def _checker_command(script: str, *arguments: str) -> list[str]:
@@ -348,7 +388,10 @@ def _next_action(
         return {
             'id': 'review-cohort-launch-gates',
             'title': 'Review the independent first-map cohort launch gates',
-            'reason': ', '.join(cohort['pending_launch_gates']) or (
+            'reason': '; '.join(
+                f'{gate}: {_cohort_gate_guidance(gate)}'
+                for gate in cohort['pending_launch_gates']
+            ) or (
                 f"Cohort state is {cohort['status']}."
             ),
             'command': 'python3 scripts/first_map_validator_cohort.py --json',
@@ -541,7 +584,8 @@ def render_card(report: dict[str, Any]) -> str:
     if cohort['pending_launch_gates']:
         lines.extend(['', 'first-map cohort blockers:'])
         lines.extend(
-            f'- {gate}' for gate in cohort['pending_launch_gates']
+            f'- `{gate}` — {_cohort_gate_guidance(gate)}'
+            for gate in cohort['pending_launch_gates']
         )
     lines.extend([
         '',

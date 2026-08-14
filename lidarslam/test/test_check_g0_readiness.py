@@ -100,6 +100,11 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert 'ndt_omp' in card
     assert 'first-map cohort blockers:' in card
     assert 'canonical_runtime_ref' in card
+    assert (
+        'record one clean Docker PASS at that version with all seven '
+        'measurements' in card
+    )
+    assert 'immutable GHCR digest' in card
     assert 'g0-current-action-packet-2026-08-14.md' in card
 
     packet = (
