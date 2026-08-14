@@ -517,6 +517,39 @@ receiptを編集せず、前述の「receipt再検証に失敗したときの復
 session bundle全体も添付しません。issue formのversion、environment、redacted command、
 verification summaryは自分のrunから転記し、receiptのJSONだけをレビュー済みの添付として使います。
 
+### 公開共有用のreceiptテンプレート
+
+5項目を確認した後は、`support --first-map`が表示するcanonical issue formを開き、次の
+templateを自分のrunの値で埋めます。`READY FOR REVIEW`とreceiptの`PASS`が確認できない場合は、
+このtemplateを公開用に使いません。
+
+```text
+公開ドキュメント経路: <Docker First Map / Source quickstart / Own-bag golden path>
+release/commit/image digest: <immutable release, commit, or image digest>
+environment: <OS> / <architecture> / <ROS> / <install method>
+exact command (private paths redacted):
+<public documentation command with private paths removed>
+result: PASS — verified first map completed
+verification summary:
+manifest_status=succeeded
+diagnosis_status=success
+autoware_status=PASS
+manifest_sha256=<64 lowercase hex characters>
+findings:
+<what was unclear, slow, surprising, broken, or helpful>
+attachment: first_map_validation_receipt.json (reviewed)
+```
+
+`release/commit/image digest`はreceiptの`run.product_version`と`run.git_commit`またはhandoffの
+release referenceに対応させます。`environment`、redacted command、findingsは自分で入力する
+公開fieldです。`verification summary`はreceipt markdownのPASS blockから転記し、hashを推測・
+編集しません。
+
+`--first-map --json`のhandoff、`receipt_path`、`markdown_path`、`session.json`、support reportの
+local pathはtemplateに貼りません。map、bag、raw log、preview、trajectory、parameter、
+screenshotも添付せず、PASSを確認して内容をreviewした
+`first_map_validation_receipt.json`だけをpublic attachmentにします。
+
 ## 詳細
 
 このページは最短経路だけを示します。すべてのoption、対応input、校正、復旧、

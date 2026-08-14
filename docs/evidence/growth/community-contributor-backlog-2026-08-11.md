@@ -840,30 +840,48 @@ The queue's drift probe retires this task after the five-item checklist marker
 appears. The next task turns those confirmed fields into a Japanese public
 report template that a validator can fill without copying local evidence.
 
-## Successor C5 — Japanese reviewed-receipt public share template
+## Completed C5 — Japanese reviewed-receipt public share template
 
-The next prepared C5 task keeps the Japanese language-path scope and turns the
-completed pre-share gate into a copy-ready public report. It should show which
-fields come from the operator's own run, which local-only paths must stay out of
-the issue, and why the reviewed PASS receipt is the only public artifact.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now mirrors the public validation form with a
+copy-ready block for the documentation path, immutable release/commit/image
+digest, environment, private-path-redacted command, PASS verification summary,
+findings, and the reviewed receipt attachment. It states that handoff JSON,
+receipt paths, session evidence, maps, bags, logs, previews, and other run
+artifacts stay local or unshared, while only the reviewed PASS receipt is a
+public attachment candidate.
+
+The queue's drift probe retires this task after the public-share-template
+marker appears. The next task explains the distinction between a local handoff,
+a public report, maintainer review, and accepted ledger evidence.
+
+## Successor C5 — Japanese validation report review status
+
+The next prepared C5 task keeps the Japanese language-path scope and explains
+what happens after a public report is prepared. It should prevent a local
+`READY FOR REVIEW` handoff or a posted receipt from being mistaken for an
+accepted independent validation before maintainer review and ledger checks.
 
 Suggested issue title:
 
-> Docs: add a Japanese reviewed-receipt public share template
+> Docs: explain Japanese validation report review status
 
 Outcome:
 
-A Japanese first-run user can fill a public validation report from a reviewed
-receipt while keeping local-only fields and private evidence out of the issue.
+A Japanese reporter can distinguish local READY FOR REVIEW, public report
+submission, maintainer review, and accepted ledger evidence without treating a
+handoff as acceptance.
 
 Acceptance:
 
-- provide a copy-ready public report template for the exact version or revision,
-  environment, redacted command, verification summary, and reviewed receipt;
-- distinguish operator-supplied public fields from local-only handoff JSON,
-  receipt paths, and session evidence;
-- permit only a reviewed PASS receipt as the public artifact and reject map, bag,
-  raw log, preview, and local-path uploads;
+- distinguish local `READY FOR REVIEW`, a public issue submission, maintainer
+  review, accepted ledger evidence, and unresolved or rejected reports;
+- tell the reporter that a local handoff or public receipt is not accepted
+  validation until the public review and ledger requirements pass;
+- direct the reporter to keep one reviewed receipt and report, avoid editing or
+  duplicating evidence, and request no live step-by-step validation help;
 - preserve the existing version, support, session, preview, privacy, and
   independent-validation guidance;
 - require no rosbag, hardware, network, or private log.
@@ -874,10 +892,10 @@ Focused check:
 python3 -m mkdocs build --strict
 ```
 
-Estimate: **30 minutes**. Non-goals: changing the issue template, support or
-verification implementation, or receipt schemas; translating the entire guide;
-asking for a private bag/map/raw-log upload; or claiming support for an
-unvalidated sensor.
+Estimate: **30 minutes**. Non-goals: changing the issue template, review
+ledger, support or verification implementation, or acceptance rules;
+translating the entire guide; asking for a private bag/map/raw-log upload; or
+claiming support for an unvalidated sensor.
 
 ## Publication and review sequence
 

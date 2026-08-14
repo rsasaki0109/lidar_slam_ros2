@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_reviewed_receipt_share_task_becomes_stale_when_marker_appears(
+def test_japanese_review_status_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese share-template card requires reassessment."""
+    """A completed Japanese review-status card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 公開共有用のreceiptテンプレート\n',
+        + '\n### validation reportのreview statusを区別する\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_reviewed_receipt_share_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese reviewed-receipt share template marker already exists',
+        'the planned Japanese validation-report review-status marker already exists',
     ]
 
 
@@ -544,6 +544,29 @@ def test_japanese_recovery_card_explains_pre_share_verification_checklist():
     assert '`first_map_validation_receipt.json`だけ' in source
     assert 'map、bag、raw log、preview HTML、trajectory、parameter、screenshot' in source
     assert 'session bundle全体も添付しません' in source
+
+
+def test_japanese_recovery_card_explains_public_receipt_report_template():
+    """The Japanese card keeps public report fields copy-ready and bounded."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert '### 公開共有用のreceiptテンプレート' in source
+    assert '`support --first-map`が表示するcanonical issue form' in source
+    assert '公開ドキュメント経路:' in source
+    assert 'release/commit/image digest:' in source
+    assert 'environment: <OS> / <architecture> / <ROS> / <install method>' in source
+    assert 'exact command (private paths redacted):' in source
+    assert 'result: PASS — verified first map completed' in source
+    assert 'manifest_status=succeeded' in source
+    assert 'diagnosis_status=success' in source
+    assert 'autoware_status=PASS' in source
+    assert 'manifest_sha256=<64 lowercase hex characters>' in source
+    assert 'attachment: first_map_validation_receipt.json (reviewed)' in source
+    assert '`release/commit/image digest`はreceiptの`run.product_version`' in source
+    assert '`--first-map --json`のhandoff、`receipt_path`、`markdown_path`' in source
+    assert 'PASSを確認して内容をreviewした' in source
+    assert '`first_map_validation_receipt.json`だけをpublic attachment' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: add a Japanese reviewed-receipt public share template",
-      "outcome": "A Japanese first-run user can fill a public validation report from a reviewed receipt while keeping local-only fields and private evidence out of the issue.",
+      "title": "Docs: explain Japanese validation report review status",
+      "outcome": "A Japanese reporter can distinguish local READY FOR REVIEW, public report submission, maintainer review, and accepted ledger evidence without treating a handoff as acceptance.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -248,14 +248,14 @@
         "docs/getting-started-ja.md"
       ],
       "non_goals": [
-        "change the issue template, support or verification implementation, or receipt schemas",
+        "change the issue template, review ledger, support or verification implementation, or acceptance rules",
         "translate the entire getting-started guide",
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide provides a copy-ready public report template for the exact version or revision, environment, redacted command, verification summary, and reviewed receipt.",
-        "The template distinguishes operator-supplied public fields from local-only handoff JSON, receipt paths, and session evidence.",
-        "The guide permits only a reviewed PASS receipt as the public artifact and rejects map, bag, raw log, preview, and local-path uploads.",
+        "The Japanese guide distinguishes local READY FOR REVIEW, a public issue submission, maintainer review, accepted ledger evidence, and unresolved or rejected reports.",
+        "The guide tells the reporter that a local handoff or public receipt is not accepted validation until the public review and ledger requirements pass.",
+        "The guide directs the reporter to keep one reviewed receipt and report, avoid editing or duplicating evidence, and request no live step-by-step validation help.",
         "The existing version, support, session, preview, privacy, and independent-validation guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
@@ -270,8 +270,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### 公開共有用のreceiptテンプレート",
-          "failure_detail": "the planned Japanese reviewed-receipt share template marker already exists"
+          "value": "### validation reportのreview statusを区別する",
+          "failure_detail": "the planned Japanese validation-report review-status marker already exists"
         }
       ],
       "private_data_required": false,
