@@ -76,6 +76,13 @@ keeps source push, fixture upload, issue mutations, and release publication as
 four separate approvals. The candidate is reviewable locally; G0 remains
 `HOLD`.
 
+The [current exact-tip action packet](evidence/growth/g0-current-action-packet-2026-08-14.md)
+supersedes the historical snapshot for present handoff decisions. It binds
+Draft PR #427, exact tip `0bb3edc`, green public CI, the 219-path local plan,
+and the still-unpublished v0.9.1/image state, while keeping E2 artifact
+hosting, E3 community mutation, and E4 release publication separate and
+unauthorized.
+
 Local descendant `bce5a9d` additionally passes the real-component #69
 unsafe-then-safe recovery sequence ten consecutive times and the full 10-suite
 scanmatcher CTest on Humble and Jazzy. This closes a local reliability-evidence

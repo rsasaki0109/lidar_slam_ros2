@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-14T21:34:20+09:00",
+  "generated_at": "2026-08-14T22:50:04+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 218,
-    "expected_paths_sha256": "41e1740213e2e83438b4a537a2437956dbc376fe8bdd4f3eb8b7d20608a3aca1",
+    "expected_path_count": 219,
+    "expected_paths_sha256": "37758fd83d855cd123606ff82754965e49e930c058fc99fa2acd8ac49a44dae6",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -347,6 +347,7 @@
         "S6-product-shell-integration"
       ],
       "paths": [
+        "docs/evidence/growth/g0-current-action-packet-2026-08-14.md",
         "docs/evidence/growth/g0-publication-slice-plan-2026-08-12.json",
         "docs/evidence/growth/g0-publication-slice-plan-2026-08-12.md",
         "docs/schemas/publication-slice-plan-v1.schema.json",

@@ -10,11 +10,11 @@
 > Frozen public review baseline (machine key `public_head_sha`):
 > `8a931a3627be503fb10c255ef846c6d3c54a237c`
 >
-> Planned follow-up inventory: 218 paths; SHA-256
-> `41e1740213e2e83438b4a537a2437956dbc376fe8bdd4f3eb8b7d20608a3aca1`
+> Planned follow-up inventory: 219 paths; SHA-256
+> `dc1dc6d8ffe79b61ed3946bac79ccd4ec1b6d22357fdc08c25cd7fe915208976`
 >
-> Last observed remote mutation: exact non-force push from `09c407e` to
-> `f19a835`; mutations performed by the checker or review-card command:
+> Last observed remote mutation: exact non-force push from `f19a835` to
+> `0bb3edc`; mutations performed by the checker or review-card command:
 > **none**
 
 ## Outcome
@@ -62,7 +62,7 @@ public CI result.
 | S4 source onboarding | 25 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded Docker/source measurement, public preflight, and an auditable SHA-bound supplement path for retained observations | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 43 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, and package-manager blockers remain explicit; no release/version reuse is implied | maintainer distribution decision |
 | S6 product-shell integration | 74 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, and exact-identity observer packet agree | complete product gate and public CI |
-| S7 publication control | 5 | all 218 paths are owned once and external authority remains separate | exact-tip maintainer decision |
+| S7 publication control | 6 | all 219 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -100,7 +100,7 @@ from that base and the local tip descends from the public head, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 218-path coverage with the fixed inventory digest;
+4. exact 219-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred.
 
@@ -112,7 +112,7 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 218 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 219 paths, 7 slices, no remote mutation |
 | checker regressions | 14 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, and self-contained read-only source dry-run execution |
 | focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
