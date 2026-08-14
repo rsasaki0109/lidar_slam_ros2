@@ -193,6 +193,29 @@ mappingやviewerを再試行せず`lidarslam-map doctor /path/to/rosbag2 --json`
 `reason.code`や`findings[].code`の`Next:`が新しいoutput directoryでのretryを示す場合だけ、
 保持されたcommandを使い、失敗したrunを上書きしません。
 
+### 失敗したrunを上書きせず再試行する
+
+失敗したrunをもう一度mappingするときも、元のdirectoryを削除したり同じpathを指定したり
+しません。`start`の`--output-dir`がすでに存在する場合は`output directory already exists`
+で停止し、既存のsessionやmapを上書きしません。
+
+保存された`map_session_recovery.json`では、次の3つを分けて読みます。
+
+- `setup_bundle`: `sensor_setup.json`、pinned parameter、session pageなどの保持されたsetup。
+- `evidence`と`files_preserved: true`: 元のrunで得られたmanifest、diagnosis、log、receiptの証跡。
+- `retry.available: true`: `retry.command`が同じpinned setupを使い、`retry.output_dir`
+  （通常は`map.retry`のような新しいdirectory）だけへ出力する再試行。
+
+原因を直した後は、JSONに保持された`retry.command`をpathやoptionを編集せず、そのまま
+実行します。viewerの見た目から新しいmapping commandを作りません。`resume.available: true`
+で`next_command`が`--resume`なら、まずpost-processingだけを再開し、mappingを再実行しません。
+retryが無い場合に新しい`start`を意図して行うときだけ、古いsessionとは別の新しい
+`--output-dir`を指定し、先にdoctorの診断を確認します。
+
+recovery JSONとcommandにはbagやlocal pathが含まれるため、これらはlocal-onlyで扱います。
+元のsession、map、raw logを削除・uploadせず、支援が必要な場合は後述のサニタイズ済み
+support reportだけを確認して共有します。
+
 ### mapまたはviewerが空のとき: 3つの確認
 
 初回は自分のbagやframeを変更する前に、固定公開デモをviewerなしで実行して

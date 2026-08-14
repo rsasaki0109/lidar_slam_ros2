@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_fresh_retry_task_becomes_stale_when_marker_appears(
+def test_japanese_verification_boundary_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese fresh-retry card requires queue reassessment."""
+    """A completed Japanese verification card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 失敗したrunを上書きせず再試行する\n',
+        + '\n### 検証済みmapと表示できるmapを区別する\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_fresh_retry_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese fresh-retry marker already exists',
+        'the planned Japanese verification-boundary marker already exists',
     ]
 
 
@@ -434,6 +434,28 @@ def test_japanese_recovery_card_explains_dry_run_write_boundary():
     assert '`--viewer none`を使います' in source
     assert 'planをレビューした後だけ`--yes --viewer none`を追加' in source
     assert 'raw outputをissueへ貼り付けません' in source
+
+
+def test_japanese_recovery_card_explains_fresh_retry_without_overwrite():
+    """The Japanese card keeps setup/evidence and retry output distinct."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert '### 失敗したrunを上書きせず再試行する' in source
+    assert '`--output-dir`がすでに存在する場合は`output directory already exists`' in source
+    assert '`setup_bundle`:' in source
+    assert '`sensor_setup.json`、pinned parameter、session page' in source
+    assert '`evidence`と`files_preserved: true`' in source
+    assert '`retry.available: true`' in source
+    assert '`retry.command`が同じpinned setupを使い' in source
+    assert '`retry.output_dir`' in source
+    assert '`map.retry`のような新しいdirectory' in source
+    assert '`resume.available: true`' in source
+    assert 'で`next_command`が`--resume`なら' in source
+    assert 'mappingを再実行しません' in source
+    assert 'retry.command`をpathやoptionを編集せず' in source
+    assert '古いsessionとは別の新しい' in source
+    assert '元のsession、map、raw logを削除・uploadせず' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

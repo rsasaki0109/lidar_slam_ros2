@@ -630,31 +630,39 @@ Estimate: **30 minutes**. Non-goals: changing the start, session, or recovery
 implementation, translating the entire guide, asking for a private bag/map/raw-
 log upload, or claiming support for an unvalidated sensor.
 
-## Successor C5 — Japanese fresh-output retry without overwrite
+## Completed C5 — Japanese fresh-output retry without overwrite
 
-The next prepared C5 task keeps the Japanese language-path scope and protects
-failed-run provenance. The guide already says not to overwrite a failed run in
-the reason-code card, but it does not yet show the fresh `--output-dir` rule or
-explain which retained setup and evidence belong to the retry.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now explains that an existing `--output-dir` is
+never overwritten, distinguishes the retained `setup_bundle` and evidence from
+the fresh `retry.output_dir`, and tells the reader to use the generated
+`retry.command` or `--resume` `next_command` instead of reconstructing a command
+from a viewer symptom. The local-only and no-private-upload boundary remains
+explicit.
+
+The queue's drift probe retires this task after the next Japanese verification
+boundary marker appears. The next task makes the trust boundary visible between
+a map that displays and a map whose receipt-backed verification actually passed.
 
 Suggested issue title:
 
-> Docs: explain Japanese fresh-output retry without overwrite
+> Docs: explain the Japanese verified-result boundary
 
 Outcome:
 
-A Japanese first-run user can retry a failed or incomplete map in a fresh output
-directory, preserve the retained setup and evidence, and avoid overwriting an
-earlier run.
+A Japanese first-run user can distinguish a displayed map from a verified result,
+read the retained receipt status, and avoid sharing or relying on an unverified
+output as trusted evidence.
 
 Acceptance:
 
-- explain that an existing output directory is not overwritten and that a retry
-  uses a fresh `--output-dir`;
-- distinguish the retained pinned setup and evidence from a new map output
-  directory;
-- tell the reader to use the retained retry or next command rather than
-  reconstructing a command from a viewer symptom;
+- distinguish `map_verify: PASS` from a map that merely displays in a viewer;
+- name the retained `first_map_validation_receipt.json` and explain `NOT VERIFIED`
+  or `UNAVAILABLE` without guessing;
+- direct the reader to the retained diagnosis or inspect command before support
+  or independent validation;
 - preserve the existing version, support, session, preview, privacy, and
   independent-validation guidance;
 - require no rosbag, hardware, network, or private log.
@@ -665,9 +673,48 @@ Focused check:
 python3 -m mkdocs build --strict
 ```
 
-Estimate: **30 minutes**. Non-goals: changing the start, session, or recovery
-implementation, translating the entire guide, asking for a private bag/map/raw-
-log upload, or claiming support for an unvalidated sensor.
+Estimate: **30 minutes**. Non-goals: changing verification implementation or
+quality thresholds, translating the entire guide, asking for a private
+bag/map/raw-log upload, or claiming support for an unvalidated sensor.
+
+## Successor C5 — Japanese verified-result boundary
+
+The next prepared C5 task keeps the Japanese language-path scope and makes the
+trust boundary explicit. The guide already lists `map_verify: PASS` and a first-map
+receipt among successful artifacts, but it does not yet explain the difference
+between a map that renders and a result that is verified, `NOT VERIFIED`, or
+`UNAVAILABLE`.
+
+Suggested issue title:
+
+> Docs: explain the Japanese verified-result boundary
+
+Outcome:
+
+A Japanese first-run user can distinguish a displayed map from a verified result,
+read the retained receipt status, and avoid sharing or relying on an unverified
+output as trusted evidence.
+
+Acceptance:
+
+- distinguish `map_verify: PASS` from a map that merely displays in a viewer;
+- name the retained `first_map_validation_receipt.json` and explain `NOT VERIFIED`
+  or `UNAVAILABLE` without guessing;
+- direct the reader to the retained diagnosis or inspect command before support
+  or independent validation;
+- preserve the existing version, support, session, preview, privacy, and
+  independent-validation guidance;
+- require no rosbag, hardware, network, or private log.
+
+Focused check:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+Estimate: **30 minutes**. Non-goals: changing verification implementation or
+quality thresholds, translating the entire guide, asking for a private
+bag/map/raw-log upload, or claiming support for an unvalidated sensor.
 
 ## Publication and review sequence
 
