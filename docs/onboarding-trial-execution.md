@@ -30,7 +30,8 @@ python3 scripts/prepare_onboarding_matrix_packet.py \
   --source-commit <40-lowercase-hex-commit> \
   --docker-humble-digest sha256:<64-lowercase-hex-digest> \
   --docker-jazzy-digest sha256:<64-lowercase-hex-digest> \
-  --render
+  --render \
+  --output /tmp/g0-onboarding-observer-packet.md
 ```
 
 The command is local-only: it performs no network read, trial, cleanup, or
@@ -38,8 +39,11 @@ GitHub/community write. It emits the exact read-only release and source
 preflight commands plus one observer command per row. Its status is
 `READY_FOR_READ_ONLY_PREFLIGHT`, not `PUBLISHED` or `COMPARABLE`; run both
 preflights and require `PUBLISHED`/`READY` before provisioning a disposable
-host. Keep the generated packet, trial records, and observer roots outside the
-product checkout.
+host. `--output` writes the selected JSON or Markdown form with exclusive
+creation and refuses to overwrite an existing packet; omit it to write to
+stdout. This avoids unsafe shell redirection while retaining a machine-readable
+`--json` option. Keep the generated packet, trial records, and observer roots
+outside the product checkout.
 
 Every row must retain all seven measurements named in the packet. In
 particular, `active_operator_time_sec` and `command_count` must come from a

@@ -31,8 +31,8 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -65,6 +65,7 @@ def _packet(module):
 
 
 def test_packet_aligns_all_rows_to_one_version_and_exact_identities():
+    """Every row shares the requested version and immutable identity."""
     module = _module()
     packet = _packet(module)
 
@@ -93,6 +94,7 @@ def test_packet_aligns_all_rows_to_one_version_and_exact_identities():
 
 
 def test_packet_commands_pin_identity_and_keep_paths_as_placeholders():
+    """Rendered commands pin identities without leaking local paths."""
     module = _module()
     packet = _packet(module)
     commands = '\n'.join(
@@ -134,6 +136,7 @@ def test_packet_commands_pin_identity_and_keep_paths_as_placeholders():
     ],
 )
 def test_packet_rejects_ambiguous_or_malformed_identity(field, value):
+    """Malformed or copied identities fail before a packet is emitted."""
     module = _module()
     values = {
         'product_version': '0.9.1',
@@ -148,6 +151,7 @@ def test_packet_rejects_ambiguous_or_malformed_identity(field, value):
 
 
 def test_render_is_explicitly_a_plan_not_a_measurement_record():
+    """The human card remains a plan and never claims observed evidence."""
     module = _module()
     rendered = module.render_packet(_packet(module))
 
@@ -156,3 +160,28 @@ def test_render_is_explicitly_a_plan_not_a_measurement_record():
     assert 'active_operator_time_sec' in rendered
     assert 'command_count' in rendered
     assert 'network_reads_performed' not in rendered
+
+
+def test_output_is_exclusive_and_does_not_overwrite(tmp_path, capsys):
+    """The packet writer refuses a second write to the same path."""
+    module = _module()
+    output = tmp_path / 'observer-packet.json'
+    args = [
+        '--product-version',
+        '0.9.1',
+        '--source-commit',
+        'a' * 40,
+        '--docker-humble-digest',
+        'sha256:' + 'b' * 64,
+        '--docker-jazzy-digest',
+        'sha256:' + 'c' * 64,
+        '--json',
+        '--output',
+        str(output),
+    ]
+
+    assert module.main(args) == 0
+    original = output.read_bytes()
+    assert module.main(args) == 2
+    assert output.read_bytes() == original
+    assert 'File exists' in capsys.readouterr().err

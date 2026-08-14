@@ -87,8 +87,9 @@ four separate approvals. The candidate is reviewable locally; G0 remains
 The [current exact-tip action packet](evidence/growth/g0-current-action-packet-2026-08-14.md)
 supersedes the historical snapshot for present handoff decisions. It binds
 Draft PR #427, the reviewed product-candidate tip
-`09aded87478f2d9d3950a662f9b837f75f98e983` plus its current docs/tests
-synchronization, the latest PR-head CI result (`9 / 9` pass), the current
+`3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`; this is the code-bearing tip,
+followed by later docs-only handoff synchronization, the latest PR-head CI
+result (`9 / 9` pass), the current
 228-path local plan, and the still-unpublished v0.9.1/image state, while
 keeping E2 artifact hosting, E3 community mutation, and E4 release publication
 separate and unauthorized. The earlier 219-path value remains historical

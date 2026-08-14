@@ -38,10 +38,10 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import re
 import shlex
 import sys
+from pathlib import Path
 from typing import Any
 
 import jsonschema
@@ -371,10 +371,19 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     output = parser.add_mutually_exclusive_group()
     output.add_argument('--json', action='store_true')
     output.add_argument('--render', action='store_true')
+    parser.add_argument(
+        '--output',
+        type=Path,
+        help=(
+            'write the selected JSON or Markdown packet once; refuse an '
+            'existing path'
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Build and optionally write one local-only observer packet."""
     args = _parse_args(argv)
     try:
         packet = build_packet(
@@ -383,13 +392,31 @@ def main(argv: list[str] | None = None) -> int:
             args.docker_humble_digest,
             args.docker_jazzy_digest,
         )
-    except PacketError as exc:
+    except (OSError, PacketError) as exc:
         print(f'onboarding observer packet error: {exc}', file=sys.stderr)
         return 2
     if args.json:
-        print(json.dumps(packet, indent=2, sort_keys=True))
+        payload = json.dumps(packet, indent=2, sort_keys=True) + '\n'
     else:
-        print(render_packet(packet), end='')
+        payload = render_packet(packet)
+    try:
+        if args.output is None:
+            sys.stdout.write(payload)
+        else:
+            with args.output.open('x', encoding='utf-8') as stream:
+                stream.write(payload)
+            print(
+                f'Wrote local-only observer packet: {args.output}',
+                file=sys.stderr,
+            )
+            print(
+                'The packet is a plan, not trial evidence or publication '
+                'authority.',
+                file=sys.stderr,
+            )
+    except OSError as exc:
+        print(f'onboarding observer packet error: {exc}', file=sys.stderr)
+        return 2
     return 0
 
 

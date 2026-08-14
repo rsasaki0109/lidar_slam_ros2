@@ -6,15 +6,18 @@
 >
 > Draft PR: [#427](https://github.com/rsasaki0109/lidar_slam_ros2/pull/427)
 >
-> Exact reviewed product-candidate tip: `09aded87478f2d9d3950a662f9b837f75f98e983`
+> Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
+
+This reviewed tip is the code-bearing product-candidate revision; later
+docs-only handoff synchronization commits must remain identified separately.
 
 This is the current, read-only handoff for the G0 release-hygiene decision.
 It was first captured on 2026-08-14 and refreshed on 2026-08-15 after the
 dashboard UX, CI-registration, version-priority, final PR-head CI,
-packet-command-contract, and fail-closed usability-worksheet follow-ups. The
-packet tip is required to be an
-ancestor of the current checkout revision; later synchronization commits must
-remain described in this handoff. It replaces
+packet-command-contract, fail-closed usability-worksheet, paired scorecard,
+and safe observer-packet-output follow-ups. The code-bearing packet tip is
+required to be an ancestor of the current checkout revision; later
+synchronization commits must remain described in this handoff. It replaces
 neither the historical 2026-08-11 decision packet nor any maintainer approval.
 Its purpose is to prevent an old commit, old version, or one external action
 gate from being mistaken for the current state.
