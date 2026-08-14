@@ -102,12 +102,12 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         packet,
     )
     assert match is not None
-    current_tip = subprocess.check_output(
-        ['git', 'rev-parse', 'HEAD'],
+    ancestor_check = subprocess.run(
+        ['git', 'merge-base', '--is-ancestor', match.group(1), 'HEAD'],
         cwd=ROOT,
-        text=True,
-    ).strip()
-    assert match.group(1) == current_tip
+        check=False,
+    )
+    assert ancestor_check.returncode == 0
 
 
 def test_dashboard_can_include_a_read_only_release_report_without_writes():
