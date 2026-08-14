@@ -220,6 +220,39 @@ lidarslam-map view /path/to/output \
 GitHub issueへuploadしません。共有が必要な場合は、先にサニタイズ済みのsupport
 reportを確認します。
 
+### 保存したsessionを探して復旧する
+
+前回の実行結果をtimestamp付きdirectoryから探す代わりに、session履歴を使います。
+通常は`./output`直下の保存済みbundleだけを検査し、ローカルのcatalogを作ります。
+
+```bash
+lidarslam-map sessions
+```
+
+途中で止まったsessionだけを、ブラウザを開かずに確認する場合は次を使います。
+
+```bash
+lidarslam-map sessions ./output \
+  --status action_required \
+  --viewer none
+```
+
+catalogや端末出力に`Details:`と`Next:`が表示されたら、保存された診断結果を読み、
+`Next:`の行に表示された実際のcommandをそのまま実行します。viewerを変更する前に
+`map_verify`、`autoware_map_diagnosis.md`、TF・topicのfindingを確認してください。
+自動処理や確認だけなら、catalogを開かずJSONを読むこともできます。
+
+```bash
+lidarslam-map sessions ./output \
+  --status action_required \
+  --viewer none \
+  --json
+```
+
+session履歴、catalog、診断、previewはlocal-onlyです。bag、map、raw log、preview
+HTMLをGitHub issueへuploadせず、支援が必要な場合はサニタイズ済みsupport report
+だけを内容確認後に共有します。
+
 ## 詳細
 
 このページは最短経路だけを示します。すべてのoption、対応input、校正、復旧、

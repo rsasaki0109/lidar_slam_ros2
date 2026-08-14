@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_session_task_becomes_stale_when_marker_appears(
+def test_japanese_support_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese session card requires queue reassessment."""
+    """A completed Japanese support card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\nlidarslam-map sessions\n',
+        + '\nlidarslam-map support /path/to/session_bundle --json\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_session_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese session-history marker already exists',
+        'the planned Japanese support-handoff marker already exists',
     ]
 
 
@@ -325,6 +325,24 @@ def test_japanese_recovery_card_explains_headless_preview_options():
         in source
     )
     assert 'サニタイズ済みのsupport' in source
+
+
+def test_japanese_recovery_card_explains_session_history_and_recovery():
+    """The Japanese card makes retained session recovery copy-ready."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert '保存したsessionを探して復旧する' in source
+    assert 'lidarslam-map sessions' in source
+    assert '--status action_required' in source
+    assert '--viewer none' in source
+    assert '--json' in source
+    assert '`Details:`と`Next:`' in source
+    assert '`Next:`の行に表示された実際のcommandをそのまま実行' in source
+    assert 'map_verify' in source
+    assert 'autoware_map_diagnosis.md' in source
+    assert 'session履歴、catalog、診断、previewはlocal-only' in source
+    assert 'preview\nHTMLをGitHub issueへuploadせず' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

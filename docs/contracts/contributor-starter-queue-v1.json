@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: explain Japanese session history and recovery",
-      "outcome": "A Japanese first-run user can return to a saved session, focus interrupted work, and read the next recovery action without searching timestamped directories or uploading a private map or log.",
+      "title": "Docs: explain Japanese privacy-first support handoff",
+      "outcome": "A Japanese first-run user can inspect a sanitized support handoff for a retained session, understand what is safe to share, and request maintainer help without uploading a private map, bag, preview, or raw log.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -248,14 +248,14 @@
         "docs/getting-started-ja.md"
       ],
       "non_goals": [
-        "change session storage, recovery, or viewer implementation",
+        "change support-bundle generation, issue templates, or session implementation",
         "translate the entire getting-started guide",
         "claim support for an unvalidated sensor"
       ],
       "acceptance": [
-        "The Japanese guide explains how to list saved sessions with lidarslam-map sessions.",
-        "The guide shows --status action_required, --viewer none, and --json for focused or headless recovery.",
-        "The guide tells the reader to follow the retained Next action and keeps the existing preview and no-private-upload guidance intact.",
+        "The Japanese guide shows lidarslam-map support /path/to/session_bundle --json as a read-only inspection path.",
+        "The guide explains that --first-map is a read-only verified-first-map handoff and never uploads to GitHub.",
+        "The guide tells the reader to review README.txt, issue-body.md, and support-report.json before sharing, while keeping the existing session, preview, diagnosis, and no-private-upload guidance intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
       "focused_checks": [
@@ -269,8 +269,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "lidarslam-map sessions",
-          "failure_detail": "the planned Japanese session-history marker already exists"
+          "value": "lidarslam-map support /path/to/session_bundle --json",
+          "failure_detail": "the planned Japanese support-handoff marker already exists"
         }
       ],
       "private_data_required": false,

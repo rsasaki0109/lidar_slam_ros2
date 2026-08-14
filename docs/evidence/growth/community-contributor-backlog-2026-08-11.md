@@ -355,13 +355,19 @@ Estimate: **30 minutes**. Non-goals: changing the browser, viewer, or preview
 implementation, translating the entire guide, or claiming support for an
 unvalidated sensor.
 
-## Successor C5 — Japanese session history and recovery
+## Completed C5 — Japanese session history and recovery
 
-The next prepared C5 task keeps the same narrow language-path scope and closes
-the remaining return-path gap. The English guide explains how `sessions` finds
-saved bundles and how `--status action_required`, `--viewer none`, and `--json`
-help a headless operator continue. The Japanese guide currently ends after the
-first preview/recovery card and sends the reader to the English reference.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese card now explains `lidarslam-map sessions`, the
+`--status action_required` filter, `--viewer none`, and read-only `--json`
+inspection. It tells the operator to read retained `Details:` and `Next:`
+values, follow the exact next command, and check `map_verify` and diagnosis
+findings before changing viewer settings. Session history and recovery remain
+local-only and preserve the no-private-upload boundary.
+
+The queue's drift probe retires this task after the session marker appears.
 
 Suggested issue title:
 
@@ -385,6 +391,38 @@ python3 -m mkdocs build --strict
 Estimate: **30 minutes**. Non-goals: changing session storage, recovery, or
 viewer implementation, translating the entire guide, or claiming support for
 an unvalidated sensor.
+
+## Successor C5 — Japanese privacy-first support handoff
+
+The next prepared C5 task keeps the language-path scope and closes the support
+handoff gap. The English guide and CLI already expose a read-only support JSON
+view and a verified first-map handoff, but the Japanese guide currently only
+names a sanitized support report.
+
+Suggested issue title:
+
+> Docs: explain Japanese privacy-first support handoff
+
+Acceptance:
+
+- show `lidarslam-map support /path/to/session_bundle --json` for read-only
+  inspection;
+- explain that `--first-map` is a read-only verified-first-map handoff and
+  never uploads to GitHub;
+- tell the reader to review `README.txt`, `issue-body.md`, and
+  `support-report.json` before sharing, while preserving session, preview,
+  diagnosis, and no-private-upload guidance;
+- require no rosbag, hardware, network, or private log.
+
+Focused check:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+Estimate: **30 minutes**. Non-goals: changing support-bundle generation, issue
+templates, or session implementation, translating the entire guide, or
+claiming support for an unvalidated sensor.
 
 ## Publication and review sequence
 
