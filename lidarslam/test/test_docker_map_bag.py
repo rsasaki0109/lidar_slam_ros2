@@ -29,13 +29,19 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import subprocess
 
+import jsonschema
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / 'scripts' / 'docker_map_bag.sh'
+PLAN_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / (
+    'docker-map-bag-plan-v1.schema.json'
+)
 
 
 def _bag(tmp_path: Path, name: str = 'field bag') -> Path:
@@ -155,6 +161,7 @@ def test_help_is_beginner_facing_and_script_must_not_be_sourced(tmp_path):
     assert 'bag is mounted read-only' in result.stdout
     assert 'lidarslam-map start' in result.stdout
     assert '--dry-run' in result.stdout
+    assert '--json' in result.stdout
     assert '--version' in result.stdout
 
     version = subprocess.run(
@@ -193,6 +200,63 @@ def test_dry_run_does_not_call_docker_or_create_output(tmp_path):
     assert str(output.resolve()) in result.stdout
     assert 'readonly' in result.stdout
     assert 'lidarslam-map start /input' in result.stdout
+    assert not info_capture.exists()
+    assert not run_capture.exists()
+    assert not output.exists()
+
+
+def test_json_dry_run_is_schema_valid_and_read_only(tmp_path):
+    bag = _bag(tmp_path)
+    output = tmp_path / 'json output'
+
+    result, info_capture, run_capture = _run(
+        tmp_path,
+        [
+            '--output-dir', str(output),
+            '--dry-run',
+            '--json',
+            str(bag),
+            '--',
+            '--yes',
+            '--editable',
+        ],
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ''
+    plan = json.loads(result.stdout)
+    schema = json.loads(PLAN_SCHEMA.read_text(encoding='utf-8'))
+    jsonschema.Draft7Validator(schema).validate(plan)
+    assert plan['input']['path'] == str(bag.resolve())
+    assert plan['output']['path'] == str(output.resolve())
+    assert plan['output']['status'] == 'absent'
+    assert plan['route']['start_args'] == ['--yes', '--editable']
+    assert plan['execution']['confirmation'] == 'reviewed_yes'
+    assert plan['image']['resolved_id'] is None
+    assert plan['image']['resolution'] == 'deferred_until_live_run'
+    assert plan['side_effects'] == {
+        'docker_called': False,
+        'network_accessed': False,
+        'filesystem_writes': False,
+        'input_mount_read_only': True,
+    }
+    assert not info_capture.exists()
+    assert not run_capture.exists()
+    assert not output.exists()
+
+
+def test_json_requires_dry_run(tmp_path):
+    bag = _bag(tmp_path)
+    output = tmp_path / 'output'
+
+    result, info_capture, run_capture = _run(
+        tmp_path,
+        ['--output-dir', str(output), '--json', str(bag)],
+    )
+
+    assert result.returncode == 2
+    assert '[json-requires-dry-run]' in result.stderr
+    assert '--dry-run' in result.stderr
     assert not info_capture.exists()
     assert not run_capture.exists()
     assert not output.exists()

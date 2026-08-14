@@ -62,6 +62,13 @@ the completed maps supplied as inputs.
 Research scripts, benchmark runners, ROS launch arguments, and the historical
 `ros2 run lidarslam lidarslam` node are outside this CLI contract.
 
+The checkout/release-bundle Docker host launcher is delivery tooling around the
+same `start` workflow, not an additional installed CLI command. Its additive
+`--json` option is accepted only with `--dry-run` and emits the versioned
+`docker-map-bag-plan-v1` plan to stdout without Docker, network, or filesystem
+writes. Because that plan includes local paths, wrappers should keep it local
+and should not paste raw output into issue reports.
+
 ## Stability labels
 
 | Label | Promise |

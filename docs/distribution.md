@@ -71,9 +71,13 @@ workflow. Before creating output, it requires the selected image to expose
 `start --help` and binds the run to the resulting local immutable image ID.
 `--dry-run` prints the exact expansion
 without Docker, network, or writes; `--ros-distro jazzy` selects the Jazzy
-image, and `--image <tag-or-digest>` pins an explicit image. Sensor setup
-options follow `--`. The helper is source/release-bundle delivery tooling, not
-an additional installed CLI command.
+image, and `--image <tag-or-digest>` pins an explicit image. Add `--json` to
+`--dry-run` for the versioned `docker-map-bag-plan-v1` stdout contract; it also
+performs no Docker call, network access, filesystem write, or output-directory
+creation. The JSON contains local paths and leaves image identity/contract
+preflight deferred until a live run. Sensor setup options follow `--`. The
+helper is source/release-bundle delivery tooling, not an additional installed
+CLI command.
 
 ### Standalone launcher asset for the next release
 

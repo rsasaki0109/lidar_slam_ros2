@@ -239,6 +239,18 @@ ROS 2をhostへインストールせず、checkout済みrepositoryからDocker�
 bash scripts/docker_map_bag.sh /absolute/path/to/rosbag2
 ```
 
+実行前の確認結果をCIやwrapperから機械的に読む場合は、`--dry-run`と`--json`を指定します。
+
+```bash
+bash scripts/docker_map_bag.sh --dry-run --json /absolute/path/to/rosbag2
+```
+
+出力はversion付きの[`docker-map-bag-plan-v1` schema](schemas/docker-map-bag-plan-v1.schema.json)
+だけをstdoutへ返します。Docker呼び出し、network access、filesystem write、output directoryの
+作成は行いません。inputはread-only mountとして記録され、image identityとcontract preflightは
+実際のrunまで保留されます。JSONにはlocal pathが含まれるため、raw outputはissueへ貼らずlocal-only
+で扱います。
+
 ## 成功と失敗の見分け方
 
 成功時は`map_verify: PASS`とともに、次の場所が1画面に表示されます。

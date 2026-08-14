@@ -76,6 +76,12 @@ cannot replace the launcher-owned output, viewer, or verification paths. A
 live run creates no output until the image passes `start --help`; the launcher
 then uses that image's local immutable ID and refuses a zero exit without the
 session index, run manifest, and validation receipt.
+The additive `--json` option is valid only with `--dry-run` and emits the
+versioned `docker-map-bag-plan-v1` contract to stdout without Docker, network,
+or filesystem writes. It reports the input as read-only, does not create the
+output directory, and leaves image identity and contract preflight deferred to
+the live run; the payload contains local paths and is not an issue-reporting
+format.
 
 Beginning with the first finalized release after v0.9.0, that exact host
 launcher is also a direct `lidarslam-map-docker` release asset. The generated

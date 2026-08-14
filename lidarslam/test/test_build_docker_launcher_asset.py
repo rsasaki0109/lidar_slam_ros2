@@ -31,6 +31,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -105,6 +106,28 @@ def test_release_asset_is_executable_and_pins_versioned_images(tmp_path):
         'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.1-humble'
         in dry_run.stdout
     )
+    assert not (tmp_path / 'lidarslam_output').exists()
+
+    json_dry_run = subprocess.run(
+        [str(asset), '--dry-run', '--json', str(bag)],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert json_dry_run.returncode == 0, json_dry_run.stderr
+    plan = json.loads(json_dry_run.stdout)
+    assert plan['schema_uri'].endswith(
+        '/schemas/docker-map-bag-plan-v1.schema.json'
+    )
+    assert plan['launcher'] == {
+        'version': 'v0.9.1',
+        'revision': REVISION,
+    }
+    assert plan['image']['reference'] == (
+        'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.1-humble'
+    )
+    assert plan['side_effects']['filesystem_writes'] is False
     assert not (tmp_path / 'lidarslam_output').exists()
 
 

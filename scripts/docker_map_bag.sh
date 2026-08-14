@@ -29,6 +29,7 @@ Options:
   --ros-distro <name>    humble or jazzy (default: humble)
   --image <reference>    Override the corresponding published image reference
   --dry-run              Print the exact plan without Docker, network, or writes
+  --json                 With --dry-run, print the plan as JSON
   --version              Print launcher version and source revision
   --help                 Show this help
 
@@ -40,6 +41,7 @@ Examples:
   lidarslam-map-docker /absolute/path/to/rosbag2
   lidarslam-map-docker --ros-distro jazzy /absolute/path/to/rosbag2
   lidarslam-map-docker --dry-run /absolute/path/to/rosbag2
+  lidarslam-map-docker --dry-run --json /absolute/path/to/rosbag2
   lidarslam-map-docker /absolute/path/to/rosbag2 -- --editable
   lidarslam-map-docker /absolute/path/to/rosbag2 -- \
     --lidar-to-base 0,0,0,1,0.10,0,0.20 \
@@ -92,6 +94,7 @@ ROS_DISTRO=humble
 IMAGE=""
 OUTPUT_INPUT=""
 DRY_RUN=false
+JSON_OUTPUT=false
 BAG_INPUT=""
 
 while [[ $# -gt 0 ]]; do
@@ -113,6 +116,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --dry-run)
       DRY_RUN=true
+      shift
+      ;;
+    --json)
+      JSON_OUTPUT=true
       shift
       ;;
     --version)
@@ -138,6 +145,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "${JSON_OUTPUT}" == true && "${DRY_RUN}" != true ]]; then
+  die 2 json-requires-dry-run "--json requires --dry-run" \
+    "Run lidarslam-map-docker --dry-run --json with the bag directory."
+fi
 
 [[ -n "${BAG_INPUT}" ]] ||
   die 2 bag-required "ROSBAG2_DIR is required" \
@@ -249,6 +261,9 @@ if [[ -d "${OUTPUT_DIR}" ]]; then
     die 2 output-not-empty "output directory is not empty: ${OUTPUT_DIR}" \
       "Choose a new --output-dir; existing map evidence is never overwritten."
   fi
+  OUTPUT_STATUS=empty
+else
+  OUTPUT_STATUS=absent
 fi
 
 HAS_YES=false
@@ -310,10 +325,124 @@ print_plan() {
   print_command "${DOCKER_COMMAND[@]}"
 }
 
+print_json_plan() {
+  local runtime_image="$1"
+  command -v python3 >/dev/null 2>&1 ||
+    die 70 json-unavailable \
+      "--json requires python3 on the host" \
+      "Install python3 or use --dry-run for the human-readable plan."
+  python3 - \
+    "${BAG_DIR}" \
+    "${OUTPUT_DIR}" \
+    "${IMAGE}" \
+    "${ROS_DISTRO}" \
+    "${OUTPUT_STATUS}" \
+    "${INTERACTIVE}" \
+    "${HAS_YES}" \
+    "${runtime_image}" \
+    "${LIDARSLAM_DOCKER_LAUNCHER_VERSION}" \
+    "${LIDARSLAM_DOCKER_LAUNCHER_REVISION}" \
+    "${#START_ARGS[@]}" \
+    "${START_ARGS[@]}" \
+    "${#DOCKER_COMMAND[@]}" \
+    "${DOCKER_COMMAND[@]}" <<'PY'
+import json
+import sys
+
+
+argv = sys.argv
+bag_dir = argv[1]
+output_dir = argv[2]
+image = argv[3]
+ros_distro = argv[4]
+output_status = argv[5]
+interactive = argv[6] == 'true'
+has_yes = argv[7] == 'true'
+runtime_image = argv[8]
+launcher_version = argv[9]
+launcher_revision = argv[10]
+index = 11
+start_count = int(argv[index])
+index += 1
+start_args = argv[index:index + start_count]
+index += start_count
+docker_count = int(argv[index])
+index += 1
+docker_command = argv[index:index + docker_count]
+if len(docker_command) != docker_count or index + docker_count != len(argv):
+    raise SystemExit('internal error: Docker plan argument framing mismatch')
+
+if interactive:
+    confirmation = 'interactive_terminal'
+elif has_yes:
+    confirmation = 'reviewed_yes'
+else:
+    confirmation = 'requires_interactive_or_yes'
+
+plan = {
+    'schema_version': 1,
+    'schema_uri': (
+        'https://rsasaki0109.github.io/lidar_slam_ros2/'
+        'schemas/docker-map-bag-plan-v1.schema.json'
+    ),
+    'plan_mode': 'dry_run',
+    'status': 'ready',
+    'ready': True,
+    'launcher': {
+        'version': launcher_version,
+        'revision': launcher_revision,
+    },
+    'input': {
+        'path': bag_dir,
+        'metadata': 'metadata.yaml',
+        'mount': '/input',
+        'read_only': True,
+    },
+    'output': {
+        'path': output_dir,
+        'mount': '/output',
+        'status': output_status,
+        'created': False,
+        'must_be_empty': True,
+    },
+    'ros_distro': ros_distro,
+    'image': {
+        'reference': image,
+        'resolved_id': None,
+        'identity_bound': False,
+        'resolution': 'deferred_until_live_run',
+        'contract_preflight_performed': False,
+    },
+    'route': {
+        'command': ['lidarslam-map', 'start', '/input'],
+        'start_args': start_args,
+        'viewer': 'none',
+    },
+    'execution': {
+        'interactive': interactive,
+        'confirmation': confirmation,
+        'network_mode': 'none',
+    },
+    'docker_command': docker_command,
+    'side_effects': {
+        'docker_called': False,
+        'network_accessed': False,
+        'filesystem_writes': False,
+        'input_mount_read_only': True,
+    },
+}
+print(json.dumps(plan, indent=2, sort_keys=True))
+PY
+}
+
 if [[ "${DRY_RUN}" == true ]]; then
   build_docker_command "${IMAGE}"
-  print_plan "${IMAGE}"
-  echo "Dry run: complete; Docker, network, and filesystem writes were not used."
+  if [[ "${JSON_OUTPUT}" == true ]]; then
+    print_json_plan "${IMAGE}"
+  else
+    print_plan "${IMAGE}"
+    echo "Dry run: complete; Docker, network, and filesystem writes were not used."
+  fi
   exit 0
 fi
 

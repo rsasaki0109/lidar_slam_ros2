@@ -110,6 +110,19 @@ output directory:
 bash scripts/docker_map_bag.sh --dry-run /absolute/path/to/rosbag2
 ```
 
+For CI or a wrapper that needs machine-readable review, add `--json`:
+
+```bash
+bash scripts/docker_map_bag.sh --dry-run --json /absolute/path/to/rosbag2
+```
+
+This emits the versioned [`docker-map-bag-plan-v1` schema](schemas/docker-map-bag-plan-v1.schema.json)
+to stdout only. It still performs no Docker call, network access, filesystem
+write, or output-directory creation; the input mount is reported read-only and
+image identity/contract preflight remain deferred until a live run. The JSON
+contains local paths, so keep raw output local rather than pasting it into an
+issue.
+
 Use `--ros-distro jazzy` for the Jazzy image or `--image <tag-or-digest>` for
 a reviewed immutable image. Product options go after `--`, for example:
 

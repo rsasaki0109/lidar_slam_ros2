@@ -71,7 +71,7 @@ With Docker but no ROS installation, run the same high-level workflow from this 
 bash scripts/docker_map_bag.sh /absolute/path/to/rosbag2
 ```
 
-See [Docker Own-Bag Map](docs/getting-started.md#docker-own-bag-map) for dry-run, Jazzy, calibration, and immutable-image options.
+See [Docker Own-Bag Map](docs/getting-started.md#docker-own-bag-map) for dry-run, Jazzy, calibration, immutable-image, and private no-write JSON-plan options.
 
 For RKO-LIO profiles, `--editable` retains deterministic replay input for later loop fixes. A successful run writes
 Autoware artifacts; `lidarslam-map view "$PWD/output/my_map"` provides offline 3D review and
