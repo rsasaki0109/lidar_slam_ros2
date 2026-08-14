@@ -61,6 +61,16 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['publication_plan']['path_count'] == 223
     assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
     assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
+    v1_details = report['checks']['v1_readiness']['incomplete_gate_details']
+    assert [item['id'] for item in v1_details] == [
+        'distribution',
+        'external-adoption',
+    ]
+    assert any(
+        'ndt_omp' in blocker
+        for item in v1_details
+        for blocker in item['blockers']
+    )
     assert report['next_action']['id'] == 'align-public-product-version'
     assert '--include-published-release' in report['next_action']['command']
     assert 'mixed-version rows' in report['next_action']['reason']
@@ -77,6 +87,8 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert 'GitHub/community writes: **no**' in card
     assert 'Choices (no write):' in card
     assert 'never reuse mixed-version measurements' in card
+    assert 'v1 blockers:' in card
+    assert 'ndt_omp' in card
     assert 'g0-current-action-packet-2026-08-14.md' in card
 
 

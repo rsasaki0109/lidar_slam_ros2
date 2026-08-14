@@ -185,6 +185,29 @@ def _v1_summary(report: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(summary, dict):
         raise G0ReadinessError('v1 readiness report is incomplete')
     gates = report.get('gates', [])
+    incomplete_gate_details: list[dict[str, Any]] = []
+    for gate in gates:
+        if gate.get('status') != 'INCOMPLETE':
+            continue
+        gate_id = gate.get('id')
+        title = gate.get('title')
+        detail = gate.get('detail')
+        blockers = gate.get('blockers', [])
+        if not all(isinstance(value, str) and value for value in (
+            gate_id, title, detail,
+        )) or not isinstance(blockers, list) or not all(
+            isinstance(item, str) and item for item in blockers
+        ):
+            raise G0ReadinessError(
+                'v1 readiness contains an incomplete gate without safe '
+                'display fields'
+            )
+        incomplete_gate_details.append({
+            'id': gate_id,
+            'title': title,
+            'detail': detail,
+            'blockers': blockers,
+        })
     return {
         'status': report.get('status'),
         'complete': summary.get('complete'),
@@ -195,6 +218,7 @@ def _v1_summary(report: dict[str, Any]) -> dict[str, Any]:
             for gate in gates
             if gate.get('status') == 'INCOMPLETE'
         ],
+        'incomplete_gate_details': incomplete_gate_details,
     }
 
 
@@ -498,13 +522,22 @@ def render_card(report: dict[str, Any]) -> str:
             f"| published release | {published['status']} | "
             f"v{published['version']} |"
         ),
+    ]
+    if v1['incomplete_gate_details']:
+        lines.extend(['', 'v1 blockers:'])
+        for gate in v1['incomplete_gate_details']:
+            lines.append(
+                f"- {gate['title']} (`{gate['id']}`): {gate['detail']}"
+            )
+            lines.extend(f"  - {blocker}" for blocker in gate['blockers'])
+    lines.extend([
         '',
         'Next action:',
         f"{report['next_action']['title']}",
         f"Reason: {report['next_action']['reason']}",
         f"Command: `{report['next_action']['command']}`",
         f"Boundary: {report['next_action']['write_boundary']}",
-    ]
+    ])
     alternatives = report['next_action'].get('alternatives', [])
     if alternatives:
         lines.extend(['', 'Choices (no write):'])

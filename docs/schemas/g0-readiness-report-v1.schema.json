@@ -166,6 +166,26 @@
           "type": "array",
           "uniqueItems": true,
           "items": {"type": "string", "minLength": 1}
+        },
+        "incomplete_gate_details": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/definitions/incompleteGateDetail"}
+        }
+      }
+    },
+    "incompleteGateDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "detail", "blockers"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "title": {"type": "string", "minLength": 1},
+        "detail": {"type": "string", "minLength": 1},
+        "blockers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
         }
       }
     },

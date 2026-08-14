@@ -42,6 +42,13 @@ isolated disk measurements, and the external first-map acceptance gates remain
 evidence requirements. Recruitment, release, image, issue, label, review, and
 package actions remain separate decisions.
 
+When v1 is incomplete, the card and JSON report also expose each incomplete
+gate's recorded detail and blocker list. This keeps distribution blockers such
+as unresolved `ndt_omp` lineage, missing apt synchronization, or a missing
+package-manager run visible without performing any external write. The
+blockers are evidence for the next decision, not proof that an external action
+has been taken.
+
 The current packet is
 [`g0-current-action-packet-2026-08-14.md`](evidence/growth/g0-current-action-packet-2026-08-14.md).
 It supersedes the historical action snapshot for present handoff decisions
