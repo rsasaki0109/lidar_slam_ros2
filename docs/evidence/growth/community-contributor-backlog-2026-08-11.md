@@ -677,13 +677,21 @@ Estimate: **30 minutes**. Non-goals: changing verification implementation or
 quality thresholds, translating the entire guide, asking for a private
 bag/map/raw-log upload, or claiming support for an unvalidated sensor.
 
-## Successor C5 — Japanese verified-result boundary
+## Completed C5 — Japanese verified-result boundary
 
-The next prepared C5 task keeps the Japanese language-path scope and makes the
-trust boundary explicit. The guide already lists `map_verify: PASS` and a first-map
-receipt among successful artifacts, but it does not yet explain the difference
-between a map that renders and a result that is verified, `NOT VERIFIED`, or
-`UNAVAILABLE`.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now distinguishes a viewer-rendered map from a
+trusted result: the same run must show `map_verify: PASS` and retain a
+`first_map_validation_receipt.json` whose status is `PASS`. It explains
+`NOT VERIFIED` and `UNAVAILABLE` without guessing, directs the reader through
+the retained diagnosis and `inspect` command, and keeps receipt review and the
+no-private-upload boundary before support or independent validation.
+
+The queue's drift probe retires this task after the next Japanese receipt/session
+boundary marker appears. The next task confirms that a PASS receipt belongs to
+the same session and output being discussed.
 
 Suggested issue title:
 
@@ -715,6 +723,45 @@ python3 -m mkdocs build --strict
 Estimate: **30 minutes**. Non-goals: changing verification implementation or
 quality thresholds, translating the entire guide, asking for a private
 bag/map/raw-log upload, or claiming support for an unvalidated sensor.
+
+## Successor C5 — Japanese receipt/session match boundary
+
+The next prepared C5 task keeps the Japanese language-path scope and follows the
+verified-result boundary one step further: a PASS receipt is useful only when it
+belongs to the same session and output. The guide does not yet make copied,
+stale, mismatched, or failed receipt evidence visibly untrusted.
+
+Suggested issue title:
+
+> Docs: explain the Japanese receipt/session match boundary
+
+Outcome:
+
+A Japanese first-run user can confirm that a validation receipt belongs to the
+same session and output, and can reject copied, stale, mismatched, or failed
+evidence as untrusted.
+
+Acceptance:
+
+- tell the reader to match `first_map_validation_receipt.json` to the same
+  session/output and read its top-level status;
+- treat `status: FAIL`, a missing or malformed receipt, or failed receipt
+  revalidation as untrusted rather than inferring PASS from a viewer;
+- direct the reader to the retained diagnosis, manifest, verification log, or
+  `inspect` command before support or independent validation;
+- preserve the existing version, support, session, preview, privacy, and
+  independent-validation guidance;
+- require no rosbag, hardware, network, or private log.
+
+Focused check:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+Estimate: **30 minutes**. Non-goals: changing verification implementation,
+receipt schemas, or quality thresholds, translating the entire guide, asking for
+a private bag/map/raw-log upload, or claiming support for an unvalidated sensor.
 
 ## Publication and review sequence
 

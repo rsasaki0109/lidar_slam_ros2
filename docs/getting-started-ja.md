@@ -193,6 +193,38 @@ mappingやviewerを再試行せず`lidarslam-map doctor /path/to/rosbag2 --json`
 `reason.code`や`findings[].code`の`Next:`が新しいoutput directoryでのretryを示す場合だけ、
 保持されたcommandを使い、失敗したrunを上書きしません。
 
+### 検証済みmapと表示できるmapを区別する
+
+viewerで`pointcloud_map/`やpreviewが開けても、それだけではtrusted resultではありません。
+表示できることはmap outputが存在することを示すだけで、Autoware verificationや証跡の整合性が
+確認されたことは示しません。trusted resultとして扱えるのは、同じrunで`map_verify: PASS`が
+出て、保存された`first_map_validation_receipt.json`の`status: PASS`（receipt内の全checkもPASS）を
+確認できる場合だけです。
+
+| 表示・receiptの状態 | 意味 | 次の操作 |
+| --- | --- | --- |
+| `map_verify: PASS` とreceiptの`status: PASS` | map、verification、manifestに結び付いた証跡が揃ったtrusted result | versionとreceiptを確認してから、必要ならsupportまたは独立validationへ進む |
+| viewerだけ表示される、または`NOT VERIFIED` | map outputはあってもverificationを実行していない・完了していない | trusted evidenceとして共有せず、保存されたdiagnosisと`inspect` commandを先に読む |
+| `UNAVAILABLE`、receiptの欠落・不正・`FAIL` | receiptから検証結果を確定できない | viewerの見た目からPASSを推測せず、同じsessionの証跡をinspectする |
+
+`NOT VERIFIED`は「mapが失敗した」という推測ではなく、verificationが未実行または未完了という
+境界です。`UNAVAILABLE`はreceiptがない、壊れている、または必要な証跡が揃っていない状態で、
+近くにあるmapやpreviewからPASSを補いません。まず同じoutput/sessionの
+`first_map_validation_receipt.json`を開き、`status`、`verification`、checkの結果を読みます。
+別sessionからコピーしたreceiptを現在のmapの証拠には使いません。
+
+`status`がPASSでない場合は、supportや独立validatorへ渡す前に、保存された
+`autoware_map_diagnosis.md`/JSON、`verify_autoware_map.log`、`run_manifest.json`を読み、保持された
+`Details:`と`Next:`に従います。必要なら次のread-only診断を実行します。
+
+```bash
+lidarslam-map inspect /path/to/output --write
+```
+
+`inspect`の結果が示す原因を直して同じrunを再確認するまで、表示されたmapをverified resultとして
+扱いません。独立validationへ進む場合も、内容をreviewしたPASS receiptだけを使い、map、bag、
+raw log、preview、local pathを添付しません。
+
 ### 失敗したrunを上書きせず再試行する
 
 失敗したrunをもう一度mappingするときも、元のdirectoryを削除したり同じpathを指定したり

@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: explain the Japanese verified-result boundary",
-      "outcome": "A Japanese first-run user can distinguish a displayed map from a verified result, read the retained receipt status, and avoid sharing or relying on an unverified output as trusted evidence.",
+      "title": "Docs: explain the Japanese receipt/session match boundary",
+      "outcome": "A Japanese first-run user can confirm that a validation receipt belongs to the same session and output, and can reject copied, stale, mismatched, or failed evidence as untrusted.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -253,9 +253,9 @@
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide distinguishes map_verify: PASS from a map that merely displays in a viewer.",
-        "The guide names the retained first_map_validation_receipt.json and explains NOT VERIFIED or UNAVAILABLE without guessing.",
-        "The guide directs the reader to the retained diagnosis or inspect command before support or independent validation.",
+        "The Japanese guide tells the reader to match first_map_validation_receipt.json to the same session/output and read its top-level status.",
+        "The guide treats status: FAIL, a missing or malformed receipt, or a failed receipt revalidation as untrusted rather than inferring PASS from a viewer.",
+        "The guide directs the reader to the retained diagnosis, manifest, verification log, or inspect command before support or independent validation.",
         "The existing version, support, session, preview, privacy, and independent-validation guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
@@ -270,8 +270,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### 検証済みmapと表示できるmapを区別する",
-          "failure_detail": "the planned Japanese verification-boundary marker already exists"
+          "value": "### receiptのsessionとstatusを確認する",
+          "failure_detail": "the planned Japanese receipt/session-boundary marker already exists"
         }
       ],
       "private_data_required": false,

@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_verification_boundary_task_becomes_stale_when_marker_appears(
+def test_japanese_receipt_session_boundary_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese verification card requires queue reassessment."""
+    """A completed Japanese receipt card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 検証済みmapと表示できるmapを区別する\n',
+        + '\n### receiptのsessionとstatusを確認する\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_verification_boundary_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese verification-boundary marker already exists',
+        'the planned Japanese receipt/session-boundary marker already exists',
     ]
 
 
@@ -456,6 +456,27 @@ def test_japanese_recovery_card_explains_fresh_retry_without_overwrite():
     assert 'retry.command`をpathやoptionを編集せず' in source
     assert '古いsessionとは別の新しい' in source
     assert '元のsession、map、raw logを削除・uploadせず' in source
+
+
+def test_japanese_recovery_card_explains_verified_result_boundary():
+    """The Japanese card separates a displayed map from trusted evidence."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert '### 検証済みmapと表示できるmapを区別する' in source
+    assert 'viewerで`pointcloud_map/`やpreviewが開けても' in source
+    assert '`map_verify: PASS`' in source
+    assert '`first_map_validation_receipt.json`の`status: PASS`' in source
+    assert 'trusted resultとして扱えるのは' in source
+    assert '`NOT VERIFIED`' in source
+    assert '`UNAVAILABLE`はreceiptがない、壊れている' in source
+    assert '別sessionからコピーしたreceiptを現在のmapの証拠には使いません' in source
+    assert (
+        '`autoware_map_diagnosis.md`/JSON、`verify_autoware_map.log`、'
+        '`run_manifest.json`' in source
+    )
+    assert 'lidarslam-map inspect /path/to/output --write' in source
+    assert '表示されたmapをverified resultとして\n扱いません' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():
