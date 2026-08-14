@@ -225,6 +225,39 @@ lidarslam-map inspect /path/to/output --write
 扱いません。独立validationへ進む場合も、内容をreviewしたPASS receiptだけを使い、map、bag、
 raw log、preview、local pathを添付しません。
 
+### receiptのsessionとstatusを確認する
+
+`first_map_validation_receipt.json`だけを別のmap directoryへコピーしても、そのmapの証拠には
+なりません。receiptを読むときは、同じsessionの`session.json`にある
+`artifacts.validation_receipt`のpathと`map_output`を基準にし、receiptの`run.run_id`が
+同じ`run_manifest.json`の`run_id`と一致することを確認します。receiptの
+`verification.manifest_sha256`は、そのsessionの`run_manifest.json`に結び付いた値です。
+別runのreceipt、古いsessionのreceipt、名前だけ変更したreceiptを混ぜません。
+
+sessionを一覧から選ぶ場合は、local-onlyのJSONを確認します。
+
+```bash
+lidarslam-map sessions ./output --json
+```
+
+独立validationやsupportへ進む前の最終ゲートは、元のsession bundleに対する次のread-only
+再検証です。
+
+```bash
+lidarslam-map support /path/to/session_bundle --first-map
+```
+
+このcommandは、sessionがverifiedであること、receiptがそのsession内の通常ファイルであること、
+receiptのschemaと全check、manifest・diagnosis・verification logのhashが一致することを確認します。
+`READY FOR REVIEW`が出た場合だけ、表示されたreceipt pathのJSONを内容確認して共有候補にします。
+自動化では`--first-map --json`を使えます。この再検証は書き込みもGitHubへの通信も行いません。
+
+`status: PASS`のreceiptがあっても、再検証がreceipt mismatch、missing、invalid、またはnot PASSで
+終了した場合は、その証拠をtrustedとして使いません。receipt、`run_manifest.json`、`session.json`を
+手編集してhashを合わせたり、古いreceiptを新しいmapへコピーしたりせず、保存された`Details:`、
+`Next:`、`retry.command`またはverification-enabledな新しいoutput commandへ戻ります。元の証跡は
+削除・uploadせず、support reportと公開添付のprivacy境界を守ります。
+
 ### 失敗したrunを上書きせず再試行する
 
 失敗したrunをもう一度mappingするときも、元のdirectoryを削除したり同じpathを指定したり

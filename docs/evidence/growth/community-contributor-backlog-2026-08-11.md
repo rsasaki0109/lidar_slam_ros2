@@ -724,12 +724,21 @@ Estimate: **30 minutes**. Non-goals: changing verification implementation or
 quality thresholds, translating the entire guide, asking for a private
 bag/map/raw-log upload, or claiming support for an unvalidated sensor.
 
-## Successor C5 — Japanese receipt/session match boundary
+## Completed C5 — Japanese receipt/session match boundary
 
-The next prepared C5 task keeps the Japanese language-path scope and follows the
-verified-result boundary one step further: a PASS receipt is useful only when it
-belongs to the same session and output. The guide does not yet make copied,
-stale, mismatched, or failed receipt evidence visibly untrusted.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now binds a receipt to the same session and map
+output, explains the `run_id` and `manifest_sha256` provenance fields, and makes
+`support --first-map` the read-only revalidation gate. A receipt is a sharing
+candidate only after the handoff reports `READY FOR REVIEW`; copied, stale,
+mismatched, or failed evidence remains untrusted and the existing privacy
+boundary stays in place.
+
+The queue's drift probe retires this task after the next Japanese failed-
+revalidation recovery marker appears. The next task explains how to preserve old
+evidence and recover safely when that gate rejects a receipt.
 
 Suggested issue title:
 
@@ -762,6 +771,46 @@ python3 -m mkdocs build --strict
 Estimate: **30 minutes**. Non-goals: changing verification implementation,
 receipt schemas, or quality thresholds, translating the entire guide, asking for
 a private bag/map/raw-log upload, or claiming support for an unvalidated sensor.
+
+## Successor C5 — Japanese failed receipt revalidation recovery
+
+The next prepared C5 task keeps the Japanese language-path scope and turns a
+rejected receipt handoff into a clear recovery path. The guide does not yet say
+that a read-only `support --first-map` rejection leaves the old evidence intact,
+or that recovery must use retained `Next:`/retry information and a fresh
+verification-enabled output rather than editing hashes.
+
+Suggested issue title:
+
+> Docs: explain the Japanese failed receipt revalidation recovery
+
+Outcome:
+
+A Japanese first-run user can respond to a rejected first-map handoff by
+preserving the old evidence and using a fresh verification-enabled output
+without editing receipts or claiming support.
+
+Acceptance:
+
+- explain that a rejected `support --first-map` revalidation does not destroy
+  the old map or justify editing its receipt, manifest, or session;
+- direct the reader from a rejected handoff to retained `Details:`, `Next:`,
+  `retry.command`, or a fresh verification-enabled output command;
+- preserve the non-overwrite, retained-evidence, local-only, and no-private-
+  upload boundaries while describing recovery;
+- preserve the existing version, support, session, preview, privacy, and
+  independent-validation guidance;
+- require no rosbag, hardware, network, or private log.
+
+Focused check:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+Estimate: **30 minutes**. Non-goals: changing receipt validation, recovery, or
+verification implementation, translating the entire guide, asking for a private
+bag/map/raw-log upload, or claiming support for an unvalidated sensor.
 
 ## Publication and review sequence
 

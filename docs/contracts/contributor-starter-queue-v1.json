@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: explain the Japanese receipt/session match boundary",
-      "outcome": "A Japanese first-run user can confirm that a validation receipt belongs to the same session and output, and can reject copied, stale, mismatched, or failed evidence as untrusted.",
+      "title": "Docs: explain the Japanese failed receipt revalidation recovery",
+      "outcome": "A Japanese first-run user can respond to a rejected first-map handoff by preserving the old evidence and using a fresh verification-enabled output without editing receipts or claiming support.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -253,9 +253,9 @@
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide tells the reader to match first_map_validation_receipt.json to the same session/output and read its top-level status.",
-        "The guide treats status: FAIL, a missing or malformed receipt, or a failed receipt revalidation as untrusted rather than inferring PASS from a viewer.",
-        "The guide directs the reader to the retained diagnosis, manifest, verification log, or inspect command before support or independent validation.",
+        "The Japanese guide explains that a rejected support --first-map revalidation does not destroy the old map or justify editing its receipt, manifest, or session.",
+        "The guide directs the reader from a rejected handoff to retained Details, Next, retry.command, or a fresh verification-enabled output command.",
+        "The guide preserves the non-overwrite, retained-evidence, local-only, and no-private-upload boundaries while describing recovery.",
         "The existing version, support, session, preview, privacy, and independent-validation guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
@@ -270,8 +270,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### receiptのsessionとstatusを確認する",
-          "failure_detail": "the planned Japanese receipt/session-boundary marker already exists"
+          "value": "### receipt再検証に失敗したときの復旧",
+          "failure_detail": "the planned Japanese failed-revalidation recovery marker already exists"
         }
       ],
       "private_data_required": false,

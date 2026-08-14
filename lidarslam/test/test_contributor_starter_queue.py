@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_receipt_session_boundary_task_becomes_stale_when_marker_appears(
+def test_japanese_failed_revalidation_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese receipt card requires queue reassessment."""
+    """A completed Japanese revalidation card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### receiptのsessionとstatusを確認する\n',
+        + '\n### receipt再検証に失敗したときの復旧\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_receipt_session_boundary_task_becomes_stale_when_marker_appear
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese receipt/session-boundary marker already exists',
+        'the planned Japanese failed-revalidation recovery marker already exists',
     ]
 
 
@@ -477,6 +477,27 @@ def test_japanese_recovery_card_explains_verified_result_boundary():
     )
     assert 'lidarslam-map inspect /path/to/output --write' in source
     assert '表示されたmapをverified resultとして\n扱いません' in source
+
+
+def test_japanese_recovery_card_explains_receipt_session_revalidation():
+    """The Japanese card keeps receipt provenance tied to one session."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert '### receiptのsessionとstatusを確認する' in source
+    assert '`first_map_validation_receipt.json`だけを別のmap directoryへコピーしても' in source
+    assert '`artifacts.validation_receipt`のpathと`map_output`' in source
+    assert '`run.run_id`が\n同じ`run_manifest.json`の`run_id`と一致' in source
+    assert '`verification.manifest_sha256`は、そのsessionの`run_manifest.json`に結び付いた値' in source
+    assert '別runのreceipt、古いsessionのreceipt、名前だけ変更したreceiptを混ぜません' in source
+    assert 'lidarslam-map sessions ./output --json' in source
+    assert 'lidarslam-map support /path/to/session_bundle --first-map' in source
+    assert '全check、manifest・diagnosis・verification logのhashが一致' in source
+    assert '`READY FOR REVIEW`が出た場合だけ' in source
+    assert '`--first-map --json`' in source
+    assert '書き込みもGitHubへの通信も行いません' in source
+    assert 'receipt、`run_manifest.json`、`session.json`を\n手編集してhashを合わせたり' in source
+    assert '`retry.command`またはverification-enabledな新しいoutput command' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():
