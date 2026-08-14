@@ -6,12 +6,13 @@
 >
 > Draft PR: [#427](https://github.com/rsasaki0109/lidar_slam_ros2/pull/427)
 >
-> Exact reviewed product-candidate tip: `329cf44139b9a21e59787ea13144334282caaa04`
+> Exact reviewed product-candidate tip: `09aded87478f2d9d3950a662f9b837f75f98e983`
 
 This is the current, read-only handoff for the G0 release-hygiene decision.
 It was first captured on 2026-08-14 and refreshed on 2026-08-15 after the
-dashboard UX, CI-registration, version-priority, and final PR-head CI
-follow-ups. It replaces
+dashboard UX, CI-registration, version-priority, final PR-head CI, and
+packet-command-contract follow-ups. The packet tip is required to match the
+current checkout revision. It replaces
 neither the historical 2026-08-11 decision packet nor any maintainer approval.
 Its purpose is to prevent an old commit, old version, or one external action
 gate from being mistaken for the current state.
@@ -20,7 +21,7 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open, draft, mergeable; its current head includes docs-only packet synchronization after the code-bearing candidate tip above | source candidate is publicly reviewable |
+| Draft PR #427 | open, draft, mergeable; its current head includes the packet-command-contract regression follow-up above | source candidate is publicly reviewable |
 | PR-head CI | **PASS** for the current branch tip (9 / 9 checks) | revalidation covers the version-priority UX and packet synchronization; CI is not a release approval |
 | Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 223 paths / 7 slices, clean at the refreshed tip | local inventory is complete and cannot authorize a GitHub write |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |

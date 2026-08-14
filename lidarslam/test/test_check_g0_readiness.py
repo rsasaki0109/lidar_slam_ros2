@@ -32,6 +32,8 @@ from __future__ import annotations
 import copy
 import importlib.util
 from pathlib import Path
+import re
+import subprocess
 
 import pytest
 
@@ -90,6 +92,22 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert 'v1 blockers:' in card
     assert 'ndt_omp' in card
     assert 'g0-current-action-packet-2026-08-14.md' in card
+
+    packet = (
+        ROOT / 'docs' / 'evidence' / 'growth'
+        / 'g0-current-action-packet-2026-08-14.md'
+    ).read_text(encoding='utf-8')
+    match = re.search(
+        r'Exact reviewed product-candidate tip: `([0-9a-f]{40})`',
+        packet,
+    )
+    assert match is not None
+    current_tip = subprocess.check_output(
+        ['git', 'rev-parse', 'HEAD'],
+        cwd=ROOT,
+        text=True,
+    ).strip()
+    assert match.group(1) == current_tip
 
 
 def test_dashboard_can_include_a_read_only_release_report_without_writes():
