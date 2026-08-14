@@ -19,8 +19,8 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open, draft, mergeable clean; the reviewed candidate tip above is its public head | source candidate is publicly reviewable |
-| PR-head CI | **PENDING** for `329cf44` (9 checks expected) | revalidation is required after the version-priority UX change; CI is not a release approval |
+| Draft PR #427 | open, draft, mergeable; its current head includes docs-only packet synchronization after the code-bearing candidate tip above | source candidate is publicly reviewable |
+| PR-head CI | **PENDING** for the current branch tip (9 checks expected) | revalidation covers the version-priority UX and packet synchronization; CI is not a release approval |
 | Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 223 paths / 7 slices, clean at the refreshed tip | local inventory is complete and cannot authorize a GitHub write |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
@@ -62,8 +62,9 @@ comparable human trial.
 
 ## Safe transition order
 
-1. Review the exact tip and this refreshed packet; stop if the branch, PR, or
-   local inventory drifts. Do not measure mixed-version rows.
+1. Review the code-bearing candidate tip and this refreshed packet; stop if
+   the branch, PR, or local inventory drifts. Do not measure mixed-version
+   rows.
 2. If E2 is separately chosen, publish one explicitly selected immutable
    fixture/evidence host and perform a remote re-download and checksum audit.
 3. If E4 is separately chosen later, follow `RELEASING.md`; after publication,
