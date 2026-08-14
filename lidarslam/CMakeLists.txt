@@ -242,6 +242,7 @@ if(BUILD_TESTING)
     test_kitti_metrics
     test_measure_oci_archive
     test_ndt_omp_release_readiness
+    test_prepare_onboarding_matrix_packet
     test_package_manager_install
     test_package_manager_release_readiness
     test_product_build_info

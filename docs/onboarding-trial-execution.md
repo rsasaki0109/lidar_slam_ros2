@@ -18,6 +18,35 @@ and the validator is `scripts/check_onboarding_trial.py`. Do not run this
 document's trial commands in the product checkout. Use a disposable environment
 and a trial root outside the checkout.
 
+## 0. Prepare one exact-identity observer packet
+
+Before provisioning a host, prepare one local packet for the same product
+version across all four rows. This catches a copied digest, a mixed Docker /
+source version, or an accidental moving-tag identity before any timed work:
+
+```bash
+python3 scripts/prepare_onboarding_matrix_packet.py \
+  --product-version 0.9.1 \
+  --source-commit <40-lowercase-hex-commit> \
+  --docker-humble-digest sha256:<64-lowercase-hex-digest> \
+  --docker-jazzy-digest sha256:<64-lowercase-hex-digest> \
+  --render
+```
+
+The command is local-only: it performs no network read, trial, cleanup, or
+GitHub/community write. It emits the exact read-only release and source
+preflight commands plus one observer command per row. Its status is
+`READY_FOR_READ_ONLY_PREFLIGHT`, not `PUBLISHED` or `COMPARABLE`; run both
+preflights and require `PUBLISHED`/`READY` before provisioning a disposable
+host. Keep the generated packet, trial records, and observer roots outside the
+product checkout.
+
+Every row must retain all seven measurements named in the packet. In
+particular, `active_operator_time_sec` and `command_count` must come from a
+neutral human observer; a blank value keeps that row non-comparable. The
+packet does not authorize a release, image publication, issue update, cohort
+recruitment, or telemetry.
+
 ## 1. G0 matrix and current route decisions
 
 Use one fresh environment per row. The suffix is the UTC trial date and an
