@@ -726,7 +726,8 @@ the complete reviewed source path and has a network-read-only `READY` result.
 G0 remains `HOLD`: the matrix is 4/4 present and 0/4 comparable, v1 is 8/10,
 and the existing v0.9.0 tag prevents version reuse.
 
-The 207-path follow-up from the frozen comparison base now has an exact
+The historical 207-path follow-up from the frozen comparison base has since
+been expanded into the current 226-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell

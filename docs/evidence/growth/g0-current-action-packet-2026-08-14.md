@@ -10,8 +10,9 @@
 
 This is the current, read-only handoff for the G0 release-hygiene decision.
 It was first captured on 2026-08-14 and refreshed on 2026-08-15 after the
-dashboard UX, CI-registration, version-priority, final PR-head CI, and
-packet-command-contract follow-ups. The packet tip is required to be an
+dashboard UX, CI-registration, version-priority, final PR-head CI,
+packet-command-contract, and fail-closed usability-worksheet follow-ups. The
+packet tip is required to be an
 ancestor of the current checkout revision; later synchronization commits must
 remain described in this handoff. It replaces
 neither the historical 2026-08-11 decision packet nor any maintainer approval.
@@ -24,7 +25,7 @@ gate from being mistaken for the current state.
 | --- | --- | --- |
 | Draft PR #427 | open, draft, mergeable; its current head includes the packet synchronization follow-up after the reviewed tip above | source candidate is publicly reviewable |
 | PR-head CI | **PASS** for the current branch tip (9 / 9 checks) | revalidation covers the version-priority UX and packet synchronization; CI is not a release approval |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 224 paths / 7 slices, clean at the refreshed tip | local inventory is complete and cannot authorize a GitHub write |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 226 paths / 7 slices, clean at the refreshed tip | local inventory is complete and cannot authorize a GitHub write |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
 | Onboarding matrix | 4 / 4 product PASS; 0 / 4 comparable; **BLOCKED** | Docker is v0.9.0, source is v0.9.1, and human measurements are missing |

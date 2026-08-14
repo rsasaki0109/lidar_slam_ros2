@@ -79,6 +79,35 @@ The checked-in evidence index is
 It names only reviewed records under `docs/evidence/usability/` and keeps absent
 rows as `null`.
 
+Create a safe worksheet instead of hand-writing the six-task JSON:
+
+```bash
+python3 scripts/prepare_usability_scorecard.py \
+  --product lidarslam_ros2 \
+  --version 0.9.1 \
+  --revision-kind git-commit \
+  --revision <40-lowercase-hex-commit> \
+  --documentation-url https://<public-docs-host>/<product-path> \
+  --cohort-id external-paired-operator-a \
+  --comparison-pair-id paired-jazzy-machine-class-a \
+  --input-id fixed-demo-v1 \
+  --product-order first \
+  --ros-distro jazzy \
+  --os-family ubuntu-24.04 \
+  --architecture x86_64 \
+  --hardware-class eight-core-32gib-x86_64 \
+  --machine-fingerprint-sha256 <64-lowercase-hex-fingerprint> \
+  --output /tmp/lidarslam-usability-trial.json
+```
+
+The generator writes once and refuses to overwrite. It leaves commands,
+measurements, transcripts, and task checks empty or negative, defaults the
+public-identity and clean-host claims to false, and marks every task
+`not-recorded`. Add `--publicly-resolvable` and `--clean-start` only when those
+prerequisites have actually been checked. The result is a worksheet, not
+evidence; do not add it to the reviewed index until the observed trial is
+complete and the checker passes.
+
 Validate two records before adding them to the index:
 
 ```bash

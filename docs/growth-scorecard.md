@@ -89,7 +89,7 @@ supersedes the historical snapshot for present handoff decisions. It binds
 Draft PR #427, the reviewed product-candidate tip
 `09aded87478f2d9d3950a662f9b837f75f98e983` plus its current docs/tests
 synchronization, the latest PR-head CI result (`9 / 9` pass), the current
-224-path local plan, and the still-unpublished v0.9.1/image state, while
+226-path local plan, and the still-unpublished v0.9.1/image state, while
 keeping E2 artifact hosting, E3 community mutation, and E4 release publication
 separate and unauthorized. The earlier 219-path value remains historical
 capture-time evidence only.
