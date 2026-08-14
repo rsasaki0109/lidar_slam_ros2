@@ -859,6 +859,54 @@ duplicate check: <one pair per run; no duplicate issue or session artifact>
 identity、session、outputに結び付かない場合や、既存のpairを編集・複製しそうな場合は、操作を
 進めず`STOP`に戻します。
 
+### 日本語のvalidation reportのfollow-up分類後の対応を監査可能にする
+
+分類を記録しただけでは、実際に何をしたかは決まりません。`action result`を別に記録し、
+許可された操作だけが行われたことを確認します。action resultが分類と一致しない場合や、
+identity、session、outputを再確認できない場合は、元の証跡を編集せず`STOPPED`として扱います。
+
+| disposition | action result | 許可されるevidence変更 | 公開status |
+| --- | --- | --- | --- |
+| `MATCHED FOLLOW-UP` | `NOTE ONLY`、`SUPPORT REQUESTED`、または`RETRY STARTED` | 変更なし。元のpairを参照し、retryのfresh factsだけをnoteへ追記する | `unresolved`、`retrying`、または`READY FOR REVIEW` — not accepted |
+| `NEW RUN` | `NEW PAIR PREPARED` | exact identity、session、outputがそろった新runのreport + reviewed receiptを1組だけ作る | `READY FOR REVIEW` — acceptedはledgerの明示記録後だけ |
+| `STOP` | `STOPPED` | 変更なし。新しいreport、receipt、公開validation noteを作らない | `STOP` — not accepted |
+
+`MATCHED FOLLOW-UP`で`NOTE ONLY`、`SUPPORT REQUESTED`、または`RETRY STARTED`を記録した場合も、
+元のreport、receipt、hash、review statusは変更しません。`NEW RUN`の`NEW PAIR PREPARED`は、
+Dockerなら公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、sourceなら未公開`v0.9.1`候補と
+exact commit/revisionを新しいsessionから確認できる場合だけ許可します。古いpairのコピー、
+receiptの再利用、同じrunの二重pairは認めません。
+
+`STOP`の`STOPPED`は、support依頼または保存された`Details:`/`Next:`/`retry.command`へ戻る
+ための結果です。原因、PASS、再現成功、acceptedを推測せず、private path、credential、bag、
+map、raw log、session bundleを公開しません。acceptedは、maintainer reviewとledgerの明示的な
+accepted記録がある場合だけ書きます。
+
+次のblockは、分類後の実行結果を記録するためのものです。local pathやprivate artifactは書かず、
+`new artifact count`は許可された一組の数だけを記録します。
+
+```text
+follow-up action audit:
+disposition: MATCHED FOLLOW-UP / NEW RUN / STOP
+action result: NOTE ONLY / SUPPORT REQUESTED / RETRY STARTED /
+               NEW PAIR PREPARED / STOPPED
+identity/session/output: matched / missing / mismatch
+allowed evidence change: none / one new report + reviewed receipt / none
+original evidence: unchanged
+new artifact count: 0 / one report + reviewed receipt / 0
+public status: unresolved / READY FOR REVIEW — not accepted / STOP — not accepted
+reason.code: <saved stable code>
+Details: <sanitized explanation; no private path>
+Next: <sanitized next action; no private path>
+handoff: <support / maintainer review / stop>
+audit result: completed / STOPPED — no acceptance
+```
+
+実行結果がこのblockの許可範囲と違った場合は、既存のreportやreceiptを書き換えて整合させず、
+新しい監査メモを`STOPPED`として残します。一つのrunにつきreport + reviewed receiptは一組だけ、
+複数issueへ同じnoteやsession artifactは重複添付しません。`NEW RUN`でもledgerの受理前は
+`READY FOR REVIEW`であり、`MATCHED FOLLOW-UP`や`STOP`をindependent validationへ昇格させません。
+
 ### validation reportのreview statusを区別する
 
 `READY FOR REVIEW`は、元のsessionに対するlocal-onlyの再検証が完了し、canonical issue formへ

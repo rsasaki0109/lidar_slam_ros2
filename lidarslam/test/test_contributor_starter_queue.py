@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_validation_follow_up_summary_task_becomes_stale_when_marker_appears(
+def test_japanese_validation_follow_up_action_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A successor Japanese follow-up-action card requires reassessment."""
+    """A successor Japanese action-audit card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 日本語のvalidation reportのfollow-up分類後の対応を監査可能にする\n',
+        + '\n### 日本語のvalidation reportのfollow-up実行結果を安全に引き継ぐ\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_validation_follow_up_summary_task_becomes_stale_when_marker_ap
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese follow-up-action marker already exists',
+        'the planned Japanese follow-up-action-result marker already exists',
     ]
 
 
@@ -888,6 +888,39 @@ def test_japanese_recovery_card_explains_safe_follow_up_actions():
     )
     assert '一つのrunにつきreport+reviewedreceiptは一組だけ' in compact
     assert '元のidentity、session、outputに結び付かない場合' in compact
+
+
+def test_japanese_recovery_card_audits_follow_up_action_results():
+    """The Japanese action-audit card separates outcome from disposition."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+    card = source.split(
+        '### 日本語のvalidation reportのfollow-up分類後の対応を監査可能にする', 1
+    )[1].split(
+        '### validation reportのreview statusを区別する', 1
+    )[0]
+    normalized = ' '.join(card.split())
+    compact = normalized.replace(' ', '')
+
+    assert '分類を記録しただけでは、実際に何をしたかは決まりません' in normalized
+    assert '`action result`を別に記録' in normalized
+    assert 'identity、session、outputを再確認できない場合' in normalized
+    assert '`NOTE ONLY`' in normalized
+    assert '`SUPPORT REQUESTED`' in normalized
+    assert '`RETRY STARTED`' in normalized
+    assert '`NEW PAIR PREPARED`' in normalized
+    assert '`STOPPED`' in normalized
+    assert '変更なし。元のpairを参照' in normalized
+    assert '新しいreport、receipt、公開validation noteを作らない' in normalized
+    assert 'acceptedは、maintainer reviewとledgerの明示的な' in normalized
+    assert 'follow-up action audit:' in normalized
+    assert 'allowed evidence change: none / one new report + reviewed receipt / none' in normalized
+    assert 'new artifact count: 0 / one report + reviewed receipt / 0' in normalized
+    assert 'identity/session/output: matched / missing / mismatch' in normalized
+    assert 'audit result: completed / STOPPED — no acceptance' in normalized
+    assert '既存のreportやreceiptを書き換えて整合させず' in normalized
+    assert '一つのrunにつきreport+reviewedreceiptは一組だけ' in compact
+    assert '複数issueへ同じnoteやsessionartifactは重複添付しません' in compact
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

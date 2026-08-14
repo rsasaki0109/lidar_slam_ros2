@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: document safe actions after Japanese validation-report follow-up dispositions",
-      "outcome": "A Japanese maintainer can act on MATCHED FOLLOW-UP, NEW RUN, or STOP without editing evidence, duplicating artifacts, or accepting a note.",
+      "title": "Docs: audit Japanese validation-report follow-up action results",
+      "outcome": "A Japanese maintainer can record what happened after a follow-up disposition without rewriting evidence, duplicating artifacts, or accepting a note.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -254,9 +254,10 @@
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide gives the permitted action and public status for MATCHED FOLLOW-UP, NEW RUN, and STOP.",
-        "MATCHED FOLLOW-UP keeps the original pair and uses saved Details, Next, or retry guidance without a new receipt; NEW RUN uses one new pair without mixing identities; STOP preserves evidence and the support route.",
+        "The Japanese guide separates the disposition from the action result and public status for MATCHED FOLLOW-UP, NEW RUN, and STOP.",
+        "The card permits NOTE ONLY, SUPPORT REQUESTED, RETRY STARTED, NEW PAIR PREPARED, or STOPPED only in the matching route; MATCHED FOLLOW-UP has no new receipt, NEW RUN has one new pair, and STOP has no public validation note.",
         "The guide keeps the original report, receipt, and hash immutable, permits one report/receipt pair per run, and forbids duplicate issue or session artifacts.",
+        "The action-audit block records identity/session/output, allowed evidence change, artifact count, reason.code, sanitized Details and Next, and handoff without private paths.",
         "The card preserves the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary and tells the reader to stop when identity or session data is missing.",
         "The existing support, session, privacy, independent-validation, and review-status guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
@@ -272,8 +273,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### 日本語のvalidation reportのfollow-up分類後の対応を監査可能にする",
-          "failure_detail": "the planned Japanese follow-up-action marker already exists"
+          "value": "### 日本語のvalidation reportのfollow-up実行結果を安全に引き継ぐ",
+          "failure_detail": "the planned Japanese follow-up-action-result marker already exists"
         }
       ],
       "private_data_required": false,

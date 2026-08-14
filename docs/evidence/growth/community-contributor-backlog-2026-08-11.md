@@ -1045,31 +1045,48 @@ appears. The next task defines the permitted action and public status for each
 classification without editing evidence, duplicating artifacts, or accepting a
 note.
 
-## Successor C5 — Safe actions after Japanese validation-report follow-up dispositions
+## Completed C5 — Safe actions after Japanese validation-report follow-up dispositions
 
-The next prepared C5 task keeps the Japanese language-path scope and defines
-what a maintainer may do after classifying a follow-up as matched support, a
-separate new run, or stop. It should preserve immutable evidence, prevent
-duplicate artifacts, and keep a follow-up note from being treated as accepted
-validation.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now defines the permitted action and public
+status for `MATCHED FOLLOW-UP`, `NEW RUN`, and `STOP`. It keeps matched support
+on the original pair, limits a new run to one new report/receipt pair, and
+preserves the support route for `STOP` without editing evidence or accepting a
+note.
+
+The queue's drift probe retires this task after the safe-disposition marker
+appears. The next task records the actual action result separately, so a
+classification cannot be mistaken for proof that an operation was completed.
+
+## Successor C5 — Auditable Japanese validation-report follow-up action results
+
+The next prepared C5 task keeps the Japanese language-path scope and records
+what happened after a follow-up disposition. It should separate disposition
+from action result, preserve immutable evidence, prevent duplicate artifacts,
+and keep an action note from being treated as accepted validation.
 
 Suggested issue title:
 
-> Docs: document safe actions after Japanese validation-report follow-up dispositions
+> Docs: audit Japanese validation-report follow-up action results
 
 Outcome:
 
-A Japanese maintainer can act on `MATCHED FOLLOW-UP`, `NEW RUN`, or `STOP`
-without editing evidence, duplicating artifacts, or accepting a note.
+A Japanese maintainer can record what happened after a follow-up disposition
+without rewriting evidence, duplicating artifacts, or accepting a note.
 
 Acceptance:
 
-- give the permitted action and public status for `MATCHED FOLLOW-UP`, `NEW
-  RUN`, and `STOP`;
-- keep `MATCHED FOLLOW-UP` on the original pair using saved `Details:`,
-  `Next:`, or retry guidance without a new receipt; use one new pair for `NEW
-  RUN` without mixing identities; preserve evidence and the support route for
-  `STOP`;
+- separate the disposition from the action result and public status for
+  `MATCHED FOLLOW-UP`, `NEW RUN`, and `STOP`;
+- permit `NOTE ONLY`, `SUPPORT REQUESTED`, `RETRY STARTED`, `NEW PAIR
+  PREPARED`, or `STOPPED` only in the matching route; keep no new receipt for
+  `MATCHED FOLLOW-UP`, one new pair for `NEW RUN`, and no public validation note
+  for `STOP`;
+- provide an action-audit block with identity/session/output, allowed evidence
+  change, artifact count, reason.code, sanitized `Details:`/`Next:`, and handoff
+  without private paths;
 - keep the original report, receipt, and hash immutable, permit one
   report/receipt pair per run, and forbid duplicate issue or session artifacts;
 - preserve the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary
