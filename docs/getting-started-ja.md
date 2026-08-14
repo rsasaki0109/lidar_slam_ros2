@@ -258,6 +258,42 @@ receiptのschemaと全check、manifest・diagnosis・verification logのhashが�
 `Next:`、`retry.command`またはverification-enabledな新しいoutput commandへ戻ります。元の証跡は
 削除・uploadせず、support reportと公開添付のprivacy境界を守ります。
 
+### receipt再検証に失敗したときの復旧
+
+`support --first-map`がrejectしても、元のmap、session、receipt、manifestは削除されません。
+これは現在のevidenceがtrusted resultとして使えないという判定であり、mapが消えたという意味では
+ありません。旧outputを削除せず、receipt、`run_manifest.json`、`session.json`の内容やhashを手で
+書き換えて再検証を通そうとしません。
+
+まずlocal-onlyのsessionと保存された復旧情報を確認します。
+
+```bash
+lidarslam-map sessions ./output --status action_required --viewer none --json
+lidarslam-map inspect /path/to/output --write
+```
+
+`map_session_recovery.json`、diagnosis、`Details:`、`Next:`を順に読みます。`resume.available`
+がtrueで`next_command`が`--resume`なら、表示されたcommandをそのまま実行し、mappingを再実行
+しません。post-processingだけが完了すれば、同じsessionのreceiptをもう一度確認できます。
+
+`retry.available`がtrueなら、保存された`retry.command`を編集せずに実行します。これはpinned setup
+を保持したまま、通常は`map.retry`または`map.retry-2`のような新しいoutputへ書きます。旧sessionの
+証跡と新しいretryの結果を混ぜず、新retryで新しく生成されたreceiptだけを再検証します。
+
+resumeもretryも利用できない場合、または元のrunがverification offの診断だった場合は、doctorの
+結果を確認してから、古いoutputとは別のpathにverificationをrequiredにした新しいrunを開始します。
+
+```bash
+lidarslam-map start /path/to/rosbag2 \
+  --output-dir /path/to/output.verified \
+  --verification required
+```
+
+viewerの見た目からcommandを再構成したり、古いreceiptを新しいmapにコピーしたりしません。新しい
+sessionで`support --first-map`が`READY FOR REVIEW`を返し、receiptを内容確認できた場合だけ、
+supportまたは独立validationの候補にします。旧証跡、bag、map、raw logは削除・uploadせず、公開時は
+review済みreceiptだけを使います。
+
 ### 失敗したrunを上書きせず再試行する
 
 失敗したrunをもう一度mappingするときも、元のdirectoryを削除したり同じpathを指定したり

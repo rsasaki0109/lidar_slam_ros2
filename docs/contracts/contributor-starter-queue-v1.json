@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: explain the Japanese failed receipt revalidation recovery",
-      "outcome": "A Japanese first-run user can respond to a rejected first-map handoff by preserving the old evidence and using a fresh verification-enabled output without editing receipts or claiming support.",
+      "title": "Docs: add a Japanese pre-share verification checklist",
+      "outcome": "A Japanese first-run user can complete a final local pre-share check for product identity, receipt readiness, privacy, and the permitted public attachment without exposing private evidence.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -248,14 +248,14 @@
         "docs/getting-started-ja.md"
       ],
       "non_goals": [
-        "change verification implementation or quality thresholds",
+        "change support or verification implementation or quality thresholds",
         "translate the entire getting-started guide",
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide explains that a rejected support --first-map revalidation does not destroy the old map or justify editing its receipt, manifest, or session.",
-        "The guide directs the reader from a rejected handoff to retained Details, Next, retry.command, or a fresh verification-enabled output command.",
-        "The guide preserves the non-overwrite, retained-evidence, local-only, and no-private-upload boundaries while describing recovery.",
+        "The Japanese guide provides one copy-ready checklist for the exact version or revision, same session and output, READY FOR REVIEW from support --first-map, receipt review, and command redaction.",
+        "The checklist distinguishes the local-only session and handoff from the public reviewed receipt that may be shared.",
+        "The guide rejects map, bag, raw log, preview, and local-path uploads as public attachments.",
         "The existing version, support, session, preview, privacy, and independent-validation guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
@@ -270,8 +270,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### receipt再検証に失敗したときの復旧",
-          "failure_detail": "the planned Japanese failed-revalidation recovery marker already exists"
+          "value": "### 公開共有前の5項目チェック",
+          "failure_detail": "the planned Japanese pre-share checklist marker already exists"
         }
       ],
       "private_data_required": false,

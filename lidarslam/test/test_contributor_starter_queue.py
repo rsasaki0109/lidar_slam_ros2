@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_failed_revalidation_task_becomes_stale_when_marker_appears(
+def test_japanese_pre_share_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese revalidation card requires queue reassessment."""
+    """A completed Japanese pre-share card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### receipt再検証に失敗したときの復旧\n',
+        + '\n### 公開共有前の5項目チェック\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_failed_revalidation_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese failed-revalidation recovery marker already exists',
+        'the planned Japanese pre-share checklist marker already exists',
     ]
 
 
@@ -498,6 +498,31 @@ def test_japanese_recovery_card_explains_receipt_session_revalidation():
     assert '書き込みもGitHubへの通信も行いません' in source
     assert 'receipt、`run_manifest.json`、`session.json`を\n手編集してhashを合わせたり' in source
     assert '`retry.command`またはverification-enabledな新しいoutput command' in source
+
+
+def test_japanese_recovery_card_explains_failed_receipt_revalidation_recovery():
+    """The Japanese card preserves rejected evidence and gives safe recovery."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert '### receipt再検証に失敗したときの復旧' in source
+    assert (
+        '`support --first-map`がrejectしても、元のmap、session、receipt、manifestは'
+        '削除されません。'
+    ) in source
+    assert 'receipt、`run_manifest.json`、`session.json`の内容やhashを手で\n書き換えて再検証を通そうとしません。' in source
+    assert (
+        'lidarslam-map sessions ./output --status action_required --viewer none --json'
+        in source
+    )
+    assert '`map_session_recovery.json`、diagnosis、`Details:`、`Next:`' in source
+    assert '`resume.available`\nがtrueで`next_command`が`--resume`なら' in source
+    assert '`retry.available`がtrueなら、保存された`retry.command`を編集せずに実行します' in source
+    assert '`map.retry`または`map.retry-2`のような新しいoutput' in source
+    assert 'verification offの診断' in source
+    assert '--verification required' in source
+    assert 'support --first-map`が`READY FOR REVIEW`を返し' in source
+    assert '旧証跡、bag、map、raw logは削除・uploadせず' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

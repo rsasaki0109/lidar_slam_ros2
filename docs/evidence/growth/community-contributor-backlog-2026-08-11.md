@@ -772,13 +772,24 @@ Estimate: **30 minutes**. Non-goals: changing verification implementation,
 receipt schemas, or quality thresholds, translating the entire guide, asking for
 a private bag/map/raw-log upload, or claiming support for an unvalidated sensor.
 
-## Successor C5 — Japanese failed receipt revalidation recovery
+## Completed C5 — Japanese failed receipt revalidation recovery
 
-The next prepared C5 task keeps the Japanese language-path scope and turns a
-rejected receipt handoff into a clear recovery path. The guide does not yet say
-that a read-only `support --first-map` rejection leaves the old evidence intact,
-or that recovery must use retained `Next:`/retry information and a fresh
-verification-enabled output rather than editing hashes.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now explains that a rejected read-only
+`support --first-map` handoff leaves the original map, session, receipt, and
+manifest intact. It directs the operator through local-only session and
+`map_session_recovery.json` inspection, retained `Details:`/`Next:` values,
+`--resume`, the pinned fresh-output `retry.command`, and a separate
+verification-required run when neither recovery path is available. The guide
+keeps old and new evidence separate, forbids editing or copying receipts, and
+requires a new `READY FOR REVIEW` handoff before a reviewed receipt becomes a
+sharing candidate.
+
+The queue's drift probe retires this task after the failed-revalidation marker
+appears. The next task turns the completed recovery path into a short final
+check before any public sharing.
 
 Suggested issue title:
 
@@ -811,6 +822,48 @@ python3 -m mkdocs build --strict
 Estimate: **30 minutes**. Non-goals: changing receipt validation, recovery, or
 verification implementation, translating the entire guide, asking for a private
 bag/map/raw-log upload, or claiming support for an unvalidated sensor.
+
+## Successor C5 — Japanese pre-share verification checklist
+
+The next prepared C5 task keeps the Japanese language-path scope and condenses
+the final handoff into one copy-ready checklist. It should connect the exact
+installed version or revision, same-session output, revalidated
+`READY FOR REVIEW` receipt, privacy review, and command redaction without
+turning a local session bundle into a public upload.
+
+Suggested issue title:
+
+> Docs: add a Japanese pre-share verification checklist
+
+Outcome:
+
+A Japanese first-run user can complete a final local pre-share check for product
+identity, receipt readiness, privacy, and the permitted public attachment
+without exposing private evidence.
+
+Acceptance:
+
+- provide one copy-ready checklist for the exact version or revision, same
+  session and output, `support --first-map` returning `READY FOR REVIEW`,
+  receipt review, and command redaction;
+- distinguish the local-only session and handoff from the public reviewed
+  receipt that may be shared;
+- reject map, bag, raw log, preview, and local-path uploads as public
+  attachments;
+- preserve the existing version, support, session, preview, privacy, and
+  independent-validation guidance;
+- require no rosbag, hardware, network, or private log.
+
+Focused check:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+Estimate: **30 minutes**. Non-goals: changing support or verification
+implementation or quality thresholds, translating the entire guide, asking for
+a private bag/map/raw-log upload, or claiming support for an unvalidated
+sensor.
 
 ## Publication and review sequence
 
