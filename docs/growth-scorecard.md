@@ -36,6 +36,14 @@ bundle. The product gates remain unchanged at 0/3 accepted independent maps
 and 8/10 v1 readiness; the snapshot is a measurement update, not an adoption
 claim.
 
+The current read-only snapshot is
+[2026-08-15](evidence/growth/2026-08-15.json), captured at
+`2026-08-14T19:00:23Z`. It records 837 Stars, 353 unique clones, 267 unique
+views, 5 unique Autoware/TIER IV referrals, and 18 downloads of the primary
+v0.9.0 release bundle. It still records 0/3 accepted independent maps and
+8/10 v1 readiness. The snapshot contains aggregate metrics only; it does not
+write stargazer identities, raw GitHub records, or product telemetry.
+
 The parallel community decision is the
 [2026-08-11 contributor backlog](evidence/growth/community-contributor-backlog-2026-08-11.md).
 A read-only audit grouped all 29 open issues and prepared five tasks with exact
@@ -78,12 +86,13 @@ four separate approvals. The candidate is reviewable locally; G0 remains
 
 The [current exact-tip action packet](evidence/growth/g0-current-action-packet-2026-08-14.md)
 supersedes the historical snapshot for present handoff decisions. It binds
-Draft PR #427, the code-bearing candidate tip `329cf44` plus its current
-docs-only packet synchronization, the latest PR-head CI result (`9 / 9`
-pass), the current 223-path local plan, and the still-unpublished
-v0.9.1/image state, while keeping E2 artifact hosting, E3 community mutation,
-and E4 release publication separate and unauthorized. The earlier 219-path
-value remains historical capture-time evidence only.
+Draft PR #427, the reviewed product-candidate tip
+`09aded87478f2d9d3950a662f9b837f75f98e983` plus its current docs/tests
+synchronization, the latest PR-head CI result (`9 / 9` pass), the current
+223-path local plan, and the still-unpublished v0.9.1/image state, while
+keeping E2 artifact hosting, E3 community mutation, and E4 release publication
+separate and unauthorized. The earlier 219-path value remains historical
+capture-time evidence only.
 
 The [G0 readiness dashboard](g0-readiness.md) is the single read-only entry
 point for rechecking those local gates:

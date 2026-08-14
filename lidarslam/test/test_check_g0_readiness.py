@@ -118,6 +118,17 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     )
     assert ancestor_check.returncode == 0
 
+    scorecard = (
+        ROOT / 'docs' / 'growth-scorecard.md'
+    ).read_text(encoding='utf-8')
+    scorecard_match = re.search(
+        r'It binds\nDraft PR #427, the reviewed product-candidate tip\n'
+        r'`([0-9a-f]{40})`',
+        scorecard,
+    )
+    assert scorecard_match is not None
+    assert scorecard_match.group(1) == match.group(1)
+
 
 def test_dashboard_can_include_a_read_only_release_report_without_writes():
     """An optional release report is represented without adding authority."""
