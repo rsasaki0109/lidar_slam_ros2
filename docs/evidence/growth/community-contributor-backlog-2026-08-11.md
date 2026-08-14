@@ -581,31 +581,41 @@ Estimate: **30 minutes**. Non-goals: changing the start or session
 implementation, translating the entire guide, asking for a private bag/map/raw-
 log upload, or claiming support for an unvalidated sensor.
 
-## Successor C5 — Japanese dry-run and write boundary
+## Completed C5 — Japanese dry-run and write boundary
 
-The next prepared C5 task keeps the Japanese language-path scope and makes the
-first write boundary explicit. The guide already shows `start --dry-run`, but it
-does not yet show the machine-readable `--yes --dry-run --json` preflight or say
-clearly that no session or map is created until the user confirms the plan.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now shows
+`lidarslam-map start /path/to/rosbag2 --yes --dry-run --json`, explains that the
+dry-run returns a `status: dry_run` plan without leaving a session bundle or map,
+and identifies `run.command_shell` as the retained command to review. It also
+separates the no-maintained-profile `reason.code`/`findings[].code` path, keeps
+the doctor `next_command` actionable, and states that `--viewer none` is the
+headless route after the plan is accepted.
+
+The queue's drift probe retires this task after the next Japanese fresh-retry
+card marker appears. The next task protects failed-run provenance by making the
+fresh output-directory rule visible in the Japanese recovery path.
 
 Suggested issue title:
 
-> Docs: explain the Japanese dry-run and write boundary
+> Docs: explain Japanese fresh-output retry without overwrite
 
 Outcome:
 
-A Japanese first-run user can inspect an own-bag plan before writes, understand
-when a session or map may be created, and choose a controlled next action without
-rerunning an unknown input blindly.
+A Japanese first-run user can retry a failed or incomplete map in a fresh output
+directory, preserve the retained setup and evidence, and avoid overwriting an
+earlier run.
 
 Acceptance:
 
-- show `lidarslam-map start /path/to/rosbag2 --yes --dry-run --json` as a
-  no-write preflight;
-- explain that dry-run creates no session or map output and that confirmation is
-  required before mapping writes;
-- keep `--viewer none` as the safe choice for headless execution and name the
-  retained next command after inspection;
+- explain that an existing output directory is not overwritten and that a retry
+  uses a fresh `--output-dir`;
+- distinguish the retained pinned setup and evidence from a new map output
+  directory;
+- tell the reader to use the retained retry or next command rather than
+  reconstructing a command from a viewer symptom;
 - preserve the existing version, support, session, preview, privacy, and
   independent-validation guidance;
 - require no rosbag, hardware, network, or private log.
@@ -616,7 +626,46 @@ Focused check:
 python3 -m mkdocs build --strict
 ```
 
-Estimate: **30 minutes**. Non-goals: changing the start or session
+Estimate: **30 minutes**. Non-goals: changing the start, session, or recovery
+implementation, translating the entire guide, asking for a private bag/map/raw-
+log upload, or claiming support for an unvalidated sensor.
+
+## Successor C5 — Japanese fresh-output retry without overwrite
+
+The next prepared C5 task keeps the Japanese language-path scope and protects
+failed-run provenance. The guide already says not to overwrite a failed run in
+the reason-code card, but it does not yet show the fresh `--output-dir` rule or
+explain which retained setup and evidence belong to the retry.
+
+Suggested issue title:
+
+> Docs: explain Japanese fresh-output retry without overwrite
+
+Outcome:
+
+A Japanese first-run user can retry a failed or incomplete map in a fresh output
+directory, preserve the retained setup and evidence, and avoid overwriting an
+earlier run.
+
+Acceptance:
+
+- explain that an existing output directory is not overwritten and that a retry
+  uses a fresh `--output-dir`;
+- distinguish the retained pinned setup and evidence from a new map output
+  directory;
+- tell the reader to use the retained retry or next command rather than
+  reconstructing a command from a viewer symptom;
+- preserve the existing version, support, session, preview, privacy, and
+  independent-validation guidance;
+- require no rosbag, hardware, network, or private log.
+
+Focused check:
+
+```bash
+python3 -m mkdocs build --strict
+```
+
+Estimate: **30 minutes**. Non-goals: changing the start, session, or recovery
 implementation, translating the entire guide, asking for a private bag/map/raw-
 log upload, or claiming support for an unvalidated sensor.
 

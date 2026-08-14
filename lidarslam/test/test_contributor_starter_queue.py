@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_dry_run_task_becomes_stale_when_marker_appears(
+def test_japanese_fresh_retry_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese dry-run card requires queue reassessment."""
+    """A completed Japanese fresh-retry card requires queue reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 自分のbagを先にdry-runで確認する\n',
+        + '\n### 失敗したrunを上書きせず再試行する\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_dry_run_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese dry-run marker already exists',
+        'the planned Japanese fresh-retry marker already exists',
     ]
 
 
@@ -413,6 +413,27 @@ def test_japanese_recovery_card_explains_reason_code_and_next_action_triage():
     assert '安全なterminal post-processingだけを再開する`--resume`' in source
     assert 'mappingやviewerを再試行せず' in source
     assert '失敗したrunを上書きしません' in source
+
+
+def test_japanese_recovery_card_explains_dry_run_write_boundary():
+    """The Japanese card makes the pre-write plan and headless route explicit."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert '### 自分のbagを先にdry-runで確認する' in source
+    assert 'lidarslam-map start /path/to/rosbag2 \\' in source
+    assert '  --yes \\' in source
+    assert '  --dry-run \\' in source
+    assert '  --json' in source
+    assert '`--dry-run`ではsession bundle、`sensor_setup.json`、map outputを残さず' in source
+    assert '`status`が\n`dry_run`になり' in source
+    assert '`run.command_shell`に表示された保持済みの実行command' in source
+    assert '`reason.code`、`findings[].code`、' in source
+    assert '`next_command`がdoctorを示すときはそのcommandへ戻り' in source
+    assert '確認したplanで実際にmappingへ進むときは`--dry-run`を外し' in source
+    assert '`--viewer none`を使います' in source
+    assert 'planをレビューした後だけ`--yes --viewer none`を追加' in source
+    assert 'raw outputをissueへ貼り付けません' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

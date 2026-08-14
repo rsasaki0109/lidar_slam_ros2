@@ -129,6 +129,40 @@ lidarslam-map start /path/to/rosbag2
 lidarslam-map start /path/to/rosbag2 --dry-run
 ```
 
+### 自分のbagを先にdry-runで確認する
+
+長時間のmappingやファイル作成へ進む前に、選択されるprofile、topic、frame、
+calibration、実行予定のcommandをJSONで確認できます。
+
+```bash
+lidarslam-map start /path/to/rosbag2 \
+  --yes \
+  --dry-run \
+  --json
+```
+
+`--dry-run`ではsession bundle、`sensor_setup.json`、map outputを残さず、mappingも
+開始しません。`--yes`はこの確認を非対話で実行するための指定であり、dry-runを外した
+実行の書き込みを許可するものではありません。readyな結果ではJSONの`status`が
+`dry_run`になり、`run.command_shell`に表示された保持済みの実行commandを確認できます。
+
+安全なprofileを選べない場合は終了コード2になり、`reason.code`、`findings[].code`、
+各findingの`next_action`、`next_command`が診断を示します。sessionやmapはこの場合も
+作成されません。`next_command`がdoctorを示すときはそのcommandへ戻り、viewerの症状から
+mapping commandを組み立て直しません。
+
+確認したplanで実際にmappingへ進むときは`--dry-run`を外し、端末では表示内容を確認して
+から開始します。ヘッドレス環境ではbrowserを起動せず成果物を保持するため、明示的に
+`--viewer none`を使います。
+
+```bash
+lidarslam-map start /path/to/rosbag2 --viewer none
+```
+
+非対話で実行する場合も、planをレビューした後だけ`--yes --viewer none`を追加します。
+JSONや表示されたcommandにはlocal pathが含まれる場合があるため、確認結果はlocal-onlyで
+扱い、raw outputをissueへ貼り付けません。
+
 ROS 2をhostへインストールせず、checkout済みrepositoryからDockerを使う場合は
 次の1コマンドです。bagはread-onlyでmountされます。
 

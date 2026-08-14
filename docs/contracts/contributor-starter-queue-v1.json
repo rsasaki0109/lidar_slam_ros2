@@ -42,7 +42,7 @@
       },
       {
         "task_id": "starter-C5",
-        "query": "Japanese dry run write boundary",
+        "query": "Japanese fresh output retry",
         "matching_open_pull_requests": []
       }
     ],
@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: explain the Japanese dry-run and write boundary",
-      "outcome": "A Japanese first-run user can inspect an own-bag plan before writes, understand when a session or map may be created, and choose a controlled next action without rerunning an unknown input blindly.",
+      "title": "Docs: explain Japanese fresh-output retry without overwrite",
+      "outcome": "A Japanese first-run user can retry a failed or incomplete map in a fresh output directory, preserve the retained setup and evidence, and avoid overwriting an earlier run.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -248,14 +248,14 @@
         "docs/getting-started-ja.md"
       ],
       "non_goals": [
-        "change the start or session implementation",
+        "change the start, session, or recovery implementation",
         "translate the entire getting-started guide",
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide shows lidarslam-map start /path/to/rosbag2 --yes --dry-run --json as a no-write preflight.",
-        "The guide explains that dry-run creates no session or map output and that confirmation is required before mapping writes.",
-        "The guide keeps --viewer none as the safe choice for headless execution and names the retained next command after inspection.",
+        "The Japanese guide explains that an existing output directory is not overwritten and that a retry uses a fresh --output-dir.",
+        "The guide distinguishes the retained pinned setup and evidence from a new map output directory.",
+        "The guide tells the reader to use the retained retry or next command rather than reconstructing a command from a viewer symptom.",
         "The existing version, support, session, preview, privacy, and independent-validation guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
@@ -270,8 +270,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### 自分のbagを先にdry-runで確認する",
-          "failure_detail": "the planned Japanese dry-run marker already exists"
+          "value": "### 失敗したrunを上書きせず再試行する",
+          "failure_detail": "the planned Japanese fresh-retry marker already exists"
         }
       ],
       "private_data_required": false,
