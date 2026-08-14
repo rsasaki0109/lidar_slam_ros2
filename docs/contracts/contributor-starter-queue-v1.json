@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: explain Japanese validation report review status",
-      "outcome": "A Japanese reporter can distinguish local READY FOR REVIEW, public report submission, maintainer review, and accepted ledger evidence without treating a handoff as acceptance.",
+      "title": "Docs: add a Japanese privacy-safe validation report example",
+      "outcome": "A Japanese reporter can compare a path-free illustrative validation report with the public form without copying private evidence or treating the example as accepted evidence.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -249,13 +249,14 @@
       ],
       "non_goals": [
         "change the issue template, review ledger, support or verification implementation, or acceptance rules",
+        "claim the example or an unreviewed receipt as accepted validation",
         "translate the entire getting-started guide",
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide distinguishes local READY FOR REVIEW, a public issue submission, maintainer review, accepted ledger evidence, and unresolved or rejected reports.",
-        "The guide tells the reporter that a local handoff or public receipt is not accepted validation until the public review and ledger requirements pass.",
-        "The guide directs the reporter to keep one reviewed receipt and report, avoid editing or duplicating evidence, and request no live step-by-step validation help.",
+        "The Japanese guide includes one clearly illustrative, path-free public validation-report example covering the documentation path, immutable identity, environment, redacted command, result, summary, findings, and attachment boundary.",
+        "The example is explicitly marked as instructional only, not a real validation result and not accepted ledger evidence.",
+        "The guide separates operator-supplied public fields from receipt-derived fields and keeps private paths, maps, bags, raw logs, previews, and session artifacts out of the example.",
         "The existing version, support, session, preview, privacy, and independent-validation guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
@@ -270,8 +271,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### validation reportのreview statusを区別する",
-          "failure_detail": "the planned Japanese validation-report review-status marker already exists"
+          "value": "### 日本語のprivacy-safe validation report例",
+          "failure_detail": "the planned Japanese privacy-safe validation-report example marker already exists"
         }
       ],
       "private_data_required": false,

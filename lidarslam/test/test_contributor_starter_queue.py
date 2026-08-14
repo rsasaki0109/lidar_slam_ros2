@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_review_status_task_becomes_stale_when_marker_appears(
+def test_japanese_privacy_safe_report_example_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese review-status card requires reassessment."""
+    """A successor Japanese report-example card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### validation reportのreview statusを区別する\n',
+        + '\n### 日本語のprivacy-safe validation report例\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_review_status_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese validation-report review-status marker already exists',
+        'the planned Japanese privacy-safe validation-report example marker already exists',
     ]
 
 
@@ -567,6 +567,24 @@ def test_japanese_recovery_card_explains_public_receipt_report_template():
     assert '`--first-map --json`のhandoff、`receipt_path`、`markdown_path`' in source
     assert 'PASSを確認して内容をreviewした' in source
     assert '`first_map_validation_receipt.json`だけをpublic attachment' in source
+
+
+def test_japanese_recovery_card_explains_validation_report_review_status():
+    """The Japanese card separates handoff, review, and acceptance states."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert '### validation reportのreview statusを区別する' in source
+    assert 'local `READY FOR REVIEW`' in source
+    assert 'public report submitted' in source
+    assert 'maintainer review' in source
+    assert 'accepted ledger evidence' in source
+    assert 'unresolved / rejected' in source
+    assert 'accepted validationではありません' in source
+    assert 'roadmapの\nmatrix evidenceを推測しません' in source
+    assert 'liveなstep-by-step validation helpを依頼せず' in source
+    assert '複数issueへ重複添付したりしません' in source
+    assert 'ledgerにacceptedとして記録された' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

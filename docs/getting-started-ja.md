@@ -550,6 +550,32 @@ local pathはtemplateに貼りません。map、bag、raw log、preview、trajec
 screenshotも添付せず、PASSを確認して内容をreviewした
 `first_map_validation_receipt.json`だけをpublic attachmentにします。
 
+### validation reportのreview statusを区別する
+
+`READY FOR REVIEW`は、元のsessionに対するlocal-onlyの再検証が完了し、canonical issue formへ
+進める状態です。これは公開報告の提出済みでも、独立validationのacceptedでもありません。
+次の状態を混同しないでください。
+
+| 状態 | 意味 | 次の操作 |
+| --- | --- | --- |
+| local `READY FOR REVIEW` | 同じsessionのreceipt、manifest、diagnosis、verificationを再確認でき、公開レビューへ進めるlocal handoffがある | 5項目チェックとreceiptの内容確認を行い、private pathをredactして1つのreportを準備する |
+| public report submitted | canonical issue formにreportとreview済みreceiptを提出した | 提出済みのreportとreceiptを保持し、maintainer reviewを待つ。提出だけではacceptedにならない |
+| maintainer review | 公開されたidentity、report、receipt、privacy、ledger条件をmaintainerが確認している | 公開手順と保存された`Next:`に従い、liveなstep-by-step validation helpを依頼せず、既存receiptを編集しない |
+| accepted ledger evidence | maintainer reviewと公開ledgerの受理条件が通り、ledgerにacceptedとして記録された | この明示的なledger記録がある場合だけ、独立validationのaccepted evidenceとして扱う |
+| unresolved / rejected | 情報不足、receipt mismatch、未解決、または明示的なrejectで、ledgerの受理条件を満たしていない | acceptedと表示せず、元の証跡を保持して`Details:`、`Next:`、保存されたretry指示を確認する |
+
+localの`READY FOR REVIEW` handoffやpublic receiptは、公開reviewとledgerの受理条件が通るまで
+accepted validationではありません。公開issueを提出しただけ、maintainerが確認中であるだけ、
+receiptの`status: PASS`だけ、またはviewerにmapが表示されたことだけから、acceptedやroadmapの
+matrix evidenceを推測しません。
+
+提出後は、同じ内容のreportと同じreview済みreceiptを1組だけ使います。receipt、
+`run_manifest.json`、`session.json`、hashを手編集して受理条件に合わせたり、同じevidenceを
+複数issueへ重複添付したりしません。`READY FOR REVIEW`のhandoff JSON、local receipt path、
+session bundle、map、bag、raw log、previewは引き続きlocal-onlyです。reviewがunresolvedまたは
+rejectedになった場合もmapが削除されたという意味ではなく、保存された安全なretryや新しい
+outputの指示がある場合だけそれに従います。
+
 ## 詳細
 
 このページは最短経路だけを示します。すべてのoption、対応input、校正、復旧、

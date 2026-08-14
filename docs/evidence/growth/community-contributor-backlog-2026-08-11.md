@@ -854,34 +854,53 @@ artifacts stay local or unshared, while only the reviewed PASS receipt is a
 public attachment candidate.
 
 The queue's drift probe retires this task after the public-share-template
-marker appears. The next task explains the distinction between a local handoff,
-a public report, maintainer review, and accepted ledger evidence.
+marker appears. The next task provides a path-free instructional example without
+copying local evidence.
 
-## Successor C5 — Japanese validation report review status
+## Completed C5 — Japanese validation report review status
 
-The next prepared C5 task keeps the Japanese language-path scope and explains
-what happens after a public report is prepared. It should prevent a local
-`READY FOR REVIEW` handoff or a posted receipt from being mistaken for an
-accepted independent validation before maintainer review and ledger checks.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now distinguishes local `READY FOR REVIEW`,
+public report submission, maintainer review, accepted ledger evidence, and
+unresolved or rejected reports. It explicitly states that a local handoff or
+public receipt is not accepted validation until public review and ledger
+requirements pass, keeps one report/receipt pair, forbids evidence editing or
+duplication, and points contributors away from live step-by-step validation
+help.
+
+The queue's drift probe retires this task after the validation-report review
+status marker appears. The next task supplies a path-free instructional example
+without turning an example into accepted evidence.
+
+## Successor C5 — Japanese privacy-safe validation report example
+
+The next prepared C5 task keeps the Japanese language-path scope and provides
+one clearly illustrative public report example. It should let a contributor
+compare the public form with a safe, path-free example without copying local
+paths or mistaking an example for a reviewed result.
 
 Suggested issue title:
 
-> Docs: explain Japanese validation report review status
+> Docs: add a Japanese privacy-safe validation report example
 
 Outcome:
 
-A Japanese reporter can distinguish local READY FOR REVIEW, public report
-submission, maintainer review, and accepted ledger evidence without treating a
-handoff as acceptance.
+A Japanese reporter can compare a path-free illustrative validation report with
+the public form without copying private evidence or treating the example as
+accepted evidence.
 
 Acceptance:
 
-- distinguish local `READY FOR REVIEW`, a public issue submission, maintainer
-  review, accepted ledger evidence, and unresolved or rejected reports;
-- tell the reporter that a local handoff or public receipt is not accepted
-  validation until the public review and ledger requirements pass;
-- direct the reporter to keep one reviewed receipt and report, avoid editing or
-  duplicating evidence, and request no live step-by-step validation help;
+- include one clearly illustrative, path-free public validation-report example
+  covering the documentation path, immutable identity, environment, redacted
+  command, result, summary, findings, and attachment boundary;
+- mark the example as instructional only, not a real validation result and not
+  accepted ledger evidence;
+- separate operator-supplied public fields from receipt-derived fields and keep
+  private paths, maps, bags, raw logs, previews, and session artifacts out of
+  the example;
 - preserve the existing version, support, session, preview, privacy, and
   independent-validation guidance;
 - require no rosbag, hardware, network, or private log.
@@ -893,9 +912,10 @@ python3 -m mkdocs build --strict
 ```
 
 Estimate: **30 minutes**. Non-goals: changing the issue template, review
-ledger, support or verification implementation, or acceptance rules;
-translating the entire guide; asking for a private bag/map/raw-log upload; or
-claiming support for an unvalidated sensor.
+ledger, support or verification implementation, claiming the example or an
+unreviewed receipt as accepted validation, translating the entire guide, asking
+for a private bag/map/raw-log upload, or claiming support for an unvalidated
+sensor.
 
 ## Publication and review sequence
 
