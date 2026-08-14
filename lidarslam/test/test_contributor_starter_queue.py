@@ -667,14 +667,16 @@ def test_japanese_recovery_card_separates_support_and_validation_reports():
 
     assert '`support report`と、利用者が公開手順を自分で実行した結果' in card
     assert '`lidarslam-map support /path/to/session_bundle --json`' in card
-    assert '`README.txt`、`issue-body.md`、`support-report.json`' in card
+    assert '`README.txt`、`issue-body.md`、' in card
+    assert '`support-report.json`をすべて読み' in card
     assert 'accepted validation evidenceではない' in card
     assert '`support --first-map`' in card
     assert '`--first-map --json`のhandoff JSON' in card
     assert 'canonical independent-validation issue form' in card
     assert '`first_map_validation_receipt.json`を内容確認したもの1つだけ' in card
     assert 'maintainer reviewとvalidation ledgerのaccepted記録' in card
-    assert 'recovery JSON（`map_session_recovery.json`）' in card
+    assert 'recovery JSON' in card
+    assert '`map_session_recovery.json`' in card
     assert 'session bundle全体は貼りません' in card
     assert '`v0.9.0-humble`または`v0.9.0-jazzy`' in card
     assert '`v0.9.1`候補と' in card
