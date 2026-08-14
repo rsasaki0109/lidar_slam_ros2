@@ -923,36 +923,56 @@ The queue's drift probe retires this task after the fresh-output route-switch
 marker appears. The next task separates sanitized support diagnostics from
 independent-validation evidence.
 
-## Successor C5 — Japanese support report versus validation report
+## Completed C5 — Japanese support report versus validation report
 
-The next prepared C5 task keeps the Japanese language-path scope and clarifies
-which artifact belongs in support and which belongs in an independent-validation
-report. It should prevent a sanitized support diagnostic from being treated as
-accepted evidence or a local recovery bundle from being uploaded publicly.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now gives one decision card for ordinary
+sanitized support diagnostics and one for an independent validation report. It
+separates the `support --json` report, the local-only `--first-map` handoff, the
+operator-authored public validation report, and the reviewed receipt; support
+diagnostics are explicitly not accepted validation evidence.
+
+The card retains the no-private-upload boundary for local paths, recovery JSON,
+maps, bags, logs, previews, and session bundles. It also keeps the published
+v0.9.0 Docker identity separate from the unpublished v0.9.1 source candidate and
+requires the reporter to record the exact identity rather than infer it from a
+viewer.
+
+The queue's drift probe retires this task after the support-versus-validation
+marker appears. The next task makes the provenance of every public validation
+report field explicit so contributors do not invent a hash, status, or identity.
+
+## Successor C5 — Japanese public validation report field provenance
+
+The next prepared C5 task keeps the Japanese language-path scope and explains
+which public report fields come from the operator and which must be copied from
+the same run's receipt or handoff. It should stop example values, viewer output,
+or a different session from becoming validation evidence.
 
 Suggested issue title:
 
-> Docs: explain Japanese support report versus validation report
+> Docs: clarify Japanese public validation report field provenance
 
 Outcome:
 
-A Japanese user can choose a sanitized support report or an independent-validation
-report correctly without treating support diagnostics as accepted evidence or
-exposing local artifacts.
+A Japanese user can fill a public validation report from operator-supplied and
+receipt-derived fields without inventing evidence or exposing local artifacts.
 
 Acceptance:
 
-- distinguish the sanitized support report from the `--first-map` handoff,
-  public validation report, and reviewed receipt;
-- give one safe choice for support diagnostics and one safe choice for
-  independent validation, and state that a support report is not accepted
-  validation evidence;
+- distinguish operator-supplied public fields from receipt-derived validation
+  fields and name the source for each;
+- copy release/commit/image identity, result, verification summary, and
+  manifest hash only from the same run's receipt or handoff, never from an
+  example or viewer;
 - keep local paths, recovery JSON, maps, bags, raw logs, previews, and session
-  bundles out of public sharing while retaining the reviewed-receipt boundary;
+  bundles out of the report while retaining the reviewed-receipt boundary;
 - preserve the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary
-  and direct the reader to record the correct identity;
-- preserve the existing version, support, session, preview, privacy, and
-  independent-validation guidance;
+  and stop when the identity is missing or ambiguous;
+- preserve the existing support, session, privacy, independent-validation, and
+  review-status guidance;
 - require no rosbag, hardware, network, or private log.
 
 Focused check:

@@ -522,6 +522,39 @@ hashが含まれますが、map geometry、bag、raw log、parameter内容、正
 credentialのようなcommand値は含まれません。3ファイルをすべて読んでから、必要な
 部分だけをGitHub issueへ添付します。生成や添付は自動では行われません。
 
+### 日本語のsupport reportとvalidation reportを分ける
+
+困っているrunの原因を伝える`support report`と、利用者が公開手順を自分で実行した結果を
+記録する`validation report`は別のものです。目的に合わせて次のどちらか1つを選び、supportの
+診断をvalidationの証拠として流用しません。
+
+| 目的 | 安全な選択 | 公開するもの | それが意味しないこと |
+| --- | --- | --- | --- |
+| 動かない、止まった、または原因を切り分けたい | `lidarslam-map support /path/to/session_bundle --json`でサニタイズ済みsupport reportを確認する | 内容を確認してprivate pathを除いたsupport reportの必要部分だけ | statusやdiagnosisが`PASS`に見えても、accepted validation evidenceではない |
+| 独立validatorとして自分のrunを報告したい | 自分で公開手順を完了してから`lidarslam-map support /path/to/session_bundle --first-map`を実行する | canonical independent-validation issue formのpublic fieldsと、内容をreviewしたreceiptだけ | `READY FOR REVIEW`やissue提出だけでaccepted validationになるわけではない |
+
+通常の`support --json`は診断・再現・支援のためのlocal-onlyな入口で、JSONを表示するだけで
+ZIPを作りません。ZIPを作った場合は、生成された`README.txt`、`issue-body.md`、
+`support-report.json`をすべて読み、必要な診断情報だけを共有します。local path、recovery JSON
+（`map_session_recovery.json`）、map、bag、raw log、preview、trajectory、parameter、screenshot、
+session bundle全体は貼りません。support reportはmaintainerが原因を調べるための資料であり、
+receiptの代わりにも、公開validation reportの代わりにもなりません。
+
+`support --first-map`はsupport ZIPを作る操作ではなく、同じsessionに保存されたPASS receiptを
+再検証して独立validationへ進むためのread-only handoffです。`--first-map --json`のhandoff JSON、
+`receipt_path`、local receipt pathはlocal-onlyで、public attachmentではありません。表示された
+canonical independent-validation issue formには、自分で実行したrunのrelease/commitまたは
+immutable image digest、OS・architecture・ROS環境、private pathをredactしたexact command、
+findingsを記入します。receiptを添付する場合は、formで名前が示された
+`first_map_validation_receipt.json`を内容確認したもの1つだけにします。公開reportを提出しても、
+maintainer reviewとvalidation ledgerのaccepted記録が済むまではaccepted evidenceではありません。
+
+どちらのreportでも、identityはviewerの表示や移動する`develop` tagから推測しません。Dockerは
+公開済み安定版`v0.9.0-humble`または`v0.9.0-jazzy`、sourceは公開releaseではない`v0.9.1`候補と
+そのexact commit/revisionを`lidarslam-map --version`とreceiptから記録します。Dockerのsupport
+report、source候補のvalidation report、別runのreceiptやhashを1つの報告へ混ぜず、足りない値を
+推測せずに共有を止めます。
+
 検証済みfirst mapを独立validatorへ渡す場合だけ、次のread-only handoffを使います。
 `--first-map`はreceipt-boundのPASSを再検証し、ZIPを作らず、GitHubへ連絡しません。
 

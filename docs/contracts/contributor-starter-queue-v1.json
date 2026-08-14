@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: explain Japanese support report versus validation report",
-      "outcome": "A Japanese user can choose a sanitized support report or an independent-validation report correctly without treating support diagnostics as accepted evidence or exposing local artifacts.",
+      "title": "Docs: clarify Japanese public validation report field provenance",
+      "outcome": "A Japanese user can fill a public validation report from operator-supplied and receipt-derived fields without inventing evidence or exposing local artifacts.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -254,11 +254,11 @@
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide distinguishes the sanitized support report from the --first-map handoff, public validation report, and reviewed receipt.",
-        "The card gives one safe choice for support diagnostics and one safe choice for independent validation, and says a support report is not accepted validation evidence.",
-        "The guide keeps local paths, recovery JSON, maps, bags, raw logs, previews, and session bundles out of public sharing while retaining the reviewed-receipt boundary.",
-        "The card preserves the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary and directs the reader to record the correct identity.",
-        "The existing version, support, session, preview, privacy, and independent-validation guidance remains intact.",
+        "The Japanese guide distinguishes operator-supplied public fields from receipt-derived validation fields and names the source for each.",
+        "The card tells the reader to copy release/commit/image identity, result, verification summary, and manifest hash only from the same run's receipt or handoff, never from an example or viewer.",
+        "The guide keeps local paths, recovery JSON, maps, bags, raw logs, previews, and session bundles out of the report while retaining the reviewed-receipt boundary.",
+        "The card preserves the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary and directs the reader to stop when the identity is missing or ambiguous.",
+        "The existing support, session, privacy, independent-validation, and review-status guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
       "focused_checks": [
@@ -272,8 +272,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### 日本語のsupport reportとvalidation reportを分ける",
-          "failure_detail": "the planned Japanese support-versus-validation-report marker already exists"
+          "value": "### 日本語の公開reportのfield provenanceを確認する",
+          "failure_detail": "the planned Japanese public-report-field-provenance marker already exists"
         }
       ],
       "private_data_required": false,

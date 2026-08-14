@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_route_switch_recovery_task_becomes_stale_when_marker_appears(
+def test_japanese_support_report_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A successor Japanese route-switch card requires reassessment."""
+    """A successor Japanese report card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 日本語のsupport reportとvalidation reportを分ける\n',
+        + '\n### 日本語の公開reportのfield provenanceを確認する\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_route_switch_recovery_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese support-versus-validation-report marker already exists',
+        'the planned Japanese public-report-field-provenance marker already exists',
     ]
 
 
@@ -655,6 +655,30 @@ def test_japanese_recovery_card_explains_fresh_output_route_switch():
     assert '`v0.9.0` Dockerまたは\n`v0.9.1` source候補' in card
     assert '旧runと新runのreceiptやhashを混ぜません' in card
     assert 'privacy-bounded support reportだけを使います' in card
+
+
+def test_japanese_recovery_card_separates_support_and_validation_reports():
+    """The Japanese card keeps diagnosis and accepted evidence distinct."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+    card = source.split(
+        '### 日本語のsupport reportとvalidation reportを分ける', 1)[1].split(
+            '検証済みfirst mapを独立validatorへ渡す場合だけ', 1)[0]
+
+    assert '`support report`と、利用者が公開手順を自分で実行した結果' in card
+    assert '`lidarslam-map support /path/to/session_bundle --json`' in card
+    assert '`README.txt`、`issue-body.md`、`support-report.json`' in card
+    assert 'accepted validation evidenceではない' in card
+    assert '`support --first-map`' in card
+    assert '`--first-map --json`のhandoff JSON' in card
+    assert 'canonical independent-validation issue form' in card
+    assert '`first_map_validation_receipt.json`を内容確認したもの1つだけ' in card
+    assert 'maintainer reviewとvalidation ledgerのaccepted記録' in card
+    assert 'recovery JSON（`map_session_recovery.json`）' in card
+    assert 'session bundle全体は貼りません' in card
+    assert '`v0.9.0-humble`または`v0.9.0-jazzy`' in card
+    assert '`v0.9.1`候補と' in card
+    assert '別runのreceiptやhashを1つの報告へ混ぜず' in card
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():
