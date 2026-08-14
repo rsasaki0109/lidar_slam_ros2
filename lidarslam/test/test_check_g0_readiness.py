@@ -61,7 +61,9 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['publication_plan']['path_count'] == 223
     assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
     assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
-    assert report['next_action']['id'] == 'complete-comparable-onboarding'
+    assert report['next_action']['id'] == 'align-public-product-version'
+    assert '--include-published-release' in report['next_action']['command']
+    assert 'mixed-version rows' in report['next_action']['reason']
 
     card = DASHBOARD.render_card(report)
     assert card.count('Next action:') == 1

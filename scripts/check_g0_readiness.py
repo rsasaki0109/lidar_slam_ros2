@@ -238,6 +238,26 @@ def _next_action(
             ),
             'write_boundary': 'read-only',
         }
+    if not matrix['product_version_aligned']:
+        versions = ', '.join(matrix['product_versions']) or 'multiple versions'
+        return {
+            'id': 'align-public-product-version',
+            'title': 'Resolve one public product version before measuring',
+            'reason': (
+                f'The reviewed rows use {versions}; do not attach human '
+                'measurements to mixed-version rows. The target publication '
+                f'audit is currently {published["status"]}.'
+            ),
+            'command': (
+                'python3 scripts/check_g0_readiness.py '
+                '--include-published-release '
+                f'--published-release-version {published["version"]}'
+            ),
+            'write_boundary': (
+                'read-only audit; release, tag, and image publication remain '
+                'separate'
+            ),
+        }
     if not matrix['activation_gate']:
         reason = '; '.join(matrix['actions']) or (
             'The Docker/source onboarding matrix has not reached its '

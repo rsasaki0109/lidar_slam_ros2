@@ -30,8 +30,12 @@ not ready and status 2 if a source checker or the dashboard contract is
 invalid.
 
 The dashboard deliberately does not turn a product `PASS` into a comparable
-onboarding row. Human active time, submitted command count, isolated disk
-measurements, one aligned public product identity, and the external first-map
+onboarding row. When Docker and source rows use different product versions,
+its next action is the explicit read-only publication audit; do not spend
+human-observer time measuring a mixed-version matrix. After one public
+identity is selected and all rows are rebuilt or re-recorded against it, the
+next action moves to the measurement gate. Human active time, submitted
+command count, isolated disk measurements, and the external first-map
 acceptance gates remain evidence requirements. Recruitment, release, image,
 issue, label, review, and package actions remain separate decisions.
 
