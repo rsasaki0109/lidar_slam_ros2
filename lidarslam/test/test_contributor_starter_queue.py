@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_pre_share_task_becomes_stale_when_marker_appears(
+def test_japanese_reviewed_receipt_share_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A completed Japanese pre-share card requires queue reassessment."""
+    """A completed Japanese share-template card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 公開共有前の5項目チェック\n',
+        + '\n### 公開共有用のreceiptテンプレート\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_pre_share_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese pre-share checklist marker already exists',
+        'the planned Japanese reviewed-receipt share template marker already exists',
     ]
 
 
@@ -523,6 +523,27 @@ def test_japanese_recovery_card_explains_failed_receipt_revalidation_recovery():
     assert '--verification required' in source
     assert 'support --first-map`が`READY FOR REVIEW`を返し' in source
     assert '旧証跡、bag、map、raw logは削除・uploadせず' in source
+
+
+def test_japanese_recovery_card_explains_pre_share_verification_checklist():
+    """The Japanese card makes the public-share boundary copy-ready."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+
+    assert '### 公開共有前の5項目チェック' in source
+    assert '同じ\nsessionについて次の5項目を確認' in source
+    assert '`lidarslam-map --version`' in source
+    assert '`run.product_version`と`run.git_commit`' in source
+    assert '`run.run_id`、`map_output`、receipt path' in source
+    assert '`verification.manifest_sha256`' in source
+    assert '`support --first-map`が`READY FOR REVIEW`を返し' in source
+    assert 'receiptの`status: PASS`と全checkのPASS' in source
+    assert 'receiptの`shareability`を読み' in source
+    assert 'private pathをredactした' in source
+    assert 'handoff JSONとlocal receipt pathはlocal-only' in source
+    assert '`first_map_validation_receipt.json`だけ' in source
+    assert 'map、bag、raw log、preview HTML、trajectory、parameter、screenshot' in source
+    assert 'session bundle全体も添付しません' in source
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

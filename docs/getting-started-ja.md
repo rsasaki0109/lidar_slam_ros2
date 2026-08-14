@@ -488,6 +488,35 @@ raw log、trajectory、parameter、スクリーンショットは添付しませ
 validationとして扱いません。詳しい判定条件は[Independent First-map Validation](external-first-map-validation.md)
 を参照してください。
 
+### 公開共有前の5項目チェック
+
+`READY FOR REVIEW`が表示されても、session bundle全体を公開するわけではありません。同じ
+sessionについて次の5項目を確認し、1つでも不明なら共有を止めます。5つすべてを確認できた
+場合に限り、最後のreceiptだけを公開添付の候補にします。
+
+```text
+- [ ] 1. version/revision: `lidarslam-map --version`を実行し、receiptの
+      `run.product_version`と`run.git_commit`（値がある場合）を記録した。
+- [ ] 2. same session/output: `run.run_id`、`map_output`、receipt path、
+      `verification.manifest_sha256`が同じsessionの証跡に結び付いている。
+- [ ] 3. revalidation: `support --first-map`が`READY FOR REVIEW`を返し、
+      receiptの`status: PASS`と全checkのPASSを内容確認した。
+- [ ] 4. privacy: receiptの`shareability`を読み、issue formへ貼るcommandから
+      private pathをredactした。handoff JSONとlocal receipt pathはlocal-onlyのままにした。
+- [ ] 5. attachment: 公開添付は内容確認済みの
+      `first_map_validation_receipt.json`だけにした。
+```
+
+1では移動する`develop` tagやviewerの表示からversionを推測せず、公開release、commit、または
+immutable image digestを使います。2では別runのreceiptをコピーせず、`session.json`の
+`map_output`とreceiptの`run.run_id`、manifest hashを同じsessionで照合します。3がrejectしたら、
+receiptを編集せず、前述の「receipt再検証に失敗したときの復旧」へ戻ります。
+
+4のhandoff JSON、receipt path、session JSON、support reportのlocal pathは、共有用の資料では
+ありません。5以外に、map、bag、raw log、preview HTML、trajectory、parameter、screenshot、
+session bundle全体も添付しません。issue formのversion、environment、redacted command、
+verification summaryは自分のrunから転記し、receiptのJSONだけをレビュー済みの添付として使います。
+
 ## 詳細
 
 このページは最短経路だけを示します。すべてのoption、対応input、校正、復旧、

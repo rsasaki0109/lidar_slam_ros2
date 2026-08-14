@@ -823,33 +823,47 @@ Estimate: **30 minutes**. Non-goals: changing receipt validation, recovery, or
 verification implementation, translating the entire guide, asking for a private
 bag/map/raw-log upload, or claiming support for an unvalidated sensor.
 
-## Successor C5 — Japanese pre-share verification checklist
+## Completed C5 — Japanese pre-share verification checklist
 
-The next prepared C5 task keeps the Japanese language-path scope and condenses
-the final handoff into one copy-ready checklist. It should connect the exact
-installed version or revision, same-session output, revalidated
-`READY FOR REVIEW` receipt, privacy review, and command redaction without
-turning a local session bundle into a public upload.
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now provides a copy-ready five-item gate for
+product version/revision, same-session and output identity, read-only
+`READY FOR REVIEW` revalidation, receipt privacy, and the single permitted
+public attachment. It explicitly separates the local-only handoff JSON and
+paths from the reviewed receipt, requires private-path redaction in the
+operator-supplied command, and excludes maps, bags, logs, previews, and the
+session bundle from public sharing.
+
+The queue's drift probe retires this task after the five-item checklist marker
+appears. The next task turns those confirmed fields into a Japanese public
+report template that a validator can fill without copying local evidence.
+
+## Successor C5 — Japanese reviewed-receipt public share template
+
+The next prepared C5 task keeps the Japanese language-path scope and turns the
+completed pre-share gate into a copy-ready public report. It should show which
+fields come from the operator's own run, which local-only paths must stay out of
+the issue, and why the reviewed PASS receipt is the only public artifact.
 
 Suggested issue title:
 
-> Docs: add a Japanese pre-share verification checklist
+> Docs: add a Japanese reviewed-receipt public share template
 
 Outcome:
 
-A Japanese first-run user can complete a final local pre-share check for product
-identity, receipt readiness, privacy, and the permitted public attachment
-without exposing private evidence.
+A Japanese first-run user can fill a public validation report from a reviewed
+receipt while keeping local-only fields and private evidence out of the issue.
 
 Acceptance:
 
-- provide one copy-ready checklist for the exact version or revision, same
-  session and output, `support --first-map` returning `READY FOR REVIEW`,
-  receipt review, and command redaction;
-- distinguish the local-only session and handoff from the public reviewed
-  receipt that may be shared;
-- reject map, bag, raw log, preview, and local-path uploads as public
-  attachments;
+- provide a copy-ready public report template for the exact version or revision,
+  environment, redacted command, verification summary, and reviewed receipt;
+- distinguish operator-supplied public fields from local-only handoff JSON,
+  receipt paths, and session evidence;
+- permit only a reviewed PASS receipt as the public artifact and reject map, bag,
+  raw log, preview, and local-path uploads;
 - preserve the existing version, support, session, preview, privacy, and
   independent-validation guidance;
 - require no rosbag, hardware, network, or private log.
@@ -860,10 +874,10 @@ Focused check:
 python3 -m mkdocs build --strict
 ```
 
-Estimate: **30 minutes**. Non-goals: changing support or verification
-implementation or quality thresholds, translating the entire guide, asking for
-a private bag/map/raw-log upload, or claiming support for an unvalidated
-sensor.
+Estimate: **30 minutes**. Non-goals: changing the issue template, support or
+verification implementation, or receipt schemas; translating the entire guide;
+asking for a private bag/map/raw-log upload; or claiming support for an
+unvalidated sensor.
 
 ## Publication and review sequence
 
