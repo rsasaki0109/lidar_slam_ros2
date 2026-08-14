@@ -631,6 +631,31 @@ findings:
 attachment: first_map_validation_receipt.json (reviewed)
 ```
 
+### 日本語の公開reportのfield provenanceを確認する
+
+templateの各fieldは、report作成者が自分のrunから入力する値と、同じsessionのreceiptまたは
+`--first-map` handoffから転記する値に分かれます。値の出どころが確認できないfieldは推測せず、
+reportを提出しません。
+
+| fieldの種類 | 自分で確認する出どころ | 該当するfield | 入力ルール |
+| --- | --- | --- | --- |
+| operator-supplied public fields | 自分が実行した公開手順、環境、観察 | 公開ドキュメント経路、`environment`、private pathをredactしたexact command、`findings` | 自分のrunの事実だけを書く。viewerの表示やexampleの値で補わず、local path・credential・raw artifactを除く |
+| receipt-derived validation fields | 同じrunの`support --first-map` handoffと、名前が示されたreview済みreceipt | `release/commit/image digest`、`result`、verification summary、`manifest_sha256`、receipt attachment | receipt/handoffの値をそのまま照合して転記する。別session、別output、別versionの値を混ぜない |
+| review / acceptance status | 公開issueの状態、maintainer review、validation ledger | `READY FOR REVIEW`、public report submitted、maintainer review、accepted ledger evidence | 自分でacceptedと名付けない。ledgerの明示的なaccepted記録がない間はaccepted validationと書かない |
+
+次の順序で同じsessionを照合します。まず`lidarslam-map --version`とreceiptの
+`run.product_version`・`run.git_commit`（値がある場合）を比較し、次に`run.run_id`、
+`map_output`、`verification.manifest_sha256`をhandoff・session・receiptで突き合わせます。
+`result: PASS`、verification summary、hash、またはreceipt pathがmissing、`UNAVAILABLE`、
+mismatch、example-only、viewer-onlyの場合は、reportを公開せず`Details:`、`Next:`、または
+保存されたretry指示へ戻ります。receipt、manifest、session JSONを編集して値を合わせません。
+
+identityが曖昧な場合も停止します。Dockerなら公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、
+sourceなら未公開`v0.9.1`候補とexact commit/revisionを、receiptまたはhandoffで確認できた場合
+だけ記録します。`develop` tag、viewer、架空例からidentityやhashを作りません。handoff JSON、
+local path、recovery JSON、map、bag、raw log、preview、trajectory、parameter、screenshot、
+session bundle全体はreportにも添付にも含めず、公開添付はreview済みreceiptだけにします。
+
 `release/commit/image digest`はreceiptの`run.product_version`と`run.git_commit`またはhandoffの
 release referenceに対応させます。`environment`、redacted command、findingsは自分で入力する
 公開fieldです。`verification summary`はreceipt markdownのPASS blockから転記し、hashを推測・

@@ -251,16 +251,16 @@ def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
     }]
 
 
-def test_japanese_support_report_task_becomes_stale_when_marker_appears(
+def test_japanese_report_field_provenance_task_becomes_stale_when_marker_appears(
     tmp_path: Path,
 ):
-    """A successor Japanese report card requires reassessment."""
+    """A successor Japanese findings card requires reassessment."""
     payload = _queue()
     _copy_scoped_files(payload, tmp_path)
     source = tmp_path / 'docs' / 'getting-started-ja.md'
     source.write_text(
         source.read_text(encoding='utf-8')
-        + '\n### 日本語の公開reportのfield provenanceを確認する\n',
+        + '\n### 日本語のvalidation reportのfindingsを安全に書く\n',
         encoding='utf-8',
     )
 
@@ -269,7 +269,7 @@ def test_japanese_support_report_task_becomes_stale_when_marker_appears(
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['stale_tasks'][0]['id'] == 'starter-C5'
     assert report['stale_tasks'][0]['reasons'] == [
-        'the planned Japanese public-report-field-provenance marker already exists',
+        'the planned Japanese validation-findings marker already exists',
     ]
 
 
@@ -681,6 +681,39 @@ def test_japanese_recovery_card_separates_support_and_validation_reports():
     assert '`v0.9.0-humble`または`v0.9.0-jazzy`' in card
     assert '`v0.9.1`候補と' in card
     assert '別runのreceiptやhashを1つの報告へ混ぜず' in card
+
+
+def test_japanese_recovery_card_explains_report_field_provenance():
+    """The Japanese report card binds fields to the correct evidence source."""
+    source = (ROOT / 'docs' / 'getting-started-ja.md').read_text(
+        encoding='utf-8')
+    card = source.split(
+        '### 日本語の公開reportのfield provenanceを確認する', 1)[1].split(
+            '### validation reportのreview statusを区別する', 1)[0]
+
+    assert 'operator-supplied public fields' in card
+    assert 'receipt-derived validation fields' in card
+    assert '公開ドキュメント経路、`environment`' in card
+    assert 'private pathをredactしたexact command' in card
+    assert '`release/commit/image digest`、`result`' in card
+    assert 'verification summary' in card
+    assert '`manifest_sha256`' in card
+    assert 'receipt/handoffの値をそのまま照合して転記する' in card
+    assert 'accepted validationと書かない' in card
+    assert '`run.product_version`・`run.git_commit`' in card
+    assert '`run.run_id`' in card
+    assert '`map_output`' in card
+    assert '`verification.manifest_sha256`' in card
+    assert 'missing' in card
+    assert '`UNAVAILABLE`' in card
+    assert 'mismatch' in card
+    assert 'example-only' in card
+    assert 'viewer-only' in card
+    assert 'Details:' in card
+    assert '`v0.9.0-humble`または`v0.9.0-jazzy`' in card
+    assert '`v0.9.1`候補とexact commit/revision' in card
+    assert '`develop` tag' in card
+    assert 'session bundle全体' in card
 
 
 def test_stale_task_cannot_be_rendered_copy_ready():

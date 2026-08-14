@@ -944,33 +944,54 @@ The queue's drift probe retires this task after the support-versus-validation
 marker appears. The next task makes the provenance of every public validation
 report field explicit so contributors do not invent a hash, status, or identity.
 
-## Successor C5 — Japanese public validation report field provenance
+## Completed C5 — Japanese public validation report field provenance
+
+Implementation status:
+
+This bounded documentation task is implemented in the local product candidate
+for PR #427. The Japanese guide now has a field-provenance table that separates
+operator-supplied public fields, same-run receipt-derived validation fields, and
+review or acceptance status. It binds identity, result, verification summary,
+manifest hash, and receipt attachment to the same session and tells the reader
+to stop on missing, unavailable, example-only, viewer-only, or mismatched values.
+
+The card retains the no-private-upload boundary for local paths, recovery JSON,
+maps, bags, logs, previews, trajectories, parameters, screenshots, and session
+bundles. It keeps the published v0.9.0 Docker identity separate from the
+unpublished v0.9.1 source candidate and preserves the existing support,
+independent-validation, receipt, and review-status guidance.
+
+The queue's drift probe retires this task after the field-provenance marker
+appears. The next task makes an operator's public `findings` field actionable
+without allowing it to rewrite receipt-derived evidence or disclose private data.
+
+## Successor C5 — Japanese validation-report findings without private data
 
 The next prepared C5 task keeps the Japanese language-path scope and explains
-which public report fields come from the operator and which must be copied from
-the same run's receipt or handoff. It should stop example values, viewer output,
-or a different session from becoming validation evidence.
+how to record one concrete observation in the public `findings` field. It should
+help maintainers reproduce an onboarding problem without turning an observation
+into a changed result, invented evidence, or a private artifact upload.
 
 Suggested issue title:
 
-> Docs: clarify Japanese public validation report field provenance
+> Docs: explain safe Japanese validation-report findings
 
 Outcome:
 
-A Japanese user can fill a public validation report from operator-supplied and
-receipt-derived fields without inventing evidence or exposing local artifacts.
+A Japanese validator can write an actionable public finding from their own
+observation without exposing private artifacts or changing receipt-derived
+evidence.
 
 Acceptance:
 
-- distinguish operator-supplied public fields from receipt-derived validation
-  fields and name the source for each;
-- copy release/commit/image identity, result, verification summary, and
-  manifest hash only from the same run's receipt or handoff, never from an
-  example or viewer;
-- keep local paths, recovery JSON, maps, bags, raw logs, previews, and session
-  bundles out of the report while retaining the reviewed-receipt boundary;
+- distinguish an operator's actionable finding from receipt-derived result,
+  verification, identity, and hash fields;
+- give a copy-ready pattern for one concrete observation with step, expected
+  behavior, observed behavior, and impact while requiring private-path redaction;
+- say findings must not change result, verification summary, manifest hash,
+  receipt attachment, or review status, and keep local artifacts out of the report;
 - preserve the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary
-  and stop when the identity is missing or ambiguous;
+  and stop when a finding cannot be tied to the same run;
 - preserve the existing support, session, privacy, independent-validation, and
   review-status guidance;
 - require no rosbag, hardware, network, or private log.

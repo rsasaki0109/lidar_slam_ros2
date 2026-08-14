@@ -235,8 +235,8 @@
     {
       "id": "starter-C5",
       "publication_status": "PREPARED_NOT_PUBLISHED",
-      "title": "Docs: clarify Japanese public validation report field provenance",
-      "outcome": "A Japanese user can fill a public validation report from operator-supplied and receipt-derived fields without inventing evidence or exposing local artifacts.",
+      "title": "Docs: explain safe Japanese validation-report findings",
+      "outcome": "A Japanese validator can write an actionable public finding from their own observation without exposing private artifacts or changing receipt-derived evidence.",
       "estimate_minutes": 30,
       "labels": [
         "documentation",
@@ -254,10 +254,10 @@
         "ask for a private bag, map, or raw log upload"
       ],
       "acceptance": [
-        "The Japanese guide distinguishes operator-supplied public fields from receipt-derived validation fields and names the source for each.",
-        "The card tells the reader to copy release/commit/image identity, result, verification summary, and manifest hash only from the same run's receipt or handoff, never from an example or viewer.",
-        "The guide keeps local paths, recovery JSON, maps, bags, raw logs, previews, and session bundles out of the report while retaining the reviewed-receipt boundary.",
-        "The card preserves the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary and directs the reader to stop when the identity is missing or ambiguous.",
+        "The Japanese guide distinguishes an operator's actionable finding from receipt-derived result, verification, identity, and hash fields.",
+        "The card gives a copy-ready pattern for one concrete observation with step, expected behavior, observed behavior, and impact while requiring private-path redaction.",
+        "The guide says findings must not change result, verification summary, manifest hash, receipt attachment, or review status, and keeps local artifacts out of the report.",
+        "The card preserves the v0.9.0 Docker versus v0.9.1 source-candidate identity boundary and tells the reader to stop when a finding cannot be tied to the same run.",
         "The existing support, session, privacy, independent-validation, and review-status guidance remains intact.",
         "The documentation change needs no rosbag, hardware, network, or private log."
       ],
@@ -272,8 +272,8 @@
         {
           "path": "docs/getting-started-ja.md",
           "mode": "not_contains",
-          "value": "### 日本語の公開reportのfield provenanceを確認する",
-          "failure_detail": "the planned Japanese public-report-field-provenance marker already exists"
+          "value": "### 日本語のvalidation reportのfindingsを安全に書く",
+          "failure_detail": "the planned Japanese validation-findings marker already exists"
         }
       ],
       "private_data_required": false,
