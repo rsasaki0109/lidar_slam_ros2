@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-14T02:19:37+09:00",
+  "generated_at": "2026-08-14T21:34:20+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 215,
-    "expected_paths_sha256": "1bf0818d298a2758fb470accad29a6ec8feb7c70690e7bb577fb97b842b3981e",
+    "expected_path_count": 218,
+    "expected_paths_sha256": "41e1740213e2e83438b4a537a2437956dbc376fe8bdd4f3eb8b7d20608a3aca1",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -237,7 +237,7 @@
       "id": "S6-product-shell-integration",
       "order": 6,
       "title": "Beginner-facing product shell, installed surface, docs, and support entrypoints",
-      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, installed runtime surface, copy-ready documentation, schema-valid first-map handoff JSON, and neutral GLIM usability scorecard.",
+      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, installed runtime surface, copy-ready documentation, schema-valid first-map handoff JSON, neutral GLIM usability scorecard, and exact-identity observer packet.",
       "depends_on": [
         "S1-runtime-safety",
         "S2-first-map-foundation",
@@ -288,6 +288,7 @@
         "docs/schemas/first-map-validator-cohort-v1.schema.json",
         "docs/schemas/growth-snapshot-v1.schema.json",
         "docs/schemas/onboarding-matrix-evidence-index-v1.schema.json",
+        "docs/schemas/onboarding-matrix-observer-packet-v1.schema.json",
         "docs/schemas/system-doctor-v1.schema.json",
         "docs/schemas/usability-scorecard-evidence-index-v1.schema.json",
         "docs/schemas/usability-scorecard-trial-v1.schema.json",
@@ -307,6 +308,7 @@
         "lidarslam/test/test_first_map_validator_cohort.py",
         "lidarslam/test/test_lidarslam_doctor.py",
         "lidarslam/test/test_lidarslam_guided.py",
+        "lidarslam/test/test_prepare_onboarding_matrix_packet.py",
         "mkdocs.yml",
         "scripts/check_onboarding_trial_matrix.py",
         "scripts/check_usability_scorecard.py",
@@ -316,7 +318,8 @@
         "scripts/first_map_validator_cohort.py",
         "scripts/lidarslam_cli.py",
         "scripts/lidarslam_doctor.py",
-        "scripts/lidarslam_guided.py"
+        "scripts/lidarslam_guided.py",
+        "scripts/prepare_onboarding_matrix_packet.py"
       ],
       "verification": [
         "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_docs_entrypoints.py graph_based_slam/test/test_lidarslam_product_cli.py",
