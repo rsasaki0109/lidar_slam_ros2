@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import subprocess
 
 import jsonschema
 
@@ -408,6 +409,36 @@ def test_public_schemas_support_ros_distro_jsonschema():
         source = path.read_text(encoding='utf-8')
         assert 'Draft202012Validator' not in source
         assert 'version=9' not in source
+
+
+def test_all_tracked_shell_scripts_parse_with_bash():
+    """A documented shell entry point must never be committed unparsable."""
+    inventory = subprocess.run(
+        ['git', 'ls-files', '-z', '*.sh'],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+    )
+    assert inventory.returncode == 0, inventory.stderr.decode()
+    paths = [
+        path.decode()
+        for path in inventory.stdout.split(b'\0')
+        if path
+    ]
+    assert 'scripts/compare_with_glim.sh' in paths
+
+    failures = []
+    for path in paths:
+        result = subprocess.run(
+            ['bash', '-n', path],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            failures.append(f'{path}: {result.stderr.strip()}')
+    assert not failures, '\n'.join(failures)
 
 
 def test_docs_reference_existing_entrypoint_scripts():

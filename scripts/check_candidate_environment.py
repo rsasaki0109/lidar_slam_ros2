@@ -33,9 +33,9 @@ import argparse
 import json
 import os
 import sys
+from typing import Any, Callable, Sequence
 import urllib.error
 import urllib.request
-from typing import Any, Callable, Sequence
 
 from product_schema import validate_contract
 
@@ -51,6 +51,13 @@ SCHEMA_URI = (
 MAX_JSON_BYTES = 1024 * 1024
 MAX_ENVIRONMENTS = 100
 ALLOWED_RULE_TYPES = {'required_reviewers', 'branch_policy'}
+SETTINGS_URL = (
+    f'https://github.com/{REPOSITORY}/settings/environments'
+)
+VERIFY_COMMAND = (
+    'GITHUB_TOKEN="$(gh auth token)" python3 '
+    'scripts/check_candidate_environment.py --json --require-ready'
+)
 
 
 class CandidateEnvironmentError(ValueError):
@@ -267,6 +274,7 @@ def _report(
             'artifact_publication_authorized': False,
             'remote_mutations_performed': False,
         },
+        'operator_handoff': _operator_handoff(status),
         'decision': {
             'state': (
                 'READY_FOR_SEPARATE_E2_REVIEW' if ready else 'HOLD'
@@ -277,6 +285,122 @@ def _report(
     }
     validate_contract(report, SCHEMA_NAME)
     return report
+
+
+def _operator_handoff(status: str) -> dict[str, Any]:
+    """Return one bounded, status-specific handoff without doing the work."""
+    if status == 'ABSENT':
+        return {
+            'kind': 'CREATE_AND_REVIEW_ENVIRONMENT',
+            'authority_required': 'repository-settings-admin',
+            'external_write_required': True,
+            'settings_url': SETTINGS_URL,
+            'steps': [
+                'Create an environment named candidate-images.',
+                'Add 1–6 trusted User or Team required reviewers.',
+                'Enable Prevent self-review.',
+                (
+                    'Select custom deployment branches and allow exactly '
+                    'the develop branch.'
+                ),
+                'Have an independent maintainer review the saved settings.',
+            ],
+            'verification_command': VERIFY_COMMAND,
+            'writes_performed': False,
+        }
+    if status == 'MISCONFIGURED':
+        return {
+            'kind': 'REPAIR_AND_REVIEW_ENVIRONMENT',
+            'authority_required': 'repository-settings-admin',
+            'external_write_required': True,
+            'settings_url': SETTINGS_URL,
+            'steps': [
+                'Open the existing candidate-images environment.',
+                (
+                    'Keep one required-reviewer rule with 1–6 User or Team '
+                    'reviewers.'
+                ),
+                'Enable Prevent self-review.',
+                (
+                    'Use custom deployment branches with exactly one develop '
+                    'branch policy and no other protection-rule type.'
+                ),
+                'Have an independent maintainer review the repaired settings.',
+            ],
+            'verification_command': VERIFY_COMMAND,
+            'writes_performed': False,
+        }
+    if status == 'BLOCKED':
+        return {
+            'kind': 'RESTORE_READ_ACCESS',
+            'authority_required': 'read-access',
+            'external_write_required': False,
+            'settings_url': None,
+            'steps': [
+                (
+                    'Run gh auth status and confirm repository environment '
+                    'read access.'
+                ),
+                (
+                    'Provide a read-capable GITHUB_TOKEN only to the '
+                    'verification command.'
+                ),
+                (
+                    'Retry the audit; do not change environment settings from '
+                    'incomplete evidence.'
+                ),
+            ],
+            'verification_command': VERIFY_COMMAND,
+            'writes_performed': False,
+        }
+    if status == 'READY':
+        return {
+            'kind': 'REVIEW_E2_SEPARATELY',
+            'authority_required': 'separate-e2-approval',
+            'external_write_required': False,
+            'settings_url': None,
+            'steps': [
+                (
+                    'Review the exact mergeable PR head, VERSION, required '
+                    'checks, and immutable digest-only scope.'
+                ),
+                (
+                    "Keep environment approval separate from the requester's "
+                    'E2 decision.'
+                ),
+            ],
+            'verification_command': VERIFY_COMMAND,
+            'writes_performed': False,
+        }
+    raise CandidateEnvironmentError(
+        f'unsupported candidate environment status {status!r}'
+    )
+
+
+def render_human(report: dict[str, Any]) -> str:
+    """Render one copy-ready operator handoff without implying authority."""
+    handoff = report['operator_handoff']
+    lines = [
+        f"Candidate environment: {report['status']}",
+        f"Why: {report['decision']['next_action']}",
+        '',
+        'Operator handoff (not executed):',
+        f"Authority required: {handoff['authority_required']}",
+    ]
+    if handoff['settings_url'] is not None:
+        lines.append(f"Settings: {handoff['settings_url']}")
+    lines.extend(
+        f'{index}. {step}'
+        for index, step in enumerate(handoff['steps'], start=1)
+    )
+    lines.extend([
+        'Verify (read-only):',
+        f"  {handoff['verification_command']}",
+        'Environment writes performed: no',
+        'GitHub writes authorized: no',
+        'E2 dispatch authorized: no',
+    ])
+    return '\n'.join(lines) + '\n'
 
 
 def audit_candidate_environment(
@@ -393,10 +517,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
-        print(f"Candidate environment: {report['status']}")
-        print(f"Next action: {report['decision']['next_action']}")
-        print('GitHub writes authorized: no')
-        print('E2 dispatch authorized: no')
+        print(render_human(report), end='')
     if args.require_ready and report['status'] != 'READY':
         return 1
     return 0

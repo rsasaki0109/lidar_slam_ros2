@@ -15,6 +15,7 @@
     "observed",
     "findings",
     "authority",
+    "operator_handoff",
     "decision"
   ],
   "properties": {
@@ -36,6 +37,7 @@
       "items": {"$ref": "#/definitions/finding"}
     },
     "authority": {"$ref": "#/definitions/authority"},
+    "operator_handoff": {"$ref": "#/definitions/operatorHandoff"},
     "decision": {"$ref": "#/definitions/decision"}
   },
   "allOf": [
@@ -54,6 +56,14 @@
             "properties": {
               "state": {"const": "READY_FOR_SEPARATE_E2_REVIEW"}
             }
+          },
+          "operator_handoff": {
+            "properties": {
+              "kind": {"const": "REVIEW_E2_SEPARATELY"},
+              "authority_required": {"const": "separate-e2-approval"},
+              "external_write_required": {"const": false},
+              "settings_url": {"type": "null"}
+            }
           }
         }
       }
@@ -69,7 +79,17 @@
             }
           },
           "findings": {"minItems": 1},
-          "decision": {"properties": {"state": {"const": "HOLD"}}}
+          "decision": {"properties": {"state": {"const": "HOLD"}}},
+          "operator_handoff": {
+            "properties": {
+              "kind": {"const": "CREATE_AND_REVIEW_ENVIRONMENT"},
+              "authority_required": {"const": "repository-settings-admin"},
+              "external_write_required": {"const": true},
+              "settings_url": {
+                "const": "https://github.com/rsasaki0109/lidar_slam_ros2/settings/environments"
+              }
+            }
+          }
         }
       }
     },
@@ -84,7 +104,17 @@
             }
           },
           "findings": {"minItems": 1},
-          "decision": {"properties": {"state": {"const": "HOLD"}}}
+          "decision": {"properties": {"state": {"const": "HOLD"}}},
+          "operator_handoff": {
+            "properties": {
+              "kind": {"const": "REPAIR_AND_REVIEW_ENVIRONMENT"},
+              "authority_required": {"const": "repository-settings-admin"},
+              "external_write_required": {"const": true},
+              "settings_url": {
+                "const": "https://github.com/rsasaki0109/lidar_slam_ros2/settings/environments"
+              }
+            }
+          }
         }
       }
     },
@@ -99,7 +129,15 @@
             }
           },
           "findings": {"minItems": 1},
-          "decision": {"properties": {"state": {"const": "HOLD"}}}
+          "decision": {"properties": {"state": {"const": "HOLD"}}},
+          "operator_handoff": {
+            "properties": {
+              "kind": {"const": "RESTORE_READ_ACCESS"},
+              "authority_required": {"const": "read-access"},
+              "external_write_required": {"const": false},
+              "settings_url": {"type": "null"}
+            }
+          }
         }
       }
     }
@@ -197,6 +235,56 @@
         "environment_writes_authorized": {"const": false},
         "artifact_publication_authorized": {"const": false},
         "remote_mutations_performed": {"const": false}
+      }
+    },
+    "operatorHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "authority_required",
+        "external_write_required",
+        "settings_url",
+        "steps",
+        "verification_command",
+        "writes_performed"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "CREATE_AND_REVIEW_ENVIRONMENT",
+            "REPAIR_AND_REVIEW_ENVIRONMENT",
+            "RESTORE_READ_ACCESS",
+            "REVIEW_E2_SEPARATELY"
+          ]
+        },
+        "authority_required": {
+          "enum": [
+            "repository-settings-admin",
+            "read-access",
+            "separate-e2-approval"
+          ]
+        },
+        "external_write_required": {"type": "boolean"},
+        "settings_url": {
+          "anyOf": [
+            {
+              "const": "https://github.com/rsasaki0109/lidar_slam_ros2/settings/environments"
+            },
+            {"type": "null"}
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 300}
+        },
+        "verification_command": {
+          "const": "GITHUB_TOKEN=\"$(gh auth token)\" python3 scripts/check_candidate_environment.py --json --require-ready"
+        },
+        "writes_performed": {"const": false}
       }
     },
     "decision": {

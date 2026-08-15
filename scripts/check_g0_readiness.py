@@ -39,9 +39,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 from typing import Any, Callable, Sequence
 
 import jsonschema
@@ -60,6 +60,50 @@ CURRENT_PACKET = 'docs/evidence/growth/g0-current-action-packet-2026-08-14.md'
 DEFAULT_RELEASE_VERSION = (
     REPO_ROOT / 'VERSION'
 ).read_text(encoding='utf-8').strip()
+CANDIDATE_ENVIRONMENT_SETTINGS_URL = (
+    f'https://github.com/{REPOSITORY}/settings/environments'
+)
+CANDIDATE_ENVIRONMENT_VERIFY_COMMAND = (
+    'GITHUB_TOKEN="$(gh auth token)" python3 '
+    'scripts/check_candidate_environment.py --json --require-ready'
+)
+CANDIDATE_HANDOFF_KINDS = {
+    'CREATE_AND_REVIEW_ENVIRONMENT',
+    'REPAIR_AND_REVIEW_ENVIRONMENT',
+    'RESTORE_READ_ACCESS',
+    'REVIEW_E2_SEPARATELY',
+}
+CANDIDATE_HANDOFF_AUTHORITIES = {
+    'repository-settings-admin',
+    'read-access',
+    'separate-e2-approval',
+}
+CANDIDATE_HANDOFF_BY_STATUS = {
+    'READY': (
+        'REVIEW_E2_SEPARATELY',
+        'separate-e2-approval',
+        False,
+        None,
+    ),
+    'ABSENT': (
+        'CREATE_AND_REVIEW_ENVIRONMENT',
+        'repository-settings-admin',
+        True,
+        CANDIDATE_ENVIRONMENT_SETTINGS_URL,
+    ),
+    'MISCONFIGURED': (
+        'REPAIR_AND_REVIEW_ENVIRONMENT',
+        'repository-settings-admin',
+        True,
+        CANDIDATE_ENVIRONMENT_SETTINGS_URL,
+    ),
+    'BLOCKED': (
+        'RESTORE_READ_ACCESS',
+        'read-access',
+        False,
+        None,
+    ),
+}
 
 COHORT_GATE_GUIDANCE = {
     'public_revision': (
@@ -319,16 +363,19 @@ def _candidate_environment_summary(
             'deployment_branch_policy': None,
             'decision_state': 'NOT_CHECKED',
             'blockers': [],
+            'operator_handoff': None,
         }
     observed = report.get('observed')
     decision = report.get('decision')
     findings = report.get('findings')
     authority = report.get('authority')
+    handoff = report.get('operator_handoff')
     if (
         not isinstance(observed, dict)
         or not isinstance(decision, dict)
         or not isinstance(findings, list)
         or not isinstance(authority, dict)
+        or not isinstance(handoff, dict)
     ):
         raise G0ReadinessError(
             'candidate environment report is incomplete'
@@ -344,6 +391,51 @@ def _candidate_environment_summary(
     ):
         raise G0ReadinessError(
             'candidate environment report claims remote-write authority'
+        )
+    if (
+        handoff.get('kind') not in CANDIDATE_HANDOFF_KINDS
+        or handoff.get('authority_required')
+        not in CANDIDATE_HANDOFF_AUTHORITIES
+        or not isinstance(handoff.get('external_write_required'), bool)
+        or handoff.get('writes_performed') is not False
+        or handoff.get('verification_command')
+        != CANDIDATE_ENVIRONMENT_VERIFY_COMMAND
+    ):
+        raise G0ReadinessError(
+            'candidate environment operator handoff is unsafe'
+        )
+    settings_url = handoff.get('settings_url')
+    if settings_url not in (None, CANDIDATE_ENVIRONMENT_SETTINGS_URL):
+        raise G0ReadinessError(
+            'candidate environment operator handoff has an untrusted URL'
+        )
+    expected_handoff = CANDIDATE_HANDOFF_BY_STATUS.get(report.get('status'))
+    observed_handoff = (
+        handoff.get('kind'),
+        handoff.get('authority_required'),
+        handoff.get('external_write_required'),
+        settings_url,
+    )
+    if expected_handoff is None or observed_handoff != expected_handoff:
+        raise G0ReadinessError(
+            'candidate environment operator handoff contradicts its status'
+        )
+    steps = handoff.get('steps')
+    if (
+        not isinstance(steps, list)
+        or not 2 <= len(steps) <= 5
+        or len(steps) != len(set(steps))
+        or not all(
+            isinstance(step, str)
+            and step
+            and len(step) <= 300
+            and '\n' not in step
+            and '\r' not in step
+            for step in steps
+        )
+    ):
+        raise G0ReadinessError(
+            'candidate environment operator handoff has unsafe steps'
         )
     target = observed.get('target')
     if target is not None and not isinstance(target, dict):
@@ -377,6 +469,15 @@ def _candidate_environment_summary(
         ),
         'decision_state': decision.get('state'),
         'blockers': blockers,
+        'operator_handoff': {
+            'kind': handoff['kind'],
+            'authority_required': handoff['authority_required'],
+            'external_write_required': handoff['external_write_required'],
+            'settings_url': settings_url,
+            'steps': list(steps),
+            'verification_command': handoff['verification_command'],
+            'writes_performed': False,
+        },
     }
 
 
@@ -460,6 +561,7 @@ def _next_action(
                 'read-only audit; repository settings and E2 dispatch remain '
                 'separate decisions'
             ),
+            'operator_handoff': candidate_environment['operator_handoff'],
         }
     if not matrix['product_version_aligned']:
         versions = ', '.join(matrix['product_versions']) or 'multiple versions'
@@ -730,6 +832,24 @@ def render_card(report: dict[str, Any]) -> str:
                 f"  Command: `{alternative['command']}`",
                 f"  Boundary: {alternative['write_boundary']}",
             ])
+    handoff = report['next_action'].get('operator_handoff')
+    if handoff is not None:
+        lines.extend([
+            '',
+            'Operator handoff (not executed):',
+            f"- Authority required: {handoff['authority_required']}",
+        ])
+        if handoff['settings_url'] is not None:
+            lines.append(f"- Settings: {handoff['settings_url']}")
+        lines.extend(
+            f'{index}. {step}'
+            for index, step in enumerate(handoff['steps'], start=1)
+        )
+        lines.append(
+            'Read-only verification: '
+            f"`{handoff['verification_command']}`"
+        )
+        lines.append('- Environment writes performed: no')
     lines.extend(['', f"Current packet: `{report['current_packet']['path']}`"])
     return '\n'.join(lines) + '\n'
 

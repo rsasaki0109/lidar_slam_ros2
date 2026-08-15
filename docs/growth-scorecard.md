@@ -91,13 +91,17 @@ Draft PR #427, the reviewed product-candidate tip
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
 `2a92cc5704fa55c16ddee343a601edc928a542c2` with 10 successful checks and 4
-intentional non-publication skips, the current 262-path local plan, the
+intentional non-publication skips, the current 263-path local plan, the
 one-command candidate-session tip `8bc5ea4`, and its guided read-only host
 readiness follow-up `a286c65` while the v0.9.1/image state remains unpublished.
 The optional authenticated environment preflight at `adecca6` now proves from
 a complete live inventory that only `github-pages` exists and
 `candidate-images` remains `ABSENT`; it performs no settings write and cannot
-authorize E2.
+authorize E2. Its human and G0 cards now turn that stable blocker into one
+bounded administrator handoff: trusted settings URL, exact protected-policy
+checklist, independent review, and a copy-ready GET-only verification command.
+The handoff is schema-bound to `writes_performed: false`; it is guidance, not
+evidence that repository settings changed.
 It continues to keep E2 artifact hosting, E3 community mutation, and E4
 release publication
 separate and unauthorized. The earlier 219-path value remains historical

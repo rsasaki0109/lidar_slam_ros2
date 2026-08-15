@@ -7,8 +7,8 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 262,
-    "expected_paths_sha256": "b1dd157537e48d5c8ae6d7b9cc4007c07ec5a6443b4822d2622d48af1928d8f4",
+    "expected_path_count": 263,
+    "expected_paths_sha256": "f37f6a327beb5792f05f1cf791014893d9fa7228445ec54b5bd62010eb2be1fb",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -354,6 +354,7 @@
         "scripts/check_onboarding_trial_matrix.py",
         "scripts/check_usability_scorecard.py",
         "scripts/collect_growth_snapshot.py",
+        "scripts/compare_with_glim.sh",
         "scripts/completions/lidarslam-map.bash",
         "scripts/contributor_starter_queue.py",
         "scripts/first_map_validator_cohort.py",

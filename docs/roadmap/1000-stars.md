@@ -462,7 +462,10 @@ work and document the actual support boundary instead of hiding the delay.
   deployment restricted to `develop`; its package-write job can publish
   untagged digests but cannot create or move a tag. A shared schema-backed
   checker audits the complete live environment inventory and exact policy with
-  GET requests only. Gate availability is not E2 authorization.
+  GET requests only. Its status-specific operator handoff makes the required
+  settings URL, reviewer/self-review/develop-only checklist, independent
+  review, and read-only recheck copy-ready without performing a write. Gate
+  availability is not E2 authorization.
 - Budget normal maintainer effort at approximately 60% product/reliability,
   20% distribution/community, and 20% research. Research can use spare capacity
   but cannot delay a failed product, support, or release gate.
@@ -768,7 +771,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 262-path exact
+been expanded into the current 263-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell

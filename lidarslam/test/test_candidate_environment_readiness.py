@@ -159,6 +159,10 @@ def test_ready_environment_is_exact_and_never_authorizes_dispatch():
     }
     assert report['authority']['github_writes_authorized'] is False
     assert report['authority']['remote_mutations_performed'] is False
+    assert report['operator_handoff']['kind'] == 'REVIEW_E2_SEPARATELY'
+    assert report['operator_handoff']['external_write_required'] is False
+    assert report['operator_handoff']['settings_url'] is None
+    assert report['operator_handoff']['writes_performed'] is False
 
 
 def test_complete_inventory_proves_absence_without_follow_up_requests():
@@ -173,6 +177,22 @@ def test_complete_inventory_proves_absence_without_follow_up_requests():
     assert fetcher.calls == [INVENTORY_PATH]
     assert report['observed']['environment_names'] == ['production']
     assert report['findings'][0]['id'] == 'candidate-environment-absent'
+    handoff = report['operator_handoff']
+    assert handoff['kind'] == 'CREATE_AND_REVIEW_ENVIRONMENT'
+    assert handoff['authority_required'] == 'repository-settings-admin'
+    assert handoff['external_write_required'] is True
+    assert handoff['settings_url'].endswith('/settings/environments')
+    assert any('Prevent self-review' in step for step in handoff['steps'])
+    assert any('develop branch' in step for step in handoff['steps'])
+    assert '--require-ready' in handoff['verification_command']
+    assert handoff['writes_performed'] is False
+
+    card = CHECKER.render_human(report)
+    assert 'Operator handoff (not executed):' in card
+    assert 'Authority required: repository-settings-admin' in card
+    assert '1. Create an environment named candidate-images.' in card
+    assert 'Environment writes performed: no' in card
+    assert 'E2 dispatch authorized: no' in card
 
 
 @pytest.mark.parametrize(
@@ -213,6 +233,9 @@ def test_unsafe_or_ambiguous_protection_is_misconfigured(
     assert report['status'] == 'MISCONFIGURED'
     assert message in report['decision']['next_action']
     assert report['observed']['target'] is None
+    assert report['operator_handoff']['kind'] == (
+        'REPAIR_AND_REVIEW_ENVIRONMENT'
+    )
 
 
 def test_incomplete_inventory_or_api_failure_is_blocked_not_absent():
@@ -224,6 +247,12 @@ def test_incomplete_inventory_or_api_failure_is_blocked_not_absent():
     }))
     assert report['status'] == 'BLOCKED'
     assert 'truncated' in report['decision']['next_action']
+    assert report['operator_handoff']['kind'] == 'RESTORE_READ_ACCESS'
+    assert report['operator_handoff']['settings_url'] is None
+    assert report['operator_handoff']['external_write_required'] is False
+    assert 'do not change environment settings' in ' '.join(
+        report['operator_handoff']['steps']
+    )
 
     report = CHECKER.audit_candidate_environment(fetcher=FakeFetcher({
         INVENTORY_PATH: (403, {'message': 'forbidden'}),
@@ -251,6 +280,18 @@ def test_schema_rejects_any_claimed_write_or_dispatch_authority():
 
     inconsistent = copy.deepcopy(report)
     inconsistent['status'] = 'ABSENT'
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.Draft7Validator(schema).validate(inconsistent)
+
+    unsafe = copy.deepcopy(report)
+    unsafe['operator_handoff']['writes_performed'] = True
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.Draft7Validator(schema).validate(unsafe)
+
+    inconsistent = copy.deepcopy(report)
+    inconsistent['operator_handoff']['kind'] = (
+        'CREATE_AND_REVIEW_ENVIRONMENT'
+    )
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.Draft7Validator(schema).validate(inconsistent)
 

@@ -377,6 +377,14 @@ The schema-backed result distinguishes `ABSENT`, `MISCONFIGURED`, and
 `BLOCKED`; a 404 by itself is never treated as proof that an environment is
 absent. `READY` means only `READY_FOR_SEPARATE_E2_REVIEW`. The command cannot
 write repository settings, authorize a dispatch, or publish an artifact.
+Without `--json`, the same audit prints a status-specific operator handoff:
+`ABSENT` gives the trusted repository-settings URL and the five exact creation
+and independent-review steps; `MISCONFIGURED` gives the bounded repair
+checklist; `BLOCKED` asks only for read-access recovery and explicitly forbids
+settings changes from incomplete evidence; and `READY` points to the separate
+exact-head E2 review. Every card ends with the copy-ready read-only verification
+command and `Environment writes performed: no`. The handoff describes an
+external administrator action; it never performs or authorizes that action.
 
 After a separate E2 approval, the exact event shape is:
 

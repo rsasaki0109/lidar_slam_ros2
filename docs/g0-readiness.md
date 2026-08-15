@@ -41,6 +41,15 @@ unknown protection rule, and exactly one custom `develop` branch policy. Even
 `READY` means only `READY_FOR_SEPARATE_E2_REVIEW`: environment writes and the
 digest-publication dispatch remain unauthorized.
 
+When this optional gate becomes the selected next action, the human card and
+JSON contract carry the same bounded operator handoff. An absent or
+misconfigured environment includes only the trusted repository-settings URL,
+the exact reviewer/self-review/develop-only checklist, required external
+authority, and the read-only verification command. An inaccessible audit does
+not expose a settings URL or suggest mutation; it asks the operator to restore
+read access and retry. The dashboard labels the handoff **not executed** and
+rechecks that `writes_performed` remains false before displaying it.
+
 For automation, use `--json`. The output follows the
 [`g0-readiness-report-v1`](schemas/g0-readiness-report-v1.schema.json)
 contract. `--require-ready` exits with status 1 while any summarized gate is

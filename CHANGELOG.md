@@ -35,6 +35,13 @@ more guided, recoverable, and reviewable.
 - **Release identity hardening** — release-bundle CI checks out the exact PR
   head, fetches immutable tags, and refuses historical version reuse. Candidate
   metadata is aligned at 0.9.1 without moving or recreating `v0.9.0`.
+- **Reviewable candidate operations** — the GET-only protected-environment
+  audit and G0 card now provide a status-specific, copy-ready administrator
+  handoff while keeping settings writes, independent approval, and E2 dispatch
+  outside the tool.
+- **Parse-safe GLIM comparison** — restore the Docker timeout branch in
+  `compare_with_glim.sh` and make every tracked shell script pass `bash -n` in
+  the maintained docs/product gate.
 - **Honest adoption evidence** — onboarding and GLIM usability comparisons are
   schema-backed, environment-matched, and fail closed when rows are missing;
   no overall winner is inferred from incomplete evidence.

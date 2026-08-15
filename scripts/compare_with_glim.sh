@@ -1229,6 +1229,7 @@ if [[ "${RUN_FRESH_GLIM}" == "true" ]]; then
         "${GLIM_DOCKER_IMAGE}" \
         bash -lc "source /opt/ros/jazzy/setup.bash && source /root/ros2_ws/install/setup.bash && ros2 run glim_ros glim_rosbag /bag --ros-args -p config_path:=/config -p auto_quit:=true -p dump_path:=/dump" \
         >"${GLIM_LOG}" 2>&1
+    fi
     GLIM_RC="$?"
   elif [[ "${GLIM_TIMEOUT_SEC}" != "0" ]] && command -v timeout >/dev/null 2>&1; then
     if [[ "${GLIM_VIEWER}" == "true" ]]; then

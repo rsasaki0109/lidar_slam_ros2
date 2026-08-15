@@ -46,6 +46,34 @@ DASHBOARD = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(DASHBOARD)
 
 
+def _absent_environment_handoff() -> dict:
+    """Return the exact bounded admin handoff expected from the preflight."""
+    return {
+        'kind': 'CREATE_AND_REVIEW_ENVIRONMENT',
+        'authority_required': 'repository-settings-admin',
+        'external_write_required': True,
+        'settings_url': (
+            'https://github.com/rsasaki0109/lidar_slam_ros2/'
+            'settings/environments'
+        ),
+        'steps': [
+            'Create an environment named candidate-images.',
+            'Add 1–6 trusted User or Team required reviewers.',
+            'Enable Prevent self-review.',
+            (
+                'Select custom deployment branches and allow exactly the '
+                'develop branch.'
+            ),
+            'Have an independent maintainer review the saved settings.',
+        ],
+        'verification_command': (
+            'GITHUB_TOKEN="$(gh auth token)" python3 '
+            'scripts/check_candidate_environment.py --json --require-ready'
+        ),
+        'writes_performed': False,
+    }
+
+
 def test_current_dashboard_preserves_the_tracked_hold_state():
     """The current local evidence remains an honest G0 HOLD."""
     reports = DASHBOARD.collect_checker_reports()
@@ -60,7 +88,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['publication_plan']['status'] == (
         'PLAN_VALID_LOCAL_ONLY'
     )
-    assert report['checks']['publication_plan']['path_count'] == 262
+    assert report['checks']['publication_plan']['path_count'] == 263
     assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
     assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
     assert report['checks']['candidate_environment'] == {
@@ -72,6 +100,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         'deployment_branch_policy': None,
         'decision_state': 'NOT_CHECKED',
         'blockers': [],
+        'operator_handoff': None,
     }
     v1_details = report['checks']['v1_readiness']['incomplete_gate_details']
     assert [item['id'] for item in v1_details] == [
@@ -177,7 +206,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         '10 successful checks and 4\nintentional non-publication skips'
         in scorecard
     )
-    assert 'current 262-path local plan' in scorecard
+    assert 'current 263-path local plan' in scorecard
 
 
 def test_dashboard_can_include_a_read_only_release_report_without_writes():
@@ -235,6 +264,7 @@ def test_dashboard_surfaces_absent_environment_before_candidate_alignment():
             'artifact_publication_authorized': False,
             'remote_mutations_performed': False,
         },
+        'operator_handoff': _absent_environment_handoff(),
     }
 
     report = DASHBOARD.build_report(reports)
@@ -243,12 +273,20 @@ def test_dashboard_surfaces_absent_environment_before_candidate_alignment():
     assert report['checks']['candidate_environment']['status'] == 'ABSENT'
     assert report['next_action']['id'] == 'review-candidate-environment'
     assert '--require-ready' in report['next_action']['command']
+    handoff = report['checks']['candidate_environment']['operator_handoff']
+    assert handoff == _absent_environment_handoff()
+    assert report['next_action']['operator_handoff'] == handoff
     assert 'E2 dispatch remain separate' in (
         report['next_action']['write_boundary']
     )
     card = DASHBOARD.render_card(report)
     assert '| candidate environment | ABSENT |' in card
     assert 'dispatch authorized: false' in card
+    assert 'Operator handoff (not executed):' in card
+    assert 'Authority required: repository-settings-admin' in card
+    assert '/settings/environments' in card
+    assert '1. Create an environment named candidate-images.' in card
+    assert 'Environment writes performed: no' in card
 
     unsafe = copy.deepcopy(reports)
     unsafe['candidate_environment']['decision'][
@@ -257,6 +295,36 @@ def test_dashboard_surfaces_absent_environment_before_candidate_alignment():
     with pytest.raises(
         DASHBOARD.G0ReadinessError,
         match='remote-write authority',
+    ):
+        DASHBOARD.build_report(unsafe)
+
+    unsafe = copy.deepcopy(reports)
+    unsafe['candidate_environment']['operator_handoff'][
+        'writes_performed'
+    ] = True
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='operator handoff is unsafe',
+    ):
+        DASHBOARD.build_report(unsafe)
+
+    unsafe = copy.deepcopy(reports)
+    unsafe['candidate_environment']['operator_handoff']['settings_url'] = (
+        'https://example.com/settings'
+    )
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='untrusted URL',
+    ):
+        DASHBOARD.build_report(unsafe)
+
+    unsafe = copy.deepcopy(reports)
+    unsafe['candidate_environment']['operator_handoff']['kind'] = (
+        'REPAIR_AND_REVIEW_ENVIRONMENT'
+    )
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='contradicts its status',
     ):
         DASHBOARD.build_report(unsafe)
 

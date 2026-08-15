@@ -87,12 +87,14 @@ jobs:
             echo "checkout does not match immutable tag ${TAG_REF}" >&2
             exit 1
           fi
-          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "tag_name=${TAG_NAME}" >> "${GITHUB_OUTPUT}"
-          echo "git_commit=${TAG_COMMIT}" >> "${GITHUB_OUTPUT}"
-          echo "prerelease=${PRERELEASE}" >> "${GITHUB_OUTPUT}"
-          echo "release_notes=${RELEASE_NOTES}" >> "${GITHUB_OUTPUT}"
-          echo "bundle_name=${BUNDLE_NAME}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "version=${VERSION}"
+            echo "tag_name=${TAG_NAME}"
+            echo "git_commit=${TAG_COMMIT}"
+            echo "prerelease=${PRERELEASE}"
+            echo "release_notes=${RELEASE_NOTES}"
+            echo "bundle_name=${BUNDLE_NAME}"
+          } >> "${GITHUB_OUTPUT}"
 
   images:
     name: publish ${{ matrix.ros_distro }} amd64 image

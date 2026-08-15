@@ -224,7 +224,8 @@
         "prevent_self_review",
         "deployment_branch_policy",
         "decision_state",
-        "blockers"
+        "blockers",
+        "operator_handoff"
       ],
       "properties": {
         "status": {
@@ -251,6 +252,12 @@
           "type": "array",
           "maxItems": 1,
           "items": {"type": "string", "minLength": 1, "maxLength": 1000}
+        },
+        "operator_handoff": {
+          "anyOf": [
+            {"$ref": "#/definitions/operatorHandoff"},
+            {"type": "null"}
+          ]
         }
       },
       "allOf": [
@@ -263,7 +270,8 @@
               "prevent_self_review": {"type": "null"},
               "deployment_branch_policy": {"type": "null"},
               "decision_state": {"const": "NOT_CHECKED"},
-              "blockers": {"maxItems": 0}
+              "blockers": {"maxItems": 0},
+              "operator_handoff": {"type": "null"}
             }
           }
         },
@@ -280,7 +288,8 @@
               "prevent_self_review": {"const": true},
               "deployment_branch_policy": {"const": "develop_only"},
               "decision_state": {"const": "READY_FOR_SEPARATE_E2_REVIEW"},
-              "blockers": {"maxItems": 0}
+              "blockers": {"maxItems": 0},
+              "operator_handoff": {"$ref": "#/definitions/operatorHandoff"}
             }
           }
         },
@@ -298,7 +307,72 @@
               "prevent_self_review": {"type": "null"},
               "deployment_branch_policy": {"type": "null"},
               "decision_state": {"const": "HOLD"},
-              "blockers": {"minItems": 1}
+              "blockers": {"minItems": 1},
+              "operator_handoff": {"$ref": "#/definitions/operatorHandoff"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "READY"}}},
+          "then": {
+            "properties": {
+              "operator_handoff": {
+                "properties": {
+                  "kind": {"const": "REVIEW_E2_SEPARATELY"},
+                  "authority_required": {"const": "separate-e2-approval"},
+                  "external_write_required": {"const": false},
+                  "settings_url": {"type": "null"}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "ABSENT"}}},
+          "then": {
+            "properties": {
+              "operator_handoff": {
+                "properties": {
+                  "kind": {"const": "CREATE_AND_REVIEW_ENVIRONMENT"},
+                  "authority_required": {"const": "repository-settings-admin"},
+                  "external_write_required": {"const": true},
+                  "settings_url": {
+                    "const": "https://github.com/rsasaki0109/lidar_slam_ros2/settings/environments"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "MISCONFIGURED"}}},
+          "then": {
+            "properties": {
+              "operator_handoff": {
+                "properties": {
+                  "kind": {"const": "REPAIR_AND_REVIEW_ENVIRONMENT"},
+                  "authority_required": {"const": "repository-settings-admin"},
+                  "external_write_required": {"const": true},
+                  "settings_url": {
+                    "const": "https://github.com/rsasaki0109/lidar_slam_ros2/settings/environments"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "BLOCKED"}}},
+          "then": {
+            "properties": {
+              "operator_handoff": {
+                "properties": {
+                  "kind": {"const": "RESTORE_READ_ACCESS"},
+                  "authority_required": {"const": "read-access"},
+                  "external_write_required": {"const": false},
+                  "settings_url": {"type": "null"}
+                }
+              }
             }
           }
         }
@@ -318,7 +392,60 @@
           "type": "array",
           "minItems": 1,
           "items": {"$ref": "#/definitions/identityAlternative"}
+        },
+        "operator_handoff": {
+          "$ref": "#/definitions/operatorHandoff"
         }
+      }
+    },
+    "operatorHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "authority_required",
+        "external_write_required",
+        "settings_url",
+        "steps",
+        "verification_command",
+        "writes_performed"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "CREATE_AND_REVIEW_ENVIRONMENT",
+            "REPAIR_AND_REVIEW_ENVIRONMENT",
+            "RESTORE_READ_ACCESS",
+            "REVIEW_E2_SEPARATELY"
+          ]
+        },
+        "authority_required": {
+          "enum": [
+            "repository-settings-admin",
+            "read-access",
+            "separate-e2-approval"
+          ]
+        },
+        "external_write_required": {"type": "boolean"},
+        "settings_url": {
+          "anyOf": [
+            {
+              "const": "https://github.com/rsasaki0109/lidar_slam_ros2/settings/environments"
+            },
+            {"type": "null"}
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 300}
+        },
+        "verification_command": {
+          "const": "GITHUB_TOKEN=\"$(gh auth token)\" python3 scripts/check_candidate_environment.py --json --require-ready"
+        },
+        "writes_performed": {"const": false}
       }
     },
     "identityAlternative": {
