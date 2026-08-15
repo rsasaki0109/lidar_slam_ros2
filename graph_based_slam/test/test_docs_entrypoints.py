@@ -1371,6 +1371,32 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
     assert '74fe625ab2ee1dc9a0d55ce69bd705d22bac5d76' not in onboarding
 
 
+def test_custom_pointcloud_lidar_checklist_is_safe_and_copy_ready():
+    """The custom-sensor card separates readiness from support claims."""
+    workflows = WORKFLOWS_DOC.read_text(encoding='utf-8')
+
+    assert '### Adapting another PointCloud2 LiDAR' in workflows
+    for required in (
+        'ros2 topic type <POINTCLOUD_TOPIC>',
+        'header.frame_id',
+        'per-point time field named `t`, `timestamp`,',
+        'lidarslam-map doctor /path/to/rosbag2 --json',
+        'ros2 topic hz --window 20 <POINTCLOUD_TOPIC>',
+        'ros2 run tf2_ros tf2_echo <BASE_FRAME> <LIDAR_FRAME>',
+        'scan_period: <SECONDS_PER_SCAN>',
+        'scan_min_range: <MIN_RANGE_M>',
+        'scan_max_range: <MAX_RANGE_M>',
+        'input_cloud:=<POINTCLOUD_TOPIC>',
+        'lidar_topic:=<POINTCLOUD_TOPIC>',
+        'publish_static_tf:=false',
+        'do not attach raw bags, map geometry, or',
+        'template=sensor-support.yml',
+    ):
+        assert required in workflows
+    assert 'guessing an extrinsic' in workflows
+    assert 'does not validate accuracy' in workflows
+
+
 def test_japanese_quickstart_keeps_the_canonical_beginner_contract():
     """The short Japanese route must not drift from supported commands."""
     readme = README_PATH.read_text(encoding='utf-8')

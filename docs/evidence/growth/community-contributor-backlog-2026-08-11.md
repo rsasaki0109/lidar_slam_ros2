@@ -35,18 +35,21 @@ python3 scripts/contributor_starter_queue.py --task starter-C5
 
 ## Operationalization validation — 2026-08-12
 
-The checked-in queue reports `QUEUE_READY_LOCAL_ONLY`: all five tasks remain
-locally present, their known gaps are still observable, and none has a matching
-open pull request in the recorded read-only audit. The default command and the
-list/detail views perform no network or workspace write. Focused verification
-uses built-in profiles rather than executing commands supplied by JSON; docs
-output goes to a temporary directory and Python cache writes are disabled.
+The checked-in queue now reports `QUEUE_STALE_LOCAL_ONLY`: all five task records
+remain locally present, four are still ready, and C4 is retired from the ready
+set because its planned checklist marker is implemented in the current
+candidate. None has a matching open pull request in the recorded read-only
+audit. The default command and the list/detail views perform no network or
+workspace write. Focused verification uses built-in profiles rather than
+executing commands supplied by JSON; docs output goes to a temporary directory
+and Python cache writes are disabled.
 
 | Check | Result |
 | --- | --- |
 | queue/schema/drift/authority regressions | 17 passed |
 | `--verify starter-C1` | strict MkDocs profile passed; no workspace artifact |
 | `--verify starter-C5` | strict MkDocs profile passed; no workspace artifact |
+| C4 custom-sensor checklist | implemented locally; queue reports C4 `STALE` and blocks rendering it as a new issue |
 | contributor runner style | full flake8 passed for runner and test |
 | complete maintained Python gate | graph 1,428 passed / 13 skipped; lidar_slam 687 passed; 2,115 total |
 | documentation | strict MkDocs build passed with pre-existing notices |
@@ -251,6 +254,20 @@ python3 -m mkdocs build --strict
 
 Estimate: **30 minutes**. Non-goals: adding a driver, selecting universal
 tuning values, or claiming support for hardware that has not passed a recipe.
+
+### C4 local completion — custom PointCloud2 sensor checklist
+
+The checklist is now implemented in the current product candidate at
+`docs/workflows.md`. It covers topic/type/field inspection, non-empty frames,
+timestamp and rate checks, measured TF/extrinsics, classic and RKO-LIO range
+and period configuration, explicit topic/frame remapping, and the
+sensor-support issue route. It states that the result is readiness for one
+controlled first run rather than an accuracy or hardware-support claim, and it
+rejects guessed extrinsics and raw-data uploads.
+
+The queue's existing gap probe therefore reports C4 as `STALE`; the task must
+not be rendered or published as if the work were still missing. This is a
+local completion only and does not create or edit a GitHub issue.
 
 ## Completed C5 — Japanese empty-frame recovery card
 
@@ -1131,8 +1148,9 @@ for an unvalidated sensor.
 4. Publish C1 and the current C5 successor first; they exercise setup and
    diagnosis documentation.
 5. Publish C2 and C3 after the first pair's review burden is known.
-6. Publish C4 only after the common sensor checklist has a named maintainer
-   reviewer; do not let vendor-specific discussion expand its scope.
+6. Keep C4 out of the publication batch because its local checklist is already
+   complete; if a future contributor task replaces it, rerun the live duplicate
+   audit and define a new bounded scope first.
 7. Keep #422 open independently until three accepted external first-map
    validations exist.
 

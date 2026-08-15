@@ -144,6 +144,129 @@ See the
 [VoxelGrid refusal contract](operational-reliability.md#classic-scanmatcher-voxelgrid-refusal-boundary)
 for every reason code, preserved state, and the bounded issue #69 regression.
 
+### Adapting another PointCloud2 LiDAR
+
+Use this checklist when adapting another LiDAR that publishes
+`sensor_msgs/msg/PointCloud2`. It establishes readiness for one controlled
+first run; it does not validate accuracy, make a vendor part of the supported
+matrix, or select universal tuning values. Run the fixed public demo first so
+that an installation problem is not confused with a sensor-adaptation problem.
+
+Replace every `<PLACEHOLDER>` below with an observed value before running a
+command. If a value is unknown, stop at that check instead of guessing it.
+
+1. **Confirm the topic and message contract.**
+
+   ```bash
+   ros2 topic list -t
+   ros2 topic type <POINTCLOUD_TOPIC>
+   ros2 topic echo --once --field header.frame_id <POINTCLOUD_TOPIC>
+   ros2 topic echo --once --field fields <POINTCLOUD_TOPIC>
+   ```
+
+   Expected: `<POINTCLOUD_TOPIC>` is listed as
+   `sensor_msgs/msg/PointCloud2`, `header.frame_id` is non-empty, and the
+   `fields` output contains FLOAT32 `x`, `y`, and `z`. For the RKO-LIO path,
+   also identify a supported per-point time field named `t`, `timestamp`,
+   `time`, or `stamps`; a header timestamp alone does not satisfy that path.
+   If any required field is absent, fix the driver or use a conversion layer
+   before launching SLAM.
+
+2. **Check timestamp order and rate.**
+
+   For a rosbag2 input, run the product preflight first:
+
+   ```bash
+   lidarslam-map doctor /path/to/rosbag2 --json
+   ```
+
+   Review the selected topic's timestamp findings and keep `sampled` distinct
+   from a full-bag proof. For a live topic, observe both a timestamp and the
+   publication rate:
+
+   ```bash
+   timeout 5s ros2 topic echo --once --field header.stamp <POINTCLOUD_TOPIC>
+   ros2 topic hz --window 20 <POINTCLOUD_TOPIC>
+   ```
+
+   Expected: timestamps advance and the rate remains positive. Repair the
+   publisher clock, rosbag playback clock, or timestamp conversion when they
+   do not. Do not hide timestamp warnings by increasing a timeout.
+
+3. **Measure the frame relationship; never invent an extrinsic.**
+
+   Use the non-empty frame observed in check 1 as `<LIDAR_FRAME>` and verify
+   the directed transform to the robot base while the source is live or being
+   played:
+
+   ```bash
+   ros2 run tf2_ros tf2_echo <BASE_FRAME> <LIDAR_FRAME>
+   ```
+
+   Expected: repeated transforms in the same parent-to-child direction as the
+   configured launch. If the path is missing or the measured translation or
+   rotation is unknown, stop and repair the broadcaster or calibration. An
+   identity transform is valid only when it is the measured mounting
+   relationship; guessing an extrinsic can produce a plausible but invalid
+   map.
+
+4. **Record the sensor period and valid range in a profile.**
+
+   The classic path uses these fields in its `main_param_dir` YAML:
+
+   ```yaml
+   scan_matcher:
+     ros__parameters:
+       scan_period: <SECONDS_PER_SCAN>
+       scan_min_range: <MIN_RANGE_M>
+       scan_max_range: <MAX_RANGE_M>
+   ```
+
+   The RKO-LIO path uses `min_range` and `max_range` launch arguments or its
+   `rko_param_file`; its per-point timestamps determine the scan timing. Set
+   the values from the sensor specification or a bounded measurement, and
+   record the source in the profile. Do not copy a value from another vendor
+   merely because the topic type matches.
+
+5. **Run one explicit, reviewable launch.**
+
+   For the classic path, the public remap and frame arguments are:
+
+   ```bash
+   ros2 launch lidarslam lidarslam.launch.py \
+     input_cloud:=<POINTCLOUD_TOPIC> \
+     imu_topic:=<IMU_TOPIC> \
+     robot_frame_id:=<BASE_FRAME> \
+     base_frame:=<BASE_FRAME> \
+     lidar_frame:=<LIDAR_FRAME> \
+     main_param_dir:=/path/to/custom-lidarslam.yaml \
+     publish_static_tf:=false
+   ```
+
+   Set `publish_static_tf:=true` only when the seven static-transform values
+   (`static_tf_x`, `static_tf_y`, `static_tf_z`, `static_tf_qx`,
+   `static_tf_qy`, `static_tf_qz`, and `static_tf_qw`) come from the measured
+   calibration. For RKO-LIO, use the corresponding public arguments and put
+   the measured extrinsics in `rko_param_file`:
+
+   ```bash
+   ros2 launch lidarslam rko_lio_slam.launch.py \
+     bag_path:=/path/to/rosbag2 \
+     lidar_topic:=<POINTCLOUD_TOPIC> \
+     imu_topic:=<IMU_TOPIC> \
+     base_frame:=<BASE_FRAME> \
+     lidar_frame:=<LIDAR_FRAME> \
+     rko_param_file:=/path/to/measured-rko.yaml
+   ```
+
+   A controlled first run means that the input, frames, timestamps, period,
+   ranges, and exact profile are recorded before mapping. It is not an
+   accuracy or hardware-support claim. If the checklist exposes a sensor
+   question that the existing contract cannot answer, use the
+   [sensor-support issue form](https://github.com/rsasaki0109/lidar_slam_ros2/issues/new?template=sensor-support.yml)
+   with sanitized observations; do not attach raw bags, map geometry, or
+   location-bearing logs.
+
 ### KITTI / LiDAR-only evaluation path
 
 KITTI Odometry Velodyne sequences do not include IMU. Use this path for
