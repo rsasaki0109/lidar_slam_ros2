@@ -543,7 +543,7 @@ def main() -> int:
     root = Path(args.root).expanduser().resolve()
     metrics_paths = sorted(root.rglob("metrics.json"))
 
-    if not metrics_paths:
+    if not metrics_paths and not args.release_profile:
         print(f"no metrics.json found under: {root}")
         return 1
 
@@ -554,7 +554,7 @@ def main() -> int:
         except Exception as e:
             print(f"warn: failed to read {p}: {e}")
 
-    if not runs:
+    if not runs and not args.release_profile:
         print("no readable metrics.json found")
         return 1
 
@@ -850,6 +850,13 @@ def main() -> int:
         if args.ape_threshold is None:
             print("error: --fail-on-ape-threshold requires --ape-threshold")
             return 1
+
+        if not threshold_records:
+            print(
+                "error: APE threshold gate has no eligible metrics.json "
+                "evidence"
+            )
+            return 2
 
         failing_runs = [
             rec["run"]

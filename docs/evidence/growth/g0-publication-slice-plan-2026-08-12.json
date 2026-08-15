@@ -7,8 +7,8 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 281,
-    "expected_paths_sha256": "8bfe87e8eff09e7a8a14af46c78e7018af99b5047a7b171cb68685fb14ff3bf6",
+    "expected_path_count": 285,
+    "expected_paths_sha256": "03d0d48868bdee9c7ecbf7734d5cfec0f42780425d8308b9477c757795ce84d7",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -186,7 +186,7 @@
       "id": "S5-distribution-readiness",
       "order": 5,
       "title": "NDT dependency, immutable candidate gate, and ROS distribution readiness",
-      "review_outcome": "Release tooling reports package-manager blockers honestly, binds image publication to exact immutable identity, re-derives and byte-compares all four retained candidate artifacts without write authority, refuses historical version reuse, and keeps candidate, release, and moving-tag authority separate from local readiness.",
+      "review_outcome": "Release tooling reports package-manager and exact-head benchmark blockers honestly, retains an actionable NO_DATA report even when the benchmark root is empty, binds image publication to exact immutable identity, re-derives and byte-compares all four retained candidate artifacts without write authority, refuses historical version reuse, and keeps candidate, release, and moving-tag authority separate from local readiness.",
       "depends_on": [
         "S1-runtime-safety",
         "S4-source-onboarding"
@@ -198,6 +198,7 @@
         ".github/workflows/release.yml",
         "CHANGELOG.md",
         "CITATION.cff",
+        "RELEASING.md",
         "VERSION",
         "docs/comparison.md",
         "docs/contracts/canonical-ndt-convergence-v1.json",
@@ -227,6 +228,7 @@
         "lidarslam/CHANGELOG.rst",
         "lidarslam/package.xml",
         "lidarslam/test/test_audit_candidate_image_set.py",
+        "lidarslam/test/test_benchmark_summary_profiles.py",
         "lidarslam/test/test_build_docker_launcher_asset.py",
         "lidarslam/test/test_candidate_environment_readiness.py",
         "lidarslam/test/test_candidate_image_gate.py",
@@ -242,6 +244,7 @@
         "packaging/ndt_omp/lidarslam-canonical-ndt-transition.patch",
         "scanmatcher/package.xml",
         "scripts/audit_candidate_image_set.py",
+        "scripts/benchmark_summary.py",
         "scripts/build_docker_launcher_asset.py",
         "scripts/build_release_bundle.py",
         "scripts/check_candidate_environment.py",
@@ -251,6 +254,7 @@
         "scripts/check_published_release.py",
         "scripts/check_v1_readiness.py",
         "scripts/create_candidate_image_record.py",
+        "scripts/run_release_readiness_checks.sh",
         "scripts/validate_candidate_image_request.py",
         "scripts/verify_candidate_image_set.py"
       ],
@@ -259,7 +263,8 @@
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_ndt_omp_release_readiness.py lidarslam/test/test_package_manager_release_readiness.py lidarslam/test/test_release_image_promotion.py lidarslam/test/test_v1_readiness.py",
         "python3 scripts/check_ndt_omp_release_readiness.py --json",
         "python3 scripts/check_canonical_ndt_convergence.py --json",
-        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_build_docker_launcher_asset.py lidarslam/test/test_published_release.py"
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_build_docker_launcher_asset.py lidarslam/test/test_published_release.py",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_benchmark_summary_profiles.py && bash -n scripts/run_release_readiness_checks.sh"
       ],
       "publication_gate": "MAINTAINER_DECISION"
     },

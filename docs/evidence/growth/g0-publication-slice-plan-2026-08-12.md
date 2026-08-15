@@ -10,23 +10,23 @@
 > Frozen public review baseline (machine key `public_head_sha`):
 > `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
-> Planned follow-up inventory: 281 paths; SHA-256
-> `8bfe87e8eff09e7a8a14af46c78e7018af99b5047a7b171cb68685fb14ff3bf6`
+> Planned follow-up inventory: 285 paths; SHA-256
+> `03d0d48868bdee9c7ecbf7734d5cfec0f42780425d8308b9477c757795ce84d7`
 >
-> Exact paired-recorder implementation tip:
-> `0575fb6d67dc0b2069d9e41029a767bf3608687c`
+> Exact current public Draft head:
+> `e786c18ef05fc6b6e26606f35d06145475359e98`
 >
-> Last observed remote mutation: exact non-force push from `3ed632e` to
-> `3dc27bc`; mutations performed by the checker or review-card command:
+> Last observed remote mutation: exact non-force push from `7fde9cc` to
+> `e786c18`; mutations performed by the checker or review-card command:
 > **none**
 
 ## Outcome
 
-The local GLIM-convenience follow-up is now split into seven dependency-ordered
-review focuses. Every tracked or untracked path relative to the exact PR base
-has exactly one primary review owner. A fail-closed checker rejects missing,
-stale, duplicated, unsafe, or digest-drifted paths and rejects a plan that
-claims GitHub write authority.
+The local GLIM-convenience and release-evidence UX follow-up is now split into
+seven dependency-ordered review focuses. Every tracked or untracked path
+relative to the exact PR base has exactly one primary review owner. A
+fail-closed checker rejects missing, stale, duplicated, unsafe, or
+digest-drifted paths and rejects a plan that claims GitHub write authority.
 
 These are review focuses, not seven independently cherry-pickable repositories.
 Several product integration files register tests and installed helpers from
@@ -41,20 +41,19 @@ The GitHub repository and PR were inspected without mutation:
 
 - Draft PR `#427`, `Prepare crash-safe guided mapping for G0 review`, remains
   open, draft, and mergeable into `develop`;
-- at the baseline observation, the public PR head resolved to `3ed632e`;
-- at that observation, the PR exposed 329 changed files and 223 commits;
-- ten GitHub Actions checks pass on the public head and four publication jobs
+- the current public PR head resolves to `e786c18` and exposes 335 changed
+  files;
+- ten GitHub Actions checks pass on that exact head and four publication jobs
   skip intentionally, including green Humble/Jazzy builds, default workflows,
   upgrade checks, documentation, and release-readiness guards; and
 - no PR conversation, inline review, or submitted review was present at the
   observation time.
 
-Passing checks on `3ed632e` validate the complete published candidate through
-the public-docs deployment-provenance evidence refresh. The later exact
-published-onboarding-identity work and its evidence sync are public at
-`3dc27bc`; an exact-head audit found the same ten successful and four
-intentional-skip checks. The paired recorder at `0575fb6` is the next local
-code-bearing increment and requires its own public CI after publication.
+Passing checks on `e786c18` validate the complete public Draft candidate,
+including the published-onboarding identity, atomic paired recorder, evidence
+sync, and ament import-order follow-up. The actionable empty-release-evidence
+report is the next local code-bearing increment and requires its own public CI
+after publication.
 
 ## Review order
 
@@ -64,9 +63,9 @@ code-bearing increment and requires its own public CI after publication.
 | S2 first-map foundation | 32 | one bounded demo/own-bag route reaches a verified local 3D result and retains recovery state | public Humble/Jazzy CI |
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 35 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded release-or-candidate Docker/source measurement, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session execution, public preflight, and an auditable SHA-bound supplement path for retained observations | public Humble/Jazzy CI and clean-machine timing |
-| S5 distribution readiness | 61 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a shared read-only environment preflight and four-artifact byte audit remain explicit; no E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
+| S5 distribution readiness | 65 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, actionable missing-benchmark reports, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a shared read-only environment preflight and four-artifact byte audit remain explicit; no E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
 | S6 product-shell integration | 107 | the installed home, bag-optional doctor, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard, fail-closed worksheet generators, and atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, and one-command G0 readiness dashboard agree | complete product gate and public CI |
-| S7 publication control | 6 | all 281 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
+| S7 publication control | 6 | all 285 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -104,7 +103,7 @@ from that base and the local tip descends from the public head, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 281-path coverage with the fixed inventory digest;
+4. exact 285-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred.
 
@@ -116,7 +115,7 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 281 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 285 paths, 7 slices, no remote mutation |
 | checker regressions | 14 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, and self-contained read-only source dry-run execution |
 | focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
@@ -129,9 +128,10 @@ cannot bypass live Git coverage.
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
 | public documentation deployment provenance | 8 focused regressions pass; strict MkDocs produces a deterministic manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
-| clean candidate release bundle | two byte-identical 252-file bundles at exact paired-recorder implementation tip `0575fb6`; SHA-256 `47d11e32c15a086707169ca03b83877324a642c853e6f3c3dd3ab581377d8ea2`; all three scorecard preparation/recording tools are manifest-bound |
+| clean candidate release bundle | exact-head reproducibility rehearsal passes in public CI at `e786c18`; the latest retained local exact bundle pair at `7fde9cc` contains 252 files with SHA-256 `344a6c4d79902e04ac56b5e1987a7200f7fc4d493ab833f7e0425759aca28c43`; all three scorecard preparation/recording tools are manifest-bound |
 | complete maintained Python gate | graph: 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 982 passed; 2,424 total |
-| paired scorecard recorder | 7 direct regressions, 19 recorder/checker regressions, and registered CTest 6 / 6 pass; incomplete observations remain non-comparable and atomic output/privacy boundaries fail closed |
+| paired scorecard recorder | 7 direct regressions, 20 recorder/checker regressions, and registered CTest 6 / 6 pass; incomplete observations remain non-comparable and atomic output/privacy boundaries fail closed |
+| empty release-evidence UX | 29 release-profile regressions cover direct and wrapper-level empty-root behavior; the exact-head gate retains Markdown/CSV/log evidence, reports five blocking rows plus their remediations, and exits 2 without weakening release authority |
 | GLIM reference-cache integrity | 10 focused regressions passed; registered CTest 1 / 1; missing lookup remains read-only; exact content, manifest, malformed-TUM, tamper, collision, shell, and bundle boundaries pass |
 | scanmatcher clean build and CTest | Jazzy RAM-backed clean build of `lidarslam_msgs`, `ndt_omp_ros2`, and `scanmatcher`; 109 tests passed |
 | review follow-up regressions | malformed PointCloud2 recovery with padded organized XYZ-only continuation, metadata tile containment, source-bundle symlink rejection, non-interpolated immutable release-tag checkout, least-privilege release jobs, and self-contained source dry-run are covered |

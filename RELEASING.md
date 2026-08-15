@@ -46,6 +46,13 @@ root report-only. When a blocking row is `NO_DATA` or `FAIL`, the command
 prints the profile's tracked remediation path; follow that path rather than
 weakening the threshold or copying evidence from an older commit.
 
+An empty root under `--fail-on-profiles` still writes
+`benchmark_summary.md`, `benchmark_summary.csv`, and
+`benchmark_summary.log`. The summary evaluates every profile as `NO_DATA`,
+separates blocking rows from report-only rows, and prints each blocking row's
+acquisition or rerun instruction before exiting 2. Start with that retained
+report instead of reconstructing the required dataset list by hand.
+
 3. Push the branch and verify GitHub Actions are green.
    Also inspect the cross-phase product audit; release candidates may remain
    `NOT_READY`, but an invalid contract must stop the release:

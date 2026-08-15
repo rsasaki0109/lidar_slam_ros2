@@ -902,6 +902,13 @@ is absent. Neither hard benchmark gate can be combined with
 `--fail-on-profiles`, an empty benchmark root remains report-only and the
 wrapper records that benchmark reporting was skipped.
 
+With `--fail-on-profiles`, an empty benchmark root remains a hard failure but
+is no longer a dead end. The output directory retains a Markdown/CSV summary
+that marks every profile `NO_DATA`, distinguishes the five blocking profiles
+from report-only canaries, and prints the tracked dataset acquisition or rerun
+instruction for each blocker. The process still exits 2 and cannot authorize a
+release without exact-commit evidence.
+
 For the public MID-360 segment-reset completion evidence, add:
 
 ```bash
