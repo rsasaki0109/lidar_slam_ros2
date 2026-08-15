@@ -90,8 +90,8 @@ Draft PR #427, the reviewed product-candidate tip
 `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`; this is the reviewed code-bearing
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
-`87f8f8d1bcdccb80235b8ae1832f9bc716c31d36` with 10 successful checks and 4
-intentional non-publication skips, the current 246-path local plan, and the
+`b9d0cb18593fbd9ea31a343d8c1f6de47264b742` with 10 successful checks and 4
+intentional non-publication skips, the current 248-path local plan, and the
 still-unpublished v0.9.1/image state, while
 keeping E2 artifact hosting, E3 community mutation, and E4 release publication
 separate and unauthorized. The earlier 219-path value remains historical
