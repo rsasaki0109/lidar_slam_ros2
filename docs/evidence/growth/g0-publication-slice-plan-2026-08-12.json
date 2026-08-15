@@ -7,8 +7,8 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 258,
-    "expected_paths_sha256": "8c96941dd74974b92b8e6d69a9a0717bfd96499e833c10a0750aaac894817f07",
+    "expected_path_count": 259,
+    "expected_paths_sha256": "9e0c1e0bb19e589f9859ce099cbda289d8a539e09fd37bac136e9969a50e728f",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -135,7 +135,7 @@
       "id": "S4-source-onboarding",
       "order": 4,
       "title": "Fresh-terminal source and Docker onboarding measurement",
-      "review_outcome": "Humble and Jazzy users receive one exact six-package source route and a bounded Docker probe for either a release or a set-bound tag-free candidate, with dependency bootstrap, launcher activation, installed checks, public-readiness preflight, content-bound Docker observer bootstrap, one-command run-to-session orchestration, and an auditable path for attaching retained measurements without rerunning a trial.",
+      "review_outcome": "Humble and Jazzy users receive one exact six-package source route and a bounded Docker probe for either a release or a set-bound tag-free candidate, with dependency bootstrap, launcher activation, installed checks, public-readiness preflight, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session orchestration, and an auditable path for attaching retained measurements without rerunning a trial.",
       "depends_on": [
         "S2-first-map-foundation"
       ],
@@ -149,6 +149,7 @@
         "docs/evidence/source-launcher-activation-2026-08-12.md",
         "docs/evidence/source-onboarding-public-preflight-2026-08-12.md",
         "docs/schemas/candidate-trial-execution-v1.schema.json",
+        "docs/schemas/candidate-trial-readiness-v1.schema.json",
         "docs/schemas/candidate-trial-session-v1.schema.json",
         "docs/schemas/onboarding-measurement-supplement-v1.schema.json",
         "docs/schemas/onboarding-trial-matrix-v1.schema.json",

@@ -282,6 +282,7 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
         'docs/schemas/candidate-trial-execution-v1.schema.json' in paths
     )
     assert 'docs/schemas/candidate-trial-session-v1.schema.json' in paths
+    assert 'docs/schemas/candidate-trial-readiness-v1.schema.json' in paths
     assert (
         'docs/schemas/onboarding-matrix-observer-packet-v2.schema.json'
         in paths

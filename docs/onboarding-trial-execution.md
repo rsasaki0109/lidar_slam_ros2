@@ -20,8 +20,8 @@ and a trial root outside the checkout.
 
 ## 0. Start one exact candidate session
 
-On a prepared disposable row host, the shortest candidate path starts from the
-exact successful Actions run URL and publishes one complete local session:
+On a prepared disposable row host, inspect the exact request before any
+candidate download, image build, source mutation, or evidence write:
 
 ```bash
 python3 scripts/start_candidate_trial.py \
@@ -29,6 +29,41 @@ python3 scripts/start_candidate_trial.py \
     https://github.com/rsasaki0109/lidar_slam_ros2/actions/runs/12345 \
   --row docker-jazzy \
   --output-dir /evidence/g0-docker-jazzy-20260815-a \
+  --human-measurements prompt \
+  --acknowledge-dedicated-trial-host \
+  --check-readiness
+```
+
+The acknowledgement is a human statement, not a detected property: use it
+only after confirming the isolation requirements in
+[Isolation and roles](#2-isolation-and-roles). Without it, the card reports
+`CONFIRMATION_REQUIRED` instead of guessing. The read-only card checks the
+exact URL and destination, Ubuntu/ROS row, x86_64 architecture, one measured
+filesystem with at least 8 GiB free, local Docker or source prerequisites,
+source RX counter when selected, and neutral-observer measurement mode. It
+prints stable findings and exactly one shell-quoted next command.
+
+`READY` means the machine checks, comparison measurements, and explicit
+confirmation are in place. `READY_NONCOMPARABLE` means the row can run but
+human active time or command count would remain unknown.
+`CONFIRMATION_REQUIRED` means only the human isolation statement is missing;
+`BLOCKED` lists every detected repair before a recheck. The readiness report
+follows
+[`candidate-trial-readiness-v1`](schemas/candidate-trial-readiness-v1.schema.json);
+`--json` emits that contract. Every status performs zero network reads, zero
+writes, and zero trial execution.
+
+After `READY`, run the exact command printed by the card. The shortest
+candidate path starts from the same successful Actions run URL and publishes
+one complete local session:
+
+```bash
+python3 scripts/start_candidate_trial.py \
+  --workflow-run-url \
+    https://github.com/rsasaki0109/lidar_slam_ros2/actions/runs/12345 \
+  --row docker-jazzy \
+  --output-dir /evidence/g0-docker-jazzy-20260815-a \
+  --human-measurements prompt \
   --acknowledge-dedicated-trial-host
 ```
 

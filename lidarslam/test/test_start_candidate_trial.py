@@ -32,7 +32,9 @@ from __future__ import annotations
 import importlib.util
 import json
 import pathlib
+import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -441,6 +443,28 @@ def test_invalid_row_options_fail_before_handoff_download(
             interactive=False,
         )
 
+    with pytest.raises(
+        SESSION.CandidateTrialSessionError,
+        match='exact .* Actions run URL',
+    ):
+        SESSION.start_candidate_trial(
+            'https://example.com/actions/runs/12345',
+            'docker-jazzy',
+            tmp_path / 'candidate-session-c',
+            acknowledge_dedicated_trial_host=True,
+        )
+
+    with pytest.raises(
+        SESSION.CandidateTrialSessionError,
+        match='line break',
+    ):
+        SESSION.start_candidate_trial(
+            RUN_URL,
+            'docker-jazzy',
+            pathlib.Path(str(tmp_path / 'candidate') + '\nunsafe'),
+            acknowledge_dedicated_trial_host=True,
+        )
+
 
 def test_json_cli_stdout_is_one_parseable_session(
     monkeypatch, tmp_path, capsys
@@ -464,4 +488,250 @@ def test_json_cli_stdout_is_one_parseable_session(
     captured = capsys.readouterr()
     assert result == 0
     assert json.loads(captured.out) == receipt
+    assert captured.err == ''
+
+
+def _docker_readiness_kwargs(
+    tmp_path: pathlib.Path,
+    *,
+    version: str = '24.04',
+) -> dict[str, object]:
+    os_release = tmp_path / 'os-release'
+    os_release.write_text(
+        f'ID=ubuntu\nVERSION_ID="{version}"\n',
+        encoding='utf-8',
+    )
+
+    def runner(command, **_kwargs):
+        if command[-2:] == ['context', 'show']:
+            output = 'default\n'
+        elif 'inspect' in command:
+            output = SESSION.DOCKER_ENDPOINT + '\n'
+        elif 'version' in command:
+            output = '26.1.4\n'
+        else:
+            raise AssertionError(f'unexpected readiness command: {command}')
+        return subprocess.CompletedProcess(command, 0, output, '')
+
+    return {
+        'acknowledge_dedicated_trial_host': True,
+        'human_measurements': 'prompt',
+        'disk_scope': tmp_path,
+        'environment': {},
+        'command_lookup': lambda name: f'/usr/bin/{name}',
+        'command_runner': runner,
+        'machine_reader': lambda: 'x86_64',
+        'disk_usage': lambda _path: SimpleNamespace(
+            free=16 * 1024 ** 3
+        ),
+        'os_release_path': os_release,
+        'interactive': True,
+        'checked_at': '2026-08-15T15:00:00Z',
+    }
+
+
+def test_readiness_ready_prints_one_copy_ready_start_without_writes(tmp_path):
+    """A suitable Docker host gets one exact next command and no output."""
+    output = tmp_path / 'candidate-session'
+    report = SESSION.inspect_candidate_trial_readiness(
+        RUN_URL,
+        'docker-jazzy',
+        output,
+        **_docker_readiness_kwargs(tmp_path),
+    )
+
+    assert report['status'] == 'READY'
+    assert report['summary']['execution_ready'] is True
+    assert report['summary']['comparable_measurements_planned'] is True
+    assert report['summary']['blocker_count'] == 0
+    assert report['authority']['network_reads_performed'] is False
+    assert report['authority']['local_files_written'] is False
+    assert report['authority']['trial_executed'] is False
+    assert not output.exists()
+    command = report['next_action']['command']
+    assert '--acknowledge-dedicated-trial-host' in command
+    assert '--check-readiness' not in command
+    assert '--human-measurements prompt' in command
+    ids = [item['id'] for item in report['checks']]
+    assert len(ids) == len(set(ids))
+
+
+def test_readiness_requires_human_confirmation_without_guessing(tmp_path):
+    """Machine checks cannot silently assert disposable-host isolation."""
+    options = _docker_readiness_kwargs(tmp_path)
+    options['acknowledge_dedicated_trial_host'] = False
+
+    report = SESSION.inspect_candidate_trial_readiness(
+        RUN_URL,
+        'docker-jazzy',
+        tmp_path / 'candidate-session',
+        **options,
+    )
+
+    assert report['status'] == 'CONFIRMATION_REQUIRED'
+    assert report['summary']['confirmation_count'] == 1
+    assert report['summary']['execution_ready'] is False
+    assert report['next_action']['id'] == 'review-isolation-and-start'
+    assert (
+        '--acknowledge-dedicated-trial-host'
+        in report['next_action']['command']
+    )
+
+
+def test_readiness_warns_when_noninteractive_row_cannot_be_comparable(
+    tmp_path,
+):
+    """A runnable row never masquerades as comparable without an observer."""
+    options = _docker_readiness_kwargs(tmp_path)
+    options['human_measurements'] = 'auto'
+    options['interactive'] = False
+
+    report = SESSION.inspect_candidate_trial_readiness(
+        RUN_URL,
+        'docker-jazzy',
+        tmp_path / 'candidate-session',
+        **options,
+    )
+
+    assert report['status'] == 'READY_NONCOMPARABLE'
+    assert report['summary']['execution_ready'] is True
+    assert report['summary']['comparable_measurements_planned'] is False
+    assert report['summary']['warning_count'] == 1
+    assert report['next_action']['id'] == 'prepare-neutral-observer'
+    assert '--human-measurements prompt' in report['next_action']['command']
+    assert '--check-readiness' in report['next_action']['command']
+
+
+def test_readiness_collects_actionable_host_blockers(tmp_path):
+    """Wrong OS, architecture, and runtime are reported in one pass."""
+    options = _docker_readiness_kwargs(tmp_path, version='22.04')
+    options['machine_reader'] = lambda: 'aarch64'
+    options['command_lookup'] = lambda _name: None
+
+    report = SESSION.inspect_candidate_trial_readiness(
+        RUN_URL,
+        'docker-jazzy',
+        tmp_path / 'candidate-session',
+        **options,
+    )
+
+    assert report['status'] == 'BLOCKED'
+    assert report['summary']['blocker_count'] >= 3
+    blocked = {
+        item['id'] for item in report['checks']
+        if item['status'] == 'BLOCKED'
+    }
+    assert {
+        'host-operating-system',
+        'host-architecture',
+        'route-runtime',
+    }.issubset(blocked)
+    assert report['next_action']['id'] == 'fix-blockers-and-recheck'
+    assert '--check-readiness' in report['next_action']['command']
+
+
+def test_source_readiness_checks_ros_tools_and_rx_counter(tmp_path):
+    """Source rows inspect real ROS and isolated-network prerequisites."""
+    os_release = tmp_path / 'os-release'
+    os_release.write_text(
+        'ID=ubuntu\nVERSION_ID="22.04"\n', encoding='utf-8'
+    )
+    ros_root = tmp_path / 'opt' / 'ros'
+    (ros_root / 'humble').mkdir(parents=True)
+    (ros_root / 'humble' / 'setup.bash').write_text(
+        '# setup\n', encoding='utf-8'
+    )
+    network_root = tmp_path / 'net'
+    counter = network_root / 'eth0' / 'statistics'
+    counter.mkdir(parents=True)
+    (counter / 'rx_bytes').write_text('12345\n', encoding='utf-8')
+
+    def runner(command, **_kwargs):
+        assert command[-4:] == ['-o', 'route', 'show', 'default']
+        return subprocess.CompletedProcess(
+            command, 0, 'default via 192.0.2.1 dev eth0\n', ''
+        )
+
+    report = SESSION.inspect_candidate_trial_readiness(
+        RUN_URL,
+        'source-humble',
+        tmp_path / 'candidate-session',
+        acknowledge_dedicated_trial_host=True,
+        human_measurements='prompt',
+        disk_scope=tmp_path,
+        environment={},
+        command_lookup=lambda name: f'/usr/bin/{name}',
+        command_runner=runner,
+        machine_reader=lambda: 'x86_64',
+        disk_usage=lambda _path: SimpleNamespace(free=16 * 1024 ** 3),
+        user_id_reader=lambda: 0,
+        os_release_path=os_release,
+        ros_root=ros_root,
+        network_root=network_root,
+        interactive=True,
+        checked_at='2026-08-15T15:00:00Z',
+    )
+
+    assert report['status'] == 'READY'
+    checks = {item['id']: item for item in report['checks']}
+    assert checks['route-runtime']['status'] == 'PASS'
+    assert checks['network-measurement']['status'] == 'PASS'
+    assert 'eth0' in checks['network-measurement']['message']
+
+
+def test_readiness_blocks_existing_output_before_any_trial(tmp_path):
+    """The guide retains the session command's no-overwrite guarantee."""
+    output = tmp_path / 'candidate-session'
+    output.mkdir()
+
+    report = SESSION.inspect_candidate_trial_readiness(
+        RUN_URL,
+        'docker-jazzy',
+        output,
+        **_docker_readiness_kwargs(tmp_path),
+    )
+
+    assert report['status'] == 'BLOCKED'
+    assert report['request']['output_directory_exists'] is True
+    assert not any(output.iterdir())
+
+    unsafe = SESSION.inspect_candidate_trial_readiness(
+        RUN_URL,
+        'docker-jazzy',
+        pathlib.Path(str(tmp_path / 'candidate') + '\nunsafe'),
+        **_docker_readiness_kwargs(tmp_path),
+    )
+    assert unsafe['status'] == 'BLOCKED'
+    assert unsafe['next_action']['command'] == (
+        'python3 scripts/start_candidate_trial.py --help'
+    )
+
+
+def test_readiness_json_cli_does_not_delegate_trial(
+    monkeypatch, tmp_path, capsys
+):
+    """Check-only JSON stays parseable and never reaches the live executor."""
+    report = {'status': 'READY', 'marker': 'read-only'}
+    monkeypatch.setattr(
+        SESSION,
+        'inspect_candidate_trial_readiness',
+        lambda *_args, **_kwargs: report,
+    )
+    monkeypatch.setattr(
+        SESSION,
+        'start_candidate_trial',
+        lambda *_args, **_kwargs: pytest.fail('trial execution was delegated'),
+    )
+
+    result = SESSION.main([
+        '--workflow-run-url', RUN_URL,
+        '--row', 'docker-jazzy',
+        '--output-dir', str(tmp_path / 'candidate-session'),
+        '--check-readiness',
+        '--json',
+    ])
+
+    captured = capsys.readouterr()
+    assert result == 0
+    assert json.loads(captured.out) == report
     assert captured.err == ''

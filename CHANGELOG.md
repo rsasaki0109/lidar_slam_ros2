@@ -27,6 +27,11 @@ more guided, recoverable, and reviewable.
   Docker/source execution, and a hash-bound session receipt under one atomic
   directory. Docker rows bootstrap a content-addressed, recipe-labelled local
   observer image before timing instead of requiring a copied build command.
+- **Guided trial readiness** — the same session command now checks the exact
+  destination, Ubuntu/ROS row, x86_64 host, measured filesystem, Docker/source
+  runtime, source RX counter, human measurements, and isolation confirmation
+  without network access or writes. Stable findings distinguish a blocked host
+  from runnable non-comparable evidence and print one shell-safe next command.
 - **Release identity hardening** — release-bundle CI checks out the exact PR
   head, fetches immutable tags, and refuses historical version reuse. Candidate
   metadata is aligned at 0.9.1 without moving or recreating `v0.9.0`.

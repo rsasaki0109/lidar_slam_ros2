@@ -398,7 +398,30 @@ uploads these schema-backed artifacts for 30 days:
 
 The records deliberately say
 `registry_retention_status: REQUIRES_REMOTE_AUDIT`. On a prepared disposable
-row host, the shortest audited path starts from the exact Actions run URL and
+row host, inspect that same request locally before any download, build, host
+mutation, or evidence write:
+
+```bash
+python3 scripts/start_candidate_trial.py \
+  --workflow-run-url \
+    https://github.com/rsasaki0109/lidar_slam_ros2/actions/runs/<RUN_ID> \
+  --row <docker-humble|docker-jazzy|source-humble|source-jazzy> \
+  --output-dir /evidence/<NEW_SESSION_DIRECTORY> \
+  --human-measurements prompt \
+  --acknowledge-dedicated-trial-host \
+  --check-readiness
+```
+
+The schema-backed readiness card performs local reads only. It separates a
+machine `BLOCKED` result, a missing human `CONFIRMATION_REQUIRED`, and a
+runnable but `READY_NONCOMPARABLE` measurement plan from `READY`, then prints
+one shell-quoted next command. The acknowledgement must be supplied only after
+the documented disposable-host, filesystem, network, and route-mutation
+claims are true; no checker can infer them. Automation can consume
+[`candidate-trial-readiness-v1`](schemas/candidate-trial-readiness-v1.schema.json)
+with `--json`.
+
+After `READY`, the printed command starts from the exact Actions run URL and
 finishes one selected row in one command:
 
 ```bash
@@ -407,6 +430,7 @@ python3 scripts/start_candidate_trial.py \
     https://github.com/rsasaki0109/lidar_slam_ros2/actions/runs/<RUN_ID> \
   --row <docker-humble|docker-jazzy|source-humble|source-jazzy> \
   --output-dir /evidence/<NEW_SESSION_DIRECTORY> \
+  --human-measurements prompt \
   --acknowledge-dedicated-trial-host
 ```
 
