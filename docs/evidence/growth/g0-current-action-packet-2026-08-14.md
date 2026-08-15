@@ -1,4 +1,4 @@
-# G0 current action packet — refreshed 2026-08-15
+# G0 current action packet — refreshed 2026-08-16
 
 > Status: **CURRENT_PUBLIC_DRAFT_HANDOFF / NO_E2_E3_E4_ACTION_TAKEN**
 >
@@ -6,7 +6,7 @@
 >
 > Draft PR: [#427](https://github.com/rsasaki0109/lidar_slam_ros2/pull/427)
 >
-> Capture-time public Draft baseline: `061683ea5e1e2455200a276e153b1e4a8ecd8a8e`
+> Capture-time public Draft baseline: `2a92cc5704fa55c16ddee343a601edc928a542c2`
 >
 > Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
 >
@@ -32,14 +32,16 @@
 >
 > Latest guided candidate-readiness tip: `a286c6551f976c48d508ee7e9ecd7d9d4a30e734`
 >
-> Latest publication-inventory tip: `a286c6551f976c48d508ee7e9ecd7d9d4a30e734`
+> Latest protected-environment preflight tip: `adecca6e19c38e6a682253d66516379bbface46d`
+>
+> Latest publication-inventory tip: `adecca6e19c38e6a682253d66516379bbface46d`
 
 This reviewed tip is the code-bearing product-candidate revision; later
 docs-only handoff synchronization and product UX follow-up commits must remain
 identified separately.
 
 This is the current, read-only handoff for the G0 release-hygiene decision.
-It was first captured on 2026-08-14 and refreshed on 2026-08-15 after the
+It was first captured on 2026-08-14 and refreshed on 2026-08-16 after the
 dashboard UX, CI-registration, version-priority, final PR-head CI,
 packet-command-contract, fail-closed usability-worksheet, paired scorecard,
 safe observer-packet-output, safe first-map-dry-run-plan-output, Docker JSON
@@ -127,6 +129,15 @@ source mutation, evidence write, or trial. Its schema distinguishes `BLOCKED`,
 `CONFIRMATION_REQUIRED`, runnable-but-`READY_NONCOMPARABLE`, and `READY`, then
 prints one shell-safe next command. It neither proves human isolation nor turns
 local host readiness into comparable evidence.
+The protected-environment preflight at `adecca6…` first reads the complete
+repository environment inventory, then reads the exact environment and
+deployment-policy documents only when `candidate-images` is present. It shares
+its reviewer, **Prevent self-review**, known-rule, and exact `develop` policy
+validator with the publication authorization job. The authenticated live
+inventory contains only `github-pages`, so the stable result is `ABSENT`, not
+an inference from a 404. Its schema and the G0 dashboard keep environment
+writes, artifact publication, remote mutation, and E2 dispatch authority
+false even when the result eventually becomes `READY_FOR_SEPARATE_E2_REVIEW`.
 The code-bearing packet tip is required to be an ancestor of the current
 checkout revision; later synchronization and product UX follow-up commits
 must remain described in this handoff. It replaces
@@ -138,18 +149,18 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open and draft at capture-time public baseline `061683e…`; one-command session is public, while guided readiness tip `a286c65…` and its 259-path inventory are the reviewed local follow-up | the new source tip still requires its own public CI; trial tooling changes no E2 authority |
-| Capture-time PR-head CI | completed public exact-tip result is **PASS** for `061683e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures | the skipped jobs are candidate authorization/publication/pair verification and Docker publication; green CI is not release/E2 approval |
+| Draft PR #427 | open and draft at capture-time public baseline `2a92cc5…`; guided readiness is public, while protected-environment preflight tip `adecca6…` and its 262-path inventory are the reviewed local follow-up | the new source tip still requires its own public CI; the preflight changes no E2 authority |
+| Capture-time PR-head CI | completed public exact-tip result is **PASS** for `2a92cc5…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures | the skipped jobs are candidate authorization/publication/pair verification and Docker publication; green CI is not release/E2 approval |
 | English support cards | docs entrypoint tests 24 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded; Docker convenience and candidate-digest authority boundaries are both regression-bound |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 50 queue regressions and all five focused strict-MkDocs profiles passed | C1–C4 remain completed and retired; the fresh duplicate audit found no matching implementation PR, and no issue or label mutation occurred |
-| Distribution preflights | source route `READY` at exact public `061683e…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one failing, and an unanswered review; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs | the rosdistro failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
+| Distribution preflights | source route `READY` at exact public `2a92cc5…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one failing, and an unanswered review; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs | the rosdistro failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
 | Canonical NDT upstream Draft preflight | `READY_FOR_DRAFT_PR`; 30 / 30 PASS at local implementation `856e599…`; exact upstream `5495fd9…`, expected fork verified, proposed branch absent, 4 open PRs inspected, 0 duplicates, 0 API errors, and write authority false | this proves a technically coherent read-only publication state; it neither creates nor authorizes an upstream branch or PR |
-| Docker publication boundary | convenience PR/manual runs remain verification-only; the candidate gate at `c70c18d…` uses trusted default-branch tooling, exact-head CI/identity checks, a protected `candidate-images` environment, digest-only output, disabled container networking during smoke tests, SBOM/provenance/attestation checks, and 30-day schema-backed evidence | the gate can create no tag or Release; the environment is currently absent (read-only API 404), so even after review the authorization job must stop until a separate environment/E2 decision |
-| Candidate-gate regressions | 19 focused tests, actionlint v1.7.12, Python style, CTest registration, and exact-tip Humble/Jazzy default workflows pass | workflow-facing CLIs persist one request, two distinct image records, and one pair report exactly once; no workflow dispatch, environment mutation, or GHCR mutation occurred |
+| Docker publication boundary | convenience PR/manual runs remain verification-only; the candidate gate at `c70c18d…` uses trusted default-branch tooling, exact-head CI/identity checks, a protected `candidate-images` environment, digest-only output, disabled container networking during smoke tests, SBOM/provenance/attestation checks, and 30-day schema-backed evidence | the gate can create no tag or Release; complete authenticated inventory at `adecca6…` proves only `github-pages` exists, so authorization must stop until a separate environment/E2 decision |
+| Candidate environment and gate regressions | 29 focused tests, actionlint v1.7.12, Python style, CTest 2 / 2, GET-only transport, shared authorization semantics, release-bundle inclusion, and exact-tip Humble/Jazzy default workflows pass | the live result is `ABSENT`; workflow-facing CLIs persist one request, two distinct image records, and one pair report exactly once; no workflow dispatch, environment mutation, or GHCR mutation occurred |
 | Candidate observer contract | atomic preparation through `f5ed80e…`, exact row runner `feed0ba…`, one-command session `8bc5ea4…`, and guided local readiness `a286c65…`; four-file semantic derivation, exact remote artifact-byte comparison, content-bound Docker observer bootstrap, retained child-receipt binding, structured row execution, four-state host guidance, release-bundle inclusion, and docs pass 40 direct preparation/runner/session regressions plus 85 focused session/row/probe regressions | remote status is still **NOT_CHECKED** because no authorized bundle exists; local readiness and runner tests are not `REMOTE_AUDIT_PASS`, a trial, E2, or E4 authority |
-| Complete local product gate | graph 1,441 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 937 passed; strict MkDocs, focused integration tests, CTest, Python style, 105 JSON documents / 80 shell scripts, all Draft 7 schemas, and diff checks pass | 2,378 local tests validate the exact feature candidate; public CI is still required for the later branch tip |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 259 paths / 7 slices at exact readiness tip `a286c65…`; inventory SHA-256 `9e0c1e0bb19e589f9859ce099cbda289d8a539e09fd37bac136e9969a50e728f` | candidate audit paths belong to S5; row/session/readiness execution belongs to S4; packet and atomic preparation belong to S6; synchronization changes no GitHub authority |
+| Complete local product gate | graph 1,441 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 948 passed; strict MkDocs, focused integration tests, CTest, Python style, 125 JSON documents / 82 shell scripts, all 77 Draft 7 schemas, and diff checks pass | 2,389 local tests validate the exact feature candidate; public CI is still required for the later branch tip |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 262 paths / 7 slices at exact preflight tip `adecca6…`; inventory SHA-256 `b1dd157537e48d5c8ae6d7b9cc4007c07ec5a6443b4822d2622d48af1928d8f4` | environment and candidate audit paths belong to S5; row/session/readiness execution belongs to S4; packet and atomic preparation belong to S6; synchronization changes no GitHub authority |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
 | Onboarding matrix | 4 / 4 product PASS; 0 / 4 comparable; **BLOCKED** | Docker is v0.9.0, source is v0.9.1, and human measurements are missing |
@@ -171,13 +182,16 @@ python3 scripts/check_package_manager_release_readiness.py \
   --version 0.9.1 --json
 python3 scripts/run_source_onboarding_probe.py \
   --public-preflight \
-  --source-commit 061683ea5e1e2455200a276e153b1e4a8ecd8a8e \
+  --source-commit 2a92cc5704fa55c16ddee343a601edc928a542c2 \
   --product-version 0.9.1
+GITHUB_TOKEN="$(gh auth token)" \
+python3 scripts/check_candidate_environment.py --json --require-ready
 python3 scripts/check_published_release.py --version 0.9.1 --json
 python3 scripts/check_onboarding_trial_matrix.py --json
 python3 scripts/check_v1_readiness.py --json
 python3 scripts/first_map_validator_cohort.py --json
 python3 scripts/check_g0_readiness.py \
+  --include-candidate-environment \
   --include-published-release \
   --published-release-version 0.9.1
 ```
@@ -191,7 +205,7 @@ not be used as a reason to recruit.
 | Gate | Current state | Authorized scope |
 | --- | --- | --- |
 | L0 local preparation | complete for this packet | code, tests, docs, offline audits, and read-only inspection |
-| E1 source review | public Draft PR / CI PASS | review this exact tip; no merge is implied |
+| E1 source review | public Draft baseline / CI PASS; latest preflight local | publish and review the exact follow-up tip; no merge is implied |
 | E2 artifact hosting | **GATE_IMPLEMENTED_LOCAL / ENVIRONMENT_ABSENT / NOT_AUTHORIZED / NOT_PUBLISHED** | after the workflow is reviewed on `develop`, separately configure and review the protected environment; only a later exact E2 event may request digest-only candidate evidence |
 | E3 community mutation | **NOT_AUTHORIZED** | no issue labels, comments, closures, starter issues, Discussions, or recruitment |
 | E4 stable release | **HOLD / NOT_AUTHORIZED** | no tag, GitHub Release, package, image promotion, or announcement |
@@ -205,7 +219,8 @@ comparable human trial.
 1. Review the code-bearing candidate tip and this refreshed packet; confirm
    the current PR-head CI remains green, then stop if the branch, PR, or local
    inventory drifts. Do not measure mixed-version rows.
-2. Review the dedicated candidate workflow at `c70c18d…`. Do not merge it or
+2. Review the dedicated candidate workflow at `c70c18d…` and shared
+   environment preflight at `adecca6…`. Do not merge it or
    configure `candidate-images` as an implication of E1; the environment and
    its required reviewer/develop-only policy are a separate repository-admin
    decision. Never use the convenience-image manual dispatch as a substitute.
@@ -243,7 +258,7 @@ comparable human trial.
 
 ```text
 E2 artifact host: DEFER — no host or upload authorized
-E2 candidate images: DEFER — gate at c70c18d, atomic preparation at f5ed80e, row execution at feed0ba, one-command session at 8bc5ea4, and guided readiness at a286c65; workflow not on develop, candidate-images environment absent, no dispatch, digest publication, remote audit, or trial
+E2 candidate images: DEFER — gate at c70c18d, atomic preparation at f5ed80e, row execution at feed0ba, one-command session at 8bc5ea4, guided readiness at a286c65, and GET-only environment preflight at adecca6; workflow not on develop, candidate-images ABSENT from the complete inventory, no dispatch, digest publication, remote audit, or trial
 E3 community mutation: DEFER — cohort and issue operations remain closed
 E4 v0.9.1 release/images: DEFER — G0 matrix and distribution gates remain open
 ```
