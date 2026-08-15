@@ -84,13 +84,15 @@ keeps source push, fixture upload, issue mutations, and release publication as
 four separate approvals. The candidate is reviewable locally; G0 remains
 `HOLD`.
 
-The [current exact-tip action packet](evidence/growth/g0-current-action-packet-2026-08-14.md)
+The [current capture-bound action packet](evidence/growth/g0-current-action-packet-2026-08-14.md)
 supersedes the historical snapshot for present handoff decisions. It binds
 Draft PR #427, the reviewed product-candidate tip
 `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`; this is the reviewed code-bearing
 tip, followed by later docs-only handoff synchronization and product UX
-follow-ups, the latest PR-head CI result (`9 / 9` pass), the current
-228-path local plan, and the still-unpublished v0.9.1/image state, while
+follow-ups, capture-time public Draft baseline
+`87f8f8d1bcdccb80235b8ae1832f9bc716c31d36` with 10 successful checks and 4
+intentional non-publication skips, the current 241-path local plan, and the
+still-unpublished v0.9.1/image state, while
 keeping E2 artifact hosting, E3 community mutation, and E4 release publication
 separate and unauthorized. The earlier 219-path value remains historical
 capture-time evidence only.

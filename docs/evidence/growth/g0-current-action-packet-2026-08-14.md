@@ -6,6 +6,8 @@
 >
 > Draft PR: [#427](https://github.com/rsasaki0109/lidar_slam_ros2/pull/427)
 >
+> Capture-time public Draft baseline: `87f8f8d1bcdccb80235b8ae1832f9bc716c31d36`
+>
 > Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
 >
 > Latest product/community follow-up tip: `bb1c2e7431c0634f9e5ba6613864b6d2a4c99eb0`
@@ -17,6 +19,8 @@
 > Latest Docker publication-authority tip: `3225d9db357caa1150081ac61281ae4b0d281a2a`
 >
 > Latest immutable-candidate gate tip: `c70c18d32e0dd860969dbd050fa3a92632f1106e`
+>
+> Latest candidate-gate CI follow-up tip: `87f8f8d1bcdccb80235b8ae1832f9bc716c31d36`
 >
 > Latest publication-inventory tip: `c70c18d32e0dd860969dbd050fa3a92632f1106e`
 
@@ -64,7 +68,9 @@ restricted to `develop`, then publishes Humble/Jazzy by digest without tags.
 Its request, per-image, and pair records preserve exact identity and state that
 registry retention still requires a remote audit. The workflow is not yet on
 `develop`, the live `candidate-images` environment is absent, no dispatch was
-sent, and no candidate digest was published.
+sent, and no candidate digest was published. The capture-time public baseline
+also contains the CTest registration and cross-distro import-order repair for
+the gate regression; both default workflows pass at that exact revision.
 The code-bearing packet tip is required to be an ancestor of the current
 checkout revision; later synchronization and product UX follow-up commits
 must remain described in this handoff. It replaces
@@ -76,16 +82,16 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open, draft, mergeable at public baseline `e222bc4…`; the local candidate-gate implementation `c70c18d…` and this packet refresh remain follow-ups until their non-force push | source candidate is publicly reviewable; do not claim that a local-only follow-up is public |
-| PR-head CI | latest completed public exact-tip result is **PASS** for `e222bc4…`: 9 successful checks plus the intentionally skipped PR publication job, 0 failures | do not transfer the public baseline result to `c70c18d…` or the later packet tip; both require exact-tip CI after push, and CI is not release/E2 approval |
+| Draft PR #427 | open, draft, mergeable at capture-time public baseline `87f8f8d…`; the candidate gate and its two CI follow-ups are public, while this packet synchronization is a later docs/test-only follow-up | source candidate is publicly reviewable; packet synchronization changes no E2 authority |
+| Capture-time PR-head CI | completed public exact-tip result is **PASS** for `87f8f8d…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures | the skipped jobs are candidate authorization/publication/pair verification and Docker publication; green CI is not release/E2 approval |
 | English support cards | docs entrypoint tests 24 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded; Docker convenience and candidate-digest authority boundaries are both regression-bound |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 50 queue regressions and all five focused strict-MkDocs profiles passed | C1–C4 remain completed and retired; the fresh duplicate audit found no matching implementation PR, and no issue or label mutation occurred |
-| Distribution preflights | source route `READY` at exact public `e222bc4…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one failing, and an unanswered review; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs | the rosdistro failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
+| Distribution preflights | source route `READY` at exact public `87f8f8d…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one failing, and an unanswered review; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs | the rosdistro failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
 | Canonical NDT upstream Draft preflight | `READY_FOR_DRAFT_PR`; 30 / 30 PASS at local implementation `856e599…`; exact upstream `5495fd9…`, expected fork verified, proposed branch absent, 4 open PRs inspected, 0 duplicates, 0 API errors, and write authority false | this proves a technically coherent read-only publication state; it neither creates nor authorizes an upstream branch or PR |
 | Docker publication boundary | convenience PR/manual runs remain verification-only; the candidate gate at `c70c18d…` uses trusted default-branch tooling, exact-head CI/identity checks, a protected `candidate-images` environment, digest-only output, disabled container networking during smoke tests, SBOM/provenance/attestation checks, and 30-day schema-backed evidence | the gate can create no tag or Release; the environment is currently absent (read-only API 404), so even after review the authorization job must stop until a separate environment/E2 decision |
-| Candidate-gate regressions | 19 focused tests, actionlint v1.7.12, and Python style pass; workflow-facing CLIs persist one request, two distinct image records, and one pair report exactly once | static/local success proves the gate contract, not a registry upload; no workflow dispatch, environment mutation, or GHCR mutation occurred |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 241 paths / 7 slices, clean at immutable-candidate implementation `c70c18d…`; inventory SHA-256 `a7b421d256f945699fedaef0ae7186391a730df9102ca16c8fd5c95a4c723b93` | the eight new candidate-gate paths belong to S5; packet synchronization changes no path membership and cannot authorize a GitHub write |
+| Candidate-gate regressions | 19 focused tests, actionlint v1.7.12, Python style, CTest registration, and exact-tip Humble/Jazzy default workflows pass | workflow-facing CLIs persist one request, two distinct image records, and one pair report exactly once; no workflow dispatch, environment mutation, or GHCR mutation occurred |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 241 paths / 7 slices, clean at capture-time public baseline `87f8f8d…`; inventory SHA-256 `a7b421d256f945699fedaef0ae7186391a730df9102ca16c8fd5c95a4c723b93` | the eight candidate-gate paths belong to S5; packet synchronization changes no path membership and cannot authorize a GitHub write |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
 | Onboarding matrix | 4 / 4 product PASS; 0 / 4 comparable; **BLOCKED** | Docker is v0.9.0, source is v0.9.1, and human measurements are missing |
@@ -107,7 +113,7 @@ python3 scripts/check_package_manager_release_readiness.py \
   --version 0.9.1 --json
 python3 scripts/run_source_onboarding_probe.py \
   --public-preflight \
-  --source-commit e222bc490611e6d429f42a1b37778023d55faeb3 \
+  --source-commit 87f8f8d1bcdccb80235b8ae1832f9bc716c31d36 \
   --product-version 0.9.1
 python3 scripts/check_published_release.py --version 0.9.1 --json
 python3 scripts/check_onboarding_trial_matrix.py --json

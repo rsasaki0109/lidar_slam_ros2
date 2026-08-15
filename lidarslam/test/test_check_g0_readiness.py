@@ -31,14 +31,14 @@ from __future__ import annotations
 
 import copy
 import importlib.util
-from pathlib import Path
+import pathlib
 import re
 import subprocess
 
 import pytest
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / 'scripts' / 'check_g0_readiness.py'
 SPEC = importlib.util.spec_from_file_location('check_g0_readiness', SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
@@ -123,6 +123,35 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     )
     assert ancestor_check.returncode == 0
 
+    public_baseline_match = re.search(
+        r'Capture-time public Draft baseline: `([0-9a-f]{40})`',
+        packet,
+    )
+    assert public_baseline_match is not None
+    public_baseline = public_baseline_match.group(1)
+    public_baseline_short = f'{public_baseline[:7]}…'
+    assert (
+        f'capture-time public baseline `{public_baseline_short}`'
+        in packet
+    )
+    assert (
+        f'**PASS** for `{public_baseline_short}`: 10 successful checks plus '
+        '4 intentionally skipped non-publication jobs, 0 failures'
+        in packet
+    )
+    assert (
+        f'source route `READY` at exact public `{public_baseline_short}`'
+        in packet
+    )
+    assert f'--source-commit {public_baseline}' in packet
+    baseline_ancestor_check = subprocess.run(
+        ['git', 'merge-base', '--is-ancestor', public_baseline, 'HEAD'],
+        cwd=ROOT,
+        check=False,
+    )
+    assert baseline_ancestor_check.returncode == 0
+    assert 'e222bc490611e6d429f42a1b37778023d55faeb3' not in packet
+
     scorecard = (
         ROOT / 'docs' / 'growth-scorecard.md'
     ).read_text(encoding='utf-8')
@@ -133,6 +162,12 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     )
     assert scorecard_match is not None
     assert scorecard_match.group(1) == match.group(1)
+    assert public_baseline in scorecard
+    assert (
+        '10 successful checks and 4\nintentional non-publication skips'
+        in scorecard
+    )
+    assert 'current 241-path local plan' in scorecard
 
 
 def test_dashboard_can_include_a_read_only_release_report_without_writes():
