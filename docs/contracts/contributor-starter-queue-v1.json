@@ -134,7 +134,7 @@
         {
           "path": "docs/getting-started.md",
           "mode": "not_contains",
-          "value": "### Empty map or viewer: three checks",
+          "value": "### Empty map or viewer: three-check recovery",
           "failure_detail": "the planned no-map three-check card marker already exists"
         }
       ],
@@ -179,7 +179,7 @@
         {
           "path": "docs/workflows.md",
           "mode": "not_contains",
-          "value": "### Odometry message versus TF",
+          "value": "### Odometry and TF: two separate contracts",
           "failure_detail": "the planned Odometry-versus-TF card marker already exists"
         }
       ],

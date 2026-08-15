@@ -230,6 +230,67 @@ remains available when you want the short command name and other ROS tools.
 The lower-level dependency and full test commands remain in
 [Operator Workflows](workflows.md).
 
+### Recover g2o dependency failures
+
+A g2o failure during the source build has two different causes: the supported
+binary dependency is unresolved, or CMake has found an incompatible manual
+source build. Classify the failure before changing CMake or cloning another
+g2o revision.
+
+1. **Confirm the maintained ROS and Ubuntu pair.** Use exactly one matching
+   setup:
+
+   ```bash
+   source /opt/ros/humble/setup.bash  # Ubuntu 22.04
+   # or, on Ubuntu 24.04:
+   source /opt/ros/jazzy/setup.bash
+   printf '%s\n' "$ROS_DISTRO"
+   ```
+
+   Expected: `humble` or `jazzy`. Foxy and Galactic are end-of-life and are
+   outside the maintained
+   [product compatibility boundary](product-contract.md#compatibility-and-change-policy).
+   Move the build to a matching supported environment instead of grafting the
+   current source onto an old ROS distribution.
+
+2. **Resolve the rosdep key.**
+
+   ```bash
+   rosdep resolve libg2o
+   ```
+
+   Expected: an `#apt` rule naming `ros-humble-libg2o` or
+   `ros-jazzy-libg2o`. `Cannot locate rosdep definition for [libg2o]` is a
+   dependency-resolution failure, not evidence that g2o must be built from an
+   unpinned source clone. From the repository root, return to the maintained
+   helper, which initializes or refreshes rosdep when needed:
+
+   ```bash
+   bash scripts/source_quickstart.sh --build-only
+   ```
+
+3. **Check the supported binary package.**
+
+   ```bash
+   apt-cache policy "ros-${ROS_DISTRO}-libg2o"
+   dpkg-query -W -f='${Status} ${Version}\n' "ros-${ROS_DISTRO}-libg2o"
+   ```
+
+   Expected: `apt-cache` shows a candidate and `dpkg-query` prints
+   `install ok installed` plus a version. If the package is absent, rerun the
+   source quickstart above so repository dependencies are installed together;
+   do not patch this repository to vendor g2o.
+
+If rosdep resolves and the binary package is installed but compilation still
+reports missing or incompatible g2o C++ symbols (for example around
+`g2o::make_unique`), treat that as a source-built API mismatch. A custom prefix
+such as `/usr/local` may be taking precedence over the ROS package. Retry in a
+clean Humble or Jazzy workspace with the maintained quickstart and no custom
+g2o prefix in the build environment. Do not delete a shared installation
+blindly, suppress the compiler error, or claim the old distribution is
+supported. These checks identify the dependency path; they do not by
+themselves prove that an arbitrary workspace or hardware setup will build.
+
 ## 2. Run the Fixed First-Map Demo
 
 The default source quickstart runs this demo automatically. To repeat it later,

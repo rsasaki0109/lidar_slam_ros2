@@ -33,12 +33,14 @@ python3 scripts/contributor_starter_queue.py --list
 python3 scripts/contributor_starter_queue.py --task starter-C5
 ```
 
-## Operationalization validation — 2026-08-12
+## Operationalization validation — refreshed 2026-08-15
 
 The checked-in queue now reports `QUEUE_STALE_LOCAL_ONLY`: all five task records
-remain locally present, four are still ready, and C4 is retired from the ready
-set because its planned checklist marker is implemented in the current
-candidate. None has a matching open pull request in the recorded read-only
+remain locally present, only C5 is still ready, and C1–C4 are retired from the
+ready set because their planned documentation gaps are implemented in the
+current candidate. The C2 and C3 cards already existed under clearer canonical
+headings; their old probes have been corrected so they cannot be published as
+duplicate work. None has a matching open pull request in the recorded read-only
 audit. The default command and the list/detail views perform no network or
 workspace write. Focused verification uses built-in profiles rather than
 executing commands supplied by JSON; docs output goes to a temporary directory
@@ -47,8 +49,11 @@ and Python cache writes are disabled.
 | Check | Result |
 | --- | --- |
 | queue/schema/drift/authority regressions | 47 passed |
-| `--verify starter-C1` | strict MkDocs profile passed; no workspace artifact |
+| English support-card regressions | 22 docs entrypoint tests passed, including C1/C2/C3 contracts |
 | `--verify starter-C5` | strict MkDocs profile passed; no workspace artifact |
+| C1 g2o recovery | implemented locally; queue reports C1 `STALE` and blocks duplicate rendering |
+| C2 empty-map recovery | existing canonical card detected; queue reports C2 `STALE` |
+| C3 Odometry-versus-TF recovery | existing canonical card detected; queue reports C3 `STALE` |
 | C4 custom-sensor checklist | implemented locally; queue reports C4 `STALE` and blocks rendering it as a new issue |
 | contributor runner style | full flake8 passed for runner and test |
 | complete maintained Python gate | graph 1,428 passed / 13 skipped; lidar_slam 687 passed; 2,115 total |
@@ -141,6 +146,20 @@ python3 -m mkdocs build --strict
 Estimate: **20 minutes**. Non-goals: changing CMake, vendoring g2o, or reviving
 an EOL ROS distribution.
 
+### C1 local completion — supported g2o recovery
+
+The beginner source-build page now separates a missing `libg2o` rosdep
+resolution from an incompatible manual source build. It shows the maintained
+Humble/Jazzy environment check, `rosdep resolve libg2o`, the matching binary
+package policy/install checks, and the canonical source quickstart recovery.
+Foxy and Galactic are explicitly outside the maintained product contract, and
+the card rejects CMake patching, vendoring, blind shared-install deletion, and
+arbitrary build-success claims.
+
+The canonical C1 marker is now present, so the queue reports C1 as `STALE` and
+must not render it as an unclaimed issue. No historical support issue was
+changed by this local completion.
+
 ## Candidate C2 — no-map three-check card
 
 Suggested issue title:
@@ -179,6 +198,15 @@ python3 -m mkdocs build --strict
 Estimate: **25 minutes**. Non-goals: changing ROS nodes, promising support for
 an untested sensor, or diagnosing an individual historical bag.
 
+### C2 local completion — empty-map and viewer recovery
+
+The beginner page already contains the full control-demo, live PointCloud2,
+sampled non-empty frame, directed TF, map-topic, viewer-frame/topic, local
+diagnosis, and no-private-upload path under
+`### Empty map or viewer: three-check recovery`. The queue had looked for an
+older planned heading and therefore exposed a false READY task. Its probe now
+matches the canonical heading and reports C2 as `STALE`.
+
 ## Candidate C3 — Odometry message versus TF
 
 Suggested issue title:
@@ -216,6 +244,15 @@ python3 -m mkdocs build --strict
 
 Estimate: **25 minutes**. Non-goals: supplying a robot-specific broadcaster,
 changing scanmatcher timing, or tuning a controller.
+
+### C3 local completion — Odometry and TF separation
+
+The workflow guide already checks the Odometry parent/child fields, the
+directed `odom -> base` TF path, and transform freshness separately under
+`### Odometry and TF: two separate contracts`. It distinguishes a missing
+broadcaster from stale or future timestamps and does not recommend suppressing
+warnings. The queue's old planned-heading probe has been aligned to this
+canonical card, so C3 now reports `STALE` instead of inviting duplicate work.
 
 ## Candidate C4 — custom PointCloud2 sensor checklist
 
@@ -1145,12 +1182,12 @@ for an unvalidated sensor.
 2. Confirm that no open issue or pull request already implements the exact
    acceptance criteria.
 3. Obtain explicit authorization before creating or editing GitHub issues.
-4. Publish C1 and the current C5 successor first; they exercise setup and
-   diagnosis documentation.
-5. Publish C2 and C3 after the first pair's review burden is known.
-6. Keep C4 out of the publication batch because its local checklist is already
-   complete; if a future contributor task replaces it, rerun the live duplicate
-   audit and define a new bounded scope first.
+4. Keep C1–C4 out of the publication batch because their local cards are now
+   complete; do not rename a heading merely to make a retired task look ready.
+5. Treat the current C5 successor as the only locally ready task, and rerun its
+   live duplicate audit before any separately authorized publication.
+6. Replenish the queue with four new evidence-backed, non-duplicate scopes
+   before advertising another five-task community batch.
 7. Keep #422 open independently until three accepted external first-map
    validations exist.
 

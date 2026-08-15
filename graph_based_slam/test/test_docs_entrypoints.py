@@ -1397,6 +1397,82 @@ def test_custom_pointcloud_lidar_checklist_is_safe_and_copy_ready():
     assert 'does not validate accuracy' in workflows
 
 
+def test_g2o_recovery_card_separates_dependency_and_api_failures():
+    """The beginner g2o card returns users to the supported package path."""
+    getting_started = GETTING_STARTED.read_text(encoding='utf-8')
+    card = getting_started.split(
+        '### Recover g2o dependency failures', 1
+    )[1].split('## 2. Run the Fixed First-Map Demo', 1)[0]
+    normalized = ' '.join(card.split())
+
+    for required in (
+        'source /opt/ros/humble/setup.bash',
+        'source /opt/ros/jazzy/setup.bash',
+        'rosdep resolve libg2o',
+        'ros-humble-libg2o',
+        'ros-jazzy-libg2o',
+        'apt-cache policy "ros-${ROS_DISTRO}-libg2o"',
+        'dpkg-query -W',
+        'bash scripts/source_quickstart.sh --build-only',
+        'product-contract.md#compatibility-and-change-policy',
+        'g2o::make_unique',
+    ):
+        assert required in normalized
+    assert 'Foxy and Galactic are end-of-life' in normalized
+    assert 'source-built API mismatch' in normalized
+    assert 'do not by themselves prove' in normalized
+    assert 'do not patch this repository to vendor g2o' in normalized
+
+
+def test_empty_map_recovery_card_is_copy_ready_and_private():
+    """The existing no-map card distinguishes runtime from viewer failure."""
+    getting_started = GETTING_STARTED.read_text(encoding='utf-8')
+    card = getting_started.split(
+        '### Empty map or viewer: three-check recovery', 1
+    )[1].split('For the full operator reference', 1)[0]
+    normalized = ' '.join(card.split())
+
+    for required in (
+        'lidarslam-map demo ~/ros2_ws --viewer none',
+        'ros2 topic hz --window 5 <POINTCLOUD_TOPIC>',
+        'header.frame_id <POINTCLOUD_TOPIC>',
+        'ros2 run tf2_ros tf2_echo <TF_TARGET_FRAME> <POINTCLOUD_FRAME>',
+        'timeout 5s ros2 topic echo --once /map/pointcloud_map',
+        'viewer fixed frame to `map`',
+        'select `/map/pointcloud_map`',
+        'no map, bag, or raw log upload is required',
+    ):
+        assert required in normalized
+    assert normalized.count('Expected:') >= 3
+    assert 'replace every angle-bracket placeholder' in normalized
+
+
+def test_odometry_tf_card_separates_missing_and_stale_transforms():
+    """The TF card keeps message frames, path presence, and time distinct."""
+    workflows = WORKFLOWS_DOC.read_text(encoding='utf-8')
+    card = workflows.split(
+        '### Odometry and TF: two separate contracts', 1
+    )[1].split('## Run `RKO-LIO + graph_based_slam`', 1)[0]
+    normalized = ' '.join(card.split())
+
+    for required in (
+        'nav_msgs/msg/Odometry',
+        'header.frame_id <ODOM_TOPIC>',
+        'child_frame_id <ODOM_TOPIC>',
+        'ros2 run tf2_ros tf2_echo <ODOM_FRAME> <BASE_FRAME>',
+        'ros2 run tf2_ros tf2_monitor <ODOM_FRAME> <BASE_FRAME>',
+        'missing path is a broadcaster/configuration problem',
+        'future extrapolation, or stale timestamp is a timing problem',
+        'Do not silence TF warnings',
+    ):
+        assert required in normalized
+    assert 'does not, by itself, guarantee' in normalized
+    assert (
+        'Increasing a lookup timeout alone does not repair stale data'
+        in normalized
+    )
+
+
 def test_japanese_quickstart_keeps_the_canonical_beginner_contract():
     """The short Japanese route must not drift from supported commands."""
     readme = README_PATH.read_text(encoding='utf-8')

@@ -75,6 +75,39 @@ def _task(payload: dict, task_id: str) -> dict:
     return next(item for item in payload['tasks'] if item['id'] == task_id)
 
 
+def _completed_stale_tasks() -> list[dict]:
+    return [
+        {
+            'id': 'starter-C1',
+            'status': 'STALE',
+            'reasons': [
+                'the planned g2o recovery card marker already exists',
+            ],
+        },
+        {
+            'id': 'starter-C2',
+            'status': 'STALE',
+            'reasons': [
+                'the planned no-map three-check card marker already exists',
+            ],
+        },
+        {
+            'id': 'starter-C3',
+            'status': 'STALE',
+            'reasons': [
+                'the planned Odometry-versus-TF card marker already exists',
+            ],
+        },
+        {
+            'id': 'starter-C4',
+            'status': 'STALE',
+            'reasons': [
+                'the planned custom PointCloud2 checklist marker already exists',
+            ],
+        },
+    ]
+
+
 def _copy_scoped_files(payload: dict, destination: Path) -> None:
     paths = {
         path
@@ -88,25 +121,14 @@ def _copy_scoped_files(payload: dict, destination: Path) -> None:
 
 
 def test_checked_in_queue_is_schema_valid_and_reports_local_completion():
-    """The checked-in queue exposes four tasks after local C4 completion."""
+    """Only C5 remains ready after the four English cards are complete."""
     queue, report = CHECKER.evaluate()
 
     jsonschema.Draft7Validator(_schema()).validate(queue)
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert report['task_count'] == 5
-    assert report['ready_task_ids'] == [
-        'starter-C1',
-        'starter-C2',
-        'starter-C3',
-        'starter-C5',
-    ]
-    assert report['stale_tasks'] == [{
-        'id': 'starter-C4',
-        'status': 'STALE',
-        'reasons': [
-            'the planned custom PointCloud2 checklist marker already exists',
-        ],
-    }]
+    assert report['ready_task_ids'] == ['starter-C5']
+    assert report['stale_tasks'] == _completed_stale_tasks()
     assert report['remote_duplicate_audit'] == {
         'checked_at': '2026-08-12T13:39:03+09:00',
         'open_pull_request_count': 1,
@@ -235,52 +257,39 @@ def test_probe_cannot_escape_task_path_scope():
         CHECKER.validate_queue(payload, _schema())
 
 
-def test_docs_task_becomes_stale_when_planned_marker_appears(tmp_path: Path):
-    """An already-present docs card takes its task out of the ready set."""
-    payload = _queue()
-    _copy_scoped_files(payload, tmp_path)
-    getting_started = tmp_path / 'docs' / 'getting-started.md'
-    getting_started.write_text(
-        getting_started.read_text(encoding='utf-8')
-        + '\n### Recover g2o dependency failures\n',
-        encoding='utf-8',
-    )
+def test_completed_english_cards_match_their_canonical_gap_markers():
+    """C1-C4 cannot be offered after their canonical cards are present."""
+    payload, report = CHECKER.evaluate()
+    expected_markers = {
+        'starter-C1': '### Recover g2o dependency failures',
+        'starter-C2': '### Empty map or viewer: three-check recovery',
+        'starter-C3': '### Odometry and TF: two separate contracts',
+        'starter-C4': '### Adapting another PointCloud2 LiDAR',
+    }
 
-    report = CHECKER.validate_queue(payload, _schema(), tmp_path)
+    for task_id, marker in expected_markers.items():
+        probe = _task(payload, task_id)['gap_probes'][0]
+        assert probe['value'] == marker
+        assert marker in (ROOT / probe['path']).read_text(encoding='utf-8')
 
-    assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
-    assert report['ready_task_ids'] == [
-        'starter-C2',
-        'starter-C3',
-        'starter-C5',
-    ]
-    assert report['stale_tasks'] == [
-        {
-            'id': 'starter-C1',
-            'status': 'STALE',
-            'reasons': ['the planned g2o recovery card marker already exists'],
-        },
-        {
-            'id': 'starter-C4',
-            'status': 'STALE',
-            'reasons': [
-                'the planned custom PointCloud2 checklist marker already exists',
-            ],
-        },
-    ]
+    assert report['ready_task_ids'] == ['starter-C5']
+    assert report['stale_tasks'] == _completed_stale_tasks()
 
 
 def test_custom_sensor_task_is_stale_after_checklist_completion():
     """The queue cannot offer a task already implemented in the candidate."""
     report = CHECKER.evaluate()[1]
 
-    assert report['stale_tasks'] == [{
+    assert next(
+        item for item in report['stale_tasks']
+        if item['id'] == 'starter-C4'
+    ) == {
         'id': 'starter-C4',
         'status': 'STALE',
         'reasons': [
             'the planned custom PointCloud2 checklist marker already exists',
         ],
-    }]
+    }
 
 
 def test_japanese_validation_follow_up_handoff_task_becomes_stale_when_marker_appears(
@@ -300,10 +309,13 @@ def test_japanese_validation_follow_up_handoff_task_becomes_stale_when_marker_ap
 
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
     assert [item['id'] for item in report['stale_tasks']] == [
+        'starter-C1',
+        'starter-C2',
+        'starter-C3',
         'starter-C4',
         'starter-C5',
     ]
-    assert report['stale_tasks'][1]['reasons'] == [
+    assert report['stale_tasks'][4]['reasons'] == [
         'the planned Japanese follow-up-handoff marker already exists',
     ]
 
@@ -1092,19 +1104,8 @@ def test_default_cli_json_is_path_private_and_no_write():
     assert result.returncode == 1
     payload = json.loads(result.stdout)
     assert payload['status'] == 'QUEUE_STALE_LOCAL_ONLY'
-    assert payload['ready_task_ids'] == [
-        'starter-C1',
-        'starter-C2',
-        'starter-C3',
-        'starter-C5',
-    ]
-    assert payload['stale_tasks'] == [{
-        'id': 'starter-C4',
-        'status': 'STALE',
-        'reasons': [
-            'the planned custom PointCloud2 checklist marker already exists',
-        ],
-    }]
+    assert payload['ready_task_ids'] == ['starter-C5']
+    assert payload['stale_tasks'] == _completed_stale_tasks()
     assert payload['authority']['github_writes_authorized'] is False
     assert '/home/' not in result.stdout
     assert '/tmp/' not in result.stdout

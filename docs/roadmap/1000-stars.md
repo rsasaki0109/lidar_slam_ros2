@@ -405,6 +405,11 @@ work and document the actual support boundary instead of hiding the delay.
   is machine-validated and passes an exact read-only live-drift check. It keeps
   two issues open, requests four current reproductions, and proposes 23 reasoned
   closures, but remains `PROPOSED_NOT_APPLIED`.
+- As of 2026-08-15, the C1 g2o, C2 empty-map, C3 Odometry/TF, and C4 custom
+  PointCloud2 documentation gaps are implemented in the candidate. Corrected
+  canonical-heading probes retire C1–C4 as `STALE`; only the current C5
+  successor remains locally ready. Replenish the bounded queue before
+  advertising five tasks, and never publish a retired card as duplicate work.
 - Recruit the first three validators through the existing public validation
   issue and release documentation; do not provide private step-by-step help
   that would invalidate the evidence.
@@ -713,9 +718,11 @@ inspector. Its fixed profiles reject arbitrary commands, verify exact allowed
 paths and labels, mark a task stale when its known implementation gap changes,
 and retain `PREPARED_NOT_PUBLISHED` plus no-write authority in machine output.
 A 2026-08-12 read-only duplicate audit found one open PR (#427) and zero
-task-matching open PRs. Publication still requires a fresh duplicate check and
-a separate maintainer decision; this increment improves the path from support
-finding to a reviewable first contribution without claiming a completion.
+task-matching open PRs. The 2026-08-15 drift refresh now correctly retires
+C1–C4 after their cards were implemented; only C5 remains ready locally.
+Publication still requires a fresh duplicate check and a separate maintainer
+decision, and the queue must be replenished before it can again claim a
+five-task contributor batch.
 
 The
 [clean-candidate audit](../evidence/growth/g0-clean-candidate-audit-2026-08-11.md)
@@ -727,7 +734,7 @@ G0 remains `HOLD`: the matrix is 4/4 present and 0/4 comparable, v1 is 8/10,
 and the existing v0.9.0 tag prevents version reuse.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 228-path exact
+been expanded into the current 230-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
