@@ -122,12 +122,13 @@ cannot bypass live Git coverage.
 | weekly growth snapshot | 14 passed; new snapshots re-derive cohort count/rate/state consistency while the immutable historical baseline remains schema-valid and identity-free |
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
-| complete maintained Python gate | graph: 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 948 passed; 2,390 total |
+| complete maintained Python gate | graph: 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 958 passed; 2,400 total |
+| GLIM reference-cache integrity | 10 focused regressions passed; registered CTest 1 / 1; missing lookup remains read-only; exact content, manifest, malformed-TUM, tamper, collision, shell, and bundle boundaries pass |
 | scanmatcher clean build and CTest | Jazzy RAM-backed clean build of `lidarslam_msgs`, `ndt_omp_ros2`, and `scanmatcher`; 109 tests passed |
 | review follow-up regressions | malformed PointCloud2 recovery with padded organized XYZ-only continuation, metadata tile containment, source-bundle symlink rejection, non-interpolated immutable release-tag checkout, least-privilege release jobs, and self-contained source dry-run are covered |
 | candidate session Python style | direct flake8 for the three implementation and three focused regression files plus pydocstyle for all three implementation files: PASS |
 | documentation | `mkdocs build --strict`: PASS with pre-existing Material and navigation notices |
-| machine formats and shells | all 125 repository JSON files parse; all 77 Draft 7 schemas validate; all 82 shell files pass `bash -n`; `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
+| machine formats and shells | all 123 candidate JSON files parse; all 78 Draft 7 schemas validate; all 82 shell files pass `bash -n`; `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
 
 The two package test directories were intentionally run in separate pytest
 processes through the repository's canonical contributor entrypoint because

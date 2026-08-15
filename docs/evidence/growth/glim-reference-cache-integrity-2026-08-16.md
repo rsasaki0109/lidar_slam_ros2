@@ -2,6 +2,8 @@
 
 ## Outcome
 
+Implementation tip: `3de7f84bb51acd2bd1c2b40724529be9c281d2fe`.
+
 The existing `compare_with_glim.sh` workflow no longer accepts a cached GLIM
 trajectory from a path/topic-only key. Cache fallback is content-bound,
 schema-backed, and fail-closed. This is local cross-validation integrity, not
