@@ -14,6 +14,8 @@
 >
 > Latest canonical-NDT publication-preflight tip: `856e59987018578963a7afdf13402200eab62bf8`
 >
+> Latest Docker publication-authority tip: `3225d9db357caa1150081ac61281ae4b0d281a2a`
+>
 > Latest publication-inventory tip: `996679ccebe5aa3ad66ebfc657db20d24ab567ea`
 
 This reviewed tip is the code-bearing product-candidate revision; later
@@ -46,6 +48,13 @@ fails closed if the proposed branch already exists, GitHub inspection fails,
 or any open upstream PR matches the branch or semantic duplicate terms. Its
 30 / 30 PASS result is technical evidence only: GitHub write authority remains
 false and no upstream branch or PR was created.
+The Docker workflow now separates verification from publication at the job
+and token boundary. Pull requests and manual dispatches have contents-read
+permission, build with `push: false`, load only into the disposable runner,
+and cannot log in, attest, publish a package, or move a tag. Only the separate
+job gated to a `develop` push can update the moving convenience tags. This
+closes an accidental-publication path; it does not create the still-missing
+immutable v0.9.1 matrix-candidate identity.
 The code-bearing packet tip is required to be an ancestor of the current
 checkout revision; later synchronization and product UX follow-up commits
 must remain described in this handoff. It replaces
@@ -57,14 +66,15 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open, draft, mergeable at public baseline `30cfada…`; the local canonical-NDT implementation and this packet refresh remain follow-ups until their non-force push | source candidate is publicly reviewable; do not claim that a local-only follow-up is public |
-| PR-head CI | latest completed public exact-tip result before this canonical-NDT follow-up is **PASS** for `30cfada…` (9 / 9 checks); the local implementation and packet tip must receive their own CI after push | do not transfer the public baseline result to a newer tip; CI is not a release approval |
-| English support cards | docs entrypoint tests 22 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded |
+| Draft PR #427 | open, draft, mergeable at public baseline `db1f9b4…`; the local Docker authority implementation and this packet refresh remain follow-ups until their non-force push | source candidate is publicly reviewable; do not claim that a local-only follow-up is public |
+| PR-head CI | latest completed public exact-tip result before this Docker authority follow-up is **PASS** for `db1f9b4…` (9 / 9 checks); the local implementation and packet tip must receive their own CI after push | do not transfer the public baseline result to a newer tip; CI is not a release approval |
+| English support cards | docs entrypoint tests 23 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded; the added regression binds Docker verification/publication authority |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 50 queue regressions and all five focused strict-MkDocs profiles passed | C1–C4 remain completed and retired; the fresh duplicate audit found no matching implementation PR, and no issue or label mutation occurred |
-| Distribution preflights | source route `READY` at exact public `30cfada…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one failing, and an unanswered review; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs | the rosdistro failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
+| Distribution preflights | source route `READY` at exact public `db1f9b4…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one failing, and an unanswered review; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs | the rosdistro failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
 | Canonical NDT upstream Draft preflight | `READY_FOR_DRAFT_PR`; 30 / 30 PASS at local implementation `856e599…`; exact upstream `5495fd9…`, expected fork verified, proposed branch absent, 4 open PRs inspected, 0 duplicates, 0 API errors, and write authority false | this proves a technically coherent read-only publication state; it neither creates nor authorizes an upstream branch or PR |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 233 paths / 7 slices, clean at canonical-NDT implementation `856e599…`; inventory SHA-256 `15b94422746d15290b1f45d1a3b95fef892cba4ef1ab7be78e57ec2948ac1a09` | the existing S5 inventory already contains all canonical-NDT gate paths; packet synchronization changes no path membership and cannot authorize a GitHub write |
+| Docker publication boundary | PR and manual runs are verification-only with `contents: read`, `push: false`, no registry login, and no attestation; only a `develop` push receives package/attestation write permission | a manual dispatch can no longer move `humble`, `jazzy`, or `latest`; a dedicated immutable candidate-digest workflow is still required before any matrix-enabling E2 decision |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 233 paths / 7 slices, clean at Docker authority implementation `3225d9d…`; inventory SHA-256 `15b94422746d15290b1f45d1a3b95fef892cba4ef1ab7be78e57ec2948ac1a09` | all five changed paths already belong to S2/S5/S6; packet synchronization changes no path membership and cannot authorize a GitHub write |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
 | Onboarding matrix | 4 / 4 product PASS; 0 / 4 comparable; **BLOCKED** | Docker is v0.9.0, source is v0.9.1, and human measurements are missing |
@@ -86,7 +96,7 @@ python3 scripts/check_package_manager_release_readiness.py \
   --version 0.9.1 --json
 python3 scripts/run_source_onboarding_probe.py \
   --public-preflight \
-  --source-commit 30cfada37bb1f4163750e9a69e4f000291d462e9 \
+  --source-commit db1f9b40088851dfd488e98a1aeb19b2c14909a4 \
   --product-version 0.9.1
 python3 scripts/check_published_release.py --version 0.9.1 --json
 python3 scripts/check_onboarding_trial_matrix.py --json
@@ -107,7 +117,7 @@ not be used as a reason to recruit.
 | --- | --- | --- |
 | L0 local preparation | complete for this packet | code, tests, docs, offline audits, and read-only inspection |
 | E1 source review | public Draft PR / CI PASS | review this exact tip; no merge is implied |
-| E2 artifact hosting | **NOT_AUTHORIZED / NOT_PUBLISHED** | fixture host or immutable evidence record only after a separate host, license, checksum, and retention decision |
+| E2 artifact hosting | **NOT_AUTHORIZED / NOT_PUBLISHED** | fixture host or immutable candidate-image evidence only after a separate host, license/provenance, checksum/digest, retention, and upload decision |
 | E3 community mutation | **NOT_AUTHORIZED** | no issue labels, comments, closures, starter issues, Discussions, or recruitment |
 | E4 stable release | **HOLD / NOT_AUTHORIZED** | no tag, GitHub Release, package, image promotion, or announcement |
 
@@ -120,20 +130,24 @@ comparable human trial.
 1. Review the code-bearing candidate tip and this refreshed packet; confirm
    the current PR-head CI remains green, then stop if the branch, PR, or local
    inventory drifts. Do not measure mixed-version rows.
-2. If E2 is separately chosen, publish one explicitly selected immutable
-   fixture/evidence host and perform a remote re-download and checksum audit.
-3. If E4 is separately chosen later, follow `RELEASING.md`; after publication,
+2. Do not use the convenience-image manual dispatch as a candidate publication
+   route. First implement and review a dedicated immutable candidate-digest
+   workflow that cannot move `humble`, `jazzy`, `latest`, or release tags.
+3. If E2 is separately chosen after that gate exists, publish only the exact
+   candidate digests or explicitly selected fixture host, then perform a
+   remote identity, provenance, retention, and checksum/digest audit.
+4. If E4 is separately chosen later, follow `RELEASING.md`; after publication,
    require `check_published_release.py --require-published` and record both
    image digests before using them in a trial.
-4. Generate a new observer packet from the exact public source commit and both
+5. Generate a new observer packet from the exact public source commit and both
    published image digests. Use
    `scripts/prepare_onboarding_matrix_packet.py`; do not reuse the current
    v0.9.0/v0.9.1 mixed matrix.
-5. Run fresh dedicated Humble/Jazzy Docker and source trials with a human
+6. Run fresh dedicated Humble/Jazzy Docker and source trials with a human
    observer. Record active operator time, command count, workflow download,
    peak disk, wall time, and output size; blank measurements remain
    non-comparable.
-6. Only after at least one comparable Docker PASS and one comparable source
+7. Only after at least one comparable Docker PASS and one comparable source
    PASS may the E3 cohort decision be reconsidered. Three accepted independent
    reports are still required for the v1 gate.
 
@@ -141,6 +155,7 @@ comparable human trial.
 
 ```text
 E2 artifact host: DEFER — no host or upload authorized
+E2 candidate images: DEFER — dedicated immutable-digest gate not implemented
 E3 community mutation: DEFER — cohort and issue operations remain closed
 E4 v0.9.1 release/images: DEFER — G0 matrix and distribution gates remain open
 ```
