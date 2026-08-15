@@ -32,15 +32,15 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import pathlib
 import sys
-from pathlib import Path
 
 import jsonschema
 
 import pytest
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / 'scripts'
 WORKFLOW = ROOT / '.github' / 'workflows' / 'candidate-image.yml'
 SCHEMAS = ROOT / 'docs' / 'schemas'
@@ -350,7 +350,7 @@ def test_candidate_pair_requires_distinct_consistent_humble_and_jazzy():
 
 
 def test_candidate_clis_persist_one_complete_set_without_overwrite(
-    tmp_path: Path,
+    tmp_path: pathlib.Path,
 ):
     """Workflow-facing CLIs should write one auditable pair exactly once."""
     request_module = _request_module()
