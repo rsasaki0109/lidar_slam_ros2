@@ -14,19 +14,22 @@
 > `03d0d48868bdee9c7ecbf7734d5cfec0f42780425d8308b9477c757795ce84d7`
 >
 > Exact current public Draft head:
-> `e786c18ef05fc6b6e26606f35d06145475359e98`
+> `888a7527cb42ab8643e845bd8f6c9096bb30a640`
 >
 > Exact actionable release-evidence implementation tip:
 > `45cfdcb1c10756d1c33068fcd9594f612bf6ccca`
 >
-> Last observed remote mutation: exact non-force push from `7fde9cc` to
-> `e786c18`; mutations performed by the checker or review-card command:
+> Exact live contributor next-action implementation tip:
+> `3543a71bde958278388aa8481330166d125944b9`
+>
+> Last observed remote mutation: exact non-force push from `e786c18` to
+> `888a752`; mutations performed by the checker or review-card command:
 > **none**
 
 ## Outcome
 
-The local GLIM-convenience and release-evidence UX follow-up is now split into
-seven dependency-ordered review focuses. Every tracked or untracked path
+The local GLIM-convenience, release-evidence, and contributor next-action UX
+follow-up is split into seven dependency-ordered review focuses. Every tracked or untracked path
 relative to the exact PR base has exactly one primary review owner. A
 fail-closed checker rejects missing, stale, duplicated, unsafe, or
 digest-drifted paths and rejects a plan that claims GitHub write authority.
@@ -44,7 +47,7 @@ The GitHub repository and PR were inspected without mutation:
 
 - Draft PR `#427`, `Prepare crash-safe guided mapping for G0 review`, remains
   open, draft, and mergeable into `develop`;
-- the current public PR head resolves to `e786c18` and exposes 335 changed
+- the current public PR head resolves to `888a752` and exposes 339 changed
   files;
 - ten GitHub Actions checks pass on that exact head and four publication jobs
   skip intentionally, including green Humble/Jazzy builds, default workflows,
@@ -52,11 +55,11 @@ The GitHub repository and PR were inspected without mutation:
 - no PR conversation, inline review, or submitted review was present at the
   observation time.
 
-Passing checks on `e786c18` validate the complete public Draft candidate,
+Passing checks on `888a752` validate the complete public Draft candidate,
 including the published-onboarding identity, atomic paired recorder, evidence
-sync, and ament import-order follow-up. The actionable empty-release-evidence
-report is the next local code-bearing increment and requires its own public CI
-after publication.
+sync, ament import-order follow-up, and actionable empty-release-evidence
+report. The GET-only contributor next-action card at `3543a71` is the next
+local code-bearing increment and requires its own public CI after publication.
 
 ## Review order
 
@@ -67,7 +70,7 @@ after publication.
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 35 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded release-or-candidate Docker/source measurement, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session execution, public preflight, and an auditable SHA-bound supplement path for retained observations | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 65 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, actionable missing-benchmark reports, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a shared read-only environment preflight and four-artifact byte audit remain explicit; no E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
-| S6 product-shell integration | 107 | the installed home, bag-optional doctor, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard, fail-closed worksheet generators, and atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, and one-command G0 readiness dashboard agree | complete product gate and public CI |
+| S6 product-shell integration | 107 | the installed home, bag-optional doctor, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard, fail-closed worksheet generators, atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue with a GET-only live next-action card, machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, and one-command G0 readiness dashboard agree | complete product gate and public CI |
 | S7 publication control | 6 | all 285 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
@@ -131,8 +134,8 @@ cannot bypass live Git coverage.
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
 | public documentation deployment provenance | 8 focused regressions pass; strict MkDocs produces a deterministic manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
-| clean candidate release bundle | exact-head reproducibility rehearsal passes in public CI at `e786c18`; the latest retained local exact bundle pair at `7fde9cc` contains 252 files with SHA-256 `344a6c4d79902e04ac56b5e1987a7200f7fc4d493ab833f7e0425759aca28c43`; all three scorecard preparation/recording tools are manifest-bound |
-| complete maintained Python gate | graph: 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 982 passed; 2,424 total |
+| clean candidate release bundle | exact-head reproducibility rehearsal passes in public CI at `888a752`; the latest retained exact bundle contains 252 files with SHA-256 `7219e2b0932dfc3809e423a95af989eb69c3fddf48174806a74bfdc467efeb67`; all three scorecard preparation/recording tools are manifest-bound |
+| complete maintained Python gate | graph: 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 990 passed; 2,432 total; registered CTest: 93 / 93 |
 | paired scorecard recorder | 7 direct regressions, 20 recorder/checker regressions, and registered CTest 6 / 6 pass; incomplete observations remain non-comparable and atomic output/privacy boundaries fail closed |
 | empty release-evidence UX | 29 release-profile regressions cover direct and wrapper-level empty-root behavior; the exact-head gate retains Markdown/CSV/log evidence, reports five blocking rows plus their remediations, and exits 2 without weakening release authority |
 | GLIM reference-cache integrity | 10 focused regressions passed; registered CTest 1 / 1; missing lookup remains read-only; exact content, manifest, malformed-TUM, tamper, collision, shell, and bundle boundaries pass |

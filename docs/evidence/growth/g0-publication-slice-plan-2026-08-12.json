@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-16T05:43:48+09:00",
+  "generated_at": "2026-08-16T07:30:29+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
