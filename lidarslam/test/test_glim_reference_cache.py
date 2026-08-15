@@ -32,19 +32,25 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import sys
 
 import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / 'scripts' / 'glim_reference_cache.py'
-SPEC = importlib.util.spec_from_file_location(
-    'glim_reference_cache_test',
-    SCRIPT,
-)
-assert SPEC is not None and SPEC.loader is not None
-CACHE = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(CACHE)
+SCRIPT_DIR = ROOT / 'scripts'
+SCRIPT = SCRIPT_DIR / 'glim_reference_cache.py'
+sys.path.insert(0, str(SCRIPT_DIR))
+try:
+    SPEC = importlib.util.spec_from_file_location(
+        'glim_reference_cache_test',
+        SCRIPT,
+    )
+    assert SPEC is not None and SPEC.loader is not None
+    CACHE = importlib.util.module_from_spec(SPEC)
+    SPEC.loader.exec_module(CACHE)
+finally:
+    sys.path.remove(str(SCRIPT_DIR))
 
 
 def _inputs(tmp_path: Path) -> dict[str, Path]:
