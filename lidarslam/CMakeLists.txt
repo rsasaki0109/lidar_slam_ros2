@@ -255,6 +255,7 @@ if(BUILD_TESTING)
     test_package_manager_install
     test_package_manager_release_readiness
     test_product_build_info
+    test_published_onboarding_identity
     test_published_release
     test_release_channel
     test_rko_lio_graph_benchmark_script

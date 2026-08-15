@@ -88,7 +88,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['publication_plan']['status'] == (
         'PLAN_VALID_LOCAL_ONLY'
     )
-    assert report['checks']['publication_plan']['path_count'] == 275
+    assert report['checks']['publication_plan']['path_count'] == 279
     assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
     assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
     assert report['checks']['candidate_environment'] == {
@@ -122,6 +122,9 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     ]
     assert alternatives[0]['status'] == 'REQUIRES_EXTERNAL_PUBLICATION'
     assert alternatives[1]['status'] == 'REQUIRES_EXPLICIT_REBASE'
+    assert '--published-release-report - --render' in (
+        alternatives[1]['command']
+    )
     assert report['checks']['first_map_cohort']['pending_launch_gates'] == [
         'comparable_docker_row',
         'comparable_source_row',
@@ -208,7 +211,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         '10 successful checks and 4\nintentional non-publication skips'
         in scorecard
     )
-    assert 'current 275-path local plan' in scorecard
+    assert 'current 279-path local plan' in scorecard
 
 
 def test_dashboard_can_include_a_read_only_release_report_without_writes():

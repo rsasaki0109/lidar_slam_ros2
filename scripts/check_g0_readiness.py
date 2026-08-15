@@ -512,7 +512,10 @@ def _identity_alternatives(published: dict[str, Any]) -> list[dict[str, str]]:
             'title': 'Rebuild all rows against one existing public version',
             'status': 'REQUIRES_EXPLICIT_REBASE',
             'command': (
-                'python3 scripts/prepare_onboarding_matrix_packet.py --help'
+                'python3 scripts/check_published_release.py '
+                f'--version {version} --json --require-published | '
+                'python3 scripts/prepare_onboarding_matrix_packet.py '
+                '--published-release-report - --render'
             ),
             'write_boundary': (
                 'local plan only; run a fresh source preflight and never '

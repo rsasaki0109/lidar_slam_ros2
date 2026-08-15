@@ -123,6 +123,10 @@
       "additionalProperties": false,
       "required": [
         "mode",
+        "release_report_sha256",
+        "release_tag",
+        "release_commit",
+        "release_url",
         "candidate_set_sha256",
         "candidate_bundle_sha256",
         "source_pr",
@@ -134,6 +138,22 @@
       ],
       "properties": {
         "mode": {"enum": ["release", "candidate-image-set"]},
+        "release_report_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "release_tag": {
+          "type": ["string", "null"],
+          "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "release_commit": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "release_url": {
+          "type": ["string", "null"],
+          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/releases/tag/v[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
         "candidate_set_sha256": {
           "type": ["string", "null"],
           "pattern": "^[0-9a-f]{64}$"
@@ -169,6 +189,10 @@
           "if": {"properties": {"mode": {"const": "release"}}},
           "then": {
             "properties": {
+              "release_report_sha256": {"type": "string"},
+              "release_tag": {"type": "string"},
+              "release_commit": {"type": "string"},
+              "release_url": {"type": "string"},
               "candidate_set_sha256": {"const": null},
               "candidate_bundle_sha256": {"const": null},
               "source_pr": {"const": null},
@@ -186,6 +210,10 @@
           },
           "then": {
             "properties": {
+              "release_report_sha256": {"const": null},
+              "release_tag": {"const": null},
+              "release_commit": {"const": null},
+              "release_url": {"const": null},
               "candidate_set_sha256": {"type": "string"},
               "candidate_bundle_sha256": {"type": "string"},
               "source_pr": {"type": "integer"},

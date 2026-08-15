@@ -779,7 +779,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 275-path exact
+been expanded into the current 279-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
@@ -792,6 +792,13 @@ fragments, product version, and Pages workflow to one exact source revision.
 Its read-only audit keeps the independent cohort closed while the deployed
 manifest is absent or stale; a plausible URL alone is no longer launch
 evidence.
+
+The release-mode observer packet now derives the release commit and both ROS
+distribution image digests from one schema-valid published-release audit
+rather than four manually typed values. Its generated Docker preflight repeats
+the live tag-commit and digest comparison. The v0.9.0 identity passes that
+check but lacks the source quickstart contract, while v0.9.1 remains
+unpublished, so neither state creates a comparable same-version row.
 
 After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the

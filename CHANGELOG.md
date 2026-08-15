@@ -50,6 +50,9 @@ more guided, recoverable, and reviewable.
   canonical route fragments, product version, and Pages workflow to one source
   commit, and keep first-time cohorts closed when that manifest is absent,
   stale, or tampered.
+- **Copy-safe clean-host identity** — derive the source commit and both Docker
+  digests from one validated published-release report, then recheck those exact
+  live identities before a comparable onboarding row can start.
 - **Honest adoption evidence** — onboarding and GLIM usability comparisons are
   schema-backed, environment-matched, and fail closed when rows are missing;
   no overall winner is inferred from incomplete evidence.

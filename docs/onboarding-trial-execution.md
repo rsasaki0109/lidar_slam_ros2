@@ -94,17 +94,24 @@ unknown and therefore non-comparable.
 Before provisioning a host, prepare one local packet for the same product
 version across all four rows. This catches a copied digest, a mixed Docker /
 source version, or an accidental moving-tag identity before any timed work.
-For an already published release, provide its reviewed tags and digests:
+For an already published release, never copy its commit or digests by hand.
+Pipe the complete read-only release audit into the packet generator so all
+three immutable identities are derived from the same validated report bytes:
 
 ```bash
+python3 scripts/check_published_release.py \
+  --version 0.9.1 --json --require-published | \
 python3 scripts/prepare_onboarding_matrix_packet.py \
-  --product-version 0.9.1 \
-  --source-commit <40-lowercase-hex-commit> \
-  --docker-humble-digest sha256:<64-lowercase-hex-digest> \
-  --docker-jazzy-digest sha256:<64-lowercase-hex-digest> \
-  --render \
+  --published-release-report - --render \
   --output /tmp/g0-onboarding-observer-packet.md
 ```
+
+The packet retains the exact release-report SHA-256, tag, commit, URL, and
+both image digests. Its Docker preflight uses
+`check_published_onboarding_identity.py` to rerun the live release audit and
+require that those exact values still match immediately before a row starts.
+A merely `PUBLISHED` release with a different commit or moved image digest is
+`NOT_READY`, not a substitute packet.
 
 For an authorized digest-only candidate, do not copy those values into release
 arguments or manually assemble its evidence. Download, remotely audit, and
@@ -169,9 +176,10 @@ map geometry, and source/build artifacts. None of these statuses authorizes a
 remote write.
 
 The lower-level `prepare_onboarding_matrix_packet.py` command remains available
-for a published release or for regenerating a candidate packet from an already
-authenticated `artifacts/` directory. It performs no network read, trial,
-cleanup, or GitHub/community write. Release mode requires `PUBLISHED`/`READY`;
+for a published-release report or for regenerating a candidate packet from an
+already authenticated `artifacts/` directory. It performs no network read,
+trial, cleanup, or GitHub/community write. Release mode requires a complete
+`PUBLISHED` report and emits an exact-identity `READY` preflight;
 candidate mode emits `REMOTE_AUDIT_PASS`/`READY` preflights. Both packet modes
 emit one observer command per row for lower-level review and have status
 `READY_FOR_READ_ONLY_PREFLIGHT`, not `COMPARABLE`. Keep the handoff, trial

@@ -84,6 +84,7 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/check_onboarding_trial.py',
     'scripts/audit_published_fixture.py',
     'scripts/check_published_release.py',
+    'scripts/check_published_onboarding_identity.py',
     'scripts/check_public_docs_deployment.py',
     'scripts/check_candidate_environment.py',
     'scripts/validate_candidate_image_request.py',

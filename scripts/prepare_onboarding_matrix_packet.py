@@ -38,11 +38,12 @@ performs no network request, trial, cleanup, or GitHub/community mutation.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+from pathlib import Path
 import re
 import shlex
 import sys
-from pathlib import Path
 from typing import Any
 
 from audit_candidate_image_set import (
@@ -66,10 +67,144 @@ SCHEMA_URI = (
     'schemas/onboarding-matrix-observer-packet-v3.schema.json'
 )
 CANDIDATE_EVIDENCE_PLACEHOLDER = '<CANDIDATE_EVIDENCE_DIR>'
+MAX_RELEASE_REPORT_BYTES = 2 * 1024 * 1024
+REQUIRED_RELEASE_CHECKS = {
+    'tag-commit',
+    'release-tag',
+    'release-finalized',
+    'stable-release-channel',
+    'release-url',
+    'required-assets',
+    'cross-asset-identity',
+    'live-image-tag-digests',
+}
 
 
 class PacketError(ValueError):
     """The supplied identity inputs cannot produce a safe packet."""
+
+
+def _read_release_report(source: str) -> bytes:
+    if source == '-':
+        payload = sys.stdin.buffer.read(MAX_RELEASE_REPORT_BYTES + 1)
+        label = 'standard input'
+    else:
+        path = Path(source).expanduser()
+        if path.is_symlink() or not path.is_file():
+            raise PacketError(
+                'published release report must be a regular non-symlink '
+                f'file: {path}'
+            )
+        try:
+            payload = path.read_bytes()
+        except OSError as exc:
+            raise PacketError(
+                f'cannot read published release report {path}: {exc}'
+            ) from exc
+        label = str(path)
+    if not payload:
+        raise PacketError(f'published release report is empty: {label}')
+    if len(payload) > MAX_RELEASE_REPORT_BYTES:
+        raise PacketError(
+            'published release report exceeds the bounded input size'
+        )
+    return payload
+
+
+def _release_identity_from_report(
+    payload: bytes,
+) -> tuple[dict[str, Any], str, str, dict[str, str]]:
+    try:
+        report = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PacketError(
+            f'published release report is not UTF-8 JSON: {exc}'
+        ) from exc
+    if not isinstance(report, dict):
+        raise PacketError('published release report root is not an object')
+    schema_path = (
+        Path(__file__).resolve().parents[1]
+        / 'docs'
+        / 'schemas'
+        / 'published-release-v1.schema.json'
+    )
+    try:
+        schema = json.loads(schema_path.read_text(encoding='utf-8'))
+        jsonschema.Draft7Validator.check_schema(schema)
+        jsonschema.Draft7Validator(
+            schema,
+            format_checker=jsonschema.FormatChecker(),
+        ).validate(report)
+    except (OSError, json.JSONDecodeError, jsonschema.SchemaError) as exc:
+        raise PacketError(f'release report schema cannot be loaded: {exc}') from exc
+    except jsonschema.ValidationError as exc:
+        location = '.'.join(str(item) for item in exc.absolute_path)
+        raise PacketError(
+            'published release report schema failed at '
+            f'{location or "<root>"}: {exc.message}'
+        ) from exc
+    if report['status'] != 'PUBLISHED':
+        raise PacketError(
+            'published release report must have status PUBLISHED; found '
+            f"{report['status']}"
+        )
+    version = report['expected_version']
+    expected_tag = f'v{version}'
+    remote = report['remote']
+    source_commit = remote['tag_commit']
+    expected_url = (
+        f'https://github.com/{REPOSITORY}/releases/tag/{expected_tag}'
+    )
+    if (
+        report['expected_tag'] != expected_tag
+        or not isinstance(source_commit, str)
+        or COMMIT_RE.fullmatch(source_commit) is None
+        or remote['html_url'] != expected_url
+    ):
+        raise PacketError(
+            'published release tag, commit, or URL identity is incomplete'
+        )
+    check_ids = [check['id'] for check in report['checks']]
+    if len(check_ids) != len(set(check_ids)):
+        raise PacketError('published release report repeats a check identity')
+    missing_checks = sorted(REQUIRED_RELEASE_CHECKS - set(check_ids))
+    if missing_checks:
+        raise PacketError(
+            'published release report lacks required PASS checks: '
+            + ', '.join(missing_checks)
+        )
+    expected_tags = {
+        distro: f'ghcr.io/{REPOSITORY}:v{version}-{distro}'
+        for distro in DISTROS
+    }
+    digests: dict[str, str] = {}
+    for image in report.get('images', []):
+        matches = [
+            distro for distro, tag in expected_tags.items()
+            if image['tag'] == tag
+        ]
+        if len(matches) != 1 or matches[0] in digests:
+            raise PacketError(
+                'published release report contains an ambiguous image tag'
+            )
+        digest = image['digest']
+        if (
+            image['status'] != 'PUBLISHED'
+            or not isinstance(digest, str)
+            or DIGEST_RE.fullmatch(digest) is None
+        ):
+            raise PacketError(
+                'published release report contains an unverified image'
+            )
+        digests[matches[0]] = digest
+    _validate_identity(version, source_commit, digests)
+    evidence = {
+        'release_report_sha256': hashlib.sha256(payload).hexdigest(),
+        'release_tag': expected_tag,
+        'release_commit': source_commit,
+        'release_url': expected_url,
+    }
+    return evidence, version, source_commit, digests
 
 
 def _validate_identity(
@@ -125,19 +260,18 @@ def _docker_row(
     candidate_set: dict[str, Any] | None = None,
     candidate_set_sha256: str | None = None,
     candidate_bundle_sha256: str | None = None,
+    release_preflight_command: str | None = None,
 ) -> dict[str, Any]:
     image_tag: str | None
     immutable_ref: str
     if candidate_set is None:
+        if release_preflight_command is None:
+            raise PacketError(
+                'release rows require an exact live identity preflight'
+            )
         image_tag = f'ghcr.io/{REPOSITORY}:v{product_version}-{distro}'
         immutable_ref = f'{image_tag}@{digest}'
-        preflight_command = _command([
-            'python3',
-            'scripts/check_published_release.py',
-            '--version',
-            product_version,
-            '--json',
-        ])
+        preflight_command = release_preflight_command
         image_arguments = ['--image-tag', image_tag]
         candidate_arguments: list[str] = []
     else:
@@ -295,6 +429,7 @@ def _build_packet(
     candidate_set: dict[str, Any] | None = None,
     candidate_set_sha256: str | None = None,
     candidate_bundle_sha256: str | None = None,
+    release_evidence: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Build one schema-validated release or candidate observer packet."""
     docker_digests = {
@@ -302,6 +437,31 @@ def _build_packet(
         'jazzy': docker_jazzy_digest,
     }
     _validate_identity(product_version, source_commit, docker_digests)
+    if candidate_set is None:
+        if release_evidence is None:
+            raise PacketError(
+                'release packet identity must come from one published '
+                'release report'
+            )
+        release_preflight_command = _command([
+            'python3',
+            'scripts/check_published_onboarding_identity.py',
+            '--version',
+            product_version,
+            '--source-commit',
+            source_commit,
+            '--docker-humble-digest',
+            docker_digests['humble'],
+            '--docker-jazzy-digest',
+            docker_digests['jazzy'],
+            '--json',
+        ])
+    else:
+        if release_evidence is not None:
+            raise PacketError(
+                'candidate packet cannot contain published release evidence'
+            )
+        release_preflight_command = None
     rows = [
         _docker_row(
             product_version,
@@ -310,6 +470,7 @@ def _build_packet(
             candidate_set=candidate_set,
             candidate_set_sha256=candidate_set_sha256,
             candidate_bundle_sha256=candidate_bundle_sha256,
+            release_preflight_command=release_preflight_command,
         )
         for distro in DISTROS
     ]
@@ -318,18 +479,15 @@ def _build_packet(
         for distro in DISTROS
     )
     if candidate_set is None:
+        if release_evidence is None:
+            raise AssertionError('release evidence was validated above')
         docker_mode = 'release'
         packet_suffix = 'release'
-        docker_command = _command([
-            'python3',
-            'scripts/check_published_release.py',
-            '--version',
-            product_version,
-            '--json',
-        ])
-        docker_required_status = 'PUBLISHED'
+        docker_command = release_preflight_command
+        docker_required_status = 'READY'
         docker_evidence = {
             'mode': docker_mode,
+            **release_evidence,
             'candidate_set_sha256': None,
             'candidate_bundle_sha256': None,
             'source_pr': None,
@@ -340,8 +498,8 @@ def _build_packet(
             'evidence_retention_days': None,
         }
         identity_action = (
-            'Run the read-only published-release check and require PUBLISHED '
-            'before provisioning a trial host.'
+            'Rerun the exact read-only published onboarding identity check '
+            'and require READY before provisioning a trial host.'
         )
     else:
         if candidate_set_sha256 is None or candidate_bundle_sha256 is None:
@@ -362,6 +520,10 @@ def _build_packet(
         docker_required_status = 'REMOTE_AUDIT_PASS'
         docker_evidence = {
             'mode': docker_mode,
+            'release_report_sha256': None,
+            'release_tag': None,
+            'release_commit': None,
+            'release_url': None,
             'candidate_set_sha256': candidate_set_sha256,
             'candidate_bundle_sha256': candidate_bundle_sha256,
             'source_pr': candidate_set['source_pr'],
@@ -437,18 +599,17 @@ def _build_packet(
     return packet
 
 
-def build_packet(
-    product_version: str,
-    source_commit: str,
-    docker_humble_digest: str,
-    docker_jazzy_digest: str,
-) -> dict[str, Any]:
-    """Build a published-release observer packet (v1 API compatibility)."""
+def build_release_packet_from_report(payload: bytes) -> dict[str, Any]:
+    """Derive one release packet from exact audited report bytes."""
+    evidence, version, source_commit, digests = _release_identity_from_report(
+        payload
+    )
     return _build_packet(
-        product_version,
+        version,
         source_commit,
-        docker_humble_digest,
-        docker_jazzy_digest,
+        digests['humble'],
+        digests['jazzy'],
+        release_evidence=evidence,
     )
 
 
@@ -502,6 +663,18 @@ def render_packet(packet: dict[str, Any]) -> str:
             f"`{packet['docker_evidence']['workflow_run_url']}`",
             '',
         ])
+    else:
+        lines.extend([
+            '- Published release tag: '
+            f"`{packet['docker_evidence']['release_tag']}`",
+            '- Published release commit: '
+            f"`{packet['docker_evidence']['release_commit']}`",
+            '- Published release URL: '
+            f"`{packet['docker_evidence']['release_url']}`",
+            '- Published release audit SHA-256: '
+            f"`{packet['docker_evidence']['release_report_sha256']}`",
+            '',
+        ])
     lines.extend(['## Public checks', ''])
     for name, check in packet['public_checks'].items():
         lines.extend([
@@ -538,11 +711,16 @@ def render_packet(packet: dict[str, Any]) -> str:
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--product-version')
-    parser.add_argument('--source-commit')
-    parser.add_argument('--docker-humble-digest')
-    parser.add_argument('--docker-jazzy-digest')
-    parser.add_argument(
+    identity = parser.add_mutually_exclusive_group()
+    identity.add_argument(
+        '--published-release-report',
+        help=(
+            'derive the release commit and both live image digests from one '
+            'PUBLISHED check_published_release.py JSON report; use - for '
+            'bounded standard input'
+        ),
+    )
+    identity.add_argument(
         '--candidate-evidence-dir',
         type=Path,
         help=(
@@ -551,6 +729,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             'mixed with release inputs'
         ),
     )
+    parser.add_argument('--product-version', help=argparse.SUPPRESS)
+    parser.add_argument('--source-commit', help=argparse.SUPPRESS)
+    parser.add_argument('--docker-humble-digest', help=argparse.SUPPRESS)
+    parser.add_argument('--docker-jazzy-digest', help=argparse.SUPPRESS)
     output = parser.add_mutually_exclusive_group()
     output.add_argument('--json', action='store_true')
     output.add_argument('--render', action='store_true')
@@ -579,30 +761,26 @@ def main(argv: list[str] | None = None) -> int:
             name for name, value in release_inputs.items()
             if value is not None
         ]
+        if supplied_release_inputs:
+            raise PacketError(
+                'manual release identity inputs are not accepted; pipe or '
+                'provide one --published-release-report so commit and '
+                'digests are derived together'
+            )
         if args.candidate_evidence_dir is not None:
-            if supplied_release_inputs:
-                raise PacketError(
-                    '--candidate-evidence-dir cannot be mixed with manual '
-                    'release inputs: ' + ', '.join(supplied_release_inputs)
-                )
             evidence_bundle = load_candidate_evidence_bundle(
                 args.candidate_evidence_dir
             )
             packet = build_candidate_packet(evidence_bundle)
         else:
-            missing = [
-                name for name, value in release_inputs.items()
-                if value is None
-            ]
-            if missing:
+            if args.published_release_report is None:
                 raise PacketError(
-                    'release mode requires: ' + ', '.join(missing)
+                    'choose --published-release-report or '
+                    '--candidate-evidence-dir'
                 )
-            packet = build_packet(
-                args.product_version,
-                args.source_commit,
-                args.docker_humble_digest,
-                args.docker_jazzy_digest,
+            payload = _read_release_report(args.published_release_report)
+            packet = build_release_packet_from_report(
+                payload,
             )
     except (OSError, ValueError) as exc:
         print(f'onboarding observer packet error: {exc}', file=sys.stderr)

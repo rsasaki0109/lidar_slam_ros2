@@ -12,6 +12,8 @@ Changelog for package lidarslam
   checks while keeping package-manager instructions evidence-gated.
 * Bind canonical first-map documentation bytes to the exact Pages deployment
   revision before an independent-user cohort can start.
+* Derive clean-host release packets from one audited report and recheck the
+  exact source commit and Humble/Jazzy image digests before measurement.
 * Contributors: Ryohei Sasaki
 
 0.9.0 (2026-07-30)

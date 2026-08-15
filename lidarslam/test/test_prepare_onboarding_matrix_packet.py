@@ -30,6 +30,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import pathlib
@@ -57,12 +58,91 @@ def _module():
 
 
 def _packet(module):
-    return module.build_packet(
-        '0.9.1',
-        'a' * 40,
-        'sha256:' + 'b' * 64,
-        'sha256:' + 'c' * 64,
-    )
+    return module.build_release_packet_from_report(_release_payload())
+
+
+def _release_report():
+    checks = [
+        'tag-commit',
+        'release-tag',
+        'release-finalized',
+        'stable-release-channel',
+        'release-url',
+        'required-assets',
+        'cross-asset-identity',
+        'live-image-tag-digests',
+    ]
+    assets = [
+        'lidarslam_ros2_v0.9.1_release_bundle.tar.gz',
+        'lidarslam-map-docker',
+        'release-image-humble.json',
+        'release-image-jazzy.json',
+        'release-promotion.json',
+        'rollback-plan-humble.json',
+        'rollback-plan-jazzy.json',
+    ]
+    return {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/published-release-v1.schema.json'
+        ),
+        'status': 'PUBLISHED',
+        'repository': 'rsasaki0109/lidar_slam_ros2',
+        'expected_version': '0.9.1',
+        'expected_tag': 'v0.9.1',
+        'remote': {
+            'tag_present': True,
+            'tag_commit': 'a' * 40,
+            'release_present': True,
+            'draft': False,
+            'prerelease': False,
+            'html_url': (
+                'https://github.com/rsasaki0109/lidar_slam_ros2/'
+                'releases/tag/v0.9.1'
+            ),
+            'errors': [],
+        },
+        'checks': [
+            {'id': check, 'status': 'PASS', 'detail': 'verified'}
+            for check in checks
+        ],
+        'assets': [
+            {
+                'name': asset,
+                'status': 'PASS',
+                'size_bytes': 1,
+                'sha256': hashlib.sha256(asset.encode()).hexdigest(),
+                'detail': 'verified',
+            }
+            for asset in assets
+        ],
+        'images': [
+            {
+                'tag': (
+                    'ghcr.io/rsasaki0109/lidar_slam_ros2:'
+                    'v0.9.1-humble'
+                ),
+                'status': 'PUBLISHED',
+                'digest': 'sha256:' + 'b' * 64,
+                'detail': 'verified',
+            },
+            {
+                'tag': (
+                    'ghcr.io/rsasaki0109/lidar_slam_ros2:'
+                    'v0.9.1-jazzy'
+                ),
+                'status': 'PUBLISHED',
+                'digest': 'sha256:' + 'c' * 64,
+                'detail': 'verified',
+            },
+        ],
+    }
+
+
+def _release_payload(report=None):
+    value = _release_report() if report is None else report
+    return (json.dumps(value, indent=2, sort_keys=True) + '\n').encode()
 
 
 def _candidate_set():
@@ -224,6 +304,11 @@ def test_packet_aligns_all_rows_to_one_version_and_exact_identities():
     assert packet['schema_version'] == 3
     assert packet['packet_id'] == 'g0-onboarding-0.9.1-release'
     assert packet['docker_identity_mode'] == 'release'
+    assert packet['docker_evidence']['release_report_sha256'] == (
+        hashlib.sha256(_release_payload()).hexdigest()
+    )
+    assert packet['docker_evidence']['release_tag'] == 'v0.9.1'
+    assert packet['docker_evidence']['release_commit'] == 'a' * 40
     assert [row['row_id'] for row in packet['rows']] == [
         'docker-humble',
         'docker-jazzy',
@@ -272,11 +357,13 @@ def test_packet_commands_pin_identity_and_keep_paths_as_placeholders():
     assert packet['public_checks']['docker']['read_only'] is True
     assert packet['public_checks']['source']['read_only'] is True
     assert packet['public_checks']['docker']['command'] == (
-        'python3 scripts/check_published_release.py '
-        '--version 0.9.1 --json'
+        'python3 scripts/check_published_onboarding_identity.py '
+        '--version 0.9.1 --source-commit ' + 'a' * 40 + ' '
+        '--docker-humble-digest sha256:' + 'b' * 64 + ' '
+        '--docker-jazzy-digest sha256:' + 'c' * 64 + ' --json'
     )
     assert packet['public_checks']['docker']['command'].count(
-        'check_published_release.py'
+        'check_published_onboarding_identity.py'
     ) == 1
 
 
@@ -294,6 +381,10 @@ def test_candidate_packet_uses_retained_bundle_without_release_tags(tmp_path):
     assert packet['docker_identity_mode'] == 'candidate-image-set'
     assert packet['docker_evidence'] == {
         'mode': 'candidate-image-set',
+        'release_report_sha256': None,
+        'release_tag': None,
+        'release_commit': None,
+        'release_url': None,
         'candidate_set_sha256': bundle['file_hashes'][
             'candidate-image-set.json'
         ],
@@ -332,7 +423,7 @@ def test_candidate_packet_uses_retained_bundle_without_release_tags(tmp_path):
     assert '--candidate-source-pr 427' in payload
     assert 'v0.9.1-humble' not in payload
     assert 'v0.9.1-jazzy' not in payload
-    assert 'check_published_release.py' not in payload
+    assert 'check_published_onboarding_identity.py' not in payload
 
 
 def test_candidate_cli_derives_identity_and_rejects_manual_overrides(
@@ -360,7 +451,9 @@ def test_candidate_cli_derives_identity_and_rejects_manual_overrides(
         '--product-version', '0.9.1',
         '--json',
     ]) == 2
-    assert 'cannot be mixed' in capsys.readouterr().err
+    assert 'manual release identity inputs are not accepted' in (
+        capsys.readouterr().err
+    )
 
 
 def test_candidate_packet_rejects_a_malformed_retained_set(tmp_path):
@@ -376,25 +469,48 @@ def test_candidate_packet_rejects_a_malformed_retained_set(tmp_path):
 @pytest.mark.parametrize(
     ('field', 'value'),
     [
-        ('product_version', 'development'),
-        ('source_commit', 'A' * 40),
-        ('docker_humble_digest', 'sha256:' + 'b' * 63),
-        ('docker_jazzy_digest', 'sha256:' + 'b' * 64),
+        ('expected_version', 'development'),
+        ('tag_commit', 'A' * 40),
+        ('humble_digest', 'sha256:' + 'b' * 63),
+        ('jazzy_digest', 'sha256:' + 'b' * 64),
     ],
 )
 def test_packet_rejects_ambiguous_or_malformed_identity(field, value):
-    """Malformed or copied identities fail before a packet is emitted."""
+    """Malformed or copied report identities fail before packet output."""
     module = _module()
-    values = {
-        'product_version': '0.9.1',
-        'source_commit': 'a' * 40,
-        'docker_humble_digest': 'sha256:' + 'b' * 64,
-        'docker_jazzy_digest': 'sha256:' + 'c' * 64,
-    }
-    values[field] = value
+    report = _release_report()
+    if field == 'expected_version':
+        report[field] = value
+    elif field == 'tag_commit':
+        report['remote'][field] = value
+    elif field == 'humble_digest':
+        report['images'][0]['digest'] = value
+    else:
+        report['images'][1]['digest'] = value
 
     with pytest.raises(module.PacketError):
-        module.build_packet(**values)
+        module.build_release_packet_from_report(_release_payload(report))
+
+
+def test_release_packet_requires_a_complete_published_report():
+    """Schema-valid status or check weakening cannot create a packet."""
+    module = _module()
+    unpublished = _release_report()
+    unpublished['status'] = 'IN_PROGRESS'
+    unpublished['remote']['release_present'] = False
+    unpublished['remote']['draft'] = None
+    unpublished['remote']['prerelease'] = None
+    unpublished['remote']['html_url'] = None
+    with pytest.raises(module.PacketError, match='status PUBLISHED'):
+        module.build_release_packet_from_report(_release_payload(unpublished))
+
+    incomplete = _release_report()
+    incomplete['checks'] = [
+        check for check in incomplete['checks']
+        if check['id'] != 'live-image-tag-digests'
+    ]
+    with pytest.raises(module.PacketError, match='lacks required PASS'):
+        module.build_release_packet_from_report(_release_payload(incomplete))
 
 
 def test_render_is_explicitly_a_plan_not_a_measurement_record():
@@ -404,6 +520,9 @@ def test_render_is_explicitly_a_plan_not_a_measurement_record():
 
     assert 'READY_FOR_READ_ONLY_PREFLIGHT' in rendered
     assert 'not a trial record or a release claim' in rendered
+    assert 'Published release tag: `v0.9.1`' in rendered
+    assert f'Published release commit: `{"a" * 40}`' in rendered
+    assert 'Published release audit SHA-256:' in rendered
     assert 'active_operator_time_sec' in rendered
     assert 'command_count' in rendered
     assert 'network_reads_performed' not in rendered
@@ -413,15 +532,11 @@ def test_output_is_exclusive_and_does_not_overwrite(tmp_path, capsys):
     """The packet writer refuses a second write to the same path."""
     module = _module()
     output = tmp_path / 'observer-packet.json'
+    report = tmp_path / 'published-release.json'
+    report.write_bytes(_release_payload())
     args = [
-        '--product-version',
-        '0.9.1',
-        '--source-commit',
-        'a' * 40,
-        '--docker-humble-digest',
-        'sha256:' + 'b' * 64,
-        '--docker-jazzy-digest',
-        'sha256:' + 'c' * 64,
+        '--published-release-report',
+        str(report),
         '--json',
         '--output',
         str(output),
@@ -432,3 +547,27 @@ def test_output_is_exclusive_and_does_not_overwrite(tmp_path, capsys):
     assert module.main(args) == 2
     assert output.read_bytes() == original
     assert 'File exists' in capsys.readouterr().err
+
+
+def test_release_cli_rejects_manual_identity_and_symlink(tmp_path, capsys):
+    """Release CLI derives identity from regular report bytes only."""
+    module = _module()
+    assert module.main([
+        '--product-version', '0.9.1',
+        '--source-commit', 'a' * 40,
+        '--docker-humble-digest', 'sha256:' + 'b' * 64,
+        '--docker-jazzy-digest', 'sha256:' + 'c' * 64,
+        '--json',
+    ]) == 2
+    assert 'manual release identity inputs are not accepted' in (
+        capsys.readouterr().err
+    )
+
+    report = tmp_path / 'published-release.json'
+    report.write_bytes(_release_payload())
+    alias = tmp_path / 'report-link.json'
+    alias.symlink_to(report)
+    assert module.main([
+        '--published-release-report', str(alias), '--json',
+    ]) == 2
+    assert 'regular non-symlink' in capsys.readouterr().err

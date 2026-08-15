@@ -787,6 +787,9 @@ def test_release_metadata_and_core_package_versions_match():
         docs_site_workflow
     )
     assert 'scripts/check_public_docs_deployment.py' in release_bundle_script
+    assert 'scripts/check_published_onboarding_identity.py' in (
+        release_bundle_script
+    )
     assert 'scripts/generate_docs_deployment_manifest.py' in (
         release_bundle_script
     )

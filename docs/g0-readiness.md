@@ -71,6 +71,16 @@ isolated disk measurements, and the external first-map acceptance gates remain
 evidence requirements. Recruitment, release, image, issue, label, review, and
 package actions remain separate decisions.
 
+For the published-release choice, the dashboard now prints a copy-ready
+pipeline from `check_published_release.py` into
+`prepare_onboarding_matrix_packet.py --published-release-report -`. The packet
+derives the tag commit and both image digests from the same schema-valid report
+bytes and retains their SHA-256. Before a clean-host row starts,
+`check_published_onboarding_identity.py` repeats the bounded network audit and
+requires the live commit and both digests to match exactly. This removes four
+manual identity fields without treating packet preparation as a release or a
+trial.
+
 When v1 is incomplete, the card and JSON report also expose each incomplete
 gate's recorded detail and blocker list. This keeps distribution blockers such
 as unresolved `ndt_omp` lineage, missing apt synchronization, or a missing
