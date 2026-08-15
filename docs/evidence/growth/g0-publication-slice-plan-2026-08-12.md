@@ -14,7 +14,7 @@
 > `03d0d48868bdee9c7ecbf7734d5cfec0f42780425d8308b9477c757795ce84d7`
 >
 > Exact current public Draft head:
-> `888a7527cb42ab8643e845bd8f6c9096bb30a640`
+> `18d191c5dd5051ed68b05289d67f8e1ca262ba69`
 >
 > Exact actionable release-evidence implementation tip:
 > `45cfdcb1c10756d1c33068fcd9594f612bf6ccca`
@@ -22,15 +22,19 @@
 > Exact live contributor next-action implementation tip:
 > `3543a71bde958278388aa8481330166d125944b9`
 >
-> Last observed remote mutation: exact non-force push from `e786c18` to
-> `888a752`; mutations performed by the checker or review-card command:
+> Exact copy-ready low-storage recovery implementation tip:
+> `d01652080485bc68354f354043e4b2e732439223`
+>
+> Last observed remote mutation: exact non-force push from `888a752` to
+> `18d191c`; mutations performed by the checker or review-card command:
 > **none**
 
 ## Outcome
 
-The local GLIM-convenience, release-evidence, and contributor next-action UX
-follow-up is split into seven dependency-ordered review focuses. Every tracked or untracked path
-relative to the exact PR base has exactly one primary review owner. A
+The local GLIM-convenience, release-evidence, contributor next-action, and
+copy-ready low-storage UX follow-up is split into seven dependency-ordered
+review focuses. Every tracked or untracked path relative to the exact PR base
+has exactly one primary review owner. A
 fail-closed checker rejects missing, stale, duplicated, unsafe, or
 digest-drifted paths and rejects a plan that claims GitHub write authority.
 
@@ -47,7 +51,7 @@ The GitHub repository and PR were inspected without mutation:
 
 - Draft PR `#427`, `Prepare crash-safe guided mapping for G0 review`, remains
   open, draft, and mergeable into `develop`;
-- the current public PR head resolves to `888a752` and exposes 339 changed
+- the current public PR head resolves to `18d191c` and exposes 339 changed
   files;
 - ten GitHub Actions checks pass on that exact head and four publication jobs
   skip intentionally, including green Humble/Jazzy builds, default workflows,
@@ -55,22 +59,23 @@ The GitHub repository and PR were inspected without mutation:
 - no PR conversation, inline review, or submitted review was present at the
   observation time.
 
-Passing checks on `888a752` validate the complete public Draft candidate,
+Passing checks on `18d191c` validate the complete public Draft candidate,
 including the published-onboarding identity, atomic paired recorder, evidence
-sync, ament import-order follow-up, and actionable empty-release-evidence
-report. The GET-only contributor next-action card at `3543a71` is the next
-local code-bearing increment and requires its own public CI after publication.
+sync, ament import-order follow-up, actionable empty-release-evidence report,
+and the GET-only contributor next-action card. Copy-ready low-storage recovery
+at `d016520` is the next local code-bearing increment and requires its own
+public CI after publication.
 
 ## Review order
 
 | Slice | Paths | Reviewer outcome | Gate |
 | --- | ---: | --- | --- |
 | S1 runtime safety | 15 | unsafe point-cloud and VoxelGrid layouts, plus readable samples with empty frame IDs, fail closed without losing valid fields | public Humble/Jazzy CI |
-| S2 first-map foundation | 32 | one bounded demo/own-bag route reaches a verified local 3D result and retains recovery state | public Humble/Jazzy CI |
+| S2 first-map foundation | 32 | one bounded demo/own-bag route reaches a verified local 3D result, retains recovery state, and returns the exact shortage plus preserved retry command on low storage | public Humble/Jazzy CI |
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 35 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded release-or-candidate Docker/source measurement, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session execution, public preflight, and an auditable SHA-bound supplement path for retained observations | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 65 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, actionable missing-benchmark reports, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a shared read-only environment preflight and four-artifact byte audit remain explicit; no E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
-| S6 product-shell integration | 107 | the installed home, bag-optional doctor, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard, fail-closed worksheet generators, atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue with a GET-only live next-action card, machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, and one-command G0 readiness dashboard agree | complete product gate and public CI |
+| S6 product-shell integration | 107 | the installed home, path-private bag-optional doctor with copy-ready low-storage recovery, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard, fail-closed worksheet generators, atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue with a GET-only live next-action card, machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, and one-command G0 readiness dashboard agree | complete product gate and public CI |
 | S7 publication control | 6 | all 285 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
@@ -103,7 +108,7 @@ IDs.
 
 The checker derives the candidate directly from Git rather than trusting the
 human table. It combines tracked changes from exact PR base `3f4dd70` with
-untracked, non-ignored paths, verifies that public baseline `0c67387` descends
+untracked, non-ignored paths, verifies that public baseline `3ed632e` descends
 from that base and the local tip descends from the public head, then requires:
 
 1. seven consecutive, dependency-safe slice orders;
@@ -134,8 +139,8 @@ cannot bypass live Git coverage.
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
 | public documentation deployment provenance | 8 focused regressions pass; strict MkDocs produces a deterministic manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
-| clean candidate release bundle | exact-head reproducibility rehearsal passes in public CI at `888a752`; the latest retained exact bundle contains 252 files with SHA-256 `7219e2b0932dfc3809e423a95af989eb69c3fddf48174806a74bfdc467efeb67`; all three scorecard preparation/recording tools are manifest-bound |
-| complete maintained Python gate | graph: 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 990 passed; 2,432 total; registered CTest: 93 / 93 |
+| clean candidate release bundle | exact-head reproducibility rehearsal passes in public CI at `18d191c`; the latest retained exact bundle contains 252 files with SHA-256 `1ada009f4ad3207150e22d32dbdf71b88b3070d447ad9c0265c2883239f5bce8`; all three scorecard preparation/recording tools are manifest-bound |
+| complete maintained Python gate | local `d016520`: graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 992 passed; 2,434 total; registered CTest: 93 / 93 plus graph CTest 232 / 232 |
 | paired scorecard recorder | 7 direct regressions, 20 recorder/checker regressions, and registered CTest 6 / 6 pass; incomplete observations remain non-comparable and atomic output/privacy boundaries fail closed |
 | empty release-evidence UX | 29 release-profile regressions cover direct and wrapper-level empty-root behavior; the exact-head gate retains Markdown/CSV/log evidence, reports five blocking rows plus their remediations, and exits 2 without weakening release authority |
 | GLIM reference-cache integrity | 10 focused regressions passed; registered CTest 1 / 1; missing lookup remains read-only; exact content, manifest, malformed-TUM, tamper, collision, shell, and bundle boundaries pass |

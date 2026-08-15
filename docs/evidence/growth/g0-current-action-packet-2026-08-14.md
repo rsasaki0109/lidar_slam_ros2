@@ -9,7 +9,7 @@
 > Capture-time public Draft baseline: `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
 > Latest exact public Draft head and CI audit:
-> `888a7527cb42ab8643e845bd8f6c9096bb30a640`
+> `18d191c5dd5051ed68b05289d67f8e1ca262ba69`
 >
 > Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
 >
@@ -45,7 +45,7 @@
 >
 > Latest public-docs evidence-refresh tip: `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
-> Latest public publication-inventory tip: `888a7527cb42ab8643e845bd8f6c9096bb30a640`
+> Latest public publication-inventory tip: `18d191c5dd5051ed68b05289d67f8e1ca262ba69`
 >
 > Latest published-onboarding-identity tip: `289f7675a242b00f342528483cde3e5f602a11fc`
 >
@@ -58,8 +58,11 @@
 > Latest live contributor next-action tip:
 > `3543a71bde958278388aa8481330166d125944b9`
 >
+> Latest copy-ready low-storage recovery tip:
+> `d01652080485bc68354f354043e4b2e732439223`
+>
 > Latest local publication-inventory tip:
-> `3543a71bde958278388aa8481330166d125944b9`
+> `d01652080485bc68354f354043e4b2e732439223`
 
 This reviewed tip is the code-bearing product-candidate revision; later
 docs-only handoff synchronization and product UX follow-up commits must remain
@@ -73,7 +76,9 @@ safe observer-packet-output, safe first-map-dry-run-plan-output, Docker JSON
 own-bag-plan, source JSON quickstart-plan, custom PointCloud2 onboarding,
 supported g2o recovery, canonical C2/C3 drift detection, contributor C1–C4
 local-retirement, bounded contributor C5–C9 replenishment, and
-publication-inventory follow-ups. The current release observer follow-up
+publication-inventory follow-ups. The latest activation repair also turns
+doctor/demo low-storage rejection into an exact shortage plus copy-ready retry
+without lowering the 8 GiB safety floor. The current release observer follow-up
 derives the tag commit and both ROS-distribution image digests from one
 schema-valid published-release report, then generates an exact live identity
 preflight instead of accepting four manually entered values. The latest
@@ -199,21 +204,22 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open, draft, and mergeable; capture-time public baseline `3ed632e…` remains the frozen review anchor; exact public head `888a752…` includes published-onboarding identity, paired recorder, ament import fix, actionable release evidence, and synchronized inventory; live contributor next-action `3543a71…` is the next local increment | no merge, Pages deployment, cohort launch, or E2 authority is implied |
-| Exact public PR-head CI | capture-time result is **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures; exact current public head `888a752…` has the same 10-success / 4-skip / 0-failure result | the skipped jobs are candidate authorization/publication/pair verification and Docker publication; green CI is not release/E2 approval, and local `3543a71…` still needs its own public CI |
+| Draft PR #427 | open, draft, and mergeable; capture-time public baseline `3ed632e…` remains the frozen review anchor; exact public head `18d191c…` includes published-onboarding identity, paired recorder, actionable release evidence, synchronized inventory, and live contributor next-action; copy-ready low-storage recovery `d016520…` is the next local increment | no merge, Pages deployment, cohort launch, or E2 authority is implied |
+| Exact public PR-head CI | capture-time result is **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures; exact current public head `18d191c…` has the same 10-success / 4-skip / 0-failure result | the skipped jobs are candidate authorization/publication/pair verification and Docker publication; green CI is not release/E2 approval, and local `d016520…` still needs its own public CI |
 | English support cards | docs entrypoint tests 25 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded; Docker convenience and candidate-digest authority boundaries are both regression-bound; every tracked shell entry point now also has a parse regression |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 55 queue regressions, 5 / 5 focused strict-MkDocs profiles, and the live `--next` card pass at `3543a71…`; current GET-only output finds 1 published `good first issue` (#422), 1 open PR, and 0 potential queue matches | a contributor gets #422 as the only published route; a maintainer gets C5 as the next bounded preview; C1–C4 remain retired and no issue, label, comment, or PR was changed |
+| Fixed-demo low-storage recovery | exact implementation `d016520…`; real local rejection reports exact `additional_bytes_required`, rounds 1.76 GiB upward for the human card, keeps system JSON path-free, and preserves the full shell-quoted demo retry; default floor remains 8 GiB | this removes one locally reproduced activation burden; it is not a public clean-host completion, paired GLIM observation, or authority to lower the storage gate |
 | Distribution preflights | source route `READY` at exact public `3ed632e…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one failing, and an unanswered review; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs | the rosdistro failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
 | Canonical NDT upstream Draft preflight | `READY_FOR_DRAFT_PR`; 30 / 30 PASS at local implementation `856e599…`; exact upstream `5495fd9…`, expected fork verified, proposed branch absent, 4 open PRs inspected, 0 duplicates, 0 API errors, and write authority false | this proves a technically coherent read-only publication state; it neither creates nor authorizes an upstream branch or PR |
 | Docker publication boundary | convenience PR/manual runs remain verification-only; the candidate gate at `c70c18d…` uses trusted default-branch tooling, exact-head CI/identity checks, a protected `candidate-images` environment, digest-only output, disabled container networking during smoke tests, SBOM/provenance/attestation checks, and 30-day schema-backed evidence | the gate can create no tag or Release; complete authenticated inventory at `adecca6…` proves only `github-pages` exists, so authorization must stop until a separate environment/E2 decision |
 | Candidate environment and gate regressions | 29 focused tests, actionlint v1.7.12, Python style, CTest 2 / 2, GET-only transport, shared authorization semantics, release-bundle inclusion, and exact-tip Humble/Jazzy default workflows pass | the live result is `ABSENT`; workflow-facing CLIs persist one request, two distinct image records, and one pair report exactly once; no workflow dispatch, environment mutation, or GHCR mutation occurred |
 | Candidate observer contract | atomic preparation through `f5ed80e…`, exact row runner `feed0ba…`, one-command session `8bc5ea4…`, and guided local readiness `a286c65…`; four-file semantic derivation, exact remote artifact-byte comparison, content-bound Docker observer bootstrap, retained child-receipt binding, structured row execution, four-state host guidance, release-bundle inclusion, and docs pass 40 direct preparation/runner/session regressions plus 85 focused session/row/probe regressions | remote status is still **NOT_CHECKED** because no authorized bundle exists; local readiness and runner tests are not `REMOTE_AUDIT_PASS`, a trial, E2, or E4 authority |
-| Neutral GLIM usability recorder | exact implementation `0575fb6…`, evidence sync and public CI through `888a752…`; 7 direct regressions, 20 recorder/checker regressions, registered CTest 6 / 6, strict docs/style, and a deterministic 252-file candidate bundle pass | the checked-in scorecard remains `NOT_READY` with 0 / 2 product records and 0 / 6 comparable tasks; safer recording is not external evidence, parity, or a winner claim |
+| Neutral GLIM usability recorder | exact implementation `0575fb6…`, evidence sync and public CI through `18d191c…`; 7 direct regressions, 20 recorder/checker regressions, registered CTest 6 / 6, strict docs/style, and a deterministic 252-file candidate bundle pass | the checked-in scorecard remains `NOT_READY` with 0 / 2 product records and 0 / 6 comparable tasks; safer recording is not external evidence, parity, or a winner claim |
 | Public documentation deployment provenance | implementation and 8 focused regressions **PASS** at `602c7ad…`, with public evidence refresh at `3ed632e…`; strict MkDocs emits a source/version/route/page-byte manifest, both Pages jobs are `develop`-only, and the clean candidate release bundle contains the generator, auditor, schemas, and evidence; live exact-public audit is `BLOCKED` because the manifest URL returns HTTP 404 | URL shape alone cannot launch the independent cohort; the current Pages deployment remains unverified until a separately reviewed `develop` deployment publishes matching bytes |
-| Complete product gate through public head | graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 990 passed; registered CTest 93 / 93 and strict MkDocs pass locally; exact public `888a752…` has 10 successful / 4 intentional-skip / 0 failed checks | 2,432 maintained Python tests validate local `3543a71…`; public CI validates the complete candidate through `888a752…`, while the contributor next-action increment still needs exact-head public CI |
+| Complete product gate through public head | graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 992 passed; registered CTest passes 93 / 93 for `lidarslam` and 232 / 232 for `graph_based_slam`; strict MkDocs passes locally; exact public `18d191c…` has 10 successful / 4 intentional-skip / 0 failed checks | 2,434 maintained Python tests validate local `d016520…`; public CI validates the complete candidate through `18d191c…`, while the storage-recovery increment still needs exact-head public CI |
 | Actionable stable-release profile gate | exact implementation `45cfdcb…`; an empty exact-head benchmark root now retains Markdown/CSV/log output, reports five blocking `NO_DATA` profiles with acquisition/rerun hints, distinguishes six report-only rows, and exits 2; 29 direct regressions pass | this identifies missing evidence and does not satisfy it; no tag, Release, image, or E4 authority is inferred |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 285 paths / 7 slices / 8 follow-up commits at implementation tip `3543a71…` from public baseline `3ed632e…`; inventory SHA-256 `03d0d48868bdee9c7ecbf7734d5cfec0f42780425d8308b9477c757795ce84d7` | release-evidence UX joins S5; live contributor next-action, row/session/readiness, parse-safe/content-verified GLIM comparison, byte-bound public docs, report-derived packet identity, atomic preparation, and paired observation recording belong to S4/S6; synchronization changes no GitHub authority |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 285 paths / 7 slices / 10 follow-up commits at implementation tip `d016520…` from public baseline `3ed632e…`; inventory SHA-256 `03d0d48868bdee9c7ecbf7734d5cfec0f42780425d8308b9477c757795ce84d7` | release-evidence UX joins S5; low-storage recovery, live contributor next-action, row/session/readiness, parse-safe/content-verified GLIM comparison, byte-bound public docs, report-derived packet identity, atomic preparation, and paired observation recording belong to S2/S4/S6; synchronization changes no GitHub authority |
 | Published onboarding identity | v0.9.0 exact release commit plus Humble/Jazzy digests return `READY`, but its source route is `NOT_READY` with `source-route-contract-missing`; v0.9.1 report-to-packet fails closed at `NOT_PUBLISHED` | the old release cannot be reused for same-version Docker/source evidence, and the new version cannot produce a release packet before E4 publication |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |

@@ -108,3 +108,53 @@ map. It also does not prove parity from a feature list. After source publication
 the scorecard must measure command discovery, clean installation, fixed-demo
 completion, failure recovery, and active operator time on equivalent Humble and
 Jazzy hosts.
+
+## Low-storage recovery follow-up — 2026-08-16
+
+> Decision: **LOCAL_ACTIVATION_REPAIR_PASS / PUBLIC_OBSERVATION_PENDING**
+>
+> Implementation tip:
+> `d01652080485bc68354f354043e4b2e732439223`
+>
+> Safety floor changed: **no; remains 8 GiB by default**
+>
+> Network, GitHub, release, or community mutations: **none**
+
+An actual fixed-demo preflight on the Jazzy source candidate reproduced the
+remaining recovery gap. With about 6.24 GiB free, system doctor identified low
+storage but formerly returned a `<dir>` placeholder; demo dry-run only said to
+free space or choose another directory. The operator therefore had to compute
+the shortage and reconstruct a command before retrying.
+
+At the implementation tip, both versioned reports expose exact
+`additional_bytes_required`. Human output rounds the shortage upward to the
+next 0.01 GiB, so it never understates what must be freed. System-doctor JSON
+continues to omit the selected local path and returns the placeholder-free
+`lidarslam-map doctor` retry. Demo JSON already permits its selected paths and
+now retains the complete shell-quoted demo command, including paths with
+spaces and all effective storage/viewer options.
+
+The same host then reported:
+
+```text
+Demo storage: 6.2 GiB free; 8.0 GiB required; free 1.76 GiB more
+additional_bytes_required: 1884504064
+Next: Free at least 1.76 GiB ... then run: <complete command>
+```
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| doctor/demo focused and schema tests | 28 passed |
+| CLI, installed-contract, home, and completion focus | 66 passed |
+| complete sourced `lidarslam/test` | 992 passed |
+| complete sourced `graph_based_slam/test` | 1,442 passed, 13 skipped, 11 pre-existing ImageIO warnings |
+| registered `lidarslam` CTest, including lint | 93 / 93 passed |
+| registered `graph_based_slam` CTest, including lint | 232 / 232 passed |
+| strict MkDocs and JSON parsing | PASS; only pre-existing Material/navigation notices |
+| patch hygiene | `git diff --check` PASS |
+
+This closes one locally observed activation failure. It is not a clean-host
+timing result, an independent first map, a paired GLIM scorecard, or evidence
+that the unpublished v0.9.1 distribution paths are ready.
