@@ -372,6 +372,8 @@ def _task_comparison(
                 f'{product_id}-measurements-missing:' + ','.join(missing))
         if task['evidence']['transcript_sha256'] is None:
             blockers.append(f'{product_id}-transcript-missing')
+        if 'not-recorded' in task['outcome']['finding_codes']:
+            blockers.append(f'{product_id}-observation-incomplete')
         if task['outcome']['undocumented_manual_steps']:
             blockers.append(f'{product_id}-undocumented-manual-steps')
 

@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-16T04:52:50+09:00",
+  "generated_at": "2026-08-16T05:43:48+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 279,
-    "expected_paths_sha256": "094db7515280b18128d5acdf28b1e5478014aeb13f80c3ffe6a0ff29af9d825e",
+    "expected_path_count": 281,
+    "expected_paths_sha256": "8bfe87e8eff09e7a8a14af46c78e7018af99b5047a7b171cb68685fb14ff3bf6",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -361,6 +361,7 @@
         "lidarslam/test/test_prepare_usability_scorecard.py",
         "lidarslam/test/test_prepare_usability_scorecard_pair.py",
         "lidarslam/test/test_published_onboarding_identity.py",
+        "lidarslam/test/test_record_usability_scorecard_pair.py",
         "mkdocs.yml",
         "scripts/check_g0_readiness.py",
         "scripts/check_onboarding_trial_matrix.py",
@@ -380,11 +381,12 @@
         "scripts/prepare_candidate_trial.py",
         "scripts/prepare_onboarding_matrix_packet.py",
         "scripts/prepare_usability_scorecard.py",
-        "scripts/prepare_usability_scorecard_pair.py"
+        "scripts/prepare_usability_scorecard_pair.py",
+        "scripts/record_usability_scorecard_pair.py"
       ],
       "verification": [
         "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_docs_entrypoints.py graph_based_slam/test/test_lidarslam_product_cli.py",
-        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_check_onboarding_trial_matrix.py lidarslam/test/test_check_usability_scorecard.py lidarslam/test/test_cli_interactive_home.py lidarslam/test/test_cli_option_contract.py lidarslam/test/test_collect_growth_snapshot.py lidarslam/test/test_contributor_starter_queue.py lidarslam/test/test_glim_reference_cache.py lidarslam/test/test_lidarslam_doctor.py lidarslam/test/test_lidarslam_guided.py lidarslam/test/test_prepare_candidate_trial.py lidarslam/test/test_prepare_onboarding_matrix_packet.py lidarslam/test/test_published_onboarding_identity.py",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_check_onboarding_trial_matrix.py lidarslam/test/test_check_usability_scorecard.py lidarslam/test/test_cli_interactive_home.py lidarslam/test/test_cli_option_contract.py lidarslam/test/test_collect_growth_snapshot.py lidarslam/test/test_contributor_starter_queue.py lidarslam/test/test_glim_reference_cache.py lidarslam/test/test_lidarslam_doctor.py lidarslam/test/test_lidarslam_guided.py lidarslam/test/test_prepare_candidate_trial.py lidarslam/test/test_prepare_onboarding_matrix_packet.py lidarslam/test/test_record_usability_scorecard_pair.py lidarslam/test/test_published_onboarding_identity.py",
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_check_g0_readiness.py",
         "python3 scripts/check_onboarding_trial_matrix.py --json",
         "python3 scripts/check_g0_readiness.py --json",

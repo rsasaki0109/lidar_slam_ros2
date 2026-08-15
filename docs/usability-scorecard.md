@@ -154,6 +154,40 @@ either existing worksheet and emits a local-only, `PREPARED_INCOMPLETE`
 manifest; it does not add records to the reviewed index or perform a remote
 mutation.
 
+Record the observed pair without hand-editing either worksheet:
+
+```bash
+python3 scripts/record_usability_scorecard_pair.py \
+  --record /tmp/usability-pair-operator-a/lidarslam-pair-operator-a.json \
+  --record /tmp/usability-pair-operator-a/glim-pair-operator-a.json \
+  --output-dir /tmp/usability-pair-operator-a-recorded \
+  --require-ready
+```
+
+The recorder follows the declared first/second product order and prompts for
+only the metrics and checks required by each task. Enter every
+operator-submitted command in order; the recorder derives `command_count`
+instead of asking for a second, drift-prone total. Prompts and instructions use
+stderr, so `--json` remains machine-readable. A blank value stays explicitly
+`not-recorded` and prevents that task from becoming comparable.
+
+The recorder accepts only untouched worksheets, validates both records before
+writing, and publishes the pair with one atomic output-directory rename. It
+never overwrites the prepared inputs or an existing destination. If the pair,
+privacy boundary, task order, command paths, environment, or observation types
+drift, neither recorded file is published. `--require-ready` returns exit `1`
+after safely retaining an incomplete pair; structural or privacy errors return
+exit `2` without publishing the destination.
+
+For a non-interactive study collector, pass `--observations FILE`. The JSON
+root has `schema_version: 1` and a `products` object containing exactly
+`lidarslam_ros2` and `glim`; each product has the fixed six-task array. Every
+task supplies `task_id`, `exact_commands`, `measurements`, the contract check
+map, `undocumented_manual_steps`, `finding_codes`, `transcript_sha256`, and
+optional `public_url`. `command_count` is forbidden in the observation input
+because it is derived from `exact_commands`. Null observations stay incomplete
+instead of being converted into zero or failure evidence.
+
 Validate two records before adding them to the index:
 
 ```bash

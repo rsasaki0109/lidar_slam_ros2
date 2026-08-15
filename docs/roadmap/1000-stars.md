@@ -167,7 +167,11 @@ per task, task-specific complete measurements, transcript hashes, and an
 external first-attempt operator before reporting `READY`. It never infers an
 overall winner. The checked-in index is intentionally `NOT_READY` with both
 product records absent; local feature evidence is not substituted for a paired
-GLIM trial. The
+GLIM trial. The paired recorder now removes the remaining JSON-editing step:
+one command follows product order, derives command totals and outcomes from
+direct observations, preserves blanks as `not-recorded`, validates both
+records, and atomically publishes neither or both. It does not create the
+still-missing external observation. The
 [2026-08-12 local contract evidence](../evidence/growth/glim-usability-scorecard-contract-2026-08-12.md)
 records the enforced protocol and the still-missing public trials.
 
@@ -779,7 +783,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 279-path exact
+been expanded into the current 281-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
