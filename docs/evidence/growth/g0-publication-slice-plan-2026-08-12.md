@@ -16,6 +16,9 @@
 > Exact current public Draft head:
 > `e786c18ef05fc6b6e26606f35d06145475359e98`
 >
+> Exact actionable release-evidence implementation tip:
+> `45cfdcb1c10756d1c33068fcd9594f612bf6ccca`
+>
 > Last observed remote mutation: exact non-force push from `7fde9cc` to
 > `e786c18`; mutations performed by the checker or review-card command:
 > **none**
