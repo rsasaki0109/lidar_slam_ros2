@@ -167,7 +167,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         '10 successful checks and 4\nintentional non-publication skips'
         in scorecard
     )
-    assert 'current 258-path local plan' in scorecard
+    assert 'current 259-path local plan' in scorecard
 
 
 def test_dashboard_can_include_a_read_only_release_report_without_writes():
