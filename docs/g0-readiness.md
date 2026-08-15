@@ -80,7 +80,22 @@ has been taken.
 
 When the independent first-map cohort is waiting for public gates, the card
 also lists each pending launch prerequisite, such as comparable Docker/source
-rows and the canonical documentation/runtime identity. This makes the closed
+rows and the canonical documentation/runtime identity. The documentation gate
+is byte-bound rather than URL-only. After a reviewed Pages deployment, audit
+the selected route with:
+
+```bash
+python3 scripts/check_public_docs_deployment.py \
+  --expected-revision <exact-40-character-public-commit> \
+  --expected-product-version 0.9.1 \
+  --route source-quickstart \
+  --json
+```
+
+`VERIFIED` requires the deployment manifest revision, rendered page size and
+SHA-256, product version, and selected route fragment to agree. `NOT_READY` or
+`BLOCKED` keeps the cohort closed. The audit performs bounded network reads and
+no writes. This makes the closed
 cohort state actionable without rendering recruitment text or authorizing a
 community write. Machine-readable JSON keeps the stable gate IDs; the human
 card adds the concrete evidence required for each one, including the seven

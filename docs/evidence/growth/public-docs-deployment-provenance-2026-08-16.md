@@ -1,0 +1,87 @@
+# Public documentation deployment provenance — 2026-08-16
+
+> Decision: **LOCAL_CONTRACT_PASS / PUBLIC_DEPLOYMENT_PENDING**
+>
+> Public writes performed by this audit: **none**
+
+## Why this gate exists
+
+The independent first-map cohort previously accepted a canonical GitHub Pages
+URL by shape alone. That was insufficient: a public source commit can resolve
+while the deployed Getting Started page still comes from an older `develop`
+revision. A first-time operator could therefore receive instructions that do
+not match the runtime being measured.
+
+The live read-only audit on 2026-08-16 confirmed this is a real boundary, not a
+hypothetical one. Draft PR #427 resolves at exact head
+`0c673878697eb120b3b4d9387e9b72c17df80b9e`, but the deployed page does not yet
+publish `docs-deployment-v1.json`. The exact audit returned `BLOCKED` with
+`manifest-unavailable` and HTTP 404. The public page also still presents the
+older build/run route rather than the candidate's one-command source
+quickstart. No cohort route is promoted from that evidence.
+
+## Product and workflow contract
+
+The `docs-site` workflow now builds the site first and then generates a
+deterministic `docs-deployment-v1.json` inside the Pages artifact. The manifest
+binds:
+
+- the exact 40-character source revision checked out by Actions;
+- the product version;
+- the exact byte count and SHA-256 of `getting-started.html`;
+- the Docker first-map and source-quickstart fragment IDs; and
+- the trusted `develop`-only Pages deployment workflow identity.
+
+Both workflow jobs also require the actual Actions ref to equal
+`refs/heads/develop`. A manually dispatched feature branch cannot build or
+deploy an artifact that falsely claims the trusted deployment identity.
+
+Generation fails if the rendered page is empty, oversized, non-UTF-8,
+symlinked, or lacks either canonical fragment. An existing manifest is never
+overwritten inside the artifact.
+
+`check_public_docs_deployment.py` performs only bounded HTTPS GETs. It validates
+the public manifest against its Draft 7 schema, requires the fixed route
+pairing, fetches the exact page, verifies byte count and SHA-256, checks the
+selected fragment, and compares source revision and product version with
+operator-supplied expectations. It returns `VERIFIED`, `NOT_READY`, or
+`BLOCKED`; no result authorizes a merge, Pages deployment, trial, recruitment,
+image publication, or release.
+
+## Cohort binding
+
+The first-map cohort contract now requires one
+`canonical_documentation_provenance` object in addition to the canonical path,
+URL, and runtime identity. Its deployment revision must equal the cohort's
+public source revision. Every active attempt also records the page SHA-256 and
+must match the selected provenance. URL presence alone can no longer open the
+cohort.
+
+## Verification
+
+```bash
+python3 -m pytest -q \
+  lidarslam/test/test_docs_deployment_provenance.py \
+  lidarslam/test/test_first_map_validator_cohort.py \
+  lidarslam/test/test_check_g0_readiness.py
+
+python3 scripts/check_public_docs_deployment.py \
+  --expected-revision 0c673878697eb120b3b4d9387e9b72c17df80b9e \
+  --expected-product-version 0.9.1 \
+  --route source-quickstart \
+  --json
+```
+
+The focused deployment regressions cover exact identity, schema validation,
+missing route fragments, symlink rejection, exclusive manifest creation,
+revision/version drift, page tampering, route-pair drift, and unavailable
+public evidence. The live command currently exits 1 with `BLOCKED`, as required
+until a reviewed `develop` deployment exposes matching provenance.
+
+## Honest boundary
+
+This increment makes a future public route auditable; it does not make the
+current route comparable. Docker/source rows remain mixed-version and lack
+complete human measurements. The `candidate-images` environment, v0.9.1
+images, accepted independent maps, and paired GLIM usability records remain
+absent. Pages deployment occurs only after a separately reviewed source merge.

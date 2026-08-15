@@ -8,13 +8,13 @@
 > `3f4dd70cdc58ad421192559213cdee0bdc41eba8`
 >
 > Frozen public review baseline (machine key `public_head_sha`):
-> `8a931a3627be503fb10c255ef846c6d3c54a237c`
+> `0c673878697eb120b3b4d9387e9b72c17df80b9e`
 >
-> Planned follow-up inventory: 268 paths; SHA-256
-> `2368e59e36227667b7073b3ec0296a0084ef419b446effb2597a28c0cbf8cc89`
+> Planned follow-up inventory: 275 paths; SHA-256
+> `cb9cfb1c2ac8d20a3997e815acb9cc4ad24a0d9d8283a502369b6b529e838e0b`
 >
-> Last observed remote mutation: exact non-force push from `a286c65` to
-> `2a92cc5`; mutations performed by the checker or review-card command:
+> Last observed remote mutation: exact non-force push from `9281fd5` to
+> `0c67387`; mutations performed by the checker or review-card command:
 > **none**
 
 ## Outcome
@@ -38,19 +38,17 @@ The GitHub repository and PR were inspected without mutation:
 
 - Draft PR `#427`, `Prepare crash-safe guided mapping for G0 review`, remains
   open, draft, and mergeable into `develop`;
-- at the baseline observation, the public PR head resolved to `8a931a3` and
-  the later review fixes had not yet been published;
-- at that observation, the PR exposed 253 changed files and 56 commits;
-- all nine reported GitHub Actions checks pass on the public head, including
-  Humble/Jazzy builds, default workflows, upgrade checks, documentation, and
-  release-readiness guards; and
+- at the baseline observation, the public PR head resolved to `0c67387`;
+- at that observation, the PR exposed 322 changed files and 221 commits;
+- ten GitHub Actions checks pass on the public head and four publication jobs
+  skip intentionally, including green Humble/Jazzy builds, default workflows,
+  upgrade checks, documentation, and release-readiness guards; and
 - no PR conversation, inline review, or submitted review was present at the
   observation time.
 
-At the baseline observation, passing checks on `8a931a3` validated only the
-then-published portion of the seven-slice candidate, not the then-local review
-fixes. Every candidate tip newer than that frozen baseline requires its own
-public CI result.
+Passing checks on `0c67387` validate the complete published candidate through
+the GLIM-cache CTest repair. The later public-docs deployment-provenance work
+remains local until its own exact tip is published and passes CI.
 
 ## Review order
 
@@ -61,8 +59,8 @@ public CI result.
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 35 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded release-or-candidate Docker/source measurement, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session execution, public preflight, and an auditable SHA-bound supplement path for retained observations | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 61 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a shared read-only environment preflight and four-artifact byte audit remain explicit; no E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
-| S6 product-shell integration | 94 | the installed home, bag-optional doctor, Japanese quickstart, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard and fail-closed worksheet generators, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, release-or-four-file-candidate exact-identity observer packet, and one-command G0 readiness dashboard agree | complete product gate and public CI |
-| S7 publication control | 6 | all 268 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
+| S6 product-shell integration | 101 | the installed home, bag-optional doctor, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard and fail-closed worksheet generators, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, release-or-four-file-candidate exact-identity observer packet, and one-command G0 readiness dashboard agree | complete product gate and public CI |
+| S7 publication control | 6 | all 275 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -94,13 +92,13 @@ IDs.
 
 The checker derives the candidate directly from Git rather than trusting the
 human table. It combines tracked changes from exact PR base `3f4dd70` with
-untracked, non-ignored paths, verifies that public baseline `8a931a3` descends
+untracked, non-ignored paths, verifies that public baseline `0c67387` descends
 from that base and the local tip descends from the public head, then requires:
 
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 268-path coverage with the fixed inventory digest;
+4. exact 275-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred.
 
@@ -112,23 +110,24 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 268 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 275 paths, 7 slices, no remote mutation |
 | checker regressions | 14 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, and self-contained read-only source dry-run execution |
 | focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
-| validator cohort contract and operating state | 31 passed; path-specific immutable runtime identity, anonymized attempt lifecycle, accepted-ledger evidence binding, four operational stop signals, 48-hour freshness, WIP, batch/target transitions, attempt-10 thresholds, and a one-action human status card are enforced through the CLI; recruitment render remains blocked; no write authority |
+| validator cohort contract and operating state | 33 passed; path-specific immutable runtime identity, byte-bound public documentation, anonymized attempt lifecycle, accepted-ledger evidence binding, four operational stop signals, 48-hour freshness, WIP, batch/target transitions, attempt-10 thresholds, and a one-action human status card are enforced through the CLI; recruitment render remains blocked; no write authority |
 | protected candidate environment | 29 passed across the shared environment/candidate gate; complete authenticated inventory, GET-only transport, exact reviewer/self-review/branch policy, unknown-rule refusal, workflow path trigger, and no-write/E2 authority are enforced; actionlint v1.7.12 and CTest 2 / 2 pass |
 | G0 readiness dashboard | 5 passed; one-command local HOLD card, optional read-only publication/environment audits, JSON schema, one next action, child-authority refusal, and checker-error fail-closed behavior are covered |
 | weekly growth snapshot | 14 passed; new snapshots re-derive cohort count/rate/state consistency while the immutable historical baseline remains schema-valid and identity-free |
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
-| complete maintained Python gate | graph: 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 958 passed; 2,400 total |
+| public documentation deployment provenance | 8 focused regressions pass; strict MkDocs produces a deterministic manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
+| complete maintained Python gate | graph: 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 968 passed; 2,410 total |
 | GLIM reference-cache integrity | 10 focused regressions passed; registered CTest 1 / 1; missing lookup remains read-only; exact content, manifest, malformed-TUM, tamper, collision, shell, and bundle boundaries pass |
 | scanmatcher clean build and CTest | Jazzy RAM-backed clean build of `lidarslam_msgs`, `ndt_omp_ros2`, and `scanmatcher`; 109 tests passed |
 | review follow-up regressions | malformed PointCloud2 recovery with padded organized XYZ-only continuation, metadata tile containment, source-bundle symlink rejection, non-interpolated immutable release-tag checkout, least-privilege release jobs, and self-contained source dry-run are covered |
 | candidate session Python style | direct flake8 for the three implementation and three focused regression files plus pydocstyle for all three implementation files: PASS |
 | documentation | `mkdocs build --strict`: PASS with pre-existing Material and navigation notices |
-| machine formats and shells | all 123 candidate JSON files parse; all 78 Draft 7 schemas validate; all 82 shell files pass `bash -n`; `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
+| machine formats and shells | all 125 candidate JSON files parse; all 80 Draft 7 schemas validate; all 82 shell files pass `bash -n`; `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
 
 The two package test directories were intentionally run in separate pytest
 processes through the repository's canonical contributor entrypoint because

@@ -88,7 +88,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['publication_plan']['status'] == (
         'PLAN_VALID_LOCAL_ONLY'
     )
-    assert report['checks']['publication_plan']['path_count'] == 268
+    assert report['checks']['publication_plan']['path_count'] == 275
     assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
     assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
     assert report['checks']['candidate_environment'] == {
@@ -127,6 +127,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         'comparable_source_row',
         'canonical_documentation_path',
         'canonical_documentation_url',
+        'canonical_documentation_provenance',
         'canonical_runtime_ref',
     ]
 
@@ -139,6 +140,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert 'ndt_omp' in card
     assert 'first-map cohort blockers:' in card
     assert 'canonical_runtime_ref' in card
+    assert 'check_public_docs_deployment.py' in card
     assert (
         'record one clean Docker PASS at that version with all seven '
         'measurements' in card

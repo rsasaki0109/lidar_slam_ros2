@@ -21,6 +21,8 @@ the following must become true together:
 - at least one clean Docker row is comparable;
 - at least one clean source row is comparable;
 - the lower-burden passing row is selected as the canonical cohort path; and
+- the deployed page manifest binds that path's bytes to the exact public
+  source revision; and
 - that path has an exact public commit or immutable GHCR digest; and
 - the copy-ready `support --first-map` handoff is present in that public
   revision.
@@ -33,6 +35,10 @@ records intentionally lack human active-time observation, and the Docker
 records are `0.9.0` while the source records are `0.9.1`. Broad promotion or
 recruitment now would violate the G0 activation decision and would turn
 missing comparable clean-host evidence into volunteer support work.
+The current GitHub Pages deployment has no `docs-deployment-v1.json`; the
+read-only exact-candidate audit therefore returns `BLOCKED` with
+`manifest-unavailable`. A resolvable commit and a plausible URL are not enough
+to select the cohort route.
 
 ## Cohort shape
 
@@ -53,7 +59,8 @@ traffic, clones, CI, maintainer demos, and silent visitors are not attempts.
 The machine-readable
 [`first-map-validator-cohort-state.json`](first-map-validator-cohort-state.json)
 records only anonymous attempt IDs, lifecycle state, public product identity,
-timing, public report/blocker links, and an accepted-ledger ID when applicable.
+the exact public documentation page SHA-256, timing, public report/blocker
+links, and an accepted-ledger ID when applicable.
 It never stores a participant handle or private contact detail. The evaluator
 cross-checks every `accepted-pass` against the authoritative accepted-first-map
 ledger, so a planning record cannot create an adoption claim.
@@ -109,7 +116,7 @@ instructions that preserve a broken public path.
 refuses partial operational-signal snapshots, more than two combined
 active/unreviewed items, more than five attempts before
 an exact public extension-decision comment, duplicate public reports, unbound
-accepted IDs, non-canonical active routes, and more than ten
+accepted IDs, active routes with a different page hash, and more than ten
 attempts. A signal snapshot older than 48 hours returns to
 `WAITING_FOR_OPERATIONAL_SIGNALS`, while future-dated evidence is rejected.
 Accepted attempts must match the accepted ledger's public report URL,
@@ -170,9 +177,10 @@ are not copied into growth snapshots or this packet.
    fresh dedicated-VM Docker/source rows against the exact identities with
    human active-time observation.
 2. Repair any repeated blocker and select the lower-burden comparable PASS.
-3. Update the machine contract with the exact public revision, path, and
-   immutable runtime identity; require `COPY_READY_NOT_AUTHORIZED` and review
-   the rendered text.
+3. Run `check_public_docs_deployment.py` against the selected exact revision;
+   update the machine contract with its verified page SHA-256, public path,
+   and immutable runtime identity; require `COPY_READY_NOT_AUTHORIZED` and
+   review the rendered text.
 4. Record a fresh public operational-signal audit in the anonymous state and
    require `READY_FOR_NEXT_ATTEMPT`.
 5. Request E3 authorization for the exact issue/community write scope.

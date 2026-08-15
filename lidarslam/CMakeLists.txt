@@ -234,6 +234,7 @@ if(BUILD_TESTING)
     test_collect_growth_snapshot
     test_complete_onboarding_measurements
     test_docker_map_bag
+    test_docs_deployment_provenance
     test_evaluate_degeneracy_trajectory
     test_external_first_map_acceptance
     test_first_map_demo

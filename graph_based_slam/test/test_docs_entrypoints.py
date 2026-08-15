@@ -771,6 +771,25 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'actions/upload-pages-artifact@v4' in docs_site_workflow
     assert 'actions/deploy-pages@v4' in docs_site_workflow
     assert 'python3 -m mkdocs build --strict' in docs_site_workflow
+    assert 'scripts/generate_docs_deployment_manifest.py' in (
+        docs_site_workflow
+    )
+    assert '--source-revision "${GITHUB_SHA}"' in docs_site_workflow
+    assert 'site/docs-deployment-v1.json' in docs_site_workflow
+    assert (
+        docs_site_workflow.count(
+            "if: github.ref == 'refs/heads/develop'"
+        )
+        == 2
+    )
+    assert "- 'VERSION'" in docs_site_workflow
+    assert "- 'scripts/generate_docs_deployment_manifest.py'" in (
+        docs_site_workflow
+    )
+    assert 'scripts/check_public_docs_deployment.py' in release_bundle_script
+    assert 'scripts/generate_docs_deployment_manifest.py' in (
+        release_bundle_script
+    )
     assert 'README.md' in docs_site_workflow
 
     rosdistro_release = ROSDISTRO_RELEASE_DOC.read_text(encoding='utf-8')

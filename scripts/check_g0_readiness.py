@@ -129,6 +129,10 @@ COHORT_GATE_GUIDANCE = {
     'canonical_documentation_url': (
         'bind that route to its canonical documentation URL and route fragment'
     ),
+    'canonical_documentation_provenance': (
+        'verify the deployed page manifest, exact source revision, and page '
+        'SHA-256 with check_public_docs_deployment.py'
+    ),
     'canonical_runtime_ref': (
         'bind Docker to an immutable GHCR digest or source to the exact '
         'public commit'

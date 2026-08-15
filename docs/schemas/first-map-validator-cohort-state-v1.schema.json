@@ -80,6 +80,7 @@
         "started_at",
         "completed_at",
         "documentation_path",
+        "documentation_page_sha256",
         "public_revision",
         "runtime_ref",
         "report_url",
@@ -105,6 +106,10 @@
         "completed_at": {"type": ["string", "null"], "format": "date-time"},
         "documentation_path": {
           "enum": ["docker-first-map", "source-quickstart"]
+        },
+        "documentation_page_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
         },
         "public_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
         "runtime_ref": {

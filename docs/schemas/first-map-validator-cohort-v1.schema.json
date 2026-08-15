@@ -38,6 +38,7 @@
         "comparable_source_row",
         "canonical_documentation_path",
         "canonical_documentation_url",
+        "canonical_documentation_provenance",
         "canonical_runtime_ref",
         "copy_ready_handoff_public",
         "tracking_issue_url"
@@ -58,6 +59,33 @@
           "type": ["string", "null"],
           "format": "uri",
           "pattern": "^https://rsasaki0109\\.github\\.io/lidar_slam_ros2/"
+        },
+        "canonical_documentation_provenance": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "manifest_url",
+                "source_revision",
+                "page_sha256"
+              ],
+              "properties": {
+                "manifest_url": {
+                  "const": "https://rsasaki0109.github.io/lidar_slam_ros2/docs-deployment-v1.json"
+                },
+                "source_revision": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{40}$"
+                },
+                "page_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            }
+          ]
         },
         "canonical_runtime_ref": {
           "type": ["string", "null"],

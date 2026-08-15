@@ -146,6 +146,9 @@ def _parse_datetime(value: str) -> datetime:
 
 def _ready_gates(gates: dict[str, Any]) -> bool:
     path = gates['canonical_documentation_path']
+    documentation_provenance = gates[
+        'canonical_documentation_provenance'
+    ]
     runtime_ref = gates['canonical_runtime_ref']
     identity_matches_path = (
         path == 'docker-first-map'
@@ -162,6 +165,9 @@ def _ready_gates(gates: dict[str, Any]) -> bool:
         and gates['comparable_source_row']
         and gates['canonical_documentation_path'] is not None
         and gates['canonical_documentation_url'] is not None
+        and documentation_provenance is not None
+        and documentation_provenance['source_revision']
+        == gates['public_revision']
         and gates['canonical_runtime_ref'] is not None
         and gates['copy_ready_handoff_public']
         and identity_matches_path
@@ -183,6 +189,8 @@ def _pending_launch_gates(gates: dict[str, Any]) -> list[str]:
         pending.append('canonical_documentation_path')
     if gates['canonical_documentation_url'] is None:
         pending.append('canonical_documentation_url')
+    if gates['canonical_documentation_provenance'] is None:
+        pending.append('canonical_documentation_provenance')
     if gates['canonical_runtime_ref'] is None:
         pending.append('canonical_runtime_ref')
     if not gates['copy_ready_handoff_public']:
@@ -212,10 +220,21 @@ def validate_contract(
     gates = contract['launch_gates']
     documentation_path = gates['canonical_documentation_path']
     documentation_url = gates['canonical_documentation_url']
+    documentation_provenance = gates[
+        'canonical_documentation_provenance'
+    ]
     runtime_ref = gates['canonical_runtime_ref']
-    if (documentation_path is None) != (documentation_url is None):
+    documentation_values = (
+        documentation_path,
+        documentation_url,
+        documentation_provenance,
+    )
+    if any(value is None for value in documentation_values) and any(
+        value is not None for value in documentation_values
+    ):
         raise CohortError(
-            'canonical documentation path and URL must be set together'
+            'canonical documentation path, URL, and provenance must be set '
+            'together'
         )
     expected_fragments = {
         'docker-first-map': '#docker-first-map-no-ros-2-workspace',
@@ -230,6 +249,14 @@ def validate_contract(
     if runtime_ref is not None and documentation_path is None:
         raise CohortError(
             'a canonical runtime identity requires a selected public path'
+        )
+    if (
+        documentation_provenance is not None
+        and documentation_provenance['source_revision']
+        != gates['public_revision']
+    ):
+        raise CohortError(
+            'canonical documentation provenance must match the public revision'
         )
     if (
         documentation_path == 'docker-first-map'
@@ -317,6 +344,8 @@ def _validate_attempt(
         if (
             attempt['documentation_path']
             != gates['canonical_documentation_path']
+            or attempt['documentation_page_sha256']
+            != gates['canonical_documentation_provenance']['page_sha256']
             or attempt['public_revision'] != gates['public_revision']
             or attempt['runtime_ref'] != gates['canonical_runtime_ref']
         ):
@@ -649,11 +678,13 @@ def render_state_summary(report: dict[str, Any]) -> str:
         elif pending & {
             'canonical_documentation_path',
             'canonical_documentation_url',
+            'canonical_documentation_provenance',
             'canonical_runtime_ref',
         }:
             next_action = (
                 'Select the lower-burden comparable PASS as the canonical '
-                'path and bind its public URL and immutable runtime identity.'
+                'path and bind its verified public page bytes and immutable '
+                'runtime identity.'
             )
         elif 'copy_ready_handoff_public' in pending:
             next_action = (
@@ -698,8 +729,9 @@ def render_recruitment(contract: dict[str, Any]) -> str:
     if not _ready_gates(contract['launch_gates']):
         raise CohortError(
             'recruitment text is blocked until the public revision, '
-            'comparable Docker/source rows, canonical path/runtime identity, '
-            'and public copy-ready handoff all pass'
+            'comparable Docker/source rows, canonical documentation '
+            'provenance/runtime identity, and public copy-ready handoff all '
+            'pass'
         )
     gates = contract['launch_gates']
     capacity = contract['capacity']
@@ -711,6 +743,10 @@ def render_recruitment(contract: dict[str, Any]) -> str:
         'run one public first-map path without private maintainer guidance.',
         '',
         f"Public path: {gates['canonical_documentation_url']}",
+        (
+            'Public page SHA-256: '
+            f"{gates['canonical_documentation_provenance']['page_sha256']}"
+        ),
         f"Exact source revision: {gates['public_revision']}",
         f"Exact product identity: {gates['canonical_runtime_ref']}",
         f"Tracking issue: {gates['tracking_issue_url']}",
@@ -739,6 +775,7 @@ def render_recruitment(contract: dict[str, Any]) -> str:
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """Parse the read-only launch and operating-state interface."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--contract', type=Path, default=DEFAULT_CONTRACT)
     parser.add_argument('--schema', type=Path, default=DEFAULT_SCHEMA)
@@ -764,6 +801,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Validate the cohort state or render bounded recruitment text."""
     args = parse_args(argv)
     try:
         contract = _load_object(args.contract, 'contract')

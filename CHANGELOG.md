@@ -46,6 +46,10 @@ more guided, recoverable, and reviewable.
   cache with a schema-backed identity over bag, effective config, runtime,
   options, and harness bytes; malformed, modified, legacy, or contradictory
   entries now fail closed instead of becoming cross-validation evidence.
+- **Exact public-docs identity** — bind the deployed Getting Started bytes,
+  canonical route fragments, product version, and Pages workflow to one source
+  commit, and keep first-time cohorts closed when that manifest is absent,
+  stale, or tampered.
 - **Honest adoption evidence** — onboarding and GLIM usability comparisons are
   schema-backed, environment-matched, and fail closed when rows are missing;
   no overall winner is inferred from incomplete evidence.

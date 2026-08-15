@@ -102,6 +102,14 @@ def _ready_contract() -> dict:
             'https://rsasaki0109.github.io/lidar_slam_ros2/'
             'getting-started.html#docker-first-map-no-ros-2-workspace'
         ),
+        'canonical_documentation_provenance': {
+            'manifest_url': (
+                'https://rsasaki0109.github.io/lidar_slam_ros2/'
+                'docs-deployment-v1.json'
+            ),
+            'source_revision': 'a' * 40,
+            'page_sha256': 'd' * 64,
+        },
         'canonical_runtime_ref': (
             'ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:' + 'b' * 64
         ),
@@ -147,6 +155,7 @@ def _attempt(
             None if active else f'2026-08-{number:02d}T11:00:00Z'
         ),
         'documentation_path': 'docker-first-map',
+        'documentation_page_sha256': 'd' * 64,
         'public_revision': 'a' * 40,
         'runtime_ref': (
             'ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:' + 'b' * 64
@@ -235,6 +244,7 @@ def test_tracked_contract_is_valid_waiting_and_read_only():
         'comparable_source_row',
         'canonical_documentation_path',
         'canonical_documentation_url',
+        'canonical_documentation_provenance',
         'canonical_runtime_ref',
     ]
     assert report['accepted_target'] == 3
@@ -348,6 +358,31 @@ def test_active_attempt_must_use_the_current_canonical_route():
 
     with pytest.raises(module.CohortError, match='canonical path'):
         _evaluate(module, state=state)
+
+
+def test_active_attempt_must_use_the_exact_public_page_bytes():
+    module = _load_module()
+    state = _observed_state()
+    attempt = _attempt(1, 'active')
+    attempt['documentation_page_sha256'] = 'e' * 64
+    state['attempts'] = [attempt]
+
+    with pytest.raises(module.CohortError, match='canonical path'):
+        _evaluate(module, state=state)
+
+
+def test_documentation_provenance_must_match_public_revision():
+    module = _load_module()
+    contract = _ready_contract()
+    contract['launch_gates']['canonical_documentation_provenance'][
+        'source_revision'
+    ] = 'c' * 40
+
+    with pytest.raises(
+        module.CohortError,
+        match='must match the public revision',
+    ):
+        module.validate_contract(contract, _payload(SCHEMA))
 
 
 def test_two_unreviewed_reports_pause_recruitment():
@@ -625,6 +660,7 @@ def test_ready_contract_renders_bounded_privacy_first_recruitment():
         'Exact product identity: '
         'ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:' + 'b' * 64
     ) in rendered
+    assert 'Public page SHA-256: ' + 'd' * 64 in rendered
     assert 'at most 5 attempts' in rendered
     assert 'no more than 2 at once' in rendered
     assert 'not a lidarslam_ros2 maintainer' in rendered
@@ -656,7 +692,7 @@ def test_ready_contract_renders_bounded_privacy_first_recruitment():
         (
             ('launch_gates', 'canonical_documentation_path'),
             'docker-first-map',
-            'path and URL must be set together',
+            'path, URL, and provenance must be set together',
         ),
     ],
 )

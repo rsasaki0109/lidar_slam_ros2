@@ -10,6 +10,8 @@ Changelog for package lidarslam
   verifier, diagnosis, manifest, and privacy-bounded receipt contract.
 * Add the exact six-package Humble/Jazzy source bootstrap and installed-product
   checks while keeping package-manager instructions evidence-gated.
+* Bind canonical first-map documentation bytes to the exact Pages deployment
+  revision before an independent-user cohort can start.
 * Contributors: Ryohei Sasaki
 
 0.9.0 (2026-07-30)
