@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-15T20:19:19+09:00",
+  "generated_at": "2026-08-15T22:02:09+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 251,
-    "expected_paths_sha256": "df379916897214635cf5699094365c7330450dd1e76721a2876c9bc3ec55d9f6",
+    "expected_path_count": 254,
+    "expected_paths_sha256": "6d03096732f57744d5d0902d16a1042cdea5c30a0d8f92be01bb80b322e306a4",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -135,7 +135,7 @@
       "id": "S4-source-onboarding",
       "order": 4,
       "title": "Fresh-terminal source and Docker onboarding measurement",
-      "review_outcome": "Humble and Jazzy users receive one exact six-package source route and a bounded Docker probe for either a release or a set-bound tag-free candidate, with dependency bootstrap, launcher activation, installed checks, public-readiness preflight, and an auditable path for attaching retained measurements without rerunning a trial.",
+      "review_outcome": "Humble and Jazzy users receive one exact six-package source route and a bounded Docker probe for either a release or a set-bound tag-free candidate, with dependency bootstrap, launcher activation, installed checks, public-readiness preflight, a one-command exact-handoff row runner, and an auditable path for attaching retained measurements without rerunning a trial.",
       "depends_on": [
         "S2-first-map-foundation"
       ],
@@ -147,6 +147,7 @@
         "docs/evidence/source-all-packages-install-2026-08-12.md",
         "docs/evidence/source-launcher-activation-2026-08-12.md",
         "docs/evidence/source-onboarding-public-preflight-2026-08-12.md",
+        "docs/schemas/candidate-trial-execution-v1.schema.json",
         "docs/schemas/onboarding-measurement-supplement-v1.schema.json",
         "docs/schemas/onboarding-trial-matrix-v1.schema.json",
         "docs/schemas/onboarding-trial-v1.schema.json",
@@ -155,6 +156,7 @@
         "lidarslam/test/test_complete_onboarding_measurements.py",
         "lidarslam/test/test_install_source_dependencies.py",
         "lidarslam/test/test_installed_product_cli_contract.py",
+        "lidarslam/test/test_run_candidate_trial.py",
         "lidarslam/test/test_run_docker_onboarding_probe.py",
         "lidarslam/test/test_run_source_onboarding_probe.py",
         "lidarslam/test/test_source_quickstart.py",
@@ -163,13 +165,14 @@
         "scripts/complete_onboarding_measurements.py",
         "scripts/install_source_dependencies.sh",
         "scripts/lidarslam",
+        "scripts/run_candidate_trial.py",
         "scripts/run_docker_onboarding_probe.py",
         "scripts/run_product_python_tests.sh",
         "scripts/run_source_onboarding_probe.py",
         "scripts/source_quickstart.sh"
       ],
       "verification": [
-        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_install_source_dependencies.py lidarslam/test/test_source_quickstart.py lidarslam/test/test_run_docker_onboarding_probe.py lidarslam/test/test_run_source_onboarding_probe.py lidarslam/test/test_complete_onboarding_measurements.py",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_install_source_dependencies.py lidarslam/test/test_source_quickstart.py lidarslam/test/test_run_candidate_trial.py lidarslam/test/test_run_docker_onboarding_probe.py lidarslam/test/test_run_source_onboarding_probe.py lidarslam/test/test_complete_onboarding_measurements.py",
         "workspace=$(mktemp -d) || exit $?; mkdir \"${workspace}/src\" || { status=$?; rmdir \"${workspace}\"; exit \"${status}\"; }; bash scripts/source_quickstart.sh --dry-run --workspace \"${workspace}\"; status=$?; rmdir \"${workspace}/src\" \"${workspace}\" || status=$?; exit \"${status}\""
       ],
       "publication_gate": "PUBLIC_CI"
@@ -256,7 +259,7 @@
       "id": "S6-product-shell-integration",
       "order": 6,
       "title": "Beginner-facing product shell, installed surface, docs, and support entrypoints",
-      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, installed runtime surface, copy-ready documentation, schema-valid first-map handoff JSON, neutral GLIM usability scorecard, and a release-or-four-file-candidate exact-identity observer packet that never invents a tag.",
+      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, installed runtime surface, copy-ready documentation, schema-valid first-map handoff JSON, neutral GLIM usability scorecard, and an atomic prepare-then-run candidate observer path that never invents a tag or a human measurement.",
       "depends_on": [
         "S1-runtime-safety",
         "S2-first-map-foundation",

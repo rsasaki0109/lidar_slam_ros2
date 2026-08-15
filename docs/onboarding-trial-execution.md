@@ -53,12 +53,53 @@ directory contains `artifacts/`, `candidate-audit.json`, both observer packet
 formats, and a schema-backed `preparation.json`; use `observer-packet.md` for
 the trial. A failure removes staging and leaves the requested output absent.
 
+After completing the disposable-host prerequisites in [Isolation and
+roles](#2-isolation-and-roles)—including the observer-image build for a Docker
+row—the handoff-to-evidence path for one selected row is one command. The
+runner does not parse or execute command text from the
+packet; it validates the five-file handoff, rebuilds the packet from the four
+artifact bytes, selects one structured row, reruns that row's live preflight,
+and derives the existing probe arguments itself:
+
+```bash
+python3 scripts/run_candidate_trial.py \
+  --handoff-dir /evidence/candidate-image-run-12345 \
+  --row docker-jazzy \
+  --output-dir /evidence/g0-docker-jazzy-20260815-a \
+  --acknowledge-dedicated-trial-host
+```
+
+Choose `docker-humble`, `docker-jazzy`, `source-humble`, or `source-jazzy`.
+The acknowledgement means the selected machine is isolated and disposable,
+its `/` filesystem contains no unrelated measured activity, source-row APT
+and build changes are acceptable, and a Docker row may use the documented
+privileged nested-container host. The command refuses a handoff or output
+inside the product checkout and never overwrites an output directory.
+
+With an interactive terminal, the default `--human-measurements auto` asks the
+independent observer for active hands-on time and the number of commands they
+submitted. In a non-interactive run it records both as `null`; it never derives
+human effort from wall time or counts internal subprocesses. Use
+`--human-measurements prompt` to require a TTY or
+`--human-measurements unknown` to choose the non-comparable mode explicitly.
+
+The new output is atomic and contains a schema-backed `execution.json`, the
+row-specific `row-preflight.json`, and, once a probe starts, a bounded
+`trial-record.json`, deterministic `trial-audit.json`, and `private/` evidence.
+A valid product `FAIL` remains `TRIAL_RECORDED` and is retained. A failed live
+preflight becomes `PREFLIGHT_BLOCKED` without starting the probe. Malformed or
+missing probe output becomes `HARNESS_ERROR`; any untrusted record is moved
+under `private/` instead of being presented as shareable evidence. Review the
+private directory before sharing because it may contain paths, logs, commands,
+map geometry, and source/build artifacts. None of these statuses authorizes a
+remote write.
+
 The lower-level `prepare_onboarding_matrix_packet.py` command remains available
 for a published release or for regenerating a candidate packet from an already
 authenticated `artifacts/` directory. It performs no network read, trial,
 cleanup, or GitHub/community write. Release mode requires `PUBLISHED`/`READY`;
 candidate mode emits `REMOTE_AUDIT_PASS`/`READY` preflights. Both packet modes
-emit one observer command per row and have status
+emit one observer command per row for lower-level review and have status
 `READY_FOR_READ_ONLY_PREFLIGHT`, not `COMPARABLE`. Keep the handoff, trial
 records, and observer roots outside the product checkout.
 

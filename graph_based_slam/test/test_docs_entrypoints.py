@@ -881,6 +881,8 @@ def test_candidate_image_workflow_is_default_branch_digest_only():
     assert 'E2_IMMUTABLE_DIGEST_ONLY' in distribution
     assert 'prepare_candidate_trial.py' in distribution
     assert 'candidate-trial-preparation-v1.schema.json' in distribution
+    assert 'run_candidate_trial.py' in distribution
+    assert 'candidate-trial-execution-v1.schema.json' in distribution
     assert 'audit_candidate_image_set.py' in distribution
     assert 'REMOTE_AUDIT_PASS' in distribution
     assert '--candidate-evidence-dir' in distribution
@@ -1475,6 +1477,10 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
     assert 'bash scripts/run_default_ci_checks.sh' in workflows
     assert 'source-route-contract-missing' in onboarding
     assert 'python3 scripts/run_source_onboarding_probe.py' in onboarding
+    assert 'python3 scripts/run_candidate_trial.py' in onboarding
+    assert '--acknowledge-dedicated-trial-host' in onboarding
+    assert 'PREFLIGHT_BLOCKED' in onboarding
+    assert 'HARNESS_ERROR' in onboarding
     assert '--public-preflight' in onboarding
     assert '--public-preflight' in SOURCE_ONBOARDING_PROBE.read_text(
         encoding='utf-8'

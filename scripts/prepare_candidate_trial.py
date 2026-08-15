@@ -8,22 +8,22 @@ directory atomically, and never runs a trial or mutates remote state.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from audit_candidate_image_set import (
-    audit_candidate_bundle,
     EVIDENCE_FILES,
     EXPECTED_REPOSITORY,
-    load_candidate_evidence_bundle,
     RUN_URL_RE,
+    audit_candidate_bundle,
+    load_candidate_evidence_bundle,
 )
 
 from prepare_onboarding_matrix_packet import (
@@ -31,7 +31,7 @@ from prepare_onboarding_matrix_packet import (
     render_packet,
 )
 
-from product_schema import validate_contract
+from product_schema import load_json_object, validate_contract
 
 
 PREPARATION_SCHEMA = 'candidate-trial-preparation-v1.schema.json'
@@ -46,6 +46,14 @@ PACKET_MARKDOWN_FILENAME = 'observer-packet.md'
 PREPARATION_FILENAME = 'preparation.json'
 EXPECTED_ARTIFACTS = tuple(item[0] for item in EVIDENCE_FILES)
 EXPECTED_FILENAMES = tuple(item[1] for item in EVIDENCE_FILES)
+EXPECTED_HANDOFF_ENTRIES = (
+    ARTIFACTS_DIRECTORY,
+    AUDIT_FILENAME,
+    PACKET_JSON_FILENAME,
+    PACKET_MARKDOWN_FILENAME,
+    PREPARATION_FILENAME,
+)
+MAX_HANDOFF_FILE_BYTES = 1024 * 1024
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 
 
@@ -131,7 +139,7 @@ def _download_candidate_artifacts(
     *,
     runner: Runner,
 ) -> None:
-    """Download each named single-file artifact into one canonical directory."""
+    """Download named single-file artifacts into one canonical directory."""
     destination.mkdir(mode=0o700)
     for artifact_name, _filename, _key in EVIDENCE_FILES:
         result = _run_download(
@@ -154,6 +162,25 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     with path.open('x', encoding='utf-8') as stream:
         json.dump(payload, stream, indent=2, sort_keys=True)
         stream.write('\n')
+
+
+def _read_bounded_handoff_file(path: Path, label: str) -> bytes:
+    """Read one regular, non-symlink handoff file with a fixed size bound."""
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise CandidateTrialCheckError(
+                f'{label} must be one regular non-symlink file'
+            )
+        size = path.stat().st_size
+        if size < 1 or size > MAX_HANDOFF_FILE_BYTES:
+            raise CandidateTrialCheckError(
+                f'{label} must be 1..{MAX_HANDOFF_FILE_BYTES} bytes'
+            )
+        return path.read_bytes()
+    except OSError as exc:
+        raise CandidateTrialCheckError(
+            f'{label} cannot be inspected: {exc}'
+        ) from exc
 
 
 def _build_receipt(
@@ -201,6 +228,178 @@ def _build_receipt(
     }
     validate_contract(receipt, PREPARATION_SCHEMA)
     return receipt
+
+
+def load_candidate_trial_handoff(directory: Path) -> dict[str, Any]:
+    """Load one exact, self-derived candidate observer handoff.
+
+    The loader treats the retained packet and receipt as claims, not inputs.
+    It rebuilds both from the canonical four artifact files and requires the
+    retained remote audit, rendered Markdown, and preparation receipt to agree
+    byte-for-value with that derivation.
+    """
+    try:
+        if directory.is_symlink() or not directory.is_dir():
+            raise CandidateTrialCheckError(
+                'candidate handoff must be one real directory'
+            )
+        entries = sorted(item.name for item in directory.iterdir())
+    except OSError as exc:
+        raise CandidateTrialCheckError(
+            f'candidate handoff cannot be inspected: {exc}'
+        ) from exc
+    if entries != sorted(EXPECTED_HANDOFF_ENTRIES):
+        raise CandidateTrialCheckError(
+            'candidate handoff must contain exactly: '
+            + ', '.join(EXPECTED_HANDOFF_ENTRIES)
+        )
+
+    metadata_paths = {
+        AUDIT_FILENAME: directory / AUDIT_FILENAME,
+        PACKET_JSON_FILENAME: directory / PACKET_JSON_FILENAME,
+        PACKET_MARKDOWN_FILENAME: directory / PACKET_MARKDOWN_FILENAME,
+        PREPARATION_FILENAME: directory / PREPARATION_FILENAME,
+    }
+    metadata_bytes = {
+        name: _read_bounded_handoff_file(path, name)
+        for name, path in metadata_paths.items()
+    }
+    try:
+        evidence_bundle = load_candidate_evidence_bundle(
+            directory / ARTIFACTS_DIRECTORY
+        )
+        audit = load_json_object(
+            metadata_paths[AUDIT_FILENAME], 'candidate handoff audit'
+        )
+        packet = load_json_object(
+            metadata_paths[PACKET_JSON_FILENAME],
+            'candidate handoff observer packet',
+        )
+        preparation = load_json_object(
+            metadata_paths[PREPARATION_FILENAME],
+            'candidate handoff preparation receipt',
+        )
+        validate_contract(audit, 'candidate-image-set-audit-v2.schema.json')
+        validate_contract(
+            packet, 'onboarding-matrix-observer-packet-v3.schema.json'
+        )
+        validate_contract(preparation, PREPARATION_SCHEMA)
+    except ValueError as exc:
+        raise CandidateTrialCheckError(
+            f'candidate handoff contract is invalid: {exc}'
+        ) from exc
+
+    if audit['status'] != 'REMOTE_AUDIT_PASS':
+        raise CandidateTrialCheckError(
+            'candidate handoff retained audit is not REMOTE_AUDIT_PASS'
+        )
+    try:
+        local_audit = audit_candidate_bundle(evidence_bundle)
+    except ValueError as exc:
+        raise CandidateTrialCheckError(
+            f'candidate handoff local audit failed: {exc}'
+        ) from exc
+    identity_fields = (
+        'candidate_set_sha256',
+        'candidate_bundle_sha256',
+        'repository',
+        'source_pr',
+        'source_commit',
+        'product_version',
+        'workflow_run_url',
+        'workflow_branch_ref',
+        'requested_by',
+    )
+    if any(audit[field] != local_audit[field] for field in identity_fields):
+        raise CandidateTrialCheckError(
+            'candidate handoff audit identity does not match artifact bytes'
+        )
+    retained_identity = ('artifact_name', 'filename', 'sha256')
+    retained_actual = [
+        tuple(item[field] for field in retained_identity)
+        for item in audit['retained_evidence']['files']
+    ]
+    retained_expected = [
+        tuple(item[field] for field in retained_identity)
+        for item in local_audit['retained_evidence']['files']
+    ]
+    image_identity = ('ros_distro', 'digest', 'immutable_ref')
+    images_actual = [
+        tuple(item[field] for field in image_identity)
+        for item in audit['images']
+    ]
+    images_expected = [
+        tuple(item[field] for field in image_identity)
+        for item in local_audit['images']
+    ]
+    run_id = int(audit['workflow_run_url'].rsplit('/', 1)[1])
+    remote_semantics_ok = (
+        retained_actual == retained_expected
+        and images_actual == images_expected
+        and audit['workflow'] == {
+            'status': 'PASS',
+            'run_id': run_id,
+            'event': 'repository_dispatch',
+            'conclusion': 'success',
+            'head_branch': 'develop',
+            'path': '.github/workflows/candidate-image.yml',
+        }
+        and audit['artifacts']['required_names']
+        == local_audit['artifacts']['required_names']
+        and audit['authority'] == {
+            'network_reads_performed': True,
+            'temporary_artifact_copies_used': True,
+            'github_writes_authorized': False,
+            'registry_writes_authorized': False,
+            'remote_mutations_performed': False,
+        }
+    )
+    if not remote_semantics_ok:
+        raise CandidateTrialCheckError(
+            'candidate handoff retained audit semantics are inconsistent'
+        )
+    expected_packet = build_candidate_packet(evidence_bundle)
+    if packet != expected_packet:
+        raise CandidateTrialCheckError(
+            'candidate handoff packet does not derive from artifact bytes'
+        )
+    try:
+        markdown = metadata_bytes[PACKET_MARKDOWN_FILENAME].decode('utf-8')
+    except UnicodeDecodeError as exc:
+        raise CandidateTrialCheckError(
+            'candidate handoff packet Markdown is not UTF-8'
+        ) from exc
+    if markdown != render_packet(expected_packet):
+        raise CandidateTrialCheckError(
+            'candidate handoff packet Markdown does not match packet JSON'
+        )
+
+    expected_preparation = _build_receipt(
+        evidence_bundle=evidence_bundle,
+        audit=audit,
+        packet=packet,
+        prepared_at=preparation['prepared_at'],
+    )
+    if preparation != expected_preparation:
+        raise CandidateTrialCheckError(
+            'candidate handoff preparation does not derive from retained '
+            'evidence'
+        )
+    if preparation['workflow_run_url'] != evidence_bundle[
+        'candidate_set'
+    ]['workflow_run_url']:
+        raise CandidateTrialCheckError(
+            'candidate handoff workflow identity is inconsistent'
+        )
+
+    return {
+        'directory': directory,
+        'evidence_bundle': evidence_bundle,
+        'audit': audit,
+        'packet': packet,
+        'preparation': preparation,
+        'metadata_bytes': metadata_bytes,
+    }
 
 
 def prepare_candidate_trial(

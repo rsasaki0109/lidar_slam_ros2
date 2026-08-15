@@ -269,6 +269,7 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'docs/schemas/release-promotion-v1.schema.json' in paths
     assert 'scripts/promote_release_images.py' in paths
     assert '.github/workflows/candidate-image.yml' in paths
+    assert 'docker/onboarding-trial-host.Dockerfile' in paths
     assert 'docs/schemas/candidate-image-request-v1.schema.json' in paths
     assert 'docs/schemas/candidate-image-v1.schema.json' in paths
     assert 'docs/schemas/candidate-image-set-v1.schema.json' in paths
@@ -276,6 +277,9 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'docs/schemas/candidate-image-set-audit-v2.schema.json' in paths
     assert (
         'docs/schemas/candidate-trial-preparation-v1.schema.json' in paths
+    )
+    assert (
+        'docs/schemas/candidate-trial-execution-v1.schema.json' in paths
     )
     assert (
         'docs/schemas/onboarding-matrix-observer-packet-v2.schema.json'
@@ -291,6 +295,10 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'scripts/audit_candidate_image_set.py' in paths
     assert 'scripts/prepare_candidate_trial.py' in paths
     assert 'scripts/prepare_onboarding_matrix_packet.py' in paths
+    assert 'scripts/run_candidate_trial.py' in paths
+    assert 'scripts/check_onboarding_trial.py' in paths
+    assert 'scripts/run_docker_onboarding_probe.py' in paths
+    assert 'scripts/run_source_onboarding_probe.py' in paths
     assert 'scripts/release_channel.py' in paths
     assert 'scripts/check_release_bundle_reproducibility.py' in paths
     assert 'scripts/docker_map_bag.sh' in paths

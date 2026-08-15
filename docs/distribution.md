@@ -439,6 +439,28 @@ preparation command grants no GitHub or registry write authority and does not
 run a trial. Do not invent release tags: a candidate digest is not a Git tag,
 GitHub Release, stable image, or E4 approval.
 
+On each dedicated candidate-trial VM, consume that complete handoff without
+copying identities or packet commands by hand:
+
+```bash
+python3 scripts/run_candidate_trial.py \
+  --handoff-dir /evidence/candidate-image-run-<RUN_ID> \
+  --row <docker-humble|docker-jazzy|source-humble|source-jazzy> \
+  --output-dir /evidence/<NEW_TRIAL_DIRECTORY> \
+  --acknowledge-dedicated-trial-host
+```
+
+The row runner locally re-derives the handoff and reruns the selected Docker
+remote audit or source public preflight before invoking the maintained probe.
+Its atomic schema-backed
+[`execution.json`](schemas/candidate-trial-execution-v1.schema.json)
+distinguishes a blocked preflight, a schema-valid PASS/FAIL trial, and a
+harness error. Interactive `auto` mode prompts for the
+two human observations; non-interactive mode leaves them unknown and the trial
+non-comparable. It performs network reads and local trial writes, including
+the acknowledged source-host or privileged-container work, but no GitHub,
+registry, release, issue, or community mutation.
+
 The reported `candidate_bundle_sha256` is reproducible: hash the UTF-8
 concatenation of one `<canonical-filename>\t<file-sha256>\n` line for each
 file, in request, Humble, Jazzy, set order. The report retains each component

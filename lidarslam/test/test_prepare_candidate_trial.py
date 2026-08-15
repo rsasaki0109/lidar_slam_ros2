@@ -268,6 +268,10 @@ def test_preparation_downloads_audits_and_publishes_one_complete_handoff(
     assert receipt['artifact_expires_at'] == '2026-09-14T00:00:00Z'
     assert receipt['outputs']['artifacts_directory'] == 'artifacts'
     module.validate_contract(receipt, module.PREPARATION_SCHEMA)
+    loaded = module.load_candidate_trial_handoff(output)
+    assert loaded['preparation'] == receipt
+    assert loaded['packet'] == packet
+    assert loaded['audit'] == audit
     assert receipt['candidate_bundle_sha256'] in (
         output / 'observer-packet.md'
     ).read_text()
@@ -277,6 +281,68 @@ def test_preparation_downloads_audits_and_publishes_one_complete_handoff(
         call[:3] == ['gh', 'attestation', 'verify'] for call in calls
     ) == 2
     assert _staging_paths(tmp_path, output.name) == []
+
+
+def test_handoff_loader_rejects_schema_valid_packet_substitution(tmp_path):
+    """A retained packet is rebuilt instead of trusted as a command source."""
+    module = _preparation_module()
+    source_bundle = _write_source_bundle(tmp_path / 'source')
+    runner, _calls = _remote_runner(module, source_bundle)
+    output = tmp_path / 'candidate-handoff'
+    module.prepare_candidate_trial(RUN_URL, output, runner=runner)
+    packet_path = output / 'observer-packet.json'
+    packet = json.loads(packet_path.read_text(encoding='utf-8'))
+    packet['rows'][0]['observer_command'] += ' --unexpected'
+    packet_path.write_text(
+        json.dumps(packet, indent=2, sort_keys=True) + '\n',
+        encoding='utf-8',
+    )
+
+    with pytest.raises(
+        module.CandidateTrialCheckError,
+        match='does not derive from artifact bytes',
+    ):
+        module.load_candidate_trial_handoff(output)
+
+
+def test_handoff_loader_rejects_retained_audit_identity_substitution(
+    tmp_path,
+):
+    """REMOTE_AUDIT_PASS cannot be copied onto a different source identity."""
+    module = _preparation_module()
+    source_bundle = _write_source_bundle(tmp_path / 'source')
+    runner, _calls = _remote_runner(module, source_bundle)
+    output = tmp_path / 'candidate-handoff'
+    module.prepare_candidate_trial(RUN_URL, output, runner=runner)
+    audit_path = output / 'candidate-audit.json'
+    audit = json.loads(audit_path.read_text(encoding='utf-8'))
+    audit['source_commit'] = 'd' * 40
+    audit_path.write_text(
+        json.dumps(audit, indent=2, sort_keys=True) + '\n',
+        encoding='utf-8',
+    )
+
+    with pytest.raises(
+        module.CandidateTrialCheckError,
+        match='audit identity does not match artifact bytes',
+    ):
+        module.load_candidate_trial_handoff(output)
+
+
+def test_handoff_loader_rejects_extra_top_level_entry(tmp_path):
+    """A handoff cannot smuggle an unbound script beside reviewed files."""
+    module = _preparation_module()
+    source_bundle = _write_source_bundle(tmp_path / 'source')
+    runner, _calls = _remote_runner(module, source_bundle)
+    output = tmp_path / 'candidate-handoff'
+    module.prepare_candidate_trial(RUN_URL, output, runner=runner)
+    (output / 'run-me.sh').write_text('exit 0\n', encoding='utf-8')
+
+    with pytest.raises(
+        module.CandidateTrialCheckError,
+        match='must contain exactly',
+    ):
+        module.load_candidate_trial_handoff(output)
 
 
 def test_second_download_mismatch_leaves_no_partial_handoff(tmp_path):

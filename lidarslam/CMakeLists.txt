@@ -256,6 +256,7 @@ if(BUILD_TESTING)
     test_release_channel
     test_rko_lio_graph_benchmark_script
     test_ros_apt_dependency_readiness
+    test_run_candidate_trial
     test_run_docker_onboarding_probe
     test_run_source_onboarding_probe
     test_sensor_setup_wizard
