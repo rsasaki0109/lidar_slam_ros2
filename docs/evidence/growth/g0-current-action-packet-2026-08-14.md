@@ -22,7 +22,9 @@
 >
 > Latest candidate-gate CI follow-up tip: `87f8f8d1bcdccb80235b8ae1832f9bc716c31d36`
 >
-> Latest publication-inventory tip: `c70c18d32e0dd860969dbd050fa3a92632f1106e`
+> Latest tag-free candidate-observer tip: `011b5951930dd019630756a178832620e2bde88c`
+>
+> Latest publication-inventory tip: `011b5951930dd019630756a178832620e2bde88c`
 
 This reviewed tip is the code-bearing product-candidate revision; later
 docs-only handoff synchronization and product UX follow-up commits must remain
@@ -71,6 +73,13 @@ registry retention still requires a remote audit. The workflow is not yet on
 sent, and no candidate digest was published. The capture-time public baseline
 also contains the CTest registration and cross-distro import-order repair for
 the gate regression; both default workflows pass at that exact revision.
+The tag-free candidate-observer follow-up at `011b595…` now validates and
+hashes one retained candidate set, audits the exact workflow/artifact/
+manifest/attestation evidence with read-only commands, and derives both Docker
+rows and the source revision without inventing a release tag. Its trial record
+retains the set SHA-256, source PR/commit/version, workflow run, and immutable
+image ref. This is local contract readiness only: no candidate set exists yet,
+no remote audit was run, and no trial was executed.
 The code-bearing packet tip is required to be an ancestor of the current
 checkout revision; later synchronization and product UX follow-up commits
 must remain described in this handoff. It replaces
@@ -91,7 +100,8 @@ gate from being mistaken for the current state.
 | Canonical NDT upstream Draft preflight | `READY_FOR_DRAFT_PR`; 30 / 30 PASS at local implementation `856e599…`; exact upstream `5495fd9…`, expected fork verified, proposed branch absent, 4 open PRs inspected, 0 duplicates, 0 API errors, and write authority false | this proves a technically coherent read-only publication state; it neither creates nor authorizes an upstream branch or PR |
 | Docker publication boundary | convenience PR/manual runs remain verification-only; the candidate gate at `c70c18d…` uses trusted default-branch tooling, exact-head CI/identity checks, a protected `candidate-images` environment, digest-only output, disabled container networking during smoke tests, SBOM/provenance/attestation checks, and 30-day schema-backed evidence | the gate can create no tag or Release; the environment is currently absent (read-only API 404), so even after review the authorization job must stop until a separate environment/E2 decision |
 | Candidate-gate regressions | 19 focused tests, actionlint v1.7.12, Python style, CTest registration, and exact-tip Humble/Jazzy default workflows pass | workflow-facing CLIs persist one request, two distinct image records, and one pair report exactly once; no workflow dispatch, environment mutation, or GHCR mutation occurred |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 241 paths / 7 slices, clean at capture-time public baseline `87f8f8d…`; inventory SHA-256 `a7b421d256f945699fedaef0ae7186391a730df9102ca16c8fd5c95a4c723b93` | the eight candidate-gate paths belong to S5; packet synchronization changes no path membership and cannot authorize a GitHub write |
+| Candidate observer contract | local implementation `011b595…`; offline candidate-set contract, tag-free packet v2, probe evidence binding, release-mode compatibility, release-bundle inclusion, and docs are covered in the 118-test focused gate | remote status is still **NOT_CHECKED** because no authorized set exists; `LOCAL_CONTRACT_PASS` is not `REMOTE_AUDIT_PASS`, a trial, E2, or E4 authority |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 246 paths / 7 slices, clean at tag-free candidate-observer tip `011b595…`; inventory SHA-256 `90d6fe1e3e76db9c3e532cab1a5ad3e214867bc2775573248f790cd866c76d93` | candidate audit paths belong to S5, the observer v2 schema belongs to S6, and packet synchronization changes no path membership or GitHub authority |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
 | Onboarding matrix | 4 / 4 product PASS; 0 / 4 comparable; **BLOCKED** | Docker is v0.9.0, source is v0.9.1, and human measurements are missing |
@@ -154,14 +164,17 @@ comparable human trial.
 3. If E2 is separately chosen after the gate is on `develop` and the protected
    environment passes the read-only audit, send one exact
    `e2-publish-candidate-image` event. Publish only the two untagged candidate
-   digests, then audit remote identity, attestation, retention, and pullability.
+   digests, download and retain all four artifacts, then run
+   `audit_candidate_image_set.py --candidate-image-set ... --remote --json`
+   and require `REMOTE_AUDIT_PASS`.
 4. If E4 is separately chosen later, follow `RELEASING.md`; after publication,
    require `check_published_release.py --require-published` and record both
    image digests before using them in a trial.
-5. Generate a new observer packet from the exact public source commit and both
-   published image digests. Use
-   `scripts/prepare_onboarding_matrix_packet.py`; do not reuse the current
-   v0.9.0/v0.9.1 mixed matrix.
+5. For a candidate trial, generate the observer packet directly from the
+   retained set with `prepare_onboarding_matrix_packet.py
+   --candidate-image-set ...`; for a separately published release, use its
+   exact public source commit and both published image digests. Do not mix the
+   modes or reuse the current v0.9.0/v0.9.1 matrix.
 6. Run fresh dedicated Humble/Jazzy Docker and source trials with a human
    observer. Record active operator time, command count, workflow download,
    peak disk, wall time, and output size; blank measurements remain
@@ -174,7 +187,7 @@ comparable human trial.
 
 ```text
 E2 artifact host: DEFER — no host or upload authorized
-E2 candidate images: DEFER — gate implemented locally at c70c18d; workflow not on develop, candidate-images environment absent, no dispatch or digest publication
+E2 candidate images: DEFER — gate at c70c18d and tag-free observer at 011b595; workflow not on develop, candidate-images environment absent, no dispatch, digest publication, remote audit, or trial
 E3 community mutation: DEFER — cohort and issue operations remain closed
 E4 v0.9.1 release/images: DEFER — G0 matrix and distribution gates remain open
 ```
