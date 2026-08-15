@@ -273,8 +273,13 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'docs/schemas/candidate-image-v1.schema.json' in paths
     assert 'docs/schemas/candidate-image-set-v1.schema.json' in paths
     assert 'docs/schemas/candidate-image-set-audit-v1.schema.json' in paths
+    assert 'docs/schemas/candidate-image-set-audit-v2.schema.json' in paths
     assert (
         'docs/schemas/onboarding-matrix-observer-packet-v2.schema.json'
+        in paths
+    )
+    assert (
+        'docs/schemas/onboarding-matrix-observer-packet-v3.schema.json'
         in paths
     )
     assert 'scripts/validate_candidate_image_request.py' in paths

@@ -111,13 +111,117 @@ def _candidate_set():
     }
 
 
+def _candidate_request():
+    required_checks = [
+        'build (humble)',
+        'build (jazzy)',
+        'docs and release metadata',
+        'humble default workflow',
+        'humble v0.6.0 to candidate',
+        'jazzy default workflow',
+        'jazzy v0.6.0 to candidate',
+        'release readiness',
+        'release readiness threshold guard',
+    ]
+    return {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/candidate-image-request-v1.schema.json'
+        ),
+        'status': 'AUTHORIZED',
+        'publication_mode': 'digest_only',
+        'repository': 'rsasaki0109/lidar_slam_ros2',
+        'event_name': 'repository_dispatch',
+        'event_action': 'e2-publish-candidate-image',
+        'default_branch': 'develop',
+        'workflow_branch_ref': 'refs/heads/develop',
+        'source_pr': 427,
+        'source_commit': 'a' * 40,
+        'product_version': '0.9.1',
+        'requested_by': 'maintainer',
+        'actor_role': 'maintain',
+        'required_success_checks': sorted(required_checks),
+        'observed_successful_checks': sorted(required_checks),
+        'observed_skipped_checks': [
+            'authorize immutable candidate request',
+            'build and push (${{ matrix.ros_distro }})',
+            'publish immutable digest (${{ matrix.ros_distro }})',
+            'verify immutable candidate pair',
+        ],
+        'environment': {
+            'name': 'candidate-images',
+            'required_reviewer_count': 1,
+            'prevent_self_review': True,
+            'deployment_branch_policy': 'develop_only',
+        },
+        'authority': {
+            'package_write_authorized_for_digest_job': True,
+            'tag_creation_authorized': False,
+            'moving_tag_mutation_authorized': False,
+            'release_mutation_authorized': False,
+        },
+    }
+
+
+def _candidate_record(distro, digest_character):
+    return {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/candidate-image-v1.schema.json'
+        ),
+        'status': 'PASS',
+        'publication_mode': 'digest_only',
+        'repository': 'rsasaki0109/lidar_slam_ros2',
+        'source_pr': 427,
+        'source_commit': 'a' * 40,
+        'product_version': '0.9.1',
+        'ros_distro': distro,
+        'platform': 'linux/amd64',
+        'digest': 'sha256:' + digest_character * 64,
+        'immutable_ref': (
+            'ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:'
+            + digest_character * 64
+        ),
+        'cli_version': 'lidarslam_ros2 0.9.1',
+        'workflow_run_url': (
+            'https://github.com/rsasaki0109/lidar_slam_ros2/'
+            'actions/runs/12345'
+        ),
+        'workflow_branch_ref': 'refs/heads/develop',
+        'requested_by': 'maintainer',
+        'tags_created': [],
+        'moving_tags_mutated': False,
+        'release_mutated': False,
+        'registry_retention_status': 'REQUIRES_REMOTE_AUDIT',
+        'evidence_retention_days': 30,
+    }
+
+
+def _write_candidate_bundle(module, directory):
+    directory.mkdir()
+    documents = {
+        'candidate-image-request.json': _candidate_request(),
+        'candidate-image-humble.json': _candidate_record('humble', 'b'),
+        'candidate-image-jazzy.json': _candidate_record('jazzy', 'c'),
+        'candidate-image-set.json': _candidate_set(),
+    }
+    for filename, document in documents.items():
+        (directory / filename).write_text(
+            json.dumps(document, indent=2, sort_keys=True) + '\n',
+            encoding='utf-8',
+        )
+    return module.load_candidate_evidence_bundle(directory)
+
+
 def test_packet_aligns_all_rows_to_one_version_and_exact_identities():
     """Every row shares the requested version and immutable identity."""
     module = _module()
     packet = _packet(module)
 
     assert packet['status'] == 'READY_FOR_READ_ONLY_PREFLIGHT'
-    assert packet['schema_version'] == 2
+    assert packet['schema_version'] == 3
     assert packet['packet_id'] == 'g0-onboarding-0.9.1-release'
     assert packet['docker_identity_mode'] == 'release'
     assert [row['row_id'] for row in packet['rows']] == [
@@ -176,10 +280,11 @@ def test_packet_commands_pin_identity_and_keep_paths_as_placeholders():
     ) == 1
 
 
-def test_candidate_packet_uses_retained_set_without_inventing_release_tags():
-    """Candidate rows bind one set and remain tag-free end to end."""
+def test_candidate_packet_uses_retained_bundle_without_release_tags(tmp_path):
+    """Candidate rows bind all four files and remain tag-free end to end."""
     module = _module()
-    packet = module.build_candidate_packet(_candidate_set(), 'd' * 64)
+    bundle = _write_candidate_bundle(module, tmp_path / 'candidate-evidence')
+    packet = module.build_candidate_packet(bundle)
     payload = json.dumps(packet, sort_keys=True)
     docker_rows = [
         row for row in packet['rows'] if row['route'] == 'docker'
@@ -189,7 +294,10 @@ def test_candidate_packet_uses_retained_set_without_inventing_release_tags():
     assert packet['docker_identity_mode'] == 'candidate-image-set'
     assert packet['docker_evidence'] == {
         'mode': 'candidate-image-set',
-        'candidate_set_sha256': 'd' * 64,
+        'candidate_set_sha256': bundle['file_hashes'][
+            'candidate-image-set.json'
+        ],
+        'candidate_bundle_sha256': bundle['bundle_sha256'],
         'source_pr': 427,
         'source_commit': 'a' * 40,
         'workflow_run_url': (
@@ -205,7 +313,7 @@ def test_candidate_packet_uses_retained_set_without_inventing_release_tags():
     )
     assert packet['public_checks']['docker']['command'] == (
         'python3 scripts/audit_candidate_image_set.py '
-        "--candidate-image-set '<CANDIDATE_IMAGE_SET_JSON>' --remote --json"
+        "--candidate-evidence-dir '<CANDIDATE_EVIDENCE_DIR>' --remote --json"
     )
     assert all(row['identity']['tag'] is None for row in docker_rows)
     assert all(
@@ -215,7 +323,12 @@ def test_candidate_packet_uses_retained_set_without_inventing_release_tags():
         for row in docker_rows
     )
     assert '--candidate-image-ref' in payload
-    assert '--candidate-image-set-sha256 ' + 'd' * 64 in payload
+    assert '--candidate-image-set-sha256 ' + bundle['file_hashes'][
+        'candidate-image-set.json'
+    ] in payload
+    assert '--candidate-evidence-bundle-sha256 ' + (
+        bundle['bundle_sha256']
+    ) in payload
     assert '--candidate-source-pr 427' in payload
     assert 'v0.9.1-humble' not in payload
     assert 'v0.9.1-jazzy' not in payload
@@ -228,36 +341,36 @@ def test_candidate_cli_derives_identity_and_rejects_manual_overrides(
 ):
     """Candidate CLI accepts one retained set and rejects mixed identity."""
     module = _module()
-    candidate_path = tmp_path / 'candidate-image-set.json'
-    candidate_path.write_text(
-        json.dumps(_candidate_set(), sort_keys=True) + '\n',
-        encoding='utf-8',
-    )
+    candidate_directory = tmp_path / 'candidate-evidence'
+    bundle = _write_candidate_bundle(module, candidate_directory)
 
     assert module.main([
-        '--candidate-image-set', str(candidate_path), '--json',
+        '--candidate-evidence-dir', str(candidate_directory), '--json',
     ]) == 0
     packet = json.loads(capsys.readouterr().out)
     assert packet['docker_evidence']['candidate_set_sha256'] == (
-        module.sha256_file(candidate_path)
+        bundle['file_hashes']['candidate-image-set.json']
+    )
+    assert packet['docker_evidence']['candidate_bundle_sha256'] == (
+        bundle['bundle_sha256']
     )
 
     assert module.main([
-        '--candidate-image-set', str(candidate_path),
+        '--candidate-evidence-dir', str(candidate_directory),
         '--product-version', '0.9.1',
         '--json',
     ]) == 2
     assert 'cannot be mixed' in capsys.readouterr().err
 
 
-def test_candidate_packet_rejects_a_malformed_retained_set():
+def test_candidate_packet_rejects_a_malformed_retained_set(tmp_path):
     """A schema-shaped but duplicate distro pair fails before rendering."""
     module = _module()
-    candidate_set = _candidate_set()
-    candidate_set['images'][1]['ros_distro'] = 'humble'
+    bundle = _write_candidate_bundle(module, tmp_path / 'candidate-evidence')
+    bundle['candidate_set']['images'][1]['ros_distro'] = 'humble'
 
-    with pytest.raises(module.PacketError, match='candidate image set'):
-        module.build_candidate_packet(candidate_set, 'd' * 64)
+    with pytest.raises(module.PacketError, match='candidate image evidence'):
+        module.build_candidate_packet(bundle)
 
 
 @pytest.mark.parametrize(

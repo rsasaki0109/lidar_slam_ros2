@@ -398,22 +398,49 @@ uploads these schema-backed artifacts for 30 days:
 
 The records deliberately say
 `registry_retention_status: REQUIRES_REMOTE_AUDIT`. After an authorized run,
-retain the downloaded `candidate-image-set.json`, then run:
+download all four artifacts into one otherwise-empty directory. Each artifact
+contains the single canonical JSON file named above:
+
+```bash
+CANDIDATE_RUN_ID='<EXACT_SUCCESSFUL_WORKFLOW_RUN_ID>'
+CANDIDATE_EVIDENCE_DIR='/evidence/candidate-image-run-<RUN_ID>'
+install -d -m 0700 "${CANDIDATE_EVIDENCE_DIR}"
+for artifact in \
+  candidate-image-request \
+  candidate-image-record-humble \
+  candidate-image-record-jazzy \
+  candidate-image-set
+do
+  gh run download "${CANDIDATE_RUN_ID}" \
+    --repo rsasaki0109/lidar_slam_ros2 \
+    --name "${artifact}" \
+    --dir "${CANDIDATE_EVIDENCE_DIR}"
+done
+```
+
+Then audit that directory:
 
 ```bash
 python3 scripts/audit_candidate_image_set.py \
-  --candidate-image-set /evidence/candidate-image-set.json \
+  --candidate-evidence-dir "${CANDIDATE_EVIDENCE_DIR}" \
   --remote \
   --json
 ```
 
 Require `REMOTE_AUDIT_PASS` before using either identity in an onboarding row.
-The command performs bounded reads of the exact workflow run, all four
-unexpired artifacts, both registry manifests, and both attestations; it grants
-no GitHub or registry write authority. Generate tag-free trial commands with
-`prepare_onboarding_matrix_packet.py --candidate-image-set ...`; do not invent
-release tags. A candidate digest is not a Git tag, GitHub Release, stable
-image, or E4 approval.
+The command permits exactly those four regular files, re-derives both image
+records from the request and the set from the records, then downloads every
+artifact again into a temporary directory and byte-compares all four SHA-256
+values. It also reads both registry manifests and attestations, removes the
+temporary copies, and grants no GitHub or registry write authority. Generate
+tag-free trial commands with `prepare_onboarding_matrix_packet.py
+--candidate-evidence-dir ...`; do not invent release tags. A candidate digest
+is not a Git tag, GitHub Release, stable image, or E4 approval.
+
+The reported `candidate_bundle_sha256` is reproducible: hash the UTF-8
+concatenation of one `<canonical-filename>\t<file-sha256>\n` line for each
+file, in request, Humble, Jazzy, set order. The report retains each component
+hash as well, so a reviewer never has to infer which bytes a bundle hash names.
 
 Every tagged release publishes exact
 `ghcr.io/rsasaki0109/lidar_slam_ros2:v<VERSION>-<distro>` images only after

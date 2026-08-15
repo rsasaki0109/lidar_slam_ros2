@@ -36,27 +36,29 @@ python3 scripts/prepare_onboarding_matrix_packet.py \
 ```
 
 For an authorized digest-only candidate, do not copy those values into release
-arguments. Derive every identity from the exact retained set instead:
+arguments. Derive every identity from the exact retained four-file directory
+instead:
 
 ```bash
 python3 scripts/prepare_onboarding_matrix_packet.py \
-  --candidate-image-set /evidence/candidate-image-set.json \
+  --candidate-evidence-dir /evidence/candidate-image-run-12345 \
   --render \
   --output /tmp/g0-candidate-observer-packet.md
 ```
 
 The command is local-only: it performs no network read, trial, cleanup, or
 GitHub/community write. Release mode emits the read-only release and source
-preflights and requires `PUBLISHED`/`READY`. Candidate mode hashes the exact
-set bytes, derives both tag-free image references and the source commit from
-that set, emits the read-only candidate audit and source preflight, and
-requires `REMOTE_AUDIT_PASS`/`READY`. Both modes emit one observer command per
-row and have status `READY_FOR_READ_ONLY_PREFLIGHT`, not `COMPARABLE`.
+preflights and requires `PUBLISHED`/`READY`. Candidate mode re-derives and
+hashes the request, both image records, and set, derives both tag-free image
+references and the source commit, emits the read-only candidate audit and
+source preflight, and requires `REMOTE_AUDIT_PASS`/`READY`. Both modes emit
+one observer command per row and have status
+`READY_FOR_READ_ONLY_PREFLIGHT`, not `COMPARABLE`.
 `--output` writes the selected JSON or Markdown form with exclusive creation
 and refuses to overwrite an existing packet; omit it to write to stdout. This
 avoids unsafe shell redirection while retaining a machine-readable `--json`
-option. Keep the generated packet, retained candidate set, trial records, and
-observer roots outside the product checkout.
+option. Keep the generated packet, retained candidate evidence directory,
+trial records, and observer roots outside the product checkout.
 
 Every row must retain all seven measurements named in the packet. In
 particular, `active_operator_time_sec` and `command_count` must come from a
@@ -397,26 +399,30 @@ bytes:
 
 ~~~bash
 python3 scripts/audit_candidate_image_set.py \
-  --candidate-image-set /evidence/candidate-image-set.json \
+  --candidate-evidence-dir /evidence/candidate-image-run-12345 \
   --remote \
   --json
 ~~~
 
 Require `REMOTE_AUDIT_PASS`. The audit checks the exact
-`repository_dispatch` run, all four unexpired artifacts, each
-`ghcr.io/...@sha256:...` manifest, and both GitHub attestations without
-pulling image layers. It reports the earliest artifact-expiry date and grants
-no GitHub or registry write authority. If either digest is absent, its
-attestation fails, the evidence artifact expired before review, or the
-environment/CI request record is missing, the candidate row is FAIL.
+`repository_dispatch` run, re-downloads every unexpired artifact into a
+temporary directory, byte-compares it with each retained file, and checks each
+`ghcr.io/...@sha256:...` manifest and both GitHub attestations without pulling
+image layers. It reports the four retained hashes, their canonical bundle
+hash, and the earliest artifact-expiry date; the temporary downloads are
+removed and no GitHub or registry write authority is granted. If either
+digest is absent, an attestation fails, any retained byte differs, an artifact
+expired, or the environment/CI request record is missing, the candidate row
+is FAIL.
 
 A digest-only candidate has no published `v<VERSION>-<distro>` tag and is not
 a GitHub Release. Do not relabel it, create a convenience tag, or pass it to a
-release-only public preflight. Observer packet v2 binds the exact set SHA-256,
-source PR and commit, workflow run, requester, both immutable references, and
-retention contract into each candidate command; it never invents a release
-tag. The checked-in matrix still changes only after reviewed trial records are
-captured. Merely having a pullable digest is not comparable evidence.
+release-only public preflight. Observer packet v3 binds both the canonical
+four-file bundle SHA-256 and exact set SHA-256, source PR and commit, workflow
+run, requester, both immutable references, and retention contract into each
+candidate command; it never invents a release tag. The checked-in matrix still
+changes only after reviewed trial records are captured. Merely having a
+pullable digest is not comparable evidence.
 
 ### Source identity
 

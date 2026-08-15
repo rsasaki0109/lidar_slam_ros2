@@ -46,14 +46,11 @@ from pathlib import Path
 from typing import Any
 
 from audit_candidate_image_set import (
-    audit_candidate_set,
-    sha256_file,
+    audit_candidate_bundle,
+    load_candidate_evidence_bundle,
 )
 
 import jsonschema
-
-from product_schema import load_json_object
-
 
 REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
 DATASET_ID = 'mid360-public-zenodo-14841855'
@@ -66,9 +63,9 @@ COMMIT_RE = re.compile(r'^[0-9a-f]{40}$')
 DIGEST_RE = re.compile(r'^sha256:[0-9a-f]{64}$')
 SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
-    'schemas/onboarding-matrix-observer-packet-v2.schema.json'
+    'schemas/onboarding-matrix-observer-packet-v3.schema.json'
 )
-CANDIDATE_SET_PLACEHOLDER = '<CANDIDATE_IMAGE_SET_JSON>'
+CANDIDATE_EVIDENCE_PLACEHOLDER = '<CANDIDATE_EVIDENCE_DIR>'
 
 
 class PacketError(ValueError):
@@ -127,6 +124,7 @@ def _docker_row(
     *,
     candidate_set: dict[str, Any] | None = None,
     candidate_set_sha256: str | None = None,
+    candidate_bundle_sha256: str | None = None,
 ) -> dict[str, Any]:
     image_tag: str | None
     immutable_ref: str
@@ -143,8 +141,10 @@ def _docker_row(
         image_arguments = ['--image-tag', image_tag]
         candidate_arguments: list[str] = []
     else:
-        if candidate_set_sha256 is None:
-            raise PacketError('candidate packet requires the exact set hash')
+        if candidate_set_sha256 is None or candidate_bundle_sha256 is None:
+            raise PacketError(
+                'candidate packet requires exact set and bundle hashes'
+            )
         image_tag = None
         by_distro = {
             image['ros_distro']: image
@@ -154,8 +154,8 @@ def _docker_row(
         preflight_command = _command([
             'python3',
             'scripts/audit_candidate_image_set.py',
-            '--candidate-image-set',
-            CANDIDATE_SET_PLACEHOLDER,
+            '--candidate-evidence-dir',
+            CANDIDATE_EVIDENCE_PLACEHOLDER,
             '--remote',
             '--json',
         ])
@@ -163,6 +163,8 @@ def _docker_row(
         candidate_arguments = [
             '--candidate-image-set-sha256',
             candidate_set_sha256,
+            '--candidate-evidence-bundle-sha256',
+            candidate_bundle_sha256,
             '--candidate-source-pr',
             str(candidate_set['source_pr']),
             '--candidate-source-commit',
@@ -266,7 +268,7 @@ def _validate_packet(packet: dict[str, Any]) -> None:
         Path(__file__).resolve().parents[1]
         / 'docs'
         / 'schemas'
-        / 'onboarding-matrix-observer-packet-v2.schema.json'
+        / 'onboarding-matrix-observer-packet-v3.schema.json'
     )
     try:
         schema = json.loads(schema_path.read_text(encoding='utf-8'))
@@ -292,6 +294,7 @@ def _build_packet(
     *,
     candidate_set: dict[str, Any] | None = None,
     candidate_set_sha256: str | None = None,
+    candidate_bundle_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Build one schema-validated release or candidate observer packet."""
     docker_digests = {
@@ -306,6 +309,7 @@ def _build_packet(
             docker_digests[distro],
             candidate_set=candidate_set,
             candidate_set_sha256=candidate_set_sha256,
+            candidate_bundle_sha256=candidate_bundle_sha256,
         )
         for distro in DISTROS
     ]
@@ -327,6 +331,7 @@ def _build_packet(
         docker_evidence = {
             'mode': docker_mode,
             'candidate_set_sha256': None,
+            'candidate_bundle_sha256': None,
             'source_pr': None,
             'source_commit': None,
             'workflow_run_url': None,
@@ -339,16 +344,18 @@ def _build_packet(
             'before provisioning a trial host.'
         )
     else:
-        if candidate_set_sha256 is None:
-            raise PacketError('candidate packet requires the exact set hash')
+        if candidate_set_sha256 is None or candidate_bundle_sha256 is None:
+            raise PacketError(
+                'candidate packet requires exact set and bundle hashes'
+            )
         docker_mode = 'candidate-image-set'
         run_id = candidate_set['workflow_run_url'].rsplit('/', 1)[1]
         packet_suffix = f'candidate-{run_id}'
         docker_command = _command([
             'python3',
             'scripts/audit_candidate_image_set.py',
-            '--candidate-image-set',
-            CANDIDATE_SET_PLACEHOLDER,
+            '--candidate-evidence-dir',
+            CANDIDATE_EVIDENCE_PLACEHOLDER,
             '--remote',
             '--json',
         ])
@@ -356,6 +363,7 @@ def _build_packet(
         docker_evidence = {
             'mode': docker_mode,
             'candidate_set_sha256': candidate_set_sha256,
+            'candidate_bundle_sha256': candidate_bundle_sha256,
             'source_pr': candidate_set['source_pr'],
             'source_commit': candidate_set['source_commit'],
             'workflow_run_url': candidate_set['workflow_run_url'],
@@ -368,9 +376,9 @@ def _build_packet(
             ),
         }
         identity_action = (
-            'Retain the exact candidate-image-set bytes, run the read-only '
-            'remote audit, and require REMOTE_AUDIT_PASS before '
-            'provisioning a trial host.'
+            'Retain the exact four-file candidate evidence directory, run '
+            'the read-only byte-comparing remote audit, and require '
+            'REMOTE_AUDIT_PASS before provisioning a trial host.'
         )
     source_command = _command([
         'python3',
@@ -382,7 +390,7 @@ def _build_packet(
         product_version,
     ])
     packet = {
-        'schema_version': 2,
+        'schema_version': 3,
         'schema_uri': SCHEMA_URI,
         'packet_id': f'g0-onboarding-{product_version}-{packet_suffix}',
         'repository': REPOSITORY,
@@ -445,18 +453,19 @@ def build_packet(
 
 
 def build_candidate_packet(
-    candidate_set: dict[str, Any],
-    candidate_set_sha256: str,
+    evidence_bundle: dict[str, Any],
 ) -> dict[str, Any]:
-    """Build a tag-free packet derived only from one candidate set."""
+    """Build a tag-free packet derived from one four-file evidence bundle."""
     try:
-        audit_candidate_set(
-            candidate_set,
-            candidate_set_sha256=candidate_set_sha256,
-            remote=False,
-        )
+        audit_candidate_bundle(evidence_bundle)
     except ValueError as exc:
-        raise PacketError(f'candidate image set is invalid: {exc}') from exc
+        raise PacketError(
+            f'candidate image evidence bundle is invalid: {exc}'
+        ) from exc
+    candidate_set = evidence_bundle['candidate_set']
+    candidate_set_sha256 = evidence_bundle['file_hashes'][
+        'candidate-image-set.json'
+    ]
     by_distro = {
         image['ros_distro']: image for image in candidate_set['images']
     }
@@ -467,6 +476,7 @@ def build_candidate_packet(
         by_distro['jazzy']['digest'],
         candidate_set=candidate_set,
         candidate_set_sha256=candidate_set_sha256,
+        candidate_bundle_sha256=evidence_bundle['bundle_sha256'],
     )
 
 
@@ -484,6 +494,8 @@ def render_packet(packet: dict[str, Any]) -> str:
     ]
     if packet['docker_evidence']['candidate_set_sha256'] is not None:
         lines.extend([
+            '- Candidate bundle SHA-256: '
+            f"`{packet['docker_evidence']['candidate_bundle_sha256']}`",
             '- Candidate set SHA-256: '
             f"`{packet['docker_evidence']['candidate_set_sha256']}`",
             '- Candidate workflow: '
@@ -531,11 +543,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument('--docker-humble-digest')
     parser.add_argument('--docker-jazzy-digest')
     parser.add_argument(
-        '--candidate-image-set',
+        '--candidate-evidence-dir',
         type=Path,
         help=(
-            'derive all Docker and source identities from one retained '
-            'candidate-image-set JSON; cannot be mixed with release inputs'
+            'derive all Docker and source identities from one directory '
+            'containing the four retained candidate artifacts; cannot be '
+            'mixed with release inputs'
         ),
     )
     output = parser.add_mutually_exclusive_group()
@@ -566,20 +579,16 @@ def main(argv: list[str] | None = None) -> int:
             name for name, value in release_inputs.items()
             if value is not None
         ]
-        if args.candidate_image_set is not None:
+        if args.candidate_evidence_dir is not None:
             if supplied_release_inputs:
                 raise PacketError(
-                    '--candidate-image-set cannot be mixed with manual '
+                    '--candidate-evidence-dir cannot be mixed with manual '
                     'release inputs: ' + ', '.join(supplied_release_inputs)
                 )
-            candidate_set = load_json_object(
-                args.candidate_image_set,
-                'candidate image set',
+            evidence_bundle = load_candidate_evidence_bundle(
+                args.candidate_evidence_dir
             )
-            packet = build_candidate_packet(
-                candidate_set,
-                sha256_file(args.candidate_image_set),
-            )
+            packet = build_candidate_packet(evidence_bundle)
         else:
             missing = [
                 name for name, value in release_inputs.items()

@@ -872,6 +872,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument('--image-digest', required=True)
     parser.add_argument('--product-version', default='0.9.0')
     parser.add_argument('--candidate-image-set-sha256')
+    parser.add_argument('--candidate-evidence-bundle-sha256')
     parser.add_argument('--candidate-source-pr', type=int)
     parser.add_argument('--candidate-source-commit')
     parser.add_argument('--candidate-workflow-run-url')
@@ -967,6 +968,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error('--product-version must be a semantic version')
     candidate_fields = {
         '--candidate-image-set-sha256': args.candidate_image_set_sha256,
+        '--candidate-evidence-bundle-sha256': (
+            args.candidate_evidence_bundle_sha256
+        ),
         '--candidate-source-pr': args.candidate_source_pr,
         '--candidate-source-commit': args.candidate_source_commit,
         '--candidate-workflow-run-url': args.candidate_workflow_run_url,
@@ -1018,6 +1022,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                 '--candidate-image-set-sha256 must be 64 lower-case hex '
                 'digits'
             )
+        if SHA256_RE.fullmatch(
+            args.candidate_evidence_bundle_sha256
+        ) is None:
+            parser.error(
+                '--candidate-evidence-bundle-sha256 must be 64 lower-case '
+                'hex digits'
+            )
         if args.candidate_source_pr < 1:
             parser.error('--candidate-source-pr must be a positive integer')
         if COMMIT_RE.fullmatch(args.candidate_source_commit) is None:
@@ -1035,6 +1046,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         args.resolved_image_ref = args.candidate_image_ref
         args.candidate_image_evidence = {
             'sha256': args.candidate_image_set_sha256,
+            'bundle_sha256': args.candidate_evidence_bundle_sha256,
             'source_pr': args.candidate_source_pr,
             'source_commit': args.candidate_source_commit,
             'product_version': args.product_version,

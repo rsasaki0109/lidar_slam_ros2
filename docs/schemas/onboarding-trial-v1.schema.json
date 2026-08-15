@@ -193,6 +193,7 @@
           "additionalProperties": false,
           "required": [
             "sha256",
+            "bundle_sha256",
             "source_pr",
             "source_commit",
             "product_version",
@@ -201,6 +202,10 @@
           ],
           "properties": {
             "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "bundle_sha256": {
               "type": "string",
               "pattern": "^[0-9a-f]{64}$"
             },

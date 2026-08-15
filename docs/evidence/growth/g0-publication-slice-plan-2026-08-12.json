@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-15T17:41:13+09:00",
+  "generated_at": "2026-08-15T20:19:19+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 246,
-    "expected_paths_sha256": "90d6fe1e3e76db9c3e532cab1a5ad3e214867bc2775573248f790cd866c76d93",
+    "expected_path_count": 248,
+    "expected_paths_sha256": "543757789fc5a4da4636b825d5719ca99132cb23e0d846563719422c72ca62b1",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -178,7 +178,7 @@
       "id": "S5-distribution-readiness",
       "order": 5,
       "title": "NDT dependency, immutable candidate gate, and ROS distribution readiness",
-      "review_outcome": "Release tooling reports package-manager blockers honestly, binds image publication to exact immutable identity, remotely audits retained candidate sets without write authority, refuses historical version reuse, and keeps candidate, release, and moving-tag authority separate from local readiness.",
+      "review_outcome": "Release tooling reports package-manager blockers honestly, binds image publication to exact immutable identity, re-derives and byte-compares all four retained candidate artifacts without write authority, refuses historical version reuse, and keeps candidate, release, and moving-tag authority separate from local readiness.",
       "depends_on": [
         "S1-runtime-safety",
         "S4-source-onboarding"
@@ -203,6 +203,7 @@
         "docs/rosdistro-release.md",
         "docs/schemas/candidate-image-request-v1.schema.json",
         "docs/schemas/candidate-image-set-audit-v1.schema.json",
+        "docs/schemas/candidate-image-set-audit-v2.schema.json",
         "docs/schemas/candidate-image-set-v1.schema.json",
         "docs/schemas/candidate-image-v1.schema.json",
         "docs/schemas/canonical-ndt-convergence-contract-v1.schema.json",
@@ -255,7 +256,7 @@
       "id": "S6-product-shell-integration",
       "order": 6,
       "title": "Beginner-facing product shell, installed surface, docs, and support entrypoints",
-      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, installed runtime surface, copy-ready documentation, schema-valid first-map handoff JSON, neutral GLIM usability scorecard, and a release-or-candidate exact-identity observer packet that never invents a tag.",
+      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, installed runtime surface, copy-ready documentation, schema-valid first-map handoff JSON, neutral GLIM usability scorecard, and a release-or-four-file-candidate exact-identity observer packet that never invents a tag.",
       "depends_on": [
         "S1-runtime-safety",
         "S2-first-map-foundation",
@@ -311,6 +312,7 @@
         "docs/schemas/onboarding-matrix-evidence-index-v1.schema.json",
         "docs/schemas/onboarding-matrix-observer-packet-v1.schema.json",
         "docs/schemas/onboarding-matrix-observer-packet-v2.schema.json",
+        "docs/schemas/onboarding-matrix-observer-packet-v3.schema.json",
         "docs/schemas/system-doctor-v1.schema.json",
         "docs/schemas/usability-scorecard-evidence-index-v1.schema.json",
         "docs/schemas/usability-scorecard-trial-v1.schema.json",

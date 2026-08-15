@@ -334,6 +334,7 @@ def _candidate_cli_args(tmp_path, *, ref_digest=None, image_digest=None):
         '--image-digest', 'sha256:' + image_digest,
         '--product-version', '0.9.1',
         '--candidate-image-set-sha256', 'd' * 64,
+        '--candidate-evidence-bundle-sha256', 'e' * 64,
         '--candidate-source-pr', '427',
         '--candidate-source-commit', 'b' * 40,
         '--candidate-workflow-run-url',
@@ -354,6 +355,7 @@ def test_cli_accepts_tag_free_candidate_and_binds_retained_set(tmp_path):
     )
     assert args.candidate_image_evidence == {
         'sha256': 'd' * 64,
+        'bundle_sha256': 'e' * 64,
         'source_pr': 427,
         'source_commit': 'b' * 40,
         'product_version': '0.9.1',
