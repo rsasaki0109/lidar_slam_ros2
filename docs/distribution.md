@@ -241,6 +241,10 @@ python3 scripts/check_package_manager_release_readiness.py \
   --require-ready
 ```
 
+Set `GITHUB_TOKEN` to a read-capable token when the shared public GitHub API
+quota is exhausted. The audit sends it only to `api.github.com`, never writes
+to GitHub, and never includes it in JSON output.
+
 The resulting JSON contract is
 [`package-manager-release-readiness-v1.schema.json`](schemas/package-manager-release-readiness-v1.schema.json).
 GitHub API errors report `BLOCKED`, while absence of the exact successful run

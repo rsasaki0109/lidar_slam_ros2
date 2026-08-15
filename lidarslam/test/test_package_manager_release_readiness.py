@@ -114,6 +114,45 @@ def test_api_failure_is_blocked_not_not_run():
     assert report['remote']['inspected'] is False
 
 
+def test_github_token_is_scoped_to_api_requests(monkeypatch):
+    """The optional token is sent only to bounded GitHub API requests."""
+    requests = []
+
+    class FakeHeaders:
+        def get(self, _name):
+            return None
+
+    class FakeResponse:
+        status = 200
+        headers = FakeHeaders()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _limit):
+            return b'{}'
+
+    def fake_urlopen(request, timeout):
+        assert timeout == 20
+        requests.append(request)
+        return FakeResponse()
+
+    monkeypatch.setenv('GITHUB_TOKEN', 'read-only-test-token')
+    monkeypatch.setattr(READINESS.urllib.request, 'urlopen', fake_urlopen)
+
+    READINESS._request_json('https://api.github.com/repos/owner/repo')
+    READINESS._request_json(
+        'https://raw.githubusercontent.com/owner/repo/main/file')
+
+    assert requests[0].get_header('Authorization') == (
+        'Bearer read-only-test-token'
+    )
+    assert requests[1].get_header('Authorization') is None
+
+
 def test_both_named_distros_are_required():
     run = _successful_run()
     run['jobs'][1]['conclusion'] = 'failure'

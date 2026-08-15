@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -51,13 +52,17 @@ def expected_run_name(version: str) -> str:
 
 
 def _request_json(url: str) -> dict[str, Any]:
+    headers = {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'lidarslam-package-manager-release-audit/1',
+        'X-GitHub-Api-Version': '2022-11-28',
+    }
+    token = os.environ.get('GITHUB_TOKEN')
+    if token and url.startswith('https://api.github.com/'):
+        headers['Authorization'] = f'Bearer {token}'
     request = urllib.request.Request(
         url,
-        headers={
-            'Accept': 'application/vnd.github+json',
-            'User-Agent': 'lidarslam-package-manager-release-audit/1',
-            'X-GitHub-Api-Version': '2022-11-28',
-        },
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
