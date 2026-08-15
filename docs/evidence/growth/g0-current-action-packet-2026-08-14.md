@@ -8,7 +8,7 @@
 >
 > Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
 >
-> Latest product UX follow-up tip: `80f9c6bda469886ccceeb836ceeae125d6562190`
+> Latest product UX follow-up tip: `2d1921173d337fd2a1c4ccdfc809aa4d26d6d83c`
 
 This reviewed tip is the code-bearing product-candidate revision; later
 docs-only handoff synchronization and product UX follow-up commits must remain
@@ -19,7 +19,8 @@ It was first captured on 2026-08-14 and refreshed on 2026-08-15 after the
 dashboard UX, CI-registration, version-priority, final PR-head CI,
 packet-command-contract, fail-closed usability-worksheet, paired scorecard,
 safe observer-packet-output, safe first-map-dry-run-plan-output, Docker JSON
-own-bag-plan, source JSON quickstart-plan, and publication-inventory follow-ups.
+own-bag-plan, source JSON quickstart-plan, custom PointCloud2 onboarding,
+contributor C4 local-retirement, and publication-inventory follow-ups.
 The code-bearing packet tip is required to be an ancestor of the current
 checkout revision; later synchronization and product UX follow-up commits
 must remain described in this handoff. It replaces
@@ -32,7 +33,9 @@ gate from being mistaken for the current state.
 | Check | Current result | Meaning |
 | --- | --- | --- |
 | Draft PR #427 | open, draft, mergeable; its current head includes packet synchronization and product UX follow-ups after the reviewed tip above | source candidate is publicly reviewable |
-| PR-head CI | **PASS** for the latest product UX follow-up tip (9 / 9 checks) | revalidation covers the source JSON plan, Docker JSON plan, and publication-inventory synchronization; CI is not a release approval |
+| PR-head CI | **PASS** for product UX tip `2d192117…` (9 / 9 checks) | revalidation covers the source JSON plan, Docker JSON plan, custom PointCloud2 onboarding, and publication-inventory synchronization; CI is not a release approval |
+| Custom PointCloud2 onboarding | implemented in the reviewed product UX tip; docs entrypoint tests 19 passed | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
+| Contributor starter queue | C1/C2/C3/C5 `READY`; C4 `STALE` locally after implementation | C4 is not rendered or published as a duplicate; no issue or label mutation occurred |
 | Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 230 paths / 7 slices, clean at the refreshed tip | local inventory is complete and cannot authorize a GitHub write |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |

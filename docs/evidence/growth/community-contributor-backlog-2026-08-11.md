@@ -46,7 +46,7 @@ and Python cache writes are disabled.
 
 | Check | Result |
 | --- | --- |
-| queue/schema/drift/authority regressions | 17 passed |
+| queue/schema/drift/authority regressions | 47 passed |
 | `--verify starter-C1` | strict MkDocs profile passed; no workspace artifact |
 | `--verify starter-C5` | strict MkDocs profile passed; no workspace artifact |
 | C4 custom-sensor checklist | implemented locally; queue reports C4 `STALE` and blocks rendering it as a new issue |
