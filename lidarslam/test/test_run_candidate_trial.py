@@ -327,6 +327,15 @@ def test_docker_row_runs_from_structured_identity_and_keeps_unknown_human_data(
     assert command[command.index('--candidate-image-ref') + 1] == (
         row['identity']['immutable_ref']
     )
+    assert '--build-observer-image-if-missing' in command
+    observer_image = command[command.index('--observer-image') + 1]
+    observer_recipe = command[
+        command.index('--observer-recipe-sha256') + 1
+    ]
+    assert observer_image == (
+        f'lidarslam-onboarding-trial-host:24.04-{observer_recipe[:12]}'
+    )
+    assert len(observer_recipe) == 64
     assert not list(tmp_path.glob('.trial-output.running-*'))
 
 

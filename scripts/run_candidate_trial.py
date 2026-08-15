@@ -2,9 +2,10 @@
 """Run one exact candidate onboarding row from a prepared handoff.
 
 The command validates the complete handoff, performs the row-specific public
-preflight, delegates to the existing machine probe, and publishes one new
-local evidence directory atomically. It never invents human measurements or
-performs a GitHub, registry, release, issue, or community write.
+preflight, bootstraps a content-bound Docker observer image when required,
+delegates to the existing machine probe, and publishes one new local evidence
+directory atomically. It never invents human measurements or performs a
+GitHub, registry, release, issue, or community write.
 """
 
 from __future__ import annotations
@@ -49,6 +50,10 @@ ROW_IDS = (
     'docker-jazzy',
     'source-humble',
     'source-jazzy',
+)
+DOCKER_OS_VERSION = {'humble': '22.04', 'jazzy': '24.04'}
+OBSERVER_DOCKERFILE = (
+    REPO_ROOT / 'docker' / 'onboarding-trial-host.Dockerfile'
 )
 PREFLIGHT_FILENAME = 'row-preflight.json'
 TRIAL_RECORD_FILENAME = 'trial-record.json'
@@ -341,6 +346,29 @@ def _measurement_arguments(capture: dict[str, str]) -> list[str]:
     return ['--record-human-measurements-unknown']
 
 
+def _docker_observer_identity(row: dict[str, Any]) -> tuple[str, str]:
+    """Bind automatic observer bootstrap to the reviewed Dockerfile bytes."""
+    try:
+        if (
+            OBSERVER_DOCKERFILE.is_symlink()
+            or not OBSERVER_DOCKERFILE.is_file()
+        ):
+            raise CandidateTrialExecutionError(
+                'observer Dockerfile must be one regular non-symlink file'
+            )
+        recipe_sha256 = _sha256_bytes(OBSERVER_DOCKERFILE.read_bytes())
+    except OSError as exc:
+        raise CandidateTrialExecutionError(
+            f'cannot inspect observer Dockerfile: {exc}'
+        ) from exc
+    os_version = DOCKER_OS_VERSION[row['ros_distro']]
+    image = (
+        f'lidarslam-onboarding-trial-host:{os_version}-'
+        f'{recipe_sha256[:12]}'
+    )
+    return image, recipe_sha256
+
+
 def _docker_probe_command(
     handoff: dict[str, Any],
     row: dict[str, Any],
@@ -353,6 +381,7 @@ def _docker_probe_command(
     capture: dict[str, str],
 ) -> list[str]:
     preparation = handoff['preparation']
+    observer_image, observer_recipe_sha256 = _docker_observer_identity(row)
     return [
         sys.executable,
         str(REPO_ROOT / 'scripts' / 'run_docker_onboarding_probe.py'),
@@ -386,6 +415,11 @@ def _docker_probe_command(
         str(timeout_sec),
         '--acknowledge-dedicated-filesystem',
         '--allow-privileged-container-host',
+        '--build-observer-image-if-missing',
+        '--observer-image',
+        observer_image,
+        '--observer-recipe-sha256',
+        observer_recipe_sha256,
         *_measurement_arguments(capture),
     ]
 
@@ -932,7 +966,8 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help=(
             'confirm this is an isolated disposable trial host with a '
             'dedicated measured filesystem; also permit source host changes '
-            'or the Docker privileged container required by the selected row'
+            'or the reviewed Docker observer bootstrap and privileged '
+            'container required by the selected row'
         ),
     )
     parser.add_argument(

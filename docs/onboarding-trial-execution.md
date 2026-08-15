@@ -18,7 +18,43 @@ and the validator is `scripts/check_onboarding_trial.py`. Do not run this
 document's trial commands in the product checkout. Use a disposable environment
 and a trial root outside the checkout.
 
-## 0. Prepare one exact-identity observer packet
+## 0. Start one exact candidate session
+
+On a prepared disposable row host, the shortest candidate path starts from the
+exact successful Actions run URL and publishes one complete local session:
+
+```bash
+python3 scripts/start_candidate_trial.py \
+  --workflow-run-url \
+    https://github.com/rsasaki0109/lidar_slam_ros2/actions/runs/12345 \
+  --row docker-jazzy \
+  --output-dir /evidence/g0-docker-jazzy-20260815-a \
+  --acknowledge-dedicated-trial-host
+```
+
+Choose `docker-humble`, `docker-jazzy`, `source-humble`, or `source-jazzy`.
+This one command downloads and independently authenticates the four candidate
+artifacts, creates the observer handoff, reruns the selected row's live
+preflight, invokes the maintained probe, and publishes `handoff/`, `execution/`,
+and schema-backed `session.json` together. The requested session directory
+appears only after both child directories are internally complete. A valid
+product `FAIL`, blocked preflight, or harness failure remains a terminal session
+instead of being erased.
+
+For a Docker row, the command also removes the manual observer-image build. It
+derives a local tag from the exact observer Dockerfile SHA-256, builds that tag
+only when absent and before timing, then requires exact contract, Ubuntu, and
+recipe-hash labels plus an immutable local image ID. It never replaces an
+existing tag. The privileged nested host still requires the explicit dedicated-
+host acknowledgement; convenience does not weaken the isolation boundary.
+
+The command performs public GitHub/GHCR/attestation reads and local trial-host
+writes only. It does not dispatch a workflow or write to GitHub, GHCR, a
+Release, an issue, or a community channel. Use `--human-measurements auto` on a
+TTY for observer prompts; non-interactive execution preserves those values as
+unknown and therefore non-comparable.
+
+### Split preparation and execution
 
 Before provisioning a host, prepare one local packet for the same product
 version across all four rows. This catches a copied digest, a mixed Docker /
@@ -53,9 +89,10 @@ directory contains `artifacts/`, `candidate-audit.json`, both observer packet
 formats, and a schema-backed `preparation.json`; use `observer-packet.md` for
 the trial. A failure removes staging and leaves the requested output absent.
 
-After completing the disposable-host prerequisites in [Isolation and
-roles](#2-isolation-and-roles)—including the observer-image build for a Docker
-row—the handoff-to-evidence path for one selected row is one command. The
+Use the split path when the authenticated handoff must be reviewed or
+transferred to a separately provisioned host. After completing the disposable-
+host prerequisites in [Isolation and roles](#2-isolation-and-roles), the
+handoff-to-evidence path for one selected row is one command. The
 runner does not parse or execute command text from the
 packet; it validates the five-file handoff, rebuilds the packet from the four
 artifact bytes, selects one structured row, reruns that row's live preflight,
@@ -75,6 +112,8 @@ its `/` filesystem contains no unrelated measured activity, source-row APT
 and build changes are acceptable, and a Docker row may use the documented
 privileged nested-container host. The command refuses a handoff or output
 inside the product checkout and never overwrites an output directory.
+For a Docker row it performs the same content-addressed observer-image
+bootstrap as the combined session command; no separate Docker build is needed.
 
 With an interactive terminal, the default `--human-measurements auto` asks the
 independent observer for active hands-on time and the number of commands they

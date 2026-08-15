@@ -601,6 +601,75 @@ def test_docker_control_command_has_hard_default_timeout(monkeypatch):
     assert observed['timeout'] == PROBE.DOCKER_CONTROL_TIMEOUT_SEC
 
 
+def test_missing_observer_image_is_built_once_and_label_verified(monkeypatch):
+    """Automatic bootstrap binds the local tag to exact reviewed bytes."""
+    dockerfile, _context, recipe = PROBE._observer_recipe()
+    image = f'lidarslam-onboarding-trial-host:24.04-{recipe[:12]}'
+    image_id = 'sha256:' + ('a' * 64)
+    calls = []
+    inspections = iter((None, image_id))
+
+    def fake_inspect(value, **kwargs):
+        assert value == image
+        assert kwargs['expected_ubuntu'] == '24.04'
+        assert kwargs['expected_recipe_sha256'] == recipe
+        return next(inspections)
+
+    def fake_docker(*arguments, **kwargs):
+        calls.append((arguments, kwargs))
+        return PROBE.subprocess.CompletedProcess(arguments, 0, '', '')
+
+    monkeypatch.setattr(PROBE, '_inspect_observer_image', fake_inspect)
+    monkeypatch.setattr(PROBE, '_docker', fake_docker)
+    args = PROBE.argparse.Namespace(
+        observer_image=image,
+        observer_recipe_sha256=recipe,
+        build_observer_image_if_missing=True,
+    )
+
+    observed_image, observed_id = PROBE._ensure_observer_image(args, '24.04')
+
+    assert observed_image == image
+    assert observed_id == image_id
+    assert len(calls) == 1
+    command, kwargs = calls[0]
+    assert command[:2] == ('build', '--pull=false')
+    assert f'OBSERVER_RECIPE_SHA256={recipe}' in command
+    assert str(dockerfile) in command
+    assert kwargs['check'] is False
+    assert kwargs['timeout_sec'] == PROBE.OBSERVER_BUILD_TIMEOUT_SEC
+
+
+def test_existing_observer_image_requires_exact_recipe_labels(monkeypatch):
+    """A stale local tag cannot be trusted merely because it exists."""
+    image = 'lidarslam-onboarding-trial-host:22.04-' + ('b' * 12)
+    payload = [{
+        'Id': 'sha256:' + ('c' * 64),
+        'Config': {
+            'Labels': {
+                PROBE.OBSERVER_CONTRACT_LABEL: '1',
+                PROBE.OBSERVER_UBUNTU_LABEL: '22.04',
+                PROBE.OBSERVER_RECIPE_LABEL: 'd' * 64,
+            },
+        },
+    }]
+
+    monkeypatch.setattr(
+        PROBE,
+        '_docker',
+        lambda *_args, **_kwargs: PROBE.subprocess.CompletedProcess(
+            [], 0, json.dumps(payload), ''
+        ),
+    )
+
+    with pytest.raises(PROBE.ProbeError, match='labels do not match'):
+        PROBE._inspect_observer_image(
+            image,
+            expected_ubuntu='22.04',
+            expected_recipe_sha256='e' * 64,
+        )
+
+
 def test_timeout_cleanup_stops_removes_and_confirms_inner_container(
     monkeypatch,
 ):

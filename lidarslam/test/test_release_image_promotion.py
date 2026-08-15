@@ -281,6 +281,7 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert (
         'docs/schemas/candidate-trial-execution-v1.schema.json' in paths
     )
+    assert 'docs/schemas/candidate-trial-session-v1.schema.json' in paths
     assert (
         'docs/schemas/onboarding-matrix-observer-packet-v2.schema.json'
         in paths
@@ -296,6 +297,7 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'scripts/prepare_candidate_trial.py' in paths
     assert 'scripts/prepare_onboarding_matrix_packet.py' in paths
     assert 'scripts/run_candidate_trial.py' in paths
+    assert 'scripts/start_candidate_trial.py' in paths
     assert 'scripts/check_onboarding_trial.py' in paths
     assert 'scripts/run_docker_onboarding_probe.py' in paths
     assert 'scripts/run_source_onboarding_probe.py' in paths

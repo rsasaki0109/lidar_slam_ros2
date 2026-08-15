@@ -89,9 +89,22 @@ RECEIPT_SCHEMA = (
     / 'first-map-validation-receipt-v1.schema.json'
 )
 DOCKER_CONTROL_TIMEOUT_SEC = 30.0
+OBSERVER_BUILD_TIMEOUT_SEC = 900.0
 POST_RECEIPT_GRACE_SEC = 60.0
 DISK_SAMPLE_INTERVAL_SEC = 0.25
 OUTER_DOCKER_ENDPOINT = 'unix:///var/run/docker.sock'
+OBSERVER_CONTRACT_VERSION = '1'
+OBSERVER_CONTRACT_LABEL = (
+    'io.github.rsasaki0109.lidarslam.observer-contract'
+)
+OBSERVER_UBUNTU_LABEL = 'io.github.rsasaki0109.lidarslam.observer-ubuntu'
+OBSERVER_RECIPE_LABEL = (
+    'io.github.rsasaki0109.lidarslam.observer-recipe-sha256'
+)
+OBSERVER_IMAGE_RE = re.compile(
+    r'^lidarslam-onboarding-trial-host:'
+    r'(?:22\.04|24\.04)(?:-[0-9a-f]{12})?$'
+)
 EXPECTED_RECEIPT_CHECKS = {
     'manifest_succeeded',
     'lifecycle_complete',
@@ -263,6 +276,136 @@ def _docker_exec(
         check=check,
         timeout_sec=timeout_sec,
     )
+
+
+def _observer_recipe() -> tuple[Path, Path, str]:
+    """Return the reviewed observer recipe and its exact source hash."""
+    dockerfile = REPO_ROOT / 'docker' / 'onboarding-trial-host.Dockerfile'
+    context = REPO_ROOT / 'docker'
+    try:
+        if dockerfile.is_symlink() or not dockerfile.is_file():
+            raise ProbeError(
+                'observer Dockerfile must be one regular non-symlink file'
+            )
+        if context.is_symlink() or not context.is_dir():
+            raise ProbeError(
+                'observer build context must be one real directory'
+            )
+        recipe_sha256 = hashlib.sha256(dockerfile.read_bytes()).hexdigest()
+    except OSError as exc:
+        raise ProbeError(
+            f'cannot inspect observer build recipe: {exc}'
+        ) from exc
+    return dockerfile, context, recipe_sha256
+
+
+def _inspect_observer_image(
+    image: str,
+    *,
+    expected_ubuntu: str,
+    expected_recipe_sha256: str | None,
+) -> str | None:
+    """Return one validated local image ID, or None when it is absent."""
+    result = _docker('image', 'inspect', image, check=False)
+    if result.returncode != 0:
+        return None
+    try:
+        image_values = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ProbeError('cannot parse observer image inspection') from exc
+    if (
+        not isinstance(image_values, list)
+        or len(image_values) != 1
+        or not isinstance(image_values[0], dict)
+    ):
+        raise ProbeError('observer image inspection is not singular')
+    observer_image_id = image_values[0].get('Id')
+    if not isinstance(observer_image_id, str) or not re.fullmatch(
+        r'sha256:[0-9a-f]{64}', observer_image_id
+    ):
+        raise ProbeError('observer image has no immutable local ID')
+    if expected_recipe_sha256 is not None:
+        labels = image_values[0].get('Config', {}).get('Labels')
+        expected_labels = {
+            OBSERVER_CONTRACT_LABEL: OBSERVER_CONTRACT_VERSION,
+            OBSERVER_UBUNTU_LABEL: expected_ubuntu,
+            OBSERVER_RECIPE_LABEL: expected_recipe_sha256,
+        }
+        if not isinstance(labels, dict) or any(
+            labels.get(name) != value
+            for name, value in expected_labels.items()
+        ):
+            raise ProbeError(
+                'observer image labels do not match the reviewed recipe'
+            )
+    return observer_image_id
+
+
+def _ensure_observer_image(
+    args: argparse.Namespace,
+    os_version: str,
+) -> tuple[str, str]:
+    """Inspect or safely bootstrap the exact local observer image."""
+    observer_image = getattr(
+        args,
+        'observer_image',
+        None,
+    ) or f'lidarslam-onboarding-trial-host:{os_version}'
+    expected_recipe = getattr(args, 'observer_recipe_sha256', None)
+    image_id = _inspect_observer_image(
+        observer_image,
+        expected_ubuntu=os_version,
+        expected_recipe_sha256=expected_recipe,
+    )
+    if image_id is not None:
+        return observer_image, image_id
+    if not getattr(args, 'build_observer_image_if_missing', False):
+        raise ProbeError(
+            f'observer image missing: build {observer_image} from '
+            'docker/onboarding-trial-host.Dockerfile'
+        )
+
+    dockerfile, context, actual_recipe = _observer_recipe()
+    if expected_recipe is not None and expected_recipe != actual_recipe:
+        raise ProbeError(
+            'requested observer recipe hash does not match the local '
+            'Dockerfile'
+        )
+    expected_recipe = actual_recipe
+    print(
+        f'Preparing reviewed Docker observer image: {observer_image}',
+        file=sys.stderr,
+    )
+    build = _docker(
+        'build',
+        '--pull=false',
+        '--build-arg',
+        f'UBUNTU_VERSION={os_version}',
+        '--build-arg',
+        f'OBSERVER_RECIPE_SHA256={expected_recipe}',
+        '--file',
+        str(dockerfile),
+        '--tag',
+        observer_image,
+        str(context),
+        check=False,
+        timeout_sec=OBSERVER_BUILD_TIMEOUT_SEC,
+    )
+    if build.returncode != 0:
+        detail = build.stderr.strip() or build.stdout.strip()
+        if detail:
+            detail = detail.splitlines()[-1][:300]
+        else:
+            detail = f'exit {build.returncode}'
+        raise ProbeError(f'observer image build failed: {detail}')
+    image_id = _inspect_observer_image(
+        observer_image,
+        expected_ubuntu=os_version,
+        expected_recipe_sha256=expected_recipe,
+    )
+    if image_id is None:
+        raise ProbeError('observer image build completed without its tag')
+    return observer_image, image_id
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -932,6 +1075,25 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        '--build-observer-image-if-missing',
+        action='store_true',
+        help=(
+            'build the reviewed local observer image before timing when its '
+            'exact tag is absent; never replace an existing tag'
+        ),
+    )
+    parser.add_argument(
+        '--observer-image',
+        help=(
+            'reviewed local observer image tag; intended for the candidate '
+            'session wrapper'
+        ),
+    )
+    parser.add_argument(
+        '--observer-recipe-sha256',
+        help='exact SHA-256 of the reviewed observer Dockerfile',
+    )
+    parser.add_argument(
         '--acknowledge-dedicated-filesystem',
         action='store_true',
         help=(
@@ -945,6 +1107,21 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             '--allow-privileged-container-host is required; review the '
             'isolation warning first'
         )
+    if args.observer_image is not None and OBSERVER_IMAGE_RE.fullmatch(
+        args.observer_image
+    ) is None:
+        parser.error('--observer-image is not a bounded local trial-host tag')
+    if args.observer_recipe_sha256 is not None and SHA256_RE.fullmatch(
+        args.observer_recipe_sha256
+    ) is None:
+        parser.error(
+            '--observer-recipe-sha256 must be 64 lower-case hex digits'
+        )
+    if (
+        args.observer_image is not None
+        and args.observer_recipe_sha256 is None
+    ):
+        parser.error('--observer-image requires --observer-recipe-sha256')
     if args.disk_scope is None and args.acknowledge_dedicated_filesystem:
         parser.error(
             '--acknowledge-dedicated-filesystem requires --disk-scope'
@@ -1082,30 +1259,9 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
         )
     _validate_outer_daemon()
     os_version = OS_VERSION[args.ros_distro]
-    observer_image = f'lidarslam-onboarding-trial-host:{os_version}'
-    image_inspect = _docker(
-        'image', 'inspect', observer_image, check=False
+    observer_image, observer_image_id = _ensure_observer_image(
+        args, os_version
     )
-    if image_inspect.returncode != 0:
-        raise ProbeError(
-            f'observer image missing: build {observer_image} from '
-            'docker/onboarding-trial-host.Dockerfile'
-        )
-    try:
-        image_values = json.loads(image_inspect.stdout)
-    except json.JSONDecodeError as exc:
-        raise ProbeError('cannot parse observer image inspection') from exc
-    if (
-        not isinstance(image_values, list)
-        or len(image_values) != 1
-        or not isinstance(image_values[0], dict)
-    ):
-        raise ProbeError('observer image inspection is not singular')
-    observer_image_id = image_values[0].get('Id')
-    if not isinstance(observer_image_id, str) or not re.fullmatch(
-        r'sha256:[0-9a-f]{64}', observer_image_id
-    ):
-        raise ProbeError('observer image has no immutable local ID')
 
     name_hash = hashlib.sha256(args.trial_id.encode()).hexdigest()[:12]
     host_name = f'lidarslam-g0-{args.ros_distro}-{name_hash}'

@@ -397,9 +397,30 @@ uploads these schema-backed artifacts for 30 days:
 - `candidate-image-set.json` — a complete, distinct, same-source pair.
 
 The records deliberately say
-`registry_retention_status: REQUIRES_REMOTE_AUDIT`. After an authorized run,
-use the exact Actions run URL to prepare the complete local handoff in one
-command:
+`registry_retention_status: REQUIRES_REMOTE_AUDIT`. On a prepared disposable
+row host, the shortest audited path starts from the exact Actions run URL and
+finishes one selected row in one command:
+
+```bash
+python3 scripts/start_candidate_trial.py \
+  --workflow-run-url \
+    https://github.com/rsasaki0109/lidar_slam_ros2/actions/runs/<RUN_ID> \
+  --row <docker-humble|docker-jazzy|source-humble|source-jazzy> \
+  --output-dir /evidence/<NEW_SESSION_DIRECTORY> \
+  --acknowledge-dedicated-trial-host
+```
+
+Its atomic session contains `handoff/`, `execution/`, and schema-backed
+[`session.json`](schemas/candidate-trial-session-v1.schema.json). The handoff
+is independently downloaded and audited before the row's live preflight. For a
+Docker row, the wrapper derives a local observer tag from the reviewed
+Dockerfile SHA-256, builds it only when absent and before timing, and validates
+its exact contract, Ubuntu, recipe labels, and immutable local image ID. A
+blocked preflight, valid PASS/FAIL, or harness failure is retained as a bounded
+terminal session; no remote mutation is performed.
+
+Use the split path when the authenticated handoff must be reviewed or moved to
+a different disposable host. First prepare it:
 
 ```bash
 python3 scripts/prepare_candidate_trial.py \
@@ -452,6 +473,8 @@ python3 scripts/run_candidate_trial.py \
 
 The row runner locally re-derives the handoff and reruns the selected Docker
 remote audit or source public preflight before invoking the maintained probe.
+Docker rows also perform the same content-addressed observer-image bootstrap,
+so the normal candidate path no longer needs a separate `docker build` command.
 Its atomic schema-backed
 [`execution.json`](schemas/candidate-trial-execution-v1.schema.json)
 distinguishes a blocked preflight, a schema-valid PASS/FAIL trial, and a

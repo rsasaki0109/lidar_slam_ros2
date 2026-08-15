@@ -91,6 +91,7 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/prepare_candidate_trial.py',
     'scripts/prepare_onboarding_matrix_packet.py',
     'scripts/run_candidate_trial.py',
+    'scripts/start_candidate_trial.py',
     'scripts/run_docker_onboarding_probe.py',
     'scripts/run_source_onboarding_probe.py',
     'scripts/create_release_image_record.py',

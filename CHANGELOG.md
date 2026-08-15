@@ -22,6 +22,11 @@ more guided, recoverable, and reviewable.
 - **Fresh-terminal onboarding** — Docker and the exact six-package Humble/Jazzy
   source route now converge on one verified first-map outcome, with installed
   resource checks and public-readiness probes.
+- **One-command candidate trial session** — a dedicated observer can start from
+  one exact Actions run URL and retain the authenticated handoff, selected
+  Docker/source execution, and a hash-bound session receipt under one atomic
+  directory. Docker rows bootstrap a content-addressed, recipe-labelled local
+  observer image before timing instead of requiring a copied build command.
 - **Release identity hardening** — release-bundle CI checks out the exact PR
   head, fetches immutable tags, and refuses historical version reuse. Candidate
   metadata is aligned at 0.9.1 without moving or recreating `v0.9.0`.

@@ -259,6 +259,7 @@ if(BUILD_TESTING)
     test_run_candidate_trial
     test_run_docker_onboarding_probe
     test_run_source_onboarding_probe
+    test_start_candidate_trial
     test_sensor_setup_wizard
     test_session_compare
     test_session_history

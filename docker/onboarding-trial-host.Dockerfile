@@ -7,6 +7,13 @@
 ARG UBUNTU_VERSION=24.04
 FROM ubuntu:${UBUNTU_VERSION}
 
+ARG UBUNTU_VERSION
+ARG OBSERVER_RECIPE_SHA256=unknown
+
+LABEL io.github.rsasaki0109.lidarslam.observer-contract="1" \
+      io.github.rsasaki0109.lidarslam.observer-ubuntu="${UBUNTU_VERSION}" \
+      io.github.rsasaki0109.lidarslam.observer-recipe-sha256="${OBSERVER_RECIPE_SHA256}"
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
