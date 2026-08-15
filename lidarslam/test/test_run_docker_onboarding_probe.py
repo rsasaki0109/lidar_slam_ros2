@@ -160,6 +160,7 @@ def test_pass_artifacts_are_read_from_final_run(tmp_path):
 
 
 def test_active_time_is_observed_or_explicitly_unknown(monkeypatch):
+    """Active time is separately observed or represented as unknown."""
     answers = iter(('bad', '25', '4.5'))
     monkeypatch.setattr(builtins, 'input', lambda _prompt: next(answers))
 
@@ -168,6 +169,7 @@ def test_active_time_is_observed_or_explicitly_unknown(monkeypatch):
 
 
 def test_command_count_is_observed_or_explicitly_unknown(monkeypatch):
+    """Command count is separately observed or represented as unknown."""
     answers = iter(('bad', '0', '7'))
     monkeypatch.setattr(builtins, 'input', lambda _prompt: next(answers))
 
@@ -321,6 +323,91 @@ def test_cli_rejects_mismatched_distro_tag(tmp_path):
     assert exc_info.value.code == 2
 
 
+def _candidate_cli_args(tmp_path, *, ref_digest=None, image_digest=None):
+    ref_digest = ref_digest or ('a' * 64)
+    image_digest = image_digest or ref_digest
+    return [
+        '--trial-id', 'g0-docker-humble-candidate-12345',
+        '--ros-distro', 'humble',
+        '--candidate-image-ref',
+        'ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:' + ref_digest,
+        '--image-digest', 'sha256:' + image_digest,
+        '--product-version', '0.9.1',
+        '--candidate-image-set-sha256', 'd' * 64,
+        '--candidate-source-pr', '427',
+        '--candidate-source-commit', 'b' * 40,
+        '--candidate-workflow-run-url',
+        'https://github.com/rsasaki0109/lidar_slam_ros2/'
+        'actions/runs/12345',
+        '--record', str(tmp_path / 'record.json'),
+        '--allow-privileged-container-host',
+    ]
+
+
+def test_cli_accepts_tag_free_candidate_and_binds_retained_set(tmp_path):
+    """Candidate mode resolves one digest and carries its set identity."""
+    args = PROBE._parse_args(_candidate_cli_args(tmp_path))
+
+    assert args.image_tag is None
+    assert args.resolved_image_ref == (
+        'ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:' + 'a' * 64
+    )
+    assert args.candidate_image_evidence == {
+        'sha256': 'd' * 64,
+        'source_pr': 427,
+        'source_commit': 'b' * 40,
+        'product_version': '0.9.1',
+        'workflow_run_url': (
+            'https://github.com/rsasaki0109/lidar_slam_ros2/'
+            'actions/runs/12345'
+        ),
+        'immutable_ref': (
+            'ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:' + 'a' * 64
+        ),
+    }
+
+
+def test_cli_rejects_candidate_ref_digest_mismatch(tmp_path):
+    """The retained digest cannot disagree with the executed image ref."""
+    with pytest.raises(SystemExit) as exc_info:
+        PROBE._parse_args(_candidate_cli_args(
+            tmp_path,
+            ref_digest='a' * 64,
+            image_digest='b' * 64,
+        ))
+
+    assert exc_info.value.code == 2
+
+
+def test_cli_requires_complete_candidate_set_identity(tmp_path):
+    """A bare candidate digest is insufficient trial evidence."""
+    args = _candidate_cli_args(tmp_path)
+    field_index = args.index('--candidate-image-set-sha256')
+    del args[field_index:field_index + 2]
+
+    with pytest.raises(SystemExit) as exc_info:
+        PROBE._parse_args(args)
+
+    assert exc_info.value.code == 2
+
+
+def test_release_mode_rejects_candidate_evidence_fields(tmp_path):
+    """Release and candidate evidence modes cannot be mixed."""
+    with pytest.raises(SystemExit) as exc_info:
+        PROBE._parse_args([
+            '--trial-id', 'g0-docker-humble-release-mixed',
+            '--ros-distro', 'humble',
+            '--image-tag',
+            'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble',
+            '--image-digest', 'sha256:' + ('a' * 64),
+            '--candidate-image-set-sha256', 'd' * 64,
+            '--record', str(tmp_path / 'record.json'),
+            '--allow-privileged-container-host',
+        ])
+
+    assert exc_info.value.code == 2
+
+
 def test_cli_requires_privileged_host_acknowledgement(tmp_path):
     """A privileged nested host always requires explicit acknowledgement."""
     with pytest.raises(SystemExit) as exc_info:
@@ -398,6 +485,7 @@ def test_cli_rejects_non_finite_timeout(tmp_path, timeout_value):
 
 
 def test_cli_rejects_ambiguous_human_measurement_modes(tmp_path):
+    """Prompt and explicit-unknown modes cannot be combined."""
     common = [
         '--trial-id', 'g0-docker-humble-20260810-machine-modes',
         '--ros-distro', 'humble',
@@ -423,6 +511,7 @@ def test_cli_rejects_ambiguous_human_measurement_modes(tmp_path):
 
 
 def test_combined_human_measurement_prompt_enables_both_observations(tmp_path):
+    """The combined switches map to both underlying observation modes."""
     args = PROBE._parse_args([
         '--trial-id', 'g0-docker-humble-comparable',
         '--ros-distro', 'humble',

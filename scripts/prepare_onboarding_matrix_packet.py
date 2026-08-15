@@ -29,9 +29,10 @@
 """Prepare a path-free, exact-identity G0 observer packet.
 
 The packet is a local plan, not onboarding evidence. It validates that the
-source revision and both Docker image digests use one product version, then
-renders read-only preflight and human-observer commands. It performs no
-network request, trial, filesystem cleanup, or GitHub/community mutation.
+source revision and both Docker image digests use one product version. Docker
+identity is either a published release or one retained candidate-image set;
+the two modes never invent or reuse each other's tags and preflights. The tool
+performs no network request, trial, cleanup, or GitHub/community mutation.
 """
 
 from __future__ import annotations
@@ -44,7 +45,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from audit_candidate_image_set import (
+    audit_candidate_set,
+    sha256_file,
+)
+
 import jsonschema
+
+from product_schema import load_json_object
 
 
 REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
@@ -58,8 +66,9 @@ COMMIT_RE = re.compile(r'^[0-9a-f]{40}$')
 DIGEST_RE = re.compile(r'^sha256:[0-9a-f]{64}$')
 SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
-    'schemas/onboarding-matrix-observer-packet-v1.schema.json'
+    'schemas/onboarding-matrix-observer-packet-v2.schema.json'
 )
+CANDIDATE_SET_PLACEHOLDER = '<CANDIDATE_IMAGE_SET_JSON>'
 
 
 class PacketError(ValueError):
@@ -115,8 +124,52 @@ def _docker_row(
     product_version: str,
     distro: str,
     digest: str,
+    *,
+    candidate_set: dict[str, Any] | None = None,
+    candidate_set_sha256: str | None = None,
 ) -> dict[str, Any]:
-    image_tag = f'ghcr.io/{REPOSITORY}:v{product_version}-{distro}'
+    image_tag: str | None
+    immutable_ref: str
+    if candidate_set is None:
+        image_tag = f'ghcr.io/{REPOSITORY}:v{product_version}-{distro}'
+        immutable_ref = f'{image_tag}@{digest}'
+        preflight_command = _command([
+            'python3',
+            'scripts/check_published_release.py',
+            '--version',
+            product_version,
+            '--json',
+        ])
+        image_arguments = ['--image-tag', image_tag]
+        candidate_arguments: list[str] = []
+    else:
+        if candidate_set_sha256 is None:
+            raise PacketError('candidate packet requires the exact set hash')
+        image_tag = None
+        by_distro = {
+            image['ros_distro']: image
+            for image in candidate_set['images']
+        }
+        immutable_ref = by_distro[distro]['immutable_ref']
+        preflight_command = _command([
+            'python3',
+            'scripts/audit_candidate_image_set.py',
+            '--candidate-image-set',
+            CANDIDATE_SET_PLACEHOLDER,
+            '--remote',
+            '--json',
+        ])
+        image_arguments = ['--candidate-image-ref', immutable_ref]
+        candidate_arguments = [
+            '--candidate-image-set-sha256',
+            candidate_set_sha256,
+            '--candidate-source-pr',
+            str(candidate_set['source_pr']),
+            '--candidate-source-commit',
+            candidate_set['source_commit'],
+            '--candidate-workflow-run-url',
+            candidate_set['workflow_run_url'],
+        ]
     return {
         'row_id': f'docker-{distro}',
         'route': 'docker',
@@ -127,14 +180,9 @@ def _docker_row(
             'kind': 'image-digest',
             'value': digest,
             'tag': image_tag,
+            'immutable_ref': immutable_ref,
         },
-        'preflight_command': _command([
-            'python3',
-            'scripts/check_published_release.py',
-            '--version',
-            product_version,
-            '--json',
-        ]),
+        'preflight_command': preflight_command,
         'observer_command': _command([
             'python3',
             'scripts/run_docker_onboarding_probe.py',
@@ -142,12 +190,12 @@ def _docker_row(
             f'g0-docker-{distro}-<UTC_DATE>-a',
             '--ros-distro',
             distro,
-            '--image-tag',
-            image_tag,
+            *image_arguments,
             '--image-digest',
             digest,
             '--product-version',
             product_version,
+            *candidate_arguments,
             '--record',
             '<TRIAL_RECORD_OUTSIDE_CHECKOUT>',
             '--disk-scope',
@@ -175,6 +223,7 @@ def _source_row(
             'kind': 'git-commit',
             'value': commit,
             'tag': None,
+            'immutable_ref': None,
         },
         'preflight_command': _command([
             'python3',
@@ -217,7 +266,7 @@ def _validate_packet(packet: dict[str, Any]) -> None:
         Path(__file__).resolve().parents[1]
         / 'docs'
         / 'schemas'
-        / 'onboarding-matrix-observer-packet-v1.schema.json'
+        / 'onboarding-matrix-observer-packet-v2.schema.json'
     )
     try:
         schema = json.loads(schema_path.read_text(encoding='utf-8'))
@@ -235,33 +284,94 @@ def _validate_packet(packet: dict[str, Any]) -> None:
         ) from exc
 
 
-def build_packet(
+def _build_packet(
     product_version: str,
     source_commit: str,
     docker_humble_digest: str,
     docker_jazzy_digest: str,
+    *,
+    candidate_set: dict[str, Any] | None = None,
+    candidate_set_sha256: str | None = None,
 ) -> dict[str, Any]:
-    """Build and schema-validate one immutable-identity observer packet."""
+    """Build one schema-validated release or candidate observer packet."""
     docker_digests = {
         'humble': docker_humble_digest,
         'jazzy': docker_jazzy_digest,
     }
     _validate_identity(product_version, source_commit, docker_digests)
     rows = [
-        _docker_row(product_version, distro, docker_digests[distro])
+        _docker_row(
+            product_version,
+            distro,
+            docker_digests[distro],
+            candidate_set=candidate_set,
+            candidate_set_sha256=candidate_set_sha256,
+        )
         for distro in DISTROS
     ]
     rows.extend(
         _source_row(product_version, distro, source_commit)
         for distro in DISTROS
     )
-    release_command = _command([
-        'python3',
-        'scripts/check_published_release.py',
-        '--version',
-        product_version,
-        '--json',
-    ])
+    if candidate_set is None:
+        docker_mode = 'release'
+        packet_suffix = 'release'
+        docker_command = _command([
+            'python3',
+            'scripts/check_published_release.py',
+            '--version',
+            product_version,
+            '--json',
+        ])
+        docker_required_status = 'PUBLISHED'
+        docker_evidence = {
+            'mode': docker_mode,
+            'candidate_set_sha256': None,
+            'source_pr': None,
+            'source_commit': None,
+            'workflow_run_url': None,
+            'requested_by': None,
+            'registry_retention_status': 'NOT_APPLICABLE',
+            'evidence_retention_days': None,
+        }
+        identity_action = (
+            'Run the read-only published-release check and require PUBLISHED '
+            'before provisioning a trial host.'
+        )
+    else:
+        if candidate_set_sha256 is None:
+            raise PacketError('candidate packet requires the exact set hash')
+        docker_mode = 'candidate-image-set'
+        run_id = candidate_set['workflow_run_url'].rsplit('/', 1)[1]
+        packet_suffix = f'candidate-{run_id}'
+        docker_command = _command([
+            'python3',
+            'scripts/audit_candidate_image_set.py',
+            '--candidate-image-set',
+            CANDIDATE_SET_PLACEHOLDER,
+            '--remote',
+            '--json',
+        ])
+        docker_required_status = 'REMOTE_AUDIT_PASS'
+        docker_evidence = {
+            'mode': docker_mode,
+            'candidate_set_sha256': candidate_set_sha256,
+            'source_pr': candidate_set['source_pr'],
+            'source_commit': candidate_set['source_commit'],
+            'workflow_run_url': candidate_set['workflow_run_url'],
+            'requested_by': candidate_set['requested_by'],
+            'registry_retention_status': (
+                candidate_set['registry_retention_status']
+            ),
+            'evidence_retention_days': (
+                candidate_set['evidence_retention_days']
+            ),
+        }
+        identity_action = (
+            'Retain the exact candidate-image-set bytes, run the read-only '
+            'remote audit, and require REMOTE_AUDIT_PASS before '
+            'provisioning a trial host.'
+        )
     source_command = _command([
         'python3',
         'scripts/run_source_onboarding_probe.py',
@@ -272,17 +382,19 @@ def build_packet(
         product_version,
     ])
     packet = {
-        'schema_version': 1,
+        'schema_version': 2,
         'schema_uri': SCHEMA_URI,
-        'packet_id': f'g0-onboarding-{product_version}',
+        'packet_id': f'g0-onboarding-{product_version}-{packet_suffix}',
         'repository': REPOSITORY,
         'product_version': product_version,
         'dataset_id': DATASET_ID,
         'status': 'READY_FOR_READ_ONLY_PREFLIGHT',
+        'docker_identity_mode': docker_mode,
+        'docker_evidence': docker_evidence,
         'public_checks': {
-            'release': {
-                'command': release_command,
-                'required_status': 'PUBLISHED',
+            'docker': {
+                'command': docker_command,
+                'required_status': docker_required_status,
                 'read_only': True,
             },
             'source': {
@@ -293,8 +405,9 @@ def build_packet(
         },
         'rows': rows,
         'next_actions': [
-            'Run both read-only public checks and require the exact statuses '
-            'before provisioning a trial host.',
+            identity_action,
+            'Run the source read-only public check and require READY before '
+            'provisioning a source-row trial host.',
             'Use one disposable host and one independent observer per row; '
             'do not use a moving tag or a shared filesystem.',
             'Record all seven required measurements, including human active '
@@ -316,6 +429,47 @@ def build_packet(
     return packet
 
 
+def build_packet(
+    product_version: str,
+    source_commit: str,
+    docker_humble_digest: str,
+    docker_jazzy_digest: str,
+) -> dict[str, Any]:
+    """Build a published-release observer packet (v1 API compatibility)."""
+    return _build_packet(
+        product_version,
+        source_commit,
+        docker_humble_digest,
+        docker_jazzy_digest,
+    )
+
+
+def build_candidate_packet(
+    candidate_set: dict[str, Any],
+    candidate_set_sha256: str,
+) -> dict[str, Any]:
+    """Build a tag-free packet derived only from one candidate set."""
+    try:
+        audit_candidate_set(
+            candidate_set,
+            candidate_set_sha256=candidate_set_sha256,
+            remote=False,
+        )
+    except ValueError as exc:
+        raise PacketError(f'candidate image set is invalid: {exc}') from exc
+    by_distro = {
+        image['ros_distro']: image for image in candidate_set['images']
+    }
+    return _build_packet(
+        candidate_set['product_version'],
+        candidate_set['source_commit'],
+        by_distro['humble']['digest'],
+        by_distro['jazzy']['digest'],
+        candidate_set=candidate_set,
+        candidate_set_sha256=candidate_set_sha256,
+    )
+
+
 def render_packet(packet: dict[str, Any]) -> str:
     """Render a concise operator card without private paths or evidence."""
     lines = [
@@ -324,11 +478,19 @@ def render_packet(packet: dict[str, Any]) -> str:
         f"- Status: **{packet['status']}**",
         f"- Product version: `{packet['product_version']}`",
         f"- Dataset: `{packet['dataset_id']}`",
+        f"- Docker identity mode: `{packet['docker_identity_mode']}`",
         '- This is a plan only; it is not a trial record or a release claim.',
         '',
-        '## Public checks',
-        '',
     ]
+    if packet['docker_evidence']['candidate_set_sha256'] is not None:
+        lines.extend([
+            '- Candidate set SHA-256: '
+            f"`{packet['docker_evidence']['candidate_set_sha256']}`",
+            '- Candidate workflow: '
+            f"`{packet['docker_evidence']['workflow_run_url']}`",
+            '',
+        ])
+    lines.extend(['## Public checks', ''])
     for name, check in packet['public_checks'].items():
         lines.extend([
             f'### {name}',
@@ -343,7 +505,7 @@ def render_packet(packet: dict[str, Any]) -> str:
         '| --- | --- | --- |',
     ])
     for row in packet['rows']:
-        identity = row['identity']['value']
+        identity = row['identity']['immutable_ref'] or row['identity']['value']
         lines.append(
             f"| `{row['row_id']}` | `{identity}` | "
             '`active_operator_time_sec`, `command_count` |'
@@ -364,10 +526,18 @@ def render_packet(packet: dict[str, Any]) -> str:
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--product-version', required=True)
-    parser.add_argument('--source-commit', required=True)
-    parser.add_argument('--docker-humble-digest', required=True)
-    parser.add_argument('--docker-jazzy-digest', required=True)
+    parser.add_argument('--product-version')
+    parser.add_argument('--source-commit')
+    parser.add_argument('--docker-humble-digest')
+    parser.add_argument('--docker-jazzy-digest')
+    parser.add_argument(
+        '--candidate-image-set',
+        type=Path,
+        help=(
+            'derive all Docker and source identities from one retained '
+            'candidate-image-set JSON; cannot be mixed with release inputs'
+        ),
+    )
     output = parser.add_mutually_exclusive_group()
     output.add_argument('--json', action='store_true')
     output.add_argument('--render', action='store_true')
@@ -386,13 +556,46 @@ def main(argv: list[str] | None = None) -> int:
     """Build and optionally write one local-only observer packet."""
     args = _parse_args(argv)
     try:
-        packet = build_packet(
-            args.product_version,
-            args.source_commit,
-            args.docker_humble_digest,
-            args.docker_jazzy_digest,
-        )
-    except (OSError, PacketError) as exc:
+        release_inputs = {
+            '--product-version': args.product_version,
+            '--source-commit': args.source_commit,
+            '--docker-humble-digest': args.docker_humble_digest,
+            '--docker-jazzy-digest': args.docker_jazzy_digest,
+        }
+        supplied_release_inputs = [
+            name for name, value in release_inputs.items()
+            if value is not None
+        ]
+        if args.candidate_image_set is not None:
+            if supplied_release_inputs:
+                raise PacketError(
+                    '--candidate-image-set cannot be mixed with manual '
+                    'release inputs: ' + ', '.join(supplied_release_inputs)
+                )
+            candidate_set = load_json_object(
+                args.candidate_image_set,
+                'candidate image set',
+            )
+            packet = build_candidate_packet(
+                candidate_set,
+                sha256_file(args.candidate_image_set),
+            )
+        else:
+            missing = [
+                name for name, value in release_inputs.items()
+                if value is None
+            ]
+            if missing:
+                raise PacketError(
+                    'release mode requires: ' + ', '.join(missing)
+                )
+            packet = build_packet(
+                args.product_version,
+                args.source_commit,
+                args.docker_humble_digest,
+                args.docker_jazzy_digest,
+            )
+    except (OSError, ValueError) as exc:
         print(f'onboarding observer packet error: {exc}', file=sys.stderr)
         return 2
     if args.json:

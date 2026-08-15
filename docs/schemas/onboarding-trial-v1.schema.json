@@ -187,7 +187,42 @@
       "required": ["manifest_sha256", "receipt_sha256"],
       "properties": {
         "manifest_sha256": {"$ref": "#/definitions/nullableSha256"},
-        "receipt_sha256": {"$ref": "#/definitions/nullableSha256"}
+        "receipt_sha256": {"$ref": "#/definitions/nullableSha256"},
+        "candidate_image_set": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "source_pr",
+            "source_commit",
+            "product_version",
+            "workflow_run_url",
+            "immutable_ref"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "source_pr": {"type": "integer", "minimum": 1},
+            "source_commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "product_version": {
+              "type": "string",
+              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$"
+            },
+            "workflow_run_url": {
+              "type": "string",
+              "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/actions/runs/[1-9][0-9]*$"
+            },
+            "immutable_ref": {
+              "type": "string",
+              "pattern": "^ghcr\\.io/rsasaki0109/lidar_slam_ros2@sha256:[0-9a-f]{64}$"
+            }
+          }
+        }
       }
     },
     "privacy": {

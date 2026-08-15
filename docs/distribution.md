@@ -398,9 +398,22 @@ uploads these schema-backed artifacts for 30 days:
 
 The records deliberately say
 `registry_retention_status: REQUIRES_REMOTE_AUDIT`. After an authorized run,
-audit both remote digests, attestations, artifact retention, and pullability
-before using either identity in an onboarding row. A candidate digest is not a
-Git tag, GitHub Release, stable image, or E4 approval.
+retain the downloaded `candidate-image-set.json`, then run:
+
+```bash
+python3 scripts/audit_candidate_image_set.py \
+  --candidate-image-set /evidence/candidate-image-set.json \
+  --remote \
+  --json
+```
+
+Require `REMOTE_AUDIT_PASS` before using either identity in an onboarding row.
+The command performs bounded reads of the exact workflow run, all four
+unexpired artifacts, both registry manifests, and both attestations; it grants
+no GitHub or registry write authority. Generate tag-free trial commands with
+`prepare_onboarding_matrix_packet.py --candidate-image-set ...`; do not invent
+release tags. A candidate digest is not a Git tag, GitHub Release, stable
+image, or E4 approval.
 
 Every tagged release publishes exact
 `ghcr.io/rsasaki0109/lidar_slam_ros2:v<VERSION>-<distro>` images only after

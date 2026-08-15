@@ -211,6 +211,7 @@ if(BUILD_TESTING)
   )
   set(LIDARSLAM_ADDITIONAL_PYTESTS
     test_aggregate_kitti_metrics
+    test_audit_candidate_image_set
     test_audit_published_fixture
     test_autoware_map_runner_script
     test_benchmark_provenance

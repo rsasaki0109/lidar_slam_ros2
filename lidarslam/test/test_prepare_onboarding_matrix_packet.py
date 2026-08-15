@@ -31,6 +31,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import pathlib
 import sys
 
@@ -64,12 +65,61 @@ def _packet(module):
     )
 
 
+def _candidate_set():
+    return {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/candidate-image-set-v1.schema.json'
+        ),
+        'status': 'PASS',
+        'publication_mode': 'digest_only',
+        'repository': 'rsasaki0109/lidar_slam_ros2',
+        'source_pr': 427,
+        'source_commit': 'a' * 40,
+        'product_version': '0.9.1',
+        'platform': 'linux/amd64',
+        'workflow_run_url': (
+            'https://github.com/rsasaki0109/lidar_slam_ros2/'
+            'actions/runs/12345'
+        ),
+        'workflow_branch_ref': 'refs/heads/develop',
+        'requested_by': 'maintainer',
+        'images': [
+            {
+                'ros_distro': 'humble',
+                'digest': 'sha256:' + 'b' * 64,
+                'immutable_ref': (
+                    'ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:'
+                    + 'b' * 64
+                ),
+            },
+            {
+                'ros_distro': 'jazzy',
+                'digest': 'sha256:' + 'c' * 64,
+                'immutable_ref': (
+                    'ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:'
+                    + 'c' * 64
+                ),
+            },
+        ],
+        'tags_created': [],
+        'moving_tags_mutated': False,
+        'release_mutated': False,
+        'registry_retention_status': 'REQUIRES_REMOTE_AUDIT',
+        'evidence_retention_days': 30,
+    }
+
+
 def test_packet_aligns_all_rows_to_one_version_and_exact_identities():
     """Every row shares the requested version and immutable identity."""
     module = _module()
     packet = _packet(module)
 
     assert packet['status'] == 'READY_FOR_READ_ONLY_PREFLIGHT'
+    assert packet['schema_version'] == 2
+    assert packet['packet_id'] == 'g0-onboarding-0.9.1-release'
+    assert packet['docker_identity_mode'] == 'release'
     assert [row['row_id'] for row in packet['rows']] == [
         'docker-humble',
         'docker-jazzy',
@@ -99,7 +149,7 @@ def test_packet_commands_pin_identity_and_keep_paths_as_placeholders():
     packet = _packet(module)
     commands = '\n'.join(
         [
-            packet['public_checks']['release']['command'],
+            packet['public_checks']['docker']['command'],
             packet['public_checks']['source']['command'],
             *(row['observer_command'] for row in packet['rows']),
         ]
@@ -115,15 +165,99 @@ def test_packet_commands_pin_identity_and_keep_paths_as_placeholders():
     assert '<OBSERVER_PARENT_OUTSIDE_CHECKOUT>' in commands
     assert '/home/' not in commands
     assert '$HOME' not in commands
-    assert packet['public_checks']['release']['read_only'] is True
+    assert packet['public_checks']['docker']['read_only'] is True
     assert packet['public_checks']['source']['read_only'] is True
-    assert packet['public_checks']['release']['command'] == (
+    assert packet['public_checks']['docker']['command'] == (
         'python3 scripts/check_published_release.py '
         '--version 0.9.1 --json'
     )
-    assert packet['public_checks']['release']['command'].count(
+    assert packet['public_checks']['docker']['command'].count(
         'check_published_release.py'
     ) == 1
+
+
+def test_candidate_packet_uses_retained_set_without_inventing_release_tags():
+    """Candidate rows bind one set and remain tag-free end to end."""
+    module = _module()
+    packet = module.build_candidate_packet(_candidate_set(), 'd' * 64)
+    payload = json.dumps(packet, sort_keys=True)
+    docker_rows = [
+        row for row in packet['rows'] if row['route'] == 'docker'
+    ]
+
+    assert packet['packet_id'] == 'g0-onboarding-0.9.1-candidate-12345'
+    assert packet['docker_identity_mode'] == 'candidate-image-set'
+    assert packet['docker_evidence'] == {
+        'mode': 'candidate-image-set',
+        'candidate_set_sha256': 'd' * 64,
+        'source_pr': 427,
+        'source_commit': 'a' * 40,
+        'workflow_run_url': (
+            'https://github.com/rsasaki0109/lidar_slam_ros2/'
+            'actions/runs/12345'
+        ),
+        'requested_by': 'maintainer',
+        'registry_retention_status': 'REQUIRES_REMOTE_AUDIT',
+        'evidence_retention_days': 30,
+    }
+    assert packet['public_checks']['docker']['required_status'] == (
+        'REMOTE_AUDIT_PASS'
+    )
+    assert packet['public_checks']['docker']['command'] == (
+        'python3 scripts/audit_candidate_image_set.py '
+        "--candidate-image-set '<CANDIDATE_IMAGE_SET_JSON>' --remote --json"
+    )
+    assert all(row['identity']['tag'] is None for row in docker_rows)
+    assert all(
+        row['identity']['immutable_ref'].startswith(
+            'ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:'
+        )
+        for row in docker_rows
+    )
+    assert '--candidate-image-ref' in payload
+    assert '--candidate-image-set-sha256 ' + 'd' * 64 in payload
+    assert '--candidate-source-pr 427' in payload
+    assert 'v0.9.1-humble' not in payload
+    assert 'v0.9.1-jazzy' not in payload
+    assert 'check_published_release.py' not in payload
+
+
+def test_candidate_cli_derives_identity_and_rejects_manual_overrides(
+    tmp_path,
+    capsys,
+):
+    """Candidate CLI accepts one retained set and rejects mixed identity."""
+    module = _module()
+    candidate_path = tmp_path / 'candidate-image-set.json'
+    candidate_path.write_text(
+        json.dumps(_candidate_set(), sort_keys=True) + '\n',
+        encoding='utf-8',
+    )
+
+    assert module.main([
+        '--candidate-image-set', str(candidate_path), '--json',
+    ]) == 0
+    packet = json.loads(capsys.readouterr().out)
+    assert packet['docker_evidence']['candidate_set_sha256'] == (
+        module.sha256_file(candidate_path)
+    )
+
+    assert module.main([
+        '--candidate-image-set', str(candidate_path),
+        '--product-version', '0.9.1',
+        '--json',
+    ]) == 2
+    assert 'cannot be mixed' in capsys.readouterr().err
+
+
+def test_candidate_packet_rejects_a_malformed_retained_set():
+    """A schema-shaped but duplicate distro pair fails before rendering."""
+    module = _module()
+    candidate_set = _candidate_set()
+    candidate_set['images'][1]['ros_distro'] = 'humble'
+
+    with pytest.raises(module.PacketError, match='candidate image set'):
+        module.build_candidate_packet(candidate_set, 'd' * 64)
 
 
 @pytest.mark.parametrize(

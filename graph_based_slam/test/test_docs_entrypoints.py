@@ -209,6 +209,21 @@ CANDIDATE_IMAGE_SCHEMA = (
 CANDIDATE_IMAGE_SET_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'candidate-image-set-v1.schema.json'
 )
+CANDIDATE_IMAGE_SET_AUDIT_SCHEMA = (
+    REPO_ROOT
+    / 'docs'
+    / 'schemas'
+    / 'candidate-image-set-audit-v1.schema.json'
+)
+ONBOARDING_OBSERVER_PACKET_V2_SCHEMA = (
+    REPO_ROOT
+    / 'docs'
+    / 'schemas'
+    / 'onboarding-matrix-observer-packet-v2.schema.json'
+)
+CANDIDATE_IMAGE_SET_AUDIT_SCRIPT = (
+    REPO_ROOT / 'scripts' / 'audit_candidate_image_set.py'
+)
 ROLLBACK_PLAN_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'rollback-plan-v1.schema.json'
 )
@@ -312,6 +327,9 @@ def test_docs_exist_and_are_linked_from_readme():
     assert CANDIDATE_IMAGE_REQUEST_SCHEMA.is_file()
     assert CANDIDATE_IMAGE_SCHEMA.is_file()
     assert CANDIDATE_IMAGE_SET_SCHEMA.is_file()
+    assert CANDIDATE_IMAGE_SET_AUDIT_SCHEMA.is_file()
+    assert ONBOARDING_OBSERVER_PACKET_V2_SCHEMA.is_file()
+    assert CANDIDATE_IMAGE_SET_AUDIT_SCRIPT.is_file()
     assert ROLLBACK_PLAN_SCHEMA.is_file()
     assert RELEASE_BUNDLE_MANIFEST_SCHEMA.is_file()
     assert RELEASE_PROMOTION_SCHEMA.is_file()
@@ -847,6 +865,9 @@ def test_candidate_image_workflow_is_default_branch_digest_only():
     )
     assert 'repository_dispatch' in distribution
     assert 'E2_IMMUTABLE_DIGEST_ONLY' in distribution
+    assert 'audit_candidate_image_set.py' in distribution
+    assert 'REMOTE_AUDIT_PASS' in distribution
+    assert '--candidate-image-set' in distribution
 
 
 def test_docs_cover_autoware_and_release_gate_keywords():

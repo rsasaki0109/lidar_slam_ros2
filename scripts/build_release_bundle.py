@@ -85,6 +85,7 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/validate_candidate_image_request.py',
     'scripts/create_candidate_image_record.py',
     'scripts/verify_candidate_image_set.py',
+    'scripts/audit_candidate_image_set.py',
     'scripts/create_release_image_record.py',
     'scripts/measure_oci_archive.py',
     'scripts/check_external_first_map_readiness.py',

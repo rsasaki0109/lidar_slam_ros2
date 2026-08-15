@@ -67,7 +67,17 @@ IMAGE_TAG_RE = re.compile(
     r'v(?P<version>[0-9]+\.[0-9]+\.[0-9]+'
     r'(?:[-+][A-Za-z0-9.-]+)?)-(?P<distro>humble|jazzy)$'
 )
+CANDIDATE_IMAGE_REF_RE = re.compile(
+    r'^ghcr\.io/rsasaki0109/lidar_slam_ros2@'
+    r'(?P<digest>sha256:[0-9a-f]{64})$'
+)
 DIGEST_RE = re.compile(r'^sha256:[0-9a-f]{64}$')
+SHA256_RE = re.compile(r'^[0-9a-f]{64}$')
+COMMIT_RE = re.compile(r'^[0-9a-f]{40}$')
+WORKFLOW_RUN_URL_RE = re.compile(
+    r'^https://github\.com/rsasaki0109/lidar_slam_ros2/'
+    r'actions/runs/[1-9][0-9]*$'
+)
 TRIAL_ID_RE = re.compile(r'^[a-z0-9][a-z0-9._-]{2,79}$')
 VERSION_RE = re.compile(
     r'^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$'
@@ -856,9 +866,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         '--ros-distro', required=True, choices=sorted(OS_VERSION)
     )
-    parser.add_argument('--image-tag', required=True)
+    image_identity = parser.add_mutually_exclusive_group(required=True)
+    image_identity.add_argument('--image-tag')
+    image_identity.add_argument('--candidate-image-ref')
     parser.add_argument('--image-digest', required=True)
     parser.add_argument('--product-version', default='0.9.0')
+    parser.add_argument('--candidate-image-set-sha256')
+    parser.add_argument('--candidate-source-pr', type=int)
+    parser.add_argument('--candidate-source-commit')
+    parser.add_argument('--candidate-workflow-run-url')
     parser.add_argument('--record', required=True, type=Path)
     parser.add_argument('--temp-parent', default='/tmp', type=Path)
     parser.add_argument(
@@ -942,13 +958,6 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         )
     if not TRIAL_ID_RE.fullmatch(args.trial_id):
         parser.error('--trial-id must be a privacy-bounded lower-case slug')
-    match = IMAGE_TAG_RE.fullmatch(args.image_tag)
-    if not match or match.group('distro') != args.ros_distro:
-        parser.error(
-            '--image-tag must be the matching immutable release image tag'
-        )
-    if match.group('version') != args.product_version:
-        parser.error('--product-version must match the release image tag')
     if not DIGEST_RE.fullmatch(args.image_digest):
         parser.error(
             '--image-digest must be sha256 followed by 64 lower-case hex '
@@ -956,6 +965,82 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         )
     if not VERSION_RE.fullmatch(args.product_version):
         parser.error('--product-version must be a semantic version')
+    candidate_fields = {
+        '--candidate-image-set-sha256': args.candidate_image_set_sha256,
+        '--candidate-source-pr': args.candidate_source_pr,
+        '--candidate-source-commit': args.candidate_source_commit,
+        '--candidate-workflow-run-url': args.candidate_workflow_run_url,
+    }
+    if args.image_tag is not None:
+        match = IMAGE_TAG_RE.fullmatch(args.image_tag)
+        if not match or match.group('distro') != args.ros_distro:
+            parser.error(
+                '--image-tag must be the matching immutable release image '
+                'tag'
+            )
+        if match.group('version') != args.product_version:
+            parser.error(
+                '--product-version must match the release image tag'
+            )
+        supplied_candidate_fields = [
+            name for name, value in candidate_fields.items()
+            if value is not None
+        ]
+        if supplied_candidate_fields:
+            parser.error(
+                'release image mode cannot include candidate evidence: '
+                + ', '.join(supplied_candidate_fields)
+            )
+        args.resolved_image_ref = f'{args.image_tag}@{args.image_digest}'
+        args.candidate_image_evidence = None
+    else:
+        match = CANDIDATE_IMAGE_REF_RE.fullmatch(args.candidate_image_ref)
+        if match is None:
+            parser.error(
+                '--candidate-image-ref must be the exact tag-free GHCR '
+                'repository@sha256 reference'
+            )
+        if match.group('digest') != args.image_digest:
+            parser.error(
+                '--candidate-image-ref digest must match --image-digest'
+            )
+        missing_candidate_fields = [
+            name for name, value in candidate_fields.items()
+            if value is None
+        ]
+        if missing_candidate_fields:
+            parser.error(
+                'candidate image mode requires: '
+                + ', '.join(missing_candidate_fields)
+            )
+        if SHA256_RE.fullmatch(args.candidate_image_set_sha256) is None:
+            parser.error(
+                '--candidate-image-set-sha256 must be 64 lower-case hex '
+                'digits'
+            )
+        if args.candidate_source_pr < 1:
+            parser.error('--candidate-source-pr must be a positive integer')
+        if COMMIT_RE.fullmatch(args.candidate_source_commit) is None:
+            parser.error(
+                '--candidate-source-commit must be a lower-case '
+                '40-character commit SHA'
+            )
+        if WORKFLOW_RUN_URL_RE.fullmatch(
+            args.candidate_workflow_run_url
+        ) is None:
+            parser.error(
+                '--candidate-workflow-run-url must identify an exact '
+                'candidate workflow run'
+            )
+        args.resolved_image_ref = args.candidate_image_ref
+        args.candidate_image_evidence = {
+            'sha256': args.candidate_image_set_sha256,
+            'source_pr': args.candidate_source_pr,
+            'source_commit': args.candidate_source_commit,
+            'product_version': args.product_version,
+            'workflow_run_url': args.candidate_workflow_run_url,
+            'immutable_ref': args.candidate_image_ref,
+        }
     if args.prompt_human_measurements:
         args.prompt_active_operator_time = True
         args.prompt_command_count = True
@@ -1099,7 +1184,7 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
         _wait_for_daemon(host_name)
         interface = _validate_nested_host(host_name, os_version)
 
-        image_ref = f'{args.image_tag}@{args.image_digest}'
+        image_ref = args.resolved_image_ref
         if disk_sampler is not None:
             disk_baseline = disk_sampler.start()
         rx_start = _read_rx(host_name, interface)
@@ -1320,6 +1405,10 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
                 'review_before_sharing': True,
             },
         }
+        if args.candidate_image_evidence is not None:
+            record['evidence']['candidate_image_set'] = (
+                args.candidate_image_evidence
+            )
     finally:
         try:
             if disk_sampler is not None and not sampler_stopped:
