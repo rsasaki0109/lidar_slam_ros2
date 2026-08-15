@@ -60,9 +60,19 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['publication_plan']['status'] == (
         'PLAN_VALID_LOCAL_ONLY'
     )
-    assert report['checks']['publication_plan']['path_count'] == 259
+    assert report['checks']['publication_plan']['path_count'] == 262
     assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
     assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
+    assert report['checks']['candidate_environment'] == {
+        'status': 'NOT_CHECKED',
+        'environment': 'candidate-images',
+        'target_present': None,
+        'required_reviewer_count': None,
+        'prevent_self_review': None,
+        'deployment_branch_policy': None,
+        'decision_state': 'NOT_CHECKED',
+        'blockers': [],
+    }
     v1_details = report['checks']['v1_readiness']['incomplete_gate_details']
     assert [item['id'] for item in v1_details] == [
         'distribution',
@@ -167,7 +177,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         '10 successful checks and 4\nintentional non-publication skips'
         in scorecard
     )
-    assert 'current 259-path local plan' in scorecard
+    assert 'current 262-path local plan' in scorecard
 
 
 def test_dashboard_can_include_a_read_only_release_report_without_writes():
@@ -196,6 +206,59 @@ def test_dashboard_can_include_a_read_only_release_report_without_writes():
         ],
     }
     assert report['authority']['remote_mutations_performed'] is False
+
+
+def test_dashboard_surfaces_absent_environment_before_candidate_alignment():
+    """A requested E2 preflight becomes the one bounded next action."""
+    reports = DASHBOARD.collect_checker_reports()
+    reports['candidate_environment'] = {
+        'status': 'ABSENT',
+        'environment': 'candidate-images',
+        'observed': {
+            'target_present': False,
+            'target': None,
+        },
+        'findings': [{
+            'id': 'candidate-environment-absent',
+            'severity': 'BLOCKER',
+            'detail': 'Configure and independently review the environment.',
+        }],
+        'decision': {
+            'state': 'HOLD',
+            'dispatch_authorized': False,
+            'next_action': 'Configure the environment.',
+        },
+        'authority': {
+            'network_reads_performed': True,
+            'github_writes_authorized': False,
+            'environment_writes_authorized': False,
+            'artifact_publication_authorized': False,
+            'remote_mutations_performed': False,
+        },
+    }
+
+    report = DASHBOARD.build_report(reports)
+
+    assert report['authority']['network_reads_performed'] is True
+    assert report['checks']['candidate_environment']['status'] == 'ABSENT'
+    assert report['next_action']['id'] == 'review-candidate-environment'
+    assert '--require-ready' in report['next_action']['command']
+    assert 'E2 dispatch remain separate' in (
+        report['next_action']['write_boundary']
+    )
+    card = DASHBOARD.render_card(report)
+    assert '| candidate environment | ABSENT |' in card
+    assert 'dispatch authorized: false' in card
+
+    unsafe = copy.deepcopy(reports)
+    unsafe['candidate_environment']['decision'][
+        'dispatch_authorized'
+    ] = True
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='remote-write authority',
+    ):
+        DASHBOARD.build_report(unsafe)
 
 
 def test_dashboard_selects_one_next_action_and_ready_state_is_explicit():

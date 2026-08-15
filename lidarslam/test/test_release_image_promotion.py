@@ -34,10 +34,10 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
-from pathlib import Path
 import subprocess
 import sys
 import tarfile
+from pathlib import Path
 
 import pytest
 
@@ -271,6 +271,10 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert '.github/workflows/candidate-image.yml' in paths
     assert 'docker/onboarding-trial-host.Dockerfile' in paths
     assert 'docs/schemas/candidate-image-request-v1.schema.json' in paths
+    assert (
+        'docs/schemas/candidate-environment-readiness-v1.schema.json'
+        in paths
+    )
     assert 'docs/schemas/candidate-image-v1.schema.json' in paths
     assert 'docs/schemas/candidate-image-set-v1.schema.json' in paths
     assert 'docs/schemas/candidate-image-set-audit-v1.schema.json' in paths
@@ -292,6 +296,7 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
         in paths
     )
     assert 'scripts/validate_candidate_image_request.py' in paths
+    assert 'scripts/check_candidate_environment.py' in paths
     assert 'scripts/create_candidate_image_record.py' in paths
     assert 'scripts/verify_candidate_image_set.py' in paths
     assert 'scripts/audit_candidate_image_set.py' in paths

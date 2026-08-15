@@ -23,6 +23,24 @@ python3 scripts/check_g0_readiness.py \
   --published-release-version 0.9.1
 ```
 
+To inspect the protected candidate environment through GET requests only,
+pass `--include-candidate-environment`. Authenticated inspection avoids
+mistaking an inaccessible endpoint for an absent environment:
+
+```bash
+GITHUB_TOKEN="$(gh auth token)" \
+python3 scripts/check_g0_readiness.py \
+  --include-candidate-environment
+```
+
+The environment check first requires one complete repository-environment
+inventory, then reads the exact `candidate-images` environment and its complete
+deployment-policy list. It reports `ABSENT`, `MISCONFIGURED`, or `BLOCKED`
+separately. `READY` requires one to six reviewers, **Prevent self-review**, no
+unknown protection rule, and exactly one custom `develop` branch policy. Even
+`READY` means only `READY_FOR_SEPARATE_E2_REVIEW`: environment writes and the
+digest-publication dispatch remain unauthorized.
+
 For automation, use `--json`. The output follows the
 [`g0-readiness-report-v1`](schemas/g0-readiness-report-v1.schema.json)
 contract. `--require-ready` exits with status 1 while any summarized gate is

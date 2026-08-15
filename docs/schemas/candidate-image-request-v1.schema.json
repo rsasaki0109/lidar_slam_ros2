@@ -87,7 +87,7 @@
           "minimum": 1,
           "maximum": 6
         },
-        "prevent_self_review": {"type": "boolean"},
+        "prevent_self_review": {"const": true},
         "deployment_branch_policy": {"const": "develop_only"}
       }
     },

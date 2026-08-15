@@ -270,6 +270,11 @@ def test_request_rejects_unprotected_candidate_environment():
             branch_policies_document=_branch_policies('release/*'),
         )
 
+    environment = _environment()
+    environment['protection_rules'][0]['prevent_self_review'] = False
+    with pytest.raises(ValueError, match='prevent self-review'):
+        _request(module, environment=environment)
+
 
 @pytest.mark.parametrize(
     ('mutation', 'message'),
@@ -454,7 +459,9 @@ def test_workflow_separates_contract_authorization_and_publication():
     assert 'E2_IMMUTABLE_DIGEST_ONLY' in authorize
     assert 'check-runs?filter=latest&per_page=100' in authorize
     assert 'environments/candidate-images' in authorize
+    assert 'scripts/check_candidate_environment.py' in workflow
     assert 'deployment-branch-policies?per_page=100' in authorize
+    assert 'test_candidate_environment_readiness.py' in contract
     assert 'context: candidate' in publish
     assert 'push-by-digest=true' in publish
     assert 'name-canonical=true' in publish

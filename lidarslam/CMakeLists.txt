@@ -221,6 +221,7 @@ if(BUILD_TESTING)
     test_cli_interactive_home
     test_cli_option_contract
     test_canonical_ndt_convergence
+    test_candidate_environment_readiness
     test_candidate_image_gate
     test_check_publication_slice_plan
     test_check_g0_readiness

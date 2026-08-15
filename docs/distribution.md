@@ -359,13 +359,24 @@ matrix job can receive `packages: write`:
   product version;
 - all nine required exact-head checks succeeded, no check is active or failed,
   and only the named non-publication jobs may be skipped; and
-- the `candidate-images` environment already has a required reviewer plus one
-  custom deployment branch policy named exactly `develop`.
+- the `candidate-images` environment already has one to six required
+  reviewers, **Prevent self-review**, and exactly one custom deployment branch
+  policy named `develop`, with no unknown protection rule.
 
 An absent or unprotected environment is a hard failure, not an implicit
 environment setup. Configure that environment in repository settings before
-making an E2 decision. Prefer enabling **Prevent self-review** so the dispatch
-and deployment approval are separate maintainer actions.
+making an E2 decision. The dispatch and deployment approval must remain
+separate maintainer actions. Audit the live settings with GET requests only:
+
+```bash
+GITHUB_TOKEN="$(gh auth token)" \
+python3 scripts/check_candidate_environment.py --json --require-ready
+```
+
+The schema-backed result distinguishes `ABSENT`, `MISCONFIGURED`, and
+`BLOCKED`; a 404 by itself is never treated as proof that an environment is
+absent. `READY` means only `READY_FOR_SEPARATE_E2_REVIEW`. The command cannot
+write repository settings, authorize a dispatch, or publish an artifact.
 
 After a separate E2 approval, the exact event shape is:
 

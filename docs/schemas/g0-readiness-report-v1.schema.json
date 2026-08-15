@@ -56,6 +56,7 @@
         "onboarding_matrix",
         "first_map_cohort",
         "v1_readiness",
+        "candidate_environment",
         "published_release"
       ],
       "properties": {
@@ -63,6 +64,7 @@
         "onboarding_matrix": {"$ref": "#/definitions/onboardingMatrix"},
         "first_map_cohort": {"$ref": "#/definitions/cohort"},
         "v1_readiness": {"$ref": "#/definitions/v1"},
+        "candidate_environment": {"$ref": "#/definitions/candidateEnvironment"},
         "published_release": {"$ref": "#/definitions/publishedRelease"}
       }
     },
@@ -210,6 +212,97 @@
           }
         }
       }
+    },
+    "candidateEnvironment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "environment",
+        "target_present",
+        "required_reviewer_count",
+        "prevent_self_review",
+        "deployment_branch_policy",
+        "decision_state",
+        "blockers"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["NOT_CHECKED", "READY", "ABSENT", "MISCONFIGURED", "BLOCKED"]
+        },
+        "environment": {"const": "candidate-images"},
+        "target_present": {"type": ["boolean", "null"]},
+        "required_reviewer_count": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 6
+        },
+        "prevent_self_review": {"type": ["boolean", "null"]},
+        "deployment_branch_policy": {
+          "anyOf": [
+            {"const": "develop_only"},
+            {"type": "null"}
+          ]
+        },
+        "decision_state": {
+          "enum": ["NOT_CHECKED", "HOLD", "READY_FOR_SEPARATE_E2_REVIEW"]
+        },
+        "blockers": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {"type": "string", "minLength": 1, "maxLength": 1000}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "NOT_CHECKED"}}},
+          "then": {
+            "properties": {
+              "target_present": {"type": "null"},
+              "required_reviewer_count": {"type": "null"},
+              "prevent_self_review": {"type": "null"},
+              "deployment_branch_policy": {"type": "null"},
+              "decision_state": {"const": "NOT_CHECKED"},
+              "blockers": {"maxItems": 0}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "READY"}}},
+          "then": {
+            "properties": {
+              "target_present": {"const": true},
+              "required_reviewer_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 6
+              },
+              "prevent_self_review": {"const": true},
+              "deployment_branch_policy": {"const": "develop_only"},
+              "decision_state": {"const": "READY_FOR_SEPARATE_E2_REVIEW"},
+              "blockers": {"maxItems": 0}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": ["ABSENT", "MISCONFIGURED", "BLOCKED"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "required_reviewer_count": {"type": "null"},
+              "prevent_self_review": {"type": "null"},
+              "deployment_branch_policy": {"type": "null"},
+              "decision_state": {"const": "HOLD"},
+              "blockers": {"minItems": 1}
+            }
+          }
+        }
+      ]
     },
     "nextAction": {
       "type": "object",

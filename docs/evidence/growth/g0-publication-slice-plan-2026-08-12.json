@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-15T22:02:09+09:00",
+  "generated_at": "2026-08-16T00:27:06+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 259,
-    "expected_paths_sha256": "9e0c1e0bb19e589f9859ce099cbda289d8a539e09fd37bac136e9969a50e728f",
+    "expected_path_count": 262,
+    "expected_paths_sha256": "b1dd157537e48d5c8ae6d7b9cc4007c07ec5a6443b4822d2622d48af1928d8f4",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -209,6 +209,7 @@
         "docs/releases/v0.9.1.md",
         "docs/roadmap/v0.9.md",
         "docs/rosdistro-release.md",
+        "docs/schemas/candidate-environment-readiness-v1.schema.json",
         "docs/schemas/candidate-image-request-v1.schema.json",
         "docs/schemas/candidate-image-set-audit-v1.schema.json",
         "docs/schemas/candidate-image-set-audit-v2.schema.json",
@@ -227,6 +228,7 @@
         "lidarslam/package.xml",
         "lidarslam/test/test_audit_candidate_image_set.py",
         "lidarslam/test/test_build_docker_launcher_asset.py",
+        "lidarslam/test/test_candidate_environment_readiness.py",
         "lidarslam/test/test_candidate_image_gate.py",
         "lidarslam/test/test_canonical_ndt_convergence.py",
         "lidarslam/test/test_ndt_omp_release_readiness.py",
@@ -242,6 +244,7 @@
         "scripts/audit_candidate_image_set.py",
         "scripts/build_docker_launcher_asset.py",
         "scripts/build_release_bundle.py",
+        "scripts/check_candidate_environment.py",
         "scripts/check_canonical_ndt_convergence.py",
         "scripts/check_ndt_omp_release_readiness.py",
         "scripts/check_package_manager_release_readiness.py",

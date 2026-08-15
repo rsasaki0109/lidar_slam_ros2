@@ -66,7 +66,8 @@ COHORT_GATE_GUIDANCE = {
         'name one exact public commit for the selected product version'
     ),
     'public_revision_resolvable': (
-        'verify that the exact source commit resolves from the public repository'
+        'verify that the exact source commit resolves from the public '
+        'repository'
     ),
     'comparable_docker_row': (
         'record one clean Docker PASS at that version with all seven '
@@ -78,15 +79,15 @@ COHORT_GATE_GUIDANCE = {
         'measurements, including active time and command count'
     ),
     'canonical_documentation_path': (
-        'select the public Docker First Map or source quickstart route used by '
-        'the cohort'
+        'select the public Docker First Map or source quickstart route used '
+        'by the cohort'
     ),
     'canonical_documentation_url': (
         'bind that route to its canonical documentation URL and route fragment'
     ),
     'canonical_runtime_ref': (
-        'bind Docker to an immutable GHCR digest or source to the exact public '
-        'commit'
+        'bind Docker to an immutable GHCR digest or source to the exact '
+        'public commit'
     ),
     'copy_ready_handoff_public': (
         'ensure the public revision contains the copy-ready first-map handoff'
@@ -105,7 +106,8 @@ def _cohort_gate_guidance(gate: str) -> str:
     """Return bounded human guidance while preserving the machine gate ID."""
     return COHORT_GATE_GUIDANCE.get(
         gate,
-        'inspect the first-map cohort contract for the exact missing prerequisite',
+        'inspect the first-map cohort contract for the exact missing '
+        'prerequisite',
     )
 
 
@@ -150,6 +152,7 @@ def _run_json(
 
 def collect_checker_reports(
     *,
+    include_candidate_environment: bool = False,
     include_published_release: bool = False,
     published_release_version: str = DEFAULT_RELEASE_VERSION,
     runner: Runner = subprocess.run,
@@ -176,8 +179,15 @@ def collect_checker_reports(
             ('--json',),
             runner=runner,
         ),
+        'candidate_environment': None,
         'published_release': None,
     }
+    if include_candidate_environment:
+        reports['candidate_environment'] = _run_json(
+            'check_candidate_environment.py',
+            ('--json',),
+            runner=runner,
+        )
     if include_published_release:
         reports['published_release'] = _run_json(
             'check_published_release.py',
@@ -219,7 +229,10 @@ def _cohort_summary(report: dict[str, Any]) -> dict[str, Any]:
         raise G0ReadinessError('first-map cohort report is incomplete')
     pending_launch_gates = report['pending_launch_gates']
     if not isinstance(pending_launch_gates, list) or not all(
-        isinstance(gate, str) and gate and '\n' not in gate and '\r' not in gate
+        isinstance(gate, str)
+        and gate
+        and '\n' not in gate
+        and '\r' not in gate
         for gate in pending_launch_gates
     ):
         raise G0ReadinessError(
@@ -292,6 +305,81 @@ def _published_summary(
     }
 
 
+def _candidate_environment_summary(
+    report: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Keep an optional live environment audit distinct from a pass."""
+    if report is None:
+        return {
+            'status': 'NOT_CHECKED',
+            'environment': 'candidate-images',
+            'target_present': None,
+            'required_reviewer_count': None,
+            'prevent_self_review': None,
+            'deployment_branch_policy': None,
+            'decision_state': 'NOT_CHECKED',
+            'blockers': [],
+        }
+    observed = report.get('observed')
+    decision = report.get('decision')
+    findings = report.get('findings')
+    authority = report.get('authority')
+    if (
+        not isinstance(observed, dict)
+        or not isinstance(decision, dict)
+        or not isinstance(findings, list)
+        or not isinstance(authority, dict)
+    ):
+        raise G0ReadinessError(
+            'candidate environment report is incomplete'
+        )
+    if decision.get('dispatch_authorized') is not False or any(
+        authority.get(field) is not False
+        for field in (
+            'github_writes_authorized',
+            'environment_writes_authorized',
+            'artifact_publication_authorized',
+            'remote_mutations_performed',
+        )
+    ):
+        raise G0ReadinessError(
+            'candidate environment report claims remote-write authority'
+        )
+    target = observed.get('target')
+    if target is not None and not isinstance(target, dict):
+        raise G0ReadinessError(
+            'candidate environment target must be an object or null'
+        )
+    blockers: list[str] = []
+    for finding in findings:
+        if not isinstance(finding, dict):
+            raise G0ReadinessError(
+                'candidate environment finding must be an object'
+            )
+        detail = finding.get('detail')
+        if not isinstance(detail, str) or not detail:
+            raise G0ReadinessError(
+                'candidate environment finding has no safe detail'
+            )
+        blockers.append(detail)
+    return {
+        'status': report.get('status'),
+        'environment': report.get('environment'),
+        'target_present': observed.get('target_present'),
+        'required_reviewer_count': (
+            target.get('required_reviewer_count') if target else None
+        ),
+        'prevent_self_review': (
+            target.get('prevent_self_review') if target else None
+        ),
+        'deployment_branch_policy': (
+            target.get('deployment_branch_policy') if target else None
+        ),
+        'decision_state': decision.get('state'),
+        'blockers': blockers,
+    }
+
+
 def _identity_alternatives(published: dict[str, Any]) -> list[dict[str, str]]:
     """Describe safe identity choices without selecting or publishing one."""
     version = published['version']
@@ -334,6 +422,7 @@ def _next_action(
     matrix: dict[str, Any],
     cohort: dict[str, Any],
     v1: dict[str, Any],
+    candidate_environment: dict[str, Any],
     published: dict[str, Any],
 ) -> dict[str, Any]:
     """Choose one safe next action in dependency order."""
@@ -346,6 +435,31 @@ def _next_action(
                 'python3 scripts/check_publication_slice_plan.py --json'
             ),
             'write_boundary': 'read-only',
+        }
+    if (
+        not matrix['product_version_aligned']
+        and published['status'] != 'PUBLISHED'
+        and candidate_environment['status'] not in ('NOT_CHECKED', 'READY')
+    ):
+        blocker = '; '.join(candidate_environment['blockers']) or (
+            'The protected candidate environment is not ready.'
+        )
+        return {
+            'id': 'review-candidate-environment',
+            'title': 'Review the protected candidate environment',
+            'reason': (
+                f"Environment state is {candidate_environment['status']}: "
+                f'{blocker}'
+            ),
+            'command': (
+                'GITHUB_TOKEN="$(gh auth token)" python3 '
+                'scripts/check_candidate_environment.py '
+                '--json --require-ready'
+            ),
+            'write_boundary': (
+                'read-only audit; repository settings and E2 dispatch remain '
+                'separate decisions'
+            ),
         }
     if not matrix['product_version_aligned']:
         versions = ', '.join(matrix['product_versions']) or 'multiple versions'
@@ -472,9 +586,13 @@ def build_report(
         reports.get('published_release'),
         published_release_version,
     )
+    candidate_environment = _candidate_environment_summary(
+        reports.get('candidate_environment')
+    )
     authority = {
         'network_reads_performed': (
             reports.get('published_release') is not None
+            or reports.get('candidate_environment') is not None
         ),
         'github_writes_authorized': False,
         'remote_mutations_performed': False,
@@ -504,10 +622,11 @@ def build_report(
             'onboarding_matrix': matrix,
             'first_map_cohort': cohort,
             'v1_readiness': v1,
+            'candidate_environment': candidate_environment,
             'published_release': published,
         },
         'next_action': _next_action(
-            plan, matrix, cohort, v1, published,
+            plan, matrix, cohort, v1, candidate_environment, published,
         ),
     }
     try:
@@ -533,6 +652,7 @@ def render_card(report: dict[str, Any]) -> str:
     matrix = checks['onboarding_matrix']
     cohort = checks['first_map_cohort']
     v1 = checks['v1_readiness']
+    candidate_environment = checks['candidate_environment']
     published = checks['published_release']
     lines = [
         '# G0 readiness',
@@ -570,6 +690,12 @@ def render_card(report: dict[str, Any]) -> str:
             f"{v1['complete']}/{v1['total']} complete |"
         ),
         (
+            '| candidate environment | '
+            f"{candidate_environment['status']} | "
+            f"{candidate_environment['environment']}; "
+            'dispatch authorized: false |'
+        ),
+        (
             f"| published release | {published['status']} | "
             f"v{published['version']} |"
         ),
@@ -580,7 +706,7 @@ def render_card(report: dict[str, Any]) -> str:
             lines.append(
                 f"- {gate['title']} (`{gate['id']}`): {gate['detail']}"
             )
-            lines.extend(f"  - {blocker}" for blocker in gate['blockers'])
+            lines.extend(f'  - {blocker}' for blocker in gate['blockers'])
     if cohort['pending_launch_gates']:
         lines.extend(['', 'first-map cohort blockers:'])
         lines.extend(
@@ -613,6 +739,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--json', action='store_true')
     parser.add_argument(
+        '--include-candidate-environment',
+        action='store_true',
+        help='Also run the read-only protected-environment audit.',
+    )
+    parser.add_argument(
         '--include-published-release',
         action='store_true',
         help='Also run the read-only remote v0.9.1 publication audit.',
@@ -634,6 +765,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         reports = collect_checker_reports(
+            include_candidate_environment=args.include_candidate_environment,
             include_published_release=args.include_published_release,
             published_release_version=args.published_release_version,
         )

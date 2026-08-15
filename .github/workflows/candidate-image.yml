@@ -9,12 +9,15 @@ on:
     paths:
       - .github/workflows/candidate-image.yml
       - scripts/validate_candidate_image_request.py
+      - scripts/check_candidate_environment.py
       - scripts/create_candidate_image_record.py
       - scripts/verify_candidate_image_set.py
       - docs/schemas/candidate-image-request-v1.schema.json
+      - docs/schemas/candidate-environment-readiness-v1.schema.json
       - docs/schemas/candidate-image-v1.schema.json
       - docs/schemas/candidate-image-set-v1.schema.json
       - lidarslam/test/test_candidate_image_gate.py
+      - lidarslam/test/test_candidate_environment_readiness.py
   repository_dispatch:
     types:
       - e2-publish-candidate-image
@@ -56,6 +59,7 @@ jobs:
         shell: bash
         run: >-
           python3 -m pytest
+          lidarslam/test/test_candidate_environment_readiness.py
           lidarslam/test/test_candidate_image_gate.py -q
 
   authorize:
@@ -174,10 +178,12 @@ jobs:
             --environment-json /tmp/candidate-environment.json \
             --branch-policies-json /tmp/candidate-branch-policies.json \
             --output candidate-image-request.json
-          echo "authorized=true" >> "${GITHUB_OUTPUT}"
-          echo "product_version=${PRODUCT_VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "source_commit=${SOURCE_COMMIT}" >> "${GITHUB_OUTPUT}"
-          echo "source_pr=${SOURCE_PR}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "authorized=true"
+            echo "product_version=${PRODUCT_VERSION}"
+            echo "source_commit=${SOURCE_COMMIT}"
+            echo "source_pr=${SOURCE_PR}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Upload authorized request
         uses: actions/upload-artifact@v6

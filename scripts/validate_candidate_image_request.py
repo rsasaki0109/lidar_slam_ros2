@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
+from check_candidate_environment import validate_candidate_environment
 from product_schema import load_json_object, validate_contract
 
 
@@ -50,7 +51,6 @@ ALLOWED_SKIPPED_CHECKS = {
     'publish immutable digest (${{ matrix.ros_distro }})',
     'verify immutable candidate pair',
 }
-ENVIRONMENT_NAME = 'candidate-images'
 
 
 def _object(value: Any, label: str) -> dict[str, Any]:
@@ -144,66 +144,6 @@ def _validate_check_runs(
     return sorted(successful), sorted(skipped)
 
 
-def _validate_environment(
-    environment: dict[str, Any],
-    branch_policies_document: dict[str, Any],
-) -> dict[str, Any]:
-    if environment.get('name') != ENVIRONMENT_NAME:
-        raise ValueError('candidate-images environment is not configured')
-    rules = environment.get('protection_rules')
-    if not isinstance(rules, list):
-        raise ValueError('candidate environment protection rules are missing')
-    reviewer_rules = [
-        _object(rule, 'environment protection rule')
-        for rule in rules
-        if isinstance(rule, dict) and rule.get('type') == 'required_reviewers'
-    ]
-    if len(reviewer_rules) != 1:
-        raise ValueError(
-            'candidate environment requires exactly one reviewer rule'
-        )
-    reviewers = reviewer_rules[0].get('reviewers')
-    if not isinstance(reviewers, list) or not reviewers:
-        raise ValueError('candidate environment has no required reviewer')
-    if len(reviewers) > 6:
-        raise ValueError('candidate environment reviewer set is unbounded')
-
-    deployment_policy = _object(
-        environment.get('deployment_branch_policy'),
-        'environment deployment branch policy',
-    )
-    if deployment_policy.get('protected_branches') is not False:
-        raise ValueError(
-            'candidate environment must use a custom develop-only policy'
-        )
-    if deployment_policy.get('custom_branch_policies') is not True:
-        raise ValueError(
-            'candidate environment must enable custom branch policies'
-        )
-    policies = branch_policies_document.get('branch_policies')
-    if not isinstance(policies, list):
-        raise ValueError('candidate deployment branch policies are missing')
-    if branch_policies_document.get('total_count') != len(policies):
-        raise ValueError('candidate deployment policy response is truncated')
-    if len(policies) != 1:
-        raise ValueError(
-            'candidate environment must allow exactly one deployment branch'
-        )
-    policy = _object(policies[0], 'candidate deployment branch policy')
-    if policy.get('name') != DEFAULT_BRANCH:
-        raise ValueError('candidate environment must allow develop only')
-    if policy.get('type') not in (None, 'branch'):
-        raise ValueError('candidate environment policy must target a branch')
-    return {
-        'name': ENVIRONMENT_NAME,
-        'required_reviewer_count': len(reviewers),
-        'prevent_self_review': bool(
-            reviewer_rules[0].get('prevent_self_review', False)
-        ),
-        'deployment_branch_policy': 'develop_only',
-    }
-
-
 def validate_candidate_image_request(
     *,
     event_name: str,
@@ -260,7 +200,7 @@ def validate_candidate_image_request(
         source_commit=source_commit,
     )
     successful, skipped = _validate_check_runs(check_runs_document)
-    environment_report = _validate_environment(
+    environment_report = validate_candidate_environment(
         environment,
         branch_policies_document,
     )
