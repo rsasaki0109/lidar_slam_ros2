@@ -5,14 +5,15 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
+import os
 import re
 import subprocess
 import sys
-from typing import Any
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Any
 
 import jsonschema
 
@@ -211,12 +212,16 @@ def inspect_local(repo_root: Path = REPO_ROOT) -> dict[str, Any]:
 
 
 def _request_text(url: str) -> tuple[int, str]:
+    headers = {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'lidarslam-ndt-release-preflight/1',
+    }
+    token = os.environ.get('GITHUB_TOKEN')
+    if token and url.startswith('https://api.github.com/'):
+        headers['Authorization'] = f'Bearer {token}'
     request = urllib.request.Request(
         url,
-        headers={
-            'Accept': 'application/vnd.github+json',
-            'User-Agent': 'lidarslam-ndt-release-preflight/1',
-        },
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
@@ -443,6 +448,19 @@ def inspect_remote() -> dict[str, Any]:
     }
 
 
+def _unanswered_review_action(
+    distro: str,
+    pull_request: dict[str, Any],
+) -> str:
+    review = pull_request['latest_actionable_review']
+    return (
+        f'Respond to the unanswered human review for ros/rosdistro PR '
+        f'#{pull_request["number"]} ({distro}) at {review["url"]}. Explain '
+        'the upstream lineage, required API delta, and collision-free '
+        'convergence plan; do not describe this as wait-only or rerun Bloom.'
+    )
+
+
 def evaluate_readiness(
     *,
     repo_root: Path = REPO_ROOT,
@@ -516,6 +534,18 @@ def evaluate_readiness(
             and remote_report['pull_requests'][distro]['merged'] is False
             for distro in DISTROS
         ) if not remote_failed else False
+        unmergeable = any(
+            not remote_report['rosdistro'][distro]
+            and remote_report['pull_requests'][distro]['state'] == 'open'
+            and remote_report['pull_requests'][distro]['mergeable'] is False
+            for distro in DISTROS
+        ) if not remote_failed else False
+        mergeability_pending = any(
+            not remote_report['rosdistro'][distro]
+            and remote_report['pull_requests'][distro]['state'] == 'open'
+            and remote_report['pull_requests'][distro]['mergeable'] is None
+            for distro in DISTROS
+        ) if not remote_failed else False
         review_pending = any(
             not remote_report['rosdistro'][distro]
             and remote_report['pull_requests'][distro]['response_pending']
@@ -549,6 +579,29 @@ def evaluate_readiness(
                         f'({distro}) closed without merge. Resolve the '
                         'review outcome before creating replacement release '
                         'state.')
+        elif unmergeable:
+            status = 'BLOCKED'
+            for distro in DISTROS:
+                pull_request = remote_report['pull_requests'][distro]
+                if (
+                    not remote_report['rosdistro'][distro]
+                    and pull_request['state'] == 'open'
+                    and pull_request['mergeable'] is False
+                ):
+                    actions.append(
+                        f'ros/rosdistro PR #{pull_request["number"]} '
+                        f'({distro}) is not mergeable at exact head '
+                        f'{pull_request["head_sha"]}. Resolve the base '
+                        'conflict and rerun this audit; do not merge or '
+                        'rerun Bloom from this state.')
+            for distro in DISTROS:
+                pull_request = remote_report['pull_requests'][distro]
+                if (
+                    not remote_report['rosdistro'][distro]
+                    and pull_request['response_pending'] is True
+                ):
+                    actions.append(_unanswered_review_action(
+                        distro, pull_request))
         elif review_pending:
             status = 'REVIEW_REQUIRED'
             for distro in DISTROS:
@@ -557,14 +610,24 @@ def evaluate_readiness(
                     not remote_report['rosdistro'][distro]
                     and pull_request['response_pending'] is True
                 ):
-                    review = pull_request['latest_actionable_review']
+                    actions.append(_unanswered_review_action(
+                        distro, pull_request))
+        elif mergeability_pending:
+            status = 'BLOCKED'
+            for distro in DISTROS:
+                pull_request = remote_report['pull_requests'][distro]
+                if (
+                    not remote_report['rosdistro'][distro]
+                    and pull_request['state'] == 'open'
+                    and pull_request['mergeable'] is None
+                ):
                     actions.append(
-                        f'Respond to the unanswered human review for '
+                        f'GitHub has not resolved mergeability for '
                         f'ros/rosdistro PR #{pull_request["number"]} '
-                        f'({distro}) at {review["url"]}. Explain the upstream '
-                        'lineage, required API delta, and collision-free '
-                        'convergence plan; do not describe this as wait-only '
-                        'or rerun Bloom.')
+                        f'({distro}) at exact head '
+                        f'{pull_request["head_sha"]}. Rerun the read-only '
+                        'audit before treating the PR as wait-only or '
+                        'mergeable.')
         else:
             status = 'IN_PROGRESS'
             if not remote_report['source_tag_present']:
@@ -633,7 +696,8 @@ def _summary(report: dict[str, Any]) -> str:
             lines.append(
                 f"rosdistro PR {distro}: #{pull_request['number']} "
                 f"state={pull_request['state']} merged="
-                f"{pull_request['merged']} response_pending="
+                f"{pull_request['merged']} mergeable="
+                f"{pull_request['mergeable']} response_pending="
                 f"{pull_request['response_pending']}")
         lines.extend(f'  [ERROR] {error}' for error in remote['errors'])
     lines.extend(f'Next: {action}' for action in report['actions'])

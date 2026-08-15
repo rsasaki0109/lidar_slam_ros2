@@ -88,17 +88,22 @@ unless the exact reviewed candidate is `READY_TO_TAG`. It validates the
 parent gitlink, submodule HEAD and cleanliness, package metadata, changelog,
 CMake install/export contract, and Bloom CI assets. Its remote inspection
 then verifies `origin/humble`, source tag, release-repository existence, both
-rosdistro keys, generated PR state, and whether the latest actionable human
-review has a later author response. A GitHub 404 means an initial artifact is
-absent; any other HTTP, malformed response, or network error is `BLOCKED`,
-never mistaken for absence or reviewer approval.
+rosdistro keys, generated PR state and mergeability, and whether the latest
+actionable human review has a later author response. Set `GITHUB_TOKEN` to a
+read-capable token when the public GitHub API limit is too small; it is sent
+only to `api.github.com` and is never included in the report. A GitHub 404
+means an initial artifact is absent; any other HTTP, malformed response, or
+network error is `BLOCKED`, never mistaken for absence or reviewer approval.
 
 CI runs `--offline`, whose successful state is only `LOCAL_READY`. After
 publication, use `--require-released`; it passes only when the tag, release
 repository, and Humble and Jazzy rosdistro entries all exist. `IN_PROGRESS`
 means publication is partial without an unanswered detected review.
 `REVIEW_REQUIRED` names each unanswered human-review URL and fails every
-strict release gate. The JSON contract is
+strict release gate. An explicitly unmergeable PR or unresolved GitHub
+mergeability calculation never becomes a wait-only result; it is either
+`BLOCKED` or remains under the higher-priority `REVIEW_REQUIRED` state. The
+JSON contract is
 [`ndt-omp-release-readiness-v2.schema.json`](schemas/ndt-omp-release-readiness-v2.schema.json).
 The checker is read-only; it never creates a tag, repository, or PR.
 

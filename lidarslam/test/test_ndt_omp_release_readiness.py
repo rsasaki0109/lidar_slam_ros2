@@ -33,9 +33,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -66,6 +66,7 @@ def _pull_request(
     response_pending: bool = False,
     state: str = 'open',
     merged: bool = False,
+    mergeable: bool | None = True,
 ):
     number = PREFLIGHT.ROSDISTRO_PULL_REQUESTS[distro]
     review_url = (
@@ -77,7 +78,7 @@ def _pull_request(
         'url': f'https://github.com/ros/rosdistro/pull/{number}',
         'state': state,
         'merged': merged,
-        'mergeable': True if state == 'open' else None,
+        'mergeable': mergeable if state == 'open' else None,
         'head_sha': 'a' * 40,
         'updated_at': '2026-08-12T00:00:00Z',
         'latest_actionable_review': {
@@ -99,6 +100,8 @@ def _remote(
     jazzy: bool,
     pending: tuple[str, ...] = (),
     closed: tuple[str, ...] = (),
+    unmergeable: tuple[str, ...] = (),
+    unknown_mergeability: tuple[str, ...] = (),
 ):
     return {
         'errors': [],
@@ -111,6 +114,10 @@ def _remote(
                 distro,
                 response_pending=distro in pending,
                 state='closed' if distro in closed else 'open',
+                mergeable=(
+                    False if distro in unmergeable else
+                    None if distro in unknown_mergeability else True
+                ),
             )
             for distro in PREFLIGHT.DISTROS
         },
@@ -223,6 +230,54 @@ def test_closed_unmerged_generated_pr_blocks_replacement_release_state():
     )
 
 
+def test_unmergeable_generated_pr_blocks_and_preserves_review_action():
+    """An explicit base conflict blocks without hiding review work."""
+    report = PREFLIGHT.evaluate_readiness(
+        local=_local(),
+        remote=_remote(
+            tag=True,
+            release_repo=True,
+            humble=False,
+            jazzy=False,
+            pending=('humble',),
+            unmergeable=('jazzy',),
+        ),
+    )
+
+    assert report['status'] == 'BLOCKED'
+    assert any(
+        'PR #52950 (jazzy) is not mergeable at exact head' in item
+        and 'Resolve the base conflict' in item
+        for item in report['actions']
+    )
+    assert any(
+        'unanswered human review' in item and 'PR #52949 (humble)' in item
+        for item in report['actions']
+    )
+
+
+def test_unknown_mergeability_fails_closed_instead_of_waiting():
+    """An unresolved GitHub calculation cannot become a wait-only result."""
+    report = PREFLIGHT.evaluate_readiness(
+        local=_local(),
+        remote=_remote(
+            tag=True,
+            release_repo=True,
+            humble=False,
+            jazzy=False,
+            unknown_mergeability=('humble',),
+        ),
+    )
+
+    assert report['status'] == 'BLOCKED'
+    assert any(
+        'has not resolved mergeability' in item
+        and 'PR #52949 (humble)' in item
+        for item in report['actions']
+    )
+    assert not any('Wait for' in item for item in report['actions'])
+
+
 def test_complete_publication_is_released():
     report = PREFLIGHT.evaluate_readiness(
         local=_local(),
@@ -333,6 +388,59 @@ def test_pull_request_inspection_detects_question_and_author_response(
     author_replied = True
     answered = PREFLIGHT._inspect_pull_request('jazzy')
     assert answered['response_pending'] is False
+
+
+def test_github_token_is_used_only_for_github_api(monkeypatch):
+    """The optional token is scoped to GitHub API requests."""
+    requests = []
+
+    class FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b'{}'
+
+    def fake_urlopen(request, timeout):
+        assert timeout == 20
+        requests.append(request)
+        return FakeResponse()
+
+    monkeypatch.setenv('GITHUB_TOKEN', 'read-only-test-token')
+    monkeypatch.setattr(PREFLIGHT.urllib.request, 'urlopen', fake_urlopen)
+
+    PREFLIGHT._request_text('https://api.github.com/repos/owner/repo')
+    PREFLIGHT._request_text(
+        'https://raw.githubusercontent.com/owner/repo/main/file')
+
+    assert requests[0].get_header('Authorization') == (
+        'Bearer read-only-test-token'
+    )
+    assert requests[1].get_header('Authorization') is None
+
+
+def test_human_summary_exposes_mergeability():
+    """The readable report exposes mergeability beside review state."""
+    report = PREFLIGHT.evaluate_readiness(
+        local=_local(),
+        remote=_remote(
+            tag=True,
+            release_repo=True,
+            humble=False,
+            jazzy=False,
+            pending=('humble', 'jazzy'),
+        ),
+    )
+
+    summary = PREFLIGHT._summary(report)
+    assert 'state=open merged=False mergeable=True response_pending=True' in (
+        summary
+    )
 
 
 def test_missing_candidate_path_fails_closed(tmp_path):

@@ -25,6 +25,22 @@ wait-only interpretation of the two generated rosdistro pull requests.
 No GitHub comment, PR, tag, repository, or distribution file was changed by
 this audit.
 
+## Read-only state refresh — 2026-08-15
+
+An authenticated read-only rerun avoided the shared unauthenticated GitHub
+API quota and again reported `REVIEW_REQUIRED`. Both PRs remain open at the
+same exact heads above, GitHub currently reports `mergeable=true`, and both
+review questions still have `response_pending=true`. Mergeability only records
+the current base-conflict calculation; it does not grant reviewer approval or
+make the colliding packages release-ready.
+
+The checker now sends an optional `GITHUB_TOKEN` only to `api.github.com`,
+prints each PR's mergeability in the human summary, and fails closed if an
+open generated PR is explicitly unmergeable or GitHub has not completed the
+calculation. Focused tests cover authenticated request scoping, explicit
+conflicts, unknown mergeability, retained review actions, and readable output.
+No external state was changed by the refresh.
+
 ## Relationship to the existing package
 
 `ndt_omp_ros2` is a downstream ROS 2 port/fork of
