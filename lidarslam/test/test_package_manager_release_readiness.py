@@ -73,14 +73,23 @@ def _successful_run() -> dict:
     }
 
 
+def _snapshot(*runs: dict, source_sha: str = 'a' * 40) -> dict:
+    return {
+        'inspected': True,
+        'errors': [],
+        'source_ref': {
+            'ref': 'v0.9.0',
+            'resolved': True,
+            'commit_sha': source_sha,
+        },
+        'runs': list(runs),
+    }
+
+
 def test_exact_successful_main_channel_matrix_is_ready():
     report = READINESS.evaluate_readiness(
         version='0.9.0',
-        snapshot={
-            'inspected': True,
-            'errors': [],
-            'runs': [_successful_run()],
-        },
+        snapshot=_snapshot(_successful_run()),
     )
 
     assert report['status'] == 'READY'
@@ -92,12 +101,16 @@ def test_exact_successful_main_channel_matrix_is_ready():
 def test_no_matching_run_is_not_run():
     report = READINESS.evaluate_readiness(
         version='0.9.0',
-        snapshot={'inspected': True, 'errors': [], 'runs': []},
+        snapshot=_snapshot(),
     )
 
     assert report['status'] == 'NOT_RUN'
     assert report['selected_run'] is None
-    assert report['actions']
+    assert any(
+        'gh workflow run package-manager-install-upgrade.yml'
+        in action
+        for action in report['actions']
+    )
 
 
 def test_api_failure_is_blocked_not_not_run():
@@ -106,6 +119,11 @@ def test_api_failure_is_blocked_not_not_run():
         snapshot={
             'inspected': False,
             'errors': ['rate limited'],
+            'source_ref': {
+                'ref': 'v0.9.0',
+                'resolved': False,
+                'commit_sha': None,
+            },
             'runs': [],
         },
     )
@@ -159,16 +177,138 @@ def test_both_named_distros_are_required():
 
     report = READINESS.evaluate_readiness(
         version='0.9.0',
-        snapshot={'inspected': True, 'errors': [], 'runs': [run]},
+        snapshot=_snapshot(run),
     )
 
-    assert report['status'] == 'NOT_RUN'
+    assert report['status'] == 'FAILED'
     failed = {
         check['id']
         for check in report['checks']
         if check['status'] == 'FAIL'
     }
     assert failed == {'jazzy-main-clean-install'}
+
+
+def test_missing_source_ref_blocks_dispatch_instead_of_claiming_not_run():
+    report = READINESS.evaluate_readiness(
+        version='0.9.0',
+        snapshot={
+            'inspected': True,
+            'errors': [],
+            'source_ref': {
+                'ref': 'v0.9.0',
+                'resolved': False,
+                'commit_sha': None,
+            },
+            'runs': [],
+        },
+    )
+
+    assert report['status'] == 'SOURCE_REF_MISSING'
+    assert report['source_ref']['resolved'] is False
+    assert 'Do not dispatch' in report['actions'][0]
+    assert 'gh workflow run' not in ' '.join(report['actions'])
+
+
+def test_run_head_must_match_the_current_immutable_tag_commit():
+    report = READINESS.evaluate_readiness(
+        version='0.9.0',
+        snapshot=_snapshot(_successful_run(), source_sha='b' * 40),
+    )
+
+    assert report['status'] == 'BLOCKED'
+    failed = {
+        check['id']
+        for check in report['checks']
+        if check['status'] == 'FAIL'
+    }
+    assert failed == {'workflow-head-identity'}
+
+
+def test_in_progress_exact_run_is_running_not_not_run():
+    run = _successful_run()
+    run['status'] = 'in_progress'
+    run['conclusion'] = None
+    run['jobs'][0]['status'] = 'in_progress'
+    run['jobs'][0]['conclusion'] = None
+
+    report = READINESS.evaluate_readiness(
+        version='0.9.0',
+        snapshot=_snapshot(run),
+    )
+
+    assert report['status'] == 'RUNNING'
+    assert report['selected_run'] is None
+    assert report['actions'] == [
+        'Wait for the exact package-manager run to finish: '
+        'https://github.com/example/actions/runs/123'
+    ]
+
+
+def test_remote_inspection_resolves_tag_and_does_not_hide_failed_runs(
+    monkeypatch,
+):
+    urls = []
+
+    def fake_request(url, *, allow_not_found=False):
+        urls.append((url, allow_not_found))
+        if '/git/ref/tags/v0.9.0' in url:
+            return {
+                'object': {
+                    'type': 'commit',
+                    'sha': 'a' * 40,
+                },
+            }
+        if '/runs?' in url:
+            return {'workflow_runs': []}
+        raise AssertionError(url)
+
+    monkeypatch.setattr(READINESS, '_request_json', fake_request)
+
+    snapshot = READINESS.inspect_remote('0.9.0')
+
+    assert snapshot['source_ref'] == {
+        'ref': 'v0.9.0',
+        'resolved': True,
+        'commit_sha': 'a' * 40,
+    }
+    runs_url = next(url for url, _allowed in urls if '/runs?' in url)
+    assert 'event=workflow_dispatch' in runs_url
+    assert 'status=' not in runs_url
+
+
+def test_annotated_source_tag_is_peeled_to_its_commit(monkeypatch):
+    tag_object_url = (
+        'https://api.github.com/repos/rsasaki0109/lidar_slam_ros2/'
+        'git/tags/' + 'b' * 40
+    )
+
+    def fake_request(url, *, allow_not_found=False):
+        if '/git/ref/tags/v0.9.0' in url:
+            assert allow_not_found is True
+            return {
+                'object': {
+                    'type': 'tag',
+                    'sha': 'b' * 40,
+                    'url': tag_object_url,
+                },
+            }
+        if url == tag_object_url:
+            return {
+                'object': {
+                    'type': 'commit',
+                    'sha': 'a' * 40,
+                },
+            }
+        raise AssertionError(url)
+
+    monkeypatch.setattr(READINESS, '_request_json', fake_request)
+
+    assert READINESS._resolve_source_ref('0.9.0') == {
+        'ref': 'v0.9.0',
+        'resolved': True,
+        'commit_sha': 'a' * 40,
+    }
 
 
 def test_workflow_run_name_exposes_exact_audit_identity():

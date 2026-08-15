@@ -247,8 +247,15 @@ to GitHub, and never includes it in JSON output.
 
 The resulting JSON contract is
 [`package-manager-release-readiness-v1.schema.json`](schemas/package-manager-release-readiness-v1.schema.json).
-GitHub API errors report `BLOCKED`, while absence of the exact successful run
-reports `NOT_RUN`; neither state can satisfy live v1 readiness.
+The audit first resolves the exact `v<VERSION>` ref, including annotated tags,
+to its public commit and requires the workflow `head_sha` to match that commit.
+It inspects successful, failed, and still-running dispatches instead of hiding
+non-successful attempts. A missing immutable source ref reports
+`SOURCE_REF_MISSING`; no matching attempt reports `NOT_RUN`; an active attempt
+reports `RUNNING`; and a completed unsuccessful matrix reports `FAILED`.
+GitHub API failures or untrusted run identity report `BLOCKED`. Only `READY`
+can satisfy live v1 readiness, and the checker never creates the missing tag or
+dispatches the workflow.
 
 Before dispatching the expensive real-data workflow, inspect the two binary
 dependencies in disposable Humble and Jazzy containers:
@@ -267,6 +274,11 @@ report. `IN_PROGRESS` means at least one testing binary is not ready;
 Docker, network, apt, or schema failures are `BLOCKED`, never
 `not-published`. This preflight does not replace the installed product E2E:
 it prevents a workflow dispatch that is guaranteed to fail before installation.
+The package-manager release audit additionally refuses to print a dispatch
+command until the exact public source tag resolves. When both prerequisites
+pass, its action contains the complete `gh workflow run` command with source
+ref, product version, channel, and mode rather than requiring operators to
+reconstruct those inputs.
 The
 [2026-08-12 public-channel snapshot](evidence/ros-apt-dependency-readiness-2026-08-12.json)
 records the current asymmetric state: Humble RKO-LIO 0.3.2 is ready in both

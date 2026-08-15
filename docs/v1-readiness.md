@@ -71,6 +71,9 @@ untrustworthy live inspection exits 2.
   `scripts/check_package_manager_release_readiness.py` audit independently
   requires a successful workflow dispatch named for the exact immutable
   source tag, product version, `main` apt channel, and `clean-install` mode.
+  It resolves lightweight or annotated tags to a commit, binds the run head to
+  that commit, and reports missing refs, running attempts, and failed attempts
+  separately instead of collapsing them into `NOT_RUN`.
   Its
   [`package-manager-release-readiness-v1.schema.json`](schemas/package-manager-release-readiness-v1.schema.json)
   report requires both named-distro jobs to pass.

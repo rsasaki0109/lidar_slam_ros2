@@ -51,7 +51,70 @@ def expected_run_name(version: str) -> str:
     )
 
 
-def _request_json(url: str) -> dict[str, Any]:
+def _resolve_source_ref(version: str) -> dict[str, Any]:
+    """Resolve one lightweight or annotated release tag to its commit."""
+    source_ref = f'v{version}'
+    encoded_ref = urllib.parse.quote(f'tags/{source_ref}', safe='/')
+    ref_url = (
+        f'https://api.github.com/repos/{REPOSITORY}/git/ref/{encoded_ref}'
+    )
+    payload = _request_json(ref_url, allow_not_found=True)
+    if payload is None:
+        return {
+            'ref': source_ref,
+            'resolved': False,
+            'commit_sha': None,
+        }
+    target = payload.get('object')
+    for _depth in range(5):
+        if not isinstance(target, dict):
+            raise PackageManagerReleaseError(
+                f'GitHub ref response for {source_ref} has no object')
+        object_type = target.get('type')
+        object_sha = target.get('sha')
+        if object_type == 'commit':
+            if (
+                not isinstance(object_sha, str)
+                or SHA.fullmatch(object_sha) is None
+            ):
+                raise PackageManagerReleaseError(
+                    f'GitHub ref response for {source_ref} has no '
+                    'valid commit SHA')
+            return {
+                'ref': source_ref,
+                'resolved': True,
+                'commit_sha': object_sha,
+            }
+        if object_type != 'tag':
+            raise PackageManagerReleaseError(
+                f'GitHub ref {source_ref} points to unsupported object '
+                f'type {object_type!r}')
+        tag_url = target.get('url')
+        trusted_prefix = (
+            f'https://api.github.com/repos/{REPOSITORY}/git/tags/'
+        )
+        if (
+            not isinstance(tag_url, str)
+            or not isinstance(object_sha, str)
+            or SHA.fullmatch(object_sha) is None
+            or tag_url != f'{trusted_prefix}{object_sha}'
+        ):
+            raise PackageManagerReleaseError(
+                f'GitHub annotated tag {source_ref} has no trusted object URL')
+        tag_payload = _request_json(tag_url)
+        if tag_payload is None:  # pragma: no cover - not allowed here
+            raise PackageManagerReleaseError(
+                f'GitHub annotated tag {source_ref} was unexpectedly absent')
+        target = tag_payload.get('object')
+    raise PackageManagerReleaseError(
+        f'GitHub annotated tag {source_ref} exceeds the dereference limit')
+
+
+def _request_json(
+    url: str,
+    *,
+    allow_not_found: bool = False,
+) -> dict[str, Any] | None:
     headers = {
         'Accept': 'application/vnd.github+json',
         'User-Agent': 'lidarslam-package-manager-release-audit/1',
@@ -74,10 +137,14 @@ def _request_json(url: str) -> dict[str, Any]:
             if len(payload) > MAX_RESPONSE_BYTES:
                 raise PackageManagerReleaseError(
                     'remote response exceeds the download limit')
+    except urllib.error.HTTPError as exc:
+        if allow_not_found and exc.code == 404:
+            return None
+        raise PackageManagerReleaseError(
+            f'GitHub API request failed for {url}: {exc}') from exc
     except (
         OSError,
         ValueError,
-        urllib.error.HTTPError,
         urllib.error.URLError,
     ) as exc:
         raise PackageManagerReleaseError(
@@ -94,11 +161,16 @@ def _request_json(url: str) -> dict[str, Any]:
 
 
 def inspect_remote(version: str) -> dict[str, Any]:
-    """Inspect successful workflow dispatches without mutating GitHub."""
+    """Inspect the source ref and workflow dispatches without GitHub writes."""
     run_name = expected_run_name(version)
+    source_ref = f'v{version}'
+    source_state: dict[str, Any] = {
+        'ref': source_ref,
+        'resolved': False,
+        'commit_sha': None,
+    }
     query = urllib.parse.urlencode({
         'event': 'workflow_dispatch',
-        'status': 'success',
         'per_page': 100,
     })
     runs_url = (
@@ -106,7 +178,11 @@ def inspect_remote(version: str) -> dict[str, Any]:
         f'{WORKFLOW_NAME}/runs?{query}'
     )
     try:
+        source_state = _resolve_source_ref(version)
         payload = _request_json(runs_url)
+        if payload is None:  # pragma: no cover - not allowed for this request
+            raise PackageManagerReleaseError(
+                'GitHub workflow-runs response was unexpectedly absent')
         runs = payload.get('workflow_runs')
         if not isinstance(runs, list):
             raise PackageManagerReleaseError(
@@ -125,6 +201,9 @@ def inspect_remote(version: str) -> dict[str, Any]:
                 raise PackageManagerReleaseError(
                     'matching workflow run has no jobs_url')
             jobs_payload = _request_json(jobs_url)
+            if jobs_payload is None:  # pragma: no cover - not allowed here
+                raise PackageManagerReleaseError(
+                    'GitHub jobs response was unexpectedly absent')
             jobs = jobs_payload.get('jobs')
             if not isinstance(jobs, list):
                 raise PackageManagerReleaseError(
@@ -151,12 +230,14 @@ def inspect_remote(version: str) -> dict[str, Any]:
         return {
             'inspected': True,
             'errors': [],
+            'source_ref': source_state,
             'runs': inspected,
         }
     except PackageManagerReleaseError as exc:
         return {
             'inspected': False,
             'errors': [str(exc)],
+            'source_ref': source_state,
             'runs': [],
         }
 
@@ -189,8 +270,32 @@ def evaluate_readiness(
         raise PackageManagerReleaseError(
             'snapshot runs must be an array of objects')
 
-    selected: dict[str, Any] | None = None
-    checks: list[dict[str, str]] = []
+    expected_source_ref = f'v{version}'
+    source_ref = snapshot.get('source_ref')
+    if not isinstance(source_ref, dict):
+        raise PackageManagerReleaseError(
+            'snapshot source_ref must be an object')
+    if source_ref.get('ref') != expected_source_ref:
+        raise PackageManagerReleaseError(
+            f'expected source ref {expected_source_ref!r}, found '
+            f"{source_ref.get('ref')!r}")
+    source_resolved = source_ref.get('resolved')
+    source_commit_sha = source_ref.get('commit_sha')
+    if not isinstance(source_resolved, bool):
+        raise PackageManagerReleaseError(
+            'snapshot source_ref.resolved must be a boolean')
+    if source_resolved:
+        if (
+            not isinstance(source_commit_sha, str)
+            or SHA.fullmatch(source_commit_sha) is None
+        ):
+            raise PackageManagerReleaseError(
+                'resolved source_ref must contain a 40-character commit SHA')
+    elif source_commit_sha is not None:
+        raise PackageManagerReleaseError(
+            'unresolved source_ref must have a null commit_sha')
+
+    assessments: list[dict[str, Any]] = []
     for run in runs:
         jobs = run.get('jobs', [])
         if not isinstance(jobs, list):
@@ -233,10 +338,13 @@ def evaluate_readiness(
             _check(
                 'workflow-head-identity',
                 (
-                    isinstance(run.get('head_sha'), str)
-                    and SHA.fullmatch(run['head_sha']) is not None
+                    source_resolved
+                    and run.get('head_sha') == source_commit_sha
                 ),
-                f"head_sha={run.get('head_sha')!r}",
+                (
+                    f'expected source commit {source_commit_sha!r}; '
+                    f"found head_sha={run.get('head_sha')!r}"
+                ),
             ),
         ]
         for distro in DISTROS:
@@ -247,30 +355,111 @@ def evaluate_readiness(
                 state == ('completed', 'success'),
                 f'job {name!r}: {state!r}',
             ))
-        if all(check['status'] == 'PASS' for check in candidate_checks):
-            selected = run
-            checks = candidate_checks
-            break
-        if not checks:
-            checks = candidate_checks
+        identity_trusted = all(
+            candidate_checks[index]['status'] == 'PASS'
+            for index in (0, 1, 2, 4)
+        )
+        assessments.append({
+            'run': run,
+            'checks': candidate_checks,
+            'identity_trusted': identity_trusted,
+            'ready': all(
+                check['status'] == 'PASS'
+                for check in candidate_checks
+            ),
+        })
+
+    selected_assessment = next(
+        (item for item in assessments if item['ready']),
+        None,
+    )
+    selected = (
+        selected_assessment['run']
+        if selected_assessment is not None
+        else None
+    )
+    checks: list[dict[str, str]] = (
+        selected_assessment['checks']
+        if selected_assessment is not None
+        else []
+    )
 
     if errors:
         status = 'BLOCKED'
         actions = [
             'Restore trusted read-only access to the public GitHub Actions API.'
         ]
-    elif selected is None:
-        status = 'NOT_RUN'
+    elif not source_resolved:
+        status = 'SOURCE_REF_MISSING'
         actions = [
             (
-                f'Run {WORKFLOW_NAME} from source_ref=v{version} with '
-                f'target_version={version}, target_channel=main, and '
-                'mode=clean-install; require both matrix jobs to pass.'
+                f'Do not dispatch the package-manager workflow: '
+                f'{expected_source_ref} does not resolve to an immutable '
+                'public commit. Publish it only through the reviewed release '
+                'gate, then rerun this audit.'
             )
         ]
-    else:
+    elif selected is not None:
         status = 'READY'
         actions = []
+    else:
+        trusted = [
+            item for item in assessments
+            if item['identity_trusted']
+        ]
+        running = next(
+            (
+                item for item in trusted
+                if item['run'].get('status') != 'completed'
+            ),
+            None,
+        )
+        failed = next(iter(trusted), None)
+        if running is not None:
+            checks = running['checks']
+            run_url = running['run'].get('html_url')
+            status = 'RUNNING'
+            actions = [
+                f'Wait for the exact package-manager run to finish: {run_url}'
+            ]
+        elif failed is not None:
+            checks = failed['checks']
+            run_url = failed['run'].get('html_url')
+            status = 'FAILED'
+            actions = [
+                (
+                    f'Inspect the failed exact package-manager run at '
+                    f'{run_url}; fix the recorded failure before rerunning it.'
+                )
+            ]
+        elif assessments:
+            checks = assessments[0]['checks']
+            status = 'BLOCKED'
+            actions = [
+                (
+                    'Do not reuse the matching workflow history: its event, '
+                    'workflow path, completion state, or source commit does '
+                    'not match the immutable candidate.'
+                )
+            ]
+        else:
+            status = 'NOT_RUN'
+            dispatch = (
+                f'gh workflow run {WORKFLOW_NAME} --repo {REPOSITORY} '
+                f'--ref {expected_source_ref} '
+                f'-f source_ref={expected_source_ref} '
+                f'-f target_version={version} '
+                '-f target_channel=main -f mode=clean-install'
+            )
+            actions = [
+                (
+                    'First require main-channel dependency readiness with '
+                    '`python3 scripts/check_ros_apt_dependency_readiness.py '
+                    '--require main` and confirm the exact product packages '
+                    'are present in both supported distributions.'
+                ),
+                f'Dispatch the exact immutable candidate with `{dispatch}`.',
+            ]
 
     report = {
         'schema_version': 1,
@@ -283,6 +472,7 @@ def evaluate_readiness(
             'mode': 'clean-install',
             'run_name': run_name,
         },
+        'source_ref': source_ref,
         'remote': {
             'inspected': snapshot.get('inspected') is True,
             'errors': errors,
