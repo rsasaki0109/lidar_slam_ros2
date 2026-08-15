@@ -879,6 +879,8 @@ def test_candidate_image_workflow_is_default_branch_digest_only():
     )
     assert 'repository_dispatch' in distribution
     assert 'E2_IMMUTABLE_DIGEST_ONLY' in distribution
+    assert 'prepare_candidate_trial.py' in distribution
+    assert 'candidate-trial-preparation-v1.schema.json' in distribution
     assert 'audit_candidate_image_set.py' in distribution
     assert 'REMOTE_AUDIT_PASS' in distribution
     assert '--candidate-evidence-dir' in distribution

@@ -10,8 +10,8 @@
 > Frozen public review baseline (machine key `public_head_sha`):
 > `8a931a3627be503fb10c255ef846c6d3c54a237c`
 >
-> Planned follow-up inventory: 248 paths; SHA-256
-> `543757789fc5a4da4636b825d5719ca99132cb23e0d846563719422c72ca62b1`
+> Planned follow-up inventory: 251 paths; SHA-256
+> `df379916897214635cf5699094365c7330450dd1e76721a2876c9bc3ec55d9f6`
 >
 > Last observed remote mutation: exact non-force push from `db1f9b4` to
 > `e222bc4`; mutations performed by the checker or review-card command:
@@ -61,8 +61,8 @@ public CI result.
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 27 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded release-or-candidate Docker/source measurement, public preflight, and an auditable SHA-bound supplement path for retained observations | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 58 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a read-only four-artifact byte audit remain explicit; no E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
-| S6 product-shell integration | 85 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard and fail-closed worksheet generators, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, release-or-four-file-candidate exact-identity observer packet, and one-command G0 readiness dashboard agree | complete product gate and public CI |
-| S7 publication control | 6 | all 248 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
+| S6 product-shell integration | 88 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard and fail-closed worksheet generators, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, release-or-four-file-candidate exact-identity observer packet, and one-command G0 readiness dashboard agree | complete product gate and public CI |
+| S7 publication control | 6 | all 251 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -100,7 +100,7 @@ from that base and the local tip descends from the public head, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 248-path coverage with the fixed inventory digest;
+4. exact 251-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred.
 
@@ -112,7 +112,7 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 248 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 251 paths, 7 slices, no remote mutation |
 | checker regressions | 14 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, and self-contained read-only source dry-run execution |
 | focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
@@ -120,12 +120,12 @@ cannot bypass live Git coverage.
 | G0 readiness dashboard | 4 passed; one-command local HOLD card, optional read-only publication audit, JSON schema, one next action, and checker-error fail-closed behavior are covered |
 | weekly growth snapshot | 14 passed; new snapshots re-derive cohort count/rate/state consistency while the immutable historical baseline remains schema-valid and identity-free |
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
-| complete maintained Python gate | graph: 1,433 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 751 passed; 2,184 total |
+| complete maintained Python gate | graph: 1,441 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 904 passed; 2,345 total |
 | scanmatcher clean build and CTest | Jazzy RAM-backed clean build of `lidarslam_msgs`, `ndt_omp_ros2`, and `scanmatcher`; 109 tests passed |
 | review follow-up regressions | malformed PointCloud2 recovery with padded organized XYZ-only continuation, metadata tile containment, source-bundle symlink rejection, non-interpolated immutable release-tag checkout, least-privilege release jobs, and self-contained source dry-run are covered |
-| new Python style | `ament_flake8`: 4 files checked, no problems |
+| candidate preparation Python style | `ament_flake8`: 2 files checked, no problems |
 | documentation | `mkdocs build --strict`: PASS with pre-existing Material and navigation notices |
-| machine formats and shells | all 37 planned JSON files parse; all 9 planned shell files pass `bash -n`; `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
+| machine formats and shells | all 58 planned JSON files parse; all 9 planned shell files pass `bash -n`; `git diff --check` PASS; immutable upstream patch carriers alone opt out of whitespace interpretation |
 
 The two package test directories were intentionally run in separate pytest
 processes through the repository's canonical contributor entrypoint because
@@ -151,7 +151,8 @@ communication remain separate decisions.
 
 This plan makes the work reviewable; it does not prove that the workflow feels
 as easy as GLIM on a new machine. The digest-only candidate gate and read-only
-four-file retained-artifact audit is now in the review inventory, but the required
+four-file retained-artifact audit and atomic one-command observer handoff are
+now in the review inventory, but the required
 `candidate-images` environment and an E2 dispatch remain separate external
 decisions. After one authorized pair is published, require the observer
 packet's `REMOTE_AUDIT_PASS` preflight; its tag-free trial commands bind the

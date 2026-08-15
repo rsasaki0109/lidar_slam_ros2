@@ -36,29 +36,31 @@ python3 scripts/prepare_onboarding_matrix_packet.py \
 ```
 
 For an authorized digest-only candidate, do not copy those values into release
-arguments. Derive every identity from the exact retained four-file directory
-instead:
+arguments or manually assemble its evidence. Download, remotely audit, and
+prepare the complete observer handoff from the exact Actions run in one command:
 
 ```bash
-python3 scripts/prepare_onboarding_matrix_packet.py \
-  --candidate-evidence-dir /evidence/candidate-image-run-12345 \
-  --render \
-  --output /tmp/g0-candidate-observer-packet.md
+python3 scripts/prepare_candidate_trial.py \
+  --workflow-run-url \
+    https://github.com/rsasaki0109/lidar_slam_ros2/actions/runs/12345 \
+  --output-dir /evidence/candidate-image-run-12345
 ```
 
-The command is local-only: it performs no network read, trial, cleanup, or
-GitHub/community write. Release mode emits the read-only release and source
-preflights and requires `PUBLISHED`/`READY`. Candidate mode re-derives and
-hashes the request, both image records, and set, derives both tag-free image
-references and the source commit, emits the read-only candidate audit and
-source preflight, and requires `REMOTE_AUDIT_PASS`/`READY`. Both modes emit
-one observer command per row and have status
-`READY_FOR_READ_ONLY_PREFLIGHT`, not `COMPARABLE`.
-`--output` writes the selected JSON or Markdown form with exclusive creation
-and refuses to overwrite an existing packet; omit it to write to stdout. This
-avoids unsafe shell redirection while retaining a machine-readable `--json`
-option. Keep the generated packet, retained candidate evidence directory,
-trial records, and observer roots outside the product checkout.
+The candidate command performs network reads but no trial or remote write. It
+publishes nothing unless the independently re-downloaded artifact bytes,
+workflow identity, registry manifests, and attestations all pass. Its new
+directory contains `artifacts/`, `candidate-audit.json`, both observer packet
+formats, and a schema-backed `preparation.json`; use `observer-packet.md` for
+the trial. A failure removes staging and leaves the requested output absent.
+
+The lower-level `prepare_onboarding_matrix_packet.py` command remains available
+for a published release or for regenerating a candidate packet from an already
+authenticated `artifacts/` directory. It performs no network read, trial,
+cleanup, or GitHub/community write. Release mode requires `PUBLISHED`/`READY`;
+candidate mode emits `REMOTE_AUDIT_PASS`/`READY` preflights. Both packet modes
+emit one observer command per row and have status
+`READY_FOR_READ_ONLY_PREFLIGHT`, not `COMPARABLE`. Keep the handoff, trial
+records, and observer roots outside the product checkout.
 
 Every row must retain all seven measurements named in the packet. In
 particular, `active_operator_time_sec` and `command_count` must come from a
@@ -385,21 +387,23 @@ cannot be established without guessing, record FAIL at preflight.
 
 A candidate row is allowed only after a separately authorized
 `e2-publish-candidate-image` run completed its Humble and Jazzy jobs and the
-`verify immutable candidate pair` job. Download and retain all four records
-from that one run: `candidate-image-request.json`, both per-distro image
-records, and `candidate-image-set.json`. Require the set status `PASS`, the
+`verify immutable candidate pair` job. Run the section 0 one-command preparation
+against that exact run and retain its `artifacts/` directory: the request, both
+per-distro image records, and `candidate-image-set.json`. Require the set status
+`PASS`, the
 same source PR, exact source commit, product version, workflow run URL, and
 requester across both images, distinct distro digests, empty `tags_created`
 arrays, and false moving-tag/release mutation fields.
 
 The candidate workflow deliberately records
-`registry_retention_status: REQUIRES_REMOTE_AUDIT`. Before provisioning a
-timed host, run the packet's bounded read-only audit against the same retained
-bytes:
+`registry_retention_status: REQUIRES_REMOTE_AUDIT`. The section 0 preparation
+already runs the bounded read-only audit and writes its passing report. Before
+provisioning a timed host, an independent observer can repeat the packet's audit
+against those same retained bytes:
 
 ~~~bash
 python3 scripts/audit_candidate_image_set.py \
-  --candidate-evidence-dir /evidence/candidate-image-run-12345 \
+  --candidate-evidence-dir /evidence/candidate-image-run-12345/artifacts \
   --remote \
   --json
 ~~~

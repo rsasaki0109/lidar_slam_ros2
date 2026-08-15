@@ -245,6 +245,7 @@ if(BUILD_TESTING)
     test_kitti_metrics
     test_measure_oci_archive
     test_ndt_omp_release_readiness
+    test_prepare_candidate_trial
     test_prepare_onboarding_matrix_packet
     test_prepare_usability_scorecard
     test_prepare_usability_scorecard_pair

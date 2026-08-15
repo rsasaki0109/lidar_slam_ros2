@@ -398,44 +398,46 @@ uploads these schema-backed artifacts for 30 days:
 
 The records deliberately say
 `registry_retention_status: REQUIRES_REMOTE_AUDIT`. After an authorized run,
-download all four artifacts into one otherwise-empty directory. Each artifact
-contains the single canonical JSON file named above:
+use the exact Actions run URL to prepare the complete local handoff in one
+command:
 
 ```bash
-CANDIDATE_RUN_ID='<EXACT_SUCCESSFUL_WORKFLOW_RUN_ID>'
-CANDIDATE_EVIDENCE_DIR='/evidence/candidate-image-run-<RUN_ID>'
-install -d -m 0700 "${CANDIDATE_EVIDENCE_DIR}"
-for artifact in \
-  candidate-image-request \
-  candidate-image-record-humble \
-  candidate-image-record-jazzy \
-  candidate-image-set
-do
-  gh run download "${CANDIDATE_RUN_ID}" \
-    --repo rsasaki0109/lidar_slam_ros2 \
-    --name "${artifact}" \
-    --dir "${CANDIDATE_EVIDENCE_DIR}"
-done
+python3 scripts/prepare_candidate_trial.py \
+  --workflow-run-url \
+    https://github.com/rsasaki0109/lidar_slam_ros2/actions/runs/<RUN_ID> \
+  --output-dir /evidence/candidate-image-run-<RUN_ID>
 ```
 
-Then audit that directory:
+Authenticate `gh` for public Actions artifact and attestation reads, and ensure
+Docker Buildx is available. The output parent must already exist; the requested
+directory must not. The command downloads all four artifacts, validates their
+cross-file derivation, and downloads all four again into a temporary directory.
+That independent pass byte-compares all four SHA-256 values, verifies both
+registry manifests and attestations, and generates the JSON and Markdown
+observer packet. It publishes the directory
+atomically only after `REMOTE_AUDIT_PASS`; on any failure the requested output
+remains absent. The schema-backed
+[`preparation.json`](schemas/candidate-trial-preparation-v1.schema.json) names
+the exact bundle/set hashes, expiry, relative outputs, and no-write authority.
+The resulting layout is:
 
-```bash
-python3 scripts/audit_candidate_image_set.py \
-  --candidate-evidence-dir "${CANDIDATE_EVIDENCE_DIR}" \
-  --remote \
-  --json
+```text
+candidate-image-run-<RUN_ID>/
+├── artifacts/                  # exactly the four canonical JSON records
+├── candidate-audit.json        # REMOTE_AUDIT_PASS
+├── observer-packet.json
+├── observer-packet.md
+└── preparation.json            # READY_FOR_OBSERVER
 ```
 
-Require `REMOTE_AUDIT_PASS` before using either identity in an onboarding row.
-The command permits exactly those four regular files, re-derives both image
-records from the request and the set from the records, then downloads every
-artifact again into a temporary directory and byte-compares all four SHA-256
-values. It also reads both registry manifests and attestations, removes the
-temporary copies, and grants no GitHub or registry write authority. Generate
-tag-free trial commands with `prepare_onboarding_matrix_packet.py
---candidate-evidence-dir ...`; do not invent release tags. A candidate digest
-is not a Git tag, GitHub Release, stable image, or E4 approval.
+Use `artifacts/` as `--candidate-evidence-dir` when independently rerunning
+`python3 scripts/audit_candidate_image_set.py --remote --json` or regenerating
+a packet. Those primitives remain available for review, but manual artifact
+loops are no longer the normal path. Require
+`REMOTE_AUDIT_PASS` before using either identity in an onboarding row. The
+preparation command grants no GitHub or registry write authority and does not
+run a trial. Do not invent release tags: a candidate digest is not a Git tag,
+GitHub Release, stable image, or E4 approval.
 
 The reported `candidate_bundle_sha256` is reproducible: hash the UTF-8
 concatenation of one `<canonical-filename>\t<file-sha256>\n` line for each
