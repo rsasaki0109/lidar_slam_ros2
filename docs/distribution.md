@@ -22,8 +22,12 @@ cd lidar_slam_ros2
 bash scripts/source_quickstart.sh
 ```
 
-Use `--dry-run` for a write- and network-free plan, `--build-only` to skip the
-517 MB demo, or `--viewer none` on a headless host. The installation build skips
+Use `--dry-run` for a write- and network-free plan, or add `--json` for the
+versioned [`source-quickstart-plan-v1` schema](schemas/source-quickstart-plan-v1.schema.json).
+The JSON form is valid only with `--dry-run`, writes stdout only, and reports
+the exact command arrays without network, APT, submodule checkout, build, demo,
+or filesystem writes. Use `--build-only` to skip the 517 MB demo, or
+`--viewer none` on a headless host. The installation build skips
 test-target generation and does not build unrelated workspace packages. After
 it completes, use the absolute installed `lidarslam-map` path printed by the
 helper from any directory, including a fresh terminal. That direct launcher

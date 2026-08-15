@@ -148,6 +148,17 @@ helperはHumble/Jazzyを検出し、このrepositoryの6 packageだけを準備�
 bash scripts/source_quickstart.sh --dry-run
 ```
 
+CIやwrapperから機械的に確認する場合は`--json`を追加します。
+
+```bash
+bash scripts/source_quickstart.sh --dry-run --json
+```
+
+これはversion付きの[`source-quickstart-plan-v1` schema](schemas/source-quickstart-plan-v1.schema.json)
+をstdoutだけに出します。network、APT、submodule checkout、build、demo、filesystemへの
+writeは行わず、不足しているbootstrap actionと実行予定のcommand arrayを返します。local pathを
+含むため、raw JSONはissueへ貼らず手元で扱います。
+
 buildだけなら`--build-only`、画面を開かない環境なら`--viewer none`を追加します。
 完了時に表示される絶対パスの`lidarslam-map`は、新しい端末でも対応するworkspaceを
 自動で有効化します。

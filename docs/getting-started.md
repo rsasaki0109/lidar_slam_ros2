@@ -207,6 +207,18 @@ without network, APT, submodule checkout, build, or filesystem writes:
 bash scripts/source_quickstart.sh --dry-run
 ```
 
+For CI or a wrapper that needs machine-readable review, add `--json`:
+
+```bash
+bash scripts/source_quickstart.sh --dry-run --json
+```
+
+This emits the versioned [`source-quickstart-plan-v1` schema](schemas/source-quickstart-plan-v1.schema.json)
+to stdout only. It still performs no network access, APT, submodule checkout,
+build, demo, or filesystem write; the plan reports missing bootstrap actions and
+the exact command arrays that a live run would execute. Because it contains
+local paths, keep raw output local rather than pasting it into an issue.
+
 Use `--viewer none` on a headless machine or `--build-only` to install without
 downloading and mapping the public demo. Every stage is idempotent; a failed
 build prints the same copy-ready quickstart command for retry. On success, the

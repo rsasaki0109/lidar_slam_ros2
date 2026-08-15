@@ -1325,6 +1325,8 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
         assert package in quickstart_script
     assert '--repo-only' in quickstart_script
     assert '--dry-run' in quickstart_script
+    assert '--json' in quickstart_script
+    assert 'source-quickstart-plan-v1.schema.json' in getting_started
     assert 'direct installed command auto-activates this workspace' in (
         quickstart_script
     )
@@ -1385,6 +1387,7 @@ def test_japanese_quickstart_keeps_the_canonical_beginner_contract():
         'lidarslam-map start /path/to/rosbag2 --dry-run',
         'bash scripts/source_quickstart.sh',
         'bash scripts/source_quickstart.sh --dry-run',
+        'bash scripts/source_quickstart.sh --dry-run --json',
         'bash scripts/docker_map_bag.sh /absolute/path/to/rosbag2',
         'lidarslam-map demo /path/to/work_dir --resume',
     ):

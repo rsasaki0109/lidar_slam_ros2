@@ -29,14 +29,20 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 
+import jsonschema
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / 'scripts' / 'source_quickstart.sh'
+PLAN_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / (
+    'source-quickstart-plan-v1.schema.json'
+)
 EXPECTED_PACKAGES = (
     'graph_based_slam',
     'lidarslam',
@@ -178,6 +184,7 @@ def test_help_and_sourced_entrypoint_fail_closed():
     assert help_result.returncode == 0
     assert '--build-only' in help_result.stdout
     assert '--dry-run' in help_result.stdout
+    assert '--json' in help_result.stdout
     assert 'does not' in help_result.stdout
     assert 'install a ROS distribution' in help_result.stdout
 
@@ -209,6 +216,109 @@ def test_dry_run_is_read_only_and_prints_repo_scoped_plan(tmp_path):
     assert not call_log.exists()
     after = sorted(str(path.relative_to(workspace)) for path in workspace.rglob('*'))
     assert after == before
+
+
+def test_json_dry_run_is_schema_valid_and_read_only(tmp_path):
+    workspace, fake_repo, env, call_log = _fixture(tmp_path)
+    script = fake_repo / 'scripts' / SCRIPT.name
+    before = sorted(str(path.relative_to(workspace)) for path in workspace.rglob('*'))
+
+    result = _run(
+        script,
+        '--viewer', 'none',
+        '--dry-run',
+        '--json',
+        cwd=fake_repo,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ''
+    plan = json.loads(result.stdout)
+    schema = json.loads(PLAN_SCHEMA.read_text(encoding='utf-8'))
+    jsonschema.Draft7Validator.check_schema(schema)
+    jsonschema.Draft7Validator(schema).validate(plan)
+    assert plan['repository']['path'] == str(fake_repo.resolve())
+    assert plan['repository']['packages'] == list(EXPECTED_PACKAGES)
+    assert plan['workspace'] == {
+        'path': str(workspace.resolve()),
+        'build_path': str(workspace.resolve() / 'build'),
+        'install_path': str(workspace.resolve() / 'install'),
+        'log_path': str(workspace.resolve() / 'log'),
+        'demo_root': str(workspace.resolve()),
+    }
+    assert plan['ros'] == {
+        'distribution': 'jazzy',
+        'setup_path': str(
+            Path(env['LIDARSLAM_ROS_PREFIX_ROOT']) / 'jazzy' / 'setup.bash'
+        ),
+    }
+    assert plan['options'] == {'build_only': False, 'viewer': 'none'}
+    assert plan['preflight']['submodules']['missing'] == []
+    assert plan['preflight']['tools']['missing'] == []
+    assert plan['preflight']['package_inventory']['verified_during_live_run'] is False
+    assert plan['planned_actions']['run_fixed_demo'] is True
+    assert plan['commands'][-1] == [
+        'lidarslam-map', 'demo', str(workspace.resolve()), '--viewer', 'none'
+    ]
+    assert plan['side_effects'] == {
+        'network_accessed': False,
+        'apt_executed': False,
+        'submodule_checkout': False,
+        'workspace_build_executed': False,
+        'demo_executed': False,
+        'filesystem_writes': False,
+    }
+    assert not call_log.exists()
+    after = sorted(str(path.relative_to(workspace)) for path in workspace.rglob('*'))
+    assert after == before
+
+
+def test_json_build_only_reports_missing_bootstrap_without_writes(tmp_path):
+    workspace, fake_repo, env, call_log = _fixture(
+        tmp_path,
+        include_submodules=False,
+    )
+    script = fake_repo / 'scripts' / SCRIPT.name
+
+    result = _run(
+        script,
+        '--build-only',
+        '--dry-run',
+        '--json',
+        cwd=fake_repo,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    plan = json.loads(result.stdout)
+    schema = json.loads(PLAN_SCHEMA.read_text(encoding='utf-8'))
+    jsonschema.Draft7Validator(schema).validate(plan)
+    assert plan['preflight']['submodules']['missing'] == [
+        'Thirdparty/ndt_omp_ros2/package.xml',
+        'Thirdparty/rko_lio/package.xml',
+    ]
+    assert plan['planned_actions']['initialize_submodules'] is True
+    assert plan['planned_actions']['install_tools'] is False
+    assert plan['planned_actions']['run_fixed_demo'] is False
+    assert plan['commands'][0] == [
+        'git', '-C', str(fake_repo.resolve()),
+        'submodule', 'update', '--init', '--recursive',
+    ]
+    assert all(command[0] != 'lidarslam-map' for command in plan['commands'])
+    assert not call_log.exists()
+    assert not (fake_repo / 'Thirdparty/rko_lio/package.xml').exists()
+
+
+def test_json_requires_dry_run(tmp_path):
+    workspace, fake_repo, env, call_log = _fixture(tmp_path)
+    script = fake_repo / 'scripts' / SCRIPT.name
+
+    result = _run(script, '--json', cwd=fake_repo, env=env)
+
+    assert result.returncode == 2
+    assert '--json requires --dry-run' in result.stderr
+    assert not call_log.exists()
 
 
 def test_default_run_builds_repo_then_runs_verified_demo(tmp_path):

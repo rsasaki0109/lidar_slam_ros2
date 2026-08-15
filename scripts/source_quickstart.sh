@@ -24,6 +24,7 @@ Options:
   --viewer <mode>          browser or none (default: browser)
   --build-only             Prepare and build without downloading/running demo
   --dry-run                Print the exact plan without network, APT, or writes
+  --json                   With --dry-run, print the plan as JSON
   --help                   Show this help
 
 Supported hosts are Ubuntu 22.04 with ROS 2 Humble and Ubuntu 24.04 with ROS 2
@@ -52,6 +53,7 @@ DEMO_ROOT=""
 VIEWER="browser"
 BUILD_ONLY=false
 DRY_RUN=false
+JSON_OUTPUT=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -83,6 +85,10 @@ while [[ $# -gt 0 ]]; do
       DRY_RUN=true
       shift
       ;;
+    --json)
+      JSON_OUTPUT=true
+      shift
+      ;;
     --help|-h)
       usage
       exit 0
@@ -92,6 +98,10 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "${JSON_OUTPUT}" == true && "${DRY_RUN}" != true ]]; then
+  fail "--json requires --dry-run; run source_quickstart.sh --dry-run --json"
+fi
 
 case "${VIEWER}" in
   browser|none) ;;
@@ -197,49 +207,226 @@ print_command() {
   printf '\n'
 }
 
-echo "Source quickstart plan"
-echo "  Repository: ${REPO_ROOT}"
-echo "  Workspace: ${WORKSPACE_ROOT}"
-echo "  ROS 2: ${SELECTED_ROS_DISTRO} (${ROS_SETUP})"
-echo "  Build scope: this repository only (${#EXPECTED_SOURCE_PACKAGES[@]} ROS packages)"
-echo "  Packages: ${EXPECTED_SOURCE_PACKAGES[*]}"
-if [[ "${BUILD_ONLY}" == true ]]; then
-  echo "  Finish: build only"
-else
-  echo "  Demo root: ${DEMO_ROOT}"
-  echo "  Viewer: ${VIEWER}"
-fi
-echo "Stages"
-if [[ ${#MISSING_SUBMODULE_FILES[@]} -gt 0 ]]; then
-  echo "  source: initialize pinned git submodules"
-else
-  echo "  source: pinned submodules present"
-fi
-if [[ ${#MISSING_TOOL_PACKAGES[@]} -gt 0 ]]; then
-  echo "  tools: install ${MISSING_TOOL_PACKAGES[*]}"
-else
-  echo "  tools: rosdep and colcon present"
-fi
-echo "  dependencies: rosdep install/check for this repository"
-echo "  build: Release, symlink install, tests disabled"
-echo "  launcher: direct installed command auto-activates this workspace"
-if [[ "${BUILD_ONLY}" == false ]]; then
-  echo "  demo: fixed public MID-360 bag -> verified Autoware map"
+build_plan_commands() {
+  PLAN_COMMAND_FRAMED=()
+  local -a plan_command
+  if [[ ${#MISSING_SUBMODULE_FILES[@]} -gt 0 ]]; then
+    plan_command=(git -C "${REPO_ROOT}" submodule update --init --recursive)
+    PLAN_COMMAND_FRAMED+=("${#plan_command[@]}" "${plan_command[@]}")
+  fi
+  if [[ ${#MISSING_TOOL_PACKAGES[@]} -gt 0 ]]; then
+    plan_command=(
+      "${APT_ROOT_PREFIX[@]}"
+      env DEBIAN_FRONTEND=noninteractive apt-get update
+    )
+    PLAN_COMMAND_FRAMED+=("${#plan_command[@]}" "${plan_command[@]}")
+    plan_command=(
+      "${APT_ROOT_PREFIX[@]}"
+      env DEBIAN_FRONTEND=noninteractive apt-get install -y
+      "${MISSING_TOOL_PACKAGES[@]}"
+    )
+    PLAN_COMMAND_FRAMED+=("${#plan_command[@]}" "${plan_command[@]}")
+  fi
+  plan_command=(
+    bash "${DEPENDENCY_HELPER}" --workspace "${WORKSPACE_ROOT}" --repo-only
+  )
+  PLAN_COMMAND_FRAMED+=("${#plan_command[@]}" "${plan_command[@]}")
+  plan_command=(
+    colcon build
+    --base-paths "${REPO_ROOT}"
+    --packages-select "${EXPECTED_SOURCE_PACKAGES[@]}"
+    --symlink-install
+    --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+  )
+  PLAN_COMMAND_FRAMED+=("${#plan_command[@]}" "${plan_command[@]}")
+  if [[ "${BUILD_ONLY}" == false ]]; then
+    plan_command=(lidarslam-map demo "${DEMO_ROOT}" --viewer "${VIEWER}")
+    PLAN_COMMAND_FRAMED+=("${#plan_command[@]}" "${plan_command[@]}")
+  fi
+}
+
+print_json_plan() {
+  command -v python3 >/dev/null 2>&1 ||
+    fail "--json requires python3 on the host"
+  build_plan_commands
+  python3 - \
+    "${REPO_ROOT}" \
+    "${WORKSPACE_ROOT}" \
+    "${DEMO_ROOT}" \
+    "${SELECTED_ROS_DISTRO}" \
+    "${ROS_SETUP}" \
+    "${VIEWER}" \
+    "${BUILD_ONLY}" \
+    "${#EXPECTED_SOURCE_PACKAGES[@]}" \
+    "${EXPECTED_SOURCE_PACKAGES[@]}" \
+    "${#MISSING_SUBMODULE_FILES[@]}" \
+    "${MISSING_SUBMODULE_FILES[@]}" \
+    "${#MISSING_TOOL_PACKAGES[@]}" \
+    "${MISSING_TOOL_PACKAGES[@]}" \
+    "${#PLAN_COMMAND_FRAMED[@]}" \
+    "${PLAN_COMMAND_FRAMED[@]}" <<'PY'
+import json
+import sys
+
+
+argv = sys.argv
+repository = argv[1]
+workspace = argv[2]
+demo_root = argv[3]
+ros_distro = argv[4]
+ros_setup = argv[5]
+viewer = argv[6]
+build_only = argv[7] == 'true'
+index = 8
+
+
+def read_counted() -> list[str]:
+    global index
+    count = int(argv[index])
+    index += 1
+    values = argv[index:index + count]
+    if len(values) != count:
+        raise SystemExit('internal error: source plan argument framing mismatch')
+    index += count
+    return values
+
+
+packages = read_counted()
+missing_submodules = read_counted()
+missing_tools = read_counted()
+framed_commands = read_counted()
+if index != len(argv):
+    raise SystemExit('internal error: source plan argument framing mismatch')
+
+commands = []
+command_index = 0
+while command_index < len(framed_commands):
+    argument_count = int(framed_commands[command_index])
+    command_index += 1
+    command = framed_commands[command_index:command_index + argument_count]
+    if len(command) != argument_count:
+        raise SystemExit('internal error: source plan command framing mismatch')
+    command_index += argument_count
+    commands.append(command)
+if command_index != len(framed_commands):
+    raise SystemExit('internal error: source plan command framing mismatch')
+
+plan = {
+    'schema_version': 1,
+    'schema_uri': (
+        'https://rsasaki0109.github.io/lidar_slam_ros2/'
+        'schemas/source-quickstart-plan-v1.schema.json'
+    ),
+    'plan_mode': 'dry_run',
+    'status': 'ready',
+    'ready': True,
+    'repository': {
+        'path': repository,
+        'packages': packages,
+        'package_count': len(packages),
+    },
+    'workspace': {
+        'path': workspace,
+        'build_path': f'{workspace}/build',
+        'install_path': f'{workspace}/install',
+        'log_path': f'{workspace}/log',
+        'demo_root': demo_root,
+    },
+    'ros': {
+        'distribution': ros_distro,
+        'setup_path': ros_setup,
+    },
+    'options': {
+        'build_only': build_only,
+        'viewer': viewer,
+    },
+    'preflight': {
+        'submodules': {
+            'required': [
+                'Thirdparty/ndt_omp_ros2/package.xml',
+                'Thirdparty/rko_lio/package.xml',
+            ],
+            'missing': missing_submodules,
+        },
+        'tools': {
+            'required': ['rosdep', 'colcon'],
+            'missing': missing_tools,
+        },
+        'package_inventory': {
+            'expected': packages,
+            'verified_during_live_run': False,
+        },
+    },
+    'planned_actions': {
+        'initialize_submodules': bool(missing_submodules),
+        'install_tools': bool(missing_tools),
+        'install_repository_dependencies': True,
+        'build_workspace': True,
+        'run_fixed_demo': not build_only,
+    },
+    'commands': commands,
+    'side_effects': {
+        'network_accessed': False,
+        'apt_executed': False,
+        'submodule_checkout': False,
+        'workspace_build_executed': False,
+        'demo_executed': False,
+        'filesystem_writes': False,
+    },
+}
+print(json.dumps(plan, indent=2, sort_keys=True))
+PY
+}
+
+if [[ "${JSON_OUTPUT}" != true ]]; then
+  echo "Source quickstart plan"
+  echo "  Repository: ${REPO_ROOT}"
+  echo "  Workspace: ${WORKSPACE_ROOT}"
+  echo "  ROS 2: ${SELECTED_ROS_DISTRO} (${ROS_SETUP})"
+  echo "  Build scope: this repository only (${#EXPECTED_SOURCE_PACKAGES[@]} ROS packages)"
+  echo "  Packages: ${EXPECTED_SOURCE_PACKAGES[*]}"
+  if [[ "${BUILD_ONLY}" == true ]]; then
+    echo "  Finish: build only"
+  else
+    echo "  Demo root: ${DEMO_ROOT}"
+    echo "  Viewer: ${VIEWER}"
+  fi
+  echo "Stages"
+  if [[ ${#MISSING_SUBMODULE_FILES[@]} -gt 0 ]]; then
+    echo "  source: initialize pinned git submodules"
+  else
+    echo "  source: pinned submodules present"
+  fi
+  if [[ ${#MISSING_TOOL_PACKAGES[@]} -gt 0 ]]; then
+    echo "  tools: install ${MISSING_TOOL_PACKAGES[*]}"
+  else
+    echo "  tools: rosdep and colcon present"
+  fi
+  echo "  dependencies: rosdep install/check for this repository"
+  echo "  build: Release, symlink install, tests disabled"
+  echo "  launcher: direct installed command auto-activates this workspace"
+  if [[ "${BUILD_ONLY}" == false ]]; then
+    echo "  demo: fixed public MID-360 bag -> verified Autoware map"
+  fi
 fi
 
 if [[ "${DRY_RUN}" == true ]]; then
-  echo "Commands (--dry-run; nothing executed)"
-  if [[ ${#MISSING_SUBMODULE_FILES[@]} -gt 0 ]]; then
-    print_command git -C "${REPO_ROOT}" submodule update --init --recursive
-  fi
-  if [[ ${#MISSING_TOOL_PACKAGES[@]} -gt 0 ]]; then
-    print_command "${APT_ROOT_PREFIX[@]}" env DEBIAN_FRONTEND=noninteractive apt-get update
-    print_command "${APT_ROOT_PREFIX[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y "${MISSING_TOOL_PACKAGES[@]}"
-  fi
-  print_command bash "${DEPENDENCY_HELPER}" --workspace "${WORKSPACE_ROOT}" --repo-only
-  print_command colcon build --base-paths "${REPO_ROOT}" --packages-select "${EXPECTED_SOURCE_PACKAGES[@]}" --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
-  if [[ "${BUILD_ONLY}" == false ]]; then
-    print_command lidarslam-map demo "${DEMO_ROOT}" --viewer "${VIEWER}"
+  if [[ "${JSON_OUTPUT}" == true ]]; then
+    print_json_plan
+  else
+    echo "Commands (--dry-run; nothing executed)"
+    if [[ ${#MISSING_SUBMODULE_FILES[@]} -gt 0 ]]; then
+      print_command git -C "${REPO_ROOT}" submodule update --init --recursive
+    fi
+    if [[ ${#MISSING_TOOL_PACKAGES[@]} -gt 0 ]]; then
+      print_command "${APT_ROOT_PREFIX[@]}" env DEBIAN_FRONTEND=noninteractive apt-get update
+      print_command "${APT_ROOT_PREFIX[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y "${MISSING_TOOL_PACKAGES[@]}"
+    fi
+    print_command bash "${DEPENDENCY_HELPER}" --workspace "${WORKSPACE_ROOT}" --repo-only
+    print_command colcon build --base-paths "${REPO_ROOT}" --packages-select "${EXPECTED_SOURCE_PACKAGES[@]}" --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+    if [[ "${BUILD_ONLY}" == false ]]; then
+      print_command lidarslam-map demo "${DEMO_ROOT}" --viewer "${VIEWER}"
+    fi
   fi
   exit 0
 fi

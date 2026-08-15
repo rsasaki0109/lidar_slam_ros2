@@ -120,6 +120,13 @@ before a long run. The repo-local `./scripts/lidarslam` wrapper and installed
 not add beginner workflows. Installation details are in
 [Distribution and installed CLI](distribution.md).
 
+The source-tree onboarding helper also has a machine-readable preview:
+`bash scripts/source_quickstart.sh --dry-run --json` emits the versioned
+[`source-quickstart-plan-v1`](schemas/source-quickstart-plan-v1.schema.json)
+contract only with `--dry-run`. It performs no network, package-manager,
+submodule, build, demo, or filesystem write and contains local paths, so the
+raw payload is for local automation rather than issue reports.
+
 The absolute installed `lidarslam-map` launcher and a repo-local wrapper with a
 matching built workspace activate only their own aggregate `setup.bash` before
 delegation. This makes the first command in a fresh terminal independent of a
