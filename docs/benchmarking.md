@@ -12,6 +12,40 @@ bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
 
+## GLIM cross-validation
+
+Use the existing comparison harness when the same rosbag2 input should be run
+through both products:
+
+```bash
+bash scripts/compare_with_glim.sh \
+  --bag /path/to/rosbag2 \
+  --out-dir output/compare_glim
+```
+
+GLIM is a cross-validation reference in this workflow, not ground truth. A
+fresh GLIM trajectory is cached only after its TUM structure and timestamps
+pass validation. If a later fresh GLIM run does not produce a trajectory, the
+harness accepts a fallback only when all of the following match:
+
+- the complete rosbag2 directory bytes and relative file layout;
+- the effective GLIM configuration bytes;
+- the Docker image ID, or the selected local GLIM runtime artifacts;
+- topics, mode, preset, IMU/viewer/OMP options; and
+- the comparison harness and cache-helper implementations.
+
+Each entry has a schema-validated manifest that binds this path-free identity
+to the trajectory SHA-256, byte count, and pose count. A missing, contradictory,
+symlinked, malformed, or modified artifact is a cache miss; the old
+path/topic-only cache format is never imported. The run records
+`glim.cache.status` and the key in `metrics.json`, and writes the observed
+identity to `glim_cache_identity.json` under the run directory.
+
+Use `--no-glim-cache` when a fresh GLIM execution is mandatory. A verified
+cache hit may support technical continuity during a failed fresh run, but it
+does not prove current GLIM installation usability, current runtime success, a
+new benchmark result, or a comparative winner.
+
 ## Newer College Maths-Hard
 
 `newer_college_math_hard` is the tightest blocking release profile. It refers

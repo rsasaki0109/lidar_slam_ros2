@@ -51,6 +51,14 @@ The two hosts may have different machine fingerprints, but their declared
 hardware class and supported software environment must match. A mismatch blocks
 every task instead of being explained away after the run.
 
+A trajectory recovered from the content-verified cache in
+`compare_with_glim.sh` is useful only for technical cross-validation. It cannot
+count as a fresh GLIM task attempt, installation result, runtime measurement,
+or success row in this scorecard. The GLIM half of a comparable pair must be
+observed from the exact public product identity on the declared clean host;
+`glim.cache.status=HIT_VERIFIED` therefore remains non-comparable usability
+evidence.
+
 ## Timer and command rules
 
 - Start wall and active time when the operator opens the task's public entry

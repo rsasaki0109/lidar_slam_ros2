@@ -9,13 +9,13 @@ import hashlib
 import io
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
 import tarfile
-import uuid
-from pathlib import Path
 from typing import Any, Iterable
+import uuid
 
 from product_schema import validate_contract
 
@@ -102,10 +102,12 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/check_ndt_omp_release_readiness.py',
     'scripts/check_v1_readiness.py',
     'scripts/check_usability_scorecard.py',
+    'scripts/compare_with_glim.sh',
     'scripts/docker_map_bag.sh',
     'scripts/first_map_validation_receipt.py',
     'scripts/create_first_map_validation_receipt.py',
     'scripts/plan_image_rollback.py',
+    'scripts/glim_reference_cache.py',
     'scripts/product_profiles.py',
     'scripts/product_schema.py',
     'scripts/promote_release_images.py',

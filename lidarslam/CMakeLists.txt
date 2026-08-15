@@ -238,6 +238,7 @@ if(BUILD_TESTING)
     test_external_first_map_acceptance
     test_first_map_demo
     test_first_map_validator_cohort
+    test_glim_reference_cache
     test_lidarslam_guided
     test_lidarslam_doctor
     test_install_source_dependencies

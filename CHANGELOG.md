@@ -42,6 +42,10 @@ more guided, recoverable, and reviewable.
 - **Parse-safe GLIM comparison** — restore the Docker timeout branch in
   `compare_with_glim.sh` and make every tracked shell script pass `bash -n` in
   the maintained docs/product gate.
+- **Content-verified GLIM fallback** — replace the path/topic-only trajectory
+  cache with a schema-backed identity over bag, effective config, runtime,
+  options, and harness bytes; malformed, modified, legacy, or contradictory
+  entries now fail closed instead of becoming cross-validation evidence.
 - **Honest adoption evidence** — onboarding and GLIM usability comparisons are
   schema-backed, environment-matched, and fail closed when rows are missing;
   no overall winner is inferred from incomplete evidence.

@@ -91,7 +91,7 @@ Draft PR #427, the reviewed product-candidate tip
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
 `2a92cc5704fa55c16ddee343a601edc928a542c2` with 10 successful checks and 4
-intentional non-publication skips, the current 263-path local plan, the
+intentional non-publication skips, the current 268-path local plan, the
 one-command candidate-session tip `8bc5ea4`, and its guided read-only host
 readiness follow-up `a286c65` while the v0.9.1/image state remains unpublished.
 The optional authenticated environment preflight at `adecca6` now proves from

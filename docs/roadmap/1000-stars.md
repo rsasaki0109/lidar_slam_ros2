@@ -712,6 +712,14 @@ six fixed tasks and an external first-attempt operator after the product
 release/image gate opens. Until then, local feature checks must not be written
 as a comparative usability claim.
 
+The existing GLIM comparison harness now also fails closed on reference-cache
+reuse. Its key binds bag/config/runtime/options and both cache implementations,
+while a schema-backed manifest binds the validated TUM bytes. Legacy
+path/topic-only files, changed inputs, and contradictory artifacts are misses.
+This removes a stale-reference integrity risk in the current measurement
+surface; it does not add a new doctor, substitute a fresh GLIM run, or satisfy
+the still-pending paired usability scorecard.
+
 The beginner entry now also has a short
 [Japanese quickstart](../getting-started-ja.md) linked from the README and Docs
 home. It keeps only the canonical doctor, Docker demo, source helper, own-bag,
@@ -771,7 +779,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 263-path exact
+been expanded into the current 268-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
