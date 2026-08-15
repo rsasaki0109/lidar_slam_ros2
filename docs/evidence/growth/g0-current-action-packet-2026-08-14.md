@@ -6,7 +6,7 @@
 >
 > Draft PR: [#427](https://github.com/rsasaki0109/lidar_slam_ros2/pull/427)
 >
-> Capture-time public Draft baseline: `2a92cc5704fa55c16ddee343a601edc928a542c2`
+> Capture-time public Draft baseline: `0c673878697eb120b3b4d9387e9b72c17df80b9e`
 >
 > Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
 >
@@ -38,7 +38,9 @@
 >
 > Latest content-verified GLIM comparison tip: `3de7f84bb51acd2bd1c2b40724529be9c281d2fe`
 >
-> Latest publication-inventory tip: `3de7f84bb51acd2bd1c2b40724529be9c281d2fe`
+> Latest public-docs deployment-provenance tip: `602c7ad5a64332eb458d98b1a53783ba4f3cdecb`
+>
+> Latest publication-inventory tip: `602c7ad5a64332eb458d98b1a53783ba4f3cdecb`
 
 This reviewed tip is the code-bearing product-candidate revision; later
 docs-only handoff synchronization and product UX follow-up commits must remain
@@ -159,18 +161,19 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open and draft at capture-time public baseline `2a92cc5…`; guided readiness is public, while protected-environment preflight tip `adecca6…`, operator-handoff/parse-safety tip `e2d916a…`, and content-verified GLIM cache tip `3de7f84…` with its 268-path inventory are the reviewed local follow-ups | the new source tip still requires its own public CI; the preflight, handoff, and local cache integrity change no E2 authority |
-| Capture-time PR-head CI | completed public exact-tip result is **PASS** for `2a92cc5…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures | the skipped jobs are candidate authorization/publication/pair verification and Docker publication; green CI is not release/E2 approval |
+| Draft PR #427 | open and draft at capture-time public baseline `0c67387…`; GLIM cache integrity and its CTest import repair are public, while exact public-docs provenance tip `602c7ad…` with its 275-path inventory is the reviewed local follow-up | the new docs-provenance tip still requires its own public CI; no merge, Pages deployment, cohort launch, or E2 authority is implied |
+| Capture-time PR-head CI | completed public exact-tip result is **PASS** for `0c67387…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures | the skipped jobs are candidate authorization/publication/pair verification and Docker publication; green CI is not release/E2 approval |
 | English support cards | docs entrypoint tests 25 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded; Docker convenience and candidate-digest authority boundaries are both regression-bound; every tracked shell entry point now also has a parse regression |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 50 queue regressions and all five focused strict-MkDocs profiles passed | C1–C4 remain completed and retired; the fresh duplicate audit found no matching implementation PR, and no issue or label mutation occurred |
-| Distribution preflights | source route `READY` at exact public `2a92cc5…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one failing, and an unanswered review; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs | the rosdistro failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
+| Distribution preflights | source route `READY` at exact public `0c67387…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one failing, and an unanswered review; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs | the rosdistro failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
 | Canonical NDT upstream Draft preflight | `READY_FOR_DRAFT_PR`; 30 / 30 PASS at local implementation `856e599…`; exact upstream `5495fd9…`, expected fork verified, proposed branch absent, 4 open PRs inspected, 0 duplicates, 0 API errors, and write authority false | this proves a technically coherent read-only publication state; it neither creates nor authorizes an upstream branch or PR |
 | Docker publication boundary | convenience PR/manual runs remain verification-only; the candidate gate at `c70c18d…` uses trusted default-branch tooling, exact-head CI/identity checks, a protected `candidate-images` environment, digest-only output, disabled container networking during smoke tests, SBOM/provenance/attestation checks, and 30-day schema-backed evidence | the gate can create no tag or Release; complete authenticated inventory at `adecca6…` proves only `github-pages` exists, so authorization must stop until a separate environment/E2 decision |
 | Candidate environment and gate regressions | 29 focused tests, actionlint v1.7.12, Python style, CTest 2 / 2, GET-only transport, shared authorization semantics, release-bundle inclusion, and exact-tip Humble/Jazzy default workflows pass | the live result is `ABSENT`; workflow-facing CLIs persist one request, two distinct image records, and one pair report exactly once; no workflow dispatch, environment mutation, or GHCR mutation occurred |
 | Candidate observer contract | atomic preparation through `f5ed80e…`, exact row runner `feed0ba…`, one-command session `8bc5ea4…`, and guided local readiness `a286c65…`; four-file semantic derivation, exact remote artifact-byte comparison, content-bound Docker observer bootstrap, retained child-receipt binding, structured row execution, four-state host guidance, release-bundle inclusion, and docs pass 40 direct preparation/runner/session regressions plus 85 focused session/row/probe regressions | remote status is still **NOT_CHECKED** because no authorized bundle exists; local readiness and runner tests are not `REMOTE_AUDIT_PASS`, a trial, E2, or E4 authority |
-| Complete local product gate | graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 958 passed; strict MkDocs, focused integration tests, CTest, Python style, 123 candidate JSON documents / 82 tracked shell scripts, all 78 candidate Draft 7 schemas, and diff checks pass at implementation tip `3de7f84…` | 2,400 local tests validate the exact feature candidate; the GLIM cache adds 10 focused fail-closed regressions and a registered CTest, and public CI is still required for the later branch tip |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 268 paths / 7 slices at implementation tip `3de7f84…`; inventory SHA-256 `2368e59e36227667b7073b3ec0296a0084ef419b446effb2597a28c0cbf8cc89` | environment and candidate audit paths belong to S5; row/session/readiness and parse-safe/content-verified GLIM comparison belong to S4/S6; packet and atomic preparation belong to S6; synchronization changes no GitHub authority |
+| Public documentation deployment provenance | local contract and 8 focused regressions **PASS** at `602c7ad…`; strict MkDocs emits a source/version/route/page-byte manifest, both Pages jobs are `develop`-only, and the clean candidate release bundle contains the generator, auditor, schemas, and evidence; live exact-public audit is `BLOCKED` because the manifest URL returns HTTP 404 | URL shape alone cannot launch the independent cohort; the current Pages deployment remains unverified until a separately reviewed `develop` deployment publishes matching bytes |
+| Complete local product gate | graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 968 passed; strict MkDocs, focused integration tests, CTest, ROS ament Python style, 125 candidate JSON documents / 82 tracked shell scripts, all 80 candidate Draft 7 schemas, and diff checks pass at implementation tip `602c7ad…` | 2,410 local tests validate the exact feature candidate; the clean v0.9.1 candidate bundle reports 246 files and includes all public-docs provenance tools; public CI is still required for the later branch tip |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 275 paths / 7 slices at implementation tip `602c7ad…`; inventory SHA-256 `cb9cfb1c2ac8d20a3997e815acb9cc4ad24a0d9d8283a502369b6b529e838e0b` | environment and candidate audit paths belong to S5; row/session/readiness and parse-safe/content-verified GLIM comparison belong to S4/S6; byte-bound public docs, packet, and atomic preparation belong to S6; synchronization changes no GitHub authority |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
 | Onboarding matrix | 4 / 4 product PASS; 0 / 4 comparable; **BLOCKED** | Docker is v0.9.0, source is v0.9.1, and human measurements are missing |
@@ -192,8 +195,13 @@ python3 scripts/check_package_manager_release_readiness.py \
   --version 0.9.1 --json
 python3 scripts/run_source_onboarding_probe.py \
   --public-preflight \
-  --source-commit 2a92cc5704fa55c16ddee343a601edc928a542c2 \
+  --source-commit 0c673878697eb120b3b4d9387e9b72c17df80b9e \
   --product-version 0.9.1
+python3 scripts/check_public_docs_deployment.py \
+  --expected-revision 0c673878697eb120b3b4d9387e9b72c17df80b9e \
+  --expected-product-version 0.9.1 \
+  --route source-quickstart \
+  --json
 GITHUB_TOKEN="$(gh auth token)" \
 python3 scripts/check_candidate_environment.py --json --require-ready
 python3 scripts/check_published_release.py --version 0.9.1 --json

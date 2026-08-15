@@ -764,7 +764,7 @@ The
 [clean-candidate audit](../evidence/growth/g0-clean-candidate-audit-2026-08-11.md)
 and
 [external-action packet](../evidence/growth/g0-external-action-decision-packet-2026-08-11.md)
-led to public Draft PR `#427`. Exact public route baseline `549ef030` contains
+led to public Draft PR `#427`. Exact public route baseline `0c67387` contains
 the complete reviewed source path and has a network-read-only `READY` result.
 G0 remains `HOLD`: the matrix is 4/4 present and 0/4 comparable, v1 is 8/10,
 and the existing v0.9.0 tag prevents version reuse.
@@ -779,13 +779,19 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 268-path exact
+been expanded into the current 275-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
 integration, and publication control. The plan itself remains local-authority
 only even though its reviewed carrier is public; further PR updates require a
 clean exact candidate and complete gates.
+
+The latest local slice also binds the rendered Getting Started bytes, route
+fragments, product version, and Pages workflow to one exact source revision.
+Its read-only audit keeps the independent cohort closed while the deployed
+manifest is absent or stale; a plausible URL alone is no longer launch
+evidence.
 
 After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the

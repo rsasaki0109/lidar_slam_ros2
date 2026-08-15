@@ -90,8 +90,8 @@ Draft PR #427, the reviewed product-candidate tip
 `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`; this is the reviewed code-bearing
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
-`2a92cc5704fa55c16ddee343a601edc928a542c2` with 10 successful checks and 4
-intentional non-publication skips, the current 268-path local plan, the
+`0c673878697eb120b3b4d9387e9b72c17df80b9e` with 10 successful checks and 4
+intentional non-publication skips, the current 275-path local plan, the
 one-command candidate-session tip `8bc5ea4`, and its guided read-only host
 readiness follow-up `a286c65` while the v0.9.1/image state remains unpublished.
 The optional authenticated environment preflight at `adecca6` now proves from
@@ -103,8 +103,12 @@ checklist, independent review, and a copy-ready GET-only verification command.
 The handoff is schema-bound to `writes_performed: false`; it is guidance, not
 evidence that repository settings changed. The exact operator-handoff and
 parse-safety tip is `e2d916a66a57146b0efe4c74e57218d56342ed37`; the later
-content-verified GLIM comparison and 268-path publication-inventory tip is
-`3de7f84bb51acd2bd1c2b40724529be9c281d2fe`.
+content-verified GLIM comparison tip is
+`3de7f84bb51acd2bd1c2b40724529be9c281d2fe`; the byte-bound public-docs
+deployment-provenance and 275-path publication-inventory tip is
+`602c7ad5a64332eb458d98b1a53783ba4f3cdecb`. Its read-only audit keeps the
+cohort closed while the deployed Pages manifest is absent or its exact page
+bytes, route, version, and source revision do not match.
 It continues to keep E2 artifact hosting, E3 community mutation, and E4
 release publication
 separate and unauthorized. The earlier 219-path value remains historical
