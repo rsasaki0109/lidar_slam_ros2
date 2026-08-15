@@ -67,6 +67,25 @@ def _write_contract(tmp_path: Path, payload: dict) -> Path:
     return path
 
 
+def _publication_state(**overrides) -> dict:
+    contract = _contract()
+    publication = contract['publication']
+    state = {
+        'inspected': True,
+        'upstream_repository': publication['upstream_repository'],
+        'fork_repository': publication['fork_repository'],
+        'proposed_branch': publication['proposed_branch'],
+        'errors': [],
+        'upstream_head_sha': contract['upstream']['base_commit'],
+        'fork_is_expected': True,
+        'proposed_branch_present': False,
+        'open_pr_count': 4,
+        'duplicate_prs': [],
+    }
+    state.update(overrides)
+    return state
+
+
 def test_checked_in_bundle_is_artifact_ready_and_schema_valid():
     report = CHECKER.evaluate()
 
@@ -81,9 +100,11 @@ def test_checked_in_bundle_is_artifact_ready_and_schema_valid():
         for item in report['checks']
         if not item['id'].startswith('upstream-checkout-')
         and item['id'] != 'upstream-patch-applies'
+        and not item['id'].startswith('candidate-checkout-')
+        and not item['id'].startswith('publication-')
     )
     assert sum(
-        item['status'] == 'NOT_CHECKED' for item in report['checks']) == 3
+        item['status'] == 'NOT_CHECKED' for item in report['checks']) == 13
     schema = json.loads(REPORT_SCHEMA.read_text(encoding='utf-8'))
     jsonschema.Draft7Validator(schema).validate(report)
 
@@ -140,6 +161,275 @@ def test_exact_clean_upstream_checkout_promotes_local_review_status(
         'patch_applies': True,
     }
     assert str(checkout) not in json.dumps(report)
+
+
+def test_exact_candidate_and_online_state_promote_draft_pr(
+    monkeypatch,
+    tmp_path: Path,
+):
+    upstream = tmp_path / 'upstream'
+    candidate = tmp_path / 'candidate'
+    upstream.mkdir()
+    candidate.mkdir()
+    contract = _contract()
+    base = contract['upstream']['base_commit']
+    candidate_commit = contract['publication']['candidate_commit']
+    real_apply = CHECKER._apply_check
+
+    def fake_git_text(repo, *arguments):
+        if repo == upstream:
+            if arguments == ('rev-parse', 'HEAD'):
+                return base
+            assert arguments == (
+                'status', '--porcelain', '--untracked-files=all')
+            return ''
+        assert repo == candidate
+        if arguments == ('rev-parse', 'HEAD'):
+            return candidate_commit
+        if arguments == ('show', '-s', '--format=%P', 'HEAD'):
+            return base
+        if arguments == ('show', '-s', '--format=%s', 'HEAD'):
+            return contract['publication']['candidate_subject']
+        assert arguments == (
+            'status', '--porcelain', '--untracked-files=all')
+        return ''
+
+    def fake_apply(repo, patch):
+        if repo == upstream:
+            return True, 'patch applies without modifying the checkout'
+        return real_apply(repo, patch)
+
+    monkeypatch.setattr(CHECKER, '_git_text', fake_git_text)
+    monkeypatch.setattr(CHECKER, '_apply_check', fake_apply)
+    monkeypatch.setattr(
+        CHECKER,
+        '_git_diff_sha256',
+        lambda repo, _base, _commit: (
+            contract['upstream']['patch']['sha256']
+            if repo == candidate else pytest.fail('unexpected diff checkout')
+        ),
+    )
+
+    report = CHECKER.evaluate(
+        upstream_checkout=upstream,
+        candidate_checkout=candidate,
+        online=True,
+        publication_state=_publication_state(),
+    )
+
+    assert report['status'] == 'READY_FOR_DRAFT_PR'
+    assert report['mode'] == 'draft-preflight'
+    assert all(item['status'] == 'PASS' for item in report['checks'])
+    assert report['candidate_checkout'] == {
+        'inspected': True,
+        'commit': candidate_commit,
+        'parent_commit': base,
+        'clean': True,
+        'subject': contract['publication']['candidate_subject'],
+        'patch_matches': True,
+    }
+    assert report['publication_preflight']['duplicate_prs'] == []
+    assert report['authority']['github_writes_authorized'] is False
+    rendered = json.dumps(report)
+    assert str(upstream) not in rendered
+    assert str(candidate) not in rendered
+
+
+@pytest.mark.parametrize(
+    ('failure', 'check_id'),
+    (
+        ('commit', 'candidate-checkout-commit'),
+        ('parent', 'candidate-checkout-parent'),
+        ('dirty', 'candidate-checkout-clean'),
+        ('subject', 'candidate-checkout-subject'),
+        ('patch', 'candidate-checkout-patch'),
+    ),
+)
+def test_candidate_checkout_drift_blocks_draft_preflight(
+    monkeypatch,
+    tmp_path: Path,
+    failure: str,
+    check_id: str,
+):
+    candidate = tmp_path / 'candidate'
+    candidate.mkdir()
+    contract = _contract()
+    expected_commit = contract['publication']['candidate_commit']
+    expected_parent = contract['upstream']['base_commit']
+    expected_subject = contract['publication']['candidate_subject']
+
+    def fake_git_text(repo, *arguments):
+        assert repo == candidate
+        if arguments == ('rev-parse', 'HEAD'):
+            return '0' * 40 if failure == 'commit' else expected_commit
+        if arguments == ('show', '-s', '--format=%P', 'HEAD'):
+            return '1' * 40 if failure == 'parent' else expected_parent
+        if arguments == ('show', '-s', '--format=%s', 'HEAD'):
+            return 'Unexpected subject' if failure == 'subject' else (
+                expected_subject)
+        assert arguments == (
+            'status', '--porcelain', '--untracked-files=all')
+        return ' M changed.cpp' if failure == 'dirty' else ''
+
+    monkeypatch.setattr(CHECKER, '_git_text', fake_git_text)
+    monkeypatch.setattr(
+        CHECKER,
+        '_git_diff_sha256',
+        lambda *_args: (
+            '2' * 64 if failure == 'patch'
+            else contract['upstream']['patch']['sha256']
+        ),
+    )
+
+    report = CHECKER.evaluate(candidate_checkout=candidate)
+
+    assert report['status'] == 'BLOCKED'
+    checks = {item['id']: item for item in report['checks']}
+    assert checks[check_id]['status'] == 'FAIL'
+
+
+@pytest.mark.parametrize(
+    ('override', 'check_id'),
+    (
+        ({'errors': ['HTTP 503']}, 'publication-remote-inspection'),
+        ({'upstream_head_sha': '0' * 40}, 'publication-upstream-base'),
+        ({'fork_is_expected': False}, 'publication-fork-identity'),
+        ({'proposed_branch_present': True}, 'publication-branch-absent'),
+        ({
+            'duplicate_prs': [{
+                'number': 88,
+                'title': 'Add rotation prior',
+                'url': 'https://github.com/koide3/ndt_omp/pull/88',
+                'head_label': 'contributor:prior',
+                'head_sha': 'b' * 40,
+            }],
+        }, 'publication-no-duplicate-pr'),
+    ),
+)
+def test_publication_remote_failures_block(
+    override: dict,
+    check_id: str,
+):
+    report = CHECKER.evaluate(
+        online=True,
+        publication_state=_publication_state(**override),
+    )
+
+    assert report['status'] == 'BLOCKED'
+    checks = {item['id']: item for item in report['checks']}
+    assert checks[check_id]['status'] == 'FAIL'
+
+
+def test_publication_inspection_detects_semantic_duplicate(monkeypatch):
+    contract = _contract()
+    base = contract['upstream']['base_commit']
+    calls = []
+
+    def fake_request(url, *, allow_404=False):
+        calls.append((url, allow_404))
+        if '/koide3/ndt_omp/git/ref/heads/master' in url:
+            return 200, {'object': {'sha': base}}
+        if url.endswith('/repos/rsasaki0109/ndt_omp_ros2'):
+            return 200, {
+                'fork': True,
+                'parent': {'full_name': 'koide3/ndt_omp'},
+            }
+        if '/rsasaki0109/ndt_omp_ros2/git/ref/heads/' in url:
+            assert allow_404 is True
+            return 404, None
+        if '/koide3/ndt_omp/pulls?' in url:
+            return 200, [
+                {
+                    'number': 77,
+                    'title': 'Fix voxel covariance',
+                    'body': '',
+                    'html_url': 'https://github.com/koide3/ndt_omp/pull/77',
+                    'head': {
+                        'ref': 'covariance',
+                        'label': 'user:covariance',
+                        'sha': '7' * 40,
+                        'repo': {'full_name': 'user/ndt_omp'},
+                    },
+                },
+                {
+                    'number': 88,
+                    'title': 'Add translation prior support',
+                    'body': 'Optional API work',
+                    'html_url': 'https://github.com/koide3/ndt_omp/pull/88',
+                    'head': {
+                        'ref': 'translation-prior',
+                        'label': 'user:translation-prior',
+                        'sha': '8' * 40,
+                        'repo': {'full_name': 'user/ndt_omp'},
+                    },
+                },
+                {
+                    'number': 89,
+                    'title': 'Unrelated title',
+                    'body': '',
+                    'html_url': 'https://github.com/koide3/ndt_omp/pull/89',
+                    'head': {
+                        'ref': contract['publication']['proposed_branch'],
+                        'label': (
+                            'rsasaki0109:'
+                            f'{contract["publication"]["proposed_branch"]}'
+                        ),
+                        'sha': '9' * 40,
+                        'repo': {
+                            'full_name': contract['publication'][
+                                'fork_repository'],
+                        },
+                    },
+                },
+            ]
+        pytest.fail(f'unexpected GitHub URL: {url}')
+
+    monkeypatch.setattr(CHECKER, '_request_json', fake_request)
+
+    state = CHECKER._inspect_publication_state(contract)
+
+    assert state['errors'] == []
+    assert state['upstream_head_sha'] == base
+    assert state['fork_is_expected'] is True
+    assert state['proposed_branch_present'] is False
+    assert state['open_pr_count'] == 3
+    assert [item['number'] for item in state['duplicate_prs']] == [88, 89]
+    assert len(calls) == 4
+
+
+def test_publication_token_is_scoped_to_github_api(monkeypatch):
+    requests = []
+
+    class FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b'{}'
+
+    def fake_urlopen(request, timeout):
+        assert timeout == 20
+        requests.append(request)
+        return FakeResponse()
+
+    monkeypatch.setenv('GITHUB_TOKEN', 'read-only-test-token')
+    monkeypatch.setattr(CHECKER.urllib.request, 'urlopen', fake_urlopen)
+
+    status, payload = CHECKER._request_json(
+        'https://api.github.com/repos/koide3/ndt_omp')
+
+    assert status == 200
+    assert payload == {}
+    assert requests[0].get_header('Authorization') == (
+        'Bearer read-only-test-token'
+    )
+    with pytest.raises(CHECKER.ConvergenceError, match='non-GitHub API URL'):
+        CHECKER._request_json('https://example.com/not-allowed')
 
 
 @pytest.mark.parametrize('failure', ('commit', 'dirty', 'apply'))

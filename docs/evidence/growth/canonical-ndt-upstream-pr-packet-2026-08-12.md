@@ -120,11 +120,29 @@ ROS 2 Jazzy with GCC 13 and PCL 1.14:
 - source worktree after validation: clean at exact commit
   `618f02f6b50a8590b81f48b4fee5b6cfc8d3f3ea`.
 
-The repository convergence checker also reported
+The repository convergence checker first reported
 `READY_FOR_UPSTREAM_REVIEW`, 20/20 checks, against a clean detached checkout
-of exact upstream base `5495fd9`. Earlier Humble/Jazzy build and downstream
-consumer evidence remains documented in
-`docs/evidence/ndt-omp-release-review-2026-08-12.md`.
+of exact upstream base `5495fd9`. Its stricter read-only publication mode now
+also verifies the exact candidate commit/parent/subject/diff hash, current
+upstream head, fork parent, proposed-branch absence, and semantic duplicate
+PR search:
+
+```bash
+GITHUB_TOKEN="$(gh auth token)" \
+python3 scripts/check_canonical_ndt_convergence.py \
+  --upstream-checkout /path/to/clean/koide3-ndt_omp-at-5495fd9 \
+  --candidate-checkout /path/to/clean/ndt_omp-at-618f02f \
+  --online \
+  --require-ready-for-draft-pr
+```
+
+The 2026-08-15 live strict run reported `READY_FOR_DRAFT_PR`, 30/30 checks:
+upstream `master` remained exact `5495fd9`, the proposed fork remained the
+expected child of `koide3/ndt_omp`, the proposed branch was absent, and none
+of four open upstream PRs matched the candidate branch or API terms. The JSON
+report omits both local checkout paths and keeps GitHub write authority false.
+Earlier Humble/Jazzy build and downstream consumer evidence remains documented
+in `docs/evidence/ndt-omp-release-review-2026-08-12.md`.
 
 The two existing rosdistro PRs are not green publication candidates. Their
 exact heads each have 5/6 passing check runs and one failed
@@ -139,8 +157,9 @@ a current-base generated PR and a complete passing suite.
 
 Each external step needs its own explicit scope and a fresh drift check.
 
-1. Verify upstream `master` is still `5495fd9`, the proposed fork branch is
-   absent, and no duplicate PR has appeared.
+1. Run the strict command above immediately before publication and require
+   `READY_FOR_DRAFT_PR`, 30/30 checks, zero remote errors, the exact candidate
+   commit, an absent proposed branch, and zero duplicate PRs.
 2. Non-force push exact commit `618f02f6...` to the proposed fork branch and
    open a Draft PR to `koide3/ndt_omp:master` using the exact title/body above.
 3. Replace `<UPSTREAM_PR_URL>` in the two prepared rosdistro replies with the
@@ -163,4 +182,6 @@ Each external step needs its own explicit scope and a fresh drift check.
 This packet is evidence and copy-ready text only. It authorizes no GitHub
 write. In particular, the local candidate commit has not been pushed, no
 upstream PR exists, the prepared rosdistro response has not been posted, and
-the two existing Bloom PRs remain open and unchanged.
+the two existing Bloom PRs remain open and unchanged. A
+`READY_FOR_DRAFT_PR` report proves technical identity and current read-only
+remote state; it does not change that authority boundary.

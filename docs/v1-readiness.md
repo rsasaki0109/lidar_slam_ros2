@@ -57,8 +57,10 @@ untrustworthy live inspection exits 2.
   The exact patch/base/consumer inventory is independently checked by
   `scripts/check_canonical_ndt_convergence.py` against the versioned
   [`canonical-ndt-convergence-v1.json`](contracts/canonical-ndt-convergence-v1.json)
-  contract. Its `READY_FOR_UPSTREAM_REVIEW` result is local technical evidence,
-  not GitHub write authority.
+  contract. Its `READY_FOR_UPSTREAM_REVIEW` result covers local review; the
+  stronger `READY_FOR_DRAFT_PR` result additionally binds the exact candidate
+  commit and current upstream/fork/branch/duplicate state. Both are technical
+  evidence, not GitHub write authority.
 - The package-manager distribution evidence has a versioned
   [`package-manager-install-v1.schema.json`](schemas/package-manager-install-v1.schema.json)
   contract and Humble/Jazzy clean-install/upgrade workflow. It remains an

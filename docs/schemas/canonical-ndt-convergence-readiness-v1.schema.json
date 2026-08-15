@@ -12,6 +12,8 @@
     "status",
     "checks",
     "upstream_checkout",
+    "candidate_checkout",
+    "publication_preflight",
     "actions",
     "authority"
   ],
@@ -21,9 +23,16 @@
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/canonical-ndt-convergence-readiness-v1.schema.json"
     },
     "contract_id": {"const": "canonical-ndt-convergence-20260812"},
-    "mode": {"enum": ["artifacts", "upstream-checkout"]},
+    "mode": {
+      "enum": ["artifacts", "upstream-checkout", "draft-preflight"]
+    },
     "status": {
-      "enum": ["ARTIFACTS_READY", "READY_FOR_UPSTREAM_REVIEW", "BLOCKED"]
+      "enum": [
+        "ARTIFACTS_READY",
+        "READY_FOR_UPSTREAM_REVIEW",
+        "READY_FOR_DRAFT_PR",
+        "BLOCKED"
+      ]
     },
     "checks": {
       "type": "array",
@@ -39,6 +48,65 @@
         "commit": {"type": ["string", "null"]},
         "clean": {"type": ["boolean", "null"]},
         "patch_applies": {"type": ["boolean", "null"]}
+      }
+    },
+    "candidate_checkout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inspected",
+        "commit",
+        "parent_commit",
+        "clean",
+        "subject",
+        "patch_matches"
+      ],
+      "properties": {
+        "inspected": {"type": "boolean"},
+        "commit": {"type": ["string", "null"]},
+        "parent_commit": {"type": ["string", "null"]},
+        "clean": {"type": ["boolean", "null"]},
+        "subject": {"type": ["string", "null"]},
+        "patch_matches": {"type": ["boolean", "null"]}
+      }
+    },
+    "publication_preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inspected",
+        "upstream_repository",
+        "fork_repository",
+        "proposed_branch",
+        "errors",
+        "upstream_head_sha",
+        "fork_is_expected",
+        "proposed_branch_present",
+        "open_pr_count",
+        "duplicate_prs"
+      ],
+      "properties": {
+        "inspected": {"type": "boolean"},
+        "upstream_repository": {"const": "koide3/ndt_omp"},
+        "fork_repository": {"const": "rsasaki0109/ndt_omp_ros2"},
+        "proposed_branch": {
+          "const": "lidarslam-priors-and-correspondence-diagnostics"
+        },
+        "errors": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "upstream_head_sha": {"type": ["string", "null"]},
+        "fork_is_expected": {"type": ["boolean", "null"]},
+        "proposed_branch_present": {"type": ["boolean", "null"]},
+        "open_pr_count": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "duplicate_prs": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/duplicate_pr"}
+        }
       }
     },
     "actions": {
@@ -65,6 +133,18 @@
         "id": {"type": "string", "minLength": 1},
         "status": {"enum": ["PASS", "FAIL", "NOT_CHECKED"]},
         "detail": {"type": "string", "minLength": 1}
+      }
+    },
+    "duplicate_pr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "title", "url", "head_label", "head_sha"],
+      "properties": {
+        "number": {"type": "integer", "minimum": 1},
+        "title": {"type": "string", "minLength": 1},
+        "url": {"type": "string", "minLength": 1},
+        "head_label": {"type": "string", "minLength": 1},
+        "head_sha": {"type": "string", "minLength": 1}
       }
     }
   }

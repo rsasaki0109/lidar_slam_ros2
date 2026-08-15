@@ -10,6 +10,7 @@
     "contract_id",
     "status",
     "upstream",
+    "publication",
     "parent_transition",
     "collision",
     "authority"
@@ -52,6 +53,39 @@
           "minItems": 4,
           "uniqueItems": true,
           "items": {"type": "string", "minLength": 3}
+        }
+      }
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "upstream_repository",
+        "fork_repository",
+        "proposed_branch",
+        "candidate_commit",
+        "candidate_subject",
+        "duplicate_search_terms"
+      ],
+      "properties": {
+        "upstream_repository": {"const": "koide3/ndt_omp"},
+        "fork_repository": {"const": "rsasaki0109/ndt_omp_ros2"},
+        "proposed_branch": {
+          "const": "lidarslam-priors-and-correspondence-diagnostics"
+        },
+        "candidate_commit": {
+          "const": "618f02f6b50a8590b81f48b4fee5b6cfc8d3f3ea"
+        },
+        "candidate_subject": {
+          "const": "Add optional priors and correspondence diagnostics"
+        },
+        "duplicate_search_terms": {
+          "const": [
+            "correspondence distance",
+            "rotation prior",
+            "translation prior",
+            "regularization"
+          ]
         }
       }
     },
@@ -129,7 +163,7 @@
         "github_writes_authorized": {"const": false},
         "remote_mutations_performed": {"const": false},
         "allowed_next_local_action": {
-          "const": "VERIFY_HUMBLE_AND_JAZZY_WITHOUT_PUBLICATION"
+          "const": "RUN_READ_ONLY_DRAFT_PR_PREFLIGHT"
         }
       }
     }

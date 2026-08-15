@@ -151,19 +151,28 @@ current clean Jazzy rerun, and publication sequence. It remains local-only and
 authorizes no GitHub write.
 Neither patch has been submitted or published.
 
-Before any upstream action, reproduce the local artifact and exact-base gate:
+Before any upstream action, reproduce both exact local identities and current
+GitHub state:
 
 ```bash
 python3 scripts/check_canonical_ndt_convergence.py --json
 python3 scripts/check_canonical_ndt_convergence.py \
   --upstream-checkout /path/to/clean/koide3-ndt_omp \
   --require-ready-for-upstream-review
+GITHUB_TOKEN="$(gh auth token)" \
+python3 scripts/check_canonical_ndt_convergence.py \
+  --upstream-checkout /path/to/clean/koide3-ndt_omp-at-5495fd9 \
+  --candidate-checkout /path/to/clean/ndt_omp-at-618f02f \
+  --online \
+  --require-ready-for-draft-pr
 ```
 
 The machine contract is
 [`canonical-ndt-convergence-v1.json`](contracts/canonical-ndt-convergence-v1.json).
 `READY_FOR_UPSTREAM_REVIEW` is local technical evidence only and never grants
-GitHub write authority.
+GitHub write authority. `READY_FOR_DRAFT_PR` additionally proves the current
+upstream/fork/branch/duplicate state and exact candidate commit, but likewise
+does not grant GitHub write authority.
 
 #### Historical NDT 0.1.0 bootstrap commands — do not rerun
 

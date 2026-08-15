@@ -380,8 +380,10 @@ work and document the actual support boundary instead of hiding the delay.
   requesting merge, then refresh or replace the generated registration from
   current rosdistro `master` and require every check to pass. A hash-bound
   upstream patch and complete five-file parent transition now pass exact-base
-  checking plus network-isolated Humble/Jazzy four-package builds; publication
-  still requires an explicit maintainer decision.
+  checking plus network-isolated Humble/Jazzy four-package builds. The
+  read-only Draft publication preflight additionally passes 30/30 checks for
+  exact candidate identity, current upstream/fork/branch state, and duplicate
+  PR absence; publication still requires an explicit maintainer decision.
 - Exercise clean install and upgrade on Humble and Jazzy after the packages are
   available, then publish v1.0 from the same verified contract.
 - Produce one sub-three-minute English demo with captions and one concise
@@ -550,7 +552,8 @@ manual step on the fixed demo.
 ### Sprint 3 — close the two v1 blockers (weeks 5–8)
 
 1. With explicit publication approval, submit the prepared required NDT APIs
-   upstream as a Draft, replace the reply packet's URL placeholder with that
+   upstream as a Draft only after the strict 30/30 read-only preflight reports
+   `READY_FOR_DRAFT_PR`; replace the reply packet's URL placeholder with that
    verified PR, answer the two open `ndt_omp_ros2` rosdistro reviews with the
    collision analysis, and rerun the review/check-aware readiness audit after
    every external state change. If upstream declines, fully isolate the fork.

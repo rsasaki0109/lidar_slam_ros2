@@ -35,11 +35,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import sys
 from typing import Any, Sequence
+import urllib.error
+import urllib.parse
+import urllib.request
 
 import jsonschema
 
@@ -188,6 +192,187 @@ def _git_text(repo: Path, *arguments: str) -> str:
     return result.stdout.strip()
 
 
+def _git_diff_sha256(repo: Path, base: str, commit: str) -> str:
+    try:
+        result = subprocess.run(
+            ['git', 'diff', '--binary', f'{base}..{commit}'],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ConvergenceError(
+            f'cannot hash candidate git diff: {exc}') from exc
+    if result.returncode != 0:
+        detail = result.stderr.decode('utf-8', errors='replace').strip()
+        raise ConvergenceError(
+            f'candidate git diff failed: {detail or result.returncode}')
+    return hashlib.sha256(result.stdout).hexdigest()
+
+
+def _request_json(url: str, *, allow_404: bool = False) -> tuple[int, Any]:
+    if not url.startswith('https://api.github.com/'):
+        raise ConvergenceError(f'refusing non-GitHub API URL: {url}')
+    headers = {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'lidarslam-canonical-ndt-preflight/1',
+    }
+    token = os.environ.get('GITHUB_TOKEN')
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+    request = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            status = response.status
+            body = response.read().decode('utf-8')
+    except urllib.error.HTTPError as exc:
+        if allow_404 and exc.code == 404:
+            return 404, None
+        raise ConvergenceError(f'HTTP {exc.code} while reading {url}') from exc
+    except (urllib.error.URLError, TimeoutError, UnicodeDecodeError) as exc:
+        raise ConvergenceError(f'cannot read {url}: {exc}') from exc
+    if status != 200:
+        raise ConvergenceError(f'unexpected HTTP {status} while reading {url}')
+    try:
+        return status, json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise ConvergenceError(
+            f'invalid JSON while reading {url}: {exc}') from exc
+
+
+def _inspect_publication_state(contract: dict[str, Any]) -> dict[str, Any]:
+    publication = contract['publication']
+    upstream_repository = publication['upstream_repository']
+    fork_repository = publication['fork_repository']
+    proposed_branch = publication['proposed_branch']
+    api_root = 'https://api.github.com/repos'
+    report: dict[str, Any] = {
+        'inspected': True,
+        'upstream_repository': upstream_repository,
+        'fork_repository': fork_repository,
+        'proposed_branch': proposed_branch,
+        'errors': [],
+        'upstream_head_sha': None,
+        'fork_is_expected': None,
+        'proposed_branch_present': None,
+        'open_pr_count': None,
+        'duplicate_prs': [],
+    }
+
+    try:
+        _, payload = _request_json(
+            f'{api_root}/{upstream_repository}/git/ref/heads/'
+            f'{urllib.parse.quote(contract["upstream"]["branch"], safe="")}')
+        sha = payload.get('object', {}).get('sha') \
+            if isinstance(payload, dict) else None
+        if not isinstance(sha, str):
+            raise ConvergenceError(
+                'upstream branch response has no commit SHA')
+        report['upstream_head_sha'] = sha
+    except ConvergenceError as exc:
+        report['errors'].append(f'upstream branch: {exc}')
+
+    try:
+        _, payload = _request_json(f'{api_root}/{fork_repository}')
+        parent = payload.get('parent') if isinstance(payload, dict) else None
+        parent_name = (
+            parent.get('full_name') if isinstance(parent, dict) else None)
+        report['fork_is_expected'] = bool(
+            isinstance(payload, dict)
+            and payload.get('fork') is True
+            and parent_name == upstream_repository
+        )
+    except ConvergenceError as exc:
+        report['errors'].append(f'fork identity: {exc}')
+
+    try:
+        status, payload = _request_json(
+            f'{api_root}/{fork_repository}/git/ref/heads/'
+            f'{urllib.parse.quote(proposed_branch, safe="")}',
+            allow_404=True,
+        )
+        if status == 404:
+            report['proposed_branch_present'] = False
+        elif isinstance(payload, dict):
+            report['proposed_branch_present'] = True
+        else:
+            raise ConvergenceError('proposed branch response is malformed')
+    except ConvergenceError as exc:
+        report['errors'].append(f'proposed branch: {exc}')
+
+    try:
+        open_prs: list[dict[str, Any]] = []
+        encoded_branch = urllib.parse.quote(
+            contract['upstream']['branch'], safe='')
+        for page in range(1, 11):
+            _, payload = _request_json(
+                f'{api_root}/{upstream_repository}/pulls?state=open&'
+                f'base={encoded_branch}'
+                f'&per_page=100&page={page}')
+            if not isinstance(payload, list):
+                raise ConvergenceError(
+                    'open pull request response is not a list')
+            if not all(isinstance(item, dict) for item in payload):
+                raise ConvergenceError('open pull request list is malformed')
+            open_prs.extend(payload)
+            if len(payload) < 100:
+                break
+        else:
+            raise ConvergenceError(
+                'open pull request pagination exceeded 1000')
+
+        report['open_pr_count'] = len(open_prs)
+        terms = [
+            item.lower() for item in publication['duplicate_search_terms']]
+        duplicates = []
+        for pull_request in open_prs:
+            number = pull_request.get('number')
+            title = pull_request.get('title')
+            body = pull_request.get('body') or ''
+            url = pull_request.get('html_url')
+            head = pull_request.get('head')
+            if (
+                not isinstance(number, int)
+                or not isinstance(title, str)
+                or not isinstance(body, str)
+                or not isinstance(url, str)
+                or not isinstance(head, dict)
+            ):
+                raise ConvergenceError(
+                    'open pull request identity is incomplete')
+            head_ref = head.get('ref')
+            head_label = head.get('label')
+            head_sha = head.get('sha')
+            head_repo = head.get('repo')
+            head_repo_name = (
+                head_repo.get('full_name')
+                if isinstance(head_repo, dict) else None
+            )
+            if not all(isinstance(item, str) and item for item in (
+                    head_ref, head_label, head_sha)):
+                raise ConvergenceError('open pull request head is incomplete')
+            searchable = f'{title}\n{body}\n{head_ref}'.lower()
+            branch_match = (
+                head_ref == proposed_branch
+                and head_repo_name == fork_repository
+            )
+            if branch_match or any(term in searchable for term in terms):
+                duplicates.append({
+                    'number': number,
+                    'title': title,
+                    'url': url,
+                    'head_label': head_label,
+                    'head_sha': head_sha,
+                })
+        report['duplicate_prs'] = sorted(
+            duplicates, key=lambda item: item['number'])
+    except ConvergenceError as exc:
+        report['errors'].append(f'open pull requests: {exc}')
+
+    return report
+
+
 def _parse_patch(path: Path) -> dict[str, Any]:
     try:
         content = path.read_text(encoding='utf-8')
@@ -298,8 +483,11 @@ def evaluate(
     contract_schema_path: Path = CONTRACT_SCHEMA,
     report_schema_path: Path = REPORT_SCHEMA,
     upstream_checkout: Path | None = None,
+    candidate_checkout: Path | None = None,
+    online: bool = False,
+    publication_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Validate static artifacts and optionally an exact clean upstream tree."""
+    """Validate artifacts, exact checkouts, and optional public PR state."""
     repo_root = repo_root.resolve()
     contract = _load_json(contract_path, 'convergence contract')
     contract_schema = _load_json(contract_schema_path, 'contract schema')
@@ -472,6 +660,179 @@ def evaluate(
             _check('upstream-patch-applies', applies, detail),
         ])
 
+    candidate_report: dict[str, Any] = {
+        'inspected': candidate_checkout is not None,
+        'commit': None,
+        'parent_commit': None,
+        'clean': None,
+        'subject': None,
+        'patch_matches': None,
+    }
+    if candidate_checkout is None:
+        checks.extend([
+            _not_checked(
+                'candidate-checkout-commit',
+                'pass --candidate-checkout to verify the exact local commit'),
+            _not_checked(
+                'candidate-checkout-parent',
+                'pass --candidate-checkout to verify the exact parent'),
+            _not_checked(
+                'candidate-checkout-clean',
+                'pass --candidate-checkout to verify cleanliness'),
+            _not_checked(
+                'candidate-checkout-subject',
+                'pass --candidate-checkout to verify the commit subject'),
+            _not_checked(
+                'candidate-checkout-patch',
+                'pass --candidate-checkout to bind the commit to the patch'),
+        ])
+    else:
+        candidate = candidate_checkout.resolve()
+        publication = contract['publication']
+        expected_commit = publication['candidate_commit']
+        expected_parent = contract['upstream']['base_commit']
+        try:
+            commit = _git_text(candidate, 'rev-parse', 'HEAD')
+            parents = _git_text(candidate, 'show', '-s', '--format=%P', 'HEAD')
+            parent_commit = parents if re.fullmatch(r'[0-9a-f]{40}', parents) \
+                else None
+            dirty = _git_text(
+                candidate, 'status', '--porcelain', '--untracked-files=all')
+            clean = not dirty
+            subject = _git_text(candidate, 'show', '-s', '--format=%s', 'HEAD')
+            diff_hash = _git_diff_sha256(candidate, expected_parent, commit)
+            patch_matches = (
+                diff_hash == contract['upstream']['patch']['sha256'])
+        except ConvergenceError as exc:
+            commit = ''
+            parent_commit = None
+            clean = False
+            subject = ''
+            patch_matches = False
+            diff_hash = str(exc)
+        candidate_report.update({
+            'commit': commit or None,
+            'parent_commit': parent_commit,
+            'clean': clean,
+            'subject': subject or None,
+            'patch_matches': patch_matches,
+        })
+        checks.extend([
+            _check(
+                'candidate-checkout-commit',
+                commit == expected_commit,
+                f'expected {expected_commit}; found {commit or "unavailable"}',
+            ),
+            _check(
+                'candidate-checkout-parent',
+                parent_commit == expected_parent,
+                f'expected {expected_parent}; '
+                f'found {parent_commit or "unavailable"}',
+            ),
+            _check(
+                'candidate-checkout-clean',
+                clean,
+                'candidate checkout is clean' if clean else
+                'candidate checkout is not clean',
+            ),
+            _check(
+                'candidate-checkout-subject',
+                subject == publication['candidate_subject'],
+                f'expected {publication["candidate_subject"]!r}; '
+                f'found {subject or "unavailable"!r}',
+            ),
+            _check(
+                'candidate-checkout-patch',
+                patch_matches,
+                'candidate diff matches the checked-in patch SHA-256'
+                if patch_matches else
+                f'candidate diff hash mismatch: {diff_hash}',
+            ),
+        ])
+
+    publication = contract['publication']
+    publication_report: dict[str, Any] = {
+        'inspected': False,
+        'upstream_repository': publication['upstream_repository'],
+        'fork_repository': publication['fork_repository'],
+        'proposed_branch': publication['proposed_branch'],
+        'errors': [],
+        'upstream_head_sha': None,
+        'fork_is_expected': None,
+        'proposed_branch_present': None,
+        'open_pr_count': None,
+        'duplicate_prs': [],
+    }
+    if not online:
+        checks.extend([
+            _not_checked(
+                'publication-remote-inspection',
+                'pass --online to inspect current GitHub state'),
+            _not_checked(
+                'publication-upstream-base',
+                'pass --online to verify the current upstream base'),
+            _not_checked(
+                'publication-fork-identity',
+                'pass --online to verify the expected GitHub fork'),
+            _not_checked(
+                'publication-branch-absent',
+                'pass --online to verify the proposed branch is absent'),
+            _not_checked(
+                'publication-no-duplicate-pr',
+                'pass --online to search current open upstream PRs'),
+        ])
+    else:
+        publication_report = dict(
+            _inspect_publication_state(contract)
+            if publication_state is None else publication_state
+        )
+        publication_report['inspected'] = True
+        errors = publication_report.get('errors')
+        errors_ok = isinstance(errors, list) and not errors
+        upstream_head = publication_report.get('upstream_head_sha')
+        fork_is_expected = publication_report.get('fork_is_expected')
+        branch_present = publication_report.get('proposed_branch_present')
+        duplicates = publication_report.get('duplicate_prs')
+        open_pr_count = publication_report.get('open_pr_count')
+        checks.extend([
+            _check(
+                'publication-remote-inspection',
+                errors_ok,
+                'GitHub inspection completed without errors' if errors_ok else
+                f'GitHub inspection errors: {errors}',
+            ),
+            _check(
+                'publication-upstream-base',
+                upstream_head == contract['upstream']['base_commit'],
+                f'expected {contract["upstream"]["base_commit"]}; '
+                f'found {upstream_head or "unavailable"}',
+            ),
+            _check(
+                'publication-fork-identity',
+                fork_is_expected is True,
+                'fork parent is canonical koide3/ndt_omp' if
+                fork_is_expected is True else 'fork identity is not trusted',
+            ),
+            _check(
+                'publication-branch-absent',
+                branch_present is False,
+                'proposed branch is absent and safe for a non-force push' if
+                branch_present is False else
+                'proposed branch is present or could not be inspected',
+            ),
+            _check(
+                'publication-no-duplicate-pr',
+                (
+                    isinstance(open_pr_count, int)
+                    and isinstance(duplicates, list)
+                    and not duplicates
+                ),
+                f'checked {open_pr_count} open PRs; no duplicate found'
+                if isinstance(duplicates, list) and not duplicates else
+                f'duplicate or untrusted PR state: {duplicates}',
+            ),
+        ])
+
     failed = [item for item in checks if item['status'] == 'FAIL']
     if failed:
         status = 'BLOCKED'
@@ -485,11 +846,23 @@ def evaluate(
             'Run again with --upstream-checkout pointing to a clean exact '
             'koide3/ndt_omp base before upstream review.'
         ]
-    else:
+    elif candidate_checkout is None:
         status = 'READY_FOR_UPSTREAM_REVIEW'
         actions = [
-            'The local bundle is ready for maintainer review; an upstream PR '
-            'or rosdistro response still requires separate authorization.'
+            'Verify the exact clean candidate commit with '
+            '--candidate-checkout before publication preflight.'
+        ]
+    elif not online:
+        status = 'READY_FOR_UPSTREAM_REVIEW'
+        actions = [
+            'Run again with --online immediately before any separately '
+            'authorized Draft PR publication.'
+        ]
+    else:
+        status = 'READY_FOR_DRAFT_PR'
+        actions = [
+            'Technical Draft PR preflight passes. GitHub write authority is '
+            'still separate and remains false in this report.'
         ]
 
     report = {
@@ -497,12 +870,15 @@ def evaluate(
         'schema_uri': REPORT_SCHEMA_URI,
         'contract_id': contract['contract_id'],
         'mode': (
-            'upstream-checkout' if upstream_checkout is not None
-            else 'artifacts'
+            'draft-preflight' if online else
+            'upstream-checkout' if upstream_checkout is not None else
+            'artifacts'
         ),
         'status': status,
         'checks': checks,
         'upstream_checkout': checkout_report,
+        'candidate_checkout': candidate_report,
+        'publication_preflight': publication_report,
         'actions': actions,
         'authority': {
             'github_writes_authorized': False,
@@ -549,9 +925,34 @@ def _parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        '--candidate-checkout',
+        type=Path,
+        help=(
+            'Clean local checkout at the exact candidate commit; its parent, '
+            'subject, and binary diff hash are verified without mutation.'
+        ),
+    )
+    parser.add_argument(
+        '--online',
+        action='store_true',
+        help=(
+            'Read current GitHub upstream/fork/branch/open-PR state. The '
+            'optional GITHUB_TOKEN is used only for api.github.com.'
+        ),
+    )
+    strict = parser.add_mutually_exclusive_group()
+    strict.add_argument(
         '--require-ready-for-upstream-review',
         action='store_true',
         help='Exit nonzero unless the exact clean upstream checkout passes.',
+    )
+    strict.add_argument(
+        '--require-ready-for-draft-pr',
+        action='store_true',
+        help=(
+            'Exit nonzero unless both exact checkouts and current GitHub '
+            'read-only publication state pass.'
+        ),
     )
     parser.add_argument(
         '--json', action='store_true', help='Print the schema-v1 JSON report.')
@@ -569,6 +970,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         report = evaluate(
             contract_path=options.contract,
             upstream_checkout=options.upstream_checkout,
+            candidate_checkout=options.candidate_checkout,
+            online=options.online,
         )
         rendered = json.dumps(report, indent=2, sort_keys=True) + '\n'
         if options.output_json is not None:
@@ -587,7 +990,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     if (
         options.require_ready_for_upstream_review
-        and report['status'] != 'READY_FOR_UPSTREAM_REVIEW'
+        and report['status'] not in {
+            'READY_FOR_UPSTREAM_REVIEW', 'READY_FOR_DRAFT_PR'}
+    ):
+        return 1
+    if (
+        options.require_ready_for_draft_pr
+        and report['status'] != 'READY_FOR_DRAFT_PR'
     ):
         return 1
     return 0

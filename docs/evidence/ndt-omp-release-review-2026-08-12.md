@@ -167,12 +167,23 @@ python3 scripts/check_canonical_ndt_convergence.py --json
 python3 scripts/check_canonical_ndt_convergence.py \
   --upstream-checkout /path/to/clean/koide3-ndt_omp \
   --require-ready-for-upstream-review
+GITHUB_TOKEN="$(gh auth token)" \
+python3 scripts/check_canonical_ndt_convergence.py \
+  --upstream-checkout /path/to/clean/koide3-ndt_omp-at-5495fd9 \
+  --candidate-checkout /path/to/clean/ndt_omp-at-618f02f \
+  --online \
+  --require-ready-for-draft-pr
 ```
 
 The strict command reported `READY_FOR_UPSTREAM_REVIEW` with 20/20 checks
 against a clean detached checkout of that exact commit. The report intentionally
 omits the checkout path. This state means the local bundle is reviewable; it
-does not authorize or claim an upstream PR.
+does not authorize or claim an upstream PR. The stronger online command then
+reported `READY_FOR_DRAFT_PR` with 30/30 checks, binding exact candidate commit
+`618f02f`, its exact parent/subject/diff hash, current upstream `master`, fork
+identity, proposed-branch absence, and a zero-match search across four open
+upstream PRs. It omits both checkout paths and still reports
+`github_writes_authorized=false` and `remote_mutations_performed=false`.
 
 The exact patch was also fixed as local upstream commit
 `618f02f6b50a8590b81f48b4fee5b6cfc8d3f3ea` and rebuilt from a clean Jazzy
