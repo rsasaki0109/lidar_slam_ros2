@@ -75,6 +75,40 @@ def _task(payload: dict, task_id: str) -> dict:
     return next(item for item in payload['tasks'] if item['id'] == task_id)
 
 
+def _github_issue(
+    number: int,
+    title: str,
+    *,
+    labels: tuple[str, ...] = (),
+) -> dict:
+    return {
+        'number': number,
+        'title': title,
+        'html_url': (
+            f'https://github.com/rsasaki0109/lidar_slam_ros2/issues/{number}'
+        ),
+        'labels': [{'name': item} for item in labels],
+    }
+
+
+def _github_pull(
+    number: int,
+    title: str,
+    *,
+    body: str = '',
+    updated_at: str = '2026-08-15T22:14:44Z',
+) -> dict:
+    return {
+        'number': number,
+        'title': title,
+        'body': body,
+        'updated_at': updated_at,
+        'html_url': (
+            f'https://github.com/rsasaki0109/lidar_slam_ros2/pull/{number}'
+        ),
+    }
+
+
 EXPECTED_READY_IDS = [f'starter-C{index}' for index in range(5, 10)]
 EXPECTED_GAP_MARKERS = {
     'starter-C5': (
@@ -111,7 +145,7 @@ def test_checked_in_queue_is_schema_valid_and_ready_local_only():
     assert report['ready_task_ids'] == EXPECTED_READY_IDS
     assert report['stale_tasks'] == []
     assert report['remote_duplicate_audit'] == {
-        'checked_at': '2026-08-15T12:18:11+09:00',
+        'checked_at': '2026-08-16T07:21:20+09:00',
         'open_pull_request_count': 1,
         'matching_task_pull_requests': 0,
         'recheck_before_publication': True,
@@ -211,6 +245,143 @@ def test_duplicate_audit_must_cover_every_task_in_order():
         match='duplicate audit must cover the ordered task set',
     ):
         CHECKER.validate_queue(payload, _schema())
+
+
+def test_next_report_gives_one_live_contributor_and_maintainer_action():
+    """The live card separates a published issue from the local queue."""
+    queue, local_report = CHECKER.evaluate()
+    issue = _github_issue(
+        422,
+        'Help validate the public first-map path for v1.0',
+        labels=('documentation', 'good first issue', 'help wanted'),
+    )
+    known_pull = _github_pull(
+        427,
+        'Prepare crash-safe guided mapping for G0 review',
+        body='Japanese validation report follow-up handoff',
+    )
+
+    report = CHECKER.build_next_report(
+        queue,
+        local_report,
+        [issue],
+        [known_pull],
+    )
+
+    assert report['status'] == 'PUBLISHED_GOOD_FIRST_ISSUE_AVAILABLE'
+    assert report['contributor_next'] == {
+        'action': 'REVIEW_PUBLISHED_GOOD_FIRST_ISSUE',
+        'issue_number': 422,
+        'url': issue['html_url'],
+    }
+    assert report['maintainer_next'] == {
+        'action': 'REVIEW_AND_PUBLISH_LOCAL_TASK',
+        'task_id': 'starter-C5',
+        'preview_command': [
+            'python3',
+            'scripts/contributor_starter_queue.py',
+            '--task',
+            'starter-C5',
+        ],
+    }
+    assert report['unpublished_ready_task_ids'] == EXPECTED_READY_IDS
+    assert report['potential_pull_duplicates'] == []
+    assert report['authority'] == {
+        'github_requests': 'GET_ONLY',
+        'github_writes_authorized': False,
+        'remote_mutations_performed': False,
+    }
+    rendered = CHECKER.render_next_report(report)
+    assert issue['html_url'] in rendered
+    assert '--task starter-C5' in rendered
+    assert 'no GitHub issue, pull request, or label was changed' in rendered
+
+
+def test_next_report_prefers_an_exact_published_queue_task():
+    """An exact live task issue takes priority over a generic starter."""
+    queue, local_report = CHECKER.evaluate()
+    task = _task(queue, 'starter-C5')
+    issue = _github_issue(
+        501,
+        task['title'],
+        labels=('documentation', 'good first issue', 'help wanted'),
+    )
+
+    report = CHECKER.build_next_report(queue, local_report, [issue], [])
+
+    assert report['status'] == 'PUBLISHED_QUEUE_TASK_AVAILABLE'
+    assert report['contributor_next']['task_id'] == 'starter-C5'
+    assert report['contributor_next']['url'] == issue['html_url']
+    assert report['unpublished_ready_task_ids'] == EXPECTED_READY_IDS[1:]
+    assert report['maintainer_next']['task_id'] == 'starter-C6'
+
+
+def test_next_report_rechecks_a_known_pull_updated_after_the_audit():
+    """A changed known PR cannot inherit an older non-duplicate decision."""
+    queue, local_report = CHECKER.evaluate()
+    changed_pull = _github_pull(
+        427,
+        'Prepare crash-safe guided mapping for G0 review',
+        body='Japanese validation report follow-up handoff',
+        updated_at='2026-08-15T22:23:00Z',
+    )
+
+    report = CHECKER.build_next_report(
+        queue,
+        local_report,
+        [],
+        [changed_pull],
+    )
+
+    assert report['potential_pull_duplicates'] == [{
+        'task_id': 'starter-C5',
+        'pull_requests': [{
+            'number': 427,
+            'title': changed_pull['title'],
+            'url': changed_pull['html_url'],
+        }],
+    }]
+    assert report['maintainer_next'] == {
+        'action': 'REVIEW_POTENTIAL_PULL_DUPLICATE',
+    }
+
+
+def test_live_reader_uses_get_only(monkeypatch):
+    """Remote availability performs only bounded GET requests."""
+    commands = []
+
+    def fake_run(command, **kwargs):
+        commands.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, '[]', '')
+
+    monkeypatch.setattr(CHECKER.subprocess, 'run', fake_run)
+
+    assert CHECKER._github_get_all(
+        'rsasaki0109/lidar_slam_ros2',
+        'issues',
+    ) == []
+    assert len(commands) == 1
+    command, kwargs = commands[0]
+    assert command[:4] == ['gh', 'api', '--method', 'GET']
+    assert 'state=open' in command[-1]
+    assert kwargs['check'] is False
+    assert kwargs['timeout'] == 60
+
+
+def test_live_reader_fails_closed_on_an_api_error(monkeypatch):
+    """An unavailable API cannot become an empty availability report."""
+
+    def fake_run(command, **kwargs):
+        del kwargs
+        return subprocess.CompletedProcess(command, 1, '', 'offline')
+
+    monkeypatch.setattr(CHECKER.subprocess, 'run', fake_run)
+
+    with pytest.raises(CHECKER.QueueError, match='offline'):
+        CHECKER._github_get_all(
+            'rsasaki0109/lidar_slam_ros2',
+            'issues',
+        )
 
 
 def test_missing_scoped_file_fails_closed(tmp_path: Path):

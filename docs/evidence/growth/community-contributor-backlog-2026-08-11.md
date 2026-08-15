@@ -29,11 +29,12 @@ be rerun immediately before any future publication.
 
 ```bash
 python3 scripts/contributor_starter_queue.py --json
+python3 scripts/contributor_starter_queue.py --next
 python3 scripts/contributor_starter_queue.py --list
 python3 scripts/contributor_starter_queue.py --task starter-C5
 ```
 
-## Operationalization validation — refreshed 2026-08-15
+## Operationalization validation — refreshed 2026-08-16
 
 The checked-in queue now reports `QUEUE_READY_LOCAL_ONLY` for a refreshed
 five-task generation, C5–C9. C5 remains the unimplemented Japanese handoff
@@ -41,18 +42,22 @@ successor. C6–C9 are four evidence-backed English support cards selected from
 the current public backlog after the completed C1–C4 cards were retired. The
 retired IDs are not reused, and their canonical markers remain in the docs.
 
-A fresh read-only GitHub connector audit at
-`2026-08-15T12:18:11+09:00` found one open pull request, #427, and no matching
+A fresh authenticated GitHub API GET audit at
+`2026-08-16T07:21:20+09:00` found one open pull request, #427, and no matching
 open pull request for any C5–C9 query. That result is capture-time evidence,
 not publication authority, and must be rerun immediately before any issue is
-created. The default command and list/detail views perform no network or
+created. The `--next` card repeats bounded GET-only issue and PR reads, directs
+contributors only to a live published issue, and gives maintainers one local
+task-preview command. It rechecks new or subsequently updated PRs while
+honoring reviewed non-matches that have not changed since the recorded audit.
+The default command and list/detail views remain offline and perform no
 workspace write. Focused verification uses built-in profiles rather than
 executing commands supplied by JSON; docs output goes to a temporary directory
 and Python cache writes are disabled.
 
 | Check | Result |
 | --- | --- |
-| queue/schema/drift/authority regressions | 50 passed |
+| queue/schema/drift/authority/live-next-action regressions | 55 passed |
 | English support-card regressions | 22 docs entrypoint tests passed, including C1/C2/C3 contracts |
 | C5–C9 queue generation | all five exact gap markers absent; `QUEUE_READY_LOCAL_ONLY` |
 | C5–C9 focused profiles | five strict-MkDocs profiles passed; no workspace artifact |
@@ -61,7 +66,7 @@ and Python cache writes are disabled.
 | C3 Odometry-versus-TF recovery | canonical card detected and retired by the previous generation; absent from C5–C9 |
 | C4 custom-sensor checklist | implemented and retired by the previous generation; absent from C5–C9 |
 | contributor runner safety lint | selected fatal flake8 rules passed for runner and test |
-| complete maintained Python gate | graph 1,428 passed / 13 skipped; lidar_slam 687 passed; 2,115 total |
+| complete maintained Python gate | graph 1,442 passed / 13 skipped; lidar_slam 990 passed; 2,432 total |
 | documentation | strict MkDocs build passed with pre-existing notices |
 | authority | no issue, label, comment, branch, PR, or other remote mutation |
 

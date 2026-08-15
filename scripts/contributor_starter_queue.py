@@ -32,8 +32,10 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -91,6 +93,11 @@ PROFILE_CHECKS = {
     'docs-strict': DOCS_STRICT_CHECKS,
     'mid360-empty-frame': MID360_EMPTY_FRAME_CHECKS,
 }
+GITHUB_PAGE_SIZE = 100
+GITHUB_MAX_PAGES = 20
+GITHUB_REPOSITORY_PATTERN = re.compile(
+    r'^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+)
 
 
 class QueueError(ValueError):
@@ -432,6 +439,333 @@ def verify_task(
     }
 
 
+def _github_get_all(repository: str, resource: str) -> list[dict[str, Any]]:
+    """Read all open issues or pulls through the authenticated gh CLI."""
+    if GITHUB_REPOSITORY_PATTERN.fullmatch(repository) is None:
+        raise QueueError(f'invalid GitHub repository: {repository!r}')
+    if resource not in {'issues', 'pulls'}:
+        raise QueueError(f'unsupported GitHub resource: {resource}')
+
+    records: list[dict[str, Any]] = []
+    for page in range(1, GITHUB_MAX_PAGES + 1):
+        endpoint = (
+            f'/repos/{repository}/{resource}?state=open&'
+            f'per_page={GITHUB_PAGE_SIZE}&page={page}'
+        )
+        command = [
+            'gh',
+            'api',
+            '--method',
+            'GET',
+            '-H',
+            'Accept: application/vnd.github+json',
+            '-H',
+            'X-GitHub-Api-Version: 2022-11-28',
+            endpoint,
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise QueueError(
+                f'cannot read open GitHub {resource}: {exc}'
+            ) from exc
+        if result.returncode != 0:
+            detail = result.stderr.strip() or 'gh api returned no error text'
+            raise QueueError(
+                f'cannot read open GitHub {resource}: {detail}'
+            )
+        try:
+            page_records = json.loads(result.stdout)
+        except json.JSONDecodeError as exc:
+            raise QueueError(
+                f'GitHub {resource} response is not valid JSON'
+            ) from exc
+        if not isinstance(page_records, list):
+            raise QueueError(f'GitHub {resource} response must be an array')
+        if not all(isinstance(item, dict) for item in page_records):
+            raise QueueError(
+                f'GitHub {resource} response contains a non-object record'
+            )
+        records.extend(page_records)
+        if len(page_records) < GITHUB_PAGE_SIZE:
+            return records
+    raise QueueError(
+        f'GitHub {resource} pagination exceeded {GITHUB_MAX_PAGES} pages; '
+        'refusing to report partial availability'
+    )
+
+
+def _public_issue(record: dict[str, Any]) -> dict[str, Any]:
+    number = record.get('number')
+    title = record.get('title')
+    url = record.get('html_url')
+    if (
+        not isinstance(number, int)
+        or isinstance(number, bool)
+        or number < 1
+        or not isinstance(title, str)
+        or not title
+        or not isinstance(url, str)
+        or not url.startswith('https://github.com/')
+    ):
+        raise QueueError('GitHub issue or pull has invalid public identity')
+    return {'number': number, 'title': title, 'url': url}
+
+
+def _label_names(record: dict[str, Any]) -> set[str]:
+    labels = record.get('labels', [])
+    if not isinstance(labels, list):
+        raise QueueError('GitHub issue labels must be an array')
+    names: set[str] = set()
+    for label in labels:
+        if (
+            not isinstance(label, dict)
+            or not isinstance(label.get('name'), str)
+        ):
+            raise QueueError('GitHub issue label has invalid public identity')
+        names.add(label['name'].casefold())
+    return names
+
+
+def _github_timestamp(value: Any, label: str) -> datetime:
+    if not isinstance(value, str):
+        raise QueueError(f'{label} must be an ISO-8601 timestamp')
+    try:
+        parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError as exc:
+        raise QueueError(f'{label} must be an ISO-8601 timestamp') from exc
+    if parsed.tzinfo is None:
+        raise QueueError(f'{label} must include a UTC offset')
+    return parsed.astimezone(timezone.utc)
+
+
+def _matches_task_pull(
+    task: dict[str, Any],
+    pull: dict[str, Any],
+    query: str,
+) -> bool:
+    title = pull.get('title')
+    body = pull.get('body')
+    if (
+        not isinstance(title, str)
+        or body is not None and not isinstance(body, str)
+    ):
+        raise QueueError('GitHub pull has invalid searchable text')
+    searchable = f'{title}\n{body or ""}'.casefold()
+    if task['title'].casefold() in searchable:
+        return True
+    terms = [item for item in query.casefold().split() if item]
+    return bool(terms) and all(term in searchable for term in terms)
+
+
+def _requires_duplicate_recheck(
+    pull: dict[str, Any],
+    audit: dict[str, Any],
+    task_audit: dict[str, Any],
+) -> bool:
+    number = pull.get('number')
+    if not isinstance(number, int) or isinstance(number, bool) or number < 1:
+        raise QueueError('GitHub pull has invalid number')
+    if number not in audit['open_pull_request_numbers']:
+        return True
+    if number in task_audit['matching_open_pull_requests']:
+        return True
+    updated_at = _github_timestamp(
+        pull.get('updated_at'),
+        f'GitHub pull #{number}.updated_at',
+    )
+    checked_at = _github_timestamp(
+        audit['checked_at'],
+        'remote_duplicate_audit.checked_at',
+    )
+    return updated_at > checked_at
+
+
+def build_next_report(
+    queue: dict[str, Any],
+    local_report: dict[str, Any],
+    issues: Sequence[dict[str, Any]],
+    pulls: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """Combine local readiness with privacy-bounded live availability."""
+    open_issues = [item for item in issues if 'pull_request' not in item]
+    public_issues = [_public_issue(item) for item in open_issues]
+    public_pulls = [_public_issue(item) for item in pulls]
+    good_first_issues = [
+        public
+        for raw, public in zip(open_issues, public_issues)
+        if 'good first issue' in _label_names(raw)
+    ]
+    published_tasks = []
+    for task in queue['tasks']:
+        matches = [
+            item for item in public_issues
+            if item['title'].casefold() == task['title'].casefold()
+        ]
+        for item in matches:
+            published_tasks.append({'task_id': task['id'], **item})
+
+    audit = queue['remote_duplicate_audit']
+    audit_matches = {
+        item['task_id']: item for item in audit['task_matches']
+    }
+    potential_duplicates = []
+    for task in queue['tasks']:
+        task_audit = audit_matches[task['id']]
+        matches = [
+            public
+            for raw, public in zip(pulls, public_pulls)
+            if _requires_duplicate_recheck(raw, audit, task_audit)
+            and _matches_task_pull(task, raw, task_audit['query'])
+        ]
+        if matches:
+            potential_duplicates.append({
+                'task_id': task['id'],
+                'pull_requests': matches,
+            })
+
+    published_ids = {item['task_id'] for item in published_tasks}
+    duplicate_ids = {item['task_id'] for item in potential_duplicates}
+    unpublished_ready = [
+        task_id for task_id in local_report['ready_task_ids']
+        if task_id not in published_ids
+    ]
+    publishable = [
+        task_id for task_id in unpublished_ready
+        if task_id not in duplicate_ids
+    ]
+
+    if published_tasks:
+        first = published_tasks[0]
+        status = 'PUBLISHED_QUEUE_TASK_AVAILABLE'
+        contributor_next = {
+            'action': 'REVIEW_PUBLISHED_QUEUE_TASK',
+            'task_id': first['task_id'],
+            'issue_number': first['number'],
+            'url': first['url'],
+        }
+    elif good_first_issues:
+        first = good_first_issues[0]
+        status = 'PUBLISHED_GOOD_FIRST_ISSUE_AVAILABLE'
+        contributor_next = {
+            'action': 'REVIEW_PUBLISHED_GOOD_FIRST_ISSUE',
+            'issue_number': first['number'],
+            'url': first['url'],
+        }
+    else:
+        status = 'MAINTAINER_PUBLICATION_REQUIRED'
+        contributor_next = {
+            'action': 'WAIT_FOR_PUBLISHED_STARTER',
+            'url': (
+                f"https://github.com/{queue['repository']}/issues?"
+                'q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22'
+            ),
+        }
+
+    if potential_duplicates:
+        maintainer_next = {'action': 'REVIEW_POTENTIAL_PULL_DUPLICATE'}
+    elif publishable:
+        task_id = publishable[0]
+        maintainer_next = {
+            'action': 'REVIEW_AND_PUBLISH_LOCAL_TASK',
+            'task_id': task_id,
+            'preview_command': [
+                'python3',
+                'scripts/contributor_starter_queue.py',
+                '--task',
+                task_id,
+            ],
+        }
+    else:
+        maintainer_next = {'action': 'REVIEW_QUEUE_STATE'}
+
+    return {
+        'status': status,
+        'repository': queue['repository'],
+        'local_queue_status': local_report['status'],
+        'local_publication_status': local_report['publication_status'],
+        'open_issue_count': len(open_issues),
+        'open_pull_request_count': len(pulls),
+        'published_good_first_issues': good_first_issues,
+        'published_queue_tasks': published_tasks,
+        'unpublished_ready_task_ids': unpublished_ready,
+        'potential_pull_duplicates': potential_duplicates,
+        'contributor_next': contributor_next,
+        'maintainer_next': maintainer_next,
+        'authority': {
+            'github_requests': 'GET_ONLY',
+            'github_writes_authorized': False,
+            'remote_mutations_performed': False,
+        },
+    }
+
+
+def collect_next_report(
+    queue: dict[str, Any],
+    local_report: dict[str, Any],
+) -> dict[str, Any]:
+    """Collect the current read-only GitHub status for the next-step card."""
+    issues = _github_get_all(queue['repository'], 'issues')
+    pulls = _github_get_all(queue['repository'], 'pulls')
+    return build_next_report(queue, local_report, issues, pulls)
+
+
+def render_next_report(report: dict[str, Any]) -> str:
+    """Render the live contributor and maintainer next steps."""
+    lines = [f"Contributor next step — {report['status']}"]
+    issues = report['published_good_first_issues']
+    lines.append(f'Published good first issues: {len(issues)}')
+    for issue in issues:
+        lines.append(f"- #{issue['number']} {issue['title']} — {issue['url']}")
+    lines.append(
+        'Local 30-minute queue: '
+        f"{len(report['unpublished_ready_task_ids'])} ready but unpublished"
+    )
+    contributor = report['contributor_next']
+    if contributor['action'] == 'REVIEW_PUBLISHED_QUEUE_TASK':
+        lines.append(
+            'Contributor: review and claim the published queue task at '
+            f"{contributor['url']}"
+        )
+    elif contributor['action'] == 'REVIEW_PUBLISHED_GOOD_FIRST_ISSUE':
+        lines.append(
+            'Contributor: review the published starter scope at '
+            f"{contributor['url']}"
+        )
+    else:
+        lines.append(
+            'Contributor: wait for a published starter; do not start a local '
+            'queue task yet.'
+        )
+    maintainer = report['maintainer_next']
+    if maintainer['action'] == 'REVIEW_AND_PUBLISH_LOCAL_TASK':
+        lines.append(
+            'Maintainer: review the next bounded task with '
+            f"`{shlex.join(maintainer['preview_command'])}`"
+        )
+    elif maintainer['action'] == 'REVIEW_POTENTIAL_PULL_DUPLICATE':
+        lines.append(
+            'Maintainer: review the potential open-PR duplicates before '
+            'publishing any local task.'
+        )
+    lines.append(
+        f"Remote check: {report['open_pull_request_count']} open "
+        f"PR{'s' if report['open_pull_request_count'] != 1 else ''}; "
+        f"{len(report['potential_pull_duplicates'])} potential queue matches."
+    )
+    lines.append(
+        'Read-only: no GitHub issue, pull request, or label was changed.'
+    )
+    return '\n'.join(lines) + '\n'
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -441,6 +775,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     action.add_argument('--list', action='store_true')
     action.add_argument('--task', choices=EXPECTED_TASK_IDS)
     action.add_argument('--verify', choices=EXPECTED_TASK_IDS)
+    action.add_argument(
+        '--next',
+        action='store_true',
+        help='show one live, read-only contributor and maintainer next step',
+    )
     parser.add_argument('--json', action='store_true')
     return parser.parse_args(argv)
 
@@ -464,6 +803,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         queue, report = evaluate(args.queue, args.schema)
+        if args.next:
+            next_report = collect_next_report(queue, report)
+            if args.json:
+                print(json.dumps(next_report, indent=2, sort_keys=True))
+            else:
+                print(render_next_report(next_report), end='')
+            return 0
         if args.verify:
             task = _find_task(queue, args.verify)
             verification = verify_task(task)

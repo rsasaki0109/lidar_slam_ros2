@@ -97,7 +97,18 @@ A bounded starter issue should name the files, non-goals, acceptance criteria,
 and one focused check. You are not expected to download a public dataset or run
 the full end-to-end suite unless the issue explicitly says so.
 
-Maintainers can also inspect the next five locally prepared starter tasks with:
+See the current published option, local queue, open-PR duplicate status, and one
+next action in a single read-only check (requires an authenticated `gh` CLI):
+
+```bash
+python3 scripts/contributor_starter_queue.py --next
+```
+
+The card never creates or changes an issue, pull request, or label. It directs a
+new contributor only to a currently published `good first issue`; unpublished
+local tasks remain behind the maintainer coordination gate. If GitHub is not
+available, maintainers can still inspect the next five locally prepared tasks
+with:
 
 ```bash
 python3 scripts/contributor_starter_queue.py --list
