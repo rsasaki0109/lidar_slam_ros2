@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-15T09:32:33+09:00",
+  "generated_at": "2026-08-15T13:38:16+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 230,
-    "expected_paths_sha256": "805706e76e47db2b6e6d946a89362c2f45597fb719de92e90e7dea35452cacea",
+    "expected_path_count": 232,
+    "expected_paths_sha256": "f9807fc05f5de2d6ecaeaf741f972ce3ce0646ff508c9818e7c3e8c9fed0ab98",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -212,6 +212,7 @@
         "lidarslam/test/test_build_docker_launcher_asset.py",
         "lidarslam/test/test_canonical_ndt_convergence.py",
         "lidarslam/test/test_ndt_omp_release_readiness.py",
+        "lidarslam/test/test_package_manager_release_readiness.py",
         "lidarslam/test/test_published_release.py",
         "lidarslam/test/test_release_image_promotion.py",
         "lidarslam/test/test_v1_readiness.py",
@@ -224,11 +225,12 @@
         "scripts/build_release_bundle.py",
         "scripts/check_canonical_ndt_convergence.py",
         "scripts/check_ndt_omp_release_readiness.py",
+        "scripts/check_package_manager_release_readiness.py",
         "scripts/check_published_release.py",
         "scripts/check_v1_readiness.py"
       ],
       "verification": [
-        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_ndt_omp_release_readiness.py lidarslam/test/test_release_image_promotion.py lidarslam/test/test_v1_readiness.py",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_ndt_omp_release_readiness.py lidarslam/test/test_package_manager_release_readiness.py lidarslam/test/test_release_image_promotion.py lidarslam/test/test_v1_readiness.py",
         "python3 scripts/check_ndt_omp_release_readiness.py --json",
         "python3 scripts/check_canonical_ndt_convergence.py --json",
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_build_docker_launcher_asset.py lidarslam/test/test_published_release.py"
