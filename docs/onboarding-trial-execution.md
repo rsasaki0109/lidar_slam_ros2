@@ -94,7 +94,10 @@ release evidence when available. The moving convenience tags are not trial
 identities. Pull-request and manual Docker workflow runs are verification-only:
 they receive no package-write permission and cannot publish or move a tag.
 Only a `develop` push can update the convenience tags, and that update still
-does not create a trial identity. Audit `.github/workflows/docker.yml`,
+does not create a trial identity. The separate candidate workflow can publish
+only untagged digests after its protected E2 request gate; its existence does
+not authorize a run or make its output a release. Audit
+`.github/workflows/docker.yml`, `.github/workflows/candidate-image.yml`,
 `.github/workflows/release.yml`, `Dockerfile`, and the
 [distribution identity rules](distribution.md#installed-source-identity).
 
@@ -362,6 +365,32 @@ gh attestation verify \
 Do not run a CLI smoke container before the timed trial: that would pull and
 warm the project image. If the image digest, release asset, or product version
 cannot be established without guessing, record FAIL at preflight.
+
+#### Pre-release candidate digest
+
+A candidate row is allowed only after a separately authorized
+`e2-publish-candidate-image` run completed its Humble and Jazzy jobs and the
+`verify immutable candidate pair` job. Download and retain all four records
+from that one run: `candidate-image-request.json`, both per-distro image
+records, and `candidate-image-set.json`. Require the set status `PASS`, the
+same source PR, exact source commit, product version, workflow run URL, and
+requester across both images, distinct distro digests, empty `tags_created`
+arrays, and false moving-tag/release mutation fields.
+
+The candidate workflow deliberately records
+`registry_retention_status: REQUIRES_REMOTE_AUDIT`. Before provisioning a
+timed host, inspect each `ghcr.io/...@sha256:...` reference and verify its
+GitHub attestation without pulling image layers. Also retain the workflow run
+and artifact-expiry date. If either digest is absent, its attestation fails,
+the evidence artifact expired before review, or the environment/CI request
+record is missing, the candidate row is FAIL.
+
+A digest-only candidate has no published `v<VERSION>-<distro>` tag and is not
+a GitHub Release. Do not relabel it, create a convenience tag, or pass it to a
+release-only public preflight. The current observer packet and checked-in
+matrix remain release-shaped; bind them explicitly to the downloaded
+candidate-image set in a reviewed follow-up before running or claiming a G0
+candidate trial. Merely having a pullable digest is not comparable evidence.
 
 ### Source identity
 

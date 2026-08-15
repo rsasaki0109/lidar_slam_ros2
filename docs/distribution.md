@@ -338,9 +338,69 @@ Docker workflow gives pull-request and manual `workflow_dispatch` jobs a
 contents-read token, builds into the disposable runner with `push: false`, and
 smoke-tests the installed CLI without logging in to GHCR. Those verification
 runs cannot publish a package, attestation, candidate identity, or moving tag.
-An immutable matrix candidate therefore needs a separate, explicitly reviewed
-digest-publication gate; manually dispatching the convenience workflow is not
-that gate.
+Manually dispatching the convenience workflow is not a candidate-publication
+route.
+
+#### Immutable matrix candidate gate (E2 only)
+
+`.github/workflows/candidate-image.yml` is the separate digest-publication
+gate. Pull requests execute only its contents-read contract job. Candidate
+publication has no `workflow_dispatch` trigger and therefore no selectable
+workflow ref: an explicit `e2-publish-candidate-image` `repository_dispatch`
+event starts the workflow definition on the repository default branch. The
+read-only authorization job then requires all of the following before the
+matrix job can receive `packages: write`:
+
+- the workflow ref and repository default branch are both exactly `develop`;
+- the requester has the `maintain` or `admin` repository role and supplied the literal
+  approval `E2_IMMUTABLE_DIGEST_ONLY`;
+- the requested commit is the exact mergeable head of an open, same-repository
+  pull request targeting `develop`, and its `VERSION` matches the requested
+  product version;
+- all nine required exact-head checks succeeded, no check is active or failed,
+  and only the named non-publication jobs may be skipped; and
+- the `candidate-images` environment already has a required reviewer plus one
+  custom deployment branch policy named exactly `develop`.
+
+An absent or unprotected environment is a hard failure, not an implicit
+environment setup. Configure that environment in repository settings before
+making an E2 decision. Prefer enabling **Prevent self-review** so the dispatch
+and deployment approval are separate maintainer actions.
+
+After a separate E2 approval, the exact event shape is:
+
+```bash
+CANDIDATE_PR='<OPEN_SAME_REPOSITORY_PR_NUMBER>'
+CANDIDATE_COMMIT='<EXACT_40_CHARACTER_PR_HEAD_SHA>'
+CANDIDATE_VERSION='<MATCHING_X.Y.Z_VERSION>'
+
+gh api --method POST \
+  repos/rsasaki0109/lidar_slam_ros2/dispatches \
+  -f event_type=e2-publish-candidate-image \
+  -F "client_payload[pull_request]=${CANDIDATE_PR}" \
+  -f "client_payload[source_commit]=${CANDIDATE_COMMIT}" \
+  -f "client_payload[product_version]=${CANDIDATE_VERSION}" \
+  -f 'client_payload[approval]=E2_IMMUTABLE_DIGEST_ONLY'
+```
+
+The POST above is the E2 registry-write boundary. Do not run it merely because
+the workflow or PR checks are green. A successful run publishes Humble and
+Jazzy manifests by digest only (`push-by-digest=true`), creates no version,
+`humble`, `jazzy`, or `latest` tag, smoke-tests the exact digest with container
+networking disabled, verifies SBOM, provenance, and GitHub attestation, and
+uploads these schema-backed artifacts for 30 days:
+
+- `candidate-image-request.json` — exact PR, actor, environment, and CI
+  authorization;
+- `candidate-image-humble.json` and `candidate-image-jazzy.json` — exact
+  source/digest records with an empty `tags_created` array; and
+- `candidate-image-set.json` — a complete, distinct, same-source pair.
+
+The records deliberately say
+`registry_retention_status: REQUIRES_REMOTE_AUDIT`. After an authorized run,
+audit both remote digests, attestations, artifact retention, and pullability
+before using either identity in an onboarding row. A candidate digest is not a
+Git tag, GitHub Release, stable image, or E4 approval.
 
 Every tagged release publishes exact
 `ghcr.io/rsasaki0109/lidar_slam_ros2:v<VERSION>-<distro>` images only after

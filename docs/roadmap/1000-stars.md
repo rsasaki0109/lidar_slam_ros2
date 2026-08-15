@@ -455,7 +455,12 @@ work and document the actual support boundary instead of hiding the delay.
 - Keep container verification and publication as separate authority domains.
   Pull requests and manual dispatches build and smoke-test with a contents-read
   token only; moving convenience tags may change only on a `develop` push, and
-  immutable matrix-candidate publication requires its own explicit gate.
+  immutable matrix-candidate publication uses the separate default-branch
+  `repository_dispatch` gate. That gate requires exact-head green CI, a
+  maintain/admin repository role, literal E2 digest-only approval, and a protected
+  `candidate-images` environment restricted to `develop`; its package-write
+  job can publish untagged digests but cannot create or move a tag. Gate
+  availability is not E2 authorization.
 - Budget normal maintainer effort at approximately 60% product/reliability,
   20% distribution/community, and 20% research. Research can use spare capacity
   but cannot delay a failed product, support, or release gate.
@@ -752,7 +757,7 @@ G0 remains `HOLD`: the matrix is 4/4 present and 0/4 comparable, v1 is 8/10,
 and the existing v0.9.0 tag prevents version reuse.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 233-path exact
+been expanded into the current 241-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell

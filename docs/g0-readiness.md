@@ -32,7 +32,9 @@ invalid.
 The dashboard deliberately does not turn a product `PASS` into a comparable
 onboarding row. When Docker and source rows use different product versions,
 its next action shows two structured, no-write choices: continue the current
-candidate (which needs a separately authorized release/tag/image publication),
+candidate (which needs the protected `candidate-images` environment, a
+separately authorized digest-only E2 dispatch, and a remote candidate-set
+audit; the gate itself does not authorize publication),
 or intentionally rebuild all four rows against one already-published version.
 The second choice requires a fresh source preflight and fresh records; old
 mixed-version measurements must never be reused. After one public identity is

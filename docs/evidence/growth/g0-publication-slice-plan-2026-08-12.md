@@ -10,11 +10,11 @@
 > Frozen public review baseline (machine key `public_head_sha`):
 > `8a931a3627be503fb10c255ef846c6d3c54a237c`
 >
-> Planned follow-up inventory: 233 paths; SHA-256
-> `15b94422746d15290b1f45d1a3b95fef892cba4ef1ab7be78e57ec2948ac1a09`
+> Planned follow-up inventory: 241 paths; SHA-256
+> `a7b421d256f945699fedaef0ae7186391a730df9102ca16c8fd5c95a4c723b93`
 >
-> Last observed remote mutation: exact non-force push from `33f1340` to
-> `065bae3`; mutations performed by the checker or review-card command:
+> Last observed remote mutation: exact non-force push from `db1f9b4` to
+> `e222bc4`; mutations performed by the checker or review-card command:
 > **none**
 
 ## Outcome
@@ -60,9 +60,9 @@ public CI result.
 | S2 first-map foundation | 32 | one bounded demo/own-bag route reaches a verified local 3D result and retains recovery state | public Humble/Jazzy CI |
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 26 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded Docker/source measurement, public preflight, and an auditable SHA-bound supplement path for retained observations | public Humble/Jazzy CI and clean-machine timing |
-| S5 distribution readiness | 46 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, and authenticated fail-closed package-manager blockers remain explicit; no release/version reuse is implied | maintainer distribution decision |
+| S5 distribution readiness | 54 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate remain explicit; no E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
 | S6 product-shell integration | 83 | the installed home, bag-optional doctor, Japanese quickstart, neutral GLIM usability scorecard and fail-closed worksheet generators, truthful onboarding/growth snapshots, bounded starter queue and machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, exact-identity observer packet, and one-command G0 readiness dashboard agree | complete product gate and public CI |
-| S7 publication control | 6 | all 233 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
+| S7 publication control | 6 | all 241 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -100,7 +100,7 @@ from that base and the local tip descends from the public head, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 233-path coverage with the fixed inventory digest;
+4. exact 241-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred.
 
@@ -112,7 +112,7 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 233 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 241 paths, 7 slices, no remote mutation |
 | checker regressions | 14 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, and self-contained read-only source dry-run execution |
 | focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
@@ -150,8 +150,11 @@ communication remain separate decisions.
 ## Remaining GLIM-convenience gate
 
 This plan makes the work reviewable; it does not prove that the workflow feels
-as easy as GLIM on a new machine. After a public candidate exists, the next
-product evidence is a timed clean-machine Docker/source first-map trial on
-Humble and Jazzy. The measured command count, active operator time, download,
-peak disk, diagnosis quality, and verified result must update the onboarding
-matrix without private paths or local-only source identities.
+as easy as GLIM on a new machine. The digest-only candidate gate is now in the
+review inventory, but the required `candidate-images` environment and an E2
+dispatch remain separate external decisions. After one authorized pair is
+published and remotely audited, bind the observer packet and trial harness to
+its exact set record before running timed clean-machine Docker/source first-map
+trials on Humble and Jazzy. The measured command count, active operator time,
+download, peak disk, diagnosis quality, and verified result must update the
+onboarding matrix without private paths or a release claim.

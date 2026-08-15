@@ -69,6 +69,7 @@ PRODUCT_DOCS = (
 )
 RELEASE_IMPLEMENTATION_FILES = (
     '.github/workflows/package-manager-install-upgrade.yml',
+    '.github/workflows/candidate-image.yml',
     'docs/schemas/package-manager-release-readiness-v1.schema.json',
     '.github/workflows/release.yml',
     'scripts/build_release_bundle.py',
@@ -81,6 +82,9 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/check_issue_triage_proposal.py',
     'scripts/audit_published_fixture.py',
     'scripts/check_published_release.py',
+    'scripts/validate_candidate_image_request.py',
+    'scripts/create_candidate_image_record.py',
+    'scripts/verify_candidate_image_set.py',
     'scripts/create_release_image_record.py',
     'scripts/measure_oci_archive.py',
     'scripts/check_external_first_map_readiness.py',

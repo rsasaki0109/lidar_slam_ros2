@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-15T13:38:16+09:00",
+  "generated_at": "2026-08-15T17:41:13+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 233,
-    "expected_paths_sha256": "15b94422746d15290b1f45d1a3b95fef892cba4ef1ab7be78e57ec2948ac1a09",
+    "expected_path_count": 241,
+    "expected_paths_sha256": "a7b421d256f945699fedaef0ae7186391a730df9102ca16c8fd5c95a4c723b93",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -176,14 +176,15 @@
     {
       "id": "S5-distribution-readiness",
       "order": 5,
-      "title": "NDT dependency, clone-free launcher, and ROS distribution readiness",
-      "review_outcome": "Release tooling reports package-manager blockers honestly, binds the standalone launcher to immutable release identity, refuses historical version reuse, and keeps publication separate from local readiness.",
+      "title": "NDT dependency, immutable candidate gate, and ROS distribution readiness",
+      "review_outcome": "Release tooling reports package-manager blockers honestly, binds image publication to exact immutable identity, refuses historical version reuse, and keeps candidate, release, and moving-tag authority separate from local readiness.",
       "depends_on": [
         "S1-runtime-safety",
         "S4-source-onboarding"
       ],
       "paths": [
         ".gitattributes",
+        ".github/workflows/candidate-image.yml",
         ".github/workflows/main.yml",
         ".github/workflows/release.yml",
         "CHANGELOG.md",
@@ -199,6 +200,9 @@
         "docs/releases/v0.9.1.md",
         "docs/roadmap/v0.9.md",
         "docs/rosdistro-release.md",
+        "docs/schemas/candidate-image-request-v1.schema.json",
+        "docs/schemas/candidate-image-set-v1.schema.json",
+        "docs/schemas/candidate-image-v1.schema.json",
         "docs/schemas/canonical-ndt-convergence-contract-v1.schema.json",
         "docs/schemas/canonical-ndt-convergence-readiness-v1.schema.json",
         "docs/schemas/ndt-omp-release-readiness-v2.schema.json",
@@ -211,6 +215,7 @@
         "lidarslam/CHANGELOG.rst",
         "lidarslam/package.xml",
         "lidarslam/test/test_build_docker_launcher_asset.py",
+        "lidarslam/test/test_candidate_image_gate.py",
         "lidarslam/test/test_canonical_ndt_convergence.py",
         "lidarslam/test/test_ndt_omp_release_readiness.py",
         "lidarslam/test/test_package_manager_release_readiness.py",
@@ -228,9 +233,13 @@
         "scripts/check_ndt_omp_release_readiness.py",
         "scripts/check_package_manager_release_readiness.py",
         "scripts/check_published_release.py",
-        "scripts/check_v1_readiness.py"
+        "scripts/check_v1_readiness.py",
+        "scripts/create_candidate_image_record.py",
+        "scripts/validate_candidate_image_request.py",
+        "scripts/verify_candidate_image_set.py"
       ],
       "verification": [
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_candidate_image_gate.py",
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_ndt_omp_release_readiness.py lidarslam/test/test_package_manager_release_readiness.py lidarslam/test/test_release_image_promotion.py lidarslam/test/test_v1_readiness.py",
         "python3 scripts/check_ndt_omp_release_readiness.py --json",
         "python3 scripts/check_canonical_ndt_convergence.py --json",

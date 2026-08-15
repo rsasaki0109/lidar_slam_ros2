@@ -197,6 +197,18 @@ RUN_MANIFEST_V2_SCHEMA = (
 RELEASE_IMAGE_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'release-image-v1.schema.json'
 )
+CANDIDATE_IMAGE_REQUEST_SCHEMA = (
+    REPO_ROOT
+    / 'docs'
+    / 'schemas'
+    / 'candidate-image-request-v1.schema.json'
+)
+CANDIDATE_IMAGE_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas' / 'candidate-image-v1.schema.json'
+)
+CANDIDATE_IMAGE_SET_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas' / 'candidate-image-set-v1.schema.json'
+)
 ROLLBACK_PLAN_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'rollback-plan-v1.schema.json'
 )
@@ -214,6 +226,9 @@ SOCIAL_POST_DOC = REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
 PUBLIC_AUTOWARE_ENTRYPOINT = REPO_ROOT / 'scripts' / 'run_autoware_quickstart.sh'
 RELEASE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'release.yml'
+CANDIDATE_IMAGE_WORKFLOW = (
+    REPO_ROOT / '.github' / 'workflows' / 'candidate-image.yml'
+)
 RELEASE_BUNDLE_SCRIPT = REPO_ROOT / 'scripts' / 'build_release_bundle.py'
 RELEASE_PROMOTION_SCRIPT = REPO_ROOT / 'scripts' / 'promote_release_images.py'
 DOCKER_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'docker.yml'
@@ -294,6 +309,9 @@ def test_docs_exist_and_are_linked_from_readme():
     assert RUN_MANIFEST_SCHEMA.is_file()
     assert RUN_MANIFEST_V2_SCHEMA.is_file()
     assert RELEASE_IMAGE_SCHEMA.is_file()
+    assert CANDIDATE_IMAGE_REQUEST_SCHEMA.is_file()
+    assert CANDIDATE_IMAGE_SCHEMA.is_file()
+    assert CANDIDATE_IMAGE_SET_SCHEMA.is_file()
     assert ROLLBACK_PLAN_SCHEMA.is_file()
     assert RELEASE_BUNDLE_MANIFEST_SCHEMA.is_file()
     assert RELEASE_PROMOTION_SCHEMA.is_file()
@@ -302,6 +320,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert V09_ROADMAP_DOC.is_file()
     assert SOCIAL_POST_DOC.is_file()
     assert DOCKER_WORKFLOW.is_file()
+    assert CANDIDATE_IMAGE_WORKFLOW.is_file()
     assert DOCS_SITE_WORKFLOW.is_file()
     assert README_LOOP_IMAGE_PATH.is_file()
     assert README_AUTOWARE_PROOF_IMAGE_PATH.is_file()
@@ -794,6 +813,40 @@ def test_docker_workflow_separates_verification_from_tag_publication():
     assert 'provenance: mode=max' in publish
     assert 'docker/login-action@v4' in publish
     assert 'actions/attest@v4' in publish
+
+
+def test_candidate_image_workflow_is_default_branch_digest_only():
+    """E2 candidates need a trusted gate without any tag authority."""
+    workflow = CANDIDATE_IMAGE_WORKFLOW.read_text(encoding='utf-8')
+    workflow_permissions, jobs = workflow.split('\njobs:\n', 1)
+    contract, remainder = jobs.split('\n  authorize:\n', 1)
+    authorize, remainder = remainder.split('\n  publish:\n', 1)
+    publish, verify_set = remainder.split('\n  verify-set:\n', 1)
+    distribution = DISTRIBUTION_DOC.read_text(encoding='utf-8')
+
+    assert 'repository_dispatch:' in workflow_permissions
+    assert 'e2-publish-candidate-image' in workflow_permissions
+    assert 'workflow_dispatch:' not in workflow_permissions
+    assert 'permissions:\n  contents: read' in workflow_permissions
+    assert 'packages: write' not in workflow_permissions
+    assert 'packages: write' not in contract
+    assert 'packages: write' not in authorize
+    assert 'packages: write' not in verify_set
+    assert publish.count('packages: write') == 1
+    assert 'pull-requests: read' in authorize
+    assert 'refs/heads/develop' in authorize
+    assert 'E2_IMMUTABLE_DIGEST_ONLY' in authorize
+    assert 'check-runs?filter=latest&per_page=100' in authorize
+    assert 'push-by-digest=true' in publish
+    assert 'name-canonical=true' in publish
+    assert 'docker buildx imagetools create' not in workflow
+    assert 'Tags created: \\`none\\`' in publish
+    assert 'registry_retention_status' in (
+        (REPO_ROOT / 'scripts' / 'create_candidate_image_record.py')
+        .read_text(encoding='utf-8')
+    )
+    assert 'repository_dispatch' in distribution
+    assert 'E2_IMMUTABLE_DIGEST_ONLY' in distribution
 
 
 def test_docs_cover_autoware_and_release_gate_keywords():
