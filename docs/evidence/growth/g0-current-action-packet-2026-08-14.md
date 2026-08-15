@@ -9,6 +9,8 @@
 > Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
 >
 > Latest product/community follow-up tip: `bb1c2e7431c0634f9e5ba6613864b6d2a4c99eb0`
+>
+> Latest distribution-audit follow-up tip: `d2ba2d2b36122f42ba3975456f62bcd8d87a45ad`
 
 This reviewed tip is the code-bearing product-candidate revision; later
 docs-only handoff synchronization and product UX follow-up commits must remain
@@ -22,7 +24,11 @@ safe observer-packet-output, safe first-map-dry-run-plan-output, Docker JSON
 own-bag-plan, source JSON quickstart-plan, custom PointCloud2 onboarding,
 supported g2o recovery, canonical C2/C3 drift detection, contributor C1–C4
 local-retirement, bounded contributor C5–C9 replenishment, and
-publication-inventory follow-ups.
+publication-inventory follow-ups. The latest distribution slice also scopes
+optional GitHub authentication to read-only API requests, makes explicit or
+unknown NDT PR mergeability fail closed, restores exact-tip source-route
+preflight under shared-IP quota exhaustion, and proves that the package-manager
+E2E remains `NOT_RUN` rather than confusing quota failure with absence.
 The code-bearing packet tip is required to be an ancestor of the current
 checkout revision; later synchronization and product UX follow-up commits
 must remain described in this handoff. It replaces
@@ -34,12 +40,13 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open, draft, mergeable; its current head includes packet synchronization and product UX follow-ups after the reviewed tip above | source candidate is publicly reviewable |
+| Draft PR #427 | open, draft, mergeable; its current head includes distribution-audit and 232-path publication-plan follow-ups after the reviewed tip above | source candidate is publicly reviewable |
 | PR-head CI | **PASS** for product/community tip `bb1c2e7…` (9 / 9 checks) | revalidation covers source/Docker plans, custom PointCloud2 onboarding, g2o recovery, queue replenishment, and publication inventory; CI is not a release approval |
 | English support cards | docs entrypoint tests 22 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 50 queue regressions and all five focused strict-MkDocs profiles passed | C1–C4 remain completed and retired; the fresh duplicate audit found no matching implementation PR, and no issue or label mutation occurred |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 230 paths / 7 slices, clean at the refreshed tip | local inventory is complete and cannot authorize a GitHub write |
+| Distribution preflights | source route `READY` at exact `d2ba2d2…`; NDT `REVIEW_REQUIRED` with two unanswered reviews; package-manager E2E `NOT_RUN` with zero matching runs; all three have no API errors or writes | transport is trustworthy, but neither the lineage blocker nor the required clean-install E2E is complete |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 232 paths / 7 slices, clean at the distribution tip | local inventory is complete and cannot authorize a GitHub write |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
 | Onboarding matrix | 4 / 4 product PASS; 0 / 4 comparable; **BLOCKED** | Docker is v0.9.0, source is v0.9.1, and human measurements are missing |
@@ -51,6 +58,13 @@ The exact public checks are intentionally re-runnable:
 ```bash
 gh pr checks 427 --repo rsasaki0109/lidar_slam_ros2
 python3 scripts/check_publication_slice_plan.py --json
+python3 scripts/check_ndt_omp_release_readiness.py --json
+python3 scripts/check_package_manager_release_readiness.py \
+  --version 0.9.1 --json
+python3 scripts/run_source_onboarding_probe.py \
+  --public-preflight \
+  --source-commit d2ba2d2b36122f42ba3975456f62bcd8d87a45ad \
+  --product-version 0.9.1
 python3 scripts/check_published_release.py --version 0.9.1 --json
 python3 scripts/check_onboarding_trial_matrix.py --json
 python3 scripts/check_v1_readiness.py --json
