@@ -57,6 +57,9 @@ GitHub source route and returns machine-readable `READY` or `NOT_READY` without
 writing files. It requires the exact six-package inventory, dependency helper,
 fast build, Getting Started route, and matching product version from one
 commit; API/tool failure remains distinct from an unavailable route.
+If the shared public GitHub API quota is exhausted, set `GITHUB_TOKEN` to a
+read-capable token. The observer sends it only to `api.github.com` and never
+stores it in the trial or preflight report.
 
 ### Attach measurements without rerunning a completed trial
 

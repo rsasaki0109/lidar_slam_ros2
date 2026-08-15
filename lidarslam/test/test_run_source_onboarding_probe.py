@@ -188,6 +188,40 @@ def test_content_decoder_accepts_github_base64_line_wrapping(monkeypatch):
     )
 
 
+def test_public_preflight_token_is_scoped_to_github_api(monkeypatch):
+    """The optional token is sent only to GitHub API requests."""
+    requests = []
+
+    class FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b'{}'
+
+    def fake_urlopen(request, timeout):
+        assert timeout == 20
+        requests.append(request)
+        return FakeResponse()
+
+    monkeypatch.setenv('GITHUB_TOKEN', 'read-only-test-token')
+    monkeypatch.setattr(PROBE.urllib.request, 'urlopen', fake_urlopen)
+
+    PROBE._request_json(f'{PROBE.GITHUB_API}/commits/' + 'a' * 40)
+    PROBE._request_json(
+        'https://raw.githubusercontent.com/owner/repo/main/file')
+
+    assert requests[0].get_header('Authorization') == (
+        'Bearer read-only-test-token'
+    )
+    assert requests[1].get_header('Authorization') is None
+
+
 def test_public_source_preflight_requires_commit_route_and_version(monkeypatch):
     contents = _public_route_contents()
 

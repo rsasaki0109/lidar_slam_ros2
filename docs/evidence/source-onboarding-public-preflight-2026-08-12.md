@@ -140,6 +140,13 @@ Docker PASS and one source PASS are comparable.
 The public-preflight command changed no commit, branch, pull request, issue,
 label, release, image, package, review reply, or external repository.
 
+On 2026-08-15, the exact-tip refresh encountered the shared unauthenticated
+GitHub API quota. The observer was hardened to accept `GITHUB_TOKEN`, scope it
+only to `api.github.com`, and exclude it from every report. An authenticated
+read-only rerun against exact pushed tip
+`2a56f20ccbd6f7ffbd664d3290d06780d8669c26` then returned `READY`; no file or
+external state was changed. A focused regression verifies the request scope.
+
 On 2026-08-13, the complementary release/image identity check for the reviewed
 `0.9.1` source candidate returned `NOT_PUBLISHED`: the `v0.9.1` tag and Release
 were absent, and both exact `v0.9.1-{humble,jazzy}` GHCR manifests were

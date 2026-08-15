@@ -339,12 +339,16 @@ class _DiskSampler:
 
 
 def _request_json(url: str) -> tuple[int, dict[str, Any] | None]:
+    headers = {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'lidarslam-source-onboarding-probe/1',
+    }
+    token = os.environ.get('GITHUB_TOKEN')
+    if token and url.startswith('https://api.github.com/'):
+        headers['Authorization'] = f'Bearer {token}'
     request = urllib.request.Request(
         url,
-        headers={
-            'Accept': 'application/vnd.github+json',
-            'User-Agent': 'lidarslam-source-onboarding-probe/1',
-        },
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
