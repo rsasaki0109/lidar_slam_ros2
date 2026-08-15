@@ -7,8 +7,8 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "8a931a3627be503fb10c255ef846c6d3c54a237c",
-    "expected_path_count": 232,
-    "expected_paths_sha256": "f9807fc05f5de2d6ecaeaf741f972ce3ce0646ff508c9818e7c3e8c9fed0ab98",
+    "expected_path_count": 233,
+    "expected_paths_sha256": "15b94422746d15290b1f45d1a3b95fef892cba4ef1ab7be78e57ec2948ac1a09",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -202,6 +202,7 @@
         "docs/schemas/canonical-ndt-convergence-contract-v1.schema.json",
         "docs/schemas/canonical-ndt-convergence-readiness-v1.schema.json",
         "docs/schemas/ndt-omp-release-readiness-v2.schema.json",
+        "docs/schemas/package-manager-release-readiness-v1.schema.json",
         "docs/schemas/published-release-v1.schema.json",
         "docs/schemas/v1-readiness-report-v1.schema.json",
         "docs/v1-readiness.md",
