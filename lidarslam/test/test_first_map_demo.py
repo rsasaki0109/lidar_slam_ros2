@@ -257,6 +257,9 @@ def test_dry_run_json_is_schema_valid_copy_ready_and_read_only(
         'demo',
         str(work.resolve()),
     ]
+    assert plan['storage']['volumes'][0][
+        'additional_bytes_required'
+    ] == 0
     assert not work.exists()
 
 
@@ -489,6 +492,47 @@ def test_plan_fails_closed_for_low_space_overlap_symlink_and_partial(
         'partial-output',
         'insufficient-free-space',
     } <= codes
+    volume = plan['storage']['volumes'][0]
+    assert volume['additional_bytes_required'] == 8 * module.GIB - 1
+    storage_finding = next(
+        item for item in plan['findings']
+        if item['code'] == 'insufficient-free-space'
+    )
+    assert '8.00 GiB more is needed' in storage_finding['message']
+    assert plan['command']['shell'] in storage_finding['next_action']
+    assert '<' not in storage_finding['next_action']
+
+
+def test_low_storage_retry_preserves_shell_quoted_demo_command(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load(SCRIPT, 'first_map_demo_storage_retry')
+    monkeypatch.setattr(
+        module.shutil,
+        'disk_usage',
+        lambda path: SimpleNamespace(
+            total=10 * module.GIB,
+            used=3 * module.GIB + 1,
+            free=7 * module.GIB - 1,
+        ),
+    )
+    work = tmp_path / 'demo workspace'
+
+    plan = module.build_demo_plan(module.parse_args([
+        str(work), '--viewer', 'none',
+    ]))
+
+    storage_finding = next(
+        item for item in plan['findings']
+        if item['code'] == 'insufficient-free-space'
+    )
+    assert plan['storage']['volumes'][0][
+        'additional_bytes_required'
+    ] == module.GIB + 1
+    assert '1.01 GiB more is needed' in storage_finding['message']
+    assert storage_finding['next_action'].endswith(plan['command']['shell'])
+    assert f"'{work.resolve()}'" in storage_finding['next_action']
 
 
 def test_verified_output_is_rebuilt_and_tamper_detected(tmp_path: Path):

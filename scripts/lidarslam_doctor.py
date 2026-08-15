@@ -59,6 +59,12 @@ class DoctorError(ValueError):
     """The read-only system diagnosis could not be completed."""
 
 
+def _gib_shortfall(byte_count: int) -> str:
+    """Format a positive byte shortfall without understating it."""
+    hundredths = (byte_count * 100 + GIB - 1) // GIB
+    return f'{hundredths / 100:.2f} GiB'
+
+
 def _source_layout(script_dir: Path) -> bool:
     root = script_dir.parent
     return (
@@ -219,6 +225,7 @@ def build_system_report(
     available_bytes = int(disk_usage(storage_root).free)
     minimum_bytes = int(min_free_space_gib * GIB)
     storage_sufficient = available_bytes >= minimum_bytes
+    additional_bytes_required = max(minimum_bytes - available_bytes, 0)
 
     findings: list[dict[str, str]] = []
     if missing_runtime:
@@ -263,12 +270,13 @@ def build_system_report(
             'then run lidarslam-map doctor again.',
         ))
     if not storage_sufficient:
+        shortfall = _gib_shortfall(additional_bytes_required)
         findings.append(_finding(
             'demo-storage-low',
-            'The selected filesystem has less free space than the fixed demo '
-            f'minimum ({min_free_space_gib:g} GiB).',
-            'Choose a demo directory on a filesystem with enough free space, '
-            'then rerun lidarslam-map doctor --demo-dir <dir>.',
+            f'The selected filesystem needs at least {shortfall} more free '
+            f'space for the fixed demo ({min_free_space_gib:g} GiB minimum).',
+            f'Free at least {shortfall} on the selected filesystem, then run: '
+            'lidarslam-map doctor',
         ))
 
     return {
@@ -292,6 +300,7 @@ def build_system_report(
         'storage': {
             'available_bytes': available_bytes,
             'minimum_free_bytes': minimum_bytes,
+            'additional_bytes_required': additional_bytes_required,
             'sufficient_for_fixed_demo': storage_sufficient,
         },
         'findings': findings,
@@ -324,7 +333,13 @@ def render_system_report(report: Mapping[str, Any]) -> str:
         f"{'ready' if ros['rosbag2_python_available'] else 'missing'}",
         'Demo storage: '
         f"{storage['available_bytes'] / GIB:.1f} GiB free; "
-        f"{storage['minimum_free_bytes'] / GIB:.1f} GiB required",
+        f"{storage['minimum_free_bytes'] / GIB:.1f} GiB required"
+        + (
+            '; free '
+            f"{_gib_shortfall(storage['additional_bytes_required'])} more"
+            if storage['additional_bytes_required'] else
+            ''
+        ),
     ]
     findings = report['findings']
     if findings:

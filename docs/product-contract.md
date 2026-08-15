@@ -141,6 +141,9 @@ free-space floor before download, re-hashes the archive and the two
 security-relevant extracted bag files on every live run, and delegates to the same
 `run_first_map_demo.sh` implementation used by Docker. `--dry-run --json`
 writes nothing and follows `first-map-demo-plan-v1`; live `--json` is rejected.
+Its storage projection records exact `additional_bytes_required` per unique
+volume. A refusal rounds the shortage upward and returns the complete
+shell-quoted retry command instead of asking the operator to rebuild it.
 With `--dry-run`, `--output PLAN` may retain the human card or JSON plan using
 exclusive creation; an existing plan path is refused and the demo workspace
 remains untouched.

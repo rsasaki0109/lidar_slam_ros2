@@ -66,11 +66,13 @@
       "required": [
         "available_bytes",
         "minimum_free_bytes",
+        "additional_bytes_required",
         "sufficient_for_fixed_demo"
       ],
       "properties": {
         "available_bytes": {"type": "integer", "minimum": 0},
         "minimum_free_bytes": {"type": "integer", "minimum": 1},
+        "additional_bytes_required": {"type": "integer", "minimum": 0},
         "sufficient_for_fixed_demo": {"type": "boolean"}
       }
     },

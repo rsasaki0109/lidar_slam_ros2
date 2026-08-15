@@ -76,6 +76,7 @@
     "safety_rules": [
       "system mode uses no network and writes no files",
       "JSON omits checkout, install-prefix, home, and demo-directory paths",
+      "storage reports exact additional bytes required and a placeholder-free retry command",
       "bag mode delegates to the existing preflight implementation",
       "system-only storage options fail closed when a bag is provided"
     ]
@@ -98,6 +99,7 @@
       "dry-run writes nothing and performs no network request",
       "reject cache/output overlap, exact symlink targets, and unverified existing output",
       "check the configured free-space floor before any download or map process",
+      "low-storage findings report exact additional bytes and preserve a copy-ready retry command",
       "treat cache presence as unverified and re-hash the registered archive and extracted bag files before mapping",
       "offer --resume only for schema-valid terminal post-processing stages and never restart mapping through resume",
       "reuse an existing output only after rebuilding and matching its schema-valid receipt-bound PASS evidence",

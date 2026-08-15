@@ -42,6 +42,9 @@ action for every missing requirement. It does not contact the network or write
 a cache, report, or output file. Use `--json` for the versioned
 `system-doctor-v1` report, `--demo-dir <dir>` to check another filesystem, or
 `--min-free-space-gib <GiB>` to raise the default 8 GiB floor.
+When storage is low, the JSON reports exact `additional_bytes_required`
+without exposing the checked path. The human card rounds that shortage up,
+then prints the placeholder-free `lidarslam-map doctor` retry command.
 
 Provide a bag to retain the existing input inspection:
 
@@ -336,6 +339,10 @@ lidarslam-map demo ~/ros2_ws --viewer none --dry-run --json
 
 The JSON follows the
 [`first-map-demo-plan-v1` schema](schemas/first-map-demo-plan-v1.schema.json).
+Each checked volume includes exact `additional_bytes_required`. A low-storage
+finding rounds the shortage up for display and retains the full shell-quoted
+demo command, so paths and options do not need to be reconstructed after
+freeing space.
 To retain it safely for review, add
 `--output /tmp/mid360-demo-plan.json`; the plan file is created once and an
 existing path is refused. This remains read-only and does not create the demo

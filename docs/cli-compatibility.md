@@ -38,7 +38,9 @@ lidarslam-map inspect <output_dir>
 Omitting `rosbag2_dir` checks product runtime files, prefix activation,
 Humble/Jazzy, the ROS CLI and bag reader, and fixed-demo storage. Providing the
 directory preserves the existing bag compatibility preflight. The system JSON
-report is governed by `system-doctor-v1.schema.json` and omits local paths.
+report is governed by `system-doctor-v1.schema.json` and omits local paths. A
+storage rejection includes exact `additional_bytes_required`, a rounded-up
+human shortage, and the placeholder-free retry command.
 
 Viewing is an optional post-processing command, not another required mapping
 step:
@@ -208,7 +210,9 @@ session also prints its retained one-line summary. No browser is required.
 The additive `demo` command is a product orchestrator over the existing fixed
 public-data script, not another SLAM route. Its read-only JSON exists only with
 `--dry-run` and follows `first-map-demo-plan-v1`. It refuses unsafe path/output
-states and low initial storage before delegation. An existing map is reusable
+states and low initial storage before delegation. Each volume exposes exact
+`additional_bytes_required`; a low-storage finding preserves the complete
+shell-quoted retry command. An existing map is reusable
 only when its first-map receipt is schema-valid and exactly reproducible from
 current retained evidence. Viewer failure cannot replace verified success.
 

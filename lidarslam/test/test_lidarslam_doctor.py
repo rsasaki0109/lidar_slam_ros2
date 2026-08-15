@@ -117,6 +117,7 @@ def test_ready_source_and_installed_layouts_are_schema_valid(tmp_path, source):
     assert report['findings'] == []
     assert report['product']['layout'] == ('source' if source else 'installed')
     assert report['product']['installed_prefix_detected'] is True
+    assert report['storage']['additional_bytes_required'] == 0
     assert report['network_accessed'] is False
     assert report['writes_performed'] is False
 
@@ -171,6 +172,31 @@ def test_missing_environment_runtime_and_storage_have_stable_codes(tmp_path):
     encoded = json.dumps(report, sort_keys=True)
     assert str(tmp_path) not in encoded
     assert report['product']['missing_runtime_files'] == ['missing_helper.py']
+    assert report['storage']['additional_bytes_required'] == 5 * DOCTOR.GIB
+    storage_finding = report['findings'][-1]
+    assert '5.00 GiB more' in storage_finding['message']
+    assert storage_finding['next_action'].endswith('lidarslam-map doctor')
+    assert '<dir>' not in storage_finding['next_action']
+
+
+def test_storage_shortfall_display_rounds_up_and_human_output_is_actionable(
+    tmp_path,
+):
+    report = _ready_report(tmp_path, source=False)
+    report['status'] = 'action_required'
+    report['storage']['available_bytes'] = 8 * DOCTOR.GIB - 1
+    report['storage']['additional_bytes_required'] = 1
+    report['storage']['sufficient_for_fixed_demo'] = False
+    report['findings'] = [{
+        'code': 'demo-storage-low',
+        'message': 'fixture',
+        'next_action': 'lidarslam-map doctor',
+    }]
+
+    rendered = DOCTOR.render_system_report(report)
+
+    assert 'free 0.01 GiB more' in rendered
+    assert 'Next: lidarslam-map doctor' in rendered
 
 
 def test_unsupported_ros_is_distinct_from_an_unset_environment(tmp_path):

@@ -41,6 +41,7 @@ METADATA_SIZE_BYTES = 5590
 STORAGE_NAME = 'rosbag2_2024_04_16-14_17_01_0.db3'
 STORAGE_SIZE_BYTES = 1468932096
 DEFAULT_MIN_FREE_SPACE_GIB = 8.0
+GIB = 1024 ** 3
 MAX_EVIDENCE_BYTES = 2 * 1024 * 1024
 EXPECTED_PROFILE = 'rko_lio_graph_mid360_preset'
 RESUMABLE_STAGES = frozenset({
@@ -396,8 +397,9 @@ def _nearest_existing(path: Path) -> Path:
 def _storage_projection(
     paths: Sequence[Path],
     minimum_free_gib: float,
+    retry_command: str,
 ) -> tuple[dict[str, Any], list[dict[str, str]]]:
-    required = math.ceil(minimum_free_gib * 1024**3)
+    required = math.ceil(minimum_free_gib * GIB)
     volumes = []
     findings = []
     devices: set[int] = set()
@@ -414,29 +416,38 @@ def _storage_projection(
                 'code': 'storage-unavailable',
                 'message': f'Cannot inspect storage for {path}: {exc}',
                 'next_action': (
-                    'Choose a work directory on a mounted filesystem.'
+                    'Restore access to the selected filesystem, then run: '
+                    f'{retry_command}'
                 ),
             })
             continue
         enough = free >= required
+        additional_bytes_required = max(required - free, 0)
         volumes.append({
             'probe_path': str(probe),
             'free_bytes': free,
+            'additional_bytes_required': additional_bytes_required,
             'enough': enough,
         })
         if not enough:
+            shortfall = _gib_shortfall(additional_bytes_required)
             findings.append({
                 'code': 'insufficient-free-space',
                 'message': (
                     f'{probe} has {free / 1024**3:.2f} GiB free; '
-                    f'{minimum_free_gib:.2f} GiB is required.'
+                    f'{minimum_free_gib:.2f} GiB is required, so at least '
+                    f'{shortfall} more is needed.'
                 ),
-                'next_action': 'Free space or choose another work directory.',
+                'next_action': (
+                    f'Free at least {shortfall} on {probe}, then run: '
+                    f'{retry_command}'
+                ),
             })
     if not volumes:
         volumes.append({
             'probe_path': str(Path('/')),
             'free_bytes': 0,
+            'additional_bytes_required': required,
             'enough': False,
         })
     return {
@@ -444,6 +455,12 @@ def _storage_projection(
         'minimum_free_bytes': required,
         'volumes': volumes,
     }, findings
+
+
+def _gib_shortfall(byte_count: int) -> str:
+    """Format a positive byte shortfall without understating it."""
+    hundredths = (byte_count * 100 + GIB - 1) // GIB
+    return f'{hundredths / 100:.2f} GiB'
 
 
 def _cli_prefix() -> list[str]:
@@ -592,9 +609,11 @@ def build_demo_plan(args: argparse.Namespace) -> dict[str, Any]:
             'Inspect it, then choose a fresh --output-dir.',
         ))
 
+    argv = _demo_argv(args, work_root, data_dir, output_dir)
     storage, storage_findings = _storage_projection(
         (data_dir, output_dir),
         args.min_free_space_gib,
+        shlex.join(argv),
     )
     findings.extend(storage_findings)
     cache = _cache_projection(data_dir)
@@ -627,7 +646,6 @@ def build_demo_plan(args: argparse.Namespace) -> dict[str, Any]:
     if args.viewer == 'browser' and status != 'not_ready':
         steps.append('open_offline_review')
 
-    argv = _demo_argv(args, work_root, data_dir, output_dir)
     plan = {
         'schema_version': 1,
         'schema_uri': DEMO_PLAN_SCHEMA_URI,

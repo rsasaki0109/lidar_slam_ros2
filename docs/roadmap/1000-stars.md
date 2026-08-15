@@ -709,6 +709,14 @@ With a bag it retains the existing input/profile inspection. The
 keeps the real PPA/package-manager advantage and public clean-machine
 comparison pending.
 
+The next activation repair closes the largest locally reproduced fixed-demo
+rejection gap: low storage no longer leaves the operator to calculate a
+shortage, replace `<dir>`, or reconstruct prior options. Both system doctor and
+demo plans now expose exact `additional_bytes_required`; human output rounds
+up, system JSON remains path-free, and demo recovery retains the complete
+shell-quoted command. The 8 GiB safety floor is unchanged. This improves the
+local path but does not replace the still-pending public paired observation.
+
 This local UX increment is complete in the reviewed candidate; the remaining
 GLIM-parity work is measurement, not another overlapping doctor surface. The
 next action is a neutral paired scorecard on exact public identities, using the

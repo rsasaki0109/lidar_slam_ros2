@@ -83,8 +83,10 @@ non-overwriting retry output.
 `--dry-run --json` is network- and write-free and emits
 [`first-map-demo-plan-v1`](schemas/first-map-demo-plan-v1.schema.json), including
 dataset DOI/license/size/SHA-256, exact paths, cache/output state, unique-volume
-free-space checks, steps, findings, and a copy-ready command. Live `--json` is
-rejected because mapping emits progress rather than one document.
+free-space checks, exact `additional_bytes_required`, steps, findings, and a
+copy-ready command. Low-storage recovery keeps the full shell-quoted command
+and rounds the displayed shortage upward. Live `--json` is rejected because
+mapping emits progress rather than one document.
 
 Use `--output <plan-file>` with `--dry-run` to retain either the human card or
 the JSON plan without shell redirection. The file is created exclusively and an

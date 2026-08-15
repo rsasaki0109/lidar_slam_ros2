@@ -163,10 +163,19 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["probe_path", "free_bytes", "enough"],
+            "required": [
+              "probe_path",
+              "free_bytes",
+              "additional_bytes_required",
+              "enough"
+            ],
             "properties": {
               "probe_path": {"type": "string", "minLength": 1},
               "free_bytes": {"type": "integer", "minimum": 0},
+              "additional_bytes_required": {
+                "type": "integer",
+                "minimum": 0
+              },
               "enough": {"type": "boolean"}
             }
           }
