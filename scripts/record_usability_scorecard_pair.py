@@ -37,16 +37,16 @@ they never become comparable evidence. No network or remote mutation occurs.
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 import json
 import math
 import os
+from pathlib import Path
 import re
 import shlex
 import shutil
 import sys
 import tempfile
-from copy import deepcopy
-from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 
@@ -55,11 +55,11 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from check_usability_scorecard import (  # noqa: E402
+    evaluate_scorecard,
     PAIR_FIELDS,
     PRODUCT_IDS,
     ScorecardError,
     TASK_CONTRACTS,
-    evaluate_scorecard,
     validate_trial,
 )
 
