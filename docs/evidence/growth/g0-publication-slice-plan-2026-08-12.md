@@ -13,8 +13,8 @@
 > Planned follow-up inventory: 258 paths; SHA-256
 > `8c96941dd74974b92b8e6d69a9a0717bfd96499e833c10a0750aaac894817f07`
 >
-> Last observed remote mutation: exact non-force push from `a4aacb8` to
-> `f5ed80e`; mutations performed by the checker or review-card command:
+> Last observed remote mutation: exact non-force push from `f5ed80e` to
+> `8fc376d`; mutations performed by the checker or review-card command:
 > **none**
 
 ## Outcome
