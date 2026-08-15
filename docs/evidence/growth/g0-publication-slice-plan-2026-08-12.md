@@ -13,6 +13,8 @@
 > Planned follow-up inventory: 279 paths; SHA-256
 > `094db7515280b18128d5acdf28b1e5478014aeb13f80c3ffe6a0ff29af9d825e`
 >
+> Exact implementation tip: `289f7675a242b00f342528483cde3e5f602a11fc`
+>
 > Last observed remote mutation: exact non-force push from `602c7ad` to
 > `3ed632e`; mutations performed by the checker or review-card command:
 > **none**
@@ -48,8 +50,8 @@ The GitHub repository and PR were inspected without mutation:
 
 Passing checks on `3ed632e` validate the complete published candidate through
 the public-docs deployment-provenance evidence refresh. The later exact
-published-onboarding-identity work remains local until its own tip is
-published and passes CI.
+published-onboarding-identity work is locally validated at `289f767` and
+remains unpublished until its own tip passes public CI.
 
 ## Review order
 
@@ -124,6 +126,7 @@ cannot bypass live Git coverage.
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
 | public documentation deployment provenance | 8 focused regressions pass; strict MkDocs produces a deterministic manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
+| clean candidate release bundle | 249 files at exact implementation tip `289f767`; the published-identity checker, schema, and evidence are present and manifest-bound |
 | complete maintained Python gate | graph: 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 975 passed; 2,417 total |
 | GLIM reference-cache integrity | 10 focused regressions passed; registered CTest 1 / 1; missing lookup remains read-only; exact content, manifest, malformed-TUM, tamper, collision, shell, and bundle boundaries pass |
 | scanmatcher clean build and CTest | Jazzy RAM-backed clean build of `lidarslam_msgs`, `ndt_omp_ros2`, and `scanmatcher`; 109 tests passed |

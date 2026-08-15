@@ -109,7 +109,9 @@ deployment-provenance implementation tip is
 `602c7ad5a64332eb458d98b1a53783ba4f3cdecb`, followed by public evidence refresh
 `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`. The current local release packet
 also derives its commit and both Docker digests from one published-release
-audit, then repeats the exact live identity check before a clean-host row. Its
+audit at implementation tip
+`289f7675a242b00f342528483cde3e5f602a11fc`, then repeats the exact live
+identity check before a clean-host row. Its
 read-only audit keeps the
 cohort closed while the deployed Pages manifest is absent or its exact page
 bytes, route, version, and source revision do not match.

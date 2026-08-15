@@ -4,6 +4,8 @@
 >
 > Public writes performed by this audit: **none**
 
+Implementation tip: `289f7675a242b00f342528483cde3e5f602a11fc`.
+
 ## Why this gate exists
 
 The release-mode onboarding packet previously accepted a manually entered
@@ -78,7 +80,9 @@ packet tests, 5 published-identity tests, 5 G0 dashboard tests, 14 publication
 plan tests, and 25 docs-entrypoint tests: 62 / 62 passed. All four affected
 ament CTest registrations pass after a Jazzy reconfigure. The complete
 maintained product gate is 1,442 graph tests passed / 13 skipped and 975
-lidarslam tests passed, for 2,417 passes total.
+lidarslam tests passed, for 2,417 passes total. A clean v0.9.1 candidate release
+bundle at the implementation tip contains 249 manifest-bound files, including
+the new checker, schema, and this evidence record.
 
 This work establishes an exact preflight contract only. It does not publish
 v0.9.1, create candidate images, run a clean-host trial, collect human

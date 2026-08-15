@@ -796,7 +796,8 @@ evidence.
 The release-mode observer packet now derives the release commit and both ROS
 distribution image digests from one schema-valid published-release audit
 rather than four manually typed values. Its generated Docker preflight repeats
-the live tag-commit and digest comparison. The v0.9.0 identity passes that
+the live tag-commit and digest comparison. This contract is locally validated
+at exact tip `289f7675a242b00f342528483cde3e5f602a11fc`. The v0.9.0 identity passes that
 check but lacks the source quickstart contract, while v0.9.1 remains
 unpublished, so neither state creates a comparable same-version row.
 
