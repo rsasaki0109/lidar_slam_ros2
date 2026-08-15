@@ -101,7 +101,8 @@ authorize E2. Its human and G0 cards now turn that stable blocker into one
 bounded administrator handoff: trusted settings URL, exact protected-policy
 checklist, independent review, and a copy-ready GET-only verification command.
 The handoff is schema-bound to `writes_performed: false`; it is guidance, not
-evidence that repository settings changed.
+evidence that repository settings changed. The exact implementation and
+parse-safety tip is `e2d916a66a57146b0efe4c74e57218d56342ed37`.
 It continues to keep E2 artifact hosting, E3 community mutation, and E4
 release publication
 separate and unauthorized. The earlier 219-path value remains historical
