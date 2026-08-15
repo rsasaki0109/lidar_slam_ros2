@@ -452,6 +452,10 @@ work and document the actual support boundary instead of hiding the delay.
   to improve a vanity size number.
 - Maintain one product release candidate, one community task, and at most one
   exploratory research candidate in progress at once.
+- Keep container verification and publication as separate authority domains.
+  Pull requests and manual dispatches build and smoke-test with a contents-read
+  token only; moving convenience tags may change only on a `develop` push, and
+  immutable matrix-candidate publication requires its own explicit gate.
 - Budget normal maintainer effort at approximately 60% product/reliability,
   20% distribution/community, and 20% research. Research can use spare capacity
   but cannot delay a failed product, support, or release gate.

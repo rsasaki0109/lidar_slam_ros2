@@ -759,6 +759,43 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'license: BSD-2-Clause' in citation
 
 
+def test_docker_workflow_separates_verification_from_tag_publication():
+    """Manual and PR builds must not receive package-write authority."""
+    workflow = DOCKER_WORKFLOW.read_text(encoding='utf-8')
+    workflow_permissions, jobs = workflow.split('\njobs:\n', 1)
+    verify, publish = jobs.split('\n  publish:\n', 1)
+
+    assert 'workflow_dispatch:' in workflow_permissions
+    assert 'branches:\n      - develop' in workflow_permissions
+    assert 'contents: read' in workflow_permissions
+    assert 'packages: write' not in workflow_permissions
+    assert 'attestations: write' not in workflow_permissions
+    assert 'id-token: write' not in workflow_permissions
+
+    assert "if: github.event_name != 'push'" in verify
+    assert 'name: build (${{ matrix.ros_distro }})' in verify
+    assert 'permissions:\n      contents: read' in verify
+    assert 'push: false' in verify
+    assert 'load: true' in verify
+    assert 'sbom: false' in verify
+    assert 'provenance: false' in verify
+    assert 'docker/login-action' not in verify
+    assert 'actions/attest' not in verify
+    assert 'packages: write' not in verify
+    assert 'Published: \\`no\\`' in verify
+
+    assert "if: github.event_name == 'push'" in publish
+    assert 'name: build and push (${{ matrix.ros_distro }})' in publish
+    assert 'packages: write' in publish
+    assert 'attestations: write' in publish
+    assert 'id-token: write' in publish
+    assert 'push: true' in publish
+    assert 'sbom: true' in publish
+    assert 'provenance: mode=max' in publish
+    assert 'docker/login-action@v4' in publish
+    assert 'actions/attest@v4' in publish
+
+
 def test_docs_cover_autoware_and_release_gate_keywords():
     """The adoption docs should mention the supported operator workflows."""
     autoware_doc = AUTOWARE_QUICKSTART.read_text(encoding='utf-8')
@@ -1206,7 +1243,7 @@ def test_container_distribution_builds_and_attests_both_supported_distros():
     assert '-DLIDARSLAM_SOURCE_REVISION:STRING=' in dockerfile
     assert '-DLIDARSLAM_SOURCE_DIRTY:STRING=' in dockerfile
 
-    assert "load: ${{ github.event_name == 'pull_request' }}" in docker_workflow
+    assert 'load: true' in docker_workflow
     assert '.github/workflows/release.yml' in docker_workflow
     assert 'needs:' in release_workflow
     assert '- images' in release_workflow

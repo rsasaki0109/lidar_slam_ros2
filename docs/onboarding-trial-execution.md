@@ -91,8 +91,11 @@ argument prove that images are built for both distros. The beginner page now
 names both tags and the shared first-map contract. The release workflow
 publishes exact `v<VERSION>-<distro>` tags and records their digests. Use that
 release evidence when available. The moving convenience tags are not trial
-identities. Audit `.github/workflows/docker.yml`, `.github/workflows/release.yml`,
-`Dockerfile`, and the
+identities. Pull-request and manual Docker workflow runs are verification-only:
+they receive no package-write permission and cannot publish or move a tag.
+Only a `develop` push can update the convenience tags, and that update still
+does not create a trial identity. Audit `.github/workflows/docker.yml`,
+`.github/workflows/release.yml`, `Dockerfile`, and the
 [distribution identity rules](distribution.md#installed-source-identity).
 
 If a row has no runnable, documented path after the preflight below, write a

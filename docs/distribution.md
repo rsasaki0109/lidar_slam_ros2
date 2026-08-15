@@ -333,6 +333,15 @@ docker run --rm ghcr.io/rsasaki0109/lidar_slam_ros2:jazzy \
 `latest` remains an alias of the Humble convenience image for compatibility.
 It is not a release identifier.
 
+Only a repository `push` event on `develop` can update these moving tags. The
+Docker workflow gives pull-request and manual `workflow_dispatch` jobs a
+contents-read token, builds into the disposable runner with `push: false`, and
+smoke-tests the installed CLI without logging in to GHCR. Those verification
+runs cannot publish a package, attestation, candidate identity, or moving tag.
+An immutable matrix candidate therefore needs a separate, explicitly reviewed
+digest-publication gate; manually dispatching the convenience workflow is not
+that gate.
+
 Every tagged release publishes exact
 `ghcr.io/rsasaki0109/lidar_slam_ros2:v<VERSION>-<distro>` images only after
 the repository tag matches `VERSION`. For example:
