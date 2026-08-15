@@ -35,31 +35,38 @@ python3 scripts/contributor_starter_queue.py --task starter-C5
 
 ## Operationalization validation — refreshed 2026-08-15
 
-The checked-in queue now reports `QUEUE_STALE_LOCAL_ONLY`: all five task records
-remain locally present, only C5 is still ready, and C1–C4 are retired from the
-ready set because their planned documentation gaps are implemented in the
-current candidate. The C2 and C3 cards already existed under clearer canonical
-headings; their old probes have been corrected so they cannot be published as
-duplicate work. None has a matching open pull request in the recorded read-only
-audit. The default command and the list/detail views perform no network or
+The checked-in queue now reports `QUEUE_READY_LOCAL_ONLY` for a refreshed
+five-task generation, C5–C9. C5 remains the unimplemented Japanese handoff
+successor. C6–C9 are four evidence-backed English support cards selected from
+the current public backlog after the completed C1–C4 cards were retired. The
+retired IDs are not reused, and their canonical markers remain in the docs.
+
+A fresh read-only GitHub connector audit at
+`2026-08-15T12:18:11+09:00` found one open pull request, #427, and no matching
+open pull request for any C5–C9 query. That result is capture-time evidence,
+not publication authority, and must be rerun immediately before any issue is
+created. The default command and list/detail views perform no network or
 workspace write. Focused verification uses built-in profiles rather than
 executing commands supplied by JSON; docs output goes to a temporary directory
 and Python cache writes are disabled.
 
 | Check | Result |
 | --- | --- |
-| queue/schema/drift/authority regressions | 47 passed |
+| queue/schema/drift/authority regressions | 50 passed |
 | English support-card regressions | 22 docs entrypoint tests passed, including C1/C2/C3 contracts |
-| `--verify starter-C5` | strict MkDocs profile passed; no workspace artifact |
-| C1 g2o recovery | implemented locally; queue reports C1 `STALE` and blocks duplicate rendering |
-| C2 empty-map recovery | existing canonical card detected; queue reports C2 `STALE` |
-| C3 Odometry-versus-TF recovery | existing canonical card detected; queue reports C3 `STALE` |
-| C4 custom-sensor checklist | implemented locally; queue reports C4 `STALE` and blocks rendering it as a new issue |
-| contributor runner style | full flake8 passed for runner and test |
+| C5–C9 queue generation | all five exact gap markers absent; `QUEUE_READY_LOCAL_ONLY` |
+| C5–C9 focused profiles | five strict-MkDocs profiles passed; no workspace artifact |
+| C1 g2o recovery | implemented and retired by the previous generation; absent from C5–C9 |
+| C2 empty-map recovery | canonical card detected and retired by the previous generation; absent from C5–C9 |
+| C3 Odometry-versus-TF recovery | canonical card detected and retired by the previous generation; absent from C5–C9 |
+| C4 custom-sensor checklist | implemented and retired by the previous generation; absent from C5–C9 |
+| contributor runner safety lint | selected fatal flake8 rules passed for runner and test |
 | complete maintained Python gate | graph 1,428 passed / 13 skipped; lidar_slam 687 passed; 2,115 total |
 | documentation | strict MkDocs build passed with pre-existing notices |
 | authority | no issue, label, comment, branch, PR, or other remote mutation |
 
+The C1–C4 rows above are completion history, not current queue output. The
+current C5–C9 generation keeps those retired tasks out of its ordered task set.
 These checks prove that the queue is bounded and usable by maintainers. They do
 not prove a 30-minute external completion and do not authorize publication.
 That evidence begins only after a separately approved issue is claimed and a
@@ -1176,6 +1183,36 @@ source helper, recovery implementation, or release identity, translating the
 entire guide, asking for a private bag/map/raw-log upload, or claiming support
 for an unvalidated sensor.
 
+## Refreshed candidates C6–C9
+
+The four replacement scopes come from support demand that remains visible in
+the 29-issue backlog and is not covered by the completed C1–C4 cards. They are
+documentation tasks, not invitations to redesign SLAM algorithms.
+
+| ID | Public demand | Bounded outcome | Allowed file |
+| --- | --- | --- | --- |
+| C6 | #101, #116, #124 | distinguish live `current_pose`/`path` from backend `modified_path`, verify message/frame contracts, and avoid describing optimized history as rewritten live odometry | `docs/workflows.md` |
+| C7 | #101, #116, #118 | separate mapping, loop closure, prior-map localization, and lost-track relocalization; route each intent to a supported workflow or explicit boundary | `docs/workflows.md` |
+| C8 | #89, #96, #100 | make classic `use_imu` readiness copy-ready: topic type, non-empty frame, timestamps/rate, measured base-to-IMU transform, and LiDAR `scan_period` | `docs/workflows.md` |
+| C9 | #53, #69, #89, #104 | triage a long-route stop by input, process, registration refusal, compute, storage, and viewer stage without inventing a universal distance limit | `docs/getting-started.md` |
+
+Each task is capped at 30 minutes in a prepared environment, uses the fixed
+strict-MkDocs profile, needs no hardware or private data, and has an exact
+heading probe that retires it as soon as the planned card exists. C7 may
+document the experimental MID-360 relocalization evidence only as bounded
+research evidence; it may not turn that experiment into general product
+support. C9 may link public benchmark envelopes but may not infer a universal
+distance, runtime, memory, or accuracy guarantee.
+
+The copy-ready bodies remain generated from the machine contract:
+
+```bash
+python3 scripts/contributor_starter_queue.py --task starter-C6
+python3 scripts/contributor_starter_queue.py --task starter-C7
+python3 scripts/contributor_starter_queue.py --task starter-C8
+python3 scripts/contributor_starter_queue.py --task starter-C9
+```
+
 ## Publication and review sequence
 
 1. Recheck each candidate against the then-current public `develop` revision.
@@ -1184,10 +1221,10 @@ for an unvalidated sensor.
 3. Obtain explicit authorization before creating or editing GitHub issues.
 4. Keep C1–C4 out of the publication batch because their local cards are now
    complete; do not rename a heading merely to make a retired task look ready.
-5. Treat the current C5 successor as the only locally ready task, and rerun its
-   live duplicate audit before any separately authorized publication.
-6. Replenish the queue with four new evidence-backed, non-duplicate scopes
-   before advertising another five-task community batch.
+5. Treat C5–C9 as the current locally ready generation and rerun every live
+   duplicate query before any separately authorized publication.
+6. Publish no more tasks than the available review capacity can move; local
+   `READY` never means an issue exists or a contributor has claimed it.
 7. Keep #422 open independently until three accepted external first-map
    validations exist.
 

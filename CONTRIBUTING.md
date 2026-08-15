@@ -101,7 +101,7 @@ Maintainers can also inspect the next five locally prepared starter tasks with:
 
 ```bash
 python3 scripts/contributor_starter_queue.py --list
-python3 scripts/contributor_starter_queue.py --task starter-C1
+python3 scripts/contributor_starter_queue.py --task starter-C5
 ```
 
 The command is read-only and marks the queue `PREPARED_NOT_PUBLISHED`. A new
@@ -117,7 +117,7 @@ python3 scripts/contributor_starter_queue.py
 ```
 
 After changing a published task, run its focused profile with `--verify`, for
-example `python3 scripts/contributor_starter_queue.py --verify starter-C1`.
+example `python3 scripts/contributor_starter_queue.py --verify starter-C5`.
 This avoids repository-local MkDocs output for documentation tasks and never
 executes an arbitrary command loaded from the JSON contract. A passing focused
 profile does not replace review of the issue's acceptance criteria.

@@ -75,37 +75,18 @@ def _task(payload: dict, task_id: str) -> dict:
     return next(item for item in payload['tasks'] if item['id'] == task_id)
 
 
-def _completed_stale_tasks() -> list[dict]:
-    return [
-        {
-            'id': 'starter-C1',
-            'status': 'STALE',
-            'reasons': [
-                'the planned g2o recovery card marker already exists',
-            ],
-        },
-        {
-            'id': 'starter-C2',
-            'status': 'STALE',
-            'reasons': [
-                'the planned no-map three-check card marker already exists',
-            ],
-        },
-        {
-            'id': 'starter-C3',
-            'status': 'STALE',
-            'reasons': [
-                'the planned Odometry-versus-TF card marker already exists',
-            ],
-        },
-        {
-            'id': 'starter-C4',
-            'status': 'STALE',
-            'reasons': [
-                'the planned custom PointCloud2 checklist marker already exists',
-            ],
-        },
-    ]
+EXPECTED_READY_IDS = [f'starter-C{index}' for index in range(5, 10)]
+EXPECTED_GAP_MARKERS = {
+    'starter-C5': (
+        '### 日本語のvalidation reportのfollow-up引き継ぎを再現可能にする'
+    ),
+    'starter-C6': '### Live and loop-optimized pose outputs',
+    'starter-C7': (
+        '### Mapping, loop closure, and relocalization are different'
+    ),
+    'starter-C8': '### Classic-path IMU readiness',
+    'starter-C9': '### Long route stopped: find the limiting stage',
+}
 
 
 def _copy_scoped_files(payload: dict, destination: Path) -> None:
@@ -120,17 +101,17 @@ def _copy_scoped_files(payload: dict, destination: Path) -> None:
         target.write_bytes((ROOT / path).read_bytes())
 
 
-def test_checked_in_queue_is_schema_valid_and_reports_local_completion():
-    """Only C5 remains ready after the four English cards are complete."""
+def test_checked_in_queue_is_schema_valid_and_ready_local_only():
+    """The refreshed five-task generation is complete but unpublished."""
     queue, report = CHECKER.evaluate()
 
     jsonschema.Draft7Validator(_schema()).validate(queue)
-    assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
+    assert report['status'] == 'QUEUE_READY_LOCAL_ONLY'
     assert report['task_count'] == 5
-    assert report['ready_task_ids'] == ['starter-C5']
-    assert report['stale_tasks'] == _completed_stale_tasks()
+    assert report['ready_task_ids'] == EXPECTED_READY_IDS
+    assert report['stale_tasks'] == []
     assert report['remote_duplicate_audit'] == {
-        'checked_at': '2026-08-12T13:39:03+09:00',
+        'checked_at': '2026-08-15T12:18:11+09:00',
         'open_pull_request_count': 1,
         'matching_task_pull_requests': 0,
         'recheck_before_publication': True,
@@ -147,11 +128,11 @@ def test_all_tasks_are_bounded_to_thirty_minutes_and_exact_paths():
     payload = _queue()
 
     assert [task['id'] for task in payload['tasks']] == [
-        'starter-C1',
-        'starter-C2',
-        'starter-C3',
-        'starter-C4',
         'starter-C5',
+        'starter-C6',
+        'starter-C7',
+        'starter-C8',
+        'starter-C9',
     ]
     assert max(task['estimate_minutes'] for task in payload['tasks']) == 30
     assert all(task['estimate_minutes'] <= 30 for task in payload['tasks'])
@@ -183,7 +164,7 @@ def test_rendered_task_is_copy_ready_but_keeps_coordination_gate():
 def test_arbitrary_command_cannot_replace_an_allowlisted_profile():
     """JSON data cannot inject a shell command into the verifier."""
     payload = _queue()
-    task = _task(payload, 'starter-C1')
+    task = _task(payload, 'starter-C5')
     task['focused_checks'][0]['argv'] = ['bash', '-c', 'touch unexpected']
 
     with pytest.raises(
@@ -248,7 +229,7 @@ def test_missing_scoped_file_fails_closed(tmp_path: Path):
 def test_probe_cannot_escape_task_path_scope():
     """Known-gap probes can inspect only files a task may modify."""
     payload = _queue()
-    _task(payload, 'starter-C1')['gap_probes'][0]['path'] = 'README.md'
+    _task(payload, 'starter-C6')['gap_probes'][0]['path'] = 'README.md'
 
     with pytest.raises(
         CHECKER.QueueError,
@@ -257,39 +238,60 @@ def test_probe_cannot_escape_task_path_scope():
         CHECKER.validate_queue(payload, _schema())
 
 
-def test_completed_english_cards_match_their_canonical_gap_markers():
-    """C1-C4 cannot be offered after their canonical cards are present."""
+def test_replenished_generation_uses_absent_exact_gap_markers():
+    """All five scopes are new while retired canonical cards stay present."""
     payload, report = CHECKER.evaluate()
-    expected_markers = {
-        'starter-C1': '### Recover g2o dependency failures',
-        'starter-C2': '### Empty map or viewer: three-check recovery',
-        'starter-C3': '### Odometry and TF: two separate contracts',
-        'starter-C4': '### Adapting another PointCloud2 LiDAR',
-    }
 
-    for task_id, marker in expected_markers.items():
+    for task_id, marker in EXPECTED_GAP_MARKERS.items():
         probe = _task(payload, task_id)['gap_probes'][0]
         assert probe['value'] == marker
-        assert marker in (ROOT / probe['path']).read_text(encoding='utf-8')
+        assert probe['mode'] == 'not_contains'
+        assert marker not in (ROOT / probe['path']).read_text(encoding='utf-8')
 
-    assert report['ready_task_ids'] == ['starter-C5']
-    assert report['stale_tasks'] == _completed_stale_tasks()
-
-
-def test_custom_sensor_task_is_stale_after_checklist_completion():
-    """The queue cannot offer a task already implemented in the candidate."""
-    report = CHECKER.evaluate()[1]
-
-    assert next(
-        item for item in report['stale_tasks']
-        if item['id'] == 'starter-C4'
-    ) == {
-        'id': 'starter-C4',
-        'status': 'STALE',
-        'reasons': [
-            'the planned custom PointCloud2 checklist marker already exists',
-        ],
+    retired_markers = {
+        'docs/getting-started.md': (
+            '### Recover g2o dependency failures',
+            '### Empty map or viewer: three-check recovery',
+        ),
+        'docs/workflows.md': (
+            '### Odometry and TF: two separate contracts',
+            '### Adapting another PointCloud2 LiDAR',
+        ),
     }
+    for path, markers in retired_markers.items():
+        source = (ROOT / path).read_text(encoding='utf-8')
+        assert all(marker in source for marker in markers)
+
+    assert report['ready_task_ids'] == EXPECTED_READY_IDS
+    assert report['stale_tasks'] == []
+
+
+@pytest.mark.parametrize('task_id', EXPECTED_READY_IDS[1:])
+def test_new_english_task_becomes_stale_when_its_marker_appears(
+    tmp_path: Path,
+    task_id: str,
+):
+    """A completed refreshed card is removed from the ready set."""
+    payload = _queue()
+    _copy_scoped_files(payload, tmp_path)
+    task = _task(payload, task_id)
+    probe = task['gap_probes'][0]
+    source = tmp_path / probe['path']
+    source.write_text(
+        source.read_text(encoding='utf-8') + f"\n{probe['value']}\n",
+        encoding='utf-8',
+    )
+
+    report = CHECKER.validate_queue(payload, _schema(), tmp_path)
+
+    assert report['ready_task_ids'] == [
+        item for item in EXPECTED_READY_IDS if item != task_id
+    ]
+    assert report['stale_tasks'] == [{
+        'id': task_id,
+        'status': 'STALE',
+        'reasons': [probe['failure_detail']],
+    }]
 
 
 def test_japanese_validation_follow_up_handoff_task_becomes_stale_when_marker_appears(
@@ -308,14 +310,8 @@ def test_japanese_validation_follow_up_handoff_task_becomes_stale_when_marker_ap
     report = CHECKER.validate_queue(payload, _schema(), tmp_path)
 
     assert report['status'] == 'QUEUE_STALE_LOCAL_ONLY'
-    assert [item['id'] for item in report['stale_tasks']] == [
-        'starter-C1',
-        'starter-C2',
-        'starter-C3',
-        'starter-C4',
-        'starter-C5',
-    ]
-    assert report['stale_tasks'][4]['reasons'] == [
+    assert [item['id'] for item in report['stale_tasks']] == ['starter-C5']
+    assert report['stale_tasks'][0]['reasons'] == [
         'the planned Japanese follow-up-handoff marker already exists',
     ]
 
@@ -1009,7 +1005,7 @@ def test_stale_task_cannot_be_rendered_copy_ready():
     """Stale task details are not emitted as a copy-ready issue body."""
     report = {
         'stale_tasks': [{
-            'id': 'starter-C2',
+            'id': 'starter-C6',
             'status': 'STALE',
             'reasons': ['planned marker already exists'],
         }],
@@ -1017,9 +1013,9 @@ def test_stale_task_cannot_be_rendered_copy_ready():
 
     with pytest.raises(
         CHECKER.QueueError,
-        match='starter-C2 is stale and must be reviewed before rendering',
+        match='starter-C6 is stale and must be reviewed before rendering',
     ):
-        CHECKER._require_render_ready(report, 'starter-C2')
+        CHECKER._require_render_ready(report, 'starter-C6')
 
 
 def test_docs_verifier_uses_temp_site_and_never_contract_shell(
@@ -1033,7 +1029,7 @@ def test_docs_verifier_uses_temp_site_and_never_contract_shell(
         return subprocess.CompletedProcess(command, 0, '', '')
 
     monkeypatch.setattr(CHECKER.subprocess, 'run', fake_run)
-    task = _task(_queue(), 'starter-C1')
+    task = _task(_queue(), 'starter-C6')
 
     report = CHECKER.verify_task(task)
 
@@ -1101,11 +1097,11 @@ def test_default_cli_json_is_path_private_and_no_write():
         text=True,
     )
 
-    assert result.returncode == 1
+    assert result.returncode == 0
     payload = json.loads(result.stdout)
-    assert payload['status'] == 'QUEUE_STALE_LOCAL_ONLY'
-    assert payload['ready_task_ids'] == ['starter-C5']
-    assert payload['stale_tasks'] == _completed_stale_tasks()
+    assert payload['status'] == 'QUEUE_READY_LOCAL_ONLY'
+    assert payload['ready_task_ids'] == EXPECTED_READY_IDS
+    assert payload['stale_tasks'] == []
     assert payload['authority']['github_writes_authorized'] is False
     assert '/home/' not in result.stdout
     assert '/tmp/' not in result.stdout

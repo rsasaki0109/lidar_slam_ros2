@@ -406,10 +406,14 @@ work and document the actual support boundary instead of hiding the delay.
   two issues open, requests four current reproductions, and proposes 23 reasoned
   closures, but remains `PROPOSED_NOT_APPLIED`.
 - As of 2026-08-15, the C1 g2o, C2 empty-map, C3 Odometry/TF, and C4 custom
-  PointCloud2 documentation gaps are implemented in the candidate. Corrected
-  canonical-heading probes retire C1–C4 as `STALE`; only the current C5
-  successor remains locally ready. Replenish the bounded queue before
-  advertising five tasks, and never publish a retired card as duplicate work.
+  PointCloud2 documentation gaps are implemented and retired without reusing
+  their IDs. The refreshed C5–C9 generation restores five locally `READY`,
+  30-minute documentation scopes: the Japanese follow-up handoff, live versus
+  optimized pose outputs, mapping/loop/relocalization boundaries, classic IMU
+  readiness, and long-route stop triage. A capture-time read-only audit found
+  only PR #427 and no matching implementation PR; the queue remains
+  `PREPARED_NOT_PUBLISHED` and requires a fresh audit plus a separate community
+  publication decision.
 - Recruit the first three validators through the existing public validation
   issue and release documentation; do not provide private step-by-step help
   that would invalidate the evidence.
@@ -719,10 +723,11 @@ paths and labels, mark a task stale when its known implementation gap changes,
 and retain `PREPARED_NOT_PUBLISHED` plus no-write authority in machine output.
 A 2026-08-12 read-only duplicate audit found one open PR (#427) and zero
 task-matching open PRs. The 2026-08-15 drift refresh now correctly retires
-C1–C4 after their cards were implemented; only C5 remains ready locally.
-Publication still requires a fresh duplicate check and a separate maintainer
-decision, and the queue must be replenished before it can again claim a
-five-task contributor batch.
+C1–C4 after their cards were implemented. A second 2026-08-15 read-only audit
+then replenishes the ordered generation as C5–C9, with all five exact gap
+markers absent and no matching implementation PR. Publication still requires
+a fresh duplicate check and a separate maintainer decision; local readiness
+does not mean an issue exists, is assigned, or is advertised.
 
 The
 [clean-candidate audit](../evidence/growth/g0-clean-candidate-audit-2026-08-11.md)

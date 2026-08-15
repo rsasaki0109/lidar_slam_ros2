@@ -60,7 +60,7 @@ SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
     'schemas/contributor-starter-queue-v1.schema.json'
 )
-EXPECTED_TASK_IDS = tuple(f'starter-C{index}' for index in range(1, 6))
+EXPECTED_TASK_IDS = tuple(f'starter-C{index}' for index in range(5, 10))
 COMMON_LABELS = {'good first issue', 'help wanted'}
 DOMAIN_LABELS = {'bug', 'documentation'}
 

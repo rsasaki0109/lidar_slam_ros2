@@ -21,7 +21,7 @@
     "schema_uri": {
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/contributor-starter-queue-v1.schema.json"
     },
-    "queue_id": {"const": "g0-community-starters-2026-08-12"},
+    "queue_id": {"const": "g0-community-starters-2026-08-15-r2"},
     "generated_at": {"type": "string", "format": "date-time"},
     "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
     "status": {"const": "PREPARED_NOT_PUBLISHED"},
@@ -72,7 +72,7 @@
       "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[^\\r\\n]+$"
     },
     "taskId": {
-      "enum": ["starter-C1", "starter-C2", "starter-C3", "starter-C4", "starter-C5"]
+      "enum": ["starter-C5", "starter-C6", "starter-C7", "starter-C8", "starter-C9"]
     },
     "remoteDuplicateAudit": {
       "type": "object",
