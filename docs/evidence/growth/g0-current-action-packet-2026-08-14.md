@@ -12,6 +12,8 @@
 >
 > Latest distribution-audit follow-up tip: `ca7c5b5b991e5624ca16e46ffd1a057e3a9f6ee9`
 >
+> Latest canonical-NDT publication-preflight tip: `856e59987018578963a7afdf13402200eab62bf8`
+>
 > Latest publication-inventory tip: `996679ccebe5aa3ad66ebfc657db20d24ab567ea`
 
 This reviewed tip is the code-bearing product-candidate revision; later
@@ -37,6 +39,13 @@ required tag is absent.
 The NDT review audit now also binds all check runs to each rosdistro PR's exact
 head, blocks failed, pending, absent, inconsistent, or truncated check
 evidence, and keeps unanswered-review actions visible beside a CI blocker.
+The separate canonical-upstream publication preflight binds one clean local
+candidate commit to the checked-in binary patch, verifies its exact parent and
+subject, reads the current upstream branch and expected fork identity, and
+fails closed if the proposed branch already exists, GitHub inspection fails,
+or any open upstream PR matches the branch or semantic duplicate terms. Its
+30 / 30 PASS result is technical evidence only: GitHub write authority remains
+false and no upstream branch or PR was created.
 The code-bearing packet tip is required to be an ancestor of the current
 checkout revision; later synchronization and product UX follow-up commits
 must remain described in this handoff. It replaces
@@ -48,13 +57,14 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open, draft, mergeable; its public branch includes distribution-audit and 233-path publication-plan follow-ups after the reviewed tip above | source candidate is publicly reviewable |
-| PR-head CI | latest completed public exact-tip result before this NDT follow-up is **PASS** for `0b0fa48…` (9 / 9 checks); the local NDT audit tip must receive its own CI after push | do not transfer the public baseline result to a newer tip; CI is not a release approval |
+| Draft PR #427 | open, draft, mergeable at public baseline `30cfada…`; the local canonical-NDT implementation and this packet refresh remain follow-ups until their non-force push | source candidate is publicly reviewable; do not claim that a local-only follow-up is public |
+| PR-head CI | latest completed public exact-tip result before this canonical-NDT follow-up is **PASS** for `30cfada…` (9 / 9 checks); the local implementation and packet tip must receive their own CI after push | do not transfer the public baseline result to a newer tip; CI is not a release approval |
 | English support cards | docs entrypoint tests 22 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 50 queue regressions and all five focused strict-MkDocs profiles passed | C1–C4 remain completed and retired; the fresh duplicate audit found no matching implementation PR, and no issue or label mutation occurred |
-| Distribution preflights | source route `READY` at exact public `0b0fa48…`; NDT `BLOCKED` with two unanswered reviews and one failed exact-head check run on each rosdistro PR; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs; all three have no API errors or writes | the NDT failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 233 paths / 7 slices, clean at pre-sync tip `ca7c5b5…`; inventory SHA-256 `15b94422746d15290b1f45d1a3b95fef892cba4ef1ab7be78e57ec2948ac1a09` | the existing S5 inventory already contains all NDT audit paths; packet synchronization changes no path membership and cannot authorize a GitHub write |
+| Distribution preflights | source route `READY` at exact public `30cfada…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one failing, and an unanswered review; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs | the rosdistro failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
+| Canonical NDT upstream Draft preflight | `READY_FOR_DRAFT_PR`; 30 / 30 PASS at local implementation `856e599…`; exact upstream `5495fd9…`, expected fork verified, proposed branch absent, 4 open PRs inspected, 0 duplicates, 0 API errors, and write authority false | this proves a technically coherent read-only publication state; it neither creates nor authorizes an upstream branch or PR |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 233 paths / 7 slices, clean at canonical-NDT implementation `856e599…`; inventory SHA-256 `15b94422746d15290b1f45d1a3b95fef892cba4ef1ab7be78e57ec2948ac1a09` | the existing S5 inventory already contains all canonical-NDT gate paths; packet synchronization changes no path membership and cannot authorize a GitHub write |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
 | Onboarding matrix | 4 / 4 product PASS; 0 / 4 comparable; **BLOCKED** | Docker is v0.9.0, source is v0.9.1, and human measurements are missing |
@@ -67,11 +77,16 @@ The exact public checks are intentionally re-runnable:
 gh pr checks 427 --repo rsasaki0109/lidar_slam_ros2
 python3 scripts/check_publication_slice_plan.py --json
 python3 scripts/check_ndt_omp_release_readiness.py --json
+GITHUB_TOKEN="$(gh auth token)" \
+python3 scripts/check_canonical_ndt_convergence.py \
+  --upstream-checkout "${NDT_UPSTREAM_CHECKOUT:?}" \
+  --candidate-checkout "${NDT_CANDIDATE_CHECKOUT:?}" \
+  --online --require-ready-for-draft-pr --json
 python3 scripts/check_package_manager_release_readiness.py \
   --version 0.9.1 --json
 python3 scripts/run_source_onboarding_probe.py \
   --public-preflight \
-  --source-commit 0b0fa4822a7d9b9f0da1d44ca782ff6d8fb98d6d \
+  --source-commit 30cfada37bb1f4163750e9a69e4f000291d462e9 \
   --product-version 0.9.1
 python3 scripts/check_published_release.py --version 0.9.1 --json
 python3 scripts/check_onboarding_trial_matrix.py --json
