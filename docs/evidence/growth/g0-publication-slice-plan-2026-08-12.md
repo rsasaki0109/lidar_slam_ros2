@@ -13,10 +13,11 @@
 > Planned follow-up inventory: 281 paths; SHA-256
 > `8bfe87e8eff09e7a8a14af46c78e7018af99b5047a7b171cb68685fb14ff3bf6`
 >
-> Exact implementation tip: `289f7675a242b00f342528483cde3e5f602a11fc`
+> Exact paired-recorder implementation tip:
+> `0575fb6d67dc0b2069d9e41029a767bf3608687c`
 >
-> Last observed remote mutation: exact non-force push from `602c7ad` to
-> `3ed632e`; mutations performed by the checker or review-card command:
+> Last observed remote mutation: exact non-force push from `3ed632e` to
+> `3dc27bc`; mutations performed by the checker or review-card command:
 > **none**
 
 ## Outcome
@@ -50,8 +51,10 @@ The GitHub repository and PR were inspected without mutation:
 
 Passing checks on `3ed632e` validate the complete published candidate through
 the public-docs deployment-provenance evidence refresh. The later exact
-published-onboarding-identity work is locally validated at `289f767` and
-remains unpublished until its own tip passes public CI.
+published-onboarding-identity work and its evidence sync are public at
+`3dc27bc`; an exact-head audit found the same ten successful and four
+intentional-skip checks. The paired recorder at `0575fb6` is the next local
+code-bearing increment and requires its own public CI after publication.
 
 ## Review order
 
@@ -126,8 +129,9 @@ cannot bypass live Git coverage.
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
 | public documentation deployment provenance | 8 focused regressions pass; strict MkDocs produces a deterministic manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
-| clean candidate release bundle | 249 files at exact implementation tip `289f767`; the published-identity checker, schema, and evidence are present and manifest-bound |
-| complete maintained Python gate | graph: 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 975 passed; 2,417 total |
+| clean candidate release bundle | two byte-identical 252-file bundles at exact paired-recorder implementation tip `0575fb6`; SHA-256 `47d11e32c15a086707169ca03b83877324a642c853e6f3c3dd3ab581377d8ea2`; all three scorecard preparation/recording tools are manifest-bound |
+| complete maintained Python gate | graph: 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidar_slam: 982 passed; 2,424 total |
+| paired scorecard recorder | 7 direct regressions, 19 recorder/checker regressions, and registered CTest 6 / 6 pass; incomplete observations remain non-comparable and atomic output/privacy boundaries fail closed |
 | GLIM reference-cache integrity | 10 focused regressions passed; registered CTest 1 / 1; missing lookup remains read-only; exact content, manifest, malformed-TUM, tamper, collision, shell, and bundle boundaries pass |
 | scanmatcher clean build and CTest | Jazzy RAM-backed clean build of `lidarslam_msgs`, `ndt_omp_ros2`, and `scanmatcher`; 109 tests passed |
 | review follow-up regressions | malformed PointCloud2 recovery with padded organized XYZ-only continuation, metadata tile containment, source-bundle symlink rejection, non-interpolated immutable release-tag checkout, least-privilege release jobs, and self-contained source dry-run are covered |

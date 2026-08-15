@@ -58,6 +58,40 @@ make an automatic winner claim.
 The complete maintained Python gate and exact candidate inventory are recorded
 in the publication-slice evidence after this increment is frozen.
 
+## Paired observation recorder follow-up — 2026-08-16
+
+Implementation tip
+`0575fb6d67dc0b2069d9e41029a767bf3608687c` closes the unsafe hand-editing
+gap between worksheet preparation and scorecard validation. One command now
+accepts exactly one untouched worksheet per product, follows the declared
+first/second order, prompts only for direct observations, derives command
+counts and outcomes, and publishes the two validated records with one atomic
+directory rename. A non-interactive collector can supply the same fixed task
+contract as JSON.
+
+Blank values remain `not-recorded`; the checker now treats that marker as an
+explicit comparability blocker even when every numeric field happens to be
+present. Pair/environment drift, reordered tasks, malformed measurements,
+private command paths, reused worksheets, and existing destinations reject the
+whole output. `--require-ready` distinguishes a safely retained incomplete pair
+(exit `1`) from a structural or privacy error with no published pair (exit
+`2`). Neither path performs a network or remote mutation or infers a winner.
+
+Verification at the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| recorder regressions | `7 passed`; complete, incomplete, drift, privacy, overwrite, non-TTY, and release-bundle boundaries |
+| focused scorecard/publication/G0/docs regressions | `73 passed` |
+| registered Jazzy CTest after reconfigure | `6 / 6 passed` |
+| complete maintained Python gate | graph: `1,442 passed / 13 skipped / 11 existing warnings`; lidar_slam: `982 passed`; `2,424 total` |
+| strict documentation and Python style | PASS |
+| deterministic v0.9.1 candidate bundle | two identical 252-file bundles; SHA-256 `47d11e32c15a086707169ca03b83877324a642c853e6f3c3dd3ab581377d8ea2` |
+
+This makes the external measurement executable; it is not the measurement.
+The reviewed evidence index still contains zero product records and remains
+`NOT_READY`.
+
 ## Honest boundary and next measurement
 
 No paired GLIM and `lidarslam_ros2` trial records exist yet. The exact local

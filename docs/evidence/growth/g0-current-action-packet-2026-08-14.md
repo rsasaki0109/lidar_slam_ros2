@@ -8,6 +8,9 @@
 >
 > Capture-time public Draft baseline: `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
+> Latest exact public Draft head and CI audit:
+> `3dc27bc9e955082f634c2cb240448053bd9989d0`
+>
 > Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
 >
 > Latest product/community follow-up tip: `bb1c2e7431c0634f9e5ba6613864b6d2a4c99eb0`
@@ -46,7 +49,11 @@
 >
 > Latest published-onboarding-identity tip: `289f7675a242b00f342528483cde3e5f602a11fc`
 >
-> Latest local publication-inventory tip: `289f7675a242b00f342528483cde3e5f602a11fc`
+> Latest paired usability recorder tip:
+> `0575fb6d67dc0b2069d9e41029a767bf3608687c`
+>
+> Latest local publication-inventory tip:
+> `0575fb6d67dc0b2069d9e41029a767bf3608687c`
 
 This reviewed tip is the code-bearing product-candidate revision; later
 docs-only handoff synchronization and product UX follow-up commits must remain
@@ -67,6 +74,11 @@ preflight instead of accepting four manually entered values. The latest
 observer UX follow-up also turns
 four artifact downloads, independent remote byte audit, and JSON/Markdown
 packet generation into one fail-closed command with atomic local output. The
+paired usability follow-up at `0575fb6…` similarly removes hand-edited trial
+JSON: it records both fixed six-task worksheets in declared order, derives
+command totals, keeps blanks explicitly incomplete, validates privacy and pair
+identity, and atomically publishes neither or both local records. It does not
+create an external observation or a GLIM parity claim. The
 latest distribution slices also scope
 optional GitHub authentication to read-only API requests, make explicit or
 unknown NDT PR mergeability fail closed, restore exact-tip source-route
@@ -171,8 +183,8 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open, draft, and mergeable at capture-time public baseline `3ed632e…`; GLIM cache integrity, public-docs provenance, and its evidence refresh are public, while exact published-onboarding-identity tip `289f767…` is the reviewed local follow-up | the new identity-gate tip still requires its own public CI; no merge, Pages deployment, cohort launch, or E2 authority is implied |
-| Capture-time PR-head CI | completed public exact-tip result is **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures | the skipped jobs are candidate authorization/publication/pair verification and Docker publication; green CI is not release/E2 approval |
+| Draft PR #427 | open, draft, and mergeable; capture-time public baseline `3ed632e…` remains the frozen review anchor, latest exact public head `3dc27bc…` includes the published-onboarding identity and evidence sync, and paired recorder `0575fb6…` is the next local increment | no merge, Pages deployment, cohort launch, or E2 authority is implied |
+| Exact public PR-head CI | capture-time result is **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures; latest exact public head `3dc27bc…` has the same 10-success / 4-skip / 0-failure result | the skipped jobs are candidate authorization/publication/pair verification and Docker publication; green CI is not release/E2 approval, and local `0575fb6…` still needs its own public CI |
 | English support cards | docs entrypoint tests 25 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded; Docker convenience and candidate-digest authority boundaries are both regression-bound; every tracked shell entry point now also has a parse regression |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 50 queue regressions and all five focused strict-MkDocs profiles passed | C1–C4 remain completed and retired; the fresh duplicate audit found no matching implementation PR, and no issue or label mutation occurred |
@@ -181,9 +193,10 @@ gate from being mistaken for the current state.
 | Docker publication boundary | convenience PR/manual runs remain verification-only; the candidate gate at `c70c18d…` uses trusted default-branch tooling, exact-head CI/identity checks, a protected `candidate-images` environment, digest-only output, disabled container networking during smoke tests, SBOM/provenance/attestation checks, and 30-day schema-backed evidence | the gate can create no tag or Release; complete authenticated inventory at `adecca6…` proves only `github-pages` exists, so authorization must stop until a separate environment/E2 decision |
 | Candidate environment and gate regressions | 29 focused tests, actionlint v1.7.12, Python style, CTest 2 / 2, GET-only transport, shared authorization semantics, release-bundle inclusion, and exact-tip Humble/Jazzy default workflows pass | the live result is `ABSENT`; workflow-facing CLIs persist one request, two distinct image records, and one pair report exactly once; no workflow dispatch, environment mutation, or GHCR mutation occurred |
 | Candidate observer contract | atomic preparation through `f5ed80e…`, exact row runner `feed0ba…`, one-command session `8bc5ea4…`, and guided local readiness `a286c65…`; four-file semantic derivation, exact remote artifact-byte comparison, content-bound Docker observer bootstrap, retained child-receipt binding, structured row execution, four-state host guidance, release-bundle inclusion, and docs pass 40 direct preparation/runner/session regressions plus 85 focused session/row/probe regressions | remote status is still **NOT_CHECKED** because no authorized bundle exists; local readiness and runner tests are not `REMOTE_AUDIT_PASS`, a trial, E2, or E4 authority |
+| Neutral GLIM usability recorder | exact implementation `0575fb6…`; 7 direct regressions, 19 recorder/checker regressions, registered CTest 6 / 6, strict docs/style, and a deterministic 252-file candidate bundle pass | the checked-in scorecard remains `NOT_READY` with 0 / 2 product records and 0 / 6 comparable tasks; safer recording is not external evidence, parity, or a winner claim |
 | Public documentation deployment provenance | implementation and 8 focused regressions **PASS** at `602c7ad…`, with public evidence refresh at `3ed632e…`; strict MkDocs emits a source/version/route/page-byte manifest, both Pages jobs are `develop`-only, and the clean candidate release bundle contains the generator, auditor, schemas, and evidence; live exact-public audit is `BLOCKED` because the manifest URL returns HTTP 404 | URL shape alone cannot launch the independent cohort; the current Pages deployment remains unverified until a separately reviewed `develop` deployment publishes matching bytes |
-| Complete local product gate | graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 975 passed; strict MkDocs, 62 focused integration tests, affected CTest 4 / 4, ROS ament Python style, 126 repository JSON documents / 82 tracked shell scripts, all 81 Draft 7 schemas, and diff checks pass at implementation tip `289f767…` | 2,417 local tests validate the exact feature candidate; the clean v0.9.1 candidate bundle reports 249 files and includes the public-docs provenance and published-identity tools, schemas, and evidence; public CI is still required for the later branch tip |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 281 paths / 7 slices at the current local candidate from public baseline `3ed632e…`; inventory SHA-256 `8bfe87e8eff09e7a8a14af46c78e7018af99b5047a7b171cb68685fb14ff3bf6` | environment and candidate audit paths belong to S5; row/session/readiness and parse-safe/content-verified GLIM comparison belong to S4/S6; byte-bound public docs, report-derived packet identity, atomic preparation, and fail-closed paired observation recording belong to S6; synchronization changes no GitHub authority |
+| Complete local product gate | graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 982 passed; strict MkDocs, 73 focused integration tests, affected CTest 6 / 6, direct Python style, and diff checks pass at implementation tip `0575fb6…` | 2,424 local tests validate the exact feature candidate; two clean v0.9.1 candidate bundles report 252 files with identical SHA-256 and include all scorecard preparation/recording tools; public CI is still required for the later branch tip |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 281 paths / 7 slices at implementation tip `0575fb6…` from public baseline `3ed632e…`; inventory SHA-256 `8bfe87e8eff09e7a8a14af46c78e7018af99b5047a7b171cb68685fb14ff3bf6` | environment and candidate audit paths belong to S5; row/session/readiness and parse-safe/content-verified GLIM comparison belong to S4/S6; byte-bound public docs, report-derived packet identity, atomic preparation, and fail-closed paired observation recording belong to S6; synchronization changes no GitHub authority |
 | Published onboarding identity | v0.9.0 exact release commit plus Humble/Jazzy digests return `READY`, but its source route is `NOT_READY` with `source-route-contract-missing`; v0.9.1 report-to-packet fails closed at `NOT_PUBLISHED` | the old release cannot be reused for same-version Docker/source evidence, and the new version cannot produce a release packet before E4 publication |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
@@ -283,7 +296,11 @@ comparable human trial.
    observer. Record active operator time, command count, workflow download,
    peak disk, wall time, and output size; blank measurements remain
    non-comparable.
-7. Only after at least one comparable Docker PASS and one comparable source
+7. For the separate GLIM comparison, prepare the exact public pair with
+   `prepare_usability_scorecard_pair.py`, then record it with
+   `record_usability_scorecard_pair.py --require-ready`. Publish task-level
+   evidence only; do not infer one overall winner.
+8. Only after at least one comparable Docker PASS and one comparable source
    PASS may the E3 cohort decision be reconsidered. Three accepted independent
    reports are still required for the v1 gate.
 

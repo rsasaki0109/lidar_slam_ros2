@@ -111,7 +111,11 @@ deployment-provenance implementation tip is
 also derives its commit and both Docker digests from one published-release
 audit at implementation tip
 `289f7675a242b00f342528483cde3e5f602a11fc`, then repeats the exact live
-identity check before a clean-host row. Its
+identity check before a clean-host row. The paired usability recorder
+follow-up at
+`0575fb6d67dc0b2069d9e41029a767bf3608687c` removes manual scorecard JSON
+editing while preserving missing observations as non-comparable. It still has
+no external paired record and makes no GLIM parity claim. The public-docs
 read-only audit keeps the
 cohort closed while the deployed Pages manifest is absent or its exact page
 bytes, route, version, and source revision do not match.
