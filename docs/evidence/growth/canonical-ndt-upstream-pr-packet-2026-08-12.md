@@ -38,10 +38,10 @@ identities.
 | Proposed fork | `rsasaki0109/ndt_omp_ros2` (GitHub fork of `koide3/ndt_omp`) |
 | Proposed branch | `lidarslam-priors-and-correspondence-diagnostics` |
 
-The fork branch was absent during the read-only duplicate check. Upstream
-`master` still resolved to the exact base above. Searches for open upstream
-pull requests containing `prior`, `correspondence distance`, or
-`regularization` found no matching PR;
+The 2026-08-15 read-only duplicate refresh again found the fork branch absent
+and upstream `master` at the exact base above. The four open upstream PRs do
+not overlap this API work, and searches containing `prior`, `correspondence
+distance`, or `regularization` found no matching PR;
 [`koide3/ndt_omp#45`](https://github.com/koide3/ndt_omp/issues/45) is about
 score interpretation and is not an implementation duplicate.
 
@@ -126,6 +126,15 @@ of exact upstream base `5495fd9`. Earlier Humble/Jazzy build and downstream
 consumer evidence remains documented in
 `docs/evidence/ndt-omp-release-review-2026-08-12.md`.
 
+The two existing rosdistro PRs are not green publication candidates. Their
+exact heads each have 5/6 passing check runs and one failed
+`rosdistro / rosdep checks (3.8)` run. The failure is the old OpenEmbedded
+`libpcre@openembedded-core` mapping fixed by
+[ros/rosdistro#52858](https://github.com/ros/rosdistro/pull/52858), not the
+NDT registration diff, but the old heads remain red. They must neither merge
+as-is nor be described as green; collision-free convergence comes first, then
+a current-base generated PR and a complete passing suite.
+
 ## Publication sequence
 
 Each external step needs its own explicit scope and a fresh drift check.
@@ -134,14 +143,17 @@ Each external step needs its own explicit scope and a fresh drift check.
    absent, and no duplicate PR has appeared.
 2. Non-force push exact commit `618f02f6...` to the proposed fork branch and
    open a Draft PR to `koide3/ndt_omp:master` using the exact title/body above.
-3. Reply to rosdistro PRs #52949 and #52950 that the duplicate package must
-   not merge as-is and link the upstream PR. Do not close either PR until the
-   reviewer confirms whether to hold or supersede it.
+3. Replace `<UPSTREAM_PR_URL>` in the two prepared rosdistro replies with the
+   verified Draft URL, then reply to #52950 with the full lineage/collision
+   answer and to #52949 with the matching concise answer. Do not close either
+   PR until the reviewer confirms whether to hold or supersede it.
 4. Address upstream review with focused commits; do not silently expand the
    public API or change default alignment behavior.
 5. After upstream acceptance, release/update canonical `ndt_omp`, apply the
    five-file lidarslam consumer transition, and run Humble/Jazzy package and
-   installed-consumer gates.
+   installed-consumer gates. Any replacement rosdistro PR must be generated
+   from current `master` and pass every check; do not carry forward the old
+   stale-base red state.
 6. Close or supersede the colliding `ndt_omp_ros2` Bloom registrations, wait
    for main-channel sync, then run the exact package-manager E2E required by
    the v1 distribution gate.

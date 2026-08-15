@@ -30,7 +30,7 @@ bloom's upstream import) excludes — intended.
 | rclcpp, rclcpp_components, tf2\*, \*_msgs, pcl_conversions, std_srvs | released ROS packages | none |
 | `libg2o` | released (`ros-<distro>-libg2o`; verified 2026-06-11: `rosdep resolve libg2o` → `ros-humble-libg2o` on jammy, `ros-jazzy-libg2o` on noble) | none |
 | `libpcl-all-dev` | standard rosdep key (system PCL) | none |
-| **`ndt_omp_ros2`** | source tag and Humble/Jazzy Bloom PRs exist, but the candidate overlaps Humble's released `ndt_omp` files and has an unanswered convergence review | answer both reviews and converge on canonical `ndt_omp`, or fully isolate and replace the fork package, before requesting merge |
+| **`ndt_omp_ros2`** | source tag and Humble/Jazzy Bloom PRs exist, but the candidate overlaps Humble's released `ndt_omp` files, has an unanswered convergence review, and both exact PR heads have a failed check run | converge on canonical `ndt_omp`, or fully isolate the fork; answer both reviews and require a current-base green replacement before requesting merge |
 | `rko_lio` | PRBonn `0.3.2-1` is registered and built in testing for Humble/Jazzy; main has Humble `0.3.2` and Jazzy `0.2.0`; declared as `rko_lio >= 0.3.2` after the official-binary gate passed | wait for Jazzy `0.3.2` to sync to main before the normal Jazzy apt path |
 
 This table was rechecked directly against the
@@ -71,8 +71,9 @@ relates to the existing package, and no maintainer response follows that
 review. The
 [2026-08-12 review audit](evidence/ndt-omp-release-review-2026-08-12.md)
 records the exact lineage, consumed API delta, collision, and prepared
-response. The live preflight now reports `REVIEW_REQUIRED`, not wait-only
-`IN_PROGRESS`.
+response. Both old PR heads also fail the same stale-base OpenEmbedded rosdep
+check. The live preflight therefore reports `BLOCKED`, preserves both review
+actions, and never treats this as wait-only `IN_PROGRESS`.
 
 Run the read-only preflight immediately before doing any publication work:
 
@@ -88,37 +89,44 @@ unless the exact reviewed candidate is `READY_TO_TAG`. It validates the
 parent gitlink, submodule HEAD and cleanliness, package metadata, changelog,
 CMake install/export contract, and Bloom CI assets. Its remote inspection
 then verifies `origin/humble`, source tag, release-repository existence, both
-rosdistro keys, generated PR state and mergeability, and whether the latest
-actionable human review has a later author response. Set `GITHUB_TOKEN` to a
-read-capable token when the public GitHub API limit is too small; it is sent
-only to `api.github.com` and is never included in the report. A GitHub 404
-means an initial artifact is absent; any other HTTP, malformed response, or
-network error is `BLOCKED`, never mistaken for absence or reviewer approval.
+rosdistro keys, generated PR state and mergeability, every exact-head check
+run, and whether the latest actionable human review has a later author
+response. Failed, pending, missing, inconsistent, or truncated check evidence
+is `BLOCKED`. Set `GITHUB_TOKEN` to a read-capable token when the public GitHub
+API limit is too small; it is sent only to `api.github.com` and is never
+included in the report. A GitHub 404 means an initial artifact is absent; any
+other HTTP, malformed response, or network error is `BLOCKED`, never mistaken
+for absence, green CI, or reviewer approval.
 
 CI runs `--offline`, whose successful state is only `LOCAL_READY`. After
 publication, use `--require-released`; it passes only when the tag, release
 repository, and Humble and Jazzy rosdistro entries all exist. `IN_PROGRESS`
 means publication is partial without an unanswered detected review.
 `REVIEW_REQUIRED` names each unanswered human-review URL and fails every
-strict release gate. An explicitly unmergeable PR or unresolved GitHub
-mergeability calculation never becomes a wait-only result; it is either
-`BLOCKED` or remains under the higher-priority `REVIEW_REQUIRED` state. The
-JSON contract is
+strict release gate. A failed/pending/missing check suite, explicitly
+unmergeable PR, or unresolved GitHub mergeability calculation never becomes a
+wait-only result; it is `BLOCKED`, while any unanswered-review actions remain
+visible. The JSON contract is
 [`ndt-omp-release-readiness-v2.schema.json`](schemas/ndt-omp-release-readiness-v2.schema.json).
 The checker is read-only; it never creates a tag, repository, or PR.
 
-1. Post the prepared transparent response to both current reviews. It must
-   acknowledge the downstream lineage and file collision; do not request
-   merge of the current package as-is.
-2. Prefer upstream convergence: contribute the four required APIs and focused
-   tests to `koide3/ndt_omp`, change both `scanmatcher` and
-   `graph_based_slam` to the canonical `ndt_omp` package, and coordinate its
-   Humble update and first Jazzy release.
-3. Only if upstream declines the project-specific API, fully isolate the fork:
+1. Prefer upstream convergence: open the prepared four-API change against
+   `koide3/ndt_omp` as a Draft PR after its exact-base and duplicate checks
+   pass.
+2. Replace the response packet's `<UPSTREAM_PR_URL>` only with that verified
+   Draft URL, then post the transparent full response to Jazzy and matching
+   concise response to Humble. Acknowledge the downstream lineage and file
+   collision; do not request merge of the current package as-is.
+3. Address upstream review with focused changes. After acceptance, change
+   both `scanmatcher` and `graph_based_slam` to the canonical `ndt_omp`
+   package, and coordinate its Humble update and first Jazzy release.
+4. Only if upstream declines the project-specific API, fully isolate the fork:
    new package identity, C++ namespace, include root, library/SONAME, CMake
    target, version/tag, Bloom tracks, and replacement rosdistro PRs.
-4. Proceed to the four lidarslam packages only after both supported distros
-   resolve one collision-free NDT dependency from ROS apt.
+5. Refresh or replace the selected registration from current rosdistro
+   `master`, require every exact-head check to pass, and proceed to the four
+   lidarslam packages only after both supported distros resolve one
+   collision-free NDT dependency from ROS apt.
 
 The implementation needed for step 2 has been prepared and tested locally.
 The upstream patch is based on exact `koide3/ndt_omp` commit

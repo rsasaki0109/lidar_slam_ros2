@@ -67,12 +67,46 @@ def _pull_request(
     state: str = 'open',
     merged: bool = False,
     mergeable: bool | None = True,
+    check_state: str = 'passing',
 ):
     number = PREFLIGHT.ROSDISTRO_PULL_REQUESTS[distro]
     review_url = (
         f'https://github.com/ros/rosdistro/pull/{number}'
         '#pullrequestreview-1'
     ) if response_pending else None
+    if check_state == 'missing':
+        check_runs = {
+            'inspected': True,
+            'total_count': 0,
+            'passing_count': 0,
+            'pending_count': 0,
+            'failing_count': 0,
+            'runs': [],
+        }
+    else:
+        classification = check_state.upper()
+        status = 'completed' if check_state != 'pending' else 'in_progress'
+        conclusion = (
+            'success' if check_state == 'passing'
+            else 'failure' if check_state == 'failing'
+            else None
+        )
+        check_runs = {
+            'inspected': True,
+            'total_count': 1,
+            'passing_count': int(check_state == 'passing'),
+            'pending_count': int(check_state == 'pending'),
+            'failing_count': int(check_state == 'failing'),
+            'runs': [{
+                'name': 'fixture check',
+                'status': status,
+                'conclusion': conclusion,
+                'details_url': (
+                    'https://github.com/ros/rosdistro/actions/runs/1'
+                ),
+                'classification': classification,
+            }],
+        }
     return {
         'number': number,
         'url': f'https://github.com/ros/rosdistro/pull/{number}',
@@ -89,6 +123,7 @@ def _pull_request(
             ),
         },
         'response_pending': response_pending,
+        'check_runs': check_runs,
     }
 
 
@@ -102,6 +137,9 @@ def _remote(
     closed: tuple[str, ...] = (),
     unmergeable: tuple[str, ...] = (),
     unknown_mergeability: tuple[str, ...] = (),
+    failing_checks: tuple[str, ...] = (),
+    pending_checks: tuple[str, ...] = (),
+    missing_checks: tuple[str, ...] = (),
 ):
     return {
         'errors': [],
@@ -117,6 +155,11 @@ def _remote(
                 mergeable=(
                     False if distro in unmergeable else
                     None if distro in unknown_mergeability else True
+                ),
+                check_state=(
+                    'failing' if distro in failing_checks else
+                    'pending' if distro in pending_checks else
+                    'missing' if distro in missing_checks else 'passing'
                 ),
             )
             for distro in PREFLIGHT.DISTROS
@@ -209,6 +252,78 @@ def test_unanswered_human_review_requires_response_instead_of_waiting():
     assert all('collision-free convergence plan' in item
                for item in report['actions'])
     assert not any('Wait for' in item for item in report['actions'])
+
+
+def test_failed_check_run_blocks_and_preserves_review_action():
+    report = PREFLIGHT.evaluate_readiness(
+        local=_local(),
+        remote=_remote(
+            tag=True,
+            release_repo=True,
+            humble=False,
+            jazzy=False,
+            pending=('jazzy',),
+            failing_checks=('humble',),
+        ),
+    )
+
+    assert report['status'] == 'BLOCKED'
+    assert any(
+        'PR #52949 (humble) has 1 failing check run at exact head' in item
+        and 'fixture check' in item
+        and 'require all checks to pass' in item
+        for item in report['actions']
+    )
+    assert any(
+        'unanswered human review' in item and 'PR #52950 (jazzy)' in item
+        for item in report['actions']
+    )
+
+
+def test_pending_or_missing_check_run_evidence_fails_closed():
+    pending_report = PREFLIGHT.evaluate_readiness(
+        local=_local(),
+        remote=_remote(
+            tag=True,
+            release_repo=True,
+            humble=False,
+            jazzy=False,
+            pending_checks=('humble',),
+        ),
+    )
+    missing_report = PREFLIGHT.evaluate_readiness(
+        local=_local(),
+        remote=_remote(
+            tag=True,
+            release_repo=True,
+            humble=False,
+            jazzy=False,
+            missing_checks=('jazzy',),
+        ),
+    )
+
+    assert pending_report['status'] == 'BLOCKED'
+    assert any('has 1 pending check run' in item
+               for item in pending_report['actions'])
+    assert missing_report['status'] == 'BLOCKED'
+    assert any('has no check-run evidence' in item
+               for item in missing_report['actions'])
+
+
+def test_inconsistent_check_run_counts_fail_closed():
+    remote = _remote(
+        tag=True,
+        release_repo=True,
+        humble=False,
+        jazzy=False,
+    )
+    remote['pull_requests']['humble']['check_runs']['total_count'] = 2
+
+    report = PREFLIGHT.evaluate_readiness(local=_local(), remote=remote)
+
+    assert report['status'] == 'BLOCKED'
+    assert any('Resolve remote inspection failures' in item
+               for item in report['actions'])
 
 
 def test_closed_unmerged_generated_pr_blocks_replacement_release_state():
@@ -367,6 +482,18 @@ def test_pull_request_inspection_detects_question_and_author_response(
                     '#pullrequestreview-1'
                 ),
             }]
+        if '/check-runs?' in url:
+            return {
+                'total_count': 1,
+                'check_runs': [{
+                    'name': 'rosdistro / rosdep checks (3.8)',
+                    'status': 'completed',
+                    'conclusion': 'success',
+                    'details_url': (
+                        'https://github.com/ros/rosdistro/actions/runs/1'
+                    ),
+                }],
+            }
         if '/issues/' in url and author_replied:
             return [{
                 'user': {'login': 'rsasaki0109', 'type': 'User'},
@@ -388,6 +515,55 @@ def test_pull_request_inspection_detects_question_and_author_response(
     author_replied = True
     answered = PREFLIGHT._inspect_pull_request('jazzy')
     assert answered['response_pending'] is False
+
+
+def test_check_run_inspection_classifies_and_rejects_truncation(monkeypatch):
+    payload = {
+        'total_count': 4,
+        'check_runs': [
+            {
+                'name': 'success',
+                'status': 'completed',
+                'conclusion': 'success',
+                'details_url': None,
+            },
+            {
+                'name': 'neutral',
+                'status': 'completed',
+                'conclusion': 'neutral',
+                'details_url': None,
+            },
+            {
+                'name': 'failure',
+                'status': 'completed',
+                'conclusion': 'failure',
+                'details_url': None,
+            },
+            {
+                'name': 'running',
+                'status': 'in_progress',
+                'conclusion': None,
+                'details_url': None,
+            },
+        ],
+    }
+    monkeypatch.setattr(PREFLIGHT, '_request_json', lambda _url: payload)
+
+    result = PREFLIGHT._inspect_check_runs(
+        'https://api.github.com/repos/ros/rosdistro', 'a' * 40, 52950)
+
+    assert result['passing_count'] == 2
+    assert result['pending_count'] == 1
+    assert result['failing_count'] == 1
+
+    payload['total_count'] = 5
+    try:
+        PREFLIGHT._inspect_check_runs(
+            'https://api.github.com/repos/ros/rosdistro', 'a' * 40, 52950)
+    except PREFLIGHT.PreflightError as exc:
+        assert 'truncated' in str(exc)
+    else:
+        raise AssertionError('truncated check-run evidence was accepted')
 
 
 def test_github_token_is_used_only_for_github_api(monkeypatch):
@@ -441,6 +617,7 @@ def test_human_summary_exposes_mergeability():
     assert 'state=open merged=False mergeable=True response_pending=True' in (
         summary
     )
+    assert 'checks=1/1 passing pending=0 failing=0' in summary
 
 
 def test_missing_candidate_path_fails_closed(tmp_path):

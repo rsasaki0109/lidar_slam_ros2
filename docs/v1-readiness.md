@@ -45,8 +45,8 @@ untrustworthy live inspection exits 2.
   `scripts/check_ndt_omp_release_readiness.py` preflight and its
   [`ndt-omp-release-readiness-v2.schema.json`](schemas/ndt-omp-release-readiness-v2.schema.json)
   contract. It distinguishes a locally reviewed candidate from
-  `READY_TO_TAG`, partial publication, unanswered human review, and a
-  completed rosdistro release.
+  `READY_TO_TAG`, partial publication, unanswered human review, exact-head
+  check failure, and a completed rosdistro release.
   The initial and current reviewed results are preserved in
   [`ndt-omp-release-preflight-2026-07-29.md`](evidence/ndt-omp-release-preflight-2026-07-29.md)
   and
@@ -102,7 +102,7 @@ The tracked state is **NOT_READY: 8/10 gates complete**.
 
 | Open gate | Remaining proof |
 | --- | --- |
-| Distribution | `ndt_omp_ros2` is `REVIEW_REQUIRED`; answer the lineage question and converge on canonical `ndt_omp` or a fully isolated fork before replacing/merging rosdistro PRs [#52949](https://github.com/ros/rosdistro/pull/52949) and [#52950](https://github.com/ros/rosdistro/pull/52950), then wait for Jazzy RKO-LIO 0.3.2 main sync and run package-manager E2E |
+| Distribution | `ndt_omp_ros2` is `BLOCKED`: answer the lineage question and converge on canonical `ndt_omp` or a fully isolated fork before replacing rosdistro PRs [#52949](https://github.com/ros/rosdistro/pull/52949) and [#52950](https://github.com/ros/rosdistro/pull/52950); their current heads each have one failed stale-base rosdep check, so require a current-base green replacement, then wait for Jazzy RKO-LIO 0.3.2 main sync and run package-manager E2E |
 | External adoption | Accept three distinct independent first-map validations; current ledger is 0/3 |
 
 The reliability and release-publication gates closed when the immutable

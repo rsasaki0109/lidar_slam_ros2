@@ -374,11 +374,14 @@ work and document the actual support boundary instead of hiding the delay.
   [#52949](https://github.com/ros/rosdistro/pull/52949) and
   [#52950](https://github.com/ros/rosdistro/pull/52950) remain open with an
   unanswered question about overlap with the existing `ndt_omp` package.
+  Both old exact heads also have one failed stale-base rosdep check; this is
+  not caused by the NDT YAML delta, but neither head is green.
   Resolve that collision through upstream convergence or full isolation before
-  requesting merge. A hash-bound upstream patch and complete five-file parent
-  transition now pass exact-base checking plus network-isolated Humble/Jazzy
-  four-package builds; publication still requires an explicit maintainer
-  decision.
+  requesting merge, then refresh or replace the generated registration from
+  current rosdistro `master` and require every check to pass. A hash-bound
+  upstream patch and complete five-file parent transition now pass exact-base
+  checking plus network-isolated Humble/Jazzy four-package builds; publication
+  still requires an explicit maintainer decision.
 - Exercise clean install and upgrade on Humble and Jazzy after the packages are
   available, then publish v1.0 from the same verified contract.
 - Produce one sub-three-minute English demo with captions and one concise
@@ -547,10 +550,13 @@ manual step on the fixed demo.
 ### Sprint 3 — close the two v1 blockers (weeks 5–8)
 
 1. With explicit publication approval, submit the prepared required NDT APIs
-   upstream, answer the two open `ndt_omp_ros2` rosdistro reviews with the
-   collision analysis, and rerun the review-aware readiness check after every
-   external state change. If upstream declines, fully isolate the fork. Do not
-   merge overlapping Debian payloads merely to shorten installation.
+   upstream as a Draft, replace the reply packet's URL placeholder with that
+   verified PR, answer the two open `ndt_omp_ros2` rosdistro reviews with the
+   collision analysis, and rerun the review/check-aware readiness audit after
+   every external state change. If upstream declines, fully isolate the fork.
+   Generate the selected replacement from current rosdistro `master` and
+   require all checks to pass; do not merge overlapping Debian payloads or a
+   red exact head merely to shorten installation.
 2. Execute package-manager clean-install and upgrade evidence when the required
    repositories contain the packages.
 3. Run a public first-map validation cohort. Treat every failed attempt as a

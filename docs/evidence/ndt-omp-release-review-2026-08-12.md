@@ -6,8 +6,10 @@ wait-only interpretation of the two generated rosdistro pull requests.
 
 ## Result
 
-`python3 scripts/check_ndt_omp_release_readiness.py --json` reported
-`REVIEW_REQUIRED`.
+The latest authenticated run of
+`python3 scripts/check_ndt_omp_release_readiness.py --json` reports
+`BLOCKED`: both generated PRs have an unanswered lineage review and one
+failed check run at their exact heads.
 
 - [Humble PR #52949](https://github.com/ros/rosdistro/pull/52949) is open,
   non-draft, and mergeable at
@@ -21,25 +23,54 @@ wait-only interpretation of the two generated rosdistro pull requests.
   [matching Humble question](https://github.com/ros/rosdistro/pull/52949#pullrequestreview-4857900792).
 - The source tag and Bloom release repository already exist. Recreating the
   tag or rerunning Bloom does not answer the review.
+- Each exact head has six check runs: four successful, one neutral, and one
+  failed `rosdistro / rosdep checks (3.8)` run. Neutral is non-blocking, so
+  the machine report records 5/6 passing and 1/6 failing for each PR.
 
 No GitHub comment, PR, tag, repository, or distribution file was changed by
 this audit.
 
 ## Read-only state refresh — 2026-08-15
 
-An authenticated read-only rerun avoided the shared unauthenticated GitHub
-API quota and again reported `REVIEW_REQUIRED`. Both PRs remain open at the
-same exact heads above, GitHub currently reports `mergeable=true`, and both
-review questions still have `response_pending=true`. Mergeability only records
-the current base-conflict calculation; it does not grant reviewer approval or
-make the colliding packages release-ready.
+An authenticated, thread-aware read-only rerun found no inline review threads
+on either PR. The actionable feedback is instead a human review body on Jazzy
+asking how the package relates to `ndt_omp`; the Humble review points to that
+same question. Both remain unanswered, both PRs remain open at the same exact
+heads above, and GitHub currently reports `mergeable=true`. Mergeability only
+records the current base-conflict calculation; it does not grant reviewer
+approval or make the colliding packages release-ready.
 
 The checker now sends an optional `GITHUB_TOKEN` only to `api.github.com`,
-prints each PR's mergeability in the human summary, and fails closed if an
-open generated PR is explicitly unmergeable or GitHub has not completed the
-calculation. Focused tests cover authenticated request scoping, explicit
-conflicts, unknown mergeability, retained review actions, and readable output.
-No external state was changed by the refresh.
+binds every check run to the PR's exact head SHA, prints check totals beside
+mergeability, and fails closed for failed, pending, missing, or truncated
+check-run evidence. A CI blocker does not hide a pending human-review action.
+Focused tests cover authenticated request scoping, explicit conflicts,
+unknown mergeability, all check-run gate states, retained review actions, and
+readable output. No external state was changed by the refresh.
+
+### Exact-head CI classification
+
+| PR | Exact-head check result | Failing job |
+| --- | --- | --- |
+| Humble #52949 | 5/6 passing, 0 pending, 1 failing | [`rosdistro / rosdep checks (3.8)`](https://github.com/ros/rosdistro/actions/runs/30493787110/job/92098241682) |
+| Jazzy #52950 | 5/6 passing, 0 pending, 1 failing | [`rosdistro / rosdep checks (3.8)`](https://github.com/ros/rosdistro/actions/runs/30494032954/job/92098296862) |
+
+Both failed logs report 1 failed and 13 passed tests. The only failure is the
+OpenEmbedded lookup for `libpcre@openembedded-core`; it does not inspect or
+reject the 15-line `ndt_omp_ros2` registration itself. ros/rosdistro
+[PR #52858](https://github.com/ros/rosdistro/pull/52858) subsequently moved
+that key to `libpcre@meta-ros-common`, current `master` contains the corrected
+rule, and a later
+[`Validate rosdistro` run](https://github.com/ros/rosdistro/actions/runs/31842406951)
+passes. Each old NDT branch has one candidate commit absent from `master`,
+while current `master` has 307 commits absent from that branch.
+
+It is therefore a supported inference that these two failures come from the
+stale branch base and global rosdep state, not the NDT YAML delta. This does
+not turn either exact head green. Do not spend effort refreshing the colliding
+registration as-is: select the canonical or fully isolated path first, then
+refresh or recreate the generated PR from current rosdistro `master` and
+require a complete green suite.
 
 ## Relationship to the existing package
 
@@ -197,9 +228,10 @@ Verification completed locally:
 These artifacts were prepared but not submitted. No upstream PR, review
 reply, branch push, tag, Bloom run, or rosdistro mutation was performed.
 
-## Prepared reviewer response
+## Prepared reviewer responses
 
-The following response is prepared but was not posted:
+These responses are prepared but were not posted. The Jazzy response is the
+full answer to the direct question:
 
 > Thanks for catching this. `ndt_omp_ros2` is a downstream ROS 2 fork of
 > `koide3/ndt_omp`, not an independent implementation. It carries four APIs
@@ -209,11 +241,30 @@ The following response is prepared but was not posted:
 > `libndt_omp.so` as Humble's released `ndt_omp`, so the differently named
 > Debian packages are not safely co-installable. I do not want these PRs
 > merged as-is. My preferred correction is to upstream the required APIs and
-> consume/release the canonical `ndt_omp` package for Humble and Jazzy. If
-> those project-specific APIs are declined upstream, I will instead fully
-> namespace the fork's package, headers, symbols, library, and CMake target,
-> then replace these Bloom registrations. I will report the selected
-> collision-free path here before requesting another merge review.
+> consume/release the canonical `ndt_omp` package for Humble and Jazzy. The
+> focused upstream work is tracked in Draft PR `<UPSTREAM_PR_URL>`. If those
+> project-specific APIs are declined upstream, I will instead fully namespace
+> the fork's package, headers, symbols, library, and CMake target, then replace
+> these Bloom registrations. I will report the selected collision-free path
+> here before requesting another merge review. The current red rosdep check
+> also remains a hard gate; any replacement registration will be generated
+> from current rosdistro `master` and must be fully green.
 
-Posting that response or changing either external PR requires an explicit
+The Humble response deliberately points to the same resolution instead of
+duplicating a divergent explanation:
+
+> The same lineage and co-installation issue applies here as in Jazzy
+> #52950. `ndt_omp_ros2` is a downstream fork that overlaps the canonical
+> `ndt_omp` headers and library, so please do not merge this registration
+> as-is. I am pursuing the collision-free canonical path in Draft PR
+> `<UPSTREAM_PR_URL>` and will return with the accepted resolution before
+> requesting another rosdistro review. Any replacement PR will be generated
+> from current rosdistro `master` and must pass its complete check suite.
+
+Do not post either response while the literal `<UPSTREAM_PR_URL>` placeholder
+remains, or unless that URL resolves to the Draft upstream PR containing exact
+candidate commit `618f02f6b50a8590b81f48b4fee5b6cfc8d3f3ea` (or a deliberately
+reviewed successor).
+
+Posting either response or changing either external PR requires an explicit
 maintainer publication decision.

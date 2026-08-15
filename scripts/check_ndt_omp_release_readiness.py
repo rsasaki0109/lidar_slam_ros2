@@ -45,6 +45,7 @@ ACTIONABLE_REVIEW = re.compile(
     r'what are|same question|needs? to|must)\b)',
     re.IGNORECASE,
 )
+PASSING_CHECK_CONCLUSIONS = frozenset({'success', 'neutral', 'skipped'})
 
 
 class PreflightError(ValueError):
@@ -234,6 +235,17 @@ def _request_text(url: str) -> tuple[int, str]:
         raise PreflightError(f'cannot read {url}: {exc}') from exc
 
 
+def _empty_check_runs() -> dict[str, Any]:
+    return {
+        'inspected': False,
+        'total_count': None,
+        'passing_count': None,
+        'pending_count': None,
+        'failing_count': None,
+        'runs': [],
+    }
+
+
 def _empty_pull_requests() -> dict[str, dict[str, Any]]:
     return {
         distro: {
@@ -253,6 +265,7 @@ def _empty_pull_requests() -> dict[str, dict[str, Any]]:
                 'created_at': None,
             },
             'response_pending': None,
+            'check_runs': _empty_check_runs(),
         }
         for distro in DISTROS
     }
@@ -278,6 +291,82 @@ def _activity_user(item: dict[str, Any]) -> tuple[str, bool]:
         return '', False
     is_bot = user_type == 'Bot' or login.endswith('[bot]')
     return login, is_bot
+
+
+def _inspect_check_runs(
+    api_root: str,
+    head_sha: str,
+    number: int,
+) -> dict[str, Any]:
+    payload = _request_json(
+        f'{api_root}/commits/{head_sha}/check-runs?per_page=100')
+    if not isinstance(payload, dict):
+        raise PreflightError(
+            f'pull request #{number} check-runs response is not an object')
+    total_count = payload.get('total_count')
+    raw_runs = payload.get('check_runs')
+    if (
+        not isinstance(total_count, int)
+        or isinstance(total_count, bool)
+        or not isinstance(raw_runs, list)
+    ):
+        raise PreflightError(
+            f'pull request #{number} check-runs response is incomplete')
+    if total_count != len(raw_runs):
+        raise PreflightError(
+            f'pull request #{number} check-runs response was truncated: '
+            f'expected {total_count}; received {len(raw_runs)}')
+
+    runs: list[dict[str, Any]] = []
+    passing_count = 0
+    pending_count = 0
+    failing_count = 0
+    for item in raw_runs:
+        if not isinstance(item, dict):
+            raise PreflightError(
+                f'pull request #{number} contains an invalid check run')
+        name = item.get('name')
+        status = item.get('status')
+        conclusion = item.get('conclusion')
+        details_url = item.get('details_url')
+        if (
+            not isinstance(name, str)
+            or not name
+            or not isinstance(status, str)
+            or not status
+            or conclusion is not None and not isinstance(conclusion, str)
+            or details_url is not None and not isinstance(details_url, str)
+        ):
+            raise PreflightError(
+                f'pull request #{number} contains an incomplete check run')
+
+        if status != 'completed':
+            classification = 'PENDING'
+            pending_count += 1
+        elif conclusion in PASSING_CHECK_CONCLUSIONS:
+            classification = 'PASSING'
+            passing_count += 1
+        else:
+            classification = 'FAILING'
+            failing_count += 1
+        runs.append({
+            'name': name,
+            'status': status,
+            'conclusion': conclusion,
+            'details_url': details_url,
+            'classification': classification,
+        })
+
+    runs.sort(key=lambda item: (
+        item['classification'], item['name'], item['details_url'] or ''))
+    return {
+        'inspected': True,
+        'total_count': total_count,
+        'passing_count': passing_count,
+        'pending_count': pending_count,
+        'failing_count': failing_count,
+        'runs': runs,
+    }
 
 
 def _inspect_pull_request(distro: str) -> dict[str, Any]:
@@ -360,6 +449,7 @@ def _inspect_pull_request(distro: str) -> dict[str, Any]:
         raise PreflightError(f'pull request #{number} has incomplete identity')
     if not isinstance(html_url, str):
         raise PreflightError(f'pull request #{number} has no public URL')
+    check_runs = _inspect_check_runs(api_root, head_sha, number)
     return {
         'number': number,
         'url': html_url,
@@ -374,6 +464,7 @@ def _inspect_pull_request(distro: str) -> dict[str, Any]:
             'created_at': None,
         },
         'response_pending': response_pending,
+        'check_runs': check_runs,
     }
 
 
@@ -528,6 +619,30 @@ def evaluate_readiness(
                     or pull_request.get('response_pending') is None
                 ):
                     remote_failed = True
+                check_runs = pull_request.get('check_runs')
+                count_fields = (
+                    'total_count',
+                    'passing_count',
+                    'pending_count',
+                    'failing_count',
+                )
+                if (
+                    not isinstance(check_runs, dict)
+                    or check_runs.get('inspected') is not True
+                    or not isinstance(check_runs.get('runs'), list)
+                    or not all(
+                        isinstance(check_runs.get(field), int)
+                        and not isinstance(check_runs.get(field), bool)
+                        for field in count_fields
+                    )
+                ):
+                    remote_failed = True
+                elif (
+                    check_runs['total_count'] != len(check_runs.get('runs', []))
+                    or check_runs['total_count'] != sum(
+                        check_runs[field] for field in count_fields[1:])
+                ):
+                    remote_failed = True
         closed_unmerged = any(
             not remote_report['rosdistro'][distro]
             and remote_report['pull_requests'][distro]['state'] == 'closed'
@@ -550,6 +665,27 @@ def evaluate_readiness(
             not remote_report['rosdistro'][distro]
             and remote_report['pull_requests'][distro]['response_pending']
             is True
+            for distro in DISTROS
+        ) if not remote_failed else False
+        failing_checks = any(
+            not remote_report['rosdistro'][distro]
+            and remote_report['pull_requests'][distro]['state'] == 'open'
+            and remote_report['pull_requests'][distro]['check_runs'][
+                'failing_count'] > 0
+            for distro in DISTROS
+        ) if not remote_failed else False
+        pending_checks = any(
+            not remote_report['rosdistro'][distro]
+            and remote_report['pull_requests'][distro]['state'] == 'open'
+            and remote_report['pull_requests'][distro]['check_runs'][
+                'pending_count'] > 0
+            for distro in DISTROS
+        ) if not remote_failed else False
+        missing_checks = any(
+            not remote_report['rosdistro'][distro]
+            and remote_report['pull_requests'][distro]['state'] == 'open'
+            and remote_report['pull_requests'][distro]['check_runs'][
+                'total_count'] == 0
             for distro in DISTROS
         ) if not remote_failed else False
         if remote_failed:
@@ -594,6 +730,52 @@ def evaluate_readiness(
                         f'{pull_request["head_sha"]}. Resolve the base '
                         'conflict and rerun this audit; do not merge or '
                         'rerun Bloom from this state.')
+            for distro in DISTROS:
+                pull_request = remote_report['pull_requests'][distro]
+                if (
+                    not remote_report['rosdistro'][distro]
+                    and pull_request['response_pending'] is True
+                ):
+                    actions.append(_unanswered_review_action(
+                        distro, pull_request))
+        elif failing_checks or pending_checks or missing_checks:
+            status = 'BLOCKED'
+            for distro in DISTROS:
+                if remote_report['rosdistro'][distro]:
+                    continue
+                pull_request = remote_report['pull_requests'][distro]
+                if pull_request['state'] != 'open':
+                    continue
+                check_runs = pull_request['check_runs']
+                if check_runs['failing_count']:
+                    failed_names = ', '.join(
+                        item['name'] for item in check_runs['runs']
+                        if item['classification'] == 'FAILING'
+                    )
+                    actions.append(
+                        f'ros/rosdistro PR #{pull_request["number"]} '
+                        f'({distro}) has {check_runs["failing_count"]} '
+                        f'failing check run at exact head '
+                        f'{pull_request["head_sha"]}: {failed_names}. '
+                        'After selecting the collision-free convergence '
+                        'path, refresh or recreate the generated PR from '
+                        'current rosdistro master and require all checks to '
+                        'pass; do not merge, rerun Bloom, or claim green CI '
+                        'from this state.')
+                if check_runs['pending_count']:
+                    actions.append(
+                        f'ros/rosdistro PR #{pull_request["number"]} '
+                        f'({distro}) has {check_runs["pending_count"]} '
+                        'pending check run at exact head '
+                        f'{pull_request["head_sha"]}. Rerun this read-only '
+                        'audit after completion; do not treat the PR as '
+                        'green or wait-only yet.')
+                if check_runs['total_count'] == 0:
+                    actions.append(
+                        f'ros/rosdistro PR #{pull_request["number"]} '
+                        f'({distro}) has no check-run evidence at exact head '
+                        f'{pull_request["head_sha"]}. Obtain a complete '
+                        'green check suite before requesting merge.')
             for distro in DISTROS:
                 pull_request = remote_report['pull_requests'][distro]
                 if (
@@ -698,7 +880,11 @@ def _summary(report: dict[str, Any]) -> str:
                 f"state={pull_request['state']} merged="
                 f"{pull_request['merged']} mergeable="
                 f"{pull_request['mergeable']} response_pending="
-                f"{pull_request['response_pending']}")
+                f"{pull_request['response_pending']} checks="
+                f"{pull_request['check_runs']['passing_count']}/"
+                f"{pull_request['check_runs']['total_count']} passing "
+                f"pending={pull_request['check_runs']['pending_count']} "
+                f"failing={pull_request['check_runs']['failing_count']}")
         lines.extend(f'  [ERROR] {error}' for error in remote['errors'])
     lines.extend(f'Next: {action}' for action in report['actions'])
     return '\n'.join(lines)
