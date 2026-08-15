@@ -10,7 +10,7 @@
 >
 > Latest product/community follow-up tip: `bb1c2e7431c0634f9e5ba6613864b6d2a4c99eb0`
 >
-> Latest distribution-audit follow-up tip: `563f6660c5b84df4659bb1cd3676ecc1d1a13742`
+> Latest distribution-audit follow-up tip: `ca7c5b5b991e5624ca16e46ffd1a057e3a9f6ee9`
 >
 > Latest publication-inventory tip: `996679ccebe5aa3ad66ebfc657db20d24ab567ea`
 
@@ -34,6 +34,9 @@ evidence to the exact immutable source tag commit. The package audit now keeps
 missing refs, absent attempts, running attempts, failed attempts, and API or
 identity failures separate. It does not print a dispatch command while the
 required tag is absent.
+The NDT review audit now also binds all check runs to each rosdistro PR's exact
+head, blocks failed, pending, absent, inconsistent, or truncated check
+evidence, and keeps unanswered-review actions visible beside a CI blocker.
 The code-bearing packet tip is required to be an ancestor of the current
 checkout revision; later synchronization and product UX follow-up commits
 must remain described in this handoff. It replaces
@@ -46,12 +49,12 @@ gate from being mistaken for the current state.
 | Check | Current result | Meaning |
 | --- | --- | --- |
 | Draft PR #427 | open, draft, mergeable; its public branch includes distribution-audit and 233-path publication-plan follow-ups after the reviewed tip above | source candidate is publicly reviewable |
-| PR-head CI | latest completed exact-tip result is **PASS** for `a71d950…` (9 / 9 checks); public CI for the newer package-audit and inventory tips was still running when this packet was written | do not transfer the older result to a newer tip; CI is not a release approval |
+| PR-head CI | latest completed public exact-tip result before this NDT follow-up is **PASS** for `0b0fa48…` (9 / 9 checks); the local NDT audit tip must receive its own CI after push | do not transfer the public baseline result to a newer tip; CI is not a release approval |
 | English support cards | docs entrypoint tests 22 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 50 queue regressions and all five focused strict-MkDocs profiles passed | C1–C4 remain completed and retired; the fresh duplicate audit found no matching implementation PR, and no issue or label mutation occurred |
-| Distribution preflights | source route `READY` at exact `996679c…`; NDT `REVIEW_REQUIRED` with two unanswered reviews; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs; all three have no API errors or writes | the checker now refuses an impossible dispatch; neither the lineage blocker nor the required clean-install E2E is complete |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 233 paths / 7 slices, clean at `996679c…`; inventory SHA-256 `15b94422746d15290b1f45d1a3b95fef892cba4ef1ab7be78e57ec2948ac1a09` | local inventory includes the package-manager report schema and cannot authorize a GitHub write |
+| Distribution preflights | source route `READY` at exact public `0b0fa48…`; NDT `BLOCKED` with two unanswered reviews and one failed exact-head check run on each rosdistro PR; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs; all three have no API errors or writes | the NDT failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 233 paths / 7 slices, clean at pre-sync tip `ca7c5b5…`; inventory SHA-256 `15b94422746d15290b1f45d1a3b95fef892cba4ef1ab7be78e57ec2948ac1a09` | the existing S5 inventory already contains all NDT audit paths; packet synchronization changes no path membership and cannot authorize a GitHub write |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
 | Onboarding matrix | 4 / 4 product PASS; 0 / 4 comparable; **BLOCKED** | Docker is v0.9.0, source is v0.9.1, and human measurements are missing |
@@ -68,7 +71,7 @@ python3 scripts/check_package_manager_release_readiness.py \
   --version 0.9.1 --json
 python3 scripts/run_source_onboarding_probe.py \
   --public-preflight \
-  --source-commit 996679ccebe5aa3ad66ebfc657db20d24ab567ea \
+  --source-commit 0b0fa4822a7d9b9f0da1d44ca782ff6d8fb98d6d \
   --product-version 0.9.1
 python3 scripts/check_published_release.py --version 0.9.1 --json
 python3 scripts/check_onboarding_trial_matrix.py --json
