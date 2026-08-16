@@ -793,7 +793,7 @@ five-code enum and `USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED` into the
 privacy-bounded JSON and issue body. Symptom titles, checks, commands, free
 text, paths, maps, bags, and logs remain excluded; malformed codes, mismatches,
 and automatic-cause claims become invalid diagnosis evidence. The focused 56
-tests, strict MkDocs, changed-file Jazzy `ament_flake8`, and complete 2,478-test
+tests, strict MkDocs, changed-file Jazzy `ament_flake8`, and complete 2,482-test
 maintained gate pass. This reduces issue clarification round trips without
 claiming that the symptom is a diagnosed cause or that a map was repaired.
 
