@@ -203,6 +203,48 @@ python3 scripts/evaluate_degeneracy_trajectory.py <candidate.tum> \
   --reference-trajectory <dense-reference.tum>
 ```
 
+## RTK-SLAM exact acquisition
+
+Plan the smallest official ROS2 sequence and pinned surveyed-checkpoint assets
+before committing disk space or network time:
+
+```bash
+python3 scripts/download_rtk_slam_dataset.py \
+  --sequence construction_seq2 \
+  --eval-assets \
+  --dest /mnt/large/rtk_slam \
+  --dry-run
+```
+
+`--dry-run` performs no download, Git fetch, directory creation, or other
+write. It reports the immutable dataset revision, exact size and SHA-256 of
+each DB3 and metadata file, already-present resumable bytes, remaining payload,
+filesystem reserve, observed free bytes, exact shortfall, and a copy-ready
+external-destination retry. Add `--json` for a machine-readable plan. Use
+`--list` to inspect all four exact sequence identities without network access.
+
+When the plan reports `READY`, remove only `--dry-run`. The live command checks
+capacity before its first write or network request, resumes a smaller regular
+file, and verifies exact size plus SHA-256 before accepting it. A same-size
+wrong file, oversized file, non-regular path, or symlink fails closed with a
+recovery action. Evaluation assets are fetched at commit
+`f2921a58caf5a87c1f4f73b48c6f2a5e35f92924`, never a moving default branch.
+
+After acquisition, validate and preview the measured suite without starting
+ROS:
+
+```bash
+python3 scripts/run_rtk_slam_accuracy_suite.py \
+  --dataset-root /mnt/large/rtk_slam \
+  --sequence construction_seq2 \
+  --dry-run
+```
+
+Repeat with `construction_seq1`, or pass `--sequence all` for the complete
+four-sequence suite. Acquisition readiness is not benchmark evidence: the two
+blocking release rows require fresh exact-candidate outputs from Construction
+Seq2 and Construction Seq1.
+
 ## FAST-LIVO2 head-to-head
 
 Use the exact same bag, sensor messages, calibration, trajectory reference, and
