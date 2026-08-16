@@ -116,7 +116,7 @@ Draft PR #427, the reviewed product-candidate tip
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
 `3ed632e6f6aa1e3ca7f32d893773de1079086ffb` with 10 successful checks and 4
-intentional non-publication skips, the current 329-path local plan, the
+intentional non-publication skips, the current 330-path local plan, the
 one-command candidate-session tip `8bc5ea4`, and its guided read-only host
 readiness follow-up `a286c65` while the v0.9.1/image state remains unpublished.
 The optional authenticated environment preflight at `adecca6` now proves from
@@ -140,7 +140,13 @@ identity check before a clean-host row. The paired usability recorder
 follow-up at
 `0575fb6d67dc0b2069d9e41029a767bf3608687c` removes manual scorecard JSON
 editing while preserving missing observations as non-comparable. It still has
-no external paired record and makes no GLIM parity claim. The public-docs
+no external paired record and makes no GLIM parity claim. The current local
+paired-preparation follow-up removes manual public-resolvability Booleans: one
+GET-only preflight must resolve both fixed canonical commit/tag or registry
+identities and approved documentation redirects before either worksheet is
+published, and a second-file failure rolls back the first. Offline preparation
+remains explicitly non-public. This makes the handoff safer but still creates
+no human observation or comparative claim. The public-docs
 read-only audit keeps the
 cohort closed while the deployed Pages manifest is absent or its exact page
 bytes, route, version, and source revision do not match.

@@ -92,6 +92,44 @@ This makes the external measurement executable; it is not the measurement.
 The reviewed evidence index still contains zero product records and remains
 `NOT_READY`.
 
+## Public pair identity preflight follow-up — 2026-08-17
+
+The official paired preparation path no longer accepts caller-asserted
+publicity flags. One `--verify-public` option now performs bounded GET-only
+checks for both products before local publication. Git identities are fixed to
+`rsasaki0109/lidar_slam_ros2` and `koide3/glim`; a full commit SHA must resolve
+unchanged and a release tag must match the declared version before being
+dereferenced to a full commit SHA. Image identities are fixed to the canonical
+GHCR and Docker Hub repositories and require an exact registry digest header.
+Documentation requests and redirects are restricted to each product's fixed
+GitHub/Pages host set and HTTP 200.
+
+The emitted preparation manifest has its own Draft 7 schema and distinguishes
+`NOT_RUN` offline preparation from a two-product `PASS`. It records GitHub,
+registry, and documentation request modes separately and fixes every write or
+remote-mutation authority to false. Both worksheets are staged before
+exclusive publication; a stale identity, malformed response, off-boundary
+redirect, existing destination, or second-file race leaves no partial pair.
+
+Focused verification covers offline preparation, exact commit and annotated
+tag resolution, canonical image digest resolution, manual-claim rejection,
+identity and redirect drift, schema validation, overwrite refusal, and
+second-file rollback. The implementation uses no subprocess and exposes only
+an HTTP GET request method. These checks prove that the future observation is
+bound to readable public inputs; they do not create the external observation,
+mark one task comparable, or authorize a parity/winner claim.
+
+Verification for this follow-up:
+
+| Check | Result |
+| --- | --- |
+| paired preparer regressions | `14 passed` |
+| preparer/recorder/checker/publication/G0 regressions | `69 passed` |
+| complete maintained Python gate | graph: `1,489 passed / 13 skipped / 11 existing warnings`; lidar_slam: `1,085 passed`; `2,574 total` |
+| real public GET preflight | PASS: public Draft commit `4b2ab514a4f33b443e2c4283b3114d11a5e44e49`; GLIM `v1.2.2` resolved to `faa264a1bce1bda406f73457e35511f56cdc2eaa`; both documentation URLs returned 200 |
+| strict documentation, Python style, JSON, and Draft 7 schemas | PASS |
+| external observation or remote mutation | none |
+
 ## Honest boundary and next measurement
 
 No paired GLIM and `lidarslam_ros2` trial records exist yet. The exact local

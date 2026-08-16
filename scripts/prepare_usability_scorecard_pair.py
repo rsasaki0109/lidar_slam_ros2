@@ -30,19 +30,27 @@
 
 Common cohort, input, and environment metadata is entered once. The command
 creates one worksheet per product with opposite product order, refuses to
-overwrite either destination, and performs no network or remote mutation.
-The generated files are recording worksheets, not evidence of a completed
-trial.
+overwrite either destination, and can verify both public identities and docs
+through bounded GET requests before writing. The generated files are recording
+worksheets, not evidence of a completed trial.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import sys
+import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Callable, Mapping, Sequence
+
+import jsonschema
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -52,6 +60,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from prepare_usability_scorecard import (  # noqa: E402
     ScorecardError,
     build_template,
+    validate_trial,
 )
 
 
@@ -59,6 +68,367 @@ PRODUCTS = (
     ('lidarslam', 'lidarslam_ros2'),
     ('glim', 'glim'),
 )
+REPO_ROOT = SCRIPT_DIR.parent
+PREPARATION_SCHEMA = (
+    REPO_ROOT
+    / 'docs'
+    / 'schemas'
+    / 'usability-scorecard-pair-preparation-v1.schema.json'
+)
+PREPARATION_SCHEMA_URI = (
+    'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/'
+    'usability-scorecard-pair-preparation-v1.schema.json'
+)
+GITHUB_REPOSITORIES = {
+    'lidarslam_ros2': 'rsasaki0109/lidar_slam_ros2',
+    'glim': 'koide3/glim',
+}
+REGISTRIES = {
+    'lidarslam_ros2': {
+        'source': 'ghcr.io/rsasaki0109/lidar_slam_ros2',
+        'token_url': (
+            'https://ghcr.io/token?service=ghcr.io&scope='
+            'repository%3Arsasaki0109%2Flidar_slam_ros2%3Apull'
+        ),
+        'manifest_root': (
+            'https://ghcr.io/v2/rsasaki0109/lidar_slam_ros2/manifests/'
+        ),
+    },
+    'glim': {
+        'source': 'docker.io/koide3/glim_ros2',
+        'token_url': (
+            'https://auth.docker.io/token?service=registry.docker.io&scope='
+            'repository%3Akoide3%2Fglim_ros2%3Apull'
+        ),
+        'manifest_root': (
+            'https://registry-1.docker.io/v2/koide3/glim_ros2/manifests/'
+        ),
+    },
+}
+ALLOWED_DOCUMENTATION_HOSTS = {
+    'lidarslam_ros2': {'github.com', 'rsasaki0109.github.io'},
+    'glim': {'github.com', 'koide3.github.io'},
+}
+SHA_PATTERN = re.compile(r'^[0-9a-f]{40}$')
+DIGEST_PATTERN = re.compile(r'^sha256:[0-9a-f]{64}$')
+MAX_JSON_BYTES = 2 * 1024 * 1024
+MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
+MAX_MANIFEST_BYTES = 4 * 1024 * 1024
+OCI_ACCEPT = ', '.join((
+    'application/vnd.oci.image.index.v1+json',
+    'application/vnd.oci.image.manifest.v1+json',
+    'application/vnd.docker.distribution.manifest.list.v2+json',
+    'application/vnd.docker.distribution.manifest.v2+json',
+))
+HttpGet = Callable[
+    [str, Mapping[str, str], int],
+    tuple[int, bytes, Mapping[str, str], str],
+]
+
+
+def _http_get(
+    url: str,
+    headers: Mapping[str, str],
+    limit: int,
+) -> tuple[int, bytes, Mapping[str, str], str]:
+    """Perform one size-bounded GET without persisting its response body."""
+    request = urllib.request.Request(
+        url,
+        headers=dict(headers),
+        method='GET',
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            status = response.status
+            payload = response.read(limit + 1)
+            response_headers = dict(response.headers.items())
+            final_url = response.geturl()
+    except urllib.error.HTTPError as exc:
+        status = exc.code
+        payload = exc.read(limit + 1)
+        response_headers = dict(exc.headers.items())
+        final_url = exc.geturl()
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise ScorecardError(f'public identity GET failed: {exc}') from exc
+    if len(payload) > limit:
+        raise ScorecardError('public identity GET exceeded its byte limit')
+    return status, payload, response_headers, final_url
+
+
+def _json_document(payload: bytes, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ScorecardError(f'{label} returned invalid JSON: {exc}') from exc
+    if not isinstance(value, dict):
+        raise ScorecardError(f'{label} JSON root is not an object')
+    return value
+
+
+def _github_json(
+    repository: str,
+    path: str,
+    http_get: HttpGet,
+) -> dict[str, Any]:
+    url = f'https://api.github.com/repos/{repository}/{path}'
+    headers = {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'lidarslam-usability-pair-public-preflight/1',
+        'X-GitHub-Api-Version': '2022-11-28',
+    }
+    token = os.environ.get('GITHUB_TOKEN')
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+    status, payload, _, final_url = http_get(
+        url,
+        headers,
+        MAX_JSON_BYTES,
+    )
+    if status != 200 or final_url != url:
+        raise ScorecardError(
+            f'GitHub identity is not readable at its canonical URL: '
+            f'HTTP {status}'
+        )
+    return _json_document(payload, 'GitHub identity')
+
+
+def _resolve_github_revision(
+    product_id: str,
+    version: str,
+    kind: str,
+    revision: str,
+    http_get: HttpGet,
+) -> tuple[str, str]:
+    repository = GITHUB_REPOSITORIES[product_id]
+    source = f'github.com/{repository}'
+    if kind == 'git-commit':
+        if SHA_PATTERN.fullmatch(revision) is None:
+            raise ScorecardError('git-commit revision must be a full SHA')
+        commit = _github_json(
+            repository,
+            f'commits/{revision}',
+            http_get,
+        )
+        if commit.get('sha') != revision:
+            raise ScorecardError('GitHub commit response changed identity')
+        return source, revision
+    if kind != 'release-tag':
+        raise ScorecardError(f'unsupported GitHub revision kind: {kind}')
+    if revision.removeprefix('v') != version.removeprefix('v'):
+        raise ScorecardError(
+            'release-tag revision differs from product version'
+        )
+    encoded = urllib.parse.quote(revision, safe='')
+    tag_ref = _github_json(
+        repository,
+        f'git/ref/tags/{encoded}',
+        http_get,
+    )
+    if tag_ref.get('ref') != f'refs/tags/{revision}':
+        raise ScorecardError('GitHub tag response changed identity')
+    target = tag_ref.get('object')
+    for _ in range(3):
+        if not isinstance(target, dict):
+            raise ScorecardError('GitHub tag target is not an object')
+        target_type = target.get('type')
+        target_sha = target.get('sha')
+        if not isinstance(target_sha, str):
+            raise ScorecardError('GitHub tag target has no SHA')
+        if target_type == 'commit':
+            if SHA_PATTERN.fullmatch(target_sha) is None:
+                raise ScorecardError('GitHub tag commit is not a full SHA')
+            return source, target_sha
+        if target_type != 'tag' or SHA_PATTERN.fullmatch(target_sha) is None:
+            raise ScorecardError('GitHub tag target type is unsupported')
+        tag = _github_json(
+            repository,
+            f'git/tags/{target_sha}',
+            http_get,
+        )
+        target = tag.get('object')
+    raise ScorecardError('GitHub annotated tag exceeds dereference limit')
+
+
+def _header(
+    headers: Mapping[str, str],
+    name: str,
+) -> str | None:
+    expected = name.lower()
+    return next(
+        (value for key, value in headers.items() if key.lower() == expected),
+        None,
+    )
+
+
+def _resolve_registry_digest(
+    product_id: str,
+    digest: str,
+    http_get: HttpGet,
+) -> tuple[str, str]:
+    if DIGEST_PATTERN.fullmatch(digest) is None:
+        raise ScorecardError('image-digest revision is invalid')
+    registry = REGISTRIES[product_id]
+    status, payload, _, final_token_url = http_get(
+        registry['token_url'],
+        {'User-Agent': 'lidarslam-usability-pair-public-preflight/1'},
+        MAX_JSON_BYTES,
+    )
+    if status != 200 or final_token_url != registry['token_url']:
+        raise ScorecardError(
+            f'public registry token is not readable at its canonical URL: '
+            f'HTTP {status}'
+        )
+    token = _json_document(payload, 'registry token').get('token')
+    if not isinstance(token, str) or not token:
+        raise ScorecardError('public registry token response has no token')
+    manifest_url = registry['manifest_root'] + digest
+    status, _, headers, final_url = http_get(
+        manifest_url,
+        {
+            'Accept': OCI_ACCEPT,
+            'Authorization': f'Bearer {token}',
+            'User-Agent': 'lidarslam-usability-pair-public-preflight/1',
+        },
+        MAX_MANIFEST_BYTES,
+    )
+    observed_digest = _header(headers, 'Docker-Content-Digest')
+    if (
+        status != 200
+        or final_url != manifest_url
+        or observed_digest != digest
+    ):
+        raise ScorecardError(
+            'public registry manifest does not resolve to the exact digest'
+        )
+    return registry['source'], digest
+
+
+def _validate_documentation_boundary(
+    product_id: str,
+    url: str,
+    *,
+    redirect: bool = False,
+) -> None:
+    label = 'documentation redirect' if redirect else 'documentation URL'
+    try:
+        parsed = urllib.parse.urlparse(url)
+        parsed_port = parsed.port
+    except ValueError as exc:
+        raise ScorecardError(f'{product_id} {label} is malformed') from exc
+    if (
+        parsed.scheme != 'https'
+        or parsed.hostname not in ALLOWED_DOCUMENTATION_HOSTS[product_id]
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed_port is not None
+        or parsed.fragment
+    ):
+        raise ScorecardError(
+            f'{product_id} {label} is outside its public boundary'
+        )
+
+
+def _verify_documentation(
+    product_id: str,
+    url: str,
+    http_get: HttpGet,
+) -> tuple[int, str]:
+    _validate_documentation_boundary(product_id, url)
+    status, _, _, final_url = http_get(
+        url,
+        {
+            'Accept': 'text/html,application/xhtml+xml',
+            'User-Agent': 'lidarslam-usability-pair-public-preflight/1',
+        },
+        MAX_DOCUMENT_BYTES,
+    )
+    if status != 200:
+        raise ScorecardError(
+            f'{product_id} documentation is not publicly readable'
+        )
+    _validate_documentation_boundary(product_id, final_url, redirect=True)
+    return status, final_url
+
+
+def _validate_public_inputs(records: Sequence[dict[str, Any]]) -> None:
+    """Reject all local identity errors before performing the first GET."""
+    expected_products = ['lidarslam_ros2', 'glim']
+    products = [record['product']['id'] for record in records]
+    if products != expected_products:
+        raise ScorecardError('public identity product order changed')
+    for record in records:
+        product = record['product']
+        product_id = product['id']
+        kind = product['revision']['kind']
+        revision = product['revision']['value']
+        if kind == 'git-commit' and SHA_PATTERN.fullmatch(revision) is None:
+            raise ScorecardError('git-commit revision must be a full SHA')
+        if kind == 'release-tag' and (
+            revision.removeprefix('v')
+            != product['version'].removeprefix('v')
+        ):
+            raise ScorecardError(
+                'release-tag revision differs from product version'
+            )
+        if (
+            kind == 'image-digest'
+            and DIGEST_PATTERN.fullmatch(revision) is None
+        ):
+            raise ScorecardError('image-digest revision is invalid')
+        _validate_documentation_boundary(
+            product_id,
+            product['documentation_root_url'],
+        )
+
+
+def verify_public_pair(
+    records: Sequence[dict[str, Any]],
+    *,
+    http_get: HttpGet = _http_get,
+) -> dict[str, Any]:
+    """Verify both canonical product identities and docs through GETs."""
+    _validate_public_inputs(records)
+    results = []
+    for record in records:
+        product = record['product']
+        product_id = product['id']
+        kind = product['revision']['kind']
+        revision = product['revision']['value']
+        if kind == 'image-digest':
+            source, resolved = _resolve_registry_digest(
+                product_id,
+                revision,
+                http_get,
+            )
+        else:
+            source, resolved = _resolve_github_revision(
+                product_id,
+                product['version'],
+                kind,
+                revision,
+                http_get,
+            )
+        docs_status, final_url = _verify_documentation(
+            product_id,
+            product['documentation_root_url'],
+            http_get,
+        )
+        results.append({
+            'product_id': product_id,
+            'identity_source': source,
+            'revision_kind': kind,
+            'requested_revision': revision,
+            'resolved_revision': resolved,
+            'documentation_url': product['documentation_root_url'],
+            'documentation_http_status': docs_status,
+            'documentation_final_url': final_url,
+        })
+    return {
+        'performed': True,
+        'status': 'PASS',
+        'network_reads_performed': True,
+        'results': results,
+    }
 
 
 def _now() -> str:
@@ -102,7 +472,7 @@ def _add_product_arguments(
     parser.add_argument(
         f'--{prefix}-publicly-resolvable',
         action='store_true',
-        help=f'mark the {title} identity public after checking it',
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         f'--{prefix}-machine-fingerprint-sha256',
@@ -159,6 +529,14 @@ def _parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument('--output-dir', type=Path, required=True)
+    parser.add_argument(
+        '--verify-public',
+        action='store_true',
+        help=(
+            'GET-check both canonical identities and documentation URLs '
+            'before writing either worksheet'
+        ),
+    )
     return parser
 
 
@@ -179,6 +557,7 @@ def _product_args(
     product: str,
     product_order: str,
     captured_at: str,
+    publicly_resolvable: bool,
 ) -> argparse.Namespace:
     """Translate pair options into the single-worksheet builder contract."""
     return argparse.Namespace(
@@ -192,8 +571,7 @@ def _product_args(
         revision_kind=getattr(args, f'{prefix}_revision_kind'),
         revision=getattr(args, f'{prefix}_revision'),
         documentation_url=getattr(args, f'{prefix}_documentation_url'),
-        publicly_resolvable=getattr(
-            args, f'{prefix}_publicly_resolvable'),
+        publicly_resolvable=publicly_resolvable,
         operator_class=args.operator_class,
         cohort_id=args.cohort_id,
         not_first_attempt=args.not_first_attempt,
@@ -247,7 +625,7 @@ def _write_pair(
     output_dir: Path,
     records: Sequence[dict],
 ) -> list[Path]:
-    """Write both records exclusively after preflighting both destinations."""
+    """Stage and exclusively publish both records, rolling back on failure."""
     output_dir.mkdir(parents=True, exist_ok=True)
     paths = [output_dir / f"{record['trial_id']}.json" for record in records]
     existing = [path for path in paths if path.exists() or path.is_symlink()]
@@ -258,29 +636,228 @@ def _write_pair(
         )
     payloads = [json.dumps(record, indent=2, sort_keys=True) + '\n'
                 for record in records]
-    for path, payload in zip(paths, payloads):
-        with path.open('x', encoding='utf-8') as stream:
-            stream.write(payload)
+    created: list[Path] = []
+    try:
+        with tempfile.TemporaryDirectory(
+            prefix='.usability-pair-',
+            dir=output_dir,
+        ) as temporary:
+            staged_paths = []
+            for index, payload in enumerate(payloads):
+                staged = Path(temporary) / f'{index}.json'
+                with staged.open('x', encoding='utf-8') as stream:
+                    stream.write(payload)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                staged_paths.append(staged)
+            for staged, path in zip(staged_paths, paths):
+                os.link(staged, path)
+                created.append(path)
+    except (OSError, TypeError) as exc:
+        for path in reversed(created):
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as rollback_exc:
+                raise ScorecardError(
+                    'cannot roll back partially published worksheet pair: '
+                    f'{rollback_exc}'
+                ) from exc
+        raise ScorecardError(
+            f'cannot publish worksheet pair atomically: {exc}'
+        ) from exc
     return paths
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def _not_run_public_check() -> dict[str, Any]:
+    return {
+        'performed': False,
+        'status': 'NOT_RUN',
+        'network_reads_performed': False,
+        'results': [],
+    }
+
+
+def _load_preparation_schema() -> dict[str, Any]:
+    try:
+        schema = json.loads(PREPARATION_SCHEMA.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ScorecardError(
+            f'cannot read pair preparation schema: {exc}'
+        ) from exc
+    if not isinstance(schema, dict):
+        raise ScorecardError('pair preparation schema is not an object')
+    return schema
+
+
+def _validate_manifest(
+    manifest: dict[str, Any],
+    records: Sequence[dict[str, Any]],
+) -> None:
+    schema = _load_preparation_schema()
+    try:
+        jsonschema.Draft7Validator.check_schema(schema)
+    except jsonschema.SchemaError as exc:
+        raise ScorecardError(
+            f'pair preparation schema is invalid: {exc.message}'
+        ) from exc
+    validator = jsonschema.Draft7Validator(schema)
+    errors = sorted(
+        validator.iter_errors(manifest),
+        key=lambda item: [str(part) for part in item.absolute_path],
+    )
+    if errors:
+        first = errors[0]
+        path = '.'.join(str(part) for part in first.absolute_path)
+        raise ScorecardError(
+            f'pair preparation manifest failed at {path or "<root>"}: '
+            f'{first.message}'
+        )
+    if manifest['schema_uri'] != PREPARATION_SCHEMA_URI:
+        raise ScorecardError('pair preparation schema URI is unsupported')
+    products = [record['product']['id'] for record in records]
+    if products != ['lidarslam_ros2', 'glim']:
+        raise ScorecardError('pair preparation product order changed')
+    check = manifest['public_identity_check']
+    expected_public = check['status'] == 'PASS'
+    if any(
+        record['product']['publicly_resolvable'] is not expected_public
+        for record in records
+    ):
+        raise ScorecardError(
+            'worksheet public identity status differs from its GET check'
+        )
+    result_products = [
+        result['product_id'] for result in check['results']
+    ]
+    if result_products not in ([], products):
+        raise ScorecardError(
+            'public identity results are incomplete or reordered'
+        )
+    if expected_public:
+        for record, result in zip(records, check['results']):
+            product = record['product']
+            kind = product['revision']['kind']
+            requested = product['revision']['value']
+            expected_source = (
+                REGISTRIES[product['id']]['source']
+                if kind == 'image-digest'
+                else 'github.com/' + GITHUB_REPOSITORIES[product['id']]
+            )
+            expected_fields = {
+                'product_id': product['id'],
+                'identity_source': expected_source,
+                'revision_kind': kind,
+                'requested_revision': requested,
+                'documentation_url': product['documentation_root_url'],
+            }
+            if any(
+                result.get(name) != value
+                for name, value in expected_fields.items()
+            ):
+                raise ScorecardError(
+                    'public identity result differs from its worksheet'
+                )
+            resolved = result['resolved_revision']
+            if kind in ('git-commit', 'image-digest'):
+                if resolved != requested:
+                    raise ScorecardError(
+                        'public identity resolved revision changed'
+                    )
+            elif SHA_PATTERN.fullmatch(resolved) is None:
+                raise ScorecardError(
+                    'public release tag did not resolve to a full commit SHA'
+                )
+            _validate_documentation_boundary(
+                product['id'],
+                result['documentation_final_url'],
+                redirect=True,
+            )
+    kinds = [record['product']['revision']['kind'] for record in records]
+    network_mode = 'GET_ONLY' if expected_public else 'NONE'
+    expected_registry = (
+        'GET_ONLY' if expected_public and 'image-digest' in kinds else 'NONE'
+    )
+    expected_github = (
+        'GET_ONLY'
+        if expected_public and any(kind != 'image-digest' for kind in kinds)
+        else 'NONE'
+    )
+    authority = manifest['authority']
+    if authority != {
+        'github_requests': expected_github,
+        'registry_requests': expected_registry,
+        'documentation_requests': network_mode,
+        'github_writes_authorized': False,
+        'local_worksheets_written': True,
+        'remote_mutations_performed': False,
+    }:
+        raise ScorecardError('pair preparation authority is inconsistent')
+
+
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    public_verifier: Callable[
+        [Sequence[dict[str, Any]]],
+        dict[str, Any],
+    ] | None = None,
+) -> int:
     """Prepare one incomplete worksheet per product without overwriting."""
     args = _parser().parse_args(argv)
     try:
+        if (
+            args.lidarslam_publicly_resolvable
+            or args.glim_publicly_resolvable
+        ):
+            raise ScorecardError(
+                'manual publicly-resolvable flags are not accepted by the '
+                'paired workflow; use --verify-public'
+            )
         captured_at = args.captured_at or _now()
         lidarslam_order = args.lidarslam_order
         glim_order = 'second' if lidarslam_order == 'first' else 'first'
         lidarslam = build_template(_product_args(
-            args, 'lidarslam', 'lidarslam_ros2', lidarslam_order, captured_at))
+            args,
+            'lidarslam',
+            'lidarslam_ros2',
+            lidarslam_order,
+            captured_at,
+            False,
+        ))
         glim = build_template(_product_args(
-            args, 'glim', 'glim', glim_order, captured_at))
+            args,
+            'glim',
+            'glim',
+            glim_order,
+            captured_at,
+            False,
+        ))
         _validate_pair(lidarslam, glim)
-        paths = _write_pair(args.output_dir, (lidarslam, glim))
+        records = (lidarslam, glim)
+        public_check = _not_run_public_check()
+        if args.verify_public:
+            verifier = public_verifier or verify_public_pair
+            public_check = verifier(records)
+            if public_check.get('status') != 'PASS':
+                raise ScorecardError(
+                    'public identity verification did not pass'
+                )
+            for record in records:
+                record['product']['publicly_resolvable'] = True
+                validate_trial(record)
+            _validate_pair(lidarslam, glim)
+        paths = [
+            args.output_dir / f"{record['trial_id']}.json"
+            for record in records
+        ]
         manifest = {
+            'schema_version': 1,
+            'schema_uri': PREPARATION_SCHEMA_URI,
             'status': 'PREPARED_INCOMPLETE',
             'comparison_pair_id': args.comparison_pair_id,
-            'remote_mutations_performed': False,
+            'public_identity_check': public_check,
             'files': [
                 {
                     'filename': path.name,
@@ -290,7 +867,37 @@ def main(argv: Sequence[str] | None = None) -> int:
                 }
                 for path, record in zip(paths, (lidarslam, glim))
             ],
+            'authority': {
+                'github_requests': (
+                    'GET_ONLY'
+                    if args.verify_public and any(
+                        record['product']['revision']['kind'] != 'image-digest'
+                        for record in records
+                    )
+                    else 'NONE'
+                ),
+                'registry_requests': (
+                    'GET_ONLY'
+                    if args.verify_public and any(
+                        record['product']['revision']['kind'] == 'image-digest'
+                        for record in records
+                    )
+                    else 'NONE'
+                ),
+                'documentation_requests': (
+                    'GET_ONLY' if args.verify_public else 'NONE'
+                ),
+                'github_writes_authorized': False,
+                'local_worksheets_written': True,
+                'remote_mutations_performed': False,
+            },
         }
+        _validate_manifest(manifest, records)
+        written_paths = _write_pair(args.output_dir, records)
+        if written_paths != paths:
+            raise ScorecardError(
+                'written worksheet paths changed after review'
+            )
         sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
         print(
             'Worksheets are incomplete; do not add them to the reviewed '

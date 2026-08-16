@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-17T07:26:12+09:00",
+  "generated_at": "2026-08-17T07:40:19+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 329,
-    "expected_paths_sha256": "145da46ca9158a4b2ff61d20fc1b8f481774ac1d0be072af1be4d1b72315b91e",
+    "expected_path_count": 330,
+    "expected_paths_sha256": "807c2bec5fce302c92f500e80041eff6b47d921e090ade8e91930568472f6877",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -287,7 +287,7 @@
       "id": "S6-product-shell-integration",
       "order": 6,
       "title": "Beginner-facing product shell, installed surface, docs, and support entrypoints",
-      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, path-private doctor with copy-ready low-storage recovery, issue-driven other-PointCloud2 doctor-to-start handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, installed runtime surface, copy-ready and deployment-provenance-bound documentation, dependency-gated and schema-valid contributor next actions, source- and evidence-hashed issue-triage review packets whose live #69 response fails closed on exact public Draft/CI and stable-release drift and have no write mode, schema-valid first-map handoff JSON, neutral GLIM usability scorecard, and an atomic prepare-then-run observer path that derives exact published or candidate identities and never invents a tag or a human measurement.",
+      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, path-private doctor with copy-ready low-storage recovery, issue-driven other-PointCloud2 doctor-to-start handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, installed runtime surface, copy-ready and deployment-provenance-bound documentation, dependency-gated and schema-valid contributor next actions, source- and evidence-hashed issue-triage review packets whose live #69 response fails closed on exact public Draft/CI and stable-release drift and have no write mode, schema-valid first-map handoff JSON, neutral GLIM usability scorecard with a schema-bound GET-only public pair preflight and all-or-neither worksheet publication, and an atomic prepare-then-run observer path that derives exact published or candidate identities and never invents a tag or a human measurement.",
       "depends_on": [
         "S1-runtime-safety",
         "S2-first-map-foundation",
@@ -370,6 +370,7 @@
         "docs/schemas/social-demo-media-v1.schema.json",
         "docs/schemas/system-doctor-v1.schema.json",
         "docs/schemas/usability-scorecard-evidence-index-v1.schema.json",
+        "docs/schemas/usability-scorecard-pair-preparation-v1.schema.json",
         "docs/schemas/usability-scorecard-trial-v1.schema.json",
         "docs/social/autoware_map_authoring_post_v0.9.1.md",
         "docs/usability-scorecard.md",
@@ -438,7 +439,7 @@
       ],
       "verification": [
         "source \"/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash\" && python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_docs_entrypoints.py graph_based_slam/test/test_lidarslam_product_cli.py",
-        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_check_onboarding_trial_matrix.py lidarslam/test/test_check_usability_scorecard.py lidarslam/test/test_cli_interactive_home.py lidarslam/test/test_cli_option_contract.py lidarslam/test/test_collect_growth_snapshot.py lidarslam/test/test_contributor_starter_queue.py lidarslam/test/test_glim_reference_cache.py lidarslam/test/test_lidarslam_doctor.py lidarslam/test/test_lidarslam_guided.py lidarslam/test/test_prepare_candidate_trial.py lidarslam/test/test_prepare_issue_triage_application.py lidarslam/test/test_prepare_onboarding_matrix_packet.py lidarslam/test/test_record_usability_scorecard_pair.py lidarslam/test/test_published_onboarding_identity.py",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_check_onboarding_trial_matrix.py lidarslam/test/test_check_usability_scorecard.py lidarslam/test/test_cli_interactive_home.py lidarslam/test/test_cli_option_contract.py lidarslam/test/test_collect_growth_snapshot.py lidarslam/test/test_contributor_starter_queue.py lidarslam/test/test_glim_reference_cache.py lidarslam/test/test_lidarslam_doctor.py lidarslam/test/test_lidarslam_guided.py lidarslam/test/test_prepare_candidate_trial.py lidarslam/test/test_prepare_issue_triage_application.py lidarslam/test/test_prepare_onboarding_matrix_packet.py lidarslam/test/test_prepare_usability_scorecard_pair.py lidarslam/test/test_record_usability_scorecard_pair.py lidarslam/test/test_published_onboarding_identity.py",
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_check_g0_readiness.py",
         "python3 scripts/check_onboarding_trial_matrix.py --json",
         "python3 scripts/check_g0_readiness.py --json",

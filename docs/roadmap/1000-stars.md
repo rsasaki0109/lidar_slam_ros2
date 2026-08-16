@@ -171,7 +171,13 @@ GLIM trial. The paired recorder now removes the remaining JSON-editing step:
 one command follows product order, derives command totals and outcomes from
 direct observations, preserves blanks as `not-recorded`, validates both
 records, and atomically publishes neither or both. It does not create the
-still-missing external observation. The
+still-missing external observation. Pair preparation now also replaces its two
+manual public-identity Booleans with one optional GET-only preflight. Both
+products' fixed canonical GitHub commit/tag or registry digest and approved
+documentation host must resolve before either worksheet can be written; any
+identity, redirect, or second-file publication failure leaves no half pair.
+Offline preparation remains explicitly `NOT_RUN` and non-public. This proves
+only public input identity, not a completed task or comparative result. The
 [2026-08-12 local contract evidence](../evidence/growth/glim-usability-scorecard-contract-2026-08-12.md)
 records the enforced protocol and the still-missing public trials.
 
@@ -859,7 +865,9 @@ GLIM-parity work is measurement, not another overlapping doctor surface. The
 next action is a neutral paired scorecard on exact public identities, using the
 six fixed tasks and an external first-attempt operator after the product
 release/image gate opens. Until then, local feature checks must not be written
-as a comparative usability claim.
+as a comparative usability claim. The pair command can now GET-verify those
+exact identities and documentation atomically before handoff, so the external
+operator no longer has to make a manual public-resolvability assertion.
 
 The existing GLIM comparison harness now also fails closed on reference-cache
 reuse. Its key binds bag/config/runtime/options and both cache implementations,

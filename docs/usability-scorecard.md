@@ -140,6 +140,7 @@ python3 scripts/prepare_usability_scorecard_pair.py \
   --architecture x86_64 \
   --hardware-class eight-core-32gib-x86_64 \
   --machine-fingerprint-sha256 <64-lowercase-hex-fingerprint> \
+  --verify-public \
   --output-dir /tmp/usability-pair-operator-a
 ```
 
@@ -147,12 +148,28 @@ The common fingerprint is convenient for a clean sequential pair. When the
 products use separate hosts, replace it with
 `--lidarslam-machine-fingerprint-sha256` and
 `--glim-machine-fingerprint-sha256`. Use
-`--lidarslam-order second` for the opposite order. Product-publicity flags
-(`--lidarslam-publicly-resolvable` and `--glim-publicly-resolvable`) and
-`--clean-start` remain opt-in claims. The pair command refuses to overwrite
-either existing worksheet and emits a local-only, `PREPARED_INCOMPLETE`
-manifest; it does not add records to the reviewed index or perform a remote
-mutation.
+`--lidarslam-order second` for the opposite order. `--verify-public` performs
+only bounded HTTP GETs and requires both identities and both documentation
+URLs to pass before either worksheet is written. Git commits and tags resolve
+through the fixed canonical GitHub repositories; annotated tags are
+dereferenced to a commit with a bounded depth. Image digests resolve through
+the fixed GHCR or Docker Hub repository and must match the registry's exact
+`Docker-Content-Digest`. Documentation must remain on the product's approved
+GitHub or project Pages hosts after redirects. The paired workflow rejects the
+manual `--lidarslam-publicly-resolvable` and
+`--glim-publicly-resolvable` flags.
+
+Without `--verify-public`, offline preparation remains available, but both
+worksheets retain `publicly_resolvable: false` and the check status is
+`NOT_RUN`. With it, a network, identity, digest, status, or redirect failure
+writes neither worksheet. The pair is staged before exclusive publication;
+if the second destination races or fails, the first is rolled back. The
+emitted local-only, `PREPARED_INCOMPLETE` manifest validates against
+[`usability-scorecard-pair-preparation-v1.schema.json`](schemas/usability-scorecard-pair-preparation-v1.schema.json).
+It records GET-only authority and no GitHub writes or remote mutation. It does
+not add records to the reviewed index, fabricate an observation, or infer a
+winner. `--clean-start` remains a separate operator claim about the trial
+host.
 
 Record the observed pair without hand-editing either worksheet:
 

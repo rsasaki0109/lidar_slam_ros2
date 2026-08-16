@@ -30,8 +30,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -53,21 +53,52 @@ RECORD = _load('record_usability_scorecard_pair')
 CHECK = sys.modules['check_usability_scorecard']
 
 
+def _public_check(records):
+    """Return a schema-valid deterministic result for recorder unit tests."""
+    results = []
+    for record in records:
+        product = record['product']
+        requested = product['revision']['value']
+        results.append({
+            'product_id': product['id'],
+            'identity_source': (
+                'github.com/rsasaki0109/lidar_slam_ros2'
+                if product['id'] == 'lidarslam_ros2'
+                else 'github.com/koide3/glim'
+            ),
+            'revision_kind': product['revision']['kind'],
+            'requested_revision': requested,
+            'resolved_revision': (
+                requested
+                if product['revision']['kind'] == 'git-commit'
+                else 'c' * 40
+            ),
+            'documentation_url': product['documentation_root_url'],
+            'documentation_http_status': 200,
+            'documentation_final_url': product['documentation_root_url'],
+        })
+    return {
+        'performed': True,
+        'status': 'PASS',
+        'network_reads_performed': True,
+        'results': results,
+    }
+
+
 def _prepare(output_dir: Path) -> list[Path]:
     args = [
         '--lidarslam-version', '0.9.1',
         '--lidarslam-revision-kind', 'git-commit',
         '--lidarslam-revision', 'a' * 40,
         '--lidarslam-documentation-url',
-        'https://example.test/lidarslam',
+        'https://github.com/rsasaki0109/lidar_slam_ros2/tree/'
+        + 'a' * 40 + '/docs',
         '--lidarslam-trial-id', 'lidarslam-observed-pair-a',
-        '--lidarslam-publicly-resolvable',
         '--glim-version', '1.0.0',
         '--glim-revision-kind', 'release-tag',
         '--glim-revision', 'v1.0.0',
-        '--glim-documentation-url', 'https://example.test/glim',
+        '--glim-documentation-url', 'https://koide3.github.io/glim/',
         '--glim-trial-id', 'glim-observed-pair-a',
-        '--glim-publicly-resolvable',
         '--cohort-id', 'external-paired-operator-a',
         '--comparison-pair-id', 'paired-jazzy-machine-class-a',
         '--input-id', 'fixed-demo-v1',
@@ -77,9 +108,10 @@ def _prepare(output_dir: Path) -> list[Path]:
         '--architecture', 'x86_64',
         '--hardware-class', 'eight-core-32gib-x86_64',
         '--machine-fingerprint-sha256', 'b' * 64,
+        '--verify-public',
         '--output-dir', str(output_dir),
     ]
-    assert PREPARE.main(args) == 0
+    assert PREPARE.main(args, public_verifier=_public_check) == 0
     return sorted(output_dir.glob('*.json'))
 
 
