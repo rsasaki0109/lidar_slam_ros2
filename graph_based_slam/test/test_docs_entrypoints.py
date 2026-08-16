@@ -734,8 +734,8 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
     )
     if candidate_banner in release_notes:
         assert '## Release decision: HOLD' in release_notes
-        assert '2,469 passed / 13 skipped' in release_notes
-        assert '6950764154dfe0a2159f701d8d01cd55ce5907af' in (
+        assert '2,474 passed / 13 skipped' in release_notes
+        assert '9f8a2058a3c702f69d159079568ced8433ee3377' in (
             release_notes
         )
     else:
@@ -1870,6 +1870,19 @@ def test_map_quality_symptoms_keep_one_bounded_inspection_contract():
     getting_started = GETTING_STARTED.read_text(encoding='utf-8')
     japanese = GETTING_STARTED_JA.read_text(encoding='utf-8')
     product_contract = PRODUCT_CONTRACT_DOC.read_text(encoding='utf-8')
+    roadmap = (
+        REPO_ROOT / 'docs' / 'roadmap' / '1000-stars.md'
+    ).read_text(encoding='utf-8')
+    current_packet = (
+        REPO_ROOT
+        / 'docs'
+        / 'evidence'
+        / 'growth'
+        / 'g0-current-action-packet-2026-08-14.md'
+    ).read_text(encoding='utf-8')
+    release = (
+        REPO_ROOT / 'docs' / 'releases' / 'v0.9.1.md'
+    ).read_text(encoding='utf-8')
     cli_contract = json.loads(
         (REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json').read_text(
             encoding='utf-8'
@@ -1908,6 +1921,15 @@ def test_map_quality_symptoms_keep_one_bounded_inspection_contract():
     assert 'does not automatically identify a root cause' in getting_started
     assert '原因の自動判定' in japanese
     assert 'never edits parameters or starts mapping' in product_contract
+    for evidence in (roadmap, current_packet):
+        assert 'ee453532a70d2d4b82a6c50c65f19b22d76c239f' in evidence
+        assert '9f8a2058a3c702f69d159079568ced8433ee3377' in evidence
+        assert '2,474' in evidence
+    for evidence in (current_packet, release):
+        assert (
+            '51c025064de769d1f0c362f51718c52a0beed8492f0881c0e02403b33498e997'
+            in evidence
+        )
 
 
 def test_japanese_quickstart_keeps_the_canonical_beginner_contract():

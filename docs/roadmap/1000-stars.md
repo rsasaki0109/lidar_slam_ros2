@@ -761,6 +761,30 @@ claim. The complete maintained Python gate passes 2,469 tests with 13 known
 skips, strict MkDocs and changed-file Jazzy `ament_flake8` pass, and the
 implementation-carrier candidate bundle remains 261 files.
 
+A second read-only 2026-08-16 issue review found a recurring burden after a run
+does finish: users describe maps that rotate, spiral, oscillate, drift, stop
+early, look sparse, or fail to appear in
+[#89](https://github.com/rsasaki0109/lidar_slam_ros2/issues/89),
+[#92](https://github.com/rsasaki0109/lidar_slam_ros2/issues/92),
+[#93](https://github.com/rsasaki0109/lidar_slam_ros2/issues/93),
+[#94](https://github.com/rsasaki0109/lidar_slam_ros2/issues/94),
+[#96](https://github.com/rsasaki0109/lidar_slam_ros2/issues/96),
+[#100](https://github.com/rsasaki0109/lidar_slam_ros2/issues/100),
+[#101](https://github.com/rsasaki0109/lidar_slam_ros2/issues/101),
+[#104](https://github.com/rsasaki0109/lidar_slam_ros2/issues/104),
+[#105](https://github.com/rsasaki0109/lidar_slam_ros2/issues/105), and
+[#124](https://github.com/rsasaki0109/lidar_slam_ros2/issues/124). Exact
+implementation `ee453532a70d2d4b82a6c50c65f19b22d76c239f` extends the existing
+retained-run `inspect` command with five bounded, user-reported symptom codes.
+It orders sensor, timestamp, calibration, TF, runtime, map-save, and viewer
+checks and returns shell-safe product commands without editing parameters,
+starting mapping, uploading evidence, or claiming an automatic root cause or
+accuracy result. Exact validation carrier
+`9f8a2058a3c702f69d159079568ced8433ee3377` passes 2,474 maintained Python
+tests with 13 known skips, strict MkDocs, changed-file Jazzy `ament_flake8`,
+and a byte-reproducible 261-file candidate bundle. This closes one local
+support-navigation gap; it does not prove that any reported map was repaired.
+
 The next activation repair closes the largest locally reproduced fixed-demo
 rejection gap: low storage no longer leaves the operator to calculate a
 shortage, replace `<dir>`, or reconstruct prior options. Both system doctor and

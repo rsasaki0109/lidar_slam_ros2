@@ -14,7 +14,7 @@
 > `c8cef196cc20780c0551e1797490442d6ebe55aea7f8fc6a928920ace73482b7`
 >
 > Capture-time exact public Draft head:
-> `0610727444412c6fac3587a4b965acebb1214d41`
+> `4cb2e680eb90f156249ef47181fab01b100d2049`
 >
 > Exact actionable release-evidence implementation tip:
 > `45cfdcb1c10756d1c33068fcd9594f612bf6ccca`
@@ -28,6 +28,12 @@
 > Exact copy-ready low-storage recovery implementation tip:
 > `d01652080485bc68354f354043e4b2e732439223`
 >
+> Exact bounded map-quality symptom triage implementation tip:
+> `ee453532a70d2d4b82a6c50c65f19b22d76c239f`
+>
+> Exact complete local validation carrier:
+> `9f8a2058a3c702f69d159079568ced8433ee3377`
+>
 > Exact fail-closed docs artifact implementation tip:
 > `5b8c8c477cceb4955184a64afa874712b9dea5aa`
 
@@ -37,16 +43,16 @@
 > Exact claim-bounded social-media generator tip:
 > `d0c84bb9bb7bef37d7e318000e3071a7f536d631`
 >
-> Last observed remote mutation: exact non-force push from `3e11f30` to
-> `0610727`; mutations performed by the checker or review-card command:
+> Last observed remote mutation: an exact non-force push advanced the Draft to
+> `4cb2e68`; mutations performed by the checker or review-card command:
 > **none**
 
 ## Outcome
 
 The local GLIM-convenience, release-evidence, dependency-gated contributor
-next-action, and copy-ready low-storage UX follow-up is split into seven
-dependency-ordered review focuses. Every tracked or untracked path relative
-to the exact PR base has exactly one primary review owner. A
+next-action, copy-ready low-storage, and bounded visual-symptom UX follow-up is
+split into seven dependency-ordered review focuses. Every tracked or untracked
+path relative to the exact PR base has exactly one primary review owner. A
 fail-closed checker rejects missing, stale, duplicated, unsafe, or
 digest-drifted paths and rejects a plan that claims GitHub write authority.
 
@@ -63,15 +69,15 @@ The GitHub repository and PR were inspected without mutation:
 
 - Draft PR `#427`, `Prepare crash-safe guided mapping for G0 review`, remains
   open, draft, and mergeable into `develop`;
-- the captured public PR head resolves to `0610727` and exposes 340 changed
-  files;
+- the captured public PR head resolves to `4cb2e68`;
 - ten GitHub Actions checks pass on that exact head and four publication jobs
   skip intentionally, including green Humble/Jazzy builds, default workflows,
   upgrade checks, documentation, and release-readiness guards; and
 - no PR conversation, inline review, or submitted review was present at the
   observation time.
 
-Passing checks on `0610727` validate the complete public Draft candidate,
+Passing checks on `4cb2e68` validate the public Draft candidate through the
+other-PointCloud2 self-service increment,
 including the published-onboarding identity, atomic paired recorder, evidence
 sync, ament import-order follow-up, actionable empty-release-evidence report,
 the GET-only contributor next-action card, dependency-gated #422 handling, and
@@ -142,7 +148,7 @@ cannot bypass live Git coverage.
 | exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 304 paths, 7 slices, no remote mutation |
 | claim-bounded social media | 11 focused regressions plus 25 public docs/release entrypoint regressions pass; the generated 10.666-second H.264 candidate, four-cue WebVTT, exact-revision Japanese/English copy, and byte manifest retain no external publication authority |
 | checker regressions | 14 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, and self-contained read-only source dry-run execution |
-| focused graph product/docs regressions | 25 passed in a Jazzy-sourced isolated package process |
+| focused graph product/docs regressions | 35 passed in a Jazzy-sourced isolated package process; an additional 15 diagnosis regressions cover all five user-reported map symptoms and missing-bag/root-cause boundaries |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
 | validator cohort contract and operating state | 33 passed; path-specific immutable runtime identity, byte-bound public documentation, anonymized attempt lifecycle, accepted-ledger evidence binding, four operational stop signals, 48-hour freshness, WIP, batch/target transitions, attempt-10 thresholds, and a one-action human status card are enforced through the CLI; recruitment render remains blocked; no write authority |
 | published starter dependency gate | 61 queue regressions pass; the schema-valid live card keeps #422 visible but ineligible under `WAITING_FOR_PUBLIC_GATES`, preserves unrelated starter eligibility, follows the stable issue number across a title edit, rejects arbitrary gate commands or write authority, and performs only GET-only GitHub reads |
@@ -154,8 +160,8 @@ cannot bypass live Git coverage.
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
 | public documentation deployment provenance | 9 focused regressions pass; strict MkDocs produces a deterministic, pre-write schema-valid manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
-| clean candidate release bundle | exact-head reproducibility rehearsal passes at public `ac22a3f`; the retained exact bundle contains 253 files with SHA-256 `49b429bf11008c0a7be071af0e1be2e1d8fbe4fc3a216f2804b8707a01508e88`; all three scorecard preparation/recording tools are manifest-bound |
-| complete maintained Python gate | public `3e11f30`: graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 1,009 passed; 2,451 total; strict MkDocs and exact Jazzy `ament_flake8` pass; exact-head Actions are 10 successful / 4 intentional skips / 0 failures; inherited registered CTest remains 93 / 93 plus graph CTest 232 / 232 |
+| clean candidate release bundle | exact-head reproducibility rehearsal passes at local validation carrier `9f8a205`; two byte-identical bundles each contain 261 files, total 11,927,637 bytes, and have SHA-256 `51c025064de769d1f0c362f51718c52a0beed8492f0881c0e02403b33498e997` |
+| complete maintained Python gate | local `9f8a205`: graph 1,452 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 1,022 passed; 2,474 total; strict MkDocs and changed-file Jazzy `ament_flake8` pass; latest public `4cb2e68` Actions remain 10 successful / 4 intentional skips / 0 failures; inherited registered CTest remains 93 / 93 plus graph CTest 232 / 232 |
 | paired scorecard recorder | 7 direct regressions, 20 recorder/checker regressions, and registered CTest 6 / 6 pass; incomplete observations remain non-comparable and atomic output/privacy boundaries fail closed |
 | empty release-evidence UX | 29 release-profile regressions cover direct and wrapper-level empty-root behavior; the exact-head gate retains Markdown/CSV/log evidence, reports five blocking rows plus their remediations, and exits 2 without weakening release authority |
 | GLIM reference-cache integrity | 10 focused regressions passed; registered CTest 1 / 1; missing lookup remains read-only; exact content, manifest, malformed-TUM, tamper, collision, shell, and bundle boundaries pass |

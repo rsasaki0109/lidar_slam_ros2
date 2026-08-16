@@ -9,7 +9,7 @@
 > Capture-time public Draft baseline: `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
 > Capture-time exact public Draft head and CI audit:
-> `0610727444412c6fac3587a4b965acebb1214d41`
+> `4cb2e680eb90f156249ef47181fab01b100d2049`
 >
 > Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
 >
@@ -79,8 +79,14 @@
 > Latest other-PointCloud2 self-service tip:
 > `6950764154dfe0a2159f701d8d01cd55ce5907af`
 >
+> Latest bounded map-quality symptom triage implementation tip:
+> `ee453532a70d2d4b82a6c50c65f19b22d76c239f`
+>
+> Latest complete local validation carrier:
+> `9f8a2058a3c702f69d159079568ced8433ee3377`
+>
 > Publication-inventory synchronization: this handoff captures public
-> `0610727444412c6fac3587a4b965acebb1214d41`, binds the local media generator
+> `4cb2e680eb90f156249ef47181fab01b100d2049`, binds the local media generator
 > at `d0c84bb9bb7bef37d7e318000e3071a7f536d631`, and adds no publication
 > authority.
 
@@ -145,6 +151,13 @@ timestamps, maintained-profile selection, and calibration review visible,
 while explicitly refusing to turn PointCloud2 detection into a vendor-support
 or accuracy claim. The update changes no profile, transform, parameter,
 mapping algorithm, or GitHub issue state.
+The map-quality symptom follow-up at `ee45353…` addresses the next recurring
+support burden without adding another doctor or tuning surface. A user can add
+one of five observed symptoms to the retained-run `inspect` command and receive
+ordered sensor/time/calibration/TF/runtime/save/viewer checks plus shell-safe
+product commands. Its evidence basis remains explicitly user-reported: it does
+not edit parameters, start mapping, upload a bundle, diagnose a root cause,
+claim sensor support, or claim accuracy. The original run remains preserved.
 The latest distribution slices also scope
 optional GitHub authentication to read-only API requests, make explicit or
 unknown NDT PR mergeability fail closed, restore exact-tip source-route
@@ -255,11 +268,12 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open, draft, and mergeable; capture-time public baseline `3ed632e…` remains the frozen review anchor; capture-time exact public head `0610727…` contains the receipt-bound onboarding, CI repairs, NDT response gate, and synchronized inventory | no merge, Pages deployment, cohort launch, or E2 authority is implied; no conversation, inline comment, or submitted review is present |
-| Exact public PR-head CI | capture-time public baseline remains **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures; exact public `0610727…` is also **PASS** with the same 10 / 4 / 0 result | Humble/Jazzy default workflows, Docker verification builds, upgrade checks, docs/metadata, candidate contract, and release-readiness guards all passed; publication jobs stayed skipped by design |
+| Draft PR #427 | open, draft, and mergeable; capture-time public baseline `3ed632e…` remains the frozen review anchor; latest observed exact public head `4cb2e68…` contains the receipt-bound onboarding, CI repairs, NDT response gate, synchronized inventory, and other-PointCloud2 self-service increment | no merge, Pages deployment, cohort launch, or E2 authority is implied; no conversation, inline comment, or submitted review is present |
+| Exact public PR-head CI | capture-time public baseline remains **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures; exact public `4cb2e68…` is also **PASS** with the same 10 / 4 / 0 result | Humble/Jazzy default workflows, Docker verification builds, upgrade checks, docs/metadata, candidate contract, and release-readiness guards all passed; publication jobs stayed skipped by design |
 | English support cards | docs entrypoint tests 25 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded; Docker convenience and candidate-digest authority boundaries are both regression-bound; every tracked shell entry point now also has a parse regression |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Other-PointCloud2 self-service | exact implementation `6950764…`; the TTY home, system doctor, README, canonical map-authoring page, Japanese quickstart, and candidate release notes all route another LiDAR bag through `doctor` then `start` without tracked launch/YAML edits; focused docs/home/doctor tests pass 45, S6 groups pass 34 + 199 + 47, and the complete gate passes 2,469 / 13 skipped | read-only evidence came from open issues #95, #98, #103, #106, #111, and #115; no issue was changed, no vendor preset was added, and detection remains distinct from hardware support or accuracy |
+| Retained-run visual symptom triage | exact implementation `ee45353…`, Bash-completion follow-up and validation carrier `9f8a205…`; `inspect --symptom` accepts five bounded user reports, emits ordered review checks and only shell-safe `doctor`/`inspect`/`view`/`support` commands, and preserves the run; 50 focused graph regressions, 21 CLI-contract regressions, 2 completion regressions, S6 groups 35 + 200 + 5, strict MkDocs, and the complete 2,474 / 13-skipped gate pass | read-only evidence came from recurring open issues #89, #92, #93, #94, #96, #100, #101, #104, #105, and #124; no issue was changed, and a reported symptom remains neither an automatic root-cause nor a sensor-support or accuracy claim |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 61 queue regressions and 5 / 5 focused strict-MkDocs profiles pass; current GET-only output finds 1 published `good first issue` (#422), 0 eligible starters, 1 blocked starter, 1 open PR, and 1 potential C5 match after PR #427 changed | the contributor waits instead of entering the closed cohort; the maintainer gets the cohort status command; C1–C4 remain retired and no issue, label, comment, PR, Pages deployment, or community post was changed |
 | Fixed-demo low-storage recovery | exact implementation `d016520…`; real local rejection reports exact `additional_bytes_required`, rounds 1.76 GiB upward for the human card, keeps system JSON path-free, and preserves the full shell-quoted demo retry; default floor remains 8 GiB | this removes one locally reproduced activation burden; it is not a public clean-host completion, paired GLIM observation, or authority to lower the storage gate |
 | Distribution preflights | source route `READY` at exact public `3ed632e…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one stale-base rosdep failure, and an unanswered review; Humble RKO-LIO 0.3.2 is in main/testing, Jazzy 0.3.2 is in testing while main remains 0.2.0; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve | canonical collision-free NDT convergence and a current-base green replacement precede package sync and clean-install E2E; do not merge the overlapping registrations or treat Jazzy main as ready |
@@ -270,9 +284,9 @@ gate from being mistaken for the current state.
 | Neutral GLIM usability recorder | exact implementation `0575fb6…`, evidence sync and public CI through `ac22a3f…`; 7 direct regressions, 20 recorder/checker regressions, registered CTest 6 / 6, strict docs/style, and a deterministic 253-file candidate bundle pass | the checked-in scorecard remains `NOT_READY` with 0 / 2 product records and 0 / 6 comparable tasks; safer recording is not external evidence, parity, or a winner claim |
 | Claim-bounded short demo media | generator implementation `d0c84bb…`; one contract now binds version, canonical commands, slide copy, and three source-image hashes; the generated 10.666-second H.264 candidate carries four-cue English WebVTT, exact-revision Japanese/English copy, and a schema-valid byte manifest; 11 focused and 25 docs/release entrypoint tests pass | the former release inventory's `v0.2.2` post, retired commands, and unbound numerical copy are removed from the active path; the replacement remains `PUBLICATION_CANDIDATE / NOT_PUBLISHED`, grants no posting or release authority, and is not user evidence |
 | Public documentation deployment provenance | pre-upload schema enforcement and 9 focused regressions **PASS** at `5b8c8c4…`; strict MkDocs emits a schema-valid source/version/route/page-byte manifest, both Pages jobs and the live environment branch policy are `develop`-only, and the clean candidate release bundle contains the generator, auditor, schemas, and evidence; live exact-public audit is `BLOCKED` because the manifest URL returns HTTP 404 | URL shape alone cannot launch the independent cohort; the current Pages deployment remains unverified until a separately reviewed `develop` deployment publishes matching bytes |
-| Complete product gate through public head | exact `3e11f30…`: graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 1,009 passed; 2,451 total; strict MkDocs and exact Jazzy `ament_flake8` pass; exact-head GitHub Actions are 10 successful / 4 intentional skips / 0 failures | the current product and NDT response increment are locally complete and publicly green; registered CTest evidence remains 93 / 93 for `lidarslam` plus 232 / 232 for `graph_based_slam` from the inherited candidate |
+| Complete maintained product gate | exact local validation carrier `9f8a205…`: graph 1,452 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 1,022 passed; 2,474 total; strict MkDocs and changed-file Jazzy `ament_flake8` pass; byte-identical rehearsals produce a 261-file, 11,927,637-byte bundle with SHA-256 `51c025064de769d1f0c362f51718c52a0beed8492f0881c0e02403b33498e997`; latest public `4cb2e68…` Actions remain 10 successful / 4 intentional skips / 0 failures | the local symptom increment is complete but not yet public; inherited registered CTest evidence remains 93 / 93 for `lidarslam` plus 232 / 232 for `graph_based_slam` |
 | Actionable stable-release profile gate | exact implementation `45cfdcb…`; an empty exact-head benchmark root now retains Markdown/CSV/log output, reports five blocking `NO_DATA` profiles with acquisition/rerun hints, distinguishes six report-only rows, and exits 2; 29 direct regressions pass | this identifies missing evidence and does not satisfy it; no tag, Release, image, or E4 authority is inferred |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 302 paths / 7 slices from frozen baseline `3ed632e…`; the exact carrier's Git-derived follow-up count comes from `check_publication_slice_plan.py`; inventory SHA-256 `31ab2644b22a6b4d582f208322e5423e91750ecd51c18843bee3ee8e65ea3dbb` | the twelve claim-bounded media paths belong to S6, while the three NTU acquisition/profile paths belong to S5; exact coverage and the new digest add no GitHub, release, posting, or community authority |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 304 paths / 7 slices from frozen baseline `3ed632e…`; the exact carrier's Git-derived follow-up count comes from `check_publication_slice_plan.py`; inventory SHA-256 `c8cef196cc20780c0551e1797490442d6ebe55aea7f8fc6a928920ace73482b7` | the bounded visual-symptom script and diagnosis schema belong to S6; exact coverage and the new digest add no GitHub, release, posting, or community authority |
 | Published onboarding identity | v0.9.0 exact release commit plus Humble/Jazzy digests return `READY`, but its source route is `NOT_READY` with `source-route-contract-missing`; v0.9.1 report-to-packet fails closed at `NOT_PUBLISHED` | the old release cannot be reused for same-version Docker/source evidence, and the new version cannot produce a release packet before E4 publication |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
