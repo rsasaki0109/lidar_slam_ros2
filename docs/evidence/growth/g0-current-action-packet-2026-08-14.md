@@ -11,7 +11,7 @@
 > Capture-time exact public Draft head and CI audit:
 > `5d1986a0eba20606943f8fd375615304e5ba1f51`
 >
-> Exact reviewed product-candidate tip: `0d102e016717d2def3db3a99525755837461f759`
+> Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
 >
 > Latest product/community follow-up tip: `0d102e016717d2def3db3a99525755837461f759`
 >
@@ -81,6 +81,9 @@
 >
 > Latest bounded map-quality symptom triage implementation tip:
 > `ee453532a70d2d4b82a6c50c65f19b22d76c239f`
+>
+> Bounded map-quality symptom validation carrier:
+> `9f8a2058a3c702f69d159079568ced8433ee3377`
 >
 > Latest privacy-safe symptom support-handoff implementation tip:
 > `0d102e016717d2def3db3a99525755837461f759`
