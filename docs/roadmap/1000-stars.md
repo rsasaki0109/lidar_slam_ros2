@@ -291,6 +291,16 @@ work and document the actual support boundary instead of hiding the delay.
   immutable local image ID, and a zero exit cannot claim completion without the
   session, manifest, and receipt artifacts. Existing public v0.9.0 images
   correctly fail this new contract until a candidate image is published.
+- The canonical Autoware map-authoring landing page now follows that same
+  product contract instead of presenting lower-level shell and Python helpers
+  as competing beginner paths. It starts with one published fixed-demo route,
+  one source-candidate route, and one own-bag route; then keeps `doctor`,
+  `start`, `run`, session evidence, and recovery in task order. A regression
+  test rejects the six retired beginner entrypoints on this page, and the page
+  explicitly separates published v0.9.0 images from the unpublished v0.9.1
+  candidate. The docs-home primary action now points to this canonical page and
+  labels the older viewer/dogfood quickstart as advanced compatibility. This is
+  a local documentation repair, not a release or onboarding measurement.
 - The next release pipeline now turns that repo-independent script into a
   direct attested `lidarslam-map-docker` asset. Its exact tag and source commit
   are embedded deterministically, its default image is the matching immutable

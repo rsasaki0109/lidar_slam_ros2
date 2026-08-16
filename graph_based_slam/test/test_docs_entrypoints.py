@@ -1063,13 +1063,13 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'Autoware Foxglove' in autoware_doc
     assert 'pointcloud_map/' in autoware_map_doc
     assert 'map_projector_info.yaml' in autoware_map_doc
-    assert 'Beginner One-Command Path' in autoware_map_doc
-    assert 'preflight_autoware_map_bag.py' in autoware_map_doc
-    assert 'run_autoware_map_beginner.sh' in autoware_map_doc
-    assert 'run_autoware_map_from_bag.py' in autoware_map_doc
-    assert 'run_autoware_quickstart.sh' in autoware_map_doc
-    assert 'verify_autoware_map.py' in autoware_map_doc
-    assert 'diagnose_autoware_map_run.py' in autoware_map_doc
+    assert 'Choose One First Step' in autoware_map_doc
+    assert 'lidarslam-map doctor /path/to/rosbag2' in autoware_map_doc
+    assert 'lidarslam-map start /path/to/rosbag2' in autoware_map_doc
+    assert 'lidarslam-map sessions' in autoware_map_doc
+    assert 'lidarslam-map support /path/to/session_bundle' in autoware_map_doc
+    assert 'Current Publication Boundary' in autoware_map_doc
+    assert 'not published or tagged yet' in autoware_map_doc
     assert 'foxglove_bridge' in autoware_foxglove_doc
     assert 'prepare_foxglove_bridge_prefix.sh' in autoware_foxglove_doc
     assert 'run_autoware_pointcloud_map_foxglove.sh' in autoware_foxglove_doc
@@ -1272,6 +1272,50 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'validate_real_data_e2e.py' in real_data_e2e_doc
     assert '(real-data-e2e.md)' in (
         PRODUCT_CONTRACT_DOC.read_text(encoding='utf-8')
+    )
+
+
+def test_canonical_map_authoring_page_has_one_beginner_contract():
+    """The shortest map page must not revive lower-level beginner forks."""
+    map_doc = AUTOWARE_MAP_AUTHORING.read_text(encoding='utf-8')
+    docs_index = DOCS_INDEX_PATH.read_text(encoding='utf-8')
+
+    official_commands = (
+        'lidarslam-map doctor',
+        'lidarslam-map demo',
+        'lidarslam-map start /path/to/rosbag2',
+        'lidarslam-map run /path/to/rosbag2 --output-dir',
+        'lidarslam-map sessions',
+        'lidarslam-map compare',
+        'lidarslam-map support /path/to/session_bundle',
+    )
+    for command in official_commands:
+        assert command in map_doc
+
+    retired_beginner_entrypoints = (
+        'preflight_autoware_map_bag.py',
+        'run_autoware_map_beginner.sh',
+        'run_autoware_map_from_bag.py',
+        'run_autoware_quickstart.sh',
+        'verify_autoware_map.py',
+        'diagnose_autoware_map_run.py',
+    )
+    for entrypoint in retired_beginner_entrypoints:
+        assert entrypoint not in map_doc
+
+    assert 'assets/images/autoware_map_loader_proof.png' in map_doc
+    assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble' in map_doc
+    assert 'not published or tagged yet' in map_doc
+    assert 'Lower-level launch files and repository helpers are advanced' in (
+        map_doc
+    )
+    assert (
+        'href="autoware-map-authoring.html">Map Your Bag</a>'
+        in docs_index
+    )
+    assert '<h3>Advanced Autoware Compatibility</h3>' in docs_index
+    assert 'href="autoware-quickstart.html">Run The Quickstart</a>' not in (
+        docs_index
     )
 
 

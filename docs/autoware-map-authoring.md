@@ -1,145 +1,140 @@
 # Autoware-Compatible Map Authoring
 
-This page is the shortest product-level summary of how `lidarslam_ros2` is used
-to produce `pointcloud_map/` artifacts for Autoware-compatible workflows.
+Turn one compatible rosbag2 into a verified map bundle that can be reviewed
+before it is loaded by Autoware-compatible tooling.
 
-The supported public path is:
+![Autoware map loaders rendering a pointcloud map authored by this stack](assets/images/autoware_map_loader_proof.png)
 
-- frontend: `RKO-LIO`
-- backend: `graph_based_slam`
-- output: `pointcloud_map/` plus `map_projector_info.yaml`
+The maintained product path uses the `RKO-LIO` frontend and
+`graph_based_slam` backend. It writes `pointcloud_map/` plus
+`map_projector_info.yaml`; verification remains separate from viewing so a
+viewer problem cannot change the map result.
 
-## Why Use This Repo For Map Authoring
+## Choose One First Step
 
-- non-GPL default path
-- pointcloud-map generation is a first-class workflow
-- saved-map verification is part of the documented public flow
-- optional GNSS georeferencing writes `LocalCartesian` map metadata
-- optional save-time dynamic-object cleanup improves map compactness
-- benchmark, report, and release-readiness artifacts are tracked in-repo
+| Your starting point | First step |
+| --- | --- |
+| Docker only; try the published stable demo | Run [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) below |
+| Current source candidate installed | `lidarslam-map doctor`, then `lidarslam-map demo` |
+| Your own compatible rosbag2 | `lidarslam-map doctor /path/to/rosbag2`, then `lidarslam-map start /path/to/rosbag2` |
+| Not installed yet | Follow [Build + verified demo from source](getting-started.md#1-install-and-build-from-source) |
 
-## Fastest Supported Path
+If you are unsure, run `lidarslam-map` with no arguments in an interactive
+terminal. It offers only the installation check, fixed demo, own-bag mapping,
+and previous sessions, and shows the delegated command before doing work.
 
-```bash
-bash scripts/download_ntu_viral_tnp01.sh
-bash scripts/run_autoware_quickstart.sh
-```
+## Try The Published Stable Demo
 
-This is the shortest maintained path from `lidarslam_ros2` to a verified map
-bundle opened through Autoware's map loaders.
-
-## Beginner One-Command Path
-
-If you already have a rosbag2 directory and just want the repo to choose the
-path for you:
+No ROS 2 workspace is required:
 
 ```bash
-bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
+mkdir -p "$PWD/lidarslam_output"
+docker run --rm \
+  -e LIDARSLAM_HOST_UID="$(id -u)" \
+  -e LIDARSLAM_HOST_GID="$(id -g)" \
+  -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
 ```
 
-For a new own-bag session, use the one-command product entrypoint:
+This route is pinned to the published `v0.9.0-humble` image and writes the
+verified demo to `lidarslam_output/mid360_demo/`. Jazzy users can select the
+published `v0.9.0-jazzy` image. See [Getting Started](getting-started.md) for
+platform notes and the source route.
+
+## Map Your Own Bag
+
+First inspect the installation and bag without starting a map:
+
+```bash
+lidarslam-map doctor /path/to/rosbag2
+```
+
+`doctor` checks topics, point fields, timestamp order, and maintained profile
+compatibility. It writes no output and gives a concrete next action when the
+bag is not ready.
+
+When the review passes, use the human workflow:
 
 ```bash
 lidarslam-map start /path/to/rosbag2
 ```
 
-It shows topics, frames, calibration and the selected preset, asks before
-writing, saves the setup, verifies the map, and opens the browser review. Add
-`--yes` only for an already-reviewed non-terminal launcher.
+`start` keeps the detected topics, frames, profile, calibration, and exact
+command visible before writing. It then runs the map lifecycle, verifies the
+saved bundle, records diagnosis evidence, and opens the offline session page.
+Use `--yes` only after that setup has already been reviewed for a
+non-interactive launcher.
 
-Use `--foxglove` to open the saved map in the browser path after the run.
+For Docker without a ROS installation, follow
+[Docker Own-Bag Map](getting-started.md#docker-own-bag-map). Its launcher checks
+that the selected image supports this same `start` contract before creating an
+output directory. Published v0.9.0 images predate that own-bag contract and are
+rejected; a stable no-install own-bag image remains pending the next release.
 
-## Preflight An Arbitrary Bag
+## What Success Looks Like
 
-Before picking a launch path, inspect the bag once:
+A successful session reports verification `PASS` and keeps the result and its
+evidence together. The bundle includes:
+
+- `session.html` and `session.json`, the offline landing page and its status;
+- `pointcloud_map/` and `pointcloud_map_metadata.yaml`;
+- `map_projector_info.yaml`;
+- `run_manifest.json` and `verify_autoware_map.log`;
+- `autoware_map_diagnosis.json` and `.md`;
+- `first_map_validation_receipt.json` and `.md`;
+- `lanelet2_map.osm` when lanelet generation is enabled and succeeds.
+
+Generated lanelets are a starting point for authoring, not surveyed road
+semantics. Review them before use. A bundle without verification `PASS` is not
+a validated point-cloud map.
+
+## Return, Compare, And Ask For Help
 
 ```bash
-python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2
+lidarslam-map sessions
+lidarslam-map view "$PWD/output/my_map"
+lidarslam-map compare /path/to/day1 /path/to/day2
+lidarslam-map support /path/to/session_bundle
 ```
 
-The preflight reads `metadata.yaml`, lists the key sensor topics, and prints the
-shortest supported next command for the bag.
+`sessions` reopens retained work. `compare` reports recorded differences
+without inventing a score or winner. `support` creates a privacy-bounded ZIP
+for human review; it does not upload anything. After a verified first map,
+`lidarslam-map support /path/to/session_bundle --first-map` prints the
+read-only independent-validation handoff.
 
-It also prints a beginner-friendly copy-paste command that uses:
+## Automation
+
+Use an explicit output directory when a script, CI job, or other automation
+already owns the setup decision:
 
 ```bash
-bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2
+lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"
 ```
 
-If you want the repo to pick and execute the shortest supported path for you,
-use the one-shot runner:
+Use `start` for people because its setup and calibration review is part of the
+public workflow. Lower-level launch files and repository helpers are advanced
+interfaces, not additional beginner routes.
 
-```bash
-python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2
-```
+## Current Publication Boundary
 
-It uses the same preflight decision, runs the recommended public workflow,
-verifies the saved `pointcloud_map/`, and writes a diagnosis report next to the
-saved map outputs.
+`v0.9.0` is the latest published stable release. The `v0.9.1` release
+candidate documented in this source tree is not published or tagged yet.
+Therefore:
 
-For Livox/MID360-style bags, the runner automatically prefers the tracked
-MID360 preset instead of the generic public YAMLs.
+- use the pinned `v0.9.0-humble` or `v0.9.0-jazzy` image for the published
+  fixed demo;
+- build the reviewed source revision when evaluating the current
+  `lidarslam-map` candidate contract;
+- do not assume that a moving development image is a stable release.
 
-## What You Get
+## Advanced Paths
 
-- `pointcloud_map/` tiles
-- `pointcloud_map_metadata.yaml`
-- `map_projector_info.yaml`
-- `lanelet2_map.osm` — generated from the loop-closed trajectory
-  (`traj_corrected.tum`) by default. The origin defaults to a local `(0, 0)`
-  lat/lon (valid with `projector_type: local` through the `local_x`/`local_y`
-  node tags); pass `--origin-lat` / `--origin-lon` to
-  `run_rko_lio_graph_autoware_dogfood.sh` for a georeferenced map, or
-  `--generate-lanelet2 false` to skip it. Generation is best-effort: when the
-  corrected trajectory is missing or the generator fails, the run keeps the
-  pointcloud bundle and reports `lanelet2_map.osm MISSING` in the end-of-run
-  bundle summary instead of failing.
-- `PASS` / `FAIL` map verification via `scripts/verify_autoware_map.py`
-- benchmark/report artifacts for the same workflow family
+Use [Autoware Quickstart](autoware-quickstart.md) for the older NTU VIRAL
+viewer/dogfood compatibility route, [Operator Workflows](workflows.md) for
+direct launches and sensor-specific configuration, and
+[Benchmarking and Release Gate](benchmarking.md) for reproducible evaluation.
+Those routes do not replace the beginner commands above.
 
-When GNSS is disabled, `map_projector_info.yaml` stays valid with:
-
-```yaml
-projector_type: Local
-```
-
-When GNSS is enabled and a stable origin is available, the same output becomes:
-
-```yaml
-projector_type: LocalCartesian
-map_origin:
-  latitude: ...
-  longitude: ...
-```
-
-## Recommended Entrypoints
-
-- bag preflight: `python3 scripts/preflight_autoware_map_bag.py /path/to/rosbag2`
-- one-command human path: `lidarslam-map start /path/to/rosbag2`
-- beginner one-command path: `bash scripts/run_autoware_map_beginner.sh /path/to/rosbag2`
-- one-shot runner: `python3 scripts/run_autoware_map_from_bag.py /path/to/rosbag2`
-- quickstart: `bash scripts/run_autoware_quickstart.sh`
-- benchmark path: `bash scripts/run_rko_lio_graph_benchmark.sh`
-- release gate: `bash scripts/run_release_readiness_checks.sh --fail-on-profiles`
-- map cleanup benchmark: `bash scripts/run_dynamic_object_filter_benchmark.sh`
-- pointcloud-map verify: `python3 scripts/verify_autoware_map.py <pointcloud_map_dir>`
-- map-run diagnosis: `python3 scripts/diagnose_autoware_map_run.py <output_dir>`
-
-## Current Public Position
-
-The current public position of this repository is:
-
-- map authoring for Autoware-compatible pointcloud-map workflows
-- tracked benchmark evidence on `NTU VIRAL`, `MID360`, and `Leo Drive`
-- save-time cleanup as an optional map-quality / map-size tool
-- place-recognition exploration kept opt-in or experimental unless it clearly
-  beats the default path
-
-## Related Docs
-
-- [Getting Started](getting-started.md)
-- [Autoware Quickstart](autoware-quickstart.md)
-- [Operator Workflows](workflows.md)
-- [Benchmarking And Release Gate](benchmarking.md)
-- [Comparison](comparison.md)
-- [v0.5.0 Release Notes](releases/v0.5.0.md)
+The exact supported inputs, outputs, recovery behavior, and non-goals are in
+the [Product Contract](product-contract.md).
