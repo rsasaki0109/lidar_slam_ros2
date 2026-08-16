@@ -1,6 +1,7 @@
 # RTK-SLAM acquisition hardening — 2026-08-17
 
-> Implementation: `25d712b7` plus capacity correction `2a997cb9`
+> Implementation: `25d712b7`, capacity correction `2a997cb9`, and attached
+> storage recovery `0c3f5884`
 >
 > Outcome: **BLOCKED_INSUFFICIENT_SPACE / ACTIONABLE**
 >
@@ -69,6 +70,54 @@ The equivalent `--dry-run --json` returned a schema-stable plan with
 `side_effects_started: false`; both tested destination paths remained absent.
 No large DB3 was downloaded.
 
+## Attached-but-unmounted storage recovery
+
+The next exact clean implementation carrier
+`0c3f58849b8ce7d8b4d464dbff891b244d781880` reproduced a second real user
+failure: a 2 TB SanDisk Extreme Portable SSD was attached, but its ext4
+partition was not mounted. The former plan could only repeat a generic
+`/mnt/large` destination and left the operator to discover the device and
+mount path.
+
+The new write-free plan detects sufficiently large hotplug filesystems through
+`lsblk` without mounting or probing their contents. On this host it reported:
+
+| Field | Exact observation |
+| --- | --- |
+| candidate device | `/dev/sda1` |
+| model / filesystem | SanDisk Extreme Portable SSD / ext4 |
+| partition bytes | 2,000,397,795,328 |
+| free-space state | `UNVERIFIED_UNTIL_MOUNTED` |
+| required working bytes | 11,886,726,027 |
+| root filesystem free bytes | 6,339,293,184 |
+| root filesystem shortfall | 5,547,432,843 |
+| next action | `udisksctl mount -b /dev/sda1` |
+
+Automatic mounting correctly did not occur. A direct mount attempt outside the
+helper stopped at the operating system's interactive authorization boundary;
+no password was supplied, no filesystem was mounted, and no download began.
+After the operator mounts the device, both follow-up commands are copy-ready
+and resolve the actual mount path themselves:
+
+```bash
+python3 scripts/download_rtk_slam_dataset.py \
+  --sequence construction_seq2 \
+  --eval-assets \
+  --dest-device /dev/sda1 \
+  --dry-run
+
+# Run only after the command above reports READY.
+python3 scripts/download_rtk_slam_dataset.py \
+  --sequence construction_seq2 \
+  --eval-assets \
+  --dest-device /dev/sda1
+```
+
+The exact-carrier normal request against the undersized root filesystem again
+exited `2` before writes or network access and left its destination absent. A
+direct `--dest-device /dev/sda1 --dry-run` also exited `2` with the single mount
+action while the partition remained unmounted. No large DB3 was downloaded.
+
 ## Small-asset and handoff validation
 
 The pinned evaluation assets were fetched once into a generated temporary
@@ -88,6 +137,12 @@ temporary data and are not recoverable.
 ## Enforced behavior
 
 - `--dry-run` and `--list` perform no network access or filesystem writes;
+- large attached-but-unmounted hotplug filesystems are reported read-only,
+  never mounted or content-probed by the helper;
+- `--dest-device` resolves exactly one current mountpoint and removes manual
+  mount-path substitution;
+- candidate partition size never substitutes for free-space verification; the
+  mounted filesystem must pass a second dry-run before live acquisition;
 - `--json` is accepted only with `--dry-run` and keeps stdout machine-readable;
 - live capacity failure occurs before dependency checks, directory creation,
   downloads, or Git fetches;
@@ -98,7 +153,10 @@ temporary data and are not recoverable.
 - eval assets are accepted only at the pinned clean commit; and
 - acquisition readiness never substitutes for exact-head benchmark evidence.
 
-Focused downloader and suite regressions pass `16 / 16`, and changed-file
+The original focused downloader and suite regressions pass `16 / 16`. The
+attached-storage follow-up expands the direct downloader suite to `14 / 14`;
+combined RTK/docs focused checks pass `42 / 42`, release/bundle checks pass
+`27 / 27`, and changed-file
 Jazzy `ament_flake8` passes. The complete product gate initially exposed only
 the expected missing CTest registration and stale publication inventory; those
 review-control failures are repaired in the evidence synchronization commit.

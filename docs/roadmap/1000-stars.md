@@ -326,9 +326,13 @@ work and document the actual support boundary instead of hiding the delay.
   byte/SHA-256 identities, the checkpoint repository uses a detached pinned
   commit, resumable bytes reduce the capacity plan, and text/JSON dry-runs are
   network- and write-free. A real normal invocation stopped before side effects
-  with a 5,477,329,803-byte shortfall and printed an external-filesystem retry.
-  This removes a preventable user failure; the profiles remain `NO_DATA` until
-  fresh exact-candidate runs exist.
+  with a root-filesystem shortfall. Exact attached-storage follow-up `0c3f588`
+  then found the connected unmounted 2 TB SanDisk partition, selected one
+  authorization-respecting mount action, and emitted copy-ready
+  `--dest-device` dry-run/live commands that resolve the actual mount path. It
+  never mounts, probes contents, or treats partition size as verified free
+  space. This removes another preventable user failure; the profiles remain
+  `NO_DATA` until fresh exact-candidate runs exist.
 - The next release pipeline now turns that repo-independent script into a
   direct attested `lidarslam-map-docker` asset. Its exact tag and source commit
   are embedded deterministically, its default image is the matching immutable
