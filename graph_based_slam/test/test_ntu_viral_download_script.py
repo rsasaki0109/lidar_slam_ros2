@@ -32,12 +32,12 @@
 from __future__ import annotations
 
 import os
+import pathlib
 import shutil
 import subprocess
-from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 DOWNLOAD_SCRIPT = REPO_ROOT / 'scripts' / 'download_ntu_viral_tnp01.sh'
 BASH = shutil.which('bash')
 assert BASH is not None
@@ -70,7 +70,7 @@ def test_download_help_exits_successfully():
     assert '--no-restamp' in output
 
 
-def test_download_dry_run_is_write_and_network_free(tmp_path: Path):
+def test_download_dry_run_is_write_and_network_free(tmp_path: pathlib.Path):
     dest = tmp_path / 'dataset'
 
     result = _run_download('--dest', str(dest), '--dry-run')
@@ -86,7 +86,7 @@ def test_download_dry_run_is_write_and_network_free(tmp_path: Path):
 
 
 def test_download_fails_before_network_when_space_is_insufficient(
-    tmp_path: Path,
+    tmp_path: pathlib.Path,
 ):
     fake_bin = tmp_path / 'bin'
     fake_bin.mkdir()
@@ -118,7 +118,9 @@ def test_download_fails_before_network_when_space_is_insufficient(
     assert not dest.exists()
 
 
-def test_download_rejects_cached_archive_with_wrong_identity(tmp_path: Path):
+def test_download_rejects_cached_archive_with_wrong_identity(
+    tmp_path: pathlib.Path,
+):
     fake_bin = tmp_path / 'bin'
     fake_bin.mkdir()
     fake_df = fake_bin / 'df'
@@ -155,7 +157,9 @@ def test_download_rejects_cached_archive_with_wrong_identity(tmp_path: Path):
     assert 'extracting zip' not in _combined_output(result)
 
 
-def test_download_reuses_extracted_bag_without_requiring_archive(tmp_path: Path):
+def test_download_reuses_extracted_bag_without_requiring_archive(
+    tmp_path: pathlib.Path,
+):
     dest = tmp_path / 'dataset'
     extracted = dest / 'tnp_01' / 'tnp_01'
     extracted.mkdir(parents=True)
@@ -195,7 +199,9 @@ def test_download_rejects_unknown_option_with_help_hint():
     assert 'downloading zip' not in _combined_output(result)
 
 
-def test_download_rejects_destination_file_before_download(tmp_path: Path):
+def test_download_rejects_destination_file_before_download(
+    tmp_path: pathlib.Path,
+):
     dest_file = tmp_path / 'not_a_directory'
     dest_file.write_text('', encoding='utf-8')
 
@@ -212,7 +218,7 @@ def test_download_rejects_destination_file_before_download(tmp_path: Path):
 
 
 def test_download_rejects_no_convert_restamp_without_existing_rosbag2(
-    tmp_path: Path,
+    tmp_path: pathlib.Path,
 ):
     result = _run_download('--dest', str(tmp_path / 'dataset'), '--no-convert')
 
