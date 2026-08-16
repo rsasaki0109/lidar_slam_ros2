@@ -16,7 +16,7 @@
       "id": "S1-runtime-safety",
       "order": 1,
       "title": "Runtime point-cloud and VoxelGrid safety",
-      "review_outcome": "Malformed or oversized layouts, plus readable samples with empty frame IDs, fail closed without terminating the mapping process, while valid point clouds retain their fields.",
+      "review_outcome": "Malformed or oversized layouts, plus readable samples with empty frame IDs, fail closed without terminating the mapping process; rejected map updates preserve the movement threshold for an immediate safe retry, asynchronous exceptions stay inside the component boundary, and valid point clouds retain their fields.",
       "depends_on": [],
       "paths": [
         "docs/evidence/voxel-grid-overflow-safety-2026-08-11.md",

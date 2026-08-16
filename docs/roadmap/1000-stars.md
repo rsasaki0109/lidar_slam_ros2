@@ -666,7 +666,10 @@ later safe frame. The component test passed ten consecutive runs and the full
 10-suite scanmatcher CTest passed on both Humble/PCL 1.12 and Jazzy/PCL 1.14. The
 [evidence record](../evidence/voxel-grid-overflow-safety-2026-08-11.md) keeps
 the public issue open until a reviewed public revision, supported public CI,
-and carrying release exist. The current v44
+and carrying release exist. The S1 review now additionally commits the movement
+baseline only after a map update succeeds: an unsafe asynchronous update cannot
+consume the threshold needed by the next safe scan, and worker exceptions are
+contained without terminating the component. The current v44
 research route remains limited to its already-authorized bounded failure-profile
 work and cannot block this sprint.
 

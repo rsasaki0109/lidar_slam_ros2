@@ -16,6 +16,9 @@ Changelog for package scanmatcher
 * Cover the asynchronous map-update path and safe component shutdown. Each
   worker uses the triggering scan's distance snapshot, shared diagnostics stay
   locked, and destruction waits for an outstanding map update to finish.
+* Commit the map-update movement baseline only after the worker succeeds, so a
+  rejected VoxelGrid layout does not consume the distance threshold needed by
+  the next safe scan. Worker exceptions remain inside the component boundary.
 * Contributors: Ryohei Sasaki
 
 0.9.0 (2026-07-30)

@@ -165,8 +165,22 @@ Cloud makeSafeRegistrationCloud()
 Cloud makeIssue69MapUpdateCloud()
 {
   Cloud cloud = makeSafeRegistrationCloud();
+  for (auto & point : cloud) {
+    point.x += 1.0F;
+    point.y += 0.4F;
+  }
   cloud.push_back(makePoint(-200.0F, -200.0F, -10.0F));
   cloud.push_back(makePoint(200.0F, 200.0F, 10.0F));
+  return cloud;
+}
+
+Cloud makeRecoveredMapUpdateCloud()
+{
+  Cloud cloud = makeSafeRegistrationCloud();
+  for (auto & point : cloud) {
+    point.x += 1.0F;
+    point.y += 0.4F;
+  }
   return cloud;
 }
 
@@ -216,6 +230,29 @@ protected:
     rclcpp::shutdown();
   }
 };
+
+TEST(MapUpdateCommitState, FailedUpdatePreservesDistanceThresholdForRetry)
+{
+  graphslam::detail::MapUpdateCommitState state;
+  const Eigen::Vector3d origin(1.0, 2.0, 3.0);
+  const Eigen::Vector3d candidate(4.0, 6.0, 3.0);
+  state.reset(origin);
+
+  EXPECT_DOUBLE_EQ(5.0, state.distanceTo(candidate));
+  state.begin(candidate);
+  EXPECT_TRUE(state.pending());
+  EXPECT_TRUE(state.complete(false));
+
+  EXPECT_FALSE(state.pending());
+  EXPECT_TRUE(state.committedPosition().isApprox(origin));
+  EXPECT_DOUBLE_EQ(5.0, state.distanceTo(candidate));
+
+  state.begin(candidate);
+  EXPECT_TRUE(state.complete(true));
+  EXPECT_TRUE(state.committedPosition().isApprox(candidate));
+  EXPECT_DOUBLE_EQ(0.0, state.distanceTo(candidate));
+  EXPECT_FALSE(state.complete(true));
+}
 
 TEST_F(
   ScanMatcherVoxelGridRecoveryTest,
@@ -395,7 +432,10 @@ TEST_F(
       rclcpp::Parameter("min_points_for_scan", 20),
       rclcpp::Parameter("async_map_update", true),
       rclcpp::Parameter("async_map_update_warmup_submaps", 1),
-      rclcpp::Parameter("trans_for_mapupdate", -1.0),
+      // The unsafe scan crosses this threshold. Its rejected map update must
+      // not consume the movement, so the nearly identical safe retry crosses
+      // the same threshold and publishes without requiring more travel.
+      rclcpp::Parameter("trans_for_mapupdate", 0.02),
       rclcpp::Parameter("debug_flag", true),
       rclcpp::Parameter("motion_gate_enable", false),
       rclcpp::Parameter("reject_nonconverged_pose_update", false),
@@ -435,7 +475,7 @@ TEST_F(
   ASSERT_TRUE(rclcpp::ok());
 
   cloud_publisher->publish(
-    makeCloudMessage(makeSafeRegistrationCloud(), kRecoveredAsyncStampSec));
+    makeCloudMessage(makeRecoveredMapUpdateCloud(), kRecoveredAsyncStampSec));
   ASSERT_TRUE(
     spinUntil(
       executor,

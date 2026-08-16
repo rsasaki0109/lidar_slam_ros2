@@ -669,9 +669,11 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     msg->pose.orientation.z = initial_pose_qz_;
     msg->pose.orientation.w = initial_pose_qw_;
     current_pose_stamped_ = *msg;
-    previous_position_.x() = current_pose_stamped_.pose.position.x;
-    previous_position_.y() = current_pose_stamped_.pose.position.y;
-    previous_position_.z() = current_pose_stamped_.pose.position.z;
+    map_update_commit_state_.reset(
+      Eigen::Vector3d(
+        current_pose_stamped_.pose.position.x,
+        current_pose_stamped_.pose.position.y,
+        current_pose_stamped_.pose.position.z));
     pose_pub_->publish(current_pose_stamped_);
     initial_pose_received_ = true;
 
@@ -703,9 +705,11 @@ void ScanMatcherComponent::initializePubSub()
       RCLCPP_INFO(get_logger(), "initial_pose is received");
 
       current_pose_stamped_ = *msg;
-      previous_position_.x() = current_pose_stamped_.pose.position.x;
-      previous_position_.y() = current_pose_stamped_.pose.position.y;
-      previous_position_.z() = current_pose_stamped_.pose.position.z;
+      map_update_commit_state_.reset(
+        Eigen::Vector3d(
+          current_pose_stamped_.pose.position.x,
+          current_pose_stamped_.pose.position.y,
+          current_pose_stamped_.pose.position.z));
       initial_pose_received_ = true;
 
       pose_pub_->publish(current_pose_stamped_);
@@ -1077,12 +1081,34 @@ void ScanMatcherComponent::receiveCloud(
   if (mapping_flag_ && mapping_future_.valid()) {
     auto status = mapping_future_.wait_for(0s);
     if (status == std::future_status::ready) {
-      mapping_future_.get();
+      bool map_update_succeeded = false;
+      try {
+        map_update_succeeded = mapping_future_.get();
+      } catch (const std::exception & error) {
+        RCLCPP_ERROR(
+          get_logger(),
+          "[MAP_UPDATE_FUTURE_REJECTED] asynchronous map update failed: %s; "
+          "the node remains active and the distance threshold was not consumed",
+          error.what());
+      } catch (...) {
+        RCLCPP_ERROR(
+          get_logger(),
+          "[MAP_UPDATE_FUTURE_REJECTED] asynchronous map update failed with an "
+          "unknown exception; the node remains active and the distance threshold "
+          "was not consumed");
+      }
+      if (mapping_thread_.joinable()) {
+        mapping_thread_.join();
+      }
+      mapping_flag_ = false;
+      map_update_commit_state_.complete(map_update_succeeded);
       pcl::PointCloud<pcl::PointXYZI>::Ptr targeted_cloud_ptr;
       {
         std::lock_guard<std::mutex> lock(mtx_);
-        if (is_map_updated_ == true) {
+        if (map_update_succeeded && is_map_updated_ == true) {
           targeted_cloud_ptr.reset(new pcl::PointCloud<pcl::PointXYZI>(targeted_cloud_));
+          is_map_updated_ = false;
+        } else if (!map_update_succeeded) {
           is_map_updated_ = false;
         }
       }
@@ -1101,10 +1127,6 @@ void ScanMatcherComponent::receiveCloud(
             }
           }
         }
-      }
-      mapping_flag_ = false;
-      if (mapping_thread_.joinable()) {
-        mapping_thread_.join();
       }
     }
   }
@@ -1440,37 +1462,79 @@ void ScanMatcherComponent::publishMapAndPose(
   path_.poses.push_back(publish_pose);
   path_pub_->publish(path_);
 
-  trans_ = (accepted_position - previous_position_).norm();
+  trans_ = map_update_commit_state_.distanceTo(accepted_position);
   if (
     map_update_policy::shouldTriggerMapUpdate(
       trans_, trans_for_mapupdate_, mapping_flag_, suppress_map_update))
   {
     geometry_msgs::msg::PoseStamped current_pose_stamped;
     current_pose_stamped = current_pose_stamped_;
-    previous_position_ = accepted_position;
     const double distance_increment = trans_;
+    map_update_commit_state_.begin(accepted_position);
     const bool use_async_map_update = map_update_policy::useAsyncMapUpdate(
       async_map_update_, async_map_update_warmup_submaps_,
       static_cast<int>(map_array_msg_.submaps.size()));
     if (use_async_map_update) {
-      mapping_task_ =
-        std::packaged_task<void()>(
-        std::bind(
-          &ScanMatcherComponent::updateMap, this, cloud_ptr,
-          final_transformation, current_pose_stamped, distance_increment));
-      mapping_future_ = mapping_task_.get_future();
-      mapping_thread_ = std::thread(std::move(std::ref(mapping_task_)));
-      mapping_flag_ = true;
+      try {
+        mapping_task_ =
+          std::packaged_task<bool()>(
+          std::bind(
+            &ScanMatcherComponent::updateMapSafely, this, cloud_ptr,
+            final_transformation, current_pose_stamped, distance_increment));
+        mapping_future_ = mapping_task_.get_future();
+        mapping_thread_ = std::thread(std::move(std::ref(mapping_task_)));
+        mapping_flag_ = true;
+      } catch (const std::exception & error) {
+        map_update_commit_state_.complete(false);
+        mapping_flag_ = false;
+        RCLCPP_ERROR(
+          get_logger(),
+          "[MAP_UPDATE_WORKER_START_REJECTED] could not start asynchronous map update: "
+          "%s; the node remains active and the distance threshold was not consumed",
+          error.what());
+      } catch (...) {
+        map_update_commit_state_.complete(false);
+        mapping_flag_ = false;
+        RCLCPP_ERROR(
+          get_logger(),
+          "[MAP_UPDATE_WORKER_START_REJECTED] could not start asynchronous map update "
+          "because of an unknown exception; the node remains active and the distance "
+          "threshold was not consumed");
+      }
     } else {
-      updateMap(
-        cloud_ptr, final_transformation, current_pose_stamped,
-        distance_increment);
+      const bool map_update_succeeded = updateMapSafely(
+        cloud_ptr, final_transformation, current_pose_stamped, distance_increment);
+      map_update_commit_state_.complete(map_update_succeeded);
       mapping_flag_ = false;
     }
   }
 }
 
-void ScanMatcherComponent::updateMap(
+bool ScanMatcherComponent::updateMapSafely(
+  const pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud_ptr,
+  const Eigen::Matrix4f final_transformation,
+  const geometry_msgs::msg::PoseStamped current_pose_stamped,
+  const double distance_increment)
+{
+  try {
+    return updateMap(
+      cloud_ptr, final_transformation, current_pose_stamped, distance_increment);
+  } catch (const std::exception & error) {
+    RCLCPP_ERROR(
+      get_logger(),
+      "[MAP_UPDATE_EXCEPTION_REJECTED] map update failed: %s; the node remains "
+      "active and the distance threshold was not consumed",
+      error.what());
+  } catch (...) {
+    RCLCPP_ERROR(
+      get_logger(),
+      "[MAP_UPDATE_EXCEPTION_REJECTED] map update failed with an unknown exception; "
+      "the node remains active and the distance threshold was not consumed");
+  }
+  return false;
+}
+
+bool ScanMatcherComponent::updateMap(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud_ptr,
   const Eigen::Matrix4f final_transformation,
   const geometry_msgs::msg::PoseStamped current_pose_stamped,
@@ -1481,7 +1545,7 @@ void ScanMatcherComponent::updateMap(
       cloud_ptr, vg_size_for_map_, *filtered_cloud_ptr, "map_update",
       "vg_size_for_map", true))
   {
-    return;
+    return false;
   }
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
@@ -1554,14 +1618,28 @@ void ScanMatcherComponent::updateMap(
     map_array_snapshot = map_array_msg_;
     is_map_updated_ = true;
   }
-  map_array_pub_->publish(map_array_snapshot);
+  try {
+    map_array_pub_->publish(map_array_snapshot);
 
-  rclcpp::Time map_time = clock_.now();
-  double dt = map_time.seconds() - last_map_time_.seconds();
-  if (map_update_policy::shouldPublishMap(dt, map_publish_period_)) {
-    publishMap(map_array_snapshot, global_frame_id_);
-    last_map_time_ = map_time;
+    rclcpp::Time map_time = clock_.now();
+    double dt = map_time.seconds() - last_map_time_.seconds();
+    if (map_update_policy::shouldPublishMap(dt, map_publish_period_)) {
+      publishMap(map_array_snapshot, global_frame_id_);
+      last_map_time_ = map_time;
+    }
+  } catch (const std::exception & error) {
+    RCLCPP_ERROR(
+      get_logger(),
+      "[MAP_UPDATE_PUBLISH_FAILED] map state was committed but publication failed: %s; "
+      "the node remains active",
+      error.what());
+  } catch (...) {
+    RCLCPP_ERROR(
+      get_logger(),
+      "[MAP_UPDATE_PUBLISH_FAILED] map state was committed but publication failed with "
+      "an unknown exception; the node remains active");
   }
+  return true;
 }
 
 // Decode, transform into the map frame, and append the selected submaps to

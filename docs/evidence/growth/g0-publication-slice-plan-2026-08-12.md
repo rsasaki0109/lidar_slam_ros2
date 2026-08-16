@@ -95,7 +95,7 @@ body until the exact canonical upstream Draft exists.
 
 | Slice | Paths | Reviewer outcome | Gate |
 | --- | ---: | --- | --- |
-| S1 runtime safety | 15 | unsafe point-cloud and VoxelGrid layouts, plus readable samples with empty frame IDs, fail closed without losing valid fields | public Humble/Jazzy CI |
+| S1 runtime safety | 15 | unsafe point-cloud and VoxelGrid layouts, plus readable samples with empty frame IDs, fail closed without losing valid fields; a rejected map update preserves the movement threshold for an immediate safe retry, and asynchronous exceptions stay inside the component boundary | public Humble/Jazzy CI |
 | S2 first-map foundation | 32 | one bounded demo/own-bag route reaches a verified local 3D result, retains recovery state, and returns the exact shortage plus preserved retry command on low storage | public Humble/Jazzy CI |
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 36 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded release-or-candidate Docker/source measurement, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session execution, public preflight, and byte-bound validation-receipt plus SHA-bound supplement paths for retained observations | public Humble/Jazzy CI and clean-machine timing |

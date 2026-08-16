@@ -86,6 +86,57 @@ extern "C" {
 
 namespace graphslam
 {
+  namespace detail
+  {
+    class MapUpdateCommitState
+    {
+public:
+      void reset(const Eigen::Vector3d & position)
+      {
+        committed_position_ = position;
+        pending_ = false;
+      }
+
+      double distanceTo(const Eigen::Vector3d & position) const
+      {
+        return (position - committed_position_).norm();
+      }
+
+      void begin(const Eigen::Vector3d & position)
+      {
+        pending_position_ = position;
+        pending_ = true;
+      }
+
+      bool complete(bool succeeded)
+      {
+        if (!pending_) {
+          return false;
+        }
+        if (succeeded) {
+          committed_position_ = pending_position_;
+        }
+        pending_ = false;
+        return true;
+      }
+
+      const Eigen::Vector3d & committedPosition() const
+      {
+        return committed_position_;
+      }
+
+      bool pending() const
+      {
+        return pending_;
+      }
+
+private:
+      Eigen::Vector3d committed_position_ {Eigen::Vector3d::Zero()};
+      Eigen::Vector3d pending_position_ {Eigen::Vector3d::Zero()};
+      bool pending_ {false};
+    };
+  }  // namespace detail
+
   class ScanMatcherComponent: public rclcpp::Node
   {
 public:
@@ -119,8 +170,8 @@ private:
     bool mapping_flag_ {false};
     bool is_map_updated_ {false};
     std::thread mapping_thread_;
-    std::packaged_task < void() > mapping_task_;
-    std::future < void > mapping_future_;
+    std::packaged_task < bool() > mapping_task_;
+    std::future < bool > mapping_future_;
 
     geometry_msgs::msg::PoseStamped current_pose_stamped_;
     lidarslam_msgs::msg::MapArray map_array_msg_;
@@ -159,7 +210,13 @@ private:
     pose_prediction::ImuPredictionConfig makeImuPredictionConfig() const;
     pose_acceptance::Config makePoseAcceptanceConfig() const;
     void publishMap(const lidarslam_msgs::msg::MapArray & map_array_msg, const std::string & map_frame_id);
-    void updateMap(
+    bool updateMap(
+      const pcl::PointCloud < pcl::PointXYZI > ::ConstPtr cloud_ptr,
+      const Eigen::Matrix4f final_transformation,
+      const geometry_msgs::msg::PoseStamped current_pose_stamped,
+      const double distance_increment
+    );
+    bool updateMapSafely(
       const pcl::PointCloud < pcl::PointXYZI > ::ConstPtr cloud_ptr,
       const Eigen::Matrix4f final_transformation,
       const geometry_msgs::msg::PoseStamped current_pose_stamped,
@@ -268,7 +325,7 @@ private:
     pose_acceptance::State pose_acceptance_state_;
 
     // map
-    Eigen::Vector3d previous_position_ {Eigen::Vector3d::Zero()};
+    detail::MapUpdateCommitState map_update_commit_state_;
     double trans_;
     double latest_distance_ {0};
 
