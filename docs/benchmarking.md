@@ -614,6 +614,11 @@ That wrapper writes a local `Applanix_GSOF49` reference trajectory,
 `traj_raw.tum`, `traj_corrected.tum`, and `metrics.json` so the run appears in
 `benchmark_summary.md` and `latest_report.html`.
 
+For rosbag2 `compression_mode: FILE` inputs, the wrapper plays a private view
+inside the output directory. ROS 2 may decompress the storage file while it
+plays, but that temporary database is removed with the private view when the
+run exits; the source bag directory remains unchanged.
+
 When the main bag already contains native `sensor_msgs/msg/NavSatFix` or
 `sensor_msgs/msg/Imu`, the same wrapper now prefers those real topics before it
 falls back to Applanix sidecar generation.

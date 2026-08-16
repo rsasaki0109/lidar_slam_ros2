@@ -7,8 +7,8 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 304,
-    "expected_paths_sha256": "c8cef196cc20780c0551e1797490442d6ebe55aea7f8fc6a928920ace73482b7",
+    "expected_path_count": 310,
+    "expected_paths_sha256": "9a025bd9d270f1abf812b8d79b9b34ea6395102a3df8d868201311c1779daf9b",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -378,8 +378,11 @@
         "lidarslam/test/test_glim_reference_cache.py",
         "lidarslam/test/test_lidarslam_doctor.py",
         "lidarslam/test/test_lidarslam_guided.py",
+        "lidarslam/test/test_open_data_applanix_velodyne_gnss_benchmark_script.py",
+        "lidarslam/test/test_open_data_applanix_velodyne_gnss_smoke_script.py",
         "lidarslam/test/test_prepare_candidate_trial.py",
         "lidarslam/test/test_prepare_onboarding_matrix_packet.py",
+        "lidarslam/test/test_prepare_rosbag2_playback.py",
         "lidarslam/test/test_prepare_usability_scorecard.py",
         "lidarslam/test/test_prepare_usability_scorecard_pair.py",
         "lidarslam/test/test_published_onboarding_identity.py",
@@ -406,9 +409,12 @@
         "scripts/lidarslam_guided.py",
         "scripts/prepare_candidate_trial.py",
         "scripts/prepare_onboarding_matrix_packet.py",
+        "scripts/prepare_rosbag2_playback.py",
         "scripts/prepare_usability_scorecard.py",
         "scripts/prepare_usability_scorecard_pair.py",
-        "scripts/record_usability_scorecard_pair.py"
+        "scripts/record_usability_scorecard_pair.py",
+        "scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh",
+        "scripts/run_open_data_applanix_velodyne_gnss_smoke.sh"
       ],
       "verification": [
         "source \"/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash\" && python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_docs_entrypoints.py graph_based_slam/test/test_lidarslam_product_cli.py",
@@ -421,6 +427,7 @@
         "python3 scripts/first_map_validator_cohort.py --json",
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_first_map_validator_cohort.py",
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_docs_deployment_provenance.py",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_prepare_rosbag2_playback.py lidarslam/test/test_open_data_applanix_velodyne_gnss_benchmark_script.py lidarslam/test/test_open_data_applanix_velodyne_gnss_smoke_script.py",
         "mkdocs build --strict"
       ],
       "publication_gate": "PUBLIC_CI"

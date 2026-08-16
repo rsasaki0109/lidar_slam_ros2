@@ -41,6 +41,7 @@ odom_to_tum.py
 ape_from_tum.py
 simple_lanelet2_generator.py
 prepare_velodyne_pointcloud_overlay.sh
+prepare_rosbag2_playback.py
 convert_applanix_gsof_to_navsatfix_bag.py
 convert_applanix_gsof_to_imu_bag.py
 run_graph_slam_pointcloud_map_in_autoware.sh

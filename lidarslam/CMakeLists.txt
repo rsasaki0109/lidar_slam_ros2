@@ -135,6 +135,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_prepare_rosbag2_playback
+    test/test_prepare_rosbag2_playback.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_open_data_packet_imu_deskew_validation_matrix_script
     test/test_open_data_packet_imu_deskew_validation_matrix_script.py
     TIMEOUT 120

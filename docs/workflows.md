@@ -450,6 +450,11 @@ That wrapper will:
 - convert `VelodyneScan` packets into `sensor_msgs/msg/PointCloud2`
 - run `lidarslam.launch.py`, call `/map_save`, and optionally verify the output
 
+For rosbag2 `compression_mode: FILE` inputs, the smoke and benchmark wrappers
+stage a private playback view under the output directory. Any database that
+ROS 2 decompresses during playback is removed from that private view on exit,
+so the source bag directory is not left with a multi-gigabyte temporary file.
+
 To benchmark the same `driving_30_kmh` bag as a four-way classic-path
 comparison, use:
 

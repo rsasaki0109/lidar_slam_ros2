@@ -885,7 +885,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 304-path exact
+been expanded into the current 310-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
