@@ -160,23 +160,25 @@ combined RTK/docs focused checks pass `42 / 42`, release/bundle checks pass
 Jazzy `ament_flake8` passes. The complete product gate initially exposed only
 the expected missing CTest registration and stale publication inventory; those
 review-control failures are repaired in the evidence synchronization commit.
-The subsequent complete rerun passes:
+The exact attached-storage evidence carrier complete rerun passes:
 
-- `graph_based_slam`: 1,462 passed / 13 skipped / 11 known ImageIO warnings;
+- `graph_based_slam`: 1,466 passed / 13 skipped / 11 known ImageIO warnings;
 - `lidarslam`: 1,040 passed; and
-- combined maintained Python gate: 2,502 passed / 13 skipped.
+- combined maintained Python gate: 2,506 passed / 13 skipped.
 
 The synchronized publication plan is `PLAN_VALID_LOCAL_ONLY` with 314 paths,
 seven slices, and inventory SHA-256
 `78dc0990244e7b47e9f6b89d6ae71bebd9e5341d055c5a760d6416058b29119a`.
 
-The clean evidence carrier
-`554e41bd1601b7d39fdade30ba7643ec16b3078f`, which contains all three new RTK
-acquisition paths, also passes the canonical fail-closed release-bundle
-rehearsal. The checker built and reverified the candidate twice before
-retaining one archive. Both builds were byte-identical and contained 263
-manifest files; the resulting 11,938,413-byte archive has SHA-256
-`1287d8af5627894aa37759ed031109d7204eca3608b5cf2ab499fdfed3a4cb06`.
+The clean attached-storage evidence carrier
+`3a38154e77311bc11bcfdafc1267263b756e7dbe` also passes the canonical
+fail-closed release-bundle rehearsal. The checker built and reverified the
+candidate twice before retaining one archive. Both builds were byte-identical
+and contained 264 manifest files; the resulting 11,948,788-byte archive has
+SHA-256
+`46b20d1eecaf6ab665c17816db42e937e9cb50c88a8dc4340beda4f2e670cf27`.
+The archived RTK helper lists all four immutable sequence identities when run
+directly from its tar member.
 This is local candidate evidence, not a published release asset, and it must
 not be reused for a later commit.
 

@@ -924,12 +924,12 @@ displayed command passes all 35 tests and removing its prelude fails validation.
 Evidence carrier `72a8c9e77eba33c1578a3cd9c8afe8fbe6933e33`
 passes 2,488 maintained Python tests and a byte-identical 261-file candidate
 bundle rehearsal without granting publication authority.
-The later RTK-SLAM acquisition synchronization passes 2,502 maintained Python
-tests and expands the exact plan to 314 paths. Clean evidence carrier
-`554e41b` also passes the canonical two-build rehearsal: both reverified
-263-file bundles are byte-identical, with a retained archive size of
-11,938,413 bytes and SHA-256
-`1287d8af5627894aa37759ed031109d7204eca3608b5cf2ab499fdfed3a4cb06`.
+The later RTK-SLAM attached-storage synchronization passes 2,506 maintained
+Python tests and retains the exact 314-path plan. Clean evidence carrier
+`3a38154e` also passes the canonical two-build rehearsal: both reverified
+264-file bundles are byte-identical, with a retained archive size of
+11,948,788 bytes and SHA-256
+`46b20d1eecaf6ab665c17816db42e937e9cb50c88a8dc4340beda4f2e670cf27`.
 That result replaces the older bundle as local evidence, not as a published or
 reusable exact-final-head release artifact.
 
