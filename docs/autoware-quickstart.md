@@ -79,12 +79,16 @@ bash scripts/run_default_ci_checks.sh
 If you need the legacy Autoware viewer/dogfood route:
 
 ```bash
+bash scripts/download_ntu_viral_tnp01.sh --dry-run
 bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_autoware_quickstart.sh
 ```
 
 This runs the bundled NTU VIRAL dogfood path with a bounded viewer lifetime.
 Under the hood it forwards to `run_rko_lio_graph_autoware_dogfood.sh`.
+The first command writes nothing and stops a fresh multi-gigabyte preparation
+from starting on an undersized filesystem; use its suggested external
+`--dest` when needed.
 
 ### 2. Open an existing graph_based_slam output in Autoware
 

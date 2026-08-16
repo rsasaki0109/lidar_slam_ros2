@@ -310,6 +310,13 @@ work and document the actual support boundary instead of hiding the delay.
   the tag workflow now stops before image publication when the candidate-only
   banner or `Release decision: HOLD` remains. This makes the current HOLD
   explicit and fail-closed; it does not authorize or perform a release.
+- The canonical NTU ground-truth benchmark acquisition now exposes a
+  write- and network-free plan before its multi-gigabyte work. It reports each
+  remaining phase, pins the official archive byte count and checksum, checks a
+  conservative peak working set on the selected filesystem, fails before
+  download when space is insufficient, and recommends an explicit external
+  `--dest`. This makes missing exact-head release evidence actionable without
+  weakening the five-profile gate or treating historical runs as current.
 - The next release pipeline now turns that repo-independent script into a
   direct attested `lidarslam-map-docker` asset. Its exact tag and source commit
   are embedded deterministically, its default image is the matching immutable

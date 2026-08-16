@@ -67,7 +67,7 @@ release_profiles:
 
   - name: ntu_viral_tnp_01
     description: NTU VIRAL tnp_01 (~580s outdoor, Ouster OS1-16 + VN-100, Leica prism GT)
-    remediation: Run scripts/download_ntu_viral_tnp01.sh and the canonical NTU command in docs/benchmarking.md, then retain metrics.json under the benchmark root.
+    remediation: Run scripts/download_ntu_viral_tnp01.sh --dry-run, choose a large enough destination, then follow the canonical NTU command in docs/benchmarking.md and retain metrics.json under the benchmark root.
     match:
       require_clean_provenance: true
       bag_name_contains: tnp_01

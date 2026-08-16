@@ -1153,6 +1153,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'diagnose_autoware_map_run.py' in autoware_doc
     assert 'Autoware-Compatible Map Authoring' in autoware_doc
     assert 'download_ntu_viral_tnp01.sh' in autoware_doc
+    assert 'download_ntu_viral_tnp01.sh --dry-run' in autoware_doc
     assert 'run_rko_lio_graph_autoware_dogfood.sh' in autoware_doc
     assert 'run_graph_slam_pointcloud_map_in_autoware.sh' in autoware_doc
     assert 'projector_type: Local' in autoware_doc
@@ -1172,6 +1173,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh' in autoware_foxglove_doc
 
     workflows_doc = WORKFLOWS_DOC.read_text(encoding='utf-8')
+    assert 'download_ntu_viral_tnp01.sh --dry-run' in workflows_doc
     assert 'Required Input Topics' in workflows_doc
     assert 'sensor_msgs/msg/PointCloud2' in workflows_doc
     assert 'sensor_msgs/msg/Imu' in workflows_doc
@@ -1201,6 +1203,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'ros2 topic echo --once --timeout' not in getting_started_doc
 
     assert 'download_ntu_viral_tnp01.sh' in benchmarking_doc
+    assert 'download_ntu_viral_tnp01.sh --dry-run' in benchmarking_doc
     assert 'run_rko_lio_graph_benchmark.sh' in benchmarking_doc
     assert 'run_radarless_tunnel_ab.sh' in benchmarking_doc
     assert 'evaluate_degeneracy_trajectory.py' in benchmarking_doc

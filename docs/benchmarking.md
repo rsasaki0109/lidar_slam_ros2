@@ -8,9 +8,30 @@ gate used for the default permissive workflow.
 The standard benchmark path for this repository is:
 
 ```bash
+bash scripts/download_ntu_viral_tnp01.sh --dry-run
 bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
+
+The dry run performs no write or network request. It shows which download,
+extraction, conversion, and restamping phases remain; pins the official archive
+size and checksum; and compares the conservative additional working-set
+estimate with the destination filesystem. A fresh full preparation currently
+needs about 49 GB free because the official archive, ROS 1 bag, converted
+rosbag2, and RKO-LIO restamped bag coexist until completion. If the repository
+filesystem is smaller, keep the data out of the checkout:
+
+```bash
+bash scripts/download_ntu_viral_tnp01.sh \
+  --dest /path/on/large-disk/ntu_viral
+bash scripts/run_rko_lio_graph_benchmark.sh \
+  --bag /path/on/large-disk/ntu_viral/tnp_01_points_restamped_vn100_rosbag2 \
+  --reference-bag /path/on/large-disk/ntu_viral/tnp_01_rosbag2
+```
+
+The live acquisition fails before starting `wget` when the destination cannot
+hold its remaining phases. A cached archive is never extracted until its exact
+official byte count and MD5 identity pass.
 
 ## GLIM cross-validation
 

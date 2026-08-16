@@ -688,9 +688,13 @@ python3 scripts/generate_readme_loop_zoom_figure.py
 Recommended public benchmark:
 
 ```bash
+bash scripts/download_ntu_viral_tnp01.sh --dry-run
 bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
+
+The dry run performs no write or network request and reports the remaining
+phases, official archive identity, and conservative destination-space gate.
 
 Current MID360 cross-validation path:
 

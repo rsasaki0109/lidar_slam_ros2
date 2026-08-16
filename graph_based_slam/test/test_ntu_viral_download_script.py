@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import subprocess
 
@@ -39,12 +40,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DOWNLOAD_SCRIPT = REPO_ROOT / 'scripts' / 'download_ntu_viral_tnp01.sh'
 
 
-def _run_download(*args: str) -> subprocess.CompletedProcess[str]:
+def _run_download(
+    *args: str,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ['bash', str(DOWNLOAD_SCRIPT), *args],
         check=False,
         capture_output=True,
         text=True,
+        env=env,
     )
 
 
@@ -58,7 +63,108 @@ def test_download_help_exits_successfully():
 
     assert result.returncode == 0
     assert 'download_ntu_viral_tnp01.sh' in output
+    assert '--dry-run' in output
     assert '--no-restamp' in output
+
+
+def test_download_dry_run_is_write_and_network_free(tmp_path: Path):
+    dest = tmp_path / 'dataset'
+
+    result = _run_download('--dest', str(dest), '--dry-run')
+    output = _combined_output(result)
+
+    assert result.returncode == 0, output
+    assert 'NTU VIRAL tnp_01 acquisition plan' in output
+    assert '8736253605 bytes' in output
+    assert '82588ea4f29e311447f3d716865a022b' in output
+    assert 'additional required' in output
+    assert 'no files, network requests, conversions, or downloads' in output
+    assert not dest.exists()
+
+
+def test_download_fails_before_network_when_space_is_insufficient(
+    tmp_path: Path,
+):
+    fake_bin = tmp_path / 'bin'
+    fake_bin.mkdir()
+    fake_df = fake_bin / 'df'
+    fake_df.write_text(
+        '#!/bin/sh\n'
+        "printf 'Filesystem 1-blocks Used Available Capacity Mounted on\\n'\n"
+        "printf 'fake 1000000 999999 1 100%% /\\n'\n",
+        encoding='utf-8',
+    )
+    fake_df.chmod(0o755)
+    dest = tmp_path / 'dataset'
+    env = dict(os.environ)
+    env['PATH'] = f'{fake_bin}:{env["PATH"]}'
+
+    result = _run_download(
+        '--dest',
+        str(dest),
+        '--no-convert',
+        '--no-restamp',
+        env=env,
+    )
+    output = _combined_output(result)
+
+    assert result.returncode == 2
+    assert 'BLOCKED_INSUFFICIENT_SPACE' in output
+    assert 'insufficient free space' in result.stderr
+    assert 'downloading zip' not in output
+    assert not dest.exists()
+
+
+def test_download_rejects_cached_archive_with_wrong_identity(tmp_path: Path):
+    fake_bin = tmp_path / 'bin'
+    fake_bin.mkdir()
+    fake_df = fake_bin / 'df'
+    fake_df.write_text(
+        '#!/bin/sh\n'
+        "printf 'Filesystem 1-blocks Used Available Capacity Mounted on\\n'\n"
+        "printf 'fake 100000000000 1 99999999999 1%% /\\n'\n",
+        encoding='utf-8',
+    )
+    fake_df.chmod(0o755)
+    env = dict(os.environ)
+    env['PATH'] = f'{fake_bin}:{env["PATH"]}'
+    dest = tmp_path / 'dataset'
+    dest.mkdir()
+    (dest / 'tnp_01.zip').write_bytes(b'not the official archive')
+
+    result = _run_download(
+        '--dest',
+        str(dest),
+        '--no-convert',
+        '--no-restamp',
+        env=env,
+    )
+
+    assert result.returncode == 1
+    assert 'official archive size mismatch' in result.stderr
+    assert 'extracting zip' not in _combined_output(result)
+
+
+def test_download_reuses_extracted_bag_without_requiring_archive(tmp_path: Path):
+    dest = tmp_path / 'dataset'
+    extracted = dest / 'tnp_01' / 'tnp_01'
+    extracted.mkdir(parents=True)
+    (extracted / 'tnp_01.bag').write_bytes(b'present')
+
+    result = _run_download(
+        '--dest',
+        str(dest),
+        '--no-convert',
+        '--no-restamp',
+    )
+    output = _combined_output(result)
+
+    assert result.returncode == 0, output
+    assert 'archive:     not-needed' in output
+    assert 'rosbag1:     reuse' in output
+    assert 'space:       0.0 GB additional required' in output
+    assert 'downloading zip' not in output
+    assert not (dest / 'tnp_01.zip').exists()
 
 
 def test_download_rejects_missing_dest_value_before_dependency_checks():
