@@ -9,6 +9,7 @@
     "schema_uri",
     "generated_at",
     "candidate",
+    "whole_pr_review",
     "review_slices",
     "authority"
   ],
@@ -40,6 +41,94 @@
         "expected_path_count": {"type": "integer", "minimum": 1},
         "expected_paths_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "scope": {"const": "worktree-delta-from-pr-base"}
+      }
+    },
+    "whole_pr_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_sha",
+        "expected_path_count",
+        "expected_paths_sha256",
+        "coverage_policy",
+        "linear_history_required",
+        "initial_review",
+        "bridge_review",
+        "follow_up_review"
+      ],
+      "properties": {
+        "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "expected_path_count": {"type": "integer", "minimum": 1},
+        "expected_paths_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "coverage_policy": {"const": "union-covers-final-diff"},
+        "linear_history_required": {"const": true},
+        "initial_review": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start_sha",
+            "end_sha",
+            "diff_mode",
+            "expected_commit_count",
+            "expected_path_count",
+            "expected_paths_sha256",
+            "review_record"
+          ],
+          "properties": {
+            "start_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            "end_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            "diff_mode": {"const": "three-dot"},
+            "expected_commit_count": {"type": "integer", "minimum": 1},
+            "expected_path_count": {"type": "integer", "minimum": 1},
+            "expected_paths_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "review_record": {"type": "string", "minLength": 1}
+          }
+        },
+        "bridge_review": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start_sha",
+            "end_sha",
+            "diff_mode",
+            "expected_commit_count",
+            "expected_path_count",
+            "expected_paths_sha256",
+            "allowed_paths",
+            "review_record"
+          ],
+          "properties": {
+            "start_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            "end_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            "diff_mode": {"const": "two-dot"},
+            "expected_commit_count": {"type": "integer", "minimum": 1},
+            "expected_path_count": {"type": "integer", "minimum": 1},
+            "expected_paths_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "allowed_paths": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            },
+            "review_record": {"type": "string", "minLength": 1}
+          }
+        },
+        "follow_up_review": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start_sha",
+            "end_ref",
+            "diff_mode",
+            "review_record"
+          ],
+          "properties": {
+            "start_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            "end_ref": {"const": "HEAD"},
+            "diff_mode": {"const": "worktree"},
+            "review_record": {"type": "string", "minLength": 1}
+          }
+        }
       }
     },
     "review_slices": {

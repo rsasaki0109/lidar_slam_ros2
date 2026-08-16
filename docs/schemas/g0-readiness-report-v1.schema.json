@@ -80,6 +80,10 @@
         "status",
         "path_count",
         "slice_count",
+        "whole_pr_path_count",
+        "review_phase_count",
+        "review_coverage_complete",
+        "bridge_path_count",
         "worktree_clean",
         "uncommitted_path_count"
       ],
@@ -87,6 +91,10 @@
         "status": {"const": "PLAN_VALID_LOCAL_ONLY"},
         "path_count": {"type": "integer", "minimum": 0},
         "slice_count": {"type": "integer", "minimum": 1},
+        "whole_pr_path_count": {"type": "integer", "minimum": 1},
+        "review_phase_count": {"type": "integer", "minimum": 1},
+        "review_coverage_complete": {"type": "boolean"},
+        "bridge_path_count": {"type": "integer", "minimum": 1},
         "worktree_clean": {"type": "boolean"},
         "uncommitted_path_count": {"type": "integer", "minimum": 0}
       }

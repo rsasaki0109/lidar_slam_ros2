@@ -167,7 +167,13 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['publication_plan']['status'] == (
         'PLAN_VALID_LOCAL_ONLY'
     )
-    assert report['checks']['publication_plan']['path_count'] == 330
+    assert report['checks']['publication_plan']['path_count'] == 331
+    assert report['checks']['publication_plan']['whole_pr_path_count'] == 380
+    assert report['checks']['publication_plan']['review_phase_count'] == 3
+    assert report['checks']['publication_plan'][
+        'review_coverage_complete'
+    ] is True
+    assert report['checks']['publication_plan']['bridge_path_count'] == 11
     assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
     assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
     assert report['checks']['product_draft'] == {
@@ -315,7 +321,26 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         '10 successful checks and 4\nintentional non-publication skips'
         in scorecard
     )
-    assert 'current 330-path local plan' in scorecard
+    assert 'current 331-path local plan' in scorecard
+    assert (
+        'complete 380-path / three-phase whole-PR review coverage'
+        in scorecard
+    )
+
+
+def test_dashboard_rejects_incomplete_whole_pr_review_coverage():
+    """A valid slice inventory cannot hide an uncovered historical gap."""
+    reports = DASHBOARD.collect_checker_reports()
+    reports['publication_plan']['review_coverage_complete'] = False
+
+    report = DASHBOARD.build_report(reports)
+
+    assert report['status'] == 'HOLD'
+    assert report['next_action']['id'] == 'repair-publication-plan'
+    assert 'whole-PR review coverage is not valid' in (
+        report['next_action']['reason']
+    )
+    assert report['authority']['github_writes_authorized'] is False
 
 
 def test_dashboard_can_include_a_read_only_release_report_without_writes():

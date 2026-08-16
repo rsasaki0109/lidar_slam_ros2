@@ -7,9 +7,53 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 330,
-    "expected_paths_sha256": "807c2bec5fce302c92f500e80041eff6b47d921e090ade8e91930568472f6877",
+    "expected_path_count": 331,
+    "expected_paths_sha256": "5e4d97af31c621635b7273f31ad73a086dfdd89605cf0873a6b06564944e24a1",
     "scope": "worktree-delta-from-pr-base"
+  },
+  "whole_pr_review": {
+    "base_sha": "86fa9b610c07ccf4d2b0f10939e17c129d34b40a",
+    "expected_path_count": 380,
+    "expected_paths_sha256": "1b205133957931b43875c747196ee03a6d6e21170922e7af29b2895f2f2f5859",
+    "coverage_policy": "union-covers-final-diff",
+    "linear_history_required": true,
+    "initial_review": {
+      "start_sha": "86fa9b610c07ccf4d2b0f10939e17c129d34b40a",
+      "end_sha": "6a8727a9014aea1ecfe8ea9c65d6f10cffb87cd3",
+      "diff_mode": "three-dot",
+      "expected_commit_count": 42,
+      "expected_path_count": 116,
+      "expected_paths_sha256": "e198d45b869f68042311eda9f9876d05bc1561a57c54bdffc75a9779d1b3cc14",
+      "review_record": "docs/evidence/growth/g0-clean-candidate-audit-2026-08-11.md"
+    },
+    "bridge_review": {
+      "start_sha": "6a8727a9014aea1ecfe8ea9c65d6f10cffb87cd3",
+      "end_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
+      "diff_mode": "two-dot",
+      "expected_commit_count": 2,
+      "expected_path_count": 11,
+      "expected_paths_sha256": "dddadf04f04d38fcc86f0a4d4a7926a2eb8b9528e63df665750395a772c20416",
+      "allowed_paths": [
+        "docs/evidence/growth/g0-clean-candidate-audit-2026-08-11.md",
+        "docs/evidence/growth/g0-external-action-decision-packet-2026-08-11.md",
+        "graph_based_slam/test/test_mid360_robot_public_datasets.py",
+        "graph_based_slam/test/test_product_python_tests_script.py",
+        "lidarslam/test/test_audit_published_fixture.py",
+        "lidarslam/test/test_check_fixture_publication.py",
+        "lidarslam/test/test_check_issue_triage_proposal.py",
+        "lidarslam/test/test_check_onboarding_trial_matrix.py",
+        "lidarslam/test/test_collect_runtime_apt_packages.py",
+        "lidarslam/test/test_measure_oci_archive.py",
+        "lidarslam/test/test_runtime_docker_image_contract.py"
+      ],
+      "review_record": "docs/evidence/growth/g0-pr-review-coverage-2026-08-17.md"
+    },
+    "follow_up_review": {
+      "start_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
+      "end_ref": "HEAD",
+      "diff_mode": "worktree",
+      "review_record": "docs/evidence/growth/g0-publication-slice-plan-2026-08-12.md"
+    }
   },
   "review_slices": [
     {
@@ -469,6 +513,7 @@
       ],
       "paths": [
         "docs/evidence/growth/g0-current-action-packet-2026-08-14.md",
+        "docs/evidence/growth/g0-pr-review-coverage-2026-08-17.md",
         "docs/evidence/growth/g0-publication-slice-plan-2026-08-12.json",
         "docs/evidence/growth/g0-publication-slice-plan-2026-08-12.md",
         "docs/schemas/publication-slice-plan-v1.schema.json",

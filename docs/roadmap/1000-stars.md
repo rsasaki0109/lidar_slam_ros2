@@ -960,13 +960,24 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 321-path exact
+been expanded into the current 331-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
 integration, and publication control. The plan itself remains local-authority
 only even though its reviewed carrier is public; further PR updates require a
 clean exact candidate and complete gates.
+
+The later
+[whole-PR coverage audit](../evidence/growth/g0-pr-review-coverage-2026-08-17.md)
+closes a review-boundary gap between the original 116-path clean-candidate
+audit and that follow-up plan. The machine gate now composes the initial audit,
+the exact two-commit / 11-path CI bridge, and all seven follow-up slices into
+the final 380-path PR inventory. Missing phase paths, changed fixed SHA/digest,
+an unapproved bridge path, non-linear history, or an unsafe review record fails
+closed before the G0 dashboard can advance. This makes a very large Draft
+reviewable without treating a green local plan as push, merge, release, or
+community authority.
 
 The G0 dashboard now audits that prerequisite directly through bounded GitHub
 GETs. It binds local HEAD to Draft PR #427, the canonical branches, mergeable

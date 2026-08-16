@@ -95,7 +95,9 @@ def test_tracked_plan_covers_the_exact_candidate_once():
     assert report['public_baseline_sha'] == (
         '3ed632e6f6aa1e3ca7f32d893773de1079086ffb'
     )
-    assert report['local_tip_sha'] == CHECKER._run_git(['rev-parse', 'HEAD'])[0]
+    assert report['local_tip_sha'] == CHECKER._run_git([
+        'rev-parse', 'HEAD',
+    ])[0]
     expected_follow_ups = int(CHECKER._run_git([
         'rev-list',
         '--count',
@@ -106,8 +108,25 @@ def test_tracked_plan_covers_the_exact_candidate_once():
     assert report['worktree_clean'] is (not status)
     assert report['uncommitted_path_count'] == len(status)
     assert report['scope'] == 'worktree-delta-from-pr-base'
-    assert report['path_count'] == 330
+    assert report['path_count'] == 331
     assert report['slice_count'] == 7
+    assert report['whole_pr_base_sha'] == (
+        '86fa9b610c07ccf4d2b0f10939e17c129d34b40a'
+    )
+    assert report['whole_pr_path_count'] == 380
+    assert report['review_phase_count'] == 3
+    assert report['review_phase_ids'] == [
+        'initial_review',
+        'bridge_review',
+        'follow_up_review',
+    ]
+    assert report['review_coverage_complete'] is True
+    assert report['bridge_path_count'] == 11
+    assert report['overlap_path_count'] == 73
+    assert report['overlap_membership_count'] == 78
+    assert report['uncovered_path_count'] == 0
+    assert report['extraneous_phase_path_count'] == 0
+    assert report['merge_commit_count'] == 0
     assert report['remote_mutations_performed'] is False
     assert _planned_paths(plan) == actual
 
@@ -171,6 +190,82 @@ def test_unresolvable_public_head_is_rejected():
         CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
 
 
+def test_bridge_allowlist_drift_is_rejected():
+    plan = _plan()
+    plan['whole_pr_review']['bridge_review']['allowed_paths'].pop()
+
+    with pytest.raises(CHECKER.PlanError, match='allowlist mismatch'):
+        CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
+
+
+def test_stale_bridge_digest_is_rejected():
+    plan = _plan()
+    plan['whole_pr_review']['bridge_review'][
+        'expected_paths_sha256'
+    ] = '0' * 64
+
+    with pytest.raises(
+        CHECKER.PlanError,
+        match='bridge review.*sha256 is stale',
+    ):
+        CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
+
+
+def test_non_contiguous_review_phases_are_rejected():
+    plan = _plan()
+    plan['whole_pr_review']['bridge_review']['start_sha'] = '0' * 40
+
+    with pytest.raises(CHECKER.PlanError, match='not contiguous'):
+        CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
+
+
+def test_stale_whole_pr_digest_is_rejected():
+    plan = _plan()
+    plan['whole_pr_review']['expected_paths_sha256'] = '0' * 64
+
+    with pytest.raises(CHECKER.PlanError, match='whole-PR.*sha256 is stale'):
+        CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
+
+
+def test_uncovered_whole_pr_path_is_rejected():
+    plan = _plan()
+    uncovered_path = '.gitattributes'
+    owner = next(
+        review_slice
+        for review_slice in plan['review_slices']
+        if uncovered_path in review_slice['paths']
+    )
+    owner['paths'].remove(uncovered_path)
+    actual = _planned_paths(plan)
+    plan['candidate']['expected_path_count'] = len(actual)
+    plan['candidate']['expected_paths_sha256'] = (
+        CHECKER.path_inventory_sha256(actual)
+    )
+
+    with pytest.raises(CHECKER.PlanError, match='uncovered='):
+        CHECKER.validate_plan(plan, _schema(), actual)
+
+
+def test_unsafe_whole_pr_review_record_is_rejected():
+    plan = _plan()
+    plan['whole_pr_review']['follow_up_review'][
+        'review_record'
+    ] = '../outside.md'
+
+    with pytest.raises(CHECKER.PlanError, match='unsafe repository-relative'):
+        CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
+
+
+def test_review_record_outside_its_phase_is_rejected():
+    plan = _plan()
+    plan['whole_pr_review']['initial_review'][
+        'review_record'
+    ] = 'docs/evidence/growth/g0-pr-review-coverage-2026-08-17.md'
+
+    with pytest.raises(CHECKER.PlanError, match='outside the initial review'):
+        CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
+
+
 def test_plan_cannot_authorize_github_writes():
     plan = _plan()
     plan['authority']['github_writes_authorized'] = True
@@ -202,7 +297,9 @@ def test_source_quickstart_verification_is_self_contained_and_read_only():
 
     assert result.returncode == 0, result.stderr
     workspace_line = next(
-        line for line in result.stdout.splitlines() if line.startswith('  Workspace: ')
+        line
+        for line in result.stdout.splitlines()
+        if line.startswith('  Workspace: ')
     )
     workspace = Path(workspace_line.removeprefix('  Workspace: '))
     assert not workspace.exists()
@@ -368,7 +465,9 @@ def test_cli_emits_a_machine_readable_local_only_report():
     assert report['public_baseline_sha'] == (
         '3ed632e6f6aa1e3ca7f32d893773de1079086ffb'
     )
-    assert report['local_tip_sha'] == CHECKER._run_git(['rev-parse', 'HEAD'])[0]
+    assert report['local_tip_sha'] == CHECKER._run_git([
+        'rev-parse', 'HEAD',
+    ])[0]
     expected_follow_ups = int(CHECKER._run_git([
         'rev-list',
         '--count',
@@ -378,7 +477,13 @@ def test_cli_emits_a_machine_readable_local_only_report():
     status = CHECKER._run_git(['status', '--short'])
     assert report['worktree_clean'] is (not status)
     assert report['uncommitted_path_count'] == len(status)
-    assert report['path_count'] == 330
+    assert report['path_count'] == 331
+    assert report['whole_pr_path_count'] == 380
+    assert report['review_phase_count'] == 3
+    assert report['review_coverage_complete'] is True
+    assert report['bridge_path_count'] == 11
+    assert report['uncovered_path_count'] == 0
+    assert report['merge_commit_count'] == 0
     assert report['github_writes_authorized'] is False
     assert report['remote_mutations_performed'] is False
 
@@ -405,6 +510,10 @@ def test_slice_json_binds_exact_scope_without_executing_commands():
     assert review_slice['id'] == 'S1-runtime-safety'
     assert review_slice['order'] == 1
     assert report['candidate']['slice_count'] == 7
+    assert report['candidate']['whole_pr_path_count'] == 380
+    assert report['candidate']['review_phase_count'] == 3
+    assert report['candidate']['review_coverage_complete'] is True
+    assert report['candidate']['bridge_path_count'] == 11
     assert report['candidate']['uncommitted_path_count'] >= 0
     assert review_slice['path_count'] == 15
     assert review_slice['depends_on'] == []
@@ -429,6 +538,9 @@ def test_slice_human_card_has_one_safe_next_action():
     assert '- GitHub write authorized: no' in result.stdout
     assert '- Worktree clean:' in result.stdout
     assert '- Uncommitted paths:' in result.stdout
+    assert '- Whole-PR paths: 380' in result.stdout
+    assert '- Whole-PR review coverage complete: yes' in result.stdout
+    assert '- CI bridge paths: 11' in result.stdout
     assert result.stdout.count('Next action:') == 1
 
 

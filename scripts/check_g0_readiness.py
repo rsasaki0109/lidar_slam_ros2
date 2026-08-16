@@ -1256,11 +1256,17 @@ def _next_action(
     published: dict[str, Any],
 ) -> dict[str, Any]:
     """Choose one safe next action in dependency order."""
-    if plan['status'] != 'PLAN_VALID_LOCAL_ONLY':
+    if (
+        plan['status'] != 'PLAN_VALID_LOCAL_ONLY'
+        or plan['review_coverage_complete'] is not True
+    ):
         return {
             'id': 'repair-publication-plan',
             'title': 'Repair the local publication inventory',
-            'reason': 'The exact candidate path plan is not valid.',
+            'reason': (
+                'The exact candidate path plan or composed whole-PR review '
+                'coverage is not valid.'
+            ),
             'command': (
                 'python3 scripts/check_publication_slice_plan.py --json'
             ),
@@ -1534,6 +1540,12 @@ def build_report(
         'status': plan_report.get('status'),
         'path_count': plan_report.get('path_count'),
         'slice_count': plan_report.get('slice_count'),
+        'whole_pr_path_count': plan_report.get('whole_pr_path_count'),
+        'review_phase_count': plan_report.get('review_phase_count'),
+        'review_coverage_complete': plan_report.get(
+            'review_coverage_complete'
+        ),
+        'bridge_path_count': plan_report.get('bridge_path_count'),
         'worktree_clean': plan_report.get('worktree_clean'),
         'uncommitted_path_count': plan_report.get('uncommitted_path_count'),
     }
@@ -1557,7 +1569,10 @@ def build_report(
         'github_writes_authorized': False,
         'remote_mutations_performed': False,
     }
-    local_error = plan['status'] != 'PLAN_VALID_LOCAL_ONLY'
+    local_error = (
+        plan['status'] != 'PLAN_VALID_LOCAL_ONLY'
+        or plan['review_coverage_complete'] is not True
+    )
     local_ready = (
         not local_error
         and bool(matrix['activation_gate'])
@@ -1640,6 +1655,10 @@ def render_card(report: dict[str, Any]) -> str:
         (
             f"| publication plan | {plan['status']} | "
             f"{plan['path_count']} paths / {plan['slice_count']} slices; "
+            f"whole PR {plan['whole_pr_path_count']} paths / "
+            f"{plan['review_phase_count']} phases; "
+            'review coverage complete: '
+            f"{str(plan['review_coverage_complete']).lower()}; "
             f"worktree clean: {str(plan['worktree_clean']).lower()} |"
         ),
         (

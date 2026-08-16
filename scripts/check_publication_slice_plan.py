@@ -132,7 +132,9 @@ def _run_git(arguments: Sequence[str]) -> list[str]:
             timeout=60,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise PlanError(f'cannot execute read-only Git inspection: {exc}') from exc
+        raise PlanError(
+            f'cannot execute read-only Git inspection: {exc}'
+        ) from exc
     if result.returncode != 0:
         detail = result.stderr.strip() or 'git returned no error text'
         raise PlanError(f'read-only Git inspection failed: {detail}')
@@ -156,6 +158,32 @@ def path_inventory_sha256(paths: Sequence[str]) -> str:
     """Hash a canonical newline-terminated path inventory."""
     payload = ''.join(f'{path}\n' for path in paths).encode('utf-8')
     return hashlib.sha256(payload).hexdigest()
+
+
+def committed_paths(
+    start_sha: str,
+    end_sha: str,
+    diff_mode: str,
+) -> list[str]:
+    """Return the canonical path inventory for one committed review phase."""
+    separators = {
+        'three-dot': '...',
+        'two-dot': '..',
+    }
+    try:
+        separator = separators[diff_mode]
+    except KeyError as exc:
+        raise PlanError(
+            f'unsupported committed diff mode: {diff_mode}'
+        ) from exc
+    paths = _run_git([
+        'diff',
+        '--name-only',
+        '--diff-filter=ACDMRTUXB',
+        f'{start_sha}{separator}{end_sha}',
+        '--',
+    ])
+    return sorted(set(paths))
 
 
 def _validate_repo_path(path: str) -> None:
@@ -208,7 +236,9 @@ def _validate_candidate_lineage(
 ) -> tuple[str, int]:
     """Require the frozen public baseline between the PR base and local tip."""
     try:
-        base_to_public = _run_git(['merge-base', base_sha, public_baseline_sha])
+        base_to_public = _run_git([
+            'merge-base', base_sha, public_baseline_sha,
+        ])
         public_to_local = _run_git(['merge-base', public_baseline_sha, 'HEAD'])
         local_tip = _run_git(['rev-parse', 'HEAD'])
         follow_up_count = _run_git([
@@ -217,14 +247,178 @@ def _validate_candidate_lineage(
     except PlanError as exc:
         raise PlanError('candidate lineage cannot be verified') from exc
     if base_to_public != [base_sha]:
-        raise PlanError('public review baseline does not descend from the PR base')
+        raise PlanError(
+            'public review baseline does not descend from the PR base'
+        )
     if public_to_local != [public_baseline_sha]:
-        raise PlanError('local candidate does not descend from public review baseline')
+        raise PlanError(
+            'local candidate does not descend from public review baseline'
+        )
     if len(local_tip) != 1 or len(local_tip[0]) != 40:
         raise PlanError('local candidate tip could not be resolved exactly')
     if len(follow_up_count) != 1 or not follow_up_count[0].isdigit():
         raise PlanError('follow-up commit count could not be resolved')
     return local_tip[0], int(follow_up_count[0])
+
+
+def _validate_review_record(label: str, path: str) -> None:
+    """Require a safe, current, regular-file record for each review phase."""
+    _validate_repo_path(path)
+    record = REPO_ROOT / path
+    if record.is_symlink() or not record.is_file():
+        raise PlanError(f'{label} review_record is not a regular file: {path}')
+
+
+def _validate_fixed_review_phase(
+    label: str,
+    phase: dict[str, Any],
+) -> list[str]:
+    """Validate one immutable committed phase and return its exact paths."""
+    start_sha = phase['start_sha']
+    end_sha = phase['end_sha']
+    try:
+        merge_base = _run_git(['merge-base', start_sha, end_sha])
+    except PlanError as exc:
+        raise PlanError(f'{label} lineage cannot be verified') from exc
+    if merge_base != [start_sha]:
+        raise PlanError(f'{label} end does not descend from its start')
+
+    commit_count = _run_git([
+        'rev-list', '--count', f'{start_sha}..{end_sha}',
+    ])
+    if commit_count != [str(phase['expected_commit_count'])]:
+        raise PlanError(f'{label} expected_commit_count is stale')
+
+    paths = committed_paths(start_sha, end_sha, phase['diff_mode'])
+    if len(paths) != phase['expected_path_count']:
+        raise PlanError(f'{label} expected_path_count is stale')
+    if path_inventory_sha256(paths) != phase['expected_paths_sha256']:
+        raise PlanError(f'{label} expected_paths_sha256 is stale')
+    try:
+        _run_git(['diff', '--check', f'{start_sha}..{end_sha}', '--'])
+    except PlanError as exc:
+        raise PlanError(f'{label} exact range fails git diff --check') from exc
+    _validate_review_record(label, phase['review_record'])
+    return paths
+
+
+def _validate_whole_pr_review(
+    plan: dict[str, Any],
+    follow_up_paths: Sequence[str],
+) -> dict[str, Any]:
+    """Prove that sequential review phases cover the final whole-PR diff."""
+    contract = plan['whole_pr_review']
+    initial = contract['initial_review']
+    bridge = contract['bridge_review']
+    follow_up = contract['follow_up_review']
+    candidate = plan['candidate']
+
+    if initial['start_sha'] != contract['base_sha']:
+        raise PlanError('initial review does not start at the whole-PR base')
+    if initial['end_sha'] != bridge['start_sha']:
+        raise PlanError('initial and bridge review ranges are not contiguous')
+    if bridge['end_sha'] != follow_up['start_sha']:
+        raise PlanError(
+            'bridge and follow-up review ranges are not contiguous'
+        )
+    if follow_up['start_sha'] != candidate['base_sha']:
+        raise PlanError(
+            'follow-up review does not start at the slice-plan base'
+        )
+
+    initial_paths = _validate_fixed_review_phase('initial review', initial)
+    bridge_paths = _validate_fixed_review_phase('bridge review', bridge)
+
+    allowed_bridge_paths = bridge['allowed_paths']
+    if allowed_bridge_paths != sorted(allowed_bridge_paths):
+        raise PlanError('bridge review allowed_paths must be sorted')
+    for path in allowed_bridge_paths:
+        _validate_repo_path(path)
+    if bridge_paths != allowed_bridge_paths:
+        missing = sorted(set(bridge_paths) - set(allowed_bridge_paths))
+        stale = sorted(set(allowed_bridge_paths) - set(bridge_paths))
+        raise PlanError(
+            'bridge review allowlist mismatch: '
+            f'missing_from_allowlist={missing}, absent_from_bridge={stale}'
+        )
+
+    canonical_follow_up = sorted(set(follow_up_paths))
+    _validate_review_record(
+        'follow-up review', follow_up['review_record']
+    )
+    if initial['review_record'] not in initial_paths:
+        raise PlanError(
+            'initial review record is outside the initial review inventory'
+        )
+    for label, record in (
+        ('bridge review', bridge['review_record']),
+        ('follow-up review', follow_up['review_record']),
+    ):
+        if record not in canonical_follow_up:
+            raise PlanError(
+                f'{label} record is outside the follow-up review inventory'
+            )
+
+    whole_paths = candidate_paths(contract['base_sha'])
+    whole_digest = path_inventory_sha256(whole_paths)
+    if contract['expected_path_count'] != len(whole_paths):
+        raise PlanError('whole-PR expected_path_count is stale')
+    if contract['expected_paths_sha256'] != whole_digest:
+        raise PlanError('whole-PR expected_paths_sha256 is stale')
+
+    phase_sets = [
+        set(initial_paths),
+        set(bridge_paths),
+        set(canonical_follow_up),
+    ]
+    covered_paths = set().union(*phase_sets)
+    whole_set = set(whole_paths)
+    uncovered = sorted(whole_set - covered_paths)
+    extraneous = sorted(covered_paths - whole_set)
+    if uncovered or extraneous:
+        raise PlanError(
+            'whole-PR review coverage mismatch: '
+            f'uncovered={uncovered}, extraneous={extraneous}'
+        )
+
+    merge_commits = _run_git([
+        'rev-list',
+        '--min-parents=2',
+        f"{contract['base_sha']}..HEAD",
+    ])
+    if merge_commits:
+        raise PlanError(
+            f'whole-PR history contains merge commits: {merge_commits}'
+        )
+
+    memberships: dict[str, int] = {}
+    for phase_paths in phase_sets:
+        for path in phase_paths:
+            memberships[path] = memberships.get(path, 0) + 1
+    overlap_path_count = sum(
+        count > 1 for count in memberships.values()
+    )
+    overlap_membership_count = sum(
+        count - 1 for count in memberships.values()
+    )
+    return {
+        'whole_pr_base_sha': contract['base_sha'],
+        'whole_pr_path_count': len(whole_paths),
+        'whole_pr_paths_sha256': whole_digest,
+        'review_phase_count': 3,
+        'review_phase_ids': [
+            'initial_review',
+            'bridge_review',
+            'follow_up_review',
+        ],
+        'review_coverage_complete': True,
+        'bridge_path_count': len(bridge_paths),
+        'overlap_path_count': overlap_path_count,
+        'overlap_membership_count': overlap_membership_count,
+        'uncovered_path_count': 0,
+        'extraneous_phase_path_count': 0,
+        'merge_commit_count': 0,
+    }
 
 
 def validate_plan(
@@ -304,6 +498,8 @@ def validate_plan(
     if candidate['expected_paths_sha256'] != actual_digest:
         raise PlanError('candidate expected_paths_sha256 is stale')
 
+    whole_pr_report = _validate_whole_pr_review(plan, canonical_actual)
+
     authority = plan['authority']
     if authority['github_writes_authorized']:
         raise PlanError('a local review plan cannot authorize GitHub writes')
@@ -326,6 +522,7 @@ def validate_plan(
         'slice_ids': slice_ids,
         'github_writes_authorized': False,
         'remote_mutations_performed': False,
+        **whole_pr_report,
     }
 
 
@@ -342,7 +539,9 @@ def build_slice_review_report(
     if review_slice is None:
         available = ', '.join(item['id'] for item in plan['review_slices'])
         raise PlanError(
-            f'unknown review slice {slice_id!r}; available slices: {available}')
+            f'unknown review slice {slice_id!r}; '
+            f'available slices: {available}'
+        )
 
     return {
         'status': 'SLICE_REVIEW_READY_LOCAL_ONLY',
@@ -359,6 +558,13 @@ def build_slice_review_report(
             'uncommitted_path_count': validation_report[
                 'uncommitted_path_count'
             ],
+            'whole_pr_base_sha': validation_report['whole_pr_base_sha'],
+            'whole_pr_path_count': validation_report['whole_pr_path_count'],
+            'review_phase_count': validation_report['review_phase_count'],
+            'review_coverage_complete': validation_report[
+                'review_coverage_complete'
+            ],
+            'bridge_path_count': validation_report['bridge_path_count'],
         },
         'review_slice': {
             'id': review_slice['id'],
@@ -385,12 +591,23 @@ def render_slice_review_card(report: dict[str, Any]) -> str:
     lines = [
         f"# {review_slice['id']}: {review_slice['title']}",
         '',
-        f"- Review order: {review_slice['order']} of {candidate['slice_count']}",
+        (
+            f"- Review order: {review_slice['order']} of "
+            f"{candidate['slice_count']}"
+        ),
         f"- Paths: {review_slice['path_count']}",
         f"- Depends on: {', '.join(dependencies) if dependencies else 'none'}",
         f"- Publication gate: {review_slice['publication_gate']}",
         f"- Frozen public review baseline: {candidate['public_baseline_sha']}",
         f"- Local HEAD: {candidate['local_tip_sha']}",
+        f"- Whole-PR base: {candidate['whole_pr_base_sha']}",
+        f"- Whole-PR paths: {candidate['whole_pr_path_count']}",
+        f"- Sequential review phases: {candidate['review_phase_count']}",
+        (
+            '- Whole-PR review coverage complete: '
+            f"{'yes' if candidate['review_coverage_complete'] else 'no'}"
+        ),
+        f"- CI bridge paths: {candidate['bridge_path_count']}",
         (
             '- Follow-up commits after baseline: '
             f"{candidate['follow_up_commit_count']}"
