@@ -76,6 +76,9 @@
 > Latest copy-ready low-storage recovery tip:
 > `d01652080485bc68354f354043e4b2e732439223`
 >
+> Latest other-PointCloud2 self-service tip:
+> `6950764154dfe0a2159f701d8d01cd55ce5907af`
+>
 > Publication-inventory synchronization: this handoff captures public
 > `0610727444412c6fac3587a4b965acebb1214d41`, binds the local media generator
 > at `d0c84bb9bb7bef37d7e318000e3071a7f536d631`, and adds no publication
@@ -135,6 +138,13 @@ deployment manifest against its Draft 7 schema before exclusive artifact
 creation. The Pages workflow installs the validator explicitly and reruns when
 the shared validator changes, so schema/output drift cannot be uploaded and
 discovered only after deployment. This does not deploy Pages.
+The issue-driven self-service follow-up at `6950764…` replaces the old
+"which launch/YAML file should I edit?" handoff with the existing read-only
+`doctor` then guided `start` path. It keeps detected topics, frames, fields,
+timestamps, maintained-profile selection, and calibration review visible,
+while explicitly refusing to turn PointCloud2 detection into a vendor-support
+or accuracy claim. The update changes no profile, transform, parameter,
+mapping algorithm, or GitHub issue state.
 The latest distribution slices also scope
 optional GitHub authentication to read-only API requests, make explicit or
 unknown NDT PR mergeability fail closed, restore exact-tip source-route
@@ -249,6 +259,7 @@ gate from being mistaken for the current state.
 | Exact public PR-head CI | capture-time public baseline remains **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures; exact public `0610727…` is also **PASS** with the same 10 / 4 / 0 result | Humble/Jazzy default workflows, Docker verification builds, upgrade checks, docs/metadata, candidate contract, and release-readiness guards all passed; publication jobs stayed skipped by design |
 | English support cards | docs entrypoint tests 25 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded; Docker convenience and candidate-digest authority boundaries are both regression-bound; every tracked shell entry point now also has a parse regression |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
+| Other-PointCloud2 self-service | exact implementation `6950764…`; the TTY home, system doctor, README, canonical map-authoring page, Japanese quickstart, and candidate release notes all route another LiDAR bag through `doctor` then `start` without tracked launch/YAML edits; focused docs/home/doctor tests pass 45, S6 groups pass 34 + 199 + 47, and the complete gate passes 2,469 / 13 skipped | read-only evidence came from open issues #95, #98, #103, #106, #111, and #115; no issue was changed, no vendor preset was added, and detection remains distinct from hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 61 queue regressions and 5 / 5 focused strict-MkDocs profiles pass; current GET-only output finds 1 published `good first issue` (#422), 0 eligible starters, 1 blocked starter, 1 open PR, and 1 potential C5 match after PR #427 changed | the contributor waits instead of entering the closed cohort; the maintainer gets the cohort status command; C1–C4 remain retired and no issue, label, comment, PR, Pages deployment, or community post was changed |
 | Fixed-demo low-storage recovery | exact implementation `d016520…`; real local rejection reports exact `additional_bytes_required`, rounds 1.76 GiB upward for the human card, keeps system JSON path-free, and preserves the full shell-quoted demo retry; default floor remains 8 GiB | this removes one locally reproduced activation burden; it is not a public clean-host completion, paired GLIM observation, or authority to lower the storage gate |
 | Distribution preflights | source route `READY` at exact public `3ed632e…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one stale-base rosdep failure, and an unanswered review; Humble RKO-LIO 0.3.2 is in main/testing, Jazzy 0.3.2 is in testing while main remains 0.2.0; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve | canonical collision-free NDT convergence and a current-base green replacement precede package sync and clean-install E2E; do not merge the overlapping registrations or treat Jazzy main as ready |

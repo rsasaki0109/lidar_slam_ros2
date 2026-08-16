@@ -742,6 +742,25 @@ With a bag it retains the existing input/profile inspection. The
 keeps the real PPA/package-manager advantage and public clean-machine
 comparison pending.
 
+A read-only 2026-08-16 issue review found the same old file-edit handoff in
+[#95](https://github.com/rsasaki0109/lidar_slam_ros2/issues/95),
+[#98](https://github.com/rsasaki0109/lidar_slam_ros2/issues/98),
+[#103](https://github.com/rsasaki0109/lidar_slam_ros2/issues/103),
+[#106](https://github.com/rsasaki0109/lidar_slam_ros2/issues/106),
+[#111](https://github.com/rsasaki0109/lidar_slam_ros2/issues/111), and
+[#115](https://github.com/rsasaki0109/lidar_slam_ros2/issues/115): people using
+Ouster, Velodyne, RoboSense, simulated, or other PointCloud2 inputs were asked
+which launch/YAML files to fork before the product could inspect their bag.
+Exact implementation `6950764154dfe0a2159f701d8d01cd55ce5907af` replaces that
+discovery burden with one bounded message across the TTY home, system doctor,
+README, canonical map-authoring page, Japanese quickstart, and release notes:
+run `doctor`, then `start`; do not guess remaps, frames, transforms, or tracked
+file edits. Unsafe inputs still stop before mapping with a stable reason code,
+and PointCloud2 detection is explicitly not a vendor-support or accuracy
+claim. The complete maintained Python gate passes 2,469 tests with 13 known
+skips, strict MkDocs and changed-file Jazzy `ament_flake8` pass, and the
+implementation-carrier candidate bundle remains 261 files.
+
 The next activation repair closes the largest locally reproduced fixed-demo
 rejection gap: low storage no longer leaves the operator to calculate a
 shortage, replace `<dir>`, or reconstruct prior options. Both system doctor and
