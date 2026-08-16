@@ -43,8 +43,11 @@
 > Exact S6 ordinary-shell review recovery tip:
 > `0633c2a604489538e0f087c02385e7c6467540c3`
 >
+> Exact S6 review evidence carrier:
+> `72a8c9e77eba33c1578a3cd9c8afe8fbe6933e33`
+>
 > Exact complete local validation carrier:
-> `99cce93a07a7cc136eb925c446dd705bdcd7b37c`
+> `72a8c9e77eba33c1578a3cd9c8afe8fbe6933e33`
 >
 > Exact fail-closed docs artifact implementation tip:
 > `5b8c8c477cceb4955184a64afa874712b9dea5aa`
@@ -174,7 +177,7 @@ cannot bypass live Git coverage.
 | claim-bounded social media | 11 focused regressions plus 25 public docs/release entrypoint regressions pass; the generated 10.666-second H.264 candidate, four-cue WebVTT, exact-revision Japanese/English copy, and byte manifest retain no external publication authority |
 | checker regressions | 20 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, self-contained source, lifecycle ROS-bag, and product-shell ROS-bag verification, package-test process isolation, cache suppression, and recognized direct remote-write CLI refusal |
 | exact displayed S1 command | an ordinary unsourced shell sourced `${ROS_DISTRO:-jazzy}`, tested `graph_based_slam` and `scanmatcher`, and reported 4,253 test cases with 0 errors, 0 failures, and 127 skips |
-| S1 rejected-map-update threshold retry | exact implementation `99cce93`; one pure commit-state regression passes; the real asynchronous component rejects an unsafe translated cloud above a positive 0.02 m threshold, publishes the same-geometry safe retry without further travel, and passes 10 / 10 independent Jazzy processes; worker exceptions stay inside the component boundary; Humble exact-head proof remains a public-CI gate |
+| S1 rejected-map-update threshold retry | exact implementation `99cce93`; one pure commit-state regression passes; the real asynchronous component rejects an unsafe translated cloud above a positive 0.02 m threshold, publishes the same-geometry safe retry without further travel, and passes 10 / 10 independent Jazzy processes; worker exceptions stay inside the component boundary; exact public `7b3cb99` runs the component target successfully on both Humble and Jazzy, while issue response and named release remain separate gates |
 | exact displayed S6 product-shell command | exact implementation `0633c2a`; an ordinary unsourced shell restores `${ROS_DISTRO:-jazzy}` before importing `rosbag2_py` and passes all 35 graph docs/product-CLI tests; deleting the prelude now fails plan validation before a reviewer sees the card |
 | focused graph product/docs regressions | 35 passed in a Jazzy-sourced isolated package process; an additional 15 diagnosis regressions cover all five user-reported map symptoms and missing-bag/root-cause boundaries |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
@@ -188,8 +191,8 @@ cannot bypass live Git coverage.
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
 | public documentation deployment provenance | 9 focused regressions pass; strict MkDocs produces a deterministic, pre-write schema-valid manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
-| clean candidate release bundle | exact-head reproducibility rehearsal passes at implementation `99cce93`; two byte-identical bundles each contain 261 files, total 11,931,414 bytes, and have SHA-256 `5f8429e4038ca6567b2bbdb0bb00e36e5c08160631ad30ff77c7422f5080f345` |
-| complete maintained Python gate | local `99cce93`: graph 1,452 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 1,034 passed; 2,486 total; strict MkDocs and focused C++ formatting/lint pass; latest public `7b3cb99` Actions pass 10 successful / 4 intentional skips / 0 failures / 0 pending; registered CTest passes 94 / 94 plus graph CTest 232 / 232 |
+| clean candidate release bundle | exact-head reproducibility rehearsal passes at S6 evidence carrier `72a8c9e`; two byte-identical bundles each contain 261 files, total 11,932,456 bytes, and have SHA-256 `436586241b9475653100caab5dd7dd98bcbbad186287847f9b0a7176a93aa1fb` |
+| complete maintained Python gate | local `72a8c9e`: source-explicit graph 1,452 passed / 13 skipped / 11 existing ImageIO warnings; source-explicit lidarslam 1,036 passed; 2,488 total; strict MkDocs, changed-file Jazzy `ament_flake8`, and the exact displayed S1 4,253-case command pass; latest public `7b3cb99` Actions pass 10 successful / 4 intentional skips / 0 failures / 0 pending |
 | paired scorecard recorder | 7 direct regressions, 20 recorder/checker regressions, and registered CTest 6 / 6 pass; incomplete observations remain non-comparable and atomic output/privacy boundaries fail closed |
 | empty release-evidence UX | 29 release-profile regressions cover direct and wrapper-level empty-root behavior; the exact-head gate retains Markdown/CSV/log evidence, reports five blocking rows plus their remediations, and exits 2 without weakening release authority |
 | GLIM reference-cache integrity | 10 focused regressions passed; registered CTest 1 / 1; missing lookup remains read-only; exact content, manifest, malformed-TUM, tamper, collision, shell, and bundle boundaries pass |

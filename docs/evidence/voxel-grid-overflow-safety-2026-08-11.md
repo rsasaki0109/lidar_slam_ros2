@@ -1,6 +1,6 @@
 # Classic scanmatcher VoxelGrid overflow safety — 2026-08-11
 
-> Status: **LOCAL_THRESHOLD_RETRY_RECOVERY_PASS_PUBLIC_CI_PENDING**
+> Status: **PUBLIC_HUMBLE_JAZZY_CI_PASS_ISSUE_AND_RELEASE_PENDING**
 >
 > Runtime safety commit:
 > `a2368c486fc35c0edcac6d9dbf2f9cb89475c820`
@@ -154,8 +154,8 @@ about the unavailable historical bag.
 
 | Environment | Exact substrate | Build | Boundary suite | Component recovery | Complete scanmatcher CTest |
 | --- | --- | --- | --- | --- | --- |
-| Humble | immutable local image `ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:f1a894d81b5cb7b4e2e55a7b3fc17e538722b59c07b0bec066f2ad499a5e8447`; PCL `1.12.1+dfsg-3build1`; GCC `11.4.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | PASS at the prior async carrier, network disabled, source mounted read-only, clean temporary build/install | 11 / 11 PASS | prior 2 / 2 PASS and async 10 / 10; current positive-threshold retry awaits exact-head public CI | prior 10 / 10 PASS; current exact-head public CI pending |
-| Jazzy | Ubuntu 24.04 host; PCL `1.14.0+dfsg-1`; GCC `13.3.0`; installed `lidarslam_msgs 0.9.1` and `ndt_omp_ros2 0.1.0` underlay | PASS, incremental exact-head build | 11 / 11 PASS | current 3 / 3 PASS; positive-threshold async retry 10 / 10 independent-process PASS | current 10 / 10 PASS; 4,253 cases / 127 skips with `graph_based_slam` |
+| Humble | immutable local image `ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:f1a894d81b5cb7b4e2e55a7b3fc17e538722b59c07b0bec066f2ad499a5e8447`; PCL `1.12.1+dfsg-3build1`; GCC `11.4.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | prior clean read-only build PASS; exact public `7b3cb99` default workflow PASS | prior 11 / 11 PASS | exact-public `test_scanmatcher_voxel_grid_recovery` target PASS in 2.84 s; prior async 10 / 10 independent-process PASS | exact-public 10 / 10 scanmatcher PASS; complete default workflow 4,241 cases / 0 errors / 0 failures / 151 skips |
+| Jazzy | Ubuntu 24.04 host; PCL `1.14.0+dfsg-1`; GCC `13.3.0`; installed `lidarslam_msgs 0.9.1` and `ndt_omp_ros2 0.1.0` underlay | local exact implementation and public `7b3cb99` default workflow PASS | 11 / 11 PASS | exact-public `test_scanmatcher_voxel_grid_recovery` target PASS in 2.87 s; local positive-threshold retry 10 / 10 independent-process PASS | exact-public 10 / 10 scanmatcher PASS; complete default workflow 4,355 cases / 0 errors / 0 failures / 151 skips; local S1 command 4,253 / 127 skips |
 
 The complete CTest set includes lidar undistortion, math utilities, odometry
 prior, pose prediction, pose acceptance, IMU processing, map-update policy,
@@ -188,17 +188,16 @@ Two byte-identical candidate-bundle rehearsals contain 261 files, total
 
 ## Remaining public gate
 
-Issue #69 should remain open until all of these are true:
+Public Draft `7b3cb99` now satisfies the public-revision and supported-CI
+requirements: both default workflows execute and pass the component recovery
+target. Issue #69 should still remain open until both remaining actions are
+complete:
 
-1. the reviewed descendant containing the asynchronous hardening is publicly
-   resolvable;
-2. CI reproduces both supported build/test rows, including the component
-   recovery test, from that public revision;
-3. the public issue response explains the two leaf parameters and reason codes
+1. the public issue response explains the two leaf parameters and reason codes
    without claiming the unavailable historical bag was exactly reproduced;
-4. the fix is included in a named release or the issue explicitly states the
+2. the fix is included in a named release or the issue explicitly states the
    first release expected to contain it.
 
-Until then the honest state is local asynchronous component recovery PASS,
-public resolution pending. No issue label, comment, state, image, or release
-was changed during this follow-up.
+Until then the honest state is public Humble/Jazzy component recovery PASS,
+issue response and named release pending. No issue label, comment, state,
+image, or release was changed during this follow-up.

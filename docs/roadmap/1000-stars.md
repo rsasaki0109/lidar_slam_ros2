@@ -905,6 +905,9 @@ plan validation. Exact follow-up `0633c2a604489538e0f087c02385e7c6467540c3`
 extends that boundary to the S6 docs/product-CLI command after exact execution
 from an unsourced shell exposed two `rosbag2_py` import failures; the repaired
 displayed command passes all 35 tests and removing its prelude fails validation.
+Evidence carrier `72a8c9e77eba33c1578a3cd9c8afe8fbe6933e33`
+passes 2,488 maintained Python tests and a byte-identical 261-file candidate
+bundle rehearsal without granting publication authority.
 
 The latest local slice also binds the rendered Getting Started bytes, route
 fragments, product version, and Pages workflow to one exact source revision.
