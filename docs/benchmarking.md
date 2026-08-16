@@ -216,6 +216,12 @@ python3 scripts/download_rtk_slam_dataset.py \
   --dry-run
 ```
 
+This standalone acquisition helper is included in the curated release bundle,
+so the command also works from its extracted `release_bundle/` directory. The
+measured accuracy suite below must run from the exact source checkout in a
+compatible built ROS workspace; the curated bundle is an audit and acquisition
+packet, not a replacement for that runtime workspace.
+
 `--dry-run` performs no download, Git fetch, directory creation, or other
 write. It reports the immutable dataset revision, exact size and SHA-256 of
 each DB3 and metadata file, already-present resumable bytes, remaining payload,

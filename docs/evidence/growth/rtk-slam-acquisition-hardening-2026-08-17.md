@@ -122,6 +122,13 @@ manifest files; the resulting 11,938,413-byte archive has SHA-256
 This is local candidate evidence, not a published release asset, and it must
 not be reused for a later commit.
 
+A follow-up closes the extracted-bundle UX gap: the curated inventory now
+includes `scripts/download_rtk_slam_dataset.py`, and the release-bundle
+regression invokes `--list` from the archived bytes. The documentation keeps
+the larger measured suite bound to an exact source checkout and compatible
+built ROS workspace rather than presenting the audit bundle as a complete
+runtime tree.
+
 ## Remaining release work
 
 Run the copy-ready command on a filesystem with enough free space, then execute

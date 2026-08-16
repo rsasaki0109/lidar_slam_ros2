@@ -309,6 +309,7 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'scripts/run_source_onboarding_probe.py' in paths
     assert 'scripts/release_channel.py' in paths
     assert 'scripts/check_release_bundle_reproducibility.py' in paths
+    assert 'scripts/download_rtk_slam_dataset.py' in paths
     assert 'scripts/docker_map_bag.sh' in paths
     assert f'docs/releases/{CURRENT_TAG}.md' in paths
 
@@ -321,7 +322,27 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
                 'release_bundle/release-bundle-manifest-v1.json'
             )
         )
+        downloader_member = archive.extractfile(
+            'release_bundle/scripts/download_rtk_slam_dataset.py'
+        )
+        assert downloader_member is not None
+        downloader_payload = downloader_member.read()
     assert embedded == first_manifest
+
+    extracted_downloader = tmp_path / 'download_rtk_slam_dataset.py'
+    extracted_downloader.write_bytes(downloader_payload)
+    listed = subprocess.run(
+        [sys.executable, str(extracted_downloader), '--list'],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert listed.returncode == 0, listed.stderr
+    assert 'construction_seq2' in listed.stdout
+    assert 'construction_seq1' in listed.stdout
+    assert 'stadtgarten_seq2' in listed.stdout
+    assert 'stadtgarten_seq1' in listed.stdout
 
 
 def test_release_bundle_rehearsal_reverifies_and_publishes_once(
