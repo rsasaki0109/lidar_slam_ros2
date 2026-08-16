@@ -39,10 +39,13 @@ import re
 import sys
 from typing import Sequence
 
+from product_schema import validate_contract
+
 
 REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
 SITE_URL = 'https://rsasaki0109.github.io/lidar_slam_ros2/'
 SCHEMA_URI = SITE_URL + 'schemas/docs-deployment-manifest-v1.schema.json'
+SCHEMA_NAME = 'docs-deployment-manifest-v1.schema.json'
 MANIFEST_NAME = 'docs-deployment-v1.json'
 PAGE_NAME = 'getting-started.html'
 SOURCE_PATH = 'docs/getting-started.md'
@@ -172,6 +175,12 @@ def build_manifest(
 
 def write_manifest(site_dir: Path, manifest: dict[str, object]) -> Path:
     """Write once into the fresh Pages artifact; never replace evidence."""
+    try:
+        validate_contract(manifest, SCHEMA_NAME)
+    except (FileNotFoundError, ValueError) as exc:
+        raise ManifestError(
+            f'deployment manifest schema failed: {exc}'
+        ) from exc
     output = site_dir / MANIFEST_NAME
     if output.exists() or output.is_symlink():
         raise ManifestError(f'refusing to overwrite deployment manifest: {output}')

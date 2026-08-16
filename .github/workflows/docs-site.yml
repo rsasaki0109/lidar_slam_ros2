@@ -11,6 +11,7 @@ on:
       - 'README.md'
       - 'VERSION'
       - 'scripts/generate_docs_deployment_manifest.py'
+      - 'scripts/product_schema.py'
   workflow_dispatch:
 
 permissions:
@@ -39,7 +40,7 @@ jobs:
       - name: Install doc dependencies
         shell: bash
         run: |
-          python3 -m pip install --upgrade mkdocs mkdocs-material
+          python3 -m pip install --upgrade jsonschema mkdocs mkdocs-material
 
       - name: Build site
         shell: bash

@@ -144,6 +144,19 @@ def test_generator_rejects_missing_route_and_existing_manifest(tmp_path: Path):
     assert json.loads(output.read_text(encoding='utf-8')) == manifest
 
 
+def test_generator_rejects_schema_invalid_manifest_before_write(tmp_path: Path):
+    generator, manifest, _ = _manifest(tmp_path)
+    invalid_root = tmp_path / 'invalid'
+    invalid_root.mkdir()
+    site, _ = _site(invalid_root)
+    manifest['source_revision'] = 'not-an-exact-revision'
+
+    with pytest.raises(generator.ManifestError, match='schema failed'):
+        generator.write_manifest(site, manifest)
+
+    assert not (site / generator.MANIFEST_NAME).exists()
+
+
 def test_generator_rejects_symlinked_page(tmp_path: Path):
     generator = _load(GENERATOR_PATH, 'docs_manifest_symlink_test')
     site, version = _site(tmp_path)
