@@ -33,6 +33,7 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 import sys
 
 import pytest
@@ -239,6 +240,58 @@ def test_manifest_binds_every_byte_and_denies_publication(tmp_path: Path):
         validate_contract(manifest, MEDIA.MANIFEST_SCHEMA)
     finally:
         sys.path.remove(str(SCRIPTS))
+
+
+def test_checked_in_media_matches_clean_generator_revision_and_manifest():
+    manifest_path = (
+        ROOT
+        / 'lidarslam'
+        / 'images'
+        / 'social_autoware_map_authoring_demo.manifest.json'
+    )
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+
+    sys.path.insert(0, str(SCRIPTS))
+    try:
+        from product_schema import validate_contract
+
+        validate_contract(manifest, MEDIA.MANIFEST_SCHEMA)
+    finally:
+        sys.path.remove(str(SCRIPTS))
+
+    assert manifest['status'] == 'PUBLICATION_CANDIDATE'
+    source_revision = manifest['source_revision']
+    assert subprocess.run(
+        ['git', 'merge-base', '--is-ancestor', source_revision, 'HEAD'],
+        cwd=ROOT,
+        check=False,
+    ).returncode == 0
+    contract_at_revision = subprocess.run(
+        [
+            'git',
+            'show',
+            f'{source_revision}:docs/contracts/social-demo-media-v1.json',
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    ).stdout
+    assert MEDIA._sha256(contract_at_revision) == manifest['content_contract']['sha256']
+
+    locations = {
+        'video': ROOT / 'lidarslam' / 'images' / MEDIA.VIDEO_NAME,
+        'captions': ROOT / 'lidarslam' / 'images' / MEDIA.CAPTIONS_NAME,
+        'post_copy': ROOT / 'docs' / 'social' / MEDIA.POST_NAME,
+    }
+    for key, path in locations.items():
+        payload = path.read_bytes()
+        assert len(payload) == manifest[key]['size_bytes']
+        assert MEDIA._sha256(payload) == manifest[key]['sha256']
+
+    assert manifest['publication_boundary'] == {
+        'external_publication_authorized': False,
+        'writes_performed': False,
+    }
 
 
 def test_output_is_write_once_and_ffmpeg_command_is_deterministic(tmp_path: Path):

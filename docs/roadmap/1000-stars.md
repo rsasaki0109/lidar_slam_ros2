@@ -392,6 +392,13 @@ work and document the actual support boundary instead of hiding the delay.
   available, then publish v1.0 from the same verified contract.
 - Produce one sub-three-minute English demo with captions and one concise
   Japanese companion post. Both point to the same canonical quickstart.
+- The local media path now produces a 10.666-second H.264 candidate, four-cue
+  English WebVTT, exact-revision Japanese/English copy, and a schema-valid
+  SHA-256 manifest from one versioned contract. It rejects the previously
+  bundled `v0.2.2` copy, retired commands, local `n/a` metrics, and numerical
+  performance claims before rendering. The candidate remains `NOT_PUBLISHED`;
+  public posting still follows same-version artifact/docs audits and a
+  separate external-action decision.
 - Create durable task pages for “ROS 2 LiDAR SLAM quickstart”, “rosbag2 to
   Autoware point-cloud map”, and supported sensor recipes. Avoid duplicate SEO
   pages with no additional operational value.

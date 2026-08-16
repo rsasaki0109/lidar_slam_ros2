@@ -65,7 +65,7 @@ PRODUCT_DOCS = (
     'docs/benchmarking.md',
     'docs/comparison.md',
     'docs/roadmap/v0.9.md',
-    'docs/social/autoware_map_authoring_post_v0.2.2.md',
+    'docs/social/autoware_map_authoring_post_v0.9.1.md',
 )
 RELEASE_IMPLEMENTATION_FILES = (
     '.github/workflows/package-manager-install-upgrade.yml',
@@ -114,6 +114,8 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/plan_image_rollback.py',
     'scripts/glim_reference_cache.py',
     'scripts/generate_docs_deployment_manifest.py',
+    'scripts/generate_social_autoware_demo_video.py',
+    'scripts/generate_social_autoware_map_authoring_card.py',
     'scripts/product_profiles.py',
     'scripts/product_schema.py',
     'scripts/promote_release_images.py',
@@ -127,6 +129,8 @@ PRODUCT_MEDIA = (
     'lidarslam/images/dynamic_object_filter_bag6_summary.svg',
     'lidarslam/images/social_autoware_map_authoring.png',
     'lidarslam/images/social_autoware_map_authoring_demo.mp4',
+    'lidarslam/images/social_autoware_map_authoring_demo.en.vtt',
+    'lidarslam/images/social_autoware_map_authoring_demo.manifest.json',
 )
 OPTIONAL_OUTPUTS = (
     'output/benchmark_summary.md',

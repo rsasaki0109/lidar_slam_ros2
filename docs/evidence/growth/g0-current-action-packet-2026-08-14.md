@@ -8,8 +8,8 @@
 >
 > Capture-time public Draft baseline: `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
-> Latest exact public Draft head and CI audit:
-> `3e11f307eb2ccea1d33bbe9a2d1b37ae7ed699db`
+> Capture-time exact public Draft head and CI audit:
+> `0610727444412c6fac3587a4b965acebb1214d41`
 >
 > Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
 >
@@ -21,6 +21,9 @@
 
 > Latest fail-closed NDT reviewer-response gate tip:
 > `3e11f307eb2ccea1d33bbe9a2d1b37ae7ed699db`
+>
+> Latest claim-bounded social-media generator tip:
+> `d0c84bb9bb7bef37d7e318000e3071a7f536d631`
 >
 > Latest Docker publication-authority tip: `3225d9db357caa1150081ac61281ae4b0d281a2a`
 >
@@ -73,8 +76,10 @@
 > Latest copy-ready low-storage recovery tip:
 > `d01652080485bc68354f354043e4b2e732439223`
 >
-> Publication-inventory synchronization: this docs-only handoff follows
-> `3e11f307eb2ccea1d33bbe9a2d1b37ae7ed699db` and adds no product authority.
+> Publication-inventory synchronization: this handoff captures public
+> `0610727444412c6fac3587a4b965acebb1214d41`, binds the local media generator
+> at `d0c84bb9bb7bef37d7e318000e3071a7f536d631`, and adds no publication
+> authority.
 
 This reviewed tip is the code-bearing product-candidate revision; later
 docs-only handoff synchronization and product UX follow-up commits must remain
@@ -240,8 +245,8 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open, draft, and mergeable; capture-time public baseline `3ed632e…` remains the frozen review anchor; capture-time exact public head `3e11f30…` contains the receipt-bound onboarding, CI repairs, NDT response gate, and synchronized inventory | no merge, Pages deployment, cohort launch, or E2 authority is implied; no conversation, inline comment, or submitted review is present |
-| Exact public PR-head CI | capture-time public baseline remains **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures; exact public `3e11f30…` is also **PASS** with the same 10 / 4 / 0 result | Humble/Jazzy default workflows, Docker verification builds, upgrade checks, docs/metadata, candidate contract, and release-readiness guards all passed; publication jobs stayed skipped by design |
+| Draft PR #427 | open, draft, and mergeable; capture-time public baseline `3ed632e…` remains the frozen review anchor; capture-time exact public head `0610727…` contains the receipt-bound onboarding, CI repairs, NDT response gate, and synchronized inventory | no merge, Pages deployment, cohort launch, or E2 authority is implied; no conversation, inline comment, or submitted review is present |
+| Exact public PR-head CI | capture-time public baseline remains **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures; exact public `0610727…` is also **PASS** with the same 10 / 4 / 0 result | Humble/Jazzy default workflows, Docker verification builds, upgrade checks, docs/metadata, candidate contract, and release-readiness guards all passed; publication jobs stayed skipped by design |
 | English support cards | docs entrypoint tests 25 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded; Docker convenience and candidate-digest authority boundaries are both regression-bound; every tracked shell entry point now also has a parse regression |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 61 queue regressions and 5 / 5 focused strict-MkDocs profiles pass; current GET-only output finds 1 published `good first issue` (#422), 0 eligible starters, 1 blocked starter, 1 open PR, and 1 potential C5 match after PR #427 changed | the contributor waits instead of entering the closed cohort; the maintainer gets the cohort status command; C1–C4 remain retired and no issue, label, comment, PR, Pages deployment, or community post was changed |
@@ -252,10 +257,11 @@ gate from being mistaken for the current state.
 | Candidate environment and gate regressions | 29 focused tests, actionlint v1.7.12, Python style, CTest 2 / 2, GET-only transport, shared authorization semantics, release-bundle inclusion, and exact-tip Humble/Jazzy default workflows pass | the live result is `ABSENT`; workflow-facing CLIs persist one request, two distinct image records, and one pair report exactly once; no workflow dispatch, environment mutation, or GHCR mutation occurred |
 | Candidate observer contract | atomic preparation through `f5ed80e…`, exact row runner `feed0ba…`, one-command session `8bc5ea4…`, guided local readiness `a286c65…`, and receipt-bound comparability at `3c19824…`; four-file semantic derivation, exact remote artifact-byte comparison, content-bound Docker observer bootstrap, retained child/session receipts, exact first-map validation-receipt bytes, structured row execution, four-state host guidance, release-bundle inclusion, and strict docs pass with 189 focused candidate/onboarding regressions | remote status is still **NOT_CHECKED** because no authorized bundle exists; local readiness and runner tests are not `REMOTE_AUDIT_PASS`, a trial, E2, or E4 authority |
 | Neutral GLIM usability recorder | exact implementation `0575fb6…`, evidence sync and public CI through `ac22a3f…`; 7 direct regressions, 20 recorder/checker regressions, registered CTest 6 / 6, strict docs/style, and a deterministic 253-file candidate bundle pass | the checked-in scorecard remains `NOT_READY` with 0 / 2 product records and 0 / 6 comparable tasks; safer recording is not external evidence, parity, or a winner claim |
+| Claim-bounded short demo media | generator implementation `d0c84bb…`; one contract now binds version, canonical commands, slide copy, and three source-image hashes; the generated 10.666-second H.264 candidate carries four-cue English WebVTT, exact-revision Japanese/English copy, and a schema-valid byte manifest; 11 focused and 25 docs/release entrypoint tests pass | the former release inventory's `v0.2.2` post, retired commands, and unbound numerical copy are removed from the active path; the replacement remains `PUBLICATION_CANDIDATE / NOT_PUBLISHED`, grants no posting or release authority, and is not user evidence |
 | Public documentation deployment provenance | pre-upload schema enforcement and 9 focused regressions **PASS** at `5b8c8c4…`; strict MkDocs emits a schema-valid source/version/route/page-byte manifest, both Pages jobs and the live environment branch policy are `develop`-only, and the clean candidate release bundle contains the generator, auditor, schemas, and evidence; live exact-public audit is `BLOCKED` because the manifest URL returns HTTP 404 | URL shape alone cannot launch the independent cohort; the current Pages deployment remains unverified until a separately reviewed `develop` deployment publishes matching bytes |
 | Complete product gate through public head | exact `3e11f30…`: graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 1,009 passed; 2,451 total; strict MkDocs and exact Jazzy `ament_flake8` pass; exact-head GitHub Actions are 10 successful / 4 intentional skips / 0 failures | the current product and NDT response increment are locally complete and publicly green; registered CTest evidence remains 93 / 93 for `lidarslam` plus 232 / 232 for `graph_based_slam` from the inherited candidate |
 | Actionable stable-release profile gate | exact implementation `45cfdcb…`; an empty exact-head benchmark root now retains Markdown/CSV/log output, reports five blocking `NO_DATA` profiles with acquisition/rerun hints, distinguishes six report-only rows, and exits 2; 29 direct regressions pass | this identifies missing evidence and does not satisfy it; no tag, Release, image, or E4 authority is inferred |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 287 paths / 7 slices / 21 follow-up commits at clean public `3e11f30…` from frozen baseline `3ed632e…`; inventory SHA-256 `d507f34ff1bdd79ac0c79a33707dae7d43881cf90045cff84e8ff1cbc10a7462` | all four NDT response-gate paths already belong to S5, so path count and digest remain unchanged; synchronization changes no GitHub authority |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 299 paths / 7 slices / 24 follow-up commits at the final local carrier from frozen baseline `3ed632e…`; inventory SHA-256 `ed899dc8f510e200709d6a9a81430b10be523ae2107110de2bea31b44670f359` | the twelve claim-bounded media paths belong to S6; exact coverage and the new digest add no GitHub, release, posting, or community authority |
 | Published onboarding identity | v0.9.0 exact release commit plus Humble/Jazzy digests return `READY`, but its source route is `NOT_READY` with `source-route-contract-missing`; v0.9.1 report-to-packet fails closed at `NOT_PUBLISHED` | the old release cannot be reused for same-version Docker/source evidence, and the new version cannot produce a release packet before E4 publication |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |

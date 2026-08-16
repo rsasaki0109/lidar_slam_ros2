@@ -250,7 +250,9 @@ RELEASE_PROMOTION_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'release-promotion-v1.schema.json'
 )
 V09_ROADMAP_DOC = REPO_ROOT / 'docs' / 'roadmap' / 'v0.9.md'
-SOCIAL_POST_DOC = REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.2.2.md'
+SOCIAL_POST_DOC = (
+    REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.9.1.md'
+)
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
 PUBLIC_AUTOWARE_ENTRYPOINT = REPO_ROOT / 'scripts' / 'run_autoware_quickstart.sh'
 RELEASE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'release.yml'
@@ -273,6 +275,18 @@ SOCIAL_CARD_PATH = (
 )
 SOCIAL_DEMO_VIDEO_PATH = (
     REPO_ROOT / 'lidarslam' / 'images' / 'social_autoware_map_authoring_demo.mp4'
+)
+SOCIAL_DEMO_CAPTIONS_PATH = (
+    REPO_ROOT
+    / 'lidarslam'
+    / 'images'
+    / 'social_autoware_map_authoring_demo.en.vtt'
+)
+SOCIAL_DEMO_MANIFEST_PATH = (
+    REPO_ROOT
+    / 'lidarslam'
+    / 'images'
+    / 'social_autoware_map_authoring_demo.manifest.json'
 )
 
 
@@ -360,6 +374,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert README_DYNAMIC_FILTER_IMAGE_PATH.is_file()
     assert SOCIAL_CARD_PATH.is_file()
     assert SOCIAL_DEMO_VIDEO_PATH.is_file()
+    assert SOCIAL_DEMO_CAPTIONS_PATH.is_file()
+    assert SOCIAL_DEMO_MANIFEST_PATH.is_file()
     assert release_notes_path.is_file()
     assert '(CONTRIBUTING.md)' in readme
     assert '(CHANGELOG.md)' in readme
@@ -747,14 +763,21 @@ def test_release_metadata_and_core_package_versions_match():
         'docs/rosdistro-release.md',
         'docs/roadmap/v0.9.md',
         'docs/autoware-foxglove.md',
-        'docs/social/autoware_map_authoring_post_v0.2.2.md',
+        'docs/social/autoware_map_authoring_post_v0.9.1.md',
         'docs/workflows.md',
         'lidarslam/images/autoware_map_loader_proof.png',
         'lidarslam/images/dynamic_object_filter_bag6_summary.svg',
         'lidarslam/images/social_autoware_map_authoring.png',
         'lidarslam/images/social_autoware_map_authoring_demo.mp4',
+        'lidarslam/images/social_autoware_map_authoring_demo.en.vtt',
+        'lidarslam/images/social_autoware_map_authoring_demo.manifest.json',
+        'scripts/generate_social_autoware_demo_video.py',
+        'scripts/generate_social_autoware_map_authoring_card.py',
     ):
         assert bundled_path in release_bundle_script
+    assert 'docs/social/autoware_map_authoring_post_v0.2.2.md' not in (
+        release_bundle_script
+    )
     for policy in (
         'SECURITY.md',
         'SUPPORT.md',
@@ -854,7 +877,12 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'Benchmarking And Release Gate: benchmarking.md' in mkdocs_config
     assert f'v{version}: releases/v{version}.md' in mkdocs_config
     assert 'v0.2.2: releases/v0.2.2.md' in mkdocs_config
-    assert 'v0.2.2 Post Kit: social/autoware_map_authoring_post_v0.2.2.md' in mkdocs_config
+    assert (
+        'v0.9.1 Candidate Media Kit: '
+        'social/autoware_map_authoring_post_v0.9.1.md'
+        in mkdocs_config
+    )
+    assert 'v0.2.2 Post Kit:' not in mkdocs_config
     assert 'rosdistro Binary Release: rosdistro-release.md' in mkdocs_config
     assert 'v0.9 Product Foundation: roadmap/v0.9.md' in mkdocs_config
 
