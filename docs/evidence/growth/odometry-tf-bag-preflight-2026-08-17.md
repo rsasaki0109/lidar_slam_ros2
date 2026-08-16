@@ -59,3 +59,20 @@ python3 -m mkdocs build --strict
 Exact-head release, bundle, publication-plan, and CI evidence must be recorded
 after the implementation commit; this document grants no push, merge, release,
 issue-edit, or community-post authority.
+
+## Local implementation carrier
+
+Exact implementation `402c23765fe125a2f42d7fd245d2a1c972a1ab34` passed:
+
+- 68 focused preflight, diagnosis, and docs-entrypoint regressions, including a
+  serialized Jazzy rosbag2 fixture;
+- 1,483 graph tests with 13 known skips and 11 existing ImageIO warnings;
+- 1,040 lidarslam tests;
+- strict MkDocs and changed-file Jazzy `ament_flake8`; and
+- `PLAN_VALID_LOCAL_ONLY` with 319 paths, seven slices, digest
+  `fa6cd94d350c7ebf68c26ba8bb2c035b344543c374ea5123c367c4de4d8a437e`,
+  and no remote mutation.
+
+This carrier result is local and commit-bound. A later final candidate must
+rerun bundle rehearsal, exact-head gates, and public CI rather than inheriting
+the carrier result.

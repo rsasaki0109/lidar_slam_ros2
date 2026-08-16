@@ -766,8 +766,9 @@ With a bag it retains the existing input/profile inspection. The
 keeps the real PPA/package-manager advantage and public clean-machine
 comparison pending.
 
-The 2026-08-17 issue-driven increment moves the existing Odometry/TF support
-card into that same bag doctor. A bounded scan now checks one deterministic
+Exact implementation `402c23765fe125a2f42d7fd245d2a1c972a1ab34` moves the
+existing Odometry/TF support card into that same bag doctor. A bounded scan now
+checks one deterministic
 Odometry topic against all recorded TF topics, accepts a dynamic multi-hop
 path, and separates invalid frames, no path, static-only evidence, and reader
 failure. Findings stay visible beside a compatible maintained mapping path and
