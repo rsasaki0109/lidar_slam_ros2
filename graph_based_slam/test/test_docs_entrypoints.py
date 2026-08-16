@@ -1833,6 +1833,37 @@ def test_odometry_tf_card_separates_missing_and_stale_transforms():
     )
 
 
+def test_other_pointcloud_lidar_route_avoids_launch_yaml_forks():
+    """Repeated sensor questions should lead to inspection, not file forks."""
+    readme = README_PATH.read_text(encoding='utf-8')
+    canonical = AUTOWARE_MAP_AUTHORING.read_text(encoding='utf-8')
+    canonical_normalized = ' '.join(canonical.split())
+    release = (
+        REPO_ROOT / 'docs' / 'releases' / 'v0.9.1.md'
+    ).read_text(encoding='utf-8')
+
+    for document in (readme, canonical):
+        assert 'Ouster' in document
+        assert 'Velodyne' in document
+        assert 'RoboSense' in document
+        assert 'lidarslam-map doctor /path/to/rosbag2' in document
+        assert 'stable reason code' in document
+        assert 'maintained profile' in document
+        assert 'calibration' in document
+
+    assert (
+        "do not edit this package's launch files or YAML"
+        in readme
+    )
+    assert 'forking `lidarslam.launch.py`' in canonical
+    assert (
+        'does not turn a detected PointCloud2 topic into verified'
+        in canonical_normalized
+    )
+    assert '`doctor` then `start` path' in release
+    assert 'detection alone is not a hardware or' in release
+
+
 def test_japanese_quickstart_keeps_the_canonical_beginner_contract():
     """The short Japanese route must not drift from supported commands."""
     readme = README_PATH.read_text(encoding='utf-8')
@@ -1867,6 +1898,15 @@ def test_japanese_quickstart_keeps_the_canonical_beginner_contract():
         '`map_verify: PASS`',
     ):
         assert boundary in japanese
+
+    for other_lidar_boundary in (
+        'launch fileやYAMLをfork・編集しないでください',
+        '`header.frame_id`',
+        'maintained profile',
+        'calibrationのreview',
+        'hardwareの検証済み対応、または精度保証を意味しません',
+    ):
+        assert other_lidar_boundary in japanese
 
     for recovery_entrypoint in (
         'mapまたはviewerが空のとき: 3つの確認',

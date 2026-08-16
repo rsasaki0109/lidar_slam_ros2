@@ -225,6 +225,8 @@ def test_human_ready_report_leads_to_demo_and_own_bag(tmp_path):
     assert 'Status:       READY' in rendered
     assert 'Fixed demo: lidarslam-map demo' in rendered
     assert 'Own bag:    lidarslam-map start /path/to/rosbag2' in rendered
+    assert 'No launch-file or YAML edits are needed' in rendered
+    assert 'stops with a reason code' in rendered
     assert 'used no network and wrote no files' in rendered
 
 

@@ -57,7 +57,10 @@ def render_help(*, include_all: bool = False) -> str:
             '  demo [work_dir]      Download public data, map, verify, and '
             'open the result'
         ),
-        '  start <rosbag2_dir>    Detect, configure, map, verify, and open the result',
+        (
+            '  start <rosbag2_dir>    Detect, configure, map, verify, and open '
+            'the result'
+        ),
         '  sessions [output_dir]  Reopen recent map sessions and next actions',
         (
             '  compare <left> <right> Compare two sessions using retained '
@@ -161,7 +164,7 @@ def _interactive_home() -> tuple[list[str] | None, int]:
     print('')
     print('What would you like to do?')
     print('  1. Try the fixed public demo')
-    print('  2. Map my own rosbag2')
+    print('  2. Map my own PointCloud2 rosbag2')
     print('  3. Reopen previous map sessions')
     print('  4. Check this installation')
     print('  5. Show every command')
@@ -218,7 +221,13 @@ def _interactive_home() -> tuple[list[str] | None, int]:
             args = ['start', str(Path(bag_dir).expanduser())]
             print('')
             print(f'Next command: {_render_command(args)}')
-            print('Sensor setup and calibration are reviewed before mapping.')
+            print(
+                'No launch-file or YAML edits are needed for this guided path.'
+            )
+            print(
+                'Topics, frames, timestamps, profile, and calibration are '
+                'reviewed before mapping.'
+            )
             if not _confirm('Inspect this bag now? [Y/n] ', default=True):
                 print('No changes made. Run the displayed command when ready.')
                 return None, 0

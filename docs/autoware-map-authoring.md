@@ -65,6 +65,20 @@ saved bundle, records diagnosis evidence, and opens the offline session page.
 Use `--yes` only after that setup has already been reviewed for a
 non-interactive launcher.
 
+### Adapting another PointCloud2 LiDAR
+
+Do not begin by forking `lidarslam.launch.py` or editing a tracked parameter
+file. For a bag recorded from Ouster, Velodyne, RoboSense, a simulator, or
+another PointCloud2 publisher, use the same two commands above. `doctor`
+inspects the recorded topic type, `header.frame_id`, point fields, timestamp
+order, and available maintained profiles. `start` preserves that selection and
+requires calibration review before it writes or launches mapping.
+
+If the input layout or sensor combination has no safe maintained path, the
+command exits before mapping with a stable reason code and one copy-ready next
+action. This route prevents guessed remaps and transforms; it does not turn a
+detected PointCloud2 topic into verified hardware support or an accuracy claim.
+
 For Docker without a ROS installation, follow
 [Docker Own-Bag Map](getting-started.md#docker-own-bag-map). Its launcher checks
 that the selected image supports this same `start` contract before creating an

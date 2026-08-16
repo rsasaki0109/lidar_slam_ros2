@@ -58,8 +58,8 @@ and [Operator workflows](docs/workflows.md) for contracts and contributor tests.
 
 ## Use your own bag
 
-For your own compatible bag, `start` detects and saves the exact inputs, builds a verified map, and opens it.
-The same command covers PointCloud2+Imu, PointCloud2+NavSatFix, and VelodyneScan+Applanix GSOF49 inputs.
+For an Ouster, Velodyne, RoboSense, simulated, or another compatible PointCloud2 bag, do not edit this package's launch files or YAML first; run `lidarslam-map doctor /path/to/rosbag2`, then `start` detects the inputs, builds a verified map, and opens it.
+The guided path checks topics, frames, fields, timestamps, a maintained profile, and calibration; unsafe inputs stop with a stable reason code and one next action, while detection alone is not a verified vendor-support or accuracy claim. PointCloud2+Imu, PointCloud2+NavSatFix, and VelodyneScan+Applanix GSOF49 are the maintained input combinations.
 
 ```bash
 lidarslam-map start /path/to/rosbag2

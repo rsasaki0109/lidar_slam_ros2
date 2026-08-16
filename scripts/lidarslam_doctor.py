@@ -354,6 +354,11 @@ def render_system_report(report: Mapping[str, Any]) -> str:
             'Ready for the verified paths:',
             f"  Fixed demo: {commands['fixed_demo']}",
             f"  Own bag:    {commands['own_bag']}",
+            '  No launch-file or YAML edits are needed for the own-bag path.',
+            (
+                '  It detects the recorded inputs and stops with a reason '
+                'code when no maintained path is safe.'
+            ),
         ])
     lines.extend([
         '',

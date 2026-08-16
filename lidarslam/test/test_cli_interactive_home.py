@@ -134,7 +134,8 @@ def test_own_bag_home_reuses_start_and_its_sensor_review(
     assert command[2:] == ['--run', '/tmp/my bag']
     output = capsys.readouterr().out
     assert "'/tmp/my bag'" in output
-    assert 'calibration are reviewed before mapping' in output
+    assert 'No launch-file or YAML edits are needed' in output
+    assert 'profile, and calibration are reviewed before mapping' in output
 
 
 def test_sessions_home_reuses_the_local_catalog(

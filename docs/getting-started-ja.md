@@ -209,6 +209,19 @@ lidarslam-map start /path/to/rosbag2
 lidarslam-map start /path/to/rosbag2 --dry-run
 ```
 
+### Ouster、Velodyne、RoboSenseなど別のPointCloud2 LiDARを使う
+
+最初にこのpackageのlaunch fileやYAMLをfork・編集しないでください。実際のsensorや
+simulatorからrosbag2を記録し、先に
+`lidarslam-map doctor /path/to/rosbag2`、続いて上の`start`を実行します。
+`doctor`は記録済みtopicの型、`header.frame_id`、point field、timestamp順、利用できる
+maintained profileを確認します。`start`はその選択を保持し、書き込みやmapping開始前に
+calibrationのreviewを求めます。
+
+安全なmaintained pathがない場合は、mapping前に安定したreason codeとcopy-readyな
+次の1コマンドを表示して停止します。PointCloud2を検出できることは、そのvendorや
+hardwareの検証済み対応、または精度保証を意味しません。
+
 ### 自分のbagを先にdry-runで確認する
 
 長時間のmappingやファイル作成へ進む前に、選択されるprofile、topic、frame、
