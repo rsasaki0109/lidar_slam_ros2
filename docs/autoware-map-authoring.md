@@ -117,6 +117,29 @@ for human review; it does not upload anything. After a verified first map,
 `lidarslam-map support /path/to/session_bundle --first-map` prints the
 read-only independent-validation handoff.
 
+## The Run Finished, But The Map Looks Wrong
+
+Keep the session instead of guessing launch/YAML changes. Add exactly one
+observed symptom to the existing inspector:
+
+```bash
+lidarslam-map inspect /path/to/session_bundle \
+  --bag /path/to/rosbag2 \
+  --symptom map-spins-or-spirals
+```
+
+The supported symptom codes are `map-spins-or-spirals`,
+`pose-drifts-or-oscillates`, `map-stops-early`, `map-is-too-sparse`, and
+`map-is-not-visible`. The result orders the sensor, timestamp, calibration,
+TF, runtime, map-save, and viewer checks and returns only copy-ready
+`doctor`, `inspect`, `view`, or `support` commands. Add `--write` to retain the
+card beside the run, or `--json` for local automation.
+
+This is user-reported symptom triage, not automatic root-cause analysis or an
+accuracy result. It never edits parameters, restarts mapping, uploads a bundle,
+or turns one visual change into a hardware-support claim. Preserve the old run
+and use a fresh output for any later comparison.
+
 ## Automation
 
 Use an explicit output directory when a script, CI job, or other automation

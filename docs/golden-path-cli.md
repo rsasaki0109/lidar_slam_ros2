@@ -473,7 +473,7 @@ The stability label and migration rules for every option are defined in the
 | Deprecated viewer compatibility | `run --viewer`, `run --autoware-core-dir`, `run --work-dir`, `run --viewer-run-dir`, `run --viewer-rebuild`, `run --auto-exit-secs` | Preserve existing combined run/view invocations while directing users to `view` |
 | Verification | `run --verification {required,off}` | Keep required map verification (default) or explicitly select a diagnostic-only unverified run |
 | Deprecated verification alias | `run --no-verify-map` | Compatibility spelling for `--verification off`; emits a warning |
-| Inspection context/output | `inspect --bag`, `inspect --json`, `inspect --write` | Add source-bag context, choose machine output, or persist diagnosis files |
+| Inspection context/output | `inspect --bag`, `inspect --symptom`, `inspect --json`, `inspect --write` | Add source-bag context or one user-reported visual symptom, choose machine output, or persist diagnosis files; symptom triage never claims an automatic cause |
 
 Viewer-specific options that would otherwise be ignored are rejected with exit
 code `2`. In particular, `--autoware-core-dir` requires

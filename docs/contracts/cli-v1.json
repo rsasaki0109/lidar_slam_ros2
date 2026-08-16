@@ -81,6 +81,26 @@
       "system-only storage options fail closed when a bag is provided"
     ]
   },
+  "map_quality_symptom_triage_contract": {
+    "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/diagnosis-v1.schema.json",
+    "command": "inspect",
+    "option": "--symptom",
+    "symptoms": [
+      "map-spins-or-spirals",
+      "pose-drifts-or-oscillates",
+      "map-stops-early",
+      "map-is-too-sparse",
+      "map-is-not-visible"
+    ],
+    "basis": "USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED",
+    "safety_rules": [
+      "extend the existing retained-run inspector instead of adding another doctor or tuning surface",
+      "return ordered checks and shell-safe product commands without editing parameters or launching mapping",
+      "check sensor, timestamp, calibration, and TF contracts before registration or loop-closure tuning",
+      "never convert a reported visual symptom into a root-cause, vendor-support, or accuracy claim",
+      "never overwrite the retained session and never upload a support bundle"
+    ]
+  },
   "first_map_demo_plan_contract": {
     "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/first-map-demo-plan-v1.schema.json",
     "command": "demo",
@@ -602,6 +622,18 @@
         "default": null,
         "kind": "directory",
         "value_name": "<rosbag2_dir>"
+      },
+      "--symptom": {
+        "choices": [
+          "map-spins-or-spirals",
+          "pose-drifts-or-oscillates",
+          "map-stops-early",
+          "map-is-too-sparse",
+          "map-is-not-visible"
+        ],
+        "default": null,
+        "kind": "enum",
+        "value_name": "{map-spins-or-spirals,pose-drifts-or-oscillates,map-stops-early,map-is-too-sparse,map-is-not-visible}"
       }
     },
     "view": {
@@ -1379,6 +1411,13 @@
           ],
           "stability": "stable",
           "tier": "context"
+        },
+        {
+          "names": [
+            "--symptom"
+          ],
+          "stability": "stable",
+          "tier": "diagnosis"
         },
         {
           "names": [

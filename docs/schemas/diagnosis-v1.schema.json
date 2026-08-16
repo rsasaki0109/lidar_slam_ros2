@@ -36,6 +36,58 @@
     "verify": {"type": "object"},
     "projector_type": {"type": ["string", "null"]},
     "bag_preflight": {"type": "object"},
+    "symptom_triage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symptom",
+        "code",
+        "basis",
+        "title",
+        "checks",
+        "next_commands",
+        "avoid"
+      ],
+      "properties": {
+        "symptom": {
+          "enum": [
+            "map-spins-or-spirals",
+            "pose-drifts-or-oscillates",
+            "map-stops-early",
+            "map-is-too-sparse",
+            "map-is-not-visible"
+          ]
+        },
+        "code": {
+          "enum": [
+            "map-spins-or-spirals",
+            "pose-drifts-or-oscillates",
+            "map-stops-early",
+            "map-is-too-sparse",
+            "map-is-not-visible"
+          ]
+        },
+        "basis": {
+          "const": "USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED"
+        },
+        "title": {"type": "string", "minLength": 1},
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "next_commands": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "avoid": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
     "problem_hints": {
       "type": "array",
       "items": {"type": "string"}

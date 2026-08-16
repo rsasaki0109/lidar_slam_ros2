@@ -38,6 +38,7 @@ import subprocess
 import sys
 
 import jsonschema
+import pytest
 import yaml
 
 
@@ -210,6 +211,81 @@ def test_summary_reports_unreadable_manifest_without_traceback(tmp_path: Path):
     )
 
 
+def test_reported_map_symptoms_are_bounded_and_schema_valid(tmp_path: Path):
+    module = _load_module()
+    run_dir = tmp_path / 'run with spaces'
+    bag_dir = tmp_path / 'bag with spaces'
+    run_dir.mkdir()
+    bag_dir.mkdir()
+    (run_dir / 'run_manifest.json').write_text(
+        json.dumps({'input': {'bag_path': str(bag_dir)}}),
+        encoding='utf-8',
+    )
+    schema = json.loads(
+        (
+            REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
+        ).read_text(encoding='utf-8')
+    )
+
+    for symptom in module.SYMPTOM_CHOICES:
+        summary = module.summarize_run(run_dir, symptom=symptom)
+        jsonschema.validate(summary, schema)
+        triage = summary['symptom_triage']
+
+        assert triage['symptom'] == symptom
+        assert triage['code'] == symptom
+        assert triage['basis'] == (
+            'USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED'
+        )
+        assert triage['checks']
+        assert triage['avoid']
+        assert summary['suggested_next_steps'] == triage['next_commands']
+        assert all('<' not in command for command in triage['next_commands'])
+        assert all('launch' not in command for command in triage['next_commands'])
+        assert triage['next_commands'][-1].startswith(
+            'lidarslam-map support '
+        )
+        if symptom == 'map-is-not-visible':
+            assert triage['next_commands'][0].startswith(
+                'lidarslam-map view '
+            )
+        else:
+            assert triage['next_commands'][0].startswith(
+                'lidarslam-map doctor '
+            )
+
+
+def test_symptom_triage_does_not_invent_missing_bag_or_root_cause(
+    tmp_path: Path,
+):
+    module = _load_module()
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+
+    summary = module.summarize_run(
+        run_dir,
+        symptom='pose-drifts-or-oscillates',
+    )
+    rendered = module.render_markdown(summary)
+    commands = summary['symptom_triage']['next_commands']
+
+    assert len(commands) == 2
+    assert commands[0].startswith('lidarslam-map inspect ')
+    assert commands[1].startswith('lidarslam-map support ')
+    assert all('/path/to/' not in command for command in commands)
+    assert 'not an automatic root-cause or accuracy diagnosis' in rendered
+    assert 'Do not change graph weights' in rendered
+
+
+def test_symptom_triage_rejects_unknown_internal_value(tmp_path: Path):
+    module = _load_module()
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+
+    with pytest.raises(ValueError, match='unsupported map symptom'):
+        module.summarize_run(run_dir, symptom='guess-the-fix')
+
+
 def test_cli_help_is_user_facing():
     result = subprocess.run(
         [sys.executable, str(SCRIPT_PATH), '--help'],
@@ -223,6 +299,10 @@ def test_cli_help_is_user_facing():
     assert 'not its pointcloud_map/ child' in result.stdout
     assert 'Files this tool checks when present:' in result.stdout
     assert 'diagnose_autoware_map_run.py output/my_map_run --write' in result.stdout
+    assert '--symptom' in result.stdout
+    assert 'map-spins-or-spirals' in result.stdout
+    assert 'this records a user report' in result.stdout
+    assert 'automatic root cause.' in result.stdout
 
 
 def test_cli_rejects_missing_run_dir_without_traceback(tmp_path: Path):

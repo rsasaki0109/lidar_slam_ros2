@@ -140,6 +140,23 @@ def test_contract_identifies_the_complete_product_surface():
     assert 'maintained-profile preflight' in doctor['bag_mode']
     assert 'no network and writes no files' in doctor['safety_rules'][0]
     assert 'omits checkout' in doctor['safety_rules'][1]
+    symptom = contract['map_quality_symptom_triage_contract']
+    assert symptom['schema_uri'].endswith('/schemas/diagnosis-v1.schema.json')
+    assert symptom['command'] == 'inspect'
+    assert symptom['option'] == '--symptom'
+    assert symptom['symptoms'] == [
+        'map-spins-or-spirals',
+        'pose-drifts-or-oscillates',
+        'map-stops-early',
+        'map-is-too-sparse',
+        'map-is-not-visible',
+    ]
+    assert symptom['basis'] == (
+        'USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED'
+    )
+    assert 'existing retained-run inspector' in symptom['safety_rules'][0]
+    assert 'without editing parameters' in symptom['safety_rules'][1]
+    assert 'never convert' in symptom['safety_rules'][3]
     demo = contract['first_map_demo_plan_contract']
     assert demo['schema_uri'].endswith(
         '/schemas/first-map-demo-plan-v1.schema.json'
@@ -514,6 +531,10 @@ def test_positionals_and_deprecation_lifecycle_are_machine_readable():
         ),
         (
             ['run', '/tmp', '--verification', 'maybe'],
+            'invalid choice',
+        ),
+        (
+            ['inspect', '/tmp', '--symptom', 'guess-the-fix'],
             'invalid choice',
         ),
         (

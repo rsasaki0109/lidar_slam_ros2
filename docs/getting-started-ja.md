@@ -330,6 +330,28 @@ lidarslam-map inspect /path/to/output --write
 扱いません。独立validationへ進む場合も、内容をreviewしたPASS receiptだけを使い、map、bag、
 raw log、preview、local pathを添付しません。
 
+### 実行は終わったがmapの見た目がおかしい場合
+
+launch fileやYAMLを推測で変更せず、元のsessionを残して、見えた症状を1つだけ既存の
+`inspect`へ渡します。
+
+```bash
+lidarslam-map inspect /path/to/session_bundle \
+  --bag /path/to/rosbag2 \
+  --symptom map-spins-or-spirals
+```
+
+指定できるcodeは`map-spins-or-spirals`、`pose-drifts-or-oscillates`、
+`map-stops-early`、`map-is-too-sparse`、`map-is-not-visible`です。入力topic・時刻、
+物理calibration、TF、runtime完了、map保存、viewerの順に確認し、保持済みpathを使った
+`doctor`、`inspect`、`view`、`support`だけを次のcommandとして返します。cardをsessionへ
+保存する場合は`--write`、local automationでは`--json`を追加します。
+
+これはユーザーが申告した症状の整理であり、原因の自動判定や精度結果ではありません。
+parameterを自動変更せず、mappingを再実行せず、support bundleをuploadしません。見た目が
+変わっただけでsensor対応や精度改善を主張せず、比較する場合は旧runを上書きしないfresh
+outputを使います。raw diagnosis JSONにはlocal pathが含まれ得るためissueへ貼りません。
+
 ### receiptのsessionとstatusを確認する
 
 `first_map_validation_receipt.json`だけを別のmap directoryへコピーしても、そのmapの証拠には

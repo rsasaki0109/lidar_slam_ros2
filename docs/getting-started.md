@@ -433,6 +433,25 @@ also prints the read-only `Share:` handoff. With `--viewer none`, the summary
 explicitly tells you how to reopen the map, so headless runs do not require
 browser output to continue.
 
+If the workflow finished but the map spins, drifts, stops early, looks sparse,
+or is not visible, keep that session and report one symptom to the same
+inspector:
+
+```bash
+lidarslam-map inspect /path/to/session_bundle \
+  --bag /path/to/rosbag2 \
+  --symptom pose-drifts-or-oscillates
+```
+
+The bounded choices are shown by `lidarslam-map inspect --help`. The output
+checks input, timing, calibration, TF, runtime completion, map saving, and the
+viewer in a fixed order before suggesting any tuning. It records a
+user-reported symptom; it does not automatically identify a root cause, alter
+parameters, rerun mapping, or claim accuracy. Add `--write` to retain the card
+inside the session, or `--json` for local automation. Never paste raw diagnosis
+JSON into an issue because it can contain local paths; use `support` after
+review instead.
+
 After a verified run, the session page offers **Share this verified first
 map**. Its copy-ready command revalidates the retained receipt and source
 evidence, then prints the exact summary, JSON attachment, and public issue form

@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import sys
 from typing import Any
 
@@ -15,6 +16,100 @@ import yaml
 
 SCHEMA_VERSION = 1
 SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/diagnosis-v1.schema.json'
+
+SYMPTOM_CHOICES = (
+    'map-spins-or-spirals',
+    'pose-drifts-or-oscillates',
+    'map-stops-early',
+    'map-is-too-sparse',
+    'map-is-not-visible',
+)
+
+SYMPTOM_GUIDANCE = {
+    'map-spins-or-spirals': {
+        'title': 'Map rotates, spirals, or scatters around the origin',
+        'checks': (
+            'Recheck the recorded cloud topic, frame, fields, and timestamps '
+            'with doctor before changing registration or loop-closure tuning.',
+            'Verify the measured LiDAR-to-base transform, axis convention, '
+            'units, and quaternion against the physical rig.',
+            'Verify point-time units, scan period, and deskew inputs before '
+            'treating the result as an algorithm-quality problem.',
+        ),
+        'avoid': (
+            'Do not use an identity transform unless it describes the measured '
+            'physical rig.',
+            'Do not tune loop-closure thresholds to compensate for a broken '
+            'frame, extrinsic, or timestamp contract.',
+        ),
+    },
+    'pose-drifts-or-oscillates': {
+        'title': 'Pose drifts, jumps, or oscillates',
+        'checks': (
+            'Recheck frame connectivity, physical extrinsics, point-time '
+            'units, scan period, and deskew inputs first.',
+            'If odometry is enabled, verify that the Odometry message frames '
+            'also exist in TF; a frame_id string does not publish a transform.',
+            'Preserve the exact run and inspect whether the environment is '
+            'geometrically degenerate before selecting an opt-in preset.',
+        ),
+        'avoid': (
+            'Do not change graph weights or registration thresholds before '
+            'the sensor, time, and TF contracts pass.',
+            'Do not present a visual improvement as an accuracy result without '
+            'an external reference trajectory.',
+        ),
+    },
+    'map-stops-early': {
+        'title': 'The saved map stops before the bag or route ends',
+        'checks': (
+            'Check session status and the retained launch, map-save, and '
+            'verification logs for an early node exit or save failure.',
+            'Confirm whether the raw map ended early or only the modified '
+            'loop-closure output is incomplete.',
+            'Keep the full run evidence before comparing a fresh output; never '
+            'overwrite the failed or partial session.',
+        ),
+        'avoid': (
+            'Do not increase loop-search ranges until runtime completion and '
+            'the input trajectory have been verified.',
+            'Do not treat file presence alone as a complete verified map.',
+        ),
+    },
+    'map-is-too-sparse': {
+        'title': 'The completed map is unexpectedly sparse',
+        'checks': (
+            'Confirm that map saving and verification completed and that the '
+            'retained map metadata describes the expected output.',
+            'Review recorded range limits, input/map voxel sizes, and active '
+            'filters one at a time against the same retained session.',
+            'Distinguish a sparse saved map from an incomplete run or a viewer '
+            'display setting before changing map density.',
+        ),
+        'avoid': (
+            'Do not lower every voxel size at once; that hides the responsible '
+            'setting and can exhaust memory or storage.',
+            'Do not infer geometric accuracy from visual density.',
+        ),
+    },
+    'map-is-not-visible': {
+        'title': 'The map is not visible in the viewer',
+        'checks': (
+            'First separate a viewer problem from a mapping problem by checking '
+            'whether the retained session and verification result are PASS.',
+            'Open the offline session view and confirm the selected fixed frame '
+            'and map artifact before changing the launch file.',
+            'If the map artifacts are absent, follow the retained runtime '
+            'finding instead of changing RViz topics by trial and error.',
+        ),
+        'avoid': (
+            'Do not edit tracked launch or YAML files merely to make a topic '
+            'appear in a viewer.',
+            'Do not call a verified map missing solely because one viewer failed '
+            'to open it.',
+        ),
+    },
+}
 
 
 def _load_preflight_module():
@@ -54,6 +149,75 @@ def _read_run_manifest(run_dir: Path) -> tuple[dict[str, Any] | None, list[str]]
     if not isinstance(manifest, dict):
         return None, ['The run manifest root is not a JSON object.']
     return manifest, []
+
+
+def _product_command(*args: str) -> str:
+    """Render one shell-safe command through the stable product surface."""
+    configured = os.environ.get('LIDARSLAM_CLI_COMMAND')
+    if configured:
+        try:
+            prefix = shlex.split(configured)
+        except ValueError:
+            prefix = ['lidarslam-map', 'inspect']
+        if prefix and prefix[-1] == 'inspect':
+            prefix.pop()
+    else:
+        prefix = ['lidarslam-map']
+    return shlex.join([*prefix, *args])
+
+
+def _manifest_bag_path(manifest: dict[str, Any] | None) -> Path | None:
+    """Return a still-present source bag without trusting arbitrary fields."""
+    if not isinstance(manifest, dict):
+        return None
+    input_payload = manifest.get('input')
+    if not isinstance(input_payload, dict):
+        return None
+    value = input_payload.get('bag_path')
+    if not isinstance(value, str) or not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_dir():
+        return None
+    return path.resolve()
+
+
+def _build_symptom_triage(
+    symptom: str,
+    run_dir: Path,
+    bag_path: Path | None,
+) -> dict[str, Any]:
+    """Translate one user-reported symptom into bounded review steps."""
+    if symptom not in SYMPTOM_GUIDANCE:
+        raise ValueError(f'unsupported map symptom: {symptom}')
+    guidance = SYMPTOM_GUIDANCE[symptom]
+    inspect_args = [
+        'inspect',
+        str(run_dir),
+        '--symptom',
+        symptom,
+    ]
+    if bag_path is not None:
+        inspect_args.extend(['--bag', str(bag_path)])
+    inspect_args.append('--write')
+
+    commands: list[str] = []
+    if symptom == 'map-is-not-visible':
+        commands.append(_product_command('view', str(run_dir)))
+    elif bag_path is not None:
+        commands.append(_product_command('doctor', str(bag_path)))
+    commands.append(_product_command(*inspect_args))
+    commands.append(_product_command('support', str(run_dir)))
+
+    return {
+        'symptom': symptom,
+        'code': symptom,
+        'basis': 'USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED',
+        'title': guidance['title'],
+        'checks': list(guidance['checks']),
+        'next_commands': commands,
+        'avoid': list(guidance['avoid']),
+    }
 
 
 def _parse_verify_log(text: str) -> dict[str, Any]:
@@ -181,7 +345,11 @@ def _suggest_next_steps(summary: dict[str, Any]) -> list[str]:
     return steps[:5]
 
 
-def summarize_run(run_dir: Path, bag_path: Path | None = None) -> dict[str, Any]:
+def summarize_run(
+    run_dir: Path,
+    bag_path: Path | None = None,
+    symptom: str | None = None,
+) -> dict[str, Any]:
     run_dir = run_dir.expanduser().resolve()
     launch_log_path = _find_first(run_dir, ['lidarslam.launch.log', 'slam.launch.log'])
     map_save_log_path = _find_first(run_dir, ['map_save.log'])
@@ -261,6 +429,15 @@ def summarize_run(run_dir: Path, bag_path: Path | None = None) -> dict[str, Any]
             module.validate_bag_path(bag_path)
         summary['bag_preflight'] = module.build_preflight_payload(bag_path)
     summary['suggested_next_steps'] = _suggest_next_steps(summary)
+    if symptom is not None:
+        triage_bag_path = bag_path or _manifest_bag_path(run_manifest)
+        symptom_triage = _build_symptom_triage(
+            symptom,
+            run_dir,
+            triage_bag_path,
+        )
+        summary['symptom_triage'] = symptom_triage
+        summary['suggested_next_steps'] = symptom_triage['next_commands']
     return summary
 
 
@@ -297,6 +474,24 @@ def render_markdown(summary: dict[str, Any]) -> str:
         lines.extend(['', '## Verify Details'])
         for detail in summary['verify']['details']:
             lines.append(f'- {detail}')
+
+    symptom_triage = summary.get('symptom_triage')
+    if symptom_triage is not None:
+        lines.extend([
+            '',
+            '## Reported Symptom Triage',
+            f"- code: `{symptom_triage['code']}`",
+            f"- symptom: {symptom_triage['title']}",
+            '- evidence boundary: user-reported symptom; this is not an '
+            'automatic root-cause or accuracy diagnosis.',
+            '',
+            '### Check In Order',
+        ])
+        for check in symptom_triage['checks']:
+            lines.append(f'- {check}')
+        lines.extend(['', '### Avoid'])
+        for warning in symptom_triage['avoid']:
+            lines.append(f'- {warning}')
 
     if summary['suggested_next_steps']:
         lines.extend(['', '## Suggested Next Commands'])
@@ -361,6 +556,7 @@ def _help_epilog() -> str:
         f'  {command} output/my_map_run',
         f'  {command} output/my_map_run --write',
         f'  {command} output/my_map_run --bag /path/to/rosbag2',
+        f'  {command} output/my_map_run --symptom map-spins-or-spirals',
         f'  {command} output/my_map_run --json',
     ])
 
@@ -390,6 +586,16 @@ def parse_args() -> argparse.Namespace:
         metavar='<rosbag2_dir>',
         help='Optional source rosbag2 directory to include preflight context.',
     )
+    parser.add_argument(
+        '--symptom',
+        choices=SYMPTOM_CHOICES,
+        metavar='{map-spins-or-spirals,pose-drifts-or-oscillates,'
+        'map-stops-early,map-is-too-sparse,map-is-not-visible}',
+        help=(
+            'Add bounded checks for one observed visual symptom; this records '
+            'a user report and never claims an automatic root cause.'
+        ),
+    )
     parser.add_argument('--json', action='store_true', help='Print JSON instead of markdown.')
     parser.add_argument(
         '--write',
@@ -405,7 +611,7 @@ def main() -> int:
     bag_path = Path(args.bag).expanduser().resolve() if args.bag else None
     try:
         validate_run_dir(run_dir)
-        summary = summarize_run(run_dir, bag_path)
+        summary = summarize_run(run_dir, bag_path, args.symptom)
     except (OSError, RuntimeError, ValueError) as exc:
         print(f'error: {exc}', file=sys.stderr)
         return 2

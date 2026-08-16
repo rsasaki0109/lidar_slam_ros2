@@ -1864,6 +1864,52 @@ def test_other_pointcloud_lidar_route_avoids_launch_yaml_forks():
     assert 'detection alone is not a hardware or' in release
 
 
+def test_map_quality_symptoms_keep_one_bounded_inspection_contract():
+    """Visual complaints stay user-reported and use the existing inspector."""
+    canonical = AUTOWARE_MAP_AUTHORING.read_text(encoding='utf-8')
+    getting_started = GETTING_STARTED.read_text(encoding='utf-8')
+    japanese = GETTING_STARTED_JA.read_text(encoding='utf-8')
+    product_contract = PRODUCT_CONTRACT_DOC.read_text(encoding='utf-8')
+    cli_contract = json.loads(
+        (REPO_ROOT / 'docs' / 'contracts' / 'cli-v1.json').read_text(
+            encoding='utf-8'
+        )
+    )
+    diagnosis_schema = json.loads(
+        DIAGNOSIS_SCHEMA.read_text(encoding='utf-8')
+    )
+
+    symptoms = [
+        'map-spins-or-spirals',
+        'pose-drifts-or-oscillates',
+        'map-stops-early',
+        'map-is-too-sparse',
+        'map-is-not-visible',
+    ]
+    symptom_contract = cli_contract['map_quality_symptom_triage_contract']
+    schema_choices = diagnosis_schema['properties']['symptom_triage'][
+        'properties'
+    ]['symptom']['enum']
+
+    assert symptom_contract['command'] == 'inspect'
+    assert symptom_contract['option'] == '--symptom'
+    assert symptom_contract['symptoms'] == symptoms
+    assert schema_choices == symptoms
+    assert symptom_contract['basis'] == (
+        'USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED'
+    )
+    for symptom in symptoms:
+        assert symptom in canonical
+        assert symptom in japanese
+    for document in (canonical, getting_started, japanese):
+        assert 'lidarslam-map inspect /path/to/session_bundle' in document
+        assert '--symptom' in document
+    assert 'not automatic root-cause analysis' in canonical
+    assert 'does not automatically identify a root cause' in getting_started
+    assert '原因の自動判定' in japanese
+    assert 'never edits parameters or starts mapping' in product_contract
+
+
 def test_japanese_quickstart_keeps_the_canonical_beginner_contract():
     """The short Japanese route must not drift from supported commands."""
     readme = README_PATH.read_text(encoding='utf-8')

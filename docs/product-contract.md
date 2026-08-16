@@ -187,6 +187,16 @@ first-map validation receipt. A diagnostic verification-off run is explicitly
 `unavailable`. Neither state may be promoted to quality PASS from file presence
 alone.
 
+For a run that completed but looks wrong, `lidarslam-map inspect --symptom`
+adds one bounded, user-reported visual symptom to the same diagnosis contract.
+The five stable codes cover a spinning/spiralling map, drifting/oscillating
+pose, early map termination, sparse map, and missing viewer output. The card
+checks sensor/time/calibration/TF contracts before tuning, retains only
+shell-safe product commands, and never edits parameters or starts mapping.
+Its evidence basis is explicitly
+`USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED`: it is not a root-cause, hardware
+support, or accuracy claim, and the original session remains immutable.
+
 `lidarslam-map sessions [sessions_root]` is the return-to-work path. It derives
 a newest-first local catalog from direct child bundles containing a
 schema-valid `session.json`; it does not infer status from directory names.

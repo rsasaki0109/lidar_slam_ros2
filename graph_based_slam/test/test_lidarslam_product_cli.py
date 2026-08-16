@@ -256,6 +256,27 @@ def test_run_dry_run_and_inspect_delegate_to_proven_tools(tmp_path: Path):
     assert diagnosis['status'] == 'incomplete'
     assert diagnosis['run_dir'] == str(output)
 
+    symptom_result = _run(
+        'inspect',
+        str(output),
+        '--symptom',
+        'map-is-not-visible',
+        '--json',
+    )
+    assert symptom_result.returncode == 0, symptom_result.stderr
+    symptom_diagnosis = json.loads(symptom_result.stdout)
+    triage = symptom_diagnosis['symptom_triage']
+    assert triage['basis'] == 'USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED'
+    assert ' view ' in f" {triage['next_commands'][0]} "
+    assert str(output) in triage['next_commands'][0]
+    assert all(
+        'python3 scripts/' not in command
+        for command in triage['next_commands']
+    )
+    assert symptom_diagnosis['suggested_next_steps'] == (
+        triage['next_commands']
+    )
+
 
 def test_child_input_error_is_propagated(tmp_path: Path):
     result = _run('doctor', str(tmp_path / 'missing'))

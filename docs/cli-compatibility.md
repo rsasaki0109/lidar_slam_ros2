@@ -105,7 +105,7 @@ this option policy or the repository version.
 | `setup` | profile, output, calibration and frame options, `--json` | None | None |
 | `doctor` | `--json` | None | None |
 | `run` | `--profile`, `--output-dir`, `--min-free-space-gib`, `--dry-run`, `--resume`, `--guided`, `--yes`, `--verification` | None | Viewer compatibility options and `--no-verify-map` |
-| `inspect` | `--bag`, `--json`, `--write` | None | None |
+| `inspect` | `--bag`, `--symptom`, `--json`, `--write` | None | None |
 | `view` | `--viewer` | `--autoware-core-dir`, `--work-dir`, `--runtime-dir`, `--rebuild`, `--auto-exit-secs` | None |
 | `sessions` | `--status`, `--limit`, `--viewer`, `--json` | None | None |
 | `compare` | `--output`, `--viewer`, `--json` | None | None |
