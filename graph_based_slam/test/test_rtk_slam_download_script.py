@@ -44,6 +44,18 @@ SPEC = importlib.util.spec_from_file_location('rtk_slam_download', SCRIPT)
 DOWNLOAD = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(DOWNLOAD)
+DISCOVER_STORAGE = DOWNLOAD._discover_unmounted_storage_candidates
+DEVICE_MOUNTPOINT = DOWNLOAD._device_mountpoint
+
+
+@pytest.fixture(autouse=True)
+def _isolate_host_storage_discovery(monkeypatch: pytest.MonkeyPatch):
+    """Keep unit plans independent of the test host's attached disks."""
+    monkeypatch.setattr(
+        DOWNLOAD,
+        '_discover_unmounted_storage_candidates',
+        lambda unused: [],
+    )
 
 
 def _tiny_manifest() -> dict:
@@ -155,6 +167,176 @@ def test_capacity_plan_reports_exact_shortfall(
     assert storage['required_peak_bytes'] == payload + reserve
     assert storage['additional_bytes_required'] == payload + reserve - 1_000
     assert plan['status'] == 'BLOCKED_INSUFFICIENT_SPACE'
+    recovery = plan['storage_recovery']
+    assert recovery['minimum_free_bytes'] == payload + reserve
+    assert recovery['unmounted_candidates'] == []
+    assert '--dry-run' in recovery['preflight_command']
+    assert '--dry-run' not in recovery['live_command']
+    assert 'mount a filesystem' in plan['next_action']
+
+
+def test_attached_unmounted_usb_storage_is_actionable():
+    """A large hotplug filesystem is reported without mounting or probing."""
+    document = {
+        'blockdevices': [
+            {
+                'path': '/dev/sdz',
+                'pkname': None,
+                'type': 'disk',
+                'fstype': None,
+                'size': 2_000_000,
+                'mountpoints': [None],
+                'label': None,
+                'model': 'Portable SSD',
+                'tran': 'usb',
+                'ro': False,
+                'rm': False,
+                'hotplug': True,
+            },
+            {
+                'path': '/dev/sdz1',
+                'pkname': 'sdz',
+                'type': 'part',
+                'fstype': 'ext4',
+                'size': 1_999_000,
+                'mountpoints': [None],
+                'label': 'bench',
+                'model': None,
+                'tran': None,
+                'ro': False,
+                'rm': False,
+                'hotplug': True,
+            },
+            {
+                'path': '/dev/nvme0n1p3',
+                'pkname': 'nvme0n1',
+                'type': 'part',
+                'fstype': 'ntfs',
+                'size': 5_000_000,
+                'mountpoints': [None],
+                'label': None,
+                'model': None,
+                'tran': 'nvme',
+                'ro': False,
+                'rm': False,
+                'hotplug': False,
+            },
+        ],
+    }
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append((command, kwargs))
+        return type('Result', (), {
+            'returncode': 0,
+            'stdout': json.dumps(document),
+        })()
+
+    candidates = DISCOVER_STORAGE(
+        1_000_000,
+        runner=runner,
+        executable='/usr/bin/lsblk',
+    )
+
+    assert candidates == [{
+        'device': '/dev/sdz1',
+        'filesystem': 'ext4',
+        'partition_bytes': 1_999_000,
+        'label': 'bench',
+        'model': 'Portable SSD',
+        'transport': 'usb',
+        'capacity_status': 'UNVERIFIED_UNTIL_MOUNTED',
+    }]
+    assert calls[0][0][0] == '/usr/bin/lsblk'
+    assert calls[0][1]['timeout'] == 3
+
+
+def test_unmounted_candidate_selects_mount_then_preflight(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Recovery mounts first and rechecks free bytes before live download."""
+    candidate = {
+        'device': '/dev/sdz1',
+        'filesystem': 'ext4',
+        'partition_bytes': 2_000_000,
+        'label': 'bench',
+        'model': 'Portable SSD',
+        'transport': 'usb',
+        'capacity_status': 'UNVERIFIED_UNTIL_MOUNTED',
+    }
+    monkeypatch.setattr(
+        DOWNLOAD,
+        '_discover_unmounted_storage_candidates',
+        lambda unused: [candidate],
+    )
+    original_which = DOWNLOAD.shutil.which
+    monkeypatch.setattr(
+        DOWNLOAD.shutil,
+        'which',
+        lambda command: (
+            '/usr/bin/udisksctl'
+            if command == 'udisksctl' else original_which(command)
+        ),
+    )
+    monkeypatch.setattr(DOWNLOAD, '_available_bytes', lambda unused: 0)
+
+    plan = DOWNLOAD.build_plan(
+        tmp_path / 'dataset', ['construction_seq2'], True,
+    )
+    recovery = plan['storage_recovery']
+
+    assert plan['next_action'] == 'udisksctl mount -b /dev/sdz1'
+    assert recovery['unmounted_candidates'] == [candidate]
+    assert '--dest-device /dev/sdz1' in recovery['preflight_command']
+    assert recovery['preflight_command'].endswith('--dry-run')
+    assert '--dry-run' not in recovery['live_command']
+
+
+def test_dest_device_resolves_one_exact_mountpoint():
+    """Resolve a mounted device to the path reported by lsblk."""
+    def runner(unused_command, **unused_kwargs):
+        return type('Result', (), {
+            'returncode': 0,
+            'stdout': json.dumps({
+                'blockdevices': [{
+                    'path': '/dev/sdz1',
+                    'mountpoints': ['/media/operator/bench'],
+                }],
+            }),
+        })()
+
+    mountpoint = DEVICE_MOUNTPOINT(
+        '/dev/sdz1',
+        runner=runner,
+        executable='/usr/bin/lsblk',
+    )
+
+    assert mountpoint == Path('/media/operator/bench')
+
+
+def test_dest_device_requires_mount_before_any_plan():
+    """Return one mount action when the selected device is still unmounted."""
+    def runner(unused_command, **unused_kwargs):
+        return type('Result', (), {
+            'returncode': 0,
+            'stdout': json.dumps({
+                'blockdevices': [{
+                    'path': '/dev/sdz1',
+                    'mountpoints': [None],
+                }],
+            }),
+        })()
+
+    with pytest.raises(
+        DOWNLOAD.AcquisitionError,
+        match='udisksctl mount -b /dev/sdz1',
+    ):
+        DEVICE_MOUNTPOINT(
+            '/dev/sdz1',
+            runner=runner,
+            executable='/usr/bin/lsblk',
+        )
 
 
 def test_partial_file_reduces_remaining_capacity_and_plans_resume(

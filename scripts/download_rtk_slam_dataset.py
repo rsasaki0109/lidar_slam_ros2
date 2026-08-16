@@ -212,6 +212,244 @@ def _available_bytes(path: Path) -> int:
         ) from exc
 
 
+def _optional_text(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    printable = ''.join(
+        character if character.isprintable() else ' '
+        for character in value
+    )
+    cleaned = ' '.join(printable.split())
+    return cleaned or None
+
+
+def _is_mounted(value: Any) -> bool:
+    if isinstance(value, list):
+        return any(_optional_text(item) is not None for item in value)
+    return _optional_text(value) is not None
+
+
+def _discover_unmounted_storage_candidates(
+    required_bytes: int,
+    *,
+    runner: Any = None,
+    executable: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return large attached filesystems without mounting or probing them."""
+    lsblk = executable or shutil.which('lsblk')
+    if lsblk is None:
+        return []
+    run = runner or subprocess.run
+    try:
+        result = run(
+            [
+                lsblk,
+                '--json',
+                '--bytes',
+                '--output',
+                (
+                    'PATH,PKNAME,TYPE,FSTYPE,SIZE,MOUNTPOINTS,LABEL,'
+                    'MODEL,TRAN,RO,RM,HOTPLUG'
+                ),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        if result.returncode != 0:
+            return []
+        document = json.loads(result.stdout)
+    except (
+        json.JSONDecodeError,
+        OSError,
+        subprocess.SubprocessError,
+        TypeError,
+    ):
+        return []
+
+    if not isinstance(document, dict):
+        return []
+    devices = document.get('blockdevices')
+    if not isinstance(devices, list):
+        return []
+    by_name = {
+        Path(path).name: item
+        for item in devices
+        if isinstance(item, dict)
+        if isinstance((path := item.get('path')), str)
+    }
+    candidates = []
+    for item in devices:
+        if not isinstance(item, dict):
+            continue
+        path = item.get('path')
+        filesystem = _optional_text(item.get('fstype'))
+        size = item.get('size')
+        if (
+            not isinstance(path, str)
+            or not path.startswith('/dev/')
+            or not path.isprintable()
+            or any(character.isspace() for character in path)
+            or filesystem is None
+            or isinstance(size, bool)
+            or not isinstance(size, int)
+            or size < required_bytes
+            or item.get('ro') is not False
+            or _is_mounted(item.get('mountpoints'))
+        ):
+            continue
+        parent = by_name.get(item.get('pkname'), {})
+        transport = _optional_text(item.get('tran')) or _optional_text(
+            parent.get('tran')
+        )
+        hotplug = item.get('hotplug') is True or parent.get('hotplug') is True
+        if not hotplug and transport != 'usb':
+            continue
+        candidates.append({
+            'device': path,
+            'filesystem': filesystem,
+            'partition_bytes': size,
+            'label': _optional_text(item.get('label')),
+            'model': (
+                _optional_text(item.get('model'))
+                or _optional_text(parent.get('model'))
+            ),
+            'transport': transport,
+            'capacity_status': 'UNVERIFIED_UNTIL_MOUNTED',
+        })
+    return sorted(
+        candidates,
+        key=lambda item: (-item['partition_bytes'], item['device']),
+    )
+
+
+def _device_mountpoint(
+    device: str,
+    *,
+    runner: Any = None,
+    executable: str | None = None,
+) -> Path:
+    """Resolve one mounted block device without changing mount state."""
+    if (
+        not device.startswith('/dev/')
+        or not device.isprintable()
+        or any(character.isspace() for character in device)
+    ):
+        raise AcquisitionError(
+            f'--dest-device must be an absolute /dev path: {device}'
+        )
+    lsblk = executable or shutil.which('lsblk')
+    if lsblk is None:
+        raise AcquisitionError(
+            'cannot resolve --dest-device because lsblk is unavailable'
+        )
+    run = runner or subprocess.run
+    try:
+        result = run(
+            [
+                lsblk,
+                '--json',
+                '--output',
+                'PATH,MOUNTPOINTS',
+                device,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        if result.returncode != 0:
+            raise AcquisitionError(
+                f'cannot inspect destination device {device}'
+            )
+        document = json.loads(result.stdout)
+    except AcquisitionError:
+        raise
+    except (
+        json.JSONDecodeError,
+        OSError,
+        subprocess.SubprocessError,
+        TypeError,
+    ) as exc:
+        raise AcquisitionError(
+            f'cannot inspect destination device {device}: {exc}'
+        ) from exc
+    if not isinstance(document, dict):
+        raise AcquisitionError(
+            f'cannot inspect destination device {device}: invalid lsblk JSON'
+        )
+    mountpoints = []
+    for item in document.get('blockdevices', []):
+        if not isinstance(item, dict) or item.get('path') != device:
+            continue
+        values = item.get('mountpoints')
+        if not isinstance(values, list):
+            values = [values]
+        mountpoints.extend(
+            text for value in values
+            if (text := _optional_text(value)) is not None
+        )
+    mountpoints = sorted(set(mountpoints))
+    if not mountpoints:
+        mount_command = shlex.join(['udisksctl', 'mount', '-b', device])
+        raise AcquisitionError(
+            f'destination device is not mounted: {device}. Run '
+            f'{mount_command}, then retry the same command.'
+        )
+    if len(mountpoints) != 1:
+        raise AcquisitionError(
+            f'destination device has ambiguous mountpoints: {device}: '
+            f'{mountpoints}'
+        )
+    return Path(mountpoints[0]).resolve()
+
+
+def _storage_recovery(
+    required_bytes: int,
+    sequences: Sequence[str],
+    include_eval: bool,
+) -> dict[str, Any]:
+    candidates = _discover_unmounted_storage_candidates(required_bytes)
+    destination_args = (
+        ['--dest-device', candidates[0]['device']]
+        if candidates else ['--dest', '/mnt/large/rtk_slam']
+    )
+    base_command = [
+        'python3',
+        'scripts/download_rtk_slam_dataset.py',
+        *_selection_arguments(sequences, include_eval),
+        *destination_args,
+    ]
+    preflight_command = shlex.join([*base_command, '--dry-run'])
+    live_command = shlex.join(base_command)
+    mount_command = None
+    if candidates and shutil.which('udisksctl') is not None:
+        mount_command = shlex.join([
+            'udisksctl', 'mount', '-b', candidates[0]['device'],
+        ])
+    if mount_command is not None:
+        next_action = mount_command
+    elif candidates:
+        next_action = (
+            f"mount attached filesystem {candidates[0]['device']}, then run: "
+            f'{preflight_command}'
+        )
+    else:
+        next_action = (
+            f'mount a filesystem with at least {required_bytes} free bytes, '
+            f'then run: {preflight_command}'
+        )
+    return {
+        'minimum_free_bytes': required_bytes,
+        'unmounted_candidates': candidates,
+        'mount_command': mount_command,
+        'preflight_command': preflight_command,
+        'live_command': live_command,
+        'next_action': next_action,
+    }
+
+
 def _artifact_plan(
     sequence: str,
     kind: str,
@@ -383,13 +621,10 @@ def build_plan(
     observed_free_bytes = _available_bytes(dest_root)
     shortage_bytes = max(required_peak_bytes - observed_free_bytes, 0)
     status = 'READY' if shortage_bytes == 0 else 'BLOCKED_INSUFFICIENT_SPACE'
-    retry = [
-        'python3',
-        'scripts/download_rtk_slam_dataset.py',
-        *_selection_arguments(sequences, include_eval),
-        '--dest',
-        '/mnt/large/rtk_slam',
-    ]
+    recovery = (
+        _storage_recovery(required_peak_bytes, sequences, include_eval)
+        if shortage_bytes else None
+    )
     return {
         'schema_version': 1,
         'tool': 'download_rtk_slam_dataset',
@@ -411,10 +646,11 @@ def build_plan(
             'observed_free_bytes': observed_free_bytes,
             'additional_bytes_required': shortage_bytes,
         },
+        'storage_recovery': recovery,
         'status': status,
         'next_action': (
-            shlex.join(retry)
-            if shortage_bytes
+            recovery['next_action']
+            if recovery is not None
             else 'run again without --dry-run'
         ),
     }
@@ -454,6 +690,21 @@ def _print_text_plan(plan: dict[str, Any]) -> None:
         f"{storage['additional_bytes_required']} bytes "
         f"({_human_gb(storage['additional_bytes_required'])})"
     )
+    recovery = plan['storage_recovery']
+    if recovery is not None:
+        for candidate in recovery['unmounted_candidates']:
+            description = candidate['model'] or candidate['label'] or 'device'
+            print(
+                'attached:    '
+                f"{candidate['device']} ({description}, "
+                f"{candidate['filesystem']}, "
+                f"{candidate['partition_bytes']} bytes); unmounted, free "
+                'space unverified'
+            )
+        if recovery['mount_command'] is not None:
+            print(f"mount:       {recovery['mount_command']}")
+        print(f"preflight:   {recovery['preflight_command']}")
+        print(f"after READY: {recovery['live_command']}")
     print(f"status:      {plan['status']}")
     print(f"next:        {plan['next_action']}")
 
@@ -583,12 +834,20 @@ def _parser() -> argparse.ArgumentParser:
             'sequence, construction_seq2.'
         ),
     )
-    parser.add_argument(
+    destination = parser.add_mutually_exclusive_group()
+    destination.add_argument(
         '--dest',
-        default='datasets/rtk_slam',
+        default=None,
         help=(
             'Destination root (default: datasets/rtk_slam, which is '
             'gitignored)'
+        ),
+    )
+    destination.add_argument(
+        '--dest-device',
+        help=(
+            'Mounted /dev path; resolve its current mountpoint and use the '
+            'rtk_slam subdirectory'
         ),
     )
     parser.add_argument(
@@ -636,6 +895,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             or args.json
             or args.eval_assets
             or args.eval_assets_only
+            or args.dest is not None
+            or args.dest_device is not None
         ):
             parser.error('--list cannot be combined with acquisition options')
         _print_sequence_list()
@@ -645,8 +906,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         list(SEQUENCES) if args.sequence == 'all' else [args.sequence]
     )
     include_eval = args.eval_assets or args.eval_assets_only
-    dest_root = _absolute_path(args.dest)
     try:
+        dest_root = (
+            _device_mountpoint(args.dest_device) / 'rtk_slam'
+            if args.dest_device is not None
+            else _absolute_path(args.dest or 'datasets/rtk_slam')
+        )
         plan = build_plan(dest_root, sequences, include_eval)
     except AcquisitionError as exc:
         print(f'error: {exc}', file=sys.stderr)

@@ -226,10 +226,19 @@ packet, not a replacement for that runtime workspace.
 write. It reports the immutable dataset revision, exact size and SHA-256 of
 each DB3 and metadata file, already-present resumable bytes, remaining payload,
 filesystem reserve, observed free bytes, exact shortfall, and a copy-ready
-external-destination retry. Add `--json` for a machine-readable plan. Use
-`--list` to inspect all four exact sequence identities without network access.
+external-destination recovery. When Linux exposes a sufficiently large
+attached-but-unmounted hotplug filesystem, the plan lists its device,
+filesystem, partition size, and optional model/label, then makes mounting it
+the single next action. It never mounts or probes the filesystem itself, and
+marks free space unknown until the user mounts it. The follow-up command reruns
+`--dry-run --dest-device /dev/...`; the helper resolves the actual mount path
+and appends `rtk_slam`, so no mount-path placeholder needs editing. It shows
+the matching live command only after that exact filesystem reports `READY`.
+Add `--json` for the same structured plan. Use `--list` to inspect all four
+exact sequence identities without network access.
 
-When the plan reports `READY`, remove only `--dry-run`. The live command checks
+When the mounted-path plan reports `READY`, remove only `--dry-run`. The live
+command checks
 capacity before its first write or network request, resumes a smaller regular
 file, and verifies exact size plus SHA-256 before accepting it. A same-size
 wrong file, oversized file, non-regular path, or symlink fails closed with a
