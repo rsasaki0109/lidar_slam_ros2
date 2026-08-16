@@ -10,7 +10,7 @@ _LIDARSLAM_MAP_SUPPORT_OPTIONS='--help --help-all --output --json --first-map'
 _LIDARSLAM_MAP_DOCTOR_OPTIONS='--help --help-all --json --demo-dir --min-free-space-gib'
 _LIDARSLAM_MAP_SETUP_OPTIONS='--help --help-all --profile --output-dir --map-output-dir --accept-profile-extrinsics --lidar-to-base --imu-to-base --base-frame --lidar-frame --imu-frame --json'
 _LIDARSLAM_MAP_RUN_OPTIONS='--help --help-all --profile --output-dir --lidarslam-param --rko-param --base-frame --lidar-frame --imu-frame --min-free-space-gib --dry-run --editable --resume --guided --yes --viewer --autoware-core-dir --work-dir --viewer-run-dir --viewer-rebuild --auto-exit-secs --verification --no-verify-map'
-_LIDARSLAM_MAP_INSPECT_OPTIONS='--help --help-all --bag --json --write'
+_LIDARSLAM_MAP_INSPECT_OPTIONS='--help --help-all --bag --symptom --json --write'
 _LIDARSLAM_MAP_VIEW_OPTIONS='--help --help-all --viewer --no-open --preview-dir --autoware-core-dir --work-dir --runtime-dir --rebuild --auto-exit-secs'
 _LIDARSLAM_MAP_EDIT_OPTIONS='--help --help-all --plan --output-dir --dry-run --backend-input --params --setup --json'
 _LIDARSLAM_MAP_MERGE_OPTIONS='--help --help-all --output-dir --merge-voxel-size --alignment-voxel-size --max-alignment-points --max-median-error --max-p90-error --min-overlap --initial-transform --dry-run --json'
@@ -63,6 +63,12 @@ _lidarslam_map_complete() {
     --status)
       COMPREPLY=($(compgen -W \
         'all running verified unverified action_required' \
+        -- "$current"))
+      return
+      ;;
+    --symptom)
+      COMPREPLY=($(compgen -W \
+        'map-spins-or-spirals pose-drifts-or-oscillates map-stops-early map-is-too-sparse map-is-not-visible' \
         -- "$current"))
       return
       ;;
