@@ -270,6 +270,7 @@ if(BUILD_TESTING)
     test_session_history
     test_support_bundle
     test_simple_lanelet2_generator
+    test_social_demo_media
     test_v1_readiness
     test_view_autoware_map
   )
