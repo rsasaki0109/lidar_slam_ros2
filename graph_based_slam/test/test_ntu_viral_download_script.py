@@ -72,6 +72,17 @@ def _fake_lsblk(fake_bin: pathlib.Path, document: object) -> None:
     script.chmod(0o755)
 
 
+def _fake_df(fake_bin: pathlib.Path, available_bytes: int = 1) -> None:
+    script = fake_bin / 'df'
+    script.write_text(
+        '#!/bin/sh\n'
+        "printf 'Filesystem 1-blocks Used Available Capacity Mounted on\\n'\n"
+        f"printf 'fake 1000000 999999 {available_bytes} 100%% /\\n'\n",
+        encoding='utf-8',
+    )
+    script.chmod(0o755)
+
+
 def test_download_help_exits_successfully():
     result = _run_download('--help')
     output = _combined_output(result)
@@ -84,9 +95,14 @@ def test_download_help_exits_successfully():
 
 
 def test_download_dry_run_is_write_and_network_free(tmp_path: pathlib.Path):
+    fake_bin = tmp_path / 'bin'
+    fake_bin.mkdir()
+    _fake_df(fake_bin)
     dest = tmp_path / 'dataset'
+    env = dict(os.environ)
+    env['PATH'] = f'{fake_bin}:{env["PATH"]}'
 
-    result = _run_download('--dest', str(dest), '--dry-run')
+    result = _run_download('--dest', str(dest), '--dry-run', env=env)
     output = _combined_output(result)
 
     assert result.returncode == 0, output
@@ -104,14 +120,7 @@ def test_download_fails_before_network_when_space_is_insufficient(
 ):
     fake_bin = tmp_path / 'bin'
     fake_bin.mkdir()
-    fake_df = fake_bin / 'df'
-    fake_df.write_text(
-        '#!/bin/sh\n'
-        "printf 'Filesystem 1-blocks Used Available Capacity Mounted on\\n'\n"
-        "printf 'fake 1000000 999999 1 100%% /\\n'\n",
-        encoding='utf-8',
-    )
-    fake_df.chmod(0o755)
+    _fake_df(fake_bin)
     dest = tmp_path / 'dataset'
     env = dict(os.environ)
     env['PATH'] = f'{fake_bin}:{env["PATH"]}'
@@ -137,6 +146,7 @@ def test_low_space_discovers_attached_device_and_preserves_options(
 ):
     fake_bin = tmp_path / 'bin'
     fake_bin.mkdir()
+    _fake_df(fake_bin)
     _fake_lsblk(fake_bin, {
         'blockdevices': [
             {
