@@ -9,7 +9,7 @@
 > Capture-time public Draft baseline: `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
 > Latest exact public Draft head and CI audit:
-> `ac22a3ff1e49c1dae3fcde47f52ae8bf8ccdb1eb`
+> `7632b360080ff41e0d9b3c185402c8bc3aee9875`
 >
 > Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
 >
@@ -44,6 +44,9 @@
 > Latest public-docs deployment-provenance tip: `5b8c8c477cceb4955184a64afa874712b9dea5aa`
 >
 > Latest public-docs evidence-refresh baseline: `ac22a3ff1e49c1dae3fcde47f52ae8bf8ccdb1eb`
+
+> Latest receipt-bound onboarding-evidence tip:
+> `3c19824daeb5c61715fe52887e5e0e6abe6c0051`
 >
 > Latest public publication-inventory tip: `ac22a3ff1e49c1dae3fcde47f52ae8bf8ccdb1eb`
 >
@@ -65,7 +68,7 @@
 > `d01652080485bc68354f354043e4b2e732439223`
 >
 > Publication-inventory synchronization: this docs-only handoff follows
-> `5b8c8c477cceb4955184a64afa874712b9dea5aa` and adds no product authority.
+> `3c19824daeb5c61715fe52887e5e0e6abe6c0051` and adds no product authority.
 
 This reviewed tip is the code-bearing product-candidate revision; later
 docs-only handoff synchronization and product UX follow-up commits must remain
@@ -88,7 +91,13 @@ preflight instead of accepting four manually entered values. The latest
 observer UX follow-up also turns
 four artifact downloads, independent remote byte audit, and JSON/Markdown
 packet generation into one fail-closed command with atomic local output. The
-paired usability follow-up at `0575fb6…` similarly removes hand-edited trial
+latest onboarding-evidence trust follow-up retains the exact schema-valid,
+privacy-bounded first-map validation receipt beside each candidate trial and
+requires its bytes, SHA-256, PASS state, manifest identity, product version,
+fixed profile, and source commit to agree before any row is comparable. Old
+rows without that retained receipt remain useful PASS evidence but cannot open
+the matrix gate.
+The paired usability follow-up at `0575fb6…` similarly removes hand-edited trial
 JSON: it records both fixed six-task worksheets in declared order, derives
 command totals, keeps blanks explicitly incomplete, validates privacy and pair
 identity, and atomically publishes neither or both local records. It does not
@@ -217,8 +226,8 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open, draft, and mergeable; capture-time public baseline `3ed632e…` remains the frozen review anchor; captured public head `ac22a3f…` includes published-onboarding identity, paired recorder, actionable release evidence, live contributor next-action, copy-ready low-storage recovery, dependency-gated #422 handling, and synchronized inventory; schema-valid pre-upload docs artifact enforcement is local at `5b8c8c4…` | no merge, Pages deployment, cohort launch, or E2 authority is implied |
-| Exact public PR-head CI | capture-time result is **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures; exact captured public head `ac22a3f…` has the same 10-success / 4-skip / 0-failure result | the skipped jobs are candidate authorization/publication/pair verification and Docker publication; green CI is not release/E2 approval, and local `5b8c8c4…` still needs its own public CI |
+| Draft PR #427 | open, draft, and mergeable; capture-time public baseline `3ed632e…` remains the frozen review anchor; exact public head `7632b36…` includes the schema-valid pre-upload docs artifact gate and synchronized evidence; receipt-bound onboarding evidence is local at `3c19824…` | no merge, Pages deployment, cohort launch, or E2 authority is implied |
+| Exact public PR-head CI | capture-time result is **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures; exact public head `7632b36…` has the same 10-success / 4-skip / 0-failure result | the skipped jobs are candidate authorization/publication/pair verification and Docker publication; green CI is not release/E2 approval, and local `3c19824…` still needs its own public CI |
 | English support cards | docs entrypoint tests 25 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded; Docker convenience and candidate-digest authority boundaries are both regression-bound; every tracked shell entry point now also has a parse regression |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 61 queue regressions and 5 / 5 focused strict-MkDocs profiles pass; current GET-only output finds 1 published `good first issue` (#422), 0 eligible starters, 1 blocked starter, 1 open PR, and 1 potential C5 match after PR #427 changed | the contributor waits instead of entering the closed cohort; the maintainer gets the cohort status command; C1–C4 remain retired and no issue, label, comment, PR, Pages deployment, or community post was changed |
@@ -227,16 +236,16 @@ gate from being mistaken for the current state.
 | Canonical NDT upstream Draft preflight | `READY_FOR_DRAFT_PR`; 30 / 30 PASS at local implementation `856e599…`; exact upstream `5495fd9…`, expected fork verified, proposed branch absent, 4 open PRs inspected, 0 duplicates, 0 API errors, and write authority false | this proves a technically coherent read-only publication state; it neither creates nor authorizes an upstream branch or PR |
 | Docker publication boundary | convenience PR/manual runs remain verification-only; the candidate gate at `c70c18d…` uses trusted default-branch tooling, exact-head CI/identity checks, a protected `candidate-images` environment, digest-only output, disabled container networking during smoke tests, SBOM/provenance/attestation checks, and 30-day schema-backed evidence | the gate can create no tag or Release; complete authenticated inventory at `adecca6…` proves only `github-pages` exists, so authorization must stop until a separate environment/E2 decision |
 | Candidate environment and gate regressions | 29 focused tests, actionlint v1.7.12, Python style, CTest 2 / 2, GET-only transport, shared authorization semantics, release-bundle inclusion, and exact-tip Humble/Jazzy default workflows pass | the live result is `ABSENT`; workflow-facing CLIs persist one request, two distinct image records, and one pair report exactly once; no workflow dispatch, environment mutation, or GHCR mutation occurred |
-| Candidate observer contract | atomic preparation through `f5ed80e…`, exact row runner `feed0ba…`, one-command session `8bc5ea4…`, and guided local readiness `a286c65…`; four-file semantic derivation, exact remote artifact-byte comparison, content-bound Docker observer bootstrap, retained child-receipt binding, structured row execution, four-state host guidance, release-bundle inclusion, and docs pass 40 direct preparation/runner/session regressions plus 85 focused session/row/probe regressions | remote status is still **NOT_CHECKED** because no authorized bundle exists; local readiness and runner tests are not `REMOTE_AUDIT_PASS`, a trial, E2, or E4 authority |
+| Candidate observer contract | atomic preparation through `f5ed80e…`, exact row runner `feed0ba…`, one-command session `8bc5ea4…`, guided local readiness `a286c65…`, and receipt-bound comparability at `3c19824…`; four-file semantic derivation, exact remote artifact-byte comparison, content-bound Docker observer bootstrap, retained child/session receipts, exact first-map validation-receipt bytes, structured row execution, four-state host guidance, release-bundle inclusion, and strict docs pass with 189 focused candidate/onboarding regressions | remote status is still **NOT_CHECKED** because no authorized bundle exists; local readiness and runner tests are not `REMOTE_AUDIT_PASS`, a trial, E2, or E4 authority |
 | Neutral GLIM usability recorder | exact implementation `0575fb6…`, evidence sync and public CI through `ac22a3f…`; 7 direct regressions, 20 recorder/checker regressions, registered CTest 6 / 6, strict docs/style, and a deterministic 253-file candidate bundle pass | the checked-in scorecard remains `NOT_READY` with 0 / 2 product records and 0 / 6 comparable tasks; safer recording is not external evidence, parity, or a winner claim |
 | Public documentation deployment provenance | pre-upload schema enforcement and 9 focused regressions **PASS** at `5b8c8c4…`; strict MkDocs emits a schema-valid source/version/route/page-byte manifest, both Pages jobs and the live environment branch policy are `develop`-only, and the clean candidate release bundle contains the generator, auditor, schemas, and evidence; live exact-public audit is `BLOCKED` because the manifest URL returns HTTP 404 | URL shape alone cannot launch the independent cohort; the current Pages deployment remains unverified until a separately reviewed `develop` deployment publishes matching bytes |
-| Complete product gate through public head | graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 998 passed; registered CTest passes 93 / 93 for `lidarslam` and 232 / 232 for `graph_based_slam`; strict MkDocs passes locally; exact public `ac22a3f…` has 10 successful / 4 intentional-skip / 0 failed checks | 2,440 maintained Python tests and exact-head public CI validate `ac22a3f…`; the local docs-artifact increment has 72 focused deployment/cohort/G0/docs tests and still needs exact-head public CI |
+| Complete product gate through public head | graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 998 passed; registered CTest passes 93 / 93 for `lidarslam` and 232 / 232 for `graph_based_slam`; strict MkDocs passes locally; exact public `7632b36…` has 10 successful / 4 intentional-skip / 0 failed checks | 2,440 maintained Python tests and exact-head public CI validate `7632b36…`; local `3c19824…` adds 250 focused G0/candidate/onboarding/deployment regressions, strict docs, and a reproducible 253-file bundle (`e3fbe1cf…`, 11,611,987 bytes), but still needs exact-head public CI |
 | Actionable stable-release profile gate | exact implementation `45cfdcb…`; an empty exact-head benchmark root now retains Markdown/CSV/log output, reports five blocking `NO_DATA` profiles with acquisition/rerun hints, distinguishes six report-only rows, and exits 2; 29 direct regressions pass | this identifies missing evidence and does not satisfy it; no tag, Release, image, or E4 authority is inferred |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 286 paths / 7 slices / 15 follow-up commits after this synchronization from public baseline `3ed632e…`; inventory SHA-256 `46dac06d39c8b793179a3f11f87b26f7a5f4b2bd3cba4df70622683177ca5494` | the docs schema-enforcement follow-up remains in S6 and changes no path ownership; release-evidence UX remains S5, while low-storage recovery, row/session/readiness, parse-safe/content-verified GLIM comparison, byte-bound public docs, report-derived packet identity, atomic preparation, and paired observation recording remain S2/S4/S6; synchronization changes no GitHub authority |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 287 paths / 7 slices / 17 follow-up commits after this synchronization from public baseline `3ed632e…`; inventory SHA-256 `d507f34ff1bdd79ac0c79a33707dae7d43881cf90045cff84e8ff1cbc10a7462` | the receipt-bound checker regression joins S4; release-evidence UX remains S5, while low-storage recovery, row/session/readiness, parse-safe/content-verified GLIM comparison, byte-bound public docs, report-derived packet identity, atomic preparation, paired observation recording, and docs integration remain S2/S4/S6; synchronization changes no GitHub authority |
 | Published onboarding identity | v0.9.0 exact release commit plus Humble/Jazzy digests return `READY`, but its source route is `NOT_READY` with `source-route-contract-missing`; v0.9.1 report-to-packet fails closed at `NOT_PUBLISHED` | the old release cannot be reused for same-version Docker/source evidence, and the new version cannot produce a release packet before E4 publication |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
-| Onboarding matrix | 4 / 4 product PASS; 0 / 4 comparable; **BLOCKED** | Docker is v0.9.0, source is v0.9.1, and human measurements are missing |
+| Onboarding matrix | 4 / 4 product PASS; 0 / 4 comparable; **BLOCKED** | Docker is v0.9.0, source is v0.9.1, human measurements are missing, and all four historical rows lack retained first-map validation-receipt bytes; a hash string alone no longer counts as comparable evidence |
 | v1 readiness | **8 / 10** | distribution and independent adoption remain incomplete |
 | Accepted independent maps | **0 / 3** | cohort remains closed |
 
@@ -316,7 +325,9 @@ comparable human trial.
    --acknowledge-dedicated-trial-host --check-readiness` and require `READY`
    before running the exact command it prints. Require the session's retained
    `READY_FOR_OBSERVER` handoff, `REMOTE_AUDIT_PASS`, and terminal
-   `session.json`; a missing output on pre-contract failure is intentional.
+   `session.json`; a comparable PASS also requires the exact bounded
+   `first-map-validation-receipt.json`. A missing output on pre-contract
+   failure is intentional.
 4. If E4 is separately chosen later, follow `RELEASING.md`; before tagging,
    require the exact candidate commit's five blocking release profiles to pass
    `run_release_readiness_checks.sh --fail-on-profiles`. After publication,
@@ -327,15 +338,16 @@ comparable human trial.
    combined and split routes revalidate structured identity, bootstrap the
    content-bound Docker observer when selected, and preserve blocked, FAIL, and
    harness outcomes without inventing human measurements. Keep the generated
-   packet, receipt, audit, exact `artifacts/` bytes, and execution receipt
-   together.
+   packet, trial record, first-map validation receipt, audit, exact
+   `artifacts/` bytes, and execution receipt together.
    For a separately published release, use its exact public source commit and
    both published image digests. Do not mix the modes or reuse the current
    v0.9.0/v0.9.1 matrix.
 6. Run fresh dedicated Humble/Jazzy Docker and source trials with a human
    observer. Record active operator time, command count, workflow download,
-   peak disk, wall time, and output size; blank measurements remain
-   non-comparable.
+   peak disk, wall time, and output size, and retain the exact privacy-bounded
+   validation receipt beside the trial record; blank measurements or a missing
+   receipt remain non-comparable.
 7. For the separate GLIM comparison, prepare the exact public pair with
    `prepare_usability_scorecard_pair.py`, then record it with
    `record_usability_scorecard_pair.py --require-ready`. Publish task-level
