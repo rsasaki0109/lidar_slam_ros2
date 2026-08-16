@@ -64,6 +64,7 @@ ROS_SOURCE_PREFIX = (
 )
 ROS_REQUIRED_VERIFICATION_MARKERS = (
     'test_sensor_setup_wizard.py',
+    'test_lidarslam_product_cli.py',
     'colcon test --packages-select',
 )
 PACKAGE_TEST_ROOTS = (

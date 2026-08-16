@@ -249,6 +249,46 @@ def test_ros_bag_verification_sources_ros_from_an_unsourced_shell():
     assert 'passed in' in result.stdout
 
 
+def test_product_shell_verification_sources_ros_from_an_unsourced_shell():
+    """The S6 copy-ready command must restore its ROS bag imports."""
+    plan = _plan()
+    product_slice = next(
+        review_slice
+        for review_slice in plan['review_slices']
+        if review_slice['id'] == 'S6-product-shell-integration'
+    )
+    command = next(
+        item
+        for item in product_slice['verification']
+        if 'test_lidarslam_product_cli.py' in item
+    )
+    environment = os.environ.copy()
+    for name in (
+        'AMENT_PREFIX_PATH',
+        'CMAKE_PREFIX_PATH',
+        'COLCON_PREFIX_PATH',
+        'LD_LIBRARY_PATH',
+        'PYTHONPATH',
+        'ROS_PYTHON_VERSION',
+        'ROS_VERSION',
+    ):
+        environment.pop(name, None)
+
+    result = subprocess.run(
+        ['bash', '--noprofile', '--norc', '-c', command],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+        timeout=90,
+    )
+
+    assert command.startswith(CHECKER.ROS_SOURCE_PREFIX)
+    assert result.returncode == 0, result.stderr
+    assert 'passed in' in result.stdout
+
+
 def test_mixed_package_pytest_process_is_rejected():
     """Known duplicate module names require one pytest process per package."""
     plan = _plan()
@@ -269,6 +309,27 @@ def test_ros_dependent_command_without_source_is_rejected():
     plan['review_slices'][2]['verification'][0] = command.removeprefix(
         CHECKER.ROS_SOURCE_PREFIX
     )
+
+    with pytest.raises(CHECKER.PlanError, match='source ROS first'):
+        CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
+
+
+def test_product_shell_command_without_source_is_rejected():
+    """S6 cannot silently depend on ROS state inherited by the caller."""
+    plan = _plan()
+    product_slice = next(
+        review_slice
+        for review_slice in plan['review_slices']
+        if review_slice['id'] == 'S6-product-shell-integration'
+    )
+    index = next(
+        index
+        for index, item in enumerate(product_slice['verification'])
+        if 'test_lidarslam_product_cli.py' in item
+    )
+    product_slice['verification'][index] = product_slice['verification'][
+        index
+    ].removeprefix(CHECKER.ROS_SOURCE_PREFIX)
 
     with pytest.raises(CHECKER.PlanError, match='source ROS first'):
         CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
