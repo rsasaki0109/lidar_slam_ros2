@@ -921,9 +921,13 @@ Evidence carrier `72a8c9e77eba33c1578a3cd9c8afe8fbe6933e33`
 passes 2,488 maintained Python tests and a byte-identical 261-file candidate
 bundle rehearsal without granting publication authority.
 The later RTK-SLAM acquisition synchronization passes 2,502 maintained Python
-tests and expands the exact plan to 314 paths. Its bundle rehearsal is not yet
-repeated, so the older bundle remains historical evidence rather than an
-exact-final-head release artifact.
+tests and expands the exact plan to 314 paths. Clean evidence carrier
+`554e41b` also passes the canonical two-build rehearsal: both reverified
+263-file bundles are byte-identical, with a retained archive size of
+11,938,413 bytes and SHA-256
+`1287d8af5627894aa37759ed031109d7204eca3608b5cf2ab499fdfed3a4cb06`.
+That result replaces the older bundle as local evidence, not as a published or
+reusable exact-final-head release artifact.
 
 The latest local slice also binds the rendered Getting Started bytes, route
 fragments, product version, and Pages workflow to one exact source revision.

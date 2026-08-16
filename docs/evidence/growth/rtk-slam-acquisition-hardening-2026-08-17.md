@@ -112,6 +112,16 @@ The synchronized publication plan is `PLAN_VALID_LOCAL_ONLY` with 314 paths,
 seven slices, and inventory SHA-256
 `78dc0990244e7b47e9f6b89d6ae71bebd9e5341d055c5a760d6416058b29119a`.
 
+The clean evidence carrier
+`554e41bd1601b7d39fdade30ba7643ec16b3078f`, which contains all three new RTK
+acquisition paths, also passes the canonical fail-closed release-bundle
+rehearsal. The checker built and reverified the candidate twice before
+retaining one archive. Both builds were byte-identical and contained 263
+manifest files; the resulting 11,938,413-byte archive has SHA-256
+`1287d8af5627894aa37759ed031109d7204eca3608b5cf2ab499fdfed3a4cb06`.
+This is local candidate evidence, not a published release asset, and it must
+not be reused for a later commit.
+
 ## Remaining release work
 
 Run the copy-ready command on a filesystem with enough free space, then execute
