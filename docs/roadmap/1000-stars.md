@@ -901,7 +901,10 @@ green CI never grants merge, environment, E2, E3, or E4 authority.
 The seven review cards also carry self-contained, cache-free verification:
 ROS-dependent checks source Humble/Jazzy explicitly, package test roots remain
 in separate pytest processes, and recognized direct remote-write CLI forms fail
-plan validation.
+plan validation. Exact follow-up `0633c2a604489538e0f087c02385e7c6467540c3`
+extends that boundary to the S6 docs/product-CLI command after exact execution
+from an unsourced shell exposed two `rosbag2_py` import failures; the repaired
+displayed command passes all 35 tests and removing its prelude fails validation.
 
 The latest local slice also binds the rendered Getting Started bytes, route
 fragments, product version, and Pages workflow to one exact source revision.
