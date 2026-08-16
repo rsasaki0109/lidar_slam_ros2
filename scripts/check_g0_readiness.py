@@ -63,6 +63,7 @@ REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
 CURRENT_PACKET = 'docs/evidence/growth/g0-current-action-packet-2026-08-14.md'
 PRODUCT_PR_NUMBER = 427
 PRODUCT_PR_URL = f'https://github.com/{REPOSITORY}/pull/{PRODUCT_PR_NUMBER}'
+PRODUCT_REPOSITORY_URL = f'https://github.com/{REPOSITORY}.git'
 PRODUCT_PR_BASE = 'develop'
 PRODUCT_PR_HEAD = 'agent/product-g0-guided-ux'
 PRODUCT_PR_VERIFY_COMMAND = (
@@ -1045,6 +1046,7 @@ def _product_draft_update_handoff(
         'external_write_required': True,
         'pull_request': PRODUCT_PR_NUMBER,
         'url': PRODUCT_PR_URL,
+        'repository_url': PRODUCT_REPOSITORY_URL,
         'head_ref': PRODUCT_PR_HEAD,
         'public_head': remote_head,
         'local_head': local_head,
@@ -1338,7 +1340,8 @@ def _next_action(
                     'whether a non-force update is possible.'
                 ),
                 'command': (
-                    f'git fetch --no-tags origin {PRODUCT_PR_HEAD} && '
+                    f'git fetch --no-tags {PRODUCT_REPOSITORY_URL} '
+                    f'{PRODUCT_PR_HEAD} && '
                     f'git merge-base --is-ancestor {remote_head} {local_head}'
                 ),
                 'write_boundary': (
@@ -1731,6 +1734,7 @@ def render_card(report: dict[str, Any]) -> str:
             '',
             'Draft branch update handoff (not executed):',
             f"- Authority required: {draft_handoff['authority_required']}",
+            f"- Repository: `{draft_handoff['repository_url']}`",
             f"- Head branch: `{draft_handoff['head_ref']}`",
             f"- Public head: `{draft_handoff['public_head']}`",
             f"- Local tip: `{draft_handoff['local_head']}`",

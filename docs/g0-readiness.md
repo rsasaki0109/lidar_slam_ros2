@@ -42,7 +42,9 @@ GET-only verification command. The handoff deliberately contains no push
 command and keeps `push_authorized`, `force_push_authorized`, and
 `writes_performed` false. Divergent history instead selects a read-only
 merge-base inspection; unavailable local history selects a bounded fetch plus
-ancestry check. Neither path authorizes a push, PR state change, or merge.
+ancestry check from the canonical GitHub repository URL instead of trusting a
+checkout-specific `origin`. Neither path authorizes a push, PR state change,
+or merge.
 
 Dependency order is explicit. A green Draft points to the seven-slice local
 review plan. A non-Draft open PR still requires a separate maintainer merge

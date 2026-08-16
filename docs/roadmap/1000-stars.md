@@ -2,9 +2,12 @@
 
 > Status: **active from 2026-08-10**
 >
-> Last planning audit: **2026-08-12**
+> Last planning audit: **2026-08-17**
 >
 > Baseline: **837 GitHub Stars**
+>
+> Latest weekly snapshot: **839 GitHub Stars** at
+> `2026-08-16T20:52:07Z`; **161 remain**
 >
 > Target: **1,000 Stars by 2027-06-30**
 >
@@ -710,6 +713,16 @@ consume the threshold needed by the next safe scan, and worker exceptions are
 contained without terminating the component. The current v44
 research route remains limited to its already-authorized bounded failure-profile
 work and cannot block this sprint.
+
+The immediate public-operations dependency is now explicit rather than a
+repeated audit loop. When local and public Draft heads differ, the G0 dashboard
+checks their local ancestry and emits one exact, schema-bound non-force branch
+handoff. It binds the canonical GitHub repository URL, PR branch, public head,
+local tip, separate exact-tip authority, and post-update GET-only audit while
+keeping push, force-push, and writes false and printing no push command. Missing
+history is fetched only from the canonical repository URL, never from an
+arbitrary checkout-specific `origin`. This makes the next maintainer decision
+copy-ready without turning a local plan into publication authority.
 
 The
 [2026-08-10 G0 activation decision](../evidence/growth/g0-activation-decision-2026-08-10.md)

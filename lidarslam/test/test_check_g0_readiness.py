@@ -526,6 +526,7 @@ def test_head_drift_emits_exact_non_force_handoff_without_push_command():
     )
     assert action['command'] != DASHBOARD.PRODUCT_PR_VERIFY_COMMAND
     handoff = action['product_draft_update_handoff']
+    assert handoff['repository_url'] == DASHBOARD.PRODUCT_REPOSITORY_URL
     assert handoff['public_head'] == public_head
     assert handoff['local_head'] == local_head
     assert handoff['fast_forward_verified'] is True
@@ -540,9 +541,37 @@ def test_head_drift_emits_exact_non_force_handoff_without_push_command():
     assert 'Draft branch update handoff (not executed):' in card
     assert f'Public head: `{public_head}`' in card
     assert f'Local tip: `{local_head}`' in card
+    assert f'Repository: `{DASHBOARD.PRODUCT_REPOSITORY_URL}`' in card
     assert 'Fast-forward verified: yes' in card
     assert 'Pushes performed: no' in card
     assert 'git push' not in card
+
+
+def test_missing_lineage_fetches_the_canonical_repository_not_origin():
+    """Lineage recovery cannot trust a checkout-specific origin remote."""
+    local_head = '8' * 40
+    public_head = '7' * 40
+
+    def drift_fetcher(path: str):
+        assert path.endswith('/pulls/427')
+        return 200, _product_pull(public_head)
+
+    product = DASHBOARD.audit_product_draft(
+        fetcher=drift_fetcher,
+        local_head=local_head,
+        ancestor_checker=lambda _ancestor, _descendant: None,
+    )
+    reports = DASHBOARD.collect_checker_reports()
+    reports['product_draft'] = product
+    action = DASHBOARD.build_report(reports)['next_action']
+
+    assert action['id'] == 'restore-product-draft-lineage-evidence'
+    assert DASHBOARD.PRODUCT_REPOSITORY_URL in action['command']
+    assert ' origin ' not in action['command']
+    assert action['command'].endswith(
+        f'git merge-base --is-ancestor {public_head} {local_head}'
+    )
+    assert 'no remote write' in action['write_boundary']
 
 
 def test_product_review_state_only_clears_after_exact_merge():

@@ -648,6 +648,7 @@
         "external_write_required",
         "pull_request",
         "url",
+        "repository_url",
         "head_ref",
         "public_head",
         "local_head",
@@ -668,6 +669,9 @@
         "pull_request": {"const": 427},
         "url": {
           "const": "https://github.com/rsasaki0109/lidar_slam_ros2/pull/427"
+        },
+        "repository_url": {
+          "const": "https://github.com/rsasaki0109/lidar_slam_ros2.git"
         },
         "head_ref": {"const": "agent/product-g0-guided-ux"},
         "public_head": {
