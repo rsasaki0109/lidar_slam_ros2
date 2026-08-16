@@ -1,12 +1,15 @@
 # Classic scanmatcher VoxelGrid overflow safety — 2026-08-11
 
-> Status: **LOCAL_ASYNC_COMPONENT_RECOVERY_PASS_PUBLIC_CI_PENDING**
+> Status: **LOCAL_THRESHOLD_RETRY_RECOVERY_PASS_PUBLIC_CI_PENDING**
 >
 > Runtime safety commit:
 > `a2368c486fc35c0edcac6d9dbf2f9cb89475c820`
 >
 > Component recovery proof commit:
 > `bce5a9dd2f8f1333b92eba5a0ace98f45db58f3b`
+>
+> Rejected-map-update threshold recovery commit:
+> `99cce93a07a7cc136eb925c446dd705bdcd7b37c`
 >
 > Public issue: [#69 — scanmatcher_node-1 process has died](https://github.com/rsasaki0109/lidar_slam_ros2/issues/69)
 >
@@ -27,10 +30,13 @@ XYZ/intensity points.
 This closes the local code hazard and both local component-continuation gates.
 The asynchronous follow-up also snapshots the triggering scan's distance for
 the worker, locks shared map diagnostics, and joins an outstanding worker before
-component destruction. It does not by itself close public issue #69: the
+component destruction. The S1 review now commits the movement baseline only
+after a map update succeeds. A rejected VoxelGrid layout or contained worker
+exception therefore cannot consume the threshold needed by the next safe scan.
+It does not by itself close public issue #69: the
 historical private rosbag was not retained or replayed, the reviewed public CI
-revision must carry the two-case component test, and a named release plus an
-accurate issue response are still required.
+revision must carry both component cases plus the commit-state regression, and
+a named release plus an accurate issue response are still required.
 
 ## Upstream behavior being contained
 
@@ -127,14 +133,19 @@ pose while `rclcpp::ok()` remains true.
 The second case initializes with a valid cloud, then sends a cloud that is safe
 at `vg_size_for_input=0.5` but unsafe at `vg_size_for_map=0.1`. It requires the
 asynchronous `map_update` stage to reject that cloud without adding a map-array
-entry, processes a later valid cloud, and destroys the component without one
-more input callback. This covers the original issue discussion's asynchronous
-suspect, recovery, and joining a still joinable completed worker instead of
-terminating during destruction. Code review and the TSan execution separately
-cover the triggering-scan distance snapshot and shared diagnostic locking.
+entry. Both that scan and its safe retry contain the same translated geometry;
+the unsafe scan crosses a positive 0.02 m update threshold. The safe retry must
+publish without further travel, proving that the rejection did not consume the
+movement baseline. The case then destroys the component without one more input
+callback. A separate pure-state regression binds failed versus successful
+commit behavior, while the component case covers the original issue
+discussion's asynchronous suspect, immediate recovery, and joining a still
+joinable completed worker instead of terminating during destruction.
 
-The asynchronous case passed ten independent process executions on each
-supported distribution. Independent processes are required because the
+The positive-threshold asynchronous case at `99cce93` passed ten independent
+Jazzy process executions. The prior unsafe-then-safe asynchronous case passed
+ten independent processes on both supported distributions. Independent
+processes are required because the
 intentional five-second logging throttle retains call-site state within one
 process. The repetition is a local DDS/lifecycle stability check, not a claim
 about the unavailable historical bag.
@@ -143,8 +154,8 @@ about the unavailable historical bag.
 
 | Environment | Exact substrate | Build | Boundary suite | Component recovery | Complete scanmatcher CTest |
 | --- | --- | --- | --- | --- | --- |
-| Humble | immutable local image `ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:f1a894d81b5cb7b4e2e55a7b3fc17e538722b59c07b0bec066f2ad499a5e8447`; PCL `1.12.1+dfsg-3build1`; GCC `11.4.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | PASS, network disabled, source mounted read-only, clean temporary build/install | 11 / 11 PASS | 2 / 2 PASS; async case 10 / 10 independent-process PASS | 10 / 10 PASS |
-| Jazzy | Ubuntu 24.04 host; PCL `1.14.0+dfsg-1`; GCC `13.3.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | PASS, clean temporary build/install | 11 / 11 PASS | 2 / 2 PASS; async case 10 / 10 independent-process PASS | 10 / 10 PASS |
+| Humble | immutable local image `ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:f1a894d81b5cb7b4e2e55a7b3fc17e538722b59c07b0bec066f2ad499a5e8447`; PCL `1.12.1+dfsg-3build1`; GCC `11.4.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | PASS at the prior async carrier, network disabled, source mounted read-only, clean temporary build/install | 11 / 11 PASS | prior 2 / 2 PASS and async 10 / 10; current positive-threshold retry awaits exact-head public CI | prior 10 / 10 PASS; current exact-head public CI pending |
+| Jazzy | Ubuntu 24.04 host; PCL `1.14.0+dfsg-1`; GCC `13.3.0`; installed `lidarslam_msgs 0.9.1` and `ndt_omp_ros2 0.1.0` underlay | PASS, incremental exact-head build | 11 / 11 PASS | current 3 / 3 PASS; positive-threshold async retry 10 / 10 independent-process PASS | current 10 / 10 PASS; 4,253 cases / 127 skips with `graph_based_slam` |
 
 The complete CTest set includes lidar undistortion, math utilities, odometry
 prior, pose prediction, pose acceptance, IMU processing, map-update policy,
@@ -167,6 +178,13 @@ Formatting and documentation checks also passed:
   the follow-up adds no selected lint debt;
 - `mkdocs build --strict`;
 - `git diff --check`.
+
+At exact implementation `99cce93`, the complete maintained Python gate passes
+2,486 tests with 13 skips and 11 existing ImageIO warnings. The exact displayed
+S1 command reports 4,253 test cases with 0 errors, 0 failures, and 127 skips.
+Two byte-identical candidate-bundle rehearsals contain 261 files, total
+11,931,414 bytes, and have SHA-256
+`5f8429e4038ca6567b2bbdb0bb00e36e5c08160631ad30ff77c7422f5080f345`.
 
 ## Remaining public gate
 
