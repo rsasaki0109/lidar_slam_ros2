@@ -92,6 +92,20 @@ source-checkout-only accident.
 - real `--dest-device /dev/sda1 --dry-run` while unmounted: exit 2 with the
   single mount action, before planning or side effects.
 
-The complete product, strict documentation, publication-plan, and exact-head
-candidate-bundle gates are rerun after this evidence joins the candidate. Their
-results must replace, not reuse, an earlier checksum.
+Clean validation carrier `b01b251cb8e4b7430d730476977e4c012e091afe`
+passes the complete source-explicit product gate:
+
+- `graph_based_slam`: **1,477 passed / 13 skipped / 11 known ImageIO
+  warnings**;
+- `lidarslam`: **1,040 passed**; and
+- combined maintained Python gate: **2,517 passed / 13 skipped**.
+
+Strict MkDocs, the 317-path publication plan, shell parsing, repository diff,
+and changed-Python Jazzy style also pass. The same clean carrier passes the
+canonical two-build and two-reverification candidate-bundle rehearsal. Both
+builds are byte-identical and contain 267 manifest files; the retained
+11,959,011-byte archive has SHA-256
+`f963391bf76f67e27828bf0c8eadada484ac8b8b9481e5f904fcec72e1c64bad`.
+Its archived NTU, attached-storage, and RTK helpers execute their bounded help
+or identity-list surfaces. This is local candidate evidence, not a published
+release asset, and a later commit must rerun rather than reuse its checksum.

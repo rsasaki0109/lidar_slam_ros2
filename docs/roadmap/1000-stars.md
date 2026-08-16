@@ -941,8 +941,12 @@ The later NTU attached-storage increment expands the current plan to 317 paths,
 adds a shared read-only resolver and the formerly omitted documented NTU helper
 to the curated bundle, and reports the exact 49,209,878,965-byte requirement
 and root shortfall before any mount, write, or download. Its own exact-head
-bundle and complete product evidence are regenerated rather than inferred from
-the earlier RTK carrier.
+validation carrier `b01b251` passes 2,517 maintained Python tests and a
+byte-identical, twice-reverified 267-file bundle rehearsal: 11,959,011 bytes,
+SHA-256
+`f963391bf76f67e27828bf0c8eadada484ac8b8b9481e5f904fcec72e1c64bad`.
+That evidence is regenerated rather than inferred from the earlier RTK carrier
+and grants no mount or publication authority.
 
 The latest local slice also binds the rendered Getting Started bytes, route
 fragments, product version, and Pages workflow to one exact source revision.
