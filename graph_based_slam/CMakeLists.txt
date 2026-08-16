@@ -996,6 +996,7 @@ if(BUILD_TESTING)
     test_aist_ouster_rgb_map_benchmark
     test_analyze_colored_point_cloud
     test_applanix_tf_bridge
+    test_attached_storage
     test_autoware_dogfood_script
     test_autoware_map_preflight
     test_autoware_map_run_diagnosis
