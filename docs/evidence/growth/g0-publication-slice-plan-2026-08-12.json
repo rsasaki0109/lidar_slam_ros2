@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-17T04:38:13+09:00",
+  "generated_at": "2026-08-17T06:25:52+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 321,
-    "expected_paths_sha256": "f378fd654e54595dce5da1e5763374f3f56db1dcd87513ab3c5e4de6afcbdbd5",
+    "expected_path_count": 322,
+    "expected_paths_sha256": "3ed64b8dfb86c96d9c137a4c3eeb46c40f5717940915a97bb7d21077a9fd3757",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -316,6 +316,7 @@
         "docs/contracts/social-demo-media-v1.json",
         "docs/evidence/growth/2026-08-13.json",
         "docs/evidence/growth/2026-08-15.json",
+        "docs/evidence/growth/2026-08-17.json",
         "docs/evidence/growth/community-contributor-backlog-2026-08-11.md",
         "docs/evidence/growth/contributor-product-surface-sync-2026-08-12.md",
         "docs/evidence/growth/first-map-validator-cohort-launch-packet-2026-08-12.md",

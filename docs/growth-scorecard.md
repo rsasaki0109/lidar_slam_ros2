@@ -36,13 +36,25 @@ bundle. The product gates remain unchanged at 0/3 accepted independent maps
 and 8/10 v1 readiness; the snapshot is a measurement update, not an adoption
 claim.
 
-The current read-only snapshot is
+The previous read-only snapshot is
 [2026-08-15](evidence/growth/2026-08-15.json), captured at
 `2026-08-14T19:00:23Z`. It records 837 Stars, 353 unique clones, 267 unique
 views, 5 unique Autoware/TIER IV referrals, and 18 downloads of the primary
 v0.9.0 release bundle. It still records 0/3 accepted independent maps and
 8/10 v1 readiness. The snapshot contains aggregate metrics only; it does not
 write stargazer identities, raw GitHub records, or product telemetry.
+
+The current read-only snapshot is
+[2026-08-17](evidence/growth/2026-08-17.json), captured at
+`2026-08-16T20:52:07Z`. It records 839 Stars, 450 unique clones, 238 unique
+views, 3 unique Autoware/TIER IV referrals, and 21 downloads of the primary
+v0.9.0 release bundle. Relative to the previous rolling snapshot, Stars rose
+by 2, unique clones by 97, and bundle downloads by 3, while unique views fell
+by 29 and qualified referrals by 2. First-map adoption remains 0/3, external
+merged contributors remain 0, untriaged issues remain 16, and v1 readiness
+remains 8/10. This mixed funnel does not justify a promotion or roadmap-phase
+transition: activation, qualified referral, distribution, and community gates
+remain open even though discovery and artifact interest increased.
 
 The parallel community decision is the
 [2026-08-11 contributor backlog](evidence/growth/community-contributor-backlog-2026-08-11.md).
@@ -71,7 +83,7 @@ The follow-up
 covers all 29 open issues with a label, priority, disposition, evidence, and
 application gate. Its checker validates offline coverage and can fail closed on
 live GitHub drift using GET requests only. The proposal remains unapplied and
-unauthorized. A 2026-08-13 live read-only audit still reports `PASS`: 29 issues,
+unauthorized. A 2026-08-17 live read-only audit still reports `PASS`: 29 issues,
 23 close proposals, and 6 keep-open or current-reproduction proposals. This
 confirms proposal freshness without treating it as completed triage.
 
@@ -91,7 +103,7 @@ Draft PR #427, the reviewed product-candidate tip
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
 `3ed632e6f6aa1e3ca7f32d893773de1079086ffb` with 10 successful checks and 4
-intentional non-publication skips, the current 321-path local plan, the
+intentional non-publication skips, the current 322-path local plan, the
 one-command candidate-session tip `8bc5ea4`, and its guided read-only host
 readiness follow-up `a286c65` while the v0.9.1/image state remains unpublished.
 The optional authenticated environment preflight at `adecca6` now proves from
