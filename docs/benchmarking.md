@@ -19,7 +19,27 @@ size and checksum; and compares the conservative additional working-set
 estimate with the destination filesystem. A fresh full preparation currently
 needs about 49 GB free because the official archive, ROS 1 bag, converted
 rosbag2, and RKO-LIO restamped bag coexist until completion. If the repository
-filesystem is smaller, keep the data out of the checkout:
+filesystem is smaller, the planner looks only for sufficiently large
+attached-but-unmounted Linux hotplug/USB filesystems. It reports partition size
+as `UNVERIFIED_UNTIL_MOUNTED`, never treats that size as free capacity, and
+selects one mount action without mounting or probing the device itself.
+
+After mounting the reported device, use the device identity directly:
+
+```bash
+udisksctl mount -b /dev/sda1
+bash scripts/download_ntu_viral_tnp01.sh \
+  --dest-device /dev/sda1 \
+  --dry-run
+```
+
+`--dest-device` resolves exactly one current mountpoint, appends `ntu_viral`,
+and reruns the real free-space check. Remove only `--dry-run` after `READY`.
+The discovery path creates no directory, starts no network request, does not
+request or bypass authorization, and preserves the selected conversion options
+in its copy-ready preflight and live commands.
+
+For a manually managed filesystem, keep the data out of the checkout with:
 
 ```bash
 bash scripts/download_ntu_viral_tnp01.sh \
@@ -31,7 +51,8 @@ bash scripts/run_rko_lio_graph_benchmark.sh \
 
 The live acquisition fails before starting `wget` when the destination cannot
 hold its remaining phases. A cached archive is never extracted until its exact
-official byte count and MD5 identity pass.
+official byte count and MD5 identity pass. The shared storage helper and NTU
+acquisition script are both included in the curated release bundle.
 
 ## GLIM cross-validation
 

@@ -318,9 +318,14 @@ work and document the actual support boundary instead of hiding the delay.
   remaining phase, pins the official archive byte count and checksum, checks a
   conservative peak working set on the selected filesystem, fails before
   download when space is insufficient, and recommends an explicit external
-  `--dest`. This makes missing exact-head release evidence actionable without
-  weakening the four remaining blocking profiles or treating historical runs
-  as current.
+  `--dest`. Exact attached-storage implementation `8a856f5` now closes the
+  remaining path-substitution burden: it discovers the connected unmounted 2 TB
+  SanDisk filesystem without probing it, selects one mount action, and emits
+  `--dest-device` preflight/live commands that preserve requested phases and
+  recheck real free bytes after mounting. The curated bundle now includes both
+  the documented NTU entrypoint and its resolver. This makes missing exact-head
+  release evidence actionable without weakening the four remaining blocking
+  profiles or treating historical runs as current.
 - The two blocking RTK-SLAM Construction profiles now have the same actionable
   acquisition boundary. All four official ROS2 inputs use immutable exact
   byte/SHA-256 identities, the checkpoint repository uses a detached pinned
@@ -901,7 +906,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 314-path exact
+been expanded into the current 317-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
@@ -932,6 +937,12 @@ Python tests and retains the exact 314-path plan. Clean evidence carrier
 `46b20d1eecaf6ab665c17816db42e937e9cb50c88a8dc4340beda4f2e670cf27`.
 That result replaces the older bundle as local evidence, not as a published or
 reusable exact-final-head release artifact.
+The later NTU attached-storage increment expands the current plan to 317 paths,
+adds a shared read-only resolver and the formerly omitted documented NTU helper
+to the curated bundle, and reports the exact 49,209,878,965-byte requirement
+and root shortfall before any mount, write, or download. Its own exact-head
+bundle and complete product evidence are regenerated rather than inferred from
+the earlier RTK carrier.
 
 The latest local slice also binds the rendered Getting Started bytes, route
 fragments, product version, and Pages workflow to one exact source revision.

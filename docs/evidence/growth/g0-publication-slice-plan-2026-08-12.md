@@ -10,8 +10,8 @@
 > Frozen public review baseline (machine key `public_head_sha`):
 > `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
-> Planned follow-up inventory: 314 paths; SHA-256
-> `78dc0990244e7b47e9f6b89d6ae71bebd9e5341d055c5a760d6416058b29119a`
+> Planned follow-up inventory: 317 paths; SHA-256
+> `5e1a9783bd891502d1ea547d164b6cf562f3c56667796cd9463067007d368f84`
 >
 > Capture-time exact public Draft head:
 > `c1fc2847fb06637cbcd2aac61f4fde318364dfd2`
@@ -54,6 +54,9 @@
 
 > Exact fail-closed NDT reviewer-response implementation tip:
 > `3e11f307eb2ccea1d33bbe9a2d1b37ae7ed699db`
+
+> Exact NTU attached-storage implementation tip:
+> `8a856f521de825976c80c6a3c410224c4fb4e433`
 >
 > Exact claim-bounded social-media generator tip:
 > `d0c84bb9bb7bef37d7e318000e3071a7f536d631`
@@ -108,9 +111,9 @@ body until the exact canonical upstream Draft exists.
 | S2 first-map foundation | 32 | one bounded demo/own-bag route reaches a verified local 3D result, retains recovery state, and returns the exact shortage plus preserved retry command on low storage | public Humble/Jazzy CI |
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 36 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded release-or-candidate Docker/source measurement, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session execution, public preflight, and byte-bound validation-receipt plus SHA-bound supplement paths for retained observations | public Humble/Jazzy CI and clean-machine timing |
-| S5 distribution readiness | 71 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, actionable missing-benchmark reports, write-free NTU and RTK-SLAM acquisition planning with official immutable identities and capacity fail-fast, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a shared read-only environment preflight and four-artifact byte audit remain explicit; no E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
+| S5 distribution readiness | 74 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, actionable missing-benchmark reports, write-free NTU and RTK-SLAM acquisition planning with official immutable identities, exact byte shortages, attached-storage discovery, and capacity fail-fast, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a shared read-only environment preflight and four-artifact byte audit remain explicit; no mount, E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
 | S6 product-shell integration | 129 | the installed home, path-private bag-optional doctor with copy-ready low-storage recovery, issue-driven other-PointCloud2 `doctor` → `start` handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard, claim-bounded short-demo card/video/captions/copy, fail-closed worksheet generators, atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue with a dependency-gated and schema-valid GET-only live next-action card, machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, compressed-bag playback evidence, and one-command G0 readiness dashboard agree | complete product gate and public CI |
-| S7 publication control | 6 | all 314 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
+| S7 publication control | 6 | all 317 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -157,7 +160,7 @@ from that base and the local tip descends from the public head, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 314-path coverage with the fixed inventory digest;
+4. exact 317-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred;
 7. no mixed `lidarslam/test` and `graph_based_slam/test` pytest process;
@@ -173,7 +176,7 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 314 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 317 paths, 7 slices, no remote mutation |
 | claim-bounded social media | 11 focused regressions plus 25 public docs/release entrypoint regressions pass; the generated 10.666-second H.264 candidate, four-cue WebVTT, exact-revision Japanese/English copy, and byte manifest retain no external publication authority |
 | checker regressions | 20 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, self-contained source, lifecycle ROS-bag, and product-shell ROS-bag verification, package-test process isolation, cache suppression, and recognized direct remote-write CLI refusal |
 | exact displayed S1 command | an ordinary unsourced shell sourced `${ROS_DISTRO:-jazzy}`, tested `graph_based_slam` and `scanmatcher`, and reported 4,253 test cases with 0 errors, 0 failures, and 127 skips |
@@ -192,6 +195,7 @@ cannot bypass live Git coverage.
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
 | public documentation deployment provenance | 9 focused regressions pass; strict MkDocs produces a deterministic, pre-write schema-valid manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
 | attached RTK storage recovery | exact implementation `0c3f588`; 14 direct downloader regressions, 42 combined RTK/docs checks, 27 release/bundle checks, and changed-file Jazzy style pass; the real plan discovers the attached unmounted 2 TB `/dev/sda1`, leaves free capacity unverified, selects one mount action, and provides copy-ready `--dest-device` preflight/live commands without mounting, probing contents, writing, or starting network work |
+| attached NTU storage recovery | exact implementation `8a856f5`, registration `657746f`, and exact-byte follow-up `d6e8bad`; 34 shared/NTU/RTK acquisition checks and 9 release-bundle checks pass; the real 49,209,878,965-byte plan reports the exact root shortfall, discovers the same unmounted 2 TB `/dev/sda1`, and provides option-preserving `--dest-device` commands; the curated bundle now contains the documented NTU helper and resolver |
 | clean candidate release bundle | exact-head reproducibility rehearsal passes at attached-storage evidence carrier `3a38154e`; two byte-identical and reverified bundles each contain 264 manifest files, total 11,948,788 archive bytes, and have SHA-256 `46b20d1eecaf6ab665c17816db42e937e9cb50c88a8dc4340beda4f2e670cf27`; the archived RTK helper also lists all four exact identities; this supersedes the 263-file result as local evidence only |
 | complete maintained Python gate | attached-storage synchronization: source-explicit graph 1,466 passed / 13 skipped / 11 existing ImageIO warnings; source-explicit lidarslam 1,040 passed; 2,506 total; strict MkDocs and changed-file Jazzy `ament_flake8` pass; latest public `bd01328` Actions pass 10 successful / 4 intentional skips / 0 failures / 0 pending; the exact-carrier bundle rehearsal passes without granting tag or publication authority |
 | paired scorecard recorder | 7 direct regressions, 20 recorder/checker regressions, and registered CTest 6 / 6 pass; incomplete observations remain non-comparable and atomic output/privacy boundaries fail closed |
