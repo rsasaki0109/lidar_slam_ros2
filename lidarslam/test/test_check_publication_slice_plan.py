@@ -33,6 +33,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -206,6 +207,89 @@ def test_source_quickstart_verification_is_self_contained_and_read_only():
     workspace = Path(workspace_line.removeprefix('  Workspace: '))
     assert not workspace.exists()
     assert 'Commands (--dry-run; nothing executed)' in result.stdout
+
+
+def test_ros_bag_verification_sources_ros_from_an_unsourced_shell():
+    """The S3 copy-ready command must restore its own ROS Python imports."""
+    plan = _plan()
+    lifecycle_slice = next(
+        review_slice
+        for review_slice in plan['review_slices']
+        if review_slice['id'] == 'S3-map-lifecycle'
+    )
+    command = next(
+        item
+        for item in lifecycle_slice['verification']
+        if 'test_sensor_setup_wizard.py' in item
+    )
+    environment = os.environ.copy()
+    for name in (
+        'AMENT_PREFIX_PATH',
+        'CMAKE_PREFIX_PATH',
+        'COLCON_PREFIX_PATH',
+        'LD_LIBRARY_PATH',
+        'PYTHONPATH',
+        'ROS_PYTHON_VERSION',
+        'ROS_VERSION',
+    ):
+        environment.pop(name, None)
+
+    result = subprocess.run(
+        ['bash', '--noprofile', '--norc', '-c', command],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+        timeout=90,
+    )
+
+    assert command.startswith(CHECKER.ROS_SOURCE_PREFIX)
+    assert result.returncode == 0, result.stderr
+    assert 'passed in' in result.stdout
+
+
+def test_mixed_package_pytest_process_is_rejected():
+    """Known duplicate module names require one pytest process per package."""
+    plan = _plan()
+    plan['review_slices'][4]['verification'].append(
+        'python3 -m pytest -q -p no:cacheprovider '
+        'lidarslam/test/test_benchmark_summary_profiles.py '
+        'graph_based_slam/test/test_ntu_viral_download_script.py'
+    )
+
+    with pytest.raises(CHECKER.PlanError, match='separate processes'):
+        CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
+
+
+def test_ros_dependent_command_without_source_is_rejected():
+    """A valid plan cannot silently depend on the caller's shell state."""
+    plan = _plan()
+    command = plan['review_slices'][2]['verification'][0]
+    plan['review_slices'][2]['verification'][0] = command.removeprefix(
+        CHECKER.ROS_SOURCE_PREFIX
+    )
+
+    with pytest.raises(CHECKER.PlanError, match='source ROS first'):
+        CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
+
+
+def test_pytest_cache_and_remote_write_commands_are_rejected():
+    """Review commands remain local-only and avoid untracked cache writes."""
+    plan = _plan()
+    plan['review_slices'][0]['verification'][0] = (
+        'python3 -m pytest -q graph_based_slam/test/'
+        'test_mid360_robot_tools.py -k frame'
+    )
+    with pytest.raises(CHECKER.PlanError, match='disable its cache'):
+        CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
+
+    plan = _plan()
+    plan['review_slices'][-1]['verification'].append(
+        'gh pr ready 427'
+    )
+    with pytest.raises(CHECKER.PlanError, match='remote write'):
+        CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
 
 
 def test_cli_emits_a_machine_readable_local_only_report():

@@ -59,6 +59,45 @@ SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
     'schemas/publication-slice-plan-v1.schema.json'
 )
+ROS_SOURCE_PREFIX = (
+    'source "/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash" && '
+)
+ROS_REQUIRED_VERIFICATION_MARKERS = (
+    'test_sensor_setup_wizard.py',
+    'colcon test --packages-select',
+)
+PACKAGE_TEST_ROOTS = (
+    'lidarslam/test/',
+    'graph_based_slam/test/',
+)
+REMOTE_WRITE_VERIFICATION_FRAGMENTS = (
+    'git push',
+    'docker push',
+    'oras push',
+    'gh pr create',
+    'gh pr comment',
+    'gh pr edit',
+    'gh pr merge',
+    'gh pr ready',
+    'gh pr review',
+    'gh issue create',
+    'gh issue comment',
+    'gh issue edit',
+    'gh release create',
+    'gh workflow run',
+    'gh api -x post',
+    'gh api -x put',
+    'gh api -x patch',
+    'gh api -x delete',
+    'gh api --method post',
+    'gh api --method put',
+    'gh api --method patch',
+    'gh api --method delete',
+    'curl -x post',
+    'curl -x put',
+    'curl -x patch',
+    'curl -x delete',
+)
 
 
 class PlanError(ValueError):
@@ -126,6 +165,40 @@ def _validate_repo_path(path: str) -> None:
         raise PlanError(f'unsafe repository-relative path: {path!r}')
     if str(candidate) != path or path.startswith('./'):
         raise PlanError(f'non-canonical repository-relative path: {path!r}')
+
+
+def _validate_verification_command(slice_id: str, command: str) -> None:
+    """Require copy-ready, bounded review commands without remote writes."""
+    if '\n' in command or '\r' in command or len(command) > 2000:
+        raise PlanError(
+            f'{slice_id} contains an unsafe verification command'
+        )
+    normalized = command.lower()
+    if any(
+        fragment in normalized
+        for fragment in REMOTE_WRITE_VERIFICATION_FRAGMENTS
+    ):
+        raise PlanError(
+            f'{slice_id} verification cannot perform a remote write'
+        )
+    if 'pytest' in command and '-p no:cacheprovider' not in command:
+        raise PlanError(
+            f'{slice_id} pytest verification must disable its cache'
+        )
+    package_roots = [
+        root for root in PACKAGE_TEST_ROOTS if root in command
+    ]
+    if len(package_roots) > 1:
+        raise PlanError(
+            f'{slice_id} must run package test roots in separate processes'
+        )
+    if (
+        any(marker in command for marker in ROS_REQUIRED_VERIFICATION_MARKERS)
+        and not command.startswith(ROS_SOURCE_PREFIX)
+    ):
+        raise PlanError(
+            f'{slice_id} ROS-dependent verification must source ROS first'
+        )
 
 
 def _validate_candidate_lineage(
@@ -204,6 +277,8 @@ def validate_plan(
             raise PlanError(f"{item['id']} contains duplicate paths")
         for path in paths:
             _validate_repo_path(path)
+        for command in item['verification']:
+            _validate_verification_command(item['id'], command)
         planned_paths.extend(paths)
         seen_ids.add(item['id'])
 

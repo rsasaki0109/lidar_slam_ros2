@@ -895,6 +895,9 @@ GETs. It binds local HEAD to Draft PR #427, the canonical branches, mergeable
 state, and the latest exact-head check runs. Draft review and the separate
 merge decision are selected before any `candidate-images` administration;
 green CI never grants merge, environment, E2, E3, or E4 authority.
+The seven review cards also carry self-contained, cache-free verification:
+ROS-dependent checks source Humble/Jazzy explicitly, package test roots remain
+in separate pytest processes, and remote-write commands fail plan validation.
 
 The latest local slice also binds the rendered Getting Started bytes, route
 fragments, product version, and Pages workflow to one exact source revision.

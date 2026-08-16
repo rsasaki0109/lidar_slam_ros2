@@ -77,7 +77,12 @@
           "verification": {
             "type": "array",
             "minItems": 1,
-            "items": {"type": "string", "minLength": 1}
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000,
+              "pattern": "^[^\\r\\n]+$"
+            }
           },
           "publication_gate": {"enum": ["LOCAL_REVIEW", "PUBLIC_CI", "MAINTAINER_DECISION"]}
         }

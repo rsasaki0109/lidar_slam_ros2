@@ -37,7 +37,7 @@
       ],
       "verification": [
         "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_mid360_robot_tools.py -k frame",
-        "colcon test --packages-select graph_based_slam scanmatcher",
+        "source \"/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash\" && colcon test --packages-select graph_based_slam scanmatcher",
         "colcon test-result --verbose"
       ],
       "publication_gate": "PUBLIC_CI"
@@ -126,7 +126,7 @@
         "scripts/support_bundle.py"
       ],
       "verification": [
-        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_sensor_setup_wizard.py lidarslam/test/test_session_history.py lidarslam/test/test_session_compare.py lidarslam/test/test_support_bundle.py",
+        "source \"/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash\" && python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_sensor_setup_wizard.py lidarslam/test/test_session_history.py lidarslam/test/test_session_compare.py lidarslam/test/test_support_bundle.py",
         "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_map_edit.py graph_based_slam/test/test_map_merge.py"
       ],
       "publication_gate": "LOCAL_REVIEW"
@@ -268,7 +268,9 @@
         "python3 scripts/check_ndt_omp_release_readiness.py --json",
         "python3 scripts/check_canonical_ndt_convergence.py --json",
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_build_docker_launcher_asset.py lidarslam/test/test_published_release.py",
-        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_benchmark_summary_profiles.py graph_based_slam/test/test_ntu_viral_download_script.py && bash scripts/download_ntu_viral_tnp01.sh --dry-run && bash -n scripts/run_release_readiness_checks.sh"
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_benchmark_summary_profiles.py",
+        "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_ntu_viral_download_script.py",
+        "bash scripts/download_ntu_viral_tnp01.sh --dry-run && bash -n scripts/run_release_readiness_checks.sh"
       ],
       "publication_gate": "MAINTAINER_DECISION"
     },

@@ -126,6 +126,15 @@ does not execute the displayed commands and cannot authorize or report a
 GitHub mutation. An unknown slice ID fails closed and lists the seven valid
 IDs.
 
+The displayed verification commands are also part of the fail-closed
+contract. Every pytest command disables its cache, one process may target only
+one package test root, and commands that need ROS bag or colcon imports source
+`/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash` themselves. This honors a caller's
+Humble/Jazzy selection and gives an unsourced dual-distro review host a Jazzy
+default. The checker rejects multiline or oversized commands and obvious
+`git push`, PR/issue mutation, workflow-dispatch, or review submission
+commands. The card still does not execute anything automatically.
+
 ## Fail-closed invariants
 
 The checker derives the candidate directly from Git rather than trusting the
@@ -138,7 +147,11 @@ from that base and the local tip descends from the public head, then requires:
 3. one and only one owner for every candidate path;
 4. exact 304-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
-6. a report that always states whether a remote mutation occurred.
+6. a report that always states whether a remote mutation occurred;
+7. no mixed `lidarslam/test` and `graph_based_slam/test` pytest process;
+8. an explicit ROS source prelude for ROS-dependent checks;
+9. cache-disabled pytest commands; and
+10. no remote-write command in any review slice.
 
 Adding, removing, renaming, or reassigning a path invalidates the plan until a
 reviewer updates both the exact inventory and its digest. A green schema alone
@@ -150,7 +163,7 @@ cannot bypass live Git coverage.
 | --- | --- |
 | exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 304 paths, 7 slices, no remote mutation |
 | claim-bounded social media | 11 focused regressions plus 25 public docs/release entrypoint regressions pass; the generated 10.666-second H.264 candidate, four-cue WebVTT, exact-revision Japanese/English copy, and byte manifest retain no external publication authority |
-| checker regressions | 14 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, and self-contained read-only source dry-run execution |
+| checker regressions | 18 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, self-contained source and ROS-bag verification, package-test process isolation, cache suppression, and remote-write command refusal |
 | focused graph product/docs regressions | 35 passed in a Jazzy-sourced isolated package process; an additional 15 diagnosis regressions cover all five user-reported map symptoms and missing-bag/root-cause boundaries |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
 | validator cohort contract and operating state | 33 passed; path-specific immutable runtime identity, byte-bound public documentation, anonymized attempt lifecycle, accepted-ledger evidence binding, four operational stop signals, 48-hour freshness, WIP, batch/target transitions, attempt-10 thresholds, and a one-action human status card are enforced through the CLI; recruitment render remains blocked; no write authority |
