@@ -302,7 +302,7 @@ work and document the actual support boundary instead of hiding the delay.
   labels the older viewer/dogfood quickstart as advanced compatibility. This is
   a local documentation repair, not a release or onboarding measurement.
 - The v0.9.1 release handoff now records its reviewed implementation carrier
-  and complete 2,464-test result instead of the stale 2,432-test snapshot, and
+  and complete 2,468-test result instead of the stale 2,432-test snapshot, and
   names all five exact-head blocking `NO_DATA` profiles. The maintainer
   checklist runs the complete product suite, strict docs, and canonical fixed
   demo rather than treating the older Autoware dogfood route as first-map

@@ -734,8 +734,8 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
     )
     if candidate_banner in release_notes:
         assert '## Release decision: HOLD' in release_notes
-        assert '2,464 passed / 13 skipped' in release_notes
-        assert '8ca236dfaedd44524012dc431fbcc95ac3262f0c' in (
+        assert '2,468 passed / 13 skipped' in release_notes
+        assert '08995b725fbe989ff7820104fec8b0fb154e4805' in (
             release_notes
         )
     else:
@@ -743,6 +743,7 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
         assert 'not published or tagged' not in release_notes
         assert '## Release verification' in release_notes
     assert '2,432 passed / 13 skipped' not in release_notes
+    assert 'download_ntu_viral_tnp01.sh --dry-run' in release_notes
     assert 'run_product_python_tests.sh' in release_notes
     assert 'run_release_readiness_checks.sh' in release_notes
     for profile in (
