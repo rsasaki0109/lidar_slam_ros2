@@ -50,6 +50,7 @@ from check_onboarding_trial import (
     TrialError,
     apply_measurement_supplement,
     evaluate_trial,
+    read_validation_receipt,
 )
 
 
@@ -210,6 +211,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        '--validation-receipt',
+        type=Path,
+        help=(
+            'Exact privacy-bounded first-map receipt required for a '
+            'comparable result.'
+        ),
+    )
+    parser.add_argument(
         '--prompt-human-measurements',
         action='store_true',
         help='Prompt for active operator time and human command count.',
@@ -233,17 +242,29 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return args
 
 
-def _validation_command(record: Path, supplement: Path) -> str:
+def _validation_command(
+    record: Path,
+    supplement: Path,
+    validation_receipt: Path | None = None,
+) -> str:
     """Return the safe next command without embedding shell syntax."""
-    return shlex.join([
+    command = [
         'python3',
         'scripts/check_onboarding_trial.py',
         str(record),
         '--supplement',
         str(supplement),
+    ]
+    if validation_receipt is not None:
+        command.extend([
+            '--validation-receipt',
+            str(validation_receipt),
+        ])
+    command.extend([
         '--json',
         '--require-comparable',
     ])
+    return shlex.join(command)
 
 
 def _supplement_values(
@@ -260,7 +281,11 @@ def _supplement_values(
             _measurement_card(
                 record,
                 values,
-                _validation_command(args.record, args.output),
+                _validation_command(
+                    args.record,
+                    args.output,
+                    args.validation_receipt,
+                ),
             ),
             file=sys.stderr,
         )
@@ -350,7 +375,7 @@ def main(argv: list[str] | None = None) -> int:
         record, record_bytes = _read_object(args.record)
         # Validate the base before accepting a supplement; an attachment must
         # never hide a malformed product result.
-        evaluate_trial(record)
+        evaluate_trial(record, require_evidence_binding=False)
         values = _supplement_values(args, record)
         supplement = _build_supplement(record, record_bytes, values)
         effective = apply_measurement_supplement(
@@ -358,7 +383,14 @@ def main(argv: list[str] | None = None) -> int:
             supplement,
             record_bytes=record_bytes,
         )
-        report = evaluate_trial(effective)
+        report = evaluate_trial(
+            effective,
+            validation_receipt_bytes=(
+                None if args.validation_receipt is None
+                else read_validation_receipt(args.validation_receipt)
+            ),
+            require_evidence_binding=True,
+        )
         _write_exclusive(args.output, supplement)
     except (OSError, TrialError) as exc:
         print(f'error: {exc}', file=sys.stderr)
@@ -371,15 +403,18 @@ def main(argv: list[str] | None = None) -> int:
         'validation_command': _validation_command(
             args.record,
             args.output,
+            args.validation_receipt,
         ),
         **report,
     }
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
+        supplement_id = supplement['supplement_id']
+        output_path = args.output
         print(
-            f"Wrote measurement supplement `{supplement['supplement_id']}` "
-            f"to `{args.output}`."
+            f'Wrote measurement supplement `{supplement_id}` '
+            f'to `{output_path}`.'
         )
         print(
             'Supplemented comparability: '

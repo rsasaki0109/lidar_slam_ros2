@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-16T09:04:34+09:00",
+  "generated_at": "2026-08-16T10:35:23+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 286,
-    "expected_paths_sha256": "46dac06d39c8b793179a3f11f87b26f7a5f4b2bd3cba4df70622683177ca5494",
+    "expected_path_count": 287,
+    "expected_paths_sha256": "d507f34ff1bdd79ac0c79a33707dae7d43881cf90045cff84e8ff1cbc10a7462",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -135,7 +135,7 @@
       "id": "S4-source-onboarding",
       "order": 4,
       "title": "Fresh-terminal source and Docker onboarding measurement",
-      "review_outcome": "Humble and Jazzy users receive one exact six-package source route and a bounded Docker probe for either a release or a set-bound tag-free candidate, with dependency bootstrap, launcher activation, installed checks, public-readiness preflight, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session orchestration, and an auditable path for attaching retained measurements without rerunning a trial.",
+      "review_outcome": "Humble and Jazzy users receive one exact six-package source route and a bounded Docker probe for either a release or a set-bound tag-free candidate, with dependency bootstrap, launcher activation, installed checks, public-readiness preflight, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session orchestration, a byte-bound privacy-safe validation receipt, and an auditable path for attaching retained measurements without rerunning a trial.",
       "depends_on": [
         "S2-first-map-foundation"
       ],
@@ -156,6 +156,7 @@
         "docs/schemas/onboarding-trial-v1.schema.json",
         "docs/schemas/source-quickstart-plan-v1.schema.json",
         "graph_based_slam/test/test_product_python_tests_script.py",
+        "lidarslam/test/test_check_onboarding_trial.py",
         "lidarslam/test/test_complete_onboarding_measurements.py",
         "lidarslam/test/test_install_source_dependencies.py",
         "lidarslam/test/test_installed_product_cli_contract.py",
@@ -177,7 +178,7 @@
         "scripts/start_candidate_trial.py"
       ],
       "verification": [
-        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_install_source_dependencies.py lidarslam/test/test_source_quickstart.py lidarslam/test/test_run_candidate_trial.py lidarslam/test/test_start_candidate_trial.py lidarslam/test/test_run_docker_onboarding_probe.py lidarslam/test/test_run_source_onboarding_probe.py lidarslam/test/test_complete_onboarding_measurements.py",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_check_onboarding_trial.py lidarslam/test/test_install_source_dependencies.py lidarslam/test/test_source_quickstart.py lidarslam/test/test_run_candidate_trial.py lidarslam/test/test_start_candidate_trial.py lidarslam/test/test_run_docker_onboarding_probe.py lidarslam/test/test_run_source_onboarding_probe.py lidarslam/test/test_complete_onboarding_measurements.py",
         "workspace=$(mktemp -d) || exit $?; mkdir \"${workspace}/src\" || { status=$?; rmdir \"${workspace}\"; exit \"${status}\"; }; bash scripts/source_quickstart.sh --dry-run --workspace \"${workspace}\"; status=$?; rmdir \"${workspace}/src\" \"${workspace}\" || status=$?; exit \"${status}\""
       ],
       "publication_gate": "PUBLIC_CI"

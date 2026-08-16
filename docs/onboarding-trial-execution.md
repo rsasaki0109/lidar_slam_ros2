@@ -14,9 +14,11 @@ empty argument list for an empty project history.
 
 The record contract is
 [onboarding-trial-v1.schema.json](schemas/onboarding-trial-v1.schema.json),
-and the validator is `scripts/check_onboarding_trial.py`. Do not run this
-document's trial commands in the product checkout. Use a disposable environment
-and a trial root outside the checkout.
+and the validator is `scripts/check_onboarding_trial.py`. A PASS becomes
+comparable only when the validator also receives the exact retained
+`first-map-validation-receipt.json`; a copied hash string is insufficient.
+Do not run this document's trial commands in the product checkout. Use a
+disposable environment and a trial root outside the checkout.
 
 ## 0. Start one exact candidate session
 
@@ -166,7 +168,9 @@ human effort from wall time or counts internal subprocesses. Use
 
 The new output is atomic and contains a schema-backed `execution.json`, the
 row-specific `row-preflight.json`, and, once a probe starts, a bounded
-`trial-record.json`, deterministic `trial-audit.json`, and `private/` evidence.
+`trial-record.json`, deterministic `trial-audit.json`, the exact shareable
+`first-map-validation-receipt.json` for a validated PASS, and `private/`
+evidence.
 A valid product `FAIL` remains `TRIAL_RECORDED` and is retained. A failed live
 preflight becomes `PREFLIGHT_BLOCKED` without starting the probe. Malformed or
 missing probe output becomes `HARNESS_ERROR`; any untrusted record is moved
@@ -845,7 +849,18 @@ Capture the two allowed evidence identities when the files exist:
 MANIFEST_SHA256="$(sha256sum "$RUN_DIR/run_manifest.json" | awk '{print $1}')"
 RECEIPT_SHA256="$(sha256sum "$RUN_DIR/first_map_validation_receipt.json" \
   | awk '{print $1}')"
+: "${BOUNDED_EVIDENCE:?set a reviewed bounded-evidence directory}"
+VALIDATION_RECEIPT="$BOUNDED_EVIDENCE/first-map-validation-receipt.json"
+cp --no-clobber \
+  "$RUN_DIR/first_map_validation_receipt.json" "$VALIDATION_RECEIPT"
 ~~~
+
+The retained receipt is intentionally privacy-bounded by its schema: it has no
+map geometry, private paths, or exact command. Preserve its exact bytes; do not
+reformat it. The maintained Docker/source probes perform this exclusive copy
+when given `--validation-receipt-output`, and the candidate runner publishes it
+atomically beside `trial-record.json`. Keep the manifest and all other raw run
+material private.
 
 Use the actual artifact state to fill the schema fields:
 
@@ -887,6 +902,7 @@ expected:
 ~~~bash
 python3 scripts/check_onboarding_trial.py "$TRIAL_RECORD" --json
 python3 scripts/check_onboarding_trial.py "$TRIAL_RECORD" \
+  --validation-receipt "$VALIDATION_RECEIPT" \
   --json --require-comparable
 ~~~
 
@@ -903,9 +919,11 @@ measurement supplement instead:
 ~~~bash
 python3 scripts/complete_onboarding_measurements.py \
   "$TRIAL_RECORD" \
+  --validation-receipt "$VALIDATION_RECEIPT" \
   --prompt-human-measurements
 python3 scripts/check_onboarding_trial.py "$TRIAL_RECORD" \
   --supplement "$TRIAL_RECORD.measurements.json" \
+  --validation-receipt "$VALIDATION_RECEIPT" \
   --json --require-comparable
 ~~~
 
@@ -913,7 +931,10 @@ The supplement is valid only for the exact base-record bytes and can fill null
 fields only; it cannot overwrite a value already observed in the trial. For a
 dedicated Docker filesystem, provide the separately sampled peak with
 `--peak-disk-bytes`. Review the supplement as bounded evidence before adding
-its path to the matrix evidence index. The helper defaults to
+its path and the exact retained receipt path to the matrix evidence index. The
+index rejects a receipt whose bytes, schema, PASS state, manifest hash, product
+version, fixed profile, or source commit disagree with the trial. The helper
+defaults to
 `$TRIAL_RECORD.measurements.json`, keeps `--json` stdout machine-readable, and
 prints the next comparable-check command after writing the supplement. With
 `--prompt-human-measurements`, it also prints a stderr measurement card before
@@ -927,6 +948,10 @@ fixed matrix as a separate gate:
 python3 scripts/check_onboarding_trial_matrix.py \
   "$DOCKER_HUMBLE_RECORD" "$DOCKER_JAZZY_RECORD" \
   "$SOURCE_HUMBLE_RECORD" "$SOURCE_JAZZY_RECORD" \
+  --validation-receipt "$DOCKER_HUMBLE_RECEIPT" \
+  --validation-receipt "$DOCKER_JAZZY_RECEIPT" \
+  --validation-receipt "$SOURCE_HUMBLE_RECEIPT" \
+  --validation-receipt "$SOURCE_JAZZY_RECEIPT" \
   --json --require-activation-gate
 ~~~
 
@@ -958,6 +983,8 @@ each applicable item:
   deliberately null;
 - PASS records satisfy the receipt and evidence gates, and FAIL records name a
   real stage and finding code;
+- every comparable PASS is bound to the exact retained, schema-valid first-map
+  receipt named by its evidence-index row;
 - the JSON passes the validator and contains no private paths, exact commands,
   identities, raw logs, bag metadata, or map geometry;
 - no shared cache or unrelated image was pruned.

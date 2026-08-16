@@ -34,10 +34,10 @@ import base64
 import builtins
 import importlib.util
 import json
-from pathlib import Path
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import pytest
 
@@ -172,6 +172,25 @@ def test_publicly_missing_commit_writes_valid_bounded_fail(
     report = PROBE.evaluate_trial(record)
     assert report['comparable'] is False
     assert 'outcome_failed' in report['comparability_blockers']
+
+
+def test_source_probe_retains_exact_validated_receipt(tmp_path):
+    """The source probe preserves exact receipt bytes and never overwrites."""
+    private = tmp_path / 'private-receipt.json'
+    payload = b'{"status":"PASS"}\n'
+    private.write_bytes(payload)
+    output = tmp_path / 'bounded-receipt.json'
+    artifact = {
+        'receipt_semantic_pass': True,
+        'receipt_path': private,
+        'receipt_sha256': PROBE.hashlib.sha256(payload).hexdigest(),
+    }
+
+    PROBE._retain_validation_receipt(artifact, output)
+
+    assert output.read_bytes() == payload
+    with pytest.raises(PROBE.ProbeError, match='refusing to overwrite'):
+        PROBE._retain_validation_receipt(artifact, output)
 
 
 def test_content_decoder_accepts_github_base64_line_wrapping(monkeypatch):

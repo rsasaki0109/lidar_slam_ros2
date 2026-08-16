@@ -334,6 +334,8 @@ def _docker_row(
             *candidate_arguments,
             '--record',
             '<TRIAL_RECORD_OUTSIDE_CHECKOUT>',
+            '--validation-receipt-output',
+            '<VALIDATION_RECEIPT_OUTSIDE_CHECKOUT>',
             '--disk-scope',
             '/',
             '--acknowledge-dedicated-filesystem',
@@ -389,6 +391,8 @@ def _source_row(
             '/',
             '--record',
             '<TRIAL_RECORD_OUTSIDE_CHECKOUT>',
+            '--validation-receipt-output',
+            '<VALIDATION_RECEIPT_OUTSIDE_CHECKOUT>',
             '--prompt-human-measurements',
             '--acknowledge-disposable-host',
             '--acknowledge-isolated-network',
@@ -582,8 +586,9 @@ def _build_packet(
             'do not use a moving tag or a shared filesystem.',
             'Record all seven required measurements, including human active '
             'time and submitted command count; blank means non-comparable.',
-            'Replace a checked-in matrix row only with the immutable record '
-            'and an exclusive measurement supplement bound to its bytes.',
+            'Replace a checked-in matrix row only with the immutable record, '
+            'its exact retained first-map validation receipt, and any '
+            'exclusive measurement supplement bound to the record bytes.',
             'This packet is not evidence and authorizes no release, image, '
             'issue, community, or telemetry write.',
         ],

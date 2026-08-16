@@ -521,7 +521,10 @@ so the normal candidate path no longer needs a separate `docker build` command.
 Its atomic schema-backed
 [`execution.json`](schemas/candidate-trial-execution-v1.schema.json)
 distinguishes a blocked preflight, a schema-valid PASS/FAIL trial, and a
-harness error. Interactive `auto` mode prompts for the
+harness error. A validated product PASS also retains the exact privacy-bounded
+`first-map-validation-receipt.json`; `execution.json` lists it as a bounded
+output, and the comparability checker verifies its bytes against the trial
+record rather than trusting a copied digest. Interactive `auto` mode prompts for the
 two human observations; non-interactive mode leaves them unknown and the trial
 non-comparable. It performs network reads and local trial writes, including
 the acknowledged source-host or privileged-container work, but no GitHub,

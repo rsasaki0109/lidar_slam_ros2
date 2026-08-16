@@ -62,6 +62,12 @@
           "minLength": 1,
           "maxLength": 300,
           "pattern": "^docs/evidence/onboarding/[A-Za-z0-9_.-]+\\.json$"
+        },
+        "validation_receipt_path": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^docs/evidence/onboarding/[A-Za-z0-9_.-]+\\.json$"
         }
       }
     }

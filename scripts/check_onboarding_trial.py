@@ -49,6 +49,11 @@ SUPPLEMENT_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas'
     / 'onboarding-measurement-supplement-v1.schema.json'
 )
+VALIDATION_RECEIPT_SCHEMA = (
+    REPO_ROOT / 'docs' / 'schemas'
+    / 'first-map-validation-receipt-v1.schema.json'
+)
+MAX_VALIDATION_RECEIPT_BYTES = 1024 * 1024
 MEASUREMENT_PATHS = (
     'input.download_bytes',
     'measurements.workflow_download_bytes',
@@ -97,6 +102,8 @@ def _load_object(path: Path) -> dict[str, Any]:
 def _validate_schema(
     record: dict[str, Any],
     schema: dict[str, Any],
+    *,
+    label: str = 'onboarding trial',
 ) -> None:
     try:
         jsonschema.Draft7Validator.check_schema(schema)
@@ -107,9 +114,101 @@ def _validate_schema(
     except (jsonschema.SchemaError, jsonschema.ValidationError) as exc:
         location = '.'.join(str(item) for item in exc.absolute_path)
         raise TrialError(
-            f'onboarding trial schema failed at '
+            f'{label} schema failed at '
             f'{location or "<root>"}: {exc.message}'
         ) from exc
+
+
+def read_validation_receipt(path: Path) -> bytes:
+    """Read one bounded, regular first-map receipt without following links."""
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise TrialError(
+                f'validation receipt is not a regular file: {path}'
+            )
+        size = path.stat().st_size
+        if size < 1 or size > MAX_VALIDATION_RECEIPT_BYTES:
+            raise TrialError(
+                'validation receipt must be between 1 and '
+                f'{MAX_VALIDATION_RECEIPT_BYTES} bytes: {path}'
+            )
+        return path.read_bytes()
+    except OSError as exc:
+        raise TrialError(
+            f'cannot read validation receipt {path}: {exc}'
+        ) from exc
+
+
+def _validate_validation_receipt(
+    record: dict[str, Any],
+    payload: bytes,
+) -> None:
+    """Bind a trial claim to the exact privacy-bounded product receipt."""
+    if not payload or len(payload) > MAX_VALIDATION_RECEIPT_BYTES:
+        raise TrialError(
+            'validation receipt bytes must be between 1 and '
+            f'{MAX_VALIDATION_RECEIPT_BYTES}'
+        )
+    try:
+        receipt = json.loads(payload.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise TrialError('validation receipt is not readable JSON') from exc
+    if not isinstance(receipt, dict):
+        raise TrialError('validation receipt JSON root is not an object')
+    _validate_schema(
+        receipt,
+        _load_object(VALIDATION_RECEIPT_SCHEMA),
+        label='first-map validation receipt',
+    )
+
+    expected_sha256 = record['evidence']['receipt_sha256']
+    actual_sha256 = hashlib.sha256(payload).hexdigest()
+    if expected_sha256 is None or actual_sha256 != expected_sha256:
+        raise TrialError(
+            'validation receipt SHA-256 does not match the trial record'
+        )
+    receipt_passed = receipt['status'] == 'PASS'
+    record_receipt_passed = record['outcome']['receipt_status'] == 'PASS'
+    if receipt_passed != record_receipt_passed:
+        raise TrialError(
+            'validation receipt status does not match the trial record'
+        )
+    if (
+        receipt['verification']['manifest_sha256']
+        != record['evidence']['manifest_sha256']
+    ):
+        raise TrialError(
+            'validation receipt manifest SHA-256 does not match the '
+            'trial record'
+        )
+
+    environment = record['environment']
+    receipt_run = receipt['run']
+    if receipt_run['product_version'] != environment['product_version']:
+        raise TrialError(
+            'validation receipt product version does not match the '
+            'trial record'
+        )
+    if receipt_run['profile_id'] != 'rko_lio_graph_mid360_preset':
+        raise TrialError(
+            'validation receipt does not identify the fixed first-map profile'
+        )
+    revision = environment['revision']
+    expected_commit = None
+    if revision['kind'] == 'git-commit':
+        expected_commit = revision['value']
+    else:
+        candidate = record['evidence'].get('candidate_image_set')
+        if candidate is not None:
+            expected_commit = candidate['source_commit']
+    if (
+        expected_commit is not None
+        and receipt_run['git_commit'] != expected_commit
+    ):
+        raise TrialError(
+            'validation receipt source commit does not match the trial '
+            'identity'
+        )
 
 
 def _path_value(record: dict[str, Any], dotted_path: str) -> Any:
@@ -220,7 +319,9 @@ def _validate_measurements(record: dict[str, Any]) -> None:
         and active_time is not None
         and active_time > wall_time
     ):
-        raise TrialError('active_operator_time_sec cannot exceed wall_time_sec')
+        raise TrialError(
+            'active_operator_time_sec cannot exceed wall_time_sec'
+        )
     if (
         peak_disk is not None
         and output_bytes is not None
@@ -267,19 +368,30 @@ def _validate_outcome(record: dict[str, Any]) -> None:
         if outcome['failure_stage'] == 'none':
             raise TrialError('FAIL trial must identify a failure_stage')
         if not outcome['finding_codes']:
-            raise TrialError('FAIL trial must include at least one finding code')
+            raise TrialError(
+                'FAIL trial must include at least one finding code'
+            )
 
 
 def evaluate_trial(
     record: dict[str, Any],
     schema: dict[str, Any] | None = None,
+    *,
+    validation_receipt_bytes: bytes | None = None,
+    require_evidence_binding: bool = True,
 ) -> dict[str, Any]:
-    """Validate one record and return a deterministic comparability report."""
+    """Validate one record and return a fail-closed comparability report.
+
+    Trusted probe internals may disable the retained-receipt requirement while
+    constructing a record. Public checkers and matrix gates keep it enabled.
+    """
     contract = schema or _load_object(DEFAULT_SCHEMA)
     _validate_schema(record, contract)
     _validate_measurements(record)
     _validate_evidence(record)
     _validate_outcome(record)
+    if validation_receipt_bytes is not None:
+        _validate_validation_receipt(record, validation_receipt_bytes)
 
     missing = [
         path for path in MEASUREMENT_PATHS
@@ -290,12 +402,21 @@ def evaluate_trial(
         blockers.append('measurements_incomplete')
     if not record['environment']['clean_start']:
         blockers.append('environment_not_clean')
-    if record['environment']['revision']['kind'] not in IMMUTABLE_REVISION_KINDS:
+    if (
+        record['environment']['revision']['kind']
+        not in IMMUTABLE_REVISION_KINDS
+    ):
         blockers.append('revision_not_immutable')
     if record['outcome']['status'] != 'PASS':
         blockers.append('outcome_failed')
     if record['outcome']['undocumented_manual_steps']:
         blockers.append('undocumented_manual_steps')
+    if (
+        require_evidence_binding
+        and record['outcome']['status'] == 'PASS'
+        and validation_receipt_bytes is None
+    ):
+        blockers.append('validation_receipt_unbound')
 
     return {
         'schema_version': 1,
@@ -357,6 +478,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        '--validation-receipt',
+        type=Path,
+        help=(
+            'Bind comparability to the exact privacy-bounded first-map '
+            'validation receipt retained by the probe.'
+        ),
+    )
+    parser.add_argument(
         '--json',
         action='store_true',
         help='Print the comparability report as JSON.',
@@ -394,6 +523,11 @@ def main(argv: list[str] | None = None) -> int:
         report = evaluate_trial(
             record_value,
             _load_object(args.schema),
+            validation_receipt_bytes=(
+                None if args.validation_receipt is None
+                else read_validation_receipt(args.validation_receipt)
+            ),
+            require_evidence_binding=True,
         )
     except TrialError as exc:
         print(f'error: {exc}', file=sys.stderr)

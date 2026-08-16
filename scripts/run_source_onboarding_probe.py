@@ -37,11 +37,10 @@ from __future__ import annotations
 
 import argparse
 import base64
-from datetime import datetime, timezone
+import hashlib
 import json
 import math
 import os
-from pathlib import Path
 import platform
 import re
 import shlex
@@ -51,10 +50,12 @@ import sys
 import tempfile
 import threading
 import time
-from typing import Any, Callable, TextIO
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, TextIO
 
 # Planning and public-route inspection must not mutate the observer checkout
 # merely by importing adjacent helper modules.
@@ -112,7 +113,11 @@ def evaluate_trial(
     """Load the shared trial evaluator without writing adjacent bytecode."""
     from check_onboarding_trial import evaluate_trial as evaluate
 
-    return evaluate(record, schema)
+    return evaluate(
+        record,
+        schema,
+        require_evidence_binding=False,
+    )
 
 
 def _artifact_state(root: Path) -> dict[str, Any]:
@@ -142,7 +147,37 @@ def _write_json_exclusive(path: Path, value: dict[str, Any]) -> None:
         with path.open('x', encoding='utf-8') as stream:
             stream.write(payload)
     except FileExistsError as exc:
-        raise ProbeError(f'refusing to overwrite existing record: {path}') from exc
+        raise ProbeError(
+            f'refusing to overwrite existing record: {path}'
+        ) from exc
+
+
+def _retain_validation_receipt(
+    artifact: dict[str, Any],
+    output: Path | None,
+) -> None:
+    """Copy the exact shareable PASS receipt outside private evidence."""
+    if output is None or not artifact['receipt_semantic_pass']:
+        return
+    source = artifact['receipt_path']
+    if source is None or source.is_symlink() or not source.is_file():
+        raise ProbeError('validated first-map receipt is not a regular file')
+    try:
+        payload = source.read_bytes()
+        if hashlib.sha256(payload).hexdigest() != artifact['receipt_sha256']:
+            raise ProbeError(
+                'validated first-map receipt changed before retention'
+            )
+        with output.open('xb') as stream:
+            stream.write(payload)
+    except FileExistsError as exc:
+        raise ProbeError(
+            f'refusing to overwrite validation receipt: {output}'
+        ) from exc
+    except OSError as exc:
+        raise ProbeError(
+            f'cannot retain validation receipt {output}: {exc}'
+        ) from exc
 
 
 def _contains(parent: Path, child: Path) -> bool:
@@ -165,11 +200,21 @@ def _validate_paths(args: argparse.Namespace) -> None:
         ('disk scope', args.disk_scope),
     ):
         if path.is_symlink() or not path.is_dir():
-            raise ProbeError(f'{label} must be an existing real directory: {path}')
+            raise ProbeError(
+                f'{label} must be an existing real directory: {path}'
+            )
     args.trial_root = args.trial_root.resolve()
     args.observer_parent = args.observer_parent.resolve()
     args.disk_scope = args.disk_scope.resolve()
     args.record = args.record.resolve(strict=False)
+    validation_receipt = getattr(
+        args,
+        'validation_receipt_output',
+        None,
+    )
+    if validation_receipt is not None:
+        validation_receipt = validation_receipt.absolute()
+        args.validation_receipt_output = validation_receipt
     if args.trial_root in {Path('/'), Path.home().resolve()}:
         raise ProbeError('trial root must not be / or the user home directory')
     entries = _meaningful_entries(args.trial_root)
@@ -183,11 +228,35 @@ def _validate_paths(args: argparse.Namespace) -> None:
     ):
         raise ProbeError('trial root and observer parent must not overlap')
     if _contains(args.trial_root, args.record):
-        raise ProbeError('bounded record must be outside the private trial root')
+        raise ProbeError(
+            'bounded record must be outside the private trial root'
+        )
     if not args.record.parent.is_dir():
         raise ProbeError(f'record parent does not exist: {args.record.parent}')
     if args.record.exists():
-        raise ProbeError(f'refusing to overwrite existing record: {args.record}')
+        raise ProbeError(
+            f'refusing to overwrite existing record: {args.record}'
+        )
+    if validation_receipt is not None:
+        if validation_receipt == args.record:
+            raise ProbeError(
+                'validation receipt output must differ from the trial record'
+            )
+        if _contains(args.trial_root, validation_receipt):
+            raise ProbeError(
+                'validation receipt output must be outside the private '
+                'trial root'
+            )
+        if not validation_receipt.parent.is_dir():
+            raise ProbeError(
+                'validation receipt parent does not exist: '
+                f'{validation_receipt.parent}'
+            )
+        if os.path.lexists(validation_receipt):
+            raise ProbeError(
+                'refusing to overwrite validation receipt: '
+                f'{validation_receipt}'
+            )
     scope_device = args.disk_scope.stat().st_dev
     measured_paths = (args.trial_root, Path('/usr'), Path('/var'))
     if any(path.stat().st_dev != scope_device for path in measured_paths):
@@ -1023,6 +1092,10 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path | None]:
         'receipt_sha256': artifact['receipt_sha256'],
     }
     _validate_record(record)
+    _retain_validation_receipt(
+        artifact,
+        getattr(args, 'validation_receipt_output', None),
+    )
     _write_json_exclusive(args.record, record)
     _write_json_exclusive(observer_root / 'bounded-record.json', record)
     return record, observer_root
@@ -1044,6 +1117,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument('--disk-scope', type=Path)
     parser.add_argument('--network-interface')
     parser.add_argument('--record', type=Path)
+    parser.add_argument(
+        '--validation-receipt-output',
+        type=Path,
+        help=(
+            'Retain the exact privacy-bounded PASS first-map receipt here; '
+            'the destination is never overwritten.'
+        ),
+    )
     parser.add_argument('--timeout-sec', type=float, default=7200.0)
     parser.add_argument(
         '--prompt-human-measurements',
@@ -1116,6 +1197,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             args.disk_scope,
             args.network_interface,
             args.record,
+            args.validation_receipt_output,
         )
         if any(value is not None for value in execution_options):
             parser.error(
@@ -1183,7 +1265,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     print(json.dumps(record, indent=2, sort_keys=True))
     if observer_root is not None:
-        print(f'private observer root retained: {observer_root}', file=sys.stderr)
+        print(
+            f'private observer root retained: {observer_root}',
+            file=sys.stderr,
+        )
     return 0 if record['outcome']['status'] == 'PASS' else 1
 
 

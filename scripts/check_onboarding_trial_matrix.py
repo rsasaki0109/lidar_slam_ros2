@@ -39,6 +39,7 @@ from check_onboarding_trial import (
     TrialError,
     apply_measurement_supplement,
     evaluate_trial,
+    read_validation_receipt,
 )
 
 import jsonschema
@@ -112,6 +113,20 @@ class MatrixError(ValueError):
     """The matrix cannot be evaluated without inventing evidence."""
 
 
+class MatrixRecord(dict[str, Any]):
+    """A trial record plus exact bounded evidence loaded by the index."""
+
+    def __init__(
+        self,
+        record: dict[str, Any],
+        *,
+        validation_receipt_bytes: bytes | None = None,
+    ) -> None:
+        """Keep byte evidence out of the schema-validated record mapping."""
+        super().__init__(record)
+        self.validation_receipt_bytes = validation_receipt_bytes
+
+
 def _load_object(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding='utf-8'))
@@ -132,6 +147,30 @@ def _route(record: dict[str, Any]) -> str:
         'fixed matrix accepts only docker-first-map and source-quickstart '
         f'records, found {documentation_path!r}'
     )
+
+
+def _index_file(
+    relative: str,
+    *,
+    repo_root: Path,
+    label: str,
+) -> Path:
+    path = PurePosixPath(relative)
+    if (
+        str(path) != relative
+        or relative.startswith('/')
+        or '..' in path.parts
+        or '\\' in relative
+    ):
+        raise MatrixError(
+            f'evidence index contains an unsafe {label} path: {relative!r}'
+        )
+    candidate = repo_root / relative
+    if candidate.is_symlink() or not candidate.is_file():
+        raise MatrixError(
+            f'evidence index {label} is not a regular file: {relative}'
+        )
+    return candidate
 
 
 def load_evidence_index(
@@ -164,44 +203,26 @@ def load_evidence_index(
                     f"evidence index row {row['row_id']} has a supplement "
                     'without a base record'
                 )
+            if row.get('validation_receipt_path') is not None:
+                raise MatrixError(
+                    f"evidence index row {row['row_id']} has a validation "
+                    'receipt without a base record'
+                )
             continue
-        path = PurePosixPath(relative)
-        if (
-            str(path) != relative
-            or relative.startswith('/')
-            or '..' in path.parts
-            or '\\' in relative
-        ):
-            raise MatrixError(
-                f'evidence index contains an unsafe record path: {relative!r}')
-        candidate = repo_root / relative
-        if candidate.is_symlink() or not candidate.is_file():
-            raise MatrixError(
-                f'evidence index record is not a regular file: {relative}')
+        candidate = _index_file(
+            relative,
+            repo_root=repo_root,
+            label='record',
+        )
         record_bytes = candidate.read_bytes()
         record = _load_object(candidate)
         supplement_relative = row.get('measurement_supplement_path')
         if supplement_relative is not None:
-            supplement_path = PurePosixPath(supplement_relative)
-            if (
-                str(supplement_path) != supplement_relative
-                or supplement_relative.startswith('/')
-                or '..' in supplement_path.parts
-                or '\\' in supplement_relative
-            ):
-                raise MatrixError(
-                    'evidence index contains an unsafe measurement '
-                    f'supplement path: {supplement_relative!r}'
-                )
-            supplement_candidate = repo_root / supplement_relative
-            if (
-                supplement_candidate.is_symlink()
-                or not supplement_candidate.is_file()
-            ):
-                raise MatrixError(
-                    'evidence index measurement supplement is not a regular '
-                    f'file: {supplement_relative}'
-                )
+            supplement_candidate = _index_file(
+                supplement_relative,
+                repo_root=repo_root,
+                label='measurement supplement',
+            )
             try:
                 record = apply_measurement_supplement(
                     record,
@@ -213,6 +234,21 @@ def load_evidence_index(
                     f'measurement supplement invalid for {row["row_id"]}: '
                     f'{exc}'
                 ) from exc
+        receipt_bytes = None
+        receipt_relative = row.get('validation_receipt_path')
+        if receipt_relative is not None:
+            receipt_candidate = _index_file(
+                receipt_relative,
+                repo_root=repo_root,
+                label='validation receipt',
+            )
+            try:
+                receipt_bytes = read_validation_receipt(receipt_candidate)
+            except TrialError as exc:
+                raise MatrixError(
+                    f'validation receipt invalid for {row["row_id"]}: '
+                    f'{exc}'
+                ) from exc
         route = _route(record)
         key = (route, record.get('environment', {}).get('ros_distro'))
         contract = CONTRACT_BY_KEY.get(key)
@@ -220,7 +256,10 @@ def load_evidence_index(
             raise MatrixError(
                 f"evidence index row {row['row_id']} points to a different "
                 'matrix row')
-        records.append(record)
+        records.append(MatrixRecord(
+            record,
+            validation_receipt_bytes=receipt_bytes,
+        ))
     return records
 
 
@@ -341,7 +380,15 @@ def evaluate_matrix(records: list[dict[str, Any]]) -> dict[str, Any]:
 
     for record in records:
         try:
-            trial_report = evaluate_trial(record)
+            trial_report = evaluate_trial(
+                record,
+                validation_receipt_bytes=getattr(
+                    record,
+                    'validation_receipt_bytes',
+                    None,
+                ),
+                require_evidence_binding=True,
+            )
         except TrialError as exc:
             label = record.get('trial_id', '<unknown>')
             raise MatrixError(f'invalid trial {label}: {exc}') from exc
@@ -491,6 +538,16 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             'the checked-in G0 index is used when neither is supplied.'
         ),
     )
+    parser.add_argument(
+        '--validation-receipt',
+        action='append',
+        type=Path,
+        default=[],
+        help=(
+            'Exact first-map validation receipt for the corresponding '
+            'explicit record; repeat once per record in the same order.'
+        ),
+    )
     parser.add_argument('--json', action='store_true')
     parser.add_argument('--output-json', type=Path)
     parser.add_argument('--require-activation-gate', action='store_true')
@@ -505,14 +562,35 @@ def main(argv: list[str] | None = None) -> int:
         if args.records and args.evidence_index:
             raise MatrixError(
                 'explicit records and --evidence-index are mutually exclusive')
-        records = (
-            [_load_object(path) for path in args.records]
-            if args.records
-            else load_evidence_index(
+        if args.validation_receipt and not args.records:
+            raise MatrixError(
+                '--validation-receipt requires explicit trial records'
+            )
+        if args.validation_receipt and (
+            len(args.validation_receipt) != len(args.records)
+        ):
+            raise MatrixError(
+                'repeat --validation-receipt exactly once per explicit '
+                'trial record'
+            )
+        if args.records:
+            receipts = (
+                [read_validation_receipt(path)
+                 for path in args.validation_receipt]
+                if args.validation_receipt else [None] * len(args.records)
+            )
+            records = [
+                MatrixRecord(
+                    _load_object(path),
+                    validation_receipt_bytes=receipt,
+                )
+                for path, receipt in zip(args.records, receipts)
+            ]
+        else:
+            records = load_evidence_index(
                 args.evidence_index or EVIDENCE_INDEX_PATH)
-        )
         report = evaluate_matrix(records)
-    except MatrixError as exc:
+    except (MatrixError, TrialError) as exc:
         print(f'onboarding matrix error: {exc}', file=sys.stderr)
         return 2
     rendered_json = json.dumps(report, indent=2, sort_keys=True) + '\n'

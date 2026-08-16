@@ -69,6 +69,7 @@
             "properties": {
               "trial_record": {"const": null},
               "trial_audit": {"const": null},
+              "validation_receipt": {"const": null},
               "private_evidence_directory": {"const": null}
             }
           }
@@ -123,6 +124,33 @@
           "outputs": {
             "properties": {
               "private_evidence_directory": {"const": "private"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "trial": {"properties": {"comparable": {"const": true}}}
+        }
+      },
+      "then": {
+        "properties": {
+          "outputs": {
+            "properties": {
+              "validation_receipt": {
+                "const": "first-map-validation-receipt.json"
+              }
+            }
+          },
+          "sharing": {
+            "properties": {
+              "bounded_outputs": {
+                "contains": {
+                  "const": "first-map-validation-receipt.json"
+                }
+              }
             }
           }
         }
@@ -311,6 +339,7 @@
         "preflight_json",
         "trial_record",
         "trial_audit",
+        "validation_receipt",
         "private_evidence_directory",
         "execution_json"
       ],
@@ -318,6 +347,10 @@
         "preflight_json": {"const": "row-preflight.json"},
         "trial_record": {"type": ["string", "null"], "enum": ["trial-record.json", null]},
         "trial_audit": {"type": ["string", "null"], "enum": ["trial-audit.json", null]},
+        "validation_receipt": {
+          "type": ["string", "null"],
+          "enum": ["first-map-validation-receipt.json", null]
+        },
         "private_evidence_directory": {"type": ["string", "null"], "enum": ["private", null]},
         "execution_json": {"const": "execution.json"}
       }
@@ -334,13 +367,14 @@
         "bounded_outputs": {
           "type": "array",
           "minItems": 2,
-          "maxItems": 4,
+          "maxItems": 5,
           "uniqueItems": true,
           "items": {
             "enum": [
               "row-preflight.json",
               "trial-record.json",
               "trial-audit.json",
+              "first-map-validation-receipt.json",
               "execution.json"
             ]
           }

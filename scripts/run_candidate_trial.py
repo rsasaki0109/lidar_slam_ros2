@@ -26,7 +26,11 @@ from typing import Any, Callable, Sequence
 
 from audit_candidate_image_set import audit_candidate_bundle
 
-from check_onboarding_trial import TrialError, evaluate_trial
+from check_onboarding_trial import (
+    TrialError,
+    evaluate_trial,
+    read_validation_receipt,
+)
 
 from prepare_candidate_trial import (
     CandidateTrialPreparationError,
@@ -58,6 +62,7 @@ OBSERVER_DOCKERFILE = (
 PREFLIGHT_FILENAME = 'row-preflight.json'
 TRIAL_RECORD_FILENAME = 'trial-record.json'
 TRIAL_AUDIT_FILENAME = 'trial-audit.json'
+VALIDATION_RECEIPT_FILENAME = 'first-map-validation-receipt.json'
 PRIVATE_DIRECTORY = 'private'
 EXECUTION_FILENAME = 'execution.json'
 MAX_RECORD_BYTES = 1024 * 1024
@@ -407,6 +412,8 @@ def _docker_probe_command(
         preparation['workflow_run_url'],
         '--record',
         str(record),
+        '--validation-receipt-output',
+        str(record.parent / VALIDATION_RECEIPT_FILENAME),
         '--temp-parent',
         str(private),
         '--disk-scope',
@@ -459,6 +466,8 @@ def _source_probe_command(
         str(disk_scope),
         '--record',
         str(record),
+        '--validation-receipt-output',
+        str(record.parent / VALIDATION_RECEIPT_FILENAME),
         '--timeout-sec',
         str(timeout_sec),
         '--acknowledge-disposable-host',
@@ -631,6 +640,7 @@ def _build_execution(
     preflight_sha256: str,
     preflight_findings: list[str],
     trial: dict[str, Any],
+    validation_receipt_available: bool = False,
 ) -> dict[str, Any]:
     preparation = handoff['preparation']
     trial_available = trial['record_status'] == 'AVAILABLE'
@@ -641,6 +651,8 @@ def _build_execution(
         bounded_outputs.append(TRIAL_RECORD_FILENAME)
     if audit_available:
         bounded_outputs.append(TRIAL_AUDIT_FILENAME)
+    if validation_receipt_available:
+        bounded_outputs.append(VALIDATION_RECEIPT_FILENAME)
     bounded_outputs.append(EXECUTION_FILENAME)
     receipt = {
         'schema_version': 1,
@@ -680,6 +692,10 @@ def _build_execution(
                 TRIAL_RECORD_FILENAME if trial_available else None
             ),
             'trial_audit': TRIAL_AUDIT_FILENAME if audit_available else None,
+            'validation_receipt': (
+                VALIDATION_RECEIPT_FILENAME
+                if validation_receipt_available else None
+            ),
             'private_evidence_directory': (
                 PRIVATE_DIRECTORY if private_available else None
             ),
@@ -722,6 +738,16 @@ def _quarantine_record(record: Path, private: Path) -> str:
         os.replace(record, private / 'untrusted-trial-record.json')
         return 'QUARANTINED'
     return 'NOT_CREATED'
+
+
+def _quarantine_validation_receipt(receipt: Path, private: Path) -> None:
+    if receipt.is_symlink():
+        receipt.unlink(missing_ok=True)
+    elif os.path.lexists(receipt):
+        os.replace(
+            receipt,
+            private / 'untrusted-first-map-validation-receipt',
+        )
 
 
 def _publish_execution(
@@ -838,6 +864,7 @@ def run_candidate_trial(
         private = staging / PRIVATE_DIRECTORY
         private.mkdir(mode=0o700)
         record_path = staging / TRIAL_RECORD_FILENAME
+        validation_receipt_path = staging / VALIDATION_RECEIPT_FILENAME
         if row['route'] == 'docker':
             command = _docker_probe_command(
                 handoff,
@@ -866,13 +893,25 @@ def run_candidate_trial(
         record_was_created = os.path.lexists(record_path)
         try:
             record, record_bytes = _read_trial_record(record_path)
-            report = evaluate_trial(record)
+            validation_receipt_bytes = (
+                read_validation_receipt(validation_receipt_path)
+                if os.path.lexists(validation_receipt_path) else None
+            )
+            report = evaluate_trial(
+                record,
+                validation_receipt_bytes=validation_receipt_bytes,
+                require_evidence_binding=True,
+            )
             _validate_trial_identity(
                 record, handoff, row, resolved_trial_id
             )
         except (CandidateTrialExecutionError, TrialError, KeyError) as exc:
             print(f'candidate trial harness error: {exc}', file=sys.stderr)
             status = _quarantine_record(record_path, private)
+            _quarantine_validation_receipt(
+                validation_receipt_path,
+                private,
+            )
             quarantined = private / 'untrusted-trial-record.json'
             record_sha256 = (
                 _sha256_file(quarantined)
@@ -934,6 +973,9 @@ def run_candidate_trial(
             preflight_sha256=preflight_sha256,
             preflight_findings=findings,
             trial=trial,
+            validation_receipt_available=(
+                validation_receipt_bytes is not None
+            ),
         )
         _publish_execution(staging, output, receipt)
         if not exit_matches:

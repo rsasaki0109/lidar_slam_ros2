@@ -30,6 +30,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import pathlib
@@ -211,6 +212,64 @@ def _record(
     }
 
 
+def _validation_receipt(record: dict[str, object]) -> bytes:
+    candidate = record['evidence'].get('candidate_image_set')
+    git_commit = (
+        candidate['source_commit']
+        if candidate is not None
+        else record['environment']['revision']['value']
+    )
+    receipt = {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/first-map-validation-receipt-v1.schema.json'
+        ),
+        'status': 'PASS',
+        'run': {
+            'run_id': record['trial_id'],
+            'product_version': record['environment']['product_version'],
+            'git_commit': git_commit,
+            'profile_id': 'rko_lio_graph_mid360_preset',
+        },
+        'verification': {
+            'manifest_status': 'succeeded',
+            'diagnosis_status': 'success',
+            'autoware_status': 'PASS',
+            'manifest_sha256': record['evidence']['manifest_sha256'],
+        },
+        'evidence': {
+            'manifest': {
+                'filename': 'run_manifest.json',
+                'sha256': record['evidence']['manifest_sha256'],
+            },
+            'diagnosis': {
+                'filename': 'autoware_map_diagnosis.json',
+                'available': True,
+                'sha256': '3' * 64,
+            },
+            'verify_log': {
+                'filename': 'verify_autoware_map.log',
+                'available': True,
+                'sha256': '4' * 64,
+            },
+        },
+        'checks': [
+            {'id': f'check_{index}', 'passed': True, 'observed': 'pass'}
+            for index in range(7)
+        ],
+        'shareability': {
+            'contains_map_geometry': False,
+            'contains_private_paths': False,
+            'contains_exact_command': False,
+            'review_before_sharing': True,
+        },
+    }
+    payload = json.dumps(receipt, sort_keys=True).encode() + b'\n'
+    record['evidence']['receipt_sha256'] = hashlib.sha256(payload).hexdigest()
+    return payload
+
+
 def _remote_audit(status: str = 'REMOTE_AUDIT_PASS') -> dict[str, object]:
     return {
         'status': status,
@@ -237,21 +296,28 @@ def _probe_writer(
     outcome='PASS',
     human_complete=False,
     returncode=None,
+    retain_receipt=True,
 ):
     def run(command, **_kwargs):
         calls.append(command)
         trial_id = command[command.index('--trial-id') + 1]
         record_path = pathlib.Path(command[command.index('--record') + 1])
+        record = _record(
+            handoff,
+            row,
+            trial_id,
+            outcome=outcome,
+            human_complete=human_complete,
+        )
+        if outcome == 'PASS' and retain_receipt:
+            receipt_path = pathlib.Path(
+                command[
+                    command.index('--validation-receipt-output') + 1
+                ]
+            )
+            receipt_path.write_bytes(_validation_receipt(record))
         record_path.write_text(
-            json.dumps(
-                _record(
-                    handoff,
-                    row,
-                    trial_id,
-                    outcome=outcome,
-                    human_complete=human_complete,
-                )
-            ) + '\n',
+            json.dumps(record) + '\n',
             encoding='utf-8',
         )
         code = (0 if outcome == 'PASS' else 1)
@@ -371,6 +437,47 @@ def test_interactive_complete_docker_trial_is_comparable(
     assert receipt['trial']['measurement_status'] == 'COMPLETE'
     assert receipt['trial']['comparable'] is True
     assert '--prompt-human-measurements' in calls[0]
+    assert (
+        tmp_path / 'trial-output' / 'first-map-validation-receipt.json'
+    ).is_file()
+
+
+def test_complete_pass_without_retained_receipt_stays_non_comparable(
+    monkeypatch,
+    tmp_path,
+):
+    """A complete PASS cannot rely on a digest without retained bytes."""
+    directory, handoff = _handoff(tmp_path)
+    _install_handoff(monkeypatch, handoff)
+    monkeypatch.setattr(
+        RUNNER,
+        'audit_candidate_bundle',
+        lambda *_args, **_kwargs: _remote_audit(),
+    )
+    row = handoff['packet']['rows'][0]
+
+    receipt, exit_code = RUNNER.run_candidate_trial(
+        directory,
+        'docker-humble',
+        tmp_path / 'trial-output',
+        acknowledge_dedicated_trial_host=True,
+        probe_runner=_probe_writer(
+            handoff,
+            row,
+            [],
+            human_complete=True,
+            retain_receipt=False,
+        ),
+        interactive=True,
+        started_at='2026-08-15T12:00:00Z',
+    )
+
+    assert exit_code == 0
+    assert receipt['trial']['comparable'] is False
+    assert receipt['trial']['comparability_blockers'] == [
+        'validation_receipt_unbound'
+    ]
+    assert receipt['outputs']['validation_receipt'] is None
 
 
 def test_valid_product_failure_is_retained_as_trial_evidence(

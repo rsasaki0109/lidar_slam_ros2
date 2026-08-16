@@ -708,6 +708,39 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
         stream.write(payload)
 
 
+def _retain_validation_receipt(
+    artifact: dict[str, Any],
+    output: Path | None,
+) -> None:
+    """Copy the exact shareable PASS receipt outside private evidence."""
+    if output is None or not artifact['receipt_semantic_pass']:
+        return
+    source = artifact['receipt_path']
+    if (
+        source is None
+        or source.is_symlink()
+        or not source.is_file()
+    ):
+        raise ProbeError('validated first-map receipt is not a regular file')
+    try:
+        payload = source.read_bytes()
+        if hashlib.sha256(payload).hexdigest() != artifact['receipt_sha256']:
+            raise ProbeError(
+                'validated first-map receipt changed before retention'
+            )
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with output.open('xb') as stream:
+            stream.write(payload)
+    except FileExistsError as exc:
+        raise ProbeError(
+            f'refusing to overwrite validation receipt: {output}'
+        ) from exc
+    except OSError as exc:
+        raise ProbeError(
+            f'cannot retain validation receipt {output}: {exc}'
+        ) from exc
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
 
@@ -1020,6 +1053,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument('--candidate-source-commit')
     parser.add_argument('--candidate-workflow-run-url')
     parser.add_argument('--record', required=True, type=Path)
+    parser.add_argument(
+        '--validation-receipt-output',
+        type=Path,
+        help=(
+            'Retain the exact privacy-bounded PASS first-map receipt here; '
+            'the destination is never overwritten.'
+        ),
+    )
     parser.add_argument('--temp-parent', default='/tmp', type=Path)
     parser.add_argument(
         '--disk-scope',
@@ -1244,6 +1285,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error('command-count modes are mutually exclusive')
     if not args.temp_parent.is_dir():
         parser.error('--temp-parent must be an existing directory')
+    if args.validation_receipt_output is not None:
+        if args.validation_receipt_output == args.record:
+            parser.error(
+                '--validation-receipt-output must differ from --record'
+            )
+        if os.path.lexists(args.validation_receipt_output):
+            parser.error(
+                '--validation-receipt-output already exists'
+            )
     if args.disk_scope is not None:
         if args.disk_scope.is_symlink() or not args.disk_scope.is_dir():
             parser.error('--disk-scope must be an existing real directory')
@@ -1601,6 +1651,10 @@ def run_probe(args: argparse.Namespace) -> tuple[dict[str, Any], Path, Path]:
 
     if record is None:
         raise ProbeError('probe ended without a bounded record')
+    _retain_validation_receipt(
+        artifact,
+        getattr(args, 'validation_receipt_output', None),
+    )
     _write_json(args.record, record)
     _write_json(observer_root / 'bounded-record.json', record)
     return record, trial_root, observer_root

@@ -29,6 +29,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -105,8 +106,72 @@ def _comparable_trial() -> dict[str, object]:
     }
 
 
+def _validation_receipt(record: dict[str, object]) -> bytes:
+    revision = record['environment']['revision']
+    git_commit = (
+        revision['value'] if revision['kind'] == 'git-commit' else None
+    )
+    receipt = {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/first-map-validation-receipt-v1.schema.json'
+        ),
+        'status': 'PASS',
+        'run': {
+            'run_id': 'bounded-test-run',
+            'product_version': record['environment']['product_version'],
+            'git_commit': git_commit,
+            'profile_id': 'rko_lio_graph_mid360_preset',
+        },
+        'verification': {
+            'manifest_status': 'succeeded',
+            'diagnosis_status': 'success',
+            'autoware_status': 'PASS',
+            'manifest_sha256': record['evidence']['manifest_sha256'],
+        },
+        'evidence': {
+            'manifest': {
+                'filename': 'run_manifest.json',
+                'sha256': record['evidence']['manifest_sha256'],
+            },
+            'diagnosis': {
+                'filename': 'autoware_map_diagnosis.json',
+                'available': True,
+                'sha256': 'd' * 64,
+            },
+            'verify_log': {
+                'filename': 'verify_autoware_map.log',
+                'available': True,
+                'sha256': 'e' * 64,
+            },
+        },
+        'checks': [
+            {'id': f'check_{index}', 'passed': True, 'observed': 'pass'}
+            for index in range(7)
+        ],
+        'shareability': {
+            'contains_map_geometry': False,
+            'contains_private_paths': False,
+            'contains_exact_command': False,
+            'review_before_sharing': True,
+        },
+    }
+    payload = json.dumps(receipt, sort_keys=True).encode() + b'\n'
+    record['evidence']['receipt_sha256'] = hashlib.sha256(payload).hexdigest()
+    return payload
+
+
+def _evaluate_intrinsic(record: dict[str, object]) -> dict[str, object]:
+    return TRIAL.evaluate_trial(
+        record,
+        require_evidence_binding=False,
+    )
+
+
 def test_complete_pass_is_comparable():
-    report = TRIAL.evaluate_trial(_comparable_trial())
+    """Intrinsic completeness remains available to trusted probe callers."""
+    report = _evaluate_intrinsic(_comparable_trial())
 
     assert report == {
         'schema_version': 1,
@@ -119,12 +184,39 @@ def test_complete_pass_is_comparable():
     }
 
 
+def test_comparability_gate_requires_exact_validation_receipt_bytes():
+    """A public comparable claim requires the exact retained receipt."""
+    record = _comparable_trial()
+    unbound = TRIAL.evaluate_trial(
+        record,
+        require_evidence_binding=True,
+    )
+    assert unbound['comparability_blockers'] == [
+        'validation_receipt_unbound'
+    ]
+
+    receipt = _validation_receipt(record)
+    bound = TRIAL.evaluate_trial(
+        record,
+        validation_receipt_bytes=receipt,
+        require_evidence_binding=True,
+    )
+    assert bound['comparable'] is True
+
+    with pytest.raises(TRIAL.TrialError, match='SHA-256'):
+        TRIAL.evaluate_trial(
+            record,
+            validation_receipt_bytes=receipt + b' ',
+            require_evidence_binding=True,
+        )
+
+
 def test_missing_values_are_reported_without_fabricating_measurements():
     record = _comparable_trial()
     record['input']['download_bytes'] = None
     record['measurements']['active_operator_time_sec'] = None
 
-    report = TRIAL.evaluate_trial(record)
+    report = _evaluate_intrinsic(record)
 
     assert report['measurement_status'] == 'INCOMPLETE'
     assert report['comparable'] is False
@@ -149,7 +241,7 @@ def test_mutable_or_prepared_environment_is_not_comparable(
     record = _comparable_trial()
     record['environment'][field] = value
 
-    report = TRIAL.evaluate_trial(record)
+    report = _evaluate_intrinsic(record)
 
     assert report['comparable'] is False
     assert report['comparability_blockers'] == [blocker]
@@ -169,7 +261,11 @@ def test_mutable_or_prepared_environment_is_not_comparable(
             100.0,
             'active_operator_time_sec cannot exceed wall_time_sec',
         ),
-        ('output_bytes', 800000000, 'output_bytes cannot exceed peak_disk_bytes'),
+        (
+            'output_bytes',
+            800000000,
+            'output_bytes cannot exceed peak_disk_bytes',
+        ),
     ],
 )
 def test_impossible_measurements_fail_closed(field, value, message):
@@ -177,7 +273,7 @@ def test_impossible_measurements_fail_closed(field, value, message):
     record['measurements'][field] = value
 
     with pytest.raises(TRIAL.TrialError, match=message):
-        TRIAL.evaluate_trial(record)
+        _evaluate_intrinsic(record)
 
 
 def test_pass_requires_the_complete_success_contract():
@@ -186,7 +282,7 @@ def test_pass_requires_the_complete_success_contract():
     record['outcome']['undocumented_manual_steps'] = 1
 
     with pytest.raises(TRIAL.TrialError, match='runner_exit_code') as exc_info:
-        TRIAL.evaluate_trial(record)
+        _evaluate_intrinsic(record)
 
     assert 'undocumented_manual_steps' in str(exc_info.value)
 
@@ -207,7 +303,7 @@ def test_failed_trial_requires_actionable_classification(
     record['outcome']['finding_codes'] = finding_codes
 
     with pytest.raises(TRIAL.TrialError, match=message):
-        TRIAL.evaluate_trial(record)
+        _evaluate_intrinsic(record)
 
 
 def test_valid_failed_trial_is_retained_but_not_comparable():
@@ -224,7 +320,7 @@ def test_valid_failed_trial_is_retained_but_not_comparable():
     })
     record['evidence']['receipt_sha256'] = None
 
-    report = TRIAL.evaluate_trial(record)
+    report = _evaluate_intrinsic(record)
 
     assert report['outcome_status'] == 'FAIL'
     assert report['measurement_status'] == 'COMPLETE'
@@ -236,7 +332,7 @@ def test_evidence_hash_availability_must_match_outcome_status():
     record['evidence']['receipt_sha256'] = None
 
     with pytest.raises(TRIAL.TrialError, match='receipt status'):
-        TRIAL.evaluate_trial(record)
+        _evaluate_intrinsic(record)
 
 
 def test_schema_rejects_paths_and_fractional_byte_counts():
@@ -244,21 +340,30 @@ def test_schema_rejects_paths_and_fractional_byte_counts():
     record['input']['dataset_id'] = '/home/operator/private/demo'
 
     with pytest.raises(TRIAL.TrialError, match='schema failed'):
-        TRIAL.evaluate_trial(record)
+        _evaluate_intrinsic(record)
 
     record = _comparable_trial()
     record['measurements']['output_bytes'] = 1.5
     with pytest.raises(TRIAL.TrialError, match='schema failed'):
-        TRIAL.evaluate_trial(record)
+        _evaluate_intrinsic(record)
 
 
 def test_cli_distinguishes_comparable_incomplete_and_invalid_records(
     tmp_path, capsys,
 ):
+    record = _comparable_trial()
+    receipt = _validation_receipt(record)
     record_path = tmp_path / 'trial.json'
-    record_path.write_text(json.dumps(_comparable_trial()), encoding='utf-8')
+    record_path.write_text(json.dumps(record), encoding='utf-8')
+    receipt_path = tmp_path / 'first-map-validation-receipt.json'
+    receipt_path.write_bytes(receipt)
 
-    assert TRIAL.main([str(record_path), '--json', '--require-comparable']) == 0
+    assert TRIAL.main([
+        str(record_path),
+        '--validation-receipt', str(receipt_path),
+        '--json',
+        '--require-comparable',
+    ]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report['comparable'] is True
 

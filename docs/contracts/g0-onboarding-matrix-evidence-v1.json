@@ -7,19 +7,23 @@
   "rows": [
     {
       "row_id": "docker-humble",
-      "record_path": "docs/evidence/onboarding/g0-docker-humble-20260810-machine-a.json"
+      "record_path": "docs/evidence/onboarding/g0-docker-humble-20260810-machine-a.json",
+      "validation_receipt_path": null
     },
     {
       "row_id": "docker-jazzy",
-      "record_path": "docs/evidence/onboarding/g0-docker-jazzy-20260810-machine-a.json"
+      "record_path": "docs/evidence/onboarding/g0-docker-jazzy-20260810-machine-a.json",
+      "validation_receipt_path": null
     },
     {
       "row_id": "source-humble",
-      "record_path": "docs/evidence/onboarding/g0-source-humble-20260813-runtime-a.json"
+      "record_path": "docs/evidence/onboarding/g0-source-humble-20260813-runtime-a.json",
+      "validation_receipt_path": null
     },
     {
       "row_id": "source-jazzy",
-      "record_path": "docs/evidence/onboarding/g0-source-jazzy-20260813-runtime-a.json"
+      "record_path": "docs/evidence/onboarding/g0-source-jazzy-20260813-runtime-a.json",
+      "validation_receipt_path": null
     }
   ],
   "authority": {

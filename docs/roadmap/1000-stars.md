@@ -746,10 +746,13 @@ The matrix decision is now machine-checked rather than inferred from a table.
 The no-argument checker now loads an explicit schema-backed evidence index
 instead of falsely reporting zero rows when paths are omitted. Current tracked
 evidence reports `BLOCKED`: all four outcomes are present and all four are
-product PASS, but zero rows are comparable because human active time is still
-missing and the Docker/source product versions are not aligned. G0 cannot
-advance the activation gate until the rows share one product version and at
-least one clean Docker row plus one clean source row are comparable. The
+product PASS, but zero rows are comparable because human measurements are
+still missing, the historical rows do not retain their exact privacy-bounded
+first-map validation receipts, and the Docker/source product versions are not
+aligned. G0 cannot advance the activation gate until the rows share one
+product version and at least one clean Docker row plus one clean source row
+has both complete measurements and a SHA-bound, schema-valid retained receipt.
+The
 stricter target remains all four rows comparable. A source row is not valid
 until its exact revision is publicly resolvable, and a shortened-fixture row
 must bind the published ZIP checksum rather than a private local copy.

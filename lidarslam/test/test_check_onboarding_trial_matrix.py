@@ -120,12 +120,79 @@ def _trial(route: str, distro: str) -> dict[str, object]:
     }
 
 
+def _validation_receipt(record: dict[str, object]) -> bytes:
+    revision = record['environment']['revision']
+    git_commit = (
+        revision['value'] if revision['kind'] == 'git-commit' else None
+    )
+    receipt = {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/'
+            'schemas/first-map-validation-receipt-v1.schema.json'
+        ),
+        'status': 'PASS',
+        'run': {
+            'run_id': record['trial_id'],
+            'product_version': record['environment']['product_version'],
+            'git_commit': git_commit,
+            'profile_id': 'rko_lio_graph_mid360_preset',
+        },
+        'verification': {
+            'manifest_status': 'succeeded',
+            'diagnosis_status': 'success',
+            'autoware_status': 'PASS',
+            'manifest_sha256': record['evidence']['manifest_sha256'],
+        },
+        'evidence': {
+            'manifest': {
+                'filename': 'run_manifest.json',
+                'sha256': record['evidence']['manifest_sha256'],
+            },
+            'diagnosis': {
+                'filename': 'autoware_map_diagnosis.json',
+                'available': True,
+                'sha256': '1' * 64,
+            },
+            'verify_log': {
+                'filename': 'verify_autoware_map.log',
+                'available': True,
+                'sha256': '2' * 64,
+            },
+        },
+        'checks': [
+            {'id': f'check_{index}', 'passed': True, 'observed': 'pass'}
+            for index in range(7)
+        ],
+        'shareability': {
+            'contains_map_geometry': False,
+            'contains_private_paths': False,
+            'contains_exact_command': False,
+            'review_before_sharing': True,
+        },
+    }
+    payload = json.dumps(receipt, sort_keys=True).encode() + b'\n'
+    record['evidence']['receipt_sha256'] = hashlib.sha256(payload).hexdigest()
+    return payload
+
+
+def _bind(record: dict[str, object]) -> MATRIX.MatrixRecord:
+    payload = _validation_receipt(record)
+    if isinstance(record, MATRIX.MatrixRecord):
+        record.validation_receipt_bytes = payload
+        return record
+    return MATRIX.MatrixRecord(
+        record,
+        validation_receipt_bytes=payload,
+    )
+
+
 def _full_matrix() -> list[dict[str, object]]:
     return [
-        _trial('docker', 'humble'),
-        _trial('docker', 'jazzy'),
-        _trial('source', 'humble'),
-        _trial('source', 'jazzy'),
+        _bind(_trial('docker', 'humble')),
+        _bind(_trial('docker', 'jazzy')),
+        _bind(_trial('source', 'humble')),
+        _bind(_trial('source', 'jazzy')),
     ]
 
 
@@ -148,6 +215,8 @@ def _make_failed(record: dict[str, object], finding: str) -> None:
         'manifest_sha256': None,
         'receipt_sha256': None,
     })
+    if isinstance(record, MATRIX.MatrixRecord):
+        record.validation_receipt_bytes = None
 
 
 def test_all_four_comparable_rows_pass_both_matrix_gates():
@@ -168,6 +237,25 @@ def test_all_four_comparable_rows_pass_both_matrix_gates():
         'all_rows_comparable': True,
     }
     assert report['decision']['actions'] == []
+
+
+def test_unbound_or_changed_receipt_cannot_open_matrix_comparability():
+    """Missing or changed retained bytes keep the fixed matrix closed."""
+    records = _full_matrix()
+    records[0].validation_receipt_bytes = None
+
+    report = MATRIX.evaluate_matrix(records)
+
+    docker_humble = report['rows'][0]
+    assert docker_humble['comparable'] is False
+    assert docker_humble['comparability_blockers'] == [
+        'validation_receipt_unbound'
+    ]
+
+    records = _full_matrix()
+    records[0].validation_receipt_bytes += b' '
+    with pytest.raises(MATRIX.MatrixError, match='SHA-256'):
+        MATRIX.evaluate_matrix(records)
 
 
 def test_partial_matrix_names_missing_rows_without_inferring_success():
@@ -216,17 +304,31 @@ def test_evidence_index_applies_sha_bound_measurement_supplement(tmp_path):
     evidence_dir.mkdir(parents=True)
     records = _full_matrix()
     record_paths = []
+    receipt_paths = []
     for record in records:
         filename = f"{record['trial_id']}.json"
         path = evidence_dir / filename
-        raw = json.dumps(record, indent=2, sort_keys=True).encode('utf-8') + b'\n'
+        raw = (
+            json.dumps(record, indent=2, sort_keys=True).encode('utf-8')
+            + b'\n'
+        )
         path.write_bytes(raw)
         record_paths.append(f'docs/evidence/onboarding/{filename}')
+        receipt_filename = f"{record['trial_id']}.receipt.json"
+        (evidence_dir / receipt_filename).write_bytes(
+            record.validation_receipt_bytes
+        )
+        receipt_paths.append(
+            f'docs/evidence/onboarding/{receipt_filename}'
+        )
 
     source_humble = records[2]
     source_humble['measurements']['active_operator_time_sec'] = None
     source_humble['measurements']['command_count'] = None
-    raw = json.dumps(source_humble, indent=2, sort_keys=True).encode('utf-8') + b'\n'
+    raw = (
+        json.dumps(source_humble, indent=2, sort_keys=True).encode('utf-8')
+        + b'\n'
+    )
     (evidence_dir / f"{source_humble['trial_id']}.json").write_bytes(raw)
     supplement = {
         'schema_version': 1,
@@ -269,8 +371,13 @@ def test_evidence_index_applies_sha_bound_measurement_supplement(tmp_path):
     )
 
     index = _evidence_index()
-    for row, record_path in zip(index['rows'], record_paths):
+    for row, record_path, receipt_path in zip(
+        index['rows'],
+        record_paths,
+        receipt_paths,
+    ):
         row['record_path'] = record_path
+        row['validation_receipt_path'] = receipt_path
     index['rows'][2]['measurement_supplement_path'] = (
         'docs/evidence/onboarding/source-humble.measurements.json'
     )
@@ -384,6 +491,7 @@ def test_mixed_product_or_source_identity_fails_closed():
     """Mixed product versions stay visible but cannot pass comparison gates."""
     mixed_version = _full_matrix()
     mixed_version[3]['environment']['product_version'] = '0.9.1'
+    _bind(mixed_version[3])
     report = MATRIX.evaluate_matrix(mixed_version)
     assert report['decision']['status'] == 'BLOCKED'
     assert report['summary']['product_version_aligned'] is False
@@ -396,6 +504,7 @@ def test_mixed_product_or_source_identity_fails_closed():
 
     mixed_source = _full_matrix()
     mixed_source[3]['environment']['revision']['value'] = 'f' * 40
+    _bind(mixed_source[3])
     with pytest.raises(MATRIX.MatrixError, match='source rows disagree'):
         MATRIX.evaluate_matrix(mixed_source)
 

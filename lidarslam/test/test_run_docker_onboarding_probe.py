@@ -159,6 +159,20 @@ def test_pass_artifacts_are_read_from_final_run(tmp_path):
     assert len(artifact['receipt_sha256']) == 64
 
 
+def test_validated_receipt_is_retained_byte_for_byte_exclusively(tmp_path):
+    """The Docker probe copies a reviewed PASS receipt without rewriting."""
+    run_dir = tmp_path / 'private' / 'output' / 'mid360_demo'
+    _write_pass_artifacts(run_dir)
+    artifact = PROBE._artifact_state(tmp_path / 'private')
+    output = tmp_path / 'bounded' / 'first-map-validation-receipt.json'
+
+    PROBE._retain_validation_receipt(artifact, output)
+
+    assert output.read_bytes() == artifact['receipt_path'].read_bytes()
+    with pytest.raises(PROBE.ProbeError, match='refusing to overwrite'):
+        PROBE._retain_validation_receipt(artifact, output)
+
+
 def test_active_time_is_observed_or_explicitly_unknown(monkeypatch):
     """Active time is separately observed or represented as unknown."""
     answers = iter(('bad', '25', '4.5'))
