@@ -11,6 +11,42 @@ removes the private playback view automatically after the run. This is
 Applanix cross-validation, not independent ground truth, a GLIM execution, or
 release authority.
 
+## Current product-Draft rerun carrier — 2026-08-17
+
+The clean public Draft carrier
+`4163b8c6f0ebb63504a0de398d9654333bf3919e` was rerun against the same
+byte-identified compressed input before this evidence synchronization. The
+36.513-second bag completed in 79.37 seconds of wall time with 89,012 KiB
+maximum resident memory. The schema-valid output records:
+
+| Measurement | Result |
+| --- | ---: |
+| aligned Applanix cross-validation APE RMSE | 0.1391520544 m |
+| release-profile pass threshold | 1.500 m |
+| release-profile target | 0.500 m |
+| profile status | `TARGET_MET` |
+| matched poses | 571 |
+| raw trajectory APE RMSE | 0.2697120408 m |
+| lidarslam real-time factor | 1.568992 |
+
+The exact carrier output identities are:
+
+- `metrics.json` SHA-256:
+  `76d6465729a7c48a46919d2b1029996393be6d0e615a893fee28440637963627`;
+- `map.pcd` SHA-256:
+  `cf54234f0a75b341ea03c0e079559db281510a03e4251ebc9c25780063d2b3ab`;
+- generated reference TUM SHA-256:
+  `98ea2825378036b2bad838cdff921540bcd4abd050f33b80ba35c5b9db4dba26`;
+- map verification: 8 PASS / 1 informational WARN / 0 FAIL.
+
+The output provenance names that exact Git commit, records a clean worktree,
+and retains all input, parameter, harness, writer, and runtime-artifact
+identities. The source-side uncompressed DB3 remained absent, the isolated
+2,506,907,648-byte playback view was removed on exit, and the hard profile
+gate reduced from five to four blocking `NO_DATA` rows. Because this Markdown
+update creates a later docs-only commit, the later exact candidate must rerun
+the benchmark; this carrier must not be relabeled as that later head.
+
 ## Exact input identity
 
 The local Leo Drive `all-sensors-bag1` input retained these identities before
