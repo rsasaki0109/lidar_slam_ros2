@@ -301,6 +301,15 @@ work and document the actual support boundary instead of hiding the delay.
   candidate. The docs-home primary action now points to this canonical page and
   labels the older viewer/dogfood quickstart as advanced compatibility. This is
   a local documentation repair, not a release or onboarding measurement.
+- The v0.9.1 release handoff now records its reviewed implementation carrier
+  and complete 2,464-test result instead of the stale 2,432-test snapshot, and
+  names all five exact-head blocking `NO_DATA` profiles. The maintainer
+  checklist runs the complete product suite, strict docs, and canonical fixed
+  demo rather than treating the older Autoware dogfood route as first-map
+  evidence. Because the notes file becomes the public release body verbatim,
+  the tag workflow now stops before image publication when the candidate-only
+  banner or `Release decision: HOLD` remains. This makes the current HOLD
+  explicit and fail-closed; it does not authorize or perform a release.
 - The next release pipeline now turns that repo-independent script into a
   direct attested `lidarslam-map-docker` asset. Its exact tag and source commit
   are embedded deterministically, its default image is the matching immutable

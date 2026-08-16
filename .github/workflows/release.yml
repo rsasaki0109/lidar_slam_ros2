@@ -80,6 +80,22 @@ jobs:
             echo "release notes not found: ${RELEASE_NOTES}" >&2
             exit 1
           fi
+          # RELEASE_NOTES_PUBLICATION_GUARD_BEGIN
+          if grep -Fq -- \
+            '> **Release candidate status — HOLD; not published or tagged**' \
+            "${RELEASE_NOTES}"; then
+            echo "release notes still contain the candidate-only status" >&2
+            exit 1
+          fi
+          if grep -Fq -- '## Release decision: HOLD' "${RELEASE_NOTES}"; then
+            echo "release notes still contain a HOLD decision" >&2
+            exit 1
+          fi
+          if ! grep -Fq -- '## Release verification' "${RELEASE_NOTES}"; then
+            echo "release notes lack the final verification section" >&2
+            exit 1
+          fi
+          # RELEASE_NOTES_PUBLICATION_GUARD_END
 
           BUNDLE_NAME="lidarslam_ros2_${TAG_NAME}_release_bundle.tar.gz"
           TAG_COMMIT="$(git rev-parse --verify "${TAG_REF}^{commit}")"

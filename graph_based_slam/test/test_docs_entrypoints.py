@@ -692,7 +692,7 @@ def test_generated_output_artifacts_are_local_only():
     assert 'latest_report.html' in benchmarking_doc
 
 
-def test_release_metadata_and_core_package_versions_match():
+def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
     """Release metadata should stay aligned with core package versions."""
     version = VERSION_PATH.read_text(encoding='utf-8').strip()
     changelog = CHANGELOG_PATH.read_text(encoding='utf-8')
@@ -716,7 +716,103 @@ def test_release_metadata_and_core_package_versions_match():
     assert 'git tag "v${VERSION}"' in releasing
     assert 'scripts/check_v1_readiness.py --json' in releasing
     assert 'scripts/check_v1_readiness.py --require-complete' in releasing
+    pre_release = releasing.split('## Pre-Release Checklist', 1)[1].split(
+        '## Automated Publication', 1
+    )[0]
+    for command in (
+        './scripts/run_product_python_tests.sh',
+        'python3 -m mkdocs build --strict',
+        'lidarslam-map doctor',
+        'lidarslam-map demo "${DEMO_WORK_DIR}" --viewer none',
+    ):
+        assert command in pre_release
+    assert 'bash scripts/run_autoware_quickstart.sh' not in pre_release
+    assert '`docs/autoware-map-authoring.md`' in pre_release
     assert 'Autoware-compatible' in release_notes
+    candidate_banner = (
+        'Release candidate status — HOLD; not published or tagged'
+    )
+    if candidate_banner in release_notes:
+        assert '## Release decision: HOLD' in release_notes
+        assert '2,464 passed / 13 skipped' in release_notes
+        assert '8ca236dfaedd44524012dc431fbcc95ac3262f0c' in (
+            release_notes
+        )
+    else:
+        assert '## Release decision: HOLD' not in release_notes
+        assert 'not published or tagged' not in release_notes
+        assert '## Release verification' in release_notes
+    assert '2,432 passed / 13 skipped' not in release_notes
+    assert 'run_product_python_tests.sh' in release_notes
+    assert 'run_release_readiness_checks.sh' in release_notes
+    for profile in (
+        'newer_college_math_hard',
+        'ntu_viral_tnp_01',
+        'mid360_gt_rtkslam_construction_seq2',
+        'mid360_gt_rtkslam_construction_seq1',
+        'leo_drive_applanix_velodyne_cross',
+    ):
+        assert profile in release_notes
+    for command in (
+        'lidarslam-map doctor',
+        'lidarslam-map demo',
+        'lidarslam-map start /path/to/rosbag2',
+    ):
+        assert command in release_notes
+    assert 'release notes still contain the candidate-only status' in (
+        release_workflow
+    )
+    assert 'release notes still contain a HOLD decision' in release_workflow
+    assert 'release notes lack the final verification section' in (
+        release_workflow
+    )
+    guard = release_workflow.split(
+        '# RELEASE_NOTES_PUBLICATION_GUARD_BEGIN', 1
+    )[1].split('# RELEASE_NOTES_PUBLICATION_GUARD_END', 1)[0]
+    guard = '\n'.join(
+        line[10:] if line.startswith('          ') else line
+        for line in guard.splitlines()
+    )
+
+    def run_release_notes_guard(notes: str) -> subprocess.CompletedProcess:
+        notes_path = tmp_path / f'release-notes-{len(notes)}.md'
+        notes_path.write_text(notes, encoding='utf-8')
+        return subprocess.run(
+            [
+                'bash',
+                '-eu',
+                '-o',
+                'pipefail',
+                '-c',
+                'RELEASE_NOTES="$1"\n' + guard,
+                'release-notes-guard',
+                str(notes_path),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    candidate_guard = run_release_notes_guard(
+        '> **Release candidate status — HOLD; not published or tagged**\n'
+        '## Release decision: HOLD\n'
+    )
+    assert candidate_guard.returncode == 1
+    assert 'candidate-only status' in candidate_guard.stderr
+
+    missing_verification_guard = run_release_notes_guard(
+        '# lidarslam_ros2 v0.9.1\n'
+    )
+    assert missing_verification_guard.returncode == 1
+    assert 'lack the final verification section' in (
+        missing_verification_guard.stderr
+    )
+
+    final_guard = run_release_notes_guard(
+        '# lidarslam_ros2 v0.9.1\n\n## Release verification\n'
+    )
+    assert final_guard.returncode == 0
+    assert final_guard.stderr == ''
     assert 'action-gh-release@v2' in release_workflow
     assert 'docker/setup-buildx-action@v4' in release_workflow
     assert 'docker/login-action@v4' in release_workflow
