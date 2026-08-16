@@ -3,6 +3,9 @@
 > Decision: **LOCAL_CONTRACT_PASS / PUBLIC_DEPLOYMENT_PENDING**
 >
 > Public writes performed by this audit: **none**
+>
+> Fail-closed artifact implementation tip:
+> `5b8c8c477cceb4955184a64afa874712b9dea5aa`
 
 ## Why this gate exists
 
@@ -13,12 +16,12 @@ revision. A first-time operator could therefore receive instructions that do
 not match the runtime being measured.
 
 The live read-only audit on 2026-08-16 confirmed this is a real boundary, not a
-hypothetical one. Draft PR #427 resolves at exact head
-`0c673878697eb120b3b4d9387e9b72c17df80b9e`, but the deployed page does not yet
+hypothetical one. The captured public Draft PR #427 head was
+`ac22a3ff1e49c1dae3fcde47f52ae8bf8ccdb1eb`, while `develop` remained at
+`86fa9b610c07ccf4d2b0f10939e17c129d34b40a`; the deployed site does not yet
 publish `docs-deployment-v1.json`. The exact audit returned `BLOCKED` with
-`manifest-unavailable` and HTTP 404. The public page also still presents the
-older build/run route rather than the candidate's one-command source
-quickstart. No cohort route is promoted from that evidence.
+`manifest-unavailable` and HTTP 404. No cohort route is promoted from that
+evidence.
 
 ## Product and workflow contract
 
@@ -38,7 +41,12 @@ deploy an artifact that falsely claims the trusted deployment identity.
 
 Generation fails if the rendered page is empty, oversized, non-UTF-8,
 symlinked, or lacks either canonical fragment. An existing manifest is never
-overwritten inside the artifact.
+overwritten inside the artifact. Before exclusive creation, the generator now
+validates the complete payload against the checked-in Draft 7 schema. The
+workflow installs `jsonschema` explicitly, reruns when the shared schema
+validator changes, and retains a final JSON parse check. Schema/output drift
+therefore stops before the Pages artifact is uploaded rather than being found
+only after deployment.
 
 `check_public_docs_deployment.py` performs only bounded HTTPS GETs. It validates
 the public manifest against its Draft 7 schema, requires the fixed route
@@ -66,17 +74,18 @@ python3 -m pytest -q \
   lidarslam/test/test_check_g0_readiness.py
 
 python3 scripts/check_public_docs_deployment.py \
-  --expected-revision 0c673878697eb120b3b4d9387e9b72c17df80b9e \
+  --expected-revision ac22a3ff1e49c1dae3fcde47f52ae8bf8ccdb1eb \
   --expected-product-version 0.9.1 \
   --route source-quickstart \
   --json
 ```
 
-The focused deployment regressions cover exact identity, schema validation,
-missing route fragments, symlink rejection, exclusive manifest creation,
-revision/version drift, page tampering, route-pair drift, and unavailable
-public evidence. The live command currently exits 1 with `BLOCKED`, as required
-until a reviewed `develop` deployment exposes matching provenance.
+The nine focused deployment regressions cover exact identity, pre-write schema
+validation, missing route fragments, symlink rejection, exclusive manifest
+creation, revision/version drift, page tampering, route-pair drift, and
+unavailable public evidence. The live command currently exits 1 with
+`BLOCKED`, as required until a reviewed `develop` deployment exposes matching
+provenance.
 
 ## Honest boundary
 

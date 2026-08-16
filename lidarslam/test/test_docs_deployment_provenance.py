@@ -144,7 +144,10 @@ def test_generator_rejects_missing_route_and_existing_manifest(tmp_path: Path):
     assert json.loads(output.read_text(encoding='utf-8')) == manifest
 
 
-def test_generator_rejects_schema_invalid_manifest_before_write(tmp_path: Path):
+def test_generator_rejects_schema_invalid_manifest_before_write(
+    tmp_path: Path,
+):
+    """Invalid manifest bytes never enter the Pages artifact."""
     generator, manifest, _ = _manifest(tmp_path)
     invalid_root = tmp_path / 'invalid'
     invalid_root.mkdir()

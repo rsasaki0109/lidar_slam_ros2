@@ -14,7 +14,7 @@
 > `46dac06d39c8b793179a3f11f87b26f7a5f4b2bd3cba4df70622683177ca5494`
 >
 > Exact current public Draft head:
-> `03bc160c34cf6f8391f69d7026039a42422d1b80`
+> `ac22a3ff1e49c1dae3fcde47f52ae8bf8ccdb1eb`
 >
 > Exact actionable release-evidence implementation tip:
 > `45cfdcb1c10756d1c33068fcd9594f612bf6ccca`
@@ -28,8 +28,11 @@
 > Exact copy-ready low-storage recovery implementation tip:
 > `d01652080485bc68354f354043e4b2e732439223`
 >
-> Last observed remote mutation: exact non-force push from `18d191c` to
-> `03bc160`; mutations performed by the checker or review-card command:
+> Exact fail-closed docs artifact implementation tip:
+> `5b8c8c477cceb4955184a64afa874712b9dea5aa`
+>
+> Last observed remote mutation: exact non-force push from `03bc160` to
+> `ac22a3f`; mutations performed by the checker or review-card command:
 > **none**
 
 ## Outcome
@@ -54,7 +57,7 @@ The GitHub repository and PR were inspected without mutation:
 
 - Draft PR `#427`, `Prepare crash-safe guided mapping for G0 review`, remains
   open, draft, and mergeable into `develop`;
-- the current public PR head resolves to `03bc160` and exposes 339 changed
+- the captured public PR head resolves to `ac22a3f` and exposes 340 changed
   files;
 - ten GitHub Actions checks pass on that exact head and four publication jobs
   skip intentionally, including green Humble/Jazzy builds, default workflows,
@@ -62,12 +65,13 @@ The GitHub repository and PR were inspected without mutation:
 - no PR conversation, inline review, or submitted review was present at the
   observation time.
 
-Passing checks on `03bc160` validate the complete public Draft candidate,
+Passing checks on `ac22a3f` validate the complete public Draft candidate,
 including the published-onboarding identity, atomic paired recorder, evidence
 sync, ament import-order follow-up, actionable empty-release-evidence report,
-the GET-only contributor next-action card, and copy-ready low-storage recovery.
-The dependency gate at `76be895` is the next local code-bearing increment and
-requires its own public CI after publication.
+the GET-only contributor next-action card, dependency-gated #422 handling, and
+copy-ready low-storage recovery. The fail-closed pre-upload docs artifact gate
+at `5b8c8c4` is the next local code-bearing increment and requires its own
+public CI after publication.
 
 ## Review order
 
@@ -142,9 +146,9 @@ cannot bypass live Git coverage.
 | weekly growth snapshot | 14 passed; new snapshots re-derive cohort count/rate/state consistency while the immutable historical baseline remains schema-valid and identity-free |
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
-| public documentation deployment provenance | 8 focused regressions pass; strict MkDocs produces a deterministic manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
-| clean candidate release bundle | exact-head reproducibility rehearsal passes in public CI at `03bc160`; the retained exact bundle contains 252 files with SHA-256 `1c1d7e97e53e9259308b1512b98c99f9db907e94c327394fab939e99dfc02e15`; all three scorecard preparation/recording tools are manifest-bound |
-| complete maintained Python gate | local `76be895`: graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 998 passed; 2,440 total; registered CTest remains 93 / 93 plus graph CTest 232 / 232 |
+| public documentation deployment provenance | 9 focused regressions pass; strict MkDocs produces a deterministic, pre-write schema-valid manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
+| clean candidate release bundle | exact-head reproducibility rehearsal passes at public `ac22a3f`; the retained exact bundle contains 253 files with SHA-256 `49b429bf11008c0a7be071af0e1be2e1d8fbe4fc3a216f2804b8707a01508e88`; all three scorecard preparation/recording tools are manifest-bound |
+| complete maintained Python gate | public `ac22a3f`: graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 998 passed; 2,440 total; registered CTest remains 93 / 93 plus graph CTest 232 / 232; local `5b8c8c4` adds 72 passing focused docs/cohort/G0 regressions |
 | paired scorecard recorder | 7 direct regressions, 20 recorder/checker regressions, and registered CTest 6 / 6 pass; incomplete observations remain non-comparable and atomic output/privacy boundaries fail closed |
 | empty release-evidence UX | 29 release-profile regressions cover direct and wrapper-level empty-root behavior; the exact-head gate retains Markdown/CSV/log evidence, reports five blocking rows plus their remediations, and exits 2 without weakening release authority |
 | GLIM reference-cache integrity | 10 focused regressions passed; registered CTest 1 / 1; missing lookup remains read-only; exact content, manifest, malformed-TUM, tamper, collision, shell, and bundle boundaries pass |
