@@ -269,7 +269,12 @@
           "type": "array",
           "maxItems": 5,
           "uniqueItems": true,
-          "items": {"const": "issue-69-public-draft"}
+          "items": {
+            "enum": [
+              "issue-69-public-draft",
+              "issue-69-stable-release-absence"
+            ]
+          }
         },
         "dependency_ids": {
           "type": "array",
@@ -328,6 +333,28 @@
       }
     },
     "linkedCheckResult": {
+      "oneOf": [
+        {"$ref": "#/definitions/productDraftCheckResult"},
+        {"$ref": "#/definitions/stableReleaseAbsenceCheckResult"}
+      ]
+    },
+    "linkedCheckAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "network_reads_performed",
+        "github_writes_authorized",
+        "merge_authorized",
+        "remote_mutations_performed"
+      ],
+      "properties": {
+        "network_reads_performed": {"const": true},
+        "github_writes_authorized": {"const": false},
+        "merge_authorized": {"const": false},
+        "remote_mutations_performed": {"const": false}
+      }
+    },
+    "productDraftCheckResult": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -360,22 +387,45 @@
         "pending_check_count": {"const": 0},
         "failing_check_count": {"const": 0},
         "required_checks_complete": {"const": true},
-        "authority": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "network_reads_performed",
-            "github_writes_authorized",
-            "merge_authorized",
-            "remote_mutations_performed"
-          ],
-          "properties": {
-            "network_reads_performed": {"const": true},
-            "github_writes_authorized": {"const": false},
-            "merge_authorized": {"const": false},
-            "remote_mutations_performed": {"const": false}
-          }
-        }
+        "authority": {"$ref": "#/definitions/linkedCheckAuthority"}
+      }
+    },
+    "stableReleaseAbsenceCheckResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "issue_number",
+        "kind",
+        "status",
+        "fix_commit",
+        "latest_stable_tag",
+        "latest_stable_commit",
+        "latest_stable_relation",
+        "latest_stable_behind_by",
+        "candidate_tag",
+        "candidate_tag_present",
+        "candidate_release_present",
+        "authority"
+      ],
+      "properties": {
+        "id": {"const": "issue-69-stable-release-absence"},
+        "issue_number": {"const": 69},
+        "kind": {"const": "stable-release-absence"},
+        "status": {"const": "PASS"},
+        "fix_commit": {
+          "const": "a2368c486fc35c0edcac6d9dbf2f9cb89475c820"
+        },
+        "latest_stable_tag": {"const": "v0.9.0"},
+        "latest_stable_commit": {
+          "const": "0df0c4a86df9f68a894c83f8342e4107c3d23b0f"
+        },
+        "latest_stable_relation": {"const": "behind"},
+        "latest_stable_behind_by": {"const": 52},
+        "candidate_tag": {"const": "v0.9.1"},
+        "candidate_tag_present": {"const": false},
+        "candidate_release_present": {"const": false},
+        "authority": {"$ref": "#/definitions/linkedCheckAuthority"}
       }
     },
     "action": {

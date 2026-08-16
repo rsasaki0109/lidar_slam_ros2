@@ -95,7 +95,10 @@ The P1 #69 card is synchronized to the public Draft and supported CI as of
 keeps the unavailable historical bag and missing carrying release explicit.
 Its live mode now source-binds that dated statement to PR #427 head
 `4b2ab514`, open/Draft/mergeable state, 10 successful checks, 4 intentional
-skips, and zero pending or failing checks; any drift produces no review packet.
+skips, and zero pending or failing checks. A second GET-only claim binds latest
+stable `v0.9.0` to commit `0df0c4a`, 52 commits behind fix `a2368c4`, and
+requires both the `v0.9.1` tag and release to remain absent. Any Draft, CI,
+stable ancestry, or candidate-publication drift produces no review packet.
 
 The current
 [G0 clean-candidate audit](evidence/growth/g0-clean-candidate-audit-2026-08-11.md)

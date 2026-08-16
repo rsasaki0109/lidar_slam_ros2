@@ -128,6 +128,12 @@
       ]
     },
     "linkedClaim": {
+      "oneOf": [
+        {"$ref": "#/definitions/productDraftClaim"},
+        {"$ref": "#/definitions/stableReleaseAbsenceClaim"}
+      ]
+    },
+    "productDraftClaim": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -164,6 +170,40 @@
         "expected_pending_check_count": {"const": 0},
         "expected_failing_check_count": {"const": 0},
         "expected_required_checks_complete": {"const": true}
+      }
+    },
+    "stableReleaseAbsenceClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "repository",
+        "fix_commit_sha",
+        "expected_latest_stable_tag",
+        "expected_latest_stable_commit",
+        "expected_latest_stable_relation",
+        "expected_latest_stable_behind_by",
+        "expected_candidate_tag",
+        "expected_candidate_tag_present",
+        "expected_candidate_release_present"
+      ],
+      "properties": {
+        "id": {"const": "issue-69-stable-release-absence"},
+        "kind": {"const": "stable-release-absence"},
+        "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+        "fix_commit_sha": {
+          "const": "a2368c486fc35c0edcac6d9dbf2f9cb89475c820"
+        },
+        "expected_latest_stable_tag": {"const": "v0.9.0"},
+        "expected_latest_stable_commit": {
+          "const": "0df0c4a86df9f68a894c83f8342e4107c3d23b0f"
+        },
+        "expected_latest_stable_relation": {"const": "behind"},
+        "expected_latest_stable_behind_by": {"const": 52},
+        "expected_candidate_tag": {"const": "v0.9.1"},
+        "expected_candidate_tag_present": {"const": false},
+        "expected_candidate_release_present": {"const": false}
       }
     },
     "themeCounts": {
@@ -228,7 +268,7 @@
           "then": {
             "required": ["linked_claims"],
             "properties": {
-              "linked_claims": {"minItems": 1, "maxItems": 1}
+              "linked_claims": {"minItems": 2, "maxItems": 2}
             }
           },
           "else": {

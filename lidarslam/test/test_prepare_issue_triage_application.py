@@ -60,6 +60,8 @@ PACKET_SCHEMA_PATH = (
     / 'issue-triage-application-packet-v1.schema.json'
 )
 PUBLIC_DRAFT_HEAD = '4b2ab514a4f33b443e2c4283b3114d11a5e44e49'
+FIX_COMMIT = 'a2368c486fc35c0edcac6d9dbf2f9cb89475c820'
+LATEST_STABLE_COMMIT = '0df0c4a86df9f68a894c83f8342e4107c3d23b0f'
 SPEC = importlib.util.spec_from_file_location(
     'prepare_issue_triage_application',
     SCRIPT,
@@ -152,8 +154,8 @@ def _product_draft_audit() -> dict:
     }
 
 
-def _linked_result() -> dict:
-    """Return the privacy-bounded packet form of the linked audit."""
+def _draft_result() -> dict:
+    """Return the privacy-bounded packet form of the Draft audit."""
     observed = _product_draft_audit()
     return {
         'id': 'issue-69-public-draft',
@@ -171,6 +173,61 @@ def _linked_result() -> dict:
         'required_checks_complete': observed['required_checks_complete'],
         'authority': observed['authority'],
     }
+
+
+def _release_responses() -> dict[str, tuple[int, dict]]:
+    """Return exact API-shaped stable-release and candidate-tag reads."""
+    repository = 'rsasaki0109/lidar_slam_ros2'
+    return {
+        f'repos/{repository}/releases/latest': (200, {
+            'tag_name': 'v0.9.0',
+            'draft': False,
+            'prerelease': False,
+            'html_url': (
+                f'https://github.com/{repository}/releases/tag/v0.9.0'
+            ),
+        }),
+        f'repos/{repository}/commits/v0.9.0': (200, {
+            'sha': LATEST_STABLE_COMMIT,
+        }),
+        f'repos/{repository}/compare/{FIX_COMMIT}...v0.9.0': (200, {
+            'status': 'behind',
+            'ahead_by': 0,
+            'behind_by': 52,
+            'total_commits': 0,
+            'merge_base_commit': {'sha': LATEST_STABLE_COMMIT},
+        }),
+        f'repos/{repository}/git/ref/tags/v0.9.1': (404, {
+            'message': 'Not Found',
+        }),
+        f'repos/{repository}/releases/tags/v0.9.1': (404, {
+            'message': 'Not Found',
+        }),
+    }
+
+
+def _release_result() -> dict:
+    """Return the privacy-bounded packet form of the release audit."""
+    return {
+        'id': 'issue-69-stable-release-absence',
+        'issue_number': 69,
+        'kind': 'stable-release-absence',
+        'status': 'PASS',
+        'fix_commit': FIX_COMMIT,
+        'latest_stable_tag': 'v0.9.0',
+        'latest_stable_commit': LATEST_STABLE_COMMIT,
+        'latest_stable_relation': 'behind',
+        'latest_stable_behind_by': 52,
+        'candidate_tag': 'v0.9.1',
+        'candidate_tag_present': False,
+        'candidate_release_present': False,
+        'authority': dict(APPLICATION.LINKED_CHECK_AUTHORITY),
+    }
+
+
+def _linked_results() -> list[dict]:
+    """Return both source-ordered linked results for issue #69."""
+    return [_draft_result(), _release_result()]
 
 
 def test_complete_packet_is_schema_valid_ordered_and_unauthorized():
@@ -193,7 +250,7 @@ def test_complete_packet_is_schema_valid_ordered_and_unauthorized():
     assert packet['linked_check'] == {
         'performed': False,
         'status': 'NOT_RUN',
-        'claim_count': 1,
+        'claim_count': 2,
         'results': [],
     }
     assert [item['issue_number'] for item in packet['actions'][:6]] == [
@@ -226,6 +283,7 @@ def test_issue_69_is_a_reviewed_keep_open_help_request():
     }
     assert action['prerequisites']['linked_claim_ids'] == [
         'issue-69-public-draft',
+        'issue-69-stable-release-absence',
     ]
     assert len(action['evidence']) == 6
     assert all(
@@ -238,7 +296,9 @@ def test_issue_69_is_a_reviewed_keep_open_help_request():
     assert 'privacy-safe synthetic points' in response
     assert 'public Draft PR #427' in response
     assert 'passes Humble and Jazzy CI' in response
-    assert 'No named release contains the fix yet' in response
+    assert 'No named stable release contains this reviewed fix commit yet' in (
+        response
+    )
     assert '`vg_size_for_map`' in response
     assert '`vg_size_for_input`' in response
     assert 'only a workaround' in response
@@ -344,6 +404,20 @@ def test_packet_retains_no_raw_github_content_or_identity():
     assert '"author"' not in serialized
     assert '"comments"' not in serialized
 
+    live_packet = _packet(
+        issue_number=69,
+        live_status='PASS',
+        linked_results=_linked_results(),
+    )
+    linked_serialized = json.dumps(
+        live_packet['linked_check'],
+        sort_keys=True,
+    )
+    assert 'tag_name' not in linked_serialized
+    assert 'html_url' not in linked_serialized
+    assert 'merge_base_commit' not in linked_serialized
+    assert 'message' not in linked_serialized
+
 
 @pytest.mark.parametrize(
     ('mutate', 'message'),
@@ -431,6 +505,8 @@ def test_live_main_uses_get_only_snapshot_and_emits_pass(monkeypatch, capsys):
     live_issues, live_labels = _live_snapshot(proposal)
     issue_calls = []
     draft_calls = []
+    release_calls = []
+    release_responses = _release_responses()
 
     def fake_fetch(repository):
         issue_calls.append(repository)
@@ -439,6 +515,10 @@ def test_live_main_uses_get_only_snapshot_and_emits_pass(monkeypatch, capsys):
     def fake_draft_audit(*, local_head):
         draft_calls.append(local_head)
         return _product_draft_audit()
+
+    def fake_github_json(path):
+        release_calls.append(path)
+        return release_responses[path]
 
     monkeypatch.setattr(
         APPLICATION.PROPOSAL_CHECKER,
@@ -450,17 +530,23 @@ def test_live_main_uses_get_only_snapshot_and_emits_pass(monkeypatch, capsys):
         'audit_product_draft',
         fake_draft_audit,
     )
+    monkeypatch.setattr(
+        APPLICATION.G0_READINESS,
+        '_github_json',
+        fake_github_json,
+    )
 
     assert APPLICATION.main(['--live', '--issue', '69', '--json']) == 0
     packet = json.loads(capsys.readouterr().out)
     assert issue_calls == ['rsasaki0109/lidar_slam_ros2']
     assert draft_calls == [PUBLIC_DRAFT_HEAD]
+    assert release_calls == list(release_responses)
     assert packet['live_check'] == {'performed': True, 'status': 'PASS'}
     assert packet['linked_check'] == {
         'performed': True,
         'status': 'PASS',
-        'claim_count': 1,
-        'results': [_linked_result()],
+        'claim_count': 2,
+        'results': _linked_results(),
     }
     assert packet['authority']['github_requests'] == 'GET_ONLY'
     assert packet['authority']['remote_mutations_performed'] is False
@@ -498,6 +584,69 @@ def test_linked_draft_claim_drift_fails_closed(field, drifted_value):
         )
 
 
+@pytest.mark.parametrize(
+    ('response_key', 'payload_key', 'drifted_value', 'message'),
+    [
+        ('latest', 'tag_name', 'v0.9.1', 'latest_tag'),
+        ('stable_commit', 'sha', '1' * 40, 'stable_commit'),
+        ('relation', 'behind_by', 51, 'behind_by'),
+        ('candidate_tag', None, 200, 'candidate_tag_http_status'),
+        (
+            'candidate_release',
+            None,
+            200,
+            'candidate_release_http_status',
+        ),
+    ],
+)
+def test_linked_stable_release_drift_fails_closed(
+    response_key,
+    payload_key,
+    drifted_value,
+    message,
+):
+    """A new release or changed stable ancestry invalidates the response."""
+    responses = _release_responses()
+    path = next(
+        item for item in responses
+        if (
+            response_key == 'latest' and item.endswith('/releases/latest')
+        ) or (
+            response_key == 'stable_commit'
+            and item.endswith('/commits/v0.9.0')
+        ) or (
+            response_key == 'relation' and '/compare/' in item
+        ) or (
+            response_key == 'candidate_tag' and '/git/ref/tags/' in item
+        ) or (
+            response_key == 'candidate_release'
+            and item.endswith('/releases/tags/v0.9.1')
+        )
+    )
+    status, payload = responses[path]
+    if payload_key is None:
+        responses[path] = (drifted_value, payload)
+    else:
+        payload[payload_key] = drifted_value
+        responses[path] = (status, payload)
+
+    with pytest.raises(
+        APPLICATION.ApplicationPacketError,
+        match=(
+            'linked claim issue-69-stable-release-absence drifted: '
+            f'{message}'
+        ),
+    ):
+        APPLICATION._verify_linked_claims(
+            [
+                issue for issue in _proposal()['issues']
+                if issue['issue_number'] == 69
+            ],
+            auditor=lambda **kwargs: _product_draft_audit(),
+            fetcher=lambda path: responses[path],
+        )
+
+
 def test_linked_drift_main_emits_no_false_packet(monkeypatch, capsys):
     """A changed public Draft head prevents all packet output."""
     proposal = _proposal()
@@ -522,12 +671,48 @@ def test_linked_drift_main_emits_no_false_packet(monkeypatch, capsys):
     assert 'remote_head' in captured.err
 
 
+def test_linked_release_drift_main_emits_no_false_packet(
+    monkeypatch,
+    capsys,
+):
+    """A newly visible candidate release prevents all packet output."""
+    proposal = _proposal()
+    live_issues, live_labels = _live_snapshot(proposal)
+    responses = _release_responses()
+    release_path = next(
+        path for path in responses
+        if path.endswith('/releases/tags/v0.9.1')
+    )
+    responses[release_path] = (200, {'tag_name': 'v0.9.1'})
+    monkeypatch.setattr(
+        APPLICATION.PROPOSAL_CHECKER,
+        'fetch_live_snapshot',
+        lambda repository: (live_issues, live_labels),
+    )
+    monkeypatch.setattr(
+        APPLICATION.G0_READINESS,
+        'audit_product_draft',
+        lambda **kwargs: _product_draft_audit(),
+    )
+    monkeypatch.setattr(
+        APPLICATION.G0_READINESS,
+        '_github_json',
+        lambda path: responses[path],
+    )
+
+    assert APPLICATION.main(['--live', '--issue', '69', '--json']) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ''
+    assert 'issue-69-stable-release-absence drifted' in captured.err
+    assert 'candidate_release_http_status' in captured.err
+
+
 def test_linked_packet_result_is_source_bound_and_live_bound():
     """A shaped PASS cannot detach from the proposal or live issue check."""
     packet = _packet(
         issue_number=69,
         live_status='PASS',
-        linked_results=[_linked_result()],
+        linked_results=_linked_results(),
     )
     packet['linked_check']['results'][0]['remote_head'] = '1' * 40
     with pytest.raises(
@@ -540,14 +725,29 @@ def test_linked_packet_result_is_source_bound_and_live_bound():
     packet['linked_check'] = {
         'performed': True,
         'status': 'PASS',
-        'claim_count': 1,
-        'results': [_linked_result()],
+        'claim_count': 2,
+        'results': _linked_results(),
     }
     with pytest.raises(
         APPLICATION.ApplicationPacketError,
         match='linked check status is inconsistent',
     ):
         APPLICATION.validate_packet(packet, _packet_schema())
+
+
+def test_linked_packet_results_cannot_be_reordered():
+    """Both shaped results remain ordered by their source proposal claims."""
+    results = list(reversed(_linked_results()))
+
+    with pytest.raises(
+        APPLICATION.ApplicationPacketError,
+        match='linked check results are incomplete or reordered',
+    ):
+        _packet(
+            issue_number=69,
+            live_status='PASS',
+            linked_results=results,
+        )
 
 
 def test_live_drift_returns_failure_without_a_false_packet(

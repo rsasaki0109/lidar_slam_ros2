@@ -178,9 +178,22 @@
           "expected_pending_check_count": 0,
           "expected_failing_check_count": 0,
           "expected_required_checks_complete": true
+        },
+        {
+          "id": "issue-69-stable-release-absence",
+          "kind": "stable-release-absence",
+          "repository": "rsasaki0109/lidar_slam_ros2",
+          "fix_commit_sha": "a2368c486fc35c0edcac6d9dbf2f9cb89475c820",
+          "expected_latest_stable_tag": "v0.9.0",
+          "expected_latest_stable_commit": "0df0c4a86df9f68a894c83f8342e4107c3d23b0f",
+          "expected_latest_stable_relation": "behind",
+          "expected_latest_stable_behind_by": 52,
+          "expected_candidate_tag": "v0.9.1",
+          "expected_candidate_tag_present": false,
+          "expected_candidate_release_present": false
         }
       ],
-      "rationale": "We traced this failure class to PCL's VoxelGrid overflow behavior: when coordinate extent and leaf size require more than signed-32-bit voxel indices, PCL returns the unfiltered cloud; issue #69 recorded a subsequent SIGFPE. We reproduced the warning class with privacy-safe synthetic points, not the unavailable historical bag. As of 2026-08-17, public Draft PR #427 checks all five classic scanmatcher VoxelGrid stages before PCL, rejects only the affected scan or map update, and passes Humble and Jazzy CI. No named release contains the fix yet.",
+      "rationale": "We traced this failure class to PCL's VoxelGrid overflow behavior: when coordinate extent and leaf size require more than signed-32-bit voxel indices, PCL returns the unfiltered cloud; issue #69 recorded a subsequent SIGFPE. We reproduced the warning class with privacy-safe synthetic points, not the unavailable historical bag. As of 2026-08-17, public Draft PR #427 checks all five classic scanmatcher VoxelGrid stages before PCL, rejects only the affected scan or map update, and passes Humble and Jazzy CI. No named stable release contains this reviewed fix commit yet.",
       "response_summary": "We will keep this open until the fix is merged and a release containing it is named. On current releases, first check that coordinates are metres and remove extreme outliers. Increasing `vg_size_for_map` (initial map/map updates) or `vg_size_for_input` (input scans/non-NDT targets) can avoid the overflow when acceptable, but reduces map/detail resolution and is only a workaround. If testing Draft PR #427, report the ROS distribution, sensor, stage/reason code, and whether the same process accepts the next safe scan; the original 2 GB bag is not required.",
       "evidence": [
         "scanmatcher/src/scanmatcher_component.cpp",

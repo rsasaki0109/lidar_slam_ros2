@@ -468,6 +468,11 @@ work and document the actual support boundary instead of hiding the delay.
   is machine-validated and passes an exact read-only live-drift check. It keeps
   two issues open, requests four current reproductions, and proposes 23 reasoned
   closures, but remains `PROPOSED_NOT_APPLIED`.
+- The #69 review card no longer relies on a maintainer remembering two dated
+  facts. Its GET-only linked gate requires exact public Draft/CI state and also
+  binds latest stable `v0.9.0`/`0df0c4a` as 52 commits behind fix `a2368c4`,
+  with no `v0.9.1` tag or release. Any drift suppresses the prepared response;
+  this adds no Issue or release authority.
 - As of 2026-08-15, the C1 g2o, C2 empty-map, C3 Odometry/TF, and C4 custom
   PointCloud2 documentation gaps are implemented and retired without reusing
   their IDs. The refreshed C5–C9 generation restores five locally `READY`,

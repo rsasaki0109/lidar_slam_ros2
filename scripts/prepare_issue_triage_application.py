@@ -82,6 +82,12 @@ DECISION_SUMMARIES = {
     ),
 }
 PRIORITY_ORDER = {'P1': 1, 'P2': 2, 'P3': 3}
+LINKED_CHECK_AUTHORITY = {
+    'network_reads_performed': True,
+    'github_writes_authorized': False,
+    'merge_authorized': False,
+    'remote_mutations_performed': False,
+}
 
 
 def _load_proposal_checker() -> Any:
@@ -356,30 +362,20 @@ def _linked_claims(
     return claims
 
 
-def _verify_linked_claims(
-    issues: Sequence[dict[str, Any]],
-    *,
-    auditor: Any = None,
-) -> list[dict[str, Any]]:
-    """Verify source-bound PR and CI claims through existing GitHub GETs."""
-    auditor = auditor or G0_READINESS.audit_product_draft
-    results = []
-    for issue_number, claim in _linked_claims(issues):
-        if claim['kind'] != 'product-draft':
-            raise ApplicationPacketError(
-                f"linked claim {claim['id']} has an unsupported kind"
-            )
-        try:
-            observed = auditor(local_head=claim['expected_head_sha'])
-        except G0_READINESS.G0ReadinessError as exc:
-            raise ApplicationPacketError(
-                f"linked claim {claim['id']} could not be checked: {exc}"
-            ) from exc
-        expected = {
-            'pull_request': claim['pull_request'],
-            'status': claim['expected_status'],
+def _expected_linked_result(
+    issue_number: int,
+    claim: dict[str, Any],
+) -> dict[str, Any]:
+    common = {
+        'id': claim['id'],
+        'issue_number': issue_number,
+        'kind': claim['kind'],
+        'status': 'PASS',
+    }
+    if claim['kind'] == 'product-draft':
+        return {
+            **common,
             'remote_head': claim['expected_head_sha'],
-            'head_matches_local': True,
             'state': claim['expected_state'],
             'is_draft': claim['expected_is_draft'],
             'mergeable': claim['expected_mergeable'],
@@ -390,43 +386,198 @@ def _verify_linked_claims(
             'required_checks_complete': (
                 claim['expected_required_checks_complete']
             ),
-            'blockers': [],
+            'authority': dict(LINKED_CHECK_AUTHORITY),
         }
-        drifted = [
-            key for key, value in expected.items()
-            if observed.get(key) != value
-        ]
-        expected_authority = {
-            'network_reads_performed': True,
-            'github_writes_authorized': False,
-            'merge_authorized': False,
-            'remote_mutations_performed': False,
+    if claim['kind'] == 'stable-release-absence':
+        return {
+            **common,
+            'fix_commit': claim['fix_commit_sha'],
+            'latest_stable_tag': claim['expected_latest_stable_tag'],
+            'latest_stable_commit': (
+                claim['expected_latest_stable_commit']
+            ),
+            'latest_stable_relation': (
+                claim['expected_latest_stable_relation']
+            ),
+            'latest_stable_behind_by': (
+                claim['expected_latest_stable_behind_by']
+            ),
+            'candidate_tag': claim['expected_candidate_tag'],
+            'candidate_tag_present': (
+                claim['expected_candidate_tag_present']
+            ),
+            'candidate_release_present': (
+                claim['expected_candidate_release_present']
+            ),
+            'authority': dict(LINKED_CHECK_AUTHORITY),
         }
-        if observed.get('authority') != expected_authority:
-            drifted.append('authority')
-        if drifted:
-            raise ApplicationPacketError(
-                f"linked claim {claim['id']} drifted: "
-                + ', '.join(sorted(drifted))
+    raise ApplicationPacketError(
+        f"linked claim {claim['id']} has an unsupported kind"
+    )
+
+
+def _raise_linked_drift(
+    claim: dict[str, Any],
+    observed: dict[str, Any],
+    expected: dict[str, Any],
+) -> None:
+    drifted = [
+        key for key, value in expected.items()
+        if observed.get(key) != value
+    ]
+    if drifted:
+        raise ApplicationPacketError(
+            f"linked claim {claim['id']} drifted: "
+            + ', '.join(sorted(drifted))
+        )
+
+
+def _verify_product_draft_claim(
+    issue_number: int,
+    claim: dict[str, Any],
+    auditor: Any,
+) -> dict[str, Any]:
+    try:
+        observed = auditor(local_head=claim['expected_head_sha'])
+    except G0_READINESS.G0ReadinessError as exc:
+        raise ApplicationPacketError(
+            f"linked claim {claim['id']} could not be checked: {exc}"
+        ) from exc
+    expected = {
+        'pull_request': claim['pull_request'],
+        'status': claim['expected_status'],
+        'remote_head': claim['expected_head_sha'],
+        'head_matches_local': True,
+        'state': claim['expected_state'],
+        'is_draft': claim['expected_is_draft'],
+        'mergeable': claim['expected_mergeable'],
+        'passing_check_count': claim['expected_passing_check_count'],
+        'skipped_check_count': claim['expected_skipped_check_count'],
+        'pending_check_count': claim['expected_pending_check_count'],
+        'failing_check_count': claim['expected_failing_check_count'],
+        'required_checks_complete': (
+            claim['expected_required_checks_complete']
+        ),
+        'blockers': [],
+        'authority': LINKED_CHECK_AUTHORITY,
+    }
+    _raise_linked_drift(claim, observed, expected)
+    return _expected_linked_result(issue_number, claim)
+
+
+def _verify_stable_release_absence_claim(
+    issue_number: int,
+    claim: dict[str, Any],
+    fetcher: Any,
+) -> dict[str, Any]:
+    repository = claim['repository']
+    stable_tag = claim['expected_latest_stable_tag']
+    candidate_tag = claim['expected_candidate_tag']
+    fix_commit = claim['fix_commit_sha']
+    paths = {
+        'latest': f'repos/{repository}/releases/latest',
+        'stable_commit': f'repos/{repository}/commits/{stable_tag}',
+        'relation': (
+            f'repos/{repository}/compare/{fix_commit}...{stable_tag}'
+        ),
+        'candidate_tag': (
+            f'repos/{repository}/git/ref/tags/{candidate_tag}'
+        ),
+        'candidate_release': (
+            f'repos/{repository}/releases/tags/{candidate_tag}'
+        ),
+    }
+    responses = {}
+    try:
+        for name, path in paths.items():
+            responses[name] = fetcher(path)
+    except G0_READINESS.G0ReadinessError as exc:
+        raise ApplicationPacketError(
+            f"linked claim {claim['id']} could not be checked: {exc}"
+        ) from exc
+
+    latest_status, latest = responses['latest']
+    commit_status, commit = responses['stable_commit']
+    relation_status, relation = responses['relation']
+    candidate_tag_status, _ = responses['candidate_tag']
+    candidate_release_status, _ = responses['candidate_release']
+    latest = latest if isinstance(latest, dict) else {}
+    commit = commit if isinstance(commit, dict) else {}
+    relation = relation if isinstance(relation, dict) else {}
+    merge_base = relation.get('merge_base_commit')
+    merge_base = merge_base if isinstance(merge_base, dict) else {}
+    observed = {
+        'latest_http_status': latest_status,
+        'latest_tag': latest.get('tag_name'),
+        'latest_draft': latest.get('draft'),
+        'latest_prerelease': latest.get('prerelease'),
+        'latest_url': latest.get('html_url'),
+        'stable_commit_http_status': commit_status,
+        'stable_commit': commit.get('sha'),
+        'relation_http_status': relation_status,
+        'relation': relation.get('status'),
+        'ahead_by': relation.get('ahead_by'),
+        'behind_by': relation.get('behind_by'),
+        'total_commits': relation.get('total_commits'),
+        'merge_base': merge_base.get('sha'),
+        'candidate_tag_http_status': candidate_tag_status,
+        'candidate_release_http_status': candidate_release_status,
+    }
+    expected = {
+        'latest_http_status': 200,
+        'latest_tag': stable_tag,
+        'latest_draft': False,
+        'latest_prerelease': False,
+        'latest_url': (
+            f'https://github.com/{repository}/releases/tag/{stable_tag}'
+        ),
+        'stable_commit_http_status': 200,
+        'stable_commit': claim['expected_latest_stable_commit'],
+        'relation_http_status': 200,
+        'relation': claim['expected_latest_stable_relation'],
+        'ahead_by': 0,
+        'behind_by': claim['expected_latest_stable_behind_by'],
+        'total_commits': 0,
+        'merge_base': claim['expected_latest_stable_commit'],
+        'candidate_tag_http_status': (
+            200 if claim['expected_candidate_tag_present'] else 404
+        ),
+        'candidate_release_http_status': (
+            200 if claim['expected_candidate_release_present'] else 404
+        ),
+    }
+    _raise_linked_drift(claim, observed, expected)
+    return _expected_linked_result(issue_number, claim)
+
+
+def _verify_linked_claims(
+    issues: Sequence[dict[str, Any]],
+    *,
+    auditor: Any = None,
+    fetcher: Any = None,
+) -> list[dict[str, Any]]:
+    """Verify source-bound PR, CI, and release claims with GitHub GETs."""
+    auditor = auditor or G0_READINESS.audit_product_draft
+    fetcher = fetcher or G0_READINESS._github_json
+    results = []
+    for issue_number, claim in _linked_claims(issues):
+        if claim['kind'] == 'product-draft':
+            result = _verify_product_draft_claim(
+                issue_number,
+                claim,
+                auditor,
             )
-        results.append({
-            'id': claim['id'],
-            'issue_number': issue_number,
-            'kind': claim['kind'],
-            'status': 'PASS',
-            'remote_head': observed['remote_head'],
-            'state': observed['state'],
-            'is_draft': observed['is_draft'],
-            'mergeable': observed['mergeable'],
-            'passing_check_count': observed['passing_check_count'],
-            'skipped_check_count': observed['skipped_check_count'],
-            'pending_check_count': observed['pending_check_count'],
-            'failing_check_count': observed['failing_check_count'],
-            'required_checks_complete': observed[
-                'required_checks_complete'
-            ],
-            'authority': expected_authority,
-        })
+        elif claim['kind'] == 'stable-release-absence':
+            result = _verify_stable_release_absence_claim(
+                issue_number,
+                claim,
+                fetcher,
+            )
+        else:
+            raise ApplicationPacketError(
+                f"linked claim {claim['id']} has an unsupported kind"
+            )
+        results.append(result)
     return results
 
 
@@ -578,37 +729,10 @@ def validate_packet(
             source_claims,
             linked_check['results'],
         ):
-            expected_result = {
-                'id': claim['id'],
-                'issue_number': issue_number,
-                'kind': claim['kind'],
-                'status': 'PASS',
-                'remote_head': claim['expected_head_sha'],
-                'state': claim['expected_state'],
-                'is_draft': claim['expected_is_draft'],
-                'mergeable': claim['expected_mergeable'],
-                'passing_check_count': (
-                    claim['expected_passing_check_count']
-                ),
-                'skipped_check_count': (
-                    claim['expected_skipped_check_count']
-                ),
-                'pending_check_count': (
-                    claim['expected_pending_check_count']
-                ),
-                'failing_check_count': (
-                    claim['expected_failing_check_count']
-                ),
-                'required_checks_complete': (
-                    claim['expected_required_checks_complete']
-                ),
-                'authority': {
-                    'network_reads_performed': True,
-                    'github_writes_authorized': False,
-                    'merge_authorized': False,
-                    'remote_mutations_performed': False,
-                },
-            }
+            expected_result = _expected_linked_result(
+                issue_number,
+                claim,
+            )
             if result != expected_result:
                 raise ApplicationPacketError(
                     f"linked claim {claim['id']} result is inconsistent"

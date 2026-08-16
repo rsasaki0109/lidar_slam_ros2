@@ -137,12 +137,12 @@ def test_tracked_proposal_covers_each_issue_once_and_omits_raw_content():
 
 
 def test_issue_69_linked_public_claim_is_required_and_exclusive():
-    """The dated Draft/CI claim cannot disappear or move to another issue."""
+    """The dated Draft/CI/release claims cannot disappear or move."""
     proposal = _proposal()
     issue_69 = next(
         item for item in proposal['issues'] if item['issue_number'] == 69
     )
-    issue_69.pop('linked_claims')
+    issue_69['linked_claims'].pop()
     with pytest.raises(AUDIT.ProposalError, match='schema validation failed'):
         AUDIT.validate_proposal(proposal, _schema())
 
@@ -150,7 +150,7 @@ def test_issue_69_linked_public_claim_is_required_and_exclusive():
     issue_69 = next(
         item for item in proposal['issues'] if item['issue_number'] == 69
     )
-    claim = issue_69.pop('linked_claims')
+    claim = issue_69['linked_claims'].pop()
     issue_64 = next(
         item for item in proposal['issues'] if item['issue_number'] == 64
     )

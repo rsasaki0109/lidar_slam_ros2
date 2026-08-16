@@ -136,7 +136,9 @@ impossible; a new complete reproduction can always reopen the product decision.
    only to standard output. For #69 it also reuses the GET-only product-Draft
    audit to require PR #427 at exact head `4b2ab514`, still open, Draft, and
    mergeable, with 10 successful checks, 4 intentional skips, and no pending
-   or failing check:
+   or failing check. A second source-bound audit requires latest stable
+   `v0.9.0` at exact commit `0df0c4a`, 52 commits behind reviewed fix
+   `a2368c4`, while both the planned `v0.9.1` tag and release remain absent:
 
    ```bash
    python3 scripts/prepare_issue_triage_application.py --live --issue 69
@@ -144,10 +146,10 @@ impossible; a new complete reproduction can always reopen the product decision.
      --live --issue 69 --json
    ```
 
-   A live #69 packet requires both `live_check: PASS` and
+   A live #69 packet requires `live_check: PASS` plus both source claims inside
    `linked_check: PASS`; an offline #69 packet says `linked_check: NOT_RUN`
-   instead of presenting dated Draft/CI facts as current. The packet contains
-   a prepared response draft but no mutation command. It reports
+   instead of presenting dated Draft/CI/release facts as current. The packet
+   contains a prepared response draft but no mutation command. It reports
    `PREPARED_NOT_AUTHORIZED`; it cannot post, label, or close anything. Rows
    with starter dependencies remain `DEPENDENCY_REVIEW_REQUIRED`, and #422
    remains `MONITOR_ONLY` so independent validation is not contaminated.
@@ -157,9 +159,10 @@ impossible; a new complete reproduction can always reopen the product decision.
 6. Obtain explicit authorization for the exact issue write scope. Packet
    generation and live GET access are not that authorization.
 7. Re-read each target and post its issue-specific explanation before changing
-   state. For #69, stop unless the source-bound linked Draft/CI check is
-   `PASS`; head, state, Draft flag, mergeability, check totals, or GET-only
-   authority drift invalidates the packet. Dated PR, CI, or release claims not
+   state. For #69, stop unless both source-bound Draft/CI and stable-release
+   claims are `PASS`; head, state, Draft flag, mergeability, check totals,
+   latest stable identity/ancestry, candidate tag/release presence, or
+   GET-only authority drift invalidates the packet. Other dated claims not
    represented by a linked check still require a separate maintainer recheck.
    Do not use a context-free bulk-close message.
 8. Apply P1 and reproduction-request rows first, then review support load before
