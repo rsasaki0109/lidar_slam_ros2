@@ -9,7 +9,7 @@
 > Capture-time public Draft baseline: `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
 > Latest exact public Draft head and CI audit:
-> `c96711002d52f206e2025cc8853144c2254d3fe6`
+> `3e11f307eb2ccea1d33bbe9a2d1b37ae7ed699db`
 >
 > Exact reviewed product-candidate tip: `3d64ed556aca8a680f09e0f7e8c12a3c8d3e6a6d`
 >
@@ -18,6 +18,9 @@
 > Latest distribution-audit follow-up tip: `ca7c5b5b991e5624ca16e46ffd1a057e3a9f6ee9`
 >
 > Latest canonical-NDT publication-preflight tip: `856e59987018578963a7afdf13402200eab62bf8`
+
+> Latest fail-closed NDT reviewer-response gate tip:
+> `3e11f307eb2ccea1d33bbe9a2d1b37ae7ed699db`
 >
 > Latest Docker publication-authority tip: `3225d9db357caa1150081ac61281ae4b0d281a2a`
 >
@@ -71,7 +74,7 @@
 > `d01652080485bc68354f354043e4b2e732439223`
 >
 > Publication-inventory synchronization: this docs-only handoff follows
-> `b87c1936c1799834288d6d2c39aa616ab15c348d` and adds no product authority.
+> `3e11f307eb2ccea1d33bbe9a2d1b37ae7ed699db` and adds no product authority.
 
 This reviewed tip is the code-bearing product-candidate revision; later
 docs-only handoff synchronization and product UX follow-up commits must remain
@@ -145,6 +148,12 @@ fails closed if the proposed branch already exists, GitHub inspection fails,
 or any open upstream PR matches the branch or semantic duplicate terms. Its
 30 / 30 PASS result is technical evidence only: GitHub write authority remains
 false and no upstream branch or PR was created.
+The fail-closed response gate at `3e11f30…` now keeps both prepared rosdistro
+replies `null` until an open canonical `koide3/ndt_omp` Draft PR resolves to
+exact local upstream candidate `618f02f6…` and both recorded rosdistro heads
+plus unanswered review URLs remain unchanged. The live packet is therefore
+`BLOCKED` only on the absent canonical Draft URL; it neither posts nor
+authorizes either reply.
 The Docker workflow now separates verification from publication at the job
 and token boundary. Pull requests and manual dispatches have contents-read
 permission, build with `push: false`, load only into the disposable runner,
@@ -231,22 +240,22 @@ gate from being mistaken for the current state.
 
 | Check | Current result | Meaning |
 | --- | --- | --- |
-| Draft PR #427 | open, draft, and mergeable; capture-time public baseline `3ed632e…` remains the frozen review anchor; exact public head `c967110…` includes receipt-bound onboarding evidence, the one-line Jazzy CI repair at `b87c193…`, and synchronized inventory | no merge, Pages deployment, cohort launch, or E2 authority is implied |
-| Exact public PR-head CI | capture-time result is **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures; exact public head `c967110…` instead failed the fast docs gate because this packet no longer retained that immutable baseline sentence, while its build checks were still running at capture time | the local packet repair restores the historical assertion without hiding the current failure; exact Jazzy `ament_flake8` already checks all 90 Python files with no problem at `b87c193…`, and replacement exact-head CI is still required |
+| Draft PR #427 | open, draft, and mergeable; capture-time public baseline `3ed632e…` remains the frozen review anchor; capture-time exact public head `3e11f30…` contains the receipt-bound onboarding, CI repairs, NDT response gate, and synchronized inventory | no merge, Pages deployment, cohort launch, or E2 authority is implied; no conversation, inline comment, or submitted review is present |
+| Exact public PR-head CI | capture-time public baseline remains **PASS** for `3ed632e…`: 10 successful checks plus 4 intentionally skipped non-publication jobs, 0 failures; exact public `3e11f30…` is also **PASS** with the same 10 / 4 / 0 result | Humble/Jazzy default workflows, Docker verification builds, upgrade checks, docs/metadata, candidate contract, and release-readiness guards all passed; publication jobs stayed skipped by design |
 | English support cards | docs entrypoint tests 25 passed | C1 g2o recovery is implemented; existing C2 empty-map and C3 Odometry/TF cards remain copy-ready and safety-bounded; Docker convenience and candidate-digest authority boundaries are both regression-bound; every tracked shell entry point now also has a parse regression |
 | Custom PointCloud2 onboarding | implemented in the reviewed product UX tip | bounded topic/frame/time/TF/range/launch readiness guidance; it does not claim hardware support or accuracy |
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 61 queue regressions and 5 / 5 focused strict-MkDocs profiles pass; current GET-only output finds 1 published `good first issue` (#422), 0 eligible starters, 1 blocked starter, 1 open PR, and 1 potential C5 match after PR #427 changed | the contributor waits instead of entering the closed cohort; the maintainer gets the cohort status command; C1–C4 remain retired and no issue, label, comment, PR, Pages deployment, or community post was changed |
 | Fixed-demo low-storage recovery | exact implementation `d016520…`; real local rejection reports exact `additional_bytes_required`, rounds 1.76 GiB upward for the human card, keeps system JSON path-free, and preserves the full shell-quoted demo retry; default floor remains 8 GiB | this removes one locally reproduced activation burden; it is not a public clean-host completion, paired GLIM observation, or authority to lower the storage gate |
-| Distribution preflights | source route `READY` at exact public `3ed632e…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one failing, and an unanswered review; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve, with zero matching runs | the rosdistro failures are stale-base rosdep failures rather than the YAML delta, but neither external PR is green; collision-free convergence and current-base green replacement still precede clean-install E2E |
-| Canonical NDT upstream Draft preflight | `READY_FOR_DRAFT_PR`; 30 / 30 PASS at local implementation `856e599…`; exact upstream `5495fd9…`, expected fork verified, proposed branch absent, 4 open PRs inspected, 0 duplicates, 0 API errors, and write authority false | this proves a technically coherent read-only publication state; it neither creates nor authorizes an upstream branch or PR |
+| Distribution preflights | source route `READY` at exact public `3ed632e…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one stale-base rosdep failure, and an unanswered review; Humble RKO-LIO 0.3.2 is in main/testing, Jazzy 0.3.2 is in testing while main remains 0.2.0; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve | canonical collision-free NDT convergence and a current-base green replacement precede package sync and clean-install E2E; do not merge the overlapping registrations or treat Jazzy main as ready |
+| Canonical NDT upstream Draft preflight | refreshed 2026-08-16 as `READY_FOR_DRAFT_PR`, 30 / 30 PASS; exact upstream `5495fd9…`, exact candidate `618f02f6…`, expected fork verified, proposed branch absent, 4 open PRs inspected, 0 duplicates, 0 API errors, and write authority false; the `3e11f30…` response packet is `BLOCKED` solely because that Draft URL is absent and emits no reply body | the local candidate and replies are technically bound but unpublished; this neither creates nor authorizes an upstream branch, PR, or rosdistro comment |
 | Docker publication boundary | convenience PR/manual runs remain verification-only; the candidate gate at `c70c18d…` uses trusted default-branch tooling, exact-head CI/identity checks, a protected `candidate-images` environment, digest-only output, disabled container networking during smoke tests, SBOM/provenance/attestation checks, and 30-day schema-backed evidence | the gate can create no tag or Release; complete authenticated inventory at `adecca6…` proves only `github-pages` exists, so authorization must stop until a separate environment/E2 decision |
 | Candidate environment and gate regressions | 29 focused tests, actionlint v1.7.12, Python style, CTest 2 / 2, GET-only transport, shared authorization semantics, release-bundle inclusion, and exact-tip Humble/Jazzy default workflows pass | the live result is `ABSENT`; workflow-facing CLIs persist one request, two distinct image records, and one pair report exactly once; no workflow dispatch, environment mutation, or GHCR mutation occurred |
 | Candidate observer contract | atomic preparation through `f5ed80e…`, exact row runner `feed0ba…`, one-command session `8bc5ea4…`, guided local readiness `a286c65…`, and receipt-bound comparability at `3c19824…`; four-file semantic derivation, exact remote artifact-byte comparison, content-bound Docker observer bootstrap, retained child/session receipts, exact first-map validation-receipt bytes, structured row execution, four-state host guidance, release-bundle inclusion, and strict docs pass with 189 focused candidate/onboarding regressions | remote status is still **NOT_CHECKED** because no authorized bundle exists; local readiness and runner tests are not `REMOTE_AUDIT_PASS`, a trial, E2, or E4 authority |
 | Neutral GLIM usability recorder | exact implementation `0575fb6…`, evidence sync and public CI through `ac22a3f…`; 7 direct regressions, 20 recorder/checker regressions, registered CTest 6 / 6, strict docs/style, and a deterministic 253-file candidate bundle pass | the checked-in scorecard remains `NOT_READY` with 0 / 2 product records and 0 / 6 comparable tasks; safer recording is not external evidence, parity, or a winner claim |
 | Public documentation deployment provenance | pre-upload schema enforcement and 9 focused regressions **PASS** at `5b8c8c4…`; strict MkDocs emits a schema-valid source/version/route/page-byte manifest, both Pages jobs and the live environment branch policy are `develop`-only, and the clean candidate release bundle contains the generator, auditor, schemas, and evidence; live exact-public audit is `BLOCKED` because the manifest URL returns HTTP 404 | URL shape alone cannot launch the independent cohort; the current Pages deployment remains unverified until a separately reviewed `develop` deployment publishes matching bytes |
-| Complete product gate through public head | graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 998 passed; registered CTest passes 93 / 93 for `lidarslam` and 232 / 232 for `graph_based_slam`; strict MkDocs passes locally; exact public `c967110…` has a docs evidence-history assertion failure unrelated to runtime semantics | local `3c19824…` adds 250 focused G0/candidate/onboarding/deployment regressions, strict docs, and a reproducible 253-file bundle (`e3fbe1cf…`, 11,611,987 bytes); `b87c193…` then passes the related 24 tests and exact Jazzy `ament_flake8` across all 90 files, and the local packet now restores the immutable baseline assertion before replacement exact-head CI |
+| Complete product gate through public head | exact `3e11f30…`: graph 1,442 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 1,009 passed; 2,451 total; strict MkDocs and exact Jazzy `ament_flake8` pass; exact-head GitHub Actions are 10 successful / 4 intentional skips / 0 failures | the current product and NDT response increment are locally complete and publicly green; registered CTest evidence remains 93 / 93 for `lidarslam` plus 232 / 232 for `graph_based_slam` from the inherited candidate |
 | Actionable stable-release profile gate | exact implementation `45cfdcb…`; an empty exact-head benchmark root now retains Markdown/CSV/log output, reports five blocking `NO_DATA` profiles with acquisition/rerun hints, distinguishes six report-only rows, and exits 2; 29 direct regressions pass | this identifies missing evidence and does not satisfy it; no tag, Release, image, or E4 authority is inferred |
-| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 287 paths / 7 slices / 20 follow-up commits after this synchronization from public baseline `3ed632e…`; inventory SHA-256 `d507f34ff1bdd79ac0c79a33707dae7d43881cf90045cff84e8ff1cbc10a7462` | the receipt-bound checker regression and its Jazzy-only import-order repair remain in S4; release-evidence UX remains S5, while low-storage recovery, row/session/readiness, parse-safe/content-verified GLIM comparison, byte-bound public docs, report-derived packet identity, atomic preparation, paired observation recording, and docs integration remain S2/S4/S6; synchronization changes no GitHub authority |
+| Publication slice plan | `PLAN_VALID_LOCAL_ONLY`; 287 paths / 7 slices / 21 follow-up commits at clean public `3e11f30…` from frozen baseline `3ed632e…`; inventory SHA-256 `d507f34ff1bdd79ac0c79a33707dae7d43881cf90045cff84e8ff1cbc10a7462` | all four NDT response-gate paths already belong to S5, so path count and digest remain unchanged; synchronization changes no GitHub authority |
 | Published onboarding identity | v0.9.0 exact release commit plus Humble/Jazzy digests return `READY`, but its source route is `NOT_READY` with `source-route-contract-missing`; v0.9.1 report-to-packet fails closed at `NOT_PUBLISHED` | the old release cannot be reused for same-version Docker/source evidence, and the new version cannot produce a release packet before E4 publication |
 | v0.9.1 release audit | **NOT_PUBLISHED** | no `v0.9.1` tag or GitHub Release was found |
 | v0.9.1 GHCR images | **ABSENT** for `v0.9.1-humble` and `v0.9.1-jazzy` | no immutable candidate image identity exists |
@@ -303,7 +312,7 @@ not be used as a reason to recruit.
 | Gate | Current state | Authorized scope |
 | --- | --- | --- |
 | L0 local preparation | complete for this packet | code, tests, docs, offline audits, and read-only inspection |
-| E1 source review | public Draft baseline / CI PASS; latest preflight local | publish and review the exact follow-up tip; no merge is implied |
+| E1 source review | product Draft #427 is public and exact-head CI PASS; canonical NDT Draft remains local `READY_FOR_DRAFT_PR` | publishing the third-party upstream branch/PR and later replies requires a separate exact-revision decision; no merge is implied |
 | E2 artifact hosting | **GATE_IMPLEMENTED_LOCAL / ENVIRONMENT_ABSENT / NOT_AUTHORIZED / NOT_PUBLISHED** | after the workflow is reviewed on `develop`, separately configure and review the protected environment; only a later exact E2 event may request digest-only candidate evidence |
 | E3 community mutation | **NOT_AUTHORIZED** | no issue labels, comments, closures, starter issues, Discussions, or recruitment |
 | E4 stable release | **HOLD / NOT_AUTHORIZED** | no tag, GitHub Release, package, image promotion, or announcement |
