@@ -46,7 +46,7 @@ default to Jazzy when it is unset. Pytest commands disable cache writes, and
 the two package test roots run in separate processes to avoid their known
 duplicate module basename. Plan validation rejects a missing ROS prelude,
 mixed-package pytest command, cache-producing pytest command, or remote-write
-command before displaying the card.
+CLI form recognized by the checker before displaying the card.
 
 To include the stable-release audit, which performs network reads but no
 remote writes, opt in explicitly:

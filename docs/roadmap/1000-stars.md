@@ -897,7 +897,8 @@ merge decision are selected before any `candidate-images` administration;
 green CI never grants merge, environment, E2, E3, or E4 authority.
 The seven review cards also carry self-contained, cache-free verification:
 ROS-dependent checks source Humble/Jazzy explicitly, package test roots remain
-in separate pytest processes, and remote-write commands fail plan validation.
+in separate pytest processes, and recognized direct remote-write CLI forms fail
+plan validation.
 
 The latest local slice also binds the rendered Getting Started bytes, route
 fragments, product version, and Pages workflow to one exact source revision.

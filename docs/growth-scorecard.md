@@ -138,6 +138,10 @@ separate merge decision ahead of candidate-environment administration; it
 never turns green CI into merge authority.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
+Its seven slice cards are now executable from an ordinary terminal: ROS state
+is sourced explicitly, duplicate package-test basenames stay in separate
+pytest processes, caches are disabled, and recognized direct remote-write CLI
+forms fail plan validation before a command is displayed.
 
 Local descendant `bce5a9d` additionally passes the real-component #69
 unsafe-then-safe recovery sequence ten consecutive times and the full 10-suite
