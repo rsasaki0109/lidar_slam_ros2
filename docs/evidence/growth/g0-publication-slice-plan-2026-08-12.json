@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-16T15:43:59+09:00",
+  "generated_at": "2026-08-17T00:19:06+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 311,
-    "expected_paths_sha256": "df173015a6fc399e15df05794ea126196437f333521ef4db546804ca3930def0",
+    "expected_path_count": 314,
+    "expected_paths_sha256": "78dc0990244e7b47e9f6b89d6ae71bebd9e5341d055c5a760d6416058b29119a",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -187,7 +187,7 @@
       "id": "S5-distribution-readiness",
       "order": 5,
       "title": "NDT dependency, immutable candidate gate, and ROS distribution readiness",
-      "review_outcome": "Release tooling reports package-manager and exact-head benchmark blockers honestly, retains an actionable NO_DATA report even when the benchmark root is empty, preflights the multi-gigabyte NTU acquisition without writes or network access, verifies its official archive identity, binds image publication to exact immutable identity, re-derives and byte-compares all four retained candidate artifacts without write authority, refuses historical version reuse, and keeps candidate, release, and moving-tag authority separate from local readiness.",
+      "review_outcome": "Release tooling reports package-manager and exact-head benchmark blockers honestly, retains an actionable NO_DATA report even when the benchmark root is empty, preflights the multi-gigabyte NTU and RTK-SLAM acquisitions without writes or network access, verifies exact official input identities, binds RTK evaluation assets and image publication to immutable identities, re-derives and byte-compares all four retained candidate artifacts without write authority, refuses historical version reuse, and keeps candidate, release, and moving-tag authority separate from local readiness.",
       "depends_on": [
         "S1-runtime-safety",
         "S4-source-onboarding"
@@ -207,6 +207,7 @@
         "docs/distribution.md",
         "docs/evidence/growth/canonical-ndt-upstream-pr-packet-2026-08-12.md",
         "docs/evidence/growth/clone-free-docker-launcher-2026-08-12.md",
+        "docs/evidence/growth/rtk-slam-acquisition-hardening-2026-08-17.md",
         "docs/evidence/ndt-omp-release-review-2026-08-12.md",
         "docs/releases/v0.9.1.md",
         "docs/roadmap/v0.9.md",
@@ -227,6 +228,7 @@
         "graph_based_slam/CHANGELOG.rst",
         "graph_based_slam/package.xml",
         "graph_based_slam/test/test_ntu_viral_download_script.py",
+        "graph_based_slam/test/test_rtk_slam_download_script.py",
         "lidarslam/CHANGELOG.rst",
         "lidarslam/package.xml",
         "lidarslam/test/test_audit_candidate_image_set.py",
@@ -257,6 +259,7 @@
         "scripts/check_v1_readiness.py",
         "scripts/create_candidate_image_record.py",
         "scripts/download_ntu_viral_tnp01.sh",
+        "scripts/download_rtk_slam_dataset.py",
         "scripts/release_profiles.yaml",
         "scripts/run_release_readiness_checks.sh",
         "scripts/validate_candidate_image_request.py",
@@ -269,8 +272,9 @@
         "python3 scripts/check_canonical_ndt_convergence.py --json",
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_build_docker_launcher_asset.py lidarslam/test/test_published_release.py",
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_benchmark_summary_profiles.py",
-        "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_ntu_viral_download_script.py",
-        "bash scripts/download_ntu_viral_tnp01.sh --dry-run && bash -n scripts/run_release_readiness_checks.sh"
+        "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_ntu_viral_download_script.py graph_based_slam/test/test_rtk_slam_download_script.py",
+        "bash scripts/download_ntu_viral_tnp01.sh --dry-run && bash -n scripts/run_release_readiness_checks.sh",
+        "python3 scripts/download_rtk_slam_dataset.py --sequence construction_seq2 --eval-assets --dry-run --json"
       ],
       "publication_gate": "MAINTAINER_DECISION"
     },

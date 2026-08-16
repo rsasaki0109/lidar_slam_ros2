@@ -10,8 +10,8 @@
 > Frozen public review baseline (machine key `public_head_sha`):
 > `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
-> Planned follow-up inventory: 311 paths; SHA-256
-> `df173015a6fc399e15df05794ea126196437f333521ef4db546804ca3930def0`
+> Planned follow-up inventory: 314 paths; SHA-256
+> `78dc0990244e7b47e9f6b89d6ae71bebd9e5341d055c5a760d6416058b29119a`
 >
 > Capture-time exact public Draft head:
 > `c1fc2847fb06637cbcd2aac61f4fde318364dfd2`
@@ -108,9 +108,9 @@ body until the exact canonical upstream Draft exists.
 | S2 first-map foundation | 32 | one bounded demo/own-bag route reaches a verified local 3D result, retains recovery state, and returns the exact shortage plus preserved retry command on low storage | public Humble/Jazzy CI |
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 36 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded release-or-candidate Docker/source measurement, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session execution, public preflight, and byte-bound validation-receipt plus SHA-bound supplement paths for retained observations | public Humble/Jazzy CI and clean-machine timing |
-| S5 distribution readiness | 68 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, actionable missing-benchmark reports, write-free NTU acquisition planning with official archive identity and capacity fail-fast, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a shared read-only environment preflight and four-artifact byte audit remain explicit; no E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
-| S6 product-shell integration | 123 | the installed home, path-private bag-optional doctor with copy-ready low-storage recovery, issue-driven other-PointCloud2 `doctor` → `start` handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard, claim-bounded short-demo card/video/captions/copy, fail-closed worksheet generators, atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue with a dependency-gated and schema-valid GET-only live next-action card, machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, compressed-bag playback evidence, and one-command G0 readiness dashboard agree | complete product gate and public CI |
-| S7 publication control | 6 | all 311 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
+| S5 distribution readiness | 71 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, actionable missing-benchmark reports, write-free NTU and RTK-SLAM acquisition planning with official immutable identities and capacity fail-fast, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a shared read-only environment preflight and four-artifact byte audit remain explicit; no E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
+| S6 product-shell integration | 129 | the installed home, path-private bag-optional doctor with copy-ready low-storage recovery, issue-driven other-PointCloud2 `doctor` → `start` handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard, claim-bounded short-demo card/video/captions/copy, fail-closed worksheet generators, atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue with a dependency-gated and schema-valid GET-only live next-action card, machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, compressed-bag playback evidence, and one-command G0 readiness dashboard agree | complete product gate and public CI |
+| S7 publication control | 6 | all 314 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -157,7 +157,7 @@ from that base and the local tip descends from the public head, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 311-path coverage with the fixed inventory digest;
+4. exact 314-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred;
 7. no mixed `lidarslam/test` and `graph_based_slam/test` pytest process;
@@ -173,7 +173,7 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 311 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 314 paths, 7 slices, no remote mutation |
 | claim-bounded social media | 11 focused regressions plus 25 public docs/release entrypoint regressions pass; the generated 10.666-second H.264 candidate, four-cue WebVTT, exact-revision Japanese/English copy, and byte manifest retain no external publication authority |
 | checker regressions | 20 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, self-contained source, lifecycle ROS-bag, and product-shell ROS-bag verification, package-test process isolation, cache suppression, and recognized direct remote-write CLI refusal |
 | exact displayed S1 command | an ordinary unsourced shell sourced `${ROS_DISTRO:-jazzy}`, tested `graph_based_slam` and `scanmatcher`, and reported 4,253 test cases with 0 errors, 0 failures, and 127 skips |
@@ -192,7 +192,7 @@ cannot bypass live Git coverage.
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
 | public documentation deployment provenance | 9 focused regressions pass; strict MkDocs produces a deterministic, pre-write schema-valid manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
 | clean candidate release bundle | exact-head reproducibility rehearsal passes at S6 evidence carrier `72a8c9e`; two byte-identical bundles each contain 261 files, total 11,932,456 bytes, and have SHA-256 `436586241b9475653100caab5dd7dd98bcbbad186287847f9b0a7176a93aa1fb` |
-| complete maintained Python gate | local `72a8c9e`: source-explicit graph 1,452 passed / 13 skipped / 11 existing ImageIO warnings; source-explicit lidarslam 1,036 passed; 2,488 total; strict MkDocs, changed-file Jazzy `ament_flake8`, and the exact displayed S1 4,253-case command pass; latest public `7b3cb99` Actions pass 10 successful / 4 intentional skips / 0 failures / 0 pending |
+| complete maintained Python gate | RTK-SLAM acquisition synchronization: source-explicit graph 1,462 passed / 13 skipped / 11 existing ImageIO warnings; source-explicit lidarslam 1,040 passed; 2,502 total; strict MkDocs and changed-file Jazzy `ament_flake8` pass; latest public `662ac8f` Actions pass 10 successful / 4 intentional skips / 0 failures / 0 pending; bundle reproducibility remains pending after the three new acquisition paths |
 | paired scorecard recorder | 7 direct regressions, 20 recorder/checker regressions, and registered CTest 6 / 6 pass; incomplete observations remain non-comparable and atomic output/privacy boundaries fail closed |
 | empty release-evidence UX | 29 release-profile regressions cover direct and wrapper-level empty-root behavior; the exact-head gate retains Markdown/CSV/log evidence, reports five blocking rows plus their remediations, and exits 2 without weakening release authority |
 | GLIM reference-cache integrity | 10 focused regressions passed; registered CTest 1 / 1; missing lookup remains read-only; exact content, manifest, malformed-TUM, tamper, collision, shell, and bundle boundaries pass |

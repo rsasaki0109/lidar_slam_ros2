@@ -321,6 +321,14 @@ work and document the actual support boundary instead of hiding the delay.
   `--dest`. This makes missing exact-head release evidence actionable without
   weakening the four remaining blocking profiles or treating historical runs
   as current.
+- The two blocking RTK-SLAM Construction profiles now have the same actionable
+  acquisition boundary. All four official ROS2 inputs use immutable exact
+  byte/SHA-256 identities, the checkpoint repository uses a detached pinned
+  commit, resumable bytes reduce the capacity plan, and text/JSON dry-runs are
+  network- and write-free. A real normal invocation stopped before side effects
+  with a 5,477,329,803-byte shortfall and printed an external-filesystem retry.
+  This removes a preventable user failure; the profiles remain `NO_DATA` until
+  fresh exact-candidate runs exist.
 - The next release pipeline now turns that repo-independent script into a
   direct attested `lidarslam-map-docker` asset. Its exact tag and source commit
   are embedded deterministically, its default image is the matching immutable
@@ -889,7 +897,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 311-path exact
+been expanded into the current 314-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
@@ -912,6 +920,10 @@ displayed command passes all 35 tests and removing its prelude fails validation.
 Evidence carrier `72a8c9e77eba33c1578a3cd9c8afe8fbe6933e33`
 passes 2,488 maintained Python tests and a byte-identical 261-file candidate
 bundle rehearsal without granting publication authority.
+The later RTK-SLAM acquisition synchronization passes 2,502 maintained Python
+tests and expands the exact plan to 314 paths. Its bundle rehearsal is not yet
+repeated, so the older bundle remains historical evidence rather than an
+exact-final-head release artifact.
 
 The latest local slice also binds the rendered Getting Started bytes, route
 fragments, product version, and Pages workflow to one exact source revision.
