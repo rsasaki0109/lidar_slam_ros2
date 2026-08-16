@@ -14,7 +14,7 @@
 > `c8cef196cc20780c0551e1797490442d6ebe55aea7f8fc6a928920ace73482b7`
 >
 > Capture-time exact public Draft head:
-> `4cb2e680eb90f156249ef47181fab01b100d2049`
+> `5d1986a0eba20606943f8fd375615304e5ba1f51`
 >
 > Exact actionable release-evidence implementation tip:
 > `45cfdcb1c10756d1c33068fcd9594f612bf6ccca`
@@ -31,8 +31,11 @@
 > Exact bounded map-quality symptom triage implementation tip:
 > `ee453532a70d2d4b82a6c50c65f19b22d76c239f`
 >
+> Exact privacy-safe symptom support-handoff implementation tip:
+> `0d102e016717d2def3db3a99525755837461f759`
+>
 > Exact complete local validation carrier:
-> `9f8a2058a3c702f69d159079568ced8433ee3377`
+> `0d102e016717d2def3db3a99525755837461f759`
 >
 > Exact fail-closed docs artifact implementation tip:
 > `5b8c8c477cceb4955184a64afa874712b9dea5aa`
@@ -44,7 +47,7 @@
 > `d0c84bb9bb7bef37d7e318000e3071a7f536d631`
 >
 > Last observed remote mutation: an exact non-force push advanced the Draft to
-> `4cb2e68`; mutations performed by the checker or review-card command:
+> `5d1986a`; mutations performed by the checker or review-card command:
 > **none**
 
 ## Outcome
@@ -69,15 +72,15 @@ The GitHub repository and PR were inspected without mutation:
 
 - Draft PR `#427`, `Prepare crash-safe guided mapping for G0 review`, remains
   open, draft, and mergeable into `develop`;
-- the captured public PR head resolves to `4cb2e68`;
+- the captured public PR head resolves to `5d1986a`;
 - ten GitHub Actions checks pass on that exact head and four publication jobs
   skip intentionally, including green Humble/Jazzy builds, default workflows,
   upgrade checks, documentation, and release-readiness guards; and
 - no PR conversation, inline review, or submitted review was present at the
   observation time.
 
-Passing checks on `4cb2e68` validate the public Draft candidate through the
-other-PointCloud2 self-service increment,
+Passing checks on `5d1986a` validate the public Draft candidate through the
+other-PointCloud2 self-service and retained visual-symptom triage increments,
 including the published-onboarding identity, atomic paired recorder, evidence
 sync, ament import-order follow-up, actionable empty-release-evidence report,
 the GET-only contributor next-action card, dependency-gated #422 handling, and
@@ -160,8 +163,8 @@ cannot bypass live Git coverage.
 | focused plan/source/NDT environment regressions | 32 passed after the clean worktree submodules were initialized |
 | candidate handoff/session/probe regressions | 67 passed; retained child receipts are byte-bound, Docker observer bootstrap is recipe-labelled, and preparation/execution failure states remain atomic |
 | public documentation deployment provenance | 9 focused regressions pass; strict MkDocs produces a deterministic, pre-write schema-valid manifest binding exact source revision, product version, route fragments, byte count, and SHA-256; the read-only live audit correctly remains `BLOCKED` on the current Pages 404 until the reviewed workflow is deployed |
-| clean candidate release bundle | exact-head reproducibility rehearsal passes at local validation carrier `9f8a205`; two byte-identical bundles each contain 261 files, total 11,927,637 bytes, and have SHA-256 `51c025064de769d1f0c362f51718c52a0beed8492f0881c0e02403b33498e997` |
-| complete maintained Python gate | local `9f8a205`: graph 1,452 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 1,022 passed; 2,474 total; strict MkDocs and changed-file Jazzy `ament_flake8` pass; latest public `4cb2e68` Actions remain 10 successful / 4 intentional skips / 0 failures; inherited registered CTest remains 93 / 93 plus graph CTest 232 / 232 |
+| clean candidate release bundle | exact-head reproducibility rehearsal passes at implementation `0d102e0`; two byte-identical bundles each contain 261 files, total 11,929,011 bytes, and have SHA-256 `c7eee02e9ccee1bd857ab665990f275ef3ae2055df155e79b67ea508ee41d7ba` |
+| complete maintained Python gate | local `0d102e0`: graph 1,452 passed / 13 skipped / 11 existing ImageIO warnings; lidarslam 1,026 passed; 2,478 total; strict MkDocs and changed-file Jazzy `ament_flake8` pass; latest public `5d1986a` Actions remain 10 successful / 4 intentional skips / 0 failures; inherited registered CTest remains 93 / 93 plus graph CTest 232 / 232 |
 | paired scorecard recorder | 7 direct regressions, 20 recorder/checker regressions, and registered CTest 6 / 6 pass; incomplete observations remain non-comparable and atomic output/privacy boundaries fail closed |
 | empty release-evidence UX | 29 release-profile regressions cover direct and wrapper-level empty-root behavior; the exact-head gate retains Markdown/CSV/log evidence, reports five blocking rows plus their remediations, and exits 2 without weakening release authority |
 | GLIM reference-cache integrity | 10 focused regressions passed; registered CTest 1 / 1; missing lookup remains read-only; exact content, manifest, malformed-TUM, tamper, collision, shell, and bundle boundaries pass |

@@ -785,6 +785,18 @@ tests with 13 known skips, strict MkDocs, changed-file Jazzy `ament_flake8`,
 and a byte-reproducible 261-file candidate bundle. This closes one local
 support-navigation gap; it does not prove that any reported map was repaired.
 
+The next issue-driven handoff check found that this bounded symptom was lost
+again when an operator ran `support`: maintainers received generic diagnosis
+state but not the fixed visual symptom that prompted the report. Exact
+implementation `0d102e016717d2def3db3a99525755837461f759` carries only the
+five-code enum and `USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED` into the
+privacy-bounded JSON and issue body. Symptom titles, checks, commands, free
+text, paths, maps, bags, and logs remain excluded; malformed codes, mismatches,
+and automatic-cause claims become invalid diagnosis evidence. The focused 56
+tests, strict MkDocs, changed-file Jazzy `ament_flake8`, and complete 2,478-test
+maintained gate pass. This reduces issue clarification round trips without
+claiming that the symptom is a diagnosed cause or that a map was repaired.
+
 The next activation repair closes the largest locally reproduced fixed-demo
 rejection gap: low storage no longer leaves the operator to calculate a
 shortage, replace `<dir>`, or reconstruct prior options. Both system doctor and
