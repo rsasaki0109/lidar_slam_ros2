@@ -217,9 +217,14 @@ fi
 if [[ "${ARCHIVE_ACTION}" == "download" ]]; then
   require_command wget "install wget, for example: sudo apt install wget"
 fi
+ARCHIVE_VERIFIED="false"
 if [[ "${ARCHIVE_REQUIRED}" == "true" ]]; then
-  require_command unzip "install unzip, for example: sudo apt install unzip"
   require_command md5sum "install GNU coreutils, for example: sudo apt install coreutils"
+  if [[ -f "${ZIP_PATH}" ]]; then
+    verify_archive_identity "${ZIP_PATH}"
+    ARCHIVE_VERIFIED="true"
+  fi
+  require_command unzip "install unzip, for example: sudo apt install unzip"
 fi
 if [[ "${CONVERT_ACTION}" == "convert" ]]; then
   require_command rosbags-convert "install rosbags, for example: python3 -m pip install rosbags"
@@ -247,7 +252,9 @@ if [[ "${ARCHIVE_REQUIRED}" == "true" ]]; then
     echo "zip already exists: ${ZIP_PATH}"
   fi
 
-  verify_archive_identity "${ZIP_PATH}"
+  if [[ "${ARCHIVE_VERIFIED}" != "true" ]]; then
+    verify_archive_identity "${ZIP_PATH}"
+  fi
 
   mkdir -p "${EXTRACT_DIR}"
   echo "extracting zip..."

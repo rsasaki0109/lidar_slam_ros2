@@ -32,12 +32,15 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
+import shutil
 import subprocess
+from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOWNLOAD_SCRIPT = REPO_ROOT / 'scripts' / 'download_ntu_viral_tnp01.sh'
+BASH = shutil.which('bash')
+assert BASH is not None
 
 
 def _run_download(
@@ -45,7 +48,7 @@ def _run_download(
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ['bash', str(DOWNLOAD_SCRIPT), *args],
+        [BASH, str(DOWNLOAD_SCRIPT), *args],
         check=False,
         capture_output=True,
         text=True,
@@ -126,8 +129,15 @@ def test_download_rejects_cached_archive_with_wrong_identity(tmp_path: Path):
         encoding='utf-8',
     )
     fake_df.chmod(0o755)
+    required_commands = (
+        'awk', 'dirname', 'find', 'head', 'md5sum', 'realpath', 'stat',
+    )
+    for command_name in required_commands:
+        command_path = shutil.which(command_name)
+        assert command_path is not None
+        (fake_bin / command_name).symlink_to(command_path)
     env = dict(os.environ)
-    env['PATH'] = f'{fake_bin}:{env["PATH"]}'
+    env['PATH'] = str(fake_bin)
     dest = tmp_path / 'dataset'
     dest.mkdir()
     (dest / 'tnp_01.zip').write_bytes(b'not the official archive')
