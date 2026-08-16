@@ -183,6 +183,7 @@ class G0ReadinessError(ValueError):
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 GithubFetcher = Callable[[str], tuple[int, dict[str, Any] | None]]
+AncestorChecker = Callable[[str, str], bool | None]
 
 
 def _cohort_gate_guidance(gate: str) -> str:
@@ -291,6 +292,22 @@ def _local_head() -> str:
     return head
 
 
+def _is_local_ancestor(ancestor: str, descendant: str) -> bool | None:
+    """Check local commit ancestry without reading or updating a remote."""
+    result = subprocess.run(
+        ['git', 'merge-base', '--is-ancestor', ancestor, descendant],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    return None
+
+
 def _product_draft_result(
     *,
     status: str,
@@ -309,6 +326,7 @@ def _product_draft_result(
     required_checks_complete: bool | None,
     blockers: list[str],
     decision_state: str,
+    non_force_update_possible: bool | None = None,
 ) -> dict[str, Any]:
     """Build one bounded PR result that can never authorize a write."""
     return {
@@ -324,6 +342,7 @@ def _product_draft_result(
         'local_head': local_head,
         'remote_head': remote_head,
         'head_matches_local': head_matches_local,
+        'non_force_update_possible': non_force_update_possible,
         'observed_check_count': observed_check_count,
         'passing_check_count': passing_check_count,
         'skipped_check_count': skipped_check_count,
@@ -356,6 +375,7 @@ def _blocked_product_draft(
     skipped_check_count: int = 0,
     pending_check_count: int = 0,
     failing_check_count: int = 0,
+    non_force_update_possible: bool | None = None,
 ) -> dict[str, Any]:
     """Return a fail-closed PR state without leaking remote free text."""
     return _product_draft_result(
@@ -375,6 +395,7 @@ def _blocked_product_draft(
         required_checks_complete=False,
         blockers=[detail],
         decision_state='HOLD',
+        non_force_update_possible=non_force_update_possible,
     )
 
 
@@ -388,6 +409,7 @@ def audit_product_draft(
     *,
     fetcher: GithubFetcher = _github_json,
     local_head: str | None = None,
+    ancestor_checker: AncestorChecker = _is_local_ancestor,
 ) -> dict[str, Any]:
     """Audit exact Draft PR identity and check runs through GitHub GETs."""
     exact_local_head = local_head if local_head is not None else _local_head()
@@ -463,6 +485,17 @@ def audit_product_draft(
             head_matches_local=head_matches_local,
         )
     if not head_matches_local:
+        non_force_update_possible = ancestor_checker(
+            remote_head,
+            exact_local_head,
+        )
+        if (
+            non_force_update_possible is not None
+            and not isinstance(non_force_update_possible, bool)
+        ):
+            raise G0ReadinessError(
+                'product Draft ancestor checker returned an invalid result'
+            )
         return _blocked_product_draft(
             local_head=exact_local_head,
             detail='Local and public product PR heads do not match.',
@@ -474,6 +507,7 @@ def audit_product_draft(
             ),
             remote_head=remote_head,
             head_matches_local=False,
+            non_force_update_possible=non_force_update_possible,
         )
     if raw_state == 'closed' and not merged:
         return _blocked_product_draft(
@@ -896,6 +930,7 @@ def _product_draft_summary(
             'local_head': None,
             'remote_head': None,
             'head_matches_local': None,
+            'non_force_update_possible': None,
             'observed_check_count': 0,
             'passing_check_count': 0,
             'skipped_check_count': 0,
@@ -937,6 +972,25 @@ def _product_draft_summary(
         )
     ):
         raise G0ReadinessError('product Draft audit blockers are unsafe')
+    non_force_update_possible = report.get('non_force_update_possible')
+    if (
+        non_force_update_possible is not None
+        and not isinstance(non_force_update_possible, bool)
+    ):
+        raise G0ReadinessError(
+            'product Draft non-force update state is invalid'
+        )
+    if isinstance(non_force_update_possible, bool) and (
+        report.get('status') != 'BLOCKED'
+        or report.get('head_matches_local') is not False
+        or not isinstance(report.get('local_head'), str)
+        or SHA_PATTERN.fullmatch(report['local_head']) is None
+        or not isinstance(report.get('remote_head'), str)
+        or SHA_PATTERN.fullmatch(report['remote_head']) is None
+    ):
+        raise G0ReadinessError(
+            'product Draft non-force update claim contradicts its state'
+        )
     fields = (
         'status',
         'pull_request',
@@ -950,6 +1004,7 @@ def _product_draft_summary(
         'local_head',
         'remote_head',
         'head_matches_local',
+        'non_force_update_possible',
         'observed_check_count',
         'passing_check_count',
         'skipped_check_count',
@@ -962,6 +1017,59 @@ def _product_draft_summary(
     summary['blockers'] = list(blockers)
     summary['merge_authorized'] = False
     return summary
+
+
+def _product_draft_update_handoff(
+    product_draft: dict[str, Any],
+) -> dict[str, Any]:
+    """Build an exact, non-executing fast-forward branch handoff."""
+    local_head = product_draft['local_head']
+    remote_head = product_draft['remote_head']
+    if (
+        product_draft['status'] != 'BLOCKED'
+        or product_draft['head_matches_local'] is not False
+        or product_draft['non_force_update_possible'] is not True
+        or not isinstance(local_head, str)
+        or SHA_PATTERN.fullmatch(local_head) is None
+        or not isinstance(remote_head, str)
+        or SHA_PATTERN.fullmatch(remote_head) is None
+    ):
+        raise G0ReadinessError(
+            'product Draft update handoff requires verified fast-forward tips'
+        )
+    return {
+        'kind': 'NON_FORCE_PR_BRANCH_UPDATE',
+        'authority_required': (
+            'separate-exact-tip-non-force-push-approval'
+        ),
+        'external_write_required': True,
+        'pull_request': PRODUCT_PR_NUMBER,
+        'url': PRODUCT_PR_URL,
+        'head_ref': PRODUCT_PR_HEAD,
+        'public_head': remote_head,
+        'local_head': local_head,
+        'fast_forward_verified': True,
+        'non_force_only': True,
+        'push_authorized': False,
+        'force_push_authorized': False,
+        'steps': [
+            (
+                f'Confirm PR #{PRODUCT_PR_NUMBER} still has public head '
+                f'{remote_head} and the reviewed local tip is {local_head}.'
+            ),
+            (
+                f'Obtain separate exact-tip authority to update '
+                f'{PRODUCT_PR_HEAD} from {remote_head} to {local_head} '
+                'without force.'
+            ),
+            (
+                'After an authorized external update, rerun the GET-only '
+                'exact-head audit below.'
+            ),
+        ],
+        'verification_command': PRODUCT_PR_VERIFY_COMMAND,
+        'writes_performed': False,
+    }
 
 
 def _candidate_environment_summary(
@@ -1177,6 +1285,67 @@ def _next_action(
         blocker = '; '.join(product_draft['blockers']) or (
             'The exact product Draft state could not be established.'
         )
+        if (
+            product_draft['head_matches_local'] is False
+            and product_draft['non_force_update_possible'] is True
+        ):
+            local_head = product_draft['local_head']
+            remote_head = product_draft['remote_head']
+            return {
+                'id': 'review-product-draft-branch-update',
+                'title': 'Review the exact non-force Draft branch update',
+                'reason': (
+                    f'Public head {remote_head} differs from local tip '
+                    f'{local_head}; local ancestry proves that this exact '
+                    'transition is a fast-forward.'
+                ),
+                'command': (
+                    f'git merge-base --is-ancestor {remote_head} '
+                    f'{local_head}'
+                ),
+                'write_boundary': (
+                    'read-only ancestry check; push requires separate '
+                    'exact-tip authority and force push is forbidden'
+                ),
+                'product_draft_update_handoff': (
+                    _product_draft_update_handoff(product_draft)
+                ),
+            }
+        if product_draft['head_matches_local'] is False:
+            local_head = product_draft['local_head']
+            remote_head = product_draft['remote_head']
+            if product_draft['non_force_update_possible'] is False:
+                return {
+                    'id': 'inspect-product-draft-divergence',
+                    'title': 'Inspect the divergent Draft branch history',
+                    'reason': (
+                        f'Public head {remote_head} is not an ancestor of '
+                        f'local tip {local_head}; a non-force update is not '
+                        'currently possible.'
+                    ),
+                    'command': f'git merge-base {remote_head} {local_head}',
+                    'write_boundary': (
+                        'read-only history inspection; no push, force push, '
+                        'PR state change, or merge is authorized'
+                    ),
+                }
+            return {
+                'id': 'restore-product-draft-lineage-evidence',
+                'title': 'Restore local evidence for Draft branch lineage',
+                'reason': (
+                    f'Public head {remote_head} and local tip {local_head} '
+                    'differ, but the local object database cannot yet prove '
+                    'whether a non-force update is possible.'
+                ),
+                'command': (
+                    f'git fetch --no-tags origin {PRODUCT_PR_HEAD} && '
+                    f'git merge-base --is-ancestor {remote_head} {local_head}'
+                ),
+                'write_boundary': (
+                    'network read and local Git metadata only; no remote '
+                    'write, PR state change, or merge is authorized'
+                ),
+            }
         return {
             'id': 'repair-product-draft-audit',
             'title': 'Restore an exact product Draft audit',
@@ -1554,6 +1723,29 @@ def render_card(report: dict[str, Any]) -> str:
             f"`{handoff['verification_command']}`"
         )
         lines.append('- Environment writes performed: no')
+    draft_handoff = report['next_action'].get(
+        'product_draft_update_handoff'
+    )
+    if draft_handoff is not None:
+        lines.extend([
+            '',
+            'Draft branch update handoff (not executed):',
+            f"- Authority required: {draft_handoff['authority_required']}",
+            f"- Head branch: `{draft_handoff['head_ref']}`",
+            f"- Public head: `{draft_handoff['public_head']}`",
+            f"- Local tip: `{draft_handoff['local_head']}`",
+            '- Fast-forward verified: yes',
+            '- Non-force only: yes',
+        ])
+        lines.extend(
+            f'{index}. {step}'
+            for index, step in enumerate(draft_handoff['steps'], start=1)
+        )
+        lines.append(
+            'Post-update GET-only verification: '
+            f"`{draft_handoff['verification_command']}`"
+        )
+        lines.append('- Pushes performed: no')
     lines.extend(['', f"Current packet: `{report['current_packet']['path']}`"])
     return '\n'.join(lines) + '\n'
 

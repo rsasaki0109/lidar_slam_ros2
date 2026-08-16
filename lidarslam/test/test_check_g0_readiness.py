@@ -183,6 +183,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         'local_head': None,
         'remote_head': None,
         'head_matches_local': None,
+        'non_force_update_possible': None,
         'observed_check_count': 0,
         'passing_check_count': 0,
         'skipped_check_count': 0,
@@ -450,13 +451,22 @@ def test_product_audit_fails_closed_on_drift_failed_ci_and_authority():
     drift = DASHBOARD.audit_product_draft(
         fetcher=drift_fetcher,
         local_head=head,
+        ancestor_checker=lambda _ancestor, _descendant: False,
     )
     assert drift['status'] == 'BLOCKED'
     assert drift['head_matches_local'] is False
+    assert drift['non_force_update_possible'] is False
     assert drift['required_checks_complete'] is False
     assert drift['blockers'] == [
         'Local and public product PR heads do not match.'
     ]
+
+    reports = DASHBOARD.collect_checker_reports()
+    reports['product_draft'] = drift
+    divergence = DASHBOARD.build_report(reports)['next_action']
+    assert divergence['id'] == 'inspect-product-draft-divergence'
+    assert divergence['command'] == f"git merge-base {'3' * 40} {head}"
+    assert divergence['command'] != DASHBOARD.PRODUCT_PR_VERIFY_COMMAND
 
     failed = _audit_product(
         head,
@@ -476,6 +486,63 @@ def test_product_audit_fails_closed_on_drift_failed_ci_and_authority():
         match='unsafe or incomplete authority',
     ):
         DASHBOARD.build_report(reports)
+
+    reports = DASHBOARD.collect_checker_reports()
+    reports['product_draft'] = _audit_product(head)
+    reports['product_draft']['non_force_update_possible'] = False
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='non-force update claim contradicts its state',
+    ):
+        DASHBOARD.build_report(reports)
+
+
+def test_head_drift_emits_exact_non_force_handoff_without_push_command():
+    """Fast-forward drift gets a bounded handoff, not a circular re-audit."""
+    local_head = '6' * 40
+    public_head = '5' * 40
+
+    def drift_fetcher(path: str):
+        assert path.endswith('/pulls/427')
+        return 200, _product_pull(public_head)
+
+    product = DASHBOARD.audit_product_draft(
+        fetcher=drift_fetcher,
+        local_head=local_head,
+        ancestor_checker=lambda ancestor, descendant: (
+            ancestor == public_head and descendant == local_head
+        ),
+    )
+    assert product['non_force_update_possible'] is True
+
+    reports = DASHBOARD.collect_checker_reports()
+    reports['product_draft'] = product
+    report = DASHBOARD.build_report(reports)
+    action = report['next_action']
+
+    assert action['id'] == 'review-product-draft-branch-update'
+    assert action['command'] == (
+        f'git merge-base --is-ancestor {public_head} {local_head}'
+    )
+    assert action['command'] != DASHBOARD.PRODUCT_PR_VERIFY_COMMAND
+    handoff = action['product_draft_update_handoff']
+    assert handoff['public_head'] == public_head
+    assert handoff['local_head'] == local_head
+    assert handoff['fast_forward_verified'] is True
+    assert handoff['non_force_only'] is True
+    assert handoff['push_authorized'] is False
+    assert handoff['force_push_authorized'] is False
+    assert handoff['writes_performed'] is False
+    assert handoff['verification_command'] == DASHBOARD.PRODUCT_PR_VERIFY_COMMAND
+    assert 'git push' not in repr(action)
+
+    card = DASHBOARD.render_card(report)
+    assert 'Draft branch update handoff (not executed):' in card
+    assert f'Public head: `{public_head}`' in card
+    assert f'Local tip: `{local_head}`' in card
+    assert 'Fast-forward verified: yes' in card
+    assert 'Pushes performed: no' in card
+    assert 'git push' not in card
 
 
 def test_product_review_state_only_clears_after_exact_merge():

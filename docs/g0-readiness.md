@@ -33,6 +33,17 @@ The report distinguishes `DRAFT_REVIEW_REQUIRED`,
 `READY_FOR_SEPARATE_MERGE_REVIEW`, and `MERGED`, while keeping
 `merge_authorized: false` in every state.
 
+When the full local and public heads differ, the dashboard does not tell the
+operator to repeat the same audit. It first checks the two commits in the
+local object database. A verified fast-forward produces one structured
+`NON_FORCE_PR_BRANCH_UPDATE` handoff containing the exact public head, exact
+local tip, canonical PR branch, separate authority requirement, and post-update
+GET-only verification command. The handoff deliberately contains no push
+command and keeps `push_authorized`, `force_push_authorized`, and
+`writes_performed` false. Divergent history instead selects a read-only
+merge-base inspection; unavailable local history selects a bounded fetch plus
+ancestry check. Neither path authorizes a push, PR state change, or merge.
+
 Dependency order is explicit. A green Draft points to the seven-slice local
 review plan. A non-Draft open PR still requires a separate maintainer merge
 decision. Repository-environment work cannot become the next action until the

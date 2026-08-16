@@ -231,6 +231,7 @@
         "local_head",
         "remote_head",
         "head_matches_local",
+        "non_force_update_possible",
         "observed_check_count",
         "passing_check_count",
         "skipped_check_count",
@@ -274,6 +275,7 @@
           ]
         },
         "head_matches_local": {"type": ["boolean", "null"]},
+        "non_force_update_possible": {"type": ["boolean", "null"]},
         "observed_check_count": {
           "type": "integer",
           "minimum": 0,
@@ -328,6 +330,7 @@
               "local_head": {"type": "null"},
               "remote_head": {"type": "null"},
               "head_matches_local": {"type": "null"},
+              "non_force_update_possible": {"type": "null"},
               "required_checks_complete": {"type": "null"},
               "blockers": {"maxItems": 0},
               "decision_state": {"const": "NOT_CHECKED"}
@@ -341,6 +344,28 @@
               "required_checks_complete": {"const": false},
               "blockers": {"minItems": 1},
               "decision_state": {"const": "HOLD"}
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["non_force_update_possible"],
+            "properties": {
+              "non_force_update_possible": {"type": "boolean"}
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {"const": "BLOCKED"},
+              "head_matches_local": {"const": false},
+              "local_head": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "remote_head": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              }
             }
           }
         },
@@ -595,7 +620,79 @@
         },
         "operator_handoff": {
           "$ref": "#/definitions/operatorHandoff"
+        },
+        "product_draft_update_handoff": {
+          "$ref": "#/definitions/productDraftUpdateHandoff"
         }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["id"],
+            "properties": {
+              "id": {"const": "review-product-draft-branch-update"}
+            }
+          },
+          "then": {
+            "required": ["product_draft_update_handoff"]
+          }
+        }
+      ]
+    },
+    "productDraftUpdateHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "authority_required",
+        "external_write_required",
+        "pull_request",
+        "url",
+        "head_ref",
+        "public_head",
+        "local_head",
+        "fast_forward_verified",
+        "non_force_only",
+        "push_authorized",
+        "force_push_authorized",
+        "steps",
+        "verification_command",
+        "writes_performed"
+      ],
+      "properties": {
+        "kind": {"const": "NON_FORCE_PR_BRANCH_UPDATE"},
+        "authority_required": {
+          "const": "separate-exact-tip-non-force-push-approval"
+        },
+        "external_write_required": {"const": true},
+        "pull_request": {"const": 427},
+        "url": {
+          "const": "https://github.com/rsasaki0109/lidar_slam_ros2/pull/427"
+        },
+        "head_ref": {"const": "agent/product-g0-guided-ux"},
+        "public_head": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "local_head": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "fast_forward_verified": {"const": true},
+        "non_force_only": {"const": true},
+        "push_authorized": {"const": false},
+        "force_push_authorized": {"const": false},
+        "steps": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 400}
+        },
+        "verification_command": {
+          "const": "GITHUB_TOKEN=\"$(gh auth token)\" python3 scripts/check_g0_readiness.py --include-product-draft --json"
+        },
+        "writes_performed": {"const": false}
       }
     },
     "operatorHandoff": {
