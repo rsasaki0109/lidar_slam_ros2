@@ -127,6 +127,45 @@
         "request-current-reproduction"
       ]
     },
+    "linkedClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "repository",
+        "pull_request",
+        "expected_head_sha",
+        "expected_status",
+        "expected_state",
+        "expected_is_draft",
+        "expected_mergeable",
+        "expected_passing_check_count",
+        "expected_skipped_check_count",
+        "expected_pending_check_count",
+        "expected_failing_check_count",
+        "expected_required_checks_complete"
+      ],
+      "properties": {
+        "id": {"const": "issue-69-public-draft"},
+        "kind": {"const": "product-draft"},
+        "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+        "pull_request": {"const": 427},
+        "expected_head_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "expected_status": {"const": "DRAFT_REVIEW_REQUIRED"},
+        "expected_state": {"const": "OPEN"},
+        "expected_is_draft": {"const": true},
+        "expected_mergeable": {"const": true},
+        "expected_passing_check_count": {"const": 10},
+        "expected_skipped_check_count": {"const": 4},
+        "expected_pending_check_count": {"const": 0},
+        "expected_failing_check_count": {"const": 0},
+        "expected_required_checks_complete": {"const": true}
+      }
+    },
     "themeCounts": {
       "type": "object",
       "additionalProperties": false,
@@ -180,6 +219,25 @@
     "issueProposal": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {"issue_number": {"const": 69}},
+            "required": ["issue_number"]
+          },
+          "then": {
+            "required": ["linked_claims"],
+            "properties": {
+              "linked_claims": {"minItems": 1, "maxItems": 1}
+            }
+          },
+          "else": {
+            "properties": {
+              "linked_claims": {"maxItems": 0}
+            }
+          }
+        }
+      ],
       "required": [
         "issue_number",
         "title",
@@ -244,6 +302,12 @@
           }
         },
         "recheck_before_apply": {"const": true},
+        "linked_claims": {
+          "type": "array",
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {"$ref": "#/definitions/linkedClaim"}
+        },
         "rationale": {"type": "string", "minLength": 1, "maxLength": 600},
         "response_summary": {"type": "string", "minLength": 1, "maxLength": 600},
         "evidence": {

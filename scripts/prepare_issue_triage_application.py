@@ -100,6 +100,22 @@ def _load_proposal_checker() -> Any:
 PROPOSAL_CHECKER = _load_proposal_checker()
 
 
+def _load_g0_readiness_checker() -> Any:
+    path = REPO_ROOT / 'scripts' / 'check_g0_readiness.py'
+    spec = importlib.util.spec_from_file_location(
+        '_g0_readiness_checker_for_issue_triage',
+        path,
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError('cannot load the G0 readiness checker')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+G0_READINESS = _load_g0_readiness_checker()
+
+
 class ApplicationPacketError(ValueError):
     """The proposed application packet cannot be trusted."""
 
@@ -286,6 +302,9 @@ def _build_action(issue: dict[str, Any], order: int) -> dict[str, Any]:
         ),
         'prerequisites': {
             'live_recheck_required': True,
+            'linked_claim_ids': [
+                claim['id'] for claim in issue.get('linked_claims', [])
+            ],
             'dependency_ids': dependencies,
             'maintainer_content_review_required': True,
             'explicit_write_authorization_required': True,
@@ -301,6 +320,144 @@ def _build_action(issue: dict[str, Any], order: int) -> dict[str, Any]:
 
 def _sort_key(issue: dict[str, Any]) -> tuple[int, int]:
     return PRIORITY_ORDER[issue['priority']], issue['issue_number']
+
+
+def _selected_issues(
+    proposal: dict[str, Any],
+    issue_number: int | None,
+) -> list[dict[str, Any]]:
+    issues = sorted(proposal['issues'], key=_sort_key)
+    if issue_number is None:
+        return issues
+    selected = [
+        issue for issue in issues
+        if issue['issue_number'] == issue_number
+    ]
+    if not selected:
+        raise ApplicationPacketError(
+            f'issue #{issue_number} is not in the proposal'
+        )
+    return selected
+
+
+def _linked_claims(
+    issues: Sequence[dict[str, Any]],
+) -> list[tuple[int, dict[str, Any]]]:
+    claims = [
+        (issue['issue_number'], claim)
+        for issue in issues
+        for claim in issue.get('linked_claims', [])
+    ]
+    claim_ids = [claim['id'] for _, claim in claims]
+    if len(claim_ids) != len(set(claim_ids)):
+        raise ApplicationPacketError(
+            'linked claim IDs must not contain duplicates'
+        )
+    return claims
+
+
+def _verify_linked_claims(
+    issues: Sequence[dict[str, Any]],
+    *,
+    auditor: Any = None,
+) -> list[dict[str, Any]]:
+    """Verify source-bound PR and CI claims through existing GitHub GETs."""
+    auditor = auditor or G0_READINESS.audit_product_draft
+    results = []
+    for issue_number, claim in _linked_claims(issues):
+        if claim['kind'] != 'product-draft':
+            raise ApplicationPacketError(
+                f"linked claim {claim['id']} has an unsupported kind"
+            )
+        try:
+            observed = auditor(local_head=claim['expected_head_sha'])
+        except G0_READINESS.G0ReadinessError as exc:
+            raise ApplicationPacketError(
+                f"linked claim {claim['id']} could not be checked: {exc}"
+            ) from exc
+        expected = {
+            'pull_request': claim['pull_request'],
+            'status': claim['expected_status'],
+            'remote_head': claim['expected_head_sha'],
+            'head_matches_local': True,
+            'state': claim['expected_state'],
+            'is_draft': claim['expected_is_draft'],
+            'mergeable': claim['expected_mergeable'],
+            'passing_check_count': claim['expected_passing_check_count'],
+            'skipped_check_count': claim['expected_skipped_check_count'],
+            'pending_check_count': claim['expected_pending_check_count'],
+            'failing_check_count': claim['expected_failing_check_count'],
+            'required_checks_complete': (
+                claim['expected_required_checks_complete']
+            ),
+            'blockers': [],
+        }
+        drifted = [
+            key for key, value in expected.items()
+            if observed.get(key) != value
+        ]
+        expected_authority = {
+            'network_reads_performed': True,
+            'github_writes_authorized': False,
+            'merge_authorized': False,
+            'remote_mutations_performed': False,
+        }
+        if observed.get('authority') != expected_authority:
+            drifted.append('authority')
+        if drifted:
+            raise ApplicationPacketError(
+                f"linked claim {claim['id']} drifted: "
+                + ', '.join(sorted(drifted))
+            )
+        results.append({
+            'id': claim['id'],
+            'issue_number': issue_number,
+            'kind': claim['kind'],
+            'status': 'PASS',
+            'remote_head': observed['remote_head'],
+            'state': observed['state'],
+            'is_draft': observed['is_draft'],
+            'mergeable': observed['mergeable'],
+            'passing_check_count': observed['passing_check_count'],
+            'skipped_check_count': observed['skipped_check_count'],
+            'pending_check_count': observed['pending_check_count'],
+            'failing_check_count': observed['failing_check_count'],
+            'required_checks_complete': observed[
+                'required_checks_complete'
+            ],
+            'authority': expected_authority,
+        })
+    return results
+
+
+def _linked_check(
+    claims: Sequence[tuple[int, dict[str, Any]]],
+    results: Sequence[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    if not claims:
+        if results:
+            raise ApplicationPacketError(
+                'linked results exist without selected claims'
+            )
+        return {
+            'performed': False,
+            'status': 'NOT_REQUIRED',
+            'claim_count': 0,
+            'results': [],
+        }
+    if results is None:
+        return {
+            'performed': False,
+            'status': 'NOT_RUN',
+            'claim_count': len(claims),
+            'results': [],
+        }
+    return {
+        'performed': True,
+        'status': 'PASS',
+        'claim_count': len(claims),
+        'results': list(results),
+    }
 
 
 def _schema_error_path(error: jsonschema.ValidationError) -> str:
@@ -393,6 +550,70 @@ def validate_packet(
             'packet proposal issue count is inconsistent with its source'
         )
 
+    source_issues = _selected_issues(source_proposal, requested)
+    source_claims = _linked_claims(source_issues)
+    linked_check = packet['linked_check']
+    if linked_check['claim_count'] != len(source_claims):
+        raise ApplicationPacketError(
+            'packet linked claim count is inconsistent with its source'
+        )
+    if not source_claims:
+        expected_linked_status = 'NOT_REQUIRED'
+    elif packet['live_check']['status'] == 'PASS':
+        expected_linked_status = 'PASS'
+    else:
+        expected_linked_status = 'NOT_RUN'
+    if linked_check['status'] != expected_linked_status:
+        raise ApplicationPacketError(
+            'packet linked check status is inconsistent'
+        )
+    expected_claim_ids = [claim['id'] for _, claim in source_claims]
+    result_ids = [result['id'] for result in linked_check['results']]
+    if linked_check['status'] == 'PASS':
+        if result_ids != expected_claim_ids:
+            raise ApplicationPacketError(
+                'packet linked check results are incomplete or reordered'
+            )
+        for (issue_number, claim), result in zip(
+            source_claims,
+            linked_check['results'],
+        ):
+            expected_result = {
+                'id': claim['id'],
+                'issue_number': issue_number,
+                'kind': claim['kind'],
+                'status': 'PASS',
+                'remote_head': claim['expected_head_sha'],
+                'state': claim['expected_state'],
+                'is_draft': claim['expected_is_draft'],
+                'mergeable': claim['expected_mergeable'],
+                'passing_check_count': (
+                    claim['expected_passing_check_count']
+                ),
+                'skipped_check_count': (
+                    claim['expected_skipped_check_count']
+                ),
+                'pending_check_count': (
+                    claim['expected_pending_check_count']
+                ),
+                'failing_check_count': (
+                    claim['expected_failing_check_count']
+                ),
+                'required_checks_complete': (
+                    claim['expected_required_checks_complete']
+                ),
+                'authority': {
+                    'network_reads_performed': True,
+                    'github_writes_authorized': False,
+                    'merge_authorized': False,
+                    'remote_mutations_performed': False,
+                },
+            }
+            if result != expected_result:
+                raise ApplicationPacketError(
+                    f"linked claim {claim['id']} result is inconsistent"
+                )
+
     expected_summary = {
         'close_action_count': sum(
             action['proposed_changes']['close_issue']
@@ -469,6 +690,22 @@ def validate_packet(
                 f"issue #{action['issue_number']} content status is "
                 'inconsistent'
             )
+        source_issue = next(
+            item for item in source_issues
+            if item['issue_number'] == action['issue_number']
+        )
+        expected_linked_ids = [
+            claim['id']
+            for claim in source_issue.get('linked_claims', [])
+        ]
+        if (
+            action['prerequisites']['linked_claim_ids']
+            != expected_linked_ids
+        ):
+            raise ApplicationPacketError(
+                f"issue #{action['issue_number']} linked claims are "
+                'inconsistent'
+            )
         response = action['public_response_draft']
         if (
             action['rationale'] not in response
@@ -497,12 +734,6 @@ def validate_packet(
             'packet GitHub request mode is inconsistent with live_check'
         )
 
-    source_issues = sorted(source_proposal['issues'], key=_sort_key)
-    if requested is not None:
-        source_issues = [
-            issue for issue in source_issues
-            if issue['issue_number'] == requested
-        ]
     expected_actions = [
         _build_action(issue, order)
         for order, issue in enumerate(source_issues, start=1)
@@ -521,6 +752,7 @@ def build_packet(
     proposal_path: Path = DEFAULT_PROPOSAL,
     issue_number: int | None = None,
     live_status: str = 'NOT_RUN',
+    linked_results: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build and validate one deterministic no-write application packet."""
     PROPOSAL_CHECKER.validate_proposal(proposal, proposal_schema)
@@ -533,16 +765,8 @@ def build_packet(
         'generator',
     )
 
-    issues = sorted(proposal['issues'], key=_sort_key)
-    if issue_number is not None:
-        issues = [
-            item for item in issues
-            if item['issue_number'] == issue_number
-        ]
-        if not issues:
-            raise ApplicationPacketError(
-                f'issue #{issue_number} is not in the proposal'
-            )
+    issues = _selected_issues(proposal, issue_number)
+    claims = _linked_claims(issues)
     actions = [
         _build_action(issue, index)
         for index, issue in enumerate(issues, start=1)
@@ -568,6 +792,7 @@ def build_packet(
             'performed': live_status == 'PASS',
             'status': live_status,
         },
+        'linked_check': _linked_check(claims, linked_results),
         'summary': {
             'close_action_count': sum(
                 action['proposed_changes']['close_issue']
@@ -622,6 +847,10 @@ def render_packet(packet: dict[str, Any]) -> str:
             f"**{packet['live_check']['status']}**"
         ),
         (
+            '- Linked PR/CI check: '
+            f"**{packet['linked_check']['status']}**"
+        ),
+        (
             '- Selected actions: '
             f"{packet['selection']['selected_action_count']} / "
             f"{packet['selection']['proposal_issue_count']}"
@@ -644,6 +873,10 @@ def render_packet(packet: dict[str, Any]) -> str:
             f'`{item}`'
             for item in action['prerequisites']['dependency_ids']
         ) or 'none'
+        linked_claims = ', '.join(
+            f'`{item}`'
+            for item in action['prerequisites']['linked_claim_ids']
+        ) or 'none'
         lines.extend([
             '',
             (
@@ -658,6 +891,7 @@ def render_packet(packet: dict[str, Any]) -> str:
             f"- Close issue: `{str(changes['close_issue']).lower()}`",
             f'- State reason: `{state_reason}`',
             f'- Dependencies to review: {dependencies}',
+            f'- Linked claims to recheck: {linked_claims}',
             '- Live recheck required immediately before any action: `true`',
             '- Explicit write authorization required: `true`',
             '',
@@ -705,6 +939,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         packet_schema = _load_json(args.packet_schema, 'packet schema')
         PROPOSAL_CHECKER.validate_proposal(proposal, proposal_schema)
         live_status = 'NOT_RUN'
+        linked_results = None
         if args.live:
             live_issues, live_labels = (
                 PROPOSAL_CHECKER.fetch_live_snapshot(
@@ -717,6 +952,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 live_labels,
             )
             live_status = 'PASS'
+            selected_issues = _selected_issues(
+                proposal,
+                args.issue_number,
+            )
+            linked_results = _verify_linked_claims(selected_issues)
         packet = build_packet(
             proposal,
             proposal_schema,
@@ -724,6 +964,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             proposal_path=args.proposal,
             issue_number=args.issue_number,
             live_status=live_status,
+            linked_results=linked_results,
         )
         if args.as_json:
             print(json.dumps(packet, indent=2, sort_keys=True))

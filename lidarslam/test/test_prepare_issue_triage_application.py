@@ -59,6 +59,7 @@ PACKET_SCHEMA_PATH = (
     / 'schemas'
     / 'issue-triage-application-packet-v1.schema.json'
 )
+PUBLIC_DRAFT_HEAD = '4b2ab514a4f33b443e2c4283b3114d11a5e44e49'
 SPEC = importlib.util.spec_from_file_location(
     'prepare_issue_triage_application',
     SCRIPT,
@@ -90,7 +91,12 @@ def _packet_schema() -> dict:
     return _load(PACKET_SCHEMA_PATH)
 
 
-def _packet(*, issue_number=None, live_status='NOT_RUN') -> dict:
+def _packet(
+    *,
+    issue_number=None,
+    live_status='NOT_RUN',
+    linked_results=None,
+) -> dict:
     """Build one packet from tracked sources."""
     return APPLICATION.build_packet(
         _proposal(),
@@ -98,6 +104,7 @@ def _packet(*, issue_number=None, live_status='NOT_RUN') -> dict:
         _packet_schema(),
         issue_number=issue_number,
         live_status=live_status,
+        linked_results=linked_results,
     )
 
 
@@ -120,6 +127,52 @@ def _live_snapshot(proposal: dict) -> tuple[list[dict], list[str]]:
     return issues, list(proposal['label_catalog'])
 
 
+def _product_draft_audit() -> dict:
+    """Return the exact bounded result from the existing GET-only audit."""
+    return {
+        'pull_request': 427,
+        'status': 'DRAFT_REVIEW_REQUIRED',
+        'remote_head': PUBLIC_DRAFT_HEAD,
+        'head_matches_local': True,
+        'state': 'OPEN',
+        'is_draft': True,
+        'mergeable': True,
+        'passing_check_count': 10,
+        'skipped_check_count': 4,
+        'pending_check_count': 0,
+        'failing_check_count': 0,
+        'required_checks_complete': True,
+        'blockers': [],
+        'authority': {
+            'network_reads_performed': True,
+            'github_writes_authorized': False,
+            'merge_authorized': False,
+            'remote_mutations_performed': False,
+        },
+    }
+
+
+def _linked_result() -> dict:
+    """Return the privacy-bounded packet form of the linked audit."""
+    observed = _product_draft_audit()
+    return {
+        'id': 'issue-69-public-draft',
+        'issue_number': 69,
+        'kind': 'product-draft',
+        'status': 'PASS',
+        'remote_head': observed['remote_head'],
+        'state': observed['state'],
+        'is_draft': observed['is_draft'],
+        'mergeable': observed['mergeable'],
+        'passing_check_count': observed['passing_check_count'],
+        'skipped_check_count': observed['skipped_check_count'],
+        'pending_check_count': observed['pending_check_count'],
+        'failing_check_count': observed['failing_check_count'],
+        'required_checks_complete': observed['required_checks_complete'],
+        'authority': observed['authority'],
+    }
+
+
 def test_complete_packet_is_schema_valid_ordered_and_unauthorized():
     """All 29 rows become deterministic review actions without authority."""
     packet = _packet()
@@ -136,6 +189,12 @@ def test_complete_packet_is_schema_valid_ordered_and_unauthorized():
         'reproduction_request_count': 4,
         'dependency_review_count': 9,
         'monitor_only_count': 1,
+    }
+    assert packet['linked_check'] == {
+        'performed': False,
+        'status': 'NOT_RUN',
+        'claim_count': 1,
+        'results': [],
     }
     assert [item['issue_number'] for item in packet['actions'][:6]] == [
         69, 422, 64, 104, 106, 124,
@@ -165,6 +224,9 @@ def test_issue_69_is_a_reviewed_keep_open_help_request():
         'close_issue': False,
         'state_reason': None,
     }
+    assert action['prerequisites']['linked_claim_ids'] == [
+        'issue-69-public-draft',
+    ]
     assert len(action['evidence']) == 6
     assert all(
         item['kind'] == 'repository_file' and len(item['sha256']) == 64
@@ -195,6 +257,12 @@ def test_issue_422_remains_monitor_only():
         'comment_required': False,
         'close_issue': False,
         'state_reason': None,
+    }
+    assert _packet(issue_number=422)['linked_check'] == {
+        'performed': False,
+        'status': 'NOT_REQUIRED',
+        'claim_count': 0,
+        'results': [],
     }
 
 
@@ -235,13 +303,15 @@ def test_response_drafts_are_issue_specific_and_contain_no_mutation_command():
         assert action['response_summary'] in response
         assert 'Evidence reviewed:' in response
     assert 'review aid' in rendered
+    assert 'Linked PR/CI check: **NOT_RUN**' in rendered
+    assert 'Linked claims to recheck: `issue-69-public-draft`' in rendered
     assert 'does not authorize posting, labeling, or closing' in rendered
     assert 'gh issue' not in rendered
     assert 'PATCH ' not in rendered
 
 
 def test_external_and_repository_evidence_stay_inside_bounded_sources():
-    """Only tracked files and a clean github.com repository URL are accepted."""
+    """Accept only tracked files and a clean github.com repository URL."""
     action = _action(_packet(), 118)
 
     assert action['evidence'][0] == {
@@ -359,27 +429,131 @@ def test_live_main_uses_get_only_snapshot_and_emits_pass(monkeypatch, capsys):
     """An exact live snapshot changes only the request audit mode."""
     proposal = _proposal()
     live_issues, live_labels = _live_snapshot(proposal)
-    calls = []
+    issue_calls = []
+    draft_calls = []
 
     def fake_fetch(repository):
-        calls.append(repository)
+        issue_calls.append(repository)
         return live_issues, live_labels
+
+    def fake_draft_audit(*, local_head):
+        draft_calls.append(local_head)
+        return _product_draft_audit()
 
     monkeypatch.setattr(
         APPLICATION.PROPOSAL_CHECKER,
         'fetch_live_snapshot',
         fake_fetch,
     )
+    monkeypatch.setattr(
+        APPLICATION.G0_READINESS,
+        'audit_product_draft',
+        fake_draft_audit,
+    )
 
     assert APPLICATION.main(['--live', '--issue', '69', '--json']) == 0
     packet = json.loads(capsys.readouterr().out)
-    assert calls == ['rsasaki0109/lidar_slam_ros2']
+    assert issue_calls == ['rsasaki0109/lidar_slam_ros2']
+    assert draft_calls == [PUBLIC_DRAFT_HEAD]
     assert packet['live_check'] == {'performed': True, 'status': 'PASS'}
+    assert packet['linked_check'] == {
+        'performed': True,
+        'status': 'PASS',
+        'claim_count': 1,
+        'results': [_linked_result()],
+    }
     assert packet['authority']['github_requests'] == 'GET_ONLY'
     assert packet['authority']['remote_mutations_performed'] is False
 
 
-def test_live_drift_returns_failure_without_a_false_packet(monkeypatch, capsys):
+@pytest.mark.parametrize(
+    ('field', 'drifted_value'),
+    [
+        ('remote_head', '1' * 40),
+        ('status', 'READY'),
+        ('passing_check_count', 9),
+        ('authority', {
+            'network_reads_performed': True,
+            'github_writes_authorized': True,
+            'merge_authorized': False,
+            'remote_mutations_performed': False,
+        }),
+    ],
+)
+def test_linked_draft_claim_drift_fails_closed(field, drifted_value):
+    """Head, status, check-count, or authority drift blocks the response."""
+    observed = _product_draft_audit()
+    observed[field] = drifted_value
+
+    with pytest.raises(
+        APPLICATION.ApplicationPacketError,
+        match=f'linked claim issue-69-public-draft drifted: {field}',
+    ):
+        APPLICATION._verify_linked_claims(
+            [
+                issue for issue in _proposal()['issues']
+                if issue['issue_number'] == 69
+            ],
+            auditor=lambda **kwargs: observed,
+        )
+
+
+def test_linked_drift_main_emits_no_false_packet(monkeypatch, capsys):
+    """A changed public Draft head prevents all packet output."""
+    proposal = _proposal()
+    live_issues, live_labels = _live_snapshot(proposal)
+    observed = _product_draft_audit()
+    observed['remote_head'] = '1' * 40
+    monkeypatch.setattr(
+        APPLICATION.PROPOSAL_CHECKER,
+        'fetch_live_snapshot',
+        lambda repository: (live_issues, live_labels),
+    )
+    monkeypatch.setattr(
+        APPLICATION.G0_READINESS,
+        'audit_product_draft',
+        lambda **kwargs: observed,
+    )
+
+    assert APPLICATION.main(['--live', '--issue', '69', '--json']) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ''
+    assert 'linked claim issue-69-public-draft drifted' in captured.err
+    assert 'remote_head' in captured.err
+
+
+def test_linked_packet_result_is_source_bound_and_live_bound():
+    """A shaped PASS cannot detach from the proposal or live issue check."""
+    packet = _packet(
+        issue_number=69,
+        live_status='PASS',
+        linked_results=[_linked_result()],
+    )
+    packet['linked_check']['results'][0]['remote_head'] = '1' * 40
+    with pytest.raises(
+        APPLICATION.ApplicationPacketError,
+        match='result is inconsistent',
+    ):
+        APPLICATION.validate_packet(packet, _packet_schema())
+
+    packet = _packet(issue_number=69)
+    packet['linked_check'] = {
+        'performed': True,
+        'status': 'PASS',
+        'claim_count': 1,
+        'results': [_linked_result()],
+    }
+    with pytest.raises(
+        APPLICATION.ApplicationPacketError,
+        match='linked check status is inconsistent',
+    ):
+        APPLICATION.validate_packet(packet, _packet_schema())
+
+
+def test_live_drift_returns_failure_without_a_false_packet(
+    monkeypatch,
+    capsys,
+):
     """Any open-issue drift prevents packet output."""
     proposal = _proposal()
     live_issues, live_labels = _live_snapshot(proposal)

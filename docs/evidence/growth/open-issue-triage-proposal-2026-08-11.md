@@ -132,8 +132,11 @@ impossible; a new complete reproduction can always reopen the product decision.
    ```
 
 3. Generate a bounded review packet for one issue. This repeats the live
-   GET-only check, re-hashes every repository evidence file, and prints only to
-   standard output:
+   GET-only issue check, re-hashes every repository evidence file, and prints
+   only to standard output. For #69 it also reuses the GET-only product-Draft
+   audit to require PR #427 at exact head `4b2ab514`, still open, Draft, and
+   mergeable, with 10 successful checks, 4 intentional skips, and no pending
+   or failing check:
 
    ```bash
    python3 scripts/prepare_issue_triage_application.py --live --issue 69
@@ -141,19 +144,24 @@ impossible; a new complete reproduction can always reopen the product decision.
      --live --issue 69 --json
    ```
 
-   The packet contains a prepared response draft but no mutation command. It
-   reports `PREPARED_NOT_AUTHORIZED`; it cannot post, label, or close anything.
-   Rows with starter dependencies remain `DEPENDENCY_REVIEW_REQUIRED`, and
-   #422 remains `MONITOR_ONLY` so independent validation is not contaminated.
+   A live #69 packet requires both `live_check: PASS` and
+   `linked_check: PASS`; an offline #69 packet says `linked_check: NOT_RUN`
+   instead of presenting dated Draft/CI facts as current. The packet contains
+   a prepared response draft but no mutation command. It reports
+   `PREPARED_NOT_AUTHORIZED`; it cannot post, label, or close anything. Rows
+   with starter dependencies remain `DEPENDENCY_REVIEW_REQUIRED`, and #422
+   remains `MONITOR_ONLY` so independent validation is not contaminated.
 4. Stop if an issue was edited, relabeled, closed, reopened, added, or removed.
    Refresh the proposal from the new state; never apply by issue number alone.
 5. Complete starter C1–C5 before applying any row that names one as a gate.
 6. Obtain explicit authorization for the exact issue write scope. Packet
    generation and live GET access are not that authorization.
 7. Re-read each target and post its issue-specific explanation before changing
-   state. Dated PR, CI, or release claims must also be rechecked at review time;
-   the GitHub issue drift check does not prove those linked states. Do not use
-   a context-free bulk-close message.
+   state. For #69, stop unless the source-bound linked Draft/CI check is
+   `PASS`; head, state, Draft flag, mergeability, check totals, or GET-only
+   authority drift invalidates the packet. Dated PR, CI, or release claims not
+   represented by a linked check still require a separate maintainer recheck.
+   Do not use a context-free bulk-close message.
 8. Apply P1 and reproduction-request rows first, then review support load before
    any closure batch.
 9. Capture a fresh aggregate growth snapshot after application. Do not store

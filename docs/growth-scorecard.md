@@ -93,6 +93,9 @@ starter-dependent rows blocked for content review and separate authorization.
 The P1 #69 card is synchronized to the public Draft and supported CI as of
 2026-08-17, explains both leaf parameters and the resolution tradeoff, and
 keeps the unavailable historical bag and missing carrying release explicit.
+Its live mode now source-binds that dated statement to PR #427 head
+`4b2ab514`, open/Draft/mergeable state, 10 successful checks, 4 intentional
+skips, and zero pending or failing checks; any drift produces no review packet.
 
 The current
 [G0 clean-candidate audit](evidence/growth/g0-clean-candidate-audit-2026-08-11.md)
@@ -110,7 +113,7 @@ Draft PR #427, the reviewed product-candidate tip
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
 `3ed632e6f6aa1e3ca7f32d893773de1079086ffb` with 10 successful checks and 4
-intentional non-publication skips, the current 327-path local plan, the
+intentional non-publication skips, the current 329-path local plan, the
 one-command candidate-session tip `8bc5ea4`, and its guided read-only host
 readiness follow-up `a286c65` while the v0.9.1/image state remains unpublished.
 The optional authenticated environment preflight at `adecca6` now proves from

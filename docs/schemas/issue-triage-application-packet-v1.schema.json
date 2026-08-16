@@ -12,6 +12,7 @@
     "source",
     "selection",
     "live_check",
+    "linked_check",
     "summary",
     "actions",
     "authority",
@@ -90,6 +91,48 @@
           "properties": {
             "performed": {"const": true},
             "status": {"const": "PASS"}
+          }
+        }
+      ]
+    },
+    "linked_check": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["performed", "status", "claim_count", "results"],
+          "properties": {
+            "performed": {"const": false},
+            "status": {"const": "NOT_REQUIRED"},
+            "claim_count": {"const": 0},
+            "results": {"type": "array", "maxItems": 0}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["performed", "status", "claim_count", "results"],
+          "properties": {
+            "performed": {"const": false},
+            "status": {"const": "NOT_RUN"},
+            "claim_count": {"type": "integer", "minimum": 1, "maximum": 20},
+            "results": {"type": "array", "maxItems": 0}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["performed", "status", "claim_count", "results"],
+          "properties": {
+            "performed": {"const": true},
+            "status": {"const": "PASS"},
+            "claim_count": {"type": "integer", "minimum": 1, "maximum": 20},
+            "results": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20,
+              "items": {"$ref": "#/definitions/linkedCheckResult"}
+            }
           }
         }
       ]
@@ -215,12 +258,19 @@
       "additionalProperties": false,
       "required": [
         "live_recheck_required",
+        "linked_claim_ids",
         "dependency_ids",
         "maintainer_content_review_required",
         "explicit_write_authorization_required"
       ],
       "properties": {
         "live_recheck_required": {"const": true},
+        "linked_claim_ids": {
+          "type": "array",
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {"const": "issue-69-public-draft"}
+        },
         "dependency_ids": {
           "type": "array",
           "maxItems": 5,
@@ -274,6 +324,57 @@
         "url": {
           "type": "string",
           "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/?$"
+        }
+      }
+    },
+    "linkedCheckResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "issue_number",
+        "kind",
+        "status",
+        "remote_head",
+        "state",
+        "is_draft",
+        "mergeable",
+        "passing_check_count",
+        "skipped_check_count",
+        "pending_check_count",
+        "failing_check_count",
+        "required_checks_complete",
+        "authority"
+      ],
+      "properties": {
+        "id": {"const": "issue-69-public-draft"},
+        "issue_number": {"const": 69},
+        "kind": {"const": "product-draft"},
+        "status": {"const": "PASS"},
+        "remote_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "state": {"const": "OPEN"},
+        "is_draft": {"const": true},
+        "mergeable": {"const": true},
+        "passing_check_count": {"const": 10},
+        "skipped_check_count": {"const": 4},
+        "pending_check_count": {"const": 0},
+        "failing_check_count": {"const": 0},
+        "required_checks_complete": {"const": true},
+        "authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "network_reads_performed",
+            "github_writes_authorized",
+            "merge_authorized",
+            "remote_mutations_performed"
+          ],
+          "properties": {
+            "network_reads_performed": {"const": true},
+            "github_writes_authorized": {"const": false},
+            "merge_authorized": {"const": false},
+            "remote_mutations_performed": {"const": false}
+          }
         }
       }
     },

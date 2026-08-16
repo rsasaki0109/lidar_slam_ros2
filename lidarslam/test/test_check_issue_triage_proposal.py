@@ -34,9 +34,9 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -134,6 +134,29 @@ def test_tracked_proposal_covers_each_issue_once_and_omits_raw_content():
         'comment_bodies_written': False,
         'issue_bodies_written': False,
     }
+
+
+def test_issue_69_linked_public_claim_is_required_and_exclusive():
+    """The dated Draft/CI claim cannot disappear or move to another issue."""
+    proposal = _proposal()
+    issue_69 = next(
+        item for item in proposal['issues'] if item['issue_number'] == 69
+    )
+    issue_69.pop('linked_claims')
+    with pytest.raises(AUDIT.ProposalError, match='schema validation failed'):
+        AUDIT.validate_proposal(proposal, _schema())
+
+    proposal = _proposal()
+    issue_69 = next(
+        item for item in proposal['issues'] if item['issue_number'] == 69
+    )
+    claim = issue_69.pop('linked_claims')
+    issue_64 = next(
+        item for item in proposal['issues'] if item['issue_number'] == 64
+    )
+    issue_64['linked_claims'] = claim
+    with pytest.raises(AUDIT.ProposalError, match='schema validation failed'):
+        AUDIT.validate_proposal(proposal, _schema())
 
 
 def test_duplicate_issue_is_rejected():
