@@ -6,14 +6,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
+from typing import Any
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
-from pathlib import Path
-from typing import Any
 
 import jsonschema
 
@@ -40,6 +40,26 @@ ROSDISTRO_PULL_REQUESTS = {
     'humble': 52949,
     'jazzy': 52950,
 }
+ROSDISTRO_PULL_REQUEST_HEADS = {
+    'humble': 'c375b1c8e92d14e58a4c10e023920763645fe5c7',
+    'jazzy': 'ef7e147af917eee64f4569a528dd98400004cadd',
+}
+ROSDISTRO_REVIEW_URLS = {
+    'humble': (
+        'https://github.com/ros/rosdistro/pull/52949'
+        '#pullrequestreview-4857900792'
+    ),
+    'jazzy': (
+        'https://github.com/ros/rosdistro/pull/52950'
+        '#pullrequestreview-4857894506'
+    ),
+}
+UPSTREAM_REPOSITORY = 'koide3/ndt_omp'
+UPSTREAM_FORK_REPOSITORY = 'rsasaki0109/ndt_omp_ros2'
+UPSTREAM_BASE_BRANCH = 'master'
+UPSTREAM_CANDIDATE_COMMIT = '618f02f6b50a8590b81f48b4fee5b6cfc8d3f3ea'
+UPSTREAM_PULL_REQUEST_URL = re.compile(
+    r'https://github\.com/koide3/ndt_omp/pull/([1-9][0-9]*)')
 ACTIONABLE_REVIEW = re.compile(
     r'(?:\?|\b(?:please|could you|would you|how does|how do|why|what is|'
     r'what are|same question|needs? to|must)\b)',
@@ -539,6 +559,204 @@ def inspect_remote() -> dict[str, Any]:
     }
 
 
+def _inspect_upstream_pull_request(url: str) -> dict[str, Any]:
+    """Read one proposed canonical Draft PR without changing GitHub state."""
+    match = UPSTREAM_PULL_REQUEST_URL.fullmatch(url)
+    if match is None:
+        raise PreflightError(
+            'upstream PR URL must match '
+            'https://github.com/koide3/ndt_omp/pull/<number>')
+    number = int(match.group(1))
+    payload = _request_json(
+        f'https://api.github.com/repos/{UPSTREAM_REPOSITORY}/pulls/{number}')
+    if not isinstance(payload, dict):
+        raise PreflightError('upstream pull request response is not an object')
+
+    head = payload.get('head')
+    base = payload.get('base')
+    head_repo = head.get('repo') if isinstance(head, dict) else None
+    base_repo = base.get('repo') if isinstance(base, dict) else None
+    result = {
+        'number': number,
+        'url': payload.get('html_url'),
+        'state': payload.get('state'),
+        'draft': payload.get('draft'),
+        'merged': payload.get('merged'),
+        'head_sha': head.get('sha') if isinstance(head, dict) else None,
+        'head_repository': (
+            head_repo.get('full_name')
+            if isinstance(head_repo, dict) else None
+        ),
+        'base_branch': base.get('ref') if isinstance(base, dict) else None,
+        'base_repository': (
+            base_repo.get('full_name')
+            if isinstance(base_repo, dict) else None
+        ),
+    }
+    if result['url'] != url:
+        raise PreflightError(
+            f'upstream pull request canonical URL drifted: {result["url"]!r}')
+    if result['state'] not in {'open', 'closed'}:
+        raise PreflightError('upstream pull request has invalid state')
+    if not isinstance(result['draft'], bool):
+        raise PreflightError('upstream pull request has invalid draft state')
+    if not isinstance(result['merged'], bool):
+        raise PreflightError('upstream pull request has invalid merged state')
+    return result
+
+
+def _empty_upstream_pull_request(url: str | None) -> dict[str, Any]:
+    return {
+        'number': None,
+        'url': url,
+        'state': None,
+        'draft': None,
+        'merged': None,
+        'head_sha': None,
+        'head_repository': None,
+        'base_branch': None,
+        'base_repository': None,
+    }
+
+
+def build_review_response_packet(
+    report: dict[str, Any],
+    upstream_pr_url: str | None,
+    *,
+    upstream_pull_request: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Unlock copy-ready rosdistro replies only after exact identity checks."""
+    blockers: list[str] = []
+    remote = report['remote']
+    if report['mode'] != 'online' or remote.get('inspected') is not True:
+        blockers.append('Run the online release audit before preparing replies.')
+    if report['local'].get('ready') is not True:
+        blockers.append('The pinned ndt_omp_ros2 release candidate is not ready.')
+    if remote.get('errors'):
+        blockers.append('Remote inspection contains errors.')
+    if remote.get('source_tag_present') is not True:
+        blockers.append('The pinned ndt_omp_ros2 source tag is not present.')
+    if remote.get('release_repository_present') is not True:
+        blockers.append('The ndt_omp_ros2 release repository is not present.')
+
+    response_targets: dict[str, dict[str, Any]] = {}
+    for distro in DISTROS:
+        pull_request = remote.get('pull_requests', {}).get(distro, {})
+        expected_number = ROSDISTRO_PULL_REQUESTS[distro]
+        expected_url = (
+            f'https://github.com/ros/rosdistro/pull/{expected_number}')
+        expected_head = ROSDISTRO_PULL_REQUEST_HEADS[distro]
+        expected_review = ROSDISTRO_REVIEW_URLS[distro]
+        response_targets[distro] = {
+            'number': pull_request.get('number'),
+            'url': pull_request.get('url'),
+            'head_sha': pull_request.get('head_sha'),
+            'review_url': pull_request.get(
+                'latest_actionable_review', {}).get('url'),
+            'response': None,
+        }
+        if remote.get('rosdistro', {}).get(distro) is not False:
+            blockers.append(
+                f'{distro} rosdistro publication state is no longer absent.')
+        if (
+            pull_request.get('number') != expected_number
+            or pull_request.get('url') != expected_url
+            or pull_request.get('state') != 'open'
+            or pull_request.get('merged') is not False
+            or pull_request.get('head_sha') != expected_head
+        ):
+            blockers.append(
+                f'{distro} rosdistro PR identity or exact head drifted.')
+        if (
+            pull_request.get('response_pending') is not True
+            or pull_request.get('latest_actionable_review', {}).get('url')
+            != expected_review
+        ):
+            blockers.append(
+                f'{distro} actionable review is absent, answered, or changed.')
+
+    inspected_upstream = _empty_upstream_pull_request(upstream_pr_url)
+    if not upstream_pr_url:
+        blockers.append('A verified canonical upstream Draft PR URL is required.')
+    else:
+        try:
+            inspected_upstream = (
+                _inspect_upstream_pull_request(upstream_pr_url)
+                if upstream_pull_request is None
+                else dict(upstream_pull_request)
+            )
+        except PreflightError as exc:
+            blockers.append(f'Canonical upstream PR inspection failed: {exc}')
+
+    expected_upstream = {
+        'url': upstream_pr_url,
+        'state': 'open',
+        'draft': True,
+        'merged': False,
+        'head_sha': UPSTREAM_CANDIDATE_COMMIT,
+        'head_repository': UPSTREAM_FORK_REPOSITORY,
+        'base_branch': UPSTREAM_BASE_BRANCH,
+        'base_repository': UPSTREAM_REPOSITORY,
+    }
+    if upstream_pr_url and any(
+        inspected_upstream.get(field) != value
+        for field, value in expected_upstream.items()
+    ):
+        blockers.append(
+            'Canonical upstream PR is not the expected open Draft at the '
+            'exact candidate commit and repository boundary.')
+
+    if not blockers:
+        jazzy_response = (
+            'Thanks for catching this. `ndt_omp_ros2` is a downstream ROS 2 '
+            'fork of `koide3/ndt_omp`, not an independent implementation. It '
+            "carries four APIs used by lidarslam's optional IMU/translation "
+            'priors and adaptive correspondence threshold, plus buildfarm '
+            'packaging work. However, the current candidate still installs '
+            'the same `include/pclomp/*` headers and `libndt_omp.so` as '
+            "Humble's released `ndt_omp`, so the differently named Debian "
+            'packages are not safely co-installable. I do not want these PRs '
+            'merged as-is. My preferred correction is to upstream the '
+            'required APIs and consume/release the canonical `ndt_omp` '
+            'package for Humble and Jazzy. The focused upstream work is '
+            f'tracked in Draft PR {upstream_pr_url}. If those '
+            'project-specific APIs are declined upstream, I will instead '
+            "fully namespace the fork's package, headers, symbols, library, "
+            'and CMake target, then replace these Bloom registrations. I will '
+            'report the selected collision-free path here before requesting '
+            'another merge review. The current red rosdep check also remains '
+            'a hard gate; any replacement registration will be generated '
+            'from current rosdistro `master` and must be fully green.'
+        )
+        humble_response = (
+            'The same lineage and co-installation issue applies here as in '
+            'Jazzy #52950. `ndt_omp_ros2` is a downstream fork that overlaps '
+            'the canonical `ndt_omp` headers and library, so please do not '
+            'merge this registration as-is. I am pursuing the collision-free '
+            f'canonical path in Draft PR {upstream_pr_url} and will '
+            'return with the accepted resolution before requesting another '
+            'rosdistro review. Any replacement PR will be generated from '
+            'current rosdistro `master` and must pass its complete check '
+            'suite.'
+        )
+        response_targets['jazzy']['response'] = jazzy_response
+        response_targets['humble']['response'] = humble_response
+
+    return {
+        'packet_version': 1,
+        'status': (
+            'READY_FOR_MAINTAINER_POST' if not blockers else 'BLOCKED'),
+        'authority': {
+            'github_writes_authorized': False,
+            'remote_mutations_performed': False,
+        },
+        'upstream_candidate_commit': UPSTREAM_CANDIDATE_COMMIT,
+        'upstream_pull_request': inspected_upstream,
+        'rosdistro_pull_requests': response_targets,
+        'blockers': blockers,
+    }
+
+
 def _unanswered_review_action(
     distro: str,
     pull_request: dict[str, Any],
@@ -890,6 +1108,38 @@ def _summary(report: dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
+def _review_response_summary(packet: dict[str, Any]) -> str:
+    lines = [
+        f"NDT rosdistro review response packet: {packet['status']}",
+        'GitHub writes authorized: false',
+        'Remote mutations performed: false',
+        f"Upstream candidate: {packet['upstream_candidate_commit']}",
+        f"Upstream Draft PR: {packet['upstream_pull_request']['url']}",
+    ]
+    if packet['blockers']:
+        lines.extend(f'  [BLOCKER] {item}' for item in packet['blockers'])
+        lines.append('No copy-ready response was emitted.')
+        return '\n'.join(lines)
+
+    for distro in ('jazzy', 'humble'):
+        target = packet['rosdistro_pull_requests'][distro]
+        lines.extend([
+            '',
+            f"{distro.title()} PR #{target['number']} response",
+            f"Target: {target['url']}",
+            f"Review: {target['review_url']}",
+            f"Exact head: {target['head_sha']}",
+            '',
+            target['response'],
+        ])
+    lines.extend([
+        '',
+        'This packet is copy-ready evidence only; posting remains a separate '
+        'maintainer action.',
+    ])
+    return '\n'.join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -899,16 +1149,50 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument('--json', action='store_true', help='print JSON')
     parser.add_argument('--output-json', type=Path)
+    parser.add_argument(
+        '--review-response-packet',
+        action='store_true',
+        help=(
+            'render fail-closed rosdistro review replies instead of the '
+            'release report; no GitHub write is performed'
+        ),
+    )
+    parser.add_argument(
+        '--upstream-pr-url',
+        help=(
+            'canonical koide3/ndt_omp Draft PR URL to verify before '
+            'unlocking review replies'
+        ),
+    )
     strict = parser.add_mutually_exclusive_group()
     strict.add_argument('--require-ready-to-tag', action='store_true')
     strict.add_argument('--require-released', action='store_true')
+    strict.add_argument(
+        '--require-review-response-ready',
+        action='store_true',
+        help='exit nonzero unless the exact review response packet is ready',
+    )
     args = parser.parse_args(argv)
+    packet_mode = (
+        args.review_response_packet or args.require_review_response_ready)
+    if args.upstream_pr_url and not packet_mode:
+        parser.error(
+            '--upstream-pr-url requires --review-response-packet or '
+            '--require-review-response-ready')
     try:
         report = evaluate_readiness(offline=args.offline)
-        rendered = json.dumps(report, indent=2, sort_keys=True) + '\n'
+        output = report
+        if packet_mode:
+            output = build_review_response_packet(
+                report, args.upstream_pr_url)
+        rendered = json.dumps(output, indent=2, sort_keys=True) + '\n'
         if args.output_json:
             args.output_json.write_text(rendered, encoding='utf-8')
-        print(rendered if args.json else _summary(report))
+        summary = (
+            _review_response_summary(output)
+            if packet_mode else _summary(report)
+        )
+        print(rendered if args.json else summary)
     except (
         OSError,
         PreflightError,
@@ -922,6 +1206,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.require_ready_to_tag and report['status'] != 'READY_TO_TAG':
         return 1
     if args.require_released and report['status'] != 'RELEASED':
+        return 1
+    if (
+        args.require_review_response_ready
+        and output['status'] != 'READY_FOR_MAINTAINER_POST'
+    ):
         return 1
     return 0
 

@@ -167,6 +167,38 @@ def _remote(
     }
 
 
+def _response_report():
+    remote = _remote(
+        tag=True,
+        release_repo=True,
+        humble=False,
+        jazzy=False,
+        pending=('humble', 'jazzy'),
+        failing_checks=('humble', 'jazzy'),
+    )
+    for distro in PREFLIGHT.DISTROS:
+        pull_request = remote['pull_requests'][distro]
+        pull_request['head_sha'] = (
+            PREFLIGHT.ROSDISTRO_PULL_REQUEST_HEADS[distro])
+        pull_request['latest_actionable_review']['url'] = (
+            PREFLIGHT.ROSDISTRO_REVIEW_URLS[distro])
+    return PREFLIGHT.evaluate_readiness(local=_local(), remote=remote)
+
+
+def _upstream_pull_request():
+    return {
+        'number': 72,
+        'url': 'https://github.com/koide3/ndt_omp/pull/72',
+        'state': 'open',
+        'draft': True,
+        'merged': False,
+        'head_sha': PREFLIGHT.UPSTREAM_CANDIDATE_COMMIT,
+        'head_repository': PREFLIGHT.UPSTREAM_FORK_REPOSITORY,
+        'base_branch': PREFLIGHT.UPSTREAM_BASE_BRANCH,
+        'base_repository': PREFLIGHT.UPSTREAM_REPOSITORY,
+    }
+
+
 def test_tracked_candidate_is_locally_ready_and_schema_valid():
     report = PREFLIGHT.evaluate_readiness(offline=True)
 
@@ -620,6 +652,110 @@ def test_human_summary_exposes_mergeability():
     assert 'checks=1/1 passing pending=0 failing=0' in summary
 
 
+def test_review_response_packet_unlocks_only_exact_verified_targets():
+    report = _response_report()
+    upstream = _upstream_pull_request()
+
+    packet = PREFLIGHT.build_review_response_packet(
+        report,
+        upstream['url'],
+        upstream_pull_request=upstream,
+    )
+
+    assert report['status'] == 'BLOCKED'
+    assert packet['status'] == 'READY_FOR_MAINTAINER_POST'
+    assert packet['blockers'] == []
+    assert packet['authority'] == {
+        'github_writes_authorized': False,
+        'remote_mutations_performed': False,
+    }
+    for distro in PREFLIGHT.DISTROS:
+        target = packet['rosdistro_pull_requests'][distro]
+        assert target['head_sha'] == (
+            PREFLIGHT.ROSDISTRO_PULL_REQUEST_HEADS[distro])
+        assert target['review_url'] == PREFLIGHT.ROSDISTRO_REVIEW_URLS[distro]
+        assert upstream['url'] in target['response']
+        assert '<UPSTREAM_PR_URL>' not in target['response']
+    summary = PREFLIGHT._review_response_summary(packet)
+    assert 'READY_FOR_MAINTAINER_POST' in summary
+    assert 'posting remains a separate maintainer action' in summary
+
+
+def test_review_response_packet_emits_no_body_while_blocked():
+    packet = PREFLIGHT.build_review_response_packet(
+        _response_report(),
+        None,
+    )
+
+    assert packet['status'] == 'BLOCKED'
+    assert any('Draft PR URL is required' in item
+               for item in packet['blockers'])
+    assert all(
+        target['response'] is None
+        for target in packet['rosdistro_pull_requests'].values()
+    )
+    assert 'No copy-ready response was emitted.' in (
+        PREFLIGHT._review_response_summary(packet))
+
+
+def test_review_response_packet_rejects_remote_or_upstream_drift():
+    report = _response_report()
+    report['remote']['pull_requests']['humble']['head_sha'] = '0' * 40
+    upstream = _upstream_pull_request()
+    upstream['draft'] = False
+    upstream['head_sha'] = 'f' * 40
+
+    packet = PREFLIGHT.build_review_response_packet(
+        report,
+        upstream['url'],
+        upstream_pull_request=upstream,
+    )
+
+    assert packet['status'] == 'BLOCKED'
+    assert any('humble rosdistro PR identity' in item
+               for item in packet['blockers'])
+    assert any('not the expected open Draft' in item
+               for item in packet['blockers'])
+    assert all(
+        target['response'] is None
+        for target in packet['rosdistro_pull_requests'].values()
+    )
+
+
+def test_upstream_pull_request_inspection_binds_repository_and_commit(
+        monkeypatch):
+    upstream = _upstream_pull_request()
+
+    def fake_request_json(url):
+        assert url.endswith('/repos/koide3/ndt_omp/pulls/72')
+        return {
+            'html_url': upstream['url'],
+            'state': upstream['state'],
+            'draft': upstream['draft'],
+            'merged': upstream['merged'],
+            'head': {
+                'sha': upstream['head_sha'],
+                'repo': {'full_name': upstream['head_repository']},
+            },
+            'base': {
+                'ref': upstream['base_branch'],
+                'repo': {'full_name': upstream['base_repository']},
+            },
+        }
+
+    monkeypatch.setattr(PREFLIGHT, '_request_json', fake_request_json)
+
+    assert PREFLIGHT._inspect_upstream_pull_request(upstream['url']) == (
+        upstream)
+    try:
+        PREFLIGHT._inspect_upstream_pull_request(
+            'https://github.com/another/repo/pull/72')
+    except PREFLIGHT.PreflightError as exc:
+        assert 'upstream PR URL must match' in str(exc)
+    else:
+        raise AssertionError('an unrelated upstream PR URL was accepted')
+
+
 def test_missing_candidate_path_fails_closed(tmp_path):
     report = PREFLIGHT.evaluate_readiness(
         repo_root=tmp_path,
@@ -652,4 +788,28 @@ def test_offline_strict_gate_refuses_ready_to_tag(tmp_path):
     assert json.loads(result.stdout)['status'] == 'LOCAL_READY'
     assert json.loads(output.read_text(encoding='utf-8'))['status'] == (
         'LOCAL_READY'
+    )
+
+
+def test_strict_review_response_gate_fails_without_verified_upstream_pr():
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            '--offline',
+            '--require-review-response-ready',
+            '--json',
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    packet = json.loads(result.stdout)
+    assert packet['status'] == 'BLOCKED'
+    assert all(
+        target['response'] is None
+        for target in packet['rosdistro_pull_requests'].values()
     )

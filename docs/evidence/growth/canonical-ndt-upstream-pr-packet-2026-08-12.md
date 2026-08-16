@@ -144,6 +144,11 @@ report omits both local checkout paths and keeps GitHub write authority false.
 Earlier Humble/Jazzy build and downstream consumer evidence remains documented
 in `docs/evidence/ndt-omp-release-review-2026-08-12.md`.
 
+The same strict online gate was repeated on 2026-08-16 from fresh clean
+temporary worktrees and remained `READY_FOR_DRAFT_PR`, 30/30. Upstream
+`master`, fork identity, candidate commit, proposed-branch absence, four-PR
+duplicate search, and no-write authority all remained unchanged.
+
 The two existing rosdistro PRs are not green publication candidates. Their
 exact heads each have 5/6 passing check runs and one failed
 `rosdistro / rosdep checks (3.8)` run. The failure is the old OpenEmbedded

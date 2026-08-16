@@ -279,3 +279,51 @@ reviewed successor).
 
 Posting either response or changing either external PR requires an explicit
 maintainer publication decision.
+
+## Fail-closed response packet gate — 2026-08-16
+
+The release checker now turns the prepared prose above into a copy-ready
+packet only after a second read-only identity gate. It requires all of the
+following at the same time:
+
+- the online release audit completed without remote-inspection errors;
+- both rosdistro PRs remain open at exact heads `c375b1c...` and
+  `ef7e147...`, with the exact unanswered review URLs recorded above;
+- the canonical URL resolves to an open Draft PR targeting
+  `koide3/ndt_omp:master` from the expected fork;
+- the Draft head is exact candidate commit `618f02f6...`; and
+- no rosdistro response has already superseded the recorded review state.
+
+If any condition fails, packet status is `BLOCKED`, both response bodies are
+`null`, and the human output says `No copy-ready response was emitted.` A red
+rosdistro check does not suppress the lineage response because that response
+explicitly preserves green CI as a separate hard gate. It still prevents the
+registration itself from being described as release-ready.
+
+Current no-PR inspection is intentionally blocked:
+
+```bash
+python3 scripts/check_ndt_omp_release_readiness.py \
+  --review-response-packet \
+  --json
+```
+
+After the canonical Draft exists, a maintainer can bind and inspect the exact
+copy without posting it:
+
+```bash
+GITHUB_TOKEN="$(gh auth token)" \
+python3 scripts/check_ndt_omp_release_readiness.py \
+  --review-response-packet \
+  --upstream-pr-url "${verified_upstream_pr}" \
+  --require-review-response-ready \
+  --json
+```
+
+The packet always reports `github_writes_authorized=false` and
+`remote_mutations_performed=false`. Focused regression coverage is 25/25,
+including exact-target unlock, missing URL, rosdistro-head drift, non-Draft
+upstream state, wrong repository URLs, and strict-gate refusal. The live
+canonical preflight was also refreshed on 2026-08-16 from clean temporary
+worktrees and remains `READY_FOR_DRAFT_PR`, 30/30 checks, with the proposed
+branch absent and zero semantic duplicate PRs. No GitHub state was changed.
