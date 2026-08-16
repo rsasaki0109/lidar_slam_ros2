@@ -31,11 +31,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
-from pathlib import Path, PurePosixPath
 import re
 import sys
+from pathlib import Path, PurePosixPath
 from typing import Any, Mapping, Sequence
 
 import jsonschema
@@ -50,6 +51,10 @@ INDEX_SCHEMA_PATH = (
     REPO_ROOT / 'docs' / 'schemas'
     / 'usability-scorecard-evidence-index-v1.schema.json'
 )
+PREPARATION_SCHEMA_PATH = (
+    REPO_ROOT / 'docs' / 'schemas'
+    / 'usability-scorecard-pair-preparation-v1.schema.json'
+)
 EVIDENCE_INDEX_PATH = (
     REPO_ROOT / 'docs' / 'contracts'
     / 'glim-usability-scorecard-evidence-v1.json'
@@ -61,6 +66,13 @@ TRIAL_SCHEMA_URI = (
 INDEX_SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
     'schemas/usability-scorecard-evidence-index-v1.schema.json'
+)
+PREPARATION_SCHEMA_URI = (
+    'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/'
+    'usability-scorecard-pair-preparation-v1.schema.json'
+)
+PREPARATION_RECEIPT_NAME = (
+    'usability-scorecard-pair-preparation-v1.json'
 )
 SCORECARD_ID = 'stable-release-lidarslam-vs-glim-v1'
 PRODUCT_IDS = ('lidarslam_ros2', 'glim')
@@ -151,6 +163,16 @@ PAIR_FIELDS = (
     'hardware_class',
 )
 PRIVATE_PATH = re.compile(r'(?:/home/|/Users/|[A-Za-z]:\\)[^\s]+')
+IDENTITY_SOURCES = {
+    ('lidarslam_ros2', 'git'): (
+        'github.com/rsasaki0109/lidar_slam_ros2'
+    ),
+    ('lidarslam_ros2', 'image-digest'): (
+        'ghcr.io/rsasaki0109/lidar_slam_ros2'
+    ),
+    ('glim', 'git'): 'github.com/koide3/glim',
+    ('glim', 'image-digest'): 'docker.io/koide3/glim_ros2',
+}
 
 
 class ScorecardError(ValueError):
@@ -250,6 +272,204 @@ def validate_trial(record: dict[str, Any]) -> None:
                 f"{task['task_id']} FAIL has no failed criterion")
 
 
+def _ensure_prepared_trial(record: Mapping[str, Any]) -> None:
+    for task in record['tasks']:
+        if not (
+            task['exact_commands'] == []
+            and all(
+                value is None for value in task['measurements'].values()
+            )
+            and all(not item['passed'] for item in task['checks'])
+            and task['outcome'] == {
+                'status': 'FAIL',
+                'undocumented_manual_steps': 0,
+                'finding_codes': ['not-recorded'],
+            }
+            and task['evidence'] == {
+                'transcript_sha256': None,
+                'public_url': None,
+            }
+        ):
+            raise ScorecardError(
+                f'{record["product"]["id"]} preparation archive is not '
+                'an untouched worksheet'
+            )
+
+
+def _stable_trial_fields(record: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        key: value for key, value in record.items() if key != 'tasks'
+    }
+
+
+def validate_preparation_archive(
+    receipt_path: Path,
+    completed_records: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """Validate exact prepared bytes and their stable completed identities."""
+    if receipt_path.name != PREPARATION_RECEIPT_NAME:
+        raise ScorecardError(
+            f'preparation receipt must be named {PREPARATION_RECEIPT_NAME}'
+        )
+    if receipt_path.is_symlink() or not receipt_path.is_file():
+        raise ScorecardError('preparation receipt is not a regular file')
+    try:
+        receipt_payload = receipt_path.read_bytes()
+        receipt = json.loads(receipt_payload)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ScorecardError(
+            f'cannot read preparation receipt {receipt_path}: {exc}'
+        ) from exc
+    if not isinstance(receipt, dict):
+        raise ScorecardError('preparation receipt root is not an object')
+    _schema_validate(
+        receipt,
+        PREPARATION_SCHEMA_PATH,
+        'preparation receipt',
+    )
+    if receipt['schema_uri'] != PREPARATION_SCHEMA_URI:
+        raise ScorecardError('preparation receipt uses an unsupported schema')
+
+    prepared_records = []
+    for entry in receipt['files']:
+        path = receipt_path.parent / entry['filename']
+        if path.parent != receipt_path.parent:
+            raise ScorecardError('preparation receipt contains an unsafe path')
+        if path.is_symlink() or not path.is_file():
+            raise ScorecardError(
+                f'prepared worksheet is not a regular file: {path.name}'
+            )
+        try:
+            payload = path.read_bytes()
+            record = json.loads(payload)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ScorecardError(
+                f'cannot read prepared worksheet {path}: {exc}'
+            ) from exc
+        if not isinstance(record, dict):
+            raise ScorecardError(
+                f'prepared worksheet root is not an object: {path.name}'
+            )
+        if hashlib.sha256(payload).hexdigest() != entry['sha256']:
+            raise ScorecardError(
+                f'prepared worksheet hash differs: {path.name}'
+            )
+        validate_trial(record)
+        _ensure_prepared_trial(record)
+        if entry != {
+            'filename': path.name,
+            'product': record['product']['id'],
+            'product_order': record['operator']['product_order'],
+            'trial_id': record['trial_id'],
+            'sha256': entry['sha256'],
+        }:
+            raise ScorecardError(
+                f'preparation receipt metadata differs: {path.name}'
+            )
+        prepared_records.append(record)
+
+    prepared = {
+        record['product']['id']: record for record in prepared_records
+    }
+    for record in completed_records:
+        validate_trial(record)
+    completed = {
+        record['product']['id']: record for record in completed_records
+    }
+    if tuple(prepared) != PRODUCT_IDS or set(completed) != set(PRODUCT_IDS):
+        raise ScorecardError(
+            'preparation archive must bind both completed products'
+        )
+    if receipt['comparison_pair_id'] != prepared[PRODUCT_IDS[0]][
+        'environment'
+    ]['comparison_pair_id']:
+        raise ScorecardError('preparation receipt pair identity differs')
+    for product_id in PRODUCT_IDS:
+        before = prepared[product_id]
+        after = completed[product_id]
+        if _stable_trial_fields(before) != _stable_trial_fields(after):
+            raise ScorecardError(
+                f'{product_id} completed identity differs from preparation'
+            )
+        for prepared_task, completed_task in zip(
+            before['tasks'],
+            after['tasks'],
+        ):
+            for field in ('task_id', 'documentation_url', 'input_id'):
+                if prepared_task[field] != completed_task[field]:
+                    raise ScorecardError(
+                        f'{product_id} {field} differs from preparation'
+                    )
+
+    public_check = receipt['public_identity_check']
+    public_values = {
+        record['product']['publicly_resolvable']
+        for record in prepared_records
+    }
+    if len(public_values) != 1:
+        raise ScorecardError('prepared worksheet public status differs')
+    expected_public = next(iter(public_values))
+    if (public_check['status'] == 'PASS') is not expected_public:
+        raise ScorecardError(
+            'preparation public status differs from archived worksheets'
+        )
+    expected_result_products = list(PRODUCT_IDS) if expected_public else []
+    if [
+        item['product_id'] for item in public_check['results']
+    ] != expected_result_products:
+        raise ScorecardError('preparation public identity order differs')
+    for record, result in zip(prepared_records, public_check['results']):
+        product = record['product']
+        kind = product['revision']['kind']
+        source_kind = 'image-digest' if kind == 'image-digest' else 'git'
+        expected = {
+            'product_id': product['id'],
+            'identity_source': IDENTITY_SOURCES[(product['id'], source_kind)],
+            'revision_kind': kind,
+            'requested_revision': product['revision']['value'],
+            'documentation_url': product['documentation_root_url'],
+        }
+        if any(result.get(key) != value for key, value in expected.items()):
+            raise ScorecardError(
+                f'{product["id"]} public identity differs from preparation'
+            )
+    kinds = [
+        record['product']['revision']['kind']
+        for record in prepared_records
+    ]
+    expected_authority = {
+        'github_requests': (
+            'GET_ONLY'
+            if expected_public
+            and any(kind != 'image-digest' for kind in kinds)
+            else 'NONE'
+        ),
+        'registry_requests': (
+            'GET_ONLY'
+            if expected_public and 'image-digest' in kinds
+            else 'NONE'
+        ),
+        'documentation_requests': (
+            'GET_ONLY' if expected_public else 'NONE'
+        ),
+        'github_writes_authorized': False,
+        'local_worksheets_written': True,
+        'local_preparation_receipt_written': True,
+        'rollback_on_publication_error': True,
+        'remote_mutations_performed': False,
+    }
+    if receipt['authority'] != expected_authority:
+        raise ScorecardError('preparation receipt authority is inconsistent')
+    return {
+        'status': 'VALID',
+        'receipt_sha256': hashlib.sha256(receipt_payload).hexdigest(),
+        'public_identity_status': public_check['status'],
+        'prepared_worksheet_sha256': {
+            item['product']: item['sha256'] for item in receipt['files']
+        },
+    }
+
+
 def load_evidence_index(
     index_path: Path = EVIDENCE_INDEX_PATH,
     repo_root: Path = REPO_ROOT,
@@ -289,6 +509,30 @@ def load_evidence_index(
             raise ScorecardError(
                 f"evidence row {row['product_id']} points to another product")
         records.append(record)
+    receipt_relative = index['preparation_receipt_path']
+    if records:
+        if receipt_relative is None:
+            raise ScorecardError(
+                'evidence records require a preparation receipt'
+            )
+        receipt_path = PurePosixPath(receipt_relative)
+        if (
+            str(receipt_path) != receipt_relative
+            or receipt_relative.startswith('/')
+            or '..' in receipt_path.parts
+            or '\\' in receipt_relative
+        ):
+            raise ScorecardError(
+                'evidence index contains an unsafe preparation receipt path'
+            )
+        validate_preparation_archive(
+            repo_root / receipt_relative,
+            records,
+        )
+    elif receipt_relative is not None:
+        raise ScorecardError(
+            'evidence index cannot name a receipt without product records'
+        )
     return records
 
 
@@ -496,6 +740,7 @@ def evaluate_scorecard(records: Sequence[dict[str, Any]]) -> dict[str, Any]:
             'task_independent': True,
             'overall_winner_inferred': False,
             'missing_evidence_counts_as_success': False,
+            'preparation_receipt_required_for_published_pair': True,
         },
         'remote_mutations_performed': False,
     }
@@ -541,6 +786,14 @@ def _parser() -> argparse.ArgumentParser:
         default=EVIDENCE_INDEX_PATH,
         help='Checked-in evidence index used when --record is omitted.',
     )
+    parser.add_argument(
+        '--preparation-receipt',
+        type=Path,
+        help=(
+            'Preparation receipt archive for an explicit two-record pair; '
+            'required with --record'
+        ),
+    )
     parser.add_argument('--json', action='store_true')
     return parser
 
@@ -554,10 +807,25 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise ScorecardError(
                     '--record and an explicit --evidence-index are mutually '
                     'exclusive')
+            if args.preparation_receipt is None:
+                raise ScorecardError(
+                    '--record requires --preparation-receipt'
+                )
             records = [_load_object(path, 'trial') for path in args.record]
+            preparation_binding = validate_preparation_archive(
+                args.preparation_receipt,
+                records,
+            )
         else:
+            if args.preparation_receipt is not None:
+                raise ScorecardError(
+                    '--preparation-receipt requires explicit --record files'
+                )
             records = load_evidence_index(args.evidence_index)
+            preparation_binding = None
         report = evaluate_scorecard(records)
+        if preparation_binding is not None:
+            report['preparation_binding'] = preparation_binding
     except ScorecardError as exc:
         print(f'usability scorecard error: {exc}', file=sys.stderr)
         return 2

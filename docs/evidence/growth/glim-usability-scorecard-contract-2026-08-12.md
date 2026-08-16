@@ -119,13 +119,28 @@ an HTTP GET request method. These checks prove that the future observation is
 bound to readable public inputs; they do not create the external observation,
 mark one task comparable, or authorize a parity/winner claim.
 
+The follow-up chain now persists that manifest as a fixed-name preparation
+receipt and adds an exact SHA-256 to each worksheet row. Preparation publishes
+both worksheets and the receipt as one rollback set. The recorder accepts the
+two selected files only when they share that valid receipt directory, their
+exact bytes still match, and their public identity metadata is unchanged. Its
+atomic recorded session retains the original triplet under `preparation/`.
+The final scorecard CLI requires that archived receipt for explicit records
+and revalidates the untouched source bytes and stable identity transition;
+the checked-in evidence index requires a receipt path whenever records are
+present. A pair of completed JSON files alone can no longer report CLI
+`READY`.
+
 Verification for this follow-up:
 
 | Check | Result |
 | --- | --- |
-| paired preparer regressions | `14 passed` |
-| preparer/recorder/checker/publication/G0 regressions | `69 passed` |
-| complete maintained Python gate | graph: `1,489 passed / 13 skipped / 11 existing warnings`; lidar_slam: `1,085 passed`; `2,574 total` |
+| paired preparer regressions | `16 passed` |
+| paired recorder regressions | `10 passed` |
+| scorecard checker regressions | `17 passed` |
+| preparer/recorder/checker/publication/G0 regressions | `78 passed` |
+| real receipt-chain smoke | `preparation_binding: VALID`, public identities `PASS`, scorecard `NOT_READY` with 0/6 comparable tasks and no fabricated observation |
+| complete maintained Python gate | graph: `1,489 passed / 13 skipped / 11 existing warnings`; lidar_slam: `1,094 passed`; `2,583 total` |
 | real public GET preflight | PASS: public Draft commit `4b2ab514a4f33b443e2c4283b3114d11a5e44e49`; GLIM `v1.2.2` resolved to `faa264a1bce1bda406f73457e35511f56cdc2eaa`; both documentation URLs returned 200 |
 | strict documentation, Python style, JSON, and Draft 7 schemas | PASS |
 | external observation or remote mutation | none |

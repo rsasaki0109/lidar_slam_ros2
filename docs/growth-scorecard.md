@@ -144,9 +144,12 @@ no external paired record and makes no GLIM parity claim. The current local
 paired-preparation follow-up removes manual public-resolvability Booleans: one
 GET-only preflight must resolve both fixed canonical commit/tag or registry
 identities and approved documentation redirects before either worksheet is
-published, and a second-file failure rolls back the first. Offline preparation
-remains explicitly non-public. This makes the handoff safer but still creates
-no human observation or comparative claim. The public-docs
+published. A fixed-name receipt SHA-binds both exact worksheet files; all three
+outputs roll back together. The recorder requires and archives that untouched
+triplet, and the checker rejects explicit completed records without the
+preparation chain. Offline preparation remains explicitly non-public. This
+makes the handoff safer but still creates no human observation or comparative
+claim. The public-docs
 read-only audit keeps the
 cohort closed while the deployed Pages manifest is absent or its exact page
 bytes, route, version, and source revision do not match.

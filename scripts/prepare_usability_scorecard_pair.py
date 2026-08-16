@@ -38,6 +38,7 @@ worksheets, not evidence of a completed trial.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -78,6 +79,9 @@ PREPARATION_SCHEMA = (
 PREPARATION_SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/'
     'usability-scorecard-pair-preparation-v1.schema.json'
+)
+PREPARATION_RECEIPT_NAME = (
+    'usability-scorecard-pair-preparation-v1.json'
 )
 GITHUB_REPOSITORIES = {
     'lidarslam_ros2': 'rsasaki0109/lidar_slam_ros2',
@@ -621,21 +625,41 @@ def _validate_pair(
                 f"paired input differs for {left_task['task_id']}")
 
 
+def _json_payload(value: Mapping[str, Any]) -> bytes:
+    return (json.dumps(value, indent=2, sort_keys=True) + '\n').encode('utf-8')
+
+
+def _sha256(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _write_pair(
     output_dir: Path,
-    records: Sequence[dict],
-) -> list[Path]:
-    """Stage and exclusively publish both records, rolling back on failure."""
+    records: Sequence[dict[str, Any]],
+    receipt: Mapping[str, Any],
+) -> tuple[list[Path], Path]:
+    """Stage and exclusively publish both records and their receipt."""
     output_dir.mkdir(parents=True, exist_ok=True)
     paths = [output_dir / f"{record['trial_id']}.json" for record in records]
-    existing = [path for path in paths if path.exists() or path.is_symlink()]
+    receipt_path = output_dir / PREPARATION_RECEIPT_NAME
+    if receipt_path in paths:
+        raise ScorecardError(
+            f'trial ID reserves receipt filename: {PREPARATION_RECEIPT_NAME}'
+        )
+    destinations = paths + [receipt_path]
+    existing = [
+        path for path in destinations if path.exists() or path.is_symlink()
+    ]
     if existing:
         raise ScorecardError(
-            'refusing to overwrite existing worksheet: '
+            'refusing to overwrite existing preparation artifact: '
             + str(existing[0])
         )
-    payloads = [json.dumps(record, indent=2, sort_keys=True) + '\n'
-                for record in records]
+    worksheet_payloads = [_json_payload(record) for record in records]
+    expected_hashes = [item['sha256'] for item in receipt['files']]
+    if [_sha256(payload) for payload in worksheet_payloads] != expected_hashes:
+        raise ScorecardError('worksheet payload changed after receipt review')
+    payloads = worksheet_payloads + [_json_payload(receipt)]
     created: list[Path] = []
     try:
         with tempfile.TemporaryDirectory(
@@ -645,12 +669,12 @@ def _write_pair(
             staged_paths = []
             for index, payload in enumerate(payloads):
                 staged = Path(temporary) / f'{index}.json'
-                with staged.open('x', encoding='utf-8') as stream:
+                with staged.open('xb') as stream:
                     stream.write(payload)
                     stream.flush()
                     os.fsync(stream.fileno())
                 staged_paths.append(staged)
-            for staged, path in zip(staged_paths, paths):
+            for staged, path in zip(staged_paths, destinations):
                 os.link(staged, path)
                 created.append(path)
     except (OSError, TypeError) as exc:
@@ -665,9 +689,9 @@ def _write_pair(
                     f'{rollback_exc}'
                 ) from exc
         raise ScorecardError(
-            f'cannot publish worksheet pair atomically: {exc}'
+            f'cannot publish worksheet pair and receipt atomically: {exc}'
         ) from exc
-    return paths
+    return paths, receipt_path
 
 
 def _not_run_public_check() -> dict[str, Any]:
@@ -691,10 +715,11 @@ def _load_preparation_schema() -> dict[str, Any]:
     return schema
 
 
-def _validate_manifest(
-    manifest: dict[str, Any],
+def validate_preparation_receipt(
+    receipt: dict[str, Any],
     records: Sequence[dict[str, Any]],
 ) -> None:
+    """Validate one schema- and content-bound preparation receipt."""
     schema = _load_preparation_schema()
     try:
         jsonschema.Draft7Validator.check_schema(schema)
@@ -704,22 +729,40 @@ def _validate_manifest(
         ) from exc
     validator = jsonschema.Draft7Validator(schema)
     errors = sorted(
-        validator.iter_errors(manifest),
+        validator.iter_errors(receipt),
         key=lambda item: [str(part) for part in item.absolute_path],
     )
     if errors:
         first = errors[0]
         path = '.'.join(str(part) for part in first.absolute_path)
         raise ScorecardError(
-            f'pair preparation manifest failed at {path or "<root>"}: '
+            f'pair preparation receipt failed at {path or "<root>"}: '
             f'{first.message}'
         )
-    if manifest['schema_uri'] != PREPARATION_SCHEMA_URI:
+    if receipt['schema_uri'] != PREPARATION_SCHEMA_URI:
         raise ScorecardError('pair preparation schema URI is unsupported')
+    if receipt['receipt_filename'] != PREPARATION_RECEIPT_NAME:
+        raise ScorecardError(
+            'pair preparation receipt filename is unsupported'
+        )
     products = [record['product']['id'] for record in records]
     if products != ['lidarslam_ros2', 'glim']:
         raise ScorecardError('pair preparation product order changed')
-    check = manifest['public_identity_check']
+    expected_files = [
+        {
+            'filename': f"{record['trial_id']}.json",
+            'product': record['product']['id'],
+            'product_order': record['operator']['product_order'],
+            'trial_id': record['trial_id'],
+            'sha256': _sha256(_json_payload(record)),
+        }
+        for record in records
+    ]
+    if receipt['files'] != expected_files:
+        raise ScorecardError(
+            'pair preparation receipt file binding differs from worksheets'
+        )
+    check = receipt['public_identity_check']
     expected_public = check['status'] == 'PASS'
     if any(
         record['product']['publicly_resolvable'] is not expected_public
@@ -784,13 +827,15 @@ def _validate_manifest(
         if expected_public and any(kind != 'image-digest' for kind in kinds)
         else 'NONE'
     )
-    authority = manifest['authority']
+    authority = receipt['authority']
     if authority != {
         'github_requests': expected_github,
         'registry_requests': expected_registry,
         'documentation_requests': network_mode,
         'github_writes_authorized': False,
         'local_worksheets_written': True,
+        'local_preparation_receipt_written': True,
+        'rollback_on_publication_error': True,
         'remote_mutations_performed': False,
     }:
         raise ScorecardError('pair preparation authority is inconsistent')
@@ -852,9 +897,10 @@ def main(
             args.output_dir / f"{record['trial_id']}.json"
             for record in records
         ]
-        manifest = {
+        receipt = {
             'schema_version': 1,
             'schema_uri': PREPARATION_SCHEMA_URI,
+            'receipt_filename': PREPARATION_RECEIPT_NAME,
             'status': 'PREPARED_INCOMPLETE',
             'comparison_pair_id': args.comparison_pair_id,
             'public_identity_check': public_check,
@@ -864,6 +910,7 @@ def main(
                     'product': record['product']['id'],
                     'product_order': record['operator']['product_order'],
                     'trial_id': record['trial_id'],
+                    'sha256': _sha256(_json_payload(record)),
                 }
                 for path, record in zip(paths, (lidarslam, glim))
             ],
@@ -889,16 +936,24 @@ def main(
                 ),
                 'github_writes_authorized': False,
                 'local_worksheets_written': True,
+                'local_preparation_receipt_written': True,
+                'rollback_on_publication_error': True,
                 'remote_mutations_performed': False,
             },
         }
-        _validate_manifest(manifest, records)
-        written_paths = _write_pair(args.output_dir, records)
+        validate_preparation_receipt(receipt, records)
+        written_paths, receipt_path = _write_pair(
+            args.output_dir,
+            records,
+            receipt,
+        )
         if written_paths != paths:
             raise ScorecardError(
                 'written worksheet paths changed after review'
             )
-        sys.stdout.write(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+        if receipt_path != args.output_dir / PREPARATION_RECEIPT_NAME:
+            raise ScorecardError('written receipt path changed after review')
+        sys.stdout.buffer.write(_json_payload(receipt))
         print(
             'Worksheets are incomplete; do not add them to the reviewed '
             'evidence index until the observed pair is complete.',

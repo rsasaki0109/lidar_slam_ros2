@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -155,6 +156,104 @@ def _index() -> dict:
     return json.loads(INDEX.read_text(encoding='utf-8'))
 
 
+def _preparation_archive(tmp_path: Path, records: list[dict]) -> Path:
+    """Create exact untouched source worksheets and their valid receipt."""
+    archive = tmp_path / 'preparation'
+    archive.mkdir()
+    prepared = []
+    files = []
+    for record in records:
+        worksheet = copy.deepcopy(record)
+        for task in worksheet['tasks']:
+            task['exact_commands'] = []
+            task['measurements'] = {
+                key: None for key in task['measurements']
+            }
+            task['checks'] = [
+                {'id': item['id'], 'passed': False}
+                for item in task['checks']
+            ]
+            task['outcome'] = {
+                'status': 'FAIL',
+                'undocumented_manual_steps': 0,
+                'finding_codes': ['not-recorded'],
+            }
+            task['evidence'] = {
+                'transcript_sha256': None,
+                'public_url': None,
+            }
+        prepared.append(worksheet)
+        filename = f'{worksheet["trial_id"]}.json'
+        payload = (
+            json.dumps(worksheet, indent=2, sort_keys=True) + '\n'
+        ).encode()
+        (archive / filename).write_bytes(payload)
+        files.append({
+            'filename': filename,
+            'product': worksheet['product']['id'],
+            'product_order': worksheet['operator']['product_order'],
+            'trial_id': worksheet['trial_id'],
+            'sha256': hashlib.sha256(payload).hexdigest(),
+        })
+    receipt = {
+        'schema_version': 1,
+        'schema_uri': SCORECARD.PREPARATION_SCHEMA_URI,
+        'receipt_filename': SCORECARD.PREPARATION_RECEIPT_NAME,
+        'status': 'PREPARED_INCOMPLETE',
+        'comparison_pair_id': (
+            prepared[0]['environment']['comparison_pair_id']
+        ),
+        'public_identity_check': {
+            'performed': True,
+            'status': 'PASS',
+            'network_reads_performed': True,
+            'results': [
+                {
+                    'product_id': worksheet['product']['id'],
+                    'identity_source': SCORECARD.IDENTITY_SOURCES[
+                        (worksheet['product']['id'], 'git')
+                    ],
+                    'revision_kind': worksheet['product']['revision']['kind'],
+                    'requested_revision': (
+                        worksheet['product']['revision']['value']
+                    ),
+                    'resolved_revision': (
+                        worksheet['product']['revision']['value']
+                        if worksheet['product']['revision']['kind']
+                        == 'git-commit'
+                        else 'd' * 40
+                    ),
+                    'documentation_url': (
+                        worksheet['product']['documentation_root_url']
+                    ),
+                    'documentation_http_status': 200,
+                    'documentation_final_url': (
+                        worksheet['product']['documentation_root_url']
+                    ),
+                }
+                for worksheet in prepared
+            ],
+        },
+        'files': files,
+        'authority': {
+            'github_requests': 'GET_ONLY',
+            'registry_requests': 'NONE',
+            'documentation_requests': 'GET_ONLY',
+            'github_writes_authorized': False,
+            'local_worksheets_written': True,
+            'local_preparation_receipt_written': True,
+            'rollback_on_publication_error': True,
+            'remote_mutations_performed': False,
+        },
+    }
+    receipt_path = archive / SCORECARD.PREPARATION_RECEIPT_NAME
+    receipt_path.write_text(
+        json.dumps(receipt, indent=2, sort_keys=True) + '\n',
+        encoding='utf-8',
+    )
+    return receipt_path
+
+
 def test_checked_in_index_reports_honest_not_ready_state(capsys):
     """No-argument audit must expose both absent product records."""
     records = SCORECARD.load_evidence_index()
@@ -166,6 +265,9 @@ def test_checked_in_index_reports_honest_not_ready_state(capsys):
     assert report['summary']['records_present'] == 0
     assert report['summary']['comparable_tasks'] == 0
     assert report['comparison_policy']['overall_winner_inferred'] is False
+    assert report['comparison_policy'][
+        'preparation_receipt_required_for_published_pair'
+    ] is True
     assert SCORECARD.main(['--json']) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload['status'] == 'NOT_READY'
@@ -372,6 +474,10 @@ def test_index_order_path_and_product_binding_fail_closed(tmp_path):
     mislabeled['rows'][0]['record_path'] = (
         'docs/evidence/usability/glim.json'
     )
+    mislabeled['preparation_receipt_path'] = (
+        'docs/evidence/usability/pair/preparation/'
+        + SCORECARD.PREPARATION_RECEIPT_NAME
+    )
     mislabeled_path = tmp_path / 'mislabeled.json'
     mislabeled_path.write_text(json.dumps(mislabeled), encoding='utf-8')
     with pytest.raises(SCORECARD.ScorecardError, match='another product'):
@@ -382,6 +488,30 @@ def test_explicit_record_cli_reports_ready(tmp_path, capsys):
     """Explicit paired records use the same evaluator as the index route."""
     ours = tmp_path / 'ours.json'
     rival = tmp_path / 'rival.json'
+    records = [_trial('lidarslam_ros2'), _trial('glim')]
+    ours.write_text(json.dumps(records[0]), encoding='utf-8')
+    rival.write_text(json.dumps(records[1]), encoding='utf-8')
+    receipt = _preparation_archive(tmp_path, records)
+
+    assert SCORECARD.main([
+        '--record', str(ours),
+        '--record', str(rival),
+        '--preparation-receipt', str(receipt),
+        '--json',
+    ]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report['status'] == 'READY'
+    assert report['summary']['comparable_tasks'] == 6
+    assert report['preparation_binding']['status'] == 'VALID'
+
+
+def test_explicit_records_without_preparation_receipt_fail_closed(
+    tmp_path,
+    capsys,
+):
+    """A pair of completed JSON records alone cannot produce CLI READY."""
+    ours = tmp_path / 'ours.json'
+    rival = tmp_path / 'rival.json'
     ours.write_text(json.dumps(_trial('lidarslam_ros2')), encoding='utf-8')
     rival.write_text(json.dumps(_trial('glim')), encoding='utf-8')
 
@@ -389,10 +519,73 @@ def test_explicit_record_cli_reports_ready(tmp_path, capsys):
         '--record', str(ours),
         '--record', str(rival),
         '--json',
-    ]) == 0
-    report = json.loads(capsys.readouterr().out)
-    assert report['status'] == 'READY'
-    assert report['summary']['comparable_tasks'] == 6
+    ]) == 2
+    assert '--preparation-receipt' in capsys.readouterr().err
+
+
+def test_completed_identity_drift_from_preparation_fails_closed(
+    tmp_path,
+    capsys,
+):
+    """A prepared public pair cannot authorize a relabeled completed pair."""
+    records = [_trial('lidarslam_ros2'), _trial('glim')]
+    receipt = _preparation_archive(tmp_path, records)
+    records[0]['product']['version'] = '0.9.2'
+    ours = tmp_path / 'ours.json'
+    rival = tmp_path / 'rival.json'
+    ours.write_text(json.dumps(records[0]), encoding='utf-8')
+    rival.write_text(json.dumps(records[1]), encoding='utf-8')
+
+    assert SCORECARD.main([
+        '--record', str(ours),
+        '--record', str(rival),
+        '--preparation-receipt', str(receipt),
+        '--json',
+    ]) == 2
+    assert 'differs from preparation' in capsys.readouterr().err
+
+
+def test_preparation_archive_hash_tamper_fails_closed(tmp_path, capsys):
+    """A changed archived source worksheet cannot retain a valid binding."""
+    records = [_trial('lidarslam_ros2'), _trial('glim')]
+    receipt = _preparation_archive(tmp_path, records)
+    receipt_value = json.loads(receipt.read_text(encoding='utf-8'))
+    prepared_path = receipt.parent / receipt_value['files'][0]['filename']
+    prepared_path.write_bytes(prepared_path.read_bytes() + b' ')
+    ours = tmp_path / 'ours.json'
+    rival = tmp_path / 'rival.json'
+    ours.write_text(json.dumps(records[0]), encoding='utf-8')
+    rival.write_text(json.dumps(records[1]), encoding='utf-8')
+
+    assert SCORECARD.main([
+        '--record', str(ours),
+        '--record', str(rival),
+        '--preparation-receipt', str(receipt),
+        '--json',
+    ]) == 2
+    assert 'hash differs' in capsys.readouterr().err
+
+
+def test_index_records_require_preparation_receipt(tmp_path):
+    """A reviewed index cannot add product rows without their source chain."""
+    evidence = tmp_path / 'docs' / 'evidence' / 'usability'
+    evidence.mkdir(parents=True)
+    index = _index()
+    for row, product_id in zip(index['rows'], SCORECARD.PRODUCT_IDS):
+        filename = f'{product_id}.json'
+        (evidence / filename).write_text(
+            json.dumps(_trial(product_id)),
+            encoding='utf-8',
+        )
+        row['record_path'] = f'docs/evidence/usability/{filename}'
+    index_path = tmp_path / 'index-without-receipt.json'
+    index_path.write_text(json.dumps(index), encoding='utf-8')
+
+    with pytest.raises(
+        SCORECARD.ScorecardError,
+        match='preparation_receipt_path',
+    ):
+        SCORECARD.load_evidence_index(index_path, tmp_path)
 
 
 def test_duplicate_product_and_trial_rows_are_rejected():

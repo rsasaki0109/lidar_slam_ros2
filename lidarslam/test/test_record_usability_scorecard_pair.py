@@ -112,7 +112,10 @@ def _prepare(output_dir: Path) -> list[Path]:
         '--output-dir', str(output_dir),
     ]
     assert PREPARE.main(args, public_verifier=_public_check) == 0
-    return sorted(output_dir.glob('*.json'))
+    return sorted(
+        path for path in output_dir.glob('*.json')
+        if path.name != PREPARE.PREPARATION_RECEIPT_NAME
+    )
 
 
 def _observations(path: Path) -> dict:
@@ -180,6 +183,18 @@ def test_complete_observations_create_ready_pair_atomically(tmp_path, capsys):
     assert result['summary']['comparable_tasks'] == 6
     assert result['remote_mutations_performed'] is False
     assert result['automatic_winner_claim_authorized'] is False
+    source_receipt = prepared_dir / PREPARE.PREPARATION_RECEIPT_NAME
+    retained_receipt = Path(result['preparation_receipt'])
+    assert retained_receipt.read_bytes() == source_receipt.read_bytes()
+    assert result['preparation_receipt_sha256'] == (
+        RECORD.hashlib.sha256(source_receipt.read_bytes()).hexdigest()
+    )
+    assert {
+        path.name: path.read_bytes() for path in records
+    } == {
+        Path(path).name: Path(path).read_bytes()
+        for path in result['prepared_worksheets']
+    }
     assert all(path.read_bytes() == before
                for path, before in zip(records, original_bytes))
     assert all(
@@ -191,6 +206,11 @@ def test_complete_observations_create_ready_pair_atomically(tmp_path, capsys):
     assert CHECK.evaluate_scorecard(completed)['status'] == 'READY'
     assert result['validation_command'].startswith(
         'python3 scripts/check_usability_scorecard.py --record ')
+    assert '--preparation-receipt' in result['validation_command']
+    assert CHECK.validate_preparation_archive(
+        retained_receipt,
+        completed,
+    )['status'] == 'VALID'
 
 
 def test_missing_observation_stays_explicit_and_not_ready(tmp_path, capsys):
@@ -208,8 +228,8 @@ def test_missing_observation_stays_explicit_and_not_ready(tmp_path, capsys):
     assert RECORD.main(args) == 1
     result = json.loads(capsys.readouterr().out)
     completed = [
-        json.loads(path.read_text(encoding='utf-8'))
-        for path in output.glob('*.json')
+        json.loads(Path(path).read_text(encoding='utf-8'))
+        for path in result['files']
     ]
     report = CHECK.evaluate_scorecard(completed)
 
@@ -287,6 +307,52 @@ def test_noninteractive_stdin_requires_observation_file(
     ]
     assert RECORD.main(args) == 2
     assert 'requires a TTY' in capsys.readouterr().err
+
+
+def test_missing_preparation_receipt_blocks_recording(tmp_path, capsys):
+    """Worksheets alone cannot silently become an observed pair."""
+    records = _prepare(tmp_path / 'prepared')
+    capsys.readouterr()
+    (records[0].parent / PREPARE.PREPARATION_RECEIPT_NAME).unlink()
+    observations = tmp_path / 'observations.json'
+    _observations(observations)
+    output = tmp_path / 'recorded'
+
+    assert RECORD.main(_args(records, observations, output)) == 2
+    assert not output.exists()
+    assert 'preparation receipt' in capsys.readouterr().err
+
+
+def test_reformatted_worksheet_breaks_exact_receipt_hash(tmp_path, capsys):
+    """A semantically equal rewrite is still not the prepared byte artifact."""
+    records = _prepare(tmp_path / 'prepared')
+    capsys.readouterr()
+    value = json.loads(records[0].read_text(encoding='utf-8'))
+    records[0].write_text(json.dumps(value), encoding='utf-8')
+    observations = tmp_path / 'observations.json'
+    _observations(observations)
+    output = tmp_path / 'recorded'
+
+    assert RECORD.main(_args(records, observations, output)) == 2
+    assert not output.exists()
+    assert 'bytes differ from receipt' in capsys.readouterr().err
+
+
+def test_tampered_receipt_binding_blocks_recording(tmp_path, capsys):
+    """A changed worksheet digest cannot be accepted as preparation proof."""
+    records = _prepare(tmp_path / 'prepared')
+    capsys.readouterr()
+    receipt_path = records[0].parent / PREPARE.PREPARATION_RECEIPT_NAME
+    receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
+    receipt['files'][0]['sha256'] = '0' * 64
+    receipt_path.write_text(json.dumps(receipt), encoding='utf-8')
+    observations = tmp_path / 'observations.json'
+    _observations(observations)
+    output = tmp_path / 'recorded'
+
+    assert RECORD.main(_args(records, observations, output)) == 2
+    assert not output.exists()
+    assert 'file binding differs' in capsys.readouterr().err
 
 
 def test_recorder_is_retained_in_the_product_release_bundle():

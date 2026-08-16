@@ -10,6 +10,7 @@
     "scorecard_id",
     "generated_at",
     "repository",
+    "preparation_receipt_path",
     "rows",
     "authority"
   ],
@@ -21,6 +22,12 @@
     "scorecard_id": {"const": "stable-release-lidarslam-vs-glim-v1"},
     "generated_at": {"type": "string", "format": "date-time"},
     "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "preparation_receipt_path": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 300,
+      "pattern": "^docs/evidence/usability/[A-Za-z0-9_./-]+\\.json$"
+    },
     "rows": {
       "type": "array",
       "minItems": 2,
@@ -54,5 +61,30 @@
         "automatic_winner_claim_authorized": {"const": false}
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "rows": {
+            "contains": {
+              "type": "object",
+              "required": ["record_path"],
+              "properties": {"record_path": {"type": "string"}}
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "preparation_receipt_path": {"type": "string"}
+        }
+      },
+      "else": {
+        "properties": {
+          "preparation_receipt_path": {"const": null}
+        }
+      }
+    }
+  ]
 }

@@ -178,6 +178,12 @@ documentation host must resolve before either worksheet can be written; any
 identity, redirect, or second-file publication failure leaves no half pair.
 Offline preparation remains explicitly `NOT_RUN` and non-public. This proves
 only public input identity, not a completed task or comparative result. The
+preflight receipt now persists beside the worksheets and SHA-binds their exact
+bytes. The recorder requires that receipt, preserves the untouched source
+triplet under `preparation/`, and the final checker refuses explicit records
+without revalidating that archive. This prevents a later JSON rewrite or
+record-only handoff from becoming a CLI `READY` result while still inventing
+no observation. The
 [2026-08-12 local contract evidence](../evidence/growth/glim-usability-scorecard-contract-2026-08-12.md)
 records the enforced protocol and the still-missing public trials.
 
@@ -867,7 +873,9 @@ six fixed tasks and an external first-attempt operator after the product
 release/image gate opens. Until then, local feature checks must not be written
 as a comparative usability claim. The pair command can now GET-verify those
 exact identities and documentation atomically before handoff, so the external
-operator no longer has to make a manual public-resolvability assertion.
+operator no longer has to make a manual public-resolvability assertion. The
+same handoff now carries its content-bound preparation archive through
+recording and final validation rather than relying on maintainer memory.
 
 The existing GLIM comparison harness now also fails closed on reference-cache
 reuse. Its key binds bag/config/runtime/options and both cache implementations,

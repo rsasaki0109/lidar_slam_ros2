@@ -163,8 +163,12 @@ Without `--verify-public`, offline preparation remains available, but both
 worksheets retain `publicly_resolvable: false` and the check status is
 `NOT_RUN`. With it, a network, identity, digest, status, or redirect failure
 writes neither worksheet. The pair is staged before exclusive publication;
-if the second destination races or fails, the first is rolled back. The
-emitted local-only, `PREPARED_INCOMPLETE` manifest validates against
+if either worksheet or the receipt destination races or fails, every file
+created by the command is rolled back. The command writes
+`usability-scorecard-pair-preparation-v1.json` beside the two worksheets and
+also emits the same local-only `PREPARED_INCOMPLETE` receipt on stdout. It
+binds each exact worksheet byte sequence by filename, product, trial ID,
+product order, and SHA-256 and validates against
 [`usability-scorecard-pair-preparation-v1.schema.json`](schemas/usability-scorecard-pair-preparation-v1.schema.json).
 It records GET-only authority and no GitHub writes or remote mutation. It does
 not add records to the reviewed index, fabricate an observation, or infer a
@@ -188,13 +192,19 @@ instead of asking for a second, drift-prone total. Prompts and instructions use
 stderr, so `--json` remains machine-readable. A blank value stays explicitly
 `not-recorded` and prevents that task from becoming comparable.
 
-The recorder accepts only untouched worksheets, validates both records before
-writing, and publishes the pair with one atomic output-directory rename. It
-never overwrites the prepared inputs or an existing destination. If the pair,
-privacy boundary, task order, command paths, environment, or observation types
-drift, neither recorded file is published. `--require-ready` returns exit `1`
-after safely retaining an incomplete pair; structural or privacy errors return
-exit `2` without publishing the destination.
+The recorder accepts only untouched worksheets and automatically requires the
+fixed-name receipt in their shared directory. It schema-validates the receipt,
+rehashes the exact worksheet bytes, checks the public-identity and authority
+bindings, and rejects symlinks, missing receipts, reformatted files, mixed
+directories, or changed metadata. The completed pair is published with one
+atomic output-directory rename. Its `preparation/` subdirectory retains
+byte-identical copies of both original worksheets and the receipt, while the
+observed records remain at the output root. It never overwrites the prepared
+inputs or an existing destination. If the pair, preparation chain, privacy
+boundary, task order, command paths, environment, or observation types drift,
+no recorded session is published. `--require-ready` returns exit `1` after
+safely retaining an incomplete pair; structural, preparation, or privacy
+errors return exit `2` without publishing the destination.
 
 For a non-interactive study collector, pass `--observations FILE`. The JSON
 root has `schema_version: 1` and a `products` object containing exactly
@@ -211,13 +221,19 @@ Validate two records before adding them to the index:
 python3 scripts/check_usability_scorecard.py \
   --record /path/to/lidarslam-record.json \
   --record /path/to/glim-record.json \
+  --preparation-receipt /path/to/recorded/preparation/usability-scorecard-pair-preparation-v1.json \
   --json
 ```
 
 The checker enforces task/check order, task-specific non-null measurements,
 same input and paired environment, public product identities, clean hosts,
 single-line commands, transcript hashes, no undocumented steps, and an external
-first-attempt pair.
+first-attempt pair. Explicit records cannot produce a CLI `READY` result
+without the preparation archive: the checker revalidates both untouched source
+worksheets, exact SHA-256 values, public GET result, stable identity fields,
+and the transition to the completed records. The checked-in evidence index
+likewise requires `preparation_receipt_path` whenever product records are
+present; the current empty index keeps it `null`.
 
 ## Status meanings
 

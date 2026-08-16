@@ -37,16 +37,17 @@ they never become comparable evidence. No network or remote mutation occurs.
 from __future__ import annotations
 
 import argparse
-from copy import deepcopy
+import hashlib
 import json
 import math
 import os
-from pathlib import Path
 import re
 import shlex
 import shutil
 import sys
 import tempfile
+from copy import deepcopy
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 
@@ -55,12 +56,17 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from check_usability_scorecard import (  # noqa: E402
-    evaluate_scorecard,
     PAIR_FIELDS,
     PRODUCT_IDS,
     ScorecardError,
     TASK_CONTRACTS,
+    evaluate_scorecard,
     validate_trial,
+)
+
+from prepare_usability_scorecard_pair import (  # noqa: E402
+    PREPARATION_RECEIPT_NAME,
+    validate_preparation_receipt,
 )
 
 
@@ -89,16 +95,25 @@ OBSERVATION_KEYS = {
     'transcript_sha256',
     'public_url',
 }
+PREPARATION_ARCHIVE_DIR = 'preparation'
 
 
-def _load_object(path: Path, label: str) -> dict[str, Any]:
+def _load_object_payload(
+    path: Path,
+    label: str,
+) -> tuple[dict[str, Any], bytes]:
     try:
-        value = json.loads(path.read_text(encoding='utf-8'))
-    except (OSError, json.JSONDecodeError) as exc:
+        payload = path.read_bytes()
+        value = json.loads(payload)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ScorecardError(f'cannot read {label} {path}: {exc}') from exc
     if not isinstance(value, dict):
         raise ScorecardError(f'{label} root must be an object: {path}')
-    return value
+    return value, payload
+
+
+def _load_object(path: Path, label: str) -> dict[str, Any]:
+    return _load_object_payload(path, label)[0]
 
 
 def _ensure_untouched_worksheet(record: Mapping[str, Any]) -> None:
@@ -127,10 +142,16 @@ def _ensure_untouched_worksheet(record: Mapping[str, Any]) -> None:
                 'prepared worksheet')
 
 
-def _load_pair(paths: Sequence[Path]) -> dict[str, dict[str, Any]]:
+def _load_pair(
+    paths: Sequence[Path],
+) -> tuple[dict[str, dict[str, Any]], bytes, dict[str, bytes]]:
     if len(paths) != len(PRODUCT_IDS):
         raise ScorecardError('provide exactly two --record worksheets')
-    records = [_load_object(path, 'worksheet') for path in paths]
+    if any(path.is_symlink() for path in paths):
+        raise ScorecardError('prepared worksheets must not be symbolic links')
+    loaded = [_load_object_payload(path, 'worksheet') for path in paths]
+    records = [record for record, _ in loaded]
+    worksheet_payloads = [payload for _, payload in loaded]
     for record in records:
         validate_trial(record)
         _ensure_untouched_worksheet(record)
@@ -159,7 +180,42 @@ def _load_pair(paths: Sequence[Path]) -> dict[str, dict[str, Any]]:
         if left_task['input_id'] != right_task['input_id']:
             raise ScorecardError(
                 f"paired input differs for {left_task['task_id']}")
-    return selected
+
+    try:
+        parents = {path.parent.resolve(strict=True) for path in paths}
+    except OSError as exc:
+        raise ScorecardError(
+            f'cannot resolve prepared worksheet directory: {exc}'
+        ) from exc
+    if len(parents) != 1:
+        raise ScorecardError(
+            'prepared worksheets must share one receipt directory'
+        )
+    parent = next(iter(parents))
+    receipt_path = parent / PREPARATION_RECEIPT_NAME
+    if receipt_path.is_symlink():
+        raise ScorecardError('preparation receipt must not be a symbolic link')
+    receipt, receipt_payload = _load_object_payload(
+        receipt_path,
+        'preparation receipt',
+    )
+    ordered_records = [selected[product_id] for product_id in PRODUCT_IDS]
+    validate_preparation_receipt(receipt, ordered_records)
+    entries = {item['filename']: item for item in receipt['files']}
+    if set(entries) != {path.name for path in paths}:
+        raise ScorecardError(
+            'preparation receipt does not name the selected worksheets'
+        )
+    for path, payload in zip(paths, worksheet_payloads):
+        actual_sha256 = hashlib.sha256(payload).hexdigest()
+        if actual_sha256 != entries[path.name]['sha256']:
+            raise ScorecardError(
+                f'prepared worksheet bytes differ from receipt: {path.name}'
+            )
+    prepared_worksheets = {
+        path.name: payload for path, payload in zip(paths, worksheet_payloads)
+    }
+    return selected, receipt_payload, prepared_worksheets
 
 
 def _validate_metric(name: str, value: Any, task_id: str) -> None:
@@ -450,7 +506,9 @@ def _apply_observations(
 def _write_pair_atomic(
     output_dir: Path,
     records: Sequence[Mapping[str, Any]],
-) -> list[Path]:
+    preparation_receipt: bytes,
+    prepared_worksheets: Mapping[str, bytes],
+) -> tuple[list[Path], Path, list[Path]]:
     if output_dir.exists() or output_dir.is_symlink():
         raise ScorecardError(
             f'refusing to overwrite output directory: {output_dir}')
@@ -462,17 +520,36 @@ def _write_pair_atomic(
         for name, record in zip(names, records):
             payload = json.dumps(record, indent=2, sort_keys=True) + '\n'
             (temporary / name).write_text(payload, encoding='utf-8')
+        preparation_dir = temporary / PREPARATION_ARCHIVE_DIR
+        preparation_dir.mkdir()
+        for name, payload in prepared_worksheets.items():
+            (preparation_dir / name).write_bytes(payload)
+        (preparation_dir / PREPARATION_RECEIPT_NAME).write_bytes(
+            preparation_receipt
+        )
         os.replace(temporary, output_dir)
     except (OSError, TypeError) as exc:
         shutil.rmtree(temporary, ignore_errors=True)
         raise ScorecardError(f'cannot publish recorded pair: {exc}') from exc
-    return [output_dir / name for name in names]
+    archived_paths = [
+        output_dir / PREPARATION_ARCHIVE_DIR / name
+        for name in prepared_worksheets
+    ]
+    return (
+        [output_dir / name for name in names],
+        output_dir / PREPARATION_ARCHIVE_DIR / PREPARATION_RECEIPT_NAME,
+        archived_paths,
+    )
 
 
-def _validation_command(paths: Sequence[Path]) -> str:
+def _validation_command(
+    paths: Sequence[Path],
+    preparation_receipt: Path,
+) -> str:
     command = ['python3', 'scripts/check_usability_scorecard.py']
     for path in paths:
         command.extend(('--record', str(path)))
+    command.extend(('--preparation-receipt', str(preparation_receipt)))
     command.append('--json')
     return shlex.join(command)
 
@@ -500,7 +577,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Record and atomically publish one validated local pair."""
     args = _parser().parse_args(argv)
     try:
-        prepared = _load_pair(args.record)
+        (
+            prepared,
+            preparation_receipt,
+            prepared_worksheets,
+        ) = _load_pair(args.record)
         observations = (
             _load_observations(args.observations)
             if args.observations is not None
@@ -508,7 +589,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         records = _apply_observations(prepared, observations)
         report = evaluate_scorecard(records)
-        paths = _write_pair_atomic(args.output_dir, records)
+        paths, receipt_path, archived_paths = _write_pair_atomic(
+            args.output_dir,
+            records,
+            preparation_receipt,
+            prepared_worksheets,
+        )
     except (OSError, ScorecardError) as exc:
         print(f'usability pair recorder error: {exc}', file=sys.stderr)
         return 2
@@ -517,7 +603,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         'status': report['status'],
         'summary': report['summary'],
         'files': [str(path) for path in paths],
-        'validation_command': _validation_command(paths),
+        'preparation_receipt': str(receipt_path),
+        'preparation_receipt_sha256': hashlib.sha256(
+            preparation_receipt
+        ).hexdigest(),
+        'prepared_worksheets': [str(path) for path in archived_paths],
+        'validation_command': _validation_command(paths, receipt_path),
         'remote_mutations_performed': False,
         'automatic_winner_claim_authorized': False,
     }

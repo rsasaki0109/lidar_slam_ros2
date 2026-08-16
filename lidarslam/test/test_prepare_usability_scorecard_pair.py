@@ -92,6 +92,7 @@ def _records(output_dir: Path) -> dict[str, dict]:
     return {
         path.stem: json.loads(path.read_text(encoding='utf-8'))
         for path in output_dir.glob('*.json')
+        if path.name != PREPARE.PREPARATION_RECEIPT_NAME
     }
 
 
@@ -192,7 +193,18 @@ def test_pair_has_shared_metadata_and_opposite_order(tmp_path, capsys):
         'documentation_requests': 'NONE',
         'github_writes_authorized': False,
         'local_worksheets_written': True,
+        'local_preparation_receipt_written': True,
+        'rollback_on_publication_error': True,
         'remote_mutations_performed': False,
+    }
+    receipt_path = tmp_path / PREPARE.PREPARATION_RECEIPT_NAME
+    assert receipt_path.exists()
+    assert json.loads(receipt_path.read_text(encoding='utf-8')) == manifest
+    assert {
+        item['filename']: item['sha256'] for item in manifest['files']
+    } == {
+        path.name: PREPARE._sha256(path.read_bytes())
+        for path in tmp_path.glob('*-pair-trial-a.json')
     }
     assert set(records) == {'lidarslam-pair-trial-a', 'glim-pair-trial-a'}
     lidarslam = records['lidarslam-pair-trial-a']
@@ -294,6 +306,8 @@ def test_public_preflight_resolves_exact_commit_tag_and_docs(tmp_path,
         'documentation_requests': 'GET_ONLY',
         'github_writes_authorized': False,
         'local_worksheets_written': True,
+        'local_preparation_receipt_written': True,
+        'rollback_on_publication_error': True,
         'remote_mutations_performed': False,
     }
     schema = json.loads(PREPARE.PREPARATION_SCHEMA.read_text(encoding='utf-8'))
@@ -430,6 +444,36 @@ def test_second_exclusive_publish_failure_rolls_back_first(tmp_path,
     assert PREPARE.main(_args(tmp_path)) == 2
     assert not list(tmp_path.iterdir())
     assert 'atomically' in capsys.readouterr().err
+
+
+def test_receipt_publish_failure_rolls_back_both_worksheets(tmp_path,
+                                                            capsys,
+                                                            monkeypatch):
+    """A race on the receipt leaves no unbound worksheet behind."""
+    original_link = PREPARE.os.link
+    link_count = 0
+
+    def fail_receipt_link(source, destination):
+        nonlocal link_count
+        link_count += 1
+        if link_count == 3:
+            raise FileExistsError('simulated receipt destination race')
+        original_link(source, destination)
+
+    monkeypatch.setattr(PREPARE.os, 'link', fail_receipt_link)
+    assert PREPARE.main(_args(tmp_path)) == 2
+    assert not list(tmp_path.iterdir())
+    assert 'receipt atomically' in capsys.readouterr().err
+
+
+def test_existing_receipt_refuses_both_worksheets(tmp_path, capsys):
+    """A stale receipt cannot be silently paired with fresh worksheets."""
+    receipt = tmp_path / PREPARE.PREPARATION_RECEIPT_NAME
+    receipt.write_text('keep\n', encoding='utf-8')
+    assert PREPARE.main(_args(tmp_path)) == 2
+    assert list(tmp_path.iterdir()) == [receipt]
+    assert receipt.read_text(encoding='utf-8') == 'keep\n'
+    assert 'preparation artifact' in capsys.readouterr().err
 
 
 def test_network_implementation_has_no_write_method_or_subprocess():

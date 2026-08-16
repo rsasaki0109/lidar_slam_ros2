@@ -7,6 +7,7 @@
   "required": [
     "schema_version",
     "schema_uri",
+    "receipt_filename",
     "status",
     "comparison_pair_id",
     "public_identity_check",
@@ -17,6 +18,9 @@
     "schema_version": {"const": 1},
     "schema_uri": {
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/usability-scorecard-pair-preparation-v1.schema.json"
+    },
+    "receipt_filename": {
+      "const": "usability-scorecard-pair-preparation-v1.json"
     },
     "status": {"const": "PREPARED_INCOMPLETE"},
     "comparison_pair_id": {"$ref": "#/definitions/slug"},
@@ -76,6 +80,8 @@
         "documentation_requests",
         "github_writes_authorized",
         "local_worksheets_written",
+        "local_preparation_receipt_written",
+        "rollback_on_publication_error",
         "remote_mutations_performed"
       ],
       "properties": {
@@ -84,6 +90,8 @@
         "documentation_requests": {"enum": ["NONE", "GET_ONLY"]},
         "github_writes_authorized": {"const": false},
         "local_worksheets_written": {"const": true},
+        "local_preparation_receipt_written": {"const": true},
+        "rollback_on_publication_error": {"const": true},
         "remote_mutations_performed": {"const": false}
       }
     }
@@ -238,7 +246,13 @@
     "file": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["filename", "product", "product_order", "trial_id"],
+      "required": [
+        "filename",
+        "product",
+        "product_order",
+        "trial_id",
+        "sha256"
+      ],
       "properties": {
         "filename": {
           "type": "string",
@@ -246,7 +260,8 @@
         },
         "product": {"enum": ["lidarslam_ros2", "glim"]},
         "product_order": {"enum": ["first", "second"]},
-        "trial_id": {"$ref": "#/definitions/slug"}
+        "trial_id": {"$ref": "#/definitions/slug"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       }
     }
   }
