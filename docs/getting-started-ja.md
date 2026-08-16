@@ -351,6 +351,9 @@ lidarslam-map inspect /path/to/session_bundle \
 parameterを自動変更せず、mappingを再実行せず、support bundleをuploadしません。見た目が
 変わっただけでsensor対応や精度改善を主張せず、比較する場合は旧runを上書きしないfresh
 outputを使います。raw diagnosis JSONにはlocal pathが含まれ得るためissueへ貼りません。
+`--write`で保持した症状は、`support`では固定codeと「ユーザー申告」の境界だけが
+sanitized reportとissue bodyへ引き継がれます。title、check、command、自由記述はlocalに
+残り、root causeの自動判定として共有されません。
 
 ### receiptのsessionとstatusを確認する
 

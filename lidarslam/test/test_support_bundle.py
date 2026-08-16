@@ -45,6 +45,7 @@ WIZARD_TEST = REPO_ROOT / 'lidarslam' / 'test' / 'test_sensor_setup_wizard.py'
 WIZARD = REPO_ROOT / 'scripts' / 'sensor_setup_wizard.py'
 RECEIPT = REPO_ROOT / 'scripts' / 'first_map_validation_receipt.py'
 SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'support-bundle-v1.schema.json'
+DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
 HANDOFF_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'first-map-handoff-v1.schema.json'
 )
@@ -195,6 +196,15 @@ def test_diagnosis_projection_keeps_states_and_counts_but_not_messages(
         'status': 'verify_failed',
         'verify': {'result': 'FAIL'},
         'projector_type': 'Local',
+        'symptom_triage': {
+            'symptom': 'map-spins-or-spirals',
+            'code': 'map-spins-or-spirals',
+            'basis': 'USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED',
+            'title': private_hint,
+            'checks': [private_hint],
+            'next_commands': [f'lidarslam-map inspect {bundle}'],
+            'avoid': [private_hint],
+        },
         'problem_hints': [private_hint, 'another hint'],
         'suggested_next_steps': ['inspect private data'],
     })
@@ -211,9 +221,76 @@ def test_diagnosis_projection_keeps_states_and_counts_but_not_messages(
         'projector_type': 'Local',
         'problem_hint_count': 2,
         'suggested_step_count': 1,
+        'reported_symptom': {
+            'code': 'map-spins-or-spirals',
+            'basis': 'USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED',
+        },
     }
     assert private_hint not in rendered
     assert 'inspect private data' not in rendered
+    issue_body = module.support_members(report)['issue-body.md']
+    assert 'Reported visual symptom: `map-spins-or-spirals`' in issue_body
+    assert 'not an automatically diagnosed root cause' in issue_body
+
+
+@pytest.mark.parametrize('field,value', [
+    ('code', 'unknown-map-problem'),
+    ('code', 'map-stops-early'),
+    ('basis', 'AUTOMATIC_ROOT_CAUSE'),
+])
+def test_diagnosis_projection_rejects_unbounded_symptom_claims(
+    tmp_path: Path,
+    field: str,
+    value: str,
+):
+    module = _load(SCRIPT, f'support_bundle_bad_symptom_{field}')
+    bundle = _fixture(tmp_path, field)
+    session_path = bundle / 'session.json'
+    session = json.loads(session_path.read_text(encoding='utf-8'))
+    diagnosis_path = bundle / 'map/autoware_map_diagnosis.json'
+    symptom = {
+        'symptom': 'map-is-not-visible',
+        'code': 'map-is-not-visible',
+        'basis': 'USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED',
+        'private_note': f'customer site at {bundle}',
+    }
+    symptom[field] = value
+    _rewrite(diagnosis_path, {
+        'status': 'verify_failed',
+        'symptom_triage': symptom,
+    })
+    session['artifacts']['diagnosis_json'] = str(diagnosis_path)
+    _rewrite(session_path, session)
+
+    report = module.build_support_report(str(bundle))
+    rendered = json.dumps(report)
+
+    assert report['diagnosis']['evidence_status'] == 'invalid_contract'
+    assert report['diagnosis']['reported_symptom'] is None
+    assert 'customer site' not in rendered
+
+
+def test_reported_symptom_codes_match_the_diagnosis_and_support_schemas():
+    module = _load(SCRIPT, 'support_bundle_symptom_contract')
+    diagnosis_schema = json.loads(DIAGNOSIS_SCHEMA.read_text(encoding='utf-8'))
+    support_schema = json.loads(SCHEMA.read_text(encoding='utf-8'))
+    diagnosis_symptom = diagnosis_schema['properties']['symptom_triage']
+    support_symptom = support_schema['definitions']['diagnosis'][
+        'properties'
+    ]['reported_symptom']['oneOf'][1]
+
+    assert module.REPORTED_SYMPTOM_CODES == frozenset(
+        diagnosis_symptom['properties']['code']['enum']
+    )
+    assert module.REPORTED_SYMPTOM_CODES == frozenset(
+        support_symptom['properties']['code']['enum']
+    )
+    assert module.REPORTED_SYMPTOM_BASIS == (
+        diagnosis_symptom['properties']['basis']['const']
+    )
+    assert module.REPORTED_SYMPTOM_BASIS == (
+        support_symptom['properties']['basis']['const']
+    )
 
 
 def test_artifact_symlink_and_outside_path_are_never_read(

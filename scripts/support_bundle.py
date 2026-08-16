@@ -61,6 +61,14 @@ SECRET_OPTION = re.compile(
     re.IGNORECASE,
 )
 SAFE_IDENTIFIER = re.compile(r'^[A-Za-z0-9_.:-]{1,160}$')
+REPORTED_SYMPTOM_BASIS = 'USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED'
+REPORTED_SYMPTOM_CODES = frozenset({
+    'map-spins-or-spirals',
+    'pose-drifts-or-oscillates',
+    'map-stops-early',
+    'map-is-too-sparse',
+    'map-is-not-visible',
+})
 
 
 def _load_script_module(script_name: str, module_name: str):
@@ -567,6 +575,7 @@ def _diagnosis_projection(
         'projector_type': None,
         'problem_hint_count': 0,
         'suggested_step_count': 0,
+        'reported_symptom': None,
     }
     if evidence['current_state'] != 'regular_file':
         return result
@@ -582,6 +591,21 @@ def _diagnosis_projection(
     if payload is None or payload.get('status') not in allowed_statuses:
         result['evidence_status'] = 'invalid_contract'
         return result
+    symptom = payload.get('symptom_triage')
+    reported_symptom = None
+    if symptom is not None:
+        if not (
+            isinstance(symptom, dict)
+            and symptom.get('symptom') in REPORTED_SYMPTOM_CODES
+            and symptom.get('code') == symptom.get('symptom')
+            and symptom.get('basis') == REPORTED_SYMPTOM_BASIS
+        ):
+            result['evidence_status'] = 'invalid_contract'
+            return result
+        reported_symptom = {
+            'code': symptom['code'],
+            'basis': symptom['basis'],
+        }
     verify = payload.get('verify')
     hints = payload.get('problem_hints')
     steps = payload.get('suggested_next_steps')
@@ -595,6 +619,7 @@ def _diagnosis_projection(
         'projector_type': _safe_optional(payload.get('projector_type')),
         'problem_hint_count': len(hints) if isinstance(hints, list) else 0,
         'suggested_step_count': len(steps) if isinstance(steps, list) else 0,
+        'reported_symptom': reported_symptom,
     })
     return result
 
@@ -850,6 +875,15 @@ def _issue_body(report: dict[str, Any]) -> str:
     reasons = ', '.join(session['reason_codes']) or 'none'
     diagnosis_status = diagnosis['status'] or diagnosis['evidence_status']
     verify_result = diagnosis['verify_result'] or 'unknown'
+    reported_symptom = diagnosis['reported_symptom']
+    symptom_lines = ['- Reported visual symptom: `not recorded`']
+    if reported_symptom is not None:
+        symptom_lines = [
+            '- Reported visual symptom: '
+            f'`{reported_symptom["code"]}`',
+            '- Symptom evidence boundary: user-reported; not an '
+            'automatically diagnosed root cause',
+        ]
     return '\n'.join([
         '# lidarslam support report',
         '',
@@ -876,6 +910,7 @@ def _issue_body(report: dict[str, Any]) -> str:
         f'- Setup evidence: `{setup["status"]}`',
         f'- Diagnosis: `{diagnosis_status}`',
         f'- Verifier diagnosis: `{verify_result}`',
+        *symptom_lines,
         f'- Reason codes: `{reasons}`',
         f'- Session evidence SHA-256: `{session["evidence_sha256"]}`',
         '',

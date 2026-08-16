@@ -430,7 +430,31 @@
         "verify_result": {"$ref": "#/definitions/optionalString"},
         "projector_type": {"$ref": "#/definitions/optionalString"},
         "problem_hint_count": {"type": "integer", "minimum": 0},
-        "suggested_step_count": {"type": "integer", "minimum": 0}
+        "suggested_step_count": {"type": "integer", "minimum": 0},
+        "reported_symptom": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["code", "basis"],
+              "properties": {
+                "code": {
+                  "enum": [
+                    "map-spins-or-spirals",
+                    "pose-drifts-or-oscillates",
+                    "map-stops-early",
+                    "map-is-too-sparse",
+                    "map-is-not-visible"
+                  ]
+                },
+                "basis": {
+                  "const": "USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED"
+                }
+              }
+            }
+          ]
+        }
       }
     },
     "artifact": {

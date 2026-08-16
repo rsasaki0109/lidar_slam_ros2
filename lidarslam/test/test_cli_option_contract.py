@@ -157,6 +157,15 @@ def test_contract_identifies_the_complete_product_surface():
     assert 'existing retained-run inspector' in symptom['safety_rules'][0]
     assert 'without editing parameters' in symptom['safety_rules'][1]
     assert 'never convert' in symptom['safety_rules'][3]
+    support = contract['support_bundle_contract']
+    assert any(
+        'reported visual symptom only as one fixed code' in rule
+        for rule in support['privacy_rules']
+    )
+    assert any(
+        'automatically attributed reported-symptom claim' in rule
+        for rule in support['evidence_rules']
+    )
     demo = contract['first_map_demo_plan_contract']
     assert demo['schema_uri'].endswith(
         '/schemas/first-map-demo-plan-v1.schema.json'

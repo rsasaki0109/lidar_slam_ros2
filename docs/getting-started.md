@@ -450,7 +450,9 @@ user-reported symptom; it does not automatically identify a root cause, alter
 parameters, rerun mapping, or claim accuracy. Add `--write` to retain the card
 inside the session, or `--json` for local automation. Never paste raw diagnosis
 JSON into an issue because it can contain local paths; use `support` after
-review instead.
+review instead. A retained symptom reaches the sanitized report and issue body
+only as its fixed code plus the user-reported evidence boundary; its title,
+checks, commands, and other diagnosis text stay local.
 
 After a verified run, the session page offers **Share this verified first
 map**. Its copy-ready command revalidates the retained receipt and source
@@ -505,7 +507,8 @@ lidarslam-map support output/session-a
 
 This creates a new ZIP beside the session with exactly `README.txt`,
 `issue-body.md`, and schema-valid `support-report.json`. It includes bounded
-status, setup, diagnosis and evidence-hash fields, but excludes maps, bags, raw
+status, setup, diagnosis, the fixed reported-symptom code when present, and
+evidence-hash fields, but excludes maps, bags, raw
 logs, parameter contents, exact local paths and command credentials. Nothing is
 uploaded. Review all three files before attaching the ZIP to a public issue.
 Use `--json` to inspect the sanitized report without writing a ZIP.

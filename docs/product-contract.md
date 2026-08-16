@@ -222,7 +222,11 @@ failure does not change a successful comparison result.
 included only while its identities still match; artifact symlinks and paths
 outside the session evidence roots are never read. Map geometry, raw sensor
 data, raw logs, parameter contents, local paths and command credentials are
-excluded. ZIP creation is atomic and refuses existing or symlink targets;
+excluded. A retained visual symptom is projected only as its fixed code and
+explicit user-reported evidence basis; its title, checks, commands, and free
+text remain local. The issue body never presents that code as an automatically
+diagnosed root cause. ZIP creation is atomic and refuses existing or symlink
+targets;
 `--json` is read-only. The command never uploads or changes remote state, and
 every result requires human review before public sharing.
 

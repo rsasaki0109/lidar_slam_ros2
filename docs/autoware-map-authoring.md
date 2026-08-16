@@ -138,7 +138,10 @@ card beside the run, or `--json` for local automation.
 This is user-reported symptom triage, not automatic root-cause analysis or an
 accuracy result. It never edits parameters, restarts mapping, uploads a bundle,
 or turns one visual change into a hardware-support claim. Preserve the old run
-and use a fresh output for any later comparison.
+and use a fresh output for any later comparison. If the card is retained with
+`--write`, `support` carries only the fixed symptom code and its user-reported
+basis into the sanitized report and issue body. Titles, checks, commands, and
+free text stay local.
 
 ## Automation
 

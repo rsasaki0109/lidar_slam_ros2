@@ -264,12 +264,14 @@
       "exclude map geometry, raw sensor data, raw logs, and parameter-file contents",
       "redact exact local paths and credential-like command values",
       "project only bounded status, identity hashes, sensor setup, calibration, and artifact state",
-      "mark every bundle review_before_sharing and require a human review before public attachment"
+      "mark every bundle review_before_sharing and require a human review before public attachment",
+      "project a reported visual symptom only as one fixed code plus USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED; exclude its title, checks, commands, and free text"
     ],
     "evidence_rules": [
       "require a bounded schema-valid session.json bound to the selected non-symlink bundle",
       "use sensor_setup.json only while its session, bag, output, profile, and parameter snapshot identities still match",
       "never follow artifact or setup symlinks and never read recorded artifacts outside the session evidence roots",
+      "reject a malformed, unknown, mismatched, or automatically attributed reported-symptom claim as invalid diagnosis evidence",
       "report missing, malformed, stale, oversized, or unavailable evidence without inference"
     ],
     "json_rule": "--json is read-only and writes no ZIP",

@@ -220,6 +220,11 @@ atomically to a new `.zip`, never overwrites a path, and performs no upload or
 remote mutation. Review all three members before public attachment. `--json`
 prints the sanitized schema-valid report without writing a ZIP.
 
+When `inspect --symptom ... --write` retained a visual symptom, `support`
+projects only that fixed code and the explicit user-reported evidence basis.
+The issue body says it is not an automatically diagnosed root cause; symptom
+titles, checks, commands, and free text are excluded.
+
 For a verified first map, run
 `lidarslam-map support <session_bundle> --first-map` or copy **Share this
 verified first map** from `session.html`. This mode creates no ZIP, writes no
