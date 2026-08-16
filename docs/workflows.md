@@ -573,9 +573,19 @@ and all recorded TF topics, with a 100,000-message bound per topic. It reports
 empty or inconsistent frame IDs, no connecting path, or a path containing only
 `/tf_static`. A multi-hop path such as
 `odom -> base_footprint -> base_link` is accepted when at least one edge comes
-from dynamic `/tf`. This bag evidence does not prove live transform freshness,
-clock alignment, or interpolation at every sensor timestamp. Use the checks
-below for the running system and replace every angle-bracket placeholder first.
+from dynamic `/tf`.
+
+When a selected PointCloud2 topic and that dynamic path both exist, doctor then
+makes a second bounded pass in bag record order. At each cloud record it checks
+whether every required dynamic edge has already appeared and whether the
+latest stamp observed on each edge is at least the cloud's `header.stamp`. It
+reports startup gaps and every positive future-TF gap; there is no arbitrary
+millisecond tolerance because the exact-stamp lookup can reject any request
+newer than the latest buffered transform. A clean result is necessary
+recorded-bag evidence, not proof of live executor scheduling, DDS delay, clock
+alignment, TF buffer history, or interpolation at every sensor timestamp. Use
+the checks below for the running system and replace every angle-bracket
+placeholder first.
 
 1. **Check the Odometry message frames**
 
@@ -613,8 +623,10 @@ below for the running system and replace every angle-bracket placeholder first.
    Expected: the monitor reports a live publisher and bounded delay for the
    path. A missing path is a broadcaster/configuration problem; a large delay,
    future extrapolation, or stale timestamp is a timing problem. Align the
-   clocks and message/TF timestamps or repair the publisher rate, then rerun
-   the monitor. Increasing a lookup timeout alone does not repair stale data.
+   clocks and message/TF timestamps or repair the actual publisher rate, then
+   rerun doctor and the monitor. Increasing a lookup timeout alone does not
+   repair stale data. Silencing the warning or substituting a stale transform
+   does not repair it either.
 
 ## Run `RKO-LIO + graph_based_slam`
 

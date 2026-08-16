@@ -30,11 +30,12 @@
       "title": "Actionable input and output diagnosis",
       "state": "complete",
       "evidence": [
-        "docs/schemas/preflight-v5.schema.json",
+        "docs/schemas/preflight-v6.schema.json",
         "docs/schemas/diagnosis-v1.schema.json",
         "docs/schemas/map-session-recovery-v1.schema.json",
         "docs/schemas/map-session-index-v1.schema.json",
-        "docs/evidence/timestamp-order-preflight-2026-07-29.md"
+        "docs/evidence/timestamp-order-preflight-2026-07-29.md",
+        "docs/evidence/growth/odometry-tf-timing-preflight-2026-08-17.md"
       ],
       "blockers": []
     },

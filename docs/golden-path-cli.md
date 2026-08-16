@@ -288,9 +288,14 @@ no RKO-LIO profile is recommended. When an Odometry topic is present, doctor
 also scans the highest-count Odometry topic and every recorded TF topic up to
 100,000 messages per topic. It reports empty or inconsistent parent/child
 frames, a missing path, and a static-only path without hiding an otherwise
-compatible maintained SLAM profile. Add `--json` for automation. These bounded
-bag checks do not certify timestamp units, calibration, live TF freshness,
-interpolation, or accuracy.
+compatible maintained SLAM profile. When that path contains dynamic edges and
+a PointCloud2 topic exists, doctor makes one more bounded pass in bag record
+order. For each cloud it compares `header.stamp` with the latest recorded stamp
+seen so far on every required dynamic edge. It reports clouds that arrive
+before all required edges and positive future-TF gaps, including the largest
+gap and limiting edge. Add `--json` for automation. These bounded bag checks do
+not certify timestamp units, calibration, live executor or DDS scheduling,
+clock alignment, TF buffer history, interpolation, or accuracy.
 
 `run` prints the selected profile and deterministic command before execution.
 Use `--dry-run` to inspect the plan without creating the output directory.
@@ -496,8 +501,10 @@ deprecated `run` compatibility options; `view` has no `none` mode.
 Automation should select the schema using `schema_version` and `schema_uri`;
 it must not infer compatibility from the repository version.
 
-- [Preflight schema v5](schemas/preflight-v5.schema.json) — current; adds
-  bounded Odometry parent/child and recorded dynamic-TF connectivity evidence
+- [Preflight schema v6](schemas/preflight-v6.schema.json) — current; adds
+  bounded replay-order PointCloud2-to-dynamic-TF timing evidence
+- [Preflight schema v5](schemas/preflight-v5.schema.json) — adds bounded
+  Odometry parent/child and recorded dynamic-TF connectivity evidence
 - [Preflight schema v4](schemas/preflight-v4.schema.json) — adds
   stable rejection finding codes and one concrete next action per finding
 - [Preflight schema v3](schemas/preflight-v3.schema.json) — adds

@@ -96,7 +96,7 @@ def test_summary_marks_success_when_map_and_verify_pass_exist(tmp_path: Path):
     )
     jsonschema.Draft7Validator.check_schema(schema)
     jsonschema.validate(summary, schema)
-    assert summary['bag_preflight']['schema_version'] == 5
+    assert summary['bag_preflight']['schema_version'] == 6
     assert summary['schema_version'] == 1
     assert summary['schema_uri'].endswith('/schemas/diagnosis-v1.schema.json')
     assert summary['status'] == 'success'

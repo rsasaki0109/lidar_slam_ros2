@@ -184,7 +184,7 @@ TIMESTAMP_ORDER_EVIDENCE_DOC = (
     / 'timestamp-order-preflight-2026-07-29.md'
 )
 REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
-PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v5.schema.json'
+PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v6.schema.json'
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
 MAP_SESSION_RECOVERY_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'map-session-recovery-v1.schema.json'
@@ -633,6 +633,7 @@ def test_product_contract_has_bounded_official_surface():
     assert 'choice-reducing home, not another mapping workflow' in contract
     assert '`run_manifest.json`' in contract
     assert '`<output>.partial`' in golden_path
+    assert 'preflight-v6.schema.json' in golden_path
     assert 'preflight-v5.schema.json' in golden_path
     assert 'preflight-v4.schema.json' in golden_path
     assert 'sensor-setup-rejection-v1.schema.json' in golden_path

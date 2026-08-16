@@ -34,8 +34,8 @@ TFMESSAGE = 'tf2_msgs/msg/TFMessage'
 GSOF49 = 'applanix_msgs/msg/NavigationSolutionGsof49'
 GSOF50 = 'applanix_msgs/msg/NavigationPerformanceGsof50'
 VELOCITY_REPORT = 'autoware_auto_vehicle_msgs/msg/VelocityReport'
-SCHEMA_VERSION = 5
-SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v5.schema.json'
+SCHEMA_VERSION = 6
+SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v6.schema.json'
 POINT_FIELD_UINT32 = 6
 POINT_FIELD_FLOAT32 = 7
 POINT_FIELD_FLOAT64 = 8
@@ -48,6 +48,7 @@ RKO_TIMESTAMP_DATATYPES = (
 TIMESTAMP_SCAN_MSGTYPES = (POINTCLOUD2, IMU)
 MAX_TIMESTAMP_RECORDS_PER_TOPIC = 100_000
 MAX_ODOMETRY_TF_RECORDS_PER_TOPIC = 100_000
+MAX_ODOMETRY_TF_TIMING_RECORDS_PER_TOPIC = 100_000
 
 
 def _finding(code: str, message: str, next_action: str) -> dict[str, str]:
@@ -715,7 +716,7 @@ def _record_tf_transforms(
         return
     topic_state['records_scanned'] += 1
     topic_state['readable'] = True
-    dynamic = topic.rstrip('/').split('/')[-1] != 'tf_static'
+    dynamic = _is_dynamic_tf_topic(topic)
     for transform in getattr(message, 'transforms', []):
         header = getattr(transform, 'header', None)
         parent = str(getattr(header, 'frame_id', '')).strip()
@@ -725,6 +726,11 @@ def _record_tf_transforms(
             continue
         edge = tuple(sorted((parent, child)))
         state['_edges'][edge] = state['_edges'].get(edge, False) or dynamic
+
+
+def _is_dynamic_tf_topic(topic: str) -> bool:
+    """Treat every TFMessage topic except a tf_static basename as dynamic."""
+    return topic.rstrip('/').split('/')[-1] != 'tf_static'
 
 
 def find_tf_path(
@@ -783,7 +789,9 @@ def _finalize_odometry_tf_scan(
     readable = state['records_scanned'] > 0
     parent = frame_ids[0] if len(frame_ids) == 1 else None
     child = child_frame_ids[0] if len(child_frame_ids) == 1 else None
+    edges = state.pop('_edges')
     tf_path: list[str] = []
+    path_edges: list[dict[str, Any]] = []
     dynamic_path: bool | None = None
 
     if not readable:
@@ -800,7 +808,6 @@ def _finalize_odometry_tf_scan(
             'inconsistent within the bounded bag scan.'
         )
     else:
-        edges = state.pop('_edges')
         dynamic_result = find_tf_path(
             edges,
             parent,
@@ -832,7 +839,14 @@ def _finalize_odometry_tf_scan(
                 'parent and child frames.'
             )
 
-    state.pop('_edges', None)
+    path_edges = [
+        {
+            'from_frame': left,
+            'to_frame': right,
+            'dynamic': edges[tuple(sorted((left, right)))],
+        }
+        for left, right in zip(tf_path, tf_path[1:])
+    ]
     return {
         'status': status,
         'odometry_topic': state['odometry_topic'],
@@ -851,6 +865,7 @@ def _finalize_odometry_tf_scan(
         ),
         'invalid_transform_count': state['invalid_transform_count'],
         'tf_path': tf_path,
+        'path_edges': path_edges,
         'dynamic_path': dynamic_path,
         'max_records_per_topic': limit,
         'reason': reason,
@@ -889,6 +904,7 @@ def _odometry_tf_error_result(
         'tf_records_scanned': 0,
         'invalid_transform_count': 0,
         'tf_path': [],
+        'path_edges': [],
         'dynamic_path': None,
         'max_records_per_topic': max_records_per_topic,
         'reason': reason,
@@ -1040,10 +1056,456 @@ def _no_odometry_tf_result(
         'tf_records_scanned': 0,
         'invalid_transform_count': 0,
         'tf_path': [],
+        'path_edges': [],
         'dynamic_path': None,
         'max_records_per_topic': max_records_per_topic,
         'reason': 'No Odometry topic was found.',
     }
+
+
+def _public_dynamic_path_edges(
+    path_edges: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return normalized dynamic edges while preserving TF path direction."""
+    return [
+        {
+            'from_frame': str(edge['from_frame']),
+            'to_frame': str(edge['to_frame']),
+            'dynamic': True,
+        }
+        for edge in path_edges
+        if edge.get('dynamic') is True
+    ]
+
+
+def _no_odometry_tf_timing_result(
+    pointcloud_topic: TopicRecord | None,
+    max_records_per_topic: int,
+    reason: str,
+) -> dict[str, Any]:
+    """Build an explicit no-scan result for an inapplicable timing check."""
+    return {
+        'status': 'not_applicable',
+        'sample_basis': 'bag_record_order_and_header_stamp',
+        'pointcloud_topic': (
+            pointcloud_topic.name if pointcloud_topic is not None else None
+        ),
+        'expected_pointcloud_records': (
+            pointcloud_topic.message_count if pointcloud_topic is not None else 0
+        ),
+        'pointcloud_records_scanned': 0,
+        'complete': True,
+        'readable': False,
+        'dynamic_path_edges': [],
+        'tf_topics': [],
+        'tf_records_scanned': 0,
+        'invalid_pointcloud_stamp_count': 0,
+        'invalid_transform_stamp_count': 0,
+        'clouds_before_all_dynamic_tf': 0,
+        'future_extrapolation_count': 0,
+        'first_future_cloud_stamp_ns': None,
+        'max_future_gap_ns': 0,
+        'max_future_gap_edge': None,
+        'latest_required_tf_stamp_ns_at_max_gap': None,
+        'max_records_per_topic': max_records_per_topic,
+        'reason': reason,
+    }
+
+
+def _odometry_tf_timing_state(
+    pointcloud_topic: TopicRecord,
+    tf_topics: list[TopicRecord],
+    path_edges: list[dict[str, Any]],
+    max_records_per_topic: int,
+) -> dict[str, Any]:
+    dynamic_edges = _public_dynamic_path_edges(path_edges)
+    return {
+        'pointcloud_topic': pointcloud_topic.name,
+        'expected_pointcloud_records': pointcloud_topic.message_count,
+        'pointcloud_records_scanned': 0,
+        'readable': False,
+        'dynamic_path_edges': dynamic_edges,
+        '_latest_dynamic_stamps': {
+            tuple(sorted((edge['from_frame'], edge['to_frame']))): None
+            for edge in dynamic_edges
+        },
+        '_edge_by_key': {
+            tuple(sorted((edge['from_frame'], edge['to_frame']))): edge
+            for edge in dynamic_edges
+        },
+        '_tf_topics': {
+            topic.name: {
+                'topic': topic.name,
+                'expected_records': topic.message_count,
+                'records_scanned': 0,
+                'complete': False,
+                'readable': False,
+            }
+            for topic in tf_topics
+        },
+        'invalid_pointcloud_stamp_count': 0,
+        'invalid_transform_stamp_count': 0,
+        'clouds_before_all_dynamic_tf': 0,
+        'future_extrapolation_count': 0,
+        'first_future_cloud_stamp_ns': None,
+        'max_future_gap_ns': 0,
+        'max_future_gap_edge': None,
+        'latest_required_tf_stamp_ns_at_max_gap': None,
+        '_limit': max_records_per_topic,
+    }
+
+
+def _odometry_tf_timing_scan_satisfied(state: dict[str, Any]) -> bool:
+    limit = state['_limit']
+    if not _bounded_topic_satisfied(
+        state['pointcloud_records_scanned'],
+        state['expected_pointcloud_records'],
+        limit,
+    ):
+        return False
+    return all(
+        _bounded_topic_satisfied(
+            topic['records_scanned'],
+            topic['expected_records'],
+            limit,
+        )
+        for topic in state['_tf_topics'].values()
+    )
+
+
+def _record_odometry_tf_timing_transform(
+    state: dict[str, Any],
+    topic: str,
+    message: Any,
+) -> None:
+    """Advance latest stamps for required dynamic TF edges in replay order."""
+    topic_state = state['_tf_topics'].get(topic)
+    if topic_state is None or topic_state['records_scanned'] >= state['_limit']:
+        return
+    topic_state['records_scanned'] += 1
+    topic_state['readable'] = True
+    if not _is_dynamic_tf_topic(topic):
+        return
+    latest = state['_latest_dynamic_stamps']
+    for transform in getattr(message, 'transforms', []):
+        header = getattr(transform, 'header', None)
+        parent = str(getattr(header, 'frame_id', '')).strip()
+        child = str(getattr(transform, 'child_frame_id', '')).strip()
+        edge_key = tuple(sorted((parent, child)))
+        if not parent or not child or parent == child or edge_key not in latest:
+            continue
+        stamp_ns = _stamp_ns_from_message(transform)
+        if stamp_ns is None:
+            state['invalid_transform_stamp_count'] += 1
+            continue
+        previous = latest[edge_key]
+        if previous is None or stamp_ns > previous:
+            latest[edge_key] = stamp_ns
+
+
+def _record_odometry_tf_timing_pointcloud(
+    state: dict[str, Any],
+    message: Any,
+) -> None:
+    """Compare one cloud stamp with TF stamps available earlier in the bag."""
+    if state['pointcloud_records_scanned'] >= state['_limit']:
+        return
+    state['pointcloud_records_scanned'] += 1
+    state['readable'] = True
+    cloud_stamp_ns = _stamp_ns_from_message(message)
+    if cloud_stamp_ns is None:
+        state['invalid_pointcloud_stamp_count'] += 1
+        return
+
+    latest = state['_latest_dynamic_stamps']
+    if any(stamp_ns is None for stamp_ns in latest.values()):
+        state['clouds_before_all_dynamic_tf'] += 1
+        return
+
+    limiting_key, limiting_stamp_ns = min(
+        latest.items(),
+        key=lambda item: (item[1], item[0]),
+    )
+    if cloud_stamp_ns <= limiting_stamp_ns:
+        return
+
+    gap_ns = cloud_stamp_ns - limiting_stamp_ns
+    state['future_extrapolation_count'] += 1
+    if state['first_future_cloud_stamp_ns'] is None:
+        state['first_future_cloud_stamp_ns'] = cloud_stamp_ns
+    if gap_ns > state['max_future_gap_ns']:
+        state['max_future_gap_ns'] = gap_ns
+        state['max_future_gap_edge'] = dict(state['_edge_by_key'][limiting_key])
+        state['latest_required_tf_stamp_ns_at_max_gap'] = limiting_stamp_ns
+
+
+def _finalize_odometry_tf_timing_scan(
+    state: dict[str, Any],
+    *,
+    exhausted: bool,
+) -> dict[str, Any]:
+    """Turn replay-order timing state into bounded public evidence."""
+    limit = state.pop('_limit')
+    expected = state['expected_pointcloud_records']
+    pointcloud_complete = exhausted or (
+        expected > 0 and state['pointcloud_records_scanned'] >= expected
+    )
+    tf_topics = []
+    for topic in state.pop('_tf_topics').values():
+        topic['complete'] = exhausted or (
+            topic['expected_records'] > 0
+            and topic['records_scanned'] >= topic['expected_records']
+        )
+        tf_topics.append(topic)
+    tf_topics.sort(key=lambda item: item['topic'])
+    complete = pointcloud_complete and all(
+        topic['complete'] for topic in tf_topics
+    )
+
+    if not state['readable']:
+        status = 'failed'
+        reason = 'No readable PointCloud2 record was found on the selected topic.'
+    elif (
+        state['invalid_pointcloud_stamp_count']
+        or state['invalid_transform_stamp_count']
+        or state['clouds_before_all_dynamic_tf']
+        or state['future_extrapolation_count']
+    ):
+        status = 'failed'
+        reason = (
+            'The bounded replay-order scan found missing, invalid, or future '
+            'dynamic TF availability for at least one PointCloud2 record.'
+        )
+    elif complete:
+        status = 'passed'
+        reason = (
+            'Every scanned PointCloud2 header stamp had all required dynamic '
+            'TF edges available at the same or a later header stamp.'
+        )
+    else:
+        status = 'sampled'
+        reason = (
+            'No dynamic TF timing gap was found in the bounded replay-order '
+            'sample; at least one selected topic was not scanned completely.'
+        )
+
+    state.pop('_latest_dynamic_stamps')
+    state.pop('_edge_by_key')
+    return {
+        'status': status,
+        'sample_basis': 'bag_record_order_and_header_stamp',
+        'pointcloud_topic': state['pointcloud_topic'],
+        'expected_pointcloud_records': expected,
+        'pointcloud_records_scanned': state['pointcloud_records_scanned'],
+        'complete': complete,
+        'readable': state['readable'],
+        'dynamic_path_edges': state['dynamic_path_edges'],
+        'tf_topics': tf_topics,
+        'tf_records_scanned': sum(
+            topic['records_scanned'] for topic in tf_topics
+        ),
+        'invalid_pointcloud_stamp_count': (
+            state['invalid_pointcloud_stamp_count']
+        ),
+        'invalid_transform_stamp_count': (
+            state['invalid_transform_stamp_count']
+        ),
+        'clouds_before_all_dynamic_tf': state['clouds_before_all_dynamic_tf'],
+        'future_extrapolation_count': state['future_extrapolation_count'],
+        'first_future_cloud_stamp_ns': state['first_future_cloud_stamp_ns'],
+        'max_future_gap_ns': state['max_future_gap_ns'],
+        'max_future_gap_edge': state['max_future_gap_edge'],
+        'latest_required_tf_stamp_ns_at_max_gap': (
+            state['latest_required_tf_stamp_ns_at_max_gap']
+        ),
+        'max_records_per_topic': limit,
+        'reason': reason,
+    }
+
+
+def _odometry_tf_timing_error_result(
+    pointcloud_topic: TopicRecord,
+    tf_topics: list[TopicRecord],
+    path_edges: list[dict[str, Any]],
+    max_records_per_topic: int,
+    status: str,
+    reason: str,
+) -> dict[str, Any]:
+    result = _no_odometry_tf_timing_result(
+        pointcloud_topic,
+        max_records_per_topic,
+        reason,
+    )
+    result.update({
+        'status': status,
+        'complete': False,
+        'dynamic_path_edges': _public_dynamic_path_edges(path_edges),
+        'tf_topics': [
+            {
+                'topic': topic.name,
+                'expected_records': topic.message_count,
+                'records_scanned': 0,
+                'complete': False,
+                'readable': False,
+            }
+            for topic in sorted(tf_topics, key=lambda item: item.name)
+        ],
+    })
+    return result
+
+
+def inspect_odometry_tf_timing(
+    bag_path: Path,
+    pointcloud_topic: TopicRecord,
+    tf_topics: list[TopicRecord],
+    path_edges: list[dict[str, Any]],
+    storage_id: str,
+    max_records_per_topic: int = MAX_ODOMETRY_TF_TIMING_RECORDS_PER_TOPIC,
+) -> dict[str, Any]:
+    """Inspect exact-cloud-stamp TF availability in bounded bag replay order."""
+    if max_records_per_topic <= 0:
+        raise ValueError('max_records_per_topic must be positive')
+    dynamic_edges = _public_dynamic_path_edges(path_edges)
+    if not dynamic_edges:
+        return _no_odometry_tf_timing_result(
+            pointcloud_topic,
+            max_records_per_topic,
+            'The Odometry TF path has no dynamic edge to inspect.',
+        )
+    try:
+        import rosbag2_py
+        from rclpy.serialization import deserialize_message
+        from sensor_msgs.msg import PointCloud2
+        from tf2_msgs.msg import TFMessage
+    except ImportError as exc:
+        return _inspect_odometry_tf_timing_with_rosbags(
+            bag_path,
+            pointcloud_topic,
+            tf_topics,
+            path_edges,
+            max_records_per_topic,
+            ros_import_error=exc,
+        )
+
+    state = _odometry_tf_timing_state(
+        pointcloud_topic,
+        tf_topics,
+        path_edges,
+        max_records_per_topic,
+    )
+    selected_topics = [pointcloud_topic.name, *state['_tf_topics']]
+    try:
+        reader = rosbag2_py.SequentialReader()
+        reader.open(
+            rosbag2_py.StorageOptions(
+                uri=str(bag_path),
+                storage_id=storage_id,
+            ),
+            rosbag2_py.ConverterOptions('', ''),
+        )
+        reader.set_filter(rosbag2_py.StorageFilter(topics=selected_topics))
+        exhausted = True
+        while reader.has_next():
+            if _odometry_tf_timing_scan_satisfied(state):
+                exhausted = False
+                break
+            topic, serialized, _ = reader.read_next()
+            if topic == pointcloud_topic.name:
+                message = deserialize_message(serialized, PointCloud2)
+                _record_odometry_tf_timing_pointcloud(state, message)
+            elif topic in state['_tf_topics']:
+                message = deserialize_message(serialized, TFMessage)
+                _record_odometry_tf_timing_transform(state, topic, message)
+        return _finalize_odometry_tf_timing_scan(state, exhausted=exhausted)
+    except Exception as exc:  # storage plugins expose backend-specific errors
+        return _odometry_tf_timing_error_result(
+            pointcloud_topic,
+            tf_topics,
+            path_edges,
+            max_records_per_topic,
+            'error',
+            f'Failed to inspect Odometry TF timing: {exc}',
+        )
+
+
+def _inspect_odometry_tf_timing_with_rosbags(
+    bag_path: Path,
+    pointcloud_topic: TopicRecord,
+    tf_topics: list[TopicRecord],
+    path_edges: list[dict[str, Any]],
+    max_records_per_topic: int,
+    ros_import_error: ImportError,
+) -> dict[str, Any]:
+    try:
+        from rosbags.highlevel import AnyReader
+        from rosbags.typesys import Stores, get_typestore
+    except ImportError as rosbags_error:
+        return _odometry_tf_timing_error_result(
+            pointcloud_topic,
+            tf_topics,
+            path_edges,
+            max_records_per_topic,
+            'unavailable',
+            'Odometry TF timing inspection is unavailable: ROS 2 Python '
+            f'bindings failed to import ({ros_import_error}); the rosbags '
+            f'fallback also failed to import ({rosbags_error}).',
+        )
+
+    state = _odometry_tf_timing_state(
+        pointcloud_topic,
+        tf_topics,
+        path_edges,
+        max_records_per_topic,
+    )
+    try:
+        typestore = get_typestore(Stores.LATEST)
+        with AnyReader(
+            [bag_path],
+            default_typestore=typestore,
+        ) as reader:
+            selected_topics = {pointcloud_topic.name, *state['_tf_topics']}
+            connections = [
+                connection
+                for connection in reader.connections
+                if connection.topic in selected_topics
+                and (
+                    (
+                        connection.topic == pointcloud_topic.name
+                        and connection.msgtype == POINTCLOUD2
+                    )
+                    or (
+                        connection.topic in state['_tf_topics']
+                        and connection.msgtype == TFMESSAGE
+                    )
+                )
+            ]
+            exhausted = True
+            for connection, _, serialized in reader.messages(
+                connections=connections,
+            ):
+                if _odometry_tf_timing_scan_satisfied(state):
+                    exhausted = False
+                    break
+                message = reader.deserialize(serialized, connection.msgtype)
+                if connection.topic == pointcloud_topic.name:
+                    _record_odometry_tf_timing_pointcloud(state, message)
+                else:
+                    _record_odometry_tf_timing_transform(
+                        state,
+                        connection.topic,
+                        message,
+                    )
+        return _finalize_odometry_tf_timing_scan(state, exhausted=exhausted)
+    except Exception as exc:
+        return _odometry_tf_timing_error_result(
+            pointcloud_topic,
+            tf_topics,
+            path_edges,
+            max_records_per_topic,
+            'error',
+            'Failed to inspect Odometry TF timing with rosbags: '
+            f'{exc}',
+        )
 
 
 def summarize_bag(bag_path: Path) -> dict[str, Any]:
@@ -1266,19 +1728,34 @@ def build_preflight_payload(
         [Path, TopicRecord, list[TopicRecord], str, int],
         dict[str, Any],
     ] | None = None,
+    odometry_tf_timing_inspector: Callable[
+        [
+            Path,
+            TopicRecord,
+            list[TopicRecord],
+            list[dict[str, Any]],
+            str,
+            int,
+        ],
+        dict[str, Any],
+    ] | None = None,
     max_timestamp_records_per_topic: int = MAX_TIMESTAMP_RECORDS_PER_TOPIC,
     max_odometry_tf_records_per_topic: int = MAX_ODOMETRY_TF_RECORDS_PER_TOPIC,
+    max_odometry_tf_timing_records_per_topic: int = (
+        MAX_ODOMETRY_TF_TIMING_RECORDS_PER_TOPIC
+    ),
 ) -> dict[str, Any]:
     """Create the machine-readable preflight result."""
     summary = summarize_bag(bag_path)
     bag_info = load_bag_metadata(bag_path)
+    topic_records = _collect_topics(bag_info)
     storage_id = str(bag_info.get('storage_identifier', ''))
-    if summary['topics']['pointcloud2']:
-        topic = summary['topics']['pointcloud2'][0]['name']
+    pointcloud_topic = _best_topic(topic_records, POINTCLOUD2)
+    if pointcloud_topic is not None:
         inspector = pointcloud_inspector or inspect_pointcloud_record
         summary['pointcloud_inspection'] = inspector(
             bag_path,
-            topic,
+            pointcloud_topic.name,
             storage_id,
         )
     else:
@@ -1292,7 +1769,7 @@ def build_preflight_payload(
         }
     timestamp_topics = []
     for msg_type in TIMESTAMP_SCAN_MSGTYPES:
-        topic = _best_topic(_collect_topics(bag_info), msg_type)
+        topic = _best_topic(topic_records, msg_type)
         if topic is not None:
             timestamp_topics.append(topic)
     order_inspector = timestamp_inspector or inspect_timestamp_order
@@ -1302,13 +1779,13 @@ def build_preflight_payload(
         storage_id,
         max_timestamp_records_per_topic,
     )
-    odometry_topic = _best_topic(_collect_topics(bag_info), ODOMETRY)
+    odometry_topic = _best_topic(topic_records, ODOMETRY)
+    tf_topics = _topic_group(topic_records, TFMESSAGE)
     if odometry_topic is None:
         summary['odometry_tf'] = _no_odometry_tf_result(
             max_odometry_tf_records_per_topic,
         )
     else:
-        tf_topics = _topic_group(_collect_topics(bag_info), TFMESSAGE)
         odometry_inspector = odometry_tf_inspector or inspect_odometry_tf
         summary['odometry_tf'] = odometry_inspector(
             bag_path,
@@ -1316,6 +1793,37 @@ def build_preflight_payload(
             tf_topics,
             storage_id,
             max_odometry_tf_records_per_topic,
+        )
+    odometry_tf = summary['odometry_tf']
+    if pointcloud_topic is None:
+        summary['odometry_tf_timing'] = _no_odometry_tf_timing_result(
+            None,
+            max_odometry_tf_timing_records_per_topic,
+            'No PointCloud2 topic was found.',
+        )
+    elif odometry_tf['status'] not in {'passed', 'sampled'}:
+        summary['odometry_tf_timing'] = _no_odometry_tf_timing_result(
+            pointcloud_topic,
+            max_odometry_tf_timing_records_per_topic,
+            'A usable dynamic Odometry TF path was not established.',
+        )
+    elif not _public_dynamic_path_edges(odometry_tf['path_edges']):
+        summary['odometry_tf_timing'] = _no_odometry_tf_timing_result(
+            pointcloud_topic,
+            max_odometry_tf_timing_records_per_topic,
+            'The usable Odometry TF path has no dynamic edge to inspect.',
+        )
+    else:
+        timing_inspector = (
+            odometry_tf_timing_inspector or inspect_odometry_tf_timing
+        )
+        summary['odometry_tf_timing'] = timing_inspector(
+            bag_path,
+            pointcloud_topic,
+            tf_topics,
+            odometry_tf['path_edges'],
+            storage_id,
+            max_odometry_tf_timing_records_per_topic,
         )
     recommendations = build_recommendations(summary)
     bag_q = _safe_quote(summary['bag_path'])
@@ -1459,6 +1967,57 @@ def build_preflight_payload(
                 'Configure or record the matching dynamic /tf broadcaster, then '
                 'rerun lidarslam-map doctor <rosbag2_dir>.',
             ))
+    odometry_tf_timing = summary['odometry_tf_timing']
+    if odometry_tf_timing['status'] in {'error', 'unavailable'}:
+        findings.append(_finding(
+            'odometry-tf-timing-inspection-unavailable',
+            'Replay-order Odometry TF timing could not be inspected: '
+            f"{odometry_tf_timing['reason']}",
+            'Run ros2 bag info <rosbag2_dir>; repair invalid metadata or '
+            'install the reported storage/message support, then rerun '
+            'lidarslam-map doctor <rosbag2_dir>.',
+        ))
+    elif odometry_tf_timing['status'] == 'failed':
+        if (
+            not odometry_tf_timing['readable']
+            or odometry_tf_timing['invalid_pointcloud_stamp_count']
+            or odometry_tf_timing['invalid_transform_stamp_count']
+        ):
+            findings.append(_finding(
+                'odometry-tf-timing-invalid',
+                'Odometry TF timing evidence contains unreadable records or '
+                'invalid header stamps: '
+                f"{odometry_tf_timing['reason']}",
+                'Repair PointCloud2 and required dynamic TF header stamps, then '
+                'rerun lidarslam-map doctor <rosbag2_dir>.',
+            ))
+        if odometry_tf_timing['clouds_before_all_dynamic_tf']:
+            findings.append(_finding(
+                'odometry-tf-startup-gap',
+                f"{odometry_tf_timing['clouds_before_all_dynamic_tf']} "
+                'PointCloud2 record(s) arrived before every required dynamic '
+                'Odometry TF edge had been observed in bag replay order.',
+                'Start and record the dynamic TF broadcaster before sensor '
+                'playback, then rerun lidarslam-map doctor <rosbag2_dir>.',
+            ))
+        if odometry_tf_timing['future_extrapolation_count']:
+            edge = odometry_tf_timing['max_future_gap_edge']
+            edge_text = (
+                f"{edge['from_frame']} -> {edge['to_frame']}"
+                if edge is not None else 'unknown dynamic edge'
+            )
+            findings.append(_finding(
+                'odometry-tf-future-gap',
+                f"{odometry_tf_timing['future_extrapolation_count']} "
+                'PointCloud2 record(s) requested a future dynamic TF in bag '
+                'replay order; maximum gap '
+                f"{odometry_tf_timing['max_future_gap_ns'] / 1e6:.3f} ms "
+                f'on {edge_text}.',
+                'Align PointCloud2 and TF clocks/header stamps, raise the actual '
+                'dynamic TF publication rate if needed, then rerun '
+                'lidarslam-map doctor <rosbag2_dir> and tf2_monitor. Do not '
+                'silence the warning or substitute a stale transform.',
+            ))
     if not recommendations:
         if not summary['capabilities']['has_imu']:
             findings.append(_finding(
@@ -1565,6 +2124,13 @@ def render_text_report(payload: dict[str, Any]) -> str:
         lines.append(
             '  Odometry -> TF: '
             f"{odometry_tf['status']} ({odometry_tf['reason']})"
+        )
+    odometry_tf_timing = summary['odometry_tf_timing']
+    if odometry_tf_timing['status'] != 'not_applicable':
+        lines.append(
+            '  Odometry TF timing: '
+            f"{odometry_tf_timing['status']} "
+            f"({odometry_tf_timing['reason']})"
         )
 
     if recommendations:

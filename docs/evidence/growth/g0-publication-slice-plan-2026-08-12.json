@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-17T03:51:40+09:00",
+  "generated_at": "2026-08-17T04:38:13+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 319,
-    "expected_paths_sha256": "fa6cd94d350c7ebf68c26ba8bb2c035b344543c374ea5123c367c4de4d8a437e",
+    "expected_path_count": 321,
+    "expected_paths_sha256": "f378fd654e54595dce5da1e5763374f3f56db1dcd87513ab3c5e4de6afcbdbd5",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -57,6 +57,7 @@
         "docs/schemas/first-map-demo-plan-v1.schema.json",
         "docs/schemas/preflight-v4.schema.json",
         "docs/schemas/preflight-v5.schema.json",
+        "docs/schemas/preflight-v6.schema.json",
         "graph_based_slam/test/test_autoware_dogfood_script.py",
         "graph_based_slam/test/test_autoware_map_preflight.py",
         "graph_based_slam/test/test_autoware_map_run_diagnosis.py",
@@ -325,6 +326,7 @@
         "docs/evidence/growth/japanese-quickstart-2026-08-12.md",
         "docs/evidence/growth/leo-drive-compressed-playback-2026-08-16.md",
         "docs/evidence/growth/odometry-tf-bag-preflight-2026-08-17.md",
+        "docs/evidence/growth/odometry-tf-timing-preflight-2026-08-17.md",
         "docs/evidence/growth/onboarding-matrix-index-2026-08-12.md",
         "docs/evidence/growth/public-docs-deployment-provenance-2026-08-16.md",
         "docs/evidence/growth/published-onboarding-identity-2026-08-16.md",

@@ -776,6 +776,16 @@ do not pretend to prove live freshness, timing, calibration, or accuracy. The
 [bounded evidence record](../evidence/growth/odometry-tf-bag-preflight-2026-08-17.md)
 keeps those claim and mutation limits explicit; no GitHub issue was changed.
 
+The follow-up preflight v6 increment addresses the still-open Issue #64 timing
+burden without changing scan matching. For the selected PointCloud2 topic it
+replays recorded TF availability in bag order, reports clouds seen before all
+required dynamic edges, and measures every positive future-TF gap against the
+limiting path edge. It deliberately does not silence warnings, raise a timeout,
+or substitute stale TF. The
+[timing evidence record](../evidence/growth/odometry-tf-timing-preflight-2026-08-17.md)
+keeps live scheduling, DDS, clock, buffer-history, interpolation, and map
+quality claims open for runtime validation.
+
 A read-only 2026-08-16 issue review found the same old file-edit handoff in
 [#95](https://github.com/rsasaki0109/lidar_slam_ros2/issues/95),
 [#98](https://github.com/rsasaki0109/lidar_slam_ros2/issues/98),
@@ -916,7 +926,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 319-path exact
+been expanded into the current 321-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell

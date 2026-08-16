@@ -36,6 +36,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import jsonschema
 import pytest
@@ -149,6 +150,14 @@ def _odometry_tf_inspection(
         parents = ['odom'] if frame_ids is None else frame_ids
         children = ['base_link'] if child_frame_ids is None else child_frame_ids
         path = [] if tf_path is None else tf_path
+        path_edges = [
+            {
+                'from_frame': left,
+                'to_frame': right,
+                'dynamic': dynamic_path is True and index == 0,
+            }
+            for index, (left, right) in enumerate(zip(path, path[1:]))
+        ]
         return {
             'status': status,
             'odometry_topic': odometry_topic.name,
@@ -174,6 +183,7 @@ def _odometry_tf_inspection(
             'tf_records_scanned': sum(topic.message_count for topic in tf_topics),
             'invalid_transform_count': 0,
             'tf_path': path,
+            'path_edges': path_edges,
             'dynamic_path': dynamic_path,
             'max_records_per_topic': max_records_per_topic,
             'reason': {
@@ -184,6 +194,48 @@ def _odometry_tf_inspection(
         }
 
     return inspect
+
+
+def _future_tf_timing_inspection(
+    _bag_path: Path,
+    pointcloud_topic,
+    tf_topics,
+    path_edges,
+    _storage_id: str,
+    max_records_per_topic: int,
+) -> dict:
+    dynamic_edges = [edge for edge in path_edges if edge['dynamic']]
+    return {
+        'status': 'failed',
+        'sample_basis': 'bag_record_order_and_header_stamp',
+        'pointcloud_topic': pointcloud_topic.name,
+        'expected_pointcloud_records': pointcloud_topic.message_count,
+        'pointcloud_records_scanned': pointcloud_topic.message_count,
+        'complete': True,
+        'readable': True,
+        'dynamic_path_edges': dynamic_edges,
+        'tf_topics': [
+            {
+                'topic': topic.name,
+                'expected_records': topic.message_count,
+                'records_scanned': topic.message_count,
+                'complete': True,
+                'readable': True,
+            }
+            for topic in tf_topics
+        ],
+        'tf_records_scanned': sum(topic.message_count for topic in tf_topics),
+        'invalid_pointcloud_stamp_count': 0,
+        'invalid_transform_stamp_count': 0,
+        'clouds_before_all_dynamic_tf': 0,
+        'future_extrapolation_count': 1,
+        'first_future_cloud_stamp_ns': 20_364_000_000,
+        'max_future_gap_ns': 18_000_000,
+        'max_future_gap_edge': dynamic_edges[0],
+        'latest_required_tf_stamp_ns_at_max_gap': 20_346_000_000,
+        'max_records_per_topic': max_records_per_topic,
+        'reason': 'A cloud requested a future dynamic TF.',
+    }
 
 
 def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path):
@@ -205,13 +257,13 @@ def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path)
 
     schema = json.loads(
         (
-            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v5.schema.json'
+            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v6.schema.json'
         ).read_text(encoding='utf-8')
     )
     jsonschema.Draft7Validator.check_schema(schema)
     jsonschema.validate(payload, schema)
-    assert payload['schema_version'] == 5
-    assert payload['schema_uri'].endswith('/schemas/preflight-v5.schema.json')
+    assert payload['schema_version'] == 6
+    assert payload['schema_uri'].endswith('/schemas/preflight-v6.schema.json')
     assert payload['summary']['pointcloud_inspection']['timestamp_field'] == 'time'
     assert payload['summary']['timestamp_order']['status'] == 'passed'
     assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
@@ -261,6 +313,50 @@ def test_odometry_without_tf_is_visible_beside_compatible_path(tmp_path: Path):
     assert '[odometry-tf-missing]' in report
 
 
+def test_future_tf_timing_is_actionable_but_keeps_compatible_path(
+    tmp_path: Path,
+):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 200),
+            ('/imu/data', 'sensor_msgs/msg/Imu', 2000),
+            ('/odom', 'nav_msgs/msg/Odometry', 1000),
+            ('/tf', 'tf2_msgs/msg/TFMessage', 1000),
+        ],
+    )
+
+    payload = module.build_preflight_payload(
+        bag_dir,
+        pointcloud_inspector=_compatible_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+        odometry_tf_inspector=_odometry_tf_inspection(
+            status='passed',
+            tf_path=['odom', 'base_link'],
+            dynamic_path=True,
+        ),
+        odometry_tf_timing_inspector=_future_tf_timing_inspection,
+    )
+
+    schema = json.loads(
+        (
+            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v6.schema.json'
+        ).read_text(encoding='utf-8')
+    )
+    jsonschema.validate(payload, schema)
+    assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
+    finding = next(
+        item for item in payload['findings']
+        if item['code'] == 'odometry-tf-future-gap'
+    )
+    assert '18.000 ms' in finding['message']
+    assert 'Do not silence' in finding['next_action']
+    report = module.render_text_report(payload)
+    assert 'Odometry TF timing: failed' in report
+    assert '[odometry-tf-future-gap]' in report
+
+
 def test_multihop_dynamic_odometry_tf_path_passes_without_finding(tmp_path: Path):
     module = _load_module()
     bag_dir = _write_metadata(
@@ -283,7 +379,7 @@ def test_multihop_dynamic_odometry_tf_path_passes_without_finding(tmp_path: Path
 
     schema = json.loads(
         (
-            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v5.schema.json'
+            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v6.schema.json'
         ).read_text(encoding='utf-8')
     )
     jsonschema.validate(payload, schema)
@@ -364,6 +460,173 @@ def test_tf_path_selection_is_deterministic_and_requires_motion_edge():
         'base_link',
         require_dynamic=True,
     ) is None
+
+
+def _message_with_stamp(stamp_ns: int):
+    return SimpleNamespace(
+        header=SimpleNamespace(
+            stamp=SimpleNamespace(
+                sec=stamp_ns // 1_000_000_000,
+                nanosec=stamp_ns % 1_000_000_000,
+            ),
+        ),
+    )
+
+
+def _transform_with_stamp(parent: str, child: str, stamp_ns: int):
+    transform = _message_with_stamp(stamp_ns)
+    transform.header.frame_id = parent
+    transform.child_frame_id = child
+    return transform
+
+
+def _timing_state(module, path_edges):
+    return module._odometry_tf_timing_state(
+        module.TopicRecord('/points', module.POINTCLOUD2, 1),
+        [module.TopicRecord('/tf', module.TFMESSAGE, len(path_edges))],
+        path_edges,
+        100,
+    )
+
+
+def test_odometry_tf_timing_detects_issue_64_future_gap():
+    module = _load_module()
+    state = _timing_state(module, [{
+        'from_frame': 'odom',
+        'to_frame': 'base_link',
+        'dynamic': True,
+    }])
+    transform = _transform_with_stamp(
+        'odom',
+        'base_link',
+        20_346_000_000,
+    )
+
+    module._record_odometry_tf_timing_transform(
+        state,
+        '/tf',
+        SimpleNamespace(transforms=[transform]),
+    )
+    module._record_odometry_tf_timing_pointcloud(
+        state,
+        _message_with_stamp(20_364_000_000),
+    )
+    result = module._finalize_odometry_tf_timing_scan(
+        state,
+        exhausted=True,
+    )
+
+    assert result['status'] == 'failed'
+    assert result['future_extrapolation_count'] == 1
+    assert result['first_future_cloud_stamp_ns'] == 20_364_000_000
+    assert result['max_future_gap_ns'] == 18_000_000
+    assert result['latest_required_tf_stamp_ns_at_max_gap'] == 20_346_000_000
+    assert result['max_future_gap_edge'] == {
+        'from_frame': 'odom',
+        'to_frame': 'base_link',
+        'dynamic': True,
+    }
+
+
+def test_odometry_tf_timing_separates_startup_from_future_gap():
+    module = _load_module()
+    state = _timing_state(module, [{
+        'from_frame': 'odom',
+        'to_frame': 'base_link',
+        'dynamic': True,
+    }])
+
+    module._record_odometry_tf_timing_pointcloud(
+        state,
+        _message_with_stamp(1_000_000_000),
+    )
+    result = module._finalize_odometry_tf_timing_scan(
+        state,
+        exhausted=True,
+    )
+
+    assert result['status'] == 'failed'
+    assert result['clouds_before_all_dynamic_tf'] == 1
+    assert result['future_extrapolation_count'] == 0
+
+
+def test_odometry_tf_timing_uses_limiting_dynamic_edge_and_ignores_static():
+    module = _load_module()
+    path_edges = [
+        {
+            'from_frame': 'odom',
+            'to_frame': 'base_footprint',
+            'dynamic': True,
+        },
+        {
+            'from_frame': 'base_footprint',
+            'to_frame': 'base_link',
+            'dynamic': True,
+        },
+        {
+            'from_frame': 'base_link',
+            'to_frame': 'lidar',
+            'dynamic': False,
+        },
+    ]
+    state = _timing_state(module, path_edges)
+    state['_tf_topics']['/tf']['expected_records'] = 1
+    transforms = [
+        _transform_with_stamp('odom', 'base_footprint', 2_000_000_000),
+        _transform_with_stamp('base_footprint', 'base_link', 1_900_000_000),
+        _transform_with_stamp('base_link', 'lidar', 1_000_000_000),
+    ]
+
+    module._record_odometry_tf_timing_transform(
+        state,
+        '/tf',
+        SimpleNamespace(transforms=transforms),
+    )
+    module._record_odometry_tf_timing_pointcloud(
+        state,
+        _message_with_stamp(1_950_000_000),
+    )
+    result = module._finalize_odometry_tf_timing_scan(
+        state,
+        exhausted=True,
+    )
+
+    assert result['future_extrapolation_count'] == 1
+    assert result['max_future_gap_ns'] == 50_000_000
+    assert result['max_future_gap_edge']['from_frame'] == 'base_footprint'
+    assert result['dynamic_path_edges'] == path_edges[:2]
+
+
+def test_odometry_tf_timing_passes_clean_replay_order():
+    module = _load_module()
+    state = _timing_state(module, [{
+        'from_frame': 'odom',
+        'to_frame': 'base_link',
+        'dynamic': True,
+    }])
+    transform = _transform_with_stamp(
+        'odom',
+        'base_link',
+        2_000_000_000,
+    )
+
+    module._record_odometry_tf_timing_transform(
+        state,
+        '/tf',
+        SimpleNamespace(transforms=[transform]),
+    )
+    module._record_odometry_tf_timing_pointcloud(
+        state,
+        _message_with_stamp(2_000_000_000),
+    )
+    result = module._finalize_odometry_tf_timing_scan(
+        state,
+        exhausted=True,
+    )
+
+    assert result['status'] == 'passed'
+    assert result['future_extrapolation_count'] == 0
+    assert result['clouds_before_all_dynamic_tf'] == 0
 
 
 def test_packet_applanix_path_is_recommended_when_packet_topics_exist(tmp_path: Path):
@@ -893,6 +1156,81 @@ def test_rosbag2_reader_accepts_dynamic_multihop_odometry_tf(
     assert result['dynamic_path'] is True
     assert result['records_scanned'] == 1
     assert result['tf_records_scanned'] == 2
+
+
+def test_rosbag2_reader_detects_exact_issue_64_future_tf_gap(
+    tmp_path: Path,
+):
+    rosbag2_py = pytest.importorskip('rosbag2_py')
+    from geometry_msgs.msg import TransformStamped  # noqa: PLC0415
+    from nav_msgs.msg import Odometry  # noqa: PLC0415
+    from rclpy.serialization import serialize_message  # noqa: PLC0415
+    from sensor_msgs.msg import PointCloud2  # noqa: PLC0415
+    from tf2_msgs.msg import TFMessage  # noqa: PLC0415
+
+    module = _load_module()
+    bag_dir = tmp_path / 'future_tf_bag'
+
+    def topic_metadata(topic_id: int, name: str, msg_type: str):
+        kwargs = {
+            'name': name,
+            'type': msg_type,
+            'serialization_format': 'cdr',
+        }
+        try:
+            return rosbag2_py.TopicMetadata(id=topic_id, **kwargs)
+        except TypeError:  # Humble TopicMetadata predates the numeric id
+            return rosbag2_py.TopicMetadata(**kwargs)
+
+    writer = rosbag2_py.SequentialWriter()
+    writer.open(
+        rosbag2_py.StorageOptions(uri=str(bag_dir), storage_id='sqlite3'),
+        rosbag2_py.ConverterOptions('', ''),
+    )
+    writer.create_topic(topic_metadata(0, '/odom', 'nav_msgs/msg/Odometry'))
+    writer.create_topic(topic_metadata(1, '/tf', 'tf2_msgs/msg/TFMessage'))
+    writer.create_topic(
+        topic_metadata(2, '/points', 'sensor_msgs/msg/PointCloud2')
+    )
+
+    odometry = Odometry()
+    odometry.header.frame_id = 'odom'
+    odometry.child_frame_id = 'base_link'
+    transform = TransformStamped()
+    transform.header.frame_id = 'odom'
+    transform.child_frame_id = 'base_link'
+    transform.header.stamp.sec = 20
+    transform.header.stamp.nanosec = 346_000_000
+    pointcloud = PointCloud2()
+    pointcloud.header.frame_id = 'base_link'
+    pointcloud.header.stamp.sec = 20
+    pointcloud.header.stamp.nanosec = 364_000_000
+    writer.write('/odom', serialize_message(odometry), 1_000_000_000)
+    writer.write(
+        '/tf',
+        serialize_message(TFMessage(transforms=[transform])),
+        1_000_000_001,
+    )
+    writer.write(
+        '/points',
+        serialize_message(pointcloud),
+        1_000_000_002,
+    )
+    if hasattr(writer, 'close'):
+        writer.close()
+
+    payload = module.build_preflight_payload(bag_dir)
+    result = payload['summary']['odometry_tf_timing']
+
+    assert payload['summary']['odometry_tf']['status'] == 'passed'
+    assert result['status'] == 'failed'
+    assert result['sample_basis'] == 'bag_record_order_and_header_stamp'
+    assert result['future_extrapolation_count'] == 1
+    assert result['max_future_gap_ns'] == 18_000_000
+    assert any(
+        finding['code'] == 'odometry-tf-future-gap'
+        for finding in payload['findings']
+    )
 
 
 @pytest.mark.skipif(
