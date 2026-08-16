@@ -74,6 +74,85 @@ def _absent_environment_handoff() -> dict:
     }
 
 
+def _product_pull(
+    head: str,
+    *,
+    draft: bool = True,
+    state: str = 'open',
+    merged: bool = False,
+    mergeable: bool | None = True,
+) -> dict:
+    """Return the bounded PR identity consumed by the live audit."""
+    return {
+        'number': 427,
+        'html_url': 'https://github.com/rsasaki0109/lidar_slam_ros2/pull/427',
+        'state': state,
+        'draft': draft,
+        'merged': merged,
+        'mergeable': mergeable,
+        'head': {
+            'sha': head,
+            'ref': 'agent/product-g0-guided-ux',
+            'repo': {'full_name': 'rsasaki0109/lidar_slam_ros2'},
+        },
+        'base': {
+            'ref': 'develop',
+            'repo': {'full_name': 'rsasaki0109/lidar_slam_ros2'},
+        },
+    }
+
+
+def _product_checks(*, failed_name: str | None = None) -> dict:
+    """Return the exact expected successful and non-publication check set."""
+    runs = []
+    run_id = 1
+    for name in sorted(DASHBOARD.REQUIRED_SUCCESS_CHECKS):
+        runs.append({
+            'id': run_id,
+            'name': name,
+            'status': 'completed',
+            'conclusion': 'failure' if name == failed_name else 'success',
+        })
+        run_id += 1
+    for name in sorted(DASHBOARD.REQUIRED_SKIPPED_CHECKS):
+        runs.append({
+            'id': run_id,
+            'name': name,
+            'status': 'completed',
+            'conclusion': 'skipped',
+        })
+        run_id += 1
+    return {'total_count': len(runs), 'check_runs': runs}
+
+
+def _audit_product(
+    head: str,
+    *,
+    draft: bool = True,
+    state: str = 'open',
+    merged: bool = False,
+    mergeable: bool | None = True,
+    failed_name: str | None = None,
+) -> dict:
+    """Run the PR audit against deterministic GET fixtures."""
+    def fetcher(path: str):
+        if path.endswith('/pulls/427'):
+            return 200, _product_pull(
+                head,
+                draft=draft,
+                state=state,
+                merged=merged,
+                mergeable=mergeable,
+            )
+        assert path.endswith(f'/commits/{head}/check-runs?per_page=100')
+        return 200, _product_checks(failed_name=failed_name)
+
+    return DASHBOARD.audit_product_draft(
+        fetcher=fetcher,
+        local_head=head,
+    )
+
+
 def test_current_dashboard_preserves_the_tracked_hold_state():
     """The current local evidence remains an honest G0 HOLD."""
     reports = DASHBOARD.collect_checker_reports()
@@ -91,6 +170,29 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['publication_plan']['path_count'] == 304
     assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
     assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
+    assert report['checks']['product_draft'] == {
+        'status': 'NOT_CHECKED',
+        'pull_request': 427,
+        'url': 'https://github.com/rsasaki0109/lidar_slam_ros2/pull/427',
+        'state': 'NOT_CHECKED',
+        'is_draft': None,
+        'merged': None,
+        'mergeable': None,
+        'base_ref': 'develop',
+        'head_ref': 'agent/product-g0-guided-ux',
+        'local_head': None,
+        'remote_head': None,
+        'head_matches_local': None,
+        'observed_check_count': 0,
+        'passing_check_count': 0,
+        'skipped_check_count': 0,
+        'pending_check_count': 0,
+        'failing_check_count': 0,
+        'required_checks_complete': None,
+        'blockers': [],
+        'decision_state': 'NOT_CHECKED',
+        'merge_authorized': False,
+    }
     assert report['checks']['candidate_environment'] == {
         'status': 'NOT_CHECKED',
         'environment': 'candidate-images',
@@ -137,6 +239,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     card = DASHBOARD.render_card(report)
     assert card.count('Next action:') == 1
     assert 'GitHub/community writes: **no**' in card
+    assert '| product Draft PR #427 | NOT_CHECKED |' in card
     assert 'Choices (no write):' in card
     assert 'never reuse mixed-version measurements' in card
     assert 'v1 blockers:' in card
@@ -211,7 +314,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         '10 successful checks and 4\nintentional non-publication skips'
         in scorecard
     )
-    assert 'current 281-path local plan' in scorecard
+    assert 'current 304-path local plan' in scorecard
 
 
 def test_dashboard_can_include_a_read_only_release_report_without_writes():
@@ -242,9 +345,173 @@ def test_dashboard_can_include_a_read_only_release_report_without_writes():
     assert report['authority']['remote_mutations_performed'] is False
 
 
+def test_exact_green_draft_is_reviewed_before_candidate_environment():
+    """Exact green Draft evidence takes priority over repository settings."""
+    head = '1' * 40
+    product = _audit_product(head)
+
+    assert product['status'] == 'DRAFT_REVIEW_REQUIRED'
+    assert product['local_head'] == product['remote_head'] == head
+    assert product['head_matches_local'] is True
+    assert product['mergeable'] is True
+    assert product['passing_check_count'] == 10
+    assert product['skipped_check_count'] == 4
+    assert product['pending_check_count'] == 0
+    assert product['failing_check_count'] == 0
+    assert product['required_checks_complete'] is True
+    assert product['authority']['merge_authorized'] is False
+
+    reports = DASHBOARD.collect_checker_reports()
+    reports['product_draft'] = product
+    reports['candidate_environment'] = {
+        'status': 'ABSENT',
+        'environment': 'candidate-images',
+        'observed': {'target_present': False, 'target': None},
+        'findings': [{
+            'id': 'candidate-environment-absent',
+            'severity': 'BLOCKER',
+            'detail': 'Configure and independently review the environment.',
+        }],
+        'decision': {
+            'state': 'HOLD',
+            'dispatch_authorized': False,
+            'next_action': 'Configure the environment.',
+        },
+        'authority': {
+            'network_reads_performed': True,
+            'github_writes_authorized': False,
+            'environment_writes_authorized': False,
+            'artifact_publication_authorized': False,
+            'remote_mutations_performed': False,
+        },
+        'operator_handoff': _absent_environment_handoff(),
+    }
+    report = DASHBOARD.build_report(reports)
+
+    assert report['next_action']['id'] == 'review-product-draft'
+    assert report['next_action']['command'] == (
+        'python3 scripts/check_publication_slice_plan.py --json'
+    )
+    assert '10 passing checks and 4 intentional skips' in (
+        report['next_action']['reason']
+    )
+    assert 'marking ready and merging remain separate' in (
+        report['next_action']['write_boundary']
+    )
+    card = DASHBOARD.render_card(report)
+    assert '| product Draft PR #427 | DRAFT_REVIEW_REQUIRED |' in card
+    assert 'checks 10 pass / 4 skip / 0 fail' in card
+    assert 'merge authorized: false' in card
+    assert card.count('Next action:') == 1
+
+
+def test_environment_audit_without_pr_audit_requests_the_missing_dependency():
+    """A settings read cannot skip the earlier product merge dependency."""
+    reports = DASHBOARD.collect_checker_reports()
+    reports['candidate_environment'] = {
+        'status': 'ABSENT',
+        'environment': 'candidate-images',
+        'observed': {'target_present': False, 'target': None},
+        'findings': [{
+            'id': 'candidate-environment-absent',
+            'severity': 'BLOCKER',
+            'detail': 'Configure and independently review the environment.',
+        }],
+        'decision': {
+            'state': 'HOLD',
+            'dispatch_authorized': False,
+            'next_action': 'Configure the environment.',
+        },
+        'authority': {
+            'network_reads_performed': True,
+            'github_writes_authorized': False,
+            'environment_writes_authorized': False,
+            'artifact_publication_authorized': False,
+            'remote_mutations_performed': False,
+        },
+        'operator_handoff': _absent_environment_handoff(),
+    }
+
+    report = DASHBOARD.build_report(reports)
+
+    assert report['next_action']['id'] == 'inspect-product-draft'
+    assert '--include-product-draft' in report['next_action']['command']
+    assert 'settings changes' in report['next_action']['write_boundary']
+
+
+def test_product_audit_fails_closed_on_drift_failed_ci_and_authority():
+    """Head drift, failed required CI, and claimed merge authority all stop."""
+    head = '2' * 40
+
+    def drift_fetcher(path: str):
+        assert path.endswith('/pulls/427')
+        return 200, _product_pull('3' * 40)
+
+    drift = DASHBOARD.audit_product_draft(
+        fetcher=drift_fetcher,
+        local_head=head,
+    )
+    assert drift['status'] == 'BLOCKED'
+    assert drift['head_matches_local'] is False
+    assert drift['required_checks_complete'] is False
+    assert drift['blockers'] == [
+        'Local and public product PR heads do not match.'
+    ]
+
+    failed = _audit_product(
+        head,
+        failed_name='docs and release metadata',
+    )
+    assert failed['status'] == 'BLOCKED'
+    assert failed['failing_check_count'] == 1
+    assert 'required successful checks are not successful' in (
+        failed['blockers'][0]
+    )
+
+    reports = DASHBOARD.collect_checker_reports()
+    reports['product_draft'] = _audit_product(head)
+    reports['product_draft']['authority']['merge_authorized'] = True
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='unsafe or incomplete authority',
+    ):
+        DASHBOARD.build_report(reports)
+
+
+def test_product_review_state_only_clears_after_exact_merge():
+    """Ready-for-review stays ahead of settings; a merged PR may proceed."""
+    head = '4' * 40
+    ready = _audit_product(head, draft=False)
+    assert ready['status'] == 'READY_FOR_SEPARATE_MERGE_REVIEW'
+    assert ready['decision_state'] == 'READY_FOR_SEPARATE_MERGE_REVIEW'
+    assert ready['authority']['merge_authorized'] is False
+
+    reports = DASHBOARD.collect_checker_reports()
+    reports['product_draft'] = ready
+    report = DASHBOARD.build_report(reports)
+    assert report['next_action']['id'] == 'review-product-merge'
+
+    merged = _audit_product(
+        head,
+        draft=False,
+        state='closed',
+        merged=True,
+        mergeable=None,
+    )
+    assert merged['status'] == 'MERGED'
+    assert merged['decision_state'] == 'MERGED'
+
+
 def test_dashboard_surfaces_absent_environment_before_candidate_alignment():
     """A requested E2 preflight becomes the one bounded next action."""
     reports = DASHBOARD.collect_checker_reports()
+    reports['product_draft'] = _audit_product(
+        '5' * 40,
+        draft=False,
+        state='closed',
+        merged=True,
+        mergeable=None,
+    )
     reports['candidate_environment'] = {
         'status': 'ABSENT',
         'environment': 'candidate-images',

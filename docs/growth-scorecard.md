@@ -91,7 +91,7 @@ Draft PR #427, the reviewed product-candidate tip
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
 `3ed632e6f6aa1e3ca7f32d893773de1079086ffb` with 10 successful checks and 4
-intentional non-publication skips, the current 281-path local plan, the
+intentional non-publication skips, the current 304-path local plan, the
 one-command candidate-session tip `8bc5ea4`, and its guided read-only host
 readiness follow-up `a286c65` while the v0.9.1/image state remains unpublished.
 The optional authenticated environment preflight at `adecca6` now proves from
@@ -131,8 +131,11 @@ point for rechecking those local gates:
 python3 scripts/check_g0_readiness.py
 ```
 
-Use `--include-published-release` or `--include-candidate-environment` only
-when the corresponding network-read audit is wanted.
+Use `--include-product-draft`, `--include-published-release`, or
+`--include-candidate-environment` only when the corresponding network-read
+audit is wanted. The exact-head product audit now puts Draft review and a
+separate merge decision ahead of candidate-environment administration; it
+never turns green CI into merge authority.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 

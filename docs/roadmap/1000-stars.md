@@ -882,13 +882,19 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 281-path exact
+been expanded into the current 304-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
 integration, and publication control. The plan itself remains local-authority
 only even though its reviewed carrier is public; further PR updates require a
 clean exact candidate and complete gates.
+
+The G0 dashboard now audits that prerequisite directly through bounded GitHub
+GETs. It binds local HEAD to Draft PR #427, the canonical branches, mergeable
+state, and the latest exact-head check runs. Draft review and the separate
+merge decision are selected before any `candidate-images` administration;
+green CI never grants merge, environment, E2, E3, or E4 authority.
 
 The latest local slice also binds the rendered Getting Started bytes, route
 fragments, product version, and Pages workflow to one exact source revision.

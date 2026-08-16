@@ -30,19 +30,23 @@
 
 The dashboard composes the existing local publication-plan, onboarding
 matrix, validator-cohort, and v1-readiness checkers. It does not replace any
-checker, execute a trial, or write remote state. A published-release audit is
-opt-in because it performs network reads; its absence is reported as
-``NOT_CHECKED`` rather than being mistaken for a pass.
+checker, execute a trial, or write remote state. Product-PR, protected-
+environment, and published-release audits are opt-in because they perform
+network reads; absence is reported as ``NOT_CHECKED`` rather than a pass.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 from typing import Any, Callable, Sequence
+import urllib.error
+import urllib.request
 
 import jsonschema
 
@@ -57,6 +61,36 @@ SCHEMA_URI = (
 )
 REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
 CURRENT_PACKET = 'docs/evidence/growth/g0-current-action-packet-2026-08-14.md'
+PRODUCT_PR_NUMBER = 427
+PRODUCT_PR_URL = f'https://github.com/{REPOSITORY}/pull/{PRODUCT_PR_NUMBER}'
+PRODUCT_PR_BASE = 'develop'
+PRODUCT_PR_HEAD = 'agent/product-g0-guided-ux'
+PRODUCT_PR_VERIFY_COMMAND = (
+    'GITHUB_TOKEN="$(gh auth token)" python3 '
+    'scripts/check_g0_readiness.py --include-product-draft --json'
+)
+MAX_GITHUB_JSON_BYTES = 2 * 1024 * 1024
+MAX_CHECK_RUNS = 100
+SHA_PATTERN = re.compile(r'^[0-9a-f]{40}$')
+REQUIRED_SUCCESS_CHECKS = frozenset({
+    'build (humble)',
+    'build (jazzy)',
+    'candidate gate contract',
+    'docs and release metadata',
+    'humble default workflow',
+    'humble v0.6.0 to candidate',
+    'jazzy default workflow',
+    'jazzy v0.6.0 to candidate',
+    'release readiness',
+    'release readiness threshold guard',
+})
+REQUIRED_SKIPPED_CHECKS = frozenset({
+    'authorize immutable candidate request',
+    'build and push (${{ matrix.ros_distro }})',
+    'publish immutable digest (${{ matrix.ros_distro }})',
+    'verify immutable candidate pair',
+})
+ACCEPTED_EXTRA_CONCLUSIONS = frozenset({'success', 'neutral', 'skipped'})
 DEFAULT_RELEASE_VERSION = (
     REPO_ROOT / 'VERSION'
 ).read_text(encoding='utf-8').strip()
@@ -148,6 +182,7 @@ class G0ReadinessError(ValueError):
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
+GithubFetcher = Callable[[str], tuple[int, dict[str, Any] | None]]
 
 
 def _cohort_gate_guidance(gate: str) -> str:
@@ -198,8 +233,495 @@ def _run_json(
     return payload
 
 
+def _github_json(path: str) -> tuple[int, dict[str, Any] | None]:
+    """Perform one bounded GitHub GET for the optional product-PR audit."""
+    url = f'https://api.github.com/{path}'
+    headers = {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'lidarslam-g0-product-pr-audit/1',
+        'X-GitHub-Api-Version': '2022-11-28',
+    }
+    token = os.environ.get('GITHUB_TOKEN')
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+    request = urllib.request.Request(url, headers=headers, method='GET')
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            status = response.status
+            payload = response.read(MAX_GITHUB_JSON_BYTES + 1)
+    except urllib.error.HTTPError as exc:
+        status = exc.code
+        payload = exc.read(MAX_GITHUB_JSON_BYTES + 1)
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise G0ReadinessError(
+            f'cannot read GitHub product PR API: {exc}'
+        ) from exc
+    if len(payload) > MAX_GITHUB_JSON_BYTES:
+        raise G0ReadinessError(
+            'GitHub product PR API response exceeds the byte limit'
+        )
+    if not payload:
+        return status, None
+    try:
+        value = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise G0ReadinessError(
+            'GitHub product PR API returned invalid JSON'
+        ) from exc
+    if not isinstance(value, dict):
+        raise G0ReadinessError(
+            'GitHub product PR API JSON root is not an object'
+        )
+    return status, value
+
+
+def _local_head() -> str:
+    """Resolve the exact local review tip without consulting a remote."""
+    result = subprocess.run(
+        ['git', 'rev-parse', 'HEAD'],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    head = result.stdout.strip()
+    if result.returncode != 0 or SHA_PATTERN.fullmatch(head) is None:
+        detail = result.stderr.strip() or 'HEAD is not a full commit ID'
+        raise G0ReadinessError(f'cannot resolve local product tip: {detail}')
+    return head
+
+
+def _product_draft_result(
+    *,
+    status: str,
+    state: str,
+    is_draft: bool | None,
+    merged: bool | None,
+    mergeable: bool | None,
+    local_head: str,
+    remote_head: str | None,
+    head_matches_local: bool | None,
+    observed_check_count: int,
+    passing_check_count: int,
+    skipped_check_count: int,
+    pending_check_count: int,
+    failing_check_count: int,
+    required_checks_complete: bool | None,
+    blockers: list[str],
+    decision_state: str,
+) -> dict[str, Any]:
+    """Build one bounded PR result that can never authorize a write."""
+    return {
+        'status': status,
+        'pull_request': PRODUCT_PR_NUMBER,
+        'url': PRODUCT_PR_URL,
+        'state': state,
+        'is_draft': is_draft,
+        'merged': merged,
+        'mergeable': mergeable,
+        'base_ref': PRODUCT_PR_BASE,
+        'head_ref': PRODUCT_PR_HEAD,
+        'local_head': local_head,
+        'remote_head': remote_head,
+        'head_matches_local': head_matches_local,
+        'observed_check_count': observed_check_count,
+        'passing_check_count': passing_check_count,
+        'skipped_check_count': skipped_check_count,
+        'pending_check_count': pending_check_count,
+        'failing_check_count': failing_check_count,
+        'required_checks_complete': required_checks_complete,
+        'blockers': blockers,
+        'decision_state': decision_state,
+        'authority': {
+            'network_reads_performed': True,
+            'github_writes_authorized': False,
+            'merge_authorized': False,
+            'remote_mutations_performed': False,
+        },
+    }
+
+
+def _blocked_product_draft(
+    *,
+    local_head: str,
+    detail: str,
+    state: str = 'UNKNOWN',
+    is_draft: bool | None = None,
+    merged: bool | None = None,
+    mergeable: bool | None = None,
+    remote_head: str | None = None,
+    head_matches_local: bool | None = None,
+    observed_check_count: int = 0,
+    passing_check_count: int = 0,
+    skipped_check_count: int = 0,
+    pending_check_count: int = 0,
+    failing_check_count: int = 0,
+) -> dict[str, Any]:
+    """Return a fail-closed PR state without leaking remote free text."""
+    return _product_draft_result(
+        status='BLOCKED',
+        state=state,
+        is_draft=is_draft,
+        merged=merged,
+        mergeable=mergeable,
+        local_head=local_head,
+        remote_head=remote_head,
+        head_matches_local=head_matches_local,
+        observed_check_count=observed_check_count,
+        passing_check_count=passing_check_count,
+        skipped_check_count=skipped_check_count,
+        pending_check_count=pending_check_count,
+        failing_check_count=failing_check_count,
+        required_checks_complete=False,
+        blockers=[detail],
+        decision_state='HOLD',
+    )
+
+
+def _object(value: Any, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise G0ReadinessError(f'{label} must be an object')
+    return value
+
+
+def audit_product_draft(
+    *,
+    fetcher: GithubFetcher = _github_json,
+    local_head: str | None = None,
+) -> dict[str, Any]:
+    """Audit exact Draft PR identity and check runs through GitHub GETs."""
+    exact_local_head = local_head if local_head is not None else _local_head()
+    if SHA_PATTERN.fullmatch(exact_local_head) is None:
+        raise G0ReadinessError('local product tip is not a full commit ID')
+
+    try:
+        pull_status, pull = fetcher(
+            f'repos/{REPOSITORY}/pulls/{PRODUCT_PR_NUMBER}'
+        )
+    except G0ReadinessError as exc:
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail=str(exc),
+        )
+    if pull_status != 200 or pull is None:
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail=f'Product PR is not readable (HTTP {pull_status}).',
+        )
+
+    try:
+        head = _object(pull.get('head'), 'product PR head')
+        base = _object(pull.get('base'), 'product PR base')
+        head_repo = _object(head.get('repo'), 'product PR head repository')
+        base_repo = _object(base.get('repo'), 'product PR base repository')
+    except G0ReadinessError as exc:
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail=str(exc),
+        )
+
+    remote_head = head.get('sha')
+    raw_state = pull.get('state')
+    state = raw_state.upper() if raw_state in ('open', 'closed') else 'UNKNOWN'
+    is_draft = pull.get('draft')
+    merged = pull.get('merged')
+    mergeable = pull.get('mergeable')
+    head_matches_local = (
+        remote_head == exact_local_head
+        if isinstance(remote_head, str)
+        else None
+    )
+    identity_valid = (
+        pull.get('number') == PRODUCT_PR_NUMBER
+        and pull.get('html_url') == PRODUCT_PR_URL
+        and raw_state in ('open', 'closed')
+        and isinstance(is_draft, bool)
+        and isinstance(merged, bool)
+        and isinstance(remote_head, str)
+        and SHA_PATTERN.fullmatch(remote_head) is not None
+        and head.get('ref') == PRODUCT_PR_HEAD
+        and base.get('ref') == PRODUCT_PR_BASE
+        and head_repo.get('full_name') == REPOSITORY
+        and base_repo.get('full_name') == REPOSITORY
+    )
+    if not identity_valid:
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail='Product PR identity or branch contract is invalid.',
+            state=state,
+            is_draft=is_draft if isinstance(is_draft, bool) else None,
+            merged=merged if isinstance(merged, bool) else None,
+            mergeable=(
+                mergeable if isinstance(mergeable, bool) else None
+            ),
+            remote_head=(
+                remote_head
+                if isinstance(remote_head, str)
+                and SHA_PATTERN.fullmatch(remote_head) is not None
+                else None
+            ),
+            head_matches_local=head_matches_local,
+        )
+    if not head_matches_local:
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail='Local and public product PR heads do not match.',
+            state=state,
+            is_draft=is_draft,
+            merged=merged,
+            mergeable=(
+                mergeable if isinstance(mergeable, bool) else None
+            ),
+            remote_head=remote_head,
+            head_matches_local=False,
+        )
+    if raw_state == 'closed' and not merged:
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail='Product PR is closed without being merged.',
+            state=state,
+            is_draft=is_draft,
+            merged=merged,
+            mergeable=(
+                mergeable if isinstance(mergeable, bool) else None
+            ),
+            remote_head=remote_head,
+            head_matches_local=True,
+        )
+    if raw_state == 'open' and mergeable is not True:
+        detail = (
+            'Product PR mergeability is still unknown.'
+            if mergeable is None
+            else 'Product PR is not mergeable.'
+        )
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail=detail,
+            state=state,
+            is_draft=is_draft,
+            merged=merged,
+            mergeable=(
+                mergeable if isinstance(mergeable, bool) else None
+            ),
+            remote_head=remote_head,
+            head_matches_local=True,
+        )
+
+    try:
+        checks_status, checks = fetcher(
+            f'repos/{REPOSITORY}/commits/{remote_head}/check-runs?per_page=100'
+        )
+    except G0ReadinessError as exc:
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail=str(exc),
+            state=state,
+            is_draft=is_draft,
+            merged=merged,
+            mergeable=(
+                mergeable if isinstance(mergeable, bool) else None
+            ),
+            remote_head=remote_head,
+            head_matches_local=True,
+        )
+    if checks_status != 200 or checks is None:
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail=(
+                f'Exact-head checks are not readable '
+                f'(HTTP {checks_status}).'
+            ),
+            state=state,
+            is_draft=is_draft,
+            merged=merged,
+            mergeable=(
+                mergeable if isinstance(mergeable, bool) else None
+            ),
+            remote_head=remote_head,
+            head_matches_local=True,
+        )
+
+    runs = checks.get('check_runs')
+    total_count = checks.get('total_count')
+    if (
+        not isinstance(runs, list)
+        or isinstance(total_count, bool)
+        or not isinstance(total_count, int)
+        or total_count != len(runs)
+        or total_count > MAX_CHECK_RUNS
+    ):
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail='Exact-head check-run inventory is invalid or truncated.',
+            state=state,
+            is_draft=is_draft,
+            merged=merged,
+            mergeable=(
+                mergeable if isinstance(mergeable, bool) else None
+            ),
+            remote_head=remote_head,
+            head_matches_local=True,
+        )
+
+    latest_by_name: dict[str, dict[str, Any]] = {}
+    for raw_run in runs:
+        if not isinstance(raw_run, dict):
+            return _blocked_product_draft(
+                local_head=exact_local_head,
+                detail='Exact-head check-run inventory contains a bad item.',
+                state=state,
+                is_draft=is_draft,
+                merged=merged,
+                mergeable=(
+                    mergeable if isinstance(mergeable, bool) else None
+                ),
+                remote_head=remote_head,
+                head_matches_local=True,
+            )
+        name = raw_run.get('name')
+        run_id = raw_run.get('id')
+        if (
+            not isinstance(name, str)
+            or not name
+            or len(name) > 200
+            or '\n' in name
+            or '\r' in name
+            or isinstance(run_id, bool)
+            or not isinstance(run_id, int)
+            or run_id <= 0
+        ):
+            return _blocked_product_draft(
+                local_head=exact_local_head,
+                detail='Exact-head check-run identity is invalid.',
+                state=state,
+                is_draft=is_draft,
+                merged=merged,
+                mergeable=(
+                    mergeable if isinstance(mergeable, bool) else None
+                ),
+                remote_head=remote_head,
+                head_matches_local=True,
+            )
+        current = latest_by_name.get(name)
+        if current is None or run_id > current['id']:
+            latest_by_name[name] = raw_run
+
+    passing = 0
+    skipped = 0
+    pending = 0
+    failing = 0
+    for run in latest_by_name.values():
+        status_value = run.get('status')
+        conclusion = run.get('conclusion')
+        if status_value != 'completed':
+            pending += 1
+        elif conclusion in ('success', 'neutral'):
+            passing += 1
+        elif conclusion == 'skipped':
+            skipped += 1
+        else:
+            failing += 1
+
+    check_blockers: list[str] = []
+    missing_success = REQUIRED_SUCCESS_CHECKS - latest_by_name.keys()
+    missing_skipped = REQUIRED_SKIPPED_CHECKS - latest_by_name.keys()
+    if missing_success:
+        check_blockers.append(
+            f'{len(missing_success)} required successful checks are missing.'
+        )
+    if missing_skipped:
+        check_blockers.append(
+            f'{len(missing_skipped)} expected non-publication skips are '
+            'missing.'
+        )
+    wrong_success = sum(
+        1 for name in REQUIRED_SUCCESS_CHECKS
+        if name in latest_by_name
+        and (
+            latest_by_name[name].get('status') != 'completed'
+            or latest_by_name[name].get('conclusion') != 'success'
+        )
+    )
+    wrong_skipped = sum(
+        1 for name in REQUIRED_SKIPPED_CHECKS
+        if name in latest_by_name
+        and (
+            latest_by_name[name].get('status') != 'completed'
+            or latest_by_name[name].get('conclusion') != 'skipped'
+        )
+    )
+    if wrong_success:
+        check_blockers.append(
+            f'{wrong_success} required successful checks are not successful.'
+        )
+    if wrong_skipped:
+        check_blockers.append(
+            f'{wrong_skipped} expected non-publication jobs are not skipped.'
+        )
+    extra_bad = sum(
+        1 for name, run in latest_by_name.items()
+        if name not in REQUIRED_SUCCESS_CHECKS
+        and name not in REQUIRED_SKIPPED_CHECKS
+        and (
+            run.get('status') != 'completed'
+            or run.get('conclusion') not in ACCEPTED_EXTRA_CONCLUSIONS
+        )
+    )
+    if extra_bad:
+        check_blockers.append(
+            f'{extra_bad} additional exact-head checks are not complete.'
+        )
+    if check_blockers:
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail=' '.join(check_blockers),
+            state=state,
+            is_draft=is_draft,
+            merged=merged,
+            mergeable=(
+                mergeable if isinstance(mergeable, bool) else None
+            ),
+            remote_head=remote_head,
+            head_matches_local=True,
+            observed_check_count=len(latest_by_name),
+            passing_check_count=passing,
+            skipped_check_count=skipped,
+            pending_check_count=pending,
+            failing_check_count=failing,
+        )
+
+    if merged:
+        result_status = 'MERGED'
+        decision_state = 'MERGED'
+    elif is_draft:
+        result_status = 'DRAFT_REVIEW_REQUIRED'
+        decision_state = 'REVIEW_DRAFT'
+    else:
+        result_status = 'READY_FOR_SEPARATE_MERGE_REVIEW'
+        decision_state = 'READY_FOR_SEPARATE_MERGE_REVIEW'
+    return _product_draft_result(
+        status=result_status,
+        state=state,
+        is_draft=is_draft,
+        merged=merged,
+        mergeable=(mergeable if isinstance(mergeable, bool) else None),
+        local_head=exact_local_head,
+        remote_head=remote_head,
+        head_matches_local=True,
+        observed_check_count=len(latest_by_name),
+        passing_check_count=passing,
+        skipped_check_count=skipped,
+        pending_check_count=pending,
+        failing_check_count=failing,
+        required_checks_complete=True,
+        blockers=[],
+        decision_state=decision_state,
+    )
+
+
 def collect_checker_reports(
     *,
+    include_product_draft: bool = False,
     include_candidate_environment: bool = False,
     include_published_release: bool = False,
     published_release_version: str = DEFAULT_RELEASE_VERSION,
@@ -227,9 +749,12 @@ def collect_checker_reports(
             ('--json',),
             runner=runner,
         ),
+        'product_draft': None,
         'candidate_environment': None,
         'published_release': None,
     }
+    if include_product_draft:
+        reports['product_draft'] = audit_product_draft()
     if include_candidate_environment:
         reports['candidate_environment'] = _run_json(
             'check_candidate_environment.py',
@@ -351,6 +876,92 @@ def _published_summary(
             for image in report.get('images', [])
         ],
     }
+
+
+def _product_draft_summary(
+    report: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Keep an optional exact-head PR audit distinct from a review pass."""
+    if report is None:
+        return {
+            'status': 'NOT_CHECKED',
+            'pull_request': PRODUCT_PR_NUMBER,
+            'url': PRODUCT_PR_URL,
+            'state': 'NOT_CHECKED',
+            'is_draft': None,
+            'merged': None,
+            'mergeable': None,
+            'base_ref': PRODUCT_PR_BASE,
+            'head_ref': PRODUCT_PR_HEAD,
+            'local_head': None,
+            'remote_head': None,
+            'head_matches_local': None,
+            'observed_check_count': 0,
+            'passing_check_count': 0,
+            'skipped_check_count': 0,
+            'pending_check_count': 0,
+            'failing_check_count': 0,
+            'required_checks_complete': None,
+            'blockers': [],
+            'decision_state': 'NOT_CHECKED',
+            'merge_authorized': False,
+        }
+    authority = report.get('authority')
+    if not isinstance(authority, dict) or authority != {
+        'network_reads_performed': True,
+        'github_writes_authorized': False,
+        'merge_authorized': False,
+        'remote_mutations_performed': False,
+    }:
+        raise G0ReadinessError(
+            'product Draft audit claims unsafe or incomplete authority'
+        )
+    if (
+        report.get('pull_request') != PRODUCT_PR_NUMBER
+        or report.get('url') != PRODUCT_PR_URL
+        or report.get('base_ref') != PRODUCT_PR_BASE
+        or report.get('head_ref') != PRODUCT_PR_HEAD
+    ):
+        raise G0ReadinessError('product Draft audit identity is invalid')
+    blockers = report.get('blockers')
+    if (
+        not isinstance(blockers, list)
+        or len(blockers) > 3
+        or not all(
+            isinstance(item, str)
+            and item
+            and len(item) <= 1000
+            and '\n' not in item
+            and '\r' not in item
+            for item in blockers
+        )
+    ):
+        raise G0ReadinessError('product Draft audit blockers are unsafe')
+    fields = (
+        'status',
+        'pull_request',
+        'url',
+        'state',
+        'is_draft',
+        'merged',
+        'mergeable',
+        'base_ref',
+        'head_ref',
+        'local_head',
+        'remote_head',
+        'head_matches_local',
+        'observed_check_count',
+        'passing_check_count',
+        'skipped_check_count',
+        'pending_check_count',
+        'failing_check_count',
+        'required_checks_complete',
+        'decision_state',
+    )
+    summary = {field: report.get(field) for field in fields}
+    summary['blockers'] = list(blockers)
+    summary['merge_authorized'] = False
+    return summary
 
 
 def _candidate_environment_summary(
@@ -530,6 +1141,7 @@ def _next_action(
     matrix: dict[str, Any],
     cohort: dict[str, Any],
     v1: dict[str, Any],
+    product_draft: dict[str, Any],
     candidate_environment: dict[str, Any],
     published: dict[str, Any],
 ) -> dict[str, Any]:
@@ -543,6 +1155,71 @@ def _next_action(
                 'python3 scripts/check_publication_slice_plan.py --json'
             ),
             'write_boundary': 'read-only',
+        }
+    if (
+        product_draft['status'] == 'NOT_CHECKED'
+        and candidate_environment['status'] != 'NOT_CHECKED'
+    ):
+        return {
+            'id': 'inspect-product-draft',
+            'title': 'Inspect the product Draft before repository settings',
+            'reason': (
+                'The candidate environment was inspected before the product '
+                'PR merge state was established.'
+            ),
+            'command': PRODUCT_PR_VERIFY_COMMAND,
+            'write_boundary': (
+                'GitHub GETs only; marking ready, merging, settings changes, '
+                'and E2 dispatch remain separate decisions'
+            ),
+        }
+    if product_draft['status'] == 'BLOCKED':
+        blocker = '; '.join(product_draft['blockers']) or (
+            'The exact product Draft state could not be established.'
+        )
+        return {
+            'id': 'repair-product-draft-audit',
+            'title': 'Restore an exact product Draft audit',
+            'reason': blocker,
+            'command': PRODUCT_PR_VERIFY_COMMAND,
+            'write_boundary': (
+                'GitHub GETs only; no PR state change or merge is authorized'
+            ),
+        }
+    if product_draft['status'] == 'DRAFT_REVIEW_REQUIRED':
+        return {
+            'id': 'review-product-draft',
+            'title': 'Review the exact Draft by publication slice',
+            'reason': (
+                f"PR #{product_draft['pull_request']} is an exact, mergeable "
+                f"Draft at {product_draft['remote_head']} with "
+                f"{product_draft['passing_check_count']} passing checks and "
+                f"{product_draft['skipped_check_count']} intentional skips."
+            ),
+            'command': (
+                'python3 scripts/check_publication_slice_plan.py --json'
+            ),
+            'write_boundary': (
+                'read-only review; marking ready and merging remain separate '
+                'GitHub decisions'
+            ),
+        }
+    if (
+        product_draft['status']
+        == 'READY_FOR_SEPARATE_MERGE_REVIEW'
+    ):
+        return {
+            'id': 'review-product-merge',
+            'title': 'Review the exact PR merge separately',
+            'reason': (
+                f"PR #{product_draft['pull_request']} is no longer Draft, "
+                'but the read-only audit cannot authorize or perform a merge.'
+            ),
+            'command': PRODUCT_PR_VERIFY_COMMAND,
+            'write_boundary': (
+                'GitHub GETs only; merge remains a separate maintainer '
+                'decision'
+            ),
         }
     if (
         not matrix['product_version_aligned']
@@ -698,10 +1375,12 @@ def build_report(
     candidate_environment = _candidate_environment_summary(
         reports.get('candidate_environment')
     )
+    product_draft = _product_draft_summary(reports.get('product_draft'))
     authority = {
         'network_reads_performed': (
             reports.get('published_release') is not None
             or reports.get('candidate_environment') is not None
+            or reports.get('product_draft') is not None
         ),
         'github_writes_authorized': False,
         'remote_mutations_performed': False,
@@ -713,6 +1392,7 @@ def build_report(
         and cohort['launch_status'] == 'READY_FOR_NEXT_ATTEMPT'
         and v1['status'] == 'READY'
         and published['status'] == 'PUBLISHED'
+        and product_draft['status'] in ('NOT_CHECKED', 'MERGED')
     )
     status = 'READY_FOR_REVIEW' if local_ready else 'HOLD'
     report = {
@@ -731,11 +1411,18 @@ def build_report(
             'onboarding_matrix': matrix,
             'first_map_cohort': cohort,
             'v1_readiness': v1,
+            'product_draft': product_draft,
             'candidate_environment': candidate_environment,
             'published_release': published,
         },
         'next_action': _next_action(
-            plan, matrix, cohort, v1, candidate_environment, published,
+            plan,
+            matrix,
+            cohort,
+            v1,
+            product_draft,
+            candidate_environment,
+            published,
         ),
     }
     try:
@@ -761,6 +1448,7 @@ def render_card(report: dict[str, Any]) -> str:
     matrix = checks['onboarding_matrix']
     cohort = checks['first_map_cohort']
     v1 = checks['v1_readiness']
+    product_draft = checks['product_draft']
     candidate_environment = checks['candidate_environment']
     published = checks['published_release']
     lines = [
@@ -797,6 +1485,15 @@ def render_card(report: dict[str, Any]) -> str:
         (
             f"| v1 readiness | {v1['status']} | "
             f"{v1['complete']}/{v1['total']} complete |"
+        ),
+        (
+            f"| product Draft PR #{product_draft['pull_request']} | "
+            f"{product_draft['status']} | "
+            f"head match: {str(product_draft['head_matches_local']).lower()}; "
+            f"checks {product_draft['passing_check_count']} pass / "
+            f"{product_draft['skipped_check_count']} skip / "
+            f"{product_draft['failing_check_count']} fail; "
+            'merge authorized: false |'
         ),
         (
             '| candidate environment | '
@@ -866,6 +1563,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--json', action='store_true')
     parser.add_argument(
+        '--include-product-draft',
+        action='store_true',
+        help='Also run the read-only exact-head Draft PR audit.',
+    )
+    parser.add_argument(
         '--include-candidate-environment',
         action='store_true',
         help='Also run the read-only protected-environment audit.',
@@ -892,6 +1594,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         reports = collect_checker_reports(
+            include_product_draft=args.include_product_draft,
             include_candidate_environment=args.include_candidate_environment,
             include_published_release=args.include_published_release,
             published_release_version=args.published_release_version,

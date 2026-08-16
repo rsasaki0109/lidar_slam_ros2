@@ -56,6 +56,7 @@
         "onboarding_matrix",
         "first_map_cohort",
         "v1_readiness",
+        "product_draft",
         "candidate_environment",
         "published_release"
       ],
@@ -64,6 +65,7 @@
         "onboarding_matrix": {"$ref": "#/definitions/onboardingMatrix"},
         "first_map_cohort": {"$ref": "#/definitions/cohort"},
         "v1_readiness": {"$ref": "#/definitions/v1"},
+        "product_draft": {"$ref": "#/definitions/productDraft"},
         "candidate_environment": {"$ref": "#/definitions/candidateEnvironment"},
         "published_release": {"$ref": "#/definitions/publishedRelease"}
       }
@@ -212,6 +214,204 @@
           }
         }
       }
+    },
+    "productDraft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "pull_request",
+        "url",
+        "state",
+        "is_draft",
+        "merged",
+        "mergeable",
+        "base_ref",
+        "head_ref",
+        "local_head",
+        "remote_head",
+        "head_matches_local",
+        "observed_check_count",
+        "passing_check_count",
+        "skipped_check_count",
+        "pending_check_count",
+        "failing_check_count",
+        "required_checks_complete",
+        "blockers",
+        "decision_state",
+        "merge_authorized"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "NOT_CHECKED",
+            "DRAFT_REVIEW_REQUIRED",
+            "READY_FOR_SEPARATE_MERGE_REVIEW",
+            "MERGED",
+            "BLOCKED"
+          ]
+        },
+        "pull_request": {"const": 427},
+        "url": {
+          "const": "https://github.com/rsasaki0109/lidar_slam_ros2/pull/427"
+        },
+        "state": {"enum": ["NOT_CHECKED", "UNKNOWN", "OPEN", "CLOSED"]},
+        "is_draft": {"type": ["boolean", "null"]},
+        "merged": {"type": ["boolean", "null"]},
+        "mergeable": {"type": ["boolean", "null"]},
+        "base_ref": {"const": "develop"},
+        "head_ref": {"const": "agent/product-g0-guided-ux"},
+        "local_head": {
+          "anyOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            {"type": "null"}
+          ]
+        },
+        "remote_head": {
+          "anyOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            {"type": "null"}
+          ]
+        },
+        "head_matches_local": {"type": ["boolean", "null"]},
+        "observed_check_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "passing_check_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "skipped_check_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "pending_check_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "failing_check_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "required_checks_complete": {"type": ["boolean", "null"]},
+        "blockers": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {"type": "string", "minLength": 1, "maxLength": 1000}
+        },
+        "decision_state": {
+          "enum": [
+            "NOT_CHECKED",
+            "HOLD",
+            "REVIEW_DRAFT",
+            "READY_FOR_SEPARATE_MERGE_REVIEW",
+            "MERGED"
+          ]
+        },
+        "merge_authorized": {"const": false}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "NOT_CHECKED"}}},
+          "then": {
+            "properties": {
+              "state": {"const": "NOT_CHECKED"},
+              "is_draft": {"type": "null"},
+              "merged": {"type": "null"},
+              "mergeable": {"type": "null"},
+              "local_head": {"type": "null"},
+              "remote_head": {"type": "null"},
+              "head_matches_local": {"type": "null"},
+              "required_checks_complete": {"type": "null"},
+              "blockers": {"maxItems": 0},
+              "decision_state": {"const": "NOT_CHECKED"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "BLOCKED"}}},
+          "then": {
+            "properties": {
+              "required_checks_complete": {"const": false},
+              "blockers": {"minItems": 1},
+              "decision_state": {"const": "HOLD"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "DRAFT_REVIEW_REQUIRED",
+                  "READY_FOR_SEPARATE_MERGE_REVIEW",
+                  "MERGED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "local_head": {"type": "string"},
+              "remote_head": {"type": "string"},
+              "head_matches_local": {"const": true},
+              "required_checks_complete": {"const": true},
+              "pending_check_count": {"const": 0},
+              "failing_check_count": {"const": 0},
+              "blockers": {"maxItems": 0}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"status": {"const": "DRAFT_REVIEW_REQUIRED"}}
+          },
+          "then": {
+            "properties": {
+              "state": {"const": "OPEN"},
+              "is_draft": {"const": true},
+              "merged": {"const": false},
+              "mergeable": {"const": true},
+              "decision_state": {"const": "REVIEW_DRAFT"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {"const": "READY_FOR_SEPARATE_MERGE_REVIEW"}
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {"const": "OPEN"},
+              "is_draft": {"const": false},
+              "merged": {"const": false},
+              "mergeable": {"const": true},
+              "decision_state": {
+                "const": "READY_FOR_SEPARATE_MERGE_REVIEW"
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "MERGED"}}},
+          "then": {
+            "properties": {
+              "state": {"const": "CLOSED"},
+              "is_draft": {"const": false},
+              "merged": {"const": true},
+              "decision_state": {"const": "MERGED"}
+            }
+          }
+        }
+      ]
     },
     "candidateEnvironment": {
       "type": "object",

@@ -14,6 +14,32 @@ v1 readiness, and the current action packet. It prints exactly one next action
 with a safe read-only boundary. A `HOLD` is an honest gate state, not a checker
 failure.
 
+To bind the current checkout to public Draft PR #427 and its exact-head CI,
+opt in to the GitHub GET-only product audit:
+
+```bash
+GITHUB_TOKEN="$(gh auth token)" \
+python3 scripts/check_g0_readiness.py \
+  --include-product-draft
+```
+
+The audit requires the canonical repository, PR number and URL, `develop`
+base, `agent/product-g0-guided-ux` head branch, and full local/public commit to
+agree. An open PR must be mergeable. The latest run for each required check
+must contain ten successes and the four expected non-publication skips; a
+missing, pending, failed, truncated, malformed, or mismatched result is
+`BLOCKED`. Additional checks are accepted only when terminal and non-failing.
+The report distinguishes `DRAFT_REVIEW_REQUIRED`,
+`READY_FOR_SEPARATE_MERGE_REVIEW`, and `MERGED`, while keeping
+`merge_authorized: false` in every state.
+
+Dependency order is explicit. A green Draft points to the seven-slice local
+review plan. A non-Draft open PR still requires a separate maintainer merge
+decision. Repository-environment work cannot become the next action until the
+exact PR is observed as merged. If an environment audit is requested without
+the product audit, the dashboard asks for the missing product audit first
+instead of suggesting a settings change from incomplete evidence.
+
 To include the stable-release audit, which performs network reads but no
 remote writes, opt in explicitly:
 
@@ -30,6 +56,7 @@ mistaking an inaccessible endpoint for an absent environment:
 ```bash
 GITHUB_TOKEN="$(gh auth token)" \
 python3 scripts/check_g0_readiness.py \
+  --include-product-draft \
   --include-candidate-environment
 ```
 
@@ -40,6 +67,17 @@ separately. `READY` requires one to six reviewers, **Prevent self-review**, no
 unknown protection rule, and exactly one custom `develop` branch policy. Even
 `READY` means only `READY_FOR_SEPARATE_E2_REVIEW`: environment writes and the
 digest-publication dispatch remain unauthorized.
+
+To take one complete read-only snapshot of the current external G0 gates, use:
+
+```bash
+GITHUB_TOKEN="$(gh auth token)" \
+python3 scripts/check_g0_readiness.py \
+  --include-product-draft \
+  --include-candidate-environment \
+  --include-published-release \
+  --published-release-version 0.9.1
+```
 
 When this optional gate becomes the selected next action, the human card and
 JSON contract carry the same bounded operator handoff. An absent or

@@ -273,6 +273,15 @@ exact creation/repair checklist only when complete evidence justifies it;
 copy-ready GET-only verification command and `writes_performed: false`, so the
 administrator still performs and independently reviews any settings change
 outside this packet.
+The G0 product-Draft audit now closes the dependency-order gap before that
+handoff. Its bounded GitHub GETs require PR #427's canonical repository,
+`develop` base, public head branch, full local/public commit, mergeable state,
+and latest exact-head check runs to agree. A green Draft is reported as
+`DRAFT_REVIEW_REQUIRED`, not as merge readiness. It selects the seven-slice
+review before repository settings; only a later observed `MERGED` state lets
+the dashboard advance to `candidate-images`. Every result retains
+`merge_authorized: false`, performs no remote mutation, and keeps mark-ready,
+merge, settings, E2, E3, and E4 actions separate.
 The code-bearing packet tip is required to be an ancestor of the current
 checkout revision; later synchronization and product UX follow-up commits
 must remain described in this handoff. It replaces
@@ -346,6 +355,7 @@ python3 scripts/check_onboarding_trial_matrix.py --json
 python3 scripts/check_v1_readiness.py --json
 python3 scripts/first_map_validator_cohort.py --json
 python3 scripts/check_g0_readiness.py \
+  --include-product-draft \
   --include-candidate-environment \
   --include-published-release \
   --published-release-version 0.9.1
@@ -371,10 +381,12 @@ comparable human trial.
 
 ## Safe transition order
 
-1. Review the code-bearing candidate tip and this refreshed packet; confirm
-   the current PR-head CI remains green, then stop if the branch, PR, or local
-   inventory drifts. Do not measure mixed-version rows.
-2. Review the dedicated candidate workflow at `c70c18d…` and shared
+1. Run the GET-only product-Draft audit, then review the exact matching head by
+   all seven publication slices. Stop on branch, commit, mergeability, CI, or
+   inventory drift. Mark-ready and merge remain separate maintainer decisions;
+   do not measure mixed-version rows.
+2. Only after the dashboard observes the exact PR as merged, review the
+   dedicated candidate workflow at `c70c18d…` and shared
    environment preflight at `adecca6…`. Do not merge it or
    configure `candidate-images` as an implication of E1; the environment and
    its required reviewer/develop-only policy are a separate repository-admin
