@@ -86,6 +86,10 @@ live GitHub drift using GET requests only. The proposal remains unapplied and
 unauthorized. A 2026-08-17 live read-only audit still reports `PASS`: 29 issues,
 23 close proposals, and 6 keep-open or current-reproduction proposals. This
 confirms proposal freshness without treating it as completed triage.
+The companion application-packet generator turns either one row or all 29 rows
+into deterministic, evidence-hashed maintainer review cards. It has no output
+file or GitHub write mode, keeps #422 monitor-only, and leaves nine
+starter-dependent rows blocked for content review and separate authorization.
 
 The current
 [G0 clean-candidate audit](evidence/growth/g0-clean-candidate-audit-2026-08-11.md)
@@ -103,7 +107,7 @@ Draft PR #427, the reviewed product-candidate tip
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
 `3ed632e6f6aa1e3ca7f32d893773de1079086ffb` with 10 successful checks and 4
-intentional non-publication skips, the current 322-path local plan, the
+intentional non-publication skips, the current 326-path local plan, the
 one-command candidate-session tip `8bc5ea4`, and its guided read-only host
 readiness follow-up `a286c65` while the v0.9.1/image state remains unpublished.
 The optional authenticated environment preflight at `adecca6` now proves from

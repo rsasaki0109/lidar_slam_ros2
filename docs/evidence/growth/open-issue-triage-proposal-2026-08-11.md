@@ -130,16 +130,32 @@ impossible; a new complete reproduction can always reopen the product decision.
    python3 scripts/check_issue_triage_proposal.py --live --json
    ```
 
-3. Stop if an issue was edited, relabeled, closed, reopened, added, or removed.
+3. Generate a bounded review packet for one issue. This repeats the live
+   GET-only check, re-hashes every repository evidence file, and prints only to
+   standard output:
+
+   ```bash
+   python3 scripts/prepare_issue_triage_application.py --live --issue 69
+   python3 scripts/prepare_issue_triage_application.py \
+     --live --issue 69 --json
+   ```
+
+   The packet contains a prepared response draft but no mutation command. It
+   reports `PREPARED_NOT_AUTHORIZED`; it cannot post, label, or close anything.
+   Rows with starter dependencies remain `DEPENDENCY_REVIEW_REQUIRED`, and
+   #422 remains `MONITOR_ONLY` so independent validation is not contaminated.
+4. Stop if an issue was edited, relabeled, closed, reopened, added, or removed.
    Refresh the proposal from the new state; never apply by issue number alone.
-4. Complete starter C1–C5 before applying any row that names one as a gate.
-5. Obtain explicit authorization for the exact issue write scope.
-6. Re-read each target and post its issue-specific explanation before changing
+5. Complete starter C1–C5 before applying any row that names one as a gate.
+6. Obtain explicit authorization for the exact issue write scope. Packet
+   generation and live GET access are not that authorization.
+7. Re-read each target and post its issue-specific explanation before changing
    state. Do not use a context-free bulk-close message.
-7. Apply P1 and reproduction-request rows first, then review support load before
+8. Apply P1 and reproduction-request rows first, then review support load before
    any closure batch.
-8. Capture a fresh aggregate growth snapshot after application. Do not store
+9. Capture a fresh aggregate growth snapshot after application. Do not store
    author identities or comment bodies in the repository.
 
-The checker has no write mode. Authorization does not change that property; a
-future write operation must use a separate, explicitly approved workflow.
+The checker and application-packet generator have no write mode. Authorization
+does not change that property; a future write operation must use a separate,
+explicitly approved workflow.

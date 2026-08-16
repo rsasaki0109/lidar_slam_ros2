@@ -81,6 +81,7 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/check_ros_apt_dependency_readiness.py',
     'scripts/check_fixture_publication.py',
     'scripts/check_issue_triage_proposal.py',
+    'scripts/prepare_issue_triage_application.py',
     'scripts/check_onboarding_trial.py',
     'scripts/audit_published_fixture.py',
     'scripts/check_published_release.py',

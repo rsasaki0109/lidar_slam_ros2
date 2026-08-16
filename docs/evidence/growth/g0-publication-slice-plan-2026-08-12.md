@@ -10,8 +10,8 @@
 > Frozen public review baseline (machine key `public_head_sha`):
 > `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
-> Planned follow-up inventory: 322 paths; SHA-256
-> `3ed64b8dfb86c96d9c137a4c3eeb46c40f5717940915a97bb7d21077a9fd3757`
+> Planned follow-up inventory: 326 paths; SHA-256
+> `3b8c1e3aa73383e478e205d63d350b00163bea395a7a8be17197d25aa25d0101`
 >
 > Capture-time exact public Draft head:
 > `c1fc2847fb06637cbcd2aac61f4fde318364dfd2`
@@ -112,8 +112,8 @@ body until the exact canonical upstream Draft exists.
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 36 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded release-or-candidate Docker/source measurement, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session execution, public preflight, and byte-bound validation-receipt plus SHA-bound supplement paths for retained observations | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 74 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, actionable missing-benchmark reports, write-free NTU and RTK-SLAM acquisition planning with official immutable identities, exact byte shortages, attached-storage discovery, and capacity fail-fast, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a shared read-only environment preflight and four-artifact byte audit remain explicit; no mount, E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
-| S6 product-shell integration | 132 | the installed home, path-private bag-optional doctor with copy-ready low-storage and Odometry/TF timing recovery, issue-driven other-PointCloud2 `doctor` → `start` handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard, claim-bounded short-demo card/video/captions/copy, fail-closed worksheet generators, atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue with a dependency-gated and schema-valid GET-only live next-action card, machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, compressed-bag playback evidence, and one-command G0 readiness dashboard agree | complete product gate and public CI |
-| S7 publication control | 6 | all 322 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
+| S6 product-shell integration | 136 | the installed home, path-private bag-optional doctor with copy-ready low-storage and Odometry/TF timing recovery, issue-driven other-PointCloud2 `doctor` → `start` handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard, claim-bounded short-demo card/video/captions/copy, fail-closed worksheet generators, atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue with a dependency-gated and schema-valid GET-only live next-action card, source- and evidence-hashed issue-triage review packets, machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, compressed-bag playback evidence, and one-command G0 readiness dashboard agree | complete product gate and public CI |
+| S7 publication control | 6 | all 326 paths are owned once and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -160,7 +160,7 @@ from that base and the local tip descends from the public head, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 322-path coverage with the fixed inventory digest;
+4. exact 326-path coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred;
 7. no mixed `lidarslam/test` and `graph_based_slam/test` pytest process;
@@ -176,7 +176,7 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 322 paths, 7 slices, no remote mutation |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 326 paths, 7 slices, no remote mutation |
 | claim-bounded social media | 11 focused regressions plus 25 public docs/release entrypoint regressions pass; the generated 10.666-second H.264 candidate, four-cue WebVTT, exact-revision Japanese/English copy, and byte manifest retain no external publication authority |
 | checker regressions | 20 passed, including omission, stale path, duplicate owner, dependency inversion, digest drift, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, self-contained source, lifecycle ROS-bag, and product-shell ROS-bag verification, package-test process isolation, cache suppression, and recognized direct remote-write CLI refusal |
 | exact displayed S1 command | an ordinary unsourced shell sourced `${ROS_DISTRO:-jazzy}`, tested `graph_based_slam` and `scanmatcher`, and reported 4,253 test cases with 0 errors, 0 failures, and 127 skips |
@@ -186,6 +186,7 @@ cannot bypass live Git coverage.
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
 | validator cohort contract and operating state | 33 passed; path-specific immutable runtime identity, byte-bound public documentation, anonymized attempt lifecycle, accepted-ledger evidence binding, four operational stop signals, 48-hour freshness, WIP, batch/target transitions, attempt-10 thresholds, and a one-action human status card are enforced through the CLI; recruitment render remains blocked; no write authority |
 | published starter dependency gate | 61 queue regressions pass; the schema-valid live card keeps #422 visible but ineligible under `WAITING_FOR_PUBLIC_GATES`, preserves unrelated starter eligibility, follows the stable issue number across a title edit, rejects arbitrary gate commands or write authority, and performs only GET-only GitHub reads |
+| issue-triage application packet | 21 focused regressions pass; the complete authenticated live audit remains `PASS` for all 29 open issues and the label catalog, produces 23 closure drafts, 4 reproduction requests, 9 dependency-review rows, and one monitor-only row, and keeps every write authority false |
 | protected candidate environment | 29 passed across the shared environment/candidate gate; complete authenticated inventory, GET-only transport, exact reviewer/self-review/branch policy, unknown-rule refusal, workflow path trigger, and no-write/E2 authority are enforced; actionlint v1.7.12 and CTest 2 / 2 pass |
 | G0 readiness dashboard | 9 passed; one-command local HOLD card, bounded exact-head Draft/CI audit, Draft → separate merge → environment dependency order, optional read-only publication/environment audits, JSON schema, one next action, child-authority refusal, and checker-error fail-closed behavior are covered |
 | published onboarding identity and packet | 18 passed; release packet identity is report-derived, manual overrides fail closed, exact tag commit and both live image digests are rechecked, release/candidate modes stay separate, and no trial or publication authority is added |
