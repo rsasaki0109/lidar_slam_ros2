@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-16T08:23:06+09:00",
+  "generated_at": "2026-08-16T09:04:34+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 285,
-    "expected_paths_sha256": "03d0d48868bdee9c7ecbf7734d5cfec0f42780425d8308b9477c757795ce84d7",
+    "expected_path_count": 286,
+    "expected_paths_sha256": "46dac06d39c8b793179a3f11f87b26f7a5f4b2bd3cba4df70622683177ca5494",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -272,7 +272,7 @@
       "id": "S6-product-shell-integration",
       "order": 6,
       "title": "Beginner-facing product shell, installed surface, docs, and support entrypoints",
-      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, path-private doctor with copy-ready low-storage recovery, installed runtime surface, copy-ready and deployment-provenance-bound documentation, schema-valid first-map handoff JSON, neutral GLIM usability scorecard, and an atomic prepare-then-run observer path that derives exact published or candidate identities and never invents a tag or a human measurement.",
+      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, path-private doctor with copy-ready low-storage recovery, installed runtime surface, copy-ready and deployment-provenance-bound documentation, dependency-gated and schema-valid contributor next actions, schema-valid first-map handoff JSON, neutral GLIM usability scorecard, and an atomic prepare-then-run observer path that derives exact published or candidate identities and never invents a tag or a human measurement.",
       "depends_on": [
         "S1-runtime-safety",
         "S2-first-map-foundation",
@@ -325,6 +325,7 @@
         "docs/roadmap/1000-stars-2026-2029.md",
         "docs/roadmap/1000-stars.md",
         "docs/schemas/candidate-trial-preparation-v1.schema.json",
+        "docs/schemas/contributor-next-action-v1.schema.json",
         "docs/schemas/contributor-starter-queue-v1.schema.json",
         "docs/schemas/docs-deployment-audit-v1.schema.json",
         "docs/schemas/docs-deployment-manifest-v1.schema.json",

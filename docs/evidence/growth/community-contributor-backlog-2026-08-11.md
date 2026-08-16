@@ -68,7 +68,7 @@ and Python cache writes are disabled.
 | C3 Odometry-versus-TF recovery | canonical card detected and retired by the previous generation; absent from C5–C9 |
 | C4 custom-sensor checklist | implemented and retired by the previous generation; absent from C5–C9 |
 | contributor runner safety lint | selected fatal flake8 rules passed for runner and test |
-| complete maintained Python gate | graph 1,442 passed / 13 skipped; lidar_slam 990 passed; 2,432 total |
+| complete maintained Python gate | graph 1,442 passed / 13 skipped; lidar_slam 998 passed; 2,440 total |
 | documentation | strict MkDocs build passed with pre-existing notices |
 | authority | no issue, label, comment, branch, PR, or other remote mutation |
 
