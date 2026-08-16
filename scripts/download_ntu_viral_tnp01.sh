@@ -234,10 +234,11 @@ echo "archive:     ${ARCHIVE_ACTION}"
 echo "rosbag1:     ${EXTRACT_ACTION}"
 echo "rosbag2:     ${CONVERT_ACTION}"
 echo "RKO-LIO bag: ${RESTAMP_ACTION}"
-echo "space:       $(human_bytes "${REQUIRED_BYTES}") additional required (includes 10% reserve)"
-echo "available:   $(human_bytes "${AVAILABLE_BYTES}")"
+echo "space:       $(human_bytes "${REQUIRED_BYTES}") additional required (includes 10% reserve; ${REQUIRED_BYTES} bytes)"
+echo "available:   $(human_bytes "${AVAILABLE_BYTES}") (${AVAILABLE_BYTES} bytes)"
 
 if (( AVAILABLE_BYTES < REQUIRED_BYTES )); then
+  SHORTFALL_BYTES=$((REQUIRED_BYTES - AVAILABLE_BYTES))
   STORAGE_CANDIDATE=()
   if command -v python3 >/dev/null 2>&1 && [[ -f "${STORAGE_HELPER}" ]]; then
     mapfile -t STORAGE_CANDIDATE < <(
@@ -246,6 +247,7 @@ if (( AVAILABLE_BYTES < REQUIRED_BYTES )); then
     )
   fi
   echo "status:      BLOCKED_INSUFFICIENT_SPACE"
+  echo "shortfall:   $(human_bytes "${SHORTFALL_BYTES}") (${SHORTFALL_BYTES} bytes)"
   if [[ ${#STORAGE_CANDIDATE[@]} -ge 2 ]]; then
     CANDIDATE_DEVICE="${STORAGE_CANDIDATE[0]}"
     CANDIDATE_SUMMARY="${STORAGE_CANDIDATE[1]}"

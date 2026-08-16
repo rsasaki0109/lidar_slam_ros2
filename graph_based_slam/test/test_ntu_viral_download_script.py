@@ -93,7 +93,8 @@ def test_download_dry_run_is_write_and_network_free(tmp_path: pathlib.Path):
     assert 'NTU VIRAL tnp_01 acquisition plan' in output
     assert '8736253605 bytes' in output
     assert '82588ea4f29e311447f3d716865a022b' in output
-    assert 'additional required' in output
+    assert '49209878965 bytes' in output
+    assert 'shortfall:' in output
     assert 'no files, network requests, conversions, or downloads' in output
     assert not dest.exists()
 
