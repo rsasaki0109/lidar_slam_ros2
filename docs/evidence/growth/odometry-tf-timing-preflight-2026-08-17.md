@@ -56,8 +56,25 @@ publisher, transform, launch file, issue, or external service.
 
 ## Local verification
 
-The initial focused preflight run passed 29 tests with two environment-specific
-serialized-reader cases skipped where their ROS/rosbags dependencies were not
-available. Exact implementation commit, full package gates, strict docs,
-release-bundle, publication-plan, and public CI evidence are recorded only
-after the final candidate is committed and validated.
+Exact implementation `4bdd7ec86b4cfa6e566d6beda41f5c5fe28537f9`
+passed:
+
+- 74 focused preflight, diagnosis, and docs-entrypoint regressions, including
+  both serialized Jazzy rosbag2 reader cases;
+- 1,489 graph tests with 13 known skips and 11 existing ImageIO warnings;
+- 1,040 lidarslam tests, for 2,529 passed package tests in total;
+- strict MkDocs and changed-file Jazzy `ament_flake8`;
+- G0 `HOLD`, v1 readiness 8 / 10, and `PLAN_VALID_LOCAL_ONLY` with 321
+  paths, seven slices, and digest
+  `f378fd654e54595dce5da1e5763374f3f56db1dcd87513ab3c5e4de6afcbdbd5`;
+- two byte-identical and reverified v0.9.1 candidate bundles with 271 files,
+  11,965,449 bytes, and SHA-256
+  `735a3683be43cfb2e2638e466b02b140339beb9da573bc5642872219090fc6a9`;
+  and
+- the exact-head strict release-profile gate failing closed with the five
+  expected `NO_DATA` rows: Newer College Maths, NTU VIRAL TnP 01, RTK-SLAM
+  Construction Seq2, RTK-SLAM Construction Seq1, and Leo Drive.
+
+These values are commit-bound local evidence. A later evidence-sync commit and
+public Draft head must rerun exact-head checks rather than inherit this bundle
+identity.
