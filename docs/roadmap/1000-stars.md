@@ -302,8 +302,11 @@ work and document the actual support boundary instead of hiding the delay.
   labels the older viewer/dogfood quickstart as advanced compatibility. This is
   a local documentation repair, not a release or onboarding measurement.
 - The v0.9.1 release handoff now records its reviewed implementation carrier
-  and complete 2,468-test result instead of the stale 2,432-test snapshot, and
-  names all five exact-head blocking `NO_DATA` profiles. The maintainer
+  and complete 2,468-test result instead of the stale 2,432-test snapshot. The
+  exact Leo Drive follow-up at `92bb524…` records 0.139152 m Applanix
+  cross-validation APE, meets the 0.500 m target, and isolates the 2.5 GB
+  rosbag2 FILE decompression view from the source dataset. Four exact-head
+  blocking `NO_DATA` profiles remain. The maintainer
   checklist runs the complete product suite, strict docs, and canonical fixed
   demo rather than treating the older Autoware dogfood route as first-map
   evidence. Because the notes file becomes the public release body verbatim,
@@ -316,7 +319,8 @@ work and document the actual support boundary instead of hiding the delay.
   conservative peak working set on the selected filesystem, fails before
   download when space is insufficient, and recommends an explicit external
   `--dest`. This makes missing exact-head release evidence actionable without
-  weakening the five-profile gate or treating historical runs as current.
+  weakening the four remaining blocking profiles or treating historical runs
+  as current.
 - The next release pipeline now turns that repo-independent script into a
   direct attested `lidarslam-map-docker` asset. Its exact tag and source commit
   are embedded deterministically, its default image is the matching immutable
@@ -885,7 +889,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 310-path exact
+been expanded into the current 311-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell

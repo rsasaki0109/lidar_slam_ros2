@@ -167,7 +167,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['publication_plan']['status'] == (
         'PLAN_VALID_LOCAL_ONLY'
     )
-    assert report['checks']['publication_plan']['path_count'] == 310
+    assert report['checks']['publication_plan']['path_count'] == 311
     assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
     assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
     assert report['checks']['product_draft'] == {
@@ -314,7 +314,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         '10 successful checks and 4\nintentional non-publication skips'
         in scorecard
     )
-    assert 'current 310-path local plan' in scorecard
+    assert 'current 311-path local plan' in scorecard
 
 
 def test_dashboard_can_include_a_read_only_release_report_without_writes():
