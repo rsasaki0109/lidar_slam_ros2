@@ -213,11 +213,17 @@ def _fit_image(path: Path | None, size: tuple[int, int]) -> Image.Image:
                 max(1, int(source.width * scale)),
                 max(1, int(source.height * scale)),
             ),
-            Image.Resampling.LANCZOS,
+            _lanczos_resample(),
         )
     offset = ((size[0] - scaled.width) // 2, (size[1] - scaled.height) // 2)
     canvas.paste(scaled, offset)
     return canvas
+
+
+def _lanczos_resample(image_module: Any = Image) -> Any:
+    """Return the Pillow 9.1+ enum or its legacy module-level equivalent."""
+    resampling = getattr(image_module, 'Resampling', image_module)
+    return resampling.LANCZOS
 
 
 def _wrapped_lines(

@@ -165,6 +165,13 @@ def test_slide_renderer_uses_contract_copy_at_both_output_sizes():
     )
 
 
+def test_slide_renderer_accepts_legacy_pillow_resampling_api():
+    class LegacyImageModule:
+        LANCZOS = 1
+
+    assert MEDIA._lanczos_resample(LegacyImageModule) == 1
+
+
 def test_post_copy_is_exact_revision_bounded_and_not_a_release_claim():
     contract = MEDIA.load_contract()
     revision = 'b' * 40
