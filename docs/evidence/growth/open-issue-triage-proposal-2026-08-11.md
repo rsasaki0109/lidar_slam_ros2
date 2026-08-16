@@ -84,22 +84,23 @@ original user's work:
 
 ### #69 — VoxelGrid overflow crash
 
-This is the highest technical-reliability item in the old backlog. Runtime
-candidate `a2368c4` routes all five classic scanmatcher `VoxelGrid` stages
-through a fail-closed signed-32-bit index/layout preflight. Component-proof
-candidate `bce5a9d` sends an unsafe frame and a later safe frame to one real
-component instance. Its
-[bounded evidence](../voxel-grid-overflow-safety-2026-08-11.md) passes 11
-focused cases, ten consecutive component runs, and all ten scanmatcher CTests
-on Humble/PCL 1.12 and Jazzy/PCL 1.14. Valid clouds retain direct-PCL output
-parity; the unsafe timestamp produces no map, and the later safe timestamp
-produces both map and pose.
+This is the highest technical-reliability item in the old backlog. As of
+2026-08-17, runtime fix `a2368c4`, component proof `bce5a9d`, and rejected-map
+update recovery `99cce93` are ancestors of public Draft PR #427 head
+`4b2ab514`. Its
+[bounded evidence](../voxel-grid-overflow-safety-2026-08-11.md) routes all five
+classic scanmatcher `VoxelGrid` stages through a fail-closed signed-32-bit
+index/layout preflight. The public Humble and Jazzy workflows pass, including
+the component recovery target. Valid clouds retain direct-PCL output parity;
+an unsafe timestamp is rejected without replacing valid state, and a later
+safe timestamp can proceed.
 
-The issue remains open because the implementation is local-only. Closure still
-requires a publicly resolvable reviewed revision, supported public CI running
-the component proof, and the carrying release identity. Parameter advice alone
-is not a sufficient crash contract, and the unavailable historical private bag
-is not described as reproduced.
+The issue remains open because no named release contains the fix. The prepared
+response explains `vg_size_for_map` versus `vg_size_for_input`, asks users to
+check units and outliers first, and labels a larger leaf as a
+resolution-changing workaround rather than the fix. Parameter advice alone is
+not a sufficient crash contract, and the unavailable historical private bag is
+not described as reproduced.
 
 ### #422 — independent first-map validation
 
@@ -150,7 +151,9 @@ impossible; a new complete reproduction can always reopen the product decision.
 6. Obtain explicit authorization for the exact issue write scope. Packet
    generation and live GET access are not that authorization.
 7. Re-read each target and post its issue-specific explanation before changing
-   state. Do not use a context-free bulk-close message.
+   state. Dated PR, CI, or release claims must also be rechecked at review time;
+   the GitHub issue drift check does not prove those linked states. Do not use
+   a context-free bulk-close message.
 8. Apply P1 and reproduction-request rows first, then review support load before
    any closure batch.
 9. Capture a fresh aggregate growth snapshot after application. Do not store

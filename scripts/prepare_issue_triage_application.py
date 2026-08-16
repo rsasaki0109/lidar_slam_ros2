@@ -71,13 +71,15 @@ CLOSE_DECISIONS = {
     'close-resolved',
     'close-superseded',
 }
-DECISION_LABELS = {
-    'close-answered': 'close as answered',
-    'close-not-planned': 'close as not planned',
-    'close-resolved': 'close as resolved',
-    'close-superseded': 'close as superseded',
-    'keep-open': 'keep open',
-    'request-current-reproduction': 'request a current reproduction',
+DECISION_SUMMARIES = {
+    'close-answered': 'answered by the current guidance',
+    'close-not-planned': 'not planned within the supported scope',
+    'close-resolved': 'resolved by the current implementation or workflow',
+    'close-superseded': 'superseded by the current supported path',
+    'keep-open': 'keeping this issue open',
+    'request-current-reproduction': (
+        'requesting one current supported-version reproduction'
+    ),
 }
 PRIORITY_ORDER = {'P1': 1, 'P2': 2, 'P3': 3}
 
@@ -210,17 +212,17 @@ def _response_draft(
     issue: dict[str, Any],
     evidence: Sequence[dict[str, Any]],
 ) -> str:
-    decision = DECISION_LABELS[issue['decision']]
+    decision = DECISION_SUMMARIES[issue['decision']]
     lines = [
         'Thank you for reporting this.',
         '',
-        'Current maintainer review:',
+        'What we found:',
         '',
         issue['rationale'],
         '',
-        f'Proposed disposition: **{decision}**.',
+        f'Current status: **{decision}**.',
         '',
-        'Next step:',
+        'What happens next:',
         '',
         issue['response_summary'],
         '',

@@ -170,6 +170,19 @@ def test_issue_69_is_a_reviewed_keep_open_help_request():
         item['kind'] == 'repository_file' and len(item['sha256']) == 64
         for item in action['evidence']
     )
+    response = action['public_response_draft']
+    assert 'What we found:' in response
+    assert 'Current status: **keeping this issue open**.' in response
+    assert 'privacy-safe synthetic points' in response
+    assert 'public Draft PR #427' in response
+    assert 'passes Humble and Jazzy CI' in response
+    assert 'No named release contains the fix yet' in response
+    assert '`vg_size_for_map`' in response
+    assert '`vg_size_for_input`' in response
+    assert 'only a workaround' in response
+    assert 'original 2 GB bag is not required' in response
+    assert 'fix remains local' not in response
+    assert 'lacks supported public CI' not in response
 
 
 def test_issue_422_remains_monitor_only():

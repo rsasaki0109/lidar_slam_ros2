@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-17T06:42:44+09:00",
+  "generated_at": "2026-08-17T06:56:38+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 326,
-    "expected_paths_sha256": "3b8c1e3aa73383e478e205d63d350b00163bea395a7a8be17197d25aa25d0101",
+    "expected_path_count": 327,
+    "expected_paths_sha256": "51cf5a5d500ec14fd48a4b11f812c6dc4aec98c55ca9a8e787dee849a25358c5",
     "scope": "worktree-delta-from-pr-base"
   },
   "review_slices": [
@@ -329,6 +329,7 @@
         "docs/evidence/growth/odometry-tf-bag-preflight-2026-08-17.md",
         "docs/evidence/growth/odometry-tf-timing-preflight-2026-08-17.md",
         "docs/evidence/growth/onboarding-matrix-index-2026-08-12.md",
+        "docs/evidence/growth/open-issue-triage-proposal-2026-08-11.json",
         "docs/evidence/growth/open-issue-triage-proposal-2026-08-11.md",
         "docs/evidence/growth/public-docs-deployment-provenance-2026-08-16.md",
         "docs/evidence/growth/published-onboarding-identity-2026-08-16.md",
