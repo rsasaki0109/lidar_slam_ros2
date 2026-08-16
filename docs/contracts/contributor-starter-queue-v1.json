@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/contributor-starter-queue-v1.schema.json",
-  "queue_id": "g0-community-starters-2026-08-16-r3",
-  "generated_at": "2026-08-16T07:21:20+09:00",
+  "queue_id": "g0-community-starters-2026-08-16-r4",
+  "generated_at": "2026-08-16T08:54:26+09:00",
   "repository": "rsasaki0109/lidar_slam_ros2",
   "status": "PREPARED_NOT_PUBLISHED",
   "prepared_environment": {
@@ -48,6 +48,21 @@
     ],
     "recheck_before_publication": true
   },
+  "published_issue_dependencies": [
+    {
+      "id": "first-map-validator-cohort-v1",
+      "issue_number": 422,
+      "issue_title": "Help validate the public first-map path for v1.0",
+      "check_command": [
+        "python3",
+        "scripts/first_map_validator_cohort.py",
+        "--json"
+      ],
+      "eligible_statuses": [
+        "READY_FOR_NEXT_ATTEMPT"
+      ]
+    }
+  ],
   "tasks": [
     {
       "id": "starter-C5",

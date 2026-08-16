@@ -817,6 +817,15 @@ After G0, the next priority is the independent first-map cohort. It is both the
 remaining v1 evidence and the fastest honest way to discover whether the
 project is genuinely easier for a new user than its alternatives.
 
+The public tracking issue does not bypass that sequence. The live contributor
+card binds #422 to the cohort evaluator and keeps it out of the recommended
+starter set until the state is exactly `READY_FOR_NEXT_ATTEMPT`. In the current
+`WAITING_FOR_PUBLIC_GATES` state, the next work is comparable Docker/source
+evidence plus canonical public-documentation provenance and immutable runtime
+identity—not recruiting a user into stale deployed instructions. The checked
+JSON card is a no-write decision aid; issue edits, Pages deployment, and
+community outreach remain separate authority gates.
+
 ## 11. Long-term operating cadence
 
 The roadmap is operated as a recurring system, not a one-time launch list.

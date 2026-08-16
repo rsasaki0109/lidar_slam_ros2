@@ -13,6 +13,7 @@
     "status",
     "prepared_environment",
     "remote_duplicate_audit",
+    "published_issue_dependencies",
     "tasks",
     "authority"
   ],
@@ -21,7 +22,7 @@
     "schema_uri": {
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/contributor-starter-queue-v1.schema.json"
     },
-    "queue_id": {"const": "g0-community-starters-2026-08-16-r3"},
+    "queue_id": {"const": "g0-community-starters-2026-08-16-r4"},
     "generated_at": {"type": "string", "format": "date-time"},
     "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
     "status": {"const": "PREPARED_NOT_PUBLISHED"},
@@ -41,6 +42,12 @@
       }
     },
     "remote_duplicate_audit": {"$ref": "#/definitions/remoteDuplicateAudit"},
+    "published_issue_dependencies": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {"$ref": "#/definitions/publishedIssueDependency"}
+    },
     "tasks": {
       "type": "array",
       "minItems": 5,
@@ -73,6 +80,34 @@
     },
     "taskId": {
       "enum": ["starter-C5", "starter-C6", "starter-C7", "starter-C8", "starter-C9"]
+    },
+    "publishedIssueDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "issue_number",
+        "issue_title",
+        "check_command",
+        "eligible_statuses"
+      ],
+      "properties": {
+        "id": {"const": "first-map-validator-cohort-v1"},
+        "issue_number": {"const": 422},
+        "issue_title": {
+          "const": "Help validate the public first-map path for v1.0"
+        },
+        "check_command": {
+          "const": [
+            "python3",
+            "scripts/first_map_validator_cohort.py",
+            "--json"
+          ]
+        },
+        "eligible_statuses": {
+          "const": ["READY_FOR_NEXT_ATTEMPT"]
+        }
+      }
     },
     "remoteDuplicateAudit": {
       "type": "object",

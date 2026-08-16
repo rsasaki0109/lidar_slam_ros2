@@ -142,6 +142,13 @@ wording/channel:
 - stop recruiting when three reports are accepted or any stop condition
   fires.
 
+The GET-only contributor queue now enforces the same precondition for the
+existing issue. It retains #422 in the published inventory but does not offer
+it as a contributor next step unless this evaluator derives exactly
+`READY_FOR_NEXT_ATTEMPT`. `WAITING_FOR_PUBLIC_GATES`, stale operational
+signals, any pause/review state, or full WIP all remain blocked. This local
+decision card neither edits #422 nor supplies E3 authority.
+
 The script renders final recruitment wording only after every public launch
 gate is true:
 

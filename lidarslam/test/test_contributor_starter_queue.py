@@ -109,6 +109,27 @@ def _github_pull(
     }
 
 
+def _publication_gate(
+    *,
+    status: str = 'WAITING_FOR_PUBLIC_GATES',
+    eligible: bool = False,
+) -> dict:
+    return {
+        'id': 'first-map-validator-cohort-v1',
+        'status': status,
+        'eligible': eligible,
+        'blocking_reasons': (
+            [] if eligible else ['comparable_docker_row']
+        ),
+        'check_command': [
+            'python3',
+            'scripts/first_map_validator_cohort.py',
+            '--json',
+        ],
+        'remote_mutations_performed': False,
+    }
+
+
 EXPECTED_READY_IDS = [f'starter-C{index}' for index in range(5, 10)]
 EXPECTED_GAP_MARKERS = {
     'starter-C5': (
@@ -208,6 +229,19 @@ def test_arbitrary_command_cannot_replace_an_allowlisted_profile():
         CHECKER.validate_queue(payload, _schema())
 
 
+def test_publication_gate_command_cannot_be_replaced_by_queue_data():
+    """The live card never executes an arbitrary dependency command."""
+    payload = _queue()
+    payload['published_issue_dependencies'][0]['check_command'] = [
+        'bash',
+        '-c',
+        'touch unexpected',
+    ]
+
+    with pytest.raises(CHECKER.QueueError, match='schema validation failed'):
+        CHECKER.validate_queue(payload, _schema())
+
+
 def test_remote_write_authority_is_rejected_by_schema():
     """The local contract cannot grant itself GitHub write authority."""
     payload = _queue()
@@ -247,8 +281,8 @@ def test_duplicate_audit_must_cover_every_task_in_order():
         CHECKER.validate_queue(payload, _schema())
 
 
-def test_next_report_gives_one_live_contributor_and_maintainer_action():
-    """The live card separates a published issue from the local queue."""
+def test_next_report_blocks_a_published_issue_with_closed_product_gates():
+    """A published label cannot bypass the first-map cohort state."""
     queue, local_report = CHECKER.evaluate()
     issue = _github_issue(
         422,
@@ -266,24 +300,35 @@ def test_next_report_gives_one_live_contributor_and_maintainer_action():
         local_report,
         [issue],
         [known_pull],
+        [_publication_gate()],
     )
 
-    assert report['status'] == 'PUBLISHED_GOOD_FIRST_ISSUE_AVAILABLE'
+    assert report['status'] == 'PUBLISHED_GOOD_FIRST_ISSUES_BLOCKED'
     assert report['contributor_next'] == {
-        'action': 'REVIEW_PUBLISHED_GOOD_FIRST_ISSUE',
-        'issue_number': 422,
-        'url': issue['html_url'],
+        'action': 'WAIT_FOR_READY_PUBLISHED_STARTER',
+        'url': (
+            'https://github.com/rsasaki0109/lidar_slam_ros2/issues?'
+            'q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22'
+        ),
     }
     assert report['maintainer_next'] == {
-        'action': 'REVIEW_AND_PUBLISH_LOCAL_TASK',
-        'task_id': 'starter-C5',
-        'preview_command': [
+        'action': 'REVIEW_BLOCKED_PUBLISHED_STARTER',
+        'issue_number': 422,
+        'gate_id': 'first-map-validator-cohort-v1',
+        'gate_status': 'WAITING_FOR_PUBLIC_GATES',
+        'review_command': [
             'python3',
-            'scripts/contributor_starter_queue.py',
-            '--task',
-            'starter-C5',
+            'scripts/first_map_validator_cohort.py',
+            '--json',
         ],
     }
+    assert report['eligible_good_first_issues'] == []
+    assert report['blocked_good_first_issues'] == [{
+        'number': 422,
+        'title': issue['title'],
+        'url': issue['html_url'],
+        'gate': _publication_gate(),
+    }]
     assert report['unpublished_ready_task_ids'] == EXPECTED_READY_IDS
     assert report['potential_pull_duplicates'] == []
     assert report['authority'] == {
@@ -293,8 +338,93 @@ def test_next_report_gives_one_live_contributor_and_maintainer_action():
     }
     rendered = CHECKER.render_next_report(report)
     assert issue['html_url'] in rendered
-    assert '--task starter-C5' in rendered
+    assert '0 ready, 1 blocked' in rendered
+    assert 'first_map_validator_cohort.py --json' in rendered
+    assert 'do not start a blocked cohort task' in rendered
     assert 'no GitHub issue, pull request, or label was changed' in rendered
+
+
+def test_next_report_allows_a_gated_issue_only_when_cohort_is_ready():
+    """READY_FOR_NEXT_ATTEMPT turns the existing issue into a valid route."""
+    queue, local_report = CHECKER.evaluate()
+    issue = _github_issue(
+        422,
+        'Help validate the public first-map path for v1.0',
+        labels=('documentation', 'good first issue', 'help wanted'),
+    )
+    gate = _publication_gate(
+        status='READY_FOR_NEXT_ATTEMPT',
+        eligible=True,
+    )
+
+    report = CHECKER.build_next_report(
+        queue,
+        local_report,
+        [issue],
+        [],
+        [gate],
+    )
+
+    assert report['status'] == 'PUBLISHED_GOOD_FIRST_ISSUE_AVAILABLE'
+    assert report['eligible_good_first_issues'] == [{
+        'number': 422,
+        'title': issue['title'],
+        'url': issue['html_url'],
+    }]
+    assert report['blocked_good_first_issues'] == []
+    assert report['contributor_next'] == {
+        'action': 'REVIEW_PUBLISHED_GOOD_FIRST_ISSUE',
+        'issue_number': 422,
+        'url': issue['html_url'],
+    }
+    assert report['maintainer_next']['task_id'] == 'starter-C5'
+
+
+def test_next_report_keeps_dependency_when_the_issue_title_changes():
+    """The repository-stable issue number keeps #422 fail closed."""
+    queue, local_report = CHECKER.evaluate()
+    issue = _github_issue(
+        422,
+        'Edited public first-map validation title',
+        labels=('good first issue',),
+    )
+
+    report = CHECKER.build_next_report(
+        queue,
+        local_report,
+        [issue],
+        [],
+        [_publication_gate()],
+    )
+
+    assert report['status'] == 'PUBLISHED_GOOD_FIRST_ISSUES_BLOCKED'
+    assert report['blocked_good_first_issues'][0]['number'] == 422
+    assert report['contributor_next']['action'] == (
+        'WAIT_FOR_READY_PUBLISHED_STARTER'
+    )
+
+
+def test_next_report_keeps_an_unrelated_good_first_issue_eligible():
+    """A closed cohort gate does not suppress independent starter work."""
+    queue, local_report = CHECKER.evaluate()
+    issue = _github_issue(
+        600,
+        'Docs: clarify one bounded command',
+        labels=('documentation', 'good first issue'),
+    )
+
+    report = CHECKER.build_next_report(
+        queue,
+        local_report,
+        [issue],
+        [],
+        [_publication_gate()],
+    )
+
+    assert report['status'] == 'PUBLISHED_GOOD_FIRST_ISSUE_AVAILABLE'
+    assert report['eligible_good_first_issues'][0]['number'] == 600
+    assert report['blocked_good_first_issues'] == []
+    assert report['contributor_next']['issue_number'] == 600
 
 
 def test_next_report_prefers_an_exact_published_queue_task():
@@ -307,7 +437,13 @@ def test_next_report_prefers_an_exact_published_queue_task():
         labels=('documentation', 'good first issue', 'help wanted'),
     )
 
-    report = CHECKER.build_next_report(queue, local_report, [issue], [])
+    report = CHECKER.build_next_report(
+        queue,
+        local_report,
+        [issue],
+        [],
+        [_publication_gate()],
+    )
 
     assert report['status'] == 'PUBLISHED_QUEUE_TASK_AVAILABLE'
     assert report['contributor_next']['task_id'] == 'starter-C5'
@@ -331,6 +467,7 @@ def test_next_report_rechecks_a_known_pull_updated_after_the_audit():
         local_report,
         [],
         [changed_pull],
+        [_publication_gate()],
     )
 
     assert report['potential_pull_duplicates'] == [{
@@ -366,6 +503,82 @@ def test_live_reader_uses_get_only(monkeypatch):
     assert 'state=open' in command[-1]
     assert kwargs['check'] is False
     assert kwargs['timeout'] == 60
+
+
+def test_publication_gate_collector_uses_read_only_cohort_state(monkeypatch):
+    """The dependency adapter accepts only the no-write state report."""
+    payload = {
+        'status': 'WAITING_FOR_PUBLIC_GATES',
+        'next_attempt_permitted_by_state': False,
+        'pending_launch_gates': [
+            'comparable_docker_row',
+            'canonical_documentation_provenance',
+        ],
+        'stop_conditions': [],
+        'community_posts_authorized': False,
+        'github_writes_authorized': False,
+        'remote_mutations_performed': False,
+    }
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            json.dumps(payload),
+            '',
+        )
+
+    monkeypatch.setattr(CHECKER.subprocess, 'run', fake_run)
+    dependency = _queue()['published_issue_dependencies'][0]
+
+    report = CHECKER._collect_publication_gate(dependency)
+
+    assert report == {
+        'id': 'first-map-validator-cohort-v1',
+        'status': 'WAITING_FOR_PUBLIC_GATES',
+        'eligible': False,
+        'blocking_reasons': [
+            'comparable_docker_row',
+            'canonical_documentation_provenance',
+        ],
+        'check_command': dependency['check_command'],
+        'remote_mutations_performed': False,
+    }
+    command, kwargs = calls[0]
+    assert command == dependency['check_command']
+    assert kwargs['check'] is False
+    assert kwargs['timeout'] == 60
+    assert kwargs['env']['PYTHONDONTWRITEBYTECODE'] == '1'
+
+
+def test_publication_gate_collector_rejects_write_authority(monkeypatch):
+    """A gate report that claims remote authority fails closed."""
+    payload = {
+        'status': 'READY_FOR_NEXT_ATTEMPT',
+        'next_attempt_permitted_by_state': True,
+        'pending_launch_gates': [],
+        'stop_conditions': [],
+        'community_posts_authorized': True,
+        'github_writes_authorized': False,
+        'remote_mutations_performed': False,
+    }
+
+    def fake_run(command, **kwargs):
+        del kwargs
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            json.dumps(payload),
+            '',
+        )
+
+    monkeypatch.setattr(CHECKER.subprocess, 'run', fake_run)
+    dependency = _queue()['published_issue_dependencies'][0]
+
+    with pytest.raises(CHECKER.QueueError, match='no-write boundary'):
+        CHECKER._collect_publication_gate(dependency)
 
 
 def test_live_reader_fails_closed_on_an_api_error(monkeypatch):

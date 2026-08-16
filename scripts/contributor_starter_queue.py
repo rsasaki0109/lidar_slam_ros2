@@ -58,9 +58,19 @@ DEFAULT_SCHEMA = (
     / 'schemas'
     / 'contributor-starter-queue-v1.schema.json'
 )
+DEFAULT_NEXT_SCHEMA = (
+    REPO_ROOT
+    / 'docs'
+    / 'schemas'
+    / 'contributor-next-action-v1.schema.json'
+)
 SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
     'schemas/contributor-starter-queue-v1.schema.json'
+)
+NEXT_SCHEMA_URI = (
+    'https://rsasaki0109.github.io/lidar_slam_ros2/'
+    'schemas/contributor-next-action-v1.schema.json'
 )
 EXPECTED_TASK_IDS = tuple(f'starter-C{index}' for index in range(5, 10))
 COMMON_LABELS = {'good first issue', 'help wanted'}
@@ -98,6 +108,13 @@ GITHUB_MAX_PAGES = 20
 GITHUB_REPOSITORY_PATTERN = re.compile(
     r'^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
 )
+PUBLICATION_GATE_COMMANDS = {
+    'first-map-validator-cohort-v1': (
+        'python3',
+        'scripts/first_map_validator_cohort.py',
+        '--json',
+    ),
+}
 
 
 class QueueError(ValueError):
@@ -198,6 +215,28 @@ def _task_readiness(task: dict[str, Any], repo_root: Path) -> dict[str, Any]:
     }
 
 
+def _validate_published_issue_dependencies(
+    dependencies: Sequence[dict[str, Any]],
+) -> None:
+    """Keep every executable publication gate on a fixed local allowlist."""
+    ids = [item['id'] for item in dependencies]
+    if len(ids) != len(set(ids)):
+        raise QueueError('published issue dependency ids must be unique')
+    identities = [
+        (item['issue_number'], item['issue_title'].casefold())
+        for item in dependencies
+    ]
+    if len(identities) != len(set(identities)):
+        raise QueueError(
+            'published issue dependency identities must be unique')
+    for dependency in dependencies:
+        expected = PUBLICATION_GATE_COMMANDS.get(dependency['id'])
+        command = tuple(dependency['check_command'])
+        if expected is None or command != expected:
+            raise QueueError(
+                f"{dependency['id']} uses an unsupported gate command")
+
+
 def validate_queue(
     queue: dict[str, Any],
     schema: dict[str, Any],
@@ -225,6 +264,9 @@ def validate_queue(
             f'{list(EXPECTED_TASK_IDS)}')
     for task in tasks:
         _validate_task(task, repo_root)
+
+    _validate_published_issue_dependencies(
+        queue['published_issue_dependencies'])
 
     audit = queue['remote_duplicate_audit']
     if audit['open_pull_request_count'] != len(
@@ -588,13 +630,176 @@ def _requires_duplicate_recheck(
     return updated_at > checked_at
 
 
+def _collect_publication_gate(
+    dependency: dict[str, Any],
+) -> dict[str, Any]:
+    """Evaluate a fixed local dependency without remote authority."""
+    command = tuple(dependency['check_command'])
+    expected = PUBLICATION_GATE_COMMANDS.get(dependency['id'])
+    if expected is None or command != expected:
+        raise QueueError(
+            f"{dependency['id']} uses an unsupported gate command")
+    environment = os.environ.copy()
+    environment['PYTHONDONTWRITEBYTECODE'] = '1'
+    try:
+        result = subprocess.run(
+            list(command),
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=environment,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise QueueError(
+            f"cannot evaluate publication gate {dependency['id']}: {exc}"
+        ) from exc
+    if result.returncode != 0:
+        raise QueueError(
+            f"publication gate {dependency['id']} did not produce a valid "
+            'state report'
+        )
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise QueueError(
+            f"publication gate {dependency['id']} returned invalid JSON"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise QueueError(
+            f"publication gate {dependency['id']} report must be an object"
+        )
+
+    status = payload.get('status')
+    permitted = payload.get('next_attempt_permitted_by_state')
+    pending = payload.get('pending_launch_gates')
+    stop_conditions = payload.get('stop_conditions')
+    if (
+        not isinstance(status, str)
+        or not status
+        or not isinstance(permitted, bool)
+        or not isinstance(pending, list)
+        or not all(isinstance(item, str) and item for item in pending)
+        or not isinstance(stop_conditions, list)
+        or not all(
+            isinstance(item, str) and item for item in stop_conditions
+        )
+    ):
+        raise QueueError(
+            f"publication gate {dependency['id']} report is incomplete"
+        )
+    authority_fields = (
+        'community_posts_authorized',
+        'github_writes_authorized',
+        'remote_mutations_performed',
+    )
+    if any(payload.get(field) is not False for field in authority_fields):
+        raise QueueError(
+            f"publication gate {dependency['id']} violates the no-write "
+            'boundary'
+        )
+
+    eligible = (
+        status in dependency['eligible_statuses']
+        and permitted
+    )
+    reasons = list(dict.fromkeys([*pending, *stop_conditions]))
+    if not eligible and not reasons:
+        reasons = [status]
+    return {
+        'id': dependency['id'],
+        'status': status,
+        'eligible': eligible,
+        'blocking_reasons': reasons,
+        'check_command': list(command),
+        'remote_mutations_performed': False,
+    }
+
+
+def collect_publication_gates(
+    queue: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Evaluate every declared public-starter dependency in source order."""
+    return [
+        _collect_publication_gate(dependency)
+        for dependency in queue['published_issue_dependencies']
+    ]
+
+
+def _validate_next_report(report: dict[str, Any]) -> None:
+    schema = _load_json(DEFAULT_NEXT_SCHEMA, 'next-action schema')
+    try:
+        jsonschema.Draft7Validator.check_schema(schema)
+        errors = sorted(
+            jsonschema.Draft7Validator(schema).iter_errors(report),
+            key=lambda item: [str(part) for part in item.absolute_path],
+        )
+    except jsonschema.SchemaError as exc:
+        raise QueueError(
+            f'next-action schema is invalid: {exc.message}'
+        ) from exc
+    if errors:
+        first = errors[0]
+        raise QueueError(
+            'next-action report schema validation failed at '
+            f'{_schema_error_path(first)}: {first.message}'
+        )
+
+
+def _dependency_for_issue(
+    queue: dict[str, Any],
+    issue: dict[str, Any],
+) -> dict[str, Any] | None:
+    for dependency in queue['published_issue_dependencies']:
+        if (
+            issue['number'] == dependency['issue_number']
+            or issue['title'].casefold()
+            == dependency['issue_title'].casefold()
+        ):
+            return dependency
+    return None
+
+
 def build_next_report(
     queue: dict[str, Any],
     local_report: dict[str, Any],
     issues: Sequence[dict[str, Any]],
     pulls: Sequence[dict[str, Any]],
+    publication_gates: Sequence[dict[str, Any]],
 ) -> dict[str, Any]:
     """Combine local readiness with privacy-bounded live availability."""
+    expected_gate_ids = [
+        item['id'] for item in queue['published_issue_dependencies']
+    ]
+    gate_ids = [item.get('id') for item in publication_gates]
+    if gate_ids != expected_gate_ids:
+        raise QueueError(
+            'publication gate reports must cover declared dependencies in '
+            'source order'
+        )
+    for dependency, gate in zip(
+        queue['published_issue_dependencies'], publication_gates
+    ):
+        expected_eligible = gate.get('status') in dependency[
+            'eligible_statuses'
+        ]
+        if gate.get('eligible') is not expected_eligible:
+            raise QueueError(
+                f"publication gate {dependency['id']} eligibility disagrees "
+                'with its declared statuses'
+            )
+        reasons = gate.get('blocking_reasons')
+        if (
+            not isinstance(reasons, list)
+            or expected_eligible and reasons
+            or not expected_eligible and not reasons
+        ):
+            raise QueueError(
+                f"publication gate {dependency['id']} blocking reasons "
+                'disagree with eligibility'
+            )
+    gates_by_id = {item['id']: item for item in publication_gates}
     open_issues = [item for item in issues if 'pull_request' not in item]
     public_issues = [_public_issue(item) for item in open_issues]
     public_pulls = [_public_issue(item) for item in pulls]
@@ -603,6 +808,18 @@ def build_next_report(
         for raw, public in zip(open_issues, public_issues)
         if 'good first issue' in _label_names(raw)
     ]
+    eligible_good_first_issues = []
+    blocked_good_first_issues = []
+    for issue in good_first_issues:
+        dependency = _dependency_for_issue(queue, issue)
+        if dependency is None:
+            eligible_good_first_issues.append(issue)
+            continue
+        gate = gates_by_id[dependency['id']]
+        if gate['eligible']:
+            eligible_good_first_issues.append(issue)
+        else:
+            blocked_good_first_issues.append({**issue, 'gate': gate})
     published_tasks = []
     for task in queue['tasks']:
         matches = [
@@ -651,13 +868,22 @@ def build_next_report(
             'issue_number': first['number'],
             'url': first['url'],
         }
-    elif good_first_issues:
-        first = good_first_issues[0]
+    elif eligible_good_first_issues:
+        first = eligible_good_first_issues[0]
         status = 'PUBLISHED_GOOD_FIRST_ISSUE_AVAILABLE'
         contributor_next = {
             'action': 'REVIEW_PUBLISHED_GOOD_FIRST_ISSUE',
             'issue_number': first['number'],
             'url': first['url'],
+        }
+    elif blocked_good_first_issues:
+        status = 'PUBLISHED_GOOD_FIRST_ISSUES_BLOCKED'
+        contributor_next = {
+            'action': 'WAIT_FOR_READY_PUBLISHED_STARTER',
+            'url': (
+                f"https://github.com/{queue['repository']}/issues?"
+                'q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22'
+            ),
         }
     else:
         status = 'MAINTAINER_PUBLICATION_REQUIRED'
@@ -669,7 +895,17 @@ def build_next_report(
             ),
         }
 
-    if potential_duplicates:
+    if blocked_good_first_issues:
+        blocked = blocked_good_first_issues[0]
+        gate = blocked['gate']
+        maintainer_next = {
+            'action': 'REVIEW_BLOCKED_PUBLISHED_STARTER',
+            'issue_number': blocked['number'],
+            'gate_id': gate['id'],
+            'gate_status': gate['status'],
+            'review_command': gate['check_command'],
+        }
+    elif potential_duplicates:
         maintainer_next = {'action': 'REVIEW_POTENTIAL_PULL_DUPLICATE'}
     elif publishable:
         task_id = publishable[0]
@@ -686,14 +922,19 @@ def build_next_report(
     else:
         maintainer_next = {'action': 'REVIEW_QUEUE_STATE'}
 
-    return {
+    report = {
+        'schema_version': 1,
+        'schema_uri': NEXT_SCHEMA_URI,
         'status': status,
         'repository': queue['repository'],
         'local_queue_status': local_report['status'],
         'local_publication_status': local_report['publication_status'],
         'open_issue_count': len(open_issues),
         'open_pull_request_count': len(pulls),
+        'publication_gates': list(publication_gates),
         'published_good_first_issues': good_first_issues,
+        'eligible_good_first_issues': eligible_good_first_issues,
+        'blocked_good_first_issues': blocked_good_first_issues,
         'published_queue_tasks': published_tasks,
         'unpublished_ready_task_ids': unpublished_ready,
         'potential_pull_duplicates': potential_duplicates,
@@ -705,6 +946,8 @@ def build_next_report(
             'remote_mutations_performed': False,
         },
     }
+    _validate_next_report(report)
+    return report
 
 
 def collect_next_report(
@@ -714,16 +957,37 @@ def collect_next_report(
     """Collect the current read-only GitHub status for the next-step card."""
     issues = _github_get_all(queue['repository'], 'issues')
     pulls = _github_get_all(queue['repository'], 'pulls')
-    return build_next_report(queue, local_report, issues, pulls)
+    publication_gates = collect_publication_gates(queue)
+    return build_next_report(
+        queue,
+        local_report,
+        issues,
+        pulls,
+        publication_gates,
+    )
 
 
 def render_next_report(report: dict[str, Any]) -> str:
     """Render the live contributor and maintainer next steps."""
     lines = [f"Contributor next step — {report['status']}"]
     issues = report['published_good_first_issues']
-    lines.append(f'Published good first issues: {len(issues)}')
-    for issue in issues:
-        lines.append(f"- #{issue['number']} {issue['title']} — {issue['url']}")
+    eligible = report['eligible_good_first_issues']
+    blocked = report['blocked_good_first_issues']
+    lines.append(
+        f'Published good first issues: {len(issues)} '
+        f'({len(eligible)} ready, {len(blocked)} blocked)'
+    )
+    for issue in eligible:
+        lines.append(
+            f"- READY #{issue['number']} {issue['title']} — {issue['url']}"
+        )
+    for issue in blocked:
+        gate = issue['gate']
+        reasons = ', '.join(gate['blocking_reasons'])
+        lines.append(
+            f"- BLOCKED #{issue['number']} {issue['title']} — "
+            f"{gate['status']} ({reasons}) — {issue['url']}"
+        )
     lines.append(
         'Local 30-minute queue: '
         f"{len(report['unpublished_ready_task_ids'])} ready but unpublished"
@@ -739,13 +1003,24 @@ def render_next_report(report: dict[str, Any]) -> str:
             'Contributor: review the published starter scope at '
             f"{contributor['url']}"
         )
+    elif contributor['action'] == 'WAIT_FOR_READY_PUBLISHED_STARTER':
+        lines.append(
+            'Contributor: no published starter is ready; do not start a '
+            'blocked cohort task or a local queue task yet.'
+        )
     else:
         lines.append(
             'Contributor: wait for a published starter; do not start a local '
             'queue task yet.'
         )
     maintainer = report['maintainer_next']
-    if maintainer['action'] == 'REVIEW_AND_PUBLISH_LOCAL_TASK':
+    if maintainer['action'] == 'REVIEW_BLOCKED_PUBLISHED_STARTER':
+        lines.append(
+            'Maintainer: inspect the blocked public starter gate with '
+            f"`{shlex.join(maintainer['review_command'])}`; do not recruit "
+            'from the issue while the gate is closed.'
+        )
+    elif maintainer['action'] == 'REVIEW_AND_PUBLISH_LOCAL_TASK':
         lines.append(
             'Maintainer: review the next bounded task with '
             f"`{shlex.join(maintainer['preview_command'])}`"

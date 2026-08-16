@@ -47,9 +47,11 @@ A fresh authenticated GitHub API GET audit at
 open pull request for any C5–C9 query. That result is capture-time evidence,
 not publication authority, and must be rerun immediately before any issue is
 created. The `--next` card repeats bounded GET-only issue and PR reads, directs
-contributors only to a live published issue, and gives maintainers one local
-task-preview command. It rechecks new or subsequently updated PRs while
-honoring reviewed non-matches that have not changed since the recorded audit.
+contributors only to a live published issue whose declared product dependency
+is ready, and gives maintainers one local review command. It rechecks new or
+subsequently updated PRs while honoring reviewed non-matches that have not
+changed since the recorded audit. An open state and starter label alone are
+not readiness evidence.
 The default command and list/detail views remain offline and perform no
 workspace write. Focused verification uses built-in profiles rather than
 executing commands supplied by JSON; docs output goes to a temporary directory
@@ -57,7 +59,7 @@ and Python cache writes are disabled.
 
 | Check | Result |
 | --- | --- |
-| queue/schema/drift/authority/live-next-action regressions | 55 passed |
+| queue/schema/drift/authority/live-next-action regressions | 61 passed |
 | English support-card regressions | 22 docs entrypoint tests passed, including C1/C2/C3 contracts |
 | C5–C9 queue generation | all five exact gap markers absent; `QUEUE_READY_LOCAL_ONLY` |
 | C5–C9 focused profiles | five strict-MkDocs profiles passed; no workspace artifact |
@@ -76,6 +78,44 @@ These checks prove that the queue is bounded and usable by maintainers. They do
 not prove a 30-minute external completion and do not authorize publication.
 That evidence begins only after a separately approved issue is claimed and a
 non-maintainer reports prepared-environment timing.
+
+## Published starter dependency audit — 2026-08-16
+
+The only published `good first issue`,
+[#422](https://github.com/rsasaki0109/lidar_slam_ros2/issues/422), is an
+independent first-map cohort task rather than an always-open documentation
+starter. Its exact public identity is now declared in the queue contract with
+the fixed read-only check
+`python3 scripts/first_map_validator_cohort.py --json`. Only
+`READY_FOR_NEXT_ATTEMPT` makes that issue eligible for the contributor card.
+
+The current live GET-only report is
+`PUBLISHED_GOOD_FIRST_ISSUES_BLOCKED`: 29 open issues after excluding the one
+open PR, one published `good first issue`, zero eligible published starters,
+and one blocked starter. The cohort remains `WAITING_FOR_PUBLIC_GATES` on the
+comparable Docker/source rows, canonical documentation path/URL/provenance,
+and immutable runtime identity. PR #427 was updated after the stored duplicate
+audit and matches the broad C5 query, so it is also retained as one potential
+duplicate for human review before any C5 publication.
+
+A read-only public-page check found that the deployed
+[Getting Started](https://rsasaki0109.github.io/lidar_slam_ros2/getting-started.html),
+[Golden Path CLI](https://rsasaki0109.github.io/lidar_slam_ros2/golden-path-cli.html),
+and
+[independent-validation](https://rsasaki0109.github.io/lidar_slam_ros2/external-first-map-validation.html)
+pages do not yet expose the current reviewed local route consistently. The
+deployed beginner page still uses a mutable Docker tag and older source/demo
+steps, while the CLI and validation pages still expose the older `run` flow;
+the validation page also renders one malformed command prefix. The expected
+deployment manifest remains unavailable. These are launch blockers, not
+permission to edit #422 or deploy Pages from this packet.
+
+The machine-readable `--next --json` result is validated against
+[`contributor-next-action-v1`](../../schemas/contributor-next-action-v1.schema.json).
+It retains all published starter identities for audit, separates ready and
+blocked lists, emits one safe contributor action and one maintainer action,
+and preserves `GET_ONLY` / no-write authority. No issue, label, comment, PR,
+Pages deployment, or community post was changed by this audit.
 
 ## What the backlog says
 
@@ -1231,7 +1271,8 @@ python3 scripts/contributor_starter_queue.py --task starter-C9
 6. Publish no more tasks than the available review capacity can move; local
    `READY` never means an issue exists or a contributor has claimed it.
 7. Keep #422 open independently until three accepted external first-map
-   validations exist.
+   validations exist, but do not recommend or recruit through it unless its
+   cohort state is exactly `READY_FOR_NEXT_ATTEMPT`.
 
 The old source issues are not automatically closed when a starter task is
 published or merged. Each old issue still needs a supported-version check, a

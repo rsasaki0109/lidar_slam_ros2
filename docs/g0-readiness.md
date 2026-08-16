@@ -112,6 +112,17 @@ card adds the concrete evidence required for each one, including the seven
 measurements and immutable runtime identity. Unknown future IDs remain visible
 and fail safe with a pointer to the cohort contract.
 
+The contributor queue applies the same boundary to the already-published
+tracking issue. `python3 scripts/contributor_starter_queue.py --next` does not
+treat an open `good first issue` label as sufficient evidence. It evaluates
+the declared cohort dependency locally and recommends #422 only when the
+derived operating state is exactly `READY_FOR_NEXT_ATTEMPT`; otherwise it
+reports the issue as blocked and points the maintainer back to the cohort
+checker. Its JSON is validated against
+[`contributor-next-action-v1`](schemas/contributor-next-action-v1.schema.json),
+performs only bounded GitHub GETs, and cannot authorize recruitment or mutate
+an issue.
+
 The current packet is
 [`g0-current-action-packet-2026-08-14.md`](evidence/growth/g0-current-action-packet-2026-08-14.md).
 It supersedes the historical action snapshot for present handoff decisions
