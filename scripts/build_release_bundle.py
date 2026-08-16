@@ -108,6 +108,8 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/prepare_usability_scorecard_pair.py',
     'scripts/record_usability_scorecard_pair.py',
     'scripts/compare_with_glim.sh',
+    'scripts/attached_storage.py',
+    'scripts/download_ntu_viral_tnp01.sh',
     'scripts/download_rtk_slam_dataset.py',
     'scripts/docker_map_bag.sh',
     'scripts/first_map_validation_receipt.py',

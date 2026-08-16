@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+STORAGE_HELPER="${SCRIPT_DIR}/attached_storage.py"
 
 usage() {
   cat >&2 <<'EOF'
@@ -11,6 +12,7 @@ Usage:
 
 Options:
   --dest DIR         Destination root directory (default: ./demo_data/ntu_viral)
+  --dest-device DEV  Mounted /dev path; use its ntu_viral subdirectory
   --dry-run          Print the local acquisition and disk-space plan; write nothing
   --keep-zip         Keep the downloaded zip file
   --no-convert       Skip rosbag1 -> rosbag2 conversion
@@ -59,6 +61,17 @@ human_bytes() {
   awk -v bytes="$1" 'BEGIN { printf "%.1f GB", bytes / 1000000000 }'
 }
 
+shell_join() {
+  local argument
+  local joined=""
+  local quoted
+  for argument in "$@"; do
+    printf -v quoted '%q' "${argument}"
+    joined+="${joined:+ }${quoted}"
+  done
+  printf '%s' "${joined}"
+}
+
 filesystem_available_bytes() {
   local probe_path="$1"
   while [[ ! -e "${probe_path}" ]]; do
@@ -86,6 +99,8 @@ verify_archive_identity() {
 }
 
 DEST_DIR="${REPO_ROOT}/demo_data/ntu_viral"
+DEST_EXPLICIT="false"
+DEST_DEVICE=""
 DRY_RUN="false"
 KEEP_ZIP="false"
 DO_CONVERT="true"
@@ -96,7 +111,19 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --dest)
       require_value "$1" "${2:-}"
+      if [[ -n "${DEST_DEVICE}" ]]; then
+        fail "--dest and --dest-device are mutually exclusive"
+      fi
       DEST_DIR="${OPTION_VALUE}"
+      DEST_EXPLICIT="true"
+      shift 2
+      ;;
+    --dest-device)
+      require_value "$1" "${2:-}"
+      if [[ "${DEST_EXPLICIT}" == "true" ]]; then
+        fail "--dest and --dest-device are mutually exclusive"
+      fi
+      DEST_DEVICE="${OPTION_VALUE}"
       shift 2
       ;;
     --dry-run)
@@ -113,6 +140,20 @@ while [[ $# -gt 0 ]]; do
       fail "unknown option: $1" ;;
   esac
 done
+
+if [[ -n "${DEST_DEVICE}" ]]; then
+  require_command python3 \
+    "install python3, for example: sudo apt install python3"
+  [[ -f "${STORAGE_HELPER}" ]] || fail \
+    "attached-storage helper is missing: ${STORAGE_HELPER}"
+  if ! DEST_MOUNTPOINT="$(
+    python3 "${STORAGE_HELPER}" mountpoint --device "${DEST_DEVICE}"
+  )"; then
+    echo "hint: mount the device, then retry the same --dest-device command." >&2
+    exit 2
+  fi
+  DEST_DIR="${DEST_MOUNTPOINT}/ntu_viral"
+fi
 
 DEST_DIR="$(realpath -m "${DEST_DIR}")"
 
@@ -197,8 +238,44 @@ echo "space:       $(human_bytes "${REQUIRED_BYTES}") additional required (inclu
 echo "available:   $(human_bytes "${AVAILABLE_BYTES}")"
 
 if (( AVAILABLE_BYTES < REQUIRED_BYTES )); then
+  STORAGE_CANDIDATE=()
+  if command -v python3 >/dev/null 2>&1 && [[ -f "${STORAGE_HELPER}" ]]; then
+    mapfile -t STORAGE_CANDIDATE < <(
+      python3 "${STORAGE_HELPER}" discover \
+        --minimum-bytes "${REQUIRED_BYTES}" --format lines 2>/dev/null || true
+    )
+  fi
   echo "status:      BLOCKED_INSUFFICIENT_SPACE"
-  echo "next:        choose a filesystem with at least $(human_bytes "${REQUIRED_BYTES}") free and pass it with --dest DIR"
+  if [[ ${#STORAGE_CANDIDATE[@]} -ge 2 ]]; then
+    CANDIDATE_DEVICE="${STORAGE_CANDIDATE[0]}"
+    CANDIDATE_SUMMARY="${STORAGE_CANDIDATE[1]}"
+    RECOVERY_COMMAND=(
+      bash scripts/download_ntu_viral_tnp01.sh
+      --dest-device "${CANDIDATE_DEVICE}"
+    )
+    if [[ "${KEEP_ZIP}" == "true" ]]; then
+      RECOVERY_COMMAND+=(--keep-zip)
+    fi
+    if [[ "${DO_CONVERT}" != "true" ]]; then
+      RECOVERY_COMMAND+=(--no-convert)
+    fi
+    if [[ "${DO_RESTAMP}" != "true" ]]; then
+      RECOVERY_COMMAND+=(--no-restamp)
+    fi
+    PREFLIGHT_COMMAND=("${RECOVERY_COMMAND[@]}" --dry-run)
+    echo "attached:    ${CANDIDATE_SUMMARY}; unmounted, free space unverified"
+    if command -v udisksctl >/dev/null 2>&1; then
+      MOUNT_COMMAND=(udisksctl mount -b "${CANDIDATE_DEVICE}")
+      echo "mount:       $(shell_join "${MOUNT_COMMAND[@]}")"
+      echo "next:        $(shell_join "${MOUNT_COMMAND[@]}")"
+    else
+      echo "next:        mount attached filesystem ${CANDIDATE_DEVICE}"
+    fi
+    echo "preflight:   $(shell_join "${PREFLIGHT_COMMAND[@]}")"
+    echo "after READY: $(shell_join "${RECOVERY_COMMAND[@]}")"
+  else
+    echo "next:        choose a filesystem with at least $(human_bytes "${REQUIRED_BYTES}") free and pass it with --dest DIR"
+  fi
   if [[ "${DRY_RUN}" == "true" ]]; then
     echo "dry-run:     no files, network requests, conversions, or downloads were started"
     exit 0

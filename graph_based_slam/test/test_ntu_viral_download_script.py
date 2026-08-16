@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import shutil
@@ -60,6 +61,17 @@ def _combined_output(result: subprocess.CompletedProcess[str]) -> str:
     return result.stdout + result.stderr
 
 
+def _fake_lsblk(fake_bin: pathlib.Path, document: object) -> None:
+    script = fake_bin / 'lsblk'
+    payload = json.dumps(document)
+    script.write_text(
+        '#!/bin/sh\n'
+        f"printf '%s\\n' '{payload}'\n",
+        encoding='utf-8',
+    )
+    script.chmod(0o755)
+
+
 def test_download_help_exits_successfully():
     result = _run_download('--help')
     output = _combined_output(result)
@@ -67,6 +79,7 @@ def test_download_help_exits_successfully():
     assert result.returncode == 0
     assert 'download_ntu_viral_tnp01.sh' in output
     assert '--dry-run' in output
+    assert '--dest-device' in output
     assert '--no-restamp' in output
 
 
@@ -116,6 +129,127 @@ def test_download_fails_before_network_when_space_is_insufficient(
     assert 'insufficient free space' in result.stderr
     assert 'downloading zip' not in output
     assert not dest.exists()
+
+
+def test_low_space_discovers_attached_device_and_preserves_options(
+    tmp_path: pathlib.Path,
+):
+    fake_bin = tmp_path / 'bin'
+    fake_bin.mkdir()
+    _fake_lsblk(fake_bin, {
+        'blockdevices': [
+            {
+                'path': '/dev/sdz',
+                'pkname': None,
+                'fstype': None,
+                'size': 2_000_000_000_000,
+                'mountpoints': [None],
+                'label': None,
+                'model': 'Portable SSD',
+                'tran': 'usb',
+                'ro': False,
+                'hotplug': True,
+            },
+            {
+                'path': '/dev/sdz1',
+                'pkname': 'sdz',
+                'fstype': 'ext4',
+                'size': 1_999_000_000_000,
+                'mountpoints': [None],
+                'label': 'bench',
+                'model': None,
+                'tran': None,
+                'ro': False,
+                'hotplug': True,
+            },
+        ],
+    })
+    env = dict(os.environ)
+    env['PATH'] = f'{fake_bin}:{env["PATH"]}'
+    dest = tmp_path / 'dataset'
+
+    result = _run_download(
+        '--dest', str(dest), '--keep-zip', '--no-convert', '--no-restamp',
+        '--dry-run', env=env,
+    )
+    output = _combined_output(result)
+
+    assert result.returncode == 0, output
+    assert (
+        'attached:    /dev/sdz1 '
+        '(Portable SSD, ext4, 1999000000000 bytes, label bench); '
+        'unmounted, free space unverified'
+    ) in output
+    assert (
+        'preflight:   bash scripts/download_ntu_viral_tnp01.sh '
+        '--dest-device /dev/sdz1 --keep-zip --no-convert --no-restamp '
+        '--dry-run'
+    ) in output
+    assert (
+        'after READY: bash scripts/download_ntu_viral_tnp01.sh '
+        '--dest-device /dev/sdz1 --keep-zip --no-convert --no-restamp'
+    ) in output
+    assert not dest.exists()
+
+
+def test_dest_device_requires_mount_before_planning(tmp_path: pathlib.Path):
+    fake_bin = tmp_path / 'bin'
+    fake_bin.mkdir()
+    _fake_lsblk(fake_bin, {
+        'blockdevices': [{
+            'path': '/dev/sdz1',
+            'mountpoints': [None],
+        }],
+    })
+    env = dict(os.environ)
+    env['PATH'] = f'{fake_bin}:{env["PATH"]}'
+
+    result = _run_download(
+        '--dest-device', '/dev/sdz1', '--dry-run', env=env,
+    )
+    output = _combined_output(result)
+
+    assert result.returncode == 2
+    assert 'destination device is not mounted: /dev/sdz1' in output
+    assert 'udisksctl mount -b /dev/sdz1' in output
+    assert 'NTU VIRAL tnp_01 acquisition plan' not in output
+
+
+def test_dest_device_resolves_mountpoint_and_appends_dataset_directory(
+    tmp_path: pathlib.Path,
+):
+    fake_bin = tmp_path / 'bin'
+    fake_bin.mkdir()
+    mountpoint = tmp_path / 'mounted volume'
+    mountpoint.mkdir()
+    _fake_lsblk(fake_bin, {
+        'blockdevices': [{
+            'path': '/dev/sdz1',
+            'mountpoints': [str(mountpoint)],
+        }],
+    })
+    env = dict(os.environ)
+    env['PATH'] = f'{fake_bin}:{env["PATH"]}'
+
+    result = _run_download(
+        '--dest-device', '/dev/sdz1', '--dry-run', env=env,
+    )
+    output = _combined_output(result)
+
+    assert result.returncode == 0, output
+    assert f'dest:        {mountpoint}/ntu_viral' in output
+    assert not (mountpoint / 'ntu_viral').exists()
+
+
+def test_download_rejects_dest_and_dest_device_combination(
+    tmp_path: pathlib.Path,
+):
+    result = _run_download(
+        '--dest', str(tmp_path), '--dest-device', '/dev/sdz1', '--dry-run',
+    )
+
+    assert result.returncode == 2
+    assert '--dest and --dest-device are mutually exclusive' in result.stderr
 
 
 def test_download_rejects_cached_archive_with_wrong_identity(

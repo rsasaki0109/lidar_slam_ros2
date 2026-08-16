@@ -309,6 +309,8 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'scripts/run_source_onboarding_probe.py' in paths
     assert 'scripts/release_channel.py' in paths
     assert 'scripts/check_release_bundle_reproducibility.py' in paths
+    assert 'scripts/attached_storage.py' in paths
+    assert 'scripts/download_ntu_viral_tnp01.sh' in paths
     assert 'scripts/download_rtk_slam_dataset.py' in paths
     assert 'scripts/docker_map_bag.sh' in paths
     assert f'docs/releases/{CURRENT_TAG}.md' in paths
@@ -327,6 +329,16 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
         )
         assert downloader_member is not None
         downloader_payload = downloader_member.read()
+        ntu_member = archive.extractfile(
+            'release_bundle/scripts/download_ntu_viral_tnp01.sh'
+        )
+        assert ntu_member is not None
+        ntu_payload = ntu_member.read()
+        storage_member = archive.extractfile(
+            'release_bundle/scripts/attached_storage.py'
+        )
+        assert storage_member is not None
+        storage_payload = storage_member.read()
     assert embedded == first_manifest
 
     extracted_downloader = tmp_path / 'download_rtk_slam_dataset.py'
@@ -343,6 +355,32 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'construction_seq1' in listed.stdout
     assert 'stadtgarten_seq2' in listed.stdout
     assert 'stadtgarten_seq1' in listed.stdout
+
+    extracted_scripts = tmp_path / 'scripts'
+    extracted_scripts.mkdir()
+    extracted_ntu = extracted_scripts / 'download_ntu_viral_tnp01.sh'
+    extracted_ntu.write_bytes(ntu_payload)
+    extracted_storage = extracted_scripts / 'attached_storage.py'
+    extracted_storage.write_bytes(storage_payload)
+    ntu_help = subprocess.run(
+        ['bash', str(extracted_ntu), '--help'],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert ntu_help.returncode == 0, ntu_help.stderr
+    assert '--dest-device' in ntu_help.stderr
+    storage_help = subprocess.run(
+        [sys.executable, str(extracted_storage), '--help'],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert storage_help.returncode == 0, storage_help.stderr
+    assert 'discover' in storage_help.stdout
+    assert 'mountpoint' in storage_help.stdout
 
 
 def test_release_bundle_rehearsal_reverifies_and_publishes_once(
