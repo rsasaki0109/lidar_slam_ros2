@@ -80,6 +80,7 @@ def test_manifest_pins_official_exact_identities():
     assert DOWNLOAD.EVAL_REPO_COMMIT == (
         'f2921a58caf5a87c1f4f73b48c6f2a5e35f92924'
     )
+    assert DOWNLOAD.EVAL_ASSETS_PLANNING_BYTES == 150_000_000
     assert list(DOWNLOAD.SEQUENCES) == [
         'construction_seq2',
         'construction_seq1',

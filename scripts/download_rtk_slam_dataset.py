@@ -50,7 +50,10 @@ HF_RESOLVE = (
 )
 EVAL_REPO_URL = 'https://github.com/Willyzw/rtk-slam-eval.git'
 EVAL_REPO_COMMIT = 'f2921a58caf5a87c1f4f73b48c6f2a5e35f92924'
-EVAL_ASSETS_PLANNING_BYTES = 50_000_000
+# A pinned checkout measured 92,874,519 bytes including its Git directory.
+# Keep headroom for filesystem and Git-version variance; the separate reserve
+# below still applies to the complete acquisition plan.
+EVAL_ASSETS_PLANNING_BYTES = 150_000_000
 MINIMUM_SPACE_RESERVE_BYTES = 1_000_000_000
 
 # Exact identities from the official Hugging Face tree API at HF_REVISION.
