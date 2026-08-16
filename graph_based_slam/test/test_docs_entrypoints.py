@@ -735,7 +735,7 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
     if candidate_banner in release_notes:
         assert '## Release decision: HOLD' in release_notes
         assert '2,468 passed / 13 skipped' in release_notes
-        assert '08995b725fbe989ff7820104fec8b0fb154e4805' in (
+        assert 'ca6e85a4a903d8a5bf90138364c1f7c025f7c0c3' in (
             release_notes
         )
     else:
