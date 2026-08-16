@@ -85,6 +85,9 @@
 > Bounded map-quality symptom validation carrier:
 > `9f8a2058a3c702f69d159079568ced8433ee3377`
 >
+> Bounded map-quality symptom candidate-bundle SHA-256:
+> `51c025064de769d1f0c362f51718c52a0beed8492f0881c0e02403b33498e997`
+>
 > Latest privacy-safe symptom support-handoff implementation tip:
 > `0d102e016717d2def3db3a99525755837461f759`
 >
