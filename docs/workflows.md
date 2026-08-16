@@ -562,8 +562,20 @@ bash scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh \
 An `nav_msgs/msg/Odometry` message contains a parent frame in
 `header.frame_id` and a child frame in `child_frame_id`. Publishing those
 fields does not, by itself, guarantee that the matching transform is present
-in the `/tf` tree. Replace every angle-bracket placeholder before running the
-checks below.
+in the `/tf` tree. Start with the read-only bag check:
+
+```bash
+lidarslam-map doctor /path/to/rosbag2
+```
+
+When the bag contains Odometry, doctor scans the highest-count Odometry topic
+and all recorded TF topics, with a 100,000-message bound per topic. It reports
+empty or inconsistent frame IDs, no connecting path, or a path containing only
+`/tf_static`. A multi-hop path such as
+`odom -> base_footprint -> base_link` is accepted when at least one edge comes
+from dynamic `/tf`. This bag evidence does not prove live transform freshness,
+clock alignment, or interpolation at every sensor timestamp. Use the checks
+below for the running system and replace every angle-bracket placeholder first.
 
 1. **Check the Odometry message frames**
 

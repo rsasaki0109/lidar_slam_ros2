@@ -40,7 +40,10 @@ Humble/Jazzy, the ROS CLI and bag reader, and fixed-demo storage. Providing the
 directory preserves the existing bag compatibility preflight. The system JSON
 report is governed by `system-doctor-v1.schema.json` and omits local paths. A
 storage rejection includes exact `additional_bytes_required`, a rounded-up
-human shortage, and the placeholder-free retry command.
+human shortage, and the placeholder-free retry command. Bag preflight v5 also
+checks bounded recorded Odometry parent/child frames against the bag's dynamic
+TF graph. It does not claim that a transform will be fresh or interpolatable
+at live runtime.
 
 Viewing is an optional post-processing command, not another required mapping
 step:

@@ -766,6 +766,15 @@ With a bag it retains the existing input/profile inspection. The
 keeps the real PPA/package-manager advantage and public clean-machine
 comparison pending.
 
+The 2026-08-17 issue-driven increment moves the existing Odometry/TF support
+card into that same bag doctor. A bounded scan now checks one deterministic
+Odometry topic against all recorded TF topics, accepts a dynamic multi-hop
+path, and separates invalid frames, no path, static-only evidence, and reader
+failure. Findings stay visible beside a compatible maintained mapping path and
+do not pretend to prove live freshness, timing, calibration, or accuracy. The
+[bounded evidence record](../evidence/growth/odometry-tf-bag-preflight-2026-08-17.md)
+keeps those claim and mutation limits explicit; no GitHub issue was changed.
+
 A read-only 2026-08-16 issue review found the same old file-edit handoff in
 [#95](https://github.com/rsasaki0109/lidar_slam_ros2/issues/95),
 [#98](https://github.com/rsasaki0109/lidar_slam_ros2/issues/98),
@@ -906,7 +915,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 317-path exact
+been expanded into the current 319-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell

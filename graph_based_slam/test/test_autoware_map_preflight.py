@@ -129,6 +129,63 @@ def _monotonic_timestamp_inspection(
     }
 
 
+def _odometry_tf_inspection(
+    *,
+    status: str,
+    tf_path: list[str] | None = None,
+    dynamic_path: bool | None = None,
+    frame_ids: list[str] | None = None,
+    child_frame_ids: list[str] | None = None,
+    invalid_frame_count: int = 0,
+    readable: bool = True,
+):
+    def inspect(
+        _bag_path: Path,
+        odometry_topic,
+        tf_topics,
+        _storage_id: str,
+        max_records_per_topic: int,
+    ) -> dict:
+        parents = ['odom'] if frame_ids is None else frame_ids
+        children = ['base_link'] if child_frame_ids is None else child_frame_ids
+        path = [] if tf_path is None else tf_path
+        return {
+            'status': status,
+            'odometry_topic': odometry_topic.name,
+            'expected_records': odometry_topic.message_count,
+            'records_scanned': odometry_topic.message_count if readable else 0,
+            'complete': True,
+            'readable': readable,
+            'header_frame_id': parents[0] if len(parents) == 1 else None,
+            'child_frame_id': children[0] if len(children) == 1 else None,
+            'frame_ids': parents,
+            'child_frame_ids': children,
+            'invalid_frame_count': invalid_frame_count,
+            'tf_topics': [
+                {
+                    'topic': topic.name,
+                    'expected_records': topic.message_count,
+                    'records_scanned': topic.message_count,
+                    'complete': True,
+                    'readable': topic.message_count > 0,
+                }
+                for topic in tf_topics
+            ],
+            'tf_records_scanned': sum(topic.message_count for topic in tf_topics),
+            'invalid_transform_count': 0,
+            'tf_path': path,
+            'dynamic_path': dynamic_path,
+            'max_records_per_topic': max_records_per_topic,
+            'reason': {
+                'passed': 'A dynamic TF path connects the Odometry frames.',
+                'sampled': 'A sampled dynamic TF path connects the Odometry frames.',
+                'failed': 'The Odometry frames do not have a usable dynamic TF path.',
+            }[status],
+        }
+
+    return inspect
+
+
 def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path):
     module = _load_module()
     bag_dir = _write_metadata(
@@ -148,13 +205,13 @@ def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path)
 
     schema = json.loads(
         (
-            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v4.schema.json'
+            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v5.schema.json'
         ).read_text(encoding='utf-8')
     )
     jsonschema.Draft7Validator.check_schema(schema)
     jsonschema.validate(payload, schema)
-    assert payload['schema_version'] == 4
-    assert payload['schema_uri'].endswith('/schemas/preflight-v4.schema.json')
+    assert payload['schema_version'] == 5
+    assert payload['schema_uri'].endswith('/schemas/preflight-v5.schema.json')
     assert payload['summary']['pointcloud_inspection']['timestamp_field'] == 'time'
     assert payload['summary']['timestamp_order']['status'] == 'passed'
     assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
@@ -172,6 +229,141 @@ def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path)
     assert 'Beginner command with browser viewer:' in report
     assert 'run_autoware_map_beginner.sh' in report
     assert 'inspect_navsatfix_covariance.py' in report
+
+
+def test_odometry_without_tf_is_visible_beside_compatible_path(tmp_path: Path):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 200),
+            ('/imu/data', 'sensor_msgs/msg/Imu', 2000),
+            ('/odom', 'nav_msgs/msg/Odometry', 1000),
+        ],
+    )
+
+    payload = module.build_preflight_payload(
+        bag_dir,
+        pointcloud_inspector=_compatible_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+        odometry_tf_inspector=_odometry_tf_inspection(status='failed'),
+    )
+
+    assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
+    assert payload['summary']['capabilities']['has_odometry'] is True
+    assert payload['summary']['topics']['odometry'][0]['name'] == '/odom'
+    assert payload['findings'][-1]['code'] == 'odometry-tf-missing'
+    assert 'does not publish that transform by itself' in payload['findings'][-1][
+        'message'
+    ]
+    report = module.render_text_report(payload)
+    assert 'Recommended path: RKO-LIO + graph_based_slam public path' in report
+    assert '[odometry-tf-missing]' in report
+
+
+def test_multihop_dynamic_odometry_tf_path_passes_without_finding(tmp_path: Path):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [
+            ('/odom', 'nav_msgs/msg/Odometry', 100),
+            ('/tf', 'tf2_msgs/msg/TFMessage', 100),
+            ('/tf_static', 'tf2_msgs/msg/TFMessage', 1),
+        ],
+    )
+
+    payload = module.build_preflight_payload(
+        bag_dir,
+        odometry_tf_inspector=_odometry_tf_inspection(
+            status='passed',
+            tf_path=['odom', 'base_footprint', 'base_link'],
+            dynamic_path=True,
+        ),
+    )
+
+    schema = json.loads(
+        (
+            REPO_ROOT / 'docs' / 'schemas' / 'preflight-v5.schema.json'
+        ).read_text(encoding='utf-8')
+    )
+    jsonschema.validate(payload, schema)
+    assert payload['summary']['odometry_tf']['status'] == 'passed'
+    assert not any(
+        finding['code'].startswith('odometry-')
+        for finding in payload['findings']
+    )
+
+
+def test_static_only_odometry_tf_path_has_specific_action(tmp_path: Path):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [
+            ('/odom', 'nav_msgs/msg/Odometry', 100),
+            ('/tf_static', 'tf2_msgs/msg/TFMessage', 1),
+        ],
+    )
+
+    payload = module.build_preflight_payload(
+        bag_dir,
+        odometry_tf_inspector=_odometry_tf_inspection(
+            status='failed',
+            tf_path=['odom', 'base_link'],
+            dynamic_path=False,
+        ),
+    )
+
+    finding = next(
+        item for item in payload['findings']
+        if item['code'] == 'odometry-tf-static-only'
+    )
+    assert 'dynamic /tf broadcaster' in finding['next_action']
+
+
+def test_inconsistent_odometry_frames_have_specific_action(tmp_path: Path):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [('/odom', 'nav_msgs/msg/Odometry', 100)],
+    )
+
+    payload = module.build_preflight_payload(
+        bag_dir,
+        odometry_tf_inspector=_odometry_tf_inspection(
+            status='failed',
+            frame_ids=['map', 'odom'],
+            invalid_frame_count=1,
+        ),
+    )
+
+    finding = next(
+        item for item in payload['findings']
+        if item['code'] == 'odometry-frame-invalid'
+    )
+    assert 'header.frame_id and child_frame_id' in finding['next_action']
+
+
+def test_tf_path_selection_is_deterministic_and_requires_motion_edge():
+    module = _load_module()
+    edges = {
+        ('base_footprint', 'odom'): True,
+        ('base_footprint', 'base_link'): False,
+        ('base_link', 'sensor'): False,
+        ('map', 'odom'): False,
+    }
+
+    assert module.find_tf_path(
+        edges,
+        'odom',
+        'base_link',
+        require_dynamic=True,
+    ) == (['odom', 'base_footprint', 'base_link'], True)
+    assert module.find_tf_path(
+        {('base_link', 'odom'): False},
+        'odom',
+        'base_link',
+        require_dynamic=True,
+    ) is None
 
 
 def test_packet_applanix_path_is_recommended_when_packet_topics_exist(tmp_path: Path):
@@ -634,6 +826,73 @@ def test_timestamp_reversal_blocks_affected_mapping_profile(tmp_path: Path):
     assert 'Header timestamp order: failed' in report
     assert '[timestamp-order-invalid]' in report
     assert 'Next:' in report
+
+
+def test_rosbag2_reader_accepts_dynamic_multihop_odometry_tf(
+    tmp_path: Path,
+):
+    rosbag2_py = pytest.importorskip('rosbag2_py')
+    from geometry_msgs.msg import TransformStamped  # noqa: PLC0415
+    from nav_msgs.msg import Odometry  # noqa: PLC0415
+    from rclpy.serialization import serialize_message  # noqa: PLC0415
+    from tf2_msgs.msg import TFMessage  # noqa: PLC0415
+
+    module = _load_module()
+    bag_dir = tmp_path / 'odometry_tf_bag'
+
+    def topic_metadata(topic_id: int, name: str, msg_type: str):
+        kwargs = {
+            'name': name,
+            'type': msg_type,
+            'serialization_format': 'cdr',
+        }
+        try:
+            return rosbag2_py.TopicMetadata(id=topic_id, **kwargs)
+        except TypeError:  # Humble TopicMetadata predates the numeric id
+            return rosbag2_py.TopicMetadata(**kwargs)
+
+    writer = rosbag2_py.SequentialWriter()
+    writer.open(
+        rosbag2_py.StorageOptions(uri=str(bag_dir), storage_id='sqlite3'),
+        rosbag2_py.ConverterOptions('', ''),
+    )
+    writer.create_topic(topic_metadata(0, '/odom', 'nav_msgs/msg/Odometry'))
+    writer.create_topic(topic_metadata(1, '/tf', 'tf2_msgs/msg/TFMessage'))
+    writer.create_topic(
+        topic_metadata(2, '/tf_static', 'tf2_msgs/msg/TFMessage')
+    )
+
+    odometry = Odometry()
+    odometry.header.frame_id = 'odom'
+    odometry.child_frame_id = 'base_link'
+    odom_to_footprint = TransformStamped()
+    odom_to_footprint.header.frame_id = 'odom'
+    odom_to_footprint.child_frame_id = 'base_footprint'
+    footprint_to_base = TransformStamped()
+    footprint_to_base.header.frame_id = 'base_footprint'
+    footprint_to_base.child_frame_id = 'base_link'
+    writer.write('/odom', serialize_message(odometry), 1_000_000_000)
+    writer.write(
+        '/tf',
+        serialize_message(TFMessage(transforms=[odom_to_footprint])),
+        1_000_000_001,
+    )
+    writer.write(
+        '/tf_static',
+        serialize_message(TFMessage(transforms=[footprint_to_base])),
+        1_000_000_002,
+    )
+    if hasattr(writer, 'close'):
+        writer.close()
+
+    payload = module.build_preflight_payload(bag_dir)
+    result = payload['summary']['odometry_tf']
+
+    assert result['status'] == 'passed'
+    assert result['tf_path'] == ['odom', 'base_footprint', 'base_link']
+    assert result['dynamic_path'] is True
+    assert result['records_scanned'] == 1
+    assert result['tf_records_scanned'] == 2
 
 
 @pytest.mark.skipif(

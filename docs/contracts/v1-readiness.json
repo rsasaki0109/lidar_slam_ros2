@@ -30,7 +30,7 @@
       "title": "Actionable input and output diagnosis",
       "state": "complete",
       "evidence": [
-        "docs/schemas/preflight-v4.schema.json",
+        "docs/schemas/preflight-v5.schema.json",
         "docs/schemas/diagnosis-v1.schema.json",
         "docs/schemas/map-session-recovery-v1.schema.json",
         "docs/schemas/map-session-index-v1.schema.json",

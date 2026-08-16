@@ -14,13 +14,13 @@ from typing import Any, Callable
 import yaml
 
 try:
-    from product_profiles import PROFILE_HELP, select_profile
+    from product_profiles import PROFILE_HELP
 except ModuleNotFoundError as exc:
     if exc.name != 'product_profiles':
         raise
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     try:
-        from product_profiles import PROFILE_HELP, select_profile
+        from product_profiles import PROFILE_HELP
     finally:
         sys.path.pop(0)
 
@@ -28,13 +28,14 @@ except ModuleNotFoundError as exc:
 POINTCLOUD2 = 'sensor_msgs/msg/PointCloud2'
 IMU = 'sensor_msgs/msg/Imu'
 NAVSATFIX = 'sensor_msgs/msg/NavSatFix'
+ODOMETRY = 'nav_msgs/msg/Odometry'
 VELODYNE_SCAN = 'velodyne_msgs/msg/VelodyneScan'
 TFMESSAGE = 'tf2_msgs/msg/TFMessage'
 GSOF49 = 'applanix_msgs/msg/NavigationSolutionGsof49'
 GSOF50 = 'applanix_msgs/msg/NavigationPerformanceGsof50'
 VELOCITY_REPORT = 'autoware_auto_vehicle_msgs/msg/VelocityReport'
-SCHEMA_VERSION = 4
-SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v4.schema.json'
+SCHEMA_VERSION = 5
+SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v5.schema.json'
 POINT_FIELD_UINT32 = 6
 POINT_FIELD_FLOAT32 = 7
 POINT_FIELD_FLOAT64 = 8
@@ -46,6 +47,7 @@ RKO_TIMESTAMP_DATATYPES = (
 )
 TIMESTAMP_SCAN_MSGTYPES = (POINTCLOUD2, IMU)
 MAX_TIMESTAMP_RECORDS_PER_TOPIC = 100_000
+MAX_ODOMETRY_TF_RECORDS_PER_TOPIC = 100_000
 
 
 def _finding(code: str, message: str, next_action: str) -> dict[str, str]:
@@ -635,6 +637,415 @@ def _inspect_pointcloud_record_with_rosbags(
     }
 
 
+def _odometry_tf_state(
+    odometry_topic: TopicRecord,
+    tf_topics: list[TopicRecord],
+    max_records_per_topic: int,
+) -> dict[str, Any]:
+    """Build bounded mutable state for one Odometry-to-TF inspection."""
+    return {
+        'odometry_topic': odometry_topic.name,
+        'expected_records': odometry_topic.message_count,
+        'records_scanned': 0,
+        '_frame_ids': set(),
+        '_child_frame_ids': set(),
+        'invalid_frame_count': 0,
+        '_tf_topics': {
+            topic.name: {
+                'topic': topic.name,
+                'expected_records': topic.message_count,
+                'records_scanned': 0,
+                'complete': False,
+                'readable': False,
+            }
+            for topic in tf_topics
+        },
+        '_edges': {},
+        'invalid_transform_count': 0,
+        '_limit': max_records_per_topic,
+    }
+
+
+def _bounded_topic_satisfied(records_scanned: int, expected: int, limit: int) -> bool:
+    goal = min(expected if expected > 0 else limit, limit)
+    return records_scanned >= goal
+
+
+def _odometry_tf_scan_satisfied(state: dict[str, Any]) -> bool:
+    limit = state['_limit']
+    if not _bounded_topic_satisfied(
+        state['records_scanned'],
+        state['expected_records'],
+        limit,
+    ):
+        return False
+    return all(
+        _bounded_topic_satisfied(
+            topic['records_scanned'],
+            topic['expected_records'],
+            limit,
+        )
+        for topic in state['_tf_topics'].values()
+    )
+
+
+def _record_odometry_frames(state: dict[str, Any], message: Any) -> None:
+    """Record one Odometry parent/child pair without trusting empty IDs."""
+    if state['records_scanned'] >= state['_limit']:
+        return
+    state['records_scanned'] += 1
+    header = getattr(message, 'header', None)
+    parent = str(getattr(header, 'frame_id', '')).strip()
+    child = str(getattr(message, 'child_frame_id', '')).strip()
+    if not parent or not child or parent == child:
+        state['invalid_frame_count'] += 1
+        return
+    state['_frame_ids'].add(parent)
+    state['_child_frame_ids'].add(child)
+
+
+def _record_tf_transforms(
+    state: dict[str, Any],
+    topic: str,
+    message: Any,
+) -> None:
+    """Record one TFMessage and whether each undirected edge is dynamic."""
+    topic_state = state['_tf_topics'].get(topic)
+    if topic_state is None or topic_state['records_scanned'] >= state['_limit']:
+        return
+    topic_state['records_scanned'] += 1
+    topic_state['readable'] = True
+    dynamic = topic.rstrip('/').split('/')[-1] != 'tf_static'
+    for transform in getattr(message, 'transforms', []):
+        header = getattr(transform, 'header', None)
+        parent = str(getattr(header, 'frame_id', '')).strip()
+        child = str(getattr(transform, 'child_frame_id', '')).strip()
+        if not parent or not child or parent == child:
+            state['invalid_transform_count'] += 1
+            continue
+        edge = tuple(sorted((parent, child)))
+        state['_edges'][edge] = state['_edges'].get(edge, False) or dynamic
+
+
+def find_tf_path(
+    edges: dict[tuple[str, str], bool],
+    source: str,
+    target: str,
+    *,
+    require_dynamic: bool = False,
+) -> tuple[list[str], bool] | None:
+    """Return a deterministic simple TF path and its dynamic-edge state."""
+    graph: dict[str, dict[str, bool]] = {}
+    for (left, right), dynamic in edges.items():
+        graph.setdefault(left, {})[right] = dynamic
+        graph.setdefault(right, {})[left] = dynamic
+    queue: list[tuple[str, list[str]]] = [(source, [source])]
+    visited = {source}
+    while queue:
+        node, path = queue.pop(0)
+        if node == target:
+            used_dynamic = any(
+                graph[left][right]
+                for left, right in zip(path, path[1:])
+            )
+            if used_dynamic or not require_dynamic:
+                return path, used_dynamic
+            return None
+        for neighbor in sorted(graph.get(node, {})):
+            if neighbor in visited:
+                continue
+            visited.add(neighbor)
+            queue.append((neighbor, [*path, neighbor]))
+    return None
+
+
+def _finalize_odometry_tf_scan(
+    state: dict[str, Any],
+    *,
+    exhausted: bool,
+) -> dict[str, Any]:
+    """Turn bounded Odometry/TF scan state into the public preflight result."""
+    limit = state.pop('_limit')
+    expected = state['expected_records']
+    odometry_complete = exhausted or (
+        expected > 0 and state['records_scanned'] >= expected
+    )
+    frame_ids = sorted(state.pop('_frame_ids'))
+    child_frame_ids = sorted(state.pop('_child_frame_ids'))
+    tf_topics = []
+    for topic in state.pop('_tf_topics').values():
+        topic['complete'] = exhausted or (
+            topic['expected_records'] > 0
+            and topic['records_scanned'] >= topic['expected_records']
+        )
+        tf_topics.append(topic)
+    tf_topics.sort(key=lambda item: item['topic'])
+    readable = state['records_scanned'] > 0
+    parent = frame_ids[0] if len(frame_ids) == 1 else None
+    child = child_frame_ids[0] if len(child_frame_ids) == 1 else None
+    tf_path: list[str] = []
+    dynamic_path: bool | None = None
+
+    if not readable:
+        status = 'failed'
+        reason = 'No readable Odometry record was found on the selected topic.'
+    elif (
+        state['invalid_frame_count']
+        or len(frame_ids) != 1
+        or len(child_frame_ids) != 1
+    ):
+        status = 'failed'
+        reason = (
+            'Odometry parent/child frame IDs are empty, identical, or '
+            'inconsistent within the bounded bag scan.'
+        )
+    else:
+        edges = state.pop('_edges')
+        dynamic_result = find_tf_path(
+            edges,
+            parent,
+            child,
+            require_dynamic=True,
+        )
+        any_result = dynamic_result or find_tf_path(edges, parent, child)
+        if dynamic_result is not None:
+            tf_path, dynamic_path = dynamic_result
+            all_complete = odometry_complete and all(
+                topic['complete'] for topic in tf_topics
+            )
+            status = 'passed' if all_complete else 'sampled'
+            reason = (
+                'A TF path with at least one dynamic /tf edge connects the '
+                'Odometry parent and child frames.'
+            )
+        elif any_result is not None:
+            tf_path, dynamic_path = any_result
+            status = 'failed'
+            reason = (
+                'The bounded bag scan found only a static TF path between the '
+                'Odometry parent and child frames.'
+            )
+        else:
+            status = 'failed'
+            reason = (
+                'No TF path in the bounded bag scan connects the Odometry '
+                'parent and child frames.'
+            )
+
+    state.pop('_edges', None)
+    return {
+        'status': status,
+        'odometry_topic': state['odometry_topic'],
+        'expected_records': expected,
+        'records_scanned': state['records_scanned'],
+        'complete': odometry_complete,
+        'readable': readable,
+        'header_frame_id': parent,
+        'child_frame_id': child,
+        'frame_ids': frame_ids,
+        'child_frame_ids': child_frame_ids,
+        'invalid_frame_count': state['invalid_frame_count'],
+        'tf_topics': tf_topics,
+        'tf_records_scanned': sum(
+            topic['records_scanned'] for topic in tf_topics
+        ),
+        'invalid_transform_count': state['invalid_transform_count'],
+        'tf_path': tf_path,
+        'dynamic_path': dynamic_path,
+        'max_records_per_topic': limit,
+        'reason': reason,
+    }
+
+
+def _odometry_tf_error_result(
+    odometry_topic: TopicRecord,
+    tf_topics: list[TopicRecord],
+    max_records_per_topic: int,
+    status: str,
+    reason: str,
+) -> dict[str, Any]:
+    return {
+        'status': status,
+        'odometry_topic': odometry_topic.name,
+        'expected_records': odometry_topic.message_count,
+        'records_scanned': 0,
+        'complete': False,
+        'readable': False,
+        'header_frame_id': None,
+        'child_frame_id': None,
+        'frame_ids': [],
+        'child_frame_ids': [],
+        'invalid_frame_count': 0,
+        'tf_topics': [
+            {
+                'topic': topic.name,
+                'expected_records': topic.message_count,
+                'records_scanned': 0,
+                'complete': False,
+                'readable': False,
+            }
+            for topic in sorted(tf_topics, key=lambda item: item.name)
+        ],
+        'tf_records_scanned': 0,
+        'invalid_transform_count': 0,
+        'tf_path': [],
+        'dynamic_path': None,
+        'max_records_per_topic': max_records_per_topic,
+        'reason': reason,
+    }
+
+
+def inspect_odometry_tf(
+    bag_path: Path,
+    odometry_topic: TopicRecord,
+    tf_topics: list[TopicRecord],
+    storage_id: str,
+    max_records_per_topic: int = MAX_ODOMETRY_TF_RECORDS_PER_TOPIC,
+) -> dict[str, Any]:
+    """Boundedly verify that recorded Odometry frame IDs have dynamic TF."""
+    if max_records_per_topic <= 0:
+        raise ValueError('max_records_per_topic must be positive')
+    try:
+        import rosbag2_py
+        from nav_msgs.msg import Odometry
+        from rclpy.serialization import deserialize_message
+        from tf2_msgs.msg import TFMessage
+    except ImportError as exc:
+        return _inspect_odometry_tf_with_rosbags(
+            bag_path,
+            odometry_topic,
+            tf_topics,
+            max_records_per_topic,
+            ros_import_error=exc,
+        )
+
+    state = _odometry_tf_state(
+        odometry_topic,
+        tf_topics,
+        max_records_per_topic,
+    )
+    selected_topics = [odometry_topic.name, *state['_tf_topics']]
+    try:
+        reader = rosbag2_py.SequentialReader()
+        reader.open(
+            rosbag2_py.StorageOptions(
+                uri=str(bag_path),
+                storage_id=storage_id,
+            ),
+            rosbag2_py.ConverterOptions('', ''),
+        )
+        reader.set_filter(rosbag2_py.StorageFilter(topics=selected_topics))
+        exhausted = True
+        while reader.has_next():
+            if _odometry_tf_scan_satisfied(state):
+                exhausted = False
+                break
+            topic, serialized, _ = reader.read_next()
+            if topic == odometry_topic.name:
+                message = deserialize_message(serialized, Odometry)
+                _record_odometry_frames(state, message)
+            elif topic in state['_tf_topics']:
+                message = deserialize_message(serialized, TFMessage)
+                _record_tf_transforms(state, topic, message)
+        return _finalize_odometry_tf_scan(state, exhausted=exhausted)
+    except Exception as exc:  # storage plugins expose backend-specific errors
+        return _odometry_tf_error_result(
+            odometry_topic,
+            tf_topics,
+            max_records_per_topic,
+            'error',
+            f'Failed to inspect Odometry/TF connectivity: {exc}',
+        )
+
+
+def _inspect_odometry_tf_with_rosbags(
+    bag_path: Path,
+    odometry_topic: TopicRecord,
+    tf_topics: list[TopicRecord],
+    max_records_per_topic: int,
+    ros_import_error: ImportError,
+) -> dict[str, Any]:
+    try:
+        from rosbags.highlevel import AnyReader
+        from rosbags.typesys import Stores, get_typestore
+    except ImportError as rosbags_error:
+        return _odometry_tf_error_result(
+            odometry_topic,
+            tf_topics,
+            max_records_per_topic,
+            'unavailable',
+            'Odometry/TF inspection is unavailable: ROS 2 Python bindings '
+            f'failed to import ({ros_import_error}); the rosbags fallback '
+            f'also failed to import ({rosbags_error}).',
+        )
+
+    state = _odometry_tf_state(
+        odometry_topic,
+        tf_topics,
+        max_records_per_topic,
+    )
+    try:
+        typestore = get_typestore(Stores.LATEST)
+        with AnyReader(
+            [bag_path],
+            default_typestore=typestore,
+        ) as reader:
+            selected_topics = {odometry_topic.name, *state['_tf_topics']}
+            connections = [
+                connection
+                for connection in reader.connections
+                if connection.topic in selected_topics
+                and connection.msgtype in {ODOMETRY, TFMESSAGE}
+            ]
+            exhausted = True
+            for connection, _, serialized in reader.messages(
+                connections=connections,
+            ):
+                if _odometry_tf_scan_satisfied(state):
+                    exhausted = False
+                    break
+                message = reader.deserialize(serialized, connection.msgtype)
+                if connection.msgtype == ODOMETRY:
+                    _record_odometry_frames(state, message)
+                else:
+                    _record_tf_transforms(state, connection.topic, message)
+        return _finalize_odometry_tf_scan(state, exhausted=exhausted)
+    except Exception as exc:
+        return _odometry_tf_error_result(
+            odometry_topic,
+            tf_topics,
+            max_records_per_topic,
+            'error',
+            'Failed to inspect Odometry/TF connectivity with rosbags: '
+            f'{exc}',
+        )
+
+
+def _no_odometry_tf_result(
+    max_records_per_topic: int,
+) -> dict[str, Any]:
+    return {
+        'status': 'not_applicable',
+        'odometry_topic': None,
+        'expected_records': 0,
+        'records_scanned': 0,
+        'complete': True,
+        'readable': False,
+        'header_frame_id': None,
+        'child_frame_id': None,
+        'frame_ids': [],
+        'child_frame_ids': [],
+        'invalid_frame_count': 0,
+        'tf_topics': [],
+        'tf_records_scanned': 0,
+        'invalid_transform_count': 0,
+        'tf_path': [],
+        'dynamic_path': None,
+        'max_records_per_topic': max_records_per_topic,
+        'reason': 'No Odometry topic was found.',
+    }
+
+
 def summarize_bag(bag_path: Path) -> dict[str, Any]:
     """Summarize a rosbag2 in terms of map-authoring inputs."""
     bag_info = load_bag_metadata(bag_path)
@@ -647,6 +1058,7 @@ def summarize_bag(bag_path: Path) -> dict[str, Any]:
             'pointcloud2': [asdict(item) for item in _topic_group(topic_records, POINTCLOUD2)],
             'imu': [asdict(item) for item in _topic_group(topic_records, IMU)],
             'navsatfix': [asdict(item) for item in _topic_group(topic_records, NAVSATFIX)],
+            'odometry': [asdict(item) for item in _topic_group(topic_records, ODOMETRY)],
             'velodyne_scan': [asdict(item) for item in _topic_group(topic_records, VELODYNE_SCAN)],
             'applanix_gsof49': [asdict(item) for item in _topic_group(topic_records, GSOF49)],
             'applanix_gsof50': [asdict(item) for item in _topic_group(topic_records, GSOF50)],
@@ -662,6 +1074,7 @@ def summarize_bag(bag_path: Path) -> dict[str, Any]:
         'has_pointcloud2': bool(summary['topics']['pointcloud2']),
         'has_imu': bool(summary['topics']['imu']),
         'has_navsatfix': bool(summary['topics']['navsatfix']),
+        'has_odometry': bool(summary['topics']['odometry']),
         'has_velodyne_scan': bool(summary['topics']['velodyne_scan']),
         'has_applanix_gsof49': bool(summary['topics']['applanix_gsof49']),
         'has_applanix_gsof50': bool(summary['topics']['applanix_gsof50']),
@@ -849,7 +1262,12 @@ def build_preflight_payload(
         [Path, list[TopicRecord], str, int],
         dict[str, Any],
     ] | None = None,
+    odometry_tf_inspector: Callable[
+        [Path, TopicRecord, list[TopicRecord], str, int],
+        dict[str, Any],
+    ] | None = None,
     max_timestamp_records_per_topic: int = MAX_TIMESTAMP_RECORDS_PER_TOPIC,
+    max_odometry_tf_records_per_topic: int = MAX_ODOMETRY_TF_RECORDS_PER_TOPIC,
 ) -> dict[str, Any]:
     """Create the machine-readable preflight result."""
     summary = summarize_bag(bag_path)
@@ -884,6 +1302,21 @@ def build_preflight_payload(
         storage_id,
         max_timestamp_records_per_topic,
     )
+    odometry_topic = _best_topic(_collect_topics(bag_info), ODOMETRY)
+    if odometry_topic is None:
+        summary['odometry_tf'] = _no_odometry_tf_result(
+            max_odometry_tf_records_per_topic,
+        )
+    else:
+        tf_topics = _topic_group(_collect_topics(bag_info), TFMESSAGE)
+        odometry_inspector = odometry_tf_inspector or inspect_odometry_tf
+        summary['odometry_tf'] = odometry_inspector(
+            bag_path,
+            odometry_topic,
+            tf_topics,
+            storage_id,
+            max_odometry_tf_records_per_topic,
+        )
     recommendations = build_recommendations(summary)
     bag_q = _safe_quote(summary['bag_path'])
     advisory = []
@@ -976,12 +1409,56 @@ def build_preflight_payload(
                     f"Header timestamp disorder on {topic['topic']}: "
                     f"{topic['reversal_count']} reversal(s), "
                     f"{topic['invalid_stamp_count']} invalid stamp(s), "
-                    f"maximum backward jump "
+                    'maximum backward jump '
                     f"{topic['max_backward_jump_ns'] / 1e9:.9f} s. "
                     'Correct or rewrite the bag before mapping.',
                     f"Rewrite header.stamp on {topic['topic']} so it is valid and "
                     'monotonic, then rerun lidarslam-map doctor <rosbag2_dir>.',
                 ))
+    odometry_tf = summary['odometry_tf']
+    if odometry_tf['status'] in {'error', 'unavailable'}:
+        findings.append(_finding(
+            'odometry-tf-inspection-unavailable',
+            'Odometry-to-TF connectivity could not be inspected: '
+            f"{odometry_tf['reason']}",
+            'Run ros2 bag info <rosbag2_dir>; repair invalid metadata or install '
+            'the reported storage/message support, then rerun '
+            'lidarslam-map doctor <rosbag2_dir>.',
+        ))
+    elif odometry_tf['status'] == 'failed':
+        if (
+            not odometry_tf['readable']
+            or odometry_tf['invalid_frame_count']
+            or len(odometry_tf['frame_ids']) != 1
+            or len(odometry_tf['child_frame_ids']) != 1
+        ):
+            findings.append(_finding(
+                'odometry-frame-invalid',
+                f"Odometry topic {odometry_tf['odometry_topic']} has invalid or "
+                f"inconsistent parent/child frame IDs: {odometry_tf['reason']}",
+                'Correct header.frame_id and child_frame_id on the Odometry '
+                'publisher or bag, then rerun lidarslam-map doctor '
+                '<rosbag2_dir>.',
+            ))
+        elif odometry_tf['tf_path'] and odometry_tf['dynamic_path'] is False:
+            findings.append(_finding(
+                'odometry-tf-static-only',
+                f"Odometry frames {odometry_tf['header_frame_id']} -> "
+                f"{odometry_tf['child_frame_id']} have only a static path in "
+                f"the bounded bag scan: {' -> '.join(odometry_tf['tf_path'])}.",
+                'Configure or record a dynamic /tf broadcaster for the Odometry '
+                'motion, then rerun lidarslam-map doctor <rosbag2_dir>.',
+            ))
+        else:
+            findings.append(_finding(
+                'odometry-tf-missing',
+                f"Odometry frames {odometry_tf['header_frame_id']} -> "
+                f"{odometry_tf['child_frame_id']} have no connecting TF path "
+                'in the bounded bag scan. An Odometry message does not publish '
+                'that transform by itself.',
+                'Configure or record the matching dynamic /tf broadcaster, then '
+                'rerun lidarslam-map doctor <rosbag2_dir>.',
+            ))
     if not recommendations:
         if not summary['capabilities']['has_imu']:
             findings.append(_finding(
@@ -1065,6 +1542,7 @@ def render_text_report(payload: dict[str, Any]) -> str:
         f"  PointCloud2: {_format_topic_list(summary['topics']['pointcloud2'])}",
         f"  Imu: {_format_topic_list(summary['topics']['imu'])}",
         f"  NavSatFix: {_format_topic_list(summary['topics']['navsatfix'])}",
+        f"  Odometry: {_format_topic_list(summary['topics']['odometry'])}",
         f"  VelodyneScan: {_format_topic_list(summary['topics']['velodyne_scan'])}",
         f"  Applanix GSOF49: {_format_topic_list(summary['topics']['applanix_gsof49'])}",
         f"  Applanix GSOF50: {_format_topic_list(summary['topics']['applanix_gsof50'])}",
@@ -1082,6 +1560,12 @@ def render_text_report(payload: dict[str, Any]) -> str:
         '  Header timestamp order: '
         f"{timestamp_order['status']} ({timestamp_order['reason']})"
     )
+    odometry_tf = summary['odometry_tf']
+    if odometry_tf['status'] != 'not_applicable':
+        lines.append(
+            '  Odometry -> TF: '
+            f"{odometry_tf['status']} ({odometry_tf['reason']})"
+        )
 
     if recommendations:
         primary = recommendations[0]
@@ -1112,16 +1596,18 @@ def render_text_report(payload: dict[str, Any]) -> str:
         lines.extend([
             '',
             'Recommended path: none',
-            'Findings:',
         ])
-        findings = payload.get('findings') or []
-        if findings:
-            for finding in findings:
-                lines.append(f"  [{finding['code']}] {finding['message']}")
-                lines.append(f"    Next: {finding['next_action']}")
-        else:
-            for item in payload['missing_requirements']:
-                lines.append(f'  - {item}')
+
+    findings = payload.get('findings') or []
+    if findings:
+        lines.extend(['', 'Findings:'])
+        for finding in findings:
+            lines.append(f"  [{finding['code']}] {finding['message']}")
+            lines.append(f"    Next: {finding['next_action']}")
+    elif not recommendations and payload['missing_requirements']:
+        lines.extend(['', 'Findings:'])
+        for item in payload['missing_requirements']:
+            lines.append(f'  - {item}')
 
     if payload['advisory']:
         lines.append('')

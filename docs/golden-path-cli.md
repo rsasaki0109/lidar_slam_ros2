@@ -284,8 +284,13 @@ and selects a compatible maintained profile. For RKO-LIO profiles it also
 reads the first selected `PointCloud2` record and requires FLOAT32 XYZ fields
 plus a supported per-point timestamp field (`t`, `timestamp`, `time`, or
 `stamps`). If the record cannot be inspected or does not satisfy that layout,
-no RKO-LIO profile is recommended. Add `--json` for automation. This
-field-layout check does not certify timestamp units, calibration, or TF.
+no RKO-LIO profile is recommended. When an Odometry topic is present, doctor
+also scans the highest-count Odometry topic and every recorded TF topic up to
+100,000 messages per topic. It reports empty or inconsistent parent/child
+frames, a missing path, and a static-only path without hiding an otherwise
+compatible maintained SLAM profile. Add `--json` for automation. These bounded
+bag checks do not certify timestamp units, calibration, live TF freshness,
+interpolation, or accuracy.
 
 `run` prints the selected profile and deterministic command before execution.
 Use `--dry-run` to inspect the plan without creating the output directory.
@@ -491,7 +496,9 @@ deprecated `run` compatibility options; `view` has no `none` mode.
 Automation should select the schema using `schema_version` and `schema_uri`;
 it must not infer compatibility from the repository version.
 
-- [Preflight schema v4](schemas/preflight-v4.schema.json) — current; adds
+- [Preflight schema v5](schemas/preflight-v5.schema.json) — current; adds
+  bounded Odometry parent/child and recorded dynamic-TF connectivity evidence
+- [Preflight schema v4](schemas/preflight-v4.schema.json) — adds
   stable rejection finding codes and one concrete next action per finding
 - [Preflight schema v3](schemas/preflight-v3.schema.json) — adds
   bounded, per-topic `PointCloud2`/`Imu` `header.stamp` order inspection
@@ -528,12 +535,13 @@ Top-level fields are closed within a published schema. A field addition,
 removal, type change, or semantic break requires a new schema file and
 migration guidance.
 
-Preflight v1 through v3 and run manifest v1 remain published for existing
+Preflight v1 through v4 and run manifest v1 remain published for existing
 artifacts. Preflight v1 only reports metadata-level topic compatibility;
 preflight v2 adds PointCloud2 field inspection but predates header timestamp
 order evidence. Preflight v3 adds timestamp-order evidence but predates stable,
-actionable rejection findings. Run manifest v1 predates durable lifecycle
-stages, so it can be inspected but cannot be resumed safely.
+actionable rejection findings. Preflight v4 adds those findings but predates
+Odometry-to-TF bag connectivity evidence. Run manifest v1 predates durable
+lifecycle stages, so it can be inspected but cannot be resumed safely.
 
 For archived terminal v1 manifests, create a separate schema-v2 inspection
 copy only when an automation consumer requires v2:
