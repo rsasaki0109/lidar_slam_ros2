@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-17T16:59:07+09:00",
+  "generated_at": "2026-08-17T17:06:47+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
@@ -141,7 +141,7 @@
       "id": "S3-map-lifecycle",
       "order": 3,
       "title": "Sensor setup, session history, map editing, merging, and support",
-      "review_outcome": "Users can move beyond a first map without hand-editing commands or losing provenance, recovery state, or support-safe evidence; interactive calibration review continues through one fail-closed prompt while non-interactive use retains an exact rerun command.",
+      "review_outcome": "Users can move beyond a first map without hand-editing commands or losing provenance, recovery state, or support-safe evidence; interactive calibration review continues through one fail-closed prompt, non-interactive use retains an exact rerun command, and confirmed live starts skip repeated setup detail before durable progress.",
       "depends_on": [
         "S2-first-map-foundation"
       ],

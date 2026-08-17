@@ -478,6 +478,15 @@ work and document the actual support boundary instead of hiding the delay.
   support/installed, 21 option-contract, and 331 broad S6 regressions pass,
   with changed-code `ament_flake8` and strict MkDocs. No real mapping, upload,
   network access, issue, or GitHub write is performed.
+- Exact follow-up `2d0bb84a447e29b940adda4bd432e3d5725c9cc0` removes the
+  remaining confirmed-start repetition. A confirmed live `start` skips the
+  full READY setup card and enters the existing start/progress card directly;
+  setup-only, dry-run, and unconfirmed non-RKO review retain full input,
+  calibration, and command detail. Thirty-six sensor-setup regressions, exact
+  S3 lifecycle 71 and edit/merge 15, plus 42 docs/product, 25
+  support/installed, 21 option-contract, and 331 broad S6 regressions pass,
+  with changed-code `ament_flake8` and strict MkDocs. No real mapping, upload,
+  network access, issue, or GitHub write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

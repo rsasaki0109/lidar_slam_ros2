@@ -327,3 +327,43 @@ Verification on the implementation tip:
 This removes one misleading copy-paste detour without weakening calibration
 review or automation. It is not a real first map, clean-host timing result,
 paired external GLIM observation, or parity/superiority claim.
+
+## Direct-to-progress confirmed-start follow-up — 2026-08-17
+
+> Decision: **LOCAL_DIRECT_PROGRESS_PASS / PAIRED_PUBLIC_TRIAL_PENDING**
+>
+> Implementation tip:
+> `2d0bb84a447e29b940adda4bd432e3d5725c9cc0`
+>
+> Real mapping, network, GitHub, release, or community mutations performed:
+> **none**
+
+After the single calibration prompt, confirmed live `start` still rendered the
+complete READY setup card and then a second start/progress card. Topics,
+transforms, the delegated command, and the setup destination were therefore
+repeated after the operator had already made the safety decision.
+
+The confirmed path now skips that repeated review and enters the existing
+start/progress card directly. Setup-only and dry-run output retain full selected
+inputs, calibration, and delegated command detail because no execution follows.
+An unconfirmed non-RKO path also retains that detail before its fail-closed
+prompt. The durable `sensor_setup.json`, `session.json`, live progress,
+verification, and recovery contracts are unchanged.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| complete sensor-setup wizard regressions | 36 passed |
+| exact S3 lifecycle command | 71 passed |
+| exact S3 edit/merge command | 15 passed |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 331 passed |
+| changed-code Jazzy `ament_flake8` | PASS |
+| strict MkDocs, JSON, bytecode, plan, and patch hygiene | PASS |
+
+This removes duplicate terminal reading without hiding a pending decision or
+changing automation. It is not a real first map, clean-host timing result,
+paired external GLIM observation, or parity/superiority claim.
