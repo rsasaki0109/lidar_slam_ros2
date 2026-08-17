@@ -451,3 +451,42 @@ Verification on the implementation tip:
 This gives failed mapping one immediate repair step without deleting expert or
 machine recovery evidence. It is not a real failure recovery, clean-host timing
 result, paired external GLIM observation, or parity/superiority claim.
+
+## Bounded long-stage heartbeat follow-up — 2026-08-17
+
+> Decision: **LOCAL_BOUNDED_HEARTBEAT_PASS / PAIRED_PUBLIC_TRIAL_PENDING**
+>
+> Implementation tip:
+> `e2043c0f324ba8fb855b3a723cb670acd40cb2ad`
+>
+> Real mapping, network, GitHub, release, or community mutations performed:
+> **none**
+
+Previously, a delegated stage that legitimately ran for several minutes stayed
+silent until its durable run-manifest stage changed. That preserved evidence
+correctness but could make a healthy first map look stuck.
+
+An unchanged non-complete stage now emits at most one terminal heartbeat every
+30 seconds. It reuses the durable stage label and reports monotonic elapsed time
+only. A heartbeat writes neither `session.json` nor `session.html`, and it emits
+no percentage, ETA, or assertion that the delegated workflow advanced. Durable
+stage transitions remain the sole progress-artifact update boundary.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| complete sensor-setup wizard regressions | 39 passed |
+| exact S3 lifecycle command | 74 passed |
+| exact S3 edit/merge command | 15 passed |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 331 passed |
+| changed-code Jazzy `ament_flake8` | PASS |
+| strict MkDocs, JSON, bytecode, plan, and patch hygiene | PASS |
+
+This keeps long mapping visibly active without inventing progress or increasing
+artifact churn. The test uses a mocked monitor clock and stage source; it is not
+a real long mapping run, clean-host timing result, paired external GLIM
+observation, or parity/superiority claim.

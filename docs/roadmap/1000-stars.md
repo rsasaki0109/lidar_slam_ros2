@@ -505,6 +505,17 @@ work and document the actual support boundary instead of hiding the delay.
   support/installed, 21 option-contract, and 331 broad S6 regressions pass,
   with changed-code `ament_flake8` and strict MkDocs. No real mapping, upload,
   network access, issue, or GitHub write is performed.
+- Exact follow-up `e2043c0f324ba8fb855b3a723cb670acd40cb2ad` keeps long stages
+  visibly active without inventing progress. An unchanged non-complete stage
+  prints at most one heartbeat every 30 seconds with its existing label and
+  monotonic elapsed time; durable stage changes alone rewrite session
+  artifacts, and no percentage, ETA, or delegated forward-progress claim is
+  emitted. Thirty-nine sensor-setup regressions, exact S3 lifecycle 74 and
+  edit/merge 15, plus 42 docs/product, 25 support/installed, 21 option-contract,
+  and 331 broad S6 regressions pass, with changed-code `ament_flake8`, strict
+  MkDocs, and plan validation. This is a mocked monitor-boundary result, not a
+  real long mapping run, clean-host timing result, paired GLIM observation, or
+  parity claim. No upload, network access, issue, or GitHub write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.
