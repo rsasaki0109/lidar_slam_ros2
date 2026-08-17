@@ -147,6 +147,11 @@ def test_contract_identifies_the_complete_product_surface():
     assert 'bag-preflight-input-error' in doctor['safety_rules'][5]
     assert 'every human bag report warns' in doctor['safety_rules'][6]
     assert 'shell-safe --public-json command' in doctor['safety_rules'][6]
+    assert 'exact-input start command' in doctor['safety_rules'][7]
+    assert 'hides lower-level mapping alternatives' in doctor['safety_rules'][7]
+    assert 'with findings' in doctor['safety_rules'][8]
+    assert 'withholds start' in doctor['safety_rules'][8]
+    assert 'exact-input doctor retry' in doctor['safety_rules'][8]
     symptom = contract['map_quality_symptom_triage_contract']
     assert symptom['schema_uri'].endswith('/schemas/diagnosis-v1.schema.json')
     assert symptom['command'] == 'inspect'

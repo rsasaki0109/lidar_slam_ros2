@@ -383,17 +383,49 @@ def test_human_doctor_prints_one_shell_safe_public_support_handoff(
     monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam-map doctor')
 
     report = module.render_text_report(payload)
+    report_lines = report.splitlines()
     delegated_command = report.splitlines()[-1].strip()
 
     assert report.count('Need public support?') == 1
     assert 'Keep this full report local' in report
     assert 'review it before sharing' in report
+    action_index = report_lines.index('Do this now:')
+    assert shlex.split(report_lines[action_index + 1].strip()) == [
+        'lidarslam-map',
+        'start',
+        str(bag_dir),
+    ]
+    assert 'Beginner command:' not in report
+    assert 'Other compatible paths:' not in report
+    assert 'run_autoware_map_beginner.sh' not in report
     assert shlex.split(delegated_command) == [
         'lidarslam-map',
         'doctor',
         str(bag_dir),
         '--public-json',
     ]
+
+    action_required = {
+        **payload,
+        'findings': [{
+            'code': 'calibration-review-required',
+            'message': 'Review the measured sensor transforms.',
+            'next_action': 'Record and review the measured transforms.',
+        }],
+    }
+    blocked_report = module.render_text_report(action_required)
+    blocked_lines = blocked_report.splitlines()
+    retry_index = blocked_lines.index(
+        '  Resolve the first finding below, then rerun:'
+    )
+    assert 'Do this now:' not in blocked_report
+    assert 'Before mapping:' in blocked_report
+    assert shlex.split(blocked_lines[retry_index + 1].strip()) == [
+        'lidarslam-map',
+        'doctor',
+        str(bag_dir),
+    ]
+    assert 'lidarslam-map start' not in blocked_report
 
 
 def test_public_doctor_input_error_never_echoes_the_private_path(

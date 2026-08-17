@@ -82,6 +82,8 @@
       "--public-json requires a bag and emits only type/count/check/profile/finding-code evidence without bag paths, topic or frame names, local commands, raw data, raw logs, or free-text messages",
       "--public-json emits the same path-free schema with bag-preflight-input-error when the local input cannot be read",
       "every human bag report warns that the full report remains local and displays one shell-safe --public-json command for the exact input",
+      "a ready human bag report reached through the product CLI displays one shell-safe exact-input start command and hides lower-level mapping alternatives",
+      "a human bag report with findings reached through the product CLI withholds start and displays the exact-input doctor retry after the first finding",
       "system-only storage options fail closed when a bag is provided"
     ]
   },

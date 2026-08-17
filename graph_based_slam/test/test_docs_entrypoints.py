@@ -978,6 +978,14 @@ def test_bug_form_accepts_pre_session_failure_without_fake_zip_claims():
     assert 'human bag report always ends with that shell-safe command' in (
         compatibility
     )
+    assert 'one exact **Do this now** `lidarslam-map start` command' in (
+        getting_started
+    )
+    assert 'withholds that start command' in getting_started
+    assert 'ready report exposes one exact-input `lidarslam-map start`' in (
+        compatibility
+    )
+    assert 'report with findings withholds that start action' in compatibility
 
 
 def test_autoware_form_never_requests_private_map_or_origin_evidence():

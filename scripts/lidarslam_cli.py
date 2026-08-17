@@ -308,7 +308,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             child_env[HELP_MODE_ENV] = 'all'
         elif '--help' in args or '-h' in args:
             child_env[HELP_MODE_ENV] = 'core'
-        child_env['LIDARSLAM_CLI_COMMAND'] = f'{command_name()} {command}'
+        child_env['LIDARSLAM_CLI_COMMAND'] = shlex.join([
+            command_name(),
+            command,
+        ])
         completed = subprocess.run(
             command_argv(command, args),
             check=False,

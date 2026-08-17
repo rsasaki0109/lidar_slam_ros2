@@ -246,6 +246,10 @@ def test_doctor_emits_machine_readable_preflight(tmp_path: Path):
     human_result = _run('doctor', str(bag))
 
     assert human_result.returncode == 0, human_result.stderr
+    assert 'Do this now:' in human_result.stdout
+    assert f'start {bag}' in human_result.stdout
+    assert 'run_autoware_map_beginner.sh' not in human_result.stdout
+    assert 'Other compatible paths:' not in human_result.stdout
     assert 'Need public support?' in human_result.stdout
     assert 'Keep this full report local' in human_result.stdout
     assert f'doctor {bag} --public-json' in human_result.stdout

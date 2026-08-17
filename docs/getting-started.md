@@ -66,7 +66,11 @@ compatibility. Storage options are system-only and are rejected when a bag is
 provided rather than being silently ignored. Every human bag report ends with
 one shell-safe public-support command using the exact bag path. Keep the full
 report local, run that displayed `--public-json` command, and review the bounded
-JSON before sharing it.
+JSON before sharing it. When the bag is ready, the product report also displays
+one exact **Do this now** `lidarslam-map start` command instead of exposing the
+lower-level scripts and compatible-path alternatives. If a finding remains,
+it withholds that start command, points to the first finding, and displays the
+exact `doctor` retry for the same bag.
 
 ## Docker First Map (No ROS 2 Workspace)
 

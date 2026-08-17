@@ -54,7 +54,12 @@ Use `doctor <rosbag2_dir> --public-json` for a reviewed public issue; its
 `public-doctor-evidence-v1` projection keeps only type/count/check/profile and
 stable finding-code evidence and returns path-free input-error JSON as well.
 The human bag report always ends with that shell-safe command for the exact
-input and warns that the full report must remain local.
+input and warns that the full report must remain local. Through the product
+CLI, a ready report exposes one exact-input `lidarslam-map start` action and
+hides lower-level launch alternatives. A report with findings withholds that
+start action and instead prints the exact `doctor` retry after the first
+finding is resolved. Direct use of the preflight script retains its detailed
+developer commands.
 
 Viewing is an optional post-processing command, not another required mapping
 step:

@@ -2300,19 +2300,51 @@ def _format_topic_list(records: list[dict[str, Any]]) -> str:
     return ', '.join(rendered)
 
 
+def _configured_doctor_command() -> list[str] | None:
+    """Return a validated product-doctor argv supplied by the dispatcher."""
+    configured = os.environ.get('LIDARSLAM_CLI_COMMAND')
+    if not configured:
+        return None
+    try:
+        command = shlex.split(configured)
+    except ValueError:
+        return None
+    if len(command) < 2 or command[-1] != 'doctor':
+        return None
+    return command
+
+
 def _public_evidence_command(bag_path: str) -> str:
     """Return the shell-safe public-evidence command for this entrypoint."""
-    command = os.environ.get(
-        'LIDARSLAM_CLI_COMMAND',
-        'python3 scripts/preflight_autoware_map_bag.py',
-    )
-    return f'{command} {_safe_quote(bag_path)} --public-json'
+    command = _configured_doctor_command()
+    if command is None:
+        command = ['python3', 'scripts/preflight_autoware_map_bag.py']
+    return shlex.join([*command, bag_path, '--public-json'])
+
+
+def _product_doctor_command(bag_path: str) -> str | None:
+    """Return an exact-input product-doctor retry when dispatched by the CLI."""
+    command = _configured_doctor_command()
+    if command is None:
+        return None
+    return shlex.join([*command, bag_path])
+
+
+def _product_start_command(bag_path: str) -> str | None:
+    """Return the matching guided start command when dispatched by the CLI."""
+    command = _configured_doctor_command()
+    if command is None:
+        return None
+    return shlex.join([*command[:-1], 'start', bag_path])
 
 
 def render_text_report(payload: dict[str, Any]) -> str:
     """Render a human-readable preflight report."""
     summary = payload['summary']
     recommendations = payload['recommendations']
+    findings = payload.get('findings') or []
+    product_doctor = _product_doctor_command(summary['bag_path'])
+    product_start = _product_start_command(summary['bag_path'])
     duration_sec = summary['duration_sec']
     duration_text = f'{duration_sec:.3f}s' if duration_sec is not None else 'unknown'
 
@@ -2368,16 +2400,39 @@ def render_text_report(payload: dict[str, Any]) -> str:
         ])
         for reason in primary['why']:
             lines.append(f'  - {reason}')
-        lines.extend([
-            'Beginner command:',
-            textwrap.indent(payload['beginner_commands'][0]['command'], '  '),
-            'Beginner command with browser viewer:',
-            textwrap.indent(payload['beginner_commands'][1]['command'], '  '),
-            'Next command:',
-            textwrap.indent(primary['command'], '  '),
-        ])
+        if product_start is not None:
+            if findings:
+                lines.extend([
+                    'Before mapping:',
+                    '  Resolve the first finding below, then rerun:',
+                    textwrap.indent(product_doctor, '  '),
+                ])
+            else:
+                lines.extend([
+                    'Do this now:',
+                    textwrap.indent(product_start, '  '),
+                    (
+                        '  This guided command rechecks setup before writing '
+                        'a new output.'
+                    ),
+                ])
+        else:
+            lines.extend([
+                'Beginner command:',
+                textwrap.indent(
+                    payload['beginner_commands'][0]['command'],
+                    '  ',
+                ),
+                'Beginner command with browser viewer:',
+                textwrap.indent(
+                    payload['beginner_commands'][1]['command'],
+                    '  ',
+                ),
+                'Next command:',
+                textwrap.indent(primary['command'], '  '),
+            ])
 
-        if len(recommendations) > 1:
+        if len(recommendations) > 1 and product_start is None:
             lines.append('')
             lines.append('Other compatible paths:')
             for alternative in recommendations[1:]:
@@ -2389,7 +2444,6 @@ def render_text_report(payload: dict[str, Any]) -> str:
             'Recommended path: none',
         ])
 
-    findings = payload.get('findings') or []
     if findings:
         lines.extend(['', 'Findings:'])
         for finding in findings:
