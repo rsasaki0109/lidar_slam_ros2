@@ -496,6 +496,15 @@ work and document the actual support boundary instead of hiding the delay.
   docs/product, 25 support/installed, 21 option-contract, and 331 broad S6
   regressions pass, with changed-code `ament_flake8` and strict MkDocs. No real
   mapping, upload, network access, issue, or GitHub write is performed.
+- Exact follow-up `14081ea101744b868b80d900bb5a1c42b4ad5046` gives failed maps
+  one repair action. The default ACTION REQUIRED card shows the first reason,
+  remaining stable codes, one exact `Next`, and one detail path; all finding
+  actions, safe retry, inspect alternatives, and evidence paths remain in
+  recovery JSON and session evidence. Thirty-eight sensor-setup regressions,
+  exact S3 lifecycle 73 and edit/merge 15, plus 42 docs/product, 25
+  support/installed, 21 option-contract, and 331 broad S6 regressions pass,
+  with changed-code `ament_flake8` and strict MkDocs. No real mapping, upload,
+  network access, issue, or GitHub write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

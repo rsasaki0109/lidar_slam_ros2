@@ -410,3 +410,44 @@ This turns map completion into one decision point without changing structured
 session, progress, verification, or recovery evidence. It is not a real first
 map, clean-host timing result, paired external GLIM observation, or
 parity/superiority claim.
+
+## One-action failed-map recovery follow-up — 2026-08-17
+
+> Decision: **LOCAL_ONE_ACTION_RECOVERY_PASS / PAIRED_PUBLIC_TRIAL_PENDING**
+>
+> Implementation tip:
+> `14081ea101744b868b80d900bb5a1c42b4ad5046`
+>
+> Real mapping, network, GitHub, release, or community mutations performed:
+> **none**
+
+The previous ACTION REQUIRED terminal card printed every finding message and
+action, the primary `next_command` again, a safe retry, an inspect alternative,
+and multiple evidence paths. Those are useful recovery records, but they made a
+failed first map begin with several competing commands.
+
+The default card is now bounded to the first stable reason, remaining finding
+codes without secondary prose or actions, exactly one safe `Next`, and one
+`Details` path. The detail preference is the human session page, then canonical
+recovery JSON, session JSON, and finally the preserved setup bundle. Every
+finding/action, retry, inspect command, evidence path, resume condition, and
+fresh-output rule remains unchanged in `map_session_recovery.json` and the
+derived session handoff.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| complete sensor-setup wizard regressions | 38 passed |
+| exact S3 lifecycle command | 73 passed |
+| exact S3 edit/merge command | 15 passed |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 331 passed |
+| changed-code Jazzy `ament_flake8` | PASS |
+| strict MkDocs, JSON, bytecode, plan, and patch hygiene | PASS |
+
+This gives failed mapping one immediate repair step without deleting expert or
+machine recovery evidence. It is not a real failure recovery, clean-host timing
+result, paired external GLIM observation, or parity/superiority claim.

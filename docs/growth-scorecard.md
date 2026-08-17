@@ -343,6 +343,15 @@ regressions, exact S3 lifecycle 72 and edit/merge 15, plus 42 docs/product, 25
 support/installed, 21 option-contract, and 331 broad S6 regressions pass, with
 changed-code `ament_flake8` and strict MkDocs. No real mapping, upload, network
 access, issue, or GitHub write occurs.
+Exact follow-up `14081ea101744b868b80d900bb5a1c42b4ad5046` gives failed maps
+one repair action. The default ACTION REQUIRED card shows the first reason,
+remaining stable codes, one exact `Next`, and one detail path; all finding
+actions, safe retry, inspect alternatives, and evidence paths remain in recovery
+JSON and session evidence. Thirty-eight sensor-setup regressions, exact S3
+lifecycle 73 and edit/merge 15, plus 42 docs/product, 25 support/installed, 21
+option-contract, and 331 broad S6 regressions pass, with changed-code
+`ament_flake8` and strict MkDocs. No real mapping, upload, network access,
+issue, or GitHub write occurs.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state
