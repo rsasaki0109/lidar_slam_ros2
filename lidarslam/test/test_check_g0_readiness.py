@@ -450,7 +450,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         for blocker in item['blockers']
     )
     assert report['next_action']['id'] == 'align-public-product-version'
-    assert '--include-published-release' in report['next_action']['command']
+    assert '--include-public-transition' in report['next_action']['command']
     assert 'mixed-version rows' in report['next_action']['reason']
     alternatives = report['next_action']['alternatives']
     assert [item['id'] for item in alternatives] == [
@@ -458,10 +458,39 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         'rebuild-against-published-version',
     ]
     assert alternatives[0]['status'] == 'REQUIRES_EXTERNAL_PUBLICATION'
-    assert alternatives[1]['status'] == 'REQUIRES_EXPLICIT_REBASE'
+    assert alternatives[1]['status'] == 'BLOCKED_UNTIL_PUBLISHED'
     assert '--published-release-report - --render' in (
         alternatives[1]['command']
     )
+    transition = report['next_action']['public_transition_handoff']
+    assert transition == {
+        'kind': 'READ_ONLY_PUBLIC_PRODUCT_TRANSITION',
+        'status': 'AUDIT_REQUIRED',
+        'target_version': '0.9.1',
+        'observed_release_status': 'NOT_CHECKED',
+        'audits': [
+            'product_draft',
+            'candidate_environment',
+            'published_release',
+        ],
+        'audit_command': (
+            'python3 scripts/check_g0_readiness.py '
+            '--include-public-transition '
+            '--published-release-version 0.9.1 --json'
+        ),
+        'post_publication_packet_command': (
+            'python3 scripts/check_published_release.py '
+            '--version 0.9.1 --json --require-published | '
+            'python3 scripts/prepare_onboarding_matrix_packet.py '
+            '--published-release-report - --render'
+        ),
+        'packet_generation_eligible': False,
+        'published_identity_required': True,
+        'mixed_version_measurements_reusable': False,
+        'network_reads_required': True,
+        'github_writes_authorized': False,
+        'remote_mutations_performed': False,
+    }
     assert report['checks']['first_map_cohort']['pending_launch_gates'] == [
         'comparable_docker_row',
         'comparable_source_row',
@@ -482,6 +511,9 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert '| product Draft PR #427 | NOT_CHECKED |' in card
     assert 'Choices (no write):' in card
     assert 'never reuse mixed-version measurements' in card
+    assert 'Public product transition (not executed):' in card
+    assert 'Fresh matrix packet eligible: no' in card
+    assert 'Mixed-version measurements reusable: no' in card
     assert 'v1 blockers:' in card
     assert 'ndt_omp' in card
     assert 'first-map cohort blockers:' in card
@@ -719,6 +751,38 @@ def test_dashboard_cli_accepts_local_review_ledger_without_retaining_path():
     assert args.json is True
 
 
+def test_public_transition_alias_enables_all_three_remote_reads(
+    monkeypatch,
+    capsys,
+):
+    """One option expands to the complete dependency-ordered public audit."""
+    observed = {}
+
+    def fake_collect(**kwargs):
+        observed.update(kwargs)
+        return {}
+
+    monkeypatch.setattr(DASHBOARD, 'collect_checker_reports', fake_collect)
+    monkeypatch.setattr(
+        DASHBOARD,
+        'build_report',
+        lambda reports, **kwargs: {'status': 'HOLD'},
+    )
+
+    assert DASHBOARD.main([
+        '--include-public-transition',
+        '--published-release-version',
+        '0.9.1',
+        '--json',
+    ]) == 0
+
+    assert observed['include_product_draft'] is True
+    assert observed['include_candidate_environment'] is True
+    assert observed['include_published_release'] is True
+    assert observed['published_release_version'] == '0.9.1'
+    assert json.loads(capsys.readouterr().out) == {'status': 'HOLD'}
+
+
 def test_dashboard_can_include_a_read_only_release_report_without_writes():
     """An optional release report is represented without adding authority."""
     reports = DASHBOARD.collect_checker_reports()
@@ -745,6 +809,75 @@ def test_dashboard_can_include_a_read_only_release_report_without_writes():
         ],
     }
     assert report['authority']['remote_mutations_performed'] is False
+    transition = report['next_action']['public_transition_handoff']
+    assert transition['status'] == 'PUBLICATION_REQUIRED'
+    assert transition['observed_release_status'] == 'NOT_PUBLISHED'
+    assert transition['packet_generation_eligible'] is False
+    assert report['next_action']['alternatives'][1]['status'] == (
+        'BLOCKED_UNTIL_PUBLISHED'
+    )
+
+
+def test_published_identity_selects_one_fresh_matrix_packet_command():
+    """A public identity opens packet preparation without reusing old rows."""
+    reports = DASHBOARD.collect_checker_reports()
+    reports['published_release'] = {
+        'status': 'PUBLISHED',
+        'expected_version': '0.9.1',
+        'remote': {'tag_present': True},
+        'images': [],
+    }
+
+    report = DASHBOARD.build_report(
+        reports,
+        published_release_version='0.9.1',
+    )
+
+    action = report['next_action']
+    transition = action['public_transition_handoff']
+    assert action['id'] == 'align-public-product-version'
+    assert action['title'] == 'Prepare one fresh same-version matrix packet'
+    assert action['command'] == transition[
+        'post_publication_packet_command'
+    ]
+    assert transition['status'] == 'READY_FOR_FRESH_MATRIX_PACKET'
+    assert transition['packet_generation_eligible'] is True
+    assert transition['mixed_version_measurements_reusable'] is False
+    assert action['alternatives'][1]['status'] == 'READY_FOR_FRESH_PACKET'
+
+
+def test_public_transition_rejects_an_unsafe_version_before_rendering():
+    """A copy-ready command cannot include shell metacharacters."""
+    reports = DASHBOARD.collect_checker_reports()
+
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='safe semantic version',
+    ):
+        DASHBOARD.build_report(
+            reports,
+            published_release_version='0.9.1;touch-unexpected',
+        )
+
+
+def test_public_transition_rejects_a_different_observed_release_version():
+    """A child report cannot silently redirect the matrix target version."""
+    reports = DASHBOARD.collect_checker_reports()
+    reports['published_release'] = {
+        'status': 'NOT_PUBLISHED',
+        'expected_version': '0.9.2',
+        'remote': {'tag_present': False},
+        'images': [],
+    }
+
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='does not match the requested transition version',
+    ):
+        DASHBOARD.build_report(
+            reports,
+            published_release_version='0.9.1',
+        )
 
 
 def test_exact_green_draft_is_reviewed_before_candidate_environment():

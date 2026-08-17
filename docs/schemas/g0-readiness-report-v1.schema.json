@@ -1156,6 +1156,9 @@
         },
         "product_draft_review_handoff": {
           "$ref": "#/definitions/productDraftReviewHandoff"
+        },
+        "public_transition_handoff": {
+          "$ref": "#/definitions/publicTransitionHandoff"
         }
       },
       "allOf": [
@@ -1193,6 +1196,17 @@
           },
           "then": {
             "required": ["product_draft_review_handoff"]
+          }
+        },
+        {
+          "if": {
+            "required": ["id"],
+            "properties": {
+              "id": {"const": "align-public-product-version"}
+            }
+          },
+          "then": {
+            "required": ["public_transition_handoff"]
           }
         }
       ]
@@ -1461,6 +1475,94 @@
         "command": {"type": "string", "minLength": 1},
         "write_boundary": {"type": "string", "minLength": 1}
       }
+    },
+    "publicTransitionHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "status",
+        "target_version",
+        "observed_release_status",
+        "audits",
+        "audit_command",
+        "post_publication_packet_command",
+        "packet_generation_eligible",
+        "published_identity_required",
+        "mixed_version_measurements_reusable",
+        "network_reads_required",
+        "github_writes_authorized",
+        "remote_mutations_performed"
+      ],
+      "properties": {
+        "kind": {"const": "READ_ONLY_PUBLIC_PRODUCT_TRANSITION"},
+        "status": {
+          "enum": [
+            "AUDIT_REQUIRED",
+            "PUBLICATION_REQUIRED",
+            "AUDIT_BLOCKED",
+            "READY_FOR_FRESH_MATRIX_PACKET"
+          ]
+        },
+        "target_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.\\-]+)?$"
+        },
+        "observed_release_status": {
+          "enum": ["NOT_CHECKED", "NOT_PUBLISHED", "BLOCKED", "PUBLISHED"]
+        },
+        "audits": {
+          "const": [
+            "product_draft",
+            "candidate_environment",
+            "published_release"
+          ]
+        },
+        "audit_command": {
+          "type": "string",
+          "pattern": "^python3 scripts/check_g0_readiness\\.py --include-public-transition --published-release-version [0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.\\-]+)? --json$"
+        },
+        "post_publication_packet_command": {
+          "type": "string",
+          "pattern": "^python3 scripts/check_published_release\\.py --version [0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.\\-]+)? --json --require-published \\| python3 scripts/prepare_onboarding_matrix_packet\\.py --published-release-report - --render$"
+        },
+        "packet_generation_eligible": {"type": "boolean"},
+        "published_identity_required": {"const": true},
+        "mixed_version_measurements_reusable": {"const": false},
+        "network_reads_required": {"const": true},
+        "github_writes_authorized": {"const": false},
+        "remote_mutations_performed": {"const": false}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "observed_release_status": {"const": "NOT_CHECKED"},
+            "status": {"const": "AUDIT_REQUIRED"},
+            "packet_generation_eligible": {"const": false}
+          }
+        },
+        {
+          "properties": {
+            "observed_release_status": {"const": "NOT_PUBLISHED"},
+            "status": {"const": "PUBLICATION_REQUIRED"},
+            "packet_generation_eligible": {"const": false}
+          }
+        },
+        {
+          "properties": {
+            "observed_release_status": {"const": "BLOCKED"},
+            "status": {"const": "AUDIT_BLOCKED"},
+            "packet_generation_eligible": {"const": false}
+          }
+        },
+        {
+          "properties": {
+            "observed_release_status": {"const": "PUBLISHED"},
+            "status": {"const": "READY_FOR_FRESH_MATRIX_PACKET"},
+            "packet_generation_eligible": {"const": true}
+          }
+        }
+      ]
     }
   }
 }

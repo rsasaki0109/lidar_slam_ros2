@@ -86,6 +86,9 @@ MAX_CHECK_RUNS = 100
 MAX_PRODUCT_DESCRIPTION_BYTES = 64 * 1024
 SHA_PATTERN = re.compile(r'^[0-9a-f]{40}$')
 DIGEST_PATTERN = re.compile(r'^[0-9a-f]{64}$')
+VERSION_PATTERN = re.compile(
+    r'^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$'
+)
 SAFE_REVIEW_TITLE_PATTERN = re.compile(
     r'^[A-Za-z0-9][A-Za-z0-9 ,&/+\-]{0,159}$'
 )
@@ -153,6 +156,11 @@ CANDIDATE_ENVIRONMENT_SETTINGS_URL = (
 )
 CANDIDATE_ENVIRONMENT_VERIFY_COMMAND = (
     'python3 scripts/check_candidate_environment.py --json --require-ready'
+)
+PUBLIC_TRANSITION_AUDITS = (
+    'product_draft',
+    'candidate_environment',
+    'published_release',
 )
 CANDIDATE_HANDOFF_KINDS = {
     'CREATE_AND_REVIEW_ENVIRONMENT',
@@ -1517,6 +1525,10 @@ def _published_summary(
     report: dict[str, Any] | None,
     version: str,
 ) -> dict[str, Any]:
+    if VERSION_PATTERN.fullmatch(version) is None:
+        raise G0ReadinessError(
+            'published release version must be one safe semantic version'
+        )
     if report is None:
         return {
             'status': 'NOT_CHECKED',
@@ -1524,9 +1536,15 @@ def _published_summary(
             'tag_present': None,
             'image_statuses': [],
         }
+    observed_version = report.get('expected_version')
+    if observed_version != version:
+        raise G0ReadinessError(
+            'published release report version does not match the requested '
+            'transition version'
+        )
     return {
         'status': report.get('status'),
-        'version': report.get('expected_version', version),
+        'version': observed_version,
         'tag_present': report.get('remote', {}).get('tag_present'),
         'image_statuses': [
             {'tag': image.get('tag'), 'status': image.get('status')}
@@ -2251,6 +2269,11 @@ def _identity_alternatives(published: dict[str, Any]) -> list[dict[str, str]]:
         if published['status'] == 'PUBLISHED'
         else 'REQUIRES_EXTERNAL_PUBLICATION'
     )
+    rebuild_status = (
+        'READY_FOR_FRESH_PACKET'
+        if published['status'] == 'PUBLISHED'
+        else 'BLOCKED_UNTIL_PUBLISHED'
+    )
     return [
         {
             'id': 'continue-current-candidate',
@@ -2268,7 +2291,7 @@ def _identity_alternatives(published: dict[str, Any]) -> list[dict[str, str]]:
         {
             'id': 'rebuild-against-published-version',
             'title': 'Rebuild all rows against one existing public version',
-            'status': 'REQUIRES_EXPLICIT_REBASE',
+            'status': rebuild_status,
             'command': (
                 'python3 scripts/check_published_release.py '
                 f'--version {version} --json --require-published | '
@@ -2281,6 +2304,50 @@ def _identity_alternatives(published: dict[str, Any]) -> list[dict[str, str]]:
             ),
         },
     ]
+
+
+def _public_transition_handoff(
+    published: dict[str, Any],
+) -> dict[str, Any]:
+    """Bind one safe audit-to-fresh-packet transition for mixed rows."""
+    version = published['version']
+    status_by_release = {
+        'NOT_CHECKED': 'AUDIT_REQUIRED',
+        'NOT_PUBLISHED': 'PUBLICATION_REQUIRED',
+        'BLOCKED': 'AUDIT_BLOCKED',
+        'PUBLISHED': 'READY_FOR_FRESH_MATRIX_PACKET',
+    }
+    release_status = published['status']
+    if release_status not in status_by_release:
+        raise G0ReadinessError(
+            f'unsupported published release status: {release_status}'
+        )
+    audit_command = (
+        'python3 scripts/check_g0_readiness.py '
+        '--include-public-transition '
+        f'--published-release-version {version} --json'
+    )
+    packet_command = (
+        'python3 scripts/check_published_release.py '
+        f'--version {version} --json --require-published | '
+        'python3 scripts/prepare_onboarding_matrix_packet.py '
+        '--published-release-report - --render'
+    )
+    return {
+        'kind': 'READ_ONLY_PUBLIC_PRODUCT_TRANSITION',
+        'status': status_by_release[release_status],
+        'target_version': version,
+        'observed_release_status': release_status,
+        'audits': list(PUBLIC_TRANSITION_AUDITS),
+        'audit_command': audit_command,
+        'post_publication_packet_command': packet_command,
+        'packet_generation_eligible': release_status == 'PUBLISHED',
+        'published_identity_required': True,
+        'mixed_version_measurements_reusable': False,
+        'network_reads_required': True,
+        'github_writes_authorized': False,
+        'remote_mutations_performed': False,
+    }
 
 
 def _next_action(
@@ -2555,24 +2622,34 @@ def _next_action(
         }
     if not matrix['product_version_aligned']:
         versions = ', '.join(matrix['product_versions']) or 'multiple versions'
+        transition = _public_transition_handoff(published)
+        packet_ready = transition['packet_generation_eligible']
+        if packet_ready:
+            title = 'Prepare one fresh same-version matrix packet'
+            command = transition['post_publication_packet_command']
+            write_boundary = (
+                'local fresh-row plan only; trial execution and evidence '
+                'replacement remain separate'
+            )
+        else:
+            title = 'Resolve one public product version before measuring'
+            command = transition['audit_command']
+            write_boundary = (
+                'read-only complete transition audit; branch, environment, '
+                'release, tag, and image writes remain separate'
+            )
         return {
             'id': 'align-public-product-version',
-            'title': 'Resolve one public product version before measuring',
+            'title': title,
             'reason': (
                 f'The reviewed rows use {versions}; do not attach human '
                 'measurements to mixed-version rows. The target publication '
                 f'audit is currently {published["status"]}.'
             ),
-            'command': (
-                'python3 scripts/check_g0_readiness.py '
-                '--include-published-release '
-                f'--published-release-version {published["version"]}'
-            ),
+            'command': command,
             'alternatives': _identity_alternatives(published),
-            'write_boundary': (
-                'read-only audit; release, tag, and image publication remain '
-                'separate'
-            ),
+            'public_transition_handoff': transition,
+            'write_boundary': write_boundary,
         }
     if not matrix['activation_gate']:
         reason = '; '.join(matrix['actions']) or (
@@ -2909,6 +2986,28 @@ def render_card(report: dict[str, Any]) -> str:
                 f"  Command: `{alternative['command']}`",
                 f"  Boundary: {alternative['write_boundary']}",
             ])
+    transition = report['next_action'].get('public_transition_handoff')
+    if transition is not None:
+        lines.extend([
+            '',
+            'Public product transition (not executed):',
+            f"- Status: **{transition['status']}**",
+            f"- Target: `v{transition['target_version']}`",
+            '- Read together: '
+            + ', '.join(
+                f'`{audit}`' for audit in transition['audits']
+            ),
+            '- Fresh matrix packet eligible: '
+            + (
+                'yes'
+                if transition['packet_generation_eligible'] else 'no'
+            ),
+            f"- Complete audit: `{transition['audit_command']}`",
+            '- After publication: '
+            f"`{transition['post_publication_packet_command']}`",
+            '- Mixed-version measurements reusable: no',
+            '- GitHub writes performed or authorized: no',
+        ])
     handoff = report['next_action'].get('operator_handoff')
     if handoff is not None:
         lines.extend([
@@ -3053,6 +3152,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        '--include-public-transition',
+        action='store_true',
+        help=(
+            'Run the read-only product Draft, protected environment, and '
+            'published-release audits together in dependency order.'
+        ),
+    )
+    parser.add_argument(
         '--include-product-draft',
         action='store_true',
         help='Also run the read-only exact-head Draft PR audit.',
@@ -3089,9 +3196,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if args.product_draft_review_ledger is not None
                 else None
             ),
-            include_product_draft=args.include_product_draft,
-            include_candidate_environment=args.include_candidate_environment,
-            include_published_release=args.include_published_release,
+            include_product_draft=(
+                args.include_product_draft
+                or args.include_public_transition
+            ),
+            include_candidate_environment=(
+                args.include_candidate_environment
+                or args.include_public_transition
+            ),
+            include_published_release=(
+                args.include_published_release
+                or args.include_public_transition
+            ),
             published_release_version=args.published_release_version,
         )
         report = build_report(
