@@ -726,7 +726,8 @@ def _print_execution_summary(
         print(f"Map profile: {plan['label']}")
         print(
             f'Storage check: {observed_gib:.2f} GiB available '
-            f'({required_gib:.2f} GiB required)'
+            f'({required_gib:.2f} GiB required)',
+            flush=True,
         )
         return
 
@@ -740,7 +741,7 @@ def _print_execution_summary(
         f"under {storage_preflight['probe_path']}"
     )
     print('Command:')
-    print('  ' + shlex.join(plan['command']))
+    print('  ' + shlex.join(plan['command']), flush=True)
 
 
 def _artifact_checksums(run_dir: Path) -> list[dict[str, object]]:
