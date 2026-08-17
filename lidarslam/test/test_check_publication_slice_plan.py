@@ -121,7 +121,28 @@ def test_tracked_plan_covers_the_exact_candidate_once():
         'follow_up_review',
     ]
     assert report['review_coverage_complete'] is True
+    expected_whole_commits = int(CHECKER._run_git([
+        'rev-list',
+        '--count',
+        f"{report['whole_pr_base_sha']}..HEAD",
+    ])[0])
+    expected_slice_commits = int(CHECKER._run_git([
+        'rev-list',
+        '--count',
+        f"{report['base_sha']}..HEAD",
+    ])[0])
+    assert report['whole_pr_commit_count'] == expected_whole_commits
+    assert report['initial_review_commit_count'] == 42
+    assert report['initial_review_path_count'] == 116
+    assert report['bridge_review_commit_count'] == 2
     assert report['bridge_path_count'] == 11
+    assert report['follow_up_review_commit_count'] == expected_slice_commits
+    assert (
+        report['initial_review_commit_count']
+        + report['bridge_review_commit_count']
+        + report['follow_up_review_commit_count']
+        == report['whole_pr_commit_count']
+    )
     assert report['overlap_path_count'] == 73
     assert report['overlap_membership_count'] == 78
     assert report['uncovered_path_count'] == 0
@@ -479,6 +500,11 @@ def test_cli_emits_a_machine_readable_local_only_report():
     assert report['uncommitted_path_count'] == len(status)
     assert report['path_count'] == 331
     assert report['whole_pr_path_count'] == 380
+    assert report['whole_pr_commit_count'] == int(CHECKER._run_git([
+        'rev-list',
+        '--count',
+        f"{report['whole_pr_base_sha']}..HEAD",
+    ])[0])
     assert report['review_phase_count'] == 3
     assert report['review_coverage_complete'] is True
     assert report['bridge_path_count'] == 11
@@ -542,6 +568,105 @@ def test_slice_human_card_has_one_safe_next_action():
     assert '- Whole-PR review coverage complete: yes' in result.stdout
     assert '- CI bridge paths: 11' in result.stdout
     assert result.stdout.count('Next action:') == 1
+
+
+def test_overview_json_binds_all_phases_and_slices_without_writes():
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), '--overview', '--json'],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+    candidate = report['candidate']
+    assert report['status'] == 'PR_REVIEW_OVERVIEW_READY_LOCAL_ONLY'
+    assert candidate['repository'] == 'rsasaki0109/lidar_slam_ros2'
+    assert candidate['pull_request'] == 427
+    assert candidate['local_tip_sha'] == CHECKER._run_git([
+        'rev-parse', 'HEAD',
+    ])[0]
+    assert candidate['whole_pr_path_count'] == 380
+    assert candidate['follow_up_path_count'] == 331
+    assert candidate['review_coverage_complete'] is True
+    assert candidate['uncovered_path_count'] == 0
+    assert candidate['extraneous_phase_path_count'] == 0
+    assert candidate['merge_commit_count'] == 0
+    assert [item['id'] for item in report['review_phases']] == [
+        'P0-initial-review',
+        'P1-ci-bridge',
+        'P2-follow-up-slices',
+    ]
+    assert [item['commit_count'] for item in report['review_phases'][:2]] == [
+        42,
+        2,
+    ]
+    assert sum(
+        item['commit_count'] for item in report['review_phases']
+    ) == candidate['whole_pr_commit_count']
+    assert [item['order'] for item in report['review_slices']] == list(
+        range(1, 8)
+    )
+    assert sum(
+        item['path_count'] for item in report['review_slices']
+    ) == candidate['follow_up_path_count']
+    assert report['commands_executed'] is False
+    assert report['github_writes_authorized'] is False
+    assert report['remote_mutations_performed'] is False
+
+
+def test_overview_human_card_is_bounded_and_copy_ready():
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), '--overview'],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert '# PR #427 review overview' in result.stdout
+    assert '- Whole-PR paths: 380' in result.stdout
+    assert '- Follow-up paths: 331' in result.stdout
+    assert '- Whole-PR review coverage complete: yes' in result.stdout
+    assert '| P0-initial-review |' in result.stdout
+    assert '| P1-ci-bridge |' in result.stdout
+    assert '| P2-follow-up-slices |' in result.stdout
+    for slice_id in (
+        'S1-runtime-safety',
+        'S2-first-map-foundation',
+        'S3-map-lifecycle',
+        'S4-source-onboarding',
+        'S5-distribution-readiness',
+        'S6-product-shell-integration',
+        'S7-publication-control',
+    ):
+        assert f'| {slice_id} |' in result.stdout
+    assert '<ID>' in result.stdout
+    assert '- Commands executed by this card: no' in result.stdout
+    assert '- GitHub write authorized: no' in result.stdout
+    assert result.stdout.count('Next action:') == 1
+
+
+def test_overview_and_slice_modes_are_mutually_exclusive():
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            '--overview',
+            '--slice',
+            'S1-runtime-safety',
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert 'not allowed with argument' in result.stderr
 
 
 def test_unknown_slice_fails_closed_and_lists_valid_ids():

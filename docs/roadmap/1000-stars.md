@@ -979,6 +979,16 @@ closed before the G0 dashboard can advance. This makes a very large Draft
 reviewable without treating a green local plan as push, merge, release, or
 community authority.
 
+The same checker now renders one bounded `--overview` card before reviewers
+drill into the seven exact `--slice` cards. It shows the three contiguous
+commit ranges, 380-path union, overlap/missing/extra results, slice sizes,
+dependencies, verification counts, and publication gates without pasting the
+complete 331-path follow-up inventory into the PR summary. Human and JSON
+forms stay local-only, execute no displayed check, and cannot submit a review
+or authorize a push, ready transition, or merge. This targets the current
+review bottleneck—an otherwise verified but very large Draft—without adding
+another product surface.
+
 The G0 dashboard now audits that prerequisite directly through bounded GitHub
 GETs. It binds local HEAD to Draft PR #427, the canonical branches, mergeable
 state, and the latest exact-head check runs. Draft review and the separate

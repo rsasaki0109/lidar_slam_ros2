@@ -133,22 +133,25 @@ Reviewers can request one bounded, read-only card without manually extracting
 paths or commands from the complete plan:
 
 ```bash
+python3 scripts/check_publication_slice_plan.py --overview
+python3 scripts/check_publication_slice_plan.py --overview --json
 python3 scripts/check_publication_slice_plan.py --slice S1-runtime-safety
 python3 scripts/check_publication_slice_plan.py \
   --slice S1-runtime-safety --json
 ```
 
-The card revalidates the complete inventory and lineage first, then binds the
-selected review outcome, dependency list, exact paths, verification commands,
-publication gate, frozen public baseline, local HEAD, follow-up commit count,
-whole-PR base/path count, three-phase coverage result, CI bridge path count,
-and current worktree cleanliness. The baseline is an immutable review anchor,
-not a live claim about the remote branch. A dirty worktree is shown with its
-uncommitted path count rather than being mislabeled as an exact-tip candidate.
-The card
-does not execute the displayed commands and cannot authorize or report a
-GitHub mutation. An unknown slice ID fails closed and lists the seven valid
-IDs.
+The overview revalidates the complete inventory and lineage first, then renders
+one compact PR card with exact local tip, whole-PR commit/path totals, the three
+sequential review ranges, all seven slice counts/dependencies/gates, overlap,
+missing/extraneous-path results, merge count, and current worktree cleanliness.
+It intentionally omits hundreds of individual paths; each slice card remains
+the exact drill-down for its owned paths, outcome, and verification commands.
+The baseline is an immutable review anchor, not a live claim about the remote
+branch. A dirty worktree is shown with its uncommitted path count rather than
+being mislabeled as an exact-tip candidate. Neither card executes commands or
+can authorize or report a GitHub mutation. Overview and slice modes are
+mutually exclusive, and an unknown slice ID fails closed while listing the
+seven valid IDs.
 
 The displayed verification commands are also part of the fail-closed
 contract. Every pytest command disables its cache, one process may target only
@@ -178,8 +181,9 @@ from that base and the local tip descends from the public head, then requires:
 10. no recognized direct remote-write CLI form in any review slice;
 11. exact 42-commit / 116-path initial-review identity;
 12. exact two-commit / 11-path bridge identity and allowlist;
-13. contiguous, linear initial → bridge → follow-up ancestry; and
-14. exact 380-path whole-PR coverage by the three-phase union, with no missing
+13. contiguous, linear initial → bridge → follow-up ancestry;
+14. exact commit-count composition across all three ranges; and
+15. exact 380-path whole-PR coverage by the three-phase union, with no missing
     or extraneous path.
 
 Adding, removing, renaming, or reassigning a path invalidates the plan until a
@@ -192,7 +196,7 @@ cannot bypass live Git coverage.
 | --- | --- |
 | exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 331 follow-up paths / 7 slices and 380 whole-PR paths / 3 phases; 11 bridge paths, 73 overlapping paths, 0 uncovered, 0 extraneous, 0 merge commits, no remote mutation |
 | claim-bounded social media | 11 focused regressions plus 25 public docs/release entrypoint regressions pass; the generated 10.666-second H.264 candidate, four-cue WebVTT, exact-revision Japanese/English copy, and byte manifest retain no external publication authority |
-| checker regressions | 27 passed, including omission, stale path, duplicate owner, dependency inversion, follow-up/bridge/whole-PR digest drift, bridge allowlist drift, phase discontinuity, uncovered whole-PR paths, unsafe or out-of-phase review records, lineage drift, authority rejection, bounded human/JSON review cards, unknown-slice rejection, self-contained source, lifecycle ROS-bag, and product-shell ROS-bag verification, package-test process isolation, cache suppression, and recognized direct remote-write CLI refusal |
+| checker regressions | 30 passed, including omission, stale path, duplicate owner, dependency inversion, follow-up/bridge/whole-PR digest drift, bridge allowlist drift, phase discontinuity, uncovered whole-PR paths, unsafe or out-of-phase review records, lineage drift, commit-range composition, authority rejection, bounded human/JSON overview and slice cards, mutually exclusive output modes, unknown-slice rejection, self-contained source, lifecycle ROS-bag, and product-shell ROS-bag verification, package-test process isolation, cache suppression, and recognized direct remote-write CLI refusal |
 | exact displayed S1 command | an ordinary unsourced shell sourced `${ROS_DISTRO:-jazzy}`, tested `graph_based_slam` and `scanmatcher`, and reported 4,253 test cases with 0 errors, 0 failures, and 127 skips |
 | S1 rejected-map-update threshold retry | exact implementation `99cce93`; one pure commit-state regression passes; the real asynchronous component rejects an unsafe translated cloud above a positive 0.02 m threshold, publishes the same-geometry safe retry without further travel, and passes 10 / 10 independent Jazzy processes; worker exceptions stay inside the component boundary; exact public `7b3cb99` runs the component target successfully on both Humble and Jazzy, while issue response and named release remain separate gates |
 | exact displayed S6 product-shell command | exact implementation `0633c2a`; an ordinary unsourced shell restores `${ROS_DISTRO:-jazzy}` before importing `rosbag2_py` and passes all 35 graph docs/product-CLI tests; deleting the prelude now fails plan validation before a reviewer sees the card |

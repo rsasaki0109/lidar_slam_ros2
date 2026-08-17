@@ -391,6 +391,29 @@ def _validate_whole_pr_review(
             f'whole-PR history contains merge commits: {merge_commits}'
         )
 
+    follow_up_commit_count_raw = _run_git([
+        'rev-list', '--count', f"{follow_up['start_sha']}..HEAD",
+    ])
+    whole_pr_commit_count_raw = _run_git([
+        'rev-list', '--count', f"{contract['base_sha']}..HEAD",
+    ])
+    if (
+        len(follow_up_commit_count_raw) != 1
+        or not follow_up_commit_count_raw[0].isdigit()
+        or len(whole_pr_commit_count_raw) != 1
+        or not whole_pr_commit_count_raw[0].isdigit()
+    ):
+        raise PlanError('whole-PR review commit counts could not be resolved')
+    follow_up_review_commit_count = int(follow_up_commit_count_raw[0])
+    whole_pr_commit_count = int(whole_pr_commit_count_raw[0])
+    composed_commit_count = (
+        initial['expected_commit_count']
+        + bridge['expected_commit_count']
+        + follow_up_review_commit_count
+    )
+    if whole_pr_commit_count != composed_commit_count:
+        raise PlanError('whole-PR review commit ranges do not compose exactly')
+
     memberships: dict[str, int] = {}
     for phase_paths in phase_sets:
         for path in phase_paths:
@@ -412,7 +435,12 @@ def _validate_whole_pr_review(
             'follow_up_review',
         ],
         'review_coverage_complete': True,
+        'whole_pr_commit_count': whole_pr_commit_count,
+        'initial_review_commit_count': initial['expected_commit_count'],
+        'initial_review_path_count': len(initial_paths),
+        'bridge_review_commit_count': bridge['expected_commit_count'],
         'bridge_path_count': len(bridge_paths),
+        'follow_up_review_commit_count': follow_up_review_commit_count,
         'overlap_path_count': overlap_path_count,
         'overlap_membership_count': overlap_membership_count,
         'uncovered_path_count': 0,
@@ -583,6 +611,111 @@ def build_slice_review_report(
     }
 
 
+def build_pr_review_overview_report(
+    plan: dict[str, Any],
+    validation_report: dict[str, Any],
+) -> dict[str, Any]:
+    """Return one bounded overview of the complete validated PR review."""
+    contract = plan['whole_pr_review']
+    initial = contract['initial_review']
+    bridge = contract['bridge_review']
+    follow_up = contract['follow_up_review']
+    candidate = plan['candidate']
+    return {
+        'status': 'PR_REVIEW_OVERVIEW_READY_LOCAL_ONLY',
+        'candidate': {
+            'repository': candidate['repository'],
+            'pull_request': validation_report['pull_request'],
+            'whole_pr_base_sha': validation_report['whole_pr_base_sha'],
+            'local_tip_sha': validation_report['local_tip_sha'],
+            'public_baseline_sha': validation_report['public_baseline_sha'],
+            'whole_pr_commit_count': validation_report[
+                'whole_pr_commit_count'
+            ],
+            'whole_pr_path_count': validation_report['whole_pr_path_count'],
+            'whole_pr_paths_sha256': validation_report[
+                'whole_pr_paths_sha256'
+            ],
+            'follow_up_path_count': validation_report['path_count'],
+            'review_phase_count': validation_report['review_phase_count'],
+            'review_coverage_complete': validation_report[
+                'review_coverage_complete'
+            ],
+            'overlap_path_count': validation_report['overlap_path_count'],
+            'uncovered_path_count': validation_report[
+                'uncovered_path_count'
+            ],
+            'extraneous_phase_path_count': validation_report[
+                'extraneous_phase_path_count'
+            ],
+            'merge_commit_count': validation_report['merge_commit_count'],
+            'slice_count': validation_report['slice_count'],
+            'worktree_clean': validation_report['worktree_clean'],
+            'uncommitted_path_count': validation_report[
+                'uncommitted_path_count'
+            ],
+        },
+        'review_phases': [
+            {
+                'id': 'P0-initial-review',
+                'order': 1,
+                'start_sha': initial['start_sha'],
+                'end_sha': initial['end_sha'],
+                'diff_mode': initial['diff_mode'],
+                'commit_count': validation_report[
+                    'initial_review_commit_count'
+                ],
+                'path_count': validation_report[
+                    'initial_review_path_count'
+                ],
+                'review_record': initial['review_record'],
+            },
+            {
+                'id': 'P1-ci-bridge',
+                'order': 2,
+                'start_sha': bridge['start_sha'],
+                'end_sha': bridge['end_sha'],
+                'diff_mode': bridge['diff_mode'],
+                'commit_count': validation_report[
+                    'bridge_review_commit_count'
+                ],
+                'path_count': validation_report['bridge_path_count'],
+                'review_record': bridge['review_record'],
+            },
+            {
+                'id': 'P2-follow-up-slices',
+                'order': 3,
+                'start_sha': follow_up['start_sha'],
+                'end_sha': validation_report['local_tip_sha'],
+                'diff_mode': follow_up['diff_mode'],
+                'commit_count': validation_report[
+                    'follow_up_review_commit_count'
+                ],
+                'path_count': validation_report['path_count'],
+                'review_record': follow_up['review_record'],
+            },
+        ],
+        'review_slices': [
+            {
+                'id': item['id'],
+                'order': item['order'],
+                'title': item['title'],
+                'depends_on': list(item['depends_on']),
+                'path_count': len(item['paths']),
+                'verification_count': len(item['verification']),
+                'publication_gate': item['publication_gate'],
+            }
+            for item in plan['review_slices']
+        ],
+        'slice_command_template': (
+            'python3 scripts/check_publication_slice_plan.py --slice <ID>'
+        ),
+        'commands_executed': False,
+        'github_writes_authorized': False,
+        'remote_mutations_performed': False,
+    }
+
+
 def render_slice_review_card(report: dict[str, Any]) -> str:
     """Render one copy-ready, human-facing publication review card."""
     candidate = report['candidate']
@@ -641,14 +774,97 @@ def render_slice_review_card(report: dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
+def render_pr_review_overview_card(report: dict[str, Any]) -> str:
+    """Render a compact, copy-ready overview of the complete PR review."""
+    candidate = report['candidate']
+    lines = [
+        f"# PR #{candidate['pull_request']} review overview",
+        '',
+        f"- Repository: {candidate['repository']}",
+        f"- Whole-PR base: {candidate['whole_pr_base_sha']}",
+        f"- Exact local tip: {candidate['local_tip_sha']}",
+        f"- Frozen public review baseline: {candidate['public_baseline_sha']}",
+        f"- Commits: {candidate['whole_pr_commit_count']}",
+        f"- Whole-PR paths: {candidate['whole_pr_path_count']}",
+        f"- Follow-up paths: {candidate['follow_up_path_count']}",
+        f"- Sequential review phases: {candidate['review_phase_count']}",
+        f"- Review slices: {candidate['slice_count']}",
+        (
+            '- Whole-PR review coverage complete: '
+            f"{'yes' if candidate['review_coverage_complete'] else 'no'}"
+        ),
+        f"- Overlapping paths across phases: {candidate['overlap_path_count']}",
+        f"- Uncovered paths: {candidate['uncovered_path_count']}",
+        (
+            '- Extraneous phase paths: '
+            f"{candidate['extraneous_phase_path_count']}"
+        ),
+        f"- Merge commits: {candidate['merge_commit_count']}",
+        f"- Worktree clean: {'yes' if candidate['worktree_clean'] else 'no'}",
+        f"- Uncommitted paths: {candidate['uncommitted_path_count']}",
+        '- Commands executed by this card: no',
+        '- GitHub write authorized: no',
+        '',
+        '## Sequential coverage',
+        '',
+        '| Phase | Range | Mode | Commits | Paths | Review record |',
+        '| --- | --- | --- | ---: | ---: | --- |',
+    ]
+    for phase in report['review_phases']:
+        range_text = (
+            f"`{phase['start_sha'][:7]}..{phase['end_sha'][:7]}`"
+        )
+        lines.append(
+            f"| {phase['id']} | {range_text} | {phase['diff_mode']} | "
+            f"{phase['commit_count']} | {phase['path_count']} | "
+            f"[{phase['review_record']}]({phase['review_record']}) |"
+        )
+    lines.extend([
+        '',
+        '## Review slices',
+        '',
+        '| Order | Slice | Focus | Paths | Checks | Gate | Depends on |',
+        '| ---: | --- | --- | ---: | ---: | --- | --- |',
+    ])
+    for review_slice in report['review_slices']:
+        dependencies = ', '.join(review_slice['depends_on']) or 'none'
+        lines.append(
+            f"| {review_slice['order']} | {review_slice['id']} | "
+            f"{review_slice['title']} | {review_slice['path_count']} | "
+            f"{review_slice['verification_count']} | "
+            f"{review_slice['publication_gate']} | {dependencies} |"
+        )
+    lines.extend([
+        '',
+        'Render one exact slice:',
+        '',
+        '```bash',
+        report['slice_command_template'],
+        '```',
+        '',
+        (
+            'Next action: Review the three phases and then the seven slices '
+            'in order; run each slice card without treating this overview as '
+            'push, review-submission, mark-ready, or merge approval.'
+        ),
+    ])
+    return '\n'.join(lines)
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--plan', type=Path, default=DEFAULT_PLAN)
     parser.add_argument('--schema', type=Path, default=DEFAULT_SCHEMA)
-    parser.add_argument(
+    output_mode = parser.add_mutually_exclusive_group()
+    output_mode.add_argument(
         '--slice',
         metavar='ID',
         help='Render one validated review slice without running its commands.',
+    )
+    output_mode.add_argument(
+        '--overview',
+        action='store_true',
+        help='Render one bounded overview of every review phase and slice.',
     )
     parser.add_argument('--json', action='store_true')
     return parser.parse_args(argv)
@@ -663,6 +879,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         report = validate_plan(plan, schema, paths)
         if args.slice:
             report = build_slice_review_report(plan, report, args.slice)
+        elif args.overview:
+            report = build_pr_review_overview_report(plan, report)
     except PlanError as exc:
         if args.json:
             print(json.dumps({
@@ -678,6 +896,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(report, indent=2, sort_keys=True))
     elif args.slice:
         print(render_slice_review_card(report))
+    elif args.overview:
+        print(render_pr_review_overview_card(report))
     else:
         print(
             'PASS: publication slice plan covers '
