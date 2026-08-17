@@ -178,6 +178,13 @@ contact details, raw receipts, maps, bags, or telemetry. Public issue authors
 remain visible on GitHub by their own voluntary submission; their identities
 are not copied into growth snapshots or this packet.
 
+Exact local follow-up `da99c7ef82136449727ef97a58c1a2db4ffd6955` removes a
+form contradiction before launch: PASS still requires one reviewed receipt,
+while a FAIL whose run produced no receipt can attest no-receipt/no-file
+without falsely claiming an attachment review. Every privacy checkbox remains
+required. This makes future failed attempts reportable; it is not recruitment,
+a cohort attempt, an accepted validation, an upload, or a GitHub write.
+
 ## Next transition
 
 1. Align the Docker and source rows to one reviewed product version, then run

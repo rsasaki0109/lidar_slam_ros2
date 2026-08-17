@@ -237,6 +237,13 @@ corrects the Docs Home v0.9.0 label from release candidate to stable release.
 Thirty focused entrypoint tests, the 37-test S6 docs/product command, and
 strict MkDocs pass. No runtime, public identity, release, recruitment, or
 GitHub state changes.
+Exact follow-up `da99c7ef82136449727ef97a58c1a2db4ffd6955` removes a
+feedback-loop contradiction in the first-map issue form. PASS still requires
+one reviewed privacy-bounded receipt; FAIL can now truthfully attest that no
+receipt was produced and no file was attached. All three privacy checks remain
+required. Thirty-one focused and 38 S6 docs/product regressions plus strict
+MkDocs pass; this creates no accepted validation, cohort attempt, upload,
+recruitment, or GitHub write.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state
