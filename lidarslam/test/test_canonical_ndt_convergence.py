@@ -487,6 +487,10 @@ def test_publication_token_is_scoped_to_github_api(monkeypatch):
     )
     with pytest.raises(CHECKER.ConvergenceError, match='non-GitHub API URL'):
         CHECKER._request_json('https://example.com/not-allowed')
+    with pytest.raises(CHECKER.ConvergenceError, match='non-GitHub API URL'):
+        CHECKER._request_json(
+            'https://api.github.com.evil.example/repos/koide3/ndt_omp'
+        )
 
 
 @pytest.mark.parametrize('failure', ('commit', 'dirty', 'apply'))

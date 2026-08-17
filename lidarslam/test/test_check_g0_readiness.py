@@ -69,8 +69,8 @@ def _absent_environment_handoff() -> dict:
             'Have an independent maintainer review the saved settings.',
         ],
         'verification_command': (
-            'GITHUB_TOKEN="$(gh auth token)" python3 '
-            'scripts/check_candidate_environment.py --json --require-ready'
+            'python3 scripts/check_candidate_environment.py '
+            '--json --require-ready'
         ),
         'writes_performed': False,
     }
@@ -1382,3 +1382,42 @@ def test_checker_error_is_not_downgraded_to_a_hold():
 
     with pytest.raises(DASHBOARD.G0ReadinessError, match='synthetic'):
         DASHBOARD.collect_checker_reports(runner=failing_runner)
+
+
+def test_product_pr_network_client_is_authenticated_get_only(monkeypatch):
+    """The product PR client scopes auth to a bodyless GitHub GET."""
+    captured = {}
+
+    class Response:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _limit):
+            return b'{"number": 427}'
+
+    def urlopen(request, *, timeout):
+        captured['request'] = request
+        captured['timeout'] = timeout
+        return Response()
+
+    monkeypatch.setenv('GITHUB_TOKEN', 'read-only-test-token')
+    monkeypatch.setattr(DASHBOARD.urllib.request, 'urlopen', urlopen)
+
+    status, payload = DASHBOARD._github_json(
+        'repos/rsasaki0109/lidar_slam_ros2/pulls/427'
+    )
+
+    request = captured['request']
+    assert status == 200
+    assert payload == {'number': 427}
+    assert request.get_method() == 'GET'
+    assert request.data is None
+    assert request.get_header('Authorization') == (
+        'Bearer read-only-test-token'
+    )
+    assert captured['timeout'] == 30

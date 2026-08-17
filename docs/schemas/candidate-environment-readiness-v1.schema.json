@@ -282,7 +282,7 @@
           "items": {"type": "string", "minLength": 1, "maxLength": 300}
         },
         "verification_command": {
-          "const": "GITHUB_TOKEN=\"$(gh auth token)\" python3 scripts/check_candidate_environment.py --json --require-ready"
+          "const": "python3 scripts/check_candidate_environment.py --json --require-ready"
         },
         "writes_performed": {"const": false}
       }

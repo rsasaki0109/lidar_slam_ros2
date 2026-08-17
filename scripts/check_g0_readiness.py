@@ -40,7 +40,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
 import subprocess
@@ -50,6 +49,11 @@ import urllib.error
 import urllib.request
 
 import jsonschema
+
+try:
+    from github_api_auth import github_api_authorization
+except ModuleNotFoundError:  # pragma: no cover - importlib test path
+    from scripts.github_api_auth import github_api_authorization
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -69,8 +73,7 @@ PRODUCT_REPOSITORY_URL = f'https://github.com/{REPOSITORY}.git'
 PRODUCT_PR_BASE = 'develop'
 PRODUCT_PR_HEAD = 'agent/product-g0-guided-ux'
 PRODUCT_PR_VERIFY_COMMAND = (
-    'GITHUB_TOKEN="$(gh auth token)" python3 '
-    'scripts/check_g0_readiness.py --include-product-draft --json'
+    'python3 scripts/check_g0_readiness.py --include-product-draft --json'
 )
 PUBLICATION_REVIEW_OVERVIEW_COMMAND = (
     'python3 scripts/check_publication_slice_plan.py --overview'
@@ -149,8 +152,7 @@ CANDIDATE_ENVIRONMENT_SETTINGS_URL = (
     f'https://github.com/{REPOSITORY}/settings/environments'
 )
 CANDIDATE_ENVIRONMENT_VERIFY_COMMAND = (
-    'GITHUB_TOKEN="$(gh auth token)" python3 '
-    'scripts/check_candidate_environment.py --json --require-ready'
+    'python3 scripts/check_candidate_environment.py --json --require-ready'
 )
 CANDIDATE_HANDOFF_KINDS = {
     'CREATE_AND_REVIEW_ENVIRONMENT',
@@ -293,9 +295,7 @@ def _github_json(path: str) -> tuple[int, dict[str, Any] | None]:
         'User-Agent': 'lidarslam-g0-product-pr-audit/1',
         'X-GitHub-Api-Version': '2022-11-28',
     }
-    token = os.environ.get('GITHUB_TOKEN')
-    if token:
-        headers['Authorization'] = f'Bearer {token}'
+    headers.update(github_api_authorization(url, method='GET'))
     request = urllib.request.Request(url, headers=headers, method='GET')
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
@@ -2544,8 +2544,7 @@ def _next_action(
                 f'{blocker}'
             ),
             'command': (
-                'GITHUB_TOKEN="$(gh auth token)" python3 '
-                'scripts/check_candidate_environment.py '
+                'python3 scripts/check_candidate_environment.py '
                 '--json --require-ready'
             ),
             'write_boundary': (

@@ -35,7 +35,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
@@ -46,6 +45,17 @@ import urllib.parse
 import urllib.request
 
 import jsonschema
+
+try:
+    from github_api_auth import (
+        github_api_authorization,
+        is_github_api_url,
+    )
+except ModuleNotFoundError:  # pragma: no cover - importlib test path
+    from scripts.github_api_auth import (
+        github_api_authorization,
+        is_github_api_url,
+    )
 
 
 sys.dont_write_bytecode = True
@@ -212,15 +222,13 @@ def _git_diff_sha256(repo: Path, base: str, commit: str) -> str:
 
 
 def _request_json(url: str, *, allow_404: bool = False) -> tuple[int, Any]:
-    if not url.startswith('https://api.github.com/'):
+    if not is_github_api_url(url):
         raise ConvergenceError(f'refusing non-GitHub API URL: {url}')
     headers = {
         'Accept': 'application/vnd.github+json',
         'User-Agent': 'lidarslam-canonical-ndt-preflight/1',
     }
-    token = os.environ.get('GITHUB_TOKEN')
-    if token:
-        headers['Authorization'] = f'Bearer {token}'
+    headers.update(github_api_authorization(url, method='GET'))
     request = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
@@ -1011,8 +1019,9 @@ def _parser() -> argparse.ArgumentParser:
         '--online',
         action='store_true',
         help=(
-            'Read current GitHub upstream/fork/branch/open-PR state. The '
-            'optional GITHUB_TOKEN is used only for api.github.com.'
+            'Read current GitHub upstream/fork/branch/open-PR state. An '
+            'explicit GITHUB_TOKEN or active gh auth credential is scoped '
+            'to exact api.github.com GET requests.'
         ),
     )
     strict = parser.add_mutually_exclusive_group()

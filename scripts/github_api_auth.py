@@ -13,7 +13,7 @@ GITHUB_API_HOST = 'api.github.com'
 GH_AUTH_TIMEOUT_SECONDS = 5
 
 
-def _is_github_api_url(url: str) -> bool:
+def is_github_api_url(url: str) -> bool:
     """Return whether *url* is the exact public GitHub HTTPS API origin."""
     try:
         parsed = urlsplit(url)
@@ -63,7 +63,7 @@ def github_api_authorization(
     method: str,
 ) -> dict[str, str]:
     """Return a bearer header only for an exact public GitHub API GET."""
-    if method != 'GET' or not _is_github_api_url(url):
+    if method != 'GET' or not is_github_api_url(url):
         return {}
     token = _valid_token(os.environ.get('GITHUB_TOKEN'))
     if token is None:

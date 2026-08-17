@@ -144,6 +144,13 @@ python3 scripts/prepare_usability_scorecard_pair.py \
   --output-dir /tmp/usability-pair-operator-a
 ```
 
+With `--verify-public`, GitHub identity reads use an explicit `GITHUB_TOKEN`
+when provided, otherwise they non-interactively reuse the active `gh auth`
+credential. If neither is available, verification keeps the anonymous read
+path and fails closed when its quota is insufficient. Credentials are scoped
+to exact `https://api.github.com` GET requests and are never written to either
+worksheet or the preparation receipt.
+
 The common fingerprint is convenient for a clean sequential pair. When the
 products use separate hosts, replace it with
 `--lidarslam-machine-fingerprint-sha256` and

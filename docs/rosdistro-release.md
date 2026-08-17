@@ -162,7 +162,6 @@ python3 scripts/check_canonical_ndt_convergence.py --json
 python3 scripts/check_canonical_ndt_convergence.py \
   --upstream-checkout /path/to/clean/koide3-ndt_omp \
   --require-ready-for-upstream-review
-GITHUB_TOKEN="$(gh auth token)" \
 python3 scripts/check_canonical_ndt_convergence.py \
   --upstream-checkout /path/to/clean/koide3-ndt_omp-at-5495fd9 \
   --candidate-checkout /path/to/clean/ndt_omp-at-618f02f \

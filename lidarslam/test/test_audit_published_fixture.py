@@ -234,6 +234,42 @@ def test_github_immutable_release_download_passes(tmp_path):
     AUDITOR.validate_contract(report, AUDITOR.SCHEMA_NAME)
 
 
+def test_github_metadata_client_uses_scoped_read_credential(monkeypatch):
+    """Release metadata auth is attached only to the exact GitHub API GET."""
+    captured = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _limit):
+            return b'{"id": 123}'
+
+    def urlopen(request, timeout):
+        captured['request'] = request
+        captured['timeout'] = timeout
+        return Response()
+
+    monkeypatch.setenv('GITHUB_TOKEN', 'read-only-test-token')
+    monkeypatch.setattr(AUDITOR.urllib.request, 'urlopen', urlopen)
+
+    payload = AUDITOR._request_json(
+        'https://api.github.com/repos/owner/repo/releases/tags/fixture-v1'
+    )
+
+    request = captured['request']
+    assert payload == {'id': 123}
+    assert request.get_method() == 'GET'
+    assert request.data is None
+    assert request.get_header('Authorization') == (
+        'Bearer read-only-test-token'
+    )
+    assert captured['timeout'] == 30
+
+
 def test_github_release_must_have_immutability_enabled(tmp_path):
     """A final release is insufficient when its assets can still change."""
     payload = b'fixture\n'

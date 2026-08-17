@@ -372,7 +372,6 @@ making an E2 decision. The dispatch and deployment approval must remain
 separate maintainer actions. Audit the live settings with GET requests only:
 
 ```bash
-GITHUB_TOKEN="$(gh auth token)" \
 python3 scripts/check_candidate_environment.py --json --require-ready
 ```
 

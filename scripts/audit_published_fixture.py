@@ -24,6 +24,17 @@ from mid360_robot_public_datasets import (
 
 from product_schema import validate_contract
 
+try:
+    from github_api_auth import (
+        github_api_authorization,
+        is_github_api_url,
+    )
+except ModuleNotFoundError:  # pragma: no cover - importlib test path
+    from scripts.github_api_auth import (
+        github_api_authorization,
+        is_github_api_url,
+    )
+
 
 SCHEMA_NAME = 'fixture-publication-audit-v1.schema.json'
 SCHEMA_URI = (
@@ -139,12 +150,10 @@ def _request_json(url: str) -> dict[str, Any]:
         'Accept': 'application/json',
         'User-Agent': 'lidarslam-published-fixture-audit/1',
     }
-    if url.startswith('https://api.github.com/'):
+    if is_github_api_url(url):
         headers['Accept'] = 'application/vnd.github+json'
         headers['X-GitHub-Api-Version'] = GITHUB_API_VERSION
-        token = os.environ.get('GITHUB_TOKEN')
-        if token:
-            headers['Authorization'] = f'Bearer {token}'
+    headers.update(github_api_authorization(url, method='GET'))
     request = urllib.request.Request(url, headers=headers)
     for attempt in range(REQUEST_ATTEMPTS):
         try:

@@ -53,6 +53,11 @@ from typing import Any, Callable, Mapping, Sequence
 
 import jsonschema
 
+try:
+    from github_api_auth import github_api_authorization
+except ModuleNotFoundError:  # pragma: no cover - importlib test path
+    from scripts.github_api_auth import github_api_authorization
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
@@ -180,9 +185,7 @@ def _github_json(
         'User-Agent': 'lidarslam-usability-pair-public-preflight/1',
         'X-GitHub-Api-Version': '2022-11-28',
     }
-    token = os.environ.get('GITHUB_TOKEN')
-    if token:
-        headers['Authorization'] = f'Bearer {token}'
+    headers.update(github_api_authorization(url, method='GET'))
     status, payload, _, final_url = http_get(
         url,
         headers,

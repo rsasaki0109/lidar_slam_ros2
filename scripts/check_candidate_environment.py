@@ -31,13 +31,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from typing import Any, Callable, Sequence
 import urllib.error
 import urllib.request
 
 from product_schema import validate_contract
+
+try:
+    from github_api_auth import github_api_authorization
+except ModuleNotFoundError:  # pragma: no cover - importlib test path
+    from scripts.github_api_auth import github_api_authorization
 
 
 REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
@@ -55,8 +59,7 @@ SETTINGS_URL = (
     f'https://github.com/{REPOSITORY}/settings/environments'
 )
 VERIFY_COMMAND = (
-    'GITHUB_TOKEN="$(gh auth token)" python3 '
-    'scripts/check_candidate_environment.py --json --require-ready'
+    'python3 scripts/check_candidate_environment.py --json --require-ready'
 )
 
 
@@ -197,9 +200,7 @@ def _github_json(path: str) -> tuple[int, dict[str, Any] | None]:
         'User-Agent': 'lidarslam-candidate-environment-audit/1',
         'X-GitHub-Api-Version': '2022-11-28',
     }
-    token = os.environ.get('GITHUB_TOKEN')
-    if token:
-        headers['Authorization'] = f'Bearer {token}'
+    headers.update(github_api_authorization(url, method='GET'))
     request = urllib.request.Request(url, headers=headers, method='GET')
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
@@ -342,8 +343,9 @@ def _operator_handoff(status: str) -> dict[str, Any]:
                     'read access.'
                 ),
                 (
-                    'Provide a read-capable GITHUB_TOKEN only to the '
-                    'verification command.'
+                    'If the active gh credential lacks access, provide a '
+                    'read-capable GITHUB_TOKEN only to the verification '
+                    'command.'
                 ),
                 (
                     'Retry the audit; do not change environment settings from '

@@ -81,6 +81,25 @@ def test_explicit_token_is_used_only_for_exact_github_api_origin(monkeypatch):
     ) == {}
 
 
+def test_exact_origin_predicate_rejects_lookalikes_and_non_https():
+    """The reusable URL predicate accepts only the public HTTPS API."""
+    assert AUTH.is_github_api_url(
+        'https://api.github.com/repos/owner/repo'
+    ) is True
+    assert AUTH.is_github_api_url(
+        'https://api.github.com:443/repos/owner/repo'
+    ) is True
+    assert AUTH.is_github_api_url(
+        'http://api.github.com/repos/owner/repo'
+    ) is False
+    assert AUTH.is_github_api_url(
+        'https://api.github.com:444/repos/owner/repo'
+    ) is False
+    assert AUTH.is_github_api_url(
+        'https://api.github.com.evil.example/repos/owner/repo'
+    ) is False
+
+
 def test_stored_gh_token_is_discovered_once_without_prompting(monkeypatch):
     """The active gh credential is reused without an interactive prompt."""
     calls = []

@@ -174,6 +174,34 @@ def _verifier(http: FakeHttp):
     )
 
 
+def test_github_identity_client_uses_scoped_read_credential(monkeypatch):
+    """Public pair identity reads use the shared GitHub GET auth boundary."""
+    captured = {}
+
+    def http_get(url, headers, limit):
+        captured['url'] = url
+        captured['headers'] = headers
+        captured['limit'] = limit
+        return 200, b'{"sha": "abc"}', {}, url
+
+    monkeypatch.setenv('GITHUB_TOKEN', 'read-only-test-token')
+
+    payload = PREPARE._github_json(
+        'owner/repo',
+        'commits/abc',
+        http_get,
+    )
+
+    assert payload == {'sha': 'abc'}
+    assert captured['url'] == (
+        'https://api.github.com/repos/owner/repo/commits/abc'
+    )
+    assert captured['headers']['Authorization'] == (
+        'Bearer read-only-test-token'
+    )
+    assert captured['limit'] == PREPARE.MAX_JSON_BYTES
+
+
 def test_pair_has_shared_metadata_and_opposite_order(tmp_path, capsys):
     """One command prepares two independently valid incomplete worksheets."""
     assert PREPARE.main(_args(tmp_path)) == 0

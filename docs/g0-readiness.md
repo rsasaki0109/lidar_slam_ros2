@@ -19,10 +19,16 @@ To bind the current checkout to public Draft PR #427 and its exact-head CI,
 opt in to the GitHub GET-only product audit:
 
 ```bash
-GITHUB_TOKEN="$(gh auth token)" \
 python3 scripts/check_g0_readiness.py \
   --include-product-draft
 ```
+
+For GitHub API reads, the dashboard and its child audits use an explicit
+`GITHUB_TOKEN` when provided, otherwise they non-interactively reuse the
+active `gh auth` credential. If neither is available, they keep the anonymous
+read path and fail closed when its quota or permissions are insufficient.
+Credentials are attached only to exact `https://api.github.com` GET requests,
+are never retained in reports, and add no write authority.
 
 The audit requires the canonical repository, PR number and URL, `develop`
 base, `agent/product-g0-guided-ux` head branch, and full local/public commit to
@@ -140,7 +146,6 @@ pass `--include-candidate-environment`. Authenticated inspection avoids
 mistaking an inaccessible endpoint for an absent environment:
 
 ```bash
-GITHUB_TOKEN="$(gh auth token)" \
 python3 scripts/check_g0_readiness.py \
   --include-product-draft \
   --include-candidate-environment
@@ -157,7 +162,6 @@ digest-publication dispatch remain unauthorized.
 To take one complete read-only snapshot of the current external G0 gates, use:
 
 ```bash
-GITHUB_TOKEN="$(gh auth token)" \
 python3 scripts/check_g0_readiness.py \
   --include-product-draft \
   --include-candidate-environment \

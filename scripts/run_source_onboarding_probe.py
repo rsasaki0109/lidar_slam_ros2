@@ -57,6 +57,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+try:
+    from github_api_auth import github_api_authorization
+except ModuleNotFoundError:  # pragma: no cover - importlib test path
+    from scripts.github_api_auth import github_api_authorization
+
 # Planning and public-route inspection must not mutate the observer checkout
 # merely by importing adjacent helper modules.
 sys.dont_write_bytecode = True
@@ -422,9 +427,7 @@ def _request_json(url: str) -> tuple[int, dict[str, Any] | None]:
         'Accept': 'application/vnd.github+json',
         'User-Agent': 'lidarslam-source-onboarding-probe/1',
     }
-    token = os.environ.get('GITHUB_TOKEN')
-    if token and url.startswith('https://api.github.com/'):
-        headers['Authorization'] = f'Bearer {token}'
+    headers.update(github_api_authorization(url, method='GET'))
     request = urllib.request.Request(
         url,
         headers=headers,
