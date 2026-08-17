@@ -449,6 +449,16 @@ work and document the actual support boundary instead of hiding the delay.
   dependency skips, plus 42 docs/product, 25 support/installed, 21
   option-contract, and 331 broad S6 regressions, with strict MkDocs. No upload,
   issue, network access, or GitHub write is performed.
+- Exact follow-up `387a002dc7826be267fe600db906f80460e6f270` removes the next
+  own-bag decision burden. A ready product-dispatched report preserves the
+  selected profile and reasons but replaces lower-level scripts and
+  compatible-path alternatives with one shell-safe exact-input `start`. A
+  report with findings withholds start and returns to the exact-input `doctor`
+  after the first finding. Direct preflight and JSON contracts remain detailed
+  and unchanged. Thirty-two preflight regressions pass with two dependency
+  skips, plus 42 docs/product, 25 support/installed, 21 option-contract, 331
+  broad S6, changed-code `ament_flake8`, and strict MkDocs. No mapping, upload,
+  network access, issue, or GitHub write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

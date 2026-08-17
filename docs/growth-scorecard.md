@@ -297,6 +297,16 @@ wrapper. Thirty-two preflight regressions pass with two dependency skips, plus
 42 docs/product, 25 support/installed, 21 option-contract, and 331 broad S6
 regressions, with strict MkDocs. No upload, issue, network access, or GitHub
 write occurs.
+Exact follow-up `387a002dc7826be267fe600db906f80460e6f270` removes the next
+own-bag decision burden. A ready report reached through the product CLI keeps
+the selected profile and reasons but replaces lower-level scripts and
+compatible-path alternatives with one shell-safe exact-input `start`. A report
+with findings withholds start and returns to the exact-input `doctor` after the
+first finding. Direct preflight and JSON contracts remain detailed and
+unchanged. Thirty-two preflight regressions pass with two dependency skips,
+plus 42 docs/product, 25 support/installed, 21 option-contract, 331 broad S6,
+changed-code `ament_flake8`, and strict MkDocs. No mapping, upload, network
+access, issue, or GitHub write occurs.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state

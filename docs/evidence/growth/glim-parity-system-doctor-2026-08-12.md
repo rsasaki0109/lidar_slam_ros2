@@ -206,3 +206,45 @@ Verification on the implementation tip:
 This removes one locally reproduced decision burden from the existing doctor;
 it does not add another diagnosis surface, perform the selected build, prove a
 clean-host completion time, create a paired GLIM observation, or claim parity.
+
+## One-action own-bag handoff follow-up — 2026-08-17
+
+> Decision: **LOCAL_ONE_ACTION_BAG_HANDOFF_PASS / PAIRED_PUBLIC_TRIAL_PENDING**
+>
+> Implementation tip:
+> `387a002dc7826be267fe600db906f80460e6f270`
+>
+> Mapping, network, file, GitHub, release, or community mutations performed by
+> the observed doctor command: **none**
+
+The product-dispatched bag report formerly exposed the internal beginner
+script, browser variant, raw launch command, and every compatible path even
+after selecting a primary profile. A first-time operator therefore still had
+to choose which mapping command should follow a successful diagnosis.
+
+At the implementation tip, a ready `lidarslam-map doctor <bag>` report keeps
+the selected profile and its reasons, but renders exactly one shell-safe
+exact-input `lidarslam-map start <bag>` under **Do this now**. If any finding
+remains, the report withholds start, points to the first finding, and renders
+the exact-input doctor retry. Direct use of the preflight script retains the
+detailed developer commands and alternatives; machine-readable preflight and
+path-free public-evidence contracts are unchanged. The dispatcher and renderer
+round-trip command and bag paths with shell quoting instead of concatenating
+untrusted path text.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| bag preflight and shell-safe ready/finding handoffs | 32 passed / 2 dependency skips |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 331 passed |
+| changed-code Jazzy `ament_flake8` | PASS |
+| strict MkDocs, JSON, bytecode, and patch hygiene | PASS |
+
+This closes one local command-selection gap without running mapping or hiding
+expert evidence. It is not a clean-host timing result, a paired external GLIM
+observation, an independent first map, a package-manager release, or a parity
+or superiority claim.
