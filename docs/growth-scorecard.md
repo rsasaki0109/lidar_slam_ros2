@@ -222,6 +222,14 @@ absent, and v0.9.1 tag/Release/both images absent; its dependency-ordered next
 action is therefore exact non-force Draft-update review, not fresh measurement.
 Only a matching published identity can enable a new four-row packet, and old
 mixed-version measurements remain explicitly non-reusable.
+Exact local discovery follow-up
+`8a8876a2d26c09cc92ad330b99d1fa217db1bd8d` reduces the GitHub README choice
+to three explicit goals: stable Docker demo, read-only own-bag diagnosis before
+`start`, or candidate source dry-run. Docker is the default when unsure and
+each row states its version, write, ROS, disk, and time boundary. The README
+remains 219 lines; 29 focused entrypoint regressions, the 36-test S6
+docs/product command, and strict MkDocs pass. This changes no release identity,
+collects no telemetry, and is not a paired GLIM result.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state

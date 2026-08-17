@@ -262,6 +262,14 @@ work and document the actual support boundary instead of hiding the delay.
 
 - Reduce the README's first screen to one promise, one visual proof, one Docker
   command, and one own-bag command; move advanced evidence into clear links.
+- Exact local follow-up `8a8876a2d26c09cc92ad330b99d1fa217db1bd8d`
+  turns the first Quickstart decision into three bounded goals: stable Docker
+  demo, read-only own-bag diagnosis before `start`, or candidate source dry-run.
+  Docker is the explicit default when unsure, while each row states its host
+  write, version, ROS, storage, and time boundary. The README remains below its
+  220-line budget; 29 entrypoint and 36 integrated docs/product regressions plus
+  strict MkDocs pass. This is a discovery repair, not a release, measurement,
+  promotion, or GLIM parity claim.
 - Keep `lidarslam-map start BAG` as the canonical own-bag route and package it
   in every supported distribution.
 - The current local product candidate adds `lidarslam-map demo [work_dir]` as
@@ -1122,7 +1130,7 @@ in separate pytest processes, and recognized direct remote-write CLI forms fail
 plan validation. Exact follow-up `0633c2a604489538e0f087c02385e7c6467540c3`
 extends that boundary to the S6 docs/product-CLI command after exact execution
 from an unsourced shell exposed two `rosbag2_py` import failures; the repaired
-displayed command passes all 35 tests and removing its prelude fails validation.
+displayed command now passes all 36 tests and removing its prelude fails validation.
 Evidence carrier `72a8c9e77eba33c1578a3cd9c8afe8fbe6933e33`
 passes 2,488 maintained Python tests and a byte-identical 261-file candidate
 bundle rehearsal without granting publication authority.
