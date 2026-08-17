@@ -516,6 +516,19 @@ work and document the actual support boundary instead of hiding the delay.
   MkDocs, and plan validation. This is a mocked monitor-boundary result, not a
   real long mapping run, clean-host timing result, paired GLIM observation, or
   parity claim. No upload, network access, issue, or GitHub write is performed.
+- Exact follow-up `6d1249e45a2c91d3b5794f2c6f65eebf19336299` makes Ctrl-C a
+  safe product handoff. `start` isolates and supervises the delegated runner,
+  forwards SIGINT, waits 20 seconds for cleanup/evidence and 10 seconds after
+  termination before a forced reap, then renders the retained interrupt through
+  the existing one-action recovery contract without a traceback or synthesized
+  success. A real synthetic subprocess probe returns 130 and leaves no child
+  PID. Forty-two sensor-setup regressions, exact S3 lifecycle 77 and edit/merge
+  15, all 48 lower map-runner regressions, plus 42 docs/product, 25
+  support/installed, 21 option-contract, and 331 broad S6 regressions pass with
+  changed-code `ament_flake8`, strict MkDocs, and plan validation. This is not a
+  real interrupted ROS map, clean-host timing result, paired GLIM observation,
+  or parity claim. No map, upload, network access, issue, or GitHub write is
+  performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

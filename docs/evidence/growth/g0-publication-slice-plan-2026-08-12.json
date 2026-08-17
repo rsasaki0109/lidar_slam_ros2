@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-17T17:28:45+09:00",
+  "generated_at": "2026-08-17T17:45:54+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
@@ -141,7 +141,7 @@
       "id": "S3-map-lifecycle",
       "order": 3,
       "title": "Sensor setup, session history, map editing, merging, and support",
-      "review_outcome": "Users can move beyond a first map without hand-editing commands or losing provenance, recovery state, or support-safe evidence; confirmed starts move from one calibration decision through durable progress to one terminal card, with exactly one safe Next action on success or failure and complete structured evidence retained. An unchanged live stage stays visibly active through a bounded 30-second terminal heartbeat with monotonic elapsed time, no ETA or forward-progress claim, and no session-artifact rewrite.",
+      "review_outcome": "Users can move beyond a first map without hand-editing commands or losing provenance, recovery state, or support-safe evidence; confirmed starts move from one calibration decision through durable progress to one terminal card, with exactly one safe Next action on success or failure and complete structured evidence retained. An unchanged live stage stays visibly active through a bounded 30-second terminal heartbeat with monotonic elapsed time, no ETA or forward-progress claim, and no session-artifact rewrite. One Ctrl-C is forwarded to an isolated delegated runner, waits through bounded cleanup and terminal-evidence sealing, and returns through the same one-action recovery handoff without a Python traceback or synthesized success.",
       "depends_on": [
         "S2-first-map-foundation"
       ],

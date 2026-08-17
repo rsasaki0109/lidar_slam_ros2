@@ -490,3 +490,51 @@ This keeps long mapping visibly active without inventing progress or increasing
 artifact churn. The test uses a mocked monitor clock and stage source; it is not
 a real long mapping run, clean-host timing result, paired external GLIM
 observation, or parity/superiority claim.
+
+## Safe operator interruption follow-up — 2026-08-17
+
+> Decision: **LOCAL_SAFE_INTERRUPTION_PASS / REAL_MAPPING_TRIAL_PENDING**
+>
+> Implementation tip:
+> `6d1249e45a2c91d3b5794f2c6f65eebf19336299`
+>
+> Real mapping, network, GitHub, release, or community mutations performed:
+> **none**
+
+The lower map runner already isolated its ROS workflow, forwarded SIGINT and
+SIGTERM, reaped that process group, and wrote an interrupted terminal manifest.
+The product-level `start` still delegated through `subprocess.run`, so its own
+KeyboardInterrupt could escape before that lower cleanup and evidence sealing
+finished.
+
+`start` now supervises the delegated runner in a separate session. One Ctrl-C
+is forwarded as SIGINT, then the product waits up to 20 seconds for bounded
+cleanup and terminal evidence. If needed, it requests termination, waits 10
+more seconds, and force-reaps the delegated runner. SIGTERM enters the same
+supervision boundary. The resulting non-zero status flows through the existing
+`workflow-interrupted` recovery receipt, session page, one `Next`, and one
+`Details` path; no verified success or Python traceback is synthesized.
+
+A real process-level regression starts a synthetic 60-second delegated child,
+sends SIGINT only to the product supervisor, and verifies exit 130 plus an
+absent child PID. This exercises signal forwarding and reap behavior without
+running ROS mapping.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| complete sensor-setup wizard regressions | 42 passed |
+| exact S3 lifecycle command | 77 passed |
+| exact S3 edit/merge command | 15 passed |
+| complete lower map-runner regressions | 48 passed |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 331 passed |
+| changed-code Jazzy `ament_flake8` | PASS |
+| strict MkDocs, JSON, bytecode, plan, and patch hygiene | PASS |
+
+This turns one stop request into a bounded evidence-preserving handoff. It is
+not a real interrupted mapping trial, clean-host timing result, paired external
+GLIM observation, or parity/superiority claim.
