@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import pathlib
 import re
@@ -77,6 +78,7 @@ def _absent_environment_handoff() -> dict:
 def _product_pull(
     head: str,
     *,
+    body: str | None = '',
     draft: bool = True,
     state: str = 'open',
     merged: bool = False,
@@ -90,6 +92,7 @@ def _product_pull(
         'draft': draft,
         'merged': merged,
         'mergeable': mergeable,
+        'body': body,
         'head': {
             'sha': head,
             'ref': 'agent/product-g0-guided-ux',
@@ -128,6 +131,7 @@ def _product_checks(*, failed_name: str | None = None) -> dict:
 def _audit_product(
     head: str,
     *,
+    body: str | None = '',
     draft: bool = True,
     state: str = 'open',
     merged: bool = False,
@@ -139,6 +143,7 @@ def _audit_product(
         if path.endswith('/pulls/427'):
             return 200, _product_pull(
                 head,
+                body=body,
                 draft=draft,
                 state=state,
                 merged=merged,
@@ -150,6 +155,17 @@ def _audit_product(
     return DASHBOARD.audit_product_draft(
         fetcher=fetcher,
         local_head=head,
+    )
+
+
+def _desired_description(reports: dict, head: str) -> str:
+    """Render the canonical body from deterministic local fixtures."""
+    return DASHBOARD._product_draft_description_body(
+        reports['publication_plan'],
+        DASHBOARD._matrix_summary(reports['onboarding_matrix']),
+        DASHBOARD._cohort_summary(reports['first_map_cohort']),
+        DASHBOARD._v1_summary(reports['v1_readiness']),
+        head,
     )
 
 
@@ -168,6 +184,12 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         'PLAN_VALID_LOCAL_ONLY'
     )
     assert report['checks']['publication_plan']['path_count'] == 331
+    assert report['checks']['publication_plan'][
+        'whole_pr_commit_count'
+    ] >= 315
+    assert report['checks']['publication_plan'][
+        'follow_up_review_commit_count'
+    ] >= 271
     assert report['checks']['publication_plan']['whole_pr_path_count'] == 380
     assert report['checks']['publication_plan']['review_phase_count'] == 3
     assert report['checks']['publication_plan'][
@@ -190,6 +212,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         'remote_head': None,
         'head_matches_local': None,
         'non_force_update_possible': None,
+        'remote_description_sha256': None,
         'observed_check_count': 0,
         'passing_check_count': 0,
         'skipped_check_count': 0,
@@ -374,7 +397,12 @@ def test_dashboard_can_include_a_read_only_release_report_without_writes():
 def test_exact_green_draft_is_reviewed_before_candidate_environment():
     """Exact green Draft evidence takes priority over repository settings."""
     head = '1' * 40
-    product = _audit_product(head)
+    reports = DASHBOARD.collect_checker_reports()
+    reports['publication_plan']['local_tip_sha'] = head
+    reports['publication_plan']['worktree_clean'] = True
+    reports['publication_plan']['uncommitted_path_count'] = 0
+    body = _desired_description(reports, head)
+    product = _audit_product(head, body=body)
 
     assert product['status'] == 'DRAFT_REVIEW_REQUIRED'
     assert product['local_head'] == product['remote_head'] == head
@@ -385,11 +413,11 @@ def test_exact_green_draft_is_reviewed_before_candidate_environment():
     assert product['pending_check_count'] == 0
     assert product['failing_check_count'] == 0
     assert product['required_checks_complete'] is True
+    assert product['remote_description_sha256'] == hashlib.sha256(
+        body.encode('utf-8')
+    ).hexdigest()
     assert product['authority']['merge_authorized'] is False
 
-    reports = DASHBOARD.collect_checker_reports()
-    reports['publication_plan']['worktree_clean'] = True
-    reports['publication_plan']['uncommitted_path_count'] = 0
     reports['product_draft'] = product
     reports['candidate_environment'] = {
         'status': 'ABSENT',
@@ -473,6 +501,49 @@ def test_exact_green_draft_is_reviewed_before_candidate_environment():
     ) in card
     assert '- GitHub review submitted: no' in card
     assert card.count('Next action:') == 1
+
+
+def test_exact_green_draft_refreshes_stale_description_before_review():
+    """A green exact head cannot carry stale reviewer-facing scope facts."""
+    head = '9' * 40
+    reports = DASHBOARD.collect_checker_reports()
+    reports['publication_plan']['local_tip_sha'] = head
+    reports['publication_plan']['worktree_clean'] = True
+    reports['publication_plan']['uncommitted_path_count'] = 0
+    reports['product_draft'] = _audit_product(
+        head,
+        body='stale 321-path / 77-commit description',
+    )
+
+    report = DASHBOARD.build_report(reports)
+    action = report['next_action']
+
+    assert action['id'] == 'review-product-draft-description-refresh'
+    handoff = action['product_draft_description_refresh_handoff']
+    assert handoff['desired_head'] == head
+    assert handoff['observed_public_head'] == head
+    assert handoff['after_branch_update_required'] is False
+    assert handoff['body_matches_observed'] is False
+    assert handoff['body_sha256'] == hashlib.sha256(
+        handoff['body'].encode('utf-8')
+    ).hexdigest()
+    assert f'Candidate head: `{head}`' in handoff['body']
+    assert 'Whole PR review: **' in handoff['body']
+    assert '380 paths / 3 phases**' in handoff['body']
+    assert '331 paths / 7 slices**' in handoff['body']
+    assert '0/4 comparable' in handoff['body']
+    assert handoff['description_update_authorized'] is False
+    assert handoff['review_submission_authorized'] is False
+    assert handoff['mark_ready_authorized'] is False
+    assert handoff['merge_authorized'] is False
+    assert handoff['writes_performed'] is False
+    assert 'gh pr edit' not in repr(action)
+
+    card = DASHBOARD.render_card(report)
+    assert 'Draft description refresh handoff (not executed):' in card
+    assert 'Exact desired PR description:' in card
+    assert handoff['body_sha256'] in card
+    assert '- Description updates performed: no' in card
 
 
 def test_exact_green_draft_refuses_review_handoff_from_dirty_worktree():
@@ -593,6 +664,52 @@ def test_product_audit_fails_closed_on_drift_failed_ci_and_authority():
         DASHBOARD.build_report(reports)
 
 
+def test_product_audit_bounds_and_validates_description_digest():
+    """Remote free text is hashed only when it satisfies the size contract."""
+    head = 'a' * 40
+
+    def malformed_fetcher(path: str):
+        assert path.endswith('/pulls/427')
+        pull = _product_pull(head)
+        pull['body'] = {'unexpected': 'object'}
+        return 200, pull
+
+    malformed = DASHBOARD.audit_product_draft(
+        fetcher=malformed_fetcher,
+        local_head=head,
+    )
+    assert malformed['status'] == 'BLOCKED'
+    assert malformed['blockers'] == [
+        'Product PR description is not text or null.'
+    ]
+    assert malformed['remote_description_sha256'] is None
+
+    def oversized_fetcher(path: str):
+        assert path.endswith('/pulls/427')
+        return 200, _product_pull(
+            head,
+            body='x' * (DASHBOARD.MAX_PRODUCT_DESCRIPTION_BYTES + 1),
+        )
+
+    oversized = DASHBOARD.audit_product_draft(
+        fetcher=oversized_fetcher,
+        local_head=head,
+    )
+    assert oversized['status'] == 'BLOCKED'
+    assert oversized['blockers'] == [
+        'Product PR description exceeds the audit size limit.'
+    ]
+
+    reports = DASHBOARD.collect_checker_reports()
+    reports['product_draft'] = _audit_product(head)
+    reports['product_draft']['remote_description_sha256'] = 'bad-digest'
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='description digest is invalid',
+    ):
+        DASHBOARD.build_report(reports)
+
+
 def test_head_drift_emits_exact_non_force_handoff_without_push_command():
     """Fast-forward drift gets a bounded handoff, not a circular re-audit."""
     local_head = '6' * 40
@@ -612,6 +729,9 @@ def test_head_drift_emits_exact_non_force_handoff_without_push_command():
     assert product['non_force_update_possible'] is True
 
     reports = DASHBOARD.collect_checker_reports()
+    reports['publication_plan']['local_tip_sha'] = local_head
+    reports['publication_plan']['worktree_clean'] = True
+    reports['publication_plan']['uncommitted_path_count'] = 0
     reports['product_draft'] = product
     report = DASHBOARD.build_report(reports)
     action = report['next_action']
@@ -631,6 +751,20 @@ def test_head_drift_emits_exact_non_force_handoff_without_push_command():
     assert handoff['force_push_authorized'] is False
     assert handoff['writes_performed'] is False
     assert handoff['verification_command'] == DASHBOARD.PRODUCT_PR_VERIFY_COMMAND
+    description = action['product_draft_description_refresh_handoff']
+    assert description['observed_public_head'] == public_head
+    assert description['desired_head'] == local_head
+    assert description['after_branch_update_required'] is True
+    assert description['clean_tip_verified'] is True
+    assert description['body_matches_observed'] is False
+    assert description['body_sha256'] == hashlib.sha256(
+        description['body'].encode('utf-8')
+    ).hexdigest()
+    assert f'Candidate head: `{local_head}`' in description['body']
+    assert description['description_update_authorized'] is False
+    assert description['mark_ready_authorized'] is False
+    assert description['merge_authorized'] is False
+    assert description['writes_performed'] is False
     assert 'git push' not in repr(action)
 
     card = DASHBOARD.render_card(report)
@@ -640,7 +774,22 @@ def test_head_drift_emits_exact_non_force_handoff_without_push_command():
     assert f'Repository: `{DASHBOARD.PRODUCT_REPOSITORY_URL}`' in card
     assert 'Fast-forward verified: yes' in card
     assert 'Pushes performed: no' in card
+    assert 'Draft description refresh handoff (not executed):' in card
+    assert f'Desired head: `{local_head}`' in card
+    assert 'Branch update required first: yes' in card
+    assert '- Description updates performed: no' in card
     assert 'git push' not in card
+
+    dirty_reports = copy.deepcopy(reports)
+    dirty_reports['publication_plan']['worktree_clean'] = False
+    dirty_reports['publication_plan']['uncommitted_path_count'] = 1
+    dirty_action = DASHBOARD.build_report(dirty_reports)['next_action']
+    assert dirty_action['id'] == 'restore-clean-draft-update-worktree'
+    assert 'product_draft_update_handoff' not in dirty_action
+    assert 'product_draft_description_refresh_handoff' not in dirty_action
+    assert 'no cleanup, commit, push, PR edit' in (
+        dirty_action['write_boundary']
+    )
 
 
 def test_missing_lineage_fetches_the_canonical_repository_not_origin():

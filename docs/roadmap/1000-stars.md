@@ -734,6 +734,14 @@ keeping push, force-push, and writes false and printing no push command. Missing
 history is fetched only from the canonical repository URL, never from an
 arbitrary checkout-specific `origin`. This makes the next maintainer decision
 copy-ready without turning a local plan into publication authority.
+The branch action now also carries a canonical PR-description refresh because
+the public body can drift independently from the branch. Its exact body and
+SHA-256 are generated from one clean desired head and the current whole-PR,
+P2, v1, onboarding, and independent-validation counts. Updating that body is a
+separate exact-tip decision after branch verification; the checker prints no
+edit command, requires Draft state to remain, and grants no review, mark-ready,
+merge, release, or outreach authority. Even an exact green head is held before
+review when the observed body digest is stale.
 
 The
 [2026-08-10 G0 activation decision](../evidence/growth/g0-activation-decision-2026-08-10.md)
@@ -1017,8 +1025,10 @@ When that exact Draft is green, the dashboard now carries a schema-bound review
 handoff: exact head, 380-path / three-phase / seven-slice coverage, overview,
 slice template, and a fixed overview → P0/P1/P2 → S1–S7 sequence. It refuses
 the handoff when the worktree is dirty and selects read-only status inspection
-instead. Neither path executes checks, submits a review, marks ready, merges,
-or performs a write.
+instead. It also requires the public PR body to match the canonical clean-tip
+description digest; stale scope text gets a separately authorized, exact-body,
+keep-Draft refresh handoff before review. Neither path executes checks, edits a
+PR, submits a review, marks ready, merges, or performs a write.
 The seven review cards also carry self-contained, cache-free verification:
 ROS-dependent checks source Humble/Jazzy explicitly, package test roots remain
 in separate pytest processes, and recognized direct remote-write CLI forms fail

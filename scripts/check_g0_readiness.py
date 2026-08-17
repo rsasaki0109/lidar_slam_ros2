@@ -38,6 +38,7 @@ network reads; absence is reported as ``NOT_CHECKED`` rather than a pass.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -78,7 +79,9 @@ PUBLICATION_REVIEW_SLICE_TEMPLATE = (
 )
 MAX_GITHUB_JSON_BYTES = 2 * 1024 * 1024
 MAX_CHECK_RUNS = 100
+MAX_PRODUCT_DESCRIPTION_BYTES = 64 * 1024
 SHA_PATTERN = re.compile(r'^[0-9a-f]{40}$')
+DIGEST_PATTERN = re.compile(r'^[0-9a-f]{64}$')
 REQUIRED_SUCCESS_CHECKS = frozenset({
     'build (humble)',
     'build (jazzy)',
@@ -334,6 +337,7 @@ def _product_draft_result(
     blockers: list[str],
     decision_state: str,
     non_force_update_possible: bool | None = None,
+    remote_description_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Build one bounded PR result that can never authorize a write."""
     return {
@@ -350,6 +354,7 @@ def _product_draft_result(
         'remote_head': remote_head,
         'head_matches_local': head_matches_local,
         'non_force_update_possible': non_force_update_possible,
+        'remote_description_sha256': remote_description_sha256,
         'observed_check_count': observed_check_count,
         'passing_check_count': passing_check_count,
         'skipped_check_count': skipped_check_count,
@@ -383,6 +388,7 @@ def _blocked_product_draft(
     pending_check_count: int = 0,
     failing_check_count: int = 0,
     non_force_update_possible: bool | None = None,
+    remote_description_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Return a fail-closed PR state without leaking remote free text."""
     return _product_draft_result(
@@ -403,6 +409,7 @@ def _blocked_product_draft(
         blockers=[detail],
         decision_state='HOLD',
         non_force_update_possible=non_force_update_possible,
+        remote_description_sha256=remote_description_sha256,
     )
 
 
@@ -437,6 +444,27 @@ def audit_product_draft(
             local_head=exact_local_head,
             detail=f'Product PR is not readable (HTTP {pull_status}).',
         )
+
+    raw_description = pull.get('body')
+    if raw_description is None:
+        normalized_description = ''
+    elif isinstance(raw_description, str):
+        normalized_description = raw_description.replace('\r\n', '\n')
+    else:
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail='Product PR description is not text or null.',
+        )
+    if len(normalized_description.encode('utf-8')) > (
+        MAX_PRODUCT_DESCRIPTION_BYTES
+    ):
+        return _blocked_product_draft(
+            local_head=exact_local_head,
+            detail='Product PR description exceeds the audit size limit.',
+        )
+    remote_description_sha256 = hashlib.sha256(
+        normalized_description.encode('utf-8')
+    ).hexdigest()
 
     try:
         head = _object(pull.get('head'), 'product PR head')
@@ -515,6 +543,7 @@ def audit_product_draft(
             remote_head=remote_head,
             head_matches_local=False,
             non_force_update_possible=non_force_update_possible,
+            remote_description_sha256=remote_description_sha256,
         )
     if raw_state == 'closed' and not merged:
         return _blocked_product_draft(
@@ -757,6 +786,7 @@ def audit_product_draft(
         required_checks_complete=True,
         blockers=[],
         decision_state=decision_state,
+        remote_description_sha256=remote_description_sha256,
     )
 
 
@@ -938,6 +968,7 @@ def _product_draft_summary(
             'remote_head': None,
             'head_matches_local': None,
             'non_force_update_possible': None,
+            'remote_description_sha256': None,
             'observed_check_count': 0,
             'passing_check_count': 0,
             'skipped_check_count': 0,
@@ -987,6 +1018,19 @@ def _product_draft_summary(
         raise G0ReadinessError(
             'product Draft non-force update state is invalid'
         )
+    remote_description_sha256 = report.get(
+        'remote_description_sha256'
+    )
+    if (
+        remote_description_sha256 is not None
+        and (
+            not isinstance(remote_description_sha256, str)
+            or DIGEST_PATTERN.fullmatch(remote_description_sha256) is None
+        )
+    ):
+        raise G0ReadinessError(
+            'product Draft description digest is invalid'
+        )
     if isinstance(non_force_update_possible, bool) and (
         report.get('status') != 'BLOCKED'
         or report.get('head_matches_local') is not False
@@ -1012,6 +1056,7 @@ def _product_draft_summary(
         'remote_head',
         'head_matches_local',
         'non_force_update_possible',
+        'remote_description_sha256',
         'observed_check_count',
         'passing_check_count',
         'skipped_check_count',
@@ -1073,6 +1118,248 @@ def _product_draft_update_handoff(
             (
                 'After an authorized external update, rerun the GET-only '
                 'exact-head audit below.'
+            ),
+        ],
+        'verification_command': PRODUCT_PR_VERIFY_COMMAND,
+        'writes_performed': False,
+    }
+
+
+def _product_draft_description_body(
+    plan: dict[str, Any],
+    matrix: dict[str, Any],
+    cohort: dict[str, Any],
+    v1: dict[str, Any],
+    exact_head: str,
+) -> str:
+    """Render the canonical reviewer-facing Draft description."""
+    positive_counts = (
+        plan.get('whole_pr_commit_count'),
+        plan.get('whole_pr_path_count'),
+        plan.get('review_phase_count'),
+        plan.get('follow_up_review_commit_count'),
+        plan.get('path_count'),
+        plan.get('slice_count'),
+        cohort.get('accepted_target'),
+        v1.get('total'),
+    )
+    nonnegative_counts = (
+        matrix.get('present_rows'),
+        matrix.get('comparable_rows'),
+        cohort.get('accepted_validations'),
+        v1.get('complete'),
+    )
+    if (
+        not isinstance(exact_head, str)
+        or SHA_PATTERN.fullmatch(exact_head) is None
+        or plan.get('status') != 'PLAN_VALID_LOCAL_ONLY'
+        or plan.get('local_tip_sha') != exact_head
+        or plan.get('review_coverage_complete') is not True
+        or plan.get('worktree_clean') is not True
+        or plan.get('uncommitted_path_count') != 0
+        or any(
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or value < 1
+            for value in positive_counts
+        )
+        or any(
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or value < 0
+            for value in nonnegative_counts
+        )
+        or matrix['present_rows'] > 4
+        or matrix['comparable_rows'] > 4
+        or matrix['comparable_rows'] > matrix['present_rows']
+        or cohort['accepted_validations'] > cohort['accepted_target']
+        or v1['complete'] > v1['total']
+    ):
+        raise G0ReadinessError(
+            'Draft description requires one clean exact candidate packet'
+        )
+    lines = [
+        '## Review intent',
+        '',
+        (
+            'This Draft makes the rosbag2-to-Autoware point-cloud map '
+            'workflow safer and easier to operate: guided commands, '
+            'preflight and rollback behavior, recovery guidance, and '
+            'machine-checked quality gates.'
+        ),
+        '',
+        (
+            'It stays Draft while maintainers review the bounded phases '
+            'below. Green CI is evidence for one exact head, not merge '
+            'authority.'
+        ),
+        '',
+        '## Exact review candidate',
+        '',
+        f'- Candidate head: `{exact_head}`',
+        (
+            '- Whole PR review: '
+            f"**{plan['whole_pr_commit_count']} commits / "
+            f"{plan['whole_pr_path_count']} paths / "
+            f"{plan['review_phase_count']} phases**"
+        ),
+        (
+            '- P2 follow-up review: '
+            f"**{plan['follow_up_review_commit_count']} commits / "
+            f"{plan['path_count']} paths / {plan['slice_count']} slices**"
+        ),
+        '',
+        (
+            'After any branch update, CI must rerun on the candidate head '
+            'before review conclusions are recorded.'
+        ),
+        '',
+        '## Review order',
+        '',
+        f'1. Run `{PUBLICATION_REVIEW_OVERVIEW_COMMAND}`.',
+        '2. Review P0, P1, then P2 using the displayed bounded hotspots.',
+        (
+            '3. Review S1 through S7 in dependency order and run each '
+            'displayed verification group.'
+        ),
+        (
+            '4. Record findings separately; review submission, mark-ready, '
+            'and merge remain independent decisions.'
+        ),
+        '',
+        '## Current external evidence',
+        '',
+        f"- v1 readiness: **{v1['complete']}/{v1['total']} complete**",
+        (
+            '- Onboarding trials: '
+            f"**{matrix['present_rows']}/4 present, "
+            f"{matrix['comparable_rows']}/4 comparable**"
+        ),
+        (
+            '- Independent first-map validations: '
+            f"**{cohort['accepted_validations']}/"
+            f"{cohort['accepted_target']} accepted**"
+        ),
+        '',
+        (
+            'These are evidence gates, not PR merge gates. Distribution '
+            'and independent adoption remain external work.'
+        ),
+        '',
+        '## Authority boundary',
+        '',
+        (
+            'This description does not authorize a push, review '
+            'submission, mark-ready transition, merge, release, deployment, '
+            'or community outreach.'
+        ),
+    ]
+    return '\n'.join(lines)
+
+
+def _product_draft_description_refresh_handoff(
+    plan: dict[str, Any],
+    matrix: dict[str, Any],
+    cohort: dict[str, Any],
+    v1: dict[str, Any],
+    product_draft: dict[str, Any],
+) -> dict[str, Any]:
+    """Bind a no-write PR-description refresh to one clean exact tip."""
+    desired_head = product_draft.get('local_head')
+    observed_public_head = product_draft.get('remote_head')
+    after_branch_update_required = (
+        product_draft.get('head_matches_local') is False
+    )
+    state_is_eligible = (
+        product_draft.get('status') == 'DRAFT_REVIEW_REQUIRED'
+        and product_draft.get('head_matches_local') is True
+        and product_draft.get('is_draft') is True
+    ) or (
+        product_draft.get('status') == 'BLOCKED'
+        and after_branch_update_required
+        and product_draft.get('non_force_update_possible') is True
+        and product_draft.get('is_draft') is True
+    )
+    if (
+        not state_is_eligible
+        or not isinstance(desired_head, str)
+        or SHA_PATTERN.fullmatch(desired_head) is None
+        or not isinstance(observed_public_head, str)
+        or SHA_PATTERN.fullmatch(observed_public_head) is None
+    ):
+        raise G0ReadinessError(
+            'Draft description handoff requires one eligible exact Draft'
+        )
+    body = _product_draft_description_body(
+        plan,
+        matrix,
+        cohort,
+        v1,
+        desired_head,
+    )
+    body_sha256 = hashlib.sha256(body.encode('utf-8')).hexdigest()
+    observed_body_sha256 = product_draft.get(
+        'remote_description_sha256'
+    )
+    if (
+        observed_body_sha256 is not None
+        and (
+            not isinstance(observed_body_sha256, str)
+            or DIGEST_PATTERN.fullmatch(observed_body_sha256) is None
+        )
+    ):
+        raise G0ReadinessError(
+            'Draft description handoff received an invalid observed digest'
+        )
+    first_step = (
+        'Complete only the separately authorized non-force branch update '
+        'and its GET-only exact-head verification first.'
+        if after_branch_update_required
+        else (
+            f'Confirm PR #{PRODUCT_PR_NUMBER} is still Draft at exact head '
+            f'{desired_head}.'
+        )
+    )
+    return {
+        'kind': 'REFRESH_EXACT_DRAFT_DESCRIPTION',
+        'authority_required': (
+            'separate-exact-tip-pr-description-update-approval'
+        ),
+        'external_write_required': True,
+        'pull_request': PRODUCT_PR_NUMBER,
+        'url': PRODUCT_PR_URL,
+        'observed_public_head': observed_public_head,
+        'desired_head': desired_head,
+        'after_branch_update_required': after_branch_update_required,
+        'clean_tip_verified': True,
+        'observed_body_sha256': observed_body_sha256,
+        'body_sha256': body_sha256,
+        'body_character_count': len(body),
+        'body_line_count': len(body.splitlines()),
+        'body_matches_observed': (
+            observed_body_sha256 == body_sha256
+            if observed_body_sha256 is not None
+            else None
+        ),
+        'body': body,
+        'keep_draft_required': True,
+        'description_update_authorized': False,
+        'review_submission_authorized': False,
+        'mark_ready_authorized': False,
+        'merge_authorized': False,
+        'steps': [
+            first_step,
+            (
+                'Obtain separate authority for this exact desired head and '
+                f'description SHA-256 {body_sha256}.'
+            ),
+            (
+                'Replace only the PR description with the exact body below '
+                'and keep the PR in Draft state.'
+            ),
+            (
+                'Rerun the GET-only audit and verify the public head and '
+                'description digest before starting review.'
             ),
         ],
         'verification_command': PRODUCT_PR_VERIFY_COMMAND,
@@ -1365,6 +1652,28 @@ def _next_action(
         ):
             local_head = product_draft['local_head']
             remote_head = product_draft['remote_head']
+            if (
+                plan['worktree_clean'] is not True
+                or plan['uncommitted_path_count'] != 0
+            ):
+                return {
+                    'id': 'restore-clean-draft-update-worktree',
+                    'title': (
+                        'Restore a clean worktree before preparing the Draft '
+                        'update'
+                    ),
+                    'reason': (
+                        'The local publication plan has '
+                        f"{plan['uncommitted_path_count']} uncommitted paths, "
+                        'so an exact branch-and-description handoff cannot '
+                        f'be bound to local tip {local_head}.'
+                    ),
+                    'command': 'git status --short',
+                    'write_boundary': (
+                        'read-only local inspection; no cleanup, commit, '
+                        'push, PR edit, mark-ready, or merge is authorized'
+                    ),
+                }
             return {
                 'id': 'review-product-draft-branch-update',
                 'title': 'Review the exact non-force Draft branch update',
@@ -1383,6 +1692,15 @@ def _next_action(
                 ),
                 'product_draft_update_handoff': (
                     _product_draft_update_handoff(product_draft)
+                ),
+                'product_draft_description_refresh_handoff': (
+                    _product_draft_description_refresh_handoff(
+                        plan,
+                        matrix,
+                        cohort,
+                        v1,
+                        product_draft,
+                    )
                 ),
             }
         if product_draft['head_matches_local'] is False:
@@ -1451,6 +1769,35 @@ def _next_action(
                     'read-only local inspection; no file cleanup, commit, '
                     'push, review submission, mark-ready, or merge is '
                     'authorized'
+                ),
+            }
+        description_handoff = (
+            _product_draft_description_refresh_handoff(
+                plan,
+                matrix,
+                cohort,
+                v1,
+                product_draft,
+            )
+        )
+        if description_handoff['body_matches_observed'] is not True:
+            return {
+                'id': 'review-product-draft-description-refresh',
+                'title': 'Review the exact Draft description refresh',
+                'reason': (
+                    f"PR #{product_draft['pull_request']} is exact and green "
+                    f"at {product_draft['remote_head']}, but its observed "
+                    'description digest does not match the clean local '
+                    'review packet.'
+                ),
+                'command': PRODUCT_PR_VERIFY_COMMAND,
+                'write_boundary': (
+                    'GitHub GETs and local rendering only; editing the PR '
+                    'description requires separate exact-tip authority and '
+                    'the PR must remain Draft'
+                ),
+                'product_draft_description_refresh_handoff': (
+                    description_handoff
                 ),
             }
         return {
@@ -1630,6 +1977,11 @@ def build_report(
 
     plan = {
         'status': plan_report.get('status'),
+        'local_tip_sha': plan_report.get('local_tip_sha'),
+        'whole_pr_commit_count': plan_report.get('whole_pr_commit_count'),
+        'follow_up_review_commit_count': plan_report.get(
+            'follow_up_review_commit_count'
+        ),
         'path_count': plan_report.get('path_count'),
         'slice_count': plan_report.get('slice_count'),
         'whole_pr_path_count': plan_report.get('whole_pr_path_count'),
@@ -1861,6 +2213,59 @@ def render_card(report: dict[str, Any]) -> str:
             f"`{draft_handoff['verification_command']}`"
         )
         lines.append('- Pushes performed: no')
+    description_handoff = report['next_action'].get(
+        'product_draft_description_refresh_handoff'
+    )
+    if description_handoff is not None:
+        observed_digest = (
+            description_handoff['observed_body_sha256'] or 'not-observed'
+        )
+        lines.extend([
+            '',
+            'Draft description refresh handoff (not executed):',
+            (
+                '- Authority required: '
+                f"{description_handoff['authority_required']}"
+            ),
+            (
+                '- Observed public head: '
+                f"`{description_handoff['observed_public_head']}`"
+            ),
+            f"- Desired head: `{description_handoff['desired_head']}`",
+            f'- Observed body SHA-256: `{observed_digest}`',
+            (
+                '- Desired body SHA-256: '
+                f"`{description_handoff['body_sha256']}`"
+            ),
+            (
+                '- Desired body size: '
+                f"{description_handoff['body_character_count']} characters / "
+                f"{description_handoff['body_line_count']} lines"
+            ),
+            (
+                '- Branch update required first: '
+                f"{'yes' if description_handoff['after_branch_update_required'] else 'no'}"
+            ),
+        ])
+        lines.extend(
+            f'{index}. {step}'
+            for index, step in enumerate(
+                description_handoff['steps'], start=1
+            )
+        )
+        lines.extend([
+            'Exact desired PR description:',
+            '```markdown',
+            description_handoff['body'],
+            '```',
+            (
+                'Post-refresh GET-only verification: '
+                f"`{description_handoff['verification_command']}`"
+            ),
+            '- Description updates performed: no',
+            '- Mark-ready authorized: no',
+            '- Merge authorized: no',
+        ])
     review_handoff = report['next_action'].get(
         'product_draft_review_handoff'
     )

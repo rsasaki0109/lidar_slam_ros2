@@ -176,6 +176,12 @@ never turns green CI into merge authority. A clean exact green Draft now
 produces one schema-bound overview → three-phase → seven-slice review sequence;
 a dirty checkout stops at read-only status inspection so local bytes are not
 mistaken for the public review.
+Branch drift now carries a second, separately authorized no-write handoff for
+the PR description. It renders one canonical exact-head body, hashes the
+observed and desired descriptions, replaces stale commit/path scope with the
+current whole-PR and P2 review budgets, requires the branch update first, and
+keeps Draft, review, mark-ready, merge, and all write authority false. An exact
+green head with a mismatched body is stopped at that refresh before review.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state

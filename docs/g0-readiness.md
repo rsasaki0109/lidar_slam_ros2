@@ -46,8 +46,20 @@ ancestry check from the canonical GitHub repository URL instead of trusting a
 checkout-specific `origin`. Neither path authorizes a push, PR state change,
 or merge.
 
+The same branch-update action also renders a canonical reviewer-facing PR
+description from the clean exact local tip. The `REFRESH_EXACT_DRAFT_DESCRIPTION`
+handoff binds the desired head, observed and desired body SHA-256, exact body,
+whole-PR and P2 commit/path budgets, current evidence counts, and a separate
+description-edit authority. It requires the branch update and GET-only
+exact-head check first, keeps the PR Draft, contains no edit command, and keeps
+description update, review submission, mark-ready, merge, and writes false.
+This prevents a new branch tip from retaining an old PR summary.
+
 Dependency order is explicit. A green Draft points first to the bounded
-overview and then to the seven-slice local review plan. The schema-bound
+overview and then to the seven-slice local review plan only when the observed
+PR-description digest also matches the canonical clean-tip body. A stale or
+missing description selects the same no-write description-refresh handoff
+before review. The schema-bound
 handoff fixes the exact public/local head, 380-path / three-phase / seven-slice
 coverage, overview command, slice template, and four-step review sequence while
 keeping command execution, review submission, mark-ready, merge, and all writes

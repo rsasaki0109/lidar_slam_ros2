@@ -78,6 +78,9 @@
       "additionalProperties": false,
       "required": [
         "status",
+        "local_tip_sha",
+        "whole_pr_commit_count",
+        "follow_up_review_commit_count",
         "path_count",
         "slice_count",
         "whole_pr_path_count",
@@ -89,6 +92,15 @@
       ],
       "properties": {
         "status": {"const": "PLAN_VALID_LOCAL_ONLY"},
+        "local_tip_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "whole_pr_commit_count": {"type": "integer", "minimum": 1},
+        "follow_up_review_commit_count": {
+          "type": "integer",
+          "minimum": 1
+        },
         "path_count": {"type": "integer", "minimum": 0},
         "slice_count": {"type": "integer", "minimum": 1},
         "whole_pr_path_count": {"type": "integer", "minimum": 1},
@@ -240,6 +252,7 @@
         "remote_head",
         "head_matches_local",
         "non_force_update_possible",
+        "remote_description_sha256",
         "observed_check_count",
         "passing_check_count",
         "skipped_check_count",
@@ -284,6 +297,12 @@
         },
         "head_matches_local": {"type": ["boolean", "null"]},
         "non_force_update_possible": {"type": ["boolean", "null"]},
+        "remote_description_sha256": {
+          "anyOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            {"type": "null"}
+          ]
+        },
         "observed_check_count": {
           "type": "integer",
           "minimum": 0,
@@ -339,6 +358,7 @@
               "remote_head": {"type": "null"},
               "head_matches_local": {"type": "null"},
               "non_force_update_possible": {"type": "null"},
+              "remote_description_sha256": {"type": "null"},
               "required_checks_complete": {"type": "null"},
               "blockers": {"maxItems": 0},
               "decision_state": {"const": "NOT_CHECKED"}
@@ -632,6 +652,9 @@
         "product_draft_update_handoff": {
           "$ref": "#/definitions/productDraftUpdateHandoff"
         },
+        "product_draft_description_refresh_handoff": {
+          "$ref": "#/definitions/productDraftDescriptionRefreshHandoff"
+        },
         "product_draft_review_handoff": {
           "$ref": "#/definitions/productDraftReviewHandoff"
         }
@@ -645,7 +668,21 @@
             }
           },
           "then": {
-            "required": ["product_draft_update_handoff"]
+            "required": [
+              "product_draft_update_handoff",
+              "product_draft_description_refresh_handoff"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": ["id"],
+            "properties": {
+              "id": {"const": "review-product-draft-description-refresh"}
+            }
+          },
+          "then": {
+            "required": ["product_draft_description_refresh_handoff"]
           }
         },
         {
@@ -767,6 +804,94 @@
           "type": "array",
           "minItems": 3,
           "maxItems": 3,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 400}
+        },
+        "verification_command": {
+          "const": "GITHUB_TOKEN=\"$(gh auth token)\" python3 scripts/check_g0_readiness.py --include-product-draft --json"
+        },
+        "writes_performed": {"const": false}
+      }
+    },
+    "productDraftDescriptionRefreshHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "authority_required",
+        "external_write_required",
+        "pull_request",
+        "url",
+        "observed_public_head",
+        "desired_head",
+        "after_branch_update_required",
+        "clean_tip_verified",
+        "observed_body_sha256",
+        "body_sha256",
+        "body_character_count",
+        "body_line_count",
+        "body_matches_observed",
+        "body",
+        "keep_draft_required",
+        "description_update_authorized",
+        "review_submission_authorized",
+        "mark_ready_authorized",
+        "merge_authorized",
+        "steps",
+        "verification_command",
+        "writes_performed"
+      ],
+      "properties": {
+        "kind": {"const": "REFRESH_EXACT_DRAFT_DESCRIPTION"},
+        "authority_required": {
+          "const": "separate-exact-tip-pr-description-update-approval"
+        },
+        "external_write_required": {"const": true},
+        "pull_request": {"const": 427},
+        "url": {
+          "const": "https://github.com/rsasaki0109/lidar_slam_ros2/pull/427"
+        },
+        "observed_public_head": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "desired_head": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "after_branch_update_required": {"type": "boolean"},
+        "clean_tip_verified": {"const": true},
+        "observed_body_sha256": {
+          "anyOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            {"type": "null"}
+          ]
+        },
+        "body_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "body_character_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "body_line_count": {
+          "type": "integer",
+          "minimum": 20,
+          "maximum": 100
+        },
+        "body_matches_observed": {"type": ["boolean", "null"]},
+        "body": {"type": "string", "minLength": 1, "maxLength": 65536},
+        "keep_draft_required": {"const": true},
+        "description_update_authorized": {"const": false},
+        "review_submission_authorized": {"const": false},
+        "mark_ready_authorized": {"const": false},
+        "merge_authorized": {"const": false},
+        "steps": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
           "uniqueItems": true,
           "items": {"type": "string", "minLength": 1, "maxLength": 400}
         },
