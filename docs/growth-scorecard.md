@@ -307,6 +307,16 @@ unchanged. Thirty-two preflight regressions pass with two dependency skips,
 plus 42 docs/product, 25 support/installed, 21 option-contract, 331 broad S6,
 changed-code `ament_flake8`, and strict MkDocs. No mapping, upload, network
 access, issue, or GitHub write occurs.
+Exact follow-up `fc87cf86cabba5f55fec47316c6a9a3a4e4cb90f` bounds that
+one-action path to a compact product card. A ready card is at most 26 lines and
+shows status, duration/count, input types without topic/frame names, selected
+profile, check statuses, and one `start`; a finding card keeps only the first
+message/action plus remaining stable codes and exact retry. One shell-safe
+private `--json` command retains complete detail, and direct preflight retains
+the expert report. Thirty-two preflight regressions pass with two dependency
+skips, plus 42 docs/product, 25 support/installed, 21 option-contract, 331 broad
+S6, changed-code `ament_flake8`, and strict MkDocs. No mapping, upload, network
+access, issue, or GitHub write occurs.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state

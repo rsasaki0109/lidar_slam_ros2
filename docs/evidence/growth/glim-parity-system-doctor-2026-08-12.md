@@ -248,3 +248,45 @@ This closes one local command-selection gap without running mapping or hiding
 expert evidence. It is not a clean-host timing result, a paired external GLIM
 observation, an independent first map, a package-manager release, or a parity
 or superiority claim.
+
+## Compact own-bag readiness card follow-up — 2026-08-17
+
+> Decision: **LOCAL_COMPACT_BAG_CARD_PASS / PAIRED_PUBLIC_TRIAL_PENDING**
+>
+> Implementation tip:
+> `fc87cf86cabba5f55fec47316c6a9a3a4e4cb90f`
+>
+> Mapping, network, file, GitHub, release, or community mutations performed by
+> the observed doctor command: **none**
+
+The preceding one-action change removed command choice but left the product
+report shaped like an expert preflight: nine possible input categories, topic
+names, per-check reasons, profile reasons, every finding message/action, and
+advisory commands appeared before the operator reached support. That evidence
+is useful locally, but it makes the default success path harder to scan.
+
+The product-dispatched card is now bounded to status, bag duration and message
+count, detected input types without topic/frame names, selected profile, four
+check statuses, and one action. A ready fixture is regression-limited to at
+most 26 lines. A finding card prints the first message/action, reduces the
+remainder to stable codes, withholds start, and gives the exact-input retry.
+The card exposes one shell-safe private `doctor <bag> --json` command for full
+local detail and the separate path-free public-evidence command. Direct
+preflight continues to render every topic, reason, alternative, finding, and
+advisory; no machine schema changed.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| compact/direct bag preflight boundaries | 32 passed / 2 dependency skips |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 331 passed |
+| changed-code Jazzy `ament_flake8` | PASS |
+| strict MkDocs, JSON, bytecode, and patch hygiene | PASS |
+
+This lowers default reading cost without deleting expert diagnostics or
+changing automation. It is not an external first-time observation, a paired
+GLIM scorecard result, an independent first map, or a parity/superiority claim.

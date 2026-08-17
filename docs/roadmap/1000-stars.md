@@ -459,6 +459,17 @@ work and document the actual support boundary instead of hiding the delay.
   skips, plus 42 docs/product, 25 support/installed, 21 option-contract, 331
   broad S6, changed-code `ament_flake8`, and strict MkDocs. No mapping, upload,
   network access, issue, or GitHub write is performed.
+- Exact follow-up `fc87cf86cabba5f55fec47316c6a9a3a4e4cb90f` bounds that
+  one-action path to a compact product card. A ready card is at most 26 lines
+  and shows status, duration/count, input types without topic/frame names,
+  selected profile, check statuses, and one `start`; a finding card keeps only
+  the first message/action plus remaining stable codes and exact retry. One
+  shell-safe private `--json` command retains complete detail, while direct
+  preflight retains the expert report. Thirty-two preflight regressions pass
+  with two dependency skips, plus 42 docs/product, 25 support/installed, 21
+  option-contract, 331 broad S6, changed-code `ament_flake8`, and strict
+  MkDocs. No mapping, upload, network access, issue, or GitHub write is
+  performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.
