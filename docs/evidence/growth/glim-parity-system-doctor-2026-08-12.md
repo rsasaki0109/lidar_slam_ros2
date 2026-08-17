@@ -720,3 +720,71 @@ respectively `dd2e6df0…`, `019449f4…`, `78902668…`, `947c779a…`, and
 `958d6d15…`. This closes only the unchanged default-storage interruption gate.
 It is not a complete-map quality or accuracy result, clean-host timing result,
 independent first map, paired GLIM observation, or parity/superiority claim.
+
+## Evidence-bound concise stop summary — 2026-08-17
+
+> Decision: **REAL_ROS_CONCISE_STOP_SUMMARY_PASS / CLEAN_HOST_PENDING**
+>
+> Implementation and tested installed revision:
+> `8370ac511f29eaf3861569103cd5389035c7412a`
+>
+> Network, GitHub, release, or community mutation performed: **none**
+
+The default-storage trial still left three redundant post-stop diagnostics:
+the lower runner's generic failure, its repeated full internal command, and the
+session wrapper's generic needs-attention error. They duplicated the preceding
+stop request and following schema-backed ACTION REQUIRED card.
+
+The lower runner now shortens output only when the sealed manifest agrees on
+all five interruption facts: `status=interrupted`, matching execution and
+runner exit codes, `stage=complete`, and the exact terminating signal in
+`last_error`. Direct `run` then prints one human stop label and retained-output
+path. A process that merely returns 130, or any missing, malformed, incomplete,
+or inconsistent manifest, keeps the prior generic error and full failed
+command. `start` suppresses only its duplicate generic error for the derived
+`workflow-interrupted` reason; every other recovery reason is unchanged.
+
+A fresh non-symlink Jazzy install recorded exact revision `8370ac5…`,
+`dirty=false`, and its four interruption-critical scripts matched source
+bytes. The run reused the same public fixture identities and controlled
+graph/scanmatcher and RKO-LIO overlay. The top-level command again omitted the
+storage override and passed **7.01 GiB free / 5.00 GiB required**. After both
+the real RKO-LIO offline node and graph_based_slam node were observed during
+`workflow_running`, one terminal Ctrl-C returned 130 in 1.38 seconds. The
+14.934-second manifest ends `interrupted / complete`; all descendants are
+absent.
+
+Post-stop stderr now contains one stop request and one concise
+`Map stopped by Ctrl-C; retained evidence: ...` line. Generic map failure,
+`failed command`, generic session error, false timeout, recent-launch-log dump,
+traceback, and success-card counts are all zero. The complete stderr fell from
+1,971 to 1,200 bytes versus the immediately preceding default-storage trial, a
+39.12% reduction; versus the original false-timeout trial it is 86.99% lower.
+The stdout projection retains exactly one ACTION REQUIRED, Next, and Details.
+
+The run manifest, recovery receipt, session index, and first-map receipt again
+validate against their tracked schemas. All eight early-interruption artifact
+sizes and SHA-256 values revalidate, required verification remains not
+completed, and no `map.pcd` exists. The final stdout, stderr, session,
+manifest, and recovery hashes are respectively `178e6632…`, `93f9374a…`,
+`0ebdecd5…`, `5633af61…`, and `18678576…`.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| complete lower map-runner regressions | 49 passed |
+| exact S3 lifecycle and edit/merge commands | 77 + 15 passed |
+| dogfood shell process/signal regressions | 14 passed |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 332 passed |
+| four terminal JSON schemas and eight artifact checksums | PASS |
+| changed-code `ament_flake8`, strict MkDocs, plan, bytecode, JSON, and patch hygiene | PASS |
+
+This is an operator-facing stop-summary improvement, not weaker failure or
+timeout diagnosis. The controlled mixed overlay still prevents a clean-host or
+package-manager claim, and this is not a complete-map quality or accuracy
+result, independent first map, paired GLIM observation, or parity/superiority
+claim.

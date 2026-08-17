@@ -547,6 +547,18 @@ work and document the actual support boundary instead of hiding the delay.
   traceback, success card, or `map.pcd`. The controlled mixed overlay still
   leaves clean-host/package-manager, complete-map quality, paired GLIM, and
   parity claims pending. No remote write is performed.
+- Exact implementation `8370ac5…` removes the remaining post-stop duplication
+  without classifying exit code alone. Only a sealed manifest whose interrupted
+  status, complete stage, execution/runner codes, and signal error all agree
+  gets one direct-run stop/evidence line; ordinary 130 and inconsistent
+  evidence keep full failure diagnostics. In the exact-installed default-
+  storage ROS trial, one Ctrl-C returned 130 in 1.38 seconds and reaped every
+  descendant. Generic map failure, repeated failed command, generic session
+  error, false timeout, log dump, traceback, and success card all fell to zero;
+  stderr fell 1,971 → 1,200 bytes (39.12%). Four schemas, eight checksums, 49
+  runner, S3 77 + 15, dogfood 14, docs/product 42, installed/support 25,
+  option 21, and broad S6 332 checks pass. Clean-host and comparison limits
+  remain; no remote write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.
