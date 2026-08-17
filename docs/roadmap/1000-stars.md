@@ -421,6 +421,16 @@ work and document the actual support boundary instead of hiding the delay.
   screenshots are prohibited. SUPPORT and canonical map-authoring guidance
   agree; 33 focused and 40 integrated tests plus strict MkDocs pass. This
   performs no attachment, issue, acceptance, or GitHub write.
+- Exact follow-up `940195b75ea6aff648171b120539a9ab01a0248e` makes public
+  benchmark intake redaction-first. Public datasets retain canonical identity,
+  source, license, configuration shape, and key metrics; a private or custom
+  bag exposes only redacted sensor/environment/duration metadata. Commands and
+  configuration use literal `REDACTED` placeholders, and three mandatory
+  attestations prohibit bags, maps, trajectories, raw logs/data, local paths,
+  complete custom YAML, and private-site evidence. One reviewed `metrics.json`
+  or public aggregate report remains optional. Forty-two integrated tests plus
+  strict MkDocs pass; no upload, issue, benchmark execution, acceptance, or
+  GitHub write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.
@@ -1095,7 +1105,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 347-path exact
+been expanded into the current 348-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
@@ -1108,7 +1118,7 @@ The later
 closes a review-boundary gap between the original 116-path clean-candidate
 audit and that follow-up plan. The machine gate now composes the initial audit,
 the exact two-commit / 11-path CI bridge, and all seven follow-up slices into
-the final 394-path PR inventory. Missing phase paths, changed fixed SHA/digest,
+the final 395-path PR inventory. Missing phase paths, changed fixed SHA/digest,
 an unapproved bridge path, non-linear history, or an unsafe review record fails
 closed before the G0 dashboard can advance. This makes a very large Draft
 reviewable without treating a green local plan as push, merge, release, or
@@ -1116,9 +1126,9 @@ community authority.
 
 The same checker now renders one bounded `--overview` card before reviewers
 drill into the seven exact `--slice` cards. It shows the three contiguous
-commit ranges, 394-path union, overlap/missing/extra results, slice sizes,
+commit ranges, 395-path union, overlap/missing/extra results, slice sizes,
 dependencies, verification counts, and publication gates without pasting the
-complete 347-path follow-up inventory into the PR summary. Human and JSON
+complete 348-path follow-up inventory into the PR summary. Human and JSON
 forms stay local-only, execute no displayed check, and cannot submit a review
 or authorize a push, ready transition, or merge. This targets the current
 review bottleneck—an otherwise verified but very large Draft—without adding
@@ -1143,7 +1153,7 @@ to exact `https://api.github.com` GET requests. Wrong hosts, schemes, ports,
 userinfo, and write methods fail closed, reducing anonymous-rate-limit false
 blockers without adding remote-write authority.
 When that exact Draft is green, the dashboard now carries a schema-bound review
-handoff: exact head, 394-path / three-phase / seven-slice coverage, overview,
+handoff: exact head, 395-path / three-phase / seven-slice coverage, overview,
 slice template, and a fixed overview → P0/P1/P2 → S1–S7 sequence. It refuses
 the handoff when the worktree is dirty and selects read-only status inspection
 instead. It also requires the public PR body to match the canonical clean-tip
@@ -1174,7 +1184,8 @@ in separate pytest processes, and recognized direct remote-write CLI forms fail
 plan validation. Exact follow-up `0633c2a604489538e0f087c02385e7c6467540c3`
 extends that boundary to the S6 docs/product-CLI command after exact execution
 from an unsourced shell exposed two `rosbag2_py` import failures; the repaired
-displayed command now passes all 41 tests and removing its prelude fails validation.
+displayed command now passes all 42 tests and removing its prelude fails
+validation.
 Evidence carrier `72a8c9e77eba33c1578a3cd9c8afe8fbe6933e33`
 passes 2,488 maintained Python tests and a byte-identical 261-file candidate
 bundle rehearsal without granting publication authority.

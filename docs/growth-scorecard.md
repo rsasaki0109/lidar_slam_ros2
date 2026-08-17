@@ -132,8 +132,8 @@ Draft PR #427, the reviewed product-candidate tip
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
 `3ed632e6f6aa1e3ca7f32d893773de1079086ffb` with 10 successful checks and 4
-intentional non-publication skips, the current 347-path local plan plus
-complete 394-path / three-phase whole-PR review coverage, the
+intentional non-publication skips, the current 348-path local plan plus
+complete 395-path / three-phase whole-PR review coverage, the
 bounded one-card PR review overview and seven exact drill-down slices with
 Git-derived text budgets, top-three hotspots, and named binary review paths, the
 four role-based capability lanes with a two-reviewer advisory target and no
@@ -269,6 +269,16 @@ and private-place screenshots are prohibited, with three required privacy
 attestations and matching SUPPORT/map-authoring guidance. Thirty-three focused
 and 40 S6 docs/product regressions plus strict MkDocs pass; this performs no
 attachment, issue, acceptance, or GitHub write.
+Exact follow-up `940195b75ea6aff648171b120539a9ab01a0248e` makes benchmark
+reporting redaction-first. Public datasets retain canonical identity, source,
+license, configuration shape, and key metrics; private or custom bags expose
+only redacted sensor/environment/duration metadata. Commands and configuration
+replace private values with literal `REDACTED`, and three required attestations
+prohibit bags, maps, trajectories, raw logs/data, local paths, complete custom
+YAML, and private-site evidence. One reviewed `metrics.json` or public
+aggregate report remains optional. Forty-two S6 docs/product regressions and
+strict MkDocs pass; no upload, issue, benchmark execution, acceptance, or
+GitHub write occurs.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state
