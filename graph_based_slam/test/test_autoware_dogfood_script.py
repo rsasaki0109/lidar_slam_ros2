@@ -31,8 +31,13 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+import signal
 import subprocess
+import time
+
+import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -161,6 +166,119 @@ def test_dogfood_connects_consumers_before_offline_bag_playback():
     assert 'Offline output subscribers ready' in script
     assert 'RKO LIO offline processing complete' in script
     assert 'offline-subscriber-barrier-timeout' in script
+
+
+@pytest.mark.parametrize(
+    ('signum', 'expected_exit'),
+    [
+        (signal.SIGINT, 130),
+        (signal.SIGTERM, 143),
+    ],
+)
+def test_dogfood_signal_is_not_reported_as_offline_timeout(
+    tmp_path: Path,
+    signum: int,
+    expected_exit: int,
+):
+    """Expected interruption must not dump the timeout diagnosis."""
+    bag_dir = _write_minimal_bag(tmp_path)
+    graph_param = tmp_path / 'graph.yaml'
+    graph_param.write_text('{}\n', encoding='utf-8')
+    rko_param = tmp_path / 'rko.yaml'
+    rko_param.write_text('{}\n', encoding='utf-8')
+    output_dir = tmp_path / 'map.partial'
+    fake_bin = tmp_path / 'bin'
+    fake_bin.mkdir()
+    launch_pid_path = tmp_path / 'launch.pid'
+    fake_ros2 = fake_bin / 'ros2'
+    fake_ros2.write_text(
+        '#!/usr/bin/env bash\n'
+        'if [[ "${1:-}" != "launch" ]]; then exit 1; fi\n'
+        'printf "%s" "$$" > "$FAKE_ROS2_PID_PATH"\n'
+        'echo "RKO LIO Node is up!"\n'
+        'echo "[graph_based_slam]: initialization end"\n'
+        'echo "Offline output subscribers ready"\n'
+        'sleep 60\n',
+        encoding='utf-8',
+    )
+    fake_ros2.chmod(0o755)
+    stdout_path = tmp_path / 'stdout.log'
+    stderr_path = tmp_path / 'stderr.log'
+    env = os.environ.copy()
+    env['PATH'] = f'{fake_bin}:/usr/bin:/bin'
+    env['FAKE_ROS2_PID_PATH'] = str(launch_pid_path)
+    env.pop('ROS_DISTRO', None)
+
+    command = [
+        'bash',
+        str(DOGFOOD_SCRIPT),
+        '--bag',
+        str(bag_dir),
+        '--lidarslam-param',
+        str(graph_param),
+        '--rko-param',
+        str(rko_param),
+        '--output-dir',
+        str(output_dir),
+        '--wait-for-offline-completion',
+        '--capture-corrected-path',
+        'false',
+        '--capture-raw-odometry',
+        'false',
+        '--generate-lanelet2',
+        'false',
+        '--skip-viewer',
+    ]
+    launch_pid = None
+    with stdout_path.open('w', encoding='utf-8') as stdout_file, (
+        stderr_path.open('w', encoding='utf-8')
+    ) as stderr_file:
+        process = subprocess.Popen(
+            command,
+            env=env,
+            start_new_session=True,
+            stdout=stdout_file,
+            stderr=stderr_file,
+        )
+        try:
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                stdout_file.flush()
+                if (
+                    launch_pid_path.is_file()
+                    and 'Waiting for offline bag playback to finish'
+                    in stdout_path.read_text(encoding='utf-8')
+                ):
+                    break
+                time.sleep(0.01)
+            else:
+                raise AssertionError('dogfood probe did not reach offline wait')
+            launch_pid = int(launch_pid_path.read_text(encoding='utf-8'))
+
+            os.killpg(process.pid, signum)
+            assert process.wait(timeout=10) == expected_exit
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+            if launch_pid is not None:
+                try:
+                    os.killpg(launch_pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+
+    stdout = stdout_path.read_text(encoding='utf-8')
+    stderr = stderr_path.read_text(encoding='utf-8')
+    assert 'Timed out waiting for offline completion' not in stderr
+    assert 'Recent launch log:' not in stderr
+    assert 'Calling /map_save' not in stdout
+    assert launch_pid is not None
+    try:
+        os.kill(launch_pid, 0)
+    except ProcessLookupError:
+        pass
+    else:
+        raise AssertionError('interrupted launch group was not reaped')
 
 
 def test_offline_subscriber_barrier_runs_only_after_stable_counts(tmp_path: Path):

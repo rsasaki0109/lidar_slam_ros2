@@ -428,10 +428,12 @@ cleanup() {
   if [[ -n "$CORRECTED_LOGGER_PID" ]]; then
     kill "$CORRECTED_LOGGER_PID" >/dev/null 2>&1 || true
     wait "$CORRECTED_LOGGER_PID" 2>/dev/null || true
+    CORRECTED_LOGGER_PID=""
   fi
   if [[ -n "$RAW_LOGGER_PID" ]]; then
     kill "$RAW_LOGGER_PID" >/dev/null 2>&1 || true
     wait "$RAW_LOGGER_PID" 2>/dev/null || true
+    RAW_LOGGER_PID=""
   fi
   if [[ -n "$LAUNCH_PGID" ]]; then
     kill -- "-${LAUNCH_PGID}" >/dev/null 2>&1 || true
@@ -442,8 +444,22 @@ cleanup() {
     kill "$LAUNCH_PID" >/dev/null 2>&1 || true
     wait "$LAUNCH_PID" 2>/dev/null || true
   fi
+  LAUNCH_PID=""
+  LAUNCH_PGID=""
 }
-trap cleanup EXIT INT TERM
+
+on_signal() {
+  local exit_code="$1"
+  trap - INT TERM
+  KEEP_RUNNING=0
+  cleanup
+  trap - EXIT
+  exit "$exit_code"
+}
+
+trap cleanup EXIT
+trap 'on_signal 130' INT
+trap 'on_signal 143' TERM
 
 stage_native_raw_trajectory() {
   local run_dir

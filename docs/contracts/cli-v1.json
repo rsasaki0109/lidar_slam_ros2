@@ -203,7 +203,7 @@
       "preserve setup and run evidence",
       "resume terminal post-processing only when manifest-v2 proves it is safe",
       "retry the pinned setup only into a fresh output directory",
-      "one Ctrl-C makes the stable CLI wait for the start helper, signals the complete isolated delegated process group, waits up to 20 seconds for cleanup and terminal evidence before requesting termination, waits 10 more seconds before a forced group reap, and then renders the same one-action recovery handoff without a Python traceback"
+      "one Ctrl-C makes the stable CLI wait for the start helper, signals the complete isolated delegated process group, waits up to 20 seconds for cleanup and terminal evidence before requesting termination, waits 10 more seconds before a forced group reap, and then renders the same one-action recovery handoff without a Python traceback, false timeout label, or recent-launch-log dump"
     ],
     "terminal_rules": [
       "render the first reason, any remaining stable finding codes, exactly one next_command, and one retained detail path",

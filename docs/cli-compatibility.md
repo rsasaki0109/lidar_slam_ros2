@@ -237,7 +237,9 @@ up to 20 seconds for bounded cleanup and terminal evidence, requests termination
 for at most 10 more seconds when needed, then force-reaps the group if it still
 has not stopped. The resulting non-zero runner state flows through the unchanged
 one-action recovery contract instead of escaping as a Python traceback;
-verified success is never synthesized.
+verified success is never synthesized. An expected SIGINT or SIGTERM is not
+relabeled as an offline-completion timeout and does not dump the recent launch
+log; genuine startup and completion timeouts keep their diagnostics.
 
 Every delegated `start` also owns an additive `map-session-index-v1` contract:
 `session.json` and its derived `session.html` represent `running`, `verified`,

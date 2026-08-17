@@ -440,7 +440,9 @@ runner termination and waits 10 more seconds before a forced group reap. The
 stable CLI keeps waiting for that handoff instead of abandoning the helper. It
 then uses the same one-action `Map session: ACTION REQUIRED` handoff without a
 Python traceback; it never treats an interrupted map as verified or tells you
-to overwrite its retained output.
+to overwrite its retained output. The expected stop is not presented as an
+offline timeout and does not dump the recent launch log. A genuine startup or
+completion timeout still includes its diagnostic log excerpt.
 
 Every started mapping attempt also writes `session.json` and the same
 self-contained `session.html` landing page in the setup directory, whether its

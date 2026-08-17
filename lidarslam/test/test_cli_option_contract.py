@@ -304,7 +304,7 @@ def test_contract_identifies_the_complete_product_surface():
         'seconds for cleanup and terminal evidence before requesting '
         'termination, waits 10 more seconds before a forced group reap, and '
         'then renders the same one-action recovery handoff without a Python '
-        'traceback',
+        'traceback, false timeout label, or recent-launch-log dump',
     ]
     assert recovery['terminal_rules'] == [
         'render the first reason, any remaining stable finding codes, exactly '
