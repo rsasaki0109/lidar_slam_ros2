@@ -965,9 +965,19 @@ def test_bug_form_accepts_pre_session_failure_without_fake_zip_claims():
     compatibility = ' '.join(
         CLI_COMPATIBILITY_DOC.read_text(encoding='utf-8').split()
     )
+    getting_started = ' '.join(
+        GETTING_STARTED.read_text(encoding='utf-8').split()
+    )
     for document in (support, contributing, golden_path, compatibility):
         assert 'doctor <rosbag2_dir> --public-json' in document
         assert 'public-doctor-evidence-v1' in document
+    assert 'Every human bag report ends with one shell-safe' in (
+        getting_started
+    )
+    assert 'Keep the full report local' in getting_started
+    assert 'human bag report always ends with that shell-safe command' in (
+        compatibility
+    )
 
 
 def test_autoware_form_never_requests_private_map_or_origin_evidence():

@@ -145,6 +145,8 @@ def test_contract_identifies_the_complete_product_surface():
     assert 'omits checkout' in doctor['safety_rules'][1]
     assert '--public-json requires a bag' in doctor['safety_rules'][4]
     assert 'bag-preflight-input-error' in doctor['safety_rules'][5]
+    assert 'every human bag report warns' in doctor['safety_rules'][6]
+    assert 'shell-safe --public-json command' in doctor['safety_rules'][6]
     symptom = contract['map_quality_symptom_triage_contract']
     assert symptom['schema_uri'].endswith('/schemas/diagnosis-v1.schema.json')
     assert symptom['command'] == 'inspect'

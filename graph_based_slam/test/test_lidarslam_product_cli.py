@@ -243,6 +243,13 @@ def test_doctor_emits_machine_readable_preflight(tmp_path: Path):
     assert '/imu' not in public_result.stdout
     assert 'run_autoware_map_beginner.sh' not in public_result.stdout
 
+    human_result = _run('doctor', str(bag))
+
+    assert human_result.returncode == 0, human_result.stderr
+    assert 'Need public support?' in human_result.stdout
+    assert 'Keep this full report local' in human_result.stdout
+    assert f'doctor {bag} --public-json' in human_result.stdout
+
 
 def test_run_dry_run_and_inspect_delegate_to_proven_tools(tmp_path: Path):
     bag = tmp_path / 'sample_bag'

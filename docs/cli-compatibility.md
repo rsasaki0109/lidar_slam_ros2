@@ -53,6 +53,8 @@ The full bag preflight retains its path and local commands for local automation.
 Use `doctor <rosbag2_dir> --public-json` for a reviewed public issue; its
 `public-doctor-evidence-v1` projection keeps only type/count/check/profile and
 stable finding-code evidence and returns path-free input-error JSON as well.
+The human bag report always ends with that shell-safe command for the exact
+input and warns that the full report must remain local.
 
 Viewing is an optional post-processing command, not another required mapping
 step:

@@ -34,6 +34,7 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import shlex
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -346,6 +347,53 @@ def test_public_doctor_evidence_is_schema_valid_and_path_free(tmp_path: Path):
         'run_autoware_map_beginner.sh',
     ):
         assert private_value not in encoded
+
+
+def test_human_doctor_prints_one_shell_safe_public_support_handoff(
+    tmp_path: Path,
+    monkeypatch,
+):
+    module = _load_module()
+    private_root = tmp_path / 'private site alice'
+    private_root.mkdir()
+    bag_dir = _write_metadata(
+        private_root,
+        [
+            ('/private_vehicle/points', 'sensor_msgs/msg/PointCloud2', 200),
+            ('/private_vehicle/imu', 'sensor_msgs/msg/Imu', 2000),
+        ],
+    )
+    payload = module.build_preflight_payload(
+        bag_dir,
+        pointcloud_inspector=_compatible_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+    )
+    monkeypatch.delenv('LIDARSLAM_CLI_COMMAND', raising=False)
+
+    direct_report = module.render_text_report(payload)
+    direct_command = direct_report.splitlines()[-1].strip()
+
+    assert shlex.split(direct_command) == [
+        'python3',
+        'scripts/preflight_autoware_map_bag.py',
+        str(bag_dir),
+        '--public-json',
+    ]
+
+    monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam-map doctor')
+
+    report = module.render_text_report(payload)
+    delegated_command = report.splitlines()[-1].strip()
+
+    assert report.count('Need public support?') == 1
+    assert 'Keep this full report local' in report
+    assert 'review it before sharing' in report
+    assert shlex.split(delegated_command) == [
+        'lidarslam-map',
+        'doctor',
+        str(bag_dir),
+        '--public-json',
+    ]
 
 
 def test_public_doctor_input_error_never_echoes_the_private_path(

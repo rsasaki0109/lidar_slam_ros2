@@ -63,7 +63,10 @@ lidarslam-map doctor /path/to/rosbag2
 
 That mode checks topics, point fields, timestamp order, and maintained profile
 compatibility. Storage options are system-only and are rejected when a bag is
-provided rather than being silently ignored.
+provided rather than being silently ignored. Every human bag report ends with
+one shell-safe public-support command using the exact bag path. Keep the full
+report local, run that displayed `--public-json` command, and review the bounded
+JSON before sharing it.
 
 ## Docker First Map (No ROS 2 Workspace)
 

@@ -81,6 +81,7 @@
       "bag mode delegates to the existing preflight implementation",
       "--public-json requires a bag and emits only type/count/check/profile/finding-code evidence without bag paths, topic or frame names, local commands, raw data, raw logs, or free-text messages",
       "--public-json emits the same path-free schema with bag-preflight-input-error when the local input cannot be read",
+      "every human bag report warns that the full report remains local and displays one shell-safe --public-json command for the exact input",
       "system-only storage options fail closed when a bag is provided"
     ]
   },

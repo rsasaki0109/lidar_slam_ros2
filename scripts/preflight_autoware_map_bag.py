@@ -2300,6 +2300,15 @@ def _format_topic_list(records: list[dict[str, Any]]) -> str:
     return ', '.join(rendered)
 
 
+def _public_evidence_command(bag_path: str) -> str:
+    """Return the shell-safe public-evidence command for this entrypoint."""
+    command = os.environ.get(
+        'LIDARSLAM_CLI_COMMAND',
+        'python3 scripts/preflight_autoware_map_bag.py',
+    )
+    return f'{command} {_safe_quote(bag_path)} --public-json'
+
+
 def render_text_report(payload: dict[str, Any]) -> str:
     """Render a human-readable preflight report."""
     summary = payload['summary']
@@ -2397,6 +2406,20 @@ def render_text_report(payload: dict[str, Any]) -> str:
         for item in payload['advisory']:
             lines.append(f"  - {item['label']}")
             lines.append(textwrap.indent(item['command'], '    '))
+
+    lines.extend([
+        '',
+        'Need public support?',
+        (
+            '  Keep this full report local; it can contain the bag path, '
+            'topic/frame names, and local commands.'
+        ),
+        '  Generate bounded evidence and review it before sharing:',
+        textwrap.indent(
+            _public_evidence_command(summary['bag_path']),
+            '  ',
+        ),
+    ])
 
     return '\n'.join(lines)
 
