@@ -7,17 +7,21 @@
 
 **Turn a rosbag into a map you can actually drive on.**
 
-ROS 2 LiDAR SLAM that outputs an Autoware-compatible map bundle — `pointcloud_map/`,
-`map_projector_info.yaml`, and auto-generated lanelet2. Frontend is `RKO-LIO` (MIT), backend is
-`graph_based_slam` (BSD-2). No GPL components on the default workflow.
+ROS 2 LiDAR SLAM that outputs an Autoware-compatible map bundle — `pointcloud_map/`, `map_projector_info.yaml`, and auto-generated lanelet2. Frontend is `RKO-LIO` (MIT), backend is `graph_based_slam` (BSD-2). No GPL components on the default workflow.
 
 ![Point cloud map built by this stack (Shinjuku demo bag)](lidarslam/images/map.png)
 
-*Shinjuku point cloud map built from a demo rosbag with this stack — start at the
-[Quickstart](#quickstart). `develop` is the default branch; current release
-candidate notes: [v0.9.1](docs/releases/v0.9.1.md). [日本語クイックスタート](docs/getting-started-ja.md).*
+*Shinjuku point cloud map built from a demo rosbag with this stack — start at the [Quickstart](#quickstart). `develop` is the default branch; current release candidate notes: [v0.9.1](docs/releases/v0.9.1.md). [日本語クイックスタート](docs/getting-started-ja.md).*
 
 ## Quickstart
+
+### Choose your shortest path
+
+| Goal | Start here | Safety and cost boundary |
+| --- | --- | --- |
+| See a verified map, no build | **Default if unsure:** [Docker demo](#try-it-with-docker-one-command-no-build) | Stable `v0.9.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
+| Map my own rosbag | [Own-bag route](#map-your-own-bag-one-command-after-install): `lidarslam-map doctor /path/to/rosbag2` | Read-only diagnosis first; then `lidarslam-map start /path/to/rosbag2` writes a new output. |
+| Build the current candidate or contribute | [Source quickstart](#build--verified-demo-from-source-one-helper): `bash scripts/source_quickstart.sh --dry-run` | Candidate `v0.9.1`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
 
 ### Try it with Docker (one command, no build)
 
@@ -27,8 +31,7 @@ docker run --rm -e LIDARSLAM_HOST_UID="$(id -u)" -e LIDARSLAM_HOST_GID="$(id -g)
   ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
 ```
 
-Use the latest published stable image (`v0.9.0-humble`) for the 517 MB MID-360 demo; it writes `lidarslam_output/mid360_demo/` and returns ownership via UID/GID.
-The `v0.9.1` release candidate is not published yet; use the [source quickstart](#build--verified-demo-from-source-one-helper) for that candidate. See [Getting Started](docs/getting-started.md) for other platforms.
+Use the latest published stable image (`v0.9.0-humble`) for the 517 MB MID-360 demo; it writes `lidarslam_output/mid360_demo/` and returns ownership via UID/GID. The `v0.9.1` release candidate is not published yet; use the [source quickstart](#build--verified-demo-from-source-one-helper) for that candidate. See [Getting Started](docs/getting-started.md) for other platforms.
 
 ### Map your own bag (one command after install)
 
@@ -49,12 +52,8 @@ cd lidar_slam_ros2
 bash scripts/source_quickstart.sh
 ```
 
-The helper detects Humble/Jazzy, verifies the exact maintained six-package inventory,
-installs repository-only dependencies, builds only that list, and runs the verified demo. Use `--dry-run` or `--build-only`.
-Completion prints an absolute `lidarslam-map` path that auto-activates this build in
-a fresh terminal—no remembered `source install/setup.bash`. ROS 2 must be installed.
-Allow 8 GiB and roughly 30 minutes; see [Getting Started](docs/getting-started.md)
-and [Operator workflows](docs/workflows.md) for contracts and contributor tests.
+The helper detects Humble/Jazzy, verifies the exact maintained six-package inventory, installs repository-only dependencies, builds only that list, and runs the verified demo. Use `--dry-run` or `--build-only`.
+Completion prints an absolute `lidarslam-map` path that auto-activates this build in a fresh terminal—no remembered `source install/setup.bash`. ROS 2 must be installed. Allow 8 GiB and roughly 30 minutes; see [Getting Started](docs/getting-started.md) and [Operator workflows](docs/workflows.md) for contracts and contributor tests.
 
 ## Use your own bag
 

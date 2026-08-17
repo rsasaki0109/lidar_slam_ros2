@@ -410,6 +410,29 @@ def test_docs_exist_and_are_linked_from_readme():
     assert len(readme.splitlines()) <= 220
 
 
+def test_readme_chooser_routes_each_goal_to_one_safe_first_step():
+    """GitHub visitors should choose a bounded path before reading details."""
+    readme = README_PATH.read_text(encoding='utf-8')
+    chooser = readme.split('### Choose your shortest path', 1)[1].split(
+        '### Try it with Docker', 1
+    )[0]
+
+    assert '| Goal | Start here | Safety and cost boundary |' in chooser
+    assert '**Default if unsure:**' in chooser
+    assert '[Docker demo](#try-it-with-docker-one-command-no-build)' in chooser
+    assert 'Stable `v0.9.0-humble`' in chooser
+    assert 'host writes stay in `./lidarslam_output`' in chooser
+    assert 'lidarslam-map doctor /path/to/rosbag2' in chooser
+    assert 'Read-only diagnosis first' in chooser
+    assert 'lidarslam-map start /path/to/rosbag2' in chooser
+    assert '[Source quickstart](#build--verified-demo-from-source-one-helper)' in (
+        chooser
+    )
+    assert 'bash scripts/source_quickstart.sh --dry-run' in chooser
+    assert 'Candidate `v0.9.1`' in chooser
+    assert 'needs ROS 2, 8 GiB, and roughly 30 minutes' in chooser
+
+
 def test_public_schemas_support_ros_distro_jsonschema():
     """Public schemas must work with the dependency shipped by ROS distros."""
     schemas = sorted((REPO_ROOT / 'docs' / 'schemas').glob('*.json'))
