@@ -2338,13 +2338,147 @@ def _product_start_command(bag_path: str) -> str | None:
     return shlex.join([*command[:-1], 'start', bag_path])
 
 
-def render_text_report(payload: dict[str, Any]) -> str:
-    """Render a human-readable preflight report."""
+def _product_detail_command(bag_path: str) -> str | None:
+    """Return the exact-input private detail command for the product card."""
+    command = _configured_doctor_command()
+    if command is None:
+        return None
+    return shlex.join([*command, bag_path, '--json'])
+
+
+def _product_input_summary(summary: dict[str, Any]) -> str:
+    """Summarize detected input types without listing topic or frame names."""
+    labels = (
+        ('has_pointcloud2', 'PointCloud2'),
+        ('has_imu', 'Imu'),
+        ('has_navsatfix', 'NavSatFix'),
+        ('has_odometry', 'Odometry'),
+        ('has_tf', 'TF'),
+        ('has_velodyne_scan', 'VelodyneScan'),
+        ('has_applanix_gsof49', 'Applanix GSOF49'),
+        ('has_applanix_gsof50', 'Applanix GSOF50'),
+        ('has_velocity_report', 'VelocityReport'),
+    )
+    detected = [
+        label
+        for key, label in labels
+        if summary['capabilities'][key]
+    ]
+    return ', '.join(detected) if detected else 'none'
+
+
+def _product_check_lines(summary: dict[str, Any]) -> list[str]:
+    """Return bounded check statuses for the compact product card."""
+    checks = [
+        ('PointCloud2 record', summary['pointcloud_inspection']['status']),
+        ('Header timestamp order', summary['timestamp_order']['status']),
+        ('Odometry -> TF', summary['odometry_tf']['status']),
+        ('Odometry TF timing', summary['odometry_tf_timing']['status']),
+    ]
+    return [
+        f'  {label}: {status}'
+        for label, status in checks
+        if status != 'not_applicable'
+    ]
+
+
+def _render_product_text_report(payload: dict[str, Any]) -> str:
+    """Render one bounded next-action card for the stable product CLI."""
     summary = payload['summary']
     recommendations = payload['recommendations']
     findings = payload.get('findings') or []
-    product_doctor = _product_doctor_command(summary['bag_path'])
-    product_start = _product_start_command(summary['bag_path'])
+    doctor_command = _product_doctor_command(summary['bag_path'])
+    start_command = _product_start_command(summary['bag_path'])
+    detail_command = _product_detail_command(summary['bag_path'])
+    if doctor_command is None or start_command is None or detail_command is None:
+        raise RuntimeError('product doctor command is unavailable')
+
+    if findings:
+        status = 'ACTION REQUIRED'
+    elif recommendations:
+        status = 'READY'
+    else:
+        status = 'UNSUPPORTED'
+    duration_sec = summary['duration_sec']
+    duration_text = f'{duration_sec:.3f}s' if duration_sec is not None else 'unknown'
+    primary = recommendations[0] if recommendations else None
+    profile = (
+        f"{primary['label']} [{primary['id']}]"
+        if primary is not None else
+        'none'
+    )
+
+    lines = [
+        'lidarslam-map doctor — own-bag readiness',
+        f'Status:   {status}',
+        f"Bag:      {summary['bag_path']}",
+        f'Duration: {duration_text}',
+        f"Messages: {summary['message_count']}",
+        f'Inputs:   {_product_input_summary(summary)}',
+        f'Profile:  {profile}',
+        'Checks:',
+        *_product_check_lines(summary),
+    ]
+
+    if findings:
+        first = findings[0]
+        lines.extend([
+            '',
+            'Do this now:',
+            f"  [{first['code']}] {first['message']}",
+            f"  Next: {first['next_action']}",
+        ])
+        if len(findings) > 1:
+            lines.append(
+                '  Follow-up finding codes: '
+                + ', '.join(item['code'] for item in findings[1:])
+            )
+        lines.extend([
+            'Rerun after that action:',
+            textwrap.indent(doctor_command, '  '),
+        ])
+    elif primary is not None:
+        lines.extend([
+            '',
+            'Do this now:',
+            textwrap.indent(start_command, '  '),
+            '  This guided command rechecks setup before writing a new output.',
+        ])
+    else:
+        lines.extend([
+            '',
+            'Do this now:',
+            '  No maintained profile is ready. Review the local details below.',
+        ])
+
+    lines.extend([
+        '',
+        'Need local details?',
+        (
+            '  Keep this JSON local; it contains the bag path, topic/frame '
+            'names, and local commands.'
+        ),
+        textwrap.indent(detail_command, '  '),
+        '',
+        'Need public support?',
+        '  Do not share this card or the detailed JSON; they contain local data.',
+        '  Generate bounded evidence and review it before sharing:',
+        textwrap.indent(
+            _public_evidence_command(summary['bag_path']),
+            '  ',
+        ),
+    ])
+    return '\n'.join(lines)
+
+
+def render_text_report(payload: dict[str, Any]) -> str:
+    """Render a human-readable preflight report."""
+    if _configured_doctor_command() is not None:
+        return _render_product_text_report(payload)
+
+    summary = payload['summary']
+    recommendations = payload['recommendations']
+    findings = payload.get('findings') or []
     duration_sec = summary['duration_sec']
     duration_text = f'{duration_sec:.3f}s' if duration_sec is not None else 'unknown'
 
@@ -2400,39 +2534,22 @@ def render_text_report(payload: dict[str, Any]) -> str:
         ])
         for reason in primary['why']:
             lines.append(f'  - {reason}')
-        if product_start is not None:
-            if findings:
-                lines.extend([
-                    'Before mapping:',
-                    '  Resolve the first finding below, then rerun:',
-                    textwrap.indent(product_doctor, '  '),
-                ])
-            else:
-                lines.extend([
-                    'Do this now:',
-                    textwrap.indent(product_start, '  '),
-                    (
-                        '  This guided command rechecks setup before writing '
-                        'a new output.'
-                    ),
-                ])
-        else:
-            lines.extend([
-                'Beginner command:',
-                textwrap.indent(
-                    payload['beginner_commands'][0]['command'],
-                    '  ',
-                ),
-                'Beginner command with browser viewer:',
-                textwrap.indent(
-                    payload['beginner_commands'][1]['command'],
-                    '  ',
-                ),
-                'Next command:',
-                textwrap.indent(primary['command'], '  '),
-            ])
+        lines.extend([
+            'Beginner command:',
+            textwrap.indent(
+                payload['beginner_commands'][0]['command'],
+                '  ',
+            ),
+            'Beginner command with browser viewer:',
+            textwrap.indent(
+                payload['beginner_commands'][1]['command'],
+                '  ',
+            ),
+            'Next command:',
+            textwrap.indent(primary['command'], '  '),
+        ])
 
-        if len(recommendations) > 1 and product_start is None:
+        if len(recommendations) > 1:
             lines.append('')
             lines.append('Other compatible paths:')
             for alternative in recommendations[1:]:

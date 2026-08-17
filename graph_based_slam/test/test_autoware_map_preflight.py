@@ -373,6 +373,10 @@ def test_human_doctor_prints_one_shell_safe_public_support_handoff(
     direct_report = module.render_text_report(payload)
     direct_command = direct_report.splitlines()[-1].strip()
 
+    assert 'Autoware-Compatible Map Preflight' in direct_report
+    assert 'Detected inputs:' in direct_report
+    assert 'Beginner command:' in direct_report
+    assert 'run_autoware_map_beginner.sh' in direct_report
     assert shlex.split(direct_command) == [
         'python3',
         'scripts/preflight_autoware_map_bag.py',
@@ -387,8 +391,16 @@ def test_human_doctor_prints_one_shell_safe_public_support_handoff(
     delegated_command = report.splitlines()[-1].strip()
 
     assert report.count('Need public support?') == 1
-    assert 'Keep this full report local' in report
+    assert 'Need local details?' in report
+    assert 'Keep this JSON local' in report
     assert 'review it before sharing' in report
+    assert 'Status:   READY' in report
+    assert 'Inputs:   PointCloud2, Imu' in report
+    assert 'Profile:  RKO-LIO + graph_based_slam public path' in report
+    assert 'Detected inputs:' not in report
+    assert '/private_vehicle/points' not in report
+    assert '/private_vehicle/imu' not in report
+    assert len(report_lines) <= 26
     action_index = report_lines.index('Do this now:')
     assert shlex.split(report_lines[action_index + 1].strip()) == [
         'lidarslam-map',
@@ -398,6 +410,13 @@ def test_human_doctor_prints_one_shell_safe_public_support_handoff(
     assert 'Beginner command:' not in report
     assert 'Other compatible paths:' not in report
     assert 'run_autoware_map_beginner.sh' not in report
+    detail_index = report_lines.index('Need local details?')
+    assert shlex.split(report_lines[detail_index + 2].strip()) == [
+        'lidarslam-map',
+        'doctor',
+        str(bag_dir),
+        '--json',
+    ]
     assert shlex.split(delegated_command) == [
         'lidarslam-map',
         'doctor',
@@ -415,17 +434,26 @@ def test_human_doctor_prints_one_shell_safe_public_support_handoff(
     }
     blocked_report = module.render_text_report(action_required)
     blocked_lines = blocked_report.splitlines()
-    retry_index = blocked_lines.index(
-        '  Resolve the first finding below, then rerun:'
-    )
-    assert 'Do this now:' not in blocked_report
-    assert 'Before mapping:' in blocked_report
+    retry_index = blocked_lines.index('Rerun after that action:')
+    assert 'Status:   ACTION REQUIRED' in blocked_report
+    assert blocked_report.count('Do this now:') == 1
+    assert '[calibration-review-required]' in blocked_report
     assert shlex.split(blocked_lines[retry_index + 1].strip()) == [
         'lidarslam-map',
         'doctor',
         str(bag_dir),
     ]
     assert 'lidarslam-map start' not in blocked_report
+
+    action_required['findings'].append({
+        'code': 'timestamp-order-invalid',
+        'message': 'This detailed follow-up message stays out of the card.',
+        'next_action': 'This detailed follow-up action stays out of the card.',
+    })
+    bounded_report = module.render_text_report(action_required)
+    assert 'Follow-up finding codes: timestamp-order-invalid' in bounded_report
+    assert 'detailed follow-up message' not in bounded_report
+    assert 'detailed follow-up action' not in bounded_report
 
 
 def test_public_doctor_input_error_never_echoes_the_private_path(

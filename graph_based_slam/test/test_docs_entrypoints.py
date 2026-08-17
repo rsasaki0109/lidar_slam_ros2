@@ -986,6 +986,10 @@ def test_bug_form_accepts_pre_session_failure_without_fake_zip_claims():
         compatibility
     )
     assert 'report with findings withholds that start action' in compatibility
+    assert 'product report is a compact local card' in getting_started
+    assert 'topic/frame names, detailed reasons' in getting_started
+    assert 'default product card is bounded' in compatibility
+    assert 'exact private `doctor ... --json` command' in compatibility
 
 
 def test_autoware_form_never_requests_private_map_or_origin_evidence():

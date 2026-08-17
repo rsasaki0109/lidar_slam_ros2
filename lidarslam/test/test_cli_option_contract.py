@@ -152,6 +152,11 @@ def test_contract_identifies_the_complete_product_surface():
     assert 'with findings' in doctor['safety_rules'][8]
     assert 'withholds start' in doctor['safety_rules'][8]
     assert 'exact-input doctor retry' in doctor['safety_rules'][8]
+    assert 'product human bag card is bounded' in doctor['safety_rules'][9]
+    assert 'without topic or frame names' in doctor['safety_rules'][9]
+    assert 'first finding' in doctor['safety_rules'][9]
+    assert 'exact-input --json command' in doctor['safety_rules'][10]
+    assert 'expert human report' in doctor['safety_rules'][10]
     symptom = contract['map_quality_symptom_triage_contract']
     assert symptom['schema_uri'].endswith('/schemas/diagnosis-v1.schema.json')
     assert symptom['command'] == 'inspect'

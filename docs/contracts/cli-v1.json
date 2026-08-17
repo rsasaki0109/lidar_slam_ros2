@@ -84,6 +84,8 @@
       "every human bag report warns that the full report remains local and displays one shell-safe --public-json command for the exact input",
       "a ready human bag report reached through the product CLI displays one shell-safe exact-input start command and hides lower-level mapping alternatives",
       "a human bag report with findings reached through the product CLI withholds start and displays the exact-input doctor retry after the first finding",
+      "the product human bag card is bounded to status, bag duration and count, input types without topic or frame names, selected profile, check statuses, the first finding and remaining finding codes, and one next action",
+      "the product human bag card displays one shell-safe exact-input --json command for complete private local detail while direct preflight use retains the expert human report",
       "system-only storage options fail closed when a bag is provided"
     ]
   },

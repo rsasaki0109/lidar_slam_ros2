@@ -246,13 +246,21 @@ def test_doctor_emits_machine_readable_preflight(tmp_path: Path):
     human_result = _run('doctor', str(bag))
 
     assert human_result.returncode == 0, human_result.stderr
+    assert 'lidarslam-map doctor — own-bag readiness' in human_result.stdout
+    assert 'Status:   READY' in human_result.stdout
+    assert 'Inputs:   PointCloud2, Imu' in human_result.stdout
+    assert '/points' not in human_result.stdout
+    assert '/imu' not in human_result.stdout
+    assert 'Detected inputs:' not in human_result.stdout
     assert 'Do this now:' in human_result.stdout
     assert f'start {bag}' in human_result.stdout
     assert 'run_autoware_map_beginner.sh' not in human_result.stdout
     assert 'Other compatible paths:' not in human_result.stdout
+    assert 'Need local details?' in human_result.stdout
+    assert f'doctor {bag} --json' in human_result.stdout
     assert 'Need public support?' in human_result.stdout
-    assert 'Keep this full report local' in human_result.stdout
     assert f'doctor {bag} --public-json' in human_result.stdout
+    assert len(human_result.stdout.splitlines()) <= 26
 
 
 def test_run_dry_run_and_inspect_delegate_to_proven_tools(tmp_path: Path):

@@ -61,6 +61,13 @@ start action and instead prints the exact `doctor` retry after the first
 finding is resolved. Direct use of the preflight script retains its detailed
 developer commands.
 
+The default product card is bounded to status, bag duration and message count,
+input types without topic/frame names, selected profile, four check statuses,
+the first finding plus remaining stable codes, and one action. It prints an
+exact private `doctor ... --json` command for full local reasons and commands;
+that JSON must not be shared. The compact card and detailed JSON are both
+read-only and make no network request.
+
 Viewing is an optional post-processing command, not another required mapping
 step:
 

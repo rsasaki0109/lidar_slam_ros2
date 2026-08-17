@@ -72,6 +72,13 @@ lower-level scripts and compatible-path alternatives. If a finding remains,
 it withholds that start command, points to the first finding, and displays the
 exact `doctor` retry for the same bag.
 
+The product report is a compact local card: status, bag summary, detected input
+types, selected profile, bounded check statuses, and one next action. It omits
+topic/frame names, detailed reasons, alternative launch commands, and advisory
+commands. Use the exact displayed `doctor ... --json` command when those full
+local details are needed, and keep that JSON private. Running the preflight
+script directly retains the complete expert-oriented human report.
+
 ## Docker First Map (No ROS 2 Workspace)
 
 ```bash
