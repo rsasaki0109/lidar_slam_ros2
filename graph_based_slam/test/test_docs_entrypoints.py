@@ -1885,8 +1885,8 @@ def test_real_data_e2e_workflow_is_pinned_bounded_and_non_geometry():
     assert 'output/real-data-e2e/run/traj_raw.tum' not in workflow
 
 
-def test_default_container_workflow_trusts_checkout_before_running_git():
-    """Container jobs must trust the host-owned Actions checkout."""
+def test_default_container_workflow_uses_exact_trusted_checkout():
+    """Container jobs test the exact PR head from a trusted checkout."""
     workflow = MAIN_CI_WORKFLOW.read_text(encoding='utf-8')
     default_workflow = workflow.split('  default-workflow:', 1)[1].split(
         '  release-readiness:', 1
@@ -1903,6 +1903,16 @@ def test_default_container_workflow_trusts_checkout_before_running_git():
     assert 'python3-pip' in default_workflow
     assert 'iproute2' in default_workflow
     assert 'rosbags==0.11.0' in default_workflow
+    assert (
+        "repository: ${{ github.event_name == 'pull_request' && "
+        'github.event.pull_request.head.repo.full_name || github.repository }}'
+        in default_workflow
+    )
+    assert (
+        "ref: ${{ github.event_name == 'pull_request' && "
+        'github.event.pull_request.head.sha || github.sha }}'
+        in default_workflow
+    )
     assert 'fetch-depth: 0' in default_workflow
     assert 'for attempt in 1 2 3' in default_workflow
     assert 'rosdep update failed after ${attempt} attempts' in default_workflow

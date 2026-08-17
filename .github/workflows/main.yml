@@ -187,6 +187,8 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: recursive
 
