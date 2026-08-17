@@ -395,6 +395,14 @@ work and document the actual support boundary instead of hiding the delay.
   Thirty-one focused and 38 integrated tests plus strict MkDocs pass. This
   enables honest product findings; it creates no validation, recruitment, or
   GitHub write.
+- Exact follow-up `4b1707cdbc2dc41f3d7b52aa8c598841fc925767`
+  applies the same repair to normal bug intake. A startup or preflight failure
+  no longer needs an impossible support ZIP or a false attachment-review
+  claim: it must provide doctor output, state that no session was created, and
+  paste the first actionable finding. Session-backed reports still require one
+  reviewed ZIP, diagnostics remain required, and all four privacy/scope checks
+  remain mandatory. Thirty-two focused and 39 integrated tests plus strict
+  MkDocs pass; no issue, upload, or GitHub write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.
@@ -1148,7 +1156,7 @@ in separate pytest processes, and recognized direct remote-write CLI forms fail
 plan validation. Exact follow-up `0633c2a604489538e0f087c02385e7c6467540c3`
 extends that boundary to the S6 docs/product-CLI command after exact execution
 from an unsourced shell exposed two `rosbag2_py` import failures; the repaired
-displayed command now passes all 38 tests and removing its prelude fails validation.
+displayed command now passes all 39 tests and removing its prelude fails validation.
 Evidence carrier `72a8c9e77eba33c1578a3cd9c8afe8fbe6933e33`
 passes 2,488 maintained Python tests and a byte-identical 261-file candidate
 bundle rehearsal without granting publication authority.

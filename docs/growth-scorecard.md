@@ -244,6 +244,13 @@ receipt was produced and no file was attached. All three privacy checks remain
 required. Thirty-one focused and 38 S6 docs/product regressions plus strict
 MkDocs pass; this creates no accepted validation, cohort attempt, upload,
 recruitment, or GitHub write.
+Exact follow-up `4b1707cdbc2dc41f3d7b52aa8c598841fc925767` fixes the same
+contradiction for ordinary bug reports. Session-backed reports still require
+one reviewed support ZIP; a pre-session failure instead supplies required
+doctor output, an explicit no-session statement, and the first actionable
+finding without claiming a nonexistent ZIP review. All four checklist items
+remain required. Thirty-two focused and 39 S6 docs/product regressions plus
+strict MkDocs pass; this performs no issue, attachment, or GitHub write.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state
