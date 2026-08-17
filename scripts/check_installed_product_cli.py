@@ -1073,26 +1073,25 @@ def validate_install(
             'installed support --first-map',
         )
         required_handoff_text = (
-            'First-map validation handoff: READY FOR REVIEW',
-            'Copy-ready issue fields:',
+            'First-map report: READY FOR REVIEW',
+            'Copy into the issue form:',
             'Result: PASS — verified first map completed',
             f'Release, commit, or image digest: {"a" * 40}',
-            'Copy this Verification summary into the issue form:',
+            'Verification summary:',
             'manifest_status=succeeded',
             'diagnosis_status=success',
             'autoware_status=PASS',
             f'manifest_sha256={manifest_digest}',
             str(verified_map / 'first_map_validation_receipt.json'),
-            str(verified_receipt_markdown),
             (
                 'https://github.com/rsasaki0109/lidar_slam_ros2/'
                 'issues/new?template=first-map-validation.yml'
             ),
-            'attach only this privacy-bounded JSON receipt',
-            'Complete these four public issue fields:',
+            'Attach after review:',
+            'Complete before submitting:',
             'Public documentation path: <Docker First Map',
             'Redacted command shape: <executable and options',
-            'literal REDACTED placeholder',
+            'Privacy: use REDACTED for credentials',
         )
         if any(
             text not in first_map_handoff.stdout

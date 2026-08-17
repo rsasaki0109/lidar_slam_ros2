@@ -814,34 +814,7 @@ def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
 
 def render_first_map_handoff(handoff: dict[str, Any]) -> str:
     """Render one concise, copy-ready independent-validation handoff."""
-    run = handoff['run']
     form_fields = handoff['form_fields']
-    lines = [
-        'First-map validation handoff: READY FOR REVIEW',
-        f"  Product: {run['product_version']}",
-        f"  Source:  {run['git_commit']}",
-        f"  Profile: {run['profile_id']}",
-        '',
-        'Copy-ready issue fields:',
-        f"  Result: {form_fields['result']}",
-        '  Release, commit, or image digest: '
-        f"{form_fields['release_ref']}",
-        '  If you ran an immutable image digest, replace the suggested '
-        'release value with that digest.',
-        '',
-        'Copy this Verification summary into the issue form:',
-        '```text',
-        handoff['verification_summary'],
-        '```',
-        '',
-        'Review, then attach only this privacy-bounded JSON receipt:',
-        f"  {handoff['receipt_path']}",
-    ]
-    if handoff['markdown_path'] is not None:
-        lines.extend([
-            'Readable receipt:',
-            f"  {handoff['markdown_path']}",
-        ])
     environment = ' / '.join([
         handoff['environment_hints']['os_family'],
         handoff['environment_hints']['architecture'],
@@ -849,23 +822,37 @@ def render_first_map_handoff(handoff: dict[str, Any]) -> str:
         '<install method>',
         '<relevant hardware>',
     ])
+    verification_lines = [
+        f'    {line}' for line in handoff['verification_summary'].splitlines()
+    ]
+    lines = [
+        'First-map report: READY FOR REVIEW',
+        f"  Open issue:          {handoff['issue_url']}",
+        f"  Attach after review: {handoff['receipt_path']}",
+        '',
+        'Copy into the issue form:',
+        f"  Result: {form_fields['result']}",
+        '  Release, commit, or image digest: '
+        f"{form_fields['release_ref']}",
+        '    Replace it with the immutable image digest if that is what '
+        'you ran.',
+        f'  Environment: {environment}',
+        '  Verification summary:',
+        *verification_lines,
+    ]
     lines.extend([
-        'Complete these four public issue fields:',
+        '',
+        'Complete before submitting:',
         '  Public documentation path: <Docker First Map | Source quickstart '
         '| Own-bag golden path>',
-        f'  Environment: {environment}',
         '  Redacted command shape: <executable and options; replace every '
         'private value with REDACTED>',
         '  Findings: <what was unclear, slow, surprising, broken, or helpful>',
         '',
-        'Issue form:',
-        f"  {handoff['issue_url']}",
-        '',
-        'Before sharing: use the literal REDACTED placeholder for credentials, '
-        'private paths, host or user names, and precise locations. Preserve '
-        'the command executable, options, and non-private values. Do not '
-        'attach the map, bag, manifest, logs, trajectory, parameters, or '
-        'screenshots of a private place.',
+        'Privacy: use REDACTED for credentials, private paths, host/user names, '
+        'and precise locations.',
+        'Attach only the reviewed JSON receipt; never attach the map, bag, '
+        'manifest, logs, trajectory, parameters, or private-place screenshots.',
     ])
     return '\n'.join(lines)
 

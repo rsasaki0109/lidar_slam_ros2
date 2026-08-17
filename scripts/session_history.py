@@ -284,7 +284,7 @@ def _support_command(bundle_path: str) -> str:
     return f'{_product_command_prefix("support")} {shlex.quote(bundle_path)}'
 
 
-def _first_map_share_command(bundle_path: str) -> str:
+def _first_map_report_command(bundle_path: str) -> str:
     return f'{_support_command(bundle_path)} --first-map'
 
 
@@ -343,18 +343,18 @@ def _render_session_card(entry: dict[str, Any]) -> str:
         quote=True,
     )
     support_command = _support_command(entry['bundle_path'])
-    share_html = ''
+    report_html = ''
     if entry['quality']['overall'] == 'pass':
-        share_command = _first_map_share_command(entry['bundle_path'])
-        share_html = (
-            '<details class="support-action share-action">'
-            '<summary>Share this verified first map</summary>'
+        report_command = _first_map_report_command(entry['bundle_path'])
+        report_html = (
+            '<details class="support-action report-action">'
+            '<summary>Prepare a first-map report</summary>'
             '<p>Revalidate the retained receipt, then review and attach only '
             'the privacy-bounded JSON receipt.</p>'
-            f'<code>{html.escape(share_command)}</code>'
-            '<button class="copy-share button" type="button" '
-            f'data-command="{html.escape(share_command, quote=True)}">'
-            'Copy share command</button></details>'
+            f'<code>{html.escape(report_command)}</code>'
+            '<button class="copy-report button" type="button" '
+            f'data-command="{html.escape(report_command, quote=True)}">'
+            'Copy report command</button></details>'
         )
     support_html = (
         '<details class="support-action"><summary>Get support</summary>'
@@ -387,7 +387,7 @@ def _render_session_card(entry: dict[str, Any]) -> str:
         f'{html.escape(Path(entry["bag_path"]).name)}</dd></div>'
         '</dl>'
         f'<div class="card-actions">{open_control}</div>'
-        f'{action_html}{share_html}{support_html}{paths_html}</article>'
+        f'{action_html}{report_html}{support_html}{paths_html}</article>'
     )
 
 
@@ -594,7 +594,7 @@ def render_catalog_html(payload: dict[str, Any]) -> str:
       copy.textContent = 'Select and copy the command above';
     }
   });
-  document.querySelectorAll('.copy-support, .copy-share').forEach((button) => {
+  document.querySelectorAll('.copy-support, .copy-report').forEach((button) => {
     button.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(button.dataset.command);
@@ -687,8 +687,8 @@ def _render_terminal(payload: dict[str, Any]) -> str:
             lines.append(f"  Open: {entry['page_path']}")
         if entry['quality']['overall'] == 'pass':
             lines.append(
-                '  Share: '
-                f"{_first_map_share_command(entry['bundle_path'])}"
+                '  Report: '
+                f"{_first_map_report_command(entry['bundle_path'])}"
             )
         elif entry['recommended_action'] is not None:
             lines.append(

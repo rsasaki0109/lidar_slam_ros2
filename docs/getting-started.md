@@ -479,8 +479,8 @@ not as a failed map; missing, malformed, or incomplete receipts are shown as
 After a terminal run completes, `start` prints one `Map session: VERIFIED` or
 `Map session: UNVERIFIED` card with the map output, evidence-backed verification
 status, viewer, session index/page, run manifest, first-map receipt, and exactly
-one `Next:` command. A verified result also prints the read-only `Share:`
-handoff. A viewer failure makes that single `Next:` action the view retry and
+one `Next:` command. A verified result also prints the read-only `Report:`
+preparation handoff. A viewer failure makes that single `Next:` action the view retry and
 adds one warning without changing the map result. With `--viewer none`, the
 card explicitly tells you how to reopen the map, so headless runs do not
 require browser output to continue.
@@ -535,7 +535,7 @@ session page. Use `--status action_required` to focus on interrupted work,
 An explicit alternate root is accepted as the optional positional argument.
 The scanner does not recurse or follow symlinks, skips malformed or oversized
 session records, and caps display at 200 entries. The terminal summary prints a
-copy-ready `Share:` command for a verified session and the retained recovery
+copy-ready `Report:` preparation command for a verified session and the retained recovery
 `Details:` plus `Next:` command for an action-required or unverified session,
 so headless users can understand the retained result and continue without
 opening the browser catalog.

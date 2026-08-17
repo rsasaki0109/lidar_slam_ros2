@@ -1915,7 +1915,7 @@ def _session_index_payload(
         if verification_mode == 'required':
             add_action(
                 'share',
-                'Share this verified first map',
+                'Prepare a first-map report',
                 support_command + ' --first-map',
             )
         add_action('inspect', 'Inspect map evidence', inspect_command)
@@ -3148,7 +3148,7 @@ def _render_session_completion_summary(
                     and action.get('kind') == 'share'
                     and isinstance(action.get('command'), str)
                 ):
-                    lines.append(f'  Share:             {action["command"]}')
+                    lines.append(f'  Report:            {action["command"]}')
                     break
     return '\n'.join(lines)
 

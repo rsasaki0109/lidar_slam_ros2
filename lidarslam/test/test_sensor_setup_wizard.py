@@ -1913,7 +1913,7 @@ def test_success_terminal_summary_keeps_paths_and_next_command_together(
         f'./scripts/lidarslam view {map_output}'
     ) in output
     assert (
-        'Share:             '
+        'Report:            '
         f'./scripts/lidarslam support {Path(manifest["bundle_path"])} '
         '--first-map'
     ) in output
@@ -2039,13 +2039,13 @@ def test_verified_session_renders_receipt_bound_quality_summary(
         'share',
         'inspect',
     ]
-    assert session['actions'][1]['label'] == 'Share this verified first map'
+    assert session['actions'][1]['label'] == 'Prepare a first-map report'
     assert session['actions'][1]['command'].endswith(' --first-map')
     report = module._render_session_html(session)
     assert 'Map quality' in report
     assert 'All required map quality evidence passed.' in report
     assert 'autoware_verification_pass' in report
-    assert 'Share this verified first map' in report
+    assert 'Prepare a first-map report' in report
 
 
 def test_unverified_quality_distinguishes_not_run_from_failure(

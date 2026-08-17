@@ -265,11 +265,11 @@ def test_verified_pass_card_has_copy_ready_share_action(
 
     rendered = module._render_session_card(entry)
 
-    assert 'Share this verified first map' in rendered
+    assert 'Prepare a first-map report' in rendered
     assert 'lidarslam-map support' in rendered
     assert '--first-map' in rendered
-    assert 'Copy share command' in rendered
-    assert 'class="copy-share button"' in rendered
+    assert 'Copy report command' in rendered
+    assert 'class="copy-report button"' in rendered
 
     nonpass = dict(entry)
     nonpass['quality'] = {
@@ -277,8 +277,8 @@ def test_verified_pass_card_has_copy_ready_share_action(
         'headline': 'Needs attention',
     }
     nonpass_rendered = module._render_session_card(nonpass)
-    assert 'Share this verified first map' not in nonpass_rendered
-    assert 'Copy share command' not in nonpass_rendered
+    assert 'Prepare a first-map report' not in nonpass_rendered
+    assert 'Copy report command' not in nonpass_rendered
 
 
 def test_terminal_history_prints_share_or_recovery_next_action(
@@ -328,7 +328,7 @@ def test_terminal_history_prints_share_or_recovery_next_action(
     rendered = module._render_terminal(payload)
 
     assert (
-        'Share: lidarslam-map support '
+        'Report: lidarslam-map support '
         f'{tmp_path / "verified"} --first-map'
     ) in rendered
     assert (

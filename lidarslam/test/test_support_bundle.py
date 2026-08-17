@@ -442,20 +442,23 @@ def test_first_map_handoff_revalidates_pass_evidence_without_writing(
     }
     assert module.main([str(bundle), '--first-map']) == 0
     terminal = capsys.readouterr().out
-    assert 'First-map validation handoff: READY FOR REVIEW' in terminal
-    assert 'Copy-ready issue fields:' in terminal
+    assert 'First-map report: READY FOR REVIEW' in terminal
+    assert 'Copy into the issue form:' in terminal
     assert 'Result: PASS — verified first map completed' in terminal
     assert f'Release, commit, or image digest: {"a" * 40}' in terminal
-    assert 'Copy this Verification summary' in terminal
-    assert 'Complete these four public issue fields:' in terminal
+    assert 'Verification summary:' in terminal
+    assert 'Complete before submitting:' in terminal
     assert 'Public documentation path: <Docker First Map' in terminal
     assert 'Environment: Linux / x86_64 / ROS 2 jazzy' in terminal
     assert 'Redacted command shape: <executable and options' in terminal
     assert 'Findings: <what was unclear, slow, surprising' in terminal
-    assert 'literal REDACTED placeholder' in terminal
-    assert 'host or user names' in terminal
+    assert 'use REDACTED for credentials' in terminal
+    assert 'host/user names' in terminal
     assert str(bundle / 'map/first_map_validation_receipt.json') in terminal
-    assert 'Do not attach the map, bag, manifest, logs' in terminal
+    assert 'never attach the map, bag, manifest, logs' in terminal
+    assert len(terminal.splitlines()) <= 23
+    assert '```text' not in terminal
+    assert 'Readable receipt:' not in terminal
     after = {
         path.relative_to(bundle): (
             path.stat().st_size,

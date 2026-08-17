@@ -91,7 +91,8 @@ continues to identify itself as `development (working-tree)` and uses the
 moving development image only when no explicit `--image` is supplied. A local
 source script must never be mistaken for an attested release asset.
 
-A verified terminal session adds a `share` action whose command is
+A verified terminal session adds the compatibility-keyed `share` action,
+displayed as **Prepare a first-map report**, whose command is
 `lidarslam-map support <session_bundle> --first-map`. This is not a fifth
 workflow or an acceptance claim. It re-hashes the receipt-bound manifest,
 diagnosis, and verification log, then prints only the copy-ready verification
@@ -103,7 +104,7 @@ After a successful `start`, the terminal prints a bounded **Session summary**
 from the retained session index: evidence-backed verification status, the
 offline viewer or session-page path, run manifest, first-map receipt, and one
 safe `Next:` command. Verified sessions additionally print the read-only
-`Share:` handoff. `--viewer none` reports the retained session page and the
+`Report:` preparation handoff. `--viewer none` reports the retained session page and the
 exact command needed to reopen the map; it does not weaken verification.
 
 For automation, add `--json` to the first-map support command. It returns the

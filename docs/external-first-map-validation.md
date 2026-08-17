@@ -21,7 +21,7 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
    `first_map_validation_receipt.json` and
    `first_map_validation_receipt.md` after finalizing the manifest,
    diagnosis, and Autoware verification log. From the successful session page,
-   copy **Share this verified first map**, or run:
+   copy **Prepare a first-map report**, or run:
 
    ```bash
    lidarslam-map support /path/to/session_bundle --first-map
