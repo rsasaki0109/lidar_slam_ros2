@@ -163,11 +163,15 @@ To take one complete read-only snapshot of the current external G0 gates, use:
 
 ```bash
 python3 scripts/check_g0_readiness.py \
-  --include-product-draft \
-  --include-candidate-environment \
-  --include-published-release \
+  --include-public-transition \
   --published-release-version 0.9.1
 ```
+
+`--include-public-transition` is the user-facing alias for the exact product
+Draft, protected `candidate-images` environment, and published-release audits.
+It performs those bounded network reads together so a partial audit cannot
+send the operator back to the same version-alignment command. The three
+long-form flags remain available for focused diagnosis.
 
 When this optional gate becomes the selected next action, the human card and
 JSON contract carry the same bounded operator handoff. An absent or
@@ -198,6 +202,17 @@ moves to the measurement gate. Human active time, submitted command count,
 isolated disk measurements, and the external first-map acceptance gates remain
 evidence requirements. Recruitment, release, image, issue, label, review, and
 package actions remain separate decisions.
+
+The same next action now includes a schema-bound
+`READ_ONLY_PUBLIC_PRODUCT_TRANSITION` handoff. Before publication it reports
+`AUDIT_REQUIRED`, `PUBLICATION_REQUIRED`, or `AUDIT_BLOCKED`, selects the
+complete transition audit above, and marks fresh-packet generation ineligible.
+Only a matching `PUBLISHED` report produces
+`READY_FOR_FRESH_MATRIX_PACKET` and selects the fail-closed release-report →
+observer-packet pipeline. The handoff fixes the target version, all three audit
+IDs, both commands, and false GitHub-write/remote-mutation authority. Unsafe
+version text or a child report for a different version fails before any
+copy-ready command is rendered.
 
 For the published-release choice, the dashboard now prints a copy-ready
 pipeline from `check_published_release.py` into

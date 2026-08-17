@@ -767,6 +767,16 @@ Contiguous
 lineage, whole-PR commit composition, P2 path composition, safe Markdown
 labels, and no-write authority are checked before rendering. The desired-tip
 compare link is intentionally useful only after the ordered branch update.
+Exact follow-up `4404f877263157d09ae6c451dae55f5ddbbd03af` also turns the
+public-product transition into one user-facing read. The
+`--include-public-transition` alias evaluates Draft → protected environment →
+published release together, while its schema-bound handoff distinguishes audit
+required, external publication required, blocked audit, and a genuinely
+published identity ready for a fresh matrix packet. It rejects unsafe or
+mismatched version identity and forbids reuse of old mixed-version measurements.
+The live observation exposes the actual order: fast-forward Draft update review
+first, then the absent `candidate-images` environment, then the absent v0.9.1
+tag/Release/images. It performs and authorizes no external action.
 
 The
 [2026-08-10 G0 activation decision](../evidence/growth/g0-activation-decision-2026-08-10.md)

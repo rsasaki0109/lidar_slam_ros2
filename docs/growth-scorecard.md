@@ -213,6 +213,15 @@ GitHub compare links and S1–S7 are a bounded focus/path/check/gate table. Link
 lineage, commit composition, slice composition, safe titles, clean-tip
 identity, and no-write source authority are machine checked before that body
 can be emitted.
+Exact follow-up `4404f877263157d09ae6c451dae55f5ddbbd03af` removes the
+mixed-version partial-audit loop. One `--include-public-transition` option now
+reads the Draft, protected environment, and v0.9.1 publication together and
+returns a schema-bound transition handoff. The live GET-only result finds the
+Draft behind the clean local tip but fast-forwardable, `candidate-images`
+absent, and v0.9.1 tag/Release/both images absent; its dependency-ordered next
+action is therefore exact non-force Draft-update review, not fresh measurement.
+Only a matching published identity can enable a new four-row packet, and old
+mixed-version measurements remain explicitly non-reusable.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state
