@@ -232,6 +232,12 @@
       "after map completion, browser preview generation uses view --viewer browser --no-open and the same session.html links the result",
       "viewer failure remains separate from map status",
       "session artifact generation and browser opening never overwrite source or map evidence"
+    ],
+    "terminal_rules": [
+      "a successful start renders one VERIFIED or UNVERIFIED completion card instead of separate completion and summary blocks",
+      "the completion card contains map output, verification, viewer, session index, session page, evidence paths, and exactly one recommended Next command",
+      "viewer failure makes the single Next action the view retry, adds one warning, and does not change verified map status",
+      "session-index generation failure retains a completed fallback card with the map output and one view command"
     ]
   },
   "map_session_catalog_contract": {

@@ -3018,47 +3018,83 @@ def _render_session_completion_summary(
     payload: dict[str, Any],
     map_output: Path,
     *,
+    session_path: Path,
     preview_path: Path | None,
     report_path: Path | None,
+    viewer_returncode: int,
 ) -> str:
-    """Render the copy-ready terminal handoff after a successful run."""
+    """Render one copy-ready terminal handoff after a successful run."""
     verification_status = _quality_check_status(payload, 'verification')
     verification_label = verification_status.replace('_', ' ').upper()
-    lines = ['', 'Session summary:']
+    heading = {
+        'verified': 'Map session: VERIFIED',
+        'unverified': 'Map session: UNVERIFIED',
+    }.get(payload.get('status'), 'Map session: COMPLETED')
+    lines = ['', heading, f'  Map output:        {map_output}']
     lines.append(f'  Verification:      {verification_label}')
+    if payload.get('status') == 'unverified':
+        lines.append(
+            '  Warning:           verification was skipped; do not rely on '
+            'this map as verified'
+        )
     if preview_path is not None:
         lines.append(f'  Viewer:            {preview_path}')
     elif args.viewer == 'none':
-        if report_path is not None:
-            lines.append(
-                '  Viewer:            not opened (--viewer none); '
-                f'session page: {report_path}'
-            )
-        else:
-            lines.append('  Viewer:            not opened (--viewer none)')
-    elif report_path is not None:
+        lines.append('  Viewer:            not opened (--viewer none)')
+    elif args.viewer == 'browser':
         lines.append(
-            '  Viewer:            3D review unavailable; '
-            f'session page: {report_path}'
+            '  Viewer:            3D review unavailable; use Next below'
+        )
+    elif viewer_returncode == 0:
+        lines.append(
+            f'  Viewer:            {args.viewer} command completed'
         )
     else:
-        lines.append('  Viewer:            unavailable; use Next below')
+        lines.append(
+            f'  Viewer:            {args.viewer} failed; use Next below'
+        )
+
+    lines.append(f'  Session index:     {session_path}')
+    lines.append(
+        '  Session page:      '
+        f'{report_path if report_path is not None else "unavailable"}'
+    )
 
     artifacts = payload.get('artifacts')
     if not isinstance(artifacts, dict):
         artifacts = {}
     run_manifest = artifacts.get('run_manifest')
     validation_receipt = artifacts.get('validation_receipt')
-    lines.append(
-        '  Run manifest:      '
-        f'{run_manifest if run_manifest is not None else "unavailable"}'
+    run_manifest_text = (
+        run_manifest if run_manifest is not None else 'unavailable'
+    )
+    validation_receipt_text = (
+        validation_receipt if validation_receipt is not None else 'unavailable'
     )
     lines.append(
-        '  First-map receipt:  '
-        f'{validation_receipt if validation_receipt is not None else "unavailable"}'
+        f'  Run manifest:      {run_manifest_text}'
+    )
+    lines.append(
+        f'  First-map receipt:  {validation_receipt_text}'
     )
 
-    next_action = _completion_next_action(payload)
+    next_action = None
+    if viewer_returncode != 0:
+        actions = payload.get('actions')
+        if isinstance(actions, list):
+            for action in actions:
+                if (
+                    isinstance(action, dict)
+                    and action.get('kind') == 'view'
+                    and isinstance(action.get('command'), str)
+                ):
+                    next_action = {
+                        'kind': 'view',
+                        'command': action['command'],
+                    }
+                    break
+    if next_action is None:
+        next_action = _completion_next_action(payload)
     if next_action is None:
         next_action = {
             'kind': 'view',
@@ -3082,6 +3118,29 @@ def _render_session_completion_summary(
                 ):
                     lines.append(f'  Share:             {action["command"]}')
                     break
+    return '\n'.join(lines)
+
+
+def _render_session_completion_fallback(
+    verification_mode: str,
+    map_output: Path,
+) -> str:
+    """Keep one usable terminal card when the derived session index fails."""
+    lines = [
+        '',
+        'Map session: COMPLETED',
+        f'  Map output:        {map_output}',
+        '  Session summary:   unavailable; inspect retained map evidence',
+    ]
+    if verification_mode == 'off':
+        lines.append(
+            '  Warning:           verification was skipped; do not rely on '
+            'this map as verified'
+        )
+    lines.append(
+        '  Next:              '
+        f'{_product_command()} view {shlex.quote(str(map_output))}'
+    )
     return '\n'.join(lines)
 
 
@@ -3192,18 +3251,6 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
             _maybe_open_session_report(args, report_path)
         return completed.returncode
 
-    print('')
-    if verification_mode == 'required':
-        print('Verified map session completed')
-    else:
-        print('Unverified diagnostic map session completed')
-        print('  Verification was skipped; do not treat this map as verified.')
-    print(f"  Setup bundle: {manifest['bundle_path']}")
-    print(f'  Map output:   {map_output}')
-    print(
-        f'  Reopen:       {_product_command()} view '
-        f'{shlex.quote(str(map_output))}'
-    )
     viewer_returncode = 0
     preview_path = None
     if args.viewer == 'browser':
@@ -3257,10 +3304,7 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
             setup_bundle,
             session,
         )
-        print(f'  Session index: {session_path}')
-        if report_path is not None:
-            print(f'  Session page:  {report_path}')
-        else:
+        if report_path is None:
             print(
                 'warning: [session-html-write-failed] session.json was kept, '
                 'but session.html could not be written.',
@@ -3288,26 +3332,29 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
         viewer = subprocess.run(view_command, check=False, cwd=WORK_ROOT)
         viewer_returncode = viewer.returncode
 
-    if session is not None:
+    if session is not None and session_path is not None:
         print(
             _render_session_completion_summary(
                 args,
                 session,
                 map_output,
+                session_path=session_path,
                 preview_path=preview_path,
                 report_path=report_path,
+                viewer_returncode=viewer_returncode,
             )
         )
+    else:
+        print(_render_session_completion_fallback(
+            verification_mode,
+            map_output,
+        ))
 
     if viewer_returncode != 0:
         print(
             'warning: [viewer-failed] the map workflow is complete, but the '
             f'viewer failed with exit code {viewer_returncode}.',
             file=sys.stderr,
-        )
-        print(
-            'Reopen later: '
-            f'{_product_command()} view {shlex.quote(str(map_output))}'
         )
         return viewer_returncode
     return 0

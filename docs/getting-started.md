@@ -456,12 +456,14 @@ invent a numeric quality score. Verification-off is shown as `NOT VERIFIED`,
 not as a failed map; missing, malformed, or incomplete receipts are shown as
 `UNAVAILABLE` instead of being guessed from nearby files.
 
-After a terminal run completes, `start` prints one **Session summary** with the
-evidence-backed verification status, 3D viewer or session-page path, run
-manifest, first-map receipt, and one exact `Next:` command. A verified result
-also prints the read-only `Share:` handoff. With `--viewer none`, the summary
-explicitly tells you how to reopen the map, so headless runs do not require
-browser output to continue.
+After a terminal run completes, `start` prints one `Map session: VERIFIED` or
+`Map session: UNVERIFIED` card with the map output, evidence-backed verification
+status, viewer, session index/page, run manifest, first-map receipt, and exactly
+one `Next:` command. A verified result also prints the read-only `Share:`
+handoff. A viewer failure makes that single `Next:` action the view retry and
+adds one warning without changing the map result. With `--viewer none`, the
+card explicitly tells you how to reopen the map, so headless runs do not
+require browser output to continue.
 
 If the workflow finished but the map spins, drifts, stops early, looks sparse,
 or is not visible, keep that session and report one symptom to the same

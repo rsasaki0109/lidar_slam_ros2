@@ -325,6 +325,17 @@ def test_contract_identifies_the_complete_product_surface():
     )
     assert 'not_verified' in session['quality_rules'][2]
     assert 'semantically incomplete' in session['quality_rules'][3]
+    assert session['terminal_rules'] == [
+        'a successful start renders one VERIFIED or UNVERIFIED completion '
+        'card instead of separate completion and summary blocks',
+        'the completion card contains map output, verification, viewer, '
+        'session index, session page, evidence paths, and exactly one '
+        'recommended Next command',
+        'viewer failure makes the single Next action the view retry, adds one '
+        'warning, and does not change verified map status',
+        'session-index generation failure retains a completed fallback card '
+        'with the map output and one view command',
+    ]
     catalog = contract['map_session_catalog_contract']
     assert catalog['schema_uri'].endswith(
         '/schemas/map-session-catalog-v1.schema.json'

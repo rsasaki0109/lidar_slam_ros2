@@ -235,12 +235,14 @@ opening is best-effort; run-manifest-v2, validation evidence,
 `map_session_recovery.json` when present, and the delegated map exit code remain
 authoritative.
 
-After a successful terminal `start`, the command also prints a bounded session
-summary projected from that index: verification status, viewer or session-page
-path, run manifest, first-map receipt, and one exact `Next:` command. A verified
-session adds the read-only `Share:` handoff. With `--viewer none`, `Next:` is the
-copy-ready command for reopening the map; an unverified or action-required
-session also prints its retained one-line summary. No browser is required.
+After a successful terminal `start`, the command prints one bounded VERIFIED or
+UNVERIFIED card projected from that index: map output, verification status,
+viewer, session index/page, run manifest, first-map receipt, and one exact
+`Next:` command. A verified session adds the read-only `Share:` handoff. Viewer
+failure makes the single `Next:` action the view retry and adds a separate
+warning. With `--viewer none`, `Next:` is the copy-ready command for reopening
+the map; an unverified or action-required session also prints its retained
+one-line summary. No browser is required.
 
 The additive `demo` command is a product orchestrator over the existing fixed
 public-data script, not another SLAM route. Its read-only JSON exists only with

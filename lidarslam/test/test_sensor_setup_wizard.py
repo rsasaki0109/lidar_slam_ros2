@@ -532,7 +532,7 @@ def test_start_pins_setup_then_delegates_map_and_viewer(
     assert 'Map command:' not in output
     assert 'Review:' not in output
     assert 'Starting the verified map session' in output
-    assert 'Verified map session completed' in output
+    assert 'Map session: VERIFIED' in output
     session_index = json.loads(
         (session / 'session.json').read_text(encoding='utf-8')
     )
@@ -592,7 +592,7 @@ def test_start_interactive_confirmation_completes_one_command(
     assert 'Sensor session: READY' not in output
     assert 'Map command:' not in output
     assert 'Review:' not in output
-    assert 'Verified map session completed' in output
+    assert 'Map session: VERIFIED' in output
 
 
 def test_start_runtime_failure_stops_before_mapping(
@@ -1518,8 +1518,12 @@ def test_completed_map_with_failed_viewer_keeps_map_success_clear(
     ) == 9
 
     output = capsys.readouterr()
-    assert 'Verified map session completed' in output.out
-    assert 'Reopen later:' in output.out
+    assert 'Map session: VERIFIED' in output.out
+    assert 'Reopen later:' not in output.out
+    reopen_command = (
+        f'./scripts/lidarslam view {manifest["run"]["output_dir"]}'
+    )
+    assert output.out.count(reopen_command) == 1
     assert '[viewer-failed]' in output.err
     assert not (
         Path(manifest['bundle_path']) / 'map_session_recovery.json'
@@ -1556,9 +1560,18 @@ def test_success_terminal_summary_keeps_paths_and_next_command_together(
 
     assert result == 0
     output = capsys.readouterr().out
-    assert 'Session summary:' in output
+    assert 'Map session: VERIFIED' in output
+    assert f'Map output:        {map_output}' in output
     assert 'Verification:      PASS' in output
     assert 'Viewer:            not opened (--viewer none)' in output
+    assert (
+        f'Session index:     {Path(manifest["bundle_path"]) / "session.json"}'
+        in output
+    )
+    assert (
+        f'Session page:      {Path(manifest["bundle_path"]) / "session.html"}'
+        in output
+    )
     assert f'Run manifest:      {map_output / "run_manifest.json"}' in output
     assert (
         'First-map receipt:  '
@@ -1573,6 +1586,39 @@ def test_success_terminal_summary_keeps_paths_and_next_command_together(
         f'./scripts/lidarslam support {Path(manifest["bundle_path"])} '
         '--first-map'
     ) in output
+
+
+def test_completed_map_keeps_one_fallback_when_session_index_fails(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+):
+    """Derived-index failure must not hide success or duplicate the handoff."""
+    module = _load_module()
+    manifest = _session_manifest(tmp_path)
+    map_output = Path(manifest['run']['output_dir'])
+    monkeypatch.setattr(
+        module.subprocess,
+        'run',
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0),
+    )
+
+    def fail_index(*_args, **_kwargs):
+        raise OSError('injected session index failure')
+
+    monkeypatch.setattr(module, '_write_session_index', fail_index)
+
+    result = module._run_session(
+        type('Args', (), {'viewer': 'none', 'verification': 'required'})(),
+        manifest,
+    )
+
+    assert result == 0
+    output = capsys.readouterr()
+    assert 'Map session: COMPLETED' in output.out
+    assert f'Map output:        {map_output}' in output.out
+    assert output.out.count(f'./scripts/lidarslam view {map_output}') == 1
+    assert '[session-index-write-failed]' in output.err
 
 
 def test_unverified_start_is_honest_and_offers_fresh_verified_output(
@@ -1597,8 +1643,9 @@ def test_unverified_start_is_honest_and_offers_fresh_verified_output(
     assert result == 0
     output = capsys.readouterr().out
     assert 'Starting a diagnostic map session without verification' in output
-    assert 'Unverified diagnostic map session completed' in output
-    assert 'Verified map session completed' not in output
+    assert 'Map session: UNVERIFIED' in output
+    assert 'verification was skipped; do not rely on this map as verified' in output
+    assert 'Map session: VERIFIED' not in output
     session_path = Path(manifest['bundle_path']) / 'session.json'
     session = json.loads(session_path.read_text(encoding='utf-8'))
     schema = json.loads(SESSION_SCHEMA.read_text(encoding='utf-8'))
