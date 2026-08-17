@@ -388,6 +388,8 @@ def test_exact_green_draft_is_reviewed_before_candidate_environment():
     assert product['authority']['merge_authorized'] is False
 
     reports = DASHBOARD.collect_checker_reports()
+    reports['publication_plan']['worktree_clean'] = True
+    reports['publication_plan']['uncommitted_path_count'] = 0
     reports['product_draft'] = product
     reports['candidate_environment'] = {
         'status': 'ABSENT',
@@ -416,7 +418,7 @@ def test_exact_green_draft_is_reviewed_before_candidate_environment():
 
     assert report['next_action']['id'] == 'review-product-draft'
     assert report['next_action']['command'] == (
-        'python3 scripts/check_publication_slice_plan.py --json'
+        'python3 scripts/check_publication_slice_plan.py --overview'
     )
     assert '10 passing checks and 4 intentional skips' in (
         report['next_action']['reason']
@@ -424,11 +426,80 @@ def test_exact_green_draft_is_reviewed_before_candidate_environment():
     assert 'marking ready and merging remain separate' in (
         report['next_action']['write_boundary']
     )
+    handoff = report['next_action']['product_draft_review_handoff']
+    assert handoff == {
+        'kind': 'EXACT_DRAFT_REVIEW_SEQUENCE',
+        'external_write_required': False,
+        'pull_request': 427,
+        'url': 'https://github.com/rsasaki0109/lidar_slam_ros2/pull/427',
+        'exact_head': head,
+        'whole_pr_path_count': 380,
+        'review_phase_count': 3,
+        'slice_count': 7,
+        'overview_command': (
+            'python3 scripts/check_publication_slice_plan.py --overview'
+        ),
+        'slice_command_template': (
+            'python3 scripts/check_publication_slice_plan.py --slice <ID>'
+        ),
+        'steps': [
+            'Render the exact overview and confirm a clean matching tip.',
+            'Review P0, P1, then P2 using their bounded hotspots.',
+            (
+                'Review S1 through S7 in dependency order and run each '
+                'displayed verification group.'
+            ),
+            (
+                'Record findings separately; review submission, mark-ready, '
+                'and merge remain separate GitHub decisions.'
+            ),
+        ],
+        'commands_executed': False,
+        'github_review_submitted': False,
+        'mark_ready_authorized': False,
+        'merge_authorized': False,
+        'writes_performed': False,
+    }
     card = DASHBOARD.render_card(report)
     assert '| product Draft PR #427 | DRAFT_REVIEW_REQUIRED |' in card
     assert 'checks 10 pass / 4 skip / 0 fail' in card
     assert 'merge authorized: false' in card
+    assert 'Draft review sequence (not executed):' in card
+    assert f'- Exact head: `{head}`' in card
+    assert '- Coverage: 380 paths / 3 phases / 7 slices' in card
+    assert (
+        'Slice template: `python3 scripts/check_publication_slice_plan.py '
+        '--slice <ID>`'
+    ) in card
+    assert '- GitHub review submitted: no' in card
     assert card.count('Next action:') == 1
+
+
+def test_exact_green_draft_refuses_review_handoff_from_dirty_worktree():
+    """Uncommitted bytes cannot be mislabeled as the exact public review."""
+    head = '2' * 40
+    reports = DASHBOARD.collect_checker_reports()
+    reports['publication_plan']['worktree_clean'] = False
+    reports['publication_plan']['uncommitted_path_count'] = 2
+    reports['product_draft'] = _audit_product(head)
+
+    report = DASHBOARD.build_report(reports)
+
+    assert report['next_action'] == {
+        'id': 'restore-clean-draft-review-worktree',
+        'title': 'Restore a clean worktree before exact Draft review',
+        'reason': (
+            'The local publication plan has 2 uncommitted paths, so its '
+            'rendered review budget would not describe exact public head '
+            f'{head}.'
+        ),
+        'command': 'git status --short',
+        'write_boundary': (
+            'read-only local inspection; no file cleanup, commit, push, '
+            'review submission, mark-ready, or merge is authorized'
+        ),
+    }
+    assert report['authority']['github_writes_authorized'] is False
 
 
 def test_environment_audit_without_pr_audit_requests_the_missing_dependency():

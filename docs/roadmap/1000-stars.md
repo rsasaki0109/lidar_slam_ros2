@@ -1002,6 +1002,12 @@ GETs. It binds local HEAD to Draft PR #427, the canonical branches, mergeable
 state, and the latest exact-head check runs. Draft review and the separate
 merge decision are selected before any `candidate-images` administration;
 green CI never grants merge, environment, E2, E3, or E4 authority.
+When that exact Draft is green, the dashboard now carries a schema-bound review
+handoff: exact head, 380-path / three-phase / seven-slice coverage, overview,
+slice template, and a fixed overview → P0/P1/P2 → S1–S7 sequence. It refuses
+the handoff when the worktree is dirty and selects read-only status inspection
+instead. Neither path executes checks, submits a review, marks ready, merges,
+or performs a write.
 The seven review cards also carry self-contained, cache-free verification:
 ROS-dependent checks source Humble/Jazzy explicitly, package test roots remain
 in separate pytest processes, and recognized direct remote-write CLI forms fail

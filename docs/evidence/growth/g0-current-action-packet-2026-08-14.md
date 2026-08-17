@@ -301,11 +301,14 @@ The G0 product-Draft audit now closes the dependency-order gap before that
 handoff. Its bounded GitHub GETs require PR #427's canonical repository,
 `develop` base, public head branch, full local/public commit, mergeable state,
 and latest exact-head check runs to agree. A green Draft is reported as
-`DRAFT_REVIEW_REQUIRED`, not as merge readiness. It selects the seven-slice
-review before repository settings; only a later observed `MERGED` state lets
-the dashboard advance to `candidate-images`. Every result retains
-`merge_authorized: false`, performs no remote mutation, and keeps mark-ready,
-merge, settings, E2, E3, and E4 actions separate.
+`DRAFT_REVIEW_REQUIRED`, not as merge readiness. On a clean exact checkout it
+emits one schema-bound overview → P0/P1/P2 → S1–S7 handoff with exact head and
+380-path / three-phase / seven-slice coverage. A dirty checkout instead selects
+only `git status --short`; uncommitted bytes cannot be mislabeled as the public
+review. This sequence precedes repository settings; only a later observed
+`MERGED` state lets the dashboard advance to `candidate-images`. Every result
+retains `merge_authorized: false`, performs no remote mutation, and keeps
+mark-ready, merge, settings, E2, E3, and E4 actions separate.
 The code-bearing packet tip is required to be an ancestor of the current
 checkout revision; later synchronization and product UX follow-up commits
 must remain described in this handoff. It replaces

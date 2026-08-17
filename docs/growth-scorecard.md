@@ -172,7 +172,10 @@ Use `--include-product-draft`, `--include-published-release`, or
 `--include-candidate-environment` only when the corresponding network-read
 audit is wanted. The exact-head product audit now puts Draft review and a
 separate merge decision ahead of candidate-environment administration; it
-never turns green CI into merge authority.
+never turns green CI into merge authority. A clean exact green Draft now
+produces one schema-bound overview → three-phase → seven-slice review sequence;
+a dirty checkout stops at read-only status inspection so local bytes are not
+mistaken for the public review.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state

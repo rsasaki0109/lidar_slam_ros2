@@ -46,12 +46,21 @@ ancestry check from the canonical GitHub repository URL instead of trusting a
 checkout-specific `origin`. Neither path authorizes a push, PR state change,
 or merge.
 
-Dependency order is explicit. A green Draft points to the seven-slice local
-review plan. A non-Draft open PR still requires a separate maintainer merge
+Dependency order is explicit. A green Draft points first to the bounded
+overview and then to the seven-slice local review plan. The schema-bound
+handoff fixes the exact public/local head, 380-path / three-phase / seven-slice
+coverage, overview command, slice template, and four-step review sequence while
+keeping command execution, review submission, mark-ready, merge, and all writes
+false. A non-Draft open PR still requires a separate maintainer merge
 decision. Repository-environment work cannot become the next action until the
 exact PR is observed as merged. If an environment audit is requested without
 the product audit, the dashboard asks for the missing product audit first
 instead of suggesting a settings change from incomplete evidence.
+
+Head equality is insufficient when the checkout is dirty. If the publication
+plan reports any uncommitted path, the dashboard selects `git status --short`
+instead of constructing an exact-head review handoff. It does not clean,
+discard, commit, or publish those bytes.
 
 The selected seven-slice review card is copy-ready from an ordinary terminal.
 Before drilling into one slice, the local-only overview makes the large Draft

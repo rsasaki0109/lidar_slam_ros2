@@ -70,6 +70,12 @@ PRODUCT_PR_VERIFY_COMMAND = (
     'GITHUB_TOKEN="$(gh auth token)" python3 '
     'scripts/check_g0_readiness.py --include-product-draft --json'
 )
+PUBLICATION_REVIEW_OVERVIEW_COMMAND = (
+    'python3 scripts/check_publication_slice_plan.py --overview'
+)
+PUBLICATION_REVIEW_SLICE_TEMPLATE = (
+    'python3 scripts/check_publication_slice_plan.py --slice <ID>'
+)
 MAX_GITHUB_JSON_BYTES = 2 * 1024 * 1024
 MAX_CHECK_RUNS = 100
 SHA_PATTERN = re.compile(r'^[0-9a-f]{40}$')
@@ -1074,6 +1080,66 @@ def _product_draft_update_handoff(
     }
 
 
+def _product_draft_review_handoff(
+    plan: dict[str, Any],
+    product_draft: dict[str, Any],
+) -> dict[str, Any]:
+    """Build one exact, non-executing Draft review sequence."""
+    exact_head = product_draft['remote_head']
+    counts = (
+        plan['whole_pr_path_count'],
+        plan['review_phase_count'],
+        plan['slice_count'],
+    )
+    if (
+        product_draft['status'] != 'DRAFT_REVIEW_REQUIRED'
+        or product_draft['head_matches_local'] is not True
+        or product_draft['is_draft'] is not True
+        or product_draft['mergeable'] is not True
+        or product_draft['required_checks_complete'] is not True
+        or not isinstance(exact_head, str)
+        or SHA_PATTERN.fullmatch(exact_head) is None
+        or product_draft['local_head'] != exact_head
+        or plan['status'] != 'PLAN_VALID_LOCAL_ONLY'
+        or plan['review_coverage_complete'] is not True
+        or plan['worktree_clean'] is not True
+        or plan['uncommitted_path_count'] != 0
+        or any(not isinstance(count, int) or count < 1 for count in counts)
+    ):
+        raise G0ReadinessError(
+            'product Draft review handoff requires one clean exact green tip'
+        )
+    return {
+        'kind': 'EXACT_DRAFT_REVIEW_SEQUENCE',
+        'external_write_required': False,
+        'pull_request': PRODUCT_PR_NUMBER,
+        'url': PRODUCT_PR_URL,
+        'exact_head': exact_head,
+        'whole_pr_path_count': plan['whole_pr_path_count'],
+        'review_phase_count': plan['review_phase_count'],
+        'slice_count': plan['slice_count'],
+        'overview_command': PUBLICATION_REVIEW_OVERVIEW_COMMAND,
+        'slice_command_template': PUBLICATION_REVIEW_SLICE_TEMPLATE,
+        'steps': [
+            'Render the exact overview and confirm a clean matching tip.',
+            'Review P0, P1, then P2 using their bounded hotspots.',
+            (
+                'Review S1 through S7 in dependency order and run each '
+                'displayed verification group.'
+            ),
+            (
+                'Record findings separately; review submission, mark-ready, '
+                'and merge remain separate GitHub decisions.'
+            ),
+        ],
+        'commands_executed': False,
+        'github_review_submitted': False,
+        'mark_ready_authorized': False,
+        'merge_authorized': False,
+        'writes_performed': False,
+    }
+
+
 def _candidate_environment_summary(
     report: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -1365,21 +1431,47 @@ def _next_action(
             ),
         }
     if product_draft['status'] == 'DRAFT_REVIEW_REQUIRED':
+        if (
+            plan['worktree_clean'] is not True
+            or plan['uncommitted_path_count'] != 0
+        ):
+            return {
+                'id': 'restore-clean-draft-review-worktree',
+                'title': (
+                    'Restore a clean worktree before exact Draft review'
+                ),
+                'reason': (
+                    'The local publication plan has '
+                    f"{plan['uncommitted_path_count']} uncommitted paths, "
+                    'so its rendered review budget would not describe exact '
+                    f"public head {product_draft['remote_head']}."
+                ),
+                'command': 'git status --short',
+                'write_boundary': (
+                    'read-only local inspection; no file cleanup, commit, '
+                    'push, review submission, mark-ready, or merge is '
+                    'authorized'
+                ),
+            }
         return {
             'id': 'review-product-draft',
-            'title': 'Review the exact Draft by publication slice',
+            'title': 'Review the exact Draft from one bounded overview',
             'reason': (
                 f"PR #{product_draft['pull_request']} is an exact, mergeable "
                 f"Draft at {product_draft['remote_head']} with "
                 f"{product_draft['passing_check_count']} passing checks and "
-                f"{product_draft['skipped_check_count']} intentional skips."
+                f"{product_draft['skipped_check_count']} intentional skips; "
+                f"the local plan covers {plan['whole_pr_path_count']} paths "
+                f"in {plan['review_phase_count']} phases and "
+                f"{plan['slice_count']} slices."
             ),
-            'command': (
-                'python3 scripts/check_publication_slice_plan.py --json'
-            ),
+            'command': PUBLICATION_REVIEW_OVERVIEW_COMMAND,
             'write_boundary': (
-                'read-only review; marking ready and merging remain separate '
-                'GitHub decisions'
+                'read-only local review cards; review submission, marking '
+                'ready and merging remain separate GitHub decisions'
+            ),
+            'product_draft_review_handoff': (
+                _product_draft_review_handoff(plan, product_draft)
             ),
         }
     if (
@@ -1769,6 +1861,38 @@ def render_card(report: dict[str, Any]) -> str:
             f"`{draft_handoff['verification_command']}`"
         )
         lines.append('- Pushes performed: no')
+    review_handoff = report['next_action'].get(
+        'product_draft_review_handoff'
+    )
+    if review_handoff is not None:
+        lines.extend([
+            '',
+            'Draft review sequence (not executed):',
+            f"- Exact head: `{review_handoff['exact_head']}`",
+            (
+                '- Coverage: '
+                f"{review_handoff['whole_pr_path_count']} paths / "
+                f"{review_handoff['review_phase_count']} phases / "
+                f"{review_handoff['slice_count']} slices"
+            ),
+            f"- Overview: `{review_handoff['overview_command']}`",
+            (
+                '- Slice template: '
+                f"`{review_handoff['slice_command_template']}`"
+            ),
+        ])
+        lines.extend(
+            f'{index}. {step}'
+            for index, step in enumerate(
+                review_handoff['steps'], start=1
+            )
+        )
+        lines.extend([
+            '- Commands executed: no',
+            '- GitHub review submitted: no',
+            '- Mark-ready authorized: no',
+            '- Merge authorized: no',
+        ])
     lines.extend(['', f"Current packet: `{report['current_packet']['path']}`"])
     return '\n'.join(lines) + '\n'
 

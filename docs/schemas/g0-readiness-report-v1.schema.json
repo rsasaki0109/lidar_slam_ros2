@@ -631,6 +631,9 @@
         },
         "product_draft_update_handoff": {
           "$ref": "#/definitions/productDraftUpdateHandoff"
+        },
+        "product_draft_review_handoff": {
+          "$ref": "#/definitions/productDraftReviewHandoff"
         }
       },
       "allOf": [
@@ -644,8 +647,74 @@
           "then": {
             "required": ["product_draft_update_handoff"]
           }
+        },
+        {
+          "if": {
+            "required": ["id"],
+            "properties": {
+              "id": {"const": "review-product-draft"}
+            }
+          },
+          "then": {
+            "required": ["product_draft_review_handoff"]
+          }
         }
       ]
+    },
+    "productDraftReviewHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "external_write_required",
+        "pull_request",
+        "url",
+        "exact_head",
+        "whole_pr_path_count",
+        "review_phase_count",
+        "slice_count",
+        "overview_command",
+        "slice_command_template",
+        "steps",
+        "commands_executed",
+        "github_review_submitted",
+        "mark_ready_authorized",
+        "merge_authorized",
+        "writes_performed"
+      ],
+      "properties": {
+        "kind": {"const": "EXACT_DRAFT_REVIEW_SEQUENCE"},
+        "external_write_required": {"const": false},
+        "pull_request": {"const": 427},
+        "url": {
+          "const": "https://github.com/rsasaki0109/lidar_slam_ros2/pull/427"
+        },
+        "exact_head": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "whole_pr_path_count": {"type": "integer", "minimum": 1},
+        "review_phase_count": {"type": "integer", "minimum": 1},
+        "slice_count": {"type": "integer", "minimum": 1},
+        "overview_command": {
+          "const": "python3 scripts/check_publication_slice_plan.py --overview"
+        },
+        "slice_command_template": {
+          "const": "python3 scripts/check_publication_slice_plan.py --slice <ID>"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 300}
+        },
+        "commands_executed": {"const": false},
+        "github_review_submitted": {"const": false},
+        "mark_ready_authorized": {"const": false},
+        "merge_authorized": {"const": false},
+        "writes_performed": {"const": false}
+      }
     },
     "productDraftUpdateHandoff": {
       "type": "object",
