@@ -300,6 +300,14 @@ def test_contract_identifies_the_complete_product_surface():
         ),
         'retry the pinned setup only into a fresh output directory',
     ]
+    assert recovery['terminal_rules'] == [
+        'render the first reason, any remaining stable finding codes, exactly '
+        'one next_command, and one retained detail path',
+        'do not repeat per-finding actions, retry alternatives, or inspect '
+        'alternatives in the default terminal card',
+        'retain every finding, action, retry, inspect command, and evidence '
+        'path in map_session_recovery.json and the derived session handoff',
+    ]
     assert recovery['operator_rule'] == (
         'run next_command first; key automation on reason.code'
     )

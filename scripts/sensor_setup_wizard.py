@@ -2903,41 +2903,30 @@ def _monitor_session_progress(
 def _render_session_recovery(
     payload: dict[str, Any],
     receipt_path: Path | None,
+    session_path: Path | None,
     report_path: Path | None,
 ) -> str:
-    """Render one concise failure handoff for a person at the terminal."""
+    """Render one bounded first-action failure handoff for a person."""
     reason = payload['reason']
     lines = [
         '',
         'Map session: ACTION REQUIRED',
         f"Reason: [{reason['code']}] {reason['message']}",
-        f"Setup kept: {payload['setup_bundle']}",
     ]
-    if payload['run_dir'] is not None:
-        lines.append(f"Run evidence kept: {payload['run_dir']}")
-    lines.extend(['', 'What needs attention:'])
-    for finding in payload['findings']:
-        lines.extend([
-            f"  [{finding['code']}] {finding['message']}",
-            f"    Next: {finding['next_action']}",
-        ])
-    lines.extend(['', 'Do this next:', f"  {payload['next_command']}"])
-    if payload['retry']['available']:
-        lines.extend([
-            '',
-            'After correcting the cause, retry the same pinned setup safely:',
-            f"  {payload['retry']['command']}",
-        ])
-    if payload['inspect_command'] is not None:
-        lines.extend([
-            '',
-            'Rebuild the full diagnosis at any time:',
-            f"  {payload['inspect_command']}",
-        ])
-    if receipt_path is not None:
-        lines.extend(['', f'Recovery receipt: {receipt_path}'])
-    if report_path is not None:
-        lines.append(f'Session page:      {report_path}')
+    remaining_codes = [
+        f"[{finding['code']}]"
+        for finding in payload['findings'][1:]
+    ]
+    if remaining_codes:
+        lines.append(f"Also detected: {', '.join(remaining_codes)}")
+    lines.extend(['', 'Next:', f"  {payload['next_command']}"])
+    details_path = (
+        report_path
+        or receipt_path
+        or session_path
+        or Path(payload['setup_bundle'])
+    )
+    lines.append(f'Details: {details_path}')
     return '\n'.join(lines)
 
 
@@ -3209,6 +3198,7 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
             file=sys.stderr,
         )
         receipt_path = None
+        session_path = None
         report_path = None
         try:
             receipt_path = _write_session_recovery(
@@ -3233,7 +3223,6 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
                 setup_bundle,
                 session,
             )
-            print(f'Session index:    {session_path}')
             if report_path is None:
                 print(
                     'warning: [session-html-write-failed] session.json was '
@@ -3246,7 +3235,12 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
                 f'common session handoff: {exc}',
                 file=sys.stderr,
             )
-        print(_render_session_recovery(recovery, receipt_path, report_path))
+        print(_render_session_recovery(
+            recovery,
+            receipt_path,
+            session_path,
+            report_path,
+        ))
         if initial_report_path is None:
             _maybe_open_session_report(args, report_path)
         return completed.returncode

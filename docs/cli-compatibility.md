@@ -224,6 +224,12 @@ retry commands. It is written beside the unchanged sensor setup manifest and
 does not change or overwrite retained map evidence. Viewer-only failures remain
 separate because the map workflow has already completed.
 
+The default terminal projection is deliberately smaller than that artifact: it
+shows the first reason, remaining stable codes, one exact `Next:`, and one
+retained `Details:` path. Per-finding actions, retry and inspect alternatives,
+and all evidence paths remain in the JSON and derived session page instead of
+competing in the first repair step.
+
 Every delegated `start` also owns an additive `map-session-index-v1` contract:
 `session.json` and its derived `session.html` represent `running`, `verified`,
 `unverified`, or `action_required` through one stable location. Running progress

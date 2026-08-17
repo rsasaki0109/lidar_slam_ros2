@@ -1081,8 +1081,51 @@ def test_failed_start_writes_schema_valid_storage_recovery(
     output = capsys.readouterr()
     assert '[storage-exhausted]' in output.err
     assert 'Map session: ACTION REQUIRED' in output.out
-    assert 'After correcting the cause' in output.out
-    assert str(report_path) in output.out
+    card = output.out[output.out.index('Map session: ACTION REQUIRED'):]
+    assert 'Reason: [storage-exhausted]' in card
+    assert card.count('Next:') == 1
+    assert receipt['next_command'] in card
+    assert 'After correcting the cause' not in card
+    assert receipt['retry']['command'] not in card
+    assert receipt['inspect_command'] not in card
+    assert f'Details: {report_path}' in card
+    assert len(card.splitlines()) <= 8
+
+
+def test_recovery_card_keeps_secondary_findings_in_details_only(tmp_path: Path):
+    """The terminal shows stable extra codes without competing actions."""
+    module = _load_module()
+    manifest = _session_manifest(tmp_path)
+    recovery = module._session_recovery_payload(manifest, 2)
+    recovery['findings'].append({
+        'code': 'secondary-test-finding',
+        'message': 'Secondary detail belongs in retained evidence.',
+        'next_action': 'echo secondary-action',
+    })
+    receipt = tmp_path / 'map_session_recovery.json'
+    session = tmp_path / 'session.json'
+
+    card = module._render_session_recovery(
+        recovery,
+        receipt,
+        session,
+        None,
+    )
+
+    assert '[secondary-test-finding]' in card
+    assert 'Secondary detail belongs' not in card
+    assert 'echo secondary-action' not in card
+    assert card.count('Next:') == 1
+    assert recovery['next_command'] in card
+    assert f'Details: {receipt}' in card
+
+    fallback = module._render_session_recovery(
+        recovery,
+        None,
+        None,
+        None,
+    )
+    assert f'Details: {manifest["bundle_path"]}' in fallback
 
 
 def test_failed_start_prioritizes_exact_postprocessing_resume(

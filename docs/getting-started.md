@@ -422,9 +422,11 @@ English messages.
 If mapping starts but later fails, `start` keeps the setup and every available
 run artifact, then prints `Map session: ACTION REQUIRED`. The first line carries
 a stable code such as `[storage-exhausted]`, `[workflow-interrupted]`, or
-`[map-verification-failed]`; every finding includes a command that can be pasted
-directly. The same handoff is saved as `map_session_recovery.json` in the setup
-directory under the versioned
+`[map-verification-failed]`, followed by exactly one safe `Next:` command.
+Additional findings appear only as stable codes, and one `Details:` path opens
+the retained explanation. Every finding, action, safe retry, inspect command,
+and evidence path remains in `map_session_recovery.json` in the setup directory
+under the versioned
 [`map-session-recovery-v1` schema](schemas/map-session-recovery-v1.schema.json).
 If only terminal post-processing remains, `next_command` is the exact safe
 `--resume` command. Otherwise, the receipt keeps an exact diagnosis command and
