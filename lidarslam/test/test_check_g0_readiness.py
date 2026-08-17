@@ -160,11 +160,17 @@ def _audit_product(
 
 def _desired_description(reports: dict, head: str) -> str:
     """Render the canonical body from deterministic local fixtures."""
+    navigation = DASHBOARD._publication_review_navigation_summary(
+        reports['publication_overview'],
+        reports['publication_plan'],
+    )
     return DASHBOARD._product_draft_description_body(
         reports['publication_plan'],
-        DASHBOARD._publication_review_navigation_summary(
-            reports['publication_overview'],
+        navigation,
+        DASHBOARD._review_routing_summary(
+            reports['product_draft_review_routing'],
             reports['publication_plan'],
+            navigation,
         ),
         DASHBOARD._matrix_summary(reports['onboarding_matrix']),
         DASHBOARD._cohort_summary(reports['first_map_cohort']),
@@ -178,6 +184,7 @@ def _bind_review_tip(reports: dict, head: str) -> None:
     reports['publication_plan']['local_tip_sha'] = head
     reports['publication_overview']['candidate']['local_tip_sha'] = head
     reports['publication_overview']['review_phases'][-1]['end_sha'] = head
+    reports['product_draft_review_routing']['exact_head'] = head
 
 
 def _set_review_worktree_state(
@@ -195,6 +202,12 @@ def _set_review_worktree_state(
     reports['publication_overview']['candidate'][
         'uncommitted_path_count'
     ] = uncommitted_path_count
+    routing = reports['product_draft_review_routing']
+    routing['status'] = (
+        'READY_LOCAL_ONLY' if clean else 'PREPARED_DIRTY_WORKTREE'
+    )
+    routing['worktree_clean'] = clean
+    routing['uncommitted_path_count'] = uncommitted_path_count
 
 
 def test_current_dashboard_preserves_the_tracked_hold_state():
@@ -211,14 +224,14 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['publication_plan']['status'] == (
         'PLAN_VALID_LOCAL_ONLY'
     )
-    assert report['checks']['publication_plan']['path_count'] == 331
+    assert report['checks']['publication_plan']['path_count'] == 337
     assert report['checks']['publication_plan'][
         'whole_pr_commit_count'
     ] >= 315
     assert report['checks']['publication_plan'][
         'follow_up_review_commit_count'
     ] >= 271
-    assert report['checks']['publication_plan']['whole_pr_path_count'] == 380
+    assert report['checks']['publication_plan']['whole_pr_path_count'] == 386
     assert report['checks']['publication_plan']['review_phase_count'] == 3
     assert report['checks']['publication_plan'][
         'review_coverage_complete'
@@ -249,9 +262,29 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         'S6-product-shell-integration',
         'S7-publication-control',
     ]
-    assert sum(item['path_count'] for item in navigation['slices']) == 331
+    assert sum(item['path_count'] for item in navigation['slices']) == 337
     assert navigation['commands_executed'] is False
     assert navigation['github_writes_authorized'] is False
+    routing = report['checks']['product_draft_review_routing']
+    assert routing['status'] == 'PREPARED_DIRTY_WORKTREE'
+    assert [item['id'] for item in routing['lanes']] == [
+        'R1-runtime-safety',
+        'R2-operator-ux',
+        'R3-distribution',
+        'R4-integration-publication',
+    ]
+    assert routing['summary'] == {
+        'lane_count': 4,
+        'slice_count': 7,
+        'path_count': 337,
+        'verification_count': 33,
+        'unassigned_slice_count': 0,
+        'duplicate_slice_count': 0,
+    }
+    assert routing['policy']['advisory_reviewer_target'] == 2
+    assert routing['policy']['advisory_target_is_merge_gate'] is False
+    assert routing['authority']['github_reviewer_requests_authorized'] is False
+    assert routing['authority']['github_reviews_authorized'] is False
     assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
     assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
     assert report['checks']['product_draft'] == {
@@ -325,6 +358,9 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     card = DASHBOARD.render_card(report)
     assert card.count('Next action:') == 1
     assert 'GitHub/community writes: **no**' in card
+    assert '| review roles | PREPARED_DIRTY_WORKTREE |' in card
+    assert '4 capability lanes / advisory target 2' in card
+    assert 'identities: none; reviewer requests: false' in card
     assert '| product Draft PR #427 | NOT_CHECKED |' in card
     assert 'Choices (no write):' in card
     assert 'never reuse mixed-version measurements' in card
@@ -400,9 +436,9 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         '10 successful checks and 4\nintentional non-publication skips'
         in scorecard
     )
-    assert 'current 331-path local plan' in scorecard
+    assert 'current 337-path local plan' in scorecard
     assert (
-        'complete 380-path / three-phase whole-PR review coverage'
+        'complete 386-path / three-phase whole-PR review coverage'
         in scorecard
     )
 
@@ -452,6 +488,30 @@ def test_dashboard_rejects_tampered_review_navigation():
     with pytest.raises(
         DASHBOARD.G0ReadinessError,
         match='unsafe or incomplete',
+    ):
+        DASHBOARD.build_report(unsafe_authority)
+
+
+def test_dashboard_rejects_tampered_review_routing():
+    """Capability lanes cannot claim duplicate scope or GitHub authority."""
+    reports = DASHBOARD.collect_checker_reports()
+    duplicate_scope = copy.deepcopy(reports)
+    duplicate_scope['product_draft_review_routing']['lanes'][1][
+        'slice_ids'
+    ] = ['S1-runtime-safety', 'S4-source-onboarding']
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='R2-operator-ux is invalid',
+    ):
+        DASHBOARD.build_report(duplicate_scope)
+
+    unsafe_authority = copy.deepcopy(reports)
+    unsafe_authority['product_draft_review_routing']['authority'][
+        'github_reviewer_requests_authorized'
+    ] = True
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='contradicts the exact local plan',
     ):
         DASHBOARD.build_report(unsafe_authority)
 
@@ -554,7 +614,7 @@ def test_exact_green_draft_is_reviewed_before_candidate_environment():
         'pull_request': 427,
         'url': 'https://github.com/rsasaki0109/lidar_slam_ros2/pull/427',
         'exact_head': head,
-        'whole_pr_path_count': 380,
+        'whole_pr_path_count': 386,
         'review_phase_count': 3,
         'slice_count': 7,
         'overview_command': (
@@ -587,7 +647,7 @@ def test_exact_green_draft_is_reviewed_before_candidate_environment():
     assert 'merge authorized: false' in card
     assert 'Draft review sequence (not executed):' in card
     assert f'- Exact head: `{head}`' in card
-    assert '- Coverage: 380 paths / 3 phases / 7 slices' in card
+    assert '- Coverage: 386 paths / 3 phases / 7 slices' in card
     assert (
         'Slice template: `python3 scripts/check_publication_slice_plan.py '
         '--slice <ID>`'
@@ -625,8 +685,8 @@ def test_exact_green_draft_refreshes_stale_description_before_review():
     ).hexdigest()
     assert f'Candidate head: `{head}`' in handoff['body']
     assert 'Whole PR review: **' in handoff['body']
-    assert '380 paths / 3 phases**' in handoff['body']
-    assert '331 paths / 7 slices**' in handoff['body']
+    assert '386 paths / 3 phases**' in handoff['body']
+    assert '337 paths / 7 slices**' in handoff['body']
     assert '## Exact review map' in handoff['body']
     assert handoff['body'].count('[Open exact diff](') == 3
     assert (
@@ -638,6 +698,16 @@ def test_exact_green_draft_refreshes_stale_description_before_review():
     assert '| `S7` | Exact publication inventory and authority boundary |' in (
         handoff['body']
     )
+    assert '## Review roles' in handoff['body']
+    assert handoff['body'].count('| `R') == 4
+    assert '| `R1` | S1, S2 | 49 | 5 |' in handoff['body']
+    assert '| `R4` | S6, S7 | 153 | 15 |' in handoff['body']
+    assert (
+        'Advisory reviewer target: **2** (target only; not a merge gate). '
+        'Identities collected: none.'
+    ) in handoff['body']
+    assert '@' not in handoff['body']
+    assert 'username' not in handoff['body'].lower()
     assert '0/4 comparable' in handoff['body']
     assert handoff['description_update_authorized'] is False
     assert handoff['review_submission_authorized'] is False

@@ -230,6 +230,7 @@ if(BUILD_TESTING)
     test_candidate_image_gate
     test_check_publication_slice_plan
     test_check_g0_readiness
+    test_product_draft_review_routing
     test_contributor_starter_queue
     test_check_fixture_publication
     test_check_issue_triage_proposal

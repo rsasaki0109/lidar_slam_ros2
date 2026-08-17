@@ -100,6 +100,24 @@ EXPECTED_REVIEW_SLICES = (
     'S6-product-shell-integration',
     'S7-publication-control',
 )
+EXPECTED_REVIEW_LANES = (
+    'R1-runtime-safety',
+    'R2-operator-ux',
+    'R3-distribution',
+    'R4-integration-publication',
+)
+EXPECTED_REVIEW_LANE_DEPENDENCIES = (
+    (),
+    ('R1-runtime-safety',),
+    ('R1-runtime-safety', 'R2-operator-ux'),
+    ('R1-runtime-safety', 'R2-operator-ux', 'R3-distribution'),
+)
+EXPECTED_REVIEW_LANE_SLICES = (
+    ('S1-runtime-safety', 'S2-first-map-foundation'),
+    ('S3-map-lifecycle', 'S4-source-onboarding'),
+    ('S5-distribution-readiness',),
+    ('S6-product-shell-integration', 'S7-publication-control'),
+)
 REVIEW_PUBLICATION_GATES = frozenset({
     'PUBLIC_CI',
     'LOCAL_REVIEW',
@@ -833,6 +851,11 @@ def collect_checker_reports(
             ('--overview', '--json'),
             runner=runner,
         ),
+        'product_draft_review_routing': _run_json(
+            'check_product_draft_review_routing.py',
+            ('--json',),
+            runner=runner,
+        ),
         'onboarding_matrix': _run_json(
             'check_onboarding_trial_matrix.py',
             ('--json',),
@@ -1035,6 +1058,156 @@ def _publication_review_navigation_summary(
         'commands_executed': False,
         'github_writes_authorized': False,
         'remote_mutations_performed': False,
+    }
+
+
+def _review_routing_summary(
+    report: dict[str, Any],
+    plan: dict[str, Any],
+    navigation: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize privacy-safe capability lanes against the exact review map."""
+    expected_status = (
+        'READY_LOCAL_ONLY'
+        if plan.get('worktree_clean') is True
+        and plan.get('uncommitted_path_count') == 0
+        else 'PREPARED_DIRTY_WORKTREE'
+    )
+    expected_authority = {
+        'commands_executed': False,
+        'github_reviewer_requests_authorized': False,
+        'github_reviews_authorized': False,
+        'mark_ready_authorized': False,
+        'merge_authorized': False,
+        'remote_mutations_performed': False,
+    }
+    policy = {
+        'advisory_reviewer_target': 2,
+        'advisory_target_is_merge_gate': False,
+        'max_parallel_active_lanes': 2,
+        'lane_completion_order_required': True,
+        'final_decision_role': 'lead-maintainer',
+    }
+    if (
+        report.get('status') != expected_status
+        or report.get('exact_head') != plan.get('local_tip_sha')
+        or report.get('exact_head') != navigation.get('exact_head')
+        or report.get('worktree_clean') != plan.get('worktree_clean')
+        or report.get('uncommitted_path_count')
+        != plan.get('uncommitted_path_count')
+        or any(report.get(field) != value for field, value in policy.items())
+        or report.get('authority') != expected_authority
+    ):
+        raise G0ReadinessError(
+            'product Draft review routing contradicts the exact local plan'
+        )
+    raw_lanes = report.get('lanes')
+    raw_summary = report.get('summary')
+    slices = navigation.get('slices')
+    if (
+        not isinstance(raw_lanes, list)
+        or len(raw_lanes) != len(EXPECTED_REVIEW_LANES)
+        or not isinstance(raw_summary, dict)
+        or not isinstance(slices, list)
+    ):
+        raise G0ReadinessError(
+            'product Draft review routing is incomplete'
+        )
+    slice_by_id = {
+        item.get('id'): item
+        for item in slices
+        if isinstance(item, dict)
+    }
+    if set(slice_by_id) != set(EXPECTED_REVIEW_SLICES):
+        raise G0ReadinessError(
+            'product Draft review routing received an invalid slice map'
+        )
+
+    normalized_lanes: list[dict[str, Any]] = []
+    assigned_slices: list[str] = []
+    for order, (raw, lane_id, dependencies, slice_ids) in enumerate(
+        zip(
+            raw_lanes,
+            EXPECTED_REVIEW_LANES,
+            EXPECTED_REVIEW_LANE_DEPENDENCIES,
+            EXPECTED_REVIEW_LANE_SLICES,
+        ),
+        start=1,
+    ):
+        if not isinstance(raw, dict):
+            raise G0ReadinessError(
+                f'product Draft review lane {lane_id} is malformed'
+            )
+        title = raw.get('title')
+        capability = raw.get('capability')
+        expected_path_count = sum(
+            slice_by_id[slice_id]['path_count'] for slice_id in slice_ids
+        )
+        expected_verification_count = sum(
+            slice_by_id[slice_id]['verification_count']
+            for slice_id in slice_ids
+        )
+        expected_commands = [
+            'python3 scripts/check_publication_slice_plan.py '
+            f'--slice {slice_id}'
+            for slice_id in slice_ids
+        ]
+        if (
+            raw.get('id') != lane_id
+            or raw.get('order') != order
+            or not isinstance(title, str)
+            or SAFE_REVIEW_TITLE_PATTERN.fullmatch(title) is None
+            or not isinstance(capability, str)
+            or SAFE_REVIEW_TITLE_PATTERN.fullmatch(capability) is None
+            or raw.get('slice_ids') != list(slice_ids)
+            or raw.get('depends_on_lanes') != list(dependencies)
+            or raw.get('path_count') != expected_path_count
+            or raw.get('verification_count')
+            != expected_verification_count
+            or raw.get('slice_commands') != expected_commands
+        ):
+            raise G0ReadinessError(
+                f'product Draft review lane {lane_id} is invalid'
+            )
+        assigned_slices.extend(slice_ids)
+        normalized_lanes.append({
+            'id': lane_id,
+            'order': order,
+            'title': title,
+            'capability': capability,
+            'slice_ids': list(slice_ids),
+            'depends_on_lanes': list(dependencies),
+            'path_count': expected_path_count,
+            'verification_count': expected_verification_count,
+            'slice_commands': expected_commands,
+        })
+
+    expected_summary = {
+        'lane_count': len(EXPECTED_REVIEW_LANES),
+        'slice_count': len(EXPECTED_REVIEW_SLICES),
+        'path_count': sum(item['path_count'] for item in slices),
+        'verification_count': sum(
+            item['verification_count'] for item in slices
+        ),
+        'unassigned_slice_count': 0,
+        'duplicate_slice_count': 0,
+    }
+    if (
+        assigned_slices != list(EXPECTED_REVIEW_SLICES)
+        or raw_summary != expected_summary
+    ):
+        raise G0ReadinessError(
+            'product Draft review lanes do not cover the review map exactly'
+        )
+    return {
+        'status': expected_status,
+        'exact_head': report['exact_head'],
+        'worktree_clean': report['worktree_clean'],
+        'uncommitted_path_count': report['uncommitted_path_count'],
+        'policy': policy,
+        'lanes': normalized_lanes,
+        'summary': expected_summary,
+        'authority': expected_authority,
     }
 
 
@@ -1325,6 +1498,7 @@ def _product_draft_update_handoff(
 def _product_draft_description_body(
     plan: dict[str, Any],
     navigation: dict[str, Any],
+    routing: dict[str, Any],
     matrix: dict[str, Any],
     cohort: dict[str, Any],
     v1: dict[str, Any],
@@ -1379,17 +1553,36 @@ def _product_draft_description_body(
         or navigation.get('commands_executed') is not False
         or navigation.get('github_writes_authorized') is not False
         or navigation.get('remote_mutations_performed') is not False
+        or routing.get('status') != 'READY_LOCAL_ONLY'
+        or routing.get('exact_head') != exact_head
+        or routing.get('worktree_clean') is not True
+        or routing.get('uncommitted_path_count') != 0
+        or routing.get('authority') != {
+            'commands_executed': False,
+            'github_reviewer_requests_authorized': False,
+            'github_reviews_authorized': False,
+            'mark_ready_authorized': False,
+            'merge_authorized': False,
+            'remote_mutations_performed': False,
+        }
     ):
         raise G0ReadinessError(
             'Draft description requires one clean exact candidate packet'
         )
     phases = navigation.get('phases')
     slices = navigation.get('slices')
+    lanes = routing.get('lanes')
+    routing_policy = routing.get('policy')
     if (
         not isinstance(phases, list)
         or len(phases) != plan['review_phase_count']
         or not isinstance(slices, list)
         or len(slices) != plan['slice_count']
+        or not isinstance(lanes, list)
+        or len(lanes) != len(EXPECTED_REVIEW_LANES)
+        or not isinstance(routing_policy, dict)
+        or routing_policy.get('advisory_reviewer_target') != 2
+        or routing_policy.get('advisory_target_is_merge_gate') is not False
     ):
         raise G0ReadinessError(
             'Draft description review navigation is incomplete'
@@ -1410,6 +1603,17 @@ def _product_draft_description_body(
             f"{review_slice['path_count']} | "
             f"{review_slice['verification_count']} | "
             f"`{review_slice['publication_gate']}` |"
+        )
+    lane_lines = []
+    for lane in lanes:
+        lane_label = lane['id'].split('-', maxsplit=1)[0]
+        scope = ', '.join(
+            slice_id.split('-', maxsplit=1)[0]
+            for slice_id in lane['slice_ids']
+        )
+        lane_lines.append(
+            f"| `{lane_label}` | {scope} | {lane['path_count']} | "
+            f"{lane['verification_count']} | {lane['capability']} |"
         )
     lines = [
         '## Review intent',
@@ -1463,6 +1667,17 @@ def _product_draft_description_body(
             f'`{PUBLICATION_REVIEW_SLICE_TEMPLATE}`.'
         ),
         '',
+        '## Review roles',
+        '',
+        '| Lane | Scope | Paths | Checks | Capability |',
+        '| --- | --- | ---: | ---: | --- |',
+        *lane_lines,
+        '',
+        (
+            'Advisory reviewer target: **2** (target only; not a merge '
+            'gate). Identities collected: none.'
+        ),
+        '',
         '## Review order',
         '',
         '1. Open the exact P0, P1, then P2 links above.',
@@ -1509,6 +1724,7 @@ def _product_draft_description_body(
 def _product_draft_description_refresh_handoff(
     plan: dict[str, Any],
     navigation: dict[str, Any],
+    routing: dict[str, Any],
     matrix: dict[str, Any],
     cohort: dict[str, Any],
     v1: dict[str, Any],
@@ -1543,6 +1759,7 @@ def _product_draft_description_refresh_handoff(
     body = _product_draft_description_body(
         plan,
         navigation,
+        routing,
         matrix,
         cohort,
         v1,
@@ -1853,6 +2070,7 @@ def _identity_alternatives(published: dict[str, Any]) -> list[dict[str, str]]:
 def _next_action(
     plan: dict[str, Any],
     navigation: dict[str, Any],
+    routing: dict[str, Any],
     matrix: dict[str, Any],
     cohort: dict[str, Any],
     v1: dict[str, Any],
@@ -1949,6 +2167,7 @@ def _next_action(
                     _product_draft_description_refresh_handoff(
                         plan,
                         navigation,
+                        routing,
                         matrix,
                         cohort,
                         v1,
@@ -2028,6 +2247,7 @@ def _next_action(
             _product_draft_description_refresh_handoff(
                 plan,
                 navigation,
+                routing,
                 matrix,
                 cohort,
                 v1,
@@ -2219,6 +2439,7 @@ def build_report(
     """Build and schema-validate a stable, privacy-safe dashboard report."""
     plan_report = reports.get('publication_plan')
     overview_report = reports.get('publication_overview')
+    routing_report = reports.get('product_draft_review_routing')
     matrix_report = reports.get('onboarding_matrix')
     cohort_report = reports.get('first_map_cohort')
     v1_report = reports.get('v1_readiness')
@@ -2227,13 +2448,14 @@ def build_report(
         for item in (
             plan_report,
             overview_report,
+            routing_report,
             matrix_report,
             cohort_report,
             v1_report,
         )
     ):
         raise G0ReadinessError(
-            'the five local G0 checker reports are required'
+            'the six local G0 checker reports are required'
         )
 
     plan = {
@@ -2257,6 +2479,11 @@ def build_report(
     navigation = _publication_review_navigation_summary(
         overview_report,
         plan,
+    )
+    routing = _review_routing_summary(
+        routing_report,
+        plan,
+        navigation,
     )
     matrix = _matrix_summary(matrix_report)
     cohort = _cohort_summary(cohort_report)
@@ -2305,6 +2532,7 @@ def build_report(
         'checks': {
             'publication_plan': plan,
             'publication_review_navigation': navigation,
+            'product_draft_review_routing': routing,
             'onboarding_matrix': matrix,
             'first_map_cohort': cohort,
             'v1_readiness': v1,
@@ -2315,6 +2543,7 @@ def build_report(
         'next_action': _next_action(
             plan,
             navigation,
+            routing,
             matrix,
             cohort,
             v1,
@@ -2344,6 +2573,7 @@ def render_card(report: dict[str, Any]) -> str:
     checks = report['checks']
     plan = checks['publication_plan']
     navigation = checks['publication_review_navigation']
+    routing = checks['product_draft_review_routing']
     matrix = checks['onboarding_matrix']
     cohort = checks['first_map_cohort']
     v1 = checks['v1_readiness']
@@ -2378,6 +2608,11 @@ def render_card(report: dict[str, Any]) -> str:
             f"{navigation['phase_count']} exact compare links / "
             f"{navigation['slice_count']} bounded slices; "
             'commands executed: false |'
+        ),
+        (
+            f"| review roles | {routing['status']} | "
+            f"{routing['summary']['lane_count']} capability lanes / "
+            'advisory target 2; identities: none; reviewer requests: false |'
         ),
         (
             f"| onboarding matrix | {matrix['status']} | "

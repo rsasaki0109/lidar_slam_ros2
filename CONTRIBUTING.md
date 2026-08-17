@@ -223,6 +223,13 @@ Please keep PRs narrow and explicit.
 - call out license implications if any dependency choice changes
 - link related benchmark or Autoware issues when relevant
 
+For the current integrated product Draft, contributors may review one bounded
+capability lane without volunteering for the entire PR. See
+[Product Draft review routing](docs/review-routing.md) and render a local lane
+card with `python3 scripts/check_product_draft_review_routing.py --lane <ID>`.
+The card collects no reviewer identity and never requests or submits a GitHub
+review.
+
 ## Product Entry Points
 
 The four official beginner-facing product workflows are:

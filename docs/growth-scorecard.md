@@ -116,10 +116,12 @@ Draft PR #427, the reviewed product-candidate tip
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
 `3ed632e6f6aa1e3ca7f32d893773de1079086ffb` with 10 successful checks and 4
-intentional non-publication skips, the current 331-path local plan plus
-complete 380-path / three-phase whole-PR review coverage, the
+intentional non-publication skips, the current 337-path local plan plus
+complete 386-path / three-phase whole-PR review coverage, the
 bounded one-card PR review overview and seven exact drill-down slices with
 Git-derived text budgets, top-three hotspots, and named binary review paths, the
+four role-based capability lanes with a two-reviewer advisory target and no
+stored identities or reviewer-request authority, the
 one-command candidate-session tip `8bc5ea4`, and its guided read-only host
 readiness follow-up `a286c65` while the v0.9.1/image state remains unpublished.
 The optional authenticated environment preflight at `adecca6` now proves from

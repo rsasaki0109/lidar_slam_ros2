@@ -9,6 +9,7 @@ python3 scripts/check_g0_readiness.py
 ```
 
 The default command is local-only. It reports the exact publication inventory,
+four privacy-safe capability review lanes,
 the four-row Docker/source onboarding matrix, the independent first-map cohort,
 v1 readiness, and the current action packet. It prints exactly one next action
 with a safe read-only boundary. A `HOLD` is an honest gate state, not a checker
@@ -57,6 +58,11 @@ This prevents a new branch tip from retaining an old PR summary.
 The body is directly navigable on GitHub: three generated compare links bind
 P0, P1, and P2 to their validated start/end commits, while a seven-row S1–S7
 map names each focus, path count, verification count, and publication gate.
+Four generated R1–R4 rows then group those slices by required capability:
+runtime safety, operator UX, distribution, and integration/publication. The
+advisory target is two reviewers, not a merge gate. The routing contract stores
+no username, email, or organization and cannot request a reviewer, submit a
+review, mark ready, or merge.
 The dashboard accepts that map only when phase lineage is contiguous, phase
 commits compose the whole PR, slice paths compose P2, titles cannot inject
 Markdown, and every
@@ -68,7 +74,7 @@ overview and then to the seven-slice local review plan only when the observed
 PR-description digest also matches the canonical clean-tip body. A stale or
 missing description selects the same no-write description-refresh handoff
 before review. The schema-bound
-handoff fixes the exact public/local head, 380-path / three-phase / seven-slice
+handoff fixes the exact public/local head, 386-path / three-phase / seven-slice
 coverage, overview command, slice template, and four-step review sequence while
 keeping command execution, review submission, mark-ready, merge, and all writes
 false. A non-Draft open PR still requires a separate maintainer merge
