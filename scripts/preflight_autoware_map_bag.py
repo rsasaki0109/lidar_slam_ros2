@@ -2,6 +2,7 @@
 """Preflight a rosbag2 for Autoware-compatible map authoring workflows."""
 
 import argparse
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 import json
 import os
@@ -54,6 +55,49 @@ TIMESTAMP_SCAN_MSGTYPES = (POINTCLOUD2, IMU)
 MAX_TIMESTAMP_RECORDS_PER_TOPIC = 100_000
 MAX_ODOMETRY_TF_RECORDS_PER_TOPIC = 100_000
 MAX_ODOMETRY_TF_TIMING_RECORDS_PER_TOPIC = 100_000
+ROSBAG_STORAGE_LOGGER = 'rosbag2_storage'
+
+
+@contextmanager
+def _product_rosbag_open_logging():
+    """Hide routine storage INFO during product opens, preserving diagnostics."""
+    if not os.environ.get('LIDARSLAM_CLI_COMMAND'):
+        yield
+        return
+
+    try:
+        from rclpy.logging import (
+            LoggingSeverity,
+            get_logger_level,
+            set_logger_level,
+        )
+    except ImportError:
+        yield
+        return
+
+    previous_level = get_logger_level(ROSBAG_STORAGE_LOGGER)
+    changed = previous_level == LoggingSeverity.UNSET
+    if changed:
+        set_logger_level(ROSBAG_STORAGE_LOGGER, LoggingSeverity.WARN)
+    try:
+        yield
+    finally:
+        if changed:
+            set_logger_level(ROSBAG_STORAGE_LOGGER, previous_level)
+
+
+def _open_rosbag_reader(rosbag2_py, bag_path: Path, storage_id: str):
+    """Open one native reader with the product-only storage log boundary."""
+    reader = rosbag2_py.SequentialReader()
+    with _product_rosbag_open_logging():
+        reader.open(
+            rosbag2_py.StorageOptions(
+                uri=str(bag_path),
+                storage_id=storage_id,
+            ),
+            rosbag2_py.ConverterOptions('', ''),
+        )
+    return reader
 
 
 def _finding(code: str, message: str, next_action: str) -> dict[str, str]:
@@ -234,14 +278,7 @@ def inspect_pointcloud_record(
         )
 
     try:
-        reader = rosbag2_py.SequentialReader()
-        reader.open(
-            rosbag2_py.StorageOptions(
-                uri=str(bag_path),
-                storage_id=storage_id,
-            ),
-            rosbag2_py.ConverterOptions('', ''),
-        )
+        reader = _open_rosbag_reader(rosbag2_py, bag_path, storage_id)
         reader.set_filter(rosbag2_py.StorageFilter(topics=[topic]))
         while reader.has_next():
             record_topic, serialized, _ = reader.read_next()
@@ -444,14 +481,7 @@ def inspect_timestamp_order(
     }
     states = _timestamp_scan_state(selected, max_records_per_topic)
     try:
-        reader = rosbag2_py.SequentialReader()
-        reader.open(
-            rosbag2_py.StorageOptions(
-                uri=str(bag_path),
-                storage_id=storage_id,
-            ),
-            rosbag2_py.ConverterOptions('', ''),
-        )
+        reader = _open_rosbag_reader(rosbag2_py, bag_path, storage_id)
         reader.set_filter(
             rosbag2_py.StorageFilter(topics=list(states))
         )
@@ -947,14 +977,7 @@ def inspect_odometry_tf(
     )
     selected_topics = [odometry_topic.name, *state['_tf_topics']]
     try:
-        reader = rosbag2_py.SequentialReader()
-        reader.open(
-            rosbag2_py.StorageOptions(
-                uri=str(bag_path),
-                storage_id=storage_id,
-            ),
-            rosbag2_py.ConverterOptions('', ''),
-        )
+        reader = _open_rosbag_reader(rosbag2_py, bag_path, storage_id)
         reader.set_filter(rosbag2_py.StorageFilter(topics=selected_topics))
         exhausted = True
         while reader.has_next():
@@ -1400,14 +1423,7 @@ def inspect_odometry_tf_timing(
     )
     selected_topics = [pointcloud_topic.name, *state['_tf_topics']]
     try:
-        reader = rosbag2_py.SequentialReader()
-        reader.open(
-            rosbag2_py.StorageOptions(
-                uri=str(bag_path),
-                storage_id=storage_id,
-            ),
-            rosbag2_py.ConverterOptions('', ''),
-        )
+        reader = _open_rosbag_reader(rosbag2_py, bag_path, storage_id)
         reader.set_filter(rosbag2_py.StorageFilter(topics=selected_topics))
         exhausted = True
         while reader.has_next():

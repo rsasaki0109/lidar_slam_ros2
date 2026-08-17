@@ -57,6 +57,69 @@ def _load_module():
     return module
 
 
+def test_product_reader_logging_hides_info_but_keeps_warnings(
+    monkeypatch,
+    capfd,
+):
+    rclpy_logging = pytest.importorskip('rclpy.logging')
+    module = _load_module()
+    logger_name = module.ROSBAG_STORAGE_LOGGER
+    previous_level = rclpy_logging.get_logger_level(logger_name)
+    monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam-map doctor')
+
+    try:
+        rclpy_logging.set_logger_level(
+            logger_name,
+            rclpy_logging.LoggingSeverity.UNSET,
+        )
+        logger = rclpy_logging.get_logger(logger_name)
+        with module._product_rosbag_open_logging():
+            assert rclpy_logging.get_logger_level(logger_name) == (
+                rclpy_logging.LoggingSeverity.WARN
+            )
+            logger.info('routine product reader info')
+            logger.warning('actionable product reader warning')
+        assert rclpy_logging.get_logger_level(logger_name) == (
+            rclpy_logging.LoggingSeverity.UNSET
+        )
+    finally:
+        rclpy_logging.set_logger_level(logger_name, previous_level)
+
+    stderr = capfd.readouterr().err
+    assert 'routine product reader info' not in stderr
+    assert 'actionable product reader warning' in stderr
+
+
+def test_reader_logging_preserves_direct_and_explicit_levels(monkeypatch):
+    rclpy_logging = pytest.importorskip('rclpy.logging')
+    module = _load_module()
+    logger_name = module.ROSBAG_STORAGE_LOGGER
+    previous_level = rclpy_logging.get_logger_level(logger_name)
+
+    try:
+        rclpy_logging.set_logger_level(
+            logger_name,
+            rclpy_logging.LoggingSeverity.UNSET,
+        )
+        monkeypatch.delenv('LIDARSLAM_CLI_COMMAND', raising=False)
+        with module._product_rosbag_open_logging():
+            assert rclpy_logging.get_logger_level(logger_name) == (
+                rclpy_logging.LoggingSeverity.UNSET
+            )
+
+        rclpy_logging.set_logger_level(
+            logger_name,
+            rclpy_logging.LoggingSeverity.DEBUG,
+        )
+        monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam-map doctor')
+        with module._product_rosbag_open_logging():
+            assert rclpy_logging.get_logger_level(logger_name) == (
+                rclpy_logging.LoggingSeverity.DEBUG
+            )
+    finally:
+        rclpy_logging.set_logger_level(logger_name, previous_level)
+
+
 def _write_metadata(tmp_path: Path, topics: list[tuple[str, str, int]]) -> Path:
     bag_dir = tmp_path / 'bag'
     bag_dir.mkdir()
