@@ -538,3 +538,77 @@ Verification on the implementation tip:
 This turns one stop request into a bounded evidence-preserving handoff. It is
 not a real interrupted mapping trial, clean-host timing result, paired external
 GLIM observation, or parity/superiority claim.
+
+## Real ROS interruption correction and trial — 2026-08-17
+
+> Decision: **REAL_ROS_INTERRUPTION_PASS / DEFAULT_STORAGE_AND_CLEAN_HOST_PENDING**
+>
+> Corrected implementation tip:
+> `0301a0d269db4f45b3c8471d3cbf6622e9124337`
+>
+> Original synthetic-only implementation tip:
+> `6d1249e45a2c91d3b5794f2c6f65eebf19336299`
+>
+> Local ROS mapping performed: **yes, interruption trial only**
+>
+> Network, GitHub, release, or community mutation performed: **none**
+
+The first real ROS attempt at clean local tip `a24879c…` found a gap that the
+synthetic child probe did not cover. Terminal Ctrl-C reached the outer stable
+CLI and its `subprocess.run` dispatcher killed the `start` helper. The inner
+runner process then received SIGINT without its complete descendant group, so
+the ROS workflow survived to a successful map while `session.json` remained
+`running`. The terminal contained a Python `KeyboardInterrupt` traceback and no
+recovery receipt. The retained red-run hashes bind stdout `63a4f808…`, stderr
+`ffb2e720…`, stale session `ac9d2681…`, and successful lower manifest
+`f7cb081f…`; that map is test output, not trusted interruption evidence.
+
+Correction `0301a0d…` replaces the stable dispatcher's `subprocess.run` with a
+wait-and-forward supervisor. The outermost CLI owns an isolated command group;
+nested CLI dispatch waits for the already-signalled group instead of sending a
+duplicate signal. The `start` helper now sends SIGINT, SIGTERM, and final
+SIGKILL to the complete delegated group rather than only its leader. A new real
+dispatcher regression sends SIGINT only to the supervisor and verifies that
+both the delegated process and its descendant are reaped without traceback.
+
+The green trial used ROS 2 Jazzy, the same public 50-second MID360 fixture ZIP
+(`20e51517…`, 98,873,952 bytes), bag metadata `d866804b…`, and sqlite storage
+`0a38fbcc…`. The `lidarslam` copy install was clean exact `0301a0d…`; the
+graph/scanmatcher overlay was exact ancestor `d8d2eab…` with no runtime-source
+change through the tested tip, and the RKO-LIO source was unchanged from base
+`3f4dd70…`. This controlled overlay is not a clean-host package-manager result.
+
+After `workflow_running` and the live ROS process tree were observed, one
+terminal Ctrl-C returned 130 in 1.5 seconds. The durable run covers 11.807
+seconds from start to sealed manifest and ends `interrupted / complete`, with
+`map workflow interrupted by SIGINT`, required verification not completed, and
+no completed `map.pcd` or Lanelet2 geometry. All trial descendants were absent.
+The final terminal projection contains exactly one `ACTION REQUIRED`, one
+`Next`, one `Details`, and one stop request, with no traceback, VERIFIED, or
+UNVERIFIED card.
+
+The run manifest, recovery receipt, session index, and first-map receipt each
+validate against their tracked schemas. All 17 manifest-bound artifact sizes
+and SHA-256 values revalidate. The final stdout, stderr, session, manifest, and
+recovery hashes are respectively `ff635663…`, `46d24440…`, `ef17c7b…`,
+`8beb0907…`, and `657660d5…`.
+
+Verification on the corrected tip:
+
+| Check | Result |
+| --- | --- |
+| CLI home plus complete sensor-setup regressions | 51 passed |
+| exact S3 lifecycle command | 77 passed |
+| complete lower map-runner regressions | 48 passed |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 332 passed |
+| four terminal JSON schemas and 17 artifact checksums | PASS |
+| changed-code Jazzy `ament_flake8`, JSON, bytecode, and patch hygiene | PASS |
+
+The host had only 1.58 GiB free, so this bounded trial explicitly used a 0.5
+GiB floor. The unchanged default storage check correctly remained unsatisfied;
+this result is not permission to lower that default. It also is not a complete
+map, map-quality or accuracy result, clean-host timing result, independent
+first map, paired GLIM observation, or parity/superiority claim.
