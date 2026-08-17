@@ -431,6 +431,16 @@ work and document the actual support boundary instead of hiding the delay.
   or public aggregate report remains optional. Forty-two integrated tests plus
   strict MkDocs pass; no upload, issue, benchmark execution, acceptance, or
   GitHub write is performed.
+- Exact follow-up `6a1dd87e85b966492ebefea84e87a46917885669` makes public
+  bug evidence path-free by construction. `doctor <bag> --public-json`
+  projects local preflight v6 into strict type/count/check/profile/finding-code
+  evidence without bag paths, topic/frame names, local commands, raw
+  data/logs, or free-text messages. Unreadable input returns the same schema
+  with stable `bag-preflight-input-error`, while the issue form still requires
+  review before sharing. Thirty-one preflight regressions pass with two
+  dependency skips, plus 12 doctor, 21 option-contract, 42 docs/product, 25
+  support/installed, 331 broad S6 regressions, and strict MkDocs. No upload,
+  issue, network access, or GitHub write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.
@@ -1105,7 +1115,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 348-path exact
+been expanded into the current 349-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
@@ -1118,7 +1128,7 @@ The later
 closes a review-boundary gap between the original 116-path clean-candidate
 audit and that follow-up plan. The machine gate now composes the initial audit,
 the exact two-commit / 11-path CI bridge, and all seven follow-up slices into
-the final 395-path PR inventory. Missing phase paths, changed fixed SHA/digest,
+the final 396-path PR inventory. Missing phase paths, changed fixed SHA/digest,
 an unapproved bridge path, non-linear history, or an unsafe review record fails
 closed before the G0 dashboard can advance. This makes a very large Draft
 reviewable without treating a green local plan as push, merge, release, or
@@ -1126,9 +1136,9 @@ community authority.
 
 The same checker now renders one bounded `--overview` card before reviewers
 drill into the seven exact `--slice` cards. It shows the three contiguous
-commit ranges, 395-path union, overlap/missing/extra results, slice sizes,
+commit ranges, 396-path union, overlap/missing/extra results, slice sizes,
 dependencies, verification counts, and publication gates without pasting the
-complete 348-path follow-up inventory into the PR summary. Human and JSON
+complete 349-path follow-up inventory into the PR summary. Human and JSON
 forms stay local-only, execute no displayed check, and cannot submit a review
 or authorize a push, ready transition, or merge. This targets the current
 review bottleneck—an otherwise verified but very large Draft—without adding
@@ -1153,7 +1163,7 @@ to exact `https://api.github.com` GET requests. Wrong hosts, schemes, ports,
 userinfo, and write methods fail closed, reducing anonymous-rate-limit false
 blockers without adding remote-write authority.
 When that exact Draft is green, the dashboard now carries a schema-bound review
-handoff: exact head, 395-path / three-phase / seven-slice coverage, overview,
+handoff: exact head, 396-path / three-phase / seven-slice coverage, overview,
 slice template, and a fixed overview → P0/P1/P2 → S1–S7 sequence. It refuses
 the handoff when the worktree is dirty and selects read-only status inspection
 instead. It also requires the public PR body to match the canonical clean-tip

@@ -1,20 +1,20 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-17T15:56:04+09:00",
+  "generated_at": "2026-08-17T16:18:05+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 348,
-    "expected_paths_sha256": "0a11931fce6b6d8dc2bd75f8a78da3a0d57f32401dffb54253070de64a886094",
+    "expected_path_count": 349,
+    "expected_paths_sha256": "48a99e65edd16c172a5658767c23d7054ef3f296d43a5385a0946dc7d8329710",
     "scope": "worktree-delta-from-pr-base"
   },
   "whole_pr_review": {
     "base_sha": "86fa9b610c07ccf4d2b0f10939e17c129d34b40a",
-    "expected_path_count": 395,
-    "expected_paths_sha256": "2673246f6ad45e62598e0e5c9ebc8135e438e77020d8bf6005e50940399f7be8",
+    "expected_path_count": 396,
+    "expected_paths_sha256": "b303b004014ddb097efa68b905c4438bebda5f07f867cbb07073de1f820f0a16",
     "coverage_policy": "union-covers-final-diff",
     "linear_history_required": true,
     "initial_review": {
@@ -334,7 +334,7 @@
       "id": "S6-product-shell-integration",
       "order": 6,
       "title": "Beginner-facing product shell, installed surface, docs, and support entrypoints",
-      "review_outcome": "The lower-level capabilities appear as coherent three-goal README and canonical Getting Started choosers, a no-argument home, stable CLI contract, path-private doctor with one dependency-ordered Do this now action and copy-ready low-storage recovery, issue-driven other-PointCloud2 doctor-to-start handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, installed runtime surface, copy-ready and deployment-provenance-bound documentation, dependency-gated and schema-valid contributor next actions that keep one independent maintainer preview moving while #422 remains blocked for contributors, bind its title, labels, heading-free body, and digests without granting issue authority, and require PR #427 merged plus an exact public-develop queue match before publication review, source- and evidence-hashed issue-triage review packets whose live #69 response fails closed on exact public Draft/CI and stable-release drift and have no write mode, schema-valid first-map handoff JSON, honest FAIL-without-receipt validation intake, pre-session bug intake without fake ZIP claims, location-safe Autoware issue intake that excludes precise projector coordinates and map geometry without weakening required diagnostics/privacy, and redaction-first benchmark intake that preserves public identity, configuration shape, and key metrics without requesting private bags, paths, geometry, or raw artifacts, neutral GLIM usability scorecard with a schema-bound GET-only public pair preflight, SHA-bound preparation receipt, retained untouched source archive, receipt-required final validation, and atomically visible collision-preserving GLIM reference caching, a shared helper that obtains existing gh credentials without exposing them and attaches them only to exact GitHub HTTPS GETs, claim-bounded social demo media, validated anonymous review routing/ledger surfaces, one-option Draft/environment/release transition auditing with release-state-bound fresh-packet eligibility, and an atomic prepare-then-run observer path that derives exact published or candidate identities and never invents a tag or a human measurement.",
+      "review_outcome": "The lower-level capabilities appear as coherent three-goal README and canonical Getting Started choosers, a no-argument home, stable CLI contract, path-private doctor with one dependency-ordered Do this now action and copy-ready low-storage recovery, issue-driven other-PointCloud2 doctor-to-start handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, installed runtime surface, copy-ready and deployment-provenance-bound documentation, dependency-gated and schema-valid contributor next actions that keep one independent maintainer preview moving while #422 remains blocked for contributors, bind its title, labels, heading-free body, and digests without granting issue authority, and require PR #427 merged plus an exact public-develop queue match before publication review, source- and evidence-hashed issue-triage review packets whose live #69 response fails closed on exact public Draft/CI and stable-release drift and have no write mode, schema-valid first-map handoff JSON, honest FAIL-without-receipt validation intake, pre-session bug intake without fake ZIP claims, path-free public doctor evidence with stable finding codes and no bag/topic/frame/command/free-text disclosure, location-safe Autoware issue intake that excludes precise projector coordinates and map geometry without weakening required diagnostics/privacy, and redaction-first benchmark intake that preserves public identity, configuration shape, and key metrics without requesting private bags, paths, geometry, or raw artifacts, neutral GLIM usability scorecard with a schema-bound GET-only public pair preflight, SHA-bound preparation receipt, retained untouched source archive, receipt-required final validation, and atomically visible collision-preserving GLIM reference caching, a shared helper that obtains existing gh credentials without exposing them and attaches them only to exact GitHub HTTPS GETs, claim-bounded social demo media, validated anonymous review routing/ledger surfaces, one-option Draft/environment/release transition auditing with release-state-bound fresh-packet eligibility, and an atomic prepare-then-run observer path that derives exact published or candidate identities and never invents a tag or a human measurement.",
       "depends_on": [
         "S1-runtime-safety",
         "S2-first-map-foundation",
@@ -420,6 +420,7 @@
         "docs/schemas/product-draft-review-ledger-v1.schema.json",
         "docs/schemas/product-draft-review-routing-report-v1.schema.json",
         "docs/schemas/product-draft-review-routing-v1.schema.json",
+        "docs/schemas/public-doctor-evidence-v1.schema.json",
         "docs/schemas/published-onboarding-identity-v1.schema.json",
         "docs/schemas/social-demo-media-manifest-v1.schema.json",
         "docs/schemas/social-demo-media-v1.schema.json",

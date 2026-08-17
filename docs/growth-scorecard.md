@@ -132,8 +132,8 @@ Draft PR #427, the reviewed product-candidate tip
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
 `3ed632e6f6aa1e3ca7f32d893773de1079086ffb` with 10 successful checks and 4
-intentional non-publication skips, the current 348-path local plan plus
-complete 395-path / three-phase whole-PR review coverage, the
+intentional non-publication skips, the current 349-path local plan plus
+complete 396-path / three-phase whole-PR review coverage, the
 bounded one-card PR review overview and seven exact drill-down slices with
 Git-derived text budgets, top-three hotspots, and named binary review paths, the
 four role-based capability lanes with a two-reviewer advisory target and no
@@ -279,6 +279,16 @@ YAML, and private-site evidence. One reviewed `metrics.json` or public
 aggregate report remains optional. Forty-two S6 docs/product regressions and
 strict MkDocs pass; no upload, issue, benchmark execution, acceptance, or
 GitHub write occurs.
+Exact follow-up `6a1dd87e85b966492ebefea84e87a46917885669` makes public bug
+evidence path-free by construction. `doctor <bag> --public-json` projects the
+private local preflight into a strict type/count/check/profile/finding-code
+schema without bag paths, topic/frame names, local commands, raw data/logs, or
+free-text messages. Unreadable input returns the same schema with stable
+`bag-preflight-input-error`; users still review before sharing. Thirty-one
+preflight regressions pass with two dependency skips, plus 12 doctor, 21
+option-contract, 42 docs/product, 25 support/installed, 331 broad S6
+regressions, and strict MkDocs. No upload, issue, network access, or GitHub
+write occurs.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state
