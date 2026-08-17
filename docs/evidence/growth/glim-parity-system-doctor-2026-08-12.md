@@ -290,3 +290,40 @@ Verification on the implementation tip:
 This lowers default reading cost without deleting expert diagnostics or
 changing automation. It is not an external first-time observation, a paired
 GLIM scorecard result, an independent first map, or a parity/superiority claim.
+
+## Single-prompt own-bag start follow-up — 2026-08-17
+
+> Decision: **LOCAL_SINGLE_PROMPT_START_PASS / PAIRED_PUBLIC_TRIAL_PENDING**
+>
+> Implementation tip:
+> `90c508eef4c6ce6868582bda80e684f14223ea4a`
+>
+> Real mapping, network, GitHub, release, or community mutations performed:
+> **none**
+
+The compact doctor card now hands a ready bag to `start`, but the next RKO
+screen previously displayed an exact second `--yes` command immediately before
+the same process asked for confirmation. That made a first-time operator choose
+between copying the displayed command and answering the prompt.
+
+The interactive control flow now renders the profile extrinsics once, tells the
+operator to review them and answer the fail-closed prompt immediately below,
+and omits the redundant `--yes` command. Non-interactive `start`, `setup`, and
+dry-run retain the exact reviewed rerun command for automation and copy-paste
+use. Decline, EOF, and unreviewed calibration still start no mapping.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| complete sensor-setup wizard regressions | 35 passed |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 331 passed |
+| changed-code Jazzy `ament_flake8` | PASS |
+| strict MkDocs, JSON, bytecode, plan, and patch hygiene | PASS |
+
+This removes one misleading copy-paste detour without weakening calibration
+review or automation. It is not a real first map, clean-host timing result,
+paired external GLIM observation, or parity/superiority claim.

@@ -470,6 +470,14 @@ work and document the actual support boundary instead of hiding the delay.
   option-contract, 331 broad S6, changed-code `ament_flake8`, and strict
   MkDocs. No mapping, upload, network access, issue, or GitHub write is
   performed.
+- Exact follow-up `90c508eef4c6ce6868582bda80e684f14223ea4a` removes the next
+  own-bag copy-paste detour. Interactive RKO `start` shows calibration once and
+  proceeds to one fail-closed confirmation without presenting a second `--yes`
+  command. Non-interactive `start`, `setup`, and dry-run retain the exact
+  reviewed rerun command. Thirty-five sensor-setup, 42 docs/product, 25
+  support/installed, 21 option-contract, and 331 broad S6 regressions pass,
+  with changed-code `ament_flake8` and strict MkDocs. No real mapping, upload,
+  network access, issue, or GitHub write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

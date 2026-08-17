@@ -317,6 +317,14 @@ the expert report. Thirty-two preflight regressions pass with two dependency
 skips, plus 42 docs/product, 25 support/installed, 21 option-contract, 331 broad
 S6, changed-code `ament_flake8`, and strict MkDocs. No mapping, upload, network
 access, issue, or GitHub write occurs.
+Exact follow-up `90c508eef4c6ce6868582bda80e684f14223ea4a` removes the next
+own-bag copy-paste detour. Interactive RKO `start` shows calibration once and
+directs the operator to the fail-closed confirmation immediately below; it no
+longer presents a second `--yes` command in the same process. Non-interactive
+`start`, `setup`, and dry-run retain the exact reviewed rerun command. Thirty-five
+sensor-setup, 42 docs/product, 25 support/installed, 21 option-contract, and 331
+broad S6 regressions pass, with changed-code `ament_flake8` and strict MkDocs.
+No real mapping, upload, network access, issue, or GitHub write occurs.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state
