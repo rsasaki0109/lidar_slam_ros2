@@ -321,6 +321,27 @@ def test_next_report_blocks_a_published_issue_with_closed_product_gates():
             'starter-C5',
         ],
     }
+    handoff = report['maintainer_publication_handoff']
+    task = _task(queue, 'starter-C5')
+    assert handoff['kind'] == 'REVIEW_LOCAL_TASK_FOR_SEPARATE_PUBLICATION'
+    assert handoff['task_id'] == 'starter-C5'
+    assert handoff['repository'] == 'rsasaki0109/lidar_slam_ros2'
+    assert handoff['title'] == task['title']
+    assert handoff['labels'] == sorted(task['labels'])
+    rendered_task = CHECKER.render_task_markdown(task)
+    assert handoff['issue_body'] == rendered_task.split('\n\n', 1)[1]
+    assert not handoff['issue_body'].startswith('# ')
+    assert handoff['title'] not in handoff['issue_body'].splitlines()[0]
+    assert handoff['issue_body_sha256'] == CHECKER.hashlib.sha256(
+        handoff['issue_body'].encode('utf-8')
+    ).hexdigest()
+    assert handoff['task_sha256'] == CHECKER._canonical_sha256(task)
+    assert handoff['queue_sha256'] == CHECKER._canonical_sha256(queue)
+    assert handoff['live_duplicate_count'] == 0
+    assert handoff['external_write_required'] is True
+    assert handoff['maintainer_confirmation_required'] is True
+    assert handoff['issue_creation_authorized'] is False
+    assert handoff['writes_performed'] is False
     assert report['eligible_good_first_issues'] == []
     assert report['blocked_good_first_issues'] == [{
         'number': 422,
@@ -339,6 +360,9 @@ def test_next_report_blocks_a_published_issue_with_closed_product_gates():
     assert issue['html_url'] in rendered
     assert '0 ready, 1 blocked' in rendered
     assert 'contributor_starter_queue.py --task starter-C5' in rendered
+    assert 'Publication handoff: exact local body for starter-C5' in rendered
+    assert handoff['issue_body_sha256'] in rendered
+    assert 'GitHub issue creation authorized: no' in rendered
     assert 'do not start a blocked cohort task' in rendered
     assert 'no GitHub issue, pull request, or label was changed' in rendered
 
@@ -375,6 +399,29 @@ def test_blocked_issue_gate_is_next_when_no_independent_task_is_ready():
             '--json',
         ],
     }
+    assert report['maintainer_publication_handoff'] is None
+
+
+def test_publication_handoff_rejects_body_and_task_linkage_tampering():
+    """A selected task cannot carry stale or cross-task publication bytes."""
+    queue, local_report = CHECKER.evaluate()
+    report = CHECKER.build_next_report(
+        queue,
+        local_report,
+        [],
+        [],
+        [_publication_gate()],
+    )
+
+    stale_body = copy.deepcopy(report)
+    stale_body['maintainer_publication_handoff']['issue_body'] += 'changed\n'
+    with pytest.raises(CHECKER.QueueError, match='issue body digest is stale'):
+        CHECKER._validate_next_report(stale_body)
+
+    cross_task = copy.deepcopy(report)
+    cross_task['maintainer_publication_handoff']['task_id'] = 'starter-C6'
+    with pytest.raises(CHECKER.QueueError, match='task does not match'):
+        CHECKER._validate_next_report(cross_task)
 
 
 def test_next_report_allows_a_gated_issue_only_when_cohort_is_ready():
@@ -411,6 +458,7 @@ def test_next_report_allows_a_gated_issue_only_when_cohort_is_ready():
         'url': issue['html_url'],
     }
     assert report['maintainer_next']['task_id'] == 'starter-C5'
+    assert report['maintainer_publication_handoff']['task_id'] == 'starter-C5'
 
 
 def test_next_report_keeps_dependency_when_the_issue_title_changes():
@@ -483,6 +531,7 @@ def test_next_report_prefers_an_exact_published_queue_task():
     assert report['contributor_next']['url'] == issue['html_url']
     assert report['unpublished_ready_task_ids'] == EXPECTED_READY_IDS[1:]
     assert report['maintainer_next']['task_id'] == 'starter-C6'
+    assert report['maintainer_publication_handoff']['task_id'] == 'starter-C6'
 
 
 def test_next_report_rechecks_a_known_pull_updated_after_the_audit():
@@ -514,6 +563,7 @@ def test_next_report_rechecks_a_known_pull_updated_after_the_audit():
     assert report['maintainer_next'] == {
         'action': 'REVIEW_POTENTIAL_PULL_DUPLICATE',
     }
+    assert report['maintainer_publication_handoff'] is None
 
 
 def test_live_reader_uses_get_only(monkeypatch):

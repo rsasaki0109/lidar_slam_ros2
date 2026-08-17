@@ -22,6 +22,7 @@
     "potential_pull_duplicates",
     "contributor_next",
     "maintainer_next",
+    "maintainer_publication_handoff",
     "authority"
   ],
   "properties": {
@@ -77,6 +78,9 @@
     },
     "contributor_next": {"$ref": "#/definitions/contributorNext"},
     "maintainer_next": {"$ref": "#/definitions/maintainerNext"},
+    "maintainer_publication_handoff": {
+      "$ref": "#/definitions/maintainerPublicationHandoff"
+    },
     "authority": {
       "type": "object",
       "additionalProperties": false,
@@ -267,6 +271,57 @@
           }
         }
       ]
+    },
+    "maintainerPublicationHandoff": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "task_id",
+            "repository",
+            "title",
+            "labels",
+            "issue_body",
+            "issue_body_sha256",
+            "task_sha256",
+            "queue_sha256",
+            "live_duplicate_count",
+            "external_write_required",
+            "maintainer_confirmation_required",
+            "issue_creation_authorized",
+            "writes_performed"
+          ],
+          "properties": {
+            "kind": {"const": "REVIEW_LOCAL_TASK_FOR_SEPARATE_PUBLICATION"},
+            "task_id": {"$ref": "#/definitions/taskId"},
+            "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+            "title": {"type": "string", "minLength": 1, "maxLength": 300},
+            "labels": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1, "maxLength": 50}
+            },
+            "issue_body": {"type": "string", "minLength": 1, "maxLength": 20000},
+            "issue_body_sha256": {"$ref": "#/definitions/sha256"},
+            "task_sha256": {"$ref": "#/definitions/sha256"},
+            "queue_sha256": {"$ref": "#/definitions/sha256"},
+            "live_duplicate_count": {"const": 0},
+            "external_write_required": {"const": true},
+            "maintainer_confirmation_required": {"const": true},
+            "issue_creation_authorized": {"const": false},
+            "writes_performed": {"const": false}
+          }
+        }
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     }
   }
 }

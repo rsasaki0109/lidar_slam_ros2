@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -745,6 +746,71 @@ def _validate_next_report(report: dict[str, Any]) -> None:
             'next-action report schema validation failed at '
             f'{_schema_error_path(first)}: {first.message}'
         )
+    maintainer = report['maintainer_next']
+    handoff = report['maintainer_publication_handoff']
+    selected = maintainer['action'] == 'REVIEW_AND_PUBLISH_LOCAL_TASK'
+    if selected != (handoff is not None):
+        raise QueueError(
+            'maintainer publication handoff must exist exactly when one '
+            'local task is selected'
+        )
+    if handoff is None:
+        return
+    if handoff['task_id'] != maintainer['task_id']:
+        raise QueueError(
+            'maintainer publication handoff task does not match next action'
+        )
+    body_digest = hashlib.sha256(
+        handoff['issue_body'].encode('utf-8')
+    ).hexdigest()
+    if handoff['issue_body_sha256'] != body_digest:
+        raise QueueError('maintainer publication issue body digest is stale')
+    if handoff['labels'] != sorted(handoff['labels']):
+        raise QueueError('maintainer publication labels must be sorted')
+
+
+def _canonical_sha256(value: Any) -> str:
+    """Hash one JSON-compatible value independently of source formatting."""
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(',', ':'),
+    ).encode('utf-8')
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _build_maintainer_publication_handoff(
+    queue: dict[str, Any],
+    task_id: str,
+) -> dict[str, Any]:
+    """Bind one live-selected local task without granting issue authority."""
+    task = _find_task(queue, task_id)
+    rendered = render_task_markdown(task)
+    heading = f"# {task['title']}\n\n"
+    if not rendered.startswith(heading):
+        raise QueueError(
+            f'{task_id} rendered task does not start with its exact title'
+        )
+    issue_body = rendered[len(heading):]
+    return {
+        'kind': 'REVIEW_LOCAL_TASK_FOR_SEPARATE_PUBLICATION',
+        'task_id': task_id,
+        'repository': queue['repository'],
+        'title': task['title'],
+        'labels': task['labels'],
+        'issue_body': issue_body,
+        'issue_body_sha256': hashlib.sha256(
+            issue_body.encode('utf-8')
+        ).hexdigest(),
+        'task_sha256': _canonical_sha256(task),
+        'queue_sha256': _canonical_sha256(queue),
+        'live_duplicate_count': 0,
+        'external_write_required': True,
+        'maintainer_confirmation_required': True,
+        'issue_creation_authorized': False,
+        'writes_performed': False,
+    }
 
 
 def _dependency_for_issue(
@@ -922,6 +988,13 @@ def build_next_report(
     else:
         maintainer_next = {'action': 'REVIEW_QUEUE_STATE'}
 
+    maintainer_publication_handoff = None
+    if maintainer_next['action'] == 'REVIEW_AND_PUBLISH_LOCAL_TASK':
+        maintainer_publication_handoff = _build_maintainer_publication_handoff(
+            queue,
+            maintainer_next['task_id'],
+        )
+
     report = {
         'schema_version': 1,
         'schema_uri': NEXT_SCHEMA_URI,
@@ -940,6 +1013,7 @@ def build_next_report(
         'potential_pull_duplicates': potential_duplicates,
         'contributor_next': contributor_next,
         'maintainer_next': maintainer_next,
+        'maintainer_publication_handoff': maintainer_publication_handoff,
         'authority': {
             'github_requests': 'GET_ONLY',
             'github_writes_authorized': False,
@@ -1030,6 +1104,15 @@ def render_next_report(report: dict[str, Any]) -> str:
             'Maintainer: review the potential open-PR duplicates before '
             'publishing any local task.'
         )
+    handoff = report['maintainer_publication_handoff']
+    if handoff is not None:
+        lines.extend([
+            'Publication handoff: exact local body for '
+            f"{handoff['task_id']}; SHA-256 "
+            f"{handoff['issue_body_sha256']}.",
+            'GitHub issue creation authorized: no; maintainer confirmation '
+            'and a separate external write are required.',
+        ])
     lines.append(
         f"Remote check: {report['open_pull_request_count']} open "
         f"PR{'s' if report['open_pull_request_count'] != 1 else ''}; "
