@@ -606,6 +606,15 @@ work and document the actual support boundary instead of hiding the delay.
   checksums pass, the complete session path/size/mtime tree is unchanged, no
   archive is created, and `strace` records no network syscall. This remains
   local preparation evidence, not an upload, issue, or external first map.
+- Exact implementation `e15ddab…` promotes the safe handoff to
+  `lidarslam-map report SESSION`. Legacy `support SESSION --first-map` remains
+  byte-identical, but new users see no ZIP-only option in `report --help`.
+  A fresh exact install passes the complete product validator; its 22-line /
+  1,327-byte human output and schema-valid JSON match legacy output, leave the
+  fixture tree unchanged, and make no network syscall under `strace`. Focused,
+  S3/S6, cohort, plan, G0, strict-doc, and style gates pass. This is a shorter
+  local handoff, not mapping, upload, browser opening, issue creation, or
+  external acceptance.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

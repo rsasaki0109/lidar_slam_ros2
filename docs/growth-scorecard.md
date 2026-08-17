@@ -450,6 +450,15 @@ passing. Human and JSON reads left the complete session path/size/mtime tree
 unchanged, created no archive, and made no network syscall under `strace`.
 Focused and broad regressions, strict docs, and style pass. This prepares a
 reviewed report; it does not upload, create an issue, or count an external map.
+Exact implementation `e15ddab…` makes that action a first-class
+`lidarslam-map report SESSION` command. The old `support SESSION --first-map`
+spelling remains byte-identical, while `report --help` contains no ZIP output
+option. A fresh exact install passes the complete product validator; human and
+JSON outputs match the legacy command, the 22-line human report is 1,327 bytes,
+the fixture tree is unchanged, and `strace` records no network syscall. S3
+78 + 15, docs/product 42, support/installed 26, broad S6 333, cohort 33, plan
+34, G0 25, strict docs, and style pass. This reduces command discovery and
+typing only; it does not map, upload, open a browser, or accept a report.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state

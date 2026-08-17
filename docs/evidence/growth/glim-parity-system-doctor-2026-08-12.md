@@ -1115,3 +1115,59 @@ This closes a wording and review-density gap only. It does not publish the
 fixture, upload the receipt, create an issue, establish an independent external
 first map, provide a clean-host/package-manager or paired GLIM result, or grant
 remote-write authority.
+
+## First-class first-map report command — 2026-08-17
+
+> Decision: **SHORT_REPORT_COMMAND_PASS / EXTERNAL_FIRST_MAP_PENDING**
+>
+> Implementation and tested installed revision:
+> `e15ddab85d44a9aba7105667ab7b175cd655c271`
+>
+> Network, GitHub, release, or community mutation performed: **none**
+
+The safe report handoff previously required users to remember that first-map
+reporting was a mode of the broader support-ZIP command. Verified completion,
+session history, top-level help, Bash completion, English and Japanese guidance,
+and the machine-readable CLI contract now expose one purpose-named command:
+`lidarslam-map report SESSION`. The older
+`lidarslam-map support SESSION --first-map` spelling remains supported.
+
+`report --help` exposes only the session, help, and read-only `--json` option.
+ZIP-specific `--output` and the implementation detail `--first-map` are absent.
+Internally the stable CLI selects the same support helper under a bounded child
+mode, so receipt revalidation, schema, failure codes, privacy text, issue URL,
+and no-write behavior have one implementation rather than a fork. The existing
+structured action kind remains `share` for compatibility.
+
+A fresh non-symlink Jazzy install records exact revision `e15ddab…` and passes
+the complete installed-product CLI validator, including every full-help option
+inventory and the new report handoff. On the retained schema-valid verified
+visual fixture, installed `report` returns 0 with **22 lines / 1,327 bytes** and
+empty stderr. Its human output SHA-256 is `7a199528…`; the schema-valid JSON
+SHA-256 is `dcbc1afc…`. Both outputs are byte-identical to the legacy spelling.
+
+A complete fixture path/type/size/mtime snapshot is unchanged across new and
+legacy human/JSON reads. No support archive appears. A network-only `strace`
+records no socket, connect, send, or receive syscall. This exact test does not
+rerun mapping: the command changes dispatch and presentation only, while the
+preceding exact real-map evidence remains the mapping-quality authority.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| combined focused report/setup/history/CLI/docs set | 175 passed |
+| exact S3 lifecycle and edit/merge commands | 78 + 15 passed |
+| exact S6 docs/product command | 42 passed |
+| support and installed-product contract | 26 passed |
+| broad S6 product/growth command | 333 passed |
+| first-map validator cohort | 33 passed |
+| publication-plan and G0 readiness regressions | 34 + 25 passed |
+| exact installed full CLI validator / handoff schema | PASS |
+| new-versus-legacy human and JSON byte comparison | IDENTICAL |
+| fixture unchanged; no archive or network syscall | PASS |
+| changed-code `ament_flake8`, strict MkDocs, bytecode/JSON/patch hygiene | PASS |
+
+This closes a command-discovery and typing gap only. It does not publish the
+fixture, map a bag, open a browser, upload a receipt, create an issue, establish
+an independent external first map, or grant remote-write authority.
