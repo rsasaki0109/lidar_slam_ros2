@@ -441,6 +441,14 @@ work and document the actual support boundary instead of hiding the delay.
   dependency skips, plus 12 doctor, 21 option-contract, 42 docs/product, 25
   support/installed, 331 broad S6 regressions, and strict MkDocs. No upload,
   issue, network access, or GitHub write is performed.
+- Exact follow-up `71cbf7e776664d40c59157fbfbad4d5611ceae03` makes the safe
+  support route visible at the failure point. Every ready or action-required
+  human bag report keeps the full report local and displays one shell-safe
+  exact-input `--public-json` command through both the source script and
+  top-level product wrapper. Thirty-two preflight regressions pass with two
+  dependency skips, plus 42 docs/product, 25 support/installed, 21
+  option-contract, and 331 broad S6 regressions, with strict MkDocs. No upload,
+  issue, network access, or GitHub write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

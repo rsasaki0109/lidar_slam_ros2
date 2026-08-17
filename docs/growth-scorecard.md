@@ -289,6 +289,14 @@ preflight regressions pass with two dependency skips, plus 12 doctor, 21
 option-contract, 42 docs/product, 25 support/installed, 331 broad S6
 regressions, and strict MkDocs. No upload, issue, network access, or GitHub
 write occurs.
+Exact follow-up `71cbf7e776664d40c59157fbfbad4d5611ceae03` makes that safe
+handoff visible at the failure point. Every ready or action-required human bag
+report keeps the full report local and displays one shell-safe exact-input
+`--public-json` command through both the source script and top-level product
+wrapper. Thirty-two preflight regressions pass with two dependency skips, plus
+42 docs/product, 25 support/installed, 21 option-contract, and 331 broad S6
+regressions, with strict MkDocs. No upload, issue, network access, or GitHub
+write occurs.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state
