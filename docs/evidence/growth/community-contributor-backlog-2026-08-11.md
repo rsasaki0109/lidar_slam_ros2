@@ -1295,3 +1295,42 @@ If two consecutive starter contributions exceed the estimate by more than
 starter issues and repair the contributor path. If review capacity cannot keep
 the published tasks moving, reduce the visible ready queue instead of inviting
 more contributors into a stalled path.
+
+## Independent starter review while the cohort is closed — 2026-08-17
+
+> Decision: **LOCAL_COMMUNITY_QUEUE_PROGRESS / ISSUES_NOT_PUBLISHED**
+>
+> Implementation tip:
+> `e4ce0aa6eb7d53423423a02af65f923472708f44`
+>
+> GitHub issue, label, assignment, comment, or pull request mutations: **none**
+
+An authenticated GET-only live card found one published `good first issue`,
+#422, correctly blocked by `WAITING_FOR_PUBLIC_GATES`; five local C5–C9 tasks
+were `READY`, and no open pull request matched their current duplicate queries.
+The previous maintainer action still selected the blocked cohort gate, so an
+issue-specific dependency unintentionally stopped review preparation for all
+five independent documentation tasks.
+
+The maintainer action now applies this strict order: review any potential pull
+request duplicate first, review one independent publishable local task next,
+and inspect the blocked published-issue gate only when no independent task is
+ready. Contributor behavior does not change: #422 remains visible but cannot
+be recommended, and no unpublished local task is presented as claimable.
+
+At the exact implementation tip, the card keeps status
+`PUBLISHED_GOOD_FIRST_ISSUES_BLOCKED` and tells contributors to wait, while the
+single maintainer action previews `starter-C5` with:
+
+```bash
+python3 scripts/contributor_starter_queue.py --task starter-C5
+```
+
+The exact JSON SHA-256 is
+`ff5f81d93d1a8f9c5854359b9fede8c5fadac40ab1f287336ab1bedfacf484b2`.
+Both C5 and C6 focused strict-MkDocs profiles pass with
+`workspace_artifacts_written: false`; 62 queue regressions, the exact
+322-test S6 integration command, and 61 publication-plan/routing/G0
+regressions pass. Strict MkDocs and ROS lint also pass. The card uses GET-only
+GitHub requests and retains false write and remote-mutation authority.
+Reviewing the body remains separate from authorizing or creating an issue.

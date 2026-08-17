@@ -506,6 +506,12 @@ work and document the actual support boundary instead of hiding the delay.
   only PR #427 and no matching implementation PR; the queue remains
   `PREPARED_NOT_PUBLISHED` and requires a fresh audit plus a separate community
   publication decision.
+- Exact follow-up `e4ce0aa6eb7d53423423a02af65f923472708f44` prevents the
+  blocked first-map cohort issue from freezing independent starter preparation.
+  A live authenticated GET-only card still keeps #422 unavailable to
+  contributors, but after duplicate review it now gives maintainers one C5
+  preview action while C6–C9 remain queued. No local task becomes public,
+  assigned, or claimable, and every issue/label/write authority remains false.
 - Recruit the first three validators through the existing public validation
   issue and release documentation; do not provide private step-by-step help
   that would invalidate the evidence.
@@ -977,6 +983,14 @@ then replenishes the ordered generation as C5–C9, with all five exact gap
 markers absent and no matching implementation PR. Publication still requires
 a fresh duplicate check and a separate maintainer decision; local readiness
 does not mean an issue exists, is assigned, or is advertised.
+
+The live queue no longer lets the closed #422 cohort gate suppress unrelated
+maintainer preparation. Exact follow-up `e4ce0aa…` keeps the contributor action
+at `WAIT_FOR_READY_PUBLISHED_STARTER`, retains #422 and its six blockers, and
+selects one duplicate-free local C5 preview for the maintainer. Potential pull
+request duplicates still take precedence over every publication preview, and
+the preview performs no issue or label mutation. This keeps the community
+slice moving without recruiting anyone into unpublished product instructions.
 
 The
 [clean-candidate audit](../evidence/growth/g0-clean-candidate-audit-2026-08-11.md)

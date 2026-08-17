@@ -90,6 +90,11 @@ The companion application-packet generator turns either one row or all 29 rows
 into deterministic, evidence-hashed maintainer review cards. It has no output
 file or GitHub write mode, keeps #422 monitor-only, and leaves nine
 starter-dependent rows blocked for content review and separate authorization.
+The current community-queue follow-up at
+`e4ce0aa6eb7d53423423a02af65f923472708f44` keeps that cohort issue blocked for
+contributors while allowing one duplicate-free independent C5 body to become
+the maintainer's local preview. C6–C9 remain queued, and no issue, label,
+assignment, comment, or pull request is created or authorized.
 The P1 #69 card is synchronized to the public Draft and supported CI as of
 2026-08-17, explains both leaf parameters and the resolution tradeoff, and
 keeps the unavailable historical bag and missing carrying release explicit.
