@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import shlex
+import signal
 import subprocess
 import sys
 from typing import Sequence
@@ -34,6 +35,17 @@ EX_USAGE = 2
 EX_SOFTWARE = 70
 HELP_MODE_ENV = 'LIDARSLAM_CLI_HELP_MODE'
 EX_INTERRUPT = 130
+COMMAND_SUPERVISOR_DEPTH_ENV = 'LIDARSLAM_CLI_SUPERVISOR_DEPTH'
+COMMAND_INTERRUPT_GRACE_SECONDS = 35.0
+COMMAND_INTERRUPT_TERMINATE_SECONDS = 10.0
+
+
+class _CommandTerminationRequested(Exception):
+    """Carry SIGTERM through a delegated-command wait."""
+
+    def __init__(self, signum: int):
+        super().__init__(signum)
+        self.signum = signum
 
 
 def command_name() -> str:
@@ -263,6 +275,91 @@ def command_argv(command: str, args: Sequence[str]) -> list[str]:
     return [sys.executable, str(helper_path), *delegated_args]
 
 
+def _supervisor_depth() -> int:
+    """Return the internal dispatch depth, defaulting malformed input safely."""
+    try:
+        depth = int(os.environ.get(COMMAND_SUPERVISOR_DEPTH_ENV, '0'))
+    except ValueError:
+        return 0
+    return max(depth, 0)
+
+
+def _signal_command_group(process: subprocess.Popen, signum: int) -> None:
+    """Signal an isolated delegated command and every process below it."""
+    try:
+        os.killpg(process.pid, signum)
+    except ProcessLookupError:
+        pass
+
+
+def _run_delegated_command(
+    command: list[str],
+    *,
+    env: dict[str, str],
+) -> subprocess.CompletedProcess:
+    """Wait for one command without letting Ctrl-C abandon its cleanup."""
+    depth = _supervisor_depth()
+    owns_process_group = depth == 0
+    child_env = env.copy()
+    child_env[COMMAND_SUPERVISOR_DEPTH_ENV] = str(depth + 1)
+    process: subprocess.Popen | None = None
+
+    def request_termination(signum, _frame):
+        raise _CommandTerminationRequested(signum)
+
+    previous_sigterm = signal.signal(signal.SIGTERM, request_termination)
+    try:
+        process = subprocess.Popen(
+            command,
+            env=child_env,
+            start_new_session=owns_process_group,
+        )
+        try:
+            return_code = process.wait()
+            return subprocess.CompletedProcess(command, return_code)
+        except KeyboardInterrupt:
+            requested_signal = signal.SIGINT
+        except _CommandTerminationRequested as exc:
+            requested_signal = exc.signum
+
+        # The outermost CLI owns an isolated group and must forward the signal.
+        # A nested CLI shares the group its parent already signalled, so sending
+        # a second signal would prematurely shorten the child's cleanup window.
+        if owns_process_group and process.poll() is None:
+            _signal_command_group(process, requested_signal)
+        try:
+            process.wait(timeout=COMMAND_INTERRUPT_GRACE_SECONDS)
+        except (
+            KeyboardInterrupt,
+            _CommandTerminationRequested,
+            subprocess.TimeoutExpired,
+        ):
+            if process.poll() is None:
+                if owns_process_group:
+                    _signal_command_group(process, signal.SIGTERM)
+                else:
+                    process.terminate()
+            try:
+                process.wait(timeout=COMMAND_INTERRUPT_TERMINATE_SECONDS)
+            except (
+                KeyboardInterrupt,
+                _CommandTerminationRequested,
+                subprocess.TimeoutExpired,
+            ):
+                if process.poll() is None:
+                    if owns_process_group:
+                        _signal_command_group(process, signal.SIGKILL)
+                    else:
+                        process.kill()
+                process.wait()
+        return subprocess.CompletedProcess(
+            command,
+            128 + requested_signal,
+        )
+    finally:
+        signal.signal(signal.SIGTERM, previous_sigterm)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Dispatch the stable product command surface."""
     args = list(sys.argv[1:] if argv is None else argv)
@@ -312,9 +409,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             command_name(),
             command,
         ])
-        completed = subprocess.run(
+        completed = _run_delegated_command(
             command_argv(command, args),
-            check=False,
             env=child_env,
         )
     except (OSError, RuntimeError) as exc:

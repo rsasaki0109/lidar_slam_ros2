@@ -31,7 +31,13 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import os
 from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -66,7 +72,7 @@ def _capture_delegate(monkeypatch, cli_module, returncode=0):
         captured['kwargs'] = kwargs
         return SimpleNamespace(returncode=returncode)
 
-    monkeypatch.setattr(cli_module.subprocess, 'run', fake_run)
+    monkeypatch.setattr(cli_module, '_run_delegated_command', fake_run)
     return captured
 
 
@@ -92,7 +98,7 @@ def test_demo_requires_explicit_write_confirmation(
     def unexpected_run(*_args, **_kwargs):
         raise AssertionError('cancelled home must not delegate')
 
-    monkeypatch.setattr(cli_module.subprocess, 'run', unexpected_run)
+    monkeypatch.setattr(cli_module, '_run_delegated_command', unexpected_run)
 
     assert cli_module.main([]) == 0
 
@@ -177,7 +183,7 @@ def test_home_help_and_quit_never_delegate(
     def unexpected_run(*_args, **_kwargs):
         raise AssertionError('help and quit must not delegate')
 
-    monkeypatch.setattr(cli_module.subprocess, 'run', unexpected_run)
+    monkeypatch.setattr(cli_module, '_run_delegated_command', unexpected_run)
 
     _set_answers(monkeypatch, ['5'])
     assert cli_module.main([]) == 0
@@ -203,3 +209,94 @@ def test_home_bounds_invalid_answers_and_handles_interrupt(
     monkeypatch.setattr('builtins.input', interrupt)
     assert cli_module.main([]) == 130
     assert 'Cancelled; no changes made.' in capsys.readouterr().out
+
+
+def test_dispatch_ctrl_c_forwards_to_group_and_reaps_descendant(
+    tmp_path: Path,
+):
+    """The stable CLI must wait for delegated process-group cleanup."""
+    child_pid_path = tmp_path / 'child.pid'
+    descendant_pid_path = tmp_path / 'descendant.pid'
+    descendant_code = '\n'.join([
+        'import signal',
+        'import sys',
+        'import time',
+        'signal.signal(signal.SIGINT, lambda *_args: sys.exit(130))',
+        'time.sleep(60)',
+    ])
+    child_code = '\n'.join([
+        'from pathlib import Path',
+        'import os',
+        'import subprocess',
+        'import sys',
+        f'Path({str(child_pid_path)!r}).write_text(str(os.getpid()))',
+        (
+            'child = subprocess.Popen('
+            f'[sys.executable, "-c", {descendant_code!r}])'
+        ),
+        f'Path({str(descendant_pid_path)!r}).write_text(str(child.pid))',
+        'try:',
+        '    child.wait()',
+        'except KeyboardInterrupt:',
+        '    child.wait()',
+        'raise SystemExit(130)',
+    ])
+    probe_code = '\n'.join([
+        'import importlib.util',
+        'import json',
+        'import os',
+        'from pathlib import Path',
+        'import sys',
+        f'script = Path({str(CLI_MODULE_PATH)!r})',
+        "spec = importlib.util.spec_from_file_location('cli_probe', script)",
+        'module = importlib.util.module_from_spec(spec)',
+        'spec.loader.exec_module(module)',
+        (
+            'completed = module._run_delegated_command('
+            f'[sys.executable, "-c", {child_code!r}], env=os.environ.copy())'
+        ),
+        'print(json.dumps({"returncode": completed.returncode}))',
+    ])
+    probe = subprocess.Popen(
+        [sys.executable, '-c', probe_code],
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    child_pid = None
+    descendant_pid = None
+    try:
+        deadline = time.monotonic() + 5
+        while (
+            not descendant_pid_path.is_file()
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.01)
+        assert child_pid_path.is_file()
+        assert descendant_pid_path.is_file()
+        child_pid = int(child_pid_path.read_text(encoding='utf-8'))
+        descendant_pid = int(
+            descendant_pid_path.read_text(encoding='utf-8')
+        )
+
+        os.kill(probe.pid, signal.SIGINT)
+        stdout, stderr = probe.communicate(timeout=10)
+
+        assert probe.returncode == 0, stderr
+        assert json.loads(stdout) == {'returncode': 130}
+        assert 'Traceback' not in stderr
+        for pid in (child_pid, descendant_pid):
+            with pytest.raises(ProcessLookupError):
+                os.kill(pid, 0)
+    finally:
+        if probe.poll() is None:
+            probe.kill()
+            probe.communicate()
+        for pid in (child_pid, descendant_pid):
+            if pid is None:
+                continue
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass

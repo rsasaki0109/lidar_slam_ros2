@@ -299,10 +299,12 @@ def test_contract_identifies_the_complete_product_surface():
             'it is safe'
         ),
         'retry the pinned setup only into a fresh output directory',
-        'one Ctrl-C waits up to 20 seconds for delegated cleanup and terminal '
-        'evidence before requesting termination, waits 10 more seconds before '
-        'a forced reap, and then renders the same one-action recovery handoff '
-        'without a Python traceback',
+        'one Ctrl-C makes the stable CLI wait for the start helper, signals '
+        'the complete isolated delegated process group, waits up to 20 '
+        'seconds for cleanup and terminal evidence before requesting '
+        'termination, waits 10 more seconds before a forced group reap, and '
+        'then renders the same one-action recovery handoff without a Python '
+        'traceback',
     ]
     assert recovery['terminal_rules'] == [
         'render the first reason, any remaining stable finding codes, exactly '

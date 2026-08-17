@@ -1027,6 +1027,7 @@ def test_ctrl_c_waits_for_terminal_evidence_and_renders_one_recovery(
     run_dir = Path(manifest['run']['output_dir'])
 
     class InterruptedProcess:
+        pid = 4241
         wait_calls: list[float | None] = []
         signals: list[int] = []
         terminated = False
@@ -1063,6 +1064,11 @@ def test_ctrl_c_waits_for_terminal_evidence_and_renders_one_recovery(
             self.killed = True
 
     process = InterruptedProcess()
+    monkeypatch.setattr(
+        module.os,
+        'killpg',
+        lambda pid, signum: process.signals.append((pid, signum)),
+    )
 
     def fake_popen(command, *, cwd, start_new_session):
         assert command == manifest['run']['argv']
@@ -1082,7 +1088,7 @@ def test_ctrl_c_waits_for_terminal_evidence_and_renders_one_recovery(
         None,
         module.SESSION_INTERRUPT_GRACE_SECONDS,
     ]
-    assert process.signals == [module.signal.SIGINT]
+    assert process.signals == [(process.pid, module.signal.SIGINT)]
     assert process.terminated is False
     assert process.killed is False
     output = capsys.readouterr()
@@ -1186,6 +1192,7 @@ def test_ctrl_c_force_reaps_after_bounded_cleanup_windows(
     command = ['./scripts/lidarslam', 'run', '/tmp/input']
 
     class SlowProcess:
+        pid = 4242
         wait_calls: list[float | None] = []
         signals: list[int] = []
         terminated = False
@@ -1214,6 +1221,11 @@ def test_ctrl_c_force_reaps_after_bounded_cleanup_windows(
 
     process = SlowProcess()
     monkeypatch.setattr(
+        module.os,
+        'killpg',
+        lambda pid, signum: process.signals.append((pid, signum)),
+    )
+    monkeypatch.setattr(
         module.subprocess,
         'Popen',
         lambda delegated, *, cwd, start_new_session: process,
@@ -1228,9 +1240,13 @@ def test_ctrl_c_force_reaps_after_bounded_cleanup_windows(
         module.SESSION_INTERRUPT_TERMINATE_SECONDS,
         None,
     ]
-    assert process.signals == [module.signal.SIGINT]
-    assert process.terminated is True
-    assert process.killed is True
+    assert process.signals == [
+        (process.pid, module.signal.SIGINT),
+        (process.pid, module.signal.SIGTERM),
+        (process.pid, module.signal.SIGKILL),
+    ]
+    assert process.terminated is False
+    assert process.killed is False
     error = capsys.readouterr().err
     assert '[runner-shutdown-grace-expired]' in error
     assert '[runner-shutdown-forced]' in error

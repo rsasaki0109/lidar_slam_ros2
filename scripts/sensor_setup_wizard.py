@@ -3200,7 +3200,7 @@ def _run_delegated_session(
 
         if process.poll() is None:
             try:
-                process.send_signal(requested_signal)
+                os.killpg(process.pid, requested_signal)
             except ProcessLookupError:
                 pass
         request_label = (
@@ -3232,7 +3232,7 @@ def _run_delegated_session(
             )
             if process.poll() is None:
                 try:
-                    process.terminate()
+                    os.killpg(process.pid, signal.SIGTERM)
                 except ProcessLookupError:
                     pass
             try:
@@ -3251,7 +3251,7 @@ def _run_delegated_session(
                 )
                 if process.poll() is None:
                     try:
-                        process.kill()
+                        os.killpg(process.pid, signal.SIGKILL)
                     except ProcessLookupError:
                         pass
                 return_code = process.wait()
