@@ -512,6 +512,12 @@ work and document the actual support boundary instead of hiding the delay.
   contributors, but after duplicate review it now gives maintainers one C5
   preview action while C6–C9 remain queued. No local task becomes public,
   assigned, or claimable, and every issue/label/write authority remains false.
+- Exact follow-up `0a34e724875d53b8ef74acd8a51fd500ce014ff5`
+  removes the next manual publication step. The authenticated live card binds
+  the selected C5 title, sorted labels, heading-free body, task/queue hashes,
+  and body SHA-256 into one schema-valid local handoff. Cross-task or body
+  tampering fails closed; maintainer confirmation and a separate external write
+  remain required, and issue creation stays unauthorized.
 - Recruit the first three validators through the existing public validation
   issue and release documentation; do not provide private step-by-step help
   that would invalidate the evidence.
@@ -991,6 +997,10 @@ selects one duplicate-free local C5 preview for the maintainer. Potential pull
 request duplicates still take precedence over every publication preview, and
 the preview performs no issue or label mutation. This keeps the community
 slice moving without recruiting anyone into unpublished product instructions.
+The following `0a34e72…` handoff also prevents a maintainer from manually
+recombining a live duplicate decision with stale task bytes: title, labels,
+body, and three digests now travel together. It provides no GitHub mutation
+command and cannot convert local review readiness into publication authority.
 
 The
 [clean-candidate audit](../evidence/growth/g0-clean-candidate-audit-2026-08-11.md)

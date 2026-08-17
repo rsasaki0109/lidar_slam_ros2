@@ -1334,3 +1334,40 @@ Both C5 and C6 focused strict-MkDocs profiles pass with
 regressions pass. Strict MkDocs and ROS lint also pass. The card uses GET-only
 GitHub requests and retains false write and remote-mutation authority.
 Reviewing the body remains separate from authorizing or creating an issue.
+
+## Exact local publication handoff — 2026-08-17
+
+> Decision: **PUBLICATION_HANDOFF_READY_LOCAL_ONLY / ISSUE_WRITE_UNAUTHORIZED**
+>
+> Implementation tip:
+> `0a34e724875d53b8ef74acd8a51fd500ce014ff5`
+>
+> Issue creation, label application, assignment, comment, or other GitHub
+> mutation: **none**
+
+The live `--next --json` report now binds the selected C5 review to one
+tamper-evident `maintainer_publication_handoff`. It contains the exact
+repository, title, sorted labels, GitHub body without a duplicated title
+heading, canonical task and queue hashes, and the body SHA-256. The handoff is
+present exactly when `maintainer_next` selects a local task; duplicate review,
+an exhausted queue, or another non-publication action requires `null`.
+
+The exact authenticated GET-only observation retained zero potential task
+duplicates and produced:
+
+- body SHA-256:
+  `df48cba21d0f3cf4fc2443f4538a8666b55000e550f0dded3898a49f294b65e8`;
+- task SHA-256:
+  `f32b2d90a251983dc50135a25da75f4dc39ef99bc7ece7d806b3d4c3dd39e558`;
+- queue SHA-256:
+  `6eca845d333fc506d215c4f2548916037737cecd04e34823789dcb0acef778f0`;
+- `external_write_required: true` and
+  `maintainer_confirmation_required: true`; and
+- `issue_creation_authorized: false`, `writes_performed: false`, and remote
+  mutation false.
+
+Body tampering, cross-task linkage, unsorted labels, or a handoff attached to a
+non-publication action fails closed. Sixty-three queue regressions, the exact
+323-test S6 integration command, 61 plan/routing/G0 regressions, strict MkDocs,
+and ROS lint pass. This packet removes title/label/body reconstruction; it does
+not authorize or execute issue creation.

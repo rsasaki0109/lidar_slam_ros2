@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-17T14:16:16+09:00",
+  "generated_at": "2026-08-17T14:24:26+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
@@ -334,7 +334,7 @@
       "id": "S6-product-shell-integration",
       "order": 6,
       "title": "Beginner-facing product shell, installed surface, docs, and support entrypoints",
-      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, path-private doctor with one dependency-ordered Do this now action and copy-ready low-storage recovery, issue-driven other-PointCloud2 doctor-to-start handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, installed runtime surface, copy-ready and deployment-provenance-bound documentation, dependency-gated and schema-valid contributor next actions that keep one independent maintainer preview moving while #422 remains blocked for contributors, source- and evidence-hashed issue-triage review packets whose live #69 response fails closed on exact public Draft/CI and stable-release drift and have no write mode, schema-valid first-map handoff JSON, neutral GLIM usability scorecard with a schema-bound GET-only public pair preflight, SHA-bound preparation receipt, retained untouched source archive, receipt-required final validation, and atomically visible collision-preserving GLIM reference caching, a shared helper that obtains existing gh credentials without exposing them and attaches them only to exact GitHub HTTPS GETs, claim-bounded social demo media, validated anonymous review routing/ledger surfaces, and an atomic prepare-then-run observer path that derives exact published or candidate identities and never invents a tag or a human measurement.",
+      "review_outcome": "The lower-level capabilities appear as one coherent no-argument home, stable CLI contract, path-private doctor with one dependency-ordered Do this now action and copy-ready low-storage recovery, issue-driven other-PointCloud2 doctor-to-start handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, installed runtime surface, copy-ready and deployment-provenance-bound documentation, dependency-gated and schema-valid contributor next actions that keep one independent maintainer preview moving while #422 remains blocked for contributors and bind its title, labels, heading-free body, and digests without granting issue authority, source- and evidence-hashed issue-triage review packets whose live #69 response fails closed on exact public Draft/CI and stable-release drift and have no write mode, schema-valid first-map handoff JSON, neutral GLIM usability scorecard with a schema-bound GET-only public pair preflight, SHA-bound preparation receipt, retained untouched source archive, receipt-required final validation, and atomically visible collision-preserving GLIM reference caching, a shared helper that obtains existing gh credentials without exposing them and attaches them only to exact GitHub HTTPS GETs, claim-bounded social demo media, validated anonymous review routing/ledger surfaces, and an atomic prepare-then-run observer path that derives exact published or candidate identities and never invents a tag or a human measurement.",
       "depends_on": [
         "S1-runtime-safety",
         "S2-first-map-foundation",

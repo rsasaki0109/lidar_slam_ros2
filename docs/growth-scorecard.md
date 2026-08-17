@@ -95,6 +95,10 @@ The current community-queue follow-up at
 contributors while allowing one duplicate-free independent C5 body to become
 the maintainer's local preview. C6–C9 remain queued, and no issue, label,
 assignment, comment, or pull request is created or authorized.
+Exact follow-up `0a34e724875d53b8ef74acd8a51fd500ce014ff5` binds that preview's
+title, sorted labels, heading-free body, and task/queue/body digests into a
+schema-valid local publication handoff. The live handoff remains explicitly
+write-required, confirmation-required, and issue-creation-unauthorized.
 The P1 #69 card is synchronized to the public Draft and supported CI as of
 2026-08-17, explains both leaf parameters and the resolution tradeoff, and
 keeps the unavailable historical bag and missing carrying release explicit.
