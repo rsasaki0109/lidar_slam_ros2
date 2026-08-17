@@ -355,7 +355,7 @@ def test_public_preflight_report_is_read_only_and_machine_decidable(
     assert not_ready['finding_codes'] == ['source-candidate-not-published']
 
 
-def test_private_route_uses_only_public_clone_and_exact_commit(tmp_path):
+def test_private_route_fetches_only_the_exact_public_commit(tmp_path):
     args = _args(tmp_path)
     observer = tmp_path / 'private-observer'
     observer.mkdir()
@@ -363,9 +363,11 @@ def test_private_route_uses_only_public_clone_and_exact_commit(tmp_path):
     route = PROBE._route_script(args, observer)
 
     text = route.read_text(encoding='utf-8')
-    assert f'git clone --recursive {PROBE.REPO_URL}' in text
+    assert 'git clone' not in text
+    assert 'init.defaultBranch=detached init' in text
+    assert f'remote add origin {PROBE.REPO_URL}' in text
     assert f'fetch --depth=1 origin {args.source_commit}' in text
-    assert f'checkout --detach {args.source_commit}' in text
+    assert 'checkout --detach FETCH_HEAD' in text
     assert 'submodule update --init --recursive' in text
     assert 'bash scripts/source_quickstart.sh' in text
     assert '--workspace' in text
@@ -389,6 +391,13 @@ def test_path_contract_rejects_dirty_overlap_and_existing_record(tmp_path):
     args.record.write_text('{}\n', encoding='utf-8')
     with pytest.raises(PROBE.ProbeError, match='overwrite'):
         PROBE._validate_paths(args)
+
+    args.record.unlink()
+    outside = tmp_path / 'unexpected-record.json'
+    args.record.symlink_to(outside)
+    with pytest.raises(PROBE.ProbeError, match='overwrite'):
+        PROBE._validate_paths(args)
+    assert not outside.exists()
 
 
 def test_disk_sampler_reports_peak_delta_and_propagates_errors(tmp_path):

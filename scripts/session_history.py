@@ -4,15 +4,16 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import html
 import importlib.util
 import json
 import os
-import shlex
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
+import shlex
 from string import Template
+import sys
+import tempfile
 from typing import Any, Sequence
 
 
@@ -625,15 +626,25 @@ def write_catalog_html(root: Path, payload: dict[str, Any]) -> Path:
     target = root / CATALOG_PAGE_NAME
     if target.is_symlink():
         raise OSError(f'refusing to replace symlink: {target}')
-    temporary = root / f'.{CATALOG_PAGE_NAME}.{os.getpid()}.tmp'
+    temporary: Path | None = None
     try:
-        temporary.write_text(render_catalog_html(payload), encoding='utf-8')
+        with tempfile.NamedTemporaryFile(
+            mode='w',
+            encoding='utf-8',
+            dir=root,
+            prefix=f'.{CATALOG_PAGE_NAME}.writing-',
+            suffix='.tmp',
+            delete=False,
+        ) as stream:
+            stream.write(render_catalog_html(payload))
+            temporary = Path(stream.name)
         os.replace(temporary, target)
     finally:
-        try:
-            temporary.unlink()
-        except FileNotFoundError:
-            pass
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
     return target
 
 

@@ -4,16 +4,17 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import html
 import importlib.util
 import json
 import os
-import re
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
+import re
 from string import Template
+import sys
+import tempfile
 from typing import Any, Sequence
 
 
@@ -755,15 +756,25 @@ def write_comparison_html(path: Path, payload: dict[str, Any]) -> Path:
         raise OSError(f'refusing to replace non-comparison file: {path}')
     if not path.parent.is_dir():
         raise OSError(f'comparison parent does not exist: {path.parent}')
-    temporary = path.parent / f'.{path.name}.{os.getpid()}.tmp'
+    temporary: Path | None = None
     try:
-        temporary.write_text(render_comparison_html(payload), encoding='utf-8')
+        with tempfile.NamedTemporaryFile(
+            mode='w',
+            encoding='utf-8',
+            dir=path.parent,
+            prefix=f'.{path.name}.writing-',
+            suffix='.tmp',
+            delete=False,
+        ) as stream:
+            stream.write(render_comparison_html(payload))
+            temporary = Path(stream.name)
         os.replace(temporary, path)
     finally:
-        try:
-            temporary.unlink()
-        except FileNotFoundError:
-            pass
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
     return path
 
 

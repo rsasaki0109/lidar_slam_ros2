@@ -1334,6 +1334,24 @@ def test_session_json_survives_optional_html_write_failure(
     )
 
 
+def test_atomic_session_writer_does_not_follow_predictable_temp_symlink(
+    tmp_path: Path,
+):
+    """A stale legacy temp name must never redirect a session write."""
+    module = _load_module()
+    protected = tmp_path / 'protected.txt'
+    protected.write_text('keep me', encoding='utf-8')
+    legacy_temp = tmp_path / '.session.json.tmp'
+    legacy_temp.symlink_to(protected)
+    destination = tmp_path / 'session.json'
+
+    module._atomic_write_text(destination, '{"status":"running"}\n')
+
+    assert protected.read_text(encoding='utf-8') == 'keep me'
+    assert destination.read_text(encoding='utf-8') == '{"status":"running"}\n'
+    assert legacy_temp.is_symlink()
+
+
 def test_failed_start_opens_recovery_report_for_browser_viewer(
     monkeypatch,
     tmp_path: Path,

@@ -410,6 +410,23 @@ def test_catalog_refuses_to_replace_a_symlink(
     assert target.read_text(encoding='utf-8') == 'keep me'
 
 
+def test_catalog_writer_does_not_follow_predictable_temp_symlink(
+    tmp_path: Path,
+):
+    module = _load(SCRIPT, 'session_history_temp_symlink')
+    root = tmp_path / 'output'
+    root.mkdir()
+    protected = tmp_path / 'protected.html'
+    protected.write_text('keep me', encoding='utf-8')
+    legacy_temp = root / f'.sessions.html.{module.os.getpid()}.tmp'
+    legacy_temp.symlink_to(protected)
+    payload = module.build_catalog(root, status='all', limit=20)
+
+    assert module.write_catalog_html(root, payload) == root / 'sessions.html'
+    assert protected.read_text(encoding='utf-8') == 'keep me'
+    assert legacy_temp.is_symlink()
+
+
 def test_missing_roots_have_safe_default_and_explicit_behavior(
     monkeypatch,
     tmp_path: Path,

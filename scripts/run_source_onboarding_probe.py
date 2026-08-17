@@ -37,10 +37,12 @@ from __future__ import annotations
 
 import argparse
 import base64
+from datetime import datetime, timezone
 import hashlib
 import json
 import math
 import os
+from pathlib import Path
 import platform
 import re
 import shlex
@@ -50,12 +52,10 @@ import sys
 import tempfile
 import threading
 import time
+from typing import Any, Callable, TextIO
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Callable, TextIO
 
 # Planning and public-route inspection must not mutate the observer checkout
 # merely by importing adjacent helper modules.
@@ -206,7 +206,17 @@ def _validate_paths(args: argparse.Namespace) -> None:
     args.trial_root = args.trial_root.resolve()
     args.observer_parent = args.observer_parent.resolve()
     args.disk_scope = args.disk_scope.resolve()
-    args.record = args.record.resolve(strict=False)
+    requested_record = args.record.expanduser().absolute()
+    if os.path.lexists(requested_record):
+        raise ProbeError(
+            f'refusing to overwrite existing record: {requested_record}'
+        )
+    if requested_record.parent.is_symlink() or not requested_record.parent.is_dir():
+        raise ProbeError(
+            'record parent must be one existing non-symlink directory: '
+            f'{requested_record.parent}'
+        )
+    args.record = requested_record.parent.resolve(strict=True) / requested_record.name
     validation_receipt = getattr(
         args,
         'validation_receipt_output',
@@ -233,7 +243,7 @@ def _validate_paths(args: argparse.Namespace) -> None:
         )
     if not args.record.parent.is_dir():
         raise ProbeError(f'record parent does not exist: {args.record.parent}')
-    if args.record.exists():
+    if os.path.lexists(args.record):
         raise ProbeError(
             f'refusing to overwrite existing record: {args.record}'
         )
@@ -675,11 +685,10 @@ def _route_script(args: argparse.Namespace, observer_root: Path) -> Path:
     content = f"""#!/usr/bin/env bash
 set -Eeuo pipefail
 mkdir -p {trial}/src
-git clone --recursive {shlex.quote(REPO_URL)} {repository}
-if ! git -C {repository} cat-file -e {commit}^{{commit}} 2>/dev/null; then
-  git -C {repository} fetch --depth=1 origin {commit}
-fi
-git -C {repository} checkout --detach {commit}
+git -c init.defaultBranch=detached init {repository}
+git -C {repository} remote add origin {shlex.quote(REPO_URL)}
+git -C {repository} fetch --depth=1 origin {commit}
+git -C {repository} checkout --detach FETCH_HEAD
 test "$(git -C {repository} rev-parse HEAD)" = {commit}
 git -C {repository} submodule update --init --recursive
 test "$(tr -d '\\n' < {repository}/VERSION)" = {shlex.quote(args.product_version)}

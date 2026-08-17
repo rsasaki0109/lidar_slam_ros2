@@ -4,21 +4,22 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import html
 import importlib.util
 import json
 import math
 import os
+from pathlib import Path
 import re
 import shlex
 import shutil
+from string import Template
 import subprocess
 import sys
+import tempfile
 import threading
-from datetime import datetime, timezone
-from pathlib import Path
-from string import Template
 from typing import Any, Sequence
 
 import yaml
@@ -2220,15 +2221,25 @@ def _session_recovery_payload(
 
 def _atomic_write_text(destination: Path, content: str) -> None:
     """Replace one product-owned text artifact without a partial file."""
-    temporary = destination.with_name(f'.{destination.name}.tmp')
+    temporary: Path | None = None
     try:
-        temporary.write_text(content, encoding='utf-8')
+        with tempfile.NamedTemporaryFile(
+            mode='w',
+            encoding='utf-8',
+            dir=destination.parent,
+            prefix=f'.{destination.name}.writing-',
+            suffix='.tmp',
+            delete=False,
+        ) as stream:
+            stream.write(content)
+            temporary = Path(stream.name)
         os.replace(temporary, destination)
     except OSError:
-        try:
-            temporary.unlink(missing_ok=True)
-        except OSError:
-            pass
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
         raise
 
 

@@ -385,6 +385,15 @@ def test_writer_refuses_symlinks_and_unrecognized_existing_files(
     assert module.write_comparison_html(generated, payload) == generated
     assert module.write_comparison_html(generated, payload) == generated
 
+    protected_temp = tmp_path / 'protected-temp.html'
+    protected_temp.write_text('keep me too', encoding='utf-8')
+    legacy_temp = tmp_path / f'.fresh.html.{module.os.getpid()}.tmp'
+    legacy_temp.symlink_to(protected_temp)
+    fresh = tmp_path / 'fresh.html'
+    assert module.write_comparison_html(fresh, payload) == fresh
+    assert protected_temp.read_text(encoding='utf-8') == 'keep me too'
+    assert legacy_temp.is_symlink()
+
 
 def test_json_mode_is_read_only_and_browser_failure_does_not_fail_comparison(
     monkeypatch,
