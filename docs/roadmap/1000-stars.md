@@ -573,6 +573,18 @@ work and document the actual support boundary instead of hiding the delay.
   dogfood 14, docs/product 42, installed/support 25, option 21, and broad S6
   332 checks pass. Clean-host and comparison limits remain; no remote write is
   performed.
+- Exact implementation `3dcca0c…` assigns guided `start` one product-owned
+  terminal story while preserving complete direct expert `run`, dogfood,
+  warning/error/timeout, and durable-evidence behavior. The child-only concise
+  boundary removes delegated command, output/YAML/topic/frame, staging,
+  lifecycle, and launch-log internals from guided output. A fresh exact-
+  revision install showed profile/storage before mapping readiness, observed
+  both real nodes, and returned 130 in 1.543 seconds after one Ctrl-C with
+  every descendant absent. Guided stdout fell 3,679 → 1,448 bytes (60.64%)
+  to 23 lines; stderr retains only the stop/evidence pair. Four schemas, 18
+  checksums, runner 50, S3 77 + 15, sensor setup 42, dogfood 15, docs/product
+  42, installed/support 25, option 21, and broad S6 332 checks pass. Clean-host
+  and paired-comparison limits remain; no remote write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

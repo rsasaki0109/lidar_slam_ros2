@@ -415,6 +415,19 @@ bytes (85.00%); one stop/evidence pair and ACTION REQUIRED / Next / Details
 remain. Four schemas, 18 checksums, preflight 36, runner 49, S3 77 + 15,
 dogfood 14, docs/product 42, installed/support 25, option 21, and broad S6 332
 checks pass. Clean-host and comparison limits remain; no remote write occurs.
+Exact implementation `3dcca0c…` gives guided `start` ownership of the product
+story while leaving direct expert `run`, dogfood output, durable evidence, and
+warning/error/timeout detail complete. Its child-only environment boundary
+hides delegated commands, output/YAML/topic/frame internals, staging promises,
+lifecycle duplication, and the launch-log location; the parent retains the
+profile, unchanged storage decision, honest progress, and one terminal card.
+In a fresh exact-revision non-symlink install, profile/storage appeared before
+mapping readiness, both real nodes were observed, and one Ctrl-C returned 130
+in 1.543 seconds with every descendant absent. Guided stdout fell 3,679 →
+1,448 bytes (60.64%) to 23 lines; stderr is only the stop/evidence pair. Four
+schemas, 18 checksums, runner 50, S3 77 + 15, sensor setup 42, dogfood 15,
+docs/product 42, installed/support 25, option 21, and broad S6 332 checks pass.
+Clean-host and paired-comparison limits remain; no remote write occurs.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state

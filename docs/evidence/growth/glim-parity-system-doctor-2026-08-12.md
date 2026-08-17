@@ -866,3 +866,89 @@ This closes only routine native reader noise on the product path. It does not
 hide warnings or failures, change direct expert logging, weaken storage or
 timeout diagnosis, complete a map, establish clean-host/package-manager timing,
 or provide paired GLIM, parity, superiority, quality, or accuracy evidence.
+
+## Concise guided startup follow-up — 2026-08-17
+
+> Decision: **REAL_ROS_CONCISE_START_PASS / CLEAN_HOST_PENDING**
+>
+> Implementation and tested installed revision:
+> `3dcca0c75c25565cc244207711bb45a56beee38a`
+>
+> Network, GitHub, release, or community mutation performed: **none**
+
+The guided `start` path previously composed three independently useful output
+streams: the sensor wizard's product progress, the lower runner's execution
+plan and lifecycle, and the dogfood shell's expert launch details. That was
+complete but made first use read like an implementation trace.
+
+The sensor wizard now marks only its delegated child with a concise product
+session environment. The runner reduces its child summary to the selected map
+profile and the unchanged storage decision, and the dogfood layer emits one
+friendly mapping-ready message instead of its expert preamble. The parent
+continues to own durable progress, the terminal recovery card, and the bounded
+Ctrl-C cleanup. Direct `run` and direct dogfood calls retain their complete
+expert output. Warnings, errors, real startup/offline-completion timeout
+diagnostics, manifests, recovery receipts, and logs are not filtered.
+
+A first exploratory run on `39d7128…` found two measurement defects: its broad
+process-name selector could match the barrier shell, and piped stdout exposed
+late profile/storage flushes. That run is excluded from final evidence. The
+selector was restricted to exact executable `argv[0]` basenames and the two
+concise summary lines were explicitly flushed before the final trial.
+
+The final fresh non-symlink Jazzy install recorded exact revision `3dcca0c…`,
+`dirty=false`, directly from Git without a revision override. Source and
+installed SHA-256 values matched for the sensor wizard (`afee67ca…`), lower
+runner (`096bf8be…`), and dogfood shell (`7b3bf6a4…`), and the complete
+installed-product validator passed. It reused the same public 50-second
+MID360 ZIP (`20e51517…`), metadata (`d866804b…`), sqlite database
+(`0a38fbcc…`), fixed graph/scanmatcher overlay, and existing RKO-LIO base as
+the preceding trial, so it remains a controlled mixed overlay.
+
+The top-level installed command omitted `--min-free-space-gib` and reported
+**6.99 GiB free / 5.00 GiB required**. Map profile and storage appeared before
+mapping readiness. After the exact RKO-LIO offline node and
+graph_based_slam node were present for three consecutive polls, one SIGINT
+returned 130 in 1.543 seconds; total wall time was 15.731 seconds. Both
+observed PIDs and every trial descendant are absent.
+
+Guided stdout is **23 lines / 1,448 bytes**, down from 3,679 bytes in the
+immediately preceding quiet-reader exact trial: a **60.64% reduction**. It
+retains one start card, profile, storage decision, progress stages 1/2/5,
+friendly mapping-ready line, diagnosis/receipt links, and exactly one ACTION
+REQUIRED / Next / Details card. It omits the delegated command, selected
+output and atomic paths, YAML/parameter paths, topics, frames, staging
+promises, duplicate lifecycle announcements, old SLAM/offline-wait messages,
+and launch-log location. Stderr is 181 bytes and contains only the stop request
+and retained-evidence line; routine storage INFO, generic failure, failed
+command, generic session error, false timeout, recent-log dump, traceback, and
+success cards remain absent.
+
+The manifest is `interrupted / complete`, with matching execution and runner
+exit code 130 and exact SIGINT error. The run manifest, recovery receipt,
+session index, and first-map receipt validate against the installed tracked
+schemas; all 18 manifest-bound artifact sizes and SHA-256 values revalidate.
+No `map.pcd` exists. Final stdout, stderr, session, manifest, and recovery
+SHA-256 values are respectively `eae14b3e…`, `10b82cf6…`, `030be591…`,
+`8968e396…`, and `109a3d50…`.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| guided start / complete sensor-setup regressions | 42 passed |
+| complete lower map-runner regressions | 50 passed |
+| dogfood shell process/signal regressions | 15 passed |
+| exact S3 lifecycle and edit/merge commands | 77 + 15 passed |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 332 passed |
+| four terminal JSON schemas and 18 artifact checksums | PASS |
+| exact install provenance/script identity, changed-code `ament_flake8`, strict MkDocs, shell/bytecode/JSON/patch hygiene | PASS |
+
+This is a guided-terminal usability improvement, not reduced diagnosis. It
+does not change direct expert output, storage policy, runtime behavior, map
+quality, or evidence authority, and it does not establish clean-host or
+package-manager timing, a complete map, an independent first map, paired GLIM
+observation, parity, superiority, quality, or accuracy.

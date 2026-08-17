@@ -157,6 +157,9 @@
 > Latest quiet product bag-reader implementation and evidence tip:
 > `d0e33613f4531988ac4fc3ac0687927d164690eb`
 >
+> Latest concise guided-start implementation tip:
+> `3dcca0c75c25565cc244207711bb45a56beee38a`
+>
 > Latest default-storage interruption evidence carrier:
 > `edff76df06e7a7c86a6adbde454270664ee4d126`
 >
