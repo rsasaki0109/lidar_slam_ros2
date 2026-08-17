@@ -62,6 +62,8 @@ WORKFLOW_SHUTDOWN_GRACE_SECS = 10.0
 DEFAULT_MIN_FREE_SPACE_GIB = 5.0
 EMERGENCY_EVIDENCE_RESERVE_BYTES = 2 * 1024 * 1024
 EMERGENCY_EVIDENCE_RESERVE_NAME = '.terminal-evidence-reserve'
+PRODUCT_SESSION_OUTPUT_ENV = 'LIDARSLAM_PRODUCT_SESSION_OUTPUT'
+PRODUCT_SESSION_OUTPUT_CONCISE = 'concise'
 PACKAGE_XML_PATHS = (
     SHARE_ROOT / 'lidarslam' / 'package.xml',
     SHARE_ROOT / 'graph_based_slam' / 'package.xml',
@@ -698,7 +700,47 @@ def _write_manifest(run_dir: Path, manifest: dict[str, object]) -> None:
 
 def _announce_lifecycle(stage: str, action: str) -> None:
     """Report a durable stage without inventing percentage or ETA."""
+    if _concise_product_session_output():
+        return
     print(f'Lifecycle stage: {stage} — {action}', flush=True)
+
+
+def _concise_product_session_output() -> bool:
+    """Return whether a parent start session owns the human progress view."""
+    return (
+        os.environ.get(PRODUCT_SESSION_OUTPUT_ENV)
+        == PRODUCT_SESSION_OUTPUT_CONCISE
+    )
+
+
+def _print_execution_summary(
+    plan: dict[str, object],
+    output_dir: Path,
+    working_dir: Path,
+    storage_preflight: dict[str, object],
+) -> None:
+    """Print a concise start handoff or the complete direct-run plan."""
+    observed_gib = storage_preflight['observed_free_bytes'] / 1024**3
+    required_gib = storage_preflight['required_free_bytes'] / 1024**3
+    if _concise_product_session_output():
+        print(f"Map profile: {plan['label']}")
+        print(
+            f'Storage check: {observed_gib:.2f} GiB available '
+            f'({required_gib:.2f} GiB required)'
+        )
+        return
+
+    print(f"Selected profile: {plan['label']}")
+    print(f'Output directory: {output_dir}')
+    print(f'Atomic working directory: {working_dir}')
+    print(
+        'Storage preflight: '
+        f'{observed_gib:.2f} GiB free; '
+        f'{required_gib:.2f} GiB required '
+        f"under {storage_preflight['probe_path']}"
+    )
+    print('Command:')
+    print('  ' + shlex.join(plan['command']))
 
 
 def _artifact_checksums(run_dir: Path) -> list[dict[str, object]]:
@@ -1553,17 +1595,12 @@ def main() -> int:
         print(f'error: {exc}', file=sys.stderr)
         return 2
 
-    print(f"Selected profile: {plan['label']}")
-    print(f'Output directory: {output_dir}')
-    print(f'Atomic working directory: {working_dir}')
-    print(
-        'Storage preflight: '
-        f"{storage_preflight['observed_free_bytes'] / 1024**3:.2f} GiB free; "
-        f"{storage_preflight['required_free_bytes'] / 1024**3:.2f} GiB required "
-        f"under {storage_preflight['probe_path']}"
+    _print_execution_summary(
+        plan,
+        output_dir,
+        working_dir,
+        storage_preflight,
     )
-    print('Command:')
-    print('  ' + shlex.join(plan['command']))
 
     if args.dry_run:
         return 0

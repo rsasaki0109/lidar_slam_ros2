@@ -191,6 +191,52 @@ def test_runner_help_is_user_facing():
     assert '--verification {required,off}' in result.stdout
 
 
+def test_start_session_summary_hides_internal_execution_detail(
+    monkeypatch,
+    capsys,
+    tmp_path: Path,
+):
+    module = _load_module()
+    output_dir = tmp_path / 'map'
+    working_dir = tmp_path / 'map.partial'
+    plan = {
+        'label': 'RKO-LIO + graph_based_slam public path',
+        'command': [
+            'bash',
+            '/private/internal/workflow.sh',
+            '--output-dir',
+            str(working_dir),
+        ],
+    }
+    storage = {
+        'observed_free_bytes': 7.25 * 1024**3,
+        'required_free_bytes': 5 * 1024**3,
+        'probe_path': str(tmp_path),
+    }
+    monkeypatch.setenv(
+        module.PRODUCT_SESSION_OUTPUT_ENV,
+        module.PRODUCT_SESSION_OUTPUT_CONCISE,
+    )
+
+    module._print_execution_summary(
+        plan,
+        output_dir,
+        working_dir,
+        storage,
+    )
+    module._announce_lifecycle('workflow_running', 'run the mapping workflow')
+
+    output = capsys.readouterr().out
+    assert output.splitlines() == [
+        'Map profile: RKO-LIO + graph_based_slam public path',
+        'Storage check: 7.25 GiB available (5.00 GiB required)',
+    ]
+    assert str(output_dir) not in output
+    assert str(working_dir) not in output
+    assert '/private/internal/workflow.sh' not in output
+    assert 'Lifecycle stage:' not in output
+
+
 def test_deprecated_run_viewer_routes_through_view_command(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

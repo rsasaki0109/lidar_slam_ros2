@@ -169,16 +169,18 @@ def test_dogfood_connects_consumers_before_offline_bag_playback():
 
 
 @pytest.mark.parametrize(
-    ('signum', 'expected_exit'),
+    ('signum', 'expected_exit', 'concise_output'),
     [
-        (signal.SIGINT, 130),
-        (signal.SIGTERM, 143),
+        (signal.SIGINT, 130, False),
+        (signal.SIGTERM, 143, False),
+        (signal.SIGINT, 130, True),
     ],
 )
 def test_dogfood_signal_is_not_reported_as_offline_timeout(
     tmp_path: Path,
     signum: int,
     expected_exit: int,
+    concise_output: bool,
 ):
     """Expected interruption must not dump the timeout diagnosis."""
     bag_dir = _write_minimal_bag(tmp_path)
@@ -208,6 +210,9 @@ def test_dogfood_signal_is_not_reported_as_offline_timeout(
     env['PATH'] = f'{fake_bin}:/usr/bin:/bin'
     env['FAKE_ROS2_PID_PATH'] = str(launch_pid_path)
     env.pop('ROS_DISTRO', None)
+    env.pop('LIDARSLAM_PRODUCT_SESSION_OUTPUT', None)
+    if concise_output:
+        env['LIDARSLAM_PRODUCT_SESSION_OUTPUT'] = 'concise'
 
     command = [
         'bash',
@@ -244,10 +249,14 @@ def test_dogfood_signal_is_not_reported_as_offline_timeout(
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
                 stdout_file.flush()
+                ready_message = (
+                    'Mapping is ready; processing the recorded sensor data'
+                    if concise_output
+                    else 'Waiting for offline bag playback to finish'
+                )
                 if (
                     launch_pid_path.is_file()
-                    and 'Waiting for offline bag playback to finish'
-                    in stdout_path.read_text(encoding='utf-8')
+                    and ready_message in stdout_path.read_text(encoding='utf-8')
                 ):
                     break
                 time.sleep(0.01)
@@ -272,6 +281,16 @@ def test_dogfood_signal_is_not_reported_as_offline_timeout(
     assert 'Timed out waiting for offline completion' not in stderr
     assert 'Recent launch log:' not in stderr
     assert 'Calling /map_save' not in stdout
+    if concise_output:
+        assert (
+            'Mapping is ready; processing the recorded sensor data ...'
+            in stdout
+        )
+        assert 'Running end-to-end dogfood pipeline' not in stdout
+        assert 'Will stage the complete native RKO-LIO trajectory' not in stdout
+        assert 'Will stage the final graph-optimized trajectory' not in stdout
+        assert 'launch log:' not in stdout
+        assert 'Waiting for offline bag playback to finish' not in stdout
     assert launch_pid is not None
     try:
         os.kill(launch_pid, 0)

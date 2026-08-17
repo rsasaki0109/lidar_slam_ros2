@@ -114,6 +114,7 @@ DEFAULT_LIDARSLAM_PARAM="${PACKAGE_SHARE}/param/lidarslam.yaml"
 DEFAULT_RKO_PARAM="${PACKAGE_SHARE}/param/rko_lio_ntu_viral.yaml"
 DEFAULT_AUTOWARE_CORE="/tmp/autoware_core"
 DEFAULT_WORK_DIR="/tmp/autoware_map_runtime_ws"
+PRODUCT_SESSION_OUTPUT="${LIDARSLAM_PRODUCT_SESSION_OUTPUT:-full}"
 
 BAG_PATH="$DEFAULT_BAG"
 LIDAR_TOPIC="$DEFAULT_LIDAR_TOPIC"
@@ -631,19 +632,21 @@ wait_for_offline_completion() {
   return 1
 }
 
-echo "Running end-to-end dogfood pipeline"
-echo "  bag:            $BAG_PATH"
-echo "  lidar_topic:    $LIDAR_TOPIC"
-echo "  imu_topic:      $IMU_TOPIC"
-echo "  base_frame:     $BASE_FRAME"
-echo "  lidar_frame:    $LIDAR_FRAME"
-echo "  imu_frame:      $IMU_FRAME"
-echo "  lidarslam_yaml: $LIDARSLAM_PARAM"
-echo "  rko_yaml:       $RKO_PARAM"
-echo "  output_dir:     $OUTPUT_DIR"
-echo "  run_name:       $RUN_NAME"
-echo "  rko_ros_param:  $RKO_ROS_PARAM_FILE"
-echo "  graph_param:    $GRAPH_ROS_PARAM_FILE"
+if [[ "$PRODUCT_SESSION_OUTPUT" != "concise" ]]; then
+  echo "Running end-to-end dogfood pipeline"
+  echo "  bag:            $BAG_PATH"
+  echo "  lidar_topic:    $LIDAR_TOPIC"
+  echo "  imu_topic:      $IMU_TOPIC"
+  echo "  base_frame:     $BASE_FRAME"
+  echo "  lidar_frame:    $LIDAR_FRAME"
+  echo "  imu_frame:      $IMU_FRAME"
+  echo "  lidarslam_yaml: $LIDARSLAM_PARAM"
+  echo "  rko_yaml:       $RKO_PARAM"
+  echo "  output_dir:     $OUTPUT_DIR"
+  echo "  run_name:       $RUN_NAME"
+  echo "  rko_ros_param:  $RKO_ROS_PARAM_FILE"
+  echo "  graph_param:    $GRAPH_ROS_PARAM_FILE"
+fi
 
 MIN_ODOM_SUBSCRIBERS=1
 if [[ "$CAPTURE_RAW_ODOMETRY" == "true" ]]; then
@@ -654,7 +657,9 @@ if [[ "$CAPTURE_RAW_ODOMETRY" == "true" ]]; then
       EXISTING_RKO_DUMP_DIRS["$run_dir"]=1
     done
     shopt -u nullglob
-    echo "Will stage the complete native RKO-LIO trajectory after offline processing"
+    if [[ "$PRODUCT_SESSION_OUTPUT" != "concise" ]]; then
+      echo "Will stage the complete native RKO-LIO trajectory after offline processing"
+    fi
   elif [[ ! -f "$ODOM_TO_TUM_SCRIPT" ]]; then
     echo "Warning: $ODOM_TO_TUM_SCRIPT not found; skipping raw odometry capture." >&2
   else
@@ -672,7 +677,9 @@ fi
 if [[ "$CAPTURE_CORRECTED_PATH" == "true" ]]; then
   if [[ "$CORRECTED_PATH_TOPIC" == "/modified_path" ]]; then
     USE_FINAL_OPTIMIZED_TRAJECTORY=true
-    echo "Will stage the final graph-optimized trajectory after map save"
+    if [[ "$PRODUCT_SESSION_OUTPUT" != "concise" ]]; then
+      echo "Will stage the final graph-optimized trajectory after map save"
+    fi
   elif [[ ! -f "$PATH_TO_TUM_SCRIPT" ]]; then
     echo "Warning: $PATH_TO_TUM_SCRIPT not found; skipping /modified_path capture." >&2
   else
@@ -724,7 +731,9 @@ else
   LAUNCH_PID="$!"
 fi
 
-echo "launch log: $LAUNCH_LOG"
+if [[ "$PRODUCT_SESSION_OUTPUT" != "concise" ]]; then
+  echo "launch log: $LAUNCH_LOG"
+fi
 
 if ! wait_for_log_pattern "RKO LIO Node is up!" "$STARTUP_TIMEOUT_SECS"; then
   echo "Timed out waiting for RKO-LIO startup. Recent launch log:" >&2
@@ -744,17 +753,25 @@ if ! wait_for_log_pattern "Offline output subscribers ready" "$STARTUP_TIMEOUT_S
   exit 1
 fi
 
-echo "SLAM launch is up; output subscribers are connected before bag playback"
-
 if [[ "$WAIT_FOR_OFFLINE_COMPLETION" == "true" ]]; then
-  echo "Waiting for offline bag playback to finish ..."
+  if [[ "$PRODUCT_SESSION_OUTPUT" == "concise" ]]; then
+    echo "Mapping is ready; processing the recorded sensor data ..."
+  else
+    echo "SLAM launch is up; output subscribers are connected before bag playback"
+    echo "Waiting for offline bag playback to finish ..."
+  fi
   if ! wait_for_offline_completion 900 15; then
     echo "Timed out waiting for offline completion or quiescent map outputs. Recent launch log:" >&2
     tail -n 120 "$LAUNCH_LOG" >&2 || true
     exit 1
   fi
 else
-  echo "Waiting for the first saved Autoware map bundle ..."
+  if [[ "$PRODUCT_SESSION_OUTPUT" == "concise" ]]; then
+    echo "Mapping is ready; waiting for the first map output ..."
+  else
+    echo "SLAM launch is up; output subscribers are connected before bag playback"
+    echo "Waiting for the first saved Autoware map bundle ..."
+  fi
   if ! wait_for_map_outputs "$SAVE_TIMEOUT_SECS"; then
     echo "Timed out waiting for the first saved map outputs under $OUTPUT_DIR" >&2
     tail -n 120 "$LAUNCH_LOG" >&2 || true

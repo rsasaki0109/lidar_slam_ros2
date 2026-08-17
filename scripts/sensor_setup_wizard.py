@@ -70,6 +70,8 @@ SESSION_PROGRESS_POLL_SECONDS = 0.25
 SESSION_PROGRESS_HEARTBEAT_SECONDS = 30.0
 SESSION_INTERRUPT_GRACE_SECONDS = 20.0
 SESSION_INTERRUPT_TERMINATE_SECONDS = 10.0
+PRODUCT_SESSION_OUTPUT_ENV = 'LIDARSLAM_PRODUCT_SESSION_OUTPUT'
+PRODUCT_SESSION_OUTPUT_CONCISE = 'concise'
 SESSION_PROGRESS_STAGES = {
     'preparing': ('preparing', 1, 'Preparing pinned session'),
     'initialized': ('preparing', 1, 'Preparing output'),
@@ -3178,6 +3180,8 @@ def _run_delegated_session(
     command: list[str],
 ) -> subprocess.CompletedProcess:
     """Reap the delegated runner after Ctrl-C so it can seal evidence."""
+    child_env = os.environ.copy()
+    child_env[PRODUCT_SESSION_OUTPUT_ENV] = PRODUCT_SESSION_OUTPUT_CONCISE
     process: subprocess.Popen | None = None
 
     def request_termination(signum, _frame):
@@ -3188,6 +3192,7 @@ def _run_delegated_session(
         process = subprocess.Popen(
             command,
             cwd=WORK_ROOT,
+            env=child_env,
             start_new_session=True,
         )
         try:

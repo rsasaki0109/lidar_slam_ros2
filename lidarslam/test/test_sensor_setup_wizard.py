@@ -1070,9 +1070,12 @@ def test_ctrl_c_waits_for_terminal_evidence_and_renders_one_recovery(
         lambda pid, signum: process.signals.append((pid, signum)),
     )
 
-    def fake_popen(command, *, cwd, start_new_session):
+    def fake_popen(command, *, cwd, env, start_new_session):
         assert command == manifest['run']['argv']
         assert cwd == module.WORK_ROOT
+        assert env[module.PRODUCT_SESSION_OUTPUT_ENV] == (
+            module.PRODUCT_SESSION_OUTPUT_CONCISE
+        )
         assert start_new_session is True
         return process
 
@@ -1226,11 +1229,17 @@ def test_ctrl_c_force_reaps_after_bounded_cleanup_windows(
         'killpg',
         lambda pid, signum: process.signals.append((pid, signum)),
     )
-    monkeypatch.setattr(
-        module.subprocess,
-        'Popen',
-        lambda delegated, *, cwd, start_new_session: process,
-    )
+
+    def fake_popen(delegated, *, cwd, env, start_new_session):
+        assert delegated == command
+        assert cwd == module.WORK_ROOT
+        assert env[module.PRODUCT_SESSION_OUTPUT_ENV] == (
+            module.PRODUCT_SESSION_OUTPUT_CONCISE
+        )
+        assert start_new_session is True
+        return process
+
+    monkeypatch.setattr(module.subprocess, 'Popen', fake_popen)
 
     completed = module._run_delegated_session(command)
 
