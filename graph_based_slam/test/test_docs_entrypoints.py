@@ -726,6 +726,59 @@ def test_first_map_form_accepts_fail_without_weakening_pass_receipts():
     )
 
 
+def test_bug_form_accepts_pre_session_failure_without_fake_zip_claims():
+    """Pre-session failures need diagnostics, not an impossible ZIP claim."""
+    bug_form_path = ISSUE_TEMPLATE_DIR / 'bug-report.yml'
+    bug_form = yaml.safe_load(bug_form_path.read_text(encoding='utf-8'))
+    fields = {
+        item['id']: item
+        for item in bug_form['body']
+        if isinstance(item, dict) and 'id' in item
+    }
+    preflight = fields['preflight']
+    diagnostics = fields['diagnostics']
+    checks = fields['checks']
+    check_labels = [
+        option['label'] for option in checks['attributes']['options']
+    ]
+
+    assert preflight['validations']['required'] is True
+    assert diagnostics['validations']['required'] is True
+    diagnostics_help = diagnostics['attributes']['description']
+    assert 'If a session exists' in diagnostics_help
+    assert 'If no session was created' in diagnostics_help
+    assert 'first actionable doctor or terminal finding' in diagnostics_help
+    assert all(
+        option['required'] is True
+        for option in checks['attributes']['options']
+    )
+    zip_attestation = check_labels[2]
+    assert 'either reviewed every file in the one attached support ZIP' in (
+        zip_attestation
+    )
+    assert 'or no session and ZIP existed' in zip_attestation
+    assert 'attached no file' in zip_attestation
+
+    support = ' '.join(SUPPORT_PATH.read_text(encoding='utf-8').split())
+    assert 'do not fabricate an empty ZIP or claim to have reviewed one' in (
+        support
+    )
+    assert 'This pre-session path does not weaken the ZIP review requirement' in (
+        support
+    )
+
+    issue_config = yaml.safe_load(
+        (ISSUE_TEMPLATE_DIR / 'config.yml').read_text(encoding='utf-8')
+    )
+    usage_support = next(
+        link
+        for link in issue_config['contact_links']
+        if link['name'] == 'Usage Support'
+    )
+    assert 'If a session exists' in usage_support['about']
+    assert 'otherwise keep the doctor output' in usage_support['about']
+
+
 def test_product_contract_has_bounded_official_surface():
     """The beginner product surface should stay explicit and bounded."""
     contract = PRODUCT_CONTRACT_DOC.read_text(encoding='utf-8')

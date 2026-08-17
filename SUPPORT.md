@@ -49,6 +49,13 @@ The generator excludes map geometry, bags and raw sensor data, raw logs,
 parameter-file contents, exact local paths and credential-like command values.
 It does not upload anything or open an issue. Review the ZIP before sharing it.
 
+If the failure occurs before a session exists, do not fabricate an empty ZIP
+or claim to have reviewed one. The Bug report form instead requires the doctor
+output, a clear `no session was created` statement, and the first actionable
+doctor or terminal finding. Its privacy checklist then attests that no ZIP was
+attached. This pre-session path does not weaken the ZIP review requirement when
+a session does exist.
+
 Reports are most actionable when they also include, where relevant:
 
 - expected and observed behavior.

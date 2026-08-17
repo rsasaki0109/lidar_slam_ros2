@@ -8,6 +8,8 @@ body:
     attributes:
       value: |
         Read SUPPORT.md first. Do not report security vulnerabilities here.
+        If the failure happened before a session was created, keep the doctor
+        output and first actionable terminal finding; do not invent a support ZIP.
 
   - type: input
     id: version
@@ -56,7 +58,12 @@ body:
     id: diagnostics
     attributes:
       label: Privacy-first support ZIP and diagnostics
-      description: Run `lidarslam-map support <session_bundle>`, review the three files, then drag the ZIP here. Paste `issue-body.md` or add separately reviewed logs only when needed.
+      description: >-
+        If a session exists, run `lidarslam-map support <session_bundle>`,
+        review the three files, then drag the ZIP here. If no session was
+        created, state that clearly and paste the first actionable doctor or
+        terminal finding instead. Add separately reviewed logs only when the
+        bounded report is insufficient.
     validations:
       required: true
 
@@ -69,7 +76,7 @@ body:
           required: true
         - label: I removed credentials and private location data.
           required: true
-        - label: I reviewed every file in the support ZIP before attaching it.
+        - label: I either reviewed every file in the one attached support ZIP, or no session and ZIP existed and I attached no file.
           required: true
         - label: This is not a security vulnerability.
           required: true
