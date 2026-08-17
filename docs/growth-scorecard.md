@@ -99,6 +99,13 @@ Exact follow-up `0a34e724875d53b8ef74acd8a51fd500ce014ff5` binds that preview's
 title, sorted labels, heading-free body, and task/queue/body digests into a
 schema-valid local publication handoff. The live handoff remains explicitly
 write-required, confirmation-required, and issue-creation-unauthorized.
+Exact follow-up `5dc04198549341b33becdeb2bc058117db9fe78f` closes the remaining
+public-base gap. Publication review now requires PR #427 merged and the exact
+queue present with matching canonical SHA-256 on public `develop`. The current
+GET-only state is `WAITING_FOR_PRODUCT_MERGE` plus public queue `ABSENT`, so the
+maintainer may prepare C5 for post-merge review but cannot be told to publish
+it. Seventy-one queue and 331 S6 integration regressions pass; no GitHub write
+or publication authority is added.
 The P1 #69 card is synchronized to the public Draft and supported CI as of
 2026-08-17, explains both leaf parameters and the resolution tradeoff, and
 keeps the unavailable historical bag and missing carrying release explicit.

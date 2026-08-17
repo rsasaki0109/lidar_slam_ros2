@@ -518,6 +518,12 @@ work and document the actual support boundary instead of hiding the delay.
   and body SHA-256 into one schema-valid local handoff. Cross-task or body
   tampering fails closed; maintainer confirmation and a separate external write
   remain required, and issue creation stays unauthorized.
+- Exact follow-up `5dc04198549341b33becdeb2bc058117db9fe78f` prevents that
+  review-ready handoff from outrunning its public product base. Local task
+  publication review now requires both PR #427 merged and the canonical queue
+  present with an exact SHA-256 match on public `develop`. While the Draft is
+  open and the public queue is absent, the one action is post-merge preparation;
+  it cannot recommend issue publication or grant write authority.
 - Recruit the first three validators through the existing public validation
   issue and release documentation; do not provide private step-by-step help
   that would invalidate the evidence.
@@ -1001,6 +1007,12 @@ The following `0a34e72…` handoff also prevents a maintainer from manually
 recombining a live duplicate decision with stale task bytes: title, labels,
 body, and three digests now travel together. It provides no GitHub mutation
 command and cannot convert local review readiness into publication authority.
+Follow-up `5dc0419…` additionally binds that handoff to the public product
+base. Its GET-only gate distinguishes an open/unmerged Draft, a closed-unmerged
+PR, a missing queue, queue drift, and the sole `READY` state: merged PR #427
+plus a canonical queue match on public `develop`. Current live state is
+`WAITING_FOR_PRODUCT_MERGE` with public queue `ABSENT`, so C5 remains a
+post-merge preparation artifact rather than a publishable issue.
 
 The
 [clean-candidate audit](../evidence/growth/g0-clean-candidate-audit-2026-08-11.md)

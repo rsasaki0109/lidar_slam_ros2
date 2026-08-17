@@ -1371,3 +1371,53 @@ non-publication action fails closed. Sixty-three queue regressions, the exact
 323-test S6 integration command, 61 plan/routing/G0 regressions, strict MkDocs,
 and ROS lint pass. This packet removes title/label/body reconstruction; it does
 not authorize or execute issue creation.
+
+## Public-base gate for local starter publication — 2026-08-17
+
+> Decision: **POST_MERGE_PREPARATION_ONLY / PUBLIC_BASE_NOT_READY**
+>
+> Implementation tip:
+> `5dc04198549341b33becdeb2bc058117db9fe78f`
+>
+> GitHub requests: **GET-only**
+>
+> Issue, label, assignment, comment, pull-request, or branch mutations:
+> **none**
+
+The exact handoff above removed stale title/body reconstruction but could still
+say `REVIEW_AND_PUBLISH_LOCAL_TASK` while its product instructions existed only
+inside Draft PR #427. The queue now declares a second, independent publication
+gate. A local C5–C9 body may reach publication review only after both conditions
+are true:
+
+1. PR #427 is merged into its exact `develop` base; and
+2. `docs/contracts/contributor-starter-queue-v1.json` exists on public
+   `develop` and its canonical JSON SHA-256 matches the local queue.
+
+The authenticated 2026-08-17 GET-only observation finds PR #427 at public head
+`4b2ab514a4f33b443e2c4283b3114d11a5e44e49`, `OPEN`, Draft, and not merged.
+The canonical queue path returns HTTP 404 on public `develop`. The derived gate
+is therefore `WAITING_FOR_PRODUCT_MERGE`, with `public_queue_status: ABSENT`
+and blockers `product_pr_not_merged` plus `public_queue_absent`. The one
+maintainer action is now `PREPARE_LOCAL_TASK_FOR_POST_MERGE`, not publication.
+It retains the exact C5 body for review and gives one GET-only recheck command:
+
+```bash
+python3 scripts/contributor_starter_queue.py --next --json
+```
+
+The current queue SHA-256 is
+`0b3d40e3b43aa6a35026aa53c6610ffd9cf8cc46a0e3d4338da927172b551243`;
+the unchanged task and body SHA-256 values are
+`f32b2d90a251983dc50135a25da75f4dc39ef99bc7ece7d806b3d4c3dd39e558`
+and
+`df48cba21d0f3cf4fc2443f4538a8666b55000e550f0dded3898a49f294b65e8`.
+The report also carries `public_base_ready: false`,
+`issue_creation_authorized: false`, and `writes_performed: false`.
+
+Seventy-one queue regressions cover READY, open Draft, closed-unmerged,
+public-file absence, canonical match, drift, wrong-base rejection, wrapped
+base64 content, and HTTP 404. The exact S6 integration command passes 331
+tests, and strict MkDocs plus changed-file critical Python lint pass. A merge,
+public queue match, fresh duplicate audit, maintainer confirmation, and a
+separate authorized write remain distinct events.
