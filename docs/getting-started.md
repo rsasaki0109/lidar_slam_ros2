@@ -398,7 +398,11 @@ below them; there is no second command to copy. A non-interactive run instead
 prints the exact reviewed `--yes` command and exits without starting mapping.
 After confirmation, `start` saves the setup, runs the normal atomic map
 lifecycle, requires verification, and opens the self-contained browser view.
-Use `--viewer none` on a headless host.
+The confirmed live path proceeds directly to its map start and durable progress
+card. It does not repeat the topics, transforms, or delegated map command you
+just reviewed; the start card shows the saved setup and map paths once. `setup`
+and `--dry-run` retain the complete review when no mapping follows. Use
+`--viewer none` on a headless host.
 
 The session directory contains `sensor_setup.json`, pinned parameter snapshots,
 and the completed map under `map/`. To inspect the full decision without writing:

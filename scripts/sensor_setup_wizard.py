@@ -755,7 +755,9 @@ def _readme(manifest: dict[str, Any]) -> str:
 
 
 def _render_text(
-    result: dict[str, Any], *, confirmation_follows: bool = False
+    result: dict[str, Any],
+    *,
+    confirmation_follows: bool = False,
 ) -> str:
     if result['status'] == 'not_ready':
         topics = result['detected']['topics']
@@ -3446,7 +3448,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return runtime_result
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
-    else:
+    elif not (args.run_now and not args.dry_run and confirmed):
         print(_render_text(result))
     if not args.run_now or args.dry_run:
         return 0

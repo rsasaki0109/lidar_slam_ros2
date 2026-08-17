@@ -240,6 +240,18 @@ def test_contract_identifies_the_complete_product_surface():
             'decline, EOF, or unreviewed calibration starts no mapping',
         ],
     }
+    assert contract['sensor_setup_ready_contract'] == {
+        'commands': ['start', 'setup'],
+        'statuses': ['ready', 'dry_run'],
+        'display_rules': [
+            'confirmed live start skips the repeated setup review and proceeds '
+            'directly to its map start and progress card',
+            'setup and dry-run retain the complete selected input, '
+            'calibration, and map command review',
+            'the compact live handoff does not alter sensor_setup.json, '
+            'session index, progress, or recovery contracts',
+        ],
+    }
     recovery = contract['map_session_recovery_contract']
     assert recovery['schema_uri'].endswith(
         '/schemas/map-session-recovery-v1.schema.json'

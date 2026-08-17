@@ -528,6 +528,9 @@ def test_start_pins_setup_then_delegates_map_and_viewer(
         '--no-open',
     ]
     output = capsys.readouterr().out
+    assert 'Sensor session: READY' not in output
+    assert 'Map command:' not in output
+    assert 'Review:' not in output
     assert 'Starting the verified map session' in output
     assert 'Verified map session completed' in output
     session_index = json.loads(
@@ -586,7 +589,9 @@ def test_start_interactive_confirmation_completes_one_command(
     )
     assert 'If they match, generate the bundle with:' not in output
     assert '--yes' not in output
-    assert 'Sensor session: READY' in output
+    assert 'Sensor session: READY' not in output
+    assert 'Map command:' not in output
+    assert 'Review:' not in output
     assert 'Verified map session completed' in output
 
 
@@ -951,6 +956,27 @@ def test_pointcloud_gnss_setup_is_ready_without_rko_calibration(
     assert payload['calibration']['source'] == 'not_applicable'
     assert payload['parameters'] == []
     assert (bundle / 'README.md').is_file()
+
+
+def test_setup_text_retains_complete_sensor_and_command_review(tmp_path: Path):
+    """Setup-only output must keep the detail omitted from confirmed start."""
+    bag = tmp_path / 'gnss_bag'
+    bundle = tmp_path / 'setup'
+    _write_gnss_bag(bag)
+
+    result = _run(
+        'setup',
+        str(bag),
+        '--output-dir',
+        str(bundle),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert 'Sensor session: READY' in result.stdout
+    assert 'LiDAR: /points_raw [sensor_msgs/msg/PointCloud2]' in result.stdout
+    assert 'GNSS: /fix' in result.stdout
+    assert 'Map command:' in result.stdout
+    assert f'Review: {bundle / "README.md"}' in result.stdout
 
 
 def test_non_rko_profiles_reject_ignored_rko_controls(tmp_path: Path):

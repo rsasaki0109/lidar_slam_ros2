@@ -158,6 +158,15 @@
       "decline, EOF, or unreviewed calibration starts no mapping"
     ]
   },
+  "sensor_setup_ready_contract": {
+    "commands": ["start", "setup"],
+    "statuses": ["ready", "dry_run"],
+    "display_rules": [
+      "confirmed live start skips the repeated setup review and proceeds directly to its map start and progress card",
+      "setup and dry-run retain the complete selected input, calibration, and map command review",
+      "the compact live handoff does not alter sensor_setup.json, session index, progress, or recovery contracts"
+    ]
+  },
   "map_session_recovery_contract": {
     "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/map-session-recovery-v1.schema.json",
     "command": "start",

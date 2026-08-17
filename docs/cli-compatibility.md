@@ -143,6 +143,10 @@ Interactive `start` calibration review is one fail-closed prompt: it shows the
 profile extrinsics once, then asks whether to continue without presenting a
 second `--yes` command. Non-interactive `start`, `setup`, and dry-run review keep
 printing the exact reviewed rerun command for automation and copy-paste use.
+After confirmation, live `start` skips the repeated setup card and proceeds
+directly to map start and durable progress. Setup-only and dry-run output retain
+the selected inputs, calibration, and map command because no execution progress
+follows them.
 
 For `demo`, cache presence is not proof of integrity. Dry-run reports
 `prepared_unverified` or `archive_unverified`; live execution alone promotes
