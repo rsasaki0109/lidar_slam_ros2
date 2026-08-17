@@ -97,7 +97,7 @@ overview and then to the seven-slice local review plan only when the observed
 PR-description digest also matches the canonical clean-tip body. A stale or
 missing description selects the same no-write description-refresh handoff
 before review. The schema-bound
-handoff fixes the exact public/local head, 393-path / three-phase / seven-slice
+handoff fixes the exact public/local head, 394-path / three-phase / seven-slice
 coverage, overview command, slice template, and four-step review sequence while
 keeping command execution, review submission, mark-ready, merge, and all writes
 false. A non-Draft open PR still requires a separate maintainer merge

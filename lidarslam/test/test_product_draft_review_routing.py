@@ -66,7 +66,7 @@ def _overview() -> dict:
         ),
         (
             'S6-product-shell-integration',
-            152,
+            153,
             13,
             [
                 'S1-runtime-safety',
@@ -94,7 +94,7 @@ def _overview() -> dict:
         'status': 'PR_REVIEW_OVERVIEW_READY_LOCAL_ONLY',
         'candidate': {
             'local_tip_sha': '1' * 40,
-            'follow_up_path_count': 346,
+            'follow_up_path_count': 347,
             'slice_count': 7,
             'review_coverage_complete': True,
             'merge_commit_count': 0,
@@ -134,7 +134,7 @@ def test_routing_assigns_every_slice_once_without_collecting_identity():
     assert report['summary'] == {
         'lane_count': 4,
         'slice_count': 7,
-        'path_count': 346,
+        'path_count': 347,
         'verification_count': 33,
         'unassigned_slice_count': 0,
         'duplicate_slice_count': 0,
@@ -146,7 +146,7 @@ def test_routing_assigns_every_slice_once_without_collecting_identity():
         50,
         63,
         74,
-        159,
+        160,
     ]
     assert report['lanes'][-1]['depends_on_lanes'] == [
         'R1-runtime-safety',

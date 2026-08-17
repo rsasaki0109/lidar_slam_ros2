@@ -132,8 +132,8 @@ Draft PR #427, the reviewed product-candidate tip
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
 `3ed632e6f6aa1e3ca7f32d893773de1079086ffb` with 10 successful checks and 4
-intentional non-publication skips, the current 346-path local plan plus
-complete 393-path / three-phase whole-PR review coverage, the
+intentional non-publication skips, the current 347-path local plan plus
+complete 394-path / three-phase whole-PR review coverage, the
 bounded one-card PR review overview and seven exact drill-down slices with
 Git-derived text budgets, top-three hotspots, and named binary review paths, the
 four role-based capability lanes with a two-reviewer advisory target and no
@@ -251,6 +251,15 @@ doctor output, an explicit no-session statement, and the first actionable
 finding without claiming a nonexistent ZIP review. All four checklist items
 remain required. Thirty-two focused and 39 S6 docs/product regressions plus
 strict MkDocs pass; this performs no issue, attachment, or GitHub write.
+Exact follow-up `51496ca576b668d9e7dc0e7fda39ebdc21b7e1c8` removes a
+location-disclosure risk from Autoware issue intake. Required diagnostics now
+use a projector summary and redacted command/verifier evidence; precise
+latitude, longitude, altitude, MGRS, grid, origin, and private paths become
+`REDACTED`. Map bundles, pointcloud/lanelet geometry, bags, raw private logs,
+and private-place screenshots are prohibited, with three required privacy
+attestations and matching SUPPORT/map-authoring guidance. Thirty-three focused
+and 40 S6 docs/product regressions plus strict MkDocs pass; this performs no
+attachment, issue, acceptance, or GitHub write.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state

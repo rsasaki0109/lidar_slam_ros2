@@ -10,11 +10,11 @@
 > Frozen public review baseline (machine key `public_head_sha`):
 > `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
-> Planned follow-up inventory: 346 paths; SHA-256
-> `1432ebf405e69fc268b4fb659d061d6a53716c5cc6009094062c07b478738327`
+> Planned follow-up inventory: 347 paths; SHA-256
+> `18d1ccecba972cdf6acb43a17ef560f48f7161e8afa401db852dda9f9b1053fe`
 >
-> Composed whole-PR inventory: 393 paths from `86fa9b6`; SHA-256
-> `9186edd7c4294c05e3f45d69235753a52fe62445eb8cb33102cd18dd9d84589b`
+> Composed whole-PR inventory: 394 paths from `86fa9b6`; SHA-256
+> `125ce0a496285a48891b0deb14dd9e5551843b1c9dbf6a2af996ac8322db7580`
 >
 > Capture-time exact public Draft head:
 > `c1fc2847fb06637cbcd2aac61f4fde318364dfd2`
@@ -57,6 +57,9 @@
 >
 > Exact pre-session bug-intake implementation tip:
 > `4b1707cdbc2dc41f3d7b52aa8c598841fc925767`
+>
+> Exact location-safe Autoware-intake implementation tip:
+> `51496ca576b668d9e7dc0e7fda39ebdc21b7e1c8`
 >
 > Exact bounded map-quality symptom triage implementation tip:
 > `ee453532a70d2d4b82a6c50c65f19b22d76c239f`
@@ -104,8 +107,8 @@ path relative to the exact PR base has exactly one primary review owner. A
 fail-closed checker rejects missing, stale, duplicated, unsafe, or
 digest-drifted paths and rejects a plan that claims GitHub write authority.
 The same checker composes the original 116-path audit, the exact two-commit /
-11-path CI bridge, and this 346-path follow-up. Their union must equal the
-current 393-path whole-PR diff with no uncovered or extraneous path. The bridge
+11-path CI bridge, and this 347-path follow-up. Their union must equal the
+current 394-path whole-PR diff with no uncovered or extraneous path. The bridge
 is reviewed explicitly in
 [`g0-pr-review-coverage-2026-08-17.md`](g0-pr-review-coverage-2026-08-17.md).
 
@@ -148,8 +151,8 @@ body until the exact canonical upstream Draft exists.
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 38 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded release-or-candidate Docker/source measurement, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session execution, authenticated exact-host GET-only public preflight and fixture audit, and byte-bound validation-receipt plus SHA-bound supplement paths for retained observations | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 74 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, actionable missing-benchmark reports, write-free NTU and RTK-SLAM acquisition planning with official immutable identities, exact byte shortages, attached-storage discovery, and capacity fail-fast, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a shared read-only environment preflight and four-artifact byte audit remain explicit; no mount, E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
-| S6 product-shell integration | 152 | the coherent three-goal README and canonical Getting Started choosers, installed home, path-private bag-optional doctor with one dependency-ordered **Do this now** action, copy-ready low-storage and Odometry/TF timing recovery, issue-driven other-PointCloud2 `doctor` → `start` handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison with atomically visible collision-preserving cache entries, neutral GLIM usability scorecard with a schema-bound GET-only public-pair preflight, SHA-bound preparation receipt, retained untouched source archive, and receipt-required final validation, claim-bounded short-demo card/video/captions/copy, fail-closed worksheet generators, atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue with a dependency-gated and schema-valid GET-only live card that keeps independent maintainer review moving while #422 is blocked, binds one title/labels/body handoff without granting issue authority, and requires PR #427 merged plus an exact public-`develop` queue match before publication review, source- and evidence-hashed issue-triage review packets whose #69 Draft/CI and stable-release claims are source-bound and live-checked, a shared helper that obtains existing gh credentials without exposing them and attaches them only to exact GitHub HTTPS GETs, machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, honest FAIL-without-receipt validation intake, and pre-session bug intake without fake ZIP claims or weakened diagnostics/privacy requirements, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, one-option Draft/environment/release transition audit with a schema-bound fresh-packet gate, compressed-bag playback evidence, one-command G0 readiness dashboard, role-based Draft review routing, and append-only anonymous lane evidence agree | complete product gate and public CI |
-| S7 publication control | 7 | all 346 follow-up paths are owned once, all 393 whole-PR paths are covered by three sequential review phases, and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
+| S6 product-shell integration | 153 | the coherent three-goal README and canonical Getting Started choosers, installed home, path-private bag-optional doctor with one dependency-ordered **Do this now** action, copy-ready low-storage and Odometry/TF timing recovery, issue-driven other-PointCloud2 `doctor` → `start` handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison with atomically visible collision-preserving cache entries, neutral GLIM usability scorecard with a schema-bound GET-only public-pair preflight, SHA-bound preparation receipt, retained untouched source archive, and receipt-required final validation, claim-bounded short-demo card/video/captions/copy, fail-closed worksheet generators, atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue with a dependency-gated and schema-valid GET-only live card that keeps independent maintainer review moving while #422 is blocked, binds one title/labels/body handoff without granting issue authority, and requires PR #427 merged plus an exact public-`develop` queue match before publication review, source- and evidence-hashed issue-triage review packets whose #69 Draft/CI and stable-release claims are source-bound and live-checked, a shared helper that obtains existing gh credentials without exposing them and attaches them only to exact GitHub HTTPS GETs, machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, honest FAIL-without-receipt validation intake, pre-session bug intake without fake ZIP claims or weakened diagnostics/privacy requirements, and location-safe Autoware intake that forbids precise projector coordinates and map geometry, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, one-option Draft/environment/release transition audit with a schema-bound fresh-packet gate, compressed-bag playback evidence, one-command G0 readiness dashboard, role-based Draft review routing, and append-only anonymous lane evidence agree | complete product gate and public CI |
+| S7 publication control | 7 | all 347 follow-up paths are owned once, all 394 whole-PR paths are covered by three sequential review phases, and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -221,7 +224,7 @@ from that base and the local tip descends from the public head, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 346-path follow-up coverage with the fixed inventory digest;
+4. exact 347-path follow-up coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred;
 7. no mixed `lidarslam/test` and `graph_based_slam/test` pytest process;
@@ -232,7 +235,7 @@ from that base and the local tip descends from the public head, then requires:
 12. exact two-commit / 11-path bridge identity and allowlist;
 13. contiguous, linear initial → bridge → follow-up ancestry;
 14. exact commit-count composition across all three ranges; and
-15. exact 393-path whole-PR coverage by the three-phase union, with no missing
+15. exact 394-path whole-PR coverage by the three-phase union, with no missing
     or extraneous path; and
 16. exact `git diff --numstat` path identity for the whole PR and all three
     phases before any review budget or hotspot is rendered.
@@ -245,8 +248,8 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 346 follow-up paths / 7 slices and 393 whole-PR paths / 3 phases; 11 bridge paths, 74 overlapping paths, 0 uncovered, 0 extraneous, 0 merge commits, no remote mutation |
-| privacy-safe review routing | 4 role-based lanes cover all 7 slices, 346 paths, and 33 verification groups exactly once; advisory target 2, no stored identities, no reviewer request/review/ready/merge authority |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 347 follow-up paths / 7 slices and 394 whole-PR paths / 3 phases; 11 bridge paths, 74 overlapping paths, 0 uncovered, 0 extraneous, 0 merge commits, no remote mutation |
+| privacy-safe review routing | 4 role-based lanes cover all 7 slices, 347 paths, and 33 verification groups exactly once; advisory target 2, no stored identities, no reviewer request/review/ready/merge authority |
 | anonymous review ledger | 9 focused regressions pass; exact-head/routing digest, append-only event sequence, lane dependencies, in-slice paths, bounded privacy-safe findings, canonical atomic external output, historical/current blocker separation, bundle inclusion, and all no-GitHub-authority fields are enforced |
 | claim-bounded social media | 11 focused regressions plus 25 public docs/release entrypoint regressions pass; the generated 10.666-second H.264 candidate, four-cue WebVTT, exact-revision Japanese/English copy, and byte manifest retain no external publication authority |
 | checker regressions | 34 passed, including omission, stale path, duplicate owner, dependency inversion, follow-up/bridge/whole-PR digest drift, bridge allowlist drift, phase discontinuity, uncovered whole-PR paths, unsafe or out-of-phase review records, lineage drift, commit-range composition, malformed/stale numstat rejection, exact line-budget composition across the seven slices, named binary review paths, authority rejection, bounded human/JSON overview and slice cards, mutually exclusive output modes, unknown-slice rejection, self-contained source, lifecycle ROS-bag, and product-shell ROS-bag verification, clean-checkout build-before-test enforcement, package-test process isolation, cache suppression, and recognized direct remote-write CLI refusal |
@@ -254,14 +257,14 @@ cannot bypass live Git coverage.
 | v1 live child-state propagation | 18 focused regressions pass; the parent accepts exactly the six package-manager report states, exposes the observed child status in schema-valid JSON and the human tuple, keeps unknown states invalid, and requires `READY` before distribution can close |
 | exact displayed S1 command | from a clean checkout, an ordinary unsourced shell sourced `${ROS_DISTRO:-jazzy}`, built every tested package and its dependencies, tested `graph_based_slam` and `scanmatcher`, and reported 3,076 test cases with 0 errors, 0 failures, and 126 skips |
 | S1 rejected-map-update threshold retry | exact implementation `99cce93`; one pure commit-state regression passes; the real asynchronous component rejects an unsafe translated cloud above a positive 0.02 m threshold, publishes the same-geometry safe retry without further travel, and passes 10 / 10 independent Jazzy processes; worker exceptions stay inside the component boundary; exact public `7b3cb99` runs the component target successfully on both Humble and Jazzy, while issue response and named release remain separate gates |
-| exact displayed S6 product-shell command | command-contract implementation `0633c2a`, three-goal entrypoint tips `8a8876a`/`1e56431`, honest FAIL intake `da99c7e`, and pre-session bug intake `4b1707c`; an ordinary unsourced shell restores `${ROS_DISTRO:-jazzy}` before importing `rosbag2_py` and passes all 39 graph docs/product-CLI tests; deleting the prelude now fails plan validation before a reviewer sees the card |
-| focused graph product/docs regressions | 39 passed in a Jazzy-sourced isolated package process, including matching first-goal boundaries, retained advanced actions, parsed first-map PASS/FAIL semantics, and parsed bug-form session/pre-session diagnostics and ZIP/privacy semantics; an additional 15 diagnosis regressions cover all five user-reported map symptoms and missing-bag/root-cause boundaries |
+| exact displayed S6 product-shell command | command-contract implementation `0633c2a`, three-goal entrypoint tips `8a8876a`/`1e56431`, honest FAIL intake `da99c7e`, pre-session bug intake `4b1707c`, and location-safe Autoware intake `51496ca`; an ordinary unsourced shell restores `${ROS_DISTRO:-jazzy}` before importing `rosbag2_py` and passes all 40 graph docs/product-CLI tests; deleting the prelude now fails plan validation before a reviewer sees the card |
+| focused graph product/docs regressions | 40 passed in a Jazzy-sourced isolated package process, including matching first-goal boundaries, parsed first-map and bug-form semantics, and parsed Autoware command/projector/artifact/privacy requirements that forbid precise locations and geometry; an additional 15 diagnosis regressions cover all five user-reported map symptoms and missing-bag/root-cause boundaries |
 | first-map submission UX regressions | 117 passed across support handoff, CLI contract, receipt, acceptance, readiness, and runner suites |
 | validator cohort contract and operating state | 33 passed; path-specific immutable runtime identity, byte-bound public documentation, anonymized attempt lifecycle, accepted-ledger evidence binding, four operational stop signals, 48-hour freshness, WIP, batch/target transitions, attempt-10 thresholds, and a one-action human status card are enforced through the CLI; recruitment render remains blocked; no write authority |
 | published starter dependency gate | 71 queue regressions pass; the schema-valid live card keeps #422 visible but ineligible under `WAITING_FOR_PUBLIC_GATES`, preserves unrelated starter eligibility, prioritizes duplicate review then one independent local maintainer preview, binds its exact title/labels/heading-free body and three digests, and requires PR #427 merged plus an exact canonical queue match on public `develop` before publication review; current GET-only state is `WAITING_FOR_PRODUCT_MERGE` / queue `ABSENT`, while closed-unmerged, missing, drift, wrong-base, wrapped-base64, 404, body/task tampering, arbitrary gate commands, and write authority all fail closed |
 | issue-triage application packet | 34 application and 19 proposal regressions pass; the complete authenticated live audit remains `PASS` for all 29 open issues and the label catalog, source-binds #69 to exact public Draft head `4b2ab514` with 10 successful checks and 4 intentional skips, verifies latest stable `v0.9.0`/`0df0c4a` is 52 commits behind fix `a2368c4` while `v0.9.1` tag/release remain absent, produces 23 closure drafts, 4 reproduction requests, 9 dependency-review rows, and one monitor-only row, and keeps every write authority false |
 | protected candidate environment | 29 passed across the shared environment/candidate gate; complete authenticated inventory, GET-only transport, exact reviewer/self-review/branch policy, unknown-rule refusal, workflow path trigger, and no-write/E2 authority are enforced; actionlint v1.7.12 and CTest 2 / 2 pass |
-| G0 readiness dashboard | 25 focused regressions pass; one-command local HOLD card, mandatory 393-path / three-phase whole-PR review coverage, bounded exact-head Draft/CI audit, clean-worktree refusal, authenticated exact-host GET-only transport, a schema-bound overview → P0/P1/P2 → S1–S7 → R1–R4 review sequence, optional anonymous ledger summary, Draft → separate merge → environment dependency order, one-option complete public transition audit, release-state-bound fresh-packet eligibility, unsafe or mismatched version refusal, one next action, child-authority refusal, and checker-error fail-closed behavior are covered |
+| G0 readiness dashboard | 25 focused regressions pass; one-command local HOLD card, mandatory 394-path / three-phase whole-PR review coverage, bounded exact-head Draft/CI audit, clean-worktree refusal, authenticated exact-host GET-only transport, a schema-bound overview → P0/P1/P2 → S1–S7 → R1–R4 review sequence, optional anonymous ledger summary, Draft → separate merge → environment dependency order, one-option complete public transition audit, release-state-bound fresh-packet eligibility, unsafe or mismatched version refusal, one next action, child-authority refusal, and checker-error fail-closed behavior are covered |
 | published onboarding identity and packet | 18 passed; release packet identity is report-derived, manual overrides fail closed, exact tag commit and both live image digests are rechecked, release/candidate modes stay separate, and no trial or publication authority is added |
 | affected registered CTest | 4 / 4 pass after a clean Jazzy reconfigure; publication-plan, G0-readiness, packet, and published-identity registrations execute through ament |
 | weekly growth snapshot | 14 passed; new snapshots re-derive cohort count/rate/state consistency while the immutable historical baseline remains schema-valid and identity-free |
