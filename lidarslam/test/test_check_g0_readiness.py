@@ -304,14 +304,14 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['publication_plan']['status'] == (
         'PLAN_VALID_LOCAL_ONLY'
     )
-    assert report['checks']['publication_plan']['path_count'] == 341
+    assert report['checks']['publication_plan']['path_count'] == 342
     assert report['checks']['publication_plan'][
         'whole_pr_commit_count'
     ] >= 315
     assert report['checks']['publication_plan'][
         'follow_up_review_commit_count'
     ] >= 271
-    assert report['checks']['publication_plan']['whole_pr_path_count'] == 390
+    assert report['checks']['publication_plan']['whole_pr_path_count'] == 391
     assert report['checks']['publication_plan']['review_phase_count'] == 3
     assert report['checks']['publication_plan'][
         'review_coverage_complete'
@@ -342,11 +342,22 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         'S6-product-shell-integration',
         'S7-publication-control',
     ]
-    assert sum(item['path_count'] for item in navigation['slices']) == 341
+    assert sum(item['path_count'] for item in navigation['slices']) == 342
     assert navigation['commands_executed'] is False
     assert navigation['github_writes_authorized'] is False
     routing = report['checks']['product_draft_review_routing']
-    assert routing['status'] == 'PREPARED_DIRTY_WORKTREE'
+    expected_routing_status = (
+        'READY_LOCAL_ONLY'
+        if report['checks']['publication_plan']['worktree_clean']
+        else 'PREPARED_DIRTY_WORKTREE'
+    )
+    assert routing['status'] == expected_routing_status
+    assert routing['worktree_clean'] is report['checks'][
+        'publication_plan'
+    ]['worktree_clean']
+    assert routing['uncommitted_path_count'] == report['checks'][
+        'publication_plan'
+    ]['uncommitted_path_count']
     assert [item['id'] for item in routing['lanes']] == [
         'R1-runtime-safety',
         'R2-operator-ux',
@@ -356,7 +367,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert routing['summary'] == {
         'lane_count': 4,
         'slice_count': 7,
-        'path_count': 341,
+        'path_count': 342,
         'verification_count': 33,
         'unassigned_slice_count': 0,
         'duplicate_slice_count': 0,
@@ -463,7 +474,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     card = DASHBOARD.render_card(report)
     assert card.count('Next action:') == 1
     assert 'GitHub/community writes: **no**' in card
-    assert '| review roles | PREPARED_DIRTY_WORKTREE |' in card
+    assert f'| review roles | {expected_routing_status} |' in card
     assert '4 capability lanes / advisory target 2' in card
     assert 'identities: none; reviewer requests: false' in card
     assert '| review ledger | NOT_CHECKED |' in card
@@ -543,9 +554,9 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         '10 successful checks and 4\nintentional non-publication skips'
         in scorecard
     )
-    assert 'current 341-path local plan' in scorecard
+    assert 'current 342-path local plan' in scorecard
     assert (
-        'complete 390-path / three-phase whole-PR review coverage'
+        'complete 391-path / three-phase whole-PR review coverage'
         in scorecard
     )
 
@@ -806,7 +817,7 @@ def test_exact_green_draft_is_reviewed_before_candidate_environment():
         'pull_request': 427,
         'url': 'https://github.com/rsasaki0109/lidar_slam_ros2/pull/427',
         'exact_head': head,
-        'whole_pr_path_count': 390,
+        'whole_pr_path_count': 391,
         'review_phase_count': 3,
         'slice_count': 7,
         'overview_command': (
@@ -839,7 +850,7 @@ def test_exact_green_draft_is_reviewed_before_candidate_environment():
     assert 'merge authorized: false' in card
     assert 'Draft review sequence (not executed):' in card
     assert f'- Exact head: `{head}`' in card
-    assert '- Coverage: 390 paths / 3 phases / 7 slices' in card
+    assert '- Coverage: 391 paths / 3 phases / 7 slices' in card
     assert (
         'Slice template: `python3 scripts/check_publication_slice_plan.py '
         '--slice <ID>`'
@@ -877,14 +888,14 @@ def test_exact_green_draft_refreshes_stale_description_before_review():
     ).hexdigest()
     assert f'Candidate head: `{head}`' in handoff['body']
     assert 'Whole PR review: **' in handoff['body']
-    assert '390 paths / 3 phases**' in handoff['body']
-    assert '341 paths / 7 slices**' in handoff['body']
+    assert '391 paths / 3 phases**' in handoff['body']
+    assert '342 paths / 7 slices**' in handoff['body']
     assert '## Exact review map' in handoff['body']
     assert handoff['body'].count('[Open exact diff](') == 3
     assert (
         f'{DASHBOARD.PRODUCT_GITHUB_URL}/compare/' in handoff['body']
     )
-    assert '| `S1` | Runtime point-cloud and VoxelGrid safety | 15 | 3 |' in (
+    assert '| `S1` | Runtime point-cloud and VoxelGrid safety | 16 | 3 |' in (
         handoff['body']
     )
     assert '| `S7` | Exact publication inventory and authority boundary |' in (
@@ -892,7 +903,7 @@ def test_exact_green_draft_refreshes_stale_description_before_review():
     )
     assert '## Review roles' in handoff['body']
     assert handoff['body'].count('| `R') == 4
-    assert '| `R1` | S1, S2 | 49 | 5 |' in handoff['body']
+    assert '| `R1` | S1, S2 | 50 | 5 |' in handoff['body']
     assert '| `R4` | S6, S7 | 157 | 15 |' in handoff['body']
     assert (
         'Advisory reviewer target: **2** (target only; not a merge gate). '

@@ -986,7 +986,7 @@ reduces scorecard command discovery and setup failures; it does not replace the
 still-missing neutral paired GLIM trial or comparable G0 evidence.
 
 The historical 207-path follow-up from the frozen comparison base has since
-been expanded into the current 341-path exact
+been expanded into the current 342-path exact
 [dependency-ordered publication slice plan](../evidence/growth/g0-publication-slice-plan-2026-08-12.md).
 Its checker gives every path one review owner across runtime safety, first-map
 foundation, map lifecycle, source onboarding, distribution, product-shell
@@ -999,7 +999,7 @@ The later
 closes a review-boundary gap between the original 116-path clean-candidate
 audit and that follow-up plan. The machine gate now composes the initial audit,
 the exact two-commit / 11-path CI bridge, and all seven follow-up slices into
-the final 390-path PR inventory. Missing phase paths, changed fixed SHA/digest,
+the final 391-path PR inventory. Missing phase paths, changed fixed SHA/digest,
 an unapproved bridge path, non-linear history, or an unsafe review record fails
 closed before the G0 dashboard can advance. This makes a very large Draft
 reviewable without treating a green local plan as push, merge, release, or
@@ -1007,9 +1007,9 @@ community authority.
 
 The same checker now renders one bounded `--overview` card before reviewers
 drill into the seven exact `--slice` cards. It shows the three contiguous
-commit ranges, 390-path union, overlap/missing/extra results, slice sizes,
+commit ranges, 391-path union, overlap/missing/extra results, slice sizes,
 dependencies, verification counts, and publication gates without pasting the
-complete 341-path follow-up inventory into the PR summary. Human and JSON
+complete 342-path follow-up inventory into the PR summary. Human and JSON
 forms stay local-only, execute no displayed check, and cannot submit a review
 or authorize a push, ready transition, or merge. This targets the current
 review bottleneck—an otherwise verified but very large Draft—without adding
@@ -1029,7 +1029,7 @@ state, and the latest exact-head check runs. Draft review and the separate
 merge decision are selected before any `candidate-images` administration;
 green CI never grants merge, environment, E2, E3, or E4 authority.
 When that exact Draft is green, the dashboard now carries a schema-bound review
-handoff: exact head, 390-path / three-phase / seven-slice coverage, overview,
+handoff: exact head, 391-path / three-phase / seven-slice coverage, overview,
 slice template, and a fixed overview → P0/P1/P2 → S1–S7 sequence. It refuses
 the handoff when the worktree is dirty and selects read-only status inspection
 instead. It also requires the public PR body to match the canonical clean-tip

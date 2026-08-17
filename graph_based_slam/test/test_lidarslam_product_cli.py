@@ -242,6 +242,8 @@ def test_run_dry_run_and_inspect_delegate_to_proven_tools(tmp_path: Path):
         str(bag),
         '--output-dir',
         str(output),
+        '--min-free-space-gib',
+        '0.001',
         '--dry-run',
     )
     assert run_result.returncode == 0, run_result.stderr

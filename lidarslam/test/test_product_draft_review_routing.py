@@ -54,7 +54,7 @@ def _contract() -> dict:
 
 def _overview() -> dict:
     slices = [
-        ('S1-runtime-safety', 15, 3, []),
+        ('S1-runtime-safety', 16, 3, []),
         ('S2-first-map-foundation', 34, 2, ['S1-runtime-safety']),
         ('S3-map-lifecycle', 25, 2, ['S2-first-map-foundation']),
         ('S4-source-onboarding', 36, 2, ['S2-first-map-foundation']),
@@ -94,7 +94,7 @@ def _overview() -> dict:
         'status': 'PR_REVIEW_OVERVIEW_READY_LOCAL_ONLY',
         'candidate': {
             'local_tip_sha': '1' * 40,
-            'follow_up_path_count': 341,
+            'follow_up_path_count': 342,
             'slice_count': 7,
             'review_coverage_complete': True,
             'merge_commit_count': 0,
@@ -134,7 +134,7 @@ def test_routing_assigns_every_slice_once_without_collecting_identity():
     assert report['summary'] == {
         'lane_count': 4,
         'slice_count': 7,
-        'path_count': 341,
+        'path_count': 342,
         'verification_count': 33,
         'unassigned_slice_count': 0,
         'duplicate_slice_count': 0,
@@ -143,7 +143,7 @@ def test_routing_assigns_every_slice_once_without_collecting_identity():
         ROUTING.EXPECTED_LANE_IDS
     )
     assert [lane['path_count'] for lane in report['lanes']] == [
-        49,
+        50,
         61,
         74,
         157,

@@ -35,6 +35,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
+import shlex
 import subprocess
 import sys
 from typing import Any, Sequence
@@ -336,6 +337,53 @@ def _validate_verification_command(slice_id: str, command: str) -> None:
         raise PlanError(
             f'{slice_id} ROS-dependent verification must source ROS first'
         )
+    if 'colcon test --packages-select' in command:
+        try:
+            tokens = shlex.split(command)
+        except ValueError as exc:
+            raise PlanError(
+                f'{slice_id} verification command has invalid shell quoting'
+            ) from exc
+        test_index = next(
+            (
+                index for index in range(len(tokens) - 1)
+                if tokens[index:index + 2] == ['colcon', 'test']
+            ),
+            None,
+        )
+        build_index = next(
+            (
+                index for index in range(len(tokens) - 1)
+                if tokens[index:index + 2] == ['colcon', 'build']
+            ),
+            None,
+        )
+
+        def option_values(option: str) -> set[str]:
+            try:
+                index = tokens.index(option)
+            except ValueError:
+                return set()
+            values = []
+            for token in tokens[index + 1:]:
+                if token == '&&' or token.startswith('-'):
+                    break
+                values.append(token)
+            return set(values)
+
+        tested_packages = option_values('--packages-select')
+        built_packages = option_values('--packages-up-to')
+        if (
+            test_index is None
+            or build_index is None
+            or build_index >= test_index
+            or not tested_packages
+            or not tested_packages <= built_packages
+        ):
+            raise PlanError(
+                f'{slice_id} colcon verification must build all tested '
+                'packages first with --packages-up-to'
+            )
 
 
 def _validate_candidate_lineage(

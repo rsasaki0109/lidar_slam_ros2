@@ -49,6 +49,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / 'scripts' / 'run_autoware_map_from_bag.py'
 BEGINNER_SCRIPT_PATH = REPO_ROOT / 'scripts' / 'run_autoware_map_beginner.sh'
+TEST_MIN_FREE_SPACE_GIB = 0.001
 
 
 def _load_module():
@@ -57,6 +58,7 @@ def _load_module():
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    module.DEFAULT_MIN_FREE_SPACE_GIB = TEST_MIN_FREE_SPACE_GIB
     return module
 
 
@@ -1165,6 +1167,7 @@ def test_sigterm_failure_injection_preserves_recoverable_terminal_run(
         "spec = importlib.util.spec_from_file_location('runner_e2e_probe', script)",
         'module = importlib.util.module_from_spec(spec)',
         'spec.loader.exec_module(module)',
+        f'module.DEFAULT_MIN_FREE_SPACE_GIB = {TEST_MIN_FREE_SPACE_GIB!r}',
         'module.build_execution_plan = lambda **kwargs: {',
         "    'payload': {},",
         "    'profile_id': 'rko_lio_graph_public_path',",
@@ -1543,6 +1546,8 @@ def test_runner_rejects_incompatible_profile_with_available_hint(tmp_path: Path)
             str(bag_dir),
             '--profile',
             'pointcloud_gnss_smoke',
+            '--min-free-space-gib',
+            str(TEST_MIN_FREE_SPACE_GIB),
             '--dry-run',
         ],
         check=False,

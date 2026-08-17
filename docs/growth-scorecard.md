@@ -116,8 +116,8 @@ Draft PR #427, the reviewed product-candidate tip
 tip, followed by later docs-only handoff synchronization and product UX
 follow-ups, capture-time public Draft baseline
 `3ed632e6f6aa1e3ca7f32d893773de1079086ffb` with 10 successful checks and 4
-intentional non-publication skips, the current 341-path local plan plus
-complete 390-path / three-phase whole-PR review coverage, the
+intentional non-publication skips, the current 342-path local plan plus
+complete 391-path / three-phase whole-PR review coverage, the
 bounded one-card PR review overview and seven exact drill-down slices with
 Git-derived text budgets, top-three hotspots, and named binary review paths, the
 four role-based capability lanes with a two-reviewer advisory target and no

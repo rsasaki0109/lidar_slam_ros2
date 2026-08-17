@@ -7,14 +7,14 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 341,
-    "expected_paths_sha256": "743185bec87f51b9cd2995f4506db24d55cfbbd28ace0ee671076664e68d39a6",
+    "expected_path_count": 342,
+    "expected_paths_sha256": "8efd7497ed5d87cf1de0416b9922f5a39b636549d9186a62692e0063bf89c27a",
     "scope": "worktree-delta-from-pr-base"
   },
   "whole_pr_review": {
     "base_sha": "86fa9b610c07ccf4d2b0f10939e17c129d34b40a",
-    "expected_path_count": 390,
-    "expected_paths_sha256": "9aa1dc356f4c54f47689043600e8a7518b93436cfda02c3d9df52b2bdbb68f41",
+    "expected_path_count": 391,
+    "expected_paths_sha256": "a84c2586c223210e6bf931fcba9c3bea4fe1d0d1fe01d8a039a78c060c3e9dbf",
     "coverage_policy": "union-covers-final-diff",
     "linear_history_required": true,
     "initial_review": {
@@ -70,6 +70,7 @@
         "graph_based_slam/src/graph_slam_application.cpp",
         "graph_based_slam/src/graph_slam_offline_runner.cpp",
         "graph_based_slam/src/graph_slam_ros_adapter.cpp",
+        "graph_based_slam/test/test_mid360_robot_public_dataset_map_runner.py",
         "graph_based_slam/test/test_mid360_robot_tools.py",
         "graph_based_slam/test/test_pointcloud_conversion.cpp",
         "scanmatcher/CHANGELOG.rst",
@@ -81,7 +82,7 @@
       ],
       "verification": [
         "python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_mid360_robot_tools.py -k frame",
-        "source \"/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash\" && colcon test --packages-select graph_based_slam scanmatcher",
+        "source \"/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash\" && colcon build --packages-up-to graph_based_slam scanmatcher && colcon test --packages-select graph_based_slam scanmatcher",
         "colcon test-result --verbose"
       ],
       "publication_gate": "PUBLIC_CI"

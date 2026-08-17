@@ -155,7 +155,7 @@ about the unavailable historical bag.
 | Environment | Exact substrate | Build | Boundary suite | Component recovery | Complete scanmatcher CTest |
 | --- | --- | --- | --- | --- | --- |
 | Humble | immutable local image `ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:f1a894d81b5cb7b4e2e55a7b3fc17e538722b59c07b0bec066f2ad499a5e8447`; PCL `1.12.1+dfsg-3build1`; GCC `11.4.0`; installed `lidarslam_msgs 0.9.0` and `ndt_omp_ros2 0.1.0` underlay | prior clean read-only build PASS; exact public `7b3cb99` default workflow PASS | prior 11 / 11 PASS | exact-public `test_scanmatcher_voxel_grid_recovery` target PASS in 2.84 s; prior async 10 / 10 independent-process PASS | exact-public 10 / 10 scanmatcher PASS; complete default workflow 4,241 cases / 0 errors / 0 failures / 151 skips |
-| Jazzy | Ubuntu 24.04 host; PCL `1.14.0+dfsg-1`; GCC `13.3.0`; installed `lidarslam_msgs 0.9.1` and `ndt_omp_ros2 0.1.0` underlay | local exact implementation and public `7b3cb99` default workflow PASS | 11 / 11 PASS | exact-public `test_scanmatcher_voxel_grid_recovery` target PASS in 2.87 s; local positive-threshold retry 10 / 10 independent-process PASS | exact-public 10 / 10 scanmatcher PASS; complete default workflow 4,355 cases / 0 errors / 0 failures / 151 skips; local S1 command 4,253 / 127 skips |
+| Jazzy | Ubuntu 24.04 host; PCL `1.14.0+dfsg-1`; GCC `13.3.0`; installed `lidarslam_msgs 0.9.1` and `ndt_omp_ros2 0.1.0` underlay | local exact implementation and public `7b3cb99` default workflow PASS | 11 / 11 PASS | exact-public `test_scanmatcher_voxel_grid_recovery` target PASS in 2.87 s; local positive-threshold retry 10 / 10 independent-process PASS | exact-public 10 / 10 scanmatcher PASS; complete default workflow 4,355 cases / 0 errors / 0 failures / 151 skips; current clean-checkout S1 command 3,076 / 126 skips |
 
 The complete CTest set includes lidar undistortion, math utilities, odometry
 prior, pose prediction, pose acceptance, IMU processing, map-update policy,
@@ -180,8 +180,11 @@ Formatting and documentation checks also passed:
 - `git diff --check`.
 
 At exact implementation `99cce93`, the complete maintained Python gate passes
-2,486 tests with 13 skips and 11 existing ImageIO warnings. The exact displayed
-S1 command reports 4,253 test cases with 0 errors, 0 failures, and 127 skips.
+2,486 tests with 13 skips and 11 existing ImageIO warnings. The historical S1
+carrier reported 4,253 test cases with 0 errors, 0 failures, and 127 skips. The
+2026-08-17 R1 review then reran the self-contained command from a clean
+checkout, building all tested packages first, and reported 3,076 test cases
+with 0 errors, 0 failures, and 126 skips.
 Two byte-identical candidate-bundle rehearsals contain 261 files, total
 11,931,414 bytes, and have SHA-256
 `5f8429e4038ca6567b2bbdb0bb00e36e5c08160631ad30ff77c7422f5080f345`.

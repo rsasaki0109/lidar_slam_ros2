@@ -22,7 +22,7 @@
         "S2-first-map-foundation"
       ],
       "depends_on_lanes": [],
-      "expected_path_count": 49,
+      "expected_path_count": 50,
       "expected_verification_count": 5
     },
     {
