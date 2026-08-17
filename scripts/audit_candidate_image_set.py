@@ -12,11 +12,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from pathlib import Path
 import re
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from create_candidate_image_record import build_candidate_image_record
@@ -327,6 +327,7 @@ def _base_report(
         'product_version': candidate_set['product_version'],
         'workflow_run_url': candidate_set['workflow_run_url'],
         'workflow_branch_ref': candidate_set['workflow_branch_ref'],
+        'workflow_gate_commit': candidate_set['workflow_gate_commit'],
         'requested_by': candidate_set['requested_by'],
         'retained_evidence': {
             'status': (
@@ -341,6 +342,7 @@ def _base_report(
             'event': None,
             'conclusion': None,
             'head_branch': None,
+            'head_sha': None,
             'path': None,
         },
         'artifacts': {
@@ -527,6 +529,7 @@ def audit_candidate_set(
             'event': run.get('event'),
             'conclusion': run.get('conclusion'),
             'head_branch': run.get('head_branch'),
+            'head_sha': run.get('head_sha'),
             'path': run.get('path'),
         })
         run_ok = (
@@ -536,6 +539,7 @@ def audit_candidate_set(
             and run.get('status') == 'completed'
             and run.get('conclusion') == 'success'
             and run.get('head_branch') == 'develop'
+            and run.get('head_sha') == candidate_set['workflow_gate_commit']
             and run.get('path') == EXPECTED_WORKFLOW_PATH
         )
         report['workflow']['status'] = 'PASS' if run_ok else 'FAIL'
@@ -556,8 +560,21 @@ def audit_candidate_set(
         findings.append('workflow-artifacts-unavailable')
     else:
         artifacts = artifacts_payload.get('artifacts')
-        if not isinstance(artifacts, list):
+        declared_count = artifacts_payload.get('total_count')
+        if (
+            not isinstance(artifacts, list)
+            or declared_count != len(artifacts)
+            or len(artifacts) > 100
+            or not all(isinstance(artifact, dict) for artifact in artifacts)
+        ):
             artifacts = []
+            metadata_ok = False
+        else:
+            metadata_ok = (
+                len(artifacts) == len(EXPECTED_ARTIFACTS)
+                and {artifact.get('name') for artifact in artifacts}
+                == set(EXPECTED_ARTIFACTS)
+            )
         by_name: dict[str, list[dict[str, Any]]] = {
             name: [] for name in EXPECTED_ARTIFACTS
         }
@@ -567,7 +584,6 @@ def audit_candidate_set(
             name = artifact.get('name')
             if name in by_name:
                 by_name[name].append(artifact)
-        metadata_ok = True
         expires: list[str] = []
         for name in EXPECTED_ARTIFACTS:
             matches = by_name[name]
@@ -585,6 +601,8 @@ def audit_candidate_set(
                 or not isinstance(workflow_run, dict)
                 or workflow_run.get('id') != run_id
                 or workflow_run.get('head_branch') != 'develop'
+                or workflow_run.get('head_sha')
+                != candidate_set['workflow_gate_commit']
                 or not isinstance(expires_at, str)
                 or not expires_at
             ):

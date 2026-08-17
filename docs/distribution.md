@@ -409,8 +409,8 @@ Jazzy manifests by digest only (`push-by-digest=true`), creates no version,
 networking disabled, verifies SBOM, provenance, and GitHub attestation, and
 uploads these schema-backed artifacts for 30 days:
 
-- `candidate-image-request.json` — exact PR, actor, environment, and CI
-  authorization;
+- `candidate-image-request.json` — exact PR, actor, environment, CI
+  authorization, and immutable default-branch gate commit;
 - `candidate-image-humble.json` and `candidate-image-jazzy.json` — exact
   source/digest records with an empty `tags_created` array; and
 - `candidate-image-set.json` — a complete, distinct, same-source pair.

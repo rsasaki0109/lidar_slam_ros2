@@ -8,22 +8,22 @@ directory atomically, and never runs a trial or mutates remote state.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from audit_candidate_image_set import (
+    audit_candidate_bundle,
     EVIDENCE_FILES,
     EXPECTED_REPOSITORY,
-    RUN_URL_RE,
-    audit_candidate_bundle,
     load_candidate_evidence_bundle,
+    RUN_URL_RE,
 )
 
 from prepare_onboarding_matrix_packet import (
@@ -308,6 +308,7 @@ def load_candidate_trial_handoff(directory: Path) -> dict[str, Any]:
         'product_version',
         'workflow_run_url',
         'workflow_branch_ref',
+        'workflow_gate_commit',
         'requested_by',
     )
     if any(audit[field] != local_audit[field] for field in identity_fields):
@@ -342,6 +343,7 @@ def load_candidate_trial_handoff(directory: Path) -> dict[str, Any]:
             'event': 'repository_dispatch',
             'conclusion': 'success',
             'head_branch': 'develop',
+            'head_sha': audit['workflow_gate_commit'],
             'path': '.github/workflows/candidate-image.yml',
         }
         and audit['artifacts']['required_names']

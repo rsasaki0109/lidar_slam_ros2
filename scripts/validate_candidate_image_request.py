@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 from typing import Any, Sequence
 
 from check_candidate_environment import validate_candidate_environment
@@ -150,6 +150,7 @@ def validate_candidate_image_request(
     event_action: str,
     repository: str,
     workflow_branch_ref: str,
+    workflow_gate_commit: str,
     default_branch: str,
     source_pr: int,
     source_commit: str,
@@ -173,6 +174,10 @@ def validate_candidate_image_request(
     if workflow_branch_ref != f'refs/heads/{DEFAULT_BRANCH}':
         raise ValueError(
             'candidate workflow must execute from the default branch'
+        )
+    if COMMIT_RE.fullmatch(workflow_gate_commit) is None:
+        raise ValueError(
+            'workflow_gate_commit must be one lowercase 40-character SHA'
         )
     if approval != APPROVAL:
         raise ValueError('explicit immutable-digest E2 approval is missing')
@@ -214,6 +219,7 @@ def validate_candidate_image_request(
         'event_action': event_action,
         'default_branch': default_branch,
         'workflow_branch_ref': workflow_branch_ref,
+        'workflow_gate_commit': workflow_gate_commit,
         'source_pr': source_pr,
         'source_commit': source_commit,
         'product_version': product_version,
@@ -240,6 +246,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument('--event-action', required=True)
     parser.add_argument('--repository', required=True)
     parser.add_argument('--workflow-branch-ref', required=True)
+    parser.add_argument('--workflow-gate-commit', required=True)
     parser.add_argument('--default-branch', required=True)
     parser.add_argument('--source-pr', required=True, type=int)
     parser.add_argument('--source-commit', required=True)
@@ -272,6 +279,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             event_action=args.event_action,
             repository=args.repository,
             workflow_branch_ref=args.workflow_branch_ref,
+            workflow_gate_commit=args.workflow_gate_commit,
             default_branch=args.default_branch,
             source_pr=args.source_pr,
             source_commit=args.source_commit,

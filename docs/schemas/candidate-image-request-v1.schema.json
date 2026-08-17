@@ -14,6 +14,7 @@
     "event_action",
     "default_branch",
     "workflow_branch_ref",
+    "workflow_gate_commit",
     "source_pr",
     "source_commit",
     "product_version",
@@ -37,6 +38,10 @@
     "event_action": {"const": "e2-publish-candidate-image"},
     "default_branch": {"const": "develop"},
     "workflow_branch_ref": {"const": "refs/heads/develop"},
+    "workflow_gate_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
     "source_pr": {"type": "integer", "minimum": 1},
     "source_commit": {
       "type": "string",

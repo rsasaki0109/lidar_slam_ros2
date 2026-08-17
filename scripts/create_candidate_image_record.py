@@ -6,9 +6,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 from typing import Any, Sequence
 
 from product_schema import load_json_object, validate_contract
@@ -79,6 +79,7 @@ def build_candidate_image_record(
         'cli_version': cli_version,
         'workflow_run_url': workflow_run_url,
         'workflow_branch_ref': request['workflow_branch_ref'],
+        'workflow_gate_commit': request['workflow_gate_commit'],
         'requested_by': request['requested_by'],
         'tags_created': [],
         'moving_tags_mutated': False,

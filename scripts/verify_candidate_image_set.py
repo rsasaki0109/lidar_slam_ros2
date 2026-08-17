@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
+import sys
 from typing import Any, Sequence
 
 from product_schema import load_json_object, validate_contract
@@ -41,6 +41,7 @@ def verify_candidate_image_set(
         'platform',
         'workflow_run_url',
         'workflow_branch_ref',
+        'workflow_gate_commit',
         'requested_by',
         'publication_mode',
         'registry_retention_status',
@@ -71,6 +72,7 @@ def verify_candidate_image_set(
         'platform': ordered[0]['platform'],
         'workflow_run_url': ordered[0]['workflow_run_url'],
         'workflow_branch_ref': ordered[0]['workflow_branch_ref'],
+        'workflow_gate_commit': ordered[0]['workflow_gate_commit'],
         'requested_by': ordered[0]['requested_by'],
         'images': [
             {

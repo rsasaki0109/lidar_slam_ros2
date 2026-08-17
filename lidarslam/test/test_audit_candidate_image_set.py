@@ -71,6 +71,7 @@ def _request(module):
         'event_action': 'e2-publish-candidate-image',
         'default_branch': 'develop',
         'workflow_branch_ref': 'refs/heads/develop',
+        'workflow_gate_commit': 'f' * 40,
         'source_pr': 427,
         'source_commit': 'a' * 40,
         'product_version': '0.9.1',
@@ -230,6 +231,8 @@ def _remote_runner(
     expire_artifact=False,
     fail_attestation=False,
     mismatch_artifact=None,
+    workflow_head_sha=None,
+    extra_artifact=False,
 ):
     calls = []
 
@@ -248,14 +251,17 @@ def _remote_runner(
                 'status': 'completed',
                 'conclusion': 'success',
                 'head_branch': 'develop',
+                'head_sha': (
+                    workflow_head_sha
+                    or bundle['candidate_set']['workflow_gate_commit']
+                ),
                 'path': '.github/workflows/candidate-image.yml',
             }
             return subprocess.CompletedProcess(
                 command, 0, json.dumps(payload), ''
             )
         if command[:2] == ['gh', 'api'] and 'artifacts?' in command[2]:
-            payload = {
-                'artifacts': [
+            artifacts = [
                     {
                         'id': 1000 + index,
                         'name': name,
@@ -264,10 +270,33 @@ def _remote_runner(
                         'workflow_run': {
                             'id': 12345,
                             'head_branch': 'develop',
+                            'head_sha': (
+                                workflow_head_sha
+                                or bundle['candidate_set'][
+                                    'workflow_gate_commit'
+                                ]
+                            ),
                         },
                     }
                     for index, name in enumerate(module.EXPECTED_ARTIFACTS)
-                ],
+                ]
+            if extra_artifact:
+                artifacts.append({
+                    'id': 2000,
+                    'name': 'unexpected-candidate-evidence',
+                    'expired': False,
+                    'expires_at': '2026-09-14T00:00:00Z',
+                    'workflow_run': {
+                        'id': 12345,
+                        'head_branch': 'develop',
+                        'head_sha': bundle['candidate_set'][
+                            'workflow_gate_commit'
+                        ],
+                    },
+                })
+            payload = {
+                'total_count': len(artifacts),
+                'artifacts': artifacts,
             }
             return subprocess.CompletedProcess(
                 command, 0, json.dumps(payload), ''
@@ -360,6 +389,35 @@ def test_remote_audit_fails_on_byte_mismatch_expiry_or_attestation(tmp_path):
         mismatch_report['findings']
     )
     assert 'humble-attestation-unverified' in mismatch_report['findings']
+
+    wrong_gate_runner, _calls = _remote_runner(
+        module,
+        bundle,
+        workflow_head_sha='e' * 40,
+    )
+    wrong_gate_report = module.audit_candidate_bundle(
+        bundle,
+        remote=True,
+        runner=wrong_gate_runner,
+    )
+    assert wrong_gate_report['status'] == 'REMOTE_AUDIT_FAIL'
+    assert 'workflow-run-identity-mismatch' in wrong_gate_report['findings']
+    assert wrong_gate_report['artifacts']['status'] == 'FAIL'
+
+    extra_runner, _calls = _remote_runner(
+        module,
+        bundle,
+        extra_artifact=True,
+    )
+    extra_report = module.audit_candidate_bundle(
+        bundle,
+        remote=True,
+        runner=extra_runner,
+    )
+    assert extra_report['status'] == 'REMOTE_AUDIT_FAIL'
+    assert 'candidate-artifact-set-incomplete-or-expired' in (
+        extra_report['findings']
+    )
 
     expired_runner, _calls = _remote_runner(
         module,

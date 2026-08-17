@@ -78,12 +78,13 @@ jobs:
       source_pr: ${{ steps.authorize.outputs.source_pr }}
     steps:
       # repository_dispatch executes the default-branch workflow. Keep this
-      # checkout explicit so every validator and schema comes from develop,
-      # never from the candidate commit that will be built later.
+      # checkout explicit so every validator and schema comes from the exact
+      # default-branch commit that received the dispatch, never from a later
+      # develop tip or the candidate commit that will be built later.
       - name: Check out trusted gate
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Resolve read-only request evidence
@@ -165,6 +166,7 @@ jobs:
             --event-action "${EVENT_ACTION}" \
             --repository "${REPOSITORY}" \
             --workflow-branch-ref "${GITHUB_REF}" \
+            --workflow-gate-commit "${GITHUB_SHA}" \
             --default-branch "${{ github.event.repository.default_branch }}" \
             --source-pr "${SOURCE_PR}" \
             --source-commit "${SOURCE_COMMIT}" \
@@ -219,7 +221,7 @@ jobs:
       - name: Check out trusted evidence tools
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.sha }}
           path: gate
           persist-credentials: false
 
@@ -394,7 +396,7 @@ jobs:
       - name: Check out trusted evidence tools
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.sha }}
           path: gate
           persist-credentials: false
 

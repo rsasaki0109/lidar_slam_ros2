@@ -46,6 +46,7 @@ WORKFLOW = ROOT / '.github' / 'workflows' / 'candidate-image.yml'
 SCHEMAS = ROOT / 'docs' / 'schemas'
 REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
 SOURCE_COMMIT = 'a' * 40
+GATE_COMMIT = 'f' * 40
 
 
 def _load_module(filename: str, name: str):
@@ -146,6 +147,7 @@ def _request(module, **overrides):
         'event_action': 'e2-publish-candidate-image',
         'repository': REPOSITORY,
         'workflow_branch_ref': 'refs/heads/develop',
+        'workflow_gate_commit': GATE_COMMIT,
         'default_branch': 'develop',
         'source_pr': 427,
         'source_commit': SOURCE_COMMIT,
@@ -203,6 +205,7 @@ def test_request_authorizes_exact_same_repo_head_with_green_ci():
     assert report['publication_mode'] == 'digest_only'
     assert report['source_pr'] == 427
     assert report['source_commit'] == SOURCE_COMMIT
+    assert report['workflow_gate_commit'] == GATE_COMMIT
     assert set(report['required_success_checks']) == (
         module.REQUIRED_SUCCESS_CHECKS
     )
@@ -228,6 +231,7 @@ def test_request_authorizes_exact_same_repo_head_with_green_ci():
     [
         ('event_name', 'workflow_dispatch', 'dedicated event'),
         ('workflow_branch_ref', 'refs/heads/topic', 'default branch'),
+        ('workflow_gate_commit', 'main', 'lowercase 40-character'),
         ('actor_role', 'write', 'maintain role'),
         ('approval', 'yes', 'approval is missing'),
         ('candidate_version', '0.9.0', 'VERSION does not match'),
@@ -377,6 +381,7 @@ def test_candidate_clis_persist_one_complete_set_without_overwrite(
         '--event-action', 'e2-publish-candidate-image',
         '--repository', REPOSITORY,
         '--workflow-branch-ref', 'refs/heads/develop',
+        '--workflow-gate-commit', GATE_COMMIT,
         '--default-branch', 'develop',
         '--source-pr', '427',
         '--source-commit', SOURCE_COMMIT,
@@ -455,7 +460,9 @@ def test_workflow_separates_contract_authorization_and_publication():
     assert publish.count('packages: write') == 1
     assert 'actions: read' in authorize
     assert 'pull-requests: read' in authorize
-    assert 'ref: ${{ github.event.repository.default_branch }}' in authorize
+    assert workflow.count('ref: ${{ github.sha }}') == 3
+    assert 'ref: ${{ github.event.repository.default_branch }}' not in workflow
+    assert '--workflow-gate-commit "${GITHUB_SHA}"' in authorize
     assert 'E2_IMMUTABLE_DIGEST_ONLY' in authorize
     assert 'check-runs?filter=latest&per_page=100' in authorize
     assert 'environments/candidate-images' in authorize

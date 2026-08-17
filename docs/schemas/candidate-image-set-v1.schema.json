@@ -16,6 +16,7 @@
     "platform",
     "workflow_run_url",
     "workflow_branch_ref",
+    "workflow_gate_commit",
     "requested_by",
     "images",
     "tags_created",
@@ -47,6 +48,10 @@
       "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/actions/runs/[1-9][0-9]*$"
     },
     "workflow_branch_ref": {"const": "refs/heads/develop"},
+    "workflow_gate_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
     "requested_by": {
       "type": "string",
       "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$"

@@ -164,6 +164,7 @@ def _candidate_set():
             'actions/runs/12345'
         ),
         'workflow_branch_ref': 'refs/heads/develop',
+        'workflow_gate_commit': 'f' * 40,
         'requested_by': 'maintainer',
         'images': [
             {
@@ -216,6 +217,7 @@ def _candidate_request():
         'event_action': 'e2-publish-candidate-image',
         'default_branch': 'develop',
         'workflow_branch_ref': 'refs/heads/develop',
+        'workflow_gate_commit': 'f' * 40,
         'source_pr': 427,
         'source_commit': 'a' * 40,
         'product_version': '0.9.1',
@@ -270,6 +272,7 @@ def _candidate_record(distro, digest_character):
             'actions/runs/12345'
         ),
         'workflow_branch_ref': 'refs/heads/develop',
+        'workflow_gate_commit': 'f' * 40,
         'requested_by': 'maintainer',
         'tags_created': [],
         'moving_tags_mutated': False,

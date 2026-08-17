@@ -84,6 +84,7 @@ def _request(module):
         'event_action': 'e2-publish-candidate-image',
         'default_branch': 'develop',
         'workflow_branch_ref': 'refs/heads/develop',
+        'workflow_gate_commit': 'f' * 40,
         'source_pr': 427,
         'source_commit': 'a' * 40,
         'product_version': '0.9.1',
@@ -188,14 +189,16 @@ def _remote_runner(
                 'status': 'completed',
                 'conclusion': 'success',
                 'head_branch': 'develop',
+                'head_sha': source_bundle['candidate_set'][
+                    'workflow_gate_commit'
+                ],
                 'path': '.github/workflows/candidate-image.yml',
             }
             return subprocess.CompletedProcess(
                 command, 0, json.dumps(payload), ''
             )
         if command[:2] == ['gh', 'api'] and 'artifacts?' in command[2]:
-            payload = {
-                'artifacts': [
+            artifacts = [
                     {
                         'id': 1000 + index,
                         'name': name,
@@ -204,10 +207,16 @@ def _remote_runner(
                         'workflow_run': {
                             'id': 12345,
                             'head_branch': 'develop',
+                            'head_sha': source_bundle['candidate_set'][
+                                'workflow_gate_commit'
+                            ],
                         },
                     }
                     for index, name in enumerate(module.EXPECTED_ARTIFACTS)
-                ],
+                ]
+            payload = {
+                'total_count': len(artifacts),
+                'artifacts': artifacts,
             }
             return subprocess.CompletedProcess(
                 command, 0, json.dumps(payload), ''
