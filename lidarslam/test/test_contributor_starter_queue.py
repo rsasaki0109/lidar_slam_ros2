@@ -312,14 +312,13 @@ def test_next_report_blocks_a_published_issue_with_closed_product_gates():
         ),
     }
     assert report['maintainer_next'] == {
-        'action': 'REVIEW_BLOCKED_PUBLISHED_STARTER',
-        'issue_number': 422,
-        'gate_id': 'first-map-validator-cohort-v1',
-        'gate_status': 'WAITING_FOR_PUBLIC_GATES',
-        'review_command': [
+        'action': 'REVIEW_AND_PUBLISH_LOCAL_TASK',
+        'task_id': 'starter-C5',
+        'preview_command': [
             'python3',
-            'scripts/first_map_validator_cohort.py',
-            '--json',
+            'scripts/contributor_starter_queue.py',
+            '--task',
+            'starter-C5',
         ],
     }
     assert report['eligible_good_first_issues'] == []
@@ -339,9 +338,43 @@ def test_next_report_blocks_a_published_issue_with_closed_product_gates():
     rendered = CHECKER.render_next_report(report)
     assert issue['html_url'] in rendered
     assert '0 ready, 1 blocked' in rendered
-    assert 'first_map_validator_cohort.py --json' in rendered
+    assert 'contributor_starter_queue.py --task starter-C5' in rendered
     assert 'do not start a blocked cohort task' in rendered
     assert 'no GitHub issue, pull request, or label was changed' in rendered
+
+
+def test_blocked_issue_gate_is_next_when_no_independent_task_is_ready():
+    """A closed issue gate remains actionable after local work is exhausted."""
+    queue, local_report = CHECKER.evaluate()
+    local_report = {**local_report, 'ready_task_ids': []}
+    issue = _github_issue(
+        422,
+        'Help validate the public first-map path for v1.0',
+        labels=('documentation', 'good first issue', 'help wanted'),
+    )
+
+    report = CHECKER.build_next_report(
+        queue,
+        local_report,
+        [issue],
+        [],
+        [_publication_gate()],
+    )
+
+    assert report['contributor_next']['action'] == (
+        'WAIT_FOR_READY_PUBLISHED_STARTER'
+    )
+    assert report['maintainer_next'] == {
+        'action': 'REVIEW_BLOCKED_PUBLISHED_STARTER',
+        'issue_number': 422,
+        'gate_id': 'first-map-validator-cohort-v1',
+        'gate_status': 'WAITING_FOR_PUBLIC_GATES',
+        'review_command': [
+            'python3',
+            'scripts/first_map_validator_cohort.py',
+            '--json',
+        ],
+    }
 
 
 def test_next_report_allows_a_gated_issue_only_when_cohort_is_ready():

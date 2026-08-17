@@ -35,12 +35,12 @@ import argparse
 from datetime import datetime, timezone
 import json
 import os
+from pathlib import Path, PurePosixPath
 import re
 import shlex
 import subprocess
 import sys
 import tempfile
-from pathlib import Path, PurePosixPath
 from typing import Any, Sequence
 
 import jsonschema
@@ -895,17 +895,7 @@ def build_next_report(
             ),
         }
 
-    if blocked_good_first_issues:
-        blocked = blocked_good_first_issues[0]
-        gate = blocked['gate']
-        maintainer_next = {
-            'action': 'REVIEW_BLOCKED_PUBLISHED_STARTER',
-            'issue_number': blocked['number'],
-            'gate_id': gate['id'],
-            'gate_status': gate['status'],
-            'review_command': gate['check_command'],
-        }
-    elif potential_duplicates:
+    if potential_duplicates:
         maintainer_next = {'action': 'REVIEW_POTENTIAL_PULL_DUPLICATE'}
     elif publishable:
         task_id = publishable[0]
@@ -918,6 +908,16 @@ def build_next_report(
                 '--task',
                 task_id,
             ],
+        }
+    elif blocked_good_first_issues:
+        blocked = blocked_good_first_issues[0]
+        gate = blocked['gate']
+        maintainer_next = {
+            'action': 'REVIEW_BLOCKED_PUBLISHED_STARTER',
+            'issue_number': blocked['number'],
+            'gate_id': gate['id'],
+            'gate_status': gate['status'],
+            'review_command': gate['check_command'],
         }
     else:
         maintainer_next = {'action': 'REVIEW_QUEUE_STATE'}
