@@ -773,6 +773,87 @@ def test_first_map_form_requires_a_redacted_command_shape():
     assert 'literal `REDACTED` placeholder' in support_doc
 
 
+def test_benchmark_form_is_redaction_first_and_evidence_bounded():
+    """Public benchmark intake must preserve metrics without private runs."""
+    form_path = ISSUE_TEMPLATE_DIR / 'benchmark-report.yml'
+    form = yaml.safe_load(form_path.read_text(encoding='utf-8'))
+    fields = {
+        item['id']: item
+        for item in form['body']
+        if isinstance(item, dict) and 'id' in item
+    }
+    dataset = fields['dataset']
+    command = fields['command']
+    params = fields['params']
+    outputs = fields['outputs']
+    privacy = fields['privacy']
+    privacy_labels = [
+        option['label'] for option in privacy['attributes']['options']
+    ]
+
+    assert dataset['attributes']['label'] == (
+        'Public dataset or redacted input summary'
+    )
+    assert 'canonical dataset, sequence, source, and license' in (
+        dataset['attributes']['description']
+    )
+    assert 'do not identify the site or upload the bag' in (
+        dataset['attributes']['description']
+    )
+    assert command['attributes']['label'] == 'Redacted command shape'
+    assert command['attributes']['render'] == 'bash'
+    assert command['validations']['required'] is True
+    for private_value in (
+        'credentials',
+        'private paths',
+        'host or user names',
+        'precise locations',
+        'literal REDACTED placeholder',
+    ):
+        assert private_value in command['attributes']['description']
+    assert 'REDACTED' in command['attributes']['placeholder']
+
+    assert params['attributes']['label'] == 'Configuration summary'
+    assert 'tracked or public preset' in params['attributes']['description']
+    assert 'complete custom YAML' in params['attributes']['description']
+    assert outputs['attributes']['label'] == (
+        'Privacy-reviewed metrics evidence'
+    )
+    output_help = outputs['attributes']['description']
+    assert 'one reviewed metrics.json or public aggregate report' in output_help
+    for forbidden_artifact in (
+        'local paths',
+        'rosbags',
+        'maps',
+        'trajectories',
+        'raw sensor data',
+        'private-site images',
+        'precise coordinates',
+    ):
+        assert forbidden_artifact in output_help
+
+    assert len(privacy_labels) == 3
+    assert all(
+        option['required'] is True
+        for option in privacy['attributes']['options']
+    )
+    assert 'literal REDACTED placeholder' in privacy_labels[0]
+    assert 'attached no rosbag, map or trajectory geometry' in privacy_labels[1]
+    assert 'or I attached no file' in privacy_labels[2]
+
+    contributing = ' '.join(
+        CONTRIBUTING_PATH.read_text(encoding='utf-8').split()
+    )
+    support = ' '.join(SUPPORT_PATH.read_text(encoding='utf-8').split())
+    benchmarking = ' '.join(
+        BENCHMARKING_DOC.read_text(encoding='utf-8').split()
+    )
+    for document in (contributing, support, benchmarking):
+        assert 'private or custom bag' in document
+        assert 'public aggregate report' in document
+        assert 'complete custom parameter YAML' in document
+
+
 def test_bug_form_accepts_pre_session_failure_without_fake_zip_claims():
     """Pre-session failures need diagnostics, not an impossible ZIP claim."""
     bug_form_path = ISSUE_TEMPLATE_DIR / 'bug-report.yml'
@@ -876,7 +957,11 @@ def test_autoware_form_never_requests_private_map_or_origin_evidence():
     assert 'pointcloud/lanelet geometry' in privacy_labels[1]
     assert 'or attached no file' in privacy_labels[2]
 
-    for document_path in (SUPPORT_PATH, AUTOWARE_MAP_AUTHORING):
+    for document_path in (
+        CONTRIBUTING_PATH,
+        SUPPORT_PATH,
+        AUTOWARE_MAP_AUTHORING,
+    ):
         document = ' '.join(document_path.read_text(encoding='utf-8').split())
         assert 'MGRS/grid' in document
         assert 'precise origin' in document

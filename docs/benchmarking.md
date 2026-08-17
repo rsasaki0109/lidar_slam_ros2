@@ -1058,18 +1058,27 @@ Use `--profile failing` to create a negative-path fixture.
 
 ## Recommended Artifacts To Publish
 
-If you want benchmark results to be easy to consume, publish:
+For a run based only on public, licensed input, first review every file for
+credentials, private paths, host or user names, precise locations, and private
+geometry. The safe publication set is:
 
 - `metrics.json`
 - `benchmark_summary.md`
 - `benchmark_summary.csv`
 - `latest_report.html`
-- the exact param file used for the run
+- a tracked/public parameter preset plus a redacted list of changed arguments,
+  not a complete custom parameter YAML
 - `docs/comparison.md` when publishing the current positioning of the repo
 - `docs/releases/v0.2.2.md` when publishing the current public beta scope
 - `v2_beta_readiness_<YYYYMMDD>.md` when preparing a public beta snapshot
 - `stress_validation_report_<YYYYMMDD>.md` when discussing long-loop or
   aggressive-motion evidence
+
+For a private or custom bag, use the Benchmark report form and share only its
+redacted metadata and key-metric fields. Do not publish the bag, map, trajectory,
+APE/raw logs, raw sensor data, private-site images, local/output paths, or precise
+coordinates. An optional `metrics.json` or public aggregate report is safe only
+after review confirms that none of those values is present.
 
 ## Related Commands
 

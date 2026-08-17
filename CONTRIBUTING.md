@@ -74,20 +74,30 @@ attempts are recorded as onboarding findings and are just as valuable.
 
 For Autoware-related reports, include:
 
-- exact map bundle path or a minimal reproduction bundle
-- `map_projector_info.yaml`
-- result of `python3 scripts/verify_autoware_map.py <pointcloud_map_dir>`
-- exact command used to stage or view the map
+- projector type and whether an origin exists, with every coordinate and
+  MGRS/grid identifier and precise origin value replaced by `REDACTED`
+- the non-geometry verifier findings, with private paths and precise locations
+  removed
+- a redacted command shape that keeps executable, options and non-private values
+- the reviewed privacy-first support ZIP when a session exists
 - whether GNSS was enabled
+
+Do not attach the map bundle, pointcloud or lanelet geometry, rosbag, raw private
+logs, or screenshots revealing a private place.
 
 For benchmark-related reports, include:
 
-- bag or dataset name
-- exact command line
-- param file path
-- `metrics.json`
-- `ape_corrected_vs_gt.txt` and `ape_raw_vs_gt.txt` when available
-- logs needed to understand failures or regressions
+- the canonical identity, source and license for public data, or a redacted
+  sensor/environment/duration summary for a private or custom bag
+- a redacted command shape with private values replaced by `REDACTED`
+- a tracked/public parameter preset and changed non-private arguments
+- key metrics entered directly in the issue form
+- whether the generated map passed local Autoware verification
+- optionally, one reviewed `metrics.json` or public aggregate report
+
+Never attach a rosbag, map, trajectory, raw log, raw sensor data, private-site
+image, exact local path, or complete custom parameter YAML to a public benchmark
+issue.
 
 ## 30-Minute Starter Path
 
@@ -199,19 +209,18 @@ issue template and include:
 
 - ROS 2 distro and Ubuntu version
 - sensor topics and frames
-- bag duration
-- parameter file
-- command used to run the benchmark
-- output directory
+- public dataset identity, sequence, source and license; or only a redacted
+  sensor/environment/duration summary for a private or custom bag
+- tracked/public parameter preset and changed non-private arguments
+- redacted command shape, using literal `REDACTED` placeholders for credentials,
+  private paths, host or user names and precise locations
 - key metrics from `metrics.json`
 - whether the generated map passed Autoware verification
 
-If possible, attach or link:
-
-- `metrics.json`
-- `benchmark_summary.md`
-- `latest_report.html`
-- the exact param YAML used for the run
+The key metrics belong in the form. You may optionally attach or link one
+privacy-reviewed `metrics.json` or public aggregate report. Never attach a bag,
+map, trajectory, APE/raw log, raw sensor data, private-site image, output path or
+complete custom parameter YAML. Review every linked or attached file first.
 
 ## Pull Requests
 
