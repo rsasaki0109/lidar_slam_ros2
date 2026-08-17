@@ -487,6 +487,15 @@ work and document the actual support boundary instead of hiding the delay.
   support/installed, 21 option-contract, and 331 broad S6 regressions pass,
   with changed-code `ament_flake8` and strict MkDocs. No real mapping, upload,
   network access, issue, or GitHub write is performed.
+- Exact follow-up `8a620e54a121f5ac45913791b40b5239a59f5885` unifies terminal
+  success. One VERIFIED or UNVERIFIED card now carries map output,
+  verification, viewer, session index/page, evidence paths, and exactly one
+  `Next`; viewer failure makes it the view retry without changing map status,
+  and derived-index failure keeps one completed fallback card. Thirty-seven
+  sensor-setup regressions, exact S3 lifecycle 72 and edit/merge 15, plus 42
+  docs/product, 25 support/installed, 21 option-contract, and 331 broad S6
+  regressions pass, with changed-code `ament_flake8` and strict MkDocs. No real
+  mapping, upload, network access, issue, or GitHub write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

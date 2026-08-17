@@ -367,3 +367,46 @@ Verification on the implementation tip:
 This removes duplicate terminal reading without hiding a pending decision or
 changing automation. It is not a real first map, clean-host timing result,
 paired external GLIM observation, or parity/superiority claim.
+
+## Single-card map-completion follow-up — 2026-08-17
+
+> Decision: **LOCAL_SINGLE_COMPLETION_CARD_PASS / PAIRED_PUBLIC_TRIAL_PENDING**
+>
+> Implementation tip:
+> `8a620e54a121f5ac45913791b40b5239a59f5885`
+>
+> Real mapping, network, GitHub, release, or community mutations performed:
+> **none**
+
+Successful `start` previously printed a completion block with setup, map, and
+`Reopen`, then wrote session paths, then printed a second summary whose `Next`
+usually repeated the reopen command. A viewer failure added another `Reopen
+later` line. The operator therefore had to reconcile two or three terminal
+handoffs after the map had already finished.
+
+Terminal success is now one `Map session: VERIFIED` or `UNVERIFIED` card. It
+contains the map output, evidence-backed verification state, viewer state,
+session index/page, run manifest, first-map receipt, and exactly one recommended
+`Next`. A verified card retains the privacy-safe `Share` action. Viewer failure
+makes the single `Next` the view retry, emits one warning, and does not replace
+verified map success. If the derived session index cannot be written, one
+completed fallback card still preserves the map path and view command.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| complete sensor-setup wizard regressions | 37 passed |
+| exact S3 lifecycle command | 72 passed |
+| exact S3 edit/merge command | 15 passed |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 331 passed |
+| changed-code Jazzy `ament_flake8` | PASS |
+| strict MkDocs, JSON, bytecode, plan, and patch hygiene | PASS |
+
+This turns map completion into one decision point without changing structured
+session, progress, verification, or recovery evidence. It is not a real first
+map, clean-host timing result, paired external GLIM observation, or
+parity/superiority claim.
