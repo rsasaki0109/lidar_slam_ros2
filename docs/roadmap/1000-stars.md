@@ -989,6 +989,14 @@ or authorize a push, ready transition, or merge. This targets the current
 review bottleneck—an otherwise verified but very large Draft—without adding
 another product surface.
 
+The overview and slice cards now derive a review budget from the same exact Git
+ranges: textual additions/deletions, binary paths, and up to three largest
+textual deltas. The seven slice budgets must compose exactly to the follow-up
+budget, every numstat inventory must match its path digest, and malformed or
+stale Git output fails closed. Exact slice cards name binary media rather than
+hiding it behind a total. These numbers tell a human where to begin; they are
+not a risk score, submitted review, correctness claim, or merge authority.
+
 The G0 dashboard now audits that prerequisite directly through bounded GitHub
 GETs. It binds local HEAD to Draft PR #427, the canonical branches, mergeable
 state, and the latest exact-head check runs. Draft review and the separate

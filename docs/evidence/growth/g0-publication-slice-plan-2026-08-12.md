@@ -143,7 +143,11 @@ python3 scripts/check_publication_slice_plan.py \
 The overview revalidates the complete inventory and lineage first, then renders
 one compact PR card with exact local tip, whole-PR commit/path totals, the three
 sequential review ranges, all seven slice counts/dependencies/gates, overlap,
-missing/extraneous-path results, merge count, and current worktree cleanliness.
+missing/extraneous-path results, merge count, current worktree cleanliness, and
+an exact Git-derived review budget. The budget reports textual additions and
+deletions, binary paths, and the three largest textual deltas for every phase
+and slice. Binary paths are named in the exact slice card so media review is
+not hidden behind a count.
 It intentionally omits hundreds of individual paths; each slice card remains
 the exact drill-down for its owned paths, outcome, and verification commands.
 The baseline is an immutable review anchor, not a live claim about the remote
@@ -184,7 +188,9 @@ from that base and the local tip descends from the public head, then requires:
 13. contiguous, linear initial → bridge → follow-up ancestry;
 14. exact commit-count composition across all three ranges; and
 15. exact 380-path whole-PR coverage by the three-phase union, with no missing
-    or extraneous path.
+    or extraneous path; and
+16. exact `git diff --numstat` path identity for the whole PR and all three
+    phases before any review budget or hotspot is rendered.
 
 Adding, removing, renaming, or reassigning a path invalidates the plan until a
 reviewer updates both the exact inventory and its digest. A green schema alone
@@ -196,7 +202,7 @@ cannot bypass live Git coverage.
 | --- | --- |
 | exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 331 follow-up paths / 7 slices and 380 whole-PR paths / 3 phases; 11 bridge paths, 73 overlapping paths, 0 uncovered, 0 extraneous, 0 merge commits, no remote mutation |
 | claim-bounded social media | 11 focused regressions plus 25 public docs/release entrypoint regressions pass; the generated 10.666-second H.264 candidate, four-cue WebVTT, exact-revision Japanese/English copy, and byte manifest retain no external publication authority |
-| checker regressions | 30 passed, including omission, stale path, duplicate owner, dependency inversion, follow-up/bridge/whole-PR digest drift, bridge allowlist drift, phase discontinuity, uncovered whole-PR paths, unsafe or out-of-phase review records, lineage drift, commit-range composition, authority rejection, bounded human/JSON overview and slice cards, mutually exclusive output modes, unknown-slice rejection, self-contained source, lifecycle ROS-bag, and product-shell ROS-bag verification, package-test process isolation, cache suppression, and recognized direct remote-write CLI refusal |
+| checker regressions | 32 passed, including omission, stale path, duplicate owner, dependency inversion, follow-up/bridge/whole-PR digest drift, bridge allowlist drift, phase discontinuity, uncovered whole-PR paths, unsafe or out-of-phase review records, lineage drift, commit-range composition, malformed/stale numstat rejection, exact line-budget composition across the seven slices, named binary review paths, authority rejection, bounded human/JSON overview and slice cards, mutually exclusive output modes, unknown-slice rejection, self-contained source, lifecycle ROS-bag, and product-shell ROS-bag verification, package-test process isolation, cache suppression, and recognized direct remote-write CLI refusal |
 | exact displayed S1 command | an ordinary unsourced shell sourced `${ROS_DISTRO:-jazzy}`, tested `graph_based_slam` and `scanmatcher`, and reported 4,253 test cases with 0 errors, 0 failures, and 127 skips |
 | S1 rejected-map-update threshold retry | exact implementation `99cce93`; one pure commit-state regression passes; the real asynchronous component rejects an unsafe translated cloud above a positive 0.02 m threshold, publishes the same-geometry safe retry without further travel, and passes 10 / 10 independent Jazzy processes; worker exceptions stay inside the component boundary; exact public `7b3cb99` runs the component target successfully on both Humble and Jazzy, while issue response and named release remain separate gates |
 | exact displayed S6 product-shell command | exact implementation `0633c2a`; an ordinary unsourced shell restores `${ROS_DISTRO:-jazzy}` before importing `rosbag2_py` and passes all 35 graph docs/product-CLI tests; deleting the prelude now fails plan validation before a reviewer sees the card |

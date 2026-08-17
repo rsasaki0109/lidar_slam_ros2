@@ -186,6 +186,114 @@ def committed_paths(
     return sorted(set(paths))
 
 
+def _git_diff_numstat(
+    start_sha: str,
+    end_sha: str,
+    diff_mode: str,
+) -> dict[str, tuple[int | None, int | None]]:
+    """Return exact per-path line counts for one read-only Git range."""
+    separators = {
+        'three-dot': '...',
+        'two-dot': '..',
+    }
+    if diff_mode == 'worktree':
+        revision = start_sha
+    else:
+        try:
+            revision = f'{start_sha}{separators[diff_mode]}{end_sha}'
+        except KeyError as exc:
+            raise PlanError(
+                f'unsupported numstat diff mode: {diff_mode}'
+            ) from exc
+
+    rows: dict[str, tuple[int | None, int | None]] = {}
+    for line in _run_git(['diff', '--numstat', revision, '--']):
+        parts = line.split('\t', 2)
+        if len(parts) != 3:
+            raise PlanError(f'malformed Git numstat row: {line!r}')
+        additions_raw, deletions_raw, path = parts
+        _validate_repo_path(path)
+        if path in rows:
+            raise PlanError(f'duplicate Git numstat path: {path}')
+        if additions_raw == '-' and deletions_raw == '-':
+            rows[path] = (None, None)
+        elif additions_raw.isdigit() and deletions_raw.isdigit():
+            rows[path] = (int(additions_raw), int(deletions_raw))
+        else:
+            raise PlanError(f'malformed Git numstat counts: {line!r}')
+    return rows
+
+
+def _validate_numstat_inventory(
+    rows: dict[str, tuple[int | None, int | None]],
+    *,
+    expected_path_count: int,
+    expected_paths_sha256: str,
+    label: str,
+) -> None:
+    """Bind derived review effort to the same exact path inventory."""
+    paths = sorted(rows)
+    if len(paths) != expected_path_count:
+        raise PlanError(f'{label} numstat path count is stale')
+    if path_inventory_sha256(paths) != expected_paths_sha256:
+        raise PlanError(f'{label} numstat path inventory is stale')
+
+
+def _build_review_budget(
+    paths: Sequence[str],
+    rows: dict[str, tuple[int | None, int | None]],
+    *,
+    hotspot_limit: int = 3,
+) -> dict[str, Any]:
+    """Summarize bounded review effort and the largest textual deltas."""
+    canonical_paths = sorted(set(paths))
+    if len(canonical_paths) != len(paths):
+        raise PlanError('review budget paths must be unique')
+    unresolved_paths = [path for path in canonical_paths if path not in rows]
+    binary_paths = [
+        path
+        for path in canonical_paths
+        if path in rows and rows[path] == (None, None)
+    ]
+    text_rows = [
+        (path, rows[path][0], rows[path][1])
+        for path in canonical_paths
+        if path in rows and rows[path] != (None, None)
+    ]
+    additions = sum(int(item[1]) for item in text_rows)
+    deletions = sum(int(item[2]) for item in text_rows)
+    ranked = sorted(
+        text_rows,
+        key=lambda item: (
+            -(int(item[1]) + int(item[2])),
+            -int(item[1]),
+            -int(item[2]),
+            item[0],
+        ),
+    )
+    hotspots = [
+        {
+            'path': path,
+            'additions': int(path_additions),
+            'deletions': int(path_deletions),
+            'changed_lines': int(path_additions) + int(path_deletions),
+        }
+        for path, path_additions, path_deletions in ranked[:hotspot_limit]
+    ]
+    return {
+        'path_count': len(canonical_paths),
+        'text_path_count': len(text_rows),
+        'binary_path_count': len(binary_paths),
+        'binary_paths': binary_paths,
+        'unresolved_path_count': len(unresolved_paths),
+        'unresolved_paths': unresolved_paths,
+        'additions': additions,
+        'deletions': deletions,
+        'changed_lines': additions + deletions,
+        'hotspots': hotspots,
+    }
+
+
 def _validate_repo_path(path: str) -> None:
     candidate = PurePosixPath(path)
     if not path or path.startswith('/') or '\\' in path:
@@ -571,6 +679,18 @@ def build_slice_review_report(
             f'available slices: {available}'
         )
 
+    follow_up_rows = _git_diff_numstat(
+        validation_report['base_sha'],
+        validation_report['local_tip_sha'],
+        'worktree',
+    )
+    _validate_numstat_inventory(
+        follow_up_rows,
+        expected_path_count=validation_report['path_count'],
+        expected_paths_sha256=validation_report['paths_sha256'],
+        label='follow-up review',
+    )
+
     return {
         'status': 'SLICE_REVIEW_READY_LOCAL_ONLY',
         'candidate': {
@@ -604,6 +724,10 @@ def build_slice_review_report(
             'paths': list(review_slice['paths']),
             'verification': list(review_slice['verification']),
             'publication_gate': review_slice['publication_gate'],
+            'review_budget': _build_review_budget(
+                review_slice['paths'],
+                follow_up_rows,
+            ),
         },
         'commands_executed': False,
         'github_writes_authorized': False,
@@ -621,6 +745,61 @@ def build_pr_review_overview_report(
     bridge = contract['bridge_review']
     follow_up = contract['follow_up_review']
     candidate = plan['candidate']
+    initial_rows = _git_diff_numstat(
+        initial['start_sha'],
+        initial['end_sha'],
+        initial['diff_mode'],
+    )
+    _validate_numstat_inventory(
+        initial_rows,
+        expected_path_count=initial['expected_path_count'],
+        expected_paths_sha256=initial['expected_paths_sha256'],
+        label='initial review',
+    )
+    bridge_rows = _git_diff_numstat(
+        bridge['start_sha'],
+        bridge['end_sha'],
+        bridge['diff_mode'],
+    )
+    _validate_numstat_inventory(
+        bridge_rows,
+        expected_path_count=bridge['expected_path_count'],
+        expected_paths_sha256=bridge['expected_paths_sha256'],
+        label='bridge review',
+    )
+    follow_up_rows = _git_diff_numstat(
+        follow_up['start_sha'],
+        validation_report['local_tip_sha'],
+        follow_up['diff_mode'],
+    )
+    _validate_numstat_inventory(
+        follow_up_rows,
+        expected_path_count=validation_report['path_count'],
+        expected_paths_sha256=validation_report['paths_sha256'],
+        label='follow-up review',
+    )
+    whole_pr_rows = _git_diff_numstat(
+        contract['base_sha'],
+        validation_report['local_tip_sha'],
+        'worktree',
+    )
+    _validate_numstat_inventory(
+        whole_pr_rows,
+        expected_path_count=validation_report['whole_pr_path_count'],
+        expected_paths_sha256=validation_report['whole_pr_paths_sha256'],
+        label='whole-PR review',
+    )
+    phase_budgets = {
+        'P0-initial-review': _build_review_budget(
+            sorted(initial_rows), initial_rows,
+        ),
+        'P1-ci-bridge': _build_review_budget(
+            sorted(bridge_rows), bridge_rows,
+        ),
+        'P2-follow-up-slices': _build_review_budget(
+            sorted(follow_up_rows), follow_up_rows,
+        ),
+    }
     return {
         'status': 'PR_REVIEW_OVERVIEW_READY_LOCAL_ONLY',
         'candidate': {
@@ -654,6 +833,9 @@ def build_pr_review_overview_report(
             'uncommitted_path_count': validation_report[
                 'uncommitted_path_count'
             ],
+            'whole_pr_review_budget': _build_review_budget(
+                sorted(whole_pr_rows), whole_pr_rows,
+            ),
         },
         'review_phases': [
             {
@@ -669,6 +851,7 @@ def build_pr_review_overview_report(
                     'initial_review_path_count'
                 ],
                 'review_record': initial['review_record'],
+                'review_budget': phase_budgets['P0-initial-review'],
             },
             {
                 'id': 'P1-ci-bridge',
@@ -681,6 +864,7 @@ def build_pr_review_overview_report(
                 ],
                 'path_count': validation_report['bridge_path_count'],
                 'review_record': bridge['review_record'],
+                'review_budget': phase_budgets['P1-ci-bridge'],
             },
             {
                 'id': 'P2-follow-up-slices',
@@ -693,6 +877,7 @@ def build_pr_review_overview_report(
                 ],
                 'path_count': validation_report['path_count'],
                 'review_record': follow_up['review_record'],
+                'review_budget': phase_budgets['P2-follow-up-slices'],
             },
         ],
         'review_slices': [
@@ -704,6 +889,9 @@ def build_pr_review_overview_report(
                 'path_count': len(item['paths']),
                 'verification_count': len(item['verification']),
                 'publication_gate': item['publication_gate'],
+                'review_budget': _build_review_budget(
+                    item['paths'], follow_up_rows,
+                ),
             }
             for item in plan['review_slices']
         ],
@@ -716,10 +904,26 @@ def build_pr_review_overview_report(
     }
 
 
+def _format_review_delta(budget: dict[str, Any]) -> str:
+    return f"+{budget['additions']:,}/-{budget['deletions']:,}"
+
+
+def _format_largest_hotspot(budget: dict[str, Any]) -> str:
+    hotspots = budget['hotspots']
+    if not hotspots:
+        return 'none'
+    hotspot = hotspots[0]
+    return (
+        f"`{hotspot['path']}` "
+        f"(+{hotspot['additions']:,}/-{hotspot['deletions']:,})"
+    )
+
+
 def render_slice_review_card(report: dict[str, Any]) -> str:
     """Render one copy-ready, human-facing publication review card."""
     candidate = report['candidate']
     review_slice = report['review_slice']
+    budget = review_slice['review_budget']
     dependencies = review_slice['depends_on']
     lines = [
         f"# {review_slice['id']}: {review_slice['title']}",
@@ -729,6 +933,9 @@ def render_slice_review_card(report: dict[str, Any]) -> str:
             f"{candidate['slice_count']}"
         ),
         f"- Paths: {review_slice['path_count']}",
+        f'- Text delta: {_format_review_delta(budget)}',
+        f"- Binary paths: {budget['binary_path_count']}",
+        f"- Unresolved numstat paths: {budget['unresolved_path_count']}",
         f"- Depends on: {', '.join(dependencies) if dependencies else 'none'}",
         f"- Publication gate: {review_slice['publication_gate']}",
         f"- Frozen public review baseline: {candidate['public_baseline_sha']}",
@@ -756,6 +963,22 @@ def render_slice_review_card(report: dict[str, Any]) -> str:
         'Review outcome:',
         review_slice['review_outcome'],
         '',
+        'Review hotspots (largest textual deltas):',
+        *(
+            f"{index}. `{hotspot['path']}` "
+            f"(+{hotspot['additions']:,}/-{hotspot['deletions']:,})"
+            for index, hotspot in enumerate(budget['hotspots'], start=1)
+        ),
+        *(
+            (
+                '',
+                'Binary paths requiring manifest/content review:',
+                *(f'- `{path}`' for path in budget['binary_paths']),
+            )
+            if budget['binary_paths']
+            else ()
+        ),
+        '',
         'Paths:',
         *(f'- {path}' for path in review_slice['paths']),
         '',
@@ -766,9 +989,10 @@ def render_slice_review_card(report: dict[str, Any]) -> str:
     lines.extend([
         '',
         (
-            'Next action: Review these paths in order, then run the listed '
-            'commands and record their results without treating this card as '
-            'publication approval.'
+            'Next action: Start with the bounded hotspots, review the '
+            'remaining paths in order, then run the listed commands and '
+            'record their results without treating this card as publication '
+            'approval.'
         ),
     ])
     return '\n'.join(lines)
@@ -777,6 +1001,7 @@ def render_slice_review_card(report: dict[str, Any]) -> str:
 def render_pr_review_overview_card(report: dict[str, Any]) -> str:
     """Render a compact, copy-ready overview of the complete PR review."""
     candidate = report['candidate']
+    whole_budget = candidate['whole_pr_review_budget']
     lines = [
         f"# PR #{candidate['pull_request']} review overview",
         '',
@@ -786,6 +1011,12 @@ def render_pr_review_overview_card(report: dict[str, Any]) -> str:
         f"- Frozen public review baseline: {candidate['public_baseline_sha']}",
         f"- Commits: {candidate['whole_pr_commit_count']}",
         f"- Whole-PR paths: {candidate['whole_pr_path_count']}",
+        f'- Whole-PR text delta: {_format_review_delta(whole_budget)}',
+        f"- Whole-PR binary paths: {whole_budget['binary_path_count']}",
+        (
+            '- Whole-PR unresolved numstat paths: '
+            f"{whole_budget['unresolved_path_count']}"
+        ),
         f"- Follow-up paths: {candidate['follow_up_path_count']}",
         f"- Sequential review phases: {candidate['review_phase_count']}",
         f"- Review slices: {candidate['slice_count']}",
@@ -807,30 +1038,49 @@ def render_pr_review_overview_card(report: dict[str, Any]) -> str:
         '',
         '## Sequential coverage',
         '',
-        '| Phase | Range | Mode | Commits | Paths | Review record |',
-        '| --- | --- | --- | ---: | ---: | --- |',
+        (
+            '| Phase | Range | Mode | Commits | Paths | Text delta | Binary '
+            '| Largest text path | Review record |'
+        ),
+        (
+            '| --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |'
+        ),
     ]
     for phase in report['review_phases']:
+        budget = phase['review_budget']
         range_text = (
             f"`{phase['start_sha'][:7]}..{phase['end_sha'][:7]}`"
         )
         lines.append(
             f"| {phase['id']} | {range_text} | {phase['diff_mode']} | "
             f"{phase['commit_count']} | {phase['path_count']} | "
+            f'{_format_review_delta(budget)} | '
+            f"{budget['binary_path_count']} | "
+            f'{_format_largest_hotspot(budget)} | '
             f"[{phase['review_record']}]({phase['review_record']}) |"
         )
     lines.extend([
         '',
         '## Review slices',
         '',
-        '| Order | Slice | Focus | Paths | Checks | Gate | Depends on |',
-        '| ---: | --- | --- | ---: | ---: | --- | --- |',
+        (
+            '| Order | Slice | Focus | Paths | Text delta | Binary | Largest '
+            'text path | Checks | Gate | Depends on |'
+        ),
+        (
+            '| ---: | --- | --- | ---: | ---: | ---: | --- | ---: | --- '
+            '| --- |'
+        ),
     ])
     for review_slice in report['review_slices']:
         dependencies = ', '.join(review_slice['depends_on']) or 'none'
+        budget = review_slice['review_budget']
         lines.append(
             f"| {review_slice['order']} | {review_slice['id']} | "
             f"{review_slice['title']} | {review_slice['path_count']} | "
+            f'{_format_review_delta(budget)} | '
+            f"{budget['binary_path_count']} | "
+            f'{_format_largest_hotspot(budget)} | '
             f"{review_slice['verification_count']} | "
             f"{review_slice['publication_gate']} | {dependencies} |"
         )

@@ -54,6 +54,19 @@ the product audit, the dashboard asks for the missing product audit first
 instead of suggesting a settings change from incomplete evidence.
 
 The selected seven-slice review card is copy-ready from an ordinary terminal.
+Before drilling into one slice, the local-only overview makes the large Draft
+budget visible without pasting every path:
+
+```bash
+python3 scripts/check_publication_slice_plan.py --overview
+```
+
+It binds whole-PR and three-phase path identity to Git numstat, then reports
+text additions/deletions, binary counts, and the largest textual path for each
+phase and slice. Each exact slice card expands to three hotspots and names any
+binary paths requiring manifest/content review. The budget is a navigation aid,
+not evidence that review occurred, and it grants no GitHub write authority.
+
 ROS-dependent commands source the caller's `ROS_DISTRO` installation and
 default to Jazzy when it is unset. Pytest commands disable cache writes, and
 the two package test roots run in separate processes to avoid their known

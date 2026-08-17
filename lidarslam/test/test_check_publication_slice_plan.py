@@ -544,6 +544,22 @@ def test_slice_json_binds_exact_scope_without_executing_commands():
     assert review_slice['path_count'] == 15
     assert review_slice['depends_on'] == []
     assert review_slice['publication_gate'] == 'PUBLIC_CI'
+    budget = review_slice['review_budget']
+    assert budget['path_count'] == review_slice['path_count']
+    assert budget['text_path_count'] + budget['binary_path_count'] == (
+        budget['path_count']
+    )
+    assert budget['unresolved_path_count'] == 0
+    assert budget['additions'] >= 0
+    assert budget['deletions'] >= 0
+    assert budget['changed_lines'] == (
+        budget['additions'] + budget['deletions']
+    )
+    assert 1 <= len(budget['hotspots']) <= 3
+    assert all(
+        hotspot['path'] in review_slice['paths']
+        for hotspot in budget['hotspots']
+    )
     assert report['commands_executed'] is False
     assert report['github_writes_authorized'] is False
     assert report['remote_mutations_performed'] is False
@@ -567,6 +583,9 @@ def test_slice_human_card_has_one_safe_next_action():
     assert '- Whole-PR paths: 380' in result.stdout
     assert '- Whole-PR review coverage complete: yes' in result.stdout
     assert '- CI bridge paths: 11' in result.stdout
+    assert '- Text delta: +' in result.stdout
+    assert '- Binary paths: ' in result.stdout
+    assert 'Review hotspots (largest textual deltas):' in result.stdout
     assert result.stdout.count('Next action:') == 1
 
 
@@ -594,6 +613,18 @@ def test_overview_json_binds_all_phases_and_slices_without_writes():
     assert candidate['uncovered_path_count'] == 0
     assert candidate['extraneous_phase_path_count'] == 0
     assert candidate['merge_commit_count'] == 0
+    whole_budget = candidate['whole_pr_review_budget']
+    assert whole_budget['path_count'] == candidate['whole_pr_path_count']
+    assert whole_budget['unresolved_path_count'] == 0
+    assert whole_budget['binary_path_count'] == 2
+    assert whole_budget['binary_paths'] == [
+        'lidarslam/images/social_autoware_map_authoring.png',
+        'lidarslam/images/social_autoware_map_authoring_demo.mp4',
+    ]
+    assert whole_budget['unresolved_paths'] == []
+    assert whole_budget['changed_lines'] == (
+        whole_budget['additions'] + whole_budget['deletions']
+    )
     assert [item['id'] for item in report['review_phases']] == [
         'P0-initial-review',
         'P1-ci-bridge',
@@ -612,9 +643,54 @@ def test_overview_json_binds_all_phases_and_slices_without_writes():
     assert sum(
         item['path_count'] for item in report['review_slices']
     ) == candidate['follow_up_path_count']
+    follow_up_budget = report['review_phases'][2]['review_budget']
+    for field in (
+        'path_count',
+        'text_path_count',
+        'binary_path_count',
+        'unresolved_path_count',
+        'additions',
+        'deletions',
+        'changed_lines',
+    ):
+        assert sum(
+            item['review_budget'][field]
+            for item in report['review_slices']
+        ) == follow_up_budget[field]
+    assert follow_up_budget['unresolved_path_count'] == 0
+    assert follow_up_budget['binary_path_count'] == 2
+    assert all(
+        len(item['review_budget']['hotspots']) <= 3
+        for item in report['review_slices']
+    )
     assert report['commands_executed'] is False
     assert report['github_writes_authorized'] is False
     assert report['remote_mutations_performed'] is False
+
+
+def test_s6_review_budget_names_binary_assets_for_manual_review():
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            '--slice',
+            'S6-product-shell-integration',
+            '--json',
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    budget = json.loads(result.stdout)['review_slice']['review_budget']
+    assert budget['binary_path_count'] == 2
+    assert budget['binary_paths'] == [
+        'lidarslam/images/social_autoware_map_authoring.png',
+        'lidarslam/images/social_autoware_map_authoring_demo.mp4',
+    ]
+    assert budget['unresolved_paths'] == []
 
 
 def test_overview_human_card_is_bounded_and_copy_ready():
@@ -631,6 +707,9 @@ def test_overview_human_card_is_bounded_and_copy_ready():
     assert '- Whole-PR paths: 380' in result.stdout
     assert '- Follow-up paths: 331' in result.stdout
     assert '- Whole-PR review coverage complete: yes' in result.stdout
+    assert '- Whole-PR text delta: +' in result.stdout
+    assert '- Whole-PR binary paths: 2' in result.stdout
+    assert '| Text delta | Binary | Largest text path |' in result.stdout
     assert '| P0-initial-review |' in result.stdout
     assert '| P1-ci-bridge |' in result.stdout
     assert '| P2-follow-up-slices |' in result.stdout
@@ -648,6 +727,17 @@ def test_overview_human_card_is_bounded_and_copy_ready():
     assert '- Commands executed by this card: no' in result.stdout
     assert '- GitHub write authorized: no' in result.stdout
     assert result.stdout.count('Next action:') == 1
+
+
+def test_malformed_git_numstat_fails_closed(monkeypatch):
+    monkeypatch.setattr(
+        CHECKER,
+        '_run_git',
+        lambda arguments: ['not-a-numstat-row'],
+    )
+
+    with pytest.raises(CHECKER.PlanError, match='malformed Git numstat row'):
+        CHECKER._git_diff_numstat('a' * 40, 'b' * 40, 'two-dot')
 
 
 def test_overview_and_slice_modes_are_mutually_exclusive():
