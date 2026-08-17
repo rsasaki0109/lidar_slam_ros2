@@ -387,6 +387,8 @@ def test_contract_identifies_the_complete_product_surface():
         '/schemas/first-map-handoff-v1.schema.json'
     )
     assert support['command'] == 'support'
+    assert support['first_map_command'] == 'report'
+    assert support['legacy_first_map_command'] == 'support --first-map'
     assert support['archive_members'] == [
         'README.txt',
         'issue-body.md',
@@ -397,7 +399,7 @@ def test_contract_identifies_the_complete_product_surface():
     assert 'never follow' in support['evidence_rules'][2]
     assert support['json_rule'].startswith('--json is read-only')
     assert support['first_map_handoff_rules'][0].startswith(
-        '--first-map is read-only'
+        'report is the read-only first-map command'
     )
     assert 'revalidate' in support['first_map_handoff_rules'][2]
     assert 'copy-ready PASS result' in support['first_map_handoff_rules'][3]
@@ -413,6 +415,7 @@ def test_contract_identifies_the_complete_product_surface():
         'start',
         'sessions',
         'compare',
+        'report',
         'support',
         'doctor',
         'setup',

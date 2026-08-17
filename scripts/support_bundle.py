@@ -62,6 +62,7 @@ SECRET_OPTION = re.compile(
 )
 SAFE_IDENTIFIER = re.compile(r'^[A-Za-z0-9_.:-]{1,160}$')
 REPORTED_SYMPTOM_BASIS = 'USER_REPORTED_NOT_AUTOMATICALLY_DIAGNOSED'
+SUPPORT_MODE_ENV = 'LIDARSLAM_SUPPORT_MODE'
 REPORTED_SYMPTOM_CODES = frozenset({
     'map-spins-or-spirals',
     'pose-drifts-or-oscillates',
@@ -87,9 +88,13 @@ def _utc_now() -> str:
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse the privacy-bounded support-bundle command."""
+    report_mode = os.environ.get(SUPPORT_MODE_ENV) == 'first-map-report'
     parser = argparse.ArgumentParser(
         prog=os.environ.get('LIDARSLAM_CLI_COMMAND'),
         description=(
+            'Revalidate a verified first map and prepare its reviewed report '
+            'without writing or contacting GitHub.'
+            if report_mode else
             'Create a review-before-sharing support ZIP without maps, bags, '
             'raw logs, parameter contents, or local paths.'
         ),
@@ -104,25 +109,32 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action='help',
         help='Show all options (this command has no hidden options).',
     )
-    parser.add_argument(
-        '--output',
-        metavar='<file>',
-        help='New ZIP path (default: beside the session bundle).',
-    )
+    if not report_mode:
+        parser.add_argument(
+            '--output',
+            metavar='<file>',
+            help='New ZIP path (default: beside the session bundle).',
+        )
     parser.add_argument(
         '--json',
         action='store_true',
         help='Print the sanitized report without writing a ZIP.',
     )
-    parser.add_argument(
-        '--first-map',
-        action='store_true',
-        help=(
-            'Validate a verified first-map receipt and print the exact '
-            'review-and-submit handoff without writing or contacting GitHub.'
-        ),
-    )
-    return parser.parse_args(argv)
+    if not report_mode:
+        parser.add_argument(
+            '--first-map',
+            action='store_true',
+            help=(
+                'Validate a verified first-map receipt and print the exact '
+                'review-and-submit handoff without writing or contacting '
+                'GitHub.'
+            ),
+        )
+    args = parser.parse_args(argv)
+    if report_mode:
+        args.first_map = True
+        args.output = None
+    return args
 
 
 def _sha256(path: Path) -> str:

@@ -1,13 +1,14 @@
 # Bash completion for the installed lidarslam-map product command.
 
-_LIDARSLAM_MAP_COMMANDS='demo start sessions compare support doctor setup run inspect view edit merge migrate-manifest rollback-plan'
+_LIDARSLAM_MAP_COMMANDS='demo start sessions compare report support doctor setup run inspect view edit merge migrate-manifest rollback-plan'
 _LIDARSLAM_MAP_GLOBAL_OPTIONS='--help --help-all --version'
 _LIDARSLAM_MAP_DEMO_OPTIONS='--help --help-all --data-dir --output-dir --output --viewer --min-free-space-gib --dry-run --resume --json'
 _LIDARSLAM_MAP_START_OPTIONS='--help --help-all --profile --output-dir --map-output-dir --accept-profile-extrinsics --lidar-to-base --imu-to-base --base-frame --lidar-frame --imu-frame --json --yes --dry-run --editable --viewer --min-free-space-gib --verification'
 _LIDARSLAM_MAP_SESSIONS_OPTIONS='--help --help-all --status --limit --viewer --json'
 _LIDARSLAM_MAP_COMPARE_OPTIONS='--help --help-all --output --viewer --json'
+_LIDARSLAM_MAP_REPORT_OPTIONS='--help --help-all --json'
 _LIDARSLAM_MAP_SUPPORT_OPTIONS='--help --help-all --output --json --first-map'
-_LIDARSLAM_MAP_DOCTOR_OPTIONS='--help --help-all --json --demo-dir --min-free-space-gib'
+_LIDARSLAM_MAP_DOCTOR_OPTIONS='--help --help-all --json --public-json --demo-dir --min-free-space-gib'
 _LIDARSLAM_MAP_SETUP_OPTIONS='--help --help-all --profile --output-dir --map-output-dir --accept-profile-extrinsics --lidar-to-base --imu-to-base --base-frame --lidar-frame --imu-frame --json'
 _LIDARSLAM_MAP_RUN_OPTIONS='--help --help-all --profile --output-dir --lidarslam-param --rko-param --base-frame --lidar-frame --imu-frame --min-free-space-gib --dry-run --editable --resume --guided --yes --viewer --autoware-core-dir --work-dir --viewer-run-dir --viewer-rebuild --auto-exit-secs --verification --no-verify-map'
 _LIDARSLAM_MAP_INSPECT_OPTIONS='--help --help-all --bag --symptom --json --write'
@@ -104,6 +105,9 @@ _lidarslam_map_complete() {
       ;;
     compare)
       options="$_LIDARSLAM_MAP_COMPARE_OPTIONS"
+      ;;
+    report)
+      options="$_LIDARSLAM_MAP_REPORT_OPTIONS"
       ;;
     support)
       options="$_LIDARSLAM_MAP_SUPPORT_OPTIONS"

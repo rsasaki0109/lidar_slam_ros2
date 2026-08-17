@@ -114,7 +114,7 @@ lidarslam-map support /path/to/session_bundle
 `sessions` reopens retained work. `compare` reports recorded differences
 without inventing a score or winner. `support` creates a privacy-bounded ZIP
 for human review; it does not upload anything. After a verified first map,
-`lidarslam-map support /path/to/session_bundle --first-map` prints the
+`lidarslam-map report /path/to/session_bundle` prints the
 read-only independent-validation handoff.
 
 When filing an Autoware map issue, report the projector type and whether an

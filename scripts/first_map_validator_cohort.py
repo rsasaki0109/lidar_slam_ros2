@@ -755,7 +755,7 @@ def render_recruitment(contract: dict[str, Any]) -> str:
         'follow only the public documentation. Please report both PASS and '
         'FAIL outcomes; a failure is useful product evidence.',
         '',
-        'After the attempt, run `lidarslam-map support <session> --first-map` '
+        'After the attempt, run `lidarslam-map report <session>` '
         'and use its copy-ready fields. Attach only the reviewed '
         '`first_map_validation_receipt.json` to this form:',
         ISSUE_FORM_URL,

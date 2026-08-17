@@ -1914,8 +1914,7 @@ def test_success_terminal_summary_keeps_paths_and_next_command_together(
     ) in output
     assert (
         'Report:            '
-        f'./scripts/lidarslam support {Path(manifest["bundle_path"])} '
-        '--first-map'
+        f'./scripts/lidarslam report {Path(manifest["bundle_path"])}'
     ) in output
 
 
@@ -2040,7 +2039,9 @@ def test_verified_session_renders_receipt_bound_quality_summary(
         'inspect',
     ]
     assert session['actions'][1]['label'] == 'Prepare a first-map report'
-    assert session['actions'][1]['command'].endswith(' --first-map')
+    assert session['actions'][1]['command'] == (
+        f'./scripts/lidarslam report {tmp_path / "setup"}'
+    )
     report = module._render_session_html(session)
     assert 'Map quality' in report
     assert 'All required map quality evidence passed.' in report

@@ -33,9 +33,9 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 import jsonschema
 
@@ -1156,9 +1156,9 @@ def test_japanese_recovery_card_explains_privacy_first_support_handoff():
     assert 'support-report.json' in source
     assert 'map geometry、bag、raw log、parameter内容' in source
     assert 'credentialのようなcommand値は含まれません' in source
-    assert '`--first-map`はreceipt-boundのPASSを再検証' in source
+    assert '`report`はreceipt-boundのPASSを再検証' in source
     assert 'review済みのfirst-map receiptだけ' in source
-    assert '`--first-map --json`のhandoff JSONは' in source
+    assert '`report --json`のhandoff JSONは' in source
     assert '公開添付には使いません' in source
 
 
@@ -1174,7 +1174,7 @@ def test_japanese_recovery_card_explains_independent_first_map_handoff():
     assert 'first-map receiptだけを添付します' in source
     assert 'map、bag、preview、\nraw log、trajectory、parameter' in source
     assert (
-        '`--first-map --json`のhandoff JSONとlocal receipt pathはpublic '
+        '`report --json`のhandoff JSONとlocal receipt pathはpublic '
         'attachmentではありません' in source
     )
     assert 'maintainerのlive step-by-step guidanceは' in source
@@ -1289,10 +1289,10 @@ def test_japanese_recovery_card_explains_receipt_session_revalidation():
     assert '`verification.manifest_sha256`は、そのsessionの`run_manifest.json`に結び付いた値' in source
     assert '別runのreceipt、古いsessionのreceipt、名前だけ変更したreceiptを混ぜません' in source
     assert 'lidarslam-map sessions ./output --json' in source
-    assert 'lidarslam-map support /path/to/session_bundle --first-map' in source
+    assert 'lidarslam-map report /path/to/session_bundle' in source
     assert '全check、manifest・diagnosis・verification logのhashが一致' in source
     assert '`READY FOR REVIEW`が出た場合だけ' in source
-    assert '`--first-map --json`' in source
+    assert '`report --json`' in source
     assert '書き込みもGitHubへの通信も行いません' in source
     assert 'receipt、`run_manifest.json`、`session.json`を\n手編集してhashを合わせたり' in source
     assert '`retry.command`またはverification-enabledな新しいoutput command' in source
@@ -1305,7 +1305,7 @@ def test_japanese_recovery_card_explains_failed_receipt_revalidation_recovery():
 
     assert '### receipt再検証に失敗したときの復旧' in source
     assert (
-        '`support --first-map`がrejectしても、元のmap、session、receipt、manifestは'
+        '`report`がrejectしても、元のmap、session、receipt、manifestは'
         '削除されません。'
     ) in source
     assert 'receipt、`run_manifest.json`、`session.json`の内容やhashを手で\n書き換えて再検証を通そうとしません。' in source
@@ -1319,7 +1319,7 @@ def test_japanese_recovery_card_explains_failed_receipt_revalidation_recovery():
     assert '`map.retry`または`map.retry-2`のような新しいoutput' in source
     assert 'verification offの診断' in source
     assert '--verification required' in source
-    assert 'support --first-map`が`READY FOR REVIEW`を返し' in source
+    assert 'report`が`READY FOR REVIEW`を返し' in source
     assert '旧証跡、bag、map、raw logは削除・uploadせず' in source
 
 
@@ -1334,7 +1334,7 @@ def test_japanese_recovery_card_explains_pre_share_verification_checklist():
     assert '`run.product_version`と`run.git_commit`' in source
     assert '`run.run_id`、`map_output`、receipt path' in source
     assert '`verification.manifest_sha256`' in source
-    assert '`support --first-map`が`READY FOR REVIEW`を返し' in source
+    assert '`report`が`READY FOR REVIEW`を返し' in source
     assert 'receiptの`status: PASS`と全checkのPASS' in source
     assert 'receiptの`shareability`を読み' in source
     assert 'private pathをredactした' in source
@@ -1350,7 +1350,7 @@ def test_japanese_recovery_card_explains_public_receipt_report_template():
         encoding='utf-8')
 
     assert '### 公開共有用のreceiptテンプレート' in source
-    assert '`support --first-map`が表示するcanonical issue form' in source
+    assert '`report`が表示するcanonical issue form' in source
     assert '公開ドキュメント経路:' in source
     assert 'release/commit/image digest:' in source
     assert 'environment: <OS> / <architecture> / <ROS> / <install method>' in source
@@ -1362,7 +1362,7 @@ def test_japanese_recovery_card_explains_public_receipt_report_template():
     assert 'manifest_sha256=<64 lowercase hex characters>' in source
     assert 'attachment: first_map_validation_receipt.json (reviewed)' in source
     assert '`release/commit/image digest`はreceiptの`run.product_version`' in source
-    assert '`--first-map --json`のhandoff、`receipt_path`、`markdown_path`' in source
+    assert '`report --json`のhandoff、`receipt_path`、`markdown_path`' in source
     assert 'PASSを確認して内容をreviewした' in source
     assert '`first_map_validation_receipt.json`だけをpublic attachment' in source
 
@@ -1468,8 +1468,8 @@ def test_japanese_recovery_card_separates_support_and_validation_reports():
     assert '`README.txt`、`issue-body.md`、' in card
     assert '`support-report.json`をすべて読み' in card
     assert 'accepted validation evidenceではない' in card
-    assert '`support --first-map`' in card
-    assert '`--first-map --json`のhandoff JSON' in card
+    assert '`report`' in card
+    assert '`report --json`のhandoff JSON' in card
     assert 'canonical independent-validation issue form' in card
     assert '`first_map_validation_receipt.json`を内容確認したもの1つだけ' in card
     assert 'maintainer reviewとvalidation ledgerのaccepted記録' in card

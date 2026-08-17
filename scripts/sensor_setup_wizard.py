@@ -1798,6 +1798,11 @@ def _session_index_payload(
         'support',
         str(setup_bundle),
     ])
+    report_command = shlex.join([
+        _product_command(),
+        'report',
+        str(setup_bundle),
+    ])
     created_at = _utc_now()
     reason = None
     findings: list[dict[str, str]] = []
@@ -1916,7 +1921,7 @@ def _session_index_payload(
             add_action(
                 'share',
                 'Prepare a first-map report',
-                support_command + ' --first-map',
+                report_command,
             )
         add_action('inspect', 'Inspect map evidence', inspect_command)
         progress = _session_progress('complete', updated_at=created_at)

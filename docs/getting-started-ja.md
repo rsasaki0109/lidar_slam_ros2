@@ -70,7 +70,7 @@ sourceからDockerへ切り替えるcommandではありません。保存済み`
 `v0.9.1` source候補のidentityをそれぞれ`--version`など実際の出力から記録します。
 
 元の証跡は削除・uploadせず、旧runと新runのreceiptやhashを混ぜません。新しいsessionで
-`support --first-map`が`READY FOR REVIEW`を返した場合だけ、その新runのreceiptを確認します。
+`report`が`READY FOR REVIEW`を返した場合だけ、その新runのreceiptを確認します。
 viewerの見た目からcommandを再構成したり、古いreceiptを新しいmapへコピーしたりせず、支援が
 必要ならlocal pathを含むrecovery JSONではなく、後述のprivacy-bounded support reportだけを使います。
 
@@ -377,13 +377,14 @@ lidarslam-map sessions ./output --json
 再検証です。
 
 ```bash
-lidarslam-map support /path/to/session_bundle --first-map
+lidarslam-map report /path/to/session_bundle
 ```
 
 このcommandは、sessionがverifiedであること、receiptがそのsession内の通常ファイルであること、
 receiptのschemaと全check、manifest・diagnosis・verification logのhashが一致することを確認します。
 `READY FOR REVIEW`が出た場合だけ、表示されたreceipt pathのJSONを内容確認して共有候補にします。
-自動化では`--first-map --json`を使えます。この再検証は書き込みもGitHubへの通信も行いません。
+自動化では`report --json`を使えます。この再検証は書き込みもGitHubへの通信も行いません。
+旧表記の`support /path/to/session_bundle --first-map`も同じ検証として利用できます。
 
 `status: PASS`のreceiptがあっても、再検証がreceipt mismatch、missing、invalid、またはnot PASSで
 終了した場合は、その証拠をtrustedとして使いません。receipt、`run_manifest.json`、`session.json`を
@@ -393,7 +394,7 @@ receiptのschemaと全check、manifest・diagnosis・verification logのhashが�
 
 ### receipt再検証に失敗したときの復旧
 
-`support --first-map`がrejectしても、元のmap、session、receipt、manifestは削除されません。
+`report`がrejectしても、元のmap、session、receipt、manifestは削除されません。
 これは現在のevidenceがtrusted resultとして使えないという判定であり、mapが消えたという意味では
 ありません。旧outputを削除せず、receipt、`run_manifest.json`、`session.json`の内容やhashを手で
 書き換えて再検証を通そうとしません。
@@ -423,7 +424,7 @@ lidarslam-map start /path/to/rosbag2 \
 ```
 
 viewerの見た目からcommandを再構成したり、古いreceiptを新しいmapにコピーしたりしません。新しい
-sessionで`support --first-map`が`READY FOR REVIEW`を返し、receiptを内容確認できた場合だけ、
+sessionで`report`が`READY FOR REVIEW`を返し、receiptを内容確認できた場合だけ、
 supportまたは独立validationの候補にします。旧証跡、bag、map、raw logは削除・uploadせず、公開時は
 review済みreceiptだけを使います。
 
@@ -606,7 +607,7 @@ credentialのようなcommand値は含まれません。3ファイルをすべ�
 | 目的 | 安全な選択 | 公開するもの | それが意味しないこと |
 | --- | --- | --- | --- |
 | 動かない、止まった、または原因を切り分けたい | `lidarslam-map support /path/to/session_bundle --json`でサニタイズ済みsupport reportを確認する | 内容を確認してprivate pathを除いたsupport reportの必要部分だけ | statusやdiagnosisが`PASS`に見えても、accepted validation evidenceではない |
-| 独立validatorとして自分のrunを報告したい | 自分で公開手順を完了してから`lidarslam-map support /path/to/session_bundle --first-map`を実行する | canonical independent-validation issue formのpublic fieldsと、内容をreviewしたreceiptだけ | `READY FOR REVIEW`やissue提出だけでaccepted validationになるわけではない |
+| 独立validatorとして自分のrunを報告したい | 自分で公開手順を完了してから`lidarslam-map report /path/to/session_bundle`を実行する | canonical independent-validation issue formのpublic fieldsと、内容をreviewしたreceiptだけ | `READY FOR REVIEW`やissue提出だけでaccepted validationになるわけではない |
 
 通常の`support --json`は診断・再現・支援のためのlocal-onlyな入口で、JSONを表示するだけで
 ZIPを作りません。ZIPを作った場合は、生成された`README.txt`、`issue-body.md`、
@@ -615,8 +616,8 @@ ZIPを作りません。ZIPを作った場合は、生成された`README.txt`�
 session bundle全体は貼りません。support reportはmaintainerが原因を調べるための資料であり、
 receiptの代わりにも、公開validation reportの代わりにもなりません。
 
-`support --first-map`はsupport ZIPを作る操作ではなく、同じsessionに保存されたPASS receiptを
-再検証して独立validationへ進むためのread-only handoffです。`--first-map --json`のhandoff JSON、
+`report`はsupport ZIPを作る操作ではなく、同じsessionに保存されたPASS receiptを
+再検証して独立validationへ進むためのread-only handoffです。`report --json`のhandoff JSON、
 `receipt_path`、local receipt pathはlocal-onlyで、public attachmentではありません。表示された
 canonical independent-validation issue formには、自分で実行したrunのrelease/commitまたは
 immutable image digest、OS・architecture・ROS環境、private pathをredactしたexact command、
@@ -631,14 +632,14 @@ report、source候補のvalidation report、別runのreceiptやhashを1つの報
 推測せずに共有を止めます。
 
 検証済みfirst mapを独立validatorへ渡す場合だけ、次のread-only handoffを使います。
-`--first-map`はreceipt-boundのPASSを再検証し、ZIPを作らず、GitHubへ連絡しません。
+`report`はreceipt-boundのPASSを再検証し、ZIPを作らず、GitHubへ連絡しません。
 
 ```bash
-lidarslam-map support /path/to/session_bundle --first-map
+lidarslam-map report /path/to/session_bundle
 ```
 
 出力されるverification summaryとsafe environment hintsを確認し、公開添付には
-review済みのfirst-map receiptだけを使います。`--first-map --json`のhandoff JSONは
+review済みのfirst-map receiptだけを使います。`report --json`のhandoff JSONは
 local receipt pathを含むため、公開添付には使いません。
 
 独立validator向けのissue formへ送る場合は、同じ出力に含まれるcanonical
@@ -648,7 +649,7 @@ statusを記入し、commandからprivate pathをredactします。receiptを添
 読み、PASSなら名前が示されたfirst-map receiptだけを添付します。map、bag、preview、
 raw log、trajectory、parameter、スクリーンショットは添付しません。
 
-`--first-map --json`のhandoff JSONとlocal receipt pathはpublic attachmentではありません。
+`report --json`のhandoff JSONとlocal receipt pathはpublic attachmentではありません。
 このcommandはuploadしないため、自分でissue formへ入力して共有します。独立validationは
 公開手順を自分で実行した結果だけを対象にし、maintainerのlive step-by-step guidanceは
 validationとして扱いません。詳しい判定条件は[Independent First-map Validation](external-first-map-validation.md)
@@ -665,7 +666,7 @@ sessionについて次の5項目を確認し、1つでも不明なら共有を�
       `run.product_version`と`run.git_commit`（値がある場合）を記録した。
 - [ ] 2. same session/output: `run.run_id`、`map_output`、receipt path、
       `verification.manifest_sha256`が同じsessionの証跡に結び付いている。
-- [ ] 3. revalidation: `support --first-map`が`READY FOR REVIEW`を返し、
+- [ ] 3. revalidation: `report`が`READY FOR REVIEW`を返し、
       receiptの`status: PASS`と全checkのPASSを内容確認した。
 - [ ] 4. privacy: receiptの`shareability`を読み、issue formへ貼るcommandから
       private pathをredactした。handoff JSONとlocal receipt pathはlocal-onlyのままにした。
@@ -685,7 +686,7 @@ verification summaryは自分のrunから転記し、receiptのJSONだけをレ�
 
 ### 公開共有用のreceiptテンプレート
 
-5項目を確認した後は、`support --first-map`が表示するcanonical issue formを開き、次の
+5項目を確認した後は、`report`が表示するcanonical issue formを開き、次の
 templateを自分のrunの値で埋めます。`READY FOR REVIEW`とreceiptの`PASS`が確認できない場合は、
 このtemplateを公開用に使いません。
 
@@ -709,13 +710,13 @@ attachment: first_map_validation_receipt.json (reviewed)
 ### 日本語の公開reportのfield provenanceを確認する
 
 templateの各fieldは、report作成者が自分のrunから入力する値と、同じsessionのreceiptまたは
-`--first-map` handoffから転記する値に分かれます。値の出どころが確認できないfieldは推測せず、
+`report` handoffから転記する値に分かれます。値の出どころが確認できないfieldは推測せず、
 reportを提出しません。
 
 | fieldの種類 | 自分で確認する出どころ | 該当するfield | 入力ルール |
 | --- | --- | --- | --- |
 | operator-supplied public fields | 自分が実行した公開手順、環境、観察 | 公開ドキュメント経路、`environment`、private pathをredactしたexact command、`findings` | 自分のrunの事実だけを書く。viewerの表示やexampleの値で補わず、local path・credential・raw artifactを除く |
-| receipt-derived validation fields | 同じrunの`support --first-map` handoffと、名前が示されたreview済みreceipt | `release/commit/image digest`、`result`、verification summary、`manifest_sha256`、receipt attachment | receipt/handoffの値をそのまま照合して転記する。別session、別output、別versionの値を混ぜない |
+| receipt-derived validation fields | 同じrunの`report` handoffと、名前が示されたreview済みreceipt | `release/commit/image digest`、`result`、verification summary、`manifest_sha256`、receipt attachment | receipt/handoffの値をそのまま照合して転記する。別session、別output、別versionの値を混ぜない |
 | review / acceptance status | 公開issueの状態、maintainer review、validation ledger | `READY FOR REVIEW`、public report submitted、maintainer review、accepted ledger evidence | 自分でacceptedと名付けない。ledgerの明示的なaccepted記録がない間はaccepted validationと書かない |
 
 次の順序で同じsessionを照合します。まず`lidarslam-map --version`とreceiptの
@@ -736,7 +737,7 @@ release referenceに対応させます。`environment`、redacted command、find
 公開fieldです。`verification summary`はreceipt markdownのPASS blockから転記し、hashを推測・
 編集しません。
 
-`--first-map --json`のhandoff、`receipt_path`、`markdown_path`、`session.json`、support reportの
+`report --json`のhandoff、`receipt_path`、`markdown_path`、`session.json`、support reportの
 local pathはtemplateに貼りません。map、bag、raw log、preview、trajectory、parameter、
 screenshotも添付せず、PASSを確認して内容をreviewした
 `first_map_validation_receipt.json`だけをpublic attachmentにします。
@@ -1059,7 +1060,7 @@ outputの指示がある場合だけそれに従います。
 次は、公開formの項目と値の出どころを理解するための説明用の架空例です。実際のrun、receipt、
 ledgerから作ったものではないため、実際のvalidation result、review済みevidence、accepted
 ledger evidenceではありません。値やhashを自分のreportへコピーせず、自分の
-`support --first-map`とreview済みreceiptから実際の値を確認します。
+`report`とreview済みreceiptから実際の値を確認します。
 
 ```text
 [説明用の架空例 — not a real validation result / not accepted ledger evidence]

@@ -419,7 +419,7 @@ def test_docs_exist_and_are_linked_from_readme():
 
 
 def test_readme_chooser_routes_each_goal_to_one_safe_first_step():
-    """GitHub visitors should choose a bounded path before reading details."""
+    """Repository visitors should choose a bounded path before details."""
     readme = README_PATH.read_text(encoding='utf-8')
     chooser = readme.split('### Choose your shortest path', 1)[1].split(
         '### Try it with Docker', 1
@@ -1538,7 +1538,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'rko_lio_graph_mid360_preset' in getting_started_doc
     assert 'first_map_validation_receipt.json' in getting_started_doc
     assert (
-        'lidarslam-map support /path/to/session_bundle --first-map'
+        'lidarslam-map report /path/to/session_bundle'
         in getting_started_doc
     )
     assert 'LIDARSLAM_HOST_UID' in getting_started_doc
@@ -1562,7 +1562,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
         EXTERNAL_FIRST_MAP_SCHEMA.read_text(encoding='utf-8')
     )
     assert 'Independent First-map Validation issue form' in first_map_program
-    assert 'lidarslam-map support /path/to/session_bundle --first-map' in (
+    assert 'lidarslam-map report /path/to/session_bundle' in (
         first_map_program
     )
     assert 'no write or network request' in first_map_program

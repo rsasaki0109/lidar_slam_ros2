@@ -285,7 +285,10 @@ def _support_command(bundle_path: str) -> str:
 
 
 def _first_map_report_command(bundle_path: str) -> str:
-    return f'{_support_command(bundle_path)} --first-map'
+    return (
+        f'{_product_command_prefix("report")} '
+        f'{shlex.quote(bundle_path)}'
+    )
 
 
 def _terminal_summary(entry: dict[str, Any]) -> str | None:

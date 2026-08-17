@@ -135,6 +135,7 @@ this option policy or the repository version.
 | `view` | `--viewer` | `--autoware-core-dir`, `--work-dir`, `--runtime-dir`, `--rebuild`, `--auto-exit-secs` | None |
 | `sessions` | `--status`, `--limit`, `--viewer`, `--json` | None | None |
 | `compare` | `--output`, `--viewer`, `--json` | None | None |
+| `report` | `--json` | None | None |
 | `support` | `--output`, `--json`, `--first-map` | None | None |
 | `edit` | `--plan`, `--output-dir`, `--dry-run`, `--json` | `--backend-input`, `--params`, `--setup` | None |
 | `merge` | output, alignment, acceptance, transform, dry-run, and JSON options | None | None |
@@ -301,7 +302,7 @@ missing, stale, malformed or symlinked evidence remains unavailable. The
 three-member ZIP excludes maps, bags, raw logs, parameter contents, local paths
 and command credentials, and is marked for human review. `--json` is read-only;
 ZIP creation is atomic, refuses replacement, and performs no remote mutation.
-The additive `support --first-map` mode does not create that ZIP. It is a
+The additive `report` command does not create that ZIP. It is a
 read-only handoff for a `verified` session whose PASS receipt remains exactly
 bound to the retained manifest, diagnosis, and verification log. It prints a
 copy-ready result, exact source commit or product-version fallback,
@@ -309,7 +310,8 @@ verification summary, the local privacy-bounded JSON receipt path, the
 canonical issue form, and the four fields that still need the operator's own
 input. An immutable image user is told to replace the suggested release value
 with the digest they actually ran. The command never uploads, opens a browser,
-or contacts GitHub.
+or contacts GitHub. The older `support <session_bundle> --first-map` spelling
+remains compatible and resolves to the same implementation and schema.
 Missing, stale, malformed, non-PASS, or symlinked evidence fails closed.
 
 `run --guided` remains a compatibility interaction layer: it repeats the existing

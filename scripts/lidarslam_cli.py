@@ -20,6 +20,7 @@ COMMANDS = {
     'start': 'sensor_setup_wizard.py',
     'sessions': 'session_history.py',
     'compare': 'session_compare.py',
+    'report': 'support_bundle.py',
     'support': 'support_bundle.py',
     'doctor': 'lidarslam_doctor.py',
     'setup': 'sensor_setup_wizard.py',
@@ -34,6 +35,7 @@ COMMANDS = {
 EX_USAGE = 2
 EX_SOFTWARE = 70
 HELP_MODE_ENV = 'LIDARSLAM_CLI_HELP_MODE'
+SUPPORT_MODE_ENV = 'LIDARSLAM_SUPPORT_MODE'
 EX_INTERRUPT = 130
 COMMAND_SUPERVISOR_DEPTH_ENV = 'LIDARSLAM_CLI_SUPERVISOR_DEPTH'
 COMMAND_INTERRUPT_GRACE_SECONDS = 35.0
@@ -78,7 +80,8 @@ def render_help(*, include_all: bool = False) -> str:
             '  compare <left> <right> Compare two sessions using retained '
             'evidence'
         ),
-        '  support <session>     Prepare a safe support or validation handoff',
+        '  report <session>     Prepare a verified first-map report',
+        '  support <session>    Prepare a privacy-first maintainer ZIP',
         '',
         'Core rosbag2-to-map commands:',
         (
@@ -394,6 +397,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         child_env = os.environ.copy()
         child_env.pop(HELP_MODE_ENV, None)
+        child_env.pop(SUPPORT_MODE_ENV, None)
         if '--help-all' in args:
             if args != ['--help-all']:
                 print(
@@ -409,6 +413,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             command_name(),
             command,
         ])
+        if command == 'report':
+            child_env[SUPPORT_MODE_ENV] = 'first-map-report'
         completed = _run_delegated_command(
             command_argv(command, args),
             env=child_env,

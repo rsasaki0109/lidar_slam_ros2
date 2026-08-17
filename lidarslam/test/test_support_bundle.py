@@ -517,6 +517,29 @@ def test_first_map_json_is_schema_valid_and_read_only(
     assert not list(bundle.parent.glob('lidarslam-support-*.zip'))
 
 
+def test_report_mode_is_a_focused_read_only_alias(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+):
+    """The first-class report command hides ZIP-only support options."""
+    module = _load(SCRIPT, 'support_first_map_report_mode')
+    bundle = _validation_fixture(tmp_path)
+    monkeypatch.setenv(module.SUPPORT_MODE_ENV, 'first-map-report')
+
+    args = module.parse_args([str(bundle), '--json'])
+    assert args.first_map is True
+    assert args.output is None
+    assert module.main([str(bundle)]) == 0
+    output = capsys.readouterr().out
+    assert 'First-map report: READY FOR REVIEW' in output
+    assert not list(bundle.parent.glob('lidarslam-support-*.zip'))
+
+    with pytest.raises(SystemExit) as rejected:
+        module.parse_args([str(bundle), '--output', str(tmp_path / 'x.zip')])
+    assert rejected.value.code == 2
+
+
 def test_first_map_handoff_uses_product_version_when_commit_is_unavailable(
     tmp_path: Path,
 ):

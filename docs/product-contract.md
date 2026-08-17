@@ -64,7 +64,7 @@ delegate nothing.
 | Try the fixed public demo | [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) without ROS, or `lidarslam-map demo [work_dir]` after a source install | Downloads the tracked MID-360 demo with progress and writes a verified map; the installed command can open the offline review |
 | Map your own compatible rosbag2 | `lidarslam-map start <rosbag2_dir>` for people; `lidarslam-map run <rosbag2_dir> --output-dir <dir>` for automation | Detects and pins consumed sensor topics, requires setup confirmation and RKO calibration confirmation when applicable, runs the normal atomic lifecycle, verifies and diagnoses the map, then opens the offline browser view |
 | Return to and compare local sessions | `lidarslam-map sessions`; select two cards or run `lidarslam-map compare <left> <right>` | Reopens schema-valid session pages and compares recorded readiness, setup, and artifacts without inferring a score or winner |
-| Prepare a maintainer or first-map report | `lidarslam-map support <session_bundle>`; add `--first-map` after a verified run | Creates a review-before-sharing support ZIP, or revalidates PASS evidence and prints the exact independent-validation handoff without writing or uploading |
+| Prepare a maintainer or first-map report | `lidarslam-map support <session_bundle>` for maintainer support; `lidarslam-map report <session_bundle>` after a verified run | Creates a review-before-sharing support ZIP, or revalidates PASS evidence and prints the exact independent-validation handoff without writing or uploading |
 
 `bash scripts/docker_map_bag.sh <rosbag2_dir>` is the no-install delivery
 wrapper for the existing “Map your own compatible rosbag2” workflow, not a
@@ -93,7 +93,8 @@ source script must never be mistaken for an attested release asset.
 
 A verified terminal session adds the compatibility-keyed `share` action,
 displayed as **Prepare a first-map report**, whose command is
-`lidarslam-map support <session_bundle> --first-map`. This is not a fifth
+`lidarslam-map report <session_bundle>`. The older
+`support <session_bundle> --first-map` spelling remains compatible. This is not a fifth
 workflow or an acceptance claim. It re-hashes the receipt-bound manifest,
 diagnosis, and verification log, then prints only the copy-ready verification
 summary, reviewed receipt path, and canonical issue form. It performs no write,

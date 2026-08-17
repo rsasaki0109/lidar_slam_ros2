@@ -506,13 +506,13 @@ review instead. A retained symptom reaches the sanitized report and issue body
 only as its fixed code plus the user-reported evidence boundary; its title,
 checks, commands, and other diagnosis text stay local.
 
-After a verified run, the session page offers **Share this verified first
-map**. Its copy-ready command revalidates the retained receipt and source
+After a verified run, the session page offers **Prepare a first-map report**.
+Its copy-ready command revalidates the retained receipt and source
 evidence, then prints the exact summary, JSON attachment, and public issue form
 without writing or contacting GitHub:
 
 ```bash
-lidarslam-map support /path/to/session_bundle --first-map
+lidarslam-map report /path/to/session_bundle
 ```
 
 Review the named JSON before attaching it. The handoff never uploads anything
@@ -521,6 +521,8 @@ and private-place screenshots. Its four-field template preserves the command
 executable, options, and non-private values while requiring credentials,
 private paths, host or user names, and precise locations to be replaced with
 the literal `REDACTED` placeholder.
+The older `lidarslam-map support /path/to/session_bundle --first-map` spelling
+remains compatible.
 
 Return to recent work without searching through timestamped directories:
 

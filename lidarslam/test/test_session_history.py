@@ -266,8 +266,7 @@ def test_verified_pass_card_has_copy_ready_share_action(
     rendered = module._render_session_card(entry)
 
     assert 'Prepare a first-map report' in rendered
-    assert 'lidarslam-map support' in rendered
-    assert '--first-map' in rendered
+    assert 'lidarslam-map report' in rendered
     assert 'Copy report command' in rendered
     assert 'class="copy-report button"' in rendered
 
@@ -328,8 +327,8 @@ def test_terminal_history_prints_share_or_recovery_next_action(
     rendered = module._render_terminal(payload)
 
     assert (
-        'Report: lidarslam-map support '
-        f'{tmp_path / "verified"} --first-map'
+        'Report: lidarslam-map report '
+        f'{tmp_path / "verified"}'
     ) in rendered
     assert (
         'Details: Mapping needs attention. — '

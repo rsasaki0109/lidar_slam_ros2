@@ -1062,15 +1062,14 @@ def validate_install(
         first_map_handoff = _run(
             [
                 str(path_command),
-                'support',
+                'report',
                 str(verified_session),
-                '--first-map',
             ],
             work_dir,
         )
         _require_success(
             first_map_handoff,
-            'installed support --first-map',
+            'installed report',
         )
         required_handoff_text = (
             'First-map report: READY FOR REVIEW',
@@ -1098,11 +1097,11 @@ def validate_install(
             for text in required_handoff_text
         ):
             raise RuntimeError(
-                'installed support --first-map omitted its review handoff'
+                'installed report omitted its review handoff'
             )
         if tree_snapshot(work_dir) != before_first_map_handoff:
             raise RuntimeError(
-                'installed support --first-map changed local session state'
+                'installed report changed local session state'
             )
 
         support_zip = work_dir / 'installed-support.zip'

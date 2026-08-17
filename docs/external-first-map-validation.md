@@ -24,7 +24,7 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
    copy **Prepare a first-map report**, or run:
 
    ```bash
-   lidarslam-map support /path/to/session_bundle --first-map
+   lidarslam-map report /path/to/session_bundle
    ```
 
    The command performs no write or network request. It revalidates the PASS
@@ -51,7 +51,7 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
    ```
 
    Older sessions may not reference that new receipt from `session.json`, so
-   the fail-closed `support --first-map` handoff can still reject them. Review
+   the fail-closed `report` handoff can still reject them. Review
    the generated JSON and submit it manually through the same issue form; do
    not edit old session evidence merely to make the handoff pass.
 

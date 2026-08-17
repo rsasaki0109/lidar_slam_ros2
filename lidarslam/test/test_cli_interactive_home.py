@@ -89,6 +89,22 @@ def test_noninteractive_no_argument_behavior_remains_usage_error(
     assert '<command>' in captured.err
 
 
+def test_report_dispatches_to_focused_read_only_support_mode(
+    monkeypatch, cli_module
+):
+    """The short report command reuses the validated first-map helper."""
+    captured = _capture_delegate(monkeypatch, cli_module)
+
+    assert cli_module.main(['report', '/tmp/verified session']) == 0
+
+    command = captured['command']
+    assert Path(command[1]).name == 'support_bundle.py'
+    assert command[2:] == ['/tmp/verified session']
+    env = captured['kwargs']['env']
+    assert env['LIDARSLAM_CLI_COMMAND'] == './scripts/lidarslam report'
+    assert env[cli_module.SUPPORT_MODE_ENV] == 'first-map-report'
+
+
 def test_demo_requires_explicit_write_confirmation(
     monkeypatch, capsys, cli_module
 ):

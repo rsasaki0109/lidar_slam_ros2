@@ -227,8 +227,8 @@ The issue body says it is not an automatically diagnosed root cause; symptom
 titles, checks, commands, and free text are excluded.
 
 For a verified first map, run
-`lidarslam-map support <session_bundle> --first-map` or copy **Share this
-verified first map** from `session.html`. This mode creates no ZIP, writes no
+`lidarslam-map report <session_bundle>` or copy **Prepare a first-map report**
+from `session.html`. This command creates no ZIP, writes no
 file, and contacts no remote service. It requires receipt-bound quality PASS,
 revalidates the retained receipt plus manifest, diagnosis, and verification-log
 hashes, then prints one copy-ready verification summary, safe environment
@@ -238,9 +238,10 @@ documentation path, environment, a command shape with private values replaced
 by `REDACTED`, and findings. Add `--json` for a schema-valid,
 machine-readable `first-map-handoff-v1` result; it is still read-only and
 local-only because it includes the local receipt path. Attach only the
-reviewed receipt, never the handoff JSON.
-`--output` remains rejected in this mode so it cannot create a second evidence
-artifact.
+reviewed receipt, never the handoff JSON. The older
+`support <session_bundle> --first-map` spelling remains compatible. `report`
+exposes only `--json`; ZIP-only `--output` is unavailable, so it cannot create
+a second evidence artifact.
 
 ### `setup`
 
@@ -479,7 +480,7 @@ The stability label and migration rules for every option are defined in the
 | Public first map | `demo`, `demo --dry-run --json`, `demo --resume`, `demo --viewer none` | Download fixed public data, verify a map, safely finish interrupted post-processing, reuse trusted output, and optionally open it |
 | One-command session | `start`, `start --yes --dry-run`, `start --editable`, `start --viewer` | Pin calibration and configuration, run the verified map lifecycle, then open the result |
 | Session return and comparison | `sessions`, `sessions --status`, `compare --viewer`, `compare --json` | Reopen local runs and compare two retained evidence sets without inferred scoring |
-| Maintainer or validator report | `support --output`, `support --json`, `support --first-map [--json]` | Create a fixed privacy-first ZIP, inspect its sanitized report, or revalidate and hand off one verified first-map receipt without writing |
+| Maintainer or validator report | `support --output`, `support --json`, `report [--json]` | Create a fixed privacy-first ZIP, inspect its sanitized report, or revalidate and hand off one verified first-map receipt without writing |
 | Doctor output | `doctor --json`, `doctor <rosbag2_dir> --public-json` | Keep the full versioned preflight local for automation, or emit bounded path-free evidence for a reviewed public issue |
 | Guided compatibility | `run --guided`, `run --guided --yes`, `run --guided --dry-run` | Preserve the earlier explained-run path for existing launchers |
 | Map selection and output | `run --profile`, `run --output-dir` | Select a maintained profile or an explicit artifact directory |
