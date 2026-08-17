@@ -234,6 +234,9 @@ Every delegated `start` also owns an additive `map-session-index-v1` contract:
 `session.json` and its derived `session.html` represent `running`, `verified`,
 `unverified`, or `action_required` through one stable location. Running progress
 mirrors atomic run-manifest-v2 stages and adds no estimated-time guarantee.
+An unchanged live stage emits at most one terminal heartbeat every 30 seconds
+with monotonic elapsed time. The heartbeat performs no session artifact write
+and claims neither a percentage, ETA, nor delegated forward progress.
 This does not change the `view` command's verified-map input contract or add a
 beginner command. The page is self-contained, escapes operator-controlled text,
 and has no network dependencies. Progress generation, browser generation, or

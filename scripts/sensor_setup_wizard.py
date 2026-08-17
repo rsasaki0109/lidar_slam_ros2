@@ -20,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from typing import Any, Sequence
 
 import yaml
@@ -65,6 +66,7 @@ MAP_PREVIEW_RELATIVE_PATH = (
     Path('preview') / 'mid360_robot_3d_map_preview.html'
 )
 SESSION_PROGRESS_POLL_SECONDS = 0.25
+SESSION_PROGRESS_HEARTBEAT_SECONDS = 30.0
 SESSION_PROGRESS_STAGES = {
     'preparing': ('preparing', 1, 'Preparing pinned session'),
     'initialized': ('preparing', 1, 'Preparing output'),
@@ -2861,18 +2863,36 @@ def _monitor_session_progress(
     manifest: dict[str, Any],
     stop_event: threading.Event,
 ) -> None:
-    """Mirror durable runner stages into session.html until execution ends."""
+    """Mirror durable stages and emit bounded no-ETA terminal heartbeats."""
     map_output = Path(manifest['run']['output_dir'])
     last_stage = 'preparing'
     write_warning_reported = False
+    started_at = time.monotonic()
+    last_terminal_report = started_at
     while not stop_event.wait(SESSION_PROGRESS_POLL_SECONDS):
+        observed_at = time.monotonic()
         stage, run_dir = _observed_session_progress(map_output)
         if stage == last_stage:
+            if (
+                stage != 'complete'
+                and observed_at - last_terminal_report
+                >= SESSION_PROGRESS_HEARTBEAT_SECONDS
+            ):
+                progress = _session_progress(stage)
+                elapsed = _format_elapsed(observed_at - started_at)
+                print(
+                    'Map heartbeat '
+                    f"[{progress['current_step']}/{progress['total_steps']}]: "
+                    f"{progress['label']}; still running, elapsed {elapsed}"
+                )
+                sys.stdout.flush()
+                last_terminal_report = observed_at
             continue
         if stage == 'complete':
             # The terminal writer will bind the observed runner exit result.
             last_stage = stage
             continue
+        last_terminal_report = observed_at
         try:
             _, _, payload = _write_running_session(
                 args,
@@ -2898,6 +2918,16 @@ def _monitor_session_progress(
         )
         sys.stdout.flush()
         last_stage = stage
+
+
+def _format_elapsed(seconds: float) -> str:
+    """Format monotonic elapsed seconds without implying an ETA."""
+    total_seconds = max(0, int(seconds))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, remaining_seconds = divmod(remainder, 60)
+    if hours:
+        return f'{hours:02}:{minutes:02}:{remaining_seconds:02}'
+    return f'{minutes:02}:{remaining_seconds:02}'
 
 
 def _render_session_recovery(

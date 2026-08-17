@@ -323,6 +323,15 @@ def test_contract_identifies_the_complete_product_surface():
         'unverified',
         'action_required',
     ]
+    assert session['progress_rules'] == [
+        'durable lifecycle stage changes update session.json and session.html '
+        'and print the new stage',
+        'an unchanged live stage prints at most one terminal heartbeat every '
+        '30 seconds with its label and monotonic elapsed time but performs no '
+        'session artifact write',
+        'heartbeats report neither percentage nor ETA and do not claim that '
+        'the delegated workflow made forward progress',
+    ]
     assert session['action_rule'] == (
         'for terminal statuses, actions[0] is the recommended copy-ready '
         'next action'

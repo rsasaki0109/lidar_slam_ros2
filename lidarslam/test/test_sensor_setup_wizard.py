@@ -2038,3 +2038,54 @@ def test_start_mirrors_durable_runner_stages_into_live_session(
     jsonschema.validate(final, schema)
     assert final['status'] == 'verified'
     assert final['progress']['phase'] == 'complete'
+
+
+def test_unchanged_stage_emits_bounded_no_eta_heartbeat(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+):
+    """A long stage should look active without inventing forward progress."""
+    module = _load_module()
+    manifest = _session_manifest(tmp_path)
+    run_dir = Path(manifest['run']['output_dir'])
+    writes: list[str] = []
+
+    class StopAfterTwoPolls:
+        polls = 0
+
+        def wait(self, _seconds):
+            self.polls += 1
+            return self.polls > 2
+
+    def write_stage(_args, _manifest, stage, _run_dir):
+        writes.append(stage)
+        return Path('session.json'), None, {
+            'progress': module._session_progress(stage),
+        }
+
+    monotonic = iter([0.0, 1.0, 31.0])
+    monkeypatch.setattr(module.time, 'monotonic', lambda: next(monotonic))
+    monkeypatch.setattr(module, 'SESSION_PROGRESS_HEARTBEAT_SECONDS', 30.0)
+    monkeypatch.setattr(
+        module,
+        '_observed_session_progress',
+        lambda _map_output: ('workflow_running', run_dir),
+    )
+    monkeypatch.setattr(module, '_write_running_session', write_stage)
+
+    module._monitor_session_progress(
+        type('Args', (), {})(),
+        manifest,
+        StopAfterTwoPolls(),
+    )
+
+    output = capsys.readouterr().out
+    assert writes == ['workflow_running']
+    assert output.count('Map progress [2/6]: Mapping sensor data') == 1
+    assert (
+        'Map heartbeat [2/6]: Mapping sensor data; still running, '
+        'elapsed 00:31'
+    ) in output
+    assert '%' not in output
+    assert 'ETA' not in output

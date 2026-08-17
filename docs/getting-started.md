@@ -441,6 +441,10 @@ seconds. It advances only from atomically written run-manifest stages: preparing
 mapping, verification, finalization, and evidence generation. The contract uses
 the versioned
 [`map-session-index-v1` schema](schemas/map-session-index-v1.schema.json).
+If one live stage lasts longer than 30 seconds, the terminal prints a bounded
+heartbeat with that same stage and monotonic elapsed time. It does not invent a
+percentage or ETA, claim forward progress, or rewrite session artifacts until a
+durable stage actually changes.
 For each terminal state, `actions[0]` is the recommended copy-ready next action.
 A verified session links its offline 3D preview and evidence; an unverified
 diagnostic run is clearly labelled and offers a fresh verification-enabled
