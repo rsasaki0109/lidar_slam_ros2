@@ -37,7 +37,7 @@
       "depends_on_lanes": [
         "R1-runtime-safety"
       ],
-      "expected_path_count": 61,
+      "expected_path_count": 63,
       "expected_verification_count": 4
     },
     {
@@ -69,7 +69,7 @@
         "R2-operator-ux",
         "R3-distribution"
       ],
-      "expected_path_count": 157,
+      "expected_path_count": 159,
       "expected_verification_count": 15
     }
   ],

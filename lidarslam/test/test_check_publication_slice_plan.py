@@ -108,12 +108,12 @@ def test_tracked_plan_covers_the_exact_candidate_once():
     assert report['worktree_clean'] is (not status)
     assert report['uncommitted_path_count'] == len(status)
     assert report['scope'] == 'worktree-delta-from-pr-base'
-    assert report['path_count'] == 342
+    assert report['path_count'] == 346
     assert report['slice_count'] == 7
     assert report['whole_pr_base_sha'] == (
         '86fa9b610c07ccf4d2b0f10939e17c129d34b40a'
     )
-    assert report['whole_pr_path_count'] == 391
+    assert report['whole_pr_path_count'] == 393
     assert report['review_phase_count'] == 3
     assert report['review_phase_ids'] == [
         'initial_review',
@@ -143,8 +143,8 @@ def test_tracked_plan_covers_the_exact_candidate_once():
         + report['follow_up_review_commit_count']
         == report['whole_pr_commit_count']
     )
-    assert report['overlap_path_count'] == 73
-    assert report['overlap_membership_count'] == 78
+    assert report['overlap_path_count'] == 74
+    assert report['overlap_membership_count'] == 80
     assert report['uncovered_path_count'] == 0
     assert report['extraneous_phase_path_count'] == 0
     assert report['merge_commit_count'] == 0
@@ -564,8 +564,8 @@ def test_cli_emits_a_machine_readable_local_only_report():
     status = CHECKER._run_git(['status', '--short'])
     assert report['worktree_clean'] is (not status)
     assert report['uncommitted_path_count'] == len(status)
-    assert report['path_count'] == 342
-    assert report['whole_pr_path_count'] == 391
+    assert report['path_count'] == 346
+    assert report['whole_pr_path_count'] == 393
     assert report['whole_pr_commit_count'] == int(CHECKER._run_git([
         'rev-list',
         '--count',
@@ -602,7 +602,7 @@ def test_slice_json_binds_exact_scope_without_executing_commands():
     assert review_slice['id'] == 'S1-runtime-safety'
     assert review_slice['order'] == 1
     assert report['candidate']['slice_count'] == 7
-    assert report['candidate']['whole_pr_path_count'] == 391
+    assert report['candidate']['whole_pr_path_count'] == 393
     assert report['candidate']['review_phase_count'] == 3
     assert report['candidate']['review_coverage_complete'] is True
     assert report['candidate']['bridge_path_count'] == 11
@@ -646,7 +646,7 @@ def test_slice_human_card_has_one_safe_next_action():
     assert '- GitHub write authorized: no' in result.stdout
     assert '- Worktree clean:' in result.stdout
     assert '- Uncommitted paths:' in result.stdout
-    assert '- Whole-PR paths: 391' in result.stdout
+    assert '- Whole-PR paths: 393' in result.stdout
     assert '- Whole-PR review coverage complete: yes' in result.stdout
     assert '- CI bridge paths: 11' in result.stdout
     assert '- Text delta: +' in result.stdout
@@ -673,8 +673,8 @@ def test_overview_json_binds_all_phases_and_slices_without_writes():
     assert candidate['local_tip_sha'] == CHECKER._run_git([
         'rev-parse', 'HEAD',
     ])[0]
-    assert candidate['whole_pr_path_count'] == 391
-    assert candidate['follow_up_path_count'] == 342
+    assert candidate['whole_pr_path_count'] == 393
+    assert candidate['follow_up_path_count'] == 346
     assert candidate['review_coverage_complete'] is True
     assert candidate['uncovered_path_count'] == 0
     assert candidate['extraneous_phase_path_count'] == 0
@@ -770,8 +770,8 @@ def test_overview_human_card_is_bounded_and_copy_ready():
 
     assert result.returncode == 0, result.stderr
     assert '# PR #427 review overview' in result.stdout
-    assert '- Whole-PR paths: 391' in result.stdout
-    assert '- Follow-up paths: 342' in result.stdout
+    assert '- Whole-PR paths: 393' in result.stdout
+    assert '- Follow-up paths: 346' in result.stdout
     assert '- Whole-PR review coverage complete: yes' in result.stdout
     assert '- Whole-PR text delta: +' in result.stdout
     assert '- Whole-PR binary paths: 2' in result.stdout

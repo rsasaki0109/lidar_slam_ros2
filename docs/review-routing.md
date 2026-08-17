@@ -1,7 +1,7 @@
 # Product Draft review routing
 
 Draft PR #427 is intentionally reviewed as one integrated product candidate,
-but no reviewer should need to understand all 342 follow-up paths before
+but no reviewer should need to understand all 346 follow-up paths before
 helping. The local routing contract groups the seven validated review slices
 into four capability lanes without storing a GitHub login, email address, or
 other reviewer identity.
