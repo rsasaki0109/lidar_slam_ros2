@@ -742,6 +742,13 @@ separate exact-tip decision after branch verification; the checker prints no
 edit command, requires Draft state to remain, and grants no review, mark-ready,
 merge, release, or outreach authority. Even an exact green head is held before
 review when the observed body digest is stale.
+The body now makes the large Draft navigable without another lookup: validated
+P0–P2 start/end commits become three exact GitHub compare links, and validated
+S1–S7 metadata becomes a compact focus/path/check/publication-gate table.
+Contiguous
+lineage, whole-PR commit composition, P2 path composition, safe Markdown
+labels, and no-write authority are checked before rendering. The desired-tip
+compare link is intentionally useful only after the ordered branch update.
 
 The
 [2026-08-10 G0 activation decision](../evidence/growth/g0-activation-decision-2026-08-10.md)
@@ -1029,6 +1036,11 @@ instead. It also requires the public PR body to match the canonical clean-tip
 description digest; stale scope text gets a separately authorized, exact-body,
 keep-Draft refresh handoff before review. Neither path executes checks, edits a
 PR, submits a review, marks ready, merges, or performs a write.
+That exact body also carries three clickable phase diffs and seven bounded
+focus/path/check/gate rows, all rebuilt from the validated local overview
+rather than copied from prose. A disconnected range, stale count, injected
+link label, dirty tip,
+or write-authority claim fails before reviewer navigation is emitted.
 The seven review cards also carry self-contained, cache-free verification:
 ROS-dependent checks source Humble/Jazzy explicitly, package test roots remain
 in separate pytest processes, and recognized direct remote-write CLI forms fail

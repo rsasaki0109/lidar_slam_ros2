@@ -162,11 +162,39 @@ def _desired_description(reports: dict, head: str) -> str:
     """Render the canonical body from deterministic local fixtures."""
     return DASHBOARD._product_draft_description_body(
         reports['publication_plan'],
+        DASHBOARD._publication_review_navigation_summary(
+            reports['publication_overview'],
+            reports['publication_plan'],
+        ),
         DASHBOARD._matrix_summary(reports['onboarding_matrix']),
         DASHBOARD._cohort_summary(reports['first_map_cohort']),
         DASHBOARD._v1_summary(reports['v1_readiness']),
         head,
     )
+
+
+def _bind_review_tip(reports: dict, head: str) -> None:
+    """Keep synthetic plan and validated-overview fixtures on one tip."""
+    reports['publication_plan']['local_tip_sha'] = head
+    reports['publication_overview']['candidate']['local_tip_sha'] = head
+    reports['publication_overview']['review_phases'][-1]['end_sha'] = head
+
+
+def _set_review_worktree_state(
+    reports: dict,
+    *,
+    clean: bool,
+    uncommitted_path_count: int,
+) -> None:
+    """Keep synthetic plan and overview cleanliness evidence aligned."""
+    reports['publication_plan']['worktree_clean'] = clean
+    reports['publication_plan'][
+        'uncommitted_path_count'
+    ] = uncommitted_path_count
+    reports['publication_overview']['candidate']['worktree_clean'] = clean
+    reports['publication_overview']['candidate'][
+        'uncommitted_path_count'
+    ] = uncommitted_path_count
 
 
 def test_current_dashboard_preserves_the_tracked_hold_state():
@@ -196,6 +224,34 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         'review_coverage_complete'
     ] is True
     assert report['checks']['publication_plan']['bridge_path_count'] == 11
+    navigation = report['checks']['publication_review_navigation']
+    assert navigation['status'] == 'READY_LOCAL_ONLY'
+    assert navigation['exact_head'] == report['checks'][
+        'publication_plan'
+    ]['local_tip_sha']
+    assert [item['id'] for item in navigation['phases']] == [
+        'P0-initial-review',
+        'P1-ci-bridge',
+        'P2-follow-up-slices',
+    ]
+    assert all(
+        item['compare_url'].startswith(
+            'https://github.com/rsasaki0109/lidar_slam_ros2/compare/'
+        )
+        for item in navigation['phases']
+    )
+    assert [item['id'] for item in navigation['slices']] == [
+        'S1-runtime-safety',
+        'S2-first-map-foundation',
+        'S3-map-lifecycle',
+        'S4-source-onboarding',
+        'S5-distribution-readiness',
+        'S6-product-shell-integration',
+        'S7-publication-control',
+    ]
+    assert sum(item['path_count'] for item in navigation['slices']) == 331
+    assert navigation['commands_executed'] is False
+    assert navigation['github_writes_authorized'] is False
     assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
     assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
     assert report['checks']['product_draft'] == {
@@ -366,6 +422,40 @@ def test_dashboard_rejects_incomplete_whole_pr_review_coverage():
     assert report['authority']['github_writes_authorized'] is False
 
 
+def test_dashboard_rejects_tampered_review_navigation():
+    """Reviewer links and table labels must come from one validated lineage."""
+    reports = DASHBOARD.collect_checker_reports()
+    broken_lineage = copy.deepcopy(reports)
+    broken_lineage['publication_overview']['review_phases'][1][
+        'start_sha'
+    ] = '0' * 40
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='P1-ci-bridge is invalid',
+    ):
+        DASHBOARD.build_report(broken_lineage)
+
+    unsafe_title = copy.deepcopy(reports)
+    unsafe_title['publication_overview']['review_slices'][0]['title'] = (
+        'safe | [forged link](https://example.invalid)'
+    )
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='S1-runtime-safety is invalid',
+    ):
+        DASHBOARD.build_report(unsafe_title)
+
+    unsafe_authority = copy.deepcopy(reports)
+    unsafe_authority['publication_overview'][
+        'github_writes_authorized'
+    ] = True
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='unsafe or incomplete',
+    ):
+        DASHBOARD.build_report(unsafe_authority)
+
+
 def test_dashboard_can_include_a_read_only_release_report_without_writes():
     """An optional release report is represented without adding authority."""
     reports = DASHBOARD.collect_checker_reports()
@@ -398,9 +488,12 @@ def test_exact_green_draft_is_reviewed_before_candidate_environment():
     """Exact green Draft evidence takes priority over repository settings."""
     head = '1' * 40
     reports = DASHBOARD.collect_checker_reports()
-    reports['publication_plan']['local_tip_sha'] = head
-    reports['publication_plan']['worktree_clean'] = True
-    reports['publication_plan']['uncommitted_path_count'] = 0
+    _bind_review_tip(reports, head)
+    _set_review_worktree_state(
+        reports,
+        clean=True,
+        uncommitted_path_count=0,
+    )
     body = _desired_description(reports, head)
     product = _audit_product(head, body=body)
 
@@ -507,9 +600,12 @@ def test_exact_green_draft_refreshes_stale_description_before_review():
     """A green exact head cannot carry stale reviewer-facing scope facts."""
     head = '9' * 40
     reports = DASHBOARD.collect_checker_reports()
-    reports['publication_plan']['local_tip_sha'] = head
-    reports['publication_plan']['worktree_clean'] = True
-    reports['publication_plan']['uncommitted_path_count'] = 0
+    _bind_review_tip(reports, head)
+    _set_review_worktree_state(
+        reports,
+        clean=True,
+        uncommitted_path_count=0,
+    )
     reports['product_draft'] = _audit_product(
         head,
         body='stale 321-path / 77-commit description',
@@ -531,6 +627,17 @@ def test_exact_green_draft_refreshes_stale_description_before_review():
     assert 'Whole PR review: **' in handoff['body']
     assert '380 paths / 3 phases**' in handoff['body']
     assert '331 paths / 7 slices**' in handoff['body']
+    assert '## Exact review map' in handoff['body']
+    assert handoff['body'].count('[Open exact diff](') == 3
+    assert (
+        f'{DASHBOARD.PRODUCT_GITHUB_URL}/compare/' in handoff['body']
+    )
+    assert '| `S1` | Runtime point-cloud and VoxelGrid safety | 15 | 3 |' in (
+        handoff['body']
+    )
+    assert '| `S7` | Exact publication inventory and authority boundary |' in (
+        handoff['body']
+    )
     assert '0/4 comparable' in handoff['body']
     assert handoff['description_update_authorized'] is False
     assert handoff['review_submission_authorized'] is False
@@ -550,8 +657,11 @@ def test_exact_green_draft_refuses_review_handoff_from_dirty_worktree():
     """Uncommitted bytes cannot be mislabeled as the exact public review."""
     head = '2' * 40
     reports = DASHBOARD.collect_checker_reports()
-    reports['publication_plan']['worktree_clean'] = False
-    reports['publication_plan']['uncommitted_path_count'] = 2
+    _set_review_worktree_state(
+        reports,
+        clean=False,
+        uncommitted_path_count=2,
+    )
     reports['product_draft'] = _audit_product(head)
 
     report = DASHBOARD.build_report(reports)
@@ -729,9 +839,12 @@ def test_head_drift_emits_exact_non_force_handoff_without_push_command():
     assert product['non_force_update_possible'] is True
 
     reports = DASHBOARD.collect_checker_reports()
-    reports['publication_plan']['local_tip_sha'] = local_head
-    reports['publication_plan']['worktree_clean'] = True
-    reports['publication_plan']['uncommitted_path_count'] = 0
+    _bind_review_tip(reports, local_head)
+    _set_review_worktree_state(
+        reports,
+        clean=True,
+        uncommitted_path_count=0,
+    )
     reports['product_draft'] = product
     report = DASHBOARD.build_report(reports)
     action = report['next_action']
@@ -781,8 +894,11 @@ def test_head_drift_emits_exact_non_force_handoff_without_push_command():
     assert 'git push' not in card
 
     dirty_reports = copy.deepcopy(reports)
-    dirty_reports['publication_plan']['worktree_clean'] = False
-    dirty_reports['publication_plan']['uncommitted_path_count'] = 1
+    _set_review_worktree_state(
+        dirty_reports,
+        clean=False,
+        uncommitted_path_count=1,
+    )
     dirty_action = DASHBOARD.build_report(dirty_reports)['next_action']
     assert dirty_action['id'] == 'restore-clean-draft-update-worktree'
     assert 'product_draft_update_handoff' not in dirty_action

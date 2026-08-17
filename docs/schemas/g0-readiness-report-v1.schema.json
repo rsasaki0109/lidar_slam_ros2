@@ -53,6 +53,7 @@
       "additionalProperties": false,
       "required": [
         "publication_plan",
+        "publication_review_navigation",
         "onboarding_matrix",
         "first_map_cohort",
         "v1_readiness",
@@ -62,6 +63,9 @@
       ],
       "properties": {
         "publication_plan": {"$ref": "#/definitions/publicationPlan"},
+        "publication_review_navigation": {
+          "$ref": "#/definitions/publicationReviewNavigation"
+        },
         "onboarding_matrix": {"$ref": "#/definitions/onboardingMatrix"},
         "first_map_cohort": {"$ref": "#/definitions/cohort"},
         "v1_readiness": {"$ref": "#/definitions/v1"},
@@ -109,6 +113,130 @@
         "bridge_path_count": {"type": "integer", "minimum": 1},
         "worktree_clean": {"type": "boolean"},
         "uncommitted_path_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "publicationReviewNavigation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "exact_head",
+        "whole_pr_base_sha",
+        "phase_count",
+        "slice_count",
+        "phases",
+        "slices",
+        "overview_command",
+        "slice_command_template",
+        "commands_executed",
+        "github_writes_authorized",
+        "remote_mutations_performed"
+      ],
+      "properties": {
+        "status": {"const": "READY_LOCAL_ONLY"},
+        "exact_head": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "whole_pr_base_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "phase_count": {"const": 3},
+        "slice_count": {"const": 7},
+        "phases": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/definitions/publicationReviewPhase"}
+        },
+        "slices": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {"$ref": "#/definitions/publicationReviewSlice"}
+        },
+        "overview_command": {
+          "const": "python3 scripts/check_publication_slice_plan.py --overview"
+        },
+        "slice_command_template": {
+          "const": "python3 scripts/check_publication_slice_plan.py --slice <ID>"
+        },
+        "commands_executed": {"const": false},
+        "github_writes_authorized": {"const": false},
+        "remote_mutations_performed": {"const": false}
+      }
+    },
+    "publicationReviewPhase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "order",
+        "start_sha",
+        "end_sha",
+        "commit_count",
+        "path_count",
+        "compare_url"
+      ],
+      "properties": {
+        "id": {
+          "enum": [
+            "P0-initial-review",
+            "P1-ci-bridge",
+            "P2-follow-up-slices"
+          ]
+        },
+        "order": {"type": "integer", "minimum": 1, "maximum": 3},
+        "start_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "end_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "commit_count": {"type": "integer", "minimum": 1},
+        "path_count": {"type": "integer", "minimum": 1},
+        "compare_url": {
+          "type": "string",
+          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/compare/[0-9a-f]{40}\\.\\.\\.[0-9a-f]{40}$"
+        }
+      }
+    },
+    "publicationReviewSlice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "order",
+        "title",
+        "path_count",
+        "verification_count",
+        "publication_gate"
+      ],
+      "properties": {
+        "id": {
+          "enum": [
+            "S1-runtime-safety",
+            "S2-first-map-foundation",
+            "S3-map-lifecycle",
+            "S4-source-onboarding",
+            "S5-distribution-readiness",
+            "S6-product-shell-integration",
+            "S7-publication-control"
+          ]
+        },
+        "order": {"type": "integer", "minimum": 1, "maximum": 7},
+        "title": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9 ,&/+\\-]{0,159}$"
+        },
+        "path_count": {"type": "integer", "minimum": 1},
+        "verification_count": {"type": "integer", "minimum": 1},
+        "publication_gate": {
+          "enum": ["PUBLIC_CI", "LOCAL_REVIEW", "MAINTAINER_DECISION"]
+        }
       }
     },
     "onboardingMatrix": {

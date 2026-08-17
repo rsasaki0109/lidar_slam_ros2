@@ -54,6 +54,14 @@ description-edit authority. It requires the branch update and GET-only
 exact-head check first, keeps the PR Draft, contains no edit command, and keeps
 description update, review submission, mark-ready, merge, and writes false.
 This prevents a new branch tip from retaining an old PR summary.
+The body is directly navigable on GitHub: three generated compare links bind
+P0, P1, and P2 to their validated start/end commits, while a seven-row S1–S7
+map names each focus, path count, verification count, and publication gate.
+The dashboard accepts that map only when phase lineage is contiguous, phase
+commits compose the whole PR, slice paths compose P2, titles cannot inject
+Markdown, and every
+source overview authority remains false. The final local-tip link becomes
+publicly resolvable only after the separately authorized branch update.
 
 Dependency order is explicit. A green Draft points first to the bounded
 overview and then to the seven-slice local review plan only when the observed

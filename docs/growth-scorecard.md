@@ -182,6 +182,11 @@ observed and desired descriptions, replaces stale commit/path scope with the
 current whole-PR and P2 review budgets, requires the branch update first, and
 keeps Draft, review, mark-ready, merge, and all write authority false. An exact
 green head with a mismatched body is stopped at that refresh before review.
+The canonical body now removes one more reviewer lookup step: P0–P2 are exact
+GitHub compare links and S1–S7 are a bounded focus/path/check/gate table. Link
+lineage, commit composition, slice composition, safe titles, clean-tip
+identity, and no-write source authority are machine checked before that body
+can be emitted.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state

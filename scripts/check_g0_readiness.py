@@ -64,6 +64,7 @@ REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
 CURRENT_PACKET = 'docs/evidence/growth/g0-current-action-packet-2026-08-14.md'
 PRODUCT_PR_NUMBER = 427
 PRODUCT_PR_URL = f'https://github.com/{REPOSITORY}/pull/{PRODUCT_PR_NUMBER}'
+PRODUCT_GITHUB_URL = f'https://github.com/{REPOSITORY}'
 PRODUCT_REPOSITORY_URL = f'https://github.com/{REPOSITORY}.git'
 PRODUCT_PR_BASE = 'develop'
 PRODUCT_PR_HEAD = 'agent/product-g0-guided-ux'
@@ -82,6 +83,28 @@ MAX_CHECK_RUNS = 100
 MAX_PRODUCT_DESCRIPTION_BYTES = 64 * 1024
 SHA_PATTERN = re.compile(r'^[0-9a-f]{40}$')
 DIGEST_PATTERN = re.compile(r'^[0-9a-f]{64}$')
+SAFE_REVIEW_TITLE_PATTERN = re.compile(
+    r'^[A-Za-z0-9][A-Za-z0-9 ,&/+\-]{0,159}$'
+)
+EXPECTED_REVIEW_PHASES = (
+    ('P0-initial-review', 'three-dot'),
+    ('P1-ci-bridge', 'two-dot'),
+    ('P2-follow-up-slices', 'worktree'),
+)
+EXPECTED_REVIEW_SLICES = (
+    'S1-runtime-safety',
+    'S2-first-map-foundation',
+    'S3-map-lifecycle',
+    'S4-source-onboarding',
+    'S5-distribution-readiness',
+    'S6-product-shell-integration',
+    'S7-publication-control',
+)
+REVIEW_PUBLICATION_GATES = frozenset({
+    'PUBLIC_CI',
+    'LOCAL_REVIEW',
+    'MAINTAINER_DECISION',
+})
 REQUIRED_SUCCESS_CHECKS = frozenset({
     'build (humble)',
     'build (jazzy)',
@@ -805,6 +828,11 @@ def collect_checker_reports(
             ('--json',),
             runner=runner,
         ),
+        'publication_overview': _run_json(
+            'check_publication_slice_plan.py',
+            ('--overview', '--json'),
+            runner=runner,
+        ),
         'onboarding_matrix': _run_json(
             'check_onboarding_trial_matrix.py',
             ('--json',),
@@ -839,6 +867,175 @@ def collect_checker_reports(
             runner=runner,
         )
     return reports
+
+
+def _publication_review_navigation_summary(
+    report: dict[str, Any],
+    plan: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize exact phase links and bounded slice labels for reviewers."""
+    candidate = report.get('candidate')
+    phases = report.get('review_phases')
+    slices = report.get('review_slices')
+    if (
+        report.get('status') != 'PR_REVIEW_OVERVIEW_READY_LOCAL_ONLY'
+        or report.get('commands_executed') is not False
+        or report.get('github_writes_authorized') is not False
+        or report.get('remote_mutations_performed') is not False
+        or report.get('slice_command_template')
+        != PUBLICATION_REVIEW_SLICE_TEMPLATE
+        or not isinstance(candidate, dict)
+        or not isinstance(phases, list)
+        or not isinstance(slices, list)
+    ):
+        raise G0ReadinessError(
+            'publication review overview is unsafe or incomplete'
+        )
+    candidate_contract = {
+        'local_tip_sha': plan.get('local_tip_sha'),
+        'whole_pr_commit_count': plan.get('whole_pr_commit_count'),
+        'whole_pr_path_count': plan.get('whole_pr_path_count'),
+        'follow_up_path_count': plan.get('path_count'),
+        'review_phase_count': plan.get('review_phase_count'),
+        'slice_count': plan.get('slice_count'),
+        'review_coverage_complete': True,
+        'merge_commit_count': 0,
+        'worktree_clean': plan.get('worktree_clean'),
+        'uncommitted_path_count': plan.get('uncommitted_path_count'),
+    }
+    if any(
+        candidate.get(field) != expected
+        for field, expected in candidate_contract.items()
+    ):
+        raise G0ReadinessError(
+            'publication review overview contradicts the publication plan'
+        )
+    whole_pr_base_sha = candidate.get('whole_pr_base_sha')
+    if (
+        not isinstance(whole_pr_base_sha, str)
+        or SHA_PATTERN.fullmatch(whole_pr_base_sha) is None
+        or len(phases) != len(EXPECTED_REVIEW_PHASES)
+        or len(slices) != len(EXPECTED_REVIEW_SLICES)
+    ):
+        raise G0ReadinessError(
+            'publication review overview has invalid coverage identity'
+        )
+
+    normalized_phases: list[dict[str, Any]] = []
+    previous_end = whole_pr_base_sha
+    for order, (raw, expected) in enumerate(
+        zip(phases, EXPECTED_REVIEW_PHASES),
+        start=1,
+    ):
+        expected_id, expected_mode = expected
+        if not isinstance(raw, dict):
+            raise G0ReadinessError(
+                'publication review overview has a malformed phase'
+            )
+        start_sha = raw.get('start_sha')
+        end_sha = raw.get('end_sha')
+        commit_count = raw.get('commit_count')
+        path_count = raw.get('path_count')
+        if (
+            raw.get('id') != expected_id
+            or raw.get('order') != order
+            or raw.get('diff_mode') != expected_mode
+            or not isinstance(start_sha, str)
+            or SHA_PATTERN.fullmatch(start_sha) is None
+            or not isinstance(end_sha, str)
+            or SHA_PATTERN.fullmatch(end_sha) is None
+            or start_sha != previous_end
+            or isinstance(commit_count, bool)
+            or not isinstance(commit_count, int)
+            or commit_count < 1
+            or isinstance(path_count, bool)
+            or not isinstance(path_count, int)
+            or path_count < 1
+        ):
+            raise G0ReadinessError(
+                f'publication review phase {expected_id} is invalid'
+            )
+        normalized_phases.append({
+            'id': expected_id,
+            'order': order,
+            'start_sha': start_sha,
+            'end_sha': end_sha,
+            'commit_count': commit_count,
+            'path_count': path_count,
+            'compare_url': (
+                f'{PRODUCT_GITHUB_URL}/compare/{start_sha}...{end_sha}'
+            ),
+        })
+        previous_end = end_sha
+    if (
+        previous_end != plan.get('local_tip_sha')
+        or sum(item['commit_count'] for item in normalized_phases)
+        != plan.get('whole_pr_commit_count')
+        or normalized_phases[-1]['commit_count']
+        != plan.get('follow_up_review_commit_count')
+        or normalized_phases[-1]['path_count'] != plan.get('path_count')
+    ):
+        raise G0ReadinessError(
+            'publication review phase composition is not exact'
+        )
+
+    normalized_slices: list[dict[str, Any]] = []
+    for order, (raw, expected_id) in enumerate(
+        zip(slices, EXPECTED_REVIEW_SLICES),
+        start=1,
+    ):
+        if not isinstance(raw, dict):
+            raise G0ReadinessError(
+                'publication review overview has a malformed slice'
+            )
+        title = raw.get('title')
+        path_count = raw.get('path_count')
+        verification_count = raw.get('verification_count')
+        publication_gate = raw.get('publication_gate')
+        if (
+            raw.get('id') != expected_id
+            or raw.get('order') != order
+            or not isinstance(title, str)
+            or SAFE_REVIEW_TITLE_PATTERN.fullmatch(title) is None
+            or isinstance(path_count, bool)
+            or not isinstance(path_count, int)
+            or path_count < 1
+            or isinstance(verification_count, bool)
+            or not isinstance(verification_count, int)
+            or verification_count < 1
+            or publication_gate not in REVIEW_PUBLICATION_GATES
+        ):
+            raise G0ReadinessError(
+                f'publication review slice {expected_id} is invalid'
+            )
+        normalized_slices.append({
+            'id': expected_id,
+            'order': order,
+            'title': title,
+            'path_count': path_count,
+            'verification_count': verification_count,
+            'publication_gate': publication_gate,
+        })
+    if sum(item['path_count'] for item in normalized_slices) != plan.get(
+        'path_count'
+    ):
+        raise G0ReadinessError(
+            'publication review slices do not compose the follow-up scope'
+        )
+    return {
+        'status': 'READY_LOCAL_ONLY',
+        'exact_head': plan['local_tip_sha'],
+        'whole_pr_base_sha': whole_pr_base_sha,
+        'phase_count': len(normalized_phases),
+        'slice_count': len(normalized_slices),
+        'phases': normalized_phases,
+        'slices': normalized_slices,
+        'overview_command': PUBLICATION_REVIEW_OVERVIEW_COMMAND,
+        'slice_command_template': PUBLICATION_REVIEW_SLICE_TEMPLATE,
+        'commands_executed': False,
+        'github_writes_authorized': False,
+        'remote_mutations_performed': False,
+    }
 
 
 def _matrix_summary(report: dict[str, Any]) -> dict[str, Any]:
@@ -1127,6 +1324,7 @@ def _product_draft_update_handoff(
 
 def _product_draft_description_body(
     plan: dict[str, Any],
+    navigation: dict[str, Any],
     matrix: dict[str, Any],
     cohort: dict[str, Any],
     v1: dict[str, Any],
@@ -1174,9 +1372,44 @@ def _product_draft_description_body(
         or matrix['comparable_rows'] > matrix['present_rows']
         or cohort['accepted_validations'] > cohort['accepted_target']
         or v1['complete'] > v1['total']
+        or navigation.get('status') != 'READY_LOCAL_ONLY'
+        or navigation.get('exact_head') != exact_head
+        or navigation.get('phase_count') != plan.get('review_phase_count')
+        or navigation.get('slice_count') != plan.get('slice_count')
+        or navigation.get('commands_executed') is not False
+        or navigation.get('github_writes_authorized') is not False
+        or navigation.get('remote_mutations_performed') is not False
     ):
         raise G0ReadinessError(
             'Draft description requires one clean exact candidate packet'
+        )
+    phases = navigation.get('phases')
+    slices = navigation.get('slices')
+    if (
+        not isinstance(phases, list)
+        or len(phases) != plan['review_phase_count']
+        or not isinstance(slices, list)
+        or len(slices) != plan['slice_count']
+    ):
+        raise G0ReadinessError(
+            'Draft description review navigation is incomplete'
+        )
+    phase_lines = []
+    for phase in phases:
+        phase_label = phase['id'].split('-', maxsplit=1)[0]
+        phase_lines.append(
+            f"| `{phase_label}` | {phase['commit_count']} commits / "
+            f"{phase['path_count']} paths | "
+            f"[Open exact diff]({phase['compare_url']}) |"
+        )
+    slice_lines = []
+    for review_slice in slices:
+        slice_label = review_slice['id'].split('-', maxsplit=1)[0]
+        slice_lines.append(
+            f"| `{slice_label}` | {review_slice['title']} | "
+            f"{review_slice['path_count']} | "
+            f"{review_slice['verification_count']} | "
+            f"`{review_slice['publication_gate']}` |"
         )
     lines = [
         '## Review intent',
@@ -1214,13 +1447,29 @@ def _product_draft_description_body(
             'before review conclusions are recorded.'
         ),
         '',
+        '## Exact review map',
+        '',
+        '| Phase | Scope | GitHub diff |',
+        '| --- | ---: | --- |',
+        *phase_lines,
+        '',
+        '| Slice | Focus | Paths | Checks | Gate |',
+        '| --- | --- | ---: | ---: | --- |',
+        *slice_lines,
+        '',
+        (
+            'Local bounded detail: '
+            f'`{PUBLICATION_REVIEW_OVERVIEW_COMMAND}` then '
+            f'`{PUBLICATION_REVIEW_SLICE_TEMPLATE}`.'
+        ),
+        '',
         '## Review order',
         '',
-        f'1. Run `{PUBLICATION_REVIEW_OVERVIEW_COMMAND}`.',
-        '2. Review P0, P1, then P2 using the displayed bounded hotspots.',
+        '1. Open the exact P0, P1, then P2 links above.',
+        '2. Confirm each link matches the displayed contiguous lineage.',
         (
-            '3. Review S1 through S7 in dependency order and run each '
-            'displayed verification group.'
+            '3. Render S1 through S7 locally in dependency order and run '
+            'each displayed verification group.'
         ),
         (
             '4. Record findings separately; review submission, mark-ready, '
@@ -1259,6 +1508,7 @@ def _product_draft_description_body(
 
 def _product_draft_description_refresh_handoff(
     plan: dict[str, Any],
+    navigation: dict[str, Any],
     matrix: dict[str, Any],
     cohort: dict[str, Any],
     v1: dict[str, Any],
@@ -1292,6 +1542,7 @@ def _product_draft_description_refresh_handoff(
         )
     body = _product_draft_description_body(
         plan,
+        navigation,
         matrix,
         cohort,
         v1,
@@ -1601,6 +1852,7 @@ def _identity_alternatives(published: dict[str, Any]) -> list[dict[str, str]]:
 
 def _next_action(
     plan: dict[str, Any],
+    navigation: dict[str, Any],
     matrix: dict[str, Any],
     cohort: dict[str, Any],
     v1: dict[str, Any],
@@ -1696,6 +1948,7 @@ def _next_action(
                 'product_draft_description_refresh_handoff': (
                     _product_draft_description_refresh_handoff(
                         plan,
+                        navigation,
                         matrix,
                         cohort,
                         v1,
@@ -1774,6 +2027,7 @@ def _next_action(
         description_handoff = (
             _product_draft_description_refresh_handoff(
                 plan,
+                navigation,
                 matrix,
                 cohort,
                 v1,
@@ -1964,15 +2218,22 @@ def build_report(
 ) -> dict[str, Any]:
     """Build and schema-validate a stable, privacy-safe dashboard report."""
     plan_report = reports.get('publication_plan')
+    overview_report = reports.get('publication_overview')
     matrix_report = reports.get('onboarding_matrix')
     cohort_report = reports.get('first_map_cohort')
     v1_report = reports.get('v1_readiness')
     if not all(
         isinstance(item, dict)
-        for item in (plan_report, matrix_report, cohort_report, v1_report)
+        for item in (
+            plan_report,
+            overview_report,
+            matrix_report,
+            cohort_report,
+            v1_report,
+        )
     ):
         raise G0ReadinessError(
-            'the four local G0 checker reports are required'
+            'the five local G0 checker reports are required'
         )
 
     plan = {
@@ -1993,6 +2254,10 @@ def build_report(
         'worktree_clean': plan_report.get('worktree_clean'),
         'uncommitted_path_count': plan_report.get('uncommitted_path_count'),
     }
+    navigation = _publication_review_navigation_summary(
+        overview_report,
+        plan,
+    )
     matrix = _matrix_summary(matrix_report)
     cohort = _cohort_summary(cohort_report)
     v1 = _v1_summary(v1_report)
@@ -2039,6 +2304,7 @@ def build_report(
         },
         'checks': {
             'publication_plan': plan,
+            'publication_review_navigation': navigation,
             'onboarding_matrix': matrix,
             'first_map_cohort': cohort,
             'v1_readiness': v1,
@@ -2048,6 +2314,7 @@ def build_report(
         },
         'next_action': _next_action(
             plan,
+            navigation,
             matrix,
             cohort,
             v1,
@@ -2076,6 +2343,7 @@ def render_card(report: dict[str, Any]) -> str:
     """Render one concise card with exactly one next action."""
     checks = report['checks']
     plan = checks['publication_plan']
+    navigation = checks['publication_review_navigation']
     matrix = checks['onboarding_matrix']
     cohort = checks['first_map_cohort']
     v1 = checks['v1_readiness']
@@ -2104,6 +2372,12 @@ def render_card(report: dict[str, Any]) -> str:
             'review coverage complete: '
             f"{str(plan['review_coverage_complete']).lower()}; "
             f"worktree clean: {str(plan['worktree_clean']).lower()} |"
+        ),
+        (
+            f"| review navigation | {navigation['status']} | "
+            f"{navigation['phase_count']} exact compare links / "
+            f"{navigation['slice_count']} bounded slices; "
+            'commands executed: false |'
         ),
         (
             f"| onboarding matrix | {matrix['status']} | "
