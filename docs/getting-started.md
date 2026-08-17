@@ -5,20 +5,26 @@ to a working map.
 
 ## Choose A Path
 
-| You have | Run |
+| Goal | First safe action | Safety and cost boundary |
+| --- | --- | --- |
+| See a verified map, no build | **Default if unsure:** follow [Docker First Map](#docker-first-map-no-ros-2-workspace) | Stable `v0.9.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
+| Map my own rosbag | Run `lidarslam-map doctor /path/to/rosbag2`, then follow [Run Your Own Bag](#3-run-your-own-bag) | Diagnosis uses no network and writes no files; `start` creates a new output only after input and calibration review. |
+| Build the current candidate or contribute | After cloning, preview [Install And Build From Source](#1-install-and-build-from-source) with `bash scripts/source_quickstart.sh --dry-run` | Candidate `v0.9.1`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
+
+<details markdown="1">
+<summary>Already installed, or continuing after your first map?</summary>
+
+| Goal | Run |
 | --- | --- |
-| An installation, but you are unsure where to begin | `lidarslam-map` |
-| An installation you want to verify before choosing a bag | `lidarslam-map doctor` |
-| Docker only, no ROS 2 workspace | Follow [Docker First Map](#docker-first-map-no-ros-2-workspace) below |
-| Docker and your own compatible bag | `bash scripts/docker_map_bag.sh /absolute/path/to/rosbag2` |
-| A cloned source repository | `bash scripts/source_quickstart.sh` |
-| A compatible sensor bag | `lidarslam-map start /path/to/rosbag2` |
-| An RKO-LIO map you may clean up later | `lidarslam-map start /path/to/rosbag2 --editable` |
-| Two or more overlapping completed maps | `lidarslam-map merge output/day1 output/day2 --output-dir output/site_project` |
-| A new mounting with measured transforms | `lidarslam-map start /path/to/rosbag2 --lidar-to-base ... --imu-to-base ...` |
-| A rosbag2 directory and a built workspace | `lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"` |
-| A bag, but you are not sure which topics it has | `lidarslam-map doctor /path/to/rosbag2` |
-| You want the fixed public first-map demo | `lidarslam-map demo` |
+| Let the installed CLI choose the next step | `lidarslam-map` |
+| Run the fixed demo from an installation | `lidarslam-map demo` |
+| Map an own bag through Docker | `bash scripts/docker_map_bag.sh /absolute/path/to/rosbag2` |
+| Preserve an RKO-LIO map for later cleanup | `lidarslam-map start /path/to/rosbag2 --editable` |
+| Merge overlapping completed maps | `lidarslam-map merge output/day1 output/day2 --output-dir output/site_project` |
+| Use a new mounting with measured transforms | `lidarslam-map start /path/to/rosbag2 --lidar-to-base ... --imu-to-base ...` |
+| Run the lower-level workflow from a built workspace | `lidarslam-map run /path/to/rosbag2 --output-dir "$PWD/output/my_map"` |
+
+</details>
 
 With no arguments on an interactive terminal, `lidarslam-map` asks whether you
 want to check the installation, run the fixed demo, map your own rosbag2, or

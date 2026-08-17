@@ -433,6 +433,47 @@ def test_readme_chooser_routes_each_goal_to_one_safe_first_step():
     assert 'needs ROS 2, 8 GiB, and roughly 30 minutes' in chooser
 
 
+def test_getting_started_chooser_limits_the_first_decision_to_three_goals():
+    """Canonical onboarding should hide advanced actions from first choice."""
+    getting_started = GETTING_STARTED.read_text(encoding='utf-8')
+    docs_index = DOCS_INDEX_PATH.read_text(encoding='utf-8')
+    chooser = getting_started.split('## Choose A Path', 1)[1].split(
+        '<details markdown="1">', 1
+    )[0]
+    continuing = getting_started.split(
+        '<summary>Already installed, or continuing after your first map?'
+        '</summary>',
+        1,
+    )[1].split('</details>', 1)[0]
+
+    chooser_rows = [
+        line for line in chooser.splitlines() if line.startswith('|')
+    ]
+    assert len(chooser_rows) == 5  # header, separator, and exactly 3 goals
+    assert '| Goal | First safe action | Safety and cost boundary |' in chooser
+    assert '**Default if unsure:**' in chooser
+    assert 'Stable `v0.9.0-humble`' in chooser
+    assert 'lidarslam-map doctor /path/to/rosbag2' in chooser
+    assert 'Diagnosis uses no network and writes no files' in chooser
+    assert 'bash scripts/source_quickstart.sh --dry-run' in chooser
+    assert 'Candidate `v0.9.1`' in chooser
+    assert 'needs ROS 2, 8 GiB, and roughly 30 minutes' in chooser
+
+    for advanced_action in (
+        'lidarslam-map demo',
+        'bash scripts/docker_map_bag.sh /absolute/path/to/rosbag2',
+        'lidarslam-map start /path/to/rosbag2 --editable',
+        'lidarslam-map merge output/day1 output/day2',
+        '--lidar-to-base ... --imu-to-base ...',
+        'lidarslam-map run /path/to/rosbag2 --output-dir',
+    ):
+        assert advanced_action not in chooser
+        assert advanced_action in continuing
+
+    assert '[v0.9.0 stable release](releases/v0.9.0.md)' in docs_index
+    assert 'v0.9.0 stable release candidate' not in docs_index
+
+
 def test_public_schemas_support_ros_distro_jsonschema():
     """Public schemas must work with the dependency shipped by ROS distros."""
     schemas = sorted((REPO_ROOT / 'docs' / 'schemas').glob('*.json'))
