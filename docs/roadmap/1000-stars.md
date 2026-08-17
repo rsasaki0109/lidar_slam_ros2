@@ -270,6 +270,15 @@ work and document the actual support boundary instead of hiding the delay.
   220-line budget; 29 entrypoint and 36 integrated docs/product regressions plus
   strict MkDocs pass. This is a discovery repair, not a release, measurement,
   promotion, or GLIM parity claim.
+- Exact follow-up `1e56431161d3dea417d5d800bb1eedc3cdb51907`
+  removes the remaining canonical-entry drift: Getting Started no longer asks
+  a first-time visitor to choose among 12 mixed beginner and advanced actions.
+  It shows the same three bounded goals as README and retains seven installed
+  or post-success actions inside a rendered collapsed section. The Docs Home
+  now also calls published v0.9.0 a stable release rather than a release
+  candidate. Thirty focused and 37 integrated regressions plus strict MkDocs
+  pass; no workflow, release identity, telemetry, recruitment, or GitHub state
+  changes.
 - Keep `lidarslam-map start BAG` as the canonical own-bag route and package it
   in every supported distribution.
 - The current local product candidate adds `lidarslam-map demo [work_dir]` as
@@ -1130,7 +1139,7 @@ in separate pytest processes, and recognized direct remote-write CLI forms fail
 plan validation. Exact follow-up `0633c2a604489538e0f087c02385e7c6467540c3`
 extends that boundary to the S6 docs/product-CLI command after exact execution
 from an unsourced shell exposed two `rosbag2_py` import failures; the repaired
-displayed command now passes all 36 tests and removing its prelude fails validation.
+displayed command now passes all 37 tests and removing its prelude fails validation.
 Evidence carrier `72a8c9e77eba33c1578a3cd9c8afe8fbe6933e33`
 passes 2,488 maintained Python tests and a byte-identical 261-file candidate
 bundle rehearsal without granting publication authority.

@@ -230,6 +230,13 @@ each row states its version, write, ROS, disk, and time boundary. The README
 remains 219 lines; 29 focused entrypoint regressions, the 36-test S6
 docs/product command, and strict MkDocs pass. This changes no release identity,
 collects no telemetry, and is not a paired GLIM result.
+Exact follow-up `1e56431161d3dea417d5d800bb1eedc3cdb51907` applies the same
+three-goal decision to canonical Getting Started, while preserving seven
+installed or post-success actions in a rendered collapsed section. It also
+corrects the Docs Home v0.9.0 label from release candidate to stable release.
+Thirty focused entrypoint tests, the 37-test S6 docs/product command, and
+strict MkDocs pass. No runtime, public identity, release, recruitment, or
+GitHub state changes.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state
