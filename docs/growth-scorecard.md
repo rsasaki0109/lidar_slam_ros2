@@ -375,6 +375,14 @@ lower runner 48, docs/product 42, support/installed 25, option 21, and broad S6
 1.58 GiB free; the default storage gate remains unsatisfied. This is not a
 complete map, clean-host result, paired GLIM observation, or parity claim. No
 upload, network access, issue, or GitHub write occurs.
+Follow-up `181b251…` separates expected SIGINT/SIGTERM from genuine timeout
+diagnosis. A second exact-tip ROS trial entered the real offline wait and kept
+the same 130, descendant-reap, interrupted evidence, and one-action results,
+while stderr fell from 9,223 to 1,845 bytes (80.00%) with zero false timeout
+labels or launch-log dumps. Fourteen dogfood, 48 lower-runner, 42 docs/product,
+25 installed/support, 21 option-contract, and 332 broad S6 regressions pass;
+real timeout diagnostics remain unchanged. The same low-storage and controlled-
+overlay limits apply, and no remote write occurs.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state

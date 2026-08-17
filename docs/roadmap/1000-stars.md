@@ -529,6 +529,15 @@ work and document the actual support boundary instead of hiding the delay.
   unsatisfied. This is not a complete map, clean-host result, paired GLIM
   observation, or parity claim. No upload, network access, issue, or GitHub
   write is performed.
+- Follow-up `181b251…` separates expected SIGINT/SIGTERM from genuine timeout
+  diagnosis. A second exact-tip ROS trial entered the real offline wait and kept
+  the same 130, descendant-reap, interrupted evidence, and one-action results,
+  while stderr fell from 9,223 to 1,845 bytes (80.00%) with zero false timeout
+  labels or launch-log dumps. Fourteen dogfood, 48 lower-runner, 42
+  docs/product, 25 installed/support, 21 option-contract, and 332 broad S6
+  regressions pass; real timeout diagnostics remain unchanged. The same low-
+  storage and controlled-overlay limits apply, and no remote write is
+  performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

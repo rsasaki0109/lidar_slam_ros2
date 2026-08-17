@@ -612,3 +612,60 @@ GiB floor. The unchanged default storage check correctly remained unsatisfied;
 this result is not permission to lower that default. It also is not a complete
 map, map-quality or accuracy result, clean-host timing result, independent
 first map, paired GLIM observation, or parity/superiority claim.
+
+## Concise expected-stop follow-up — 2026-08-17
+
+> Decision: **REAL_ROS_CONCISE_INTERRUPTION_PASS / DEFAULT_STORAGE_AND_CLEAN_HOST_PENDING**
+>
+> Implementation tip:
+> `181b25121ba328beeb81cc772a60cce0c9a7d82f`
+>
+> Network, GitHub, release, or community mutation performed: **none**
+
+The corrected `0301a0d…` trial proved safe process and evidence convergence,
+but its expected Ctrl-C still produced a false offline-timeout label and a
+120-line recent-launch-log dump. That stderr was 9,223 bytes even though the
+operator, not a 900-second deadline, ended the run.
+
+The dogfood shell now reserves `EXIT` for ordinary cleanup and handles SIGINT
+and SIGTERM through explicit 130 and 143 exits. Its signal handler disables
+keep-running behavior, reaps loggers and the isolated ROS launch group, and
+exits without returning to the genuine timeout branch. The real startup and
+offline-completion timeout diagnostics remain unchanged. Process-level probes
+exercise both signals with a fake isolated launch group and verify the group is
+absent, `/map_save` is not called, and neither timeout text nor a launch-log
+excerpt is emitted.
+
+A second exact-tip Jazzy trial used the same fixture identities and controlled
+overlay as the prior trial. After the real RKO-LIO and graph_based_slam process
+tree reached `Waiting for offline bag playback to finish ...`, one Ctrl-C again
+returned 130 in 1.5 seconds. Every descendant was absent; the manifest remained
+`interrupted / complete`, the session and recovery receipt remained
+`action_required / workflow-interrupted`, and the terminal retained one stop
+request, ACTION REQUIRED, Next, and Details with no success card or traceback.
+
+The expected-stop stderr fell from 9,223 to 1,845 bytes, an 80.00% reduction.
+The false timeout label and recent-launch-log dump each fell to zero. The run
+manifest, recovery receipt, session index, and first-map receipt validate
+against their schemas, and all 17 artifact sizes and SHA-256 values revalidate.
+The new stdout, stderr, session, manifest, and recovery hashes are respectively
+`ca03803c…`, `93fcb8de…`, `5d2e8354…`, `90a9d49d…`, and `c1c47075…`.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| dogfood shell, including real SIGINT and SIGTERM process groups | 14 passed |
+| complete lower map-runner regressions | 48 passed |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 332 passed |
+| four terminal JSON schemas and 17 artifact checksums | PASS |
+| shell syntax, changed-code `ament_flake8`, strict MkDocs, plan, JSON, and patch hygiene | PASS |
+
+This is a clearer expected-stop path, not weaker timeout diagnosis. The trial
+again used an explicit 0.5 GiB floor because the default storage requirement
+was unavailable. It is not a complete map, clean-host or package-manager
+result, map-quality or accuracy result, paired GLIM observation, or
+parity/superiority claim.
