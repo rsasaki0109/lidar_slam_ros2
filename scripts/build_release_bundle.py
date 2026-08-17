@@ -90,6 +90,7 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/check_public_docs_deployment.py',
     'scripts/check_candidate_environment.py',
     'scripts/check_product_draft_review_routing.py',
+    'scripts/product_draft_review_ledger.py',
     'scripts/validate_candidate_image_request.py',
     'scripts/create_candidate_image_record.py',
     'scripts/verify_candidate_image_set.py',

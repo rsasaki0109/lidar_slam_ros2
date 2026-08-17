@@ -1,7 +1,7 @@
 # Product Draft review routing
 
 Draft PR #427 is intentionally reviewed as one integrated product candidate,
-but no reviewer should need to understand all 337 follow-up paths before
+but no reviewer should need to understand all 341 follow-up paths before
 helping. The local routing contract groups the seven validated review slices
 into four capability lanes without storing a GitHub login, email address, or
 other reviewer identity.
@@ -61,3 +61,60 @@ and
 Changing a lane requires updating the machine contract and proving that every
 validated slice still has exactly one lane, exact dependency closure, and an
 unchanged no-write authority boundary.
+
+## Record a local lane outcome
+
+After running the displayed checks, create an append-only ledger outside the
+repository. Keeping it outside avoids changing the exact commit it reviews:
+
+```bash
+python3 scripts/product_draft_review_ledger.py prepare \
+  --output /tmp/lidarslam-pr427-review-ledger.json
+```
+
+Record a completed lane without a name, login, email address, or timestamp:
+
+```bash
+python3 scripts/product_draft_review_ledger.py record \
+  --ledger /tmp/lidarslam-pr427-review-ledger.json \
+  --lane R1-runtime-safety \
+  --outcome PASS \
+  --verification-status PASS
+```
+
+A blocked lane needs at least one scoped finding. The path must belong to the
+selected slice, and the detail must remain a short observation without an
+identity, URL, or private local path:
+
+```bash
+python3 scripts/product_draft_review_ledger.py record \
+  --ledger /tmp/lidarslam-pr427-review-ledger.json \
+  --lane R2-operator-ux \
+  --outcome BLOCKED \
+  --verification-status FAIL \
+  --finding BLOCKER operator-ux-gap S3-map-lifecycle \
+    lidarslam/test/test_session_compare.py \
+    "Recovery choice does not preserve the copy-ready next command."
+```
+
+The recorder appends a new event instead of rewriting prior outcomes. A later
+PASS keeps the old blocker as history while removing it from the current open
+count. Dependency order is enforced; rerecording an earlier lane after a
+downstream result is refused because that would stale the downstream review.
+
+Validate or render the current state with:
+
+```bash
+python3 scripts/product_draft_review_ledger.py check \
+  --ledger /tmp/lidarslam-pr427-review-ledger.json
+```
+
+`COMPLETE_LOCAL_REVIEW` means only that all four current lane events are PASS
+for one exact clean tip. The tool executes no displayed verification command,
+does not prove independent reviewers, and grants no GitHub review submission,
+mark-ready, or merge authority.
+
+The external ledger and its derived report follow
+[`product-draft-review-ledger-v1`](schemas/product-draft-review-ledger-v1.schema.json)
+and
+[`product-draft-review-ledger-report-v1`](schemas/product-draft-review-ledger-report-v1.schema.json).

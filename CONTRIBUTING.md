@@ -228,7 +228,10 @@ capability lane without volunteering for the entire PR. See
 [Product Draft review routing](docs/review-routing.md) and render a local lane
 card with `python3 scripts/check_product_draft_review_routing.py --lane <ID>`.
 The card collects no reviewer identity and never requests or submits a GitHub
-review.
+review. After checking a lane, use the same page's
+`product_draft_review_ledger.py` flow to append an identity-free local PASS or
+BLOCKED event. Keep that ledger outside the repository so recording evidence
+does not change the exact commit being reviewed.
 
 ## Product Entry Points
 

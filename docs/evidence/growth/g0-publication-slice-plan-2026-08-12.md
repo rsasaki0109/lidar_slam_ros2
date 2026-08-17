@@ -10,11 +10,11 @@
 > Frozen public review baseline (machine key `public_head_sha`):
 > `3ed632e6f6aa1e3ca7f32d893773de1079086ffb`
 >
-> Planned follow-up inventory: 337 paths; SHA-256
-> `44140dbe61822f33988d43ef03be57a1e18c1ef86e46e1b5c0b8c430f0fe781c`
+> Planned follow-up inventory: 341 paths; SHA-256
+> `743185bec87f51b9cd2995f4506db24d55cfbbd28ace0ee671076664e68d39a6`
 >
-> Composed whole-PR inventory: 386 paths from `86fa9b6`; SHA-256
-> `3b78ff908cf52ee27e01c3896c3b5e2c5c191bd3ba18694d84866d17030b8e80`
+> Composed whole-PR inventory: 390 paths from `86fa9b6`; SHA-256
+> `9aa1dc356f4c54f47689043600e8a7518b93436cfda02c3d9df52b2bdbb68f41`
 >
 > Capture-time exact public Draft head:
 > `c1fc2847fb06637cbcd2aac61f4fde318364dfd2`
@@ -77,8 +77,8 @@ path relative to the exact PR base has exactly one primary review owner. A
 fail-closed checker rejects missing, stale, duplicated, unsafe, or
 digest-drifted paths and rejects a plan that claims GitHub write authority.
 The same checker composes the original 116-path audit, the exact two-commit /
-11-path CI bridge, and this 337-path follow-up. Their union must equal the
-current 386-path whole-PR diff with no uncovered or extraneous path. The bridge
+11-path CI bridge, and this 341-path follow-up. Their union must equal the
+current 390-path whole-PR diff with no uncovered or extraneous path. The bridge
 is reviewed explicitly in
 [`g0-pr-review-coverage-2026-08-17.md`](g0-pr-review-coverage-2026-08-17.md).
 
@@ -120,8 +120,8 @@ body until the exact canonical upstream Draft exists.
 | S3 map lifecycle | 25 | setup, history, compare, edit, merge, and support preserve provenance and receipts | focused local review |
 | S4 source onboarding | 36 | a fresh terminal uses the exact six-package Humble/Jazzy source route, bounded release-or-candidate Docker/source measurement, a read-only guided host-readiness card, content-bound Docker observer bootstrap, one-command run-to-session execution, public preflight, and byte-bound validation-receipt plus SHA-bound supplement paths for retained observations | public Humble/Jazzy CI and clean-machine timing |
 | S5 distribution readiness | 74 | NDT convergence, its copy-ready upstream PR packet, v0.9.1 metadata, exact-head/tag-aware bundle rehearsal, actionable missing-benchmark reports, write-free NTU and RTK-SLAM acquisition planning with official immutable identities, exact byte shortages, attached-storage discovery, and capacity fail-fast, immutable upstream patch formatting, clone-free launcher identity, authenticated package-manager blockers, and a default-branch, protected-environment, digest-only candidate gate with a shared read-only environment preflight and four-artifact byte audit remain explicit; no mount, E2 dispatch, tag, release, or version reuse is implied | maintainer distribution decision |
-| S6 product-shell integration | 146 | the installed home, path-private bag-optional doctor with copy-ready low-storage and Odometry/TF timing recovery, issue-driven other-PointCloud2 `doctor` → `start` handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard with a schema-bound GET-only public-pair preflight, SHA-bound preparation receipt, retained untouched source archive, and receipt-required final validation, claim-bounded short-demo card/video/captions/copy, fail-closed worksheet generators, atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue with a dependency-gated and schema-valid GET-only live next-action card, source- and evidence-hashed issue-triage review packets whose #69 Draft/CI and stable-release claims are source-bound and live-checked, machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, compressed-bag playback evidence, one-command G0 readiness dashboard, and role-based Draft review routing agree | complete product gate and public CI |
-| S7 publication control | 7 | all 337 follow-up paths are owned once, all 386 whole-PR paths are covered by three sequential review phases, and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
+| S6 product-shell integration | 150 | the installed home, path-private bag-optional doctor with copy-ready low-storage and Odometry/TF timing recovery, issue-driven other-PointCloud2 `doctor` → `start` handoff without tracked launch/YAML edits, bounded user-reported visual-map triage through the retained-run inspector, Japanese quickstart, byte-bound public-docs deployment provenance, parse-safe and content-verified GLIM comparison, neutral GLIM usability scorecard with a schema-bound GET-only public-pair preflight, SHA-bound preparation receipt, retained untouched source archive, and receipt-required final validation, claim-bounded short-demo card/video/captions/copy, fail-closed worksheet generators, atomic paired observation recorder, truthful onboarding/growth snapshots, bounded starter queue with a dependency-gated and schema-valid GET-only live next-action card, source- and evidence-hashed issue-triage review packets whose #69 Draft/CI and stable-release claims are source-bound and live-checked, machine-evaluated validator cohort, CLI contract, docs, tests, support surface, schema-valid first-map handoff JSON, atomic one-command candidate handoff, report-derived release or four-file-candidate exact-identity observer packet, live identity recheck, compressed-bag playback evidence, one-command G0 readiness dashboard, role-based Draft review routing, and append-only anonymous lane evidence agree | complete product gate and public CI |
+| S7 publication control | 7 | all 341 follow-up paths are owned once, all 390 whole-PR paths are covered by three sequential review phases, and external authority remains separate; the current action packet keeps E2/E3/E4 separate | exact-tip maintainer decision |
 
 The machine-readable source of truth is
 [`g0-publication-slice-plan-2026-08-12.json`](g0-publication-slice-plan-2026-08-12.json),
@@ -187,7 +187,7 @@ from that base and the local tip descends from the public head, then requires:
 1. seven consecutive, dependency-safe slice orders;
 2. sorted and canonical repository-relative paths;
 3. one and only one owner for every candidate path;
-4. exact 337-path follow-up coverage with the fixed inventory digest;
+4. exact 341-path follow-up coverage with the fixed inventory digest;
 5. a local-only authority state with no claimed GitHub write; and
 6. a report that always states whether a remote mutation occurred;
 7. no mixed `lidarslam/test` and `graph_based_slam/test` pytest process;
@@ -198,7 +198,7 @@ from that base and the local tip descends from the public head, then requires:
 12. exact two-commit / 11-path bridge identity and allowlist;
 13. contiguous, linear initial → bridge → follow-up ancestry;
 14. exact commit-count composition across all three ranges; and
-15. exact 386-path whole-PR coverage by the three-phase union, with no missing
+15. exact 390-path whole-PR coverage by the three-phase union, with no missing
     or extraneous path; and
 16. exact `git diff --numstat` path identity for the whole PR and all three
     phases before any review budget or hotspot is rendered.
@@ -211,8 +211,9 @@ cannot bypass live Git coverage.
 
 | Check | Result |
 | --- | --- |
-| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 337 follow-up paths / 7 slices and 386 whole-PR paths / 3 phases; 11 bridge paths, 73 overlapping paths, 0 uncovered, 0 extraneous, 0 merge commits, no remote mutation |
-| privacy-safe review routing | 4 role-based lanes cover all 7 slices, 337 paths, and 33 verification groups exactly once; advisory target 2, no stored identities, no reviewer request/review/ready/merge authority |
+| exact Git-derived plan check | `PLAN_VALID_LOCAL_ONLY`; 341 follow-up paths / 7 slices and 390 whole-PR paths / 3 phases; 11 bridge paths, 73 overlapping paths, 0 uncovered, 0 extraneous, 0 merge commits, no remote mutation |
+| privacy-safe review routing | 4 role-based lanes cover all 7 slices, 341 paths, and 33 verification groups exactly once; advisory target 2, no stored identities, no reviewer request/review/ready/merge authority |
+| anonymous review ledger | 9 focused regressions pass; exact-head/routing digest, append-only event sequence, lane dependencies, in-slice paths, bounded privacy-safe findings, canonical atomic external output, historical/current blocker separation, bundle inclusion, and all no-GitHub-authority fields are enforced |
 | claim-bounded social media | 11 focused regressions plus 25 public docs/release entrypoint regressions pass; the generated 10.666-second H.264 candidate, four-cue WebVTT, exact-revision Japanese/English copy, and byte manifest retain no external publication authority |
 | checker regressions | 32 passed, including omission, stale path, duplicate owner, dependency inversion, follow-up/bridge/whole-PR digest drift, bridge allowlist drift, phase discontinuity, uncovered whole-PR paths, unsafe or out-of-phase review records, lineage drift, commit-range composition, malformed/stale numstat rejection, exact line-budget composition across the seven slices, named binary review paths, authority rejection, bounded human/JSON overview and slice cards, mutually exclusive output modes, unknown-slice rejection, self-contained source, lifecycle ROS-bag, and product-shell ROS-bag verification, package-test process isolation, cache suppression, and recognized direct remote-write CLI refusal |
 | canonical NDT Draft handoff | 25 focused regressions pass; only a 30/30 `READY_FOR_DRAFT_PR` report may carry the exact create-only branch, base/head SHAs, Draft copy, and four-step handoff, while blocked or partially checked states require `null` and all GitHub write, force, ready, and merge authority remains false |
@@ -226,7 +227,7 @@ cannot bypass live Git coverage.
 | published starter dependency gate | 61 queue regressions pass; the schema-valid live card keeps #422 visible but ineligible under `WAITING_FOR_PUBLIC_GATES`, preserves unrelated starter eligibility, follows the stable issue number across a title edit, rejects arbitrary gate commands or write authority, and performs only GET-only GitHub reads |
 | issue-triage application packet | 34 application and 19 proposal regressions pass; the complete authenticated live audit remains `PASS` for all 29 open issues and the label catalog, source-binds #69 to exact public Draft head `4b2ab514` with 10 successful checks and 4 intentional skips, verifies latest stable `v0.9.0`/`0df0c4a` is 52 commits behind fix `a2368c4` while `v0.9.1` tag/release remain absent, produces 23 closure drafts, 4 reproduction requests, 9 dependency-review rows, and one monitor-only row, and keeps every write authority false |
 | protected candidate environment | 29 passed across the shared environment/candidate gate; complete authenticated inventory, GET-only transport, exact reviewer/self-review/branch policy, unknown-rule refusal, workflow path trigger, and no-write/E2 authority are enforced; actionlint v1.7.12 and CTest 2 / 2 pass |
-| G0 readiness dashboard | 17 focused regressions pass; one-command local HOLD card, mandatory 386-path / three-phase whole-PR review coverage, bounded exact-head Draft/CI audit, clean-worktree refusal, a schema-bound overview → P0/P1/P2 → S1–S7 → R1–R4 review sequence, Draft → separate merge → environment dependency order, optional read-only publication/environment audits, one next action, child-authority refusal, and checker-error fail-closed behavior are covered |
+| G0 readiness dashboard | 20 focused regressions pass; one-command local HOLD card, mandatory 390-path / three-phase whole-PR review coverage, bounded exact-head Draft/CI audit, clean-worktree refusal, a schema-bound overview → P0/P1/P2 → S1–S7 → R1–R4 review sequence, optional anonymous ledger summary, Draft → separate merge → environment dependency order, optional read-only publication/environment audits, one next action, child-authority refusal, and checker-error fail-closed behavior are covered |
 | published onboarding identity and packet | 18 passed; release packet identity is report-derived, manual overrides fail closed, exact tag commit and both live image digests are rechecked, release/candidate modes stay separate, and no trial or publication authority is added |
 | affected registered CTest | 4 / 4 pass after a clean Jazzy reconfigure; publication-plan, G0-readiness, packet, and published-identity registrations execute through ament |
 | weekly growth snapshot | 14 passed; new snapshots re-derive cohort count/rate/state consistency while the immutable historical baseline remains schema-valid and identity-free |

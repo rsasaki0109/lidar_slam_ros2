@@ -32,6 +32,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import importlib.util
+import json
 import pathlib
 import re
 import subprocess
@@ -210,6 +211,85 @@ def _set_review_worktree_state(
     routing['uncommitted_path_count'] = uncommitted_path_count
 
 
+def _review_ledger_report(reports: dict, states: list[str]) -> dict:
+    """Return one schema-shaped identity-free ledger checker fixture."""
+    assert len(states) == 4
+    routing = reports['product_draft_review_routing']
+    reviewed = sum(state != 'NOT_REVIEWED' for state in states)
+    passing = states.count('PASS')
+    blocked = states.count('BLOCKED')
+    if reviewed == 0:
+        status = 'EMPTY_LOCAL_LEDGER'
+    elif blocked:
+        status = 'BLOCKED_LOCAL_REVIEW'
+    elif passing == 4:
+        status = 'COMPLETE_LOCAL_REVIEW'
+    else:
+        status = 'IN_PROGRESS_LOCAL_REVIEW'
+    current_lanes = []
+    sequence = 0
+    for lane, state in zip(routing['lanes'], states):
+        if state != 'NOT_REVIEWED':
+            sequence += 1
+        current_lanes.append({
+            'id': lane['id'],
+            'order': lane['order'],
+            'slice_ids': list(lane['slice_ids']),
+            'status': state,
+            'verification_status': (
+                'NOT_RECORDED'
+                if state == 'NOT_REVIEWED'
+                else ('PASS' if state == 'PASS' else 'FAIL')
+            ),
+            'latest_event_sequence': (
+                sequence if state != 'NOT_REVIEWED' else None
+            ),
+            'finding_count': 1 if state == 'BLOCKED' else 0,
+            'blocker_count': 1 if state == 'BLOCKED' else 0,
+        })
+    next_lane_id = next(
+        (
+            lane['id']
+            for lane, state in zip(routing['lanes'], states)
+            if state != 'PASS'
+        ),
+        None,
+    )
+    return {
+        'schema_version': 1,
+        'schema_uri': (
+            'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/'
+            'product-draft-review-ledger-report-v1.schema.json'
+        ),
+        'repository': 'rsasaki0109/lidar_slam_ros2',
+        'pull_request': 427,
+        'scope': 'anonymous-product-draft-review-ledger-report',
+        'status': status,
+        'exact_head': reports['publication_plan']['local_tip_sha'],
+        'ledger_sha256': '3' * 64,
+        'routing_contract_sha256': '4' * 64,
+        'worktree_clean': True,
+        'event_count': reviewed,
+        'reviewed_lane_count': reviewed,
+        'passing_lane_count': passing,
+        'blocked_lane_count': blocked,
+        'historical_finding_count': blocked,
+        'current_finding_count': blocked,
+        'open_blocker_count': blocked,
+        'current_lanes': current_lanes,
+        'next_lane_id': next_lane_id,
+        'authority': {
+            'identities_collected': False,
+            'review_commands_executed_by_tool': False,
+            'github_reviewer_requests_authorized': False,
+            'github_reviews_authorized': False,
+            'mark_ready_authorized': False,
+            'merge_authorized': False,
+            'remote_mutations_performed': False,
+        },
+    }
+
+
 def test_current_dashboard_preserves_the_tracked_hold_state():
     """The current local evidence remains an honest G0 HOLD."""
     reports = DASHBOARD.collect_checker_reports()
@@ -224,14 +304,14 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['publication_plan']['status'] == (
         'PLAN_VALID_LOCAL_ONLY'
     )
-    assert report['checks']['publication_plan']['path_count'] == 337
+    assert report['checks']['publication_plan']['path_count'] == 341
     assert report['checks']['publication_plan'][
         'whole_pr_commit_count'
     ] >= 315
     assert report['checks']['publication_plan'][
         'follow_up_review_commit_count'
     ] >= 271
-    assert report['checks']['publication_plan']['whole_pr_path_count'] == 386
+    assert report['checks']['publication_plan']['whole_pr_path_count'] == 390
     assert report['checks']['publication_plan']['review_phase_count'] == 3
     assert report['checks']['publication_plan'][
         'review_coverage_complete'
@@ -262,7 +342,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         'S6-product-shell-integration',
         'S7-publication-control',
     ]
-    assert sum(item['path_count'] for item in navigation['slices']) == 337
+    assert sum(item['path_count'] for item in navigation['slices']) == 341
     assert navigation['commands_executed'] is False
     assert navigation['github_writes_authorized'] is False
     routing = report['checks']['product_draft_review_routing']
@@ -276,7 +356,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert routing['summary'] == {
         'lane_count': 4,
         'slice_count': 7,
-        'path_count': 337,
+        'path_count': 341,
         'verification_count': 33,
         'unassigned_slice_count': 0,
         'duplicate_slice_count': 0,
@@ -285,6 +365,31 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert routing['policy']['advisory_target_is_merge_gate'] is False
     assert routing['authority']['github_reviewer_requests_authorized'] is False
     assert routing['authority']['github_reviews_authorized'] is False
+    assert report['checks']['product_draft_review_ledger'] == {
+        'status': 'NOT_CHECKED',
+        'exact_head': None,
+        'ledger_sha256': None,
+        'routing_contract_sha256': None,
+        'worktree_clean': None,
+        'event_count': 0,
+        'reviewed_lane_count': 0,
+        'passing_lane_count': 0,
+        'blocked_lane_count': 0,
+        'historical_finding_count': 0,
+        'current_finding_count': 0,
+        'open_blocker_count': 0,
+        'current_lanes': [],
+        'next_lane_id': None,
+        'authority': {
+            'identities_collected': False,
+            'review_commands_executed_by_tool': False,
+            'github_reviewer_requests_authorized': False,
+            'github_reviews_authorized': False,
+            'mark_ready_authorized': False,
+            'merge_authorized': False,
+            'remote_mutations_performed': False,
+        },
+    }
     assert report['checks']['onboarding_matrix']['comparable_rows'] == 0
     assert report['checks']['published_release']['status'] == 'NOT_CHECKED'
     assert report['checks']['product_draft'] == {
@@ -361,6 +466,8 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert '| review roles | PREPARED_DIRTY_WORKTREE |' in card
     assert '4 capability lanes / advisory target 2' in card
     assert 'identities: none; reviewer requests: false' in card
+    assert '| review ledger | NOT_CHECKED |' in card
+    assert '0 pass / 0 blocked / 0 open blockers' in card
     assert '| product Draft PR #427 | NOT_CHECKED |' in card
     assert 'Choices (no write):' in card
     assert 'never reuse mixed-version measurements' in card
@@ -436,9 +543,9 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         '10 successful checks and 4\nintentional non-publication skips'
         in scorecard
     )
-    assert 'current 337-path local plan' in scorecard
+    assert 'current 341-path local plan' in scorecard
     assert (
-        'complete 386-path / three-phase whole-PR review coverage'
+        'complete 390-path / three-phase whole-PR review coverage'
         in scorecard
     )
 
@@ -514,6 +621,91 @@ def test_dashboard_rejects_tampered_review_routing():
         match='contradicts the exact local plan',
     ):
         DASHBOARD.build_report(unsafe_authority)
+
+
+def test_dashboard_accepts_optional_anonymous_review_ledger_without_authority():
+    reports = DASHBOARD.collect_checker_reports()
+    reports['product_draft_review_ledger'] = _review_ledger_report(
+        reports,
+        ['PASS', 'PASS', 'PASS', 'PASS'],
+    )
+
+    report = DASHBOARD.build_report(reports)
+    ledger = report['checks']['product_draft_review_ledger']
+
+    assert ledger['status'] == 'COMPLETE_LOCAL_REVIEW'
+    assert ledger['exact_head'] == report['checks']['publication_plan'][
+        'local_tip_sha'
+    ]
+    assert ledger['passing_lane_count'] == 4
+    assert ledger['blocked_lane_count'] == 0
+    assert ledger['next_lane_id'] is None
+    assert ledger['authority']['identities_collected'] is False
+    assert ledger['authority']['github_reviews_authorized'] is False
+    assert report['authority']['github_writes_authorized'] is False
+    assert 'ledger_path' not in json.dumps(report)
+
+    card = DASHBOARD.render_card(report)
+    assert '| review ledger | COMPLETE_LOCAL_REVIEW |' in card
+    assert '4 pass / 0 blocked / 0 open blockers' in card
+    assert 'GitHub review submitted: false' in card
+
+
+def test_dashboard_preserves_blocked_review_ledger_and_rejects_tampering():
+    reports = DASHBOARD.collect_checker_reports()
+    reports['product_draft_review_ledger'] = _review_ledger_report(
+        reports,
+        ['PASS', 'BLOCKED', 'NOT_REVIEWED', 'NOT_REVIEWED'],
+    )
+
+    report = DASHBOARD.build_report(reports)
+    ledger = report['checks']['product_draft_review_ledger']
+    assert ledger['status'] == 'BLOCKED_LOCAL_REVIEW'
+    assert ledger['passing_lane_count'] == 1
+    assert ledger['blocked_lane_count'] == 1
+    assert ledger['open_blocker_count'] == 1
+    assert ledger['next_lane_id'] == 'R2-operator-ux'
+
+    unsafe = copy.deepcopy(reports)
+    unsafe['product_draft_review_ledger']['authority'][
+        'github_reviews_authorized'
+    ] = True
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='stale, unsafe, or incomplete',
+    ):
+        DASHBOARD.build_report(unsafe)
+
+    stale = copy.deepcopy(reports)
+    stale['product_draft_review_ledger']['exact_head'] = '0' * 40
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='stale, unsafe, or incomplete',
+    ):
+        DASHBOARD.build_report(stale)
+
+    wrong_scope = copy.deepcopy(reports)
+    wrong_scope['product_draft_review_ledger']['current_lanes'][1][
+        'slice_ids'
+    ] = ['S1-runtime-safety']
+    with pytest.raises(
+        DASHBOARD.G0ReadinessError,
+        match='R2-operator-ux is invalid',
+    ):
+        DASHBOARD.build_report(wrong_scope)
+
+
+def test_dashboard_cli_accepts_local_review_ledger_without_retaining_path():
+    args = DASHBOARD.parse_args([
+        '--product-draft-review-ledger',
+        '/tmp/lidarslam-pr427-review-ledger.json',
+        '--json',
+    ])
+
+    assert args.product_draft_review_ledger == DASHBOARD.Path(
+        '/tmp/lidarslam-pr427-review-ledger.json'
+    )
+    assert args.json is True
 
 
 def test_dashboard_can_include_a_read_only_release_report_without_writes():
@@ -614,7 +806,7 @@ def test_exact_green_draft_is_reviewed_before_candidate_environment():
         'pull_request': 427,
         'url': 'https://github.com/rsasaki0109/lidar_slam_ros2/pull/427',
         'exact_head': head,
-        'whole_pr_path_count': 386,
+        'whole_pr_path_count': 390,
         'review_phase_count': 3,
         'slice_count': 7,
         'overview_command': (
@@ -647,7 +839,7 @@ def test_exact_green_draft_is_reviewed_before_candidate_environment():
     assert 'merge authorized: false' in card
     assert 'Draft review sequence (not executed):' in card
     assert f'- Exact head: `{head}`' in card
-    assert '- Coverage: 386 paths / 3 phases / 7 slices' in card
+    assert '- Coverage: 390 paths / 3 phases / 7 slices' in card
     assert (
         'Slice template: `python3 scripts/check_publication_slice_plan.py '
         '--slice <ID>`'
@@ -685,8 +877,8 @@ def test_exact_green_draft_refreshes_stale_description_before_review():
     ).hexdigest()
     assert f'Candidate head: `{head}`' in handoff['body']
     assert 'Whole PR review: **' in handoff['body']
-    assert '386 paths / 3 phases**' in handoff['body']
-    assert '337 paths / 7 slices**' in handoff['body']
+    assert '390 paths / 3 phases**' in handoff['body']
+    assert '341 paths / 7 slices**' in handoff['body']
     assert '## Exact review map' in handoff['body']
     assert handoff['body'].count('[Open exact diff](') == 3
     assert (
@@ -701,7 +893,7 @@ def test_exact_green_draft_refreshes_stale_description_before_review():
     assert '## Review roles' in handoff['body']
     assert handoff['body'].count('| `R') == 4
     assert '| `R1` | S1, S2 | 49 | 5 |' in handoff['body']
-    assert '| `R4` | S6, S7 | 153 | 15 |' in handoff['body']
+    assert '| `R4` | S6, S7 | 157 | 15 |' in handoff['body']
     assert (
         'Advisory reviewer target: **2** (target only; not a merge gate). '
         'Identities collected: none.'

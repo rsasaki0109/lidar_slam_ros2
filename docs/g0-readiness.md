@@ -69,12 +69,29 @@ Markdown, and every
 source overview authority remains false. The final local-tip link becomes
 publicly resolvable only after the separately authorized branch update.
 
+Role selection is not review evidence by itself. An optional append-only,
+identity-free ledger can be included after it has been prepared outside the
+repository and bound to the same clean exact tip:
+
+```bash
+python3 scripts/check_g0_readiness.py \
+  --product-draft-review-ledger \
+  /tmp/lidarslam-pr427-review-ledger.json
+```
+
+The dashboard retains the ledger SHA-256, current PASS/BLOCKED/not-reviewed
+lane counts, and open blocker count, but not its filesystem path or a reviewer
+identity. Historical events remain in the ledger while the dashboard reports
+only each lane's latest state. Even `COMPLETE_LOCAL_REVIEW` runs no check and
+grants no reviewer request, submitted review, mark-ready, merge, or remote
+write authority.
+
 Dependency order is explicit. A green Draft points first to the bounded
 overview and then to the seven-slice local review plan only when the observed
 PR-description digest also matches the canonical clean-tip body. A stale or
 missing description selects the same no-write description-refresh handoff
 before review. The schema-bound
-handoff fixes the exact public/local head, 386-path / three-phase / seven-slice
+handoff fixes the exact public/local head, 390-path / three-phase / seven-slice
 coverage, overview command, slice template, and four-step review sequence while
 keeping command execution, review submission, mark-ready, merge, and all writes
 false. A non-Draft open PR still requires a separate maintainer merge

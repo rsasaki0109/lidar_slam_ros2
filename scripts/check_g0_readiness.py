@@ -833,6 +833,7 @@ def audit_product_draft(
 
 def collect_checker_reports(
     *,
+    product_draft_review_ledger: Path | None = None,
     include_product_draft: bool = False,
     include_candidate_environment: bool = False,
     include_published_release: bool = False,
@@ -856,6 +857,7 @@ def collect_checker_reports(
             ('--json',),
             runner=runner,
         ),
+        'product_draft_review_ledger': None,
         'onboarding_matrix': _run_json(
             'check_onboarding_trial_matrix.py',
             ('--json',),
@@ -875,6 +877,17 @@ def collect_checker_reports(
         'candidate_environment': None,
         'published_release': None,
     }
+    if product_draft_review_ledger is not None:
+        reports['product_draft_review_ledger'] = _run_json(
+            'product_draft_review_ledger.py',
+            (
+                'check',
+                '--ledger',
+                str(product_draft_review_ledger),
+                '--json',
+            ),
+            runner=runner,
+        )
     if include_product_draft:
         reports['product_draft'] = audit_product_draft()
     if include_candidate_environment:
@@ -1208,6 +1221,209 @@ def _review_routing_summary(
         'lanes': normalized_lanes,
         'summary': expected_summary,
         'authority': expected_authority,
+    }
+
+
+def _review_ledger_summary(
+    report: dict[str, Any] | None,
+    plan: dict[str, Any],
+    routing: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize optional anonymous review evidence without upgrading authority."""
+    authority = {
+        'identities_collected': False,
+        'review_commands_executed_by_tool': False,
+        'github_reviewer_requests_authorized': False,
+        'github_reviews_authorized': False,
+        'mark_ready_authorized': False,
+        'merge_authorized': False,
+        'remote_mutations_performed': False,
+    }
+    if report is None:
+        return {
+            'status': 'NOT_CHECKED',
+            'exact_head': None,
+            'ledger_sha256': None,
+            'routing_contract_sha256': None,
+            'worktree_clean': None,
+            'event_count': 0,
+            'reviewed_lane_count': 0,
+            'passing_lane_count': 0,
+            'blocked_lane_count': 0,
+            'historical_finding_count': 0,
+            'current_finding_count': 0,
+            'open_blocker_count': 0,
+            'current_lanes': [],
+            'next_lane_id': None,
+            'authority': authority,
+        }
+    status = report.get('status')
+    allowed_statuses = {
+        'EMPTY_LOCAL_LEDGER',
+        'IN_PROGRESS_LOCAL_REVIEW',
+        'BLOCKED_LOCAL_REVIEW',
+        'COMPLETE_LOCAL_REVIEW',
+    }
+    digest_fields = (
+        report.get('ledger_sha256'),
+        report.get('routing_contract_sha256'),
+    )
+    raw_lanes = report.get('current_lanes')
+    if (
+        status not in allowed_statuses
+        or report.get('exact_head') != plan.get('local_tip_sha')
+        or report.get('exact_head') != routing.get('exact_head')
+        or report.get('worktree_clean') is not True
+        or any(
+            not isinstance(value, str)
+            or DIGEST_PATTERN.fullmatch(value) is None
+            for value in digest_fields
+        )
+        or report.get('authority') != authority
+        or not isinstance(raw_lanes, list)
+        or len(raw_lanes) != len(EXPECTED_REVIEW_LANES)
+    ):
+        raise G0ReadinessError(
+            'product Draft review ledger is stale, unsafe, or incomplete'
+        )
+    normalized_lanes: list[dict[str, Any]] = []
+    for order, (raw_lane, routing_lane, expected_id) in enumerate(
+        zip(raw_lanes, routing['lanes'], EXPECTED_REVIEW_LANES),
+        start=1,
+    ):
+        if not isinstance(raw_lane, dict):
+            raise G0ReadinessError(
+                f'product Draft review ledger lane {expected_id} is malformed'
+            )
+        lane_status = raw_lane.get('status')
+        verification_status = raw_lane.get('verification_status')
+        latest_sequence = raw_lane.get('latest_event_sequence')
+        finding_count = raw_lane.get('finding_count')
+        blocker_count = raw_lane.get('blocker_count')
+        if (
+            raw_lane.get('id') != expected_id
+            or raw_lane.get('order') != order
+            or raw_lane.get('slice_ids') != routing_lane.get('slice_ids')
+            or lane_status not in ('NOT_REVIEWED', 'PASS', 'BLOCKED')
+            or verification_status not in ('NOT_RECORDED', 'PASS', 'FAIL')
+            or (
+                latest_sequence is not None
+                and (
+                    isinstance(latest_sequence, bool)
+                    or not isinstance(latest_sequence, int)
+                    or latest_sequence < 1
+                    or latest_sequence > 100
+                )
+            )
+            or isinstance(finding_count, bool)
+            or not isinstance(finding_count, int)
+            or not 0 <= finding_count <= 10
+            or isinstance(blocker_count, bool)
+            or not isinstance(blocker_count, int)
+            or not 0 <= blocker_count <= finding_count
+            or (
+                lane_status == 'NOT_REVIEWED'
+                and (
+                    verification_status != 'NOT_RECORDED'
+                    or latest_sequence is not None
+                    or finding_count != 0
+                    or blocker_count != 0
+                )
+            )
+            or (
+                lane_status == 'PASS'
+                and (
+                    verification_status != 'PASS'
+                    or latest_sequence is None
+                    or blocker_count != 0
+                )
+            )
+            or (
+                lane_status == 'BLOCKED'
+                and (latest_sequence is None or blocker_count < 1)
+            )
+        ):
+            raise G0ReadinessError(
+                f'product Draft review ledger lane {expected_id} is invalid'
+            )
+        normalized_lanes.append({
+            'id': expected_id,
+            'order': order,
+            'slice_ids': list(raw_lane['slice_ids']),
+            'status': lane_status,
+            'verification_status': verification_status,
+            'latest_event_sequence': latest_sequence,
+            'finding_count': finding_count,
+            'blocker_count': blocker_count,
+        })
+    integer_fields = (
+        'event_count',
+        'reviewed_lane_count',
+        'passing_lane_count',
+        'blocked_lane_count',
+        'historical_finding_count',
+        'current_finding_count',
+        'open_blocker_count',
+    )
+    if any(
+        isinstance(report.get(field), bool)
+        or not isinstance(report.get(field), int)
+        or report[field] < 0
+        for field in integer_fields
+    ):
+        raise G0ReadinessError(
+            'product Draft review ledger has invalid summary counts'
+        )
+    expected_passing = sum(
+        lane['status'] == 'PASS' for lane in normalized_lanes
+    )
+    expected_blocked = sum(
+        lane['status'] == 'BLOCKED' for lane in normalized_lanes
+    )
+    expected_reviewed = expected_passing + expected_blocked
+    expected_current_findings = sum(
+        lane['finding_count'] for lane in normalized_lanes
+    )
+    expected_blockers = sum(
+        lane['blocker_count'] for lane in normalized_lanes
+    )
+    expected_next_lane = next(
+        (lane['id'] for lane in normalized_lanes if lane['status'] != 'PASS'),
+        None,
+    )
+    if (
+        report['reviewed_lane_count'] != expected_reviewed
+        or report['passing_lane_count'] != expected_passing
+        or report['blocked_lane_count'] != expected_blocked
+        or report['current_finding_count'] != expected_current_findings
+        or report['open_blocker_count'] != expected_blockers
+        or report['event_count'] < expected_reviewed
+        or report['historical_finding_count'] < expected_current_findings
+        or report.get('next_lane_id') != expected_next_lane
+        or (status == 'EMPTY_LOCAL_LEDGER' and expected_reviewed != 0)
+        or (
+            status == 'IN_PROGRESS_LOCAL_REVIEW'
+            and not (0 < expected_passing < len(EXPECTED_REVIEW_LANES))
+        )
+        or (status == 'BLOCKED_LOCAL_REVIEW' and expected_blocked < 1)
+        or (
+            status == 'COMPLETE_LOCAL_REVIEW'
+            and expected_passing != len(EXPECTED_REVIEW_LANES)
+        )
+    ):
+        raise G0ReadinessError(
+            'product Draft review ledger summary contradicts its lanes'
+        )
+    return {
+        'status': status,
+        'exact_head': report['exact_head'],
+        'ledger_sha256': report['ledger_sha256'],
+        'routing_contract_sha256': report['routing_contract_sha256'],
+        'worktree_clean': True,
+        **{field: report[field] for field in integer_fields},
+        'current_lanes': normalized_lanes,
+        'next_lane_id': expected_next_lane,
+        'authority': authority,
     }
 
 
@@ -2485,6 +2701,11 @@ def build_report(
         plan,
         navigation,
     )
+    review_ledger = _review_ledger_summary(
+        reports.get('product_draft_review_ledger'),
+        plan,
+        routing,
+    )
     matrix = _matrix_summary(matrix_report)
     cohort = _cohort_summary(cohort_report)
     v1 = _v1_summary(v1_report)
@@ -2533,6 +2754,7 @@ def build_report(
             'publication_plan': plan,
             'publication_review_navigation': navigation,
             'product_draft_review_routing': routing,
+            'product_draft_review_ledger': review_ledger,
             'onboarding_matrix': matrix,
             'first_map_cohort': cohort,
             'v1_readiness': v1,
@@ -2574,6 +2796,7 @@ def render_card(report: dict[str, Any]) -> str:
     plan = checks['publication_plan']
     navigation = checks['publication_review_navigation']
     routing = checks['product_draft_review_routing']
+    review_ledger = checks['product_draft_review_ledger']
     matrix = checks['onboarding_matrix']
     cohort = checks['first_map_cohort']
     v1 = checks['v1_readiness']
@@ -2613,6 +2836,13 @@ def render_card(report: dict[str, Any]) -> str:
             f"| review roles | {routing['status']} | "
             f"{routing['summary']['lane_count']} capability lanes / "
             'advisory target 2; identities: none; reviewer requests: false |'
+        ),
+        (
+            f"| review ledger | {review_ledger['status']} | "
+            f"{review_ledger['passing_lane_count']} pass / "
+            f"{review_ledger['blocked_lane_count']} blocked / "
+            f"{review_ledger['open_blocker_count']} open blockers; "
+            'identities: none; GitHub review submitted: false |'
         ),
         (
             f"| onboarding matrix | {matrix['status']} | "
@@ -2816,6 +3046,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--json', action='store_true')
     parser.add_argument(
+        '--product-draft-review-ledger',
+        type=Path,
+        help=(
+            'Also validate one local anonymous exact-tip review ledger; '
+            'the file path is not retained in the report.'
+        ),
+    )
+    parser.add_argument(
         '--include-product-draft',
         action='store_true',
         help='Also run the read-only exact-head Draft PR audit.',
@@ -2847,6 +3085,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         reports = collect_checker_reports(
+            product_draft_review_ledger=(
+                args.product_draft_review_ledger.expanduser().resolve()
+                if args.product_draft_review_ledger is not None
+                else None
+            ),
             include_product_draft=args.include_product_draft,
             include_candidate_environment=args.include_candidate_environment,
             include_published_release=args.include_published_release,

@@ -7,14 +7,14 @@
     "pull_request": 427,
     "base_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
     "public_head_sha": "3ed632e6f6aa1e3ca7f32d893773de1079086ffb",
-    "expected_path_count": 337,
-    "expected_paths_sha256": "44140dbe61822f33988d43ef03be57a1e18c1ef86e46e1b5c0b8c430f0fe781c",
+    "expected_path_count": 341,
+    "expected_paths_sha256": "743185bec87f51b9cd2995f4506db24d55cfbbd28ace0ee671076664e68d39a6",
     "scope": "worktree-delta-from-pr-base"
   },
   "whole_pr_review": {
     "base_sha": "86fa9b610c07ccf4d2b0f10939e17c129d34b40a",
-    "expected_path_count": 386,
-    "expected_paths_sha256": "3b78ff908cf52ee27e01c3896c3b5e2c5c191bd3ba18694d84866d17030b8e80",
+    "expected_path_count": 390,
+    "expected_paths_sha256": "9aa1dc356f4c54f47689043600e8a7518b93436cfda02c3d9df52b2bdbb68f41",
     "coverage_policy": "union-covers-final-diff",
     "linear_history_required": true,
     "initial_review": {
@@ -411,6 +411,8 @@
         "docs/schemas/onboarding-matrix-observer-packet-v1.schema.json",
         "docs/schemas/onboarding-matrix-observer-packet-v2.schema.json",
         "docs/schemas/onboarding-matrix-observer-packet-v3.schema.json",
+        "docs/schemas/product-draft-review-ledger-report-v1.schema.json",
+        "docs/schemas/product-draft-review-ledger-v1.schema.json",
         "docs/schemas/product-draft-review-routing-report-v1.schema.json",
         "docs/schemas/product-draft-review-routing-v1.schema.json",
         "docs/schemas/published-onboarding-identity-v1.schema.json",
@@ -453,6 +455,7 @@
         "lidarslam/test/test_prepare_rosbag2_playback.py",
         "lidarslam/test/test_prepare_usability_scorecard.py",
         "lidarslam/test/test_prepare_usability_scorecard_pair.py",
+        "lidarslam/test/test_product_draft_review_ledger.py",
         "lidarslam/test/test_product_draft_review_routing.py",
         "lidarslam/test/test_published_onboarding_identity.py",
         "lidarslam/test/test_record_usability_scorecard_pair.py",
@@ -483,6 +486,7 @@
         "scripts/prepare_rosbag2_playback.py",
         "scripts/prepare_usability_scorecard.py",
         "scripts/prepare_usability_scorecard_pair.py",
+        "scripts/product_draft_review_ledger.py",
         "scripts/record_usability_scorecard_pair.py",
         "scripts/run_open_data_applanix_velodyne_gnss_benchmark.sh",
         "scripts/run_open_data_applanix_velodyne_gnss_smoke.sh"
