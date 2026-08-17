@@ -453,6 +453,12 @@ work and document the actual support boundary instead of hiding the delay.
   base/head identities, Draft copy, and GET-only verification route only while
   all 30 checks pass; it grants no push, PR, force-push, ready, or merge
   authority. Publication still requires an explicit maintainer decision.
+- Keep the parent v1 live audit aligned with every schema-valid child outcome.
+  It now preserves package-manager `SOURCE_REF_MISSING`, `NOT_RUN`, `RUNNING`,
+  `FAILED`, `READY`, and `BLOCKED` states in machine and human output. Thus the
+  current authenticated tuple `BLOCKED / SOURCE_REF_MISSING / PUBLISHED`
+  remains an actionable 8/10 result instead of being misreported as an invalid
+  audit. Only the exact `READY` child state can close distribution.
 - Exercise clean install and upgrade on Humble and Jazzy after the packages are
   available, then publish v1.0 from the same verified contract.
 - Produce one sub-three-minute English demo with captions and one concise

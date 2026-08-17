@@ -42,6 +42,12 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / 'scripts' / 'check_v1_readiness.py'
+PACKAGE_MANAGER_REPORT_SCHEMA = (
+    ROOT
+    / 'docs'
+    / 'schemas'
+    / 'package-manager-release-readiness-v1.schema.json'
+)
 CURRENT_VERSION = (ROOT / 'VERSION').read_text(encoding='utf-8').strip()
 SPEC = importlib.util.spec_from_file_location('v1_readiness', SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
@@ -77,6 +83,7 @@ def test_tracked_contract_reports_exact_open_product_gates():
     assert report['publication_audits'] == {
         'inspected': False,
         'ndt_omp_ros2_status': None,
+        'package_manager_release_status': None,
         'lidarslam_release_status': None,
     }
 
@@ -151,6 +158,10 @@ def test_every_complete_gate_can_produce_ready_report(tmp_path):
             {'reliability', 'release-publication'},
         ),
         ('RELEASED', 'PUBLISHED', 'NOT_RUN', {'distribution'}),
+        ('RELEASED', 'PUBLISHED', 'SOURCE_REF_MISSING', {'distribution'}),
+        ('RELEASED', 'PUBLISHED', 'RUNNING', {'distribution'}),
+        ('RELEASED', 'PUBLISHED', 'FAILED', {'distribution'}),
+        ('RELEASED', 'PUBLISHED', 'BLOCKED', {'distribution'}),
     ],
 )
 def test_live_publication_reports_are_required_for_claimed_complete_gates(
@@ -200,8 +211,35 @@ def test_live_publication_reports_are_required_for_claimed_complete_gates(
     assert report['publication_audits'] == {
         'inspected': True,
         'ndt_omp_ros2_status': ndt_status,
+        'package_manager_release_status': package_manager_status,
         'lidarslam_release_status': release_status,
     }
+    rendered = READINESS.render_markdown(report)
+    assert (
+        f'**{ndt_status} / {package_manager_status} / {release_status}**'
+        in rendered
+    )
+
+
+def test_package_manager_status_allowlist_matches_child_report_schema():
+    schema = json.loads(PACKAGE_MANAGER_REPORT_SCHEMA.read_text(
+        encoding='utf-8'))
+
+    assert set(schema['properties']['status']['enum']) == (
+        READINESS.PACKAGE_MANAGER_RELEASE_STATUSES)
+
+
+def test_unknown_package_manager_status_remains_invalid():
+    with pytest.raises(
+        READINESS.ReadinessError,
+        match='package-manager live distribution report has invalid status',
+    ):
+        READINESS.evaluate_readiness(
+            require_live_publication=True,
+            ndt_release_report={'status': 'RELEASED'},
+            published_release_report={'status': 'PUBLISHED'},
+            package_manager_report={'status': 'UNKNOWN'},
+        )
 
 
 def test_live_evaluation_fails_without_both_publication_reports(tmp_path):
@@ -243,6 +281,7 @@ def test_require_complete_escalates_a_locally_ready_report_to_live(
             'publication_audits': {
                 'inspected': True,
                 'ndt_omp_ros2_status': 'IN_PROGRESS',
+                'package_manager_release_status': 'NOT_RUN',
                 'lidarslam_release_status': 'NOT_PUBLISHED',
             },
         },

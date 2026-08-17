@@ -72,7 +72,10 @@ PUBLISHED_RELEASE_STATUSES = {
     'BLOCKED',
 }
 PACKAGE_MANAGER_RELEASE_STATUSES = {
+    'SOURCE_REF_MISSING',
     'NOT_RUN',
+    'RUNNING',
+    'FAILED',
     'READY',
     'BLOCKED',
 }
@@ -439,6 +442,7 @@ def evaluate_readiness(
         'publication_audits': {
             'inspected': require_live_publication,
             'ndt_omp_ros2_status': ndt_status,
+            'package_manager_release_status': package_manager_status,
             'lidarslam_release_status': published_status,
         },
         'external_first_map': external_report,
@@ -465,6 +469,18 @@ def render_markdown(report: dict[str, Any]) -> str:
             '**'
             + (
                 'inspected'
+                if report['publication_audits']['inspected']
+                else 'not inspected'
+            )
+            + '**'
+        ),
+        (
+            '- Live status tuple (NDT / package manager / release): '
+            '**'
+            + (
+                f"{report['publication_audits']['ndt_omp_ros2_status']} / "
+                f"{report['publication_audits']['package_manager_release_status']} / "
+                f"{report['publication_audits']['lidarslam_release_status']}"
                 if report['publication_audits']['inspected']
                 else 'not inspected'
             )

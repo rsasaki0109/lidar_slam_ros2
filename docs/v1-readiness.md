@@ -15,7 +15,8 @@ For automation:
 
 ```bash
 python3 scripts/check_v1_readiness.py --json
-python3 scripts/check_v1_readiness.py --live --json
+GITHUB_TOKEN="$(gh auth token)" \
+  python3 scripts/check_v1_readiness.py --live --json
 python3 scripts/check_v1_readiness.py --require-complete
 ```
 
@@ -28,6 +29,13 @@ gate is complete; if local evidence could otherwise produce `READY`, it
 automatically runs those live audits before accepting the result. An invalid
 contract, schema, evidence path, adoption ledger, version, git-tag query, or
 untrustworthy live inspection exits 2.
+
+The authenticated form avoids shared anonymous GitHub API quotas. It performs
+GET-only inspection and grants no publication authority. A valid incomplete
+child state remains product evidence rather than becoming an audit error:
+package-manager status is preserved as `SOURCE_REF_MISSING`, `NOT_RUN`,
+`RUNNING`, `FAILED`, `READY`, or `BLOCKED` in both JSON and the human status
+tuple.
 
 ## Authoritative inputs
 
@@ -80,6 +88,10 @@ untrustworthy live inspection exits 2.
   It resolves lightweight or annotated tags to a commit, binds the run head to
   that commit, and reports missing refs, running attempts, and failed attempts
   separately instead of collapsing them into `NOT_RUN`.
+  The parent v1 live audit accepts all six schema-valid child states and
+  exposes the exact one as `publication_audits.package_manager_release_status`.
+  Only `READY` can close distribution; every other valid state produces an
+  actionable `NOT_READY` report instead of exit 2.
   Its
   [`package-manager-release-readiness-v1.schema.json`](schemas/package-manager-release-readiness-v1.schema.json)
   report requires both named-distro jobs to pass.
@@ -105,6 +117,11 @@ workflows cited by that evidence.
 ## Current snapshot
 
 The tracked state is **NOT_READY: 8/10 gates complete**.
+
+The authenticated 2026-08-17 live audit also reports 8/10 with exact child
+status tuple `BLOCKED / SOURCE_REF_MISSING / PUBLISHED` for NDT,
+package-manager, and the current stable release. This is a valid incomplete
+state, not malformed evidence.
 
 | Open gate | Remaining proof |
 | --- | --- |

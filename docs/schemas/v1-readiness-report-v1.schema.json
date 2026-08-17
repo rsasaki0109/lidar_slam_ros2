@@ -89,6 +89,7 @@
       "required": [
         "inspected",
         "ndt_omp_ros2_status",
+        "package_manager_release_status",
         "lidarslam_release_status"
       ],
       "properties": {
@@ -103,6 +104,17 @@
             "IN_PROGRESS",
             "REVIEW_REQUIRED",
             "RELEASED",
+            "BLOCKED"
+          ]
+        },
+        "package_manager_release_status": {
+          "enum": [
+            null,
+            "SOURCE_REF_MISSING",
+            "NOT_RUN",
+            "RUNNING",
+            "FAILED",
+            "READY",
             "BLOCKED"
           ]
         },
