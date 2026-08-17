@@ -35,7 +35,6 @@ import argparse
 import hashlib
 import io
 import json
-import os
 from pathlib import Path, PurePosixPath
 import sys
 import tarfile
@@ -46,6 +45,11 @@ import urllib.parse
 import urllib.request
 
 import jsonschema
+
+try:
+    from github_api_auth import github_api_authorization
+except ModuleNotFoundError:  # pragma: no cover - importlib test path
+    from scripts.github_api_auth import github_api_authorization
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -137,9 +141,7 @@ def _request(url: str, *, limit: int) -> tuple[int, bytes]:
         'Accept': 'application/vnd.github+json',
         'User-Agent': 'lidarslam-published-release-audit/1',
     }
-    token = os.environ.get('GITHUB_TOKEN')
-    if token and url.startswith('https://api.github.com/'):
-        headers['Authorization'] = f'Bearer {token}'
+    headers.update(github_api_authorization(url, method='GET'))
     status, payload, _ = _open_request(
         urllib.request.Request(url, headers=headers),
         limit=limit,

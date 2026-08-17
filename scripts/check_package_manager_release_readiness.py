@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 import re
 import sys
@@ -15,6 +14,11 @@ import urllib.parse
 import urllib.request
 
 import jsonschema
+
+try:
+    from github_api_auth import github_api_authorization
+except ModuleNotFoundError:  # pragma: no cover - importlib test path
+    from scripts.github_api_auth import github_api_authorization
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -120,9 +124,7 @@ def _request_json(
         'User-Agent': 'lidarslam-package-manager-release-audit/1',
         'X-GitHub-Api-Version': '2022-11-28',
     }
-    token = os.environ.get('GITHUB_TOKEN')
-    if token and url.startswith('https://api.github.com/'):
-        headers['Authorization'] = f'Bearer {token}'
+    headers.update(github_api_authorization(url, method='GET'))
     request = urllib.request.Request(
         url,
         headers=headers,

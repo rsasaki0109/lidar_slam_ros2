@@ -92,11 +92,14 @@ then verifies `origin/humble`, source tag, release-repository existence, both
 rosdistro keys, generated PR state and mergeability, every exact-head check
 run, and whether the latest actionable human review has a later author
 response. Failed, pending, missing, inconsistent, or truncated check evidence
-is `BLOCKED`. Set `GITHUB_TOKEN` to a read-capable token when the public GitHub
-API limit is too small; it is sent only to `api.github.com` and is never
-included in the report. A GitHub 404 means an initial artifact is absent; any
-other HTTP, malformed response, or network error is `BLOCKED`, never mistaken
-for absence, green CI, or reviewer approval.
+is `BLOCKED`. The checker uses an explicit `GITHUB_TOKEN` when provided,
+otherwise it non-interactively reuses the active `gh auth` credential. If
+neither is available, it keeps the anonymous read path and fails closed when
+that quota is insufficient. The credential is sent only to the exact
+`https://api.github.com` origin and is never included in the report. A GitHub
+404 means an initial artifact is absent; any other HTTP, malformed response,
+or network error is `BLOCKED`, never mistaken for absence, green CI, or
+reviewer approval.
 
 CI runs `--offline`, whose successful state is only `LOCAL_READY`. After
 publication, use `--require-released`; it passes only when the tag, release

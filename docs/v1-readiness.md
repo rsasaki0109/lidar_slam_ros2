@@ -15,8 +15,7 @@ For automation:
 
 ```bash
 python3 scripts/check_v1_readiness.py --json
-GITHUB_TOKEN="$(gh auth token)" \
-  python3 scripts/check_v1_readiness.py --live --json
+python3 scripts/check_v1_readiness.py --live --json
 python3 scripts/check_v1_readiness.py --require-complete
 ```
 
@@ -30,9 +29,14 @@ automatically runs those live audits before accepting the result. An invalid
 contract, schema, evidence path, adoption ledger, version, git-tag query, or
 untrustworthy live inspection exits 2.
 
-The authenticated form avoids shared anonymous GitHub API quotas. It performs
-GET-only inspection and grants no publication authority. A valid incomplete
-child state remains product evidence rather than becoming an audit error:
+For its GitHub API reads, the live audit uses an explicit `GITHUB_TOKEN` when
+provided, otherwise it non-interactively reuses the active `gh auth`
+credential. If neither is available, it keeps the anonymous read path and
+fails closed when that quota is insufficient. Credentials are attached only
+to the exact `https://api.github.com` origin, are never included in output,
+and grant no publication authority; every request remains GET-only. A valid
+incomplete child state remains product evidence rather than becoming an audit
+error:
 package-manager status is preserved as `SOURCE_REF_MISSING`, `NOT_RUN`,
 `RUNNING`, `FAILED`, `READY`, or `BLOCKED` in both JSON and the human status
 tuple.

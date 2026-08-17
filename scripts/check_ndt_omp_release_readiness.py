@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 import re
 import subprocess
@@ -16,6 +15,11 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 import jsonschema
+
+try:
+    from github_api_auth import github_api_authorization
+except ModuleNotFoundError:  # pragma: no cover - importlib test path
+    from scripts.github_api_auth import github_api_authorization
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -237,9 +241,7 @@ def _request_text(url: str) -> tuple[int, str]:
         'Accept': 'application/vnd.github+json',
         'User-Agent': 'lidarslam-ndt-release-preflight/1',
     }
-    token = os.environ.get('GITHUB_TOKEN')
-    if token and url.startswith('https://api.github.com/'):
-        headers['Authorization'] = f'Bearer {token}'
+    headers.update(github_api_authorization(url, method='GET'))
     request = urllib.request.Request(
         url,
         headers=headers,
@@ -489,7 +491,7 @@ def _inspect_pull_request(distro: str) -> dict[str, Any]:
 
 
 def inspect_remote() -> dict[str, Any]:
-    """Read public GitHub and rosdistro state without authenticating or writing."""
+    """Read public GitHub and rosdistro state without writing."""
     errors: list[str] = []
     origin_commit: str | None = None
     source_tag_present: bool | None = None

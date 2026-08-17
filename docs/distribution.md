@@ -241,9 +241,12 @@ python3 scripts/check_package_manager_release_readiness.py \
   --require-ready
 ```
 
-Set `GITHUB_TOKEN` to a read-capable token when the shared public GitHub API
-quota is exhausted. The audit sends it only to `api.github.com`, never writes
-to GitHub, and never includes it in JSON output.
+The audit uses an explicit `GITHUB_TOKEN` when provided, otherwise it
+non-interactively reuses the active `gh auth` credential. If neither is
+available, it keeps the anonymous read path and fails closed when that quota
+is insufficient. The credential is sent only to the exact
+`https://api.github.com` origin, the audit never writes to GitHub, and the
+credential is never included in JSON output.
 
 The resulting JSON contract is
 [`package-manager-release-readiness-v1.schema.json`](schemas/package-manager-release-readiness-v1.schema.json).
