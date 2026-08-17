@@ -158,3 +158,51 @@ Verification on the implementation tip:
 This closes one locally observed activation failure. It is not a clean-host
 timing result, an independent first map, a paired GLIM scorecard, or evidence
 that the unpublished v0.9.1 distribution paths are ready.
+
+## Single recovery action follow-up — 2026-08-17
+
+> Decision: **LOCAL_SINGLE_ACTION_RECOVERY_PASS / EXTERNAL_FIRST_ATTEMPT_PENDING**
+>
+> Implementation tip:
+> `a83bbfeaea8196a19513c7a26772d500fe8419b8`
+>
+> Network, files, GitHub, release, or community mutations performed by the
+> observed doctor run: **none**
+
+A real invocation from an unconfigured source-checkout shell retained five
+valid findings: missing source install, ROS environment, `ros2`, `rosbag2_py`,
+and fixed-demo storage. The previous human card presented a recovery beside
+every finding, leaving a beginner to infer dependency order.
+
+The system report now exposes one required top-level `next_action`. In an
+`action_required` report it copies the first dependency-ordered finding into
+schema-bound `code`, `reason`, and `action` fields; in a `ready` report it is
+exactly `null`. The human card renders that selection once under **Do this
+now**, retains every remaining stable finding code as a visible follow-up, and
+asks the operator to rerun doctor so the remaining state is reprioritized. The
+per-finding JSON recovery text remains intact for automation and detailed
+inspection.
+
+At the exact implementation tip, the observed five-finding report selected
+`source-build-required` and the existing copy-ready
+`source_quickstart.sh --build-only` action. Its JSON SHA-256 was
+`08c74e4867d5e6848587fa7c5a69c3a72452a7ef461fe8ee4f776e4601d3b4bd`;
+the human card SHA-256 was
+`4c4071c3882b32076a499847e34c012124a3d5d9d0b3a49bef9541d7e1fe849d`.
+Both reported `network_accessed: false` and `writes_performed: false`.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| doctor, home, option, completion, and installed-CLI focus | 51 passed |
+| exact S6 graph docs/product command | 35 passed |
+| exact S6 integrated product/growth command | 321 passed |
+| G0 dashboard regressions | 21 passed |
+| schema status/action coupling and first-finding selection | PASS |
+| Jazzy `ament_flake8` and `ament_pep257` | PASS |
+| strict MkDocs and patch hygiene | PASS |
+
+This removes one locally reproduced decision burden from the existing doctor;
+it does not add another diagnosis surface, perform the selected build, prove a
+clean-host completion time, create a paired GLIM observation, or claim parity.

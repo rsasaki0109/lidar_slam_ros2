@@ -94,6 +94,9 @@
 > Latest copy-ready low-storage recovery tip:
 > `d01652080485bc68354f354043e4b2e732439223`
 >
+> Latest single-action system-doctor recovery tip:
+> `a83bbfeaea8196a19513c7a26772d500fe8419b8`
+>
 > Latest exact-head Leo Drive rerun evidence carrier:
 > `4163b8c6f0ebb63504a0de398d9654333bf3919e`
 >
@@ -144,6 +147,12 @@ preflight instead of accepting four manually entered values. The latest
 observer UX follow-up also turns
 four artifact downloads, independent remote byte audit, and JSON/Markdown
 packet generation into one fail-closed command with atomic local output. The
+single-action doctor follow-up at `a83bbfe…` retains all stable findings and
+their machine recovery text while selecting one dependency-ordered top-level
+`next_action` and one human **Do this now** action. Its exact unconfigured-shell
+observation selected `source-build-required` from five findings and performed
+no network access or write; it creates no external first-attempt or GLIM parity
+claim. The
 latest onboarding-evidence trust follow-up retains the exact schema-valid,
 privacy-bounded first-map validation receipt beside each candidate trial and
 requires its bytes, SHA-256, PASS state, manifest identity, product version,
@@ -363,6 +372,7 @@ gate from being mistaken for the current state.
 | Contributor starter queue | C5–C9 `READY_LOCAL_ONLY`; 61 queue regressions and 5 / 5 focused strict-MkDocs profiles pass; current GET-only output finds 1 published `good first issue` (#422), 0 eligible starters, 1 blocked starter, 1 open PR, and 1 potential C5 match after PR #427 changed | the contributor waits instead of entering the closed cohort; the maintainer gets the cohort status command; C1–C4 remain retired and no issue, label, comment, PR, Pages deployment, or community post was changed |
 | Issue-triage application packet | local follow-up converts the still-valid 29-row proposal into ordered, source- and evidence-hashed review actions: 23 closure drafts, 4 reproduction requests, 9 dependency reviews, and 1 monitor-only row (#422); the #69 draft explains both leaf parameters and their resolution tradeoff, retains the historical-bag limit, and now requires exact public Draft head `4b2ab514`, open/Draft/mergeable state, 10 successful checks, 4 intentional skips, zero pending/failing checks, latest stable `v0.9.0` at `0df0c4a` exactly 52 commits behind reviewed fix `a2368c4`, and no `v0.9.1` tag/release; 34 application and 19 proposal regressions, the 1,075-test lidarslam gate, 35 graph docs/CLI regressions, strict MkDocs, and a complete authenticated GET-only live drift audit pass | stdout-only review aid; linked #69 head/state/CI, stable ancestry, candidate publication, or GET-only-authority drift emits no packet; every GitHub write authority remains false, no issue body, comment body, check name, raw release payload, or author identity is retained, and no issue, label, comment, release, tag, or state was changed |
 | Fixed-demo low-storage recovery | exact implementation `d016520…`; real local rejection reports exact `additional_bytes_required`, rounds 1.76 GiB upward for the human card, keeps system JSON path-free, and preserves the full shell-quoted demo retry; default floor remains 8 GiB | this removes one locally reproduced activation burden; it is not a public clean-host completion, paired GLIM observation, or authority to lower the storage gate |
+| Single-action system doctor | exact implementation `a83bbfe…`; a real unconfigured source shell retains five stable findings but exposes one schema-bound `source-build-required` top-level action and one human **Do this now** recovery; 51 focused, 35 graph docs/product, 321 integrated S6, and 21 G0 tests pass with strict MkDocs and ROS lint | rerunning doctor reprioritizes remaining blockers; the observed run is read-only and creates no clean-host timing, external first map, paired GLIM scorecard, or parity claim |
 | Distribution preflights | source route `READY` at exact public `3ed632e…`; rosdistro NDT remains `BLOCKED`: Humble #52949 and Jazzy #52950 each have 5 / 6 exact-head checks passing, one stale-base rosdep failure, and an unanswered review; Humble RKO-LIO 0.3.2 is in main/testing, Jazzy 0.3.2 is in testing while main remains 0.2.0; package-manager E2E is `SOURCE_REF_MISSING` because `v0.9.1` does not resolve | canonical collision-free NDT convergence and a current-base green replacement precede package sync and clean-install E2E; do not merge the overlapping registrations or treat Jazzy main as ready |
 | v1 authenticated live audit | current local increment returns valid `NOT_READY`, 8 / 10, with exact NDT / package-manager / stable-release tuple `BLOCKED / SOURCE_REF_MISSING / PUBLISHED`; all six schema-valid package-manager states are preserved in the parent JSON and 18 focused regressions pass | a missing v0.9.1 source ref is an actionable distribution blocker, not malformed child evidence or permission to create the tag; unauthenticated shared-rate-limit exhaustion may still make network child audits fail closed |
 | Canonical NDT upstream Draft preflight | refreshed 2026-08-17 as `READY_FOR_DRAFT_PR`, 30 / 30 PASS; exact upstream `5495fd9…`, exact candidate `618f02f6…`, expected fork verified, proposed branch absent, 4 open PRs inspected, 0 duplicates, 0 API errors, and write authority false; the schema-bound handoff fixes the create-only branch, base/head identities, exact Draft copy, and four-step verification route while every remote authority and write result remains false; the `3e11f30…` response packet is `BLOCKED` solely because that Draft URL is absent and emits no reply body | the local candidate and replies are technically bound but unpublished; non-ready states emit no handoff, and this ready handoff neither creates nor authorizes an upstream branch, PR, or rosdistro comment |

@@ -905,6 +905,17 @@ up, system JSON remains path-free, and demo recovery retains the complete
 shell-quoted command. The 8 GiB safety floor is unchanged. This improves the
 local path but does not replace the still-pending public paired observation.
 
+An unconfigured-terminal audit then exposed a smaller but real decision gap in
+that same surface: five valid blockers produced five equal-looking recovery
+instructions. Exact implementation
+`a83bbfeaea8196a19513c7a26772d500fe8419b8` keeps every stable finding and its
+machine recovery, but adds one schema-bound top-level `next_action` and one
+human **Do this now** card selected in dependency order. Rerunning doctor
+reprioritizes the remaining blockers. The exact observed source-checkout run
+selected `source-build-required`, retained four follow-up checks, and performed
+no network access or write. This is a reduction in first-decision burden, not a
+new doctor surface or comparative usability result.
+
 This local UX increment is complete in the reviewed candidate; the remaining
 GLIM-parity work is measurement, not another overlapping doctor surface. The
 next action is a neutral paired scorecard on exact public identities, using the

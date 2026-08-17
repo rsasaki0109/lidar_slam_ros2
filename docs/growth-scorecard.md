@@ -148,6 +148,12 @@ follow-up at
 `0575fb6d67dc0b2069d9e41029a767bf3608687c` removes manual scorecard JSON
 editing while preserving missing observations as non-comparable. It still has
 no external paired record and makes no GLIM parity claim. The current local
+doctor recovery tip
+`a83bbfeaea8196a19513c7a26772d500fe8419b8` also turns a reproduced
+five-finding unconfigured-shell result into one dependency-ordered **Do this
+now** action while retaining all stable finding codes and performing no
+network access or write. This is local activation evidence, not an external
+first-attempt or GLIM parity result. The current local
 paired-preparation follow-up removes manual public-resolvability Booleans: one
 GET-only preflight must resolve both fixed canonical commit/tag or registry
 identities and approved documentation redirects before either worksheet is
