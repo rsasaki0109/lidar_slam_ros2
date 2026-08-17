@@ -206,6 +206,36 @@ call_map_save_with_retry() {
   return 1
 }
 
+stage_playback_bag() {
+  local bag_path="$1"
+  local staging_root="$2"
+  local output_variable="$3"
+  local playback_path=""
+  playback_path="$(python3 "${SCRIPT_DIR}/prepare_rosbag2_playback.py" \
+    stage \
+    --bag "${bag_path}" \
+    --staging-root "${staging_root}")"
+  printf -v "${output_variable}" '%s' "${playback_path}"
+  if [[ "${playback_path}" != "${bag_path}" ]]; then
+    STAGED_PLAYBACK_DIRS+=("${playback_path}")
+  fi
+}
+
+cleanup_playback_staging() {
+  local staging_path=""
+  for staging_path in "${STAGED_PLAYBACK_DIRS[@]}"; do
+    if [[ -d "${staging_path}" ]]; then
+      if ! python3 "${SCRIPT_DIR}/prepare_rosbag2_playback.py" \
+        cleanup \
+        --path "${staging_path}" \
+        --staging-root "${SAVE_DIR}"
+      then
+        echo "warning: failed to remove playback staging: ${staging_path}" >&2
+      fi
+    fi
+  done
+}
+
 ensure_velodyne_overlay() {
   local overlay_dir="$1"
   local ros_distro_name="$2"
@@ -485,6 +515,10 @@ MAIN_PLAY_PID=""
 GNSS_PLAY_PID=""
 IMU_PLAY_PID=""
 VELODYNE_PID=""
+STAGED_PLAYBACK_DIRS=()
+MAIN_PLAY_BAG=""
+GNSS_PLAY_BAG=""
+IMU_PLAY_BAG=""
 cleanup() {
   for pid in "${IMU_PLAY_PID}" "${GNSS_PLAY_PID}" "${MAIN_PLAY_PID}" "${VELODYNE_PID}" "${LAUNCH_PID}"; do
     if [[ -n "${pid}" ]]; then
@@ -493,8 +527,15 @@ cleanup() {
     fi
   done
   rm -f "${TMP_PARAM}" "${VELODYNE_PARAM}" "${QOS_FILE}"
+  cleanup_playback_staging
 }
 trap cleanup EXIT INT TERM
+
+stage_playback_bag "${BAG_PATH}" "${SAVE_DIR}" MAIN_PLAY_BAG
+stage_playback_bag "${GNSS_BAG}" "${SAVE_DIR}" GNSS_PLAY_BAG
+if [[ "${USE_IMU,,}" == "true" ]]; then
+  stage_playback_bag "${IMU_BAG}" "${SAVE_DIR}" IMU_PLAY_BAG
+fi
 
 echo "Running Applanix + Velodyne GNSS smoke:"
 echo "  bag:                 ${BAG_PATH}"
@@ -511,6 +552,9 @@ fi
 echo "  velodyne_model:      ${VELODYNE_MODEL}"
 echo "  velodyne_calibration:${VELODYNE_CALIBRATION}"
 echo "  robot_frame:         ${ROBOT_FRAME_ID}"
+if [[ "${MAIN_PLAY_BAG}" != "${BAG_PATH}" ]]; then
+  echo "  playback_staging:    isolated FILE-compressed bag"
+fi
 echo "  save_dir:            ${SAVE_DIR}"
 
 ros2 run velodyne_pointcloud velodyne_transform_node \
@@ -539,7 +583,7 @@ LAUNCH_PID="$!"
 
 sleep 5
 
-timeout "${PLAY_WALL_SEC}" ros2 bag play "${BAG_PATH}" \
+timeout "${PLAY_WALL_SEC}" ros2 bag play "${MAIN_PLAY_BAG}" \
   --clock \
   --rate "${RATE}" \
   --topics "${PACKET_TOPIC}" \
@@ -547,13 +591,13 @@ timeout "${PLAY_WALL_SEC}" ros2 bag play "${BAG_PATH}" \
   >"${MAIN_PLAY_LOG}" 2>&1 &
 MAIN_PLAY_PID="$!"
 
-timeout "${PLAY_WALL_SEC}" ros2 bag play "${GNSS_BAG}" \
+timeout "${PLAY_WALL_SEC}" ros2 bag play "${GNSS_PLAY_BAG}" \
   --rate "${RATE}" \
   >"${GNSS_PLAY_LOG}" 2>&1 &
 GNSS_PLAY_PID="$!"
 
 if [[ "${USE_IMU,,}" == "true" ]]; then
-  timeout "${PLAY_WALL_SEC}" ros2 bag play "${IMU_BAG}" \
+  timeout "${PLAY_WALL_SEC}" ros2 bag play "${IMU_PLAY_BAG}" \
     --rate "${RATE}" \
     >"${IMU_PLAY_LOG}" 2>&1 &
   IMU_PLAY_PID="$!"

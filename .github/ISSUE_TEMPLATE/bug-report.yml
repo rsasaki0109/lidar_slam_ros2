@@ -8,6 +8,10 @@ body:
     attributes:
       value: |
         Read SUPPORT.md first. Do not report security vulnerabilities here.
+        Keep ordinary `doctor --json` output local because it contains the bag
+        path and local commands. Use `--public-json` for this public issue.
+        If the failure happened before a session was created, keep the doctor
+        finding codes; do not invent a support ZIP.
 
   - type: input
     id: version
@@ -30,7 +34,9 @@ body:
   - type: textarea
     id: command
     attributes:
-      label: Exact command
+      label: Redacted command shape
+      description: Keep the executable, options, and non-private values, but replace credentials, private paths, host or user names, and precise locations with the literal REDACTED placeholder.
+      placeholder: lidarslam-map start REDACTED --viewer none
       render: bash
     validations:
       required: true
@@ -38,9 +44,9 @@ body:
   - type: textarea
     id: preflight
     attributes:
-      label: Preflight output
-      description: Run `lidarslam-map doctor <bag> --json`.
-      render: text
+      label: Public doctor evidence
+      description: Run `lidarslam-map doctor <bag> --public-json`, review it, and paste the complete JSON. Even an unreadable input returns path-free `bag-preflight-input-error` evidence. This mode omits bag paths, topic or frame names, local commands, raw data, raw logs, and free-text messages; do not substitute ordinary `--json` output.
+      render: json
     validations:
       required: true
 
@@ -55,8 +61,13 @@ body:
   - type: textarea
     id: diagnostics
     attributes:
-      label: Diagnostics and logs
-      description: Include diagnosis, verifier output, relevant logs, topics, frames, and parameter files.
+      label: Privacy-first support ZIP and diagnostics
+      description: >-
+        If a session exists, run `lidarslam-map support <session_bundle>`,
+        review the three files, then drag the ZIP here. If no session was
+        created, state that clearly, attach no file, and name the first public
+        doctor `first_action_code` or `finding_codes` value. Do not paste raw
+        doctor output, terminal history, or logs.
     validations:
       required: true
 
@@ -67,7 +78,11 @@ body:
       options:
         - label: I searched existing issues.
           required: true
-        - label: I removed credentials and private location data.
+        - label: I used the complete reviewed `--public-json` evidence and replaced credentials, private paths, host or user names, and precise locations in the command or other manual text with the literal REDACTED placeholder.
+          required: true
+        - label: I either reviewed every file in the one attached support ZIP, or no session and ZIP existed and I attached no file.
+          required: true
+        - label: I attached no rosbag, map or trajectory geometry, raw log, raw sensor data, parameter file, terminal history, or private-site image.
           required: true
         - label: This is not a security vulnerability.
           required: true

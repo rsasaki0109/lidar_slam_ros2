@@ -14,19 +14,35 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
 1. Choose one official path without private maintainer instructions:
 
    - [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace)
-   - [source quickstart](getting-started.md#1-build-the-workspace)
+   - [source quickstart](getting-started.md#1-install-and-build-from-source)
    - [own-bag golden path](golden-path-cli.md)
 
-2. Record the release tag, commit, or immutable image digest and the exact
-   command you ran.
-3. A current `lidarslam-map run` writes
+2. A current `lidarslam-map run` writes
    `first_map_validation_receipt.json` and
    `first_map_validation_receipt.md` after finalizing the manifest,
-   diagnosis, and Autoware verification log. Open the Markdown receipt and
-   confirm it says `Receipt status: PASS`.
+   diagnosis, and Autoware verification log. From the successful session page,
+   copy **Prepare a first-map report**, or run:
 
-   For an existing output produced before automatic receipts were added,
-   regenerate the same report:
+   ```bash
+   lidarslam-map report /path/to/session_bundle
+   ```
+
+   The command performs no write or network request. It revalidates the PASS
+   receipt against the retained manifest, diagnosis, and verification log,
+   then prints the copy-ready PASS result, source commit or product-version
+   fallback, exact verification summary, JSON attachment path, issue form,
+   and a field-by-field template for the four values that still need your own
+   input. If you ran an immutable
+   image digest, replace the suggested release value with that digest.
+   For automation or a wrapper UI, add `--json`; the same read-only handoff is
+   returned as the schema-valid
+   [`first-map-handoff-v1`](schemas/first-map-handoff-v1.schema.json) object,
+   including safe OS/architecture/ROS hints and the four operator-supplied
+   fields. This handoff JSON is local-only because it includes a local receipt
+   path; attach only the reviewed receipt named inside it.
+
+   For an existing output produced before automatic receipts were added, you
+   may regenerate the receipt manually:
 
    ```bash
    python3 scripts/create_first_map_validation_receipt.py \
@@ -34,14 +50,29 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
      --write
    ```
 
-4. Open the
-   [Independent First-map Validation issue form](https://github.com/rsasaki0109/lidar_slam_ros2/issues/new?template=first-map-validation.yml).
-   Paste the receipt's `Verification summary` block into the form. Review
-   `first_map_validation_receipt.json`, then drag and drop that file into the
-   form's **Privacy-bounded JSON receipt** field. GitHub stores issue
-   attachments publicly. The generated JSON contains evidence hashes but no
-   map geometry, private paths, or exact command; do not attach any other run
-   artifact.
+   Older sessions may not reference that new receipt from `session.json`, so
+   the fail-closed `report` handoff can still reject them. Review
+   the generated JSON and submit it manually through the same issue form; do
+   not edit old session evidence merely to make the handoff pass.
+
+3. Record the release tag, commit, or immutable image digest and the redacted
+   command shape you ran. Keep the executable, options, and non-private values,
+   but replace credentials, private paths, host or user names, and precise
+   locations with the literal `REDACTED` placeholder.
+4. Follow the printed
+   [Independent First-map Validation issue form](https://github.com/rsasaki0109/lidar_slam_ros2/issues/new?template=first-map-validation.yml),
+   paste its copy-ready `Verification summary`. For a PASS report, review the
+   named `first_map_validation_receipt.json`, then drag only that file into
+   the **Privacy-bounded JSON receipt** field. For a FAIL report with no
+   generated receipt, leave that field empty and paste the first actionable
+   terminal finding instead. GitHub stores issue attachments publicly. The
+   generated JSON contains evidence hashes but no map geometry, private paths,
+   or exact command; do not attach any other run artifact.
+
+   The required privacy attestation has two honest branches: review the one
+   attached JSON receipt, or, for a FAIL where no receipt was produced, attach
+   no file. A missing receipt never permits a PASS report, and a FAIL report
+   never requires inventing or attaching another run artifact.
 
 Both passing and failing reports are useful. A failed attempt is an onboarding
 finding, not an accepted validation, and must be resolved or explicitly
@@ -49,9 +80,10 @@ documented before v1.0.
 
 !!! warning "Do not publish map geometry"
 
-    Remove credentials, private paths, precise locations, rosbag payloads,
-    point-cloud tiles, trajectories, and screenshots that reveal private
-    places. The issue form asks for command, environment, status, verifier
+    Replace credentials, private paths, host or user names, and precise
+    locations with `REDACTED`; remove rosbag payloads, point-cloud tiles,
+    trajectories, and screenshots that reveal private places. The issue form
+    asks for a redacted command shape, environment, status, verifier
     summary, and the privacy-bounded JSON receipt. You must still review the
     receipt before attaching it and redact private paths from the separately
     pasted command.

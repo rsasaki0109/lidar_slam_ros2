@@ -2,6 +2,25 @@
 Changelog for package scanmatcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.9.1 (2026-08-12)
+------------------
+* Reject unsafe PCL VoxelGrid layouts, absolute voxel-index overflow, invalid
+  leaf sizes, and inconsistent dense clouds before filtering. The affected
+  scan, map update, or registration-target update is skipped with an actionable
+  reason code while the node and last valid map/target remain active.
+* Preserve point-for-point XYZ/intensity PCL output for valid clouds through a
+  shared safety wrapper used by every classic scanmatcher VoxelGrid call site.
+* Exercise the real ROS 2 component with an unsafe-then-safe cloud sequence;
+  the overflow is rejected without output, then the same process publishes a
+  map and pose for the later valid scan on Humble and Jazzy.
+* Cover the asynchronous map-update path and safe component shutdown. Each
+  worker uses the triggering scan's distance snapshot, shared diagnostics stay
+  locked, and destruction waits for an outstanding map update to finish.
+* Commit the map-update movement baseline only after the worker succeeds, so a
+  rejected VoxelGrid layout does not consume the distance threshold needed by
+  the next safe scan. Worker exceptions remain inside the component boundary.
+* Contributors: Ryohei Sasaki
+
 0.9.0 (2026-07-30)
 ------------------
 * Prepare the NDT frontend for ROS buildfarm installation through the pinned,

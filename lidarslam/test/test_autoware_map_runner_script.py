@@ -49,6 +49,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / 'scripts' / 'run_autoware_map_from_bag.py'
 BEGINNER_SCRIPT_PATH = REPO_ROOT / 'scripts' / 'run_autoware_map_beginner.sh'
+TEST_MIN_FREE_SPACE_GIB = 0.001
 
 
 def _load_module():
@@ -57,6 +58,7 @@ def _load_module():
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    module.DEFAULT_MIN_FREE_SPACE_GIB = TEST_MIN_FREE_SPACE_GIB
     return module
 
 
@@ -156,6 +158,7 @@ def test_runner_script_supports_profiles_and_viewers():
     assert 'Next steps:' in script
     assert 'view_autoware_map.py' in script
     assert '--dry-run' in script
+    assert '--editable' in script
     assert '--resume' in script
     assert 'run_manifest.json' in script
     assert 'artifact_checksums' in script
@@ -176,13 +179,143 @@ def test_runner_help_is_user_facing():
     assert 'Expected successful outputs:' in result.stdout
     assert '--output-dir <dir>' in result.stdout
     assert '--min-free-space-gib <GiB>' in result.stdout
+    assert '--editable' in result.stdout
     assert '--resume' in result.stdout
+    assert '--guided' in result.stdout
+    assert '--yes' in result.stdout
     assert 'map selection and output:' in result.stdout
     assert 'safety and lifecycle:' in result.stdout
     assert 'deprecated viewer compatibility options:' in result.stdout
     assert 'deprecated advanced viewer compatibility options:' in result.stdout
     assert 'verification:' in result.stdout
     assert '--verification {required,off}' in result.stdout
+
+
+def test_start_session_summary_hides_internal_execution_detail(
+    monkeypatch,
+    capsys,
+    tmp_path: Path,
+):
+    module = _load_module()
+    output_dir = tmp_path / 'map'
+    working_dir = tmp_path / 'map.partial'
+    plan = {
+        'label': 'RKO-LIO + graph_based_slam public path',
+        'command': [
+            'bash',
+            '/private/internal/workflow.sh',
+            '--output-dir',
+            str(working_dir),
+        ],
+    }
+    storage = {
+        'observed_free_bytes': 7.25 * 1024**3,
+        'required_free_bytes': 5 * 1024**3,
+        'probe_path': str(tmp_path),
+    }
+    monkeypatch.setenv(
+        module.PRODUCT_SESSION_OUTPUT_ENV,
+        module.PRODUCT_SESSION_OUTPUT_CONCISE,
+    )
+
+    module._print_execution_summary(
+        plan,
+        output_dir,
+        working_dir,
+        storage,
+    )
+    module._announce_lifecycle('workflow_running', 'run the mapping workflow')
+
+    output = capsys.readouterr().out
+    assert output.splitlines() == [
+        'Map profile: RKO-LIO + graph_based_slam public path',
+        'Storage check: 7.25 GiB available (5.00 GiB required)',
+    ]
+    assert str(output_dir) not in output
+    assert str(working_dir) not in output
+    assert '/private/internal/workflow.sh' not in output
+    assert 'Lifecycle stage:' not in output
+
+
+def test_start_session_retains_workflow_output_without_rendering_internals(
+    monkeypatch,
+    capsys,
+    tmp_path: Path,
+):
+    module = _load_module()
+    workflow_log = tmp_path / module.CONCISE_WORKFLOW_LOG_NAME
+    internal_lines = [
+        'Calling /map_save ...',
+        'Mapping is ready; processing the recorded sensor data ...',
+        'Generating Lanelet2 map from corrected trajectory ...',
+    ]
+    command = [
+        sys.executable,
+        '-c',
+        '; '.join(f'print({line!r}, flush=True)' for line in internal_lines),
+    ]
+
+    assert module._run_workflow(
+        command,
+        tmp_path,
+        True,
+        workflow_log,
+    ) == (0, False, None)
+
+    terminal = capsys.readouterr()
+    assert terminal.out.splitlines() == [internal_lines[1]]
+    assert terminal.err == ''
+    assert workflow_log.read_text(encoding='utf-8').splitlines() == internal_lines
+
+
+def test_start_session_replays_retained_workflow_tail_on_failure(
+    capsys,
+    tmp_path: Path,
+):
+    module = _load_module()
+    workflow_log = tmp_path / module.CONCISE_WORKFLOW_LOG_NAME
+    command = [
+        sys.executable,
+        '-c',
+        "print('post-process detail', flush=True); raise SystemExit(7)",
+    ]
+
+    assert module._run_workflow(
+        command,
+        tmp_path,
+        True,
+        workflow_log,
+    ) == (7, False, None)
+
+    terminal = capsys.readouterr()
+    assert terminal.out == ''
+    assert 'Map workflow failed. Recent workflow details:' in terminal.err
+    assert 'post-process detail' in terminal.err
+    assert f'Complete workflow output: {workflow_log}' in terminal.err
+
+
+def test_start_session_success_defers_terminal_summary_to_parent(
+    monkeypatch,
+    capsys,
+    tmp_path: Path,
+):
+    module = _load_module()
+    monkeypatch.setenv(
+        module.PRODUCT_SESSION_OUTPUT_ENV,
+        module.PRODUCT_SESSION_OUTPUT_CONCISE,
+    )
+    monkeypatch.setattr(module, 'maybe_open_viewer', lambda *_args: None)
+
+    assert module._finish_run(
+        module.argparse.Namespace(),
+        {'command': ['internal-workflow']},
+        tmp_path / 'map',
+        0,
+    ) == 0
+
+    terminal = capsys.readouterr()
+    assert terminal.out == ''
+    assert terminal.err == ''
 
 
 def test_deprecated_run_viewer_routes_through_view_command(
@@ -594,6 +727,64 @@ def test_manifest_helpers_capture_identity_and_finalize_atomically(tmp_path: Pat
     assert not working_dir.exists()
 
 
+def test_finalize_rewrites_transaction_local_ros_latest_link(tmp_path: Path):
+    """Finalization makes ROS's absolute transaction link portable."""
+    module = _load_module()
+    working_dir = tmp_path / 'map_output.partial'
+    final_dir = tmp_path / 'map_output'
+    session_dir = working_dir / '.ros_log' / 'session-1'
+    session_dir.mkdir(parents=True)
+    latest = working_dir / '.ros_log' / 'latest'
+    latest.symlink_to(session_dir, target_is_directory=True)
+
+    module._finalize_output(working_dir, final_dir)
+
+    finalized_latest = final_dir / '.ros_log' / 'latest'
+    assert finalized_latest.is_symlink()
+    assert os.readlink(finalized_latest) == 'session-1'
+    assert finalized_latest.resolve() == final_dir / '.ros_log' / 'session-1'
+    assert not working_dir.exists()
+
+
+def test_finalize_removes_dangling_transaction_local_ros_latest_link(
+    tmp_path: Path,
+):
+    """Finalization removes a dangling transaction-local ROS link."""
+    module = _load_module()
+    working_dir = tmp_path / 'map_output.partial'
+    final_dir = tmp_path / 'map_output'
+    log_dir = working_dir / '.ros_log'
+    log_dir.mkdir(parents=True)
+    latest = log_dir / 'latest'
+    latest.symlink_to(log_dir / 'missing-session', target_is_directory=True)
+
+    module._finalize_output(working_dir, final_dir)
+
+    finalized_latest = final_dir / '.ros_log' / 'latest'
+    assert not finalized_latest.exists()
+    assert not finalized_latest.is_symlink()
+
+
+def test_finalize_preserves_external_ros_latest_link(tmp_path: Path):
+    """Finalization does not rewrite a deliberately external ROS link."""
+    module = _load_module()
+    working_dir = tmp_path / 'map_output.partial'
+    final_dir = tmp_path / 'map_output'
+    external_session = tmp_path / 'external-session'
+    external_session.mkdir()
+    log_dir = working_dir / '.ros_log'
+    log_dir.mkdir(parents=True)
+    latest = log_dir / 'latest'
+    latest.symlink_to(external_session, target_is_directory=True)
+
+    module._finalize_output(working_dir, final_dir)
+
+    finalized_latest = final_dir / '.ros_log' / 'latest'
+    assert finalized_latest.is_symlink()
+    assert Path(os.readlink(finalized_latest)) == external_session
+    assert finalized_latest.resolve() == external_session
+
+
 def test_manifest_rejects_storage_path_outside_bag(tmp_path: Path):
     module = _load_module()
     bag_dir = tmp_path / 'bag'
@@ -684,6 +875,14 @@ def test_main_writes_success_manifest_and_rejects_collision(
 
     assert module.main() == 0
     stdout = capsys.readouterr().out
+    for stage in (
+        'workflow_running',
+        'verifying',
+        'finalizing',
+        'diagnosing',
+        'checksumming',
+    ):
+        assert f'Lifecycle stage: {stage}' in stdout
     assert (
         f'Review shareable receipt: '
         f'{output_dir / "first_map_validation_receipt.json"}'
@@ -807,20 +1006,41 @@ def test_diagnostic_only_run_keeps_success_with_failing_receipt(
 
 
 @pytest.mark.parametrize(
-    ('workflow_result', 'expected_status', 'expected_exit_code', 'expected_error'),
+    (
+        'workflow_result',
+        'expected_status',
+        'expected_exit_code',
+        'expected_error',
+        'expected_stop_label',
+    ),
     [
-        ((17, False, None), 'failed', 17, 'map workflow exited with code 17'),
+        (
+            (17, False, None),
+            'failed',
+            17,
+            'map workflow exited with code 17',
+            None,
+        ),
+        (
+            (130, False, None),
+            'failed',
+            130,
+            'map workflow exited with code 130',
+            None,
+        ),
         (
             (130, True, 'map workflow interrupted by SIGINT'),
             'interrupted',
             130,
             'map workflow interrupted by SIGINT',
+            'Ctrl-C',
         ),
         (
             (143, True, 'map workflow interrupted by SIGTERM'),
             'interrupted',
             143,
             'map workflow interrupted by SIGTERM',
+            'SIGTERM',
         ),
     ],
 )
@@ -831,6 +1051,8 @@ def test_main_retains_terminal_manifest_for_failed_and_interrupted_runs(
     expected_status: str,
     expected_exit_code: int,
     expected_error: str,
+    expected_stop_label: str | None,
+    capsys,
 ):
     module = _load_module()
     bag_dir = _write_metadata(
@@ -886,6 +1108,21 @@ def test_main_retains_terminal_manifest_for_failed_and_interrupted_runs(
     )
     assert receipt['status'] == 'FAIL'
     assert receipt['verification']['manifest_status'] == expected_status
+    terminal = capsys.readouterr()
+    if expected_stop_label is None:
+        assert (
+            f'error: map run failed with exit code {expected_exit_code}.'
+            in terminal.err
+        )
+        assert 'failed command: map-workflow' in terminal.err
+        assert 'Map stopped by ' not in terminal.err
+    else:
+        assert (
+            f'Map stopped by {expected_stop_label}; retained evidence: '
+            f'{output_dir}'
+        ) in terminal.err
+        assert 'error: map run failed' not in terminal.err
+        assert 'failed command:' not in terminal.err
 
 
 def test_map_write_enospc_is_preserved_and_diagnosed(
@@ -953,10 +1190,13 @@ def test_map_write_enospc_is_preserved_and_diagnosed(
     )
 
 
+@pytest.mark.parametrize('concise_output', [False, True])
 def test_workflow_supervisor_forwards_sigterm_and_reaps_process_group(
     tmp_path: Path,
+    concise_output: bool,
 ):
     child_pid_path = tmp_path / 'child.pid'
+    workflow_log = tmp_path / 'workflow.log'
     child_code = '\n'.join([
         'import os',
         'from pathlib import Path',
@@ -975,7 +1215,8 @@ def test_workflow_supervisor_forwards_sigterm_and_reaps_process_group(
         'spec.loader.exec_module(module)',
         (
             'result = module._run_workflow('
-            f'[sys.executable, "-c", {child_code!r}], Path.cwd())'
+            f'[sys.executable, "-c", {child_code!r}], Path.cwd(), '
+            f'{concise_output!r}, Path({str(workflow_log)!r}))'
         ),
         'print(json.dumps(result))',
     ])
@@ -1001,6 +1242,7 @@ def test_workflow_supervisor_forwards_sigterm_and_reaps_process_group(
         True,
         'map workflow interrupted by SIGTERM',
     ]
+    assert workflow_log.is_file() is concise_output
     with pytest.raises(ProcessLookupError):
         os.kill(child_pid, 0)
 
@@ -1095,6 +1337,7 @@ def test_sigterm_failure_injection_preserves_recoverable_terminal_run(
         "spec = importlib.util.spec_from_file_location('runner_e2e_probe', script)",
         'module = importlib.util.module_from_spec(spec)',
         'spec.loader.exec_module(module)',
+        f'module.DEFAULT_MIN_FREE_SPACE_GIB = {TEST_MIN_FREE_SPACE_GIB!r}',
         'module.build_execution_plan = lambda **kwargs: {',
         "    'payload': {},",
         "    'profile_id': 'rko_lio_graph_public_path',",
@@ -1473,6 +1716,8 @@ def test_runner_rejects_incompatible_profile_with_available_hint(tmp_path: Path)
             str(bag_dir),
             '--profile',
             'pointcloud_gnss_smoke',
+            '--min-free-space-gib',
+            str(TEST_MIN_FREE_SPACE_GIB),
             '--dry-run',
         ],
         check=False,
@@ -1628,3 +1873,107 @@ def test_public_plan_pins_both_installed_parameter_files(tmp_path: Path):
     assert str(
         REPO_ROOT / 'lidarslam' / 'param' / 'rko_lio_ntu_viral.yaml'
     ) in command
+
+
+def test_editable_rko_plan_wraps_mapping_with_backend_recorder(tmp_path: Path):
+    """Editable runs must retain replay input inside the atomic output."""
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'editable_mid360_bag',
+        [
+            ('/livox/lidar', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/livox/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    output_dir = tmp_path / 'out.partial'
+
+    plan = module.build_execution_plan(
+        bag_path=bag_dir,
+        profile_id=None,
+        output_dir=output_dir,
+        verify_map=True,
+        pointcloud_inspector=_compatible_pointcloud_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+        editable=True,
+    )
+
+    command = plan['command']
+    assert command[:2] == [
+        'bash',
+        str(REPO_ROOT / 'scripts' / 'record_backend_input.sh'),
+    ]
+    assert command[command.index('--output-dir') + 1] == str(
+        output_dir / 'backend_input'
+    )
+    separator = command.index('--')
+    assert command[separator + 1:separator + 3] == [
+        'bash',
+        str(REPO_ROOT / 'scripts' / 'run_rko_lio_graph_autoware_dogfood.sh'),
+    ]
+
+
+def test_editable_rejects_profiles_without_deterministic_loop_replay(
+    tmp_path: Path,
+):
+    """Opt-in editability must fail closed for unsupported frontends."""
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'gnss_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/fix', 'sensor_msgs/msg/NavSatFix', 20),
+        ],
+    )
+
+    with pytest.raises(ValueError, match='rko_lio_graph profile'):
+        module.build_execution_plan(
+            bag_path=bag_dir,
+            profile_id='pointcloud_gnss_smoke',
+            output_dir=tmp_path / 'out',
+            verify_map=True,
+            pointcloud_inspector=_compatible_pointcloud_inspection,
+            timestamp_inspector=_monotonic_timestamp_inspection,
+            editable=True,
+        )
+
+
+def test_sensor_setup_bundle_overrides_params_and_frames(tmp_path: Path):
+    """A setup bundle must reach the normal runner without losing fields."""
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'mid360_setup_bag',
+        [
+            ('/livox/lidar', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/livox/imu', 'sensor_msgs/msg/Imu', 180),
+        ],
+    )
+    lidarslam_param = tmp_path / 'lidarslam.yaml'
+    rko_param = tmp_path / 'rko_lio.yaml'
+    lidarslam_param.write_text('graph_based_slam: {}\n', encoding='utf-8')
+    rko_param.write_text('initialization_phase: false\n', encoding='utf-8')
+
+    plan = module.build_execution_plan(
+        bag_path=bag_dir,
+        profile_id='rko_lio_graph_mid360_preset',
+        output_dir=tmp_path / 'out',
+        verify_map=True,
+        pointcloud_inspector=_compatible_pointcloud_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+        lidarslam_param=lidarslam_param,
+        rko_param=rko_param,
+        base_frame='robot_base',
+        lidar_frame='livox_frame',
+        imu_frame='imu_link',
+    )
+
+    command = plan['command']
+    assert command[command.index('--lidarslam-param') + 1] == str(
+        lidarslam_param
+    )
+    assert command[command.index('--rko-param') + 1] == str(rko_param)
+    assert command[command.index('--base-frame') + 1] == 'robot_base'
+    assert command[command.index('--lidar-frame') + 1] == 'livox_frame'
+    assert command[command.index('--imu-frame') + 1] == 'imu_link'

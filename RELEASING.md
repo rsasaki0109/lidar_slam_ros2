@@ -21,12 +21,23 @@ The intended public release scope is:
 2. Run local checks:
 
 ```bash
+VERSION="$(tr -d '\n' < VERSION)"
 bash scripts/run_default_ci_checks.sh
+./scripts/run_product_python_tests.sh
+python3 -m mkdocs build --strict
 python3 scripts/check_release_bundle_reproducibility.py \
-  /tmp/lidarslam_ros2_release_candidate.tar.gz
+  "/tmp/lidarslam_ros2_v${VERSION}_release_candidate.tar.gz"
 bash scripts/run_release_readiness_checks.sh --skip-default-ci --fail-on-profiles
-bash scripts/run_autoware_quickstart.sh
+source install/setup.bash
+lidarslam-map doctor
+DEMO_WORK_DIR="/tmp/lidarslam_ros2_v${VERSION}_first_map"
+test ! -e "${DEMO_WORK_DIR}"
+lidarslam-map demo "${DEMO_WORK_DIR}" --viewer none
 ```
+
+The fixed `lidarslam-map demo` is the release first-map gate. The older NTU
+VIRAL Autoware viewer/dogfood quickstart remains an advanced compatibility
+check and must not substitute for the canonical product route.
 
 The bundle rehearsal requires a clean source worktree, derives `v<VERSION>`
 and the exact current commit, builds the curated archive twice, runs the same
@@ -45,6 +56,13 @@ satisfy the release profiles. Omitting the hard-gate options leaves an empty
 root report-only. When a blocking row is `NO_DATA` or `FAIL`, the command
 prints the profile's tracked remediation path; follow that path rather than
 weakening the threshold or copying evidence from an older commit.
+
+An empty root under `--fail-on-profiles` still writes
+`benchmark_summary.md`, `benchmark_summary.csv`, and
+`benchmark_summary.log`. The summary evaluates every profile as `NO_DATA`,
+separates blocking rows from report-only rows, and prints each blocking row's
+acquisition or rerun instruction before exiting 2. Start with that retained
+report instead of reconstructing the required dataset list by hand.
 
 3. Push the branch and verify GitHub Actions are green.
    Also inspect the cross-phase product audit; release candidates may remain
@@ -94,9 +112,15 @@ python3 scripts/check_package_manager_release_readiness.py \
    per-package `CHANGELOG.rst` files, `docs/comparison.md`,
    `docs/releases/v${VERSION}.md`, `CITATION.cff`, and the core package versions
    match (`test_release_metadata_and_core_package_versions_match` enforces most
-   of this).
-5. Review README, `docs/autoware-quickstart.md`, `docs/benchmarking.md`,
-   `docs/comparison.md`, and `CONTRIBUTING.md` for operator-facing accuracy.
+   of this). Replace the candidate-only banner and `Release decision: HOLD`
+   section with `Release verification` in the final verified notes; the tag
+   workflow rejects either candidate marker before any image or release
+   publication starts, and the docs contract rejects a marker-free note that
+   lacks the final verification section.
+5. Review README, `docs/getting-started.md`,
+   `docs/autoware-map-authoring.md`, `docs/product-contract.md`,
+   `docs/benchmarking.md`, `docs/comparison.md`, and `CONTRIBUTING.md` for
+   operator-facing accuracy.
 6. Confirm the tagged checkout can build both `ROS_DISTRO=humble` and
    `ROS_DISTRO=jazzy` Docker targets. The release workflow will refuse to
    create the GitHub Release unless both published digests pass the installed

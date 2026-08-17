@@ -31,10 +31,12 @@
 
 import importlib.util
 from pathlib import Path
+import sqlite3
 
+import pytest
 from rosbags.highlevel import AnyReader
 from rosbags.rosbag2 import Writer
-from rosbags.typesys import get_typestore, Stores
+from rosbags.typesys import get_types_from_msg, get_typestore, Stores
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -83,3 +85,90 @@ def test_slice_bag_rejects_missing_topic(tmp_path):
         assert 'absent from source bag' in str(error)
     else:
         raise AssertionError('missing topic was accepted')
+
+
+def test_slice_reads_standard_rosbag2_without_embedded_definitions(tmp_path):
+    rosbag2_py = pytest.importorskip('rosbag2_py')
+    from rclpy.serialization import serialize_message
+    from std_msgs.msg import String
+
+    source = tmp_path / 'standard_source'
+    destination = tmp_path / 'standard_slice'
+    writer = rosbag2_py.SequentialWriter()
+    writer.open(
+        rosbag2_py.StorageOptions(uri=str(source), storage_id='sqlite3'),
+        rosbag2_py.ConverterOptions('', ''),
+    )
+    metadata_kwargs = {
+        'name': '/standard',
+        'type': 'std_msgs/msg/String',
+        'serialization_format': 'cdr',
+    }
+    try:
+        metadata = rosbag2_py.TopicMetadata(id=0, **metadata_kwargs)
+    except TypeError:  # Humble TopicMetadata predates the numeric id
+        metadata = rosbag2_py.TopicMetadata(**metadata_kwargs)
+    writer.create_topic(metadata)
+    writer.write(
+        '/standard',
+        serialize_message(String(data='kept')),
+        1_000_000_000,
+    )
+    if hasattr(writer, 'close'):
+        writer.close()
+    database = next(source.glob('*.db3'))
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "UPDATE schema SET schema_version = 3, ros_distro = 'humble'"
+        )
+        connection.execute('DROP TABLE IF EXISTS message_definitions')
+
+    counts = SLICER.slice_bag(
+        source,
+        destination,
+        duration_seconds=1.0,
+        topics={'/standard'},
+    )
+
+    assert counts == {'/standard': 1}
+    typestore = get_typestore(Stores.LATEST)
+    with AnyReader([destination], default_typestore=typestore) as reader:
+        rows = list(reader.messages())
+    assert len(rows) == 1
+    assert rows[0][0].topic == '/standard'
+    humble = get_typestore(Stores.ROS2_HUMBLE)
+    assert rows[0][0].digest == humble.hash_rihs01('std_msgs/msg/String')
+
+
+def test_slice_rejects_unverifiable_type_without_embedded_definition(tmp_path):
+    source = tmp_path / 'custom_source'
+    typestore = get_typestore(Stores.EMPTY)
+    typestore.register(get_types_from_msg(
+        'string data\n', 'fixture_msgs/msg/Custom'
+    ))
+    with Writer(source, version=8) as writer:
+        custom = writer.add_connection(
+            '/custom', 'fixture_msgs/msg/Custom', typestore=typestore
+        )
+        writer.write(custom, 1_000_000_000, b'custom-payload')
+    database = next(source.glob('*.db3'))
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "UPDATE schema SET schema_version = 3, ros_distro = 'humble'"
+        )
+        connection.execute('DROP TABLE message_definitions')
+
+    with pytest.raises(ValueError, match='has no embedded definition'):
+        SLICER.slice_bag(
+            source,
+            tmp_path / 'custom_slice',
+            duration_seconds=1.0,
+            topics={'/custom'},
+        )
+
+
+def test_portable_definition_rejects_source_hash_mismatch():
+    with pytest.raises(ValueError, match='source type hash mismatch'):
+        SLICER._portable_msgdef(
+            'std_msgs/msg/String', 'RIHS01_' + '0' * 64
+        )

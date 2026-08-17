@@ -8,6 +8,40 @@ from pathlib import Path
 
 from rosbags.highlevel import AnyReader
 from rosbags.rosbag2 import Writer
+from rosbags.typesys import get_typestore, Stores, TypesysError
+
+
+SUPPORTED_TYPESTORES = (
+    get_typestore(Stores.ROS2_HUMBLE),
+    get_typestore(Stores.ROS2_JAZZY),
+)
+
+
+def _portable_msgdef(msgtype: str, source_digest: str) -> tuple[str, str]:
+    """Return a definition shared by Humble/Jazzy or reject ambiguity."""
+    definitions = []
+    for typestore in SUPPORTED_TYPESTORES:
+        try:
+            msgdef, _ = typestore.generate_msgdef(msgtype, ros_version=2)
+            digest = typestore.hash_rihs01(msgtype)
+        except (KeyError, TypesysError) as exc:
+            raise ValueError(
+                f'{msgtype} has no embedded definition and is not available '
+                'in both supported ROS 2 typestores'
+            ) from exc
+        definitions.append((msgdef, digest))
+    if len(set(definitions)) != 1:
+        raise ValueError(
+            f'{msgtype} has no embedded definition and differs between '
+            'supported ROS 2 typestores'
+        )
+    msgdef, digest = definitions[0]
+    if source_digest and source_digest != digest:
+        raise ValueError(
+            f'{msgtype} source type hash mismatch: '
+            f'expected {source_digest}, generated {digest}'
+        )
+    return msgdef, digest
 
 
 def slice_bag(source: Path, destination: Path, duration_seconds: float,
@@ -18,7 +52,8 @@ def slice_bag(source: Path, destination: Path, duration_seconds: float,
         raise ValueError('duration must be positive and start offset non-negative')
 
     counts: dict[str, int] = {}
-    with AnyReader([source]) as reader:
+    typestore = SUPPORTED_TYPESTORES[0]
+    with AnyReader([source], default_typestore=typestore) as reader:
         selected = [connection for connection in reader.connections
                     if not topics or connection.topic in topics]
         missing = topics - {connection.topic for connection in selected}
@@ -27,12 +62,31 @@ def slice_bag(source: Path, destination: Path, duration_seconds: float,
         start_ns = reader.start_time + round(start_offset_seconds * 1e9)
         end_ns = start_ns + round(duration_seconds * 1e9)
         with Writer(destination, version=8) as writer:
-            outputs = {
-                connection.id: writer.add_connection(
-                    connection.topic, connection.msgtype,
-                    typestore=reader.typestore)
-                for connection in selected
-            }
+            outputs = {}
+            for connection in selected:
+                kwargs = {
+                    'serialization_format': connection.ext.serialization_format,
+                    'offered_qos_profiles': connection.ext.offered_qos_profiles,
+                }
+                if getattr(connection.msgdef, 'data', ''):
+                    if not connection.digest:
+                        raise ValueError(
+                            f'{connection.msgtype} embeds a definition without '
+                            'a type hash'
+                        )
+                    kwargs['msgdef'] = connection.msgdef.data
+                    kwargs['rihs01'] = connection.digest
+                else:
+                    msgdef, digest = _portable_msgdef(
+                        connection.msgtype, connection.digest
+                    )
+                    kwargs['msgdef'] = msgdef
+                    kwargs['rihs01'] = digest
+                outputs[connection.id] = writer.add_connection(
+                    connection.topic,
+                    connection.msgtype,
+                    **kwargs,
+                )
             for connection, timestamp, rawdata in reader.messages(
                     connections=selected, start=start_ns, stop=end_ns):
                 writer.write(outputs[connection.id], timestamp, rawdata)

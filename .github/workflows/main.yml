@@ -24,11 +24,14 @@ jobs:
   docs-and-release-metadata:
     name: docs and release metadata
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Install Python test dependency
@@ -47,13 +50,20 @@ jobs:
           python3 -m pytest graph_based_slam/test/test_docs_entrypoints.py -q
           python3 -m pytest lidarslam/test/test_v1_readiness.py -q
           python3 -m pytest lidarslam/test/test_ndt_omp_release_readiness.py -q
+          python3 -m pytest lidarslam/test/test_canonical_ndt_convergence.py -q
           python3 -m pytest lidarslam/test/test_package_manager_install.py -q
           python3 -m pytest lidarslam/test/test_published_release.py -q
           python3 -m pytest lidarslam/test/test_release_channel.py -q
           python3 -m pytest lidarslam/test/test_external_first_map_acceptance.py -q
+          python3 -m pytest lidarslam/test/test_check_g0_readiness.py -q
           python3 scripts/check_ndt_omp_release_readiness.py --offline
+          python3 scripts/check_canonical_ndt_convergence.py --json
           python3 scripts/check_external_first_map_readiness.py --json
           python3 scripts/check_v1_readiness.py --json
+          # G0 is intentionally allowed to report HOLD here; this command
+          # verifies that the read-only dashboard remains schema-valid and
+          # fail-closed on every public candidate.
+          python3 scripts/check_g0_readiness.py --json
 
       - name: Validate public shell entrypoints
         shell: bash
@@ -61,8 +71,10 @@ jobs:
           bash -n scripts/run_autoware_quickstart.sh
           bash -n scripts/download_ntu_viral_tnp01.sh
           bash -n scripts/run_default_ci_checks.sh
+          bash -n scripts/run_product_python_tests.sh
           bash -n scripts/run_release_readiness_checks.sh
           bash -n scripts/run_rko_lio_graph_autoware_dogfood.sh
+          bash -n scripts/run_first_map_demo.sh
           bash -n scripts/run_docker_demo.sh
           bash -n docker/entrypoint.sh
           bash -n scripts/run_graph_slam_pointcloud_map_in_autoware.sh
@@ -139,6 +151,7 @@ jobs:
     needs: docs-and-release-metadata
     runs-on: ${{ matrix.runs_on }}
     container: ${{ matrix.container }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -157,6 +170,7 @@ jobs:
           apt-get update
           apt-get install -y \
             git \
+            iproute2 \
             python3-colcon-common-extensions \
             python3-pip \
             python3-rosdep
@@ -173,6 +187,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
           submodules: recursive
 
       - name: Trust the container checkout
@@ -185,7 +202,17 @@ jobs:
           if [[ ! -e /etc/ros/rosdep/sources.list.d/20-default.list ]]; then
             rosdep init
           fi
-          rosdep update --rosdistro "${{ matrix.ros_distro }}"
+          for attempt in 1 2 3; do
+            if rosdep update --rosdistro "${{ matrix.ros_distro }}"; then
+              break
+            fi
+            if [[ "${attempt}" == 3 ]]; then
+              echo "rosdep update failed after ${attempt} attempts" >&2
+              exit 1
+            fi
+            echo "rosdep update failed (attempt ${attempt}/3); retrying" >&2
+            sleep $((attempt * 10))
+          done
 
       - name: Install default workflow dependencies
         shell: bash
@@ -206,6 +233,7 @@ jobs:
         shell: bash
         run: |
           source "/opt/ros/${{ matrix.ros_distro }}/setup.bash"
+          export PYTHONPATH="${GITHUB_WORKSPACE}:${PYTHONPATH:-}"
           bash scripts/run_default_ci_checks.sh
 
       - name: Publish test results
@@ -217,7 +245,11 @@ jobs:
             # shellcheck source=/dev/null
             source install/setup.bash
           fi
-          colcon test-result --verbose
+          if [[ -d build ]]; then
+            colcon test-result --verbose
+          else
+            echo 'No build directory; test results are unavailable after an earlier failure.'
+          fi
 
   release-readiness:
     name: release readiness
@@ -225,10 +257,26 @@ jobs:
       - docs-and-release-metadata
       - default-workflow
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Verify exact candidate and immutable tags
+        shell: bash
+        run: |
+          EXPECTED_SHA="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}"
+          git fetch --force "https://github.com/${GITHUB_REPOSITORY}.git" \
+            '+refs/tags/*:refs/tags/*'
+          test "$(git rev-parse HEAD)" = "${EXPECTED_SHA}"
+          test "$(git rev-parse 'refs/tags/v0.9.0^{commit}')" = \
+            "0df0c4a86df9f68a894c83f8342e4107c3d23b0f"
 
       - name: Rehearse deterministic release bundle
         shell: bash

@@ -1,9 +1,8 @@
 # Comparison
 
 This page is the public comparison snapshot for the
-`lidarslam_ros2 v0.9.0` release candidate. Its immutable publication remains
-an explicit readiness gate; historical release pages are not described as
-the current candidate.
+`lidarslam_ros2 v0.9.1` release candidate. It is not yet published; the
+historical `v0.9.0` release and tag remain immutable.
 
 It is intentionally scoped to workflows that are actually exercised in this
 repository. It is not trying to be a universal ranking of every LiDAR SLAM
@@ -182,7 +181,7 @@ Unsafe claims:
 
 ## Release Scope Reminder
 
-`v0.9.0` is the current release candidate. The maintained product boundary is
+`v0.9.1` is the current release candidate. The maintained product boundary is
 offline rosbag2-to-verified-map authoring through the three official
 entrypoints. Lanelet generation remains operator-reviewed, and evaluation-tier
 sensor, GNSS, radar, coloured-map, and optional loop-detector paths do not

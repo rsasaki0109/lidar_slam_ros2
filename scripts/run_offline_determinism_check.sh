@@ -88,8 +88,12 @@ PARAMS="$(realpath -m "${PARAMS}")"
 SETUP_FILE="$(realpath -m "${SETUP_FILE}")"
 BAG="$(realpath -m "${BAG}")"
 if [[ ! -f "${SETUP_FILE}" ]]; then
-  echo "setup file not found: ${SETUP_FILE}" >&2
-  exit 2
+  if [[ -n "${ROS_DISTRO:-}" ]] && command -v ros2 >/dev/null 2>&1; then
+    SETUP_FILE="active_environment"
+  else
+    echo "setup file not found and no active ROS environment is available: ${SETUP_FILE}" >&2
+    exit 2
+  fi
 fi
 if [[ ! -f "${PARAMS}" ]]; then
   echo "params file not found: ${PARAMS}" >&2
@@ -100,10 +104,12 @@ if [[ ! -d "${BAG}" ]]; then
   exit 2
 fi
 
-# shellcheck disable=SC1091
-set +u
-source "${SETUP_FILE}"
-set -u
+if [[ "${SETUP_FILE}" != "active_environment" ]]; then
+  # shellcheck disable=SC1091
+  set +u
+  source "${SETUP_FILE}"
+  set -u
+fi
 
 GRAPH_PREFIX="$(ros2 pkg prefix graph_based_slam)"
 RUNNER_EXECUTABLE="${GRAPH_PREFIX}/lib/graph_based_slam/graph_slam_offline_runner"

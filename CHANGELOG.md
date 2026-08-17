@@ -1,5 +1,69 @@
 # Changelog
 
+## 0.9.1 - 2026-08-12
+
+A reliability and first-map usability release candidate. It keeps the v0.9.0
+publication immutable while making the supported Docker and source journeys
+more guided, recoverable, and reviewable.
+
+### Highlights
+
+- **One coherent beginner surface** — the no-argument `lidarslam-map` home,
+  bag-optional doctor, guided `start`, Japanese quickstart, and fixed MID-360
+  demo share the same profiles, preflight, verification, and recovery contract.
+- **Crash-safe point-cloud handling** — classic scanmatcher VoxelGrid paths and
+  graph point-cloud conversions fail closed on unsafe dimensions, overflow,
+  invalid leaves, or inconsistent dense clouds while preserving the process and
+  its last valid map.
+- **Recoverable map lifecycle** — atomic outputs, finalization-only resume,
+  session history and comparison, source-preserving edit/merge plans, local 3D
+  preview, and privacy-bounded support/first-map receipts keep provenance and
+  next actions visible.
+- **Fresh-terminal onboarding** — Docker and the exact six-package Humble/Jazzy
+  source route now converge on one verified first-map outcome, with installed
+  resource checks and public-readiness probes.
+- **One-command candidate trial session** — a dedicated observer can start from
+  one exact Actions run URL and retain the authenticated handoff, selected
+  Docker/source execution, and a hash-bound session receipt under one atomic
+  directory. Docker rows bootstrap a content-addressed, recipe-labelled local
+  observer image before timing instead of requiring a copied build command.
+- **Guided trial readiness** — the same session command now checks the exact
+  destination, Ubuntu/ROS row, x86_64 host, measured filesystem, Docker/source
+  runtime, source RX counter, human measurements, and isolation confirmation
+  without network access or writes. Stable findings distinguish a blocked host
+  from runnable non-comparable evidence and print one shell-safe next command.
+- **Release identity hardening** — release-bundle CI checks out the exact PR
+  head, fetches immutable tags, and refuses historical version reuse. Candidate
+  metadata is aligned at 0.9.1 without moving or recreating `v0.9.0`.
+- **Reviewable candidate operations** — the GET-only protected-environment
+  audit and G0 card now provide a status-specific, copy-ready administrator
+  handoff while keeping settings writes, independent approval, and E2 dispatch
+  outside the tool.
+- **Parse-safe GLIM comparison** — restore the Docker timeout branch in
+  `compare_with_glim.sh` and make every tracked shell script pass `bash -n` in
+  the maintained docs/product gate.
+- **Content-verified GLIM fallback** — replace the path/topic-only trajectory
+  cache with a schema-backed identity over bag, effective config, runtime,
+  options, and harness bytes; malformed, modified, legacy, or contradictory
+  entries now fail closed instead of becoming cross-validation evidence.
+- **Exact public-docs identity** — bind the deployed Getting Started bytes,
+  canonical route fragments, product version, and Pages workflow to one source
+  commit, and keep first-time cohorts closed when that manifest is absent,
+  stale, or tampered.
+- **Copy-safe clean-host identity** — derive the source commit and both Docker
+  digests from one validated published-release report, then recheck those exact
+  live identities before a comparable onboarding row can start.
+- **Honest adoption evidence** — onboarding and GLIM usability comparisons are
+  schema-backed, environment-matched, and fail closed when rows are missing;
+  no overall winner is inferred from incomplete evidence.
+
+### Remaining v1.0 gates
+
+- complete the reviewed NDT ownership/rosdistro and main-channel package path;
+- capture complete Humble/Jazzy Docker/source onboarding measurements; and
+- accept three independent first-map validations. The tracked count remains
+  0/3.
+
 ## 0.9.0 - 2026-07-30
 
 The stable product-foundation release candidate. It keeps the v0.7 golden

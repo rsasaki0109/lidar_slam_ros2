@@ -67,6 +67,10 @@ def test_applanix_velodyne_smoke_script_uses_packet_conversion_and_gnss_sidecar(
     assert 'IMU_TRANSLATION_DESKEW="false"' in script
     assert 'IMU_POSE_PREDICTION="false"' in script
     assert 'if [[ "${USE_IMU,,}" == "true" ]]; then' in script
+    assert 'prepare_rosbag2_playback.py' in script
+    assert 'stage_playback_bag "${BAG_PATH}" "${SAVE_DIR}" MAIN_PLAY_BAG' in script
+    assert 'ros2 bag play "${MAIN_PLAY_BAG}"' in script
+    assert 'cleanup_playback_staging' in script
 
 
 def test_applanix_velodyne_smoke_script_supports_overlay_bootstrap():

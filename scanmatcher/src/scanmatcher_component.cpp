@@ -1,5 +1,7 @@
 #include "scanmatcher/scanmatcher_component.h"
+#include "scanmatcher/voxel_grid_safety.hpp"
 #include "scanmatcher/odom_prior_utils.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -8,6 +10,8 @@
 #include <limits>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <sstream>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <pcl/common/common.h>
@@ -35,12 +39,151 @@ bool pointCloudHasField(const sensor_msgs::msg::PointCloud2 & msg, const std::st
   return false;
 }
 
-PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg::PointCloud2 & msg)
+bool checkedMultiply(size_t lhs, size_t rhs, size_t * product)
+{
+  if (lhs != 0U && rhs > std::numeric_limits<size_t>::max() / lhs) {
+    return false;
+  }
+  *product = lhs * rhs;
+  return true;
+}
+
+bool validateFloatField(
+  const sensor_msgs::msg::PointCloud2 & msg,
+  const std::string & name,
+  bool required,
+  std::string * error)
+{
+  const sensor_msgs::msg::PointField * match = nullptr;
+  for (const auto & field : msg.fields) {
+    if (field.name != name) {
+      continue;
+    }
+    if (match != nullptr) {
+      *error = "duplicate '" + name + "' field";
+      return false;
+    }
+    match = &field;
+  }
+  if (match == nullptr) {
+    if (required) {
+      *error = "missing required '" + name + "' field";
+      return false;
+    }
+    return true;
+  }
+  if (
+    match->datatype != sensor_msgs::msg::PointField::FLOAT32 ||
+    match->count < 1U)
+  {
+    *error = "field '" + name + "' must be FLOAT32 with count >= 1";
+    return false;
+  }
+  if (
+    msg.point_step < sizeof(float) ||
+    match->offset > msg.point_step - sizeof(float))
+  {
+    *error = "field '" + name + "' extends past point_step";
+    return false;
+  }
+  return true;
+}
+
+bool validatePointCloudLayout(
+  const sensor_msgs::msg::PointCloud2 & msg,
+  size_t * point_count,
+  std::string * error)
+{
+  *point_count = 0U;
+  error->clear();
+  if (msg.is_bigendian) {
+    *error = "big-endian PointCloud2 fields are not supported";
+    return false;
+  }
+  if (msg.width == 0U || msg.height == 0U) {
+    *error = "width and height must both be greater than zero";
+    return false;
+  }
+  if (msg.point_step == 0U) {
+    *error = "point_step must be greater than zero";
+    return false;
+  }
+
+  size_t packed_row_size = 0U;
+  if (!checkedMultiply(msg.width, msg.point_step, &packed_row_size)) {
+    *error = "width * point_step overflows size_t";
+    return false;
+  }
+  if (msg.row_step < packed_row_size) {
+    *error = "row_step must be at least width * point_step";
+    return false;
+  }
+
+  size_t expected_data_size = 0U;
+  if (!checkedMultiply(msg.row_step, msg.height, &expected_data_size)) {
+    *error = "row_step * height overflows size_t";
+    return false;
+  }
+  if (msg.data.size() != expected_data_size) {
+    *error = "data size must equal row_step * height";
+    return false;
+  }
+  if (!checkedMultiply(msg.width, msg.height, point_count)) {
+    *error = "width * height overflows size_t";
+    return false;
+  }
+  if (*point_count > std::numeric_limits<uint32_t>::max()) {
+    *error = "flattened cloud exceeds the PCL uint32 width limit";
+    return false;
+  }
+
+  const bool coordinates_valid =
+    validateFloatField(msg, "x", true, error) &&
+    validateFloatField(msg, "y", true, error) &&
+    validateFloatField(msg, "z", true, error) &&
+    validateFloatField(msg, "intensity", false, error) &&
+    validateFloatField(msg, "time", false, error);
+  if (!coordinates_valid) {
+    return false;
+  }
+
+  const bool has_normal =
+    pointCloudHasField(msg, "normal_x") ||
+    pointCloudHasField(msg, "normal_y") ||
+    pointCloudHasField(msg, "normal_z");
+  return !has_normal ||
+         (validateFloatField(msg, "normal_x", true, error) &&
+         validateFloatField(msg, "normal_y", true, error) &&
+         validateFloatField(msg, "normal_z", true, error));
+}
+
+sensor_msgs::msg::PointCloud2 packPointCloudRows(
+  const sensor_msgs::msg::PointCloud2 & msg)
+{
+  const size_t packed_row_size =
+    static_cast<size_t>(msg.width) * static_cast<size_t>(msg.point_step);
+  if (msg.row_step == packed_row_size) {
+    return msg;
+  }
+
+  sensor_msgs::msg::PointCloud2 packed = msg;
+  packed.row_step = static_cast<uint32_t>(packed_row_size);
+  packed.data.resize(packed_row_size * static_cast<size_t>(msg.height));
+  for (size_t row = 0U; row < msg.height; ++row) {
+    const auto source = msg.data.cbegin() + row * msg.row_step;
+    const auto destination = packed.data.begin() + row * packed_row_size;
+    std::copy_n(source, packed_row_size, destination);
+  }
+  return packed;
+}
+
+PointCloudExtractionResult extractPointCloudXYZIAndTimes(
+  const sensor_msgs::msg::PointCloud2 & msg,
+  size_t point_count)
 {
   PointCloudExtractionResult result;
   const bool has_intensity_field = pointCloudHasField(msg, "intensity");
   const bool has_time_field = pointCloudHasField(msg, "time");
-  const auto point_count = static_cast<size_t>(msg.width) * static_cast<size_t>(msg.height);
   result.cloud->points.reserve(point_count);
   if (has_time_field) {
     result.point_times.reserve(point_count);
@@ -54,7 +197,8 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg:
     sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(msg, "intensity");
     if (has_time_field) {
       sensor_msgs::PointCloud2ConstIterator<float> iter_time(msg, "time");
-      for (; iter_x != iter_x.end();
+      for (size_t index = 0U; index < point_count;
+        ++index,
         ++iter_x, ++iter_y, ++iter_z, ++iter_intensity, ++iter_time)
       {
         pcl::PointXYZI point;
@@ -66,7 +210,8 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg:
         result.point_times.push_back(*iter_time);
       }
     } else {
-      for (; iter_x != iter_x.end();
+      for (size_t index = 0U; index < point_count;
+        ++index,
         ++iter_x, ++iter_y, ++iter_z, ++iter_intensity)
       {
         pcl::PointXYZI point;
@@ -80,7 +225,9 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg:
   } else {
     if (has_time_field) {
       sensor_msgs::PointCloud2ConstIterator<float> iter_time(msg, "time");
-      for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_time) {
+      for (size_t index = 0U; index < point_count;
+        ++index, ++iter_x, ++iter_y, ++iter_z, ++iter_time)
+      {
         pcl::PointXYZI point;
         point.x = *iter_x;
         point.y = *iter_y;
@@ -90,7 +237,7 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg:
         result.point_times.push_back(*iter_time);
       }
     } else {
-      for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
+      for (size_t index = 0U; index < point_count; ++index, ++iter_x, ++iter_y, ++iter_z) {
         pcl::PointXYZI point;
         point.x = *iter_x;
         point.y = *iter_y;
@@ -106,7 +253,7 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg:
   result.cloud->is_dense = msg.is_dense;
   return result;
 }
-}
+}  // namespace
 
 namespace graphslam
 {
@@ -434,8 +581,8 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
 
   if (registration_method_ == "NDT") {
 
-    pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>::Ptr
-      ndt(new pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>());
+    auto ndt = pcl::make_shared<
+      pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>();
     ndt->setResolution(ndt_resolution);
     ndt->setTransformationEpsilon(ndt_transformation_epsilon_);
     ndt->setMaximumIterations(ndt_max_iterations_);
@@ -448,8 +595,8 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     registration_ = ndt;
 
   } else if (registration_method_ == "GICP") {
-    boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
-      gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
+    auto gicp = pcl::make_shared<
+      pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>();
     gicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
     gicp->setTransformationEpsilon(1e-8);
     registration_ = gicp;
@@ -458,7 +605,7 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
 #ifdef HAS_FAST_GICP
   else if (registration_method_ == "FAST_GICP") {
     using FG = fast_gicp::FastGICP<pcl::PointXYZI, pcl::PointXYZI>;
-    boost::shared_ptr<FG> fgicp(new FG());
+    auto fgicp = pcl::make_shared<FG>();
     fgicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
     fgicp->setTransformationEpsilon(1e-6);
     fgicp->setMaximumIterations(ndt_max_iterations_);
@@ -466,7 +613,7 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     registration_ = fgicp;
   } else if (registration_method_ == "FAST_VGICP") {
     using FVG = fast_gicp::FastVGICP<pcl::PointXYZI, pcl::PointXYZI>;
-    boost::shared_ptr<FVG> fvgicp(new FVG());
+    auto fvgicp = pcl::make_shared<FVG>();
     fvgicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
     fvgicp->setTransformationEpsilon(1e-6);
     fvgicp->setMaximumIterations(ndt_max_iterations_);
@@ -478,7 +625,7 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
 #ifdef HAS_SMALL_GICP
   else if (registration_method_ == "SMALL_GICP" || registration_method_ == "SMALL_VGICP") {
     using SG = small_gicp::RegistrationPCL<pcl::PointXYZI, pcl::PointXYZI>;
-    boost::shared_ptr<SG> sg(new SG());
+    auto sg = pcl::make_shared<SG>();
     if (registration_method_ == "SMALL_VGICP") {
       sg->setRegistrationType("VGICP");
       sg->setVoxelResolution(ndt_resolution);
@@ -522,6 +669,11 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     msg->pose.orientation.z = initial_pose_qz_;
     msg->pose.orientation.w = initial_pose_qw_;
     current_pose_stamped_ = *msg;
+    map_update_commit_state_.reset(
+      Eigen::Vector3d(
+        current_pose_stamped_.pose.position.x,
+        current_pose_stamped_.pose.position.y,
+        current_pose_stamped_.pose.position.z));
     pose_pub_->publish(current_pose_stamped_);
     initial_pose_received_ = true;
 
@@ -529,6 +681,14 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   }
 
   RCLCPP_INFO(get_logger(), "initialization end");
+}
+
+ScanMatcherComponent::~ScanMatcherComponent()
+{
+  // updateMap captures this; keep the node alive until its worker is done.
+  if (mapping_thread_.joinable()) {
+    mapping_thread_.join();
+  }
 }
 
 void ScanMatcherComponent::initializePubSub()
@@ -545,9 +705,11 @@ void ScanMatcherComponent::initializePubSub()
       RCLCPP_INFO(get_logger(), "initial_pose is received");
 
       current_pose_stamped_ = *msg;
-      previous_position_.x() = current_pose_stamped_.pose.position.x;
-      previous_position_.y() = current_pose_stamped_.pose.position.y;
-      previous_position_.z() = current_pose_stamped_.pose.position.z;
+      map_update_commit_state_.reset(
+        Eigen::Vector3d(
+          current_pose_stamped_.pose.position.x,
+          current_pose_stamped_.pose.position.y,
+          current_pose_stamped_.pose.position.z));
       initial_pose_received_ = true;
 
       pose_pub_->publish(current_pose_stamped_);
@@ -562,6 +724,16 @@ void ScanMatcherComponent::initializePubSub()
         return;
       }
 
+      size_t point_count = 0U;
+      std::string layout_error;
+      if (!validatePointCloudLayout(*msg, &point_count, &layout_error)) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 5000,
+          "[POINTCLOUD_LAYOUT_REJECTED] %s; the node remains active",
+          layout_error.c_str());
+        return;
+      }
+
       sensor_msgs::msg::PointCloud2 transformed_msg;
       try {
         tf2::TimePoint time_point = tf2::TimePoint(
@@ -569,13 +741,29 @@ void ScanMatcherComponent::initializePubSub()
           std::chrono::nanoseconds(msg->header.stamp.nanosec));
         const geometry_msgs::msg::TransformStamped transform = tfbuffer_.lookupTransform(
           robot_frame_id_, msg->header.frame_id, time_point);
-        tf2::doTransform(*msg, transformed_msg, transform); // TODO:slow now(https://github.com/ros/geometry2/pull/432)
+        const sensor_msgs::msg::PointCloud2 packed_msg = packPointCloudRows(*msg);
+        tf2::doTransform(packed_msg, transformed_msg, transform); // TODO:slow now(https://github.com/ros/geometry2/pull/432)
       } catch (tf2::TransformException & e) {
         RCLCPP_ERROR(this->get_logger(), "%s", e.what());
         return;
+      } catch (const std::runtime_error & e) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 5000,
+          "[POINTCLOUD_TRANSFORM_REJECTED] %s; the node remains active",
+          e.what());
+        return;
       }
 
-      PointCloudExtractionResult extracted = extractPointCloudXYZIAndTimes(transformed_msg);
+      PointCloudExtractionResult extracted;
+      try {
+        extracted = extractPointCloudXYZIAndTimes(transformed_msg, point_count);
+      } catch (const std::runtime_error & e) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 5000,
+          "[POINTCLOUD_CONVERSION_REJECTED] %s; the node remains active",
+          e.what());
+        return;
+      }
       pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr = extracted.cloud;
       std::vector<float> point_times = std::move(extracted.point_times);
       int debug_cloud_frame_index = -1;
@@ -826,10 +1014,12 @@ bool ScanMatcherComponent::initializeMap(const pcl::PointCloud <pcl::PointXYZI>:
 {
   RCLCPP_INFO(get_logger(), "create a first map");
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-  pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-  voxel_grid.setLeafSize(vg_size_for_map_, vg_size_for_map_, vg_size_for_map_);
-  voxel_grid.setInputCloud(tmp_ptr);
-  voxel_grid.filter(*cloud_ptr);
+  if (!filterVoxelGridSafely(
+      tmp_ptr, vg_size_for_map_, *cloud_ptr, "initial_map",
+      "vg_size_for_map", false))
+  {
+    return false;
+  }
   if (cloud_ptr->size() < static_cast<size_t>(min_points_for_scan_)) {
     RCLCPP_WARN(
       get_logger(),
@@ -891,12 +1081,34 @@ void ScanMatcherComponent::receiveCloud(
   if (mapping_flag_ && mapping_future_.valid()) {
     auto status = mapping_future_.wait_for(0s);
     if (status == std::future_status::ready) {
-      mapping_future_.get();
+      bool map_update_succeeded = false;
+      try {
+        map_update_succeeded = mapping_future_.get();
+      } catch (const std::exception & error) {
+        RCLCPP_ERROR(
+          get_logger(),
+          "[MAP_UPDATE_FUTURE_REJECTED] asynchronous map update failed: %s; "
+          "the node remains active and the distance threshold was not consumed",
+          error.what());
+      } catch (...) {
+        RCLCPP_ERROR(
+          get_logger(),
+          "[MAP_UPDATE_FUTURE_REJECTED] asynchronous map update failed with an "
+          "unknown exception; the node remains active and the distance threshold "
+          "was not consumed");
+      }
+      if (mapping_thread_.joinable()) {
+        mapping_thread_.join();
+      }
+      mapping_flag_ = false;
+      map_update_commit_state_.complete(map_update_succeeded);
       pcl::PointCloud<pcl::PointXYZI>::Ptr targeted_cloud_ptr;
       {
         std::lock_guard<std::mutex> lock(mtx_);
-        if (is_map_updated_ == true) {
+        if (map_update_succeeded && is_map_updated_ == true) {
           targeted_cloud_ptr.reset(new pcl::PointCloud<pcl::PointXYZI>(targeted_cloud_));
+          is_map_updated_ = false;
+        } else if (!map_update_succeeded) {
           is_map_updated_ = false;
         }
       }
@@ -907,26 +1119,25 @@ void ScanMatcherComponent::receiveCloud(
           } else {
             pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_targeted_cloud_ptr(
               new pcl::PointCloud<pcl::PointXYZI>());
-            pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-            voxel_grid.setLeafSize(vg_size_for_input_, vg_size_for_input_, vg_size_for_input_);
-            voxel_grid.setInputCloud(targeted_cloud_ptr);
-            voxel_grid.filter(*filtered_targeted_cloud_ptr);
-            registration_->setInputTarget(filtered_targeted_cloud_ptr);
+            if (filterVoxelGridSafely(
+                targeted_cloud_ptr, vg_size_for_input_, *filtered_targeted_cloud_ptr,
+                "registration_target", "vg_size_for_input", true))
+            {
+              registration_->setInputTarget(filtered_targeted_cloud_ptr);
+            }
           }
         }
-      }
-      mapping_flag_ = false;
-      if (mapping_thread_.joinable()) {
-        mapping_thread_.join();
       }
     }
   }
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-  pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-  voxel_grid.setLeafSize(vg_size_for_input_, vg_size_for_input_, vg_size_for_input_);
-  voxel_grid.setInputCloud(cloud_ptr);
-  voxel_grid.filter(*filtered_cloud_ptr);
+  if (!filterVoxelGridSafely(
+      cloud_ptr, vg_size_for_input_, *filtered_cloud_ptr, "input_scan",
+      "vg_size_for_input", true))
+  {
+    return;
+  }
   if (filtered_cloud_ptr->size() < static_cast<size_t>(min_points_for_scan_)) {
     RCLCPP_WARN(
       get_logger(),
@@ -1020,7 +1231,7 @@ void ScanMatcherComponent::receiveCloud(
       const Eigen::Vector3d prior_rpy = pose_prediction::imuPredictedRotationRpy(
         imu_observation,
         current_orientation_quat);
-      auto ndt_ptr = boost::dynamic_pointer_cast<
+      auto ndt_ptr = pcl::dynamic_pointer_cast<
         pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
       if (ndt_ptr) {
         ndt_ptr->setRotationPrior(prior_rpy, imu_ndt_prior_weight_,
@@ -1031,7 +1242,7 @@ void ScanMatcherComponent::receiveCloud(
 
   // Set IMU Z-translation prior: constrain z-drift using gravity direction
   if (imu_z_prior_enable_ && imu_z_prior_weight_ > 0.0 && registration_method_ == "NDT") {
-    auto ndt_ptr = boost::dynamic_pointer_cast<
+    auto ndt_ptr = pcl::dynamic_pointer_cast<
       pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
     if (ndt_ptr) {
       // Use current z as prior (resist z changes between consecutive frames)
@@ -1047,7 +1258,7 @@ void ScanMatcherComponent::receiveCloud(
     double max_dist = map_update_policy::adaptiveMaxCorrespondenceDistance(
       adaptive_corr_dist_multiplier_, adaptive_corr_dist_ema_);
     if (registration_method_ == "NDT") {
-      auto ndt_ptr = boost::dynamic_pointer_cast<
+      auto ndt_ptr = pcl::dynamic_pointer_cast<
         pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
       if (ndt_ptr) {
         ndt_ptr->setMaxCorrespondenceDistance(max_dist);
@@ -1065,7 +1276,7 @@ void ScanMatcherComponent::receiveCloud(
 
   // Clear rotation prior after alignment (NDT only)
   if (registration_method_ == "NDT") {
-    auto ndt_ptr = boost::dynamic_pointer_cast<
+    auto ndt_ptr = pcl::dynamic_pointer_cast<
       pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
     if (ndt_ptr) {
       if (imu_ndt_prior_enable_) {
@@ -1081,7 +1292,7 @@ void ScanMatcherComponent::receiveCloud(
   if (adaptive_correspondence_threshold_) {
     double mean_corr = 0.0;
     if (registration_method_ == "NDT") {
-      auto ndt_ptr = boost::dynamic_pointer_cast<
+      auto ndt_ptr = pcl::dynamic_pointer_cast<
         pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
       if (ndt_ptr) {
         mean_corr = ndt_ptr->getLastMeanCorrespondenceDistance();
@@ -1133,9 +1344,15 @@ void ScanMatcherComponent::receiveCloud(
   std::cout << "roll:" << roll * 180 / M_PI << "," <<
     "pitch:" << pitch * 180 / M_PI << "," <<
     "yaw:" << yaw * 180 / M_PI << std::endl;
-  int num_submaps = map_array_msg_.submaps.size();
+  int num_submaps;
+  double latest_distance;
+  {
+    std::lock_guard<std::mutex> lock(mtx_);
+    num_submaps = map_array_msg_.submaps.size();
+    latest_distance = latest_distance_;
+  }
   std::cout << "num_submaps:" << num_submaps << std::endl;
-  std::cout << "moving distance:" << latest_distance_ << std::endl;
+  std::cout << "moving distance:" << latest_distance << std::endl;
   std::cout << "---------------------------------------------------------" << std::endl;
 }
 
@@ -1245,43 +1462,91 @@ void ScanMatcherComponent::publishMapAndPose(
   path_.poses.push_back(publish_pose);
   path_pub_->publish(path_);
 
-  trans_ = (accepted_position - previous_position_).norm();
+  trans_ = map_update_commit_state_.distanceTo(accepted_position);
   if (
     map_update_policy::shouldTriggerMapUpdate(
       trans_, trans_for_mapupdate_, mapping_flag_, suppress_map_update))
   {
     geometry_msgs::msg::PoseStamped current_pose_stamped;
     current_pose_stamped = current_pose_stamped_;
-    previous_position_ = accepted_position;
+    const double distance_increment = trans_;
+    map_update_commit_state_.begin(accepted_position);
     const bool use_async_map_update = map_update_policy::useAsyncMapUpdate(
       async_map_update_, async_map_update_warmup_submaps_,
       static_cast<int>(map_array_msg_.submaps.size()));
     if (use_async_map_update) {
-      mapping_task_ =
-        std::packaged_task<void()>(
-        std::bind(
-          &ScanMatcherComponent::updateMap, this, cloud_ptr,
-          final_transformation, current_pose_stamped));
-      mapping_future_ = mapping_task_.get_future();
-      mapping_thread_ = std::thread(std::move(std::ref(mapping_task_)));
-      mapping_flag_ = true;
+      try {
+        mapping_task_ =
+          std::packaged_task<bool()>(
+          std::bind(
+            &ScanMatcherComponent::updateMapSafely, this, cloud_ptr,
+            final_transformation, current_pose_stamped, distance_increment));
+        mapping_future_ = mapping_task_.get_future();
+        mapping_thread_ = std::thread(std::move(std::ref(mapping_task_)));
+        mapping_flag_ = true;
+      } catch (const std::exception & error) {
+        map_update_commit_state_.complete(false);
+        mapping_flag_ = false;
+        RCLCPP_ERROR(
+          get_logger(),
+          "[MAP_UPDATE_WORKER_START_REJECTED] could not start asynchronous map update: "
+          "%s; the node remains active and the distance threshold was not consumed",
+          error.what());
+      } catch (...) {
+        map_update_commit_state_.complete(false);
+        mapping_flag_ = false;
+        RCLCPP_ERROR(
+          get_logger(),
+          "[MAP_UPDATE_WORKER_START_REJECTED] could not start asynchronous map update "
+          "because of an unknown exception; the node remains active and the distance "
+          "threshold was not consumed");
+      }
     } else {
-      updateMap(cloud_ptr, final_transformation, current_pose_stamped);
+      const bool map_update_succeeded = updateMapSafely(
+        cloud_ptr, final_transformation, current_pose_stamped, distance_increment);
+      map_update_commit_state_.complete(map_update_succeeded);
       mapping_flag_ = false;
     }
   }
 }
 
-void ScanMatcherComponent::updateMap(
+bool ScanMatcherComponent::updateMapSafely(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud_ptr,
   const Eigen::Matrix4f final_transformation,
-  const geometry_msgs::msg::PoseStamped current_pose_stamped)
+  const geometry_msgs::msg::PoseStamped current_pose_stamped,
+  const double distance_increment)
+{
+  try {
+    return updateMap(
+      cloud_ptr, final_transformation, current_pose_stamped, distance_increment);
+  } catch (const std::exception & error) {
+    RCLCPP_ERROR(
+      get_logger(),
+      "[MAP_UPDATE_EXCEPTION_REJECTED] map update failed: %s; the node remains "
+      "active and the distance threshold was not consumed",
+      error.what());
+  } catch (...) {
+    RCLCPP_ERROR(
+      get_logger(),
+      "[MAP_UPDATE_EXCEPTION_REJECTED] map update failed with an unknown exception; "
+      "the node remains active and the distance threshold was not consumed");
+  }
+  return false;
+}
+
+bool ScanMatcherComponent::updateMap(
+  const pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud_ptr,
+  const Eigen::Matrix4f final_transformation,
+  const geometry_msgs::msg::PoseStamped current_pose_stamped,
+  const double distance_increment)
 {
   pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-  pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-  voxel_grid.setLeafSize(vg_size_for_map_, vg_size_for_map_, vg_size_for_map_);
-  voxel_grid.setInputCloud(cloud_ptr);
-  voxel_grid.filter(*filtered_cloud_ptr);
+  if (!filterVoxelGridSafely(
+      cloud_ptr, vg_size_for_map_, *filtered_cloud_ptr, "map_update",
+      "vg_size_for_map", true))
+  {
+    return false;
+  }
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
   pcl::transformPointCloud(*filtered_cloud_ptr, *transformed_cloud_ptr, final_transformation);
@@ -1295,13 +1560,15 @@ void ScanMatcherComponent::updateMap(
   lidarslam_msgs::msg::SubMap submap;
   submap.header.stamp = current_pose_stamped.header.stamp;
   submap.header.frame_id = global_frame_id_;
-  latest_distance_ += trans_;
-  submap.distance = latest_distance_;
   submap.pose = current_pose_stamped.pose;
   submap.cloud = cloud_msg;
   lidarslam_msgs::msg::MapArray map_array_snapshot;
   {
     std::lock_guard<std::mutex> lock(mtx_);
+
+    // Attribute distance to the scan that launched this update, not a later scan.
+    latest_distance_ += distance_increment;
+    submap.distance = latest_distance_;
 
     if (use_voxel_hash_map_ && voxel_hash_map_) {
       // VoxelHashMap mode: add points and build target from nearby voxels
@@ -1351,14 +1618,28 @@ void ScanMatcherComponent::updateMap(
     map_array_snapshot = map_array_msg_;
     is_map_updated_ = true;
   }
-  map_array_pub_->publish(map_array_snapshot);
+  try {
+    map_array_pub_->publish(map_array_snapshot);
 
-  rclcpp::Time map_time = clock_.now();
-  double dt = map_time.seconds() - last_map_time_.seconds();
-  if (map_update_policy::shouldPublishMap(dt, map_publish_period_)) {
-    publishMap(map_array_snapshot, global_frame_id_);
-    last_map_time_ = map_time;
+    rclcpp::Time map_time = clock_.now();
+    double dt = map_time.seconds() - last_map_time_.seconds();
+    if (map_update_policy::shouldPublishMap(dt, map_publish_period_)) {
+      publishMap(map_array_snapshot, global_frame_id_);
+      last_map_time_ = map_time;
+    }
+  } catch (const std::exception & error) {
+    RCLCPP_ERROR(
+      get_logger(),
+      "[MAP_UPDATE_PUBLISH_FAILED] map state was committed but publication failed: %s; "
+      "the node remains active",
+      error.what());
+  } catch (...) {
+    RCLCPP_ERROR(
+      get_logger(),
+      "[MAP_UPDATE_PUBLISH_FAILED] map state was committed but publication failed with "
+      "an unknown exception; the node remains active");
   }
+  return true;
 }
 
 // Decode, transform into the map frame, and append the selected submaps to
@@ -1441,13 +1722,40 @@ bool ScanMatcherComponent::refreshRegistrationTargetFromTargetedCloud()
   } else {
     pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_targeted_cloud_ptr(
       new pcl::PointCloud<pcl::PointXYZI>());
-    pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-    voxel_grid.setLeafSize(vg_size_for_input_, vg_size_for_input_, vg_size_for_input_);
-    voxel_grid.setInputCloud(targeted_cloud_ptr);
-    voxel_grid.filter(*filtered_targeted_cloud_ptr);
+    if (!filterVoxelGridSafely(
+        targeted_cloud_ptr, vg_size_for_input_, *filtered_targeted_cloud_ptr,
+        "recovery_target", "vg_size_for_input", true))
+    {
+      return false;
+    }
     registration_->setInputTarget(filtered_targeted_cloud_ptr);
   }
   return true;
+}
+
+bool ScanMatcherComponent::filterVoxelGridSafely(
+  pcl::PointCloud<pcl::PointXYZI>::ConstPtr input,
+  double leaf_size,
+  pcl::PointCloud<pcl::PointXYZI> & output,
+  const char * stage,
+  const char * parameter_name,
+  bool throttle_warning)
+{
+  const voxel_grid_safety::Report report =
+    voxel_grid_safety::filter<pcl::PointXYZI>(input, leaf_size, output);
+  if (report.safe()) {
+    return true;
+  }
+
+  const std::string message = voxel_grid_safety::formatRejection(
+    report, stage, parameter_name);
+  if (throttle_warning) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 5000, "%s", message.c_str());
+  } else {
+    RCLCPP_WARN(get_logger(), "%s", message.c_str());
+  }
+  return false;
 }
 
 const char * ScanMatcherComponent::trackingStateName(TrackingState state) const

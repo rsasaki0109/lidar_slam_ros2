@@ -253,3 +253,45 @@ def test_graph_backend_odom_remap_matches_frontend_topic():
             if isinstance(pair, ast.Tuple)
         )
     assert ('odom_input', '/rko_lio/odometry') in remap_pairs
+
+
+def test_offline_start_barrier_is_opt_in_and_fail_closed():
+    module = _parse_launch_ast()
+    generate_launch_description = _find_function(
+        module,
+        'generate_launch_description',
+    )
+    return_stmt = next(
+        node for node in generate_launch_description.body
+        if isinstance(node, ast.Return)
+    )
+    assert isinstance(return_stmt.value, ast.Call)
+
+    expected_defaults = {
+        'wait_for_output_subscribers': 'false',
+        'min_odom_subscribers': '1',
+        'min_deskewed_scan_subscribers': '1',
+        'subscriber_wait_timeout_sec': '30.0',
+        'subscriber_settle_polls': '3',
+    }
+    for argument_name, expected_default in expected_defaults.items():
+        argument = _find_declare_launch_argument_call(
+            return_stmt.value,
+            argument_name,
+        )
+        default_kw = next(
+            kw for kw in argument.keywords if kw.arg == 'default_value'
+        )
+        assert _constant_string(default_kw.value) == expected_default
+
+    launch_source = LAUNCH_PATH.read_text(encoding='utf-8')
+    assert 'wait_for_offline_output_subscribers.sh' in launch_source
+    assert "'/rko_lio/odometry'" in launch_source
+    assert "'/rko_lio/frame'" in launch_source
+    assert 'prefix = shlex.join([' in launch_source
+    assert "'offline.wait_for_output_subscribers': True" in launch_source
+    assert "'offline.min_odom_subscribers': min_odom_subscribers" in launch_source
+    assert "'offline.min_deskewed_subscribers': min_deskewed_subscribers" in launch_source
+    assert "'offline.subscriber_wait_timeout_ms': subscriber_wait_timeout_ms" in launch_source
+    assert "'offline.subscriber_settle_polls': subscriber_settle_polls" in launch_source
+    assert 'prefix=prefix' in launch_source

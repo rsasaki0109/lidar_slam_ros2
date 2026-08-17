@@ -9,13 +9,13 @@ import hashlib
 import io
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
 import tarfile
-import uuid
-from pathlib import Path
 from typing import Any, Iterable
+import uuid
 
 from product_schema import validate_contract
 
@@ -43,11 +43,14 @@ TOP_LEVEL_FILES = (
 PRODUCT_DOCS = (
     'docs/index.md',
     'docs/getting-started.md',
+    'docs/getting-started-ja.md',
+    'docs/usability-scorecard.md',
     'docs/product-contract.md',
     'docs/v1-readiness.md',
     'docs/golden-path-cli.md',
     'docs/cli-compatibility.md',
     'docs/operational-reliability.md',
+    'docs/review-routing.md',
     'docs/real-data-e2e.md',
     'docs/external-first-map-validation.md',
     'docs/evidence/external-first-map-validations.json',
@@ -63,26 +66,63 @@ PRODUCT_DOCS = (
     'docs/benchmarking.md',
     'docs/comparison.md',
     'docs/roadmap/v0.9.md',
-    'docs/social/autoware_map_authoring_post_v0.2.2.md',
+    'docs/social/autoware_map_authoring_post_v0.9.1.md',
 )
 RELEASE_IMPLEMENTATION_FILES = (
     '.github/workflows/package-manager-install-upgrade.yml',
+    '.github/workflows/candidate-image.yml',
+    'docker/onboarding-trial-host.Dockerfile',
     'docs/schemas/package-manager-release-readiness-v1.schema.json',
     '.github/workflows/release.yml',
     'scripts/build_release_bundle.py',
+    'scripts/build_docker_launcher_asset.py',
     'scripts/check_release_bundle_reproducibility.py',
     'scripts/check_package_manager_install.py',
     'scripts/check_package_manager_release_readiness.py',
     'scripts/check_ros_apt_dependency_readiness.py',
+    'scripts/check_fixture_publication.py',
+    'scripts/check_issue_triage_proposal.py',
+    'scripts/prepare_issue_triage_application.py',
+    'scripts/check_onboarding_trial.py',
+    'scripts/audit_published_fixture.py',
     'scripts/check_published_release.py',
+    'scripts/check_published_onboarding_identity.py',
+    'scripts/check_public_docs_deployment.py',
+    'scripts/check_candidate_environment.py',
+    'scripts/check_product_draft_review_routing.py',
+    'scripts/product_draft_review_ledger.py',
+    'scripts/validate_candidate_image_request.py',
+    'scripts/create_candidate_image_record.py',
+    'scripts/verify_candidate_image_set.py',
+    'scripts/audit_candidate_image_set.py',
+    'scripts/prepare_candidate_trial.py',
+    'scripts/prepare_onboarding_matrix_packet.py',
+    'scripts/run_candidate_trial.py',
+    'scripts/start_candidate_trial.py',
+    'scripts/run_docker_onboarding_probe.py',
+    'scripts/run_source_onboarding_probe.py',
     'scripts/create_release_image_record.py',
+    'scripts/measure_oci_archive.py',
     'scripts/check_external_first_map_readiness.py',
     'scripts/prepare_external_first_map_acceptance.py',
     'scripts/check_ndt_omp_release_readiness.py',
     'scripts/check_v1_readiness.py',
+    'scripts/check_usability_scorecard.py',
+    'scripts/prepare_usability_scorecard.py',
+    'scripts/prepare_usability_scorecard_pair.py',
+    'scripts/record_usability_scorecard_pair.py',
+    'scripts/compare_with_glim.sh',
+    'scripts/attached_storage.py',
+    'scripts/download_ntu_viral_tnp01.sh',
+    'scripts/download_rtk_slam_dataset.py',
+    'scripts/docker_map_bag.sh',
     'scripts/first_map_validation_receipt.py',
     'scripts/create_first_map_validation_receipt.py',
     'scripts/plan_image_rollback.py',
+    'scripts/glim_reference_cache.py',
+    'scripts/generate_docs_deployment_manifest.py',
+    'scripts/generate_social_autoware_demo_video.py',
+    'scripts/generate_social_autoware_map_authoring_card.py',
     'scripts/product_profiles.py',
     'scripts/product_schema.py',
     'scripts/promote_release_images.py',
@@ -96,6 +136,8 @@ PRODUCT_MEDIA = (
     'lidarslam/images/dynamic_object_filter_bag6_summary.svg',
     'lidarslam/images/social_autoware_map_authoring.png',
     'lidarslam/images/social_autoware_map_authoring_demo.mp4',
+    'lidarslam/images/social_autoware_map_authoring_demo.en.vtt',
+    'lidarslam/images/social_autoware_map_authoring_demo.manifest.json',
 )
 OPTIONAL_OUTPUTS = (
     'output/benchmark_summary.md',

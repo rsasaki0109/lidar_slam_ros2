@@ -150,6 +150,8 @@ private:
 
   // PCD disk cache for memory-efficient submap storage.
   void stageMapArrayCloudCache(lidarslam_msgs::msg::MapArray & map_array_msg);
+  PointCloudPtr convertSubmapCloud(
+    const sensor_msgs::msg::PointCloud2 & cloud_msg);
   pcl::PointCloud<pcl::PointXYZI>::Ptr loadSubmapCloud(
     const lidarslam_msgs::msg::MapArray & map_array_msg, int idx);
 

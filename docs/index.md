@@ -16,7 +16,8 @@
     </div>
     <div class="hero__actions">
       <a class="md-button md-button--primary" href="getting-started.html">Start Here</a>
-      <a class="md-button" href="autoware-quickstart.html">Run The Quickstart</a>
+      <a class="md-button" href="getting-started-ja.html">日本語で始める</a>
+      <a class="md-button" href="autoware-map-authoring.html">Map Your Bag</a>
     </div>
   </div>
   <div class="hero__visual">
@@ -77,8 +78,8 @@
     <p>The shortest product-level summary of the supported public path.</p>
   </a>
   <a class="link-card" href="autoware-quickstart.html">
-    <h3>Autoware Quickstart</h3>
-    <p>Go from bag preflight to verified pointcloud-map output.</p>
+    <h3>Advanced Autoware Compatibility</h3>
+    <p>Use the older NTU VIRAL viewer and dogfood route after the product path.</p>
   </a>
   <a class="link-card" href="autoware-foxglove.html">
     <h3>Autoware Foxglove</h3>
@@ -116,7 +117,8 @@
 
 ## Releases
 
-- [v0.9.0 stable release candidate](releases/v0.9.0.md)
+- [v0.9.1 release candidate](releases/v0.9.1.md)
+- [v0.9.0 stable release](releases/v0.9.0.md)
 - [v0.7.0 release candidate](releases/v0.7.0.md)
 - [v0.6.0](releases/v0.6.0.md)
 - [v0.5.0](releases/v0.5.0.md)

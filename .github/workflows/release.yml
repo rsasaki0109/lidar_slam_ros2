@@ -12,10 +12,7 @@ on:
         type: string
 
 permissions:
-  contents: write
-  packages: write
-  attestations: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: release-${{ github.event.inputs.tag_name || github.ref_name }}
@@ -40,14 +37,16 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: ${{ github.event.inputs.tag_name || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag_name) || github.ref }}
 
       - name: Resolve release metadata
         id: meta
         shell: bash
+        env:
+          REQUESTED_TAG: ${{ github.event.inputs.tag_name || github.ref_name }}
         run: |
           VERSION="$(tr -d '\n' < VERSION)"
-          TAG_NAME="${{ github.event.inputs.tag_name || github.ref_name }}"
+          TAG_NAME="${REQUESTED_TAG}"
 
           if [[ -z "${TAG_NAME}" ]]; then
             echo "failed to resolve release tag name" >&2
@@ -70,7 +69,8 @@ jobs:
           fi
 
           git fetch --force --tags
-          if ! git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
+          TAG_REF="refs/tags/${TAG_NAME}"
+          if ! git show-ref --verify --quiet "${TAG_REF}"; then
             echo "git tag ${TAG_NAME} does not exist" >&2
             exit 1
           fi
@@ -80,20 +80,48 @@ jobs:
             echo "release notes not found: ${RELEASE_NOTES}" >&2
             exit 1
           fi
+          # RELEASE_NOTES_PUBLICATION_GUARD_BEGIN
+          if grep -Fq -- \
+            '> **Release candidate status — HOLD; not published or tagged**' \
+            "${RELEASE_NOTES}"; then
+            echo "release notes still contain the candidate-only status" >&2
+            exit 1
+          fi
+          if grep -Fq -- '## Release decision: HOLD' "${RELEASE_NOTES}"; then
+            echo "release notes still contain a HOLD decision" >&2
+            exit 1
+          fi
+          if ! grep -Fq -- '## Release verification' "${RELEASE_NOTES}"; then
+            echo "release notes lack the final verification section" >&2
+            exit 1
+          fi
+          # RELEASE_NOTES_PUBLICATION_GUARD_END
 
           BUNDLE_NAME="lidarslam_ros2_${TAG_NAME}_release_bundle.tar.gz"
-          TAG_COMMIT="$(git rev-parse "${TAG_NAME}^{commit}")"
-          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "tag_name=${TAG_NAME}" >> "${GITHUB_OUTPUT}"
-          echo "git_commit=${TAG_COMMIT}" >> "${GITHUB_OUTPUT}"
-          echo "prerelease=${PRERELEASE}" >> "${GITHUB_OUTPUT}"
-          echo "release_notes=${RELEASE_NOTES}" >> "${GITHUB_OUTPUT}"
-          echo "bundle_name=${BUNDLE_NAME}" >> "${GITHUB_OUTPUT}"
+          TAG_COMMIT="$(git rev-parse --verify "${TAG_REF}^{commit}")"
+          if [[ "$(git rev-parse HEAD)" != "${TAG_COMMIT}" ]]; then
+            echo "checkout does not match immutable tag ${TAG_REF}" >&2
+            exit 1
+          fi
+          {
+            echo "version=${VERSION}"
+            echo "tag_name=${TAG_NAME}"
+            echo "git_commit=${TAG_COMMIT}"
+            echo "prerelease=${PRERELEASE}"
+            echo "release_notes=${RELEASE_NOTES}"
+            echo "bundle_name=${BUNDLE_NAME}"
+          } >> "${GITHUB_OUTPUT}"
 
   images:
     name: publish ${{ matrix.ros_distro }} amd64 image
     needs: metadata
     runs-on: ubuntu-24.04
+    permissions:
+      artifact-metadata: write
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       REGISTRY: ghcr.io
@@ -110,7 +138,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: ${{ needs.metadata.outputs.tag_name }}
+          ref: ${{ format('refs/tags/{0}', needs.metadata.outputs.tag_name) }}
           submodules: recursive
 
       - name: Set up Docker Buildx
@@ -219,6 +247,10 @@ jobs:
             echo "CLI version '${OBSERVED_VERSION}' != '${EXPECTED_OUTPUT}'" >&2
             exit 1
           fi
+          docker run --rm --network none "${IMAGE_REF}" \
+            lidarslam-map start --help >/tmp/lidarslam-start-help.txt
+          grep -Fq 'Detect and configure the sensors' /tmp/lidarslam-start-help.txt
+          grep -Fq -- '--map-output-dir' /tmp/lidarslam-start-help.txt
           OBSERVED_REVISION="$(
             docker run --rm "${IMAGE_REF}" python3 -c \
               'import json, pathlib, subprocess; prefix = pathlib.Path(subprocess.check_output(["ros2", "pkg", "prefix", "lidarslam"], text=True).strip()); print(json.loads((prefix / "share/lidarslam/product/product-build-info.json").read_text())["revision"])'
@@ -293,6 +325,12 @@ jobs:
       - metadata
       - images
     runs-on: ubuntu-24.04
+    permissions:
+      artifact-metadata: write
+      contents: write
+      packages: write
+      attestations: write
+      id-token: write
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -301,7 +339,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: ${{ needs.metadata.outputs.tag_name }}
+          ref: ${{ format('refs/tags/{0}', needs.metadata.outputs.tag_name) }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -324,8 +362,22 @@ jobs:
           python3 -m pytest graph_based_slam/test/test_docs_entrypoints.py -q
           bash -n scripts/run_autoware_quickstart.sh
           bash -n scripts/download_ntu_viral_tnp01.sh
+          bash -n scripts/run_first_map_demo.sh
+          bash -n scripts/run_docker_demo.sh
+          bash -n scripts/docker_map_bag.sh
           bash -n scripts/prepare_velodyne_pointcloud_overlay.sh
           bash -n scripts/run_open_data_applanix_velodyne_gnss_smoke.sh
+
+      - name: Build version-pinned standalone Docker launcher
+        shell: bash
+        run: |
+          python3 scripts/build_docker_launcher_asset.py \
+            --tag "${{ needs.metadata.outputs.tag_name }}" \
+            --source-revision "${{ needs.metadata.outputs.git_commit }}" \
+            --output lidarslam-map-docker
+          EXPECTED="lidarslam-map-docker ${{ needs.metadata.outputs.tag_name }} (${{ needs.metadata.outputs.git_commit }})"
+          test "$(./lidarslam-map-docker --version)" = "${EXPECTED}"
+          bash -n lidarslam-map-docker
 
       - name: Build release bundle
         shell: bash
@@ -342,12 +394,16 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: ${{ needs.metadata.outputs.tag_name }}-release-bundle
-          path: ${{ needs.metadata.outputs.bundle_name }}
+          path: |
+            ${{ needs.metadata.outputs.bundle_name }}
+            lidarslam-map-docker
 
       - name: Attest release bundle
         uses: actions/attest@v4
         with:
-          subject-path: ${{ needs.metadata.outputs.bundle_name }}
+          subject-path: |
+            ${{ needs.metadata.outputs.bundle_name }}
+            lidarslam-map-docker
 
       - name: Download release-image evidence
         uses: actions/download-artifact@v7
@@ -378,6 +434,7 @@ jobs:
           prerelease: ${{ needs.metadata.outputs.prerelease == 'true' }}
           files: |
             ${{ needs.metadata.outputs.bundle_name }}
+            lidarslam-map-docker
             release_image_evidence/*.json
             release-promotion.json
 

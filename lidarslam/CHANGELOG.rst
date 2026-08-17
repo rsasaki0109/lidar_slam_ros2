@@ -2,6 +2,20 @@
 Changelog for package lidarslam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.9.1 (2026-08-12)
+------------------
+* Add one interactive product home, bag-optional system doctor, guided sensor
+  review, session history, comparison, support, and first-map sharing paths.
+* Unify Docker and source first-map demos on the fixed MID-360 profile,
+  verifier, diagnosis, manifest, and privacy-bounded receipt contract.
+* Add the exact six-package Humble/Jazzy source bootstrap and installed-product
+  checks while keeping package-manager instructions evidence-gated.
+* Bind canonical first-map documentation bytes to the exact Pages deployment
+  revision before an independent-user cohort can start.
+* Derive clean-host release packets from one audited report and recheck the
+  exact source commit and Humble/Jazzy image digests before measurement.
+* Contributors: Ryohei Sasaki
+
 0.9.0 (2026-07-30)
 ------------------
 * Add the fail-closed v1 readiness audit and preserve the three-entrypoint

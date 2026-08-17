@@ -16,14 +16,17 @@ The first contract is
 - archive: `rosbag2_2024_04_16-14_17_01.zip`;
 - exact size: `517088133` bytes;
 - MD5: `0836c50859bb1af591966b69da166186`;
+- SHA-256: `f8f89eebf2aaf9cc1d465bfa5451bbb599cd92d079b59949104bb4e5cb619bdd`;
 - bag identity: exact `metadata.yaml` and sqlite3 SHA-256 values in the
   contract;
 - public sensor payload: 2772 PointCloud2 records and 55435 IMU records over
   277.16683667 seconds.
 
-The cache key includes the archive size and MD5. A restored cache is still
-hashed by the intake and again by the E2E validator, so a corrupt or replaced
-archive fails closed.
+The registry and intake pin the archive size, SHA-256, and legacy MD5. The
+cache key still includes size and MD5 for compatibility, but a restored cache
+is re-hashed with SHA-256 by the intake and again checked by the E2E validator,
+so a corrupt or replaced archive fails closed. Interrupted network transfers
+remain under `.part` and resume only after an exact HTTP `Content-Range` check.
 
 The Zenodo record declares the dataset under Creative Commons Attribution 4.0
 International. The workflow downloads from the publisher for validation and

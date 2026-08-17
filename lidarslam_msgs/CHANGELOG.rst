@@ -2,6 +2,12 @@
 Changelog for package lidarslam_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.9.1 (2026-08-12)
+------------------
+* No message definition changes; version aligned with the 0.9.1 reliability
+  and first-map usability release candidate.
+* Contributors: Ryohei Sasaki
+
 0.9.0 (2026-07-30)
 ------------------
 * No message definition changes; version aligned with the 0.9.0 stable

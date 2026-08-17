@@ -86,11 +86,65 @@ extern "C" {
 
 namespace graphslam
 {
+  namespace detail
+  {
+    class MapUpdateCommitState
+    {
+public:
+      void reset(const Eigen::Vector3d & position)
+      {
+        committed_position_ = position;
+        pending_ = false;
+      }
+
+      double distanceTo(const Eigen::Vector3d & position) const
+      {
+        return (position - committed_position_).norm();
+      }
+
+      void begin(const Eigen::Vector3d & position)
+      {
+        pending_position_ = position;
+        pending_ = true;
+      }
+
+      bool complete(bool succeeded)
+      {
+        if (!pending_) {
+          return false;
+        }
+        if (succeeded) {
+          committed_position_ = pending_position_;
+        }
+        pending_ = false;
+        return true;
+      }
+
+      const Eigen::Vector3d & committedPosition() const
+      {
+        return committed_position_;
+      }
+
+      bool pending() const
+      {
+        return pending_;
+      }
+
+private:
+      Eigen::Vector3d committed_position_ {Eigen::Vector3d::Zero()};
+      Eigen::Vector3d pending_position_ {Eigen::Vector3d::Zero()};
+      bool pending_ {false};
+    };
+  }  // namespace detail
+
   class ScanMatcherComponent: public rclcpp::Node
   {
 public:
     GS_SM_PUBLIC
     explicit ScanMatcherComponent(const rclcpp::NodeOptions & options);
+
+    GS_SM_PUBLIC
+    ~ScanMatcherComponent() override;
 
 private:
     using TrackingState = pose_acceptance::TrackingState;
@@ -104,7 +158,7 @@ private:
     std::string robot_frame_id_;
     std::string odom_frame_id_;
 
-    boost::shared_ptr<pcl::Registration < pcl::PointXYZI, pcl::PointXYZI >> registration_;
+    pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr registration_;
 
     rclcpp::Subscription < geometry_msgs::msg::PoseStamped > ::SharedPtr initial_pose_sub_;
     rclcpp::Subscription < sensor_msgs::msg::Imu > ::SharedPtr imu_sub_;
@@ -116,8 +170,8 @@ private:
     bool mapping_flag_ {false};
     bool is_map_updated_ {false};
     std::thread mapping_thread_;
-    std::packaged_task < void() > mapping_task_;
-    std::future < void > mapping_future_;
+    std::packaged_task < bool() > mapping_task_;
+    std::future < bool > mapping_future_;
 
     geometry_msgs::msg::PoseStamped current_pose_stamped_;
     lidarslam_msgs::msg::MapArray map_array_msg_;
@@ -145,14 +199,28 @@ private:
       const rclcpp::Time stamp,
       int frame_index,
       const std::string & stage);
+    bool filterVoxelGridSafely(
+      pcl::PointCloud<pcl::PointXYZI>::ConstPtr input,
+      double leaf_size,
+      pcl::PointCloud<pcl::PointXYZI> & output,
+      const char * stage,
+      const char * parameter_name,
+      bool throttle_warning);
     Eigen::Matrix4f getTransformation(const geometry_msgs::msg::Pose pose);
     pose_prediction::ImuPredictionConfig makeImuPredictionConfig() const;
     pose_acceptance::Config makePoseAcceptanceConfig() const;
     void publishMap(const lidarslam_msgs::msg::MapArray & map_array_msg, const std::string & map_frame_id);
-    void updateMap(
+    bool updateMap(
       const pcl::PointCloud < pcl::PointXYZI > ::ConstPtr cloud_ptr,
       const Eigen::Matrix4f final_transformation,
-      const geometry_msgs::msg::PoseStamped current_pose_stamped
+      const geometry_msgs::msg::PoseStamped current_pose_stamped,
+      const double distance_increment
+    );
+    bool updateMapSafely(
+      const pcl::PointCloud < pcl::PointXYZI > ::ConstPtr cloud_ptr,
+      const Eigen::Matrix4f final_transformation,
+      const geometry_msgs::msg::PoseStamped current_pose_stamped,
+      const double distance_increment
     );
     bool refreshRegistrationTargetFromTargetedCloud();
     void appendTransformedSubmaps(const std::vector<int> & submap_indices);
@@ -257,7 +325,7 @@ private:
     pose_acceptance::State pose_acceptance_state_;
 
     // map
-    Eigen::Vector3d previous_position_;
+    detail::MapUpdateCommitState map_update_commit_state_;
     double trans_;
     double latest_distance_ {0};
 

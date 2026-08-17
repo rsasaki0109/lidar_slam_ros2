@@ -132,6 +132,11 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert 'debug_cloud_dump_dir' in script
     assert 'debug_cloud_dump_max_frames' in script
     assert 'scanmatcher_debug_clouds' in script
+    assert 'prepare_rosbag2_playback.py' in script
+    assert 'stage_playback_bag "${BAG_PATH}" "${OUTPUT_DIR}" MAIN_PLAY_BAG' in script
+    assert 'ros2 bag play "${MAIN_PLAY_BAG}"' in script
+    assert 'cleanup_playback_staging' in script
+    assert '--staging-root "${OUTPUT_DIR}"' in script
     assert 'imu_static_tf.log' in script
     assert 'TF_BAG=""' in script
     assert '--tf-bag PATH' in script

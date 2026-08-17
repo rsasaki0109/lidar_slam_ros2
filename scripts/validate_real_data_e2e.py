@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import hashlib
 import json
-import sys
-from datetime import datetime
 from pathlib import Path
+import sys
 from typing import Any
 
 import jsonschema
@@ -99,12 +99,17 @@ def validate(
     archive_exists = archive_path.is_file()
     archive_size = archive_path.stat().st_size if archive_exists else -1
     archive_md5 = _digest(archive_path, 'md5') if archive_exists else ''
+    archive_sha256 = _digest(archive_path, 'sha256') if archive_exists else ''
     check(
         'archive_identity',
         archive_exists
         and archive_size == dataset['size_bytes']
-        and archive_md5 == dataset['md5'],
-        f'size_bytes={archive_size}, md5={archive_md5 or "missing"}',
+        and archive_md5 == dataset['md5']
+        and archive_sha256 == dataset.get('sha256'),
+        (
+            f'size_bytes={archive_size}, md5={archive_md5 or "missing"}, '
+            f'sha256={archive_sha256 or "missing"}'
+        ),
     )
 
     try:

@@ -44,6 +44,8 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = REPO_ROOT / 'scripts'
+CURRENT_VERSION = (REPO_ROOT / 'VERSION').read_text(encoding='utf-8').strip()
+CURRENT_TAG = f'v{CURRENT_VERSION}'
 
 
 def _load_module(filename: str, name: str):
@@ -241,7 +243,7 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     first = tmp_path / 'first.tar.gz'
     second = tmp_path / 'second.tar.gz'
     kwargs = {
-        'tag': 'v0.9.0',
+        'tag': CURRENT_TAG,
         'git_commit': 'd' * 40,
     }
 
@@ -266,9 +268,52 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
     assert 'docs/schemas/release-bundle-manifest-v1.schema.json' in paths
     assert 'docs/schemas/release-promotion-v1.schema.json' in paths
     assert 'scripts/promote_release_images.py' in paths
+    assert '.github/workflows/candidate-image.yml' in paths
+    assert 'docker/onboarding-trial-host.Dockerfile' in paths
+    assert 'docs/schemas/candidate-image-request-v1.schema.json' in paths
+    assert (
+        'docs/schemas/candidate-environment-readiness-v1.schema.json'
+        in paths
+    )
+    assert 'docs/schemas/candidate-image-v1.schema.json' in paths
+    assert 'docs/schemas/candidate-image-set-v1.schema.json' in paths
+    assert 'docs/schemas/candidate-image-set-audit-v1.schema.json' in paths
+    assert 'docs/schemas/candidate-image-set-audit-v2.schema.json' in paths
+    assert (
+        'docs/schemas/candidate-trial-preparation-v1.schema.json' in paths
+    )
+    assert (
+        'docs/schemas/candidate-trial-execution-v1.schema.json' in paths
+    )
+    assert 'docs/schemas/candidate-trial-session-v1.schema.json' in paths
+    assert 'docs/schemas/candidate-trial-readiness-v1.schema.json' in paths
+    assert (
+        'docs/schemas/onboarding-matrix-observer-packet-v2.schema.json'
+        in paths
+    )
+    assert (
+        'docs/schemas/onboarding-matrix-observer-packet-v3.schema.json'
+        in paths
+    )
+    assert 'scripts/validate_candidate_image_request.py' in paths
+    assert 'scripts/check_candidate_environment.py' in paths
+    assert 'scripts/create_candidate_image_record.py' in paths
+    assert 'scripts/verify_candidate_image_set.py' in paths
+    assert 'scripts/audit_candidate_image_set.py' in paths
+    assert 'scripts/prepare_candidate_trial.py' in paths
+    assert 'scripts/prepare_onboarding_matrix_packet.py' in paths
+    assert 'scripts/run_candidate_trial.py' in paths
+    assert 'scripts/start_candidate_trial.py' in paths
+    assert 'scripts/check_onboarding_trial.py' in paths
+    assert 'scripts/run_docker_onboarding_probe.py' in paths
+    assert 'scripts/run_source_onboarding_probe.py' in paths
     assert 'scripts/release_channel.py' in paths
     assert 'scripts/check_release_bundle_reproducibility.py' in paths
-    assert 'docs/releases/v0.9.0.md' in paths
+    assert 'scripts/attached_storage.py' in paths
+    assert 'scripts/download_ntu_viral_tnp01.sh' in paths
+    assert 'scripts/download_rtk_slam_dataset.py' in paths
+    assert 'scripts/docker_map_bag.sh' in paths
+    assert f'docs/releases/{CURRENT_TAG}.md' in paths
 
     with tarfile.open(first, mode='r:gz') as archive:
         names = archive.getnames()
@@ -279,7 +324,63 @@ def test_release_bundle_is_deterministic_and_manifest_backed(tmp_path: Path):
                 'release_bundle/release-bundle-manifest-v1.json'
             )
         )
+        downloader_member = archive.extractfile(
+            'release_bundle/scripts/download_rtk_slam_dataset.py'
+        )
+        assert downloader_member is not None
+        downloader_payload = downloader_member.read()
+        ntu_member = archive.extractfile(
+            'release_bundle/scripts/download_ntu_viral_tnp01.sh'
+        )
+        assert ntu_member is not None
+        ntu_payload = ntu_member.read()
+        storage_member = archive.extractfile(
+            'release_bundle/scripts/attached_storage.py'
+        )
+        assert storage_member is not None
+        storage_payload = storage_member.read()
     assert embedded == first_manifest
+
+    extracted_downloader = tmp_path / 'download_rtk_slam_dataset.py'
+    extracted_downloader.write_bytes(downloader_payload)
+    listed = subprocess.run(
+        [sys.executable, str(extracted_downloader), '--list'],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert listed.returncode == 0, listed.stderr
+    assert 'construction_seq2' in listed.stdout
+    assert 'construction_seq1' in listed.stdout
+    assert 'stadtgarten_seq2' in listed.stdout
+    assert 'stadtgarten_seq1' in listed.stdout
+
+    extracted_scripts = tmp_path / 'scripts'
+    extracted_scripts.mkdir()
+    extracted_ntu = extracted_scripts / 'download_ntu_viral_tnp01.sh'
+    extracted_ntu.write_bytes(ntu_payload)
+    extracted_storage = extracted_scripts / 'attached_storage.py'
+    extracted_storage.write_bytes(storage_payload)
+    ntu_help = subprocess.run(
+        ['bash', str(extracted_ntu), '--help'],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert ntu_help.returncode == 0, ntu_help.stderr
+    assert '--dest-device' in ntu_help.stderr
+    storage_help = subprocess.run(
+        [sys.executable, str(extracted_storage), '--help'],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert storage_help.returncode == 0, storage_help.stderr
+    assert 'discover' in storage_help.stdout
+    assert 'mountpoint' in storage_help.stdout
 
 
 def test_release_bundle_rehearsal_reverifies_and_publishes_once(
@@ -294,7 +395,7 @@ def test_release_bundle_rehearsal_reverifies_and_publishes_once(
     report = module.rehearse_release_bundle(
         REPO_ROOT,
         output,
-        tag='v0.9.0',
+        tag=CURRENT_TAG,
         git_commit='d' * 40,
     )
 
@@ -303,14 +404,14 @@ def test_release_bundle_rehearsal_reverifies_and_publishes_once(
     assert report['sha256'] == hashlib.sha256(output.read_bytes()).hexdigest()
     assert report['size_bytes'] == output.stat().st_size
     assert report['files'] > 0
-    assert report['tag'] == 'v0.9.0'
+    assert report['tag'] == CURRENT_TAG
     assert report['git_commit'] == 'd' * 40
 
     with pytest.raises(ValueError, match='refusing to overwrite'):
         module.rehearse_release_bundle(
             REPO_ROOT,
             output,
-            tag='v0.9.0',
+            tag=CURRENT_TAG,
             git_commit='d' * 40,
         )
 
@@ -347,13 +448,13 @@ def test_release_bundle_refuses_version_mismatch_and_overwrite(tmp_path: Path):
     module.build_release_bundle(
         REPO_ROOT,
         output,
-        tag='v0.9.0',
+        tag=CURRENT_TAG,
         git_commit='e' * 40,
     )
     with pytest.raises(ValueError, match='refusing to overwrite'):
         module.build_release_bundle(
             REPO_ROOT,
             output,
-            tag='v0.9.0',
+            tag=CURRENT_TAG,
             git_commit='e' * 40,
         )

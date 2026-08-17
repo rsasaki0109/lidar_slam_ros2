@@ -1,4 +1,32 @@
 #!/usr/bin/env python3
+# Copyright 2026 Sasaki
+# All rights reserved.
+#
+# Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
 """Read-only, fail-closed audit of a published lidarslam_ros2 release."""
 
 from __future__ import annotations
@@ -7,7 +35,6 @@ import argparse
 import hashlib
 import io
 import json
-import os
 from pathlib import Path, PurePosixPath
 import sys
 import tarfile
@@ -19,6 +46,11 @@ import urllib.request
 
 import jsonschema
 
+try:
+    from github_api_auth import github_api_authorization
+except ModuleNotFoundError:  # pragma: no cover - importlib test path
+    from scripts.github_api_auth import github_api_authorization
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
@@ -27,6 +59,7 @@ REPORT_SCHEMA_URI = (
     'schemas/published-release-v1.schema.json'
 )
 MAX_JSON_BYTES = 2 * 1024 * 1024
+MAX_LAUNCHER_BYTES = 256 * 1024
 MAX_BUNDLE_BYTES = 128 * 1024 * 1024
 MAX_RELEASE_ASSET_BYTES = 160 * 1024 * 1024
 MAX_UNPACKED_BUNDLE_BYTES = 256 * 1024 * 1024
@@ -40,6 +73,9 @@ OCI_MANIFEST_ACCEPT = ', '.join((
     'application/vnd.oci.image.manifest.v1+json',
     'application/vnd.docker.distribution.manifest.v2+json',
 ))
+STANDALONE_LAUNCHER_NAME = 'lidarslam-map-docker'
+STANDALONE_LAUNCHER_FIRST_VERSION = (0, 9, 1)
+IMAGE_DISTROS = ('humble', 'jazzy')
 
 
 class PublishedReleaseError(ValueError):
@@ -105,9 +141,7 @@ def _request(url: str, *, limit: int) -> tuple[int, bytes]:
         'Accept': 'application/vnd.github+json',
         'User-Agent': 'lidarslam-published-release-audit/1',
     }
-    token = os.environ.get('GITHUB_TOKEN')
-    if token and url.startswith('https://api.github.com/'):
-        headers['Authorization'] = f'Bearer {token}'
+    headers.update(github_api_authorization(url, method='GET'))
     status, payload, _ = _open_request(
         urllib.request.Request(url, headers=headers),
         limit=limit,
@@ -179,6 +213,46 @@ def _registry_tag_digest(tag: str) -> str | None:
     return digest
 
 
+def _inspect_image_tags(
+    version: str,
+) -> tuple[dict[str, str], list[dict[str, Any]], list[str]]:
+    """Resolve both immutable release image tags without pulling layers."""
+    image_tag_digests: dict[str, str] = {}
+    image_reports: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for distro in IMAGE_DISTROS:
+        tag = f'v{version}-{distro}'
+        image_tag = f'ghcr.io/{REPOSITORY}:{tag}'
+        try:
+            digest = _registry_tag_digest(tag)
+        except PublishedReleaseError as exc:
+            detail = str(exc)
+            errors.append(detail)
+            image_reports.append({
+                'tag': image_tag,
+                'status': 'ERROR',
+                'digest': None,
+                'detail': detail,
+            })
+            continue
+        if digest is None:
+            image_reports.append({
+                'tag': image_tag,
+                'status': 'ABSENT',
+                'digest': None,
+                'detail': f'GHCR tag {image_tag} is not published',
+            })
+            continue
+        image_tag_digests[image_tag] = digest
+        image_reports.append({
+            'tag': image_tag,
+            'status': 'PUBLISHED',
+            'digest': digest,
+            'detail': f'GHCR tag resolves to {digest}',
+        })
+    return image_tag_digests, image_reports, errors
+
+
 def inspect_remote(version: str) -> dict[str, Any]:
     """Inspect release metadata and download its public assets."""
     tag = f'v{version}'
@@ -187,7 +261,6 @@ def inspect_remote(version: str) -> dict[str, Any]:
     tag_commit: str | None = None
     release: dict[str, Any] | None = None
     asset_payloads: dict[str, bytes] = {}
-    image_tag_digests: dict[str, str] = {}
 
     try:
         status, tag_ref = _request_json(f'{api}/git/ref/tags/{tag}')
@@ -242,10 +315,12 @@ def inspect_remote(version: str) -> dict[str, Any]:
                 ):
                     errors.append('release asset metadata is incomplete')
                     continue
-                limit = (
-                    MAX_BUNDLE_BYTES if name.endswith('.tar.gz')
-                    else MAX_JSON_BYTES
-                )
+                if name.endswith('.tar.gz'):
+                    limit = MAX_BUNDLE_BYTES
+                elif name == STANDALONE_LAUNCHER_NAME:
+                    limit = MAX_LAUNCHER_BYTES
+                else:
+                    limit = MAX_JSON_BYTES
                 if size < 1 or size > limit:
                     errors.append(
                         f'asset {name} has invalid size {size}')
@@ -267,18 +342,15 @@ def inspect_remote(version: str) -> dict[str, Any]:
                 except PublishedReleaseError as exc:
                     errors.append(str(exc))
 
-        for distro in ('humble', 'jazzy'):
-            image_tag = f'v{version}-{distro}'
-            try:
-                digest = _registry_tag_digest(image_tag)
-                if digest is None:
-                    raise PublishedReleaseError(
-                        f'GHCR tag {image_tag} is not published')
-                image_tag_digests[
-                    f'ghcr.io/{REPOSITORY}:{image_tag}'
-                ] = digest
-            except PublishedReleaseError as exc:
-                errors.append(str(exc))
+    image_tag_digests, image_reports, image_errors = _inspect_image_tags(
+        version)
+    errors.extend(image_errors)
+    if release is not None:
+        errors.extend(
+            report['detail']
+            for report in image_reports
+            if report['status'] == 'ABSENT'
+        )
 
     return {
         'errors': errors,
@@ -286,6 +358,7 @@ def inspect_remote(version: str) -> dict[str, Any]:
         'release': release,
         'asset_payloads': asset_payloads,
         'image_tag_digests': image_tag_digests,
+        'image_reports': image_reports,
     }
 
 
@@ -297,6 +370,71 @@ def _json_asset(name: str, payload: bytes) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise PublishedReleaseError(f'{name} JSON root is not an object')
     return value
+
+
+def _version_tuple(version: str) -> tuple[int, int, int]:
+    parts = version.split('.')
+    if len(parts) != 3 or any(not part.isdigit() for part in parts):
+        raise PublishedReleaseError(
+            f'expected semantic version, found {version!r}')
+    return int(parts[0]), int(parts[1]), int(parts[2])
+
+
+def _requires_standalone_launcher(version: str) -> bool:
+    return _version_tuple(version) >= STANDALONE_LAUNCHER_FIRST_VERSION
+
+
+def verify_standalone_launcher_payload(
+    payload: bytes,
+    *,
+    tag: str,
+    commit: str,
+) -> None:
+    """Verify a bounded launcher without executing downloaded shell code."""
+    if not payload or len(payload) > MAX_LAUNCHER_BYTES:
+        raise PublishedReleaseError(
+            'standalone Docker launcher has an invalid size')
+    try:
+        text = payload.decode('utf-8')
+    except UnicodeDecodeError as exc:
+        raise PublishedReleaseError(
+            'standalone Docker launcher is not UTF-8') from exc
+    if '\x00' in text or '\r' in text:
+        raise PublishedReleaseError(
+            'standalone Docker launcher contains unsafe control bytes')
+    if not text.startswith('#!/usr/bin/env bash\n'):
+        raise PublishedReleaseError(
+            'standalone Docker launcher has an unexpected shebang')
+    version_line = f'LIDARSLAM_DOCKER_LAUNCHER_VERSION="{tag}"'
+    revision_line = f'LIDARSLAM_DOCKER_LAUNCHER_REVISION="{commit}"'
+    if text.count(version_line) != 1:
+        raise PublishedReleaseError(
+            'standalone Docker launcher version identity differs')
+    if text.count(revision_line) != 1:
+        raise PublishedReleaseError(
+            'standalone Docker launcher revision identity differs')
+    if (
+        'LIDARSLAM_DOCKER_LAUNCHER_VERSION="development"' in text
+        or 'LIDARSLAM_DOCKER_LAUNCHER_REVISION="working-tree"' in text
+    ):
+        raise PublishedReleaseError(
+            'standalone Docker launcher retains development identity')
+    required_fragments = (
+        'IMAGE_TAG="${LIDARSLAM_DOCKER_LAUNCHER_VERSION}-${ROS_DISTRO}"',
+        'docker run --rm --pull=never --network none',
+        'type=bind,src=${BAG_DIR},dst=/input,readonly',
+        'lidarslam-map start /input',
+        'image-contract-missing',
+        'docker-result-missing',
+    )
+    missing = [
+        fragment for fragment in required_fragments
+        if fragment not in text
+    ]
+    if missing:
+        raise PublishedReleaseError(
+            'standalone Docker launcher is missing required fail-closed '
+            f'behavior: {missing}')
 
 
 def verify_release_bundle_payload(
@@ -377,6 +515,39 @@ def _check(check_id: str, passed: bool, detail: str) -> dict[str, str]:
     }
 
 
+def _normalise_image_reports(
+    version: str,
+    snapshot: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Use live image reports, or infer them from a complete test snapshot."""
+    explicit = snapshot.get('image_reports')
+    if isinstance(explicit, list):
+        return explicit
+    digests = snapshot.get('image_tag_digests')
+    reports: list[dict[str, Any]] = []
+    for distro in IMAGE_DISTROS:
+        tag = f'v{version}-{distro}'
+        image_tag = f'ghcr.io/{REPOSITORY}:{tag}'
+        digest = (
+            digests.get(image_tag)
+            if isinstance(digests, dict)
+            else None
+        )
+        if isinstance(digest, str):
+            status = 'PUBLISHED'
+            detail = f'GHCR tag resolves to {digest}'
+        else:
+            status = 'NOT_CHECKED'
+            detail = 'live GHCR tag digest was not supplied'
+        reports.append({
+            'tag': image_tag,
+            'status': status,
+            'digest': digest,
+            'detail': detail,
+        })
+    return reports
+
+
 def evaluate_publication(
     *,
     version: str,
@@ -385,19 +556,22 @@ def evaluate_publication(
     """Validate one injected or live release snapshot."""
     tag = f'v{version}'
     bundle_name = f'lidarslam_ros2_{tag}_release_bundle.tar.gz'
-    required_assets = (
+    required_assets = [
         bundle_name,
         'release-image-humble.json',
         'release-image-jazzy.json',
         'rollback-plan-humble.json',
         'rollback-plan-jazzy.json',
         'release-promotion.json',
-    )
+    ]
+    if _requires_standalone_launcher(version):
+        required_assets.append(STANDALONE_LAUNCHER_NAME)
     errors = list(snapshot.get('errors', []))
     release = snapshot.get('release')
     tag_commit = snapshot.get('tag_commit')
     asset_payloads = snapshot.get('asset_payloads', {})
     image_tag_digests = snapshot.get('image_tag_digests', {})
+    image_reports = _normalise_image_reports(version, snapshot)
     checks: list[dict[str, str]] = []
     asset_reports: list[dict[str, Any]] = []
 
@@ -465,6 +639,12 @@ def evaluate_publication(
                         verify_release_bundle_payload(
                             payload,
                             version=version,
+                            tag=tag,
+                            commit=tag_commit,
+                        )
+                    elif name == STANDALONE_LAUNCHER_NAME:
+                        verify_standalone_launcher_payload(
+                            payload,
                             tag=tag,
                             commit=tag_commit,
                         )
@@ -605,6 +785,10 @@ def evaluate_publication(
             not errors
             and all(check['status'] == 'PASS' for check in checks)
             and all(asset['status'] == 'PASS' for asset in asset_reports)
+            and all(
+                image['status'] == 'PUBLISHED'
+                for image in image_reports
+            )
         ):
             status = 'PUBLISHED'
 
@@ -632,6 +816,7 @@ def evaluate_publication(
         },
         'checks': checks,
         'assets': asset_reports,
+        'images': image_reports,
     }
     schema = _schema('published-release-v1.schema.json')
     jsonschema.Draft7Validator.check_schema(schema)
@@ -652,6 +837,10 @@ def _summary(report: dict[str, Any]) -> str:
     lines.extend(
         f"  [{asset['status']}] {asset['name']}: {asset['detail']}"
         for asset in report['assets']
+    )
+    lines.extend(
+        f"  [{image['status']}] {image['tag']}: {image['detail']}"
+        for image in report['images']
     )
     lines.extend(
         f'  [ERROR] {error}' for error in report['remote']['errors'])

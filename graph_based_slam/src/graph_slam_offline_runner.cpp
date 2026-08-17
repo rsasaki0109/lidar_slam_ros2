@@ -74,6 +74,7 @@
 #include "graph_based_slam/map_refiner.hpp"
 #include "graph_based_slam/plane_feature_association.hpp"
 #include "graph_based_slam/plane_revisit_constraints.hpp"
+#include "graph_based_slam/pointcloud_conversion.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/submap_creation.hpp"
 #include "filesystem_io_ports.hpp"
@@ -640,7 +641,16 @@ int main(int argc, char ** argv)
       record.meta.travel_distance = accumulated_distance;
       record.stamp_sec = rclcpp::Time(odom.header.stamp).seconds();
       record.cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
-      pcl::fromROSMsg(cloud_msg, *record.cloud);
+      const bool has_intensity =
+        graphslam::pointcloud_conversion::fromRosMsgWithOptionalIntensity(
+        cloud_msg, *record.cloud);
+      if (!has_intensity) {
+        RCLCPP_INFO_ONCE(
+          node->get_logger(),
+          "[submap-intensity-defaulted] The deskewed submap cloud has no intensity field; "
+          "continuing with intensity=0. Geometry mapping remains available, but exported "
+          "intensity is unavailable. No action is needed for geometry-only mapping.");
+      }
       records.push_back(record);
 
       drain_queries();

@@ -59,6 +59,7 @@
 #include "graph_based_slam/loop_verifier.hpp"
 #include "graph_based_slam/map_saver.hpp"
 #include "graph_based_slam/planar_map_filter.hpp"
+#include "graph_based_slam/pointcloud_conversion.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/submap_creation.hpp"
 #include "g2o/core/robust_kernel_impl.h"
@@ -961,8 +962,7 @@ void GraphBasedSlamComponent::Impl::tryCreateSubmap(
 
   const int submap_idx = static_cast<int>(graph_state_.submapCount());
   if (config_.use_pcd_cache_) {
-    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::fromROSMsg(submap.cloud, *cloud);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud = convertSubmapCloud(submap.cloud);
     if (io_ports_.submap_storage->store(submap_idx, *cloud)) {
       submap.cloud = sensor_msgs::msg::PointCloud2();
     } else {
@@ -986,6 +986,23 @@ void GraphBasedSlamComponent::Impl::tryCreateSubmap(
   runEventDrivenLoopSearch();
 }
 
+GraphBasedSlamComponent::Impl::PointCloudPtr
+GraphBasedSlamComponent::Impl::convertSubmapCloud(
+  const sensor_msgs::msg::PointCloud2 & cloud_msg)
+{
+  PointCloudPtr cloud(new PointCloud);
+  const bool has_intensity =
+    pointcloud_conversion::fromRosMsgWithOptionalIntensity(cloud_msg, *cloud);
+  if (!has_intensity) {
+    RCLCPP_INFO_ONCE(
+      node_.get_logger(),
+      "[submap-intensity-defaulted] The deskewed submap cloud has no intensity field; "
+      "continuing with intensity=0. Geometry mapping remains available, but exported "
+      "intensity is unavailable. No action is needed for geometry-only mapping.");
+  }
+  return cloud;
+}
+
 void GraphBasedSlamComponent::Impl::stageMapArrayCloudCache(
   lidarslam_msgs::msg::MapArray & map_array_msg)
 {
@@ -995,8 +1012,7 @@ void GraphBasedSlamComponent::Impl::stageMapArrayCloudCache(
     if (submap.cloud.data.empty()) {
       continue;
     }
-    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::fromROSMsg(submap.cloud, *cloud);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud = convertSubmapCloud(submap.cloud);
     if (!cloud->empty()) {
       writes.push_back({i, cloud});
     }
@@ -1026,7 +1042,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::Impl::loadSubmapCl
   }
   cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
   if (idx >= 0 && idx < static_cast<int>(map_array_msg.submaps.size())) {
-    pcl::fromROSMsg(map_array_msg.submaps[idx].cloud, *cloud);
+    cloud = convertSubmapCloud(map_array_msg.submaps[idx].cloud);
   }
   return cloud;
 }

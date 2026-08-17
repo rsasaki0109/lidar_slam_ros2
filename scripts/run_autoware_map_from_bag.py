@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import deque
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
@@ -26,13 +27,13 @@ import xml.etree.ElementTree as ET
 import yaml
 
 try:
-    from product_profiles import PROFILE_HELP, PROFILE_IDS
+    from product_profiles import PROFILE_HELP, PROFILE_IDS, select_profile
 except ModuleNotFoundError as exc:
     if exc.name != 'product_profiles':
         raise
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     try:
-        from product_profiles import PROFILE_HELP, PROFILE_IDS
+        from product_profiles import PROFILE_HELP, PROFILE_IDS, select_profile
     finally:
         sys.path.pop(0)
 
@@ -62,6 +63,14 @@ WORKFLOW_SHUTDOWN_GRACE_SECS = 10.0
 DEFAULT_MIN_FREE_SPACE_GIB = 5.0
 EMERGENCY_EVIDENCE_RESERVE_BYTES = 2 * 1024 * 1024
 EMERGENCY_EVIDENCE_RESERVE_NAME = '.terminal-evidence-reserve'
+PRODUCT_SESSION_OUTPUT_ENV = 'LIDARSLAM_PRODUCT_SESSION_OUTPUT'
+PRODUCT_SESSION_OUTPUT_CONCISE = 'concise'
+CONCISE_WORKFLOW_LOG_NAME = 'map_workflow.log'
+CONCISE_WORKFLOW_FAILURE_TAIL_LINES = 80
+CONCISE_WORKFLOW_STATUS_LINES = frozenset({
+    'Mapping is ready; processing the recorded sensor data ...',
+    'Mapping is ready; waiting for the first map output ...',
+})
 PACKAGE_XML_PATHS = (
     SHARE_ROOT / 'lidarslam' / 'package.xml',
     SHARE_ROOT / 'graph_based_slam' / 'package.xml',
@@ -117,9 +126,13 @@ def _terminate_process_group(
 def _run_workflow(
     command: list[str],
     cwd: Path,
+    concise_output: bool = False,
+    workflow_log: Path | None = None,
 ) -> tuple[int, bool, str | None]:
     """Run a workflow in an isolated process group with durable signal results."""
     process: subprocess.Popen | None = None
+    log_stream = None
+    returncode = None
 
     def request_termination(signum, _frame):
         raise _TerminationRequested(signum)
@@ -127,25 +140,93 @@ def _run_workflow(
     previous_sigterm = signal.signal(signal.SIGTERM, request_termination)
     requested_signal = None
     try:
-        process = subprocess.Popen(command, cwd=cwd, start_new_session=True)
+        popen_options: dict[str, object] = {}
+        if concise_output:
+            if workflow_log is None:
+                raise ValueError(
+                    'concise workflow output requires a durable log path'
+                )
+            log_stream = workflow_log.open('w', encoding='utf-8')
+            popen_options.update({
+                'stdout': subprocess.PIPE,
+                'text': True,
+                'encoding': 'utf-8',
+                'errors': 'replace',
+                'bufsize': 1,
+            })
+        process = subprocess.Popen(
+            command,
+            cwd=cwd,
+            start_new_session=True,
+            **popen_options,
+        )
         try:
-            return process.wait(), False, None
+            if concise_output:
+                if process.stdout is None or log_stream is None:
+                    raise RuntimeError(
+                        'concise workflow output pipe was not created'
+                    )
+                for line in process.stdout:
+                    log_stream.write(line)
+                    log_stream.flush()
+                    if line.rstrip('\r\n') in CONCISE_WORKFLOW_STATUS_LINES:
+                        print(line, end='', flush=True)
+            returncode = process.wait()
         except KeyboardInterrupt:
             requested_signal = signal.SIGINT
         except _TerminationRequested as exc:
             requested_signal = exc.signum
     finally:
         signal.signal(signal.SIGTERM, previous_sigterm)
+        if process is not None and process.stdout is not None:
+            process.stdout.close()
+        if log_stream is not None:
+            log_stream.close()
 
-    if process is None or requested_signal is None:
+    if requested_signal is not None:
+        if process is None:
+            raise RuntimeError(
+                'workflow supervision ended without a process result'
+            )
+        _terminate_process_group(process, requested_signal)
+        signal_name = signal.Signals(requested_signal).name
+        return (
+            128 + requested_signal,
+            True,
+            f'map workflow interrupted by {signal_name}',
+        )
+
+    if returncode is None:
         raise RuntimeError('workflow supervision ended without a process result')
-    _terminate_process_group(process, requested_signal)
-    signal_name = signal.Signals(requested_signal).name
-    return (
-        128 + requested_signal,
-        True,
-        f'map workflow interrupted by {signal_name}',
-    )
+    if concise_output and returncode != 0 and workflow_log is not None:
+        _print_concise_workflow_failure(workflow_log)
+    return returncode, False, None
+
+
+def _print_concise_workflow_failure(workflow_log: Path) -> None:
+    """Replay bounded child stdout only when a concise workflow fails."""
+    try:
+        with workflow_log.open(encoding='utf-8', errors='replace') as stream:
+            recent_lines = deque(
+                stream,
+                maxlen=CONCISE_WORKFLOW_FAILURE_TAIL_LINES,
+            )
+    except OSError as exc:
+        print(
+            f'warning: failed to read retained workflow output: {exc}',
+            file=sys.stderr,
+        )
+        return
+
+    if recent_lines:
+        print('Map workflow failed. Recent workflow details:', file=sys.stderr)
+        for line in recent_lines:
+            print(
+                line,
+                end='' if line.endswith('\n') else '\n',
+                file=sys.stderr,
+            )
+    print(f'Complete workflow output: {workflow_log}', file=sys.stderr)
 
 
 def _terminal_workflow_error(
@@ -177,27 +258,33 @@ def _load_script_module(script_name: str, module_name: str):
     return module
 
 
+def _run_guided(args: argparse.Namespace) -> int:
+    """Run the human-facing confirmation layer without duplicating the runner."""
+    guided = _load_script_module('lidarslam_guided.py', 'lidarslam_guided')
+    guided_args = [args.bag]
+    if args.profile:
+        guided_args.extend(['--profile', args.profile])
+    if args.output_dir:
+        guided_args.extend(['--output-dir', args.output_dir])
+    guided_args.extend([
+        '--min-free-space-gib',
+        str(args.min_free_space_gib),
+        '--verification',
+        'required' if args.verification_enabled else 'off',
+    ])
+    if args.viewer != 'none':
+        guided_args.extend(['--viewer', args.viewer])
+    if args.yes:
+        guided_args.append('--yes')
+    if args.dry_run:
+        guided_args.append('--dry-run')
+    if args.editable:
+        guided_args.append('--editable')
+    return guided.main(guided_args)
+
+
 def _select_profile(payload: dict[str, object], forced_profile_id: str | None) -> str:
-    if forced_profile_id:
-        return forced_profile_id
-
-    recommendations = payload['recommendations']
-    recommendation_ids = {item['id'] for item in recommendations}
-    summary = payload['summary']
-    pointcloud_topics = summary['topics']['pointcloud2']
-    imu_topics = summary['topics']['imu']
-    bag_path_lower = summary['bag_path'].lower()
-    looks_like_livox = (
-        'mid360' in bag_path_lower
-        or any('livox' in item['name'].lower() for item in pointcloud_topics + imu_topics)
-    )
-    if looks_like_livox and 'rko_lio_graph_mid360_preset' in recommendation_ids:
-        return 'rko_lio_graph_mid360_preset'
-
-    recommended_profile_id = payload['recommended_profile_id']
-    if not recommended_profile_id:
-        raise RuntimeError('no compatible public path was found for this bag')
-    return recommended_profile_id
+    return select_profile(payload, forced_profile_id)
 
 
 def build_execution_plan(
@@ -207,9 +294,16 @@ def build_execution_plan(
     verify_map: bool,
     pointcloud_inspector=None,
     timestamp_inspector=None,
+    preflight_payload: dict[str, object] | None = None,
+    lidarslam_param: Path | None = None,
+    rko_param: Path | None = None,
+    base_frame: str = 'base_link',
+    lidar_frame: str | None = None,
+    imu_frame: str | None = None,
+    editable: bool = False,
 ) -> dict[str, object]:
     preflight = _load_script_module('preflight_autoware_map_bag.py', 'preflight_autoware_map_bag')
-    payload = preflight.build_preflight_payload(
+    payload = preflight_payload or preflight.build_preflight_payload(
         bag_path,
         pointcloud_inspector=pointcloud_inspector,
         timestamp_inspector=timestamp_inspector,
@@ -227,6 +321,24 @@ def build_execution_plan(
 
     summary = payload['summary']
     output_dir = output_dir.expanduser().resolve()
+    custom_rko_params = lidarslam_param is not None or rko_param is not None
+    if custom_rko_params and (lidarslam_param is None or rko_param is None):
+        raise ValueError(
+            '--lidarslam-param and --rko-param must be provided together'
+        )
+    if custom_rko_params and selected_profile not in {
+        'rko_lio_graph_public_path',
+        'rko_lio_graph_mid360_preset',
+    }:
+        raise ValueError(
+            'custom RKO-LIO parameter files require an rko_lio_graph profile'
+        )
+    for label, path in (
+        ('--lidarslam-param', lidarslam_param),
+        ('--rko-param', rko_param),
+    ):
+        if path is not None and not path.expanduser().resolve().is_file():
+            raise ValueError(f'{label} file does not exist: {path}')
 
     if selected_profile == 'rko_lio_graph_public_path':
         pointcloud = summary['topics']['pointcloud2'][0]['name']
@@ -237,8 +349,16 @@ def build_execution_plan(
             '--bag', str(bag_path),
             '--lidar-topic', pointcloud,
             '--imu-topic', imu,
-            '--lidarslam-param', str(PACKAGE_SHARE / 'param' / 'lidarslam.yaml'),
-            '--rko-param', str(PACKAGE_SHARE / 'param' / 'rko_lio_ntu_viral.yaml'),
+            '--lidarslam-param', str(
+                lidarslam_param.expanduser().resolve()
+                if lidarslam_param is not None
+                else PACKAGE_SHARE / 'param' / 'lidarslam.yaml'
+            ),
+            '--rko-param', str(
+                rko_param.expanduser().resolve()
+                if rko_param is not None
+                else PACKAGE_SHARE / 'param' / 'rko_lio_ntu_viral.yaml'
+            ),
             '--output-dir', str(output_dir),
             '--wait-for-offline-completion',
             '--skip-viewer',
@@ -253,7 +373,11 @@ def build_execution_plan(
             '--lidar-topic', pointcloud,
             '--imu-topic', imu,
             '--lidarslam-param',
-            str(PACKAGE_SHARE / 'param' / 'lidarslam_mid360_rko_graph.yaml'),
+            str(
+                lidarslam_param.expanduser().resolve()
+                if lidarslam_param is not None
+                else PACKAGE_SHARE / 'param' / 'lidarslam_mid360_rko_graph.yaml'
+            ),
             '--rko-param', str(PACKAGE_SHARE / 'param' / 'rko_lio_mid360.yaml'),
             '--output-dir', str(output_dir),
             '--wait-for-offline-completion',
@@ -293,6 +417,37 @@ def build_execution_plan(
             command.append('--verify-map')
     else:
         raise RuntimeError(f'profile is not executable yet: {selected_profile}')
+
+    if selected_profile in {
+        'rko_lio_graph_public_path',
+        'rko_lio_graph_mid360_preset',
+    }:
+        if selected_profile == 'rko_lio_graph_mid360_preset' and rko_param is not None:
+            rko_index = command.index('--rko-param') + 1
+            command[rko_index] = str(rko_param.expanduser().resolve())
+        command.extend(['--base-frame', base_frame])
+        if lidar_frame:
+            command.extend(['--lidar-frame', lidar_frame])
+        if imu_frame:
+            command.extend(['--imu-frame', imu_frame])
+
+    if editable:
+        if selected_profile not in {
+            'rko_lio_graph_public_path',
+            'rko_lio_graph_mid360_preset',
+        }:
+            raise ValueError(
+                '--editable requires an rko_lio_graph profile because only '
+                'that backend has deterministic loop replay support'
+            )
+        command = [
+            'bash',
+            str(SCRIPT_DIR / 'record_backend_input.sh'),
+            '--output-dir',
+            str(output_dir / 'backend_input'),
+            '--',
+            *command,
+        ]
 
     return {
         'payload': payload,
@@ -622,6 +777,52 @@ def _write_manifest(run_dir: Path, manifest: dict[str, object]) -> None:
         raise
 
 
+def _announce_lifecycle(stage: str, action: str) -> None:
+    """Report a durable stage without inventing percentage or ETA."""
+    if _concise_product_session_output():
+        return
+    print(f'Lifecycle stage: {stage} — {action}', flush=True)
+
+
+def _concise_product_session_output() -> bool:
+    """Return whether a parent start session owns the human progress view."""
+    return (
+        os.environ.get(PRODUCT_SESSION_OUTPUT_ENV)
+        == PRODUCT_SESSION_OUTPUT_CONCISE
+    )
+
+
+def _print_execution_summary(
+    plan: dict[str, object],
+    output_dir: Path,
+    working_dir: Path,
+    storage_preflight: dict[str, object],
+) -> None:
+    """Print a concise start handoff or the complete direct-run plan."""
+    observed_gib = storage_preflight['observed_free_bytes'] / 1024**3
+    required_gib = storage_preflight['required_free_bytes'] / 1024**3
+    if _concise_product_session_output():
+        print(f"Map profile: {plan['label']}")
+        print(
+            f'Storage check: {observed_gib:.2f} GiB available '
+            f'({required_gib:.2f} GiB required)',
+            flush=True,
+        )
+        return
+
+    print(f"Selected profile: {plan['label']}")
+    print(f'Output directory: {output_dir}')
+    print(f'Atomic working directory: {working_dir}')
+    print(
+        'Storage preflight: '
+        f'{observed_gib:.2f} GiB free; '
+        f'{required_gib:.2f} GiB required '
+        f"under {storage_preflight['probe_path']}"
+    )
+    print('Command:')
+    print('  ' + shlex.join(plan['command']), flush=True)
+
+
 def _artifact_checksums(run_dir: Path) -> list[dict[str, object]]:
     artifacts = []
     for path in sorted(item for item in run_dir.rglob('*') if item.is_file()):
@@ -802,11 +1003,48 @@ def _validate_resume_state(
     return run_dir, manifest
 
 
+def _normalize_ros_log_latest(working_dir: Path) -> None:
+    """Keep ROS's transaction-local ``latest`` link valid after rename."""
+    log_dir = working_dir / '.ros_log'
+    latest = log_dir / 'latest'
+    if log_dir.is_symlink() or not latest.is_symlink():
+        return
+
+    target = Path(os.readlink(latest))
+    if not target.is_absolute():
+        return
+
+    normalized_log_dir = Path(os.path.normpath(str(log_dir)))
+    normalized_target = Path(os.path.normpath(str(target)))
+    try:
+        relative_target = normalized_target.relative_to(normalized_log_dir)
+    except ValueError:
+        return
+
+    rebased_target = log_dir / relative_target
+    if not rebased_target.exists():
+        latest.unlink()
+        return
+
+    portable_target = os.path.relpath(rebased_target, start=log_dir)
+    temporary = latest.with_name(f'.latest.{uuid.uuid4().hex}.tmp')
+    try:
+        temporary.symlink_to(
+            portable_target,
+            target_is_directory=rebased_target.is_dir(),
+        )
+        os.replace(temporary, latest)
+    except OSError:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
 def _finalize_output(working_dir: Path, final_dir: Path) -> None:
     if final_dir.exists():
         raise RuntimeError(
             f'output collision detected before finalization: {final_dir}'
         )
+    _normalize_ros_log_latest(working_dir)
     os.replace(working_dir, final_dir)
 
 
@@ -888,13 +1126,18 @@ def print_next_steps(args: argparse.Namespace, output_dir: Path) -> None:
 
     if args.viewer == 'none':
         print(
+            '  Open 3D preview: '
+            f'lidarslam-map view {shlex.quote(str(output_dir))}'
+        )
+        print(
             '  Open in Foxglove: '
             'lidarslam-map view '
             f'{shlex.quote(str(output_dir))} --viewer foxglove'
         )
         print(
             '  Open in Autoware viewer: '
-            f'lidarslam-map view {shlex.quote(str(output_dir))}'
+            f'lidarslam-map view {shlex.quote(str(output_dir))} '
+            '--viewer autoware'
         )
 
 
@@ -956,6 +1199,7 @@ def _postprocess_run(
         _write_manifest(current_dir, manifest)
         lifecycle['stage'] = 'verifying'
         _write_manifest(current_dir, manifest)
+        _announce_lifecycle('verifying', 'verify generated map artifacts')
         maybe_verify_map(current_dir, enabled=args.verification_enabled)
         lifecycle['stage'] = 'verified'
         _write_manifest(current_dir, manifest)
@@ -963,6 +1207,7 @@ def _postprocess_run(
         if current_dir == working_dir:
             lifecycle['stage'] = 'finalizing'
             _write_manifest(current_dir, manifest)
+            _announce_lifecycle('finalizing', 'publish output atomically')
             _finalize_output(working_dir, output_dir)
             current_dir = output_dir
         elif current_dir != output_dir:
@@ -974,6 +1219,7 @@ def _postprocess_run(
 
         lifecycle['stage'] = 'diagnosing'
         _write_manifest(current_dir, manifest)
+        _announce_lifecycle('diagnosing', 'build operator diagnosis')
         diagnosis = write_diagnostics(current_dir, bag_path)
         manifest['output']['diagnosis_status'] = diagnosis['status']
         lifecycle['stage'] = 'diagnosed'
@@ -994,6 +1240,10 @@ def _postprocess_run(
 
         lifecycle['stage'] = 'checksumming'
         _write_manifest(current_dir, manifest)
+        _announce_lifecycle(
+            'checksumming',
+            'bind artifacts and validation receipt',
+        )
         manifest['output']['artifact_checksums'] = _artifact_checksums(current_dir)
         lifecycle['stage'] = 'complete'
         lifecycle['runner_exit_code'] = runner_exit_code
@@ -1095,6 +1345,7 @@ def _help_epilog() -> str:
         'Examples:',
         f'  {command} /path/to/rosbag2 --dry-run',
         f'  {command} /path/to/rosbag2 --output-dir output/my_map',
+        f'  {command} /path/to/rosbag2 --guided',
         f'  {command} /path/to/rosbag2 --output-dir output/my_map --resume',
     ])
 
@@ -1142,6 +1393,33 @@ def parse_args(
             'output/autoware_map_authoring_<bag>_<timestamp>.'
         ),
     )
+    setup_options = parser.add_argument_group('sensor setup bundle overrides')
+    setup_options.add_argument(
+        '--lidarslam-param',
+        metavar='<file>',
+        help='graph_based_slam YAML generated by "lidarslam-map setup".',
+    )
+    setup_options.add_argument(
+        '--rko-param',
+        metavar='<file>',
+        help='RKO-LIO YAML generated by "lidarslam-map setup".',
+    )
+    setup_options.add_argument(
+        '--base-frame',
+        default='base_link',
+        metavar='<frame>',
+        help='Robot base frame (default: base_link).',
+    )
+    setup_options.add_argument(
+        '--lidar-frame',
+        metavar='<frame>',
+        help='LiDAR frame override detected or selected during setup.',
+    )
+    setup_options.add_argument(
+        '--imu-frame',
+        metavar='<frame>',
+        help='IMU frame override detected or selected during setup.',
+    )
     safety_options = parser.add_argument_group('safety and lifecycle')
     safety_options.add_argument(
         '--min-free-space-gib',
@@ -1159,6 +1437,14 @@ def parse_args(
         help='Print the selected command without executing it.',
     )
     safety_options.add_argument(
+        '--editable',
+        action='store_true',
+        help=(
+            'Retain deterministic backend replay input with the map so '
+            'accepted loop constraints can be disabled later.'
+        ),
+    )
+    safety_options.add_argument(
         '--resume',
         action='store_true',
         help=(
@@ -1166,12 +1452,25 @@ def parse_args(
             'terminal schema-v2 run; the map workflow is never re-executed.'
         ),
     )
+    safety_options.add_argument(
+        '--guided',
+        action='store_true',
+        help=(
+            'Show the detected inputs and exact plan, ask for confirmation, '
+            'then delegate to this same runner.'
+        ),
+    )
+    safety_options.add_argument(
+        '--yes',
+        action='store_true',
+        help='With --guided, start without asking for confirmation.',
+    )
     viewer_options = parser.add_argument_group(
         'deprecated viewer compatibility options'
     )
     viewer_options.add_argument(
         '--viewer',
-        choices=['none', 'autoware', 'foxglove'],
+        choices=['none', 'browser', 'autoware', 'foxglove'],
         default='none',
         help=extended_help(
             'Deprecated: open the saved map after the run. Prefer '
@@ -1240,10 +1539,46 @@ def validate_option_combinations(args: argparse.Namespace) -> None:
     if args.autoware_core_dir and args.viewer != 'autoware':
         raise ValueError('--autoware-core-dir requires --viewer autoware')
     active = [name for name, enabled in viewer_specific if enabled]
-    if args.viewer == 'none' and active:
+    if args.viewer in {'none', 'browser'} and active:
         joined = ', '.join(active)
         raise ValueError(
             f'{joined} requires --viewer autoware or --viewer foxglove'
+        )
+    if args.yes and not args.guided:
+        raise ValueError('--yes requires --guided')
+    if bool(args.lidarslam_param) != bool(args.rko_param):
+        raise ValueError(
+            '--lidarslam-param and --rko-param must be provided together'
+        )
+    if args.guided and any((
+        args.lidarslam_param,
+        args.rko_param,
+        args.base_frame != 'base_link',
+        args.lidar_frame,
+        args.imu_frame,
+    )):
+        raise ValueError(
+            'sensor setup bundle overrides cannot be combined with --guided; '
+            'run the exact command written by "lidarslam-map setup"'
+        )
+    if args.guided and args.resume:
+        raise ValueError(
+            '--guided cannot be combined with --resume; use run --resume '
+            'directly for terminal post-processing'
+        )
+    if args.guided and any(
+        value
+        for _name, value in (
+            ('--autoware-core-dir', args.autoware_core_dir),
+            ('--work-dir', args.work_dir),
+            ('--viewer-run-dir', args.viewer_run_dir),
+            ('--viewer-rebuild', args.viewer_rebuild),
+            ('--auto-exit-secs', args.auto_exit_secs is not None),
+        )
+    ):
+        raise ValueError(
+            '--guided cannot be combined with advanced viewer options; '
+            'run the map first, then use "lidarslam-map view"'
         )
 
 
@@ -1286,6 +1621,12 @@ def main() -> int:
     if args.resume and not args.output_dir:
         print('error: --resume requires an explicit --output-dir', file=sys.stderr)
         return 2
+    if args.guided:
+        try:
+            return _run_guided(args)
+        except (ImportError, OSError, RuntimeError, ValueError) as exc:
+            print(f'error: guided workflow could not start: {exc}', file=sys.stderr)
+            return 70
 
     bag_path = Path(args.bag).expanduser().resolve()
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -1303,27 +1644,43 @@ def main() -> int:
             output_dir,
             args.min_free_space_gib,
         )
+        plan_arguments = {
+            'bag_path': bag_path,
+            'profile_id': args.profile,
+            'output_dir': working_dir,
+            'verify_map': args.verification_enabled,
+        }
+        if args.editable:
+            plan_arguments['editable'] = True
+        if any((
+            args.lidarslam_param,
+            args.rko_param,
+            args.base_frame != 'base_link',
+            args.lidar_frame,
+            args.imu_frame,
+        )):
+            plan_arguments.update({
+                'lidarslam_param': (
+                    Path(args.lidarslam_param) if args.lidarslam_param else None
+                ),
+                'rko_param': Path(args.rko_param) if args.rko_param else None,
+                'base_frame': args.base_frame,
+                'lidar_frame': args.lidar_frame,
+                'imu_frame': args.imu_frame,
+            })
         plan = build_execution_plan(
-            bag_path=bag_path,
-            profile_id=args.profile,
-            output_dir=working_dir,
-            verify_map=args.verification_enabled,
+            **plan_arguments,
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         print(f'error: {exc}', file=sys.stderr)
         return 2
 
-    print(f"Selected profile: {plan['label']}")
-    print(f'Output directory: {output_dir}')
-    print(f'Atomic working directory: {working_dir}')
-    print(
-        'Storage preflight: '
-        f"{storage_preflight['observed_free_bytes'] / 1024**3:.2f} GiB free; "
-        f"{storage_preflight['required_free_bytes'] / 1024**3:.2f} GiB required "
-        f"under {storage_preflight['probe_path']}"
+    _print_execution_summary(
+        plan,
+        output_dir,
+        working_dir,
+        storage_preflight,
     )
-    print('Command:')
-    print('  ' + shlex.join(plan['command']))
 
     if args.dry_run:
         return 0
@@ -1371,6 +1728,7 @@ def main() -> int:
         manifest['lifecycle']['stage'] = 'workflow_running'
         manifest['execution']['started_at'] = _utc_now()
         _write_manifest(working_dir, manifest)
+        _announce_lifecycle('workflow_running', 'run the mapping workflow')
     except (OSError, RuntimeError, ValueError, ET.ParseError, yaml.YAMLError) as exc:
         if emergency_reserve is not None:
             try:
@@ -1395,6 +1753,8 @@ def main() -> int:
         exit_code, interrupted, workflow_error = _run_workflow(
             plan['command'],
             WORK_ROOT,
+            _concise_product_session_output(),
+            working_dir / CONCISE_WORKFLOW_LOG_NAME,
         )
     except OSError as exc:
         print(f'error: failed to start map workflow: {exc}', file=sys.stderr)
@@ -1443,11 +1803,23 @@ def _finish_run(
     exit_code: int,
 ) -> int:
     if exit_code != 0:
-        print(
-            f'error: map run failed with exit code {exit_code}.',
-            file=sys.stderr,
-        )
-        print('failed command:', shlex.join(plan['command']), file=sys.stderr)
+        stop_label = _sealed_interruption_label(output_dir, exit_code)
+        if stop_label is not None:
+            print(
+                f'Map stopped by {stop_label}; retained evidence: '
+                f'{output_dir}',
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f'error: map run failed with exit code {exit_code}.',
+                file=sys.stderr,
+            )
+            print(
+                'failed command:',
+                shlex.join(plan['command']),
+                file=sys.stderr,
+            )
         if (output_dir / 'autoware_map_diagnosis.md').is_file():
             print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
         if (output_dir / 'first_map_validation_receipt.md').is_file():
@@ -1464,19 +1836,57 @@ def _finish_run(
             )
         return exit_code
 
-    print_next_steps(args, output_dir)
+    concise_output = _concise_product_session_output()
+    if not concise_output:
+        print_next_steps(args, output_dir)
     try:
         maybe_open_viewer(args, output_dir)
     except subprocess.CalledProcessError as exc:
         print(f'error: viewer failed with exit code {exc.returncode}.', file=sys.stderr)
         return exc.returncode or 1
-    print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
-    print(f'Run manifest: {output_dir / MANIFEST_NAME}')
-    print(
-        'First-map receipt: '
-        f'{output_dir / "first_map_validation_receipt.md"}'
-    )
+    if not concise_output:
+        print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
+        print(f'Run manifest: {output_dir / MANIFEST_NAME}')
+        print(
+            'First-map receipt: '
+            f'{output_dir / "first_map_validation_receipt.md"}'
+        )
     return 0
+
+
+def _sealed_interruption_label(
+    output_dir: Path,
+    exit_code: int,
+) -> str | None:
+    """Classify only a complete, evidence-bound operator interruption."""
+    labels = {
+        130: ('SIGINT', 'Ctrl-C'),
+        143: ('SIGTERM', 'SIGTERM'),
+    }
+    signal = labels.get(exit_code)
+    if signal is None:
+        return None
+    signal_name, label = signal
+    try:
+        manifest = json.loads(
+            (output_dir / MANIFEST_NAME).read_text(encoding='utf-8')
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    execution = manifest.get('execution')
+    lifecycle = manifest.get('lifecycle')
+    if not isinstance(execution, dict) or not isinstance(lifecycle, dict):
+        return None
+    if (
+        manifest.get('status') != 'interrupted'
+        or execution.get('exit_code') != exit_code
+        or lifecycle.get('stage') != 'complete'
+        or lifecycle.get('runner_exit_code') != exit_code
+        or lifecycle.get('last_error')
+        != f'map workflow interrupted by {signal_name}'
+    ):
+        return None
+    return label
 
 
 if __name__ == '__main__':

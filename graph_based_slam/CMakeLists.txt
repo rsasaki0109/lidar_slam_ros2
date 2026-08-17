@@ -362,6 +362,19 @@ if(BUILD_TESTING)
     )
   endif()
   ament_add_gtest(
+    test_pointcloud_conversion
+    test/test_pointcloud_conversion.cpp
+  )
+  if(TARGET test_pointcloud_conversion)
+    target_include_directories(
+      test_pointcloud_conversion PRIVATE include ${PCL_INCLUDE_DIRS}
+    )
+    ament_target_dependencies(
+      test_pointcloud_conversion sensor_msgs pcl_conversions
+    )
+    target_link_libraries(test_pointcloud_conversion ${PCL_LIBRARIES})
+  endif()
+  ament_add_gtest(
     test_pose_graph_optimization
     test/test_pose_graph_optimization.cpp
   )
@@ -599,6 +612,16 @@ if(BUILD_TESTING)
   ament_add_pytest_test(
     test_map_bundle_verifier
     test/test_map_bundle_verifier.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_map_edit
+    test/test_map_edit.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_map_merge
+    test/test_map_merge.py
     TIMEOUT 120
   )
   ament_add_pytest_test(
@@ -973,6 +996,7 @@ if(BUILD_TESTING)
     test_aist_ouster_rgb_map_benchmark
     test_analyze_colored_point_cloud
     test_applanix_tf_bridge
+    test_attached_storage
     test_autoware_dogfood_script
     test_autoware_map_preflight
     test_autoware_map_run_diagnosis
@@ -1022,6 +1046,7 @@ if(BUILD_TESTING)
     test_radarless_tunnel_benchmark_tools
     test_realtime_colored_map_evaluator
     test_rko_lio_graph_benchmark_script
+    test_rtk_slam_download_script
     test_run_lidar_slam
     test_run_ntu_viral_formal_measurements
     test_runtime_report
@@ -1057,6 +1082,11 @@ if(BUILD_TESTING)
     TIMEOUT 60
   )
   ament_add_pytest_test(
+    test_product_python_tests_script
+    test/test_product_python_tests_script.py
+    TIMEOUT 60
+  )
+  ament_add_pytest_test(
     test_enwide_benchmark_assets
     test/test_enwide_benchmark_assets.py
     TIMEOUT 60
@@ -1075,6 +1105,11 @@ if(BUILD_TESTING)
     test_validate_real_data_e2e
     test/test_validate_real_data_e2e.py
     TIMEOUT 60
+  )
+  ament_add_pytest_test(
+    test_build_mid360_onboarding_fixture
+    test/test_build_mid360_onboarding_fixture.py
+    TIMEOUT 120
   )
   ament_add_pytest_test(
     test_lidarslam_product_cli

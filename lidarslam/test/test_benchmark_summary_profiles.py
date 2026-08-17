@@ -230,6 +230,83 @@ def test_cli_hard_profile_gate_requires_commit_binding(tmp_path: Path):
     assert 'requires --required-git-commit' in result.stdout
 
 
+def test_cli_empty_root_renders_profile_blockers_and_remediation(tmp_path: Path):
+    result = subprocess.run(
+        [
+            'python3',
+            str(SCRIPT_PATH),
+            '--root',
+            str(tmp_path),
+            '--release-profile',
+            str(DEFAULT_PROFILE_YAML),
+            '--fail-on-profiles',
+            '--required-git-commit',
+            'a' * 40,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+
+    assert result.returncode == 2
+    assert '| newer_college_math_hard |' in result.stdout
+    assert '| NO_DATA |' in result.stdout
+    assert 'release profile gate FAILED' in result.stdout
+    assert 'Follow docs/benchmarking.md#newer-college-maths-hard' in result.stdout
+
+
+def test_cli_empty_root_without_profiles_preserves_missing_data_error(
+    tmp_path: Path,
+):
+    result = subprocess.run(
+        ['python3', str(SCRIPT_PATH), '--root', str(tmp_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+
+    assert result.returncode == 1
+    assert f'no metrics.json found under: {tmp_path}' in result.stdout
+
+
+def test_release_wrapper_empty_root_retains_actionable_profile_report(
+    tmp_path: Path,
+):
+    benchmark_root = tmp_path / 'empty-benchmark-root'
+    benchmark_root.mkdir()
+    output_dir = tmp_path / 'release-readiness'
+
+    result = subprocess.run(
+        [
+            'bash',
+            str(REPO_ROOT / 'scripts' / 'run_release_readiness_checks.sh'),
+            '--skip-default-ci',
+            '--benchmark-root',
+            str(benchmark_root),
+            '--out-dir',
+            str(output_dir),
+            '--fail-on-profiles',
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+
+    assert result.returncode == 2
+    assert 'evaluating every release profile as missing evidence' in result.stdout
+    summary = (output_dir / 'benchmark_summary.md').read_text(encoding='utf-8')
+    log = (output_dir / 'benchmark_summary.log').read_text(encoding='utf-8')
+    assert '| newer_college_math_hard |' in summary
+    assert '| NO_DATA |' in summary
+    assert 'Follow docs/benchmarking.md#newer-college-maths-hard' in log
+    assert 'skipping benchmark HTML report' in (
+        output_dir / 'benchmark_report.log'
+    ).read_text(encoding='utf-8')
+
+
 def test_evaluate_pass_picks_best_matching_run():
     module = _load_module()
     profile = {

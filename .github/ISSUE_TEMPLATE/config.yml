@@ -5,7 +5,7 @@ contact_links:
     about: Check the supported outcome, inputs, entrypoints, and non-goals before filing.
   - name: Usage Support
     url: https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/SUPPORT.md
-    about: Include the required diagnostic bundle when asking for usage help.
+    about: If a session exists, review a support ZIP; otherwise use doctor --public-json and its first actionable finding code.
   - name: Report A Security Vulnerability
     url: https://github.com/rsasaki0109/lidar_slam_ros2/security/policy
     about: Do not disclose suspected vulnerabilities in a public issue.

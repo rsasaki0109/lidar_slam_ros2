@@ -8,9 +8,85 @@ gate used for the default permissive workflow.
 The standard benchmark path for this repository is:
 
 ```bash
+bash scripts/download_ntu_viral_tnp01.sh --dry-run
 bash scripts/download_ntu_viral_tnp01.sh
 bash scripts/run_rko_lio_graph_benchmark.sh
 ```
+
+The dry run performs no write or network request. It shows which download,
+extraction, conversion, and restamping phases remain; pins the official archive
+size and checksum; and compares the conservative additional working-set
+estimate with the destination filesystem. A fresh full preparation currently
+needs about 49 GB free because the official archive, ROS 1 bag, converted
+rosbag2, and RKO-LIO restamped bag coexist until completion. If the repository
+filesystem is smaller, the planner looks only for sufficiently large
+attached-but-unmounted Linux hotplug/USB filesystems. It reports partition size
+as `UNVERIFIED_UNTIL_MOUNTED`, never treats that size as free capacity, and
+selects one mount action without mounting or probing the device itself.
+
+After mounting the reported device, use the device identity directly:
+
+```bash
+udisksctl mount -b /dev/sda1
+bash scripts/download_ntu_viral_tnp01.sh \
+  --dest-device /dev/sda1 \
+  --dry-run
+```
+
+`--dest-device` resolves exactly one current mountpoint, appends `ntu_viral`,
+and reruns the real free-space check. Remove only `--dry-run` after `READY`.
+The discovery path creates no directory, starts no network request, does not
+request or bypass authorization, and preserves the selected conversion options
+in its copy-ready preflight and live commands.
+
+For a manually managed filesystem, keep the data out of the checkout with:
+
+```bash
+bash scripts/download_ntu_viral_tnp01.sh \
+  --dest /path/on/large-disk/ntu_viral
+bash scripts/run_rko_lio_graph_benchmark.sh \
+  --bag /path/on/large-disk/ntu_viral/tnp_01_points_restamped_vn100_rosbag2 \
+  --reference-bag /path/on/large-disk/ntu_viral/tnp_01_rosbag2
+```
+
+The live acquisition fails before starting `wget` when the destination cannot
+hold its remaining phases. A cached archive is never extracted until its exact
+official byte count and MD5 identity pass. The shared storage helper and NTU
+acquisition script are both included in the curated release bundle.
+
+## GLIM cross-validation
+
+Use the existing comparison harness when the same rosbag2 input should be run
+through both products:
+
+```bash
+bash scripts/compare_with_glim.sh \
+  --bag /path/to/rosbag2 \
+  --out-dir output/compare_glim
+```
+
+GLIM is a cross-validation reference in this workflow, not ground truth. A
+fresh GLIM trajectory is cached only after its TUM structure and timestamps
+pass validation. If a later fresh GLIM run does not produce a trajectory, the
+harness accepts a fallback only when all of the following match:
+
+- the complete rosbag2 directory bytes and relative file layout;
+- the effective GLIM configuration bytes;
+- the Docker image ID, or the selected local GLIM runtime artifacts;
+- topics, mode, preset, IMU/viewer/OMP options; and
+- the comparison harness and cache-helper implementations.
+
+Each entry has a schema-validated manifest that binds this path-free identity
+to the trajectory SHA-256, byte count, and pose count. A missing, contradictory,
+symlinked, malformed, or modified artifact is a cache miss; the old
+path/topic-only cache format is never imported. The run records
+`glim.cache.status` and the key in `metrics.json`, and writes the observed
+identity to `glim_cache_identity.json` under the run directory.
+
+Use `--no-glim-cache` when a fresh GLIM execution is mandatory. A verified
+cache hit may support technical continuity during a failed fresh run, but it
+does not prove current GLIM installation usability, current runtime success, a
+new benchmark result, or a comparative winner.
 
 ## Newer College Maths-Hard
 
@@ -147,6 +223,63 @@ can be run directly:
 python3 scripts/evaluate_degeneracy_trajectory.py <candidate.tum> \
   --reference-trajectory <dense-reference.tum>
 ```
+
+## RTK-SLAM exact acquisition
+
+Plan the smallest official ROS2 sequence and pinned surveyed-checkpoint assets
+before committing disk space or network time:
+
+```bash
+python3 scripts/download_rtk_slam_dataset.py \
+  --sequence construction_seq2 \
+  --eval-assets \
+  --dest /mnt/large/rtk_slam \
+  --dry-run
+```
+
+This standalone acquisition helper is included in the curated release bundle,
+so the command also works from its extracted `release_bundle/` directory. The
+measured accuracy suite below must run from the exact source checkout in a
+compatible built ROS workspace; the curated bundle is an audit and acquisition
+packet, not a replacement for that runtime workspace.
+
+`--dry-run` performs no download, Git fetch, directory creation, or other
+write. It reports the immutable dataset revision, exact size and SHA-256 of
+each DB3 and metadata file, already-present resumable bytes, remaining payload,
+filesystem reserve, observed free bytes, exact shortfall, and a copy-ready
+external-destination recovery. When Linux exposes a sufficiently large
+attached-but-unmounted hotplug filesystem, the plan lists its device,
+filesystem, partition size, and optional model/label, then makes mounting it
+the single next action. It never mounts or probes the filesystem itself, and
+marks free space unknown until the user mounts it. The follow-up command reruns
+`--dry-run --dest-device /dev/...`; the helper resolves the actual mount path
+and appends `rtk_slam`, so no mount-path placeholder needs editing. It shows
+the matching live command only after that exact filesystem reports `READY`.
+Add `--json` for the same structured plan. Use `--list` to inspect all four
+exact sequence identities without network access.
+
+When the mounted-path plan reports `READY`, remove only `--dry-run`. The live
+command checks
+capacity before its first write or network request, resumes a smaller regular
+file, and verifies exact size plus SHA-256 before accepting it. A same-size
+wrong file, oversized file, non-regular path, or symlink fails closed with a
+recovery action. Evaluation assets are fetched at commit
+`f2921a58caf5a87c1f4f73b48c6f2a5e35f92924`, never a moving default branch.
+
+After acquisition, validate and preview the measured suite without starting
+ROS:
+
+```bash
+python3 scripts/run_rtk_slam_accuracy_suite.py \
+  --dataset-root /mnt/large/rtk_slam \
+  --sequence construction_seq2 \
+  --dry-run
+```
+
+Repeat with `construction_seq1`, or pass `--sequence all` for the complete
+four-sequence suite. Acquisition readiness is not benchmark evidence: the two
+blocking release rows require fresh exact-candidate outputs from Construction
+Seq2 and Construction Seq1.
 
 ## FAST-LIVO2 head-to-head
 
@@ -559,6 +692,11 @@ That wrapper writes a local `Applanix_GSOF49` reference trajectory,
 `traj_raw.tum`, `traj_corrected.tum`, and `metrics.json` so the run appears in
 `benchmark_summary.md` and `latest_report.html`.
 
+For rosbag2 `compression_mode: FILE` inputs, the wrapper plays a private view
+inside the output directory. ROS 2 may decompress the storage file while it
+plays, but that temporary database is removed with the private view when the
+run exits; the source bag directory remains unchanged.
+
 When the main bag already contains native `sensor_msgs/msg/NavSatFix` or
 `sensor_msgs/msg/Imu`, the same wrapper now prefers those real topics before it
 falls back to Applanix sidecar generation.
@@ -868,6 +1006,13 @@ is absent. Neither hard benchmark gate can be combined with
 `--fail-on-profiles`, an empty benchmark root remains report-only and the
 wrapper records that benchmark reporting was skipped.
 
+With `--fail-on-profiles`, an empty benchmark root remains a hard failure but
+is no longer a dead end. The output directory retains a Markdown/CSV summary
+that marks every profile `NO_DATA`, distinguishes the five blocking profiles
+from report-only canaries, and prints the tracked dataset acquisition or rerun
+instruction for each blocker. The process still exits 2 and cannot authorize a
+release without exact-commit evidence.
+
 For the public MID-360 segment-reset completion evidence, add:
 
 ```bash
@@ -913,18 +1058,27 @@ Use `--profile failing` to create a negative-path fixture.
 
 ## Recommended Artifacts To Publish
 
-If you want benchmark results to be easy to consume, publish:
+For a run based only on public, licensed input, first review every file for
+credentials, private paths, host or user names, precise locations, and private
+geometry. The safe publication set is:
 
 - `metrics.json`
 - `benchmark_summary.md`
 - `benchmark_summary.csv`
 - `latest_report.html`
-- the exact param file used for the run
+- a tracked/public parameter preset plus a redacted list of changed arguments,
+  not a complete custom parameter YAML
 - `docs/comparison.md` when publishing the current positioning of the repo
 - `docs/releases/v0.2.2.md` when publishing the current public beta scope
 - `v2_beta_readiness_<YYYYMMDD>.md` when preparing a public beta snapshot
 - `stress_validation_report_<YYYYMMDD>.md` when discussing long-loop or
   aggressive-motion evidence
+
+For a private or custom bag, use the Benchmark report form and share only its
+redacted metadata and key-metric fields. Do not publish the bag, map, trajectory,
+APE/raw logs, raw sensor data, private-site images, local/output paths, or precise
+coordinates. An optional `metrics.json` or public aggregate report is safe only
+after review confirms that none of those values is present.
 
 ## Related Commands
 

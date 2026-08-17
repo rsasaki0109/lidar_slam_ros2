@@ -46,6 +46,12 @@ body:
       required: true
 
   - type: textarea
+    id: support_bundle
+    attributes:
+      label: Privacy-first support ZIP
+      description: If a session exists, run `lidarslam-map support <session_bundle>`, review all three files, then drag the ZIP here.
+
+  - type: textarea
     id: data
     attributes:
       label: Shareable reproduction data

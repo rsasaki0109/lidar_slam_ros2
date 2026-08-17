@@ -9,6 +9,8 @@ body:
         independently completed report may count toward the v1.0 adoption
         gate. Failed attempts are equally useful and will not be hidden.
         Remove private location data and map geometry before posting.
+        PASS requires a reviewed JSON receipt. FAIL may be submitted without
+        one when the run did not produce a receipt.
 
   - type: checkboxes
     id: independence
@@ -50,8 +52,9 @@ body:
   - type: textarea
     id: command
     attributes:
-      label: Exact command
-      description: Paste the command copied or derived from the public documentation.
+      label: Redacted command shape
+      description: Paste the command copied or derived from the public documentation. Replace credentials, private paths, host or user names, and precise locations with the literal REDACTED placeholder; keep the executable, options, and non-private values intact.
+      placeholder: lidarslam-map start REDACTED --profile rko_lio_graph_mid360_preset
       render: bash
     validations:
       required: true
@@ -70,7 +73,7 @@ body:
     id: verification
     attributes:
       label: Verification summary
-      description: Paste the Verification summary block from first_map_validation_receipt.md. For older outputs, run create_first_map_validation_receipt.py --write first. Do not upload map geometry.
+      description: For PASS, paste the Verification summary block from first_map_validation_receipt.md. For FAIL, paste the terminal status or first actionable finding instead. For older outputs, run create_first_map_validation_receipt.py --write first. Do not upload map geometry.
       placeholder: |
         manifest_status=succeeded
         diagnosis_status=success
@@ -84,10 +87,15 @@ body:
     id: receipt
     attributes:
       label: Privacy-bounded JSON receipt
-      description: Review first_map_validation_receipt.json, then drag and drop that file here. GitHub uploads it as a public attachment. The generated receipt excludes map geometry, private paths, and the exact command; do not attach any other run artifact.
-      placeholder: Drag and drop first_map_validation_receipt.json here.
+      description: >-
+        Required for PASS reports: review first_map_validation_receipt.json,
+        then drag and drop that file here. GitHub uploads it as a public
+        attachment. For FAIL reports, leave this field empty when no receipt
+        was produced. The generated receipt excludes map geometry, private
+        paths, and the exact command; do not attach any other run artifact.
+      placeholder: PASS only — drag and drop first_map_validation_receipt.json here.
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: findings
@@ -102,9 +110,9 @@ body:
     attributes:
       label: Privacy and reproducibility
       options:
-        - label: I removed credentials, private location data, and map geometry.
+        - label: I replaced credentials, private paths, host or user names, and precise locations with REDACTED, and I did not include map geometry.
           required: true
-        - label: I reviewed the attached JSON receipt and confirmed that it contains no information I need to keep private.
+        - label: I either reviewed the one attached JSON receipt and confirmed that it contains no information I need to keep private, or selected FAIL because no receipt was produced and attached no file.
           required: true
         - label: The report contains enough version, command, environment, and verification identity for maintainers to review it.
           required: true

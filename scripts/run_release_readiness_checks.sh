@@ -449,33 +449,33 @@ fi
 
 if [[ "${RUN_BENCHMARK_SUMMARY}" == "true" ]]; then
   METRICS_FOUND="$(find "${BENCHMARK_ROOT}" -name metrics.json -print -quit 2>/dev/null || true)"
-  if [[ -n "${METRICS_FOUND}" ]]; then
-    echo "==> Generating benchmark summary from ${BENCHMARK_ROOT}"
-    SUMMARY_CMD=(
-      python3
-      "${REPO_ROOT}/scripts/benchmark_summary.py"
-      --root "${BENCHMARK_ROOT}"
-      --write-md "${OUT_DIR}/benchmark_summary.md"
-      --write-csv "${OUT_DIR}/benchmark_summary.csv"
+  SUMMARY_CMD=(
+    python3
+    "${REPO_ROOT}/scripts/benchmark_summary.py"
+    --root "${BENCHMARK_ROOT}"
+    --write-md "${OUT_DIR}/benchmark_summary.md"
+    --write-csv "${OUT_DIR}/benchmark_summary.csv"
+  )
+  if [[ -n "${APE_THRESHOLD}" ]]; then
+    SUMMARY_CMD+=(
+      --ape-threshold "${APE_THRESHOLD}"
+      --ape-threshold-reference-kind "${APE_THRESHOLD_REFERENCE_KIND}"
+      --fail-on-ape-threshold
     )
-    if [[ -n "${APE_THRESHOLD}" ]]; then
+  fi
+  if [[ -n "${RELEASE_PROFILE}" && -f "${RELEASE_PROFILE}" ]]; then
+    SUMMARY_CMD+=(--release-profile "${RELEASE_PROFILE}")
+    if [[ "${FAIL_ON_PROFILES}" == "true" ]]; then
       SUMMARY_CMD+=(
-        --ape-threshold "${APE_THRESHOLD}"
-        --ape-threshold-reference-kind "${APE_THRESHOLD_REFERENCE_KIND}"
-        --fail-on-ape-threshold
+        --fail-on-profiles
+        --required-git-commit "${RELEASE_CANDIDATE_COMMIT}"
       )
     fi
-    if [[ -n "${RELEASE_PROFILE}" && -f "${RELEASE_PROFILE}" ]]; then
-      SUMMARY_CMD+=(--release-profile "${RELEASE_PROFILE}")
-      if [[ "${FAIL_ON_PROFILES}" == "true" ]]; then
-        SUMMARY_CMD+=(
-          --fail-on-profiles
-          --required-git-commit "${RELEASE_CANDIDATE_COMMIT}"
-        )
-      fi
-    elif [[ -n "${RELEASE_PROFILE}" ]]; then
-      echo "warning: release profile not found at ${RELEASE_PROFILE}; continuing without profile gate" >&2
-    fi
+  elif [[ -n "${RELEASE_PROFILE}" ]]; then
+    echo "warning: release profile not found at ${RELEASE_PROFILE}; continuing without profile gate" >&2
+  fi
+  if [[ -n "${METRICS_FOUND}" ]]; then
+    echo "==> Generating benchmark summary from ${BENCHMARK_ROOT}"
     "${SUMMARY_CMD[@]}" 2>&1 | tee "${OUT_DIR}/benchmark_summary.log"
     echo "==> Generating benchmark HTML report from ${BENCHMARK_ROOT}"
     python3 "${REPO_ROOT}/scripts/generate_html_report.py" \
@@ -483,7 +483,12 @@ if [[ "${RUN_BENCHMARK_SUMMARY}" == "true" ]]; then
       --out "${OUT_DIR}/benchmark_report.html" \
       2>&1 | tee "${OUT_DIR}/benchmark_report.log"
   else
-    if [[ -n "${APE_THRESHOLD}" || "${FAIL_ON_PROFILES}" == "true" ]]; then
+    if [[ "${FAIL_ON_PROFILES}" == "true" ]]; then
+      echo "==> No metrics.json found under ${BENCHMARK_ROOT}; evaluating every release profile as missing evidence"
+      echo "==> No metrics.json found under ${BENCHMARK_ROOT}; skipping benchmark HTML report" \
+        | tee "${OUT_DIR}/benchmark_report.log"
+      "${SUMMARY_CMD[@]}" 2>&1 | tee "${OUT_DIR}/benchmark_summary.log"
+    elif [[ -n "${APE_THRESHOLD}" ]]; then
       echo "error: no metrics.json found under ${BENCHMARK_ROOT}; requested benchmark gate has no evidence" \
         | tee "${OUT_DIR}/benchmark_summary.log" >&2
       exit 2
