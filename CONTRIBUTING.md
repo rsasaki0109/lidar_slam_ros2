@@ -72,6 +72,19 @@ guidance, use the
 form. Passing reports may count toward the v1.0 three-user gate; failed
 attempts are recorded as onboarding findings and are just as valuable.
 
+For bug reports, keep ordinary `doctor <bag> --json` output local because it
+contains the bag path and local commands. Instead run and review:
+
+```bash
+lidarslam-map doctor <rosbag2_dir> --public-json
+```
+
+Paste that complete `public-doctor-evidence-v1` path-free JSON, a redacted
+command shape, expected/observed behavior, and either one reviewed support ZIP
+from an existing session or an explicit no-session/no-ZIP statement with the
+first finding code. Never attach a bag, map, trajectory, raw log/data,
+parameter file, terminal history, or private-site image.
+
 For Autoware-related reports, include:
 
 - projector type and whether an origin exists, with every coordinate and

@@ -313,13 +313,23 @@ def test_bag_mode_delegates_exactly_to_the_existing_preflight(
     bag.mkdir()
     helper.write_text(
         'import sys\n'
-        f'expected = [{str(bag)!r}, "--json"]\n'
-        'raise SystemExit(17 if sys.argv[1:] == expected else 18)\n',
+        f'expected_json = [{str(bag)!r}, "--json"]\n'
+        f'expected_public = [{str(bag)!r}, "--public-json"]\n'
+        'if sys.argv[1:] == expected_json:\n'
+        '    raise SystemExit(17)\n'
+        'if sys.argv[1:] == expected_public:\n'
+        '    raise SystemExit(19)\n'
+        'raise SystemExit(18)\n',
         encoding='utf-8',
     )
     monkeypatch.setattr(DOCTOR, 'SCRIPT_DIR', script_dir)
 
     assert DOCTOR._delegate_bag_doctor(bag, json_output=True) == 17
+    assert DOCTOR._delegate_bag_doctor(
+        bag,
+        json_output=False,
+        public_json_output=True,
+    ) == 19
 
 
 def test_help_and_mode_specific_options_fail_closed(tmp_path):
@@ -334,6 +344,7 @@ def test_help_and_mode_specific_options_fail_closed(tmp_path):
     assert '[rosbag2_dir]' in help_result.stdout
     assert 'no network' in help_result.stdout
     assert 'writes no files' in help_result.stdout
+    assert '--public-json' in help_result.stdout
 
     mixed = subprocess.run(
         [
@@ -350,6 +361,16 @@ def test_help_and_mode_specific_options_fail_closed(tmp_path):
     )
     assert mixed.returncode == 2
     assert 'apply only when no rosbag2_dir' in mixed.stderr
+
+    public_without_bag = subprocess.run(
+        [sys.executable, str(SCRIPT), '--public-json'],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert public_without_bag.returncode == 2
+    assert '--public-json requires rosbag2_dir' in public_without_bag.stderr
 
 
 def test_top_level_doctor_without_bag_emits_privacy_bounded_json(tmp_path):

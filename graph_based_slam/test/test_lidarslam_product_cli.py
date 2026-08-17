@@ -161,6 +161,7 @@ def test_subcommand_help_uses_product_names_and_option_groups():
     assert 'Open the completed map in this viewer' in start.stdout
     assert '--yes' in run.stdout
     assert '--help-all' in run.stdout
+    assert '--public-json' in doctor.stdout
     assert 'deprecated viewer compatibility options:' not in run.stdout
     assert 'deprecated advanced viewer compatibility options:' not in run.stdout
     assert 'verification:' in run.stdout
@@ -230,6 +231,17 @@ def test_doctor_emits_machine_readable_preflight(tmp_path: Path):
     assert payload['recommended_profile_id'] == 'rko_lio_graph_public_path'
     assert payload['summary']['capabilities']['has_pointcloud2'] is True
     assert payload['summary']['capabilities']['has_imu'] is True
+
+    public_result = _run('doctor', str(bag), '--public-json')
+
+    assert public_result.returncode == 0, public_result.stderr
+    evidence = json.loads(public_result.stdout)
+    assert evidence['status'] == 'ready'
+    assert evidence['recommended_profile_id'] == 'rko_lio_graph_public_path'
+    assert str(bag) not in public_result.stdout
+    assert '/points' not in public_result.stdout
+    assert '/imu' not in public_result.stdout
+    assert 'run_autoware_map_beginner.sh' not in public_result.stdout
 
 
 def test_run_dry_run_and_inspect_delegate_to_proven_tools(tmp_path: Path):

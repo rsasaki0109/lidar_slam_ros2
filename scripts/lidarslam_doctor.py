@@ -434,10 +434,19 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help='Optional directory containing metadata.yaml.',
     )
-    parser.add_argument(
+    output_group = parser.add_mutually_exclusive_group()
+    output_group.add_argument(
         '--json',
         action='store_true',
         help='Emit machine-readable JSON.',
+    )
+    output_group.add_argument(
+        '--public-json',
+        action='store_true',
+        help=(
+            'With a bag, emit path-free, topic/frame-name-free evidence for '
+            'a reviewed public issue.'
+        ),
     )
     parser.add_argument(
         '--demo-dir',
@@ -470,13 +479,20 @@ def _system_option_requested(argv: Sequence[str]) -> bool:
     )
 
 
-def _delegate_bag_doctor(bag: Path, *, json_output: bool) -> int:
+def _delegate_bag_doctor(
+    bag: Path,
+    *,
+    json_output: bool,
+    public_json_output: bool = False,
+) -> int:
     helper = SCRIPT_DIR / 'preflight_autoware_map_bag.py'
     if not helper.is_file():
         raise DoctorError(f'bag preflight helper is missing: {helper.name}')
     command = [sys.executable, str(helper), str(bag)]
     if json_output:
         command.append('--json')
+    elif public_json_output:
+        command.append('--public-json')
     try:
         return subprocess.run(command, check=False).returncode
     except OSError as exc:
@@ -505,10 +521,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _delegate_bag_doctor(
                 args.rosbag2_dir,
                 json_output=args.json,
+                public_json_output=args.public_json,
             )
         except DoctorError as exc:
             print(f'error: {exc}', file=sys.stderr)
             return 70
+    if args.public_json:
+        parser.error('--public-json requires rosbag2_dir')
     try:
         report = build_system_report(
             demo_dir=args.demo_dir,

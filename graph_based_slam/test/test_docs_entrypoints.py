@@ -186,6 +186,12 @@ TIMESTAMP_ORDER_EVIDENCE_DOC = (
 )
 REAL_DATA_E2E_DOC = REPO_ROOT / 'docs' / 'real-data-e2e.md'
 PREFLIGHT_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'preflight-v6.schema.json'
+PUBLIC_DOCTOR_EVIDENCE_SCHEMA = (
+    REPO_ROOT
+    / 'docs'
+    / 'schemas'
+    / 'public-doctor-evidence-v1.schema.json'
+)
 DIAGNOSIS_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / 'diagnosis-v1.schema.json'
 MAP_SESSION_RECOVERY_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'map-session-recovery-v1.schema.json'
@@ -347,6 +353,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert CLI_V1_INSTALL_EVIDENCE_DOC.is_file()
     assert REAL_DATA_E2E_DOC.is_file()
     assert PREFLIGHT_SCHEMA.is_file()
+    assert PUBLIC_DOCTOR_EVIDENCE_SCHEMA.is_file()
     assert DIAGNOSIS_SCHEMA.is_file()
     assert MAP_SESSION_RECOVERY_SCHEMA.is_file()
     assert RUN_MANIFEST_SCHEMA.is_file()
@@ -643,7 +650,8 @@ def test_contributing_and_issue_templates_exist():
     bug_form = (ISSUE_TEMPLATE_DIR / 'bug-report.yml').read_text(
         encoding='utf-8'
     )
-    assert 'lidarslam-map doctor <bag> --json' in bug_form
+    assert 'lidarslam-map doctor <bag> --public-json' in bug_form
+    assert 'do not substitute ordinary `--json` output' in bug_form
     assert '--preflight-only' not in bug_form
 
     first_map_form = (
@@ -864,18 +872,54 @@ def test_bug_form_accepts_pre_session_failure_without_fake_zip_claims():
         if isinstance(item, dict) and 'id' in item
     }
     preflight = fields['preflight']
+    command = fields['command']
     diagnostics = fields['diagnostics']
     checks = fields['checks']
     check_labels = [
         option['label'] for option in checks['attributes']['options']
     ]
 
+    assert command['attributes']['label'] == 'Redacted command shape'
+    assert command['attributes']['render'] == 'bash'
+    assert command['validations']['required'] is True
+    command_help = command['attributes']['description']
+    for private_value in (
+        'credentials',
+        'private paths',
+        'host or user names',
+        'precise locations',
+        'literal REDACTED placeholder',
+    ):
+        assert private_value in command_help
+    assert 'REDACTED' in command['attributes']['placeholder']
+
+    assert preflight['attributes']['label'] == 'Public doctor evidence'
+    assert preflight['attributes']['render'] == 'json'
     assert preflight['validations']['required'] is True
+    preflight_help = preflight['attributes']['description']
+    assert 'lidarslam-map doctor <bag> --public-json' in preflight_help
+    assert 'paste the complete JSON' in preflight_help
+    assert 'bag-preflight-input-error' in preflight_help
+    for omitted_value in (
+        'bag paths',
+        'topic or frame names',
+        'local commands',
+        'raw data',
+        'raw logs',
+        'free-text messages',
+    ):
+        assert omitted_value in preflight_help
+    assert 'do not substitute ordinary `--json` output' in preflight_help
     assert diagnostics['validations']['required'] is True
     diagnostics_help = diagnostics['attributes']['description']
     assert 'If a session exists' in diagnostics_help
     assert 'If no session was created' in diagnostics_help
-    assert 'first actionable doctor or terminal finding' in diagnostics_help
+    assert 'first_action_code' in diagnostics_help
+    assert 'finding_codes' in diagnostics_help
+    assert 'Do not paste raw doctor output, terminal history, or logs' in (
+        diagnostics_help
+    )
+    assert len(check_labels) == 5
     assert all(
         option['required'] is True
         for option in checks['attributes']['options']
@@ -886,6 +930,12 @@ def test_bug_form_accepts_pre_session_failure_without_fake_zip_claims():
     )
     assert 'or no session and ZIP existed' in zip_attestation
     assert 'attached no file' in zip_attestation
+    public_attestation = check_labels[1]
+    assert 'complete reviewed `--public-json` evidence' in public_attestation
+    assert 'literal REDACTED placeholder' in public_attestation
+    artifact_attestation = check_labels[3]
+    assert 'no rosbag, map or trajectory geometry' in artifact_attestation
+    assert 'terminal history' in artifact_attestation
 
     support = ' '.join(SUPPORT_PATH.read_text(encoding='utf-8').split())
     assert 'do not fabricate an empty ZIP or claim to have reviewed one' in (
@@ -904,7 +954,20 @@ def test_bug_form_accepts_pre_session_failure_without_fake_zip_claims():
         if link['name'] == 'Usage Support'
     )
     assert 'If a session exists' in usage_support['about']
-    assert 'otherwise keep the doctor output' in usage_support['about']
+    assert 'otherwise use doctor --public-json' in usage_support['about']
+
+    contributing = ' '.join(
+        CONTRIBUTING_PATH.read_text(encoding='utf-8').split()
+    )
+    golden_path = ' '.join(
+        GOLDEN_PATH_CLI_DOC.read_text(encoding='utf-8').split()
+    )
+    compatibility = ' '.join(
+        CLI_COMPATIBILITY_DOC.read_text(encoding='utf-8').split()
+    )
+    for document in (support, contributing, golden_path, compatibility):
+        assert 'doctor <rosbag2_dir> --public-json' in document
+        assert 'public-doctor-evidence-v1' in document
 
 
 def test_autoware_form_never_requests_private_map_or_origin_evidence():

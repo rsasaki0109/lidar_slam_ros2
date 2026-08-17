@@ -283,6 +283,104 @@ def test_rko_lio_public_path_is_preferred_for_pointcloud_and_imu(tmp_path: Path)
     assert 'inspect_navsatfix_covariance.py' in report
 
 
+def test_public_doctor_evidence_is_schema_valid_and_path_free(tmp_path: Path):
+    module = _load_module()
+    private_root = tmp_path / 'private-site-alice'
+    private_root.mkdir()
+    bag_dir = _write_metadata(
+        private_root,
+        [
+            ('/private_vehicle/points', 'sensor_msgs/msg/PointCloud2', 200),
+            ('/private_vehicle/imu', 'sensor_msgs/msg/Imu', 2000),
+        ],
+    )
+    payload = module.build_preflight_payload(
+        bag_dir,
+        pointcloud_inspector=_compatible_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+    )
+
+    evidence = module.build_public_preflight_evidence(payload)
+    schema = json.loads((
+        REPO_ROOT
+        / 'docs'
+        / 'schemas'
+        / 'public-doctor-evidence-v1.schema.json'
+    ).read_text(encoding='utf-8'))
+    jsonschema.Draft7Validator.check_schema(schema)
+    jsonschema.validate(evidence, schema)
+
+    encoded = json.dumps(evidence, sort_keys=True)
+    assert evidence['status'] == 'ready'
+    assert evidence['recommended_profile_id'] == (
+        'rko_lio_graph_public_path'
+    )
+    assert evidence['finding_codes'] == []
+    assert evidence['first_action_code'] is None
+    assert evidence['input']['topic_type_counts'] == [
+        {
+            'msg_type': 'sensor_msgs/msg/Imu',
+            'topic_count': 1,
+            'message_count': 2000,
+        },
+        {
+            'msg_type': 'sensor_msgs/msg/PointCloud2',
+            'topic_count': 1,
+            'message_count': 200,
+        },
+    ]
+    assert evidence['privacy'] == {
+        'bag_path_included': False,
+        'topic_or_frame_names_included': False,
+        'local_commands_included': False,
+        'raw_sensor_data_included': False,
+        'raw_logs_included': False,
+        'free_text_messages_included': False,
+        'review_before_sharing': True,
+    }
+    for private_value in (
+        str(bag_dir),
+        'private-site-alice',
+        '/private_vehicle/points',
+        '/private_vehicle/imu',
+        'run_autoware_map_beginner.sh',
+    ):
+        assert private_value not in encoded
+
+
+def test_public_doctor_input_error_never_echoes_the_private_path(
+    tmp_path: Path,
+):
+    private_path = tmp_path / 'private-site-alice' / 'missing-bag'
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            str(private_path),
+            '--public-json',
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stderr == ''
+    assert str(private_path) not in result.stdout
+    evidence = json.loads(result.stdout)
+    schema = json.loads((
+        REPO_ROOT
+        / 'docs'
+        / 'schemas'
+        / 'public-doctor-evidence-v1.schema.json'
+    ).read_text(encoding='utf-8'))
+    jsonschema.validate(evidence, schema)
+    assert evidence['status'] == 'input_error'
+    assert evidence['finding_codes'] == ['bag-preflight-input-error']
+    assert evidence['first_action_code'] == 'bag-preflight-input-error'
+
+
 def test_odometry_without_tf_is_visible_beside_compatible_path(tmp_path: Path):
     module = _load_module()
     bag_dir = _write_metadata(
@@ -311,6 +409,29 @@ def test_odometry_without_tf_is_visible_beside_compatible_path(tmp_path: Path):
     report = module.render_text_report(payload)
     assert 'Recommended path: RKO-LIO + graph_based_slam public path' in report
     assert '[odometry-tf-missing]' in report
+
+    evidence = module.build_public_preflight_evidence(payload)
+    schema = json.loads((
+        REPO_ROOT
+        / 'docs'
+        / 'schemas'
+        / 'public-doctor-evidence-v1.schema.json'
+    ).read_text(encoding='utf-8'))
+    jsonschema.validate(evidence, schema)
+    encoded = json.dumps(evidence, sort_keys=True)
+    assert evidence['status'] == 'action_required'
+    assert evidence['finding_codes'] == ['odometry-tf-missing']
+    assert evidence['first_action_code'] == 'odometry-tf-missing'
+    assert evidence['checks']['odometry_tf']['status'] == 'failed'
+    for private_value in (
+        str(bag_dir),
+        '/points',
+        '/imu/data',
+        '/odom',
+        'does not publish that transform by itself',
+        'run_autoware_map_beginner.sh',
+    ):
+        assert private_value not in encoded
 
 
 def test_future_tf_timing_is_actionable_but_keeps_compatible_path(
@@ -680,6 +801,22 @@ def test_cli_json_output_matches_machine_readable_payload(tmp_path: Path):
         'applanix-gsof49-input-missing',
     ]
     assert all(finding['next_action'] for finding in payload['findings'])
+
+    public_result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), str(bag_dir), '--public-json'],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    evidence = json.loads(public_result.stdout)
+    assert evidence['status'] == 'action_required'
+    assert evidence['first_action_code'] == (
+        'timestamp-inspection-unavailable'
+    )
+    assert str(bag_dir) not in public_result.stdout
+    assert '/points' not in public_result.stdout
+    assert '/tf' not in public_result.stdout
+    assert 'Run ros2 bag info' not in public_result.stdout
 
 
 def test_cli_help_is_user_facing():

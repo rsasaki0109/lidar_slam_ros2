@@ -61,6 +61,7 @@
   },
   "system_doctor_contract": {
     "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/system-doctor-v1.schema.json",
+    "public_evidence_schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/public-doctor-evidence-v1.schema.json",
     "command": "doctor",
     "system_mode": "omit rosbag2_dir to check product files, installed-prefix activation, supported ROS, rosbag2_py, and fixed-demo storage",
     "bag_mode": "provide rosbag2_dir to retain the existing topic, field, timestamp, and maintained-profile preflight",
@@ -78,6 +79,8 @@
       "JSON omits checkout, install-prefix, home, and demo-directory paths",
       "storage reports exact additional bytes required and a placeholder-free retry command",
       "bag mode delegates to the existing preflight implementation",
+      "--public-json requires a bag and emits only type/count/check/profile/finding-code evidence without bag paths, topic or frame names, local commands, raw data, raw logs, or free-text messages",
+      "--public-json emits the same path-free schema with bag-preflight-input-error when the local input cannot be read",
       "system-only storage options fail closed when a bag is provided"
     ]
   },
@@ -1125,6 +1128,13 @@
           ],
           "stability": "stable",
           "tier": "automation"
+        },
+        {
+          "names": [
+            "--public-json"
+          ],
+          "stability": "stable",
+          "tier": "support"
         },
         {
           "names": [

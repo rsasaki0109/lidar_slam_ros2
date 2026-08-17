@@ -133,6 +133,9 @@ def test_contract_identifies_the_complete_product_surface():
     assert doctor['schema_uri'].endswith(
         '/schemas/system-doctor-v1.schema.json'
     )
+    assert doctor['public_evidence_schema_uri'].endswith(
+        '/schemas/public-doctor-evidence-v1.schema.json'
+    )
     assert doctor['command'] == 'doctor'
     assert doctor['statuses'] == ['ready', 'action_required']
     assert doctor['finding_fields'] == ['code', 'message', 'next_action']
@@ -140,6 +143,8 @@ def test_contract_identifies_the_complete_product_surface():
     assert 'maintained-profile preflight' in doctor['bag_mode']
     assert 'no network and writes no files' in doctor['safety_rules'][0]
     assert 'omits checkout' in doctor['safety_rules'][1]
+    assert '--public-json requires a bag' in doctor['safety_rules'][4]
+    assert 'bag-preflight-input-error' in doctor['safety_rules'][5]
     symptom = contract['map_quality_symptom_triage_contract']
     assert symptom['schema_uri'].endswith('/schemas/diagnosis-v1.schema.json')
     assert symptom['command'] == 'inspect'

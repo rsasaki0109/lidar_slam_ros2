@@ -13,13 +13,25 @@ there is no guaranteed response or resolution time.
 lidarslam-map doctor <rosbag2_dir> --json
 ```
 
-4. If a map session exists, create its privacy-first support attachment:
+   This full local report contains the bag path and copy-ready local commands;
+   do not paste it into a public issue. Generate the bounded public evidence:
+
+```bash
+lidarslam-map doctor <rosbag2_dir> --public-json
+```
+
+4. Review that JSON. It contains type/count/check/profile/finding-code evidence,
+   but no bag path, topic or frame names, local commands, raw data, raw logs, or
+   free-text messages. An unreadable input still returns path-free
+   `bag-preflight-input-error` evidence. Its contract is
+   `public-doctor-evidence-v1`.
+5. If a map session exists, create its privacy-first support attachment:
 
 ```bash
 lidarslam-map support output/<session>
 ```
 
-5. Review all three files in the ZIP, then search existing issues before
+6. Review all three files in the ZIP, then search existing issues before
    opening a new one.
 
 ## Where to report
@@ -39,6 +51,11 @@ The first-map form asks for a **Redacted command shape**, not raw terminal
 history. Keep the executable, options, and non-private values, and replace
 credentials, private paths, host or user names, and precise locations with the
 literal `REDACTED` placeholder before submitting the public report.
+
+The Bug report uses the same redacted command shape and requires the complete
+reviewed `doctor <bag> --public-json` result. Ordinary `doctor --json` is a local
+automation contract and includes the bag path and local commands. Never paste
+that full report, terminal history, or raw logs into a public issue.
 
 The benchmark form follows the same redaction rule. Identify public datasets by
 canonical source and license; for a private or custom bag, share only a redacted
@@ -62,23 +79,22 @@ parameter-file contents, exact local paths and credential-like command values.
 It does not upload anything or open an issue. Review the ZIP before sharing it.
 
 If the failure occurs before a session exists, do not fabricate an empty ZIP
-or claim to have reviewed one. The Bug report form instead requires the doctor
-output, a clear `no session was created` statement, and the first actionable
-doctor or terminal finding. Its privacy checklist then attests that no ZIP was
-attached. This pre-session path does not weaken the ZIP review requirement when
-a session does exist.
+or claim to have reviewed one. The Bug report form instead requires the bounded
+public doctor JSON, a clear `no session was created` statement, and its first
+`first_action_code` or `finding_codes` value. Its privacy checklist then attests
+that no ZIP or raw diagnostic file was attached. This pre-session path does not
+weaken the ZIP review requirement when a session does exist.
 
 Reports are most actionable when they also include, where relevant:
 
 - expected and observed behavior.
-- `lidarslam-map doctor <bag> --json` output when no session could be created;
+- reviewed `lidarslam-map doctor <bag> --public-json` evidence when no session
+  could be created;
 - the sensor model and physical calibration assumptions;
-- separately reviewed logs only when the bounded support report is
-  insufficient;
 - the smallest licensed, explicitly shareable bag or metadata reproduction.
 
-Do not upload private location data, credentials or proprietary bags without
-authorization.
+Do not upload private location data, credentials, bags, map/trajectory
+geometry, terminal history, or raw logs to a public issue.
 
 For an Autoware map report, share only the projector type and whether an origin
 exists. Redact latitude, longitude, altitude, MGRS/grid identifiers, and every

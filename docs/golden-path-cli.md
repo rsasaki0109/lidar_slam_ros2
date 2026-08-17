@@ -476,7 +476,7 @@ The stability label and migration rules for every option are defined in the
 | One-command session | `start`, `start --yes --dry-run`, `start --editable`, `start --viewer` | Pin calibration and configuration, run the verified map lifecycle, then open the result |
 | Session return and comparison | `sessions`, `sessions --status`, `compare --viewer`, `compare --json` | Reopen local runs and compare two retained evidence sets without inferred scoring |
 | Maintainer or validator report | `support --output`, `support --json`, `support --first-map [--json]` | Create a fixed privacy-first ZIP, inspect its sanitized report, or revalidate and hand off one verified first-map receipt without writing |
-| Doctor output | `doctor --json` | Emit the versioned preflight contract for automation |
+| Doctor output | `doctor --json`, `doctor <rosbag2_dir> --public-json` | Keep the full versioned preflight local for automation, or emit bounded path-free evidence for a reviewed public issue |
 | Guided compatibility | `run --guided`, `run --guided --yes`, `run --guided --dry-run` | Preserve the earlier explained-run path for existing launchers |
 | Map selection and output | `run --profile`, `run --output-dir` | Select a maintained profile or an explicit artifact directory |
 | Safety and lifecycle | `run --min-free-space-gib`, `run --dry-run`, `run --resume` | Refuse unsafe starts, inspect a plan, or finish terminal post-processing |
@@ -505,6 +505,10 @@ it must not infer compatibility from the repository version.
 
 - [Preflight schema v6](schemas/preflight-v6.schema.json) — current; adds
   bounded replay-order PointCloud2-to-dynamic-TF timing evidence
+- [Public doctor evidence schema v1](schemas/public-doctor-evidence-v1.schema.json)
+  — path/topic-name/frame-name/command/free-text-free
+  type/count/check/profile/finding-code projection for reviewed public issues,
+  including bounded input-error evidence
 - [Preflight schema v5](schemas/preflight-v5.schema.json) — adds bounded
   Odometry parent/child and recorded dynamic-TF connectivity evidence
 - [Preflight schema v4](schemas/preflight-v4.schema.json) — adds

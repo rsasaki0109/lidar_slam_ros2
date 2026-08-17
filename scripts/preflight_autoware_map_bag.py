@@ -36,6 +36,11 @@ GSOF50 = 'applanix_msgs/msg/NavigationPerformanceGsof50'
 VELOCITY_REPORT = 'autoware_auto_vehicle_msgs/msg/VelocityReport'
 SCHEMA_VERSION = 6
 SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/preflight-v6.schema.json'
+PUBLIC_EVIDENCE_SCHEMA_VERSION = 1
+PUBLIC_EVIDENCE_SCHEMA_URI = (
+    'https://rsasaki0109.github.io/lidar_slam_ros2/'
+    'schemas/public-doctor-evidence-v1.schema.json'
+)
 POINT_FIELD_UINT32 = 6
 POINT_FIELD_FLOAT32 = 7
 POINT_FIELD_FLOAT64 = 8
@@ -2074,6 +2079,217 @@ def build_preflight_payload(
     }
 
 
+def _public_topic_type_counts(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    """Aggregate topic evidence without publishing topic names."""
+    totals: dict[str, dict[str, Any]] = {}
+    for records in summary['topics'].values():
+        for record in records:
+            msg_type = str(record['msg_type'])
+            current = totals.setdefault(msg_type, {
+                'msg_type': msg_type,
+                'topic_count': 0,
+                'message_count': 0,
+            })
+            current['topic_count'] += 1
+            current['message_count'] += int(record['message_count'])
+    return [totals[msg_type] for msg_type in sorted(totals)]
+
+
+def build_public_preflight_evidence(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Project preflight-v6 into bounded evidence safe for a public issue."""
+    summary = payload['summary']
+    pointcloud = summary['pointcloud_inspection']
+    timestamp_order = summary['timestamp_order']
+    timestamp_topics = timestamp_order['topics']
+    odometry_tf = summary['odometry_tf']
+    odometry_tf_timing = summary['odometry_tf_timing']
+    recommendations = payload['recommendations']
+    findings = payload['findings']
+    if findings:
+        status = 'action_required'
+    elif recommendations:
+        status = 'ready'
+    else:
+        status = 'unsupported'
+
+    return {
+        'schema_version': PUBLIC_EVIDENCE_SCHEMA_VERSION,
+        'schema_uri': PUBLIC_EVIDENCE_SCHEMA_URI,
+        'mode': 'bag_public_evidence',
+        'status': status,
+        'input': {
+            'duration_sec': summary['duration_sec'],
+            'message_count': summary['message_count'],
+            'capabilities': {
+                key: bool(value)
+                for key, value in sorted(summary['capabilities'].items())
+            },
+            'topic_type_counts': _public_topic_type_counts(summary),
+        },
+        'checks': {
+            'pointcloud': {
+                'status': pointcloud['status'],
+                'field_names': sorted({
+                    str(field['name']) for field in pointcloud['fields']
+                }),
+                'rko_lio_compatible': pointcloud['rko_lio_compatible'],
+                'timestamp_field': pointcloud['timestamp_field'],
+            },
+            'timestamp_order': {
+                'status': timestamp_order['status'],
+                'topic_type_count': len({
+                    str(item['msg_type']) for item in timestamp_topics
+                }),
+                'records_scanned': sum(
+                    int(item['records_scanned']) for item in timestamp_topics
+                ),
+                'reversal_count': sum(
+                    int(item['reversal_count']) for item in timestamp_topics
+                ),
+                'invalid_stamp_count': sum(
+                    int(item['invalid_stamp_count'])
+                    for item in timestamp_topics
+                ),
+            },
+            'odometry_tf': {
+                'status': odometry_tf['status'],
+                'records_scanned': odometry_tf['records_scanned'],
+                'tf_records_scanned': odometry_tf['tf_records_scanned'],
+                'readable': odometry_tf['readable'],
+                'invalid_frame_count': odometry_tf['invalid_frame_count'],
+                'invalid_transform_count': (
+                    odometry_tf['invalid_transform_count']
+                ),
+                'path_edge_count': len(odometry_tf['path_edges']),
+                'dynamic_path': odometry_tf['dynamic_path'],
+            },
+            'odometry_tf_timing': {
+                'status': odometry_tf_timing['status'],
+                'pointcloud_records_scanned': (
+                    odometry_tf_timing['pointcloud_records_scanned']
+                ),
+                'tf_records_scanned': (
+                    odometry_tf_timing['tf_records_scanned']
+                ),
+                'invalid_pointcloud_stamp_count': (
+                    odometry_tf_timing['invalid_pointcloud_stamp_count']
+                ),
+                'invalid_transform_stamp_count': (
+                    odometry_tf_timing['invalid_transform_stamp_count']
+                ),
+                'clouds_before_all_dynamic_tf': (
+                    odometry_tf_timing['clouds_before_all_dynamic_tf']
+                ),
+                'future_extrapolation_count': (
+                    odometry_tf_timing['future_extrapolation_count']
+                ),
+                'max_future_gap_ns': odometry_tf_timing['max_future_gap_ns'],
+            },
+        },
+        'recommended_profile_id': payload['recommended_profile_id'],
+        'compatible_profile_ids': sorted(
+            str(item['id']) for item in recommendations
+        ),
+        'finding_codes': [str(item['code']) for item in findings],
+        'first_action_code': (
+            str(findings[0]['code']) if findings else None
+        ),
+        'privacy': {
+            'bag_path_included': False,
+            'topic_or_frame_names_included': False,
+            'local_commands_included': False,
+            'raw_sensor_data_included': False,
+            'raw_logs_included': False,
+            'free_text_messages_included': False,
+            'review_before_sharing': True,
+        },
+        'network_accessed': False,
+        'writes_performed': False,
+    }
+
+
+def build_public_preflight_input_error() -> dict[str, Any]:
+    """Return path-free public evidence when the local input cannot be read."""
+    empty_capabilities = {
+        key: False
+        for key in (
+            'has_applanix_gsof49',
+            'has_applanix_gsof50',
+            'has_imu',
+            'has_navsatfix',
+            'has_odometry',
+            'has_pointcloud2',
+            'has_tf',
+            'has_velodyne_scan',
+            'has_velocity_report',
+        )
+    }
+    return {
+        'schema_version': PUBLIC_EVIDENCE_SCHEMA_VERSION,
+        'schema_uri': PUBLIC_EVIDENCE_SCHEMA_URI,
+        'mode': 'bag_public_evidence',
+        'status': 'input_error',
+        'input': {
+            'duration_sec': None,
+            'message_count': 0,
+            'capabilities': empty_capabilities,
+            'topic_type_counts': [],
+        },
+        'checks': {
+            'pointcloud': {
+                'status': 'error',
+                'field_names': [],
+                'rko_lio_compatible': None,
+                'timestamp_field': None,
+            },
+            'timestamp_order': {
+                'status': 'error',
+                'topic_type_count': 0,
+                'records_scanned': 0,
+                'reversal_count': 0,
+                'invalid_stamp_count': 0,
+            },
+            'odometry_tf': {
+                'status': 'error',
+                'records_scanned': 0,
+                'tf_records_scanned': 0,
+                'readable': False,
+                'invalid_frame_count': 0,
+                'invalid_transform_count': 0,
+                'path_edge_count': 0,
+                'dynamic_path': None,
+            },
+            'odometry_tf_timing': {
+                'status': 'error',
+                'pointcloud_records_scanned': 0,
+                'tf_records_scanned': 0,
+                'invalid_pointcloud_stamp_count': 0,
+                'invalid_transform_stamp_count': 0,
+                'clouds_before_all_dynamic_tf': 0,
+                'future_extrapolation_count': 0,
+                'max_future_gap_ns': 0,
+            },
+        },
+        'recommended_profile_id': None,
+        'compatible_profile_ids': [],
+        'finding_codes': ['bag-preflight-input-error'],
+        'first_action_code': 'bag-preflight-input-error',
+        'privacy': {
+            'bag_path_included': False,
+            'topic_or_frame_names_included': False,
+            'local_commands_included': False,
+            'raw_sensor_data_included': False,
+            'raw_logs_included': False,
+            'free_text_messages_included': False,
+            'review_before_sharing': True,
+        },
+        'network_accessed': False,
+        'writes_performed': False,
+    }
+
+
 def _format_topic_list(records: list[dict[str, Any]]) -> str:
     if not records:
         return 'none'
@@ -2240,6 +2456,7 @@ def _help_epilog() -> str:
         'Typical commands:',
         f'  {command} /path/to/rosbag2',
         f'  {command} /path/to/rosbag2 --json',
+        f'  {command} /path/to/rosbag2 --public-json',
         f'  {product_command} run /path/to/rosbag2 --dry-run',
     ])
 
@@ -2265,10 +2482,19 @@ def parse_args() -> argparse.Namespace:
         action='help',
         help='Show all options (this command has no advanced options).',
     )
-    parser.add_argument(
+    output_group = parser.add_mutually_exclusive_group()
+    output_group.add_argument(
         '--json',
         action='store_true',
         help='Emit machine-readable JSON instead of the human report.',
+    )
+    output_group.add_argument(
+        '--public-json',
+        action='store_true',
+        help=(
+            'Emit path-free, topic/frame-name-free evidence for a reviewed '
+            'public issue instead of the local report.'
+        ),
     )
     return parser.parse_args()
 
@@ -2281,10 +2507,23 @@ def main() -> int:
         validate_bag_path(bag_path)
         payload = build_preflight_payload(bag_path)
     except (OSError, ValueError) as exc:
+        if args.public_json:
+            print(json.dumps(
+                build_public_preflight_input_error(),
+                indent=2,
+                sort_keys=True,
+            ))
+            return 2
         print(f'error: {exc}', file=sys.stderr)
         return 2
 
-    if args.json:
+    if args.public_json:
+        print(json.dumps(
+            build_public_preflight_evidence(payload),
+            indent=2,
+            sort_keys=True,
+        ))
+    elif args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         print(render_text_report(payload))
