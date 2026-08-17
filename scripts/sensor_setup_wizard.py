@@ -754,7 +754,9 @@ def _readme(manifest: dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
-def _render_text(result: dict[str, Any]) -> str:
+def _render_text(
+    result: dict[str, Any], *, confirmation_follows: bool = False
+) -> str:
     if result['status'] == 'not_ready':
         topics = result['detected']['topics']
 
@@ -802,7 +804,7 @@ def _render_text(result: dict[str, Any]) -> str:
         return '\n'.join(lines)
     if result['status'] == 'review_required':
         transforms = result['profile_extrinsics']
-        return '\n'.join([
+        lines = [
             'Sensor setup: REVIEW REQUIRED',
             f"Bag: {result['bag_path']}",
             f"Profile: {result['profile']['label']}",
@@ -818,12 +820,26 @@ def _render_text(result: dict[str, Any]) -> str:
             '',
             result['message'],
             '',
-            'If they match, generate the bundle with:',
-            f"  {result['next_command']}",
-            '',
-            'Otherwise supply --lidar-to-base and --imu-to-base.',
-            'No files were written.',
-        ])
+        ]
+        if confirmation_follows:
+            lines.extend([
+                'Do this now:',
+                '  Review the values above, then answer the confirmation '
+                'prompt below.',
+                '',
+                'Otherwise cancel and rerun with measured --lidar-to-base and '
+                '--imu-to-base.',
+                'No files were written yet.',
+            ])
+        else:
+            lines.extend([
+                'If they match, generate the bundle with:',
+                f"  {result['next_command']}",
+                '',
+                'Otherwise supply --lidar-to-base and --imu-to-base.',
+                'No files were written.',
+            ])
+        return '\n'.join(lines)
     calibration = result['calibration']
     dry_run = result['status'] == 'dry_run'
     topics = result['topics']
@@ -3383,7 +3399,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.json:
             print(json.dumps(result, indent=2, sort_keys=True))
         else:
-            print(_render_text(result))
+            print(_render_text(
+                result,
+                confirmation_follows=(
+                    args.run_now
+                    and not args.dry_run
+                    and sys.stdin.isatty()
+                ),
+            ))
         if not args.run_now or args.dry_run:
             return 0
         decision = _ask_to_start(calibration_review=True)

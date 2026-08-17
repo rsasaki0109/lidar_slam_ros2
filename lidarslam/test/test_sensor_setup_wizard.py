@@ -430,6 +430,7 @@ def test_start_requires_explicit_noninteractive_calibration_acceptance(
 
     assert result.returncode == 2
     assert 'Sensor setup: REVIEW REQUIRED' in result.stdout
+    assert 'If they match, generate the bundle with:' in result.stdout
     assert '--yes' in result.stdout
     assert 'start needs confirmation on a terminal' in result.stderr
     assert not session.exists()
@@ -579,6 +580,12 @@ def test_start_interactive_confirmation_completes_one_command(
     assert calls[0][:2] == ['./scripts/lidarslam', 'run']
     output = capsys.readouterr().out
     assert 'Sensor setup: REVIEW REQUIRED' in output
+    assert (
+        'Review the values above, then answer the confirmation prompt below.'
+        in output
+    )
+    assert 'If they match, generate the bundle with:' not in output
+    assert '--yes' not in output
     assert 'Sensor session: READY' in output
     assert 'Verified map session completed' in output
 

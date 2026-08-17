@@ -149,6 +149,15 @@
     "finding_fields": ["code", "message", "next_action"],
     "operator_rule": "key on stable codes; display messages and next actions"
   },
+  "sensor_setup_review_contract": {
+    "commands": ["start", "setup"],
+    "status": "review_required",
+    "safety_rules": [
+      "live interactive start renders one calibration review then asks one fail-closed confirmation without presenting a second --yes command",
+      "non-interactive start, setup, and dry-run retain the exact reviewed rerun command",
+      "decline, EOF, or unreviewed calibration starts no mapping"
+    ]
+  },
   "map_session_recovery_contract": {
     "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/map-session-recovery-v1.schema.json",
     "command": "start",

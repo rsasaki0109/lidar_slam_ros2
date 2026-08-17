@@ -392,10 +392,13 @@ lidarslam-map start /path/to/rosbag2
 topic it will consume. It supports PointCloud2+Imu, PointCloud2+NavSatFix, and
 VelodyneScan+Applanix GSOF49 bags through the same command. For RKO-LIO it also
 reports both sensor-to-base transforms and writes nothing until you confirm
-that the tracked extrinsics match the physical robot. After confirmation it
-saves the setup, runs the normal atomic map lifecycle, requires verification,
-and opens the self-contained browser view. Use `--viewer none` on a headless
-host.
+that the tracked extrinsics match the physical robot. In an interactive
+terminal, review those values once and answer the fail-closed prompt immediately
+below them; there is no second command to copy. A non-interactive run instead
+prints the exact reviewed `--yes` command and exits without starting mapping.
+After confirmation, `start` saves the setup, runs the normal atomic map
+lifecycle, requires verification, and opens the self-contained browser view.
+Use `--viewer none` on a headless host.
 
 The session directory contains `sensor_setup.json`, pinned parameter snapshots,
 and the completed map under `map/`. To inspect the full decision without writing:

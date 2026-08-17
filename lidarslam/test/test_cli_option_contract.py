@@ -228,6 +228,18 @@ def test_contract_identifies_the_complete_product_surface():
             'key on stable codes; display messages and next actions'
         ),
     }
+    assert contract['sensor_setup_review_contract'] == {
+        'commands': ['start', 'setup'],
+        'status': 'review_required',
+        'safety_rules': [
+            'live interactive start renders one calibration review then asks '
+            'one fail-closed confirmation without presenting a second --yes '
+            'command',
+            'non-interactive start, setup, and dry-run retain the exact '
+            'reviewed rerun command',
+            'decline, EOF, or unreviewed calibration starts no mapping',
+        ],
+    }
     recovery = contract['map_session_recovery_contract']
     assert recovery['schema_uri'].endswith(
         '/schemas/map-session-recovery-v1.schema.json'

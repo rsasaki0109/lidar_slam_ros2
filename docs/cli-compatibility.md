@@ -139,6 +139,11 @@ this option policy or the repository version.
 | `edit` | `--plan`, `--output-dir`, `--dry-run`, `--json` | `--backend-input`, `--params`, `--setup` | None |
 | `merge` | output, alignment, acceptance, transform, dry-run, and JSON options | None | None |
 
+Interactive `start` calibration review is one fail-closed prompt: it shows the
+profile extrinsics once, then asks whether to continue without presenting a
+second `--yes` command. Non-interactive `start`, `setup`, and dry-run review keep
+printing the exact reviewed rerun command for automation and copy-paste use.
+
 For `demo`, cache presence is not proof of integrity. Dry-run reports
 `prepared_unverified` or `archive_unverified`; live execution alone promotes
 the fixed data after registered archive and extracted-file SHA-256 checks.
