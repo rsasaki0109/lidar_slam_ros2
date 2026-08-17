@@ -2,7 +2,9 @@
 
 ## Outcome
 
-Implementation tip: `3de7f84bb51acd2bd1c2b40724529be9c281d2fe`.
+Initial content-bound implementation tip:
+`3de7f84bb51acd2bd1c2b40724529be9c281d2fe`. The current publication-plan tip
+also includes the concurrent-publication hardening described below.
 
 The existing `compare_with_glim.sh` workflow no longer accepts a cached GLIM
 trajectory from a path/topic-only key. Cache fallback is content-bound,
@@ -36,6 +38,12 @@ identity key, manifest, and trajectory. Symlinks, malformed TUM, missing
 artifacts, byte drift, contradictory manifests, and same-key/different-output
 collisions are rejected without replacing the existing entry.
 
+Trajectory and manifest bytes are now staged in the cache directory and made
+visible with an exclusive hard link only after the complete file is flushed.
+If two identical stores race, the loser validates and returns the first
+complete manifest. If same-key outputs differ, the loser preserves the entry
+that won publication; it cannot delete another writer's file during rollback.
+
 The comparison metrics expose cache enabled/status/key/identity/manifest
 fields. `--no-glim-cache` provides an explicit fresh-run-only mode. Cache reuse
 also requires the current GLIM runtime identity, so a missing runtime cannot be
@@ -45,12 +53,14 @@ hidden by an old trajectory.
 
 The focused test suite covers byte-sensitive identities, path omission,
 store/lookup idempotence, trajectory and manifest tampering, changed bag bytes,
-collision refusal, malformed TUM variants, symlink rejection, the public CLI,
-shell integration, and release-bundle inclusion:
+collision refusal, competing trajectory and manifest publication, malformed
+TUM variants, symlink rejection, the public CLI, shell integration, and
+release-bundle inclusion:
 
 ```text
-pytest -q lidarslam/test/test_glim_reference_cache.py
-10 passed
+python3 -m pytest -q -p no:cacheprovider \
+  lidarslam/test/test_glim_reference_cache.py
+14 passed
 
 ament_flake8 scripts/glim_reference_cache.py \
   lidarslam/test/test_glim_reference_cache.py

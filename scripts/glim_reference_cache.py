@@ -4,14 +4,15 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import hashlib
 import json
 import math
 import os
-from pathlib import Path
 import shutil
 import sys
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 from product_schema import load_json_object, validate_contract
@@ -128,7 +129,10 @@ def _runtime_identity(
     tokens: Iterable[str],
 ) -> dict[str, Any]:
     token_values = sorted(set(tokens))
-    if any(not token or '\n' in token or '\r' in token for token in token_values):
+    if any(
+        not token or '\n' in token or '\r' in token
+        for token in token_values
+    ):
         raise GlimReferenceCacheError(
             'GLIM runtime tokens must be non-empty single-line values'
         )
@@ -177,7 +181,7 @@ def build_identity(
     viewer: bool,
     omp_threads: str | None,
 ) -> dict[str, Any]:
-    """Build one path-free identity from exact bag, config, and runtime bytes."""
+    """Build a path-free identity from exact bag, config, and runtime bytes."""
     if mode not in {'lidar-only', 'lidar-imu'}:
         raise GlimReferenceCacheError(f'unsupported GLIM mode: {mode!r}')
     if preset not in {'cpu', 'gpu'}:
@@ -345,13 +349,25 @@ def _cache_paths(
 
 
 def _write_json_once(path: Path, payload: dict[str, Any]) -> None:
-    encoded = json.dumps(payload, indent=2, sort_keys=True).encode('utf-8') + b'\n'
+    encoded = (
+        json.dumps(payload, indent=2, sort_keys=True).encode('utf-8')
+        + b'\n'
+    )
+    descriptor: int | None = None
+    temporary: Path | None = None
     try:
-        descriptor = os.open(
-            path,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-            0o644,
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f'.{path.name}.',
+            dir=path.parent,
         )
+        temporary = Path(temporary_name)
+        with os.fdopen(descriptor, 'wb') as stream:
+            descriptor = None
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.chmod(0o644)
+        os.link(temporary, path)
     except FileExistsError:
         if (
             path.is_symlink()
@@ -361,9 +377,11 @@ def _write_json_once(path: Path, payload: dict[str, Any]) -> None:
             raise GlimReferenceCacheError(
                 f'refusing to replace an existing cache artifact: {path}'
             )
-        return
-    with os.fdopen(descriptor, 'wb') as stream:
-        stream.write(encoded)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def write_identity(path: Path, report: dict[str, Any]) -> None:
@@ -372,27 +390,38 @@ def write_identity(path: Path, report: dict[str, Any]) -> None:
     _write_json_once(path, report)
 
 
-def _copy_once(source: Path, target: Path) -> None:
+def _copy_once(source: Path, target: Path) -> bool:
+    """Publish a complete copy exactly once and report target ownership."""
+    descriptor: int | None = None
+    temporary: Path | None = None
     try:
-        descriptor = os.open(
-            target,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-            0o644,
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f'.{target.name}.',
+            dir=target.parent,
         )
-    except FileExistsError:
-        return
-    try:
+        temporary = Path(temporary_name)
         with source.open('rb') as input_stream, os.fdopen(
             descriptor, 'wb'
         ) as output_stream:
+            descriptor = None
             shutil.copyfileobj(
                 input_stream,
                 output_stream,
                 length=COPY_CHUNK_BYTES,
             )
-    except Exception:
-        target.unlink(missing_ok=True)
-        raise
+            output_stream.flush()
+            os.fsync(output_stream.fileno())
+        temporary.chmod(0o644)
+        try:
+            os.link(temporary, target)
+        except FileExistsError:
+            return False
+        return True
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def store_entry(
@@ -416,12 +445,19 @@ def store_entry(
                 'the existing entry was preserved'
             )
     else:
-        _copy_once(trajectory_path, trajectory_target)
-        observed = _validate_trajectory(trajectory_target)
+        target_created = _copy_once(trajectory_path, trajectory_target)
+        try:
+            observed = _validate_trajectory(trajectory_target)
+        except GlimReferenceCacheError:
+            if target_created:
+                trajectory_target.unlink(missing_ok=True)
+            raise
         if observed != trajectory:
-            trajectory_target.unlink(missing_ok=True)
+            if target_created:
+                trajectory_target.unlink(missing_ok=True)
             raise GlimReferenceCacheError(
-                'stored GLIM trajectory failed byte verification'
+                'cache key collision or nondeterministic GLIM trajectory; '
+                'the existing entry was preserved'
             )
     manifest = {
         **identity,
@@ -432,7 +468,12 @@ def store_entry(
         ),
     }
     validate_contract(manifest, SCHEMA_NAME)
-    if manifest_target.exists():
+
+    def matching_existing_manifest() -> dict[str, Any]:
+        if manifest_target.is_symlink() or not manifest_target.is_file():
+            raise GlimReferenceCacheError(
+                'existing GLIM cache manifest is not a regular file'
+            )
         existing = load_json_object(manifest_target, 'GLIM cache manifest')
         _validate_identity(existing)
         if (
@@ -444,7 +485,15 @@ def store_entry(
                 'existing GLIM cache manifest contradicts the exact entry'
             )
         return existing
-    _write_json_once(manifest_target, manifest)
+
+    if manifest_target.exists() or manifest_target.is_symlink():
+        return matching_existing_manifest()
+    try:
+        _write_json_once(manifest_target, manifest)
+    except GlimReferenceCacheError:
+        if manifest_target.exists() or manifest_target.is_symlink():
+            return matching_existing_manifest()
+        raise
     return manifest
 
 

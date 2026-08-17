@@ -152,6 +152,24 @@ def test_tracked_plan_covers_the_exact_candidate_once():
     assert _planned_paths(plan) == actual
 
 
+def test_s6_verification_names_every_owned_python_test():
+    """The large integration slice must expose each owned focused test."""
+    review_slice = next(
+        item
+        for item in _plan()['review_slices']
+        if item['id'] == 'S6-product-shell-integration'
+    )
+    commands = '\n'.join(review_slice['verification'])
+    owned_tests = [
+        path
+        for path in review_slice['paths']
+        if '/test/' in path and path.endswith('.py')
+    ]
+
+    assert owned_tests
+    assert [path for path in owned_tests if path not in commands] == []
+
+
 def test_unassigned_candidate_path_is_rejected():
     plan = _plan()
     actual = _planned_paths(plan) + ['scripts/unplanned_follow_up.py']

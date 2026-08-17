@@ -31,8 +31,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -136,7 +136,9 @@ def test_identity_binds_bytes_runtime_request_and_hides_paths(tmp_path: Path):
     assert len(base['identity']['request']['cache_helper_sha256']) == 64
 
 
-def test_store_and_lookup_require_exact_manifest_and_trajectory(tmp_path: Path):
+def test_store_and_lookup_require_exact_manifest_and_trajectory(
+    tmp_path: Path,
+):
     """A cache hit is returned only after all content checks pass."""
     inputs = _inputs(tmp_path)
     identity_path = tmp_path / 'identity.json'
@@ -212,6 +214,129 @@ def test_tampering_identity_drift_and_collision_fail_closed(tmp_path: Path):
         match='no verified',
     ):
         CACHE.lookup_entry(drifted_path, cache_dir)
+
+
+def test_racing_store_never_deletes_another_writer_entry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A losing writer preserves the complete entry that won publication."""
+    inputs = _inputs(tmp_path)
+    identity_path = tmp_path / 'identity.json'
+    cache_dir = tmp_path / 'cache'
+    CACHE.write_identity(identity_path, _build(inputs))
+    cache_dir.mkdir()
+    winning_payload = (
+        '1.0 0 0 0 0 0 0 1\n'
+        '2.0 9 0 0 0 0 0 1\n'
+    ).encode()
+
+    def publish_competing_entry(source: Path, target: Path) -> bool:
+        del source
+        target.write_bytes(winning_payload)
+        return False
+
+    monkeypatch.setattr(CACHE, '_copy_once', publish_competing_entry)
+
+    with pytest.raises(
+        CACHE.GlimReferenceCacheError,
+        match='collision|nondeterministic',
+    ):
+        CACHE.store_entry(identity_path, cache_dir, inputs['trajectory'])
+
+    trajectory_target = next(cache_dir.glob('*.traj_lidar.txt'))
+    assert trajectory_target.read_bytes() == winning_payload
+
+
+def test_racing_identical_manifest_returns_first_complete_entry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Concurrent identical stores accept the first atomic manifest."""
+    inputs = _inputs(tmp_path)
+    identity_path = tmp_path / 'identity.json'
+    cache_dir = tmp_path / 'cache'
+    CACHE.write_identity(identity_path, _build(inputs))
+    original = CACHE._write_json_once
+
+    def publish_competing_manifest(path: Path, payload: dict) -> None:
+        if path.name.endswith('.manifest.json'):
+            competing = dict(payload)
+            competing['created_at'] = '2026-08-17T00:00:00Z'
+            original(path, competing)
+            raise CACHE.GlimReferenceCacheError(
+                'simulated simultaneous manifest publication'
+            )
+        original(path, payload)
+
+    monkeypatch.setattr(CACHE, '_write_json_once', publish_competing_manifest)
+
+    manifest = CACHE.store_entry(
+        identity_path,
+        cache_dir,
+        inputs['trajectory'],
+    )
+
+    assert manifest['created_at'] == '2026-08-17T00:00:00Z'
+    assert CACHE.lookup_entry(identity_path, cache_dir)[0].is_file()
+
+
+def test_writer_removes_only_its_own_invalid_published_copy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A source mutation cannot strand a malformed entry under the key."""
+    inputs = _inputs(tmp_path)
+    identity_path = tmp_path / 'identity.json'
+    cache_dir = tmp_path / 'cache'
+    CACHE.write_identity(identity_path, _build(inputs))
+    cache_dir.mkdir()
+
+    def publish_invalid_entry(source: Path, target: Path) -> bool:
+        del source
+        target.write_text('incomplete\n', encoding='utf-8')
+        return True
+
+    monkeypatch.setattr(CACHE, '_copy_once', publish_invalid_entry)
+
+    with pytest.raises(CACHE.GlimReferenceCacheError):
+        CACHE.store_entry(identity_path, cache_dir, inputs['trajectory'])
+
+    assert list(cache_dir.iterdir()) == []
+
+
+def test_store_rejects_manifest_symlink_even_when_target_is_valid(
+    tmp_path: Path,
+):
+    """A manifest alias cannot become an idempotent cache-store result."""
+    inputs = _inputs(tmp_path)
+    identity = _build(inputs)
+    identity_path = tmp_path / 'identity.json'
+    cache_dir = tmp_path / 'cache'
+    source_cache = tmp_path / 'source-cache'
+    CACHE.write_identity(identity_path, identity)
+    source_manifest = CACHE.store_entry(
+        identity_path,
+        source_cache,
+        inputs['trajectory'],
+    )
+    cache_dir.mkdir()
+    key = identity['cache_key_sha256']
+    (cache_dir / f'{key}.traj_lidar.txt').write_bytes(
+        inputs['trajectory'].read_bytes()
+    )
+    manifest_target = cache_dir / f'{key}.manifest.json'
+    source_manifest_path = source_cache / manifest_target.name
+    assert source_manifest['entry_state'] == 'CACHED'
+    manifest_target.symlink_to(source_manifest_path)
+
+    with pytest.raises(
+        CACHE.GlimReferenceCacheError,
+        match='manifest is not a regular file',
+    ):
+        CACHE.store_entry(identity_path, cache_dir, inputs['trajectory'])
+
+    assert manifest_target.is_symlink()
 
 
 @pytest.mark.parametrize(
