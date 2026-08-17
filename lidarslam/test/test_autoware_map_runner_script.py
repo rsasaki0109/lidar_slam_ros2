@@ -237,6 +237,87 @@ def test_start_session_summary_hides_internal_execution_detail(
     assert 'Lifecycle stage:' not in output
 
 
+def test_start_session_retains_workflow_output_without_rendering_internals(
+    monkeypatch,
+    capsys,
+    tmp_path: Path,
+):
+    module = _load_module()
+    workflow_log = tmp_path / module.CONCISE_WORKFLOW_LOG_NAME
+    internal_lines = [
+        'Calling /map_save ...',
+        'Mapping is ready; processing the recorded sensor data ...',
+        'Generating Lanelet2 map from corrected trajectory ...',
+    ]
+    command = [
+        sys.executable,
+        '-c',
+        '; '.join(f'print({line!r}, flush=True)' for line in internal_lines),
+    ]
+
+    assert module._run_workflow(
+        command,
+        tmp_path,
+        True,
+        workflow_log,
+    ) == (0, False, None)
+
+    terminal = capsys.readouterr()
+    assert terminal.out.splitlines() == [internal_lines[1]]
+    assert terminal.err == ''
+    assert workflow_log.read_text(encoding='utf-8').splitlines() == internal_lines
+
+
+def test_start_session_replays_retained_workflow_tail_on_failure(
+    capsys,
+    tmp_path: Path,
+):
+    module = _load_module()
+    workflow_log = tmp_path / module.CONCISE_WORKFLOW_LOG_NAME
+    command = [
+        sys.executable,
+        '-c',
+        "print('post-process detail', flush=True); raise SystemExit(7)",
+    ]
+
+    assert module._run_workflow(
+        command,
+        tmp_path,
+        True,
+        workflow_log,
+    ) == (7, False, None)
+
+    terminal = capsys.readouterr()
+    assert terminal.out == ''
+    assert 'Map workflow failed. Recent workflow details:' in terminal.err
+    assert 'post-process detail' in terminal.err
+    assert f'Complete workflow output: {workflow_log}' in terminal.err
+
+
+def test_start_session_success_defers_terminal_summary_to_parent(
+    monkeypatch,
+    capsys,
+    tmp_path: Path,
+):
+    module = _load_module()
+    monkeypatch.setenv(
+        module.PRODUCT_SESSION_OUTPUT_ENV,
+        module.PRODUCT_SESSION_OUTPUT_CONCISE,
+    )
+    monkeypatch.setattr(module, 'maybe_open_viewer', lambda *_args: None)
+
+    assert module._finish_run(
+        module.argparse.Namespace(),
+        {'command': ['internal-workflow']},
+        tmp_path / 'map',
+        0,
+    ) == 0
+
+    terminal = capsys.readouterr()
+    assert terminal.out == ''
+    assert terminal.err == ''
+
+
 def test_deprecated_run_viewer_routes_through_view_command(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1109,10 +1190,13 @@ def test_map_write_enospc_is_preserved_and_diagnosed(
     )
 
 
+@pytest.mark.parametrize('concise_output', [False, True])
 def test_workflow_supervisor_forwards_sigterm_and_reaps_process_group(
     tmp_path: Path,
+    concise_output: bool,
 ):
     child_pid_path = tmp_path / 'child.pid'
+    workflow_log = tmp_path / 'workflow.log'
     child_code = '\n'.join([
         'import os',
         'from pathlib import Path',
@@ -1131,7 +1215,8 @@ def test_workflow_supervisor_forwards_sigterm_and_reaps_process_group(
         'spec.loader.exec_module(module)',
         (
             'result = module._run_workflow('
-            f'[sys.executable, "-c", {child_code!r}], Path.cwd())'
+            f'[sys.executable, "-c", {child_code!r}], Path.cwd(), '
+            f'{concise_output!r}, Path({str(workflow_log)!r}))'
         ),
         'print(json.dumps(result))',
     ])
@@ -1157,6 +1242,7 @@ def test_workflow_supervisor_forwards_sigterm_and_reaps_process_group(
         True,
         'map workflow interrupted by SIGTERM',
     ]
+    assert workflow_log.is_file() is concise_output
     with pytest.raises(ProcessLookupError):
         os.kill(child_pid, 0)
 

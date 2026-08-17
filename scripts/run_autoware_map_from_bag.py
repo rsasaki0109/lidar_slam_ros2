@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import deque
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
@@ -64,6 +65,12 @@ EMERGENCY_EVIDENCE_RESERVE_BYTES = 2 * 1024 * 1024
 EMERGENCY_EVIDENCE_RESERVE_NAME = '.terminal-evidence-reserve'
 PRODUCT_SESSION_OUTPUT_ENV = 'LIDARSLAM_PRODUCT_SESSION_OUTPUT'
 PRODUCT_SESSION_OUTPUT_CONCISE = 'concise'
+CONCISE_WORKFLOW_LOG_NAME = 'map_workflow.log'
+CONCISE_WORKFLOW_FAILURE_TAIL_LINES = 80
+CONCISE_WORKFLOW_STATUS_LINES = frozenset({
+    'Mapping is ready; processing the recorded sensor data ...',
+    'Mapping is ready; waiting for the first map output ...',
+})
 PACKAGE_XML_PATHS = (
     SHARE_ROOT / 'lidarslam' / 'package.xml',
     SHARE_ROOT / 'graph_based_slam' / 'package.xml',
@@ -119,9 +126,13 @@ def _terminate_process_group(
 def _run_workflow(
     command: list[str],
     cwd: Path,
+    concise_output: bool = False,
+    workflow_log: Path | None = None,
 ) -> tuple[int, bool, str | None]:
     """Run a workflow in an isolated process group with durable signal results."""
     process: subprocess.Popen | None = None
+    log_stream = None
+    returncode = None
 
     def request_termination(signum, _frame):
         raise _TerminationRequested(signum)
@@ -129,25 +140,93 @@ def _run_workflow(
     previous_sigterm = signal.signal(signal.SIGTERM, request_termination)
     requested_signal = None
     try:
-        process = subprocess.Popen(command, cwd=cwd, start_new_session=True)
+        popen_options: dict[str, object] = {}
+        if concise_output:
+            if workflow_log is None:
+                raise ValueError(
+                    'concise workflow output requires a durable log path'
+                )
+            log_stream = workflow_log.open('w', encoding='utf-8')
+            popen_options.update({
+                'stdout': subprocess.PIPE,
+                'text': True,
+                'encoding': 'utf-8',
+                'errors': 'replace',
+                'bufsize': 1,
+            })
+        process = subprocess.Popen(
+            command,
+            cwd=cwd,
+            start_new_session=True,
+            **popen_options,
+        )
         try:
-            return process.wait(), False, None
+            if concise_output:
+                if process.stdout is None or log_stream is None:
+                    raise RuntimeError(
+                        'concise workflow output pipe was not created'
+                    )
+                for line in process.stdout:
+                    log_stream.write(line)
+                    log_stream.flush()
+                    if line.rstrip('\r\n') in CONCISE_WORKFLOW_STATUS_LINES:
+                        print(line, end='', flush=True)
+            returncode = process.wait()
         except KeyboardInterrupt:
             requested_signal = signal.SIGINT
         except _TerminationRequested as exc:
             requested_signal = exc.signum
     finally:
         signal.signal(signal.SIGTERM, previous_sigterm)
+        if process is not None and process.stdout is not None:
+            process.stdout.close()
+        if log_stream is not None:
+            log_stream.close()
 
-    if process is None or requested_signal is None:
+    if requested_signal is not None:
+        if process is None:
+            raise RuntimeError(
+                'workflow supervision ended without a process result'
+            )
+        _terminate_process_group(process, requested_signal)
+        signal_name = signal.Signals(requested_signal).name
+        return (
+            128 + requested_signal,
+            True,
+            f'map workflow interrupted by {signal_name}',
+        )
+
+    if returncode is None:
         raise RuntimeError('workflow supervision ended without a process result')
-    _terminate_process_group(process, requested_signal)
-    signal_name = signal.Signals(requested_signal).name
-    return (
-        128 + requested_signal,
-        True,
-        f'map workflow interrupted by {signal_name}',
-    )
+    if concise_output and returncode != 0 and workflow_log is not None:
+        _print_concise_workflow_failure(workflow_log)
+    return returncode, False, None
+
+
+def _print_concise_workflow_failure(workflow_log: Path) -> None:
+    """Replay bounded child stdout only when a concise workflow fails."""
+    try:
+        with workflow_log.open(encoding='utf-8', errors='replace') as stream:
+            recent_lines = deque(
+                stream,
+                maxlen=CONCISE_WORKFLOW_FAILURE_TAIL_LINES,
+            )
+    except OSError as exc:
+        print(
+            f'warning: failed to read retained workflow output: {exc}',
+            file=sys.stderr,
+        )
+        return
+
+    if recent_lines:
+        print('Map workflow failed. Recent workflow details:', file=sys.stderr)
+        for line in recent_lines:
+            print(
+                line,
+                end='' if line.endswith('\n') else '\n',
+                file=sys.stderr,
+            )
+    print(f'Complete workflow output: {workflow_log}', file=sys.stderr)
 
 
 def _terminal_workflow_error(
@@ -1674,6 +1753,8 @@ def main() -> int:
         exit_code, interrupted, workflow_error = _run_workflow(
             plan['command'],
             WORK_ROOT,
+            _concise_product_session_output(),
+            working_dir / CONCISE_WORKFLOW_LOG_NAME,
         )
     except OSError as exc:
         print(f'error: failed to start map workflow: {exc}', file=sys.stderr)
@@ -1755,18 +1836,21 @@ def _finish_run(
             )
         return exit_code
 
-    print_next_steps(args, output_dir)
+    concise_output = _concise_product_session_output()
+    if not concise_output:
+        print_next_steps(args, output_dir)
     try:
         maybe_open_viewer(args, output_dir)
     except subprocess.CalledProcessError as exc:
         print(f'error: viewer failed with exit code {exc.returncode}.', file=sys.stderr)
         return exc.returncode or 1
-    print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
-    print(f'Run manifest: {output_dir / MANIFEST_NAME}')
-    print(
-        'First-map receipt: '
-        f'{output_dir / "first_map_validation_receipt.md"}'
-    )
+    if not concise_output:
+        print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
+        print(f'Run manifest: {output_dir / MANIFEST_NAME}')
+        print(
+            'First-map receipt: '
+            f'{output_dir / "first_map_validation_receipt.md"}'
+        )
     return 0
 
 
