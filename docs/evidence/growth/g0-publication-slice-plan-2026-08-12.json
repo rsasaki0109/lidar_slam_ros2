@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-17T18:42:15+09:00",
+  "generated_at": "2026-08-17T18:58:59+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
@@ -91,7 +91,7 @@
       "id": "S2-first-map-foundation",
       "order": 2,
       "title": "One-command first map and resilient runtime foundation",
-      "review_outcome": "A user can inspect a bag, build a verified map, reopen it in a local 3D preview, recover from bounded runtime failures, and retry low-storage demo rejection without calculating the shortage or rebuilding the command. The unchanged 5 GiB start preflight is exercised in real ROS, and a sealed expected SIGINT or SIGTERM gets one concise retained-evidence line without weakening ordinary failure or genuine startup and offline-completion timeout diagnostics.",
+      "review_outcome": "A user can inspect a bag, build a verified map, reopen it in a local 3D preview, recover from bounded runtime failures, and retry low-storage demo rejection without calculating the shortage or rebuilding the command. Product-dispatched native bag opens omit routine storage INFO while retaining WARN/ERROR, direct use, and explicit expert levels. The unchanged 5 GiB start preflight is exercised in real ROS, and a sealed expected SIGINT or SIGTERM gets one concise retained-evidence line without weakening ordinary failure or genuine startup and offline-completion timeout diagnostics.",
       "depends_on": [
         "S1-runtime-safety"
       ],
@@ -141,7 +141,7 @@
       "id": "S3-map-lifecycle",
       "order": 3,
       "title": "Sensor setup, session history, map editing, merging, and support",
-      "review_outcome": "Users can move beyond a first map without hand-editing commands or losing provenance, recovery state, or support-safe evidence; confirmed starts move from one calibration decision through durable progress to one terminal card, with exactly one safe Next action on success or failure and complete structured evidence retained. An unchanged live stage stays visibly active through a bounded 30-second terminal heartbeat with monotonic elapsed time, no ETA or forward-progress claim, and no session-artifact rewrite. After the unchanged 5 GiB preflight, one Ctrl-C makes the stable CLI wait for the start helper, signals the complete isolated delegated process group, waits through bounded cleanup and terminal-evidence sealing, and returns through the same one-action recovery handoff without a Python traceback, synthesized success, false timeout label, recent-launch-log dump, repeated failed command, or duplicate generic session error.",
+      "review_outcome": "Users can move beyond a first map without hand-editing commands or losing provenance, recovery state, or support-safe evidence; confirmed starts move from one calibration decision through durable progress to one terminal card, with exactly one safe Next action on success or failure and complete structured evidence retained. An unchanged live stage stays visibly active through a bounded 30-second terminal heartbeat with monotonic elapsed time, no ETA or forward-progress claim, and no session-artifact rewrite. After the unchanged 5 GiB preflight, one Ctrl-C makes the stable CLI wait for the start helper, signals the complete isolated delegated process group, waits through bounded cleanup and terminal-evidence sealing, and returns through the same one-action recovery handoff without routine native reader INFO, a Python traceback, synthesized success, false timeout label, recent-launch-log dump, repeated failed command, or duplicate generic session error.",
       "depends_on": [
         "S2-first-map-foundation"
       ],

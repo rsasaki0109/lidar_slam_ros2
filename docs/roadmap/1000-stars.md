@@ -559,6 +559,20 @@ work and document the actual support boundary instead of hiding the delay.
   runner, S3 77 + 15, dogfood 14, docs/product 42, installed/support 25,
   option 21, and broad S6 332 checks pass. Clean-host and comparison limits
   remain; no remote write is performed.
+- Exact implementation and evidence tip `d0e3361…` puts all four native bag-
+  reader opens behind one product-only `rosbag2_storage` WARN boundary. It
+  changes only the previously-unset logger during open, restores it afterward,
+  and preserves direct use, explicit expert levels, and every WARN/ERROR. A
+  direct/product real-bag probe returned 0 with identical 5,661-byte stdout;
+  direct stderr retained two storage INFO lines while product stderr was empty.
+  In the exact-installed unchanged-default ROS trial, both live nodes were
+  observed and one Ctrl-C returned 130 in 1.545 seconds with every descendant
+  absent. Six routine storage lines fell to zero and stderr fell 1,200 → 180
+  bytes (85.00%); one stop/evidence pair and ACTION REQUIRED / Next / Details
+  remain. Four schemas, 18 checksums, preflight 36, runner 49, S3 77 + 15,
+  dogfood 14, docs/product 42, installed/support 25, option 21, and broad S6
+  332 checks pass. Clean-host and comparison limits remain; no remote write is
+  performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

@@ -788,3 +788,81 @@ timeout diagnosis. The controlled mixed overlay still prevents a clean-host or
 package-manager claim, and this is not a complete-map quality or accuracy
 result, independent first map, paired GLIM observation, or parity/superiority
 claim.
+
+## Quiet native bag-reader follow-up — 2026-08-17
+
+> Decision: **REAL_ROS_QUIET_READER_PASS / CLEAN_HOST_PENDING**
+>
+> Implementation and tested installed revision:
+> `d0e33613f4531988ac4fc3ac0687927d164690eb`
+>
+> Network, GitHub, release, or community mutation performed: **none**
+
+The concise-stop trial's only remaining stderr noise was six native
+`rosbag2_storage` INFO lines announcing read-only database opens. Those lines
+were routine, but globally redirecting or discarding stderr would also hide
+warnings and storage failures.
+
+All four `rosbag2_py.SequentialReader` sites now use one open helper. During a
+product-dispatched open only, and only when the exact storage logger has no
+explicit level, a scoped boundary raises `rosbag2_storage` to WARN and restores
+the previous level immediately after open. A direct preflight does not enter
+the boundary; an explicitly configured DEBUG or INFO level is not replaced;
+WARN, ERROR, and FATAL remain above the threshold. Focused native-logger tests
+prove routine INFO is absent, a warning remains visible, and direct and
+explicit levels are unchanged.
+
+A real two-message bag probe made the expert/product distinction measurable.
+Both direct preflight and product `doctor --json` returned 0 and emitted the
+same 5,661-byte stdout. Direct preflight retained two storage INFO lines in 294
+stderr bytes; the product command emitted zero stderr bytes.
+
+A fresh non-symlink Jazzy install then recorded exact revision `d0e3361…`,
+`dirty=false`, directly from Git without a revision override. The four critical
+installed scripts matched source SHA-256 values, and the complete installed
+product validator passed. The run reused the same public 50-second MID360 ZIP
+(`20e51517…`), metadata (`d866804b…`), sqlite database (`0a38fbcc…`), fixed
+graph/scanmatcher overlay, and existing RKO-LIO base as the prior trial. It is
+therefore a controlled mixed overlay, not a clean-host or package-manager run.
+
+The top-level command again omitted `--min-free-space-gib` and reported **7.02
+GiB free / 5.00 GiB required**. After the real RKO-LIO offline node and
+graph_based_slam node were simultaneously observed at the offline wait, one
+Ctrl-C returned 130 in 1.545 seconds. The complete command took 15.665 seconds;
+the sealed manifest spans 12.356 seconds and ends `interrupted / complete` with
+matching execution and runner exit code 130 and exact SIGINT error. Both
+observed PIDs and every trial descendant are absent.
+
+The six routine storage INFO lines fell to zero. Stderr now contains only one
+stop request and one concise retained-evidence line: 180 bytes versus 1,200 in
+the preceding concise-stop trial, an 85.00% reduction. Generic map failure,
+repeated failed command, generic session error, false timeout, recent-log dump,
+traceback, and success-card counts remain zero. Stdout retains exactly one
+ACTION REQUIRED, Next, and Details.
+
+The run manifest, recovery receipt, session index, and first-map receipt
+validate against the installed tracked schemas. All 18 manifest-bound artifact
+sizes and SHA-256 values revalidate. Required verification remains incomplete,
+the receipt is FAIL as expected, and no `map.pcd` exists. The final stdout,
+stderr, session, manifest, and recovery hashes are respectively `8ba436f3…`,
+`4ee8f77a…`, `3dd47d8a…`, `89e008a0…`, and `16a35088…`.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| native logging boundary and complete preflight regressions | 36 passed |
+| complete lower map-runner regressions | 49 passed |
+| exact S3 lifecycle and edit/merge commands | 77 + 15 passed |
+| dogfood shell process/signal regressions | 14 passed |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 332 passed |
+| four terminal JSON schemas and 18 artifact checksums | PASS |
+| exact install provenance/script identity, changed-code `ament_flake8`, strict MkDocs, bytecode, JSON, and patch hygiene | PASS |
+
+This closes only routine native reader noise on the product path. It does not
+hide warnings or failures, change direct expert logging, weaken storage or
+timeout diagnosis, complete a map, establish clean-host/package-manager timing,
+or provide paired GLIM, parity, superiority, quality, or accuracy evidence.

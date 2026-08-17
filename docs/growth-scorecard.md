@@ -402,6 +402,19 @@ dump, traceback, and success card all fell to zero; stderr fell 1,971 → 1,200
 bytes (39.12%). Four schemas, eight artifact checksums, 49 runner, S3 77 + 15,
 dogfood 14, docs/product 42, installed/support 25, option 21, and broad S6 332
 checks pass. Clean-host and comparison limits remain; no remote write occurs.
+Exact implementation and evidence tip `d0e3361…` centralizes all four native
+bag-reader opens behind a product-only `rosbag2_storage` WARN boundary. It
+changes only the previously-unset logger during open, restores it afterward,
+and preserves direct use, explicit expert levels, and every WARN/ERROR. The
+direct/product real-bag probe returned 0 with identical 5,661-byte stdout;
+direct stderr retained two storage INFO lines while product stderr was empty.
+In the exact-installed default-storage ROS stop trial, both live nodes were
+observed and one Ctrl-C returned 130 in 1.545 seconds with every descendant
+absent. Six routine storage lines fell to zero and stderr fell 1,200 → 180
+bytes (85.00%); one stop/evidence pair and ACTION REQUIRED / Next / Details
+remain. Four schemas, 18 checksums, preflight 36, runner 49, S3 77 + 15,
+dogfood 14, docs/product 42, installed/support 25, option 21, and broad S6 332
+checks pass. Clean-host and comparison limits remain; no remote write occurs.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state
