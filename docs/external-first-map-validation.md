@@ -66,6 +66,11 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
    generated JSON contains evidence hashes but no map geometry, private paths,
    or exact command; do not attach any other run artifact.
 
+   The required privacy attestation has two honest branches: review the one
+   attached JSON receipt, or, for a FAIL where no receipt was produced, attach
+   no file. A missing receipt never permits a PASS report, and a FAIL report
+   never requires inventing or attaching another run artifact.
+
 Both passing and failing reports are useful. A failed attempt is an onboarding
 finding, not an accepted validation, and must be resolved or explicitly
 documented before v1.0.

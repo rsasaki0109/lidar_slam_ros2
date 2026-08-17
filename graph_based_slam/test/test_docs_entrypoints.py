@@ -36,6 +36,7 @@ from pathlib import Path
 import subprocess
 
 import jsonschema
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -671,6 +672,58 @@ def test_contributing_and_issue_templates_exist():
     assert 'Required for PASS reports' in receipt_block
     assert 'For FAIL reports, leave this field empty' in receipt_block
     assert 'required: false' in receipt_block
+
+
+def test_first_map_form_accepts_fail_without_weakening_pass_receipts():
+    """A truthful FAIL must be submitable when no receipt was produced."""
+    form_path = ISSUE_TEMPLATE_DIR / 'first-map-validation.yml'
+    form = yaml.safe_load(form_path.read_text(encoding='utf-8'))
+    fields = {
+        item['id']: item
+        for item in form['body']
+        if isinstance(item, dict) and 'id' in item
+    }
+    receipt = fields['receipt']
+    privacy = fields['privacy']
+    result = fields['result']
+    privacy_labels = [
+        option['label'] for option in privacy['attributes']['options']
+    ]
+
+    assert result['attributes']['options'] == [
+        'PASS — verified first map completed',
+        'FAIL — onboarding or mapping did not complete',
+    ]
+    assert receipt['validations']['required'] is False
+    assert 'Required for PASS reports' in receipt['attributes']['description']
+    assert 'For FAIL reports, leave this field empty' in (
+        receipt['attributes']['description']
+    )
+    assert len(privacy_labels) == 3
+    assert all(
+        option['required'] is True
+        for option in privacy['attributes']['options']
+    )
+    receipt_attestation = privacy_labels[1]
+    assert 'either reviewed the one attached JSON receipt' in (
+        receipt_attestation
+    )
+    assert 'or selected FAIL because no receipt was produced' in (
+        receipt_attestation
+    )
+    assert 'attached no file' in receipt_attestation
+
+    validation_doc = EXTERNAL_FIRST_MAP_DOC.read_text(encoding='utf-8')
+    normalized_validation_doc = ' '.join(validation_doc.split())
+    assert 'privacy attestation has two honest branches' in (
+        normalized_validation_doc
+    )
+    assert 'A missing receipt never permits a PASS report' in (
+        normalized_validation_doc
+    )
+    assert 'a FAIL report never requires inventing or attaching another' in (
+        normalized_validation_doc
+    )
 
 
 def test_product_contract_has_bounded_official_surface():

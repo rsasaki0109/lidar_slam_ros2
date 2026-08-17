@@ -9,6 +9,8 @@ body:
         independently completed report may count toward the v1.0 adoption
         gate. Failed attempts are equally useful and will not be hidden.
         Remove private location data and map geometry before posting.
+        PASS requires a reviewed JSON receipt. FAIL may be submitted without
+        one when the run did not produce a receipt.
 
   - type: checkboxes
     id: independence
@@ -109,7 +111,7 @@ body:
       options:
         - label: I removed credentials, private location data, and map geometry.
           required: true
-        - label: I reviewed the attached JSON receipt and confirmed that it contains no information I need to keep private.
+        - label: I either reviewed the one attached JSON receipt and confirmed that it contains no information I need to keep private, or selected FAIL because no receipt was produced and attached no file.
           required: true
         - label: The report contains enough version, command, environment, and verification identity for maintainers to review it.
           required: true
