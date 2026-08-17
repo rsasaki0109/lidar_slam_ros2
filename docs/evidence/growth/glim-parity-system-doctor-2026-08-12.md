@@ -669,3 +669,54 @@ again used an explicit 0.5 GiB floor because the default storage requirement
 was unavailable. It is not a complete map, clean-host or package-manager
 result, map-quality or accuracy result, paired GLIM observation, or
 parity/superiority claim.
+
+## Default-storage interruption follow-up — 2026-08-17
+
+> Decision: **REAL_ROS_DEFAULT_STORAGE_INTERRUPTION_PASS / CLEAN_HOST_PENDING**
+>
+> Tested installed revision:
+> `edff76df06e7a7c86a6adbde454270664ee4d126`
+>
+> Runtime implementation revision:
+> `181b25121ba328beeb81cc772a60cce0c9a7d82f`
+>
+> Network, GitHub, release, or community mutation performed: **none**
+
+Two clean Git worktrees retained 5.4 GiB of ignored compiler intermediates.
+Deleting only those two reproducible `build/` trees raised root free capacity
+from 1.9 GiB to 7.3 GiB. Source, branches, installed overlays, and retained
+evidence were unchanged. A fresh non-symlink `lidarslam` install then recorded
+exact revision `edff76d…`, `dirty=false`; the four interruption-critical
+installed scripts were byte-identical to that source revision.
+
+The trial reused the public 50-second MID360 fixture ZIP (`20e51517…`,
+98,873,952 bytes), bag metadata `d866804b…`, and sqlite storage `0a38fbcc…`.
+The top-level `start` command omitted `--min-free-space-gib`; its generated
+plan reported **7.01 GiB free / 5.00 GiB required** and delegated the unchanged
+5.0 GiB default. The graph/scanmatcher overlay remained exact ancestor
+`d8d2eab…`, with no runtime-source diff through the tested revision, and the
+RKO-LIO source remained the existing local base. This is still a controlled
+mixed overlay, not a clean-host or package-manager installation.
+
+A preliminary non-overwriting run completed before the delayed stop input and
+is excluded from interruption evidence. The accepted fresh-output run observed
+both the real RKO-LIO offline node and graph_based_slam node during
+`workflow_running`, then received one terminal Ctrl-C. It returned 130 in
+1.43 seconds. The sealed manifest spans 14.001 seconds, ends `interrupted /
+complete`, records `map workflow interrupted by SIGINT`, and every trial
+descendant is absent.
+
+The session and recovery receipt end `action_required / workflow-interrupted`;
+required verification is unavailable, the first-map receipt is FAIL as
+expected, and no `map.pcd` exists. The terminal contains exactly one stop
+request, ACTION REQUIRED, Next, and Details, with zero false timeout labels,
+recent-launch-log dumps, tracebacks, or success cards. The run manifest,
+recovery receipt, session index, and first-map receipt validate against their
+tracked schemas, and all eight artifacts sealed before this earlier
+interruption revalidate by size and SHA-256.
+
+The final stdout, stderr, session, manifest, and recovery hashes are
+respectively `dd2e6df0…`, `019449f4…`, `78902668…`, `947c779a…`, and
+`958d6d15…`. This closes only the unchanged default-storage interruption gate.
+It is not a complete-map quality or accuracy result, clean-host timing result,
+independent first map, paired GLIM observation, or parity/superiority claim.

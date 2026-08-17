@@ -383,6 +383,14 @@ labels or launch-log dumps. Fourteen dogfood, 48 lower-runner, 42 docs/product,
 25 installed/support, 21 option-contract, and 332 broad S6 regressions pass;
 real timeout diagnostics remain unchanged. The same low-storage and controlled-
 overlay limits apply, and no remote write occurs.
+Exact-installed evidence carrier `edff76d…` then closes the low-storage limit:
+the top-level command omitted the override, passed the unchanged 7.01 GiB free
+/ 5.00 GiB required preflight, observed live RKO-LIO and graph nodes, and one
+Ctrl-C returned 130 in 1.43 seconds with every descendant absent. Four schemas
+and all eight artifacts sealed before this earlier interruption revalidate;
+the one-action card has no timeout, traceback, success card, or `map.pcd`.
+The controlled mixed overlay still leaves clean-host/package-manager, complete-
+map quality, paired GLIM, and parity claims pending. No remote write occurs.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state

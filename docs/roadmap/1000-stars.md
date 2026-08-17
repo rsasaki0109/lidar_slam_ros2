@@ -538,6 +538,15 @@ work and document the actual support boundary instead of hiding the delay.
   regressions pass; real timeout diagnostics remain unchanged. The same low-
   storage and controlled-overlay limits apply, and no remote write is
   performed.
+- Exact-installed evidence carrier `edff76d…` closes that low-storage limit.
+  The top-level command omitted the override, passed the unchanged 7.01 GiB
+  free / 5.00 GiB required preflight, observed live RKO-LIO and graph nodes,
+  and one Ctrl-C returned 130 in 1.43 seconds with every descendant absent.
+  Four schemas and all eight artifacts sealed before this earlier interruption
+  revalidate; one ACTION REQUIRED / Next / Details remains, with no timeout,
+  traceback, success card, or `map.pcd`. The controlled mixed overlay still
+  leaves clean-host/package-manager, complete-map quality, paired GLIM, and
+  parity claims pending. No remote write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.
