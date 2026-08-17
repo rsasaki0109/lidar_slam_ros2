@@ -33,9 +33,9 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import jsonschema
 
@@ -127,6 +127,103 @@ def _publication_gate(
             '--json',
         ],
         'remote_mutations_performed': False,
+    }
+
+
+def _local_task_gate(
+    *,
+    status: str = 'WAITING_FOR_PRODUCT_MERGE',
+    public_queue_status: str = 'ABSENT',
+) -> dict:
+    queue = _queue()
+    eligible = status == 'READY'
+    if status == 'READY':
+        pull_state = 'CLOSED'
+        merged = True
+        draft = False
+        blocking_reasons = []
+        public_queue_status = 'MATCH'
+    elif status == 'PRODUCT_PR_CLOSED_UNMERGED':
+        pull_state = 'CLOSED'
+        merged = False
+        draft = False
+        blocking_reasons = ['product_pr_not_merged']
+    elif status == 'PUBLIC_QUEUE_ABSENT':
+        pull_state = 'CLOSED'
+        merged = True
+        draft = False
+        blocking_reasons = ['public_queue_absent']
+        public_queue_status = 'ABSENT'
+    elif status == 'PUBLIC_QUEUE_DRIFT':
+        pull_state = 'CLOSED'
+        merged = True
+        draft = False
+        blocking_reasons = ['public_queue_drift']
+        public_queue_status = 'DRIFT'
+    else:
+        assert status == 'WAITING_FOR_PRODUCT_MERGE'
+        pull_state = 'OPEN'
+        merged = False
+        draft = True
+        blocking_reasons = ['product_pr_not_merged']
+    if public_queue_status == 'ABSENT':
+        if 'public_queue_absent' not in blocking_reasons:
+            blocking_reasons.append('public_queue_absent')
+        observed_queue_sha256 = None
+    elif public_queue_status == 'MATCH':
+        observed_queue_sha256 = CHECKER._canonical_sha256(queue)
+    else:
+        assert public_queue_status == 'DRIFT'
+        if 'public_queue_drift' not in blocking_reasons:
+            blocking_reasons.append('public_queue_drift')
+        observed_queue_sha256 = '0' * 64
+    return {
+        'id': 'product-draft-public-queue-v1',
+        'status': status,
+        'eligible': eligible,
+        'pull_request_number': 427,
+        'pull_request_url': (
+            'https://github.com/rsasaki0109/lidar_slam_ros2/pull/427'
+        ),
+        'pull_request_state': pull_state,
+        'is_draft': draft,
+        'merged': merged,
+        'head_sha': '4b2ab514a4f33b443e2c4283b3114d11a5e44e49',
+        'target_branch': 'develop',
+        'public_queue_path': (
+            'docs/contracts/contributor-starter-queue-v1.json'
+        ),
+        'public_queue_status': public_queue_status,
+        'expected_queue_sha256': CHECKER._canonical_sha256(queue),
+        'observed_queue_sha256': observed_queue_sha256,
+        'blocking_reasons': blocking_reasons,
+        'recheck_command': CHECKER.LOCAL_TASK_PUBLICATION_RECHECK_COMMAND,
+        'github_requests': 'GET_ONLY',
+        'remote_mutations_performed': False,
+    }
+
+
+def _product_pull_record(
+    *,
+    state: str = 'open',
+    draft: bool = True,
+    merged: bool = False,
+) -> dict:
+    return {
+        'number': 427,
+        'state': state,
+        'draft': draft,
+        'merged': merged,
+        'html_url': (
+            'https://github.com/rsasaki0109/lidar_slam_ros2/pull/427'
+        ),
+        'base': {
+            'ref': 'develop',
+            'repo': {'full_name': 'rsasaki0109/lidar_slam_ros2'},
+        },
+        'head': {
+            'sha': '4b2ab514a4f33b443e2c4283b3114d11a5e44e49',
+        },
     }
 
 
@@ -301,6 +398,7 @@ def test_next_report_blocks_a_published_issue_with_closed_product_gates():
         [issue],
         [known_pull],
         [_publication_gate()],
+        _local_task_gate(),
     )
 
     assert report['status'] == 'PUBLISHED_GOOD_FIRST_ISSUES_BLOCKED'
@@ -312,18 +410,25 @@ def test_next_report_blocks_a_published_issue_with_closed_product_gates():
         ),
     }
     assert report['maintainer_next'] == {
-        'action': 'REVIEW_AND_PUBLISH_LOCAL_TASK',
+        'action': 'PREPARE_LOCAL_TASK_FOR_POST_MERGE',
         'task_id': 'starter-C5',
+        'gate_status': 'WAITING_FOR_PRODUCT_MERGE',
         'preview_command': [
             'python3',
             'scripts/contributor_starter_queue.py',
             '--task',
             'starter-C5',
         ],
+        'recheck_command': [
+            'python3',
+            'scripts/contributor_starter_queue.py',
+            '--next',
+            '--json',
+        ],
     }
     handoff = report['maintainer_publication_handoff']
     task = _task(queue, 'starter-C5')
-    assert handoff['kind'] == 'REVIEW_LOCAL_TASK_FOR_SEPARATE_PUBLICATION'
+    assert handoff['kind'] == 'PREPARE_LOCAL_TASK_FOR_POST_MERGE'
     assert handoff['task_id'] == 'starter-C5'
     assert handoff['repository'] == 'rsasaki0109/lidar_slam_ros2'
     assert handoff['title'] == task['title']
@@ -338,6 +443,10 @@ def test_next_report_blocks_a_published_issue_with_closed_product_gates():
     assert handoff['task_sha256'] == CHECKER._canonical_sha256(task)
     assert handoff['queue_sha256'] == CHECKER._canonical_sha256(queue)
     assert handoff['live_duplicate_count'] == 0
+    assert handoff['publication_gate_status'] == (
+        'WAITING_FOR_PRODUCT_MERGE'
+    )
+    assert handoff['public_base_ready'] is False
     assert handoff['external_write_required'] is True
     assert handoff['maintainer_confirmation_required'] is True
     assert handoff['issue_creation_authorized'] is False
@@ -361,6 +470,7 @@ def test_next_report_blocks_a_published_issue_with_closed_product_gates():
     assert '0 ready, 1 blocked' in rendered
     assert 'contributor_starter_queue.py --task starter-C5' in rendered
     assert 'Publication handoff: exact local body for starter-C5' in rendered
+    assert 'Public base ready: no (WAITING_FOR_PRODUCT_MERGE)' in rendered
     assert handoff['issue_body_sha256'] in rendered
     assert 'GitHub issue creation authorized: no' in rendered
     assert 'do not start a blocked cohort task' in rendered
@@ -383,6 +493,7 @@ def test_blocked_issue_gate_is_next_when_no_independent_task_is_ready():
         [issue],
         [],
         [_publication_gate()],
+        _local_task_gate(),
     )
 
     assert report['contributor_next']['action'] == (
@@ -411,6 +522,7 @@ def test_publication_handoff_rejects_body_and_task_linkage_tampering():
         [],
         [],
         [_publication_gate()],
+        _local_task_gate(),
     )
 
     stale_body = copy.deepcopy(report)
@@ -443,6 +555,7 @@ def test_next_report_allows_a_gated_issue_only_when_cohort_is_ready():
         [issue],
         [],
         [gate],
+        _local_task_gate(status='READY'),
     )
 
     assert report['status'] == 'PUBLISHED_GOOD_FIRST_ISSUE_AVAILABLE'
@@ -458,7 +571,13 @@ def test_next_report_allows_a_gated_issue_only_when_cohort_is_ready():
         'url': issue['html_url'],
     }
     assert report['maintainer_next']['task_id'] == 'starter-C5'
+    assert report['maintainer_next']['action'] == (
+        'REVIEW_AND_PUBLISH_LOCAL_TASK'
+    )
     assert report['maintainer_publication_handoff']['task_id'] == 'starter-C5'
+    assert report['maintainer_publication_handoff'][
+        'public_base_ready'
+    ] is True
 
 
 def test_next_report_keeps_dependency_when_the_issue_title_changes():
@@ -476,6 +595,7 @@ def test_next_report_keeps_dependency_when_the_issue_title_changes():
         [issue],
         [],
         [_publication_gate()],
+        _local_task_gate(),
     )
 
     assert report['status'] == 'PUBLISHED_GOOD_FIRST_ISSUES_BLOCKED'
@@ -500,6 +620,7 @@ def test_next_report_keeps_an_unrelated_good_first_issue_eligible():
         [issue],
         [],
         [_publication_gate()],
+        _local_task_gate(),
     )
 
     assert report['status'] == 'PUBLISHED_GOOD_FIRST_ISSUE_AVAILABLE'
@@ -524,6 +645,7 @@ def test_next_report_prefers_an_exact_published_queue_task():
         [issue],
         [],
         [_publication_gate()],
+        _local_task_gate(),
     )
 
     assert report['status'] == 'PUBLISHED_QUEUE_TASK_AVAILABLE'
@@ -550,6 +672,7 @@ def test_next_report_rechecks_a_known_pull_updated_after_the_audit():
         [],
         [changed_pull],
         [_publication_gate()],
+        _local_task_gate(),
     )
 
     assert report['potential_pull_duplicates'] == [{
@@ -586,6 +709,171 @@ def test_live_reader_uses_get_only(monkeypatch):
     assert 'state=open' in command[-1]
     assert kwargs['check'] is False
     assert kwargs['timeout'] == 60
+
+
+def test_local_task_gate_waits_for_product_merge_and_public_queue():
+    """The current draft state cannot suggest public issue publication."""
+    queue = _queue()
+
+    gate = CHECKER.build_local_task_publication_gate(
+        queue,
+        _product_pull_record(),
+        None,
+    )
+
+    assert gate['status'] == 'WAITING_FOR_PRODUCT_MERGE'
+    assert gate['eligible'] is False
+    assert gate['pull_request_state'] == 'OPEN'
+    assert gate['is_draft'] is True
+    assert gate['merged'] is False
+    assert gate['public_queue_status'] == 'ABSENT'
+    assert gate['observed_queue_sha256'] is None
+    assert gate['blocking_reasons'] == [
+        'product_pr_not_merged',
+        'public_queue_absent',
+    ]
+    assert gate['github_requests'] == 'GET_ONLY'
+    assert gate['remote_mutations_performed'] is False
+
+
+def test_local_task_gate_opens_only_after_merge_and_exact_public_queue():
+    """A merged product PR and byte-semantic queue match open the gate."""
+    queue = _queue()
+
+    gate = CHECKER.build_local_task_publication_gate(
+        queue,
+        _product_pull_record(state='closed', draft=False, merged=True),
+        copy.deepcopy(queue),
+    )
+
+    expected_sha256 = CHECKER._canonical_sha256(queue)
+    assert gate['status'] == 'READY'
+    assert gate['eligible'] is True
+    assert gate['public_queue_status'] == 'MATCH'
+    assert gate['expected_queue_sha256'] == expected_sha256
+    assert gate['observed_queue_sha256'] == expected_sha256
+    assert gate['blocking_reasons'] == []
+
+
+@pytest.mark.parametrize(
+    ('pull', 'public_queue_factory', 'expected_status', 'expected_reason'),
+    [
+        (
+            _product_pull_record(state='closed', draft=False, merged=False),
+            lambda queue: copy.deepcopy(queue),
+            'PRODUCT_PR_CLOSED_UNMERGED',
+            'product_pr_not_merged',
+        ),
+        (
+            _product_pull_record(state='closed', draft=False, merged=True),
+            lambda queue: None,
+            'PUBLIC_QUEUE_ABSENT',
+            'public_queue_absent',
+        ),
+        (
+            _product_pull_record(state='closed', draft=False, merged=True),
+            lambda queue: {**queue, 'generated_at': '2099-01-01T00:00:00Z'},
+            'PUBLIC_QUEUE_DRIFT',
+            'public_queue_drift',
+        ),
+    ],
+)
+def test_local_task_gate_fails_closed_for_each_public_base_mismatch(
+    pull: dict,
+    public_queue_factory,
+    expected_status: str,
+    expected_reason: str,
+):
+    """Closed-unmerged, missing, and drifted public bases remain distinct."""
+    queue = _queue()
+
+    gate = CHECKER.build_local_task_publication_gate(
+        queue,
+        pull,
+        public_queue_factory(queue),
+    )
+
+    assert gate['status'] == expected_status
+    assert gate['eligible'] is False
+    assert expected_reason in gate['blocking_reasons']
+
+
+def test_local_task_gate_rejects_a_different_base_repository():
+    """The bounded PR identity cannot be redirected to another repository."""
+    pull = _product_pull_record()
+    pull['base']['repo']['full_name'] = 'example/other'
+
+    with pytest.raises(CHECKER.QueueError, match='invalid bounded identity'):
+        CHECKER.build_local_task_publication_gate(_queue(), pull, None)
+
+
+def test_product_pull_reader_uses_one_get_request(monkeypatch):
+    """The product dependency reader cannot mutate the pull request."""
+    calls = []
+    payload = _product_pull_record()
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, json.dumps(payload), '')
+
+    monkeypatch.setattr(CHECKER.subprocess, 'run', fake_run)
+
+    assert CHECKER._github_get_product_pull(
+        'rsasaki0109/lidar_slam_ros2',
+        427,
+    ) == payload
+    command, kwargs = calls[0]
+    assert command[:4] == ['gh', 'api', '--method', 'GET']
+    assert command[-1] == '/repos/rsasaki0109/lidar_slam_ros2/pulls/427'
+    assert kwargs['check'] is False
+
+
+def test_public_queue_reader_decodes_wrapped_base64_and_accepts_only_404(
+    monkeypatch,
+):
+    """Public content is GET-only; a missing file is explicit, not an error."""
+    queue = _queue()
+    encoded = CHECKER.base64.b64encode(
+        json.dumps(queue).encode('utf-8')
+    ).decode('ascii')
+    wrapped = f'{encoded[:40]}\n{encoded[40:]}'
+    responses = [
+        subprocess.CompletedProcess(
+            [],
+            0,
+            json.dumps({
+                'type': 'file',
+                'encoding': 'base64',
+                'content': wrapped,
+            }),
+            '',
+        ),
+        subprocess.CompletedProcess([], 1, '', 'gh: Not Found (HTTP 404)'),
+    ]
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        response = responses.pop(0)
+        return subprocess.CompletedProcess(
+            command,
+            response.returncode,
+            response.stdout,
+            response.stderr,
+        )
+
+    monkeypatch.setattr(CHECKER.subprocess, 'run', fake_run)
+    arguments = (
+        'rsasaki0109/lidar_slam_ros2',
+        'docs/contracts/contributor-starter-queue-v1.json',
+        'develop',
+    )
+
+    assert CHECKER._github_get_public_queue(*arguments) == queue
+    assert CHECKER._github_get_public_queue(*arguments) is None
+    assert all(call[0][:4] == ['gh', 'api', '--method', 'GET']
+               for call in calls)
+    assert all('?ref=develop' in call[0][-1] for call in calls)
 
 
 def test_publication_gate_collector_uses_read_only_cohort_state(monkeypatch):

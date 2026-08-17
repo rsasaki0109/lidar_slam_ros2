@@ -14,6 +14,7 @@
     "open_issue_count",
     "open_pull_request_count",
     "publication_gates",
+    "local_task_publication_gate",
     "published_good_first_issues",
     "eligible_good_first_issues",
     "blocked_good_first_issues",
@@ -50,6 +51,9 @@
       "minItems": 1,
       "maxItems": 1,
       "items": {"$ref": "#/definitions/publicationGate"}
+    },
+    "local_task_publication_gate": {
+      "$ref": "#/definitions/localTaskPublicationGate"
     },
     "published_good_first_issues": {
       "type": "array",
@@ -141,6 +145,88 @@
             "--json"
           ]
         },
+        "remote_mutations_performed": {"const": false}
+      }
+    },
+    "localTaskPublicationGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "eligible",
+        "pull_request_number",
+        "pull_request_url",
+        "pull_request_state",
+        "is_draft",
+        "merged",
+        "head_sha",
+        "target_branch",
+        "public_queue_path",
+        "public_queue_status",
+        "expected_queue_sha256",
+        "observed_queue_sha256",
+        "blocking_reasons",
+        "recheck_command",
+        "github_requests",
+        "remote_mutations_performed"
+      ],
+      "properties": {
+        "id": {"const": "product-draft-public-queue-v1"},
+        "status": {
+          "enum": [
+            "READY",
+            "WAITING_FOR_PRODUCT_MERGE",
+            "PRODUCT_PR_CLOSED_UNMERGED",
+            "PUBLIC_QUEUE_ABSENT",
+            "PUBLIC_QUEUE_DRIFT"
+          ]
+        },
+        "eligible": {"type": "boolean"},
+        "pull_request_number": {"const": 427},
+        "pull_request_url": {
+          "const": "https://github.com/rsasaki0109/lidar_slam_ros2/pull/427"
+        },
+        "pull_request_state": {"enum": ["OPEN", "CLOSED"]},
+        "is_draft": {"type": "boolean"},
+        "merged": {"type": "boolean"},
+        "head_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "target_branch": {"const": "develop"},
+        "public_queue_path": {
+          "const": "docs/contracts/contributor-starter-queue-v1.json"
+        },
+        "public_queue_status": {"enum": ["ABSENT", "MATCH", "DRIFT"]},
+        "expected_queue_sha256": {"$ref": "#/definitions/sha256"},
+        "observed_queue_sha256": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/definitions/sha256"}
+          ]
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "product_pr_not_merged",
+              "public_queue_absent",
+              "public_queue_drift"
+            ]
+          }
+        },
+        "recheck_command": {
+          "const": [
+            "python3",
+            "scripts/contributor_starter_queue.py",
+            "--next",
+            "--json"
+          ]
+        },
+        "github_requests": {"const": "GET_ONLY"},
         "remote_mutations_performed": {"const": false}
       }
     },
@@ -250,6 +336,43 @@
         {
           "type": "object",
           "additionalProperties": false,
+          "required": [
+            "action",
+            "task_id",
+            "gate_status",
+            "preview_command",
+            "recheck_command"
+          ],
+          "properties": {
+            "action": {"const": "PREPARE_LOCAL_TASK_FOR_POST_MERGE"},
+            "task_id": {"$ref": "#/definitions/taskId"},
+            "gate_status": {
+              "enum": [
+                "WAITING_FOR_PRODUCT_MERGE",
+                "PRODUCT_PR_CLOSED_UNMERGED",
+                "PUBLIC_QUEUE_ABSENT",
+                "PUBLIC_QUEUE_DRIFT"
+              ]
+            },
+            "preview_command": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {"type": "string", "minLength": 1, "maxLength": 200}
+            },
+            "recheck_command": {
+              "const": [
+                "python3",
+                "scripts/contributor_starter_queue.py",
+                "--next",
+                "--json"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
           "required": ["action", "task_id", "preview_command"],
           "properties": {
             "action": {"const": "REVIEW_AND_PUBLISH_LOCAL_TASK"},
@@ -289,13 +412,20 @@
             "task_sha256",
             "queue_sha256",
             "live_duplicate_count",
+            "publication_gate_status",
+            "public_base_ready",
             "external_write_required",
             "maintainer_confirmation_required",
             "issue_creation_authorized",
             "writes_performed"
           ],
           "properties": {
-            "kind": {"const": "REVIEW_LOCAL_TASK_FOR_SEPARATE_PUBLICATION"},
+            "kind": {
+              "enum": [
+                "PREPARE_LOCAL_TASK_FOR_POST_MERGE",
+                "REVIEW_LOCAL_TASK_FOR_SEPARATE_PUBLICATION"
+              ]
+            },
             "task_id": {"$ref": "#/definitions/taskId"},
             "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
             "title": {"type": "string", "minLength": 1, "maxLength": 300},
@@ -311,6 +441,16 @@
             "task_sha256": {"$ref": "#/definitions/sha256"},
             "queue_sha256": {"$ref": "#/definitions/sha256"},
             "live_duplicate_count": {"const": 0},
+            "publication_gate_status": {
+              "enum": [
+                "READY",
+                "WAITING_FOR_PRODUCT_MERGE",
+                "PRODUCT_PR_CLOSED_UNMERGED",
+                "PUBLIC_QUEUE_ABSENT",
+                "PUBLIC_QUEUE_DRIFT"
+              ]
+            },
+            "public_base_ready": {"type": "boolean"},
             "external_write_required": {"const": true},
             "maintainer_confirmation_required": {"const": true},
             "issue_creation_authorized": {"const": false},

@@ -32,16 +32,18 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+import base64
+import binascii
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
 import re
 import shlex
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
 from typing import Any, Sequence
 
 import jsonschema
@@ -116,6 +118,12 @@ PUBLICATION_GATE_COMMANDS = {
         '--json',
     ),
 }
+LOCAL_TASK_PUBLICATION_RECHECK_COMMAND = [
+    'python3',
+    'scripts/contributor_starter_queue.py',
+    '--next',
+    '--json',
+]
 
 
 class QueueError(ValueError):
@@ -268,6 +276,21 @@ def validate_queue(
 
     _validate_published_issue_dependencies(
         queue['published_issue_dependencies'])
+    expected_local_dependency = {
+        'id': 'product-draft-public-queue-v1',
+        'pull_request_number': 427,
+        'base_ref': 'develop',
+        'public_queue_path': (
+            'docs/contracts/contributor-starter-queue-v1.json'
+        ),
+    }
+    if queue['local_task_publication_dependency'] != (
+        expected_local_dependency
+    ):
+        raise QueueError(
+            'local task publication dependency must bind PR #427, develop, '
+            'and the canonical queue path'
+        )
 
     audit = queue['remote_duplicate_audit']
     if audit['open_pull_request_count'] != len(
@@ -545,6 +568,113 @@ def _github_get_all(repository: str, resource: str) -> list[dict[str, Any]]:
     )
 
 
+def _github_get_object(
+    repository: str,
+    endpoint_suffix: str,
+    label: str,
+    *,
+    allow_not_found: bool = False,
+) -> dict[str, Any] | None:
+    """Read one bounded GitHub object with no mutation capability."""
+    if GITHUB_REPOSITORY_PATTERN.fullmatch(repository) is None:
+        raise QueueError(f'invalid GitHub repository: {repository!r}')
+    endpoint = f'/repos/{repository}/{endpoint_suffix}'
+    command = [
+        'gh',
+        'api',
+        '--method',
+        'GET',
+        '-H',
+        'Accept: application/vnd.github+json',
+        '-H',
+        'X-GitHub-Api-Version: 2022-11-28',
+        endpoint,
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise QueueError(f'cannot read GitHub {label}: {exc}') from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip() or 'gh api returned no error text'
+        if allow_not_found and 'HTTP 404' in detail:
+            return None
+        raise QueueError(f'cannot read GitHub {label}: {detail}')
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise QueueError(
+            f'GitHub {label} response is not valid JSON'
+        ) from exc
+    if not isinstance(payload, dict):
+        raise QueueError(f'GitHub {label} response must be an object')
+    return payload
+
+
+def _github_get_product_pull(
+    repository: str,
+    pull_request_number: int,
+) -> dict[str, Any]:
+    """Read the declared product pull request through one GET request."""
+    if (
+        isinstance(pull_request_number, bool)
+        or not isinstance(pull_request_number, int)
+        or pull_request_number < 1
+    ):
+        raise QueueError('product pull request number must be positive')
+    payload = _github_get_object(
+        repository,
+        f'pulls/{pull_request_number}',
+        f'pull request #{pull_request_number}',
+    )
+    assert payload is not None
+    return payload
+
+
+def _github_get_public_queue(
+    repository: str,
+    path: str,
+    ref: str,
+) -> dict[str, Any] | None:
+    """Read and decode the declared public queue JSON, accepting only 404."""
+    _validate_repo_path(path)
+    if ref != 'develop':
+        raise QueueError('public queue ref must be develop')
+    record = _github_get_object(
+        repository,
+        f'contents/{path}?ref={ref}',
+        f'public queue {path}@{ref}',
+        allow_not_found=True,
+    )
+    if record is None:
+        return None
+    if record.get('type') != 'file' or record.get('encoding') != 'base64':
+        raise QueueError('public queue response is not one base64 file')
+    content = record.get('content')
+    if not isinstance(content, str):
+        raise QueueError('public queue response has no base64 content')
+    try:
+        decoded = base64.b64decode(''.join(content.split()), validate=True)
+        payload = json.loads(decoded.decode('utf-8'))
+    except (
+        binascii.Error,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+    ) as exc:
+        raise QueueError(
+            'public queue content is not valid UTF-8 JSON'
+        ) from exc
+    if not isinstance(payload, dict):
+        raise QueueError('public queue content must be a JSON object')
+    return payload
+
+
 def _public_issue(record: dict[str, Any]) -> dict[str, Any]:
     number = record.get('number')
     title = record.get('title')
@@ -728,6 +858,97 @@ def collect_publication_gates(
     ]
 
 
+def build_local_task_publication_gate(
+    queue: dict[str, Any],
+    pull: dict[str, Any],
+    public_queue: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Require the product merge and exact public queue before issue review."""
+    dependency = queue['local_task_publication_dependency']
+    number = dependency['pull_request_number']
+    base_ref = dependency['base_ref']
+    path = dependency['public_queue_path']
+    if pull.get('number') != number:
+        raise QueueError('product pull response has the wrong number')
+    state = pull.get('state')
+    draft = pull.get('draft')
+    merged = pull.get('merged')
+    url = pull.get('html_url')
+    pull_base = pull.get('base')
+    pull_head = pull.get('head')
+    head_sha = pull_head.get('sha') if isinstance(pull_head, dict) else None
+    base_repository = (
+        pull_base.get('repo') if isinstance(pull_base, dict) else None
+    )
+    if (
+        state not in {'open', 'closed'}
+        or not isinstance(draft, bool)
+        or not isinstance(merged, bool)
+        or not isinstance(url, str)
+        or url != f'https://github.com/{queue["repository"]}/pull/{number}'
+        or not isinstance(pull_base, dict)
+        or pull_base.get('ref') != base_ref
+        or not isinstance(base_repository, dict)
+        or base_repository.get('full_name') != queue['repository']
+        or not isinstance(head_sha, str)
+        or re.fullmatch(r'[0-9a-f]{40}', head_sha) is None
+        or (merged and state != 'closed')
+        or (merged and draft)
+    ):
+        raise QueueError('product pull response has invalid bounded identity')
+
+    expected_queue_sha256 = _canonical_sha256(queue)
+    observed_queue_sha256 = (
+        None if public_queue is None else _canonical_sha256(public_queue)
+    )
+    if public_queue is None:
+        public_queue_status = 'ABSENT'
+    elif observed_queue_sha256 == expected_queue_sha256:
+        public_queue_status = 'MATCH'
+    else:
+        public_queue_status = 'DRIFT'
+
+    blocking_reasons = []
+    if not merged:
+        blocking_reasons.append('product_pr_not_merged')
+    if public_queue_status == 'ABSENT':
+        blocking_reasons.append('public_queue_absent')
+    elif public_queue_status == 'DRIFT':
+        blocking_reasons.append('public_queue_drift')
+    eligible = not blocking_reasons
+    if eligible:
+        status = 'READY'
+    elif state == 'closed' and not merged:
+        status = 'PRODUCT_PR_CLOSED_UNMERGED'
+    elif not merged:
+        status = 'WAITING_FOR_PRODUCT_MERGE'
+    elif public_queue_status == 'ABSENT':
+        status = 'PUBLIC_QUEUE_ABSENT'
+    else:
+        status = 'PUBLIC_QUEUE_DRIFT'
+
+    return {
+        'id': dependency['id'],
+        'status': status,
+        'eligible': eligible,
+        'pull_request_number': number,
+        'pull_request_url': url,
+        'pull_request_state': state.upper(),
+        'is_draft': draft,
+        'merged': merged,
+        'head_sha': head_sha,
+        'target_branch': base_ref,
+        'public_queue_path': path,
+        'public_queue_status': public_queue_status,
+        'expected_queue_sha256': expected_queue_sha256,
+        'observed_queue_sha256': observed_queue_sha256,
+        'blocking_reasons': blocking_reasons,
+        'recheck_command': LOCAL_TASK_PUBLICATION_RECHECK_COMMAND,
+        'github_requests': 'GET_ONLY',
+        'remote_mutations_performed': False,
+    }
+
+
 def _validate_next_report(report: dict[str, Any]) -> None:
     schema = _load_json(DEFAULT_NEXT_SCHEMA, 'next-action schema')
     try:
@@ -746,9 +967,23 @@ def _validate_next_report(report: dict[str, Any]) -> None:
             'next-action report schema validation failed at '
             f'{_schema_error_path(first)}: {first.message}'
         )
+    local_gate = report['local_task_publication_gate']
+    gate_ready = local_gate['status'] == 'READY'
+    if local_gate['eligible'] is not gate_ready:
+        raise QueueError(
+            'local task publication gate status and eligibility disagree'
+        )
+    if gate_ready != (not local_gate['blocking_reasons']):
+        raise QueueError(
+            'local task publication gate blockers disagree with readiness'
+        )
     maintainer = report['maintainer_next']
     handoff = report['maintainer_publication_handoff']
-    selected = maintainer['action'] == 'REVIEW_AND_PUBLISH_LOCAL_TASK'
+    selected_actions = {
+        'PREPARE_LOCAL_TASK_FOR_POST_MERGE',
+        'REVIEW_AND_PUBLISH_LOCAL_TASK',
+    }
+    selected = maintainer['action'] in selected_actions
     if selected != (handoff is not None):
         raise QueueError(
             'maintainer publication handoff must exist exactly when one '
@@ -756,6 +991,16 @@ def _validate_next_report(report: dict[str, Any]) -> None:
         )
     if handoff is None:
         return
+    if (
+        maintainer['action'] == 'REVIEW_AND_PUBLISH_LOCAL_TASK'
+        and not gate_ready
+    ):
+        raise QueueError('local task publication action requires a ready gate')
+    if (
+        maintainer['action'] == 'PREPARE_LOCAL_TASK_FOR_POST_MERGE'
+        and gate_ready
+    ):
+        raise QueueError('post-merge preparation cannot carry a ready gate')
     if handoff['task_id'] != maintainer['task_id']:
         raise QueueError(
             'maintainer publication handoff task does not match next action'
@@ -767,6 +1012,17 @@ def _validate_next_report(report: dict[str, Any]) -> None:
         raise QueueError('maintainer publication issue body digest is stale')
     if handoff['labels'] != sorted(handoff['labels']):
         raise QueueError('maintainer publication labels must be sorted')
+    if handoff['publication_gate_status'] != local_gate['status']:
+        raise QueueError('maintainer handoff publication gate status is stale')
+    if handoff['public_base_ready'] is not gate_ready:
+        raise QueueError('maintainer handoff public-base readiness is stale')
+    expected_kind = (
+        'REVIEW_LOCAL_TASK_FOR_SEPARATE_PUBLICATION'
+        if gate_ready else
+        'PREPARE_LOCAL_TASK_FOR_POST_MERGE'
+    )
+    if handoff['kind'] != expected_kind:
+        raise QueueError('maintainer handoff kind disagrees with public gate')
 
 
 def _canonical_sha256(value: Any) -> str:
@@ -783,6 +1039,7 @@ def _canonical_sha256(value: Any) -> str:
 def _build_maintainer_publication_handoff(
     queue: dict[str, Any],
     task_id: str,
+    local_gate: dict[str, Any],
 ) -> dict[str, Any]:
     """Bind one live-selected local task without granting issue authority."""
     task = _find_task(queue, task_id)
@@ -793,8 +1050,13 @@ def _build_maintainer_publication_handoff(
             f'{task_id} rendered task does not start with its exact title'
         )
     issue_body = rendered[len(heading):]
+    public_base_ready = local_gate['eligible']
     return {
-        'kind': 'REVIEW_LOCAL_TASK_FOR_SEPARATE_PUBLICATION',
+        'kind': (
+            'REVIEW_LOCAL_TASK_FOR_SEPARATE_PUBLICATION'
+            if public_base_ready else
+            'PREPARE_LOCAL_TASK_FOR_POST_MERGE'
+        ),
         'task_id': task_id,
         'repository': queue['repository'],
         'title': task['title'],
@@ -806,6 +1068,8 @@ def _build_maintainer_publication_handoff(
         'task_sha256': _canonical_sha256(task),
         'queue_sha256': _canonical_sha256(queue),
         'live_duplicate_count': 0,
+        'publication_gate_status': local_gate['status'],
+        'public_base_ready': public_base_ready,
         'external_write_required': True,
         'maintainer_confirmation_required': True,
         'issue_creation_authorized': False,
@@ -833,6 +1097,7 @@ def build_next_report(
     issues: Sequence[dict[str, Any]],
     pulls: Sequence[dict[str, Any]],
     publication_gates: Sequence[dict[str, Any]],
+    local_task_publication_gate: dict[str, Any],
 ) -> dict[str, Any]:
     """Combine local readiness with privacy-bounded live availability."""
     expected_gate_ids = [
@@ -866,6 +1131,29 @@ def build_next_report(
                 'disagree with eligibility'
             )
     gates_by_id = {item['id']: item for item in publication_gates}
+    if (
+        local_task_publication_gate.get('id')
+        != queue['local_task_publication_dependency']['id']
+        or not isinstance(
+            local_task_publication_gate.get('eligible'),
+            bool,
+        )
+        or local_task_publication_gate.get('github_requests') != 'GET_ONLY'
+        or local_task_publication_gate.get(
+            'remote_mutations_performed'
+        ) is not False
+        or local_task_publication_gate.get('pull_request_number')
+        != queue['local_task_publication_dependency'][
+            'pull_request_number'
+        ]
+        or local_task_publication_gate.get('target_branch')
+        != queue['local_task_publication_dependency']['base_ref']
+        or local_task_publication_gate.get('public_queue_path')
+        != queue['local_task_publication_dependency']['public_queue_path']
+        or local_task_publication_gate.get('expected_queue_sha256')
+        != _canonical_sha256(queue)
+    ):
+        raise QueueError('local task publication gate is incomplete or unsafe')
     open_issues = [item for item in issues if 'pull_request' not in item]
     public_issues = [_public_issue(item) for item in open_issues]
     public_pulls = [_public_issue(item) for item in pulls]
@@ -965,16 +1253,26 @@ def build_next_report(
         maintainer_next = {'action': 'REVIEW_POTENTIAL_PULL_DUPLICATE'}
     elif publishable:
         task_id = publishable[0]
-        maintainer_next = {
-            'action': 'REVIEW_AND_PUBLISH_LOCAL_TASK',
-            'task_id': task_id,
-            'preview_command': [
-                'python3',
-                'scripts/contributor_starter_queue.py',
-                '--task',
-                task_id,
-            ],
-        }
+        preview_command = [
+            'python3',
+            'scripts/contributor_starter_queue.py',
+            '--task',
+            task_id,
+        ]
+        if local_task_publication_gate['eligible']:
+            maintainer_next = {
+                'action': 'REVIEW_AND_PUBLISH_LOCAL_TASK',
+                'task_id': task_id,
+                'preview_command': preview_command,
+            }
+        else:
+            maintainer_next = {
+                'action': 'PREPARE_LOCAL_TASK_FOR_POST_MERGE',
+                'task_id': task_id,
+                'gate_status': local_task_publication_gate['status'],
+                'preview_command': preview_command,
+                'recheck_command': LOCAL_TASK_PUBLICATION_RECHECK_COMMAND,
+            }
     elif blocked_good_first_issues:
         blocked = blocked_good_first_issues[0]
         gate = blocked['gate']
@@ -989,10 +1287,14 @@ def build_next_report(
         maintainer_next = {'action': 'REVIEW_QUEUE_STATE'}
 
     maintainer_publication_handoff = None
-    if maintainer_next['action'] == 'REVIEW_AND_PUBLISH_LOCAL_TASK':
+    if maintainer_next['action'] in {
+        'PREPARE_LOCAL_TASK_FOR_POST_MERGE',
+        'REVIEW_AND_PUBLISH_LOCAL_TASK',
+    }:
         maintainer_publication_handoff = _build_maintainer_publication_handoff(
             queue,
             maintainer_next['task_id'],
+            local_task_publication_gate,
         )
 
     report = {
@@ -1005,6 +1307,7 @@ def build_next_report(
         'open_issue_count': len(open_issues),
         'open_pull_request_count': len(pulls),
         'publication_gates': list(publication_gates),
+        'local_task_publication_gate': local_task_publication_gate,
         'published_good_first_issues': good_first_issues,
         'eligible_good_first_issues': eligible_good_first_issues,
         'blocked_good_first_issues': blocked_good_first_issues,
@@ -1032,18 +1335,41 @@ def collect_next_report(
     issues = _github_get_all(queue['repository'], 'issues')
     pulls = _github_get_all(queue['repository'], 'pulls')
     publication_gates = collect_publication_gates(queue)
+    dependency = queue['local_task_publication_dependency']
+    product_pull = _github_get_product_pull(
+        queue['repository'],
+        dependency['pull_request_number'],
+    )
+    public_queue = _github_get_public_queue(
+        queue['repository'],
+        dependency['public_queue_path'],
+        dependency['base_ref'],
+    )
+    local_task_gate = build_local_task_publication_gate(
+        queue,
+        product_pull,
+        public_queue,
+    )
     return build_next_report(
         queue,
         local_report,
         issues,
         pulls,
         publication_gates,
+        local_task_gate,
     )
 
 
 def render_next_report(report: dict[str, Any]) -> str:
     """Render the live contributor and maintainer next steps."""
     lines = [f"Contributor next step — {report['status']}"]
+    local_gate = report['local_task_publication_gate']
+    reasons = ', '.join(local_gate['blocking_reasons']) or 'none'
+    lines.append(
+        'Local task public base: '
+        f"{local_gate['status']} (PR #{local_gate['pull_request_number']}; "
+        f"queue {local_gate['public_queue_status']}; {reasons})"
+    )
     issues = report['published_good_first_issues']
     eligible = report['eligible_good_first_issues']
     blocked = report['blocked_good_first_issues']
@@ -1099,6 +1425,13 @@ def render_next_report(report: dict[str, Any]) -> str:
             'Maintainer: review the next bounded task with '
             f"`{shlex.join(maintainer['preview_command'])}`"
         )
+    elif maintainer['action'] == 'PREPARE_LOCAL_TASK_FOR_POST_MERGE':
+        lines.append(
+            'Maintainer: prepare the bounded task with '
+            f"`{shlex.join(maintainer['preview_command'])}`; do not publish "
+            'until the local task gate is READY. Recheck with '
+            f"`{shlex.join(maintainer['recheck_command'])}`"
+        )
     elif maintainer['action'] == 'REVIEW_POTENTIAL_PULL_DUPLICATE':
         lines.append(
             'Maintainer: review the potential open-PR duplicates before '
@@ -1110,6 +1443,9 @@ def render_next_report(report: dict[str, Any]) -> str:
             'Publication handoff: exact local body for '
             f"{handoff['task_id']}; SHA-256 "
             f"{handoff['issue_body_sha256']}.",
+            'Public base ready: '
+            f"{'yes' if handoff['public_base_ready'] else 'no'} "
+            f"({handoff['publication_gate_status']}).",
             'GitHub issue creation authorized: no; maintainer confirmation '
             'and a separate external write are required.',
         ])

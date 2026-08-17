@@ -14,6 +14,7 @@
     "prepared_environment",
     "remote_duplicate_audit",
     "published_issue_dependencies",
+    "local_task_publication_dependency",
     "tasks",
     "authority"
   ],
@@ -47,6 +48,9 @@
       "minItems": 1,
       "maxItems": 1,
       "items": {"$ref": "#/definitions/publishedIssueDependency"}
+    },
+    "local_task_publication_dependency": {
+      "$ref": "#/definitions/localTaskPublicationDependency"
     },
     "tasks": {
       "type": "array",
@@ -106,6 +110,24 @@
         },
         "eligible_statuses": {
           "const": ["READY_FOR_NEXT_ATTEMPT"]
+        }
+      }
+    },
+    "localTaskPublicationDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "pull_request_number",
+        "base_ref",
+        "public_queue_path"
+      ],
+      "properties": {
+        "id": {"const": "product-draft-public-queue-v1"},
+        "pull_request_number": {"const": 427},
+        "base_ref": {"const": "develop"},
+        "public_queue_path": {
+          "const": "docs/contracts/contributor-starter-queue-v1.json"
         }
       }
     },

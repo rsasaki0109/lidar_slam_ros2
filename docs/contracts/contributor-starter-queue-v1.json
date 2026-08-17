@@ -63,6 +63,12 @@
       ]
     }
   ],
+  "local_task_publication_dependency": {
+    "id": "product-draft-public-queue-v1",
+    "pull_request_number": 427,
+    "base_ref": "develop",
+    "public_queue_path": "docs/contracts/contributor-starter-queue-v1.json"
+  },
   "tasks": [
     {
       "id": "starter-C5",
