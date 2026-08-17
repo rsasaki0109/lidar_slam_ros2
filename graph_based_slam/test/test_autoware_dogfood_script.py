@@ -300,6 +300,14 @@ def test_dogfood_signal_is_not_reported_as_offline_timeout(
         raise AssertionError('interrupted launch group was not reaped')
 
 
+def test_workspace_setup_preserves_caller_path_precedence():
+    """Explicit command shims must remain ahead of sourced ROS binaries."""
+    source = DOGFOOD_SCRIPT.read_text(encoding='utf-8')
+
+    assert 'CALLER_PATH="$PATH"' in source
+    assert 'export PATH="${CALLER_PATH}:${PATH}"' in source
+
+
 def test_offline_subscriber_barrier_runs_only_after_stable_counts(tmp_path: Path):
     barrier_source = BARRIER_SCRIPT.read_text(encoding='utf-8')
     assert 'DISCOVERY_SPIN_SECS=1.0' in barrier_source

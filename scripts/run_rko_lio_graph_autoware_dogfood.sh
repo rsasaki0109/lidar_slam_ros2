@@ -358,6 +358,7 @@ if [[ "$SKIP_VIEWER" == "false" ]]; then
   fi
 fi
 
+CALLER_PATH="$PATH"
 set +u
 if [[ -n "${WORKSPACE_SETUP}" && -f "${WORKSPACE_SETUP}" ]]; then
   # shellcheck source=/dev/null
@@ -367,6 +368,7 @@ elif [[ -n "${ROS_DISTRO:-}" && -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]]; then
   source "/opt/ros/${ROS_DISTRO}/setup.bash"
 fi
 set -u
+export PATH="${CALLER_PATH}:${PATH}"
 
 command -v ros2 >/dev/null 2>&1 || { echo "ros2 not found in PATH" >&2; exit 1; }
 
