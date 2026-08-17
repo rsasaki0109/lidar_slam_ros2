@@ -726,6 +726,53 @@ def test_first_map_form_accepts_fail_without_weakening_pass_receipts():
     )
 
 
+def test_first_map_form_requires_a_redacted_command_shape():
+    """Public reproducibility must not solicit private command values."""
+    form_path = ISSUE_TEMPLATE_DIR / 'first-map-validation.yml'
+    form = yaml.safe_load(form_path.read_text(encoding='utf-8'))
+    fields = {
+        item['id']: item
+        for item in form['body']
+        if isinstance(item, dict) and 'id' in item
+    }
+    command = fields['command']
+    privacy = fields['privacy']
+    description = command['attributes']['description']
+    placeholder = command['attributes']['placeholder']
+
+    assert command['attributes']['label'] == 'Redacted command shape'
+    assert command['attributes']['render'] == 'bash'
+    assert command['validations']['required'] is True
+    for required_phrase in (
+        'credentials',
+        'private paths',
+        'host or user names',
+        'precise locations',
+        'literal REDACTED placeholder',
+        'executable, options, and non-private values',
+    ):
+        assert required_phrase in description
+    assert 'REDACTED' in placeholder
+    assert '/path/to/' not in placeholder
+
+    redaction_attestation = privacy['attributes']['options'][0]
+    assert redaction_attestation['required'] is True
+    assert 'private paths' in redaction_attestation['label']
+    assert 'REDACTED' in redaction_attestation['label']
+    assert 'map geometry' in redaction_attestation['label']
+
+    validation_doc = EXTERNAL_FIRST_MAP_DOC.read_text(encoding='utf-8')
+    assert 'redacted command shape' in validation_doc
+    assert 'literal `REDACTED` placeholder' in validation_doc
+    getting_started = GETTING_STARTED.read_text(encoding='utf-8')
+    golden_path = GOLDEN_PATH_CLI_DOC.read_text(encoding='utf-8')
+    support_doc = SUPPORT_PATH.read_text(encoding='utf-8')
+    assert 'literal `REDACTED` placeholder' in getting_started
+    assert 'private values replaced\nby `REDACTED`' in golden_path
+    assert '**Redacted command shape**' in support_doc
+    assert 'literal `REDACTED` placeholder' in support_doc
+
+
 def test_bug_form_accepts_pre_session_failure_without_fake_zip_claims():
     """Pre-session failures need diagnostics, not an impossible ZIP claim."""
     bug_form_path = ISSUE_TEMPLATE_DIR / 'bug-report.yml'

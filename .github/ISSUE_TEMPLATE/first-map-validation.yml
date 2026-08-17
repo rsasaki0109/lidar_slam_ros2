@@ -52,8 +52,9 @@ body:
   - type: textarea
     id: command
     attributes:
-      label: Exact command
-      description: Paste the command copied or derived from the public documentation.
+      label: Redacted command shape
+      description: Paste the command copied or derived from the public documentation. Replace credentials, private paths, host or user names, and precise locations with the literal REDACTED placeholder; keep the executable, options, and non-private values intact.
+      placeholder: lidarslam-map start REDACTED --profile rko_lio_graph_mid360_preset
       render: bash
     validations:
       required: true
@@ -109,7 +110,7 @@ body:
     attributes:
       label: Privacy and reproducibility
       options:
-        - label: I removed credentials, private location data, and map geometry.
+        - label: I replaced credentials, private paths, host or user names, and precise locations with REDACTED, and I did not include map geometry.
           required: true
         - label: I either reviewed the one attached JSON receipt and confirmed that it contains no information I need to keep private, or selected FAIL because no receipt was produced and attached no file.
           required: true

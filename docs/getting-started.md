@@ -474,7 +474,10 @@ lidarslam-map support /path/to/session_bundle --first-map
 
 Review the named JSON before attaching it. The handoff never uploads anything
 and explicitly excludes maps, bags, manifests, logs, trajectories, parameters,
-and private-place screenshots.
+and private-place screenshots. Its four-field template preserves the command
+executable, options, and non-private values while requiring credentials,
+private paths, host or user names, and precise locations to be replaced with
+the literal `REDACTED` placeholder.
 
 Return to recent work without searching through timestamped directories:
 

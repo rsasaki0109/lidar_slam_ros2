@@ -232,7 +232,9 @@ file, and contacts no remote service. It requires receipt-bound quality PASS,
 revalidates the retained receipt plus manifest, diagnosis, and verification-log
 hashes, then prints one copy-ready verification summary, safe environment
 hints, the exact reviewed JSON receipt to attach, and the canonical
-independent-validation issue form. Add `--json` for a schema-valid,
+independent-validation issue form. Its four-field template asks for the public
+documentation path, environment, a command shape with private values replaced
+by `REDACTED`, and findings. Add `--json` for a schema-valid,
 machine-readable `first-map-handoff-v1` result; it is still read-only and
 local-only because it includes the local receipt path. Attach only the
 reviewed receipt, never the handoff JSON.

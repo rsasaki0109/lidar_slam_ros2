@@ -31,7 +31,8 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
    receipt against the retained manifest, diagnosis, and verification log,
    then prints the copy-ready PASS result, source commit or product-version
    fallback, exact verification summary, JSON attachment path, issue form,
-   and the four fields that still need your own input. If you ran an immutable
+   and a field-by-field template for the four values that still need your own
+   input. If you ran an immutable
    image digest, replace the suggested release value with that digest.
    For automation or a wrapper UI, add `--json`; the same read-only handoff is
    returned as the schema-valid
@@ -54,8 +55,10 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
    the generated JSON and submit it manually through the same issue form; do
    not edit old session evidence merely to make the handoff pass.
 
-3. Record the release tag, commit, or immutable image digest and the exact
-   command you ran. Redact private paths from that separately pasted command.
+3. Record the release tag, commit, or immutable image digest and the redacted
+   command shape you ran. Keep the executable, options, and non-private values,
+   but replace credentials, private paths, host or user names, and precise
+   locations with the literal `REDACTED` placeholder.
 4. Follow the printed
    [Independent First-map Validation issue form](https://github.com/rsasaki0109/lidar_slam_ros2/issues/new?template=first-map-validation.yml),
    paste its copy-ready `Verification summary`. For a PASS report, review the
@@ -77,9 +80,10 @@ documented before v1.0.
 
 !!! warning "Do not publish map geometry"
 
-    Remove credentials, private paths, precise locations, rosbag payloads,
-    point-cloud tiles, trajectories, and screenshots that reveal private
-    places. The issue form asks for command, environment, status, verifier
+    Replace credentials, private paths, host or user names, and precise
+    locations with `REDACTED`; remove rosbag payloads, point-cloud tiles,
+    trajectories, and screenshots that reveal private places. The issue form
+    asks for a redacted command shape, environment, status, verifier
     summary, and the privacy-bounded JSON receipt. You must still review the
     receipt before attaching it and redact private paths from the separately
     pasted command.

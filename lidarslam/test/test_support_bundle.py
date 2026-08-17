@@ -447,8 +447,13 @@ def test_first_map_handoff_revalidates_pass_evidence_without_writing(
     assert 'Result: PASS — verified first map completed' in terminal
     assert f'Release, commit, or image digest: {"a" * 40}' in terminal
     assert 'Copy this Verification summary' in terminal
-    assert 'Complete these from your own run:' in terminal
-    assert 'Detected safe environment hints' in terminal
+    assert 'Complete these four public issue fields:' in terminal
+    assert 'Public documentation path: <Docker First Map' in terminal
+    assert 'Environment: Linux / x86_64 / ROS 2 jazzy' in terminal
+    assert 'Redacted command shape: <executable and options' in terminal
+    assert 'Findings: <what was unclear, slow, surprising' in terminal
+    assert 'literal REDACTED placeholder' in terminal
+    assert 'host or user names' in terminal
     assert str(bundle / 'map/first_map_validation_receipt.json') in terminal
     assert 'Do not attach the map, bag, manifest, logs' in terminal
     after = {

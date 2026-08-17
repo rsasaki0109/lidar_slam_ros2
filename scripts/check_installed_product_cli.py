@@ -1089,7 +1089,10 @@ def validate_install(
                 'issues/new?template=first-map-validation.yml'
             ),
             'attach only this privacy-bounded JSON receipt',
-            'Complete these from your own run:',
+            'Complete these four public issue fields:',
+            'Public documentation path: <Docker First Map',
+            'Redacted command shape: <executable and options',
+            'literal REDACTED placeholder',
         )
         if any(
             text not in first_map_handoff.stdout

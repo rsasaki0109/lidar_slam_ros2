@@ -842,22 +842,30 @@ def render_first_map_handoff(handoff: dict[str, Any]) -> str:
             'Readable receipt:',
             f"  {handoff['markdown_path']}",
         ])
+    environment = ' / '.join([
+        handoff['environment_hints']['os_family'],
+        handoff['environment_hints']['architecture'],
+        'ROS 2 ' + (handoff['environment_hints']['ros_distro'] or 'unknown'),
+        '<install method>',
+        '<relevant hardware>',
+    ])
     lines.extend([
-        'Detected safe environment hints (verify and complete in the form):',
-        f"  OS family: {handoff['environment_hints']['os_family']}",
-        f"  Architecture: {handoff['environment_hints']['architecture']}",
-        f"  ROS 2: {handoff['environment_hints']['ros_distro'] or 'unknown'}",
+        'Complete these four public issue fields:',
+        '  Public documentation path: <Docker First Map | Source quickstart '
+        '| Own-bag golden path>',
+        f'  Environment: {environment}',
+        '  Redacted command shape: <executable and options; replace every '
+        'private value with REDACTED>',
+        '  Findings: <what was unclear, slow, surprising, broken, or helpful>',
         '',
         'Issue form:',
         f"  {handoff['issue_url']}",
         '',
-        'Complete these from your own run:',
-        '  Public documentation path; environment details; exact command; '
-        'findings.',
-        '',
-        'Before sharing: redact private paths from the separately pasted '
-        'command. Do not attach the map, bag, manifest, logs, trajectory, '
-        'parameters, or screenshots of a private place.',
+        'Before sharing: use the literal REDACTED placeholder for credentials, '
+        'private paths, host or user names, and precise locations. Preserve '
+        'the command executable, options, and non-private values. Do not '
+        'attach the map, bag, manifest, logs, trajectory, parameters, or '
+        'screenshots of a private place.',
     ])
     return '\n'.join(lines)
 
