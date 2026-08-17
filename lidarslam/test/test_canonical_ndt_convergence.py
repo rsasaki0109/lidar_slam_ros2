@@ -95,6 +95,7 @@ def test_checked_in_bundle_is_artifact_ready_and_schema_valid():
         'github_writes_authorized': False,
         'remote_mutations_performed': False,
     }
+    assert report['draft_pr_handoff'] is None
     assert all(
         item['status'] == 'PASS'
         for item in report['checks']
@@ -160,6 +161,7 @@ def test_exact_clean_upstream_checkout_promotes_local_review_status(
         'clean': True,
         'patch_applies': True,
     }
+    assert report['draft_pr_handoff'] is None
     assert str(checkout) not in json.dumps(report)
 
 
@@ -229,7 +231,60 @@ def test_exact_candidate_and_online_state_promote_draft_pr(
         'patch_matches': True,
     }
     assert report['publication_preflight']['duplicate_prs'] == []
+    handoff = report['draft_pr_handoff']
+    assert handoff is not None
+    assert handoff['kind'] == 'CREATE_CANONICAL_NDT_DRAFT_PR'
+    assert handoff['external_write_required'] is True
+    assert handoff['upstream_repository'] == 'koide3/ndt_omp'
+    assert handoff['base_branch'] == 'master'
+    assert handoff['fork_repository'] == 'rsasaki0109/ndt_omp_ros2'
+    assert handoff['head_branch'] == (
+        'lidarslam-priors-and-correspondence-diagnostics')
+    assert handoff['upstream_base_commit'] == base
+    assert handoff['candidate_commit'] == candidate_commit
+    assert handoff['candidate_subject'] == (
+        contract['publication']['candidate_subject'])
+    assert handoff['title'] == contract['publication']['draft_pr']['title']
+    assert handoff['body'] == contract['publication']['draft_pr']['body']
+    assert handoff['preflight'] == {
+        'upstream_base_verified': True,
+        'fork_identity_verified': True,
+        'branch_absent_verified': True,
+        'open_pr_count': 4,
+        'duplicate_pr_count': 0,
+    }
+    assert handoff['constraints'] == {
+        'draft_required': True,
+        'create_only': True,
+        'non_force_only': True,
+        'push_authorized': False,
+        'pr_creation_authorized': False,
+        'force_push_authorized': False,
+        'mark_ready_authorized': False,
+        'merge_authorized': False,
+    }
+    assert len(handoff['steps']) == 4
+    assert handoff['writes_performed'] is False
     assert report['authority']['github_writes_authorized'] is False
+    schema = json.loads(REPORT_SCHEMA.read_text(encoding='utf-8'))
+    validator = jsonschema.Draft7Validator(schema)
+    validator.validate(report)
+    missing_handoff = json.loads(json.dumps(report))
+    missing_handoff['draft_pr_handoff'] = None
+    with pytest.raises(jsonschema.ValidationError):
+        validator.validate(missing_handoff)
+    unexpected_handoff = json.loads(json.dumps(report))
+    unexpected_handoff['status'] = 'READY_FOR_UPSTREAM_REVIEW'
+    with pytest.raises(jsonschema.ValidationError):
+        validator.validate(unexpected_handoff)
+    summary = CHECKER._summary(report)
+    assert (
+        'Draft PR handoff: rsasaki0109/ndt_omp_ros2:'
+        'lidarslam-priors-and-correspondence-diagnostics -> '
+        'koide3/ndt_omp:master'
+    ) in summary
+    assert f'Exact candidate: {candidate_commit}' in summary
+    assert 'authorized by this report: no' in summary
     rendered = json.dumps(report)
     assert str(upstream) not in rendered
     assert str(candidate) not in rendered
@@ -284,6 +339,7 @@ def test_candidate_checkout_drift_blocks_draft_preflight(
     report = CHECKER.evaluate(candidate_checkout=candidate)
 
     assert report['status'] == 'BLOCKED'
+    assert report['draft_pr_handoff'] is None
     checks = {item['id']: item for item in report['checks']}
     assert checks[check_id]['status'] == 'FAIL'
 
@@ -316,6 +372,7 @@ def test_publication_remote_failures_block(
     )
 
     assert report['status'] == 'BLOCKED'
+    assert report['draft_pr_handoff'] is None
     checks = {item['id']: item for item in report['checks']}
     assert checks[check_id]['status'] == 'FAIL'
 
@@ -497,6 +554,17 @@ def test_remote_write_authority_is_rejected_by_schema(tmp_path: Path):
     with pytest.raises(
         CHECKER.ConvergenceError,
         match='authority.github_writes_authorized',
+    ):
+        CHECKER.evaluate(contract_path=_write_contract(tmp_path, payload))
+
+
+def test_draft_pr_copy_drift_is_rejected_by_schema(tmp_path: Path):
+    payload = _contract()
+    payload['publication']['draft_pr']['title'] = 'Unbound title'
+
+    with pytest.raises(
+        CHECKER.ConvergenceError,
+        match='publication.draft_pr.title',
     ):
         CHECKER.evaluate(contract_path=_write_contract(tmp_path, payload))
 

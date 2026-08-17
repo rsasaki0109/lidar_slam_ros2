@@ -59,8 +59,12 @@ untrustworthy live inspection exits 2.
   [`canonical-ndt-convergence-v1.json`](contracts/canonical-ndt-convergence-v1.json)
   contract. Its `READY_FOR_UPSTREAM_REVIEW` result covers local review; the
   stronger `READY_FOR_DRAFT_PR` result additionally binds the exact candidate
-  commit and current upstream/fork/branch/duplicate state. Both are technical
-  evidence, not GitHub write authority.
+  commit and current upstream/fork/branch/duplicate state. Only that fully
+  green state emits a schema-bound `draft_pr_handoff` containing the exact
+  create-only branch, base/head SHAs, Draft title/body, and post-publication
+  GET-only route; all lesser states emit `null`. Push, PR creation,
+  force-push, mark-ready, and merge authority remain false. Both statuses are
+  technical evidence, not GitHub write authority.
 - The package-manager distribution evidence has a versioned
   [`package-manager-install-v1.schema.json`](schemas/package-manager-install-v1.schema.json)
   contract and Humble/Jazzy clean-install/upgrade workflow. It remains an

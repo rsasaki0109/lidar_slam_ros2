@@ -438,6 +438,64 @@ def _not_checked(check_id: str, detail: str) -> dict[str, str]:
     return {'id': check_id, 'status': 'NOT_CHECKED', 'detail': detail}
 
 
+def _draft_pr_handoff(
+    contract: dict[str, Any],
+    publication_report: dict[str, Any],
+) -> dict[str, Any]:
+    """Bind one no-write handoff to the exact verified Draft PR candidate."""
+    publication = contract['publication']
+    upstream = contract['upstream']
+    draft_pr = publication['draft_pr']
+    upstream_repository = publication['upstream_repository']
+    fork_repository = publication['fork_repository']
+    base_branch = upstream['branch']
+    head_branch = publication['proposed_branch']
+    candidate_commit = publication['candidate_commit']
+    return {
+        'kind': 'CREATE_CANONICAL_NDT_DRAFT_PR',
+        'external_write_required': True,
+        'upstream_repository': upstream_repository,
+        'base_branch': base_branch,
+        'fork_repository': fork_repository,
+        'head_branch': head_branch,
+        'upstream_base_commit': upstream['base_commit'],
+        'candidate_commit': candidate_commit,
+        'candidate_subject': publication['candidate_subject'],
+        'title': draft_pr['title'],
+        'body': draft_pr['body'],
+        'preflight': {
+            'upstream_base_verified': True,
+            'fork_identity_verified': True,
+            'branch_absent_verified': True,
+            'open_pr_count': publication_report['open_pr_count'],
+            'duplicate_pr_count': len(publication_report['duplicate_prs']),
+        },
+        'constraints': {
+            'draft_required': draft_pr['draft_required'],
+            'create_only': True,
+            'non_force_only': True,
+            'push_authorized': False,
+            'pr_creation_authorized': False,
+            'force_push_authorized': False,
+            'mark_ready_authorized': False,
+            'merge_authorized': False,
+        },
+        'steps': [
+            'Obtain separate authority for the exact candidate commit and '
+            'create-only branch plus Draft PR scope.',
+            f'Create {fork_repository}:{head_branch} at exact commit '
+            f'{candidate_commit} with a non-force push; abort if the branch '
+            'now exists or any verified identity has drifted.',
+            f'Open a Draft PR to {upstream_repository}:{base_branch} with '
+            'the exact title and body in this handoff; do not mark it ready '
+            'or merge it.',
+            'GET-only verify the public Draft identity and exact head, then '
+            'provide its canonical URL to the rosdistro response packet.',
+        ],
+        'writes_performed': False,
+    }
+
+
 def _validate_artifact(
     *,
     repo_root: Path,
@@ -861,9 +919,15 @@ def evaluate(
     else:
         status = 'READY_FOR_DRAFT_PR'
         actions = [
-            'Technical Draft PR preflight passes. GitHub write authority is '
-            'still separate and remains false in this report.'
+            'Use draft_pr_handoff for the exact create-only transition only '
+            'after separate authority. This report authorizes no GitHub '
+            'write.'
         ]
+
+    draft_pr_handoff = (
+        _draft_pr_handoff(contract, publication_report)
+        if status == 'READY_FOR_DRAFT_PR' else None
+    )
 
     report = {
         'schema_version': 1,
@@ -879,6 +943,7 @@ def evaluate(
         'upstream_checkout': checkout_report,
         'candidate_checkout': candidate_report,
         'publication_preflight': publication_report,
+        'draft_pr_handoff': draft_pr_handoff,
         'actions': actions,
         'authority': {
             'github_writes_authorized': False,
@@ -903,6 +968,16 @@ def _summary(report: dict[str, Any]) -> str:
     for item in report['checks']:
         if item['status'] == 'FAIL':
             lines.append(f"- [{item['id']}] {item['detail']}")
+    handoff = report['draft_pr_handoff']
+    if handoff is not None:
+        lines.extend([
+            'Draft PR handoff: '
+            f"{handoff['fork_repository']}:{handoff['head_branch']} -> "
+            f"{handoff['upstream_repository']}:{handoff['base_branch']}",
+            f"Exact candidate: {handoff['candidate_commit']}",
+            f"Draft title: {handoff['title']}",
+            'External write required: yes; authorized by this report: no',
+        ])
     lines.extend(f'- {action}' for action in report['actions'])
     lines.append('Remote mutations performed: no')
     return '\n'.join(lines) + '\n'

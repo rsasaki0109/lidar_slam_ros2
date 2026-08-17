@@ -108,6 +108,12 @@ The PR should be opened as a draft first. The description deliberately names
 the downstream fork and file collision; it must not imply that a separate
 `ndt_omp_ros2` package is an independent algorithm.
 
+The exact title, body, and Draft requirement are also bound in
+`docs/contracts/canonical-ndt-convergence-v1.json`. The prose above remains
+the human review copy; the contract is the machine source used by the strict
+preflight handoff, so a copy change cannot silently diverge from the checked
+candidate.
+
 ## Current validation
 
 The exact local candidate commit was checked from a clean detached worktree on
@@ -149,6 +155,15 @@ temporary worktrees and remained `READY_FOR_DRAFT_PR`, 30/30. Upstream
 `master`, fork identity, candidate commit, proposed-branch absence, four-PR
 duplicate search, and no-write authority all remained unchanged.
 
+The 2026-08-17 strict rerun again passed 30/30 from fresh detached worktrees.
+The schema-v1 JSON now emits `draft_pr_handoff` only in this exact green state.
+It binds `koide3/ndt_omp:master`, the expected fork and absent create-only
+branch, exact base and candidate SHAs, exact title/body, four ordered steps,
+and Draft/non-force/create-only constraints. Push, PR creation, force-push,
+mark-ready, and merge authority all remain false, and `writes_performed`
+remains false. Every non-ready or blocked report must carry
+`draft_pr_handoff: null`.
+
 The two existing rosdistro PRs are not green publication candidates. Their
 exact heads each have 5/6 passing check runs and one failed
 `rosdistro / rosdep checks (3.8)` run. The failure is the old OpenEmbedded
@@ -164,9 +179,13 @@ Each external step needs its own explicit scope and a fresh drift check.
 
 1. Run the strict command above immediately before publication and require
    `READY_FOR_DRAFT_PR`, 30/30 checks, zero remote errors, the exact candidate
-   commit, an absent proposed branch, and zero duplicate PRs.
-2. Non-force push exact commit `618f02f6...` to the proposed fork branch and
-   open a Draft PR to `koide3/ndt_omp:master` using the exact title/body above.
+   commit, an absent proposed branch, zero duplicate PRs, and a non-null
+   `CREATE_CANONICAL_NDT_DRAFT_PR` handoff.
+2. After a separate exact-candidate, create-only decision, follow that
+   handoff: non-force push exact commit `618f02f6...` to the proposed fork
+   branch and open a Draft PR to `koide3/ndt_omp:master` with its exact
+   title/body. Abort on any identity drift; do not force-push, mark ready, or
+   merge.
 3. Replace `<UPSTREAM_PR_URL>` in the two prepared rosdistro replies with the
    verified Draft URL, then reply to #52950 with the full lineage/collision
    answer and to #52949 with the matching concise answer. Do not close either

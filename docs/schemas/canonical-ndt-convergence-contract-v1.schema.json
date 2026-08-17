@@ -65,6 +65,7 @@
         "proposed_branch",
         "candidate_commit",
         "candidate_subject",
+        "draft_pr",
         "duplicate_search_terms"
       ],
       "properties": {
@@ -78,6 +79,20 @@
         },
         "candidate_subject": {
           "const": "Add optional priors and correspondence diagnostics"
+        },
+        "draft_pr": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title", "body", "draft_required"],
+          "properties": {
+            "title": {
+              "const": "Add optional NDT priors and correspondence diagnostics"
+            },
+            "body": {
+              "const": "## Summary\n\n- add opt-in per-axis rotation and translation priors to NDT;\n- add an optional maximum voxel-mean correspondence distance;\n- report the accepted correspondence count and mean distance after alignment; and\n- add four focused tests for priors, correspondence filtering/statistics, and invalid optional configuration.\n\n## Motivation\n\nA downstream ROS 2 consumer currently carries these APIs in a fork for IMU and translation priors plus adaptive correspondence filtering. That fork installs the same `pclomp` headers and `libndt_omp.so` as this package, so releasing both packages is not a safe long-term solution. Upstreaming the small algorithm/API delta lets downstream users return to the canonical package instead of publishing an overlapping implementation.\n\n## Compatibility\n\nExisting behavior is unchanged by default. Priors and distance filtering are disabled until explicitly configured. Non-finite or otherwise invalid optional values fail back to the disabled state. Correspondence statistics are observational and use the existing per-input-point reduction order.\n\n## Validation\n\n- clean ROS 2 Jazzy / PCL 1.14 build and install;\n- 4/4 focused GTests pass;\n- the same patch previously built and passed the four tests on clean Humble and Jazzy environments; and\n- both downstream consumers were separately built against the canonical package with the prepared dependency-transition patch.\n\nI am happy to split the API groups or adjust naming if a smaller upstream surface is preferred."
+            },
+            "draft_required": {"const": true}
+          }
         },
         "duplicate_search_terms": {
           "const": [

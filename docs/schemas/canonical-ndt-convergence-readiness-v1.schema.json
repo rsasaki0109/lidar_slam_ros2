@@ -14,6 +14,7 @@
     "upstream_checkout",
     "candidate_checkout",
     "publication_preflight",
+    "draft_pr_handoff",
     "actions",
     "authority"
   ],
@@ -109,6 +110,12 @@
         }
       }
     },
+    "draft_pr_handoff": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/definitions/draft_pr_handoff"}
+      ]
+    },
     "actions": {
       "type": "array",
       "minItems": 1,
@@ -124,6 +131,22 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"status": {"const": "READY_FOR_DRAFT_PR"}},
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "draft_pr_handoff": {"$ref": "#/definitions/draft_pr_handoff"}
+        }
+      },
+      "else": {
+        "properties": {"draft_pr_handoff": {"type": "null"}}
+      }
+    }
+  ],
   "definitions": {
     "check": {
       "type": "object",
@@ -145,6 +168,100 @@
         "url": {"type": "string", "minLength": 1},
         "head_label": {"type": "string", "minLength": 1},
         "head_sha": {"type": "string", "minLength": 1}
+      }
+    },
+    "draft_pr_handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "external_write_required",
+        "upstream_repository",
+        "base_branch",
+        "fork_repository",
+        "head_branch",
+        "upstream_base_commit",
+        "candidate_commit",
+        "candidate_subject",
+        "title",
+        "body",
+        "preflight",
+        "constraints",
+        "steps",
+        "writes_performed"
+      ],
+      "properties": {
+        "kind": {"const": "CREATE_CANONICAL_NDT_DRAFT_PR"},
+        "external_write_required": {"const": true},
+        "upstream_repository": {"const": "koide3/ndt_omp"},
+        "base_branch": {"const": "master"},
+        "fork_repository": {"const": "rsasaki0109/ndt_omp_ros2"},
+        "head_branch": {
+          "const": "lidarslam-priors-and-correspondence-diagnostics"
+        },
+        "upstream_base_commit": {
+          "const": "5495fd9214945afcb4b35d5a1da385e405c52bf9"
+        },
+        "candidate_commit": {
+          "const": "618f02f6b50a8590b81f48b4fee5b6cfc8d3f3ea"
+        },
+        "candidate_subject": {
+          "const": "Add optional priors and correspondence diagnostics"
+        },
+        "title": {
+          "const": "Add optional NDT priors and correspondence diagnostics"
+        },
+        "body": {"type": "string", "minLength": 100},
+        "preflight": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "upstream_base_verified",
+            "fork_identity_verified",
+            "branch_absent_verified",
+            "open_pr_count",
+            "duplicate_pr_count"
+          ],
+          "properties": {
+            "upstream_base_verified": {"const": true},
+            "fork_identity_verified": {"const": true},
+            "branch_absent_verified": {"const": true},
+            "open_pr_count": {"type": "integer", "minimum": 0},
+            "duplicate_pr_count": {"const": 0}
+          }
+        },
+        "constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "draft_required",
+            "create_only",
+            "non_force_only",
+            "push_authorized",
+            "pr_creation_authorized",
+            "force_push_authorized",
+            "mark_ready_authorized",
+            "merge_authorized"
+          ],
+          "properties": {
+            "draft_required": {"const": true},
+            "create_only": {"const": true},
+            "non_force_only": {"const": true},
+            "push_authorized": {"const": false},
+            "pr_creation_authorized": {"const": false},
+            "force_push_authorized": {"const": false},
+            "mark_ready_authorized": {"const": false},
+            "merge_authorized": {"const": false}
+          }
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "writes_performed": {"const": false}
       }
     }
   }

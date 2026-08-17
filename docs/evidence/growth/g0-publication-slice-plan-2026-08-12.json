@@ -316,7 +316,7 @@
       ],
       "verification": [
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_audit_candidate_image_set.py lidarslam/test/test_candidate_image_gate.py",
-        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_ndt_omp_release_readiness.py lidarslam/test/test_package_manager_release_readiness.py lidarslam/test/test_release_image_promotion.py lidarslam/test/test_v1_readiness.py",
+        "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_canonical_ndt_convergence.py lidarslam/test/test_ndt_omp_release_readiness.py lidarslam/test/test_package_manager_release_readiness.py lidarslam/test/test_release_image_promotion.py lidarslam/test/test_v1_readiness.py",
         "python3 scripts/check_ndt_omp_release_readiness.py --json",
         "python3 scripts/check_canonical_ndt_convergence.py --json",
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_build_docker_launcher_asset.py lidarslam/test/test_published_release.py",

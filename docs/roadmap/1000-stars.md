@@ -449,7 +449,10 @@ work and document the actual support boundary instead of hiding the delay.
   checking plus network-isolated Humble/Jazzy four-package builds. The
   read-only Draft publication preflight additionally passes 30/30 checks for
   exact candidate identity, current upstream/fork/branch state, and duplicate
-  PR absence; publication still requires an explicit maintainer decision.
+  PR absence. Its schema-bound handoff now fixes the exact create-only branch,
+  base/head identities, Draft copy, and GET-only verification route only while
+  all 30 checks pass; it grants no push, PR, force-push, ready, or merge
+  authority. Publication still requires an explicit maintainer decision.
 - Exercise clean install and upgrade on Humble and Jazzy after the packages are
   available, then publish v1.0 from the same verified contract.
 - Produce one sub-three-minute English demo with captions and one concise
@@ -645,10 +648,12 @@ manual step on the fixed demo.
 
 1. With explicit publication approval, submit the prepared required NDT APIs
    upstream as a Draft only after the strict 30/30 read-only preflight reports
-   `READY_FOR_DRAFT_PR`; replace the reply packet's URL placeholder with that
-   verified PR, answer the two open `ndt_omp_ros2` rosdistro reviews with the
-   collision analysis, and rerun the review/check-aware readiness audit after
-   every external state change. If upstream declines, fully isolate the fork.
+   `READY_FOR_DRAFT_PR` and emits the exact create-only handoff; abort if its
+   branch/base/candidate identity drifts. GET-only verify the resulting Draft,
+   replace the reply packet's URL placeholder with that verified PR, answer
+   the two open `ndt_omp_ros2` rosdistro reviews with the collision analysis,
+   and rerun the review/check-aware readiness audit after every external state
+   change. If upstream declines, fully isolate the fork.
    Generate the selected replacement from current rosdistro `master` and
    require all checks to pass; do not merge overlapping Debian payloads or a
    red exact head merely to shorten installation.
