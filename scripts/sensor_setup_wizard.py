@@ -3319,11 +3319,12 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
     if completed.returncode != 0:
         recovery = _session_recovery_payload(manifest, completed.returncode)
         code = recovery['reason']['code']
-        print(
-            f'error: [{code}] map session needs attention; runner exit code '
-            f'{completed.returncode}.',
-            file=sys.stderr,
-        )
+        if code != 'workflow-interrupted':
+            print(
+                f'error: [{code}] map session needs attention; runner exit '
+                f'code {completed.returncode}.',
+                file=sys.stderr,
+            )
         receipt_path = None
         session_path = None
         report_path = None

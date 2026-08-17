@@ -879,20 +879,41 @@ def test_diagnostic_only_run_keeps_success_with_failing_receipt(
 
 
 @pytest.mark.parametrize(
-    ('workflow_result', 'expected_status', 'expected_exit_code', 'expected_error'),
+    (
+        'workflow_result',
+        'expected_status',
+        'expected_exit_code',
+        'expected_error',
+        'expected_stop_label',
+    ),
     [
-        ((17, False, None), 'failed', 17, 'map workflow exited with code 17'),
+        (
+            (17, False, None),
+            'failed',
+            17,
+            'map workflow exited with code 17',
+            None,
+        ),
+        (
+            (130, False, None),
+            'failed',
+            130,
+            'map workflow exited with code 130',
+            None,
+        ),
         (
             (130, True, 'map workflow interrupted by SIGINT'),
             'interrupted',
             130,
             'map workflow interrupted by SIGINT',
+            'Ctrl-C',
         ),
         (
             (143, True, 'map workflow interrupted by SIGTERM'),
             'interrupted',
             143,
             'map workflow interrupted by SIGTERM',
+            'SIGTERM',
         ),
     ],
 )
@@ -903,6 +924,8 @@ def test_main_retains_terminal_manifest_for_failed_and_interrupted_runs(
     expected_status: str,
     expected_exit_code: int,
     expected_error: str,
+    expected_stop_label: str | None,
+    capsys,
 ):
     module = _load_module()
     bag_dir = _write_metadata(
@@ -958,6 +981,21 @@ def test_main_retains_terminal_manifest_for_failed_and_interrupted_runs(
     )
     assert receipt['status'] == 'FAIL'
     assert receipt['verification']['manifest_status'] == expected_status
+    terminal = capsys.readouterr()
+    if expected_stop_label is None:
+        assert (
+            f'error: map run failed with exit code {expected_exit_code}.'
+            in terminal.err
+        )
+        assert 'failed command: map-workflow' in terminal.err
+        assert 'Map stopped by ' not in terminal.err
+    else:
+        assert (
+            f'Map stopped by {expected_stop_label}; retained evidence: '
+            f'{output_dir}'
+        ) in terminal.err
+        assert 'error: map run failed' not in terminal.err
+        assert 'failed command:' not in terminal.err
 
 
 def test_map_write_enospc_is_preserved_and_diagnosed(

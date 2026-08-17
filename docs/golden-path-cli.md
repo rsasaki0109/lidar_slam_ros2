@@ -317,7 +317,10 @@ process group. `Ctrl-C` (`SIGINT`) and service/container termination
 (`SIGTERM`) are forwarded to that group, bounded by a ten-second graceful
 shutdown before forced cleanup. The manifest is then completed with
 `interrupted` status, exit `130` or `143`, and the terminating signal in
-`lifecycle.last_error`.
+`lifecycle.last_error`. Once that sealed state exists, direct `run` prints one
+concise stop/evidence line instead of a generic failure and full internal
+command. A non-interrupted process that merely returns 130 or 143 retains the
+normal failure diagnostics.
 
 If the workflow has stopped but verification, finalization, diagnosis, or
 checksum generation was interrupted, resume only those terminal

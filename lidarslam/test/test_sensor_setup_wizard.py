@@ -1094,6 +1094,7 @@ def test_ctrl_c_waits_for_terminal_evidence_and_renders_one_recovery(
     output = capsys.readouterr()
     assert 'Stop requested. Waiting up to 20 seconds' in output.err
     assert 'Traceback' not in output.err
+    assert 'map session needs attention' not in output.err
     assert 'Map session: ACTION REQUIRED' in output.out
     assert '[workflow-interrupted]' in output.out
     assert output.out.count('\nNext:\n') == 1

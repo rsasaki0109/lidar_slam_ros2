@@ -1684,11 +1684,23 @@ def _finish_run(
     exit_code: int,
 ) -> int:
     if exit_code != 0:
-        print(
-            f'error: map run failed with exit code {exit_code}.',
-            file=sys.stderr,
-        )
-        print('failed command:', shlex.join(plan['command']), file=sys.stderr)
+        stop_label = _sealed_interruption_label(output_dir, exit_code)
+        if stop_label is not None:
+            print(
+                f'Map stopped by {stop_label}; retained evidence: '
+                f'{output_dir}',
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f'error: map run failed with exit code {exit_code}.',
+                file=sys.stderr,
+            )
+            print(
+                'failed command:',
+                shlex.join(plan['command']),
+                file=sys.stderr,
+            )
         if (output_dir / 'autoware_map_diagnosis.md').is_file():
             print(f'Diagnosis written to: {output_dir / "autoware_map_diagnosis.md"}')
         if (output_dir / 'first_map_validation_receipt.md').is_file():
@@ -1718,6 +1730,41 @@ def _finish_run(
         f'{output_dir / "first_map_validation_receipt.md"}'
     )
     return 0
+
+
+def _sealed_interruption_label(
+    output_dir: Path,
+    exit_code: int,
+) -> str | None:
+    """Classify only a complete, evidence-bound operator interruption."""
+    labels = {
+        130: ('SIGINT', 'Ctrl-C'),
+        143: ('SIGTERM', 'SIGTERM'),
+    }
+    signal = labels.get(exit_code)
+    if signal is None:
+        return None
+    signal_name, label = signal
+    try:
+        manifest = json.loads(
+            (output_dir / MANIFEST_NAME).read_text(encoding='utf-8')
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    execution = manifest.get('execution')
+    lifecycle = manifest.get('lifecycle')
+    if not isinstance(execution, dict) or not isinstance(lifecycle, dict):
+        return None
+    if (
+        manifest.get('status') != 'interrupted'
+        or execution.get('exit_code') != exit_code
+        or lifecycle.get('stage') != 'complete'
+        or lifecycle.get('runner_exit_code') != exit_code
+        or lifecycle.get('last_error')
+        != f'map workflow interrupted by {signal_name}'
+    ):
+        return None
+    return label
 
 
 if __name__ == '__main__':
