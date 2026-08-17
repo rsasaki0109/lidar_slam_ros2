@@ -32,10 +32,14 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
+import signal
 import struct
 import subprocess
+import sys
 import threading
+import time
 
 import jsonschema
 
@@ -495,6 +499,7 @@ def test_start_pins_setup_then_delegates_map_and_viewer(
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(module.subprocess, 'run', fake_run)
+    monkeypatch.setattr(module, '_run_delegated_session', fake_run)
 
     result = module.main([
         '--run',
@@ -567,6 +572,7 @@ def test_start_interactive_confirmation_completes_one_command(
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(module.subprocess, 'run', fake_run)
+    monkeypatch.setattr(module, '_run_delegated_session', fake_run)
 
     result = module.main([
         '--run',
@@ -619,6 +625,7 @@ def test_start_runtime_failure_stops_before_mapping(
         raise AssertionError('runtime-incomplete start launched a subprocess')
 
     monkeypatch.setattr(module.subprocess, 'run', fail_if_called)
+    monkeypatch.setattr(module, '_run_delegated_session', fail_if_called)
 
     result = module.main([
         '--run',
@@ -1009,6 +1016,226 @@ def test_non_rko_profiles_reject_ignored_rko_controls(tmp_path: Path):
     assert 'Traceback' not in calibration.stderr + editable.stderr
 
 
+def test_ctrl_c_waits_for_terminal_evidence_and_renders_one_recovery(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+):
+    """One Ctrl-C should finish runner cleanup before the recovery card."""
+    module = _load_module()
+    manifest = _session_manifest(tmp_path)
+    run_dir = Path(manifest['run']['output_dir'])
+
+    class InterruptedProcess:
+        wait_calls: list[float | None] = []
+        signals: list[int] = []
+        terminated = False
+        killed = False
+
+        def wait(self, timeout=None):
+            self.wait_calls.append(timeout)
+            if len(self.wait_calls) == 1:
+                raise KeyboardInterrupt
+            assert timeout == module.SESSION_INTERRUPT_GRACE_SECONDS
+            _write_run_manifest(
+                run_dir,
+                status='interrupted',
+                stage='complete',
+                workflow_exit_code=130,
+            )
+            _write_diagnosis(
+                run_dir,
+                status='runtime_failed',
+                hints=['Map workflow interrupted by SIGINT.'],
+            )
+            return 130
+
+        def poll(self):
+            return None
+
+        def send_signal(self, signum):
+            self.signals.append(signum)
+
+        def terminate(self):
+            self.terminated = True
+
+        def kill(self):
+            self.killed = True
+
+    process = InterruptedProcess()
+
+    def fake_popen(command, *, cwd, start_new_session):
+        assert command == manifest['run']['argv']
+        assert cwd == module.WORK_ROOT
+        assert start_new_session is True
+        return process
+
+    monkeypatch.setattr(module.subprocess, 'Popen', fake_popen)
+
+    result = module._run_session(
+        type('Args', (), {'viewer': 'none'})(),
+        manifest,
+    )
+
+    assert result == 130
+    assert process.wait_calls == [
+        None,
+        module.SESSION_INTERRUPT_GRACE_SECONDS,
+    ]
+    assert process.signals == [module.signal.SIGINT]
+    assert process.terminated is False
+    assert process.killed is False
+    output = capsys.readouterr()
+    assert 'Stop requested. Waiting up to 20 seconds' in output.err
+    assert 'Traceback' not in output.err
+    assert 'Map session: ACTION REQUIRED' in output.out
+    assert '[workflow-interrupted]' in output.out
+    assert output.out.count('\nNext:\n') == 1
+    receipt = json.loads(
+        (Path(manifest['bundle_path']) / 'map_session_recovery.json')
+        .read_text(encoding='utf-8')
+    )
+    assert receipt['reason']['code'] == 'workflow-interrupted'
+    session = json.loads(
+        (Path(manifest['bundle_path']) / 'session.json').read_text(
+            encoding='utf-8'
+        )
+    )
+    assert session['status'] == 'action_required'
+    assert session['runner_exit_code'] == 130
+
+
+def test_ctrl_c_forwards_sigint_and_reaps_real_delegated_process(
+    tmp_path: Path,
+):
+    """The product boundary should forward one real SIGINT and reap the child."""
+    child_pid_path = tmp_path / 'delegated.pid'
+    child_code = '\n'.join([
+        'import os',
+        'from pathlib import Path',
+        'import signal',
+        'import sys',
+        'import time',
+        'signal.signal(signal.SIGINT, lambda *_args: sys.exit(130))',
+        f'Path({str(child_pid_path)!r}).write_text(str(os.getpid()))',
+        'time.sleep(60)',
+    ])
+    probe_code = '\n'.join([
+        'import importlib.util',
+        'import json',
+        'from pathlib import Path',
+        'import sys',
+        f'script = Path({str(SCRIPT)!r})',
+        "spec = importlib.util.spec_from_file_location('setup_probe', script)",
+        'module = importlib.util.module_from_spec(spec)',
+        'spec.loader.exec_module(module)',
+        (
+            'completed = module._run_delegated_session('
+            f'[sys.executable, "-c", {child_code!r}])'
+        ),
+        'print(json.dumps({"returncode": completed.returncode}))',
+    ])
+    probe = subprocess.Popen(
+        [sys.executable, '-c', probe_code],
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    child_pid = None
+    try:
+        deadline = time.monotonic() + 5
+        while (
+            not child_pid_path.is_file()
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.01)
+        assert child_pid_path.is_file()
+        child_pid = int(child_pid_path.read_text(encoding='utf-8'))
+
+        os.kill(probe.pid, signal.SIGINT)
+        stdout, stderr = probe.communicate(timeout=10)
+
+        assert probe.returncode == 0, stderr
+        assert json.loads(stdout) == {'returncode': 130}
+        assert 'Stop requested. Waiting up to 20 seconds' in stderr
+        assert 'Traceback' not in stderr
+        try:
+            os.kill(child_pid, 0)
+        except ProcessLookupError:
+            pass
+        else:
+            raise AssertionError('delegated child was not reaped')
+    finally:
+        if probe.poll() is None:
+            probe.kill()
+            probe.communicate()
+        if child_pid is not None:
+            try:
+                os.kill(child_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
+def test_ctrl_c_force_reaps_after_bounded_cleanup_windows(
+    monkeypatch,
+    capsys,
+):
+    """A stuck delegated runner should be reaped after both bounded waits."""
+    module = _load_module()
+    command = ['./scripts/lidarslam', 'run', '/tmp/input']
+
+    class SlowProcess:
+        wait_calls: list[float | None] = []
+        signals: list[int] = []
+        terminated = False
+        killed = False
+
+        def wait(self, timeout=None):
+            self.wait_calls.append(timeout)
+            if len(self.wait_calls) == 1:
+                raise KeyboardInterrupt
+            if len(self.wait_calls) in {2, 3}:
+                raise subprocess.TimeoutExpired(command, timeout)
+            assert timeout is None
+            return -9
+
+        def poll(self):
+            return None
+
+        def send_signal(self, signum):
+            self.signals.append(signum)
+
+        def terminate(self):
+            self.terminated = True
+
+        def kill(self):
+            self.killed = True
+
+    process = SlowProcess()
+    monkeypatch.setattr(
+        module.subprocess,
+        'Popen',
+        lambda delegated, *, cwd, start_new_session: process,
+    )
+
+    completed = module._run_delegated_session(command)
+
+    assert completed.returncode == -9
+    assert process.wait_calls == [
+        None,
+        module.SESSION_INTERRUPT_GRACE_SECONDS,
+        module.SESSION_INTERRUPT_TERMINATE_SECONDS,
+        None,
+    ]
+    assert process.signals == [module.signal.SIGINT]
+    assert process.terminated is True
+    assert process.killed is True
+    error = capsys.readouterr().err
+    assert '[runner-shutdown-grace-expired]' in error
+    assert '[runner-shutdown-forced]' in error
+
+
 def test_failed_start_writes_schema_valid_storage_recovery(
     monkeypatch,
     tmp_path: Path,
@@ -1034,6 +1261,11 @@ def test_failed_start_writes_schema_valid_storage_recovery(
     monkeypatch.setattr(
         module.subprocess,
         'run',
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 17),
+    )
+    monkeypatch.setattr(
+        module,
+        '_run_delegated_session',
         lambda *_args, **_kwargs: subprocess.CompletedProcess([], 17),
     )
 
@@ -1150,6 +1382,11 @@ def test_failed_start_prioritizes_exact_postprocessing_resume(
         'run',
         lambda *_args, **_kwargs: subprocess.CompletedProcess([], 70),
     )
+    monkeypatch.setattr(
+        module,
+        '_run_delegated_session',
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 70),
+    )
 
     result = module._run_session(
         type('Args', (), {'viewer': 'none'})(), manifest
@@ -1194,6 +1431,11 @@ def test_failed_start_reports_map_verification_code_and_log(
     monkeypatch.setattr(
         module.subprocess,
         'run',
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 1),
+    )
+    monkeypatch.setattr(
+        module,
+        '_run_delegated_session',
         lambda *_args, **_kwargs: subprocess.CompletedProcess([], 1),
     )
 
@@ -1458,6 +1700,11 @@ def test_failed_start_opens_recovery_report_for_browser_viewer(
     )
     monkeypatch.setattr(
         module,
+        '_run_delegated_session',
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 17),
+    )
+    monkeypatch.setattr(
+        module,
         '_load_script_module',
         lambda name, _module_name: Browser
         if name == 'view_autoware_map.py'
@@ -1522,6 +1769,11 @@ def test_failed_start_without_output_has_stable_dry_run_recovery(
         'run',
         lambda *_args, **_kwargs: subprocess.CompletedProcess([], 2),
     )
+    monkeypatch.setattr(
+        module,
+        '_run_delegated_session',
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 2),
+    )
 
     assert module._run_session(
         type('Args', (), {'viewer': 'none'})(), manifest
@@ -1553,6 +1805,11 @@ def test_completed_map_with_failed_viewer_keeps_map_success_clear(
     monkeypatch.setattr(
         module.subprocess,
         'run',
+        lambda *_args, **_kwargs: next(results),
+    )
+    monkeypatch.setattr(
+        module,
+        '_run_delegated_session',
         lambda *_args, **_kwargs: next(results),
     )
 
@@ -1593,6 +1850,11 @@ def test_success_terminal_summary_keeps_paths_and_next_command_together(
     monkeypatch.setattr(
         module.subprocess,
         'run',
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0),
+    )
+    monkeypatch.setattr(
+        module,
+        '_run_delegated_session',
         lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0),
     )
 
@@ -1645,6 +1907,11 @@ def test_completed_map_keeps_one_fallback_when_session_index_fails(
         'run',
         lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0),
     )
+    monkeypatch.setattr(
+        module,
+        '_run_delegated_session',
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0),
+    )
 
     def fail_index(*_args, **_kwargs):
         raise OSError('injected session index failure')
@@ -1675,6 +1942,11 @@ def test_unverified_start_is_honest_and_offers_fresh_verified_output(
     monkeypatch.setattr(
         module.subprocess,
         'run',
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0),
+    )
+    monkeypatch.setattr(
+        module,
+        '_run_delegated_session',
         lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0),
     )
 
@@ -1910,6 +2182,7 @@ def test_success_session_links_generated_3d_preview(
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(module.subprocess, 'run', fake_run)
+    monkeypatch.setattr(module, '_run_delegated_session', fake_run)
 
     class Browser:
         @staticmethod
@@ -2017,6 +2290,7 @@ def test_start_mirrors_durable_runner_stages_into_live_session(
 
     monkeypatch.setattr(module, '_write_running_session', record_progress)
     monkeypatch.setattr(module.subprocess, 'run', fake_run)
+    monkeypatch.setattr(module, '_run_delegated_session', fake_run)
 
     result = module._run_session(
         type('Args', (), {'viewer': 'none', 'verification': 'required'})(),

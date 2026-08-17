@@ -433,6 +433,13 @@ If only terminal post-processing remains, `next_command` is the exact safe
 a retry of the same pinned setup into a fresh output directory. It never tells
 you to overwrite the failed run.
 
+To stop a live `start`, press Ctrl-C once. The product waits up to 20 seconds
+for the delegated runner to stop its process group and seal terminal evidence.
+If that grace period expires, it requests runner termination and waits 10 more
+seconds before a forced reap. It then uses the same one-action `Map session:
+ACTION REQUIRED` handoff without a Python traceback; it never treats an
+interrupted map as verified or tells you to overwrite its retained output.
+
 Every started mapping attempt also writes `session.json` and the same
 self-contained `session.html` landing page in the setup directory, whether its
 state is `running`, `verified`, `unverified`, or `action_required`. In browser

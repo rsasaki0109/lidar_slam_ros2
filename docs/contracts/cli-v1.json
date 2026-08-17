@@ -202,7 +202,8 @@
     "safety_rules": [
       "preserve setup and run evidence",
       "resume terminal post-processing only when manifest-v2 proves it is safe",
-      "retry the pinned setup only into a fresh output directory"
+      "retry the pinned setup only into a fresh output directory",
+      "one Ctrl-C waits up to 20 seconds for delegated cleanup and terminal evidence before requesting termination, waits 10 more seconds before a forced reap, and then renders the same one-action recovery handoff without a Python traceback"
     ],
     "terminal_rules": [
       "render the first reason, any remaining stable finding codes, exactly one next_command, and one retained detail path",

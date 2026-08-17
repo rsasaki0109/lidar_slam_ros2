@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import signal
 from string import Template
 import subprocess
 import sys
@@ -67,6 +68,8 @@ MAP_PREVIEW_RELATIVE_PATH = (
 )
 SESSION_PROGRESS_POLL_SECONDS = 0.25
 SESSION_PROGRESS_HEARTBEAT_SECONDS = 30.0
+SESSION_INTERRUPT_GRACE_SECONDS = 20.0
+SESSION_INTERRUPT_TERMINATE_SECONDS = 10.0
 SESSION_PROGRESS_STAGES = {
     'preparing': ('preparing', 1, 'Preparing pinned session'),
     'initialized': ('preparing', 1, 'Preparing output'),
@@ -148,6 +151,14 @@ TRANSFORM_KEYS = {
     'lidar_to_base': 'extrinsic_lidar2base_quat_xyzw_xyz',
     'imu_to_base': 'extrinsic_imu2base_quat_xyzw_xyz',
 }
+
+
+class _SessionTerminationRequested(Exception):
+    """Carry an external termination signal through delegated supervision."""
+
+    def __init__(self, signum: int):
+        super().__init__(signum)
+        self.signum = signum
 
 
 def _start_mode() -> bool:
@@ -3163,6 +3174,92 @@ def _render_session_completion_fallback(
     return '\n'.join(lines)
 
 
+def _run_delegated_session(
+    command: list[str],
+) -> subprocess.CompletedProcess:
+    """Reap the delegated runner after Ctrl-C so it can seal evidence."""
+    process: subprocess.Popen | None = None
+
+    def request_termination(signum, _frame):
+        raise _SessionTerminationRequested(signum)
+
+    previous_sigterm = signal.signal(signal.SIGTERM, request_termination)
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd=WORK_ROOT,
+            start_new_session=True,
+        )
+        try:
+            return_code = process.wait()
+            return subprocess.CompletedProcess(command, return_code)
+        except KeyboardInterrupt:
+            requested_signal = signal.SIGINT
+        except _SessionTerminationRequested as exc:
+            requested_signal = exc.signum
+
+        if process.poll() is None:
+            try:
+                process.send_signal(requested_signal)
+            except ProcessLookupError:
+                pass
+        request_label = (
+            'Stop requested.'
+            if requested_signal == signal.SIGINT
+            else 'Stop requested by '
+            f'{signal.Signals(requested_signal).name}.'
+        )
+        print(
+            f'\n{request_label} Waiting up to '
+            f'{SESSION_INTERRUPT_GRACE_SECONDS:g} seconds for map cleanup '
+            'and terminal evidence...',
+            file=sys.stderr,
+        )
+        try:
+            return_code = process.wait(
+                timeout=SESSION_INTERRUPT_GRACE_SECONDS,
+            )
+        except (
+            KeyboardInterrupt,
+            _SessionTerminationRequested,
+            subprocess.TimeoutExpired,
+        ):
+            print(
+                'warning: [runner-shutdown-grace-expired] requesting '
+                'delegated runner termination while preserving retained '
+                'evidence.',
+                file=sys.stderr,
+            )
+            if process.poll() is None:
+                try:
+                    process.terminate()
+                except ProcessLookupError:
+                    pass
+            try:
+                return_code = process.wait(
+                    timeout=SESSION_INTERRUPT_TERMINATE_SECONDS,
+                )
+            except (
+                KeyboardInterrupt,
+                _SessionTerminationRequested,
+                subprocess.TimeoutExpired,
+            ):
+                print(
+                    'warning: [runner-shutdown-forced] delegated runner did '
+                    'not stop after termination; forcing final reap.',
+                    file=sys.stderr,
+                )
+                if process.poll() is None:
+                    try:
+                        process.kill()
+                    except ProcessLookupError:
+                        pass
+                return_code = process.wait()
+        return subprocess.CompletedProcess(command, return_code)
+    finally:
+        signal.signal(signal.SIGTERM, previous_sigterm)
+
+
 def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
     map_output = Path(manifest['run']['output_dir'])
     command = list(manifest['run']['argv'])
@@ -3215,7 +3312,7 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
     )
     progress_monitor.start()
     try:
-        completed = subprocess.run(command, check=False, cwd=WORK_ROOT)
+        completed = _run_delegated_session(command)
     finally:
         progress_stop.set()
         progress_monitor.join()

@@ -230,6 +230,14 @@ retained `Details:` path. Per-finding actions, retry and inspect alternatives,
 and all evidence paths remain in the JSON and derived session page instead of
 competing in the first repair step.
 
+A live `start` also catches one operator Ctrl-C at the product boundary. It
+waits up to 20 seconds for the delegated runner's bounded process-group cleanup
+and terminal evidence, requests termination for at most 10 more seconds when
+needed, then force-reaps the delegated runner if it still has not stopped. The
+resulting non-zero runner state flows through the unchanged one-action recovery
+contract instead
+of escaping as a Python traceback; verified success is never synthesized.
+
 Every delegated `start` also owns an additive `map-session-index-v1` contract:
 `session.json` and its derived `session.html` represent `running`, `verified`,
 `unverified`, or `action_required` through one stable location. Running progress
