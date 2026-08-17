@@ -585,6 +585,18 @@ work and document the actual support boundary instead of hiding the delay.
   checksums, runner 50, S3 77 + 15, sensor setup 42, dogfood 15, docs/product
   42, installed/support 25, option 21, and broad S6 332 checks pass. Clean-host
   and paired-comparison limits remain; no remote write is performed.
+- Exact implementation `8e67ab7…` closes the successful-completion side of the
+  guided UX boundary. An exact-installed 50-second MID360 `start` completed in
+  23.45 seconds with `succeeded / complete / 0 / 0`, 7 / 7 receipt PASS, one
+  VERIFIED / Next / Share card, a 4,015,933-byte `map.pcd`, 92 tiles, and 124
+  checksums. Terminal output fell 51 lines / 3,791 bytes → 23 lines / 1,399
+  bytes (63.10%); all 16 hidden post-process lines remain in checksum-bound
+  `map_workflow.log`, while normal failure replays a bounded tail. Baseline and
+  corrected map, Lanelet2, raw, and corrected trajectory bytes match. A second
+  real-node Ctrl-C returned 130 in 1.317 seconds and reaped every descendant.
+  Runner 54, sensor 42, dogfood 15, S3 77 + 15, S2 43 + 43, and broad S6 332
+  checks pass. Clean-host, public-fixture, external-user, and paired-GLIM
+  limits remain; no remote write is performed.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

@@ -952,3 +952,101 @@ does not change direct expert output, storage policy, runtime behavior, map
 quality, or evidence authority, and it does not establish clean-host or
 package-manager timing, a complete map, an independent first map, paired GLIM
 observation, parity, superiority, quality, or accuracy.
+
+## Complete guided-map follow-up — 2026-08-17
+
+> Decision: **REAL_ROS_GUIDED_COMPLETION_PASS / CLEAN_HOST_PENDING**
+>
+> Implementation and tested installed revision:
+> `8e67ab7f50bb78767b4bc7674137eb4ecdf3e16b`
+>
+> Network, GitHub, release, or community mutation performed: **none**
+
+The preceding concise-start trial intentionally stopped during mapping. A
+complete baseline on exact clean tip `113f588…` then exposed the remaining
+success-path gap: mapping and verification passed, but the dogfood shell's map
+save, trajectory, Lanelet2, and bundle messages plus the lower runner's old
+multi-action completion block returned after the friendly ready line. The
+guided terminal expanded to 51 lines / 3,791 bytes even though the mocked
+completion card regressions were green.
+
+The lower runner now captures child workflow stdout line by line only for the
+parent-owned concise session. It durably flushes every line to
+`map_workflow.log`, relays only the two exact mapping-ready status messages,
+and leaves stderr live. A normal nonzero child exit replays the most recent 80
+stdout lines plus the complete-log path; SIGINT/SIGTERM retain the established
+quiet stop contract. Successful lower-runner Next/diagnosis repetition is
+also withheld because the parent card already owns those fields. Direct
+expert `run` and direct dogfood output are unchanged.
+
+Focused regressions prove successful retention without terminal leakage,
+bounded failure replay, parent-owned successful summary, and both ordinary and
+concise SIGTERM process-group cleanup. The new workflow log is included in the
+manifest checksum set, so convenience does not erase diagnosis.
+
+A fresh non-symlink Jazzy install recorded exact revision `8e67ab7…`,
+`dirty=false`, directly from Git without a revision override. Source and
+installed SHA-256 matched for the runner (`13f68e9e…`), sensor wizard
+(`afee67ca…`), and dogfood shell (`7b3bf6a4…`); the complete installed-product
+validator passed. The run reused the exact prior extracted 50-second MID360
+bag with metadata `d866804b…` and sqlite `0a38fbcc…`, the fixed
+graph/scanmatcher overlay, and the existing RKO-LIO base. It remains a
+controlled mixed overlay, not a clean-host or package-manager result.
+
+The installed top-level `start` omitted `--min-free-space-gib`, reported **6.78
+GiB free / 5.00 GiB required**, and completed in **23.45 seconds** with peak RSS
+134,228 KiB. The terminal is **23 lines / 1,399 bytes**, down from 51 lines /
+3,791 bytes in the exact baseline: a **63.10% byte reduction**. Stderr is empty.
+Profile/storage precede mapping readiness, and the run ends in exactly one
+VERIFIED, Next, and Share. Delegated commands, output/YAML/topic/frame
+internals, map-save and trajectory detail, Lanelet2 generator output, bundle
+inventory, lifecycle duplication, launch-log location, and the old Next steps
+are absent from the terminal.
+
+The checksum-bound `map_workflow.log` retains all 16 hidden post-process lines
+in 1,187 bytes. The final manifest is `succeeded / complete`, with execution
+and runner exit code 0. The privacy-bounded receipt passes all 7 / 7 checks,
+the session index is `verified / PASS`, the partial directory is absent, and
+the installed sensor-setup, session-index, run-manifest, and receipt schemas
+all validate. Every one of 124 manifest-bound artifact sizes and SHA-256
+values revalidates, including the workflow log.
+
+The output contains 500 raw poses, 88 corrected poses, 92 pointcloud tiles
+totalling 4,037,472 bytes, a 4,015,933-byte `map.pcd` with SHA-256
+`987637f9…`, and a 63,458-byte Lanelet2 map with SHA-256 `25280265…`. The
+baseline and corrected runs produced byte-identical `map.pcd`, Lanelet2, raw
+trajectory (`9f68345a…`), and corrected trajectory (`8dd2acdf…`) files. The
+terminal, retained workflow log, session, manifest, and receipt hashes are
+respectively `0cb8e9ba…`, `47084fc8…`, `40448657…`, `eb9ffb24…`, and
+`a5ef1f39…`.
+
+The same exact install then exercised interruption after both real nodes and
+the friendly ready marker were stable for three polls. One SIGINT returned 130
+in **1.317 seconds** and every observed node and trial descendant is absent.
+The retained evidence is `interrupted / complete / 130 / 130 / SIGINT`, five
+installed schemas and all 19 checksums pass, no `map.pcd` exists, and the
+terminal keeps one ACTION REQUIRED / Next / Details with no traceback or false
+timeout.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| complete lower map-runner regressions | 54 passed |
+| complete sensor-setup regressions | 42 passed |
+| dogfood shell process/signal regressions | 15 passed |
+| exact S3 lifecycle and edit/merge commands | 77 + 15 passed |
+| exact S2 first-map commands | 43 + 43 passed |
+| exact S6 graph docs/product command | 42 passed |
+| support and installed-product contract | 25 passed |
+| option contract | 21 passed |
+| broad S6 product/growth command | 332 passed |
+| G0 readiness and publication-plan regressions | 25 + 34 passed |
+| successful four-schema / 124-checksum and interrupted five-schema / 19-checksum audits | PASS |
+| exact install provenance/script identity, changed-code `ament_flake8`, strict MkDocs, bytecode/JSON/patch hygiene | PASS |
+
+This proves a real local guided completion and a regression-safe concise
+boundary. It does not make the unpublished local fixture public, establish a
+clean-host/package-manager or external-user timing result, replace the full
+277-second proof gate, assess map accuracy, or provide paired GLIM,
+parity/superiority, adoption, quality, or community evidence.

@@ -428,6 +428,18 @@ in 1.543 seconds with every descendant absent. Guided stdout fell 3,679 →
 schemas, 18 checksums, runner 50, S3 77 + 15, sensor setup 42, dogfood 15,
 docs/product 42, installed/support 25, option 21, and broad S6 332 checks pass.
 Clean-host and paired-comparison limits remain; no remote write occurs.
+Exact implementation `8e67ab7…` closes the successful-completion half of the
+same guided UX boundary. An exact-installed 50-second MID360 `start` completed
+in 23.45 seconds with `succeeded / complete / 0 / 0`, 7 / 7 receipt PASS, a
+4,015,933-byte `map.pcd`, 92 tiles, and 124 checksums. Terminal output fell
+51 lines / 3,791 bytes → 23 lines / 1,399 bytes (63.10%); all 16 hidden
+post-process lines remain in checksum-bound `map_workflow.log`, while normal
+failure replays a bounded tail. Baseline and corrected map, Lanelet2, raw, and
+corrected trajectory bytes match. A second real-node Ctrl-C returned 130 in
+1.317 seconds, reaped every descendant, and sealed five schemas plus 19
+checksums. Runner 54, sensor 42, dogfood 15, S3 77 + 15, S2 43 + 43, and broad
+S6 332 checks pass. Clean-host, public-fixture, external-user, and paired-GLIM
+limits remain; no remote write occurs.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state
