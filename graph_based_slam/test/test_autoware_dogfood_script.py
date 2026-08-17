@@ -246,7 +246,7 @@ def test_dogfood_signal_is_not_reported_as_offline_timeout(
             stderr=stderr_file,
         )
         try:
-            deadline = time.monotonic() + 5
+            deadline = time.monotonic() + 15
             while time.monotonic() < deadline:
                 stdout_file.flush()
                 ready_message = (

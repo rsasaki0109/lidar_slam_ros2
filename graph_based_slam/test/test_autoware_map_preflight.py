@@ -62,6 +62,8 @@ def test_product_reader_logging_hides_info_but_keeps_warnings(
     capfd,
 ):
     rclpy_logging = pytest.importorskip('rclpy.logging')
+    if not hasattr(rclpy_logging, 'get_logger_level'):
+        pytest.skip('rclpy logger-level inspection is unavailable')
     module = _load_module()
     logger_name = module.ROSBAG_STORAGE_LOGGER
     previous_level = rclpy_logging.get_logger_level(logger_name)
@@ -92,6 +94,8 @@ def test_product_reader_logging_hides_info_but_keeps_warnings(
 
 def test_reader_logging_preserves_direct_and_explicit_levels(monkeypatch):
     rclpy_logging = pytest.importorskip('rclpy.logging')
+    if not hasattr(rclpy_logging, 'get_logger_level'):
+        pytest.skip('rclpy logger-level inspection is unavailable')
     module = _load_module()
     logger_name = module.ROSBAG_STORAGE_LOGGER
     previous_level = rclpy_logging.get_logger_level(logger_name)

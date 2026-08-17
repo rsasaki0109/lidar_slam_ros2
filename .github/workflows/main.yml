@@ -233,6 +233,7 @@ jobs:
         shell: bash
         run: |
           source "/opt/ros/${{ matrix.ros_distro }}/setup.bash"
+          export PYTHONPATH="${GITHUB_WORKSPACE}:${PYTHONPATH:-}"
           bash scripts/run_default_ci_checks.sh
 
       - name: Publish test results

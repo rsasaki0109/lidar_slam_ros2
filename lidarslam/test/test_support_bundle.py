@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 import zipfile
 
@@ -449,7 +450,10 @@ def test_first_map_handoff_revalidates_pass_evidence_without_writing(
     assert 'Verification summary:' in terminal
     assert 'Complete before submitting:' in terminal
     assert 'Public documentation path: <Docker First Map' in terminal
-    assert 'Environment: Linux / x86_64 / ROS 2 jazzy' in terminal
+    expected_distro = os.environ.get('ROS_DISTRO', 'jazzy')
+    assert (
+        f'Environment: Linux / x86_64 / ROS 2 {expected_distro}' in terminal
+    )
     assert 'Redacted command shape: <executable and options' in terminal
     assert 'Findings: <what was unclear, slow, surprising' in terminal
     assert 'use REDACTED for credentials' in terminal
