@@ -779,6 +779,63 @@ def test_bug_form_accepts_pre_session_failure_without_fake_zip_claims():
     assert 'otherwise keep the doctor output' in usage_support['about']
 
 
+def test_autoware_form_never_requests_private_map_or_origin_evidence():
+    """Autoware reports need useful diagnostics without location disclosure."""
+    form_path = ISSUE_TEMPLATE_DIR / 'autoware-pointcloud-map.yml'
+    form = yaml.safe_load(form_path.read_text(encoding='utf-8'))
+    fields = {
+        item['id']: item
+        for item in form['body']
+        if isinstance(item, dict) and 'id' in item
+    }
+    command = fields['command']
+    verifier = fields['verifier']
+    projector = fields['projector']
+    artifacts = fields['artifacts']
+    privacy = fields['privacy']
+    privacy_labels = [
+        option['label'] for option in privacy['attributes']['options']
+    ]
+
+    assert command['validations']['required'] is True
+    assert 'REDACTED placeholders' in command['attributes']['description']
+    assert verifier['validations']['required'] is True
+    assert 'removing private paths and precise locations' in (
+        verifier['attributes']['description']
+    )
+    assert projector['validations']['required'] is True
+    projector_help = projector['attributes']['description']
+    for private_origin_field in (
+        'latitude',
+        'longitude',
+        'altitude',
+        'MGRS/grid identifiers',
+        'precise origin value',
+    ):
+        assert private_origin_field in projector_help
+    assert 'REDACTED' in projector_help
+    assert 'never paste the complete map_projector_info.yaml' in projector_help
+
+    artifacts_help = artifacts['attributes']['description']
+    assert 'lidarslam-map support <session_bundle>' in artifacts_help
+    assert 'Do not attach a map bundle' in artifacts_help
+    assert 'screenshots revealing a private place' in artifacts_help
+    assert len(privacy_labels) == 3
+    assert all(
+        option['required'] is True
+        for option in privacy['attributes']['options']
+    )
+    assert 'every projector-origin coordinate' in privacy_labels[0]
+    assert 'pointcloud/lanelet geometry' in privacy_labels[1]
+    assert 'or attached no file' in privacy_labels[2]
+
+    for document_path in (SUPPORT_PATH, AUTOWARE_MAP_AUTHORING):
+        document = ' '.join(document_path.read_text(encoding='utf-8').split())
+        assert 'MGRS/grid' in document
+        assert 'precise origin' in document
+        assert 'screenshots revealing a private place' in document
+
+
 def test_product_contract_has_bounded_official_surface():
     """The beginner product surface should stay explicit and bounded."""
     contract = PRODUCT_CONTRACT_DOC.read_text(encoding='utf-8')

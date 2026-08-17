@@ -68,6 +68,12 @@ Reports are most actionable when they also include, where relevant:
 Do not upload private location data, credentials or proprietary bags without
 authorization.
 
+For an Autoware map report, share only the projector type and whether an origin
+exists. Redact latitude, longitude, altitude, MGRS/grid identifiers, and every
+precise origin value. Do not attach the map bundle, pointcloud or lanelet
+geometry, rosbag, raw private logs, or screenshots revealing a private place;
+use the reviewed privacy-first support ZIP and non-geometry verifier findings.
+
 ## Support boundaries
 
 Validated public demos and maintained-compatible product paths receive

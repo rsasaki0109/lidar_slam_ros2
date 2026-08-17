@@ -117,6 +117,12 @@ for human review; it does not upload anything. After a verified first map,
 `lidarslam-map support /path/to/session_bundle --first-map` prints the
 read-only independent-validation handoff.
 
+When filing an Autoware map issue, report the projector type and whether an
+origin exists, but replace all latitude, longitude, altitude, MGRS/grid, and
+precise origin values with `REDACTED`. Attach only the reviewed support ZIP or
+non-geometry verifier findings—not the map bundle, pointcloud/lanelet files,
+rosbag, raw private logs, or screenshots revealing a private place.
+
 ## The Run Finished, But The Map Looks Wrong
 
 Keep the session instead of guessing launch/YAML changes. Add exactly one
