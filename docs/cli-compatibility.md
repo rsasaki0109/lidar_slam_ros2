@@ -40,7 +40,10 @@ Humble/Jazzy, the ROS CLI and bag reader, and fixed-demo storage. Providing the
 directory preserves the existing bag compatibility preflight. The system JSON
 report is governed by `system-doctor-v1.schema.json` and omits local paths. A
 storage rejection includes exact `additional_bytes_required`, a rounded-up
-human shortage, and the placeholder-free retry command. Bag preflight v6
+human shortage, and the placeholder-free retry command. Multiple system
+findings retain their individual recovery text, while top-level `next_action`
+and the human **Do this now** card select exactly one dependency-ordered first
+recovery; rerunning doctor reprioritizes the remaining findings. Bag preflight v6
 checks bounded recorded Odometry parent/child frames against the bag's dynamic
 TF graph, then reports replay-order startup and future-TF gaps for the selected
 PointCloud2 topic. It does not claim that a transform will be fresh or

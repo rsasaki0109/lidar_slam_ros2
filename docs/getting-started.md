@@ -37,9 +37,12 @@ lidarslam-map doctor
 
 Without a bag, `doctor` checks the curated product helpers, matching source or
 installed prefix, Humble/Jazzy environment, `ros2`, `rosbag2_py`, and free space
-for the fixed demo. It returns stable finding codes and one copy-ready next
-action for every missing requirement. It does not contact the network or write
-a cache, report, or output file. Use `--json` for the versioned
+for the fixed demo. When several requirements are missing, it selects one
+dependency-ordered **Do this now** action and keeps the other finding codes as
+visible follow-up checks. Rerun `doctor` after that action and it selects the
+next blocker. The JSON retains every finding-specific recovery and exposes the
+same selected action as top-level `next_action`. It does not contact the
+network or write a cache, report, or output file. Use `--json` for the versioned
 `system-doctor-v1` report, `--demo-dir <dir>` to check another filesystem, or
 `--min-free-space-gib <GiB>` to raise the default 8 GiB floor.
 When storage is low, the JSON reports exact `additional_bytes_required`

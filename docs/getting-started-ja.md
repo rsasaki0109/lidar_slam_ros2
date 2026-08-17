@@ -81,8 +81,11 @@ lidarslam-map doctor
 ```
 
 この確認はネットワークへ接続せず、ファイルも書きません。ROS 2、bag reader、
-製品ファイル、デモ用の空き容量を確認し、不足ごとに理由コードと次の1コマンドを
-表示します。自分のbagを先に確認する場合は次を実行します。
+製品ファイル、デモ用の空き容量を確認します。不足が複数あっても、依存順で選んだ
+`Do this now`を1つだけ先頭に表示し、残りは後続checkとして残します。その操作後に
+`doctor`を再実行すると、次のblockerが1つ選ばれます。JSONは全finding固有の復旧操作を
+保持し、同じ選択をtop-levelの`next_action`でも返します。自分のbagを先に確認する場合は
+次を実行します。
 
 ```bash
 lidarslam-map doctor /path/to/rosbag2

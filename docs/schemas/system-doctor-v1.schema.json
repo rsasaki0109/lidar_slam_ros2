@@ -14,6 +14,7 @@
     "ros",
     "storage",
     "findings",
+    "next_action",
     "commands",
     "network_accessed",
     "writes_performed"
@@ -89,6 +90,21 @@
         }
       }
     },
+    "next_action": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "reason", "action"],
+          "properties": {
+            "code": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+            "reason": {"type": "string", "minLength": 1},
+            "action": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
     "commands": {
       "type": "object",
       "additionalProperties": false,
@@ -106,8 +122,18 @@
   "allOf": [
     {
       "if": {"properties": {"status": {"const": "ready"}}},
-      "then": {"properties": {"findings": {"maxItems": 0}}},
-      "else": {"properties": {"findings": {"minItems": 1}}}
+      "then": {
+        "properties": {
+          "findings": {"maxItems": 0},
+          "next_action": {"type": "null"}
+        }
+      },
+      "else": {
+        "properties": {
+          "findings": {"minItems": 1},
+          "next_action": {"type": "object"}
+        }
+      }
     }
   ]
 }

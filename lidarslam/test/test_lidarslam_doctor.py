@@ -115,6 +115,7 @@ def test_ready_source_and_installed_layouts_are_schema_valid(tmp_path, source):
     )
     assert report['status'] == 'ready'
     assert report['findings'] == []
+    assert report['next_action'] is None
     assert report['product']['layout'] == ('source' if source else 'installed')
     assert report['product']['installed_prefix_detected'] is True
     assert report['storage']['additional_bytes_required'] == 0
@@ -142,6 +143,11 @@ def test_source_without_build_reports_one_copy_ready_recovery(tmp_path):
     assert 'source_quickstart.sh --build-only' in (
         report['findings'][0]['next_action']
     )
+    assert report['next_action'] == {
+        'code': 'source-build-required',
+        'reason': report['findings'][0]['message'],
+        'action': report['findings'][0]['next_action'],
+    }
 
 
 def test_missing_environment_runtime_and_storage_have_stable_codes(tmp_path):
@@ -173,6 +179,11 @@ def test_missing_environment_runtime_and_storage_have_stable_codes(tmp_path):
     assert str(tmp_path) not in encoded
     assert report['product']['missing_runtime_files'] == ['missing_helper.py']
     assert report['storage']['additional_bytes_required'] == 5 * DOCTOR.GIB
+    assert report['next_action'] == {
+        'code': 'product-runtime-incomplete',
+        'reason': report['findings'][0]['message'],
+        'action': report['findings'][0]['next_action'],
+    }
     storage_finding = report['findings'][-1]
     assert '5.00 GiB more' in storage_finding['message']
     assert storage_finding['next_action'].endswith('lidarslam-map doctor')
@@ -192,11 +203,73 @@ def test_storage_shortfall_display_rounds_up_and_human_output_is_actionable(
         'message': 'fixture',
         'next_action': 'lidarslam-map doctor',
     }]
+    report['next_action'] = {
+        'code': 'demo-storage-low',
+        'reason': 'fixture',
+        'action': 'lidarslam-map doctor',
+    }
 
     rendered = DOCTOR.render_system_report(report)
 
     assert 'free 0.01 GiB more' in rendered
-    assert 'Next: lidarslam-map doctor' in rendered
+    assert rendered.count('Do this now:') == 1
+    assert 'Do this now:\n  lidarslam-map doctor' in rendered
+    assert 'Why: [demo-storage-low] fixture' in rendered
+
+
+def test_human_action_required_report_prioritizes_one_recovery(tmp_path):
+    script_dir = _layout(
+        tmp_path,
+        source=False,
+        runtime_files=('lidarslam_doctor.py', 'missing_helper.py'),
+    )
+    (script_dir / 'missing_helper.py').unlink()
+    report = DOCTOR.build_system_report(
+        script_dir=script_dir,
+        demo_dir=tmp_path,
+        min_free_space_gib=8,
+        environment={},
+        command_lookup=lambda _name: None,
+        module_available=lambda _name: False,
+        disk_usage=_disk(3),
+    )
+
+    rendered = DOCTOR.render_system_report(report)
+
+    assert rendered.count('Do this now:') == 1
+    assert report['next_action']['code'] == 'product-runtime-incomplete'
+    assert report['next_action']['action'] in rendered
+    assert 'Why: [product-runtime-incomplete]' in rendered
+    assert 'Other checks detected:' in rendered
+    assert '[ros-environment-missing]' in rendered
+    assert '[ros2-cli-missing]' in rendered
+    assert '[rosbag2-python-missing]' in rendered
+    assert '[demo-storage-low]' in rendered
+    assert 'it will choose the next blocker' in rendered
+    assert rendered.count('Next:') == 0
+
+
+def test_schema_binds_next_action_to_report_status(tmp_path):
+    schema = json.loads(SCHEMA_PATH.read_text(encoding='utf-8'))
+    ready = _ready_report(tmp_path, source=False)
+    action_required = dict(ready)
+    action_required['status'] = 'action_required'
+    action_required['findings'] = [{
+        'code': 'fixture-action',
+        'message': 'fixture reason',
+        'next_action': 'lidarslam-map doctor',
+    }]
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(action_required, schema)
+
+    ready['next_action'] = {
+        'code': 'fixture-action',
+        'reason': 'fixture reason',
+        'action': 'lidarslam-map doctor',
+    }
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(ready, schema)
 
 
 def test_unsupported_ros_is_distinct_from_an_unset_environment(tmp_path):

@@ -189,6 +189,20 @@ def _finding(code: str, message: str, next_action: str) -> dict[str, str]:
     }
 
 
+def _select_next_action(
+    findings: Sequence[Mapping[str, str]],
+) -> dict[str, str] | None:
+    """Select the first dependency-ordered recovery without hiding findings."""
+    if not findings:
+        return None
+    selected = findings[0]
+    return {
+        'code': selected['code'],
+        'reason': selected['message'],
+        'action': selected['next_action'],
+    }
+
+
 def build_system_report(
     *,
     script_dir: Path = SCRIPT_DIR,
@@ -304,6 +318,7 @@ def build_system_report(
             'sufficient_for_fixed_demo': storage_sufficient,
         },
         'findings': findings,
+        'next_action': _select_next_action(findings),
         'commands': {
             'system_doctor': 'lidarslam-map doctor',
             'bag_doctor': 'lidarslam-map doctor /path/to/rosbag2',
@@ -343,10 +358,26 @@ def render_system_report(report: Mapping[str, Any]) -> str:
     ]
     findings = report['findings']
     if findings:
-        lines.extend(['', 'Fix these first:'])
-        for finding in findings:
+        next_action = report['next_action']
+        lines.extend([
+            '',
+            'Do this now:',
+            f"  {next_action['action']}",
+            f"  Why: [{next_action['code']}] {next_action['reason']}",
+        ])
+        remaining = findings[1:]
+        if remaining:
+            lines.extend([
+                '',
+                'Other checks detected:',
+            ])
+        for finding in remaining:
             lines.append(f"  [{finding['code']}] {finding['message']}")
-            lines.append(f"    Next: {finding['next_action']}")
+        if remaining:
+            lines.append(
+                '  Rerun doctor after the first action; it will choose the '
+                'next blocker.'
+            )
     else:
         commands = report['commands']
         lines.extend([
