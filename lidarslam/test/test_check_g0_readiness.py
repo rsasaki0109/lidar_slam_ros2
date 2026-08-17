@@ -368,7 +368,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         'lane_count': 4,
         'slice_count': 7,
         'path_count': 347,
-        'verification_count': 33,
+        'verification_count': 34,
         'unassigned_slice_count': 0,
         'duplicate_slice_count': 0,
     }
@@ -1037,7 +1037,7 @@ def test_exact_green_draft_refreshes_stale_description_before_review():
     assert '## Review roles' in handoff['body']
     assert handoff['body'].count('| `R') == 4
     assert '| `R1` | S1, S2 | 50 | 5 |' in handoff['body']
-    assert '| `R4` | S6, S7 | 160 | 15 |' in handoff['body']
+    assert '| `R4` | S6, S7 | 160 | 16 |' in handoff['body']
     assert (
         'Advisory reviewer target: **2** (target only; not a merge gate). '
         'Identities collected: none.'

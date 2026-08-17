@@ -395,6 +395,15 @@ work and document the actual support boundary instead of hiding the delay.
   Thirty-one focused and 38 integrated tests plus strict MkDocs pass. This
   enables honest product findings; it creates no validation, recruitment, or
   GitHub write.
+- Exact follow-up `a0aaadc80b952d92074f45499c29a5103a2ad479` removes the
+  remaining command-sharing ambiguity from first-map reports. The public form
+  requests a redacted command shape, keeps executable/options/non-private
+  values, requires literal `REDACTED` placeholders for credentials, private
+  paths, host or user names, and precise locations, and still prohibits map
+  geometry. The read-only handoff now prints four field-by-field completion
+  lines using safe environment hints. Thirty-four docs and 25
+  support/installed-contract regressions pass without changing the v1 handoff,
+  uploading evidence, creating an issue, or accepting a validation.
 - Exact follow-up `4b1707cdbc2dc41f3d7b52aa8c598841fc925767`
   applies the same repair to normal bug intake. A startup or preflight failure
   no longer needs an impossible support ZIP or a false attachment-review
@@ -1165,7 +1174,7 @@ in separate pytest processes, and recognized direct remote-write CLI forms fail
 plan validation. Exact follow-up `0633c2a604489538e0f087c02385e7c6467540c3`
 extends that boundary to the S6 docs/product-CLI command after exact execution
 from an unsourced shell exposed two `rosbag2_py` import failures; the repaired
-displayed command now passes all 40 tests and removing its prelude fails validation.
+displayed command now passes all 41 tests and removing its prelude fails validation.
 Evidence carrier `72a8c9e77eba33c1578a3cd9c8afe8fbe6933e33`
 passes 2,488 maintained Python tests and a byte-identical 261-file candidate
 bundle rehearsal without granting publication authority.

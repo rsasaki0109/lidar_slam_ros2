@@ -67,7 +67,7 @@ def _overview() -> dict:
         (
             'S6-product-shell-integration',
             153,
-            13,
+            14,
             [
                 'S1-runtime-safety',
                 'S2-first-map-foundation',
@@ -135,7 +135,7 @@ def test_routing_assigns_every_slice_once_without_collecting_identity():
         'lane_count': 4,
         'slice_count': 7,
         'path_count': 347,
-        'verification_count': 33,
+        'verification_count': 34,
         'unassigned_slice_count': 0,
         'duplicate_slice_count': 0,
     }

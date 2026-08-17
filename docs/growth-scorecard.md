@@ -244,6 +244,15 @@ receipt was produced and no file was attached. All three privacy checks remain
 required. Thirty-one focused and 38 S6 docs/product regressions plus strict
 MkDocs pass; this creates no accepted validation, cohort attempt, upload,
 recruitment, or GitHub write.
+Exact follow-up `a0aaadc80b952d92074f45499c29a5103a2ad479` makes first-map
+reporting redaction-first. The public form and read-only handoff preserve the
+command executable, options, and non-private values while requiring literal
+`REDACTED` placeholders for credentials, private paths, host or user names,
+and precise locations; map geometry remains prohibited. The handoff now gives
+four field-by-field completion lines from safe environment hints. Thirty-four
+docs and 25 support/installed-contract regressions pass without changing the
+v1 schema, uploading evidence, creating an issue, accepting a validation, or
+performing a GitHub write.
 Exact follow-up `4b1707cdbc2dc41f3d7b52aa8c598841fc925767` fixes the same
 contradiction for ordinary bug reports. Session-backed reports still require
 one reviewed support ZIP; a pre-session failure instead supplies required

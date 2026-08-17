@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/publication-slice-plan-v1.schema.json",
-  "generated_at": "2026-08-17T15:28:31+09:00",
+  "generated_at": "2026-08-17T15:47:11+09:00",
   "candidate": {
     "repository": "rsasaki0109/lidar_slam_ros2",
     "pull_request": 427,
@@ -499,6 +499,7 @@
       ],
       "verification": [
         "source \"/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash\" && python3 -m pytest -q -p no:cacheprovider graph_based_slam/test/test_docs_entrypoints.py graph_based_slam/test/test_lidarslam_product_cli.py",
+        "source \"/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash\" && python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_support_bundle.py lidarslam/test/test_installed_product_cli_contract.py",
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_check_issue_triage_proposal.py lidarslam/test/test_check_onboarding_trial_matrix.py lidarslam/test/test_check_usability_scorecard.py lidarslam/test/test_cli_interactive_home.py lidarslam/test/test_cli_option_contract.py lidarslam/test/test_collect_growth_snapshot.py lidarslam/test/test_contributor_starter_queue.py lidarslam/test/test_glim_reference_cache.py lidarslam/test/test_github_api_auth.py lidarslam/test/test_lidarslam_doctor.py lidarslam/test/test_lidarslam_guided.py lidarslam/test/test_prepare_candidate_trial.py lidarslam/test/test_prepare_issue_triage_application.py lidarslam/test/test_prepare_onboarding_matrix_packet.py lidarslam/test/test_prepare_usability_scorecard.py lidarslam/test/test_prepare_usability_scorecard_pair.py lidarslam/test/test_product_draft_review_ledger.py lidarslam/test/test_product_draft_review_routing.py lidarslam/test/test_published_onboarding_identity.py lidarslam/test/test_record_usability_scorecard_pair.py lidarslam/test/test_social_demo_media.py",
         "python3 -m pytest -q -p no:cacheprovider lidarslam/test/test_check_g0_readiness.py",
         "python3 scripts/check_onboarding_trial_matrix.py --json",
