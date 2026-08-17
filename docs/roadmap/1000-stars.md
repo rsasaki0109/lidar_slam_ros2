@@ -597,6 +597,15 @@ work and document the actual support boundary instead of hiding the delay.
   Runner 54, sensor 42, dogfood 15, S3 77 + 15, S2 43 + 43, and broad S6 332
   checks pass. Clean-host, public-fixture, external-user, and paired-GLIM
   limits remain; no remote write is performed.
+- Exact implementation `cb2218f…` labels the verified post-success action
+  `Report:` / **Prepare a first-map report** instead of implying an automatic
+  share, while retaining the structured compatibility key. A fresh exact
+  install reproduced the 50-second MID360 output in 23.42 seconds with the
+  same map, Lanelet2, raw, and corrected trajectory hashes. Its displayed
+  read-only command emitted 22 lines / 1,279 bytes; four schemas and 124
+  checksums pass, the complete session path/size/mtime tree is unchanged, no
+  archive is created, and `strace` records no network syscall. This remains
+  local preparation evidence, not an upload, issue, or external first map.
 - Measure the current 517 MB demo, then provide a smaller onboarding fixture if
   download or run time dominates first success. Keep the full surveyed demo as
   proof rather than silently weakening validation.

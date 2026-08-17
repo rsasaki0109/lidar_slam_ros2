@@ -1050,3 +1050,68 @@ boundary. It does not make the unpublished local fixture public, establish a
 clean-host/package-manager or external-user timing result, replace the full
 277-second proof gate, assess map accuracy, or provide paired GLIM,
 parity/superiority, adoption, quality, or community evidence.
+
+## Explicit first-map report follow-up — 2026-08-17
+
+> Decision: **READ_ONLY_REPORT_UX_PASS / EXTERNAL_FIRST_MAP_PENDING**
+>
+> Implementation and tested installed revision:
+> `cb2218fc24861088526bd2373bed3376218beb94`
+>
+> Network, GitHub, release, or community mutation performed: **none**
+
+The verified completion and history UI previously called the local
+`support --first-map` preparation command `Share`. Although the command was
+already fail-closed and read-only, that label could imply an automatic upload
+or issue submission. The user-facing action is now `Report:` / **Prepare a
+first-map report**. The internal action kind remains `share` for structured
+compatibility, and the `--json` schema is unchanged.
+
+The human report is reduced from the synthetic verified-fixture baseline of
+30 lines / 1,606 bytes to 22 lines. It leads with **READY FOR REVIEW**, the
+issue URL, and the only attachment after review; then presents the copy fields,
+three operator-completed fields, and two concise privacy lines. Redundant
+product/source/profile repetition, Markdown fences, and the readable receipt
+path are removed from default output without removing structured evidence.
+
+A fresh non-symlink Jazzy install recorded exact revision `cb2218f…`,
+`dirty=false`. Using the same controlled graph/scanmatcher overlay and original
+50-second MID360 fixture, installed `start` completed in **23.42 seconds** with
+peak RSS 135,056 KiB and empty stderr. Its 23-line / 1,388-byte completion has
+exactly one VERIFIED, Next, and Report and zero Share labels. The final state is
+`succeeded / complete / 0 / 0`, the receipt is 7 / 7 PASS, and session quality
+is `verified / pass`.
+
+The map remains 4,015,933 bytes (`987637f9…`), Lanelet2 remains 63,458 bytes
+(`25280265…`), and 92 tiles total 4,037,472 bytes. Raw (`9f68345a…`) and
+corrected (`8dd2acdf…`) trajectory hashes also match the preceding complete
+run, so the reporting-only change did not alter mapping output.
+
+The exact displayed `Report:` command returned 0 with **22 lines / 1,279
+bytes** and empty stderr. Human and JSON invocations validate against the
+installed first-map handoff, session index, run manifest, and receipt schemas;
+all 124 manifest-bound artifact sizes and SHA-256 values revalidate. A complete
+session path/type/size/mtime snapshot is byte-identical before and after both
+reads, no archive appears, and a network-only `strace` records no socket,
+connect, send, or receive syscall. The output identifies the issue form,
+reviewed JSON receipt, release ref, environment hints, verification summary,
+operator-supplied fields, and privacy boundary without performing the handoff.
+
+Verification on the implementation tip:
+
+| Check | Result |
+| --- | --- |
+| focused support / sensor setup / session history | 17 + 42 + 11 passed |
+| exact S3 lifecycle and edit/merge commands | 77 + 15 passed |
+| support and installed-product contract | 25 passed |
+| exact docs/product and option contract | 42 + 21 passed |
+| broad S6 product/growth command | 332 passed |
+| publication-plan and G0 readiness regressions | 34 + 25 passed |
+| four installed schemas / 124 manifest checksums | PASS |
+| session path/type/size/mtime unchanged; no archive or network syscall | PASS |
+| changed-code `ament_flake8`, strict MkDocs, bytecode/JSON/patch hygiene | PASS |
+
+This closes a wording and review-density gap only. It does not publish the
+fixture, upload the receipt, create an issue, establish an independent external
+first map, provide a clean-host/package-manager or paired GLIM result, or grant
+remote-write authority.

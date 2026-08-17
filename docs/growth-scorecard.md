@@ -440,6 +440,16 @@ corrected trajectory bytes match. A second real-node Ctrl-C returned 130 in
 checksums. Runner 54, sensor 42, dogfood 15, S3 77 + 15, S2 43 + 43, and broad
 S6 332 checks pass. Clean-host, public-fixture, external-user, and paired-GLIM
 limits remain; no remote write occurs.
+Exact implementation `cb2218f…` makes the post-success action explicit:
+`Report:` / **Prepare a first-map report** replaces user-facing `Share`, while
+the structured compatibility key remains unchanged. A fresh exact install
+reproduced the 50-second MID360 map in 23.42 seconds with the same map,
+Lanelet2, raw, and corrected trajectory hashes. The displayed read-only command
+returned a 22-line / 1,279-byte handoff with four schemas and 124 checksums
+passing. Human and JSON reads left the complete session path/size/mtime tree
+unchanged, created no archive, and made no network syscall under `strace`.
+Focused and broad regressions, strict docs, and style pass. This prepares a
+reviewed report; it does not upload, create an issue, or count an external map.
 The dashboard reports one next action and never interprets missing human
 measurements, public identity, release, or community evidence as complete.
 Its seven slice cards are now executable from an ordinary terminal: ROS state
