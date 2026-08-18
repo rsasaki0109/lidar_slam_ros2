@@ -86,7 +86,10 @@ def _planned_paths(plan: dict) -> list[str]:
 
 def test_tracked_plan_covers_the_exact_candidate_once():
     plan = _plan()
-    actual = CHECKER.candidate_paths(plan['candidate']['base_sha'])
+    candidate_ref = plan['whole_pr_review']['follow_up_review']['end_ref']
+    actual = CHECKER.committed_paths(
+        plan['candidate']['base_sha'], candidate_ref, 'two-dot'
+    )
 
     report = CHECKER.validate_plan(plan, _schema(), actual)
 
@@ -96,12 +99,12 @@ def test_tracked_plan_covers_the_exact_candidate_once():
         '3ed632e6f6aa1e3ca7f32d893773de1079086ffb'
     )
     assert report['local_tip_sha'] == CHECKER._run_git([
-        'rev-parse', 'HEAD',
+        'rev-parse', candidate_ref,
     ])[0]
     expected_follow_ups = int(CHECKER._run_git([
         'rev-list',
         '--count',
-        f"{report['public_baseline_sha']}..HEAD",
+        f"{report['public_baseline_sha']}..{candidate_ref}",
     ])[0])
     assert report['follow_up_commit_count'] == expected_follow_ups
     status = CHECKER._run_git(['status', '--short'])
@@ -124,12 +127,12 @@ def test_tracked_plan_covers_the_exact_candidate_once():
     expected_whole_commits = int(CHECKER._run_git([
         'rev-list',
         '--count',
-        f"{report['whole_pr_base_sha']}..HEAD",
+        f"{report['whole_pr_base_sha']}..{candidate_ref}",
     ])[0])
     expected_slice_commits = int(CHECKER._run_git([
         'rev-list',
         '--count',
-        f"{report['base_sha']}..HEAD",
+        f"{report['base_sha']}..{candidate_ref}",
     ])[0])
     assert report['whole_pr_commit_count'] == expected_whole_commits
     assert report['initial_review_commit_count'] == 42
@@ -552,13 +555,14 @@ def test_cli_emits_a_machine_readable_local_only_report():
     assert report['public_baseline_sha'] == (
         '3ed632e6f6aa1e3ca7f32d893773de1079086ffb'
     )
-    assert report['local_tip_sha'] == CHECKER._run_git([
-        'rev-parse', 'HEAD',
-    ])[0]
+    assert report['local_tip_sha'] == _plan()[
+        'whole_pr_review'
+    ]['follow_up_review']['end_ref']
+    candidate_ref = report['local_tip_sha']
     expected_follow_ups = int(CHECKER._run_git([
         'rev-list',
         '--count',
-        f"{report['public_baseline_sha']}..HEAD",
+        f"{report['public_baseline_sha']}..{candidate_ref}",
     ])[0])
     assert report['follow_up_commit_count'] == expected_follow_ups
     status = CHECKER._run_git(['status', '--short'])
@@ -569,7 +573,7 @@ def test_cli_emits_a_machine_readable_local_only_report():
     assert report['whole_pr_commit_count'] == int(CHECKER._run_git([
         'rev-list',
         '--count',
-        f"{report['whole_pr_base_sha']}..HEAD",
+        f"{report['whole_pr_base_sha']}..{candidate_ref}",
     ])[0])
     assert report['review_phase_count'] == 3
     assert report['review_coverage_complete'] is True
@@ -670,9 +674,9 @@ def test_overview_json_binds_all_phases_and_slices_without_writes():
     assert report['status'] == 'PR_REVIEW_OVERVIEW_READY_LOCAL_ONLY'
     assert candidate['repository'] == 'rsasaki0109/lidar_slam_ros2'
     assert candidate['pull_request'] == 427
-    assert candidate['local_tip_sha'] == CHECKER._run_git([
-        'rev-parse', 'HEAD',
-    ])[0]
+    assert candidate['local_tip_sha'] == _plan()[
+        'whole_pr_review'
+    ]['follow_up_review']['end_ref']
     assert candidate['whole_pr_path_count'] == 396
     assert candidate['follow_up_path_count'] == 349
     assert candidate['review_coverage_complete'] is True

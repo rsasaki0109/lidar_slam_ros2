@@ -155,6 +155,21 @@ def candidate_paths(base_sha: str) -> list[str]:
     return sorted(set(tracked + untracked))
 
 
+def review_paths(
+    base_sha: str,
+    candidate_ref: str,
+    diff_mode: str,
+) -> list[str]:
+    """Return paths from either an active worktree or a frozen commit range."""
+    if candidate_ref == 'HEAD' and diff_mode == 'worktree':
+        return candidate_paths(base_sha)
+    if diff_mode != 'two-dot':
+        raise PlanError(
+            'a frozen review endpoint requires two-dot diff mode'
+        )
+    return committed_paths(base_sha, candidate_ref, diff_mode)
+
+
 def path_inventory_sha256(paths: Sequence[str]) -> str:
     """Hash a canonical newline-terminated path inventory."""
     payload = ''.join(f'{path}\n' for path in paths).encode('utf-8')
@@ -389,16 +404,20 @@ def _validate_verification_command(slice_id: str, command: str) -> None:
 def _validate_candidate_lineage(
     base_sha: str,
     public_baseline_sha: str,
+    candidate_ref: str,
 ) -> tuple[str, int]:
-    """Require the frozen public baseline between the PR base and local tip."""
+    """Require the frozen public baseline between the PR base and candidate."""
     try:
         base_to_public = _run_git([
             'merge-base', base_sha, public_baseline_sha,
         ])
-        public_to_local = _run_git(['merge-base', public_baseline_sha, 'HEAD'])
-        local_tip = _run_git(['rev-parse', 'HEAD'])
+        public_to_local = _run_git([
+            'merge-base', public_baseline_sha, candidate_ref,
+        ])
+        local_tip = _run_git(['rev-parse', candidate_ref])
         follow_up_count = _run_git([
-            'rev-list', '--count', f'{public_baseline_sha}..HEAD',
+            'rev-list', '--count',
+            f'{public_baseline_sha}..{candidate_ref}',
         ])
     except PlanError as exc:
         raise PlanError('candidate lineage cannot be verified') from exc
@@ -467,6 +486,7 @@ def _validate_whole_pr_review(
     initial = contract['initial_review']
     bridge = contract['bridge_review']
     follow_up = contract['follow_up_review']
+    candidate_ref = follow_up['end_ref']
     candidate = plan['candidate']
 
     if initial['start_sha'] != contract['base_sha']:
@@ -515,7 +535,9 @@ def _validate_whole_pr_review(
                 f'{label} record is outside the follow-up review inventory'
             )
 
-    whole_paths = candidate_paths(contract['base_sha'])
+    whole_paths = review_paths(
+        contract['base_sha'], candidate_ref, follow_up['diff_mode']
+    )
     whole_digest = path_inventory_sha256(whole_paths)
     if contract['expected_path_count'] != len(whole_paths):
         raise PlanError('whole-PR expected_path_count is stale')
@@ -540,7 +562,7 @@ def _validate_whole_pr_review(
     merge_commits = _run_git([
         'rev-list',
         '--min-parents=2',
-        f"{contract['base_sha']}..HEAD",
+        f"{contract['base_sha']}..{candidate_ref}",
     ])
     if merge_commits:
         raise PlanError(
@@ -548,10 +570,11 @@ def _validate_whole_pr_review(
         )
 
     follow_up_commit_count_raw = _run_git([
-        'rev-list', '--count', f"{follow_up['start_sha']}..HEAD",
+        'rev-list', '--count',
+        f"{follow_up['start_sha']}..{candidate_ref}",
     ])
     whole_pr_commit_count_raw = _run_git([
-        'rev-list', '--count', f"{contract['base_sha']}..HEAD",
+        'rev-list', '--count', f"{contract['base_sha']}..{candidate_ref}",
     ])
     if (
         len(follow_up_commit_count_raw) != 1
@@ -625,9 +648,12 @@ def validate_plan(
         raise PlanError('plan schema_uri is not the supported v1 URI')
 
     candidate = plan['candidate']
+    follow_up = plan['whole_pr_review']['follow_up_review']
+    candidate_ref = follow_up['end_ref']
     local_tip_sha, follow_up_commit_count = _validate_candidate_lineage(
         candidate['base_sha'],
         candidate['public_head_sha'],
+        candidate_ref,
     )
     worktree_status = _run_git(['status', '--short'])
     slices = plan['review_slices']
@@ -730,7 +756,7 @@ def build_slice_review_report(
     follow_up_rows = _git_diff_numstat(
         validation_report['base_sha'],
         validation_report['local_tip_sha'],
-        'worktree',
+        plan['whole_pr_review']['follow_up_review']['diff_mode'],
     )
     _validate_numstat_inventory(
         follow_up_rows,
@@ -829,7 +855,7 @@ def build_pr_review_overview_report(
     whole_pr_rows = _git_diff_numstat(
         contract['base_sha'],
         validation_report['local_tip_sha'],
-        'worktree',
+        follow_up['diff_mode'],
     )
     _validate_numstat_inventory(
         whole_pr_rows,
@@ -1173,7 +1199,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         plan = _load_json(args.plan, 'plan')
         schema = _load_json(args.schema, 'schema')
-        paths = candidate_paths(plan.get('candidate', {}).get('base_sha', ''))
+        candidate = plan.get('candidate', {})
+        follow_up = plan.get('whole_pr_review', {}).get(
+            'follow_up_review', {}
+        )
+        candidate_ref = follow_up.get('end_ref', '')
+        diff_mode = follow_up.get('diff_mode')
+        paths = review_paths(
+            candidate.get('base_sha', ''), candidate_ref, diff_mode
+        )
         report = validate_plan(plan, schema, paths)
         if args.slice:
             report = build_slice_review_report(plan, report, args.slice)

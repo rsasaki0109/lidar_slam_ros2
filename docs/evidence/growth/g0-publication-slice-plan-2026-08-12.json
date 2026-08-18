@@ -50,8 +50,8 @@
     },
     "follow_up_review": {
       "start_sha": "3f4dd70cdc58ad421192559213cdee0bdc41eba8",
-      "end_ref": "HEAD",
-      "diff_mode": "worktree",
+      "end_ref": "c5cbc9f81c5849109321ac3585b41afa5b6270fb",
+      "diff_mode": "two-dot",
       "review_record": "docs/evidence/growth/g0-publication-slice-plan-2026-08-12.md"
     }
   },
