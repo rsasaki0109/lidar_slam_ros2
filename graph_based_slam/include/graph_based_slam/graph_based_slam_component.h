@@ -80,6 +80,7 @@ extern "C" {
 #include <tf2_ros/transform_broadcaster.h>  // NOLINT(build/include_order)
 #include <tf2_ros/transform_listener.h>  // NOLINT(build/include_order)
 
+#include <array>
 #include <fstream>
 #include <memory>
 #include <mutex>
@@ -96,6 +97,7 @@ extern "C" {
 #include <lidarslam_msgs/msg/map_array.hpp>
 #include <message_filters/subscriber.h>  // NOLINT(build/include_order)
 #include <message_filters/sync_policies/approximate_time.h>  // NOLINT(build/include_order)
+#include <message_filters/sync_policies/exact_time.h>  // NOLINT(build/include_order)
 #include <message_filters/synchronizer.h>  // NOLINT(build/include_order)
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
@@ -205,6 +207,7 @@ private:
     double distance_loop_closure_;
     double range_of_searching_loop_closure_;
     int search_submap_num_;
+    int loop_search_query_stride_ {1};
     int max_loop_candidate_count_ {3};
     int loop_edge_dedup_index_window_ {8};
     double loop_max_translation_delta_ {15.0};
@@ -254,6 +257,9 @@ private:
     double adjacent_edge_info_weight_rot_ {-1.0};
     double adjacent_edge_info_auto_scale_target_nis_trans_ {3.0};
     double adjacent_edge_info_auto_scale_target_nis_rot_ {3.0};
+    bool use_degeneracy_covariance_weighting_ {false};
+    double degeneracy_adjacent_edge_information_scale_ {0.25};
+    double non_observable_adjacent_edge_information_scale_ {0.05};
 
     bool initial_map_array_received_ {false};
     int previous_submaps_num_ {0};
@@ -389,6 +395,21 @@ private:
     int dynamic_object_filter_min_observations_ {2};
     int dynamic_object_filter_temporal_window_ {5};
     double dynamic_object_filter_max_range_from_sensor_m_ {30.0};
+    bool use_planar_map_filter_ {false};
+    double planar_map_filter_voxel_size_ {0.1};
+    int planar_map_filter_min_neighbors_ {3};
+    double planar_map_filter_max_small_eigenvalue_ratio_ {0.24};
+    double planar_map_filter_min_middle_eigenvalue_ratio_ {0.0};
+    double planar_map_filter_min_retained_ratio_ {0.80};
+    bool use_planar_map_consolidation_ {false};
+    double planar_map_consolidation_voxel_size_ {0.3};
+    int planar_map_consolidation_min_neighbors_ {12};
+    double planar_map_consolidation_max_small_eigenvalue_ratio_ {0.05};
+    double planar_map_consolidation_min_middle_eigenvalue_ratio_ {0.05};
+    double planar_map_consolidation_max_plane_distance_m_ {0.10};
+    double planar_map_consolidation_projection_gain_ {0.5};
+    double planar_map_consolidation_max_displacement_m_ {0.02};
+    double planar_map_consolidation_min_supported_ratio_ {0.10};
 
     // PCD disk cache for memory-efficient submap storage
     std::string pcd_cache_dir_;
@@ -406,6 +427,10 @@ private:
     double map_leaf_size_ {0.2};
     void saveGridDividedMap(
       const pcl::PointCloud < pcl::PointXYZI > ::Ptr & map);
+    void writeMapBundleArtifacts(
+      const lidarslam_msgs::msg::MapArray & map_array_msg,
+      const LoopEdges & loop_edges,
+      const std::vector < Eigen::Isometry3d > &optimized_poses);
 
     // Direct odometry + cloud input mode (for LIO frontends). The two
     // streams are stamp-synchronized (message_filters ApproximateTime) so
@@ -420,10 +445,50 @@ private:
     using OdomCloudSyncPolicy = message_filters::sync_policies::ApproximateTime <
       nav_msgs::msg::Odometry, sensor_msgs::msg::PointCloud2 >;
     std::shared_ptr < message_filters::Synchronizer < OdomCloudSyncPolicy >> odom_cloud_sync_;
+    // Opt-in, additive (default false = byte-for-byte previous behavior):
+    // some LIO frontends (e.g. rko_lio) stamp the odometry and the paired
+    // deskewed-scan message from the exact same source timestamp (see
+    // Thirdparty/rko_lio/rko_lio/ros/node.cpp
+    // publish_or_queue_registered_output(): both headers are built from the
+    // same `stamp` value). For those frontends, ApproximateTime's greedy,
+    // arrival-order-sensitive matching is unnecessary and was observed to
+    // still produce run-to-run submap-content instability under CPU/
+    // scheduling jitter even with generous queue depths (exp04 HILTI2022,
+    // competitive_v2 profile: 3 runs at odom_cloud_sync_queue_size=100 and
+    // rko_lio publisher_queue_depth=128 still gave submap counts 39/41/37
+    // and map.pcd point counts 560k/1.63M/546k). Setting
+    // odom_cloud_sync_use_exact_time true selects message_filters::
+    // sync_policies::ExactTime instead, which pairs purely on identical
+    // stamps (a function of the data, not of DDS/executor arrival order)
+    // and so cannot mismatch/duplicate submap content the way the
+    // approximate policy's heuristics can.
+    bool odom_cloud_sync_use_exact_time_ {false};
+    using OdomCloudSyncPolicyExact = message_filters::sync_policies::ExactTime <
+      nav_msgs::msg::Odometry, sensor_msgs::msg::PointCloud2 >;
+    std::shared_ptr < message_filters::Synchronizer <
+    OdomCloudSyncPolicyExact >> odom_cloud_sync_exact_;
+    // Opt-out, default true (RELIABLE): the cloud_input subscriber used to be
+    // hardcoded to rmw_qos_profile_sensor_data (BEST_EFFORT), which forfeits
+    // DDS retransmission. For ~700-900KB PointCloud2 submap-scan messages
+    // this silently drops/truncates payload content under load, producing
+    // run-to-run map.pcd bimodality (exp04 HILTI2022, competitive_v2:
+    // 1.55M vs 0.57M points at identical submap counts) even with the
+    // publisher (rko_lio, RELIABLE/SystemDefaultsQoS) never missing a
+    // message on its own side. Since this node is a mapping backend, map
+    // completeness is the correct default, so cloud_subscriber_qos_reliable
+    // defaults to true (RELIABLE, matching the reliable odom subscriber).
+    // Set false to restore the old BEST_EFFORT behavior for live low-
+    // latency use where an occasional dropped scan is preferable to
+    // backpressure-induced latency.
+    bool cloud_subscriber_qos_reliable_ {true};
     Eigen::Vector3d last_submap_position_ {0, 0, 0};
     bool last_submap_position_valid_ {false};
     double accumulated_distance_ {0.0};
     bool first_synced_input_logged_ {false};
+    // Kept index-aligned with map_array_msg_.submaps on the direct odometry
+    // path. External MapArray inputs have no covariance field and leave this
+    // empty, which preserves legacy isotropic adjacent-edge weighting.
+    std::vector < std::array < double, 36 >> submap_odom_covariances_;
     void receiveSyncedOdomCloud(
       const nav_msgs::msg::Odometry::ConstSharedPtr & odom_msg,
       const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg);

@@ -1,0 +1,176 @@
+competitive_slam_profile:
+  schema_version: 1
+  name: competitive_slam_v1
+  frozen_on: '2026-07-14'
+  repetitions: 3
+  excluded_capabilities:
+    - saved_map_loading
+    - localization_mode
+    - relocalization
+  execution_contract:
+    same_bag_bytes: true
+    same_sensor_messages: true
+    same_bag_bytes_scope: identical_within_each_ros_representation_and_all_repetitions
+    cross_ros_representation_policy: canonical_deserialized_message_digest
+    require_cross_ros_topic_counts_equal: true
+    require_cross_ros_record_timestamps_equal: true
+    require_cross_ros_all_sensor_fields_equal: true
+    ignored_cross_ros_transport_fields: [std_msgs/Header.seq]
+    same_calibration: true
+    same_machine: true
+    same_alignment_policy: true
+    hash_all_inputs: true
+    report_failed_runs: true
+    unknown_metrics_must_be_omitted: true
+  runtime_policy:
+    playback_rate: 1.0
+    gate_metric: runtime.processing_realtime_factor
+    gate_definition: processing_wall_time_divided_by_sensor_duration
+    exclude_runner_startup_shutdown: true
+    replay_wall_realtime_factor_is_diagnostic_only: true
+    maximum_trajectory_end_gap_seconds: 0.25
+  repetition_aggregation:
+    trajectory_accuracy: median
+    processing_realtime_factor: median
+    peak_rss: maximum
+    completion_and_failures: worst_case
+    mapping_quality: worst_case
+  rivals:
+    glim:
+      repository: https://github.com/koide3/glim.git
+      revision: faa264a1bce1bda406f73457e35511f56cdc2eaa
+      revision_kind: tag_v1.2.2
+      annotated_tag_object: 2044c47825cff7b508e5ea96c1d295e023b0e36c
+      ros2_repository: https://github.com/koide3/glim_ros2.git
+      ros2_revision: 4a9e7a4cb084967c8525a1be529ad3ba2a118ae7
+      license: MIT
+    fast_livo2:
+      repository: https://github.com/hku-mars/FAST-LIVO2.git
+      revision: 0d2c0346107b75b59934975adec9a6eeeb913c64
+      revision_kind: main
+      license: GPL-2.0
+  tracks:
+    glim_cpu_lidar_imu:
+      rival: glim
+      required_modalities: [lidar, imu]
+      accelerator: cpu
+    glim_gpu_lidar_imu:
+      rival: glim
+      required_modalities: [lidar, imu]
+      accelerator: cuda
+      enabled_when: nvidia_gpu_available
+    fast_livo2_lidar_imu_visual:
+      rival: fast_livo2
+      required_modalities: [lidar, imu, monocular_camera]
+      accelerator: cpu
+  win_policy:
+    minimum_assigned_holdouts: 3
+    minimum_holdout_wins: 3
+    minimum_primary_improvement_percent: 3.0
+    maximum_primary_regression_percent: 2.0
+    maximum_mapping_regression_percent: 2.0
+    maximum_visual_colour_regression_percent: 2.0
+    tie_relative_tolerance: 0.01
+    maximum_realtime_factor: 1.0
+    maximum_peak_rss_ratio_to_rival: 1.20
+    require_zero_incomplete_trajectories: true
+    require_zero_catastrophic_failures: true
+    require_zero_verified_false_loops: true
+    require_geometry_non_regression: true
+  required_metrics:
+    common:
+      - trajectory.ape_rmse_m
+      - runtime.realtime_factor
+      - runtime.peak_rss_mb
+      - completion.trajectory_complete
+      - completion.process_exit_status
+    orientation_ground_truth_only:
+      - trajectory.rpe_translation_rmse_m
+      - trajectory.rpe_rotation_rmse_deg
+    mapping:
+      - geometry.plane_thickness_mean_m
+      - geometry.plane_thickness_p95_m
+      - geometry.planar_coverage
+      - loop_closure.accepted_edges
+      - loop_closure.verified_false_edges
+    visual_track:
+      - colour.heldout_rgb_l2_median
+      - colour.heldout_rgb_inlier_20
+  datasets:
+    bringup:
+      rtkslam_construction_seq2:
+        modalities: [lidar, imu, monocular_camera]
+        reference: sparse_total_station_position
+        tuning_allowed: false
+        reason: previously used for loop and overlap-gate development
+    development:
+      hilti_exp01:
+        modalities: [lidar, imu, monocular_camera]
+        reference: sparse_total_station_position
+        tuning_allowed: true
+    regression_only:
+      hilti_exp04:
+        modalities: [lidar, imu, monocular_camera]
+        reference: sparse_total_station_position
+      hilti_exp07:
+        modalities: [lidar, imu, monocular_camera]
+        reference: sparse_total_station_position
+      mid360_public:
+        modalities: [lidar, imu]
+        reference: cross_validation_only
+        forbidden_claims: [absolute_trajectory_accuracy]
+    holdout_slots:
+      holdout_1:
+        status: frozen
+        dataset: hilti_exp02_construction_multilevel
+        sequence: exp02
+        selection_reason: multilevel_construction_with_vertical_transitions
+        bag_url: https://tp-public-facing.s3.eu-north-1.amazonaws.com/Challenges/2022/exp02_construction_multilevel.bag
+        bag_expected_bytes: 35358555915
+        ground_truth_url: https://hilti-challenge.com/assets/2022/ground_truth/exp02_construction_multilevel.txt
+        ground_truth_sha256: e51305c5b2a21c1fc0d9cc6667d40065e4933e6c0e45fa51c85c6d4a661c0607
+        calibration_archive_sha256: cf8f8794612e61b8ef2e499a99768e4faf0aa387712b47f9c1ed865f414ad36b
+        raw_rosbag1_sha256: e2c05e0dac389686363755370ead3fe727080195ad0b7976a7515fde9a054750
+        canonical_rosbag2_tree_sha256: 0cf22390317bf2841103d30623a98eb4da17cba757eb2e5a1c367cc24906bf56
+        input_manifest_sha256: 790aa4f4fb374983940301b24858885a803c598a8fa805f852dc9008efb9b683
+        semantic_equivalence_sha256: 5340fcd1b305adf16f3b9cedef3293e95425b846d4b718e896aa878d6114a0c4
+        required_modalities: [lidar, imu, monocular_camera]
+      holdout_2:
+        status: frozen
+        dataset: hilti_exp03_construction_stairs
+        sequence: exp03
+        selection_reason: stair_traversal_and_repeated_vertical_geometry
+        bag_url: https://tp-public-facing.s3.eu-north-1.amazonaws.com/Challenges/2022/exp03_construction_stairs.bag
+        bag_expected_bytes: 21915037983
+        ground_truth_url: https://hilti-challenge.com/assets/2022/ground_truth/exp03_construction_stairs.txt
+        ground_truth_sha256: f2ba5d16cde606b7370e2777492dc009e3214f7882c2914c8d0561061e922d10
+        calibration_archive_sha256: cf8f8794612e61b8ef2e499a99768e4faf0aa387712b47f9c1ed865f414ad36b
+        raw_rosbag1_sha256: 205d392d8ceab44af061905c33686ed07a8d225c3964da9b7b32c024ff866163
+        canonical_rosbag2_tree_sha256: 21e09d96b5374de856e41cb5a1e67bfeca9128c8227a95093486acfe230eeceb
+        input_manifest_sha256: b18db47c61ce3085b9dc1ea224ec83c0a22983d5d1a37a0660b45b1f6cdefc32
+        semantic_equivalence_sha256: 65c4a2f7692929613e955f7047eebfd674c8795611db3c80c8fec46f182a0626
+        required_modalities: [lidar, imu, monocular_camera]
+      holdout_3:
+        status: frozen
+        dataset: hilti_exp21_outside_building
+        sequence: exp21
+        selection_reason: outdoor_motion_and_long_range_geometry
+        bag_url: https://tp-public-facing.s3.eu-north-1.amazonaws.com/Challenges/2022/exp21_outside_building.bag
+        bag_expected_bytes: 12014463331
+        ground_truth_url: https://hilti-challenge.com/assets/2022/ground_truth/exp21_outside_building.txt
+        ground_truth_sha256: 8109ce53df196c371ffc321c2229d5f80d3effff221529f1b30e4cde4c673eca
+        calibration_archive_sha256: cf8f8794612e61b8ef2e499a99768e4faf0aa387712b47f9c1ed865f414ad36b
+        raw_rosbag1_sha256: dd96adebdce2868d37875dafaf7fbca37bf1fa1800de0bc49ec622c6a771bf32
+        canonical_rosbag2_tree_sha256: bcca9769ebdd87929dbf10af77ae58570ef4e2d67f59458e2f12779748e8cba6
+        input_manifest_sha256: f53f7665571ce8c2f458fd935e32e32bf60ac2b5db357ec19b0147e1a2f352c6
+        semantic_equivalence_sha256: ac8cd9cc209a867e20bc613d1494f5dd64888c4c0679a5d1231154c72733b47a
+        required_modalities: [lidar, imu, monocular_camera]
+  phase_gates:
+    before_algorithm_tuning:
+      require_all_holdout_slots_assigned: true
+      require_all_holdout_inputs_frozen: true
+      require_official_rival_baselines_complete: true
+    before_victory_claim:
+      require_holdout_inputs_still_hash_identical: true
+      require_three_repetitions_per_system: true
+      require_all_win_policy_checks: true

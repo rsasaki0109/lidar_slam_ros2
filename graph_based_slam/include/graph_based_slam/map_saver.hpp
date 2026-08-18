@@ -39,6 +39,7 @@
 // Phase 2).
 
 #include <cmath>
+#include <cstdio>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -62,6 +63,133 @@ struct GridBounds
   int nx{1};
   int ny{1};
 };
+
+struct TrajectoryPose
+{
+  double timestamp{0.0};
+  double tx{0.0};
+  double ty{0.0};
+  double tz{0.0};
+  double qx{0.0};
+  double qy{0.0};
+  double qz{0.0};
+  double qw{1.0};
+};
+
+struct LoopEdgeRecord
+{
+  int from{-1};
+  int to{-1};
+  double fitness{0.0};
+  double tx{0.0};
+  double ty{0.0};
+  double tz{0.0};
+  double qx{0.0};
+  double qy{0.0};
+  double qz{0.0};
+  double qw{1.0};
+};
+
+struct BundleManifest
+{
+  std::string frame_id{"map"};
+  std::size_t submap_count{0};
+  std::size_t loop_edge_count{0};
+  double map_leaf_size{0.2};
+  double grid_size_x{20.0};
+  double grid_size_y{20.0};
+  bool dynamic_object_filter{false};
+  bool planar_map_filter{false};
+  double planar_map_filter_voxel_size{0.1};
+  int planar_map_filter_min_neighbors{3};
+  double planar_map_filter_max_small_eigenvalue_ratio{0.24};
+  double planar_map_filter_min_middle_eigenvalue_ratio{0.0};
+  double planar_map_filter_min_retained_ratio{0.80};
+  bool planar_map_consolidation{false};
+  double planar_map_consolidation_voxel_size{0.3};
+  int planar_map_consolidation_min_neighbors{12};
+  double planar_map_consolidation_max_small_eigenvalue_ratio{0.05};
+  double planar_map_consolidation_min_middle_eigenvalue_ratio{0.05};
+  double planar_map_consolidation_max_plane_distance_m{0.10};
+  double planar_map_consolidation_projection_gain{0.5};
+  double planar_map_consolidation_max_displacement_m{0.02};
+  double planar_map_consolidation_min_supported_ratio{0.10};
+};
+
+inline std::string trajectoryTumLine(const TrajectoryPose & pose)
+{
+  char line[256];
+  std::snprintf(
+    line, sizeof(line), "%.9f %.9f %.9f %.9f %.9f %.9f %.9f %.9f",
+    pose.timestamp, pose.tx, pose.ty, pose.tz, pose.qx, pose.qy, pose.qz, pose.qw);
+  return std::string(line);
+}
+
+inline std::string loopEdgesCsvHeader()
+{
+  return "from,to,fitness,tx,ty,tz,qx,qy,qz,qw";
+}
+
+inline std::string loopEdgeCsvLine(const LoopEdgeRecord & edge)
+{
+  char line[512];
+  std::snprintf(
+    line, sizeof(line), "%d,%d,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g",
+    edge.from, edge.to, edge.fitness, edge.tx, edge.ty, edge.tz,
+    edge.qx, edge.qy, edge.qz, edge.qw);
+  return std::string(line);
+}
+
+inline std::string bundleManifestYaml(const BundleManifest & manifest)
+{
+  std::ostringstream out;
+  out << "format_version: 1\n";
+  out << "frame_id: " << manifest.frame_id << "\n";
+  out << "submap_count: " << manifest.submap_count << "\n";
+  out << "loop_edge_count: " << manifest.loop_edge_count << "\n";
+  out << std::setprecision(17);
+  out << "map_leaf_size_m: " << manifest.map_leaf_size << "\n";
+  out << "grid_size_x_m: " << manifest.grid_size_x << "\n";
+  out << "grid_size_y_m: " << manifest.grid_size_y << "\n";
+  out << "dynamic_object_filter: " << (manifest.dynamic_object_filter ? "true" : "false") << "\n";
+  out << "planar_map_filter: " << (manifest.planar_map_filter ? "true" : "false") << "\n";
+  out << "planar_map_filter_voxel_size_m: " <<
+    manifest.planar_map_filter_voxel_size << "\n";
+  out << "planar_map_filter_min_neighbors: " <<
+    manifest.planar_map_filter_min_neighbors << "\n";
+  out << "planar_map_filter_max_small_eigenvalue_ratio: " <<
+    manifest.planar_map_filter_max_small_eigenvalue_ratio << "\n";
+  out << "planar_map_filter_min_middle_eigenvalue_ratio: " <<
+    manifest.planar_map_filter_min_middle_eigenvalue_ratio << "\n";
+  out << "planar_map_filter_min_retained_ratio: " <<
+    manifest.planar_map_filter_min_retained_ratio << "\n";
+  out << "planar_map_consolidation: " <<
+    (manifest.planar_map_consolidation ? "true" : "false") << "\n";
+  out << "planar_map_consolidation_voxel_size_m: " <<
+    manifest.planar_map_consolidation_voxel_size << "\n";
+  out << "planar_map_consolidation_min_neighbors: " <<
+    manifest.planar_map_consolidation_min_neighbors << "\n";
+  out << "planar_map_consolidation_max_small_eigenvalue_ratio: " <<
+    manifest.planar_map_consolidation_max_small_eigenvalue_ratio << "\n";
+  out << "planar_map_consolidation_min_middle_eigenvalue_ratio: " <<
+    manifest.planar_map_consolidation_min_middle_eigenvalue_ratio << "\n";
+  out << "planar_map_consolidation_max_plane_distance_m: " <<
+    manifest.planar_map_consolidation_max_plane_distance_m << "\n";
+  out << "planar_map_consolidation_projection_gain: " <<
+    manifest.planar_map_consolidation_projection_gain << "\n";
+  out << "planar_map_consolidation_max_displacement_m: " <<
+    manifest.planar_map_consolidation_max_displacement_m << "\n";
+  out << "planar_map_consolidation_min_supported_ratio: " <<
+    manifest.planar_map_consolidation_min_supported_ratio << "\n";
+  out << "artifacts:\n";
+  out << "  full_map: map.pcd\n";
+  out << "  pointcloud_map: pointcloud_map\n";
+  out << "  trajectory: trajectory_optimized.tum\n";
+  out << "  pose_graph: pose_graph.g2o\n";
+  out << "  loop_edges: loop_edges.csv\n";
+  out << "  projector_info: map_projector_info.yaml\n";
+  return out.str();
+}
 
 // Grid-aligned bounding box of the map. nx/ny keep the historical
 // at-least-one-cell clamp.

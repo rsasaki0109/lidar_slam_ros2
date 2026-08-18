@@ -62,7 +62,9 @@ def test_report_attributes_checkpoint_regression_after_independent_alignment(tmp
         'baseline', 0.01)
 
     assert report['methods'][0]['rmse_m'] == pytest.approx(0.0, abs=1e-12)
+    assert report['methods'][0]['rpe_translation_rmse_m'] == pytest.approx(0.0, abs=1e-12)
     assert report['methods'][1]['rmse_m'] > 0.05
+    assert report['methods'][1]['rpe_translation_rmse_m'] > 0.05
     assert report['checkpoints'][3]['delta_from_baseline_m']['candidate'] > 0.0
 
 

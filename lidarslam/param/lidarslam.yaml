@@ -41,6 +41,9 @@ graph_based_slam:
       distance_loop_closure: 100.0
       range_of_searching_loop_closure: 20.0
       search_submap_num: 2
+      # Registration scheduling only; descriptor state is still ingested for
+      # every submap. Keep 1 for the validated production edge set.
+      loop_search_query_stride: 1
       max_loop_candidate_count: 3
       loop_edge_dedup_index_window: 8
       loop_max_translation_delta: 15.0
@@ -53,7 +56,16 @@ graph_based_slam:
       loop_overlap_max_distance_m: 0.5
       num_adjacent_pose_cnstraints: 5
       use_save_map_in_loop: true
+      # Match the frozen common map evaluator resolution; this affects only
+      # exported map density, not scan matching or pose-graph optimization.
+      map_leaf_size: 0.1
       adjacent_edge_info_weight: 1000.0
+      # Experimental backend Track B: consume the RKO-LIO anisotropic pose
+      # covariance and weaken only degenerate directions on adjacent edges.
+      # Keep off until cross-sensor loop/GNSS validation is complete.
+      use_degeneracy_covariance_weighting: false
+      degeneracy_adjacent_edge_information_scale: 0.25
+      non_observable_adjacent_edge_information_scale: 0.05
       use_gnss: false
       gnss_topic: "/gnss/fix"
       gnss_info_weight: 1.0
@@ -68,4 +80,40 @@ graph_based_slam:
       dynamic_object_filter_min_observations: 2
       dynamic_object_filter_temporal_window: 5
       dynamic_object_filter_max_range_from_sensor_m: 30.0
+      # Map-export-only local surface support refinement. exp04 development
+      # sequence: retain 90.77%, improve mean/p95 thickness and coverage.
+      # Other geometry falls back to the unfiltered map below 80% retention
+      # (recalibrated 2026-07-23; see docs/research/planar-map-filter-gate-2026-07.md).
+      use_planar_map_filter: true
+      planar_map_filter_voxel_size: 0.1
+      planar_map_filter_min_neighbors: 3
+      planar_map_filter_max_small_eigenvalue_ratio: 0.24
+      planar_map_filter_min_middle_eigenvalue_ratio: 0.0
+      planar_map_filter_min_retained_ratio: 0.80
+      # Point-count-preserving local-plane consolidation candidate. This is
+      # intentionally default-off until paired real-map thickness/coverage
+      # and localization checks pass.
+      use_planar_map_consolidation: false
+      planar_map_consolidation_voxel_size: 0.3
+      planar_map_consolidation_min_neighbors: 12
+      planar_map_consolidation_max_small_eigenvalue_ratio: 0.05
+      planar_map_consolidation_min_middle_eigenvalue_ratio: 0.05
+      planar_map_consolidation_max_plane_distance_m: 0.10
+      planar_map_consolidation_projection_gain: 0.5
+      planar_map_consolidation_max_displacement_m: 0.02
+      planar_map_consolidation_min_supported_ratio: 0.10
+      # Offline-runner-only, report-only thickness attribution. Retains every
+      # paired scan and therefore stays off during ordinary backend replay.
+      save_map_thickness_attribution: false
+      map_thickness_write_csv: false
+      map_thickness_scan_voxel_size: 0.15
+      map_thickness_revisit_match_radius_m: 3.0
+      map_thickness_revisit_min_prior_travel_m: 20.0
+      map_thickness_revisit_exit_travel_m: 5.0
+      map_thickness_revisit_min_epoch_travel_m: 10.0
+      # Offline dense final-map rebuild. Uses continuous interpolation of
+      # optimized graph corrections at every frontend scan timestamp.
+      save_dense_pose_refined_map: false
+      dense_pose_refined_scan_voxel_size: 0.10
+      dense_pose_refined_output_voxel_size: 0.10
       debug_flag: true

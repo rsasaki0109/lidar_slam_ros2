@@ -132,6 +132,9 @@ def analyze(reference_tum: Path, estimates: list[tuple[str, Path]], baseline: st
         aligned = rigid_align(
             estimate_positions[estimate_ids], reference_positions[reference_ids])
         errors = np.linalg.norm(aligned - reference_positions[reference_ids], axis=1)
+        relative_errors = np.linalg.norm(
+            np.diff(aligned, axis=0) -
+            np.diff(reference_positions[reference_ids], axis=0), axis=1)
         method_errors[label] = {
             int(reference_id): float(error)
             for reference_id, error in zip(reference_ids, errors)
@@ -141,6 +144,10 @@ def analyze(reference_tum: Path, estimates: list[tuple[str, Path]], baseline: st
             'associated_checkpoints': int(len(errors)),
             'rmse_m': float(np.sqrt(np.mean(errors ** 2))),
             'mean_m': float(np.mean(errors)), 'max_m': float(np.max(errors)),
+            'rpe_translation_pairs': int(len(relative_errors)),
+            'rpe_translation_rmse_m': float(np.sqrt(np.mean(relative_errors ** 2))),
+            'rpe_translation_mean_m': float(np.mean(relative_errors)),
+            'rpe_translation_max_m': float(np.max(relative_errors)),
             'max_time_difference_s': float(np.max(differences)),
         })
     if baseline not in method_errors:
@@ -172,12 +179,15 @@ def markdown(report: dict) -> str:
     lines = ['# Sparse checkpoint error attribution', '',
              f"Alignment: `{report['alignment']}`  ",
              f"Baseline: `{report['baseline_label']}`", '',
-             '| method | checkpoints | RMSE (m) | mean (m) | max (m) |',
-             '| --- | ---: | ---: | ---: | ---: |']
+             '| method | checkpoints | APE RMSE (m) | APE mean (m) | '
+             'APE max (m) | RPE RMSE (m) | RPE mean (m) |',
+             '| --- | ---: | ---: | ---: | ---: | ---: | ---: |']
     for method in report['methods']:
         lines.append(
             f"| {method['label']} | {method['associated_checkpoints']} | "
-            f"{method['rmse_m']:.6f} | {method['mean_m']:.6f} | {method['max_m']:.6f} |")
+            f"{method['rmse_m']:.6f} | {method['mean_m']:.6f} | {method['max_m']:.6f} | "
+            f"{method['rpe_translation_rmse_m']:.6f} | "
+            f"{method['rpe_translation_mean_m']:.6f} |")
     lines += ['', '| point | env | ' + ' | '.join(labels) + ' |',
               '| --- | --- | ' + ' | '.join('---:' for _ in labels) + ' |']
     for checkpoint in report['checkpoints']:

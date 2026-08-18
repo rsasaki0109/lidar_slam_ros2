@@ -1,0 +1,25 @@
+# Opt-in multi-scan observability candidate for HILTI 2022 PandarXT-32.
+# Sensor/calibration settings match rko_lio_hilti2022_pandar.yaml. This is an
+# A/B research profile and is not a shipped default.
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055]
+initialization_phase: true
+deskew: true
+voxel_size: 0.25
+min_range: 0.7
+max_range: 100.0
+double_downsample: true
+
+degeneracy_aware_solve: true
+degeneracy_well_conditioned_ratio: 1.0e-6
+degeneracy_multiplicity_relative_gap: 1.0e-8
+degeneracy_prior_weight: 0.25
+degeneracy_persistence_gate: true
+degeneracy_persistence_min_scans: 3
+degeneracy_persistence_tracking_ratio: 1.5e-5
+degeneracy_persistence_min_absolute_cosine: 0.98
+degeneracy_persistence_min_translation_fraction: 0.99
+degeneracy_multiscan_observability_gate: true
+degeneracy_observability_window_scans: 10
+degeneracy_observability_min_scans: 5
+degeneracy_observability_max_directional_ratio: 1.0e-5

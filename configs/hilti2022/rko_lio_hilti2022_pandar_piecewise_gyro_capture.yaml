@@ -1,0 +1,16 @@
+# Capture-only profile: the delay changes no estimator math. It lets rosbag2
+# discover the offline node's output publishers before high-speed replay begins.
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055]
+initialization_phase: true
+deskew: true
+piecewise_gyro_deskew: true
+offline_replay_start_delay_sec: 3.0
+publisher_queue_depth: 128
+voxel_size: 0.25
+min_range: 0.7
+max_range: 100.0
+double_downsample: true
+enable_kidnap_relocalization: false
+reset_on_registration_failure: false
+relocalize_after_scan_gap: false

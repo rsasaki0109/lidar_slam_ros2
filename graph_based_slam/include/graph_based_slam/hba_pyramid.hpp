@@ -196,6 +196,10 @@ inline HbaPyramidResult refinePosesHierarchically(
       poses,
       start_index,
       window_pose_count);
+    const std::vector<Eigen::Matrix4d> window_prior_poses = detail::copyPoseWindow(
+      initial_poses,
+      start_index,
+      window_pose_count);
 
     const AssociationResult association = associatePlaneFeatures(
       window_clouds,
@@ -215,7 +219,8 @@ inline HbaPyramidResult refinePosesHierarchically(
     const PlaneBaResult ba_result = solvePlaneBa(
       association.features,
       window_poses,
-      window_config);
+      window_config,
+      window_prior_poses);
     detail::fillReportFromBa(ba_result, &report);
     result.any_window_improved = result.any_window_improved ||
       ba_result.improved;
@@ -253,7 +258,8 @@ inline HbaPyramidResult refinePosesHierarchically(
       const PlaneBaResult ba_result = solvePlaneBa(
         association.features,
         poses,
-        global_config);
+        global_config,
+        initial_poses);
       detail::fillReportFromBa(ba_result, &report);
 
       const std::size_t write_count = std::min(

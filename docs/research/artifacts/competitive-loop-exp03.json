@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "sequence": "exp03",
+  "verification_policy": {
+    "definition": "A sole accepted loop edge is verified harmful when dense graph-corrected APE RMSE regresses by more than 2 percent against the same run's raw trajectory on the frozen surveyed checkpoints.",
+    "maximum_regression_percent": 2.0,
+    "reason": "Each repetition accepted exactly one edge, so the graph correction's measured regression is attributable to that accepted edge under this conservative competition gate."
+  },
+  "loop_closure": {
+    "accepted_edges": 3,
+    "verified_false_edges": 2,
+    "verified_harmful_runs": 2
+  },
+  "runs": [
+    {
+      "run": "run_01",
+      "accepted_edges": 1,
+      "loop_edges_sha256": "71d07b4038ba2e38a4382033436789b0231a36605c7eefc2953f893c4a7e4f1c",
+      "raw_ape_rmse_m": 0.8087931936431739,
+      "corrected_ape_rmse_m": 0.770089498822318,
+      "regression_percent": -4.785363566985125,
+      "verified_harmful": false
+    },
+    {
+      "run": "run_02",
+      "accepted_edges": 1,
+      "loop_edges_sha256": "74394b60276d623b91790fdb3218c945f29f9781994d8e886b3fd78de9482e7e",
+      "raw_ape_rmse_m": 0.8087931936431739,
+      "corrected_ape_rmse_m": 1.0050151701887122,
+      "regression_percent": 24.261081582754784,
+      "verified_harmful": true
+    },
+    {
+      "run": "run_03",
+      "accepted_edges": 1,
+      "loop_edges_sha256": "bc5852d8444898a36406c9c916d31362b91ca80a54146cbe17f5dc41a768d1da",
+      "raw_ape_rmse_m": 0.8087931936431739,
+      "corrected_ape_rmse_m": 0.8691559219724233,
+      "regression_percent": 7.46330814894078,
+      "verified_harmful": true
+    }
+  ]
+}

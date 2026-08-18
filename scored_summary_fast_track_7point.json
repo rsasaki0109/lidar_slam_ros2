@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "valid_repetitions": 3,
+  "reference": {
+    "source_path": "/media/sasaki/aiueo/datasets/hilti2022/exp04_construction_upper_level_gt.txt",
+    "source_sha256": "38cf516e51113254e4ae0207c790f740b19dee08665063e0d8df7bd277040c20",
+    "common_path": "/media/sasaki/aiueo/benchmarks/competitive_ours/exp04_3x_20260714/common_reference.tum",
+    "common_sha256": "2456450ab36ca402dd1d92e52776ed107a1c5a29cadd42602988b3e385019123",
+    "common_poses": 7,
+    "excluded_timestamps": []
+  },
+  "aggregate": {
+    "ape_rmse_median_m": 0.07146252033477908,
+    "ape_rmse_min_m": 0.07146252033477908,
+    "ape_rmse_max_m": 0.07146252033477908,
+    "ape_rmse_population_std_m": 0.0
+  },
+  "runs": [
+    {
+      "run": "run_01",
+      "ape": {
+        "pairs": 7,
+        "rmse": 0.07146252033477908,
+        "mean": 0.06653950592244126,
+        "median": 0.05464131338759664,
+        "std": 0.026065033362651126,
+        "min": 0.03553294427007864,
+        "max": 0.11411429927224329,
+        "total_ref_points": 7,
+        "rejected_ref_points": 0,
+        "max_time_gap": 0.10001587867736816
+      },
+      "completion": {
+        "trajectory_complete": true,
+        "trajectory_end_gap_seconds": 0.01726698875427246,
+        "process_exit_status": 0
+      },
+      "runtime": {
+        "bag_duration_seconds": 125.8141279220581,
+        "processing_realtime_factor": 1.0943765535735155,
+        "peak_rss_kb": 600916,
+        "peak_rss_mb": 586.83203125,
+        "wall_seconds": 137.96
+      }
+    },
+    {
+      "run": "run_02",
+      "ape": {
+        "pairs": 7,
+        "rmse": 0.07146252033477908,
+        "mean": 0.06653950592244126,
+        "median": 0.05464131338759664,
+        "std": 0.026065033362651126,
+        "min": 0.03553294427007864,
+        "max": 0.11411429927224329,
+        "total_ref_points": 7,
+        "rejected_ref_points": 0,
+        "max_time_gap": 0.10001587867736816
+      },
+      "completion": {
+        "trajectory_complete": true,
+        "trajectory_end_gap_seconds": 0.01726698875427246,
+        "process_exit_status": 0
+      },
+      "runtime": {
+        "bag_duration_seconds": 125.8141279220581,
+        "processing_realtime_factor": 0.9928427931817673,
+        "peak_rss_kb": 597996,
+        "peak_rss_mb": 583.98046875,
+        "wall_seconds": 125.19
+      }
+    },
+    {
+      "run": "run_03",
+      "ape": {
+        "pairs": 7,
+        "rmse": 0.07146252033477908,
+        "mean": 0.06653950592244126,
+        "median": 0.05464131338759664,
+        "std": 0.026065033362651126,
+        "min": 0.03553294427007864,
+        "max": 0.11411429927224329,
+        "total_ref_points": 7,
+        "rejected_ref_points": 0,
+        "max_time_gap": 0.10001587867736816
+      },
+      "completion": {
+        "trajectory_complete": true,
+        "trajectory_end_gap_seconds": 0.01726698875427246,
+        "process_exit_status": 0
+      },
+      "runtime": {
+        "bag_duration_seconds": 125.8141279220581,
+        "processing_realtime_factor": 0.9770043980102349,
+        "peak_rss_kb": 599004,
+        "peak_rss_mb": 584.96484375,
+        "wall_seconds": 123.18
+      }
+    }
+  ]
+}

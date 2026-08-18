@@ -1,0 +1,8 @@
+/rko_lio/odometry:
+  history: keep_all
+  reliability: reliable
+  durability: volatile
+/rko_lio/frame:
+  history: keep_all
+  reliability: reliable
+  durability: volatile

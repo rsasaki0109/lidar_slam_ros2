@@ -139,6 +139,18 @@ inline std::vector<std::string> refinerReportYamlLines(
     "  cloud_downsample_voxel_m: " +
     detail::refinerDouble(config.cloud_downsample_voxel));
   lines.push_back(
+    "  prior_translation_sigma_m: " +
+    detail::refinerDouble(config.pyramid.window_ba.prior_translation_sigma));
+  lines.push_back(
+    "  prior_rotation_sigma_rad: " +
+    detail::refinerDouble(config.pyramid.window_ba.prior_rotation_sigma_rad));
+  lines.push_back(
+    "  max_step_translation_m: " +
+    detail::refinerDouble(config.pyramid.window_ba.max_step_translation));
+  lines.push_back(
+    "  max_step_rotation_rad: " +
+    detail::refinerDouble(config.pyramid.window_ba.max_step_rotation_rad));
+  lines.push_back(
     "  windows: " + std::to_string(result.pyramid_result.windows.size()));
   int improved_windows = 0;
   int no_feature_windows = 0;

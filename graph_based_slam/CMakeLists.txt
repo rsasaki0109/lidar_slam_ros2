@@ -183,6 +183,13 @@ if(BUILD_TESTING)
     target_include_directories(test_loop_edge_robustifier PRIVATE include)
   endif()
   ament_add_gtest(
+    test_loop_search_schedule
+    test/test_loop_search_schedule.cpp
+  )
+  if(TARGET test_loop_search_schedule)
+    target_include_directories(test_loop_search_schedule PRIVATE include)
+  endif()
+  ament_add_gtest(
     test_triangle_descriptor
     test/test_triangle_descriptor.cpp
   )
@@ -320,6 +327,33 @@ if(BUILD_TESTING)
     )
   endif()
   ament_add_gtest(
+    test_persistent_weak_direction
+    test/test_persistent_weak_direction.cpp
+  )
+  if(TARGET test_persistent_weak_direction)
+    target_include_directories(
+      test_persistent_weak_direction PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_rko_multiscan_observability
+    test/test_rko_multiscan_observability.cpp
+  )
+  if(TARGET test_rko_multiscan_observability)
+    target_include_directories(
+      test_rko_multiscan_observability PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_selective_visual_fusion
+    test/test_selective_visual_fusion.cpp
+  )
+  if(TARGET test_selective_visual_fusion)
+    target_include_directories(
+      test_selective_visual_fusion PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
     test_odometry_covariance_localizability
     test/test_odometry_covariance_localizability.cpp
   )
@@ -388,6 +422,33 @@ if(BUILD_TESTING)
     )
   endif()
   ament_add_gtest(
+    test_map_thickness_attribution
+    test/test_map_thickness_attribution.cpp
+  )
+  if(TARGET test_map_thickness_attribution)
+    target_include_directories(
+      test_map_thickness_attribution PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_trajectory_revisit_segmentation
+    test/test_trajectory_revisit_segmentation.cpp
+  )
+  if(TARGET test_trajectory_revisit_segmentation)
+    target_include_directories(
+      test_trajectory_revisit_segmentation PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_dense_pose_correction
+    test/test_dense_pose_correction.cpp
+  )
+  if(TARGET test_dense_pose_correction)
+    target_include_directories(
+      test_dense_pose_correction PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
     test_registration_determinism
     test/test_registration_determinism.cpp
   )
@@ -407,9 +468,153 @@ if(BUILD_TESTING)
       test_dynamic_object_filter PRIVATE include ${EIGEN3_INCLUDE_DIR}
     )
   endif()
+  ament_add_gtest(
+    test_planar_map_filter
+    test/test_planar_map_filter.cpp
+  )
+  if(TARGET test_planar_map_filter)
+    target_include_directories(
+      test_planar_map_filter PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_planar_map_consolidation
+    test/test_planar_map_consolidation.cpp
+  )
+  if(TARGET test_planar_map_consolidation)
+    target_include_directories(
+      test_planar_map_consolidation PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_probabilistic_surfel_fusion
+    test/test_probabilistic_surfel_fusion.cpp
+  )
+  if(TARGET test_probabilistic_surfel_fusion)
+    target_include_directories(
+      test_probabilistic_surfel_fusion PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_probabilistic_surfel_map
+    test/test_probabilistic_surfel_map.cpp
+  )
+  if(TARGET test_probabilistic_surfel_map)
+    target_include_directories(
+      test_probabilistic_surfel_map PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_ndt_localization_target
+    test/test_ndt_localization_target.cpp
+  )
+  if(TARGET test_ndt_localization_target)
+    target_include_directories(
+      test_ndt_localization_target PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
+  ament_add_gtest(
+    test_scan_surface_refiner
+    test/test_scan_surface_refiner.cpp
+  )
+  if(TARGET test_scan_surface_refiner)
+    target_include_directories(
+      test_scan_surface_refiner PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+  endif()
   ament_add_pytest_test(
     test_autoware_map_tools
     test/test_autoware_map_tools.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_map_bundle_verifier
+    test/test_map_bundle_verifier.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_competitive_slam_profile
+    test/test_competitive_slam_profile.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_competitive_candidate_provenance
+    test/test_competitive_candidate_provenance.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_fast_livo2_benchmark_runner
+    test/test_fast_livo2_benchmark_runner.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_glim_benchmark_runner
+    test/test_glim_benchmark_runner.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_ours_competitive_benchmark
+    test/test_ours_competitive_benchmark.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_convert_ply_xyz_to_pcd
+    test/test_convert_ply_xyz_to_pcd.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_freeze_hilti2022_holdout_inputs
+    test/test_freeze_hilti2022_holdout_inputs.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_compare_rosbag_semantic_inputs
+    test/test_compare_rosbag_semantic_inputs.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_validate_fast_livo2_processing_rtf
+    test/test_validate_fast_livo2_processing_rtf.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_compare_checkpoint_trajectory_errors
+    test/test_compare_checkpoint_trajectory_errors.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_summarize_repeated_map_quality
+    test/test_summarize_repeated_map_quality.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_summarize_repeated_visual_quality
+    test/test_summarize_repeated_visual_quality.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_repose_posed_images
+    test/test_repose_posed_images.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_extract_selective_visual_constraints
+    test/test_extract_selective_visual_constraints.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_evaluate_competitive_sequence_gate
+    test/test_evaluate_competitive_sequence_gate.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_compose_competitive_result
+    test/test_compose_competitive_result.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_evaluate_competitive_suite_gate
+    test/test_evaluate_competitive_suite_gate.py
     TIMEOUT 120
   )
   ament_add_pytest_test(
@@ -828,7 +1033,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(
     test_mesh_export
     test/test_mesh_export.py
-    TIMEOUT 60
+    TIMEOUT 120
   )
 endif()
 
@@ -875,11 +1080,38 @@ add_executable(map_quality_report
   src/map_quality_report_main.cpp
 )
 
+add_executable(planar_map_filter
+  src/planar_map_filter_main.cpp
+)
+
+add_executable(planar_map_consolidation
+  src/planar_map_consolidation_main.cpp
+)
+
+add_executable(map_thickness_attribution_report
+  src/map_thickness_attribution_report_main.cpp
+)
+
 target_include_directories(map_quality_report PRIVATE include ${EIGEN3_INCLUDE_DIR})
 
 target_compile_features(map_quality_report PRIVATE cxx_std_17)
 
 target_link_libraries(map_quality_report
+  ${PCL_LIBRARIES}
+)
+
+target_include_directories(planar_map_filter PRIVATE include ${EIGEN3_INCLUDE_DIR})
+target_include_directories(planar_map_consolidation PRIVATE include ${EIGEN3_INCLUDE_DIR})
+target_include_directories(map_thickness_attribution_report PRIVATE include ${EIGEN3_INCLUDE_DIR})
+
+target_compile_features(planar_map_filter PRIVATE cxx_std_17)
+target_compile_features(planar_map_consolidation PRIVATE cxx_std_17)
+target_compile_features(map_thickness_attribution_report PRIVATE cxx_std_17)
+
+target_link_libraries(planar_map_filter
+  ${PCL_LIBRARIES}
+)
+target_link_libraries(planar_map_consolidation
   ${PCL_LIBRARIES}
 )
 
@@ -893,6 +1125,38 @@ ament_target_dependencies(graph_based_slam_node
 add_executable(graph_slam_offline_runner
   src/graph_slam_offline_runner.cpp
   src/three_d_bbs_loop_verifier.cpp
+)
+
+add_executable(map_ndt_residual_report
+  src/map_ndt_residual_report_main.cpp
+)
+
+add_executable(ndt_localization_target
+  src/ndt_localization_target_main.cpp
+)
+
+target_include_directories(
+  ndt_localization_target PRIVATE include ${EIGEN3_INCLUDE_DIR}
+)
+
+target_compile_features(ndt_localization_target PRIVATE cxx_std_17)
+
+target_link_libraries(ndt_localization_target
+  ${PCL_LIBRARIES}
+)
+
+ament_target_dependencies(map_ndt_residual_report
+  rclcpp
+  rosbag2_cpp
+  tf2_eigen
+  pcl_conversions
+  nav_msgs
+  sensor_msgs
+  ndt_omp_ros2
+)
+
+target_link_libraries(map_ndt_residual_report
+  ${PCL_LIBRARIES}
 )
 
 if(GRAPH_BASED_SLAM_HAVE_3D_BBS)
@@ -952,7 +1216,12 @@ install(TARGETS
 install(TARGETS
   graph_based_slam_node
   graph_slam_offline_runner
+  map_ndt_residual_report
+  ndt_localization_target
   map_quality_report
+  planar_map_filter
+  planar_map_consolidation
+  map_thickness_attribution_report
   DESTINATION lib/${PROJECT_NAME}
 )
 

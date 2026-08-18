@@ -1,0 +1,91 @@
+schema_version: 1
+candidate_id: map_thickness_ndt_midangles_guard03_20260723
+status: default_off_pending_untouched_holdout
+tuning_sequences: [exp01, exp02, exp04, exp07]
+next_untouched_holdout: exp03
+
+map_profile:
+  output_voxel_m: 0.10
+  surfel_support_m: [0.50, 0.30, 0.40]
+  fallback_only_support_after_first: true
+  half_voxel_phase_count: 8
+  phase_zero_owns_supported_outputs: true
+  selective_consolidation_voxel_m: 0.05
+
+ndt_target_profile:
+  input_map: map_surfel_fused.pcd
+  voxel_size_m: 1.0
+  outer_radius_m: 0.50
+  inner_radius_m: 0.0
+  axis_and_diagonal_samples: true
+  angular_midpoints: true
+  angular_midpoint_pairs: 0
+  directions_per_planar_voxel: 16
+  min_points_per_voxel: 6
+  max_small_eigenvalue_ratio: 0.10
+  min_middle_eigenvalue_ratio: 0.05
+
+localization_profile:
+  resolution_m: 1.0
+  source_voxel_m: 0.50
+  max_correspondence_m: 2.0
+  max_iterations: 10
+  pose_update_gain: 0.03
+  threads: 1
+  neighborhood_search: DIRECT7
+  map_scan_stride: 2
+  map_scan_offset: 0
+  query_scan_stride: 2
+  query_scan_offset: 1
+
+full_odd_scan_results:
+  exp04:
+    scans: 629
+    ndt_mean_change_percent: -12.541935139446014
+    ndt_p95_change_percent: -12.277648872118663
+    ape_rmse_change_percent: 0.4849333642856779
+    rpe_rmse_change_percent: 0.27560628616074556
+  exp07:
+    scans: 661
+    ndt_mean_change_percent: -16.00548588394034
+    ndt_p95_change_percent: -13.254574338827318
+    ape_rmse_change_percent: -0.08456197369521856
+    rpe_rmse_change_percent: -0.12309095195748299
+  exp01:
+    scans: 1138
+    ndt_mean_change_percent: -8.418495584919583
+    ndt_p95_change_percent: -10.128493371799596
+    ape_rmse_change_percent: 0.11854142654383892
+    rpe_rmse_change_percent: 0.13142765073388407
+  exp02:
+    scans: 2151
+    ndt_mean_change_percent: -10.581893262956942
+    ndt_p95_change_percent: -10.325999110596417
+    ape_rmse_change_percent: 1.6527709924285094
+    rpe_rmse_change_percent: 1.3620412336608823
+  sequence_macro:
+    ndt_mean_change_percent: -11.886952467815721
+    ndt_p95_change_percent: -11.496678923335498
+    ape_rmse_change_percent: 0.5429209523907019
+    rpe_rmse_change_percent: 0.4114960546495072
+
+exp02_frozen_evidence:
+  root: /media/sasaki/aiueo/benchmarks/map_thickness_exp02_holdout_20260723/exp02
+  target_pcd_sha256: bf1156a6f71018fe4d2d3810d2a671ed19e019237592d47f3e2086875ff9de84
+  target_yaml_sha256: b565cb95e08b5cf52daf71c81d1f213f25e52bfa11dba2a9d60fb82ef4406272
+  baseline_trajectory_sha256: e71f1d8a4a1616b4c135bd6b145d86209040e33f3d0bb605de4c41c1d6131074
+  candidate_trajectory_sha256: 61c3863d1f9600d8eef3a5da5354ada4db7e526b09d03be0e285bd10e791fa9b
+  candidate_csv_sha256: 0bd525dd1d0491cc7ce08a83cd0f3fb75f61436c4511b2aead924c45023db543
+  ape_rpe_report_sha256: 5e677d00198ff5b4cd80f0f0794952b75250bcd72047841ffc62498f52dd308f
+  repeat_trajectory_byte_identical: true
+  repeat_csv_byte_identical: true
+  candidate_elapsed_s: 425.59
+  candidate_repeat_elapsed_s: 425.48
+  candidate_peak_rss_kib: 2733332
+  candidate_repeat_peak_rss_kib: 2733452
+
+decision_notes:
+  - exp02 now passes mean/p95 NDT and APE/RPE with a fair same-gain baseline.
+  - exp04 and exp07 also pass every gate under the frozen profile.
+  - exp01 still misses the per-sequence mean NDT gate despite passing p95 and trajectory gates.
+  - The four-sequence macro passes, but the profile remains default-off until exp03 and the final per-sequence policy are resolved.

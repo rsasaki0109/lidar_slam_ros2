@@ -243,7 +243,8 @@ inline void limitStep(
 inline PlaneBaResult solvePlaneBa(
   const std::vector<PlaneFeature> & features,
   const std::vector<Eigen::Matrix4d> & initial_poses,
-  const PlaneBaConfig & config)
+  const PlaneBaConfig & config,
+  const std::vector<Eigen::Matrix4d> & prior_reference_poses = {})
 {
   PlaneBaResult result;
   result.poses = initial_poses;
@@ -252,9 +253,12 @@ inline PlaneBaResult solvePlaneBa(
     result.termination = "no_valid_features";
     return result;
   }
+  const std::vector<Eigen::Matrix4d> & prior_poses =
+    prior_reference_poses.size() == initial_poses.size() ?
+    prior_reference_poses : initial_poses;
 
   const detail::CostEvaluation initial_evaluation =
-    detail::evaluateTotalCost(features, result.poses, initial_poses, config);
+    detail::evaluateTotalCost(features, result.poses, prior_poses, config);
   result.initial_cost = initial_evaluation.total_cost;
   result.final_cost = initial_evaluation.total_cost;
   result.valid_features = initial_evaluation.valid_features;
@@ -282,7 +286,7 @@ inline PlaneBaResult solvePlaneBa(
     Eigen::VectorXd gradient;
     Eigen::MatrixXd hessian;
     if (!detail::assembleSystem(
-        features, result.poses, initial_poses, config, &gradient, &hessian))
+        features, result.poses, prior_poses, config, &gradient, &hessian))
     {
       result.termination = "no_valid_features";
       break;
@@ -312,7 +316,7 @@ inline PlaneBaResult solvePlaneBa(
         candidate[pose_index] = leftPerturb(twist, candidate[pose_index]);
       }
       const detail::CostEvaluation candidate_evaluation =
-        detail::evaluateTotalCost(features, candidate, initial_poses, config);
+        detail::evaluateTotalCost(features, candidate, prior_poses, config);
       bool candidate_finite = std::isfinite(candidate_evaluation.total_cost);
       for (size_t p = 0; p < candidate.size() && candidate_finite; ++p) {
         candidate_finite = candidate[p].allFinite();

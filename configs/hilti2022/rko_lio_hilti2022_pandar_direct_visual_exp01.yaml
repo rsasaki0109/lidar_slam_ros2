@@ -1,0 +1,61 @@
+# Development-only live cam0 direct-photometric profile for HILTI exp01.
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055]
+extrinsic_cam2base_quat_xyzw_xyz: [0.49974358365743715, 0.5014331831777009, 0.4951875928195072, 0.5035974198892627, 0.0512635496824681, 0.04539012201223678, -0.013214912698709419]
+initialization_phase: true
+deskew: true
+voxel_size: 0.25
+min_range: 0.7
+max_range: 100.0
+double_downsample: true
+enable_kidnap_relocalization: false
+reset_on_registration_failure: false
+relocalize_after_scan_gap: false
+
+selective_visual_fusion: true
+direct_visual_frontend: true
+direct_visual_require_previous_weak_direction: false
+visual_image_topic: /alphasense/cam0/image_raw
+visual_camera_time_offset_sec: 0.0019071204237431304
+visual_max_image_lidar_delta_sec: 0.04
+# The frontend is invoked at the 10 Hz LiDAR cadence.  Keeping every eligible
+# frame limits the metric direct warp to roughly one scan of motion; 0.25 s
+# produced ~0.39 m median baselines and a strongly non-convex photometric fit.
+visual_keyframe_interval_sec: 0.08
+visual_camera_width: 720
+visual_camera_height: 540
+visual_camera_fx: 351.31400364193297
+visual_camera_fy: 351.4911744656785
+visual_camera_cx: 367.8522793375995
+visual_camera_cy: 253.8402144980996
+visual_camera_distortion: [-0.03696737352869157, -0.008917880497032812, 0.008912969593422046, -0.0037685977496087313]
+
+direct_visual_max_features: 240
+direct_visual_grid_cell_size: 16
+direct_visual_patch_radius: 1
+direct_visual_max_iterations: 8
+direct_visual_min_gradient: 12.0
+direct_visual_huber_delta: 12.0
+direct_visual_occlusion_tolerance_m: 0.35
+direct_visual_min_residuals: 180
+direct_visual_min_inlier_ratio: 0.55
+direct_visual_max_rmse: 20.0
+direct_visual_max_initial_rmse: 70.0
+direct_visual_max_translation_correction_m: 0.08
+direct_visual_max_rotation_correction_rad: 0.05
+
+visual_prior_max_time_offset_sec: 0.08
+visual_min_tracks: 80
+visual_min_inliers: 50
+visual_min_inlier_ratio: 0.55
+visual_max_rotation_error_deg: 3.0
+visual_min_translation_cosine: 0.5
+visual_min_baseline_m: 0.03
+visual_max_baseline_m: 2.0
+# Keep the proven conservative Hessian threshold for the first live probe.
+visual_weak_information_ratio: 1.0e-4
+visual_relative_information_weight: 0.1
+visual_min_directional_information_ratio: 1.0e-3
+visual_max_weak_directions: 2
+visual_max_translation_update_m: 0.03
+visual_max_rotation_update_rad: 0.01

@@ -1,0 +1,30 @@
+# Development-only selective visual fusion profile. Frozen to exp01; never use
+# this artifact path for exp02/03/21 holdout evaluation.
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055]
+extrinsic_cam2base_quat_xyzw_xyz: [0.49974358365743715, 0.5014331831777009, 0.4951875928195072, 0.5035974198892627, 0.0512635496824681, 0.04539012201223678, -0.013214912698709419]
+initialization_phase: true
+deskew: true
+voxel_size: 0.25
+min_range: 0.7
+max_range: 100.0
+double_downsample: true
+enable_kidnap_relocalization: false
+reset_on_registration_failure: false
+relocalize_after_scan_gap: false
+
+selective_visual_fusion: true
+visual_constraints_path: /media/sasaki/aiueo/benchmarks/competitive_ours/exp01_visual_development_20260715/selective_visual_constraints.json
+visual_prior_max_time_offset_sec: 0.08
+visual_min_tracks: 80
+visual_min_inliers: 50
+visual_min_inlier_ratio: 0.2
+visual_max_rotation_error_deg: 3.0
+visual_min_translation_cosine: 0.5
+visual_min_baseline_m: 0.03
+visual_max_baseline_m: 2.0
+visual_weak_information_ratio: 1.0e-5
+visual_relative_information_weight: 0.1
+visual_max_weak_directions: 2
+visual_max_translation_update_m: 0.03
+visual_max_rotation_update_rad: 0.01
