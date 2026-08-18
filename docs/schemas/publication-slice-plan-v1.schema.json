@@ -124,8 +124,11 @@
           ],
           "properties": {
             "start_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-            "end_ref": {"const": "HEAD"},
-            "diff_mode": {"const": "worktree"},
+            "end_ref": {
+              "type": "string",
+              "pattern": "^(HEAD|[0-9a-f]{40})$"
+            },
+            "diff_mode": {"enum": ["worktree", "two-dot"]},
             "review_record": {"type": "string", "minLength": 1}
           }
         }

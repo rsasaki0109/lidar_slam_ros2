@@ -95,7 +95,7 @@ SAFE_REVIEW_TITLE_PATTERN = re.compile(
 EXPECTED_REVIEW_PHASES = (
     ('P0-initial-review', 'three-dot'),
     ('P1-ci-bridge', 'two-dot'),
-    ('P2-follow-up-slices', 'worktree'),
+    ('P2-follow-up-slices', 'two-dot'),
 )
 EXPECTED_REVIEW_SLICES = (
     'S1-runtime-safety',
