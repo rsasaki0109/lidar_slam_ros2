@@ -101,8 +101,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         'session',
-        metavar='session_bundle',
-        help='Session directory containing a schema-valid session.json.',
+        metavar=(
+            'session_bundle_or_demo_output'
+            if report_mode else 'session_bundle'
+        ),
+        help=(
+            'Verified session directory, or fixed-demo output containing '
+            'first_map_validation_receipt.json.'
+        ),
     )
     parser.add_argument(
         '--help-all',
@@ -693,45 +699,19 @@ def build_support_report(session_bundle: str) -> dict[str, Any]:
     return report
 
 
-def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
-    """Validate one PASS session and return its local submission handoff."""
-    comparison = _load_script_module(
-        'session_compare.py',
-        'first_map_handoff_session_evidence',
-    )
-    product_schema = _load_script_module(
-        'product_schema.py',
-        'first_map_handoff_product_schema',
-    )
-    record = comparison._load_session_bundle(session_bundle, product_schema)
-    session = record['payload']
-    if not (
-        session['status'] == 'verified'
-        and session['runner_exit_code'] == 0
-        and session['verification'] == {'mode': 'required', 'result': 'PASS'}
-        and session['quality']['overall'] == 'pass'
-        and session['quality']['source']['status'] == 'valid'
-    ):
+def _build_handoff_from_receipt(
+    receipt_path: Path,
+    product_schema,
+) -> dict[str, Any]:
+    """Build a first-map handoff from one receipt-bound output directory."""
+    requested = receipt_path.expanduser()
+    if _path_has_symlink(requested):
         raise ValueError(
-            'first-map handoff requires a verified session with PASS '
-            'receipt-bound quality evidence'
+            'validation receipt is not a regular, non-symlink file'
         )
-
-    artifacts = {
-        item['name']: item for item in _artifact_projections(record)
-    }
-    receipt_artifact = artifacts['validation_receipt']
-    if receipt_artifact['current_state'] != 'regular_file':
-        raise ValueError(
-            'validation receipt is not a regular in-session file: '
-            f"{receipt_artifact['current_state']}"
-        )
-    recorded_receipt = session['artifacts']['validation_receipt']
-    if not isinstance(recorded_receipt, str):
-        raise ValueError('session has no validation receipt path')
-    receipt_path = Path(recorded_receipt).expanduser().resolve()
+    receipt_path = requested.resolve()
     if receipt_path.name != FIRST_MAP_RECEIPT_NAME:
-        raise ValueError('session points to an unexpected validation receipt')
+        raise ValueError('output points to an unexpected validation receipt')
     if any(ord(character) < 32 for character in str(receipt_path)):
         raise ValueError('validation receipt path contains control characters')
 
@@ -754,6 +734,14 @@ def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
         item['passed'] for item in checks.values()
     ):
         raise ValueError('first-map validation receipt is not PASS')
+
+    for evidence in receipt['evidence'].values():
+        evidence_path = receipt_path.parent / evidence['filename']
+        if _path_has_symlink(evidence_path):
+            raise ValueError(
+                'receipt-bound evidence contains a symlink: '
+                f'{evidence_path.name}'
+            )
 
     receipt_module = _load_script_module(
         'first_map_validation_receipt.py',
@@ -822,6 +810,77 @@ def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
     }
     product_schema.validate_contract(handoff, FIRST_MAP_HANDOFF_SCHEMA)
     return handoff
+
+
+def _build_receipt_only_handoff(
+    output_dir: str,
+    product_schema,
+) -> dict[str, Any]:
+    """Build a handoff for fixed Docker/source demo outputs without sessions."""
+    requested = Path(output_dir).expanduser()
+    if requested.is_symlink():
+        raise ValueError(f'output directory may not be a symlink: {requested}')
+    if _path_has_symlink(requested):
+        raise ValueError(
+            f'output directory contains a symlinked path: {requested}'
+        )
+    bundle = requested.resolve()
+    if not bundle.is_dir():
+        raise ValueError(f'output directory is not a directory: {bundle}')
+    return _build_handoff_from_receipt(
+        bundle / FIRST_MAP_RECEIPT_NAME,
+        product_schema,
+    )
+
+
+def build_first_map_handoff(session_bundle: str) -> dict[str, Any]:
+    """Validate one PASS session or fixed-demo output handoff."""
+    comparison = _load_script_module(
+        'session_compare.py',
+        'first_map_handoff_session_evidence',
+    )
+    product_schema = _load_script_module(
+        'product_schema.py',
+        'first_map_handoff_product_schema',
+    )
+    requested = Path(session_bundle).expanduser()
+    if requested.is_symlink():
+        raise ValueError(f'output directory may not be a symlink: {requested}')
+    bundle = requested.resolve()
+    if not (bundle / 'session.json').exists() and not (
+        bundle / 'session.json'
+    ).is_symlink():
+        return _build_receipt_only_handoff(session_bundle, product_schema)
+    record = comparison._load_session_bundle(session_bundle, product_schema)
+    session = record['payload']
+    if not (
+        session['status'] == 'verified'
+        and session['runner_exit_code'] == 0
+        and session['verification'] == {'mode': 'required', 'result': 'PASS'}
+        and session['quality']['overall'] == 'pass'
+        and session['quality']['source']['status'] == 'valid'
+    ):
+        raise ValueError(
+            'first-map handoff requires a verified session with PASS '
+            'receipt-bound quality evidence'
+        )
+
+    artifacts = {
+        item['name']: item for item in _artifact_projections(record)
+    }
+    receipt_artifact = artifacts['validation_receipt']
+    if receipt_artifact['current_state'] != 'regular_file':
+        raise ValueError(
+            'validation receipt is not a regular in-session file: '
+            f"{receipt_artifact['current_state']}"
+        )
+    recorded_receipt = session['artifacts']['validation_receipt']
+    if not isinstance(recorded_receipt, str):
+        raise ValueError('session has no validation receipt path')
+    return _build_handoff_from_receipt(
+        Path(recorded_receipt).expanduser(),
+        product_schema,
+    )
 
 
 def render_first_map_handoff(handoff: dict[str, Any]) -> str:

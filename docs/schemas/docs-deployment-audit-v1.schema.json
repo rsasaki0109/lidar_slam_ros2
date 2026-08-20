@@ -77,11 +77,13 @@
       "properties": {
         "manifest_schema_valid": {"type": "boolean"},
         "manifest_route_contract_valid": {"type": "boolean"},
+        "manifest_content_contract_valid": {"type": "boolean"},
         "source_revision_matches": {"type": "boolean"},
         "product_version_matches": {"type": "boolean"},
         "page_size_matches": {"type": "boolean"},
         "page_sha256_matches": {"type": "boolean"},
-        "route_fragment_present": {"type": "boolean"}
+        "route_fragment_present": {"type": "boolean"},
+        "content_markers_present": {"type": "boolean"}
       }
     },
     "finding_codes": {
@@ -98,7 +100,9 @@
           "page-size-mismatch",
           "page-digest-mismatch",
           "page-invalid",
-          "route-fragment-missing"
+          "route-fragment-missing",
+          "manifest-content-contract-mismatch",
+          "content-marker-missing"
         ]
       }
     },

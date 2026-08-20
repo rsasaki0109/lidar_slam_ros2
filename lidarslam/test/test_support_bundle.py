@@ -521,6 +521,29 @@ def test_first_map_json_is_schema_valid_and_read_only(
     assert not list(bundle.parent.glob('lidarslam-support-*.zip'))
 
 
+def test_first_map_handoff_accepts_fixed_demo_output_without_session_index(
+    tmp_path: Path,
+    capsys,
+):
+    """Docker/source fixed demos expose receipt evidence without session.json."""
+    module = _load(SCRIPT, 'support_fixed_demo_handoff')
+    bundle = _validation_fixture(tmp_path)
+    (bundle / 'session.json').unlink()
+    demo_output = bundle / 'map'
+
+    handoff = module.build_first_map_handoff(str(demo_output))
+    assert handoff['status'] == 'READY_FOR_REVIEW'
+    assert handoff['receipt_status'] == 'PASS'
+    assert handoff['form_fields']['release_ref'] == 'a' * 40
+
+    assert module.main([str(demo_output), '--first-map', '--json']) == 0
+    payload = json.loads(capsys.readouterr().out)
+    schema = json.loads(HANDOFF_SCHEMA.read_text(encoding='utf-8'))
+    jsonschema.validate(payload, schema)
+    assert payload['run'] == handoff['run']
+    assert payload['verification_summary'] == handoff['verification_summary']
+
+
 def test_report_mode_is_a_focused_read_only_alias(
     tmp_path: Path,
     monkeypatch,

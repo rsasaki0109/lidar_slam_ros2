@@ -40,6 +40,10 @@ from typing import Any, Callable, Sequence
 import urllib.error
 import urllib.request
 
+from docs_deployment_contract import (
+    manifest_content_markers,
+    missing_content_markers,
+)
 from product_schema import validate_contract
 
 
@@ -143,11 +147,13 @@ def _base_report(
         'checks': {
             'manifest_schema_valid': False,
             'manifest_route_contract_valid': False,
+            'manifest_content_contract_valid': False,
             'source_revision_matches': False,
             'product_version_matches': False,
             'page_size_matches': False,
             'page_sha256_matches': False,
             'route_fragment_present': False,
+            'content_markers_present': False,
         },
         'finding_codes': [],
         'detail': '',
@@ -189,6 +195,12 @@ def _route_contract(manifest: dict[str, Any]) -> bool:
         for item in routes
     }
     return observed == ROUTES and len(routes) == len(ROUTES)
+
+
+def _content_contract(manifest: dict[str, Any]) -> bool:
+    return manifest_content_markers(
+        (manifest.get('page') or {}).get('content_markers')
+    )
 
 
 def _html_ids(payload: bytes) -> set[str]:
@@ -238,6 +250,8 @@ def audit_deployment(
     report['checks']['manifest_schema_valid'] = True
     route_contract_valid = _route_contract(manifest)
     report['checks']['manifest_route_contract_valid'] = route_contract_valid
+    content_contract_valid = _content_contract(manifest)
+    report['checks']['manifest_content_contract_valid'] = content_contract_valid
     page = manifest['page']
     page_url = SITE_URL + page['path']
     report['observed'].update({
@@ -250,6 +264,8 @@ def audit_deployment(
     findings: list[str] = []
     if not route_contract_valid:
         findings.append('manifest-route-contract-mismatch')
+    if not content_contract_valid:
+        findings.append('manifest-content-contract-mismatch')
     revision_matches = manifest['source_revision'] == expected_revision
     version_matches = manifest['product_version'] == expected_version
     report['checks']['source_revision_matches'] = revision_matches
@@ -259,6 +275,7 @@ def audit_deployment(
     if not version_matches:
         findings.append('product-version-mismatch')
 
+    missing_markers: tuple[str, ...] = ()
     try:
         page_payload = fetcher(page_url, MAX_PAGE_BYTES)
     except FetchError as exc:
@@ -291,13 +308,29 @@ def audit_deployment(
     report['checks']['route_fragment_present'] = route_present
     if not route_present:
         findings.append('route-fragment-missing')
+    try:
+        missing_markers = missing_content_markers(page_payload)
+    except (UnicodeDecodeError, ValueError) as exc:
+        findings.append('page-invalid')
+        return _finish(
+            report,
+            status='NOT_READY',
+            findings=list(dict.fromkeys(findings)),
+            detail=f'public Getting Started page text cannot be parsed: {exc}',
+        )
+    report['checks']['content_markers_present'] = not missing_markers
+    if missing_markers:
+        findings.append('content-marker-missing')
 
     status = 'VERIFIED' if not findings else 'NOT_READY'
     detail = (
-        'public documentation bytes and route match the exact source revision'
+        'public documentation bytes, routes, and first-map handoff content '
+        'match the exact source revision'
         if status == 'VERIFIED'
         else 'public documentation does not match every required identity check'
     )
+    if missing_markers:
+        detail += '; missing content markers: ' + ', '.join(missing_markers)
     return _finish(report, status=status, findings=findings, detail=detail)
 
 

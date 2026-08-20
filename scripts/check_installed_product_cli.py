@@ -1104,6 +1104,42 @@ def validate_install(
                 'installed report changed local session state'
             )
 
+        before_receipt_only_handoff = tree_snapshot(work_dir)
+        receipt_only_handoff = _run(
+            [
+                str(path_command),
+                'report',
+                str(verified_map),
+                '--json',
+            ],
+            work_dir,
+        )
+        _require_success(
+            receipt_only_handoff,
+            'installed report from fixed-demo output',
+        )
+        receipt_only_payload = json.loads(receipt_only_handoff.stdout)
+        product_schema.validate_contract(
+            receipt_only_payload,
+            'first-map-handoff-v1.schema.json',
+        )
+        if (
+            receipt_only_payload.get('status') != 'READY_FOR_REVIEW'
+            or receipt_only_payload.get('receipt_status') != 'PASS'
+            or receipt_only_payload.get('run', {}).get('profile_id')
+            != 'rko_lio_graph_public_path'
+            or receipt_only_payload.get('verification_summary', '').find(
+                f'manifest_sha256={manifest_digest}'
+            ) < 0
+        ):
+            raise RuntimeError(
+                'installed report rejected the receipt-only fixed-demo output'
+            )
+        if tree_snapshot(work_dir) != before_receipt_only_handoff:
+            raise RuntimeError(
+                'installed receipt-only report changed local session state'
+            )
+
         support_zip = work_dir / 'installed-support.zip'
         support_json = _run(
             [

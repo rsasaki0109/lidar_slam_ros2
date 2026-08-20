@@ -109,6 +109,34 @@ On Ubuntu 24.04, use
 `ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy`; the entrypoint and first-map
 contract are unchanged.
 
+The published `v0.9.0` image predates the `lidarslam-map report` handoff
+command. If you use that stable image, review the generated
+`lidarslam_output/mid360_demo/first_map_validation_receipt.json` and submit
+only that receipt through the independent-validation form. The copy-ready
+`report` command is available once the reviewed `v0.9.1` image is published.
+To reprint the receipt's verification summary without writing to the output or
+using the network, run this stable-image fallback after the demo:
+
+```bash
+docker run --rm --network none \
+  -v "$PWD/lidarslam_output:/output:ro" \
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble \
+  bash -lc 'helper="$(ros2 pkg prefix lidarslam)/share/lidarslam/product/scripts/create_first_map_validation_receipt.py"; python3 "$helper" /output/mid360_demo'
+```
+
+Use the `v0.9.0-jazzy` image in that command on Ubuntu 24.04. Review the
+printed PASS summary and attach only the already-generated JSON receipt.
+Record the immutable image identity after the pull:
+
+```bash
+docker image inspect \
+  --format='{{index .RepoDigests 0}}' \
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
+```
+
+If this prints no `ghcr.io/...@sha256:...` value, stop and report that the
+runtime identity could not be verified; do not substitute a mutable tag.
+
 ### Docker Own-Bag Map
 
 To inspect and map your own bag without building a ROS 2 workspace, run one
@@ -195,6 +223,9 @@ chmod 0755 lidarslam-map-docker
 The printed launcher version and revision must match that release. The
 launcher resolves the versioned image to its immutable local image ID before
 creating output, then keeps the bag read-only and container networking off.
+
+<!-- Keep the historical cohort issue link (#1-build-the-workspace) valid. -->
+<a id="1-build-the-workspace"></a>
 
 ## 1. Install And Build From Source
 
@@ -317,6 +348,20 @@ blindly, suppress the compiler error, or claim the old distribution is
 supported. These checks identify the dependency path; they do not by
 themselves prove that an arbitrary workspace or hardware setup will build.
 
+### Verify The Public First-Map Package Before Running It
+
+From a source checkout, run the package-level contract audit before choosing
+Docker or source:
+
+```bash
+python3 scripts/check_first_map_verification_package.py --json
+```
+
+The audit is local-only and read-only. Continue only when it reports `READY`;
+it confirms that the documented Docker/source handoff, receipt schema,
+runtime compatibility guards, public-page markers, CI gate, and release
+bundle inventory are present together.
+
 ## 2. Run the Fixed First-Map Demo
 
 The default source quickstart runs this demo automatically. To repeat it later,
@@ -334,6 +379,28 @@ verifier log, diagnosis, and privacy-bounded first-map receipt. It then opens
 the offline browser review; use `--viewer none` on a headless machine. The
 source and Docker first-map paths therefore have one fixed dataset and one
 output contract.
+
+The fixed demo output is receipt-bound but does not create a `session.json`
+page. To prepare the independent-validation handoff from that output, pass the
+output directory itself:
+
+```bash
+lidarslam-map report ~/ros2_ws/output/mid360_demo --json
+```
+
+Review the named JSON receipt before attaching it; the command remains
+read-only and does not contact GitHub.
+
+If a public source checkout predates the `report <output>` handoff, the same
+receipt can be regenerated and printed without writing output:
+
+```bash
+python3 scripts/create_first_map_validation_receipt.py \
+  ~/ros2_ws/output/mid360_demo --json
+```
+
+Review the `PASS` receipt and attach only that JSON file. Do not use
+`--write`, and do not attach the map, manifest, diagnosis, or logs.
 
 Every live run re-hashes the registered ZIP and the two extracted rosbag2
 files before mapping. A dry-run reports an existing cache as

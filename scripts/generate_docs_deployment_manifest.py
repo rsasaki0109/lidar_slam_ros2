@@ -39,6 +39,10 @@ import re
 import sys
 from typing import Sequence
 
+from docs_deployment_contract import (
+    CONTENT_MARKER_IDS,
+    missing_content_markers,
+)
 from product_schema import validate_contract
 
 
@@ -148,6 +152,12 @@ def build_manifest(
             'rendered Getting Started page lacks canonical route fragment(s): '
             + ', '.join(missing)
         )
+    missing_markers = missing_content_markers(page_payload)
+    if missing_markers:
+        raise ManifestError(
+            'rendered Getting Started page lacks first-map content marker(s): '
+            + ', '.join(missing_markers)
+        )
     return {
         'schema_version': 1,
         'schema_uri': SCHEMA_URI,
@@ -169,6 +179,7 @@ def build_manifest(
                 {'route_id': route_id, 'fragment': fragment}
                 for route_id, fragment in ROUTES
             ],
+            'content_markers': list(CONTENT_MARKER_IDS),
         },
     }
 

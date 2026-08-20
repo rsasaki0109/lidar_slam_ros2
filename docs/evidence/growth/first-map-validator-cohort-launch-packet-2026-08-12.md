@@ -27,18 +27,30 @@ the following must become true together:
 - the copy-ready `support --first-map` handoff is present in that public
   revision.
 
-The reviewed source route and copy-ready handoff are publicly resolvable at
-exact commit `549ef03017c776f23fc968881b346aa685356274`, and its source
-preflight returns `READY`. The current matrix has four product PASS outcomes,
-but zero comparable rows: the Docker records lack human timing, the two source
-records intentionally lack human active-time observation, and the Docker
-records are `0.9.0` while the source records are `0.9.1`. Broad promotion or
-recruitment now would violate the G0 activation decision and would turn
-missing comparable clean-host evidence into volunteer support work.
-The current GitHub Pages deployment has no `docs-deployment-v1.json`; the
-read-only exact-candidate audit therefore returns `BLOCKED` with
-`manifest-unavailable`. A resolvable commit and a plausible URL are not enough
-to select the cohort route.
+The current public source/docs identity is product `0.9.1` at exact commit
+`dec8ec286953aea42cbcb2f7de70a41042f24e62`. The earlier identity-only Pages
+audit was `VERIFIED` (page SHA-256
+`e675e4a97353b110934ec014e5cfe085a2b364adf5de4447fda994a4bdd2413a`), but the
+new rendered-content audit is `NOT_READY` until the receipt-only handoff is
+deployed. The source preflight returns `READY`. A maintainer-controlled Docker
+run and a source-builder run both completed the fixed first map with PASS
+receipts; the full details are retained in the [2026-08-20 public first-map
+checkpoint](public-first-map-verification-2026-08-20.md).
+
+The cohort still has zero comparable clean-host rows and
+`copy_ready_handoff_public=false` because the deployed page/image pair has not
+yet carried the receipt-only handoff contract. The Docker path is the
+published stable `v0.9.0` image while the source path is the `v0.9.1`
+candidate, and the v0.9.1 release plus immutable Humble/Jazzy GHCR images are
+absent. Human active-time/command-count observations and independent reports
+are also missing. Broad promotion or recruitment now would turn these missing
+gates into volunteer support work, so the packet remains
+`WAITING_FOR_PUBLIC_GATES`. The receipt-only report handoff and historical
+source-anchor compatibility fix described in the checkpoint are local changes
+until an authorized reviewed publication updates the public Pages bytes and
+runtime image. The source-checkout receipt-helper fallback is likewise local
+documentation until that publication; it does not reopen the cohort gate by
+itself.
 
 ## Cohort shape
 

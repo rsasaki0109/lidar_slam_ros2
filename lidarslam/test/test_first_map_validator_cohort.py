@@ -242,10 +242,7 @@ def test_tracked_contract_is_valid_waiting_and_read_only():
     assert report['pending_launch_gates'] == [
         'comparable_docker_row',
         'comparable_source_row',
-        'canonical_documentation_path',
-        'canonical_documentation_url',
-        'canonical_documentation_provenance',
-        'canonical_runtime_ref',
+        'copy_ready_handoff_public',
     ]
     assert report['accepted_target'] == 3
     assert report['initial_attempt_cap'] == 5
@@ -288,6 +285,7 @@ def test_human_summary_names_the_boundary_and_one_next_action():
     assert 'Completion rate: not measured' in rendered
     assert 'GitHub/community write authorized: no' in rendered
     assert 'Pending launch gates: comparable_docker_row' in rendered
+    assert 'copy_ready_handoff_public' in rendered
     assert 'Run the missing clean comparable Docker/source matrix rows' in (
         rendered
     )
@@ -691,7 +689,7 @@ def test_ready_contract_renders_bounded_privacy_first_recruitment():
         ),
         (
             ('launch_gates', 'canonical_documentation_path'),
-            'docker-first-map',
+            None,
             'path, URL, and provenance must be set together',
         ),
     ],

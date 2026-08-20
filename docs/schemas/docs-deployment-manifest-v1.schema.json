@@ -61,6 +61,22 @@
               }
             }
           }
+        },
+        "content_markers": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "fixed-demo-output-handoff",
+              "stable-image-report-boundary",
+              "receipt-only-attachment-rule",
+              "source-receipt-helper-fallback",
+              "stable-image-receipt-helper",
+              "immutable-image-identity-check"
+            ]
+          }
         }
       }
     }

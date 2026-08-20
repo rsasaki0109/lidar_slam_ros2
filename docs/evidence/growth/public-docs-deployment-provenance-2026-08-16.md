@@ -33,6 +33,10 @@ binds:
 - the product version;
 - the exact byte count and SHA-256 of `getting-started.html`;
 - the Docker first-map and source-quickstart fragment IDs; and
+- the rendered first-map handoff markers: fixed-demo output-directory
+  handoff, stable-image/report compatibility boundary, and receipt-only
+  attachment rule, source and stable-image receipt-helper fallbacks, and the
+  immutable image identity check; and
 - the trusted `develop`-only Pages deployment workflow identity.
 
 Both workflow jobs also require the actual Actions ref to equal
@@ -40,7 +44,8 @@ Both workflow jobs also require the actual Actions ref to equal
 deploy an artifact that falsely claims the trusted deployment identity.
 
 Generation fails if the rendered page is empty, oversized, non-UTF-8,
-symlinked, or lacks either canonical fragment. An existing manifest is never
+symlinked, lacks either canonical fragment, or lacks any first-map handoff
+marker. An existing manifest is never
 overwritten inside the artifact. Before exclusive creation, the generator now
 validates the complete payload against the checked-in Draft 7 schema. The
 workflow installs `jsonschema` explicitly, reruns when the shared schema
@@ -51,10 +56,12 @@ only after deployment.
 `check_public_docs_deployment.py` performs only bounded HTTPS GETs. It validates
 the public manifest against its Draft 7 schema, requires the fixed route
 pairing, fetches the exact page, verifies byte count and SHA-256, checks the
-selected fragment, and compares source revision and product version with
-operator-supplied expectations. It returns `VERIFIED`, `NOT_READY`, or
-`BLOCKED`; no result authorizes a merge, Pages deployment, trial, recruitment,
-image publication, or release.
+selected fragment and rendered handoff markers, and compares source revision
+and product version with operator-supplied expectations. It returns
+`VERIFIED`, `NOT_READY`, or `BLOCKED`; no result authorizes a merge, Pages
+deployment, trial, recruitment, image publication, or release. The currently
+deployed old manifest still passes the identity checks but is now correctly
+`NOT_READY` for the missing handoff contract.
 
 ## Cohort binding
 
@@ -80,12 +87,13 @@ python3 scripts/check_public_docs_deployment.py \
   --json
 ```
 
-The nine focused deployment regressions cover exact identity, pre-write schema
-validation, missing route fragments, symlink rejection, exclusive manifest
-creation, revision/version drift, page tampering, route-pair drift, and
-unavailable public evidence. The live command currently exits 1 with
-`BLOCKED`, as required until a reviewed `develop` deployment exposes matching
-provenance.
+The twelve focused deployment regressions cover exact identity, pre-write
+schema validation, missing route fragments and handoff markers, symlink
+rejection, exclusive manifest creation, revision/version drift, page
+tampering, route-pair drift, legacy-manifest rejection, and unavailable public
+evidence. The live command currently exits 1 with `NOT_READY`, as required
+until a reviewed `develop` deployment exposes the matching provenance and
+handoff content.
 
 ## Honest boundary
 

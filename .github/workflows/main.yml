@@ -59,6 +59,7 @@ jobs:
           python3 scripts/check_ndt_omp_release_readiness.py --offline
           python3 scripts/check_canonical_ndt_convergence.py --json
           python3 scripts/check_external_first_map_readiness.py --json
+          python3 scripts/check_first_map_verification_package.py --json
           python3 scripts/check_v1_readiness.py --json
           # G0 is intentionally allowed to report HOLD here; this command
           # verifies that the read-only dashboard remains schema-valid and

@@ -11,6 +11,9 @@ on:
       - 'README.md'
       - 'VERSION'
       - 'scripts/generate_docs_deployment_manifest.py'
+      - 'scripts/docs_deployment_contract.py'
+      - 'scripts/check_first_map_verification_package.py'
+      - 'docs/schemas/first-map-verification-package-v1.schema.json'
       - 'scripts/product_schema.py'
   workflow_dispatch:
 
@@ -45,6 +48,7 @@ jobs:
       - name: Build site
         shell: bash
         run: |
+          python3 scripts/check_first_map_verification_package.py --json
           python3 -m mkdocs build --strict
 
       - name: Bind rendered docs to the exact source revision

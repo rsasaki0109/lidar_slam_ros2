@@ -80,7 +80,7 @@ def render_help(*, include_all: bool = False) -> str:
             '  compare <left> <right> Compare two sessions using retained '
             'evidence'
         ),
-        '  report <session>     Prepare a verified first-map report',
+        '  report <output>      Prepare a verified first-map report',
         '  support <session>    Prepare a privacy-first maintainer ZIP',
         '',
         'Core rosbag2-to-map commands:',
