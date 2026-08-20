@@ -248,6 +248,9 @@ jobs:
             exit 1
           fi
           docker run --rm --network none "${IMAGE_REF}" \
+            lidarslam-map --help >/tmp/lidarslam-cli-help.txt
+          grep -Fq 'report <output>' /tmp/lidarslam-cli-help.txt
+          docker run --rm --network none "${IMAGE_REF}" \
             lidarslam-map start --help >/tmp/lidarslam-start-help.txt
           grep -Fq 'Detect and configure the sensors' /tmp/lidarslam-start-help.txt
           grep -Fq -- '--map-output-dir' /tmp/lidarslam-start-help.txt
@@ -359,6 +362,7 @@ jobs:
       - name: Validate release docs
         shell: bash
         run: |
+          python3 scripts/check_first_map_verification_package.py --json
           python3 -m pytest graph_based_slam/test/test_docs_entrypoints.py -q
           bash -n scripts/run_autoware_quickstart.sh
           bash -n scripts/download_ntu_viral_tnp01.sh

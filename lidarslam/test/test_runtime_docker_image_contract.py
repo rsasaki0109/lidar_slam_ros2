@@ -94,6 +94,7 @@ def test_runtime_docker_stage_is_source_free_and_fail_closed():
     assert 'DEMO_OUTPUT_DIR=/lidarslam_ws/output/mid360_demo' in runtime
     assert builder.count('lidarslam-map start --help') == 1
     assert runtime.count('lidarslam-map start --help') == 1
+    assert dockerfile.count("grep -Fq 'report <output>'") == 2
     assert dockerfile.count("grep -Fq 'Detect and configure the sensors'") == 2
     assert dockerfile.count("grep -Fq -- '--map-output-dir'") == 2
     assert (

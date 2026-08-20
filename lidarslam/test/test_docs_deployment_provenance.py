@@ -61,6 +61,13 @@ def _html(*, source_fragment: str = '1-install-and-build-from-source') -> bytes:
         '<!doctype html><html><body>'
         '<h2 id="docker-first-map-no-ros-2-workspace">Docker</h2>'
         f'<h2 id="{source_fragment}">Source</h2>'
+        '<p>For those paths, pass the output directory itself.</p>'
+        '<p>The published v0.9.0 image predates the lidarslam-map report '
+        'handoff command.</p>'
+        '<p>Review the receipt and submit only that receipt.</p>'
+        '<p>python3 scripts/create_first_map_validation_receipt.py</p>'
+        '<p>share/lidarslam/product/scripts/create_first_map_validation_receipt.py</p>'
+        '<p>docker image inspect</p>'
         '</body></html>'
     ).encode()
 
@@ -113,6 +120,14 @@ def test_generator_binds_revision_version_page_bytes_and_routes(tmp_path: Path):
             'fragment': '1-install-and-build-from-source',
         },
     ]
+    assert manifest['page']['content_markers'] == [
+        'fixed-demo-output-handoff',
+        'stable-image-report-boundary',
+        'receipt-only-attachment-rule',
+        'source-receipt-helper-fallback',
+        'stable-image-receipt-helper',
+        'immutable-image-identity-check',
+    ]
     scripts = str(SCRIPTS)
     sys.path.insert(0, scripts)
     try:
@@ -142,6 +157,18 @@ def test_generator_rejects_missing_route_and_existing_manifest(tmp_path: Path):
     with pytest.raises(generator.ManifestError, match='refusing to overwrite'):
         generator.write_manifest(site, manifest)
     assert json.loads(output.read_text(encoding='utf-8')) == manifest
+
+
+def test_generator_rejects_missing_first_map_handoff_marker(tmp_path: Path):
+    generator = _load(GENERATOR_PATH, 'docs_manifest_content_rejection_test')
+    site, version = _site(tmp_path)
+    page = site / 'getting-started.html'
+    page.write_bytes(page.read_bytes().replace(
+        b'pass the output directory itself',
+        b'pass the output directory',
+    ))
+    with pytest.raises(generator.ManifestError, match='content marker'):
+        generator.build_manifest(site, 'a' * 40, version)
 
 
 def test_generator_rejects_schema_invalid_manifest_before_write(
@@ -240,6 +267,46 @@ def test_auditor_rejects_manifest_route_pairing_drift(tmp_path: Path):
 
     assert report['status'] == 'NOT_READY'
     assert report['finding_codes'] == ['manifest-route-contract-mismatch']
+
+
+def test_auditor_rejects_missing_first_map_handoff_marker(tmp_path: Path):
+    _, _, manifest_payload = _manifest(tmp_path)
+    auditor = _load(AUDITOR_PATH, 'docs_deployment_auditor_content_test')
+    page = _html().replace(
+        b'pass the output directory itself',
+        b'pass the output directory',
+    )
+    report = auditor.audit_deployment(
+        'a' * 40,
+        '0.9.1',
+        'docker-first-map',
+        fetcher=_fetcher(auditor, manifest_payload, page),
+    )
+
+    assert report['status'] == 'NOT_READY'
+    assert 'content-marker-missing' in report['finding_codes']
+    assert 'fixed-demo-output-handoff' in report['detail']
+    assert report['checks']['manifest_content_contract_valid'] is True
+    assert report['checks']['content_markers_present'] is False
+
+
+def test_auditor_rejects_legacy_manifest_without_content_contract(tmp_path: Path):
+    _, manifest, _ = _manifest(tmp_path)
+    legacy = copy.deepcopy(manifest)
+    del legacy['page']['content_markers']
+    payload = (json.dumps(legacy, sort_keys=True) + '\n').encode()
+    auditor = _load(AUDITOR_PATH, 'docs_deployment_auditor_legacy_test')
+    report = auditor.audit_deployment(
+        'a' * 40,
+        '0.9.1',
+        'source-quickstart',
+        fetcher=_fetcher(auditor, payload, _html()),
+    )
+
+    assert report['status'] == 'NOT_READY'
+    assert report['finding_codes'] == ['manifest-content-contract-mismatch']
+    assert report['checks']['manifest_schema_valid'] is True
+    assert report['checks']['manifest_content_contract_valid'] is False
 
 
 def test_auditor_reports_unavailable_manifest_without_writes():

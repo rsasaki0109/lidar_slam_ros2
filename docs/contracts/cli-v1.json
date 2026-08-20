@@ -1105,10 +1105,11 @@
     "report": {
       "positional": {
         "kind": "directory",
-        "must_contain": [
-          "session.json"
+        "accepted_evidence": [
+          "session.json",
+          "first_map_validation_receipt.json"
         ],
-        "name": "session_bundle",
+        "name": "session_bundle_or_demo_output",
         "stability": "stable"
       },
       "options": [

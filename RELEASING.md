@@ -25,6 +25,7 @@ VERSION="$(tr -d '\n' < VERSION)"
 bash scripts/run_default_ci_checks.sh
 ./scripts/run_product_python_tests.sh
 python3 -m mkdocs build --strict
+python3 scripts/check_first_map_verification_package.py --json
 python3 scripts/check_release_bundle_reproducibility.py \
   "/tmp/lidarslam_ros2_v${VERSION}_release_candidate.tar.gz"
 bash scripts/run_release_readiness_checks.sh --skip-default-ci --fail-on-profiles
@@ -38,6 +39,13 @@ lidarslam-map demo "${DEMO_WORK_DIR}" --viewer none
 The fixed `lidarslam-map demo` is the release first-map gate. The older NTU
 VIRAL Autoware viewer/dogfood quickstart remains an advanced compatibility
 check and must not substitute for the canonical product route.
+
+The first-map verification-package audit is a local, fail-closed check of the
+Docker/source instructions, receipt handoff, runtime guards, documentation
+markers, CI contract, and curated release-bundle inventory. It must report
+`READY` before publication; it does not itself prove that the public docs or
+container tags have been published. After publication, use the read-only
+public documentation and release audits below to establish that handoff.
 
 The bundle rehearsal requires a clean source worktree, derives `v<VERSION>`
 and the exact current commit, builds the curated archive twice, runs the same

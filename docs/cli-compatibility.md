@@ -303,8 +303,9 @@ three-member ZIP excludes maps, bags, raw logs, parameter contents, local paths
 and command credentials, and is marked for human review. `--json` is read-only;
 ZIP creation is atomic, refuses replacement, and performs no remote mutation.
 The additive `report` command does not create that ZIP. It is a
-read-only handoff for a `verified` session whose PASS receipt remains exactly
-bound to the retained manifest, diagnosis, and verification log. It prints a
+read-only handoff for a `verified` session, or a fixed Docker/source demo
+output without `session.json`, whose PASS receipt remains exactly bound to the
+retained manifest, diagnosis, and verification log. It prints a
 copy-ready result, exact source commit or product-version fallback,
 verification summary, the local privacy-bounded JSON receipt path, the
 canonical issue form, and the four fields that still need the operator's own

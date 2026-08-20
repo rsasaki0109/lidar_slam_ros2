@@ -5,15 +5,19 @@
   "repository": "rsasaki0109/lidar_slam_ros2",
   "status": "WAITING_FOR_PUBLIC_GATES",
   "launch_gates": {
-    "public_revision": "549ef03017c776f23fc968881b346aa685356274",
+    "public_revision": "dec8ec286953aea42cbcb2f7de70a41042f24e62",
     "public_revision_resolvable": true,
     "comparable_docker_row": false,
     "comparable_source_row": false,
-    "canonical_documentation_path": null,
-    "canonical_documentation_url": null,
-    "canonical_documentation_provenance": null,
-    "canonical_runtime_ref": null,
-    "copy_ready_handoff_public": true,
+    "canonical_documentation_path": "source-quickstart",
+    "canonical_documentation_url": "https://rsasaki0109.github.io/lidar_slam_ros2/getting-started.html#1-install-and-build-from-source",
+    "canonical_documentation_provenance": {
+      "manifest_url": "https://rsasaki0109.github.io/lidar_slam_ros2/docs-deployment-v1.json",
+      "source_revision": "dec8ec286953aea42cbcb2f7de70a41042f24e62",
+      "page_sha256": "e675e4a97353b110934ec014e5cfe085a2b364adf5de4447fda994a4bdd2413a"
+    },
+    "canonical_runtime_ref": "dec8ec286953aea42cbcb2f7de70a41042f24e62",
+    "copy_ready_handoff_public": false,
     "tracking_issue_url": "https://github.com/rsasaki0109/lidar_slam_ros2/issues/422"
   },
   "capacity": {

@@ -441,6 +441,15 @@ def test_readme_chooser_routes_each_goal_to_one_safe_first_step():
     assert 'needs ROS 2, 8 GiB, and roughly 30 minutes' in chooser
 
 
+def test_readme_names_the_fixed_demo_receipt_handoff():
+    """The repository front door must expose the receipt-only next step."""
+    readme = README_PATH.read_text(encoding='utf-8')
+    assert 'lidarslam-map report /path/to/output/mid360_demo --json' in readme
+    assert '[first-map validation guide](docs/external-first-map-validation.md)' in (
+        readme
+    )
+
+
 def test_getting_started_chooser_limits_the_first_decision_to_three_goals():
     """Canonical onboarding should hide advanced actions from first choice."""
     getting_started = GETTING_STARTED.read_text(encoding='utf-8')
@@ -480,6 +489,35 @@ def test_getting_started_chooser_limits_the_first_decision_to_three_goals():
 
     assert '[v0.9.0 stable release](releases/v0.9.0.md)' in docs_index
     assert 'v0.9.0 stable release candidate' not in docs_index
+
+
+def test_getting_started_keeps_legacy_source_anchor_for_cohort_issue():
+    """The tracked validator issue must not land on a dead source section."""
+    getting_started = GETTING_STARTED.read_text(encoding='utf-8')
+    assert '<a id="1-build-the-workspace"></a>' in getting_started
+    assert '## 1. Install And Build From Source' in getting_started
+
+
+def test_first_map_docs_expose_stable_image_receipt_fallback():
+    """The public v0.9.0 image needs a bounded receipt-only escape hatch."""
+    documents = [
+        GETTING_STARTED.read_text(encoding='utf-8'),
+        GETTING_STARTED_JA.read_text(encoding='utf-8'),
+        EXTERNAL_FIRST_MAP_DOC.read_text(encoding='utf-8'),
+    ]
+
+    for document in documents:
+        assert 'create_first_map_validation_receipt.py' in document
+        assert 'python3 scripts/create_first_map_validation_receipt.py' in document
+        assert '--network none' in document
+        assert 'lidarslam_output:/output:ro' in document
+        assert 'ros2 pkg prefix lidarslam' in document
+        assert 'docker image inspect' in document
+        assert 'v0.9.0-humble' in document
+
+    english = ' '.join(documents[0].split())
+    assert 'Review the printed PASS summary' in english
+    assert 'attach only the already-generated JSON receipt' in english
 
 
 def test_public_schemas_support_ros_distro_jsonschema():
@@ -1332,6 +1370,13 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
     assert 'scripts/check_external_first_map_readiness.py' in (
         release_bundle_script
     )
+    assert 'scripts/check_first_map_verification_package.py' in (
+        release_bundle_script
+    )
+    assert "'docs/schemas'" in release_bundle_script
+    assert 'python3 scripts/check_first_map_verification_package.py --json' in (
+        release_workflow
+    )
     assert 'scripts/check_v1_readiness.py' in release_bundle_script
     assert 'actions/configure-pages@v5' in docs_site_workflow
     assert 'actions/upload-pages-artifact@v4' in docs_site_workflow
@@ -1352,6 +1397,16 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
     assert "- 'scripts/generate_docs_deployment_manifest.py'" in (
         docs_site_workflow
     )
+    assert "- 'scripts/docs_deployment_contract.py'" in docs_site_workflow
+    assert "- 'scripts/check_first_map_verification_package.py'" in (
+        docs_site_workflow
+    )
+    assert "- 'docs/schemas/first-map-verification-package-v1.schema.json'" in (
+        docs_site_workflow
+    )
+    assert 'python3 scripts/check_first_map_verification_package.py --json' in (
+        docs_site_workflow
+    )
     assert 'scripts/check_public_docs_deployment.py' in release_bundle_script
     assert 'scripts/check_published_onboarding_identity.py' in (
         release_bundle_script
@@ -1359,6 +1414,7 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
     assert 'scripts/generate_docs_deployment_manifest.py' in (
         release_bundle_script
     )
+    assert 'scripts/docs_deployment_contract.py' in release_bundle_script
     assert 'README.md' in docs_site_workflow
 
     rosdistro_release = ROSDISTRO_RELEASE_DOC.read_text(encoding='utf-8')
@@ -2016,6 +2072,7 @@ def test_container_distribution_builds_and_attests_both_supported_distros():
         assert 'sbom:' in workflow
         assert 'provenance:' in workflow
         assert 'lidarslam-map --version' in workflow
+        assert 'report <output>' in workflow
         assert 'lidarslam-map start --help' in workflow
         assert "grep -Fq -- '--map-output-dir'" in workflow
         assert 'LIDARSLAM_SOURCE_REVISION=${{ steps.source.outputs.revision }}' in workflow

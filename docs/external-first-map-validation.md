@@ -9,6 +9,18 @@ The current accepted count is recorded in the
 [machine-readable validation ledger](evidence/external-first-map-validations.json).
 An empty ledger is an honest `0 / 3`, not missing evidence.
 
+Before running either public path from a source checkout, verify that the
+checkout contains one internally consistent handoff package:
+
+```bash
+python3 scripts/check_first_map_verification_package.py --json
+```
+
+This package audit is local-only and read-only. Continue only on `READY`; a
+`NOT_READY` result means the documented Docker/source fallback, receipt
+contract, runtime guard, public-page contract, or release/CI wiring is not
+complete enough for an external validation attempt.
+
 ## Participate
 
 1. Choose one official path without private maintainer instructions:
@@ -26,6 +38,54 @@ An empty ledger is an honest `0 / 3`, not missing evidence.
    ```bash
    lidarslam-map report /path/to/session_bundle
    ```
+
+   The fixed Docker and source first-map demos also retain the same receipt
+   contract but do not create a `session.json` page. For those paths, pass the
+   demo output directory itself (for example,
+   `lidarslam-map report /lidarslam_ws/output/mid360_demo`); the command
+   validates the receipt-bound manifest, diagnosis, and verification log in
+   place and produces the same read-only handoff.
+
+   The published `v0.9.0-{humble,jazzy}` images predate the `report` command.
+   If you use one of those stable images, review
+   `output/mid360_demo/first_map_validation_receipt.json` and complete the
+   issue form manually with its verification summary and the exact image
+   digest; attach only that reviewed receipt. To reprint the summary without
+   writing or networking, the stable image also provides this fallback (use
+   the `jazzy` tag on Ubuntu 24.04):
+
+   ```bash
+   docker run --rm --network none \
+     -v "$PWD/lidarslam_output:/output:ro" \
+     ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble \
+     bash -lc 'helper="$(ros2 pkg prefix lidarslam)/share/lidarslam/product/scripts/create_first_map_validation_receipt.py"; python3 "$helper" /output/mid360_demo'
+   ```
+
+   Review the printed PASS summary and attach only the already-generated JSON receipt.
+   A reviewed `v0.9.1` image (or a later image carrying this CLI contract)
+   provides the copy-ready `lidarslam-map report` command.
+
+   Record the immutable digest of the pulled stable image:
+
+   ```bash
+   docker image inspect \
+     --format='{{index .RepoDigests 0}}' \
+     ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
+   ```
+
+   If no `ghcr.io/...@sha256:...` value is returned, stop rather than
+   reporting a mutable tag as the runtime identity.
+
+   For a public source checkout that predates the output-directory handoff,
+   print the same receipt without writing it:
+
+   ```bash
+   python3 scripts/create_first_map_validation_receipt.py \
+     /path/to/ros2_ws/output/mid360_demo --json
+   ```
+
+   Review the `PASS` JSON and attach only that receipt; omit `--write` and do
+   not attach maps, manifests, diagnoses, or logs.
 
    The command performs no write or network request. It revalidates the PASS
    receipt against the retained manifest, diagnosis, and verification log,

@@ -80,6 +80,9 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" \
       -DLIDARSLAM_SOURCE_DIRTY:STRING="${LIDARSLAM_SOURCE_DIRTY}" \
   && . install/setup.sh \
   && lidarslam-map --version \
+  && lidarslam-map --help >/tmp/lidarslam-cli-help.txt \
+  && grep -Fq 'report <output>' /tmp/lidarslam-cli-help.txt \
+  && rm -f /tmp/lidarslam-cli-help.txt \
   && lidarslam-map start --help >/tmp/lidarslam-start-help.txt \
   && grep -Fq 'Detect and configure the sensors' /tmp/lidarslam-start-help.txt \
   && grep -Fq -- '--map-output-dir' /tmp/lidarslam-start-help.txt \
@@ -117,6 +120,9 @@ RUN test -x /lidarslam_ws/docker/entrypoint.sh \
   && test -x /lidarslam_ws/install/lidarslam/share/lidarslam/product/scripts/run_docker_demo.sh \
   && . /lidarslam_ws/install/setup.sh \
   && lidarslam-map --version \
+  && lidarslam-map --help >/tmp/lidarslam-cli-help.txt \
+  && grep -Fq 'report <output>' /tmp/lidarslam-cli-help.txt \
+  && rm -f /tmp/lidarslam-cli-help.txt \
   && lidarslam-map start --help >/tmp/lidarslam-start-help.txt \
   && grep -Fq 'Detect and configure the sensors' /tmp/lidarslam-start-help.txt \
   && grep -Fq -- '--map-output-dir' /tmp/lidarslam-start-help.txt \

@@ -494,10 +494,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert report['checks']['first_map_cohort']['pending_launch_gates'] == [
         'comparable_docker_row',
         'comparable_source_row',
-        'canonical_documentation_path',
-        'canonical_documentation_url',
-        'canonical_documentation_provenance',
-        'canonical_runtime_ref',
+        'copy_ready_handoff_public',
     ]
 
     card = DASHBOARD.render_card(report)
@@ -517,13 +514,13 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert 'v1 blockers:' in card
     assert 'ndt_omp' in card
     assert 'first-map cohort blockers:' in card
-    assert 'canonical_runtime_ref' in card
-    assert 'check_public_docs_deployment.py' in card
+    assert 'copy_ready_handoff_public' in card
+    assert 'copy-ready first-map handoff' in card
     assert (
         'record one clean Docker PASS at that version with all seven '
         'measurements' in card
     )
-    assert 'immutable GHCR digest' in card
+    assert 'all seven measurements' in card
     assert 'g0-current-action-packet-2026-08-14.md' in card
 
     packet = (

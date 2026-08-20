@@ -132,6 +132,42 @@ docker run --rm \
 取得し、最低8 GiBの空き容量を使います。目安は約30分ですが、回線とCPUで
 変わります。出力先は`lidarslam_output/mid360_demo/`です。
 
+公開済み`v0.9.0` imageには、現在の`lidarslam-map report` handoff commandがまだ
+ありません。固定Dockerデモが完了したら、同じoutputの
+`first_map_validation_receipt.json`を開いて`status: PASS`と全checkを確認し、receiptだけを
+独立validationのissue formへ添付します。sourceまたは`report`対応済みimageでは、後述の
+`lidarslam-map report`でreceipt-bound handoffを作成します。
+
+summaryだけを再表示したい場合は、公開済みstable imageの次のread-only fallbackも使えます。
+outputはread-only mountし、networkも無効にしています。
+
+```bash
+docker run --rm --network none \
+  -v "$PWD/lidarslam_output:/output:ro" \
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble \
+  bash -lc 'helper="$(ros2 pkg prefix lidarslam)/share/lidarslam/product/scripts/create_first_map_validation_receipt.py"; python3 "$helper" /output/mid360_demo'
+```
+
+Ubuntu 24.04/Jazzyではimage tagを`v0.9.0-jazzy`へ置き換えます。表示されたPASS summaryを
+reviewし、すでに生成されたJSON receiptだけを添付します。
+pull後にimmutable image identityも確認します。
+
+```bash
+docker image inspect \
+  --format='{{index .RepoDigests 0}}' \
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
+```
+
+`ghcr.io/...@sha256:...`が表示されない場合はidentity未検証として停止し、mutable tagを
+代用しません。
+
+```bash
+lidarslam-map report /path/to/session-or-demo-output --json
+```
+
+固定デモのoutputは`session.json`ではなくreceiptを直接持つため、
+`/path/to/session-or-demo-output`には`lidarslam_output/mid360_demo/`を指定します。
+
 ## 3. sourceから構築する
 
 Ubuntu 22.04/HumbleまたはUbuntu 24.04/JazzyにROS 2を導入してから実行します。
@@ -380,6 +416,21 @@ lidarslam-map sessions ./output --json
 lidarslam-map report /path/to/session_bundle
 ```
 
+固定Docker/source demoは`session.json`を作らずreceipt-bound outputだけを残すため、その場合は
+`lidarslam-map report /path/to/output/mid360_demo --json`のようにoutput directoryを渡します。
+どちらもmanifest、diagnosis、verification logのhashを再検証するread-only handoffです。
+
+公開source checkoutが`report <output>`対応前の場合は、checkout内のhelperでreceiptだけを
+read-only再生成・表示できます。
+
+```bash
+python3 scripts/create_first_map_validation_receipt.py \
+  ~/ros2_ws/output/mid360_demo --json
+```
+
+`PASS`のJSON receiptだけをreviewして添付し、`--write`は使いません。map、manifest、diagnosis、
+logは添付しません。
+
 このcommandは、sessionがverifiedであること、receiptがそのsession内の通常ファイルであること、
 receiptのschemaと全check、manifest・diagnosis・verification logのhashが一致することを確認します。
 `READY FOR REVIEW`が出た場合だけ、表示されたreceipt pathのJSONを内容確認して共有候補にします。
@@ -391,6 +442,18 @@ receiptのschemaと全check、manifest・diagnosis・verification logのhashが�
 手編集してhashを合わせたり、古いreceiptを新しいmapへコピーしたりせず、保存された`Details:`、
 `Next:`、`retry.command`またはverification-enabledな新しいoutput commandへ戻ります。元の証跡は
 削除・uploadせず、support reportと公開添付のprivacy境界を守ります。
+
+### first-map検証パッケージの事前監査
+
+source checkoutからDockerまたはsourceの経路を選ぶ前に、次の監査を実行します。
+
+```bash
+python3 scripts/check_first_map_verification_package.py --json
+```
+
+この監査はlocal-onlyかつread-onlyです。`READY`のときだけ先へ進みます。Docker/sourceのhandoff、
+receipt schema、runtime互換性guard、公開ページのmarker、CI gate、release bundle inventoryが
+一つの検証パッケージとして揃っていることを確認します。
 
 ### receipt再検証に失敗したときの復旧
 

@@ -228,7 +228,8 @@ titles, checks, commands, and free text are excluded.
 
 For a verified first map, run
 `lidarslam-map report <session_bundle>` or copy **Prepare a first-map report**
-from `session.html`. This command creates no ZIP, writes no
+from `session.html`; fixed Docker/source demo outputs can be passed directly
+when they contain the receipt but no session page. This command creates no ZIP, writes no
 file, and contacts no remote service. It requires receipt-bound quality PASS,
 revalidates the retained receipt plus manifest, diagnosis, and verification-log
 hashes, then prints one copy-ready verification summary, safe environment
