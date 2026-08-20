@@ -246,6 +246,7 @@ if(BUILD_TESTING)
     test_external_first_map_acceptance
     test_first_map_demo
     test_first_map_validator_cohort
+    test_first_map_verification_package
     test_glim_reference_cache
     test_github_api_auth
     test_lidarslam_guided
