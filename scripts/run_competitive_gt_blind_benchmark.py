@@ -40,6 +40,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -80,6 +81,24 @@ DENY_WORDS = ('ground_truth', 'ground-truth', 'ape', 'scorer', 'map_quality')
 SHA_RE = re.compile(r'^[0-9a-f]{64}$')
 CONTAINER_SHA_RE = re.compile(r'^sha256:[0-9a-f]{64}$')
 MEMORY_EVIDENCE_NAME = 'container_memory.json'
+PROCESS_RSS_EVIDENCE_NAME = 'container_process_rss.json'
+PROCESS_RSS_MEASUREMENT_VERSION = 'm6a7-container-process-rss-v1'
+PROCESS_RSS_PRIMARY_METRIC = 'aggregate_process_tree_peak_rss_bytes'
+PROCESS_RSS_METRIC_DEFINITION = (
+    'sum_of_per_process_vmrss_peaks_shared_pages_may_be_recounted')
+M6A7_REQUIRED_CONTRACT = {
+    'schema_version': 1,
+    'measurement_version': PROCESS_RSS_MEASUREMENT_VERSION,
+    'measurement_scope': 'container_pid_namespace_proc_status',
+    'primary_metric': PROCESS_RSS_PRIMARY_METRIC,
+    'primary_metric_definition': PROCESS_RSS_METRIC_DEFINITION,
+    'sampler_interval_ms': 250,
+    'sampler_scheduler_nice': 10,
+    'memory_max': 'max',
+    'oom_delta_required': 0,
+    'docker_client_comparable': False,
+    'prior_failed_audit_lineage_required': True,
+}
 
 
 class ContractError(ValueError):
@@ -367,7 +386,6 @@ def docker_command(
         'taskset', '--cpu-list', '0-7', '/usr/bin/time', '-v',
         '-o', str(output_dir / 'host_time.txt'), 'docker', 'run', '--rm', '--init',
         '--network', 'none', '--cpuset-cpus', '0-7', '--read-only',
-        '--memory', '4g', '--memory-swap', '4g',
         '--tmpfs', '/tmp:rw,noexec,nosuid,size=1024m', '--shm-size', '512m']
     for key, value in env.items():
         common.extend(['-e', f'{key}={value}'])
@@ -423,6 +441,60 @@ def system_identity(receipt: dict[str, Any], system: str) -> dict[str, Any]:
     }
 
 
+def m6a7_contract_identity(receipt: dict[str, Any]) -> dict[str, Any]:
+    """Return the immutable process-RSS contract required by campaign4.
+
+    This checks receipt metadata only.  The external M6a7 audit is separately
+    hashed and referenced; no input, calibration, or ground-truth path is
+    opened here.
+    """
+    contract = receipt.get('m6a7_process_rss_contract')
+    if not isinstance(contract, dict):
+        raise ContractError('receipt.m6a7_process_rss_contract is missing')
+    if contract.get('status') != 'PASS':
+        raise ContractError('M6a7 process-RSS audit is not PASS')
+    for key, expected in M6A7_REQUIRED_CONTRACT.items():
+        if contract.get(key) != expected:
+            raise ContractError(
+                f'M6a7 process-RSS contract {key} is not {expected!r}')
+    result = {key: contract[key] for key in M6A7_REQUIRED_CONTRACT}
+    for name in ('final_audit', 'final_receipt', 'summary'):
+        item = contract.get(name)
+        if not isinstance(item, dict) or not isinstance(item.get('path'), str) or \
+                not SHA_RE.fullmatch(str(item.get('sha256', ''))):
+            raise ContractError(f'M6a7 {name} path/SHA is missing')
+        path = Path(item['path'])
+        if not path.is_file() or sha256_file(path) != item['sha256']:
+            raise ContractError(f'M6a7 {name} path/SHA does not match')
+        result[name] = {'path': str(path), 'sha256': item['sha256']}
+    schedule = contract.get('schedule')
+    if not isinstance(schedule, dict) or schedule.get('order') != 'AB_BA_alternating' or \
+            schedule.get('pairs') != 20 or schedule.get('runs') != 40 or \
+            schedule.get('all_complete') is not True:
+        raise ContractError('M6a7 schedule is not the complete 20-pair/40-run audit')
+    blind_scope = contract.get('blind_scope')
+    if not isinstance(blind_scope, dict) or \
+            blind_scope.get('ground_truth_content_opened') is not False or \
+            blind_scope.get('scorer_invoked') is not False or \
+            blind_scope.get('campaign4_started') is not False:
+        raise ContractError('M6a7 audit is not GT/scorer/campaign4 blind')
+    lineage = contract.get('lineage')
+    failed = lineage.get('prior_failed_audit_roots') \
+        if isinstance(lineage, dict) else None
+    roots = failed.get('roots') if isinstance(failed, dict) else None
+    if (not isinstance(lineage, dict) or
+            lineage.get('prior_failed_audits_retained') is not True or
+            lineage.get('campaign4_authorized') is not False or
+            not isinstance(failed, dict) or failed.get('status') != 'FAIL_CLOSED' or
+            failed.get('immutable') is not True or not isinstance(roots, list) or
+            any(not Path(item).is_dir() for item in roots)):
+        raise ContractError('M6a7 prior failed-audit lineage is not retained')
+    result['schedule'] = dict(schedule)
+    result['blind_scope'] = dict(blind_scope)
+    result['lineage'] = dict(lineage)
+    return result
+
+
 def verify_input_identity(item: dict[str, Any], checked_slots: set[str]) -> None:
     """Verify one frozen slot at most once during a multi-run preflight.
 
@@ -464,6 +536,7 @@ def build_plan(profile_doc: dict[str, Any], receipt: dict[str, Any], selection: 
     expected_profile_sha = receipt.get('common_identity', {}).get('profile_sha256')
     if expected_profile_sha != profile_sha:
         raise ContractError('profile canonical SHA differs from execution receipt')
+    process_rss_contract = m6a7_contract_identity(receipt)
     image_info = {}
     for system in SYSTEM_ORDER:
         image_info[system] = image_ref_and_labels(
@@ -507,6 +580,7 @@ def build_plan(profile_doc: dict[str, Any], receipt: dict[str, Any], selection: 
         'systems': list(SYSTEM_ORDER), 'slots': list(SLOT_ORDER),
         'repetitions': 3, 'ground_truth_content_opened': False,
         'scorer_invoked': False,
+        'm6a7_process_rss_contract': process_rss_contract,
     }
     return {'schema_version': 1, 'kind': 'm6a_gt_blind_plan',
             'status': 'preflight_ready' if inspect_images else 'planned',
@@ -541,25 +615,114 @@ def parse_time_report(path: Path) -> dict[str, float | int | None]:
             'docker_client_peak_rss_kb': int(rss.group(1)) if rss else None}
 
 
-def parse_container_memory_evidence(path: Path) -> dict[str, Any]:
-    """Validate the only RSS source accepted by the GT-blind driver."""
-    invalid = {'valid': False, 'reason': 'missing_or_unreadable_memory_evidence'}
+def _load_json_object(path: Path) -> dict[str, Any] | None:
     if not path.is_file():
-        return invalid
+        return None
     try:
         value = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, UnicodeError, json.JSONDecodeError):
-        return invalid | {'reason': 'memory_evidence_not_valid_json'}
-    if not isinstance(value, dict):
-        return invalid | {'reason': 'memory_evidence_is_not_an_object'}
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def parse_process_rss_evidence(path: Path) -> dict[str, Any]:
+    """Validate process-tree RSS; client ``time -v`` is never accepted here."""
+    value = _load_json_object(path)
+    if value is None:
+        return {'valid': False, 'reason': 'missing_or_unreadable_process_rss'}
     result = dict(value)
     result['valid'] = False
-    required = ('container_cgroup_peak_bytes', 'memory_current_bytes')
+    if value.get('measurement_version') != PROCESS_RSS_MEASUREMENT_VERSION or \
+            value.get('measurement_scope') != 'container_pid_namespace_proc_status':
+        result['reason'] = 'process_rss_version_or_scope_invalid'
+        return result
+    if value.get('status') != 'pass' or value.get('atomic') is not True or \
+            value.get('sampler_excluded') is not True:
+        result['reason'] = 'process_rss_sampler_status_invalid'
+        return result
+    sampler_pid = value.get('sampler_pid')
+    first_stamp = value.get('first_sample_monotonic_ns')
+    last_stamp = value.get('last_sample_monotonic_ns')
+    if any(isinstance(item, bool) or not isinstance(item, int) or item < 0
+           for item in (sampler_pid, first_stamp, last_stamp)) or \
+            sampler_pid == 0 or last_stamp < first_stamp:
+        result['reason'] = 'process_rss_timestamps_invalid'
+        return result
+    peak = value.get('peak')
+    required = ('vmrss_bytes', 'rss_anon_bytes', 'rss_file_bytes',
+                'rss_shmem_bytes', 'process_count')
+    if not isinstance(peak, dict) or any(
+            isinstance(peak.get(key), bool) or not isinstance(peak.get(key), int) or
+            peak.get(key) < 0 for key in required):
+        result['reason'] = 'process_rss_peak_fields_invalid'
+        return result
+    aggregate = value.get(PROCESS_RSS_PRIMARY_METRIC)
+    if value.get('primary_metric') != PROCESS_RSS_PRIMARY_METRIC or \
+            value.get('primary_metric_definition') != \
+            PROCESS_RSS_METRIC_DEFINITION or \
+            isinstance(aggregate, bool) or not isinstance(aggregate, int) or \
+            aggregate < 0 or aggregate != peak['vmrss_bytes']:
+        result['reason'] = 'process_rss_primary_metric_invalid'
+        return result
+    sample_count = value.get('sample_count')
+    if isinstance(sample_count, bool) or not isinstance(sample_count, int) or \
+            sample_count < 2:
+        result['reason'] = 'process_rss_sample_count_invalid'
+        return result
+    for key in ('sample_errors', 'pid_race_skips', 'missed_intervals'):
+        if isinstance(value.get(key), bool) or not isinstance(value.get(key), int) or \
+                value.get(key) < 0:
+            result['reason'] = f'process_rss_{key}_invalid'
+            return result
+    thresholds = value.get('thresholds')
+    if not isinstance(thresholds, dict):
+        result['reason'] = 'process_rss_thresholds_missing'
+        return result
+    min_samples = thresholds.get('min_samples')
+    if isinstance(min_samples, bool) or not isinstance(min_samples, int) or \
+            min_samples < 1 or sample_count < min_samples:
+        result['reason'] = 'process_rss_min_sample_threshold_invalid'
+        return result
+    max_errors = thresholds.get('max_errors')
+    max_races = thresholds.get('max_race_skips')
+    if any(isinstance(item, bool) or not isinstance(item, int) or item < 0
+           for item in (max_errors, max_races)) or \
+            value['sample_errors'] > max_errors or value['pid_race_skips'] > max_races:
+        result['reason'] = 'process_rss_error_threshold_exceeded'
+        return result
+    if value.get('missed_intervals') != 0:
+        result['reason'] = 'process_rss_missed_interval'
+        return result
+    jitter = value.get('interval_jitter_percent')
+    max_jitter = thresholds.get('max_jitter_percent')
+    if isinstance(jitter, bool) or not isinstance(jitter, (int, float)) or \
+            not math.isfinite(float(jitter)) or jitter < 0 or \
+            isinstance(max_jitter, bool) or not isinstance(max_jitter, (int, float)) or \
+            not math.isfinite(float(max_jitter)) or max_jitter < 0 or \
+            jitter > max_jitter:
+        result['reason'] = 'process_rss_jitter_invalid'
+        return result
+    result['valid'] = True
+    result['reason'] = ''
+    result[PROCESS_RSS_PRIMARY_METRIC] = aggregate
+    # Keep the old key as a read-only compatibility alias. New receipts must
+    # use the explicit aggregate metric name above.
+    result['process_tree_peak_rss_bytes'] = aggregate
+    return result
+
+
+def parse_container_memory_evidence(path: Path) -> dict[str, Any]:
+    """Validate cgroup diagnostics and its linked process RSS evidence."""
+    value = _load_json_object(path)
+    if value is None:
+        return {'valid': False, 'reason': 'missing_or_unreadable_memory_evidence'}
+    result = dict(value)
+    result['valid'] = False
     if value.get('status') != 'pass':
         result['reason'] = 'memory_measurement_status_not_pass'
         return result
-    if value.get('measurement_version') != 'm6a5-cgroup-v2-memory-v1' or \
-            value.get('measurement_scope') != 'container_cgroup_v2':
+    if value.get('measurement_version') != 'm6a7-container-memory-v2' or \
+            value.get('measurement_scope') != 'container_cgroup_v2_with_pid_rss':
         result['reason'] = 'memory_measurement_scope_or_version_invalid'
         return result
     if value.get('cgroup_version') != 2 or \
@@ -574,6 +737,7 @@ def parse_container_memory_evidence(path: Path) -> dict[str, Any]:
     if not isinstance(readability, dict) or readability.get('status') != 'pass':
         result['reason'] = 'output_tree_readability_contract_invalid'
         return result
+    required = ('container_cgroup_peak_bytes', 'memory_current_bytes')
     values = [value.get(key) for key in required]
     if any(isinstance(item, bool) or not isinstance(item, int) or item < 0
            for item in values):
@@ -582,19 +746,15 @@ def parse_container_memory_evidence(path: Path) -> dict[str, Any]:
     peak, current = values
     max_raw = value.get('memory_max_raw')
     max_bytes = value.get('memory_max_bytes')
-    max_unlimited = value.get('memory_max_unlimited')
     if max_raw == 'max':
-        if max_unlimited is not True or max_bytes is not None:
+        if value.get('memory_max_unlimited') is not True or max_bytes is not None:
             result['reason'] = 'unlimited_memory_max_fields_inconsistent'
             return result
     elif isinstance(max_raw, str) and re.fullmatch(r'[0-9]+', max_raw):
-        if max_unlimited is not False or \
+        if value.get('memory_max_unlimited') is not False or \
                 isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or \
-                max_bytes <= 0 or int(max_raw) != max_bytes:
+                max_bytes <= 0 or int(max_raw) != max_bytes or current > max_bytes:
             result['reason'] = 'numeric_memory_max_fields_inconsistent'
-            return result
-        if current > max_bytes:
-            result['reason'] = 'memory_current_exceeds_max'
             return result
     else:
         result['reason'] = 'memory_max_missing_or_non_numeric'
@@ -602,9 +762,95 @@ def parse_container_memory_evidence(path: Path) -> dict[str, Any]:
     if peak < current:
         result['reason'] = 'memory_measurement_range_invalid'
         return result
+    events = value.get('cgroup_events')
+    if not isinstance(events, dict) or events.get('status') != 'pass' or \
+            events.get('oom_free') is not True:
+        result['reason'] = 'cgroup_events_or_oom_contract_invalid'
+        return result
+    for name in ('memory_events', 'memory_events_local', 'memory_pressure'):
+        record = events.get(name)
+        if not isinstance(record, dict) or not all(
+                isinstance(record.get(key), dict)
+                for key in ('baseline', 'final', 'delta')):
+            result['reason'] = f'cgroup_event_{name}_record_invalid'
+            return result
+        if set(record['baseline']) != set(record['final']) or \
+                set(record['baseline']) != set(record['delta']):
+            result['reason'] = f'cgroup_event_{name}_keys_invalid'
+            return result
+        if name == 'memory_pressure' and set(record['baseline']) != {'some', 'full'}:
+            result['reason'] = 'cgroup_pressure_keys_invalid'
+            return result
+        for field in record['baseline']:
+            before = record['baseline'][field]
+            after = record['final'][field]
+            difference = record['delta'][field]
+            if isinstance(before, dict):
+                if not isinstance(after, dict) or not isinstance(difference, dict) or \
+                        set(before) != set(after) or set(before) != set(difference):
+                    result['reason'] = f'cgroup_event_{name}_nested_invalid'
+                    return result
+                for nested in before:
+                    values = (before[nested], after[nested], difference[nested])
+                    if any(isinstance(item, bool) or
+                           not isinstance(item, (int, float)) or
+                           not math.isfinite(float(item)) or item < 0
+                           for item in values):
+                        result['reason'] = f'cgroup_event_{name}_value_invalid'
+                        return result
+            else:
+                values = (before, after, difference)
+                if any(isinstance(item, bool) or
+                       not isinstance(item, (int, float)) or
+                       not math.isfinite(float(item)) or item < 0
+                       for item in values):
+                    result['reason'] = f'cgroup_event_{name}_value_invalid'
+                    return result
+    oom_delta = events.get('oom_delta')
+    if not isinstance(oom_delta, dict) or any(
+            isinstance(item, bool) or not isinstance(item, int) or item != 0
+            for item in oom_delta.values()):
+        result['reason'] = 'cgroup_oom_delta_invalid'
+        return result
+    embedded = value.get('process_rss_evidence')
+    if not isinstance(embedded, dict):
+        result['reason'] = 'embedded_process_rss_missing'
+        return result
+    if value.get('primary_metric') != PROCESS_RSS_PRIMARY_METRIC or \
+            value.get('primary_metric_definition') != \
+            PROCESS_RSS_METRIC_DEFINITION or \
+            value.get('process_rss_metric_definition') != \
+            PROCESS_RSS_METRIC_DEFINITION:
+        result['reason'] = 'memory_primary_metric_contract_invalid'
+        return result
+    embedded_path = path.with_name(PROCESS_RSS_EVIDENCE_NAME)
+    process = parse_process_rss_evidence(embedded_path)
+    if not process['valid']:
+        result['reason'] = f'process_rss_evidence_invalid:{process["reason"]}'
+        return result
+    aggregate = value.get(PROCESS_RSS_PRIMARY_METRIC)
+    if isinstance(aggregate, bool) or not isinstance(aggregate, int) or \
+            aggregate < 0 or \
+            embedded.get('peak', {}).get('vmrss_bytes') != aggregate or \
+            process.get(PROCESS_RSS_PRIMARY_METRIC) != aggregate or \
+            value.get('process_tree_peak_rss_bytes') != aggregate:
+        result['reason'] = 'process_rss_embedded_or_primary_mismatch'
+        return result
     result['valid'] = True
     result['reason'] = ''
+    result[PROCESS_RSS_PRIMARY_METRIC] = process[PROCESS_RSS_PRIMARY_METRIC]
+    result['process_tree_peak_rss_bytes'] = process[PROCESS_RSS_PRIMARY_METRIC]
     return result
+
+
+def comparison_rss_bytes(attempt: dict[str, Any]) -> int:
+    """Return the only RSS value permitted for comparison gates."""
+    value = attempt.get(PROCESS_RSS_PRIMARY_METRIC)
+    if value is None:
+        value = attempt.get('process_tree_peak_rss_bytes')
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ContractError('process-tree peak RSS is missing or invalid')
+    return value
 
 
 def output_tree_hash(path: Path) -> str | None:
@@ -672,11 +918,12 @@ def write_driver_failure(output_root: Path, plan: dict[str, Any],
 
 def expected_outputs(system: str, output: Path) -> list[Path]:
     memory = output / MEMORY_EVIDENCE_NAME
+    process_rss = output / PROCESS_RSS_EVIDENCE_NAME
     if system == 'ours':
-        return [output / 'traj_raw.tum', memory]
+        return [output / 'traj_raw.tum', memory, process_rss]
     if system == 'glim_cpu':
-        return [output / 'dump' / 'traj_lidar.txt', memory]
-    return [output / 'odometry.csv', memory]
+        return [output / 'dump' / 'traj_lidar.txt', memory, process_rss]
+    return [output / 'odometry.csv', memory, process_rss]
 
 
 def run_attempt(plan: dict[str, Any], output_root: Path,
@@ -716,11 +963,13 @@ def run_attempt(plan: dict[str, Any], output_root: Path,
                   'argv_gt_free': True, 'env_gt_free': True, 'mounts_gt_free': True})
     try:
         write_json(part / 'gt_blind_proof.json', proof)
+        process_rss_evidence = parse_process_rss_evidence(
+            part / PROCESS_RSS_EVIDENCE_NAME)
         memory_evidence = parse_container_memory_evidence(
             part / MEMORY_EVIDENCE_NAME)
         complete = not timed_out and exit_status == 0 and \
             all(path.is_file() for path in expected) and \
-            memory_evidence['valid']
+            process_rss_evidence['valid'] and memory_evidence['valid']
         timing = parse_time_report(part / 'host_time.txt')
         report = {
             'schema_version': 1, 'kind': 'm6a_gt_blind_attempt',
@@ -744,11 +993,36 @@ def run_attempt(plan: dict[str, Any], output_root: Path,
                 'complete': complete,
                 'expected_outputs': [str(path.relative_to(part))
                                      for path in expected],
-                'memory_evidence_valid': memory_evidence['valid']},
+                'memory_evidence_valid': memory_evidence['valid'],
+                'process_rss_evidence_valid': process_rss_evidence['valid']},
             'timing': timing,
             'docker_client_peak_rss_kb': timing.get('docker_client_peak_rss_kb'),
+            PROCESS_RSS_PRIMARY_METRIC: process_rss_evidence.get(
+                PROCESS_RSS_PRIMARY_METRIC),
+            'process_tree_peak_rss_bytes': process_rss_evidence.get(
+                PROCESS_RSS_PRIMARY_METRIC),
+            'comparison_rss_metric': PROCESS_RSS_PRIMARY_METRIC,
+            'process_rss_measurement_contract': {
+                'measurement_version': PROCESS_RSS_MEASUREMENT_VERSION,
+                'measurement_scope': 'container_pid_namespace_proc_status',
+                'primary_metric': PROCESS_RSS_PRIMARY_METRIC,
+                'primary_metric_definition': PROCESS_RSS_METRIC_DEFINITION,
+                'sampler_script_sha256': sha256_file(
+                    ROOT / 'scripts/sample_container_process_rss.py'),
+                'memory_helper_script_sha256': sha256_file(
+                    ROOT / 'scripts/container_memory_evidence.py'),
+            },
+            'process_rss_evidence_file_sha256': sha256_file(
+                part / PROCESS_RSS_EVIDENCE_NAME)
+            if (part / PROCESS_RSS_EVIDENCE_NAME).is_file() else None,
+            'container_memory_evidence_file_sha256': sha256_file(
+                part / MEMORY_EVIDENCE_NAME)
+            if (part / MEMORY_EVIDENCE_NAME).is_file() else None,
             'container_cgroup_peak_bytes': memory_evidence.get(
                 'container_cgroup_peak_bytes'),
+            'container_cgroup_total_peak_bytes': memory_evidence.get(
+                'container_cgroup_total_peak_bytes'),
+            'cgroup_events': memory_evidence.get('cgroup_events'),
             'memory_evidence': memory_evidence,
             'artifact_hashes': artifact_hashes(part),
             'output_tree_sha256': output_tree_hash(part),

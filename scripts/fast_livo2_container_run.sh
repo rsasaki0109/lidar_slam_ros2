@@ -20,11 +20,19 @@ cleanup() {
       kill -TERM "${process_group}" >/dev/null 2>&1 || true
     fi
   done
-  wait >/dev/null 2>&1 || true
+  # The shared EXIT finalizer stops the sampler and publishes evidence before
+  # waiting for remaining children. This keeps early exits signal-safe while
+  # retaining the existing process-group cleanup.
   m6a5_write_container_memory_evidence "${exit_status}" || true
+  wait >/dev/null 2>&1 || true
   return "${exit_status}"
 }
 trap cleanup EXIT
+m6a5_install_container_signal_traps
+if ! m6a7_start_process_rss_sampler; then
+  echo 'FAST process RSS sampler failed to start' >&2
+  exit 11
+fi
 
 set +u
 source /opt/ros/noetic/setup.bash

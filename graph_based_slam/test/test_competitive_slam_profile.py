@@ -189,6 +189,36 @@ def test_m6a5_memory_contract_tamper_is_fail_closed():
     assert any('docker_client_comparable' in item for item in result['errors'])
 
 
+def test_m6a7_process_rss_contract_and_audit_are_bound():
+    profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    contract = receipt['m6a7_process_rss_contract']
+    assert contract['status'] == 'PASS'
+    assert contract['primary_metric'] == 'aggregate_process_tree_peak_rss_bytes'
+    assert contract['primary_metric_definition'] == (
+        'sum_of_per_process_vmrss_peaks_shared_pages_may_be_recounted')
+    assert contract['memory_max'] == 'max'
+    assert contract['docker_client_comparable'] is False
+    assert contract['schedule'] == {
+        'order': 'AB_BA_alternating', 'pairs': 20, 'runs': 40,
+        'all_complete': True}
+    assert contract['blind_scope'] == {
+        'ground_truth_content_opened': False, 'scorer_invoked': False,
+        'campaign4_started': False}
+    result = _CHECKER.evaluate(receipt, profile_document)
+    assert result['checks']['m6a7_process_rss_contract']['pass'] is True
+    assert result['status'] == 'PASS'
+
+
+def test_m6a7_process_rss_contract_tamper_is_fail_closed():
+    profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    receipt['m6a7_process_rss_contract']['memory_max'] = '4g'
+    result = _CHECKER.evaluate(receipt, profile_document)
+    assert result['checks']['m6a7_process_rss_contract']['pass'] is False
+    assert any('memory_max' in item for item in result['errors'])
+
+
 def test_observed_identity_is_complete_after_external_freeze():
     profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
     receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))

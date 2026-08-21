@@ -3,5 +3,5 @@ receipt_kind: competitive_execution_selection
 schema_version: 1
 status: ready
 common_identity:
-  profile_sha256: fbff4dab500cdcf857ba18653b21257b43969aa2346e414ad718343a6d0ab8a5
+  profile_sha256: 3087c886b470d3e922225be41b7f24419391896f5b849942d7c675b2473516a8
   profile_sha256_kind: canonical_profile_sha256_v1

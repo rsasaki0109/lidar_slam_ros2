@@ -369,10 +369,13 @@ the summary SHA is
 `9ae7115d10dee09f5287317b5e9a3912580f7ae31cfd93e8686162149e108bf0`.
 All 27 scheduled attempts are preflight-ready, but the campaign has zero
 attempts, `execute_started=false`, and both GT content access and scorer use
-are false.  The current execution-receipt raw SHA is
-`d89d30d9e516f7d7211536bd1ea4f837ae95c4f7aa4527af60a5f7699c3d677f`; its
-profile canonical SHA is
-`5a8b81b7483ce9921fdfb4393ed006390fc5f0b2553b5e29976de96725a4da39`.
+are false.  The historical M6a5 checkpoint recorded execution-receipt raw
+SHA
+`d89d30d9e516f7d7211536bd1ea4f837ae95c4f7aa4527af60a5f7699c3d677f` and
+profile canonical SHA
+`5a8b81b7483ce9921fdfb4393ed006390fc5f0b2553b5e29976de96725a4da39`;
+M6a7 later resynchronized these identities after adding its audited metric
+contract (the current values are recorded in the M6a7 section below).
 Campaign1 and campaign2 remain immutable incomplete lineage records.  No
 M6b scoring, accuracy, performance, map-quality, or README/SOTA claim is
 authorized by this preflight.
@@ -406,6 +409,61 @@ RSS, accuracy, map-quality, and SOTA gates are invalid/insufficient here.
 Campaign lineage is campaign1 immutable failure -> campaign2 immutable
 partial -> campaign3 incomplete -> planned campaign4.  M6b is not
 authorized.
+
+### M6a7 process-tree RSS audit and campaign4 gate (2026-08-22)
+
+Before planning campaign4, the M6a7 evidence was re-audited read-only with the
+correct GNU `time` parser (including indented `Exit status:` lines) and strict
+schedule/mode validation.  The final audit is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/v3_run_audit.json`
+(SHA-256
+`bd7f57cd2cb6fe8b93a9c28d7b193968d3e865180f2985fb66c44c736e7cd818`), and its
+normalized receipt is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/m6a7_v3_final_receipt.json`
+(SHA-256
+`06985d4c4900dbe1aa27687c023c4b6c2ddd3c362ed6782c92a048f5e1eae62e`).
+The audit accepts exactly 20 AB/BA pairs (40 runs), verifies every run's
+Docker/host exit status and mode, and rejects missing, duplicate, or unexpected
+directories.  Earlier failed audit attempts remain immutable lineage evidence;
+they are not overwritten by this PASS audit.
+
+The comparable memory metric for the next campaign is the aggregate
+process-tree peak RSS, `aggregate_process_tree_peak_rss_bytes`, defined as the
+sum of each process's peak `VmRSS` (shared pages may be counted once per
+process).  Sampling is 250 ms with scheduler nice 10, cgroup v2
+`memory.max=max`, and zero OOM/`oom_kill` delta required.  Cgroup total memory
+and host Docker-client RSS are diagnostics only; the latter is explicitly not
+comparable.  M6a7's measured overhead gate passed (median absolute 1.8513%,
+bootstrap 95% upper 4.1914%), as did signal, allocation/cache-separation, and
+all three synthetic wrapper smoke contracts.  This is measurement-contract
+evidence, not SLAM accuracy or SOTA evidence.
+
+The checked-in execution receipt and profile bind the audit/receipt/summary
+file SHAs using the existing `canonical_profile_sha256_v1` projection.  The
+profile excludes only its registered execution-receipt file SHA; no mtime or
+self-referential receipt hash is used.  Campaign4 remains a separate
+GT-blind, scorer-free dry-run/preflight gate with a fresh results root and
+zero attempts; no performance execution is authorized by this section.
+
+The campaign4 read-only plans were then generated against a fresh, disjoint
+results root
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign4_20260822`.
+The final deterministic dry-run plan SHA is
+`1ffa6836abc9aa94bb41e310de4ff2e50c9f336335b23779f0ccfa1236ea09f2`; a
+repeat dry-run produced the same bytes and SHA.  The final 27/27 preflight
+plan SHA is
+`a8c953e59b6a7dd70891fcdf3c57c791f9735ea6173dda114cd365e188562e4e`.
+Both final plans contain the fixed 27-attempt schedule and the M6a7
+process-tree RSS contract; preflight status is `preflight_ready`, while the
+results root remains empty (`attempts=0`).  The plans bind selection SHA
+`2bfc541a8d6127599f7a36e66c08da44488a08a55a4d9c4709703223be8bdd2b`,
+algorithm revision `866f733677e92ecb08d67126e463da99dd140d46`, all three
+immutable image digests, canonical profile SHA
+`cbb093233b2740e0624fbd348ac293a705fd69e7fa1825723a4e7e493736cc25`, and
+execution-receipt SHA
+`c58d11881f88dd7ea6fef05f1e91edf901ca5eaa23076ff673306580885d14f7`.
+They are GT-blind and scorer-free; `--execute` remains a separate, explicitly
+unauthorized action in this checkpoint.
 
 ### M5c fresh-holdout download checkpoint (2026-08-21)
 

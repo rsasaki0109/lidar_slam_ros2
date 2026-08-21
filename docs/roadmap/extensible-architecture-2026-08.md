@@ -17,7 +17,7 @@
 | FAST_GICP / FAST_VGICP | **Pending** | Dependency is absent in the supported host; no class or fallback is advertised. |
 | Backend loop-registration/plugin seams | **Implemented / experimental** | Live and offline `graph_based_slam` NDT now resolve the same host-resident `lidarslam_builtin/NdtOmp` `backend_loop` request/session before observable processing; `BackendCore` consumes only the typed interface. R2, the path-independent R4 provenance fixture, the M4a receipt/parser fixture, and the pinned MID-360 three-run artifact comparison pass. That historical receipt **fails only the strict max-RTF gate** (`1.006913460 > 1.0`); the M4b bounded-cache implementation/tests and formal stride-5 MID-360 development-profile gate pass (`max RTF=0.264233831`, wall CV `2.484173052%`, peak RSS `565.222656250 MiB`). M4c HILTI exp04 and exp07 three-run backend regression gates also pass with old optimized artifacts exact; the paired exp04 map check passes at 2%, while the unchanged indoor absolute profile fails on both old/current reports. This closes cache/general regression for these receipts only; official dense-GT/SOTA comparison and broader promotion remain M5 pending. GICP stays an explicit legacy bridge. |
 | Competitive SOTA evidence validator | **Implemented / fail-closed; identity frozen, evidence pending** | Additive schema-v2 mode in `evaluate_competitive_suite_gate.py` separates historical exp02/03/21 regression slots from the primary-fresh partition. Every system must provide every dataset in both partitions with exactly three run records; completion, RTF/RSS, map, and per-sequence regression checks cover both, while aggregate APE and hierarchical CI use fresh only. It requires profile-assigned fresh slots (selection/input/reference/calibration hashes), all rivals, pinned per-system provenance, a common scorer fingerprint, an equal canonical seven-field thread policy, and the remaining safety evidence. Exp14/16/18 are now `frozen_unopened` after a read-only deep verification of the managed root; the execution-identity preflight is `PASS` before first run, while benchmark evidence remains `INCOMPLETE` until all required 3-system x 3-slot x 3-run records exist. Exposed exp02/03/21 assets cannot be relabelled fresh. Synthetic boundary/negative tests pass and no README claim is authorized. |
-| M6a GT-blind execution harness | **Implemented / preflight ready; execution pending** | `scripts/run_competitive_gt_blind_benchmark.py` emits an explicit 27-attempt plan and supports read-only dry-run/preflight plus a separately gated execute mode. M6a2 is retained as an immutable infrastructure-failed parent (`a5abafde…f002`), not replaced. M6a3 repairs the ours RKO runtime contract, attempt-scoped GLIM ROS state, and FAST loopback-only ROS1 startup. The rebuilt ours image is `sha256:18198c…288bd`; synthetic full-path smoke passes for all three wrappers. Campaign2 dry-run and preflight are 27/27 with GT-unreachable/scorer-free plans (`preflight_ready`, plan `7aeac10c…4cd43`). No benchmark execution, accuracy, map-quality, performance, or README/SOTA claim is authorized. |
+| M6a GT-blind execution harness | **Implemented / campaign4 preflight ready; execution pending** | `scripts/run_competitive_gt_blind_benchmark.py` emits an explicit 27-attempt plan and supports read-only dry-run/preflight plus a separately gated execute mode. M6a2 is retained as an immutable infrastructure-failed parent (`a5abafde…f002`), not replaced; campaign3 remains an incomplete lineage record. M6a3 repairs the ours RKO runtime contract, attempt-scoped GLIM ROS state, and FAST loopback-only ROS1 startup. The rebuilt ours image is `sha256:18198c…288bd`; synthetic full-path smoke passes for all three wrappers. M6a7 fixes and audits the comparable aggregate process-tree RSS contract (`memory.max=max`, OOM delta zero). Campaign4 final dry-run/preflight are deterministic and 27/27 with empty results root (dry `1ffa6836…09f2`, preflight `a8c953e5…62e4`); no benchmark execution, accuracy, map-quality, performance, or README/SOTA claim is authorized. |
 | Live-node plugin preflight | **Implemented / experimental** | Read-only `registration_plugin_enable`, `registration_plugin_class`, and `registration_plugin_allow_external` are validated before pub/sub creation; default constructor behavior is unchanged and runtime hot reload is rejected. External DSO promotion remains **No-Go** until independent ODR, lifecycle, rollback, and Humble/Jazzy replay gates pass. |
 | README superiority claims | **No-Go for new claims** | Existing sequence-scoped comparisons remain; no universal or plugin-performance claim is authorized. |
 
@@ -198,11 +198,11 @@ The verifier accepted only those two identities and passed all three Exp14,
 Exp16, and Exp18 manifests, opaque GT hashes, calibration tree, canonical ROS2
 tree/semantic report, input manifest, and preparation receipt identities.
 
-The profile canonical SHA is
+The historical M5d profile canonical SHA was
 `5a8b81b7483ce9921fdfb4393ed006390fc5f0b2553b5e29976de96725a4da39`; the
-execution receipt raw file SHA is
+execution receipt raw file SHA at that checkpoint was
 `ce6d03a273ec12d6191f9d802d1ee24892292d3333375fe10500c15a32a4abaf` and its
-status is `ready`. `check_competitive_execution_selection.py` reports
+status was `ready`. `check_competitive_execution_selection.py` reported
 `PASS`, including all three pinned systems, common machine/thread/scorer
 identity, and exact `Release`. This is a pre-run readiness checkpoint only:
 the schema-v2 evidence gate remains `INCOMPLETE` until every system supplies
@@ -376,10 +376,12 @@ preflight plan SHA is
 `362ad49f85491bfd74ddda181ec0a334c972e4be2818374a05b0db3c5724087b`, and
 the summary SHA is
 `9ae7115d10dee09f5287317b5e9a3912580f7ae31cfd93e8686162149e108bf0`.
-The receipt/profile identities are raw receipt
+The receipt/profile identities at this historical M6a5 checkpoint were raw
+receipt
 `d89d30d9e516f7d7211536bd1ea4f837ae95c4f7aa4527af60a5f7699c3d677f` and
 canonical profile
 `5a8b81b7483ce9921fdfb4393ed006390fc5f0b2553b5e29976de96725a4da39`.
+M6a7 resynchronizes the current values in the section below.
 This is an execution-readiness checkpoint only; M6b scoring and any
 accuracy, performance, map-quality, or README/SOTA conclusion remain
 unauthorized.
@@ -433,6 +435,50 @@ have observed ready receipts. This proves reconstruction metadata and
 GT-blind preflight only: the M5d
 receipt is ready for a first run, but no benchmark, accuracy, performance, or
 SOTA claim follows from this slice.
+
+### M6a7 process-tree RSS audit and campaign4 gate (2026-08-22)
+
+The M6a7 final read-only audit is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/v3_run_audit.json`
+with SHA-256
+`bd7f57cd2cb6fe8b93a9c28d7b193968d3e865180f2985fb66c44c736e7cd818`; its
+normalized PASS receipt is the adjacent
+`m6a7_v3_final_receipt.json` with SHA-256
+`06985d4c4900dbe1aa27687c023c4b6c2ddd3c362ed6782c92a048f5e1eae62e`.
+The corrected auditor handles leading whitespace in GNU `time` exit lines and
+fail-closes missing, duplicate, or unexpected AB/BA directories.  It verified
+20 pairs/40 runs, all complete, with GT/scorer/campaign4 access false.  Earlier
+failed audit directories remain preserved as disclosed lineage.
+
+Campaign4's only comparable memory metric is
+`aggregate_process_tree_peak_rss_bytes`: the sum of per-process peak `VmRSS`
+(shared pages may be recounted).  The sampler is fixed at 250 ms/nice 10;
+cgroup v2 `memory.max=max` is required and every OOM/`oom_kill` delta must be
+zero.  Cgroup total footprint and Docker-client RSS are diagnostics only.
+The M6a7 measurement contract passed its fixed overhead gate (median absolute
+1.8513%, bootstrap upper 4.1914%), signal/atomic-evidence checks, allocation vs
+page-cache separation, and all three synthetic wrapper smokes.  These are
+measurement and isolation receipts only; they are not accuracy, performance,
+or SOTA evidence.
+
+The profile/receipt use `canonical_profile_sha256_v1`: only the registered
+execution-receipt file SHA is excluded from the profile projection.  The M6a7
+audit/receipt/summary SHAs are explicit external bindings and do not depend on
+mtime or a self-referential hash.  Campaign4 is next as a fresh-root,
+GT-blind/scorer-free dry-run and preflight with zero attempts; no real replay
+is authorized in this checkpoint.
+
+The campaign4 fresh results root is
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign4_20260822`
+and remains empty.  Its final deterministic read-only dry-run plan SHA is
+`1ffa6836abc9aa94bb41e310de4ff2e50c9f336335b23779f0ccfa1236ea09f2` (a
+repeat is byte-identical); the 27/27 preflight plan SHA is
+`a8c953e59b6a7dd70891fcdf3c57c791f9735ea6173dda114cd365e188562e4e`.
+Both bind selection `2bfc541a…dd2b`, algorithm revision
+`866f733677e92ecb08d67126e463da99dd140d46`, profile canonical
+`cbb09323…6cc25`, execution receipt `c58d1188…d14f7`, and the M6a7
+process-RSS audit receipt `06985d4c…ae62e`; neither plan starts a container or
+scorer.
 
 ### M5c fresh-holdout acquisition checkpoint (2026-08-21)
 

@@ -12,6 +12,11 @@ export ROS_LOG_DIR="${ROS_LOG_DIR:-${OUT_DIR}/ros_log}"
 mkdir -p "${ROS_HOME}" "${ROS_LOG_DIR}"
 source /runner/scripts/container_memory_evidence.sh
 trap 'm6a5_container_exit_trap "$?"' EXIT
+m6a5_install_container_signal_traps
+if ! m6a7_start_process_rss_sampler; then
+  echo 'GLIM process RSS sampler failed to start' >&2
+  exit 11
+fi
 
 set +u
 source /opt/ros/jazzy/setup.bash

@@ -76,6 +76,29 @@ M6A5_MEMORY_PRODUCER_FILES = {
     'fast_wrapper': 'scripts/fast_livo2_container_run.sh',
     'driver': 'scripts/run_competitive_gt_blind_benchmark.py',
 }
+M6A7_PROCESS_RSS_VERSION = 'm6a7-container-process-rss-v1'
+M6A7_PROCESS_RSS_SCOPE = 'container_pid_namespace_proc_status'
+M6A7_PROCESS_RSS_METRIC = 'aggregate_process_tree_peak_rss_bytes'
+M6A7_PROCESS_RSS_DEFINITION = (
+    'sum_of_per_process_vmrss_peaks_shared_pages_may_be_recounted')
+M6A7_STATIC_KEYS = (
+    'schema_version', 'measurement_version', 'measurement_scope',
+    'primary_metric', 'primary_metric_definition', 'sampler_interval_ms',
+    'sampler_scheduler_nice', 'memory_max', 'oom_delta_required',
+    'docker_client_comparable', 'prior_failed_audit_lineage_required')
+M6A7_FAILED_AUDIT_ROOTS = (
+    '/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
+    'v3_final_audit_20260822',
+    '/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
+    'v3_final_audit_retry_20260822',
+    '/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
+    'v3_final_audit_pass_20260822',
+    '/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
+    'v3_final_audit_pass2_20260822',
+    '/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
+    'v3_final_audit_tool_20260822',
+    '/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
+    'v3_final_audit_tool_retry_20260822')
 
 
 def sha256_file(path: Path) -> str:
@@ -331,6 +354,212 @@ def _check_m6a5_memory_contract(receipt: dict[str, Any], root: Path,
         if isinstance(summary, dict) else None,
         'known_allocation_peak_delta_bytes': delta,
         'lineage': lineage,
+    }
+
+
+def _load_json_file(path: Path, label: str, errors: list[str],
+                    incomplete: list[str]) -> dict[str, Any] | None:
+    """Read a machine receipt without interpreting any benchmark input."""
+    try:
+        value = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        errors.append(f'{label} is not valid JSON: {exc}')
+        return None
+    if not isinstance(value, dict):
+        errors.append(f'{label} must contain a JSON object')
+        return None
+    return value
+
+
+def _check_m6a7_process_rss_contract(
+        receipt: dict[str, Any], profile: dict[str, Any], root: Path,
+        errors: list[str], incomplete: list[str]) -> tuple[bool, dict[str, Any]]:
+    """Validate the audited process-tree RSS contract used by campaign4.
+
+    The audit and normalized receipt are external machine artifacts.  They
+    contain only run metadata and aggregate measurements; this function never
+    opens a frozen bag, calibration file, or ground-truth path.
+    """
+    contract = receipt.get('m6a7_process_rss_contract')
+    profile_contract = profile.get('competitive_slam_profile', profile).get(
+        'evidence_gate_v2', {}).get('m6a7_process_rss_contract')
+    if not isinstance(contract, dict):
+        _add_missing(incomplete, 'receipt.m6a7_process_rss_contract')
+        return False, {'status': 'missing'}
+    if not isinstance(profile_contract, dict):
+        _add_missing(incomplete, 'profile.evidence_gate_v2.m6a7_process_rss_contract')
+        return False, {'status': 'profile_contract_missing'}
+    valid = True
+    for key in M6A7_STATIC_KEYS:
+        expected = profile_contract.get(key)
+        actual = contract.get(key)
+        if actual != expected:
+            if actual is None:
+                _add_missing(incomplete, f'receipt.m6a7_process_rss_contract.{key}')
+            else:
+                errors.append(
+                    f'receipt.m6a7_process_rss_contract.{key} does not match profile')
+            valid = False
+    expected_values = {
+        'schema_version': 1,
+        'measurement_version': M6A7_PROCESS_RSS_VERSION,
+        'measurement_scope': M6A7_PROCESS_RSS_SCOPE,
+        'primary_metric': M6A7_PROCESS_RSS_METRIC,
+        'primary_metric_definition': M6A7_PROCESS_RSS_DEFINITION,
+        'sampler_interval_ms': 250,
+        'sampler_scheduler_nice': 10,
+        'memory_max': 'max',
+        'oom_delta_required': 0,
+        'docker_client_comparable': False,
+        'prior_failed_audit_lineage_required': True,
+    }
+    for key, expected in expected_values.items():
+        if contract.get(key) != expected:
+            errors.append(f'm6a7_process_rss_contract.{key} must be {expected!r}')
+            valid = False
+    if contract.get('status') != 'PASS':
+        errors.append('m6a7_process_rss_contract.status must be PASS')
+        valid = False
+
+    def artifact(name: str) -> tuple[dict[str, Any] | None, Path | None]:
+        nonlocal valid
+        item = contract.get(name)
+        if not isinstance(item, dict):
+            _add_missing(incomplete, f'receipt.m6a7_process_rss_contract.{name}')
+            valid = False
+            return None, None
+        path = _resolve(root, item.get('path'))
+        expected_sha = item.get('sha256')
+        if path is None or not _is_sha(expected_sha):
+            if path is None or expected_sha is None:
+                _add_missing(incomplete,
+                             f'receipt.m6a7_process_rss_contract.{name}.path_or_sha256')
+            else:
+                errors.append(f'm6a7 {name}.sha256 must be a 64-hex SHA-256')
+            valid = False
+            return item, path
+        if not path.is_file() or sha256_file(path).lower() != expected_sha.lower():
+            errors.append(f'm6a7 {name}.sha256 does not match {path}')
+            valid = False
+        return item, path
+
+    audit_ref, audit_path = artifact('final_audit')
+    receipt_ref, receipt_path = artifact('final_receipt')
+    summary_ref, summary_path = artifact('summary')
+    audit = _load_json_file(audit_path, 'm6a7 final audit', errors, incomplete) \
+        if audit_path is not None and audit_path.is_file() else None
+    audited_receipt = _load_json_file(
+        receipt_path, 'm6a7 final receipt', errors, incomplete) \
+        if receipt_path is not None and receipt_path.is_file() else None
+    summary = _load_json_file(summary_path, 'm6a7 summary', errors, incomplete) \
+        if summary_path is not None and summary_path.is_file() else None
+    if audit is not None:
+        if audit.get('status') != 'PASS' or audit.get('campaign4_started') is not False:
+            errors.append('m6a7 final audit is not PASS or records campaign4')
+            valid = False
+        if audit.get('gt_accessed') is not False or audit.get('scorer_accessed') is not False:
+            errors.append('m6a7 final audit is not GT/scorer blind')
+            valid = False
+        schedule = audit.get('schedule')
+        if not isinstance(schedule, dict) or schedule.get('all_complete') is not True or \
+                schedule.get('pairs') != 20 or schedule.get('runs') != 40 or \
+                schedule.get('expected_order') != schedule.get('observed_order') or \
+                len(schedule.get('observed_order', [])) != 40:
+            errors.append('m6a7 final audit schedule is incomplete or mismatched')
+            valid = False
+        if audit.get('read_only_inputs') is not True or \
+                audit.get('machine_checks') != {
+                    'docker_empty': True, 'sampler_empty': True}:
+            errors.append('m6a7 final audit machine/read-only contract is invalid')
+            valid = False
+        rows = schedule.get('rows', []) if isinstance(schedule, dict) else []
+        if not isinstance(rows, list) or len(rows) != 40:
+            errors.append('m6a7 final audit row count is not 40')
+            valid = False
+        else:
+            for row in rows:
+                command = row.get('command') if isinstance(row, dict) else None
+                if not isinstance(row, dict) or row.get('docker_exit_status') != 0 or \
+                        row.get('host_time_exit_status') != 0 or \
+                        not isinstance(command, dict) or \
+                        command.get('network_none') is not True or \
+                        command.get('memory_cap') is not False or \
+                        command.get('external_network') is not False or \
+                        command.get('cpuset') != '0-7':
+                    errors.append('m6a7 final audit contains an invalid run row')
+                    valid = False
+        if audit.get('receipt_sha256') is not None and receipt_ref is not None and \
+                audit.get('receipt_sha256') != receipt_ref.get('sha256'):
+            errors.append('m6a7 final audit receipt SHA binding is invalid')
+            valid = False
+    if audited_receipt is not None:
+        if audited_receipt.get('status') != 'PASS' or \
+                audited_receipt.get('campaign4_started') is not False or \
+                audited_receipt.get('gt_accessed') is not False or \
+                audited_receipt.get('scorer_accessed') is not False:
+            errors.append('m6a7 normalized receipt is not PASS/blind')
+            valid = False
+        contract_data = audited_receipt.get('contract')
+        if not isinstance(contract_data, dict) or \
+                contract_data.get('aggregate_rss_definition') != M6A7_PROCESS_RSS_DEFINITION or \
+                contract_data.get('memory_max') != 'max' or \
+                contract_data.get('docker_client_rss_comparable') is not False:
+            errors.append('m6a7 normalized receipt metric contract is invalid')
+            valid = False
+        if audit_ref is not None and audited_receipt.get('audit_sha256') != \
+                audit_ref.get('sha256'):
+            errors.append('m6a7 normalized receipt audit SHA binding is invalid')
+            valid = False
+    if summary is not None:
+        if summary.get('overall_status') != 'PASS' or \
+                summary.get('gt_accessed') is not False or \
+                summary.get('scorer_accessed') is not False or \
+                summary.get('frozen_performance_bags_accessed') is not False or \
+                summary.get('campaign4_started') is not False:
+            errors.append('m6a7 summary is not PASS/blind')
+            valid = False
+        overhead = summary.get('overhead')
+        gate = overhead.get('gate') if isinstance(overhead, dict) else None
+        separation = summary.get('allocation_cache_separation')
+        if not isinstance(gate, dict) or gate.get('median_abs_pass') is not True or \
+                gate.get('bootstrap_95_upper_pass') is not True or \
+                not isinstance(separation, dict) or \
+                separation.get('allocation_pass') is not True or \
+                separation.get('cache_separation_pass') is not True:
+            errors.append('m6a7 summary measurement gates are not PASS')
+            valid = False
+        signal = summary.get('signal_smoke')
+        wrappers = summary.get('wrapper_smoke')
+        if not isinstance(signal, dict) or signal.get('docker_remnants') != 'none' or \
+                not isinstance(wrappers, dict) or wrappers.get('all_pass') is not True or \
+                wrappers.get('docker_remnants') != 'none':
+            errors.append('m6a7 signal/wrapper smoke is not PASS')
+            valid = False
+    lineage = contract.get('lineage')
+    roots = lineage.get('prior_failed_audit_roots') \
+        if isinstance(lineage, dict) else None
+    if (not isinstance(lineage, dict) or
+            lineage.get('prior_failed_audits_retained') is not True or
+            lineage.get('campaign4_authorized') is not False or
+            not isinstance(roots, dict) or roots.get('status') != 'FAIL_CLOSED' or
+            roots.get('immutable') is not True or
+            roots.get('roots') != list(M6A7_FAILED_AUDIT_ROOTS) or
+            any(not Path(item).is_dir() for item in roots.get('roots', []))):
+        errors.append('m6a7 prior failed-audit lineage is missing or mutable')
+        valid = False
+    return valid, {
+        'status': contract.get('status'),
+        'primary_metric': contract.get('primary_metric'),
+        'metric_definition': contract.get('primary_metric_definition'),
+        'memory_max': contract.get('memory_max'),
+        'oom_delta_required': contract.get('oom_delta_required'),
+        'docker_client_comparable': contract.get('docker_client_comparable'),
+        'final_audit_sha256': audit_ref.get('sha256') if audit_ref else None,
+        'final_receipt_sha256': receipt_ref.get('sha256') if receipt_ref else None,
+        'summary_sha256': summary_ref.get('sha256') if summary_ref else None,
+        'schedule': contract.get('schedule'),
+        'blind_scope': contract.get('blind_scope'),
+        'prior_failed_audit_lineage': lineage,
     }
 
 
@@ -631,6 +860,9 @@ def evaluate(receipt: dict[str, Any], profile: dict[str, Any],
     memory_ok, memory_evidence = _check_m6a5_memory_contract(
         receipt, root, errors, incomplete)
     check('m6a5_memory_contract_and_lineage', memory_ok, memory_evidence)
+    process_rss_ok, process_rss_evidence = _check_m6a7_process_rss_contract(
+        receipt, profile, root, errors, incomplete)
+    check('m6a7_process_rss_contract', process_rss_ok, process_rss_evidence)
 
     status = 'INVALID' if errors else ('INCOMPLETE' if incomplete else 'PASS')
     return {
@@ -644,6 +876,7 @@ def evaluate(receipt: dict[str, Any], profile: dict[str, Any],
         'canonical_scorer_fingerprint': computed_scorer_fingerprint,
         'thread_policy_canonical_sha256': thread_policy_canonical_hash,
         'm6a5_memory_contract': memory_evidence,
+        'm6a7_process_rss_contract': process_rss_evidence,
         'profile_execution_selection_receipt': {
             'path': receipt_path_value,
             'expected_sha256': receipt_expected_sha,

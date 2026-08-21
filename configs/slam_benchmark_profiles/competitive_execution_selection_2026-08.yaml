@@ -38,19 +38,19 @@ m6a5_memory_contract:
   producer_files:
     helper:
       path: scripts/container_memory_evidence.sh
-      sha256: 21e1fff544c7a724858d4f157003338bf801a2965a8322e53c343e905c374cb0
+      sha256: 99431d44f83ace23c91f545ee6e79f12536dbfd046ac1214d300ad61854e35df
     ours_wrapper:
       path: scripts/ours_container_gt_blind_run.sh
-      sha256: 66bfc117a4eb3848b3331c6714d3d90620af4565fb6f7ecdb74c0c1cb8f93759
+      sha256: 18c4fdd7e5114dae5ea80db9bf5dadcf7416909da81395262e8c7e6ddca17cc4
     glim_wrapper:
       path: scripts/glim_container_run.sh
-      sha256: 778dd8dfa7f758fe364b99f1b7bea30895062bf958ada9ebd18cf0c2757ddd7e
+      sha256: 303591163218887575cf83b7e502655fa7dc6852e7f2c5b54504669d0c5945df
     fast_wrapper:
       path: scripts/fast_livo2_container_run.sh
-      sha256: 789f572471b657126482930b55da1ffbaaff051faeafbf4d3c304c2e0e7e5ea0
+      sha256: f2784db1df78eee017c1aca0176e7761f236a4062b92d01982878cd542ec0115
     driver:
       path: scripts/run_competitive_gt_blind_benchmark.py
-      sha256: 40e28cf155589e06d6830adcc91d146e83dd4033923fa03ef23cfad4b8afd2fd
+      sha256: 7101360494a2fc57c43fc3e2bd85876ad18dd6d0ee3fddad938fd42444a10702
   smoke_summary:
     path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a5_20260822/memory-max-unlimited/summary.json
     sha256: e2df6b70dcec703406a406ed7a4c45aaac87b69987d87966f4d10bceee1c85bb
@@ -80,9 +80,54 @@ m6a5_campaign:
   scorer_invoked: false
   preflight_summary_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a5_20260822/campaign3-preflight-final/campaign3-preflight-summary.json
 
+m6a7_process_rss_contract:
+  schema_version: 1
+  status: PASS
+  measurement_version: m6a7-container-process-rss-v1
+  measurement_scope: container_pid_namespace_proc_status
+  primary_metric: aggregate_process_tree_peak_rss_bytes
+  primary_metric_definition: sum_of_per_process_vmrss_peaks_shared_pages_may_be_recounted
+  sampler_interval_ms: 250
+  sampler_scheduler_nice: 10
+  memory_max: max
+  oom_delta_required: 0
+  docker_client_comparable: false
+  prior_failed_audit_lineage_required: true
+  final_audit:
+    path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/v3_run_audit.json
+    sha256: bd7f57cd2cb6fe8b93a9c28d7b193968d3e865180f2985fb66c44c736e7cd818
+  final_receipt:
+    path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/m6a7_v3_final_receipt.json
+    sha256: 06985d4c4900dbe1aa27687c023c4b6c2ddd3c362ed6782c92a048f5e1eae62e
+  summary:
+    path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/revalidation_v3_retry2_20260822/external_validation_summary.json
+    sha256: 0d8458abe71644f30ed0dde683721dc3861efafaf8202e40409f0f63d4e8bcb2
+  schedule:
+    order: AB_BA_alternating
+    pairs: 20
+    runs: 40
+    all_complete: true
+  blind_scope:
+    ground_truth_content_opened: false
+    scorer_invoked: false
+    campaign4_started: false
+  lineage:
+    prior_failed_audits_retained: true
+    campaign4_authorized: false
+    prior_failed_audit_roots:
+      status: FAIL_CLOSED
+      immutable: true
+      roots:
+        - /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_20260822
+        - /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_retry_20260822
+        - /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_pass_20260822
+        - /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_pass2_20260822
+        - /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_20260822
+        - /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_retry_20260822
+
 common_identity:
   profile_path: configs/slam_benchmark_profiles/competitive_slam_v1.yaml
-  profile_sha256: 5a8b81b7483ce9921fdfb4393ed006390fc5f0b2553b5e29976de96725a4da39
+  profile_sha256: cbb093233b2740e0624fbd348ac293a705fd69e7fa1825723a4e7e493736cc25
   profile_sha256_kind: canonical_profile_sha256_v1
   profile_sha256_status: canonical_recorded_ready_preflight
   fresh_holdout_selection_receipt_path: configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml

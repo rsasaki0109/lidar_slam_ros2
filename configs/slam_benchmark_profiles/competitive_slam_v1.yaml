@@ -120,8 +120,35 @@ competitive_slam_profile:
       - toolchain_fingerprint
       - config_sha256
     execution_selection_receipt_path: configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml
-    execution_selection_receipt_sha256: d89d30d9e516f7d7211536bd1ea4f837ae95c4f7aa4527af60a5f7699c3d677f
+    execution_selection_receipt_sha256: c58d11881f88dd7ea6fef05f1e91edf901ca5eaa23076ff673306580885d14f7
     require_execution_selection_receipt: true
+    # M6a7 fixes the comparable memory metric before campaign4.  This is a
+    # process-tree RSS contract; cgroup total and Docker-client RSS remain
+    # diagnostics and cannot satisfy the gate.
+    m6a7_process_rss_contract:
+      schema_version: 1
+      measurement_version: m6a7-container-process-rss-v1
+      measurement_scope: container_pid_namespace_proc_status
+      primary_metric: aggregate_process_tree_peak_rss_bytes
+      primary_metric_definition: sum_of_per_process_vmrss_peaks_shared_pages_may_be_recounted
+      sampler_interval_ms: 250
+      sampler_scheduler_nice: 10
+      memory_max: max
+      oom_delta_required: 0
+      docker_client_comparable: false
+      final_audit_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/v3_run_audit.json
+      final_audit_sha256: bd7f57cd2cb6fe8b93a9c28d7b193968d3e865180f2985fb66c44c736e7cd818
+      final_receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/m6a7_v3_final_receipt.json
+      final_receipt_sha256: 06985d4c4900dbe1aa27687c023c4b6c2ddd3c362ed6782c92a048f5e1eae62e
+      summary_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/revalidation_v3_retry2_20260822/external_validation_summary.json
+      summary_sha256: 0d8458abe71644f30ed0dde683721dc3861efafaf8202e40409f0f63d4e8bcb2
+      summary_status: PASS
+      schedule_pairs: 20
+      schedule_runs: 40
+      schedule_order: AB_BA_alternating
+      gt_content_opened: false
+      scorer_invoked: false
+      prior_failed_audit_lineage_required: true
   required_metrics:
     common:
       - trajectory.ape_rmse_m

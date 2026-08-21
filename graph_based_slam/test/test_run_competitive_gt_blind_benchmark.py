@@ -172,7 +172,7 @@ def test_fast_command_is_loopback_only_under_network_none():
     assert env['ROS_HOSTNAME'] == '127.0.0.1'
 
 
-def test_docker_command_sets_bounded_cgroup_memory_for_measurement():
+def test_docker_command_leaves_cgroup_memory_uncapped_for_process_rss():
     item = {
         'raw_path': Path('/managed/slots/exp14/source/exp14.bag'),
         'canonical_path': Path('/managed/slots/exp14/canonical_ros2'),
@@ -182,8 +182,24 @@ def test_docker_command_sets_bounded_cgroup_memory_for_measurement():
         Path('/M6A_OUTPUT_PLACEHOLDER'),
         {'schedule_index': 1, 'system': 'ours',
          'slot': 'fresh_1', 'repetition': 1})
-    assert command[command.index('--memory') + 1] == '4g'
-    assert command[command.index('--memory-swap') + 1] == '4g'
+    assert '--memory' not in command
+    assert '--memory-swap' not in command
+
+
+def test_campaign4_plan_binds_m6a7_process_rss_contract():
+    receipt_path = ROOT / 'configs' / 'slam_benchmark_profiles' / (
+        'competitive_execution_selection_2026-08.yaml')
+    receipt = RUNNER.yaml.safe_load(receipt_path.read_text(encoding='utf-8'))
+    identity = RUNNER.m6a7_contract_identity(receipt)
+    assert identity['primary_metric'] == (
+        'aggregate_process_tree_peak_rss_bytes')
+    assert identity['memory_max'] == 'max'
+    assert identity['docker_client_comparable'] is False
+    assert identity['schedule']['runs'] == 40
+    tampered = json.loads(json.dumps(receipt))
+    tampered['m6a7_process_rss_contract']['memory_max'] = '4g'
+    with pytest.raises(RUNNER.ContractError):
+        RUNNER.m6a7_contract_identity(tampered)
 
 
 def test_runtime_writable_state_is_scoped_to_attempt_output():
@@ -318,19 +334,59 @@ def test_existing_attempt_cannot_be_overwritten(tmp_path):
 
 def test_expected_output_contract_is_fail_closed():
     assert RUNNER.expected_outputs('ours', Path('/out')) == [
-        Path('/out/traj_raw.tum'), Path('/out/container_memory.json')]
+        Path('/out/traj_raw.tum'), Path('/out/container_memory.json'),
+        Path('/out/container_process_rss.json')]
     assert RUNNER.expected_outputs('glim_cpu', Path('/out')) == [
-        Path('/out/dump/traj_lidar.txt'), Path('/out/container_memory.json')]
+        Path('/out/dump/traj_lidar.txt'), Path('/out/container_memory.json'),
+        Path('/out/container_process_rss.json')]
     assert RUNNER.expected_outputs('fast_livo2', Path('/out')) == [
-        Path('/out/odometry.csv'), Path('/out/container_memory.json')]
+        Path('/out/odometry.csv'), Path('/out/container_memory.json'),
+        Path('/out/container_process_rss.json')]
+
+
+def _valid_process_rss_evidence():
+    return {
+        'schema_version': 1,
+        'measurement_version': 'm6a7-container-process-rss-v1',
+        'measurement_scope': 'container_pid_namespace_proc_status',
+        'primary_metric': 'aggregate_process_tree_peak_rss_bytes',
+        'primary_metric_definition':
+            'sum_of_per_process_vmrss_peaks_shared_pages_may_be_recounted',
+        'status': 'pass',
+        'atomic': True,
+        'sampler_excluded': True,
+        'sampler_pid': 123,
+        'first_sample_monotonic_ns': 1,
+        'last_sample_monotonic_ns': 2,
+        'sample_count': 3,
+        'sample_errors': 0,
+        'pid_race_skips': 0,
+        'missed_intervals': 0,
+        'interval_jitter_percent': 1.0,
+        'thresholds': {'min_samples': 2, 'max_errors': 0,
+                       'max_race_skips': 0, 'max_jitter_percent': 10.0},
+        'peak': {
+            'vmrss_bytes': 140,
+            'rss_anon_bytes': 100,
+            'rss_file_bytes': 30,
+            'rss_shmem_bytes': 10,
+            'process_count': 2,
+        },
+        'aggregate_process_tree_peak_rss_bytes': 140,
+    }
 
 
 def _valid_memory_evidence():
+    process = _valid_process_rss_evidence()
+    pressure = {
+        'some': {'avg10': 0.0, 'avg60': 0.0, 'avg300': 0.0, 'total': 0},
+        'full': {'avg10': 0.0, 'avg60': 0.0, 'avg300': 0.0, 'total': 0},
+    }
     return {
-        'schema_version': 1,
-        'measurement_version': 'm6a5-cgroup-v2-memory-v1',
+        'schema_version': 2,
+        'measurement_version': 'm6a7-container-memory-v2',
         'status': 'pass',
-        'measurement_scope': 'container_cgroup_v2',
+        'measurement_scope': 'container_cgroup_v2_with_pid_rss',
         'children_included': True,
         'cgroup_version': 2,
         'cgroup_path': '/docker/test',
@@ -340,6 +396,33 @@ def _valid_memory_evidence():
         'memory_max_raw': '512',
         'memory_max_bytes': 512,
         'memory_max_unlimited': False,
+        'container_cgroup_total_peak_bytes': 140,
+        'primary_metric': 'aggregate_process_tree_peak_rss_bytes',
+        'primary_metric_definition':
+            'sum_of_per_process_vmrss_peaks_shared_pages_may_be_recounted',
+        'process_rss_metric_definition':
+            'sum_of_per_process_vmrss_peaks_shared_pages_may_be_recounted',
+        'aggregate_process_tree_peak_rss_bytes': 140,
+        'process_tree_peak_rss_bytes': 140,
+        'process_rss_evidence_path': '/out/container_process_rss.json',
+        'process_rss_evidence': process,
+        'cgroup_events': {
+            'status': 'pass', 'oom_free': True,
+            'memory_events': {
+                'baseline': {'oom': 0, 'oom_kill': 0},
+                'final': {'oom': 0, 'oom_kill': 0},
+                'delta': {'oom': 0, 'oom_kill': 0}},
+            'memory_events_local': {
+                'baseline': {'oom': 0, 'oom_kill': 0},
+                'final': {'oom': 0, 'oom_kill': 0},
+                'delta': {'oom': 0, 'oom_kill': 0}},
+            'memory_pressure': {
+                'baseline': pressure, 'final': pressure, 'delta': pressure},
+            'oom_delta': {'memory_events.oom': 0,
+                          'memory_events.oom_kill': 0,
+                          'memory_events_local.oom': 0,
+                          'memory_events_local.oom_kill': 0},
+        },
         'atomic': True,
         'output_readability': {'status': 'pass'},
     }
@@ -347,6 +430,8 @@ def _valid_memory_evidence():
 
 def test_container_memory_evidence_requires_numeric_cgroup_v2_values(tmp_path):
     path = tmp_path / 'container_memory.json'
+    (tmp_path / 'container_process_rss.json').write_text(
+        json.dumps(_valid_process_rss_evidence()))
     path.write_text(json.dumps(_valid_memory_evidence()))
     valid = RUNNER.parse_container_memory_evidence(path)
     assert valid['valid'] is True
@@ -386,6 +471,48 @@ def test_container_memory_evidence_missing_and_unreadable_are_invalid(tmp_path):
     assert RUNNER.parse_container_memory_evidence(path)['valid'] is False
 
 
+def test_container_memory_evidence_rejects_oom_and_process_rss_mismatch(tmp_path):
+    path = tmp_path / 'container_memory.json'
+    sampler_path = tmp_path / 'container_process_rss.json'
+    sampler_path.write_text(json.dumps(_valid_process_rss_evidence()))
+    document = _valid_memory_evidence()
+    document['cgroup_events']['oom_free'] = False
+    path.write_text(json.dumps(document))
+    assert RUNNER.parse_container_memory_evidence(path)['valid'] is False
+    document = _valid_memory_evidence()
+    document['process_tree_peak_rss_bytes'] = 141
+    path.write_text(json.dumps(document))
+    assert RUNNER.parse_container_memory_evidence(path)['valid'] is False
+    document = _valid_memory_evidence()
+    document.pop('primary_metric')
+    path.write_text(json.dumps(document))
+    assert RUNNER.parse_container_memory_evidence(path)['valid'] is False
+    document = _valid_memory_evidence()
+    document['aggregate_process_tree_peak_rss_bytes'] = 141
+    path.write_text(json.dumps(document))
+    assert RUNNER.parse_container_memory_evidence(path)['valid'] is False
+    document = _valid_memory_evidence()
+    document['cgroup_events']['memory_pressure']['final']['some']['total'] = 'bad'
+    path.write_text(json.dumps(document))
+    assert RUNNER.parse_container_memory_evidence(path)['valid'] is False
+
+
+def test_process_rss_evidence_rejects_missing_samples_and_client_only_metric(tmp_path):
+    path = tmp_path / 'container_process_rss.json'
+    document = _valid_process_rss_evidence()
+    document['sample_count'] = 1
+    path.write_text(json.dumps(document))
+    assert RUNNER.parse_process_rss_evidence(path)['valid'] is False
+    document = _valid_process_rss_evidence()
+    document['peak'].pop('vmrss_bytes')
+    path.write_text(json.dumps(document))
+    assert RUNNER.parse_process_rss_evidence(path)['valid'] is False
+    document = _valid_process_rss_evidence()
+    document['sample_errors'] = 1
+    path.write_text(json.dumps(document))
+    assert RUNNER.parse_process_rss_evidence(path)['valid'] is False
+
+
 def test_client_rss_is_not_the_container_memory_metric(tmp_path):
     path = tmp_path / 'host_time.txt'
     path.write_text(
@@ -394,6 +521,11 @@ def test_client_rss_is_not_the_container_memory_metric(tmp_path):
     timing = RUNNER.parse_time_report(path)
     assert timing['docker_client_peak_rss_kb'] == 29116
     assert 'peak_rss_kb' not in timing
+    assert RUNNER.comparison_rss_bytes({'process_tree_peak_rss_bytes': 4096}) == 4096
+    assert RUNNER.comparison_rss_bytes(
+        {'aggregate_process_tree_peak_rss_bytes': 4096}) == 4096
+    with pytest.raises(RUNNER.ContractError):
+        RUNNER.comparison_rss_bytes({'docker_client_peak_rss_kb': 29116})
 
 
 def test_permission_during_finalization_keeps_part_and_writes_failure(

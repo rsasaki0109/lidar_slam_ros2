@@ -600,6 +600,31 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_run_competitive_gt_blind_benchmark
+    test/test_run_competitive_gt_blind_benchmark.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_competitive_container_recipes
+    test/test_competitive_container_recipes.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_sample_container_process_rss
+    test/test_sample_container_process_rss.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_container_memory_evidence
+    test/test_container_memory_evidence.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
+    test_audit_m6a7_v3_evidence
+    test/test_audit_m6a7_v3_evidence.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_fast_livo2_benchmark_runner
     test/test_fast_livo2_benchmark_runner.py
     TIMEOUT 120

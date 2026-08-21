@@ -18,30 +18,100 @@
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
 # ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
 # LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
-# This file is sourced by each GT-blind container wrapper. It measures the
-# wrapper's current cgroup, whose accounting includes descendants in the
-# container, rather than the host-side docker client.
+# The process-tree sampler is the primary RSS measurement. Cgroup memory is
+# retained as a diagnostic footprint and pressure/OOM record.
+
+M6A7_SAMPLER_PID="${M6A7_SAMPLER_PID:-}"
+M6A7_MEMORY_SCRIPT="${M6A7_MEMORY_SCRIPT:-/runner/scripts/container_memory_evidence.py}"
+M6A7_EVIDENCE_FINALIZED="${M6A7_EVIDENCE_FINALIZED:-0}"
+M6A7_EVIDENCE_STATUS="${M6A7_EVIDENCE_STATUS:-1}"
+M6A7_EVIDENCE_FINALIZING="${M6A7_EVIDENCE_FINALIZING:-0}"
+M6A7_SAMPLER_STOP_TIMEOUT_SECS="${M6A7_SAMPLER_STOP_TIMEOUT_SECS:-5}"
+
+m6a7_capture_cgroup_baseline() {
+  [[ -n "${OUT_DIR:-}" ]] || return 1
+  python3 "${M6A7_MEMORY_SCRIPT}" baseline \
+    --output "${OUT_DIR}/.m6a7_cgroup_baseline.json" \
+    --cgroup-root /sys/fs/cgroup
+}
+
+m6a7_start_process_rss_sampler() {
+  [[ -n "${OUT_DIR:-}" && -z "${M6A7_SAMPLER_PID}" ]] || return 1
+  local sampler_script="${M6A7_SAMPLER_SCRIPT:-/runner/scripts/sample_container_process_rss.py}"
+  local output="${OUT_DIR}/container_process_rss.json"
+  [[ -r "${sampler_script}" && ! -e "${output}" && ! -e "${output}.part" ]] || return 1
+  m6a7_capture_cgroup_baseline || return 1
+  python3 "${sampler_script}" \
+    --output "${output}" \
+    --interval-ms "${M6A7_RSS_INTERVAL_MS:-250}" \
+    --min-samples "${M6A7_RSS_MIN_SAMPLES:-2}" \
+    --max-errors "${M6A7_RSS_MAX_ERRORS:-100}" \
+    --max-race-skips "${M6A7_RSS_MAX_RACE_SKIPS:-100}" \
+    --max-jitter-percent "${M6A7_RSS_MAX_JITTER_PERCENT:-100}" \
+    --scheduler-nice "${M6A7_SAMPLER_NICE:-10}" \
+    >"${OUT_DIR}/container_process_rss_sampler.log" 2>&1 &
+  M6A7_SAMPLER_PID=$!
+}
+
+m6a7_stop_process_rss_sampler() {
+  local sampler_pid="${M6A7_SAMPLER_PID:-}"
+  local output="${OUT_DIR:-}/container_process_rss.json"
+  if [[ -z "${sampler_pid}" ]]; then
+    [[ -s "${output}" ]]
+    return $?
+  fi
+  kill -TERM "${sampler_pid}" >/dev/null 2>&1 || true
+  local started_at="${SECONDS}"
+  while kill -0 "${sampler_pid}" >/dev/null 2>&1 &&
+        [[ ! -s "${output}" ]]; do
+    if (( SECONDS - started_at >= M6A7_SAMPLER_STOP_TIMEOUT_SECS )); then
+      kill -KILL "${sampler_pid}" >/dev/null 2>&1 || true
+      break
+    fi
+    sleep 0.05
+  done
+  wait "${sampler_pid}" >/dev/null 2>&1 || true
+  M6A7_SAMPLER_PID=""
+  [[ -s "${output}" ]]
+}
 
 m6a5_write_container_memory_evidence() {
   local process_exit_status="${1:-$?}"
   local out_dir="${OUT_DIR:-}"
-  local final_path="${out_dir}/container_memory.json"
-  local part_path="${final_path}.part"
-  if [[ -z "${out_dir}" ]]; then
-    return 1
+  local output="${out_dir}/container_memory.json"
+  local part="${output}.part"
+  if [[ "${M6A7_EVIDENCE_FINALIZED}" == 1 ]]; then
+    return "${M6A7_EVIDENCE_STATUS}"
   fi
-  local cgroup_root=/sys/fs/cgroup
-  local timestamp
-  timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf 'unavailable')"
-  local proc_self_cgroup=''
-  proc_self_cgroup="$(cat /proc/self/cgroup 2>/dev/null || true)"
+  [[ "${M6A7_EVIDENCE_FINALIZING}" == 0 ]] || return 1
+  [[ -n "${out_dir}" && ! -e "${output}" && ! -e "${part}" ]] || return 1
+  M6A7_EVIDENCE_FINALIZING=1
+  set +e
+  m6a7_stop_process_rss_sampler >/dev/null 2>&1
+  local sampler_stop_status=$?
+
+  local readability_status=pass
+  local readability_reason=output_tree_chmod_a+rX
+  if [[ "${out_dir}" == / || "${out_dir}" == /runner ||
+        "${out_dir}" == /runner/* || "${out_dir}" == /input ||
+        "${out_dir}" == /input/* ]]; then
+    M6A7_EVIDENCE_FINALIZING=0
+    return 1
+  elif ! chmod -R a+rX -- "${out_dir}" >/dev/null 2>&1; then
+    readability_status=invalid
+    readability_reason=chmod_output_tree_failed
+  fi
+
   local cgroup_path=''
+  local proc_self_cgroup
+  proc_self_cgroup="$(cat /proc/self/cgroup 2>/dev/null || true)"
   while IFS= read -r line; do
     if [[ "${line}" == 0::* ]]; then
       cgroup_path="${line#0::}"
@@ -49,133 +119,45 @@ m6a5_write_container_memory_evidence() {
     fi
   done <<<"${proc_self_cgroup}"
 
-  local cgroup_version=0
-  local peak_raw=''
-  local current_raw=''
-  local max_raw=''
-  local measurement_status=invalid
-  local status_reason='cgroup_v2_memory_files_unavailable'
-  if [[ -r "${cgroup_root}/cgroup.controllers" ]]; then
-    cgroup_version=2
-  fi
-  if [[ "${cgroup_version}" == 2 &&
-        -r "${cgroup_root}/memory.peak" &&
-        -r "${cgroup_root}/memory.current" &&
-        -r "${cgroup_root}/memory.max" ]]; then
-    peak_raw="$(cat "${cgroup_root}/memory.peak" 2>/dev/null || true)"
-    current_raw="$(cat "${cgroup_root}/memory.current" 2>/dev/null || true)"
-    max_raw="$(cat "${cgroup_root}/memory.max" 2>/dev/null || true)"
-    if [[ ! "${peak_raw}" =~ ^[0-9]+$ ||
-          ! "${current_raw}" =~ ^[0-9]+$ ]]; then
-      status_reason='cgroup_memory_peak_or_current_non_numeric'
-    elif [[ "${max_raw}" == max ]]; then
-      if (( peak_raw < current_raw )); then
-        status_reason='cgroup_memory_peak_below_current'
-      else
-        measurement_status=pass
-        status_reason='unlimited_memory_max'
-      fi
-    elif [[ ! "${max_raw}" =~ ^[0-9]+$ ]]; then
-      status_reason='cgroup_memory_max_missing_or_non_numeric'
-    elif (( max_raw <= 0 )); then
-      status_reason='cgroup_memory_max_non_positive'
-    elif (( peak_raw < current_raw )); then
-      status_reason='cgroup_memory_peak_below_current'
-    elif (( current_raw > max_raw )); then
-      status_reason='cgroup_memory_current_above_max'
-    else
-      measurement_status=pass
-      status_reason=''
-    fi
-  fi
-
-  # Only the output tree is made readable. Never chmod /runner or /input.
-  local readability_status=pass
-  local readability_reason='output_tree_chmod_a+rX'
-  if [[ -z "${out_dir}" || "${out_dir}" == / ||
-        "${out_dir}" == /runner || "${out_dir}" == /runner/* ||
-        "${out_dir}" == /input || "${out_dir}" == /input/* ]]; then
-    readability_status=invalid
-    readability_reason='unsafe_or_missing_output_dir'
-  elif ! chmod -R a+rX -- "${out_dir}" >/dev/null 2>&1; then
-    readability_status=invalid
-    readability_reason='chmod_output_tree_failed'
-  fi
-  if [[ "${readability_reason}" == 'unsafe_or_missing_output_dir' ]]; then
-    return 1
-  fi
-
-  if [[ -e "${final_path}" ]]; then
-    return 1
-  fi
-  mkdir -p "${out_dir}" >/dev/null 2>&1 || true
-  if ! python3 - "${part_path}" "${final_path}" \
-      "${timestamp}" "${process_exit_status}" "${cgroup_version}" \
-      "${cgroup_path}" "${proc_self_cgroup}" "${peak_raw}" \
-      "${current_raw}" "${max_raw}" "${measurement_status}" \
-      "${status_reason}" "${readability_status}" "${readability_reason}" <<'PY'
-import json
-import os
-from pathlib import Path
-import sys
-
-
-def integer_or_none(value):
-    return int(value) if value.isdigit() else None
-
-
-(part_name, final_name, timestamp, process_status, cgroup_version,
- cgroup_path, proc_self_cgroup, peak_raw, current_raw, max_raw,
- measurement_status, status_reason, readability_status,
- readability_reason) = sys.argv[1:]
-part = Path(part_name)
-final = Path(final_name)
-data = {
-    'schema_version': 1,
-    'measurement_version': 'm6a5-cgroup-v2-memory-v1',
-    'status': measurement_status,
-    'status_reason': status_reason or None,
-    'measurement_scope': 'container_cgroup_v2',
-    'children_included': True,
-    'timestamp_utc': timestamp,
-    'process_exit_status': integer_or_none(process_status),
-    'cgroup_version': int(cgroup_version),
-    'cgroup_mount': '/sys/fs/cgroup',
-    'cgroup_path': cgroup_path,
-    'proc_self_cgroup': proc_self_cgroup,
-    'memory_files': {
-        'peak': '/sys/fs/cgroup/memory.peak',
-        'current': '/sys/fs/cgroup/memory.current',
-        'max': '/sys/fs/cgroup/memory.max',
-    },
-    'memory_peak_raw': peak_raw,
-    'memory_current_raw': current_raw,
-    'memory_max_raw': max_raw,
-    'container_cgroup_peak_bytes': integer_or_none(peak_raw),
-    'memory_current_bytes': integer_or_none(current_raw),
-    'memory_max_bytes': integer_or_none(max_raw),
-    'memory_max_unlimited': max_raw == 'max',
-    'output_readability': {
-        'status': readability_status,
-        'reason': readability_reason,
-        'scope': 'OUT_DIR_only',
-    },
-    'atomic': True,
+  python3 "${M6A7_MEMORY_SCRIPT}" final \
+    --part "${part}" --output "${output}" \
+    --baseline "${out_dir}/.m6a7_cgroup_baseline.json" \
+    --sampler "${out_dir}/container_process_rss.json" \
+    --cgroup-root /sys/fs/cgroup \
+    --process-status "${process_exit_status}" \
+    --sampler-stop-status "${sampler_stop_status}" \
+    --cgroup-path "${cgroup_path}" \
+    --proc-self-cgroup "${proc_self_cgroup}" \
+    --readability-status "${readability_status}" \
+    --readability-reason "${readability_reason}"
+  local write_status=$?
+  chmod a+rX -- "${output}" >/dev/null 2>&1 || true
+  M6A7_EVIDENCE_STATUS="${write_status}"
+  M6A7_EVIDENCE_FINALIZED=1
+  M6A7_EVIDENCE_FINALIZING=0
+  return "${write_status}"
 }
-part.parent.mkdir(parents=True, exist_ok=True)
-part.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')
-os.replace(part, final)
-PY
-  then
-    return 1
-  fi
-  chmod a+rX -- "${final_path}" >/dev/null 2>&1 || true
-  return 0
+
+m6a5_container_signal_trap() {
+  local signal_status="${1:?signal status is required}"
+  # Let EXIT perform exactly one finalization, then preserve shell signal
+  # semantics (SIGINT=130, SIGTERM=143) for the caller/driver.
+  trap - INT TERM
+  exit "${signal_status}"
+}
+
+m6a5_install_container_signal_traps() {
+  trap 'm6a5_container_signal_trap 130' INT
+  trap 'm6a5_container_signal_trap 143' TERM
 }
 
 m6a5_container_exit_trap() {
   local exit_status="${1:-$?}"
   set +e
-  m6a5_write_container_memory_evidence "${exit_status}" || true
+  m6a5_write_container_memory_evidence "${exit_status}"
+  local evidence_status=$?
+  if [[ "${exit_status}" -eq 0 && "${evidence_status}" -ne 0 ]]; then
+    return "${evidence_status}"
+  fi
   return "${exit_status}"
 }

@@ -1,0 +1,30 @@
+{
+  "bootstrap": {
+    "confidence": 0.95,
+    "resamples": 100000,
+    "seed": 20260822,
+    "statistic": "mean_paired_wall_overhead_percent"
+  },
+  "gate": {
+    "bootstrap_ci95_upper_percent_max": 5.0,
+    "median_abs_overhead_percent_max": 2.0
+  },
+  "measurement": {
+    "clock": "monotonic",
+    "cpu_clock": "resource.RUSAGE_SELF",
+    "network": "none",
+    "startup_excluded": true,
+    "sampler_interval_ms": 250
+  },
+  "order": "AB_BA_alternating",
+  "repeats": 20,
+  "same_cpuset": "0-7",
+  "same_image": true,
+  "schema_version": 1,
+  "status": "preregistered_not_measured",
+  "workload": {
+    "model": "fixed_work_count_cpu",
+    "worker_count": 8,
+    "work_items_per_worker": 8000000
+  }
+}

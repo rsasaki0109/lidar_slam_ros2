@@ -59,6 +59,15 @@ THREAD_ENV_NAMES = (
     'MKL_NUM_THREADS',
     'TBB_NUM_THREADS',
 )
+OVERHEAD_PREREGISTRATION = ROOT / (
+    'configs/slam_benchmark_profiles/'
+    'm6a7_sampler_overhead_preregistration.json')
+OVERHEAD_PREREGISTRATION_V2 = ROOT / (
+    'configs/slam_benchmark_profiles/'
+    'm6a7_sampler_overhead_preregistration_v2.json')
+OVERHEAD_PREREGISTRATION_V3 = ROOT / (
+    'configs/slam_benchmark_profiles/'
+    'm6a7_sampler_overhead_preregistration_v3.json')
 
 
 def _sha256(path):
@@ -194,6 +203,12 @@ def test_synthetic_smoke_paths_are_full_startup_contracts():
     fast = (ROOT / 'scripts' / 'fast_livo2_container_run.sh').read_text()
     memory = (ROOT / 'scripts' / 'container_memory_evidence.sh').read_text()
     assert 'container_memory.json' in memory
+    assert 'container_process_rss.json' in memory
+    assert 'm6a7_start_process_rss_sampler' in memory
+    assert 'm6a7_stop_process_rss_sampler' in memory
+    assert 'm6a5_install_container_signal_traps' in memory
+    assert 'm6a5_container_signal_trap' in memory
+    assert 'M6A7_SAMPLER_STOP_TIMEOUT_SECS' in memory
     assert 'chmod -R a+rX' in memory
     for text in (ours, glim, fast):
         assert 'M6A3_SYNTHETIC_SMOKE' in text
@@ -201,14 +216,83 @@ def test_synthetic_smoke_paths_are_full_startup_contracts():
         assert 'container_memory_evidence.sh' in text
         assert 'm6a5_write_container_memory_evidence' in text or \
             'm6a5_container_exit_trap' in text
+        assert 'm6a7_start_process_rss_sampler' in text or \
+            'm6a5_container_exit_trap' in text
         assert 'gt_mounted":"false' not in text
         assert 'gt_mounted":false' in text
         assert 'performance_run":false' in text
+        assert 'm6a5_install_container_signal_traps' in text
+    for text in (glim, fast):
+        assert 'm6a7_start_process_rss_sampler' in text
+        assert 'm6a5_write_container_memory_evidence' in text or \
+            'm6a5_container_exit_trap' in text
+    assert 'm6a7_start_process_rss_sampler' in ours
     assert 'RKO LIO Node is up!' in ours
     assert 'initialization end' in ours
     assert 'ros2 node list' in glim
     assert 'rosbag play --clock' in fast
     assert 'ROS_MASTER_URI=http://127.0.0.1:11311' in fast
+    assert fast.index('m6a5_write_container_memory_evidence') < fast.index(
+        'wait >/dev/null 2>&1 || true')
+
+
+def test_sampler_overhead_gate_is_preregistered_before_measurement():
+    contract = json.loads(OVERHEAD_PREREGISTRATION.read_text())
+    assert contract['status'] == 'preregistered_not_measured'
+    assert contract['repeats'] == 20
+    assert contract['order'] == 'AB_BA_alternating'
+    assert contract['same_cpuset'] == '0-7'
+    assert contract['same_image'] is True
+    assert contract['measurement']['startup_excluded'] is True
+    assert contract['measurement']['network'] == 'none'
+    assert contract['measurement']['clock'] == 'monotonic'
+    assert contract['measurement']['cpu_clock'] == 'resource.RUSAGE_SELF'
+    assert contract['measurement']['sampler_interval_ms'] == 250
+    assert contract['workload']['model'] == 'fixed_work_count_cpu'
+    assert contract['workload']['worker_count'] == 8
+    assert contract['bootstrap'] == {
+        'confidence': 0.95, 'resamples': 100000, 'seed': 20260822,
+        'statistic': 'mean_paired_wall_overhead_percent'}
+    assert contract['gate'] == {
+        'bootstrap_ci95_upper_percent_max': 5.0,
+        'median_abs_overhead_percent_max': 2.0}
+
+
+def test_sampler_overhead_v2_preregisters_low_priority_and_required_markers():
+    contract = json.loads(OVERHEAD_PREREGISTRATION_V2.read_text())
+    assert contract['schema_version'] == 2
+    assert contract['status'] == 'preregistered_not_measured'
+    assert contract['measurement']['sampler_interval_ms'] == 250
+    assert contract['measurement']['sampler_scheduler_nice'] == 10
+    assert contract['optimization'] == {
+        'proc_enumeration': 'os.scandir',
+        'process_rss_definition_unchanged': True,
+        'self_exclusion_unchanged': True,
+        'pid_reuse_checks_unchanged': True}
+    assert contract['raw_run_markers'] == [
+        'docker_exit_status.txt', 'mode.txt', 'workload_time.json']
+    assert contract['aggregation']['missing_marker_policy'] == \
+        'fail_closed_before_numeric_aggregation'
+    assert contract['repeats'] == 20
+    assert contract['order'] == 'AB_BA_alternating'
+    assert contract['same_cpuset'] == '0-7'
+    assert contract['same_image'] is True
+
+
+def test_sampler_overhead_v3_preregisters_cross_sample_pid_guard():
+    contract = json.loads(OVERHEAD_PREREGISTRATION_V3.read_text())
+    assert contract['schema_version'] == 3
+    assert contract['status'] == 'preregistered_not_measured'
+    assert contract['measurement']['sampler_interval_ms'] == 250
+    assert contract['measurement']['sampler_scheduler_nice'] == 10
+    assert contract['optimization']['proc_enumeration'] == 'os.scandir'
+    assert contract['optimization']['pid_start_time_guard'] == \
+        'cross_sample_single_stat_read'
+    assert contract['optimization']['process_rss_definition_unchanged'] is True
+    assert contract['optimization']['self_exclusion_unchanged'] is True
+    assert contract['optimization']['pid_reuse_checks_unchanged'] is True
+    assert contract['raw_run_markers'] == [
+        'docker_exit_status.txt', 'mode.txt', 'workload_time.json']
 
 
 def test_ours_image_archive_label_mismatch_is_fail_closed(monkeypatch):
