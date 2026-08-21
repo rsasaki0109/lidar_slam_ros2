@@ -108,12 +108,16 @@ python3 scripts/verify_competitive_frozen_holdouts.py \
 ```
 
 It requires exactly `exp14`, `exp16`, and `exp18`; checks marker/selection/
-plan binding, raw bag and calibration bytes/Git blobs, safe canonical ROS 2
-metadata/tree and seven-topic semantic identity, input-manifest payload, and
+plan binding, raw bag bytes/LFS SHA and calibration bytes/Git blobs, safe
+canonical ROS 2 metadata/tree and seven-topic semantic identity,
+input-manifest payload, and
 preparation runtime/argv hashes. The preparation receipt's
 `manifest_sha256` is checked by rebuilding its deterministic pre-finalization
-manifest view. Ground truth is hashed as an opaque stream only: no GT path,
-text, or metric is printed. Manifest and preparation-receipt file SHAs are
+manifest view. Raw bag content is checked by expected byte count and the
+selection's LFS SHA-256; its preregistered Git-blob OID is the pointer
+provenance, not a content-blob comparison. Ground truth is hashed as an opaque
+stream only: no GT path, text, or metric is printed. Manifest and
+preparation-receipt file SHAs are
 included in the machine-readable summary. It is independent of the freezer,
 has not accessed the preregistered data, and does not change selection/profile
 receipts; M5 therefore remains `INCOMPLETE`.

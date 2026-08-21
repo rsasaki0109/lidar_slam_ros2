@@ -327,9 +327,12 @@ python3 scripts/verify_competitive_frozen_holdouts.py \
 ```
 
 The verifier requires exactly Exp14/16/18 and rechecks the managed marker,
-selection/plan identities, official bag and calibration byte/blob identities,
-and every final manifest. Ground truth remains an opaque stream: no GT path,
-text, trajectory, or score is printed. The verifier recomputes the safe
+selection/plan identities, official bag byte/LFS-SHA identity, calibration
+byte/Git-blob identity, and every final manifest. The bag's preregistered
+Git-blob OID is the immutable Git LFS pointer provenance; it is format-checked
+and reported, never compared with the downloaded bag's content blob. Ground
+truth remains an opaque stream: no GT path, text, trajectory, or score is printed.
+The verifier recomputes the safe
 canonical ROS 2 metadata/tree hash, seven-topic semantic report hash,
 input-manifest payload hash, and the preparation receipt's deterministic
 pre-finalization manifest hash. Its JSON summary includes each manifest and

@@ -401,10 +401,10 @@ def _verify_slot(root: Path, selection: dict[str, Any], marker: dict[str, Any],
         raise ValueError(f'{sequence} raw-bag storage path mismatch')
     expected_lfs = _require_sha(bag.get('lfs_sha256'), f'{sequence} bag LFS SHA')
     expected_bag_blob = _require_git_blob(bag.get('git_blob_oid'),
-                                          f'{sequence} bag Git blob')
+                                          f'{sequence} bag LFS pointer blob')
     observed_raw = _opaque_identity(
         raw_path, bag.get('expected_bytes'), f'{sequence} raw bag',
-        expected_sha=expected_lfs, expected_blob=expected_bag_blob)
+        expected_sha=expected_lfs)
     if raw.get('bytes') != observed_raw['bytes'] or raw.get('sha256') != observed_raw[
             'sha256']:
         raise ValueError(f'{sequence} raw-bag manifest identity mismatch')
@@ -519,6 +519,7 @@ def _verify_slot(root: Path, selection: dict[str, Any], marker: dict[str, Any],
         'manifest_file_sha256': manifest_file_sha,
         'preparation_receipt_file_sha256': receipt_file_sha,
         'raw_bag_sha256': observed_raw['sha256'],
+        'raw_bag_git_lfs_pointer_blob_oid': expected_bag_blob,
         'ground_truth_sha256': observed_gt['sha256'],
         'ground_truth_git_blob_sha1': observed_gt['git_blob_sha1'],
         'calibration_tree_sha256': calibration_result['tree_sha256'],

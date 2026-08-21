@@ -132,7 +132,10 @@ def _make_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
             'bag': {
                 'expected_bytes': raw_path.stat().st_size,
                 'lfs_sha256': _sha256(raw_path),
-                'git_blob_oid': MODULE.git_blob_sha1(raw_path),
+                # A Git LFS pointer blob OID identifies the pointer in the
+                # official repository, not the downloaded bag content.
+                'git_blob_oid': 'b' * 40,
+                'identity_kind': 'git_lfs_pointer_blob_oid',
             },
             'ground_truth': {
                 'expected_bytes': gt_path.stat().st_size,
@@ -332,12 +335,25 @@ def test_three_slot_fixture_passes_and_keeps_gt_opaque(tmp_path, capsys):
     assert result['status'] == 'PASS'
     assert [row['sequence'] for row in result['slots']] == list(
         MODULE.EXPECTED_SEQUENCES)
+    assert all(row['raw_bag_git_lfs_pointer_blob_oid'] == 'b' * 40
+               for row in result['slots'])
     text = output.read_text(encoding='utf-8')
     assert 'opaque-ground-truth' not in text
     assert 'ground_truth/exp' not in text
     stdout = capsys.readouterr().out
     assert 'opaque-ground-truth' not in stdout
     assert 'ground_truth/exp' not in stdout
+
+
+def test_lfs_content_sha_mismatch_fails_pointer_provenance_is_not_content(
+        tmp_path):
+    root, selection, output = _make_fixture(tmp_path)
+    raw_path = root / 'slots' / 'exp14' / 'source' / 'exp14.bag'
+    raw_path.write_bytes(b'BAD-exp14\n')
+    assert _run(root, selection, output) == 1
+    result = json.loads(output.read_text(encoding='utf-8'))
+    assert any('raw bag SHA-256 mismatch' in error
+               for error in result['errors'])
 
 
 @pytest.mark.parametrize('tamper', ('raw', 'ground_truth', 'calibration',
