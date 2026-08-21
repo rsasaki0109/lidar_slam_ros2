@@ -306,9 +306,37 @@ selection SHA
 `2bfc541a8d6127599f7a36e66c08da44488a08a55a4d9c4709703223be8bdd2b`,
 and execution-receipt SHA
 `d25057bc3660424f9ea852143a215610b8395dddfee0ed1e8c64a5acd1cde0ab`.
-GT content and scorer remain untouched; no `--execute` was run. This closes
-runtime/preflight readiness only and authorizes no accuracy, performance, map,
-or SOTA claim.
+At the M6a3 checkpoint GT content and scorer remained untouched and no
+`--execute` had been run. The later M6a4 partial record below is the complete
+execution status; neither checkpoint authorizes accuracy, performance, map, or
+SOTA claims.
+
+### M6a4 partial GT-blind campaign closure (2026-08-22)
+
+The disclosed campaign2 execute was started once after the fixed preflight.
+Attempts 001--018 are immutable final attempts: ours and GLIM each completed
+all three frozen slots with three repetitions (18/18, exit 0, complete output,
+and GT/scorer-free proofs). FAST attempt 019 produced its wrapper status and
+odometry artifacts, but the driver failed while finalizing the attempt because
+`attempt_019.part/ros_home/rospack_cache_15823137030970321179` was mode 600,
+owned by root, and unreadable to the driver user. The `.part` directory is
+preserved unchanged; no attempt 019 final manifest exists, and attempts
+020--027 were not started. The exact partial record is the external atomic
+manifest
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign2_20260822/partial_campaign_manifest.json`
+(SHA-256
+`df91a0f0852911790f3fabb5b5638938b8e1222208943be01678a99fbd062978`). Its
+non-circular root-tree projection SHA is
+`ceafd30fbfe4f0099ba32e4a79390f8dd5cc0e6ea428254c8d021c11231bd16e`.
+
+The partial campaign is `INCOMPLETE`, not a benchmark result. The host
+`/usr/bin/time -v` values recorded around `docker run` are client-process RSS,
+not container/cgroup peak memory, so RSS evidence is invalid for a performance
+gate. GT content and scorers were never accessed. The immutable M6a2 parent
+completion SHA remains
+`a5abafdeb420619a1460737a3cf91862fa41ce7930c041324b1f38c00b16f002`.
+A planned campaign3 must first provide resilient attempt finalization and
+container/cgroup memory accounting; no M6b or README/SOTA claim is authorized.
 
 ### M5c fresh-holdout download checkpoint (2026-08-21)
 

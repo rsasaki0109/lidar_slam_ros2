@@ -323,9 +323,36 @@ preflight is `preflight_ready`, 27/27, with plan SHA
 The preflight records canonical profile SHA
 `5a8b81b7483ce9921fdfb4393ed006390fc5f0b2553b5e29976de96725a4da39` and
 checks all frozen input identities, image digests, CPU/thread policy,
-GT-unreachable mounts, and scorer-free commands. No `--execute` was run and
-no GT content, scorer, accuracy, performance, map-quality, or SOTA claim is
-authorized.
+GT-unreachable mounts, and scorer-free commands. At this M6a3 checkpoint no
+`--execute` had been run; the later M6a4 partial record below is the complete
+execution status. No GT content, scorer, accuracy, performance, map-quality, or
+SOTA claim is authorized.
+
+### M6a4 partial campaign closure (2026-08-22)
+
+Campaign2 was executed once after the fixed preflight. Final attempts 001--018
+are immutable and all passed their GT-blind completion checks (ours 001--009,
+GLIM 010--018; exit 0, complete output, no GT/scorer access). FAST attempt 019
+reached wrapper shutdown and emitted its top-level status artifacts, but driver
+finalization failed on the unreadable root-owned mode-600
+`attempt_019.part/ros_home/rospack_cache_15823137030970321179`. The `.part`
+directory was not changed, renamed, or deleted; no final attempt 019 manifest
+was produced and attempts 020--027 were not started.
+
+The atomic partial manifest is external:
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign2_20260822/partial_campaign_manifest.json`,
+SHA-256
+`df91a0f0852911790f3fabb5b5638938b8e1222208943be01678a99fbd062978`.
+Its root identity excludes the manifest itself and has projection SHA
+`ceafd30fbfe4f0099ba32e4a79390f8dd5cc0e6ea428254c8d021c11231bd16e`.
+
+This is an `INCOMPLETE` infrastructure record, not accuracy or performance
+evidence. Host `/usr/bin/time -v` wrapped the Docker client, so its RSS values
+are not valid container/cgroup peak-memory measurements. GT content and scorer
+remain untouched. The immutable M6a2 parent SHA is
+`a5abafdeb420619a1460737a3cf91862fa41ce7930c041324b1f38c00b16f002`; a
+planned campaign3 must add resilient attempt finalization and cgroup RSS
+accounting before any M6b evaluation or README/SOTA claim.
 
 The reproducibility slice also owns the image recipes and their build entrypoint:
 `docker/ours_competitive_benchmark.Dockerfile`,
