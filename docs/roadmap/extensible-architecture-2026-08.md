@@ -17,7 +17,7 @@
 | FAST_GICP / FAST_VGICP | **Pending** | Dependency is absent in the supported host; no class or fallback is advertised. |
 | Backend loop-registration/plugin seams | **Implemented / experimental** | Live and offline `graph_based_slam` NDT now resolve the same host-resident `lidarslam_builtin/NdtOmp` `backend_loop` request/session before observable processing; `BackendCore` consumes only the typed interface. R2, the path-independent R4 provenance fixture, the M4a receipt/parser fixture, and the pinned MID-360 three-run artifact comparison pass. That historical receipt **fails only the strict max-RTF gate** (`1.006913460 > 1.0`); the M4b bounded-cache implementation/tests and formal stride-5 MID-360 development-profile gate pass (`max RTF=0.264233831`, wall CV `2.484173052%`, peak RSS `565.222656250 MiB`). M4c HILTI exp04 and exp07 three-run backend regression gates also pass with old optimized artifacts exact; the paired exp04 map check passes at 2%, while the unchanged indoor absolute profile fails on both old/current reports. This closes cache/general regression for these receipts only; official dense-GT/SOTA comparison and broader promotion remain M5 pending. GICP stays an explicit legacy bridge. |
 | Competitive SOTA evidence validator | **Implemented / fail-closed; identity frozen, evidence pending** | Additive schema-v2 mode in `evaluate_competitive_suite_gate.py` separates historical exp02/03/21 regression slots from the primary-fresh partition. Every system must provide every dataset in both partitions with exactly three run records; completion, RTF/RSS, map, and per-sequence regression checks cover both, while aggregate APE and hierarchical CI use fresh only. It requires profile-assigned fresh slots (selection/input/reference/calibration hashes), all rivals, pinned per-system provenance, a common scorer fingerprint, an equal canonical seven-field thread policy, and the remaining safety evidence. Exp14/16/18 are now `frozen_unopened` after a read-only deep verification of the managed root; the execution-identity preflight is `PASS` before first run, while benchmark evidence remains `INCOMPLETE` until all required 3-system x 3-slot x 3-run records exist. Exposed exp02/03/21 assets cannot be relabelled fresh. Synthetic boundary/negative tests pass and no README claim is authorized. |
-| M6a GT-blind execution harness | **Implemented / preflight PASS; execution pending** | `scripts/run_competitive_gt_blind_benchmark.py` emits an explicit 27-attempt plan and supports read-only dry-run/preflight plus a separately gated execute mode. It uses direct canonical ROS2 mounts for ours/GLIM and only the frozen raw ROS1 bag for FAST-LIVO2, rejects root overlap/stale markers/identity drift, records atomic attempt manifests, and checks GT/scorer-free argv, env, and mounts. M6a1 rebuilt and inspected the ours image (`sha256:0680ae359deb2da45ff16ecf1c5d92c0510dc51d48bd06c0fcd93ce1d33ff3fb`) with the exact `866f7336…` algorithm revision and RKO archive; dry-run and preflight are 27/27 PASS. No benchmark replay has started. |
+| M6a GT-blind execution harness | **Implemented / execution INCOMPLETE; no evidence** | `scripts/run_competitive_gt_blind_benchmark.py` emits an explicit 27-attempt plan and supports read-only dry-run/preflight plus a separately gated execute mode. It uses direct canonical ROS2 mounts for ours/GLIM and only the frozen raw ROS1 bag for FAST-LIVO2, rejects root overlap/stale markers/identity drift, records atomic attempt manifests, and checks GT/scorer-free argv, env, and mounts. M6a1 rebuilt and inspected the ours image (`sha256:0680ae359deb2da45ff16ecf1c5d92c0510dc51d48bd06c0fcd93ce1d33ff3fb`) with the exact `866f7336…` algorithm revision and RKO archive; dry-run and preflight were 27/27 PASS. M6a2 then attempted all 27 runs, but all failed before producing valid trajectories: ours 9× exit 1 (RKO-LIO package unavailable in the image runtime), GLIM 9× exit 250 (read-only ROS log directory), and FAST-LIVO2 9× exit 20 (network-disabled ROS 1 master self-connect). Completion is `INCOMPLETE`; no GT/scorer/APE/map-quality evidence or performance claim is authorized. |
 | Live-node plugin preflight | **Implemented / experimental** | Read-only `registration_plugin_enable`, `registration_plugin_class`, and `registration_plugin_allow_external` are validated before pub/sub creation; default constructor behavior is unchanged and runtime hot reload is rejected. External DSO promotion remains **No-Go** until independent ODR, lifecycle, rollback, and Humble/Jazzy replay gates pass. |
 | README superiority claims | **No-Go for new claims** | Existing sequence-scoped comparisons remain; no universal or plugin-performance claim is authorized. |
 
@@ -265,9 +265,29 @@ exact local RKO archive. The separate GT-blind harness/orchestrator revision
 is `4701f0084d6b0fff475a62bec7eeb6d807561821`; it is not the algorithm
 revision. The receipt and profile hashes were resynchronized without changing
 the canonical profile identity. Read-only dry-run and preflight passed all
-27 scheduled attempts, with no results-root marker created and no performance
-run started. Preflight hashes each frozen slot once, even though the schedule
-repeats it across systems and repetitions.
+27 scheduled attempts, with no results-root marker created at that checkpoint.
+Preflight hashes each frozen slot once, even though the schedule repeats it
+across systems and repetitions.
+
+### M6a2 GT-blind execution attempt (2026-08-22)
+
+After the M6a1 checkpoint, the fixed schedule was executed exactly once in the
+managed results root
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_20260822`.
+The run used the committed `3bd10254972ebbcbdc3f904f13f9a79f60e37837`, the
+M6a1 preflight identity, CPU set 0--7, and the quiescence snapshot
+`ae07b16bb19227468fa5f61327a9a343a2f43c5f5ebe6ade17b712d5b134db54`.
+All 27 immutable attempt directories were created and no `.part` directory
+remained. The GT-blind completion manifest is
+`a5abafdeb420619a1460737a3cf91862fa41ce7930c041324b1f38c00b16f002` and has
+status `INCOMPLETE`: ours had 9 exit-1 startup failures because `rko_lio` was
+not discoverable in the runtime, GLIM had 9 exit-250 failures while creating
+its ROS log directory on the read-only container, and FAST-LIVO2 had 9 exit-20
+failures because its ROS 1 master could not self-connect with the network
+disabled. Every attempt records `ground_truth_content_opened: false` and
+`scorer_invoked: false`; no trajectory or performance result is valid. These
+runtime contracts must be repaired and independently smoke-tested before any
+rerun. No GT, APE, map-quality, accuracy, or SOTA claim follows from M6a2.
 
 The reproducibility slice also owns the image recipes and their build entrypoint:
 `docker/ours_competitive_benchmark.Dockerfile`,

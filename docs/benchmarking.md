@@ -243,13 +243,27 @@ The separate GT-blind harness/orchestrator revision is
 `4701f0084d6b0fff475a62bec7eeb6d807561821`, not an algorithm revision.
 Receipt/profile hashes were resynchronized without changing the canonical
 profile identity. Read-only dry-run and preflight passed all 27 scheduled
-attempts; `--execute` is intentionally separate and has not been used. Ours and GLIM
+attempts; M6a2 subsequently exercised `--execute` once, and its incomplete
+GT-blind completion manifest is recorded below. Ours and GLIM
 mount only the canonical ROS 2 directory; FAST-LIVO2 mounts only the selected
 raw ROS 1 bag and records the frozen raw/canonical semantic-equivalence hash.
 No GT path, calibration tree, scorer, APE, or map-quality input is passed to a
-container by this harness. No results-root marker was created, so no
-performance result is implied. Preflight hashes each frozen slot once despite
-the repeated system/repetition schedule.
+container by this harness. Preflight hashes each frozen slot once despite the
+repeated system/repetition schedule.
+
+### M6a2 GT-blind execution result (2026-08-22)
+
+The one permitted `--execute` pass covered all 27 scheduled attempts in the
+managed results root. Completion is `INCOMPLETE` (manifest SHA256
+`a5abafdeb420619a1460737a3cf91862fa41ce7930c041324b1f38c00b16f002`):
+ours had nine exit-1 RKO-LIO startup failures, GLIM had nine exit-250
+read-only ROS-log failures, and FAST-LIVO2 had nine exit-20 ROS-master
+self-connect failures under the network-disabled container policy. Attempt
+directories are immutable and no `.part` directory remains. The completion
+manifest proves GT content was not opened and no scorer was invoked, but it
+contains no valid trajectory/performance evidence. Repair and smoke-test these
+three runtime contracts before any rerun; do not infer accuracy, performance,
+map quality, or SOTA superiority from this incomplete attempt.
 
 ### M5c fresh-holdout download checkpoint (2026-08-21)
 
