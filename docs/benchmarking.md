@@ -139,17 +139,34 @@ python3 scripts/check_competitive_execution_selection.py \
   --yaml-output <out>/competitive_execution_preflight.yaml
 ```
 
-The profile records the receipt path and SHA-256. The checked-in receipt is
-currently `pending`: the worktree still needs a commit freeze, rival
-containers/toolchains need a reproducible build, and the machine/thread policy
-must be refreshed in the execution environment. Missing values remain
+The profile records the receipt path and full-file SHA-256. The checked-in receipt is
+currently `pending`: the ours clean revision, machine fingerprint, and eight-thread
+policy are observed, but rival containers/toolchains and fresh-input hashes still
+need a reviewed freeze. Missing values remain
 `INCOMPLETE`; malformed or changed paths/digests are `INVALID`. This check is
 read-only and performs no container build, dataset download, ground-truth
 inspection, or benchmark run. The identity records exact `Release`,
 revision/config/container/toolchain/scorer/machine/thread fields, plus the
 modality/calibration policy: GLIM CPU is lidar+IMU, FAST-LIVO2 is
 lidar+IMU+five-camera visual, and ours is the lidar+IMU track. These are
-fairness constraints, not performance evidence.
+fairness constraints, not performance evidence. Before any run, enforce the
+recorded policy with `taskset` and the matching Docker `--cpuset-cpus` setting,
+and explicitly export `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`,
+`MKL_NUM_THREADS`, and `TBB_NUM_THREADS` as recorded; this receipt update does
+not change the benchmark runners.
+
+The profile/receipt registration uses the non-cyclic
+`canonical_profile_sha256_v1` contract. It parses the complete
+`competitive_slam_profile` YAML mapping, removes only
+`evidence_gate_v2.execution_selection_receipt_sha256`, then serializes the
+mapping as UTF-8 JSON with sorted keys, compact separators, and
+`ensure_ascii=true` before hashing with SHA-256. The receipt stores that value
+as `common_identity.profile_sha256` plus its hash kind. The profile continues
+to store the raw full-file SHA of the receipt, so YAML formatting changes are
+visible there without creating a mutual-hash cycle. Any other profile field
+mutation changes the canonical profile hash; missing, wrong-kind, or mismatched
+values remain fail-closed (`INCOMPLETE` for unresolved pending data and
+`INVALID` for malformed/tampered data).
 
 To refresh the pending identity without touching the reviewed receipt, create
 an observation artifact and then finalize it against the same receipt:

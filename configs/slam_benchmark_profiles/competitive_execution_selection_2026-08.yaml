@@ -1,21 +1,23 @@
-# M5b execution identity preregistration.  Nulls are intentional: this file
-# is a freeze/preflight contract, not a benchmark result.
+# M5b execution identity preregistration.  Remaining nulls are intentional for
+# unresolved containers/toolchains/fresh inputs; this is not a benchmark result.
 schema_version: 1
 receipt_kind: competitive_execution_selection
 profile: competitive_slam_v1
 status: pending
 status_reasons:
-  - ours_worktree_is_dirty_pending_commit
+  - ours_clean_revision_observed_but_receipt_freeze_is_pending
   - glim_container_not_available_locally_pending_build
   - fast_livo2_container_not_available_locally_pending_build
-  - toolchain_and_thread_policy_require_execution_preflight
+  - container_and_toolchain_freeze_require_execution_preflight
+  - fresh_holdout_hashes_pending
 release: Release
 selected_at: '2026-08-21 JST'
 
 common_identity:
   profile_path: configs/slam_benchmark_profiles/competitive_slam_v1.yaml
-  profile_sha256: null
-  profile_sha256_status: pending_dirty_worktree
+  profile_sha256: 758dfeb5b8ee7f39c4e1bb6001442f46766c564f057ae563819679305d5b608a
+  profile_sha256_kind: canonical_profile_sha256_v1
+  profile_sha256_status: canonical_recorded_pending_execution_preflight
   fresh_holdout_selection_receipt_path: configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml
   fresh_holdout_selection_receipt_sha256: cfc106a0396cc032f297f72f10e549ebef55c39f492afe9c1d25ded0d4307dde
   input_policy:
@@ -26,7 +28,7 @@ common_identity:
     same_release: Release
     failed_runs_are_retained: true
   scorer:
-    canonical_fingerprint: fdbf997935a383a3209dba4102d2fd7562d29c4a43aa8dfe78ccb169d1460b68
+    canonical_fingerprint: 6cb048e13e3792ae2303472d8499728bf01ebf3002b29768d5a432cb1aaf9281
     files:
       trajectory:
         path: scripts/ape_from_tum.py
@@ -40,27 +42,32 @@ common_identity:
         sha256: 079a05cb042561745209a7fae4b7860c0a002436d8f9ee9440b33a8f2771aa6a
       suite_validator:
         path: scripts/evaluate_competitive_suite_gate.py
-        sha256: 24a53b2100bc328637c4c45f78058613298c2fdb92ad5dcef5bee79de7d243f4
+        sha256: 77865a4903a625702fb1887dcba20436f2a07a5ff3b1c93dccd92dc95dcb9404
   machine_fingerprint:
-    path: /media/sasaki/aiueo1/benchmarks/competitive_holdouts/machine_fingerprint.json
-    path_kind: local_absolute_historical_artifact
-    sha256: f9e496aba9a1f5f80f724a07ad4384546eb6857d65fcc1b09da3b5e85175da5f
-    captured_at: '2026-07-15T02:12:09.469184+00:00'
-    machine_id: f5605cb93280749c7837ecffddebc622685e2155ad58ec83877c8a3653727c80
-    status: available_but_refresh_required_before_run
+    path: /media/sasaki/aiueo1/benchmarks/competitive_holdouts/machine_fingerprint_20260821.json
+    path_kind: local_absolute_execution_artifact
+    sha256: 8dc2b5c505608da3c953d88437d7edcf2f5e691decc279f61705e37c88f701be
+    captured_at: '2026-08-21T12:41:16.227338+00:00'
+    machine_id: 20be7eece45e4920d6496668c392a450debc0220c09789c60566ceabcbbf999a
+    status: ready
     producer:
       path: scripts/capture_benchmark_machine_fingerprint.py
       sha256: f9e49ba213a5b4e02e0099ce7d3d7e1ffd34a2bc0e037b8c3635c0541b6f2467
       refresh_policy: capture_again_in_execution_environment_and_compare
   thread_policy:
-    status: pending_preflight
-    cpu_affinity: null
-    max_threads: null
-    omp_num_threads: null
-    openblas_num_threads: null
-    mkl_num_threads: null
-    tbb_num_threads: null
-    accelerator_policy: null
+    status: ready
+    cpu_affinity: [0, 1, 2, 3, 4, 5, 6, 7]
+    max_threads: 8
+    omp_num_threads: 8
+    openblas_num_threads: 8
+    mkl_num_threads: 8
+    tbb_num_threads: 8
+    accelerator_policy: cpu_only
+    canonical_sha256: 262d656a7c382cd27696b3150215ae563a014796de69718754858bcb814ba993
+    enforcement:
+      cpu_affinity: taskset_0-7_and_docker_cpuset_0-7
+      thread_environment: explicit_OMP_OPENBLAS_MKL_TBB_NUM_THREADS_8
+      required_before_run: true
     required_keys:
       - cpu_affinity
       - max_threads
@@ -75,13 +82,13 @@ systems:
   ours:
     repository:
       url: https://github.com/rsasaki0109/lidar_slam_ros2.git
-      revision: f3f6bc6fd7c6a89af6096040cb8cdd129b19fdef
-      revision_status: pending_commit
-      worktree_dirty: true
+      revision: 866f733677e92ecb08d67126e463da99dd140d46
+      revision_status: pinned
+      worktree_dirty: false
       diff_sha256: null
-      tracked_diff_sha256: null
-      untracked_content_sha256: null
-      clean_provenance_sha256: null
+      tracked_diff_sha256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+      untracked_content_sha256: 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+      clean_provenance_sha256: d2b039e789ab7ba4a17b21f8c8382bec36d9b86325d3f63ce3907ed609f0552e
     runner:
       path: scripts/run_ours_competitive_benchmark.py
       sha256: 8280423f9d4ccd9ddcc507d39f0f7a19591fcc342708c9659ab739d1e8cb8b87

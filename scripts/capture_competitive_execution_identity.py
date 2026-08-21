@@ -28,6 +28,13 @@ from typing import Any
 
 import yaml
 
+try:
+    from scripts.competitive_identity_hash import (
+        PROFILE_CANONICAL_HASH_KIND, canonical_profile_sha256)
+except ModuleNotFoundError:  # direct ``python scripts/<tool>.py`` execution
+    from competitive_identity_hash import (  # type: ignore[no-redef]
+        PROFILE_CANONICAL_HASH_KIND, canonical_profile_sha256)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PROFILE = ROOT / 'configs/slam_benchmark_profiles/competitive_slam_v1.yaml'
@@ -396,7 +403,12 @@ def compare_capture_to_receipt(
     profile_path = profile_path.resolve()
     current_receipt_sha = (
         sha256_file(receipt_path) if receipt_path and receipt_path.is_file() else None)
-    current_profile_sha = (
+    try:
+        current_profile_sha = canonical_profile_sha256(profile)
+    except ValueError as exc:
+        errors.append(str(exc))
+        current_profile_sha = None
+    current_profile_file_sha = (
         sha256_file(profile_path) if profile_path.is_file() else None)
     source_receipt = capture.get('source_receipt', {})
     source_profile = capture.get('source_profile', {})
@@ -415,7 +427,14 @@ def compare_capture_to_receipt(
     if current_profile_sha is None:
         errors.append('current competitive profile is missing')
     elif source_profile.get('sha256') != current_profile_sha:
-        errors.append('capture profile SHA does not match current profile')
+        errors.append('capture canonical profile SHA does not match current profile')
+    if source_profile.get('sha256_kind') != PROFILE_CANONICAL_HASH_KIND:
+        errors.append(
+            'capture profile SHA kind is not '
+            f'{PROFILE_CANONICAL_HASH_KIND}')
+    if (current_profile_file_sha is not None and
+            source_profile.get('file_sha256') != current_profile_file_sha):
+        errors.append('capture profile file SHA does not match current profile file')
     declared_profile_receipt = policy.get('execution_selection_receipt_sha256')
     if (current_receipt_sha is not None and isinstance(declared_profile_receipt, str) and
             current_receipt_sha != declared_profile_receipt.lower()):
@@ -423,13 +442,23 @@ def compare_capture_to_receipt(
     check('source_ownership', path_ok and current_receipt_sha is not None and
           source_receipt.get('sha256') == current_receipt_sha and
           current_profile_sha is not None and
-          source_profile.get('sha256') == current_profile_sha, {
+          source_profile.get('sha256') == current_profile_sha and
+          source_profile.get('sha256_kind') == PROFILE_CANONICAL_HASH_KIND and
+          (current_profile_file_sha is None or
+           source_profile.get('file_sha256') == current_profile_file_sha), {
               'receipt_path': str(receipt_path) if receipt_path else None,
               'profile_path': str(profile_path),
               'receipt_sha256': current_receipt_sha,
               'profile_sha256': current_profile_sha,
+              'profile_sha256_kind': PROFILE_CANONICAL_HASH_KIND,
+              'profile_file_sha256': current_profile_file_sha,
           })
 
+    if receipt.get('schema_version') != 1:
+        errors.append('execution-selection receipt schema_version must be 1')
+    if receipt.get('receipt_kind') != 'competitive_execution_selection':
+        errors.append(
+            'execution-selection receipt_kind is not competitive_execution_selection')
     if receipt.get('status') not in {'ready', 'frozen'}:
         _record_blocker(blockers, f"source receipt status is {receipt.get('status')!r}")
     fresh_slots = contract.get('datasets', {}).get('fresh_holdout_slots', {})
@@ -437,12 +466,39 @@ def compare_capture_to_receipt(
         for slot_id, slot in fresh_slots.items():
             if not isinstance(slot, dict) or slot.get('status') not in {
                     'frozen_unopened', 'frozen'}:
-                _record_blocker(blockers, f'fresh holdout slot {slot_id} is not frozen_unopened/frozen')
+                _record_blocker(
+                    blockers,
+                    f'fresh holdout slot {slot_id} is not frozen_unopened/frozen')
 
     common = receipt.get('common_identity', {})
     if not isinstance(common, dict):
         errors.append('receipt.common_identity must be a mapping')
         common = {}
+    expected_profile_sha = common.get('profile_sha256')
+    expected_profile_kind = common.get('profile_sha256_kind')
+    profile_hash_ok = True
+    if expected_profile_sha is None:
+        _record_blocker(blockers, 'profile canonical SHA is unresolved')
+        profile_hash_ok = False
+    elif not isinstance(expected_profile_sha, str) or not SHA256_RE.fullmatch(
+            expected_profile_sha):
+        report_mismatch('profile canonical SHA is invalid')
+        profile_hash_ok = False
+    elif current_profile_sha != expected_profile_sha.lower():
+        report_mismatch('profile canonical SHA mismatch')
+        profile_hash_ok = False
+    if expected_profile_kind is None:
+        _record_blocker(blockers, 'profile canonical SHA kind is unresolved')
+        profile_hash_ok = False
+    elif expected_profile_kind != PROFILE_CANONICAL_HASH_KIND:
+        report_mismatch('profile canonical SHA kind mismatch')
+        profile_hash_ok = False
+    check('profile_canonical_hash_match', profile_hash_ok, {
+        'expected_sha256': expected_profile_sha,
+        'observed_sha256': current_profile_sha,
+        'expected_kind': expected_profile_kind,
+        'required_kind': PROFILE_CANONICAL_HASH_KIND,
+    })
     expected_machine = common.get('machine_fingerprint', {})
     observed_machine = capture.get('machine_fingerprint', {})
     machine_ok = True
@@ -689,7 +745,9 @@ def capture_identity(receipt: dict[str, Any], profile: dict[str, Any],
     machine = capture_machine()
     machine_path = _resolve_path(
         root, receipt.get('common_identity', {}).get('machine_fingerprint', {}).get('path'))
-    machine['file_sha256'] = sha256_file(machine_path) if machine_path and machine_path.is_file() else None
+    machine['file_sha256'] = (
+        sha256_file(machine_path)
+        if machine_path and machine_path.is_file() else None)
     thread = capture_thread_policy()
     systems: dict[str, Any] = {}
     receipt_systems = receipt.get('systems', {})
@@ -764,7 +822,9 @@ def capture_identity(receipt: dict[str, Any], profile: dict[str, Any],
         },
         'source_profile': {
             'path': str(profile_path.resolve()),
-            'sha256': sha256_file(profile_path) if profile_path.is_file() else None,
+            'sha256': canonical_profile_sha256(profile),
+            'sha256_kind': PROFILE_CANONICAL_HASH_KIND,
+            'file_sha256': sha256_file(profile_path) if profile_path.is_file() else None,
         },
         'machine_fingerprint': machine,
         'thread_policy': thread,

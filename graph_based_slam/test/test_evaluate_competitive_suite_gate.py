@@ -194,6 +194,8 @@ def _v2_evidence(contract=SYNTHETIC_CONTRACT, ours_ape=0.8,
                                       ('3' if dataset.endswith('02') else '4') * 64},
                     })
         systems[system] = {'provenance': _provenance(), 'runs': runs}
+    profile_sha256 = MODULE.canonical_profile_sha256(
+        {'competitive_slam_profile': contract})
     return {
         'schema_version': 2,
         'evidence_kind': 'competitive_slam_victory_evidence',
@@ -202,6 +204,8 @@ def _v2_evidence(contract=SYNTHETIC_CONTRACT, ours_ape=0.8,
             'datasets': datasets,
             'execution_selection_receipt_sha256': contract['evidence_gate_v2'][
                 'execution_selection_receipt_sha256'],
+            'profile_sha256': profile_sha256,
+            'profile_sha256_kind': MODULE.PROFILE_CANONICAL_HASH_KIND,
             'partitions': {
                 'historical': {
                     'datasets': [slot['sequence'] for slot in historical_slots.values()],
@@ -306,8 +310,8 @@ def test_v2_current_profile_selected_unopened_slots_cannot_be_claimed_fresh():
 
 
 def test_v2_pending_execution_receipt_blocks_otherwise_perfect_fixture():
-    evidence = _v2_evidence()
-    pending_contract = copy.deepcopy(SYNTHETIC_CONTRACT)
+    pending_contract = copy.deepcopy(CONTRACT)
+    evidence = _v2_evidence(pending_contract)
     pending_policy = pending_contract['evidence_gate_v2']
     pending_policy['execution_selection_receipt_path'] = (
         'configs/slam_benchmark_profiles/'

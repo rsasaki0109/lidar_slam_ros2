@@ -186,6 +186,10 @@ def _complete_fixture(tmp_path):
             'datasets': {'fresh_holdout_slots': {}},
         },
     }
+    receipt['common_identity']['profile_sha256'] = (
+        MODULE.canonical_profile_sha256(profile))
+    receipt['common_identity']['profile_sha256_kind'] = (
+        MODULE.PROFILE_CANONICAL_HASH_KIND)
     receipt_path.write_text(yaml.safe_dump(receipt, sort_keys=True), encoding='utf-8')
     profile['competitive_slam_profile']['evidence_gate_v2'][
         'execution_selection_receipt_sha256'] = hashlib.sha256(

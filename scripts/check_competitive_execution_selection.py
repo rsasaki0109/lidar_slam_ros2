@@ -20,6 +20,13 @@ from typing import Any
 
 import yaml
 
+try:
+    from scripts.competitive_identity_hash import (
+        PROFILE_CANONICAL_HASH_KIND, canonical_profile_sha256)
+except ModuleNotFoundError:  # direct ``python scripts/<tool>.py`` execution
+    from competitive_identity_hash import (  # type: ignore[no-redef]
+        PROFILE_CANONICAL_HASH_KIND, canonical_profile_sha256)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PROFILE = ROOT / 'configs/slam_benchmark_profiles/competitive_slam_v1.yaml'
@@ -197,6 +204,10 @@ def evaluate(receipt: dict[str, Any], profile: dict[str, Any],
     if not isinstance(receipt, dict):
         errors.append('execution selection receipt must be a mapping')
         receipt = {}
+    if receipt.get('schema_version') != 1:
+        errors.append('execution selection receipt schema_version must be 1')
+    if receipt.get('receipt_kind') != 'competitive_execution_selection':
+        errors.append('execution selection receipt_kind is not competitive_execution_selection')
     status = receipt.get('status')
     if status not in {'ready', 'frozen'}:
         if status is None or 'pending' in str(status):
@@ -220,6 +231,41 @@ def evaluate(receipt: dict[str, Any], profile: dict[str, Any],
     if not isinstance(common, dict):
         errors.append('receipt.common_identity must be a mapping')
         common = {}
+    try:
+        computed_profile_sha = canonical_profile_sha256(profile)
+    except ValueError as exc:
+        errors.append(str(exc))
+        computed_profile_sha = None
+    declared_profile_sha = common.get('profile_sha256')
+    declared_profile_kind = common.get('profile_sha256_kind')
+    profile_hash_ok = True
+    if declared_profile_sha is None:
+        _add_missing(incomplete, 'common_identity.profile_sha256')
+        profile_hash_ok = False
+    elif not _is_sha(declared_profile_sha):
+        errors.append('common_identity.profile_sha256 must be 64-hex')
+        profile_hash_ok = False
+    if declared_profile_kind is None:
+        _add_missing(incomplete, 'common_identity.profile_sha256_kind')
+        profile_hash_ok = False
+    elif declared_profile_kind != PROFILE_CANONICAL_HASH_KIND:
+        errors.append(
+            'common_identity.profile_sha256_kind must be '
+            f'{PROFILE_CANONICAL_HASH_KIND}')
+        profile_hash_ok = False
+    if (profile_hash_ok and computed_profile_sha is not None and
+            declared_profile_sha.lower() != computed_profile_sha):
+        errors.append('common_identity.profile_sha256 does not match canonical profile')
+        profile_hash_ok = False
+    check('profile_canonical_hash', profile_hash_ok and computed_profile_sha is not None, {
+        'hash_kind': declared_profile_kind,
+        'expected_hash_kind': PROFILE_CANONICAL_HASH_KIND,
+        'declared_sha256': declared_profile_sha,
+        'computed_sha256': computed_profile_sha,
+        'excluded_path': '.'.join(
+            ('competitive_slam_profile', 'evidence_gate_v2',
+             'execution_selection_receipt_sha256')),
+    })
     scorer = common.get('scorer')
     scorer_ok = isinstance(scorer, dict)
     if not scorer_ok:
@@ -442,9 +488,11 @@ def main() -> int:
     receipt = yaml.safe_load(args.receipt.read_text(encoding='utf-8'))
     profile = yaml.safe_load(args.profile.read_text(encoding='utf-8'))
     result = evaluate(receipt, profile)
-    profile_sha256 = sha256_file(args.profile)
+    profile_file_sha256 = sha256_file(args.profile)
     result['identity'] = {
-        'profile_sha256': profile_sha256,
+        'profile_sha256': canonical_profile_sha256(profile),
+        'profile_sha256_kind': PROFILE_CANONICAL_HASH_KIND,
+        'profile_file_sha256': profile_file_sha256,
         'execution_receipt_sha256': result['profile_execution_selection_receipt'].get(
             'actual_sha256'),
         'canonical_scorer_fingerprint': result.get(

@@ -105,9 +105,12 @@ It records the ours/GLIM/FAST-LIVO2 repository revisions and URLs, runner and
 configuration hashes, container recipe/tag/digest state, toolchain source,
 scorer fingerprint, machine-fingerprint source, exact `Release`, and the
 seven-key thread policy (`cpu_affinity`, `max_threads`, `OMP`, OpenBLAS, MKL,
-TBB, and accelerator policy). The receipt deliberately leaves unresolved
-container, toolchain, and thread values null and is marked `pending`; ours is
-also `pending_commit` because this worktree is dirty. FAST's upstream visual
+TBB, and accelerator policy). The receipt now records a verified clean ours
+revision, fresh machine fingerprint, and CPUs 0--7 with all thread limits set
+to 8; overall status remains `pending` because containers/toolchains and fresh
+input hashes are unresolved. The recorded policy must be enforced with
+`taskset`/Docker `--cpuset-cpus` plus the explicit OMP/OpenBLAS/MKL/TBB
+environment variables before execution. FAST's upstream visual
 configuration remains an external-container artifact until its pinned image is
 built; GLIM's CPU track disables visual input while preserving the canonical
 camera messages for the cross-system input contract.
@@ -125,6 +128,15 @@ file name, repository-relative path, measured SHA-256, and policy; a stored
 label cannot override a changed scorer. The CLI records profile SHA, execution
 receipt SHA, scorer fingerprint, and the canonical thread-policy hash. Pending
 status values are not accepted merely because their digest fields are filled.
+
+The profile/receipt hashes use `canonical_profile_sha256_v1`: the parsed full
+profile mapping is deep-copied, only
+`competitive_slam_profile.evidence_gate_v2.execution_selection_receipt_sha256`
+is removed, and the result is encoded as sorted compact UTF-8 JSON before
+SHA-256. The receipt stores this canonical profile hash and kind, while the
+profile stores the raw full-file receipt SHA. No other profile mutation is
+excluded, so wrong-kind or mismatched hashes fail closed without a mutual-hash
+cycle.
 
 The capture/finalize workflow is
 `scripts/capture_competitive_execution_identity.py`. `capture` emits a

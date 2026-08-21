@@ -151,7 +151,60 @@ def test_execution_selection_receipt_is_registered_but_pending():
     receipt = yaml.safe_load(path.read_text(encoding='utf-8'))
     assert receipt['receipt_kind'] == 'competitive_execution_selection'
     assert receipt['status'] == 'pending'
-    assert receipt['systems']['ours']['repository']['revision_status'] == 'pending_commit'
+    assert receipt['systems']['ours']['repository']['revision_status'] == 'pinned'
+    assert receipt['systems']['ours']['repository']['worktree_dirty'] is False
+    assert receipt['systems']['ours']['repository']['revision'] == (
+        '866f733677e92ecb08d67126e463da99dd140d46')
+    assert receipt['common_identity']['machine_fingerprint']['status'] == 'ready'
+    assert receipt['common_identity']['thread_policy']['status'] == 'ready'
+    assert receipt['common_identity']['thread_policy']['cpu_affinity'] == list(range(8))
+    assert receipt['common_identity']['thread_policy']['canonical_sha256'] == (
+        '262d656a7c382cd27696b3150215ae563a014796de69718754858bcb814ba993')
+    enforcement = receipt['common_identity']['thread_policy']['enforcement']
+    assert 'taskset' in enforcement['cpu_affinity']
+    assert 'docker_cpuset' in enforcement['cpu_affinity']
+    assert enforcement['required_before_run'] is True
+
+
+def test_observed_identity_is_complete_but_external_freeze_remains_pending():
+    profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    result = _CHECKER.evaluate(receipt, profile_document)
+    assert result['checks']['machine_fingerprint']['pass'] is True
+    assert result['checks']['thread_policy_complete']['pass'] is True
+    assert result['checks']['system_ours']['evidence']['revision_status'] == 'pinned'
+    assert result['status'] == 'INCOMPLETE'
+    assert result['pass'] is False
+
+
+def test_canonical_profile_hash_excludes_only_registered_receipt_sha():
+    document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    original = copy.deepcopy(document)
+    expected = _CHECKER.canonical_profile_sha256(document)
+    assert document == original
+    document['competitive_slam_profile']['evidence_gate_v2'][
+        'execution_selection_receipt_sha256'] = '0' * 64
+    assert _CHECKER.canonical_profile_sha256(document) == expected
+
+
+def test_canonical_profile_hash_changes_for_non_receipt_mutations():
+    document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    expected = _CHECKER.canonical_profile_sha256(document)
+    mutations = []
+    renamed = copy.deepcopy(document)
+    renamed['competitive_slam_profile']['name'] += '-mutated'
+    mutations.append(renamed)
+    policy_changed = copy.deepcopy(document)
+    policy_changed['competitive_slam_profile']['evidence_gate_v2'][
+        'repetitions'] += 1
+    mutations.append(policy_changed)
+    dataset_changed = copy.deepcopy(document)
+    dataset_changed['competitive_slam_profile']['datasets']['holdout_slots'][
+        'holdout_1']['sequence'] += '-mutated'
+    mutations.append(dataset_changed)
+    assert all(_CHECKER.canonical_profile_sha256(item) != expected
+               for item in mutations)
+    assert _CHECKER.PROFILE_CANONICAL_HASH_KIND == 'canonical_profile_sha256_v1'
 
 
 def test_execution_preflight_keeps_pending_identity_incomplete():

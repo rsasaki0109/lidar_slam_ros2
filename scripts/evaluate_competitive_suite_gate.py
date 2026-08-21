@@ -15,6 +15,13 @@ from typing import Any
 
 import yaml
 
+try:
+    from scripts.competitive_identity_hash import (
+        PROFILE_CANONICAL_HASH_KIND, canonical_profile_sha256)
+except ModuleNotFoundError:  # direct ``python scripts/<tool>.py`` execution
+    from competitive_identity_hash import (  # type: ignore[no-redef]
+        PROFILE_CANONICAL_HASH_KIND, canonical_profile_sha256)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PROFILE = ROOT / 'configs/slam_benchmark_profiles/competitive_slam_v1.yaml'
@@ -281,7 +288,8 @@ def _v2_thread_policy(policy_value: Any, required_keys: list[str],
                     any(isinstance(item, bool) or not isinstance(item, int)
                         or item < 0 for item in value)):
                 errors.append(
-                    f'{system}.thread_policy.cpu_affinity must be non-empty non-negative integer list')
+                    f'{system}.thread_policy.cpu_affinity must be non-empty '
+                    'non-negative integer list')
                 valid = False
         elif key == 'accelerator_policy':
             if not isinstance(value, str) or not value:
@@ -301,9 +309,15 @@ def _v2_canonical_hash(value: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _v2_normalize_runs(record: dict[str, Any], expected: list[str],
-                       repetitions: int) -> tuple[dict[tuple[str, int], dict[str, Any]],
-                                                   list[str], list[str]]:
+def _v2_normalize_runs(
+    record: dict[str, Any],
+    expected: list[str],
+    repetitions: int,
+) -> tuple[
+    dict[tuple[str, int], dict[str, Any]],
+    list[str],
+    list[str],
+]:
     """Normalize the v2 flat run-list shape and report missing/extra keys."""
     missing: list[str] = []
     errors: list[str] = []
@@ -361,7 +375,9 @@ def evaluate_evidence_v2(evidence: dict[str, Any],
         'evidence_kind': evidence.get('evidence_kind') if isinstance(evidence, dict) else None,
     })
     if not schema_ok:
-        errors.append('schema_version=2 and evidence_kind=competitive_slam_victory_evidence are required')
+        errors.append(
+            'schema_version=2 and evidence_kind=competitive_slam_victory_evidence '
+            'are required')
 
     # A victory receipt must identify the execution-selection preregistration
     # used to freeze containers, toolchains, configs, and thread policy.  The
@@ -374,6 +390,7 @@ def evaluate_evidence_v2(evidence: dict[str, Any],
     execution_receipt_actual = None
     execution_receipt_ok = True
     execution_receipt_status = None
+    execution_receipt = None
     if execution_receipt_path is _MISSING or execution_receipt_sha is _MISSING:
         incomplete.append('profile execution-selection receipt path/SHA is missing')
         execution_receipt_ok = False
@@ -408,6 +425,16 @@ def evaluate_evidence_v2(evidence: dict[str, Any],
             if not isinstance(execution_receipt, dict):
                 errors.append('execution-selection receipt must be a YAML mapping')
             else:
+                if execution_receipt.get('schema_version') != 1:
+                    errors.append(
+                        'execution-selection receipt schema_version must be 1')
+                    execution_receipt_ok = False
+                if execution_receipt.get('receipt_kind') != (
+                        'competitive_execution_selection'):
+                    errors.append(
+                        'execution-selection receipt receipt_kind must be '
+                        'competitive_execution_selection')
+                    execution_receipt_ok = False
                 execution_receipt_status = execution_receipt.get('status')
                 if execution_receipt_status not in {'ready', 'frozen'}:
                     if (execution_receipt_status is None or
@@ -420,6 +447,58 @@ def evaluate_evidence_v2(evidence: dict[str, Any],
                             'execution-selection receipt status must be ready/frozen: '
                             f'{execution_receipt_status!r}')
                     execution_receipt_ok = False
+                receipt_common = execution_receipt.get('common_identity')
+                if not isinstance(receipt_common, dict):
+                    errors.append(
+                        'execution-selection receipt common_identity must be a mapping')
+                    execution_receipt_ok = False
+                    receipt_common = {}
+                receipt_profile_sha = receipt_common.get('profile_sha256')
+                receipt_profile_kind = receipt_common.get('profile_sha256_kind')
+                try:
+                    _v2_sha256(receipt_profile_sha,
+                               'execution-selection receipt common_identity.profile_sha256')
+                except ValueError as exc:
+                    if receipt_profile_sha is None:
+                        incomplete.append(str(exc))
+                    else:
+                        errors.append(str(exc))
+                    execution_receipt_ok = False
+                if receipt_profile_kind is None:
+                    incomplete.append(
+                        'execution-selection receipt common_identity.profile_sha256_kind '
+                        'is missing')
+                    execution_receipt_ok = False
+                elif receipt_profile_kind != PROFILE_CANONICAL_HASH_KIND:
+                    errors.append(
+                        'execution-selection receipt common_identity.profile_sha256_kind '
+                        f'must be {PROFILE_CANONICAL_HASH_KIND}')
+                    execution_receipt_ok = False
+                try:
+                    computed_profile_sha = canonical_profile_sha256(
+                        {'competitive_slam_profile': contract})
+                except ValueError as exc:
+                    errors.append(str(exc))
+                    computed_profile_sha = None
+                if (computed_profile_sha is not None and
+                        isinstance(receipt_profile_sha, str) and
+                        _SHA256_RE.fullmatch(receipt_profile_sha) and
+                        receipt_profile_sha.lower() != computed_profile_sha):
+                    errors.append(
+                        'execution-selection receipt common_identity.profile_sha256 '
+                        'does not match canonical profile')
+                    execution_receipt_ok = False
+                check('execution_receipt_profile_canonical_hash',
+                      execution_receipt_ok and
+                      isinstance(receipt_profile_sha, str) and
+                      _SHA256_RE.fullmatch(receipt_profile_sha) is not None and
+                      receipt_profile_kind == PROFILE_CANONICAL_HASH_KIND,
+                      {
+                          'declared_sha256': receipt_profile_sha,
+                          'computed_sha256': computed_profile_sha,
+                          'hash_kind': receipt_profile_kind,
+                          'expected_hash_kind': PROFILE_CANONICAL_HASH_KIND,
+                      })
     check('execution_selection_receipt_registered', execution_receipt_ok, {
         'path': None if execution_receipt_path is _MISSING else execution_receipt_path,
         'expected_sha256': None if execution_receipt_sha is _MISSING else execution_receipt_sha,
@@ -466,6 +545,45 @@ def evaluate_evidence_v2(evidence: dict[str, Any],
               'profile_sha256': None if execution_receipt_sha is _MISSING
               else execution_receipt_sha,
               'status': execution_receipt_status,
+          })
+    try:
+        computed_profile_sha = canonical_profile_sha256(
+            {'competitive_slam_profile': contract})
+    except ValueError as exc:
+        errors.append(str(exc))
+        computed_profile_sha = None
+    declared_profile_sha = declared.get('profile_sha256', _MISSING)
+    declared_profile_kind = declared.get('profile_sha256_kind', _MISSING)
+    declared_profile_ok = True
+    if declared_profile_sha is _MISSING:
+        incomplete.append('contract.profile_sha256 is missing')
+        declared_profile_ok = False
+    else:
+        try:
+            _v2_sha256(declared_profile_sha, 'contract.profile_sha256')
+        except ValueError as exc:
+            errors.append(str(exc))
+            declared_profile_ok = False
+    if declared_profile_kind is _MISSING:
+        incomplete.append('contract.profile_sha256_kind is missing')
+        declared_profile_ok = False
+    elif declared_profile_kind != PROFILE_CANONICAL_HASH_KIND:
+        errors.append(
+            'contract.profile_sha256_kind must be '
+            f'{PROFILE_CANONICAL_HASH_KIND}')
+        declared_profile_ok = False
+    if (declared_profile_ok and computed_profile_sha is not None and
+            declared_profile_sha.lower() != computed_profile_sha):
+        errors.append('contract.profile_sha256 does not match canonical profile')
+        declared_profile_ok = False
+    check('profile_canonical_hash_in_evidence_contract',
+          declared_profile_ok and computed_profile_sha is not None, {
+              'declared_sha256': None if declared_profile_sha is _MISSING
+              else declared_profile_sha,
+              'computed_sha256': computed_profile_sha,
+              'declared_kind': None if declared_profile_kind is _MISSING
+              else declared_profile_kind,
+              'expected_kind': PROFILE_CANONICAL_HASH_KIND,
           })
     declared_partitions = declared.get('partitions', {})
     if not isinstance(declared_partitions, dict):
@@ -712,7 +830,7 @@ def evaluate_evidence_v2(evidence: dict[str, Any],
             provenance_ok = False
             continue
         if not _v2_provenance(record, system, common_fields, pinned_fields,
-                               errors, incomplete):
+                              errors, incomplete):
             provenance_ok = False
         if isinstance(record.get('provenance'), dict):
             provenance_values[system] = record['provenance']
@@ -1163,8 +1281,12 @@ def main() -> int:
                         help='optional schema-v2 YAML receipt path')
     args = parser.parse_args()
     profile_bytes = args.profile.read_bytes()
-    profile_sha256 = hashlib.sha256(profile_bytes).hexdigest()
-    contract = yaml.safe_load(profile_bytes)['competitive_slam_profile']
+    profile_file_sha256 = hashlib.sha256(profile_bytes).hexdigest()
+    profile_document = yaml.safe_load(profile_bytes)
+    if not isinstance(profile_document, dict):
+        raise ValueError('competitive profile must be a YAML mapping')
+    profile_sha256 = canonical_profile_sha256(profile_document)
+    contract = profile_document['competitive_slam_profile']
     if args.evidence is not None:
         evidence_bytes = args.evidence.read_bytes()
         evidence_sha256 = hashlib.sha256(evidence_bytes).hexdigest()
@@ -1172,6 +1294,8 @@ def main() -> int:
         result = evaluate_evidence_v2(evidence, contract)
         result['receipt_identity'] = {
             'profile_sha256': profile_sha256,
+            'profile_sha256_kind': PROFILE_CANONICAL_HASH_KIND,
+            'profile_file_sha256': profile_file_sha256,
             'evidence_sha256': evidence_sha256,
         }
         declared_profile_sha = _v2_get(
