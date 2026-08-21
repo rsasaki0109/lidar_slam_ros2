@@ -60,7 +60,7 @@ RUN apt-get update \
 
 RUN source /opt/ros/jazzy/setup.bash \
  && colcon build --base-paths /opt/ours_ws/src/lidar_slam_ros2 \
-      --packages-up-to lidarslam graph_based_slam \
+      --packages-up-to rko_lio lidarslam graph_based_slam \
       --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 
 LABEL org.opencontainers.image.source="https://github.com/rsasaki0109/lidar_slam_ros2" \

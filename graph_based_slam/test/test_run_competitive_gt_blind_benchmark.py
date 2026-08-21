@@ -155,6 +155,33 @@ def test_fast_command_has_raw_only_mount_and_semantic_identity():
     assert '/calibration' not in command_text
 
 
+def test_fast_command_is_loopback_only_under_network_none():
+    item = {
+        'raw_path': Path('/managed/slots/exp14/source/exp14.bag'),
+        'canonical_path': Path('/managed/slots/exp14/canonical_ros2'),
+    }
+    command, env = RUNNER.docker_command(
+        'fast_livo2', item, 'fast:test@sha256:' + 'a' * 64,
+        Path('/M6A_OUTPUT_PLACEHOLDER'),
+        {'schedule_index': 19, 'system': 'fast_livo2',
+         'slot': 'fresh_1', 'repetition': 1})
+    assert command[command.index('--network') + 1] == 'none'
+    assert '--network=host' not in command
+    assert env['ROS_MASTER_URI'] == 'http://127.0.0.1:11311'
+    assert env['ROS_IP'] == '127.0.0.1'
+    assert env['ROS_HOSTNAME'] == '127.0.0.1'
+
+
+def test_runtime_writable_state_is_scoped_to_attempt_output():
+    glim = (ROOT / 'scripts' / 'glim_container_run.sh').read_text()
+    fast = (ROOT / 'scripts' / 'fast_livo2_container_run.sh').read_text()
+    assert 'ROS_HOME="${ROS_HOME:-${OUT_DIR}/ros_home}"' in glim
+    assert 'ROS_LOG_DIR="${ROS_LOG_DIR:-${OUT_DIR}/ros_log}"' in glim
+    assert 'mkdir -p "/root/.ros' not in glim
+    assert 'export ROS_IP=127.0.0.1' in fast
+    assert 'export ROS_HOSTNAME=127.0.0.1' in fast
+
+
 def test_frozen_manifest_semantic_mismatch_is_rejected(tmp_path):
     root = tmp_path / 'managed'
     canonical = root / 'slots/exp14/canonical_ros2'

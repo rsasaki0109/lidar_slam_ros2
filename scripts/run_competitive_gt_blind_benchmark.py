@@ -307,6 +307,22 @@ def image_ref_and_labels(
                 expected_value = receipt['systems']['fast_livo2']['repository'].get('revision')
             if expected_value is not None and labels.get(key) != expected_value:
                 raise ContractError(f'{system}: image label {key} does not match receipt')
+    if system == 'ours':
+        recipe = container.get('recipe')
+        submodules = recipe.get('submodules') if isinstance(recipe, dict) else None
+        rko = submodules.get('rko_lio') if isinstance(submodules, dict) else None
+        ndt = submodules.get('ndt_omp_ros2') if isinstance(submodules, dict) else None
+        expected_labels = {
+            'benchmark.rko_lio.gitlink_revision':
+                rko.get('gitlink_revision') if isinstance(rko, dict) else None,
+            'benchmark.rko_lio.archive_sha256':
+                rko.get('archive_sha256') if isinstance(rko, dict) else None,
+            'benchmark.ndt_omp.submodule_revision':
+                ndt.get('revision') if isinstance(ndt, dict) else None,
+        }
+        for label, expected_value in expected_labels.items():
+            if not isinstance(expected_value, str) or labels.get(label) != expected_value:
+                raise ContractError(f'ours: image label {label} does not match receipt')
     return ref, {str(key): str(value) for key, value in labels.items()}, digest
 
 
@@ -341,6 +357,11 @@ def docker_command(
     env = dict(THREAD_ENV)
     env.update({'ROS_DOMAIN_ID': str(200 + schedule_item['schedule_index']),
                 'RUN_NAME': run_id, 'GT_BLIND': '1'})
+    if system == 'glim_cpu':
+        env.update({'ROS_HOME': '/out/ros_home', 'ROS_LOG_DIR': '/out/ros_log'})
+    elif system == 'fast_livo2':
+        env.update({'ROS_MASTER_URI': 'http://127.0.0.1:11311',
+                    'ROS_IP': '127.0.0.1', 'ROS_HOSTNAME': '127.0.0.1'})
     common = [
         'taskset', '--cpu-list', '0-7', '/usr/bin/time', '-v',
         '-o', str(output_dir / 'host_time.txt'), 'docker', 'run', '--rm', '--init',

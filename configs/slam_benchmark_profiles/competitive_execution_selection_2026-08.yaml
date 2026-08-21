@@ -5,7 +5,12 @@ receipt_kind: competitive_execution_selection
 profile: competitive_slam_v1
 status: ready
 status_reasons:
-  - ours_m6a1_release_image_and_gt_blind_smoke_verified
+  - parent_failed_campaign_immutable_and_disclosed
+  - m6a3_ours_rko_runtime_layout_and_entrypoint_verified
+  - m6a3_glim_attempt_ros_state_scoped_to_attempt_output
+  - m6a3_fast_ros1_loopback_only_contract_verified
+  - m6a3_synthetic_wrapper_smoke_passed
+  - m6a3_new_campaign_preflight_27_of_27
   - ours_container_and_toolchain_verified
   - glim_container_and_toolchain_verified
   - fast_livo2_container_and_toolchain_verified
@@ -77,6 +82,20 @@ common_identity:
     same_machine: true
     same_release: Release
     failed_runs_are_retained: true
+  parent_failed_campaign:
+    root: /media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_20260822
+    completion_manifest_sha256: a5abafdeb420619a1460737a3cf91862fa41ce7930c041324b1f38c00b16f002
+    status: INCOMPLETE
+    immutable: true
+    lineage: disclosed_remediation_rerun
+    infrastructure_failure: true
+    checkpoint_commit: 972300263476a113bd32e78b69babdbce5753895
+  m6a3_campaign:
+    root: /media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign2_20260822
+    lineage: disclosed_rerun_not_replacement
+    status: preflight_ready
+    attempts: 27
+    execute_started: false
   scorer:
     canonical_fingerprint: 92662495e9d4cd35578a90832d205b261b48d733fc3cc48e076459db2b09d1be
     files:
@@ -144,18 +163,18 @@ systems:
       sha256: 8280423f9d4ccd9ddcc507d39f0f7a19591fcc342708c9659ab739d1e8cb8b87
       gt_blind_entrypoint:
         path: scripts/ours_container_gt_blind_run.sh
-        sha256: e1f6526181a5efe879ee1b716fa627e3c799fbee5550685b3c63335b2ed513b9
+        sha256: c0aaf2dbad42e8b40d34ddd5629dcb574a802b8e7c1f1737a99306c316653d21
       gt_blind_driver:
         path: scripts/run_competitive_gt_blind_benchmark.py
-        sha256: 65c6499061cdfe76c92ae9720852d67f5a4679589e9763882c645343d5823eba
+        sha256: eb9383095d1eff5fc42af6b127d1fa947605a01d393b650277c8895f0e4868a4
         revision: 4701f0084d6b0fff475a62bec7eeb6d807561821
     container:
-      image_tag: m6a1-lidarslam-ours:jazzy
-      image_digest: sha256:0680ae359deb2da45ff16ecf1c5d92c0510dc51d48bd06c0fcd93ce1d33ff3fb
+      image_tag: m6a3c-lidarslam-ours:jazzy
+      image_digest: sha256:18198c17627459e96c574b1bf3093064c9c092f4fc2f89594b7e4b14705288bd
       status: ready
       recipe:
         path: docker/ours_competitive_benchmark.Dockerfile
-        sha256: 97efb477dd7f5268427052387de836a99737bcb301920191b96ec411bee3ba30
+        sha256: 422f1b2463e87618dc6154d46776486aea8a127199400c5ce3d8e779cecb27de
         base_image: docker.io/library/ros:jazzy-ros-base
         base_digest: sha256:31daab66eef9139933379fb67159449944f4e2dcf2e22c2d12cc715f29873e0f
         source_repository: https://github.com/rsasaki0109/lidar_slam_ros2.git
@@ -191,8 +210,8 @@ systems:
       fingerprint: 6cdff5854c86cc820d6781700d7613b2e529e75d58c9fb0830fd2b0f792adca5
       status: ready
       scope: system_container
-      image_tag: m6a1-lidarslam-ours:jazzy
-      image_digest: sha256:0680ae359deb2da45ff16ecf1c5d92c0510dc51d48bd06c0fcd93ce1d33ff3fb
+      image_tag: m6a3c-lidarslam-ours:jazzy
+      image_digest: sha256:18198c17627459e96c574b1bf3093064c9c092f4fc2f89594b7e4b14705288bd
       not_applicable_fields: []
       observed:
         compiler: c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
@@ -232,7 +251,7 @@ systems:
       path: scripts/run_glim_benchmark.py
       sha256: 0213b9badffd0217eb90251bee7dc5fe57426e91bbc6de466947b30ddeeb6882
       container_entrypoint_path: scripts/glim_container_run.sh
-      container_entrypoint_sha256: 906d91c17703c77ff2f89e049732b7c86fdbb54b136103d4c75912052ec592c2
+      container_entrypoint_sha256: 7074f026a465d67c7c9e268bffab7903c2f6ea5c517c4c1adcd975e7f4c5bdd0
     container:
       image_tag: glim-cpu-benchmark:competitive-v1
       image_digest: sha256:3702b73873395880e1dcdb91394232f1a9932194de22214e1aacb9626ced5846
@@ -305,7 +324,7 @@ systems:
       path: scripts/run_fast_livo2_benchmark.py
       sha256: a65925fbe8bb6b126d84ad7dd10901f142753d822c19b7ae1865787cef65bf0c
       container_entrypoint_path: scripts/fast_livo2_container_run.sh
-      container_entrypoint_sha256: 8f2503ac4bab483a4828f990ca6504db52b4d2ba6d8ca72a5365fd920eba3c74
+      container_entrypoint_sha256: 43d9db609ceaed4771154df260484d21d50b85d450c88b92dc4d93240632883a
     container:
       image_tag: fast-livo2-benchmark:ros1-pinned
       image_digest: sha256:ddc75b574f8cca1e111332153e31a65c74ccdb11f8059da3797ab130814ce17e
@@ -350,7 +369,7 @@ systems:
         openmp: 1:10.0-50~exp1
       source:
         path: scripts/fast_livo2_container_run.sh
-        sha256: 8f2503ac4bab483a4828f990ca6504db52b4d2ba6d8ca72a5365fd920eba3c74
+        sha256: 43d9db609ceaed4771154df260484d21d50b85d450c88b92dc4d93240632883a
         required_commands: [compiler, linker, ros_distro, pcl, eigen, openmp]
     scorer_ref: common_identity.scorer
     machine_fingerprint_ref: common_identity.machine_fingerprint
@@ -385,3 +404,63 @@ preflight_requirements:
   no_external_build_or_download_performed: true
   no_ground_truth_content_or_metric_opened: true
   no_performance_claim_authorized: true
+
+m6a3_remediation:
+  status: preflight_ready
+  performance_execution_started: false
+  gt_or_scorer_accessed: false
+  parent_failed_campaign:
+    root: /media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_20260822
+    completion_manifest_sha256: a5abafdeb420619a1460737a3cf91862fa41ce7930c041324b1f38c00b16f002
+    immutable: true
+  initial_failure_evidence:
+    ours_rko_package_missing:
+      relative_attempt: attempt_001/stderr.log
+      sha256: 04c32798cd25fd598c60951edfdb62bb29be33ac9de48e5eeb2db1423b5c9ade
+      diagnosis: installed_image_did_not_contain_rko_lio_runtime_package
+    glim_read_only_ros_log:
+      relative_attempt: attempt_010/glim.log
+      sha256: 9653bb3f5b553207e8bed5095215924194bbe5d645bb4786d423945af99a52e0
+      diagnosis: ros_logging_defaulted_to_read_only_root
+    fast_ros1_master_self_connect:
+      relative_attempt: attempt_019/roscore.log
+      sha256: 6c1ad31d773e19af4c04ec11fdff088be7428c7d9bfe6f85749e91b901920afe
+      diagnosis: network_none_hostname_did_not_resolve_to_loopback_master
+  repaired_contracts:
+    ours:
+      recipe_hash: 422f1b2463e87618dc6154d46776486aea8a127199400c5ce3d8e779cecb27de
+      image_digest: sha256:18198c17627459e96c574b1bf3093064c9c092f4fc2f89594b7e4b14705288bd
+      rko_archive_sha256: 95783dca0cdac394052fbdb03cf1636cf51ee65a2316fbaef3a67bfe4c88d09f
+      rko_gitlink_revision: 622b74778a41f753d47aa5918043755ebcbd4c75
+      runtime_contract: package_prefix_package_xml_offline_node_and_config_required
+      synthetic_smoke:
+        status: pass
+        tree_sha256: 12e56407c0750bf47ff3aae307c4a96e78e056f84121421de10ed6d9825216ec2
+        contract_sha256: d1558651ef667ca5b5e7f09ccc410d5a91b98ff29383e507ab8923d1c748d86e
+        wall_sec: 1.89
+    glim:
+      entrypoint_sha256: 7074f026a465d67c7c9e268bffab7903c2f6ea5c517c4c1adcd975e7f4c5bdd0
+      ros_state_policy: attempt_output_only
+      network_policy: none
+      synthetic_smoke:
+        status: pass
+        tree_sha256: 2e74d9659c04007af20e4fb5999087f1a6cbaac4a4cf3df47f6eacc8562edbed
+        contract_sha256: d1558651ef667ca5b5e7f09ccc410d5a91b98ff29383e507ab8923d1c748d86e
+        wall_sec: 2.63
+    fast_livo2:
+      entrypoint_sha256: 43d9db609ceaed4771154df260484d21d50b85d450c88b92dc4d93240632883a
+      ros_master_uri: http://127.0.0.1:11311
+      ros_ip: 127.0.0.1
+      ros_hostname: 127.0.0.1
+      network_policy: none_loopback_only
+      synthetic_smoke:
+        status: pass
+        tree_sha256: 8293e1f1771f9b60a8d11a43998f538e6b965341bc3399b4aeda81c1a209ce17
+        contract_sha256: d724876dc15f100c3651cd9bcfa6fdc83249a52f74736c448a30833a6f6467cd
+        wall_sec: 5.15
+  new_campaign:
+    root: /media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign2_20260822
+    lineage: disclosed_rerun_not_replacement
+    schedule: ours_glim_fast_livo2_x_fresh_1_2_3_x_repeat_1_2_3
+    preflight_required_before_execution: true
+    preflight_status: preflight_ready

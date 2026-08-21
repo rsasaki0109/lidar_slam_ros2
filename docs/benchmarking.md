@@ -265,6 +265,51 @@ contains no valid trajectory/performance evidence. Repair and smoke-test these
 three runtime contracts before any rerun; do not infer accuracy, performance,
 map quality, or SOTA superiority from this incomplete attempt.
 
+### M6a3 GT-blind remediation and preflight closure (2026-08-22)
+
+The failed M6a2 campaign is immutable and remains the parent failure record;
+its completion manifest SHA-256 is
+`a5abafdeb420619a1460737a3cf91862fa41ce7930c041324b1f38c00b16f002`.
+It is an infrastructure-failed campaign, not a replacement or a benchmark
+result. The remediation keeps the algorithm revision
+`866f733677e92ecb08d67126e463da99dd140d46` unchanged:
+
+- ours now builds and installs the pinned `rko_lio` runtime, checks its package,
+  executable, config, archive SHA, and writes ROS launch state only below the
+  attempt output;
+- GLIM writes ROS state below the attempt output and its synthetic smoke uses
+  process-group SIGINT for bounded clean shutdown;
+- FAST-LIVO2 keeps `network=none` and uses only loopback
+  `ROS_MASTER_URI`/`ROS_IP`/`ROS_HOSTNAME`.
+
+The rebuilt ours image is
+`m6a3c-lidarslam-ours:jazzy@sha256:18198c17627459e96c574b1bf3093064c9c092f4fc2f89594b7e4b14705288bd`.
+Synthetic ROS2/ROS1 fixtures exercised startup, bag open/input parsing, and
+clean shutdown for all three wrappers. The normalized evidence is under
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a3_20260822/smoke/normalized`;
+the ours, GLIM, and FAST tree SHA-256 values are respectively
+`12e56407c0750bf47ff3aae307c4a96e78e056f84121421de10ed6d9825216ec2`,
+`2e74d9659c04007af20e4fb5999087f1a6cbaac4a4cf3df47f6eacc8562edbed`, and
+`8293e1f1771f9b60a8d11a43998f538e6b965341bc3399b4aeda81c1a209ce17`.
+All three contract markers report `performance_run: false` and
+`gt_mounted: false`.
+
+The disclosed rerun uses the separate results root
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign2_20260822`.
+Its read-only dry-run has 27/27 attempts and plan SHA-256
+`465e856846eb4bcf15e125285a914d2defda72413b5016e2965b884cda2f8bd8`.
+The preflight plan is `preflight_ready`, has 27/27 attempts, plan SHA-256
+`7aeac10cdeb1c8356e282b53a62f4f3a05621f37942d325d58302a8f6464cd43`,
+and records profile canonical SHA
+`5a8b81b7483ce9921fdfb4393ed006390fc5f0b2553b5e29976de96725a4da39`,
+selection SHA
+`2bfc541a8d6127599f7a36e66c08da44488a08a55a4d9c4709703223be8bdd2b`,
+and execution-receipt SHA
+`d25057bc3660424f9ea852143a215610b8395dddfee0ed1e8c64a5acd1cde0ab`.
+GT content and scorer remain untouched; no `--execute` was run. This closes
+runtime/preflight readiness only and authorizes no accuracy, performance, map,
+or SOTA claim.
+
 ### M5c fresh-holdout download checkpoint (2026-08-21)
 
 Fresh input acquisition is a separate, opaque-hash-only checkpoint. The

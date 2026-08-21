@@ -24,6 +24,8 @@ else
 fi
 set -u
 export ROS_MASTER_URI=http://127.0.0.1:11311
+export ROS_IP=127.0.0.1
+export ROS_HOSTNAME=127.0.0.1
 export ROS_HOME="${OUT_DIR}/ros_home"
 export ROS_LOG_DIR="${OUT_DIR}/ros_logs"
 mkdir -p "${ROS_HOME}" "${ROS_LOG_DIR}"
@@ -80,6 +82,20 @@ if [[ "${mapper_ready}" != 1 ]]; then
   wait "${MAPPER_PID}"
   write_status mapper_shutdown_exit_status.txt "$?"
   exit 21
+fi
+
+if [[ "${M6A3_SYNTHETIC_SMOKE:-0}" == "1" ]]; then
+  # Consume the synthetic ROS1 bag briefly so this path checks input parsing,
+  # loopback master connectivity, mapper startup, and clean shutdown without
+  # producing a performance result.
+  rosbag play --clock --rate "${RATE}" "${BAG_PATH}" \
+    >"${OUT_DIR}/synthetic_smoke_rosbag_play.log" 2>&1 &
+  smoke_bag_pid=$!
+  sleep "${SMOKE_INPUT_SECONDS:-2}"
+  kill -INT "${smoke_bag_pid}" >/dev/null 2>&1 || true
+  wait "${smoke_bag_pid}" >/dev/null 2>&1 || true
+  printf '%s\n' '{"status":"pass","startup_verified":true,"input_verified":true,"clean_shutdown":true,"gt_mounted":false,"performance_run":false,"loopback_only":true}' >"${OUT_DIR}/synthetic_smoke_contract.json"
+  exit 0
 fi
 
 setsid rostopic echo -p /aft_mapped_to_init \

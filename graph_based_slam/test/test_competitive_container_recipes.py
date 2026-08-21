@@ -29,9 +29,12 @@
 """Static contract tests for the pinned competitive benchmark recipes."""
 
 import hashlib
+import importlib.util
+import json
 from pathlib import Path
 import re
 
+import pytest
 import yaml
 
 
@@ -39,6 +42,12 @@ ROOT = Path(__file__).resolve().parents[2]
 RECEIPT = ROOT / (
     'configs/slam_benchmark_profiles/'
     'competitive_execution_selection_2026-08.yaml')
+SPEC = importlib.util.spec_from_file_location(
+    'run_competitive_gt_blind_benchmark',
+    ROOT / 'scripts' / 'run_competitive_gt_blind_benchmark.py')
+RUNNER = importlib.util.module_from_spec(SPEC)
+assert SPEC.loader is not None
+SPEC.loader.exec_module(RUNNER)
 RECIPE_NAMES = {
     'ours': 'docker/ours_competitive_benchmark.Dockerfile',
     'glim': 'docker/glim_cpu_benchmark.Dockerfile',
@@ -169,6 +178,50 @@ def test_ours_recipe_clones_revision_and_verifies_submodules_in_image():
     assert 'RKO_LIO_ARCHIVE_SHA256=' in text
     assert 'sha256sum /tmp/rko_lio.tar' in text
     assert 'benchmark.rko_lio.initialized="true"' in text
+
+
+def test_ours_runtime_contract_checks_rko_layout_and_entrypoint():
+    text = (ROOT / 'scripts' / 'ours_container_gt_blind_run.sh').read_text()
+    assert 'ros2 pkg prefix rko_lio' in text
+    assert '${RKO_PREFIX}/share/rko_lio/package.xml' in text
+    assert '${RKO_PREFIX}/lib/rko_lio/offline_node' in text
+    assert 'rko_lio_hilti2022_pandar.yaml' in text
+
+
+def test_synthetic_smoke_paths_are_full_startup_contracts():
+    ours = (ROOT / 'scripts' / 'ours_container_gt_blind_run.sh').read_text()
+    glim = (ROOT / 'scripts' / 'glim_container_run.sh').read_text()
+    fast = (ROOT / 'scripts' / 'fast_livo2_container_run.sh').read_text()
+    for text in (ours, glim, fast):
+        assert 'M6A3_SYNTHETIC_SMOKE' in text
+        assert 'synthetic_smoke_contract.json' in text
+        assert 'gt_mounted":"false' not in text
+        assert 'gt_mounted":false' in text
+        assert 'performance_run":false' in text
+    assert 'RKO LIO Node is up!' in ours
+    assert 'initialization end' in ours
+    assert 'ros2 node list' in glim
+    assert 'rosbag play --clock' in fast
+    assert 'ROS_MASTER_URI=http://127.0.0.1:11311' in fast
+
+
+def test_ours_image_archive_label_mismatch_is_fail_closed(monkeypatch):
+    receipt = _receipt()
+    digest = receipt['systems']['ours']['container']['image_digest']
+    labels = {
+        'benchmark.ours.revision': receipt['systems']['ours']['repository']['revision'],
+        'benchmark.rko_lio.initialized': 'true',
+        'benchmark.rko_lio.gitlink_revision': '622b74778a41f753d47aa5918043755ebcbd4c75',
+        'benchmark.ndt_omp.submodule_revision': '497411279593eb261a3e3d04cdcbb4717af33ca3',
+        'benchmark.rko_lio.archive_sha256': '0' * 64,
+    }
+
+    class Completed:
+        stdout = json.dumps([{'Id': digest, 'Config': {'Labels': labels}}])
+
+    monkeypatch.setattr(RUNNER.subprocess, 'run', lambda *_a, **_k: Completed())
+    with pytest.raises(RUNNER.ContractError, match='archive_sha256'):
+        RUNNER.image_ref_and_labels('ours', receipt, inspect=True)
 
 
 def test_fast_runner_and_entrypoint_use_owned_workspace():
