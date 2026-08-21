@@ -316,6 +316,28 @@ GT, or calibration; slots remain `selected_unopened`/pending. Receipt/profile
 updates require a separate review after `finalize`, and no README/SOTA claim
 follows from acquisition metadata.
 
+After a reviewed `frozen_unopened` tree exists, run the independent deep
+verifier before using it in a benchmark:
+
+```bash
+python3 scripts/verify_competitive_frozen_holdouts.py \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --output <out>/frozen_holdouts_deep_verification.json
+```
+
+The verifier requires exactly Exp14/16/18 and rechecks the managed marker,
+selection/plan identities, official bag and calibration byte/blob identities,
+and every final manifest. Ground truth remains an opaque stream: no GT path,
+text, trajectory, or score is printed. The verifier recomputes the safe
+canonical ROS 2 metadata/tree hash, seven-topic semantic report hash,
+input-manifest payload hash, and the preparation receipt's deterministic
+pre-finalization manifest hash. Its JSON summary includes each manifest and
+preparation-receipt file SHA. Missing slots, symlink/path traversal, stale
+receipt/runtime/argv identity, or artifact tampering are hard failures. It is
+independent of the freezer and has not accessed the preregistered data in
+this checkpoint; selection/profile receipts remain unchanged.
+
 ### Pinned benchmark image recipes
 
 The checked-in execution receipt now names a repo-owned build recipe and build

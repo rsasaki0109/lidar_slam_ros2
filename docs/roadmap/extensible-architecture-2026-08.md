@@ -97,6 +97,27 @@ claim is authorized by this preregistration. Its freshness is bounded to the
 recorded repository/workspace/media audit and is not a proof of external
 historical use absence.
 
+After a separate review has produced all three `frozen_unopened` slots, the
+independent read-only verifier is:
+
+```bash
+python3 scripts/verify_competitive_frozen_holdouts.py \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --output <out>/frozen_holdouts_deep_verification.json
+```
+
+It requires exactly `exp14`, `exp16`, and `exp18`; checks marker/selection/
+plan binding, raw bag and calibration bytes/Git blobs, safe canonical ROS 2
+metadata/tree and seven-topic semantic identity, input-manifest payload, and
+preparation runtime/argv hashes. The preparation receipt's
+`manifest_sha256` is checked by rebuilding its deterministic pre-finalization
+manifest view. Ground truth is hashed as an opaque stream only: no GT path,
+text, or metric is printed. Manifest and preparation-receipt file SHAs are
+included in the machine-readable summary. It is independent of the freezer,
+has not accessed the preregistered data, and does not change selection/profile
+receipts; M5 therefore remains `INCOMPLETE`.
+
 ### M5b execution-identity freeze (2026-08-21)
 
 The next pre-run artifact is
