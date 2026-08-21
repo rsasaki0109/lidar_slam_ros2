@@ -201,6 +201,36 @@ observed ready receipts. This proves reconstruction metadata only: the M5b
 status remains `INCOMPLETE` until fresh holdouts are frozen, and no performance
 or SOTA claim follows from this slice.
 
+### M5c fresh-holdout acquisition checkpoint (2026-08-21)
+
+The download implementation is `scripts/freeze_competitive_fresh_holdouts.py`.
+It is intentionally a checkpoint workflow, not a benchmark runner. The exact
+order is: independently review the selection receipt, run read-only `plan`,
+run explicit `download` (or `download --resume` only for the same managed
+identity), run `verify`, perform an independently reviewed ROS 2 conversion and
+semantic-equivalence report, then run `finalize`. Only the last step can move a
+slot to `frozen_unopened`; selection/execution receipts and the competitive
+profile are not modified by the downloader and require a separate review.
+
+The plan binds the official selection-receipt SHA, destination identity, and
+the runtime SHA-256 of the producer script. That producer hash is copied into
+the managed-root marker and every slot manifest, so a changed downloader or
+selection contract cannot silently resume an old staging tree. Final slots are
+fully re-verified and skipped; mixed final/staging, changed markers, stale
+partials, path traversal, symlinks, size/hash mismatches, and calibration
+tampering fail closed. Manifests and state transitions use canonical JSON and
+atomic replacement.
+
+Raw HILTI bags are streamed and checked against their declared size and LFS
+SHA-256. Ground-truth files remain opaque: the tool records only bytes and
+SHA-256, never parses, prints, or scores their content. Calibration uses both
+storage paths and canonical logical paths, Git blob IDs, and a tree hash. The
+destination is the explicitly supplied
+`/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821` tree.
+This M5c implementation checkpoint has not downloaded or opened any fresh
+data, so Exp14/16/18 remain `selected_unopened`/pending and M5 remains
+`INCOMPLETE`; no README or SOTA claim is authorized.
+
 ### M3 live backend NDT migration gate
 
 The live `graph_based_slam` component now constructs the host-resident NDT

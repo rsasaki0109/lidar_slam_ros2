@@ -160,6 +160,7 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'evaluate_competitive_suite_gate.py',
         REPO_ROOT / 'scripts' / 'check_competitive_execution_selection.py',
         REPO_ROOT / 'scripts' / 'capture_competitive_execution_identity.py',
+        REPO_ROOT / 'scripts' / 'freeze_competitive_fresh_holdouts.py',
         REPO_ROOT / 'scripts' / 'run_release_readiness_checks.sh',
         REPO_ROOT / 'scripts' / 'benchmark_summary.py',
         REPO_ROOT / 'scripts' / 'generate_html_report.py',

@@ -218,6 +218,64 @@ synthetic or clean ready/frozen contract can return `PASS`, while this checked
 in pending receipt remains `INCOMPLETE` until an operator explicitly reviews
 and updates it.
 
+### M5c fresh-holdout download checkpoint (2026-08-21)
+
+Fresh input acquisition is a separate, opaque-hash-only checkpoint. The
+selection receipt is reviewed independently first; this tool never edits the
+selection receipt or competitive profile. Use an explicit destination on the
+benchmark storage volume. The read-only `plan` action is the first step and
+does not access the network or dataset contents:
+
+```bash
+python3 scripts/freeze_competitive_fresh_holdouts.py plan \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --output /tmp/fresh-holdout-plan.json
+```
+
+After a separate review of that plan and selection receipt, run the actions in
+this order:
+
+```bash
+python3 scripts/freeze_competitive_fresh_holdouts.py download \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
+# If a transfer is interrupted, use this instead of repeating download:
+python3 scripts/freeze_competitive_fresh_holdouts.py download --resume \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
+python3 scripts/freeze_competitive_fresh_holdouts.py verify \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
+# Only after an independently reviewed ROS 2 conversion and semantic report:
+python3 scripts/freeze_competitive_fresh_holdouts.py finalize \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --ros2-root exp14=/path/to/exp14_rosbag2 \
+  --ros2-root exp16=/path/to/exp16_rosbag2 \
+  --ros2-root exp18=/path/to/exp18_rosbag2 \
+  --semantic-report exp14=/path/to/exp14.semantic.yaml \
+  --semantic-report exp16=/path/to/exp16.semantic.yaml \
+  --semantic-report exp18=/path/to/exp18.semantic.yaml
+```
+
+`--resume` is only for a managed, identity-matching staging directory; a
+complete final slot is re-verified and skipped, while a stale or mixed final/
+staging tree fails closed. The plan and managed-root marker bind the selection
+receipt SHA and the runtime SHA-256 of this producer script, so changing the
+producer or selection contract cannot reuse an old download. Raw bags are
+checked by expected byte count and official LFS SHA-256. Ground truth is never
+parsed or printed: only its opaque byte count/SHA-256 is recorded. Calibration
+files are checked by bytes, SHA-256, Git blob identity, and a canonical logical
+tree hash; storage paths are kept separate from logical paths. `finalize`
+verifies every manifest before calculating the canonical ROS 2 input identity,
+and publishes each state atomically. The output root is
+`/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821` for the
+current preregistration. This checkpoint has not downloaded the fresh bags,
+GT, or calibration; slots remain `selected_unopened`/pending. Receipt/profile
+updates require a separate review after `finalize`, and no README/SOTA claim
+follows from acquisition metadata.
+
 ### Pinned benchmark image recipes
 
 The checked-in execution receipt now names a repo-owned build recipe and build
