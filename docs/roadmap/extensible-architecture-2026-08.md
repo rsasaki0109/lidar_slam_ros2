@@ -113,7 +113,8 @@ canonical ROS 2 metadata/tree and seven-topic semantic identity,
 input-manifest payload, and
 preparation runtime/argv hashes. The preparation receipt's
 `manifest_sha256` is checked by rebuilding its deterministic pre-finalization
-manifest view. Raw bag content is checked by expected byte count and the
+manifest view and hashing the canonical JSON file bytes, including its
+trailing newline (the payload hash is distinct). Raw bag content is checked by expected byte count and the
 selection's LFS SHA-256; its preregistered Git-blob OID is the pointer
 provenance, not a content-blob comparison. Ground truth is hashed as an opaque
 stream only: no GT path, text, or metric is printed. Manifest and

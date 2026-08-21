@@ -88,6 +88,11 @@ def canonical_json_sha256(value: Any) -> str:
     return hashlib.sha256(_canonical_json(value)).hexdigest()
 
 
+def canonical_json_file_sha256(value: Any) -> str:
+    """Hash the freezer's canonical JSON file bytes, including its newline."""
+    return hashlib.sha256(_canonical_json(value) + b'\n').hexdigest()
+
+
 def _sha256_file(path: Path, label: str) -> str:
     if path.is_symlink() or not path.is_file():
         raise ValueError(f'{label} is not a regular file')
@@ -487,7 +492,8 @@ def _verify_slot(root: Path, selection: dict[str, Any], marker: dict[str, Any],
     if receipt.get('sequence') != sequence or receipt.get('plan_sha256') != marker[
             'plan_sha256']:
         raise ValueError(f'{sequence} preparation receipt plan identity mismatch')
-    base_manifest_sha = canonical_json_sha256(_base_manifest_from_final(manifest))
+    base_manifest_sha = canonical_json_file_sha256(
+        _base_manifest_from_final(manifest))
     if receipt.get('manifest_sha256') != base_manifest_sha:
         raise ValueError(f'{sequence} preparation base manifest hash mismatch')
     if receipt.get('raw_bag') != {

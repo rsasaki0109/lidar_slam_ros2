@@ -335,7 +335,9 @@ truth remains an opaque stream: no GT path, text, trajectory, or score is printe
 The verifier recomputes the safe
 canonical ROS 2 metadata/tree hash, seven-topic semantic report hash,
 input-manifest payload hash, and the preparation receipt's deterministic
-pre-finalization manifest hash. Its JSON summary includes each manifest and
+pre-finalization manifest **file** hash (canonical compact JSON plus its
+trailing newline; distinct from the newline-free payload hash). Its JSON
+summary includes each manifest and
 preparation-receipt file SHA. Missing slots, symlink/path traversal, stale
 receipt/runtime/argv identity, or artifact tampering are hard failures. It is
 independent of the freezer and has not accessed the preregistered data in

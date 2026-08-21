@@ -305,7 +305,7 @@ def _make_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
             'status': 'prepared',
             'sequence': sequence,
             'plan_sha256': plan_sha,
-            'manifest_sha256': MODULE.canonical_json_sha256(
+            'manifest_sha256': MODULE.canonical_json_file_sha256(
                 MODULE._base_manifest_from_final(final_manifest)),
             'raw_bag': final_manifest['raw_bag'],
             'ground_truth_content_opened': False,
@@ -337,6 +337,15 @@ def test_three_slot_fixture_passes_and_keeps_gt_opaque(tmp_path, capsys):
         MODULE.EXPECTED_SEQUENCES)
     assert all(row['raw_bag_git_lfs_pointer_blob_oid'] == 'b' * 40
                for row in result['slots'])
+    manifest = json.loads((root / 'slots' / 'exp14' / 'manifest.json').read_text(
+        encoding='utf-8'))
+    receipt = json.loads(
+        (root / 'slots' / 'exp14' / 'preparation_receipt.json').read_text(
+            encoding='utf-8'))
+    base = MODULE._base_manifest_from_final(manifest)
+    assert MODULE.canonical_json_sha256(base) != MODULE.canonical_json_file_sha256(
+        base)
+    assert receipt['manifest_sha256'] == MODULE.canonical_json_file_sha256(base)
     text = output.read_text(encoding='utf-8')
     assert 'opaque-ground-truth' not in text
     assert 'ground_truth/exp' not in text
