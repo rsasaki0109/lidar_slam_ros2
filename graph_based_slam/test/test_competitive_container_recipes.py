@@ -79,21 +79,10 @@ def test_receipt_binds_recipe_and_build_entrypoint_hashes():
         container = systems[system]['container']
         recipe = container['recipe']
         assert recipe['path'] == recipe_name
-        if system == 'ours' and 'RKO_LIO_ARCHIVE_SHA256' in (
-                ROOT / recipe_name).read_text():
-            # M6a0 changes the recipe before the M6a1 receipt recapture.  The
-            # old receipt identity must remain visible as stale, not silently
-            # rewritten by a pre-run implementation slice.
-            assert recipe['sha256'] != _sha256(ROOT / recipe_name)
-        else:
-            assert recipe['sha256'] == _sha256(ROOT / recipe_name)
+        assert recipe['sha256'] == _sha256(ROOT / recipe_name)
         assert re.fullmatch(r'sha256:[0-9a-f]{64}', recipe['base_digest'])
         entrypoint = ROOT / container['build_entrypoint_path']
-        if 'RKO_LIO_ARCHIVE_SHA256' in (
-                ROOT / container['build_entrypoint_path']).read_text():
-            assert container['build_entrypoint_sha256'] != _sha256(entrypoint)
-        else:
-            assert container['build_entrypoint_sha256'] == _sha256(entrypoint)
+        assert container['build_entrypoint_sha256'] == _sha256(entrypoint)
         if system == 'glim':
             assert container['status'] == 'ready'
             assert re.fullmatch(r'sha256:[0-9a-f]{64}', container['image_digest'])

@@ -400,6 +400,27 @@ def system_identity(receipt: dict[str, Any], system: str) -> dict[str, Any]:
     }
 
 
+def verify_input_identity(item: dict[str, Any], checked_slots: set[str]) -> None:
+    """Verify one frozen slot at most once during a multi-run preflight.
+
+    The schedule deliberately repeats each slot for every system and
+    repetition.  Re-reading the same raw/canonical trees for every attempt
+    would multiply a large, read-only hash operation by nine without adding
+    evidence; the slot identity is immutable for the entire plan.
+    """
+    slot = item['slot']
+    if slot in checked_slots:
+        return
+    actual_raw_bytes = item['raw_path'].stat().st_size
+    if actual_raw_bytes != item['raw_bytes']:
+        raise ContractError(f'{slot}: raw bag byte count mismatch')
+    if sha256_file(item['raw_path']) != item['raw_sha256']:
+        raise ContractError(f'{slot}: raw bag SHA mismatch')
+    if sha256_tree(item['canonical_path']) != item['canonical_tree_sha256']:
+        raise ContractError(f'{slot}: canonical ROS2 tree SHA mismatch')
+    checked_slots.add(slot)
+
+
 def build_plan(profile_doc: dict[str, Any], receipt: dict[str, Any], selection: dict[str, Any],
                input_root: Path, profile_path: Path, receipt_path: Path,
                selection_path_value: Path, *, inspect_images: bool) -> dict[str, Any]:
@@ -425,16 +446,11 @@ def build_plan(profile_doc: dict[str, Any], receipt: dict[str, Any], selection: 
         image_info[system] = image_ref_and_labels(
             system, receipt, inspect=inspect_images)
     plans = []
+    checked_input_slots: set[str] = set()
     for schedule_item in schedule():
         item = resolve_slot(input_root, profile, schedule_item['slot'])
         if inspect_images:
-            actual_raw_bytes = item['raw_path'].stat().st_size
-            if actual_raw_bytes != item['raw_bytes']:
-                raise ContractError(f"{item['slot']}: raw bag byte count mismatch")
-            if sha256_file(item['raw_path']) != item['raw_sha256']:
-                raise ContractError(f"{item['slot']}: raw bag SHA mismatch")
-            if sha256_tree(item['canonical_path']) != item['canonical_tree_sha256']:
-                raise ContractError(f"{item['slot']}: canonical ROS2 tree SHA mismatch")
+            verify_input_identity(item, checked_input_slots)
         image_ref, labels, image_digest = image_info[schedule_item['system']]
         execution_identity = system_identity(receipt, schedule_item['system'])
         output_placeholder = Path('/M6A_OUTPUT_PLACEHOLDER')

@@ -55,6 +55,38 @@ def test_schedule_is_explicit_27_attempt_product():
     assert RUNNER.schedule_sha(attempts) == RUNNER.schedule_sha()
 
 
+def test_preflight_hashes_repeated_slot_once(tmp_path, monkeypatch):
+    raw = tmp_path / 'exp14.bag'
+    raw.write_bytes(b'raw fixture')
+    canonical = tmp_path / 'canonical'
+    canonical.mkdir()
+    (canonical / 'metadata.yaml').write_text('fixture\n')
+    item = {
+        'slot': 'fresh_1', 'raw_path': raw, 'raw_bytes': raw.stat().st_size,
+        'raw_sha256': 'raw-sha', 'canonical_path': canonical,
+        'canonical_tree_sha256': 'canonical-sha',
+    }
+    calls = {'raw': 0, 'canonical': 0}
+
+    def fake_file(path):
+        calls['raw'] += 1
+        assert path == raw
+        return 'raw-sha'
+
+    def fake_tree(path):
+        calls['canonical'] += 1
+        assert path == canonical
+        return 'canonical-sha'
+
+    monkeypatch.setattr(RUNNER, 'sha256_file', fake_file)
+    monkeypatch.setattr(RUNNER, 'sha256_tree', fake_tree)
+    checked = set()
+    RUNNER.verify_input_identity(item, checked)
+    RUNNER.verify_input_identity(item, checked)
+    assert checked == {'fresh_1'}
+    assert calls == {'raw': 1, 'canonical': 1}
+
+
 def test_input_and_output_roots_must_not_overlap(tmp_path):
     input_root = tmp_path / 'inputs'
     input_root.mkdir()

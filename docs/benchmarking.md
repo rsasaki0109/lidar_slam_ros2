@@ -235,14 +235,21 @@ python3 scripts/run_competitive_gt_blind_benchmark.py \
 ```
 
 The driver does not launch containers in `--dry-run`. `--preflight` adds
-immutable image inspection and frozen raw/canonical input hashing; it must pass
-after M6a1 image/receipt recapture. `--execute` is intentionally separate and
-must not be used until that preflight checkpoint is committed. Ours and GLIM
+immutable image inspection and frozen raw/canonical input hashing. M6a1
+rebuilt the ours image from algorithm revision
+`866f733677e92ecb08d67126e463da99dd140d46`; its immutable image ID/digest is
+`sha256:0680ae359deb2da45ff16ecf1c5d92c0510dc51d48bd06c0fcd93ce1d33ff3fb`.
+The separate GT-blind harness/orchestrator revision is
+`4701f0084d6b0fff475a62bec7eeb6d807561821`, not an algorithm revision.
+Receipt/profile hashes were resynchronized without changing the canonical
+profile identity. Read-only dry-run and preflight passed all 27 scheduled
+attempts; `--execute` is intentionally separate and has not been used. Ours and GLIM
 mount only the canonical ROS 2 directory; FAST-LIVO2 mounts only the selected
 raw ROS 1 bag and records the frozen raw/canonical semantic-equivalence hash.
 No GT path, calibration tree, scorer, APE, or map-quality input is passed to a
-container by this harness. The current M6a0 receipt still has the pre-rebuild
-ours image identity, so no performance result is implied.
+container by this harness. No results-root marker was created, so no
+performance result is implied. Preflight hashes each frozen slot once despite
+the repeated system/repetition schedule.
 
 ### M5c fresh-holdout download checkpoint (2026-08-21)
 
@@ -388,12 +395,10 @@ The ours recipe receives a Docker context containing only its Dockerfile. It
 clones the public `lidar_slam_ros2` repository at `OURS_REVISION`, verifies the
 `ndt_omp_ros2` gitlink and initializes only that build-required submodule, then
 checks the detached HEAD, clean status, and initialized submodule status before
-rosdep or compilation. The pinned `rko_lio` gitlink is intentionally left
-uninitialized: its object is unavailable from the public mirror and it is not
-needed by this `BUILD_TESTING=OFF --packages-up-to lidarslam graph_based_slam`
-image target. The recipe fails closed if either gitlink changes or `rko_lio`
-appears in colcon discovery. This prevents a dirty host checkout or a source
-archive with missing submodule contents from entering the image.
+rosdep or compilation. The pinned `rko_lio` gitlink is supplied as an exact
+local archive whose SHA is checked against the pinned gitlink; no public-mirror
+substitution is used. This prevents a dirty host checkout or a source archive
+with missing submodule contents from entering the image.
 GLIM's CPU path does not consume PCL; its receipt explicitly records `pcl` as
 `not_applicable`, and the container probe fingerprints that sentinel rather
 than installing an unused package or falling back to the host. The capture
