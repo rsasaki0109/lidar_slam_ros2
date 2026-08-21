@@ -45,6 +45,8 @@ jobs:
           bash -n scripts/run_autoware_quickstart.sh
           bash -n scripts/download_ntu_viral_tnp01.sh
           bash -n scripts/run_default_ci_checks.sh
+          bash -n scripts/run_registration_plugin_consumer_check.sh
+          bash -n scripts/run_registration_plugin_template_check.sh
           bash -n scripts/run_release_readiness_checks.sh
           bash -n scripts/run_rko_lio_graph_autoware_dogfood.sh
           bash -n scripts/run_docker_demo.sh
@@ -158,6 +160,10 @@ jobs:
           source "/opt/ros/${{ matrix.ros_distro }}/setup.bash"
           rosdep install -r -y \
             --from-paths \
+              lidarslam_plugin_interfaces \
+              lidarslam_default_plugins \
+              lidarslam_fake_registration_plugins \
+              lidarslam_registration_loader \
               lidarslam \
               lidarslam_msgs \
               scanmatcher \
@@ -166,6 +172,18 @@ jobs:
               Thirdparty/rko_lio \
             --ignore-src \
             --rosdistro "${{ matrix.ros_distro }}"
+
+      - name: Verify clean external registration consumer
+        shell: bash
+        run: |
+          ROS_DISTRO="${{ matrix.ros_distro }}" \
+            bash scripts/run_registration_plugin_consumer_check.sh
+
+      - name: Verify external registration plugin template
+        shell: bash
+        run: |
+          ROS_DISTRO="${{ matrix.ros_distro }}" \
+            bash scripts/run_registration_plugin_template_check.sh
 
       - name: Build and test default workflow
         shell: bash

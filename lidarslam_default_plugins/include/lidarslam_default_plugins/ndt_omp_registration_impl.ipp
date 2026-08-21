@@ -44,6 +44,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include <pclomp/ndt_omp.h>  // NOLINT(build/include_order)
 // ndt_omp_ros2 is header-only at the template call sites.  Keep these includes
@@ -82,6 +83,7 @@ constexpr int kDefaultMaximumIterations = 35;
 constexpr double kDefaultStepSize = 0.1;
 constexpr double kDefaultOutlierRatio = 0.55;
 constexpr int kDefaultNumThreads = 0;
+constexpr int kDefaultTargetCellCacheCapacity = 0;
 constexpr const char * kDirect7 = "DIRECT7";
 
 struct NdtConfiguration
@@ -92,6 +94,7 @@ struct NdtConfiguration
   double step_size{kDefaultStepSize};
   double outlier_ratio{kDefaultOutlierRatio};
   int num_threads{kDefaultNumThreads};
+  int target_cell_cache_capacity{kDefaultTargetCellCacheCapacity};
 };
 
 void setError(std::string * error, const std::string & message)
@@ -188,6 +191,13 @@ bool parseConfiguration(
           return false;
         }
         configuration->num_threads = static_cast<int>(value);
+      } else if (key == "target_cell_cache_capacity") {
+        const std::int64_t value = entry.second.asInteger();
+        if (value < 0 || value > static_cast<std::int64_t>(INT_MAX)) {
+          setError(error, parameterError(key, "must be an integer in [0, INT_MAX]"));
+          return false;
+        }
+        configuration->target_cell_cache_capacity = static_cast<int>(value);
       } else if (key == "neighborhood_search_method") {
         if (entry.second.asString() != kDirect7) {
           setError(error, parameterError(key, "only DIRECT7 is supported"));
@@ -239,14 +249,148 @@ const char * failureName(FailureCode failure)
   return "unknown failure";
 }
 
+// Each cached target owns a fully configured NDT instance.  This small derived
+// type gives the shell a concrete pointer type for those sibling instances;
+// no pclomp target-grid representation crosses the public plugin boundary.
+class CachedNdt final : public pclomp::NormalDistributionsTransform<PointT, PointT>
+{
+public:
+  using Base = pclomp::NormalDistributionsTransform<PointT, PointT>;
+  using Ptr = boost::shared_ptr<CachedNdt>;
+};
+
+CachedNdt::Ptr makeConfiguredNdt(const NdtConfiguration & configuration)
+{
+  CachedNdt::Ptr ndt(new CachedNdt());
+  // Keep every NDT instance on the same construction/configuration path.  A
+  // cache miss creates a sibling instance rather than copying target_cells_,
+  // which makes a cache hit an O(1) pointer switch.
+  ndt->setResolution(configuration.resolution);
+  ndt->setTransformationEpsilon(configuration.transformation_epsilon);
+  ndt->setMaximumIterations(configuration.maximum_iterations);
+  ndt->setStepSize(configuration.step_size);
+  ndt->setOulierRatio(configuration.outlier_ratio);
+  ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
+  if (configuration.num_threads > 0) {
+    ndt->setNumThreads(configuration.num_threads);
+  }
+  return ndt;
+}
+
+class NdtTargetCellCache
+{
+public:
+  using NdtPtr = CachedNdt::Ptr;
+
+  void reset(const std::size_t capacity)
+  {
+    entries_.clear();
+    capacity_ = capacity;
+    hits_ = 0U;
+    misses_ = 0U;
+    evictions_ = 0U;
+    next_sequence_ = 0U;
+  }
+
+  bool lookup(
+    const PointCloudConstPtr & target,
+    NdtPtr * ndt)
+  {
+    if (ndt == nullptr) {
+      return false;
+    }
+    ndt->reset();
+    if (capacity_ == 0U || !target) {
+      return false;
+    }
+    for (auto & entry : entries_) {
+      if (entry.target.get() == target.get()) {
+        entry.last_use = next_sequence_++;
+        *ndt = entry.ndt;
+        ++hits_;
+        return true;
+      }
+    }
+    ++misses_;
+    return false;
+  }
+
+  void insert(const PointCloudConstPtr & target, const NdtPtr & ndt)
+  {
+    if (capacity_ == 0U || !target || !ndt) {
+      return;
+    }
+    for (auto & entry : entries_) {
+      if (entry.target.get() == target.get()) {
+        entry.target = target;
+        entry.ndt = ndt;
+        entry.last_use = next_sequence_++;
+        return;
+      }
+    }
+
+    while (entries_.size() >= capacity_) {
+      evictLeastRecentlyUsed();
+    }
+    entries_.push_back(Entry{target, ndt, next_sequence_++});
+  }
+
+  bool enabled() const noexcept
+  {
+    return capacity_ != 0U;
+  }
+
+  TargetCellCacheStats stats() const noexcept
+  {
+    TargetCellCacheStats result;
+    result.capacity = capacity_;
+    result.size = entries_.size();
+    result.hits = hits_;
+    result.misses = misses_;
+    result.evictions = evictions_;
+    return result;
+  }
+
+private:
+  struct Entry
+  {
+    PointCloudConstPtr target;
+    NdtPtr ndt;
+    std::uint64_t last_use{0U};
+  };
+
+  void evictLeastRecentlyUsed()
+  {
+    if (entries_.empty()) {
+      return;
+    }
+    auto victim = entries_.begin();
+    for (auto it = entries_.begin() + 1; it != entries_.end(); ++it) {
+      if (it->last_use < victim->last_use) {
+        victim = it;
+      }
+    }
+    entries_.erase(victim);
+    ++evictions_;
+  }
+
+  std::size_t capacity_{0U};
+  std::vector<Entry> entries_;
+  std::size_t hits_{0U};
+  std::size_t misses_{0U};
+  std::size_t evictions_{0U};
+  std::uint64_t next_sequence_{0U};
+};
+
 }  // namespace
 
 struct NdtOmpRegistration::Impl
 {
-  using Ndt = pclomp::NormalDistributionsTransform<PointT, PointT>;
+  using Ndt = CachedNdt;
 
   NdtConfiguration configuration;
   typename Ndt::Ptr ndt;
+  NdtTargetCellCache target_cell_cache;
   PointCloudConstPtr target;
   bool configured{false};
 };
@@ -336,31 +480,23 @@ bool NdtOmpRegistration::configure(const ParameterMap & parameters, std::string 
   }
 
   try {
-    Impl::Ndt::Ptr ndt(new Impl::Ndt());
-    // Preserve the construction order and values used by scanmatcher.  In
-    // particular, num_threads==0 leaves pclomp's historical default intact.
-    ndt->setResolution(configuration.resolution);
-    ndt->setTransformationEpsilon(configuration.transformation_epsilon);
-    ndt->setMaximumIterations(configuration.maximum_iterations);
-    ndt->setStepSize(configuration.step_size);
-    ndt->setOulierRatio(configuration.outlier_ratio);
-    ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
-    if (configuration.num_threads > 0) {
-      ndt->setNumThreads(configuration.num_threads);
-    }
-
+    Impl::Ndt::Ptr ndt = makeConfiguredNdt(configuration);
     impl_->configuration = configuration;
     impl_->ndt = ndt;
+    impl_->target_cell_cache.reset(
+      static_cast<std::size_t>(configuration.target_cell_cache_capacity));
     impl_->target.reset();
     impl_->configured = true;
     return true;
   } catch (const std::exception & exception) {
+    impl_->target_cell_cache.reset(0U);
     impl_->ndt.reset();
     impl_->target.reset();
     impl_->configured = false;
     setError(error, std::string("failed to configure NDT: ") + exception.what());
     return false;
   } catch (...) {
+    impl_->target_cell_cache.reset(0U);
     impl_->ndt.reset();
     impl_->target.reset();
     impl_->configured = false;
@@ -381,13 +517,31 @@ bool NdtOmpRegistration::setInputTarget(const PointCloudConstPtr & target, std::
   }
 
   try {
-    impl_->ndt->setInputTarget(target);
+    clearPerCallState(impl_.get());
+    Impl::Ndt::Ptr cached_ndt;
+    if (impl_->target_cell_cache.lookup(target, &cached_ndt)) {
+      // A hit switches to the already configured NDT instance.  No target
+      // grid copy or setInputTarget/init call occurs on this path.
+      impl_->ndt = cached_ndt;
+    } else if (impl_->target_cell_cache.enabled()) {
+      // Build a sibling through the exact same configure helper, then publish
+      // it atomically into the LRU only after target-cell construction has
+      // completed successfully.
+      Impl::Ndt::Ptr fresh_ndt = makeConfiguredNdt(impl_->configuration);
+      fresh_ndt->setInputTarget(target);
+      impl_->target_cell_cache.insert(target, fresh_ndt);
+      impl_->ndt = fresh_ndt;
+    } else {
+      impl_->ndt->setInputTarget(target);
+    }
     impl_->target = target;
     return true;
   } catch (const std::exception & exception) {
+    impl_->target.reset();
     setError(error, std::string("failed to set NDT target: ") + exception.what());
     return false;
   } catch (...) {
+    impl_->target.reset();
     setError(error, "failed to set NDT target: unknown exception");
     return false;
   }
@@ -518,9 +672,18 @@ void NdtOmpRegistration::reset() noexcept
   }
   clearPerCallState(impl_.get());
   impl_->target.reset();
+  impl_->target_cell_cache.reset(0U);
   impl_->ndt.reset();
   impl_->configuration = NdtConfiguration();
   impl_->configured = false;
+}
+
+TargetCellCacheStats NdtOmpRegistration::targetCellCacheStats() const noexcept
+{
+  if (!impl_) {
+    return TargetCellCacheStats{};
+  }
+  return impl_->target_cell_cache.stats();
 }
 
 }  // namespace lidarslam_default_plugins

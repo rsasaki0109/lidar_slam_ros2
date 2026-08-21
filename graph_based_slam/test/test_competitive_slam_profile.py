@@ -30,7 +30,12 @@
 
 """Contract tests for the frozen GLIM and FAST-LIVO2 competition profile."""
 
+import copy
+import hashlib
+import importlib.util
+import json
 from pathlib import Path
+import subprocess
 
 import yaml
 
@@ -40,6 +45,14 @@ PROFILE_PATH = (
     ROOT / 'configs' / 'slam_benchmark_profiles' / 'competitive_slam_v1.yaml'
 )
 HILTI_RKO_PATH = ROOT / 'configs' / 'hilti2022' / 'rko_lio_hilti2022_pandar.yaml'
+EXECUTION_RECEIPT_PATH = ROOT / 'configs' / 'slam_benchmark_profiles' / (
+    'competitive_execution_selection_2026-08.yaml')
+EXECUTION_CHECKER_PATH = ROOT / 'scripts' / 'check_competitive_execution_selection.py'
+_CHECKER_SPEC = importlib.util.spec_from_file_location(
+    'competitive_execution_selection_checker', EXECUTION_CHECKER_PATH)
+assert _CHECKER_SPEC.loader is not None
+_CHECKER = importlib.util.module_from_spec(_CHECKER_SPEC)
+_CHECKER_SPEC.loader.exec_module(_CHECKER)
 
 
 def _profile():
@@ -105,6 +118,142 @@ def test_seen_datasets_cannot_silently_become_holdouts():
     assert profile['phase_gates']['before_algorithm_tuning'][
         'require_all_holdout_inputs_frozen'
     ] is True
+
+
+def test_fresh_v2_slots_are_preregistered_but_selected_unopened():
+    profile = _profile()
+    slots = profile['datasets']['fresh_holdout_slots']
+    assert len(slots) >= 3
+    assert all(slot['status'] == 'selected_unopened' for slot in slots.values())
+    assert [slot['sequence'] for slot in slots.values()] == ['exp14', 'exp16', 'exp18']
+    assert all(len(slot['selection_receipt_sha256']) == 64 for slot in slots.values())
+    assert all(slot['input_manifest_sha256'] is None for slot in slots.values())
+    assert all(slot['ground_truth_sha256'] is None for slot in slots.values())
+    assert all(slot['calibration_archive_sha256'] is None for slot in slots.values())
+    receipt_path = ROOT / slots['fresh_1']['selection_receipt_path']
+    assert receipt_path.is_file()
+    receipt = yaml.safe_load(receipt_path.read_text(encoding='utf-8'))
+    assert receipt['status'] == 'selected_unopened'
+    assert receipt['selection_decision']['no_performance_data_used'] is True
+    assert receipt['selection_decision']['no_ground_truth_content_opened'] is True
+    exposed = profile['datasets']['holdout_slots']
+    assert not set(slots).intersection(exposed)
+
+
+def test_execution_selection_receipt_is_registered_but_pending():
+    profile = _profile()
+    policy = profile['evidence_gate_v2']
+    assert policy['require_execution_selection_receipt'] is True
+    path = ROOT / policy['execution_selection_receipt_path']
+    assert path == EXECUTION_RECEIPT_PATH
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == (
+        policy['execution_selection_receipt_sha256'])
+    receipt = yaml.safe_load(path.read_text(encoding='utf-8'))
+    assert receipt['receipt_kind'] == 'competitive_execution_selection'
+    assert receipt['status'] == 'pending'
+    assert receipt['systems']['ours']['repository']['revision_status'] == 'pending_commit'
+
+
+def test_execution_preflight_keeps_pending_identity_incomplete():
+    profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    result = _CHECKER.evaluate(receipt, profile_document)
+    assert result['status'] == 'INCOMPLETE'
+    assert result['pass'] is False
+    assert result['checks']['receipt_path_and_sha256']['pass'] is True
+    assert result['checks']['receipt_status_ready']['pass'] is False
+
+
+def test_execution_preflight_rejects_receipt_hash_mismatch():
+    profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    mutated = copy.deepcopy(profile_document)
+    mutated['competitive_slam_profile']['evidence_gate_v2'][
+        'execution_selection_receipt_sha256'] = '0' * 64
+    result = _CHECKER.evaluate(receipt, mutated)
+    assert result['status'] == 'INVALID'
+    assert result['pass'] is False
+    assert any('receipt SHA' in item for item in result['errors'])
+
+
+def _mark_system_ready(receipt, system):
+    item = receipt['systems'][system]
+    item['repository']['revision_status'] = 'ready'
+    item['repository']['worktree_dirty'] = False
+    for key in ('tracked_diff_sha256', 'untracked_content_sha256',
+                'clean_provenance_sha256'):
+        item['repository'][key] = 'a' * 64
+    item['container']['status'] = 'ready'
+    item['container']['image_digest'] = 'sha256:' + 'b' * 64
+    item['toolchain']['status'] = 'ready'
+    item['toolchain']['fingerprint'] = 'c' * 64
+
+
+def test_execution_preflight_ready_status_but_dirty_ours_is_not_ready():
+    profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    receipt['status'] = 'ready'
+    _mark_system_ready(receipt, 'ours')
+    receipt['systems']['ours']['repository']['worktree_dirty'] = True
+    result = _CHECKER.evaluate(receipt, profile_document)
+    assert result['checks']['system_ours']['pass'] is False
+    assert any('worktree must be clean' in item for item in result['errors'])
+
+
+def test_execution_preflight_pending_container_and_toolchain_cannot_pass():
+    profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    _mark_system_ready(receipt, 'glim')
+    receipt['systems']['glim']['container']['status'] = 'pending_build'
+    receipt['systems']['glim']['toolchain']['status'] = 'pending_build'
+    result = _CHECKER.evaluate(receipt, profile_document)
+    assert result['checks']['system_glim']['pass'] is False
+    assert any('glim.container.status' in item for item in result['errors'])
+    assert any('glim.toolchain.status' in item for item in result['errors'])
+
+
+def test_execution_preflight_system_diagnostics_are_independent():
+    profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    _mark_system_ready(receipt, 'glim')
+    receipt['systems']['glim']['repository']['worktree_dirty'] = False
+    result = _CHECKER.evaluate(receipt, profile_document)
+    assert result['checks']['system_glim']['pass'] is True
+    assert result['checks']['system_ours']['pass'] is False
+    assert result['checks']['all_systems_pinned_and_resolved']['evidence']['per_system'][
+        'glim'] is True
+
+
+def test_execution_preflight_composite_scorer_mismatch_is_invalid():
+    profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    receipt['common_identity']['scorer']['canonical_fingerprint'] = '0' * 64
+    result = _CHECKER.evaluate(receipt, profile_document)
+    assert result['status'] == 'INVALID'
+    assert result['checks']['scorer_files_and_fingerprint']['pass'] is False
+    assert any('canonical scorer' in item for item in result['errors'])
+
+
+def test_execution_preflight_cli_emits_pending_json_yaml_identity(tmp_path):
+    json_path = tmp_path / 'preflight.json'
+    yaml_path = tmp_path / 'preflight.yaml'
+    completed = subprocess.run([
+        'python3', str(EXECUTION_CHECKER_PATH),
+        '--receipt', str(EXECUTION_RECEIPT_PATH),
+        '--profile', str(PROFILE_PATH),
+        '--output', str(json_path),
+        '--yaml-output', str(yaml_path),
+    ], check=False, capture_output=True, text=True)
+    assert completed.returncode == 1
+    json_result = json.loads(json_path.read_text(encoding='utf-8'))
+    yaml_result = yaml.safe_load(yaml_path.read_text(encoding='utf-8'))
+    assert json_result['status'] == 'INCOMPLETE'
+    assert yaml_result['status'] == json_result['status']
+    assert json_result['pass'] is False
+    for key in ('profile_sha256', 'execution_receipt_sha256',
+                'canonical_scorer_fingerprint',
+                'thread_policy_canonical_sha256'):
+        assert key in json_result['identity']
 
 
 def test_comparison_modalities_are_not_mixed_between_rivals():

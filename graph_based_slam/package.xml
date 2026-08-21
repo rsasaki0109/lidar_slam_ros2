@@ -11,6 +11,7 @@
 
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
+  <depend>rcl_interfaces</depend>
   <depend>geometry_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>tf2_ros</depend>
@@ -22,6 +23,9 @@
   <depend>message_filters</depend>
   <depend>rosbag2_cpp</depend>
   <depend>ndt_omp_ros2</depend>
+  <depend>lidarslam_plugin_interfaces</depend>
+  <depend>lidarslam_registration_loader</depend>
+  <depend>lidarslam_default_plugins</depend>
   <depend>libg2o</depend>
   <depend>libpcl-all-dev</depend>
 

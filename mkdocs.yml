@@ -46,6 +46,7 @@ nav:
   - Comparison: comparison.md
   - Architecture:
       - Registration Plugin API: architecture/registration-plugin-api.md
+      - Registration Plugin Authoring: registration-plugin-authoring.md
       - SMALL GICP HILTI exp04 Gate: architecture/small-gicp-hilti-exp04-gate-2026-08.md
       - SMALL GICP MID-360 Gate: architecture/small-gicp-mid360-gate-2026-08.md
       - SMALL GICP external DSO ODR Gate: architecture/small-gicp-external-dso-odr-gate-2026-08.md

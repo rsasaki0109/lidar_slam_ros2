@@ -50,6 +50,165 @@ RGB inlier rate. A metric only counts when both systems provide it; values
 within 1% are ties. This prevents an attractive map image or a single trajectory
 number from being presented as an overall win.
 
+## Competitive victory evidence (schema v2)
+
+`scripts/run_cross_repo_slam_benchmark.py` and the legacy `--gate` mode of
+`scripts/evaluate_competitive_suite_gate.py` remain report-only compatibility
+paths. They do not authorize a system-level SOTA claim. The explicit v2 gate
+is fail-closed and consumes one machine-readable evidence document:
+
+```bash
+python3 scripts/evaluate_competitive_suite_gate.py \
+  --evidence <competitive_evidence_v2.yaml> \
+  --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
+  --output <out>/competitive_evidence_v2.json \
+  --yaml-output <out>/competitive_evidence_v2.yaml
+```
+
+The document must declare `schema_version: 2`,
+`evidence_kind: competitive_slam_victory_evidence`, a profile-matched
+`fresh_holdout_slots` selection receipt, and all three required systems
+(`ours`, `glim`, and `fast_livo2`). Fresh slots are separate from the exposed
+historical `holdout_slots` (`exp02`, `exp03`, and `exp21`); those historical
+sequences can never be relabelled as fresh. Every profile fresh slot must be
+`frozen_unopened`/`frozen` with a selection-receipt, input-manifest,
+ground-truth, and calibration SHA-256, and the evidence must match all of
+them. The profile now preregisters Exp14, Exp16, and Exp18 in
+`configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml` with
+status `selected_unopened`. The receipt fixes the official source revision,
+bag sizes/SHA-256 values, GT file identities, calibration tree, exposure
+audit, and blind-order policy, but the input-manifest, GT-content, and
+calibration archive SHA-256 values are still null until download. Therefore
+these slots are not ready for evidence: a real v2 receipt remains
+`INCOMPLETE`, and no self-declared fresh evidence can promote them.
+
+The evidence contract has explicit `partitions.historical` (role
+`regression`) and `partitions.fresh` (role `primary_fresh`) blocks. Every
+system must provide exactly three complete runs for every dataset in both
+partitions. Historical rows are not used for the aggregate victory APE/CI, but
+they remain mandatory regression coverage.
+
+Each system contains pinned provenance (`revision`, container digest, and
+64-hex toolchain/config fingerprints) plus common scorer fingerprint,
+input/reference/calibration, hardware, machine, thread-policy, and exact
+`Release` identity. The thread policy must include `cpu_affinity`,
+`max_threads`, `omp_num_threads`, `openblas_num_threads`, `mkl_num_threads`,
+`tbb_num_threads`, and `accelerator_policy`; all systems must match the
+canonical mapping hash. Each run repeats the dataset identity hashes, so a
+global input hash cannot hide a cross-dataset mismatch. Historical identity
+uses the profile's `input_manifest_sha256`, `ground_truth_sha256`, and
+`calibration_archive_sha256`; fresh identity additionally includes the
+selection receipt hash. Failed runs remain records and force `FAIL`; an
+omitted run is `INCOMPLETE`. A complete run must include finite positive APE,
+processing RTF at most 1.0, peak RSS, all map metrics, completion/exit status,
+zero catastrophic failures/verified false loops, and trajectory/map SHA-256
+artifacts.
+
+The accuracy gate selects the lowest aggregate APE rival and requires ours to
+improve by at least 10%. Its 95% superiority interval is a true two-stage
+hierarchical bootstrap: fresh datasets are resampled as clusters with fixed
+seed `20260821`, then ours and each rival's three runs inside every selected
+dataset are independently resampled before their means are compared (10,000
+draws). Runs are explicitly not treated as pseudo-independent datasets. All
+rivals must have a positive lower CI bound. Each dataset also has a 2%
+primary-APE regression limit against that sequence's best rival, and map
+non-regression is checked separately for every dataset/rival pair before any
+suite aggregation. The command writes matching JSON and YAML receipts with
+`PASS`, `FAIL`, `INCOMPLETE`, or `INVALID`, including profile/evidence SHA-256
+identities; missing real competitor evidence therefore cannot become a
+victory by aggregation.
+
+The scorer fingerprint is not a hand-entered label: the preflight checker
+sorts scorer entries by name and hashes canonical JSON containing each entry's
+name, repository-relative path, measured file SHA-256, and declared policy.
+The receipt fingerprint must equal that recomputed digest. The checker also
+requires every system's revision/container/toolchain status to be `ready`,
+`frozen`, or (for source revisions only) `pinned`, rejects dirty worktrees,
+and requires clean tracked-diff/untracked-content provenance before a run.
+Pending status values remain `INCOMPLETE` even if a placeholder digest is
+present.
+
+Before any competitor run, freeze the execution identity with the separate
+preflight receipt:
+
+```bash
+python3 scripts/check_competitive_execution_selection.py \
+  --receipt configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml \
+  --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
+  --output <out>/competitive_execution_preflight.json \
+  --yaml-output <out>/competitive_execution_preflight.yaml
+```
+
+The profile records the receipt path and SHA-256. The checked-in receipt is
+currently `pending`: the worktree still needs a commit freeze, rival
+containers/toolchains need a reproducible build, and the machine/thread policy
+must be refreshed in the execution environment. Missing values remain
+`INCOMPLETE`; malformed or changed paths/digests are `INVALID`. This check is
+read-only and performs no container build, dataset download, ground-truth
+inspection, or benchmark run. The identity records exact `Release`,
+revision/config/container/toolchain/scorer/machine/thread fields, plus the
+modality/calibration policy: GLIM CPU is lidar+IMU, FAST-LIVO2 is
+lidar+IMU+five-camera visual, and ours is the lidar+IMU track. These are
+fairness constraints, not performance evidence.
+
+To refresh the pending identity without touching the reviewed receipt, create
+an observation artifact and then finalize it against the same receipt:
+
+```bash
+python3 scripts/capture_competitive_execution_identity.py capture \
+  --receipt configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml \
+  --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
+  --output <out>/execution_identity_capture.json \
+  --yaml-output <out>/execution_identity_capture.yaml
+python3 scripts/capture_competitive_execution_identity.py finalize \
+  --receipt configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml \
+  --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
+  --capture <out>/execution_identity_capture.yaml \
+  --output <out>/execution_identity_finalize.json \
+  --yaml-output <out>/execution_identity_finalize.yaml
+```
+
+Both commands are read-only with respect to the receipt. Capture records the
+current worktree provenance, machine fingerprint, OpenMP-related environment,
+and locally available Docker image IDs. For an explicitly bound local image,
+capture also runs bounded `--pull=never --network none --read-only` probes for
+compiler/linker/ROS/PCL/Eigen/OpenMP and binds the result to the inspected
+image digest; a source checkout binding supplies Git provenance only. It does
+not pull/build images or open fresh bags/GT. Finalize refuses a capture
+from another receipt and cannot promote `pending` to `ready`/`frozen`. The
+current worktree therefore produces `INCOMPLETE`, as required; only a later
+reviewed clean revision with system-container toolchain identities and a
+complete equal thread policy can be explicitly frozen.
+
+For a measured local checkout or image, bindings are explicit and repeatable;
+they never clone, build, or download anything:
+
+```bash
+python3 scripts/capture_competitive_execution_identity.py capture \
+  --source ours=/path/to/ours \
+  --source glim=/path/to/glim \
+  --source fast_livo2=/path/to/FAST-LIVO2 \
+  --image glim=glim-cpu-benchmark:competitive-v1 \
+  --image fast_livo2=fast-livo2-benchmark:noetic \
+  --receipt <receipt.yaml> --profile <profile.yaml> \
+  --output <out>/capture.json
+```
+
+When a rival checkout or local image is not bound, the observation contains a
+machine-readable probe manifest with the exact compiler/linker/ROS/PCL/Eigen/
+OpenMP commands still required; it does not infer readiness. A complete
+synthetic or clean ready/frozen contract can return `PASS`, while this checked
+in pending receipt remains `INCOMPLETE` until an operator explicitly reviews
+and updates it.
+
+The checked-in synthetic tests cover the exact 10% boundary, missing and
+failed runs, old schema, false freshness, pending slots, dataset hash
+mismatches, invalid fingerprints, identity/RTF failures, within-run CI
+variance, sequence collapse, per-dataset map regression, and all-rival
+bootstrap superiority. No real fresh-slot competitor receipt currently
+satisfies this contract; existing exp02/exp21 assets with failures or RTF
+above one remain negative evidence. README superiority claims are unchanged.
+
 ## SLAM candidate regression
 
 Run plane-revisit OFF/ON with the same backend input and reference:
@@ -669,6 +828,55 @@ bash scripts/run_release_readiness_checks.sh \
 
 That hook runs `scripts/run_mid360_robot_public_completion_gate.py` as a hard
 gate and writes its JSON/Markdown under the release-readiness output directory.
+
+### Paired map-quality non-regression
+
+When a candidate map has a like-for-like baseline report, the release wrapper
+can add a fail-closed paired check without changing the existing absolute
+profile gate:
+
+```bash
+bash scripts/run_release_readiness_checks.sh \
+  --skip-default-ci \
+  --skip-benchmark-summary \
+  --map-quality-pcd /path/to/candidate/map_refined.pcd@configs/map_quality_profiles/indoor_construction.yaml \
+  --map-quality-baseline-report /path/to/baseline/map_quality_report.yaml \
+  --map-quality-max-regression-percent 2.0
+```
+
+`run_map_quality_check.sh` evaluates the candidate's run-1 report against the
+named baseline with `scripts/check_map_quality_regression.py`. The five paired
+metrics are plane thickness mean/p95 (lower is better), planar coverage and
+mean-map-entropy valid fraction (higher is better), and entropy value (higher,
+or less negative, is worse). Reports must have finite values, meaningful
+planes, and identical extraction settings; a missing field, zero baseline
+denominator, or mismatch is invalid and fails closed. The paired budget never
+relaxes `indoor_construction.yaml` or any other absolute profile. The command
+writes `paired_regression_verdict.yaml` and `.json` beside the map-quality
+summary, plus human-readable rows in `paired_regression_verdict.txt`.
+
+The HILTI exp04 current-vs-old map reports used in the M4c diagnostic pass this
+2% paired check. Both reports independently violate the indoor profile's
+`mme_valid_fraction_min` threshold, so that absolute-profile result remains a
+separate applicability issue rather than being hidden by the paired pass.
+
+M4c also closed the fixed backend regression receipts for two HILTI inputs:
+
+- exp04: `/tmp/lidarslam-m4c-hilti-exp04-gate.pzufEB`, three-run artifact
+  identity and old optimized trajectory exact, wall `2.71/2.90/2.73 s`,
+  maximum RTF `0.010347643`, peak RSS `272.167968750 MiB`, and wall CV
+  `3.066357758%`.
+- exp07: `/tmp/lidarslam-m4c-hilti-exp07-gate.zCELMb`, three-run artifact
+  identity and old optimized trajectory exact, historical interpolated APE
+  `0.6186851452574647 m` from 5/6 sparse GT points, wall `1.90/1.90/1.97 s`,
+  maximum RTF `0.050166829`, peak RSS `201.136718750 MiB`, and wall CV
+  `1.715683698%`.
+
+Both receipts pass the fixed RTF/RSS/CV gates and record the canonical host NDT
+`backend_loop` receipt with `target_cell_cache_capacity=3`. These are named
+input compatibility/resource gates, not official dense-GT or SOTA comparisons;
+the M5 fresh-holdout and competitor protocol remains pending. The old/current
+indoor absolute-profile violation is reported separately and is not relaxed.
 
 For the continuous RKO-LIO kidnap-relocalization evidence, run:
 

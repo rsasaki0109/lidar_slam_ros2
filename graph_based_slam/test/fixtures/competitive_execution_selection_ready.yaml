@@ -1,0 +1,4 @@
+# Test-only receipt used by synthetic schema-v2 evidence fixtures.
+receipt_kind: competitive_execution_selection
+schema_version: 1
+status: ready

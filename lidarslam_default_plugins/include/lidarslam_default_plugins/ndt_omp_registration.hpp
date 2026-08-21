@@ -29,6 +29,7 @@
 #ifndef LIDARSLAM_DEFAULT_PLUGINS__NDT_OMP_REGISTRATION_HPP_
 #define LIDARSLAM_DEFAULT_PLUGINS__NDT_OMP_REGISTRATION_HPP_
 
+#include <cstddef>
 #include <memory>
 #include <string>
 
@@ -36,6 +37,15 @@
 
 namespace lidarslam_default_plugins
 {
+
+struct TargetCellCacheStats
+{
+  std::size_t capacity{0U};
+  std::size_t size{0U};
+  std::size_t hits{0U};
+  std::size_t misses{0U};
+  std::size_t evictions{0U};
+};
 
 /**
  * Built-in adapter for the pclomp DIRECT7 NDT used by the current scan matcher.
@@ -70,6 +80,11 @@ public:
     const lidarslam::plugins::registration::AlignmentRequest & request) override;
 
   void reset() noexcept override;
+
+  // Concrete diagnostics for the backend characterization/tests.  The
+  // generic C++14 RegistrationPlugin contract is unchanged; callers that do
+  // not opt into target-cell caching see zero capacity and no retained state.
+  TargetCellCacheStats targetCellCacheStats() const noexcept;
 
 private:
   struct Impl;

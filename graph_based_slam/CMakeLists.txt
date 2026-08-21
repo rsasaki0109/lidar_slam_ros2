@@ -27,6 +27,7 @@ find_package(ament_cmake REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(rcl_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -40,6 +41,9 @@ find_package(lidarslam_msgs REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(ndt_omp_ros2 REQUIRED)
+find_package(lidarslam_plugin_interfaces REQUIRED)
+find_package(lidarslam_registration_loader REQUIRED)
+find_package(lidarslam_default_plugins REQUIRED)
 find_package(PCL REQUIRED)
 find_package(g2o QUIET
   COMPONENTS
@@ -124,6 +128,23 @@ if(BUILD_TESTING)
   if(TARGET test_gnss_weighting)
     target_include_directories(test_gnss_weighting PRIVATE include)
     ament_target_dependencies(test_gnss_weighting sensor_msgs)
+  endif()
+  ament_add_gtest(
+    test_pointcloud2_conversion
+    test/test_pointcloud2_conversion.cpp
+  )
+  if(TARGET test_pointcloud2_conversion)
+    target_include_directories(test_pointcloud2_conversion PRIVATE include)
+    ament_target_dependencies(test_pointcloud2_conversion sensor_msgs pcl_conversions)
+    target_link_libraries(test_pointcloud2_conversion ${PCL_LIBRARIES})
+  endif()
+  ament_add_gtest(
+    test_target_cloud_cache
+    test/test_target_cloud_cache.cpp
+  )
+  if(TARGET test_target_cloud_cache)
+    target_include_directories(test_target_cloud_cache PRIVATE include ${EIGEN3_INCLUDE_DIR})
+    target_link_libraries(test_target_cloud_cache ${PCL_LIBRARIES})
   endif()
   ament_add_gtest(
     test_gnss_geometry
@@ -249,10 +270,46 @@ if(BUILD_TESTING)
     src/three_d_bbs_loop_verifier.cpp
   )
   if(TARGET test_backend_core)
-    target_include_directories(test_backend_core PRIVATE include ${EIGEN3_INCLUDE_DIR})
-    ament_target_dependencies(test_backend_core ndt_omp_ros2)
+    target_include_directories(
+      test_backend_core PRIVATE include ${EIGEN3_INCLUDE_DIR} ${lidarslam_default_plugins_INCLUDE_DIRS}
+    )
+    ament_target_dependencies(
+      test_backend_core ndt_omp_ros2 lidarslam_plugin_interfaces lidarslam_registration_loader
+    )
     target_link_libraries(
       test_backend_core ${PCL_LIBRARIES} graph_based_slam_3d_bbs_vendor
+    )
+  endif()
+  ament_add_gtest(
+    test_backend_registration_preflight
+    test/test_backend_registration_preflight.cpp
+  )
+  if(TARGET test_backend_registration_preflight)
+    target_include_directories(
+      test_backend_registration_preflight PRIVATE
+      include ${EIGEN3_INCLUDE_DIR} ${lidarslam_default_plugins_INCLUDE_DIRS}
+    )
+    ament_target_dependencies(
+      test_backend_registration_preflight
+      ndt_omp_ros2
+      lidarslam_plugin_interfaces
+      lidarslam_registration_loader
+    )
+    target_link_libraries(test_backend_registration_preflight ${PCL_LIBRARIES})
+  endif()
+  ament_add_gtest(
+    test_graph_based_slam_component_preflight
+    test/test_graph_based_slam_component_preflight.cpp
+  )
+  if(TARGET test_graph_based_slam_component_preflight)
+    target_include_directories(
+      test_graph_based_slam_component_preflight PRIVATE include ${EIGEN3_INCLUDE_DIR}
+    )
+    ament_target_dependencies(
+      test_graph_based_slam_component_preflight rclcpp rcl_interfaces
+    )
+    target_link_libraries(
+      test_graph_based_slam_component_preflight graph_based_slam_component
     )
   endif()
   ament_add_gtest(
@@ -1051,6 +1108,7 @@ endif()
 ament_target_dependencies(graph_based_slam_component
   rclcpp
   rclcpp_components
+  rcl_interfaces
   tf2_ros
   tf2_eigen
   tf2_geometry_msgs
@@ -1063,6 +1121,16 @@ ament_target_dependencies(graph_based_slam_component
   lidarslam_msgs
   message_filters
   ndt_omp_ros2
+  lidarslam_plugin_interfaces
+  lidarslam_registration_loader
+)
+
+# The live NDT factory includes the adapter implementation in this component
+# translation unit.  Use the exported headers without linking the default
+# plugin DSO: linking it would reintroduce the pclomp template interposition
+# that the host-resident compatibility path is designed to avoid.
+target_include_directories(graph_based_slam_component PRIVATE
+  ${lidarslam_default_plugins_INCLUDE_DIRS}
 )
 
 target_link_libraries(graph_based_slam_component
@@ -1172,6 +1240,15 @@ ament_target_dependencies(graph_slam_offline_runner
   nav_msgs
   sensor_msgs
   ndt_omp_ros2
+  lidarslam_plugin_interfaces
+  lidarslam_registration_loader
+)
+
+# The offline NDT host factory includes the typed adapter implementation in
+# this executable translation unit.  Do not link the default plugin DSO: that
+# would recreate the rejected pclomp/ODR interposition boundary.
+target_include_directories(graph_slam_offline_runner PRIVATE
+  ${lidarslam_default_plugins_INCLUDE_DIRS}
 )
 
 target_link_libraries(graph_slam_offline_runner
@@ -1195,6 +1272,10 @@ rclcpp_components_register_nodes(graph_based_slam_component
   "graphslam::GraphBasedSlamComponent")
 
 ament_export_libraries(graph_based_slam_component)
+ament_export_dependencies(
+  lidarslam_plugin_interfaces
+  lidarslam_registration_loader
+)
 
 install(
   DIRECTORY "include/"

@@ -23,6 +23,9 @@ SET(CMAKE_CXX_FLAGS "-O2 -g ${CMAKE_CXX_FLAGS}")
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(rcl_interfaces REQUIRED)
+find_package(rosidl_runtime_c REQUIRED)
+find_package(rosidl_runtime_cpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -44,6 +47,9 @@ find_package(OpenMP)
 set(dependencies
   rclcpp
   rclcpp_components
+  rcl_interfaces
+  rosidl_runtime_c
+  rosidl_runtime_cpp
   tf2_ros
   tf2_geometry_msgs
   tf2_sensor_msgs

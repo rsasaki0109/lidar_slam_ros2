@@ -43,6 +43,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <functional>
 #include <sstream>
 #include <string>
@@ -54,13 +55,15 @@
 #include <pcl/kdtree/kdtree_flann.h>  // NOLINT(build/include_order)
 #include <pcl/point_cloud.h>  // NOLINT(build/include_order)
 #include <pcl/point_types.h>  // NOLINT(build/include_order)
-#include <pcl/registration/registration.h>  // NOLINT(build/include_order)
+
+#include <lidarslam_plugin_interfaces/registration.hpp>
 
 #include "graph_based_slam/candidate_aggregator.hpp"
 #include "graph_based_slam/loop_verifier.hpp"
 #include "graph_based_slam/scan_context.hpp"
 #include "graph_based_slam/solid_descriptor.hpp"
 #include "graph_based_slam/submap_bev_descriptor.hpp"
+#include "graph_based_slam/target_cloud_cache.hpp"
 #include "graph_based_slam/three_d_bbs_loop_verifier.hpp"
 #include "graph_based_slam/triangle_descriptor.hpp"
 #include "graph_based_slam/triangle_descriptor_database.hpp"
@@ -103,6 +106,10 @@ struct SubmapMeta
 {
   Eigen::Affine3d pose{Eigen::Affine3d::Identity()};
   double travel_distance{0.0};
+  // A non-zero revision is required before a target aggregate can enter the
+  // cache.  Shells must change it whenever the submap cloud content changes;
+  // zero intentionally selects the historical uncached path.
+  std::uint64_t content_revision{0};
 };
 
 struct LoopEdgeProposal
@@ -185,6 +192,10 @@ struct LoopSearchOutput
 struct LoopSearchConfig
 {
   int search_submap_num{3};
+  // This is the leaf size of the regular target/source voxel grid.  It is
+  // part of the target-cache key; callers set it from the existing
+  // voxel_leaf_size parameter without changing its default behavior.
+  double target_voxel_leaf_size{0.2};
   bool prefer_scan_context_candidates{false};
   bool use_3d_bbs_for_scan_context{false};
   int three_d_bbs_source_submap_num{2};
@@ -338,6 +349,7 @@ public:
   void configure(const DescriptorConfig & config)
   {
     config_ = config;
+    target_cloud_cache_.clear();
     bev_descriptor_db_.configure(
       config.bev_descriptor_grid_size_m,
       config.bev_descriptor_grid_cells,
@@ -443,7 +455,7 @@ public:
     int latest_idx,
     const LoopSearchConfig & search_config,
     const LocalSubmapProvider & raw_cloud_provider,
-    pcl::Registration<pcl::PointXYZI, pcl::PointXYZI> & registration,
+    lidarslam::plugins::registration::RegistrationPlugin & registration,
     pcl::VoxelGrid<pcl::PointXYZI> & voxelgrid,
     ThreeDBBSLoopVerifier & three_d_bbs_verifier)
   {
@@ -523,8 +535,6 @@ public:
     if (filtered_source_local_bbs->empty()) {
       return output;
     }
-    registration.setInputSource(filtered_source);
-
     const double latest_moving_distance = submaps[latest_idx].travel_distance;
     const Eigen::Vector3d latest_submap_pos = latest_affine.translation();
 
@@ -610,50 +620,94 @@ public:
       }
 
       const Eigen::Affine3d & candidate_affine = submaps[candidate.index].pose;
-      pcl::PointCloud<pcl::PointXYZI>::Ptr submap_clouds_ptr(
-        new pcl::PointCloud<pcl::PointXYZI>);
-      pcl::PointCloud<pcl::PointXYZI>::Ptr submap_clouds_bbs_ptr(
-        new pcl::PointCloud<pcl::PointXYZI>);
-      for (int offset = -search_config.search_submap_num;
-        offset <= search_config.search_submap_num; ++offset)
+      const bool scan_context_candidate =
+        candidate.source == LoopCandidate::Source::SCAN_CONTEXT;
+      const TargetCloudCacheVariant target_cache_variant =
+        !scan_context_candidate ? TargetCloudCacheVariant::kRegular :
+        (search_config.use_3d_bbs_for_scan_context ?
+        TargetCloudCacheVariant::kScanContextWithThreeDBbs :
+        TargetCloudCacheVariant::kScanContext);
+      const int target_neighbor_radius =
+        target_cache_variant == TargetCloudCacheVariant::kRegular ?
+        search_config.search_submap_num : search_config.three_d_bbs_target_submap_radius;
+      TargetCloudCacheKey target_cache_key;
+      target_cache_key.candidate_index = candidate.index;
+      target_cache_key.variant = target_cache_variant;
+      target_cache_key.neighbor_radius = target_neighbor_radius;
+      target_cache_key.bbs_neighbor_radius =
+        search_config.three_d_bbs_target_submap_radius;
+      target_cache_key.voxel_leaf_size = search_config.target_voxel_leaf_size;
+      target_cache_key.bbs_voxel_leaf_size = search_config.three_d_bbs_voxel_leaf_size;
+      for (int offset = -target_neighbor_radius;
+        offset <= target_neighbor_radius; ++offset)
       {
         const int near_idx = candidate.index + offset;
         if (near_idx < 0 || near_idx >= num_submaps) {
           continue;
         }
-        pcl::PointCloud<pcl::PointXYZI>::Ptr submap_cloud_ptr = raw_cloud_provider(near_idx);
-        if (submap_cloud_ptr->empty()) {
-          continue;
-        }
-        pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_submap_cloud_ptr(
-          new pcl::PointCloud<pcl::PointXYZI>);
-        const Eigen::Affine3d & affine = submaps[near_idx].pose;
-        pcl::transformPointCloud(
-          *submap_cloud_ptr, *transformed_submap_cloud_ptr,
-          affine.matrix().cast<float>());
-        *submap_clouds_ptr += *transformed_submap_cloud_ptr;
-        if (std::abs(offset) <= search_config.three_d_bbs_target_submap_radius) {
-          *submap_clouds_bbs_ptr += *transformed_submap_cloud_ptr;
-        }
-      }
-      if (submap_clouds_ptr->empty() || submap_clouds_bbs_ptr->empty()) {
-        continue;
+        TargetCloudCacheRevision revision;
+        revision.submap_index = near_idx;
+        revision.content_revision = submaps[near_idx].content_revision;
+        revision.pose = submaps[near_idx].pose.matrix();
+        target_cache_key.revisions.push_back(revision);
       }
 
-      pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_clouds_ptr(
-        new pcl::PointCloud<pcl::PointXYZI>());
-      voxelgrid.setInputCloud(submap_clouds_ptr);
-      voxelgrid.filter(*filtered_clouds_ptr);
-      if (filtered_clouds_ptr->empty()) {
-        continue;
+      TargetCloudCacheValue target_cache_value;
+      const bool target_cache_hit = target_cloud_cache_.lookup(
+        target_cache_key, &target_cache_value);
+      if (!target_cache_hit) {
+        // Build only the aggregate required by this candidate variant.  The
+        // local aggregate is intentionally released after voxelization for
+        // regular and non-BBS ScanContext candidates; retaining it would
+        // recreate the RSS regression that motivated this cache.
+        TargetCloudPtr aggregate(new TargetCloud);
+        for (int offset = -target_neighbor_radius;
+          offset <= target_neighbor_radius; ++offset)
+        {
+          const int near_idx = candidate.index + offset;
+          if (near_idx < 0 || near_idx >= num_submaps) {
+            continue;
+          }
+          pcl::PointCloud<pcl::PointXYZI>::Ptr submap_cloud_ptr = raw_cloud_provider(near_idx);
+          if (submap_cloud_ptr->empty()) {
+            continue;
+          }
+          pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_submap_cloud_ptr(
+            new pcl::PointCloud<pcl::PointXYZI>);
+          const Eigen::Affine3d & affine = submaps[near_idx].pose;
+          pcl::transformPointCloud(
+            *submap_cloud_ptr, *transformed_submap_cloud_ptr,
+            affine.matrix().cast<float>());
+          *aggregate += *transformed_submap_cloud_ptr;
+        }
+        if (aggregate->empty()) {
+          continue;
+        }
+
+        TargetCloudPtr filtered(new TargetCloud);
+        voxelgrid.setInputCloud(aggregate);
+        voxelgrid.filter(*filtered);
+        if (filtered->empty()) {
+          continue;
+        }
+        if (target_cache_variant == TargetCloudCacheVariant::kRegular) {
+          target_cache_value.filtered = filtered;
+        } else {
+          target_cache_value.filtered_bbs = filtered;
+          if (target_cache_variant == TargetCloudCacheVariant::kScanContextWithThreeDBbs) {
+            target_cache_value.bbs_aggregate = aggregate;
+          }
+        }
+        // A zero content revision makes the key non-cacheable, so this
+        // insertion is a no-op for legacy/unknown providers.  The generic
+        // RegistrationPlugin contract is unaffected: setInputTarget below
+        // still runs for every candidate, including cache hits.
+        target_cloud_cache_.insert(target_cache_key, target_cache_value);
       }
-      pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_clouds_sc_ptr(
-        new pcl::PointCloud<pcl::PointXYZI>());
-      voxelgrid.setInputCloud(submap_clouds_bbs_ptr);
-      voxelgrid.filter(*filtered_clouds_sc_ptr);
-      if (filtered_clouds_sc_ptr->empty()) {
-        continue;
-      }
+
+      const TargetCloudPtr & submap_clouds_bbs_ptr = target_cache_value.bbs_aggregate;
+      const TargetCloudPtr & filtered_clouds_ptr = target_cache_value.filtered;
+      const TargetCloudPtr & filtered_clouds_sc_ptr = target_cache_value.filtered_bbs;
 
       pcl::PointCloud<pcl::PointXYZI>::Ptr output_cloud_ptr(
         new pcl::PointCloud<pcl::PointXYZI>);
@@ -662,13 +716,12 @@ public:
       double three_d_bbs_elapsed_msec = 0.0;
       Eigen::Matrix4f initial_guess =
         loop_verifier::computeInitialGuess(candidate_affine, latest_affine, candidate);
-      if (candidate.source == LoopCandidate::Source::SCAN_CONTEXT) {
-        registration.setInputSource(filtered_source_sc);
-        registration.setInputTarget(filtered_clouds_sc_ptr);
-      } else {
-        registration.setInputSource(filtered_source);
-        registration.setInputTarget(filtered_clouds_ptr);
-      }
+      const pcl::PointCloud<pcl::PointXYZI>::Ptr registration_source =
+        candidate.source == LoopCandidate::Source::SCAN_CONTEXT ?
+        filtered_source_sc : filtered_source;
+      const pcl::PointCloud<pcl::PointXYZI>::Ptr registration_target =
+        candidate.source == LoopCandidate::Source::SCAN_CONTEXT ?
+        filtered_clouds_sc_ptr : filtered_clouds_ptr;
       if (candidate.source == LoopCandidate::Source::SCAN_CONTEXT &&
         search_config.use_3d_bbs_for_scan_context)
       {
@@ -728,13 +781,37 @@ public:
           }
         }
       }
-      if (loop_verifier::shouldUseInitialGuess(candidate.source, used_3d_bbs)) {
-        registration.align(*output_cloud_ptr, initial_guess);
-      } else {
-        registration.align(*output_cloud_ptr);
-      }
       attempted_registration = true;
-      if (!registration.hasConverged()) {
+      std::string target_error;
+      // The cloud cache is deliberately below the plugin boundary.  Every
+      // candidate still calls setInputTarget, because only a concrete plugin
+      // may know whether its target cells/state can be safely reused; generic
+      // RegistrationPlugin implementations must not inherit an NDT-specific
+      // target_cells_ assumption.
+      if (!registration.setInputTarget(registration_target, &target_error)) {
+        if (debug) {
+          std::snprintf(
+            log_buffer, sizeof(log_buffer),
+            "Rejected loop candidate %d -> %d because registration target setup failed: %s",
+            candidate.index,
+            latest_idx,
+            target_error.c_str());
+          output.logs.push_back({true, std::string(log_buffer)});
+        }
+        continue;
+      }
+      lidarslam::plugins::registration::AlignmentRequest alignment_request;
+      alignment_request.source = registration_source;
+      alignment_request.initial_guess_enabled =
+        loop_verifier::shouldUseInitialGuess(candidate.source, used_3d_bbs);
+      if (alignment_request.initial_guess_enabled) {
+        alignment_request.initial_guess = initial_guess;
+      }
+      const auto alignment_result = registration.align(alignment_request);
+      if (alignment_result.failure !=
+        lidarslam::plugins::registration::FailureCode::kNone ||
+        !alignment_result.converged || !alignment_result.aligned_source)
+      {
         if (debug) {
           std::snprintf(
             log_buffer, sizeof(log_buffer),
@@ -746,8 +823,9 @@ public:
         continue;
       }
 
-      const double fitness_score = registration.getFitnessScore();
-      const Eigen::Matrix4f final_transformation = registration.getFinalTransformation();
+      output_cloud_ptr = alignment_result.aligned_source;
+      const double fitness_score = alignment_result.fitness_score;
+      const Eigen::Matrix4f final_transformation = alignment_result.final_transformation;
       const loop_verifier::RegistrationDelta registration_delta =
         loop_verifier::computeRegistrationDelta(final_transformation);
       // Avoid building a target KD-tree for candidates that an earlier,
@@ -953,6 +1031,8 @@ public:
     return triangle_per_submap_;
   }
 
+  const TargetCloudCache & targetCloudCache() const {return target_cloud_cache_;}
+
 private:
   DescriptorConfig config_;
   ScanContext::Database scan_context_db_;
@@ -961,6 +1041,7 @@ private:
   triangle::TriangleDatabase triangle_db_;
   std::vector<candidate_aggregator::TriangleSubmapFeatures> triangle_per_submap_;
   int triangle_next_submap_idx_{0};
+  TargetCloudCache target_cloud_cache_;
 };
 
 }  // namespace backend_core

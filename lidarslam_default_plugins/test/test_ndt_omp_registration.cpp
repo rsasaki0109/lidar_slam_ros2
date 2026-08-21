@@ -126,7 +126,23 @@ Cloud::Ptr makeTargetCloud(const Cloud::Ptr & source)
   return target;
 }
 
-registration::ParameterMap makeParameters(int num_threads)
+Cloud::Ptr makeCacheTarget(float offset)
+{
+  Cloud::Ptr target(new Cloud());
+  for (int x = -4; x <= 4; ++x) {
+    for (int y = -4; y <= 4; ++y) {
+      PointT point;
+      point.x = static_cast<float>(x) * 0.35F + offset;
+      point.y = static_cast<float>(y) * 0.35F;
+      point.z = static_cast<float>((x * 3 + y * 5) % 7) * 0.08F;
+      point.intensity = static_cast<float>((x + y) & 3);
+      target->push_back(point);
+    }
+  }
+  return target;
+}
+
+registration::ParameterMap makeParameters(int num_threads, int target_cell_cache_capacity = 0)
 {
   registration::ParameterMap parameters;
   parameters.emplace("resolution", registration::ParameterValue(2.0));
@@ -139,6 +155,9 @@ registration::ParameterMap makeParameters(int num_threads)
   parameters.emplace(
     "num_threads",
     registration::ParameterValue(static_cast<std::int64_t>(num_threads)));
+  parameters.emplace(
+    "target_cell_cache_capacity",
+    registration::ParameterValue(static_cast<std::int64_t>(target_cell_cache_capacity)));
   parameters.emplace(
     "neighborhood_search_method", registration::ParameterValue("DIRECT7"));
   return parameters;
@@ -201,11 +220,13 @@ registration::AlignmentResult runPlugin(
   int num_threads, const Cloud::Ptr & source, const Cloud::Ptr & target,
   bool initial_guess_enabled = true, const registration::RotationPrior & rotation_prior = {},
   const registration::TranslationPrior & translation_prior = {},
-  bool max_distance_enabled = false, double max_distance = 0.0)
+  bool max_distance_enabled = false, double max_distance = 0.0,
+  int target_cell_cache_capacity = 0)
 {
   lidarslam_default_plugins::NdtOmpRegistration plugin;
   std::string error;
-  EXPECT_TRUE(plugin.configure(makeParameters(num_threads), &error)) << error;
+  EXPECT_TRUE(plugin.configure(makeParameters(num_threads, target_cell_cache_capacity),
+      &error)) << error;
   EXPECT_TRUE(plugin.setInputTarget(target, &error)) << error;
 
   registration::AlignmentRequest request;
@@ -298,6 +319,7 @@ TEST(NdtOmpRegistration, RejectsInvalidTypedConfiguration)
     {"step_size", registration::ParameterValue(-0.1)},
     {"outlier_ratio", registration::ParameterValue(1.0)},
     {"num_threads", registration::ParameterValue(static_cast<std::int64_t>(-1))},
+    {"target_cell_cache_capacity", registration::ParameterValue(static_cast<std::int64_t>(-1))},
     {"neighborhood_search_method", registration::ParameterValue("KDTREE")},
     {"unknown", registration::ParameterValue(true)},
   };
@@ -360,6 +382,88 @@ TEST(NdtOmpRegistration, MatchesDirectPclOmpTwoThreadsBitForBit)
     plugin.diagnostics.mean_correspondence_distance : -1.0,
     direct.mean_distance);
   EXPECT_TRUE(bitwiseEqual(*plugin.aligned_source, direct.aligned));
+}
+
+TEST(NdtOmpRegistration, TargetCellCacheIsOptInAndPreservesAlignment)
+{
+  const Cloud::Ptr source = makeStructuredCloud();
+  const Cloud::Ptr target = makeTargetCloud(source);
+  lidarslam_default_plugins::NdtOmpRegistration plugin;
+  std::string error;
+  ASSERT_TRUE(plugin.configure(makeParameters(1, 3), &error)) << error;
+  ASSERT_EQ(plugin.targetCellCacheStats().capacity, 3U);
+  ASSERT_TRUE(plugin.setInputTarget(target, &error)) << error;
+  const auto after_miss = plugin.targetCellCacheStats();
+  EXPECT_EQ(after_miss.size, 1U);
+  EXPECT_EQ(after_miss.misses, 1U);
+  EXPECT_EQ(after_miss.hits, 0U);
+
+  registration::AlignmentRequest request;
+  request.source = source;
+  request.initial_guess_enabled = true;
+  request.initial_guess = Eigen::Matrix4f::Identity();
+  const auto first = plugin.align(request);
+  ASSERT_EQ(first.failure, registration::FailureCode::kNone) << first.diagnostics.detail;
+  ASSERT_TRUE(first.aligned_source);
+
+  ASSERT_TRUE(plugin.setInputTarget(target, &error)) << error;
+  const auto after_hit = plugin.targetCellCacheStats();
+  EXPECT_EQ(after_hit.size, 1U);
+  EXPECT_EQ(after_hit.misses, 1U);
+  EXPECT_EQ(after_hit.hits, 1U);
+  const auto second = plugin.align(request);
+  ASSERT_EQ(second.failure, registration::FailureCode::kNone) << second.diagnostics.detail;
+  ASSERT_TRUE(second.aligned_source);
+  EXPECT_TRUE(bitwiseEqual(first.final_transformation, second.final_transformation));
+  EXPECT_DOUBLE_EQ(first.fitness_score, second.fitness_score);
+  EXPECT_TRUE(bitwiseEqual(*first.aligned_source, *second.aligned_source));
+
+  // The default frontend/external configuration remains uncached.
+  lidarslam_default_plugins::NdtOmpRegistration uncached;
+  ASSERT_TRUE(uncached.configure(makeParameters(1), &error)) << error;
+  EXPECT_EQ(uncached.targetCellCacheStats().capacity, 0U);
+}
+
+TEST(NdtOmpRegistration, TargetCellCacheUsesDeterministicBoundedLruAndReset)
+{
+  lidarslam_default_plugins::NdtOmpRegistration plugin;
+  std::string error;
+  ASSERT_TRUE(plugin.configure(makeParameters(1, 3), &error)) << error;
+  const std::vector<Cloud::Ptr> targets{
+    makeCacheTarget(0.0F), makeCacheTarget(10.0F),
+    makeCacheTarget(20.0F), makeCacheTarget(30.0F)};
+
+  for (int index = 0; index < 3; ++index) {
+    ASSERT_TRUE(plugin.setInputTarget(targets[static_cast<std::size_t>(index)], &error)) << error;
+  }
+  auto stats = plugin.targetCellCacheStats();
+  EXPECT_EQ(stats.capacity, 3U);
+  EXPECT_EQ(stats.size, 3U);
+  EXPECT_EQ(stats.misses, 3U);
+  EXPECT_EQ(stats.hits, 0U);
+  EXPECT_EQ(stats.evictions, 0U);
+
+  // Refresh A, then insert D.  B is the deterministic LRU victim.
+  ASSERT_TRUE(plugin.setInputTarget(targets[0], &error)) << error;
+  ASSERT_TRUE(plugin.setInputTarget(targets[3], &error)) << error;
+  stats = plugin.targetCellCacheStats();
+  EXPECT_EQ(stats.size, 3U);
+  EXPECT_EQ(stats.hits, 1U);
+  EXPECT_EQ(stats.misses, 4U);
+  EXPECT_EQ(stats.evictions, 1U);
+  ASSERT_TRUE(plugin.setInputTarget(targets[1], &error)) << error;
+  stats = plugin.targetCellCacheStats();
+  EXPECT_EQ(stats.size, 3U);
+  EXPECT_EQ(stats.misses, 5U);
+  EXPECT_EQ(stats.evictions, 2U);
+
+  plugin.reset();
+  stats = plugin.targetCellCacheStats();
+  EXPECT_EQ(stats.capacity, 0U);
+  EXPECT_EQ(stats.size, 0U);
+  EXPECT_EQ(stats.hits, 0U);
+  EXPECT_EQ(stats.misses, 0U);
+  EXPECT_EQ(stats.evictions, 0U);
 }
 
 TEST(NdtOmpRegistration, PriorsAndDistanceAreClearedBetweenCalls)

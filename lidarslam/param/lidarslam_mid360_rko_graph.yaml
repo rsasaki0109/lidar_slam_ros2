@@ -3,6 +3,11 @@ graph_based_slam:
     registration_method: "NDT"
     ndt_resolution: 5.0
     ndt_num_threads: 0
+    # MID-360 development profile: candidate-2's event-driven stride-5
+    # characterization reduced backend work while retaining accepted query
+    # 604. This is not a generic default or a cross-dataset/SOTA claim;
+    # exp04/exp07 and GT holdout replay gates remain required.
+    loop_search_query_stride: 5
     voxel_leaf_size: 0.2
 
     threshold_loop_closure_score: 15.0

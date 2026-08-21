@@ -32,11 +32,19 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <stdexcept>
 #include <unordered_map>
 
+#include <pclomp/gicp_omp.h>  // NOLINT(build/include_order)
+#include <pclomp/gicp_omp_impl.hpp>  // NOLINT(build/include_order)
+
+#include <rcl_interfaces/msg/parameter_descriptor.hpp>
+
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
+#include "graph_based_slam/backend_registration_preflight.hpp"
 #include "graph_based_slam/bev_mutual_visibility.hpp"
 #include "graph_based_slam/candidate_aggregator.hpp"
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
@@ -48,8 +56,12 @@
 #include "graph_based_slam/map_saver.hpp"
 #include "graph_based_slam/planar_map_consolidation.hpp"
 #include "graph_based_slam/planar_map_filter.hpp"
+#include "graph_based_slam/pointcloud2_conversion.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/submap_creation.hpp"
+#include "graph_based_slam/registration_plugin_adapter.hpp"
+#include "lidarslam_default_plugins/ndt_omp_registration_impl.ipp"
+#include "lidarslam_registration_loader/registration_plugin_loader.hpp"
 #include "g2o/core/robust_kernel_impl.h"
 #define GRAPH_BASED_SLAM_WITH_G2O 1
 #include "graph_based_slam/loop_edge_robustifier.hpp"
@@ -58,6 +70,7 @@ using namespace std::chrono_literals;
 
 namespace graphslam
 {
+
 GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & options)
 : Node("graph_based_slam", options),
   clock_(RCL_ROS_TIME),
@@ -71,10 +84,15 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   double ndt_resolution;
   int ndt_num_threads;
 
-  declare_parameter("registration_method", "NDT");
+  rcl_interfaces::msg::ParameterDescriptor registration_method_descriptor;
+  registration_method_descriptor.description =
+    "Backend registration selector; immutable after startup (no hot reload)";
+  registration_method_descriptor.read_only = true;
+  declare_parameter("registration_method", "NDT", registration_method_descriptor);
   get_parameter("registration_method", registration_method);
   declare_parameter("voxel_leaf_size", 0.2);
   get_parameter("voxel_leaf_size", voxel_leaf_size);
+  voxel_leaf_size_ = voxel_leaf_size;
   declare_parameter("ndt_resolution", 5.0);
   get_parameter("ndt_resolution", ndt_resolution);
   declare_parameter("ndt_num_threads", 0);
@@ -1259,17 +1277,6 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   }
   std::cout << "save_degeneracy_report:" << std::boolalpha << save_degeneracy_report_ <<
     std::endl;
-  if (!degeneracy_diagnostics_csv_path_.empty()) {
-    degeneracy_csv_ofs_.open(degeneracy_diagnostics_csv_path_);
-    if (degeneracy_csv_ofs_.is_open()) {
-      degeneracy_csv_ofs_ << degeneracy::degeneracyDiagnosticsCsvHeaderLine() << "\n";
-    } else {
-      RCLCPP_WARN(
-        get_logger(), "failed to open degeneracy_diagnostics_csv_path: %s (CSV disabled)",
-        degeneracy_diagnostics_csv_path_.c_str());
-      degeneracy_diagnostics_csv_path_.clear();
-    }
-  }
   std::cout << "use_imu_preintegration:" << std::boolalpha << use_imu_preintegration_ << std::endl;
   if (use_imu_preintegration_) {
     std::cout << "imu_rotation_info_roll_pitch:" << imu_rotation_info_roll_pitch_ << std::endl;
@@ -1296,11 +1303,101 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
 
   voxelgrid_.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
 
-  registration_ =
-    backend_core::makeLoopRegistration(registration_method, ndt_resolution, ndt_num_threads);
-  if (!registration_) {
-    RCLCPP_ERROR(get_logger(), "invalid registration_method");
-    exit(1);
+  // Resolve the live backend registration before creating any subscriptions.
+  // NDT is host-resident and constructed in this translation unit so the
+  // pclomp/Eigen template instantiation remains the same as the historical
+  // backend.  The core only receives the typed plugin pointer; pluginlib and
+  // the resolver remain shell concerns.
+  if (registration_method == "NDT") {
+    backend_registration::NdtConfig ndt_config;
+    ndt_config.resolution = ndt_resolution;
+    ndt_config.num_threads = ndt_num_threads;
+    ndt_config.target_cell_cache_capacity =
+      backend_registration::kBackendNdtTargetCellCacheCapacity;
+    backend_registration::BackendRegistrationRequest backend_request;
+    std::string preflight_error;
+    if (!backend_registration::makeNdtLoadRequest(
+        ndt_config, &backend_request, &preflight_error))
+    {
+      throw std::runtime_error("backend NDT preflight request failed: " + preflight_error);
+    }
+
+    using lidarslam::plugins::registration::shell::HostBuiltinRegistration;
+    using lidarslam::plugins::registration::shell::RegistrationResolver;
+    HostBuiltinRegistration host_ndt = backend_registration::makeNdtHostBuiltinRegistration(
+      []() {
+        return std::make_shared<lidarslam_default_plugins::NdtOmpRegistration>();
+      });
+    RegistrationResolver resolver({host_ndt});
+    const auto loaded = resolver.resolve(backend_request.request);
+    if (!loaded.ok()) {
+      throw std::runtime_error(
+              "backend NDT startup preflight failed [" +
+              std::to_string(static_cast<int>(loaded.failure.code)) + "]: " +
+              loaded.failure.message);
+    }
+    // Store the session before the plugin so its ClassLoader (when a future
+    // resolver implementation supplies one) outlives plugin destruction.
+    registration_plugin_session_ = loaded.session;
+    registration_plugin_ = loaded.session->plugin();
+    const auto & provenance = loaded.session->provenance();
+    const std::string capability_bits =
+      std::to_string(provenance.capabilities.bits());
+    RCLCPP_INFO(
+      get_logger(),
+      "backend registration preflight ok role=%s backend_kind=%s class=%s implementation=%s "
+      "api=%u.%u license=%s capabilities=%s library=<host> manifest=<host>",
+      backend_request.role.c_str(),
+      lidarslam::plugins::registration::shell::backendKindName(provenance.backend_kind),
+      provenance.class_id.c_str(),
+      provenance.metadata.implementation_version.c_str(),
+      static_cast<unsigned int>(provenance.metadata.api_version.major),
+      static_cast<unsigned int>(provenance.metadata.api_version.minor),
+      provenance.metadata.license.c_str(),
+      capability_bits.c_str());
+  } else if (registration_method == "GICP") {
+    // GICP remains on the historical PCL implementation for this slice.  It
+    // is nevertheless exposed to BackendCore through the typed bridge, so
+    // gate/log semantics are shared with NDT.  A full GICP backend resolver
+    // migration is deliberately a later characterization step.
+    boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
+    gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
+    gicp->setMaxCorrespondenceDistance(30.0);
+    gicp->setMaximumIterations(100);
+    gicp->setTransformationEpsilon(1e-8);
+    gicp->setEuclideanFitnessEpsilon(1e-6);
+    gicp->setRANSACIterations(0);
+    registration_ = gicp;
+    registration_plugin_ = std::make_shared<backend_registration::PclRegistrationAdapter>(
+      registration_, "lidarslam_builtin/LegacyBackendGicp");
+    const auto metadata = registration_plugin_->metadata();
+    RCLCPP_INFO(
+      get_logger(),
+      "backend registration preflight ok backend_kind=legacy_pcl_bridge class=%s "
+      "implementation=%s api=%u.%u license=%s library=<host> manifest=<host>",
+      metadata.class_id.c_str(), metadata.implementation_version.c_str(),
+      static_cast<unsigned int>(metadata.api_version.major),
+      static_cast<unsigned int>(metadata.api_version.minor), metadata.license.c_str());
+  } else {
+    throw std::runtime_error(
+            "invalid registration_method='" + registration_method +
+            "'; backend live registration supports only NDT and GICP and has no fallback");
+  }
+
+  // Do not create an observable diagnostics artifact until registration
+  // preflight has succeeded.  This keeps startup fail-closed before the
+  // sensor subscriptions and all backend processing, while preserving the
+  // historical report-only CSV behavior after successful construction.
+  if (!degeneracy_diagnostics_csv_path_.empty()) {
+    degeneracy_csv_ofs_.open(degeneracy_diagnostics_csv_path_);
+    if (degeneracy_csv_ofs_.is_open()) {
+      degeneracy_csv_ofs_ << degeneracy::degeneracyDiagnosticsCsvHeaderLine() << "\n";
+    } else {
+      RCLCPP_WARN(
+        get_logger(), "failed to open degeneracy_diagnostics_csv_path: %s (CSV disabled)",
+        degeneracy_diagnostics_csv_path_.c_str());
+      degeneracy_diagnostics_csv_path_.clear();
+    }
   }
 
   backend_core::DescriptorConfig descriptor_config;
@@ -1356,11 +1453,15 @@ void GraphBasedSlamComponent::initializePubSub()
       {
         std::lock_guard<std::mutex> lock(mtx_);
         map_array_msg_ = *msg_ptr;
+        submap_content_revisions_.clear();
+        submap_content_revisions_.reserve(map_array_msg_.submaps.size());
         submap_odom_covariances_.clear();
         // Save new submaps to PCD and clear cloud from memory
         if (use_pcd_cache_) {
           for (int i = 0; i < static_cast<int>(map_array_msg_.submaps.size()); i++) {
             auto & sub = map_array_msg_.submaps[i];
+            submap_content_revisions_.push_back(
+              pointcloud2_conversion::contentRevision(sub.cloud));
             if (sub.cloud.data.size() > 0) {
               pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
               pcl::fromROSMsg(sub.cloud, *cloud);
@@ -1369,6 +1470,11 @@ void GraphBasedSlamComponent::initializePubSub()
                 sub.cloud = sensor_msgs::msg::PointCloud2();  // Free memory
               }
             }
+          }
+        } else {
+          for (const auto & sub : map_array_msg_.submaps) {
+            submap_content_revisions_.push_back(
+              pointcloud2_conversion::contentRevision(sub.cloud));
           }
         }
         initial_map_array_received_ = true;
@@ -1592,12 +1698,20 @@ void GraphBasedSlamComponent::searchLoopForLatest(
   int latest_idx)
 {
   static_cast<void>(num_submaps);
+  std::vector<std::uint64_t> content_revisions;
+  {
+    std::lock_guard<std::mutex> lock(mtx_);
+    content_revisions = submap_content_revisions_;
+  }
   std::vector<backend_core::SubmapMeta> submaps;
   submaps.reserve(map_array_msg.submaps.size());
   for (const auto & submap : map_array_msg.submaps) {
     backend_core::SubmapMeta meta;
     tf2::fromMsg(submap.pose, meta.pose);
     meta.travel_distance = submap.distance;
+    if (submaps.size() < content_revisions.size()) {
+      meta.content_revision = content_revisions[submaps.size()];
+    }
     submaps.push_back(meta);
   }
 
@@ -1613,6 +1727,7 @@ void GraphBasedSlamComponent::searchLoopForLatest(
 
   backend_core::LoopSearchConfig search_config;
   search_config.search_submap_num = search_submap_num_;
+  search_config.target_voxel_leaf_size = voxel_leaf_size_;
   search_config.prefer_scan_context_candidates = prefer_scan_context_candidates_;
   search_config.use_3d_bbs_for_scan_context = use_3d_bbs_for_scan_context_;
   search_config.three_d_bbs_source_submap_num = three_d_bbs_source_submap_num_;
@@ -1699,7 +1814,7 @@ void GraphBasedSlamComponent::searchLoopForLatest(
     latest_idx,
     search_config,
     raw_cloud_provider,
-    *registration_,
+    *registration_plugin_,
     voxelgrid_,
     three_d_bbs_loop_verifier_);
 
@@ -2342,6 +2457,7 @@ void GraphBasedSlamComponent::tryCreateSubmap(
   submap.pose = odom_msg.pose.pose;
   submap.cloud = cloud_msg;
   submap.cloud.header.frame_id = odom_msg.child_frame_id;
+  const std::uint64_t content_revision = pointcloud2_conversion::contentRevision(submap.cloud);
 
   int n;
   {
@@ -2349,6 +2465,7 @@ void GraphBasedSlamComponent::tryCreateSubmap(
     map_array_msg_.header.stamp = odom_msg.header.stamp;
     map_array_msg_.header.frame_id = "map";
     map_array_msg_.submaps.push_back(submap);
+    submap_content_revisions_.push_back(content_revision);
     submap_odom_covariances_.push_back(odom_msg.pose.covariance);
     n = map_array_msg_.submaps.size();
 

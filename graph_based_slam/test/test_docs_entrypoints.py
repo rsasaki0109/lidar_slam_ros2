@@ -135,6 +135,9 @@ def test_docs_reference_existing_entrypoint_scripts():
         PUBLIC_AUTOWARE_ENTRYPOINT,
         REPO_ROOT / 'scripts' / 'download_ntu_viral_tnp01.sh',
         REPO_ROOT / 'scripts' / 'run_default_ci_checks.sh',
+        REPO_ROOT / 'scripts' / 'run_registration_plugin_consumer_check.sh',
+        REPO_ROOT / 'scripts' / 'run_scanmatcher_install_consumer_check.sh',
+        REPO_ROOT / 'scripts' / 'run_registration_plugin_template_check.sh',
         REPO_ROOT / 'scripts' / 'run_rko_lio_graph_autoware_dogfood.sh',
         REPO_ROOT / 'scripts' / 'run_graph_slam_pointcloud_map_in_autoware.sh',
         REPO_ROOT / 'scripts' / 'prepare_autoware_map_from_graph_slam.sh',
@@ -152,6 +155,11 @@ def test_docs_reference_existing_entrypoint_scripts():
         REPO_ROOT / 'scripts' / 'run_mid360_robot_public_completion_gate.py',
         REPO_ROOT / 'scripts' / 'run_mid360_robot_public_continuous_relocalization_gate.py',
         REPO_ROOT / 'scripts' / 'merge_mid360_robot_public_split_bags.py',
+        REPO_ROOT / 'scripts' / 'run_map_quality_check.sh',
+        REPO_ROOT / 'scripts' / 'check_map_quality_regression.py',
+        REPO_ROOT / 'scripts' / 'evaluate_competitive_suite_gate.py',
+        REPO_ROOT / 'scripts' / 'check_competitive_execution_selection.py',
+        REPO_ROOT / 'scripts' / 'capture_competitive_execution_identity.py',
         REPO_ROOT / 'scripts' / 'run_release_readiness_checks.sh',
         REPO_ROOT / 'scripts' / 'benchmark_summary.py',
         REPO_ROOT / 'scripts' / 'generate_html_report.py',
@@ -371,6 +379,8 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'generate_packet_imu_deskew_validation_report.py' in benchmarking_doc
     assert 'generate_dynamic_object_filter_report.py' in benchmarking_doc
     assert 'run_release_readiness_checks.sh' in benchmarking_doc
+    assert 'check_map_quality_regression.py' in benchmarking_doc
+    assert '--map-quality-baseline-report' in benchmarking_doc
     assert 'docs/comparison.md' in benchmarking_doc
     assert 'generate_v2_beta_readiness_report.py' in benchmarking_doc
     assert 'generate_map_authoring_report.py' in benchmarking_doc

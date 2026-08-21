@@ -73,6 +73,14 @@ Options:
                                 report-only
   --map-quality-downsample <m>  Downsample for the map-quality stage
                                 (default: 0.1)
+  --map-quality-baseline-report <yaml>
+                                Baseline map_quality_report.yaml for an
+                                optional paired non-regression check; this
+                                never relaxes an absolute profile
+  --map-quality-max-regression-percent <percent>
+                                Relative regression budget for the paired
+                                map-quality check (default: 2.0 when a
+                                baseline is supplied)
   --degeneracy-report <csv>     Run the degeneracy diagnostics report stage
                                 (v0.8 Phase 1, docs/roadmap/v0.8.md §5) on a
                                 per-scan diagnostics CSV produced by
@@ -177,6 +185,9 @@ OFFLINE_DETERMINISM_MAP_QUALITY_PROFILE=""
 MAP_QUALITY_PCDS=()
 MAP_QUALITY_PROFILES=()
 MAP_QUALITY_DOWNSAMPLE=""
+MAP_QUALITY_BASELINE_REPORT=""
+MAP_QUALITY_MAX_REGRESSION_PERCENT="2.0"
+MAP_QUALITY_MAX_REGRESSION_PERCENT_SET=false
 DEGENERACY_REPORT_CSVS=()
 FRONTEND_DETERMINISM_BAG=""
 FRONTEND_DETERMINISM_CLOUD_TOPIC=""
@@ -325,6 +336,17 @@ while [[ $# -gt 0 ]]; do
       MAP_QUALITY_DOWNSAMPLE="$2"
       shift 2
       ;;
+    --map-quality-baseline-report)
+      require_value "$1" "${2:-}"
+      MAP_QUALITY_BASELINE_REPORT=$(realpath -m "$2")
+      shift 2
+      ;;
+    --map-quality-max-regression-percent)
+      require_value "$1" "${2:-}"
+      MAP_QUALITY_MAX_REGRESSION_PERCENT="$2"
+      MAP_QUALITY_MAX_REGRESSION_PERCENT_SET=true
+      shift 2
+      ;;
     --degeneracy-report)
       require_value "$1" "${2:-}"
       DEGENERACY_REPORT_CSVS+=("$(realpath -m "$2")")
@@ -402,6 +424,15 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "${MAP_QUALITY_MAX_REGRESSION_PERCENT_SET}" == "true" && \
+      -z "${MAP_QUALITY_BASELINE_REPORT}" ]]; then
+  fail "--map-quality-max-regression-percent requires --map-quality-baseline-report"
+fi
+if [[ -n "${MAP_QUALITY_BASELINE_REPORT}" && \
+      ! -f "${MAP_QUALITY_BASELINE_REPORT}" ]]; then
+  fail "map-quality baseline report not found: ${MAP_QUALITY_BASELINE_REPORT}"
+fi
 
 mkdir -p "${OUT_DIR}"
 
@@ -602,6 +633,12 @@ if [[ ${#MAP_QUALITY_PCDS[@]} -gt 0 ]]; then
     fi
     if [[ -n "${MAP_QUALITY_PROFILE}" ]]; then
       MAP_QUALITY_CMD+=(--profile "${MAP_QUALITY_PROFILE}")
+    fi
+    if [[ -n "${MAP_QUALITY_BASELINE_REPORT}" ]]; then
+      MAP_QUALITY_CMD+=(
+        --baseline-report "${MAP_QUALITY_BASELINE_REPORT}"
+        --max-regression-percent "${MAP_QUALITY_MAX_REGRESSION_PERCENT}"
+      )
     fi
     "${MAP_QUALITY_CMD[@]}" 2>&1 | tee -a "${OUT_DIR}/map_quality.log"
   done

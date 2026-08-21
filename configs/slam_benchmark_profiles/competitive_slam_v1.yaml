@@ -77,6 +77,51 @@ competitive_slam_profile:
     require_zero_catastrophic_failures: true
     require_zero_verified_false_loops: true
     require_geometry_non_regression: true
+  # Additive schema-v2 victory evidence gate.  The existing v1 bool gate and
+  # run_cross_repo_slam_benchmark.py remain report-only compatibility paths;
+  # only this section can produce a SOTA/victory receipt.
+  evidence_gate_v2:
+    schema_version: 2
+    required_systems: [ours, glim, fast_livo2]
+    partitions:
+      historical: regression
+      fresh: primary_fresh
+    repetitions: 3
+    minimum_aggregate_ape_improvement_percent: 10.0
+    maximum_processing_rtf: 1.0
+    maximum_primary_regression_percent: 2.0
+    maximum_peak_rss_ratio_to_rival: 1.20
+    maximum_mapping_regression_percent: 2.0
+    minimum_fresh_holdout_slots: 3
+    require_fresh_holdout: true
+    thread_policy_required_keys:
+      - cpu_affinity
+      - max_threads
+      - omp_num_threads
+      - openblas_num_threads
+      - mkl_num_threads
+      - tbb_num_threads
+      - accelerator_policy
+    bootstrap_method: fixed_seed_hierarchical_dataset_cluster_bootstrap
+    bootstrap_seed: 20260821
+    bootstrap_samples: 10000
+    common_identity_fields:
+      - input_sha256
+      - reference_sha256
+      - calibration_sha256
+      - machine_id
+      - hardware_fingerprint
+      - thread_policy
+      - release
+      - scorer_fingerprint
+    pinned_identity_fields:
+      - revision
+      - container_digest
+      - toolchain_fingerprint
+      - config_sha256
+    execution_selection_receipt_path: configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml
+    execution_selection_receipt_sha256: fda17ea9ee07157f6a3e86a335eced0960e755a829101f5483db21c82ad1fadb
+    require_execution_selection_receipt: true
   required_metrics:
     common:
       - trajectory.ape_rmse_m
@@ -119,6 +164,71 @@ competitive_slam_profile:
         modalities: [lidar, imu]
         reference: cross_validation_only
         forbidden_claims: [absolute_trajectory_accuracy]
+    # These are deliberately separate from the already exposed/frozen
+    # holdout_slots below.  Selection is preregistered, but the inputs have
+    # not been downloaded or hashed yet.  selected_unopened is not a ready
+    # status; schema-v2 evidence must remain INCOMPLETE until frozen_unopened.
+    fresh_holdout_slots:
+      fresh_1:
+        status: selected_unopened
+        dataset: hilti_exp14_basement_2
+        sequence: exp14
+        selection_reason: dense_6dof_common_phasma_platform_basement
+        selection_receipt_path: configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml
+        selection_receipt_sha256: cfc106a0396cc032f297f72f10e549ebef55c39f492afe9c1d25ded0d4307dde
+        bag_url: https://huggingface.co/datasets/Hilti-Research/hilti-slam-challenge-2022/blob/e62017f907007fdc5ab8c721842e4ae7359d7f49/rosbags/exp14_basement_2.bag
+        bag_expected_bytes: 6260771085
+        bag_sha256: 18eea013076b8263ababf4f36eb68d331564a0a493262b006dc0dddc2aa85b82
+        ground_truth_url: https://huggingface.co/datasets/Hilti-Research/hilti-slam-challenge-2022/blob/e62017f907007fdc5ab8c721842e4ae7359d7f49/ground_truth/exp14_basement_2_imu.txt
+        ground_truth_frame: imu
+        ground_truth_kind: dense_6dof
+        ground_truth_expected_bytes: 78222
+        ground_truth_git_blob_oid: 89ab267bbb9cbc2e78eb443afc4e9b8f08acec19
+        input_manifest_sha256: null
+        ground_truth_sha256: null
+        calibration_archive_sha256: null
+        calibration_tree_revision: e62017f907007fdc5ab8c721842e4ae7359d7f49
+        calibration_tree_path: calibration/calibration_files
+      fresh_2:
+        status: selected_unopened
+        dataset: hilti_exp16_attic_to_upper_gallery_2
+        sequence: exp16
+        selection_reason: dense_6dof_common_phasma_platform_attic
+        selection_receipt_path: configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml
+        selection_receipt_sha256: cfc106a0396cc032f297f72f10e549ebef55c39f492afe9c1d25ded0d4307dde
+        bag_url: https://huggingface.co/datasets/Hilti-Research/hilti-slam-challenge-2022/blob/e62017f907007fdc5ab8c721842e4ae7359d7f49/rosbags/exp16_attic_to_upper_gallery_2.bag
+        bag_expected_bytes: 15523312816
+        bag_sha256: e340d874f0836f1637bfbc38b91216eadc18fd6c39fb5e83676a7b295dfcad80
+        ground_truth_url: https://huggingface.co/datasets/Hilti-Research/hilti-slam-challenge-2022/blob/e62017f907007fdc5ab8c721842e4ae7359d7f49/ground_truth/exp16_attic_to_upper_gallery_2_imu.txt
+        ground_truth_frame: imu
+        ground_truth_kind: dense_6dof
+        ground_truth_expected_bytes: 222627
+        ground_truth_git_blob_oid: d60ea04840a7f819dd49d2512c786b2adc3b9e1f
+        input_manifest_sha256: null
+        ground_truth_sha256: null
+        calibration_archive_sha256: null
+        calibration_tree_revision: e62017f907007fdc5ab8c721842e4ae7359d7f49
+        calibration_tree_path: calibration/calibration_files
+      fresh_3:
+        status: selected_unopened
+        dataset: hilti_exp18_corridor_lower_gallery_2
+        sequence: exp18
+        selection_reason: dense_6dof_common_phasma_platform_corridor
+        selection_receipt_path: configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml
+        selection_receipt_sha256: cfc106a0396cc032f297f72f10e549ebef55c39f492afe9c1d25ded0d4307dde
+        bag_url: https://huggingface.co/datasets/Hilti-Research/hilti-slam-challenge-2022/blob/e62017f907007fdc5ab8c721842e4ae7359d7f49/rosbags/exp18_corridor_lower_gallery_2.bag
+        bag_expected_bytes: 8657654860
+        bag_sha256: 98373b52f207b9ace3914792b5604a6642f89441190cabca6acbaf1d17249280
+        ground_truth_url: https://huggingface.co/datasets/Hilti-Research/hilti-slam-challenge-2022/blob/e62017f907007fdc5ab8c721842e4ae7359d7f49/ground_truth/exp18_corridor_lower_gallery_2_imu.txt
+        ground_truth_frame: imu
+        ground_truth_kind: dense_6dof
+        ground_truth_expected_bytes: 88743
+        ground_truth_git_blob_oid: c01fea006e68eb0cede035e07cc719fb08cf9b4f
+        input_manifest_sha256: null
+        ground_truth_sha256: null
+        calibration_archive_sha256: null
+        calibration_tree_revision: e62017f907007fdc5ab8c721842e4ae7359d7f49
+        calibration_tree_path: calibration/calibration_files
     holdout_slots:
       holdout_1:
         status: frozen

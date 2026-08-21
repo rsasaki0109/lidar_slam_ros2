@@ -8,7 +8,9 @@
 #     --output-dir output/map_quality_cs2 \
 #     [--runs 3] [--downsample 0.1] \
 #     [--setup /path/to/workspace/install/setup.bash] \
-#     [--profile configs/map_quality_profiles/indoor_construction.yaml]
+#     [--profile configs/map_quality_profiles/indoor_construction.yaml] \
+#     [--baseline-report baseline/map_quality_report.yaml] \
+#     [--max-regression-percent 2.0]
 #
 # This script always enforces determinism: every run must produce a
 # byte-identical map_quality_report.yaml. Without --profile the metric
@@ -16,8 +18,12 @@
 # compared against the profile's threshold table
 # (scripts/check_map_quality_thresholds.py); a `blocking` profile turns
 # violations into a non-zero exit, a `report_only` profile prints the
-# verdict rows without failing (v0.7 Phase 3 rollout shape). The metric
-# extraction profile itself is frozen in MapQualityConfig
+# verdict rows without failing (v0.7 Phase 3 rollout shape).
+# With --baseline-report, run1 is also compared by the independent paired
+# non-regression checker. That comparison is fail-closed and never relaxes
+# the absolute profile above; --max-regression-percent defaults to 2.0 and
+# is only valid when a baseline report is supplied. The metric extraction
+# profile itself is frozen in MapQualityConfig
 # (docs/research/map-quality-baseline.md) and is deliberately not
 # exposed here.
 set -euo pipefail
@@ -28,6 +34,9 @@ OUTPUT_DIR=""
 RUNS=3
 DOWNSAMPLE=0.1
 PROFILE=""
+BASELINE_REPORT=""
+MAX_REGRESSION_PERCENT="2.0"
+MAX_REGRESSION_PERCENT_SET=false
 SETUP_FILE="${REPO_ROOT}/../install/setup.bash"
 if [[ ! -f "${SETUP_FILE}" ]]; then
   SETUP_FILE="${REPO_ROOT}/install/setup.bash"
@@ -65,6 +74,17 @@ while [[ $# -gt 0 ]]; do
       PROFILE=$(realpath -m "$2")
       shift 2
       ;;
+    --baseline-report)
+      [[ $# -ge 2 ]] || usage
+      BASELINE_REPORT=$(realpath -m "$2")
+      shift 2
+      ;;
+    --max-regression-percent)
+      [[ $# -ge 2 ]] || usage
+      MAX_REGRESSION_PERCENT="$2"
+      MAX_REGRESSION_PERCENT_SET=true
+      shift 2
+      ;;
     --setup)
       [[ $# -ge 2 ]] || usage
       SETUP_FILE=$(realpath -m "$2")
@@ -82,6 +102,14 @@ if [[ -z "${INPUT}" || -z "${OUTPUT_DIR}" ]]; then
 fi
 if [[ -n "${PROFILE}" && ! -f "${PROFILE}" ]]; then
   echo "profile not found: ${PROFILE}" >&2
+  exit 2
+fi
+if [[ -n "${BASELINE_REPORT}" && ! -f "${BASELINE_REPORT}" ]]; then
+  echo "baseline report not found: ${BASELINE_REPORT}" >&2
+  exit 2
+fi
+if [[ -z "${BASELINE_REPORT}" && "${MAX_REGRESSION_PERCENT_SET}" == "true" ]]; then
+  echo "--max-regression-percent requires --baseline-report" >&2
   exit 2
 fi
 if [[ ! -e "${INPUT}" ]]; then
@@ -103,6 +131,10 @@ echo "input:      ${INPUT}"
 echo "runs:       ${RUNS}"
 echo "downsample: ${DOWNSAMPLE}"
 echo "out:        ${OUTPUT_DIR}"
+if [[ -n "${BASELINE_REPORT}" ]]; then
+  echo "baseline:   ${BASELINE_REPORT}"
+  echo "max regress: ${MAX_REGRESSION_PERCENT}%"
+fi
 
 MD5S=()
 for ((r = 1; r <= RUNS; r++)); do
@@ -137,6 +169,21 @@ if [[ -n "${PROFILE}" ]]; then
   set -e
 fi
 
+REGRESSION_LOG="${OUTPUT_DIR}/paired_regression_verdict.txt"
+REGRESSION_STATUS=0
+if [[ -n "${BASELINE_REPORT}" ]]; then
+  set +e
+  python3 "${REPO_ROOT}/scripts/check_map_quality_regression.py" \
+    --baseline-report "${BASELINE_REPORT}" \
+    --candidate-report "${OUTPUT_DIR}/run1/map_quality_report.yaml" \
+    --max-regression-percent "${MAX_REGRESSION_PERCENT}" \
+    --out "${OUTPUT_DIR}/paired_regression_verdict.yaml" \
+    --json-out "${OUTPUT_DIR}/paired_regression_verdict.json" \
+    > "${REGRESSION_LOG}" 2>&1
+  REGRESSION_STATUS=$?
+  set -e
+fi
+
 SUMMARY="${OUTPUT_DIR}/map_quality_summary.md"
 {
   echo "# Map-quality check"
@@ -149,6 +196,11 @@ SUMMARY="${OUTPUT_DIR}/map_quality_summary.md"
   if [[ -n "${PROFILE}" ]]; then
     echo "- threshold_profile: \`${PROFILE}\`"
   fi
+  if [[ -n "${BASELINE_REPORT}" ]]; then
+    echo "- baseline_report: \`${BASELINE_REPORT}\`"
+    echo "- max_regression_percent: ${MAX_REGRESSION_PERCENT}"
+    echo "- paired_non_regression_receipt: \`${OUTPUT_DIR}/paired_regression_verdict.yaml\`"
+  fi
   echo
   echo '```yaml'
   cat "${OUTPUT_DIR}/run1/map_quality_report.yaml"
@@ -159,12 +211,21 @@ SUMMARY="${OUTPUT_DIR}/map_quality_summary.md"
     cat "${THRESHOLD_LOG}"
     echo '```'
   fi
+  if [[ -n "${BASELINE_REPORT}" ]]; then
+    echo
+    echo '```'
+    cat "${REGRESSION_LOG}"
+    echo '```'
+  fi
 } > "${SUMMARY}"
 
 echo "--- verdict"
 cat "${OUTPUT_DIR}/run1/map_quality_report.yaml"
 if [[ -n "${PROFILE}" ]]; then
   cat "${THRESHOLD_LOG}"
+fi
+if [[ -n "${BASELINE_REPORT}" ]]; then
+  cat "${REGRESSION_LOG}"
 fi
 if [[ "${IDENTICAL}" != "true" ]]; then
   echo "MAP_QUALITY_FAILED: reports differ across runs" >&2
@@ -173,5 +234,9 @@ fi
 if [[ "${THRESHOLD_STATUS}" -ne 0 ]]; then
   echo "MAP_QUALITY_FAILED: threshold check failed (exit ${THRESHOLD_STATUS})" >&2
   exit "${THRESHOLD_STATUS}"
+fi
+if [[ "${REGRESSION_STATUS}" -ne 0 ]]; then
+  echo "MAP_QUALITY_FAILED: paired non-regression check failed (exit ${REGRESSION_STATUS})" >&2
+  exit "${REGRESSION_STATUS}"
 fi
 echo "MAP_QUALITY_OK: ${RUNS} runs produced byte-identical map_quality_report.yaml"

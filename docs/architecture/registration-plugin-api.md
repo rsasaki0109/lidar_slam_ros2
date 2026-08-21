@@ -3,8 +3,10 @@
 - Status: accepted; Phase 0 interface, Phase 1 NDT/GICP/optional-SMALL adapters
   and static characterization paths, Phase 2 shell-loader/offline injection,
   and the ODR-safe hybrid resolver implemented; optional SMALL pluginlib DSO
-  discovery/replay is characterized, while independent ODR isolation, GICP
-  backend integration, and production loader promotion remain No-Go/pending
+  discovery/replay is characterized; live backend NDT typed integration and
+  R2 characterization are implemented, while offline-runner step 7, GICP
+  backend migration, independent external-DSO production promotion, and
+  absolute-accuracy promotion remain pending/No-Go
 - Date: 2026-08-21
 - Scope: scan-to-map registration used by `scanmatcher` and loop-candidate
   registration used by `graph_based_slam`
@@ -19,9 +21,18 @@ scanmatcher's legacy `registration_method=NDT` path. The legacy parameter
 names remain the public configuration surface and are converted to a typed
 map by a ROS-free helper. The shell-side pluginlib loader and the ODR-safe
 host/pluginlib hybrid resolver are now implemented as offline opt-in paths.
+The live `ScanMatcherComponent` also has an explicit, read-only startup
+preflight: it resolves and validates a requested host or external session
+before creating publishers or sensor subscriptions. The default constructor
+remains the legacy same-translation-unit path when the selector is disabled,
+and external pluginlib loading requires a separate explicit risk-acceptance
+parameter. This is startup wiring coverage, not production promotion of the
+independently failing DSO path below.
 The typed GICP adapter and host-resident GICP selector are characterization
-only; backend integration and production loader promotion remain pending. The
-Phase 1 gates below remain authoritative.
+only; live backend GICP keeps the legacy construction behind the typed bridge,
+while full GICP backend migration remains pending. The live backend NDT path
+is now resolved through the host-resident `NdtOmp` session described below.
+The Phase 1 gates below remain authoritative.
 
 A 2026-08-20 MID-360 full-sequence replay processed all 2,772 scans three
 times through both the pre-migration baseline at `0c08b58f` and the integrated
@@ -97,9 +108,10 @@ The normal production defaults are unchanged. `registration_method=NDT`
 constructs `NdtOmpRegistration` in the legacy `scanmatcher_component.cpp`
 translation unit and exposes that same object through the typed slot. Normal
 `GICP`, `FAST_*`, and `SMALL_*` methods continue to use the existing
-`registration_` PCL path. The slot replacement is used by the deferred,
-offline opt-in injection path; it does not enable pluginlib or change the live
-default constructor.
+`registration_` PCL path. The slot replacement is used by the deferred offline
+injection path and by the explicit component-owned startup preflight; it does
+not change the live default constructor or enable external pluginlib loading
+implicitly.
 
 Hot-path decisions use only the cached capability contract, never the selected
 method name or plugin class ID:
@@ -395,23 +407,26 @@ only by the legacy adapter and is not used in the new public API.
 
 ### Live graph backend and `BackendCore`
 
-The graph component has another independent `registration_` pointer of the
-same PCL base type. It reads `registration_method`, `ndt_resolution`, and
+The graph component reads `registration_method`, `ndt_resolution`, and
 `ndt_num_threads` at
-[`graph_based_slam_component.cpp:69-81`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/graph_based_slam/src/graph_based_slam_component.cpp#L69)
-and constructs it through
-[`registration_factory.hpp:54-80`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/graph_based_slam/include/graph_based_slam/registration_factory.hpp#L54):
+[`graph_based_slam_component.cpp:69-81`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/graph_based_slam/src/graph_based_slam_component.cpp#L69).
+For `NDT`, startup now builds the canonical `backend_loop` request and resolves
+the same-translation-unit host adapter through
+[`backend_registration_preflight.hpp`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/graph_based_slam/include/graph_based_slam/backend_registration_preflight.hpp).
+The only remaining PCL factory is the explicitly named
+`makeLegacyGicpRegistration()` compatibility bridge in
+[`registration_factory.hpp`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/graph_based_slam/include/graph_based_slam/registration_factory.hpp):
 
-| Method | Current factory settings |
+| Method | Current construction/settings |
 | --- | --- |
-| `NDT` | `pclomp::NormalDistributionsTransform<PointXYZI, PointXYZI>`, 100 iterations, `ndt_resolution`, epsilon `0.01`, `DIRECT7`, optional `ndt_num_threads` |
-| `GICP` | `pclomp::GeneralizedIterativeClosestPoint<PointXYZI, PointXYZI>`, maximum correspondence `30`, 100 iterations, transformation epsilon `1e-8`, Euclidean fitness epsilon `1e-6`, RANSAC iterations `0`; `ndt_num_threads` is ignored |
+| `NDT` | Typed host-resident `lidarslam_builtin/NdtOmp`, 100 iterations, `ndt_resolution`, epsilon `0.01`, step size `0.1`, outlier ratio `0.55`, `DIRECT7`, optional `ndt_num_threads`; the runner and live component use the same request mapping. |
+| `GICP` | Explicit `makeLegacyGicpRegistration()` bridge around `pclomp::GeneralizedIterativeClosestPoint<PointXYZI, PointXYZI>`, maximum correspondence `30`, 100 iterations, transformation epsilon `1e-8`, Euclidean fitness epsilon `1e-6`, RANSAC iterations `0`; `ndt_num_threads` is ignored. |
 
-The backend factory has no FAST or SMALL branch. Its `ndt_resolution` and
-`ndt_num_threads` names are historical; the factory does not read frontend
-parameters such as `ndt_step_size`, `ndt_outlier_ratio`, or
-`gicp_corr_dist_threshold`. Backend defaults therefore must remain a separate
-role profile even when both roles use the same plugin class.
+The backend compatibility factory has no NDT, FAST, or SMALL branch. Its
+`ndt_resolution` and `ndt_num_threads` names are historical; the legacy GICP
+bridge does not read frontend parameters such as `ndt_step_size`,
+`ndt_outlier_ratio`, or `gicp_corr_dist_threshold`. Backend defaults therefore
+remain a separate role profile even when both roles use the same plugin class.
 
 `BackendCore::searchLoopForSubmap()` is intentionally already close to the
 desired injection boundary. Its current PCL contract is visible in
@@ -441,12 +456,316 @@ not a registration resolution. The `loop_*` score, correction, overlap,
 candidate ordering, and edge de-duplication settings are core safety policy,
 not plugin settings.
 
+#### M3 live NDT migration (2026-08-21)
+
+The live `GraphBasedSlamComponent` now resolves the host-resident
+`lidarslam_builtin/NdtOmp` class through the shell-side
+`RegistrationResolver` before `initializePubSub()`. Its factory body includes
+the default NDT implementation in the graph component translation unit; the
+component does not link the default-plugin DSO. The selected session remains
+owned by the component shell for its complete lifetime and startup provenance
+logs include `backend_kind=host_builtin`, canonical class ID, implementation
+version, API major/minor, license, capability bits, and explicit `<host>`
+library/manifest fields. Resolver, API/license/capability/configuration failure
+is a constructor failure; there is no implicit fallback or runtime replacement.
+
+The live `registration_method` selector is declared read-only too. A runtime
+attempt to change NDT to GICP (or vice versa) is rejected instead of silently
+leaving a stale construction in place. Preflight completes before sensor
+subscriptions and before the optional degeneracy CSV is opened; the transform
+listener/broadcaster are constructor members, but no sensor data or map
+processing is observable until the preflight barrier succeeds.
+
+The backend NDT role maps the historical settings exactly into a typed
+`LoadRequest`: `resolution=ndt_resolution`, `transformation_epsilon=0.01`,
+`maximum_iterations=100`, `step_size=0.1`, `outlier_ratio=0.55`,
+`num_threads=ndt_num_threads`, and `neighborhood_search_method=DIRECT7`.
+The required contract is raw target policy, initial guess, aligned source,
+mean-correspondence metric, and convergence/result validation. `voxel_leaf_size`
+and all loop gates remain host/core policy.
+
+`BackendCore::searchLoopForSubmap()` now has a typed
+`RegistrationPlugin &` primary overload. It sends the selected source/target
+and optional 3D-BBS initial guess in an `AlignmentRequest`, then uses the typed
+failure, convergence, aligned cloud, final transform, and fitness result before
+the unchanged overlap/correction gates and operator-visible log lines. The R2
+revisit fixture runs the direct legacy PCL object wrapped by
+`PclRegistrationAdapter` and the host-resident `NdtOmp` typed adapter with the
+same preprocessing/defaults; proposal pair/found state, relative transform,
+fitness, convergence/failure path, overlap/gate result, and every log line are
+bitwise-identical. Deterministic arrival batching, strict gate rejection, and
+empty-cloud behavior remain covered. The new backend preflight/bridge tests
+also reject invalid configuration and targets and verify reset returns
+`kNotConfigured`.
+
+The core exposes only the typed overload. The NDT path in
+`graph_slam_offline_runner` now resolves the canonical host session before bag
+processing and emits the backend receipt described below. Its GICP path, and
+live GICP, remain explicit legacy PCL objects behind the typed bridge; this is
+not a second core implementation and does not make a GICP backend promotion
+claim. A full live/offline real-bag replay remains a separate R4 gate.
+
+#### M3b offline backend NDT migration (2026-08-21)
+
+`graph_slam_offline_runner` now follows the same backend NDT shell boundary as
+the live component. For `registration_method=NDT`, it builds the shared
+`backend_registration::BackendRegistrationRequest` with role
+`backend_loop`, resolves the explicit host class
+`lidarslam_builtin/NdtOmp` through `RegistrationResolver`, and retains the
+`RegistrationPluginSession` and typed plugin for the complete runner lifetime.
+The concrete adapter implementation is included in the runner translation
+unit; the default plugin DSO is deliberately not linked, preserving the
+same-TU/ODR-safe host path. `BackendCore` still sees only
+`RegistrationPlugin&`.
+
+The live and offline NDT requests therefore share class ID, API major/minor,
+permissive-license policy, required capabilities, role, and the sorted typed
+parameter map (`resolution`, `transformation_epsilon`,
+`maximum_iterations`, `step_size`, `outlier_ratio`, `num_threads`, and
+`neighborhood_search_method=DIRECT7`). Before reading the first bag message,
+the runner writes `registration_plugin_receipt.yaml` with machine-readable
+backend kind, canonical class/metadata, capabilities, requirements, typed
+parameters, and host/pluginlib provenance paths. The path-independent
+`canonicalBackendRegistrationIdentity()` is the R4 comparison fixture used to
+prove live/offline request and resolved-session identity.
+
+Backend `GICP` remains an explicit legacy PCL construction wrapped by
+`PclRegistrationAdapter`; it is not sent through the NDT resolver and unknown
+methods fail closed without fallback. The existing direct-PCL versus typed-NDT
+R2 fixture remains unchanged for aligned output, convergence, fitness, loop
+proposal, gate, and log equivalence. A full real-bag R4 replay is still a
+separate gate and was not claimed by this slice.
+
+#### M4a offline determinism/performance receipt (2026-08-21)
+
+[`scripts/run_offline_determinism_check.sh`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/scripts/run_offline_determinism_check.sh)
+is the measurement harness for the backend-loop NDT path. Every run is wrapped
+by `/usr/bin/time -v`; `run_metrics.yaml` records wall seconds, peak RSS in MiB,
+bag duration, and real-time factor (RTF). The wrapper requires a complete
+`loop_edges.csv`, `trajectory_optimized.tum`, and canonical
+`registration_plugin_receipt.yaml` before writing a versioned `.complete`
+marker. The marker binds the run to an execution-identity hash covering the
+runner, script, setup, parameters, complete bag tree, optional reference/fixed
+edge inputs, parameter overrides, and relevant runtime/toolchain settings.
+`--resume` refuses missing/partial artifacts, changed inputs, or changed
+identity; a non-empty run directory is never overwritten without `--resume`.
+
+The gate compares loop edges, optimized trajectory, and the registration
+receipt byte-for-byte across runs. The receipt validates
+`role=backend_loop`, `backend_kind=host_builtin`, canonical class
+`lidarslam_builtin/NdtOmp`, API major `1`, `BSD-2-Clause`, raw-target policy,
+mean-distance metric, and the sorted typed NDT settings. It also records git
+revision/dirty state plus a tracked-diff/untracked-content worktree
+fingerprint, compiler/CPU/memory/OpenMP environment, and resolved dynamic
+dependency hashes. YAML, JSON, and the existing Markdown summary are emitted
+with clearly separated machine-receipt paths. Optional `--max-rtf`,
+`--max-peak-rss-mib`, and `--max-wall-cv-percent` gates remain report-only when
+omitted, but invalid, non-finite, missing, or over-limit measurements fail
+closed. `--require-ape` upgrades the historical optional APE post-processing
+to a fail-closed gate when a reference TUM is supplied.
+
+The shell-free fixture tests cover successful receipts, registration-receipt
+mismatch, strict numeric threshold rejection, performance-gate failure,
+required-APE failure, completion-marker/metric loss, changed-input resume
+rejection, and non-empty-output protection. The formal pinned MID-360 result
+and its strict-RTF outcome are recorded in the next section; the harness does
+not turn that result into an accuracy or SOTA claim. Local evidence on
+2026-08-21 is 15 fixture tests passed, 6 documentation-entrypoint tests
+passed, `mkdocs build --strict` passed, and `git diff --check` passed.
+
+#### M4a pinned MID-360 three-run receipt (2026-08-21)
+
+The first formal M4a measurement used the frozen backend-input bag
+`/media/sasaki/aiueo1/benchmarks/mid360_public/backend_input_20260713/backend_input`
+(`341.250776531 s`), the Jazzy install and the checked-in
+`lidarslam_mid360_rko_graph.yaml` (`ndt_num_threads=0`, `DIRECT7`; inherited
+OpenMP environment empty/default). The complete receipt is preserved at
+`/tmp/lidarslam-m4-r4-mid360-final.jSP22j`; its reproducibility identifiers
+are:
+
+```text
+execution_identity_sha256=f7bf00d1d3cb4ed91eaf5522dc6bdb48e169061b119c94677b4de9c86ae7e0dc
+runner_sha256=04382d6e77a7faf362e9a21ea26be559a00ee082c728b536a974e5c5fa469103
+script_sha256=7afae5d4e73c29fbd8a567938a69b2079784019e6bf2524db5281df957d85c1b
+```
+
+All three runs completed and had byte-identical loop-edge, optimized
+trajectory, and registration-plugin receipt artifacts. The measured rows were
+`wall_sec=343.16/339.08/343.61`, `RTF=1.005594781/0.993638765/1.006913460`,
+and `peak_rss_mib=548.10/548.26/547.95`; wall-time CV was `0.595904306%`.
+The configured report gate was `max_rtf=1.0`, `max_peak_rss_mib=672`, and
+`max_wall_cv_percent=5.0`. Thus the receipt status is **FAIL only because the
+maximum RTF was 1.006913460**; RSS and CV passed, and determinism passed.
+This is a performance-gate result, not a regression in trajectory or receipt
+compatibility.
+
+The optional historical reference produced a finite APE-like proxy of
+`1.1072674022 m` from 218 associated pairs (358 reference points rejected).
+The reference is a GLIM/reference trajectory proxy, not ground truth; this
+number is not an accuracy, SOTA, or competitor claim. No README claim is
+authorized by this receipt.
+
+#### M4b bounded target-cache implementation slice (2026-08-21)
+
+The backend cache now stores a candidate-specific target representation rather
+than retaining all aggregate variants: distance-only candidates keep only the
+final filtered target, ScanContext keeps its filtered target, and the 3D-BBS
+variant also keeps the unfiltered BBS aggregate. The exact cache key includes
+the variant and neighboring revisions/poses, preserving fail-safe invalidation
+and the existing 3D-BBS semantics.
+
+The concrete NDT adapter exposes an opt-in bounded target-cell LRU without
+changing `RegistrationPlugin`. Capacity zero remains the default for frontend
+and external requests. The shared backend live/offline request uses typed
+`target_cell_cache_capacity=3`, and the same value is present in
+`registration_plugin_receipt.yaml`. Entries retain target shared-pointer
+identity and an independently configured NDT instance; a hit is an O(1)
+instance switch rather than a deep copy of pclomp target cells. Tests cover
+capacity/range, hit/miss, deterministic LRU eviction, reset, representation
+variants, receipt identity, and existing prior/distance state cleanup.
+
+The bounded-cache implementation slice itself passed local build/unit checks;
+its isolated cache speedup and RSS effect are not claimed separately. The
+stride-5 development-profile characterization below is a separate replay
+candidate and does not authorize a SOTA claim.
+
+#### M4b stride-5 MID-360 development-profile candidate (2026-08-21)
+
+The candidate-2 event-driven query stride was measured with an explicit
+`loop_search_query_stride:=5` override on the pinned MID-360 backend-input bag,
+using `ndt_num_threads=0`, an unset OpenMP environment, Jazzy, and a dedicated
+ROS domain. The setting is now present only in
+`lidarslam/param/lidarslam_mid360_rko_graph.yaml`, whose scope is a MID-360
+development profile; it is not a generic dataset-independent default.
+
+Receipt: `/tmp/lidarslam-m4b-mid360-stride5.JN9qW8` (execution identity
+`54423801ae9bd9691f129f84f064dde6f5cb3e629356e334d0b280a3594839cf`). The
+single run measured wall `85.020 s`, RTF `0.249142290`, peak RSS `565.320 MiB`,
+and CPU `495%`. It accepted edge `6 -> 604` with fitness
+`0.47313574856385182`; loop/trajectory/refinement artifacts and the typed
+registration receipt were byte-identical to the stride-1 run. The reference
+trajectory proxy remained APE RMSE `1.1072674021694795 m` from 218 pairs.
+
+This is a strong one-run compatibility/performance candidate, not a closed
+promotion gate. Three-run determinism and wall-CV, HILTI exp04/exp07
+regression, and GT holdout evaluation remain pending. The reference is a
+GLIM/reference proxy rather than ground truth, so this result authorizes no
+absolute-accuracy, SOTA, competitor, or README claim.
+
+#### M4b formal pinned MID-360 three-run gate (2026-08-21)
+
+The frozen MID-360 development profile was then executed three times with
+the same backend-input bag
+`/media/sasaki/aiueo1/benchmarks/mid360_public/backend_input_20260713/backend_input`
+(`341.250776531 s`), checked-in params, Jazzy runner, `ndt_num_threads=0`,
+unset OpenMP environment, and ROS domains 212--214. The command supplied
+`--require-ape`, `--max-rtf 0.95`, `--max-peak-rss-mib 672`, and
+`--max-wall-cv-percent 5.0`. The complete receipt is
+`/tmp/lidarslam-m4b-mid360-stride5-gate.VZX2kH` with execution identity
+`5e06bf535bbf75e1de53c122655e55bcbd4d459d7723989b4472de2e0c220781`.
+The runner, script, params, and bag-tree hashes were respectively
+`321b231d212ef804169f0dfb2aa509067000a40e2393aa66a2c0603f823c5357`,
+`a7fa30b9a53ee635654360bb08992970a0dd79a5400235739ff9299647d1afc0`,
+`534db7c3d9d41baa9d3bc95f9d2b87277479f9cf7c84b80e2182cfab45958cb6`, and
+`408e6988cc7b1bb960000c66e798520b85ae7c0ffe29445394964f1751920016`.
+
+The machine receipt, YAML/JSON/Markdown summaries, and all three completion
+markers report `PASS`. Wall time was `85.05/88.98/90.17 s` (mean
+`88.066666667 s`, CV `2.484173052%`), RTF was
+`0.249230202/0.260746659/0.264233831`, and peak RSS was
+`564.718750/565.035156/565.222656 MiB`. The three-run artifact hashes were
+identical:
+
+```text
+loop_edges_sha256=5e30036d9190933e9659805caac032cc675ba968700a096c788f12560026c6d
+trajectory_raw_sha256=19e0b2c1c4cf3ec85446fd6354f0014d26a0af5cbe7e03966f9b2de993360378
+trajectory_optimized_sha256=9b8fd9faff62e7f8a20073373c7d85f5153bee0d18128a4e5ed957df351574ac
+trajectory_refined_sha256=2f80eabff43ed11eb1760f1ff7cc165aa5240e3c2bf00b787354be9a0d875042
+refinement_report_sha256=a02355cc8b8e02a888ae348ae2ec9528c5ee391c8bab8a1d96b290e4a5add1d4
+registration_receipt_sha256=7c4f90c758abcba03fd7bae1f709364e496d47a11a68ebc33ae0d1d325d8822f
+```
+
+The receipt remained `role=backend_loop`, host `lidarslam_builtin/NdtOmp`,
+and `target_cell_cache_capacity=3` on every run. The accepted loop edge was
+`6 -> 604` with fitness `0.47313574856385182`. Required APE completed with
+the GLIM/reference trajectory proxy at `1.1072674021694795 m` (218 pairs,
+358 rejected); it is not ground truth or an absolute-accuracy/SOTA result.
+This closes the pinned MID-360 development-profile performance and
+determinism gate only. HILTI exp04/exp07, GT holdout, Humble/toolchain matrix,
+and any global default or README claim remain separate pending gates. The
+earlier M4a strict-RTF **FAIL** receipt is intentionally retained as history.
+
+#### M4b performance-margin policy (fulfilled for pinned MID-360; holdouts pending)
+
+The M4b acceptance policy requires repeatable **5% headroom**, not merely
+recovering the current `0.69%` RTF overrun: the target is `max RTF <= 0.95`
+across three runs, while retaining the existing hard gate `max RTF <= 1.0`.
+Keep the same bag tree, params, Jazzy/toolchain/dependency fingerprint,
+`ndt_num_threads=0`, OpenMP environment, ROS domain isolation, and measurement
+script. Profile first, change one performance mechanism at a time, and record
+the new runner/script/identity hashes. A candidate is rejected if any required
+trajectory/loop-edge/registration receipt hash changes, wall CV exceeds 5%,
+or peak RSS regresses beyond the agreed non-regression budget. The formal
+pinned MID-360 receipt above meets the policy; the same measurement and
+holdout requirements remain for HILTI exp04/exp07, GT, and any broader
+production or accuracy claim. No README/SOTA claim is implied for those
+scopes.
+
+#### M4c HILTI backend regression receipts (2026-08-21)
+
+M4c applies the fixed three-run backend determinism/performance contract to
+HILTI exp04 and exp07 without changing the default parameter profile or
+relaxing the absolute map-quality profile. Both receipts used the Jazzy
+install, unset OpenMP variables, isolated ROS domains, required APE
+post-processing, and gates of `max_rtf=0.95`, `max_peak_rss_mib=672`, and
+`max_wall_cv_percent=5.0`.
+
+The exp04 receipt is `/tmp/lidarslam-m4c-hilti-exp04-gate.pzufEB` with
+execution identity
+`d991e3c17399cb6c7f974a79ac58321fbdfc179efc7c37d02d4b81ea2796765d`. All
+three runs are byte-identical and pass: wall `2.71/2.90/2.73 s` (CV
+`3.066357758%`), maximum RTF `0.010347643`, and peak RSS
+`272.167968750 MiB`. The old optimized trajectory is exact (SHA-256
+`3e94a3482b67e56de515cb830fcd374dd0b6cab5ffb7c150e1ee414c5922b390`) and
+the loop-edge SHA-256 is
+`4c90fb5921414b59a43d90c7c5ff9bef82681c77254fa48f9ba683dff8f3768d`.
+The paired old-map/current-map checker passes at 2%. The unchanged
+`indoor_construction` absolute profile remains a separate applicability
+failure: old `mme_valid_fraction=0.816687654` and current
+`0.816816915`, both below `0.90`.
+
+The exp07 receipt is `/tmp/lidarslam-m4c-hilti-exp07-gate.zCELMb` with
+execution identity
+`bd3cd4496f5c4c6c28d274397a632c497aac19a6c6911dda0cc3ff7e165ea67e`. Its
+YAML/JSON/Markdown summaries and all completion markers report `PASS`:
+wall `1.90/1.90/1.97 s` (CV `1.715683698%`), maximum RTF `0.050166829`, and
+peak RSS `201.136718750 MiB`. The old optimized trajectory is exact (SHA-256
+`353226fb6b7b8ff430dca063224fe3b059a1d44eace7bb32204044964620162a`) and
+loop edges are SHA-256
+`4c90fb5921414b59a43d90c7c5ff9bef82681c77254fa48f9ba683dff8f3768d`.
+Historical interpolated APE is `0.6186851452574647 m` from 5/6 sparse GT
+points, matching the old value; one sparse point is rejected by the 2 s
+matching limit. Each run records the canonical host NDT `backend_loop`
+receipt with `target_cell_cache_capacity=3`.
+
+These receipts establish compatibility, determinism, and resource
+non-regression for the named inputs only. They are not official dense-GT
+scores or SOTA/competitor comparisons. M5 must add the dense-GT protocol,
+fresh holdouts, and toolchain matrix before any broader accuracy or
+production claim; README remains unchanged.
+
 ### Offline and auxiliary paths
+
+The step-7 row below retains the historical call-site links, but its ownership
+wording is now current: the offline shell resolves host NDT through the
+canonical backend request/session and writes the R4 receipt. Only the explicit
+GICP legacy branch constructs a PCL object and wraps it in
+`PclRegistrationAdapter`; the `BackendCore` API has only the typed overload.
 
 | Path | Registration ownership and call site | Phase 1 decision |
 | --- | --- | --- |
 | `scan_matcher_offline_runner` | Creates the real `ScanMatcherComponent` and feeds it one bag message at a time through intra-process ROS pub/sub. It has no separate registration construction. `async_map_update=false` and fixed thread count are required for the deterministic contract; see [`scan_matcher_offline_runner.cpp`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/scanmatcher/src/scan_matcher_offline_runner.cpp). | The runner shell resolves and loads the same plugin as live scanmatcher, then injects it into the component/core. It must not silently let the component load a different plugin. |
-| `graph_slam_offline_runner` | Reads `registration_method`, `ndt_resolution`, and `ndt_num_threads` and calls the same `makeLoopRegistration()` factory at [`graph_slam_offline_runner.cpp:307-315`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/graph_based_slam/src/graph_slam_offline_runner.cpp#L307) and [`:888-895`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/graph_based_slam/src/graph_slam_offline_runner.cpp#L888). It then feeds the object to `BackendCore` at [`:959-960`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/graph_based_slam/src/graph_slam_offline_runner.cpp#L959). | The runner owns `pluginlib::ClassLoader`, manifest, and plugin lifetime. The offline and live backend must use the same resolved config and plugin class. |
+| `graph_slam_offline_runner` | **M3b boundary:** reads `registration_method`, `ndt_resolution`, and `ndt_num_threads` at the existing parameter call sites. NDT resolves the canonical `backend_loop` host session before bag processing and injects only the typed plugin; GICP remains an explicit shell-owned legacy PCL bridge. | Implemented: machine-readable `registration_plugin_receipt.yaml` records class, API/license, capabilities, sorted typed parameters, role, and provenance. Full real-bag R4 replay remains a separate pending gate. |
 | `small_gicp_odom_node` | A separate stateful scan-to-incremental-voxel-map node directly constructs `small_gicp::Registration<ICPFactor,...>` or `Registration<GICPFactor,...>` at [`small_gicp_odom_node.cpp:126-140`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/scanmatcher/src/small_gicp_odom_node.cpp#L126). Its `use_gicp=false` means ICP, not the legacy `registration_method`. | Keep as a separate frontend/odometry implementation in Phase 1. A future `FrontendPlugin` may wrap it; do not claim that it implements this scan-to-map `RegistrationPlugin`. |
 | `map_ndt_residual_report` | Analysis-only executable constructs `pclomp::NormalDistributionsTransform<PointXYZ, PointXYZ>` at [`map_ndt_residual_report_main.cpp:295-345`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/graph_based_slam/src/map_ndt_residual_report_main.cpp#L295). It fixes one thread and `DIRECT7`, takes CLI resolution/source voxel/max-correspondence/max-iterations, and uses NDT for residual reporting and optional pose regularization. | It is not a live estimator or loop verifier. Keep its analysis semantics in Phase 1; a generic replay/diagnostic adapter can be considered after the registration contract is stable. |
 | `ndt_localization_target` | Builds tangent-sampled target geometry only; despite its name it does not construct or run a registration object. | Out of this API's scope. |
@@ -950,7 +1269,50 @@ Install-space proof (Jazzy, with the workspace install space sourced) is the
 external fixture classes and `lidarslam_default_plugins/NdtOmp`, successfully
 created/configured the default NDT class, and passed the loader-lifetime,
 unknown-class, missing-library, API-major, metadata/license,
-capability-mismatch, and invalid-configuration cases. The tested command was:
+capability-mismatch, and invalid-configuration cases. A separate clean
+external-consumer proof now verifies that the public C++14 interface and fake
+external plugin can be built without the repository install space:
+
+```text
+clean_external_consumer_proof=pass
+ros_setup=/opt/ros/jazzy/setup.bash
+base_packages=lidarslam_plugin_interfaces,lidarslam_registration_loader
+external_package=lidarslam_fake_registration_plugins
+external_cxx_standard=14
+gtest_filter=RegistrationPluginLoader.DiscoversInstalledFakeExternalClasses:RegistrationPluginLoader.LoadsExternalPluginAndKeepsLoaderAlive
+repository_install_sourced=false
+```
+
+The shell loader in that underlay is C++17; only the installed public
+interface/external consumer compatibility claim is C++14. The reproducible
+command is:
+
+```bash
+bash scripts/run_registration_plugin_consumer_check.sh --keep-work-dir
+```
+
+The workflow defines the same check for both Humble and Jazzy, and both legs
+have passed. The Humble run used a read-only repository mount in
+`ros:humble-ros-core`, image digest
+`sha256:ebae805c9d985e443b26e13a47339098dc0a42eee4626055bfd4ebc6dcdb4988`.
+Its toolchain receipt records GCC `11.4.0-1ubuntu1~22.04.3`, PCL
+`1.12.1+dfsg-3build1`, Eigen `3.4.0-2ubuntu2`, and
+`ros-humble-pluginlib 5.1.4-1jammy.20260717.234837` with pluginlib resolved
+from `/opt/ros/humble`. The C++14 claim applies only to the installed public
+interface and external consumer; the shell loader remains C++17. The regular
+Humble receipt fields were:
+
+```text
+clean_external_consumer_proof=pass
+ros_setup=/opt/ros/humble/setup.bash
+base_packages=lidarslam_plugin_interfaces,lidarslam_registration_loader
+external_package=lidarslam_fake_registration_plugins
+external_cxx_standard=14
+gtest_filter=RegistrationPluginLoader.DiscoversInstalledFakeExternalClasses:RegistrationPluginLoader.LoadsExternalPluginAndKeepsLoaderAlive
+repository_install_sourced=false
+```
+
+The regular installed workspace contract test was:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -960,35 +1322,93 @@ colcon test --packages-select \
   lidarslam_fake_registration_plugins lidarslam_registration_loader
 ```
 
+The installed `scanmatcher` public-header consumer is checked separately by
+[`scripts/run_scanmatcher_install_consumer_check.sh`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/main/scripts/run_scanmatcher_install_consumer_check.sh).
+It starts from `/opt/ros/$ROS_DISTRO`, supplies the installed workspace only as
+a CMake prefix (it does not source that overlay), and compiles a downstream
+C++17 translation unit that includes `scanmatcher_component.h`.  This catches
+an implementation-only default-plugin header leaking from the public header
+even when the downstream package does not declare that implementation package.
+
+### M1 external author template receipt (2026-08-21)
+
+The author-facing SDK slice adds
+`examples/lidarslam_registration_plugin_template` and the
+[`registration-plugin-authoring.md`](../registration-plugin-authoring.md)
+guide. The template is a complete C++14 source-level example: it validates
+typed configuration and finite target/source input, reports capabilities and
+SPDX license metadata, returns an `aligned_source` transformed by the
+requested initial guess, converts failures to typed results, and clears state
+on `reset()`. Its plugin XML class name and `PluginMetadata::class_id` are
+checked for exact equality. The repository's negative fake plugin remains a
+separate loader fixture rather than being presented as an author template.
+
+The isolated proof command is:
+
+```bash
+bash scripts/run_registration_plugin_template_check.sh --keep-work-dir
+```
+
+It starts from `/opt/ros/$ROS_DISTRO/setup.bash` without sourcing the
+repository install space, builds the interface and shell loader in a temporary
+underlay, builds the template in a separate overlay with the plugin target at
+C++14, and runs the direct contract test plus the C++17 loader test. The loader
+is destroyed before the retained session is used, proving the session owns the
+pluginlib lifetime. The Jazzy receipt is:
+
+```text
+m1_template_proof=pass
+ros_setup=/opt/ros/jazzy/setup.bash
+base_packages=lidarslam_plugin_interfaces,lidarslam_registration_loader
+template_package=lidarslam_registration_plugin_template
+template_class=lidarslam_registration_plugin_template/Identity
+plugin_cxx_standard=14
+loader_test_cxx_standard=17
+metadata_class_id=lidarslam_registration_plugin_template/Identity
+metadata_license=BSD-2-Clause
+repository_install_sourced=false
+```
+
+The workflow invokes the same proof for Humble and Jazzy. Both distributions
+have passed independently; the Humble run used a read-only repository mount
+and the pinned `ros:humble-ros-core` image digest
+`sha256:ebae805c9d985e443b26e13a47339098dc0a42eee4626055bfd4ebc6dcdb4988`.
+This template gate proves API/lifecycle/install wiring only and does not
+authorize an accuracy, SOTA, or live-node default claim.
+
 This slice intentionally does not change the live default or switch the
 production `registration_method=NDT` path away from the same-translation-unit
-built-in adapter. The next slice below adds only an offline, explicit
-characterization injection; the plugin DSO remains opt-in and promotion is a
-separate gate.
+built-in adapter. The next slice below adds explicit startup preflight while
+keeping the plugin DSO opt-in; numerical promotion remains a separate gate.
 
-### Phase 2 offline injection and DSO characterization receipt (2026-08-20)
+### Phase 2 startup preflight, offline injection, and DSO characterization receipt (2026-08-20--21)
 
-`scan_matcher_offline_runner` now accepts two runner-only parameters:
+The live component and `scan_matcher_offline_runner` use the same immutable
+selector contract. The parameters are declared read-only by the live node;
+they may be supplied as startup overrides, but runtime mutation and hot reload
+are rejected:
 
 | parameter | default | contract |
 | --- | --- | --- |
-| `registration_plugin_enable` | `false` | must be explicitly true to select a plugin session |
-| `registration_plugin_class` | empty | must be set with the enable flag; `lidarslam_builtin/NdtOmp` selects the host-resident same-TU factory, any non-reserved ID selects pluginlib |
+| `registration_plugin_enable` | `false` | must be explicitly true to select a plugin session; read-only after node construction |
+| `registration_plugin_class` | empty | must be set with the enable flag; `lidarslam_builtin/NdtOmp` selects the host-resident same-TU factory, an external ID selects pluginlib only when risk acceptance is also true; read-only |
+| `registration_plugin_allow_external` | `false` | explicit risk acceptance for an external pluginlib DSO; it never enables a class by itself and is read-only |
 
-The live `ScanMatcherComponent` does not resolve pluginlib. The offline shell
-reads the component's resolved legacy NDT values, converts them with the same
-ROS-free `makeNdtParameterMap()` helper, asks
-`RegistrationResolver` for the explicit host or external class, validates the
-target/capability contract, and calls the explicit
-`ScanMatcherComponent::setRegistrationPluginSession()` boundary before adding
-the executor or publishing a sensor message. The component retains the
-`RegistrationPluginSession` before its plugin pointer, so the loader remains
-alive until the plugin is destroyed. Once injected, target refresh and align
-use the plugin and do not fall back to the built-in adapter. The offline shell
-selects the typed `RegistrationConstruction::kDeferredPluginInjection`
-constructor only after choosing the opt-in path; the default
-`ScanMatcherComponent(NodeOptions)` constructor always builds the same-TU
-adapter, and no ROS parameter can put a live node into a deferred state.
+With the selector disabled, `ScanMatcherComponent(NodeOptions)` follows the
+unchanged built-in path. With it enabled, that constructor itself builds the
+canonical typed request, registers same-TU host factories, resolves the
+explicit class, validates API/license/capability/config and method/variant
+compatibility, injects the session, and only then creates publishers and
+sensor subscriptions. The deferred constructor remains available to an
+offline shell that has already resolved a session; it uses the same
+`setRegistrationPluginSession()` validation barrier. The runner now reads the
+component-owned session/provenance and uses the shared ROS-free request builder
+for its receipt; it does not perform a second resolve or injection. The
+component retains the `RegistrationPluginSession` before its plugin pointer,
+so the loader remains alive until the plugin is destroyed. Once selected,
+target refresh and align use the plugin and do not fall back to the built-in
+adapter. Unknown, unavailable, incompatible, or invalid selectors fail before
+the first sensor message and produce no completion marker.
 
 Every successful opt-in run writes a canonical, sorted
 `registration_plugin_receipt.yaml` containing backend kind, class ID, API
@@ -1002,6 +1422,16 @@ capability mismatch, injection failure, or receipt failure returns nonzero
 before sensor processing. The determinism script creates `.complete` only
 after a zero exit; an interrupted partial bag is also nonzero and receives no
 completion marker.
+
+The live startup contract tests cover the one-argument constructor resolving a
+host `lidarslam_builtin/NdtOmp` session before pub/sub creation, its canonical
+API/license/backend provenance, rejection of an unknown host ID, rejection of
+an external class without `registration_plugin_allow_external`, the required
+enable/class pair, and runtime rejection of all three read-only selector
+parameters. An explicit external `lidarslam_default_plugins/NdtOmp` startup
+also loads through pluginlib and reports non-empty library/manifest paths; this
+is a wiring/provenance test only, not a numerical equivalence or production
+promotion gate. The independent DSO replay No-Go below remains authoritative.
 
 The install-space smoke/injection tests and the following replay receipts were
 run with the same Jazzy workspace and `lidarslam/param/lidarslam.yaml` or
@@ -1047,7 +1477,7 @@ shell now has a RegistrationResolver with two disjoint, explicit namespaces:
 
 | selector form | backend kind | construction and provenance |
 | --- | --- | --- |
-| lidarslam_builtin/<name> | host_builtin | a factory registered by the host; for NDT the factory body is in scanmatcher_component.cpp, next to the same-TU pclomp instantiation |
+| lidarslam_builtin/<name> | host_builtin | a factory registered by the host; frontend NDT is in `scanmatcher_component.cpp`, while the `backend_loop` NDT factories are in the graph live/offline owning translation units next to their same-TU pclomp instantiations |
 | <external-package>/<name> (for example, lidarslam_default_plugins/NdtOmp) | pluginlib | pluginlib class loader and manifest; the session retains the loader until the plugin is destroyed |
 
 The resolver returns the same RegistrationPluginSession shape for either
@@ -1067,7 +1497,8 @@ to NDT or to another backend. If pluginlib initialization fails, an explicit
 host-built-in can still be resolved; an external selector reports the loader
 diagnostic instead.
 
-The runner-only opt-in is unchanged:
+The explicit opt-in selector is available to the live component and offline
+runner:
 
 ~~~
 ros2 run scanmatcher scan_matcher_offline_runner --ros-args \
@@ -1075,12 +1506,12 @@ ros2 run scanmatcher scan_matcher_offline_runner --ros-args \
   -p registration_plugin_class:=lidarslam_builtin/NdtOmp
 ~~~
 
-The default ScanMatcherComponent(NodeOptions) constructor and every live
-registration_method=NDT path remain same-TU built-in construction. Only the
-offline runner selects RegistrationConstruction::kDeferredPluginInjection,
-registers the host factory, resolves and validates the session, writes the
-receipt, and injects before sensor processing. No production default switch
-is made in this slice.
+The default `ScanMatcherComponent(NodeOptions)` constructor and every live
+path without the read-only selector remain same-TU built-in construction. An
+explicit live selector registers host factories, resolves and validates the
+session, and injects before sensor processing; the deferred constructor remains
+for an offline shell that already owns the resolved session. No production
+default switch or implicit external-DSO fallback is made in this slice.
 
 The clean-install resolver tests cover both lifetime models: a host session
 continues to align after its resolver is destroyed without a class loader, and
@@ -1198,9 +1629,11 @@ reserved lidarslam_builtin/ prefix.
   used by the host. Concrete template implementation headers stay in one
   owning translation unit, or the implementation uses a process/ABI boundary
   designed for that purpose.
-- The host NDT factory is defined in the legacy scanmatcher translation unit;
-  moving NdtOmpRegistration construction into an offline runner or a
-  separately linked DSO invalidates the byte-equivalence claim.
+- Each host NDT owner keeps `NdtOmpRegistration` construction in its owning
+  translation unit: `scanmatcher_component.cpp` for the frontend and the graph
+  live/offline runner translation units for `backend_loop`. Moving a concrete
+  construction across that boundary or into a separately linked DSO invalidates
+  the corresponding byte-equivalence claim.
 - Metadata, capabilities, typed configuration, and failure semantics are
   validated before the first cloud. No selector may trigger an implicit
   fallback or late plugin replacement.
@@ -1418,15 +1851,21 @@ uncharacterized registration semantics at once.
    frontend runtime. Keep `ScanMatcherComponent(NodeOptions)` as the ROS
    composition entry point, but make its registration runtime dependency
    explicit rather than constructing a concrete PCL object in the hot path.
-6. **Migrate backend NDT.** Replace `makeLoopRegistration()` with the same
-   `NdtOmp` adapter under a separate `backend_loop` role profile. Change
-   `BackendCore` from a PCL registration reference to the typed plugin only
-   after R2 proves identical aligned output, convergence, fitness, logs, and
-   gate behavior.
-7. **Migrate offline runners.** `scan_matcher_offline_runner` and
-   `graph_slam_offline_runner` each resolve and load the same plugin class and
-   configuration as their live counterpart. The live/offline manifest and R4
-   gate become mandatory before more methods are added.
+6. **Migrate backend NDT. (Implemented M3.)** The live component now resolves
+   the same-TU host-resident `NdtOmp` adapter under an explicit `backend_loop`
+   request profile. `BackendCore` consumes only the typed plugin overload;
+   step 7 retains PCL construction in the offline shell and wraps it at the
+   boundary. R2 proves identical aligned output, convergence, fitness, logs,
+   and gate behavior on the backend revisit fixture. Live GICP remains behind
+   the typed bridge and is not promoted by this step.
+7. **Migrate offline runners. (M3b NDT implemented.)**
+   `graph_slam_offline_runner` now resolves the same host NDT class, role,
+   request, session lifetime, and provenance as the live backend before bag
+   processing, and emits `registration_plugin_receipt.yaml`. Its GICP branch
+   remains an explicit legacy PCL bridge. `scan_matcher_offline_runner` keeps
+   its component-owned resolver path. A full live/offline real-bag R4 replay
+   and GICP resolver migration remain separate gates before more methods are
+   added.
 8. **Migrate built-in GICP backend.** The frontend `GicpOmp` adapter and
    host-resident characterization selector are frozen above; next preserve
    the backend factory's distinct 30 m and 100-iteration defaults and remove

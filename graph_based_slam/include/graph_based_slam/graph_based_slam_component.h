@@ -68,25 +68,25 @@ extern "C" {
 }  // extern "C"
 #endif
 
-#include <pcl/point_types.h>  // NOLINT(build/include_order)
-#include <pcl/io/pcd_io.h>  // NOLINT(build/include_order)
-#include <pcl/registration/gicp.h>  // NOLINT(build/include_order)
-#include <pcl/registration/ndt.h>  // NOLINT(build/include_order)
-#include <pcl_conversions/pcl_conversions.h>  // NOLINT(build/include_order)
-#include <pclomp/gicp_omp.h>  // NOLINT(build/include_order)
-#include <pclomp/ndt_omp.h>  // NOLINT(build/include_order)
-#include <pclomp/voxel_grid_covariance_omp.h>  // NOLINT(build/include_order)
-#include <tf2_ros/buffer.h>  // NOLINT(build/include_order)
-#include <tf2_ros/transform_broadcaster.h>  // NOLINT(build/include_order)
-#include <tf2_ros/transform_listener.h>  // NOLINT(build/include_order)
-
 #include <array>
+#include <cstdint>
 #include <fstream>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <boost/shared_ptr.hpp>
+#include <pcl/point_cloud.h>  // NOLINT(build/include_order)
+#include <pcl/point_types.h>  // NOLINT(build/include_order)
+#include <pcl/io/pcd_io.h>  // NOLINT(build/include_order)
+#include <pcl/filters/voxel_grid.h>  // NOLINT(build/include_order)
+#include <pcl/registration/registration.h>  // NOLINT(build/include_order)
+#include <pcl_conversions/pcl_conversions.h>  // NOLINT(build/include_order)
+#include <tf2_ros/buffer.h>  // NOLINT(build/include_order)
+#include <tf2_ros/transform_broadcaster.h>  // NOLINT(build/include_order)
+#include <tf2_ros/transform_listener.h>  // NOLINT(build/include_order)
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -101,9 +101,6 @@ extern "C" {
 #include <message_filters/synchronizer.h>  // NOLINT(build/include_order)
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
-#include <pclomp/gicp_omp_impl.hpp>
-#include <pclomp/ndt_omp_impl.hpp>
-#include <pclomp/voxel_grid_covariance_omp_impl.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -126,7 +123,6 @@ extern "C" {
 #include "graph_based_slam/candidate_aggregator.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
 #include "graph_based_slam/gnss_origin_accumulator.hpp"
-#include "graph_based_slam/registration_factory.hpp"
 #include "graph_based_slam/gnss_weighting.hpp"
 #include "graph_based_slam/scan_context.hpp"
 #include "graph_based_slam/solid_descriptor.hpp"
@@ -134,8 +130,26 @@ extern "C" {
 #include "graph_based_slam/three_d_bbs_loop_verifier.hpp"
 #include "graph_based_slam/triangle_descriptor_database.hpp"
 
+namespace lidarslam
+{
+  namespace plugins  // NOLINT(runtime/indentation_namespace)
+  {
+    namespace registration  // NOLINT(runtime/indentation_namespace)
+    {
+      class RegistrationPlugin;  // NOLINT(runtime/indentation_namespace)
+      namespace shell  // NOLINT(runtime/indentation_namespace)
+      {
+        class RegistrationPluginSession;  // NOLINT(runtime/indentation_namespace)
+      }  /* NOLINT(whitespace/comments) */  // namespace shell
+    }  /* NOLINT(whitespace/comments) */  // namespace registration
+  }  // namespace plugins
+}  // namespace lidarslam
+
 namespace graphslam
 {
+  namespace lidarslam_registration_shell =  // NOLINT(runtime/indentation_namespace)
+    lidarslam::plugins::registration::shell;
+
   class GraphBasedSlamComponent: public rclcpp::Node  // NOLINT(runtime/indentation_namespace)
   {
 public:
@@ -150,7 +164,14 @@ private:
     tf2_ros::TransformListener listener_;
     tf2_ros::TransformBroadcaster broadcaster_;
 
+    // Legacy PCL ownership is retained only for the non-NDT bridge while
+    // the typed adapter owns the BackendCore-facing boundary.  Declaration
+    // order ensures the adapter is destroyed before this PCL object.
     boost::shared_ptr < pcl::Registration < pcl::PointXYZI, pcl::PointXYZI >> registration_;
+    std::shared_ptr < lidarslam_registration_shell::RegistrationPluginSession >
+    registration_plugin_session_;
+    std::shared_ptr < lidarslam::plugins::registration::RegistrationPlugin >
+    registration_plugin_;
     pcl::VoxelGrid < pcl::PointXYZI > voxelgrid_;
 
     // ROS-free backend state (descriptor databases; the search and
@@ -158,6 +179,10 @@ private:
     backend_core::BackendCore backend_core_;
 
     lidarslam_msgs::msg::MapArray map_array_msg_;
+    // Full PointCloud2 content revisions captured at message ingress.  A
+    // revision is never inferred from a timestamp or shape, so replacing a
+    // same-sized cloud cannot reuse stale target geometry.
+    std::vector < std::uint64_t > submap_content_revisions_;
     rclcpp::Subscription < lidarslam_msgs::msg::MapArray > ::SharedPtr map_array_sub_;
     rclcpp::Publisher < lidarslam_msgs::msg::MapArray > ::SharedPtr modified_map_array_pub_;
     rclcpp::Publisher < nav_msgs::msg::Path > ::SharedPtr modified_path_pub_;
@@ -388,6 +413,7 @@ private:
     double three_d_bbs_translation_search_margin_m_ {15.0};
     double three_d_bbs_roll_pitch_search_deg_ {10.0};
     double three_d_bbs_yaw_search_deg_ {180.0};
+    double voxel_leaf_size_ {0.2};
     ThreeDBBSLoopVerifier three_d_bbs_loop_verifier_;
 
     bool use_dynamic_object_filter_ {false};

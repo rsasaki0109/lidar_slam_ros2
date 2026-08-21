@@ -71,6 +71,7 @@
 #include <tf2_eigen/tf2_eigen.hpp>
 
 #include "graph_based_slam/backend_core.hpp"
+#include "graph_based_slam/backend_registration_preflight.hpp"
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
 #include "graph_based_slam/dense_pose_correction.hpp"
@@ -81,19 +82,32 @@
 #include "graph_based_slam/map_thickness_attribution_csv.hpp"
 #include "graph_based_slam/plane_feature_association.hpp"
 #include "graph_based_slam/plane_revisit_constraints.hpp"
+#include "graph_based_slam/pointcloud2_conversion.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/probabilistic_surfel_map.hpp"
 #include "graph_based_slam/registration_factory.hpp"
+#include "graph_based_slam/registration_plugin_adapter.hpp"
 #include "graph_based_slam/scan_surface_refiner.hpp"
 #include "graph_based_slam/submap_creation.hpp"
 #include "graph_based_slam/three_d_bbs_loop_verifier.hpp"
 #include "graph_based_slam/trajectory_revisit_segmentation.hpp"
+#include "lidarslam_default_plugins/ndt_omp_registration_impl.ipp"
+#include "lidarslam_registration_loader/registration_plugin_loader.hpp"
 
 namespace
 {
 
 using graphslam::backend_core::BackendCore;
 using CloudPtr = BackendCore::CloudPtr;
+
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeOfflineHostBuiltinNdtRegistration()
+{
+  // Keep this factory in the runner TU, just as the live component keeps its
+  // factory in its own TU.  This is the host-resident path; linking the
+  // default plugin DSO here would reintroduce the rejected ODR boundary.
+  return std::make_shared<lidarslam_default_plugins::NdtOmpRegistration>();
+}
 
 struct SubmapRecord
 {
@@ -725,6 +739,7 @@ int main(int argc, char ** argv)
 
   graphslam::backend_core::LoopSearchConfig search_config;
   node->get_parameter_or("search_submap_num", search_config.search_submap_num, 3);
+  search_config.target_voxel_leaf_size = voxel_leaf_size;
   int loop_search_query_stride = 1;
   node->get_parameter_or("loop_search_query_stride", loop_search_query_stride, 1);
   loop_search_query_stride = std::max(1, loop_search_query_stride);
@@ -885,10 +900,118 @@ int main(int argc, char ** argv)
   node->get_parameter_or(
     "loop_edge_robust_kernel_type", loop_edge_robust_kernel_type, std::string("huber"));
 
-  auto registration = graphslam::backend_core::makeLoopRegistration(
-    registration_method, ndt_resolution, ndt_num_threads);
-  if (!registration) {
-    RCLCPP_ERROR(logger, "invalid registration_method");
+  using RegistrationPlugin = lidarslam::plugins::registration::RegistrationPlugin;
+  using RegistrationPluginSession =
+    lidarslam::plugins::registration::shell::RegistrationPluginSession;
+  using RegistrationResolver = lidarslam::plugins::registration::shell::RegistrationResolver;
+
+  // The resolver and session are shell-owned.  Declaration order is
+  // deliberate: the plugin owner is released before the session, and the
+  // session remains alive until all typed BackendCore calls have completed.
+  std::unique_ptr<RegistrationResolver> registration_resolver;
+  std::shared_ptr<RegistrationPluginSession> registration_plugin_session;
+  std::shared_ptr<RegistrationPlugin> registration_plugin_owner;
+  boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> legacy_registration;
+  std::unique_ptr<graphslam::backend_registration::PclRegistrationAdapter>
+  legacy_registration_bridge;
+  RegistrationPlugin * registration_plugin = nullptr;
+  graphslam::backend_registration::BackendRegistrationRequest backend_request;
+
+  if (registration_method == "NDT") {
+    graphslam::backend_registration::NdtConfig ndt_config;
+    ndt_config.resolution = ndt_resolution;
+    ndt_config.num_threads = ndt_num_threads;
+    ndt_config.target_cell_cache_capacity =
+      graphslam::backend_registration::kBackendNdtTargetCellCacheCapacity;
+    std::string preflight_error;
+    if (!graphslam::backend_registration::makeNdtLoadRequest(
+        ndt_config, &backend_request, &preflight_error))
+    {
+      RCLCPP_ERROR(logger, "backend NDT preflight request failed: %s", preflight_error.c_str());
+      rclcpp::shutdown();
+      return 1;
+    }
+
+    auto host_ndt = graphslam::backend_registration::makeNdtHostBuiltinRegistration(
+      []() {
+        return makeOfflineHostBuiltinNdtRegistration();
+      });
+    registration_resolver.reset(new RegistrationResolver({host_ndt}));
+    const auto loaded = registration_resolver->resolve(backend_request.request);
+    if (!loaded.ok()) {
+      RCLCPP_ERROR(
+        logger,
+        "backend NDT startup preflight failed role=%s class=%s code=%d: %s",
+        backend_request.role.c_str(), backend_request.request.class_id.c_str(),
+        static_cast<int>(loaded.failure.code), loaded.failure.message.c_str());
+      rclcpp::shutdown();
+      return 1;
+    }
+    registration_plugin_session = loaded.session;
+    registration_plugin_owner = loaded.session->plugin();
+    registration_plugin = registration_plugin_owner.get();
+
+    const std::filesystem::path receipt_path =
+      std::filesystem::path(output_dir) / "registration_plugin_receipt.yaml";
+    std::ofstream receipt(receipt_path);
+    std::string receipt_error;
+    if (!receipt.is_open() || !graphslam::backend_registration::writeBackendRegistrationReceipt(
+        receipt, backend_request, *registration_plugin_session, &receipt_error))
+    {
+      RCLCPP_ERROR(
+        logger, "backend registration receipt failed before bag processing: %s",
+        receipt_error.empty() ? "cannot open receipt" : receipt_error.c_str());
+      rclcpp::shutdown();
+      return 1;
+    }
+    const std::string capability_bits = std::to_string(
+      registration_plugin_session->capabilities().bits());
+    RCLCPP_INFO(
+      logger,
+      "backend registration preflight resolved role=%s backend_kind=%s class=%s "
+      "api=%u.%u license=%s capabilities=%s library=%s manifest=%s",
+      backend_request.role.c_str(),
+      lidarslam::plugins::registration::shell::backendKindName(
+        registration_plugin_session->backendKind()),
+      registration_plugin_session->classId().c_str(),
+      static_cast<unsigned int>(registration_plugin_session->metadata().api_version.major),
+      static_cast<unsigned int>(registration_plugin_session->metadata().api_version.minor),
+      registration_plugin_session->metadata().license.c_str(),
+      capability_bits.c_str(),
+      registration_plugin_session->libraryPath().empty() ? "<host>" :
+      registration_plugin_session->libraryPath().c_str(),
+      registration_plugin_session->pluginManifestPath().empty() ? "<host>" :
+      registration_plugin_session->pluginManifestPath().c_str());
+  } else if (registration_method == "GICP") {
+    // Backend GICP remains explicitly legacy.  It is constructed in the
+    // shell and bridged into the typed core; it is not resolved as NDT and
+    // never falls back to NDT when construction or configuration fails.
+    legacy_registration = graphslam::backend_core::makeLegacyGicpRegistration();
+    if (!legacy_registration) {
+      RCLCPP_ERROR(logger, "backend GICP legacy construction failed; no fallback is allowed");
+      rclcpp::shutdown();
+      return 1;
+    }
+    legacy_registration_bridge.reset(
+      new graphslam::backend_registration::PclRegistrationAdapter(
+        legacy_registration, "lidarslam_builtin/LegacyBackendGicp"));
+    registration_plugin = legacy_registration_bridge.get();
+    RCLCPP_INFO(
+      logger,
+      "backend registration preflight resolved role=%s backend_kind=legacy_pcl_bridge "
+      "class=lidarslam_builtin/LegacyBackendGicp api=1.0 license=BSD-2-Clause "
+      "library=<host> manifest=<host>",
+      graphslam::backend_registration::kBackendRegistrationRole);
+  } else {
+    RCLCPP_ERROR(
+      logger, "invalid registration_method='%s'; backend supports only NDT and GICP "
+      "with no fallback", registration_method.c_str());
+    rclcpp::shutdown();
+    return 1;
+  }
+
+  if (registration_plugin == nullptr) {
+    RCLCPP_ERROR(logger, "backend registration preflight produced no typed plugin");
     rclcpp::shutdown();
     return 1;
   }
@@ -957,7 +1080,7 @@ int main(int argc, char ** argv)
           visible.push_back(records[i].meta);
         }
         const graphslam::backend_core::LoopSearchOutput output = core.searchLoopForSubmap(
-          visible, query_idx, search_config, raw_cloud_provider, *registration, voxelgrid,
+          visible, query_idx, search_config, raw_cloud_provider, *registration_plugin, voxelgrid,
           bbs_verifier);
         for (const auto & line : output.logs) {
           if (line.via_logger) {
@@ -1011,7 +1134,7 @@ int main(int argc, char ** argv)
       }
       if (decision.create) {
         scan_cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
-        pcl::fromROSMsg(cloud_msg, *scan_cloud);
+        graphslam::pointcloud2_conversion::fromRosMsgPointXYZI(cloud_msg, *scan_cloud);
       }
       if (decision.create) {
         accumulated_distance += decision.distance;
@@ -1021,6 +1144,8 @@ int main(int argc, char ** argv)
         SubmapRecord record;
         record.meta.pose = pose_affine;
         record.meta.travel_distance = accumulated_distance;
+        record.meta.content_revision = graphslam::backend_core::targetCloudContentRevision(
+          *scan_cloud);
         record.stamp_sec = rclcpp::Time(odom.header.stamp).seconds();
         record.odometry_covariance = odom.pose.covariance;
         record.cloud = scan_cloud;

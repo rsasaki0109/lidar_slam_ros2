@@ -184,7 +184,7 @@ shell::LoadRequest hostIdentityRequest(bool accept)
 
 }  // namespace
 
-TEST(RegistrationPluginLoader, DiscoversInstalledExternalClasses)
+TEST(RegistrationPluginLoader, DiscoversInstalledFakeExternalClasses)
 {
   shell::RegistrationPluginLoader loader;
   const std::vector<std::string> classes = loader.availableClasses();
@@ -192,8 +192,16 @@ TEST(RegistrationPluginLoader, DiscoversInstalledExternalClasses)
   EXPECT_NE(
     std::find(classes.begin(), classes.end(), "lidarslam_fake_registration_plugins/MissingLibrary"),
     classes.end());
+}
+
+TEST(RegistrationPluginLoader, DiscoversInstalledDefaultClasses)
+{
+  shell::RegistrationPluginLoader loader;
+  const std::vector<std::string> classes = loader.availableClasses();
   EXPECT_NE(
     std::find(classes.begin(), classes.end(), "lidarslam_default_plugins/NdtOmp"), classes.end());
+  EXPECT_NE(
+    std::find(classes.begin(), classes.end(), "lidarslam_default_plugins/GicpOmp"), classes.end());
 }
 
 TEST(RegistrationPluginLoader, LoadsExternalPluginAndKeepsLoaderAlive)

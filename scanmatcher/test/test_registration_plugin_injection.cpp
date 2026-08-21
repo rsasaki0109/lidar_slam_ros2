@@ -68,6 +68,20 @@ LoadRequest makeGicpRequest()
   return request;
 }
 
+rclcpp::NodeOptions makeDeferredOptions(
+  const std::string & class_id,
+  const std::string & registration_method = "NDT",
+  const bool allow_external = false)
+{
+  rclcpp::NodeOptions options;
+  options.parameter_overrides({
+    rclcpp::Parameter("registration_method", registration_method),
+    rclcpp::Parameter("registration_plugin_enable", true),
+    rclcpp::Parameter("registration_plugin_class", class_id),
+    rclcpp::Parameter("registration_plugin_allow_external", allow_external)});
+  return options;
+}
+
 #ifdef HAS_SMALL_GICP
 LoadRequest makeSmallRequest(const bool voxelized)
 {
@@ -107,6 +121,127 @@ std::unique_ptr<lidarslam::plugins::registration::shell::RegistrationResolver> m
 
 }  // namespace
 
+TEST(RegistrationPluginInjection, LiveConstructorResolvesHostNdtBeforePubSub)
+{
+  if (!rclcpp::ok()) {
+    char ** argv = nullptr;
+    rclcpp::init(0, argv);
+  }
+
+  const std::string class_id = "lidarslam_builtin/NdtOmp";
+  auto component = std::make_shared<graphslam::ScanMatcherComponent>(
+    makeDeferredOptions(class_id, "NDT", false));
+  ASSERT_TRUE(component->registrationPluginPreflightComplete());
+  const auto session = component->registrationPluginSession();
+  ASSERT_NE(session, nullptr);
+  EXPECT_EQ(
+    session->backendKind(),
+    lidarslam::plugins::registration::shell::BackendKind::kHostBuiltIn);
+  EXPECT_EQ(session->classId(), class_id);
+  EXPECT_EQ(session->metadata().class_id, class_id);
+  EXPECT_EQ(session->metadata().api_version.major,
+    lidarslam::plugins::registration::kHostApiVersion.major);
+  EXPECT_FALSE(session->metadata().implementation_version.empty());
+  EXPECT_EQ(session->metadata().license, "BSD-2-Clause");
+  EXPECT_TRUE(session->libraryPath().empty());
+  EXPECT_TRUE(session->pluginManifestPath().empty());
+
+  EXPECT_FALSE(
+    component->set_parameter(rclcpp::Parameter("registration_plugin_enable", false)).successful);
+  EXPECT_FALSE(
+    component->set_parameter(rclcpp::Parameter("registration_plugin_class", "")).successful);
+  EXPECT_FALSE(
+    component->set_parameter(
+      rclcpp::Parameter("registration_plugin_allow_external", true)).successful);
+
+  component.reset();
+  rclcpp::shutdown();
+}
+
+TEST(RegistrationPluginInjection, RejectsExternalClassWithoutExplicitRiskAcceptance)
+{
+  if (!rclcpp::ok()) {
+    char ** argv = nullptr;
+    rclcpp::init(0, argv);
+  }
+
+  EXPECT_THROW(
+    {
+      auto component = std::make_shared<graphslam::ScanMatcherComponent>(
+        makeDeferredOptions("lidarslam_default_plugins/NdtOmp", "NDT", false));
+    }, std::runtime_error);
+  rclcpp::shutdown();
+}
+
+TEST(RegistrationPluginInjection, LiveConstructorLoadsExplicitExternalPluginlibClass)
+{
+  if (!rclcpp::ok()) {
+    char ** argv = nullptr;
+    rclcpp::init(0, argv);
+  }
+
+  // This verifies startup wiring and provenance only.  It is not a numerical
+  // equivalence or production-promotion claim for an external DSO.
+  const std::string class_id = "lidarslam_default_plugins/NdtOmp";
+  auto component = std::make_shared<graphslam::ScanMatcherComponent>(
+    makeDeferredOptions(class_id, "NDT", true));
+  ASSERT_TRUE(component->registrationPluginPreflightComplete());
+  const auto session = component->registrationPluginSession();
+  ASSERT_NE(session, nullptr);
+  EXPECT_EQ(
+    session->backendKind(),
+    lidarslam::plugins::registration::shell::BackendKind::kPluginlib);
+  EXPECT_EQ(session->classId(), class_id);
+  EXPECT_FALSE(session->libraryPath().empty());
+  EXPECT_FALSE(session->pluginManifestPath().empty());
+  EXPECT_EQ(session->metadata().class_id, class_id);
+
+  component.reset();
+  rclcpp::shutdown();
+}
+
+TEST(RegistrationPluginInjection, RejectsUnknownHostClassBeforePubSub)
+{
+  if (!rclcpp::ok()) {
+    char ** argv = nullptr;
+    rclcpp::init(0, argv);
+  }
+
+  EXPECT_THROW(
+    {
+      auto component = std::make_shared<graphslam::ScanMatcherComponent>(
+        makeDeferredOptions("lidarslam_builtin/Unknown", "NDT", false));
+    }, std::runtime_error);
+  rclcpp::shutdown();
+}
+
+TEST(RegistrationPluginInjection, RequiresEnableAndClassAsAnImmutablePair)
+{
+  if (!rclcpp::ok()) {
+    char ** argv = nullptr;
+    rclcpp::init(0, argv);
+  }
+
+  rclcpp::NodeOptions enabled_without_class;
+  enabled_without_class.parameter_overrides({
+      rclcpp::Parameter("registration_plugin_enable", true)});
+  EXPECT_THROW(
+    {
+      auto component = std::make_shared<graphslam::ScanMatcherComponent>(
+        enabled_without_class);
+    }, std::runtime_error);
+
+  rclcpp::NodeOptions class_without_enable;
+  class_without_enable.parameter_overrides({
+      rclcpp::Parameter("registration_plugin_class", "lidarslam_builtin/NdtOmp")});
+  EXPECT_THROW(
+    {
+      auto component = std::make_shared<graphslam::ScanMatcherComponent>(
+        class_without_enable);
+    }, std::runtime_error);
+  rclcpp::shutdown();
+}
+
 TEST(RegistrationPluginInjection, InjectsSessionBeforeAnySensorCloud)
 {
   if (!rclcpp::ok()) {
@@ -119,7 +254,8 @@ TEST(RegistrationPluginInjection, InjectsSessionBeforeAnySensorCloud)
   ASSERT_TRUE(loaded.ok()) << loaded.failure.message;
 
   auto component = std::make_shared<graphslam::ScanMatcherComponent>(
-    rclcpp::NodeOptions());
+    makeDeferredOptions(makeRequest().class_id, "NDT", true),
+    graphslam::RegistrationConstruction::kDeferredPluginInjection);
   std::string error;
   EXPECT_TRUE(component->setRegistrationPluginSession(loaded.session, &error)) << error;
 
@@ -127,7 +263,7 @@ TEST(RegistrationPluginInjection, InjectsSessionBeforeAnySensorCloud)
   rclcpp::shutdown();
 }
 
-TEST(RegistrationPluginInjection, ReplacingSessionPreservesLoaderLifetimeOrder)
+TEST(RegistrationPluginInjection, RejectsRuntimeSessionReplacement)
 {
   if (!rclcpp::ok()) {
     char ** argv = nullptr;
@@ -160,15 +296,16 @@ TEST(RegistrationPluginInjection, ReplacingSessionPreservesLoaderLifetimeOrder)
   ASSERT_TRUE(host_loaded.ok()) << host_loaded.failure.message;
 
   auto component = std::make_shared<graphslam::ScanMatcherComponent>(
-    rclcpp::NodeOptions(), graphslam::RegistrationConstruction::kDeferredPluginInjection);
+    makeDeferredOptions(makeRequest().class_id, "NDT", true),
+    graphslam::RegistrationConstruction::kDeferredPluginInjection);
   std::string error;
   ASSERT_TRUE(component->setRegistrationPluginSession(external_session, &error)) << error;
-  // Leave the component as the sole owner.  The next accepted injection must
-  // therefore destroy the external plugin before releasing its loader-backed
-  // session; keeping this reference until afterwards would not exercise the
-  // unload boundary at all.
+  EXPECT_TRUE(component->registrationPluginPreflightComplete());
+  // Leave the component as the sole owner.  A second injection is rejected;
+  // runtime hot reload is intentionally outside the contract.
   external_session.reset();
-  EXPECT_TRUE(component->setRegistrationPluginSession(host_loaded.session, &error)) << error;
+  EXPECT_FALSE(component->setRegistrationPluginSession(host_loaded.session, &error));
+  EXPECT_NE(error.find("replacement is disabled"), std::string::npos);
   component.reset();
   rclcpp::shutdown();
 }
@@ -200,7 +337,8 @@ TEST(RegistrationPluginInjection, ResolvesHostBuiltinFromSameTranslationUnit)
   EXPECT_TRUE(loaded.session->pluginManifestPath().empty());
 
   auto component = std::make_shared<graphslam::ScanMatcherComponent>(
-    rclcpp::NodeOptions(), graphslam::RegistrationConstruction::kDeferredPluginInjection);
+    makeDeferredOptions(request.class_id, "NDT", false),
+    graphslam::RegistrationConstruction::kDeferredPluginInjection);
   std::string error;
   EXPECT_TRUE(component->setRegistrationPluginSession(loaded.session, &error)) << error;
 
@@ -229,7 +367,7 @@ TEST(RegistrationPluginInjection, ResolvesHostBuiltinGicpBeforeSensorCloud)
     lidarslam::plugins::registration::shell::BackendKind::kHostBuiltIn);
 
   rclcpp::NodeOptions options;
-  options.parameter_overrides({rclcpp::Parameter("registration_method", "GICP")});
+  options = makeDeferredOptions("lidarslam_builtin/GicpOmp", "GICP", false);
   auto component = std::make_shared<graphslam::ScanMatcherComponent>(
     options, graphslam::RegistrationConstruction::kDeferredPluginInjection);
   std::string error;
@@ -256,7 +394,8 @@ TEST(RegistrationPluginInjection, RejectsGicpPluginForNdtRegistrationMethod)
   ASSERT_TRUE(loaded.ok()) << loaded.failure.message;
 
   auto component = std::make_shared<graphslam::ScanMatcherComponent>(
-    rclcpp::NodeOptions(), graphslam::RegistrationConstruction::kDeferredPluginInjection);
+    makeDeferredOptions("lidarslam_builtin/GicpOmp", "NDT", false),
+    graphslam::RegistrationConstruction::kDeferredPluginInjection);
   std::string error;
   EXPECT_FALSE(component->setRegistrationPluginSession(loaded.session, &error));
   EXPECT_NE(error.find("registration_method=NDT"), std::string::npos);
@@ -275,9 +414,9 @@ TEST(RegistrationPluginInjection, RejectsNdtPluginForGicpRegistrationMethod)
   const auto loaded = loader.load(makeRequest());
   ASSERT_TRUE(loaded.ok()) << loaded.failure.message;
 
-  rclcpp::NodeOptions options;
-  options.parameter_overrides({rclcpp::Parameter("registration_method", "GICP")});
-  auto component = std::make_shared<graphslam::ScanMatcherComponent>(options);
+  auto component = std::make_shared<graphslam::ScanMatcherComponent>(
+    makeDeferredOptions(makeRequest().class_id, "GICP", true),
+    graphslam::RegistrationConstruction::kDeferredPluginInjection);
   std::string error;
   EXPECT_FALSE(component->setRegistrationPluginSession(loaded.session, &error));
   EXPECT_NE(error.find("registration_method=GICP"), std::string::npos);
@@ -299,8 +438,8 @@ TEST(RegistrationPluginInjection, RejectsSmallVgicpPluginForSmallGicpMethod)
   const auto loaded = resolver->resolve(request);
   ASSERT_TRUE(loaded.ok()) << loaded.failure.message;
 
-  rclcpp::NodeOptions options;
-  options.parameter_overrides({rclcpp::Parameter("registration_method", "SMALL_GICP")});
+  rclcpp::NodeOptions options = makeDeferredOptions(
+    "lidarslam_builtin/SmallVGicpPcl", "SMALL_GICP", false);
   auto component = std::make_shared<graphslam::ScanMatcherComponent>(
     options, graphslam::RegistrationConstruction::kDeferredPluginInjection);
   std::string error;
@@ -322,8 +461,8 @@ TEST(RegistrationPluginInjection, RejectsSmallGicpPluginForSmallVgicpMethod)
   const auto loaded = resolver->resolve(request);
   ASSERT_TRUE(loaded.ok()) << loaded.failure.message;
 
-  rclcpp::NodeOptions options;
-  options.parameter_overrides({rclcpp::Parameter("registration_method", "SMALL_VGICP")});
+  rclcpp::NodeOptions options = makeDeferredOptions(
+    "lidarslam_builtin/SmallGicpPcl", "SMALL_VGICP", false);
   auto component = std::make_shared<graphslam::ScanMatcherComponent>(
     options, graphslam::RegistrationConstruction::kDeferredPluginInjection);
   std::string error;

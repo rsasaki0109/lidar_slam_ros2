@@ -37,6 +37,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <random>
 #include <string>
 #include <utility>
@@ -48,7 +49,10 @@
 #include <pclomp/ndt_omp_impl.hpp>  // NOLINT(build/include_order)
 #include <pclomp/voxel_grid_covariance_omp_impl.hpp>  // NOLINT(build/include_order)
 
+#include "graph_based_slam/backend_registration_preflight.hpp"
 #include "graph_based_slam/backend_core.hpp"
+#include "graph_based_slam/registration_plugin_adapter.hpp"
+#include "lidarslam_default_plugins/ndt_omp_registration_impl.ipp"
 
 namespace graphslam
 {
@@ -383,10 +387,12 @@ struct SearchHarness
 {
   BackendCore core;
   pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI> ndt;
+  backend_registration::PclRegistrationAdapter registration_plugin;
   pcl::VoxelGrid<pcl::PointXYZI> voxelgrid;
   ThreeDBBSLoopVerifier bbs_verifier;
 
   SearchHarness()
+  : registration_plugin(ndt, "lidarslam_builtin/TestNdt")
   {
     DescriptorConfig descriptor_config;
     core.configure(descriptor_config);
@@ -394,6 +400,8 @@ struct SearchHarness
     ndt.setNeighborhoodSearchMethod(pclomp::DIRECT7);
     ndt.setResolution(2.0F);
     ndt.setMaximumIterations(35);
+    ndt.setStepSize(0.1);
+    ndt.setOulierRatio(0.55);
     ndt.setTransformationEpsilon(0.01);
     voxelgrid.setLeafSize(0.2f, 0.2f, 0.2f);
   }
@@ -401,10 +409,78 @@ struct SearchHarness
   backend_core::LoopSearchOutput run(const backend_core::LoopSearchConfig & config)
   {
     return core.searchLoopForSubmap(
-      makeRevisitTrajectory(), 10, config, makeRevisitProvider(), ndt, voxelgrid,
+      makeRevisitTrajectory(), 10, config, makeRevisitProvider(), registration_plugin, voxelgrid,
       bbs_verifier);
   }
 };
+
+// The host-resident adapter is intentionally instantiated in this test TU,
+// just like the live component.  This keeps the R2 comparison about the
+// BackendCore contract (proposal, gate, and log stream), not about a plugin
+// DSO's symbol binding policy.
+struct HostNdtSearchHarness
+{
+  BackendCore core;
+  lidarslam_default_plugins::NdtOmpRegistration registration_plugin;
+  pcl::VoxelGrid<pcl::PointXYZI> voxelgrid;
+  ThreeDBBSLoopVerifier bbs_verifier;
+  std::string configuration_error;
+
+  HostNdtSearchHarness()
+  {
+    DescriptorConfig descriptor_config;
+    core.configure(descriptor_config);
+
+    backend_registration::NdtConfig ndt_config;
+    ndt_config.resolution = 2.0;
+    ndt_config.transformation_epsilon = 0.01;
+    ndt_config.maximum_iterations = 35;
+    ndt_config.step_size = 0.1;
+    ndt_config.outlier_ratio = 0.55;
+    ndt_config.num_threads = 1;
+    lidarslam::plugins::registration::shell::LoadRequest request;
+    if (!backend_registration::makeNdtLoadRequest(
+        ndt_config, &request, &configuration_error) ||
+      !registration_plugin.configure(request.parameters, &configuration_error))
+    {
+      return;
+    }
+    voxelgrid.setLeafSize(0.2f, 0.2f, 0.2f);
+  }
+
+  bool configured() const {return configuration_error.empty();}
+
+  backend_core::LoopSearchOutput run(const backend_core::LoopSearchConfig & config)
+  {
+    return core.searchLoopForSubmap(
+      makeRevisitTrajectory(), 10, config, makeRevisitProvider(), registration_plugin, voxelgrid,
+      bbs_verifier);
+  }
+};
+
+TEST(BackendCoreSearch, HostNdtMatchesLegacyBridgeProposalGateAndLogs)
+{
+  SearchHarness legacy;
+  HostNdtSearchHarness host;
+  ASSERT_TRUE(host.configured()) << host.configuration_error;
+
+  const auto config = makeRevisitSearchConfig();
+  const auto legacy_output = legacy.run(config);
+  const auto host_output = host.run(config);
+
+  ASSERT_EQ(host_output.proposal.found, legacy_output.proposal.found);
+  EXPECT_EQ(host_output.proposal.pair_id, legacy_output.proposal.pair_id);
+  EXPECT_DOUBLE_EQ(host_output.proposal.fitness_score, legacy_output.proposal.fitness_score);
+  EXPECT_DOUBLE_EQ(
+    (host_output.proposal.relative_pose.matrix() -
+    legacy_output.proposal.relative_pose.matrix()).cwiseAbs().maxCoeff(),
+    0.0);
+  ASSERT_EQ(host_output.logs.size(), legacy_output.logs.size());
+  for (std::size_t i = 0; i < host_output.logs.size(); ++i) {
+    EXPECT_EQ(host_output.logs[i].via_logger, legacy_output.logs[i].via_logger);
+    EXPECT_EQ(host_output.logs[i].text, legacy_output.logs[i].text);
+  }
+}
 
 TEST(BackendCoreSearch, FindsTheDistanceRevisitLoop)
 {
@@ -445,6 +521,41 @@ TEST(BackendCoreSearch, SameInputProducesBitwiseIdenticalProposalAndLogs)
     EXPECT_EQ(output_a.logs[i].via_logger, output_b.logs[i].via_logger);
     EXPECT_EQ(output_a.logs[i].text, output_b.logs[i].text);
   }
+}
+
+TEST(BackendCoreSearch, StableTargetRevisionReusesBoundedAggregate)
+{
+  SearchHarness harness;
+  auto trajectory = makeRevisitTrajectory();
+  for (std::size_t i = 0; i < trajectory.size(); ++i) {
+    trajectory[i].content_revision = static_cast<std::uint64_t>(i + 1U);
+  }
+  int provider_calls = 0;
+  const auto provider = [&provider_calls](int idx) -> CloudPtr {
+      ++provider_calls;
+      if (idx == 0 || idx == 10) {
+        return makeStructuredCloud();
+      }
+      return CloudPtr(new pcl::PointCloud<pcl::PointXYZI>);
+    };
+  const auto config = makeRevisitSearchConfig();
+  const auto first = harness.core.searchLoopForSubmap(
+    trajectory, 10, config, provider, harness.registration_plugin, harness.voxelgrid,
+    harness.bbs_verifier);
+  const int calls_after_first = provider_calls;
+  ASSERT_TRUE(first.proposal.found);
+  EXPECT_EQ(harness.core.targetCloudCache().size(), 1U);
+
+  const auto second = harness.core.searchLoopForSubmap(
+    trajectory, 10, config, provider, harness.registration_plugin, harness.voxelgrid,
+    harness.bbs_verifier);
+  EXPECT_TRUE(second.proposal.found);
+  EXPECT_EQ(second.proposal.pair_id, first.proposal.pair_id);
+  EXPECT_DOUBLE_EQ(second.proposal.fitness_score, first.proposal.fitness_score);
+  // The source radius is one, so the second run only asks the provider for
+  // the latest source cloud; the cached target asks it for none.
+  EXPECT_EQ(provider_calls - calls_after_first, 1);
+  EXPECT_GT(harness.core.targetCloudCache().hits(), 0U);
 }
 
 TEST(BackendCoreSearch, TranslationCapRejectionKeepsBestAttemptLine)
@@ -489,7 +600,7 @@ void drainArrivals(
       trajectory.begin(), trajectory.begin() + next_query + 1);
     outputs.push_back(
       harness.core.searchLoopForSubmap(
-        visible, next_query, config, provider, harness.ndt, harness.voxelgrid,
+        visible, next_query, config, provider, harness.registration_plugin, harness.voxelgrid,
         harness.bbs_verifier));
     ++next_query;
   }
@@ -542,7 +653,8 @@ TEST(BackendCoreSearch, EmptyCloudsReturnNoProposalAndNoLogs)
       return CloudPtr(new pcl::PointCloud<pcl::PointXYZI>);
     };
   const auto output = harness.core.searchLoopForSubmap(
-    makeRevisitTrajectory(), 10, makeRevisitSearchConfig(), provider, harness.ndt,
+    makeRevisitTrajectory(), 10, makeRevisitSearchConfig(), provider,
+    harness.registration_plugin,
     harness.voxelgrid, harness.bbs_verifier);
 
   EXPECT_FALSE(output.proposal.found);

@@ -1,0 +1,250 @@
+# M5b execution identity preregistration.  Nulls are intentional: this file
+# is a freeze/preflight contract, not a benchmark result.
+schema_version: 1
+receipt_kind: competitive_execution_selection
+profile: competitive_slam_v1
+status: pending
+status_reasons:
+  - ours_worktree_is_dirty_pending_commit
+  - glim_container_not_available_locally_pending_build
+  - fast_livo2_container_not_available_locally_pending_build
+  - toolchain_and_thread_policy_require_execution_preflight
+release: Release
+selected_at: '2026-08-21 JST'
+
+common_identity:
+  profile_path: configs/slam_benchmark_profiles/competitive_slam_v1.yaml
+  profile_sha256: null
+  profile_sha256_status: pending_dirty_worktree
+  fresh_holdout_selection_receipt_path: configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml
+  fresh_holdout_selection_receipt_sha256: cfc106a0396cc032f297f72f10e549ebef55c39f492afe9c1d25ded0d4307dde
+  input_policy:
+    same_canonical_ros_representation: true
+    same_sensor_messages_and_fields: true
+    same_calibration_archive: true
+    same_machine: true
+    same_release: Release
+    failed_runs_are_retained: true
+  scorer:
+    canonical_fingerprint: fdbf997935a383a3209dba4102d2fd7562d29c4a43aa8dfe78ccb169d1460b68
+    files:
+      trajectory:
+        path: scripts/ape_from_tum.py
+        sha256: c0c9eab03baabd39617f8410aca70a6ea1aba1237ac09979d9553ef7edc0e9af
+        policy: interpolate_only_when_declared_by_profile
+      map_quality:
+        path: scripts/run_map_quality_check.sh
+        sha256: b0a41e29f89d607a9621a966b90d140bc85ccdcaec38a71886d482380342a492
+      paired_map_regression:
+        path: scripts/check_map_quality_regression.py
+        sha256: 079a05cb042561745209a7fae4b7860c0a002436d8f9ee9440b33a8f2771aa6a
+      suite_validator:
+        path: scripts/evaluate_competitive_suite_gate.py
+        sha256: 24a53b2100bc328637c4c45f78058613298c2fdb92ad5dcef5bee79de7d243f4
+  machine_fingerprint:
+    path: /media/sasaki/aiueo1/benchmarks/competitive_holdouts/machine_fingerprint.json
+    path_kind: local_absolute_historical_artifact
+    sha256: f9e496aba9a1f5f80f724a07ad4384546eb6857d65fcc1b09da3b5e85175da5f
+    captured_at: '2026-07-15T02:12:09.469184+00:00'
+    machine_id: f5605cb93280749c7837ecffddebc622685e2155ad58ec83877c8a3653727c80
+    status: available_but_refresh_required_before_run
+    producer:
+      path: scripts/capture_benchmark_machine_fingerprint.py
+      sha256: f9e49ba213a5b4e02e0099ce7d3d7e1ffd34a2bc0e037b8c3635c0541b6f2467
+      refresh_policy: capture_again_in_execution_environment_and_compare
+  thread_policy:
+    status: pending_preflight
+    cpu_affinity: null
+    max_threads: null
+    omp_num_threads: null
+    openblas_num_threads: null
+    mkl_num_threads: null
+    tbb_num_threads: null
+    accelerator_policy: null
+    required_keys:
+      - cpu_affinity
+      - max_threads
+      - omp_num_threads
+      - openblas_num_threads
+      - mkl_num_threads
+      - tbb_num_threads
+      - accelerator_policy
+    equality_policy: exact_canonical_mapping_across_all_systems
+
+systems:
+  ours:
+    repository:
+      url: https://github.com/rsasaki0109/lidar_slam_ros2.git
+      revision: f3f6bc6fd7c6a89af6096040cb8cdd129b19fdef
+      revision_status: pending_commit
+      worktree_dirty: true
+      diff_sha256: null
+      tracked_diff_sha256: null
+      untracked_content_sha256: null
+      clean_provenance_sha256: null
+    runner:
+      path: scripts/run_ours_competitive_benchmark.py
+      sha256: 8280423f9d4ccd9ddcc507d39f0f7a19591fcc342708c9659ab739d1e8cb8b87
+    container:
+      image_tag: null
+      image_digest: null
+      status: pending_selection_or_build
+      observed_local_candidates:
+        - tag: lidarslam-local-jazzy-runtime:handoff
+          digest: sha256:0205654aa9c005f90d4df0ec44473487654706f181c979f921272013c479603a
+          eligible_for_this_gate: false
+        - tag: lidarslam-local-humble-runtime:handoff
+          digest: sha256:86ab168ea73c7736a7d75663dc4dfc740ecac0df1a225a019b1a6ea77ffdca5a
+          eligible_for_this_gate: false
+    configs:
+      - path: configs/hilti2022/rko_lio_hilti2022_pandar.yaml
+        hash_kind: file_sha256
+        sha256: befb0a723d67c77f950ac249c3a2ecff242400154b238a1a545165ab0345de95
+      - path: lidarslam/param/lidarslam.yaml
+        hash_kind: file_sha256
+        sha256: 50a30f4442d450d2597e9c90a720ed249ee9f89b6f76b8b4f02aa9cea672d061
+    toolchain:
+      fingerprint: null
+      status: pending_build
+      source:
+        path: scripts/capture_benchmark_machine_fingerprint.py
+        sha256: f9e49ba213a5b4e02e0099ce7d3d7e1ffd34a2bc0e037b8c3635c0541b6f2467
+        required_commands: [compiler, linker, ros_distro, pcl, eigen, openmp]
+    scorer_ref: common_identity.scorer
+    machine_fingerprint_ref: common_identity.machine_fingerprint
+    release: Release
+    thread_policy_ref: common_identity.thread_policy
+    fairness:
+      required_modalities: [lidar, imu]
+      lidar_topic: /hesai/pandar
+      imu_topic: /alphasense/imu
+      camera_policy: camera streams remain in canonical input but are not consumed by ours
+      calibration_policy: same official HILTI calibration archive and IMU-frame scorer
+
+  glim:
+    repository:
+      url: https://github.com/koide3/glim.git
+      revision: faa264a1bce1bda406f73457e35511f56cdc2eaa
+      revision_kind: tag_v1.2.2_commit
+      revision_status: pinned_source_pending_container
+      ros2_repository: https://github.com/koide3/glim_ros2.git
+      ros2_revision: 4a9e7a4cb084967c8525a1be529ad3ba2a118ae7
+      worktree_dirty: false
+      tracked_diff_sha256: null
+      untracked_content_sha256: null
+      clean_provenance_sha256: null
+    runner:
+      path: scripts/run_glim_benchmark.py
+      sha256: 0213b9badffd0217eb90251bee7dc5fe57426e91bbc6de466947b30ddeeb6882
+      container_entrypoint_path: scripts/glim_container_run.sh
+      container_entrypoint_sha256: 906d91c17703c77ff2f89e049732b7c86fdbb54b136103d4c75912052ec592c2
+    container:
+      image_tag: glim-cpu-benchmark:competitive-v1
+      image_digest: null
+      status: pending_build
+      recipe:
+        path: docker/glim_cpu_benchmark.Dockerfile
+        sha256: c09b61f14cda61901dee3f40a79dcfdb49cff4a4ea42b122fb0ae3b5b7a4d3a4
+        base_image: ros:jazzy-ros-base
+        base_digest: sha256:31daab66eef9139933379fb67159449944f4e2dcf2e22c2d12cc715f29873e0f
+      historical_run_image_digest: sha256:3e495e0b85d5ef3d1bca360f45f0be6e05d6ba48b930362baefb817eee779b49
+      historical_digest_is_not_current_identity: true
+    configs:
+      - path: configs/glim/hilti2022_cpu
+        hash_kind: canonical_tree_sha256
+        sha256: 844efce77c2c9bde697f2811e0c32441706b3c74a559a152bb04efeaf38c798d
+      - path: configs/glim/hilti2022_cpu/config_sensors.json
+        hash_kind: file_sha256
+        sha256: 8d998b97ffa2eea685be27b727e48a8269f0f630ba96a4f5e0133074fff62ac8
+      - path: configs/glim/hilti2022_cpu/config_ros.json
+        hash_kind: file_sha256
+        sha256: 50ca0b66110b35ee05d80530f38a8d61b8175743e6eb0b42907ee486bbf666cd
+    toolchain:
+      fingerprint: null
+      status: pending_build
+      source:
+        path: docker/glim_cpu_benchmark.Dockerfile
+        sha256: c09b61f14cda61901dee3f40a79dcfdb49cff4a4ea42b122fb0ae3b5b7a4d3a4
+        required_commands: [compiler, linker, ros_distro, pcl, eigen, openmp]
+    scorer_ref: common_identity.scorer
+    machine_fingerprint_ref: common_identity.machine_fingerprint
+    release: Release
+    thread_policy_ref: common_identity.thread_policy
+    fairness:
+      required_modalities: [lidar, imu]
+      lidar_topic: /hesai/pandar
+      imu_topic: /alphasense/imu
+      camera_policy: five camera streams remain available but GLIM CPU track disables visual input
+      visual_input_topic: /benchmark/disabled_image
+      calibration_policy: same official calibration archive; use config_sensors.json lidar-IMU transform and hash it before run
+
+  fast_livo2:
+    repository:
+      url: https://github.com/hku-mars/FAST-LIVO2.git
+      revision: 0d2c0346107b75b59934975adec9a6eeeb913c64
+      revision_kind: main_commit
+      revision_status: pinned_source_pending_container
+      worktree_dirty: false
+      tracked_diff_sha256: null
+      untracked_content_sha256: null
+      clean_provenance_sha256: null
+    runner:
+      path: scripts/run_fast_livo2_benchmark.py
+      sha256: 98db2a90fa34003127347bd6c85edf84841c5aed615a0dc7978d1c4eb264a03b
+      container_entrypoint_path: scripts/fast_livo2_container_run.sh
+      container_entrypoint_sha256: 696487caf922b8cda9c1d31d1720424377cc9ddf0606625631f9bd3cf61a0c3a
+    container:
+      image_tag: fast-livo2-benchmark:noetic
+      image_digest: null
+      status: pending_build
+      recipe_path: null
+      historical_run_image_digest: sha256:2c1ff787788d599889df00fd36850ab9764f6734720e7363fb8d1e5a326bd168
+      historical_digest_is_not_current_identity: true
+    configs:
+      - path: configs/fast_livo2/mapping_hesaixt32_hilti22_benchmark_map.launch
+        hash_kind: file_sha256
+        sha256: 5d1f213d48488161da438e76d9fb359278fa5993e99247a94f52b9c09e2bf742
+      - path: configs/fast_livo2/upstream_HILTI22.yaml
+        hash_kind: external_container_file_sha256
+        sha256: null
+        status: pending_container_build
+    toolchain:
+      fingerprint: null
+      status: pending_build
+      source:
+        path: scripts/fast_livo2_container_run.sh
+        sha256: 696487caf922b8cda9c1d31d1720424377cc9ddf0606625631f9bd3cf61a0c3a
+        required_commands: [compiler, linker, ros_distro, pcl, eigen, openmp]
+    scorer_ref: common_identity.scorer
+    machine_fingerprint_ref: common_identity.machine_fingerprint
+    release: Release
+    thread_policy_ref: common_identity.thread_policy
+    fairness:
+      required_modalities: [lidar, imu, monocular_camera]
+      lidar_topic: /hesai/pandar
+      imu_topic: /alphasense/imu
+      camera_topics:
+        - /alphasense/cam0/image_raw
+        - /alphasense/cam1/image_raw
+        - /alphasense/cam2/image_raw
+        - /alphasense/cam3/image_raw
+        - /alphasense/cam4/image_raw
+      camera_policy: all five canonical camera streams and timestamps are required for the visual track
+      calibration_policy: same official calibration archive plus upstream HILTI22 camera/lidar calibration; external config hashes required before run
+
+preflight_requirements:
+  required_before_first_run:
+    - receipt_path_and_sha256_match_profile
+    - every_system_revision_and_repository_url_pinned
+    - every_system_container_tag_and_sha256_digest_resolved
+    - every_system_config_path_exists_and_sha256_matches
+    - every_system_toolchain_fingerprint_resolved
+    - common_scorer_files_and_fingerprint_match
+    - machine_fingerprint_refreshed_in_execution_environment
+    - release_is_exactly_Release
+    - all_thread_policy_keys_are_nonnull_positive_and_equal
+    - selected_fresh_slots_are_frozen_unopened_with_input_gt_calibration_hashes
+  pending_values_must_not_be_inferred: true
+  no_external_build_or_download_performed: true
+  no_ground_truth_content_or_metric_opened: true
+  no_performance_claim_authorized: true

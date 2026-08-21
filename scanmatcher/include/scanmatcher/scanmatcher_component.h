@@ -64,7 +64,6 @@ extern "C" {
 #include "scanmatcher/pose_prediction.hpp"
 #include "scanmatcher/registration_runtime.hpp"
 #include "scanmatcher/voxel_hash_map.hpp"
-#include <lidarslam_default_plugins/ndt_omp_registration.hpp>
 
 #include <pclomp/voxel_grid_covariance_omp.h>
 #include <pclomp/gicp_omp.h>
@@ -100,6 +99,15 @@ class RegistrationPlugin;
 }  // namespace plugins
 }  // namespace lidarslam
 
+// The public component header stores this adapter behind shared_ptr but does
+// not expose its concrete API.  Keep the implementation package out of the
+// installed consumer include surface; the same-TU factory/ipp include belongs
+// to scanmatcher_component.cpp.
+namespace lidarslam_default_plugins
+{
+class NdtOmpRegistration;
+}
+
 namespace graphslam
 {
 enum class RegistrationConstruction
@@ -119,14 +127,31 @@ public:
       const rclcpp::NodeOptions & options,
       RegistrationConstruction construction);
 
-    // Opt-in shell boundary for offline plugin characterization.  The shell
-    // resolves and owns the loader/session; the component only retains the
-    // configured session and never performs pluginlib discovery itself.
+    // Explicit startup shell boundary for deferred/offline construction.  The
+    // component-owned one-argument constructor resolves its immutable selector
+    // before creating publishers/subscriptions; this overload lets an offline
+    // shell inject an already-resolved session at the same startup barrier.
     GS_SM_PUBLIC
     bool setRegistrationPluginSession(
       const std::shared_ptr<lidarslam::plugins::registration::shell::RegistrationPluginSession>
       & session,
       std::string * error = nullptr);
+
+    // True only after an explicitly enabled component-owned or deferred
+    // session has passed the startup contract and publishers/subscribers have
+    // been created. Runtime replacement is intentionally unsupported.
+    GS_SM_PUBLIC
+    bool registrationPluginPreflightComplete() const
+    {
+      return registration_plugin_preflight_complete_;
+    }
+
+    GS_SM_PUBLIC
+    std::shared_ptr<lidarslam::plugins::registration::shell::RegistrationPluginSession>
+    registrationPluginSession() const
+    {
+      return registration_plugin_session_;
+    }
 
 private:
     using TrackingState = pose_acceptance::TrackingState;
@@ -180,6 +205,7 @@ private:
     rclcpp::Publisher < nav_msgs::msg::Path > ::SharedPtr path_pub_;
 
     void initializePubSub();
+    void finalizeInitialization();
     bool initializeMap(const pcl::PointCloud <pcl::PointXYZI>::Ptr & cloud_ptr, const std_msgs::msg::Header & header);
     void receiveCloud(
       const pcl::PointCloud < pcl::PointXYZI> ::ConstPtr & input_cloud_ptr,
@@ -222,6 +248,11 @@ private:
 
     bool initial_pose_received_ {false};
     bool initial_cloud_received_ {false};
+    bool registration_plugin_enable_ {false};
+    bool registration_plugin_allow_external_ {false};
+    bool registration_plugin_preflight_complete_ {false};
+    bool pubsub_initialized_ {false};
+    std::string registration_plugin_class_;
 
     // setting parameter
     std::string registration_method_;

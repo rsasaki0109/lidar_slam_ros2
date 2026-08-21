@@ -70,6 +70,9 @@ PARAM_FILES = sorted(
 COMPONENT_CPP = (
     REPO_ROOT / 'graph_based_slam' / 'src' / 'graph_based_slam_component.cpp'
 )
+MID360_PARAM_FILE = (
+    REPO_ROOT / 'lidarslam' / 'param' / 'lidarslam_mid360_rko_graph.yaml'
+)
 
 
 def _flatten_params(node):
@@ -106,3 +109,10 @@ def test_retired_params_not_declared_by_component(param):
         'scheduling semantics since v0.7 Phase 0 and the wall timer no '
         'longer exists'
     )
+
+
+def test_mid360_development_profile_pins_candidate_two_stride():
+    """Keep the measured candidate-2 stride scoped to the MID-360 profile."""
+    document = yaml.safe_load(MID360_PARAM_FILE.read_text(encoding='utf-8'))
+    parameters = document['graph_based_slam']['ros__parameters']
+    assert parameters['loop_search_query_stride'] == 5

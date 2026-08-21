@@ -1,6 +1,7 @@
 #include "scanmatcher/scanmatcher_component.h"
 #include "scanmatcher/odom_prior_utils.hpp"
 #include "scanmatcher/registration_config.hpp"
+#include "scanmatcher/registration_preflight.hpp"
 #include "lidarslam_registration_loader/registration_plugin_loader.hpp"
 #include <chrono>
 #include <cmath>
@@ -9,6 +10,7 @@
 #include <iomanip>
 #include <limits>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <rcl_interfaces/msg/parameter_descriptor.hpp>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
@@ -171,6 +173,17 @@ SmallRegistrationVariant smallRegistrationVariant(const std::string & class_id)
 
 namespace graphslam
 {
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinNdtRegistration();
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinGicpRegistration();
+#ifdef HAS_SMALL_GICP
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinSmallGicpRegistration();
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinSmallVgicpRegistration();
+#endif
+
 ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
 : ScanMatcherComponent(options, RegistrationConstruction::kBuiltIn)
 {
@@ -189,7 +202,7 @@ ScanMatcherComponent::ScanMatcherComponent(
   double ndt_resolution;
   int ndt_num_threads;
   double gicp_corr_dist_threshold;
-  const bool defer_builtin_registration =
+  const bool deferred_construction =
     construction == RegistrationConstruction::kDeferredPluginInjection;
 
   declare_parameter("global_frame_id", "map");
@@ -200,6 +213,67 @@ ScanMatcherComponent::ScanMatcherComponent(
   get_parameter("odom_frame_id", odom_frame_id_);
   declare_parameter("registration_method", "NDT");
   get_parameter("registration_method", registration_method_);
+  rcl_interfaces::msg::ParameterDescriptor registration_plugin_enable_descriptor;
+  registration_plugin_enable_descriptor.description =
+    "Explicit registration session preflight selector; immutable after startup";
+  registration_plugin_enable_descriptor.read_only = true;
+  declare_parameter(
+    "registration_plugin_enable", false, registration_plugin_enable_descriptor);
+  get_parameter("registration_plugin_enable", registration_plugin_enable_);
+
+  rcl_interfaces::msg::ParameterDescriptor registration_plugin_class_descriptor;
+  registration_plugin_class_descriptor.description =
+    "Explicit registration plugin class ID; immutable after startup";
+  registration_plugin_class_descriptor.read_only = true;
+  declare_parameter(
+    "registration_plugin_class", std::string(""), registration_plugin_class_descriptor);
+  get_parameter("registration_plugin_class", registration_plugin_class_);
+
+  rcl_interfaces::msg::ParameterDescriptor registration_plugin_external_descriptor;
+  registration_plugin_external_descriptor.description =
+    "Explicit risk acceptance for an external pluginlib DSO; immutable after startup";
+  registration_plugin_external_descriptor.read_only = true;
+  declare_parameter(
+    "registration_plugin_allow_external", false, registration_plugin_external_descriptor);
+  get_parameter("registration_plugin_allow_external", registration_plugin_allow_external_);
+
+  if (registration_plugin_enable_ != !registration_plugin_class_.empty()) {
+    throw std::runtime_error(
+            "registration_plugin_enable and registration_plugin_class must be set together; "
+            "no registration fallback is applied");
+  }
+  if (registration_plugin_allow_external_ && !registration_plugin_enable_) {
+    throw std::runtime_error(
+            "registration_plugin_allow_external requires registration_plugin_enable=true; "
+            "the selector is immutable after startup");
+  }
+  if (deferred_construction && !registration_plugin_enable_) {
+    throw std::runtime_error(
+            "kDeferredPluginInjection requires registration_plugin_enable=true and a non-empty "
+            "registration_plugin_class before publishers or sensor subscriptions are created");
+  }
+  const bool component_owned_preflight =
+    registration_plugin_enable_ && !deferred_construction;
+  const bool defer_builtin_registration =
+    deferred_construction || component_owned_preflight;
+  if (
+    component_owned_preflight && registration_method_ != "NDT" &&
+    registration_method_ != "GICP" && registration_method_ != "SMALL_GICP" &&
+    registration_method_ != "SMALL_VGICP")
+  {
+    throw std::runtime_error(
+            "registration plugin preflight supports NDT, GICP, SMALL_GICP, and SMALL_VGICP; "
+            "FAST/other methods remain legacy or unavailable");
+  }
+  if (
+    component_owned_preflight &&
+    graphslam::registration_config::isSmallGicpMethod(registration_method_) &&
+    !graphslam::registration_config::smallGicpAvailable())
+  {
+    throw std::runtime_error(
+            "registration plugin preflight requested " + registration_method_ +
+            " but small_gicp is unavailable in this build; no fallback is applied");
+  }
   declare_parameter("ndt_resolution", 5.0);
   get_parameter("ndt_resolution", ndt_resolution);
   double ndt_step_size;
@@ -623,6 +697,110 @@ ScanMatcherComponent::ScanMatcherComponent(
   lidar_undistortion_.setUseOrientationForRotationDeskew(
     imu_rotation_deskew_use_orientation_);
 
+  // A deferred component has no subscriptions or publishers until the shell
+  // resolves, validates, and injects the requested session.  This closes the
+  // startup race in which a sensor callback could observe an unconfigured
+  // registration object.  The default constructor follows the unchanged
+  // built-in path immediately.
+  if (component_owned_preflight) {
+    using lidarslam::plugins::registration::shell::HostBuiltinRegistration;
+    using lidarslam::plugins::registration::shell::RegistrationResolver;
+    using graphslam::registration_config::RegistrationPreflightParameters;
+    using graphslam::registration_config::makeRegistrationPluginLoadRequest;
+
+    if (
+      !lidarslam::plugins::registration::shell::isHostBuiltinClassId(
+        registration_plugin_class_) && !registration_plugin_allow_external_)
+    {
+      throw std::runtime_error(
+              "external registration class '" + registration_plugin_class_ +
+              "' requires registration_plugin_allow_external=true; no pluginlib DSO is "
+              "loaded without explicit risk acceptance");
+    }
+
+    RegistrationPreflightParameters preflight_values;
+    preflight_values.method = registration_method_;
+    preflight_values.class_id = registration_plugin_class_;
+    preflight_values.ndt_resolution = ndt_resolution;
+    preflight_values.ndt_transformation_epsilon = ndt_transformation_epsilon_;
+    preflight_values.ndt_max_iterations = ndt_max_iterations_;
+    preflight_values.ndt_step_size = ndt_step_size;
+    preflight_values.ndt_outlier_ratio = ndt_outlier_ratio_;
+    preflight_values.ndt_num_threads = ndt_num_threads;
+    preflight_values.gicp_maximum_correspondence_distance = gicp_corr_dist_threshold;
+    preflight_values.adaptive_correspondence_threshold = adaptive_correspondence_threshold_;
+    preflight_values.require_rotation_prior =
+      imu_ndt_prior_enable_ && imu_ndt_prior_weight_ > 0.0;
+    preflight_values.require_translation_prior =
+      imu_z_prior_enable_ && imu_z_prior_weight_ > 0.0;
+
+    lidarslam::plugins::registration::shell::LoadRequest request;
+    std::string preflight_error;
+    if (!makeRegistrationPluginLoadRequest(preflight_values, &request, &preflight_error)) {
+      throw std::runtime_error("registration plugin preflight request failed: " + preflight_error);
+    }
+
+    std::vector<HostBuiltinRegistration> host_builtins;
+    HostBuiltinRegistration host_ndt;
+    host_ndt.class_id = "lidarslam_builtin/NdtOmp";
+    host_ndt.factory = []() {
+        return makeHostBuiltinNdtRegistration();
+      };
+    host_ndt.metadata_class_id = "lidarslam_default_plugins/NdtOmp";
+    host_builtins.push_back(host_ndt);
+
+    HostBuiltinRegistration host_gicp;
+    host_gicp.class_id = "lidarslam_builtin/GicpOmp";
+    host_gicp.factory = []() {
+        return makeHostBuiltinGicpRegistration();
+      };
+    host_gicp.metadata_class_id = "lidarslam_default_plugins/GicpOmp";
+    host_builtins.push_back(host_gicp);
+#ifdef HAS_SMALL_GICP
+    HostBuiltinRegistration host_small_gicp;
+    host_small_gicp.class_id = "lidarslam_builtin/SmallGicpPcl";
+    host_small_gicp.factory = []() {
+        return makeHostBuiltinSmallGicpRegistration();
+      };
+    host_small_gicp.metadata_class_id = "lidarslam_default_plugins/SmallGicpPcl";
+    host_builtins.push_back(host_small_gicp);
+
+    HostBuiltinRegistration host_small_vgicp;
+    host_small_vgicp.class_id = "lidarslam_builtin/SmallVGicpPcl";
+    host_small_vgicp.factory = []() {
+        return makeHostBuiltinSmallVgicpRegistration();
+      };
+    host_small_vgicp.metadata_class_id = "lidarslam_default_plugins/SmallVGicpPcl";
+    host_builtins.push_back(host_small_vgicp);
+#endif
+    RegistrationResolver resolver(std::move(host_builtins));
+    const auto loaded = resolver.resolve(request);
+    if (!loaded.ok()) {
+      throw std::runtime_error(
+              "registration plugin startup preflight failed [" +
+              std::to_string(static_cast<int>(loaded.failure.code)) + "]: " +
+              loaded.failure.message);
+    }
+    std::string injection_error;
+    if (!setRegistrationPluginSession(loaded.session, &injection_error)) {
+      throw std::runtime_error(
+              "registration plugin startup injection failed: " + injection_error);
+    }
+  } else if (!defer_builtin_registration) {
+    finalizeInitialization();
+  } else {
+    RCLCPP_INFO(
+      get_logger(),
+      "registration preflight pending for explicit offline class '%s'",
+      registration_plugin_class_.c_str());
+  }
+}
+
+void ScanMatcherComponent::finalizeInitialization()
+{
+  if (pubsub_initialized_) {
+    return;
+  }
   initializePubSub();
 
   if (set_initial_pose_) {
@@ -643,7 +821,7 @@ ScanMatcherComponent::ScanMatcherComponent(
 
     path_.poses.push_back(*msg);
   }
-
+  pubsub_initialized_ = true;
   RCLCPP_INFO(get_logger(), "initialization end");
 }
 
@@ -864,6 +1042,16 @@ bool ScanMatcherComponent::setRegistrationPluginSession(
       return false;
     };
 
+  if (!registration_plugin_enable_ || registration_plugin_class_.empty()) {
+    return fail(
+      "registration plugin injection requires the immutable startup "
+      "parameters registration_plugin_enable=true and registration_plugin_class");
+  }
+  if (registration_plugin_preflight_complete_ || pubsub_initialized_) {
+    return fail(
+      "registration plugin replacement is disabled after startup preflight; runtime hot reload "
+      "is not supported");
+  }
   if (
     registration_method_ != "NDT" && registration_method_ != "GICP" &&
     registration_method_ != "SMALL_GICP" && registration_method_ != "SMALL_VGICP")
@@ -877,6 +1065,21 @@ bool ScanMatcherComponent::setRegistrationPluginSession(
   }
   if (!session || !session->plugin()) {
     return fail("the registration plugin session or plugin object is null");
+  }
+  if (session->classId() != registration_plugin_class_) {
+    return fail(
+      "resolved registration plugin class '" + session->classId() +
+      "' does not match the immutable requested class '" + registration_plugin_class_ + "'");
+  }
+  if (
+    session->backendKind() ==
+    lidarslam::plugins::registration::shell::BackendKind::kPluginlib &&
+    !registration_plugin_allow_external_)
+  {
+    return fail(
+      "external pluginlib class '" + session->classId() +
+      "' requires explicit registration_plugin_allow_external=true; "
+      "the default host/built-in safety policy is unchanged");
   }
 
   const auto & capabilities = session->capabilities();
@@ -979,6 +1182,12 @@ bool ScanMatcherComponent::setRegistrationPluginSession(
     }
     const SmallRegistrationVariant selected_variant =
       smallRegistrationVariant(plugin_id);
+    if (selected_variant == SmallRegistrationVariant::kUnknown) {
+      return fail(
+        "cannot verify the SMALL_GICP/SMALL_VGICP variant for plugin class '" + plugin_id +
+        "'; only the canonical SmallGicpPcl/SmallVGicpPcl IDs are accepted until a typed "
+        "variant capability is added");
+    }
     if (
       registration_method_ == "SMALL_GICP" &&
       selected_variant == SmallRegistrationVariant::kVgicp)
@@ -1015,6 +1224,44 @@ bool ScanMatcherComponent::setRegistrationPluginSession(
   registration_plugin_metric_ = capabilities.correspondenceMetric();
   registration_alignment_result_ =
     lidarslam::plugins::registration::AlignmentResult();
+
+  try {
+    finalizeInitialization();
+  } catch (const std::exception & exception) {
+    // Keep the destruction order safe even when ROS publisher/subscription
+    // setup fails: release the plugin before its loader-backed session.
+    registration_plugin_.reset();
+    registration_plugin_session_.reset();
+    registration_alignment_result_ =
+      lidarslam::plugins::registration::AlignmentResult();
+    return fail(
+      "registration plugin startup preflight could not initialize the frontend: " +
+      std::string(exception.what()));
+  } catch (...) {
+    registration_plugin_.reset();
+    registration_plugin_session_.reset();
+    registration_alignment_result_ =
+      lidarslam::plugins::registration::AlignmentResult();
+    return fail(
+      "registration plugin startup preflight could not initialize the frontend: unknown error");
+  }
+  registration_plugin_preflight_complete_ = true;
+
+  const auto & metadata = session->metadata();
+  const auto host_path_or_marker = [](const std::string & path) {
+      return path.empty() ? std::string("<host-resident>") : path;
+    };
+  RCLCPP_INFO(
+    get_logger(),
+    "registration preflight provenance: backend=%s class=%s implementation=%s "
+    "api=%u.%u license=%s capabilities=0x%llx library=%s manifest=%s",
+    lidarslam::plugins::registration::shell::backendKindName(session->backendKind()),
+    session->classId().c_str(), metadata.implementation_version.c_str(),
+    static_cast<unsigned int>(metadata.api_version.major),
+    static_cast<unsigned int>(metadata.api_version.minor), metadata.license.c_str(),
+    static_cast<unsigned long long>(session->capabilities().bits()),
+    host_path_or_marker(session->libraryPath()).c_str(),
+    host_path_or_marker(session->pluginManifestPath()).c_str());
 
   RCLCPP_WARN(
     get_logger(),
