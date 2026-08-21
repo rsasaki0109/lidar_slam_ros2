@@ -377,6 +377,36 @@ Campaign1 and campaign2 remain immutable incomplete lineage records.  No
 M6b scoring, accuracy, performance, map-quality, or README/SOTA claim is
 authorized by this preflight.
 
+### M6a6 campaign3 GT-blind closure (2026-08-22)
+
+Campaign3 was executed once from the fixed M6a5 preflight and then closed
+without opening GT content or invoking a scorer.  The completion manifest is
+27/27 final attempts with no `.part` directories.  Ours completed 9/9 and
+GLIM 9/9.  FAST-LIVO2 completed 6/9; attempts 022--024 (FAST-LIVO2,
+`fresh_2`) are immutable formal failures with exit status 22 and
+`complete=false`.  The completion manifest SHA is
+`31df60ff2775d2f2a699e7559c16cc5d732a91e175f12af1db06bc47e4b8cd5b`.
+The read-only GT-blind integrity summary is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a6_20260822/completion/integrity-summary.json`
+(SHA-256
+`af27ae2c7d019db790cace3b38b250c2a5dcd3340e58fa5a91158293b2bf2024`).
+The closure manifest is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a6_20260822/closure/m6a6-campaign3-closure.json`
+(SHA-256
+`44d50669e33dbb105300b2b3f926c99f891341373e6a1dfa71ae9c85acf954b8`).
+
+This remains `INCOMPLETE`, not a benchmark result.  The recorded
+`container_cgroup_peak_bytes` is cgroup total footprint (including page
+cache), not process RSS; several runs reached the configured 4-GiB cap, and
+the cold/warm spread (for example, attempt 001 versus 002) means reclaim and
+cache effects cannot be separated.  `docker_client_peak_rss_kb` is retained
+only as a diagnostic.  `memory.events` was not recorded by the M6a5 evidence
+schema, so no pressure or reclaim conclusion is inferred.  Consequently RTF,
+RSS, accuracy, map-quality, and SOTA gates are invalid/insufficient here.
+Campaign lineage is campaign1 immutable failure -> campaign2 immutable
+partial -> campaign3 incomplete -> planned campaign4.  M6b is not
+authorized.
+
 ### M5c fresh-holdout download checkpoint (2026-08-21)
 
 Fresh input acquisition is a separate, opaque-hash-only checkpoint. The

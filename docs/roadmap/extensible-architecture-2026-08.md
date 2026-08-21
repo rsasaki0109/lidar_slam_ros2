@@ -384,6 +384,31 @@ This is an execution-readiness checkpoint only; M6b scoring and any
 accuracy, performance, map-quality, or README/SOTA conclusion remain
 unauthorized.
 
+### M6a6 campaign3 GT-blind closure (2026-08-22)
+
+The fixed campaign3 schedule reached 27/27 immutable final attempts with no
+remaining `.part` directory and no GT/scorer access.  Ours and GLIM are 9/9
+complete.  FAST-LIVO2 is 6/9 complete; its `fresh_2` attempts 022--024 are
+preserved exit-22 failures (`complete=false`).  Completion manifest SHA:
+`31df60ff2775d2f2a699e7559c16cc5d732a91e175f12af1db06bc47e4b8cd5b`.
+Integrity summary SHA:
+`af27ae2c7d019db790cace3b38b250c2a5dcd3340e58fa5a91158293b2bf2024`.
+The external closure manifest is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a6_20260822/closure/m6a6-campaign3-closure.json`
+with SHA
+`44d50669e33dbb105300b2b3f926c99f891341373e6a1dfa71ae9c85acf954b8`.
+
+The campaign is `INCOMPLETE`, not a performance or accuracy result.  Its
+`container_cgroup_peak_bytes` is a cgroup total footprint including page
+cache, not process RSS; multiple attempts reached the 4-GiB memory cap and
+the observed cold/warm spread prevents separating reclaim/cache effects.
+The Docker-client RSS is diagnostic only.  `memory.events` was not captured
+by the M6a5 schema, so pressure/reclaim behavior is explicitly unknown.  RTF,
+RSS, accuracy, map-quality, and SOTA gates therefore remain invalid or
+insufficient.  The disclosed lineage is campaign1 immutable failure,
+campaign2 immutable partial, campaign3 incomplete, and campaign4 planned;
+M6b remains blocked.
+
 The reproducibility slice also owns the image recipes and their build entrypoint:
 `docker/ours_competitive_benchmark.Dockerfile`,
 `docker/glim_cpu_benchmark.Dockerfile`,
