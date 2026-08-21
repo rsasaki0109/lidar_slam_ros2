@@ -79,10 +79,21 @@ def test_receipt_binds_recipe_and_build_entrypoint_hashes():
         container = systems[system]['container']
         recipe = container['recipe']
         assert recipe['path'] == recipe_name
-        assert recipe['sha256'] == _sha256(ROOT / recipe_name)
+        if system == 'ours' and 'RKO_LIO_ARCHIVE_SHA256' in (
+                ROOT / recipe_name).read_text():
+            # M6a0 changes the recipe before the M6a1 receipt recapture.  The
+            # old receipt identity must remain visible as stale, not silently
+            # rewritten by a pre-run implementation slice.
+            assert recipe['sha256'] != _sha256(ROOT / recipe_name)
+        else:
+            assert recipe['sha256'] == _sha256(ROOT / recipe_name)
         assert re.fullmatch(r'sha256:[0-9a-f]{64}', recipe['base_digest'])
         entrypoint = ROOT / container['build_entrypoint_path']
-        assert container['build_entrypoint_sha256'] == _sha256(entrypoint)
+        if 'RKO_LIO_ARCHIVE_SHA256' in (
+                ROOT / container['build_entrypoint_path']).read_text():
+            assert container['build_entrypoint_sha256'] != _sha256(entrypoint)
+        else:
+            assert container['build_entrypoint_sha256'] == _sha256(entrypoint)
         if system == 'glim':
             assert container['status'] == 'ready'
             assert re.fullmatch(r'sha256:[0-9a-f]{64}', container['image_digest'])
@@ -129,7 +140,8 @@ def test_build_entrypoint_is_pull_free_and_revision_pinned():
     text = (ROOT / 'scripts/build_competitive_benchmark_images.sh').read_text()
     assert 'docker build --pull=false' in text
     assert 'OURS_REPOSITORY=https://github.com/rsasaki0109/lidar_slam_ros2.git' in text
-    assert 'git archive' not in text
+    assert 'archive --format=tar' in text
+    assert 'RKO_LIO_ARCHIVE_SHA256=' in text
     assert 'cp "$ROOT/docker/ours_competitive_benchmark.Dockerfile"' in text
     assert '--build-arg "OURS_REPOSITORY=$OURS_REPOSITORY"' in text
     assert '--build-arg "OURS_REVISION=$OURS_REVISION"' in text
@@ -164,7 +176,10 @@ def test_ours_recipe_clones_revision_and_verifies_submodules_in_image():
     assert 'rev-parse HEAD' in text
     assert 'submodule status --recursive' in text
     assert "awk '$1 ~ /^[-+U]/" in text
-    assert 'COPY ' not in text
+    assert 'COPY rko_lio.tar /tmp/rko_lio.tar' in text
+    assert 'RKO_LIO_ARCHIVE_SHA256=' in text
+    assert 'sha256sum /tmp/rko_lio.tar' in text
+    assert 'benchmark.rko_lio.initialized="true"' in text
 
 
 def test_fast_runner_and_entrypoint_use_owned_workspace():

@@ -25,6 +25,7 @@ Options:
   --completion-end-margin-secs <sec>
                                  Required trajectory proximity to bag end (default: 120)
   --skip-map-save                Do not call /map_save or verify the map bundle
+  --gt-blind                     Run trajectory/map generation without any GT/APE access
   --skip-reference-gen           Reuse an existing reference TUM/meta without regenerating it
   --publish-static-tf BOOL       static_transform_publisher (default: true)
   --reference-source LABEL       Label stored in metrics.json (default: leica_prism_gt)
@@ -71,7 +72,9 @@ parse_bool() {
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
 WS_ROOT="${REPO_ROOT}"
-if [[ ! -f "${WS_ROOT}/install/setup.bash" && -f "${REPO_ROOT}/../install/setup.bash" ]]; then
+if [[ -n "${LIDARSLAM_WS_ROOT:-}" ]]; then
+  WS_ROOT="$(realpath -m "${LIDARSLAM_WS_ROOT}")"
+elif [[ ! -f "${WS_ROOT}/install/setup.bash" && -f "${REPO_ROOT}/../install/setup.bash" ]]; then
   WS_ROOT="$(cd "${REPO_ROOT}/.." && pwd)"
 fi
 
@@ -106,6 +109,7 @@ COMPLETION_END_MARGIN_SECS=120
 OFFLINE_TIMEOUT_SECS=1800
 SKIP_MAP_SAVE=false
 SKIP_REFERENCE_GEN=false
+GT_BLIND=false
 PUBLISH_STATIC_TF=true
 REFERENCE_SOURCE=""
 OPTION_VALUE=""
@@ -196,6 +200,14 @@ while [[ $# -gt 0 ]]; do
       SKIP_MAP_SAVE=true
       shift
       ;;
+    --gt-blind)
+      GT_BLIND=true
+      SKIP_REFERENCE_GEN=true
+      REFERENCE_BAG=""
+      REFERENCE_TUM=""
+      REFERENCE_META=""
+      shift
+      ;;
     --skip-reference-gen)
       SKIP_REFERENCE_GEN=true
       shift
@@ -251,7 +263,9 @@ fi
 [[ -f "$BAG_PATH/metadata.yaml" ]] || die "metadata.yaml not found under $BAG_PATH"
 [[ -f "$LIDARSLAM_PARAM" ]] || die "lidarslam param file not found: $LIDARSLAM_PARAM"
 [[ -f "$RKO_PARAM" ]] || die "RKO-LIO param file not found: $RKO_PARAM"
-if [[ "$SKIP_REFERENCE_GEN" == "false" ]]; then
+if [[ "$GT_BLIND" == "true" ]]; then
+  : # No reference path is accepted, opened, or passed in GT-blind mode.
+elif [[ "$SKIP_REFERENCE_GEN" == "false" ]]; then
   if [[ ! -d "$REFERENCE_BAG" ]]; then
     echo "error: reference rosbag2 directory not found: $REFERENCE_BAG" >&2
     echo "hint: --reference-bag must point to a rosbag2 directory containing metadata.yaml." >&2
@@ -568,7 +582,9 @@ wrapped = {"/**": {"ros__parameters": data}}
 dst_path.write_text(yaml.safe_dump(wrapped, sort_keys=False))
 PY
 
-if [[ "$SKIP_REFERENCE_GEN" == "false" ]]; then
+if [[ "$GT_BLIND" == "true" ]]; then
+  : # Keep the run entirely independent of ground truth.
+elif [[ "$SKIP_REFERENCE_GEN" == "false" ]]; then
   python3 "${SCRIPT_DIR}/generate_ntu_viral_tnp01_reference.py" \
     --source-bag "$REFERENCE_BAG" \
     --out "$REFERENCE_TUM" \
@@ -581,8 +597,10 @@ fi
 
 echo "Running RKO-LIO benchmark"
 echo "  bag:            $BAG_PATH"
-echo "  reference_tum:  $REFERENCE_TUM"
-echo "  reference_meta: $REFERENCE_META"
+if [[ "$GT_BLIND" == "false" ]]; then
+  echo "  reference_tum:  $REFERENCE_TUM"
+  echo "  reference_meta: $REFERENCE_META"
+fi
 echo "  lidar_topic:    $LIDAR_TOPIC"
 echo "  imu_topic:      $IMU_TOPIC"
 echo "  base_frame:     $BASE_FRAME"
@@ -703,6 +721,54 @@ if [[ "$SKIP_MAP_SAVE" == "true" ]]; then
   fi
 elif [[ ! -s "$CORRECTED_TUM" ]]; then
   die "corrected trajectory missing after map_save"
+fi
+
+if [[ "$GT_BLIND" == "true" ]]; then
+  BENCH_T1="$(python3 - <<'PY'
+import time
+print(time.monotonic())
+PY
+)"
+  BENCH_WALL_SEC="$(python3 - <<PY
+t0 = float("${BENCH_T0}")
+t1 = float("${BENCH_T1}")
+print(t1 - t0)
+PY
+)"
+  python3 - "$OUTPUT_DIR/gt_blind_run.json" "$BAG_PATH" \
+    "$RAW_TUM" "$CORRECTED_TUM" "$BENCH_WALL_SEC" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+def digest(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(4 * 1024 * 1024), b''):
+            h.update(block)
+    return h.hexdigest()
+
+output, bag, raw, corrected, wall = sys.argv[1:]
+document = {
+    'schema_version': 1,
+    'ground_truth_accessed': False,
+    'scorer_invoked': False,
+    'bag_path': bag,
+    'trajectory': {
+        'raw_path': raw,
+        'raw_sha256': digest(raw),
+        'corrected_path': corrected,
+        'corrected_sha256': digest(corrected),
+    },
+    'wall_seconds': float(wall),
+}
+Path(output).write_text(json.dumps(document, indent=2) + '\n', encoding='utf-8')
+PY
+  echo "GT-blind benchmark completed"
+  echo "  output_dir: $OUTPUT_DIR"
+  echo "  gt_blind_manifest: $OUTPUT_DIR/gt_blind_run.json"
+  exit 0
 fi
 
 readarray -t PRISM_OFFSET < <(python3 - "$REFERENCE_META" <<'PY'

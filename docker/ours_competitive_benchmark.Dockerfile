@@ -5,6 +5,7 @@ ARG OURS_REVISION=866f733677e92ecb08d67126e463da99dd140d46
 ARG OURS_REPOSITORY=https://github.com/rsasaki0109/lidar_slam_ros2.git
 ARG NDT_OMP_SUBMODULE_REVISION=497411279593eb261a3e3d04cdcbb4717af33ca3
 ARG RKO_LIO_GITLINK_REVISION=622b74778a41f753d47aa5918043755ebcbd4c75
+ARG RKO_LIO_ARCHIVE_SHA256=95783dca0cdac394052fbdb03cf1636cf51ee65a2316fbaef3a67bfe4c88d09f
 ARG BENCHMARK_CPU_THREADS=8
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -23,12 +24,12 @@ RUN apt-get update \
 
 WORKDIR /opt/ours_ws
 
-# The build context intentionally contains only this recipe.  Fetch the
-# declared source revision inside the image so the build-required ndt_omp
-# gitlink is present; a host checkout, archive, or dirty working tree must
-# never become benchmark input.  The rko_lio gitlink is intentionally not
-# initialized: its pinned object is unavailable from the public mirror and it
-# is not part of this BUILD_TESTING=OFF backend package target.
+# The build context contains only this recipe and a separately hashed archive
+# of the exact rko_lio gitlink.  Fetch the declared superproject revision
+# inside the image so a dirty host checkout cannot become benchmark input.
+# The public mirror does not expose the pinned rko_lio object, so the archive
+# is verified before extraction rather than silently substituting a revision.
+COPY rko_lio.tar /tmp/rko_lio.tar
 RUN git clone --no-checkout "$OURS_REPOSITORY" /opt/ours_ws/src/lidar_slam_ros2 \
  && git -C /opt/ours_ws/src/lidar_slam_ros2 checkout --detach "$OURS_REVISION" \
  && git -C /opt/ours_ws/src/lidar_slam_ros2 submodule sync --recursive \
@@ -41,9 +42,13 @@ RUN git clone --no-checkout "$OURS_REPOSITORY" /opt/ours_ws/src/lidar_slam_ros2 
       | awk '$1 ~ /^[-+U]/ { print; bad=1 } END { exit bad }')" \
  && test "$(git -C /opt/ours_ws/src/lidar_slam_ros2 submodule status --recursive -- Thirdparty/rko_lio \
       | awk '{ print substr($1, 1, 1) }')" = "-" \
- && test ! -f /opt/ours_ws/src/lidar_slam_ros2/Thirdparty/rko_lio/package.xml \
+ && test "$(sha256sum /tmp/rko_lio.tar | awk '{ print $1 }')" = "$RKO_LIO_ARCHIVE_SHA256" \
+ && mkdir -p /opt/ours_ws/src/lidar_slam_ros2/Thirdparty/rko_lio \
+ && tar -xf /tmp/rko_lio.tar -C /opt/ours_ws/src/lidar_slam_ros2/Thirdparty \
+ && test -f /opt/ours_ws/src/lidar_slam_ros2/Thirdparty/rko_lio/package.xml \
  && colcon list --base-paths /opt/ours_ws/src/lidar_slam_ros2 \
-      | awk '$1 == "rko_lio" { found=1 } END { exit found }'
+      | awk '$1 == "rko_lio" { found=1 } END { exit !found }' \
+ && rm -f /tmp/rko_lio.tar
 
 RUN apt-get update \
  && if [ ! -e /etc/ros/rosdep/sources.list.d/20-default.list ]; then rosdep init; fi \
@@ -63,7 +68,8 @@ LABEL org.opencontainers.image.source="https://github.com/rsasaki0109/lidar_slam
       benchmark.ours.revision="866f733677e92ecb08d67126e463da99dd140d46" \
       benchmark.ndt_omp.submodule_revision="497411279593eb261a3e3d04cdcbb4717af33ca3" \
       benchmark.rko_lio.gitlink_revision="622b74778a41f753d47aa5918043755ebcbd4c75" \
-      benchmark.rko_lio.initialized="false" \
+      benchmark.rko_lio.initialized="true" \
+      benchmark.rko_lio.archive_sha256="95783dca0cdac394052fbdb03cf1636cf51ee65a2316fbaef3a67bfe4c88d09f" \
       benchmark.base_image="docker.io/library/ros:jazzy-ros-base" \
       benchmark.base_digest="sha256:31daab66eef9139933379fb67159449944f4e2dcf2e22c2d12cc715f29873e0f" \
       benchmark.cpu_policy="cpu_only;threads=8"

@@ -15,6 +15,7 @@ FAST_REVISION=0d2c0346107b75b59934975adec9a6eeeb913c64
 RPG_VIKIT_REVISION=6c886c8e5d83997806e00294826d528cea3581dd
 SOPHUS_REVISION=a621ff2e56c56c839a6c40418d42c3c254424b5c
 OURS_CONTEXT=
+RKO_LIO_ARCHIVE_SHA256=95783dca0cdac394052fbdb03cf1636cf51ee65a2316fbaef3a67bfe4c88d09f
 
 cleanup() {
   if [[ -n "$OURS_CONTEXT" && -d "$OURS_CONTEXT" ]]; then
@@ -54,6 +55,12 @@ if [[ "$SYSTEM" == ours || "$SYSTEM" == all ]]; then
   OURS_CONTEXT=$(mktemp -d "${TMPDIR:-/tmp}/lidarslam-ours-context.XXXXXX")
   cp "$ROOT/docker/ours_competitive_benchmark.Dockerfile" \
     "$OURS_CONTEXT/Dockerfile"
+  test "$(git -C "$ROOT/Thirdparty/rko_lio" rev-parse HEAD)" = \
+    "622b74778a41f753d47aa5918043755ebcbd4c75"
+  git -C "$ROOT/Thirdparty/rko_lio" archive --format=tar \
+    --prefix=rko_lio/ HEAD > "$OURS_CONTEXT/rko_lio.tar"
+  test "$(sha256sum "$OURS_CONTEXT/rko_lio.tar" | awk '{ print $1 }')" = \
+    "$RKO_LIO_ARCHIVE_SHA256"
 fi
 
 build() {
@@ -74,7 +81,9 @@ build() {
     ours)
       docker build --pull=false --file "$OURS_CONTEXT/Dockerfile" --tag "$tag" \
         --build-arg "OURS_REPOSITORY=$OURS_REPOSITORY" \
-        --build-arg "OURS_REVISION=$OURS_REVISION" "$OURS_CONTEXT" ;;
+        --build-arg "OURS_REVISION=$OURS_REVISION" \
+        --build-arg "RKO_LIO_ARCHIVE_SHA256=$RKO_LIO_ARCHIVE_SHA256" \
+        "$OURS_CONTEXT" ;;
     glim)
       docker build --pull=false --file "$ROOT/$recipe" --tag "$tag" \
         --build-arg "GLIM_REVISION=$GLIM_REVISION" \

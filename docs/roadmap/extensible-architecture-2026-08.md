@@ -17,6 +17,7 @@
 | FAST_GICP / FAST_VGICP | **Pending** | Dependency is absent in the supported host; no class or fallback is advertised. |
 | Backend loop-registration/plugin seams | **Implemented / experimental** | Live and offline `graph_based_slam` NDT now resolve the same host-resident `lidarslam_builtin/NdtOmp` `backend_loop` request/session before observable processing; `BackendCore` consumes only the typed interface. R2, the path-independent R4 provenance fixture, the M4a receipt/parser fixture, and the pinned MID-360 three-run artifact comparison pass. That historical receipt **fails only the strict max-RTF gate** (`1.006913460 > 1.0`); the M4b bounded-cache implementation/tests and formal stride-5 MID-360 development-profile gate pass (`max RTF=0.264233831`, wall CV `2.484173052%`, peak RSS `565.222656250 MiB`). M4c HILTI exp04 and exp07 three-run backend regression gates also pass with old optimized artifacts exact; the paired exp04 map check passes at 2%, while the unchanged indoor absolute profile fails on both old/current reports. This closes cache/general regression for these receipts only; official dense-GT/SOTA comparison and broader promotion remain M5 pending. GICP stays an explicit legacy bridge. |
 | Competitive SOTA evidence validator | **Implemented / fail-closed; identity frozen, evidence pending** | Additive schema-v2 mode in `evaluate_competitive_suite_gate.py` separates historical exp02/03/21 regression slots from the primary-fresh partition. Every system must provide every dataset in both partitions with exactly three run records; completion, RTF/RSS, map, and per-sequence regression checks cover both, while aggregate APE and hierarchical CI use fresh only. It requires profile-assigned fresh slots (selection/input/reference/calibration hashes), all rivals, pinned per-system provenance, a common scorer fingerprint, an equal canonical seven-field thread policy, and the remaining safety evidence. Exp14/16/18 are now `frozen_unopened` after a read-only deep verification of the managed root; the execution-identity preflight is `PASS` before first run, while benchmark evidence remains `INCOMPLETE` until all required 3-system x 3-slot x 3-run records exist. Exposed exp02/03/21 assets cannot be relabelled fresh. Synthetic boundary/negative tests pass and no README claim is authorized. |
+| M6a GT-blind execution harness | **Implemented / preflight pending rebuild** | `scripts/run_competitive_gt_blind_benchmark.py` emits an explicit 27-attempt plan and supports read-only dry-run/preflight plus a separately gated execute mode. It uses direct canonical ROS2 mounts for ours/GLIM and only the frozen raw ROS1 bag for FAST-LIVO2, rejects root overlap/stale markers/identity drift, records atomic attempt manifests, and checks GT/scorer-free argv, env, and mounts. The existing execution receipt still points at the pre-M6a ours image/recipe, so image rebuild and receipt recapture are deliberately M6a1 work; no replay has started. |
 | Live-node plugin preflight | **Implemented / experimental** | Read-only `registration_plugin_enable`, `registration_plugin_class`, and `registration_plugin_allow_external` are validated before pub/sub creation; default constructor behavior is unchanged and runtime hot reload is rejected. External DSO promotion remains **No-Go** until independent ODR, lifecycle, rollback, and Humble/Jazzy replay gates pass. |
 | README superiority claims | **No-Go for new claims** | Existing sequence-scoped comparisons remain; no universal or plugin-performance claim is authorized. |
 
@@ -229,6 +230,35 @@ readiness. The finite-state verifier compares measured revision, clean
 provenance, image digest, toolchain fields/fingerprint, machine identity, and
 canonical thread policy. Thus a complete ready/frozen synthetic contract can
 be `PASS`, but no pending production receipt can be promoted implicitly.
+
+### M6a0 GT-blind execution harness (2026-08-22)
+
+The first execution slice is intentionally a runner and safety checkpoint, not
+a benchmark result. `scripts/run_competitive_gt_blind_benchmark.py` fixes the
+27-attempt order as `ours -> glim_cpu -> fast_livo2`, then
+`fresh_1(exp14) -> fresh_2(exp16) -> fresh_3(exp18)`, with repetitions 1--3
+inside each slot. The default is read-only planning; `--preflight` additionally
+inspects the receipt's immutable image digests and hashes the frozen raw and
+canonical inputs, while `--execute` is a separate explicit action.
+
+Each attempt is started in an unowned `.part` directory and atomically renamed
+to its final directory for both success and failure. The manifest records the
+schedule index, canonical profile/receipt/selection identities, raw and
+canonical/semantic input hashes, config/revision/container/toolchain identity,
+CPU/thread environment, exact command and mounts, host timing/RSS, artifact
+hashes, and a GT-blind proof. GT paths are used only for metadata reachability
+guards; their contents are never opened or passed to a container. No scorer,
+APE, or map-quality command is part of this harness.
+
+The managed input root is
+`/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821` and the
+intended results root is
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_20260822`.
+The M6a0 plan has schedule SHA
+`bb3484c32615a1c6af8b2f1f2e823bd7f06e8131d546a6f91a104707eb9766ce` and was
+generated without launching a container. The pre-M6a execution identity is
+intentionally stale for the new ours RKO-LIO archive recipe; M6a1 must rebuild
+and recapture the image/recipe/toolchain hashes before any performance run.
 
 The reproducibility slice also owns the image recipes and their build entrypoint:
 `docker/ours_competitive_benchmark.Dockerfile`,

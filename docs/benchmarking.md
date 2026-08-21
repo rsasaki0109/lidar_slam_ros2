@@ -220,6 +220,30 @@ pending remains `INCOMPLETE` until an operator explicitly reviews and updates
 it. The current M5d execution receipt is ready, while the evidence gate still
 awaits benchmark run records.
 
+### M6a0 GT-blind execution plan (2026-08-22)
+
+Before any fresh-holdout replay, generate the read-only 27-attempt plan:
+
+```bash
+python3 scripts/run_competitive_gt_blind_benchmark.py \
+  --input-root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --output-root /media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_20260822 \
+  --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
+  --receipt configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --dry-run --plan-output /tmp/m6a_gt_blind_plan.json
+```
+
+The driver does not launch containers in `--dry-run`. `--preflight` adds
+immutable image inspection and frozen raw/canonical input hashing; it must pass
+after M6a1 image/receipt recapture. `--execute` is intentionally separate and
+must not be used until that preflight checkpoint is committed. Ours and GLIM
+mount only the canonical ROS 2 directory; FAST-LIVO2 mounts only the selected
+raw ROS 1 bag and records the frozen raw/canonical semantic-equivalence hash.
+No GT path, calibration tree, scorer, APE, or map-quality input is passed to a
+container by this harness. The current M6a0 receipt still has the pre-rebuild
+ours image identity, so no performance result is implied.
+
 ### M5c fresh-holdout download checkpoint (2026-08-21)
 
 Fresh input acquisition is a separate, opaque-hash-only checkpoint. The
